@@ -1,0 +1,26 @@
+{
+	"extends": ["../.oxlintrc.json"],
+	"$schema": "../node_modules/oxlint/configuration_schema.json",
+	"overrides": [
+		{
+			"files": ["src/api/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "bun:test",
+								"message": "Import the runner surface from ~/support/effect-test."
+							},
+							{
+								"name": "@voila.dev/effect-bun-test",
+								"message": "Import the runner surface from ~/support/effect-test."
+							}
+						]
+					}
+				]
+			}
+		}
+	]
+}

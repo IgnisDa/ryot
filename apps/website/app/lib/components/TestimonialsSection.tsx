@@ -1,9 +1,7 @@
 import { Users } from "lucide-react";
+
 import { SectionHeader } from "~/lib/components/SectionHeader";
-import {
-	type Testimonial,
-	TestimonialCard,
-} from "~/lib/components/TestimonialCard";
+import { type Testimonial, TestimonialCard } from "~/lib/components/TestimonialCard";
 import { SECTION_CONTAINER, SECTION_Y_PADDING } from "~/lib/styles";
 
 const TESTIMONIALS: Testimonial[] = [

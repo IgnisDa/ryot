@@ -1,0 +1,166 @@
+import { Effect, Schema } from "effect";
+import type { HttpClient } from "effect/http";
+import {
+	Events,
+	type MutableRedirectUri,
+	type MutableToken,
+	OAuth2Server,
+	type TokenRequestIncomingMessage,
+} from "oauth2-mock-server";
+
+import { requirePresent } from "~/support/assertions";
+import { acquireInChildScope } from "~/support/resource-scope";
+import { webRequest } from "~/support/web-request";
+
+import {
+	continueAfterInitialization,
+	continueOAuthAuthorization,
+	exchangeOAuthCallback,
+	type PendingOAuth,
+	prepareOAuth,
+	responseCookie,
+} from "./auth";
+
+export type MockOidcServer = {
+	issuerUrl: string;
+	server: OAuth2Server;
+	setNextClaims: (claims: Record<string, unknown>) => void;
+};
+
+class OidcFixtureError extends Schema.TaggedError<
+	OidcFixtureError,
+	{ readonly brand: unique symbol }
+>()("OidcFixtureError", { cause: Schema.Unknown }) {}
+
+const attempt = <A>(run: () => Promise<A>) =>
+	Effect.tryPromise({ try: run, catch: (cause) => new OidcFixtureError({ cause }) });
+const mapAuthError = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	effect.pipe(Effect.mapError((cause) => new OidcFixtureError({ cause })));
+
+export const startMockOidcServer = Effect.gen(function* () {
+	const server = yield* Effect.acquireRelease(
+		Effect.sync(() => new OAuth2Server()),
+		(acquired) =>
+			acquired.listening ? attempt(() => acquired.stop()).pipe(Effect.orDie) : Effect.void,
+	);
+	yield* attempt(() => server.issuer.keys.generate("RS256"));
+	yield* attempt(() => server.start(0, "127.0.0.1")).pipe(Effect.uninterruptible);
+
+	const claimsByCode = new Map<string, Record<string, unknown>>();
+	let nextClaims: undefined | Record<string, unknown>;
+
+	server.service.on(Events.BeforeAuthorizeRedirect, (redirect: MutableRedirectUri) => {
+		const code = redirect.url.searchParams.get("code");
+		if (code && nextClaims) {
+			claimsByCode.set(code, nextClaims);
+			nextClaims = undefined;
+		}
+	});
+
+	server.service.on(
+		Events.BeforeTokenSigning,
+		(token: MutableToken, req: TokenRequestIncomingMessage) => {
+			const code = req.body.code;
+			const claims = code ? claimsByCode.get(code) : undefined;
+			if (claims) {
+				Object.assign(token.payload, claims);
+			}
+		},
+	);
+
+	return {
+		server,
+		setNextClaims: (claims: Record<string, unknown>) => {
+			nextClaims = claims;
+		},
+		issuerUrl: requirePresent(server.issuer.url, "Mock OIDC server failed to expose an issuer URL"),
+	};
+}).pipe(acquireInChildScope);
+
+export const performOidcSignIn = (
+	mockOidcServer: MockOidcServer,
+	username: string,
+	apiUrl: string,
+	claims?: Record<string, unknown>,
+): Effect.Effect<
+	{ response: Response; pending: PendingOAuth },
+	OidcFixtureError,
+	HttpClient.HttpClient
+> =>
+	Effect.gen(function* () {
+		const pending = yield* mapAuthError(prepareOAuth(apiUrl));
+		const step1Response = yield* mapAuthError(
+			webRequest(`${apiUrl}/auth/sign-in/social`, {
+				method: "POST",
+				redirect: "manual",
+				headers: { Origin: pending.frontendOrigin, "Content-Type": "application/json" },
+				body: yield* mapAuthError(
+					Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+						provider: "oidc",
+						callbackURL: `${pending.frontendOrigin}/oauth/login`,
+					}),
+				),
+			}),
+		);
+		const step1Data = yield* attempt((): Promise<unknown> => step1Response.json()).pipe(
+			Effect.flatMap((body) =>
+				mapAuthError(
+					Schema.decodeUnknownEffect(Schema.Struct({ url: Schema.optional(Schema.String) }))(body),
+				),
+			),
+		);
+		const authorizeUrl = requirePresent(
+			step1Data.url,
+			`oidcSignIn step 1 failed: url=${step1Data.url}, cookie=${step1Response.headers.get("set-cookie")}`,
+		);
+		const stateCookieHeader = requirePresent(
+			step1Response.headers.get("set-cookie"),
+			`oidcSignIn step 1 failed: url=${authorizeUrl}, cookie=${step1Response.headers.get("set-cookie")}`,
+		);
+		const [stateCookie] = stateCookieHeader.split(";");
+
+		mockOidcServer.setNextClaims({
+			sub: username,
+			name: username,
+			email: `${username}@example.com`,
+			...claims,
+		});
+		const step2Response = yield* mapAuthError(webRequest(authorizeUrl, { redirect: "manual" }));
+		const callbackUrl = requirePresent(
+			step2Response.headers.get("location"),
+			"oidcSignIn step 2 failed: no location header",
+		);
+
+		const cookieValue = stateCookie ?? "";
+		const response = yield* mapAuthError(
+			webRequest(callbackUrl, {
+				redirect: "manual",
+				headers: { accept: "text/html", Cookie: cookieValue },
+			}),
+		);
+		return { pending, response };
+	});
+
+export const oidcSignIn = (
+	mockOidcServer: MockOidcServer,
+	username: string,
+	apiUrl: string,
+	claims?: Record<string, unknown>,
+): Effect.Effect<string, OidcFixtureError, HttpClient.HttpClient> =>
+	Effect.gen(function* () {
+		const { pending, response } = yield* performOidcSignIn(
+			mockOidcServer,
+			username,
+			apiUrl,
+			claims,
+		);
+		const sessionCookie = requirePresent(
+			responseCookie(response),
+			"OIDC callback did not establish a hosted session",
+		);
+		const authorization = yield* mapAuthError(continueOAuthAuthorization(pending, sessionCookie));
+		const continued = yield* mapAuthError(
+			continueAfterInitialization(authorization, pending, sessionCookie),
+		);
+		return yield* mapAuthError(exchangeOAuthCallback(continued, pending));
+	});

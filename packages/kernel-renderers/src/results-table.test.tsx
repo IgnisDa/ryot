@@ -1,0 +1,323 @@
+import { afterEach, describe, expect } from "bun:test";
+
+import type { PluginUserPreferences } from "@ryot-app/plugin-client-contract";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import type { mountPluginPage } from "@ryot-app/plugin-client-sdk/testing";
+import {
+	disposePluginBridges,
+	routeLocation,
+	savedViewPageContext,
+	waitForMessagePortMacrotask,
+} from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
+import { Effect, Option, Schema } from "effect";
+
+import { mountBrowsingPage, resultsDataSources, resultsSettings } from "./fixtures/saved-view";
+import ResultsTablePage from "./results-table";
+
+const filteredSettings = { ...resultsSettings, controls: { filter: true } };
+
+const ratingSettings = {
+	...resultsSettings,
+	columns: [
+		{ label: "Note", field: "note", displayKind: "text" },
+		{ field: "rating", label: "Your rating", displayKind: "rating" },
+	],
+};
+
+const mountRatings = (userPreferences?: PluginUserPreferences) =>
+	mountBrowsingPage(ResultsTablePage, {
+		userPreferences,
+		location: routeLocation("/v/reading-log", ""),
+		description: {
+			sort: [],
+			parameters: { fields: {} },
+			filter: [{ key: "note", type: "text", kind: "value", field: "note", label: "Note" }],
+		},
+		page: savedViewPageContext({
+			settings: ratingSettings,
+			savedViewId: "view-table",
+			rendererName: "results-table",
+			dataSources: resultsDataSources,
+			view: { icon: "table", name: "Reading Log" },
+		}),
+	});
+
+const answerRatings = (page: ReturnType<typeof mountPluginPage>, requestId: string) =>
+	page.replyQuery(requestId, {
+		outcome: "success",
+		response: {
+			data: {
+				readingLog: {
+					type: "rows",
+					pageInfo: { limit: 10, hasMore: false, nextCursor: null },
+					items: [
+						{ rating: 80, note: "Rated", entityId: "item-1", occurredAt: "2026-08-12" },
+						{ rating: null, note: "Unrated", entityId: "item-2", occurredAt: "2026-08-13" },
+					],
+				},
+			},
+		},
+	});
+
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
+
+const noteRule = { value: "Fin", field: "note", operator: "contains" };
+
+const mountFiltered = (search = "") =>
+	mountBrowsingPage(ResultsTablePage, {
+		location: routeLocation("/v/reading-log", search),
+		description: {
+			sort: [],
+			parameters: { fields: {} },
+			filter: [{ key: "note", type: "text", kind: "value", field: "note", label: "Note" }],
+		},
+		page: savedViewPageContext({
+			savedViewId: "view-table",
+			settings: filteredSettings,
+			rendererName: "results-table",
+			dataSources: resultsDataSources,
+			view: { icon: "table", name: "Reading Log" },
+		}),
+	});
+
+const filtersUpdates = (page: ReturnType<typeof mountPluginPage>) =>
+	page
+		.clientMessages()
+		.flatMap((message) => (message.type === "page-search" ? [message] : []))
+		.map(({ update }) => update["filters"]);
+
+const answerRows = (
+	page: ReturnType<typeof mountPluginPage>,
+	requestId: string,
+	items: readonly { readonly note: string }[],
+) =>
+	page.replyQuery(requestId, {
+		outcome: "success",
+		response: {
+			data: {
+				readingLog: {
+					type: "rows",
+					pageInfo: { limit: 10, hasMore: false, nextCursor: null },
+					items: items.map(({ note }) => ({ note, entityId: "item-1", occurredAt: "2026-08-12" })),
+				},
+			},
+		},
+	});
+
+const nextRequest = (page: ReturnType<typeof mountPluginPage>, count: number) =>
+	Effect.promise(() =>
+		waitFor(() => {
+			const requests = page.queryRequests("readingLog");
+			expect(requests).toHaveLength(count);
+			const request = requests[count - 1];
+			if (request === undefined) {
+				throw new Error("Missing request");
+			}
+			return request;
+		}),
+	);
+
+describe("results table", () => {
+	afterEach(disposePluginBridges);
+
+	for (const [scale, label] of [
+		["five", "4.0 out of 5 stars"],
+		["ten", "8.0 out of 10"],
+		["hundred", "80 out of 100"],
+	] as const) {
+		it.live(
+			`renders rating cells in the ${scale} scale and leaves unrated rows empty`,
+			() =>
+				Effect.gen(function* () {
+					const page = mountRatings({ ratingScale: scale, timeZone: TimeZone.make("UTC") });
+					answerRatings(page, (yield* nextRequest(page, 1)).requestId);
+					yield* Effect.promise(() => screen.findByRole("img", { name: label }));
+					expect(screen.getAllByRole("img")).toHaveLength(1);
+					const cells = screen.getAllByRole("row")[2]?.querySelectorAll("td");
+					expect(cells?.[1]?.textContent).toBe("");
+				}),
+			testTimeout,
+		);
+	}
+
+	it.live(
+		"renders no rating while preferences are unavailable",
+		() =>
+			Effect.gen(function* () {
+				const page = mountRatings();
+				answerRatings(page, (yield* nextRequest(page, 1)).requestId);
+				yield* Effect.promise(() => screen.findByText("Rated"));
+				expect(screen.queryAllByRole("img")).toHaveLength(0);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shares the filtered request across unrelated location and viewport updates",
+		() =>
+			Effect.gen(function* () {
+				const search = `filters=${Buffer.from(yield* encodeJson(noteRule)).toString("base64url")}`;
+				const page = mountFiltered(search);
+				const first = yield* nextRequest(page, 1);
+				page.navigate(routeLocation("/v/reading-log", `${search}&panel=details`), {
+					compact: true,
+				});
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Filters, 1 active filter" }),
+				);
+				yield* waitForMessagePortMacrotask;
+				expect(page.queryRequests("readingLog")).toHaveLength(1);
+				expect(yield* encodeJson(first.request)).toContain("Fin");
+				answerRows(page, first.requestId, [{ note: "Finished" }]);
+				yield* Effect.promise(() => screen.findByText("Finished"));
+
+				page.navigate(routeLocation("/v/reading-log", search), { compact: false });
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Filters, 1 active filter" }),
+				);
+				yield* waitForMessagePortMacrotask;
+				expect(page.queryRequests("readingLog")).toHaveLength(1);
+				expect(screen.getByText("1 result")).toBeTruthy();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"applies a rule to the URL and the next query, then clears it from its chip",
+		() =>
+			Effect.gen(function* () {
+				const page = mountFiltered();
+				answerRows(page, (yield* nextRequest(page, 1)).requestId, [{ note: "Finished" }]);
+				yield* Effect.promise(() =>
+					waitFor(() => screen.getByRole("button", { name: "Filters, 0 active filters" })),
+				);
+				fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+				yield* Effect.promise(() => waitFor(() => screen.getByRole("dialog", { name: "Filters" })));
+				fireEvent.click(screen.getByRole("button", { name: /^Add filter/ }));
+				fireEvent.click(
+					yield* Effect.promise(() => waitFor(() => screen.getByRole("radio", { name: "Note" }))),
+				);
+				fireEvent.change(
+					yield* Effect.promise(() =>
+						waitFor(() => screen.getByRole("textbox", { name: "Note value" })),
+					),
+					{ target: { value: "Fin" } },
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						const encoded = filtersUpdates(page).at(-1);
+						expect(typeof encoded).toBe("string");
+						expect(decodeJson(Buffer.from(String(encoded), "base64url").toString("utf8"))).toEqual(
+							Option.some(noteRule),
+						);
+					}),
+				);
+
+				page.navigate(
+					routeLocation(
+						"/v/reading-log",
+						`filters=${Buffer.from(yield* encodeJson(noteRule)).toString("base64url")}`,
+					),
+				);
+				const filtered = yield* nextRequest(page, 2);
+				expect(yield* encodeJson(filtered.request)).toContain("Fin");
+				answerRows(page, filtered.requestId, [{ note: "Finished" }]);
+				yield* Effect.promise(() =>
+					waitFor(() => screen.getByRole("button", { name: "Filters, 1 active filter" })),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+					"Note contains Fin",
+				);
+
+				fireEvent.click(screen.getByRole("button", { name: "Remove Note filter" }));
+				yield* Effect.promise(() => waitFor(() => expect(filtersUpdates(page).at(-1)).toBeNull()));
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"offers Clear filters when the filter matches nothing",
+		() =>
+			Effect.gen(function* () {
+				const page = mountFiltered(
+					`filters=${Buffer.from(yield* encodeJson(noteRule)).toString("base64url")}`,
+				);
+				answerRows(page, (yield* nextRequest(page, 1)).requestId, []);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { name: "No matches in Reading Log" })).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+				yield* Effect.promise(() => waitFor(() => expect(filtersUpdates(page).at(-1)).toBeNull()));
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"titles the screen with the saved view and renders its declared columns",
+		() =>
+			Effect.gen(function* () {
+				const page = mountBrowsingPage(ResultsTablePage, {
+					location: routeLocation("/v/reading-log", ""),
+					description: {
+						sort: [],
+						parameters: { fields: {} },
+						filter: [{ key: "note", type: "text", kind: "value", field: "note", label: "Note" }],
+					},
+					page: savedViewPageContext({
+						savedViewId: "view-table",
+						settings: resultsSettings,
+						rendererName: "results-table",
+						dataSources: resultsDataSources,
+						view: { icon: "table", name: "Reading Log" },
+					}),
+				});
+
+				const answered = new Set<string>();
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						const pending = page
+							.queryRequests("readingLog")
+							.filter(({ requestId }) => !answered.has(requestId));
+						expect(pending.length).toBeGreaterThan(0);
+						for (const request of pending) {
+							answered.add(request.requestId);
+							page.replyQuery(request.requestId, {
+								outcome: "success",
+								response: {
+									data: {
+										readingLog: {
+											type: "rows",
+											pageInfo: { limit: 10, hasMore: false, nextCursor: null },
+											items: [{ note: "Finished", entityId: "item-1", occurredAt: "2026-08-12" }],
+										},
+									},
+								},
+							});
+						}
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("1 result")),
+				);
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { level: 1, name: "Reading Log" })).toBeTruthy(),
+					),
+				);
+				expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
+					"Note",
+					"Occurred",
+				]);
+				expect(page.container?.textContent).toContain("End of Reading Log");
+			}),
+		testTimeout,
+	);
+});

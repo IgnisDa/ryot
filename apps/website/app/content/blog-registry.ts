@@ -1,16 +1,18 @@
 import type { ComponentType } from "react";
 
+export type BlogTableOfContentsItem = { id: string; depth: 2 | 3; label: string };
+
+export type BlogPost = {
+	content: ComponentType;
+	frontmatter: BlogFrontmatter;
+	tableOfContents?: readonly BlogTableOfContentsItem[];
+};
+
 type BlogFrontmatter = {
 	title: string;
 	description: string;
 	publishedAt: string;
 	properties: { labels: string[] };
-};
-
-export type BlogTableOfContentsItem = {
-	id: string;
-	depth: 2 | 3;
-	label: string;
 };
 
 type BlogPostModule = {
@@ -19,16 +21,7 @@ type BlogPostModule = {
 	tableOfContents?: readonly BlogTableOfContentsItem[];
 };
 
-export type BlogPost = {
-	content: ComponentType;
-	frontmatter: BlogFrontmatter;
-	tableOfContents?: readonly BlogTableOfContentsItem[];
-};
-
-const modules = import.meta.glob("./blog/**/*.mdx", { eager: true }) as Record<
-	string,
-	BlogPostModule
->;
+const modules = import.meta.glob<BlogPostModule>("./blog/**/*.mdx", { eager: true });
 
 const posts: Record<string, BlogPost> = Object.fromEntries(
 	Object.entries(modules).map(([path, module]) => [

@@ -24,6 +24,42 @@ tests:
       - failedTemplate:
           errorPattern: "service.port is required"
 
+  - it: fails when securityContext.runAsUser is not 1001
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      securityContext.runAsUser: 1002
+    asserts:
+      - failedTemplate:
+          errorPattern: "securityContext.runAsUser must be 1001 for the sandbox launcher"
+
+  - it: fails when securityContext.runAsGroup is not 1001
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      securityContext.runAsGroup: 1002
+    asserts:
+      - failedTemplate:
+          errorPattern: "securityContext.runAsGroup must be 1001 for the sandbox launcher"
+
+  - it: fails when securityContext.allowPrivilegeEscalation is false
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      securityContext.allowPrivilegeEscalation: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "securityContext.allowPrivilegeEscalation must be true for the setuid sandbox launcher"
+
+  - it: fails when securityContext.readOnlyRootFilesystem is true
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      securityContext.readOnlyRootFilesystem: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "securityContext.readOnlyRootFilesystem must be false for launcher records and application files"
+
   # ---- admin token / pro key ----
   - it: fails when admin access token is missing
     set:

@@ -1,0 +1,43 @@
+import { expect } from "bun:test";
+
+import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
+import { it } from "@voila.dev/effect-bun-test";
+
+import { composeClientPage } from "./composition";
+import { descriptions, identity, pageReference, presentationReference } from "./test-fixtures";
+
+it("builds a structural manifest without copying compiled bytes or embedding grant URLs", () => {
+	const manifest = composeClientPage({
+		identity: identity(),
+		artifacts: descriptions(),
+		runtimeEntries: { bootstrap: "bootstrap.js", "@ryot-app/plugin-client-sdk": "runtime.js" },
+	});
+	expect(manifest.bootstrap).toEqual({ file: "bootstrap.js", artifactHash: "a".repeat(64) });
+	expect(manifest.imports[pluginExportSpecifier(pageReference, "main")]).toEqual({
+		file: "module.js",
+		artifactHash: "b".repeat(64),
+	});
+	expect(manifest.descriptor.automaticRegistry[0]?.module).toEqual({
+		binding: "card",
+		specifier: pluginExportSpecifier(presentationReference, "card"),
+	});
+	expect(manifest.descriptor.automaticRegistry[0]?.stylesheets).toEqual([
+		{ file: "module.css", artifactHash: "c".repeat(64) },
+	]);
+	expect(JSON.stringify(manifest)).not.toContain("/api/page-bundles/");
+});
+
+it("rejects a selected module whose specifier or binding is not declared", () => {
+	for (const entry of [
+		{ binding: "missing", specifier: pluginExportSpecifier(pageReference, "missing") },
+		{ binding: "missing", specifier: pluginExportSpecifier(pageReference, "main") },
+	]) {
+		expect(() =>
+			composeClientPage({
+				artifacts: descriptions(),
+				identity: { ...identity(), entry },
+				runtimeEntries: { bootstrap: "bootstrap.js" },
+			}),
+		).toThrow("Client composition export is missing");
+	}
+});

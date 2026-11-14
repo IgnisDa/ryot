@@ -1,0 +1,57 @@
+import { describe, expect, it } from "bun:test";
+
+import { revisionDefinitions } from "@ryot-app/definitions/source";
+import { browseConsistencyIssue, browseIssue } from "@ryot-app/ryotql-recipes/browse-validation";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+
+import { fitnessPlugin } from "./plugin";
+
+const entitySchemas = revisionDefinitions("fitness-plugin", {
+	...fitnessPlugin,
+	scripts: [],
+}).entitySchemas;
+
+const browse = (slug: string) =>
+	entitySchemas.find((candidate) => candidate.slug === slug)?.browse?.fields ?? [];
+
+describe("fitness browse declarations", () => {
+	it("passes install validation for every entity schema", () => {
+		expect(browseConsistencyIssue(entitySchemas)).toBeUndefined();
+		for (const schema of entitySchemas) {
+			expect(schema.browse && browseIssue(schema.browse), schema.slug).toBeUndefined();
+		}
+	});
+
+	it("declares exercise and workout template fields", () => {
+		expect(browse("exercise").map(({ key }) => key)).toEqual([
+			"kind",
+			"level",
+			"force",
+			"mechanic",
+			"muscles",
+			"equipment",
+			"lastPerformed",
+			"timesPerformed",
+		]);
+		expect(browse("exercise")[1]).toEqual<unknown>(
+			objectContaining({
+				type: "enum",
+				label: "Level",
+				choices: arrayContaining([{ value: "beginner", label: "beginner" }]),
+			}),
+		);
+		expect(browse("exercise")[4]).toMatchObject({
+			kind: "relationship",
+			relationship: { slug: "exercise-targets" },
+		});
+		expect(browse("workout-template").map(({ key }) => key)).toEqual(["created"]);
+		expect(browse("workout").map(({ key }) => key)).toEqual([
+			"startedAt",
+			"exerciseCount",
+			"setCount",
+			"personalBests",
+			"template",
+			"exercises",
+		]);
+	});
+});

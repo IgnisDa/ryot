@@ -1,0 +1,276 @@
+import { afterEach, describe, expect } from "bun:test";
+
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { fireEvent, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
+import type { ReactNode } from "react";
+
+import {
+	decodeShowOverview,
+	emptyShowOverview,
+	showCompanyRow,
+	showPersonRow,
+	showRecommendationRow,
+} from "../../tests/client/show/overview-fixture";
+import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
+import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
+import {
+	MediaOverview,
+	MediaOverviewRelations,
+	type MediaOverviewRelationsRender,
+	MediaWatchProvidersSection,
+	mediaWatchProvidersTrailing,
+} from "./overview";
+import { type MediaOverviewState, mediaRelationsAreEmpty } from "./overview-state";
+import { watchProviderGroups, watchProviderLink } from "./watch-providers";
+
+const noopAdapter = { query: () => Effect.succeed({}) };
+
+const relationsRender: MediaOverviewRelationsRender<Overview> = ({ overview }) => (
+	<MediaOverviewRelations
+		compact
+		aspect="poster"
+		overview={overview}
+		peopleAction={null}
+		copy={{ notice: "Cast", people: "Cast & crew", companies: "Production companies" }}
+	/>
+);
+
+type Overview = ReturnType<typeof decodeShowOverview>;
+
+const readyOverview = decodeShowOverview();
+
+const watchProvidersTrailing = mediaWatchProvidersTrailing<ReturnType<typeof decodeShowSummary>>(
+	(summary) => summary,
+);
+
+const overviewScreen = (input: {
+	readonly refreshOverview?: () => void;
+	readonly overview: MediaOverviewState<Overview>;
+	readonly media?: ReturnType<typeof decodeShowSummary>;
+	readonly trailing?: (slot: { readonly compact: boolean }) => ReactNode;
+}) => {
+	const media = input.media ?? decodeShowSummary();
+	return (
+		<MediaOverview
+			compact
+			media={media}
+			safeAreaTop={0}
+			noticeTitle="Cast"
+			overview={input.overview}
+			relations={relationsRender}
+			isEmpty={mediaRelationsAreEmpty}
+			refreshOverview={input.refreshOverview ?? (() => undefined)}
+			loadingDetail="Fetching the cast, companies and recommendations for this show."
+			trailing={input.trailing ?? ((slot) => watchProvidersTrailing({ ...slot, summary: media }))}
+		/>
+	);
+};
+
+afterEach(() => {
+	document.body.innerHTML = "";
+});
+
+describe("MediaOverview", () => {
+	it("marks saved people, companies and recommendations without marking other titles", () => {
+		const overview = decodeShowOverview({
+			people: [{ ...showPersonRow, isInMediaLibrary: true }],
+			companies: [{ ...showCompanyRow, isInMediaLibrary: true }],
+			recommendations: [
+				{ ...showRecommendationRow, isInMediaLibrary: true },
+				{ ...showRecommendationRow, id: "show-3", name: "Not saved", isInMediaLibrary: false },
+			],
+		});
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			overviewScreen({ overview: { overview, status: "ready" } }),
+		);
+		for (const id of [showPersonRow.id, showCompanyRow.id, showRecommendationRow.id]) {
+			expect(
+				container.querySelector(`a[href="/e/${id}"] [aria-label="In your library"]`),
+			).not.toBeNull();
+		}
+		expect(
+			container.querySelector('a[href="/e/show-3"] [aria-label="In your library"]'),
+		).toBeNull();
+		unmount();
+	});
+
+	it("renders the gallery, cast, companies and recommendations from a ready overview", () => {
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+		);
+
+		expect(container.textContent).toContain("Images");
+		expect(container.textContent).toContain(showPersonRow.name);
+		expect(container.textContent).toContain(showCompanyRow.name);
+		expect(container.textContent).toContain(showRecommendationRow.name);
+		expect(container.querySelector(`a[href="/e/${showPersonRow.id}"]`)).not.toBeNull();
+		expect(container.querySelector(`a[href="/e/${showCompanyRow.id}"]`)).not.toBeNull();
+		expect(container.querySelector(`a[href="/e/${showRecommendationRow.id}"]`)).not.toBeNull();
+		unmount();
+	});
+
+	it("omits the cast, companies and recommendations sections when the overview has none", () => {
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			overviewScreen({ overview: { status: "ready", overview: emptyShowOverview() } }),
+		);
+
+		expect(container.textContent).toContain("Images");
+		expect(container.textContent).not.toContain("Cast & crew");
+		expect(container.textContent).not.toContain("Production companies");
+		expect(container.textContent).not.toContain("More like this");
+		unmount();
+	});
+
+	it("renders each offer group, the region attribution and the link for the region", () => {
+		const media = decodeShowSummary();
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<MediaWatchProvidersSection
+				compact
+				region="US"
+				link={watchProviderLink(media, "US")}
+				groups={watchProviderGroups(media, "US")}
+			/>,
+		);
+
+		expect(container.textContent).toContain("Where to watch");
+		expect(container.textContent).toContain("Stream");
+		expect(container.textContent).toContain("Netflix");
+		expect(container.textContent).toContain("Apple TV");
+		expect(container.textContent).toContain("Availability in United States, from JustWatch.");
+		expect(
+			container.querySelector('a[href="https://www.themoviedb.org/tv/1/watch?locale=US"]'),
+		).not.toBeNull();
+		unmount();
+	});
+
+	it.effect(
+		"filters the providers, link and attribution by the saved viewing country",
+		() =>
+			Effect.gen(function* () {
+				const { unmount, container } = mountRyotClient(
+					{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "GB" }) },
+					overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+				);
+
+				yield* Effect.promise(() => flushRyotClient());
+
+				expect(container.textContent).toContain("Where to watch");
+				expect(container.textContent).toContain("Netflix");
+				expect(container.textContent).not.toContain("Apple TV");
+				expect(container.textContent).toContain("Availability in United Kingdom, from JustWatch.");
+				expect(container.textContent).not.toContain("View all options");
+				unmount();
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"uses the watch link for the saved country",
+		() =>
+			Effect.gen(function* () {
+				const { unmount, container } = mountRyotClient(
+					{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "US" }) },
+					overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+				);
+				yield* Effect.promise(() => flushRyotClient());
+
+				expect(container.textContent).toContain("Apple TV");
+				expect(container.textContent).toContain("Availability in United States, from JustWatch.");
+				expect(
+					container.querySelector('a[href="https://www.themoviedb.org/tv/1/watch?locale=US"]'),
+				).not.toBeNull();
+				unmount();
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"hides unavailable countries rather than showing another country's providers",
+		() =>
+			Effect.gen(function* () {
+				const { unmount, container } = mountRyotClient(
+					{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "FR" }) },
+					overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+				);
+				yield* Effect.promise(() => flushRyotClient());
+
+				expect(container.textContent).not.toContain("Where to watch");
+				expect(container.textContent).not.toContain("JustWatch");
+				unmount();
+			}),
+		testTimeout,
+	);
+
+	it("omits the watch providers section when the region carries none", () => {
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			overviewScreen({
+				media: decodeShowSummary({ watchProviders: null }),
+				overview: { status: "ready", overview: readyOverview },
+			}),
+		);
+
+		expect(container.textContent).not.toContain("Where to watch");
+		expect(container.textContent).not.toContain("JustWatch");
+		unmount();
+	});
+
+	it("renders the trailing slot last", () => {
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			overviewScreen({
+				trailing: () => <section>Where to play</section>,
+				overview: { status: "ready", overview: readyOverview },
+			}),
+		);
+
+		expect(container.textContent).toContain("Where to play");
+		expect(container.firstElementChild?.lastElementChild?.textContent).toBe("Where to play");
+		unmount();
+	});
+
+	it("shows a loading notice while the overview is loading", () => {
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			overviewScreen({ overview: { status: "loading" } }),
+		);
+
+		expect(container.textContent).toContain("Loading details...");
+		unmount();
+	});
+
+	it.live(
+		"retries a failed overview load through the refresh callback",
+		() =>
+			Effect.gen(function* () {
+				let refreshCount = 0;
+				const { unmount, container } = mountRyotClient(
+					noopAdapter,
+					overviewScreen({
+						overview: { status: "transport-error" },
+						refreshOverview: () => {
+							refreshCount += 1;
+						},
+					}),
+				);
+
+				expect(container.textContent).toContain("Unable to load these details");
+				const retry = Array.from(container.querySelectorAll("button")).find(
+					(button) => button.textContent === "Try again",
+				);
+				if (retry === undefined) {
+					throw new Error("Expected the overview retry button");
+				}
+				fireEvent.click(retry);
+				yield* Effect.promise(() => waitFor(() => expect(refreshCount).toBe(1)));
+				unmount();
+			}),
+		testTimeout,
+	);
+});

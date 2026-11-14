@@ -1,0 +1,39 @@
+{
+	"name": "@ryot-app/vite-compiler",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./environment": {
+			"types": "./src/environment.ts",
+			"default": "./src/environment.ts"
+		},
+		"./sandbox-audit": {
+			"types": "./src/sandbox-audit.ts",
+			"default": "./src/sandbox-audit.ts"
+		},
+		"./workspace": {
+			"types": "./src/workspace.ts",
+			"default": "./src/workspace.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun ../../packages/testing/src/run-tests.ts",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"@ryot-app/ts-utils": "workspace:*",
+		"@ryot-app/typescript-compiler": "workspace:*",
+		"effect": "4.1.2",
+		"vite": "8.3.5"
+	},
+	"devDependencies": {
+		"@effect/platform-bun": "4.1.2",
+		"@ryot-app/testing": "workspace:*",
+		"@voila.dev/effect-bun-test": "4.0.4",
+		"bun-types": "1.4.4"
+	}
+}

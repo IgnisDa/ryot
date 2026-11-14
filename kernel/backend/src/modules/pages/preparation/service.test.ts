@@ -1,0 +1,825 @@
+import { expect } from "bun:test";
+
+import {
+	ClientPageDocumentStale,
+	ClientPagePreparationError,
+	PreparedClientPage,
+} from "@ryot-app/contract/modules/pages/schemas";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
+import { EntityId, PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
+import { kernelPublicationRenderer } from "@ryot-app/kernel-renderers";
+import { pageDeclarationHash } from "@ryot-app/plugin-client-contract";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
+
+import { EntitiesRepository } from "#modules/entities/repository";
+import { ClientArtifactGrantService } from "#modules/pages/bundles/grant-service";
+import { ImageClientArtifacts } from "#modules/pages/bundles/image-artifacts";
+import { ClientArtifactStore } from "#modules/pages/bundles/store";
+import {
+	type AvailablePlugin,
+	PluginRuntimeResolver,
+} from "#modules/plugins/catalog/runtime-resolver";
+import { DatabaseSession } from "#platform/db/session";
+import type { page } from "#schema/tables/pages";
+
+import { composeClientPage } from "./composition";
+import { ClientPageCompositionService } from "./composition-service";
+import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
+import { PagesRepository } from "./repository";
+import { PagesService } from "./service";
+import { publicationComposition } from "./test-fixtures";
+
+const createdAt = new Date(0);
+const runtimeHash = "a".repeat(64);
+const pageHash = "c".repeat(64);
+const pageToken = "p".repeat(43);
+const pageDefinition = {
+	files: [],
+	pluginDependencies: {},
+	entry: "client/page.tsx",
+	queries: { queries: {} },
+};
+const pageRow = {
+	createdAt,
+	slug: "page",
+	name: "Page",
+	id: "owned-page",
+	draftRevision: 2,
+	writeAccess: true,
+	authorityRevision: 1,
+	publishedRevision: 1,
+	updatedAt: createdAt,
+	origin: "user" as const,
+	draftCompiledRevision: 2,
+	draftArtifactHash: pageHash,
+	userId: UserId.make("user-1"),
+	draftDefinition: pageDefinition,
+	publishedArtifactHash: pageHash,
+	publishedDefinition: pageDefinition,
+	draftDefinitionHash: "draft-definition",
+	publishedDefinitionHash: "published-definition",
+} satisfies typeof page.$inferSelect;
+const pluginHash = "b".repeat(64);
+const updatedPluginHash = "d".repeat(64);
+const artifacts = new Map([
+	[pageHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+	[pluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+	[runtimeHash, { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+	[updatedPluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+]);
+const manifest = fixtureManifest();
+const routeTarget = {
+	path: "/",
+	search: "",
+	kind: "plugin-route" as const,
+	packageId: manifest.metadata.packageId,
+};
+const plugin = {
+	id: "plugin-id",
+	isHidden: false,
+	clientImports: [],
+	healthReason: null,
+	compiledHashes: {},
+	scope: "user" as const,
+	health: "ready" as const,
+	contentHash: "source-hash",
+	pluginRevisionId: "revision",
+	pluginConfigRevisionId: null,
+	installationId: "installation",
+	clientArtifactHash: pluginHash,
+	ownerUserId: UserId.make("user-1"),
+	packageId: manifest.metadata.packageId,
+	manifest: {
+		...manifest,
+		client: {
+			homeView: null,
+			apiVersion: 1 as const,
+			routes: { "/": "main" },
+			exports: {
+				main: {
+					kind: "page" as const,
+					entry: "client/main.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+				},
+				alternate: {
+					kind: "page" as const,
+					entry: "client/alternate.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+				},
+			},
+		},
+	},
+};
+
+const pluginRenderer = (exportName: string): SavedViewRenderer => ({
+	exportName,
+	kind: "plugin",
+	pluginId: plugin.id,
+});
+
+const savedView = (id: SavedViewId, revision: number, exportName = "main") => ({
+	viewId: id,
+	view: {
+		id,
+		slug: id,
+		revision,
+		sortOrder: 0,
+		settings: {},
+		pluginId: null,
+		packageId: null,
+		createdAt: null,
+		updatedAt: null,
+		isHidden: false,
+		icon: "fixture",
+		isBuiltin: false,
+		dataSources: null,
+		name: `View ${id}`,
+		pluginInstallationId: null,
+		userId: UserId.make("user-1"),
+		renderer: pluginRenderer(exportName),
+	},
+});
+
+type SavedView = ReturnType<typeof savedView>;
+const savedViewReferenceKey = (reference: SavedViewReference) => JSON.stringify(reference);
+
+class RecordedPrepareCalls extends Context.Service<
+	RecordedPrepareCalls,
+	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
+>()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/RecordedPrepareCalls") {}
+
+class AvailablePlugins extends Context.Service<
+	AvailablePlugins,
+	{
+		readonly revoke: Effect.Effect<void>;
+		readonly set: (plugins: readonly AvailablePlugin[]) => Effect.Effect<void>;
+	}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/AvailablePlugins") {}
+
+class PageSelections extends Context.Service<
+	PageSelections,
+	{
+		readonly setPage: (value: typeof page.$inferSelect) => Effect.Effect<void>;
+		readonly setHome: (reference: null | SavedViewReference) => Effect.Effect<void>;
+		readonly setView: (reference: SavedViewReference, view: SavedView) => Effect.Effect<void>;
+	}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/PageSelections") {}
+
+const stored = (graph: ResolvedClientPageGraph) => ({
+	createdAt,
+	identity: graph.identity,
+	compositionHash: "composition-hash",
+	compositionKey: graph.compositionKey,
+	manifest: composeClientPage({
+		artifacts,
+		identity: graph.identity,
+		runtimeEntries: { bootstrap: "bootstrap.js" },
+	}),
+});
+
+class ArtifactVisibility extends Context.Service<
+	ArtifactVisibility,
+	{
+		readonly importPage: Effect.Effect<void>;
+		readonly hide: (hash: string) => Effect.Effect<void>;
+		readonly setDeclaration: (definition: typeof pageDefinition) => Effect.Effect<void>;
+	}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/ArtifactVisibility") {}
+
+const recordingDependenciesLayer = Layer.effectContext(
+	Effect.gen(function* () {
+		const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+		const privateHashes = new Set([pageHash]);
+		let declarationHash = pageDeclarationHash(pageDefinition);
+		let pageImports: readonly {
+			readonly exportName: string;
+			readonly reference: { readonly scope: "system"; readonly packageId: typeof plugin.packageId };
+		}[] = [];
+		const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
+		return Context.make(
+			ClientPageCompositionService,
+			ClientPageCompositionService.of({
+				find: (graph) => Effect.succeed(stored(graph)),
+				getOrMaterialize: (graph) =>
+					record(`find:${graph.compositionKey}`).pipe(Effect.as(stored(graph))),
+			}),
+		).pipe(
+			Context.add(
+				ClientArtifactStore,
+				ClientArtifactStore.of({
+					retain: () => Effect.die("unused"),
+					findFile: () => Effect.succeed(null),
+					isPublic: (hash) => !privateHashes.has(hash),
+					exists: (hash) => Effect.succeed(artifacts.has(hash)),
+					describe: (hash) => {
+						const description = artifacts.get(hash);
+						return Effect.succeed(
+							description
+								? {
+										...description,
+										hash,
+										format: 1,
+										apiVersion: 1,
+										packageId: null,
+										bridgeVersion: 1,
+										compilerVersion: 1,
+										clientDeclarationHash: null,
+										imports: hash === pageHash ? pageImports : [],
+										...(hash === pageHash ? { pageDeclarationHash: declarationHash } : {}),
+									}
+								: null,
+						);
+					},
+				}),
+			),
+			Context.add(
+				ClientArtifactGrantService,
+				ClientArtifactGrantService.of({
+					resolve: () => Effect.die("unused"),
+					issue: (_userId, hash) =>
+						record(`grant:${hash}`).pipe(
+							Effect.as({
+								grantId: "grant",
+								token: pageToken,
+								expiresAt: "2099-01-01T00:00:00.000Z",
+							}),
+						),
+				}),
+			),
+			Context.add(RecordedPrepareCalls, { calls: Ref.get(calls) }),
+			Context.add(ArtifactVisibility, {
+				hide: (hash) =>
+					Effect.sync(() => {
+						privateHashes.add(hash);
+					}),
+				setDeclaration: (definition) =>
+					Effect.sync(() => {
+						declarationHash = pageDeclarationHash(definition);
+					}),
+				importPage: Effect.sync(() => {
+					pageImports = [
+						{ exportName: "main", reference: { scope: "system", packageId: plugin.packageId } },
+					];
+				}),
+			}),
+		);
+	}),
+);
+
+const pagesLayer = PagesService.layer.pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			Layer.mock(DatabaseSession)({}),
+			Layer.succeed(
+				EntitiesRepository,
+				EntitiesRepository.of(
+					partialFake<EntitiesRepository["Service"]>({
+						getClientPageEntityForUser: () => Effect.succeed(null),
+					}),
+				),
+			),
+			Layer.effectContext(
+				Effect.gen(function* () {
+					const authoredPage = yield* Ref.make<typeof page.$inferSelect>(pageRow);
+					const home = yield* Ref.make<null | SavedViewReference>(null);
+					const views = yield* Ref.make<ReadonlyMap<string, SavedView>>(new Map());
+					return Context.make(
+						PagesRepository,
+						PagesRepository.of(
+							partialFake<PagesRepository["Service"]>({
+								findHomeSavedView: () => Ref.get(home),
+								findPage: (userId: UserId, pageId: string) =>
+									Ref.get(authoredPage).pipe(
+										Effect.map((row) => (row.userId === userId && row.id === pageId ? row : null)),
+									),
+								findPreparedTarget: (_userId: unknown, reference: SavedViewReference) =>
+									Ref.get(views).pipe(
+										Effect.map((current) => current.get(savedViewReferenceKey(reference)) ?? null),
+									),
+								findCompiledDraft: (
+									userId: UserId,
+									identity: {
+										pageId: string;
+										artifactHash: string;
+										draftRevision: number;
+										definitionHash: string;
+									},
+								) =>
+									Ref.get(authoredPage).pipe(
+										Effect.map((row) =>
+											row.userId === userId &&
+											row.id === identity.pageId &&
+											row.draftRevision === identity.draftRevision &&
+											row.draftCompiledRevision === identity.draftRevision &&
+											row.draftDefinitionHash === identity.definitionHash &&
+											row.draftArtifactHash === identity.artifactHash
+												? row
+												: null,
+										),
+									),
+							}),
+						),
+					).pipe(
+						Context.add(PageSelections, {
+							setPage: (row) => Ref.set(authoredPage, row),
+							setHome: (reference) => Ref.set(home, reference),
+							setView: (reference, view) =>
+								Ref.update(views, (current) =>
+									new Map(current).set(savedViewReferenceKey(reference), view),
+								),
+						}),
+					);
+				}),
+			),
+			Layer.effectContext(
+				Effect.gen(function* () {
+					const available = yield* Ref.make<ReadonlyArray<AvailablePlugin>>([plugin]);
+					return Context.make(
+						PluginRuntimeResolver,
+						PluginRuntimeResolver.of(
+							partialFake<PluginRuntimeResolver["Service"]>({
+								listPluginsAvailableToUser: () => Ref.get(available),
+								resolveUserPackage: (_userId: unknown, packageId: string) =>
+									Effect.map(Ref.get(available), (current) => {
+										const selected = current.find((entry) => entry.packageId === packageId);
+										return selected
+											? { kind: "effective" as const, pluginId: PluginId.make(selected.id) }
+											: { kind: "absent" as const };
+									}),
+							}),
+						),
+					).pipe(
+						Context.add(AvailablePlugins, {
+							revoke: Ref.set(available, []),
+							set: (plugins) => Ref.set(available, plugins),
+						}),
+					);
+				}),
+			),
+			Layer.succeed(
+				ImageClientArtifacts,
+				ImageClientArtifacts.of(
+					partialFake<ImageClientArtifacts["Service"]>({
+						renderers: new Map(),
+						runtime: { artifact: { hash: runtimeHash }, entries: { bootstrap: "bootstrap.js" } },
+					}),
+				),
+			),
+			recordingDependenciesLayer,
+		),
+	),
+);
+
+layer(pagesLayer)((test) => {
+	test.effect(
+		"prepares a composition without generating its document",
+		() =>
+			Effect.gen(function* () {
+				const expected = yield* resolveClientPageGraph({
+					plugin,
+					plugins: [plugin],
+					exportName: "main",
+					application: "plugin-route",
+					runtimeArtifactHash: runtimeHash,
+				});
+				const service = yield* PagesService;
+				const page = yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
+				expect(page.identity.compositionKey).toBe(expected.compositionKey);
+				expect(page.composition.hash).toBe("composition-hash");
+				expect(yield* (yield* RecordedPrepareCalls).calls).toEqual([
+					`find:${expected.compositionKey}`,
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"generates the document only for an identity that is still current",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const user = { id: UserId.make("user-1") };
+				const page = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				const document = yield* service.document(user, page.identity);
+				expect(document.metadata.hash).toBe("composition-hash");
+				expect(document.bootstrap).toBe(`/api/page-bundles/${runtimeHash}/public/bootstrap.js`);
+				const stale = new ClientPageDocumentStale({
+					reason: { code: "client-page-document-stale" },
+				});
+				assertExitFails(
+					yield* Effect.exit(
+						service.document(user, { ...page.identity, compositionHash: "other-composition" }),
+					),
+					stale,
+				);
+				const foreignEntity: PreparedClientPage["identity"] = {
+					...page.identity,
+					exportName: "main",
+					kind: "plugin-page",
+					pluginId: plugin.id,
+					contentHash: plugin.contentHash,
+					installationId: plugin.installationId,
+					target: { kind: "entity", entityId: EntityId.make("foreign-entity") },
+				};
+				assertExitFails(
+					yield* Effect.exit(service.document({ id: UserId.make("user-2") }, foreignEntity)),
+					stale,
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"uses the same changing home selection for preparation and freshness",
+		() =>
+			Effect.gen(function* () {
+				const user = { id: UserId.make("user-1") };
+				const firstReference = { kind: "custom" as const, savedViewId: SavedViewId.make("view-a") };
+				const secondReference = {
+					kind: "custom" as const,
+					savedViewId: SavedViewId.make("view-b"),
+				};
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const recorded = yield* RecordedPrepareCalls;
+				const stale = new ClientPageDocumentStale({
+					reason: { code: "client-page-document-stale" },
+				});
+				const assertStaleWithoutMaterialization = Effect.fn(function* (
+					identity: PreparedClientPage["identity"],
+				) {
+					const before = yield* recorded.calls;
+					expect(yield* service.isIdentityCurrent(user.id, identity)).toBe(false);
+					assertExitFails(yield* Effect.exit(service.document(user, identity)), stale);
+					expect(yield* recorded.calls).toEqual(before);
+				});
+
+				const route = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(route.identity.kind).toBe("plugin-page");
+				expect(yield* service.isIdentityCurrent(user.id, route.identity)).toBe(true);
+
+				yield* selections.setView(firstReference, savedView(firstReference.savedViewId, 1));
+				yield* selections.setHome(firstReference);
+				yield* assertStaleWithoutMaterialization(route.identity);
+				const firstHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(firstHome.identity).toMatchObject({
+					viewRevision: 1,
+					exportName: "main",
+					target: routeTarget,
+					kind: "plugin-saved-view",
+					savedViewId: firstReference.savedViewId,
+				});
+				expect(firstHome.context.target).toEqual({ kind: "saved-view", reference: firstReference });
+
+				yield* selections.setView(firstReference, savedView(firstReference.savedViewId, 2));
+				yield* assertStaleWithoutMaterialization(firstHome.identity);
+				const revisedHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(revisedHome.identity).toMatchObject({ viewRevision: 2, exportName: "main" });
+
+				yield* selections.setView(
+					firstReference,
+					savedView(firstReference.savedViewId, 2, "alternate"),
+				);
+				yield* assertStaleWithoutMaterialization(revisedHome.identity);
+				const alternateHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(alternateHome.identity).toMatchObject({
+					viewRevision: 2,
+					exportName: "alternate",
+					kind: "plugin-saved-view",
+				});
+
+				yield* selections.setView(secondReference, savedView(secondReference.savedViewId, 1));
+				yield* selections.setHome(secondReference);
+				yield* assertStaleWithoutMaterialization(alternateHome.identity);
+				const secondHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(secondHome.identity).toMatchObject({
+					viewRevision: 1,
+					kind: "plugin-saved-view",
+					savedViewId: secondReference.savedViewId,
+				});
+
+				yield* selections.setHome(null);
+				yield* assertStaleWithoutMaterialization(secondHome.identity);
+				expect(yield* service.isIdentityCurrent(user.id, route.identity)).toBe(true);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects a formerly prepared plugin after catalog revocation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
+				const recorded = yield* RecordedPrepareCalls;
+				const before = yield* recorded.calls;
+				yield* (yield* AvailablePlugins).revoke;
+				const exit = yield* Effect.exit(
+					service.prepare({ id: UserId.make("user-1") }, routeTarget),
+				);
+				assertExitFails(
+					exit,
+					new ClientPagePreparationError({
+						reason: { packageId: plugin.packageId, code: "plugin-package-unavailable" },
+					}),
+				);
+				expect(yield* recorded.calls).toEqual(before);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"prepares an owned published page with private grants and authority freshness",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const user = { id: UserId.make("user-1") };
+				const id = SavedViewId.make("page-view");
+				const reference = { savedViewId: id, kind: "custom" as const };
+				const view = savedView(id, 1);
+				yield* selections.setPage(pageRow);
+				yield* selections.setView(reference, {
+					...view,
+					view: { ...view.view, renderer: { kind: "page", pageId: pageRow.id } },
+				});
+				const prepared = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, { reference, kind: "saved-view" }),
+				);
+				expect(prepared.identity.kind).toBe("page-saved-view");
+				expect(prepared.context.renderer).toMatchObject({
+					revision: 1,
+					kind: "page",
+					writeAccess: true,
+					pageId: pageRow.id,
+					stage: "published",
+				});
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(true);
+				const document = yield* service.document(user, prepared.identity);
+				expect(document.importMap.imports["@ryot/page/owned-page"]).toContain(pageToken);
+				expect(yield* (yield* RecordedPrepareCalls).calls).toContain(`grant:${pageHash}`);
+				yield* selections.setPage({ ...pageRow, writeAccess: false, authorityRevision: 2 });
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(false);
+				assertExitFails(
+					yield* Effect.exit(service.document(user, prepared.identity)),
+					new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } }),
+				);
+				yield* selections.setPage({ ...pageRow, publishedRevision: 2 });
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(false);
+				yield* selections.setPage(pageRow);
+				yield* selections.setView(reference, {
+					...view,
+					view: { ...view.view, revision: 2, renderer: { kind: "page", pageId: pageRow.id } },
+				});
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(false);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fences preview to the exact compiled draft and always removes write authority",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const user = { id: UserId.make("user-1") };
+				yield* selections.setPage(pageRow);
+				const target = {
+					draftRevision: 2,
+					pageId: pageRow.id,
+					artifactHash: pageHash,
+					kind: "page-preview" as const,
+					definitionHash: "draft-definition",
+				};
+				const prepared = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, target),
+				);
+				expect(prepared.identity.operationTargets).toEqual([]);
+				expect(prepared.context.renderer).toMatchObject({
+					revision: 2,
+					stage: "draft",
+					writeAccess: false,
+				});
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(true);
+				yield* selections.setPage({ ...pageRow, draftRevision: 3 });
+				assertExitFails(
+					yield* Effect.exit(service.prepare(user, target)),
+					new ClientPagePreparationError({
+						reason: { pageId: pageRow.id, code: "page-preview-stale" },
+					}),
+				);
+				assertExitFails(
+					yield* Effect.exit(service.document(user, prepared.identity)),
+					new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } }),
+				);
+				assertExitFails(
+					yield* Effect.exit(service.prepare({ id: UserId.make("other") }, target)),
+					new ClientPagePreparationError({
+						reason: { pageId: pageRow.id, code: "page-preview-stale" },
+					}),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(pagesLayer)("frozen publication code", (test) => {
+	test.effect(
+		"freezes dependency exports and artifacts until refresh while checking current eligibility",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const available = yield* AvailablePlugins;
+				const visibility = yield* ArtifactVisibility;
+				const system = { ...plugin, ownerUserId: null, scope: "system" as const };
+				const definition = {
+					...pageDefinition,
+					pluginDependencies: {
+						dependency: { scope: "system" as const, packageId: plugin.packageId },
+					},
+				};
+				yield* available.set([system]);
+				yield* visibility.setDeclaration(definition);
+				yield* visibility.importPage;
+				yield* visibility.hide(pluginHash);
+				yield* selections.setPage({ ...pageRow, publishedDefinition: definition });
+				const reference = { pageId: pageRow.id, kind: "page" as const };
+				const captured = yield* service.preparePublication(pageRow.userId, reference);
+				const frozen = { page: captured.page, composition: captured.capturedComposition };
+				const changed = {
+					...system,
+					contentHash: "updated-content",
+					pluginRevisionId: "updated-revision",
+					clientArtifactHash: updatedPluginHash,
+				};
+				yield* available.set([changed]);
+				const unchanged = yield* service.preparePublication(pageRow.userId, reference, frozen);
+				expect(unchanged.capturedComposition).toEqual(captured.capturedComposition);
+				expect(
+					unchanged.contributors.find((contributor) => contributor.kind === "plugin"),
+				).toMatchObject({ revisionId: "revision", contentHash: "source-hash" });
+				const refreshed = yield* service.preparePublication(pageRow.userId, reference);
+				expect(refreshed.capturedComposition.identity).not.toEqual(
+					captured.capturedComposition.identity,
+				);
+				expect(
+					refreshed.capturedComposition.identity.contributors.find(
+						(contributor) => contributor.kind === "plugin",
+					),
+				).toMatchObject({ clientArtifactHash: updatedPluginHash });
+				expect(
+					refreshed.contributors.find((contributor) => contributor.kind === "plugin"),
+				).toMatchObject({ revisionId: "updated-revision" });
+				yield* available.set([
+					{
+						...changed,
+						manifest: { ...changed.manifest, client: { ...changed.manifest.client, exports: {} } },
+					},
+				]);
+				const requested: string[] = [];
+				const document = yield* service.publicationDocument(
+					pageRow.userId,
+					captured.composition.hash,
+					reference,
+					(hash) =>
+						Effect.sync(() => {
+							requested.push(hash);
+							return pageToken;
+						}),
+					frozen,
+				);
+				expect(
+					Object.values(document?.importMap.imports ?? {}).some((url) => url.includes(pluginHash)),
+				).toBe(true);
+				expect(
+					Object.values(document?.importMap.imports ?? {}).some((url) =>
+						url.includes(updatedPluginHash),
+					),
+				).toBe(false);
+				expect(requested).toContain(pluginHash);
+				expect(
+					yield* service.preparePublication(pageRow.userId, reference).pipe(Effect.flip),
+				).toMatchObject({ reason: { code: "export-not-found" } });
+				for (const plugins of [
+					[],
+					[plugin],
+					[{ ...changed, health: "needs-configuration" as const }],
+				]) {
+					yield* available.set(plugins);
+					expect(
+						yield* service.preparePublication(pageRow.userId, reference, frozen).pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "dependency-unavailable" } });
+				}
+			}),
+	);
+
+	test.effect(
+		"uses captured kernel and runtime artifacts without resolving current kernel sources",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				yield* (yield* AvailablePlugins).set([]);
+				const composition = yield* publicationComposition(null, runtimeHash, pageHash);
+				const frozen = { page: null, composition };
+				const prepared = yield* service.preparePublication(
+					pageRow.userId,
+					{ kind: "kernel", name: "publication" },
+					frozen,
+				);
+				expect(prepared.capturedComposition).toEqual(composition);
+				const document = yield* service.publicationDocument(
+					pageRow.userId,
+					prepared.composition.hash,
+					{ kind: "kernel", name: "publication" },
+					() => Effect.succeed(pageToken),
+					frozen,
+				);
+				expect(document?.bootstrap).toContain(runtimeHash);
+				expect(
+					Object.values(document?.importMap.imports ?? {}).some((url) => url.includes(pageHash)),
+				).toBe(true);
+				expect(prepared.contributors).toContainEqual({
+					kind: "kernel-renderer",
+					name: kernelPublicationRenderer.name,
+					sourceHash: kernelPublicationRenderer.sourceHash,
+				});
+			}),
+	);
+});
+
+layer(pagesLayer)("publication artifact closure", (test) => {
+	test.effect(
+		"accepts private-capability system artifacts and refuses private plugin dependencies",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const available = yield* AvailablePlugins;
+				const visibility = yield* ArtifactVisibility;
+				yield* available.set([{ ...plugin, scope: "system", ownerUserId: null }]);
+				yield* visibility.hide(pluginHash);
+				const definition = {
+					...pageDefinition,
+					pluginDependencies: {
+						dependency: { scope: "system" as const, packageId: plugin.packageId },
+					},
+				};
+				yield* visibility.setDeclaration(definition);
+				yield* selections.setPage({ ...pageRow, publishedDefinition: definition });
+				const reference = { pageId: pageRow.id, kind: "page" as const };
+				const prepared = yield* service.preparePublication(pageRow.userId, reference);
+				expect(
+					prepared.contributors.some(
+						(contributor) => contributor.kind === "plugin" && contributor.pluginId === plugin.id,
+					),
+				).toBe(true);
+				const requested: string[] = [];
+				const document = yield* service.publicationDocument(
+					pageRow.userId,
+					prepared.composition.hash,
+					reference,
+					(hash) =>
+						Effect.sync(() => {
+							requested.push(hash);
+							return pageToken;
+						}),
+				);
+				expect(document).not.toBeNull();
+				expect(requested).toEqual([pluginHash, pageHash].sort());
+				const privateDefinition = {
+					...pageDefinition,
+					pluginDependencies: {
+						dependency: { scope: "user" as const, packageId: plugin.packageId },
+					},
+				};
+				yield* visibility.setDeclaration(privateDefinition);
+				yield* available.set([plugin]);
+				yield* selections.setPage({ ...pageRow, publishedDefinition: privateDefinition });
+				expect(
+					yield* service.preparePublication(pageRow.userId, reference).pipe(Effect.flip),
+				).toMatchObject({
+					reason: { reference: { scope: "user" }, code: "dependency-unavailable" },
+				});
+			}),
+	);
+});

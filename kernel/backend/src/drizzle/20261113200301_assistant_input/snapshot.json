@@ -1,0 +1,54 @@
+{
+	"type": "diff",
+	"version": "9",
+	"dialect": "postgres",
+	"id": "a4ace724-b214-48d1-924c-6a5bc657f764",
+	"prevIds": ["9d1d61a2-6a26-418b-9b4a-b7ef6664cee5"],
+	"footprints": [
+		{
+			"statementType": "recreate_index",
+			"statementTarget": ["index", "public", "assistant_turn", "assistant_turn_active_unique"],
+			"writes": [
+				"s|idx|public.assistant_turn_active_unique",
+				"n|idx|public.assistant_turn_active_unique",
+				"e|idx|public.assistant_turn_active_unique",
+				"n|rel|public.assistant_turn_active_unique"
+			],
+			"reads": [
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|col|public.assistant_turn.conversation_id"
+			],
+			"sharedWrites": [],
+			"sqlHash": "0a58b048caf8d4e6"
+		},
+		{
+			"statementType": "alter_check",
+			"statementTarget": ["table", "public", "assistant_turn"],
+			"writes": ["s|ck|public.assistant_turn.assistant_turn_status"],
+			"reads": [
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|col|public.assistant_turn.status",
+				"e|col|public.assistant_turn.status"
+			],
+			"sqlHash": "7fb945c998c8a9a9"
+		}
+	],
+	"deltas": [
+		{
+			"op": "alter",
+			"key": "indexes\u0000[\"public\",\"assistant_turn_active_unique\"]",
+			"set": {
+				"where": "\"status\" in ('queued', 'running', 'awaiting-approval', 'awaiting-input')"
+			}
+		},
+		{
+			"op": "alter",
+			"key": "checks\u0000[\"public\",\"assistant_turn\",\"assistant_turn_status\"]",
+			"set": {
+				"value": "\"status\" in ('queued', 'running', 'awaiting-approval', 'awaiting-input', 'completed', 'failed', 'interrupted')"
+			}
+		}
+	]
+}

@@ -1,0 +1,1064 @@
+import { apiKey } from "@better-auth/api-key";
+import { oauthProvider } from "@better-auth/oauth-provider";
+import {
+	AdminAccess,
+	AdminMiddleware,
+	AuthMiddleware,
+	AuthorizationContext,
+	AuthRateLimited,
+	AuthUnauthorized,
+	CurrentUser,
+	DemoOperationProtected,
+	UserInitializing,
+	WriteAccessDenied,
+} from "@ryot-app/contract/auth-middleware";
+import { DbError, unknownToDbError } from "@ryot-app/contract/errors";
+import { MutationPolicy } from "@ryot-app/contract/http-annotations";
+import type { CreateApiKeyBody } from "@ryot-app/contract/modules/account/schemas";
+import {
+	type AccessClass,
+	type AuthorizationContext as AuthorizationContextValue,
+	getOAuthEndpoint,
+	getOAuthIssuer,
+	getOAuthResource,
+	OAUTH_DEMO_WEB_CLIENT_ID,
+	OAUTH_LOGIN_PATH,
+	OAUTH_NATIVE_CLIENT_ID,
+	OAUTH_WEB_CLIENT_ID,
+	REPORTING_TIME_ZONE_HEADER,
+	writeAccessFromScopes,
+	writeAccessScopes,
+} from "@ryot-app/contract/oauth";
+import { ApiKeyId, type ConnectedAppId, UserId } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import {
+	UserPreferences,
+	type UserPreferencesPatch,
+} from "@ryot-app/contract/schema/user-preferences";
+import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
+import { betterAuth, type BetterAuthPlugin } from "better-auth";
+import { APIError, createAuthMiddleware, getOAuthState, getSessionFromCtx } from "better-auth/api";
+import { verifyBearerToken } from "better-auth/oauth2";
+import { genericOAuth, jwt, twoFactor } from "better-auth/plugins";
+import { eq } from "drizzle-orm";
+import { Cause, Context, Duration, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { SecureRandom } from "effect/crypto";
+import { HttpServerRequest, type HttpServerResponse } from "effect/http";
+import type { HttpApiEndpoint } from "effect/http-api";
+
+import { ImpersonationEndedMessage, impersonationEndedTopic } from "#modules/live-updates/publish";
+import { broadcastStatement } from "#platform/broadcast";
+import { AppConfig, type AppConfigValue } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { logHttpResponse } from "#platform/http/response-logger";
+import { TransientValues } from "#platform/transient-values";
+import * as authSchema from "#schema/tables/auth";
+
+import { API_KEY_SCOPES_PERMISSION } from "./api-key-scopes";
+import { authAdvancedOptions } from "./client-address";
+import { demoAccessPlugin } from "./demo-access-plugin";
+import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
+import { ImpersonationHandoffs } from "./impersonation-handoffs";
+import { impersonationOAuthExtension, isImpersonationClient } from "./impersonation-oauth";
+import { impersonationPlugin } from "./impersonation-plugin";
+import { ImpersonationSessions } from "./impersonation-sessions";
+import { LifecycleWriteGuard } from "./lifecycle-write-guard";
+import { mcpOAuthPlugin } from "./mcp-oauth-plugin";
+import { oauthPolicy, oauthProviderOptions } from "./oauth-policy";
+import { allowFrontendHttpRedirectUri } from "./oauth-provisioning";
+import { AuthRepository } from "./repository";
+import { captureResetLink, deliverResetLink, type ResetCaptureTransport } from "./reset-capture";
+import { SessionCreationGate } from "./session-gate";
+import { userInitializationPlugin } from "./user-initialization-plugin";
+
+const RESET_LINK_TIMEOUT_MS = 10_000;
+const RESET_PASSWORD_TOKEN_TTL_SECONDS = 30 * 60;
+
+const lifecycleProtectedAuthPaths = new Set([
+	"/delete-user",
+	"/link-social",
+	"/update-user",
+	"/change-email",
+	"/set-password",
+	"/api-key/create",
+	"/api-key/delete",
+	"/api-key/update",
+	"/revoke-session",
+	"/unlink-account",
+	"/update-session",
+	"/change-password",
+	"/revoke-sessions",
+	"/two-factor/enable",
+	"/two-factor/disable",
+	"/revoke-other-sessions",
+	"/two-factor/generate-backup-codes",
+]);
+
+export const isLifecycleProtectedAuthPath = (path: string) => lifecycleProtectedAuthPaths.has(path);
+
+const demoProtectedAuthPaths = new Set([
+	...lifecycleProtectedAuthPaths,
+	"/api-key/get",
+	"/account-info",
+	"/api-key/list",
+	"/list-accounts",
+	"/list-sessions",
+	"/refresh-token",
+	"/get-access-token",
+	"/two-factor/verify-totp",
+	"/two-factor/get-totp-uri",
+]);
+
+export const isDemoProtectedAuthRequest = (path: string, accessClass: unknown, clientId?: string) =>
+	accessClass === "demo" &&
+	(demoProtectedAuthPaths.has(path) ||
+		(path === "/oauth2/authorize" &&
+			typeof clientId === "string" &&
+			clientId !== OAUTH_DEMO_WEB_CLIENT_ID));
+
+const requestClientId = (ctx: {
+	readonly body?: unknown;
+	readonly query?: unknown;
+	readonly request?: Request | undefined;
+}) => {
+	for (const value of [ctx.query, ctx.body]) {
+		if (value !== null && typeof value === "object") {
+			const clientId: unknown = Reflect.get(value, "client_id");
+			if (typeof clientId === "string") {
+				return clientId;
+			}
+		}
+	}
+	return ctx.request
+		? (new URL(ctx.request.url).searchParams.get("client_id") ?? undefined)
+		: undefined;
+};
+
+const pendingResetKey = (email: string) => `instance-admin:pending-reset:${email}`;
+const passwordResetTokenKey = (userId: string) => `auth:password-reset:${userId}`;
+
+// The link arrives through a callback of the auth request this process just made, so the capture stays local.
+const makeResetCaptureTransport = (values: TransientValues["Service"]): ResetCaptureTransport => {
+	const listeners = new Map<string, (message: string) => void>();
+	return {
+		release: (email, id) => values.removeIfEquals(pendingResetKey(email), id),
+		reserve: (email, id) => values.setIfAbsent(pendingResetKey(email), id, "60 seconds"),
+		listen: (id, listener) =>
+			Effect.acquireRelease(
+				Effect.sync(() => {
+					listeners.set(id, listener);
+				}),
+				() =>
+					Effect.sync(() => {
+						listeners.delete(id);
+					}),
+			),
+		deliver: (email, id, message) =>
+			values.removeIfEquals(pendingResetKey(email), id).pipe(
+				Effect.map((delivered) => {
+					if (delivered) {
+						listeners.get(id)?.(message);
+					}
+				}),
+			),
+		track: (email, id, userId, token) =>
+			Effect.gen(function* () {
+				if ((yield* values.get(pendingResetKey(email))) !== id) {
+					return { tracked: false, previous: null };
+				}
+				const previous = yield* values.swap(
+					passwordResetTokenKey(userId),
+					token,
+					Duration.seconds(RESET_PASSWORD_TOKEN_TTL_SECONDS),
+				);
+				return { previous, tracked: true };
+			}),
+	};
+};
+
+export class AuthBootstrapScheduleError extends Schema.TaggedError<
+	AuthBootstrapScheduleError,
+	{ readonly brand: unique symbol }
+>()("AuthBootstrapScheduleError", { message: Schema.String }) {}
+
+export class AuthUserBootstrapScheduler extends Context.Service<
+	AuthUserBootstrapScheduler,
+	{ schedule: (userId: string) => Effect.Effect<void, AuthBootstrapScheduleError> }
+>()("@ryot-app/kernel-backend/modules/accounts/auth/service/AuthUserBootstrapScheduler") {}
+
+const makeOAuthProviderPlugin = (
+	frontendUrl: string,
+	requiresUserInitialization: (userId: string) => Promise<boolean>,
+	impersonationSessions: ImpersonationSessions["Service"],
+) => {
+	const { endpoints, ...plugin } = oauthProvider({
+		disableJwtPlugin: false,
+		loginPage: OAUTH_LOGIN_PATH,
+		consentPage: "/oauth/consent",
+		...oauthProviderOptions(frontendUrl),
+		grantTypes: ["authorization_code", "refresh_token"],
+		extensions: [impersonationOAuthExtension(impersonationSessions)],
+		allowInsecureRedirectUri: allowFrontendHttpRedirectUri(frontendUrl),
+		postLogin: {
+			page: "/oauth/initializing",
+			consentReferenceId: () => undefined,
+			shouldRedirect: ({ user }) => requiresUserInitialization(user.id),
+		},
+	});
+	const compatiblePlugin: BetterAuthPlugin = plugin;
+	Object.assign(compatiblePlugin, { endpoints });
+	return compatiblePlugin;
+};
+
+const makeAuthInstance = (args: {
+	readonly config: AppConfigValue;
+	readonly session: DatabaseSession["Service"];
+	readonly resetTransport: ResetCaptureTransport;
+	readonly repository: AuthRepository["Service"];
+	readonly lifecycle: LifecycleWriteGuard["Service"];
+	readonly runtime: Context.Context<DatabaseSession>;
+	readonly handoffs: ImpersonationHandoffs["Service"];
+	readonly sessionGate: SessionCreationGate["Service"];
+	readonly impersonationSessions: ImpersonationSessions["Service"];
+	readonly revokeResetToken: (token: string) => Effect.Effect<void, DbError>;
+	readonly revokePasswordResetAccess: (userId: UserId) => Effect.Effect<void, DbError>;
+	readonly scheduleUserBootstrap: (
+		userId: string,
+	) => Effect.Effect<void, AuthBootstrapScheduleError>;
+}) => {
+	const oidc = args.config.server.oidc;
+
+	const database = effectPostgresAuthAdapter({ session: args.session, context: args.runtime });
+	const requiresUserInitialization = (userId: string) =>
+		Effect.runPromiseWith(args.runtime)(
+			args.session.run((db) =>
+				db
+					.select({ bootstrapCompletedAt: authSchema.user.bootstrapCompletedAt })
+					.from(authSchema.user)
+					.where(eq(authSchema.user.id, userId))
+					.limit(1)
+					.pipe(Effect.map((users) => !users[0]?.bootstrapCompletedAt)),
+			),
+		);
+	const auth = betterAuth({
+		appName: "Ryot",
+		basePath: "/api/auth",
+		database: database.adapter,
+		advanced: authAdvancedOptions,
+		baseURL: args.config.frontendUrl,
+		trustedOrigins: [args.config.frontendUrl],
+		account: { accountLinking: { enabled: false } },
+		secret: Redacted.value(args.config.server.adminAccessToken),
+		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
+		user: {
+			additionalFields: {
+				disabledAt: { type: "date", input: false, required: false },
+				bootstrapCompletedAt: { type: "date", input: false, required: false },
+			},
+		},
+		session: {
+			storeSessionInDatabase: true,
+			additionalFields: {
+				impersonationExpiresAt: { input: false, type: "date", required: false },
+				accessClass: { input: false, type: "string", required: true, defaultValue: "standard" },
+			},
+		},
+		emailAndPassword: {
+			enabled: true,
+			autoSignIn: true,
+			revokeSessionsOnPasswordReset: true,
+			resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_TTL_SECONDS,
+			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
+			onPasswordReset: ({ user }) =>
+				Effect.runPromiseWith(args.runtime)(args.revokePasswordResetAccess(UserId.make(user.id))),
+			sendResetPassword: ({ user, token }, request) =>
+				Effect.runPromiseWith(args.runtime)(
+					deliverResetLink({
+						token,
+						request,
+						userId: user.id,
+						email: user.email,
+						transport: args.resetTransport,
+						revokeToken: args.revokeResetToken,
+						frontendUrl: args.config.frontendUrl,
+					}).pipe(
+						Effect.catchCauseIf(
+							(cause) => !Cause.hasInterruptsOnly(cause),
+							() =>
+								Effect.logError("reset password delivery failed").pipe(
+									Effect.annotateLogs({ email: user.email }),
+								),
+						),
+					),
+				),
+		},
+		plugins: [
+			jwt(),
+			demoAccessPlugin(Option.getOrNull(args.config.users.demoAccountId)),
+			impersonationPlugin(args.handoffs),
+			userInitializationPlugin(),
+			mcpOAuthPlugin(args.config.frontendUrl),
+			makeOAuthProviderPlugin(
+				args.config.frontendUrl,
+				requiresUserInitialization,
+				args.impersonationSessions,
+			),
+			twoFactor({ allowPasswordless: true }),
+			apiKey({
+				storage: "database",
+				enableSessionForAPIKeys: false,
+				rateLimit: {
+					maxRequests: 60,
+					timeWindow: 60 * 1000,
+					enabled: args.config.nodeEnv === "production",
+				},
+			}),
+			...(Option.isSome(oidc)
+				? [
+						genericOAuth({
+							config: [
+								{
+									providerId: "oidc",
+									clientId: oidc.value.clientId,
+									scopes: ["openid", "email", "profile"],
+									disableSignUp: !args.config.users.allowRegistration,
+									clientSecret: Redacted.value(oidc.value.clientSecret),
+									discoveryUrl: `${oidc.value.issuerUrl.replace(/\/$/, "")}/.well-known/openid-configuration`,
+								},
+							],
+						}),
+					]
+				: []),
+		],
+		databaseHooks: {
+			user: {
+				create: {
+					// oxlint-disable-next-line effecttsgo/async-function -- Better Auth database hooks are Promise-native.
+					after: async (user, context) => {
+						const header = context?.headers?.get(REPORTING_TIME_ZONE_HEADER);
+						const oauthState = !context || header ? null : await getOAuthState();
+						const requested: unknown = header ?? oauthState?.["reportingTimeZone"];
+						const reportingTimeZone = Schema.decodeUnknownOption(TimeZone)(requested);
+						await Effect.runPromiseWith(args.runtime)(
+							Effect.gen(function* () {
+								if (Option.isSome(reportingTimeZone)) {
+									yield* args.repository
+										.patchUserPreferences(UserId.make(user.id), {
+											reportingTimeZone: reportingTimeZone.value,
+										})
+										.pipe(
+											Effect.catchCause((cause) =>
+												Effect.logError("reporting time zone selection failed", cause),
+											),
+										);
+								}
+								yield* args
+									.scheduleUserBootstrap(user.id)
+									.pipe(
+										Effect.catchCause((cause) =>
+											Effect.logError("user bootstrap scheduling failed", cause),
+										),
+									);
+							}).pipe(Effect.annotateLogs({ userId: user.id })),
+						);
+					},
+				},
+			},
+			session: {
+				create: {
+					before: (session, context) =>
+						database.runInCurrentContext(context, args.sessionGate.gate(session.userId)),
+				},
+				update: {
+					before: (update, context) => {
+						const current = context?.context.session?.session;
+						const deadline: unknown = current
+							? Reflect.get(current, "impersonationExpiresAt")
+							: undefined;
+						if (!(deadline instanceof Date)) {
+							return Promise.resolve({ data: update });
+						}
+						const requested =
+							update.expiresAt instanceof Date ? update.expiresAt.getTime() : deadline.getTime();
+						return Promise.resolve({
+							data: { ...update, expiresAt: new Date(Math.min(requested, deadline.getTime())) },
+						});
+					},
+				},
+				delete: {
+					before: (session, context) =>
+						database.runInCurrentContext(
+							context,
+							Effect.gen(function* () {
+								if (!Reflect.get(session, "impersonationExpiresAt")) {
+									return;
+								}
+								yield* args.repository.revokeSessionOAuthTokens(session.id);
+							}),
+						),
+					after: (session) =>
+						Effect.runPromiseWith(args.runtime)(
+							Effect.gen(function* () {
+								if (!Reflect.get(session, "impersonationExpiresAt")) {
+									return;
+								}
+								const message = yield* Schema.encodeEffect(ImpersonationEndedMessage)({
+									sessionId: session.id,
+								});
+								yield* args.session.run((db) =>
+									db.execute(broadcastStatement(impersonationEndedTopic, message)),
+								);
+							}),
+						),
+				},
+			},
+		},
+		hooks: {
+			before: createAuthMiddleware((ctx) =>
+				Effect.runPromiseWith(args.runtime)(
+					Effect.gen(function* () {
+						const needsSession =
+							demoProtectedAuthPaths.has(ctx.path) ||
+							ctx.path === "/oauth2/authorize" ||
+							ctx.path === "/oauth2/continue" ||
+							ctx.path === "/get-session" ||
+							ctx.path === "/initialization-status";
+						if (!needsSession) {
+							return undefined;
+						}
+						const session = yield* Effect.promise(() =>
+							getSessionFromCtx(ctx, { disableRefresh: true, disableCookieCache: true }),
+						);
+						if (!session) {
+							if (
+								isImpersonationClient(requestClientId(ctx) ?? "") &&
+								ctx.path === "/oauth2/authorize"
+							) {
+								return yield* Effect.fail(
+									APIError.from("FORBIDDEN", {
+										code: "IMPERSONATION_REQUIRED",
+										message: "An impersonation session is required.",
+									}),
+								);
+							}
+							return undefined;
+						}
+						const marked =
+							Reflect.get(session.session, "impersonationExpiresAt") !== null &&
+							Reflect.get(session.session, "impersonationExpiresAt") !== undefined;
+						if (
+							marked &&
+							!(yield* args.impersonationSessions.getActive(session.session.id, session.user.id))
+						) {
+							return yield* Effect.fail(
+								APIError.from("UNAUTHORIZED", {
+									code: "IMPERSONATION_ENDED",
+									message: "The impersonation session has ended.",
+								}),
+							);
+						}
+						if (
+							ctx.path === "/oauth2/authorize" &&
+							marked !== isImpersonationClient(requestClientId(ctx) ?? "")
+						) {
+							return yield* Effect.fail(
+								APIError.from("FORBIDDEN", {
+									code: "IMPERSONATION_CLIENT_MISMATCH",
+									message: "This session cannot authorize the requested client.",
+								}),
+							);
+						}
+						if (
+							isDemoProtectedAuthRequest(
+								ctx.path,
+								Reflect.get(session.session, "accessClass"),
+								requestClientId(ctx),
+							)
+						) {
+							return yield* Effect.fail(
+								APIError.from("FORBIDDEN", {
+									code: "DEMO_OPERATION_PROTECTED",
+									message: "This operation is unavailable while using the shared demo account.",
+								}),
+							);
+						}
+						const currentUser =
+							ctx.path === "/oauth2/continue"
+								? yield* Effect.promise(() =>
+										ctx.context.internalAdapter.findUserById(session.user.id),
+									)
+								: null;
+						if (
+							ctx.path === "/oauth2/continue" &&
+							(!currentUser || !Reflect.get(currentUser, "bootstrapCompletedAt"))
+						) {
+							return yield* Effect.fail(
+								APIError.from("SERVICE_UNAVAILABLE", {
+									code: "USER_INITIALIZING",
+									message: "Account initialization is still in progress.",
+								}),
+							);
+						}
+						if (!isLifecycleProtectedAuthPath(ctx.path)) {
+							return undefined;
+						}
+						if (yield* args.lifecycle.isActive(UserId.make(session.user.id))) {
+							return yield* Effect.fail(
+								APIError.from("FORBIDDEN", {
+									code: "USER_LIFECYCLE_ACTIVE",
+									message: "This user is temporarily unavailable.",
+								}),
+							);
+						}
+						return undefined;
+					}),
+				),
+			),
+		},
+	});
+
+	return auth;
+};
+
+export type AuthUserInput = {
+	id: string;
+	name: string;
+	email: string;
+	emailVerified: boolean;
+	disabledAt?: Date | null;
+};
+type AuthInstance = ReturnType<typeof makeAuthInstance>;
+type AuthContextValue = Awaited<AuthInstance["$context"]>;
+type AuthUserRecord = Pick<
+	typeof authSchema.user.$inferSelect,
+	"id" | "name" | "email" | "image" | "disabledAt" | "preferences" | "bootstrapCompletedAt"
+>;
+
+const authenticationRequired = () =>
+	new AuthUnauthorized({ reason: { code: "authentication-required" } });
+
+export type ResolvedCredential = {
+	readonly user: CurrentUser["Service"];
+	readonly authorization: AuthorizationContextValue;
+};
+
+type CredentialInput =
+	| { readonly kind: "oauth"; readonly token: string }
+	| { readonly key: string; readonly kind: "api-key" };
+
+export const credentialFromHeaders = (headers: Headers): null | CredentialInput => {
+	const authorization = headers.get("authorization");
+	if (authorization?.startsWith("Bearer ") && authorization.length > "Bearer ".length) {
+		return { kind: "oauth", token: authorization.slice("Bearer ".length) };
+	}
+	const key = headers.get("x-api-key");
+	return key ? { key, kind: "api-key" } : null;
+};
+
+type VerifiedCredential = Omit<AuthorizationContextValue, "accessClass">;
+
+type ApiKeyVerification = {
+	readonly valid: boolean;
+	readonly error: unknown;
+	readonly key: null | {
+		readonly id: string;
+		readonly referenceId: string;
+		readonly permissions?: null | undefined | { readonly [key: string]: readonly string[] };
+	};
+};
+
+const rateLimitError = Schema.Struct({
+	code: Schema.Literal("RATE_LIMITED"),
+	details: Schema.optional(Schema.Struct({ tryAgainIn: Schema.Finite })),
+});
+
+const rateLimited = (error: unknown) => {
+	const decoded = Schema.decodeUnknownOption(rateLimitError)(error);
+	const tryAgainIn = Option.isSome(decoded) ? decoded.value.details?.tryAgainIn : undefined;
+	return new AuthRateLimited({
+		reason: {
+			code: "api-key-rate-limited",
+			retryAfterMs:
+				typeof tryAgainIn === "number" && Number.isFinite(tryAgainIn) && tryAgainIn >= 0
+					? tryAgainIn
+					: null,
+		},
+	});
+};
+
+const resolveOAuthCredential = (
+	token: string,
+	verifyOAuth: (token: string) => Promise<unknown>,
+): Effect.Effect<VerifiedCredential, AuthUnauthorized> =>
+	Effect.tryPromise({ try: () => verifyOAuth(token), catch: authenticationRequired }).pipe(
+		Effect.flatMap(
+			Schema.decodeUnknownEffect(
+				Schema.Struct({
+					sub: Schema.String,
+					scope: Schema.String,
+					client_id: Schema.String,
+					sid: Schema.optional(Schema.String),
+				}),
+			),
+		),
+		Effect.mapBoth({
+			onFailure: authenticationRequired,
+			onSuccess: ({ sub, sid, scope, client_id }) => ({
+				userId: sub,
+				writeAccess: writeAccessFromScopes(scope.split(" ")),
+				credential: {
+					kind: "oauth",
+					clientId: client_id,
+					...(sid === undefined ? {} : { sessionId: sid }),
+				},
+			}),
+		}),
+	);
+
+const resolveApiKeyCredential = Effect.fn("resolveApiKeyCredential")(function* (
+	key: string,
+	verifyApiKey: (key: string) => Promise<ApiKeyVerification>,
+): Effect.fn.Return<VerifiedCredential, AuthRateLimited | AuthUnauthorized> {
+	const result = yield* Effect.tryPromise({
+		try: () => verifyApiKey(key),
+		catch: authenticationRequired,
+	});
+	if (Option.isSome(Schema.decodeUnknownOption(rateLimitError)(result.error))) {
+		return yield* rateLimited(result.error);
+	}
+	if (!result.valid || !result.key) {
+		return yield* authenticationRequired();
+	}
+	return {
+		userId: result.key.referenceId,
+		credential: { kind: "api-key", keyId: result.key.id },
+		writeAccess: writeAccessFromScopes(result.key.permissions?.[API_KEY_SCOPES_PERMISSION] ?? []),
+	};
+});
+
+export const getOAuthVerificationOptions = (
+	frontendUrl: string,
+	resource = getOAuthResource(frontendUrl),
+) => ({
+	requiredScopes: [...oauthPolicy.requiredScopes],
+	jwksUrl: getOAuthEndpoint(frontendUrl, "/api/auth/jwks"),
+	verifyOptions: { audience: resource, issuer: getOAuthIssuer(frontendUrl) },
+});
+
+export const resolveCredential = <E>(
+	credential: CredentialInput,
+	verifyOAuth: (token: string) => Promise<unknown>,
+	verifyApiKey: (key: string) => Promise<ApiKeyVerification>,
+	findUserById: (userId: string) => Effect.Effect<null | AuthUserRecord, E>,
+	demoAccountId: null | string = null,
+	impersonationSessions?: ImpersonationSessions["Service"],
+) =>
+	Effect.gen(function* () {
+		let verified: VerifiedCredential;
+		if (credential.kind === "oauth") {
+			verified = yield* resolveOAuthCredential(credential.token, verifyOAuth);
+		} else {
+			verified = yield* resolveApiKeyCredential(credential.key, verifyApiKey);
+		}
+		const user = yield* findUserById(verified.userId).pipe(Effect.mapError(authenticationRequired));
+		if (!user || user.disabledAt) {
+			return yield* authenticationRequired();
+		}
+		if (!user.bootstrapCompletedAt) {
+			return yield* new UserInitializing({ reason: { code: "user-initializing" } });
+		}
+		const preferences = yield* Schema.decodeEffect(UserPreferences)(user.preferences).pipe(
+			Effect.mapError(
+				(error) => new DbError({ message: `Invalid stored user preferences: ${error.message}` }),
+			),
+			Effect.orDie,
+		);
+		let impersonation;
+		if (
+			verified.credential.kind === "oauth" &&
+			isImpersonationClient(verified.credential.clientId)
+		) {
+			const sessionId = verified.credential.sessionId;
+			impersonation =
+				sessionId && impersonationSessions
+					? yield* impersonationSessions
+							.getActive(sessionId, user.id)
+							.pipe(Effect.mapError(authenticationRequired))
+					: null;
+			if (!impersonation) {
+				return yield* authenticationRequired();
+			}
+		}
+		let accessClass: AccessClass = "standard";
+		if (
+			verified.credential.kind === "oauth" &&
+			(verified.credential.clientId === OAUTH_DEMO_WEB_CLIENT_ID ||
+				(verified.credential.clientId !== OAUTH_WEB_CLIENT_ID &&
+					verified.credential.clientId !== OAUTH_NATIVE_CLIENT_ID &&
+					!isImpersonationClient(verified.credential.clientId) &&
+					user.id === demoAccountId))
+		) {
+			accessClass = "demo";
+		} else if (verified.credential.kind === "api-key" && user.id === demoAccountId) {
+			accessClass = "demo";
+		}
+		return {
+			user: {
+				preferences,
+				name: user.name,
+				email: user.email,
+				image: user.image,
+				id: UserId.make(user.id),
+			},
+			authorization: {
+				accessClass,
+				userId: user.id,
+				credential: verified.credential,
+				writeAccess: verified.writeAccess,
+				...(impersonation ? { impersonation } : {}),
+			},
+		};
+	});
+
+export const resolveTrustedAccount = Effect.fn("resolveTrustedAccount")(function* (
+	userId: UserId,
+	repository: Pick<AuthRepository["Service"], "findUserById">,
+	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
+	demoAccountId: null | string,
+) {
+	const user = yield* repository.findUserById(userId);
+	if (!user || user.disabledAt || (yield* lifecycle.isActive(userId))) {
+		return yield* authenticationRequired();
+	}
+	if (!user.bootstrapCompletedAt) {
+		return yield* new UserInitializing({ reason: { code: "user-initializing" } });
+	}
+	const preferences = yield* Schema.decodeEffect(UserPreferences)(user.preferences).pipe(
+		Effect.mapError((error) => new DbError({ message: error.message })),
+	);
+	const authorization: Pick<AuthorizationContextValue, "accessClass" | "writeAccess"> = {
+		writeAccess: "confirm",
+		accessClass: userId === demoAccountId ? "demo" : "standard",
+	};
+	return {
+		authorization,
+		user: { id: userId, preferences, name: user.name, email: user.email, image: user.image },
+	};
+});
+
+export class AuthService extends Context.Service<AuthService>()(
+	"@ryot-app/kernel-backend/modules/accounts/auth/service/AuthService",
+	{
+		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
+			const session = yield* DatabaseSession;
+			const config = yield* AppConfig;
+			const values = yield* TransientValues;
+			const resetTransport = makeResetCaptureTransport(values);
+			const repository = yield* AuthRepository;
+			const userBootstrap = yield* AuthUserBootstrapScheduler;
+			const lifecycle = yield* LifecycleWriteGuard;
+			const sessionGate = yield* SessionCreationGate;
+			const impersonationSessions = yield* ImpersonationSessions;
+			const handoffs = yield* ImpersonationHandoffs;
+			const runtime = yield* Effect.context<DatabaseSession>();
+			const auth = makeAuthInstance({
+				config,
+				session,
+				runtime,
+				handoffs,
+				lifecycle,
+				repository,
+				sessionGate,
+				resetTransport,
+				impersonationSessions,
+				scheduleUserBootstrap: userBootstrap.schedule,
+				revokeResetToken: (token) => revokeResetToken(token),
+				revokePasswordResetAccess: (userId) => revokePasswordResetAccess(userId),
+			});
+			const authenticate = (credential: CredentialInput, resource?: string) =>
+				resolveCredential(
+					credential,
+					(token) =>
+						verifyBearerToken(token, getOAuthVerificationOptions(config.frontendUrl, resource)),
+					(key) => auth.api.verifyApiKey({ body: { key } }),
+					repository.findUserById,
+					Option.getOrNull(config.users.demoAccountId),
+					impersonationSessions,
+				);
+			const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
+				Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context }).pipe(
+					Effect.flatMap((context) =>
+						Effect.tryPromise({ catch: unknownToDbError, try: () => operation(context) }),
+					),
+				);
+			// The api-key plugin caches keys in secondary storage but has no admin/server-side API to
+			// invalidate another user's keys (deletion only works through the owning user's session), so
+			// we purge the cache directly via Better Auth's secondaryStorage (its wrapper adds the
+			// `better-auth:` prefix). The `api-key:*` shapes mirror the plugin's internal
+			// getStorageKeyBy* helpers and are pinned to @better-auth/api-key.
+			// TODO: drop this once upstream ships admin-managed api-key deletion.
+			// https://github.com/better-auth/better-auth/discussions/7907
+			const purgeApiKeyCaches = (
+				userId: UserId,
+				apiKeys: ReadonlyArray<{ id: string; key: string }>,
+			) =>
+				Effect.promise(() => auth.$context).pipe(
+					Effect.flatMap((ctx) => {
+						const storage = ctx.secondaryStorage;
+						if (!storage) {
+							return Effect.void;
+						}
+						return Effect.promise(() =>
+							Promise.all([
+								storage.delete(`api-key:by-ref:${userId}`),
+								...apiKeys.flatMap((entry) => [
+									storage.delete(`api-key:${entry.key}`),
+									storage.delete(`api-key:by-id:${entry.id}`),
+								]),
+							]),
+						);
+					}),
+				);
+			const revokeResetToken = (token: string) =>
+				withInternalAdapter(({ internalAdapter }) =>
+					internalAdapter.deleteVerificationByIdentifier(`reset-password:${token}`),
+				);
+			const revokePasswordResetLinks = Effect.fn("AuthService.revokePasswordResetLinks")(function* (
+				userId: UserId,
+			) {
+				const key = passwordResetTokenKey(userId);
+				const token = yield* values.get(key);
+				if (token === null) {
+					return;
+				}
+				yield* revokeResetToken(token);
+				yield* values.removeIfEquals(key, token);
+			});
+			const revokePasswordResetAccess = Effect.fn("AuthService.revokePasswordResetAccess")(
+				function* (userId: UserId) {
+					yield* repository.revokeUserOAuthTokens(userId);
+					yield* purgeApiKeyCaches(userId, yield* repository.deleteUserApiKeys(userId));
+					yield* revokePasswordResetLinks(userId);
+				},
+			);
+			const requestPasswordResetLink = Effect.fn("AuthService.requestPasswordResetLink")(function* (
+				email: string,
+			) {
+				return yield* captureResetLink({
+					email,
+					random,
+					transport: resetTransport,
+					frontendUrl: config.frontendUrl,
+					timeoutMs: RESET_LINK_TIMEOUT_MS,
+					initiate: (request) => auth.handler(request),
+				});
+			});
+
+			const createUserApiKey = Effect.fn("AuthService.createUserApiKey")(function* (
+				userId: UserId,
+				input: CreateApiKeyBody,
+			) {
+				const created = yield* Effect.tryPromise({
+					catch: unknownToDbError,
+					try: () =>
+						auth.api.createApiKey({
+							body: {
+								userId,
+								name: input.name,
+								permissions: {
+									[API_KEY_SCOPES_PERMISSION]: [...writeAccessScopes[input.writeAccess]],
+								},
+								expiresIn:
+									input.expiresInDays === null
+										? null
+										: Duration.toSeconds(Duration.days(input.expiresInDays)),
+							},
+						}),
+				});
+				return { key: created.key, id: ApiKeyId.make(created.id) };
+			});
+			const revokeUserApiKey = Effect.fn("AuthService.revokeUserApiKey")(function* (
+				userId: UserId,
+				apiKeyId: ApiKeyId,
+			) {
+				yield* purgeApiKeyCaches(userId, yield* repository.deleteUserApiKey(userId, apiKeyId));
+			});
+
+			const revokeUserConnectedApp = (userId: UserId, connectedAppId: ConnectedAppId) =>
+				repository.revokeUserOAuthConsent(userId, connectedAppId);
+
+			return {
+				revokeUserApiKey,
+				createUserApiKey,
+				purgeApiKeyCaches,
+				handler: auth.handler,
+				revokeUserConnectedApp,
+				requestPasswordResetLink,
+				revokePasswordResetLinks,
+				startUserImpersonation: handoffs.create,
+				updateAuthUserDisabled: repository.updateUserDisabled,
+				apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
+				oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
+				revokeUserOAuthTokens: (userId: UserId) =>
+					repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
+				updateUserPreferences: (userId: UserId, patch: UserPreferencesPatch) =>
+					repository.patchUserPreferences(userId, patch).pipe(Effect.asVoid),
+				deleteUserSessions: (userId: UserId) =>
+					withInternalAdapter(({ internalAdapter }) =>
+						internalAdapter.deleteUserSessions(userId),
+					).pipe(Effect.orDie),
+				updateUserName: (userId: UserId, name: string) =>
+					withInternalAdapter(({ internalAdapter }) =>
+						internalAdapter.updateUser(userId, { name }),
+					).pipe(Effect.asVoid),
+				resolveTrustedAccount: (userId: UserId) =>
+					resolveTrustedAccount(
+						userId,
+						repository,
+						lifecycle,
+						Option.getOrNull(config.users.demoAccountId),
+					),
+				updateUserImage: (userId: UserId, image: string) =>
+					withInternalAdapter(({ internalAdapter }) =>
+						internalAdapter.updateUser(userId, { image }),
+					).pipe(Effect.asVoid),
+				linkAuthAccount: (account: {
+					id: string;
+					userId: string;
+					accountId: string;
+					providerId: string;
+				}) => withInternalAdapter(({ internalAdapter }) => internalAdapter.linkAccount(account)),
+				createAuthUser: (user: AuthUserInput) =>
+					withInternalAdapter(({ internalAdapter }) =>
+						internalAdapter.createUser(
+							{ ...user, email: user.email.toLowerCase() },
+							{ method: "admin" },
+						),
+					),
+				currentUser: (headers: Headers) => {
+					const credential = credentialFromHeaders(headers);
+					return credential
+						? authenticate(credential).pipe(Effect.map(({ user }) => user))
+						: Effect.fail(authenticationRequired());
+				},
+				resolveRequestCredential: (headers: Headers, resource?: string) => {
+					const credential = credentialFromHeaders(headers);
+					return credential
+						? authenticate(credential, resource)
+						: Effect.fail(authenticationRequired());
+				},
+			};
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
+
+export const makeAuthMiddleware = (
+	auth: Pick<AuthService["Service"], "oauthUser" | "apiKeyUser">,
+	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
+) => {
+	const authenticate = <E, R>(
+		httpEffect: Effect.Effect<
+			HttpServerResponse.HttpServerResponse,
+			E,
+			R | CurrentUser | AuthorizationContext
+		>,
+		resolved: Effect.Effect<
+			ResolvedCredential,
+			AuthRateLimited | AuthUnauthorized | UserInitializing,
+			HttpServerRequest.HttpServerRequest
+		>,
+		endpoint: HttpApiEndpoint.Top,
+	) =>
+		Effect.gen(function* () {
+			const request = yield* HttpServerRequest.HttpServerRequest;
+			const { user, authorization } = yield* resolved;
+			const policy = Context.get(endpoint.annotations, MutationPolicy);
+			if (authorization.accessClass === "demo" && policy === "write") {
+				return yield* new DemoOperationProtected({ reason: { code: "demo-operation-protected" } });
+			}
+			if (policy !== "read" && authorization.writeAccess !== "unattended") {
+				return yield* new WriteAccessDenied({
+					reason: { code: "write-access-denied", writeAccess: authorization.writeAccess },
+				});
+			}
+			if (
+				request.method !== "GET" &&
+				request.method !== "HEAD" &&
+				request.method !== "OPTIONS" &&
+				(yield* lifecycle.isActive(user.id).pipe(Effect.orDie))
+			) {
+				return yield* new AuthUnauthorized({ reason: { code: "write-blocked" } });
+			}
+			const span = yield* Effect.catchNoSuchElement(Effect.currentSpan);
+			const annotations = Option.isSome(span)
+				? { userId: user.id, traceId: span.value.traceId }
+				: { userId: user.id };
+			const handler = httpEffect.pipe(
+				Effect.provideService(CurrentUser, user),
+				Effect.provideService(AuthorizationContext, authorization),
+			);
+
+			return yield* logHttpResponse(handler, endpoint.path, annotations, "Debug");
+		});
+
+	return {
+		oauth: (
+			httpEffect,
+			{
+				endpoint,
+				credential,
+			}: { readonly credential: Redacted.Redacted; readonly endpoint: HttpApiEndpoint.Top },
+		) => authenticate(httpEffect, auth.oauthUser(Redacted.value(credential)), endpoint),
+		apiKey: (
+			httpEffect,
+			{
+				endpoint,
+				credential,
+			}: { readonly credential: Redacted.Redacted; readonly endpoint: HttpApiEndpoint.Top },
+		) => {
+			const key = Redacted.value(credential);
+			const resolved = key
+				? auth.apiKeyUser(key)
+				: Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
+						const requestCredential = credentialFromHeaders(new Headers(request.headers));
+						return requestCredential?.kind === "oauth"
+							? auth.oauthUser(requestCredential.token)
+							: auth.apiKeyUser(key);
+					});
+			return authenticate(httpEffect, resolved, endpoint);
+		},
+	} satisfies AuthMiddleware["Service"];
+};
+
+export const AuthMiddlewareLive = Layer.effect(
+	AuthMiddleware,
+	Effect.gen(function* () {
+		const auth = yield* AuthService;
+		const lifecycle = yield* LifecycleWriteGuard;
+		return makeAuthMiddleware(auth, lifecycle);
+	}),
+);
+
+export const makeAdminMiddleware = (adminAccessToken: Redacted.Redacted) => {
+	const adminTokenDigest = createSha256Hasher().update(Redacted.value(adminAccessToken)).digest();
+	return {
+		adminToken: (httpEffect, { credential }: { readonly credential: Redacted.Redacted }) => {
+			const value = Redacted.value(credential);
+			return value !== "" &&
+				crypto.timingSafeEqual(createSha256Hasher().update(value).digest(), adminTokenDigest)
+				? Effect.provideService(httpEffect, AdminAccess, { authorized: true })
+				: Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }));
+		},
+	} satisfies AdminMiddleware["Service"];
+};
+
+export const AdminMiddlewareLive = Layer.effect(
+	AdminMiddleware,
+	Effect.gen(function* () {
+		const config = yield* AppConfig;
+		return makeAdminMiddleware(config.server.adminAccessToken);
+	}),
+);

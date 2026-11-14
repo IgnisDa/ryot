@@ -1,0 +1,377 @@
+import { expect } from "bun:test";
+
+import { DbError } from "@ryot-app/contract/errors";
+import { ConnectedAppId, UserId } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { layer } from "@voila.dev/effect-bun-test";
+import { eq, sql } from "drizzle-orm";
+import { Deferred, Effect, Layer } from "effect";
+
+import { TranslationsRepository } from "#modules/entities/localization/repository";
+import { IntegrationsRepository } from "#modules/integrations/repository";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { DatabaseSession } from "#platform/db/session";
+import {
+	oauthAccessToken,
+	oauthClient,
+	oauthConsent,
+	oauthRefreshToken,
+	user,
+} from "#schema/tables/auth";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
+
+import { AuthRepository } from "./repository";
+
+const grantTime = new Date(0);
+const grantExpiry = new Date(3_600_000);
+
+const testLayer = Layer.mergeAll(AuthRepository.layer, PluginConfigEncryptionKey.layer).pipe(
+	Layer.provideMerge(isolatedDatabaseLayer("auth_prefs_test")),
+);
+
+layer(testLayer)((test) => {
+	test.effect(
+		"revokes one connected app's consent and tokens without touching other apps or users",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const owner = UserId.make("connected-owner");
+				const other = UserId.make("connected-other");
+				yield* session.run((db) =>
+					db.insert(user).values([
+						{ id: owner, name: "Owner", email: "connected-owner@example.test" },
+						{ id: other, name: "Other", email: "connected-other@example.test" },
+					]),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(oauthClient)
+						.values(
+							["revoked-client", "kept-client"].map((clientId) => ({
+								clientId,
+								id: clientId,
+								redirectUris: ["https://client.example/callback"],
+							})),
+						),
+				);
+				const grants = [
+					{ id: "revoked", userId: owner, clientId: "revoked-client" },
+					{ id: "kept", userId: owner, clientId: "kept-client" },
+					{ id: "foreign", userId: other, clientId: "revoked-client" },
+				];
+				yield* session.run((db) =>
+					db
+						.insert(oauthConsent)
+						.values(
+							grants.map(({ id, userId, clientId }) => ({
+								id,
+								userId,
+								clientId,
+								scopes: [],
+								createdAt: grantTime,
+								updatedAt: grantTime,
+							})),
+						),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(oauthRefreshToken)
+						.values(
+							grants.map(({ id, userId, clientId }) => ({
+								id,
+								userId,
+								clientId,
+								scopes: [],
+								createdAt: grantTime,
+								expiresAt: grantExpiry,
+								token: `refresh-${id}`,
+							})),
+						),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(oauthAccessToken)
+						.values(
+							grants.map(({ id, userId, clientId }) => ({
+								id,
+								userId,
+								clientId,
+								scopes: [],
+								createdAt: grantTime,
+								token: `access-${id}`,
+								expiresAt: grantExpiry,
+							})),
+						),
+				);
+				yield* repository.revokeUserOAuthConsent(owner, ConnectedAppId.make("foreign"));
+				yield* repository.revokeUserOAuthConsent(owner, ConnectedAppId.make("revoked"));
+				const consents = yield* session.run((db) =>
+					db.select({ id: oauthConsent.id }).from(oauthConsent),
+				);
+				expect(sortBy(consents.map(({ id }) => id))).toEqual(["foreign", "kept"]);
+				for (const table of [oauthRefreshToken, oauthAccessToken]) {
+					const tokens = yield* session.run((db) =>
+						db.select({ id: table.id, revoked: table.revoked }).from(table),
+					);
+					expect(tokens.filter(({ revoked }) => revoked !== null).map(({ id }) => id)).toEqual([
+						"revoked",
+					]);
+				}
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"preference consumers preserve missing users and reject malformed storage",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const translations = yield* TranslationsRepository.make;
+				const integrations = yield* IntegrationsRepository.make;
+				const id = UserId.make("read-user");
+				const missing = UserId.make("missing-read-user");
+				expect(yield* repository.getUserPreferences(missing)).toBeNull();
+				expect(yield* translations.findUserLanguage(missing)).toBeNull();
+				expect(yield* integrations.getUserDisableIntegrations({ userId: missing })).toBe(false);
+				yield* session.run((db) =>
+					db.insert(user).values({ id, name: "Reader", email: "read@example.test" }),
+				);
+				yield* repository.patchUserPreferences(id, { language: "fr", disableIntegrations: true });
+				yield* repository.patchUserPreferences(id, {
+					ratingScale: "three-point",
+					reportingTimeZone: TimeZone.make("America/New_York"),
+				});
+				expect(yield* repository.getUserPreferences(id)).toEqual({
+					...defaultUserPreferences,
+					language: "fr",
+					disableIntegrations: true,
+					ratingScale: "three-point",
+					reportingTimeZone: TimeZone.make("America/New_York"),
+				});
+				expect(yield* translations.findUserLanguage(id)).toBe("fr");
+				expect(yield* integrations.getUserDisableIntegrations({ userId: id })).toBe(true);
+				const exit = yield* Effect.exit(
+					session.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db.execute(sql`alter table "user" drop constraint user_preferences_check`),
+							);
+							yield* session.run((db) =>
+								db.execute(
+									sql`update "user" set preferences = '{"disableIntegrations":"yes"}'::jsonb where id = ${id}`,
+								),
+							);
+							expect(
+								(yield* Effect.flip(repository.getUserPreferences(id)).pipe(Effect.orDie)).message,
+							).toContain("Invalid stored user preferences");
+							expect(
+								(yield* Effect.flip(translations.findUserLanguage(id)).pipe(Effect.orDie)).message,
+							).toContain("Invalid stored user preferences");
+							expect(
+								(yield* Effect.flip(integrations.getUserDisableIntegrations({ userId: id })).pipe(
+									Effect.orDie,
+								)).message,
+							).toContain("Invalid stored user preferences");
+							return yield* new DbError({ message: "roll back malformed preferences" });
+						}),
+					),
+				);
+				assertExitFails(exit, new DbError({ message: "roll back malformed preferences" }));
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"defaults new accounts to UTC and rejects a missing reporting zone or unknown rating scale",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const id = UserId.make("default-zone");
+				yield* session.run((db) =>
+					db.insert(user).values({ id, name: "User", email: `${id}@example.test` }),
+				);
+				expect((yield* repository.getUserPreferences(id))?.reportingTimeZone).toBe<unknown>("UTC");
+				const invalid = yield* Effect.flip(
+					session.run((db) =>
+						db.execute(
+							sql`update "user" set preferences = preferences || '{"reportingTimeZone":null}'::jsonb where id = ${id}`,
+						),
+					),
+				);
+				expect(invalid.code).toBe("23514");
+				const unknownScale = yield* Effect.flip(
+					session.run((db) =>
+						db.execute(
+							sql`update "user" set preferences = preferences || '{"ratingScale":"stars"}'::jsonb where id = ${id}`,
+						),
+					),
+				);
+				expect(unknownScale.code).toBe("23514");
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"preference consumers capture a replacement auth repository at construction",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* AuthRepository;
+				const replacement = AuthRepository.of({
+					...repository,
+					getUserPreferences: () =>
+						Effect.succeed({
+							...defaultUserPreferences,
+							language: "de",
+							disableIntegrations: true,
+						}),
+				});
+				const translations = yield* TranslationsRepository.make.pipe(
+					Effect.provideService(AuthRepository, replacement),
+				);
+				const integrations = yield* IntegrationsRepository.make.pipe(
+					Effect.provideService(AuthRepository, replacement),
+				);
+				const id = UserId.make("not-in-database");
+				expect(yield* translations.findUserLanguage(id)).toBe("de");
+				expect(yield* integrations.getUserDisableIntegrations({ userId: id })).toBe(true);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"merges concurrent independent patches without lost updates",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const id = UserId.make("concurrent-user");
+				yield* session.run((db) =>
+					db.insert(user).values({ id, name: "User", email: "concurrent@example.test" }),
+				);
+				const ready = yield* Deferred.make<void>();
+				const secondStarted = yield* Deferred.make<void>();
+				const first = session.transaction(
+					Effect.gen(function* () {
+						yield* repository.patchUserPreferences(id, { language: "fr" });
+						yield* Deferred.succeed(ready, undefined);
+						yield* Deferred.await(secondStarted);
+					}),
+				);
+				const second = Effect.gen(function* () {
+					yield* Deferred.await(ready);
+					yield* Deferred.succeed(secondStarted, undefined);
+					yield* repository.patchUserPreferences(id, { disableIntegrations: true });
+				});
+				yield* Effect.all([first, second], { concurrency: 2 });
+				const [stored] = yield* session.run((db) =>
+					db.select({ preferences: user.preferences }).from(user).where(eq(user.id, id)),
+				);
+				expect(stored?.preferences).toEqual({
+					...defaultUserPreferences,
+					language: "fr",
+					disableIntegrations: true,
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"no-op does not touch the row; invalid persisted JSON fails decode",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const id = UserId.make("no-op-user");
+				yield* session.run((db) =>
+					db.insert(user).values({ id, name: "User", email: "noop@example.test" }),
+				);
+				const [before] = yield* session.run((db) =>
+					db
+						.select({ updatedAt: user.updatedAt, preferences: user.preferences })
+						.from(user)
+						.where(eq(user.id, id)),
+				);
+				expect(yield* repository.patchUserPreferences(id, {})).toEqual(defaultUserPreferences);
+				const [after] = yield* session.run((db) =>
+					db.select({ updatedAt: user.updatedAt }).from(user).where(eq(user.id, id)),
+				);
+				expect(after?.updatedAt).toEqual(before?.updatedAt);
+				expect(
+					(yield* Effect.flip(
+						repository.patchUserPreferences(UserId.make("missing"), { disableIntegrations: true }),
+					)).message,
+				).toContain("User not found");
+				const invalid = yield* Effect.flip(
+					session.run((db) =>
+						db.execute(
+							sql`update "user" set preferences = '{"disableIntegrations":"yes"}'::jsonb where id = ${id}`,
+						),
+					),
+				);
+				expect(invalid.code).toBe("23514");
+				const malformed = yield* Effect.exit(
+					session.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db.execute(sql`alter table "user" drop constraint user_preferences_check`),
+							);
+							yield* session.run((db) =>
+								db.execute(
+									sql`update "user" set preferences = '{"disableIntegrations":"yes"}'::jsonb where id = ${id}`,
+								),
+							);
+							expect(
+								(yield* Effect.flip(repository.patchUserPreferences(id, {}))).message,
+							).toContain("Invalid stored user preferences");
+							return yield* new DbError({ message: "roll back malformed test row" });
+						}),
+					),
+				);
+				expect(malformed._tag).toBe("Failure");
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"same-field patches have a valid last writer without changing unrelated fields",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const id = UserId.make("same-field-user");
+				yield* session.run((db) =>
+					db.insert(user).values({ id, name: "User", email: "same@example.test" }),
+				);
+				yield* repository.patchUserPreferences(id, { language: "en" });
+				const locked = yield* Deferred.make<void>();
+				const secondStarted = yield* Deferred.make<void>();
+				yield* Effect.all(
+					[
+						session.transaction(
+							Effect.gen(function* () {
+								yield* repository.patchUserPreferences(id, { disableIntegrations: true });
+								yield* Deferred.succeed(locked, undefined);
+								yield* Deferred.await(secondStarted);
+							}),
+						),
+						Effect.gen(function* () {
+							yield* Deferred.await(locked);
+							yield* Deferred.succeed(secondStarted, undefined);
+							yield* repository.patchUserPreferences(id, { disableIntegrations: false });
+						}),
+					],
+					{ concurrency: 2 },
+				);
+				const [stored] = yield* session.run((db) =>
+					db.select({ preferences: user.preferences }).from(user).where(eq(user.id, id)),
+				);
+				expect(stored?.preferences).toEqual({ ...defaultUserPreferences, language: "en" });
+			}),
+		testTimeout,
+	);
+});

@@ -1,8 +1,8 @@
 # Community
 
-These are community maintained import mechanisms. Ryot does not officially support them.
+These importers are community-maintained and are not supported by Ryot.
 
 - [TV Time](https://github.com/SirMartin/TvTimeToRyot) by [@SirMartin](https://github.com/SirMartin)
 - [WerStreamt.es](https://github.com/DoPri/werstreamtes-to-ryot) by [@DoPri](https://github.com/DoPri)
 
-Want to add your own importer? Open a [pull request](../contributing.md)!
+To add one, open a [pull request](../contributing.md).

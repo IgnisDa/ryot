@@ -1,0 +1,101 @@
+import { expect } from "bun:test";
+
+import { BunCrypto, BunServices } from "@effect/platform-bun";
+import { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import { it } from "@voila.dev/effect-bun-test";
+import { Clock, Duration, Effect, Layer, Schedule, Schema } from "effect";
+import { Reactivity } from "effect/reactivity";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { implementWorkflow } from "#platform/workflow/scope";
+import { postgresWorkflowEngineTestLayer } from "#testing/workflow-engine";
+
+import { DirectPolicyAttempts, LifecycleExecutionLive } from "./execution";
+import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
+import {
+	behave,
+	operationsLive,
+	release,
+	requiredRun,
+	runControlLayer,
+} from "./required-hooks.test-support";
+
+const trigger = triggerFixture();
+const WaitingParent = Workflow.make("RequiredHooksClusterParent", {
+	idempotencyKey: ({ id }) => id,
+	success: Schema.Array(AutomationWarning),
+	payload: { id: Schema.String, runIds: Schema.Array(Schema.String) },
+});
+const waitingParentLive = Layer.unwrap(
+	Effect.map(LifecycleExecution, (service) =>
+		implementWorkflow(WaitingParent, ({ runIds }) =>
+			service
+				.after({ triggerId: trigger.id, runs: runIds.map((id) => requiredRun(id, trigger.id)) })
+				.pipe(Effect.orDie),
+		),
+	),
+);
+
+const awaitParent = (id: string, runIds: ReadonlyArray<string>) =>
+	Effect.gen(function* () {
+		const engine = yield* WorkflowEngine;
+		const started = yield* Clock.currentTimeMillis;
+		const warnings = yield* engine.execute(WaitingParent, {
+			executionId: id,
+			payload: { id, runIds },
+			suspendedRetrySchedule: Schedule.spaced(Duration.millis(20)),
+		});
+		return { warnings, elapsedMs: (yield* Clock.currentTimeMillis) - started };
+	});
+
+it.layer(
+	Layer.provideMerge(Layer.merge(BunServices.layer, Reactivity.layer), BunCrypto.layerSecureRandom),
+	{ excludeTestServices: true },
+)((test) => {
+	test.effect("resumes a waiting workflow on the PostgreSQL engine when its hooks complete", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const context = yield* Layer.build(
+					waitingParentLive.pipe(
+						Layer.provideMerge(
+							LifecycleExecutionLive.pipe(
+								Layer.provide(Layer.merge(noLifecycleWorkLayer, DirectPolicyAttempts.layer)),
+								Layer.provide(Layer.mock(DatabaseSession)({})),
+							),
+						),
+						Layer.provideMerge(WorkflowExecutionNotifications.layer),
+						Layer.provideMerge(operationsLive),
+						Layer.provideMerge(postgresWorkflowEngineTestLayer),
+						Layer.provideMerge(runControlLayer),
+					),
+				);
+				yield* behave({
+					"held-cluster": { hold: true },
+					"held-pair-first": { hold: true },
+					"held-pair-second": { hold: true },
+				}).pipe(Effect.provideContext(context));
+				const [single, pair] = yield* Effect.all(
+					[
+						Effect.forkChild(Effect.delay(release("held-cluster"), "200 millis")).pipe(
+							Effect.andThen(awaitParent("single", ["held-cluster"])),
+						),
+						Effect.forkChild(
+							Effect.all([
+								Effect.delay(release("held-pair-first"), "100 millis"),
+								Effect.delay(release("held-pair-second"), "300 millis"),
+							]),
+						).pipe(Effect.andThen(awaitParent("pair", ["held-pair-first", "held-pair-second"]))),
+					],
+					{ concurrency: "unbounded" },
+				).pipe(Effect.provideContext(context));
+				expect([single.warnings, pair.warnings]).toEqual([[], []]);
+				expect(single.elapsedMs).toBeLessThan(1_000);
+				expect(pair.elapsedMs).toBeLessThan(1_000);
+			}),
+		),
+	);
+});

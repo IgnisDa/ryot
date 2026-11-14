@@ -1,0 +1,102 @@
+import { expect } from "bun:test";
+
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	PluginId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
+import { Effect, Layer } from "effect";
+
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { DatabaseSession } from "#platform/db/session";
+
+import { EventSchemaReader } from "./event-schemas";
+
+const privateOwner = PluginId.make("private-owner");
+const shippedOwner = PluginId.make("shipped-owner");
+const entitySchemaSlug = EntitySchemaSlug.make("shared-record");
+const eventSchemaSlug = EventSchemaSlug.make("review");
+const entityDefinition = (pluginSlug: string, pluginId: PluginId) => ({
+	pluginId,
+	icon: "record",
+	slug: entitySchemaSlug,
+	name: `${pluginSlug} record`,
+	propertiesSchema: { fields: {} },
+	eventSchemas: [
+		{
+			pluginId,
+			slug: eventSchemaSlug,
+			name: `${pluginSlug} review`,
+			propertiesSchema: { fields: {} },
+		},
+	],
+});
+const snapshot = buildDefinitionSnapshot({
+	savedViews: [],
+	signalSchemas: [],
+	calendarSources: [],
+	relationshipSchemas: [],
+	entitySchemas: [
+		entityDefinition("private", privateOwner),
+		entityDefinition("shipped", shippedOwner),
+	],
+});
+const repositoryLayer = EventSchemaReader.layer.pipe(
+	Layer.provideMerge(Layer.mock(DatabaseSession)({})),
+	Layer.provideMerge(
+		Layer.mock(DefinitionRepository)({
+			findUserEntitySchemas: (_userId, references) =>
+				Effect.succeed(
+					Object.fromEntries(
+						references.flatMap((reference) => {
+							const key = definitionKey("entity", reference.owner, reference.slug);
+							const definition = snapshot.entitySchemas[key];
+							return definition ? [[key, definition]] : [];
+						}),
+					),
+				),
+		}),
+	),
+	Layer.provideMerge(Layer.mock(PluginRuntimeResolver)({})),
+);
+
+layer(repositoryLayer)((test) => {
+	test.effect(
+		"resolves same-slug event schemas by their entity schema owner",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* EventSchemaReader;
+				expect(
+					yield* repository.getScopeForUser({
+						eventSchemaSlug,
+						entitySchemaSlug,
+						userId: UserId.make("owner"),
+						entitySchemaPluginId: shippedOwner,
+					}),
+				).toMatchObject({ id: eventSchemaSlug, pluginId: shippedOwner });
+				expect(
+					yield* repository.getScopeForUser({
+						eventSchemaSlug,
+						entitySchemaSlug,
+						userId: UserId.make("owner"),
+						entitySchemaPluginId: privateOwner,
+					}),
+				).toMatchObject({ id: eventSchemaSlug, pluginId: privateOwner });
+				expect(
+					yield* repository.getScopeForUser({
+						eventSchemaSlug,
+						entitySchemaSlug,
+						entitySchemaPluginId: null,
+						userId: UserId.make("owner"),
+					}),
+				).toBeNull();
+			}),
+		testTimeout,
+	);
+});

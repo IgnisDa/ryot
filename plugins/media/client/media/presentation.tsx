@@ -1,0 +1,161 @@
+import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import {
+	defineEntityPresentation,
+	type EntityPresentationComponentProps,
+	type EntityPresentationPrepare,
+	PluginLink,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
+import { ManagedAssetProvider, useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
+import { Eyebrow, RatingValue, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
+import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
+import clsx from "clsx";
+
+import {
+	type MediaPresentationData,
+	mediaPresentationSource,
+} from "../../shared/entity-presentations";
+import { createMediaPresentationPrepare, mediaEntityPresentation } from "./entity-presentation";
+import { ManagedAssetImage } from "./managed-assets";
+
+export type MediaPresentationViewData = MediaPresentationData & {
+	readonly batchAssets: readonly ManagedAssetLocator[];
+};
+
+const artworkSize = (layout: "grid" | "list", compact: boolean) => {
+	if (layout === "grid") {
+		return "aspect-3/4 w-full";
+	}
+	return compact ? "h-24 w-16" : "h-16 w-11 rounded-sm";
+};
+
+const posterAsset = (media: MediaPresentationData) => media.image ?? undefined;
+
+export const prepareMediaPresentations: EntityPresentationPrepare<MediaPresentationViewData> = (
+	context,
+) => {
+	const { references } = context;
+	const slug = references[0]?.entitySchemaSlug ?? "";
+	return createMediaPresentationPrepare(mediaPresentationSource(slug))(context);
+};
+
+export function MediaCardContent(props: {
+	readonly compact: boolean;
+	readonly data: MediaPresentationViewData;
+}) {
+	return (
+		<ManagedAssetProvider assets={props.data.batchAssets}>
+			<article
+				data-layout="grid"
+				data-entity-id={props.data.id}
+				className="grid min-w-0 content-start gap-2"
+			>
+				<PluginLink
+					className="block min-w-0"
+					aria-label={`Open ${props.data.name}`}
+					to={{ kind: "entity", entityId: props.data.id }}
+				>
+					<MediaArtwork layout="grid" data={props.data} compact={props.compact} />
+				</PluginLink>
+				<MediaFacts data={props.data} schemaName={schemaSlugLabel(props.data.schemaSlug)} />
+			</article>
+		</ManagedAssetProvider>
+	);
+}
+
+export function MediaRowContent(props: {
+	readonly compact: boolean;
+	readonly data: MediaPresentationViewData;
+}) {
+	return (
+		<ManagedAssetProvider assets={props.data.batchAssets}>
+			<article
+				data-layout="list"
+				data-entity-id={props.data.id}
+				className={clsx(
+					"flex min-w-0 items-center border-b border-border",
+					props.compact ? "min-h-28 gap-3 py-2" : "min-h-18 gap-3.5 py-2",
+				)}
+			>
+				<PluginLink
+					className="block shrink-0"
+					aria-label={`Open ${props.data.name}`}
+					to={{ kind: "entity", entityId: props.data.id }}
+				>
+					<MediaArtwork layout="list" data={props.data} compact={props.compact} />
+				</PluginLink>
+				<div className="min-w-0 flex-1">
+					<MediaFacts data={props.data} schemaName={schemaSlugLabel(props.data.schemaSlug)} />
+				</div>
+			</article>
+		</ManagedAssetProvider>
+	);
+}
+
+function MediaRow({ data }: EntityPresentationComponentProps<MediaPresentationViewData>) {
+	const { compact } = useRyotViewport();
+	return <MediaRowContent data={data} compact={compact} />;
+}
+
+function MediaCard({ data }: EntityPresentationComponentProps<MediaPresentationViewData>) {
+	const { compact } = useRyotViewport();
+	return <MediaCardContent data={data} compact={compact} />;
+}
+
+function MediaArtwork(props: {
+	readonly compact: boolean;
+	readonly layout: "grid" | "list";
+	readonly data: MediaPresentationViewData;
+}) {
+	const poster = posterAsset(props.data);
+	return (
+		<ManagedAssetImage
+			asset={poster}
+			monogram={props.data.name}
+			state={fieldSyncState(poster, props.data)}
+			className={clsx("shrink-0", artworkSize(props.layout, props.compact))}
+		/>
+	);
+}
+
+function MediaFacts(props: { readonly schemaName: string; readonly data: MediaPresentationData }) {
+	const scale = useUserPreferences().data?.ratingScale;
+	return (
+		<div className="grid min-w-0 gap-1">
+			<Eyebrow>{props.schemaName}</Eyebrow>
+			<span className="flex min-w-0 items-baseline gap-1.5">
+				<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.data.id }}>
+					<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
+						{props.data.name}
+					</span>
+				</PluginLink>
+				{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
+			</span>
+			{props.data.primary !== null && (
+				<span className="truncate text-xs text-text-muted">{props.data.primary}</span>
+			)}
+			{props.data.secondary !== null && (
+				<span className="truncate text-xs text-text-subtle">{props.data.secondary}</span>
+			)}
+			{props.data.rating !== null && scale !== undefined && (
+				<RatingValue
+					scale={scale}
+					rating={props.data.rating}
+					className="truncate text-xs font-semibold text-accent-text"
+				/>
+			)}
+		</div>
+	);
+}
+
+export const mediaCardPresentation = defineEntityPresentation({
+	component: MediaCard,
+	prepare: prepareMediaPresentations,
+	entity: mediaEntityPresentation("poster", "grid"),
+});
+
+export const mediaRowPresentation = defineEntityPresentation({
+	component: MediaRow,
+	prepare: prepareMediaPresentations,
+	entity: mediaEntityPresentation("poster", "list"),
+});

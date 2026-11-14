@@ -1,0 +1,145 @@
+import { afterEach, describe, expect } from "bun:test";
+
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import {
+	disposePluginBridges,
+	entityLocation,
+	entityPageContext,
+	mountPluginPage,
+} from "@ryot-app/plugin-client-sdk/testing";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { fixturePageContext } from "../tests/client/page-context";
+import PokemonDetailPage, { PokemonDetailBody } from "./pokemon-detail";
+import { pokemonDetailRecipe } from "./pokemon-detail-query";
+
+const rows = (items: readonly Record<string, unknown>[]) => ({
+	items,
+	type: "rows",
+	pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+});
+
+describe("Pokemon detail page", () => {
+	afterEach(disposePluginBridges);
+
+	it.live(
+		"queries the entity from the live same-document location",
+		() =>
+			Effect.gen(function* () {
+				const page = mountPluginPage(PokemonDetailPage, {
+					location: entityLocation("pokemon-1", "pokemon"),
+					page: fixturePageContext(
+						entityPageContext({
+							pluginId: "fixture",
+							entityId: "pokemon-1",
+							entitySchemaSlug: "pokemon",
+							exportName: "pokemon-detail",
+						}),
+					),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.queryRequests("pokemon")).toHaveLength(1)),
+				);
+
+				page.navigate(entityLocation("pokemon-2", "pokemon"), { index: 1, key: "pokemon-2" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.queryRequests("pokemon")).toHaveLength(2)),
+				);
+				expect(page.queryRequests("pokemon").map(({ request }) => request.arguments)).toEqual([
+					{ entityId: "pokemon-1" },
+					{ entityId: "pokemon-2" },
+				]);
+				for (const { request } of page.queryRequests("pokemon")) {
+					expect(request.source.kind).toBe("inline");
+					if (request.source.kind !== "inline") {
+						throw new Error("Expected inline recipe");
+					}
+					expect(request.source.document.queries.pokemon).toEqual<unknown>(
+						objectContaining({
+							where: objectContaining({
+								predicates: arrayContaining([
+									objectContaining({ right: { name: "entityId", type: "parameter" } }),
+								]),
+							}),
+						}),
+					);
+				}
+			}),
+		testTimeout,
+	);
+
+	it("decodes fixture-owned Pokemon data", () => {
+		const decoded = bindRecipe(pokemonDetailRecipe({ reference: { kind: "self" } }), {
+			entityId: "pokemon-1",
+		}).decode({
+			data: {
+				requested: rows([{ schemaSlug: "pokemon" }]),
+				pokemon: rows([
+					{
+						height: 7,
+						weight: 69,
+						id: "pokemon-1",
+						pokedexNumber: 1,
+						name: "Bulbasaur",
+						baseExperience: 64,
+						abilities: ["Overgrow"],
+						types: ["Grass", "Poison"],
+						sourceUrl: "https://pokeapi.co/api/v2/pokemon/bulbasaur",
+						images: [{ type: "remote", url: "https://images.test/bulbasaur.png" }],
+					},
+				]),
+			},
+		});
+
+		expect(decoded).toMatchObject({
+			success: {
+				entitySchemaSlug: "pokemon",
+				pokemon: {
+					pokedexNumber: 1,
+					name: "Bulbasaur",
+					types: ["Grass", "Poison"],
+					images: [{ type: "remote", url: "https://images.test/bulbasaur.png" }],
+				},
+			},
+		});
+	});
+
+	it("renders ready and unavailable branches without owning an application root", () => {
+		const ready = renderToStaticMarkup(
+			<PokemonDetailBody
+				state={{
+					status: "ready",
+					data: {
+						entitySchemaSlug: "pokemon",
+						pokemon: {
+							height: 7,
+							weight: 69,
+							images: null,
+							id: "pokemon-1",
+							sourceUrl: null,
+							pokedexNumber: 1,
+							name: "Bulbasaur",
+							baseExperience: 64,
+							abilities: ["Overgrow"],
+							types: ["Grass", "Poison"],
+						},
+					},
+				}}
+			/>,
+		);
+		const missing = renderToStaticMarkup(
+			<PokemonDetailBody
+				state={{ status: "ready", data: { pokemon: null, entitySchemaSlug: null } }}
+			/>,
+		);
+
+		expect(ready).toContain("Bulbasaur");
+		expect(ready).toContain("Overgrow");
+		expect(missing).toContain("This entity no longer exists.");
+	});
+});

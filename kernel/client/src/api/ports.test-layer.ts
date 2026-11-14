@@ -1,0 +1,266 @@
+import { Effect, Layer, Stream } from "effect";
+
+import { AccountApi } from "#/api/account";
+import { AssistantApi } from "#/api/assistant";
+import { AutomationsApi } from "#/api/automations";
+import { BackupsApi } from "#/api/backups";
+import { CalendarSourcesApi } from "#/api/calendar-sources";
+import { CollectionsApi } from "#/api/collections";
+import { EntityProvidersApi } from "#/api/entity-providers";
+import { EventsApi } from "#/api/events";
+import { ImportsApi } from "#/api/imports";
+import { InstanceAdminApi } from "#/api/instance-admin";
+import { IntegrationsApi } from "#/api/integrations";
+import { LiveUpdatesApi } from "#/api/live-updates";
+import { NotificationsApi } from "#/api/notifications";
+import { OAuthConnectionsApi } from "#/api/oauth-connections";
+import { PluginInstallationsApi } from "#/api/plugin-installations";
+import { PluginsApi } from "#/api/plugins";
+import { PublicationsApi, PublicationVisitsApi } from "#/api/publications";
+import { RemindersApi } from "#/api/reminders";
+import { RyotQLApi } from "#/api/ryotql";
+import { SavedViewsApi } from "#/api/saved-views";
+import { UploadsApi } from "#/api/uploads";
+import { Uploads } from "#/modules/assets/uploads";
+import { EntityWatchService } from "#/modules/entity-watches/service";
+import { ExternalLinks } from "#/modules/external-links/service";
+import { PluginManagementService } from "#/modules/plugins/management/service";
+
+// oxlint-disable-next-line effecttsgo/lazy-effect -- Fills service method slots of any arity
+export const unused = () => Effect.die("not used");
+
+export const makeLiveUpdatesApi = (overrides: Partial<LiveUpdatesApi["Service"]> = {}) =>
+	Layer.succeed(LiveUpdatesApi, { events: unused, populate: unused, ...overrides });
+
+export const makeEntityWatchService = (overrides: Partial<EntityWatchService["Service"]> = {}) =>
+	Layer.succeed(EntityWatchService, {
+		refresh: () => {},
+		reconnect: () => {},
+		acquire: () => () => {},
+		derivedDataUpdates: () => Stream.empty,
+		watch: () => ({ update: () => {}, dispose: () => {} }),
+		...overrides,
+	});
+
+export const makeRyotQLApi = (overrides: Partial<RyotQLApi["Service"]> = {}) =>
+	Layer.succeed(RyotQLApi, {
+		execute: unused,
+		describe: unused,
+		executePlugin: unused,
+		describePlugin: unused,
+		...overrides,
+	});
+
+export const makeEventsApi = (overrides: Partial<EventsApi["Service"]> = {}) =>
+	Layer.succeed(EventsApi, { create: unused, update: unused, delete: unused, ...overrides });
+
+export const makeCollectionsApi = (overrides: Partial<CollectionsApi["Service"]> = {}) =>
+	Layer.succeed(CollectionsApi, {
+		create: unused,
+		update: unused,
+		delete: unused,
+		createMembership: unused,
+		deleteMembership: unused,
+		reorderMembership: unused,
+		...overrides,
+	});
+
+export const makeCalendarSourcesApi = (overrides: Partial<CalendarSourcesApi["Service"]> = {}) =>
+	Layer.succeed(CalendarSourcesApi, { setVisibility: unused, ...overrides });
+
+export const makeSavedViewsApi = (overrides: Partial<SavedViewsApi["Service"]> = {}) =>
+	Layer.succeed(SavedViewsApi, { create: unused, update: unused, reorder: unused, ...overrides });
+
+export const makePluginInstallationsApi = (
+	overrides: Partial<PluginInstallationsApi["Service"]> = {},
+) =>
+	Layer.succeed(PluginInstallationsApi, {
+		update: unused,
+		inspect: unused,
+		install: unused,
+		uninstall: unused,
+		updatePackage: unused,
+		...overrides,
+	});
+
+export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =>
+	Layer.fresh(Uploads.layer).pipe(
+		Layer.provideMerge(
+			Layer.succeed(UploadsApi, {
+				putBytes: unused,
+				createIntent: unused,
+				completeIntent: unused,
+				resolveDownloads: unused,
+				...overrides,
+			}),
+		),
+	);
+
+export const makePluginsApi = (overrides: Partial<PluginsApi["Service"]> = {}) =>
+	Layer.succeed(PluginsApi, {
+		invoke: unused,
+		saveUserSettings: unused,
+		resetUserSettings: unused,
+		...overrides,
+	});
+
+export const makeEntityProvidersApi = (overrides: Partial<EntityProvidersApi["Service"]> = {}) =>
+	Layer.succeed(EntityProvidersApi, {
+		search: unused,
+		import: unused,
+		searchOptions: unused,
+		getImportResult: unused,
+		...overrides,
+	});
+
+export const makeImportsApi = (overrides: Partial<ImportsApi["Service"]> = {}) =>
+	Layer.succeed(ImportsApi, {
+		createRun: unused,
+		cancelRun: unused,
+		deleteRun: unused,
+		downloadIssues: unused,
+		...overrides,
+	});
+
+export const makeBackupsApi = (overrides: Partial<BackupsApi["Service"]> = {}) =>
+	Layer.succeed(BackupsApi, {
+		deleteRun: unused,
+		createExport: unused,
+		createRestore: unused,
+		downloadArchive: unused,
+		...overrides,
+	});
+
+export const makeIntegrationsApi = (overrides: Partial<IntegrationsApi["Service"]> = {}) =>
+	Layer.succeed(IntegrationsApi, {
+		sync: unused,
+		create: unused,
+		delete: unused,
+		update: unused,
+		...overrides,
+	});
+
+export const makeNotificationsApi = (overrides: Partial<NotificationsApi["Service"]> = {}) =>
+	Layer.succeed(NotificationsApi, {
+		testChannels: unused,
+		createChannel: unused,
+		updateChannel: unused,
+		deleteChannel: unused,
+		...overrides,
+	});
+
+export const makeOAuthConnectionsApi = (overrides: Partial<OAuthConnectionsApi["Service"]> = {}) =>
+	Layer.succeed(OAuthConnectionsApi, { create: unused, complete: unused, ...overrides });
+
+export const makeRemindersApi = (overrides: Partial<RemindersApi["Service"]> = {}) =>
+	Layer.succeed(RemindersApi, {
+		edit: unused,
+		create: unused,
+		cancel: unused,
+		remove: unused,
+		deliveryConfiguration: unused,
+		...overrides,
+	});
+
+export const makeAssistantApi = (overrides: Partial<AssistantApi["Service"]> = {}) =>
+	Layer.succeed(AssistantApi, {
+		submit: unused,
+		decide: unused,
+		answer: unused,
+		savePage: unused,
+		interrupt: unused,
+		deleteProvider: unused,
+		providerMetadata: unused,
+		configureProvider: unused,
+		renameConversation: unused,
+		deleteConversation: unused,
+		...overrides,
+	});
+
+export const makeAutomationsApi = (overrides: Partial<AutomationsApi["Service"]> = {}) =>
+	Layer.succeed(AutomationsApi, {
+		installRule: unused,
+		activateRule: unused,
+		deactivateRule: unused,
+		...overrides,
+	});
+
+export const makePublicationsApi = (overrides: Partial<PublicationsApi["Service"]> = {}) =>
+	Layer.succeed(PublicationsApi, {
+		create: unused,
+		delete: unused,
+		revoke: unused,
+		status: unused,
+		preview: unused,
+		republish: unused,
+		createLink: unused,
+		revokeLink: unused,
+		...overrides,
+	});
+
+export const makePublicationVisitsApi = (
+	overrides: Partial<PublicationVisitsApi["Service"]> = {},
+) =>
+	Layer.succeed(PublicationVisitsApi, {
+		page: unused,
+		assets: unused,
+		ryotql: unused,
+		describe: unused,
+		document: unused,
+		exchange: unused,
+		...overrides,
+	});
+
+export const makeAccountApi = (overrides: Partial<AccountApi["Service"]> = {}) =>
+	Layer.succeed(AccountApi, {
+		rename: unused,
+		createApiKey: unused,
+		revokeApiKey: unused,
+		refreshAvatar: unused,
+		updatePreferences: unused,
+		revokeConnectedApp: unused,
+		...overrides,
+	});
+
+export const makeInstanceAdminApi = (overrides: Partial<InstanceAdminApi["Service"]> = {}) =>
+	Layer.succeed(InstanceAdminApi, {
+		query: unused,
+		listLogs: unused,
+		resetUser: unused,
+		deleteUser: unused,
+		downloadLogs: unused,
+		setUserDisabled: unused,
+		resetUserPassword: unused,
+		startUserImpersonation: unused,
+		...overrides,
+	});
+
+export const KernelApiTestLayer = Layer.mergeAll(
+	makeRemindersApi(),
+	makeAutomationsApi(),
+	Layer.succeed(PluginManagementService, { load: unused, inspect: unused, execute: unused }),
+	Layer.succeed(ExternalLinks, {
+		open: () => Effect.die("Unused external link"),
+		outcome: () => Effect.die("Unused external link"),
+	}),
+	makeRyotQLApi(),
+	makeCollectionsApi(),
+	makeEventsApi(),
+	makeCalendarSourcesApi(),
+	makeImportsApi(),
+	makeBackupsApi(),
+	makeUploadsApi(),
+	makePluginsApi(),
+	makeSavedViewsApi(),
+	makeAccountApi(),
+	makeAssistantApi(),
+	makeIntegrationsApi(),
+	makeNotificationsApi(),
+	makeOAuthConnectionsApi(),
+	makeLiveUpdatesApi(),
+	makeEntityProvidersApi(),
+	makeEntityWatchService(),
+	makePluginInstallationsApi(),
+	makePublicationsApi(),
+	makePublicationVisitsApi(),
+);

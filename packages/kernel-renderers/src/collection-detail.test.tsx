@@ -1,0 +1,1232 @@
+import { afterEach, describe, expect } from "bun:test";
+
+import type { KeyedCollectionField } from "@ryot-app/contract/modules/collections/fields";
+import { EntityId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { mountPluginPage } from "@ryot-app/plugin-client-sdk/testing";
+import {
+	disposePluginBridges,
+	entityLocation,
+	kernelEntityPageContext,
+} from "@ryot-app/plugin-client-sdk/testing";
+import { assert } from "@ryot-app/testing/assert";
+import { objectContaining } from "@ryot-app/testing/matchers";
+import { chooseMenuItem, openMenu } from "@ryot-app/testing/menus";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
+import { Effect, Schema } from "effect";
+
+import CollectionDetailPage from "./collection-detail";
+import { mountBrowsingPage } from "./fixtures/saved-view";
+
+const openCollection = (collectionId = "col-1", search = "") =>
+	mountBrowsingPage(
+		CollectionDetailPage,
+		{
+			location: entityLocation(collectionId, "collection", search),
+			page: kernelEntityPageContext({
+				entityId: collectionId,
+				entitySchemaSlug: "collection",
+				rendererName: "Collection detail",
+			}),
+		},
+		[],
+	);
+
+const request = (page: ReturnType<typeof mountPluginPage>, name: string, index = 0) =>
+	Effect.gen(function* () {
+		yield* Effect.promise(() =>
+			waitFor(() => expect(page.queryRequests(name).length).toBeGreaterThan(index)),
+		);
+		const found = page.queryRequests(name)[index];
+		if (!found) {
+			return yield* Effect.die(new Error(`${name} request ${index} was not issued`));
+		}
+		return found;
+	});
+
+type CollectionAnswer = {
+	readonly name: string;
+	readonly stale?: boolean;
+	readonly revision?: number;
+	readonly total?: number | undefined;
+	readonly hasMore?: boolean | undefined;
+	readonly description?: string | undefined;
+	readonly groupsHaveMore?: boolean | undefined;
+	readonly groups?: readonly Record<string, JsonValue>[];
+	readonly members?: readonly Record<string, JsonValue>[];
+	readonly membershipFields?: undefined | ReadonlyArray<KeyedCollectionField>;
+};
+
+const replyMembers = (
+	page: ReturnType<typeof mountPluginPage>,
+	requestId: string,
+	input: Pick<CollectionAnswer, "stale" | "members" | "hasMore" | "revision">,
+) =>
+	page.replyQuery(requestId, {
+		outcome: "success",
+		response: {
+			data: {
+				order: {
+					type: "rows",
+					items: [{ revision: input.revision ?? 0 }],
+					pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+				},
+				members: {
+					type: "rows",
+					pageInfo: {
+						limit: 20,
+						stale: input.stale ?? false,
+						hasMore: input.hasMore ?? false,
+						nextCursor: input.hasMore ? "next" : null,
+						sourceRevisions: { collection: input.revision ?? 0 },
+					},
+					items: (input.members ?? []).map((member) => {
+						const owner =
+							typeof member["ownerPluginId"] === "string" ? member["ownerPluginId"] : "";
+						const schema =
+							typeof member["entitySchemaSlug"] === "string" ? member["entitySchemaSlug"] : "";
+						const properties = member["properties"];
+						const projected: Readonly<Record<string, JsonValue>> =
+							typeof properties === "object" && properties !== null && !Array.isArray(properties)
+								? Object.fromEntries(
+										Object.entries(properties).map(([key, value]) => [`membership.${key}`, value]),
+									)
+								: {};
+						const memberRequest = page
+							.queryRequests("members")
+							.find((entry) => entry.requestId === requestId)?.request;
+						const source = memberRequest?.source;
+						const output =
+							source?.kind === "inline" ? source.document.queries["members"]?.output : undefined;
+						const missing: Readonly<Record<string, JsonValue>> =
+							output?.type === "rows"
+								? Object.fromEntries(
+										output.fields.flatMap((field) =>
+											"key" in field && field.key.startsWith("membership.")
+												? [[field.key, null]]
+												: [],
+										),
+									)
+								: {};
+						return Object.assign(Object.assign({}, member), missing, projected, {
+							__entityPresentation: null,
+							addedAt: "2026-01-01T00:00:00Z",
+							orderRevision: input.revision ?? 0,
+							"member-type": `${owner}/${schema}`,
+						});
+					}),
+				},
+			},
+		},
+	});
+
+const headerResponse = (input: CollectionAnswer) => ({
+	data: {
+		collection: {
+			type: "rows" as const,
+			pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+			items: [
+				{
+					name: input.name,
+					entityId: "col-1",
+					properties: {
+						...(input.description === undefined ? {} : { description: input.description }),
+						...(input.membershipFields === undefined
+							? {}
+							: { membershipFields: input.membershipFields }),
+					},
+				},
+			],
+		},
+	},
+});
+
+const answerChrome = (
+	page: ReturnType<typeof mountPluginPage>,
+	input: CollectionAnswer,
+	index = 0,
+) =>
+	Effect.gen(function* () {
+		const [header, aggregate, count] = yield* Effect.all(
+			[
+				request(page, "collection", index),
+				request(page, "aggregate", index),
+				request(page, "count", index),
+			],
+			{ concurrency: "unbounded" },
+		);
+		page.replyQuery(header.requestId, { outcome: "success", response: headerResponse(input) });
+		page.replyQuery(aggregate.requestId, {
+			outcome: "success",
+			response: {
+				data: {
+					aggregate: {
+						type: "aggregate",
+						items: input.groups ?? [],
+						pageInfo: { limit: 100, nextCursor: null, hasMore: input.groupsHaveMore ?? false },
+					},
+				},
+			},
+		});
+		page.replyQuery(count.requestId, {
+			outcome: "success",
+			response: {
+				data: {
+					count: {
+						type: "aggregate",
+						items: [
+							{
+								total:
+									input.total ??
+									(input.groups ?? []).reduce((sum, group) => sum + Number(group.count), 0),
+							},
+						],
+					},
+				},
+			},
+		});
+	});
+
+const answerCollection = (page: ReturnType<typeof mountPluginPage>, input: CollectionAnswer) =>
+	Effect.gen(function* () {
+		yield* answerChrome(page, input);
+		const members = yield* request(page, "members");
+		replyMembers(page, members.requestId, input);
+	});
+
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+
+const filtersParam = (filter: unknown) =>
+	`filters=${Buffer.from(JSON.stringify(filter)).toString("base64url")}`;
+
+const itemGroup = {
+	count: 2,
+	ownerPluginId: "fixture",
+	entitySchemaSlug: "item",
+	ownerPluginName: "Fixture",
+};
+
+const notesFields = [
+	{ key: "notes", type: "text", label: "Notes", required: false, description: "Membership notes" },
+] as const;
+
+const hostScreenRequest = (
+	page: ReturnType<typeof mountPluginPage>,
+	type: "edit-collection-screen" | "add-to-collection-screen",
+) =>
+	Effect.promise(() =>
+		waitFor(() => {
+			const found = page.clientMessages().find((message) => message.type === type);
+			assert(found?.type === type);
+			return found;
+		}),
+	);
+
+const changeMembersRequest = (page: ReturnType<typeof mountPluginPage>) =>
+	Effect.promise(() =>
+		waitFor(() => {
+			const found = page
+				.clientMessages()
+				.find((message) => message.type === "change-collection-members-screen");
+			assert(found?.type === "change-collection-members-screen");
+			return found;
+		}),
+	);
+
+const memberIdsReply = (entityIds: readonly string[], nextCursor: null | string) => ({
+	outcome: "success" as const,
+	response: {
+		data: {
+			memberIds: {
+				type: "rows" as const,
+				items: entityIds.map((entityId) => ({ entityId })),
+				pageInfo: { nextCursor, limit: 100, hasMore: nextCursor !== null },
+			},
+		},
+	},
+});
+
+const itemMember = {
+	name: "Sample",
+	properties: {},
+	entityId: "item-1",
+	ownerPluginId: null,
+	ownerPluginName: null,
+	entitySchemaSlug: "item",
+	populationStatus: { state: "succeeded", availability: "complete" },
+	translationStatus: { state: "succeeded", availability: "complete" },
+};
+
+const collectionPage = (label: string, entitySchemaSlugs: readonly string[]) => ({
+	label,
+	icon: "sparkles",
+	entitySchemaSlugs,
+	route: "/collections/$collectionId/related",
+});
+
+describe("collection detail", () => {
+	afterEach(disposePluginBridges);
+
+	it.live(
+		"opens collection reviews even when the collection has no members",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, { total: 0, groups: [], members: [], name: "Empty shelf" });
+				yield* chooseMenuItem("More actions", "Reviews");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.messages).toContainEqual(
+							objectContaining({ collectionId: "col-1", type: "manage-collection-reviews-screen" }),
+						),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"opens plugin collection pages that cover the collection's member types",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection("col 1");
+				yield* answerCollection(page, {
+					name: "Shelf",
+					members: [itemMember],
+					groups: [itemGroup, { ...itemGroup, ownerPluginId: "other" }],
+				});
+				const plugins = yield* request(page, "plugins");
+				expect(plugins.request.arguments).toEqual({ pluginIds: ["fixture", "other"] });
+				page.replyQuery(plugins.requestId, {
+					outcome: "success",
+					response: {
+						data: {
+							plugins: {
+								type: "rows",
+								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+								items: [
+									{
+										pluginId: "fixture",
+										packageId: "test/fixture",
+										pages: {
+											related: collectionPage("Related", ["item"]),
+											unused: collectionPage("Unused", ["other-type"]),
+										},
+									},
+								],
+							},
+						},
+					},
+				});
+				yield* openMenu("More actions");
+				const related = yield* Effect.promise(() =>
+					screen.findByRole("menuitem", { name: "Related" }),
+				);
+				expect(screen.queryByRole("menuitem", { name: "Unused" })).toBeNull();
+				fireEvent.click(related);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>({
+							mode: "push",
+							type: "navigate",
+							target: {
+								search: "",
+								kind: "plugin-route",
+								packageId: "test/fixture",
+								path: "/collections/col%201/related",
+							},
+						}),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"reorders with keyboard controls through the server command and shared haptics",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				const second = { ...itemMember, name: "Second", entityId: "item-2" };
+				const third = { ...itemMember, name: "Third", entityId: "item-3" };
+				const members = [itemMember, second, third];
+				yield* answerCollection(page, { members, revision: 7, name: "Shelf" });
+				yield* chooseMenuItem("More actions", "Reorder");
+				const initial = yield* request(page, "members", 1);
+				replyMembers(page, initial.requestId, { members, revision: 7 });
+				fireEvent.keyDown(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder Sample" })),
+					{ key: "ArrowDown" },
+				);
+				const command = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = page
+							.clientMessages()
+							.find((message) => message.type === "collection-request");
+						assert(found?.type === "collection-request" && found.action === "reorder-membership");
+						return found;
+					}),
+				);
+				expect(command.input).toMatchObject({
+					entityId: "item-1",
+					expectedRevision: 7,
+					collectionId: "col-1",
+					destination: { kind: "before", entityId: "item-3" },
+				});
+				expect(page.clientMessages()).toContainEqual<unknown>(
+					objectContaining({ action: "haptic", kind: "selection", type: "device-request" }),
+				);
+				page.send({
+					outcome: "success",
+					type: "collection-result",
+					requestId: command.requestId,
+					response: { orderRevision: 8, collectionId: EntityId.make("col-1") },
+				});
+				const refresh = yield* request(page, "members", 2);
+				replyMembers(page, refresh.requestId, {
+					revision: 8,
+					members: [second, itemMember, third],
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen
+								.getAllByRole("button", { name: /^Reorder / })
+								.map((button) => button.getAttribute("aria-label")),
+						).toEqual(["Reorder Second", "Reorder Sample", "Reorder Third"]),
+					),
+				);
+				const requestsBeforeClose = page.queryRequests("members").length;
+				fireEvent.click(screen.getByRole("button", { name: "Done" }));
+				const browserReload = yield* request(page, "members", requestsBeforeClose);
+				replyMembers(page, browserReload.requestId, {
+					revision: 8,
+					members: [second, itemMember, third],
+				});
+				yield* Effect.promise(() => screen.findByRole("button", { name: "More actions" }));
+			}),
+		testTimeout,
+	);
+
+	for (const reason of ["transport", "malformed-result"] as const) {
+		it.live(
+			`retains a ${reason}-failed move identity for retry`,
+			() =>
+				Effect.gen(function* () {
+					const page = openCollection();
+					const members = [itemMember, { ...itemMember, name: "Second", entityId: "item-2" }];
+					yield* answerCollection(page, { members, revision: 4, name: "Shelf" });
+					yield* chooseMenuItem("More actions", "Reorder");
+					const initial = yield* request(page, "members", 1);
+					replyMembers(page, initial.requestId, { members, revision: 4 });
+					fireEvent.click(
+						yield* Effect.promise(() =>
+							screen.findByRole("button", { name: "Move Sample to end" }),
+						),
+					);
+					const findCommand = (index: number) =>
+						Effect.promise(() =>
+							waitFor(() => {
+								const found = page
+									.clientMessages()
+									.filter((message) => message.type === "collection-request")[index];
+								assert(
+									found?.type === "collection-request" && found.action === "reorder-membership",
+								);
+								return found;
+							}),
+						);
+					const first = yield* findCommand(0);
+					page.send({
+						reason,
+						outcome: "failure",
+						type: "collection-result",
+						requestId: first.requestId,
+					});
+					fireEvent.click(
+						yield* Effect.promise(() => screen.findByRole("button", { name: "Retry move" })),
+					);
+					const retry = yield* findCommand(1);
+					expect(retry.input).toEqual(first.input);
+					page.send({
+						outcome: "failure",
+						type: "collection-result",
+						requestId: retry.requestId,
+						reason: "collection-stale",
+					});
+					yield* Effect.promise(() =>
+						screen.findByText("This collection changed. Reload before moving another item."),
+					);
+					expect(screen.queryByRole("button", { name: "Retry move" })).toBeNull();
+				}),
+			testTimeout,
+		);
+	}
+
+	it.live(
+		"rejects stale continuation pages without appending changed members",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, {
+					revision: 2,
+					name: "Shelf",
+					hasMore: true,
+					members: [itemMember],
+				});
+				yield* chooseMenuItem("More actions", "Reorder");
+				const initial = yield* request(page, "members", 1);
+				replyMembers(page, initial.requestId, {
+					revision: 2,
+					hasMore: true,
+					members: [itemMember],
+				});
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Load more" })),
+				);
+				const next = yield* request(page, "members", 2);
+				replyMembers(page, next.requestId, { revision: 3, stale: true, members: [] });
+				yield* Effect.promise(() =>
+					screen.findByText("The collection changed or could not be loaded."),
+				);
+				expect(screen.queryByText("Changed")).toBeNull();
+				expect(screen.getByText("Sample")).toBeTruthy();
+				expect(screen.getByRole("group")).toHaveProperty("disabled", true);
+				fireEvent.click(screen.getByRole("button", { name: "Reload collection" }));
+				const reload = yield* request(page, "members", 3);
+				expect(reload.request.pages?.["members"]?.after).toBeUndefined();
+				replyMembers(page, reload.requestId, {
+					revision: 3,
+					members: [{ ...itemMember, name: "Changed" }],
+				});
+				yield* Effect.promise(() => screen.findByText("Changed"));
+				expect(screen.getByRole("group")).toHaveProperty("disabled", false);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"clears selection and keeps visible members until a stale browser reload succeeds",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, {
+					revision: 2,
+					name: "Shelf",
+					hasMore: true,
+					members: [itemMember],
+				});
+				yield* chooseMenuItem("More actions", "Select");
+				fireEvent.click(screen.getByRole("checkbox", { name: "Select Sample" }));
+				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
+				const next = yield* request(page, "members", 1);
+				replyMembers(page, next.requestId, { revision: 3, stale: true, members: [] });
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Reload collection" }));
+				expect(screen.getByText("Sample")).toBeTruthy();
+				expect(screen.queryByRole("region", { name: "Selection" })).toBeNull();
+				yield* openMenu("More actions");
+				expect(screen.getByRole("menuitem", { name: "Reorder" })).toBeTruthy();
+				expect(screen.queryByRole("menuitem", { name: "Select" })).toBeNull();
+				fireEvent.keyDown(document, { key: "Escape" });
+				fireEvent.click(screen.getByRole("button", { name: "Reload collection" }));
+				const reload = yield* request(page, "members", 2);
+				expect(reload.request.pages?.["members"]?.after).toBeUndefined();
+				replyMembers(page, reload.requestId, { revision: 3, members: [itemMember] });
+				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("alert")).toBeNull()));
+				yield* openMenu("More actions");
+				expect(screen.getByRole("menuitem", { name: "Select" })).toBeTruthy();
+				expect(screen.queryByRole("region", { name: "Selection" })).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"clears selected IDs when a refresh accepts a new collection revision",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, { revision: 2, name: "Shelf", members: [itemMember] });
+				yield* chooseMenuItem("More actions", "Select");
+				fireEvent.click(screen.getByRole("checkbox", { name: "Select Sample" }));
+				expect(screen.getByRole("region", { name: "Selection" }).textContent).toContain(
+					"1 selected",
+				);
+				page.send({ type: "page-refresh" });
+				yield* answerChrome(page, { name: "Shelf" }, 1);
+				const refreshed = yield* request(page, "members", 1);
+				replyMembers(page, refreshed.requestId, { revision: 3, members: [itemMember] });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("region", { name: "Selection" }).textContent).toContain(
+							"0 selected",
+						),
+					),
+				);
+				expect(
+					screen.getByRole("checkbox", { name: "Select Sample" }).getAttribute("aria-checked"),
+				).toBe("false");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shows the description and opens the kernel editor for the collection",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, { name: "Road Trips", description: "Long drives" });
+				yield* Effect.promise(() => waitFor(() => screen.getByText("Long drives")));
+
+				yield* chooseMenuItem("More actions", "Edit collection");
+				const edit = yield* hostScreenRequest(page, "edit-collection-screen");
+				expect(edit.collectionId).toBe<unknown>("col-1");
+				page.send({
+					outcome: "success",
+					requestId: edit.requestId,
+					value: { kind: "deleted" },
+					type: "edit-collection-screen-result",
+				});
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>(
+							objectContaining({
+								mode: "replace",
+								type: "navigate",
+								target: { kind: "saved-view", reference: { kind: "kernel", slug: "collections" } },
+							}),
+						),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shares the collection through the kernel share sheet",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, { name: "Road Trips" });
+				yield* chooseMenuItem("More actions", "Share");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>(
+							objectContaining({
+								type: "share-publication-screen",
+								source: { kind: "collection", collectionId: "col-1" },
+							}),
+						),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"removes selected members through the kernel collection members screen",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, {
+					name: "Road Trips",
+					members: [itemMember, { ...itemMember, name: "Other", entityId: "item-2" }],
+				});
+				yield* chooseMenuItem("More actions", "Select");
+				fireEvent.click(screen.getByRole("checkbox", { name: "Select Sample" }));
+				expect(
+					screen.getByRole("checkbox", { name: "Select Sample" }).getAttribute("aria-checked"),
+				).toBe("true");
+				expect(screen.getByRole("region", { name: "Selection" }).textContent).toContain(
+					"1 selected",
+				);
+				expect(screen.queryByRole("button", { name: "Collection details for Sample" })).toBeNull();
+				fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+				const change = yield* changeMembersRequest(page);
+				expect(change).toEqual<unknown>(
+					objectContaining({ kind: "remove", collectionId: "col-1", entityIds: ["item-1"] }),
+				);
+				page.send({
+					outcome: "success",
+					value: { kind: "changed" },
+					requestId: change.requestId,
+					type: "change-collection-members-screen-result",
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.queryByRole("region", { name: "Selection" })).toBeNull()),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"adds every matching member except excluded ones to another collection",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection("col-1", "search=sample");
+				yield* answerCollection(page, { name: "Items", hasMore: true, members: [itemMember] });
+				yield* chooseMenuItem("More actions", "Select");
+				fireEvent.click(screen.getByRole("button", { name: "Select all matching" }));
+				const count = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = page
+							.queryRequests("count")
+							.find((candidate) => JSON.stringify(candidate.request).includes("sample"));
+						assert(found !== undefined);
+						return found;
+					}),
+				);
+				page.replyQuery(count.requestId, {
+					outcome: "success",
+					response: { data: { count: { type: "aggregate", items: [{ total: 3 }] } } },
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("region", { name: "Selection" }).textContent).toContain(
+							"3 selected",
+						),
+					),
+				);
+				fireEvent.click(screen.getByRole("checkbox", { name: "Select Sample" }));
+				expect(screen.getByRole("region", { name: "Selection" }).textContent).toContain(
+					"2 selected",
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Add to collection" }));
+				const first = yield* request(page, "memberIds");
+				expect(yield* encodeJson(first.request)).toContain("sample");
+				page.replyQuery(first.requestId, memberIdsReply(["item-1", "item-2"], "ids-2"));
+				const second = yield* request(page, "memberIds", 1);
+				page.replyQuery(second.requestId, memberIdsReply(["item-3"], null));
+				expect(yield* changeMembersRequest(page)).toEqual<unknown>(
+					objectContaining({ kind: "add", entityIds: ["item-2", "item-3"] }),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"opens a member's collection details in the kernel screen",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, { name: "Road Trips", members: [itemMember] });
+
+				const details = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Collection details for Sample" }),
+				);
+				fireEvent.click(details);
+				const add = yield* hostScreenRequest(page, "add-to-collection-screen");
+				assert(add.type === "add-to-collection-screen");
+				expect({ entityId: add.entityId, collectionId: add.collectionId }).toEqual<unknown>({
+					entityId: "item-1",
+					collectionId: "col-1",
+				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"renders heterogeneous members and recipe-supplied template cells in the shared table",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, {
+					total: 5,
+					name: "Road Trips",
+					groupsHaveMore: true,
+					membershipFields: [
+						{
+							key: "template",
+							type: "boolean",
+							required: false,
+							label: "Template",
+							description: "Uses the collection template",
+						},
+					],
+					groups: [
+						{
+							count: 1,
+							ownerPluginId: "fixture",
+							entitySchemaSlug: "item",
+							ownerPluginName: "Fixture",
+						},
+						{
+							count: 1,
+							ownerPluginId: null,
+							ownerPluginName: null,
+							entitySchemaSlug: "collection",
+						},
+					],
+					members: [
+						{
+							name: "Sample",
+							entityId: "item-1",
+							ownerPluginId: "fixture",
+							entitySchemaSlug: "item",
+							ownerPluginName: "Fixture",
+							properties: { template: true },
+							populationStatus: { state: "succeeded", availability: "complete" },
+							translationStatus: { state: "succeeded", availability: "complete" },
+						},
+						{
+							name: "Favorites",
+							entityId: "col-2",
+							ownerPluginId: null,
+							ownerPluginName: null,
+							entitySchemaSlug: "collection",
+							properties: { template: false },
+							translationStatus: { state: "idle", availability: "none" },
+							populationStatus: { state: "succeeded", availability: "complete" },
+						},
+					],
+				});
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { level: 1, name: "Road Trips" })).toBeTruthy(),
+					),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("5 total")),
+				);
+				expect(page.container?.textContent).toContain("1 Fixture / item");
+				expect(page.container?.textContent).toContain("1 Collections");
+				expect(page.container?.textContent).toContain("More types not shown");
+				expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
+
+				fireEvent.click(screen.getByRole("radio", { name: "Table view" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
+							"Name",
+							"Type",
+							"Template",
+							"Actions",
+						]),
+					),
+				);
+				expect(page.container?.textContent).toContain("Fixture / item");
+				expect(page.container?.textContent).toContain("Collections");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps schema-driven table configuration when the collection has zero members",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection("col-empty", "layout=table");
+				yield* answerCollection(page, { name: "Empty", membershipFields: notesFields });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { level: 1, name: "Empty" })).toBeTruthy(),
+					),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("This collection is empty.")),
+				);
+				expect(screen.getByRole("radio", { name: "Table view" }).getAttribute("aria-checked")).toBe(
+					"true",
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"counts all collection search matches on demand",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection("col-1", "search=sample");
+				yield* answerCollection(page, {
+					name: "Items",
+					hasMore: true,
+					members: [
+						{
+							name: "Sample",
+							properties: {},
+							entityId: "item-1",
+							ownerPluginId: "fixture",
+							entitySchemaSlug: "item",
+							ownerPluginName: "Fixture",
+							populationStatus: { state: "succeeded", availability: "complete" },
+							translationStatus: { state: "succeeded", availability: "complete" },
+						},
+					],
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByRole("button", { name: "Count all" })).toBeTruthy()),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Count all" }));
+				const count = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = page
+							.queryRequests("count")
+							.find((candidate) => JSON.stringify(candidate.request).includes("sample"));
+						expect(found).toBeDefined();
+						return found;
+					}),
+				);
+				if (!count) {
+					throw new Error("Filtered count request was not issued");
+				}
+				page.replyQuery(count.requestId, {
+					outcome: "success",
+					response: { data: { count: { type: "aggregate", items: [{ total: 12 }] } } },
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("1 of 12 results")),
+				);
+				expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"uses shared mobile search and options without exposing Add",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				page.navigate(entityLocation("col-1", "collection"), { compact: true });
+				yield* answerCollection(page, { name: "Mixed" });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByRole("button", { name: "View options, 0 active filters" }),
+						).toBeTruthy(),
+					),
+				);
+				expect(screen.queryByRole("button", { name: /Add/ })).toBeNull();
+				fireEvent.click(screen.getByRole("button", { name: "Search this view" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("searchbox", { name: "Search Mixed" })).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Exit search" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByRole("button", { name: "View options, 0 active filters" }),
+						).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "View options, 0 active filters" }));
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => screen.getByRole("dialog", { name: "View options" })),
+				);
+				expect(dialog.textContent).toContain("Collection order");
+				expect(
+					screen.getByRole("button", { name: "Sort direction: Default" }).hasAttribute("disabled"),
+				).toBe(true);
+				fireEvent.click(screen.getByRole("button", { name: "Sort by: Collection order" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("radio", { name: "Date added to collection" })).toBeTruthy(),
+					),
+				);
+				expect(dialog.textContent).toContain("Add filter");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps the desktop toolbar aligned with saved views and sorts from the Filters dialog",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, {
+					name: "Mixed",
+					members: [
+						{
+							name: "Sample",
+							properties: {},
+							entityId: "item-1",
+							ownerPluginId: "fixture",
+							entitySchemaSlug: "item",
+							ownerPluginName: "Fixture",
+							populationStatus: { state: "succeeded", availability: "complete" },
+							translationStatus: { state: "succeeded", availability: "complete" },
+						},
+					],
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { level: 1, name: "Mixed" })).toBeTruthy(),
+					),
+				);
+				expect(screen.queryByRole("button", { name: /^Sort by/ })).toBeNull();
+				fireEvent.click(screen.getByRole("button", { name: /Filters/ }));
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
+				);
+				expect(dialog.textContent).toContain("Collection order");
+				expect(dialog.textContent).toContain("Add filter");
+				expect(dialog.textContent).not.toContain("View as");
+				fireEvent.click(screen.getByRole("button", { name: "Sort by: Collection order" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("radio", { name: "Date added to collection" })).toBeTruthy(),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"requests only members when loading the next page",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, {
+					name: "Items",
+					hasMore: true,
+					groups: [itemGroup],
+					members: [itemMember],
+				});
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Load more results" })),
+				);
+				const second = yield* request(page, "members", 1);
+				replyMembers(page, second.requestId, { members: [{ ...itemMember, entityId: "item-2" }] });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("End of Items")),
+				);
+				expect(page.queryRequests("collection")).toHaveLength(1);
+				expect(page.queryRequests("aggregate")).toHaveLength(1);
+				expect(page.queryRequests("count")).toHaveLength(1);
+				expect(page.queryRequests("members")).toHaveLength(2);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shows the known total without Count all until a filter is applied",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection(
+					"col-1",
+					filtersParam({ operator: "anyOf", field: "member-type", values: ["fixture/item"] }),
+				);
+				yield* answerCollection(page, {
+					total: 5,
+					name: "Items",
+					hasMore: true,
+					groups: [itemGroup],
+					members: [itemMember],
+				});
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Count all" }));
+				fireEvent.click(screen.getByRole("button", { name: "Count all" }));
+				const count = yield* request(page, "count", 1);
+				const document = yield* encodeJson(count.request);
+				expect(document).toContain("fixture/item");
+				expect(document).toContain("concat");
+				page.replyQuery(count.requestId, {
+					outcome: "success",
+					response: { data: { count: { type: "aggregate", items: [{ total: 2 }] } } },
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("1 of 2 results")),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"hides Count all and shows the loaded total when nothing narrows the members",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, {
+					total: 5,
+					name: "Items",
+					hasMore: true,
+					groups: [itemGroup],
+					members: [itemMember],
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("1 of 5 results")),
+				);
+				expect(screen.queryByRole("button", { name: "Count all" })).toBeNull();
+				expect(page.queryRequests("count")).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"sends a membership property filter from the URL with the first members request",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection(
+					"col-1",
+					filtersParam({ value: "road", operator: "contains", field: "membership.notes" }),
+				);
+				yield* answerChrome(page, { name: "Trips", membershipFields: notesFields });
+				const first = yield* request(page, "members");
+				const document = yield* encodeJson(first.request);
+				expect(document).toContain('"road"');
+				expect(document).toContain(`"path":["notes"]`);
+				replyMembers(page, first.requestId, { members: [itemMember] });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+							"Notes contains road",
+						),
+					),
+				);
+				expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
+				expect(page.queryRequests("members")).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"offers type, also-in-collection and membership fields in the filters panel",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, {
+					name: "Items",
+					groups: [itemGroup],
+					members: [itemMember],
+					membershipFields: notesFields,
+				});
+				yield* Effect.promise(() => screen.findByRole("button", { name: /^Filters/ }));
+				fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: /^Add filter/ })),
+				);
+				for (const label of ["Type", "Also in collection", "Notes"]) {
+					yield* Effect.promise(() => screen.findByRole("radio", { name: label }));
+				}
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"recovers from a failed header load with Try again",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				const header = yield* request(page, "collection");
+				page.replyQuery(header.requestId, { outcome: "failure", reason: "query-failed" });
+				yield* Effect.promise(() => screen.findByText("Collection unavailable"));
+				expect(page.container?.textContent).toContain("The collection could not be loaded.");
+
+				fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+				const retry = yield* request(page, "collection", 1);
+				page.replyQuery(retry.requestId, {
+					outcome: "success",
+					response: headerResponse({ name: "Back" }),
+				});
+				const aggregate = yield* request(page, "aggregate");
+				const count = yield* request(page, "count");
+				page.replyQuery(aggregate.requestId, {
+					outcome: "success",
+					response: {
+						data: {
+							aggregate: {
+								items: [],
+								type: "aggregate",
+								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+							},
+						},
+					},
+				});
+				page.replyQuery(count.requestId, {
+					outcome: "success",
+					response: { data: { count: { type: "aggregate", items: [{ total: 0 }] } } },
+				});
+				const members = yield* request(page, "members");
+				replyMembers(page, members.requestId, {});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { level: 1, name: "Back" })).toBeTruthy(),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"filters on a membership field added after a refresh",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection("col-1", "layout=table");
+				const scored = { ...itemMember, properties: { score: 7 } };
+				yield* answerCollection(page, {
+					name: "Trips",
+					groups: [itemGroup],
+					members: [itemMember],
+					membershipFields: notesFields,
+				});
+				const answered = new Set(page.queryRequests("members").map(({ requestId }) => requestId));
+				const answerPending = () => {
+					for (const pending of page.queryRequests("members")) {
+						if (!answered.has(pending.requestId)) {
+							answered.add(pending.requestId);
+							replyMembers(page, pending.requestId, { members: [scored] });
+						}
+					}
+				};
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getAllByRole("columnheader").length).toBeGreaterThan(0)),
+				);
+
+				const grown = [
+					...notesFields,
+					{ key: "score", type: "number", label: "Score", required: false },
+				] as const;
+				page.send({ type: "page-refresh" });
+				yield* answerChrome(
+					page,
+					{ name: "Trips", groups: [itemGroup], membershipFields: grown },
+					1,
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toContain(
+							"Score",
+						);
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("7")),
+				);
+
+				fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: /^Add filter/ })),
+				);
+				fireEvent.click(yield* Effect.promise(() => screen.findByRole("radio", { name: "Score" })));
+				const before = page.queryRequests("members").length;
+				fireEvent.change(
+					yield* Effect.promise(() => screen.findByRole("spinbutton", { name: "Score value" })),
+					{ target: { value: "3" } },
+				);
+				const filtered = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = page.queryRequests("members")[before];
+						assert(found !== undefined);
+						return found;
+					}),
+				);
+				const document = yield* encodeJson(filtered.request);
+				expect(document).toContain(`"path":["score"]`);
+				expect(document).toContain('"gte"');
+				answerPending();
+				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy(),
+					),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("7")),
+				);
+			}),
+		testTimeout,
+	);
+});

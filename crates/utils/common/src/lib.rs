@@ -30,7 +30,7 @@ pub const BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
 pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub const APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const AVATAR_URL: &str =
-    "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
+    "https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
 pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR,
     "/",

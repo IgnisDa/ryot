@@ -1,0 +1,148 @@
+import { describe, expect, it } from "bun:test";
+
+import type { BrowseField } from "@ryot-app/contract/modules/filters/browse";
+import { PluginId } from "@ryot-app/contract/schema/brands";
+import {
+	ascending,
+	column,
+	conditional,
+	descending,
+	entitySchemaPredicate,
+	jsonPath,
+	literal,
+	table,
+} from "@ryot-app/ryotql";
+import { compileSort } from "@ryot-app/ryotql/sort";
+import { it as effectIt } from "@voila.dev/effect-bun-test";
+import { Effect, Result } from "effect";
+
+import {
+	type BrowseSchema,
+	entitySchemaBrowseRecipe,
+	loadEntitySchemaBrowse,
+	nameSortTarget,
+} from "./browse";
+import { bindRecipe } from "./test-utils";
+
+const subject = table("entity", "subject");
+const entity = table("entity", "member");
+const property = (from: ReturnType<typeof table>, name: string) =>
+	jsonPath(column(from, "properties"), name);
+
+const rating = (name: string): BrowseField => ({
+	key: "rating",
+	kind: "value",
+	type: "number",
+	label: "Rating",
+	expression: property(subject, name),
+	sort: {
+		label: "Rating",
+		defaultDirection: "desc",
+		ascending: "Lowest first",
+		descending: "Highest first",
+	},
+});
+
+const schema = (
+	slug: string,
+	pluginId: null | string,
+	fields: readonly BrowseField[],
+): BrowseSchema => ({ slug, pluginId, browse: { fields } });
+
+const local = (slug: string, pluginId: string) =>
+	entitySchemaPredicate(entity, slug, { kind: "local", pluginId: PluginId.make(pluginId) });
+
+describe("sort compilation", () => {
+	const id = column(entity, "id");
+
+	it("orders by the chosen direction then entity ID, reading null for undeclared schemas", () => {
+		const movie = local("movie", "media");
+		const sorts = [
+			nameSortTarget(entity),
+			{
+				key: "rating",
+				label: "Rating",
+				defaultDirection: "desc",
+				ascending: "Lowest first",
+				descending: "Highest first",
+				branches: [{ when: movie, value: property(entity, "score") }],
+			} as const,
+		];
+		expect(Result.getOrThrow(compileSort(sorts, "name-asc", id))).toEqual([
+			ascending(column(entity, "name")),
+			ascending(id),
+		]);
+		expect(Result.getOrThrow(compileSort(sorts, "rating-desc", id))).toEqual([
+			descending(conditional(movie, property(entity, "score"), literal(null))),
+			ascending(id),
+		]);
+		expect(Result.isFailure(compileSort(sorts, "rating", id))).toBe(true);
+	});
+});
+
+describe("schema browse loading", () => {
+	effectIt.effect(
+		"loads all requested schemas across bounded reads including unavailable definitions",
+		() =>
+			Effect.gen(function* () {
+				const schemas = Array.from({ length: 205 }, (_, index) =>
+					schema(`schema-${index}`, "plugin", []),
+				);
+				const requests: number[] = [];
+				let offset = 0;
+				const loaded = yield* loadEntitySchemaBrowse(schemas, (recipe) => {
+					const bound = bindRecipe(recipe, {});
+					expect(bound.document.queries.schemas?.output).toMatchObject({
+						pagination: { limit: 100 },
+					});
+					const batch = schemas.slice(offset, offset + 100);
+					offset += 100;
+					requests.push(batch.length);
+					return Effect.fromResult(
+						bound.decode({
+							data: {
+								schemas: {
+									type: "rows",
+									items: batch.filter(({ slug }) => slug !== "schema-102"),
+									pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+								},
+							},
+						}),
+					);
+				});
+				expect(requests).toEqual([100, 100, 5]);
+				expect(loaded).toEqual(
+					schemas.map((entry) =>
+						entry.slug === "schema-102"
+							? { browse: null, slug: entry.slug, pluginId: entry.pluginId }
+							: entry,
+					),
+				);
+			}),
+	);
+
+	it("keeps requested schemas without a visible definition so their members stay excluded", () => {
+		const recipe = bindRecipe(
+			entitySchemaBrowseRecipe({
+				schemas: [
+					{ slug: "movie", pluginId: "media" },
+					{ slug: "removed", pluginId: "gone" },
+				],
+			}),
+			{},
+		);
+		const movie = schema("movie", "media", [rating("rating")]);
+		const loaded = Result.getOrThrow(
+			recipe.decode({
+				data: {
+					schemas: {
+						type: "rows",
+						items: [movie],
+						pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+					},
+				},
+			}),
+		);
+		expect(loaded).toEqual([movie, { browse: null, slug: "removed", pluginId: "gone" }]);
+	});
+});

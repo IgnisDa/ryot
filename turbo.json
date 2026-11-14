@@ -1,37 +1,138 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	"tasks": {
+		"dev": { "cache": false, "persistent": true },
+		"check": { "dependsOn": ["^check", "^build"], "outputLogs": "errors-only" },
+		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test"] },
+		"@ryot-app/server#dev": { "cache": false, "persistent": true, "dependsOn": ["^build"] },
 		"build": {
 			"dependsOn": ["^build"],
-			"outputs": ["build/**", ".vitepress/dist/**", "dist/**", "out/**"]
+			"outputLogs": "errors-only",
+			"env": ["UNKEY_ROOT_KEY", "RYOT_VERSION"],
+			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
 		},
-		"build-chrome": {
-			"dependsOn": ["^build"],
-			"outputs": ["dist/chrome-mv3/**", "dist/*-chrome.zip"]
-		},
-		"build-firefox": {
+		"@ryot-app/kernel-backend#build": {
 			"dependsOn": ["^build"],
 			"outputs": [
-				"dist/firefox-mv2/**",
-				"dist/*-sources.zip",
-				"dist/*-firefox.zip"
+				"src/modules/definitions/*.generated.ts",
+				"src/modules/agent-tools/*.generated.ts"
+			],
+			"inputs": [
+				"src/**/*.ts",
+				"!src/**/*.generated.ts",
+				"tooling/**/*.ts",
+				"package.json",
+				"$TURBO_ROOT$/packages/contract/src/**/*.ts",
+				"$TURBO_ROOT$/packages/plugin-client-compiler/src/**/*.ts",
+				"$TURBO_ROOT$/packages/plugin-client-contract/src/**/*.ts",
+				"$TURBO_ROOT$/packages/plugin-client-sdk/src/**/*.ts",
+				"$TURBO_ROOT$/packages/plugin-client-sdk/src/**/*.tsx",
+				"$TURBO_ROOT$/packages/plugin-client-sdk/assistant-reference.md",
+				"$TURBO_ROOT$/packages/plugin-ui-sdk/src/**/*.ts",
+				"$TURBO_ROOT$/packages/plugin-ui-sdk/src/**/*.tsx",
+				"$TURBO_ROOT$/packages/plugin-ui-sdk/assistant-reference.md",
+				"$TURBO_ROOT$/packages/plugin-kit/src/**/*.ts",
+				"$TURBO_ROOT$/packages/ryotql/src/**/*.ts",
+				"$TURBO_ROOT$/packages/ryotql-recipes/src/**/*.ts",
+				"$TURBO_ROOT$/packages/ts-utils/src/**/*.ts"
 			]
 		},
-		"typecheck": {},
-		"lint": {},
-		"test": {
-			"dependsOn": ["^build"]
+		"@ryot-app/kernel-backend#check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "build"]
 		},
-		"dev": {
-			"cache": false,
-			"persistent": true
+		"@ryot-app/kernel-backend#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["build", "^build", "^check", "^test"]
 		},
-		"test-watch": {
-			"cache": false,
-			"persistent": true
+		"@ryot-app/e2e#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^build", "^check", "^test"],
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"$TURBO_ROOT$/apps/server/**",
+				"$TURBO_ROOT$/kernel/**",
+				"$TURBO_ROOT$/packages/**",
+				"$TURBO_ROOT$/plugins/**",
+				"!$TURBO_ROOT$/**/node_modules/**",
+				"!$TURBO_ROOT$/**/dist/**",
+				"!$TURBO_ROOT$/**/.turbo/**",
+				"!$TURBO_ROOT$/**/{.DS_Store,.env,*.tsbuildinfo}",
+				"!$TURBO_ROOT$/apps/server/{client,logs,plugins,sandboxd,storage,tmp,work}/**",
+				"!$TURBO_ROOT$/kernel/client/{android,ios}/**",
+				"!$TURBO_ROOT$/kernel/sandbox/native/{payload,target}/**"
+			]
 		},
-		"backend-graphql": {
-			"cache": false
+		"@ryot-app/sandbox#build": {
+			"dependsOn": ["^build"],
+			"outputLogs": "errors-only",
+			"outputs": ["native/payload/**", "dist/**"],
+			"inputs": [
+				"src/**/*.ts",
+				"tooling/**/*.ts",
+				"native/**",
+				"!native/target/**",
+				"!native/payload/**",
+				"package.json",
+				"$TURBO_ROOT$/packages/contract/src/**/*.ts",
+				"$TURBO_ROOT$/packages/plugin-backend-sdk/src/**/*.ts",
+				"$TURBO_ROOT$/packages/plugin-kit/src/**/*.ts",
+				"$TURBO_ROOT$/packages/ryotql/src/**/*.ts",
+				"$TURBO_ROOT$/packages/ryotql-recipes/src/**/*.ts",
+				"$TURBO_ROOT$/packages/ts-utils/src/**/*.ts"
+			]
+		},
+		"@ryot-app/sandbox#check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "build"]
+		},
+		"@ryot-app/sandbox#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": [
+				"build",
+				"^build",
+				"^check",
+				"^test",
+				"@ryot-app/fitness-plugin#build",
+				"@ryot-app/media-plugin#build"
+			]
+		},
+		"@ryot-app/server#build": {
+			"outputs": ["dist/**"],
+			"dependsOn": ["^build"],
+			"outputLogs": "errors-only",
+			"env": ["UNKEY_ROOT_KEY", "RYOT_VERSION"]
+		},
+		"@ryot-app/kernel-renderers#build": {
+			"dependsOn": ["^build"],
+			"outputs": ["src/sources.generated.ts"],
+			"inputs": [
+				"src/**/*.ts",
+				"src/**/*.tsx",
+				"!src/**/*.generated.ts",
+				"tooling/**/*.ts",
+				"package.json"
+			]
+		},
+		"@ryot-app/kernel-renderers#check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "build"]
+		},
+		"@ryot-app/kernel-renderers#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["build", "^build", "^check", "^test"]
+		},
+		"@ryot-app/kernel-backend#test:memory": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["check", "build"]
 		}
-	}
+	},
+	"globalPassThroughEnv": [
+		"CARGO_HOME",
+		"RUSTUP_HOME",
+		"DOCKER_HOST",
+		"TEST_DATABASE_URL",
+		"TESTCONTAINERS_HOST_OVERRIDE",
+		"TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE"
+	]
 }

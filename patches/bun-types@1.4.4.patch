@@ -1,0 +1,14 @@
+diff --git a/bun.d.ts b/bun.d.ts
+index 59aa530c8e58c1cece604254c2c6154f25a92c87..d113d7060e89a2019ce9b28da4683d53ee1094c7 100644
+--- a/bun.d.ts
++++ b/bun.d.ts
+@@ -7501,3 +7501,9 @@ declare module "bun" {
+    * @category HTTP & Networking
+    */
+   function connect<Data = undefined>(options: UnixSocketOptions<Data>): Promise<Socket<Data>>;
++  /**
++   * Adopt an already-connected socket file descriptor.
++   *
++   * @category HTTP & Networking
++   */
++  function connect<Data = undefined>(options: FdSocketOptions<Data>): Promise<Socket<Data>>;

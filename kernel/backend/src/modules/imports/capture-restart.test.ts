@@ -1,0 +1,126 @@
+import { expect } from "bun:test";
+
+import { BunServices } from "@effect/platform-bun";
+import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
+import { and, eq } from "drizzle-orm";
+import { Effect, FileSystem, Layer, Redacted } from "effect";
+
+import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
+import { DatabaseSession } from "#platform/db/session";
+import { HmacSigner } from "#platform/storage/hmac-signer";
+import { LocalStorageService } from "#platform/storage/local-storage";
+import { S3Service } from "#platform/storage/s3";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer, workflowAccountsTestLayer } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
+
+import { IngestionCaptures } from "./capture-service";
+import { ImportsRepository } from "./repository";
+
+layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")))((test) => {
+	test.effect(
+		"restarts publication from reserved or permanent bytes",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const database = yield* DatabaseSession;
+				const { url } = yield* IsolatedDatabase;
+				const userId = UserId.make("capture-restart-owner");
+				yield* database.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: userId, name: "Owner", email: "capture-restart@example.test" }),
+				);
+				const directory = yield* fs.makeTempDirectoryScoped();
+				yield* fs.makeDirectory(`${directory}/working`);
+				const dependencies = Layer.mergeAll(
+					BunServices.layer,
+					workflowAccountsTestLayer,
+					makeAppConfigLayer({
+						database: { url: Redacted.make(url) },
+						fileStorage: {
+							localDir: `${directory}/permanent`,
+							localTempDir: `${directory}/working`,
+						},
+					}),
+					Layer.mock(S3Service)({ isConfigured: false }),
+					Layer.mock(HmacSigner)({}),
+				);
+				const services = Layer.mergeAll(
+					ImportsRepository.layer.pipe(Layer.provideMerge(DatabaseSession.layer)),
+					IngestionPayloads.layer.pipe(Layer.provide(LocalStorageService.layer)),
+				).pipe(Layer.provideMerge(dependencies));
+				const captureServices = Layer.effect(IngestionCaptures, IngestionCaptures.make).pipe(
+					Layer.provideMerge(services),
+				);
+				const bytes = new TextEncoder().encode("collector records");
+				for (const published of [false, true]) {
+					const scope = { userId, runId: ImportRunId.make(`restart-${published}`) };
+					yield* database.run((db) =>
+						db
+							.insert(tables.importRun)
+							.values({ userId, id: scope.runId, status: "running", source: "data-json" }),
+					);
+					const first = yield* Layer.build(services);
+					const input = {
+						scope,
+						ordinal: 64,
+						id: "page-1",
+						maxBytes: 1024,
+						checkpoint: { page: 1 },
+						state: "sealed" as const,
+						phase: "collection" as const,
+					};
+					const payload = yield* Effect.gen(function* () {
+						const payloads = yield* IngestionPayloads;
+						const repository = yield* ImportsRepository;
+						const session = yield* DatabaseSession;
+						const proposed = yield* payloads.describe({ scope, bytes, id: input.id });
+						yield* session.transaction(
+							repository.reservePayload(scope, {
+								ordinal: 64,
+								id: input.id,
+								payload: proposed,
+								captureState: "sealed",
+								checkpoint: { page: 1 },
+								capturePhase: "collection",
+								inputFingerprint: proposed.checksum,
+								recoveryBytes: published ? null : Buffer.from(bytes).toString("base64"),
+							}),
+						);
+						if (published) {
+							yield* payloads.write({ bytes, payload: proposed, maxBytes: input.maxBytes });
+						}
+						return proposed;
+					}).pipe(Effect.provideContext(first));
+					for (let activation = 0; activation < 2; activation++) {
+						const restarted = yield* Layer.build(captureServices);
+						const capture = yield* Effect.flatMap(IngestionCaptures, (service) =>
+							service.resume(input),
+						).pipe(Effect.provideContext(restarted));
+						expect(capture?.payload).toEqual(payload);
+						expect(capture?.checkpoint).toEqual({ page: 1 });
+						const stored = yield* Effect.flatMap(IngestionPayloads, (storage) =>
+							storage.read(payload, input.maxBytes),
+						).pipe(Effect.provideContext(restarted));
+						expect(new TextDecoder().decode(stored)).toBe("collector records");
+					}
+					const captures = yield* database.run((db) =>
+						db
+							.select()
+							.from(tables.importItem)
+							.where(
+								and(
+									eq(tables.importItem.runId, scope.runId),
+									eq(tables.importItem.published, true),
+								),
+							),
+					);
+					expect(captures).toHaveLength(1);
+				}
+			}),
+		testTimeout,
+	);
+});

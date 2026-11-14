@@ -1,0 +1,74 @@
+{
+	"type": "diff",
+	"version": "9",
+	"dialect": "postgres",
+	"id": "5d975299-0a9b-459a-ac72-651fc0c3174a",
+	"prevIds": ["ce1498c3-91af-4845-8f74-dcc0705a5f71"],
+	"footprints": [
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "event", "event_user_session_entity_schema_idx"],
+			"writes": [
+				"s|idx|public.event_user_session_entity_schema_idx",
+				"n|idx|public.event_user_session_entity_schema_idx",
+				"e|idx|public.event_user_session_entity_schema_idx",
+				"n|rel|public.event_user_session_entity_schema_idx"
+			],
+			"reads": [
+				"n|tbl|public.event",
+				"n|sch|public",
+				"n|col|public.event.user_id",
+				"n|col|public.event.session_entity_id",
+				"n|col|public.event.entity_id",
+				"n|col|public.event.event_schema_slug"
+			]
+		}
+	],
+	"deltas": [
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "event",
+				"name": "event_user_session_entity_schema_idx",
+				"nameExplicit": true,
+				"columns": [
+					{
+						"value": "user_id",
+						"isExpression": false,
+						"asc": true,
+						"nullsFirst": false,
+						"opclass": null
+					},
+					{
+						"value": "session_entity_id",
+						"isExpression": false,
+						"asc": true,
+						"nullsFirst": false,
+						"opclass": null
+					},
+					{
+						"value": "entity_id",
+						"isExpression": false,
+						"asc": true,
+						"nullsFirst": false,
+						"opclass": null
+					},
+					{
+						"value": "event_schema_slug",
+						"isExpression": false,
+						"asc": true,
+						"nullsFirst": false,
+						"opclass": null
+					}
+				],
+				"isUnique": false,
+				"where": null,
+				"with": "",
+				"method": "btree",
+				"concurrently": false,
+				"entityType": "indexes"
+			}
+		}
+	]
+}

@@ -1,0 +1,263 @@
+{
+	"type": "diff",
+	"version": "9",
+	"dialect": "postgres",
+	"id": "ce1498c3-91af-4845-8f74-dcc0705a5f71",
+	"prevIds": ["a4ace724-b214-48d1-924c-6a5bc657f764"],
+	"footprints": [
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "assistant_inbox"],
+			"writes": [
+				"s|tbl|public.assistant_inbox",
+				"n|tbl|public.assistant_inbox",
+				"e|tbl|public.assistant_inbox",
+				"n|rel|public.assistant_inbox",
+				"n|type|public.assistant_inbox",
+				"n|rel|public.assistant_inbox_pkey",
+				"n|rel|public.assistant_inbox_user_id_request_id_unique"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "assistant_inbox", "assistant_inbox_turn_idx"],
+			"writes": [
+				"s|idx|public.assistant_inbox_turn_idx",
+				"n|idx|public.assistant_inbox_turn_idx",
+				"e|idx|public.assistant_inbox_turn_idx",
+				"n|rel|public.assistant_inbox_turn_idx"
+			],
+			"reads": [
+				"n|tbl|public.assistant_inbox",
+				"n|sch|public",
+				"n|col|public.assistant_inbox.turn_id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "assistant_inbox"],
+			"writes": [
+				"s|fk|public.assistant_inbox.assistant_inbox_7kTv54GGAwnu_fkey",
+				"n|fk|public.assistant_inbox.assistant_inbox_7kTv54GGAwnu_fkey",
+				"e|fk|public.assistant_inbox.assistant_inbox_7kTv54GGAwnu_fkey",
+				"n|con|public.assistant_inbox.assistant_inbox_7kTv54GGAwnu_fkey"
+			],
+			"reads": [
+				"n|tbl|public.assistant_inbox",
+				"n|sch|public",
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|col|public.assistant_inbox.turn_id",
+				"n|col|public.assistant_inbox.conversation_id",
+				"n|col|public.assistant_inbox.user_id",
+				"n|col|public.assistant_turn.id",
+				"n|col|public.assistant_turn.conversation_id",
+				"n|col|public.assistant_turn.user_id",
+				"e|uniqueness|public.assistant_turn.conversation_id.id.user_id"
+			]
+		}
+	],
+	"deltas": [
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"name": "assistant_inbox",
+				"isRlsEnabled": false,
+				"entityType": "tables"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "text",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "turn_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "user_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "delivered_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "request_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "conversation_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "created_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "now()",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "assistant_inbox_turn_idx",
+				"nameExplicit": true,
+				"columns": [
+					{
+						"value": "turn_id",
+						"isExpression": false,
+						"asc": true,
+						"nullsFirst": false,
+						"opclass": null
+					}
+				],
+				"isUnique": false,
+				"where": null,
+				"with": "",
+				"method": "btree",
+				"concurrently": false,
+				"entityType": "indexes"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "assistant_inbox_7kTv54GGAwnu_fkey",
+				"nameExplicit": false,
+				"columns": ["turn_id", "conversation_id", "user_id"],
+				"schemaTo": "public",
+				"tableTo": "assistant_turn",
+				"columnsTo": ["id", "conversation_id", "user_id"],
+				"onUpdate": "NO ACTION",
+				"onDelete": "CASCADE",
+				"entityType": "fks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "assistant_inbox_pkey",
+				"columns": ["id"],
+				"nameExplicit": false,
+				"entityType": "pks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_inbox",
+				"name": "assistant_inbox_user_id_request_id_unique",
+				"nameExplicit": false,
+				"columns": ["user_id", "request_id"],
+				"nullsNotDistinct": false,
+				"entityType": "uniques"
+			}
+		}
+	]
+}

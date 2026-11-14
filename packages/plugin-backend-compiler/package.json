@@ -1,0 +1,81 @@
+{
+	"name": "@ryot-app/plugin-backend-compiler",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./builtins": {
+			"types": "./src/compiler-builtins.ts",
+			"default": "./src/compiler-builtins.ts"
+		},
+		"./core": {
+			"types": "./src/compiler-core.ts",
+			"default": "./src/compiler-core.ts"
+		},
+		"./diagnostics": {
+			"types": "./src/compiler-diagnostics.ts",
+			"default": "./src/compiler-diagnostics.ts"
+		},
+		"./limits": {
+			"types": "./src/limits.ts",
+			"default": "./src/limits.ts"
+		},
+		"./protocol": {
+			"types": "./src/compiler-protocol.ts",
+			"default": "./src/compiler-protocol.ts"
+		},
+		"./plugin-manifest": {
+			"types": "./src/compiler-plugin-manifest.ts",
+			"default": "./src/compiler-plugin-manifest.ts"
+		},
+		"./script-metadata": {
+			"types": "./src/script-metadata.ts",
+			"default": "./src/script-metadata.ts"
+		},
+		"./supervisor": {
+			"types": "./src/compiler-supervisor.ts",
+			"default": "./src/compiler-supervisor.ts"
+		},
+		"./warm-up": {
+			"types": "./src/compiler-warm-up.ts",
+			"default": "./src/compiler-warm-up.ts"
+		},
+		"./platform": {
+			"types": "./src/compiler-platform.ts",
+			"default": "./src/compiler-platform.ts"
+		},
+		"./plugins": {
+			"types": "./src/compiler-plugins.ts",
+			"default": "./src/compiler-plugins.ts"
+		},
+		"./worker": {
+			"types": "./src/compiler-worker.ts",
+			"default": "./src/compiler-worker.ts"
+		},
+		"./runtime-build/*": {
+			"types": "./src/runtime-build/*.ts",
+			"default": "./src/runtime-build/*.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun ../../packages/testing/src/run-tests.ts --timeout=20000",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix",
+		"build": "bun build src/compiler-worker.ts --outdir dist --entry-naming plugin-backend-compiler-worker.js --target bun --sourcemap --external @ryot-app/vite-compiler"
+	},
+	"dependencies": {
+		"@effect/platform-bun": "4.1.2",
+		"@ryot-app/compiler-worker": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-backend-sdk": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"@ryot-app/typescript-compiler": "workspace:*",
+		"@ryot-app/vite-compiler": "workspace:*",
+		"effect": "4.1.2",
+		"typescript": "7.0.2"
+	},
+	"devDependencies": {
+		"@ryot-app/testing": "workspace:*",
+		"@voila.dev/effect-bun-test": "4.0.4",
+		"bun-types": "1.4.4"
+	}
+}

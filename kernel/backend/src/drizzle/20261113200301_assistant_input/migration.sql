@@ -1,0 +1,3 @@
+DROP INDEX "assistant_turn_active_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "assistant_turn_active_unique" ON "assistant_turn" ("conversation_id") WHERE "status" in ('queued', 'running', 'awaiting-approval', 'awaiting-input');--> statement-breakpoint
+ALTER TABLE "assistant_turn" DROP CONSTRAINT "assistant_turn_status", ADD CONSTRAINT "assistant_turn_status" CHECK ("status" in ('queued', 'running', 'awaiting-approval', 'awaiting-input', 'completed', 'failed', 'interrupted'));

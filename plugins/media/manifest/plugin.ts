@@ -1,0 +1,1474 @@
+import type { AuthoredEntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
+import {
+	CLIENT_API_VERSION,
+	definePlugin,
+	type KernelCollectionEventHookTarget,
+	type PluginEntityEditor,
+	type PluginHook,
+} from "@ryot-app/contract/modules/plugins/manifest";
+import { operationJsonSchema } from "@ryot-app/plugin-kit/operations";
+
+import {
+	CONSUMED_ON_ITEM_LIMIT,
+	CONSUMED_ON_LIST_LIMIT,
+	consumedOnSettingKeys,
+} from "../shared/consumed-on-settings";
+import {
+	MetadataLookupInput,
+	MetadataLookupOutput,
+	ResolveEpisodesInput,
+	ResolveEpisodesOutput,
+} from "../shared/integration-operations";
+import {
+	MediaActivityDeleteInput,
+	MediaActivityLogInput,
+	MediaActivityLogOutput,
+	MediaActivityUpdateInput,
+} from "../shared/media-activity-operations";
+import {
+	isMediaChildEntitySchemaSlug,
+	mediaEntityCreateRoute,
+	mediaEntityEditorRoutes,
+	mediaEntityEditors,
+} from "../shared/media-entity-editors";
+import {
+	MediaMonitoringDisableInput,
+	MediaMonitoringEnableInput,
+	MediaMonitoringOutput,
+	MediaMonitoringStatusInput,
+} from "../shared/media-monitoring-operations";
+import { MediaOwnershipOutput, MediaOwnershipSetInput } from "../shared/media-ownership-operations";
+import {
+	MediaReviewCreateInput,
+	MediaReviewDeleteInput,
+	MediaReviewOutput,
+	MediaReviewUpdateInput,
+} from "../shared/media-review-operations";
+import {
+	builtinMediaEntitySchemaSlugs,
+	mediaFoldEventSchemaSlugs,
+	mediaGroupSlugs,
+	mediaLibraryMemberEntitySchemaSlugs,
+} from "../shared/media-schema-slugs";
+import { MediaUserDataInput, MediaUserDataOutput } from "../shared/media-user-data-operations";
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import { mediaPresentationDeclaration } from "../shared/presentation-sources";
+import {
+	DEFAULT_UPCOMING_DAYS_AHEAD,
+	MAX_UPCOMING_DAYS_AHEAD,
+	UPCOMING_DAYS_AHEAD_SETTING,
+	UPCOMING_ONE_PER_TITLE_SETTING,
+} from "../shared/upcoming-settings";
+import { mediaBrowse } from "./browse";
+import { mediaCalendarSources } from "./calendar-sources";
+import { mediaConfigSchema } from "./config";
+import { mediaProviders } from "./providers";
+import { mediaDeclaredQueries } from "./queries";
+import { mediaSavedViews } from "./saved-views";
+import {
+	hasConsumptionProjection,
+	mediaConsumptionProjection,
+} from "./schemas/consumption-projection";
+import { mediaEntitySchemas } from "./schemas/entity";
+import { builtinRelationshipSchemas } from "./schemas/relationship";
+import { mediaSignalSchemas } from "./schemas/signal";
+import { mediaSignalSchedules } from "./signal-schedules";
+import { mediaUserStatePolicy } from "./user-state";
+import { watchProviderUserSettingFields } from "./watch-provider-settings";
+
+const entitySchemas = mediaEntitySchemas().map(
+	(
+		schema,
+	): ReturnType<typeof mediaEntitySchemas>[number] & {
+		readonly editor?: PluginEntityEditor;
+		readonly browse?: AuthoredEntitySchemaBrowse;
+	} => {
+		const editor = Object.hasOwn(mediaEntityEditors, schema.slug)
+			? mediaEntityEditors[schema.slug]
+			: undefined;
+		const browse = mediaBrowse(schema);
+		const browsed = browse === undefined ? schema : Object.assign({}, schema, { browse });
+		const definition = mediaLibraryMemberEntitySchemaSlugs.some((slug) => slug === schema.slug)
+			? Object.assign({}, browsed, {
+					userState: mediaUserStatePolicy(schema.slug),
+					fold: { scriptSlug: "fold.media-history", eventSchemaSlugs: mediaFoldEventSchemaSlugs },
+				})
+			: browsed;
+		const projected = [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].some(
+			(slug) => slug === schema.slug,
+		)
+			? Object.assign({}, definition, {
+					eventSchemas: definition.eventSchemas.map((event) =>
+						hasConsumptionProjection(event.slug)
+							? Object.assign({}, event, { projection: mediaConsumptionProjection })
+							: event,
+					),
+				})
+			: definition;
+		return editor === undefined ? projected : Object.assign({}, projected, { editor });
+	},
+);
+
+const relationshipSchemas = builtinRelationshipSchemas();
+
+const streamingProviders = [
+	"Netflix",
+	"Amazon Prime",
+	"Disney+",
+	"HBO Max",
+	"Apple TV",
+	"Peacock",
+	"Hulu",
+];
+
+const consumedOnSettings = [
+	{
+		slug: "book",
+		label: "Book",
+		defaults: ["Paperback", "Hardcover", "Kindle", "Kobo", "Library"],
+	},
+	{ slug: "comic-book", label: "Comic book", defaults: ["Print", "Kindle"] },
+	{ slug: "anime", label: "Anime", defaults: ["Crunchyroll", "Netflix", "HIDIVE"] },
+	{ slug: "movie", label: "Movie", defaults: [...streamingProviders, "Crunchyroll", "Cinema"] },
+	{ slug: "show", label: "Show", defaults: streamingProviders },
+	{ slug: "manga", label: "Manga", defaults: ["Print", "Kindle", "Manga Plus"] },
+	{ slug: "audiobook", label: "Audiobook", defaults: ["Audible", "Libby", "Spotify"] },
+	{
+		slug: "podcast",
+		label: "Podcast",
+		defaults: ["Spotify", "Apple Podcasts", "Pocket Casts", "YouTube"],
+	},
+	{
+		slug: "video-game",
+		label: "Video game",
+		defaults: ["PC", "PlayStation 5", "Xbox Series X|S", "Nintendo Switch", "Steam Deck"],
+	},
+	{
+		slug: "music",
+		label: "Music",
+		defaults: ["Spotify", "Apple Music", "YouTube Music", "Vinyl", "CD"],
+	},
+	{ slug: "visual-novel", label: "Visual novel", defaults: ["PC", "Nintendo Switch"] },
+] as const;
+
+const consumedOnUserSettingFields = Object.fromEntries(
+	consumedOnSettings.map(({ slug, label, defaults }, index) => [
+		consumedOnSettingKeys[slug],
+		{
+			position: index + 4,
+			type: "array" as const,
+			defaultValue: defaults,
+			label: `Where you consume: ${label}`,
+			validation: { maxItems: CONSUMED_ON_LIST_LIMIT },
+			description: `Sources suggested when you log ${label.toLowerCase()} activity.`,
+			items: {
+				label: "Source",
+				type: "string" as const,
+				description: "Where you consume it.",
+				validation: { maxLength: CONSUMED_ON_ITEM_LIMIT },
+			},
+		},
+	]),
+);
+
+const COLLECTION_RECOMMENDATIONS_ROUTE = "/collections/$collectionId/recommendations";
+
+const importDocs = (page: string) => ({ docsUrl: `https://docs.ryot.io/importing/${page}.html` });
+
+const uploadInputSchema = (
+	label: string,
+	description: string,
+	allowedFileExtensions: string[],
+) => ({
+	unknownKeys: "strict" as const,
+	fields: {
+		uploadToken: {
+			label,
+			position: 0,
+			description,
+			type: "string" as const,
+			format: { allowedFileExtensions, kind: "upload" as const },
+			validation: { minLength: 1 as const, required: true as const },
+		},
+	},
+});
+
+const timezoneInputField = {
+	position: 1,
+	label: "Timezone",
+	type: "string" as const,
+	format: { kind: "timezone" as const },
+	validation: { required: true as const },
+	description: "Timezone the export's dates were recorded in",
+};
+
+const timezoneUploadInputSchema = (...args: Parameters<typeof uploadInputSchema>) => {
+	const base = uploadInputSchema(...args);
+	return { ...base, fields: { ...base.fields, timezone: timezoneInputField } };
+};
+
+const apiKeyInputSchema = (name: string, apiKeyDescription = `${name} API token`) => ({
+	unknownKeys: "strict" as const,
+	fields: {
+		allowInsecureConnections: {
+			position: 2,
+			type: "boolean" as const,
+			label: "Allow insecure connections",
+			description: "Allow connections with invalid TLS certificates",
+		},
+		apiKey: {
+			position: 1,
+			label: "API key",
+			secret: true as const,
+			type: "string" as const,
+			description: apiKeyDescription,
+			validation: { minLength: 1, required: true as const },
+		},
+		apiUrl: {
+			position: 0,
+			label: "Server URL",
+			type: "string" as const,
+			format: { kind: "url" as const },
+			description: `${name} server URL`,
+			validation: { required: true as const },
+		},
+	},
+});
+
+const eventHookTarget = (qualifiedSlug: string) => {
+	const separator = qualifiedSlug.indexOf(":");
+	return {
+		resource: "event" as const,
+		operation: "create" as const,
+		entitySchemaSlug: qualifiedSlug.slice(0, separator),
+		eventSchemaSlug: qualifiedSlug.slice(separator + 1),
+	};
+};
+
+const eventSlugs = (eventSlug: string) =>
+	entitySchemas.flatMap((schema) =>
+		schema.eventSchemas.some(({ slug }) => slug === eventSlug)
+			? [`${schema.slug}:${eventSlug}`]
+			: [],
+	);
+
+const kernelCollectionEventHookTarget = (
+	eventSchemaSlug: KernelCollectionEventHookTarget["eventSchemaSlug"],
+): KernelCollectionEventHookTarget => ({
+	eventSchemaSlug,
+	resource: "event",
+	operation: "create",
+	owner: { kind: "kernel" },
+	entitySchemaSlug: "collection",
+});
+
+const creditRelationshipSlugs = relationshipSchemas
+	.filter(({ sourceEntitySchemaSlug, targetEntitySchemaSlug }) => {
+		const isCreditSource =
+			sourceEntitySchemaSlug === "person" || sourceEntitySchemaSlug === "company";
+		const isCreditTarget =
+			targetEntitySchemaSlug !== null &&
+			(targetEntitySchemaSlug.endsWith("-group") ||
+				builtinMediaEntitySchemaSlugs.some((slug) => slug === targetEntitySchemaSlug));
+		return isCreditSource && isCreditTarget;
+	})
+	.map(({ slug }) => slug);
+
+const stringSetting = (label: string, description: string, required = true, secret = false) => ({
+	label,
+	description,
+	type: "string" as const,
+	...(secret ? { secret: true as const } : {}),
+	...(required ? { validation: { required: true as const } } : {}),
+});
+
+const kindSetting = (kind: string) => ({
+	defaultValue: kind,
+	type: "enum" as const,
+	label: "Provider kind",
+	validation: { required: true as const },
+	description: "Integration provider discriminator",
+	choices: { kind: "static" as const, values: [{ value: kind }] },
+});
+
+const providerSettings = (kind: string, fields = {}) => ({
+	fields: { kind: kindSetting(kind), ...fields },
+});
+
+const integrationProviders = [
+	{
+		lot: "sink",
+		slug: "plex_sink",
+		name: "Plex sink",
+		scriptSlug: "integration.plex-sink",
+		description: "Receive Plex playback webhooks",
+		settingsSchema: providerSettings("plex_sink", {
+			username: stringSetting("Username", "Only process playback for this Plex user", false),
+		}),
+	},
+	{
+		lot: "sink",
+		slug: "jellyfin_sink",
+		name: "Jellyfin sink",
+		scriptSlug: "integration.jellyfin-sink",
+		description: "Receive Jellyfin playback webhooks",
+		settingsSchema: providerSettings("jellyfin_sink", {
+			username: stringSetting("Username", "Only process playback for this Jellyfin user", false),
+			metadataProvider: {
+				type: "enum",
+				defaultValue: "tmdb",
+				label: "Metadata provider",
+				description: "Provider used to identify Jellyfin media",
+				choices: { kind: "static", values: [{ value: "tmdb" }, { value: "tvdb" }] },
+			},
+		}),
+	},
+	{
+		lot: "sink",
+		slug: "emby",
+		name: "Emby",
+		scriptSlug: "integration.emby",
+		settingsSchema: providerSettings("emby"),
+		description: "Receive Emby playback webhooks",
+	},
+	{
+		lot: "sink",
+		slug: "kodi",
+		name: "Kodi",
+		scriptSlug: "integration.kodi",
+		settingsSchema: providerSettings("kodi"),
+		description: "Receive Kodi playback webhooks",
+	},
+	{
+		lot: "sink",
+		requiresProKey: true,
+		slug: "ryot_browser_extension",
+		name: "Ryot browser extension",
+		scriptSlug: "integration.browser-extension",
+		description: "Receive playback from the Ryot browser extension",
+		settingsSchema: providerSettings("ryot_browser_extension", {
+			disabledSites: {
+				type: "array",
+				label: "Disabled sites",
+				description: "Sites ignored by the browser extension",
+				items: stringSetting("Site", "Hostname to ignore", false),
+			},
+		}),
+	},
+	{
+		lot: "yank",
+		slug: "anilist",
+		name: "AniList",
+		requiresProKey: true,
+		scriptSlug: "integration.anilist",
+		description: "Import anime and manga list state from AniList",
+		settingsSchema: providerSettings("anilist", {
+			syncAnime: {
+				type: "boolean",
+				defaultValue: true,
+				label: "Sync anime",
+				description: "Read anime list state from AniList",
+			},
+			syncManga: {
+				type: "boolean",
+				defaultValue: true,
+				label: "Sync manga",
+				description: "Read manga list state from AniList",
+			},
+			account: {
+				type: "string",
+				label: "AniList account",
+				validation: { required: true },
+				format: { provider: "anilist", kind: "oauth-connection" },
+				description: "AniList account to read anime and manga list state from",
+			},
+		}),
+	},
+	{
+		lot: "yank",
+		slug: "komga",
+		name: "Komga",
+		supportsOwnershipSync: true,
+		scriptSlug: "integration.komga",
+		description: "Import progress and ownership from Komga",
+		settingsSchema: providerSettings("komga", {
+			baseUrl: stringSetting("Base URL", "Komga instance URL"),
+			apiKey: stringSetting("API key", "Komga API key", true, true),
+		}),
+	},
+	{
+		lot: "yank",
+		slug: "plex_yank",
+		name: "Plex yank",
+		supportsOwnershipSync: true,
+		scriptSlug: "integration.plex-yank",
+		description: "Import watched media and ownership from Plex",
+		settingsSchema: providerSettings("plex_yank", {
+			baseUrl: stringSetting("Base URL", "Plex instance URL"),
+			token: stringSetting("Token", "Plex access token", true, true),
+		}),
+	},
+	{
+		lot: "yank",
+		slug: "audiobookshelf",
+		name: "Audiobookshelf",
+		supportsOwnershipSync: true,
+		scriptSlug: "integration.audiobookshelf",
+		description: "Sync in-progress media and ownership from Audiobookshelf",
+		settingsSchema: providerSettings("audiobookshelf", {
+			baseUrl: stringSetting("Base URL", "Audiobookshelf instance URL"),
+			token: stringSetting("Token", "Audiobookshelf access token", true, true),
+		}),
+	},
+	{
+		lot: "yank",
+		requiresProKey: true,
+		slug: "youtube_music",
+		name: "YouTube Music",
+		scriptSlug: "integration.youtube-music",
+		description: "Import listening history from YouTube Music",
+		settingsSchema: providerSettings("youtube_music", {
+			authCookie: stringSetting(
+				"Authentication cookie",
+				"YouTube Music authentication cookie",
+				true,
+				true,
+			),
+			timezone: {
+				...stringSetting("Timezone", "Timezone used for daily history synchronization"),
+				position: 0,
+				format: { kind: "timezone" as const },
+			},
+		}),
+	},
+	{
+		lot: "yank",
+		slug: "spotify",
+		name: "Spotify",
+		requiresProKey: true,
+		scriptSlug: "integration.spotify",
+		description: "Import listening history from Spotify",
+		settingsSchema: providerSettings("spotify", {
+			account: {
+				type: "string",
+				label: "Spotify account",
+				validation: { required: true },
+				format: { provider: "spotify", kind: "oauth-connection" },
+				description: "Spotify account to read listening history from",
+			},
+		}),
+	},
+	{
+		lot: "push",
+		slug: "radarr",
+		name: "Radarr",
+		description: "Push collection movies to Radarr",
+		settingsSchema: providerSettings("radarr", {
+			baseUrl: stringSetting("Base URL", "Radarr instance URL"),
+			apiKey: stringSetting("API key", "Radarr API key", true, true),
+			profileId: stringSetting("Profile ID", "Radarr quality profile ID"),
+			rootFolderPath: stringSetting("Root folder path", "Radarr root folder path"),
+			tagIds: {
+				type: "array",
+				label: "Tag IDs",
+				description: "Radarr tag IDs",
+				items: { type: "integer", label: "Tag ID", description: "Radarr tag ID" },
+			},
+			syncCollectionIds: {
+				type: "array",
+				label: "Collections",
+				description: "Collection IDs synchronized to Radarr",
+				items: stringSetting("Collection ID", "Collection ID", false),
+			},
+		}),
+	},
+	{
+		lot: "push",
+		slug: "sonarr",
+		name: "Sonarr",
+		description: "Push collection shows to Sonarr",
+		settingsSchema: providerSettings("sonarr", {
+			baseUrl: stringSetting("Base URL", "Sonarr instance URL"),
+			apiKey: stringSetting("API key", "Sonarr API key", true, true),
+			profileId: stringSetting("Profile ID", "Sonarr quality profile ID"),
+			rootFolderPath: stringSetting("Root folder path", "Sonarr root folder path"),
+			tagIds: {
+				type: "array",
+				label: "Tag IDs",
+				description: "Sonarr tag IDs",
+				items: { type: "integer", label: "Tag ID", description: "Sonarr tag ID" },
+			},
+			syncCollectionIds: {
+				type: "array",
+				label: "Collections",
+				description: "Collection IDs synchronized to Sonarr",
+				items: stringSetting("Collection ID", "Collection ID", false),
+			},
+		}),
+	},
+	{
+		lot: "push",
+		requiresProKey: true,
+		slug: "jellyfin_push",
+		name: "Jellyfin push",
+		description: "Update watched state in Jellyfin",
+		settingsSchema: providerSettings("jellyfin_push", {
+			username: stringSetting("Username", "Jellyfin username"),
+			baseUrl: stringSetting("Base URL", "Jellyfin instance URL"),
+			password: stringSetting("Password", "Jellyfin password", false, true),
+		}),
+	},
+] as const;
+
+const detailPageExport = (slug: string) => ({
+	[`${slug}-detail`]: {
+		kind: "page" as const,
+		settingsSchema: { fields: {} },
+		entry: `client/${slug}/screen.tsx`,
+		automaticEntityPresentations: false,
+	},
+});
+
+const schemaClient = (slug: string) => ({
+	slug,
+	entity: {
+		detailPage: `${slug}-detail`,
+		listPresentation: `${slug}-row`,
+		gridPresentation: `${slug}-card`,
+		createRoute: mediaEntityCreateRoute(slug),
+		presentation: mediaPresentationDeclaration(slug),
+	},
+	exports: {
+		[`${slug}-row`]: {
+			kind: "presentation" as const,
+			automaticEntityPresentations: false,
+			entry: `client/${slug}-row-presentation.ts`,
+		},
+		[`${slug}-card`]: {
+			kind: "presentation" as const,
+			automaticEntityPresentations: false,
+			entry: `client/${slug}-card-presentation.ts`,
+		},
+		...detailPageExport(slug),
+	},
+});
+
+const schemaClients = [
+	"show",
+	"anime",
+	"movie",
+	"music",
+	"book",
+	"manga",
+	"podcast",
+	"audiobook",
+	"comic-book",
+	"video-game",
+	"visual-novel",
+	...mediaGroupSlugs,
+].map(schemaClient);
+
+const creatorClients = ["person", "company"].map((slug) => ({
+	slug,
+	exports: detailPageExport(slug),
+	entity: {
+		detailPage: `${slug}-detail`,
+		listPresentation: "media-row",
+		gridPresentation: "media-card",
+		createRoute: mediaEntityCreateRoute(slug),
+		presentation: mediaPresentationDeclaration(slug),
+	},
+}));
+
+const entityClients = [...schemaClients, ...creatorClients];
+
+export const mediaPlugin = definePlugin({
+	entitySchemas,
+	relationshipSchemas,
+	providers: mediaProviders,
+	savedViews: mediaSavedViews(),
+	queries: mediaDeclaredQueries,
+	configSchema: mediaConfigSchema,
+	calendarSources: mediaCalendarSources(),
+	signalSchedules: mediaSignalSchedules(),
+	signalSchemas: mediaSignalSchemas("media-monitoring"),
+	userBootstrap: [
+		{
+			slug: "initialize-workspace",
+			description: "Initialize the user's media workspace",
+			entities: [{ properties: {}, name: "Media Library", entitySchemaSlug: "media-library" }],
+		},
+	],
+	metadata: {
+		icon: "film",
+		name: "Media",
+		version: "1.0.0",
+		packageId: PLUGIN_PACKAGE_ID,
+		description:
+			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
+	},
+	httpRateLimits: [
+		{ requests: 30, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
+		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
+		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
+	],
+	integrationProviders: integrationProviders.map((integrationProvider) =>
+		"scriptSlug" in integrationProvider
+			? Object.assign({}, integrationProvider, {
+					scriptSlug: "workflow.media-integration",
+					plan: {
+						selections: { "integration-adapter": { value: integrationProvider.scriptSlug } },
+					},
+				})
+			: integrationProvider,
+	),
+	crons: [
+		{
+			slug: "media-monitoring",
+			schedule: { tier: "infrequent" },
+			scriptSlug: "workflow.media-monitoring-sweep",
+			description: "Refresh monitored provider-backed media",
+		},
+		{
+			slug: "media-trending",
+			schedule: { tier: "infrequent" },
+			scriptSlug: "workflow.media-trending",
+			description: "Refresh global media trending rankings",
+		},
+	],
+	memberships: [
+		{
+			slug: "media-library",
+			silentEventProperty: "completionSilent",
+			targetEntitySchemaSlug: "media-library",
+			relationshipSchemaSlug: "in-media-library",
+			recordEventSchemaSlug: "add-to-media-library",
+			memberEntitySchemaSlugs: [...mediaLibraryMemberEntitySchemaSlugs],
+			join: {
+				events: true,
+				providerImport: true,
+				kernelCollectionAdd: true,
+				entityCreate: mediaLibraryMemberEntitySchemaSlugs.filter(
+					(slug) => !isMediaChildEntitySchemaSlug(slug),
+				),
+			},
+		},
+	],
+	oauthProviders: [
+		{
+			scopes: [],
+			pkce: "none",
+			slug: "anilist",
+			name: "AniList",
+			clientIdConfigKey: "anilistClientId",
+			accessTokenLifetimeSeconds: 31_536_000,
+			tokenEndpointAuth: "client_secret_post",
+			clientSecretConfigKey: "anilistClientSecret",
+			tokenUrl: "https://anilist.co/api/v2/oauth/token",
+			authorizeUrl: "https://anilist.co/api/v2/oauth/authorize",
+		},
+		{
+			pkce: "S256",
+			slug: "spotify",
+			name: "Spotify",
+			clientIdConfigKey: "spotifyClientId",
+			scopes: ["user-read-recently-played"],
+			tokenEndpointAuth: "client_secret_basic",
+			clientSecretConfigKey: "spotifyClientSecret",
+			tokenUrl: "https://accounts.spotify.com/api/token",
+			authorizeUrl: "https://accounts.spotify.com/authorize",
+		},
+	],
+	userSettingsSchema: {
+		unknownKeys: "strict",
+		fields: {
+			allowNsfw: {
+				position: 0,
+				type: "boolean",
+				defaultValue: false,
+				label: "Show NSFW content",
+				description: "Allow providers to include adult metadata and results.",
+			},
+			[UPCOMING_ONE_PER_TITLE_SETTING]: {
+				position: 2,
+				type: "boolean",
+				defaultValue: true,
+				label: "One upcoming entry per title",
+				description: "Show only the next episode or release of each title in Upcoming.",
+			},
+			[UPCOMING_DAYS_AHEAD_SETTING]: {
+				position: 1,
+				type: "integer",
+				label: "Upcoming days ahead",
+				defaultValue: DEFAULT_UPCOMING_DAYS_AHEAD,
+				validation: { minimum: 1, maximum: MAX_UPCOMING_DAYS_AHEAD },
+				description: "How many days ahead the home Upcoming rail looks.",
+			},
+			...watchProviderUserSettingFields,
+			...consumedOnUserSettingFields,
+		},
+	},
+	workflows: [
+		{ slug: "import", scriptSlug: "workflow.media-import" },
+		{ slug: "integration", scriptSlug: "workflow.media-integration" },
+		{ slug: "media-integration-collection", scriptSlug: "workflow.media-integration-segment" },
+		{ slug: "media-integration-segment", scriptSlug: "workflow.media-integration-segment" },
+		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
+		{ slug: "media-trending", scriptSlug: "workflow.media-trending" },
+		{ slug: "media-import-merge", scriptSlug: "workflow.media-import-merge" },
+		{ slug: "media-import-collection", scriptSlug: "workflow.media-import-collection" },
+		{ slug: "media-import-application", scriptSlug: "workflow.media-import-application" },
+		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },
+		{ slug: "media-import-resolution", scriptSlug: "workflow.media-import-resolution" },
+	],
+	client: {
+		homeView: null,
+		apiVersion: CLIENT_API_VERSION,
+		entities: Object.fromEntries(entityClients.map(({ slug, entity }) => [slug, entity])),
+		analyticsSections: {
+			media: { icon: "film", name: "Media", sortOrder: 10, exportName: "media-analytics" },
+		},
+		assistantStarters: [
+			"What should I watch next from my watchlist?",
+			"Which titles did I finish this month?",
+			"What's releasing for titles I follow this week?",
+		],
+		collectionPages: {
+			recommendations: {
+				icon: "sparkles",
+				label: "Recommendations",
+				route: COLLECTION_RECOMMENDATIONS_ROUTE,
+				entitySchemaSlugs: [...builtinMediaEntitySchemaSlugs],
+			},
+		},
+		routes: {
+			"/": "media-home",
+			[COLLECTION_RECOMMENDATIONS_ROUTE]: "media-collection-recommendations",
+			...Object.fromEntries(
+				Object.keys(mediaEntityEditorRoutes).map((route) => [route, "media-entity-editor"]),
+			),
+		},
+		exports: {
+			"show-progress": {
+				kind: "component",
+				entry: "client/show/progress.tsx",
+				automaticEntityPresentations: false,
+			},
+			"media-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-row-presentation.ts",
+			},
+			"media-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-card-presentation.ts",
+			},
+			"media-analytics": {
+				kind: "analytics-section",
+				automaticEntityPresentations: false,
+				entry: "client/analytics/section.tsx",
+			},
+			"media-home": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/home/screen.tsx",
+				automaticEntityPresentations: false,
+			},
+			"media-entity-editor": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/entity-editor/page.tsx",
+			},
+			"media-collection-recommendations": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/collection-recommendations/page.tsx",
+			},
+			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
+		},
+	},
+	hooks: [
+		{
+			stage: "before",
+			causationSources: ["api"],
+			slug: "media.custom-publish-year",
+			name: "Derive custom media publish year",
+			scriptSlug: "policy.media-custom-publish-year",
+			targets: builtinMediaEntitySchemaSlugs.flatMap((entitySchemaSlug) =>
+				(["create", "update"] as const).map((operation) => ({
+					operation,
+					entitySchemaSlug,
+					resource: "entity" as const,
+				})),
+			),
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "media.entity-updated",
+			name: "Media entity updated",
+			scriptSlug: "automation.media-entity-updated",
+			targets: [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].map(
+				(entitySchemaSlug) => ({
+					entitySchemaSlug,
+					resource: "entity" as const,
+					operation: "update" as const,
+				}),
+			),
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			frequency: "batch",
+			slug: "media.relationship-sync",
+			name: "Media relationship sync",
+			scriptSlug: "automation.media-relationship-sync",
+			targets: [
+				"show-to-show-season",
+				"show-season-to-show-episode",
+				"podcast-to-podcast-episode",
+			].flatMap((relationshipSchemaSlug) =>
+				(["create", "update", "delete"] as const).map((operation) => ({
+					operation,
+					relationshipSchemaSlug,
+					resource: "relationship" as const,
+				})),
+			),
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			frequency: "batch",
+			slug: "media.association",
+			name: "Media association",
+			scriptSlug: "automation.media-association",
+			targets: creditRelationshipSlugs.flatMap((relationshipSchemaSlug) =>
+				(["create", "update", "delete"] as const).map((operation) => ({
+					operation,
+					relationshipSchemaSlug,
+					resource: "relationship" as const,
+				})),
+			),
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			name: "Review created",
+			executionScope: "user",
+			causationSources: ["api"],
+			slug: "media.review-created",
+			scriptSlug: "automation.review-created",
+			targets: [
+				...eventSlugs("review").map(eventHookTarget),
+				kernelCollectionEventHookTarget("review"),
+			],
+		},
+		{
+			position: 200,
+			stage: "before",
+			slug: "media.consumption",
+			name: "Retain consumption basis",
+			scriptSlug: "policy.media-consumption",
+			targets: [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].flatMap(
+				(entity) => {
+					const events =
+						entity === "show" || entity === "podcast" ? ["complete"] : ["progress", "complete"];
+					if (!entity.endsWith("-episode")) {
+						events.push("dropped", "on_hold");
+					}
+					if (entity === "anime" || entity === "manga") {
+						events.push("item-complete");
+					}
+					return events.flatMap((event) =>
+						(["create", "update"] as const).map((operation) =>
+							Object.assign({}, eventHookTarget(`${entity}:${event}`), { operation }),
+						),
+					);
+				},
+			),
+		},
+		{
+			position: 200,
+			stage: "before",
+			slug: "media.episodic-session",
+			name: "Assign episodic session",
+			scriptSlug: "policy.media-episodic-session",
+			targets: [
+				"show:backlog",
+				"show:complete",
+				"show:dropped",
+				"show:on_hold",
+				"show-episode:progress",
+				"show-episode:complete",
+				"podcast:backlog",
+				"podcast:complete",
+				"podcast:dropped",
+				"podcast:on_hold",
+				"podcast-episode:progress",
+				"podcast-episode:complete",
+			].flatMap((slug) => {
+				const target = eventHookTarget(slug);
+				return slug.includes("-episode")
+					? [target, { ...target, operation: "update" as const }]
+					: [target];
+			}),
+		},
+		...(["radarr", "sonarr", "jellyfin"] as const).map(
+			(prov) =>
+				({
+					stage: "after",
+					delivery: "async",
+					name: `${prov} push`,
+					executionScope: "user",
+					slug: `media.${prov}-push`,
+					scriptSlug: `trigger.${prov}-push`,
+					retry: {
+						maxAttempts: 1,
+						maxDelayMs: 60000,
+						initialDelayMs: 1000,
+						externalIdempotency: "none",
+					},
+					targets:
+						prov === "jellyfin"
+							? eventSlugs("complete").map(eventHookTarget)
+							: [kernelCollectionEventHookTarget("add-entity-to-collection")],
+				}) satisfies Extract<PluginHook, { stage: "after" }>,
+		),
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "media.notification",
+			name: "Media notification",
+			scriptSlug: "automation.media-notification",
+			retry: {
+				maxAttempts: 1,
+				maxDelayMs: 60000,
+				initialDelayMs: 1000,
+				externalIdempotency: "none",
+			},
+			targets: mediaSignalSchemas("media-monitoring").map(({ slug }) => ({
+				signalSchemaSlug: slug,
+				operation: "emit" as const,
+				resource: "signal" as const,
+			})),
+		},
+	],
+	operations: [
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-user-data",
+			title: "Remove or merge title history",
+			scriptSlug: "operation.media-user-data",
+			input: operationJsonSchema(MediaUserDataInput),
+			output: operationJsonSchema(MediaUserDataOutput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Remove media library membership and personal history, or merge that data into another title. Existing user data may be permanently deleted.",
+		},
+		{
+			auth: "user",
+			title: "Write review",
+			demoAccess: "protected",
+			slug: "media-review-create",
+			scriptSlug: "operation.media-review-create",
+			output: operationJsonSchema(MediaReviewOutput),
+			input: operationJsonSchema(MediaReviewCreateInput),
+			hints: { readOnly: false, idempotent: false, destructive: false },
+			description:
+				"Create a private media review with a rating or text, optionally linking an existing consumption event. Repeated calls can create additional review events.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-activity-log",
+			title: "Log media activity",
+			scriptSlug: "operation.media-activity-log",
+			input: operationJsonSchema(MediaActivityLogInput),
+			output: operationJsonSchema(MediaActivityLogOutput),
+			hints: { readOnly: false, idempotent: false, destructive: false },
+			description:
+				"Record completion, progress, lifecycle state, or episode activity for a title. Returns a saved count and completion status; repeated calls can create additional events.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-activity-update",
+			title: "Update media activity",
+			scriptSlug: "operation.media-activity-update",
+			output: operationJsonSchema(MediaActivityLogOutput),
+			input: operationJsonSchema(MediaActivityUpdateInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Change existing media activity using its expected snapshot. Rejects stale edits and invalid episode or time changes.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-activity-delete",
+			title: "Delete media activity",
+			scriptSlug: "operation.media-activity-delete",
+			output: operationJsonSchema(MediaActivityLogOutput),
+			input: operationJsonSchema(MediaActivityDeleteInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Permanently delete selected personal media activity events. An optional expected snapshot protects a single event from stale deletion.",
+		},
+		{
+			auth: "user",
+			title: "Update review",
+			demoAccess: "protected",
+			slug: "media-review-update",
+			scriptSlug: "operation.media-review-update",
+			output: operationJsonSchema(MediaReviewOutput),
+			input: operationJsonSchema(MediaReviewUpdateInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Replace rating or text on an existing private media review. Rejects stale edits using the expected review snapshot.",
+		},
+		{
+			auth: "user",
+			title: "Delete review",
+			demoAccess: "protected",
+			slug: "media-review-delete",
+			scriptSlug: "operation.media-review-delete",
+			output: operationJsonSchema(MediaReviewOutput),
+			input: operationJsonSchema(MediaReviewDeleteInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Permanently delete an existing private media review and return the affected count.",
+		},
+		{
+			auth: "user",
+			demoAccess: "allowed",
+			slug: "media-monitoring-status",
+			title: "Read monitoring status",
+			scriptSlug: "operation.media-monitoring-status",
+			output: operationJsonSchema(MediaMonitoringOutput),
+			input: operationJsonSchema(MediaMonitoringStatusInput),
+			hints: { readOnly: true, idempotent: true, destructive: false },
+			description:
+				"Read library membership and monitoring status for visible provider-backed titles without changing user data.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			title: "Monitor titles",
+			slug: "media-monitoring-enable",
+			scriptSlug: "operation.media-monitoring-enable",
+			output: operationJsonSchema(MediaMonitoringOutput),
+			input: operationJsonSchema(MediaMonitoringEnableInput),
+			hints: { readOnly: false, idempotent: true, destructive: false },
+			description:
+				"Add provider-backed titles to the media library and enable monitoring. Existing membership and monitoring are preserved.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			title: "Stop monitoring titles",
+			slug: "media-monitoring-disable",
+			scriptSlug: "operation.media-monitoring-disable",
+			output: operationJsonSchema(MediaMonitoringOutput),
+			input: operationJsonSchema(MediaMonitoringDisableInput),
+			hints: { readOnly: false, idempotent: true, destructive: true },
+			description:
+				"Remove monitoring from provider-backed titles while retaining their library membership and personal history.",
+		},
+		{
+			auth: "user",
+			title: "Set ownership",
+			demoAccess: "protected",
+			slug: "media-ownership-set",
+			scriptSlug: "operation.media-ownership-set",
+			output: operationJsonSchema(MediaOwnershipOutput),
+			input: operationJsonSchema(MediaOwnershipSetInput),
+			hints: { readOnly: false, idempotent: true, destructive: true },
+			description:
+				"Set or clear personal ownership of a title, including the acquisition date. This changes the title’s library relationship.",
+		},
+		{
+			auth: "integration",
+			slug: "metadata-lookup",
+			title: "Match extension titles",
+			scriptSlug: "operation.metadata-lookup",
+			input: operationJsonSchema(MetadataLookupInput),
+			output: operationJsonSchema(MetadataLookupOutput),
+			hints: { readOnly: true, idempotent: true, destructive: false },
+			description:
+				"Match browser extension titles against TMDB movies and shows and return provider identifiers or per-title misses. Requires a browser extension integration and does not import entities.",
+		},
+		{
+			auth: "user",
+			demoAccess: "allowed",
+			slug: "resolve-episodes",
+			title: "Resolve episodes",
+			scriptSlug: "operation.resolve-episodes",
+			input: operationJsonSchema(ResolveEpisodesInput),
+			output: operationJsonSchema(ResolveEpisodesOutput),
+			hints: { readOnly: true, idempotent: true, destructive: false },
+			description:
+				"Look up existing show seasons, show episodes, or podcast episodes by parent and number or title. Returns an entity ID or null for each caller index without importing or changing entities.",
+		},
+	],
+	importSources: (
+		[
+			{
+				slug: "spotify",
+				name: "Spotify",
+				workflowSlug: "import",
+				exportHelp: importDocs("spotify"),
+				description: "Import listening history from a Spotify extended streaming history export",
+				inputSchema: uploadInputSchema("Spotify export", "Spotify extended streaming history ZIP", [
+					"zip",
+				]),
+			},
+			{
+				slug: "netflix",
+				name: "Netflix",
+				workflowSlug: "import",
+				exportHelp: importDocs("netflix"),
+				description: "Import viewing activity, ratings, and watchlist entries from Netflix",
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						...uploadInputSchema("Netflix export", "Netflix data export ZIP", ["zip"]).fields,
+						profileName: {
+							position: 1,
+							type: "string",
+							label: "Profile name",
+							description: "Only import viewing activity for this Netflix profile",
+						},
+					},
+				},
+			},
+			{
+				slug: "goodreads",
+				name: "Goodreads",
+				workflowSlug: "import",
+				exportHelp: importDocs("goodreads"),
+				description: "Import books, reading history, reviews, and shelves from Goodreads",
+				inputSchema: uploadInputSchema("Goodreads export", "Goodreads library export CSV", ["csv"]),
+			},
+			{
+				slug: "storygraph",
+				name: "StoryGraph",
+				workflowSlug: "import",
+				exportHelp: importDocs("storygraph"),
+				description: "Import books, reading history, reviews, and tags from StoryGraph",
+				inputSchema: uploadInputSchema("StoryGraph export", "StoryGraph library export CSV", [
+					"csv",
+				]),
+			},
+			{
+				slug: "hardcover",
+				name: "Hardcover",
+				workflowSlug: "import",
+				exportHelp: importDocs("hardcover"),
+				description: "Import books, reading history, reviews, lists, and ownership from Hardcover",
+				inputSchema: uploadInputSchema("Hardcover export", "Hardcover library export CSV", ["csv"]),
+			},
+			{
+				slug: "anilist",
+				name: "AniList",
+				workflowSlug: "import",
+				exportHelp: importDocs("anilist"),
+				inputSchema: timezoneUploadInputSchema("AniList export", "AniList JSON export", ["json"]),
+				description:
+					"Import anime, manga, progress, reviews, favorites, and custom lists from AniList",
+			},
+			{
+				slug: "trakt",
+				name: "Trakt",
+				workflowSlug: "import",
+				exportHelp: importDocs("trakt"),
+				description:
+					"Import movies, shows, history, ratings, watchlist, lists, and ownership from Trakt",
+				inputSchema: {
+					unknownKeys: "strict",
+					rules: [
+						{
+							kind: "visibility",
+							path: ["exportUploadToken"],
+							visibility: { hidden: true },
+							when: { path: ["mode"], value: "export", operator: "neq" },
+						},
+						{
+							path: ["username"],
+							kind: "visibility",
+							visibility: { hidden: true },
+							when: { value: "user", path: ["mode"], operator: "neq" },
+						},
+						{
+							path: ["url"],
+							kind: "visibility",
+							visibility: { hidden: true },
+							when: { value: "list", path: ["mode"], operator: "neq" },
+						},
+						{
+							kind: "visibility",
+							path: ["collection"],
+							visibility: { hidden: true },
+							when: { value: "list", path: ["mode"], operator: "neq" },
+						},
+					],
+					fields: {
+						username: {
+							position: 2,
+							type: "string",
+							label: "Username",
+							description: "Public Trakt profile slug",
+							validation: { minLength: 1, required: true },
+						},
+						url: {
+							position: 3,
+							type: "string",
+							label: "List URL",
+							format: { kind: "url" },
+							validation: { required: true },
+							description: "Public Trakt list URL",
+						},
+						collection: {
+							position: 4,
+							type: "string",
+							label: "Collection",
+							validation: { minLength: 1, required: true },
+							description: "Ryot collection for imported list items",
+						},
+						exportUploadToken: {
+							position: 1,
+							type: "string",
+							label: "Export file",
+							description: "Trakt data export ZIP",
+							validation: { minLength: 1, required: true },
+							format: { kind: "upload", allowedFileExtensions: ["zip"] },
+						},
+						mode: {
+							position: 0,
+							type: "enum",
+							label: "Import method",
+							validation: { required: true },
+							description: "How to import Trakt data",
+							choices: {
+								kind: "static",
+								values: [
+									{ value: "export", label: "Export file" },
+									{ value: "user", label: "Username" },
+									{ value: "list", label: "List" },
+								],
+							},
+						},
+					},
+				},
+			},
+			{
+				slug: "imdb",
+				name: "IMDb",
+				workflowSlug: "import",
+				exportHelp: importDocs("imdb"),
+				description:
+					"Import movie and show watchlist entries, watched history, and ratings from IMDb",
+				inputSchema: uploadInputSchema("IMDb export", "IMDb watchlist or ratings export CSV", [
+					"csv",
+				]),
+			},
+			{
+				slug: "igdb",
+				name: "IGDB",
+				workflowSlug: "import",
+				exportHelp: importDocs("igdb"),
+				description: "Import video games into a selected collection from IGDB",
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						...uploadInputSchema("IGDB export", "IGDB game export CSV", ["csv"]).fields,
+						collection: {
+							position: 1,
+							type: "string",
+							label: "Collection",
+							validation: { minLength: 1, required: true },
+							description: "Ryot collection for imported games",
+						},
+					},
+				},
+			},
+			{
+				slug: "grouvee",
+				name: "Grouvee",
+				workflowSlug: "import",
+				exportHelp: importDocs("grouvee"),
+				inputSchema: uploadInputSchema("Grouvee export", "Grouvee game export CSV", ["csv"]),
+				description: "Import video games, play history, reviews, ratings, and shelves from Grouvee",
+			},
+			{
+				slug: "watcharr",
+				name: "Watcharr",
+				workflowSlug: "import",
+				exportHelp: importDocs("watcharr"),
+				inputSchema: uploadInputSchema("Watcharr export", "Watcharr JSON export", ["json"]),
+				description:
+					"Import movies, shows, episode history, reviews, and collections from Watcharr",
+			},
+			{
+				slug: "movary",
+				name: "Movary",
+				workflowSlug: "import",
+				exportHelp: importDocs("movary"),
+				description: "Import movie history, ratings, and watchlist entries from Movary",
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						historyUploadToken: {
+							position: 0,
+							type: "string",
+							label: "History export",
+							description: "Movary history.csv export",
+							validation: { minLength: 1, required: true },
+							format: { kind: "upload", allowedFileExtensions: ["csv"] },
+						},
+						ratingsUploadToken: {
+							position: 1,
+							type: "string",
+							label: "Ratings export",
+							description: "Movary ratings.csv export",
+							validation: { minLength: 1, required: true },
+							format: { kind: "upload", allowedFileExtensions: ["csv"] },
+						},
+						watchlistUploadToken: {
+							position: 2,
+							type: "string",
+							label: "Watchlist export",
+							description: "Movary watchlist.csv export",
+							validation: { minLength: 1, required: true },
+							format: { kind: "upload", allowedFileExtensions: ["csv"] },
+						},
+					},
+				},
+			},
+			{
+				slug: "myanimelist",
+				name: "MyAnimeList",
+				workflowSlug: "import",
+				exportHelp: importDocs("myanimelist"),
+				description:
+					"Import anime and manga history, progress, ratings, and status from MyAnimeList",
+				inputSchema: {
+					unknownKeys: "strict",
+					rules: [
+						{
+							kind: "validation",
+							path: ["animeUploadToken"],
+							validation: { required: true },
+							when: { operator: "not_exists", path: ["mangaUploadToken"] },
+						},
+						{
+							kind: "validation",
+							path: ["mangaUploadToken"],
+							validation: { required: true },
+							when: { operator: "not_exists", path: ["animeUploadToken"] },
+						},
+					],
+					fields: {
+						animeUploadToken: {
+							position: 0,
+							type: "string",
+							label: "Anime export",
+							validation: { minLength: 1 },
+							description: "MyAnimeList anime export",
+							format: { kind: "upload", allowedFileExtensions: ["gz", "xml"] },
+						},
+						mangaUploadToken: {
+							position: 1,
+							type: "string",
+							label: "Manga export",
+							validation: { minLength: 1 },
+							description: "MyAnimeList manga export",
+							format: { kind: "upload", allowedFileExtensions: ["gz", "xml"] },
+						},
+					},
+				},
+			},
+			{
+				slug: "jellyfin",
+				name: "Jellyfin",
+				workflowSlug: "import",
+				exportHelp: importDocs("jellyfin"),
+				description: "Import watched movies, episodes, and favorites from Jellyfin",
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						username: {
+							position: 1,
+							type: "string",
+							label: "Username",
+							description: "Jellyfin username",
+							validation: { minLength: 1, required: true },
+						},
+						password: {
+							position: 2,
+							secret: true,
+							type: "string",
+							label: "Password",
+							validation: { minLength: 1 },
+							description: "Jellyfin password",
+						},
+						allowInsecureConnections: {
+							position: 3,
+							type: "boolean",
+							label: "Allow insecure connections",
+							description: "Allow connections with invalid TLS certificates",
+						},
+						apiUrl: {
+							position: 0,
+							type: "string",
+							label: "Server URL",
+							format: { kind: "url" },
+							validation: { required: true },
+							description: "Jellyfin server URL",
+						},
+					},
+				},
+			},
+			{
+				slug: "plex",
+				name: "Plex",
+				workflowSlug: "import",
+				exportHelp: importDocs("plex"),
+				description: "Import watched movies and episodes from Plex",
+				inputSchema: apiKeyInputSchema("Plex", "Plex authentication token"),
+			},
+			{
+				slug: "audiobookshelf",
+				name: "Audiobookshelf",
+				workflowSlug: "import",
+				exportHelp: importDocs("audiobookshelf"),
+				inputSchema: apiKeyInputSchema("Audiobookshelf"),
+				description: "Import finished audiobooks, ebooks, podcasts, and library collections",
+			},
+			{
+				name: "MediaTracker",
+				slug: "media_tracker",
+				workflowSlug: "import",
+				exportHelp: importDocs("mediatracker"),
+				inputSchema: apiKeyInputSchema("MediaTracker"),
+				description:
+					"Import media history, reviews, lifecycle states, and collections from MediaTracker",
+			},
+		] as const
+	).map((source) =>
+		Object.assign(source, {
+			plan: {
+				selections: {
+					"source-parser":
+						source.slug === "trakt"
+							? { field: "mode", cases: { user: "trakt", list: "trakt", export: "trakt-export" } }
+							: { value: source.slug },
+				},
+			},
+		}),
+	),
+});
+
+export default mediaPlugin;

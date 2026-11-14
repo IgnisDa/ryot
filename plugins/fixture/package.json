@@ -1,0 +1,39 @@
+{
+	"name": "@ryot-app/fixture-plugin",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./manifest/plugin.ts",
+			"default": "./manifest/plugin.ts"
+		}
+	},
+	"scripts": {
+		"build": "ryot plugin build",
+		"test": "bun ../../packages/testing/src/run-client-tests.ts",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-backend-sdk": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*"
+	},
+	"devDependencies": {
+		"bun-types": "1.4.4",
+		"@ryot-app/cli": "workspace:*",
+		"@ryot-app/plugin-client-sdk": "workspace:*",
+		"@ryot-app/plugin-ui-sdk": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"@testing-library/dom": "10.4.2",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
+		"@voila.dev/effect-bun-test": "4.0.4",
+		"clsx": "2.1.1",
+		"effect": "4.1.2",
+		"jsdom": "30.1.3",
+		"react": "19.3.1",
+		"react-dom": "19.3.1"
+	}
+}

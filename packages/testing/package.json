@@ -1,0 +1,88 @@
+{
+	"name": "@ryot-app/testing",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./test-timeout": {
+			"types": "./src/test-timeout.ts",
+			"default": "./src/test-timeout.ts"
+		},
+		"./assert": {
+			"types": "./src/assert.ts",
+			"default": "./src/assert.ts"
+		},
+		"./runner": {
+			"types": "./src/runner.ts",
+			"default": "./src/runner.ts"
+		},
+		"./postgres-container": {
+			"types": "./src/postgres-container.ts",
+			"default": "./src/postgres-container.ts"
+		},
+		"./effect-assertions": {
+			"types": "./src/effect-assertions.ts",
+			"default": "./src/effect-assertions.ts"
+		},
+		"./fakes": {
+			"types": "./src/fakes.ts",
+			"default": "./src/fakes.ts"
+		},
+		"./matchers": {
+			"types": "./src/matchers.ts",
+			"default": "./src/matchers.ts"
+		},
+		"./menus": {
+			"types": "./src/menus.ts",
+			"default": "./src/menus.ts"
+		},
+		"./recording-tracer": {
+			"types": "./src/recording-tracer.ts",
+			"default": "./src/recording-tracer.ts"
+		},
+		"./random": {
+			"types": "./src/random.ts",
+			"default": "./src/random.ts"
+		},
+		"./run-client-tests": {
+			"types": "./src/run-client-tests.ts",
+			"default": "./src/run-client-tests.ts"
+		},
+		"./process": {
+			"types": "./src/process.ts",
+			"default": "./src/process.ts"
+		},
+		"./process-memory": {
+			"types": "./src/process-memory.ts",
+			"default": "./src/process-memory.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun test --isolate",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"@effect/platform-bun": "4.1.2",
+		"@testing-library/react": "16.3.3",
+		"@types/jsdom": "30.0.0",
+		"effect": "4.1.2",
+		"jsdom": "30.1.3"
+	},
+	"devDependencies": {
+		"@voila.dev/effect-bun-test": "4.0.4",
+		"@testcontainers/postgresql": "12.2.1",
+		"bun-types": "1.4.4",
+		"testcontainers": "12.2.1"
+	},
+	"peerDependencies": {
+		"@testcontainers/postgresql": "12.2.1",
+		"testcontainers": "12.2.1"
+	},
+	"peerDependenciesMeta": {
+		"@testcontainers/postgresql": {
+			"optional": true
+		},
+		"testcontainers": {
+			"optional": true
+		}
+	}
+}

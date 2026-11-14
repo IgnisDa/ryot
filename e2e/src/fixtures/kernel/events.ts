@@ -1,0 +1,264 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	EventId,
+	EventSchemaSlug,
+	type PluginId,
+} from "@ryot-app/contract/schema/brands";
+import {
+	and,
+	column,
+	defineRecipe,
+	descending,
+	document,
+	eq,
+	field,
+	literal,
+	rows,
+	selectedAggregate,
+	table,
+} from "@ryot-app/ryotql";
+import {
+	projectionProcessingState,
+	projectionStatusMeasures,
+} from "@ryot-app/ryotql-recipes/projection-status";
+import { randomUuid } from "@ryot-app/testing/random";
+import { Effect, Result } from "effect";
+
+import { requireObjectRecord } from "~/support/assertions";
+import { expect } from "~/support/effect-test";
+
+import type { Client } from "./auth";
+import { createEntity } from "./entities";
+import { createPluginSchema } from "./entity-schemas";
+import { createEventSchema } from "./event-schemas";
+import { pollUntil } from "./polling";
+import {
+	executeRyotQL,
+	executeRyotQLRecipe,
+	requireRows,
+	requireRyotQLDate,
+	requireRyotQLText,
+	requireRyotQLValue,
+} from "./ryotql";
+import { testPluginEntitySchema } from "./test-plugin";
+
+const eventProjectionsRecipe = (() => {
+	const event = table("event", "settledEvent");
+	return defineRecipe({
+		map: ({ processing }) => Result.succeed(projectionProcessingState(processing)),
+		queries: {
+			processing: selectedAggregate(event, { measures: projectionStatusMeasures(event) }),
+		},
+	});
+})();
+
+/** Writes outside an events transaction, such as imports and restores, fold in jobs; readers wait for them. */
+export const waitForEventProjections = (client: Client) =>
+	pollUntil(
+		"event projections settled",
+		executeRyotQLRecipe(client, eventProjectionsRecipe, {}).pipe(
+			Effect.map((state) => (state === "pending" ? null : state)),
+		),
+	).pipe(Effect.tap((state) => Effect.sync(() => expect(state).toBe("ready"))));
+
+export const waitForEventCount = (client: Client, entityId: string, expectedCount: number) =>
+	pollUntil(
+		`${expectedCount} events on entity ${entityId}`,
+		Effect.gen(function* () {
+			const events = yield* listEventsForEntity(client, entityId, undefined, 100);
+			return events.length >= expectedCount ? events : null;
+		}),
+	);
+
+export const ratedItemEntitySchema = {
+	...testPluginEntitySchema({ slug: "item", name: "Rated item" }),
+	eventSchemas: [
+		{
+			name: "Finished",
+			slug: "finished",
+			propertiesSchema: {
+				fields: { rating: { label: "Rating", description: "Rating", type: "number" as const } },
+			},
+		},
+	],
+};
+
+export const createRatedItem = (client: Client, pluginId: PluginId) =>
+	Effect.map(
+		createEntity(client, {
+			properties: {},
+			name: "Rated item",
+			entitySchema: {
+				owner: definitionOwner(pluginId),
+				slug: EntitySchemaSlug.make(ratedItemEntitySchema.slug),
+			},
+		}),
+		(entity) => ({
+			entityId: entity.id,
+			entitySchemaSlug: ratedItemEntitySchema.slug,
+			eventSchemaSlug: EventSchemaSlug.make("finished"),
+		}),
+	);
+
+export const createEventTestFixture = (client: Client) =>
+	Effect.gen(function* () {
+		const { reference, schemaId: entitySchemaSlug } = yield* createPluginSchema(client, {
+			name: "Test Item",
+			slug: `item-${yield* randomUuid}`,
+		});
+		const eventSchema = yield* createEventSchema(client, {
+			name: "Finished",
+			entitySchema: reference,
+			slug: `finished-${yield* randomUuid}`,
+			propertiesSchema: {
+				fields: {
+					rating: {
+						label: "Rating",
+						type: "number" as const,
+						description: "Rating score",
+						validation: { required: true as const },
+					},
+				},
+			},
+		});
+		const entity = yield* createEntity(client, {
+			name: "Test Book",
+			entitySchema: reference,
+			properties: { title: "Test" },
+		});
+		return {
+			entitySchemaSlug,
+			entityId: entity.id,
+			eventSchemaSlug: eventSchema.id,
+			entitySchemaReference: reference,
+			eventSchemaReference: eventSchema.reference,
+		};
+	});
+
+export const createRuleEventFixture = (client: Client) =>
+	Effect.gen(function* () {
+		const { reference } = yield* createPluginSchema(client, {
+			name: "Rule Test Item",
+			slug: `rule-item-${yield* randomUuid}`,
+		});
+		const eventSchema = yield* createEventSchema(client, {
+			name: "Progress Log",
+			entitySchema: reference,
+			slug: `progress-log-${yield* randomUuid}`,
+			propertiesSchema: {
+				rules: [
+					{
+						path: ["progressPercent"],
+						kind: "validation" as const,
+						validation: { required: true as const },
+						when: { path: ["status"], value: "completed", operator: "eq" as const },
+					},
+				],
+				fields: {
+					progressPercent: {
+						type: "number" as const,
+						label: "Progress Percent",
+						description: "Progress percentage",
+					},
+					status: {
+						label: "Status",
+						type: "string" as const,
+						description: "Workflow status",
+						validation: { required: true as const },
+					},
+				},
+			},
+		});
+		const entity = yield* createEntity(client, {
+			name: "Rule Test Book",
+			entitySchema: reference,
+			properties: { title: "Rule Test" },
+		});
+		return {
+			entityId: entity.id,
+			eventSchemaSlug: eventSchema.id,
+			eventSchemaReference: eventSchema.reference,
+		};
+	});
+
+export const listEventsForEntity = (
+	client: Client,
+	entityId: string,
+	after: string | undefined,
+	limit: number,
+	options: { eventSchemaSlug?: string } = {},
+) =>
+	Effect.gen(function* () {
+		const event = table("event", "event");
+		const entityPredicate = eq(column(event, "entityId"), literal(entityId));
+		const where = options.eventSchemaSlug
+			? and(entityPredicate, eq(column(event, "eventSchemaSlug"), literal(options.eventSchemaSlug)))
+			: entityPredicate;
+		const result = yield* executeRyotQL(client, {
+			pages: { events: { after: after } },
+			source: {
+				kind: "inline",
+				document: document({
+					events: rows(event, {
+						limit,
+						where,
+						orderBy: [
+							descending(column(event, "occurredAt")),
+							descending(column(event, "createdAt")),
+							descending(column(event, "id")),
+						],
+						fields: [
+							field("id", column(event, "id")),
+							field("occurredAt", column(event, "occurredAt")),
+							field("properties", column(event, "properties")),
+							field("eventSchemaSlug", column(event, "eventSchemaSlug")),
+							field("sessionEntityId", column(event, "sessionEntityId")),
+						],
+					}),
+				}),
+			},
+		});
+		const events = requireRows(result.data.events, "events");
+
+		return events.items.map((item) => {
+			const properties = requireRyotQLValue(item, "properties");
+			const sessionEntityId = requireRyotQLValue(item, "sessionEntityId");
+			if (sessionEntityId !== null && typeof sessionEntityId !== "string") {
+				throw new Error("Expected event sessionEntityId to be text or null");
+			}
+			return {
+				id: EventId.make(requireRyotQLText(item, "id")),
+				occurredAt: requireRyotQLDate(item, "occurredAt"),
+				properties: requireObjectRecord(properties, "Event properties must be an object"),
+				eventSchemaSlug: EventSchemaSlug.make(requireRyotQLText(item, "eventSchemaSlug")),
+				sessionEntityId:
+					typeof sessionEntityId === "string" ? EntityId.make(sessionEntityId) : undefined,
+			};
+		});
+	});
+
+export const waitForEventWithSchema = (client: Client, entityId: string, eventSchemaSlug: string) =>
+	pollUntil(
+		`${eventSchemaSlug} event on entity ${entityId}`,
+		Effect.gen(function* () {
+			const events = yield* listEventsForEntity(client, entityId, undefined, 100);
+			return events.find((event) => event.eventSchemaSlug === eventSchemaSlug) ?? null;
+		}),
+	);
+
+export const listEventSlugs = (client: Client, entityId: string) =>
+	Effect.gen(function* () {
+		const events = yield* listEventsForEntity(client, entityId, undefined, 100);
+		return events.map((event) => event.eventSchemaSlug);
+	});
+
+export const waitForEventSlugs = (client: Client, entityId: string, requiredSlug: string) =>
+	pollUntil(
+		`'${requiredSlug}' event on entity ${entityId}`,
+		Effect.gen(function* () {
+			const slugs = yield* listEventSlugs(client, entityId);
+			return slugs.some((slug) => slug === requiredSlug) ? slugs : null;
+		}),
+	);

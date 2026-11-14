@@ -1,0 +1,204 @@
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+
+import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
+import { parsePublishYear } from "../../../lib/parse-publish-year";
+import { normalizePlainDescription } from "../../../lib/plain-description";
+import { numberValue, recordsValue, stringValue } from "../../../lib/records";
+import {
+	bcp47ToTvdb,
+	buildTranslationResult,
+	collectCompanies,
+	collectGenres,
+	collectImages,
+	collectPeople,
+	getLocalizedArtwork,
+	getTranslationFields,
+	searchTvdb,
+	tvdbGet,
+	tvdbGetOptional,
+} from "../../../lib/vendors/tvdb";
+
+export const manifest = defineManifest({ name: "TVDB", kind: "provider", slug: "movie.tvdb" });
+
+export const search = defineProvider({
+	manifest,
+	operation: "search",
+	run: (input, host) => searchTvdb(host, input, { type: "movie", nameKeys: ["name", "title"] }),
+});
+
+export const details = defineProvider({
+	manifest,
+	operation: "details",
+	run: (input, host) => {
+		const language = bcp47ToTvdb("en");
+		return Effect.gen(function* () {
+			if (!/^\d+$/.test(input.externalId)) {
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric TVDB movie ID",
+				});
+			}
+			const [data, translationData] = yield* Effect.all([
+				tvdbGet(host, `/movies/${input.externalId}/extended`),
+				tvdbGetOptional(host, `/movies/${input.externalId}/translations/${language}`),
+			]);
+			const movie = asRecord(data["data"]);
+			if (!movie) {
+				return yield* new MediaSandboxError({ message: "TVDB returned no data for this movie" });
+			}
+
+			const translation = getTranslationFields(translationData);
+			const fallbackTitle = stringValue(movie["name"]) ?? stringValue(movie["title"]);
+			const title = translation.name ?? fallbackTitle;
+			if (!title) {
+				return yield* new MediaSandboxError({ message: "TVDB returned no title for this movie" });
+			}
+
+			const images = collectImages(
+				[movie["image"], movie["image_url"]],
+				movie["artworks"],
+				"cover",
+			);
+			const genres = yield* collectGenres(movie["genres"]);
+			const firstAired = stringValue(movie["firstAired"]);
+			const publishYear = parsePublishYear(movie["year"]) ?? parsePublishYear(firstAired);
+			const averageRuntime = numberValue(movie["averageRuntime"]);
+			const runtime =
+				averageRuntime !== null && averageRuntime > 0 ? Math.trunc(averageRuntime) : null;
+			const slug = stringValue(movie["slug"]);
+			const sourceUrl = slug ? `https://thetvdb.com/movies/${slug}` : null;
+
+			const groupRelatedEntities = recordsValue(movie["lists"])
+				.filter((list) => list["is_official"] === true || list["isOfficial"] === true)
+				.flatMap((list) => {
+					const idNumber = numberValue(list["id"]);
+					const groupExternalId =
+						idNumber !== null ? String(Math.trunc(idNumber)) : stringValue(list["id"]);
+					if (!groupExternalId) {
+						return [];
+					}
+					return [
+						{
+							externalId: groupExternalId,
+							providerSlug: "movie-group.tvdb",
+							relationshipProperties: { roles: ["Member"] },
+							name: stringValue(list["name"]) ?? "Loading...",
+						},
+					];
+				});
+
+			const relatedEntities = collectPeople(movie["characters"]).map((entity) => ({
+				name: entity.name,
+				externalId: entity.externalId,
+				providerSlug: entity.providerSlug,
+				relationshipProperties: entity.relationshipProperties,
+			}));
+			const companies = collectCompanies(movie["companies"]).map((entity) => ({
+				name: entity.name,
+				externalId: entity.externalId,
+				providerSlug: entity.providerSlug,
+				relationshipProperties: entity.relationshipProperties,
+			}));
+			const hasPeopleInventory = Array.isArray(movie["characters"]);
+			const companiesInventory = movie["companies"];
+			const hasCompaniesInventory =
+				Array.isArray(companiesInventory) || asRecord(companiesInventory) !== null;
+			const full = input.level !== "base";
+
+			return {
+				name: title,
+				properties: {
+					images,
+					runtime,
+					sourceUrl,
+					publishYear,
+					description: normalizePlainDescription(translation.description ?? movie["overview"]),
+				},
+				relatedEntityGroups: [
+					...(full || hasPeopleInventory
+						? [
+								{
+									direction: "incoming" as const,
+									synchronization: "authoritative" as const,
+									relationshipSchemaSlug: "person-to-movie",
+									entities: hasPeopleInventory ? relatedEntities : [],
+									coverage: hasPeopleInventory
+										? { status: "complete" as const }
+										: {
+												status: "source-limited" as const,
+												reason: "TVDB movie characters inventory was missing or malformed",
+											},
+								},
+							]
+						: []),
+					...(full || hasCompaniesInventory
+						? [
+								{
+									direction: "incoming" as const,
+									synchronization: "authoritative" as const,
+									relationshipSchemaSlug: "company-to-movie",
+									entities: hasCompaniesInventory ? companies : [],
+									coverage: hasCompaniesInventory
+										? { status: "complete" as const }
+										: {
+												status: "source-limited" as const,
+												reason: "TVDB movie companies inventory was missing or malformed",
+											},
+								},
+							]
+						: []),
+					{
+						direction: "incoming",
+						synchronization: "additive",
+						entities: groupRelatedEntities,
+						coverage: { status: "complete" },
+						relationshipSchemaSlug: "movie-group-to-movie",
+					},
+					...mediaGenreGroups("movie", genres),
+				],
+			};
+		});
+	},
+});
+
+export const translate = defineProvider({
+	manifest,
+	operation: "translate",
+	run: (input, host) =>
+		Effect.gen(function* () {
+			if (!/^\d+$/.test(input.externalId)) {
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric TVDB movie ID",
+				});
+			}
+			const providerLanguage = bcp47ToTvdb(input.language);
+			return yield* Effect.all([
+				tvdbGetOptional(host, `/movies/${input.externalId}/translations/${providerLanguage}`),
+				tvdbGet(host, `/movies/${input.externalId}/extended`).pipe(
+					Effect.orElseSucceed(() => null),
+				),
+			]).pipe(
+				Effect.map(([translationData, detailsData]) => {
+					const image = getLocalizedArtwork(
+						detailsData ? asRecord(detailsData["data"])?.["artworks"] : null,
+						providerLanguage,
+						"cover",
+					);
+					const result = buildTranslationResult(translationData, image);
+					const description = normalizePlainDescription(result.properties?.["description"]);
+					if (!description) {
+						return result;
+					}
+					if (image === null) {
+						const properties = { description };
+						return result.name === undefined ? { properties } : { properties, name: result.name };
+					}
+					const properties = { description, images: [image] };
+					return result.name === undefined ? { properties } : { properties, name: result.name };
+				}),
+			);
+		}),
+});

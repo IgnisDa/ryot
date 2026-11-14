@@ -1,0 +1,29 @@
+{
+	"name": "@ryot-app/ryotql",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"types": "./src/*.ts",
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun test --isolate",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"@ryot-app/ts-utils": "workspace:*",
+		"effect": "4.1.2"
+	},
+	"devDependencies": {
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"@voila.dev/effect-bun-test": "4.0.4"
+	},
+	"peerDependencies": {
+		"@ryot-app/contract": "workspace:*"
+	}
+}

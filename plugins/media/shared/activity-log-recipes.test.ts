@@ -1,0 +1,313 @@
+import { describe, expect, it } from "bun:test";
+
+import { Result } from "@ryot-app/plugin-kit/effect";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { savedViewDataSourceAccess, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
+import { objectContaining } from "@ryot-app/testing/matchers";
+
+import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
+import {
+	episodicEarlierUnwatchedRecipe,
+	mediaActivityLogContextRecipe,
+	showEpisodeSeasonRecipe,
+	showSeasonChoicesRecipe,
+	showSeasonEpisodeChoicesRecipe,
+} from "./activity-log-recipes";
+import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "./lifecycle-expressions";
+
+const reference = { kind: "self" } as const;
+
+const rows = (items: readonly Record<string, unknown>[]) =>
+	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
+
+const includeRows = (items: readonly Record<string, unknown>[]) => ({
+	items,
+	pageInfo: { limit: 100, hasMore: false },
+});
+
+const aggregateRows = (consumedOn: readonly string[]) => ({
+	type: "aggregate" as const,
+	pageInfo: { limit: 10, hasMore: false, nextCursor: null },
+	items: consumedOn.map((value) => ({ consumedOn: value, lastUsedAt: "2026-03-01T00:00:00.000Z" })),
+});
+
+const targetRow = (overrides: Record<string, unknown> = {}) => ({
+	pages: null,
+	runtime: null,
+	volumes: null,
+	id: "entity-1",
+	name: "Entity",
+	chapters: null,
+	episodes: null,
+	position: null,
+	state: "untracked",
+	schemaSlug: "movie",
+	progressPercent: null,
+	seasons: includeRows([]),
+	showNextUp: includeRows([]),
+	podcastNextUp: includeRows([]),
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
+	...overrides,
+});
+
+const decodeContext = (
+	target: undefined | Record<string, unknown>,
+	entityConsumedOn: readonly string[] = [],
+	recentConsumedOn: readonly string[] = [],
+) =>
+	bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+		entityId: "entity-1",
+	}).decode({
+		data: {
+			entityConsumedOn: aggregateRows(entityConsumedOn),
+			recentConsumedOn: aggregateRows(recentConsumedOn),
+			target: rows(target === undefined ? [] : [target]),
+		},
+	});
+
+const valid = (recipe: { readonly document: Parameters<typeof validateRyotQLDocument>[0] }) =>
+	expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
+
+describe("media activity log context recipe", () => {
+	it("selects only one default seed season rather than a capped season inventory", () => {
+		const target = bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+			entityId: "show-1",
+		}).document.queries["target"];
+		if (target?.output.type !== "rows") {
+			throw new Error("Expected context rows");
+		}
+		expect(target.output.include?.find((include) => include.key === "seasons")?.limit).toBe(1);
+	});
+	it("validates the document", () => {
+		valid(
+			bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), { entityId: "entity-1" }),
+		);
+	});
+
+	it("leaves streaming providers out of the target", () => {
+		const { queries } = bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+			entityId: "entity-1",
+		}).document;
+		expect(JSON.stringify(queries["target"])).not.toContain("watchProviders");
+	});
+
+	it("scopes suggestions to the entity first and to its schema's episodes for shows and podcasts", () => {
+		const { queries } = bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+			entityId: "entity-1",
+		}).document;
+		const entityNodes = ryotqlDocumentNodes([queries["entityConsumedOn"]]);
+		const recentNodes = ryotqlDocumentNodes([queries["recentConsumedOn"]]);
+		expect(entityNodes).toContainEqual({ type: "literal", value: "show-episode" });
+		expect(entityNodes).toContainEqual({ type: "literal", value: "podcast-episode" });
+		expect(entityNodes).toContainEqual(
+			objectContaining({ type: "column", field: "sessionEntityId" }),
+		);
+		expect(recentNodes).not.toContainEqual(
+			objectContaining({ type: "column", field: "sessionEntityId" }),
+		);
+		expect(queries["entityConsumedOn"]?.output).toMatchObject({ limit: 10, type: "aggregate" });
+		expect(queries["recentConsumedOn"]?.output).toMatchObject({ limit: 5, type: "aggregate" });
+	});
+
+	it("groups suggestions over the elements of the stored consumedOn array", () => {
+		const { queries } = bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+			entityId: "entity-1",
+		}).document;
+		for (const key of ["entityConsumedOn", "recentConsumedOn"]) {
+			const query = queries[key];
+			expect(JSON.stringify(query)).toContain('"type":"jsonElements"');
+			expect(ryotqlDocumentNodes([query])).toContainEqual(
+				objectContaining({
+					type: "cast",
+					target: "text",
+					expr: objectContaining({ field: "value" }),
+				}),
+			);
+		}
+	});
+
+	it("is empty for an entity that is not visible media", () => {
+		expect(Result.getOrThrow(decodeContext(undefined))).toBeNull();
+	});
+
+	it("lists this entity's sources before recent ones without repeats", () => {
+		const context = Result.getOrThrow(
+			decodeContext(targetRow(), ["Netflix", "Plex"], ["Plex", "Hulu", "Netflix"]),
+		);
+		expect(context?.consumedOn).toEqual(["Netflix", "Plex", "Hulu"]);
+	});
+
+	it("returns position, percent and the show's next-up episode with its seasons", () => {
+		const nextUp = { name: "Four", id: "episode-4", seasonNumber: 2, episodeNumber: 4 };
+		const context = Result.getOrThrow(
+			decodeContext(
+				targetRow({
+					schemaSlug: "show",
+					state: "in_progress",
+					progressPercent: 58.33,
+					showNextUp: includeRows([nextUp]),
+					position: { position: 7, unit: "episodes" },
+					seasons: includeRows([{ id: "season-1", seasonNumber: 1, name: "Season 1" }]),
+				}),
+			),
+		);
+		expect(context).toMatchObject({
+			nextUp,
+			progressPercent: 58.33,
+			position: { position: 7, unit: "episodes" },
+			seasons: [{ id: "season-1", seasonNumber: 1, name: "Season 1" }],
+		});
+	});
+
+	it("falls back to the podcast next-up episode", () => {
+		const nextUp = { name: "Nine", id: "episode-9", episodeNumber: 9, seasonNumber: null };
+		const context = Result.getOrThrow(
+			decodeContext(targetRow({ schemaSlug: "podcast", podcastNextUp: includeRows([nextUp]) })),
+		);
+		expect(context?.nextUp).toEqual<unknown>(nextUp);
+	});
+
+	it("has no next-up episode for flat media", () => {
+		expect(Result.getOrThrow(decodeContext(targetRow()))?.nextUp).toBeNull();
+	});
+});
+
+describe("activity season choices", () => {
+	it("pages a top-level ordered season query instead of increasing an include limit", () => {
+		for (const after of [undefined, "seasons-1", "seasons-2", "seasons-3"]) {
+			const recipe = bindRecipe(showSeasonChoicesRecipe({ reference: reference }), {
+				limit: 40,
+				after: after,
+				entityId: "show-1",
+			});
+			const seasons = recipe.document.queries["seasons"];
+			if (seasons?.output.type !== "rows") {
+				throw new Error("Expected season choice rows");
+			}
+			expect(seasons.output.pagination).toEqual({
+				limit: 40,
+				...(after === undefined ? {} : { after }),
+			});
+			expect(seasons.output.include).toBeUndefined();
+			expect(JSON.stringify(seasons.where)).toContain("show-to-show-season");
+			expect(JSON.stringify(seasons.where)).toContain("show-1");
+			expect(seasons.output.orderBy).toMatchObject([
+				{ direction: "asc", expr: { type: "cast", expr: { path: ["seasonNumber"] } } },
+				{ direction: "asc", expr: { field: "id" } },
+			]);
+		}
+	});
+});
+
+describe("show season episode choices recipe", () => {
+	const recipe = bindRecipe(showSeasonEpisodeChoicesRecipe({ reference: reference }), {
+		limit: 100,
+		seasonNumber: 2,
+		showEntityId: "show-1",
+	});
+
+	it("validates the document", () => {
+		valid(recipe);
+	});
+
+	it("selects one season's episodes in episode order, specials and unaired included", () => {
+		const nodes = ryotqlDocumentNodes([recipe.document]);
+		expect(nodes).toContainEqual({ value: 2, type: "literal" });
+		expect(nodes).toContainEqual({ type: "literal", value: "show-1" });
+		expect(nodes).not.toContainEqual({ type: "currentDate" });
+		expect(recipe.document.queries["episodes"]?.output).toEqual<unknown>(
+			objectContaining({
+				orderBy: [
+					objectContaining({
+						direction: "asc",
+						expr: objectContaining({ type: "cast", target: "number" }),
+					}),
+					objectContaining({ direction: "asc", expr: objectContaining({ field: "id" }) }),
+				],
+			}),
+		);
+	});
+
+	it("decodes the labelled choices", () => {
+		const choice = {
+			name: "Pilot",
+			id: "episode-1",
+			episodeNumber: 1,
+			state: "complete",
+			publishDate: "2024-01-01",
+		};
+		expect(
+			Result.getOrThrow(recipe.decode({ data: { episodes: rows([choice]) } })).items,
+		).toEqual<unknown>([choice]);
+	});
+});
+
+describe("show episode season recipe", () => {
+	const recipe = bindRecipe(showEpisodeSeasonRecipe, { episodeEntityId: "episode-1" });
+	it("validates the document", () => {
+		valid(recipe);
+	});
+
+	it("decodes the season number and null when the episode is not visible", () => {
+		expect(
+			Result.getOrThrow(recipe.decode({ data: { season: rows([{ seasonNumber: 2 }]) } })),
+		).toBe(2);
+		expect(Result.getOrThrow(recipe.decode({ data: { season: rows([]) } }))).toBeNull();
+	});
+});
+
+describe("episodic earlier unwatched recipe", () => {
+	const showRecipe = bindRecipe(
+		episodicEarlierUnwatchedRecipe({ reference: reference, config: showEpisodicKindConfig }),
+		{ limit: 100, parentEntityId: "show-1", episodeEntityId: "episode-5" },
+	);
+	const podcastRecipe = bindRecipe(
+		episodicEarlierUnwatchedRecipe({ reference: reference, config: podcastEpisodicKindConfig }),
+		{ limit: 100, parentEntityId: "podcast-1", episodeEntityId: "episode-5" },
+	);
+	it("validates the documents", () => {
+		valid(showRecipe);
+		valid(podcastRecipe);
+	});
+
+	it("limits a show to regular, aired, not-yet-complete episodes before the selected one", () => {
+		const nodes = ryotqlDocumentNodes([showRecipe.document.queries["episodes"]?.where]);
+		expect(nodes).toContainEqual({ type: "literal", value: "complete" });
+		expect(nodes).toContainEqual(objectContaining({ operator: "neq", type: "comparison" }));
+		expect(nodes).toContainEqual({ type: "currentDate" });
+		expect(nodes).toContainEqual(
+			objectContaining({
+				operator: "gt",
+				type: "comparison",
+				right: { value: 0, type: "literal" },
+			}),
+		);
+		expect(nodes).toContainEqual({ type: "literal", value: "episode-5" });
+		expect(nodes).toContainEqual(objectContaining({ type: "first" }));
+	});
+
+	it("orders a show across seasons and a podcast by episode number", () => {
+		const showOrder = showRecipe.document.queries["episodes"]?.output;
+		const podcastOrder = podcastRecipe.document.queries["episodes"]?.output;
+		expect(showOrder).toMatchObject({ orderBy: [{}, {}, {}] });
+		expect(podcastOrder).toMatchObject({ orderBy: [{}, {}] });
+		expect(
+			ryotqlDocumentNodes([podcastRecipe.document.queries["episodes"]?.where]),
+		).not.toContainEqual({ type: "literal", value: "show-season" });
+	});
+
+	it("reports the earlier episodes and whether more exist", () => {
+		const earlier = { name: "One", id: "episode-1", seasonNumber: 1, episodeNumber: 1 };
+		expect(
+			Result.getOrThrow(
+				showRecipe.decode({
+					data: {
+						episodes: rowsResult([earlier], { limit: 100, hasMore: true, nextCursor: "next" }),
+					},
+				}),
+			),
+		).toEqual<unknown>({ hasMore: true, items: [earlier], nextCursor: "next" });
+	});
+});

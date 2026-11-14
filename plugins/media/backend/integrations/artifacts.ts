@@ -1,0 +1,52 @@
+import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { SandboxScratchManifest } from "@ryot-app/plugin-backend-sdk/filesystem";
+
+import {
+	normalizeMediaRecords,
+	serializeMediaRecords,
+	writeMediaCapture,
+} from "../imports/collection";
+import type { MediaIntegrationAdapterResult } from "../imports/schemas";
+
+export const captureIntegrationRecords = Effect.fn(function* (
+	source: string,
+	result: SandboxScratchManifest | MediaIntegrationAdapterResult,
+) {
+	if ("chunkFiles" in result) {
+		return result;
+	}
+	const records = normalizeMediaRecords(result, 0, source, 0, "retain");
+	if (!records.length) {
+		return { chunkFiles: [], advancedAt: DateTime.formatIso(yield* DateTime.now) };
+	}
+	return {
+		...(result.sourceFailure ? { sourceFailure: result.sourceFailure } : {}),
+		...(yield* writeMediaCapture([
+			{ name: "records.jsonl", contents: yield* serializeMediaRecords(records) },
+		])),
+		advancedAt: DateTime.formatIso(yield* DateTime.now),
+	};
+});
+export const captureIntegrationWindow = Effect.fn(function* (
+	source: string,
+	result: MediaIntegrationAdapterResult,
+	carry: null | string,
+	eventIndexBase?: number,
+) {
+	const chunks = [
+		{
+			name: "records.jsonl",
+			contents: yield* serializeMediaRecords(
+				normalizeMediaRecords(result, 0, source, eventIndexBase ?? 0, "retain"),
+			),
+		},
+	];
+	if (carry !== null) {
+		chunks.push({ contents: carry, name: "carry.json" });
+	}
+	return {
+		...(yield* writeMediaCapture(chunks)),
+		carryFile: carry === null ? null : "carry.json",
+		advancedAt: DateTime.formatIso(yield* DateTime.now),
+	};
+});
