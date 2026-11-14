@@ -117,10 +117,10 @@ export const manifest = defineManifest({
 
 export default defineScript({
   manifest,
-  input: Schema.Struct({ count: Schema.Number, key: Schema.String }),
-  output: Schema.Struct({ cached: Schema.Unknown, count: Schema.Number }),
+  input: Schema.Struct({ count: Schema.Number, key: Schema.String, note: Schema.optional(Schema.String) }),
+  output: Schema.Struct({ cached: Schema.Unknown, count: Schema.Number, noted: Schema.Boolean }),
   run: (input, host) => Effect.gen(function* () {
-    return { cached: yield* host.getCachedValue(input.key), count: input.count };
+    return { cached: yield* host.getCachedValue(input.key), count: input.count, noted: input.note !== undefined };
   }),
 });
 `;
@@ -312,8 +312,9 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 			const ownerId = UserId.make(testExecutionId("native-service-owner"));
 			const successExecutionId = testExecutionId("native-service-success");
 			const invalidExecutionId = testExecutionId("native-service-invalid-input");
+			const nullExecutionId = testExecutionId("native-service-null-optional");
 			return withRecoveryCleanup(
-				[successExecutionId, invalidExecutionId],
+				[successExecutionId, invalidExecutionId, nullExecutionId],
 				Effect.gen(function* () {
 					const service = yield* SandboxExecutor;
 					const control = yield* NativeServiceControl;
@@ -329,6 +330,14 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 					const invalid = yield* service.run(
 						makeRunInput(compiled, invalidExecutionId, { key: "unused", count: "wrong" }, ownerId),
 					);
+					const nullOptional = yield* service.run(
+						makeRunInput(
+							compiled,
+							nullExecutionId,
+							{ count: 1, note: null, key: "other" },
+							ownerId,
+						),
+					);
 
 					expect(result).toEqual<unknown>({
 						logs: [],
@@ -340,12 +349,13 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 						recovery: undefined,
 						executionId: input.executionId,
 						timing: { totalMs: anyOf(Number), executionMs: anyOf(Number) },
-						value: { count: 7, cached: { key: "shared-key", source: "native-host" } },
+						value: { count: 7, noted: false, cached: { key: "shared-key", source: "native-host" } },
 					});
 					expect(result.timing.totalMs).toBeGreaterThan(0);
 					expect(result.timing.executionMs).toBeGreaterThanOrEqual(0);
 					expect(control.calls).toEqual([
 						{ args: ["shared-key"], subject: makeUserSubject(ownerId) },
+						{ args: ["other"], subject: makeUserSubject(ownerId) },
 					]);
 					expect(invalid).toEqual<unknown>(
 						objectContaining({
@@ -356,7 +366,7 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 							}),
 						}),
 					);
-					expect(control.calls).toHaveLength(1);
+					expect(nullOptional).toMatchObject({ success: true, value: { count: 1, noted: false } });
 				}),
 			);
 		},

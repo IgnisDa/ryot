@@ -797,6 +797,8 @@ such as "Log measurement", that Ryo shows when a person approves the operation. 
 `operationJsonSchema(sharedEffectSchema)` from `@ryot-app/plugin-kit/operations`, importing the same
 shared schemas that the script uses. The helper rejects opaque declarations and non-JSON types,
 retains referenced definitions, and describes the encoded wire values as draft 2020-12 JSON Schema.
+The sandbox decodes every definition's input through its JSON codec, so the wire values the schema
+describes, such as `null` for an optional key, decode as they do for any JSON caller.
 It publishes representable structural constraints; custom business checks such as timestamp ordering
 remain authoritative runtime Effect validation. Passing the published schema does not guarantee that
 the script decoder or business validation will accept the input.

@@ -1062,7 +1062,10 @@ const executeDefinition = Effect.fnUntraced(function* (
 	}
 
 	setPhase("input");
-	const parsedInput = yield* Schema.decodeEffect(definitionValue.input)(invocation.context).pipe(
+	// Callers send JSON matching the published JSON Schema, which permits null for optional keys.
+	const parsedInput = yield* Schema.decodeEffect(Schema.toCodecJson(definitionValue.input))(
+		invocation.context,
+	).pipe(
 		Effect.mapError(
 			(error) =>
 				({
