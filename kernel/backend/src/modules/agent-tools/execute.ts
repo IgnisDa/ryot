@@ -69,7 +69,12 @@ export default defineScript({
     function call<Id extends keyof Capabilities>(id: Id, input: Capabilities[Id]["input"]): Promise<Capabilities[Id]["output"]>;
     function call(id: string, input: Json): Promise<unknown> {
       return Effect.runPromise(
-        host.invokeCapability({ id, input }).pipe(Effect.mapError((error) => new Error(error.message))),
+        host.invokeCapability({ id, input }).pipe(
+          Effect.mapError(
+            (error) =>
+              new Error(error.data === undefined ? error.message : error.message + ": " + JSON.stringify(error.data)),
+          ),
+        ),
       );
     }
     return Effect.tryPromise({

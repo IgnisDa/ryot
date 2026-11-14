@@ -66,7 +66,8 @@ also carry the `dependency` package reference a page declares to import them.
 overload is typed by declarations for every capability ID the code names as a string literal. The
 sandbox compiler's semantic diagnostics therefore reject unknown IDs and invalid inputs before
 anything runs. The wrapper adapts the Effect host call to async/await and turns call failures into
-`Error`s whose messages the code can inspect.
+`Error`s whose messages the code can inspect, followed by the failure's JSON data, such as plugin
+diagnostics, when it has any.
 
 Each `ryot.call` is one `invokeCapability` host call. Read-only capabilities dispatch immediately.
 Every other capability passes through `credentialWriteGate`, chosen from the credential's write

@@ -110,6 +110,32 @@ return { pages: pages.items, refused, written: written.items };
 	);
 
 	test.effect(
+		"includes a capability failure's details in the thrown error",
+		() =>
+			Effect.gen(function* () {
+				const code = `
+try {
+	return await ryot.call("kernel:pages.list", {});
+} catch (error) {
+	return error instanceof Error ? error.message : "not an error";
+}
+`;
+				const details = {
+					code: "runtime-failed",
+					diagnostics: [{ message: "comment: expected string" }],
+				};
+				const invoke: AgentCapabilityCall = () =>
+					Effect.fail({ data: details, message: "runtime-failed" });
+				expect(completed(yield* run(code, invoke))).toMatchObject({
+					error: null,
+					value:
+						'runtime-failed: {"code":"runtime-failed","diagnostics":[{"message":"comment: expected string"}]}',
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"reports unknown capability IDs and invalid inputs as type errors before running",
 		() =>
 			Effect.gen(function* () {
