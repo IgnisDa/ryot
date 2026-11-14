@@ -35,7 +35,7 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 		"serves consecutive jobs from one warm worker with its Go memory limit",
 		() =>
 			Effect.gen(function* () {
-				const pool = yield* makePool();
+				const pool = yield* makePool({ size: 2 });
 				const first = yield* pool.run(request("pid"));
 
 				expect(yield* pool.run(request("pid"))).toBe(first);

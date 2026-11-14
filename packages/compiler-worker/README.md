@@ -17,8 +17,8 @@ Layer can also verify the compiler's own dependencies during warm-up.
 
 `./pool` exports `makeCompilerWorkerPool`, a scoped pool of up to `size` workers. Workers start
 lazily, and warm-up has its own startup timeout so it never counts against a job's budget. A warm
-worker serves later jobs, so compilers pay process startup and dependency loading once instead of
-per compile.
+worker serves later jobs ahead of an empty slot, so compilers pay process startup and dependency
+loading once instead of per compile, and only concurrent jobs start more workers.
 
 Each job receives a fresh `{ parentPath, jobId }` workspace address beneath a private pool directory,
 and the pool removes that directory after the job, including after forced termination. The pool

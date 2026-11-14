@@ -9,6 +9,7 @@ import {
 	Queue,
 	Schema,
 	Scope,
+	Semaphore,
 	Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -334,8 +335,13 @@ export const makeCompilerWorkerPool = Effect.fnUntraced(function* <E>(
 		worker: undefined,
 	}));
 	let jobs = 0;
-	const available = yield* Queue.unbounded<Slot>();
-	yield* Queue.offerAll(available, slots);
+	// Warm slots stay on top, so sequential jobs reuse one worker instead of starting another.
+	const free = [...slots];
+	const permits = yield* Semaphore.make(options.size);
+	const acquire = Semaphore.take(permits, 1).pipe(
+		Effect.andThen(Effect.suspend(() => Effect.fromNullishOr(free.pop()))),
+		Effect.orDie,
+	);
 	yield* Effect.addFinalizer(() =>
 		Effect.forEach(
 			slots,
@@ -433,11 +439,16 @@ export const makeCompilerWorkerPool = Effect.fnUntraced(function* <E>(
 					Effect.forkIn(poolScope),
 				);
 			}
-			yield* Queue.offer(available, slot);
+			if (slot.worker === undefined) {
+				free.unshift(slot);
+			} else {
+				free.push(slot);
+			}
+			yield* Semaphore.release(permits, 1);
 		});
 
 	return {
 		run: <E2>(encode: (job: CompilerWorkerJob) => Effect.Effect<string, E2>) =>
-			Effect.acquireUseRelease(Queue.take(available), (slot) => runJob(slot, encode), release),
+			Effect.acquireUseRelease(acquire, (slot) => runJob(slot, encode), release),
 	};
 });
