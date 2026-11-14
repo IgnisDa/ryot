@@ -2,7 +2,7 @@ import {
 	type AssistantToolCall,
 	AssistantTurnFailure,
 } from "@ryot-app/contract/modules/assistant/schemas";
-import { Effect, Layer, Option, Schema } from "effect";
+import { Cause, Effect, Layer, Option, Schema } from "effect";
 import { DurableDeferred } from "effect/workflow";
 
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
@@ -88,6 +88,13 @@ export const AssistantWorkflowLive = Layer.unwrap(
 			}).pipe(
 				Effect.catch((error) =>
 					activity("fail", runtime.finish(payload, error).pipe(Effect.asVoid)),
+				),
+				Effect.catchCauseIf(Cause.hasDies, (cause) =>
+					Effect.logError("Assistant turn workflow crashed", cause).pipe(
+						Effect.andThen(
+							activity("fail", runtime.finish(payload, executionFailure()).pipe(Effect.asVoid)),
+						),
+					),
 				),
 			),
 		);

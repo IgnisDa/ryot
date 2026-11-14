@@ -537,6 +537,22 @@ layer(services, { excludeTestServices: true })((test) => {
 		}),
 	);
 
+	test.effect("fails the turn when its workflow crashes", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const setup = yield* harness({ callRounds: 0, readOnly: true });
+			const payload = yield* admit();
+			yield* AssistantTurnWorkflow.execute(payload).pipe(
+				withEngine(engineFor({ ...setup.runtime, recordRound: () => Effect.die("broken") })),
+			);
+			const state = yield* repository.loadTurn(owner, payload.turnId);
+			expect(state?.turn).toMatchObject({
+				status: "failed",
+				failure: { code: "execution-failed" },
+			});
+		}),
+	);
+
 	test.effect("adds installed plugins' instructions to the system prompt", () =>
 		Effect.gen(function* () {
 			const instructions = [{ packageId: "ryot/fitness", instructions: "Weights are kilograms." }];

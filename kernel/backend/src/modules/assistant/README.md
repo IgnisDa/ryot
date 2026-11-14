@@ -78,7 +78,8 @@ so it needs no maintenance and restored history reports it correctly. It exposes
 Read access and demo write approval restrictions remain service responsibilities.
 
 Terminal failures use `AssistantTurnFailure` codes (`provider-unavailable`, `provider-failed`,
-`request-limit`, `tool-failed`, `execution-failed`), never provider diagnostic prose. Services must use
+`request-limit`, `tool-failed`, `execution-failed`), never provider diagnostic prose. A workflow defect,
+such as a recorded step that no longer decodes, fails the turn with `execution-failed`. Services must use
 account mutation admission before entering these transactions, including during workflow recovery,
 so account disable/reset and queued work obey the shared lifecycle rules.
 
