@@ -48,6 +48,7 @@ export type { MultiSelectChoice } from "./multi-select";
 export { JsonSchemaValues } from "./json-schema-values";
 export { Notice, Skeleton, EmptyState } from "./feedback";
 export { ScreenFrame, ScreenBarButton } from "./screen-frame";
+export { CopyField, type CopyFieldAction } from "./copy-field";
 export type { MetricUnit, MetricDelta } from "./metric-format";
 export { groupColors, groupColorVariable } from "./group-colors";
 export { DateTimeField, useDateTimeInput } from "./datetime-field";

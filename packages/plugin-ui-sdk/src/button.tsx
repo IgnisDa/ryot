@@ -99,6 +99,16 @@ type IconButtonProps = Omit<ComponentProps<"button">, "aria-label"> & {
 	readonly size?: keyof typeof iconSizeClasses;
 };
 
+export const iconButtonClassName = (
+	size: keyof typeof iconSizeClasses,
+	tone: keyof typeof iconToneClasses,
+) =>
+	clsx(
+		"inline-flex shrink-0 items-center justify-center transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+		iconSizeClasses[size],
+		iconToneClasses[tone],
+	);
+
 export function IconButton({
 	label,
 	className,
@@ -111,12 +121,7 @@ export function IconButton({
 		<button
 			type={type}
 			aria-label={label}
-			className={clsx(
-				"inline-flex shrink-0 items-center justify-center transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
-				iconSizeClasses[size],
-				iconToneClasses[tone],
-				className,
-			)}
+			className={clsx(iconButtonClassName(size, tone), className)}
 			{...props}
 		/>
 	);
