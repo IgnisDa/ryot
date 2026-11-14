@@ -14,7 +14,8 @@ const makePool = (options: Partial<CompilerWorkerPoolOptions<string>> = {}) =>
 		size: 1,
 		env: {},
 		path: workerPath,
-		timeoutMs: 5_000,
+		cpuTimeMs: 5_000,
+		timeoutMs: 10_000,
 		outputBytes: 1_000,
 		idleTimeoutMs: 60_000,
 		label: "test-compiler",
@@ -44,13 +45,27 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 	);
 
 	test.effect(
-		"fails a timed-out job and serves the next job from a fresh worker",
+		"fails a job over its CPU budget and serves the next job from a fresh worker",
+		() =>
+			Effect.gen(function* () {
+				const pool = yield* makePool({ cpuTimeMs: 300 });
+				const first = yield* pool.run(request("pid"));
+
+				expect(yield* pool.run(request("spin:5000")).pipe(Effect.flip)).toBe("CpuTimeExceeded");
+				expect(yield* pool.run(request("pid"))).not.toBe(first);
+			}).pipe(Effect.scoped),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports a job past the elapsed-time limit as unavailable and recovers",
 		() =>
 			Effect.gen(function* () {
 				const pool = yield* makePool({ timeoutMs: 300 });
 				const first = yield* pool.run(request("pid"));
 
-				expect(yield* pool.run(request("sleep:5000")).pipe(Effect.flip)).toBe("Timeout");
+				const failure = yield* pool.run(request("sleep:5000")).pipe(Effect.flip);
+				expect(failure).toMatchObject({ _tag: "CompilerWorkerUnavailable" });
 				expect(yield* pool.run(request("pid"))).not.toBe(first);
 			}).pipe(Effect.scoped),
 		testTimeout,

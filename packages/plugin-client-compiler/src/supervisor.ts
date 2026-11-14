@@ -20,10 +20,10 @@ const failure = (code: string, message: string) =>
 	clientPluginCompilationFailure([clientPluginCompilerDiagnostic(code, "client", message)]);
 
 const jobFailure = Match.type<CompilerJobFailure>().pipe(
-	Match.when("Timeout", () =>
+	Match.when("CpuTimeExceeded", () =>
 		failure(
 			"RYOT_CLIENT_COMPILER_TIMEOUT",
-			`Client plugin compilation timed out after ${CLIENT_PLUGIN_COMPILER_LIMITS.timeoutMs}ms`,
+			`Client plugin compilation used more than ${CLIENT_PLUGIN_COMPILER_LIMITS.cpuTimeMs}ms of CPU time`,
 		),
 	),
 	Match.when("MemoryExceeded", () =>
@@ -62,6 +62,7 @@ export const makeClientCompilerSupervisor = Effect.fnUntraced(function* (
 		label: "client-compiler",
 		path: options.workerPath,
 		size: CLIENT_PLUGIN_COMPILER_LIMITS.concurrency,
+		cpuTimeMs: CLIENT_PLUGIN_COMPILER_LIMITS.cpuTimeMs,
 		timeoutMs: CLIENT_PLUGIN_COMPILER_LIMITS.timeoutMs,
 		memoryBytes: CLIENT_PLUGIN_COMPILER_LIMITS.memoryBytes,
 		outputBytes: CLIENT_PLUGIN_COMPILER_LIMITS.responseBytes,

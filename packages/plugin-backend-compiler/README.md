@@ -109,15 +109,17 @@ compiles `SANDBOX_COMPILER_WARM_UP_SOURCE` before it accepts jobs and then stays
 checks only its own source against already-loaded SDK declarations. The pool passes each job a
 workspace address and removes that workspace after success, failure, cancellation, timeout, or forced
 termination. The supervisor bounds source size before dispatch and decodes the returned manifest.
-Timeouts, memory overruns, and oversized responses fail the job with `RYOT_COMPILER_TIMEOUT`,
+CPU-time overruns, memory overruns, and oversized responses fail the job with `RYOT_COMPILER_TIMEOUT`,
 `RYOT_COMPILER_MEMORY`, or `RYOT_COMPILER_PROCESS` diagnostics; a worker that cannot start, exits,
-returns an invalid result, or loses memory supervision fails with `CompilerWorkerUnavailable`.
+outlasts the elapsed-time limit, returns an invalid result, or loses memory supervision fails with
+`CompilerWorkerUnavailable`.
 
 Runtime jobs trust the SDK and its dependencies. The server image build runs the smoke script, whose
 workers verify the full environment with `--verify-environment`; SDK type errors then fail the build
 with `RYOT_COMPILER_ENVIRONMENT` instead of reaching runtime compiles.
 
-Compiler limits are two concurrent workers, a 5-second job timeout, a 30-second warm-up timeout, a
+Compiler limits are two concurrent workers, 5 seconds of CPU time and 20 seconds elapsed per job (below
+the 30-second sandbox execution timeout), a 30-second warm-up timeout, a
 5-minute idle timeout, 768 MiB sampled Linux process-tree memory with recycling above 512 MiB, an
 8 MiB response, 256 KiB source, 1 MiB compiled JavaScript, 100 diagnostics, and 256 KiB diagnostic
 output. The native TypeScript server's `GOMEMLIMIT` is 256 MiB: lower budgets sit below its working

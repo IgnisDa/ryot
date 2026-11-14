@@ -19,10 +19,10 @@ const failure = (code: string, message: string) =>
 	sandboxCompilationFailure([pluginBackendCompilerDiagnostic(code, message)]);
 
 const jobFailure = Match.type<CompilerJobFailure>().pipe(
-	Match.when("Timeout", () =>
+	Match.when("CpuTimeExceeded", () =>
 		failure(
 			"RYOT_COMPILER_TIMEOUT",
-			`Sandbox compilation timed out after ${SANDBOX_COMPILER_LIMITS.timeoutMs}ms`,
+			`Sandbox compilation used more than ${SANDBOX_COMPILER_LIMITS.cpuTimeMs}ms of CPU time`,
 		),
 	),
 	Match.when("MemoryExceeded", () =>
@@ -63,6 +63,7 @@ export const makeSandboxCompilerSupervisor = Effect.fnUntraced(function* (
 		path: options.workerPath,
 		label: "sandbox-compiler",
 		size: SANDBOX_COMPILER_LIMITS.concurrency,
+		cpuTimeMs: SANDBOX_COMPILER_LIMITS.cpuTimeMs,
 		timeoutMs: SANDBOX_COMPILER_LIMITS.timeoutMs,
 		memoryBytes: SANDBOX_COMPILER_LIMITS.memoryBytes,
 		outputBytes: SANDBOX_COMPILER_LIMITS.responseBytes,

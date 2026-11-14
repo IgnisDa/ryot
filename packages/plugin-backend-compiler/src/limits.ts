@@ -10,7 +10,9 @@ const stringifyJson = Option.liftThrowable((value: unknown): unknown =>
 
 export const SANDBOX_COMPILER_LIMITS = {
 	concurrency: 2,
-	timeoutMs: 5_000,
+	cpuTimeMs: 5_000,
+	// Below the sandbox execution timeout, so an overloaded host reports the compiler as unavailable.
+	timeoutMs: 20_000,
 	diagnosticCount: 100,
 	javascriptBytes: MiB,
 	responseBytes: 8 * MiB,

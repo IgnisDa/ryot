@@ -13,18 +13,21 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { preferAsOomVictim, processTreeMemoryBytes } from "./process";
+import { preferAsOomVictim, processTreeCpuMs, processTreeMemoryBytes } from "./process";
 import { COMPILER_WORKER_READY, VERIFY_ENVIRONMENT_ARGUMENT } from "./protocol";
 
-export type CompilerJobFailure = "Timeout" | "MemoryExceeded" | "OutputExceeded";
-
 export type CompilerWorkerJob = { readonly jobId: string; readonly parentPath: string };
+
+export type CompilerJobFailure = "MemoryExceeded" | "OutputExceeded" | "CpuTimeExceeded";
 
 export type CompilerWorkerPoolOptions<E> = {
 	readonly path: string;
 	readonly size: number;
 	/** Filename-safe name used for logs and the pool's workspace directory. */
 	readonly label: string;
+	/** Per-job CPU time of the worker's process tree. */
+	readonly cpuTimeMs: number;
+	/** Per-job elapsed time, so an overloaded host reports unavailability instead of failing the source. */
 	readonly timeoutMs: number;
 	readonly memoryBytes: number;
 	readonly outputBytes: number;
@@ -46,12 +49,6 @@ type WorkerEvent =
 	| { readonly type: "output-exceeded" }
 	| { readonly line: string; readonly type: "line" };
 
-type JobOutcome =
-	| { readonly _tag: "ProcessExited" }
-	| { readonly _tag: CompilerJobFailure }
-	| { readonly _tag: "MemorySupervisionFailed" }
-	| { readonly line: string; readonly _tag: "Response" };
-
 type Worker = {
 	readonly pid: number;
 	readonly stderr: () => string;
@@ -61,6 +58,13 @@ type Worker = {
 	readonly events: Queue.Queue<WorkerEvent>;
 };
 
+type JobOutcome =
+	| { readonly _tag: "Timeout" }
+	| { readonly _tag: "ProcessExited" }
+	| { readonly _tag: CompilerJobFailure }
+	| { readonly _tag: "MemorySupervisionFailed" }
+	| { readonly line: string; readonly _tag: "Response" };
+
 export class CompilerWorkerUnavailable extends Schema.TaggedError<
 	CompilerWorkerUnavailable,
 	{ readonly brand: unique symbol }
@@ -69,6 +73,7 @@ export class CompilerWorkerUnavailable extends Schema.TaggedError<
 const BUN_ARGUMENTS = ["--smol", "--no-orphans", "--no-install", "--no-env-file"];
 const STDERR_TAIL_CHARACTERS = 4096;
 const PROCESS_EXIT_GRACE_MS = 50;
+const CPU_POLL_INTERVAL_MS = 50;
 const NEWLINE = 10;
 const encoder = new TextEncoder();
 
@@ -274,8 +279,30 @@ export const makeCompilerWorkerPool = Effect.fnUntraced(function* <E>(
 		return poll;
 	};
 
+	const superviseCpu = (worker: Worker): Effect.Effect<"CpuTimeExceeded"> => {
+		if (process.platform !== "linux") {
+			return Effect.sleep(Duration.millis(options.cpuTimeMs)).pipe(Effect.as("CpuTimeExceeded"));
+		}
+		const used = processTreeCpuMs(fs, worker.pid);
+		return Effect.gen(function* () {
+			const start = yield* used;
+			if (Option.isNone(start)) {
+				return yield* Effect.never;
+			}
+			const poll: Effect.Effect<"CpuTimeExceeded"> = Effect.gen(function* () {
+				yield* Effect.sleep(Duration.millis(CPU_POLL_INTERVAL_MS));
+				const current = yield* used;
+				if (Option.isNone(current)) {
+					return yield* Effect.never;
+				}
+				return current.value - start.value > options.cpuTimeMs ? "CpuTimeExceeded" : yield* poll;
+			});
+			return yield* poll;
+		});
+	};
+
 	const execute = (worker: Worker, request: string) =>
-		Effect.raceFirst(
+		Effect.raceAll([
 			Queue.offer(worker.input, encoder.encode(`${request}\n`)).pipe(
 				Effect.andThen(Queue.take(worker.events)),
 				Effect.map((event): JobOutcome => {
@@ -286,7 +313,8 @@ export const makeCompilerWorkerPool = Effect.fnUntraced(function* <E>(
 				}),
 			),
 			superviseMemory(worker).pipe(Effect.map((tag): JobOutcome => ({ _tag: tag }))),
-		).pipe(
+			superviseCpu(worker).pipe(Effect.map((tag): JobOutcome => ({ _tag: tag }))),
+		]).pipe(
 			Effect.timeoutOrElse({
 				duration: Duration.millis(options.timeoutMs),
 				orElse: () => Effect.succeed<JobOutcome>({ _tag: "Timeout" }),
@@ -365,6 +393,11 @@ export const makeCompilerWorkerPool = Effect.fnUntraced(function* <E>(
 							}),
 						);
 						yield* retire(slot);
+						if (outcome._tag === "Timeout") {
+							return yield* new CompilerWorkerUnavailable({
+								message: `The ${options.label} worker did not finish within ${options.timeoutMs}ms`,
+							});
+						}
 						if (outcome._tag === "ProcessExited" || outcome._tag === "MemorySupervisionFailed") {
 							return yield* new CompilerWorkerUnavailable({
 								message:

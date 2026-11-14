@@ -35,10 +35,11 @@ const childPids = (fs: FileSystem.FileSystem, pid: number) =>
 		),
 	);
 
-const childrenMemoryBytes = (
+const descendantsTotal = (
 	fs: FileSystem.FileSystem,
 	pid: number,
 	visited: Set<number>,
+	measure: (pid: number) => Effect.Effect<number>,
 ): Effect.Effect<number> =>
 	childPids(fs, pid).pipe(
 		Effect.flatMap((pids) =>
@@ -47,30 +48,50 @@ const childrenMemoryBytes = (
 				(childPid) =>
 					Effect.gen(function* () {
 						visited.add(childPid);
-						const memory = yield* fs
-							.readFileString(`/proc/${childPid}/smaps_rollup`)
-							.pipe(Effect.orElseSucceed(() => ""));
-						return proportionalBytes(memory) + (yield* childrenMemoryBytes(fs, childPid, visited));
+						return (
+							(yield* measure(childPid)) + (yield* descendantsTotal(fs, childPid, visited, measure))
+						);
 					}),
 				{ concurrency: "unbounded" },
 			),
 		),
-		Effect.map((bytes) => bytes.reduce((total, value) => total + value, 0)),
+		Effect.map((values) => values.reduce((total, value) => total + value, 0)),
 	);
+
+const processTreeTotal = (
+	fs: FileSystem.FileSystem,
+	pid: number,
+	file: string,
+	parse: (contents: string) => number,
+) =>
+	fs.readFileString(`/proc/${pid}/${file}`).pipe(
+		Effect.option,
+		Effect.flatMap(
+			Option.match({
+				onNone: () => Effect.succeed(Option.none<number>()),
+				onSome: (contents) =>
+					descendantsTotal(fs, pid, new Set([pid]), (childPid) =>
+						fs.readFileString(`/proc/${childPid}/${file}`).pipe(
+							Effect.map(parse),
+							Effect.orElseSucceed(() => 0),
+						),
+					).pipe(Effect.map((descendants) => Option.some(parse(contents) + descendants))),
+			}),
+		),
+	);
+
+// procfs reports CPU time in USER_HZ ticks, which Linux fixes at 100 per second for userspace.
+const CPU_TICK_MS = 10;
+
+const cpuMilliseconds = (stat: string) => {
+	const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+	return (Number(fields[11] ?? 0) + Number(fields[12] ?? 0)) * CPU_TICK_MS;
+};
 
 /** Linux proportional set size of a process tree; none when the root's procfs entry is gone. */
 export const processTreeMemoryBytes = (fs: FileSystem.FileSystem, pid: number) =>
-	fs
-		.readFileString(`/proc/${pid}/smaps_rollup`)
-		.pipe(
-			Effect.option,
-			Effect.flatMap(
-				Option.match({
-					onNone: () => Effect.succeed(Option.none<number>()),
-					onSome: (memory) =>
-						childrenMemoryBytes(fs, pid, new Set([pid])).pipe(
-							Effect.map((childBytes) => Option.some(proportionalBytes(memory) + childBytes)),
-						),
-				}),
-			),
-		);
+	processTreeTotal(fs, pid, "smaps_rollup", proportionalBytes);
+
+/** Linux CPU time used by a process tree's live processes; none when the root's procfs entry is gone. */
+export const processTreeCpuMs = (fs: FileSystem.FileSystem, pid: number) =>
+	processTreeTotal(fs, pid, "stat", cpuMilliseconds);

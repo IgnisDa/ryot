@@ -77,23 +77,23 @@ per-user sidecars and crash quarantine use the same isolation identity.
 
 Runtime and compiler limits are set by their owners, not environment settings.
 
-| Boundary                                                           |                                      Limit |
-| ------------------------------------------------------------------ | -----------------------------------------: |
-| Source / manifest / compiled JavaScript                            |                   256 KiB / 16 KiB / 1 MiB |
-| Compiler concurrency / timeout / sampled Linux process-tree memory |                    2 / 5 seconds / 384 MiB |
-| Compiler diagnostics                                               |                      100 entries / 256 KiB |
-| Local replay timeout / context / final result                      |                30 seconds / 64 KiB / 4 MiB |
-| Runner request                                                     |                                      2 MiB |
-| Host calls / HTTP subset / `updateUserSettings` / in-flight calls  |                         1,000 / 50 / 4 / 4 |
-| Journal / entry / chunk / maximum reads / fetched data             | 100 MiB / 12 MiB / 1 MiB / 2,048 / 200 MiB |
-| Host-call request / response / durable response                    |                    1 MiB / 10 MiB / 12 MiB |
-| HTTP request / streamed response / attempt timeout                 |                 1 MiB / 10 MiB / 8 seconds |
-| Console logs                                                       |     500 entries, 8 KiB each, 256 KiB total |
-| `log` and `span` observability                                     |     500 entries, 8 KiB each, 256 KiB total |
-| Cache key / value / maximum TTL                                    |              256 bytes / 256 KiB / 30 days |
-| Scratch quota / write                                              |                            5 MiB / 256 KiB |
-| Isolate heap / external memory / CPU                               |               64 MiB / 16 MiB / 30 seconds |
-| Sandbox `executeRyotql` result                                     |                                      1 MiB |
+| Boundary                                                            |                                      Limit |
+| ------------------------------------------------------------------- | -----------------------------------------: |
+| Source / manifest / compiled JavaScript                             |                   256 KiB / 16 KiB / 1 MiB |
+| Compiler concurrency / CPU time / sampled Linux process-tree memory |                    2 / 5 seconds / 768 MiB |
+| Compiler diagnostics                                                |                      100 entries / 256 KiB |
+| Local replay timeout / context / final result                       |                30 seconds / 64 KiB / 4 MiB |
+| Runner request                                                      |                                      2 MiB |
+| Host calls / HTTP subset / `updateUserSettings` / in-flight calls   |                         1,000 / 50 / 4 / 4 |
+| Journal / entry / chunk / maximum reads / fetched data              | 100 MiB / 12 MiB / 1 MiB / 2,048 / 200 MiB |
+| Host-call request / response / durable response                     |                    1 MiB / 10 MiB / 12 MiB |
+| HTTP request / streamed response / attempt timeout                  |                 1 MiB / 10 MiB / 8 seconds |
+| Console logs                                                        |     500 entries, 8 KiB each, 256 KiB total |
+| `log` and `span` observability                                      |     500 entries, 8 KiB each, 256 KiB total |
+| Cache key / value / maximum TTL                                     |              256 bytes / 256 KiB / 30 days |
+| Scratch quota / write                                               |                            5 MiB / 256 KiB |
+| Isolate heap / external memory / CPU                                |               64 MiB / 16 MiB / 30 seconds |
+| Sandbox `executeRyotql` result                                      |                                      1 MiB |
 
 Compiler memory is sampled proportional set size in the Linux production image, not a cgroup hard ceiling. Non-Linux development keeps process, timeout, and concurrency bounds without claiming portable memory enforcement. Calls beyond per-session concurrency wait; cumulative budgets still apply. Each host call takes a FIFO transient-memory permit covering its decoded arguments and its result before decoding arguments, and holds it until the host work ends and the reply is written or purged. Capabilities whose results are unbounded before they materialize never bind live or settle inline; the workflow body dispatches them. Sandbox `executeRyotql` results are measured as JSON by PostgreSQL across the document's named queries and fail with `result-too-large` before any rows leave the database. Session registration and removal are identity-aware so replacement, expiry, interruption, or a late finalizer cannot evict a newer session.
 

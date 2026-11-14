@@ -136,13 +136,15 @@ packaged server worker imports and calls the same entry.
 
 `./supervisor` exports `makeClientCompilerSupervisor`, which runs the worker in a supervised pool. Its
 `compile` accepts the page variant of `PluginClientCompilerPackageInput` and returns
-`Effect<PageClientArtifact, PluginClientCompilerFailure | CompilerWorkerUnavailable>`. Timeouts,
-memory overruns, and oversized responses fail the job with `RYOT_CLIENT_COMPILER_TIMEOUT`,
+`Effect<PageClientArtifact, PluginClientCompilerFailure | CompilerWorkerUnavailable>`. CPU-time
+overruns, memory overruns, and oversized responses fail the job with `RYOT_CLIENT_COMPILER_TIMEOUT`,
 `RYOT_CLIENT_COMPILER_MEMORY`, or `RYOT_CLIENT_COMPILER_PROCESS` diagnostics; a worker that cannot
-start, exits, returns an invalid result, or loses memory supervision fails with
+start, exits, outlasts the elapsed-time limit, returns an invalid result, or loses memory supervision
+fails with
 `CompilerWorkerUnavailable`. Job workspaces stay beneath the compiler package so ordinary package
 resolution finds its declared dependencies in both source and packaged layouts, and the pool removes
-each one after its job. Limits are two concurrent workers, a 30-second job timeout, a 60-second
+each one after its job. Limits are two concurrent workers, 30 seconds of CPU time and 90 seconds
+elapsed per job, a 60-second
 warm-up timeout, a 5-minute idle timeout, 1 GiB sampled Linux process-tree memory with recycling above
 768 MiB, and a 384 MiB `GOMEMLIMIT` for the native TypeScript server.
 

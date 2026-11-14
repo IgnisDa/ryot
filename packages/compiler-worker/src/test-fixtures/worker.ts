@@ -19,6 +19,14 @@ const commands: Record<
 			yield* fs.writeFileString(`${directory}/file`, "staged");
 			return "staged";
 		}),
+	spin: (milliseconds) =>
+		Effect.sync(() => {
+			const end = performance.now() + Number(milliseconds);
+			while (performance.now() < end) {
+				// Busy work so the job consumes CPU time rather than waiting.
+			}
+			return "spun";
+		}),
 };
 
 runCompilerWorker({

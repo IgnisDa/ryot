@@ -22,14 +22,18 @@ per compile.
 
 Each job receives a fresh `{ parentPath, jobId }` workspace address beneath a private pool directory,
 and the pool removes that directory after the job, including after forced termination. The pool
-enforces the job timeout, the hard Linux process-tree proportional memory limit, and the response
-size limit; any of these kills the worker, fails only that job with the compiler's
-`Timeout`, `MemoryExceeded`, or `OutputExceeded` failure, and the next job starts a fresh worker.
+enforces the job's CPU-time budget, the hard Linux process-tree proportional memory limit, and the
+response size limit; any of these kills the worker, fails only that job with the compiler's
+`CpuTimeExceeded`, `MemoryExceeded`, or `OutputExceeded` failure, and the next job starts a fresh worker.
 After a successful job, a worker above the recycle threshold is replaced; an idle worker exits after
 its idle timeout. The pool sets the worker's `GOMEMLIMIT` for the native TypeScript server it starts
 and makes each worker the preferred out-of-memory victim.
 
-A worker that cannot start, exits during a job, or loses memory supervision fails with
-`CompilerWorkerUnavailable`. That failure describes the platform, not the submitted source, so
+CPU time is the Linux process tree's, so a busy host does not fail a source that compiles within its
+budget; elsewhere elapsed time stands in for it. A separate elapsed-time limit catches an overloaded
+host or a stuck worker.
+
+A worker that cannot start, exits during a job, outlasts the elapsed-time limit, or loses memory
+supervision fails with `CompilerWorkerUnavailable`. That failure describes the platform, not the submitted source, so
 callers report it as temporary unavailability rather than as compiler diagnostics. Failures are
 logged with the worker's recent stderr.
