@@ -2,9 +2,9 @@
 .turbo
 .DS_Store
 .env*
-tmp
+**/tmp
 out
-target
+**/target
 node_modules
 **/build
 **/coverage
