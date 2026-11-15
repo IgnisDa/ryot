@@ -261,6 +261,21 @@ existingSecret is set without an existingSecretKey.
 Validation: fail fast on missing or inconsistent required configuration.
 */}}
 {{- define "ryot.validate" -}}
+{{- if ne (toString .Values.replicaCount) "1" -}}
+{{- fail "replicaCount must be 1: Ryot supports one backend per database" -}}
+{{- end -}}
+{{- if .Values.persistence.enabled -}}
+{{- if and (not .Values.persistence.existingClaim) (not .Values.persistence.accessModes) -}}
+{{- fail "persistence.accessModes must not be empty" -}}
+{{- end -}}
+{{- else -}}
+{{- range $key := list "FILE_STORAGE_S3_URL" "FILE_STORAGE_S3_BUCKET_NAME" "FILE_STORAGE_S3_ACCESS_KEY_ID" "FILE_STORAGE_S3_SECRET_ACCESS_KEY" -}}
+{{- if not (or (index $.Values.config.extraEnv $key) (index $.Values.secretEnv $key) (index $.Values.secretEnvFrom $key)) -}}
+{{- fail (printf "%s is required when persistence.enabled is false" $key) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- /* Image */ -}}
 {{- if not .Values.image.repository -}}
 {{- fail "image.repository is required" -}}

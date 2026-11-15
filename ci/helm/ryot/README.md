@@ -164,8 +164,6 @@ Post-install test pods verify `/api/system/health` through the service and valid
 helm test <release-name>
 ```
 
-The health endpoint checks PostgreSQL, and is also the default liveness and readiness target.
-
 ## Troubleshooting
 
 Use `helm template --debug` for render failures. For a deployment, inspect `kubectl get pods`, `kubectl describe pod <pod>`, application logs, and `helm test <release-name> --logs`. Health failures usually mean that Ryot cannot reach PostgreSQL; verify service names, secret keys, URL encoding, and credentials. If a bundled PostgreSQL password mismatch blocks an upgrade, follow the rotation instructions in the error instead of deleting persistent data.
@@ -173,3 +171,26 @@ Use `helm template --debug` for render failures. For a deployment, inspect `kube
 ## Values
 
 See annotated [values.yaml](./values.yaml) or generated [VALUES.md](./VALUES.md). The main-branch workflow regenerates `VALUES.md` with [helm-docs](https://github.com/norwoodj/helm-docs); document values in `values.yaml` and do not edit `VALUES.md` directly.
+
+## Storage and upgrades
+
+Ryot supports exactly one backend per database. The chart uses `Recreate` upgrades, so the old
+pod stops before its replacement starts; expect brief downtime.
+
+Permanent uploads use an `8Gi` application PVC mounted at `/home/ryot/storage` by default.
+Set `persistence.existingClaim` to reuse a claim, or choose its size, access modes and storage
+class under `persistence`. The chart retains its application PVC on uninstall; remove it manually
+only when its data is no longer needed. Temporary work stays outside this volume. The default
+pod `fsGroup: 1001` gives the backend access on storage drivers that support volume ownership.
+An existing claim must also be writable by UID/GID 1001.
+
+For S3, set `persistence.enabled=false` and supply `FILE_STORAGE_S3_URL`,
+`FILE_STORAGE_S3_BUCKET_NAME`, `FILE_STORAGE_S3_ACCESS_KEY_ID` and
+`FILE_STORAGE_S3_SECRET_ACCESS_KEY` through `config.extraEnv`, `secretEnv` or `secretEnvFrom`.
+Keep credentials in secrets. Set `FILE_STORAGE_S3_REGION` if your provider requires it.
+
+Startup probes allow 30 minutes for migration by default. Increase
+`startupProbe.failureThreshold` for larger upgrades, and give Helm's `--timeout` at least as
+much time. Readiness checks PostgreSQL; liveness checks the HTTP listener independently.
+Follow the [migration guide](../../../apps/docs/src/migration.md) for the rewrite upgrade.
+Published charts default to the exact application release tag they were packaged for.
