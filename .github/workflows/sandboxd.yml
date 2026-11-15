@@ -12,6 +12,12 @@ on:
       publish:
         required: true
         type: boolean
+      run-tests:
+        required: true
+        type: boolean
+      run-kubernetes:
+        required: true
+        type: boolean
     secrets:
       DOCKER_TOKEN:
         required: false
@@ -41,7 +47,7 @@ jobs:
       TEST_DATABASE_URL: postgres://test_user:test_password@127.0.0.1:5432/test_db
     services:
       postgres:
-        image: postgres:18-alpine
+        image: ${{ inputs.run-tests && 'postgres:18-alpine' || '' }}
         env:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
@@ -66,6 +72,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - name: Build the sandbox test image
+        if: inputs.run-tests
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -96,38 +103,45 @@ jobs:
           cache-from: *cache-from
           cache-to: type=gha,mode=max,scope=runner-linux-${{ matrix.arch }}
       - name: Check the sidecar, launcher, and protocol fixtures
-        if: matrix.arch == 'amd64'
+        if: inputs.run-tests && matrix.arch == 'amd64'
         run: docker run --rm --user 1001 --workdir /app/kernel/sandbox ryot-sandbox-test bun run check
       - name: Test the shared test infrastructure
+        if: inputs.run-tests
         run: >-
           docker run --rm --user 1001 --workdir /app
           ryot-sandbox-test bun turbo --filter=@ryot-app/testing test
       - name: Test the sidecar
+        if: inputs.run-tests
         run: docker run --rm --user 1001 --workdir /app/kernel/sandbox/native ryot-sandbox-test cargo test
       - name: Test the launcher under Docker defaults
+        if: inputs.run-tests
         run: |
           docker run --rm --user 0 --workdir /app/kernel/sandbox/native ryot-sandbox-test \
             cargo test --bin ryot-sandbox-launcher -- --test-threads=1
           docker run --rm --user 0 --workdir /app/kernel/sandbox/native ryot-sandbox-test \
             cargo test --test launcher -- --ignored --test-threads=1
       - name: Test the sandbox host under Docker confinement
+        if: inputs.run-tests
         run: >-
           docker run --rm --user 1001 --network host
           --workdir /app/kernel/sandbox
           ryot-sandbox-test bun ./test.ts --parallel=1
       - name: Test the kernel backend under Docker confinement
+        if: inputs.run-tests
         run: >-
           docker run --rm --user 1001 --network host
           --env TEST_DATABASE_URL
           --workdir /app/kernel/backend
           ryot-sandbox-test bun ./test.ts --parallel=1
       - name: Repeat the backup memory contract in fresh processes
+        if: inputs.run-tests
         run: >-
           docker run --rm --user 1001 --network host
           --env TEST_DATABASE_URL
           --workdir /app
           ryot-sandbox-test bun turbo --filter=@ryot-app/kernel-backend test:memory
       - name: Test the sandbox SDK workflow
+        if: inputs.run-tests
         run: >-
           docker run --rm --user 1001 --network host
           --workdir /app/packages/plugin-backend-sdk
@@ -135,26 +149,26 @@ jobs:
       - name: Run all six confined sandbox keys in the release image
         run: docker run --rm --network none ryot-image bun run dist/prepare-sandbox-runtime.js
       - name: Set up Helm
-        if: matrix.arch == 'amd64'
+        if: inputs.run-kubernetes && matrix.arch == 'amd64'
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v3.21.2
       - name: Create kind cluster
-        if: matrix.arch == 'amd64'
+        if: inputs.run-kubernetes && matrix.arch == 'amd64'
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
           cluster_name: ryot-ci
       - name: Validate the candidate under Kubernetes
-        if: matrix.arch == 'amd64'
+        if: inputs.run-kubernetes && matrix.arch == 'amd64'
         run: bash ci/helm/acceptance.sh
       - name: Kubernetes diagnostics on failure
-        if: failure() && matrix.arch == 'amd64'
+        if: failure() && inputs.run-kubernetes && matrix.arch == 'amd64'
         run: |
           kubectl get pods,pvc -n ryot -o wide || true
           kubectl describe pods -n ryot || true
           kubectl logs -n ryot -l app.kubernetes.io/name=ryot --tail=200 --all-containers || true
       - name: Remove the acceptance cluster
-        if: always() && matrix.arch == 'amd64'
+        if: always() && inputs.run-kubernetes && matrix.arch == 'amd64'
         run: kind delete cluster --name ryot-ci
       - name: Log in to the ghcr container registry
         if: inputs.publish

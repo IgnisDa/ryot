@@ -35,6 +35,20 @@ observability up -d` and set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`
 
 The server task builds and watches the shipped plugin bundles. Follow the validation commands in `AGENTS.md` before submitting changes.
 
+## CI and PR images
+
+The Main workflow automatically builds both Linux image architectures, checks all six sandbox
+runtime keys, and runs Helm lint/render/unit checks on relevant PRs and main pushes. Full
+sandbox/backend tests run for backend, sandbox, server, package, plugin, or shared build-input
+changes. Kubernetes install, persistence, and upgrade acceptance runs for chart, deployment,
+or shared build-input changes. PR selection covers the entire PR; unavailable or truncated
+change lists run full validation. Release tags always require all validation before publication.
+
+To publish an open PR from this repository, manually run Main with its `pr-number`. This
+publishes `pr-<number>` images after builds and smoke checks. Select `full-validation` to also
+run the full tests and Kubernetes acceptance. Leaving the PR number empty publishes main
+with the same validation options. Automatic PR runs never publish images.
+
 ## Contributor License Agreement
 
 External contributors must sign the
