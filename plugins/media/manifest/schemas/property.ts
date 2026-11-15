@@ -9,6 +9,7 @@ import {
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import { mediaImagePurposes } from "../../shared/media-image";
+import { originalLanguageFields } from "../../shared/original-language";
 import { showEpisodeOrderTypes } from "../../shared/show-episode-order";
 import { watchProviderOffers } from "../../shared/watch-provider";
 
@@ -120,6 +121,7 @@ const mediaWithCreatorsBaseFields = {
 
 export const moviePropertiesSchema: AppSchema = {
 	fields: {
+		...originalLanguageFields,
 		...mediaBaseFields,
 		runtime: integerField("Runtime", "Runtime in minutes"),
 		images: mediaImagesField("Cover and promotional images for this movie"),
@@ -129,6 +131,7 @@ export const moviePropertiesSchema: AppSchema = {
 
 export const showPropertiesSchema: AppSchema = {
 	fields: {
+		...originalLanguageFields,
 		...mediaBaseFields,
 		images: mediaImagesField("Cover and promotional images for this show"),
 		watchProviders: watchProvidersField("Where to watch this show, by country"),

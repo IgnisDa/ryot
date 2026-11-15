@@ -55,6 +55,14 @@ afterEach(() => {
 });
 
 describe("show schema", () => {
+	it("displays the source language name independently of show status", () => {
+		expect(
+			showSummaryFacts(
+				decodeShowSummary({ totalSeasons: null, totalEpisodes: null, originalLanguage: "fr" }),
+			),
+		).toEqual([{ icon: "globe", value: "French", label: "Original language" }]);
+	});
+
 	it("lists the provider's season and episode counts", () => {
 		expect(showSummaryFacts(decodeShowSummary())).toEqual([
 			{ inline: true, label: "Season", icon: "layers-3", value: "1 season" },

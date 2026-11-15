@@ -26,6 +26,35 @@ const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("show.tvdb sandbox script", () => {
+	it("keeps source original language canonical and leaves absent language unset", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				for (const [code, expected] of [
+					["fra", "fr"],
+					[null, undefined],
+					["", undefined],
+				] as const) {
+					const result = yield* runSandboxTestScript(
+						details,
+						{ level: "base", externalId: "1" },
+						makeHost((_method, url) =>
+							httpSuccess({
+								data: url.includes("/translations/")
+									? { name: "Translated", originalLanguage: "jpn" }
+									: { name: "Source", originalLanguage: code },
+							}),
+						),
+						execution,
+					);
+					if (expected === undefined) {
+						expect(result.properties).not.toHaveProperty("originalLanguage");
+					} else {
+						expect(result.properties).toMatchObject({ originalLanguage: expected });
+					}
+				}
+			}),
+		));
+
 	it("declares a script for each operation", () => {
 		expect([
 			[searchManifest.slug, search.operation],

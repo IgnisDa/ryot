@@ -7,6 +7,7 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
+import { originalLanguageProperties } from "../../../lib/original-language";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
@@ -191,6 +192,7 @@ export const getTvdbShowDetails = (
 				totalEpisodes,
 				totalSeasons: childEntities.length,
 				productionStatus: stringValue(asRecord(show["status"])?.["name"]),
+				...originalLanguageProperties(show["originalLanguage"], "tvdb"),
 				description: normalizePlainDescription(translation.description ?? show["overview"]),
 			},
 			relatedEntityGroups: [

@@ -19,7 +19,7 @@ import { moviePresentationFacts, movieSchema, movieSummaryFacts } from "./schema
 
 const noopAdapter = { query: () => Effect.succeed({}) };
 
-const movieFields = { runtime: 169, watchProviders: null };
+const movieFields = { runtime: 169, watchProviders: null, originalLanguage: null };
 
 const movieSummary = (overrides: Record<string, unknown> = {}) =>
 	decodeFlatSummary(
@@ -33,6 +33,12 @@ afterEach(() => {
 });
 
 describe("movie schema", () => {
+	it("displays the source language name when the summary has a code", () => {
+		expect(movieSummaryFacts(movieSummary({ runtime: null, originalLanguage: "ja" }))).toEqual([
+			{ icon: "globe", value: "Japanese", label: "Original language" },
+		]);
+	});
+
 	it("lists the runtime and drops it when unrecorded", () => {
 		expect(movieSummaryFacts(movieSummary())).toEqual([
 			{ inline: true, icon: "clock", value: "2h 49m", label: "Runtime" },

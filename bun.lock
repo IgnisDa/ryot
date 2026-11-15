@@ -62,6 +62,7 @@
         "@ryot-app/definitions": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
+        "@ryot-app/languages": "workspace:*",
         "@ryot-app/media-plugin": "workspace:*",
         "@ryot-app/plugin-backend-compiler": "workspace:*",
         "@ryot-app/plugin-backend-sdk": "workspace:*",

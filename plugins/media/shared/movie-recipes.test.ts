@@ -60,9 +60,9 @@ const keys = (
 	name: string,
 ) => rowFields(recipe, name).map((field) => ("key" in field ? field.key : null));
 describe("media movie query recipes", () => {
-	it("selects the watch providers and runtime the movie schema declares", () => {
+	it("selects the source language, watch providers and runtime the movie schema declares", () => {
 		expect(keys(SUMMARY_RECIPE, "summary").slice(-3)).toEqual([
-			"progressPercent",
+			"originalLanguage",
 			"watchProviders",
 			"runtime",
 		]);

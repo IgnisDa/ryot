@@ -55,6 +55,31 @@ const image = (purpose: string, path: string) => ({
 });
 
 describe("movie.tmdb sandbox script", () => {
+	it("keeps source original language canonical and leaves absent language unset", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				for (const [code, expected] of [
+					["fra", "fr"],
+					["cn", "yue"],
+					["xx", "zxx"],
+					[null, undefined],
+					["", undefined],
+				] as const) {
+					const result = yield* runSandboxTestScript(
+						details,
+						{ level: "base", externalId: "1" },
+						makeMovieHost({ movie: { id: 1, title: "Source", original_language: code } }),
+						execution,
+					);
+					if (expected === undefined) {
+						expect(result.properties).not.toHaveProperty("originalLanguage");
+					} else {
+						expect(result.properties).toMatchObject({ originalLanguage: expected });
+					}
+				}
+			}),
+		));
+
 	it("declares a script for each operation", () => {
 		expect([
 			[searchManifest.slug, search.operation],

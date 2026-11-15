@@ -50,6 +50,7 @@ import {
 	mediaPeopleRecipe,
 	mediaWatchProviderSelection,
 } from "./media-recipes";
+import { originalLanguageSelection } from "./original-language";
 import { ShowEpisodeOrderListSchema } from "./show-episode-order";
 
 const SHOW_SEASON_RELATIONSHIP = "show-to-show-season";
@@ -147,6 +148,7 @@ export const showRecipes = mediaEpisodicRecipes({
 		episodeNumber: row.episodeNumber,
 	}),
 	summaryFields: (entity) => ({
+		...originalLanguageSelection(entity),
 		...mediaWatchProviderSelection(entity),
 		totalSeasons: selectedField(
 			propertyNumber(entity, "totalSeasons"),

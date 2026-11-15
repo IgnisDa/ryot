@@ -3,6 +3,7 @@ import type {
 	MediaPresentationDataOf,
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
+import { originalLanguageFact } from "../../shared/original-language";
 import { showRecipes } from "../../shared/show-recipes";
 import { mediaEpisodicActivityCopy } from "../media/activity-copy";
 import {
@@ -56,6 +57,7 @@ export const showActivityCoverage = (result: ShowActivity): MediaEpisodicCoverag
 
 export const showSummaryFacts = (show: ShowSummary): readonly MediaSummaryFact[] =>
 	[
+		...originalLanguageFact(show.originalLanguage),
 		mediaCountFact(show.totalSeasons, "Season", "layers-3"),
 		mediaCountFact(show.totalEpisodes, "Episode", "tv"),
 	].filter((fact) => fact !== undefined);

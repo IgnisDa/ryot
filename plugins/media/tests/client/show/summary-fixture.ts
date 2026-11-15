@@ -26,6 +26,7 @@ export const showSummaryRow = {
 	providerName: "TMDB",
 	inProgressEpisodes: 0,
 	providerRating: 78.25,
+	originalLanguage: null,
 	isInMediaLibrary: true,
 	providerCheckedAt: null,
 	productionStatus: "Ended",

@@ -2,6 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ProviderSearchInput } from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { languageCodeForIso6393 } from "@ryot-app/plugin-kit/languages";
 
 import { MediaSandboxError } from "../failures";
 import {
@@ -165,30 +166,13 @@ export const tvdbGetOptional = (
 	params?: Readonly<Record<string, string>>,
 ) => tvdbRequest(host, path, params, { allowMissing: true });
 
-const TVDB_LANGUAGE_MAP: Readonly<Record<string, string>> = {
-	en: "eng",
-	es: "spa",
-	fr: "fra",
-	de: "deu",
-	it: "ita",
-	pt: "por",
-	ja: "jpn",
-	ko: "kor",
-	zh: "zho",
-	ru: "rus",
-	nl: "nld",
-	pl: "pol",
-	sv: "swe",
-	da: "dan",
-	fi: "fin",
-	nb: "nob",
-	tr: "tur",
-	cs: "ces",
-};
-
 export const bcp47ToTvdb = (language: string) => {
 	const [base = ""] = language.trim().toLowerCase().split("-");
-	return TVDB_LANGUAGE_MAP[base] ?? base;
+	const code = languageCodeForIso6393(base);
+	if (code === undefined) {
+		throw new Error(`Unsupported translation language: ${language}`);
+	}
+	return code;
 };
 
 const getTranslationRecord = (payload: null | UnknownRecord) => {

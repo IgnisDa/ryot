@@ -71,6 +71,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 				runtime: 169,
 				publishYear: 1999,
 				providerRating: 86.5,
+				originalLanguage: "ja",
 				productionStatus: "Released",
 				images: [{ ...cover, purpose: "cover" }],
 				description: "A deterministic browser tracer movie.",
@@ -135,6 +136,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		yield* media
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible", timeout: 150_000 });
+		expect(yield* media.getByText("Japanese", { exact: true }).count).toBe(1);
 
 		const body = media.locator("body");
 		yield* media

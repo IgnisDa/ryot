@@ -18,6 +18,13 @@ User-authored data migrates fully. Provider data migrates only when user data re
 
 New entities use the schema's `content_generation = 1` default. Canonical name or property changes during conflict updates, description normalization, and asset rewriting advance that generation only when the stored content changes; ownership and success-timestamp changes alone do not. `populated_at` records successful base details, not full related completion. All migrated `related_populated_at`, `related_population_generation`, and `related_population_started_at` values remain unset: V1 inventories and credits do not prove that every V2 related page and sweep finished or identify an active V2 sweep. Existing relationships remain available while a lazy full ensure reconstructs missing related data. No enrichment requests or failure history are synthesized; `entity_enrichment_request` stays empty. V1 translations remain omitted, including cached overlays, because they have no matching source content generation or declared per-schema selected-property provenance. Runtime translations must record the entity's current `source_content_generation`.
 
+Original-language conversion joins retained metadata IDs only, restricted to TMDB/TVDB movies and
+shows with nonblank V1 values. It writes canonical ISO codes, including known provider labels for
+Cantonese and No Language, and aborts on unknown or ambiguous names. This known source value can be
+retained on a skeleton without marking its other details populated. The value update, generation
+advance, and completion report commit atomically; a completed phase preserves subsequent edits.
+Historical timestamps remain unchanged.
+
 ### Populated gate
 
 `_populated_metadata_ids` holds referenced provider metadata whose lot `*_specifics` column is set. V1 periodically re-flags every library row `is_partial` to schedule refreshes, so that flag cannot tell fetched rows apart; specifics are written only by a details fetch. The gate excludes rows in any V1 `Monitoring` collection, all podcasts, and non-TMDB shows: V2 `ensure` never rewrites populated base details, and its first refresh diffs migrated properties, including every child episode, against provider output, so children must match what V2 population writes. TMDB seasons and episodes of a populated show inherit its `populated_at`, and all provider show children carry `parentShowExternalId`. TMDB children carry V1's single original-size poster or still, which is the URL V2 writes. TVDB artwork is language-selected and iTunes V1 kept 60px episode artwork, so those parents stay skeletons. Migrated metadata images get `purpose: cover` because V1 stored none.
@@ -234,6 +241,12 @@ through `quoteSqlString`; legacy user input is never interpolated into SQL text.
 A `RAISE EXCEPTION` rolls back its own `DO $$` block, so an abort can leave nothing behind in `migration_report`; the exception message is the only thing an operator sees. Abort messages therefore state what was found — with a bounded sample of offending identifiers — why it blocks the migration, and whether the fix is to change the V1 data, use a different build, or report a migration defect.
 
 ## Validation Runbook
+
+For original language, compare each retained TMDB/TVDB movie/show with its nonblank legacy value
+and canonical code, including skeletons. Other media and blank values must remain absent. Repeat an
+interrupted migration with legacy tables retained: codes, timestamps, generations, and report counts
+must stay unchanged. An unknown retained language must abort without a partial update or completion
+report; fixing its source value permits retry.
 
 For enrichment, verify positive `entity.content_generation` values, empty `entity_translation` and `entity_enrichment_request` tables, and no `related_populated_at`, `related_population_generation`, or `related_population_started_at` values after import. Compare `populated_at` with the populated gate and retained credits/child relationships with the legacy rows; base success must not imply complete related coverage. Check show routing fields `seasonNumber`, `episodeNumber`, and `parentShowExternalId` remain present where mapped. In an interrupted migration with legacy tables retained, repeat unchanged content writes and verify generations do not advance; a real name/property change must advance once, while ownership or success-timestamp-only changes must not. Verify workout-set `exerciseKind` against its recorded V1 workout exercise `lot`, not the current exercise entity. After normal startup, a provider kind refresh must leave those historical set snapshots unchanged, and a full ensure must finish all related pages and sweeps before setting `related_populated_at`.
 

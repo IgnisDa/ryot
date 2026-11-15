@@ -895,3 +895,15 @@ fields. Their search argument is persisted with the saved selection.
 The Media test runner provisions PostgreSQL through the canonical scoped database-run setup before
 calling the shared client runner. Executor regressions and node tests share that lifecycle; DOM
 tests retain the shared browser preload. Package test arguments pass through unchanged.
+
+## Original language
+
+Movie and show properties optionally store `originalLanguage` as a canonical ISO language code.
+TMDB and TVDB base detail operations supply it from their original-language fields, independently
+of requested translations; absent or blank source values remain absent. TMDB's `cn` and `xx` source
+codes normalize to `yue` and `zxx`. Other media schemas and episodic children have no such property.
+
+The shared language catalog owns canonical identities, validation, English display names, and
+three-letter API conversion. Movie/show summary recipes select the code and their descriptors show
+its name. The startup migration separately converts retained V1 movie/show values; translation and
+interface preferences never supply a missing original language.

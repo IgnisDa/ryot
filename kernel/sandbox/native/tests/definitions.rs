@@ -279,14 +279,14 @@ fn definition_envelopes_use_done_limit_while_values_keep_the_four_mib_limit() {
         "total_pages": 1,
     }))
     .expect("TMDB response body");
-    let mut sidecar = support::spawn(Tier::Core, &[]);
+    let mut sidecar = support::spawn(Tier::Data, &[]);
     let limits = Limits {
         heap_bytes: 256 * MIB,
         ..support::limits()
     };
     sidecar.send(&support::run_frame(
         "definition-large-envelope",
-        Tier::Core,
+        Tier::Data,
         &source,
         definition_invocation(
             metadata,

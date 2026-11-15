@@ -1,5 +1,6 @@
 import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media-recipes";
 import { movieRecipes } from "../../shared/movie-recipes";
+import { originalLanguageFact } from "../../shared/original-language";
 import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
@@ -16,7 +17,10 @@ type MovieSummary = MediaSummaryOf<typeof movieRecipes>;
 type MoviePresentation = MediaPresentationDataOf<typeof movieRecipes>;
 
 export const movieSummaryFacts = (movie: MovieSummary): readonly MediaSummaryFact[] =>
-	[mediaDurationFact(movie.runtime, "Runtime")].filter((fact) => fact !== undefined);
+	[
+		...originalLanguageFact(movie.originalLanguage),
+		mediaDurationFact(movie.runtime, "Runtime"),
+	].filter((fact) => fact !== undefined);
 
 export const moviePresentationFacts = (movie: MoviePresentation) =>
 	mediaDurationLabels(movie.runtime);

@@ -10,6 +10,7 @@ import type { ShowEpisodeOrder } from "../../../../shared/show-episode-order";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
+import { originalLanguageProperties } from "../../../lib/original-language";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
@@ -210,6 +211,7 @@ const buildDetailsResult = (
 			totalSeasons: childEntities.length,
 			isNsfw: showData["adult"] === true ? true : null,
 			productionStatus: stringValue(showData["status"]),
+			...originalLanguageProperties(showData["original_language"], "tmdb"),
 			publishYear: parsePublishYear(showData["first_air_date"]),
 			watchProviders: collectWatchProviders(watchProvidersData),
 			description: normalizePlainDescription(showData["overview"]),

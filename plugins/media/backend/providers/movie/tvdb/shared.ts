@@ -5,6 +5,7 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
+import { originalLanguageProperties } from "../../../lib/original-language";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue } from "../../../lib/records";
@@ -111,6 +112,7 @@ export const details = defineProvider({
 			return {
 				name: title,
 				properties: {
+					...originalLanguageProperties(movie["originalLanguage"], "tvdb"),
 					images,
 					runtime,
 					sourceUrl,

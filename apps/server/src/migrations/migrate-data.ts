@@ -65,6 +65,7 @@ import {
 	resolveRelationshipMigrationTargets,
 } from "./migration-resolution";
 import { buildNotificationPlatformMigrationSql } from "./notification-platform-mapping";
+import { migrateLegacyOriginalLanguages } from "./original-language-mapping";
 import { buildLegacyPersonDuplicateMergeSql } from "./person-duplicate-merge-sql";
 import {
 	buildCompanyEntityMigrationSql,
@@ -675,6 +676,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				}),
 				[],
 			);
+			yield* migrateLegacyOriginalLanguages(connection);
 			yield* normalizeLegacyDescriptions(connection);
 			reportSequence = yield* logReportRows(connection, reportSequence);
 			return yield* readLegacyIntegrationProgressCache(connection, mediaPluginId);

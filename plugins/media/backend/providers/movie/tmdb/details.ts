@@ -8,6 +8,7 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
+import { originalLanguageProperties } from "../../../lib/original-language";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
@@ -64,6 +65,7 @@ const buildDetailsResult = (
 			providerRating,
 			isNsfw: movieData["adult"] === true ? true : null,
 			productionStatus: stringValue(movieData["status"]),
+			...originalLanguageProperties(movieData["original_language"], "tmdb"),
 			publishYear: parsePublishYear(movieData["release_date"]),
 			watchProviders: collectWatchProviders(watchProvidersData),
 			description: normalizePlainDescription(movieData["overview"]),
