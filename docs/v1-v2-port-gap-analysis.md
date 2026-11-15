@@ -11,7 +11,8 @@ The current-status inventory was reconciled on **2026-11-14** against commit
 query, page-authoring, assistant and access-control changes. This was a source/documentation
 check, not a new execution of the historical validation suites. Dated acceptance records
 retain their original evidence; supersession notes distinguish earlier implementations from
-the current inventory.
+the current inventory. Orders 20–21 were implemented and validated on **2026-11-15**; their
+acceptance records below describe that subsequent change.
 
 The comparison covers V1's public operations, HTTP handlers, scheduled work, dependent
 utilities, data models, preferences, and client screens. It maps these to executable V2
@@ -66,8 +67,8 @@ Orders 1–19 are complete, including notification producers, retention, analyti
 history/review controls. Bulk collection add/remove and collection review management also
 have usable client paths. The owner approved two additional ports on **2026-11-14**:
 Analytics image export (Order 20) and original-language metadata limited to the source/type
-combinations that supplied it in V1 (Order 21). Both are pending. Media trailers/videos will
-not be ported. Completion of Orders 1–19 does not mean exact V1 parity.
+combinations that supplied it in V1 (Order 21). Both are complete as of **2026-11-15**. Media
+trailers/videos will not be ported. Completion of the numbered backlog does not mean exact V1 parity.
 
 V2 also provides authored Pages, Ryo, MCP and credential write-access controls. Publications
 support kernel selections and user pages in live or snapshot mode; these additions extend the
@@ -340,18 +341,77 @@ the kernel and plugin changes were addressed and the main-session cleanup is com
 ### Approved follow-up ports — 2026-11-14
 
 These are additions to the completed Orders 1–19, not reopened acceptance gates. The owner
-approved recording them as required ports; this documentation update implements neither feature.
+approved them as required ports; both are implemented as of 2026-11-15.
 
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
-| 20 | Pending | **Restore Analytics image export** | 16 | Add a usable **Save image** action that exports the displayed Analytics report as a PNG, with pending/error/retry feedback. Capture the selected report and displayed values; account backups and publication links do not replace this export. Cover the user action and generated image. |
-| 21 | Pending | **Restore source-supported original-language metadata** | Existing movie/show provider population, migration and detail surfaces | Port original-language data only for TMDB and TVDB movies and shows, the V1 source/type combinations that populated it. Add the corresponding movie/show properties, provider mappings, reads and detail display; migrate nonblank retained V1 values for those combinations. Missing source values stay absent. Do not infer original language from interface/translation language, add placeholder values or extend the feature across unrelated media types. |
+| 20 | Done (2026-11-15) | **Restore Analytics image export** | 16 | Add a usable **Save image** action that exports the displayed Analytics report as a PNG, with pending/error/retry feedback. Capture the selected report and displayed values; account backups and publication links do not replace this export. Cover the user action and generated image. |
+| 21 | Done (2026-11-15) | **Restore source-supported original-language metadata** | Existing movie/show provider population, migration and detail surfaces | Port original-language data only for TMDB and TVDB movies and shows, the V1 source/type combinations that populated it. Add the corresponding movie/show properties, provider mappings, reads and detail display; migrate nonblank retained V1 values for those combinations. Missing source values stay absent. Do not infer original language from interface/translation language, add placeholder values or extend the feature across unrelated media types. |
 
 V1 evidence: `crates/frontend/app/routes/_dashboard.analytics.tsx` (**Save image**),
 `crates/providers/{tmdb,tvdb}/src/{movies,shows}.rs` (`original_language`), and the Media detail
 display in `crates/frontend/app/routes/_dashboard.media.item.$id._index.tsx`.
-Current omissions: `plugins/media/manifest/schemas/property.ts`, Media/Fitness analytics clients,
-and `apps/server/src/migrations/metadata-mapping.ts`.
+#### Order 20 acceptance — 2026-11-15
+
+The active Media or Fitness Analytics report has a **Save image** action with pending, failure
+and retry states. Shared UI primitives register the displayed metrics, formatted text, selections,
+loaded table rows, notices, chart SVGs and colored legends in document order. Capture freezes those
+values and the current theme without rerunning report queries or calculating a second set of metrics.
+Changing the report invalidates a failed capture; an unchanged report can retry the captured image.
+Text wraps to measured widths, and oversized images fail explicitly.
+
+Report composition and PNG rendering live in `packages/plugin-ui-sdk`; the reusable action lives
+in `packages/plugin-client-sdk`. Media and Fitness retain ownership of their metrics and report copy.
+A generic, bounded `export-file` bridge action routes through the kernel's shared downloads service:
+browser download or native cache/write/share/cleanup. The kernel has no domain-specific export path.
+Only the selected, mounted report and its loaded rows are exported; partial-data captions and
+processing/refresh notices remain part of the image. Modal drill-downs are outside that report scope.
+
+#### Order 21 acceptance — 2026-11-15
+
+Movie and show schemas have optional canonical `originalLanguage` properties. The four TMDB/TVDB
+provider detail paths populate them only from the source's original-language field; blank/missing
+values stay absent. Summary recipes and detail facts display the corresponding English language
+name. Other media schemas have no new language property, and translation/interface settings are
+not used as original-language evidence.
+
+`packages/languages` owns the shared ISO catalog, canonical codes and names; neutral plugin-kit
+and backend SDK entry points expose it to authored plugin sources. The backend registry and sandbox
+load that catalog as a shared data module, rather than embedding a catalog in each provider script.
+Media owns its strict property schema and provider-specific mappings, including TMDB's Cantonese
+and No Language values. TVDB's translation-code conversion uses the same catalog.
+
+The transactional `original-language-mapping.ts` migration maps nonblank retained V1 TMDB/TVDB
+movie/show names before legacy tables are removed. Unknown or ambiguous retained names abort the
+phase without partial writes or a completion marker. Successful completion is recorded atomically;
+restarts preserve later edits. Matching canonical values do not advance content generations, while
+changed values advance generations without rewriting entity timestamps or claiming full population.
+
+Two real dumps completed the full migration: **747/747** and **30,407/30,407** original-language
+values were retained, with no language values added outside the supported retained rows. Their
+post-migration entity hashes (properties, content generations and timestamps) were unchanged on
+migration-only restart. Both dumps supplied TMDB language values; a separate PostgreSQL acceptance
+case covered TVDB, rollback/recovery, absent and unsupported data, source aliases, null and already
+canonical properties, idempotence and edits after completion.
+
+Validation for Orders 20–21: `bun run check` passed **41 tasks**, with no type errors across
+**31 projects**. Root Turbo filtered test runs passed for all **13 affected packages** and their
+required dependencies. After correcting the Movie/Show query and bootstrap fixtures for the new
+selected field, the final focused Media run (`bun turbo --filter=@ryot-app/media-plugin test --only`)
+passed **1,679 node tests and 431 DOM tests**.
+
+Eight affected browser files passed: `analytics-image-export`, `reporting-charts`,
+`media-analytics`, `fitness-analytics`, `fitness-analytics-interactions`, `fitness-measurements`,
+`media-movie` and `plugin-device-drafts`. PNG acceptance checked actual downloads, file signatures,
+decoding, dimensions, opacity and nontrivial image content for both domains in desktop/light and
+compact/dark modes; generated images were also inspected for calendar labels and colored legends.
+Native file tests cover generated-file write/share ordering and cleanup after success or failure.
+
+The combined browser run passed 16/17 cases; the remaining Media PNG case failed during fixture
+event creation with **Script capacity is busy; retry the save**, before export. The unchanged PNG
+file then passed by itself for both domains. Capacity limits and fixture retries were not changed.
+Read-only review findings were addressed and the main-session cleanup removed temporary export
+logging/files, unused exports and a redundant provider guard.
 
 ### Differences that need a decision, not an automatic implementation slot
 
@@ -370,8 +430,8 @@ choice beside the gap. Only an approved capability enters the numbered backlog.
 | V1 display/dashboard/per-provider-language preferences | Excluded from further porting by the owner on 2026-11-10. Keep workspace/home, current language and plugin-owned settings; row 11 added the Media upcoming days-ahead and one-per-title settings, not a wholesale preference-schema port. |
 | S3 prefix/custom metadata helpers, bucket probe, URL expiries and operator configuration knobs | Excluded from this port by the owner on 2026-11-10; old export internals, token settings and startup knobs do not block this roadmap. |
 | Media trailers/videos | **Excluded** by the owner on 2026-11-14. Do not port the V1 Media video tab, provider trailers or Media video fields. Fitness video attachments remain a separate implemented capability. |
-| Analytics PNG export | **Implement** as Order 20, approved on 2026-11-14. |
-| Original-language metadata | **Implement** as Order 21, approved on 2026-11-14, limited to TMDB/TVDB movies and shows with actual source data; no blanket media implementation. |
+| Analytics PNG export | **Done** as Order 20 (2026-11-15); see its acceptance record. |
+| Original-language metadata | **Done** as Order 21 (2026-11-15), limited to TMDB/TVDB movies and shows with actual source data; no blanket media implementation. |
 | Pro entitlement parity | Verification is implemented; audit and decide each feature's backend enforcement, client gating and expiry behavior. Existing integration/Fitness gates do not establish full parity. |
 | Media consumed during a workout | Excluded by the owner on 2026-11-10; no current equivalent for the V1 workout-detail panel. |
 | Public sharing, collaborators, review visibility/comments/likes | Read-only public sharing of collections and saved views ships as Order 18 publications. Collaborators, shared editing, review visibility, comments and likes remain excluded; restoring them would be a separate product/security scope. |
@@ -1084,11 +1144,11 @@ Evidence: `kernel/backend/src/modules/events/README.md` (Folds),
 | Trending | Covered; reshaped | Media infrequent cron populates `media-trending`, TMDB movie/show scripts and `trendingLatestMediaRecipe`; consumed by Media home. Not a missing dedicated endpoint or saved view. |
 | Watch providers | Covered | TMDB movie/show properties and detail UI filtered by viewer region, offer kinds and JustWatch attribution. Data includes stream/free/ads/rent/buy. V1's user-defined consumption-source lists are now Media per-type settings, not dropped. |
 | Media trailers/videos | Excluded | V1's embedded video tab and provider trailers have no V2 Media equivalent and will not be ported, by the owner's 2026-11-14 decision. Fitness videos are unaffected. |
-| Original-language metadata | Missing; approved port | V1 populated and displayed original language for TMDB/TVDB movies and shows. Current movie/show properties, provider mappings and migration omit it. Order 21 restores only those source/type combinations and actual values; this is separate from user language and translation preferences. |
+| Original-language metadata | Covered | Optional movie/show properties, all four TMDB/TVDB detail paths, summary recipes/detail facts and retained V1 migration values use shared canonical language codes. Order 21 covers only these source/type combinations with actual source data; absent values remain absent. This is separate from user language and translation preferences. |
 | Translated titles/descriptions/images | Reshaped | `modules/entities/localization`, durable enrichment requests and generation-bound overlays; user-language RyotQL resolution, watches and retry controls. TMDB/TVDB show children and iTunes podcast episodes have translation bindings; the old blanket episode-translation gap is wrong. Per-provider language preferences are not preserved as such. |
 | Provider-change monitoring | Covered; reshaped | Media monitoring sweep refreshes eligible global provider entities; entity/relationship detectors emit persisted signals, catalog subscriptions and notification formatters. Includes monitored people/company associations. No global V1 periodic partial-state reset. |
 | Calendar and upcoming | Partial / reshaped | Kernel Calendar with month/agenda and source visibility; Media show/podcast episodes, anime airings and flat releases; Fitness workouts. Dates come directly from entities/JSON via recipes, so nightly `calendar_event` materialization is unnecessary. The home **Upcoming** rail covers monitored and actively followed show/podcast episodes, anime airings and monitored releases with days-ahead and one-per-title settings (row 11). Its query window uses the server clock and account reporting timezone; tile captions group instants by device-local day. |
-| Analytics | Covered; reshaped | Unified Analytics destination with Media and Fitness sections: period comparison and grouping, trends, hourly activity, consistency, rankings and record drill-downs, plus per-entity consumption summaries. Values stay visible while processing, with a note. The follow-up redesign passes targeted API/browser and real-dump acceptance; see Order 16. V1's **Save image** PNG export remains missing and is an approved follow-up in Order 20. |
+| Analytics | Covered; reshaped | Unified Analytics destination with Media and Fitness sections: period comparison and grouping, trends, hourly activity, consistency, rankings and record drill-downs, plus per-entity consumption summaries. Values stay visible while processing, with a note. The follow-up redesign passes targeted API/browser and real-dump acceptance; see Order 16. **Save image** exports the active report through the shared report and file-saving infrastructure; see Order 20. |
 | Merge/disassociate user data | Covered; reshaped | Media detail **Your data** controls confirm removal or same-schema merge through `media-user-data` and the canonical `/entity-user-data/merge` and `/entity-user-data/clear/:entityId` owner. Scope includes child history, reviews, annotations, monitoring, collections and correction evidence; metadata and structural links remain. Merge preserves explicit records and destination conflict values; missing or ambiguous child mappings reject atomically. Imports and integrations may restore removed data normally. |
 | Recently-consumed flag | Partial / reshaped | V1 `userEntityRecentlyConsumed` reads a time-limited debounce cache marker, not a recently-consumed list. Integration admission now has persistent debounce/duplicate checks, but there is no corresponding public flag or V1 dashboard badge. |
 
@@ -1113,7 +1173,7 @@ Primary evidence: `plugins/media/{README.md,manifest/plugin.ts,manifest/saved-vi
 | Personal bests, derived set stats, history repair | Covered; reshaped | `fold.exercise-records` in `backend/exercise-records.sandbox.ts` reads ordered sets per exercise and recorded kind and writes statistics/personal-best projections. Event writes run required folds; background work and rebuilds use kernel fold jobs, with pending/failed status exposed. Source sets and workouts are preserved and historical notification hooks are not replayed. |
 | Exercise reviews/notes | Covered; reshaped | Private exercise `review` events, note create/update/delete and detail UI. No public reviews, comments or likes. |
 | Measurement logging/list/edit/delete/charts | Covered; reshaped | Metric entities, entry entities and session-linked reading events; dynamic metrics, pinning, composer, trends and paged history. Names on V1 measurement entries are not retained; time and comments are. Multi-call reading edits may partially commit. |
-| Fitness analytics | Covered; reshaped | Analytics section with period totals and comparisons, trends, workout-start hours, consistency, taxonomy rankings, workout drill-downs and measurement trends, alongside workout summaries and history. The follow-up redesign passes Order 16 acceptance. Dashboard PNG export is a separate pending port in Order 20. |
+| Fitness analytics | Covered; reshaped | Analytics section with period totals and comparisons, trends, workout-start hours, consistency, taxonomy rankings, workout drill-downs and measurement trends, alongside workout summaries and history. The follow-up redesign passes Order 16 acceptance. **Save image** exports the active report, including displayed measurement tables and charts; see Order 20. |
 | Strong, Hevy, OpenScale imports | Covered | Fitness-owned sources and bounded import workflows; chronological processing and unit normalization. Strong provides active duration, Hevy leaves it unknown; OpenScale reuses normalized metrics. |
 | Native workout experience | Additional V2 behavior | Shared Capacitor client, native rest alerts/haptics/screen-awake control, device-local recovery, iOS Live Activities. This is not server reminder delivery. |
 
@@ -1466,9 +1526,11 @@ Evidence: `plugins/media/shared/{media-entity-editors,media-review-operations,an
   type-specific quantities, Fitness reps/weight/distance/rest/calories/bests, per-hour activity,
   exercise/muscle/equipment rankings and day/week/month/year grouping, read from grouped RyotQL
   aggregates. No `daily_user_activity` table exists. The follow-up redesign passes Order 16 acceptance.
-- **Required port:** restore V1's Analytics **Save image** PNG export (Order 20). Charts and report
-  queries exist, but there is no corresponding V2 image-export action. Existing Order 16 acceptance
-  does not establish that this separate capability shipped.
+- **Covered:** Analytics **Save image** exports the active Media/Fitness report as PNG (Order 20),
+  including displayed values, native chart SVGs, legends and loaded table rows. Shared SDK report
+  composition and the generic browser/native file-saving path avoid duplicate metrics or domain
+  behavior in the kernel. Pending/error/retry feedback and image validation are covered separately
+  from Order 16.
 - Calendar and the upcoming feed are built (row 11). The home **Upcoming** rail covers every
   dated Media source with a days-ahead window and one-per-title deduplication. V1's alternative
   "next N items" mode is not reproduced: the rail always shows the soonest 20 in the window.
@@ -1481,12 +1543,11 @@ Evidence: `crates/services/statistics/src`, `crates/utils/dependent/analytics/sr
 
 ### Media metadata and video decisions
 
-- **Original language — required port (Order 21):** V1's TMDB and TVDB movie/show providers
-  populated `original_language`, and Media detail displayed it. V2 currently has neither the
-  corresponding properties/display nor a legacy migration mapping. Restore source-supported data
-  for those movie/show combinations only, including nonblank retained legacy values; absent values
-  remain absent. Do not add original-language support indiscriminately to every media schema or
-  infer it from translation/interface settings.
+- **Original language — covered (Order 21):** TMDB and TVDB movies/shows populate optional
+  canonical `originalLanguage` values, read by summary recipes and displayed in detail facts using
+  shared language names. Migration retains nonblank values for those retained source/type
+  combinations. Missing source data stays absent; unrelated media types and translation/interface
+  settings do not supply original-language values.
 - **Trailers/videos — excluded:** the owner declined this port on 2026-11-14. V2 Media has images
   but no replacement for V1's embedded video tab or provider trailers. Media video fields are not
   migrated; the generic managed-asset inventory must not be read as preserving those omitted
@@ -1495,7 +1556,8 @@ Evidence: `crates/services/statistics/src`, `crates/utils/dependent/analytics/sr
 Evidence: `crates/providers/{tmdb,tvdb}/src/{movies,shows}.rs`,
 `crates/frontend/app/routes/_dashboard.media.item.$id._index.tsx`,
 `plugins/media/manifest/schemas/property.ts`,
-`apps/server/src/migrations/{metadata-mapping,person-mapping-entity-sql,metadata-group-mapping}.ts`.
+`plugins/media/shared/original-language.ts`, `packages/languages`,
+`apps/server/src/migrations/{original-language-mapping,metadata-mapping,person-mapping-entity-sql,metadata-group-mapping}.ts`.
 
 ### Account and preference differences
 
@@ -1622,9 +1684,9 @@ it does not replay historical notification hooks. Losing old sessions or a cache
 does not mean runtime login or translation is unimplemented. Conversely, a migration mapping
 does not prove that its runtime editor or notification producer exists.
 
-Media trailers/video fields are also omitted and will not be ported. Original-language metadata
-is currently omitted, but Order 21 requires mapping actual retained values for TMDB/TVDB movies
-and shows only. Independent numbered Anime/Manga completions migrate as `item-complete` events,
+Media trailers/video fields are also omitted and will not be ported. Order 21 preserves actual
+retained original-language values for TMDB/TVDB movies and shows only. Independent numbered
+Anime/Manga completions migrate as `item-complete` events,
 preserving each original occurrence separately from cumulative baselines and title completions.
 
 ## V1 public-operation coverage index
