@@ -11,12 +11,11 @@ permissions:
   contents: read
 
 concurrency:
-  # Cancel superseded runs when a PR is updated in quick succession.
   group: helm-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,8 +28,6 @@ jobs:
           version: v3.21.2
 
       - name: helm lint
-        # Provide the minimum required values so the guardrails pass and lint
-        # exercises a real render.
         run: |
           helm lint ci/helm/ryot \
             --set secret.adminAccessToken.value=ci-admin-token \
@@ -43,27 +40,14 @@ jobs:
             --set postgres.auth.password=ci-postgres-password \
             > /dev/null
 
-  unittest:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Set up Helm
-        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-        with:
-          version: v3.21.2
-
       - name: Install helm-unittest plugin
-        run: helm plugin install https://github.com/helm-unittest/helm-unittest
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1
 
       - name: Run helm-unittest (guardrails + rendering + DATABASE_URL)
-        # Asserts every validation guardrail fails as expected, that the happy
-        # paths render, and that DATABASE_URL is composed correctly in all modes.
         run: helm unittest --strict ci/helm/ryot
 
   test:
+    needs: validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -79,8 +63,6 @@ jobs:
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
 
       - name: Install the chart (bundled PostgreSQL)
-        # --wait blocks until the Deployment and StatefulSet are Ready, so the
-        # subsequent `helm test` runs against a live, healthy release.
         run: |
           helm install ryot ci/helm/ryot \
             --namespace ryot --create-namespace \
@@ -97,6 +79,5 @@ jobs:
         run: |
           kubectl get pods -n ryot -o wide || true
           kubectl describe pods -n ryot || true
-           kubectl logs -n ryot -l app.kubernetes.io/name=ryot --tail=200 --all-containers || true
-           kubectl logs -n ryot -l app.kubernetes.io/component=database --tail=200 || true
-           kubectl logs -n ryot -l app.kubernetes.io/component=cache --tail=200 || true
+          kubectl logs -n ryot -l app.kubernetes.io/name=ryot --tail=200 --all-containers || true
+          kubectl logs -n ryot -l app.kubernetes.io/component=database --tail=200 || true
