@@ -16,44 +16,77 @@ services:
 
   ryot-s3:
     image: rustfs/rustfs
+    environment:
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfsadmin
     volumes:
       - s3_storage:/data
     ports:
       - "9000:9000"
       - "9001:9001"
 
-  # ryot-otel-collector:
-  #   restart: unless-stopped
-  #   image: otel/opentelemetry-collector-contrib:0.155.0
-  #   command: ["--config=/etc/otelcol-contrib/config.yaml"]
-  #   volumes:
-  #     - ./otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
-  #   ports:
-  #     - "4318:4318"
-  #   depends_on:
-  #     - ryot-jaeger
+  ryot-s3-init:
+    image: amazon/aws-cli:2.32.6
+    depends_on:
+      ryot-s3:
+        condition: service_started
+    environment:
+      AWS_ACCESS_KEY_ID: rustfsadmin
+      AWS_SECRET_ACCESS_KEY: rustfsadmin
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        attempts=0
+        until aws --endpoint-url http://ryot-s3:9000 s3api list-buckets >/dev/null 2>&1; do
+          attempts=$$((attempts + 1))
+          if [ "$$attempts" -ge 60 ]; then
+            echo "Object storage did not become ready" >&2
+            exit 1
+          fi
+          sleep 2
+        done
+        aws --endpoint-url http://ryot-s3:9000 s3api head-bucket --bucket ryot 2>/dev/null ||
+          aws --endpoint-url http://ryot-s3:9000 s3api create-bucket --bucket ryot
 
-  # ryot-jaeger:
-  #   restart: unless-stopped
-  #   image: cr.jaegertracing.io/jaegertracing/jaeger
-  #   command: ["--config", "/etc/jaeger/config.yml"]
-  #   volumes:
-  #     - ./jaeger.yml:/etc/jaeger/config.yml:ro
-  #     - jaeger_storage:/tmp
-  #   ports:
-  #     - "16686:16686"
+  ryot-otel-collector:
+    profiles: [observability]
+    restart: unless-stopped
+    image: otel/opentelemetry-collector-contrib:0.155.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4318:4318"
+    depends_on:
+      - ryot-jaeger
 
-  # ryot-prometheus:
-  #   restart: unless-stopped
-  #   image: prom/prometheus:v3.6.0
-  #   volumes:
-  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-  #   ports:
-  #     - "9090:9090"
-  #   depends_on:
-  #     - ryot-otel-collector
+  ryot-jaeger:
+    profiles: [observability]
+    restart: unless-stopped
+    image: cr.jaegertracing.io/jaegertracing/jaeger
+    environment:
+      JAEGER_LISTEN_HOST: 0.0.0.0
+    command: ["--config", "/etc/jaeger/config.yml"]
+    volumes:
+      - ./jaeger.yml:/etc/jaeger/config.yml:ro
+      - jaeger_storage:/tmp
+    ports:
+      - "16686:16686"
+
+  ryot-prometheus:
+    profiles: [observability]
+    restart: unless-stopped
+    image: prom/prometheus:v3.6.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - ryot-otel-collector
 
 volumes:
   s3_storage:
-  # jaeger_storage:
+  jaeger_storage:
   postgres_storage:

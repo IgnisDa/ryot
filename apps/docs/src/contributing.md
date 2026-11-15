@@ -13,6 +13,8 @@ Prerequisites: [Bun](https://bun.sh), [Rust](https://rustup.rs) (the toolchain p
    bun run docker:up
    ```
 
+The services create the `postgres` database and initialize the local `ryot` object-storage bucket.
+
 3. Set these environment variables in `apps/server/.env`:
 
    ```txt
@@ -21,15 +23,17 @@ Prerequisites: [Bun](https://bun.sh), [Rust](https://rustup.rs) (the toolchain p
    FILE_STORAGE_S3_URL=http://localhost:9000
    FILE_STORAGE_S3_ACCESS_KEY_ID=rustfsadmin
    FILE_STORAGE_S3_SECRET_ACCESS_KEY=rustfsadmin
-   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ryot
+   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
    SERVER_ADMIN_ACCESS_TOKEN=super-secret-token-that-should-be-changed
    ```
 
 4. Start development services with `bun turbo --filter=@ryot-app/server dev` and `bun turbo --filter=@ryot-app/kernel-client dev`.
 
-The server task builds and watches the shipped plugin bundles. Use `bun run build`,
-`bun run test`, and `bun run check` before you submit changes.
+For optional traces and metrics, start `docker compose -f ci/dev/docker-compose.yml --profile
+observability up -d` and set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` in the server's
+`.env`. Leave that setting unset when the collector is not running.
+
+The server task builds and watches the shipped plugin bundles. Follow the validation commands in `AGENTS.md` before submitting changes.
 
 ## Contributor License Agreement
 
