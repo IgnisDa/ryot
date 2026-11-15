@@ -22,7 +22,9 @@ RUN cargo chef cook --release --recipe-path recipe.json
 RUN cargo chef cook --tests --recipe-path recipe.json
 
 FROM base AS prepare
-RUN --mount=type=cache,target=/root/.bun/install/cache bun install --global turbo@2.10.12
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --global "turbo@$(bun -p 'require("./package.json").devDependencies.turbo')"
 COPY . .
 RUN turbo prune @ryot-app/kernel-client @ryot-app/server --docker && \
     turbo prune @ryot-app/plugin-client-compiler @ryot-app/plugin-backend-compiler --docker --out-dir out/compilers
@@ -31,27 +33,20 @@ FROM base AS builder-base
 COPY --from=prepare /app/out/json/ .
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 COPY --from=prepare /app/out/full/ .
-COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
+COPY --from=prepare /app/tsconfig.options.json /app/bunfig.toml ./
 
-FROM builder-base AS backend-builder
-COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
-COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
-COPY --from=cook /usr/local/cargo/registry /usr/local/cargo/registry
-COPY --from=cook /app/kernel/sandbox/native/target /app/kernel/sandbox/native/target
-ENV CARGO_HOME=/usr/local/cargo
-ENV RUSTUP_HOME=/usr/local/rustup
-ENV PATH=/usr/local/cargo/bin:$PATH
+FROM cook AS backend-builder
+COPY --from=base /usr/local/bin/bun /usr/local/bin/bunx /usr/local/bun-node-fallback-bin/node /usr/local/bin/
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential ca-certificates python3 && \
     rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder-base /app/ ./
 ARG UNKEY_ROOT_KEY=""
 ARG RYOT_VERSION="unknown"
-ENV UNKEY_ROOT_KEY=$UNKEY_ROOT_KEY
-ENV RYOT_VERSION=$RYOT_VERSION
 RUN bun turbo --filter=@ryot-app/server build
 RUN bun run --cwd apps/server assemble
 
 FROM backend-builder AS sandbox-test
-COPY --from=prepare /app/bunfig.toml /app/bunfig.toml
 WORKDIR /app/kernel/sandbox/native
 RUN cargo test --no-run
 WORKDIR /app
@@ -64,7 +59,6 @@ USER 1001:1001
 
 FROM builder-base AS client-builder
 ARG RYOT_VERSION="unknown"
-ENV RYOT_VERSION=$RYOT_VERSION
 RUN bun turbo --filter=@ryot-app/kernel-client build
 
 FROM base AS runtime-deps
@@ -76,13 +70,12 @@ COPY --from=prepare /app/out/compilers/full/packages ./packages
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
-COPY --from=backend-builder /app/kernel/sandbox/dist /tmp/ryot-sandboxd
-COPY kernel/sandbox/native/provision.sh /tmp/provision-sandboxd.sh
-RUN bash /tmp/provision-sandboxd.sh \
+RUN --mount=type=bind,from=backend-builder,source=/app/kernel/sandbox/dist,target=/tmp/ryot-sandboxd \
+    --mount=type=bind,source=kernel/sandbox/native/provision.sh,target=/tmp/provision-sandboxd.sh \
+    bash /tmp/provision-sandboxd.sh \
     /tmp/ryot-sandboxd/ryot-sandbox-launcher \
     /tmp/ryot-sandboxd/ryot-sandboxd \
-    /tmp/ryot-sandboxd/snapshots && \
-    rm -rf /tmp/ryot-sandboxd /tmp/provision-sandboxd.sh
+    /tmp/ryot-sandboxd/snapshots
 ENV FRONTEND_UMAMI_HOST_URL="https://umami.diptesh.me"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 WORKDIR /home/ryot
