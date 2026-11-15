@@ -120,12 +120,12 @@ describe("Integration CRUD", () => {
 
 			expect(radarr.lot).toBe("push");
 			expect(radarr.hasScript).toBe(true);
-			expect(radarr.requiresProKey).toBe(false);
+			expect(radarr.entitlement).toBeNull();
 			expect(radarr.commonSchema.fields).not.toHaveProperty("minimumProgress");
 			expect(radarr.commonSchema.fields).not.toHaveProperty("syncOwnership");
 			expect(kodi.lot).toBe("sink");
 			expect(kodi.hasScript).toBe(true);
-			expect(kodi.requiresProKey).toBe(false);
+			expect(kodi.entitlement).toBeNull();
 			expect(kodi.commonSchema.fields.minimumProgress).toMatchObject({
 				type: "number",
 				defaultValue: 2,
@@ -137,7 +137,7 @@ describe("Integration CRUD", () => {
 			expect(spotify.commonSchema.fields).not.toHaveProperty("syncOwnership");
 			expect(anilist.lot).toBe("yank");
 			expect(anilist.hasScript).toBe(true);
-			expect(anilist.requiresProKey).toBe(true);
+			expect(anilist.entitlement).toBe("pro");
 			expect(anilist.supportsOwnershipSync).toBe(false);
 		}),
 	);

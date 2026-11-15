@@ -115,12 +115,12 @@ const withScenario = <A, E, R>(
 afterAll(() => runPromise(resources.close));
 
 describe("GET /system/config without SERVER_PRO_KEY", () => {
-	it.live("reports isServerKeyValidated: false and makes no Unkey request", () =>
+	it.live("reports no entitlements and makes no Unkey request", () =>
 		withScenario("noKey", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
 				const data = yield* client.call((c) => c.system.config());
-				expect(data.pro.isServerKeyValidated).toBe(false);
+				expect(data.entitlements).toEqual([]);
 				expect(requireFake(instance).requests).toHaveLength(0);
 			}),
 		),
@@ -128,44 +128,44 @@ describe("GET /system/config without SERVER_PRO_KEY", () => {
 });
 
 describe("GET /system/config with a valid Pro Key", () => {
-	it.live("reports isServerKeyValidated: true", () =>
+	it.live("reports the Pro entitlement", () =>
 		withScenario("validTrue", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
 				const data = yield* client.call((c) => c.system.config());
-				expect(data.pro.isServerKeyValidated).toBe(true);
+				expect(data.entitlements).toEqual(["pro"]);
 			}),
 		),
 	);
 });
 
 describe("GET /system/config with an invalid Pro Key", () => {
-	it.live("reports isServerKeyValidated: false when Unkey reports valid: false", () =>
+	it.live("reports no entitlements when Unkey reports valid: false", () =>
 		withScenario("validFalse", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
 				const data = yield* client.call((c) => c.system.config());
-				expect(data.pro.isServerKeyValidated).toBe(false);
+				expect(data.entitlements).toEqual([]);
 			}),
 		),
 	);
 
-	it.live("reports isServerKeyValidated: false when the key has expired", () =>
+	it.live("reports no entitlements when the key has expired", () =>
 		withScenario("expiredMeta", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
 				const data = yield* client.call((c) => c.system.config());
-				expect(data.pro.isServerKeyValidated).toBe(false);
+				expect(data.entitlements).toEqual([]);
 			}),
 		),
 	);
 
-	it.live("reports isServerKeyValidated: false when the expiry is not a date", () =>
+	it.live("reports no entitlements when the expiry is not a date", () =>
 		withScenario("malformedMeta", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
 				const data = yield* client.call((c) => c.system.config());
-				expect(data.pro.isServerKeyValidated).toBe(false);
+				expect(data.entitlements).toEqual([]);
 			}),
 		),
 	);
@@ -177,7 +177,7 @@ describe("GET /system/config when Unkey is unavailable", () => {
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
 				const data = yield* client.call((c) => c.system.config());
-				expect(data.pro.isServerKeyValidated).toBe(false);
+				expect(data.entitlements).toEqual([]);
 				const health = yield* client.call((c) => c.system.health());
 				expect(health.status).toBe("healthy");
 			}),
@@ -189,7 +189,7 @@ describe("GET /system/config when Unkey is unavailable", () => {
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
 				const data = yield* client.call((c) => c.system.config());
-				expect(data.pro.isServerKeyValidated).toBe(false);
+				expect(data.entitlements).toEqual([]);
 				const health = yield* client.call((c) => c.system.health());
 				expect(health.status).toBe("healthy");
 			}),
@@ -204,7 +204,7 @@ describe("Pro Key verification cache", () => {
 				const client = makeSession(instance.target);
 				for (let attempt = 0; attempt < 3; attempt++) {
 					const data = yield* client.call((c) => c.system.config());
-					expect(data.pro.isServerKeyValidated).toBe(true);
+					expect(data.entitlements).toEqual(["pro"]);
 				}
 				expect(requireFake(instance).requests).toHaveLength(1);
 			}),

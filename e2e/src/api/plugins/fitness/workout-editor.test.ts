@@ -1,4 +1,5 @@
 import { EntityId, EventId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import {
 	type WorkoutEditorBaseline,
 	workoutEditorEntityRecipe,
@@ -397,7 +398,6 @@ describe("Workout editor E2E", () => {
 			const { client } = yield* createAuthenticatedClient(target);
 			const context = yield* loadWorkoutEditorContext(client);
 			expect(context).toEqual({
-				proAvailable: false,
 				settings: {
 					dropRestTime: 0,
 					warmUpRestTime: 0,
@@ -483,19 +483,23 @@ describe("Workout editor E2E", () => {
 					},
 				],
 			});
-			expect(yield* saveWorkoutEditor(client, operationInput(template))).toEqual({
-				kind: "pro-required",
-			});
+			expect(yield* Effect.flip(saveWorkoutEditor(client, operationInput(template)))).toEqual(
+				entitlementRequired("pro"),
+			);
 
 			const notedSet = workoutData({
 				occurrences: [workoutOccurrence(exerciseId, [workoutSet({ note: "New set note" })])],
 			});
-			expect(yield* saveWorkoutData(client, notedSet)).toEqual({ kind: "pro-required" });
+			expect(yield* Effect.flip(saveWorkoutData(client, notedSet))).toEqual(
+				entitlementRequired("pro"),
+			);
 
 			const mediaWorkout = workoutData({
 				images: [{ type: "remote", url: "https://example.com/workout.jpg" }],
 			});
-			expect(yield* saveWorkoutData(client, mediaWorkout)).toEqual({ kind: "pro-required" });
+			expect(yield* Effect.flip(saveWorkoutData(client, mediaWorkout))).toEqual(
+				entitlementRequired("pro"),
+			);
 
 			const occurrenceMediaWorkout = workoutData({
 				occurrences: [
@@ -546,7 +550,9 @@ describe("Workout editor E2E", () => {
 					}),
 				],
 			});
-			expect(yield* saveWorkoutData(client, replacement)).toEqual({ kind: "pro-required" });
+			expect(yield* Effect.flip(saveWorkoutData(client, replacement))).toEqual(
+				entitlementRequired("pro"),
+			);
 
 			const unrelatedEvent = workoutData({
 				target: editTarget(baseline),

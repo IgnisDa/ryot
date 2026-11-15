@@ -49,9 +49,9 @@ describe("Workout editor with a valid Pro key", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient(target);
-				expect(
-					(yield* client.call((contract) => contract.system.config())).pro.isServerKeyValidated,
-				).toBe(true);
+				expect((yield* client.call((contract) => contract.system.config())).entitlements).toEqual([
+					"pro",
+				]);
 				const { exerciseId: weightedExerciseId } = yield* createExerciseEntityFixture(client);
 				const { exerciseId: exerciseOnlyId } = yield* createExerciseEntityFixture(client);
 				const name = `Partial Pro Template ${yield* randomUuid}`;

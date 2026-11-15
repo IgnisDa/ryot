@@ -1,4 +1,5 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import { Effect } from "effect";
 
 import type { HarnessTarget } from "~/support/harness-target";
@@ -7,7 +8,7 @@ import { installTestPluginBundle } from "./test-plugin";
 
 export const installTestIntegrationProvider = (
 	settingsSchema: PluginManifest["integrationProviders"][number]["settingsSchema"],
-	options: { delayMs?: number; target?: HarnessTarget; requiresProKey?: boolean } = {},
+	options: { delayMs?: number; target?: HarnessTarget; entitlement?: Entitlement } = {},
 ) => {
 	const suffix = crypto.randomUUID();
 	const pluginSlug = `e2e-integration-plugin-${suffix}`;
@@ -112,7 +113,7 @@ export default defineWorkflow({
 				name: "E2E integration provider",
 				description: "E2E dynamically installed integration provider",
 				plan: { selections: { "integration-adapter": { value: scriptSlug } } },
-				...(options.requiresProKey !== undefined ? { requiresProKey: options.requiresProKey } : {}),
+				...(options.entitlement === undefined ? {} : { entitlement: options.entitlement }),
 			},
 		],
 	}).pipe(Effect.map((plugin) => ({ plugin, providerSlug })));
