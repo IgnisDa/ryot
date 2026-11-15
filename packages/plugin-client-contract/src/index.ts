@@ -12,6 +12,8 @@ export * from "./bridge/ios-live-activities";
 export { pageQuerySource } from "./navigation";
 export * from "./bridge/background-submissions";
 
+export { PluginExportFile, FILE_EXPORT_MAX_BYTES } from "./bridge/files";
+
 export {
 	ClientArtifact,
 	PageClientArtifact,

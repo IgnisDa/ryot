@@ -29,12 +29,12 @@ import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
-import { FileDownloads } from "#/modules/downloads/file";
+import { DownloadsLive } from "#/modules/downloads/layer";
 
 export const TransportLive = Layer.mergeAll(
-	AdminApi.layer.pipe(Layer.provide(FileDownloads.layer)),
+	AdminApi.layer.pipe(Layer.provide(DownloadsLive)),
 	AuthenticatedApi.layer,
-	FileDownloads.layer,
+	DownloadsLive,
 ).pipe(
 	Layer.provideMerge(OAuthTokenService.layer),
 	Layer.provideMerge(RuntimeOAuthClientService.layer),

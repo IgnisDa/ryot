@@ -3,6 +3,7 @@ import { IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
 
 import { PluginNavigationTarget } from "../navigation";
+import { PluginExportFile } from "./files";
 
 const key = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128));
 const label = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128));
@@ -12,6 +13,7 @@ export const PluginHapticKind = Schema.Literals(["impact", "selection"]);
 export type PluginHapticKind = typeof PluginHapticKind.Type;
 
 const variants = [
+	strictStruct({ ...PluginExportFile.fields, action: Schema.Literal("export-file") }),
 	strictStruct({
 		...owner,
 		key,

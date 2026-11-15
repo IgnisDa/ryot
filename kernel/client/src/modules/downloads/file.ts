@@ -5,7 +5,9 @@ import { Share } from "@capacitor/share";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
-export type FileDownloadRequest = { readonly fileName: string } & Pick<DownloadFileOptions, "url">;
+export type FileDownloadRequest = { readonly fileName: string } & (
+	{ readonly source: Blob } | Pick<DownloadFileOptions, "url">
+);
 
 export class FileDownloadError extends Schema.TaggedError<
 	FileDownloadError,
@@ -28,6 +30,7 @@ export const makeNativeFileDownload = (
 		readonly share: (uri: string) => Effect.Effect<void, FileDownloadError>;
 		readonly uri: (path: string) => Effect.Effect<string, FileDownloadError>;
 		readonly create: (path: string) => Effect.Effect<void, FileDownloadError>;
+		readonly write: (uri: string, source: Blob) => Effect.Effect<void, FileDownloadError>;
 		readonly transfer: (request: DownloadFileOptions) => Effect.Effect<void, FileDownloadError>;
 	},
 ) =>
@@ -37,9 +40,11 @@ export const makeNativeFileDownload = (
 		yield* Effect.acquireRelease(ports.create(directory), () => ports.remove(directory));
 		const uri = yield* ports.uri(`${directory}/${fileName}`);
 		// Native plugins cannot abort transfers or share sheets; cleanup must wait for their completion.
-		yield* ports
-			.transfer({ path: uri, url: request.url, disableRedirects: true })
-			.pipe(Effect.uninterruptible);
+		yield* (
+			"source" in request
+				? ports.write(uri, request.source)
+				: ports.transfer({ path: uri, url: request.url, disableRedirects: true })
+		).pipe(Effect.uninterruptible);
 		yield* ports.share(uri).pipe(
 			Effect.catchIf(
 				(error) =>
@@ -76,6 +81,20 @@ const nativeFilePorts: Parameters<typeof makeNativeFileDownload>[1] = {
 			catch: nativeError,
 			try: () => Filesystem.getUri({ path, directory: Directory.Cache }),
 		}).pipe(Effect.map((result) => result.uri)),
+	write: Effect.fn("writeDownloadedFile")(function* (path: string, source: Blob) {
+		const buffer = yield* Effect.tryPromise({
+			catch: nativeError,
+			try: () => source.arrayBuffer(),
+		});
+		let binary = "";
+		for (const byte of new Uint8Array(buffer)) {
+			binary += String.fromCharCode(byte);
+		}
+		yield* Effect.tryPromise({
+			catch: nativeError,
+			try: () => Filesystem.writeFile({ path, data: btoa(binary) }),
+		});
+	}),
 };
 
 export class FileDownloads extends Context.Service<
@@ -97,12 +116,21 @@ export class FileDownloads extends Context.Service<
 					catch: (cause) => new FileDownloadError({ cause }),
 					try: () => {
 						const anchor = document.createElement("a");
-						anchor.href = request.url;
+						const generated = "source" in request;
+						const url = generated ? URL.createObjectURL(request.source) : request.url;
+						anchor.href = url;
+						anchor.download = request.fileName;
 						anchor.rel = "noreferrer";
 						anchor.referrerPolicy = "no-referrer";
 						document.body.append(anchor);
-						anchor.click();
-						anchor.remove();
+						try {
+							anchor.click();
+						} finally {
+							anchor.remove();
+							if (generated) {
+								window.setTimeout(() => URL.revokeObjectURL(url), 0);
+							}
+						}
 					},
 				});
 			}),

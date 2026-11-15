@@ -40,6 +40,8 @@ import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
 
+import { PluginFileSource } from "./files";
+
 export const PLUGIN_STORAGE_KEY_MAX_LENGTH = 128;
 export const PLUGIN_STORAGE_VALUE_MAX_BYTES = 65536;
 
@@ -663,14 +665,10 @@ export type PluginBridgeUserPreferencesResult = Schema.Schema.Type<
 	typeof PluginBridgeUserPreferencesResult
 >;
 
-export const PluginUploadSource = Schema.declare<Blob>((value) => value instanceof Blob).annotate({
-	identifier: "PluginUploadSource",
-});
-
 const pluginUploadFileFields = {
 	fileName: Schema.String,
+	source: PluginFileSource,
 	contentType: Schema.String,
-	source: PluginUploadSource,
 };
 
 const pluginUploadRequestVariants = [

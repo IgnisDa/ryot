@@ -190,7 +190,7 @@ export class DeviceService extends Context.Service<DeviceService>()(
 				contributors: PreparedClientPage["identity"]["contributors"],
 				frame: string,
 				active: boolean,
-				request: PluginDeviceRequest,
+				request: Exclude<PluginDeviceRequest, { action: "export-file" }>,
 			): Effect.Effect<PluginDeviceOutcome> =>
 				mutex
 					.withPermit(

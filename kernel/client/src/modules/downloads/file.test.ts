@@ -34,6 +34,10 @@ const makePorts = (
 	calls: NativeCalls,
 	overrides: Partial<Parameters<typeof makeNativeFileDownload>[1]> = {},
 ) => ({
+	write: (uri: string, source: Blob) => {
+		calls.sequence.push("write");
+		return overrides.write?.(uri, source) ?? Effect.void;
+	},
 	share: (uri: string) => {
 		calls.sequence.push("share");
 		calls.shared.push(uri);
@@ -69,6 +73,51 @@ const request = {
 } satisfies FileDownloadRequest;
 
 describe("native file downloads", () => {
+	it.live(
+		"writes a generated file before sharing it and removes its temporary directory",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				const source = new Blob(["generated PNG"], { type: "image/png" });
+				const writes: { uri: string; source: Blob }[] = [];
+				yield* makeNativeFileDownload(
+					random,
+					makePorts(calls, {
+						write: (uri, payload) =>
+							Effect.sync(() => {
+								writes.push({ uri, source: payload });
+							}),
+					}),
+				)({ source, fileName: "report.png" });
+				expect(calls.sequence).toEqual(["create", "uri", "write", "share", "remove"]);
+				expect(writes).toEqual([{ source, uri: `native://${calls.created[0]}/report.png` }]);
+				expect(calls.transfers).toEqual([]);
+				expect(calls.removed).toEqual(calls.created);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"cleans up a failed generated-file write without sharing",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				const result = yield* Effect.exit(
+					makeNativeFileDownload(
+						random,
+						makePorts(calls, {
+							write: () => Effect.fail(new FileDownloadError({ cause: "disk full" })),
+						}),
+					)({ fileName: "report.png", source: new Blob(["PNG"]) }),
+				);
+				expect(Exit.isFailure(result)).toBe(true);
+				expect(calls.sequence).toEqual(["create", "uri", "write", "remove"]);
+				expect(calls.shared).toEqual([]);
+				expect(calls.removed).toEqual(calls.created);
+			}),
+		testTimeout,
+	);
+
 	it.live(
 		"creates, transfers, shares, and removes a temporary file in order",
 		() =>

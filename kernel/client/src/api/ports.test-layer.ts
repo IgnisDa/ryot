@@ -22,6 +22,7 @@ import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
 import { Uploads } from "#/modules/assets/uploads";
+import { FileDownloads } from "#/modules/downloads/file";
 import { EntityWatchService } from "#/modules/entity-watches/service";
 import { ExternalLinks } from "#/modules/external-links/service";
 import { PluginManagementService } from "#/modules/plugins/management/service";
@@ -236,6 +237,7 @@ export const makeInstanceAdminApi = (overrides: Partial<InstanceAdminApi["Servic
 	});
 
 export const KernelApiTestLayer = Layer.mergeAll(
+	Layer.succeed(FileDownloads, { download: unused }),
 	makeRemindersApi(),
 	makeAutomationsApi(),
 	Layer.succeed(PluginManagementService, { load: unused, inspect: unused, execute: unused }),

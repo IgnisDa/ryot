@@ -18,6 +18,7 @@ import { Uploads } from "#/modules/assets/uploads";
 import { resolveBackgroundSubmissionTarget } from "#/modules/background-submissions/service";
 import { useBackgroundSubmissionTray } from "#/modules/background-submissions/tray";
 import { DeviceService } from "#/modules/device/service";
+import { FileDownloads } from "#/modules/downloads/file";
 import { EntityWatchService, type WatchEntities } from "#/modules/entity-watches/service";
 import { subscribeNativeResume } from "#/modules/entity-watches/transport";
 import { ExternalLinks } from "#/modules/external-links/service";
@@ -224,11 +225,6 @@ export function PageDocumentHost(props: {
 				props.document.onManageReminders?.(request) ??
 				Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" })
 			}
-			onDevice={(request) =>
-				props.runtime
-					.runSync(DeviceService)
-					.outcome(props.scope, identity.contributors, frameKey, active.current, request)
-			}
 			onIosLiveActivity={(request) =>
 				props.runtime
 					.runSync(IosLiveActivitiesService)
@@ -330,6 +326,31 @@ export function PageDocumentHost(props: {
 						: ({ reservation, outcome: "success" } as const);
 				})
 			}
+			onDevice={(request) => {
+				if (request.action !== "export-file") {
+					return props.runtime
+						.runSync(DeviceService)
+						.outcome(props.scope, identity.contributors, frameKey, active.current, request);
+				}
+				if (!active.current) {
+					return Effect.succeed({
+						outcome: "success" as const,
+						value: { status: "denied" as const },
+					});
+				}
+				return props.runtime
+					.runSync(FileDownloads)
+					.download(request)
+					.pipe(
+						Effect.match({
+							onFailure: () => ({ outcome: "failure" as const, reason: "transport" as const }),
+							onSuccess: () => ({
+								outcome: "success" as const,
+								value: { status: "done" as const },
+							}),
+						}),
+					);
+			}}
 			onCollection={(request) => {
 				const operation = Effect.gen(function* () {
 					if (request.action === "create") {

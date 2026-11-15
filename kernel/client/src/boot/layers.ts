@@ -5,6 +5,7 @@ import { AssetsLive } from "#/modules/assets/layer";
 import { AuthLive } from "#/modules/auth/layer";
 import { BackgroundSubmissionsLive } from "#/modules/background-submissions/layer";
 import { DeviceLive } from "#/modules/device/layer";
+import { DownloadsLive } from "#/modules/downloads/layer";
 import { EntityWatchLive } from "#/modules/entity-watches/layer";
 import { ExternalLinksLive } from "#/modules/external-links/layer";
 import { ImportsService } from "#/modules/imports/service";
@@ -21,6 +22,7 @@ import { ServerLive } from "#/modules/server/layer";
 import { ShellLive } from "#/modules/shell/layer";
 
 export const ClientLive = Layer.mergeAll(
+	DownloadsLive,
 	IosLiveActivitiesLive,
 	DeviceLive,
 	AssetsLive,
