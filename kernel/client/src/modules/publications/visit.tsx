@@ -300,17 +300,17 @@ function PublicationFrame(props: {
 			onCalendarSourceVisibility={() =>
 				refused({ outcome: "failure", reason: "invalid-request" } as const)
 			}
-			onUserPreferences={() =>
-				Effect.succeed({
-					outcome: "success",
-					preferences: pluginUserPreferences(defaultUserPreferences),
-				} as const)
-			}
 			onNavigate={({ mode, target }) => {
 				if (target.kind === "entity") {
 					navigateSearch({ [ITEM_SEARCH_KEY]: target.entityId }, mode === "replace");
 				}
 			}}
+			onAccount={() =>
+				Effect.succeed({
+					outcome: "success",
+					account: { entitlements: [], preferences: pluginUserPreferences(defaultUserPreferences) },
+				} as const)
+			}
 			onNavigateBack={() => {
 				if (item !== null && router.history.canGoBack()) {
 					router.history.back();

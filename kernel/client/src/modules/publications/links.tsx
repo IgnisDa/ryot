@@ -8,6 +8,7 @@ import {
 	Button,
 	CopyField,
 	DestructiveConfirmation,
+	entitlementRequiredMessage,
 	Field,
 	Notice,
 	Row,
@@ -19,7 +20,7 @@ import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
 import { Effect, Schema } from "effect";
 import { type SubmitEvent, useRef, useState } from "react";
 
-import { AuthenticatedApiError } from "#/api/authenticated";
+import { AuthenticatedApiError, isEntitlementRequiredError } from "#/api/authenticated";
 import type { ServerOrigin } from "#/api/origin";
 import { useShareAction } from "#/modules/device/share";
 import { formatDateLabel, formatRelativeTime } from "#/modules/ui/run/run-status";
@@ -28,6 +29,9 @@ import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 import { createPublicationLinkMutation, publicationCommandMutation } from "./service";
 
 export const publicationFailureText = (error: unknown) => {
+	if (isEntitlementRequiredError(error)) {
+		return entitlementRequiredMessage(error.cause.reason.entitlement, "Publishing share links");
+	}
 	const cause = error instanceof AuthenticatedApiError ? error.cause : undefined;
 	if (Schema.is(PublicationBadRequest)(cause)) {
 		const { reason } = cause;

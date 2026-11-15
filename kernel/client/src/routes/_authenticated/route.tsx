@@ -1,12 +1,14 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { isEntitled } from "@ryot-app/contract/schema/entitlement";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect, Stream } from "effect";
 import { useEffect } from "react";
 
-import { PublicApi } from "#/api/public";
 import { KernelRyotProvider } from "#/api/ryot-client-provider";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
 import { BackgroundSubmissionsProvider } from "#/modules/background-submissions/tray";
+import { EntitlementsProvider } from "#/modules/entitlements/context";
+import { loadEntitlements } from "#/modules/entitlements/service";
 import { EntityWatchService } from "#/modules/entity-watches/service";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { NavigationService } from "#/modules/navigation/service";
@@ -33,17 +35,12 @@ export const Route = createFileRoute("/_authenticated")({
 	loader: ({ context, location, abortController }) =>
 		context.runtime.runPromise(
 			Effect.gen(function* () {
-				const [catalog, navigation, rememberedPluginId, isPro] = yield* Effect.all(
+				const [catalog, navigation, rememberedPluginId, entitlements] = yield* Effect.all(
 					[
 						Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
 						Effect.flatMap(NavigationService, (service) => service.load(context.ryot)),
 						Effect.flatMap(ClientStorage, (service) => service.getLastWorkspace(context.scope)),
-						Effect.flatMap(PublicApi, (api) => api.getSystemConfig(context.server)).pipe(
-							Effect.match({
-								onFailure: () => false,
-								onSuccess: (config) => config.pro.isServerKeyValidated,
-							}),
-						),
+						loadEntitlements(context.server),
 					],
 					{ concurrency: "unbounded" },
 				);
@@ -58,7 +55,7 @@ export const Route = createFileRoute("/_authenticated")({
 						throw redirect({ replace: true, href: pluginPath(selected.packageId) });
 					}
 				}
-				return { isPro, catalog, navigation, rememberedPluginId };
+				return { catalog, navigation, entitlements, rememberedPluginId };
 			}),
 			{ signal: abortController.signal },
 		),
@@ -109,7 +106,7 @@ function AuthenticatedLoadError() {
 }
 
 function AuthenticatedLayout() {
-	const { isPro, catalog, navigation, rememberedPluginId } = Route.useLoaderData();
+	const { catalog, navigation, entitlements, rememberedPluginId } = Route.useLoaderData();
 	const { ryot, scope, runtime, ryotClients, hostServices } = Route.useRouteContext();
 	const { userId, serverUrl } = scope;
 	useEffect(
@@ -132,20 +129,22 @@ function AuthenticatedLayout() {
 		return () => controller.abort();
 	}, [runtime, ryot, serverUrl, userId]);
 	return (
-		<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
-			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
-				<BackgroundSubmissionsProvider
-					scope={scope}
-					runtime={runtime}
-					onSucceeded={ryot.mutationCompleted.hint}
-				>
-					<AuthenticatedShell
-						isPro={isPro}
-						navigation={navigation}
-						initialRememberedPluginId={rememberedPluginId}
-					/>
-				</BackgroundSubmissionsProvider>
-			</PluginCatalogProvider>
-		</KernelRyotProvider>
+		<EntitlementsProvider entitlements={entitlements}>
+			<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
+				<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
+					<BackgroundSubmissionsProvider
+						scope={scope}
+						runtime={runtime}
+						onSucceeded={ryot.mutationCompleted.hint}
+					>
+						<AuthenticatedShell
+							navigation={navigation}
+							isPro={isEntitled(entitlements, "pro")}
+							initialRememberedPluginId={rememberedPluginId}
+						/>
+					</BackgroundSubmissionsProvider>
+				</PluginCatalogProvider>
+			</KernelRyotProvider>
+		</EntitlementsProvider>
 	);
 }

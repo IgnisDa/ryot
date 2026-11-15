@@ -2,6 +2,7 @@ import { afterEach, expect } from "bun:test";
 
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { ClientPageContext, PluginUserPreferences } from "@ryot-app/plugin-client-contract";
+import type { Entitlement } from "@ryot-app/plugin-client-sdk";
 import {
 	analyticsSectionKey,
 	type AnalyticsSectionProps,
@@ -62,19 +63,23 @@ const RangeSection = ({ selection }: AnalyticsSectionProps) => (
 
 const sectionRange = () => screen.getByText(/^range input /).textContent;
 
-const answerPreferences = (page: ReturnType<typeof mountPluginPage>) =>
+const answerPreferences = (
+	page: ReturnType<typeof mountPluginPage>,
+	entitlements: readonly Entitlement[] = ["pro"],
+) =>
 	waitFor(() => {
-		const request = page
-			.clientMessages()
-			.find((message) => message.type === "user-preferences-request");
+		const request = page.clientMessages().find((message) => message.type === "account-request");
 		if (!request) {
 			throw new Error("No reporting request");
 		}
 		page.send({
 			outcome: "success",
+			type: "account-result",
 			requestId: request.requestId,
-			type: "user-preferences-result",
-			preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Asia/Kolkata") },
+			account: {
+				entitlements,
+				preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Asia/Kolkata") },
+			},
 		});
 	});
 
@@ -86,13 +91,22 @@ const answerUserPreferences = (
 		| { readonly outcome: "success"; readonly preferences: PluginUserPreferences },
 ) =>
 	waitFor(() => {
-		const request = page
-			.clientMessages()
-			.filter((message) => message.type === "user-preferences-request")[requestNumber - 1];
+		const request = page.clientMessages().filter((message) => message.type === "account-request")[
+			requestNumber - 1
+		];
 		if (!request) {
 			throw new Error("No user preferences request");
 		}
-		page.send({ ...result, requestId: request.requestId, type: "user-preferences-result" });
+		page.send(
+			result.outcome === "failure"
+				? { ...result, type: "account-result", requestId: request.requestId }
+				: {
+						outcome: "success",
+						type: "account-result",
+						requestId: request.requestId,
+						account: { entitlements: ["pro"], preferences: result.preferences },
+					},
+		);
 	});
 
 const mountControls = (search: string) => {
@@ -112,7 +126,7 @@ it.effect(
 			const page = mountPluginPage(AnalyticsPage, {
 				page: context,
 				onClientMessage: (message) => {
-					if (message.type === "user-preferences-request") {
+					if (message.type === "account-request") {
 						attempts += 1;
 					}
 				},
@@ -234,15 +248,18 @@ it.effect(
 				waitFor(() => {
 					const request = page
 						.clientMessages()
-						.find((message) => message.type === "user-preferences-request");
+						.find((message) => message.type === "account-request");
 					if (!request) {
 						throw new Error("No reporting request");
 					}
 					page.send({
 						outcome: "success",
+						type: "account-result",
 						requestId: request.requestId,
-						type: "user-preferences-result",
-						preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Europe/Paris") },
+						account: {
+							entitlements: ["pro"],
+							preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Europe/Paris") },
+						},
 					});
 				}),
 			);
@@ -311,6 +328,33 @@ it.effect(
 			yield* Effect.promise(() => screen.findByText("No analytics available"));
 			expect(screen.getByText("· times in Asia/Kolkata")).toBeDefined();
 			expect(screen.getAllByRole("heading", { level: 1, name: "Analytics" })).toHaveLength(1);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"keeps free accounts on free ranges and locks Pro ranges",
+	() =>
+		Effect.gen(function* () {
+			const search = reportingSearch({
+				grouping: "week",
+				comparison: "previous-period",
+				range: { days: 90, kind: "rolling" },
+			});
+			search.set("section", "contributor/activity");
+			const page = mountControls(`?${search}`);
+			yield* Effect.promise(() => answerPreferences(page, []));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Range: Last 30 days" })),
+			);
+			const locked = yield* Effect.promise(() =>
+				screen.findByRole("menuitemradio", { name: "Last 90 days (Pro)" }),
+			);
+			expect(locked).toHaveProperty("disabled", true);
+			expect(screen.getByRole("menuitemradio", { name: "Last 7 days" })).toHaveProperty(
+				"disabled",
+				false,
+			);
 		}),
 	testTimeout,
 );

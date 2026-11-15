@@ -278,6 +278,25 @@ function NewChatComposer(props: { readonly onSubmitted: (id: string) => void }) 
 }
 
 it.live(
+	"keeps history readable but replaces the composer without Pro",
+	() =>
+		Effect.gen(function* () {
+			const view = mountHostedTestScreen(<NewChatComposer onSubmitted={() => undefined} />, {
+				query: empty,
+				entitlements: [],
+				layer: makeAssistantApi(),
+			});
+			try {
+				yield* Effect.promise(() => screen.findByText("Chatting with Ryo requires Ryot Pro."));
+				expect(screen.queryByRole("textbox")).toBeNull();
+			} finally {
+				yield* Effect.promise(view.dispose);
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
 	"sends on Enter, keeps Shift+Enter for new lines and retries a failed message with its request",
 	() =>
 		Effect.gen(function* () {

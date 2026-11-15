@@ -1,9 +1,10 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
+import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import type {
+	PluginAccountOutcome,
 	PluginUserPreferences,
-	PluginUserPreferencesOutcome,
 	PluginUserSettingsOutcome,
 	PluginUserSettingsRequest,
 } from "@ryot-app/plugin-client-contract";
@@ -29,20 +30,27 @@ export const pluginUserPreferences = (preferences: UserPreferences): PluginUserP
 	timeZone: preferences.reportingTimeZone,
 });
 
-export const userPreferencesOutcome = (input: {
+export const accountOutcome = (input: {
 	readonly scope: ApiScope;
 	readonly currentScope: () => ApiScope | undefined;
+	readonly entitlements: Effect.Effect<Entitlements>;
 	readonly api: Pick<RyotQLApi["Service"], "execute">;
-}): Effect.Effect<PluginUserPreferencesOutcome> =>
+}): Effect.Effect<PluginAccountOutcome> =>
 	Effect.gen(function* () {
 		if (!isCurrentScope(input.scope, input.currentScope)) {
 			return invalidRequest;
 		}
 		const recipe = userSettingsRecipe;
-		const response = yield* Effect.result(
-			input.api.execute(input.scope, {
-				payload: { source: { kind: "inline", document: recipe.document } },
-			}),
+		const [response, entitlements] = yield* Effect.all(
+			[
+				Effect.result(
+					input.api.execute(input.scope, {
+						payload: { source: { kind: "inline", document: recipe.document } },
+					}),
+				),
+				input.entitlements,
+			],
+			{ concurrency: "unbounded" },
 		);
 		if (!isCurrentScope(input.scope, input.currentScope)) {
 			return invalidRequest;
@@ -56,7 +64,7 @@ export const userPreferencesOutcome = (input: {
 		}
 		return {
 			outcome: "success",
-			preferences: pluginUserPreferences(decoded.success.preferences),
+			account: { entitlements, preferences: pluginUserPreferences(decoded.success.preferences) },
 		} as const;
 	});
 

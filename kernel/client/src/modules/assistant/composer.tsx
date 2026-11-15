@@ -1,9 +1,11 @@
 import type { AssistantConversationId } from "@ryot-app/contract/schema/brands";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
-import { IconButton, Notice } from "@ryot-app/plugin-ui-sdk";
+import { EntitlementNotice, IconButton, Notice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Effect } from "effect";
 import { type ReactNode, useId, useState } from "react";
+
+import { useEntitlement } from "#/modules/entitlements/context";
 
 import { ASSISTANT_NAME } from "./presentation";
 import { assistantFailureText, submitMutation } from "./service";
@@ -64,7 +66,19 @@ export function AssistantComposer(props: {
 }) {
 	const { submit } = props;
 	const inputId = useId();
+	const pro = useEntitlement("pro");
 	const canSend = !props.disabled && !submit.sending && submit.text.trim() !== "";
+	if (!pro) {
+		return (
+			<div className="mx-auto w-full max-w-2xl">
+				<EntitlementNotice
+					entitlement="pro"
+					feature={`Chatting with ${ASSISTANT_NAME}`}
+					icon={<AppIcon size={16} name="sparkles" />}
+				/>
+			</div>
+		);
+	}
 	return (
 		<div className="mx-auto grid w-full max-w-2xl gap-2">
 			{submit.error === null ? null : (

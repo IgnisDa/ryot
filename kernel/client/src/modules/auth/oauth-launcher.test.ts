@@ -27,9 +27,9 @@ import { ServerService } from "#/modules/server/service";
 const origin = ServerOrigin.make("https://ryot.example");
 const systemConfig = {
 	analytics: {},
+	entitlements: [],
 	version: "v1.0.0",
 	frontendOrigin: origin,
-	pro: { isServerKeyValidated: false },
 	notifications: { smtpEnabled: false },
 	auth: { oidcEnabled: false, signupAllowed: true, localAuthDisabled: false },
 	fileStorage: { temporaryUploadProvider: "local", preferredPermanentUploadProvider: "local" },

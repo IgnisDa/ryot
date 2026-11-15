@@ -8,6 +8,7 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
+import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import type {
 	PluginOperationBridgeErrorReason,
@@ -79,6 +80,9 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 									error.cause.reason.code === "page-write-access-required"
 								) {
 									return { outcome: "failure", reason: "page-write-access-required" } as const;
+								}
+								if (error.cause instanceof EntitlementRequired) {
+									return { outcome: "failure", reason: "entitlement-required" } as const;
 								}
 								if (isStaleRevision(error.cause)) {
 									return { outcome: "stale-session" } as const;

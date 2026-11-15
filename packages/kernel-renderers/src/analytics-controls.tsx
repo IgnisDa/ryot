@@ -9,8 +9,8 @@ import {
 	resolveReportingSelection,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { Button, MenuSelect, TextField } from "@ryot-app/plugin-ui-sdk";
+import { useEntitlement, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { Button, entitlementActionLabel, MenuSelect, TextField } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type ReactNode, useId, useState } from "react";
 
@@ -48,6 +48,7 @@ export function AnalyticsControls({
 	readonly onSelectionChange: (selection: ReportingSelection) => void;
 }) {
 	const schedule = useRyotSchedule();
+	const pro = useEntitlement("pro");
 	const id = useId();
 	const [customDraft, setCustomDraft] = useState<null | CustomDateDraft>(null);
 	const resolved = resolveReportingSelection(selection, { timeZone, now: schedule.now() });
@@ -64,6 +65,17 @@ export function AnalyticsControls({
 				: (resolved.current?.startDate ?? ""),
 	};
 	const selectedRange = customDraft === null ? reportingRangeValue(selection.range) : "custom";
+	const rangeChoices = reportingRangeOptions.map((option) => {
+		const granted = option.entitlement === undefined || pro.granted;
+		return {
+			disabled: !granted,
+			value: option.value,
+			label:
+				option.entitlement === undefined
+					? option.label
+					: entitlementActionLabel(option.label, option.entitlement, granted),
+		};
+	});
 	const icons = {
 		checkIcon: <AppIcon size={14} name="check" />,
 		chevronIcon: <AppIcon size={14} name="chevron-down" />,
@@ -104,7 +116,7 @@ export function AnalyticsControls({
 						label="Range"
 						value={selectedRange}
 						onChange={changeRange}
-						choices={reportingRangeOptions}
+						choices={rangeChoices}
 					/>
 					<MenuSelect
 						{...icons}

@@ -2,10 +2,11 @@ import {
 	IntegrationRequestError,
 	type IntegrationRequestFailureReason,
 } from "@ryot-app/contract/modules/integrations/schemas";
+import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
+import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import { Match } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { PRO_REQUIRED_INTEGRATION_MESSAGE } from "#/modules/integrations/provider-selection";
 import type { WizardStep } from "#/modules/ui/wizard/wizard-state";
 
 export type IntegrationSaveFailure = {
@@ -36,10 +37,6 @@ const presentReason = (reason: IntegrationRequestFailureReason): IntegrationSave
 			step: "configure" as const,
 			detail: "Progress values must be between 0 and 100.",
 		})),
-		Match.when({ code: "pro-key-required" }, () => ({
-			step: "pick" as const,
-			detail: PRO_REQUIRED_INTEGRATION_MESSAGE,
-		})),
 		Match.when({ code: "provider-not-found" }, () => ({
 			step: "pick" as const,
 			detail: "This service is no longer available on your server. Choose another one.",
@@ -53,5 +50,11 @@ const presentReason = (reason: IntegrationRequestFailureReason): IntegrationSave
 
 export const integrationSaveFailure = (error: unknown): IntegrationSaveFailure => {
 	const cause = error instanceof AuthenticatedApiError ? error.cause : error;
+	if (cause instanceof EntitlementRequired) {
+		return {
+			step: "pick",
+			detail: entitlementRequiredMessage(cause.reason.entitlement, "This integration"),
+		};
+	}
 	return cause instanceof IntegrationRequestError ? presentReason(cause.reason) : fallback;
 };

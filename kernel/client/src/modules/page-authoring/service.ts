@@ -1,6 +1,7 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { PageAuthoringError } from "@ryot-app/contract/modules/pages/schemas";
 import { createRyotHostMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	type PageList,
 	pageRecipe,
@@ -9,7 +10,11 @@ import {
 } from "@ryot-app/ryotql-recipes/pages";
 import { Effect, Schema } from "effect";
 
-import { AuthenticatedApiError, isDemoOperationProtectedError } from "#/api/authenticated";
+import {
+	AuthenticatedApiError,
+	isDemoOperationProtectedError,
+	isEntitlementRequiredError,
+} from "#/api/authenticated";
 import { PagesApi } from "#/api/pages";
 import { SavedViewsApi } from "#/api/saved-views";
 import { KernelHostServices } from "#/host-services";
@@ -106,6 +111,9 @@ export const authoringReason = (error: unknown) =>
 export const authoringFailureText = (error: unknown): string => {
 	if (isDemoOperationProtectedError(error)) {
 		return "Page changes are unavailable in demo sessions.";
+	}
+	if (isEntitlementRequiredError(error)) {
+		return entitlementRequiredMessage(error.cause.reason.entitlement, "Authoring pages");
 	}
 	const reason = authoringReason(error);
 	if (reason === null) {

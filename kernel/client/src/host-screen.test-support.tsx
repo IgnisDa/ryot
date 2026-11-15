@@ -1,3 +1,4 @@
+import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import type { RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
@@ -15,6 +16,7 @@ import { type ReactNode, StrictMode } from "react";
 
 import { ServerOrigin } from "#/api/origin";
 import { testHostServices } from "#/host-services.test-support";
+import { EntitlementsProvider } from "#/modules/entitlements/context";
 
 export type HostedTestQueryRequest = Parameters<RyotClientAdapter["query"]>[0];
 
@@ -24,6 +26,7 @@ export const mountHostedTestScreen = <Services,>(
 		readonly strict?: boolean;
 		readonly onRootLoad?: () => void;
 		readonly serverUrl?: ServerOrigin;
+		readonly entitlements?: Entitlements;
 		readonly layer: Layer.Layer<Services>;
 		readonly routes?: Readonly<Record<string, ReactNode>>;
 		readonly query: (document: HostedTestQueryRequest) => Effect.Effect<unknown, RyotClientError>;
@@ -51,7 +54,9 @@ export const mountHostedTestScreen = <Services,>(
 				runtime,
 			)}
 		>
-			<RouterProvider router={router} />
+			<EntitlementsProvider entitlements={options.entitlements ?? ["pro"]}>
+				<RouterProvider router={router} />
+			</EntitlementsProvider>
 		</RyotProvider>
 	);
 	const view = render(options.strict === true ? <StrictMode>{screen}</StrictMode> : screen);

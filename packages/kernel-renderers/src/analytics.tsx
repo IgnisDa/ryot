@@ -2,6 +2,7 @@ import {
 	AnalyticsReport,
 	AnalyticsSection,
 	analyticsSectionKey,
+	entitledReportingSelection,
 	parseReportingSearch,
 	reportingSearchParams,
 	type ReportingSelection,
@@ -13,6 +14,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ActiveScreenContext,
+	useEntitlement,
 	useRyot,
 	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -30,8 +32,12 @@ export default function AnalyticsPage() {
 	const location = usePluginLocation();
 	const sections = useAnalyticsSections();
 	const preferences = useUserPreferences();
+	const pro = useEntitlement("pro");
 	const { compact, safeAreaBottom } = useRyotViewport();
-	const selection = parseReportingSearch(location.search);
+	const selection = entitledReportingSelection(
+		parseReportingSearch(location.search),
+		pro.data ?? [],
+	);
 	const selectionParams = reportingSearchParams(selection);
 	const requested = new URLSearchParams(location.search).get("section");
 	const active =

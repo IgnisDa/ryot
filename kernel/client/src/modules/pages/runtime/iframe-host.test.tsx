@@ -166,6 +166,7 @@ function mount(
 		onAssets: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onUpload: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onStorage: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
+		onAccount: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onCollection: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onEntitySave: () =>
@@ -176,8 +177,6 @@ function mount(
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onDevice: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "invalid-request" as const }),
-		onUserPreferences: () =>
-			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onExternalLink: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "link-open-failed" as const }),
 		onCalendarSourceVisibility: () =>

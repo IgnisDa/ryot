@@ -11,6 +11,7 @@ import { Effect } from "effect";
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
 import { PagesApi } from "#/api/pages";
+import { PublicApi } from "#/api/public";
 import { RyotQLApi } from "#/api/ryotql";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
@@ -19,6 +20,7 @@ import { resolveBackgroundSubmissionTarget } from "#/modules/background-submissi
 import { useBackgroundSubmissionTray } from "#/modules/background-submissions/tray";
 import { DeviceService } from "#/modules/device/service";
 import { FileDownloads } from "#/modules/downloads/file";
+import { loadEntitlements } from "#/modules/entitlements/service";
 import { EntityWatchService, type WatchEntities } from "#/modules/entity-watches/service";
 import { subscribeNativeResume } from "#/modules/entity-watches/transport";
 import { ExternalLinks } from "#/modules/external-links/service";
@@ -31,10 +33,7 @@ import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 import type { PluginBridgeNavigationState } from "#/modules/pages/bridge/session";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
-import {
-	pluginUserSettingsOutcome,
-	userPreferencesOutcome,
-} from "#/modules/pages/bridge/user-settings";
+import { accountOutcome, pluginUserSettingsOutcome } from "#/modules/pages/bridge/user-settings";
 import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 import type { ClientPageDocument } from "#/modules/pages/documents/state";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
@@ -238,13 +237,6 @@ export function PageDocumentHost(props: {
 				props.document.onChangeCollectionMembers?.(request) ??
 				Effect.succeed<ChangeCollectionMembersOutcome>({ kind: "cancelled" })
 			}
-			onUserPreferences={() =>
-				userPreferencesOutcome({
-					scope: props.scope,
-					api: props.runtime.runSync(RyotQLApi),
-					currentScope: () => frameScope.current,
-				})
-			}
 			onLoadDocument={() =>
 				props.runtime
 					.runSync(PagesApi)
@@ -267,6 +259,16 @@ export function PageDocumentHost(props: {
 					contributors: identity.contributors,
 					api: props.runtime.runSync(RyotQLApi),
 					currentScope: () => frameScope.current,
+				})
+			}
+			onAccount={() =>
+				accountOutcome({
+					scope: props.scope,
+					api: props.runtime.runSync(RyotQLApi),
+					currentScope: () => frameScope.current,
+					entitlements: loadEntitlements(props.scope.serverUrl).pipe(
+						Effect.provideService(PublicApi, props.runtime.runSync(PublicApi)),
+					),
 				})
 			}
 			onCalendarSourceVisibility={(request) =>

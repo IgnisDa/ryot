@@ -5,6 +5,7 @@ import {
 	createRyotHostQuery,
 	createRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
+import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	assistantActivityRecipe,
 	type AssistantConversationDetail,
@@ -15,7 +16,11 @@ import {
 import { Effect, Schema } from "effect";
 
 import { AssistantApi } from "#/api/assistant";
-import { AuthenticatedApiError, isDemoOperationProtectedError } from "#/api/authenticated";
+import {
+	AuthenticatedApiError,
+	isDemoOperationProtectedError,
+	isEntitlementRequiredError,
+} from "#/api/authenticated";
 import type { ApiScope } from "#/api/scope";
 import { KernelHostServices } from "#/host-services";
 
@@ -105,6 +110,12 @@ export const deleteProviderMutation = assistantMutation((api, scope, _payload: u
 export const assistantFailureText = (error: unknown): string => {
 	if (isDemoOperationProtectedError(error)) {
 		return "This change is unavailable in demo sessions.";
+	}
+	if (isEntitlementRequiredError(error)) {
+		return entitlementRequiredMessage(
+			error.cause.reason.entitlement,
+			`Chatting with ${ASSISTANT_NAME}`,
+		);
 	}
 	const reason =
 		error instanceof AuthenticatedApiError && Schema.is(AssistantError)(error.cause)

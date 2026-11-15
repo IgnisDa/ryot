@@ -1,11 +1,10 @@
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 
 import { ingestionReadinessRequirement } from "#/modules/imports/readiness-presentation";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { type CatalogEntry, pluginCatalogGroup } from "#/modules/ui/catalog/selection";
-
-export const PRO_REQUIRED_INTEGRATION_MESSAGE = "Ryot Pro is required to use this integration.";
 
 const lotLabels = { push: "Push", sink: "Webhook", yank: "Scheduled" } as const satisfies Record<
 	IntegrationLot,
@@ -28,9 +27,9 @@ export const integrationLotDetail = (lot: IntegrationLot) => {
 
 const integrationProviderRequirement = (provider: IntegrationProviderItem) => {
 	if (!provider.isCreatable) {
-		return provider.requiresProKey
-			? PRO_REQUIRED_INTEGRATION_MESSAGE
-			: "This service is unavailable in this plugin installation.";
+		return provider.entitlement === null
+			? "This service is unavailable in this plugin installation."
+			: entitlementRequiredMessage(provider.entitlement, "This integration");
 	}
 	return ingestionReadinessRequirement(provider.readiness, provider.pluginScope);
 };

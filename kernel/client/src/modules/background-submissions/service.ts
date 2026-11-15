@@ -10,6 +10,7 @@ import {
 	type PluginBackgroundOperationRequest,
 	type PluginOperationRequest,
 } from "@ryot-app/plugin-client-contract";
+import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Cause, Clock, Context, Effect, Exit, type Fiber, Layer } from "effect";
 
@@ -143,6 +144,7 @@ const failureStatus = {
 	"operation-rejected": "Not saved",
 	transport: "Couldn't confirm it was saved",
 	"malformed-result": "Unexpected server response",
+	"entitlement-required": entitlementRequiredMessage("pro"),
 	"page-write-access-required": "Page write access is required",
 } as const satisfies Record<BackgroundSubmissionFailureClass, string>;
 

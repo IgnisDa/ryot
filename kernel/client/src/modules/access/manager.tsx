@@ -4,12 +4,13 @@ import {
 	useRyotInfiniteQuery,
 	useRyotMutation,
 } from "@ryot-app/plugin-client-sdk/react";
-import { Badge, Button, EmptyState } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Button, EmptyState, EntitlementNotice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { ApiKeyItem } from "@ryot-app/ryotql-recipes/api-keys";
 import { type ReactNode, useRef, useState } from "react";
 
 import { DemoProtectionMessage } from "#/modules/demo-protection";
+import { useEntitlement } from "#/modules/entitlements/context";
 import { formatDateLabel, formatRelativeTime } from "#/modules/ui/run/run-status";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
@@ -31,6 +32,7 @@ const lastUsed = (value: null | string, now: number) =>
 export function AccessManager(props: { readonly isDemo: boolean }) {
 	const createTrigger = useRef<null | HTMLButtonElement>(null);
 	const [creating, setCreating] = useState(false);
+	const pro = useEntitlement("pro");
 	const intro = (
 		<p className="text-sm text-text-muted">
 			Apps and scripts reach your account through connected apps and API keys. Each has its own
@@ -59,6 +61,13 @@ export function AccessManager(props: { readonly isDemo: boolean }) {
 				title="Connected apps"
 				description="Apps you approved on Ryot's sign-in page, such as AI assistants connected over MCP."
 			>
+				{pro ? null : (
+					<EntitlementNotice
+						entitlement="pro"
+						feature="Connecting assistants over MCP"
+						icon={<AppIcon size={16} name="sparkles" />}
+					/>
+				)}
 				<ConnectedAppsList />
 			</AccessSection>
 			<AccessSection
@@ -74,6 +83,13 @@ export function AccessManager(props: { readonly isDemo: boolean }) {
 					</Button>
 				}
 			>
+				{pro ? null : (
+					<EntitlementNotice
+						entitlement="pro"
+						icon={<AppIcon size={16} name="key-round" />}
+						feature="Running custom RyotQL queries with API keys"
+					/>
+				)}
 				<ApiKeysList onCreate={openCreate} />
 			</AccessSection>
 			{creating ? (

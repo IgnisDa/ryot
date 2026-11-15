@@ -25,6 +25,7 @@ import {
 	type ManageRemindersOutcome,
 	type ManageRemindersRequest,
 	type PageShortcutKey,
+	type PluginAccountOutcome,
 	type PluginAssetBridgeErrorReason,
 	type PluginAssetOutcome,
 	type PluginAssetRequest,
@@ -48,7 +49,6 @@ import {
 	type PluginThemeSnapshot,
 	type PluginUploadOutcome,
 	type PluginUploadRequest,
-	type PluginUserPreferencesOutcome,
 	type PluginUserSettingsOutcome,
 } from "@ryot-app/plugin-client-contract";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
@@ -173,6 +173,7 @@ const connect = (
 		readonly onUpload?: Parameters<typeof openPluginBridge>[0]["onUpload"];
 		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
 		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
+		readonly onAccount?: Parameters<typeof openPluginBridge>[0]["onAccount"];
 		readonly onOperation?: Parameters<typeof openPluginBridge>[0]["onOperation"];
 		readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 		readonly onCollection?: Parameters<typeof openPluginBridge>[0]["onCollection"];
@@ -187,7 +188,6 @@ const connect = (
 		readonly onIosLiveActivity?: Parameters<typeof openPluginBridge>[0]["onIosLiveActivity"];
 		readonly onAddToCollection?: Parameters<typeof openPluginBridge>[0]["onAddToCollection"];
 		readonly onManageReminders?: Parameters<typeof openPluginBridge>[0]["onManageReminders"];
-		readonly onUserPreferences?: Parameters<typeof openPluginBridge>[0]["onUserPreferences"];
 		readonly onBackgroundOperation?: Parameters<
 			typeof openPluginBridge
 		>[0]["onBackgroundOperation"];
@@ -242,6 +242,7 @@ const connect = (
 		onUpload: options.onUpload ?? (() => Effect.never),
 		onOverlayState: (count) => overlayStates.push(count),
 		onStorage: options.onStorage ?? (() => Effect.never),
+		onAccount: options.onAccount ?? (() => Effect.never),
 		onPageSearch: (request) => pageSearches.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onCollection: options.onCollection ?? (() => Effect.never),
@@ -251,7 +252,6 @@ const connect = (
 		onExternalLink: options.onExternalLink ?? (() => Effect.never),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
-		onUserPreferences: options.onUserPreferences ?? (() => Effect.never),
 		onSharePublication: () => Effect.succeed({ kind: "closed" as const }),
 		onDevice: options.onDevice ?? (() => Effect.succeed(invalidDeviceRequest)),
 		onBackgroundOperation: options.onBackgroundOperation ?? (() => Effect.never),
@@ -1500,6 +1500,7 @@ describe("plugin bridge", () => {
 					onStorage: () => Effect.never,
 					onPageSearch: () => undefined,
 					onOpenDrawer: () => undefined,
+					onAccount: () => Effect.never,
 					onScreenState: () => undefined,
 					onOverlayState: () => undefined,
 					onOperation: () => Effect.never,
@@ -1512,7 +1513,6 @@ describe("plugin bridge", () => {
 					onUserSettings: () => Effect.never,
 					onExternalLink: () => Effect.never,
 					onFailure: () => failures.push(null),
-					onUserPreferences: () => Effect.never,
 					onBackgroundOperation: () => Effect.never,
 					onCalendarSourceVisibility: () => Effect.never,
 					viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
@@ -2413,18 +2413,19 @@ describe("plugin bridge", () => {
 	);
 
 	it.live(
-		"answers user preference requests without a plugin identity",
+		"answers account requests without a plugin identity",
 		() =>
 			Effect.gen(function* () {
-				const outcomes: PluginUserPreferencesOutcome[] = [
-					{
-						outcome: "success",
-						preferences: { ratingScale: "ten", timeZone: TimeZone.make("Asia/Tokyo") },
-					},
+				const account = {
+					entitlements: ["pro"] as const,
+					preferences: { ratingScale: "ten" as const, timeZone: TimeZone.make("Asia/Tokyo") },
+				};
+				const outcomes: PluginAccountOutcome[] = [
+					{ account, outcome: "success" },
 					{ outcome: "failure", reason: "transport" },
 				];
 				const { init, received, pluginPort } = connect({
-					onUserPreferences: () => {
+					onAccount: () => {
 						const outcome = outcomes.shift();
 						return outcome === undefined ? Effect.die("unexpected") : Effect.succeed(outcome);
 					},
@@ -2432,22 +2433,22 @@ describe("plugin bridge", () => {
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-				const request = { type: "user-preferences-request" as const };
-				pluginPort.postMessage({ ...request, requestId: "preferences-1" });
+				const request = { type: "account-request" as const };
+				pluginPort.postMessage({ ...request, requestId: "account-1" });
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
 				expect(received[1]).toEqual({
+					account,
 					outcome: "success",
-					requestId: "preferences-1",
-					type: "user-preferences-result",
-					preferences: { ratingScale: "ten", timeZone: "Asia/Tokyo" },
+					requestId: "account-1",
+					type: "account-result",
 				});
-				pluginPort.postMessage({ ...request, requestId: "preferences-2" });
+				pluginPort.postMessage({ ...request, requestId: "account-2" });
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
 				expect(received[2]).toEqual({
 					outcome: "failure",
 					reason: "transport",
-					requestId: "preferences-2",
-					type: "user-preferences-result",
+					requestId: "account-2",
+					type: "account-result",
 				});
 			}),
 		testTimeout,

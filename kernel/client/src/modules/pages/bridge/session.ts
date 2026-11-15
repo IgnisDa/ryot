@@ -25,6 +25,7 @@ import {
 	pageQuerySource,
 	type PageShortcutKey,
 	type PickEntityOutcome,
+	type PluginAccountOutcome,
 	type PluginAssetOutcome,
 	type PluginAssetRequest,
 	type PluginBackgroundOperationAcceptance,
@@ -81,7 +82,6 @@ import {
 	type PluginThemeSnapshot,
 	type PluginUploadOutcome,
 	type PluginUploadRequest,
-	type PluginUserPreferencesOutcome,
 	type PluginUserSettingsOutcome,
 	type PluginUserSettingsRequest,
 	type SharePublicationOutcome,
@@ -142,13 +142,13 @@ type PendingRequest = {
 		| "ryotql"
 		| "upload"
 		| "storage"
+		| "account"
 		| "operation"
 		| "collection"
 		| "enrichment"
 		| HostScreenType
 		| "external-link"
 		| "user-settings"
-		| "user-preferences"
 		| "ios-live-activity"
 		| "entity-editor-save"
 		| "background-operation"
@@ -196,9 +196,9 @@ type PluginBridgeOptions = {
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
 	readonly onScreenState: (state: PageScreenReadiness) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
+	readonly onAccount: () => Effect.Effect<PluginAccountOutcome>;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onPageShortcuts: (shortcuts: readonly PageShortcutKey[]) => void;
-	readonly onUserPreferences: () => Effect.Effect<PluginUserPreferencesOutcome>;
 	readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
@@ -544,7 +544,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				type === "storage" ||
 				type === "ryotql" ||
 				type === "user-settings" ||
-				type === "user-preferences" ||
+				type === "account" ||
 				type === "enrichment"
 			) {
 				reason = "transport";
@@ -1026,8 +1026,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						),
 						Match.when({ type: "storage-request" }, (request) => handleStorage(request)),
 						Match.when({ type: "user-settings-request" }, (request) => handleUserSettings(request)),
-						Match.when({ type: "user-preferences-request" }, (request) =>
-							runRequest(request.requestId, "user-preferences", () => options.onUserPreferences()),
+						Match.when({ type: "account-request" }, (request) =>
+							runRequest(request.requestId, "account", () => options.onAccount()),
 						),
 						Match.when({ type: "enrichment-request" }, (request) => handleEnrichment(request)),
 						Match.when({ type: "change-collection-members-screen-cancel" }, ({ requestId }) =>

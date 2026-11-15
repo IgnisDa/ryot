@@ -12,6 +12,7 @@ import {
 	Card,
 	DestructiveConfirmation,
 	EmptyState,
+	EntitlementNotice,
 	LoadMoreButton,
 	Notice,
 	RadioGroup,
@@ -25,6 +26,7 @@ import clsx from "clsx";
 import { Effect, Schema } from "effect";
 import { useRef, useState } from "react";
 
+import { useEntitlement } from "#/modules/entitlements/context";
 import { SettingsSection } from "#/modules/settings/settings-section";
 
 import { DefinitionForm } from "./definition-form";
@@ -44,6 +46,7 @@ const initialCursor: string | undefined = undefined;
 
 export function PagesManager(props: { readonly disabled: boolean }) {
 	const [selected, setSelected] = useState<null | string>(null);
+	const pro = useEntitlement("pro");
 	const query = useRyotInfiniteQuery(
 		pagesQuery,
 		{},
@@ -84,14 +87,21 @@ export function PagesManager(props: { readonly disabled: boolean }) {
 					<DocsLink />
 				</div>
 				<Button
-					disabled={props.disabled}
 					className="shrink-0 self-start"
+					disabled={props.disabled || !pro}
 					onClick={() => setSelected("new")}
 				>
 					<AppIcon size={15} name="plus" />
 					New page
 				</Button>
 			</div>
+			{pro ? null : (
+				<EntitlementNotice
+					entitlement="pro"
+					feature="Authoring and publishing pages"
+					icon={<AppIcon size={16} name="file-text" />}
+				/>
+			)}
 			{query.isError && (
 				<Notice tone="danger" action={<Button onClick={query.refetch}>Retry</Button>}>
 					Pages could not be loaded.

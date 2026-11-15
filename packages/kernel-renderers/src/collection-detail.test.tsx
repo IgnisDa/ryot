@@ -3,6 +3,7 @@ import { afterEach, describe, expect } from "bun:test";
 import type { KeyedCollectionField } from "@ryot-app/contract/modules/collections/fields";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { Entitlement } from "@ryot-app/plugin-client-sdk";
 import type { mountPluginPage } from "@ryot-app/plugin-client-sdk/testing";
 import {
 	disposePluginBridges,
@@ -20,10 +21,15 @@ import { Effect, Schema } from "effect";
 import CollectionDetailPage from "./collection-detail";
 import { mountBrowsingPage } from "./fixtures/saved-view";
 
-const openCollection = (collectionId = "col-1", search = "") =>
+const openCollection = (
+	collectionId = "col-1",
+	search = "",
+	entitlements: readonly Entitlement[] = ["pro"],
+) =>
 	mountBrowsingPage(
 		CollectionDetailPage,
 		{
+			entitlements,
 			location: entityLocation(collectionId, "collection", search),
 			page: kernelEntityPageContext({
 				entityId: collectionId,
@@ -503,6 +509,21 @@ describe("collection detail", () => {
 				});
 				yield* Effect.promise(() => screen.findByText("Changed"));
 				expect(screen.getByRole("group")).toHaveProperty("disabled", false);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"locks reordering without Pro",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection("col-1", "", []);
+				yield* answerCollection(page, { revision: 2, name: "Shelf", members: [itemMember] });
+				yield* openMenu("More actions");
+				const reorder = yield* Effect.promise(() =>
+					screen.findByRole("menuitem", { name: "Reorder (Pro)" }),
+				);
+				expect(reorder).toHaveProperty("disabled", true);
 			}),
 		testTimeout,
 	);

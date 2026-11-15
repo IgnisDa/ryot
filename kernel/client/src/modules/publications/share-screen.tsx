@@ -10,7 +10,7 @@ import type {
 	SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Dialog, Notice, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, Dialog, EntitlementNotice, Notice, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { kernelPublicationVisitorParameters } from "@ryot-app/ryotql-recipes/publication-browse";
 import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
@@ -22,6 +22,7 @@ import type { ServerOrigin } from "#/api/origin";
 import { AuthService } from "#/modules/auth/service";
 import { collectionHeaderQuery } from "#/modules/collections/collection-header";
 import { useIsDemoSession } from "#/modules/demo-protection";
+import { useEntitlement } from "#/modules/entitlements/context";
 import { useHostScreenSession } from "#/modules/ui/host-screen-session";
 
 import { PublicationDetailsFields } from "./details-fields";
@@ -85,6 +86,7 @@ export function ShareSheet(props: {
 }) {
 	const { disabled, serverUrl: server } = props;
 	const publications = useRyotQuery(sourcePublicationsQuery, props.source);
+	const pro = useEntitlement("pro");
 	const [created, setCreated] = useState<null | CreatedShareLink>(null);
 	const publication = publications.data?.at(0);
 	let content;
@@ -97,6 +99,14 @@ export function ShareSheet(props: {
 			</Notice>
 		) : (
 			<StatusMessage tone="pending">Loading sharing details...</StatusMessage>
+		);
+	} else if (publication === undefined && !pro) {
+		content = (
+			<EntitlementNotice
+				entitlement="pro"
+				feature="Publishing share links"
+				icon={<AppIcon size={16} name="share" />}
+			/>
 		);
 	} else if (publication === undefined) {
 		content = (

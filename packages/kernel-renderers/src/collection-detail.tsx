@@ -10,12 +10,13 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
+	useEntitlement,
 	useHostScreen,
 	useRyot,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { entitlementActionLabel, IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	type BrowseSchema,
@@ -83,6 +84,7 @@ const CollectionBrowser = ({
 }) => {
 	const ryot = useRyot();
 	const openScreen = useHostScreen();
+	const reorder = useEntitlement("pro");
 	const pluginPages = useRyotQuery(pluginPagesQuery, [
 		...new Set(groups.items.flatMap(({ ownerPluginId }) => ownerPluginId ?? [])),
 	]);
@@ -201,7 +203,13 @@ const CollectionBrowser = ({
 					label: "Reviews",
 					onSelect: () => openScreen(ryot.screens.manageCollectionReviews({ collectionId })),
 				},
-				{ key: "reorder", label: "Reorder", onSelect: onReorder, icon: "arrow-up-down" },
+				{
+					key: "reorder",
+					onSelect: onReorder,
+					icon: "arrow-up-down",
+					disabled: !reorder.granted,
+					label: entitlementActionLabel("Reorder", "pro", reorder.granted),
+				},
 				{ key: "share", icon: "share", label: "Share", onSelect: share },
 				{ key: "edit", icon: "pencil", onSelect: editCollection, label: "Edit collection" },
 			]}

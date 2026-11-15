@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { EntityId, PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
+import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -50,7 +51,7 @@ const publication = (linkRevokedAt: null | string) => ({
 	},
 });
 
-const mountSheet = () => {
+const mountSheet = (entitlements: Entitlements = ["pro"]) => {
 	const requests: unknown[] = [];
 	let published = false;
 	let revoked = false;
@@ -58,6 +59,7 @@ const mountSheet = () => {
 		<ShareSheet source={source} disabled={false} serverUrl={serverUrl} onClose={() => undefined} />,
 		{
 			serverUrl,
+			entitlements,
 			query: (document) =>
 				Effect.succeed({
 					data:
@@ -150,6 +152,22 @@ it.live(
 				expect(view.requests.at(-1)).toEqual({ linkId: "link-1" });
 				yield* Effect.promise(() => view.advance("5 seconds"));
 				yield* Effect.promise(() => screen.findByText("Revoked"));
+			} finally {
+				yield* Effect.promise(view.dispose);
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
+	"explains that publishing needs Pro instead of offering the form",
+	() =>
+		Effect.gen(function* () {
+			const view = mountSheet([]);
+			try {
+				yield* Effect.promise(() => screen.findByText("Publishing share links requires Ryot Pro."));
+				expect(screen.queryByRole("button", { name: "Publish and create link" })).toBeNull();
+				expect(view.requests).toEqual([]);
 			} finally {
 				yield* Effect.promise(view.dispose);
 			}

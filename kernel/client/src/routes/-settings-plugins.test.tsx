@@ -120,7 +120,7 @@ const mountView = (api: Partial<PluginInstallationsApi["Service"]>) => {
 			InstanceAdminRouteStubs,
 			ServerStub,
 			ManagedAssetRouteStubs,
-			makePublicApiStub(),
+			makePublicApiStub(["pro"]),
 			KernelApiTestLayer,
 			noInstallations,
 			PagesApiRouteStubs,

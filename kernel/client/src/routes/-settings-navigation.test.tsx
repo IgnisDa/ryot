@@ -1454,7 +1454,7 @@ describe("pro instance badge", () => {
 					undefined,
 					undefined,
 					undefined,
-					makePublicApiStub(true),
+					makePublicApiStub(["pro"]),
 				);
 				const sidebar = yield* Effect.promise(() => screen.findByTestId("desktop-sidebar"));
 

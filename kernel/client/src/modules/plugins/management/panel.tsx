@@ -1,8 +1,14 @@
-import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	DestructiveConfirmation,
+	entitlementActionLabel,
+	StatusMessage,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type ReactNode, useRef, useState } from "react";
 
+import { useEntitlement } from "#/modules/entitlements/context";
 import { PluginConfigForm } from "#/modules/plugins/management/config-form";
 import type {
 	ManagedPluginInstallation,
@@ -48,6 +54,7 @@ export function PluginManagementPanel(props: {
 	readonly installations: readonly ManagedPluginInstallation[];
 	readonly onOpenArchive: (installation?: ManagedPluginInstallation) => void;
 }) {
+	const pro = useEntitlement("pro");
 	return (
 		<div className="flex flex-col gap-6 pb-4">
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -57,12 +64,12 @@ export function PluginManagementPanel(props: {
 				</p>
 				<Button
 					variant="primary"
-					disabled={props.pending}
+					disabled={props.pending || !pro}
 					onClick={() => props.onOpenArchive()}
 					className={clsx(compactButtonClassName, "flex shrink-0 items-center gap-1.5 self-start")}
 				>
 					<AppIcon size={14} name="plus" />
-					Install plugin
+					{entitlementActionLabel("Install plugin", "pro", pro)}
 				</Button>
 			</div>
 			<Feedback
@@ -164,6 +171,7 @@ function InstallationCard(props: InstallationProps) {
 
 function InstallationDetails(props: InstallationProps) {
 	const installation = props.installation;
+	const pro = useEntitlement("pro");
 	const [confirmRemoval, setConfirmRemoval] = useState(false);
 	const uninstallTrigger = useRef<HTMLButtonElement>(null);
 	const technicalDetails = [
@@ -255,11 +263,11 @@ function InstallationDetails(props: InstallationProps) {
 						<div className="flex flex-wrap gap-2">
 							<Button
 								type="button"
-								disabled={props.pending}
+								disabled={props.pending || !pro}
 								className={compactButtonClassName}
 								onClick={() => props.onOpenArchive(installation)}
 							>
-								Update package
+								{entitlementActionLabel("Update package", "pro", pro)}
 							</Button>
 							<Button
 								type="button"

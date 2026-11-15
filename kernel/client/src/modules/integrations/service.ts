@@ -5,6 +5,7 @@ import type {
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { isEntitled } from "@ryot-app/contract/schema/entitlement";
 import { createRyotHostMutation, createRyotHostQuery } from "@ryot-app/plugin-client-sdk/react";
 import { integrationImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
 import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
@@ -26,6 +27,7 @@ import { PublicApi } from "#/api/public";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 import { KernelHostServices } from "#/host-services";
+import { loadEntitlements } from "#/modules/entitlements/service";
 
 export const INTEGRATIONS_PAGE_SIZE = 20;
 export const INTEGRATION_RUNS_PAGE_SIZE = 10;
@@ -77,9 +79,9 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				client: IntegrationsClient,
 				serverUrl: ApiScope["serverUrl"],
 			) {
-				const config = yield* publicApi
-					.getSystemConfig(serverUrl)
-					.pipe(Effect.orElseSucceed(() => null));
+				const entitlements = yield* loadEntitlements(serverUrl).pipe(
+					Effect.provideService(PublicApi, publicApi),
+				);
 				const providers: IntegrationProviderItem[] = [];
 				let after: null | string | undefined;
 				do {
@@ -93,9 +95,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					providers.push(
 						...page.items.map(({ id: _id, ...provider }) => ({
 							...provider,
-							isCreatable:
-								provider.hasScript &&
-								(!provider.requiresProKey || config?.pro.isServerKeyValidated === true),
+							isCreatable: provider.hasScript && isEntitled(entitlements, provider.entitlement),
 						})),
 					);
 					after = page.pageInfo.nextCursor;

@@ -9,6 +9,7 @@ import {
 	SavedViewId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	CLIENT_API_VERSION,
@@ -520,14 +521,14 @@ export const makeStorageStub = (
 export const makeStorageStubLayer = (...args: Parameters<typeof makeStorageStub>) =>
 	Layer.succeed(ClientStorage, makeStorageStub(...args));
 
-export const makePublicApiStub = (isServerKeyValidated = false) =>
+export const makePublicApiStub = (entitlements: Entitlements = []) =>
 	Layer.succeed(PublicApi, {
 		checkHealth: () => Effect.void,
 		getSystemConfig: () =>
 			Effect.succeed({
+				entitlements,
 				analytics: {},
 				version: "v1.0.0",
-				pro: { isServerKeyValidated },
 				notifications: { smtpEnabled: false },
 				frontendOrigin: window.location.origin,
 				auth: { oidcEnabled: false, signupAllowed: true, localAuthDisabled: false },

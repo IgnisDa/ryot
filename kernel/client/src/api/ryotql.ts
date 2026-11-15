@@ -1,6 +1,7 @@
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
+import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
@@ -13,7 +14,12 @@ const isAuthenticationFailure = Schema.is(Schema.Union([AuthRateLimited, AuthUna
 export const classifyRyotQLCause = (
 	cause: unknown,
 	isAccessFailure: (cause: unknown) => boolean,
-) => (isQueryFailure(cause) || isAccessFailure(cause) ? "query-failed" : "transport");
+) => {
+	if (cause instanceof EntitlementRequired) {
+		return "entitlement-required";
+	}
+	return isQueryFailure(cause) || isAccessFailure(cause) ? "query-failed" : "transport";
+};
 
 export const classifyRyotQLFailure = (error: unknown) =>
 	error instanceof AuthenticatedApiError

@@ -8,6 +8,7 @@ import type {
 	ImportRunStatus,
 } from "@ryot-app/contract/modules/imports/schemas";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import { entitlementName, entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Match } from "effect";
 
@@ -135,9 +136,9 @@ export const importRunFailureNotice = (
 			label: "Integrations paused",
 			detail: "Integrations are disabled for this account.",
 		})),
-		Match.when({ code: "pro-key-required" }, () => ({
-			label: "Ryot Pro required",
-			detail: "This integration needs Ryot Pro. Add a valid Pro key, then start the import again.",
+		Match.when({ code: "entitlement-required" }, ({ entitlement }) => ({
+			label: `${entitlementName(entitlement)} required`,
+			detail: entitlementRequiredMessage(entitlement, "This integration"),
 		})),
 		Match.when({ code: "queue-unavailable" }, () => stoppedEarly),
 		Match.when({ code: "installation-unavailable" }, () => ({

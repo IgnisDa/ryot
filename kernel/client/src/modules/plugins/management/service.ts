@@ -6,13 +6,14 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { createRyotHostMutation, createRyotHostQuery } from "@ryot-app/plugin-client-sdk/react";
+import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	type PluginInstallationsPage,
 	pluginInstallationsRecipe,
 } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { AuthenticatedApiError } from "#/api/authenticated";
+import { AuthenticatedApiError, isEntitlementRequiredError } from "#/api/authenticated";
 import { loadAllPages } from "#/api/load-all-pages";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import type { KernelRyotClient } from "#/api/ryot-client";
@@ -118,13 +119,20 @@ const failureDetail = (failure: typeof DeclaredPluginFailure.Type) => {
 		: failureDetails[reason.code];
 };
 
+const commandFailureDetail = (cause: unknown) => {
+	if (isEntitlementRequiredError(cause)) {
+		return entitlementRequiredMessage(
+			cause.cause.reason.entitlement,
+			"Installing and updating private plugins",
+		);
+	}
+	return cause instanceof AuthenticatedApiError && Schema.is(DeclaredPluginFailure)(cause.cause)
+		? failureDetail(cause.cause)
+		: "The plugin command failed.";
+};
+
 const commandFailure = (cause: unknown) =>
-	new PluginManagementError({
-		detail:
-			cause instanceof AuthenticatedApiError && Schema.is(DeclaredPluginFailure)(cause.cause)
-				? failureDetail(cause.cause)
-				: "The plugin command failed.",
-	});
+	new PluginManagementError({ detail: commandFailureDetail(cause) });
 
 export const errorDetail = (error: null | Error) =>
 	error instanceof PluginManagementError ? error.detail : error?.message;

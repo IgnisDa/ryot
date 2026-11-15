@@ -39,8 +39,8 @@ import {
 const systemConfig = (frontendOrigin: string, localAuthDisabled = false) => ({
 	analytics: {},
 	frontendOrigin,
+	entitlements: [],
 	version: "v1.0.0",
-	pro: { isServerKeyValidated: false },
 	notifications: { smtpEnabled: false },
 	auth: { localAuthDisabled, oidcEnabled: true, signupAllowed: true },
 	fileStorage: {

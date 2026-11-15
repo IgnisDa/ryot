@@ -7,8 +7,8 @@ import { deriveAuthMethods } from "#/modules/auth/config";
 const systemConfig = (auth: SystemConfigResponse["auth"]): SystemConfigResponse => ({
 	auth,
 	analytics: {},
+	entitlements: [],
 	version: "v1.0.0",
-	pro: { isServerKeyValidated: false },
 	notifications: { smtpEnabled: false },
 	frontendOrigin: "http://localhost:3000",
 	fileStorage: { temporaryUploadProvider: "local", preferredPermanentUploadProvider: "local" },

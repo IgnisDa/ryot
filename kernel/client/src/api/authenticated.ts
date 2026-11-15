@@ -1,5 +1,6 @@
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { type ContractProgram, makeContractClient } from "@ryot-app/contract/client";
+import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { Context, Effect, Layer, Schema } from "effect";
 import { HttpClient } from "effect/http";
 
@@ -17,6 +18,11 @@ export const isDemoOperationProtectedError = (
 	error: unknown,
 ): error is AuthenticatedApiError & { readonly cause: DemoOperationProtected } =>
 	error instanceof AuthenticatedApiError && error.cause instanceof DemoOperationProtected;
+
+export const isEntitlementRequiredError = (
+	error: unknown,
+): error is AuthenticatedApiError & { readonly cause: EntitlementRequired } =>
+	error instanceof AuthenticatedApiError && error.cause instanceof EntitlementRequired;
 
 export type AuthenticatedApiService = {
 	readonly authorization: (

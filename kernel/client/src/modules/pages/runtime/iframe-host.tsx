@@ -17,6 +17,7 @@ import type {
 	ManageRemindersRequest,
 	PageShortcutKey,
 	PickEntityOutcome,
+	PluginAccountOutcome,
 	PluginAssetOutcome,
 	PluginAssetRequest,
 	PluginBackgroundOperationRequest,
@@ -42,7 +43,6 @@ import type {
 	PluginStorageRequest,
 	PluginUploadOutcome,
 	PluginUploadRequest,
-	PluginUserPreferencesOutcome,
 	PluginUserSettingsOutcome,
 	PluginUserSettingsRequest,
 	SharePublicationOutcome,
@@ -121,11 +121,11 @@ export function PageIframeHost(props: {
 	readonly mutationCompleted: RyotClient["mutationCompleted"];
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
+	readonly onAccount: () => Effect.Effect<PluginAccountOutcome>;
 	readonly onCheckFreshness: () => Effect.Effect<boolean, Error>;
 	readonly subscribeResume?: (resumed: () => void) => () => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: null | PageScreenReadiness) => void;
-	readonly onUserPreferences: () => Effect.Effect<PluginUserPreferencesOutcome>;
 	readonly onFlushReady: (flush: undefined | (() => Effect.Effect<boolean>)) => void;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onQuery: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
@@ -438,6 +438,7 @@ export function PageIframeHost(props: {
 			onReady: () => setFrameStatus("ready"),
 			documentKey: latest.current.documentKey,
 			theme: latest.current.theme.getSnapshot(),
+			onAccount: () => latest.current.onAccount(),
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
 			onRyotQL: (request) => latest.current.onQuery(request),
 			onAssets: (request) => latest.current.onAssets(request),
@@ -445,7 +446,6 @@ export function PageIframeHost(props: {
 			onDevice: (request) => latest.current.onDevice(request),
 			onStorage: (request) => latest.current.onStorage(request),
 			onNavigate: (request) => latest.current.onNavigate(request),
-			onUserPreferences: () => latest.current.onUserPreferences(),
 			onPageSearch: (request) => latest.current.onPageSearch(request),
 			onCollection: (request) => latest.current.onCollection(request),
 			onEntitySave: (request) => latest.current.onEntitySave(request),
