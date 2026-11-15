@@ -1,6 +1,11 @@
 name: Helm Release
 
 on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
   release:
     types: [published]
 
@@ -8,21 +13,20 @@ permissions:
   contents: read
 
 concurrency:
-  # Serialize releases; never cancel an in-progress publish (queue instead).
-  group: helm-release-${{ github.ref }}
-  cancel-in-progress: false
+  group: helm-release
+  queue: max
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # The chart is pushed to GHCR as an OCI artifact.
       packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
 
       - name: Set up Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
@@ -30,10 +34,8 @@ jobs:
           version: v3.21.2
 
       - name: Set chart version from the release tag
-        # The git release number drives the chart version. Helm requires a
-        # SemVer2 version, so the leading "v" (if any) is stripped.
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
         run: |
           VERSION="${TAG#v}"
           echo "Releasing chart version: $VERSION"
@@ -53,8 +55,10 @@ jobs:
           fi
 
       - name: Log in to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | \
+          echo "$GH_TOKEN" | \
             helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Package and push chart
