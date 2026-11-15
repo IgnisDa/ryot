@@ -10,8 +10,10 @@ import {
 	metricDelta,
 	MetricGrid,
 	ratingUnit,
+	ReportText,
 } from "@ryot-app/plugin-ui-sdk";
 import { CoverageBar } from "@ryot-app/plugin-ui-sdk/charts";
+import { DataTable } from "@ryot-app/plugin-ui-sdk/table";
 
 import { consumptionMeasureUnits } from "../../shared/consumption-allocation";
 import {
@@ -94,6 +96,11 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 
 	return (
 		<section aria-label="Media analytics summary" className="flex min-w-0 flex-col gap-4 font-ui">
+			<ReportText>
+				<p className="text-label text-text-muted">
+					{periodCaption(props.summary.reporting.resolved.current)}
+				</p>
+			</ReportText>
 			<MetricGrid
 				variant="tiles"
 				compact={compact}
@@ -113,13 +120,15 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 							const measure = measureUnits[unit];
 							return (
 								<div key={unit} className="flex min-w-0 flex-col gap-2">
-									<div className="flex min-w-0 items-baseline justify-between gap-3">
-										<span className="text-label text-text-muted">{measureLabels[unit]}</span>
-										<span className="text-body font-semibold text-text tabular-nums">
-											{quantity.partial ? "≥ " : ""}
-											{formatMetric(quantity.value, measure)}
-										</span>
-									</div>
+									<ReportText>
+										<div className="flex min-w-0 items-baseline justify-between gap-3">
+											<span className="text-label text-text-muted">{measureLabels[unit]}</span>
+											<span className="text-body font-semibold text-text tabular-nums">
+												{quantity.partial ? "≥ " : ""}
+												{formatMetric(quantity.value, measure)}
+											</span>
+										</div>
+									</ReportText>
 									<CoverageBar
 										ariaLabel={`${measureLabels[unit]} sources`}
 										formatValue={(segment) => formatMetric(segment.value, measure)}
@@ -139,18 +148,22 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 										]}
 									/>
 									{quantity.missing > 0 ? (
-										<p className="text-micro text-text-subtle">
-											{formatMetric(quantity.missing, entryUnit)} without an amount
-										</p>
+										<ReportText>
+											<p className="text-micro text-text-subtle">
+												{formatMetric(quantity.missing, entryUnit)} without an amount
+											</p>
+										</ReportText>
 									) : null}
 								</div>
 							);
 						})}
 					</div>
 					{model.unknownDate > 0 ? (
-						<p className="text-micro text-text-subtle">
-							Not counted in any period: {formatMetric(model.unknownDate, undatedUnit)}.
-						</p>
+						<ReportText>
+							<p className="text-micro text-text-subtle">
+								Not counted in any period: {formatMetric(model.unknownDate, undatedUnit)}.
+							</p>
+						</ReportText>
 					) : null}
 				</ChartCard>
 			)}
@@ -160,59 +173,46 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 					description="Episodes and seasons are counted separately from their shows."
 				>
 					<div className="min-w-0 overflow-x-auto">
-						<table className="w-full min-w-[36rem] border-collapse text-left text-label">
-							<caption className="sr-only">
-								Completions, activity, and amounts by media type
-							</caption>
-							<thead className="text-text-muted">
-								<tr className="border-b border-border">
-									<th scope="col" className="py-2 pr-3 font-medium">
-										Type
-									</th>
-									<th scope="col" className="py-2 pr-3 text-right font-medium">
-										Completed
-									</th>
-									<th scope="col" className="py-2 pr-3 text-right font-medium">
-										Episodes
-									</th>
-									<th scope="col" className="py-2 pr-3 text-right font-medium">
-										Active days
-									</th>
-									<th scope="col" className="py-2 pr-3 text-right font-medium">
-										Time spent
-									</th>
-									<th scope="col" className="py-2 text-right font-medium">
-										Other amounts
-									</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border">
-								{types.map((row) => (
-									<tr key={row.source.mediaType}>
-										<th scope="row" className="py-2.5 pr-3 font-medium text-text">
-											{row.source.label}
-										</th>
-										<td className="py-2.5 pr-3 text-right text-text tabular-nums">
-											{formatNumber(row.titleCompletions)}
-										</td>
-										<td className="py-2.5 pr-3 text-right text-text tabular-nums">
-											{formatNumber(row.episodeCompletions)}
-										</td>
-										<td className="py-2.5 pr-3 text-right text-text tabular-nums">
-											{formatNumber(row.activeDays)}
-										</td>
-										<td className="py-2.5 pr-3 text-right text-text tabular-nums">
-											{row.quantities.minutes.value === null
-												? "—"
-												: formatMetric(row.quantities.minutes.value, measureUnits.minutes)}
-										</td>
-										<td className="py-2.5 text-right text-text-muted tabular-nums">
-											{typeAmounts(row) || "—"}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+						<DataTable
+							data={types}
+							rowClassName="border-b border-border"
+							getRowId={(row) => row.source.mediaType}
+							headerCellClassName="py-2 pr-3 font-medium text-right"
+							headerClassName="text-text-muted border-b border-border"
+							aria-label="Completions, activity, and amounts by media type"
+							cellClassName="py-2.5 pr-3 text-text tabular-nums text-right"
+							className="w-full min-w-[36rem] border-collapse text-left text-label"
+							columns={[
+								{
+									id: "type",
+									header: "Type",
+									rowHeader: true,
+									cell: (row) => row.source.label,
+									headerClassName: "py-2 pr-3 font-medium text-left",
+									cellClassName: "py-2.5 pr-3 font-medium text-text",
+								},
+								{
+									id: "completed",
+									header: "Completed",
+									cell: (row) => formatNumber(row.titleCompletions),
+								},
+								{
+									id: "episodes",
+									header: "Episodes",
+									cell: (row) => formatNumber(row.episodeCompletions),
+								},
+								{ id: "days", header: "Active days", cell: (row) => formatNumber(row.activeDays) },
+								{
+									id: "time",
+									header: "Time spent",
+									cell: (row) =>
+										row.quantities.minutes.value === null
+											? "—"
+											: formatMetric(row.quantities.minutes.value, measureUnits.minutes),
+								},
+								{ id: "amounts", header: "Other amounts", cell: (row) => typeAmounts(row) || "—" },
+							]}
+						/>
 					</div>
 				</ChartCard>
 			)}
@@ -224,51 +224,44 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 				/>
 				{current.reviews.categories.length === 0 ? null : (
 					<div className="min-w-0 overflow-x-auto">
-						<table className="w-full min-w-[28rem] border-collapse text-left text-label">
-							<caption className="sr-only">Review count and rating by media category</caption>
-							<thead className="text-text-muted">
-								<tr className="border-b border-border">
-									<th scope="col" className="py-2 pr-3 font-medium">
-										Category
-									</th>
-									<th scope="col" className="py-2 pr-3 text-right font-medium">
-										Reviews
-									</th>
-									<th scope="col" className="py-2 pr-3 text-right font-medium">
-										Rated
-									</th>
-									<th scope="col" className="py-2 text-right font-medium">
-										Average rating
-									</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border">
-								{current.reviews.categories.map((row) => (
-									<tr key={row.mediaType}>
-										<th scope="row" className="py-2.5 pr-3 font-medium text-text">
-											{row.label}
-										</th>
-										<td className="py-2.5 pr-3 text-right tabular-nums">
-											{formatNumber(row.reviews)}
-										</td>
-										<td className="py-2.5 pr-3 text-right tabular-nums">
-											{formatNumber(row.rated ?? 0)}
-										</td>
-										<td className="py-2.5 text-right tabular-nums">
-											{row.averageRating == null || ratingScale === undefined
-												? "—"
-												: formatMetric(row.averageRating, ratingUnit(ratingScale))}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+						<DataTable
+							data={current.reviews.categories}
+							getRowId={(row) => row.mediaType}
+							rowClassName="border-b border-border"
+							aria-label="Review count and rating by media category"
+							headerCellClassName="py-2 pr-3 font-medium text-right"
+							headerClassName="text-text-muted border-b border-border"
+							cellClassName="py-2.5 pr-3 text-text tabular-nums text-right"
+							className="w-full min-w-[28rem] border-collapse text-left text-label"
+							columns={[
+								{
+									id: "category",
+									rowHeader: true,
+									header: "Category",
+									cell: (row) => row.label,
+									headerClassName: "py-2 pr-3 font-medium text-left",
+									cellClassName: "py-2.5 pr-3 font-medium text-text",
+								},
+								{ id: "reviews", header: "Reviews", cell: (row) => formatNumber(row.reviews) },
+								{ id: "rated", header: "Rated", cell: (row) => formatNumber(row.rated ?? 0) },
+								{
+									id: "average",
+									header: "Average rating",
+									cell: (row) =>
+										row.averageRating == null || ratingScale === undefined
+											? "—"
+											: formatMetric(row.averageRating, ratingUnit(ratingScale)),
+								},
+							]}
+						/>
 					</div>
 				)}
 				{props.summary.reporting.resolved.previous === null ? null : (
-					<p className="text-micro text-text-subtle">
-						Changes compare with {periodCaption(props.summary.reporting.resolved.previous)}.
-					</p>
+					<ReportText>
+						<p className="text-micro text-text-subtle">
+							Changes compare with {periodCaption(props.summary.reporting.resolved.previous)}.
+						</p>
+					</ReportText>
 				)}
 			</ChartCard>
 		</section>

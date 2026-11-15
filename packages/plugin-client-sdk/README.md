@@ -538,3 +538,15 @@ renderers use this to avoid detail navigation, and do not issue queries for pagi
 The SDK-owned [assistant reference](assistant-reference.md) provides page entry, declared-query,
 presentation and draft-identity guidance plus a compiler-validated example. The client compiler
 combines it with generated public signatures for assistant page authoring.
+
+## Analytics image export
+
+`AnalyticsReport` supplies the active report's Save image action and report context. Each action
+freezes displayed values and chart output before PNG rendering. Pending work is cancelled on unmount;
+failed saves retry the captured report/image while the report remains unchanged. Changes to displayed
+values or controls invalidate that capture. Successful saves release it.
+The kernel renderer keys this scope by section, reporting selection, and timezone.
+
+The semantic `device({ action: "export-file", source, fileName })` capability passes a nonempty Blob
+of at most 20 MiB to the active host. The host owns browser downloads and native temporary-file
+sharing; plugin code receives no filesystem, authenticated URL, or native platform authority.

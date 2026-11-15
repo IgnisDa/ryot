@@ -8,6 +8,7 @@ import {
 	formatMetric,
 	LoadMoreButton,
 	type MetricUnit,
+	ReportText,
 	SegmentedControl,
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
@@ -115,6 +116,7 @@ const rankingColumns = ({
 	countColumn("workouts", "Distinct workouts", workoutUnit, (row) => row.workouts),
 	{
 		id: "actions",
+		report: false,
 		headerClassName,
 		cellClassName: "px-3 py-2.5 text-right",
 		header: <span className="sr-only">Actions</span>,
@@ -201,7 +203,9 @@ function RankingKindResults(props: {
 				<h2 className="text-heading font-semibold text-text">{heading}</h2>
 				<div className="flex items-center gap-3">
 					{countCaption === null ? null : (
-						<span className="text-label text-text-muted tabular-nums">{countCaption} loaded</span>
+						<ReportText>
+							<span className="text-label text-text-muted tabular-nums">{countCaption} loaded</span>
+						</ReportText>
 					)}
 					<Button
 						size="sm"
@@ -215,6 +219,7 @@ function RankingKindResults(props: {
 			</div>
 			{result.pages.length === 0 && result.isError ? (
 				<StatusMessage
+					blocked
 					tone="error"
 					action={{ label: "Try again", onClick: result.retry, disabled: result.isFetching }}
 				>
@@ -222,7 +227,9 @@ function RankingKindResults(props: {
 				</StatusMessage>
 			) : null}
 			{result.pages.length === 0 && !result.isError ? (
-				<StatusMessage tone="pending">Loading rankings…</StatusMessage>
+				<StatusMessage blocked tone="pending">
+					Loading rankings…
+				</StatusMessage>
 			) : null}
 			{result.pages.length > 0 ? (
 				<>
@@ -244,12 +251,16 @@ function RankingKindResults(props: {
 							<section aria-label={previewLabel} className="flex flex-col gap-2">
 								<div className="flex items-baseline justify-between gap-3">
 									<h3 className="text-body font-semibold text-text">{previewLabel}</h3>
-									<span className="text-label text-text-muted">First 10 loaded rows</span>
+									<ReportText>
+										<span className="text-label text-text-muted">First 10 loaded rows</span>
+									</ReportText>
 								</div>
 								{preview.length === 0 ? (
-									<p className="text-label text-text-muted">
-										No known {measureLabel} values in the preview.
-									</p>
+									<ReportText>
+										<p className="text-label text-text-muted">
+											No known {measureLabel} values in the preview.
+										</p>
+									</ReportText>
 								) : (
 									<RankedBarList
 										rows={preview}

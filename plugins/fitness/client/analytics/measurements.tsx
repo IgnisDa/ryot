@@ -15,9 +15,11 @@ import {
 	measureUnit,
 	Notice,
 	QueryStatus,
+	ReportText,
 	Skeleton,
 } from "@ryot-app/plugin-ui-sdk";
 import { formatReportingDateTime, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
+import { DataTable } from "@ryot-app/plugin-ui-sdk/table";
 import { type RefObject, useMemo, useRef, useState } from "react";
 
 import {
@@ -56,9 +58,16 @@ export function AnalyticsMeasurements(props: {
 					<span className="min-w-0 truncate">{metric?.name ?? "Choose a metric"}</span>
 				</Button>
 				{metric === null ? (
-					<p className="text-sm text-text-muted">Choose a metric to view its trend and readings.</p>
+					<ReportText>
+						<p className="text-sm text-text-muted">
+							Choose a metric to view its trend and readings.
+						</p>
+					</ReportText>
 				) : (
-					<SelectedMeasurement scope={scope} metric={metric} compact={compact} />
+					<>
+						<ReportText>{metric.name}</ReportText>
+						<SelectedMeasurement scope={scope} metric={metric} compact={compact} />
+					</>
 				)}
 			</section>
 			{pickerOpen ? (
@@ -128,10 +137,12 @@ function MeasurementTrendPanel(props: {
 				onChange={(event) => props.onSmoothChange(event.currentTarget.checked)}
 			/>
 			{props.smooth ? (
-				<p className="text-xs text-text-muted">
-					Smoothing uses rolling averages of the grouped bucket averages. It uses 3 or 7 points,
-					does not cross missing buckets or unit changes, and leaves exact readings unchanged.
-				</p>
+				<ReportText>
+					<p className="text-xs text-text-muted">
+						Smoothing uses rolling averages of the grouped bucket averages. It uses 3 or 7 points,
+						does not cross missing buckets or unit changes, and leaves exact readings unchanged.
+					</p>
+				</ReportText>
 			) : null}
 			<QueryStatus query={trend} onRetry={trend.refetch} label="measurement trend">
 				{(data) => (
@@ -209,62 +220,58 @@ function ReadingsTable(props: {
 		<section aria-label="Loaded readings" className="flex min-w-0 flex-col gap-3">
 			<div className="flex flex-wrap items-baseline justify-between gap-2">
 				<h2 className="text-heading font-semibold text-text">Loaded readings</h2>
-				<p className="text-sm text-text-muted tabular-nums">{readings.length} loaded</p>
+				<ReportText>
+					<p className="text-sm text-text-muted tabular-nums">{readings.length} loaded</p>
+				</ReportText>
 			</div>
 			<QueryStatus query={query} label="readings" onRetry={query.retry} />
 			{firstPage !== undefined ? (
 				<div className="overflow-x-auto rounded-md border border-border">
-					<table className="w-full min-w-120 border-collapse text-left text-sm">
-						<caption className="sr-only">
-							Loaded measurement readings in {firstPage.reporting.resolved.timeZone}
-						</caption>
-						<thead>
-							<tr>
-								<th scope="col" className="px-3 py-2 font-medium text-text-muted">
-									Date and time
-								</th>
-								<th scope="col" className="px-3 py-2 text-right font-medium text-text-muted">
-									Exact value
-								</th>
-								<th scope="col" className="px-3 py-2 font-medium text-text-muted">
-									Entry ID
-								</th>
-								<th scope="col" className="px-3 py-2 font-medium text-text-muted">
-									Comment
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{readings.map((reading) => (
-								<tr key={reading.id} className="border-t border-border">
-									<th scope="row" className="px-3 py-2 font-normal text-text">
-										{formatReportingDateTime(
-											reading.occurredAt,
-											firstPage.reporting.resolved.timeZone,
-										)}
-									</th>
-									<td className="px-3 py-2 text-right tabular-nums">
-										{[String(reading.value), reading.unit].filter(Boolean).join(" ")}
-									</td>
-									<td className="px-3 py-2 break-all">
-										{reading.entryId === null ? "—" : <code>{reading.entryId}</code>}
-									</td>
-									<td className="px-3 py-2 break-words">
-										{reading.comment === null || reading.comment.trim() === ""
-											? "—"
-											: reading.comment}
-									</td>
-								</tr>
-							))}
-							{readings.length === 0 ? (
-								<tr>
-									<td colSpan={4} className="px-3 py-4 text-center text-text-muted">
-										No readings in this period.
-									</td>
-								</tr>
-							) : null}
-						</tbody>
-					</table>
+					<DataTable
+						data={readings}
+						getRowId={(reading) => reading.id}
+						rowClassName="border-t border-border"
+						cellClassName="px-3 py-2 break-words tabular-nums"
+						headerCellClassName="px-3 py-2 font-medium text-text-muted"
+						className="w-full min-w-120 border-collapse text-left text-sm"
+						aria-label={`Loaded measurement readings in ${firstPage.reporting.resolved.timeZone}`}
+						bodyEndRows={
+							readings.length === 0
+								? [
+										{
+											id: "empty",
+											content: "No readings in this period.",
+											cellClassName: "px-3 py-4 text-center text-text-muted",
+										},
+									]
+								: []
+						}
+						columns={[
+							{
+								id: "date",
+								rowHeader: true,
+								header: "Date and time",
+								cellClassName: "px-3 py-2 font-normal text-text",
+								cell: (reading) =>
+									formatReportingDateTime(
+										reading.occurredAt,
+										firstPage.reporting.resolved.timeZone,
+									),
+							},
+							{
+								id: "value",
+								header: "Exact value",
+								cell: (reading) => [String(reading.value), reading.unit].filter(Boolean).join(" "),
+							},
+							{ id: "entry", header: "Entry ID", cell: (reading) => reading.entryId ?? "—" },
+							{
+								id: "comment",
+								header: "Comment",
+								cell: (reading) =>
+									reading.comment === null || reading.comment.trim() === "" ? "—" : reading.comment,
+							},
+						]}
+					/>
 				</div>
 			) : null}
 			{query.hasNextPage && !query.isError ? (

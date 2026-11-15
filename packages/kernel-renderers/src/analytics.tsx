@@ -1,4 +1,5 @@
 import {
+	AnalyticsReport,
 	AnalyticsSection,
 	analyticsSectionKey,
 	parseReportingSearch,
@@ -67,12 +68,18 @@ export default function AnalyticsPage() {
 			/>
 		) : (
 			<section className="min-w-0" aria-label={active.name}>
-				<AnalyticsSection
-					timeZone={timeZone}
-					registration={active}
-					selection={selection}
-					key={analyticsSectionKey(active)}
-				/>
+				<AnalyticsReport
+					title={`${active.name} Analytics`}
+					subtitle={`Reporting timezone: ${timeZone}`}
+					key={JSON.stringify([analyticsSectionKey(active), selection, timeZone])}
+				>
+					<AnalyticsSection
+						timeZone={timeZone}
+						registration={active}
+						selection={selection}
+						key={analyticsSectionKey(active)}
+					/>
+				</AnalyticsReport>
 			</section>
 		);
 	return (

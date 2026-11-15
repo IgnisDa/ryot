@@ -7,6 +7,7 @@ import {
 	formatMetric,
 	LoadMoreButton,
 	type MetricUnit,
+	ReportText,
 	Select,
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
@@ -49,9 +50,11 @@ export function MediaAnalyticsRankings(props: RankingsRecordsProps) {
 			<header className="flex min-w-0 flex-wrap items-baseline justify-between gap-3">
 				<div>
 					<h2 className="text-heading font-semibold text-text">Rankings</h2>
-					<p className="text-label text-text-muted">
-						Ranked by active observations in the selected period.
-					</p>
+					<ReportText>
+						<p className="text-label text-text-muted">
+							Ranked by active observations in the selected period.
+						</p>
+					</ReportText>
 				</div>
 				<Select
 					choices={choices}
@@ -112,6 +115,7 @@ const rankingColumns = ({ request, onDrill }: RankingTableProps): DataTableColum
 	countColumn("episodes", "Episodes finished", episodeUnit, (row) => row.episodeCompletions),
 	{
 		id: "actions",
+		report: false,
 		headerClassName: countHeaderClassName,
 		cellClassName: "px-3 py-2.5 text-right",
 		header: <span className="sr-only">Actions</span>,
@@ -218,7 +222,11 @@ function RankingResults(props: {
 				<h3 className="text-body font-semibold text-text">Ranked entities</h3>
 				<div className="flex items-center gap-3">
 					{loadedCaption === null ? null : (
-						<span className="text-label text-text-muted tabular-nums">{loadedCaption} loaded</span>
+						<ReportText>
+							<span className="text-label text-text-muted tabular-nums">
+								{loadedCaption} loaded
+							</span>
+						</ReportText>
 					)}
 					<Button
 						size="sm"
@@ -232,6 +240,7 @@ function RankingResults(props: {
 			</div>
 			{result.pages.length === 0 && result.isError ? (
 				<StatusMessage
+					blocked
 					tone="error"
 					action={{ label: "Try again", onClick: result.retry, disabled: result.isFetching }}
 				>
@@ -239,7 +248,9 @@ function RankingResults(props: {
 				</StatusMessage>
 			) : null}
 			{result.pages.length === 0 && !result.isError ? (
-				<StatusMessage tone="pending">Loading rankings…</StatusMessage>
+				<StatusMessage blocked tone="pending">
+					Loading rankings…
+				</StatusMessage>
 			) : null}
 			{result.pages.length > 0 ? (
 				<>
@@ -261,7 +272,9 @@ function RankingResults(props: {
 							<section className="flex flex-col gap-2" aria-label="Top active observations">
 								<div className="flex items-baseline justify-between gap-3">
 									<h4 className="text-body font-semibold text-text">Top active observations</h4>
-									<span className="text-label text-text-muted">First 10 loaded rows</span>
+									<ReportText>
+										<span className="text-label text-text-muted">First 10 loaded rows</span>
+									</ReportText>
 								</div>
 								<RankedBarList
 									rows={preview}

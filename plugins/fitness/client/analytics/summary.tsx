@@ -1,3 +1,4 @@
+import { periodCaption } from "@ryot-app/plugin-client-sdk/plugin";
 import { type Compared, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	countUnit,
@@ -5,6 +6,7 @@ import {
 	metricDelta,
 	MetricGrid,
 	QueryStatus,
+	ReportText,
 } from "@ryot-app/plugin-ui-sdk";
 
 import { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
@@ -114,6 +116,14 @@ function SummaryContent({
 
 	return (
 		<section aria-label="Fitness analytics summary" className="flex min-w-0 flex-col gap-3 font-ui">
+			<ReportText>
+				<p className="text-label text-text-muted">
+					{periodCaption(summary.reporting.resolved.current)}
+					{summary.reporting.resolved.previous === null
+						? ""
+						: `; compared with ${periodCaption(summary.reporting.resolved.previous)}`}
+				</p>
+			</ReportText>
 			<MetricGrid
 				variant="tiles"
 				compact={compact}

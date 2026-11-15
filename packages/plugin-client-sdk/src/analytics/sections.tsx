@@ -73,7 +73,7 @@ class SectionBoundary extends Component<
 }
 
 const SectionFailure = ({ retry }: { readonly retry: () => void }) => (
-	<StatusMessage tone="error" action={{ label: "Retry", onClick: retry }}>
+	<StatusMessage blocked tone="error" action={{ label: "Retry", onClick: retry }}>
 		Could not load this section.
 	</StatusMessage>
 );
@@ -116,13 +116,17 @@ const SectionContent = ({
 	}, [registration, schedule]);
 	if (registration.load === null) {
 		return (
-			<StatusMessage tone="pending">
+			<StatusMessage blocked tone="pending">
 				Section unavailable. Reload the page after the plugin is available.
 			</StatusMessage>
 		);
 	}
 	if (loaded.state === "loading") {
-		return <StatusMessage tone="pending">Loading section…</StatusMessage>;
+		return (
+			<StatusMessage blocked tone="pending">
+				Loading section…
+			</StatusMessage>
+		);
 	}
 	if (loaded.state === "failed") {
 		return <SectionFailure retry={retry} />;
