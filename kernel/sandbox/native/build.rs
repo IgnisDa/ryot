@@ -22,6 +22,7 @@ const TIER_ADDITIONS: [(&str, &[&str]); 3] = [
     (
         "data",
         &[
+            "languages",
             "compression",
             "fflate",
             "papaparse",

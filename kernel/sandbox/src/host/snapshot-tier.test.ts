@@ -14,6 +14,7 @@ it("routes imports to the smallest snapshot tier that covers them", () => {
 	expect(selectSnapshotTier([])).toEqual(Result.succeed("core"));
 	expect(selectSnapshotTier([core, "effect"])).toEqual(Result.succeed("core"));
 	expect(selectSnapshotTier([core, data])).toEqual(Result.succeed("data"));
+	expect(selectSnapshotTier(["@ryot-app/plugin-kit/languages"])).toEqual(Result.succeed("data"));
 	expect(selectSnapshotTier([compression])).toEqual(Result.succeed("data"));
 	expect(selectSnapshotTier([data, full, core])).toEqual(Result.succeed("full"));
 

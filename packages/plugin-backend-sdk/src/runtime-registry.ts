@@ -7,12 +7,21 @@ export const SANDBOX_SDK_IMPORT_WIRE_IMPORT = "@ryot-app/plugin-backend-sdk/impo
 
 export const PLUGIN_KIT_EFFECT_IMPORT = "@ryot-app/plugin-kit/effect";
 export const PLUGIN_KIT_RYOTQL_IMPORT = "@ryot-app/plugin-kit/ryotql";
+export const PLUGIN_KIT_LANGUAGES_IMPORT = "@ryot-app/plugin-kit/languages";
 export const PLUGIN_KIT_SCHEMA_IMPORT = "@ryot-app/plugin-kit/schema";
 export const PLUGIN_KIT_COMPRESSION_IMPORT = "@ryot-app/plugin-kit/compression";
 
 const sharedRuntimeExternals = ["effect", "dependency-runtime", "filesystem"] as const;
 
 export const SANDBOX_RUNTIME_REGISTRY = [
+	{
+		runner: false,
+		name: "languages",
+		packageName: "@ryot-app/languages",
+		aliases: [PLUGIN_KIT_LANGUAGES_IMPORT],
+		runtimeExternals: sharedRuntimeExternals,
+		sdkImport: "@ryot-app/plugin-backend-sdk/languages",
+	},
 	{
 		runner: true,
 		name: "effect",
@@ -113,6 +122,7 @@ export const SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS = [
 ] as const;
 
 export const PLUGIN_KIT_IMPORTS = [
+	PLUGIN_KIT_LANGUAGES_IMPORT,
 	PLUGIN_KIT_EFFECT_IMPORT,
 	PLUGIN_KIT_RYOTQL_IMPORT,
 	PLUGIN_KIT_SCHEMA_IMPORT,

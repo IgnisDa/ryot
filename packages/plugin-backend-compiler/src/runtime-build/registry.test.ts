@@ -27,6 +27,7 @@ it.layer(BunServices.layer)("resolveSandboxRuntimeRegistry", (test) => {
 					"fast-xml-parser",
 					"fflate",
 					"filesystem",
+					"languages",
 					"markdown",
 					"papaparse",
 					"ryotql",

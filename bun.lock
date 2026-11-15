@@ -419,6 +419,15 @@
         "vite": "8.3.5",
       },
     },
+    "packages/languages": {
+      "name": "@ryot-app/languages",
+      "dependencies": {
+        "iso-639-3": "3.0.1",
+      },
+      "devDependencies": {
+        "bun-types": "1.4.4",
+      },
+    },
     "packages/plugin-archive": {
       "name": "@ryot-app/plugin-archive",
       "dependencies": {
@@ -459,6 +468,7 @@
       "dependencies": {
         "@nodable/entities": "3.1.0",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/languages": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
@@ -560,6 +570,7 @@
       "name": "@ryot-app/plugin-kit",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/languages": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
@@ -1479,6 +1490,8 @@
     "@ryot-app/kernel-client": ["@ryot-app/kernel-client@workspace:kernel/client"],
 
     "@ryot-app/kernel-renderers": ["@ryot-app/kernel-renderers@workspace:packages/kernel-renderers"],
+
+    "@ryot-app/languages": ["@ryot-app/languages@workspace:packages/languages"],
 
     "@ryot-app/media-plugin": ["@ryot-app/media-plugin@workspace:plugins/media"],
 
@@ -2519,6 +2532,8 @@
     "isbot": ["isbot@5.2.2", "", {}, "sha512-iQcBXcd+Rv/pkubRyGh2utW2j1oPG5hZY6TUhVPpqK4G+o3IbxpJNx04hgksjc/N7GK5pEorUxDeg31cFgEk/w=="],
 
     "isexe": ["isexe@2.0.0", "", {}, "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw=="],
+
+    "iso-639-3": ["iso-639-3@3.0.1", "", {}, "sha512-SdljCYXOexv/JmbQ0tvigHN43yECoscVpe2y2hlEqy/CStXQlroPhZLj7zKLRiGqLJfw8k7B973UAMDoQczVgQ=="],
 
     "jackspeak": ["jackspeak@3.4.3", "", { "dependencies": { "@isaacs/cliui": "^8.0.2" }, "optionalDependencies": { "@pkgjs/parseargs": "^0.11.0" } }, "sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw=="],
 

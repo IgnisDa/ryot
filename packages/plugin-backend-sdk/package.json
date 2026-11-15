@@ -106,6 +106,10 @@
 		"./agent": {
 			"types": "./src/agent.ts",
 			"default": "./src/agent.ts"
+		},
+		"./languages": {
+			"types": "./src/languages.ts",
+			"default": "./src/languages.ts"
 		}
 	},
 	"scripts": {
@@ -133,7 +137,8 @@
 		"mdast-util-to-markdown": "2.2.2",
 		"micromark-extension-directive": "4.0.0",
 		"papaparse": "5.7.0",
-		"youtubei.js": "18.3.0"
+		"youtubei.js": "18.3.0",
+		"@ryot-app/languages": "workspace:*"
 	},
 	"devDependencies": {
 		"bun-types": "1.4.4",

@@ -200,3 +200,6 @@ guest runner from `src/guest` and `src/protocol` and the runtime modules into `n
 crate's build script builds the `core`, `data`, and `full` snapshots from it, checks the registered
 ops against `native/ops.inventory`, and writes the digest manifest. The isolate surface is `native/js/bootstrap.js`,
 plus `native/js/full.js` on the `full` tier.
+
+The language catalog is a shared `data` runtime module. Scripts use the neutral Plugin Kit
+import; the registry and host tier selection route it to snapshots containing that module.

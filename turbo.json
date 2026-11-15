@@ -34,7 +34,8 @@
 				"$TURBO_ROOT$/packages/plugin-kit/src/**/*.ts",
 				"$TURBO_ROOT$/packages/ryotql/src/**/*.ts",
 				"$TURBO_ROOT$/packages/ryotql-recipes/src/**/*.ts",
-				"$TURBO_ROOT$/packages/ts-utils/src/**/*.ts"
+				"$TURBO_ROOT$/packages/ts-utils/src/**/*.ts",
+				"$TURBO_ROOT$/packages/languages/src/**/*.ts"
 			]
 		},
 		"@ryot-app/kernel-backend#check": {
@@ -79,7 +80,8 @@
 				"$TURBO_ROOT$/packages/plugin-kit/src/**/*.ts",
 				"$TURBO_ROOT$/packages/ryotql/src/**/*.ts",
 				"$TURBO_ROOT$/packages/ryotql-recipes/src/**/*.ts",
-				"$TURBO_ROOT$/packages/ts-utils/src/**/*.ts"
+				"$TURBO_ROOT$/packages/ts-utils/src/**/*.ts",
+				"$TURBO_ROOT$/packages/languages/src/**/*.ts"
 			]
 		},
 		"@ryot-app/sandbox#check": {

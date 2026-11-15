@@ -21,6 +21,10 @@
 		"./schema": {
 			"types": "./src/schema.ts",
 			"default": "./src/schema.ts"
+		},
+		"./languages": {
+			"types": "./src/languages.ts",
+			"default": "./src/languages.ts"
 		}
 	},
 	"scripts": {
@@ -33,7 +37,8 @@
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.1.2",
-		"fflate": "0.8.3"
+		"fflate": "0.8.3",
+		"@ryot-app/languages": "workspace:*"
 	},
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",

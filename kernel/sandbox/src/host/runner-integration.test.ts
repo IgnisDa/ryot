@@ -705,6 +705,27 @@ export default defineProvider({ manifest, operation: "search", run: input => Eff
 	);
 
 	test.effect(
+		"loads the shared language catalog in the data snapshot",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compileTestScript(
+					defineNativeScript(
+						'() => Effect.succeed({ stored: canonicalLanguageCode("fre"), vendor: languageCodeForIso6393("fr"), name: languageName("fr") })',
+						{
+							imports:
+								'import { canonicalLanguageCode, languageCodeForIso6393, languageName } from "@ryot-app/plugin-kit/languages";',
+						},
+					),
+				);
+				expect((yield* runNative(compiled, {})).response).toMatchObject({
+					success: true,
+					value: { stored: "fr", vendor: "fra", name: "French" },
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"preserves Effect and RyotQL alias identity",
 		() =>
 			Effect.gen(function* () {

@@ -214,8 +214,8 @@ shim remains environment-neutral and does not export `Effect`.
 ## Shared Sources
 
 `shared/**` accepts `.ts`, not `.tsx`. Its only bare imports are
-`@ryot-app/plugin-kit/compression`, `@ryot-app/plugin-kit/effect`, `@ryot-app/plugin-kit/ryotql`, and
-`@ryot-app/plugin-kit/schema`; relative imports remain inside `shared/`.
+`@ryot-app/plugin-kit/compression`, `@ryot-app/plugin-kit/effect`, `@ryot-app/plugin-kit/ryotql`,
+`@ryot-app/plugin-kit/languages`, and `@ryot-app/plugin-kit/schema`; relative imports remain inside `shared/`.
 The plugin client and backend compilers enforce the same rule and reject client-only or backend-only SDK imports.
 
 The `ryotql` shim exports query builders, `IsoDateString`, event expressions, `withinPeriod`
@@ -834,3 +834,10 @@ Presentation exports use `defineEntityPresentation({ prepare, component, entity?
 `entity` pair renders the public source when it differs from the owner source. Preparation is pure;
 it receives references, selected data, and captured context. Share UI components between variants.
 Saved views declare table fields and selection controls; they do not embed card projections.
+
+## Languages
+
+`@ryot-app/plugin-kit/languages` exposes the shared language catalog's code normalization,
+validation pattern, English display names, and three-letter API conversion. It is an
+independent neutral import and shared sandbox runtime dependency so unrelated schema consumers do
+not bundle the catalog into each script. Provider-specific codes remain plugin-owned.

@@ -55,6 +55,7 @@ const CLIENT_DEPENDENCY_REGISTRY = [
 	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/effect" },
 	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/ryotql" },
 	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/schema" },
+	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/languages" },
 ] as const;
 
 export const CLIENT_DEPENDENCY_SPECIFIERS: readonly string[] = Object.freeze(

@@ -17,6 +17,7 @@ const tierByRuntimeName = {
 	cheerio: "data",
 	markdown: "data",
 	youtubei: "full",
+	languages: "data",
 	papaparse: "data",
 	filesystem: "core",
 	compression: "data",
