@@ -26,8 +26,11 @@ English is emitted directly from:
 | Validation and fallback errors | `kernel/backend/src/boot/server.ts` returns `String(defect.success.cause)` and `internalError(unknownToMessage(error))` to clients. |
 | Plugin rejections | `OperationRejectedError({ message })` in `packages/plugin-backend-sdk/src/operation.ts`, with English call sites in plugins. |
 | Notifications | Plugin automations, such as `plugins/media/backend/automations/notification.sandbox.ts`, build English sentences and call `host.sendNotification(string)`. Delivery adds an English subject (`` `${PROJECT_NAME} notification` ``). |
-| Manifests | `label`, `title` and `description` are `Schema.NonEmptyString`. |
-| UI | Inline JSX text in `kernel/client`, `packages/plugin-ui-sdk`, `packages/plugin-client-sdk` and plugin clients. `REPORTING_LOCALE = "en-US"` in `packages/plugin-ui-sdk/src/metric-format.ts`. The client renders `error.message` directly. |
+| Manifests | Display fields in `packages/contract/src/modules/plugins/manifest.ts` are plain strings: `label`, `title` and `description`, and the `name` of plugins, entity schemas, events, signals, saved views and calendar sources. Shipped defaults such as saved view names ("All People") are English. |
+| Model-facing errors | MCP and agent tools pass `error.message` to the model (`kernel/backend/src/modules/mcp/service.ts`, `kernel/backend/src/modules/agent-tools/`). |
+| UI | Inline JSX text in `kernel/client`, `packages/plugin-ui-sdk`, `packages/plugin-client-sdk`, `packages/kernel-renderers`, plugin clients and `packages/email-templates`. A trial run of `react/jsx-no-literals` reports about 2,000 occurrences. The client renders `error.message` directly. |
+| Formatting | 82 direct `toLocale*String` and `Intl` formatter calls in client code, plus `REPORTING_LOCALE = "en-US"` in `packages/plugin-ui-sdk/src/metric-format.ts`. Analytics fixes the week start to Monday (`weekStartsOn: 1`) in `packages/contract/src/modules/analytics/`. |
+| Native shell | iOS `Info.plist` display names, Android `strings.xml`, and literal SwiftUI text in `kernel/client/ios/App/RyotLiveActivities/`. |
 
 `SandboxBoundaryReason` (`packages/contract/src/modules/scripts/boundary-reason.ts`) already
 returns codes instead of sentences. This design applies that pattern everywhere.
@@ -110,6 +113,12 @@ and the formatter, not any call site.
   The build also reports missing keys per locale without failing. It emits the parsed catalogs as
   JSON and generates TypeScript key and parameter types from English. The shared validation lives
   beside the definition-set validation in `packages/definitions`.
+- **Limits:** plugin catalogs are untrusted input that the backend renders during delivery. The
+  shared validator caps file size, key count, message length, ICU nesting depth, and plural and
+  select branch counts. `ryot plugin build` applies the caps, and installation applies them again
+  instead of trusting the archive.
+- **No markup:** ICU tags are rejected. Parameters always render as plain text, and email delivery
+  escapes rendered text for HTML.
 - **Archives** carry the compiled catalogs. The backend stores them with the installation and
   serves them to the client.
 - **Translation workflow:** contributors edit locale JSON files through pull requests. CI runs the
@@ -119,7 +128,8 @@ and the formatter, not any call site.
 ## Errors
 
 - Contract error classes remove `message: string` and carry `reason: Message`. They exist only to
-  select HTTP status. Helpers such as `badRequest` accept only messages.
+  select HTTP status. One factory in `contract` defines them with that fixed field set, and helpers
+  such as `badRequest` accept only messages.
 - `decodeErrorsAsBadRequest` returns `validation.invalid` with structured `{ path, issue }` entries
   derived from Effect Schema issues. The router fallback returns `internal.unexpected`.
   Diagnostics go only to logs and spans.
@@ -129,6 +139,8 @@ and the formatter, not any call site.
 - Internal tagged errors that never cross a boundary stay as they are.
 - The client renders every error through one `formatError`. Background-submission state stores the
   message, not rendered text.
+- Model-facing boundaries (MCP tool results and agent tool failures) render messages in English
+  through one shared `packages/i18n` function over the same registry.
 
 ## Notifications and email
 
@@ -151,13 +163,30 @@ and the formatter, not any call site.
 - `contentLanguage`: any ISO 639 language for entity translation (today's `language`). Null
   defaults to the interface locale's language.
 
+A separate `weekStart` preference replaces the hardcoded Monday. Null derives it from the interface
+locale through `Intl.Locale#getWeekInfo`. It changes analytics bucketing on the backend, not only
+display.
+
 ## Client
 
 - `kernel/client` mounts `I18nProvider`, loads locale catalogs lazily per namespace, and sets
   `lang` and `dir` on the document.
 - The bridge lifecycle payload carries `locale`, `dir` and the plugin's catalogs, alongside
   `compact` and theme. `plugin-client-sdk` exposes `useMessages(catalog)`.
-- Manifest `label`, `title` and `description` become message references.
+- Every manifest display field uses one manifest-text schema that accepts only message
+  references.
+- A shipped default name, such as a plugin saved view's, stays a message reference until the user
+  renames it. The new name is then user-authored text.
+- `t()` returns a branded text type built with Effect's `Brand.nominal`. SDK component text props
+  accept only that type, so a plain string fails to compile.
+
+## Native shell
+
+Native text uses platform localization, edited through the same pull request workflow: Xcode
+String Catalogs for `Info.plist` and SwiftUI text (SwiftUI `Text("…")` literals are already
+localization keys), and `values-<locale>/strings.xml` on Android. Xcode and Android Lint's
+`MissingTranslation` report gaps. Live Activity titles and metric labels arrive over the bridge
+already rendered by the plugin iframe in the viewer's locale.
 
 ## Unresolvable messages
 
@@ -168,19 +197,28 @@ not keep stored English copies.
 
 ## Enforcement
 
-- **Types:** contract errors, `sendNotification` and manifest text accept only messages.
-- **Contract test:** walks `AppContract` error schemas and fails on any free-text field.
-- **Catalog build checks:** in `ryot plugin build` and `bun run check`.
-- **Lint:** bans literal JSX text, using oxlint's `react/jsx-no-literals` if available, otherwise a
-  small repository check.
-- **Pseudo-locale:** a generated pseudo-locale (via FormatJS) makes untranslated text visible in e2e
-  runs. Regular e2e assertions run in English.
-- **`AGENTS.md` rule, once implemented:** user-facing text crosses boundaries only as a message.
+| Check | Mechanism |
+| --- | --- |
+| Free text in contract errors, notifications, manifests and model-facing errors | **Types.** The error factory, `sendNotification(message: Message)` and the manifest-text schema accept only messages. Removing `message` from errors breaks every call site that reads it. |
+| Plain strings in SDK components | **Types.** Text props accept only the branded type returned by `t()`. |
+| Errors declared outside the factory | **Contract test** in `packages/contract`: walks `AppContract` error schemas and fails on any free-text field. |
+| Plugin catalogs | **`ryot plugin build`**, using the shared validator. Installation repeats the limit checks. |
+| Kernel catalogs | **`packages/kernel-messages` `check` script** running the same validator. oxlint checks single JS/TS files and cannot compare JSON catalogs. |
+| Literal JSX text | **oxlint `react/jsx-no-literals`** (built in): `noStrings: true`, `ignoreProps: true`, and `restrictedAttributes` for text-bearing attributes (`aria-label`, `title`, `placeholder`, `alt`, `label`, `description`, `hint`). `ignoreProps` is required, otherwise every string attribute, such as `className`, is reported. Scoped through `overrides` to `kernel/client`, `plugin-ui-sdk`, `plugin-client-sdk`, `kernel-renderers`, `plugins/*/client` and the email templates the backend delivers, excluding tests. |
+| Ad-hoc formatting | **oxlint `no-restricted-properties`** (built in): bans `toLocaleString`, `toLocaleDateString`, `toLocaleTimeString`, and `Intl.DateTimeFormat`, `NumberFormat`, `RelativeTimeFormat`, `ListFormat`, `PluralRules` and `DisplayNames`. An override disables it in `packages/i18n`. `Intl.Segmenter`, `Intl.supportedValuesOf` and `Intl.Locale` remain allowed. |
+| Text outside JSX passed to third-party components | **Pseudo-locale:** a generated pseudo-locale (via FormatJS) makes untranslated text visible in e2e runs. Regular e2e assertions run in English. |
+| Native text | Xcode and Android Lint. Not part of `bun run check`. |
+
+No custom oxlint rule is needed. If one becomes necessary, it belongs in `ci/oxlint/ryot-plugin.mjs`
+with tests in `ci/oxlint/ryot-plugin.test.mjs`.
+
+The **`AGENTS.md` rule, once implemented:** user-facing text crosses boundaries only as a message.
 
 ## Out of scope
 
 - Model-facing text, such as agent tool descriptions, MCP schemas and assistant prompts, stays
-  English. Assistant replies may follow the user's locale through a prompt hint.
+  English. Messages sent to the model render in English (see [Errors](#errors)). Assistant replies
+  may follow the user's locale through a prompt hint.
 - Logs, admin diagnostics and developer errors stay English.
 - User-authored content (names, notes, reminder messages) is never translated. Provider content
   stays with the existing content-localization module.
@@ -189,14 +227,16 @@ not keep stored English copies.
 ## Rollout
 
 1. Build `packages/i18n`, `packages/kernel-messages`, the catalog build step, and the preference
-   split.
-2. Convert errors to codes across contract, backend and client.
+   split with `weekStart`. Add both packages to the root `AGENTS.md` ownership table.
+2. Convert errors to codes across contract, backend and client, including the model-facing
+   renderer. Add the `AGENTS.md` rule.
 3. Add plugin catalogs: SDK, manifest message references, build validation, archives and the
    bridge.
 4. Convert notifications and email to messages.
-5. Move UI strings into catalogs across the kernel client, SDKs and plugin clients, and enable the
-   lint rule and pseudo-locale.
-6. Ship the first non-English locale.
+5. Move UI strings and formatting into `packages/i18n` across the kernel client, SDKs, renderers,
+   plugin clients and email templates. Enable both lint rules per area as it is converted, then
+   the pseudo-locale.
+6. Move native text into platform localization files and ship the first non-English locale.
 
 ## Sources
 
