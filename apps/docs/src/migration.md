@@ -101,6 +101,27 @@ understands.
 
 ### Start Ryot
 
+Stop the `v10` server before starting `v11`. Run only one Ryot server against the database.
+
+::: warning Prevent restarts during migration
+Ryot does not serve HTTP requests, including `/api/system/health`, until migration finishes.
+A failed health check during this time does not mean migration has failed. Watch the server
+logs for progress.
+
+- **Kubernetes:** temporarily remove the Ryot container's liveness probe and any startup probe
+  whose timeout is too short for the migration, or increase the startup probe's allowance to
+  cover the whole migration. Readiness probes can stay enabled; they keep traffic away without
+  restarting the container.
+- **Hosting platforms or auto-healing tools:** temporarily disable rules that restart or replace
+  Ryot after a failed health check, or increase their startup allowance and deployment timeout.
+- **Docker Compose:** a health check alone does not restart the container. Temporarily set the
+  Ryot service's `restart` policy to `"no"` so an actual migration error leaves it stopped for
+  inspection instead of repeatedly retrying.
+
+Once migration finishes and `/api/system/health` succeeds, restore your normal health checks,
+timeouts and restart policy, including `restart: unless-stopped` for Docker Compose.
+:::
+
 Start the server with the new image. The first start converts all your data, which can take a
 while on a large library. Let it finish before you stop or restart the container.
 
