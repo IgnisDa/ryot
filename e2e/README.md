@@ -7,12 +7,13 @@ API and browser integration tests run with Bun's native test runner and file iso
 Do not run the entire e2e suite together. For final acceptance, run files separately so failures remain isolated:
 
 ```bash
-bun turbo --filter=@ryot-app/e2e test --only -- '<file1>' '<file2>'
+bun turbo --filter=@ryot-app/e2e test -- '<file1>' '<file2>'
 ```
 
-`--only` drops dependency tasks from the cache key, so the root `turbo.json` declares the server,
-kernel, package and plugin sources as `@ryot-app/e2e#test` inputs; a cached result is reused only
-while those sources are unchanged.
+The test cache key includes workspace dependencies through Turbo transit tasks, which track source
+changes without running dependency scripts. Do not use `--only`: it removes those dependencies
+from the cache key. The harness builds required artifacts without forwarding test filenames,
+so builds reuse their normal cache keys.
 
 The large media gates and live-provider smoke are discovered but opt-in. Never combine them with
 standard files. Turbo does not pass their opt-in variables to tasks, so run them through the package
