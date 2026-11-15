@@ -1,5 +1,7 @@
 import { Array, DateTime, Option, Order, Record, Result, Schema } from "effect";
 
+import { type Entitlement, type Entitlements, isEntitled } from "../../schema/entitlement";
+import type { AppChoice } from "../../schema/property-schema";
 import type { TimeZone } from "../../schema/time-zone";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
 import {
@@ -268,7 +270,23 @@ export const reportingRangePresets = [
 	{ offset: -1, unit: "year", kind: "calendar" },
 ] as const satisfies ReadonlyArray<ReportingRange>;
 
-export const reportingRangeValue = (range: ReportingRange) => {
+export const reportingRangeChoices = [
+	{ value: "rolling-7" },
+	{ value: "rolling-30" },
+	{ entitlement: "pro", value: "rolling-90" },
+	{ entitlement: "pro", value: "rolling-365" },
+	{ value: "this-week" },
+	{ value: "previous-week" },
+	{ entitlement: "pro", value: "this-month" },
+	{ entitlement: "pro", value: "previous-month" },
+	{ value: "this-year", entitlement: "pro" },
+	{ entitlement: "pro", value: "previous-year" },
+	{ value: "all-time", entitlement: "pro" },
+	{ value: "custom", entitlement: "pro" },
+] as const satisfies ReadonlyArray<AppChoice>;
+type ReportingRangeValue = (typeof reportingRangeChoices)[number]["value"];
+
+export const reportingRangeValue = (range: ReportingRange): ReportingRangeValue => {
 	if (range.kind === "rolling") {
 		return `rolling-${range.days}`;
 	}
@@ -277,6 +295,21 @@ export const reportingRangeValue = (range: ReportingRange) => {
 	}
 	return range.kind;
 };
+
+export const reportingRangeEntitlement = (value: string): undefined | Entitlement => {
+	const choice: AppChoice | undefined = reportingRangeChoices.find(
+		(candidate) => candidate.value === value,
+	);
+	return choice?.entitlement;
+};
+
+export const entitledReportingSelection = (
+	selection: ReportingSelection,
+	entitlements: Entitlements,
+): ReportingSelection =>
+	isEntitled(entitlements, reportingRangeEntitlement(reportingRangeValue(selection.range)))
+		? selection
+		: { ...selection, range: defaultReportingSelection.range };
 
 export const analyticsSectionKey = (section: {
 	readonly slug: string;

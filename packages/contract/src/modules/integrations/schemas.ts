@@ -9,7 +9,6 @@ const IntegrationLot = Schema.Literals([...integrationLots]);
 
 export const IntegrationRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
-	Schema.Struct({ provider: Schema.String, code: Schema.Literal("pro-key-required") }),
 	Schema.Struct({ provider: Schema.String, code: Schema.Literal("provider-not-found") }),
 	Schema.Struct({ operation: Schema.String, code: Schema.Literal("queue-unavailable") }),
 	Schema.Struct({ provider: Schema.String, code: Schema.Literal("invalid-provider-settings") }),

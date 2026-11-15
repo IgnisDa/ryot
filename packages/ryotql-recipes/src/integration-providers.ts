@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	ascending,
@@ -40,8 +41,8 @@ const providerSelection = {
 	description: selectedField(column(provider, "description"), Schema.String),
 	settingsSchema: selectedField(column(provider, "settingsSchema"), AppSchema),
 	pluginId: selectedField(column(provider, "pluginId"), Schema.NullOr(PluginId)),
-	requiresProKey: selectedField(column(provider, "requiresProKey"), Schema.Boolean),
 	lot: selectedField(column(provider, "lot"), Schema.Literals([...integrationLots])),
+	entitlement: selectedField(column(provider, "entitlement"), Schema.NullOr(Entitlement)),
 	packageId: selectedField(column(provider, "packageId"), Schema.NullOr(PluginPackageId)),
 	scriptSlug: selectedField(column(provider, "scriptSlug"), Schema.NullOr(Schema.String)),
 	installationId: selectedField(column(provider, "installationId"), Schema.NullOr(Schema.String)),

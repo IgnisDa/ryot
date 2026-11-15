@@ -3,6 +3,7 @@ import { HttpApiMiddleware, HttpApiSchema, HttpApiSecurity } from "effect/http-a
 
 import { type AuthorizationContext as AuthorizationContextValue, WriteAccess } from "./oauth";
 import type { UserId } from "./schema/brands";
+import { EntitlementRequired } from "./schema/entitlement";
 import type { UserPreferences } from "./schema/user-preferences";
 
 const AuthUnauthorizedReason = Schema.Union([
@@ -90,6 +91,7 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 	error: [
 		AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 		DemoOperationProtected.pipe(HttpApiSchema.status(403)),
+		EntitlementRequired.pipe(HttpApiSchema.status(402)),
 		WriteAccessDenied.pipe(HttpApiSchema.status(403)),
 		AuthRateLimited.pipe(HttpApiSchema.status(429)),
 		UserInitializing.pipe(HttpApiSchema.status(503)),

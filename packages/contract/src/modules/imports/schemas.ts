@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/brands";
+import { EntitlementRequiredReason } from "../../schema/entitlement";
 import { JsonValue } from "../../schema/json";
 import { DeclarationReference } from "../plugins/references";
 import { PluginInstallationUnavailableReason } from "../scripts/boundary-reason";
@@ -78,7 +79,7 @@ export const ImportRunFailureReason = Schema.Union([
 	PluginInstallationUnavailableReason,
 	Schema.Struct({ code: Schema.Literal("captured-input-unavailable") }),
 	Schema.Struct({ code: Schema.Literal("captured-input-corrupt") }),
-	Schema.Struct({ code: Schema.Literal("pro-key-required") }),
+	EntitlementRequiredReason,
 	Schema.Struct({ code: Schema.Literal("source-fetch-failed") }),
 	Schema.Struct({ code: Schema.Literal("event-policy-failed") }),
 	Schema.Struct({ code: Schema.Literal("integration-disabled") }),

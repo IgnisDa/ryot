@@ -199,7 +199,7 @@ describe("signal schedule materialization", () => {
 		expect(schedule).toMatchObject({
 			delayDays: null,
 			freshness: null,
-			requiresProKey: false,
+			entitlement: null,
 			subject: { schemas: [{ owner: { kind: "plugin", pluginId: "plugin-1" } }] },
 			query: {
 				where: { right: { type: "pluginId", reference: { kind: "local", pluginId: "plugin-1" } } },

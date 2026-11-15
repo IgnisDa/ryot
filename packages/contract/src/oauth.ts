@@ -243,3 +243,8 @@ export const AuthorizationContext = strictStruct({
 	credential: Schema.Union([OAuthCredential, ApiKeyCredential]),
 });
 export type AuthorizationContext = typeof AuthorizationContext.Type;
+
+const isFirstPartyClientId = Schema.is(OAuthClientId);
+
+export const isFirstPartyCredential = (credential: AuthorizationContext["credential"]) =>
+	credential.kind === "oauth" && isFirstPartyClientId(credential.clientId);

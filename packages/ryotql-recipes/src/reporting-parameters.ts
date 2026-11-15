@@ -4,9 +4,14 @@ import {
 } from "@ryot-app/contract/modules/analytics/calendar";
 import {
 	REPORTING_BUCKET_LIMIT,
+	type ReportingRange,
+	reportingRangeChoices,
+	reportingRangePresets,
+	reportingRangeValue,
 	type ReportingSelection,
 } from "@ryot-app/contract/modules/analytics/reporting";
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	and,
@@ -27,7 +32,34 @@ const offset = (label: string, defaultValue: number) => ({
 	label,
 	defaultValue,
 	type: "integer" as const,
-	description: "Calendar offset from the executing user's current reporting date or period",
+	description: "Calendar offset implied by the selected range; supplied values are ignored",
+});
+const rangeImplications = (range: ReportingRange): Readonly<Record<string, JsonValue>> => {
+	if (range.kind === "rolling") {
+		return {
+			endOffsetDays: 1,
+			rangeKind: "rolling",
+			startOffsetDays: 1 - range.days,
+			previousEndOffsetDays: 1 - range.days,
+			previousStartOffsetDays: 1 - range.days * 2,
+		};
+	}
+	if (range.kind === "calendar") {
+		return {
+			rangeKind: range.unit,
+			calendarStartOffset: range.offset,
+			calendarEndOffset: range.offset + 1,
+			previousCalendarEndOffset: range.offset,
+			previousCalendarStartOffset: range.offset - 1,
+		};
+	}
+	return { rangeKind: range.kind };
+};
+const rangeChoices = reportingRangeChoices.map((choice) => {
+	const preset = reportingRangePresets.find((range) => reportingRangeValue(range) === choice.value);
+	return Object.assign({}, choice, {
+		implies: preset === undefined ? { rangeKind: choice.value } : rangeImplications(preset),
+	});
 });
 const customDate = (label: string) => ({
 	label,
@@ -54,6 +86,13 @@ export const reportingParameterFields = {
 		label: "Daily consistency",
 		description:
 			"Read at most the latest reporting bucket limit of civil days within the selected period, without comparison",
+	},
+	range: {
+		type: "enum",
+		label: "Period",
+		defaultValue: "rolling-30",
+		choices: { kind: "static", values: rangeChoices },
+		description: "Reporting period, resolved with the server clock and account time zone",
 	},
 	comparison: {
 		type: "enum",
@@ -85,11 +124,11 @@ export const reportingParameterFields = {
 			],
 		},
 	},
-	range: {
+	rangeKind: {
 		type: "enum",
-		label: "Period",
+		label: "Period kind",
 		defaultValue: "rolling",
-		description: "Reporting period, resolved with the server clock and account time zone",
+		description: "Reporting period kind implied by the selected range; supplied values are ignored",
 		choices: {
 			kind: "static",
 			values: [
@@ -180,11 +219,11 @@ const allTimeConsistencyPeriod = (): Period => ({
 	startDate: dateAdd(today, 1 - REPORTING_BUCKET_LIMIT, "day"),
 });
 const isUnbounded = () =>
-	and(not(consistency()), eq(reportingParameters.value("range"), literal("all-time")));
+	and(not(consistency()), eq(reportingParameters.value("rangeKind"), literal("all-time")));
 const selectedPeriod = (selectedSide?: "current" | "previous"): Period => {
 	const periods = periodsFor(selectedSide);
 	const allTime = allTimeConsistencyPeriod();
-	const startDate = reportingParameters.choice("range", {
+	const startDate = reportingParameters.choice("rangeKind", {
 		week: periods.week.startDate,
 		year: periods.year.startDate,
 		"all-time": allTime.startDate,
@@ -192,7 +231,7 @@ const selectedPeriod = (selectedSide?: "current" | "previous"): Period => {
 		custom: periods.custom.startDate,
 		rolling: periods.rolling.startDate,
 	});
-	const endDate = reportingParameters.choice("range", {
+	const endDate = reportingParameters.choice("rangeKind", {
 		week: periods.week.endDate,
 		year: periods.year.endDate,
 		"all-time": allTime.endDate,
@@ -217,7 +256,7 @@ const consistencyPeriod = (period: Period): Period => {
 const comparisonEnabled = () =>
 	and(
 		eq(reportingParameters.value("comparison"), literal("previous-period")),
-		not(eq(reportingParameters.value("range"), literal("all-time"))),
+		not(eq(reportingParameters.value("rangeKind"), literal("all-time"))),
 	);
 const sideEnabled = (selectedSide?: "current" | "previous") => {
 	if (selectedSide === "current") {
@@ -268,34 +307,13 @@ export const reportingArguments = (
 	comparisonSide: "current" | "previous" = "current",
 ) => {
 	const range = selection.range;
-	let days = 0;
-	if (range.kind === "rolling") {
-		days = range.days;
-	}
-	if (range.kind === "custom") {
-		days = calendarDaysBetween(range.startDate, range.endDate) + 1;
-	}
+	const days =
+		range.kind === "custom" ? calendarDaysBetween(range.startDate, range.endDate) + 1 : 0;
 	return {
 		comparisonSide,
 		grouping: selection.grouping,
 		comparison: selection.comparison,
-		range: range.kind === "calendar" ? range.unit : range.kind,
-		...(range.kind === "rolling"
-			? {
-					endOffsetDays: 1,
-					startOffsetDays: 1 - days,
-					previousEndOffsetDays: 1 - days,
-					previousStartOffsetDays: 1 - days * 2,
-				}
-			: {}),
-		...(range.kind === "calendar"
-			? {
-					calendarStartOffset: range.offset,
-					calendarEndOffset: range.offset + 1,
-					previousCalendarEndOffset: range.offset,
-					previousCalendarStartOffset: range.offset - 1,
-				}
-			: {}),
+		range: reportingRangeValue(range),
 		...(range.kind === "custom"
 			? {
 					customEndDate: range.endDate,
@@ -377,7 +395,7 @@ export const reportingGroupingExpression = (
 		month: yes,
 		auto: atMost(3653),
 	});
-	const bounded = not(eq(reportingParameters.value("range"), literal("all-time")));
+	const bounded = not(eq(reportingParameters.value("rangeKind"), literal("all-time")));
 	return conditional(
 		or(consistency(), and(bounded, allowedDay, fits("day"))),
 		group("day"),

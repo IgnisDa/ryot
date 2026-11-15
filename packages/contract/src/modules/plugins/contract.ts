@@ -12,6 +12,7 @@ import {
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { SubmissionExpired } from "../../errors";
 import { PluginPackageSegment, UserId } from "../../schema/brands";
+import { EntitlementRequired } from "../../schema/entitlement";
 import { JsonValue } from "../../schema/json";
 import {
 	InspectPluginBody,
@@ -202,6 +203,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				error: [
 					AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 					DemoOperationProtected.pipe(HttpApiSchema.status(403)),
+					EntitlementRequired.pipe(HttpApiSchema.status(402)),
 					WriteAccessDenied.pipe(HttpApiSchema.status(403)),
 					PluginConflictError.pipe(HttpApiSchema.status(409)),
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),

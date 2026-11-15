@@ -45,6 +45,51 @@ describe("query parameter declarations and arguments", () => {
 			search: "sample",
 		});
 	});
+	it("binds the arguments a selected choice implies over any supplied values", () => {
+		const schema: AppSchema = {
+			fields: {
+				days: { label: "Days", type: "integer", defaultValue: 0, description: "Window days" },
+				window: {
+					type: "enum",
+					label: "Window",
+					defaultValue: "week",
+					description: "Reporting window",
+					choices: {
+						kind: "static",
+						values: [
+							{ value: "week", implies: { days: 7 } },
+							{ value: "month", implies: { days: 30 } },
+						],
+					},
+				},
+			},
+		};
+		expect(Result.getOrThrow(bindArguments(schema, {}))).toEqual({ days: 7, window: "week" });
+		expect(Result.getOrThrow(bindArguments(schema, { days: 365, window: "month" }))).toEqual({
+			days: 30,
+			window: "month",
+		});
+		expect(Result.getOrThrow(bindPartialArguments(schema, { window: "month" }))).toEqual({
+			window: "month",
+		});
+		for (const implies of [{ missing: 1 }, { window: "month" }, { days: "seven" }]) {
+			expect(
+				Result.isFailure(
+					Schema.decodeResult(ParameterSchema)({
+						fields: {
+							...schema.fields,
+							window: {
+								type: "enum",
+								label: "Window",
+								description: "Reporting window",
+								choices: { kind: "static", values: [{ implies, value: "week" }] },
+							},
+						},
+					}),
+				),
+			).toBe(true);
+		}
+	});
 	it("rejects unsupported parameter types and invalid definitions at any array depth", () => {
 		const invalid = [
 			{ ...text, secret: true },

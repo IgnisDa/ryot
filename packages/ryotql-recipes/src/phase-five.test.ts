@@ -93,7 +93,7 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 							slug: "push",
 							name: "Push",
 							hasScript: true,
-							requiresProKey: false,
+							entitlement: null,
 							pluginId: "plugin-owner",
 							packageId: "ryot/fixture",
 							supportsOwnershipSync: false,
@@ -107,7 +107,7 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 							slug: "yank",
 							name: "Yank",
 							hasScript: false,
-							requiresProKey: true,
+							entitlement: "pro",
 							pluginId: "plugin-owner",
 							packageId: "ryot/fixture",
 							supportsOwnershipSync: true,
@@ -119,7 +119,7 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 							id: "c",
 							lot: "yank",
 							hasScript: true,
-							requiresProKey: false,
+							entitlement: null,
 							pluginId: "plugin-owner",
 							slug: "unsupported-yank",
 							name: "Unsupported yank",
@@ -138,7 +138,7 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 	expect(Object.keys(decoded.items[0]?.commonSchema.fields ?? {})).not.toContain("syncOwnership");
 	expect(Object.keys(decoded.items[1]?.commonSchema.fields ?? {})).toContain("syncOwnership");
 	expect(Object.keys(decoded.items[2]?.commonSchema.fields ?? {})).not.toContain("syncOwnership");
-	expect(decoded.items[1]).toMatchObject({ hasScript: false, requiresProKey: true });
+	expect(decoded.items[1]).toMatchObject({ hasScript: false, entitlement: "pro" });
 });
 
 it("keeps admin user count independent of the cursor page and normalizes dates", () => {

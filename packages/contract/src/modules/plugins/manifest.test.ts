@@ -2427,9 +2427,9 @@ describe("signal schedules", () => {
 			Effect.gen(function* () {
 				expect(
 					(yield* Schema.decodeUnknownEffect(PluginManifest)(
-						withSchedules([{ ...schedule, delayDays: 7, requiresProKey: true }]),
+						withSchedules([{ ...schedule, delayDays: 7, entitlement: "pro" }]),
 					)).signalSchedules,
-				).toEqual<unknown>([{ ...schedule, delayDays: 7, requiresProKey: true }]);
+				).toEqual<unknown>([{ ...schedule, delayDays: 7, entitlement: "pro" }]);
 			}),
 		testTimeout,
 	);

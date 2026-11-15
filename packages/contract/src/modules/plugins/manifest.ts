@@ -2,6 +2,7 @@ import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Result, Schema, SchemaGetter } from "effect";
 
 import { PluginPackageId, SignalSchemaSlug } from "../../schema/brands";
+import { Entitlement } from "../../schema/entitlement";
 import { JsonValue } from "../../schema/json";
 import { type AppPropertyDefinition, AppSchema } from "../../schema/property-schema";
 import { HttpUrl, strictStruct } from "../../schema/utils";
@@ -485,7 +486,7 @@ export const PluginSignalSchedule = strictStruct({
 	subject: AuthoredSavedViewSubject,
 	query: Schema.toType(RowSourceQuery),
 	delayDays: Schema.optional(positiveInt),
-	requiresProKey: Schema.optional(Schema.Boolean),
+	entitlement: Schema.optional(Entitlement),
 	properties: Schema.Record(Schema.String, OutputFieldKey),
 	freshness: Schema.optional(
 		strictStruct({ maxAgeHours: positiveInt, confirmedAt: OutputFieldKey }),
@@ -770,6 +771,7 @@ const PluginOperationFields = {
 	input: PluginOperationJsonSchema,
 	output: PluginOperationJsonSchema,
 	description: sandboxManifestString,
+	entitlement: Schema.optional(Entitlement),
 };
 
 export const PluginOperation = Schema.Union([
@@ -795,7 +797,7 @@ const PluginIntegrationProviderFields = {
 	name: sandboxManifestString,
 	description: sandboxManifestString,
 	settingsSchema: IntegrationSettingsSchema,
-	requiresProKey: Schema.optional(Schema.Boolean),
+	entitlement: Schema.optional(Entitlement),
 	supportsOwnershipSync: Schema.optional(Schema.Boolean),
 };
 
@@ -1076,6 +1078,7 @@ const PluginManifestAuthoredFields = {
 				title: Schema.NonEmptyString,
 				document: AuthoredRyotQLDocument,
 				description: Schema.NonEmptyString,
+				entitlement: Schema.optional(Entitlement),
 			}),
 		),
 	),

@@ -1,6 +1,7 @@
 import { Option, Schema } from "effect";
 
 import { PluginId } from "../../schema/brands";
+import { EntitlementRequiredReason } from "../../schema/entitlement";
 
 export const PluginInstallationUnavailableReason = Schema.Struct({
 	pluginId: PluginId,
@@ -12,6 +13,7 @@ export type PluginInstallationUnavailableReason = typeof PluginInstallationUnava
 
 export const SandboxBoundaryReason = Schema.Union([
 	PluginInstallationUnavailableReason,
+	EntitlementRequiredReason,
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("operation-rejected") }),
 	Schema.Struct({ code: Schema.Literal("page-write-access-required") }),

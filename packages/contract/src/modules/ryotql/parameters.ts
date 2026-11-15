@@ -2,6 +2,7 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Result, Schema } from "effect";
 
 import { validateAppSchemaDefinition } from "../../schema/app-schema-definition";
+import type { Entitlement } from "../../schema/entitlement";
 import {
 	type AppPropertyDefinition,
 	AppSchema,
@@ -39,12 +40,45 @@ const propertyIssues = (
 	return issues;
 };
 
+const staticChoices = (property: AppPropertyDefinition) =>
+	(property.type === "enum" || property.type === "enum-array") && property.choices.kind === "static"
+		? property.choices.values
+		: [];
+
+const impliedArgumentIssues = (schema: AppSchema): readonly PropertyValidationIssue[] =>
+	Object.entries(schema.fields).flatMap(([key, property]) =>
+		staticChoices(property).flatMap((choice, index) =>
+			Object.entries(choice.implies ?? {}).flatMap(([target, value]) => {
+				const path = ["fields", key, "choices", "values", String(index), "implies", target];
+				const field = schema.fields[target];
+				if (property.type !== "enum" || field === undefined || target === key) {
+					return [{ path, message: "Enum choices may imply only other parameters" }];
+				}
+				const parsed = parseAppSchemaPropertiesSafe({
+					properties: { [target]: value },
+					propertiesSchema: { fields: { [target]: field } },
+				});
+				return parsed.success ? [] : parsed.issues;
+			}),
+		),
+	);
+
+const impliedArguments = (schema: AppSchema, bound: Readonly<Record<string, unknown>>) =>
+	Object.fromEntries(
+		Object.entries(schema.fields).flatMap(([key, property]) =>
+			Object.entries(
+				staticChoices(property).find((choice) => choice.value === bound[key])?.implies ?? {},
+			),
+		),
+	);
+
 export const validateParameterSchema = (schema: AppSchema): readonly PropertyValidationIssue[] => {
 	const issues = [
 		...validateAppSchemaDefinition(schema, { parameterReferences: true }),
 		...Object.entries(schema.fields).flatMap(([key, property]) =>
 			propertyIssues(property, ["fields", key]),
 		),
+		...impliedArgumentIssues(schema),
 	];
 	if (schema.unknownKeys !== undefined && schema.unknownKeys !== "strict") {
 		issues.push({ path: ["unknownKeys"], message: "Query arguments always reject unknown keys" });
@@ -80,15 +114,22 @@ const bindParameterArguments = (
 	if (issues.length > 0) {
 		return Result.fail(issues);
 	}
-	const parsed = parseAppSchemaPropertiesSafe({
-		properties: input,
-		propertiesSchema: { ...definition, unknownKeys: "strict" },
-		allowedMissingRequiredPaths: partial
-			? Object.keys(definition.fields)
-					.filter((key) => !isObjectRecord(input) || !Object.hasOwn(input, key))
-					.map((key) => [key])
-			: [],
-	});
+	const parse = (properties: unknown) =>
+		parseAppSchemaPropertiesSafe({
+			properties,
+			propertiesSchema: { ...definition, unknownKeys: "strict" },
+			allowedMissingRequiredPaths: partial
+				? Object.keys(definition.fields)
+						.filter((key) => !isObjectRecord(input) || !Object.hasOwn(input, key))
+						.map((key) => [key])
+				: [],
+		});
+	const initial = parse(input);
+	const implied = initial.success && !partial ? impliedArguments(definition, initial.data) : {};
+	const parsed =
+		Object.keys(implied).length === 0 || !isObjectRecord(input)
+			? initial
+			: parse({ ...input, ...implied });
 	return parsed.success
 		? Result.succeed(
 				Object.fromEntries(
@@ -108,6 +149,28 @@ export const bindArguments = (schema: AppSchema | undefined, input: unknown = {}
 
 export const bindPartialArguments = (schema: AppSchema | undefined, input: unknown = {}) =>
 	bindParameterArguments(schema, input, true);
+
+export const argumentEntitlements = (schema: AppSchema | undefined, input: unknown = {}) => {
+	const bound = bindArguments(schema, input);
+	if (Result.isFailure(bound)) {
+		return [];
+	}
+	return Object.entries(schema?.fields ?? {}).flatMap(([key, property]): Entitlement[] => {
+		if (
+			(property.type !== "enum" && property.type !== "enum-array") ||
+			property.choices.kind !== "static"
+		) {
+			return [];
+		}
+		const value = bound.success[key];
+		const selected = Array.isArray(value) ? value : [value];
+		return property.choices.values.flatMap((choice) =>
+			choice.entitlement !== undefined && selected.includes(choice.value)
+				? [choice.entitlement]
+				: [],
+		);
+	});
+};
 
 export type ParameterExposureRisk = "bounded" | "free-text" | "identifier";
 

@@ -5,7 +5,7 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getCachedValue",
 	"setCachedValue",
 	"getPluginConfig",
-	"getProAvailability",
+	"getEntitlements",
 	"getUserPreferences",
 	"getUserSettings",
 	"updateUserSettings",

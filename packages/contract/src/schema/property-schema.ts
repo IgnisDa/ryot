@@ -1,5 +1,7 @@
 import { Result, Schema } from "effect";
 
+import { Entitlement } from "./entitlement";
+import { JsonValue } from "./json";
 import { strictStruct } from "./utils";
 
 const nonEmptyTrimmedString = Schema.String.pipe(
@@ -36,8 +38,6 @@ export type AppSchemaUnknownKeysPolicy = "strip" | "strict" | "passthrough";
 export type AppSchemaFields = Readonly<Record<string, AppPropertyDefinition>>;
 
 export type AppPropertyPrimitiveType = (typeof appPropertyPrimitiveTypes)[number];
-
-export type AppChoice = { readonly value: string; readonly label?: string | undefined };
 
 export type AppPropertyNormalization = { readonly round: AppPropertyRoundNormalization };
 
@@ -98,6 +98,13 @@ export type AppArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	readonly type: "array";
 	readonly items: AppPropertyDefinition;
 	readonly defaultValue?: undefined | ReadonlyArray<unknown>;
+};
+
+export type AppChoice = {
+	readonly value: string;
+	readonly label?: string | undefined;
+	readonly entitlement?: undefined | Entitlement;
+	readonly implies?: undefined | Readonly<Record<string, JsonValue>>;
 };
 
 export type AppNumberProperty = AppPropertyBase<AppNumberPropertyValidation> & {
@@ -351,7 +358,9 @@ const stringPropertyReferenceSchema = strictStruct({
 
 export const AppChoiceSchema = strictStruct({
 	value: nonEmptyTrimmedString,
+	entitlement: Schema.optional(Entitlement),
 	label: Schema.optional(nonEmptyTrimmedString),
+	implies: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 });
 
 const staticAppChoicesSchema = strictStruct({

@@ -5,6 +5,7 @@ import type {
 	EventSchemaSlug,
 	RelationshipSchemaSlug,
 } from "../../schema/brands";
+import type { Entitlement } from "../../schema/entitlement";
 import { strictStruct } from "../../schema/utils";
 import {
 	AuthoredEventSchemaReference,
@@ -188,3 +189,31 @@ export const Filter: Schema.Codec<Filter, unknown> = Schema.suspend(() =>
 		strictStruct({ filters: Schema.Array(Filter), type: Schema.Literals(["and", "or"]) }),
 	]),
 );
+
+const filterRules = (filter: Filter): readonly FilterRule[] => {
+	if ("operator" in filter) {
+		return [filter];
+	}
+	return filter.type === "not" ? filterRules(filter.filter) : filter.filters.flatMap(filterRules);
+};
+
+const dateFilterOperators: ReadonlySet<FilterOperator> = new Set([
+	"after",
+	"before",
+	"betweenDates",
+	"withinLastDays",
+]);
+
+export const filterOperatorEntitlement = (operator: FilterOperator): undefined | Entitlement =>
+	dateFilterOperators.has(operator) ? "pro" : undefined;
+
+export const filterRuleCountEntitlement = (count: number): undefined | Entitlement =>
+	count > 1 ? "pro" : undefined;
+
+export const filterEntitlement = (filter: Filter | undefined): undefined | Entitlement => {
+	const rules = filter === undefined ? [] : filterRules(filter);
+	return (
+		filterRuleCountEntitlement(rules.length) ??
+		rules.map((rule) => filterOperatorEntitlement(rule.operator)).find(Boolean)
+	);
+};
