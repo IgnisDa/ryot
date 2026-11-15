@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test";
 
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	type PluginDeviceRequest,
@@ -20,7 +21,10 @@ import {
 	decodeWorkoutEditorDraft,
 	type WorkoutEditorDraft,
 } from "../../shared/workout-editor-draft";
-import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
+import {
+	WorkoutEditorSaveInputSchema,
+	type WorkoutEditorSaveOutput,
+} from "../../shared/workout-editor-operations";
 import { controllerHarness } from "../../tests/client/controller-harness";
 import { exerciseOccurrence, liveDraft, startTime } from "../../tests/client/draft-fixtures";
 import { isWorkoutEditorSaving } from "./controller-types";
@@ -336,12 +340,12 @@ describe("workout editor controller", () => {
 				expect(harness.submissions).toEqual([submitted, submitted]);
 				const recovered = createController({
 					stored: harness.stored,
-					save: () => Effect.succeed({ kind: "pro-required" }),
+					save: () => Effect.succeed({ kind: "conflict" }),
 				});
 				yield* recovered.controller.load();
 				expect(
 					yield* recovered.controller.save(() => Effect.die("must use durable input")),
-				).toEqual({ kind: "pro-required" });
+				).toEqual({ kind: "conflict" });
 				expect(recovered.submissions).toEqual([submitted]);
 				expect(
 					recovered.controller.change((current) => ({ ...current, name: "Corrected retry" })),
@@ -387,19 +391,22 @@ describe("workout editor controller", () => {
 		"unlocks and persists only definite business rejections",
 		() =>
 			Effect.gen(function* () {
-				for (const result of [
-					{ kind: "invalid", code: "missing-measurement" },
-					{ kind: "conflict" },
-					{ kind: "pro-required" },
-				] as const) {
-					const harness = createController({ save: () => Effect.succeed(result) });
+				const outcomes: ReadonlyArray<Effect.Effect<WorkoutEditorSaveOutput, RyotClientError>> = [
+					Effect.succeed({ kind: "invalid", code: "missing-measurement" }),
+					Effect.succeed({ kind: "conflict" }),
+					Effect.fail(new RyotClientError({ reason: "entitlement-required" })),
+				];
+				for (const outcome of outcomes) {
+					const harness = createController({ save: () => outcome });
 					yield* harness.controller.load();
 					yield* harness.controller.start(draft());
 					expect(
-						yield* harness.controller.save((current) =>
-							Effect.map(saveInput(), (input) => ({ input, draft: current.draft })),
+						yield* Effect.result(
+							harness.controller.save((current) =>
+								Effect.map(saveInput(), (input) => ({ input, draft: current.draft })),
+							),
 						),
-					).toEqual(result);
+					).toEqual(yield* Effect.result(outcome));
 					expect(
 						harness.controller.change((current) => ({ ...current, name: "Corrected input" })),
 					).toBe(true);

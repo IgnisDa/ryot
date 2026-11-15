@@ -213,11 +213,11 @@ export function WorkoutEditorScreen(props: {
 				grouped={grouped}
 				onChange={change}
 				invalid={invalid}
+				pro={context.pro}
 				draft={editorDraft}
 				disabled={disabled}
 				occurrence={occurrence}
 				key={occurrence.clientId}
-				pro={context.proAvailable}
 				settings={context.settings}
 				currentSetId={currentSetId}
 				onDeletedSet={() => actions.feedback("delete-set")}

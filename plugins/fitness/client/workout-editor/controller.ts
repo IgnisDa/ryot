@@ -1,4 +1,4 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { isEntitlementRequired, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Semaphore } from "@ryot-app/plugin-client-sdk/effect";
 
 import {
@@ -456,7 +456,7 @@ export const createWorkoutEditorController = (
 					) {
 						return yield* new RyotClientError({ reason: "invalid-input" });
 					}
-					if (target.kind === "workout" && snapshot.context?.proAvailable !== true) {
+					if (target.kind === "workout" && snapshot.context?.pro !== true) {
 						return yield* new RyotClientError({ reason: "invalid-input" });
 					}
 					const draftId = snapshot.draft.draftId;
@@ -540,7 +540,15 @@ export const createWorkoutEditorController = (
 						);
 					}
 					yield* flush();
-					const result = yield* ports.save(submission);
+					const result = yield* ports.save(submission).pipe(
+						Effect.tapError((error) => {
+							if (!isEntitlementRequired(error) || !isReady(snapshot)) {
+								return Effect.void;
+							}
+							setDraft({ ...snapshot.draft, submission: undefined }, true);
+							return flush();
+						}),
+					);
 					if (result.kind === "saved") {
 						publish({ ...snapshot, saveState: { result, cleaning: true, phase: "acknowledged" } });
 						yield* removeDraft(true);

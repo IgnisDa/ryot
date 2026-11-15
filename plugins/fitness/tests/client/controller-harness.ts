@@ -60,10 +60,7 @@ export const controllerHarness = (
 		now: options.now ?? Effect.succeed(Date.parse(startTime)),
 		pluginId: options.pluginId ?? PluginId.make("fitness-installation"),
 		device: options.device ?? (() => Effect.succeed({ status: "done" })),
-		refreshContext: Effect.succeed({
-			settings: preferenceSettings,
-			proAvailable: options.pro ?? true,
-		}),
+		refreshContext: Effect.succeed({ pro: options.pro ?? true, settings: preferenceSettings }),
 		upload:
 			options.upload ??
 			(() => Effect.fail(new RyotClientError({ reason: "unsupported-capability" }))),

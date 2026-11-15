@@ -21,12 +21,9 @@ it("returns trusted availability and own resolved settings without writing them"
 		Effect.gen(function* () {
 			const result = yield* definition.run(
 				{},
-				defineSandboxTestHost(manifest, {
-					getUserSettings: () => Effect.succeed(settings),
-					getProAvailability: () => Effect.succeed(false),
-				}),
+				defineSandboxTestHost(manifest, { getUserSettings: () => Effect.succeed(settings) }),
 			);
-			expect(result).toEqual<unknown>({ settings, proAvailable: false });
+			expect(result).toEqual<unknown>({ settings });
 		}),
 	);
 });

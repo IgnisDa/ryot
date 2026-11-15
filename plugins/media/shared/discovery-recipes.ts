@@ -100,6 +100,8 @@ const suggestionSourceId = (reference: PluginIdentityReference) => {
 	});
 };
 
+export const latestCompletionSuggestionsQuery = "latest-completion-suggestions";
+
 /**
  * Suggestions from the latest completion that has any. A document's queries cannot read one
  * another, so the items query repeats the source `first()` rather than taking its id.
@@ -305,6 +307,7 @@ export type CollectionRecommendationSourcesResult = Recipe.Success<
 
 /** Library titles stay because they can still be added to the collection. */
 export const COLLECTION_RECOMMENDATION_PAGE_SIZE = 30;
+export const collectionRecommendationsQuery = "collection-recommendations";
 
 export const collectionRecommendationsRecipe = (structural: {
 	readonly reference: PluginIdentityReference;

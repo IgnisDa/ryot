@@ -74,6 +74,7 @@ const mountTemplate = (input: {
 	const page = mountPluginPage(WorkoutTemplatePage, {
 		page: context,
 		onClientMessage: () => answer?.(),
+		entitlements: input.proAvailable === true ? ["pro"] : [],
 		location: entityLocation("template", "workout-template"),
 	});
 	const answered = new Set<string>();
@@ -90,7 +91,6 @@ const mountTemplate = (input: {
 					type: "operation-result",
 					requestId: request.requestId,
 					value: {
-						proAvailable: input.proAvailable ?? false,
 						settings: {
 							dropRestTime: 0,
 							energyUnit: "kJ",

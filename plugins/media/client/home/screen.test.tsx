@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageRefreshRequest } from "@ryot-app/plugin-client-sdk/react";
-import { bindTestRequest, requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
+import { requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -20,6 +20,7 @@ import {
 	flushRyotClient,
 	localDateTime,
 	mountRyotClient,
+	requestQueryNames,
 } from "../../tests/client/test-support";
 import { HomeBody } from "./screen";
 
@@ -67,13 +68,13 @@ const homeAdapter = (input: {
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		pickEntity: (request) =>
 			Effect.sync(() => entityPicks.push(request)).pipe(Effect.as({ kind: "cancelled" as const })),
-		readUserPreferences: () =>
+		readAccount: () =>
 			Effect.sync(() => {
 				userPreferenceReads += 1;
-				return { timeZone: "UTC", ratingScale: "hundred" };
+				return { entitlements: ["pro"], preferences: { timeZone: "UTC", ratingScale: "hundred" } };
 			}),
 		query: (document) => {
-			const names = Object.keys(bindTestRequest(document).queries);
+			const names = requestQueryNames(document);
 			requested.push(names);
 			requests.push(document);
 			if (names.includes("library")) {
@@ -364,7 +365,7 @@ describe("home gate", () => {
 				const view = mountHome({
 					...home.adapter,
 					query: (document) =>
-						Object.hasOwn(bindTestRequest(document).queries, "anime")
+						requestQueryNames(document).includes("anime")
 							? Effect.fail(new RyotClientError({ reason: "transport" }))
 							: home.adapter.query(document),
 				});

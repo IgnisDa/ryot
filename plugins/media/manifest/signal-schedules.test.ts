@@ -38,23 +38,23 @@ const expectMonitoringLink = (slug: string, predicate: Predicate | undefined) =>
 describe("media signal schedules", () => {
 	it("declares release, stale-progress and episode-availability schedules", () => {
 		expect(
-			signalSchedules.map(({ slug, signal, precision, delayDays, freshness, requiresProKey }) => [
+			signalSchedules.map(({ slug, signal, precision, delayDays, freshness, entitlement }) => [
 				slug,
 				signal,
 				precision,
 				delayDays ?? null,
-				requiresProKey ?? false,
+				entitlement ?? null,
 				freshness?.maxAgeHours ?? null,
 			]),
 		).toEqual([
-			["show-episode-releases", "media.released", "date", null, false, 72],
-			["podcast-episode-releases", "media.released", "date", null, false, 72],
-			["anime-airing-releases", "media.released", "instant", null, false, 72],
-			["flat-releases", "media.released", "date", null, false, 72],
-			["in-progress-stale", "media.progress-stale", "instant", 7, true, null],
-			["on-hold-stale", "media.progress-stale", "instant", 14, true, null],
-			["show-episodes-available", "media.episodes-available", "date", null, false, null],
-			["podcast-episodes-available", "media.episodes-available", "date", null, false, null],
+			["show-episode-releases", "media.released", "date", null, null, 72],
+			["podcast-episode-releases", "media.released", "date", null, null, 72],
+			["anime-airing-releases", "media.released", "instant", null, null, 72],
+			["flat-releases", "media.released", "date", null, null, 72],
+			["in-progress-stale", "media.progress-stale", "instant", 7, "pro", null],
+			["on-hold-stale", "media.progress-stale", "instant", 14, "pro", null],
+			["show-episodes-available", "media.episodes-available", "date", null, null, null],
+			["podcast-episodes-available", "media.episodes-available", "date", null, null, null],
 		]);
 		expect(schedule("show-episode-releases").properties).toEqual({
 			entityName: "entityName",

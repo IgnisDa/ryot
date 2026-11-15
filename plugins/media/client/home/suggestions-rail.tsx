@@ -1,8 +1,11 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { useEntitlement, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
-import { latestCompletionSuggestionsRecipe } from "../../shared/discovery-recipes";
-import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import {
+	latestCompletionSuggestionsQuery,
+	latestCompletionSuggestionsRecipe,
+} from "../../shared/discovery-recipes";
+import { declaredQuerySource, PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail } from "./home-rail";
 import { createHomeSectionQuery } from "./section-query";
@@ -10,8 +13,9 @@ import { createHomeSectionQuery } from "./section-query";
 const suggestionsQuery = createHomeSectionQuery(
 	(_input: void, client) =>
 		client.data
-			.query(
+			.queryDeclared(
 				latestCompletionSuggestionsRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				declaredQuerySource(latestCompletionSuggestionsQuery),
 				{},
 				{ pages: { items: { limit: 20 } } },
 			)
@@ -23,6 +27,10 @@ const suggestionsQuery = createHomeSectionQuery(
 );
 
 export function SuggestionsRail(props: { readonly compact: boolean }) {
+	return useEntitlement("pro").granted ? <EntitledSuggestionsRail compact={props.compact} /> : null;
+}
+
+function EntitledSuggestionsRail(props: { readonly compact: boolean }) {
 	const result = useRyotQuery(suggestionsQuery);
 	const source = result.data?.suggestions.source;
 	return (

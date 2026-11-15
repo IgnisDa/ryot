@@ -8,6 +8,7 @@ import {
 	createRyotQuery,
 	ManagedAssetProvider,
 	nextPageCursor,
+	useEntitlement,
 	useRyot,
 	useRyotInfiniteQuery,
 	useRyotQuery,
@@ -17,6 +18,7 @@ import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import {
 	Button,
 	EmptyState,
+	EntitlementNotice,
 	LoadMoreButton,
 	resultsLayoutClasses,
 	schemaSlugLabel,
@@ -33,10 +35,11 @@ import {
 	type CollectionRecommendation,
 	collectionRecommendationSourcesRecipe,
 	type CollectionRecommendationSourcesResult,
+	collectionRecommendationsQuery,
 	collectionRecommendationsRecipe,
 	type CollectionRecommendationsResult,
 } from "../../shared/discovery-recipes";
-import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { declaredQuerySource, PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { mediaArtworkClass, mediaAspectClass } from "../media/entity-presentation";
 import { collectManagedAssetLocators } from "../media/image";
 import { MediaLibraryTitle } from "../media/library-title";
@@ -65,8 +68,9 @@ const sourcesQuery = createRyotQuery<string, CollectionRecommendationSourcesResu
 
 const recommendationsQuery = createRyotQuery<RecommendationsInput, CollectionRecommendationsResult>(
 	({ input, client }) =>
-		client.data.query(
+		client.data.queryDeclared(
 			collectionRecommendationsRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			declaredQuerySource(collectionRecommendationsQuery),
 			{ collectionId: input.collectionId, searchText: input.searchText.trim() },
 			{
 				pages: {
@@ -116,49 +120,6 @@ function RecommendationsSkeleton() {
 	);
 }
 
-function CollectionRecommendationsScreen(props: { readonly collectionId: string }) {
-	const { collectionId } = props;
-	const { compact } = useRyotViewport();
-	const sources = useRyotQuery(sourcesQuery, collectionId);
-	const collection = sources.data;
-	let body: ReactNode;
-	if (collection === null) {
-		body = unavailable;
-	} else if (collection === undefined) {
-		body = sources.isError ? (
-			<MediaStatusMessage
-				onRetry={sources.refetch}
-				title="Unable to load recommendations"
-				detail="This collection could not be loaded. Check your connection and try again."
-			/>
-		) : (
-			<RecommendationsSkeleton />
-		);
-	} else {
-		body = (
-			<Recommendations compact={compact} collection={collection} collectionId={collectionId} />
-		);
-	}
-	return (
-		<PluginScreenFrame
-			title="Recommendations"
-			titleIcon={<AppIcon size={22} name="sparkles" />}
-			meta={
-				collection ? (
-					<PluginLink
-						to={{ kind: "entity", entityId: collection.id }}
-						className="font-ui text-[13px] text-text-muted hover:text-text"
-					>
-						From {collection.name}
-					</PluginLink>
-				) : undefined
-			}
-		>
-			<div className={clsx("@container flex flex-col", compact ? "gap-4" : "gap-5")}>{body}</div>
-		</PluginScreenFrame>
-	);
-}
-
 function RecommendationCard(props: {
 	readonly compact: boolean;
 	readonly item: CollectionRecommendation;
@@ -204,6 +165,68 @@ function RecommendationCard(props: {
 				</span>
 			</span>
 		</PluginLink>
+	);
+}
+
+function CollectionRecommendationsScreen(props: { readonly collectionId: string }) {
+	const { collectionId } = props;
+	const { compact } = useRyotViewport();
+	const sources = useRyotQuery(sourcesQuery, collectionId);
+	const pro = useEntitlement("pro");
+	const collection = sources.data;
+	let body: ReactNode;
+	if (collection === null) {
+		body = unavailable;
+	} else if (collection === undefined) {
+		body = sources.isError ? (
+			<MediaStatusMessage
+				onRetry={sources.refetch}
+				title="Unable to load recommendations"
+				detail="This collection could not be loaded. Check your connection and try again."
+			/>
+		) : (
+			<RecommendationsSkeleton />
+		);
+	} else if (pro.granted) {
+		body = (
+			<Recommendations compact={compact} collection={collection} collectionId={collectionId} />
+		);
+	} else if (pro.data !== undefined) {
+		body = (
+			<EntitlementNotice
+				entitlement="pro"
+				icon={<AppIcon size={16} name="sparkles" />}
+				feature="Recommending titles for this collection"
+			/>
+		);
+	} else {
+		body = pro.isError ? (
+			<MediaStatusMessage
+				onRetry={pro.refetch}
+				title="Unable to load recommendations"
+				detail="Your account could not be loaded. Check your connection and try again."
+			/>
+		) : (
+			<RecommendationsSkeleton />
+		);
+	}
+	return (
+		<PluginScreenFrame
+			title="Recommendations"
+			titleIcon={<AppIcon size={22} name="sparkles" />}
+			meta={
+				collection ? (
+					<PluginLink
+						to={{ kind: "entity", entityId: collection.id }}
+						className="font-ui text-[13px] text-text-muted hover:text-text"
+					>
+						From {collection.name}
+					</PluginLink>
+				) : undefined
+			}
+		>
+			<div className={clsx("@container flex flex-col", compact ? "gap-4" : "gap-5")}>{body}</div>
+		</PluginScreenFrame>
 	);
 }
 

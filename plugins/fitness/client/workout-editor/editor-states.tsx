@@ -1,8 +1,13 @@
-import { Button, Card, EmptyState, Skeleton } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	Card,
+	EmptyState,
+	entitlementRequiredMessage,
+	Skeleton,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
-import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
-import type { WorkoutEditorControllerSnapshot } from "./controller-types";
+import type { WorkoutEditorContext, WorkoutEditorControllerSnapshot } from "./controller-types";
 
 export function EditorSkeleton(props: { readonly label: string }) {
 	return (
@@ -31,7 +36,7 @@ export function EditorStates(props: {
 	readonly requested: boolean;
 	readonly onStart: (template: boolean) => void;
 	readonly snapshot: WorkoutEditorControllerSnapshot;
-	readonly context: undefined | typeof WorkoutEditorContextOutputSchema.Type;
+	readonly context: undefined | WorkoutEditorContext;
 }) {
 	const { context, snapshot } = props;
 	return (
@@ -59,14 +64,16 @@ export function EditorStates(props: {
 							</Button>
 							<Button
 								variant="secondary"
-								disabled={!context?.proAvailable}
+								disabled={!context?.pro}
 								onClick={() => props.onStart(true)}
 							>
 								<AppIcon size={15} name="layers-3" />
 								New template
 							</Button>
-							{context !== undefined && !context.proAvailable ? (
-								<p className="text-xs text-text-muted">Templates require Pro.</p>
+							{context !== undefined && !context.pro ? (
+								<p className="text-xs text-text-muted">
+									{entitlementRequiredMessage("pro", "Creating templates")}
+								</p>
 							) : null}
 						</div>
 					}

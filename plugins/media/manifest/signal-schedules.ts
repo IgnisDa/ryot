@@ -162,8 +162,8 @@ const staleProgress = (state: "on_hold" | "in_progress", days: number) => {
 	return {
 		dueAt: "dueAt",
 		delayDays: days,
+		entitlement: "pro",
 		precision: "instant",
-		requiresProKey: true,
 		signal: STALE_SIGNAL,
 		occurrence: "occurrence",
 		slug: `${state.replace("_", "-")}-stale`,

@@ -2,6 +2,7 @@ import { afterEach, describe, expect } from "bun:test";
 
 import type { RowsResult } from "@ryot-app/contract/modules/ryotql/language";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
+import type { Entitlement } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -10,12 +11,11 @@ import {
 	pluginContributor,
 	routeLocation,
 } from "@ryot-app/plugin-client-sdk/testing";
-import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
-import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { collectionRecommendationsQuery } from "../../shared/discovery-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import CollectionRecommendationsPage from "./page";
 
@@ -24,8 +24,9 @@ afterEach(disposePluginBridges);
 const pluginId = PluginId.make("media-owner");
 const path = "/collections/col-1/recommendations";
 
-const openPage = (search = "") =>
+const openPage = (search = "", entitlements: readonly Entitlement[] = ["pro"]) =>
 	mountPluginPage(CollectionRecommendationsPage, {
+		entitlements,
 		location: routeLocation(path, search),
 		page: {
 			view: null,
@@ -90,7 +91,7 @@ const answerRecommendations = (
 	input: { readonly index?: number; readonly nextCursor?: string } = {},
 ) =>
 	Effect.gen(function* () {
-		const found = yield* request(page, "recommendations", input.index);
+		const found = yield* request(page, collectionRecommendationsQuery, input.index);
 		page.replyQuery(found.requestId, {
 			outcome: "success",
 			response: { data: { recommendations: rows(items, input.nextCursor ?? null) } },
@@ -126,9 +127,7 @@ describe("collection recommendations page", () => {
 
 				fireEvent.click(screen.getByRole("button", { name: "Load more" }));
 				const next = yield* answerRecommendations(page, [recommendation("c")], { index: 1 });
-				expect(bindTestRequest(next.request).queries["recommendations"]?.output).toMatchObject({
-					pagination: { after: "next" },
-				});
+				expect(next.request).toMatchObject({ pages: { recommendations: { after: "next" } } });
 				yield* Effect.promise(() => screen.findByRole("link", { name: "Open Title c" }));
 			}),
 		testTimeout,
@@ -141,7 +140,7 @@ describe("collection recommendations page", () => {
 				const page = openPage();
 				yield* answerSources(page, 0);
 				yield* Effect.promise(() => screen.findByText("No suggestions yet"));
-				expect(page.queryRequests("recommendations")).toHaveLength(0);
+				expect(page.queryRequests(collectionRecommendationsQuery)).toHaveLength(0);
 				expect(screen.queryByRole("search")).toBeNull();
 			}),
 		testTimeout,
@@ -166,11 +165,7 @@ describe("collection recommendations page", () => {
 				const page = openPage("search=dune");
 				yield* answerSources(page, 2);
 				const found = yield* answerRecommendations(page, []);
-				expect(bindTestRequest(found.request).queries["recommendations"]?.where).toMatchObject({
-					predicates: arrayContaining([
-						objectContaining({ type: "contains", right: { value: "dune", type: "literal" } }),
-					]),
-				});
+				expect(found.request.arguments).toMatchObject({ searchText: "dune" });
 				yield* Effect.promise(() => screen.findByText("No recommendations match “dune”"));
 				fireEvent.click(screen.getByText("Clear search", { selector: "button" }));
 				yield* Effect.promise(() =>
@@ -187,13 +182,28 @@ describe("collection recommendations page", () => {
 	);
 
 	it.live(
+		"explains that recommendations require Pro without querying them",
+		() =>
+			Effect.gen(function* () {
+				const page = openPage("", []);
+				yield* answerSources(page, 3);
+				yield* Effect.promise(() => screen.findByText("Ryot Pro required"));
+				expect(
+					screen.getByText("Recommending titles for this collection requires Ryot Pro."),
+				).toBeTruthy();
+				expect(page.queryRequests(collectionRecommendationsQuery)).toHaveLength(0);
+			}),
+		testTimeout,
+	);
+
+	it.live(
 		"reports a missing collection",
 		() =>
 			Effect.gen(function* () {
 				const page = openPage();
 				yield* answerSources(page, null);
 				yield* Effect.promise(() => screen.findByText("Collection unavailable"));
-				expect(page.queryRequests("recommendations")).toHaveLength(0);
+				expect(page.queryRequests(collectionRecommendationsQuery)).toHaveLength(0);
 			}),
 		testTimeout,
 	);

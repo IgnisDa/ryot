@@ -110,8 +110,8 @@ function WorkoutDetailsScreen(props: { readonly entityId: string }) {
 						<WorkoutDetailsBody
 							result={result}
 							compact={compact}
+							proAvailable={context.pro}
 							settings={context.settings}
-							proAvailable={context.proAvailable}
 						/>
 					)}
 				</DisplayPreferences>

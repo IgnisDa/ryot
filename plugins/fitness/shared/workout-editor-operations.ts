@@ -162,7 +162,6 @@ export const WorkoutEditorSaveOutputSchema = Schema.Union([
 			"media-forbidden",
 		]),
 	}),
-	Schema.Struct({ kind: Schema.Literal("pro-required") }),
 ]);
 
 export type WorkoutEditorSaveInput = typeof WorkoutEditorSaveInputSchema.Type;

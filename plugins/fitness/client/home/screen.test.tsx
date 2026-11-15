@@ -203,6 +203,7 @@ const respond = (
 
 const openHome = (scenario: Scenario, clock?: ReturnType<typeof createTestRyotClock>) => {
 	const page = mountPluginPage(FitnessHomePage, {
+		entitlements: [],
 		page: pageContext,
 		bootstrap: clock?.bootstrap,
 		location: routeLocation("/"),
@@ -218,7 +219,6 @@ const openHome = (scenario: Scenario, clock?: ReturnType<typeof createTestRyotCl
 					type: "operation-result",
 					requestId: message.requestId,
 					value: {
-						proAvailable: false,
 						settings:
 							scenario.goal === undefined
 								? preferenceSettings

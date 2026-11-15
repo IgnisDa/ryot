@@ -1,9 +1,10 @@
+import { isEntitlementRequired } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
 import type {
 	WorkoutEditorDraft,
 	WorkoutEditorOccurrence,
@@ -39,6 +40,7 @@ import {
 	resolvePendingRest,
 } from "./actions";
 import { toIso } from "./clock";
+import type { WorkoutEditorContext } from "./controller-types";
 import { resolveSetRestTime, updateOccurrence, updateSet } from "./draft-ops";
 import { historySetForOccurrence, previousSetIndex } from "./history-model";
 import { previousSetsInput } from "./previous-sets";
@@ -58,8 +60,6 @@ export type SavedEntityId = Extract<
 >["entityId"];
 type Editor = ReturnType<typeof useWorkoutEditor>;
 
-type Context = typeof WorkoutEditorContextOutputSchema.Type;
-
 const saveLimitBytes = 64 * 1024;
 
 const saveFailureMessage = (result: Exclude<WorkoutEditorSaveOutput, { kind: "saved" }>) => {
@@ -70,9 +70,6 @@ const saveFailureMessage = (result: Exclude<WorkoutEditorSaveOutput, { kind: "sa
 			break;
 		case "conflict":
 			break;
-		case "pro-required":
-			message = "This change requires Pro. Your data has been retained.";
-			break;
 	}
 	return message;
 };
@@ -82,10 +79,10 @@ export function useEditorActions(input: {
 	readonly closeMedia: () => void;
 	readonly sounds: Editor["sounds"];
 	readonly closeOverlay: () => void;
-	readonly context: Context | undefined;
 	readonly controller: Editor["controller"];
 	readonly draft: undefined | WorkoutEditorDraft;
 	readonly pendingAddExerciseId: string | undefined;
+	readonly context: undefined | WorkoutEditorContext;
 	readonly exercises: undefined | readonly EditorExercise[];
 	readonly scrollTo: (id: string, contextId?: string) => void;
 	readonly onSaved: undefined | ((entityId: SavedEntityId) => void);
@@ -140,6 +137,17 @@ export function useEditorActions(input: {
 		}
 	}, [saved]);
 
+	const rejectSave = (text: string | undefined, conflicted: boolean) => {
+		setConflict(conflicted);
+		closeOverlay();
+		setMessage(text);
+		controller.change((rejected) =>
+			rejected.mode.kind === "live"
+				? { ...rejected, endedAt: undefined, activeDurationStartedAt: toIso(schedule.now()) }
+				: rejected,
+		);
+	};
+
 	const save = () => {
 		const current = controller.getSnapshot();
 		if (current.status === "ready" && current.uploading) {
@@ -188,15 +196,17 @@ export function useEditorActions(input: {
 					input.onSaved?.(result.entityId);
 					return;
 				}
-				setConflict(result.kind === "conflict");
-				closeOverlay();
-				setMessage(saveFailureMessage(result));
-				controller.change((rejected) =>
-					rejected.mode.kind === "live"
-						? { ...rejected, endedAt: undefined, activeDurationStartedAt: toIso(schedule.now()) }
-						: rejected,
-				);
-			}),
+				rejectSave(saveFailureMessage(result), result.kind === "conflict");
+			}).pipe(
+				Effect.catchIf(isEntitlementRequired, () =>
+					Effect.sync(() =>
+						rejectSave(
+							`${entitlementRequiredMessage("pro", "This change")} Your data has been retained.`,
+							false,
+						),
+					),
+				),
+			),
 		);
 	};
 
@@ -324,7 +334,7 @@ export function useEditorActions(input: {
 								sets: copied.map((set) =>
 									Object.assign({}, set, {
 										included: draft.mode.kind === "historical",
-										note: context?.proAvailable === true ? set.note : undefined,
+										note: context?.pro === true ? set.note : undefined,
 									}),
 								),
 							};

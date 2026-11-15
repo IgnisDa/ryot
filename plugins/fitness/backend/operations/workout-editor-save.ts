@@ -1,5 +1,7 @@
 import {
+	EntitlementRequiredError,
 	isCommitConflict,
+	isEntitled,
 	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,
 	type ScriptHost,
 	type UpdateEventItem,
@@ -88,7 +90,7 @@ class WorkoutCommandInputError extends Schema.TaggedError<
 const halt = (output: WorkoutEditorSaveOutput) => Effect.fail(new WorkoutSaveHalt({ output }));
 const invalid = (code: InvalidCode) => halt({ code, kind: "invalid" });
 const conflict = () => halt({ kind: "conflict" });
-const proRequired = () => halt({ kind: "pro-required" });
+const proRequired = () => Effect.fail(new EntitlementRequiredError({ entitlement: "pro" }));
 
 const chunked = <Item>(items: ReadonlyArray<Item>, size: number) =>
 	Array.from({ length: Math.ceil(items.length / size) }, (_, index) => ({
@@ -584,7 +586,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 	const sourceLink = data.kind === "workout" ? yield* resolveSourceLink(data, host) : undefined;
 	const exerciseIds = [...new Set(data.occurrences.map(({ exerciseId }) => exerciseId))];
 	const exercises = yield* loadExercises(exerciseIds, host);
-	const proAvailable = yield* host.getProAvailability();
+	const proAvailable = isEntitled(yield* host.getEntitlements(), "pro");
 	const properties =
 		data.kind === "workout"
 			? workoutProperties(data, baseline)

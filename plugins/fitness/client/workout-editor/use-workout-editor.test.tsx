@@ -98,6 +98,7 @@ it.live(
 			const stored = yield* Effect.fromResult(encodeWorkoutEditorDraft(initialDraft));
 			const page = mountPluginPage(Probe, {
 				page: context,
+				entitlements: [],
 				bootstrap: clock.bootstrap,
 				location: routeLocation("/editor"),
 			});
@@ -135,7 +136,6 @@ it.live(
 							type: "operation-result",
 							requestId: request.requestId,
 							value: {
-								proAvailable: false,
 								settings: {
 									dropRestTime: 0,
 									warmUpRestTime: 0,
@@ -296,6 +296,7 @@ const saveProbeHarness = Effect.fnUntraced(function* (
 ) {
 	const pluginId = PluginId.make("fitness");
 	const page = mountPluginPage(SaveProbe, {
+		entitlements: ["pro"],
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/editor"),
 		page: {
@@ -356,7 +357,7 @@ const saveProbeHarness = Effect.fnUntraced(function* (
 						value:
 							request.operationSlug === workoutEditorSaveOperationSlug
 								? { sets: [], kind: "saved", entityId: "saved-workout" }
-								: { proAvailable: true, settings: preferenceSettings },
+								: { settings: preferenceSettings },
 					});
 				} else if (request.type === "device-request") {
 					page.send({

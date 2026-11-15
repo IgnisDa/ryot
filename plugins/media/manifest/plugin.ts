@@ -341,7 +341,7 @@ const integrationProviders = [
 	},
 	{
 		lot: "sink",
-		requiresProKey: true,
+		entitlement: "pro",
 		slug: "ryot_browser_extension",
 		name: "Ryot browser extension",
 		scriptSlug: "integration.browser-extension",
@@ -359,7 +359,7 @@ const integrationProviders = [
 		lot: "yank",
 		slug: "anilist",
 		name: "AniList",
-		requiresProKey: true,
+		entitlement: "pro",
 		scriptSlug: "integration.anilist",
 		description: "Import anime and manga list state from AniList",
 		settingsSchema: providerSettings("anilist", {
@@ -422,7 +422,7 @@ const integrationProviders = [
 	},
 	{
 		lot: "yank",
-		requiresProKey: true,
+		entitlement: "pro",
 		slug: "youtube_music",
 		name: "YouTube Music",
 		scriptSlug: "integration.youtube-music",
@@ -445,7 +445,7 @@ const integrationProviders = [
 		lot: "yank",
 		slug: "spotify",
 		name: "Spotify",
-		requiresProKey: true,
+		entitlement: "pro",
 		scriptSlug: "integration.spotify",
 		description: "Import listening history from Spotify",
 		settingsSchema: providerSettings("spotify", {
@@ -508,7 +508,7 @@ const integrationProviders = [
 	},
 	{
 		lot: "push",
-		requiresProKey: true,
+		entitlement: "pro",
 		slug: "jellyfin_push",
 		name: "Jellyfin push",
 		description: "Update watched state in Jellyfin",

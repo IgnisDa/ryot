@@ -23,6 +23,6 @@ export default defineOperation({
 			const settings = yield* Schema.decodeUnknownEffect(WorkoutPreferenceSettingsSchema)(
 				yield* host.getUserSettings(),
 			);
-			return { settings, proAvailable: yield* host.getProAvailability() };
+			return { settings };
 		}),
 });

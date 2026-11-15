@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { EntitlementRequiredError, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
@@ -182,7 +182,7 @@ const harness = (
 		return [];
 	};
 	const host = defineSandboxTestHost(manifest, {
-		getProAvailability: () => Effect.succeed(options.pro ?? false),
+		getEntitlements: () => Effect.succeed(options.pro === true ? ["pro"] : []),
 		verifyManagedAssets: (assets) =>
 			Effect.sync(() => {
 				calls.push({ args: [assets], method: "assets" });
@@ -686,9 +686,9 @@ describe("workout editor save", () => {
 						}),
 					),
 				};
-				expect(yield* definition.run({ ...source, data: changed }, denied.host)).toEqual({
-					kind: "pro-required",
-				});
+				expect(
+					yield* Effect.flip(definition.run({ ...source, data: changed }, denied.host)),
+				).toEqual(new EntitlementRequiredError({ entitlement: "pro" }));
 				expect(denied.calls).toEqual([]);
 			}),
 		));
@@ -739,7 +739,9 @@ describe("workout editor save", () => {
 					},
 				};
 				const free = harness({ baseline, exercises });
-				expect(yield* definition.run(submitted, free.host)).toEqual({ kind: "pro-required" });
+				expect(yield* Effect.flip(definition.run(submitted, free.host))).toEqual(
+					new EntitlementRequiredError({ entitlement: "pro" }),
+				);
 				expect(free.calls).toEqual([]);
 				const allowed = harness({ baseline, exercises, pro: true });
 				expect(yield* definition.run(submitted, allowed.host)).toMatchObject({
@@ -836,7 +838,9 @@ describe("workout editor save", () => {
 					},
 				});
 				const free = harness();
-				expect(yield* definition.run(submitted, free.host)).toEqual({ kind: "pro-required" });
+				expect(yield* Effect.flip(definition.run(submitted, free.host))).toEqual(
+					new EntitlementRequiredError({ entitlement: "pro" }),
+				);
 				expect(free.calls).toEqual([]);
 				const allowed = harness({ pro: true });
 				expect(yield* definition.run(submitted, allowed.host)).toEqual({

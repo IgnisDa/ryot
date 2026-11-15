@@ -1,10 +1,13 @@
 import { Button, Dialog, MotionPresence } from "@ryot-app/plugin-ui-sdk";
 
-import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { MeasurementDialogs, type useMeasurementLogger } from "../measurements/measurement-logger";
 import { changeOccurrenceDisplay, removeWorkoutItems } from "./actions";
-import { isWorkoutEditorSaving, type WorkoutEditorControllerSnapshot } from "./controller-types";
+import {
+	isWorkoutEditorSaving,
+	type WorkoutEditorContext,
+	type WorkoutEditorControllerSnapshot,
+} from "./controller-types";
 import { updateOccurrence } from "./draft-ops";
 import type { ExerciseSheet } from "./exercise-card";
 import { ExercisePicker } from "./exercise-picker";
@@ -65,12 +68,12 @@ export function EditorOverlays(props: {
 	readonly overlay: undefined | EditorOverlay;
 	readonly draft: undefined | WorkoutEditorDraft;
 	readonly snapshot: WorkoutEditorControllerSnapshot;
+	readonly context: undefined | WorkoutEditorContext;
 	readonly mediaTarget: undefined | WorkoutMediaTarget;
 	readonly actions: ReturnType<typeof useEditorActions>;
 	readonly exercises: undefined | readonly EditorExercise[];
 	readonly measurement: ReturnType<typeof useMeasurementLogger>;
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
-	readonly context: undefined | typeof WorkoutEditorContextOutputSchema.Type;
 }) {
 	const { draft, actions, context, onClose, overlay, snapshot, exercises, controller } = props;
 	const kind = typeof overlay === "string" ? overlay : overlay?.kind;
@@ -78,7 +81,7 @@ export function EditorOverlays(props: {
 	const currentOccurrence = draft?.occurrences.find(({ clientId }) => clientId === occurrenceId);
 	const currentExercise = exercises?.find(({ id }) => id === currentOccurrence?.exerciseId);
 	const exerciseName = currentExercise?.name ?? "Unavailable exercise";
-	const pro = context?.proAvailable === true;
+	const pro = context?.pro === true;
 	const { mediaTarget } = props;
 	const live = draft === undefined || draft.mode.kind === "live";
 	const replacing = kind === "replace" ? currentOccurrence : undefined;

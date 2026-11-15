@@ -210,7 +210,7 @@ export const measurementSeriesRecipe = (input: { readonly reference: PluginIdent
 					eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
 					inArray(column(reading, "entityId"), seriesParameters.list("metricIds")),
 					reportingPeriodPredicate(column(reading, "occurredAt")),
-					seriesParameters.choice("range", {
+					seriesParameters.choice("rangeKind", {
 						week: and(),
 						year: and(),
 						month: and(),

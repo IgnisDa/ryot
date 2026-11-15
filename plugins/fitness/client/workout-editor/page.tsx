@@ -1,13 +1,14 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation, usePluginParams } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import { useCallback } from "react";
 
-import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
 import { fitnessRoute, workoutEditorResumeTarget } from "../../shared/workout-editor-routes";
 import { cloneWorkoutEditorSource } from "../../shared/workout-editor-transformations";
 import { emptyWorkoutDraft } from "./actions";
 import { toIso } from "./clock";
+import type { WorkoutEditorContext } from "./controller-types";
 import { WorkoutEditorPrepareError } from "./prepare-error";
 import { loadEditorSource } from "./queries";
 import { WorkoutEditorScreen } from "./screen";
@@ -25,10 +26,12 @@ export default function WorkoutEditorPage() {
 	const sourceKind = path.startsWith("/templates/") ? "template" : "workout";
 	const entityId = sourceKind === "template" ? params["templateId"] : params["workoutId"];
 	const templateCreate = path === "/templates/new" || path.endsWith("/create-template");
-	const prepare = (context: typeof WorkoutEditorContextOutputSchema.Type) =>
+	const prepare = (context: WorkoutEditorContext) =>
 		Effect.gen(function* () {
-			if (templateCreate && !context.proAvailable) {
-				return yield* prepareFailure("Creating templates requires Pro. No new draft was started.");
+			if (templateCreate && !context.pro) {
+				return yield* prepareFailure(
+					`${entitlementRequiredMessage("pro", "Creating templates")} No new draft was started.`,
+				);
 			}
 			const draftId = idFor();
 			if (path === "/workouts/new" || path === "/templates/new") {

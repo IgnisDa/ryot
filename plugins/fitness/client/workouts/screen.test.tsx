@@ -139,6 +139,7 @@ const respond = (queries: Queries, answers: Answers) => {
 
 const openPage = (answers: Answers = {}, search = "") => {
 	const page = mountPluginPage(WorkoutsPage, {
+		entitlements: [],
 		location: routeLocation("/v/all-workouts", search),
 		userPreferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
 		page: {
@@ -167,7 +168,7 @@ const openPage = (answers: Answers = {}, search = "") => {
 					outcome: "success",
 					type: "operation-result",
 					requestId: request.requestId,
-					value: { proAvailable: false, settings: preferenceSettings },
+					value: { settings: preferenceSettings },
 				});
 			}
 		}

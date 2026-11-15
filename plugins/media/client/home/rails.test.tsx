@@ -3,8 +3,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import type { ExecutionRequest as ImportedExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { type EntityWatch, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
-import { bindRecipe, bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
@@ -33,7 +34,12 @@ import {
 	pendingQueryResult,
 	readyQueryResult,
 } from "../../tests/client/query-result-fixture";
-import { flushRyotClient, localDateTime, mountRyotClient } from "../../tests/client/test-support";
+import {
+	flushRyotClient,
+	localDateTime,
+	mountRyotClient,
+	requestQueryNames,
+} from "../../tests/client/test-support";
 import { BacklogRail } from "./backlog-rail";
 import { ContinueRail } from "./continue-rail";
 import { SuggestionsRail } from "./suggestions-rail";
@@ -480,8 +486,7 @@ describe("UpcomingRail", () => {
 type QueryResponder = (queries: readonly string[]) => Effect.Effect<unknown, RyotClientError>;
 
 const respondingAdapter = (respond: QueryResponder, interests: EntityWatch[] = []) => ({
-	query: (request: ImportedExecutionRequest) =>
-		respond(Object.keys(bindTestRequest(request).queries)),
+	query: (request: ImportedExecutionRequest) => respond(requestQueryNames(request)),
 	watchEntities: (interest: EntityWatch) => {
 		interests.push(interest);
 		return {
@@ -515,14 +520,23 @@ const lazyRails = [
 ] as const;
 
 describe("lazily queried rails", () => {
-	test.each(lazyRails)("$title shows a placeholder while pending", ({ Rail, title }) => {
-		const view = mountRyotClient(
-			respondingAdapter(() => Effect.never),
-			<Rail compact />,
-		);
-		expect(view.container.querySelector(`[aria-label="Loading ${title}"]`)).not.toBeNull();
-		view.unmount();
-	});
+	it.live.each(lazyRails)(
+		"$title shows a placeholder while pending",
+		({ Rail, title }) =>
+			Effect.gen(function* () {
+				const view = mountRyotClient(
+					respondingAdapter(() => Effect.never),
+					<Rail compact />,
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(view.container.querySelector(`[aria-label="Loading ${title}"]`)).not.toBeNull(),
+					),
+				);
+				view.unmount();
+			}),
+		testTimeout,
+	);
 
 	it.live.each(lazyRails)(
 		"$title offers a retry after an error",
@@ -547,6 +561,33 @@ describe("lazily queried rails", () => {
 				const view = mountRyotClient(respondingAdapter(respondWith(empty)), <Rail compact />);
 				yield* Effect.promise(() => flushRyotClient());
 				yield* Effect.promise(() => waitFor(() => expect(view.container.textContent).toBe("")));
+				view.unmount();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"hides suggestions without Pro and never queries them",
+		() =>
+			Effect.gen(function* () {
+				const queried: string[][] = [];
+				const view = mountRyotClient(
+					{
+						...respondingAdapter((queries) => {
+							queried.push([...queries]);
+							return Effect.never;
+						}),
+						readAccount: () =>
+							Effect.succeed({
+								entitlements: [],
+								preferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
+							}),
+					},
+					<SuggestionsRail compact />,
+				);
+				yield* Effect.promise(() => flushRyotClient());
+				expect(view.container.textContent).toBe("");
+				expect(queried).toEqual([]);
 				view.unmount();
 			}),
 		testTimeout,

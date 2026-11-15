@@ -214,7 +214,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 								Start workout
 							</Button>
 							<Button variant="secondary" onClick={() => action("edit")}>
-								Edit template{context.data.proAvailable ? "" : " (Pro)"}
+								Edit template{context.data.pro ? "" : " (Pro)"}
 							</Button>
 							<HeaderActionsMenu
 								entityId={props.entityId}

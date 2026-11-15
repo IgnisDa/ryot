@@ -1,6 +1,7 @@
 import {
 	Button,
 	clockFormat,
+	entitlementRequiredMessage,
 	Field,
 	MotionPresence,
 	RadioGroup,
@@ -195,7 +196,10 @@ export function SetSheet(props: {
 						</p>
 					) : null}
 				</div>
-				<Field label="Set note" hint={props.pro ? undefined : "Set notes require Pro."}>
+				<Field
+					label="Set note"
+					hint={props.pro ? undefined : entitlementRequiredMessage("pro", "Adding set notes")}
+				>
 					{(control) => (
 						<TextArea
 							{...control}

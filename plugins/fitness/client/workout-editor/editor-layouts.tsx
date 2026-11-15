@@ -10,10 +10,10 @@ import {
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { ComponentProps, ReactNode, RefObject } from "react";
 
-import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { useMeasurementLogger } from "../measurements/measurement-logger";
 import { clockTime } from "./clock";
+import type { WorkoutEditorContext } from "./controller-types";
 import type { EditorOverlay } from "./editor-overlays";
 import { DockTimers, RailTimers } from "./session-timers";
 import { EditorStats } from "./summary";
@@ -33,9 +33,9 @@ type EditorLayoutProps = {
 	readonly notices: ReactNode;
 	readonly historical: boolean;
 	readonly draft: WorkoutEditorDraft;
+	readonly context: WorkoutEditorContext;
 	readonly onOverlay: (overlay: EditorOverlay) => void;
 	readonly editorRoot: RefObject<null | HTMLDivElement>;
-	readonly context: typeof WorkoutEditorContextOutputSchema.Type;
 };
 
 export function CompactBarActions(props: {

@@ -1,3 +1,4 @@
+import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
@@ -6,10 +7,12 @@ import {
 	createTestBackgroundSubmissions,
 	createTestRyotClock,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { fireEvent } from "@testing-library/dom";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
+import { mediaDeclaredQueries } from "../../manifest/queries";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 type LocalDateTimeParts = {
@@ -22,13 +25,29 @@ type LocalDateTimeParts = {
 	readonly millisecond?: number;
 };
 
+export const requestQueryNames = (request: ExecutionRequest) => {
+	const { source } = request;
+	if (source.kind !== "plugin") {
+		return Object.keys(bindTestRequest(request).queries);
+	}
+	const declared = Object.entries(mediaDeclaredQueries).find(([slug]) => slug === source.query);
+	if (declared === undefined) {
+		throw new Error(`Unknown declared query ${source.query}`);
+	}
+	return Object.keys(declared[1].document.queries);
+};
+
 export const localDateTime = (parts: LocalDateTimeParts) =>
 	DateTime.makeZonedUnsafe(parts, { adjustForTimeZone: true, timeZone: DateTime.zoneMakeLocal() });
 
 export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
 	const { client, runtime, advance, setTime, dispose } = createTestRyotClock({
 		...createTestBackgroundSubmissions().adapter,
-		readUserPreferences: () => Effect.succeed({ timeZone: "UTC", ratingScale: "hundred" }),
+		readAccount: () =>
+			Effect.succeed({
+				entitlements: ["pro"],
+				preferences: { timeZone: "UTC", ratingScale: "hundred" },
+			}),
 		pluginIdentity: (packageId) => {
 			if (packageId !== PLUGIN_PACKAGE_ID) {
 				throw new Error("Unexpected contributor package");

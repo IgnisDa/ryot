@@ -180,6 +180,7 @@ const openEditor = (
 		bootstrap: clock.bootstrap,
 		onClientMessage: () => respond?.(),
 		location: routeLocation(target.path),
+		entitlements: proAvailable ? ["pro"] : [],
 	});
 	const answered = new Set<string>();
 	const saveInputs: JsonValue[] = [];
@@ -263,7 +264,6 @@ const openEditor = (
 				let value: JsonValue = { sets: [], kind: "saved", entityId: "saved-workout" };
 				if (request.operationSlug === workoutEditorContextOperationSlug) {
 					value = {
-						proAvailable,
 						settings: {
 							dropRestTime: 0,
 							muteSounds: true,

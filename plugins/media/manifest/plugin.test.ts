@@ -667,7 +667,7 @@ it.effect(
 			expect(mediaPlugin.integrationProviders.find(({ slug }) => slug === "anilist")).toMatchObject(
 				{
 					lot: "yank",
-					requiresProKey: true,
+					entitlement: "pro",
 					scriptSlug: "workflow.media-integration",
 					plan: { selections: { "integration-adapter": { value: "integration.anilist" } } },
 					settingsSchema: {
@@ -686,7 +686,7 @@ it.effect(
 			expect(mediaPlugin.integrationProviders.find(({ slug }) => slug === "spotify")).toMatchObject(
 				{
 					lot: "yank",
-					requiresProKey: true,
+					entitlement: "pro",
 					scriptSlug: "workflow.media-integration",
 					plan: { selections: { "integration-adapter": { value: "integration.spotify" } } },
 					settingsSchema: {

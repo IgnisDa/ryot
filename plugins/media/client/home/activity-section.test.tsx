@@ -88,7 +88,7 @@ const mountActivity = (clock: ReturnType<typeof createTestRyotClock>) =>
 	});
 
 const reportingPreferenceRequests = (page: ActivityPage) =>
-	page.clientMessages().filter((message) => message.type === "user-preferences-request");
+	page.clientMessages().filter((message) => message.type === "account-request");
 
 const activityRequests = (page: ActivityPage) =>
 	page
@@ -120,10 +120,10 @@ const replyUserPreferences = (
 			? {
 					outcome,
 					requestId,
-					type: "user-preferences-result",
-					preferences: { timeZone, ratingScale: "hundred" },
+					type: "account-result",
+					account: { entitlements: ["pro"], preferences: { timeZone, ratingScale: "hundred" } },
 				}
-			: { outcome, requestId, reason: "transport", type: "user-preferences-result" },
+			: { outcome, requestId, reason: "transport", type: "account-result" },
 	);
 
 const replyActivity = (

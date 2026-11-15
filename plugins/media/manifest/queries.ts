@@ -18,6 +18,12 @@ import {
 	mediaAnalyticsTrendRecipe,
 } from "../shared/analytics-recipes";
 import {
+	collectionRecommendationsQuery,
+	collectionRecommendationsRecipe,
+	latestCompletionSuggestionsQuery,
+	latestCompletionSuggestionsRecipe,
+} from "../shared/discovery-recipes";
+import {
 	episodicEpisodeEventsQuery,
 	episodicSeasonReviewEventsQuery,
 } from "../shared/episodic-recipes";
@@ -124,6 +130,13 @@ export const mediaDeclaredQueries = {
 		description:
 			"Find upcoming episodes, anime airings, and monitored title releases from today through daysAhead in the account's reporting time zone. Each title includes its upcoming occurrences and total occurrences in the window.",
 	},
+	[latestCompletionSuggestionsQuery]: {
+		entitlement: "pro" as const,
+		title: "Recommend from latest completion",
+		document: latestCompletionSuggestionsRecipe({ reference }).document,
+		description:
+			"Recommend titles suggested by the most recently completed title that has provider suggestions, excluding titles already in your library.",
+	},
 	"analytics-summary": {
 		title: "Compare media periods",
 		document: mediaAnalyticsSummaryRecipe({ reference }).document,
@@ -138,6 +151,13 @@ export const mediaDeclaredQueries = {
 		},
 		description:
 			"Read a title's complete media and collection history in global event order, together with its credited people. Bind entityId to the title ID; page history and people independently.",
+	},
+	[collectionRecommendationsQuery]: {
+		entitlement: "pro" as const,
+		title: "Recommend for a collection",
+		document: collectionRecommendationsRecipe({ reference }).document,
+		description:
+			"Recommend titles suggested by a collection's members that are not yet in it, ordered by how many members suggest them. Bind collectionId and optionally searchText; page recommendations for more titles.",
 	},
 	reviews: {
 		title: "Read reviews",

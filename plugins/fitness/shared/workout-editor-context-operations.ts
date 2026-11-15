@@ -13,7 +13,6 @@ export const workoutTimeCorrectionOperationSlug = "workout-time-correction";
 
 export const WorkoutEditorContextInputSchema = Schema.Struct({});
 export const WorkoutEditorContextOutputSchema = Schema.Struct({
-	proAvailable: Schema.Boolean,
 	settings: WorkoutPreferenceSettingsSchema,
 });
 export const ExerciseOverrideUpdateInputSchema = Schema.Struct({

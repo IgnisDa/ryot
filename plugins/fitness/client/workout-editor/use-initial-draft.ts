@@ -3,20 +3,19 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { resolveWorkoutDisplay } from "../../shared/workout-editor-preferences";
 import { changeOccurrenceDisplay, changeWorkoutEnergyUnit } from "./actions";
+import type { WorkoutEditorContext } from "./controller-types";
 import { WorkoutEditorPrepareError } from "./prepare-error";
 import { readEditorExercises } from "./queries";
 import type { useWorkoutEditor } from "./use-workout-editor";
 
-export type PrepareDraft = (context: Context) => Effect.Effect<WorkoutEditorDraft, unknown>;
-
-type Context = typeof WorkoutEditorContextOutputSchema.Type;
+export type PrepareDraft = (
+	context: WorkoutEditorContext,
+) => Effect.Effect<WorkoutEditorDraft, unknown>;
 
 const startInitialDraft = (input: {
-	readonly context: Context;
 	readonly client: RyotClient;
 	readonly prepare: PrepareDraft;
 	readonly onStarted: () => void;
@@ -24,6 +23,7 @@ const startInitialDraft = (input: {
 	readonly schedule: RyotSchedule;
 	readonly onPrepared: () => void;
 	readonly isActive: () => boolean;
+	readonly context: WorkoutEditorContext;
 	readonly starting: { current: boolean };
 	readonly setMessage: (message: string) => void;
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
@@ -82,12 +82,12 @@ export function useInitialDraft(input: {
 	readonly saving: boolean;
 	readonly isActive: boolean;
 	readonly message: string | undefined;
-	readonly context: Context | undefined;
 	readonly requiresPro: boolean | undefined;
 	readonly onStarted: undefined | (() => void);
 	readonly setMessage: (message: string) => void;
 	readonly draft: undefined | WorkoutEditorDraft;
 	readonly prepareDraft: undefined | PrepareDraft;
+	readonly context: undefined | WorkoutEditorContext;
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
 	readonly snapshotStatus: ReturnType<typeof useWorkoutEditor>["snapshot"]["status"];
 }) {
@@ -100,8 +100,7 @@ export function useInitialDraft(input: {
 	const [useExisting, setUseExisting] = useState(false);
 	const [startingDraft, setStartingDraft] = useState(false);
 	const [requestHandled, setRequestHandled] = useState(false);
-	const requestBlocked =
-		input.requiresPro === true && context !== undefined && !context.proAvailable;
+	const requestBlocked = input.requiresPro === true && context !== undefined && !context.pro;
 	const finishRequest = useCallback(() => {
 		setRequestHandled(true);
 		onStarted?.();

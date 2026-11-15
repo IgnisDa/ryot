@@ -128,19 +128,15 @@ describe("fitness analytics section queries", () => {
 					expect(
 						documents.some(
 							(argumentsValue) =>
-								argumentsValue?.["range"] === "rolling" &&
-								argumentsValue["comparisonSide"] === "current" &&
-								argumentsValue["startOffsetDays"] === -6 &&
-								argumentsValue["endOffsetDays"] === 1,
+								argumentsValue?.["range"] === "rolling-7" &&
+								argumentsValue["comparisonSide"] === "current",
 						),
 					).toBe(true);
 					expect(
 						documents.some(
 							(argumentsValue) =>
-								argumentsValue?.["range"] === "rolling" &&
-								argumentsValue["comparisonSide"] === "previous" &&
-								argumentsValue["previousStartOffsetDays"] === -13 &&
-								argumentsValue["previousEndOffsetDays"] === -6,
+								argumentsValue?.["range"] === "rolling-7" &&
+								argumentsValue["comparisonSide"] === "previous",
 						),
 					).toBe(true);
 					for (const request of page.queryRequests()) {
@@ -165,19 +161,15 @@ describe("fitness analytics section queries", () => {
 					expect(
 						refreshed.some(
 							(argumentsValue) =>
-								argumentsValue?.["range"] === "rolling" &&
-								argumentsValue["comparisonSide"] === "current" &&
-								argumentsValue["startOffsetDays"] === -6 &&
-								argumentsValue["endOffsetDays"] === 1,
+								argumentsValue?.["range"] === "rolling-7" &&
+								argumentsValue["comparisonSide"] === "current",
 						),
 					).toBe(true);
 					expect(
 						refreshed.some(
 							(argumentsValue) =>
-								argumentsValue?.["range"] === "rolling" &&
-								argumentsValue["comparisonSide"] === "previous" &&
-								argumentsValue["previousStartOffsetDays"] === -13 &&
-								argumentsValue["previousEndOffsetDays"] === -6,
+								argumentsValue?.["range"] === "rolling-7" &&
+								argumentsValue["comparisonSide"] === "previous",
 						),
 					).toBe(true);
 				} finally {
@@ -369,16 +361,8 @@ describe("fitness analytics cursor adapters", () => {
 						for (const request of page.queryRequests(key).slice(1)) {
 							const document = yield* documentText(bindTestRequest(request.request));
 							expect(document).toContain("first-cursor");
-							expect(request.request.arguments).toMatchObject({
-								range: "rolling",
-								endOffsetDays: 1,
-								startOffsetDays: -6,
-							});
-							expect(request.request.arguments).toMatchObject({
-								range: "rolling",
-								endOffsetDays: 1,
-								startOffsetDays: -6,
-							});
+							expect(request.request.arguments).toMatchObject({ range: "rolling-7" });
+							expect(request.request.arguments).toMatchObject({ range: "rolling-7" });
 							expect(document).toContain("fitness-owner");
 							if (filtered) {
 								expect(document).toContain("retained-target");
@@ -400,16 +384,8 @@ describe("fitness analytics cursor adapters", () => {
 						for (const request of page.queryRequests(key).slice(2)) {
 							const document = yield* documentText(bindTestRequest(request.request));
 							expect(document).not.toContain("first-cursor");
-							expect(request.request.arguments).toMatchObject({
-								range: "rolling",
-								endOffsetDays: 1,
-								startOffsetDays: -6,
-							});
-							expect(request.request.arguments).toMatchObject({
-								range: "rolling",
-								endOffsetDays: 1,
-								startOffsetDays: -6,
-							});
+							expect(request.request.arguments).toMatchObject({ range: "rolling-7" });
+							expect(request.request.arguments).toMatchObject({ range: "rolling-7" });
 							page.replyQuery(request.requestId, {
 								outcome: "success",
 								response: pageResponse(key, "refreshed-cursor"),
@@ -421,16 +397,8 @@ describe("fitness analytics cursor adapters", () => {
 						for (const request of page.queryRequests(key).slice(3)) {
 							const document = yield* documentText(bindTestRequest(request.request));
 							expect(document).toContain("refreshed-cursor");
-							expect(request.request.arguments).toMatchObject({
-								range: "rolling",
-								endOffsetDays: 1,
-								startOffsetDays: -6,
-							});
-							expect(request.request.arguments).toMatchObject({
-								range: "rolling",
-								endOffsetDays: 1,
-								startOffsetDays: -6,
-							});
+							expect(request.request.arguments).toMatchObject({ range: "rolling-7" });
+							expect(request.request.arguments).toMatchObject({ range: "rolling-7" });
 							page.replyQuery(request.requestId, {
 								outcome: "success",
 								response: pageResponse(key, "third-cursor"),

@@ -15,7 +15,9 @@ import type {
 } from "../../shared/workout-editor-operations";
 
 export type TimerName = "rest" | "execution";
-export type WorkoutEditorContext = typeof WorkoutEditorContextOutputSchema.Type;
+export type WorkoutEditorContext = {
+	readonly pro: boolean;
+} & typeof WorkoutEditorContextOutputSchema.Type;
 
 type SavedResult = Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>;
 

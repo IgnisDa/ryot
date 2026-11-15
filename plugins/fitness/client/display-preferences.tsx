@@ -2,11 +2,11 @@ import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import type { ReactNode } from "react";
 
-import type { WorkoutEditorContextOutputSchema } from "../shared/workout-editor-context-operations";
 import { workoutEditorContextQuery } from "./workout-editor/context-query";
+import type { WorkoutEditorContext } from "./workout-editor/controller-types";
 
 export function DisplayPreferences(props: {
-	readonly children: (context: typeof WorkoutEditorContextOutputSchema.Type) => ReactNode;
+	readonly children: (context: WorkoutEditorContext) => ReactNode;
 }) {
 	const context = useRyotQuery(workoutEditorContextQuery, undefined);
 	if (context.data !== undefined) {

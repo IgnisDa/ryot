@@ -220,11 +220,7 @@ describe("Fitness analytics rankings", () => {
 					);
 					const request = itemAt(page.queryRequests("targets"), 0);
 					expect(yield* documentText(bindTestRequest(request.request))).toContain("fitness-owner");
-					expect(request.request.arguments).toMatchObject({
-						range: "rolling",
-						endOffsetDays: 1,
-						startOffsetDays: -6,
-					});
+					expect(request.request.arguments).toMatchObject({ range: "rolling-7" });
 					page.replyQuery(request.requestId, {
 						outcome: "success",
 						response: rankingResponse(null, [rankingRow("target-back", "Upper back", 2, 4, 3, 2)]),
