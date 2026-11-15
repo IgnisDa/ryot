@@ -7,14 +7,20 @@ env:
   GHCR_REGISTRY: ghcr.io
 
 permissions:
-  contents: write
+  contents: read
   packages: write
+
+concurrency:
+  group: website-publication
+  queue: max
 
 jobs:
   docker-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -31,7 +37,7 @@ jobs:
         with:
           context: .
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=website-linux-amd64
+          cache-to: type=gha,mode=max,scope=website-linux-amd64
           file: apps/website/Dockerfile
           tags: ${{ env.GHCR_REGISTRY }}/ignisda/ryot-website:latest
