@@ -157,7 +157,7 @@ After the upgrade, Ryot processes your media history and workouts in the backgro
 analytics, progress and personal bests. This usually takes a few minutes: a library with about
 65,000 media history entries and 40,000 workout sets finishes in under ten minutes. Until it
 finishes, Analytics shows the values computed so far with a note that processing is still running.
-You can keep using Ryot meanwhile.
+Expect higher CPU and memory usage during background processing. You can keep using Ryot while it runs.
 
 These are not carried over:
 
