@@ -74,8 +74,8 @@ V2 also provides authored Pages, Ryo, MCP and credential write-access controls. 
 support kernel selections and user pages in live or snapshot mode; these additions extend the
 platform inventory without creating new V1 port commitments.
 
-Pro verification exists; the owner approved the feature-by-feature entitlement policy on
-**2026-11-15** as pending Orders 22–23 (registered queries, then unified entitlements). No equivalent
+The owner approved the feature-by-feature entitlement policy on **2026-11-15** as Orders 22–23
+(credential-scoped query access, then unified entitlements); both are implemented. No equivalent
 was found for V1's media-consumed-during-a-workout panel. Provider-source exercise merging is
 implemented. The owner declined the other proposed ports on 2026-11-10: the workout media panel, exercise analytics exclusions, standalone genre pages,
 random sorting/context-specific presets, and old preferences/operator settings.
@@ -417,14 +417,15 @@ logging/files, unused exports and a redundant provider guard.
 ### Approved Pro entitlement ports — 2026-11-15
 
 The owner approved the Pro entitlement policy below after a feature audit of V1's server-key
-checks, V1 client restrictions and current V2 gates. Both orders are **Pending**. Breaking
-changes are allowed; neither order keeps the replaced `requiresProKey`, `getProAvailability`,
-`pro.isServerKeyValidated` or per-module `pro-key-required` contracts.
+checks, V1 client restrictions and current V2 gates, and chose credential-scoped programmable
+access over registering every first-party query on 2026-11-15. Neither order keeps the replaced
+`requiresProKey`, `getProAvailability`, `pro.isServerKeyValidated`, plugin `user-preferences`
+bridge capability or per-module `pro-key-required` contracts.
 
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
-| 22 | Pending | **Registered queries; inline RyotQL becomes programmable access** | — | Every first-party query is registered: plugin client/shared recipes are collected into the plugin archive by `ryot plugin build` (extending `manifest.queries`), and kernel client/renderer recipes are registered by the kernel. `plugin-client-sdk`, kernel renderers and the kernel client execute registered references only. Inline `ExecutionSource` documents remain available to Ryo, MCP, Pages and API callers, gated by Order 23. No first-party screen sends an inline document. |
-| 23 | Pending | **Unified Pro entitlements** | 22 | Implement the [entitlement design](#entitlement-design) and gate every [agreed feature](#agreed-pro-features) with server enforcement, shared client presentation and the [expiry rule](#expiry-rule). Existing Integration, signal-schedule and Fitness gates move onto the shared model. |
+| 22 | Done | **Credential-scoped programmable query access** | — | Inline RyotQL execution and description (`ExecutionSource` kind `inline`) require Pro for API keys and third-party OAuth clients. First-party Ryot web/native clients, and the plugin frames they host, keep inline execution. Ryo, MCP and Pages are gated as whole features by Order 23. |
+| 23 | Done | **Unified Pro entitlements** | 22 | Implement the [entitlement design](#entitlement-design) and gate every [agreed feature](#agreed-pro-features) with server enforcement, shared client presentation and the [expiry rule](#expiry-rule). Existing Integration, signal-schedule and Fitness gates move onto the shared model. |
 
 #### Agreed Pro features
 
@@ -438,16 +439,16 @@ Newly gated:
 | Feature | Enforcement point |
 | --- | --- |
 | Collection reordering | `modules/collections/ordering-service.ts`; collection-detail renderer |
-| Personalized recommendations: Media home rail and Order 15 collection recommendations | Media registered queries declare the entitlement. Detail-page suggestion rails stay free. |
+| Personalized recommendations: Media home rail and Order 15 collection recommendations | Media declared queries `latest-completion-suggestions` and `collection-recommendations` declare the entitlement and the client runs them by reference. Detail-page suggestion rails stay free. |
 | Publications: create and republish | `modules/publications/service.ts` |
-| Analytics ranges beyond Rolling 7/30 days and This/Previous week (90/365 days, months, years, all-time and custom are Pro) | Reporting presets in `packages/contract/src/modules/analytics/reporting.ts` carry their entitlement; kernel reporting-argument binding and `analytics-controls.tsx` read the same data |
+| Analytics ranges beyond Rolling 7/30 days and This/Previous week (90/365 days, months, years, all-time and custom are Pro) | `reportingRangeChoices` in `packages/contract/src/modules/analytics/reporting.ts` carry their entitlement; the shared `range` reporting parameter, kernel argument checks, `analytics-controls.tsx` and the analytics page clamp read the same data |
 | Analytics image export | The shared report-export action in `plugin-client-sdk`. Client-only by necessity: the image is rendered in the client and never reaches the server. The generic `export-file` bridge action stays ungated. |
-| More than one filter rule; date-field filters | Filter controls in `packages/ryotql-recipes/src/controls.ts` declare the entitlement; kernel control resolution and `entity-browser.tsx` read the same data |
+| More than one filter rule; date-operator filters | `filterEntitlement` in `packages/contract/src/modules/filters/schemas.ts`; kernel request checks and the shared filter editor in `plugin-client-sdk/src/filters.tsx` read the same rules |
 | Ryo: new turns and queued messages | `modules/assistant/service.ts`; history stays readable |
 | MCP | `modules/mcp/service.ts` entry point |
 | Pages: drafts, compilation, publishing and write grants | `modules/pages/authoring` |
 | Private plugin install and update | Kernel plugin install service |
-| Inline RyotQL execution (including through API keys) | RyotQL source resolution. API keys stay free but reach only registered queries and operations. |
+| Inline RyotQL execution through API keys or third-party OAuth clients | RyotQL execution and description. API keys stay free for declared, saved-view and page sources and for operations. |
 
 Deliberately free: template deletion, consumption-to-review links, manual time spent, collection
 member fields, workspace/home selection and integration ownership sync. V1 restricted most of
@@ -457,29 +458,43 @@ collaborators, workout media panel) need no action.
 
 #### Entitlement design
 
-1. **Contract.** `packages/contract` defines the `Entitlement` schema (`"pro"`), one shared
-   `EntitlementRequired { entitlement }` error, and `/system/config` `entitlements`. Gateable
-   manifest declarations (operations, registered queries, integration providers, OAuth providers,
-   import sources and signal schedules) take an optional `entitlement` field. Plugins only declare;
-   the kernel dispatcher that owns each declaration enforces it.
-2. **Kernel service.** `kernel/backend/src/platform/entitlements.ts` exposes `current` and
-   `require`, backed by the existing Unkey verification, which nothing else reads directly. Kernel
-   checks live in owning services, not HTTP middleware, so HTTP, Ryo, MCP and Pages share them.
-   One access evaluator decides demo protection and entitlement for plugin operations and kernel
-   agent capabilities, replacing the separate checks in `modules/plugins/operations/service.ts`
-   and `modules/agent-tools/catalog.ts`; agent tool search reports required entitlements.
-3. **Plugin backend.** `plugin-backend-sdk` replaces `getProAvailability` with
-   `host.entitlements()` and a `requireEntitlement` helper that fails with the shared error. Script
-   checks are only for partial gates inside one operation, such as Fitness editor saves. Fitness
-   drops its private `pro-required` halt and the editor-context `proAvailable` field.
-4. **Client.** `plugin-client-contract` bridges the current entitlements into every plugin frame,
-   updating on change; `plugin-client-sdk` exposes `useEntitlements()`. `plugin-ui-sdk` owns the
-   Pro badge, locked-action wrapper, required notice, copy and the single `EntitlementRequired`
-   error presentation. The kernel client uses the same components through an entitlement module
-   beside `modules/demo-protection.tsx`.
-5. **Declarative read gates.** Reporting presets and filter controls carry entitlements in their
-   shared definitions, so Media, Fitness and kernel renderers inherit the gates without per-screen
-   code.
+1. **Contract.** `packages/contract/src/schema/entitlement.ts` defines the `Entitlement` schema
+   (`"pro"`), `isEntitled`, and one shared `EntitlementRequired { reason: { entitlement, code } }`
+   error that `AuthMiddleware` declares with status 402, so every endpoint can return it.
+   `/system/config` reports `entitlements`. Integration providers, signal schedules, operations
+   and declared queries take an optional `entitlement`; plugins only declare it, and the kernel
+   dispatcher that owns each declaration enforces it.
+2. **Kernel service.** `kernel/backend/src/platform/entitlements.ts` (`EntitlementService`) exposes
+   `current`, `has` and `require`, backed by the Unkey verification that nothing else reads.
+   Checks live in owning services (collections ordering, publications, assistant, MCP, page
+   authoring, plugin installations, integrations, OAuth connections, signal schedules and RyotQL),
+   not HTTP middleware, so HTTP, Ryo, MCP and Pages share them.
+   `modules/plugins/operations/access.ts` decides demo protection and entitlement for plugin
+   operations and the agent catalog; the catalog omits capabilities the account is not entitled to.
+3. **Plugin backend.** Scripts read `host.getEntitlements()` and check it with `isEntitled` from
+   `@ryot-app/plugin-backend-sdk/core`. Failing with `EntitlementRequiredError` crosses the sandbox
+   as an `entitlement-required` boundary reason, and the operation dispatcher returns the shared
+   error. Script checks are only for partial gates inside one operation, such as Fitness editor
+   saves; Fitness no longer has a private `pro-required` result or `proAvailable` context field.
+4. **Client.** The plugin bridge `account` capability returns entitlements and preferences together.
+   `plugin-client-sdk` exposes `useEntitlement(entitlement)` and `useUserPreferences()` over one
+   cached account query, reports `entitlement-required` failures and offers `isEntitlementRequired`.
+   `plugin-ui-sdk` owns the Pro badge, `entitlementActionLabel`, `EntitlementNotice` and the
+   required-feature copy. The kernel client loads entitlements with the authenticated route and
+   shares them through `modules/entitlements/context.tsx`; its error copy for Ryo, Pages, plugin
+   management and publications uses `isEntitlementRequiredError`.
+5. **Declarative read gates.** Reporting range presets carry entitlements in their static choices
+   and imply the `rangeKind` and offset arguments they stand for, so documents stay compact and
+   clients cannot widen a free preset. Filter rules are gated by one contract function. The kernel
+   checks both on every user-facing request, while published Pages and saved views keep serving.
+   A first-party client token reused to send a hand-written inline query is outside this boundary,
+   as is modifying the self-hosted server.
+
+Registering every first-party query so the server executes only known documents was considered
+and deferred: about 85 client recipes are built at runtime from collection schemas, browse
+schemas or resolved plugin identities and would first need redesign as parameterized documents.
+It may be scheduled later as an independent hardening order; Order 22's credential check remains
+required either way.
 
 #### Expiry rule
 
@@ -1132,7 +1147,7 @@ Paths abbreviated as `modules/...` in the tables below are under
 | Admin application-log download | Covered | `modules/instance-admin/logs.ts`, contract `modules/instance-admin/logs.ts`: paged active/rotated files, individual downloads and ZIP-all. Signed tickets expire after five minutes and are reusable until expiry, unlike V1's consumed single-use token. |
 | Core details and capabilities | Reshaped | `/system/config` reports version, frontend origin, auth, SMTP availability, Pro state, analytics, and storage provider. Provider/schema/source catalogs supply domain capabilities through RyotQL. Not just an auth-config payload. |
 | Health and observability | Reshaped | `/system/health` checks PostgreSQL; structured rotating logs and optional OTLP replace the Rust process facilities. There is no S3 bucket probe in this health response. |
-| Server Pro key and feature entitlements | Partial | `kernel/backend/src/platform/pro-key.ts`: Unkey verification, expiry validation, one-hour cache. Integration, signal-schedule and Fitness gates exist; the remaining agreed gates and the shared entitlement model are pending Orders 22–23. See the remaining Pro inventory. |
+| Server Pro key and feature entitlements | Done | `kernel/backend/src/platform/entitlements.ts`: Unkey verification, expiry validation, one-hour cache, and the shared entitlement model used by every agreed gate (Orders 22–23). |
 | File upload/download/delete | Reshaped | `modules/assets`: upload intents/completion, owned managed assets, download resolution, safe unreferenced cleanup, local permanent-storage fallback and S3. Temporary imports use local working storage. See [asset lifecycle](#asset-lifecycle). |
 | User data export and listing | Reshaped | `modules/backups`: durable export, RyotQL `backupRun` listing, short-lived download URL and deletion; kernel Backup settings. It replaces V1's S3 JSON export/list-by-prefix mechanism. |
 | Restore | Covered; additional V2 behavior | Atomic clean-account restore of validated backup archives, dependencies, private compiled plugins and assets. Secrets are redacted where required. Backup is not a credentials/session dump and is not the V1 Generic JSON format. |
@@ -1488,18 +1503,13 @@ Orders 22–23.
 
 ### Pro entitlements
 
-The policy is decided and pending as Orders 22–23; see
-[approved Pro entitlement ports](#approved-pro-entitlement-ports--2026-11-15). Current gaps against
-it: collection reordering, publications, recommendations, analytics ranges/export, filter
-combinations, Ryo, MCP, Pages, private plugin installs and inline RyotQL have no gate; plugin
-frames and kernel renderers cannot read Pro state; and Integrations, OAuth connections, imports and
-Fitness each report Pro failures with their own error shape.
+Orders 22–23 implement the approved policy; see
+[approved Pro entitlement ports](#approved-pro-entitlement-ports--2026-11-15).
 
 V1 evidence: `server_key_validation_guard`/`is_server_key_validated` callers under `crates/` and
 `isServerKeyValidated`/`ProRequiredAlert` uses in the V1 frontend (`apps/frontend/app` on `main`).
-V2 evidence: `kernel/backend/src/platform/pro-key.ts`,
-`kernel/backend/src/modules/{integrations,oauth-connections,signal-schedules}`,
-`plugins/fitness/backend/operations/workout-editor-save.ts`, `plugins/media/manifest/plugin.ts`.
+V2 evidence: `kernel/backend/src/platform/entitlements.ts`, `packages/contract/src/schema/entitlement.ts`,
+`packages/plugin-client-sdk/src/queries/account.ts`, `packages/plugin-ui-sdk/src/entitlement.tsx`.
 
 ### Notification producers
 
