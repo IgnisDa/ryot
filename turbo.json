@@ -1,54 +1,57 @@
 {
 	"$schema": "https://turbo.build/schema.json",
+	"globalDependencies": [
+		"tsconfig.options.json",
+		"bunfig.toml"
+	],
 	"tasks": {
-		"dev": { "cache": false, "persistent": true },
-		"check": { "dependsOn": ["^check", "^build"], "outputLogs": "errors-only" },
-		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test"] },
-		"@ryot-app/server#dev": { "cache": false, "persistent": true, "dependsOn": ["^build"] },
-		"build": {
-			"dependsOn": ["^build"],
-			"outputLogs": "errors-only",
-			"env": ["UNKEY_ROOT_KEY", "RYOT_VERSION"],
-			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
+		"dev": {
+			"cache": false,
+			"persistent": true
 		},
-		"@ryot-app/kernel-backend#build": {
-			"dependsOn": ["^build"],
-			"outputs": [
-				"src/modules/definitions/*.generated.ts",
-				"src/modules/agent-tools/*.generated.ts"
-			],
-			"inputs": [
-				"src/**/*.ts",
-				"!src/**/*.generated.ts",
-				"tooling/**/*.ts",
-				"package.json",
-				"$TURBO_ROOT$/packages/contract/src/**/*.ts",
-				"$TURBO_ROOT$/packages/plugin-client-compiler/src/**/*.ts",
-				"$TURBO_ROOT$/packages/plugin-client-contract/src/**/*.ts",
-				"$TURBO_ROOT$/packages/plugin-client-sdk/src/**/*.ts",
-				"$TURBO_ROOT$/packages/plugin-client-sdk/src/**/*.tsx",
-				"$TURBO_ROOT$/packages/plugin-client-sdk/assistant-reference.md",
-				"$TURBO_ROOT$/packages/plugin-ui-sdk/src/**/*.ts",
-				"$TURBO_ROOT$/packages/plugin-ui-sdk/src/**/*.tsx",
-				"$TURBO_ROOT$/packages/plugin-ui-sdk/assistant-reference.md",
-				"$TURBO_ROOT$/packages/plugin-kit/src/**/*.ts",
-				"$TURBO_ROOT$/packages/ryotql/src/**/*.ts",
-				"$TURBO_ROOT$/packages/ryotql-recipes/src/**/*.ts",
-				"$TURBO_ROOT$/packages/ts-utils/src/**/*.ts",
-				"$TURBO_ROOT$/packages/languages/src/**/*.ts"
+		"test": {
+			"outputLogs": "errors-only",
+			"dependsOn": [
+				"^build",
+				"^check",
+				"^test"
 			]
 		},
-		"@ryot-app/kernel-backend#check": {
+		"build": {
+			"dependsOn": [
+				"^build"
+			],
 			"outputLogs": "errors-only",
-			"dependsOn": ["^check", "^build", "build"]
+			"env": [
+				"UNKEY_ROOT_KEY",
+				"RYOT_VERSION"
+			],
+			"outputs": [
+				"out/**",
+				"dist/**",
+				"build/**",
+				".vitepress/dist/**"
+			]
 		},
-		"@ryot-app/kernel-backend#test": {
+		"check": {
 			"outputLogs": "errors-only",
-			"dependsOn": ["build", "^build", "^check", "^test"]
+			"dependsOn": [
+				"^check",
+				"^build"
+			],
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"$TURBO_ROOT$/.oxlintrc.json",
+				"$TURBO_ROOT$/ci/oxlint/**"
+			]
 		},
 		"@ryot-app/e2e#test": {
 			"outputLogs": "errors-only",
-			"dependsOn": ["^build", "^check", "^test"],
+			"dependsOn": [
+				"^build",
+				"^check",
+				"^test"
+			],
 			"inputs": [
 				"$TURBO_DEFAULT$",
 				"$TURBO_ROOT$/apps/server/**",
@@ -63,70 +66,6 @@
 				"!$TURBO_ROOT$/kernel/client/{android,ios}/**",
 				"!$TURBO_ROOT$/kernel/sandbox/native/{payload,target}/**"
 			]
-		},
-		"@ryot-app/sandbox#build": {
-			"dependsOn": ["^build"],
-			"outputLogs": "errors-only",
-			"outputs": ["native/payload/**", "dist/**"],
-			"inputs": [
-				"src/**/*.ts",
-				"tooling/**/*.ts",
-				"native/**",
-				"!native/target/**",
-				"!native/payload/**",
-				"package.json",
-				"$TURBO_ROOT$/packages/contract/src/**/*.ts",
-				"$TURBO_ROOT$/packages/plugin-backend-sdk/src/**/*.ts",
-				"$TURBO_ROOT$/packages/plugin-kit/src/**/*.ts",
-				"$TURBO_ROOT$/packages/ryotql/src/**/*.ts",
-				"$TURBO_ROOT$/packages/ryotql-recipes/src/**/*.ts",
-				"$TURBO_ROOT$/packages/ts-utils/src/**/*.ts",
-				"$TURBO_ROOT$/packages/languages/src/**/*.ts"
-			]
-		},
-		"@ryot-app/sandbox#check": {
-			"outputLogs": "errors-only",
-			"dependsOn": ["^check", "^build", "build"]
-		},
-		"@ryot-app/sandbox#test": {
-			"outputLogs": "errors-only",
-			"dependsOn": [
-				"build",
-				"^build",
-				"^check",
-				"^test",
-				"@ryot-app/fitness-plugin#build",
-				"@ryot-app/media-plugin#build"
-			]
-		},
-		"@ryot-app/server#build": {
-			"outputs": ["dist/**"],
-			"dependsOn": ["^build"],
-			"outputLogs": "errors-only",
-			"env": ["UNKEY_ROOT_KEY", "RYOT_VERSION"]
-		},
-		"@ryot-app/kernel-renderers#build": {
-			"dependsOn": ["^build"],
-			"outputs": ["src/sources.generated.ts"],
-			"inputs": [
-				"src/**/*.ts",
-				"src/**/*.tsx",
-				"!src/**/*.generated.ts",
-				"tooling/**/*.ts",
-				"package.json"
-			]
-		},
-		"@ryot-app/kernel-renderers#check": {
-			"outputLogs": "errors-only",
-			"dependsOn": ["^check", "^build", "build"]
-		},
-		"@ryot-app/kernel-renderers#test": {
-			"outputLogs": "errors-only",
-			"dependsOn": ["build", "^build", "^check", "^test"]
-		},
-		"@ryot-app/kernel-backend#test:memory": {
-			"outputLogs": "errors-only",
-			"dependsOn": ["check", "build"]
 		}
 	},
 	"globalPassThroughEnv": [

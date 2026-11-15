@@ -1,0 +1,18 @@
+{
+	"extends": ["//"],
+	"tasks": {
+		"check": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
+		"build": {
+			"outputs": ["native/payload/**", "dist/**"],
+			"inputs": ["$TURBO_DEFAULT$", "!native/payload/**", "!native/target/**"]
+		},
+		"test": {
+			"dependsOn": [
+				"$TURBO_EXTENDS$",
+				"build",
+				"@ryot-app/fitness-plugin#build",
+				"@ryot-app/media-plugin#build"
+			]
+		}
+	}
+}
