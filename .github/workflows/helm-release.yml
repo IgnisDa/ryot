@@ -40,19 +40,8 @@ jobs:
           VERSION="${TAG#v}"
           echo "Releasing chart version: $VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          yq -i ".version = \"$VERSION\"" ci/helm/ryot/Chart.yaml
-
-      - name: Warn on chart/appVersion major mismatch
-        run: |
-          CHART_MAJOR="${VERSION%%.*}"
-          APP_VERSION="$(yq '.appVersion' ci/helm/ryot/Chart.yaml)"
-          APP_MAJOR="${APP_VERSION#v}"
-          APP_MAJOR="${APP_MAJOR%%.*}"
-          if [ "$CHART_MAJOR" != "$APP_MAJOR" ]; then
-            echo "::warning title=Chart/appVersion major mismatch::Chart version $VERSION (major $CHART_MAJOR) is on a different major than appVersion $APP_VERSION (major $APP_MAJOR). Confirm the chart targets the intended Ryot release."
-          else
-            echo "Chart major ($CHART_MAJOR) matches appVersion major ($APP_MAJOR)."
-          fi
+          export VERSION
+          yq -i '.version = strenv(VERSION) | .appVersion = strenv(TAG)' ci/helm/ryot/Chart.yaml
 
       - name: Log in to GHCR
         env:

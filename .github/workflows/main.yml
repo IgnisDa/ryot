@@ -11,6 +11,8 @@ on:
       - "plugins/**"
       - "apps/server/**"
       - "ci/oxlint/**"
+      - "ci/helm/**"
+      - ".github/workflows/helm-ci.yml"
       - "patches/**"
       - "Dockerfile"
       - ".dockerignore"
@@ -107,8 +109,11 @@ jobs:
             core.setOutput('image-names', imageRepositories.map((repository) => `name=${repository}`).join('\n'));
             core.setOutput('image-repositories', imageRepositories.join(','));
 
+  validate-chart:
+    uses: ./.github/workflows/helm-ci.yml
+
   validate-images:
-    needs: pre-workflow-checks
+    needs: [pre-workflow-checks, validate-chart]
     concurrency:
       group: image-validation-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
