@@ -1,4 +1,5 @@
 import { IngestionPlan } from "@ryot-app/contract/modules/imports/ingestion";
+import { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import { Schema } from "effect";
 
 import { ImportSourceState } from "./source-state";
@@ -6,7 +7,7 @@ import { ImportSourceState } from "./source-state";
 export const PreparedIngestionRelease = Schema.Struct({
 	plan: IngestionPlan,
 	state: ImportSourceState,
-	requiresProKey: Schema.Boolean,
+	entitlement: Schema.NullOr(Entitlement),
 });
 export type PreparedIngestionRelease = typeof PreparedIngestionRelease.Type;
 

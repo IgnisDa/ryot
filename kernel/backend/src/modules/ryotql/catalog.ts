@@ -721,8 +721,8 @@ const integrationProvider: TableBinding<"integrationProvider"> = {
 		lot: column("lot"),
 		plan: column("plan"),
 		scriptSlug: column("script_slug"),
+		entitlement: column("entitlement"),
 		settingsSchema: column("settings_schema"),
-		requiresProKey: column("requires_pro_key"),
 		supportsOwnershipSync: column("supports_ownership_sync"),
 		readinessMetadata: {
 			resolve: ({ sqlAlias }) => sql.raw(ingestionReadinessMetadataSql(sqlAlias)),

@@ -14,6 +14,11 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import {
+	entitlementRequired,
+	entitlementRequiredReason,
+	type Entitlements,
+} from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -43,8 +48,8 @@ import {
 	IngestionReadinessService,
 } from "#modules/plugins/catalog/readiness-service";
 import type { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { JobQueue } from "#platform/jobs/queue";
-import { ProKeyService } from "#platform/pro-key";
 import {
 	makeWorkflowEngine,
 	type MockOverrides,
@@ -69,9 +74,6 @@ const user: CurrentUserValue = {
 		disableIntegrations: false,
 	},
 };
-
-const mockProKey = (isValidated: boolean) =>
-	Layer.mock(ProKeyService)({ isValidated: Effect.succeed(isValidated) });
 
 const systemPlugin = (pluginSlug: string) =>
 	({
@@ -160,8 +162,8 @@ const mockDataAdmission = Layer.mock(DataImportAdmission);
 const mockIngestion = Layer.mock(IntegrationIngestion);
 
 const makeServiceLayer = (options: {
-	proKey?: boolean;
 	stored?: IntegrationRecord;
+	entitlements?: Entitlements;
 	database?: Layer.Layer<DatabaseSession, unknown>;
 	dependencies?: (tools: FakeTools) => {
 		engine?: WorkflowEngineOverrides;
@@ -180,7 +182,7 @@ const makeServiceLayer = (options: {
 				options.database ?? mutationAdmissionTestLayer,
 				Layer.mock(IngestionExecution)({}),
 				Layer.mock(IngestionRetirement)({}),
-				mockProKey(options.proKey ?? true),
+				entitlementsLayer(options.entitlements ?? ["pro"]),
 				Layer.unwrap(
 					Effect.gen(function* () {
 						const calls = yield* Ref.make<ReadonlyArray<RecordedCall>>([]);
@@ -242,6 +244,7 @@ const makeServiceLayer = (options: {
 describe("update", () => {
 	const muProvider = {
 		lot: "yank",
+		entitlement: null,
 		...systemPlugin("example"),
 		name: "Mu",
 		slug: "mu",
@@ -329,6 +332,7 @@ describe("update", () => {
 	});
 	const replacementProvider = {
 		lot: "yank",
+		entitlement: null,
 		name: "Replacement",
 		slug: "shared-provider",
 		settingsSchema: { fields: {} },
@@ -377,7 +381,7 @@ describe("update", () => {
 		lot: "sink",
 		name: "Pro sink",
 		slug: "pro-sink",
-		requiresProKey: true,
+		entitlement: "pro",
 		...systemPlugin("example"),
 		settingsSchema: { fields: {} },
 		scriptSlug: "integration.pro-sink",
@@ -391,7 +395,7 @@ describe("update", () => {
 
 	layer(
 		makeServiceLayer({
-			proKey: false,
+			entitlements: [],
 			dependencies: () => ({
 				repository: {
 					getForUser: () => Effect.succeed(proSinkIntegration),
@@ -406,7 +410,7 @@ describe("update", () => {
 		}),
 	)((test) => {
 		test.effect(
-			"fails with pro-key-required when the existing provider requires an unvalidated key",
+			"requires the provider entitlement before updating an existing integration",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* IntegrationsService;
@@ -414,12 +418,7 @@ describe("update", () => {
 						service.update(proSinkIntegration.userId, proSinkIntegration.id, { isDisabled: true }),
 					);
 
-					assertExitFails(
-						exit,
-						new IntegrationRequestError({
-							reason: { provider: "pro-sink", code: "pro-key-required" },
-						}),
-					);
+					assertExitFails(exit, entitlementRequired("pro"));
 				}),
 			testTimeout,
 		);
@@ -431,6 +430,7 @@ describe("create", () => {
 		lot: "push",
 		name: "Push",
 		scriptSlug: null,
+		entitlement: null,
 		slug: "example-push",
 		...systemPlugin("example"),
 		description: "Test push provider",
@@ -474,7 +474,7 @@ describe("create", () => {
 		lot: "sink",
 		name: "Pro sink",
 		slug: "pro-sink",
-		requiresProKey: true,
+		entitlement: "pro",
 		...systemPlugin("example"),
 		settingsSchema: { fields: {} },
 		scriptSlug: "integration.pro-sink",
@@ -483,7 +483,7 @@ describe("create", () => {
 
 	layer(
 		makeServiceLayer({
-			proKey: false,
+			entitlements: [],
 			dependencies: () => ({
 				repository: { createForUser: () => Effect.die("create should not be reached") },
 				catalog: {
@@ -495,7 +495,7 @@ describe("create", () => {
 		}),
 	)((test) => {
 		test.effect(
-			"fails with pro-key-required when the provider requires an unvalidated key",
+			"requires the provider entitlement before creating an integration",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* IntegrationsService;
@@ -506,12 +506,7 @@ describe("create", () => {
 						}),
 					);
 
-					assertExitFails(
-						exit,
-						new IntegrationRequestError({
-							reason: { provider: "pro-sink", code: "pro-key-required" },
-						}),
-					);
+					assertExitFails(exit, entitlementRequired("pro"));
 				}),
 			testTimeout,
 		);
@@ -600,8 +595,8 @@ describe("prepareYankRuns", () => {
 		lot: "yank",
 		name: "Theta",
 		slug: "theta",
+		entitlement: null,
 		description: "Theta",
-		requiresProKey: false,
 		scriptSlug: "theta-sync",
 		settingsSchema: { fields: {} },
 	};
@@ -818,9 +813,9 @@ describe("handleWebhook", () => {
 						Effect.succeed({
 							...systemPlugin("example"),
 							lot: "sink",
+							entitlement: null,
 							name: "Example sink",
 							slug: "example-sink",
-							requiresProKey: false,
 							description: "Example sink",
 							scriptSlug: "example-webhook",
 							settingsSchema: { fields: {} },
@@ -948,9 +943,9 @@ describe("handleWebhook", () => {
 	const sinkProvider: RegisteredIntegrationProvider = {
 		...systemPlugin("example"),
 		lot: "sink",
+		entitlement: null,
 		name: "Sample Sink",
 		slug: "sample-sink",
-		requiresProKey: false,
 		description: "Sample Sink",
 		settingsSchema: { fields: {} },
 		scriptSlug: "sample-sink-webhook",
@@ -958,16 +953,21 @@ describe("handleWebhook", () => {
 	for (const code of [
 		"integration-disabled",
 		"integrations-disabled",
-		"pro-key-required",
+		"entitlement-required",
 	] as const) {
+		const failureReason =
+			code === "entitlement-required" ? entitlementRequiredReason("pro") : { code };
 		layer(
 			makeServiceLayer({
-				proKey: code !== "pro-key-required",
+				entitlements: code === "entitlement-required" ? [] : ["pro"],
 				dependencies: () => ({
 					engine: { execute: () => Effect.die("Rejected deliveries must not dispatch") },
 					catalog: {
 						findOwnedForUser: () =>
-							Effect.succeed({ ...sinkProvider, requiresProKey: code === "pro-key-required" }),
+							Effect.succeed({
+								...sinkProvider,
+								entitlement: code === "entitlement-required" ? "pro" : null,
+							}),
 					},
 					repository: {
 						getUserDisableIntegrations: () => Effect.succeed(code === "integrations-disabled"),
@@ -988,7 +988,7 @@ describe("handleWebhook", () => {
 						});
 						expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)).toMatchObject({
 							method: "admitWebhook",
-							input: { failureReason: { code } },
+							input: { failureReason },
 						});
 					}),
 				testTimeout,
@@ -1041,9 +1041,9 @@ describe("handleWebhook", () => {
 	const lambdaSink: RegisteredIntegrationProvider = {
 		...systemPlugin("example"),
 		lot: "sink",
+		entitlement: null,
 		name: "Lambda sink",
 		slug: "lambda_sink",
-		requiresProKey: false,
 		description: "Lambda sink",
 		scriptSlug: "lambda-webhook",
 		settingsSchema: { fields: {} },
@@ -1104,7 +1104,7 @@ describe("integrationCommonSchema", () => {
 describe("syncAll", () => {
 	layer(
 		makeServiceLayer({
-			proKey: false,
+			entitlements: [],
 			dependencies: () => ({
 				catalog: {
 					findForUser: () => Effect.succeed(null),
@@ -1140,6 +1140,7 @@ describe("managed asset settings", () => {
 	const assetProvider = {
 		lot: "push",
 		scriptSlug: null,
+		entitlement: null,
 		name: "Asset push",
 		slug: "asset-push",
 		...systemPlugin("example"),

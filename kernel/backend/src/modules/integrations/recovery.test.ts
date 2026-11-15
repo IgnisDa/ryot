@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { assert } from "@ryot-app/testing/assert";
@@ -76,19 +77,19 @@ layer(
 							extraSettings: { disableOnContinuousErrors: false },
 						}),
 				);
-				for (const code of [
-					"integration-disabled",
-					"integrations-disabled",
-					"pro-key-required",
-				] as const) {
+				for (const failureReason of [
+					{ code: "integration-disabled" },
+					{ code: "integrations-disabled" },
+					{ entitlement: "pro", code: "entitlement-required" },
+				] satisfies ImportRunFailureReason[]) {
 					const scope = yield* ingestion.admitWebhook(
 						integration,
 						{ rawBody: "{}", contentType: "application/json" },
-						{ code },
+						failureReason,
 					);
 					expect(
 						yield* repository.getRunById({ runId: scope.runId, userId: scope.userId }),
-					).toMatchObject({ startedAt: null, status: "failed", failureReason: { code } });
+					).toMatchObject({ failureReason, startedAt: null, status: "failed" });
 					expect(yield* ingestion.inputReady(scope)).toBe(false);
 					expect(yield* ingestion.release(scope, integration)).toBe(false);
 				}

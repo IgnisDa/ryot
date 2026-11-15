@@ -11,6 +11,7 @@ import {
 	pluginOperationCapabilityId,
 	pluginQueryCapabilityId,
 } from "@ryot-app/contract/schema/capability";
+import { type Entitlement, isEntitled } from "@ryot-app/contract/schema/entitlement";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -21,8 +22,10 @@ import type { Headers as PlatformHeaders } from "effect/http";
 import type { AuthService } from "#modules/accounts/auth/service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { userOperationAccessFailure } from "#modules/plugins/operations/access";
 import { OperationsService } from "#modules/plugins/operations/service";
 import { RyotQLService } from "#modules/ryotql/service";
+import { EntitlementService } from "#platform/entitlements";
 import { defaultResultByteBudget } from "#platform/tool-result";
 
 import {
@@ -37,11 +40,15 @@ import {
 export type AgentAccount = Effect.Success<
 	ReturnType<AuthService["Service"]["resolveTrustedAccount"]>
 >;
-type CatalogEntry = { readonly capability: Capability; readonly document?: RyotQLDocument };
 type CapabilityInvocation = {
 	readonly resource?: string;
 	readonly idempotencyKey?: string;
 	readonly headers?: PlatformHeaders.Headers;
+};
+type CatalogEntry = {
+	readonly capability: Capability;
+	readonly document?: RyotQLDocument;
+	readonly entitlement?: undefined | Entitlement;
 };
 
 export const capabilityPin = (capability: Capability) =>
@@ -72,10 +79,12 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 			const operations = yield* OperationsService;
 			const catalogs = yield* DefinitionCatalog;
 			const ryotql = yield* RyotQLService;
+			const entitlements = yield* EntitlementService;
 			const declaredQueries = Effect.fn("CapabilityCatalog.declaredQueries")(function* (
 				account: AgentAccount,
 			) {
 				const catalog = yield* catalogs.forUser(account.user.id);
+				const active = yield* entitlements.current;
 				const entries: CatalogEntry[] = [];
 				for (const plugin of catalog.plugins) {
 					if (plugin.health !== "ready" || !plugin.isDefinitionEffective || !plugin.isExecutable) {
@@ -83,8 +92,12 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 					}
 					const revision = yield* catalogs.revision(plugin.activeRevisionId);
 					for (const [query, declaration] of Object.entries(revision.sections.queries ?? {})) {
+						if (!isEntitled(active, declaration.entitlement)) {
+							continue;
+						}
 						entries.push({
 							document: declaration.document,
+							entitlement: declaration.entitlement,
 							capability: {
 								hints: readHints,
 								output: ryotqlOutput,
@@ -110,15 +123,21 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 				account: AgentAccount,
 			) {
 				const available = yield* runtime.listOperationsAvailableToUser(account.user.id);
+				const active = yield* entitlements.current;
 				return available.flatMap(({ plugin, operation }): CatalogEntry[] => {
 					if (operation.auth !== "user" || plugin.pluginConfigRevisionId === null) {
 						return [];
 					}
-					const demoAllowed =
-						operation.hints.readOnly &&
-						plugin.scope === "system" &&
-						operation.demoAccess === "allowed";
-					if (account.authorization.accessClass === "demo" && !demoAllowed) {
+					const accessClass = account.authorization.accessClass;
+					if (
+						(accessClass === "demo" && !operation.hints.readOnly) ||
+						userOperationAccessFailure({
+							operation,
+							accessClass,
+							entitlements: active,
+							pluginScope: plugin.scope,
+						})
+					) {
 						return [];
 					}
 					return [
@@ -202,6 +221,7 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 					);
 				}
 				if (source.kind === "declared-query") {
+					yield* entitlements.require(entry.entitlement);
 					const document = entry.document;
 					if (document === undefined) {
 						return yield* Effect.die("Declared query capability has no document");

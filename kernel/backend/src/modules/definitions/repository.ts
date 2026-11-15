@@ -463,7 +463,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										slug: definition.slug,
 										description: definition.description,
 										settingsSchema: definition.settingsSchema,
-										requiresProKey: definition.requiresProKey ?? false,
+										entitlement: definition.entitlement ?? null,
 										supportsOwnershipSync: definition.supportsOwnershipSync ?? false,
 										plan: definition.lot === "push" ? null : (definition.plan ?? null),
 										scriptSlug: definition.lot === "push" ? null : definition.scriptSlug,

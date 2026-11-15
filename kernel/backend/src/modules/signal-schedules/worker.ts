@@ -12,6 +12,7 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { isEntitled } from "@ryot-app/contract/schema/entitlement";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	type SignalScheduleCandidate,
@@ -28,7 +29,7 @@ import { AccountAdmission } from "#modules/mutations/account-admission";
 import { RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import { ProKeyService } from "#platform/pro-key";
+import { EntitlementService } from "#platform/entitlements";
 
 import { type SignalScheduleCursor, SignalScheduleRepository } from "./repository";
 
@@ -87,7 +88,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const proKey = yield* ProKeyService;
+			const entitlements = yield* EntitlementService;
 			const session = yield* DatabaseSession;
 			const ryotql = yield* RyotQLService;
 			const admission = yield* AccountAdmission.make;
@@ -239,7 +240,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 							Effect.logWarning("Signal schedule delivery pruning failed", cause),
 						),
 					);
-				const isPro = yield* proKey.isValidated;
+				const active = yield* entitlements.current;
 				let after: null | SignalScheduleCursor = null;
 				for (let page = 0; page < TARGET_PAGE_LIMIT; page++) {
 					const targets: ReadonlyArray<SignalScheduleTarget> = yield* repository.listTargets(
@@ -247,7 +248,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						TARGET_PAGE_SIZE,
 					);
 					for (const target of targets) {
-						if (target.requiresProKey && !isPro) {
+						if (!isEntitled(active, target.entitlement)) {
 							continue;
 						}
 						yield* deliverTarget(target, now).pipe(

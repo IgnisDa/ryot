@@ -27,6 +27,7 @@ import {
 import { AgentRunSuspended } from "#modules/scripts/agent/service";
 import { RYOT_VERSION } from "#platform/build-info";
 import { AppConfig } from "#platform/config/service";
+import { EntitlementService } from "#platform/entitlements";
 
 const RequestHeaders = Context.Reference<Headers.Headers>(
 	"@ryot-app/kernel-backend/modules/mcp/RequestHeaders",
@@ -104,6 +105,7 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 	tools: Pick<AgentToolsService["Service"], "call">,
 	origin: string,
 	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
+	entitlements: Pick<EntitlementService["Service"], "require">,
 ) {
 	const resource = getMcpOAuthResource(origin);
 	const middleware = McpServer.middleware(
@@ -242,6 +244,7 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 			new globalThis.Headers(request.headers),
 			resource,
 		);
+		yield* entitlements.require("pro");
 		if (
 			request.method !== "GET" &&
 			request.method !== "HEAD" &&
@@ -256,17 +259,25 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 		const { app } = yield* ScopedCache.get(connections, identity).pipe(Effect.orDie);
 		return yield* app;
 	}).pipe(
-		Effect.catchTag("AuthUnauthorized", () =>
-			Effect.succeed(
-				HttpServerResponse.empty({
-					status: 401,
-					headers: {
-						"Cache-Control": "no-store",
-						"WWW-Authenticate": `Bearer resource_metadata="${getMcpResourceMetadataUrl(origin)}", scope="${oauthPolicy.challengeScopes.join(" ")}"`,
-					},
-				}),
-			),
-		),
+		Effect.catchTags({
+			EntitlementRequired: (error) =>
+				Effect.succeed(
+					HttpServerResponse.jsonUnsafe(error.reason, {
+						status: 402,
+						headers: { "Cache-Control": "no-store" },
+					}),
+				),
+			AuthUnauthorized: () =>
+				Effect.succeed(
+					HttpServerResponse.empty({
+						status: 401,
+						headers: {
+							"Cache-Control": "no-store",
+							"WWW-Authenticate": `Bearer resource_metadata="${getMcpResourceMetadataUrl(origin)}", scope="${oauthPolicy.challengeScopes.join(" ")}"`,
+						},
+					}),
+				),
+		}),
 	);
 	return { handle };
 });
@@ -279,7 +290,8 @@ export class McpService extends Context.Service<McpService>()(
 			const tools = yield* AgentToolsService;
 			const config = yield* AppConfig;
 			const lifecycle = yield* LifecycleWriteGuard;
-			return yield* makeMcpTransport(auth, tools, config.frontendUrl, lifecycle);
+			const entitlements = yield* EntitlementService;
+			return yield* makeMcpTransport(auth, tools, config.frontendUrl, lifecycle, entitlements);
 		}),
 	},
 ) {

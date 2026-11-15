@@ -10,6 +10,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { AuthoredSavedViewRendererConfig } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { entitlementRequired, type Entitlements } from "@ryot-app/contract/schema/entitlement";
 import {
 	emptySandboxExecutionMetadata,
 	fixtureManifest,
@@ -34,6 +35,7 @@ import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { databaseLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -189,6 +191,7 @@ type FakeInstallationOptions = {
 	readonly cleanupFailsOnce?: boolean;
 	readonly claimUploadFails?: boolean;
 	readonly isolatedDatabase?: boolean;
+	readonly entitlements?: Entitlements;
 	readonly deleteUploadFails?: boolean;
 	readonly missingUpdateState?: boolean;
 	readonly hasEntityReferences?: boolean;
@@ -590,6 +593,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 	);
 	return PluginInstallationService.layer.pipe(
 		Layer.provide(ingestionLockLayer),
+		Layer.provide(entitlementsLayer(options.entitlements ?? ["pro"])),
 		Layer.provideMerge(dependenciesLayer),
 		Layer.provideMerge(inspectionLayer),
 		Layer.provideMerge(stateLayer),
@@ -758,6 +762,35 @@ layer(
 					expectedPackageId: otherPackagePlugin.packageId,
 					packageId: privateManifest().metadata.packageId,
 				});
+			}),
+		testTimeout,
+	);
+});
+
+layer(makeLayer({ entitlements: [] }))("plugin installation without Pro", (test) => {
+	test.effect(
+		"requires Pro before reading a private plugin upload",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				for (const failure of [
+					yield* Effect.flip(
+						service.installPrivatePlugin({ userId, config: {}, uploadToken: "upload" }),
+					),
+					yield* Effect.flip(
+						service.updatePrivatePlugin({
+							userId,
+							config: {},
+							contentHash: "hash",
+							uploadToken: "upload",
+							installationId: "installation",
+						}),
+					),
+				]) {
+					expect(failure).toEqual(entitlementRequired("pro"));
+				}
+				expect(yield* fake.deletedUploads).toEqual([]);
 			}),
 		testTimeout,
 	);

@@ -63,7 +63,7 @@ layer(services)((test) => {
 					{ status: "expired", expiryReason: "setup-deadline-expired" },
 					{ status: "blocked", blockReasons: [{ key: "token", code: "configuration-required" }] },
 					{ status: "failed", failureReason: { code: "integration-disabled" } },
-					{ status: "failed", failureReason: { code: "pro-key-required" } },
+					{ status: "failed", failureReason: { entitlement: "pro", code: "entitlement-required" } },
 					{
 						status: "failed",
 						failureReason: { code: "queue-unavailable", operation: "integration-webhook" },

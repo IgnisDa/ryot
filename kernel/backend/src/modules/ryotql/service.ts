@@ -1,10 +1,11 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import { DbError } from "@ryot-app/contract/errors";
+import { DbError, dieOnDbError } from "@ryot-app/contract/errors";
 import {
 	ENTITY_PRESENTATION_FIELD,
 	type EntityPresentationPayload,
 } from "@ryot-app/contract/modules/entities/presentation";
+import { filterEntitlement } from "@ryot-app/contract/modules/filters/schemas";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { resolveStoredPluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import { documentTables, type RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
@@ -14,13 +15,21 @@ import {
 	RyotQLResponse,
 	type RyotQLResult,
 } from "@ryot-app/contract/modules/ryotql/language";
-import { argumentIssuesMessage, bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
+import {
+	argumentEntitlements,
+	argumentIssuesMessage,
+	bindArguments,
+} from "@ryot-app/contract/modules/ryotql/parameters";
 import type {
 	DescribeResponse,
 	ExecutionRequest,
 	ExecutionSource,
 } from "@ryot-app/contract/modules/ryotql/request";
-import type { AccessClass } from "@ryot-app/contract/oauth";
+import {
+	type AccessClass,
+	type AuthorizationContext,
+	isFirstPartyCredential,
+} from "@ryot-app/contract/oauth";
 import { type TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	compileControlFilter,
@@ -52,6 +61,7 @@ import { DefinitionCatalog, pluginOwner } from "#modules/definitions/catalog";
 import { loadCatalogRelations } from "#modules/definitions/catalog-relations";
 import type { DefinitionReadContext } from "#modules/definitions/read-context";
 import { DatabaseSession } from "#platform/db/session";
+import { EntitlementService } from "#platform/entitlements";
 import { HmacSigner } from "#platform/storage/hmac-signer";
 import { user as userTable } from "#schema/tables/auth";
 import { plugin, pluginInstallation } from "#schema/tables/core";
@@ -83,6 +93,30 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 			const signer = yield* HmacSigner;
 			const catalogs = yield* DefinitionCatalog;
 			const sources = yield* RyotQLSources;
+			const entitlements = yield* EntitlementService;
+			const authorizeRequest = Effect.fnUntraced(function* (
+				userId: string,
+				request: Pick<ExecutionRequest, "source" | "filter" | "arguments">,
+				authorization: AuthorizationContext,
+			) {
+				const { source } = request;
+				if (source.kind === "inline" && !isFirstPartyCredential(authorization.credential)) {
+					yield* entitlements.require("pro");
+				}
+				const declared =
+					source.kind === "plugin"
+						? yield* catalogs.declaredQuery(userId, source, source.query).pipe(dieOnDbError)
+						: null;
+				const parameters =
+					source.kind === "inline" ? source.document.parameters : declared?.document.parameters;
+				for (const required of [
+					declared?.entitlement,
+					filterEntitlement(request.filter),
+					...argumentEntitlements(parameters, request.arguments),
+				]) {
+					yield* entitlements.require(required);
+				}
+			});
 
 			// Only rolling back a savepoint reverts READ ONLY and local settings; releasing it would leave
 			// them on the transaction of the write that is reading its own changes.
@@ -942,48 +976,44 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					Effect.catchTag("DemoOperationProtected", demoScopeFailure),
 				);
 
-			const execute = (
+			const executeAuthorized = (
 				user: CurrentUserValue,
+				audience: RyotQLAudience,
 				request: ExecutionRequest,
-				accessClass: AccessClass,
-			) => executeForUser(user.id, user.preferences.language, "kernel", request, accessClass);
-
-			const executeForPluginAudience = (
-				user: CurrentUserValue,
-				request: ExecutionRequest,
-				accessClass: AccessClass,
-			) => executeForUser(user.id, user.preferences.language, "plugin", request, accessClass);
+				authorization: AuthorizationContext,
+			) =>
+				authorizeRequest(user.id, request, authorization).pipe(
+					Effect.andThen(
+						executeForUser(
+							user.id,
+							user.preferences.language,
+							audience,
+							request,
+							authorization.accessClass,
+						),
+					),
+				);
 
 			return {
-				execute,
 				executeForUser,
 				executeForAdmin,
 				executeDeclared,
 				executeForPlugin,
 				describeDeclared,
-				executeForPluginAudience,
 				describeForAdmin: (
 					source: ExecutionSource,
 					argumentsValue?: ExecutionRequest["arguments"],
 				) => describeWithScope({ type: "admin" }, source, argumentsValue),
-				describe: (
+				execute: (
 					user: CurrentUserValue,
-					source: ExecutionSource,
-					audience: RyotQLAudience,
-					accessClass: AccessClass,
-					argumentsValue?: ExecutionRequest["arguments"],
-				) =>
-					describeWithScope(
-						{
-							audience,
-							accessClass,
-							type: "user",
-							userId: user.id,
-							language: user.preferences.language,
-						},
-						source,
-						argumentsValue,
-					),
+					request: ExecutionRequest,
+					authorization: AuthorizationContext,
+				) => executeAuthorized(user, "kernel", request, authorization),
+				executeForPluginAudience: (
+					user: CurrentUserValue,
+					request: ExecutionRequest,
+					authorization: AuthorizationContext,
+				) => executeAuthorized(user, "plugin", request, authorization),
 				validateSelectionForUser: (
 					userId: string,
 					request: ExecutionRequest,
@@ -999,6 +1029,28 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 							forbiddenSource,
 						),
 					).pipe(Effect.asVoid),
+				describe: (
+					user: CurrentUserValue,
+					source: ExecutionSource,
+					audience: RyotQLAudience,
+					authorization: AuthorizationContext,
+					argumentsValue?: ExecutionRequest["arguments"],
+				) =>
+					authorizeRequest(user.id, { source, arguments: argumentsValue }, authorization).pipe(
+						Effect.andThen(
+							describeWithScope(
+								{
+									audience,
+									type: "user",
+									userId: user.id,
+									language: user.preferences.language,
+									accessClass: authorization.accessClass,
+								},
+								source,
+								argumentsValue,
+							),
+						),
+					),
 			};
 		}),
 	},
@@ -1007,5 +1059,6 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 		Layer.provide(HmacSigner.layer),
 		Layer.provide(RyotQLSources.layer),
 		Layer.provide(DefinitionCatalog.layer),
+		Layer.provide(EntitlementService.layer),
 	);
 }

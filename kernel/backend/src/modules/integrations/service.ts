@@ -22,6 +22,7 @@ import type {
 	IntegrationWebhookToken,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { entitlementRequiredReason, isEntitled } from "@ryot-app/contract/schema/entitlement";
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
@@ -46,8 +47,8 @@ import {
 } from "#modules/plugins/catalog/integration-providers";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { DatabaseSession } from "#platform/db/session";
+import { EntitlementService } from "#platform/entitlements";
 import { JobQueue } from "#platform/jobs/queue";
-import { ProKeyService } from "#platform/pro-key";
 
 import { IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -132,7 +133,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					);
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 				database.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-			const proKey = yield* ProKeyService;
+			const entitlements = yield* EntitlementService;
 			const jobs = yield* JobQueue;
 			const engine = yield* WorkflowEngine;
 			const admission = yield* AccountAdmission.make;
@@ -152,19 +153,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				yield* importRepository.startIngestion({ scope, startedAt: yield* DateTime.nowAsDate });
 				yield* ingestion.settle(scope, "failed", reason);
 			});
-
-			const requireProKeyFor = (registered: RegisteredIntegrationProvider) =>
-				registered.requiresProKey
-					? Effect.flatMap(proKey.isValidated, (isPro) =>
-							isPro
-								? Effect.void
-								: Effect.fail(
-										new IntegrationRequestError({
-											reason: { code: "pro-key-required", provider: registered.slug },
-										}),
-									),
-						)
-					: Effect.void;
 
 			const bindOAuthConnections = (input: {
 				readonly userId: UserId;
@@ -244,7 +232,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					});
 				}
 				yield* validateRegisteredSettings(body.provider.slug, registered, body.providerSpecifics);
-				yield* requireProKeyFor(registered);
+				yield* entitlements.require(registered.entitlement);
 				const lot = registered.lot;
 
 				const minimumProgress = body.minimumProgress ?? 2;
@@ -302,7 +290,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 								existing.pluginInstallationId,
 							);
 				if (registered) {
-					yield* requireProKeyFor(registered);
+					yield* entitlements.require(registered.entitlement);
 				}
 
 				let providerSpecifics: undefined | IntegrationProviderSettings;
@@ -524,8 +512,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					failureReason = { code: "integration-disabled" };
 				} else if (yield* repository.getUserDisableIntegrations({ userId: integration.userId })) {
 					failureReason = { code: "integrations-disabled" };
-				} else if (registered?.requiresProKey && !(yield* proKey.isValidated)) {
-					failureReason = { code: "pro-key-required" };
+				} else if (registered?.entitlement && !(yield* entitlements.has(registered.entitlement))) {
+					failureReason = entitlementRequiredReason(registered.entitlement);
 				}
 				const scope = yield* ingestion
 					.admitWebhook(
@@ -593,7 +581,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				userId: null | UserId,
 			) {
 				const integrations = yield* repository.listEnabledYankIntegrations({ userId });
-				const isPro = yield* proKey.isValidated;
+				const active = yield* entitlements.current;
 				const resolvedByUser = new Map<
 					UserId,
 					Effect.Success<ReturnType<typeof providerCatalog.listResolvedForUser>>
@@ -620,7 +608,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							provider.slug === integration.provider &&
 							provider.installationId === integration.pluginInstallationId,
 					)?.provider;
-					if (!registered || (registered.requiresProKey && !isPro)) {
+					if (!registered || !isEntitled(active, registered.entitlement)) {
 						continue;
 					}
 					const evaluated = yield* readiness
@@ -708,7 +696,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					}
 					const prepared = yield* importRepository.getPreparedRelease(scope);
 					if (prepared) {
-						if (prepared.requiresProKey && !(yield* proKey.isValidated)) {
+						if (!(yield* entitlements.has(prepared.entitlement))) {
 							return false;
 						}
 						return yield* ingestion.release(scope, integration);
@@ -720,7 +708,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 								integration.pluginInstallationId,
 							)
 						: null;
-					if (!registered || (registered.requiresProKey && !(yield* proKey.isValidated))) {
+					if (!registered || !(yield* entitlements.has(registered.entitlement))) {
 						return false;
 					}
 					return yield* ingestion

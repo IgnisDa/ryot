@@ -5,6 +5,7 @@ import { BadRequest } from "@ryot-app/contract/errors";
 import { PageAuthoringError, type PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { entitlementRequired, type Entitlements } from "@ryot-app/contract/schema/entitlement";
 import {
 	clientPluginCompilationFailure,
 	clientPluginCompilerDiagnostic,
@@ -15,7 +16,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
-import { Context, Deferred, Effect, Fiber, Layer, Result } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, Ref, Result } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -24,6 +25,7 @@ import { ClientPluginCompiler } from "#modules/pages/compiler";
 import { RyotQLService } from "#modules/ryotql/service";
 import { RyotQLSources } from "#modules/ryotql/sources";
 import { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -123,6 +125,7 @@ const seed = Effect.gen(function* () {
 		}),
 	);
 });
+const activeEntitlements = Ref.makeUnsafe<Entitlements>(["pro"]);
 const services = Layer.mergeAll(
 	PageAuthoringService.layer,
 	RyotQLService.layer,
@@ -134,6 +137,7 @@ const services = Layer.mergeAll(
 			ClientArtifactsRepository.layer,
 			DefinitionCatalog.layer,
 			compiler,
+			entitlementsLayer(Ref.get(activeEntitlements)),
 		),
 	),
 	Layer.provide(DefinitionRepository.layer),
@@ -146,6 +150,30 @@ const database = services.pipe(
 );
 
 layer(database)((test) => {
+	test.effect("requires Pro to author pages and grant writes but not to revoke or delete", () =>
+		Effect.gen(function* () {
+			const service = yield* PageAuthoringService;
+			const actor = { userId: owner, kind: "user" as const };
+			const created = yield* service.create(actor, { definition, slug: "lapsed", name: "Lapsed" });
+			yield* service.setWriteAccess(owner, created.pageId, true);
+			yield* Ref.set(activeEntitlements, []);
+			const revision = { pageId: created.pageId, expectedDraftRevision: 1 };
+			for (const failure of [
+				yield* Effect.flip(service.create(actor, { definition, slug: "later", name: "Later" })),
+				yield* Effect.flip(service.replaceDraft(actor, { ...revision, definition })),
+				yield* Effect.flip(service.compile(owner, revision)),
+				yield* Effect.flip(service.publish(owner, revision)),
+			]) {
+				expect(failure).toEqual(entitlementRequired("pro"));
+			}
+			yield* service.setWriteAccess(owner, created.pageId, false);
+			expect(yield* Effect.flip(service.setWriteAccess(owner, created.pageId, true))).toEqual(
+				entitlementRequired("pro"),
+			);
+			yield* service.remove(owner, created.pageId);
+		}).pipe(Effect.ensuring(Ref.set(activeEntitlements, ["pro"]))),
+	);
+
 	test.effect("replays assistant creates, edits, builds and deletes from atomic receipts", () =>
 		Effect.gen(function* () {
 			const service = yield* PageAuthoringService;

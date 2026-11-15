@@ -218,6 +218,11 @@ export const bindSandboxHostFunctions = <Input>(
 			coreSandboxHostContracts.getUserSettings,
 			implementations.getUserSettings,
 		),
+		getEntitlements: bind(
+			"getEntitlements",
+			coreSandboxHostContracts.getEntitlements,
+			implementations.getEntitlements,
+		),
 		invokeCapability: bind(
 			"invokeCapability",
 			domainSandboxHostContracts.invokeCapability,
@@ -247,11 +252,6 @@ export const bindSandboxHostFunctions = <Input>(
 			"getUserPreferences",
 			coreSandboxHostContracts.getUserPreferences,
 			implementations.getUserPreferences,
-		),
-		getProAvailability: bind(
-			"getProAvailability",
-			coreSandboxHostContracts.getProAvailability,
-			implementations.getProAvailability,
 		),
 		getPersistentValue: bind(
 			"getPersistentValue",

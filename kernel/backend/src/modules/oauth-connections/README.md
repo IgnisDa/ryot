@@ -11,8 +11,8 @@ The field value is an opaque connection id; tokens never enter integration setti
 
 1. `POST /oauth-connections` resolves the integration provider for the caller (or the exact
    installation of `integrationId`), reads the provider's client ID and secret from the plugin
-   configuration keys it names, and stores a pending connection for ten minutes. Integrations marked
-   `requiresProKey` can start only when the server has a validated Pro key. The response carries the
+   configuration keys it names, and stores a pending connection for ten minutes. Providers that declare an
+   `entitlement` can start only while the account holds it. The response carries the
    connection id and the provider authorization URL.
 2. The provider redirects to the callback registered for that plugin and provider. The callback is
    public. It consumes the pending state only on its own provider path, stores the encrypted code,

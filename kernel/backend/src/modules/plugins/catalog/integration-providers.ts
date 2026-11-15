@@ -11,6 +11,7 @@ import {
 	SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
@@ -30,12 +31,12 @@ export type RegisteredIntegrationProvider = {
 	readonly pluginId: string;
 	readonly description: string;
 	readonly installationId: string;
-	readonly requiresProKey?: boolean;
 	readonly settingsSchema: AppSchema;
 	readonly scriptSlug: null | string;
 	readonly packageId: PluginPackageId;
 	readonly plan?: undefined | SourcePlan;
 	readonly pluginScope: "user" | "system";
+	readonly entitlement: null | Entitlement;
 	readonly reference: DeclarationReference;
 	readonly lot: PluginIntegrationProvider["lot"];
 	readonly readinessMetadata: IngestionReadinessMetadata;
@@ -64,9 +65,9 @@ const queryProvidersForSession = (
 					scriptSlug: provider.scriptSlug,
 					pluginScope: provider.pluginScope,
 					description: provider.description,
+					entitlement: provider.entitlement,
 					scripts: schema.pluginRevision.scripts,
 					installationId: provider.installationId,
-					requiresProKey: provider.requiresProKey,
 					settingsSchema: provider.settingsSchema,
 					workflows: schema.pluginRevision.workflows,
 					packageId: schema.pluginRevision.packageId,

@@ -47,8 +47,8 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 							precision: schedule.precision,
 							occurrence: schedule.occurrence,
 							properties: schedule.properties,
+							entitlement: schedule.entitlement,
 							preferences: schema.user.preferences,
-							requiresProKey: schedule.requiresProKey,
 						})
 						.from(plugin)
 						.innerJoin(schedule, eq(schedule.pluginRevisionId, plugin.activeRevisionId))

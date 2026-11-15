@@ -46,8 +46,8 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { SystemPlugins } from "#modules/plugins/packages/system";
 import { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { JobQueue } from "#platform/jobs/queue";
-import { ProKeyService } from "#platform/pro-key";
 import { HmacSigner } from "#platform/storage/hmac-signer";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
@@ -98,9 +98,6 @@ const tokenEndpointLayer = Layer.succeed(
 
 const configLayer = makeAppConfigLayer({ fileStorage: { localTempDir } });
 
-const mockProKey = (isValidated: boolean) =>
-	Layer.mock(ProKeyService)({ isValidated: Effect.succeed(isValidated) });
-
 const infrastructure = Layer.mergeAll(
 	LifecycleWriteGuard.layer,
 	S3Service.layer,
@@ -126,16 +123,16 @@ const roundTripLayer = Layer.mergeAll(
 					Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
 					Layer.provide(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 				),
-				OAuthConnectionsServiceLive.pipe(Layer.provide(mockProKey(true))),
+				OAuthConnectionsServiceLive.pipe(Layer.provide(entitlementsLayer(["pro"]))),
 				Layer.mock(ImportsService)({}),
 				Layer.mock(DataImportAdmission)({}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				JobQueue.layer,
-				mockProKey(true),
+				entitlementsLayer(["pro"]),
 			),
 		),
 	),
-	OAuthConnectionsServiceLive.pipe(Layer.provide(mockProKey(true))),
+	OAuthConnectionsServiceLive.pipe(Layer.provide(entitlementsLayer(["pro"]))),
 ).pipe(
 	Layer.provide(tokenEndpointLayer),
 	Layer.provideMerge(BackupStaging.layer),

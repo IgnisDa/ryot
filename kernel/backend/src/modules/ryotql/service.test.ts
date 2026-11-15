@@ -77,6 +77,7 @@ import { Context, Effect, Layer, Ref, Result, Schema } from "effect";
 
 import { DefinitionCatalog, type UserCatalog } from "#modules/definitions/catalog";
 import { mapDatabaseErrors } from "#platform/db/errors";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { HmacSigner } from "#platform/storage/hmac-signer";
 import { fakeDatabaseSession, makeAppConfigLayer } from "#testing/effect";
 
@@ -117,6 +118,7 @@ const makeServiceLayer = (
 	queryResult: Effect.Effect<readonly Record<string, unknown>[], DbError> = Effect.succeed([]),
 ) =>
 	Layer.effect(RyotQLService, RyotQLService.make).pipe(
+		Layer.provide(entitlementsLayer([])),
 		Layer.provide(HmacSigner.layer.pipe(Layer.provide(makeAppConfigLayer()))),
 		Layer.provide(
 			Layer.mock(RyotQLSources)({
@@ -852,7 +854,12 @@ layer(makeServiceLayer())((test) => {
 							service.executeForPluginAudience(
 								user,
 								{ source: { kind: "inline", document: candidate } },
-								accessClass,
+								{
+									accessClass,
+									userId: user.id,
+									writeAccess: "unattended",
+									credential: { kind: "oauth", clientId: "ryot-web" },
+								},
 							),
 						);
 						expect(error).toBeInstanceOf(RyotQLBadRequest);

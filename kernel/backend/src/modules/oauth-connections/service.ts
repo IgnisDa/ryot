@@ -31,7 +31,7 @@ import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions"
 import type { SubkeyCiphertext } from "#platform/config/plugin-config-encryption";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import { ProKeyService } from "#platform/pro-key";
+import { EntitlementService } from "#platform/entitlements";
 
 import { OAuthConnectionsRepository } from "./repository";
 import { OAuthTokenClient } from "./token-client";
@@ -109,7 +109,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
-			const proKey = yield* ProKeyService;
+			const entitlements = yield* EntitlementService;
 			const repository = yield* OAuthConnectionsRepository;
 			const catalog = yield* IntegrationProviderCatalog;
 			const configs = yield* PluginConfigRevisions;
@@ -241,9 +241,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				if (!registered) {
 					return yield* providerNotFound;
 				}
-				if (registered.requiresProKey && !(yield* proKey.isValidated)) {
-					return yield* new OAuthConnectionRequestError({ reason: { code: "pro-key-required" } });
-				}
+				yield* entitlements.require(registered.entitlement);
 				const oauthProviderSlug = oauthConnectionFieldProvider(
 					registered.settingsSchema,
 					body.field,

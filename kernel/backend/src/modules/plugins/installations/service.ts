@@ -30,6 +30,7 @@ import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
+import { EntitlementService } from "#platform/entitlements";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginSavedViewReferences } from "../catalog/saved-view-references";
@@ -168,6 +169,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const userSettings = yield* PluginUserSettingsWriter;
 			const savedViewReferences = yield* PluginSavedViewReferences;
 			const lifecycleDispatcher = yield* PluginInstallationLifecycleDispatcher;
+			const entitlements = yield* EntitlementService;
 			const assertPackageAvailable = Effect.fn("PluginInstallationService.assertPackageAvailable")(
 				function* (manifest: PluginManifest, pluginId?: PluginId) {
 					const reserved = yield* ingestionLock.reservedSystemPackageIds();
@@ -658,13 +660,19 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const installPrivatePlugin = Effect.fn("PluginInstallationService.installPrivatePlugin")(
 				(input: InstallPrivatePluginInput) =>
-					withPrivatePluginPackage(input, input.userId, (pluginPackage) =>
-						installPrivateUnlocked({
-							...pluginPackage,
-							userId: input.userId,
-							config: input.config,
-						}),
-					).pipe(structurePluginFailure),
+					entitlements
+						.require("pro")
+						.pipe(
+							Effect.andThen(
+								withPrivatePluginPackage(input, input.userId, (pluginPackage) =>
+									installPrivateUnlocked({
+										...pluginPackage,
+										userId: input.userId,
+										config: input.config,
+									}),
+								).pipe(structurePluginFailure),
+							),
+						),
 			);
 
 			const inspectPrivatePlugin = Effect.fn("PluginInstallationService.inspectPrivatePlugin")(
@@ -827,7 +835,9 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const updatePrivatePlugin = Effect.fn("PluginInstallationService.updatePrivatePlugin")(
 				(input: UpdatePrivatePluginInput) =>
-					updatePrivateUnlocked(input).pipe(structureOwnedPluginFailure),
+					entitlements
+						.require("pro")
+						.pipe(Effect.andThen(updatePrivateUnlocked(input).pipe(structureOwnedPluginFailure))),
 			);
 
 			const updateInstallationUnlocked = Effect.fn(

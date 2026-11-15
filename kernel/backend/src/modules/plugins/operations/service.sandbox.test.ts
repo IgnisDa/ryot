@@ -6,6 +6,7 @@ import {
 	PluginOperationRejected,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { fixtureManifest } from "@ryot-app/contract/testing";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -20,6 +21,7 @@ import {
 	RealSandboxScripts,
 	realSandboxUserId,
 } from "#modules/scripts/executions/real-sandbox.test-support";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginRepository } from "../packages/repository";
@@ -31,6 +33,7 @@ const packageId = PluginPackageId.make("test/fixture");
 
 const operationSource = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { EntitlementRequiredError } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 
@@ -42,12 +45,14 @@ export const manifest = defineManifest({
 
 export default defineOperation({
   manifest,
-  input: Schema.Struct({ mode: Schema.Literals(["reject", "crash"]) }),
+  input: Schema.Struct({ mode: Schema.Literals(["reject", "entitlement", "crash"]) }),
   output: Schema.String,
   run: (input) =>
     input.mode === "reject"
       ? Effect.fail(new OperationRejectedError({ message: "Every episode must belong to the selected parent" }))
-      : Effect.fail(new Error("Unexpected failure")),
+      : input.mode === "entitlement"
+        ? Effect.fail(new EntitlementRequiredError({ entitlement: "pro" }))
+        : Effect.fail(new Error("Unexpected failure")),
 });
 `;
 
@@ -138,7 +143,7 @@ const fakeLayer = Layer.unwrap(
 	}),
 );
 
-const invoke = (mode: "crash" | "reject") =>
+const invoke = (mode: "crash" | "reject" | "entitlement") =>
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			packageId,
@@ -152,6 +157,7 @@ layer(
 	Layer.provideMerge(
 		OperationsService.layer.pipe(
 			Layer.provide(IntegrationOperationScopeResolverLive),
+			Layer.provide(entitlementsLayer(["pro"])),
 			Layer.provideMerge(fakeLayer.pipe(Layer.provideMerge(realSandboxLayer()))),
 		),
 		BunCrypto.layerSecureRandom,
@@ -167,6 +173,15 @@ layer(
 				expect(error).toMatchObject({
 					message: "Every episode must belong to the selected parent",
 				});
+			}),
+		30_000,
+	);
+
+	test.effect(
+		"maps an entitlement failure raised inside the sandbox to EntitlementRequired",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke("entitlement"))).toEqual(entitlementRequired("pro"));
 			}),
 		30_000,
 	);

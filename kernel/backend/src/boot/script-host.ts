@@ -45,6 +45,7 @@ import { makeRyotQLScriptHost } from "#modules/ryotql/script-host";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
 import type { AdditionalScriptHostImplementationMap } from "#modules/scripts/authorization/capabilities";
+import { makeEntitlementScriptHost } from "#modules/scripts/entitlement-script-host";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
 import { SandboxDurableHostDispatcherLive } from "#modules/scripts/host/durable-dispatcher-live";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
@@ -55,7 +56,6 @@ import {
 	SandboxHostFunctionsLive,
 	SandboxStateStoreLive,
 } from "#modules/scripts/host/sandbox-host-live";
-import { makeProKeyScriptHost } from "#modules/scripts/pro-key-script-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommandsLive } from "#modules/user-commands/layer";
 import { makeUserCommandScriptHost } from "#modules/user-commands/script-host";
@@ -74,7 +74,7 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 		...(yield* makePluginScriptHost),
 		...(yield* makeRelationshipScriptHost),
 		...(yield* makeRyotQLScriptHost),
-		...(yield* makeProKeyScriptHost),
+		...(yield* makeEntitlementScriptHost),
 		...(yield* makeUserCommandScriptHost),
 	} satisfies AdditionalScriptHostImplementationMap;
 });

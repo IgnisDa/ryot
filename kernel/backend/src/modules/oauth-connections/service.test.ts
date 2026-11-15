@@ -11,6 +11,7 @@ import {
 	pluginPackageSegments,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { entitlementRequired, type Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -56,8 +57,8 @@ import {
 	revisionDatabaseLayer,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { JobQueue } from "#platform/jobs/queue";
-import { ProKeyService } from "#platform/pro-key";
 import { HmacSigner } from "#platform/storage/hmac-signer";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
@@ -150,7 +151,7 @@ const fakeHttpClientLayer = Layer.effect(
 	),
 );
 
-const serviceLayer = (isProKeyValidated = true) =>
+const serviceLayer = (entitlements: Entitlements = ["pro"]) =>
 	Layer.mergeAll(
 		IntegrationsService.layer.pipe(
 			Layer.provide(
@@ -174,7 +175,7 @@ const serviceLayer = (isProKeyValidated = true) =>
 					Layer.mock(ImportsService)({}),
 					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 					JobQueue.layer,
-					Layer.mock(ProKeyService)({ isValidated: Effect.succeed(true) }),
+					entitlementsLayer(["pro"]),
 				),
 			),
 		),
@@ -191,9 +192,7 @@ const serviceLayer = (isProKeyValidated = true) =>
 			),
 		),
 		Layer.provideMerge(fakeTokenEndpointLayer),
-		Layer.provideMerge(
-			Layer.mock(ProKeyService)({ isValidated: Effect.succeed(isProKeyValidated) }),
-		),
+		Layer.provideMerge(entitlementsLayer(entitlements)),
 		Layer.provideMerge(makeAppConfigLayer()),
 		Layer.provideMerge(revisionDatabaseLayer),
 	);
@@ -399,8 +398,8 @@ const pausedExpiryService = Effect.gen(function* () {
 const isolated = <A, E>(
 	name: string,
 	body: () => Effect.Effect<A, E, Layer.Success<ReturnType<typeof serviceLayer>>>,
-	isProKeyValidated = true,
-) => layer(serviceLayer(isProKeyValidated))(name, (test) => test.effect(name, body, testTimeout));
+	entitlements: Entitlements = ["pro"],
+) => layer(serviceLayer(entitlements))(name, (test) => test.effect(name, body, testTimeout));
 
 describe("OAuth connections", () => {
 	isolated("connects private OAuth providers through their own installation configuration", () =>
@@ -439,10 +438,10 @@ describe("OAuth connections", () => {
 	);
 
 	isolated(
-		"requires a validated Pro key before creating a pending OAuth connection",
+		"requires the provider entitlement before creating a pending OAuth connection",
 		() =>
 			Effect.gen(function* () {
-				yield* installOAuthPlugin("oauth-test", "oauth-yank", { requiresProKey: true });
+				yield* installOAuthPlugin("oauth-test", "oauth-yank", { entitlement: "pro" });
 				const service = yield* OAuthConnectionsService;
 				const failure = yield* Effect.flip(
 					service.create(currentUser(owner), {
@@ -455,11 +454,10 @@ describe("OAuth connections", () => {
 					db.select().from(tables.oauthConnection),
 				);
 
-				assert(failure._tag === "OAuthConnectionRequestError");
-				expect(failure.reason).toEqual({ code: "pro-key-required" });
+				expect(failure).toEqual(entitlementRequired("pro"));
 				expect(connections).toEqual([]);
 			}),
-		false,
+		[],
 	);
 
 	isolated("completes an OAuth exchange without PKCE and uses the provider token lifetime", () =>

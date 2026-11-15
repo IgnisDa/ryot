@@ -15,7 +15,7 @@ export const RyotQLRoutesLive = HttpApiBuilder.group(AppContract, "ryotql", (han
 					user,
 					payload.source,
 					"kernel",
-					authorization.accessClass,
+					authorization,
 					payload.arguments,
 				);
 			}),
@@ -28,7 +28,7 @@ export const RyotQLRoutesLive = HttpApiBuilder.group(AppContract, "ryotql", (han
 					user,
 					payload.source,
 					"plugin",
-					authorization.accessClass,
+					authorization,
 					payload.arguments,
 				);
 			}),
@@ -38,7 +38,7 @@ export const RyotQLRoutesLive = HttpApiBuilder.group(AppContract, "ryotql", (han
 				const user = yield* CurrentUser;
 				const authorization = yield* AuthorizationContext;
 				const service = yield* RyotQLService;
-				return yield* service.execute(user, payload, authorization.accessClass);
+				return yield* service.execute(user, payload, authorization);
 			}),
 		)
 		.handle("executePlugin", ({ payload }) =>
@@ -46,7 +46,7 @@ export const RyotQLRoutesLive = HttpApiBuilder.group(AppContract, "ryotql", (han
 				const user = yield* CurrentUser;
 				const authorization = yield* AuthorizationContext;
 				const service = yield* RyotQLService;
-				return yield* service.executeForPluginAudience(user, payload, authorization.accessClass);
+				return yield* service.executeForPluginAudience(user, payload, authorization);
 			}),
 		),
 );

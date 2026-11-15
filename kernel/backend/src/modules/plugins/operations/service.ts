@@ -1,4 +1,4 @@
-import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
+import { WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { BadRequest, DbError, NotFound } from "@ryot-app/contract/errors";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
@@ -16,6 +16,7 @@ import {
 	SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -38,9 +39,11 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
+import { EntitlementService } from "#platform/entitlements";
 
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginRepository } from "../packages/repository";
+import { userOperationAccessFailure } from "./access";
 
 type AdmittedDispatch = DispatchInput & { readonly resultIdentity: null | IdempotencyIdentity };
 
@@ -87,6 +90,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			const keys = yield* IdempotencyKeys.make;
 			const admission = yield* AccountAdmission.make;
 			const scripts = yield* SandboxRepository;
+			const entitlements = yield* EntitlementService;
 			const references = yield* SandboxWorkflowReferenceRepository;
 
 			const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: DispatchInput) {
@@ -105,6 +109,9 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				});
 				if (result.error?.data?.code === "page-write-access-required") {
 					return yield* new PluginRequestError({ reason: { code: "page-write-access-required" } });
+				}
+				if (result.error?.data?.code === "entitlement-required") {
+					return yield* entitlementRequired(result.error.data.entitlement);
 				}
 				if (result.error?.data?.code === "operation-rejected") {
 					return yield* new PluginOperationRejected({ message: result.error.message });
@@ -409,14 +416,14 @@ export class OperationsService extends Context.Service<OperationsService>()(
 							const userId = user.id;
 							const resolved = yield* resolveOperation(userId);
 							if (resolved?.operation.auth === "user") {
-								if (
-									authorization.accessClass === "demo" &&
-									(resolved.plugin.scope !== "system" ||
-										resolved.operation.demoAccess === "protected")
-								) {
-									return yield* new DemoOperationProtected({
-										reason: { code: "demo-operation-protected" },
-									});
+								const accessFailure = userOperationAccessFailure({
+									operation: resolved.operation,
+									pluginScope: resolved.plugin.scope,
+									accessClass: authorization.accessClass,
+									entitlements: yield* entitlements.current,
+								});
+								if (accessFailure) {
+									return yield* accessFailure;
 								}
 								if (
 									!resolved.operation.hints.readOnly &&

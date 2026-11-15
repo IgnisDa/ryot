@@ -5,6 +5,7 @@ import type {
 	IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import { Context, type Effect } from "effect";
 
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
@@ -23,7 +24,7 @@ export type ImportWorkflowPinningValue = {
 		readonly expectedPins: IngestionPins;
 		readonly preparedRelease?: {
 			readonly plan: IngestionPlan;
-			readonly requiresProKey: boolean;
+			readonly entitlement: null | Entitlement;
 			readonly state: Omit<ImportSourceState, "pluginRevision">;
 		};
 	}) => Effect.Effect<

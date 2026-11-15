@@ -4,6 +4,7 @@ import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { getMcpOAuthResource, type WriteAccess } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { CapabilityId } from "@ryot-app/contract/schema/capability";
+import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -13,6 +14,7 @@ import { HttpRouter } from "effect/http";
 import { TestClock } from "effect/testing";
 
 import type { AgentToolsService } from "#modules/agent-tools/service";
+import { entitlementServiceFrom } from "#platform/entitlements";
 
 import { makeMcpTransport, protectedResourceMetadata } from "./service";
 
@@ -64,7 +66,11 @@ const writeAccessOf = (key: string): WriteAccess => {
 const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["call"]) {
 	const context = yield* Effect.context();
 	const calls: Parameters<AgentToolsService["Service"]["call"]>[0][] = [];
-	const state = { disabled: false, retiring: false };
+	const state: { disabled: boolean; retiring: boolean; entitlements: Entitlements } = {
+		disabled: false,
+		retiring: false,
+		entitlements: ["pro"],
+	};
 	const transport = yield* makeMcpTransport(
 		{
 			resolveRequestCredential: (headers, resource) =>
@@ -122,6 +128,7 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 		},
 		origin,
 		{ isActive: () => Effect.succeed(state.retiring) },
+		entitlementServiceFrom(Effect.sync(() => state.entitlements)),
 	);
 	const web = HttpRouter.toWebHandler(HttpRouter.add("*", "/api/mcp", transport.handle), {
 		disableLogger: true,
@@ -235,6 +242,17 @@ it.live(
 				(yield* request("tools/call", "alice", session, { arguments: {}, name: "search" })).status,
 			).toBe(401);
 			state.retiring = false;
+			state.entitlements = [];
+			const lapsed = yield* request("tools/call", "alice", session, {
+				arguments: {},
+				name: "search",
+			});
+			expect(lapsed.status).toBe(402);
+			expect(yield* Effect.promise(() => lapsed.json())).toEqual({
+				entitlement: "pro",
+				code: "entitlement-required",
+			});
+			state.entitlements = ["pro"];
 			state.disabled = true;
 			expect(
 				(yield* request("tools/call", "alice", session, { arguments: {}, name: "search" })).status,

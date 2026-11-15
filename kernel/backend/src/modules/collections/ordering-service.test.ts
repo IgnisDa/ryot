@@ -13,6 +13,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { entitlementRequired, type Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
@@ -33,6 +34,7 @@ import {
 	RelationshipsRepository,
 } from "#modules/relationships/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import * as tables from "#schema/tables/combined";
 
 const ownerId = UserId.make("owner");
@@ -180,9 +182,12 @@ const repositoriesLayer = Layer.mergeAll(
 	CollectionsRepository.layer,
 	RelationshipsRepository.layer,
 ).pipe(Layer.provideMerge(entitiesLayer));
-const orderingLayer = CollectionOrderingService.layer.pipe(Layer.provideMerge(repositoriesLayer));
+const orderingLayer = (entitlements: Entitlements = ["pro"]) =>
+	CollectionOrderingService.layer.pipe(
+		Layer.provideMerge(Layer.merge(repositoriesLayer, entitlementsLayer(entitlements))),
+	);
 
-layer(orderingLayer)((test) => {
+layer(orderingLayer())((test) => {
 	test.effect(
 		"moves members to every destination, preserves metadata and create times, and keeps no-op revisions",
 		() =>
@@ -623,6 +628,32 @@ layer(orderingLayer)((test) => {
 					db.delete(tables.relationship).where(eq(tables.relationship.id, relationshipId)),
 				);
 				expect(yield* orderRevision(fixture.collectionId)).toBe(revision);
+			}),
+		testTimeout,
+	);
+});
+
+layer(orderingLayer([]))((test) => {
+	test.effect(
+		"requires Pro to reorder and leaves the stored order unchanged",
+		() =>
+			Effect.gen(function* () {
+				const ordering = yield* CollectionOrderingService;
+				const fixture = yield* makeFixture({ memberCount: 2 });
+				const [first] = fixture.memberIds;
+				assert(first);
+				const before = yield* orderedMemberIds(fixture.collectionId);
+				const revision = yield* orderRevision(fixture.collectionId);
+				assertExitFails(
+					yield* Effect.exit(
+						ordering.reorder(
+							currentUser(ownerId),
+							reorderInput(fixture.collectionId, first, revision, { kind: "end" }),
+						),
+					),
+					entitlementRequired("pro"),
+				);
+				expect(yield* orderedMemberIds(fixture.collectionId)).toEqual(before);
 			}),
 		testTimeout,
 	);

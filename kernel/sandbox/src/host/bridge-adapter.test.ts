@@ -40,6 +40,7 @@ const makeImplementations = (
 	setCachedValue: () => Effect.fail({ message: "unused" }),
 	getPluginConfig: () => Effect.fail({ message: "unused" }),
 	getUserSettings: () => Effect.fail({ message: "unused" }),
+	getEntitlements: () => Effect.fail({ message: "unused" }),
 	invokeCapability: () => Effect.fail({ message: "unused" }),
 	getEntitySchemas: () => Effect.fail({ message: "unused" }),
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
@@ -52,7 +53,6 @@ const makeImplementations = (
 	updateUserSettings: () => Effect.fail({ message: "unused" }),
 	getPersistentValue: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
-	getProAvailability: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
 	mergeUserEntityData: () => Effect.fail({ message: "unused" }),
 	clearUserEntityData: () => Effect.fail({ message: "unused" }),
@@ -158,14 +158,14 @@ describe("bindSandboxHostFunctions", () => {
 	);
 
 	it.effect(
-		"binds Pro availability and bounded managed asset verification without a user id",
+		"binds entitlements and bounded managed asset verification without a user id",
 		() =>
 			Effect.gen(function* () {
 				const calls: unknown[] = [];
 				const implementations = makeImplementations({
-					getProAvailability: (runInput) => {
-						calls.push({ runInput, operation: "getProAvailability" });
-						return Effect.succeed(true);
+					getEntitlements: (runInput) => {
+						calls.push({ runInput, operation: "getEntitlements" });
+						return Effect.succeed(["pro"] as const);
 					},
 					verifyManagedAssets: (runInput, locators) => {
 						calls.push({ locators, runInput, operation: "verifyManagedAssets" });
@@ -178,7 +178,7 @@ describe("bindSandboxHostFunctions", () => {
 					key: `managed/${index}`,
 				}));
 
-				expect(yield* bound.getProAvailability([])).toEqual({ data: true, success: true });
+				expect(yield* bound.getEntitlements([])).toEqual({ data: ["pro"], success: true });
 				expect(yield* bound.verifyManagedAssets([locators])).toEqual({ data: null, success: true });
 				expect(yield* bound.verifyManagedAssets([locators, "caller-selected-user"])).toEqual({
 					success: false,
@@ -193,7 +193,7 @@ describe("bindSandboxHostFunctions", () => {
 					]),
 				).toMatchObject({ success: false });
 				expect(calls).toEqual([
-					{ runInput: input, operation: "getProAvailability" },
+					{ runInput: input, operation: "getEntitlements" },
 					{ locators, runInput: input, operation: "verifyManagedAssets" },
 				]);
 			}),

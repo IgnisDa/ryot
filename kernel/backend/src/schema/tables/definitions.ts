@@ -24,6 +24,7 @@ import type {
 	SavedViewRenderer,
 	SavedViewSubject,
 } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
@@ -194,7 +195,7 @@ export const definitionSignalSchedule = snakeCase.table(
 		signal: text().notNull(),
 		occurrence: text().notNull(),
 		position: integer().notNull(),
-		requiresProKey: boolean().notNull(),
+		entitlement: text().$type<Entitlement>(),
 		query: jsonb().$type<RowSourceQuery>().notNull(),
 		subject: jsonb().$type<SavedViewSubject>().notNull(),
 		precision: text().$type<RowSourcePrecision>().notNull(),
@@ -243,7 +244,7 @@ export const definitionIntegrationProvider = snakeCase.table(
 		scriptSlug: text(),
 		description: text().notNull(),
 		plan: jsonb().$type<SourcePlan>(),
-		requiresProKey: boolean().notNull(),
+		entitlement: text().$type<Entitlement>(),
 		settingsSchema: jsonb().$type<AppSchema>().notNull(),
 		supportsOwnershipSync: boolean().notNull().default(false),
 		lot: text().$type<PluginIntegrationProvider["lot"]>().notNull(),

@@ -14,6 +14,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { CapabilityId } from "@ryot-app/contract/schema/capability";
+import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import { assert } from "@ryot-app/testing/assert";
@@ -28,6 +29,7 @@ import type { AgentToolOutcome } from "#modules/agent-tools/service";
 import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
 import { AgentRunSuspended } from "#modules/scripts/agent/service";
 import { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer, provideEntitlements } from "#platform/entitlements.test-support";
 import { truncateJsonResult } from "#platform/tool-result";
 import { PostgresWorkflowEngine } from "#platform/workflow/engine";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
@@ -96,6 +98,7 @@ const services = Layer.mergeAll(
 	IdempotencyKeys.layer,
 	UserLifecycleRepository.layer,
 	AssistantProviderRepository.layer,
+	entitlementsLayer(["pro"]),
 ).pipe(Layer.provideMerge(database));
 const until = <E, R>(condition: Effect.Effect<boolean, E, R>) =>
 	condition.pipe(
@@ -1135,6 +1138,20 @@ layer(services, { excludeTestServices: true })((test) => {
 			expect(setup.writes).toHaveLength(1);
 			const state = yield* repository.loadTurn(owner, payload.turnId);
 			assert(state);
+		}),
+	);
+	test.effect("refuses new turns without Pro and persists nothing", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const setup = yield* harness();
+			const before = yield* repository.recoverableTurns;
+			yield* Effect.gen(function* () {
+				const service = yield* makeAssistantService(account);
+				expect(
+					yield* Effect.flip(service.submit(owner, { text: "Summarize", requestId: "lapsed" })),
+				).toEqual(entitlementRequired("pro"));
+			}).pipe(provideEntitlements([]), withEngine(engineFor(setup.runtime)));
+			expect(yield* repository.recoverableTurns).toEqual(before);
 		}),
 	);
 	test.effect("account reset removes conversations, active histories and provider overrides", () =>

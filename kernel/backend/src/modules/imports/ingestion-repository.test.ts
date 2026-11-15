@@ -232,7 +232,7 @@ layer(
 				const marker = "prepared-release-private-value";
 				const preparedRelease = {
 					plan: releasePlan,
-					requiresProKey: true,
+					entitlement: "pro" as const,
 					state: {
 						...ingestionTestSource,
 						sourcePayload: { credential: marker },
@@ -268,7 +268,7 @@ layer(
 				expect(storedRun.preparedRelease).toEqual<unknown>(
 					objectContaining({
 						plan: releasePlan,
-						requiresProKey: true,
+						entitlement: "pro" as const,
 						state: objectContaining({
 							keyId: anyOf(String),
 							nonce: anyOf(String),
@@ -369,7 +369,7 @@ layer(
 					yield* database.transaction(
 						repository.reserveIngestionPins(scope, retained, {
 							plan,
-							requiresProKey: false,
+							entitlement: null,
 							state: ingestionTestSource,
 						}),
 					);
@@ -411,7 +411,7 @@ layer(
 					pluginRevisionId: ingestionTestSource.pluginRevision.revisionId,
 					pluginConfigRevisionId: ingestionTestSource.pluginRevision.configRevisionId,
 				};
-				const prepared = { plan, requiresProKey: false, state: ingestionTestSource };
+				const prepared = { plan, entitlement: null, state: ingestionTestSource };
 				yield* database.transaction(repository.reserveIngestionPins(scope, retained, prepared));
 				expect(yield* repository.getPreparedRelease(scope)).toEqual(prepared);
 				expect(

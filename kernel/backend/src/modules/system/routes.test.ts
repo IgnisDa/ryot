@@ -61,7 +61,7 @@ for (const oidc of [false, true]) {
 							const objectStorage = yield* ObjectStorageService;
 							const publicConfig = publicSystemConfig(
 								config,
-								false,
+								[],
 								yield* objectStorage.permanentStorageProvider,
 							);
 							expect(publicConfig.auth).toMatchObject({

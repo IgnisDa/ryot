@@ -316,7 +316,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 						pluginId: evaluated.provider.pluginId,
 						preparedRelease: {
 							plan,
-							requiresProKey: evaluated.provider.requiresProKey ?? false,
+							entitlement: evaluated.provider.entitlement,
 							state: {
 								namedArtifactPaths: {},
 								workflowScriptId: script.id,

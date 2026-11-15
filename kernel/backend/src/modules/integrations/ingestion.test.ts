@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import type { IngestionCapture, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { IntegrationId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
@@ -223,6 +224,7 @@ const runCase = (
 							provider: {
 								slug: "fixture",
 								name: "Fixture",
+								entitlement: null,
 								lot: "sink" as const,
 								pluginId: "plugin-1",
 								description: "Fixture",
@@ -276,20 +278,24 @@ it.effect.each(["blocked", "pending"] as const)(
 	testTimeout,
 );
 
-it.effect.each(["integration-disabled", "integrations-disabled", "pro-key-required"] as const)(
-	"terminates %s admission before exposing input to another worker",
-	(code) =>
+it.effect.each([
+	{ code: "integration-disabled" },
+	{ code: "integrations-disabled" },
+	{ entitlement: "pro", code: "entitlement-required" },
+] satisfies ImportRunFailureReason[])(
+	"terminates $code admission before exposing input to another worker",
+	(failureReason) =>
 		Effect.gen(function* () {
 			const test = yield* runCase({ lot: "sink" });
 			const service = yield* Effect.provideContext(IntegrationIngestion, test.context);
 			const scope = yield* service.admitWebhook(
 				integration,
 				{ rawBody: "{}", contentType: "application/json" },
-				{ code },
+				failureReason,
 			);
 			expect(test.getRun().status).toBe("failed");
 			expect(test.calls.find((call) => call.method === "reject")?.input).toMatchObject({
-				failureReason: { code },
+				failureReason,
 				scope: { runId: scope.runId, userId: scope.userId },
 			});
 			expect(test.calls.some((call) => call.method === "envelope")).toBe(false);

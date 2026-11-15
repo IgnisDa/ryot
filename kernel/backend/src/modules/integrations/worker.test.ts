@@ -124,7 +124,7 @@ for (const failureReason of [
 	{ code: "integration-disabled" },
 	{ code: "integrations-disabled" },
 	{ code: "integration-not-found" },
-	{ code: "pro-key-required" },
+	{ entitlement: "pro", code: "entitlement-required" },
 	{ code: "queue-unavailable", operation: "integration-webhook" },
 ] satisfies ImportRunFailureReason[]) {
 	layer(

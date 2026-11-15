@@ -87,7 +87,7 @@ import {
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
-import { ProKeyService } from "#platform/pro-key";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { user } from "#schema/tables/auth";
 import { makeAppConfigLayer, workflowEngineTestLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -415,7 +415,7 @@ const hostFunctionsLayer = (
 							Effect.die("Unexpected asset registration"),
 					}),
 				),
-				Layer.succeed(ProKeyService, ProKeyService.of({ isValidated: Effect.succeed(false) })),
+				entitlementsLayer([]),
 				Layer.mock(EventsService)({
 					updateBatch: (items, userId, command) =>
 						append(eventMutations, { items, userId, command, kind: "update" }).pipe(

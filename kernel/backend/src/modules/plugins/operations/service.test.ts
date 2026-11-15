@@ -23,6 +23,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { entitlementRequired, type Entitlements } from "@ryot-app/contract/schema/entitlement";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
@@ -47,6 +48,7 @@ import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -92,7 +94,7 @@ const privateInstallation = (
 
 type AvailableOperation = (
 	| Pick<Extract<PluginOperation, { auth: "integration" }>, "auth">
-	| Pick<Extract<PluginOperation, { auth: "user" }>, "auth" | "demoAccess">
+	| Pick<Extract<PluginOperation, { auth: "user" }>, "auth" | "demoAccess" | "entitlement">
 ) & {
 	readonly writes?: true;
 	readonly ownerId: UserId;
@@ -154,6 +156,7 @@ const resolvedOperation = (available: AvailableOperation) => ({
 					output: { type: "string" },
 					title: "Fixture operation",
 					demoAccess: available.demoAccess,
+					...(available.entitlement === undefined ? {} : { entitlement: available.entitlement }),
 					description: "Fixture operation",
 					hints: { idempotent: true, destructive: false, readOnly: available.writes !== true },
 				}
@@ -217,6 +220,7 @@ const makeLayer = (input: {
 	accessClass?: AccessClass;
 	writeAccess?: WriteAccess;
 	activeSourceHash?: string;
+	entitlements?: Entitlements;
 	integration?: null | IntegrationRecord;
 	available?: ReadonlyArray<AvailableOperation>;
 	database?: ReturnType<typeof isolatedDatabaseLayer>;
@@ -427,6 +431,7 @@ const makeLayer = (input: {
 	);
 	return OperationsService.layer.pipe(
 		Layer.provide(IntegrationOperationScopeResolverLive),
+		Layer.provide(entitlementsLayer(input.entitlements ?? ["pro"])),
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
 		Layer.provideMerge(input.database ?? mutationAdmissionTestLayer),
@@ -822,6 +827,27 @@ layer(
 					DemoOperationProtected,
 				);
 				expect(yield* fake.events).toEqual(["lock"]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		entitlements: [],
+		currentUserId: USER_ONE,
+		available: [{ ...systemUserOperation, entitlement: "pro" }],
+	}),
+)((test) => {
+	test.effect(
+		"rejects an operation declaring an entitlement the instance lacks",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					entitlementRequired("pro"),
+				);
+				expect(yield* fake.captured).toEqual([]);
 			}),
 		testTimeout,
 	);

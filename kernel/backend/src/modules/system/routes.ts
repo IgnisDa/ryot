@@ -3,6 +3,7 @@ import {
 	type SystemConfigResponse,
 	SystemHealthFailure,
 } from "@ryot-app/contract/modules/system/contract";
+import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
@@ -11,7 +12,7 @@ import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { RYOT_VERSION } from "#platform/build-info";
 import { AppConfig, type AppConfigValue } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import { ProKeyService } from "#platform/pro-key";
+import { EntitlementService } from "#platform/entitlements";
 
 const nonEmpty = (value: Option.Option<string>) =>
 	Option.filter(value, (candidate) => candidate.length > 0);
@@ -30,12 +31,12 @@ const umamiAnalytics = (config: AppConfigValue) => {
 
 export const publicSystemConfig = (
 	config: AppConfigValue,
-	isServerKeyValidated: boolean,
+	entitlements: Entitlements,
 	permanentUploadProvider: "s3" | "local",
 ) =>
 	({
+		entitlements,
 		version: RYOT_VERSION,
-		pro: { isServerKeyValidated },
 		frontendOrigin: config.frontendUrl,
 		analytics: { umami: umamiAnalytics(config) },
 		notifications: { smtpEnabled: Option.isSome(config.server.smtp) },
@@ -74,12 +75,11 @@ export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (han
 		.handle("config", () =>
 			Effect.gen(function* () {
 				const config = yield* AppConfig;
-				const proKey = yield* ProKeyService;
 				const objectStorage = yield* ObjectStorageService;
-				const isServerKeyValidated = yield* proKey.isValidated;
+				const entitlements = yield* (yield* EntitlementService).current;
 				return publicSystemConfig(
 					config,
-					isServerKeyValidated,
+					entitlements,
 					yield* objectStorage.permanentStorageProvider,
 				);
 			}),

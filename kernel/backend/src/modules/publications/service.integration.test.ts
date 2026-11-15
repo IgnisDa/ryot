@@ -8,6 +8,7 @@ import {
 	SavedViewId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { entitlementRequired, type Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import {
 	ascending,
@@ -24,7 +25,7 @@ import { kernelPublicationPage } from "@ryot-app/ryotql-recipes/publication-brow
 import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
-import { Duration, Effect, Layer } from "effect";
+import { Duration, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
 import { ManagedAssetReferencesRepository } from "#modules/assets/storage/managed-asset-references-repository";
@@ -36,6 +37,7 @@ import { PagesService } from "#modules/pages/preparation/service";
 import { publicationComposition } from "#modules/pages/preparation/test-fixtures";
 import { RyotQLService } from "#modules/ryotql/service";
 import { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { TransientValues } from "#platform/transient-values";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
@@ -237,7 +239,10 @@ const testPages = Layer.effect(
 	}),
 );
 
-const publicationsLayer = (disablePublications = false) =>
+const publicationsLayer = (
+	disablePublications = false,
+	entitlements: Effect.Effect<Entitlements> = Effect.succeed(["pro"]),
+) =>
 	Layer.mergeAll(PublicationsService.layer, PublicationVisitsService.layer).pipe(
 		Layer.provideMerge(
 			PublicationRuntime.layer.pipe(
@@ -246,6 +251,7 @@ const publicationsLayer = (disablePublications = false) =>
 		),
 		Layer.provideMerge(
 			Layer.mergeAll(
+				entitlementsLayer(entitlements),
 				PublicationsRepository.layer,
 				ManagedAssetReferencesRepository.layer,
 				PageAuthoringRepository.layer,
@@ -857,6 +863,29 @@ layer(publicationsLayer(true))((test) => {
 			expect(error._tag).toBe("PublicationsDisabled");
 			const visitError = yield* visits.authenticate("x".repeat(43)).pipe(Effect.flip);
 			expect(visitError).toMatchObject({ reason: { code: "disabled" } });
+		}),
+	);
+});
+
+const lapsedPro = Ref.makeUnsafe<Entitlements>(["pro"]);
+
+layer(publicationsLayer(false, Ref.get(lapsedPro)))((test) => {
+	test.effect("requires Pro to publish and share while existing links keep serving", () =>
+		Effect.gen(function* () {
+			const publications = yield* PublicationsService;
+			const { link, publicationId } = yield* publishWithLink();
+			yield* Ref.set(lapsedPro, []);
+
+			for (const failure of [
+				yield* publications.create(owner, details).pipe(Effect.flip),
+				yield* publications.republish(owner, { ...details, publicationId }).pipe(Effect.flip),
+				yield* publications
+					.createLink(owner, { publicationId, label: "Later", expiresAt: null })
+					.pipe(Effect.flip),
+			]) {
+				expect(failure).toEqual(entitlementRequired("pro"));
+			}
+			expect((yield* visit(publicationId, link.secret)).publicationId).toBe(publicationId);
 		}),
 	);
 });

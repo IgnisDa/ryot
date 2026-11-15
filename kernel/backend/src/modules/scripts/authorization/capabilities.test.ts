@@ -141,7 +141,7 @@ describe("requireSandboxCapabilityInput", () => {
 		const before = makeSubjectRunInput(automationRunSubject("before", userId));
 		const system = makeSubjectRunInput({ type: "system" });
 
-		for (const capability of ["getProAvailability", "verifyManagedAssets"] as const) {
+		for (const capability of ["getEntitlements", "verifyManagedAssets"] as const) {
 			expect(isSandboxCapabilityAllowed(user, capability)).toBe(true);
 			expect(isSandboxCapabilityAllowed(automation, capability)).toBe(true);
 			expect(isSandboxCapabilityAllowed(before, capability)).toBe(false);

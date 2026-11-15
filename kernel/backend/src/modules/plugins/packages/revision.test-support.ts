@@ -1,6 +1,7 @@
 import { BunCrypto } from "@effect/platform-bun";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -265,7 +266,7 @@ export const oauthRevisionPackage = (
 	integrationProviderSlug: string,
 	options: {
 		readonly pkce?: "S256" | "none";
-		readonly requiresProKey?: boolean;
+		readonly entitlement?: Entitlement;
 		readonly accessTokenLifetimeSeconds?: number;
 	} = {},
 ) => {
@@ -290,7 +291,7 @@ export const oauthRevisionPackage = (
 				lot: "yank" as const,
 				scriptSlug: `${slug}.task`,
 				slug: integrationProviderSlug,
-				...(options.requiresProKey === undefined ? {} : { requiresProKey: options.requiresProKey }),
+				...(options.entitlement === undefined ? {} : { entitlement: options.entitlement }),
 				description: "Yank with a linked account",
 				settingsSchema: {
 					fields: {

@@ -7,7 +7,7 @@ export const integrationHealthExcludedFailureCodes = [
 	"integration-disabled",
 	"integration-not-found",
 	"integrations-disabled",
-	"pro-key-required",
+	"entitlement-required",
 	"queue-unavailable",
 ] satisfies ImportRunFailureReason["code"][];
 

@@ -42,6 +42,7 @@ import { RyotQLService } from "#modules/ryotql/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { AgentRunSuspended, AgentScriptService } from "#modules/scripts/agent/service";
 import { DatabaseSession } from "#platform/db/session";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
@@ -244,7 +245,7 @@ const registryLayer = AgentToolsService.layer.pipe(
 	Layer.provideMerge(CapabilityCatalog.layer),
 	Layer.provideMerge(KernelCapabilities.layer),
 	Layer.provideMerge(RyotQLService.layer),
-	Layer.provideMerge(Layer.mergeAll(authLayer, servicesLayer)),
+	Layer.provideMerge(Layer.mergeAll(authLayer, servicesLayer, entitlementsLayer(["pro"]))),
 	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provide(makeAppConfigLayer()),
 );

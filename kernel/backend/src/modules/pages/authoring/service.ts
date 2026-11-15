@@ -26,6 +26,7 @@ import { pageQueryDocument } from "#modules/pages/query-document";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import { bindRyotQLDocument } from "#modules/ryotql/binding";
 import { DatabaseSession } from "#platform/db/session";
+import { EntitlementService } from "#platform/entitlements";
 
 import { definitionInvalid, preparePageDefinition } from "./definition";
 import { PageAuthoringRepository } from "./repository";
@@ -43,6 +44,8 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 			const compiler = yield* ClientPluginCompiler;
 			const artifacts = yield* ClientArtifactsRepository;
 			const catalogs = yield* DefinitionCatalog;
+			const entitlements = yield* EntitlementService;
+			const requirePro = entitlements.require("pro");
 			const requirePage = Effect.fn(function* (userId: UserId, pageId: string, lock: boolean) {
 				const row = yield* lock ? repository.lock(userId, pageId) : repository.find(userId, pageId);
 				if (!row) {
@@ -112,6 +115,7 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				input: CreatePageBody,
 				idempotencyKey?: string,
 			) {
+				yield* requirePro;
 				const prepared = yield* preparePageDefinition(input.definition);
 				return yield* session
 					.transaction(
@@ -156,6 +160,7 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				input: ReplacePageDraftBody,
 				idempotencyKey?: string,
 			) {
+				yield* requirePro;
 				const prepared = yield* preparePageDefinition(input.definition);
 				const write = Effect.gen(function* () {
 					yield* requireRevision(actor.userId, input, true);
@@ -184,6 +189,7 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				},
 				idempotencyKey?: string,
 			) {
+				yield* requirePro;
 				const write = Effect.gen(function* () {
 					const row = yield* requireRevision(actor.userId, input, true);
 					const prepared = yield* preparePageDefinition(
@@ -267,6 +273,7 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				publish: boolean,
 				idempotencyKey?: string,
 			) {
+				yield* requirePro;
 				yield* session.requireRoot;
 				const identity =
 					idempotencyKey === undefined
@@ -340,6 +347,7 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 			});
 			const publishCompiledDraft = Effect.fn("PageAuthoringService.publishCompiledDraft")(
 				function* (userId: UserId, input: PageDraftBuildIdentity, idempotencyKey: string) {
+					yield* requirePro;
 					return yield* session
 						.transaction(
 							Effect.gen(function* () {
@@ -382,6 +390,9 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				pageId: string,
 				writeAccess: boolean,
 			) {
+				if (writeAccess) {
+					yield* requirePro;
+				}
 				return yield* session.transaction(
 					Effect.gen(function* () {
 						yield* requirePage(ownerUserId, pageId, true);

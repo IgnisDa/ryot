@@ -11,6 +11,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { EntitlementService } from "#platform/entitlements";
 
 import { CollectionsRepository } from "./repository";
 
@@ -23,10 +24,12 @@ export class CollectionOrderingService extends Context.Service<CollectionOrderin
 			const collections = yield* CollectionsRepository;
 			const entities = yield* EntitiesRepository;
 			const relationships = yield* RelationshipsRepository;
+			const entitlements = yield* EntitlementService;
 			const reorder = Effect.fn("CollectionOrderingService.reorder")(function* (
 				user: CurrentUserValue,
 				input: ReorderMembershipBody,
 			) {
+				yield* entitlements.require("pro");
 				return yield* session
 					.transaction(
 						Effect.gen(function* () {

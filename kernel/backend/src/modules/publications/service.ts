@@ -15,6 +15,7 @@ import { Clock, Context, DateTime, Effect, Layer } from "effect";
 
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
+import { EntitlementService } from "#platform/entitlements";
 import { generateOpaqueTicket } from "#platform/http/opaque-tickets";
 import { trimToNull } from "#platform/validation";
 
@@ -36,10 +37,12 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 			const session = yield* DatabaseSession;
 			const sessions = yield* PublicationSessions;
 			const repository = yield* PublicationsRepository;
+			const entitlements = yield* EntitlementService;
 
 			const requireEnabled = config.server.disablePublications
 				? Effect.fail(new PublicationsDisabled({ reason: { code: "publications-disabled" } }))
 				: Effect.void;
+			const requireWritable = requireEnabled.pipe(Effect.andThen(entitlements.require("pro")));
 
 			const write = <A, E, R>(user: OwnerUser, work: Effect.Effect<A, E, R>) =>
 				session
@@ -114,7 +117,7 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 				user: OwnerUser,
 				body: CreatePublicationBody,
 			) {
-				yield* requireEnabled;
+				yield* requireWritable;
 				const created = yield* write(
 					user,
 					Effect.gen(function* () {
@@ -129,7 +132,7 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 				user: OwnerUser,
 				body: RepublishPublicationBody,
 			) {
-				yield* requireEnabled;
+				yield* requireWritable;
 				yield* requireActive(user, body.publicationId);
 				const updated = yield* write(
 					user,
@@ -166,7 +169,7 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 				user: OwnerUser,
 				body: CreatePublicationLinkBody,
 			) {
-				yield* requireEnabled;
+				yield* requireWritable;
 				yield* requireActive(user, body.publicationId);
 				const label = trimToNull(body.label);
 				if (!label) {

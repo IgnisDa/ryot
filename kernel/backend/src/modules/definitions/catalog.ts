@@ -341,9 +341,9 @@ const dataJsonIntegrationProvider = (userId: string): CatalogIntegrationProvider
 	scriptSlug: null,
 	slug: "data-json",
 	pluginScope: null,
+	entitlement: null,
 	name: "Data webhook",
 	installationId: null,
-	requiresProKey: false,
 	configRevisionId: null,
 	pluginRevisionId: null,
 	supportsOwnershipSync: false,
@@ -917,7 +917,9 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 						? { kind: "local", pluginId: PluginId.make(installed.pluginId) }
 						: owner,
 				);
-				return Result.isFailure(document) ? null : { revisionId, document: document.success };
+				return Result.isFailure(document)
+					? null
+					: { revisionId, document: document.success, entitlement: declaration.entitlement };
 			});
 
 			return {

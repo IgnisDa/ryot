@@ -41,7 +41,7 @@ it("classifies every bridge host capability exactly once", () => {
 			updateUserSettings: objectContaining({ dispatch: "activity", resultBytes: anyOf(Number) }),
 		}),
 	);
-	expect(SANDBOX_HOST_EXECUTION_POLICY.getProAvailability).toEqual<unknown>(
+	expect(SANDBOX_HOST_EXECUTION_POLICY.getEntitlements).toEqual<unknown>(
 		objectContaining({ dispatch: "activity", resultBytes: anyOf(Number) }),
 	);
 	expect(SANDBOX_HOST_EXECUTION_POLICY.verifyManagedAssets).toEqual<unknown>(

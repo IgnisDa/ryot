@@ -18,6 +18,7 @@ import { publishAssistantUpdated } from "#modules/live-updates/publish";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
+import { EntitlementService } from "#platform/entitlements";
 
 import { AssistantRepository } from "./repository";
 import { assistantApproval, AssistantTurnWorkflow } from "./workflow";
@@ -37,6 +38,7 @@ export const makeAssistantService = Effect.fn(function* (
 	const session = yield* DatabaseSession;
 	const admission = yield* AccountAdmission.make;
 	const engine = yield* WorkflowEngine;
+	const entitlements = yield* EntitlementService;
 	const transact = <A, E, R>(userId: UserId, effect: Effect.Effect<A, E, R>) =>
 		session.transaction(
 			Effect.gen(function* () {
@@ -54,6 +56,7 @@ export const makeAssistantService = Effect.fn(function* (
 		userId: UserId,
 		input: SubmitAssistantTurnBody,
 	) {
+		yield* entitlements.require("pro");
 		const turn = yield* transact(
 			userId,
 			repository

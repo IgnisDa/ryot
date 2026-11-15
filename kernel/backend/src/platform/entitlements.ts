@@ -1,3 +1,9 @@
+import {
+	type Entitlement,
+	entitlementRequired,
+	type Entitlements,
+	isEntitled,
+} from "@ryot-app/contract/schema/entitlement";
 import type { HTTPClient } from "@unkey/api";
 import { Unkey } from "@unkey/api";
 import {
@@ -24,7 +30,7 @@ class ProKeyVerificationError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("ProKeyVerificationError", { cause: Schema.Unknown }) {}
 
-const makeProKeyService = (options: { readonly httpClient?: HTTPClient } = {}) =>
+const makeEntitlementService = (options: { readonly httpClient?: HTTPClient } = {}) =>
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 
@@ -78,16 +84,31 @@ const makeProKeyService = (options: { readonly httpClient?: HTTPClient } = {}) =
 			return true;
 		});
 
-		const isValidated = yield* verify.pipe(Effect.cachedWithTTL(Duration.hours(1)));
-
-		return { isValidated };
+		const proValidated = yield* verify.pipe(Effect.cachedWithTTL(Duration.hours(1)));
+		return entitlementServiceFrom(
+			Effect.map(proValidated, (validated): Entitlements => (validated ? ["pro"] : [])),
+		);
 	});
 
-export class ProKeyService extends Context.Service<ProKeyService>()(
-	"@ryot-app/kernel-backend/platform/pro-key/ProKeyService",
-	{ make: makeProKeyService() },
+export const entitlementServiceFrom = (current: Effect.Effect<Entitlements>) => {
+	const has = (entitlement: null | undefined | Entitlement) =>
+		entitlement === null || entitlement === undefined
+			? Effect.succeed(true)
+			: Effect.map(current, (active) => isEntitled(active, entitlement));
+	const require = (entitlement: null | undefined | Entitlement) =>
+		Effect.flatMap(has(entitlement), (granted) =>
+			granted || entitlement === null || entitlement === undefined
+				? Effect.void
+				: Effect.fail(entitlementRequired(entitlement)),
+		);
+	return { has, current, require };
+};
+
+export class EntitlementService extends Context.Service<EntitlementService>()(
+	"@ryot-app/kernel-backend/platform/entitlements/EntitlementService",
+	{ make: makeEntitlementService() },
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 	static readonly layerWithHttpClient = (httpClient: HTTPClient) =>
-		Layer.effect(this, makeProKeyService({ httpClient }));
+		Layer.effect(this, makeEntitlementService({ httpClient }));
 }

@@ -15,8 +15,8 @@ import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { JobQueue } from "#platform/jobs/queue";
-import { ProKeyService } from "#platform/pro-key";
 import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#testing/effect";
 
 import { IntegrationIngestion } from "./ingestion";
@@ -27,7 +27,6 @@ const userId = UserId.make("user-1");
 const importRunId = ImportRunId.make("run-1");
 const integrationId = IntegrationId.make("integration-1");
 const mockRepository = Layer.mock(IntegrationsRepository);
-const mockProKey = Layer.mock(ProKeyService)({ isValidated: Effect.succeed(false) });
 
 class FakeAutoDisableClaims extends Context.Service<
 	FakeAutoDisableClaims,
@@ -49,7 +48,7 @@ const makeLayer = (
 				Layer.mock(IngestionExecution)({}),
 				Layer.mock(IngestionRetirement)({}),
 				Layer.mock(IngestionReadinessService)({}),
-				mockProKey,
+				entitlementsLayer([]),
 				IntegrationProviderCatalog.layer.pipe(Layer.provide(databaseLayer)),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(ImportsService, {}),

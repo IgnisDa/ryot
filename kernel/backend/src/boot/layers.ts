@@ -149,10 +149,10 @@ import { MigrationsComplete } from "#platform/db/migrate";
 import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
 import { EgressHttpClientLive } from "#platform/egress/http-client";
+import { EntitlementService } from "#platform/entitlements";
 import { JobQueue } from "#platform/jobs/queue";
 import { JobHandlers, JobWorkerLive } from "#platform/jobs/worker";
 import { ObservabilityLive } from "#platform/observability/observability";
-import { ProKeyService } from "#platform/pro-key";
 import { ServerRun } from "#platform/server-run";
 import { DownloadTickets } from "#platform/storage/download-tickets";
 import { HmacSigner } from "#platform/storage/hmac-signer";
@@ -191,7 +191,7 @@ const BaseInfrastructureServicesLive = Layer.provideMerge(
 				SignedUrlInfrastructureLive,
 				ServerRun.layer,
 				S3Service.layer,
-				ProKeyService.layer,
+				EntitlementService.layer,
 				EgressHttpClientLive,
 			),
 		),
@@ -444,6 +444,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	Layer.provideMerge(SignedUrlInfrastructureLive),
 	Layer.provideMerge(S3Service.layer),
 	Layer.provideMerge(PluginConfigEncryptionKey.layer),
+	Layer.provideMerge(EntitlementService.layer),
 	Layer.provideMerge(DatabaseSession.layer),
 	Layer.provideMerge(ConfigLive),
 );
