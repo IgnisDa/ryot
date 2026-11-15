@@ -9,6 +9,7 @@ export type SelectChoice = {
 	readonly value: string;
 	readonly label: string;
 	readonly hint?: string;
+	readonly disabled?: boolean;
 };
 
 type SelectProps = {

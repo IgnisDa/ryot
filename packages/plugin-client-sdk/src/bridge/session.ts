@@ -23,6 +23,7 @@ import {
 	type KernelShortcut,
 	pageQuerySource,
 	PLUGIN_HEADER_TITLE_MAX,
+	type PluginBridgeAccountRequest,
 	type PluginBridgeAddToCollectionScreen,
 	type PluginBridgeAddToCollectionScreenCancel,
 	type PluginBridgeAssetCancel,
@@ -64,7 +65,6 @@ import {
 	type PluginBridgeSharePublicationScreenCancel,
 	type PluginBridgeStorageRequest,
 	type PluginBridgeUploadRequest,
-	type PluginBridgeUserPreferencesRequest,
 	type PluginBridgeUserSettingsRequest,
 	type PluginCalendarSourceVisibilityRequest,
 	type PluginDeviceRequest,
@@ -108,12 +108,12 @@ type RequestType =
 	| "ryotql"
 	| "upload"
 	| "storage"
+	| "account"
 	| "operation"
 	| "collection"
 	| "enrichment"
 	| "external-link"
 	| "user-settings"
-	| "user-preferences"
 	| "ios-live-activity"
 	| "entity-editor-save"
 	| "pick-entity-screen"
@@ -482,14 +482,10 @@ export const createPluginRuntime = (
 					}) satisfies PluginBridgeUserSettingsRequest,
 			),
 		);
-	const readUserPreferences = () =>
+	const readAccount = () =>
 		sendRequest(
-			"user-preferences",
-			(requestId) =>
-				({
-					requestId,
-					type: "user-preferences-request",
-				}) satisfies PluginBridgeUserPreferencesRequest,
+			"account",
+			(requestId) => ({ requestId, type: "account-request" }) satisfies PluginBridgeAccountRequest,
 		);
 
 	const requestEnrichment = (request: PluginEnrichmentRequest) =>
@@ -703,6 +699,7 @@ export const createPluginRuntime = (
 		navigate,
 		saveEntity,
 		pickEntity,
+		readAccount,
 		resolveAssets,
 		accessStorage,
 		editCollection,
@@ -715,7 +712,6 @@ export const createPluginRuntime = (
 		mutateCollection,
 		requestEnrichment,
 		navigatePageSearch,
-		readUserPreferences,
 		manageCollectionReviews,
 		changeCollectionMembers,
 		setCalendarSourceVisibility,
@@ -1006,6 +1002,15 @@ export const createPluginRuntime = (
 				case "storage-result":
 					settle("storage", message.requestId, message);
 					return;
+				case "account-result":
+					settle(
+						"account",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.account },
+					);
+					return;
 				case "dismiss-overlay": {
 					let dismissed = false;
 					try {
@@ -1069,15 +1074,6 @@ export const createPluginRuntime = (
 						message.outcome === "failure"
 							? message
 							: { outcome: "success", value: message.settings },
-					);
-					return;
-				case "user-preferences-result":
-					settle(
-						"user-preferences",
-						message.requestId,
-						message.outcome === "failure"
-							? message
-							: { outcome: "success", value: message.preferences },
 					);
 					return;
 				case "ios-live-activity-result":

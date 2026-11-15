@@ -48,6 +48,7 @@ import {
 	ManageRemindersRequest,
 	PickEntityOutcome,
 	PickEntityRequest,
+	PluginAccount,
 	PluginBackgroundOperationRequest,
 	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionRequest,
@@ -61,7 +62,6 @@ import {
 	PluginThemeSnapshot,
 	type PluginUploadRequest,
 	PluginUploadResult,
-	PluginUserPreferences,
 	SharePublicationOutcome,
 	SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
@@ -289,15 +289,13 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				yield* adapterEffect(() => read(pluginId)),
 			);
 		});
-	const userPreferences: Effect.Effect<PluginUserPreferences, RyotClientError> = Effect.gen(
-		function* () {
-			const read = adapter.readUserPreferences;
-			if (!read) {
-				return yield* new RyotClientError({ reason: "unsupported-capability" });
-			}
-			return yield* decodeCapability(PluginUserPreferences, yield* adapterEffect(read));
-		},
-	);
+	const account: Effect.Effect<PluginAccount, RyotClientError> = Effect.gen(function* () {
+		const read = adapter.readAccount;
+		if (!read) {
+			return yield* new RyotClientError({ reason: "unsupported-capability" });
+		}
+		return yield* decodeCapability(PluginAccount, yield* adapterEffect(read));
+	});
 	const requestEnrichment = (
 		request: Omit<typeof RequestEntityEnrichmentBody.Type, "pluginId"> & {
 			readonly entityId: string;
@@ -466,17 +464,18 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		recipe: Recipe<Success, Parameters>,
 		arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
 		options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+		source: ExecutionSource = {
+			kind: "inline",
+			document: recipe.document,
+			...(recipe.query === undefined ? {} : { query: recipe.query }),
+		},
 	) {
 		const request = Schema.decodeUnknownResult(ExecutionRequest)({
 			...options,
+			source,
 			arguments: Object.fromEntries(
 				Object.entries(arguments_).filter(([, value]) => value !== undefined),
 			),
-			source: {
-				kind: "inline",
-				document: recipe.document,
-				...(recipe.query === undefined ? {} : { query: recipe.query }),
-			},
 		});
 		if (Result.isFailure(request)) {
 			return yield* new RyotClientError({ reason: "invalid-input" });
@@ -502,8 +501,8 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		);
 
 	return {
+		account,
 		overlayBack,
-		userPreferences,
 		mutationCompleted,
 		userSettings: readUserSettings,
 		uploads: { uploadPermanent, uploadTemporary },
@@ -661,37 +660,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					return decoded.success;
 				}),
 		},
-		data: {
-			execute: executeQuery,
-			query: <Success, const Parameters extends AppSchema>(
-				recipe: Recipe<Success, Parameters>,
-				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
-			) => queryRecipe(recipe, arguments_, options).pipe(Effect.map(({ data }) => data)),
-			describe: (source: ExecutionSource, argumentsValue?: ExecutionRequest["arguments"]) => {
-				const describe = adapter.describe;
-				return describe
-					? adapterEffect(() =>
-							describe({
-								source,
-								...(argumentsValue === undefined ? {} : { arguments: argumentsValue }),
-							}),
-						).pipe(Effect.flatMap((value) => decodeCapability(DescribeResponse, value)))
-					: Effect.fail(new RyotClientError({ reason: "unsupported-capability" }));
-			},
-			queryWithExecution: <Success, const Parameters extends AppSchema>(
-				recipe: Recipe<Success, Parameters>,
-				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
-			) =>
-				queryRecipe(recipe, arguments_, options).pipe(
-					Effect.flatMap(({ data, response }) =>
-						decodeCapability(Schema.Struct({ execution: QueryExecution }), response).pipe(
-							Effect.map(({ execution }) => ({ data, execution })),
-						),
-					),
-				),
-		},
 		entities: {
 			save: saveEntity,
 			requestEnrichment,
@@ -783,6 +751,46 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						decode,
 					);
 				}),
+		},
+		data: {
+			execute: executeQuery,
+			query: <Success, const Parameters extends AppSchema>(
+				recipe: Recipe<Success, Parameters>,
+				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
+				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+			) => queryRecipe(recipe, arguments_, options).pipe(Effect.map(({ data }) => data)),
+			queryDeclared: <Success, const Parameters extends AppSchema>(
+				recipe: Recipe<Success, Parameters>,
+				source: Omit<Extract<ExecutionSource, { readonly kind: "plugin" }>, "kind">,
+				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
+				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+			) =>
+				queryRecipe(recipe, arguments_, options, { kind: "plugin", ...source }).pipe(
+					Effect.map(({ data }) => data),
+				),
+			describe: (source: ExecutionSource, argumentsValue?: ExecutionRequest["arguments"]) => {
+				const describe = adapter.describe;
+				return describe
+					? adapterEffect(() =>
+							describe({
+								source,
+								...(argumentsValue === undefined ? {} : { arguments: argumentsValue }),
+							}),
+						).pipe(Effect.flatMap((value) => decodeCapability(DescribeResponse, value)))
+					: Effect.fail(new RyotClientError({ reason: "unsupported-capability" }));
+			},
+			queryWithExecution: <Success, const Parameters extends AppSchema>(
+				recipe: Recipe<Success, Parameters>,
+				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
+				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+			) =>
+				queryRecipe(recipe, arguments_, options).pipe(
+					Effect.flatMap(({ data, response }) =>
+						decodeCapability(Schema.Struct({ execution: QueryExecution }), response).pipe(
+							Effect.map(({ execution }) => ({ data, execution })),
+						),
+					),
+				),
 		},
 		operations: {
 			backgroundSettled: (listener: (settlement: BackgroundSettlement) => void) => {

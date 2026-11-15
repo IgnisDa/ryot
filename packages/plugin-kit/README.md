@@ -395,8 +395,8 @@ a RyotQL `query` body shaped like a Calendar source query; its `where` clause de
 `dueAt` names a projected date field with `date` or `instant` `precision`, `occurrence` a projected
 text key, and `properties` maps signal properties to projected fields (null values are omitted).
 Optional `delayDays` makes a row due that many days after `dueAt`; optional `freshness` defers rows
-whose `confirmedAt` is older than `maxAgeHours`; optional `requiresProKey` limits delivery to servers
-with a validated Pro key.
+whose `confirmedAt` is older than `maxAgeHours`; optional `entitlement` limits delivery to accounts
+holding that entitlement.
 
 The kernel delivers each occurrence at most once per user on the user's reporting-timezone day, with
 two catch-up days; older rows are skipped. See

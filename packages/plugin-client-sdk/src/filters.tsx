@@ -6,8 +6,13 @@ import {
 	threePointRatings,
 } from "@ryot-app/contract/modules/events/rating-scale";
 import {
+	filterOperatorEntitlement,
+	filterRuleCountEntitlement,
+} from "@ryot-app/contract/modules/filters/schemas";
+import {
 	Button,
 	Checkbox,
+	entitlementActionLabel,
 	IconButton,
 	Modal,
 	MultiSelect,
@@ -39,6 +44,7 @@ import { Effect, Schema } from "effect";
 import { type ReactNode, type RefObject, useDeferredValue, useState } from "react";
 
 import { usePluginLocation } from "./navigation/routing";
+import { useEntitlement } from "./queries/account";
 import { createRyotQuery } from "./queries/definitions";
 import { useRyotQuery } from "./queries/hooks";
 import { PreferencesGate } from "./queries/preferences-gate";
@@ -445,12 +451,28 @@ function RatingScaleStatus(props: { readonly children: (scale: RatingScale) => R
 	return <PreferencesGate>{({ ratingScale }) => props.children(ratingScale)}</PreferencesGate>;
 }
 
+const filterFieldChoices = (
+	fields: readonly ViewFilterField[],
+	draftFor: (field: ViewFilterField) => undefined | FilterDraft,
+	current?: string,
+) =>
+	fields.map((field) => {
+		const granted = field.key === current || draftFor(field) !== undefined;
+		return {
+			value: field.key,
+			disabled: !granted,
+			label: entitlementActionLabel(field.label, "pro", granted),
+		};
+	});
+
 function RuleRow({
 	draft,
 	index,
 	scale,
 	fields,
+	allowed,
 	compact,
+	draftFor,
 	onChange,
 	onRemove,
 }: {
@@ -461,6 +483,8 @@ function RuleRow({
 	readonly onRemove: () => void;
 	readonly fields: readonly ViewFilterField[];
 	readonly onChange: (draft: FilterDraft) => void;
+	readonly allowed: (operator: FilterOperator) => boolean;
+	readonly draftFor: (field: ViewFilterField) => undefined | FilterDraft;
 }) {
 	const field = fields.find(({ key }) => key === draft.field);
 	if (field === undefined) {
@@ -478,11 +502,12 @@ function RuleRow({
 					{...selectIcons}
 					value={field.key}
 					label={`Filter ${position} field`}
-					choices={fields.map(({ key, label }) => ({ label, value: key }))}
+					choices={filterFieldChoices(fields, draftFor, field.key)}
 					onChange={(key) => {
 						const next = fields.find((candidate) => candidate.key === key);
-						if (next !== undefined && next.key !== field.key) {
-							onChange(newFilterDraft(next));
+						const nextDraft = next === undefined ? undefined : draftFor(next);
+						if (next !== undefined && next.key !== field.key && nextDraft !== undefined) {
+							onChange(nextDraft);
 						}
 					}}
 				/>
@@ -490,16 +515,20 @@ function RuleRow({
 					{...selectIcons}
 					value={draft.operator}
 					label={`Filter ${position} operator`}
-					choices={filterOperatorsFor(field).map((operator) => ({
-						value: operator,
-						label: operatorLabel(field, operator),
-					}))}
 					onChange={(operator) => {
 						const next = filterOperatorsFor(field).find((candidate) => candidate === operator);
-						if (next !== undefined) {
+						if (next !== undefined && allowed(next)) {
 							onChange({ ...draft, text: "", second: "", operator: next });
 						}
 					}}
+					choices={filterOperatorsFor(field).map((operator) => {
+						const granted = operator === draft.operator || allowed(operator);
+						return {
+							value: operator,
+							disabled: !granted,
+							label: entitlementActionLabel(operatorLabel(field, operator), "pro", granted),
+						};
+					})}
 				/>
 			</div>
 			<div className="flex items-start gap-2">
@@ -541,6 +570,14 @@ function FilterRulesPanel({
 		setState(next);
 		onChange(stateFilter(next, scaleOf));
 	};
+	const pro = useEntitlement("pro");
+	const allowed = (operator: FilterOperator) =>
+		pro.granted || filterOperatorEntitlement(operator) === undefined;
+	const draftFor = (field: ViewFilterField) => {
+		const operator = filterOperatorsFor(field).find(allowed);
+		return operator === undefined ? undefined : { ...newFilterDraft(field), operator };
+	};
+	const canAdd = pro.granted || filterRuleCountEntitlement(state.rows.length + 1) === undefined;
 	if (group === null) {
 		return (
 			<div className="mt-4 grid gap-2">
@@ -575,6 +612,8 @@ function FilterRulesPanel({
 					fields={fields}
 					draft={row.draft}
 					compact={compact}
+					allowed={allowed}
+					draftFor={draftFor}
 					onRemove={() => commit({ ...state, rows: state.rows.filter(({ id }) => id !== row.id) })}
 					onChange={(draft) =>
 						commit({
@@ -590,15 +629,17 @@ function FilterRulesPanel({
 				{...selectIcons}
 				value=""
 				label="Add filter"
-				placeholder="Add filter"
-				choices={fields.map(({ key, label }) => ({ label, value: key }))}
+				disabled={!canAdd}
+				choices={filterFieldChoices(fields, draftFor)}
+				placeholder={entitlementActionLabel("Add filter", "pro", canAdd)}
 				onChange={(key) => {
 					const next = fields.find((candidate) => candidate.key === key);
-					if (next !== undefined) {
+					const draft = next === undefined ? undefined : draftFor(next);
+					if (draft !== undefined) {
 						commit({
 							...state,
 							nextId: state.nextId + 1,
-							rows: [...state.rows, { id: state.nextId, draft: newFilterDraft(next) }],
+							rows: [...state.rows, { draft, id: state.nextId }],
 						});
 					}
 				}}

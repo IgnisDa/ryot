@@ -98,7 +98,7 @@ export type OperationInvocation<
 };
 
 export type RyotClientAdapter = {
-	readonly readUserPreferences?: () => Effect.Effect<unknown, RyotClientError>;
+	readonly readAccount?: () => Effect.Effect<unknown, RyotClientError>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly query: (request: ExecutionRequest) => Effect.Effect<unknown, RyotClientError>;
 	readonly pageQuery?: (request: VisitorRequest) => Effect.Effect<unknown, RyotClientError>;

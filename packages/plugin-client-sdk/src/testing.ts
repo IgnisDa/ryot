@@ -8,7 +8,9 @@ import {
 	PluginId,
 	type PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
+import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	type BackgroundSubmissionOutcome,
 	CLIENT_API_VERSION,
@@ -316,8 +318,9 @@ export const mountPluginPage = (
 	component: ComponentType,
 	options: {
 		readonly page?: undefined | ClientPageContext;
+		readonly entitlements?: undefined | Entitlements;
 		readonly location?: undefined | PluginLogicalLocation;
-		/** Answers every user-preferences request with these preferences. */
+		/** Answers every account request once either part of the account is given. */
 		readonly userPreferences?: undefined | PluginUserPreferences;
 		readonly queryExecution?: undefined | (() => QueryExecution);
 		readonly bootstrap?: undefined | ReturnType<typeof createClientBootstrap>;
@@ -348,14 +351,17 @@ export const mountPluginPage = (
 		const decoded = decodeClientMessage(data);
 		if (Result.isSuccess(decoded)) {
 			if (
-				decoded.success.type === "user-preferences-request" &&
-				options.userPreferences !== undefined
+				decoded.success.type === "account-request" &&
+				(options.userPreferences !== undefined || options.entitlements !== undefined)
 			) {
 				channel.port1.postMessage({
 					outcome: "success",
-					type: "user-preferences-result",
+					type: "account-result",
 					requestId: decoded.success.requestId,
-					preferences: options.userPreferences,
+					account: {
+						entitlements: options.entitlements ?? ["pro"],
+						preferences: options.userPreferences ?? { timeZone: UTC, ratingScale: "hundred" },
+					},
 				} satisfies PluginBridgeHostMessage);
 			}
 			options.onClientMessage?.(decoded.success);

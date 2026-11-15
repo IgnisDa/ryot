@@ -92,5 +92,6 @@ export {
 	type ReportingExecution,
 	defaultReportingSelection,
 	resolveReportingSelection,
+	entitledReportingSelection,
 	type ResolvedReportingSelection,
 } from "@ryot-app/contract/modules/analytics/reporting";

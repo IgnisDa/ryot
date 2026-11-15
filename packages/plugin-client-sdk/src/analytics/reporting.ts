@@ -2,11 +2,13 @@ import { addCalendarDays, localDateOf } from "@ryot-app/contract/modules/analyti
 import {
 	REPORTING_BUCKET_LIMIT,
 	type ReportingRange,
+	reportingRangeEntitlement,
 	reportingRangePresets,
 	reportingRangeValue,
 	type ReportingSelection,
 	resolveReportingSelection,
 } from "@ryot-app/contract/modules/analytics/reporting";
+import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 
 type CaptionPeriod = null | { readonly endDate: string; readonly startDate: string };
@@ -66,12 +68,12 @@ export const reportingRangeOptions: ReadonlyArray<{
 	readonly value: string;
 	readonly label: string;
 	readonly range: null | ReportingRange;
+	readonly entitlement: undefined | Entitlement;
 }> = [
-	...reportingRangePresets.map((range) => ({
-		range,
-		label: rangeLabel(range),
-		value: reportingRangeValue(range),
-	})),
-	{ range: null, value: "custom", label: "Custom dates" },
-	{ value: "all-time", label: "All time", range: { kind: "all-time" } },
-];
+	...reportingRangePresets.map((range) => ({ range, label: rangeLabel(range) })),
+	{ range: null, label: "Custom dates" },
+	{ label: "All time", range: { kind: "all-time" } as const },
+].map((option) => {
+	const value = option.range === null ? "custom" : reportingRangeValue(option.range);
+	return Object.assign({}, option, { value, entitlement: reportingRangeEntitlement(value) });
+});

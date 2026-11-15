@@ -1,6 +1,7 @@
 import {
 	Button,
 	createReport,
+	entitlementActionLabel,
 	renderReportPng,
 	ReportProvider,
 	type ReportSnapshot,
@@ -10,6 +11,7 @@ import {
 import { Effect, Schema } from "effect";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
+import { useEntitlement } from "../queries/account";
 import { useRyot, useRyotSchedule } from "../queries/provider";
 
 class AnalyticsImageExportError extends Schema.TaggedError<
@@ -39,6 +41,7 @@ function ReportExport(props: {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const ready = useReportReady(props.report);
+	const pro = useEntitlement("pro");
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string>();
 	const captured = useRef<undefined | ReportSnapshot>(undefined);
@@ -48,7 +51,7 @@ function ReportExport(props: {
 	const cancel = useRef<undefined | (() => void)>(undefined);
 	useEffect(() => () => cancel.current?.(), []);
 	const save = () => {
-		if (saving.current) {
+		if (saving.current || !pro.granted) {
 			return;
 		}
 		saving.current = true;
@@ -100,11 +103,13 @@ function ReportExport(props: {
 			() => undefined,
 		);
 	};
-	const label = pending ? "Saving image…" : "Save image";
+	const label = pending
+		? "Saving image…"
+		: entitlementActionLabel("Save image", "pro", pro.granted);
 	return (
 		<div className="flex flex-wrap items-center justify-end gap-3">
 			{error === undefined ? null : <StatusMessage tone="error">{error}</StatusMessage>}
-			<Button onClick={save} disabled={!ready || pending}>
+			<Button onClick={save} disabled={!ready || pending || !pro.granted}>
 				{error && !pending ? "Retry image export" : label}
 			</Button>
 		</div>

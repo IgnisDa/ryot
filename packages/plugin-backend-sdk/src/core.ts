@@ -1,4 +1,6 @@
 export type { LogEntry, SpanEntry } from "./core/logging";
+export { EntitlementRequiredError } from "./core/entitlements";
+export { isEntitled } from "@ryot-app/contract/schema/entitlement";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export { sandboxManifestSchema, executionMetadataSchema } from "./core/script-manifest";
 export type {

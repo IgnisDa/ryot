@@ -71,6 +71,12 @@ export {
 	useDismissOnOutside,
 } from "./overlay";
 export {
+	entitlementName,
+	EntitlementNotice,
+	entitlementActionLabel,
+	entitlementRequiredMessage,
+} from "./entitlement";
+export {
 	Collapse,
 	MotionList,
 	MotionSwap,

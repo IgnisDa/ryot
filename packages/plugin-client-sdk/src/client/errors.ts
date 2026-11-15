@@ -11,3 +11,6 @@ export class RyotClientError extends Schema.TaggedError<
 
 export const asTransportError = (error: unknown) =>
 	error instanceof RyotClientError ? error : new RyotClientError({ reason: "transport" });
+
+export const isEntitlementRequired = (error: unknown) =>
+	error instanceof RyotClientError && error.reason === "entitlement-required";

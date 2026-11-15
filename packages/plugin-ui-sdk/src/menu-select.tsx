@@ -4,7 +4,11 @@ import { type ReactNode, useMemo, useState } from "react";
 import { Menu } from "./menu";
 import { useReportBlock } from "./report";
 
-type MenuSelectChoice<T extends string> = { readonly value: T; readonly label: string };
+type MenuSelectChoice<T extends string> = {
+	readonly value: T;
+	readonly label: string;
+	readonly disabled?: boolean;
+};
 
 export function MenuSelect<T extends string>(props: {
 	readonly value: T;
@@ -70,6 +74,7 @@ export function MenuSelect<T extends string>(props: {
 						key: choice.value,
 						label: choice.label,
 						checked: choice.value === props.value,
+						...(choice.disabled === undefined ? {} : { disabled: choice.disabled }),
 						onSelect: () => {
 							setOpen(false);
 							trigger?.focus();

@@ -35,6 +35,7 @@ import {
 	VisitorRequest,
 } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
@@ -48,6 +49,7 @@ export const PLUGIN_STORAGE_VALUE_MAX_BYTES = 65536;
 export const PluginOperationBridgeErrorReason = Schema.Literals([
 	"transport",
 	"operation-failed",
+	"entitlement-required",
 	"page-write-access-required",
 	"operation-rejected",
 	"malformed-result",
@@ -89,6 +91,7 @@ export const RyotClientErrorReason = Schema.Literals([
 	"query-failed",
 	"invalid-input",
 	"operation-failed",
+	"entitlement-required",
 	"page-write-access-required",
 	"operation-rejected",
 	"malformed-result",
@@ -350,6 +353,7 @@ const pluginOperationFailureVariants = [
 		reason: Schema.Literals([
 			"transport",
 			"operation-failed",
+			"entitlement-required",
 			"page-write-access-required",
 			"malformed-result",
 		]),
@@ -610,60 +614,51 @@ export const PluginUserPreferences = strictStruct({ timeZone: TimeZone, ratingSc
 
 export type PluginUserPreferences = Schema.Schema.Type<typeof PluginUserPreferences>;
 
-export const PluginUserPreferencesBridgeErrorReason = Schema.Literals([
-	"invalid-request",
-	"transport",
-]);
-
-export type PluginUserPreferencesBridgeErrorReason = Schema.Schema.Type<
-	typeof PluginUserPreferencesBridgeErrorReason
->;
-
-export const PluginBridgeUserPreferencesRequest = strictStruct({
-	requestId: Schema.String,
-	type: Schema.Literal("user-preferences-request"),
+export const PluginAccount = strictStruct({
+	entitlements: Entitlements,
+	preferences: PluginUserPreferences,
 });
 
-export type PluginBridgeUserPreferencesRequest = Schema.Schema.Type<
-	typeof PluginBridgeUserPreferencesRequest
+export type PluginAccount = Schema.Schema.Type<typeof PluginAccount>;
+
+export const PluginAccountBridgeErrorReason = Schema.Literals(["invalid-request", "transport"]);
+
+export type PluginAccountBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginAccountBridgeErrorReason
 >;
 
-const pluginUserPreferencesSuccessFields = {
-	preferences: PluginUserPreferences,
-	outcome: Schema.Literal("success"),
-};
-
-const pluginUserPreferencesFailureFields = {
-	outcome: Schema.Literal("failure"),
-	reason: PluginUserPreferencesBridgeErrorReason,
-};
-
-const pluginBridgeUserPreferencesResultFields = {
+export const PluginBridgeAccountRequest = strictStruct({
 	requestId: Schema.String,
-	type: Schema.Literal("user-preferences-result"),
+	type: Schema.Literal("account-request"),
+});
+
+export type PluginBridgeAccountRequest = Schema.Schema.Type<typeof PluginBridgeAccountRequest>;
+
+const pluginAccountSuccessFields = { account: PluginAccount, outcome: Schema.Literal("success") };
+
+const pluginAccountFailureFields = {
+	outcome: Schema.Literal("failure"),
+	reason: PluginAccountBridgeErrorReason,
 };
 
-export const PluginUserPreferencesOutcome = Schema.Union([
-	strictStruct(pluginUserPreferencesSuccessFields),
-	strictStruct(pluginUserPreferencesFailureFields),
+const pluginBridgeAccountResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("account-result"),
+};
+
+export const PluginAccountOutcome = Schema.Union([
+	strictStruct(pluginAccountSuccessFields),
+	strictStruct(pluginAccountFailureFields),
 ]);
 
-export type PluginUserPreferencesOutcome = Schema.Schema.Type<typeof PluginUserPreferencesOutcome>;
+export type PluginAccountOutcome = Schema.Schema.Type<typeof PluginAccountOutcome>;
 
-export const PluginBridgeUserPreferencesResult = Schema.Union([
-	strictStruct({
-		...pluginUserPreferencesSuccessFields,
-		...pluginBridgeUserPreferencesResultFields,
-	}),
-	strictStruct({
-		...pluginUserPreferencesFailureFields,
-		...pluginBridgeUserPreferencesResultFields,
-	}),
+export const PluginBridgeAccountResult = Schema.Union([
+	strictStruct({ ...pluginAccountSuccessFields, ...pluginBridgeAccountResultFields }),
+	strictStruct({ ...pluginAccountFailureFields, ...pluginBridgeAccountResultFields }),
 ]);
 
-export type PluginBridgeUserPreferencesResult = Schema.Schema.Type<
-	typeof PluginBridgeUserPreferencesResult
->;
+export type PluginBridgeAccountResult = Schema.Schema.Type<typeof PluginBridgeAccountResult>;
 
 const pluginUploadFileFields = {
 	fileName: Schema.String,
@@ -731,7 +726,11 @@ export const PluginBridgeUploadResult = Schema.Union([
 
 export type PluginBridgeUploadResult = Schema.Schema.Type<typeof PluginBridgeUploadResult>;
 
-export const PluginRyotQLFailureReason = Schema.Literals(["query-failed", "transport"]);
+export const PluginRyotQLFailureReason = Schema.Literals([
+	"query-failed",
+	"transport",
+	"entitlement-required",
+]);
 
 export type PluginRyotQLFailureReason = Schema.Schema.Type<typeof PluginRyotQLFailureReason>;
 

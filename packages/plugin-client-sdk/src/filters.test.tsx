@@ -119,3 +119,64 @@ describe("rating filters", () => {
 		testTimeout,
 	);
 });
+
+describe("filter entitlements", () => {
+	afterEach(disposePluginBridges);
+
+	const fields: readonly ViewFilterField[] = [
+		{ key: "name", type: "text", kind: "value", label: "Name" },
+		{ type: "date", kind: "value", key: "addedAt", label: "Date added" },
+	];
+
+	it.live(
+		"limits free accounts to one rule without date operators",
+		() =>
+			Effect.gen(function* () {
+				const filter: ViewFilter = { value: "dune", field: "name", operator: "contains" };
+				mountPluginPage(
+					() => (
+						<FilterRules
+							fields={fields}
+							filter={filter}
+							compact={false}
+							onChange={() => undefined}
+						/>
+					),
+					{
+						entitlements: [],
+						location: routeLocation("/"),
+						userPreferences: { ratingScale: "ten", timeZone: TimeZone.make("UTC") },
+						page: {
+							settings: {},
+							contributors: [],
+							dataSources: null,
+							route: { params: {} },
+							view: { icon: "grid", name: "Browser" },
+							renderer: { kind: "kernel", name: "Browser" },
+							target: { kind: "saved-view", reference: { kind: "kernel", slug: "browser" } },
+						},
+					},
+				);
+				const add = yield* Effect.promise(() =>
+					waitFor(() => screen.getByRole("button", { name: "Add filter: Add filter (Pro)" })),
+				);
+				expect(add).toHaveProperty("disabled", true);
+				fireEvent.click(screen.getByRole("button", { name: /^Filter 1 field: / }));
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						waitFor(() => screen.getByRole("radio", { name: "Date added" })),
+					),
+				);
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						waitFor(() => screen.getByRole("button", { name: "Filter 1 operator: is not set" })),
+					),
+				);
+				const after = yield* Effect.promise(() =>
+					waitFor(() => screen.getByRole("radio", { name: "is after (Pro)" })),
+				);
+				expect(after.getAttribute("aria-disabled")).toBe("true");
+			}),
+		testTimeout,
+	);
+});

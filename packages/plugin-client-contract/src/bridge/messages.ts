@@ -6,6 +6,8 @@ import {
 	PluginBridgeBackgroundOperationSettled,
 } from "./background-submissions";
 import {
+	PluginBridgeAccountRequest,
+	PluginBridgeAccountResult,
 	PluginBridgeAssetCancel,
 	PluginBridgeAssetRequest,
 	PluginBridgeAssetResult,
@@ -30,8 +32,6 @@ import {
 	PluginBridgeStorageResult,
 	PluginBridgeUploadRequest,
 	PluginBridgeUploadResult,
-	PluginBridgeUserPreferencesRequest,
-	PluginBridgeUserPreferencesResult,
 	PluginBridgeUserSettingsRequest,
 	PluginBridgeUserSettingsResult,
 } from "./capabilities";
@@ -112,7 +112,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeEntityWatch,
 	PluginBridgeStorageRequest,
 	PluginBridgeUserSettingsRequest,
-	PluginBridgeUserPreferencesRequest,
+	PluginBridgeAccountRequest,
 	PluginBridgeEnrichmentRequest,
 	PluginBridgeOperationRequest,
 	PluginBridgeBackgroundOperationRequest,
@@ -156,7 +156,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeDismissOverlay,
 	PluginBridgeStorageResult,
 	PluginBridgeUserSettingsResult,
-	PluginBridgeUserPreferencesResult,
+	PluginBridgeAccountResult,
 	PluginBridgeEnrichmentResult,
 	PluginBridgeOperationResult,
 	PluginBridgeBackgroundOperationAccepted,

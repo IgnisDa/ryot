@@ -4,7 +4,7 @@ import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import type { EntityBrowserResult } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { useAssetUrl } from "../assets/provider";
-import { useUserPreferences } from "../queries/user-settings";
+import { useUserPreferences } from "../queries/account";
 
 type SavedViewCellValue = SavedViewCell["value"];
 type SavedViewCell = EntityBrowserResult["items"][number]["cells"][number];

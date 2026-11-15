@@ -6,6 +6,7 @@ import type {
 	FilesystemGrantSandboxCapability,
 	SandboxHostCapability,
 } from "@ryot-app/contract/modules/scripts/wire";
+import { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import type { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -43,6 +44,7 @@ import {
 	upsertGlobalEntitiesDataSchema,
 	upsertGlobalEntitiesResultSchema,
 } from "./entities";
+import { getEntitlementsArgsSchema, getEntitlementsResultSchema } from "./entitlements";
 import {
 	createEventsArgsSchema,
 	createEventsResultDataSchema,
@@ -75,7 +77,6 @@ import {
 	oauthAccessTokenSchema,
 } from "./integrations";
 import { logArgsSchema, logResultSchema, spanArgsSchema, spanResultSchema } from "./logging";
-import { getProAvailabilityArgsSchema, getProAvailabilityResultSchema } from "./pro";
 import {
 	changeUserRelationshipsArgsSchema,
 	changeUserRelationshipsDataSchema,
@@ -129,6 +130,11 @@ export const coreSandboxHostContracts = {
 		result: httpCallResultSchema,
 		success: httpCallResponseSchema,
 	},
+	getEntitlements: {
+		success: Entitlements,
+		args: getEntitlementsArgsSchema,
+		result: getEntitlementsResultSchema,
+	},
 	getPluginConfig: {
 		success: configValuesSchema,
 		args: getPluginConfigArgsSchema,
@@ -148,11 +154,6 @@ export const coreSandboxHostContracts = {
 		args: setCachedValueArgsSchema,
 		success: setCachedValueDataSchema,
 		result: setCachedValueResultSchema,
-	},
-	getProAvailability: {
-		success: Schema.Boolean,
-		args: getProAvailabilityArgsSchema,
-		result: getProAvailabilityResultSchema,
 	},
 	verifyManagedAssets: {
 		success: Schema.Null,

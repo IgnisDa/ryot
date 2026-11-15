@@ -86,9 +86,9 @@ returns the settings record; failures use `invalid-request` or `transport`. Inst
 and defaults belong to the kernel host; hook behavior belongs to the
 [SDK user settings API](../plugin-client-sdk/README.md#capabilities).
 
-`user-preferences-request` carries no plugin, installation, or user. Result success returns the
-account's `PluginUserPreferences`: reporting `timeZone` and `ratingScale`. Failures use
-`invalid-request` or `transport`.
+`account-request` carries no plugin, installation, or user. Result success returns the
+`PluginAccount`: its `PluginUserPreferences` (reporting `timeZone` and `ratingScale`) and the
+instance `entitlements`. Failures use `invalid-request` or `transport`.
 
 `enrichment-request` carries the `RequestEntityEnrichmentBody` fields and an entity ID. Its action
 selects a refresh or retry. Result success returns `enrichmentRequestId`, the durable request ID, or
