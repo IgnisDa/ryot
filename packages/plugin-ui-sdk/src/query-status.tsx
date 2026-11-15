@@ -14,11 +14,13 @@ export function QueryStatus<Data>({ label, query, onRetry, children }: QueryStat
 	const retry = { onClick: onRetry, label: `Retry ${label}` };
 	if (query.data === undefined) {
 		return query.isError ? (
-			<StatusMessage tone="error" action={retry}>
+			<StatusMessage blocked tone="error" action={retry}>
 				Could not load {label}.
 			</StatusMessage>
 		) : (
-			<StatusMessage tone="pending">Loading {label}…</StatusMessage>
+			<StatusMessage blocked tone="pending">
+				Loading {label}…
+			</StatusMessage>
 		);
 	}
 	return (

@@ -1,5 +1,7 @@
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
 
+import { useReportBlock } from "./report";
+
 export type RadioGroupOptionView = { readonly content: ReactNode; readonly className?: string };
 
 export type RadioGroupOption = {
@@ -25,6 +27,10 @@ export function RadioGroup<O extends RadioGroupOption>({
 	className,
 	renderOption,
 }: RadioGroupProps<O>) {
+	const report = useReportBlock(() => ({
+		kind: "text",
+		lines: [`${label}: ${options.find((option) => option.value === value)?.label ?? ""}`],
+	}));
 	const radios = useRef<Array<null | HTMLButtonElement>>([]);
 	const enabled = options.flatMap((option, index) => (option.disabled === true ? [] : [index]));
 	const selectedIndex = options.findIndex((option) => option.value === value);
@@ -53,7 +59,7 @@ export function RadioGroup<O extends RadioGroupOption>({
 	};
 
 	return (
-		<div role="radiogroup" aria-label={label} className={className}>
+		<div ref={report} role="radiogroup" aria-label={label} className={className}>
 			{options.map((option, index) => {
 				const selected = index === selectedIndex;
 				const disabled = option.disabled === true;

@@ -9,6 +9,7 @@ import {
 	metricParts,
 	type MetricUnit,
 } from "./metric-format";
+import { reportText, useReportBlock } from "./report";
 import { Card } from "./surface";
 
 export type Metric = {
@@ -34,21 +35,28 @@ export function ChartCard(props: {
 	readonly children: ReactNode;
 	readonly description?: ReactNode;
 }) {
+	const report = useReportBlock(() => ({
+		kind: "text",
+		title: props.title,
+		lines: props.description === undefined ? [] : [reportText(props.description)],
+	}));
 	return (
-		<Card className={clsx("flex min-w-0 flex-col gap-4", props.className)}>
-			<header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-				<div className="min-w-0">
-					<h3 className="text-body font-semibold text-text">{props.title}</h3>
-					{props.description === undefined ? null : (
-						<p className="text-label text-text-muted">{props.description}</p>
+		<div ref={report} className="contents">
+			<Card className={clsx("flex min-w-0 flex-col gap-4", props.className)}>
+				<header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+					<div className="min-w-0">
+						<h3 className="text-body font-semibold text-text">{props.title}</h3>
+						{props.description === undefined ? null : (
+							<p className="text-label text-text-muted">{props.description}</p>
+						)}
+					</div>
+					{props.actions === undefined ? null : (
+						<div className="flex min-w-0 flex-wrap items-center gap-2">{props.actions}</div>
 					)}
-				</div>
-				{props.actions === undefined ? null : (
-					<div className="flex min-w-0 flex-wrap items-center gap-2">{props.actions}</div>
-				)}
-			</header>
-			{props.children}
-		</Card>
+				</header>
+				{props.children}
+			</Card>
+		</div>
 	);
 }
 
@@ -64,6 +72,29 @@ export function MetricGrid(props: {
 	readonly metrics: readonly Metric[];
 	readonly variant: "tiles" | "panel" | "plain";
 }) {
+	const report = useReportBlock(() => ({
+		kind: "text",
+		lines: props.metrics.map((metric) => {
+			const delta =
+				metric.delta === undefined
+					? undefined
+					: deltaDisplay({
+							unit: metric.unit,
+							delta: metric.delta,
+							comparisonLabel: props.comparisonLabel,
+						});
+			return [
+				metric.label + ":",
+				metric.atLeast && metric.value !== null ? "at least" : "",
+				formatMetric(metric.value, metric.unit),
+				delta?.text,
+				delta?.comparison,
+				reportText(metric.hint),
+			]
+				.filter(Boolean)
+				.join(" ");
+		}),
+	}));
 	const primary = props.variant === "tiles";
 	const items = props.metrics.map((metric) => {
 		const body = (
@@ -98,7 +129,11 @@ export function MetricGrid(props: {
 	});
 	const columns = props.compact ? "grid-cols-2" : "grid-cols-4";
 	if (primary) {
-		return <dl className={clsx("grid min-w-0 gap-3", columns, props.className)}>{items}</dl>;
+		return (
+			<div ref={report} className="contents">
+				<dl className={clsx("grid min-w-0 gap-3", columns, props.className)}>{items}</dl>
+			</div>
+		);
 	}
 	const grid = (
 		<dl
@@ -111,10 +146,14 @@ export function MetricGrid(props: {
 			{items}
 		</dl>
 	);
-	return props.variant === "panel" ? (
-		<Card className={clsx("min-w-0", props.className)}>{grid}</Card>
-	) : (
-		grid
+	return (
+		<div ref={report} className="contents">
+			{props.variant === "panel" ? (
+				<Card className={clsx("min-w-0", props.className)}>{grid}</Card>
+			) : (
+				grid
+			)}
+		</div>
 	);
 }
 
@@ -140,14 +179,14 @@ function MetricFigure(props: { readonly metric: Metric; readonly primary: boolea
 	);
 }
 
-function DeltaBadge(props: {
+const deltaDisplay = (props: {
 	readonly unit: MetricUnit;
 	readonly delta: MetricDelta;
 	readonly comparisonLabel: string;
-}) {
+}) => {
 	const { delta } = props;
 	if (delta.kind === "unavailable") {
-		return <span className="text-micro text-text-subtle">No comparison</span>;
+		return { variant: null, comparison: "", text: "No comparison" };
 	}
 	const bucketed = props.unit.kind === "rating" && props.unit.scale === "three-point";
 	const signed = `${delta.absolute > 0 ? "+" : ""}${formatMetric(delta.absolute, props.unit)}`;
@@ -160,14 +199,27 @@ function DeltaBadge(props: {
 		variant = delta.percent > 0 ? "success" : "danger";
 		text = `${delta.percent > 0 ? "↑" : "↓"} ${formatPercent(delta.percent)}`;
 	}
+	return {
+		text,
+		variant,
+		comparison: bucketed ? props.comparisonLabel : `${signed} ${props.comparisonLabel}`,
+	};
+};
+function DeltaBadge(props: {
+	readonly unit: MetricUnit;
+	readonly delta: MetricDelta;
+	readonly comparisonLabel: string;
+}) {
+	const { text, variant, comparison } = deltaDisplay(props);
+	if (variant === null) {
+		return <span className="text-micro text-text-subtle">{text}</span>;
+	}
 	return (
 		<span className="inline-flex min-w-0 items-center gap-1.5">
 			<Badge size="sm" variant={variant} className="tabular-nums">
 				{text}
 			</Badge>
-			<span className="truncate text-micro text-text-subtle">
-				{bucketed ? props.comparisonLabel : `${signed} ${props.comparisonLabel}`}
-			</span>
+			<span className="truncate text-micro text-text-subtle">{comparison}</span>
 		</span>
 	);
 }

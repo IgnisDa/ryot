@@ -54,7 +54,7 @@ describe("CalendarHeatmap", () => {
 
 		expect(cellsOf(container)).toHaveLength(2);
 		expect(screen.getByRole("img", { name: "Activity" }).getAttribute("viewBox")).toBe(
-			"0 0 60 105",
+			"0 0 112 121",
 		);
 	});
 
@@ -64,16 +64,10 @@ describe("CalendarHeatmap", () => {
 			{ value: 2, date: "2026-11-08" },
 		]);
 
-		expect(
-			[...container.querySelectorAll<HTMLElement>(".relative > span")].map((label) => [
-				label.textContent,
-				label.style.left,
-			]),
-		).toEqual([
-			["Sep", "1.5px"],
-			["Oct", "46.5px"],
-			["Nov", "106.5px"],
-		]);
+		const labels = [...container.querySelectorAll("svg text")].map((label) => label.textContent);
+		for (const label of ["Sep", "Oct", "Nov", "Mon", "Wed", "Fri"]) {
+			expect(labels).toContain(label);
+		}
 		expect(container.textContent).toContain("Less");
 		expect(container.textContent).toContain("More");
 	});
@@ -89,10 +83,10 @@ describe("CalendarHeatmap", () => {
 		sundayStart.unmount();
 		const mondayStart = renderHeatmap(week, 1);
 
-		expect(sundayViewBox).toBe("0 0 15 105");
-		expect(sundayFirstRow).toBe("1.5");
-		expect(screen.getByRole("img").getAttribute("viewBox")).toBe("0 0 30 105");
-		expect(cellOn(mondayStart.container, "2026-09-20")?.getAttribute("y")).toBe("91.5");
+		expect(sundayViewBox).toBe("0 0 67 121");
+		expect(sundayFirstRow).toBe("17.5");
+		expect(screen.getByRole("img").getAttribute("viewBox")).toBe("0 0 82 121");
+		expect(cellOn(mondayStart.container, "2026-09-20")?.getAttribute("y")).toBe("107.5");
 	});
 
 	it("buckets zero into level 0 and positive values into five levels of the maximum", () => {

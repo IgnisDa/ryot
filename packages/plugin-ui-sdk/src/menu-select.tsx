@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { type ReactNode, useMemo, useState } from "react";
 
 import { Menu } from "./menu";
+import { useReportBlock } from "./report";
 
 type MenuSelectChoice<T extends string> = { readonly value: T; readonly label: string };
 
@@ -24,8 +25,12 @@ export function MenuSelect<T extends string>(props: {
 	);
 	const [activeIndex, setActiveIndex] = useState(selectedIndex);
 	const selected = props.choices[selectedIndex];
+	const report = useReportBlock(() => ({
+		kind: "text",
+		lines: [`${props.label}: ${selected?.label ?? ""}`],
+	}));
 	return (
-		<>
+		<div ref={report} className="contents">
 			<button
 				type="button"
 				ref={setTrigger}
@@ -73,6 +78,6 @@ export function MenuSelect<T extends string>(props: {
 					}))}
 				/>
 			) : null}
-		</>
+		</div>
 	);
 }

@@ -22,6 +22,7 @@ import {
 	useRestoreFocus,
 	useScrollLock,
 } from "./overlay";
+import { ReportProvider } from "./report";
 import { OverlayScope } from "./shortcut";
 
 type ModalProps = {
@@ -103,82 +104,84 @@ export function Modal({
 	useFocusTrap(panelRef, { enabled: present });
 
 	return createPortal(
-		<OverlayScope
-			enabled={present}
-			onBack={requestClose}
-			onEscape={requestClose}
-			backEnabled={present && dismissible && backEnabled}
-		>
-			<div
-				inert={!present}
-				aria-hidden={!present}
-				className={clsx("fixed inset-0 z-50 flex", containerClassName)}
+		<ReportProvider report={null}>
+			<OverlayScope
+				enabled={present}
+				onBack={requestClose}
+				onEscape={requestClose}
+				backEnabled={present && dismissible && backEnabled}
 			>
-				<motion.button
-					type="button"
-					exit={{ opacity: 0 }}
-					aria-label={closeLabel}
-					transition={transition}
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					onClick={() => requestClose()}
-					className={clsx(
-						"absolute inset-0 motion-reduce:transform-none",
-						scrimClassName ?? "bg-overlay",
-					)}
-				/>
-				<motion.div
-					role="dialog"
-					tabIndex={-1}
-					exit={hidden}
-					ref={panelRef}
-					initial={hidden}
-					dragSnapToOrigin
-					aria-modal="true"
-					aria-label={label}
-					dragListener={false}
-					dragMomentum={false}
-					transition={transition}
-					dragControls={dragControls}
-					aria-labelledby={labelledBy}
-					drag={draggable ? "y" : false}
-					dragElastic={{ top: 0, bottom: 1 }}
-					animate={{ x: 0, y: 0, opacity: 1 }}
-					dragConstraints={{ top: 0, bottom: 0 }}
-					className={clsx("relative motion-reduce:transition-none", className)}
-					onAnimationComplete={() => {
-						if (present) {
-							revealFocusedField();
-						}
-					}}
-					onDragEnd={(_event, info) => {
-						if (
-							shouldDismissSheet(
-								info.offset.y,
-								info.velocity.y,
-								panelRef.current?.getBoundingClientRect().height ?? 0,
-							)
-						) {
-							requestClose();
-						}
-					}}
-					onPointerDownCapture={(event) => {
-						if (
-							draggable &&
-							event.button === 0 &&
-							event.target instanceof HTMLElement &&
-							event.target.closest("[data-sheet-drag-region]") !== null &&
-							event.target.closest(interactiveSelector) === null
-						) {
-							dragControls.start(event);
-							window.getSelection()?.removeAllRanges();
-						}
-					}}
+				<div
+					inert={!present}
+					aria-hidden={!present}
+					className={clsx("fixed inset-0 z-50 flex", containerClassName)}
 				>
-					<ModalClose value={requestClose}>{children}</ModalClose>
-				</motion.div>
-			</div>
-		</OverlayScope>,
+					<motion.button
+						type="button"
+						exit={{ opacity: 0 }}
+						aria-label={closeLabel}
+						transition={transition}
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						onClick={() => requestClose()}
+						className={clsx(
+							"absolute inset-0 motion-reduce:transform-none",
+							scrimClassName ?? "bg-overlay",
+						)}
+					/>
+					<motion.div
+						role="dialog"
+						tabIndex={-1}
+						exit={hidden}
+						ref={panelRef}
+						initial={hidden}
+						dragSnapToOrigin
+						aria-modal="true"
+						aria-label={label}
+						dragListener={false}
+						dragMomentum={false}
+						transition={transition}
+						dragControls={dragControls}
+						aria-labelledby={labelledBy}
+						drag={draggable ? "y" : false}
+						dragElastic={{ top: 0, bottom: 1 }}
+						animate={{ x: 0, y: 0, opacity: 1 }}
+						dragConstraints={{ top: 0, bottom: 0 }}
+						className={clsx("relative motion-reduce:transition-none", className)}
+						onAnimationComplete={() => {
+							if (present) {
+								revealFocusedField();
+							}
+						}}
+						onDragEnd={(_event, info) => {
+							if (
+								shouldDismissSheet(
+									info.offset.y,
+									info.velocity.y,
+									panelRef.current?.getBoundingClientRect().height ?? 0,
+								)
+							) {
+								requestClose();
+							}
+						}}
+						onPointerDownCapture={(event) => {
+							if (
+								draggable &&
+								event.button === 0 &&
+								event.target instanceof HTMLElement &&
+								event.target.closest("[data-sheet-drag-region]") !== null &&
+								event.target.closest(interactiveSelector) === null
+							) {
+								dragControls.start(event);
+								window.getSelection()?.removeAllRanges();
+							}
+						}}
+					>
+						<ModalClose value={requestClose}>{children}</ModalClose>
+					</motion.div>
+				</div>
+			</OverlayScope>
+		</ReportProvider>,
 		document.body,
 	);
 }

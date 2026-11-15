@@ -300,3 +300,19 @@ keyboard moves also give drop feedback.
 
 The SDK-owned [assistant reference](assistant-reference.md) supplies page presentation guidance and
 a compiler-validated composition example alongside the generated public component props.
+
+## Report images
+
+`createReport` and `ReportProvider` collect ordered, immutable snapshots of the displayed report.
+`MetricGrid`, `ChartCard`, `DataTable`, reporting charts, tabs, and status/empty notices register
+through the same formatters and values used on screen. Chart axes and legend colors remain part of
+the report, and text layout uses measured font widths. `ReportText` registers additional factual
+text; use text or inline markup with textual children, and let custom components register their own
+values. Tables use column-owned cells; mark action columns `report: false`. Dialogs are outside the
+surrounding report scope. Only mounted report content and loaded table rows enter a snapshot.
+
+`useReportReady` blocks capture while required queries or sections have no loaded data. Background
+refreshes preserve the displayed values and their status notices. `renderReportPng` composes report
+blocks and native chart SVG exports into a bounded PNG with the captured theme. It performs no new
+queries or metric calculations, and reports oversized images explicitly. Image resources are scoped
+to the rendering Effect. File saving belongs to the client capability, outside this package.

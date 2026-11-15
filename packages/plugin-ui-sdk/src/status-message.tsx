@@ -2,6 +2,7 @@ import clsx from "clsx";
 import type { ComponentProps } from "react";
 
 import { Button } from "./button";
+import { reportText, useReportBlock } from "./report";
 
 const toneClasses = {
 	error: "text-danger",
@@ -10,15 +11,27 @@ const toneClasses = {
 } as const;
 
 type StatusMessageProps = ComponentProps<"p"> & {
+	readonly blocked?: boolean;
 	readonly tone: keyof typeof toneClasses;
 	readonly action?:
 		| undefined
 		| { readonly label: string; readonly disabled?: boolean; readonly onClick: () => void };
 };
 
-export function StatusMessage({ tone, action, className, ...props }: StatusMessageProps) {
+export function StatusMessage({
+	tone,
+	action,
+	className,
+	blocked = false,
+	...props
+}: StatusMessageProps) {
+	const report = useReportBlock(
+		() => ({ kind: "text", lines: [reportText(props.children)] }),
+		blocked,
+	);
 	const message = (
 		<p
+			ref={report}
 			role={tone === "error" ? "alert" : "status"}
 			className={clsx(toneClasses[tone], className)}
 			{...props}

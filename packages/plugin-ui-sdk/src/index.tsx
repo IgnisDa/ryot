@@ -80,6 +80,15 @@ export {
 } from "./motion";
 
 export {
+	ReportText,
+	createReport,
+	ReportProvider,
+	useReportReady,
+	renderReportPng,
+	type ReportSnapshot,
+} from "./report";
+
+export {
 	countUnit,
 	ratingUnit,
 	measureUnit,

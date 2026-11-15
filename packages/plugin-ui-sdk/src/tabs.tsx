@@ -1,6 +1,8 @@
 import clsx from "clsx";
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
 
+import { useReportBlock } from "./report";
+
 export type TabOption<T extends string> = {
 	readonly value: T;
 	readonly label: string;
@@ -17,6 +19,11 @@ export function Tabs<T extends string>(props: {
 	readonly onChange: (value: T) => void;
 	readonly options: readonly TabOption<T>[];
 }) {
+	const report = useReportBlock(() => ({
+		kind: "text",
+		title: props.label,
+		lines: [props.options.find((option) => option.value === props.value)?.label ?? props.value],
+	}));
 	const tabs = useRef<Array<null | HTMLButtonElement>>([]);
 
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -40,6 +47,7 @@ export function Tabs<T extends string>(props: {
 
 	return (
 		<div
+			ref={report}
 			role="tablist"
 			onKeyDown={onKeyDown}
 			aria-label={props.label}

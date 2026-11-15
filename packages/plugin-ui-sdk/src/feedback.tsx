@@ -1,6 +1,8 @@
 import clsx from "clsx";
 import type { ComponentProps, ReactNode } from "react";
 
+import { reportText, useReportBlock } from "./report";
+
 const noticeTones = {
 	info: { icon: "text-info", box: "bg-info-soft" },
 	danger: { icon: "text-danger", box: "bg-danger-soft" },
@@ -29,9 +31,14 @@ export function Notice(props: {
 	readonly children?: ReactNode;
 	readonly tone: keyof typeof noticeTones;
 }) {
+	const report = useReportBlock(() => ({
+		kind: "text",
+		lines: [reportText(props.title), reportText(props.children)].filter(Boolean),
+	}));
 	const tone = noticeTones[props.tone];
 	return (
 		<div
+			ref={report}
 			role={props.tone === "danger" ? "alert" : "status"}
 			className={clsx(
 				"flex items-start gap-2.5 rounded-md px-3 py-2.5 text-label text-text",
@@ -60,8 +67,14 @@ export function EmptyState(props: {
 	readonly className?: string;
 	readonly description?: ReactNode;
 }) {
+	const report = useReportBlock(() => ({
+		kind: "text",
+		title: props.title,
+		lines: [reportText(props.description)].filter(Boolean),
+	}));
 	return (
 		<div
+			ref={report}
 			className={clsx("grid justify-items-center gap-1.5 px-4 py-10 text-center", props.className)}
 		>
 			{props.icon !== undefined && (

@@ -5,6 +5,7 @@ import {
 } from "@ryot-app/contract/modules/analytics/calendar";
 import { type TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
 import { areaY, barY, defineChart, dot, lineY } from "@tanstack/charts";
+import { serializeChartSvg } from "@tanstack/charts/export";
 import { decorative } from "@tanstack/charts/mark/decorative";
 import { Chart } from "@tanstack/charts/react/tooltip";
 import { cell } from "@tanstack/charts/rect";
@@ -14,7 +15,7 @@ import { tooltip } from "@tanstack/charts/tooltip";
 import { portal } from "@tanstack/charts/tooltip/portal";
 import clsx from "clsx";
 import { DateTime } from "effect";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "./button";
 import {
@@ -25,6 +26,7 @@ import {
 	type MetricUnit,
 	REPORTING_LOCALE,
 } from "./metric-format";
+import { type ReportBlock, ReportText, useReportBlock } from "./report";
 import { SegmentedControl } from "./segmented-control";
 import { DataTable, type DataTableColumn } from "./table";
 
@@ -259,24 +261,30 @@ type CoverageSegment = {
 /** Rows sorted by descending value, each with a single-hue bar scaled to the largest value. */
 export function RankedBarList({ rows, formatValue }: RankedBarListProps) {
 	const ranked = [...rows].sort((left, right) => right.value - left.value);
+	const report = useReportBlock(() => ({
+		kind: "text",
+		lines: ranked.map((row) => `${row.label}: ${formatValue(row)}`),
+	}));
 	const max = Math.max(0, ...ranked.map(({ value }) => value));
 	return (
-		<ol className="flex flex-col gap-3">
-			{ranked.map((row) => (
-				<li key={row.key} className="flex flex-col gap-1">
-					<div className="flex items-baseline justify-between gap-3 text-sm">
-						<span className="min-w-0 truncate text-text">{row.label}</span>
-						<span className="shrink-0 text-text-muted tabular-nums">{formatValue(row)}</span>
-					</div>
-					<div aria-hidden="true" className="h-2 overflow-hidden rounded-pill bg-chart-seq-0">
-						<div
-							className="h-full rounded-pill bg-chart-accent"
-							style={{ width: `${max > 0 ? (Math.max(0, row.value) / max) * 100 : 0}%` }}
-						/>
-					</div>
-				</li>
-			))}
-		</ol>
+		<div ref={report} className="contents">
+			<ol className="flex flex-col gap-3">
+				{ranked.map((row) => (
+					<li key={row.key} className="flex flex-col gap-1">
+						<div className="flex items-baseline justify-between gap-3 text-sm">
+							<span className="min-w-0 truncate text-text">{row.label}</span>
+							<span className="shrink-0 text-text-muted tabular-nums">{formatValue(row)}</span>
+						</div>
+						<div aria-hidden="true" className="h-2 overflow-hidden rounded-pill bg-chart-seq-0">
+							<div
+								className="h-full rounded-pill bg-chart-accent"
+								style={{ width: `${max > 0 ? (Math.max(0, row.value) / max) * 100 : 0}%` }}
+							/>
+						</div>
+					</li>
+				))}
+			</ol>
+		</div>
 	);
 }
 
@@ -291,9 +299,14 @@ export function CoverageBar(props: {
 	readonly segments: ReadonlyArray<CoverageSegment>;
 	readonly formatValue: (segment: CoverageSegment) => string;
 }) {
+	const report = useReportBlock(() => ({
+		kind: "text",
+		title: props.ariaLabel,
+		lines: props.segments.map((segment) => `${segment.label}: ${props.formatValue(segment)}`),
+	}));
 	const total = props.segments.reduce((sum, segment) => sum + Math.max(0, segment.value), 0);
 	return (
-		<div className="flex min-w-0 flex-col gap-1.5">
+		<div ref={report} className="flex min-w-0 flex-col gap-1.5">
 			<div
 				role="img"
 				className="flex h-1.5 overflow-hidden rounded-pill bg-chart-seq-0"
@@ -327,6 +340,7 @@ export function CoverageBar(props: {
 
 const WEEKDAY_LABEL_WIDTH = 28;
 const MONTH_LABEL_HEIGHT = 16;
+const CALENDAR_RIGHT_PADDING = 24;
 const MAX_CELL_PITCH = 26;
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const dayUnit: MetricUnit = { one: "day", kind: "count", other: "days" };
@@ -350,13 +364,22 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 			? fallbackPitch
 			: Math.max(
 					fallbackPitch - 3,
-					Math.min(MAX_CELL_PITCH, Math.floor((width - WEEKDAY_LABEL_WIDTH) / layout.weeks)),
+					Math.min(
+						MAX_CELL_PITCH,
+						Math.floor((width - WEEKDAY_LABEL_WIDTH - CALENDAR_RIGHT_PADDING) / layout.weeks),
+					),
 				);
 	const definition = useMemo(
 		() =>
 			defineChart({
 				color: { domain: LEVELS, range: LEVEL_COLORS },
 				tooltip: { portal, use: tooltip, anchor: "point", placement: ["top", "bottom"] },
+				margin: {
+					bottom: 0,
+					top: MONTH_LABEL_HEIGHT,
+					left: WEEKDAY_LABEL_WIDTH,
+					right: CALENDAR_RIGHT_PADDING,
+				},
 				marks: [
 					cell(layout.cells, {
 						x: "week",
@@ -368,36 +391,60 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 					}),
 				],
 				scales: {
-					y: { axis: false, scale: scaleBand<number>().domain(WEEKDAYS) },
+					y: {
+						scale: scaleBand<number>().domain(WEEKDAYS),
+						axis: {
+							line: false,
+							tickLabels: { fontSize: 10 },
+							ticks: {
+								size: 0,
+								padding: 4,
+								values: WEEKDAYS.filter((row) => (weekStart + row) % 2 === 1),
+								format: (row: number) => WEEKDAY_NAMES[(weekStart + row) % 7] ?? "",
+							},
+						},
+					},
 					x: {
-						axis: false,
-						scale: scaleBand<number>().domain(Array.from({ length: layout.weeks }, (_, i) => i)),
+						side: "top",
+						scale: scaleBand<number>().domain(
+							Array.from({ length: layout.weeks }, (_, index) => index),
+						),
+						axis: {
+							line: false,
+							tickLabels: { thin: false, fontSize: 10, anchor: "start" },
+							ticks: {
+								size: 0,
+								padding: 4,
+								values: months.map((month) => month.week),
+								format: (week: number) => months.find((month) => month.week === week)?.label ?? "",
+							},
+						},
 					},
 				},
 			}),
-		[layout],
+		[layout, months, weekStart],
 	);
-
 	const chartWidth = pitch * layout.weeks;
-
 	if (layout.days.length === 0) {
 		return null;
 	}
 	return (
 		<div ref={measure} className="flex min-w-0 flex-col gap-3 text-text">
 			<ChartToolbar view={view} ariaLabel={ariaLabel} onViewChange={setView}>
-				<dl className="flex flex-wrap gap-x-5 gap-y-1 text-label">
-					<div className="flex gap-1.5">
-						<dt className="text-text-muted">Active days</dt>
-						<dd className="font-medium tabular-nums">
-							{formatNumber(runs.active)} of {formatNumber(runs.total)}
-						</dd>
-					</div>
-					<div className="flex gap-1.5">
-						<dt className="text-text-muted">Longest streak</dt>
-						<dd className="font-medium tabular-nums">{formatMetric(runs.longest, dayUnit)}</dd>
-					</div>
-				</dl>
+				<ReportText>
+					<dl className="flex flex-wrap gap-x-5 gap-y-1 text-label">
+						<div className="flex gap-1.5">
+							<dt className="text-text-muted">Active days</dt>
+							<dd className="font-medium tabular-nums">
+								{formatNumber(runs.active)} of {formatNumber(runs.total)}
+							</dd>
+						</div>
+						<div className="flex gap-1.5">
+							<dt className="text-text-muted">Longest streak</dt>
+							<dd className="font-medium tabular-nums">{formatMetric(runs.longest, dayUnit)}</dd>
+						</div>
+					</dl>
+				</ReportText>
 			</ChartToolbar>
 			{view === "table" ? (
 				<ExactValuesTable
@@ -420,44 +467,14 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 				/>
 			) : (
 				<>
-					{/* Reversed flow makes the scroller start at its end, so the newest week shows without measuring layout. */}
 					<div className="flex w-fit max-w-full flex-row-reverse overflow-x-auto">
 						<div className="flex shrink-0">
-							<div
-								aria-hidden="true"
-								className="shrink-0 text-micro text-text-subtle"
-								style={{ width: WEEKDAY_LABEL_WIDTH, paddingTop: MONTH_LABEL_HEIGHT }}
-							>
-								{WEEKDAYS.map((row) => {
-									const weekday = (weekStart + row) % 7;
-									return (
-										<div key={row} style={{ height: pitch }} className="flex items-center">
-											{weekday % 2 === 1 ? WEEKDAY_NAMES[weekday] : null}
-										</div>
-									);
-								})}
-							</div>
-							<div className="shrink-0" style={{ width: chartWidth }}>
-								<div
-									aria-hidden="true"
-									style={{ height: MONTH_LABEL_HEIGHT }}
-									className="relative text-micro text-text-subtle"
-								>
-									{months.map(({ week, label }) => (
-										<span
-											key={`${week}-${label}`}
-											className="absolute top-0"
-											style={{ left: week * pitch + 1.5 }}
-										>
-											{label}
-										</span>
-									))}
-								</div>
+							<ReportChart title={ariaLabel}>
 								<Chart
-									width={chartWidth}
-									height={pitch * 7}
 									ariaLabel={ariaLabel}
 									definition={definition}
+									height={pitch * 7 + MONTH_LABEL_HEIGHT}
+									width={chartWidth + WEEKDAY_LABEL_WIDTH + CALENDAR_RIGHT_PADDING}
 									onSelect={(point) => {
 										if (point) {
 											onSelect?.(point.datum.day);
@@ -470,25 +487,26 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 											: `${reportingValue(hovered.day, unit)} · ${reportingDate(hovered.date, UTC)}`;
 									}}
 								/>
-							</div>
+							</ReportChart>
 						</div>
 					</div>
-					<div aria-hidden="true" className="flex items-center gap-1 text-micro text-text-subtle">
-						<span className="mr-1">Less</span>
-						{LEVEL_COLORS.map((color) => (
-							<span
-								key={color}
-								className="size-2.5 rounded-xs"
-								style={{ backgroundColor: color }}
-							/>
-						))}
-						<span className="ml-1">More</span>
-					</div>
+					<ChartLegend
+						items={LEVEL_COLORS.map((color, index) => {
+							let label = "";
+							if (index === 0) {
+								label = "Less";
+							} else if (index === LEVEL_COLORS.length - 1) {
+								label = "More";
+							}
+							return { color, label, mark: "bar" as const };
+						})}
+					/>
 				</>
 			)}
 		</div>
 	);
 }
+
 const ACCENT_COLOR = "var(--chart-accent)";
 const SPARKLINE_WIDTH = 96;
 const SPARKLINE_HEIGHT = 28;
@@ -555,13 +573,15 @@ export function Sparkline({ tone, points, ariaLabel }: SparklineProps) {
 		);
 	}
 	return (
-		<Chart
-			tabIndex={-1}
-			ariaLabel={ariaLabel}
-			definition={definition}
-			width={SPARKLINE_WIDTH}
-			height={SPARKLINE_HEIGHT}
-		/>
+		<ReportChart title={ariaLabel}>
+			<Chart
+				tabIndex={-1}
+				ariaLabel={ariaLabel}
+				definition={definition}
+				width={SPARKLINE_WIDTH}
+				height={SPARKLINE_HEIGHT}
+			/>
+		</ReportChart>
 	);
 }
 
@@ -870,7 +890,9 @@ export function TimeSeriesChart({
 
 	return (
 		<div className="text-text">
-			<Chart ariaLabel={ariaLabel} definition={definition} height={compact ? 160 : 240} />
+			<ReportChart title={ariaLabel}>
+				<Chart ariaLabel={ariaLabel} definition={definition} height={compact ? 160 : 240} />
+			</ReportChart>
 		</div>
 	);
 }
@@ -1075,20 +1097,17 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 		<div className="flex min-w-0 flex-col gap-3 text-text">
 			<ChartToolbar view={view} ariaLabel={ariaLabel} onViewChange={setView}>
 				{previousLabel === undefined ? null : (
-					<div className="flex flex-wrap gap-x-4 gap-y-1 text-label text-text-muted">
-						<span className="inline-flex items-center gap-1.5">
-							<LegendSwatch mark={mark} color={ACCENT_COLOR} />
-							{label}
-						</span>
-						<span className="inline-flex items-center gap-1.5">
-							<LegendSwatch
-								dashed
-								mark={mark}
-								color={mark === "bar" ? COMPARE_FILL : COMPARE_STROKE}
-							/>
-							{previousLabel}
-						</span>
-					</div>
+					<ChartLegend
+						items={[
+							{ mark, label, color: ACCENT_COLOR },
+							{
+								mark,
+								dashed: true,
+								label: previousLabel,
+								color: mark === "bar" ? COMPARE_FILL : COMPARE_STROKE,
+							},
+						]}
+					/>
 				)}
 			</ChartToolbar>
 			{view === "table" ? (
@@ -1108,17 +1127,19 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 					})}
 				/>
 			) : (
-				<Chart
-					ariaLabel={ariaLabel}
-					definition={definition}
-					height={chartHeight(compact)}
-					onSelect={(point) => {
-						if (point && onSelect) {
-							onSelect(point.datum.point, point.datum.period);
-						}
-					}}
-					ariaDescription="Use left and right arrow keys to inspect buckets. Missing values are gaps. Switch to the table for exact values and record links."
-				/>
+				<ReportChart title={ariaLabel}>
+					<Chart
+						ariaLabel={ariaLabel}
+						definition={definition}
+						height={chartHeight(compact)}
+						onSelect={(point) => {
+							if (point && onSelect) {
+								onSelect(point.datum.point, point.datum.period);
+							}
+						}}
+						ariaDescription="Use left and right arrow keys to inspect buckets. Missing values are gaps. Switch to the table for exact values and record links."
+					/>
+				</ReportChart>
 			)}
 		</div>
 	);
@@ -1130,28 +1151,10 @@ function ChartEmpty(props: { readonly message: string; readonly compact: boolean
 			style={{ height: chartHeight(props.compact) }}
 			className="flex items-center justify-center rounded-md border border-dashed border-border px-4"
 		>
-			<p className="text-label text-text-muted">{props.message}</p>
+			<ReportText>
+				<p className="text-label text-text-muted">{props.message}</p>
+			</ReportText>
 		</div>
-	);
-}
-
-function LegendSwatch(props: {
-	readonly color: string;
-	readonly dashed?: boolean;
-	readonly mark: "bar" | "line";
-}) {
-	return props.mark === "bar" ? (
-		<span
-			aria-hidden="true"
-			className="size-2.5 rounded-xs"
-			style={{ backgroundColor: props.color }}
-		/>
-	) : (
-		<span
-			aria-hidden="true"
-			style={{ borderColor: props.color }}
-			className={clsx("w-4 border-t-2", props.dashed === true && "border-dashed")}
-		/>
 	);
 }
 
@@ -1199,6 +1202,58 @@ function ChartToolbar(props: {
 					{ value: "table", label: "Table", content: "Table" },
 				]}
 			/>
+		</div>
+	);
+}
+
+function ChartLegend(props: {
+	readonly items: Extract<ReportBlock, { readonly kind: "legend" }>["items"];
+}) {
+	const element = useRef<HTMLDivElement>(null);
+	const read = (): ReportBlock => {
+		const markers = element.current?.querySelectorAll<HTMLElement>("[data-chart-legend-marker]");
+		return {
+			kind: "legend",
+			items: props.items.map((item, index) => {
+				const marker = markers?.[index];
+				if (!marker) {
+					throw new Error("Chart legend is not ready");
+				}
+				const style = getComputedStyle(marker);
+				return {
+					mark: item.mark,
+					label: item.label,
+					dashed: item.dashed,
+					color: item.mark === "bar" ? style.backgroundColor : style.borderTopColor,
+				};
+			}),
+		};
+	};
+	const ref = useReportBlock(read);
+	return (
+		<div ref={ref} className="contents">
+			<div ref={element} className="flex flex-wrap gap-x-3 gap-y-1 text-label text-text-muted">
+				{props.items.map((item) => (
+					<span
+						className="inline-flex items-center gap-1.5"
+						key={`${item.mark}:${item.color}:${item.label}`}
+					>
+						<span
+							aria-hidden="true"
+							data-chart-legend-marker
+							style={
+								item.mark === "bar" ? { backgroundColor: item.color } : { borderColor: item.color }
+							}
+							className={
+								item.mark === "bar"
+									? "size-2.5 rounded-xs"
+									: clsx("w-4 border-t-2", item.dashed === true && "border-dashed")
+							}
+						/>
+						{item.label}
+					</span>
+				))}
+			</div>
 		</div>
 	);
 }
@@ -1352,18 +1407,50 @@ export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 					})}
 				/>
 			) : (
-				<Chart
-					ariaLabel={ariaLabel}
-					definition={definition}
-					height={chartHeight(compact)}
-					onSelect={(point) => {
-						if (point?.datum.bucket && onSelect) {
-							onSelect(point.datum.bucket);
-						}
-					}}
-					ariaDescription="Local hour of day. Use left and right arrow keys to inspect hours. Switch to the table for exact values and record links."
-				/>
+				<ReportChart title={ariaLabel}>
+					<Chart
+						ariaLabel={ariaLabel}
+						definition={definition}
+						height={chartHeight(compact)}
+						onSelect={(point) => {
+							if (point?.datum.bucket && onSelect) {
+								onSelect(point.datum.bucket);
+							}
+						}}
+						ariaDescription="Local hour of day. Use left and right arrow keys to inspect hours. Switch to the table for exact values and record links."
+					/>
+				</ReportChart>
 			)}
+		</div>
+	);
+}
+
+function ReportChart(props: { readonly title: string; readonly children: ReactNode }) {
+	const ref = useRef<HTMLDivElement>(null);
+	const read = (): ReportBlock => {
+		const svg = ref.current?.querySelector("svg.ts-chart");
+		if (!(svg instanceof SVGSVGElement)) {
+			throw new Error(`Chart is not ready: ${props.title}`);
+		}
+		const dimensions = svg.getBoundingClientRect();
+		if (dimensions.width <= 0 || dimensions.height <= 0) {
+			throw new Error(`Chart is not visible: ${props.title}`);
+		}
+		const scale = Math.min(2, 1120 / dimensions.width);
+		return {
+			kind: "chart",
+			title: props.title,
+			svg: serializeChartSvg(svg),
+			width: Math.ceil(dimensions.width * scale),
+			height: Math.ceil(dimensions.height * scale),
+		};
+	};
+	const blockRef = useReportBlock(read);
+	return (
+		<div ref={blockRef} className="contents">
+			<div ref={ref} className="min-w-0">
+				{props.children}
+			</div>
 		</div>
 	);
 }
