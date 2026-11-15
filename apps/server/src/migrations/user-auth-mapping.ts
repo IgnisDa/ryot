@@ -1,3 +1,5 @@
+import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
+
 import type { QualifiedSchema } from "./migration-resolution";
 import {
 	buildReportSql,
@@ -42,7 +44,7 @@ WHERE NOT EXISTS (
 ON CONFLICT ("id") DO NOTHING;
 `;
 
-export const buildLegacyUserAuthMigrationSql = () => `
+export const buildLegacyUserAuthMigrationSql = (reportingTimeZone: TimeZone) => `
 DO $$
 DECLARE
 	rows_inserted int;
@@ -165,7 +167,7 @@ BEGIN
 				(legacy_users.preferences -> 'general' ->> 'disable_integrations')::boolean,
 				false
 			),
-			'reportingTimeZone', 'UTC',
+			'reportingTimeZone', ${quoteSqlString(reportingTimeZone)},
 			'ratingScale', CASE legacy_users.preferences -> 'general' ->> 'review_scale'
 				WHEN 'OutOfTen' THEN 'ten'
 				WHEN 'OutOfFive' THEN 'five'

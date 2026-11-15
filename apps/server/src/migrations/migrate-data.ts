@@ -1,10 +1,12 @@
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { UserBootstrap } from "@ryot-app/kernel-backend/modules/accounts/provisioning/bootstrap";
 import { FoldRebuildJob } from "@ryot-app/kernel-backend/modules/derived-values/marks";
 import { IntegrationsRepository } from "@ryot-app/kernel-backend/modules/integrations/repository";
 import { AccountAdmission } from "@ryot-app/kernel-backend/modules/mutations/account-admission";
+import { AppConfig } from "@ryot-app/kernel-backend/platform/config/service";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import { JobQueue } from "@ryot-app/kernel-backend/platform/jobs/queue";
 import { Clock, Effect, Schema } from "effect";
@@ -140,10 +142,21 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		return yield* Effect.void;
 	}
 
+	const config = yield* AppConfig;
+	const reportingTimeZone = yield* Schema.decodeEffect(TimeZone)(config.timezone).pipe(
+		Effect.mapError(
+			() =>
+				new Error(
+					"old_user -> user: TZ is not a valid IANA reporting time zone. Set TZ to the V1 deployment's time zone, then start the server again.",
+				),
+		),
+		Effect.orDie,
+	);
+
 	let reportSequence = yield* withReservedConnection(getLatestReportSequence);
 	const migratedUserRows = yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
-			yield* connection.executeRaw(buildLegacyUserAuthMigrationSql(), []);
+			yield* connection.executeRaw(buildLegacyUserAuthMigrationSql(reportingTimeZone), []);
 			const rows: ReadonlyArray<unknown> = yield* connection.execute(
 				`SELECT "id" FROM "old_user" ORDER BY "created_on", "id"`,
 				[],
