@@ -6,7 +6,6 @@ import { defineConfig } from "vite";
 
 const config = defineConfig((_conf) => {
 	return {
-		resolve: { tsconfigPaths: true },
 		define: { "import.meta.env.RYOT_VERSION": JSON.stringify(process.env["RYOT_VERSION"]) },
 		plugins: [
 			devtools(),
@@ -14,6 +13,15 @@ const config = defineConfig((_conf) => {
 			tanstackRouter({ target: "react", autoCodeSplitting: true }),
 			viteReact(),
 		],
+		resolve: {
+			tsconfigPaths: true,
+			alias: [
+				{
+					find: /^@formatjs\/icu-messageformat-parser$/,
+					replacement: "@formatjs/icu-messageformat-parser/no-parser.js",
+				},
+			],
+		},
 		server: {
 			cors: true,
 			allowedHosts: true,

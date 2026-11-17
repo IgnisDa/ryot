@@ -75,14 +75,18 @@ The kernel resolves every committed URL explicitly. Kernel routes render kernel 
 saved views, and persisted entity provenance. A workspace home resolves to its selected saved-view
 target while retaining the workspace URL. The shell retains up to three iframe runtimes keyed by
 artifact hash. A different page using the same artifact replaces the document context and remounts
-the page React tree while retaining the iframe, bridge, and SDK runtime. Retained frames keep entity
+the page React tree while retaining the iframe, bridge, and SDK runtime. Plugin routes that select
+the same page keep its document: the plugin resolves path, search, and route parameters from the
+live location, so only the location updates. Retained frames keep entity
 interests warm, but only the active frame owns shell integrations. Disabled installations stay out of
 workspace discovery but remain reachable through direct plugin and delegated entity URLs.
 
 There is one global history. Plugins request tagged route or entity navigation, and the kernel writes
 the canonical URL. The kernel sends each accepted location with its history `index` and stable entry
-`key`; page-state replacements retain that key, while screen navigation creates a new one. Plugin
-screen stacks use those values, never pathname inference, to distinguish push, pop, and replace.
+`key`; replacements, including page-state replacements, retain that key, while pushes create a new
+one, so a replaced route updates the current frame resources in place. Plugin screen stacks use
+those values, never pathname inference, to distinguish push, pop, and replace, and mount a new screen
+when a replaced route resolves different content.
 
 Saved-view search, filters, sort, and layout changes update the active document's location without
 preparing a new page. Leaving the route discards its loader cache, so returning reads the current
@@ -154,7 +158,9 @@ have one subscription outside the request table, released by the common iframe f
 `modules/background-submissions` owns shell-run plugin writes. `BackgroundSubmissionService.open`
 creates the authenticated layout's tray for one server/user scope; the layout disposes it on unmount,
 and the tray empties itself, interrupting in-flight attempts, whenever the server's login handle is
-cleared or replaced, including a same-user login. Inputs and labels live only in memory. The
+cleared or replaced, including a same-user login. Inputs and labels live only in memory. A label is
+a local message from the plugin's catalog; the tray stamps it with the target plugin's namespace
+and keeps it, and the plugin's catalog name, as messages rendered at display time. The
 server-side outcome of an interrupted attempt stands, but the tray does not claim it.
 
 A `background-operation-request` is accepted only from the active, non-inert frame with no pending
@@ -179,8 +185,30 @@ accepting document only while its bridge session is active and the document has 
 
 The shell renders the tray through the UI SDK `ActivityTray`: a bottom-right stack on desktop and a
 bottom sheet above the safe area on compact screens. Labels are text nodes; status words, Retry,
-Reload, Dismiss, and plugin attribution are kernel-owned. One polite live region announces changes,
+Reload, Dismiss, and the attribution format are kernel-owned. One polite live region announces changes,
 throttled to one announcement per two seconds with bursts coalesced.
+
+## Interface Language
+
+`modules/i18n` owns the shell's locale. `createI18nStore` starts with the bundled English catalog
+and requests the last interface locale preference remembered in `ClientStorage`, else the device
+locale negotiated against the kernel locales; other kernel catalogs load lazily and are published
+only once loaded. `KernelI18nProvider` sets the document's `lang` and `dir`. Inside the authenticated
+layout, `AuthenticatedMessages` applies the server preference (remembering it for the next start),
+loads the listed plugins' catalogs for the locale's fallback chain, retries failed loads on a
+bounded schedule, and reloads them when ingestion changes the catalog. First paint waits until the
+preference has settled and the kernel and plugin catalogs of its locale have loaded. Afterwards,
+while plugin catalogs load or retry, missing plugin messages render the neutral `message.loading`
+text, and plugin documents receive the namespaces still loading as `pendingNamespaces`. A
+document's published screen title is display text that the shell renders, accepting messages only
+from namespaces the document receives catalogs for.
+
+Every error the shell shows goes through `formatError(t, error, fallback)` from
+`@ryot-app/plugin-client-sdk/react`: a contract error's `reason` message, found through wrapping
+`cause`s, or an operation's rejection message, else the caller's fallback. Host mutations therefore
+keep the API error instead of mapping it to a bare `RyotClientError`. The language picker labels
+each interface locale in its own language and hints its name in the current one; the `en-XA`
+pseudo-locale is listed only while it is the saved value.
 
 ## Navigation And Screens
 
@@ -199,6 +227,31 @@ messages only from the active installation and current history entry.
 
 `historyEntry` is the only code that may read TanStack Router's `__TSR_*` state. Every navigation path
 must supply an `index` and `key`.
+
+### Scroll And Focus
+
+`MainViewProvider` in the root route owns navigation scroll and focus on every route, including the
+stand-alone sign-in, onboarding and OAuth pages. Its scrollers are the document and every scroller
+inside `#main-content`, and it focuses `#main-content`. The router refuses TanStack scroll
+restoration for every location, which also turns off TanStack's reset to the top, and the provider
+sets `history.scrollRestoration` to `manual`. When the router's resolved location changes, it
+classifies the view through the UI SDK view history, by history entry key and view identity. The
+identity is the leaf route match and its path parameters. While a plugin surface shows, the
+client-page document host claims it as the displayed frame and document, so navigations within one
+document belong to the [client
+SDK](../../packages/plugin-client-sdk/README.md#client-pages-and-routing) and a different document
+is new content. A claim that settles after its navigation, such as once the shell finishes loading,
+renames the displayed view without acting. Positions are captured before each load.
+
+- New content resets every view scroller that was scrolled before the navigation, and focuses the
+  main view. The first load moves no focus.
+- Returning to a history entry restores the positions its scrollers had when it was left, as their
+  content grows, and focuses the main view when the identity changed.
+- The same identity with a changed location, such as search or a pushed filter, keeps scroll and
+  focus.
+
+Scrollers outside the main view, such as the sidebars, keep their own positions. Routes do not reset
+scroll or move focus on navigation themselves.
 
 The bridge reports a 422 `PluginOperationRejected` as `operation-rejected` with the operation's
 message; other declared platform failures are `operation-failed` and unrelated causes are `transport`.
@@ -372,6 +425,38 @@ profile. Storage mutations are serialized per server without holding the lock ac
 restore a cleared login or overwrite a replacement login's tokens, profile, or access class.
 Temporary storage read failures can be retried. An explicit clear disables in-memory restoration
 until a new authorization commits, even if storage deletion fails.
+
+### Native Text
+
+Text that the operating system draws outside the WebView uses platform localization and follows the
+device language. Everything the WebView renders, including Live Activity titles, statuses, values
+and metric labels that plugins send over the bridge, uses the kernel and plugin catalogs in the
+interface locale.
+
+- The Live Activities widget extension keeps SwiftUI text in
+  `RyotLiveActivities/Localizable.xcstrings` and its display name in
+  `RyotLiveActivities/InfoPlist.xcstrings`. SwiftUI `Text` literals are localization keys. Other
+  strings use `String(localized:)`, and the brand uses `Text(verbatim:)`. Both catalogs ship English
+  and German; the German entries are marked `needs_review` until a native speaker checks them.
+- The App target has no localizable native text. Its display name is a per-configuration build
+  setting, so it has no `InfoPlist.xcstrings`; a localized `CFBundleDisplayName` would override the
+  Debug and Release names. `CFBundleLocalizations` in `App/Info.plist` lists the interface languages, so iOS can
+  show system UI for the app, such as permission prompts and WebView form controls, in them.
+- Android `res/values/strings.xml` holds only identity strings, marked `translatable="false"`.
+- Android notification channel names are kernel messages (`client.device.alert-channel.*`), because
+  Capacitor creates channels from JavaScript and Android stores channel names as plain text.
+  `DeviceLifecycle` renders them in the interface locale and recreates both channels at startup and
+  whenever the rendered names change. A failed naming is logged and retried with the latest names
+  before the next alert is scheduled, so alerts never target a missing channel. Android keeps an existing channel's user settings and updates
+  only its name. Android 7 has no channels; Capacitor reports them unavailable and naming is skipped. The unused `Default` channel that Capacitor's notification plugin creates keeps its
+  English name.
+
+To add a locale, add its kernel catalog (see the
+[`kernel-messages` README](../../packages/kernel-messages/README.md)), add the language in Xcode
+(which lists it in the project's `knownRegions`) and translate both widget catalogs, and add the
+code to `CFBundleLocalizations`. Android needs `res/values-<locale>/strings.xml` only once it has
+translatable strings. Xcode's String Catalog editor and Android Lint `MissingTranslation` report
+gaps; neither is part of `bun run check`.
 
 ## Assets
 

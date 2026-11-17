@@ -1,4 +1,5 @@
 import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
+import type { PluginBridgeCatalog } from "@ryot-app/plugin-client-contract";
 import type { RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
@@ -17,6 +18,7 @@ import { type ReactNode, StrictMode } from "react";
 import { ServerOrigin } from "#/api/origin";
 import { testHostServices } from "#/host-services.test-support";
 import { EntitlementsProvider } from "#/modules/entitlements/context";
+import { TestKernelI18nProvider } from "#/modules/i18n/provider.test-support";
 
 export type HostedTestQueryRequest = Parameters<RyotClientAdapter["query"]>[0];
 
@@ -28,6 +30,7 @@ export const mountHostedTestScreen = <Services,>(
 		readonly serverUrl?: ServerOrigin;
 		readonly entitlements?: Entitlements;
 		readonly layer: Layer.Layer<Services>;
+		readonly catalogs?: readonly PluginBridgeCatalog[];
 		readonly routes?: Readonly<Record<string, ReactNode>>;
 		readonly query: (document: HostedTestQueryRequest) => Effect.Effect<unknown, RyotClientError>;
 	},
@@ -54,9 +57,11 @@ export const mountHostedTestScreen = <Services,>(
 				runtime,
 			)}
 		>
-			<EntitlementsProvider entitlements={options.entitlements ?? ["pro"]}>
-				<RouterProvider router={router} />
-			</EntitlementsProvider>
+			<TestKernelI18nProvider catalogs={options.catalogs}>
+				<EntitlementsProvider entitlements={options.entitlements ?? ["pro"]}>
+					<RouterProvider router={router} />
+				</EntitlementsProvider>
+			</TestKernelI18nProvider>
 		</RyotProvider>
 	);
 	const view = render(options.strict === true ? <StrictMode>{screen}</StrictMode> : screen);

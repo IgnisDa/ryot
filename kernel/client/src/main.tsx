@@ -1,9 +1,12 @@
+import { loadKernelCatalog } from "@ryot-app/kernel-messages/catalog";
+import { catalog as sourceCatalog } from "@ryot-app/kernel-messages/locales/en";
 import { useFocusedFieldVisibility } from "@ryot-app/plugin-ui-sdk";
 import { RouterProvider } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 
+import { createI18nStore } from "#/modules/i18n/store";
 import {
 	captureOAuthReturnFragment,
 	OAuthReturnCapture,
@@ -64,8 +67,17 @@ if (!rootElement.innerHTML) {
 		Effect.flatMap(ClientStorage, (storage) => storage.getThemePreference),
 	);
 	const theme = createThemeStore(initialThemePreference);
+	const i18n = createI18nStore({
+		sourceCatalog,
+		load: loadKernelCatalog,
+		deviceLocales: navigator.languages,
+		run: (effect) => void runtime.runFork(effect),
+		initialPreference: runtime.runSync(
+			Effect.flatMap(ClientStorage, (storage) => storage.getInterfaceLocale),
+		),
+	});
 	const backInterceptors = createBackInterceptors();
-	const router = getRouter({ theme, runtime, backInterceptors });
+	const router = getRouter({ i18n, theme, runtime, backInterceptors });
 	root.render(
 		<ClientApplication
 			theme={theme}

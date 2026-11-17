@@ -1,3 +1,5 @@
+import { stampExecutionSource } from "@ryot-app/contract/modules/ryotql/request";
+import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import {
 	createRyotClient,
 	type RyotClientAdapter,
@@ -50,17 +52,21 @@ export const createKernelRyotClient = (
 				.pipe(
 					Effect.mapError((error) => new RyotClientError({ reason: classifyUploadFailure(error) })),
 				),
-		query: (document) =>
+		query: (request) =>
 			runtime
 				.runSync(RyotQLApi)
-				.execute(scope, { payload: document })
+				.execute(scope, {
+					payload: { ...request, source: stampExecutionSource(KERNEL_NAMESPACE, request.source) },
+				})
 				.pipe(
 					Effect.mapError((error) => new RyotClientError({ reason: classifyRyotQLFailure(error) })),
 				),
 		describe: (request) =>
 			runtime
 				.runSync(RyotQLApi)
-				.describe(scope, { payload: request })
+				.describe(scope, {
+					payload: { ...request, source: stampExecutionSource(KERNEL_NAMESPACE, request.source) },
+				})
 				.pipe(
 					Effect.mapError((error) => new RyotClientError({ reason: classifyRyotQLFailure(error) })),
 				),

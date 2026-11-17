@@ -15,6 +15,8 @@ export const makeClientStorageStub = (
 	setSavedViewLayout: () => Effect.void,
 	setServerSelection: () => Effect.void,
 	setThemePreference: () => Effect.void,
+	setInterfaceLocale: () => Effect.void,
+	getInterfaceLocale: Effect.succeed(null),
 	setRecentDestinations: () => Effect.void,
 	setRememberedProvider: () => Effect.void,
 	getServerSelection: Effect.succeed(null),

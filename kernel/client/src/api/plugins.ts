@@ -10,6 +10,8 @@ export class PluginsApi extends Context.Service<PluginsApi>()(
 		make: Effect.gen(function* () {
 			const api = yield* AuthenticatedApi;
 			return {
+				messages: (scope: ApiScope, locale: string) =>
+					api.run(scope, (client) => client.plugins.messages({ params: { locale } })),
 				invoke: (scope: ApiScope, request: ContractRequest<"plugins", "invoke">) =>
 					api.run(scope, (client) => client.plugins.invoke(request)),
 				saveUserSettings: (

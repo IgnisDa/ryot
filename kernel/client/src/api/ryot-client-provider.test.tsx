@@ -24,6 +24,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -98,7 +99,7 @@ describe("committed kernel SDK runtime", () => {
 			const runtime = makeRuntime();
 			return Effect.gen(function* () {
 				const router = getRouter(
-					{ theme, runtime, backInterceptors: createBackInterceptors() },
+					{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 					createMemoryHistory({ initialEntries: ["/auth"] }),
 				);
 				const matches = yield* Effect.promise(() => router.preloadRoute({ to: "/settings" }));

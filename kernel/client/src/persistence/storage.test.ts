@@ -9,6 +9,7 @@ import { ServerOrigin } from "#/api/origin";
 import {
 	ClientStorage,
 	clientStorageLayer,
+	INTERFACE_LOCALE_KEY,
 	PluginStorageAccessError,
 	pluginStorageKey,
 	PluginStorageQuotaError,
@@ -74,6 +75,25 @@ describe("browser persistence", () => {
 					expect(yield* service.getThemePreference).toBe("system");
 				});
 			},
+			testTimeout,
+		);
+	});
+
+	layer(fakeClientStorageLayer())((test) => {
+		test.effect(
+			"remembers the interface locale, ignores unknown locales and forgets a cleared one",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* ClientStorage;
+					const storage = yield* FakeBrowserStorage;
+					yield* service.setInterfaceLocale("de");
+					expect(yield* service.getInterfaceLocale).toBe("de");
+					yield* storage.seed(INTERFACE_LOCALE_KEY, "xx");
+					expect(yield* service.getInterfaceLocale).toBeNull();
+					yield* service.setInterfaceLocale("de");
+					yield* service.setInterfaceLocale(null);
+					expect((yield* storage.values).has(INTERFACE_LOCALE_KEY)).toBe(false);
+				}),
 			testTimeout,
 		);
 	});

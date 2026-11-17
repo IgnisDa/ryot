@@ -102,6 +102,7 @@ export const makePluginsApi = (overrides: Partial<PluginsApi["Service"]> = {}) =
 		invoke: unused,
 		saveUserSettings: unused,
 		resetUserSettings: unused,
+		messages: () => Effect.succeed({ catalogs: [] }),
 		...overrides,
 	});
 
