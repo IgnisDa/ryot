@@ -13,6 +13,7 @@
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/i18n": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.1.2",

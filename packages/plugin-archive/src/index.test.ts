@@ -29,7 +29,12 @@ const compareNames = (left: string, right: string) => {
 	return 0;
 };
 
+const catalogs = {
+	en: { "test.fixture": [{ type: 0, value: "Fixture" }] },
+} satisfies PluginArchivePackage["catalogs"];
+
 const fixture = {
+	catalogs,
 	compiledScripts: [],
 	manifest: {
 		hooks: [],
@@ -50,9 +55,9 @@ const fixture = {
 		metadata: {
 			packageId,
 			icon: "fixture",
-			name: "Fixture",
 			version: "1.0.0",
-			description: "Fixture",
+			name: { key: "test.fixture" },
+			description: { key: "test.fixture" },
 		},
 		client: {
 			apiVersion: 1,
@@ -112,7 +117,7 @@ const scriptFixture: PluginArchivePackage = {
 };
 
 const clientFixture = (files: PluginClientArtifact["files"]): PluginClientArtifact => ({
-	...clientArtifactMetadata(fixture.manifest.metadata.name, packageId, files, {
+	...clientArtifactMetadata(packageId, files, {
 		imports: [],
 		clientDeclarationHash: clientDeclarationHash(fixture.manifest.client),
 	}),
@@ -158,6 +163,7 @@ const compiledClientMetadata = (artifact: PluginClientArtifact) =>
 	);
 
 const rawManifest = encoder.encode(`${JSON.stringify(fixture.manifest, null, "\t")}\n`);
+const rawCatalog = ["messages/en.json", encoder.encode(JSON.stringify(catalogs.en))] as const;
 const scriptRawManifest = encoder.encode(`${JSON.stringify(scriptManifest, null, "\t")}\n`);
 const scriptJavascriptBytes = encoder.encode(scriptJavascript);
 const scriptJavascriptHash = sha256Hex(scriptJavascriptBytes);
@@ -190,15 +196,9 @@ const metadataWithTotalBytes = (totalBytes: number) => {
 };
 
 const manifestWithBytes = (bytes: number): PluginArchivePackage["manifest"] => {
-	const manifest = {
-		...fixture.manifest,
-		metadata: { ...fixture.manifest.metadata, description: "" },
-	};
+	const manifest = { ...fixture.manifest, metadata: { ...fixture.manifest.metadata, icon: "" } };
 	const emptyBytes = encoder.encode(`${JSON.stringify(manifest)}\n`).byteLength;
-	return {
-		...manifest,
-		metadata: { ...manifest.metadata, description: "a".repeat(bytes - emptyBytes) },
-	};
+	return { ...manifest, metadata: { ...manifest.metadata, icon: "a".repeat(bytes - emptyBytes) } };
 };
 
 const noiseBytes = (size: number, seed: number) => {
@@ -224,6 +224,7 @@ const artifactFile = (artifact: PluginClientArtifact, name: string) => {
 const writeArchiveInTimezone = (timezone: string) => {
 	const entry = new URL("./index.ts", import.meta.url).href;
 	const serialized = JSON.stringify({
+		catalogs,
 		manifest: scriptFixture.manifest,
 		compiledScripts: scriptFixture.compiledScripts,
 	});
@@ -332,7 +333,7 @@ describe("plugin archive", () => {
 						manifest,
 					);
 					expectWriteReason(
-						{ manifest, compiledClient: compiledClientFixture },
+						{ manifest, catalogs, compiledClient: compiledClientFixture },
 						"compiled-client-invalid",
 					);
 					yield* Effect.promise(() =>
@@ -387,10 +388,10 @@ describe("plugin archive", () => {
 	);
 	it("writes byte-identical deterministic archives in canonical order", () => {
 		const first = writePluginArchive(fixture);
-		const second = writePluginArchive({ manifest: fixture.manifest });
+		const second = writePluginArchive({ catalogs, manifest: fixture.manifest });
 		expect(first).toEqual(second);
 		const files = unzipSync(first);
-		expect(Object.keys(files)).toEqual(["manifest.json"]);
+		expect(Object.keys(files)).toEqual(["manifest.json", "messages/en.json"]);
 		expect(files["manifest.json"]?.byteLength).toBeLessThan(rawManifest.byteLength);
 		expect(new TextDecoder().decode(files["manifest.json"])).toBe(
 			`${JSON.stringify(fixture.manifest)}\n`,
@@ -413,6 +414,7 @@ describe("plugin archive", () => {
 					"manifest.json",
 					`compiled-backend/files/${scriptJavascriptHash}.js`,
 					"compiled-backend/metadata.json",
+					"messages/en.json",
 				]);
 				expect(entries[`compiled-backend/files/${scriptJavascriptHash}.js`]).toEqual(
 					scriptJavascriptBytes,
@@ -505,6 +507,7 @@ describe("plugin archive", () => {
 			Effect.gen(function* () {
 				const entries = ["shared/main.sandbox.ts", "backend/a.sandbox.ts", "backend/B.sandbox.ts"];
 				const pluginPackage = {
+					catalogs,
 					compiledScripts: entries.map((entry) => ({ ...compiledScriptFixture, entry })),
 					manifest: {
 						...scriptManifest,
@@ -526,6 +529,7 @@ describe("plugin archive", () => {
 					"manifest.json",
 					`compiled-backend/files/${scriptJavascriptHash}.js`,
 					"compiled-backend/metadata.json",
+					"messages/en.json",
 				]);
 				expect((yield* readPluginArchive(bytes)).compiledScripts.map(({ entry }) => entry)).toEqual(
 					["backend/B.sandbox.ts", "backend/a.sandbox.ts", "shared/main.sandbox.ts"],
@@ -542,6 +546,7 @@ describe("plugin archive", () => {
 	])("rejects unsupported compiled script label %s", (entry) =>
 		expectWriteReason(
 			{
+				catalogs,
 				compiledScripts: [{ ...compiledScriptFixture, entry }],
 				manifest: {
 					...scriptManifest,
@@ -641,6 +646,7 @@ describe("plugin archive", () => {
 					"compiled-client/files/index.html",
 					"compiled-client/files/plugin.js",
 					"compiled-client/metadata.json",
+					"messages/en.json",
 				]);
 				expect(
 					yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
@@ -725,6 +731,7 @@ describe("plugin archive", () => {
 			"compiled-client/files/a.svg",
 			"compiled-client/files/index.html",
 			"compiled-client/metadata.json",
+			"messages/en.json",
 		]);
 	});
 
@@ -800,6 +807,7 @@ describe("plugin archive", () => {
 				const path = pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes);
 				const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes);
 				const pluginBytes = writePluginArchive({
+					catalogs,
 					manifest: fixture.manifest,
 					compiledClient: clientFixture([
 						{
@@ -821,6 +829,7 @@ describe("plugin archive", () => {
 	it("rejects a writer path one byte over the limit", () =>
 		expectWriteReason(
 			{
+				catalogs,
 				manifest: fixture.manifest,
 				compiledClient: {
 					...compiledClientFixture,
@@ -841,7 +850,7 @@ describe("plugin archive", () => {
 	it.live("accepts and round trips a compact manifest exactly at the byte limit", () =>
 		Effect.gen(function* () {
 			const manifest = manifestWithBytes(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes);
-			const bytes = writePluginArchive({ manifest });
+			const bytes = writePluginArchive({ catalogs, manifest });
 			expect(unzipSync(bytes)["manifest.json"]?.byteLength).toBe(
 				PLUGIN_ARCHIVE_LIMITS.maxManifestBytes,
 			);
@@ -853,6 +862,7 @@ describe("plugin archive", () => {
 		Effect.gen(function* () {
 			const bytes = archive([
 				["manifest.json", encoder.encode(` \r\n\t${new TextDecoder().decode(rawManifest)} \r\n`)],
+				rawCatalog,
 			]);
 			expect((yield* readPluginArchive(bytes)).manifest).toEqual(fixture.manifest);
 		}),
@@ -860,7 +870,7 @@ describe("plugin archive", () => {
 
 	it("rejects a writer manifest one byte over the limit", () =>
 		expectWriteReason(
-			{ manifest: manifestWithBytes(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes + 1) },
+			{ catalogs, manifest: manifestWithBytes(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes + 1) },
 			"manifest-bytes-exceeded",
 		));
 
@@ -869,6 +879,7 @@ describe("plugin archive", () => {
 		(requests) =>
 			expectWriteReason(
 				{
+					catalogs,
 					manifest: {
 						...fixture.manifest,
 						httpRateLimits: [
@@ -1102,7 +1113,10 @@ describe("plugin archive", () => {
 				contents: noiseBytes(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes, 33),
 			},
 		]);
-		expectWriteReason({ manifest, compiledClient, compiledScripts }, "compressed-bytes-exceeded");
+		expectWriteReason(
+			{ manifest, catalogs, compiledClient, compiledScripts },
+			"compressed-bytes-exceeded",
+		);
 	}, 120_000);
 
 	it("rejects the entry count limit", () => {
@@ -1259,4 +1273,176 @@ describe("plugin archive", () => {
 
 	it("rejects malformed ZIP data", () =>
 		expectReason(zipSync({ "manifest.json": rawManifest }).subarray(0, 20), "malformed-zip"));
+});
+
+const french = {
+	"test.fixture": [{ type: 0, value: "Appareil" }],
+} satisfies PluginArchivePackage["catalogs"][string];
+
+const catalogEntry = (locale: string, catalog: unknown) =>
+	[`messages/${locale}.json`, encoder.encode(JSON.stringify(catalog))] as const;
+
+const catalogLocales = ["en", "fr", "de", "es", "it", "pt", "nl", "sv", "da", "fi", "nb"].concat(
+	["pl", "cs", "sk", "sl", "hr", "hu", "ro", "bg", "el", "tr", "ru", "uk", "ja", "ko", "zh"],
+	["ar", "he", "hi", "th", "vi", "id", "ms"],
+);
+
+const largeCatalog = (bytes: number): PluginArchivePackage["catalogs"][string] => ({
+	"test.fixture": [{ type: 0, value: "a".repeat(bytes) }],
+});
+
+describe("plugin archive message catalogs", () => {
+	it.live("round trips catalogs in locale order with deterministic bytes", () =>
+		Effect.gen(function* () {
+			const first = writePluginArchive({ ...fixture, catalogs: { fr: french, en: catalogs.en } });
+			const second = writePluginArchive({ ...fixture, catalogs: { fr: french, en: catalogs.en } });
+			expect(first).toEqual(second);
+			expect(Object.keys(unzipSync(first))).toEqual([
+				"manifest.json",
+				"messages/en.json",
+				"messages/fr.json",
+			]);
+			expect((yield* readPluginArchive(first)).catalogs).toEqual({ fr: french, en: catalogs.en });
+		}),
+	);
+
+	it("rejects a writer package without the source locale", () =>
+		expectWriteReason({ ...fixture, catalogs: { fr: french } }, "messages-invalid"));
+
+	it.live("rejects an archive without the source locale", () =>
+		Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				expectReason(archive([["manifest.json", rawManifest]]), "messages-invalid"),
+			);
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([["manifest.json", rawManifest], catalogEntry("fr", french)]),
+					"messages-invalid",
+				),
+			);
+		}),
+	);
+
+	test.each(["messages/EN.json", "messages/en_US.json", "messages/en.txt", "messages/.json"])(
+		"rejects the non-canonical catalog path %s",
+		(path) =>
+			expectReason(
+				archive([["manifest.json", rawManifest], rawCatalog, [path, rawCatalog[1]]]),
+				"messages-invalid",
+			),
+	);
+
+	it("rejects a catalog that defines a kernel common message key", () =>
+		expectWriteReason(
+			{
+				...fixture,
+				catalogs: { en: { ...catalogs.en, "common.action.cancel": [{ type: 0, value: "x" }] } },
+			},
+			"messages-invalid",
+		));
+
+	it("rejects a writer catalog with a non-canonical locale", () =>
+		expectWriteReason(
+			{ ...fixture, catalogs: { ...catalogs, en_US: french } },
+			"messages-invalid",
+		));
+
+	it.live("rejects undecodable catalogs", () =>
+		Effect.gen(function* () {
+			expectWriteReason(
+				{ ...fixture, catalogs: { en: { "Not A Key": [{ type: 0, value: "x" }] } } },
+				"messages-invalid",
+			);
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						["messages/en.json", encoder.encode("not json")],
+					]),
+					"messages-invalid",
+				),
+			);
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						catalogEntry("en", { "test.fixture": [{ type: 9 }] }),
+					]),
+					"messages-invalid",
+				),
+			);
+		}),
+	);
+
+	it.live("rejects more catalogs than the limit", () =>
+		Effect.gen(function* () {
+			expect(catalogLocales).toHaveLength(PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogs + 1);
+			expectWriteReason(
+				{
+					...fixture,
+					catalogs: Object.fromEntries(catalogLocales.map((locale) => [locale, catalogs.en])),
+				},
+				"messages-count-exceeded",
+			);
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						...catalogLocales.map((locale) => catalogEntry(locale, catalogs.en)),
+					]),
+					"messages-count-exceeded",
+				),
+			);
+		}),
+	);
+
+	it.live(
+		"rejects catalogs over the per-file and total byte limits",
+		() =>
+			Effect.gen(function* () {
+				expectWriteReason(
+					{
+						...fixture,
+						catalogs: { en: largeCatalog(PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogBytes) },
+					},
+					"messages-bytes-exceeded",
+				);
+				yield* Effect.promise(() =>
+					expectReason(
+						archive([
+							["manifest.json", rawManifest],
+							[
+								"messages/en.json",
+								new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogBytes + 1),
+							],
+						]),
+						"messages-bytes-exceeded",
+					),
+				);
+				const nearLimit = largeCatalog(PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogBytes - 1024);
+				const overTotal = catalogLocales.slice(
+					0,
+					PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogsBytes /
+						PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogBytes +
+						1,
+				);
+				expectWriteReason(
+					{
+						...fixture,
+						catalogs: Object.fromEntries(overTotal.map((locale) => [locale, nearLimit])),
+					},
+					"messages-bytes-exceeded",
+				);
+				yield* Effect.promise(() =>
+					expectReason(
+						archive([
+							["manifest.json", rawManifest],
+							...overTotal.map((locale) => catalogEntry(locale, nearLimit)),
+						]),
+						"messages-bytes-exceeded",
+					),
+				);
+			}),
+		60_000,
+	);
 });

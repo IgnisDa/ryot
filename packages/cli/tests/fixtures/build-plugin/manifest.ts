@@ -19,8 +19,8 @@ export default {
 		icon: "test",
 		version: "1.0.0",
 		packageId: "test/cli",
-		name: "CLI test plugin",
-		description: "A fixture for the CLI tests.",
+		name: { key: "plugin.name" },
+		description: { key: "plugin.description" },
 	},
 	client: {
 		apiVersion: 1,

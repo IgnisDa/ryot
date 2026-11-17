@@ -4,6 +4,7 @@ export { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 export { roundHalfUp } from "@ryot-app/contract/schema/numeric-normalization";
 export { UTC, TimeZone, isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 export { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+export type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 export {
 	S3AssetLocator,
 	LocalAssetLocator,

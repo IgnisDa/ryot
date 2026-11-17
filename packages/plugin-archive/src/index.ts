@@ -1,5 +1,8 @@
+import { commonMessageKeyIssues } from "@ryot-app/contract/modules/plugins/common-messages";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
+import { CompiledCatalog, decodeCompiledCatalog } from "@ryot-app/i18n/catalog";
+import { LocaleTag, SOURCE_LOCALE } from "@ryot-app/i18n/locale";
 import {
 	clientArtifactMetadata,
 	clientDeclarationHash,
@@ -11,6 +14,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Effect, Result, Schema, Stream } from "effect";
 import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate } from "fflate";
@@ -18,15 +22,19 @@ import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate } from "fflate";
 export const PLUGIN_ARCHIVE_LIMITS = {
 	maxPathBytes: 256,
 	maxEntryCount: 1024,
+	maxMessageCatalogs: 32,
 	maxCompiledClientFiles: 128,
 	maxManifestBytes: 4 * 1024 * 1024,
+	maxMessageCatalogBytes: 1024 * 1024,
 	maxCompressedBytes: 32 * 1024 * 1024,
 	maxCompiledClientBytes: 8 * 1024 * 1024,
+	maxMessageCatalogsBytes: 8 * 1024 * 1024,
 	maxCompiledBackendBytes: 32 * 1024 * 1024,
 	maxCompiledClientMetadataBytes: 256 * 1024,
 	maxCompiledBackendMetadataBytes: 256 * 1024,
 	maxCompiledBackendJavascriptBytes: 1024 * 1024,
-	maxTotalUncompressedBytes: 16 * 1024 * 1024 + 8 * 1024 * 1024 + 32 * 1024 * 1024 + 512 * 1024,
+	maxTotalUncompressedBytes:
+		16 * 1024 * 1024 + 8 * 1024 * 1024 + 32 * 1024 * 1024 + 8 * 1024 * 1024 + 512 * 1024,
 } as const;
 
 export const PluginArchiveErrorReason = Schema.Literals([
@@ -46,6 +54,9 @@ export const PluginArchiveErrorReason = Schema.Literals([
 	"manifest-bytes-exceeded",
 	"manifest-invalid",
 	"malformed-zip",
+	"messages-bytes-exceeded",
+	"messages-count-exceeded",
+	"messages-invalid",
 	"missing-manifest",
 	"path-bytes-exceeded",
 	"path-non-utf8",
@@ -57,6 +68,9 @@ export const PluginArchiveErrorReason = Schema.Literals([
 
 export type PluginArchiveErrorReason = typeof PluginArchiveErrorReason.Type;
 
+/** Compiled message catalogs keyed by canonical locale; the source locale is required. */
+export type PluginArchiveCatalogs = Readonly<Record<string, CompiledCatalog>>;
+
 export type PluginArchiveCompiledScript = {
 	readonly entry: string;
 	readonly format: number;
@@ -65,6 +79,7 @@ export type PluginArchiveCompiledScript = {
 
 export type PluginArchivePackage = {
 	readonly manifest: PluginManifest;
+	readonly catalogs: PluginArchiveCatalogs;
 	readonly compiledClient?: PluginClientArtifactType;
 	readonly compiledScripts: ReadonlyArray<PluginArchiveCompiledScript>;
 };
@@ -82,6 +97,8 @@ const compiledBackendMetadataPath = "compiled-backend/metadata.json";
 const compiledBackendFilePrefix = "compiled-backend/files/";
 const compiledClientMetadataPath = "compiled-client/metadata.json";
 const compiledClientFilePrefix = "compiled-client/files/";
+const messagesPrefix = "messages/";
+const messagesSuffix = ".json";
 
 const PluginArchiveCompiledScriptMetadataEntry = strictStruct({
 	hash: Schema.String,
@@ -156,6 +173,68 @@ const validatePathBytes = (bytes: number) => {
 };
 
 const isCompiledClientFilePath = (path: string) => path.startsWith(compiledClientFilePrefix);
+const isMessagesPath = (path: string) => path.startsWith(messagesPrefix);
+const isLocaleTag = Schema.is(LocaleTag);
+
+const messagesLocale = (path: string) => {
+	const locale = path.slice(messagesPrefix.length, -messagesSuffix.length);
+	if (!path.endsWith(messagesSuffix) || !isLocaleTag(locale)) {
+		throw failure("messages-invalid");
+	}
+	return locale;
+};
+
+const invalidLocale = (locale: string) => `Plugin message catalog is invalid: ${locale}`;
+
+/**
+ * Decodes untrusted catalogs, failing on too many catalogs, a missing English catalog, a
+ * non-canonical locale, or a catalog that does not decode, exceeds the catalog limits, or defines a
+ * kernel common message key.
+ */
+export const decodePluginCatalogs = (
+	catalogs: Readonly<Record<string, unknown>>,
+): Result.Result<
+	PluginArchiveCatalogs,
+	{ readonly issues: ReadonlyArray<string>; readonly reason: PluginArchiveErrorReason }
+> => {
+	const locales = Object.keys(catalogs).sort(compareCodeUnits);
+	if (locales.length > PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogs) {
+		const issues = ["Plugin has too many message catalogs"];
+		return Result.fail({ issues, reason: "messages-count-exceeded" });
+	}
+	if (!locales.includes(SOURCE_LOCALE)) {
+		const issues = [`Plugin message catalog is missing: ${SOURCE_LOCALE}`];
+		return Result.fail({ issues, reason: "messages-invalid" });
+	}
+	const decoded: Record<string, CompiledCatalog> = {};
+	for (const locale of locales) {
+		const catalog = isLocaleTag(locale)
+			? decodeCompiledCatalog(catalogs[locale], `messages/${locale}.json`)
+			: Result.fail([invalidLocale(locale)]);
+		const issues = Result.isFailure(catalog)
+			? catalog.failure
+			: commonMessageKeyIssues(catalog.success);
+		if (Result.isFailure(catalog) || issues.length > 0) {
+			return Result.fail({ issues, reason: "messages-invalid" });
+		}
+		decoded[locale] = catalog.success;
+	}
+	return Result.succeed(decoded);
+};
+
+const validateCatalogs = (catalogs: PluginArchiveCatalogs) => {
+	const decoded = decodePluginCatalogs(catalogs);
+	if (Result.isFailure(decoded)) {
+		throw failure(decoded.failure.reason);
+	}
+	return Object.entries(decoded.success).map(
+		([locale, catalog]) =>
+			[
+				`${messagesPrefix}${locale}${messagesSuffix}`,
+				encoder.encode(`${stableStringify(catalog)}\n`),
+			] as const,
+	);
+};
 const isCompiledBackendFilePath = (path: string) => path.startsWith(compiledBackendFilePrefix);
 
 const validateCompiledScriptEntry = (entry: string) => {
@@ -293,12 +372,7 @@ const validateCompiledClientArtifact = (
 		artifact.clientDeclarationHash !== clientDeclarationHash(manifest.client) ||
 		artifact.packageId !== manifest.metadata.packageId ||
 		artifact.hash !==
-			clientArtifactMetadata(
-				manifest.metadata.name,
-				manifest.metadata.packageId,
-				artifact.files,
-				artifact,
-			).hash
+			clientArtifactMetadata(manifest.metadata.packageId, artifact.files, artifact).hash
 	) {
 		throw failure("compiled-client-invalid");
 	}
@@ -323,6 +397,9 @@ const validateEntryBytes = (path: string, entryBytes: number, totalBytes: number
 	} else if (isCompiledClientFilePath(path)) {
 		entryLimit = PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes;
 		entryLimitReason = "compiled-client-bytes-exceeded";
+	} else if (isMessagesPath(path)) {
+		entryLimit = PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogBytes;
+		entryLimitReason = "messages-bytes-exceeded";
 	} else {
 		entryLimit = PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes;
 		entryLimitReason = "total-uncompressed-bytes-exceeded";
@@ -338,6 +415,7 @@ const validateEntryBytes = (path: string, entryBytes: number, totalBytes: number
 class ArchivePathValidator {
 	#entryCount = 0;
 	#manifestCount = 0;
+	#messageCatalogCount = 0;
 	#compiledClientFileCount = 0;
 	readonly #paths = new Set<string>();
 
@@ -363,9 +441,17 @@ class ArchivePathValidator {
 			path !== compiledBackendMetadataPath &&
 			!isCompiledBackendFilePath(path) &&
 			path !== compiledClientMetadataPath &&
-			!isCompiledClientFilePath(path)
+			!isCompiledClientFilePath(path) &&
+			!isMessagesPath(path)
 		) {
 			throw failure("unexpected-entry");
+		}
+		if (isMessagesPath(path)) {
+			messagesLocale(path);
+			this.#messageCatalogCount += 1;
+			if (this.#messageCatalogCount > PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogs) {
+				throw failure("messages-count-exceeded");
+			}
 		}
 		if (isCompiledClientFilePath(path)) {
 			if (path.length === compiledClientFilePrefix.length) {
@@ -432,6 +518,7 @@ const validateEntries = (entries: ReadonlyArray<readonly [string, Uint8Array]>) 
 	let totalBytes = 0;
 	let compiledBackendBytes = 0;
 	let compiledClientBytes = 0;
+	let messagesBytes = 0;
 	for (const [path, bytes] of entries) {
 		const encodedPath = encoder.encode(path);
 		if (decoder.decode(encodedPath) !== path) {
@@ -450,6 +537,12 @@ const validateEntries = (entries: ReadonlyArray<readonly [string, Uint8Array]>) 
 			compiledBackendBytes += bytes.byteLength;
 			if (compiledBackendBytes > PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendBytes) {
 				throw failure("compiled-script-bytes-exceeded");
+			}
+		}
+		if (isMessagesPath(path)) {
+			messagesBytes += bytes.byteLength;
+			if (messagesBytes > PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogsBytes) {
+				throw failure("messages-bytes-exceeded");
 			}
 		}
 	}
@@ -555,6 +648,7 @@ class PluginArchiveReader {
 	#entryCount = 0;
 	#totalBytes = 0;
 	#archiveBytes = 0;
+	#messagesBytes = 0;
 	#compiledClientBytes = 0;
 	#compiledBackendBytes = 0;
 	#compiledClientFileCount = 0;
@@ -601,6 +695,14 @@ class PluginArchiveReader {
 				this.#compiledClientBytes += data.byteLength;
 				if (this.#compiledClientBytes > PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes) {
 					this.#failure = failure("compiled-client-bytes-exceeded");
+					file.terminate();
+					return;
+				}
+			}
+			if (isMessagesPath(file.name)) {
+				this.#messagesBytes += data.byteLength;
+				if (this.#messagesBytes > PLUGIN_ARCHIVE_LIMITS.maxMessageCatalogsBytes) {
+					this.#failure = failure("messages-bytes-exceeded");
 					file.terminate();
 					return;
 				}
@@ -664,6 +766,7 @@ class PluginArchiveReader {
 		}
 		const compiledBackendFiles = new Map<string, Uint8Array>();
 		const compiledClientFiles = new Map<string, Uint8Array>();
+		const catalogs: Record<string, CompiledCatalog> = {};
 		for (const [path, entry] of this.#entries) {
 			if (path === "manifest.json") {
 				continue;
@@ -683,14 +786,33 @@ class PluginArchiveReader {
 				compiledClientFiles.set(path, bytes);
 				continue;
 			}
+			if (isMessagesPath(path)) {
+				catalogs[messagesLocale(path)] = this.#readCatalog(bytes);
+			}
 		}
 		const compiledScripts = this.#readCompiledScripts(compiledBackendFiles, manifest);
 		const compiledClient = this.#readCompiledClient(compiledClientFiles, manifest);
+		if (catalogs[SOURCE_LOCALE] === undefined) {
+			throw failure("messages-invalid");
+		}
 		return {
 			manifest,
+			catalogs,
 			compiledScripts,
 			...(compiledClient === undefined ? {} : { compiledClient }),
 		} satisfies PluginArchivePackage;
+	}
+
+	#readCatalog(bytes: Uint8Array) {
+		try {
+			return decodeOrFail(
+				Schema.fromJsonString(CompiledCatalog),
+				decoder.decode(bytes),
+				"messages-invalid",
+			);
+		} catch {
+			throw failure("messages-invalid");
+		}
 	}
 
 	#readCompiledClient(
@@ -869,6 +991,7 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 			compiledClientEntries.sort(([left], [right]) => compareCodeUnits(left, right));
 			entries.push(...compiledClientEntries);
 		}
+		entries.push(...validateCatalogs(pluginPackage.catalogs));
 		validateEntries(entries);
 		return createPluginArchive(entries);
 	} catch (error) {

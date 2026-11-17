@@ -33,6 +33,10 @@ import {
 	pluginClientFileExtension,
 } from "@ryot-app/plugin-client-contract";
 import {
+	CATALOG_MESSAGES_DIRECTORY,
+	CATALOG_MESSAGES_MODULE,
+} from "@ryot-app/plugin-kit/messages-module";
+import {
 	Clock,
 	Effect,
 	FileSystem,
@@ -47,6 +51,8 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
+import { buildPluginMessages, type PluginMessages, validateManifestTexts } from "./messages";
 
 class BuildError extends Schema.TaggedError<BuildError, { readonly brand: unique symbol }>()(
 	"BuildError",
@@ -241,14 +247,17 @@ const validateDefinitions = Effect.fn("validateDefinitions")(function* (
 	)
 		? "user"
 		: "system";
-	const plugins: DefinitionSetPlugin[] = [
+	// Definitions stamp plugin IDs as message namespaces, so stand-ins are alphanumeric like real IDs.
+	const members: ReadonlyArray<Omit<DefinitionSetPlugin, "id">> = [
 		...dependencies.map((dependency) => ({
 			scope: dependency.scope,
 			manifest: { ...dependency.manifest, scripts: [] },
-			id: dependencyKey({ ...dependency, packageId: dependency.manifest.metadata.packageId }),
 		})),
-		{ scope, manifest, id: dependencyKey({ scope, packageId: manifest.metadata.packageId }) },
+		{ scope, manifest },
 	];
+	const plugins = members.map((plugin, index) =>
+		Object.assign({}, plugin, { id: `plugin${index}` }),
+	);
 	yield* Effect.try({
 		try: () => validateDefinitionSet(kernelDefinitionSource(), plugins),
 		catch: (error) =>
@@ -275,6 +284,7 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 	).pipe(
 		Stream.filter(isPluginSourceFile),
 		Stream.map((sourcePath) => path.normalize(sourcePath)),
+		Stream.filter((sourcePath) => sourcePath !== CATALOG_MESSAGES_MODULE),
 		Stream.runCollect,
 	);
 	const clientPaths = yield* Stream.fromAsyncIterable(
@@ -302,6 +312,7 @@ const formatDiagnostic = (diagnostic: PluginBackendCompilerDiagnostic) =>
 
 const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 	sources: ReadonlyArray<SourceFile>,
+	messages: PluginMessages,
 ) {
 	const files = yield* Effect.try({
 		catch: (error) =>
@@ -316,7 +327,7 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 					.map(({ contents, path: sourcePath }) => [sourcePath, backendDecoder.decode(contents)]),
 			),
 	});
-	const derived = yield* derivePluginSandboxScripts(files).pipe(
+	const derived = yield* derivePluginSandboxScripts(files, messages.source).pipe(
 		Effect.catchTags({
 			PluginScriptCompileMismatch: (error) =>
 				new BuildError({ message: pluginScriptCompileMismatchIssue(error) }),
@@ -339,6 +350,7 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 	manifest: AuthoredPluginManifest,
 	sources: ReadonlyArray<SourceFile>,
+	messages: PluginMessages,
 ) {
 	if (manifest.client === undefined) {
 		return undefined;
@@ -354,7 +366,7 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 	return yield* compileClientPluginModule({
 		files,
 		kind: "plugin",
-		name: manifest.metadata.name,
+		catalog: messages.source,
 		packageId: manifest.metadata.packageId,
 		apiVersion: manifest.client.apiVersion,
 		pluginDependencies: manifest.dependencies ?? {},
@@ -380,6 +392,7 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 const writeOutput = Effect.fn("writeOutput")(function* (
 	output: string,
 	manifest: PluginManifest,
+	messages: PluginMessages,
 	compiledScripts: PluginArchivePackage["compiledScripts"],
 	compiledClient: undefined | PluginClientArtifact,
 ) {
@@ -391,6 +404,7 @@ const writeOutput = Effect.fn("writeOutput")(function* (
 			writePluginArchive({
 				manifest,
 				compiledScripts,
+				catalogs: messages.catalogs,
 				...(compiledClient === undefined ? {} : { compiledClient }),
 			}),
 		catch: (error) =>
@@ -413,10 +427,12 @@ const writeOutput = Effect.fn("writeOutput")(function* (
 
 const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOptions) {
 	const path = yield* Path.Path;
+	const messages = yield* buildPluginMessages(cwd);
 	const authored = yield* loadManifest(cwd);
 	const sources = yield* collectSources(cwd);
-	const { scripts, compiledScripts } = yield* deriveManifestScripts(sources);
-	const compiledClient = yield* compileClientArtifact(authored, sources);
+	const { scripts, compiledScripts } = yield* deriveManifestScripts(sources, messages);
+	yield* validateManifestTexts({ ...authored, scripts }, messages);
+	const compiledClient = yield* compileClientArtifact(authored, sources, messages);
 	const manifest = yield* Schema.decodeEffect(PluginManifestSchema)({ ...authored, scripts }).pipe(
 		Effect.mapError(
 			(error) => new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
@@ -426,6 +442,7 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 	yield* writeOutput(
 		path.resolve(cwd, output ?? `dist/${manifest.metadata.packageId}.zip`),
 		manifest,
+		messages,
 		compiledScripts,
 		compiledClient,
 	);
@@ -462,7 +479,9 @@ const collectAuthoringInputs = Effect.fn("collectAuthoringInputs")(function* ({
 		Stream.filter((filePath) => isRelevantAuthoringPath(path, cwd, output, filePath)),
 		Stream.filter(
 			(filePath) =>
-				filePath.endsWith(".ts") ||
+				(filePath.endsWith(".ts") && !filePath.endsWith(".generated.ts")) ||
+				(filePath.startsWith(`${CATALOG_MESSAGES_DIRECTORY}${path.sep}`) &&
+					filePath.endsWith(".json")) ||
 				(filePath.startsWith(`client${path.sep}`) &&
 					pluginClientFileExtension(filePath) !== undefined),
 		),
@@ -561,7 +580,17 @@ const buildCommand = Command.make(
 	}),
 );
 
-const pluginCommand = Command.make("plugin").pipe(Command.withSubcommands([buildCommand]));
+const messagesCommand = Command.make(
+	"messages",
+	{},
+	Effect.fn("messagesCommand")(function* () {
+		yield* buildPluginMessages(process.cwd());
+	}),
+);
+
+const pluginCommand = Command.make("plugin").pipe(
+	Command.withSubcommands([buildCommand, messagesCommand]),
+);
 
 const cli = Command.make("ryot").pipe(Command.withSubcommands([pluginCommand]));
 

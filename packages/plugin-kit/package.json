@@ -25,6 +25,18 @@
 		"./languages": {
 			"types": "./src/languages.ts",
 			"default": "./src/languages.ts"
+		},
+		"./messages": {
+			"types": "./src/messages.ts",
+			"default": "./src/messages.ts"
+		},
+		"./messages-module": {
+			"types": "./src/messages-module.ts",
+			"default": "./src/messages-module.ts"
+		},
+		"./testing": {
+			"types": "./src/testing.ts",
+			"default": "./src/testing.ts"
 		}
 	},
 	"scripts": {
@@ -33,6 +45,7 @@
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/i18n": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",

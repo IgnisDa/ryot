@@ -44,8 +44,8 @@ const dependencyManifest = (dependencyPackageId: string, entitySchemas: string) 
 	metadata: {
 		icon: "test",
 		version: "1.0.0",
-		name: "Dependency",
-		description: "A dependency fixture.",
+		name: { key: "plugin.name" },
+		description: { key: "plugin.description" },
 		packageId: "${dependencyPackageId}",
 	},
 };
@@ -83,6 +83,21 @@ const declareDependency = Effect.fn("declareDependency")(function* (
 	yield* fs.writeFileString(
 		path.join(directory, "manifest.ts"),
 		dependencyManifest(dependencyPackageId, options.entitySchemas ?? "[]"),
+	);
+});
+
+const writeMessages = Effect.fn("writeMessages")(function* (
+	plugin: string,
+	messages: Readonly<Record<string, string>>,
+) {
+	const path = yield* Path.Path;
+	const fs = yield* FileSystem.FileSystem;
+	const catalogPath = path.join(plugin, "shared", "messages", "en.json");
+	const catalog = Schema.fromJsonString(Schema.Record(Schema.String, Schema.String));
+	const current = yield* Schema.decodeEffect(catalog)(yield* fs.readFileString(catalogPath));
+	yield* fs.writeFileString(
+		catalogPath,
+		yield* Schema.encodeEffect(catalog)({ ...current, ...messages }),
 	);
 });
 
@@ -145,13 +160,17 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 				const authored = original
 					.replace(
 						"providers: []",
-						'providers: [{ slug: "catalog.remote", name: "Remote", rootEntitySchemaSlug: "record", information: { source: "remote" } }]',
+						'providers: [{ slug: "catalog.remote", name: { key: "provider.remote.name" }, rootEntitySchemaSlug: "record", information: { source: "remote" } }]',
 					)
 					.replace(
 						"entitySchemas: []",
-						'entitySchemas: [{ slug: "record", name: "Record", icon: "box", eventSchemas: [], propertiesSchema: { fields: {} } }]',
+						'entitySchemas: [{ slug: "record", name: { key: "entity-schema.record.name" }, icon: "box", eventSchemas: [], propertiesSchema: { fields: {} } }]',
 					);
 				yield* fs.writeFileString(manifestPath, authored);
+				yield* writeMessages(plugin, {
+					"provider.remote.name": "Remote",
+					"entity-schema.record.name": "Record",
+				});
 				const providerRoot = path.join(plugin, "backend/providers/catalog/remote");
 				yield* fs.makeDirectory(providerRoot, { recursive: true });
 				for (const operation of ["details", "search"] as const) {
@@ -173,10 +192,10 @@ export default defineProvider({ manifest, operation: "${operation}", run: () => 
 				const archive = yield* readPluginArchive(bytes);
 				expect(archive.manifest.providers).toEqual([
 					{
-						name: "Remote",
 						slug: "catalog.remote",
 						rootEntitySchemaSlug: "record",
 						information: { source: "remote" },
+						name: { key: "provider.remote.name" },
 					},
 				]);
 				expect(archive.manifest.scripts.filter(({ kind }) => kind === "provider")).toMatchObject([
@@ -233,9 +252,10 @@ export default defineProvider({ manifest, operation: "${operation}", run: () => 
 					manifestPath,
 					manifest.replace(
 						'configSchema: { fields: {}, unknownKeys: "strict" }',
-						'configSchema: { fields: { token: { type: "string", label: "Token", description: "API token" }, threshold: { type: "number", label: "Threshold", description: "Optional threshold" } }, unknownKeys: "strict" }',
+						'configSchema: { fields: { token: { type: "string", label: { key: "config.token" }, description: "API token" }, threshold: { type: "number", label: { key: "config.threshold" }, description: "Optional threshold" } }, unknownKeys: "strict" }',
 					),
 				);
+				yield* writeMessages(plugin, { "config.token": "Token", "config.threshold": "Threshold" });
 				yield* fs.writeFileString(
 					path.join(plugin, "backend/main.sandbox.ts"),
 					`
@@ -396,6 +416,13 @@ export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automatio
 				expect(pluginPackage.manifest).toMatchObject({
 					httpRateLimits: [{ origins: ["https://example.com"] }],
 				});
+				expect(Object.keys(pluginPackage.catalogs).sort()).toEqual(["en", "en-XA"]);
+				expect(pluginPackage.catalogs["en"]?.["plugin.name"]).toEqual([
+					{ type: 0, value: "CLI test plugin" },
+				]);
+				expect(pluginPackage.catalogs["en-XA"]?.["plugin.name"]).not.toEqual(
+					pluginPackage.catalogs["en"]?.["plugin.name"],
+				);
 				expect(pluginPackage.compiledScripts).toHaveLength(1);
 				expect(pluginPackage.compiledScripts[0]).toMatchObject({
 					format: 1,
@@ -544,12 +571,12 @@ export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automatio
 				yield* fs.writeFileString(output, "keep");
 				const manifestPath = path.join(plugin, "manifest.ts");
 				const manifest = yield* fs.readFileString(manifestPath);
-				const longDescription = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(
+				const longIcon = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(
 					"a".repeat(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes),
 				);
 				yield* fs.writeFileString(
 					manifestPath,
-					manifest.replace('"A fixture for the CLI tests."', longDescription),
+					manifest.replace('icon: "test"', `icon: ${longIcon}`),
 				);
 
 				const result = yield* run(plugin, ["plugin", "build"]);
@@ -729,7 +756,7 @@ export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automatio
 				yield* declareDependency(plugin, "test/other", {
 					installed: true,
 					entitySchemas:
-						'[{ slug: "record", name: "Record", icon: "box", eventSchemas: [], propertiesSchema: { fields: {} } }]',
+						'[{ slug: "record", name: { key: "entity-schema.record.name" }, icon: "box", eventSchemas: [], propertiesSchema: { fields: {} } }]',
 				});
 				const manifestPath = path.join(plugin, "manifest.ts");
 				const declared = yield* fs.readFileString(manifestPath);
@@ -847,6 +874,7 @@ export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automatio
 						["plugin", "other"],
 						["plugin", "build", "extra"],
 						["plugin", "build", "--unknown"],
+						["plugin", "messages", "extra"],
 					],
 					(args) => run(plugin, args),
 					{ concurrency: "unbounded" },
@@ -860,9 +888,220 @@ export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automatio
 	);
 });
 
+const greetingSource = (name: string) =>
+	`import { catalogMessage } from "../shared/messages.generated";\n\nexport const greeting = catalogMessage("home.greeting", { name: ${name} });\n`;
+
+it.layer(BunServices.layer)("ryot plugin messages", (test) => {
+	test.effect(
+		"writes a typed builder module and leaves an unchanged module untouched",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const plugin = yield* createPlugin();
+				yield* writeMessages(plugin, {
+					"home.count": "{count, plural, one {# item} other {# items}}",
+				});
+				yield* fs.writeFileString(
+					path.join(plugin, "shared", "count.ts"),
+					'import { catalogMessage } from "./messages.generated";\n\nexport const count = catalogMessage("home.count", { count: 2 });\n',
+				);
+				const modulePath = path.join(plugin, "shared", "messages.generated.ts");
+
+				const first = yield* run(plugin, ["plugin", "messages"]);
+				expect(first.exitCode, first.stdout + first.stderr).toBe<unknown>(0);
+				const module = yield* fs.readFileString(modulePath);
+				expect(module).toContain('\treadonly "home.count": { readonly count: NumberArgument; };');
+				expect(module).toContain("export const catalogMessage = localMessageBuilder<Catalog>();");
+				const written = (yield* fs.stat(modulePath)).mtime;
+
+				const second = yield* run(plugin, ["plugin", "messages"]);
+				expect(second.exitCode, second.stdout + second.stderr).toBe<unknown>(0);
+				expect((yield* fs.stat(modulePath)).mtime).toEqual(written);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"builds backend and client builder calls against the catalog, not the module on disk",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const plugin = yield* createPlugin();
+				yield* writeMessages(plugin, { "home.greeting": "Hello {name}" });
+				yield* fs.writeFileString(
+					path.join(plugin, "backend", "greeting.ts"),
+					greetingSource('"Ada"'),
+				);
+				const mainPath = path.join(plugin, "backend", "main.sandbox.ts");
+				yield* fs.writeFileString(
+					mainPath,
+					`import { greeting } from "./greeting";\n${(yield* fs.readFileString(mainPath)).replace('Effect.succeed("initial")', "Effect.succeed(greeting.key)")}`,
+				);
+				yield* fs.writeFileString(
+					path.join(plugin, "client", "greeting.ts"),
+					greetingSource('"Ada"'),
+				);
+				yield* fs.writeFileString(
+					path.join(plugin, "shared", "messages.generated.ts"),
+					"export const catalogMessage = (..._: ReadonlyArray<unknown>) => null;\n",
+				);
+
+				const built = yield* run(plugin, ["plugin", "build"]);
+				expect(built.exitCode, built.stdout + built.stderr).toBe<unknown>(0);
+
+				for (const area of ["backend", "client"]) {
+					yield* fs.writeFileString(path.join(plugin, area, "greeting.ts"), greetingSource("1"));
+					const mistyped = yield* run(plugin, ["plugin", "build"]);
+					expect(mistyped.exitCode).not.toBe(0);
+					expect(mistyped.stdout + mistyped.stderr).toContain(`${area}/greeting.ts`);
+					yield* fs.writeFileString(
+						path.join(plugin, area, "greeting.ts"),
+						greetingSource('"Ada"'),
+					);
+				}
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fails on unknown builder keys and unused catalog keys",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const plugin = yield* createPlugin();
+				const usagePath = path.join(plugin, "shared", "usage.ts");
+				yield* fs.writeFileString(
+					usagePath,
+					'import { catalogMessage } from "./messages.generated";\n\nexport const missing = catalogMessage("home.missing");\n',
+				);
+				const unknown = yield* run(plugin, ["plugin", "messages"]);
+				expect(unknown.exitCode).not.toBe(0);
+				expect(unknown.stdout + unknown.stderr).toContain("home.missing: error unknown-key");
+
+				yield* fs.remove(usagePath);
+				yield* writeMessages(plugin, { "home.unused": "Unused" });
+				const unused = yield* run(plugin, ["plugin", "messages"]);
+				expect(unused.exitCode).not.toBe(0);
+				expect(unused.stdout + unused.stderr).toContain("home.unused: error unused-key");
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fails on invalid ICU syntax and markup",
+		() =>
+			Effect.gen(function* () {
+				const plugin = yield* createPlugin();
+				for (const [message, code] of [
+					["{broken", "invalid-syntax"],
+					["<b>CLI</b> test plugin", "markup"],
+				] as const) {
+					yield* writeMessages(plugin, { "plugin.name": message });
+					const result = yield* run(plugin, ["plugin", "messages"]);
+					expect(result.exitCode).not.toBe(0);
+					expect(result.stdout + result.stderr).toContain(`plugin.name: error ${code}`);
+				}
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects provider search option labels that name a missing key",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
+				const plugin = yield* createPlugin();
+				const manifestPath = path.join(plugin, "manifest.ts");
+				yield* fs.writeFileString(
+					manifestPath,
+					(yield* fs.readFileString(manifestPath))
+						.replace(
+							"providers: []",
+							'providers: [{ slug: "catalog.remote", name: { key: "provider.remote.name" }, rootEntitySchemaSlug: "record", information: { source: "remote" } }]',
+						)
+						.replace(
+							"entitySchemas: []",
+							'entitySchemas: [{ slug: "record", name: { key: "entity-schema.record.name" }, icon: "box", eventSchemas: [], propertiesSchema: { fields: {} } }]',
+						),
+				);
+				yield* writeMessages(plugin, {
+					"provider.remote.name": "Remote",
+					"entity-schema.record.name": "Record",
+				});
+				const providerRoot = path.join(plugin, "backend/providers/catalog/remote");
+				yield* fs.makeDirectory(providerRoot, { recursive: true });
+				for (const operation of ["details", "search"] as const) {
+					const options =
+						operation === "search"
+							? ', searchOptionsSchema: { unknownKeys: "strict", fields: { genre: { type: "string", label: { key: "search-option.genre" }, description: "Genre" } } }'
+							: "";
+					yield* fs.writeFileString(
+						path.join(providerRoot, `${operation}.sandbox.ts`),
+						`
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+export const manifest = defineManifest({ kind: "provider", slug: "custom.${operation}", name: "Remote ${operation}"${options} });
+export default defineProvider({ manifest, operation: "${operation}", run: () => Effect.succeed(${operation === "details" ? '{ name: "Record", properties: {} }' : "{ items: [] }"}) });
+`,
+					);
+				}
+				const result = yield* run(plugin, ["plugin", "build"]);
+				expect(result.exitCode).not.toBe(0);
+				expect(result.stdout + result.stderr).toContain(
+					"scripts.custom.search.searchOptionsSchema.fields.genre.label names a key that has no source-locale message",
+				);
+				expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(false);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects manifest text that names a missing key or a key with arguments",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const plugin = yield* createPlugin();
+				const manifestPath = path.join(plugin, "manifest.ts");
+				const manifest = yield* fs.readFileString(manifestPath);
+				yield* fs.writeFileString(
+					manifestPath,
+					manifest.replace('{ key: "plugin.description" }', '{ key: "plugin.summary" }'),
+				);
+				yield* fs.writeFileString(
+					path.join(plugin, "shared", "description.ts"),
+					'export const descriptionKey = "plugin.description";\n',
+				);
+				const missing = yield* run(plugin, ["plugin", "build"]);
+				expect(missing.exitCode).not.toBe(0);
+				expect(missing.stdout + missing.stderr).toContain(
+					"metadata.description names a key that has no source-locale message",
+				);
+
+				yield* fs.writeFileString(manifestPath, manifest);
+				yield* fs.writeFileString(
+					path.join(plugin, "shared", "messages", "en.json"),
+					'{ "plugin.name": "CLI {version}", "plugin.description": "A fixture for the CLI tests." }',
+				);
+				const withArguments = yield* run(plugin, ["plugin", "build"]);
+				expect(withArguments.exitCode).not.toBe(0);
+				expect(withArguments.stdout + withArguments.stderr).toContain(
+					"metadata.name names a message with arguments",
+				);
+				expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(false);
+			}),
+		testTimeout,
+	);
+});
+
 layer(BunServices.layer, { excludeTestServices: true })("ryot plugin build --watch", (test) => {
 	test.effect(
-		"rebuilds after a watched backend change",
+		"rebuilds after watched catalog and backend changes",
 		() =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
@@ -881,6 +1120,20 @@ layer(BunServices.layer, { excludeTestServices: true })("ryot plugin build --wat
 				yield* Effect.addFinalizer(() => child.kill().pipe(Effect.ignore));
 
 				yield* waitFor(fs.exists(output));
+				yield* writeMessages(plugin, { "plugin.name": "Renamed plugin" });
+				yield* waitFor(
+					Effect.gen(function* () {
+						const pluginPackage = yield* readPluginArchive(yield* fs.readFile(output)).pipe(
+							Effect.option,
+						);
+						return (
+							pluginPackage._tag === "Some" &&
+							(pluginPackage.value.catalogs["en"]?.["plugin.name"] ?? []).some(
+								(element) => element.type === 0 && element.value === "Renamed plugin",
+							)
+						);
+					}),
+				);
 				const mainPath = path.join(plugin, "backend", "main.sandbox.ts");
 				const main = yield* fs.readFileString(mainPath);
 				yield* fs.writeFileString(mainPath, main.replace('"initial"', '"updated"'));

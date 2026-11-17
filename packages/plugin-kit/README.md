@@ -78,6 +78,8 @@ JSON are not rewritten.
 | `client/`   | Emitted client assets                      | Optional client source; uses client SDK/UI SDK and may import siblings and `shared/` |
 | `shared/`   | Bundled when reachable into scripts/assets | Environment-neutral `.ts`; may import shared siblings and plugin-kit neutral shims   |
 
+`shared/messages/<locale>.json` holds the plugin's message catalogs; see [Messages](#messages).
+
 Backend, client, and shared authoring sources never import `manifest/`. Manifest code reaches backend
 source only through `backend/contracts/**`, which holds sandbox-owned schemas, recipes, and helpers
 needed by server callers; environment-neutral values used by both belong in `shared/`.
@@ -90,6 +92,11 @@ entity pages, saved-view renderers, and workspace homes. Public cross-plugin imp
 Client code may read `usePageContext().target.kind`, but must derive target paths, route parameters,
 entity IDs, and entity schema slugs from the live routing APIs. The kernel retains and reuses a client
 realm across locations, so the initial page context is not a navigation state source.
+Navigation owns scroll and focus: a new screen opens at the top with focus on its screen container,
+back restores the screen returned to, and page-search replacements keep both. Push a route for new
+content and replace page search for state of the same screen; do not reset scroll or move focus on
+navigation. Routes whose pages render the same component are one screen, so replacing one with another
+updates it in place.
 Client code runs in an opaque-origin iframe without `localStorage`; keep per-device preferences with
 the client SDK's `usePluginStorage`.
 
@@ -215,7 +222,8 @@ shim remains environment-neutral and does not export `Effect`.
 
 `shared/**` accepts `.ts`, not `.tsx`. Its only bare imports are
 `@ryot-app/plugin-kit/compression`, `@ryot-app/plugin-kit/effect`, `@ryot-app/plugin-kit/ryotql`,
-`@ryot-app/plugin-kit/languages`, and `@ryot-app/plugin-kit/schema`; relative imports remain inside `shared/`.
+`@ryot-app/plugin-kit/languages`, `@ryot-app/plugin-kit/messages`, and `@ryot-app/plugin-kit/schema`;
+relative imports remain inside `shared/`.
 The plugin client and backend compilers enforce the same rule and reject client-only or backend-only SDK imports.
 
 The `ryotql` shim exports query builders, `IsoDateString`, event expressions, `withinPeriod`
@@ -324,8 +332,10 @@ avoid the reserved `collections` and `name`.
 - `kind: "relationship"` or `"session-event"`: the existing linked-entity filter shapes.
 
 `label` names the sort field independently of its filter label. `defaultDirection` is `"asc"` or
-`"desc"`; `ascending` and `descending` are human-readable direction labels, such as "Lowest first"
-and "Highest first". Each field contributes one sort choice with a separate direction control.
+`"desc"`; `ascending` and `descending` are direction labels, such as "Lowest first" and "Highest
+first". Each field contributes one sort choice with a separate direction control. Field, choice and
+sort labels are manifest text (`catalogMessage("…")`, see [Messages](#messages)); browsers receive
+them stamped with the plugin's namespace.
 
 Expressions read the browsed entity through the table alias `subject` (`BROWSE_SUBJECT_ALIAS`)
 and may use correlated subqueries; their kind must match the field type (lists are JSON).
@@ -351,12 +361,13 @@ installation, separate from `configSchema`, and are included in account backups.
 choices. Schema evolution is additive; incompatible changes are rejected. Property labels and
 descriptions are display text and may change freely.
 
-User-scoped backend scripts declare `getUserSettings` and call `host.getUserSettings()` to read their
-own plugin's current settings with defaults applied. Decode the JSON record with plugin-owned Effect
-schemas. Retained execution reads use the pinned manifest schema; durable activity replay retains the
-recorded read. System execution without a user cannot read user settings. `getUserPreferences` exposes
-the kernel-owned `disableIntegrations`; entity language remains a kernel preference. Client code
-reads the same resolved settings with the client SDK's `usePluginUserSettings(pluginId)`.
+User-scoped backend scripts declare `getUserSettings` and call `host.getUserSettings()` to read
+their own plugin's current settings with defaults applied. Decode the JSON record with plugin-owned
+Effect schemas. Retained execution reads use the pinned manifest schema; durable activity replay
+retains the recorded read. System execution without a user cannot read user settings.
+`getUserPreferences` exposes the kernel-owned `disableIntegrations`; interface locale, entity
+content language, and week start remain kernel preferences. Client code reads the same resolved
+settings with the client SDK's `usePluginUserSettings(pluginId)`.
 
 Direct user executions, such as operations, declare `updateUserSettings` and call
 `host.updateUserSettings(patch)` to change the execution user's settings for their own plugin. The
@@ -378,8 +389,18 @@ intervening edit of the same key.
 a `rows` output with `fields` and optional `include`. The kernel owns ordering, paging, and the
 calendar window, so a query cannot declare `orderBy` or `pagination`.
 
-`startAt` names a projected date field. Optional `caption`, `art`, and `done` name projected text,
-JSON, and boolean fields. `precision` is `date` for date-only values stored at UTC midnight or
+`startAt` names a projected date field. Optional `art` and `done` name projected JSON and boolean
+fields. Optional `caption` is row text from `catalogRowText(key, params)`: a catalog message whose
+every argument `params` binds to a projected field, so queries yield codes and numbers, never
+English. The client renders it per occurrence; a row whose bound value is not text or a finite number
+has no caption:
+
+```ts
+caption: catalogRowText("calendar-source.releases.caption", { kind: "kind" }),
+// en.json: "{kind, select, book {Book release} movie {Movie release} other {Release}}"
+```
+
+`precision` is `date` for date-only values stored at UTC midnight or
 `instant` for timestamps. `subject` names the query alias of the occurrence's entity and its schemas,
 as for entity-browser views. Installation validates the query with plugin-audience access, the field
 kinds, and that the subject alias is an entity table; `self` references bind to the installed plugin.
@@ -762,10 +783,37 @@ executable artifacts expire.
 ## Configuration And Data Contracts
 
 `configSchema` is strict top-level `AppSchema` data with string, number, integer, boolean, or enum
-fields. It supports labels, descriptions, secrets, defaults, and ordinary validation, but not nested
+fields. It supports labels, hints, descriptions, secrets, defaults, and ordinary validation, but not nested
 values, arrays, dates, translation, normalization, or schema rules. Compiler-derived script keys and
 import-source configuration requirements must name declared fields. Script configuration access is
 derived from `getPluginConfig` calls, not authored as a separate list.
+
+### Property Schemas
+
+Every manifest property schema (configuration, user settings, entity, event, relationship and
+signal properties, projections, import inputs, integration settings, search options and page
+settings) labels fields and static choices with `catalogMessage(...)` from
+`shared/messages.generated.ts`; sandbox manifests write the literal `{ key }`. A choice of countries
+or other regions is `{ value: "DE", kind: "region" }` with an ISO 3166-1 alpha-2 or UN M49 code
+and no label: forms name it in the viewer's locale and list region choices, sorted by that name,
+after the other choices. Put user-facing help
+in `hint`, which forms render. `description` is English documentation for models and developers and
+is never shown in forms. Kernel building blocks such as `imagesField` or `reviewPropertyFields`
+bring their own kernel messages. `ryot plugin build` and installation reject keys missing from the
+source catalog, and kernel messages that name no English kernel key or whose parameters do not match
+its arguments.
+
+RyotQL parameter labels follow the same rule: every document a plugin authors, whether declared in
+`queries`, a saved view's `dataSources`, or a recipe its backend or client runs inline, is a
+`PluginRyotQLDocument` whose parameter and static choice labels are `catalogMessage(...)` keys or
+kernel messages from kernel recipe building blocks such as `reportingParameterFields`; choice labels
+are optional and usually omitted. `ryot plugin build` and installation check the labels of declared
+documents, and stored definitions carry them stamped with the plugin's namespace. Inline documents
+are stamped where they enter the kernel: by the sandbox host with the run's plugin, and by the kernel
+client bridge with the requesting document's plugin. Shared recipe factories that accept parameter
+schemas constrain them with `AuthoredAppSchema` (from `@ryot-app/plugin-kit/schema` or
+`@ryot-app/plugin-client-sdk/ryotql`). Tests that bind or execute a plugin document directly stamp it
+first with `stampRyotQLDocument`.
 
 Numeric `normalize.round.scale` in other manifest property schemas applies half-up rounding before
 validation.
@@ -834,6 +882,112 @@ Presentation exports use `defineEntityPresentation({ prepare, component, entity?
 `entity` pair renders the public source when it differs from the owner source. Preparation is pure;
 it receives references, selected data, and captured context. Share UI components between variants.
 Saved views declare table fields and selection controls; they do not embed card projections.
+
+## Messages
+
+User-facing text crosses every boundary as a message, never as a rendered string. A plugin owns
+one catalog per locale in `shared/messages/<locale>.json`; `en.json` is the source locale and is
+required. The files use the [catalog source format](../i18n/README.md#catalog-compiler): ICU
+MessageFormat strings or `{ "message", "description" }` entries, with descriptions for translators
+whenever a message has arguments or ambiguous wording. Domain vocabulary (titles, workouts,
+episodes) belongs here, never in kernel catalogs.
+
+Keys are lowercase kebab-case segments joined by dots. Manifest text uses
+`<section>.<slug>.<field>`, such as `entity-schema.book.name`, `saved-view.all-books.name` or
+`plugin.description`; other text uses its area, such as `rejection.review.duplicate`. A browse field
+or table column label that shows a property's name reuses that property's `property.<slug>` key;
+it gets its own key only when its text differs, such as a column that adds a unit.
+
+`ryot plugin messages` validates the catalogs with the kernel's rules (limits, no markup, no
+currency or unit styles, translations matching English arguments), fails on keys that no plugin
+source references and on `catalogMessage("…")` calls naming unknown keys, and writes the typed
+builder module `shared/messages.generated.ts` for editors, type checks and local tests. The module is
+git-ignored; monorepo plugins run it through their `messages` Turbo task, which `check`, `test` and
+`build` depend on. The path is reserved: `ryot plugin build` never sends that file to the compilers.
+They receive the compiled English catalog and generate the same builder from it with
+`catalogMessagesModule` from `@ryot-app/plugin-kit/messages-module`, which decodes the catalog and
+applies the catalog limits first. The builder is therefore bounded by the catalog limits and does not
+count toward the client or sandbox source limits, and a plugin cannot put code in that file.
+
+```ts
+import { catalogMessage } from "../shared/messages.generated";
+
+catalogMessage("rejection.review.duplicate", { title });
+```
+
+`catalogMessage` returns a `LocalMessage`: keys and parameters are typed from `en.json`, and the
+kernel stamps the plugin's namespace wherever it stores or serves the message, so a plugin can only
+reference its own catalog.
+
+A day without a time of day, such as a release date, uses a calendar-date style
+(`{date, date, calendar-medium}`); the builder then takes a `YYYY-MM-DD` string (narrow one with
+`isCalendarDate` from `@ryot-app/plugin-kit/messages`), and it renders the same day in every time
+zone. Instants use `date` and `time` styles with a `Date`. An instant that belongs to a place, such
+as a scheduled time, uses zoned styles (`{at, date, zoned-medium} {at, time, zoned-short}`); the
+builder then takes `{ date: Date, timeZone }` (`ZonedDateTime`), with an IANA zone, and it renders
+in that zone rather than the reader's.
+
+`SelectCodes<Catalog, Key, Argument>` from `@ryot-app/plugin-client-sdk` is the code union of
+a select argument, with `Catalog` from the generated module, so client code that passes codes
+around never repeats them.
+
+Manifest display text accepts only `ManifestText`, a key without arguments: `metadata.name` and
+`description`; the `name` of entity, event, relationship and signal schemas, saved views, calendar
+sources, providers and OAuth providers; integration provider and import source `name` and
+`description`; import `exportHelp.steps`; browse field, choice and sort labels; the table column
+labels of kernel-rendered saved views; `client.collectionPages` labels,
+`client.analyticsSections` names and `client.assistantStarters`. Pass `catalogMessage("…")`. Calendar
+captions are row text from `catalogRowText` (see [Calendar Sources](#calendar-sources)), whose
+message must declare exactly the bound arguments. `ryot plugin build` fails when manifest text
+names a missing key or a message whose arguments differ, and installation repeats the check. Model-facing text, such as operation and query titles and
+descriptions, `client.assistantInstructions`, cron and bootstrap descriptions, and hook and script
+names, stays English.
+
+Backend code rejects an operation with a message from its own catalog:
+
+```ts
+return (
+  yield *
+  new OperationRejectedError({ reason: catalogMessage("rejection.review.duplicate", { title }) })
+);
+```
+
+The same applies to every other text a plugin's backend hands to the kernel: a before-stage policy
+rejects with `{ action: "reject", reason: catalogMessage("…") }`, and `host.sendNotification`
+takes a message, which the kernel renders in each recipient's interface locale. Enumerated values
+that shape the sentence, such as a status or a content kind, are `select` codes; names and
+provider-supplied values are string parameters. Operation outputs that the plugin's own client
+renders also carry `LocalMessage`s.
+
+`@ryot-app/plugin-kit/messages` exports the `Message`, `LocalMessage` and `DisplayText` schemas
+and the `isMessage` predicate.
+Names the kernel serves, such as an entity schema's `name` selected through a recipe, are stamped
+`Message`s: select them with the `Message` schema and render them, rather than keying copy by slug.
+
+Client code renders local messages with `useMessages(PLUGIN_PACKAGE_ID, catalogMessage)` from the
+client SDK, which returns a builder that renders text in the viewer's locale and also accepts the
+kernel's generic button, status and yes/no words (`common.action.cancel`, `common.status.saving`,
+`common.value.yes` and the rest of the list in the
+[client SDK README](../plugin-client-sdk/README.md#messages-and-locale)); use them instead of
+copying them into the plugin catalog. `ryot plugin messages`, `ryot plugin build` and installation
+reject a catalog that defines one of those keys. Use
+`useLocalMessage(PLUGIN_PACKAGE_ID)` for a `LocalMessage` value its backend returned. Text the host
+renders instead of the plugin is passed unrendered: `PluginScreenFrame` and `usePluginTitle` titles
+are `DisplayText`, built from the plugin's catalog with `useStampedMessages(PLUGIN_PACKAGE_ID,
+catalogMessage)` or user-authored text such as an item's name; background-submission `label(input)`
+and the device `return-shortcut` label are `LocalMessage`s that the host stamps with the plugin's
+namespace. `formatError(t, error, fallback?)` from `@ryot-app/plugin-client-sdk/react` renders an
+operation's rejection or a contract error's reason, and `useEntitySchemaName()` renders an entity
+schema's served name from its owner and slug. While the host reloads plugin catalogs, the bridge
+lists them as `pendingNamespaces` and their missing messages render the neutral loading text. See
+[Messages And Locale](../plugin-client-sdk/README.md#messages-and-locale) in the client SDK README
+for details. The archive carries the compiled catalogs and the generated `en-XA` pseudo-locale;
+installation re-checks their limits before the kernel serves them.
+
+Plugin tests compile the package's own English catalog with `compilePluginCatalog(packageRoot)`
+from `@ryot-app/plugin-kit/testing`. Backend tests render notification messages with
+`englishRenderer(catalog)` and capture them with `recordNotifications(manifest)`, both from
+`@ryot-app/plugin-backend-sdk/testing`; client tests use `testPluginText` from the client SDK.
 
 ## Languages
 
