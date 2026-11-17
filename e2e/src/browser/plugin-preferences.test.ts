@@ -34,17 +34,17 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 
 		yield* page.goto(`${getFrontendUrl()}/settings/preferences`);
 		yield* page
-			.getByRole("button", { name: "Entity language: Same as interface language" })
+			.getByRole("button", { name: "Content language: Same as interface language" })
 			.waitFor();
 		expect(yield* page.getByRole("switch", { name: "Show NSFW content" }).count).toBe(0);
 		yield* page
-			.getByRole("button", { name: "Entity language: Same as interface language" })
+			.getByRole("button", { name: "Content language: Same as interface language" })
 			.click();
 		yield* page.getByRole("radio", { name: "Spanish" }).click();
 		yield* page.getByRole("button", { name: "Save changes" }).click();
 		yield* page.getByText("Preferences saved.").waitFor({ state: "visible" });
 		yield* page.reload;
-		yield* page.getByRole("button", { name: "Entity language: Spanish" }).waitFor();
+		yield* page.getByRole("button", { name: "Content language: Spanish" }).waitFor();
 
 		yield* openPluginPreferences(page);
 		const mediaLink = page.getByRole("link", { name: "Media" });

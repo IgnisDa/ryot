@@ -1177,7 +1177,7 @@ describe("preferences settings", () => {
 				);
 				expect(
 					screen
-						.getByRole("button", { name: "Entity language: Same as interface language" })
+						.getByRole("button", { name: "Content language: Same as interface language" })
 						.hasAttribute("disabled"),
 				).toBe(true);
 				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
@@ -1198,19 +1198,18 @@ describe("preferences settings", () => {
 			Effect.gen(function* () {
 				mountPreferences();
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Entity language: Same as interface language" }),
+					screen.findByRole("button", { name: "Content language: Same as interface language" }),
 				);
 
 				expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
-				expect(screen.getByRole("heading", { name: "Language and reporting" })).not.toBeNull();
+				expect(screen.getByRole("heading", { name: "Language" })).not.toBeNull();
+				expect(screen.getByRole("heading", { name: "Formats and reporting" })).not.toBeNull();
 				expect(
-					screen.getByText(
-						"Choose the entity language and account reporting time zone. Translation availability depends on the provider.",
-					),
+					screen.getByText("Choose the language of the app and the content you discover."),
 				).not.toBeNull();
 				expect(screen.queryByRole("switch")).toBeNull();
 				expect(
-					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+					screen.getByRole("button", { name: "Content language: Same as interface language" }),
 				).not.toBeNull();
 			}),
 		testTimeout,
@@ -1246,7 +1245,7 @@ describe("preferences settings", () => {
 				expect(submit.hasAttribute("disabled")).toBe(true);
 
 				fireEvent.click(
-					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+					screen.getByRole("button", { name: "Content language: Same as interface language" }),
 				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				expect(submit.hasAttribute("disabled")).toBe(false);
@@ -1347,7 +1346,7 @@ describe("preferences settings", () => {
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
 				fireEvent.click(
-					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+					screen.getByRole("button", { name: "Content language: Same as interface language" }),
 				);
 				fireEvent.click(screen.getByRole("radio", { name: "Other language…" }));
 				fireEvent.change(screen.getByRole("textbox", { name: "Custom entity language code" }), {
@@ -1370,7 +1369,7 @@ describe("preferences settings", () => {
 				mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 				fireEvent.click(
-					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+					screen.getByRole("button", { name: "Content language: Same as interface language" }),
 				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -1380,7 +1379,9 @@ describe("preferences settings", () => {
 				);
 				expect(savingButton.hasAttribute("disabled")).toBe(true);
 				expect(
-					screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
+					screen
+						.getByRole("button", { name: "Content language: Spanish" })
+						.hasAttribute("disabled"),
 				).toBe(true);
 
 				yield* Deferred.succeed(gate, undefined);
@@ -1398,7 +1399,7 @@ describe("preferences settings", () => {
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 				fireEvent.click(
-					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+					screen.getByRole("button", { name: "Content language: Same as interface language" }),
 				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -1418,14 +1419,16 @@ describe("preferences settings", () => {
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
 				fireEvent.click(
-					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+					screen.getByRole("button", { name: "Content language: Same as interface language" }),
 				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 				yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
 				expect(
-					screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
+					screen
+						.getByRole("button", { name: "Content language: Spanish" })
+						.hasAttribute("disabled"),
 				).toBe(false);
 				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 					false,
@@ -1451,19 +1454,19 @@ describe("preferences settings", () => {
 					}),
 				);
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Entity language: Same as interface language" }),
+					screen.findByRole("button", { name: "Content language: Same as interface language" }),
 				);
 
 				fireEvent.click(
-					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+					screen.getByRole("button", { name: "Content language: Same as interface language" }),
 				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
-				const language = screen.getByRole("button", { name: "Entity language: Spanish" });
+				const language = screen.getByRole("button", { name: "Content language: Spanish" });
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 				yield* Effect.promise(() => screen.findByText("Preferences saved."));
 				yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
-				expect(screen.getByRole("button", { name: "Entity language: Spanish" })).toBe(language);
+				expect(screen.getByRole("button", { name: "Content language: Spanish" })).toBe(language);
 				expect(
 					screen.queryByText("Could not load your settings. Check the server and try again."),
 				).toBeNull();

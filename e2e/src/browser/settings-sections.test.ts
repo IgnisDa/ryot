@@ -17,7 +17,7 @@ it.live("keeps account and server-wide sections on their own pages", () =>
 
 		yield* page.goto(`${getFrontendUrl()}/settings`);
 		yield* page.waitForURL((url) => url.pathname === "/settings/preferences");
-		yield* page.getByRole("button", { name: /^Entity language:/ }).waitFor({ state: "visible" });
+		yield* page.getByRole("button", { name: /^Content language:/ }).waitFor({ state: "visible" });
 		yield* settingsSidebar(page).getByRole("link", { name: "Plugin preferences" }).click();
 		yield* page.waitForURL((url) => url.pathname === "/settings/plugin-preferences");
 		yield* page.getByRole("heading", { level: 1, name: "Plugin preferences" }).waitFor();
