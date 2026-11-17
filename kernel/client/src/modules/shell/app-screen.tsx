@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { ActiveScreenContext } from "@ryot-app/plugin-client-sdk/react";
 import { ScreenBarButton, ScreenFrame, useFollowEnd } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -10,7 +13,7 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 import { useEdge, useShellChrome } from "#/modules/shell/authenticated-shell-context";
 
 type AppScreenProps = {
-	readonly title: string;
+	readonly title: Text;
 	readonly meta?: ReactNode;
 	readonly dock?: ReactNode;
 	readonly followEnd?: string;
@@ -25,6 +28,7 @@ type AppScreenProps = {
 };
 
 export function useScreenLeadingControl(backFallbackHref?: string) {
+	const t = useT();
 	const edge = useEdge();
 	const router = useRouter();
 	const navigate = useNavigate();
@@ -44,9 +48,9 @@ export function useScreenLeadingControl(backFallbackHref?: string) {
 		return (
 			<ScreenBarButton
 				onClick={onOpenDrawer}
-				label="Open navigation"
 				aria-controls={drawerId}
 				aria-expanded={isDrawerOpen}
+				label={t(kernelMessage("sdk.screen.open-navigation"))}
 				ref={(node) => {
 					triggerRef.current = node;
 				}}
@@ -57,7 +61,7 @@ export function useScreenLeadingControl(backFallbackHref?: string) {
 	}
 	if (edge.intent === "back" || backFallbackHref !== undefined) {
 		return (
-			<ScreenBarButton label="Go back" onClick={goBack}>
+			<ScreenBarButton onClick={goBack} label={t(kernelMessage("sdk.screen.go-back"))}>
 				<AppIcon size={22} name="chevron-left" />
 			</ScreenBarButton>
 		);

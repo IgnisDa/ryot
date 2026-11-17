@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button, TextField } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
@@ -17,16 +20,16 @@ export type CatalogPickerState<Source> =
 	| { readonly status: "ready"; readonly sources: readonly Source[] };
 
 export type CatalogPickerCopy = {
-	readonly emptyTitle: string;
-	readonly errorTitle: string;
-	readonly emptyDetail: string;
-	readonly errorDetail: string;
-	readonly searchLabel: string;
-	readonly loadingLabel: string;
-	readonly loadingDetail: string;
+	readonly emptyTitle: Text;
+	readonly errorTitle: Text;
+	readonly emptyDetail: Text;
+	readonly errorDetail: Text;
+	readonly searchLabel: Text;
+	readonly loadingLabel: Text;
+	readonly loadingDetail: Text;
 };
 
-export function CatalogPicker<Source extends { name: string; description: string }>(props: {
+export function CatalogPicker<Source>(props: {
 	readonly copy: CatalogPickerCopy;
 	readonly onChoose: (key: string) => void;
 	readonly state: CatalogPickerState<Source>;
@@ -34,6 +37,7 @@ export function CatalogPicker<Source extends { name: string; description: string
 	readonly toEntry: (source: Source) => CatalogEntry;
 	readonly chooseLabel: (entry: CatalogEntry) => string;
 }) {
+	const t = useT();
 	const [query, setQuery] = useState("");
 
 	if (props.state.status === "loading") {
@@ -55,7 +59,7 @@ export function CatalogPicker<Source extends { name: string; description: string
 				action={
 					props.onRetry === undefined ? undefined : (
 						<Button type="button" variant="secondary" onClick={props.onRetry}>
-							Try again
+							{t(kernelMessage("common.action.try-again"))}
 						</Button>
 					)
 				}
@@ -105,8 +109,8 @@ export function CatalogPicker<Source extends { name: string; description: string
 			{groups.length === 0 ? (
 				<StatusState
 					className="py-10"
-					title="Nothing matches that"
-					detail="Try a shorter word, or clear the search to see everything."
+					title={t(kernelMessage("client.ui.catalog.no-match-title"))}
+					detail={t(kernelMessage("client.ui.catalog.no-match-detail"))}
 					icon={<AppIcon size={36} name="search-x" className="text-text-subtle" />}
 				/>
 			) : (

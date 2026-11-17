@@ -1,9 +1,10 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
 type StatusStateProps = {
-	readonly title?: string;
-	readonly detail?: string;
+	readonly title?: Text;
+	readonly detail?: Text;
 	readonly icon?: ReactNode;
 	readonly action?: ReactNode;
 	readonly className?: string;

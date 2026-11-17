@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { PluginNavigationTarget } from "@ryot-app/plugin-client-contract";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import type { ManagedRuntime } from "effect";
@@ -7,17 +9,6 @@ import { type ApiScope, apiScopeKey } from "#/api/scope";
 import { DeviceService } from "#/modules/device/service";
 
 type DeviceRuntime = ManagedRuntime.ManagedRuntime<DeviceService, never>;
-
-export function DeviceLifecycle(props: { readonly runtime: DeviceRuntime }) {
-	useEffect(() => {
-		const service = props.runtime.runSync(DeviceService);
-		props.runtime.runFork(service.start);
-		return () => {
-			props.runtime.runFork(service.stop);
-		};
-	}, [props.runtime]);
-	return null;
-}
 
 export function DeviceScope(props: {
 	readonly scope: ApiScope;
@@ -36,6 +27,25 @@ export function DeviceScope(props: {
 	return null;
 }
 
+export function DeviceLifecycle(props: { readonly runtime: DeviceRuntime }) {
+	const t = useT();
+	const audible = t(kernelMessage("client.device.alert-channel.audible"));
+	const silent = t(kernelMessage("client.device.alert-channel.silent"));
+	useEffect(() => {
+		const service = props.runtime.runSync(DeviceService);
+		props.runtime.runFork(service.start);
+		return () => {
+			props.runtime.runFork(service.stop);
+		};
+	}, [props.runtime]);
+	useEffect(() => {
+		props.runtime.runFork(
+			props.runtime.runSync(DeviceService).nameAlertChannels({ silent, audible }),
+		);
+	}, [audible, props.runtime, silent]);
+	return null;
+}
+
 export function ReturnShortcutBar(props: {
 	readonly scope: ApiScope;
 	readonly runtime: DeviceRuntime;
@@ -43,6 +53,7 @@ export function ReturnShortcutBar(props: {
 	readonly onNavigate: (target: PluginNavigationTarget) => void;
 	readonly isCurrent: (target: PluginNavigationTarget) => boolean;
 }) {
+	const t = useT();
 	const service = props.runtime.runSync(DeviceService);
 	const shortcuts = useSyncExternalStore(service.subscribe, service.shortcuts, service.shortcuts);
 	const scoped = shortcuts.filter(
@@ -50,8 +61,8 @@ export function ReturnShortcutBar(props: {
 	);
 	return scoped.length === 0 ? null : (
 		<aside
-			aria-label="Return shortcuts"
 			style={{ paddingBottom: Math.max(8, props.safeAreaBottom) }}
+			aria-label={t(kernelMessage("client.device.return-shortcuts"))}
 			className="flex shrink-0 flex-wrap justify-center gap-2 border-t border-border bg-bg px-4 py-2"
 		>
 			{scoped.map((shortcut) => (
@@ -61,7 +72,7 @@ export function ReturnShortcutBar(props: {
 					key={shortcut.installationId}
 					onClick={() => props.onNavigate(shortcut.target)}
 				>
-					{shortcut.label}
+					{t(shortcut.label)}
 				</Button>
 			))}
 		</aside>

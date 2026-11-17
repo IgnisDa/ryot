@@ -1,4 +1,5 @@
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { Message } from "@ryot-app/i18n/message";
 import { PluginNavigationTarget } from "@ryot-app/plugin-client-contract";
 import { Schema } from "effect";
 
@@ -18,9 +19,9 @@ const Alert = Schema.Struct({
 	target: PluginNavigationTarget,
 });
 const Shortcut = Schema.Struct({
+	label: Message,
 	pluginId: PluginId,
 	scope: Schema.String,
-	label: Schema.String,
 	installationId: Schema.String,
 	target: PluginNavigationTarget,
 });

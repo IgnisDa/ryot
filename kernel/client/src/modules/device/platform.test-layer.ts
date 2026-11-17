@@ -7,5 +7,6 @@ export const noopDevicePlatform: DevicePlatform["Service"] = {
 	cancel: () => Effect.void,
 	haptic: () => Effect.void,
 	listen: () => Effect.void,
+	nameAlertChannels: () => Effect.void,
 	schedule: () => Effect.succeed({ status: "unsupported" }),
 };

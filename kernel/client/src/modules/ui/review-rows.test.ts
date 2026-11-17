@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { testFormatters, testKernelText } from "@ryot-app/kernel-messages/testing";
 
 import { schemaReviewRows } from "./review-rows";
 
@@ -39,7 +40,7 @@ describe("schema review rows", () => {
 			},
 		};
 		expect(
-			schemaReviewRows(schema, {
+			schemaReviewRows(testFormatters, testKernelText, schema, {
 				file: "private-upload-token",
 				accounts: [{ access: "rw", name: "Primary", token: "do-not-show" }],
 			}),

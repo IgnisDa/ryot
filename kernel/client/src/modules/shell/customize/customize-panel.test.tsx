@@ -8,12 +8,15 @@ import axe from "axe-core";
 import { Effect } from "effect";
 import { useState } from "react";
 
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import { CustomizePanel } from "#/modules/shell/customize/customize-panel";
 import {
 	type CustomizeDraft,
 	moveCustomizeItem,
 	toggleCustomizeItem,
 } from "#/modules/shell/customize/customize-state";
+
+const wrapper = testI18nWrapper();
 
 const item = (slug: string, pluginInstallationId: null | string, isHidden = false) => ({
 	slug,
@@ -59,7 +62,7 @@ function Harness(props: { readonly initial?: CustomizeDraft }) {
 
 describe("CustomizePanel", () => {
 	it("counts the pinned Home row in the Views heading", () => {
-		render(<Harness />);
+		render(<Harness />, { wrapper: wrapper });
 
 		expect(screen.getByText("Workspaces · 1 of 2 shown")).toBeDefined();
 		expect(screen.getByText("Views · 2 of 3 shown")).toBeDefined();
@@ -67,7 +70,7 @@ describe("CustomizePanel", () => {
 	});
 
 	it("shows Home as pinned and gives it no visibility switch", () => {
-		render(<Harness />);
+		render(<Harness />, { wrapper: wrapper });
 
 		expect(screen.getByText("Always shown")).toBeDefined();
 		expect(screen.queryByRole("switch", { name: "Show Home in sidebar" })).toBeNull();
@@ -75,7 +78,7 @@ describe("CustomizePanel", () => {
 	});
 
 	it("reflects a hidden view in its switch and updates the count when toggled", () => {
-		render(<Harness />);
+		render(<Harness />, { wrapper: wrapper });
 
 		const items = screen.getByRole("switch", { name: "Show ITEMS in sidebar" });
 		expect(screen.getByRole("switch", { name: "Show RECORDS in sidebar" }).ariaChecked).toBe(
@@ -88,7 +91,7 @@ describe("CustomizePanel", () => {
 	});
 
 	it("reorders a section with the keyboard", () => {
-		render(<Harness />);
+		render(<Harness />, { wrapper: wrapper });
 
 		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder ITEMS" }), { key: "ArrowDown" });
 
@@ -96,7 +99,7 @@ describe("CustomizePanel", () => {
 	});
 
 	it("shows hidden workspaces and reorders them with the keyboard", () => {
-		render(<Harness />);
+		render(<Harness />, { wrapper: wrapper });
 
 		expect(
 			screen.getByRole("switch", { name: "Show OTHER WORKSPACE in sidebar" }).ariaChecked,
@@ -111,7 +114,7 @@ describe("CustomizePanel", () => {
 	});
 
 	it("disables the switch for the final enabled workspace", () => {
-		render(<Harness />);
+		render(<Harness />, { wrapper: wrapper });
 
 		expect(
 			screen
@@ -126,7 +129,7 @@ describe("CustomizePanel", () => {
 	});
 
 	it("explains that collections are not customizable", () => {
-		render(<Harness />);
+		render(<Harness />, { wrapper: wrapper });
 
 		expect(
 			screen.getByText(
@@ -136,7 +139,9 @@ describe("CustomizePanel", () => {
 	});
 
 	it("shows the saved views empty state while keeping the pinned Home row", () => {
-		render(<Harness initial={{ views: [], workspaces: [], savedViews: [] }} />);
+		render(<Harness initial={{ views: [], workspaces: [], savedViews: [] }} />, {
+			wrapper: wrapper,
+		});
 
 		expect(screen.getByText("No saved views yet.")).toBeDefined();
 		expect(screen.getByText("Views · 1 of 1 shown")).toBeDefined();
@@ -146,7 +151,7 @@ describe("CustomizePanel", () => {
 		"passes an axe pass",
 		() =>
 			Effect.gen(function* () {
-				render(<Harness />);
+				render(<Harness />, { wrapper: wrapper });
 
 				const results = yield* Effect.promise(() =>
 					axe.run(document.body, {

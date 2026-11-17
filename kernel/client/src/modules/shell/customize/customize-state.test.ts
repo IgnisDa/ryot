@@ -8,6 +8,7 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
+import { testMessage } from "#/modules/i18n/provider.test-support";
 import {
 	type CustomizeDraft,
 	customizeSearchSection,
@@ -50,8 +51,8 @@ const workspace = (
 	homeSavedView: null,
 	clientEntities: null,
 	assistantStarters: null,
-	name: slug.toUpperCase(),
 	contentHash: `source-${slug}`,
+	name: testMessage(slug.toUpperCase()),
 	installationId: `installation-${slug}`,
 	pluginId: PluginId.make(`plugin-${slug}`),
 	packageId: PluginPackageId.make(`test/${slug}`),
@@ -87,7 +88,11 @@ describe("initCustomizeDraft", () => {
 			"installation-fixture",
 		]);
 		expect(draft.workspaces.map((item) => item.isHidden)).toEqual([true, false, false]);
-		expect(draft.workspaces[0]).toMatchObject({ icon: "plugin", isHidden: true, name: "DISABLED" });
+		expect(draft.workspaces[0]).toMatchObject({
+			icon: "plugin",
+			isHidden: true,
+			name: testMessage("DISABLED"),
+		});
 		expect(draft.views[0]?.pluginInstallationId).toBe("installation-fixture");
 	});
 

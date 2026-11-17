@@ -1,3 +1,5 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { useRouteContext } from "@tanstack/react-router";
@@ -15,8 +17,6 @@ import {
 } from "#/modules/shell/customize/customize-state";
 import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 
-const SAVE_ERROR = "Could not save sidebar changes.";
-
 export type CustomizeDraftState = ReturnType<typeof useCustomizeDraft>;
 
 type Session = {
@@ -32,7 +32,7 @@ export function useCustomizeDraft(props: {
 	readonly workspaceInstallationId: string | undefined;
 }) {
 	const { scope } = useRouteContext({ from: "/_authenticated" });
-	const [error, setError] = useState<null | string>(null);
+	const [error, setError] = useState<null | Message>(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [session, setSession] = useState<Session>(() => {
 		const initial = initCustomizeDraft(props);
@@ -79,7 +79,7 @@ export function useCustomizeDraft(props: {
 				},
 				onFailure: () => {
 					setIsSaving(false);
-					setError(SAVE_ERROR);
+					setError(kernelMessage("client.shell.customize.save-failed"));
 					return false;
 				},
 			}),

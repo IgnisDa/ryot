@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useSyncExternalStore } from "react";
@@ -14,6 +16,7 @@ type AccountSummaryProps = {
 };
 
 export function AccountSummary(props: AccountSummaryProps) {
+	const t = useT();
 	const snapshot = useSyncExternalStore(
 		props.session.subscribe,
 		props.session.getSnapshot,
@@ -25,9 +28,9 @@ export function AccountSummary(props: AccountSummaryProps) {
 	return (
 		<a
 			href="/settings"
-			aria-label="Open settings"
 			onClick={activateLink(props.onNavigate)}
 			aria-current={props.active ? "page" : undefined}
+			aria-label={t(kernelMessage("client.shell.account.open-settings"))}
 			className={clsx(
 				"flex items-center gap-2.5 rounded-md px-2 py-2",
 				props.active ? "bg-nav-indicator" : "hover:bg-hover",
@@ -38,7 +41,7 @@ export function AccountSummary(props: AccountSummaryProps) {
 				{props.isPro && (
 					<span
 						role="img"
-						aria-label="Ryot Pro"
+						aria-label={t(kernelMessage("client.shell.account.pro"))}
 						className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full border border-border bg-surface"
 					>
 						<AppIcon size={9} name="crown" className="text-accent-text" />

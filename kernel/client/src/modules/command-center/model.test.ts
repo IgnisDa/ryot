@@ -1,12 +1,16 @@
 import { describe, expect } from "bun:test";
 
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { SavedViewDisplayValue } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	EntitySchemaSlug,
 	PluginId,
 	PluginPackageId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
+import { testFormatters, testKernelText } from "@ryot-app/kernel-messages/testing";
+import { testCatalog } from "@ryot-app/plugin-client-sdk/testing";
+import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
@@ -33,6 +37,10 @@ import {
 	runLibrarySearch,
 	SEARCH_DEBOUNCE_MS,
 } from "#/modules/command-center/model";
+import { testTranslate } from "#/modules/i18n/provider.test-support";
+
+const displayValue = (value: SavedViewDisplayValue) =>
+	displayValueText(testKernelText, testFormatters, value);
 
 const entity = table("entity", "entity");
 
@@ -65,7 +73,7 @@ const dataSources = {
 };
 const libraryTransport =
 	<Failure>(read: () => Effect.Effect<LibrarySearchResult, Failure>) =>
-	(request: ExecutionRequest) =>
+	(request: PluginExecutionRequest) =>
 		read().pipe(
 			Effect.map((result) =>
 				request.source.kind === "savedView" && request.source.query === "librarySearchCount"
@@ -165,12 +173,13 @@ const navigation: NavigationData = {
 	],
 };
 
+const t = testTranslate([testCatalog("plugin-1", { "plugin.name": "Fixture" })]);
+
 const catalog: PluginClientCatalog = [
 	{
 		sortOrder: 0,
 		icon: "film",
 		scope: "system",
-		name: "Fixture",
 		health: "ready",
 		isHidden: false,
 		clientApiVersion: 1,
@@ -181,11 +190,11 @@ const catalog: PluginClientCatalog = [
 		installationId: "installation-1",
 		pluginId: PluginId.make("plugin-1"),
 		packageId: PluginPackageId.make("test/plugin-1"),
+		name: { key: "plugin.name", namespace: "plugin-1" },
 	},
 	{
 		sortOrder: 1,
 		icon: "film",
-		name: "Hidden",
 		isHidden: true,
 		scope: "system",
 		health: "ready",
@@ -197,6 +206,7 @@ const catalog: PluginClientCatalog = [
 		installationId: "installation-2",
 		pluginId: PluginId.make("plugin-2"),
 		packageId: PluginPackageId.make("test/plugin-2"),
+		name: { key: "plugin.name", namespace: "plugin-2" },
 	},
 ];
 
@@ -214,14 +224,17 @@ const searchResult = (...hits: readonly LibrarySearchHit[]): LibrarySearchResult
 	total: hits.length,
 });
 
-const views = (): readonly LibraryView[] => libraryViews([record("a"), record("b")]);
+const views = (): readonly LibraryView[] => libraryViews([record("a"), record("b")], t);
 
 const adders = (): readonly LibraryView[] =>
-	libraryViews([
-		record("shows", { settings: { ...settings, addAction: providerAction } }),
-		record("books"),
-		record("movies", { settings: { ...settings, addAction: providerAction } }),
-	]);
+	libraryViews(
+		[
+			record("shows", { settings: { ...settings, addAction: providerAction } }),
+			record("books"),
+			record("movies", { settings: { ...settings, addAction: providerAction } }),
+		],
+		t,
+	);
 
 const commitOf = (
 	query: string,
@@ -237,14 +250,13 @@ const commitOf = (
 });
 
 const groupLabels = (commit: LibraryCommit, filter = ALL_FILTER) =>
-	commandResults({ commit, filter, destinations: [] }).groups.map(({ heading, options }) => [
-		heading,
-		options.map(({ label }) => label),
-	]);
+	commandResults({ t, commit, filter, displayValue, destinations: [] }).groups.map(
+		({ heading, options }) => [heading, options.map(({ label }) => label)],
+	);
 
 describe("command center destinations", () => {
 	it("lists visible views, collections, visible workspaces, and kernel pages", () => {
-		const options = destinationOptions({ catalog, navigation });
+		const options = destinationOptions({ t, catalog, navigation });
 		const labels = options.map(({ label }) => label);
 
 		expect(labels).toEqual<unknown>(arrayContaining(["Queue", "Favorites", "Fixture", "Settings"]));
@@ -259,7 +271,7 @@ describe("command center destinations", () => {
 	});
 
 	it("matches case-insensitively by substring", () => {
-		const options = destinationOptions({ catalog, navigation });
+		const options = destinationOptions({ t, catalog, navigation });
 
 		expect(filterOptions(options, "  BACK").map(({ label }) => label)).toEqual(["Backups"]);
 		expect(filterOptions(options, "")).toHaveLength(options.length);
@@ -269,14 +281,17 @@ describe("command center destinations", () => {
 
 describe("command center library views", () => {
 	it("keeps only visible, searchable entity browsers with valid settings", () => {
-		const found = libraryViews([
-			record("keep"),
-			record("hidden", { isHidden: true }),
-			record("table", { renderer: { kind: "kernel", name: "results-table" } }),
-			record("no-sources", { dataSources: null }),
-			record("no-search", { settings: { ...settings, controls: {} } }),
-			record("broken", { settings: { nope: true } }),
-		]);
+		const found = libraryViews(
+			[
+				record("keep"),
+				record("hidden", { isHidden: true }),
+				record("table", { renderer: { kind: "kernel", name: "results-table" } }),
+				record("no-sources", { dataSources: null }),
+				record("no-search", { settings: { ...settings, controls: {} } }),
+				record("broken", { settings: { nope: true } }),
+			],
+			t,
+		);
 
 		expect(found.map(({ id }) => id)).toEqual(["keep"]);
 		expect(found[0]?.href).toBe("/v/c/keep");
@@ -459,8 +474,10 @@ describe("command center results", () => {
 			[shows, searchResult(hit("Dark"))],
 			[books, searchResult()],
 		]);
-		const destinations = destinationOptions({ catalog, navigation });
+		const destinations = destinationOptions({ t, catalog, navigation });
 		const results = commandResults({
+			t,
+			displayValue,
 			destinations,
 			filter: "gone",
 			commit: { ...commit, query: "customize" },
@@ -474,6 +491,8 @@ describe("command center results", () => {
 		]);
 		expect(
 			commandResults({
+				t,
+				displayValue,
 				destinations,
 				filter: PAGES_FILTER,
 				commit: { ...commit, query: "customize" },
@@ -498,6 +517,8 @@ describe("command center results", () => {
 	it("targets the provider action at the top hit's view and flags empty searches", () => {
 		const [shows, books, movies] = adders();
 		const withHit = commandResults({
+			t,
+			displayValue,
 			destinations: [],
 			filter: ALL_FILTER,
 			commit: commitOf("dune", [
@@ -507,6 +528,8 @@ describe("command center results", () => {
 			]),
 		});
 		const nothing = commandResults({
+			t,
+			displayValue,
 			destinations: [],
 			filter: ALL_FILTER,
 			commit: commitOf("zzz", [
@@ -524,15 +547,20 @@ describe("command center results", () => {
 
 	it("describes hits with their subtitle and shows art only for views that declare an image", () => {
 		const [plain] = adders();
-		const [pictured] = libraryViews([
-			record("pictured", {
-				settings: { ...settings, summary: { image: "cover", subtitle: null } },
-			}),
-		]);
+		const [pictured] = libraryViews(
+			[
+				record("pictured", {
+					settings: { ...settings, summary: { image: "cover", subtitle: null } },
+				}),
+			],
+			t,
+		);
 		const cover = { type: "remote", url: "https://example.com/dark.jpg" } as const;
 		const subtitle = { value: 2017, displayKind: "year" } as const;
 		const [option] =
 			commandResults({
+				t,
+				displayValue,
 				destinations: [],
 				filter: ALL_FILTER,
 				commit: commitOf("dark", [
@@ -549,6 +577,8 @@ describe("command center results", () => {
 		});
 		expect(
 			commandResults({
+				t,
+				displayValue,
 				destinations: [],
 				filter: ALL_FILTER,
 				commit: commitOf("dark", [[plain, searchResult(hit("Darker", 2))]]),

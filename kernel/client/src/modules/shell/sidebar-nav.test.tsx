@@ -10,13 +10,19 @@ import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
 
+import {
+	testI18nWrapper,
+	testMessage,
+	testMessageCatalog,
+} from "#/modules/i18n/provider.test-support";
 import { type SidebarAssistant, SidebarNav } from "#/modules/shell/sidebar-nav";
 import type { SidebarSections } from "#/modules/shell/sidebar-sections";
+
+const wrapper = testI18nWrapper([testMessageCatalog("Fixture")]);
 
 const current: PluginClientCatalogEntry = {
 	icon: "film",
 	sortOrder: 0,
-	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	scope: "system",
@@ -24,6 +30,7 @@ const current: PluginClientCatalogEntry = {
 	homeSavedView: null,
 	clientEntities: null,
 	assistantStarters: null,
+	name: testMessage("Fixture"),
 	contentHash: "source-fixture",
 	installationId: "installation-fixture",
 	pluginId: PluginId.make("plugin-fixture"),
@@ -114,6 +121,7 @@ const renderSidebar = (
 			onWorkspaceSwitcherOpenChange={() => undefined}
 			activeKey="view:/v/p/ryot/fixture/fixture-queue"
 		/>,
+		{ wrapper: wrapper },
 	);
 
 describe("sidebar navigation", () => {
@@ -186,6 +194,7 @@ describe("sidebar navigation", () => {
 					opened = true;
 				}}
 			/>,
+			{ wrapper: wrapper },
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "Open command center" }));
@@ -272,6 +281,7 @@ describe("sidebar overflow", () => {
 				onWorkspaceSwitcherOpenChange={() => undefined}
 				expandedSections={props.expanded === undefined ? {} : { savedViews: props.expanded }}
 			/>,
+			{ wrapper: wrapper },
 		);
 
 	it("shows seven views with a disclosure that reports its toggles", () => {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
 import { PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import { testKernelText } from "@ryot-app/kernel-messages/testing";
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
 
 import {
@@ -67,7 +69,11 @@ describe("sidebar sections", () => {
 			workspaceInstallationId: "installation-ryot/fixture",
 		});
 
-		expect(sections.views.map((item) => [item.name, item.kind])).toEqual([
+		expect<ReadonlyArray<readonly [string, string]>>(
+			sections.views.map(
+				(item) => [formatDisplayText(testKernelText, item.name), item.kind] as const,
+			),
+		).toEqual([
 			["Home", "home"],
 			["First", "view"],
 			["Later", "view"],
@@ -77,7 +83,7 @@ describe("sidebar sections", () => {
 			"First Collection",
 			"Second Collection",
 		]);
-		expect(workspaceSummary(sections)).toBe("3 views");
+		expect<string>(testKernelText(workspaceSummary(sections))).toBe("3 views");
 	});
 
 	it("pluralizes a Home-only workspace summary", () => {
@@ -87,7 +93,7 @@ describe("sidebar sections", () => {
 		});
 
 		expect(sections.views.map(sidebarItemKey)).toEqual(["home"]);
-		expect(workspaceSummary(sections)).toBe("1 view");
+		expect<string>(testKernelText(workspaceSummary(sections))).toBe("1 view");
 	});
 });
 

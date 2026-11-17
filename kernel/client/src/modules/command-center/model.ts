@@ -2,10 +2,16 @@ import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
-import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import {
+	EntityBrowserSavedViewSettings,
+	type SavedViewDisplayValue,
+} from "@ryot-app/contract/modules/saved-views/schemas";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import { decodeLibrarySearch } from "@ryot-app/ryotql-recipes/library-search";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
@@ -25,7 +31,8 @@ const LIBRARY_HITS_PER_VIEW = 8;
 const TOP_RESULT_LIMIT = 5;
 const PAGE_PREVIEW_LIMIT = 3;
 
-export const GO_TO_GROUP = "Go to";
+type Translate = (message: Message) => Text;
+
 export const ALL_FILTER = "all";
 export const PAGES_FILTER = "pages";
 
@@ -33,7 +40,7 @@ export type ViewOutcome = Result.Result<LibrarySearchResult, "failed">;
 
 export type CommandFilter = {
 	readonly key: string;
-	readonly label: string;
+	readonly label: Text;
 	readonly count?: number | undefined;
 };
 
@@ -84,72 +91,75 @@ const matchesText = (text: string, query: string) =>
 	text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
 
 export const destinationOptions = (input: {
+	readonly t: Translate;
 	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
-}): readonly CommandOption[] => [
-	...input.navigation.savedViews
-		.filter((view) => !view.isHidden)
-		.map((view) => ({
-			icon: view.icon,
-			label: view.name,
-			group: GO_TO_GROUP,
-			href: navigationViewHref(view),
-			id: `view:${navigationViewHref(view)}`,
+}): readonly CommandOption[] => {
+	const { t } = input;
+	const group = t(kernelMessage("client.command-center.go-to"));
+	const settings = t(kernelMessage("client.settings.title"));
+	return [
+		...input.navigation.savedViews
+			.filter((view) => !view.isHidden)
+			.map((view) => ({
+				group,
+				icon: view.icon,
+				href: navigationViewHref(view),
+				id: `view:${navigationViewHref(view)}`,
+				label: formatDisplayText(t, view.name),
+			})),
+		...input.navigation.collections.map((collection) => ({
+			group,
+			icon: collection.icon,
+			label: collection.name,
+			id: `collection:${collection.slug}`,
+			href: `/e/${encodeURIComponent(collection.slug)}`,
 		})),
-	...input.navigation.collections.map((collection) => ({
-		group: GO_TO_GROUP,
-		icon: collection.icon,
-		label: collection.name,
-		id: `collection:${collection.slug}`,
-		href: `/e/${encodeURIComponent(collection.slug)}`,
-	})),
-	...input.catalog
-		.filter(({ health, isHidden }) => health === "ready" && !isHidden)
-		.map((plugin) => ({
-			icon: plugin.icon,
-			label: plugin.name,
-			group: GO_TO_GROUP,
-			description: "Workspace",
-			href: pluginPath(plugin.packageId),
-			id: `plugin:${plugin.installationId}`,
-		})),
-	{
-		href: "/assistant",
-		group: GO_TO_GROUP,
-		icon: "message-circle",
-		id: "kernel:assistant",
-		label: `${ASSISTANT_NAME} conversations`,
-	},
-	{
-		icon: "settings",
-		label: "Settings",
-		href: "/settings",
-		group: GO_TO_GROUP,
-		id: "kernel:settings",
-	},
-	...settingsGroups.flatMap((group) =>
-		group.sections.map((section) => ({
-			icon: section.icon,
-			href: section.path,
-			group: GO_TO_GROUP,
-			label: section.label,
-			description: "Settings",
-			id: `settings:${section.slug}`,
-		})),
-	),
-	{
-		group: GO_TO_GROUP,
-		icon: "sliders-horizontal",
-		label: "Customize sidebar",
-		href: "/customize-sidebar",
-		id: "kernel:customize-sidebar",
-	},
-];
+		...input.catalog
+			.filter(({ health, isHidden }) => health === "ready" && !isHidden)
+			.map((plugin) => ({
+				group,
+				icon: plugin.icon,
+				label: t(plugin.name),
+				href: pluginPath(plugin.packageId),
+				id: `plugin:${plugin.installationId}`,
+				description: t(kernelMessage("client.shell.sidebar.workspace")),
+			})),
+		{
+			group,
+			href: "/assistant",
+			icon: "message-circle",
+			id: "kernel:assistant",
+			label: t(kernelMessage("client.route.assistant.conversations", { name: ASSISTANT_NAME })),
+		},
+		{ group, label: settings, icon: "settings", href: "/settings", id: "kernel:settings" },
+		...settingsGroups.flatMap((settingsGroup) =>
+			settingsGroup.sections.map((section) => ({
+				group,
+				icon: section.icon,
+				href: section.path,
+				description: settings,
+				id: `settings:${section.slug}`,
+				label: formatDisplayText(t, section.label),
+			})),
+		),
+		{
+			group,
+			href: "/customize-sidebar",
+			icon: "sliders-horizontal",
+			id: "kernel:customize-sidebar",
+			label: t(kernelMessage("client.shell.customize.title")),
+		},
+	];
+};
 
 export const filterOptions = (options: readonly CommandOption[], query: string) =>
 	query.trim() === "" ? options : options.filter(({ label }) => matchesText(label, query));
 
-export const libraryViews = (records: readonly SavedViewRecord[]): readonly LibraryView[] =>
+export const libraryViews = (
+	records: readonly SavedViewRecord[],
+	t: Translate,
+): readonly LibraryView[] =>
 	records.flatMap((record): readonly LibraryView[] => {
 		const dataSources = record.dataSources;
 		if (
@@ -176,15 +186,15 @@ export const libraryViews = (records: readonly SavedViewRecord[]): readonly Libr
 				dataSources,
 				id: record.id,
 				icon: record.icon,
-				name: record.name,
 				settings: settings.success,
 				reference: record.reference,
+				name: formatDisplayText(t, record.name),
 				providerAdd: settings.success.addAction?.type === "provider-search",
 			},
 		];
 	});
 
-type LibraryExecute<Failure> = (request: ExecutionRequest) => Effect.Effect<unknown, Failure>;
+type LibraryExecute<Failure> = (request: PluginExecutionRequest) => Effect.Effect<unknown, Failure>;
 const searchLibraryView = <Failure>(
 	view: LibraryView,
 	query: string,
@@ -269,17 +279,23 @@ export const runLibrarySearch = <Failure>(input: {
 		yield* Fiber.join(searches);
 	});
 
-const providerOption = (view: LibraryView, query: string): CommandOption => ({
+const providerOption = (t: Translate, view: LibraryView, query: string): CommandOption => ({
 	icon: "plus",
-	group: "Actions",
 	id: `add:${view.id}`,
 	description: view.name,
-	label: `Search providers for "${query}"`,
+	group: t(kernelMessage("client.command-center.actions")),
+	label: t(kernelMessage("client.command-center.search-providers", { query })),
 	href: `${view.href}?${new URLSearchParams({ q: query, add: "true" }).toString()}`,
 });
 
-const hitOption = (view: LibraryView, hit: LibrarySearchHit): CommandOption => {
-	const subtitle = hit.subtitle === null ? "" : displayValueText(hit.subtitle);
+type DisplayValueText = (value: SavedViewDisplayValue) => string;
+
+const hitOption = (
+	displayValue: DisplayValueText,
+	view: LibraryView,
+	hit: LibrarySearchHit,
+): CommandOption => {
+	const subtitle = hit.subtitle === null ? "" : displayValue(hit.subtitle);
 	return {
 		tag: view.name,
 		icon: view.icon,
@@ -303,17 +319,28 @@ const rankedHits = (found: readonly FoundView[], query: string) => {
 };
 
 export const idleGroups = (input: {
+	readonly t: Translate;
 	readonly recents: readonly CommandOption[];
 	readonly destinations: readonly CommandOption[];
 }): readonly CommandGroup[] =>
 	[
-		{ key: "recents", heading: "Recent", options: input.recents },
-		{ key: "go-to", heading: GO_TO_GROUP, options: input.destinations },
+		{
+			key: "recents",
+			options: input.recents,
+			heading: input.t(kernelMessage("client.command-center.recent")),
+		},
+		{
+			key: "go-to",
+			options: input.destinations,
+			heading: input.t(kernelMessage("client.command-center.go-to")),
+		},
 	].filter(({ options }) => options.length > 0);
 
 export const commandResults = (input: {
+	readonly t: Translate;
 	readonly filter: string;
 	readonly commit: LibraryCommit;
+	readonly displayValue: DisplayValueText;
 	readonly destinations: readonly CommandOption[];
 }): CommandResults => {
 	const { query, outcomes } = input.commit;
@@ -324,10 +351,16 @@ export const commandResults = (input: {
 	);
 	const failed = outcomes.flatMap(({ view, outcome }) => (Result.isFailure(outcome) ? [view] : []));
 	const pages = filterOptions(input.destinations, query);
+	const pagesHeading = input.t(kernelMessage("client.settings.section.pages"));
+	const actionsHeading = input.t(kernelMessage("client.command-center.actions"));
 	const filters: readonly CommandFilter[] = [
-		{ label: "All", key: ALL_FILTER },
-		...found.map(({ view, result }) => ({ key: view.id, label: view.name, count: result.total })),
-		...(pages.length > 0 ? [{ label: "Pages", key: PAGES_FILTER, count: pages.length }] : []),
+		{ key: ALL_FILTER, label: input.t(kernelMessage("client.command-center.all")) },
+		...found.map(({ view, result }) => ({
+			key: view.id,
+			count: result.total,
+			label: formatDisplayText(input.t, view.name),
+		})),
+		...(pages.length > 0 ? [{ key: PAGES_FILTER, count: pages.length, label: pagesHeading }] : []),
 	];
 	const filter = filters.some(({ key }) => key === input.filter) ? input.filter : ALL_FILTER;
 	if (filter === PAGES_FILTER) {
@@ -336,7 +369,7 @@ export const commandResults = (input: {
 			failed,
 			filters,
 			empty: false,
-			groups: [{ key: "pages", options: pages, heading: "Pages" }],
+			groups: [{ key: "pages", options: pages, heading: pagesHeading }],
 		};
 	}
 	const scoped = found.find(({ view }) => view.id === filter);
@@ -351,10 +384,16 @@ export const commandResults = (input: {
 					key: scoped.view.id,
 					heading: scoped.view.name,
 					count: scoped.result.total,
-					options: scoped.result.hits.map((hit) => hitOption(scoped.view, hit)),
+					options: scoped.result.hits.map((hit) => hitOption(input.displayValue, scoped.view, hit)),
 				},
 				...(scoped.view.providerAdd
-					? [{ key: "actions", heading: "Actions", options: [providerOption(scoped.view, query)] }]
+					? [
+							{
+								key: "actions",
+								heading: actionsHeading,
+								options: [providerOption(input.t, scoped.view, query)],
+							},
+						]
 					: []),
 			],
 		};
@@ -368,15 +407,15 @@ export const commandResults = (input: {
 	const groups: readonly CommandGroup[] = [
 		{
 			key: "top",
-			heading: "Top results",
-			options: top.map(({ hit, view }) => hitOption(view, hit)),
 			count: found.reduce((total, { result }) => total + result.total, 0),
+			heading: input.t(kernelMessage("client.command-center.top-results")),
+			options: top.map(({ hit, view }) => hitOption(input.displayValue, view, hit)),
 		},
-		{ key: "pages", heading: "Pages", options: pages.slice(0, PAGE_PREVIEW_LIMIT) },
+		{ key: "pages", heading: pagesHeading, options: pages.slice(0, PAGE_PREVIEW_LIMIT) },
 		{
 			key: "actions",
-			heading: "Actions",
-			options: providerView === undefined ? [] : [providerOption(providerView, query)],
+			heading: actionsHeading,
+			options: providerView === undefined ? [] : [providerOption(input.t, providerView, query)],
 		},
 	];
 	return {

@@ -1,13 +1,15 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { useSyncExternalStore } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
 
-export const DEMO_PROTECTION_MESSAGE =
-	"This operation is unavailable while using the shared demo account.";
+export const demoProtectionMessage = kernelMessage("client.demo-protection.unavailable");
 
 export function DemoProtectionMessage() {
-	return <StatusMessage tone="pending">{DEMO_PROTECTION_MESSAGE}</StatusMessage>;
+	const t = useT();
+	return <StatusMessage tone="pending">{t(demoProtectionMessage)}</StatusMessage>;
 }
 
 export function useIsDemoSession(session: AuthSessionStore) {

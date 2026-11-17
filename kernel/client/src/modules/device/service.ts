@@ -1,4 +1,6 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
+import { stampNamespace } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
 import type {
 	PluginDeviceOutcome,
 	PluginDeviceRequest,
@@ -22,6 +24,8 @@ import { ClientStorage } from "#/persistence/storage";
 const MAX_PATH_LENGTH = 512;
 const MAX_SEARCH_LENGTH = 1024;
 
+export type AlertChannelNames = { readonly silent: Text; readonly audible: Text };
+
 type ScheduleRequest = Extract<PluginDeviceRequest, { action: "schedule" }>;
 
 export class DevicePlatformError extends Schema.TaggedError<
@@ -30,6 +34,11 @@ export class DevicePlatformError extends Schema.TaggedError<
 >()("DevicePlatformError", { cause: Schema.Unknown }) {}
 
 export const platformError = (cause: unknown) => new DevicePlatformError({ cause });
+
+export class AlertChannelsUnsupported extends Schema.TaggedError<
+	AlertChannelsUnsupported,
+	{ readonly brand: unique symbol }
+>()("AlertChannelsUnsupported", {}) {}
 
 export class DevicePlatform extends Context.Service<
 	DevicePlatform,
@@ -41,6 +50,9 @@ export class DevicePlatform extends Context.Service<
 			id: number,
 			request: ScheduleRequest,
 		) => Effect.Effect<PluginDeviceResult, DevicePlatformError>;
+		readonly nameAlertChannels: (
+			names: AlertChannelNames,
+		) => Effect.Effect<void, DevicePlatformError | AlertChannelsUnsupported>;
 		readonly listen: (
 			tap: (id: number) => void,
 			foreground: (active: boolean) => void,
@@ -68,6 +80,8 @@ export class DeviceService extends Context.Service<DeviceService>()(
 			let awake = false;
 			let pendingTap: number | undefined;
 			let listenerScope: undefined | Scope.Closeable;
+			let channelNames: undefined | AlertChannelNames;
+			let channelsNamed: undefined | AlertChannelNames;
 			let navigate: undefined | ((target: PluginNavigationTarget) => void);
 			const publish = () => listeners.forEach((listener) => listener());
 			const load = Effect.gen(function* () {
@@ -90,6 +104,16 @@ export class DeviceService extends Context.Service<DeviceService>()(
 					yield* platform.awake(enabled);
 					awake = enabled;
 				}
+			});
+			const ensureChannels = Effect.gen(function* () {
+				const names = channelNames;
+				if (names === undefined || channelsNamed === names) {
+					return;
+				}
+				yield* platform
+					.nameAlertChannels(names)
+					.pipe(Effect.catchTag("AlertChannelsUnsupported", () => Effect.void));
+				channelsNamed = names;
 			});
 			const routeTap = () => {
 				const alert = state.alerts.find(({ id }) => id === pendingTap);
@@ -242,10 +266,11 @@ export class DeviceService extends Context.Service<DeviceService>()(
 											? []
 											: [
 													{
-														...request.shortcut,
 														scope: key,
 														pluginId: request.pluginId,
+														target: request.shortcut.target,
 														installationId: owner.installationId,
+														label: stampNamespace(request.pluginId, request.shortcut.label),
 													},
 												]),
 									],
@@ -280,6 +305,7 @@ export class DeviceService extends Context.Service<DeviceService>()(
 											},
 										],
 									});
+									yield* ensureChannels;
 									value = yield* platform.schedule(id, request);
 								}
 							}
@@ -317,6 +343,18 @@ export class DeviceService extends Context.Service<DeviceService>()(
 						yield* updateAwake();
 					}).pipe(Effect.uninterruptible),
 				),
+				/** Failures are retried before the next alert is scheduled, with the latest names. */
+				nameAlertChannels: (names: AlertChannelNames) =>
+					mutex.withPermit(
+						Effect.suspend(() => {
+							channelNames = names;
+							return ensureChannels;
+						}).pipe(
+							Effect.catchTag("DevicePlatformError", (error) =>
+								Effect.logWarning("Naming native alert channels failed", error.cause),
+							),
+						),
+					),
 			};
 		}),
 	},

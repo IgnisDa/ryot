@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testCatalog } from "@ryot-app/plugin-client-sdk/testing";
+
+import { testTranslate } from "#/modules/i18n/provider.test-support";
 
 import {
 	availableCatalogEntries,
@@ -8,7 +11,6 @@ import {
 	findBySlug,
 	groupCatalogEntries,
 	pluginCatalogGroup,
-	pluginHeading,
 } from "./selection";
 
 const source = (input: {
@@ -25,22 +27,33 @@ const source = (input: {
 	description: input.description ?? `${input.name} description`,
 });
 
+const t = testTranslate([
+	testCatalog("owner-a", { "plugin.name": "Whiskey" }),
+	testCatalog("owner-b", { "plugin.name": "Whiskey" }),
+]);
+
 it("distinguishes equal plugin names with exact owner keys and scoped package labels", () => {
-	const first = pluginCatalogGroup({
-		name: "Whiskey",
-		pluginScope: "system",
-		packageId: PluginPackageId.make("acme/whiskey"),
-		reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-a") } },
-	});
-	const second = pluginCatalogGroup({
-		name: "Whiskey",
-		pluginScope: "user",
-		packageId: PluginPackageId.make("home/whiskey"),
-		reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-b") } },
-	});
+	const first = pluginCatalogGroup(
+		{
+			pluginScope: "system",
+			packageId: PluginPackageId.make("acme/whiskey"),
+			pluginName: { key: "plugin.name", namespace: "owner-a" },
+			reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-a") } },
+		},
+		t,
+	);
+	const second = pluginCatalogGroup(
+		{
+			pluginScope: "user",
+			packageId: PluginPackageId.make("home/whiskey"),
+			pluginName: { key: "plugin.name", namespace: "owner-b" },
+			reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-b") } },
+		},
+		t,
+	);
 	expect(first.key).not.toBe(second.key);
-	expect(first.heading).toBe("Whiskey · System · acme/whiskey");
-	expect(second.heading).toBe("Whiskey · Private · home/whiskey");
+	expect<string>(first.heading).toBe("Whiskey · System · acme/whiskey");
+	expect<string>(second.heading).toBe("Whiskey · Private · home/whiskey");
 });
 
 const toEntry = (item: ReturnType<typeof source>): CatalogEntry => ({
@@ -49,8 +62,8 @@ const toEntry = (item: ReturnType<typeof source>): CatalogEntry => ({
 	name: item.name,
 	description: item.description,
 	isAvailable: item.isAvailable,
+	group: { key: item.packageId, heading: item.packageId },
 	requirement: item.isAvailable ? undefined : "Not ready.",
-	group: { key: item.packageId, heading: pluginHeading(item.packageId) },
 });
 
 const fixture = PluginPackageId.make("ryot/fixture");
@@ -63,15 +76,10 @@ const sources = [
 ];
 
 describe("catalog selection", () => {
-	it("titles plugin headings from the package name", () => {
-		expect(pluginHeading(fixture)).toBe("Fixture");
-		expect(pluginHeading(PluginPackageId.make("test/my-other-plugin"))).toBe("My Other Plugin");
-	});
-
 	it("groups by the group each entry names and sorts entries by name", () => {
 		const groups = groupCatalogEntries(sources, "", toEntry);
 
-		expect(groups.map((group) => group.heading)).toEqual(["Fixture", "Other Tracker"]);
+		expect(groups.map((group) => group.heading)).toEqual(["ryot/fixture", "test/other-tracker"]);
 		expect(groups.map((group) => group.key)).toEqual(["ryot/fixture", "test/other-tracker"]);
 		expect(groups[0]?.entries.map((entry) => entry.name)).toEqual([
 			"Alpha Service",

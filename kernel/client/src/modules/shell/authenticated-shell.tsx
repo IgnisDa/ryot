@@ -4,6 +4,10 @@ import {
 	pluginPackageIdFromSegments,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { DisplayText } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/plugin-client-contract";
 import { Button, Modal, useShortcut, useValueChange } from "@ryot-app/plugin-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
@@ -86,6 +90,7 @@ export function AuthenticatedShell(props: {
 	readonly navigation: NavigationData;
 	readonly initialRememberedPluginId: null | PluginId;
 }) {
+	const t = useT();
 	const drawerId = useId();
 	const router = useRouter();
 	const navigate = useNavigate();
@@ -178,7 +183,9 @@ export function AuthenticatedShell(props: {
 		}
 	});
 	const pluginTitle =
-		pluginHeader !== null && matchesEntry(pluginHeader, entry) ? pluginHeader.title : null;
+		pluginHeader !== null && matchesEntry(pluginHeader, entry) && pluginHeader.title !== null
+			? formatDisplayText(t, pluginHeader.title)
+			: null;
 	const { session, stopError, stopPending, authSnapshot, impersonation, stopImpersonation } =
 		useAuthenticatedSession(runtime, server);
 	const isDemo = useIsDemoSession(session);
@@ -492,6 +499,7 @@ export function AuthenticatedShell(props: {
 				onReload={() => window.location.reload()}
 				safeAreaBottom={safeAreaInsets.safeAreaBottom}
 				entries={assistantAttentionEntries({
+					t,
 					dismissed: dismissedAttention,
 					onReview: assistantPanel.show,
 					conversations: activity.attention,
@@ -504,29 +512,33 @@ export function AuthenticatedShell(props: {
 			/>
 			{discarding && (
 				<Modal
-					label="Discard sidebar changes?"
-					closeLabel="Dismiss discard prompt"
 					onClose={() => setDiscarding(false)}
 					onInterceptBack={interceptDiscardBack}
 					containerClassName="items-center justify-center p-4"
+					label={t(kernelMessage("client.shell.discard.title"))}
+					closeLabel={t(kernelMessage("client.shell.discard.dismiss"))}
 					className="w-full max-w-sm rounded-xl border border-border bg-surface p-5 shadow-card"
 				>
-					<h2 className="font-display text-lg font-semibold text-text">Discard sidebar changes?</h2>
-					<p className="mt-2 text-sm text-text-muted">Your unsaved sidebar changes will be lost.</p>
+					<h2 className="font-display text-lg font-semibold text-text">
+						{t(kernelMessage("client.shell.discard.title"))}
+					</h2>
+					<p className="mt-2 text-sm text-text-muted">
+						{t(kernelMessage("client.shell.discard.detail"))}
+					</p>
 					<div className="mt-4 flex justify-end gap-2">
 						<button
 							type="button"
 							onClick={() => setDiscarding(false)}
 							className="rounded-lg px-3 py-2 text-sm font-medium text-text-muted"
 						>
-							Keep editing
+							{t(kernelMessage("client.shell.discard.keep"))}
 						</button>
 						<button
 							type="button"
 							onClick={leaveCustomize}
 							className="rounded-lg bg-danger-solid px-3 py-2 text-sm font-medium text-danger-ink"
 						>
-							Discard
+							{t(kernelMessage("client.shell.discard.confirm"))}
 						</button>
 					</div>
 				</Modal>
@@ -564,13 +576,10 @@ function ImpersonationBanner(props: {
 	readonly pending: boolean;
 	readonly expiresAt: number;
 	readonly onStop: () => void;
-	readonly error: string | undefined;
+	readonly error: undefined | DisplayText;
 	readonly user: { readonly name: string; readonly email: string };
 }) {
-	const expiration = new Intl.DateTimeFormat(undefined, {
-		timeStyle: "short",
-		dateStyle: "medium",
-	}).format(new Date(props.expiresAt));
+	const t = useT();
 	return (
 		<aside
 			role="status"
@@ -578,11 +587,23 @@ function ImpersonationBanner(props: {
 			className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-2 px-4 py-2 text-sm text-text"
 		>
 			<p>
-				Impersonating <strong>{props.user.name}</strong> ({props.user.email}) until {expiration}.
+				{t(
+					kernelMessage("client.shell.impersonation.banner", {
+						name: props.user.name,
+						email: props.user.email,
+						expiration: new Date(props.expiresAt),
+					}),
+				)}
 			</p>
-			{props.error && <p role="alert">{props.error}</p>}
+			{props.error && <p role="alert">{formatDisplayText(t, props.error)}</p>}
 			<Button type="button" variant="secondary" onClick={props.onStop} disabled={props.pending}>
-				{props.pending ? "Stopping..." : "Stop impersonating"}
+				{t(
+					kernelMessage(
+						props.pending
+							? "client.shell.impersonation.stopping"
+							: "client.shell.impersonation.stop",
+					),
+				)}
 			</Button>
 		</aside>
 	);

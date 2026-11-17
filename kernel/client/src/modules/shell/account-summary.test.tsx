@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { render, screen } from "@testing-library/react";
 
 import type { AuthSessionSnapshot, AuthSessionStore } from "#/modules/auth/service";
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import { AccountSummary } from "#/modules/shell/account-summary";
 
 const session = (initial: AuthSessionSnapshot): AuthSessionStore => {
@@ -40,6 +41,7 @@ describe("account summary", () => {
 					},
 				})}
 			/>,
+			{ wrapper: testI18nWrapper() },
 		);
 		const settings = screen.getByRole("link", { name: "Open settings" });
 
@@ -58,6 +60,7 @@ describe("account summary", () => {
 				onNavigate={() => undefined}
 				session={session(authenticated)}
 			/>,
+			{ wrapper: testI18nWrapper() },
 		);
 
 		expect(screen.getByRole("img", { name: "Ryot Pro" })).not.toBeNull();
@@ -71,6 +74,7 @@ describe("account summary", () => {
 				onNavigate={() => undefined}
 				session={session(authenticated)}
 			/>,
+			{ wrapper: testI18nWrapper() },
 		);
 
 		expect(screen.queryByRole("img", { name: "Ryot Pro" })).toBeNull();

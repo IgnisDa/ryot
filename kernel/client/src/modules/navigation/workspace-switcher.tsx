@@ -1,3 +1,9 @@
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { KERNEL_SHORTCUTS } from "@ryot-app/plugin-client-contract";
 import {
 	OverlayScope,
@@ -19,7 +25,7 @@ import { visibleWorkspaces, type WorkspaceTarget } from "#/modules/navigation/wo
 
 type WorkspaceSwitcherProps = {
 	readonly open: boolean;
-	readonly summary: string;
+	readonly summary: Message;
 	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
 	readonly showShortcut?: boolean | undefined;
@@ -29,20 +35,30 @@ type WorkspaceSwitcherProps = {
 	readonly onSelect: (workspace: WorkspaceTarget) => void | Promise<void>;
 };
 
-export function workspacePickerSummary(data: NavigationData, installationId: string) {
+export function workspacePickerSummary(
+	formatters: Formatters,
+	data: NavigationData,
+	installationId: string,
+	t: (message: Message) => Text,
+) {
 	const views = data.savedViews
 		.filter((item) => item.pluginInstallationId === installationId && !item.isHidden)
 		.sort((a, b) => a.sortOrder - b.sortOrder);
 	if (views.length === 0) {
-		return "Custom workspace · 0 views";
+		return t(kernelMessage("client.navigation.workspace-switcher.empty"));
 	}
 
-	const names = views.slice(0, 3).map((item) => item.name);
+	const names = views.slice(0, 3).map((item) => formatDisplayText(t, item.name));
 	const remaining = views.length - names.length;
-	return `${names.join(", ")}${remaining > 0 ? ` +${remaining}` : ""}`;
+	const list = formatters.list({ type: "unit", style: "short" }).format(names);
+	return remaining > 0
+		? t(kernelMessage("client.navigation.workspace-switcher.more", { remaining, names: list }))
+		: list;
 }
 
 export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
+	const t = useT();
+	const formatters = useFormatters();
 	const menuId = useId();
 	const trigger = useRef<HTMLButtonElement>(null);
 	const container = useRef<HTMLDivElement>(null);
@@ -126,8 +142,14 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					}
 					aria-label={
 						props.current === null
-							? "No workspace, Plugin workspace"
-							: `${props.current.name} workspace, ${props.current.scope}, ${props.current.packageId}`
+							? t(kernelMessage("client.navigation.workspace-switcher.none-label"))
+							: t(
+									kernelMessage("client.navigation.workspace-switcher.current", {
+										scope: props.current.scope,
+										name: t(props.current.name),
+										packageId: props.current.packageId,
+									}),
+								)
 					}
 				>
 					<span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
@@ -135,9 +157,11 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					</span>
 					<span className="min-w-0 flex-1">
 						<span className="block truncate text-sm font-medium text-text">
-							{props.current?.name ?? "No workspace"}
+							{props.current === null
+								? t(kernelMessage("client.navigation.workspace-switcher.none"))
+								: t(props.current.name)}
 						</span>
-						<span className="block truncate text-xs text-text-muted">{props.summary}</span>
+						<span className="block truncate text-xs text-text-muted">{t(props.summary)}</span>
 					</span>
 					{props.showShortcut === true && (
 						<ShortcutHint shortcut={KERNEL_SHORTCUTS.workspaceSwitcher} />
@@ -149,7 +173,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					<div
 						id={menuId}
 						role="menu"
-						aria-label="Workspaces"
+						aria-label={t(kernelMessage("client.shell.section.workspaces"))}
 						onBlur={(event) => {
 							if (!event.currentTarget.contains(event.relatedTarget)) {
 								close(false);
@@ -188,11 +212,15 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									onClick={() => select(workspace)}
 									onFocus={() => setActiveIndex(index)}
 									tabIndex={index === activeIndex ? 0 : -1}
-									aria-label={`Switch to ${workspace.name} workspace`}
 									title={`${workspace.packageId} · ${workspace.pluginId}`}
 									ref={(item) => {
 										items.current[index] = item;
 									}}
+									aria-label={t(
+										kernelMessage("client.navigation.workspace-switcher.switch", {
+											name: t(workspace.name),
+										}),
+									)}
 									className={clsx(
 										"flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left",
 										isCurrent ? "bg-accent-soft" : "hover:bg-surface-2",
@@ -207,9 +235,14 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 										<AppIcon size={17} name={workspace.icon} />
 									</span>
 									<span className="min-w-0 flex-1">
-										<span className="block truncate text-sm text-text">{workspace.name}</span>
+										<span className="block truncate text-sm text-text">{t(workspace.name)}</span>
 										<span className="block truncate text-xs text-text-muted">
-											{workspacePickerSummary(props.navigation, workspace.installationId)}
+											{workspacePickerSummary(
+												formatters,
+												props.navigation,
+												workspace.installationId,
+												t,
+											)}
 										</span>
 									</span>
 									<AppIcon
@@ -227,16 +260,18 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									type="button"
 									role="menuitem"
 									onClick={customize}
-									aria-label="Customize sidebar"
 									onFocus={() => setActiveIndex(workspaces.length)}
 									tabIndex={activeIndex === workspaces.length ? 0 : -1}
+									aria-label={t(kernelMessage("client.shell.customize.title"))}
 									ref={(item) => {
 										items.current[workspaces.length] = item;
 									}}
 									className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left hover:bg-surface"
 								>
 									<AppIcon size={16} name="sliders-horizontal" className="text-text-muted" />
-									<span className="text-sm font-medium text-text">Customize sidebar…</span>
+									<span className="text-sm font-medium text-text">
+										{t(kernelMessage("client.navigation.workspace-switcher.customize"))}
+									</span>
 								</button>
 							</>
 						)}

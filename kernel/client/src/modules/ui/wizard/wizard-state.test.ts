@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { testKernelText } from "@ryot-app/kernel-messages/testing";
+
 import { createWizardState, WIZARD_STEPS, wizardReducer, wizardStepLabel } from "./wizard-state";
 
 const headings = {
@@ -18,8 +20,10 @@ describe("wizard state", () => {
 	});
 
 	it("numbers each step for the header", () => {
-		expect(wizardStepLabel("pick", WIZARD_STEPS, headings)).toBe("Step 1 of 3 · Choose a service");
-		expect(wizardStepLabel("review", WIZARD_STEPS, headings)).toBe(
+		expect<string>(testKernelText(wizardStepLabel("pick", WIZARD_STEPS, headings))).toBe(
+			"Step 1 of 3 · Choose a service",
+		);
+		expect<string>(testKernelText(wizardStepLabel("review", WIZARD_STEPS, headings))).toBe(
 			"Step 3 of 3 · Review and start",
 		);
 	});

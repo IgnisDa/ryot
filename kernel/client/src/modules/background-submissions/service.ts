@@ -3,6 +3,8 @@ import type {
 	ClientPageOperationTarget,
 	PreparedClientPage,
 } from "@ryot-app/contract/modules/pages/schemas";
+import { type Message, stampNamespace } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	BACKGROUND_SUBMISSION_LIMITS,
 	type BackgroundSubmissionFailureClass,
@@ -32,7 +34,7 @@ export type BackgroundSubmissionReservation = {
 };
 
 export type BackgroundSubmissionTarget = ClientPageOperationTarget & {
-	readonly pluginName: string;
+	readonly pluginName: Message;
 	readonly pageAuthority?: PageOperationAuthority;
 };
 
@@ -43,23 +45,23 @@ export type BackgroundSubmissionBinding = {
 
 export type BackgroundSubmissionEntry = {
 	readonly id: string;
-	readonly label: string;
-	readonly pluginName: string;
+	readonly label: Message;
+	readonly pluginName: Message;
 	readonly installationId: string;
 	readonly transportSeen: boolean;
 	readonly state: BackgroundSubmissionState;
 };
 
 type BackgroundSubmissionSnapshot = {
-	readonly announcement: string;
+	readonly announcement: Message | undefined;
 	readonly entries: readonly BackgroundSubmissionEntry[];
 };
 
 type SubmissionRecord = {
 	reserved: boolean;
 	readonly id: string;
-	readonly label: string;
 	transportSeen: boolean;
+	readonly label: Message;
 	readonly session: object;
 	state: BackgroundSubmissionState;
 	readonly request: PluginOperationRequest;
@@ -72,7 +74,7 @@ type BackgroundSubmissionState =
 	| { readonly status: "pending" }
 	| { readonly status: "succeeded" }
 	| { readonly status: "incomplete"; readonly count: number | undefined }
-	| { readonly message: string; readonly status: "failed"; readonly reason: "operation-rejected" }
+	| { readonly message: Message; readonly status: "failed"; readonly reason: "operation-rejected" }
 	| {
 			readonly status: "failed";
 			readonly reason: Exclude<BackgroundSubmissionFailureClass, "operation-rejected">;
@@ -139,26 +141,32 @@ const wireOutcome = (state: BackgroundSubmissionState): undefined | BackgroundSu
 };
 
 const failureStatus = {
-	"operation-failed": "Not saved",
-	"app-updated": "Ryot was updated",
-	"operation-rejected": "Not saved",
-	transport: "Couldn't confirm it was saved",
-	"malformed-result": "Unexpected server response",
 	"entitlement-required": entitlementRequiredMessage("pro"),
-	"page-write-access-required": "Page write access is required",
-} as const satisfies Record<BackgroundSubmissionFailureClass, string>;
+	transport: kernelMessage("client.background-submissions.status.transport"),
+	"app-updated": kernelMessage("client.background-submissions.status.app-updated"),
+	"operation-failed": kernelMessage("client.background-submissions.status.not-saved"),
+	"operation-rejected": kernelMessage("client.background-submissions.status.not-saved"),
+	"malformed-result": kernelMessage("client.background-submissions.status.malformed-result"),
+	"page-write-access-required": kernelMessage(
+		"client.background-submissions.status.page-write-access-required",
+	),
+} as const satisfies Record<BackgroundSubmissionFailureClass, Message>;
 
 const settledStatus = {
-	succeeded: "Saved",
-	pending: "Saving…",
-	incomplete: "Partly saved",
-} as const;
+	pending: kernelMessage("common.status.saving"),
+	succeeded: kernelMessage("client.background-submissions.status.saved"),
+	incomplete: kernelMessage("client.background-submissions.status.partly-saved"),
+} as const satisfies Record<"pending" | "succeeded" | "incomplete", Message>;
 
-export const backgroundSubmissionStatus = ({ state }: BackgroundSubmissionEntry): string =>
+export const backgroundSubmissionStatus = ({ state }: BackgroundSubmissionEntry): Message =>
 	state.status === "failed" ? failureStatus[state.reason] : settledStatus[state.status];
 
 const announcementText = (entry: BackgroundSubmissionEntry) =>
-	`${entry.pluginName}: ${entry.label}. ${backgroundSubmissionStatus(entry)}.`;
+	kernelMessage("client.background-submissions.announcement", {
+		label: entry.label,
+		plugin: entry.pluginName,
+		status: backgroundSubmissionStatus(entry),
+	});
 
 export type BackgroundSubmissionTray = {
 	readonly dispose: () => void;
@@ -194,9 +202,9 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 				const records = new Map<string, SubmissionRecord>();
 				const timers = new Set<Fiber.Fiber<unknown, unknown>>();
 				const listeners = new Set<() => void>();
-				let announcement = "";
+				let announcement: Message | undefined;
 				let announcedAt: number | undefined;
-				let queued: string[] = [];
+				let queued: Message[] = [];
 				let announcing: undefined | Fiber.Fiber<unknown, unknown>;
 				let snapshot: BackgroundSubmissionSnapshot = { entries: [], announcement };
 
@@ -232,10 +240,14 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 					if (queued.length === 0) {
 						return;
 					}
+					const latest = queued.at(-1);
 					announcement =
-						queued.length === 1
-							? (queued[0] ?? "")
-							: `${queued.length} background updates. Latest: ${queued.at(-1) ?? ""}`;
+						queued.length === 1 || latest === undefined
+							? latest
+							: kernelMessage("client.background-submissions.announcement-burst", {
+									latest,
+									count: queued.length,
+								});
 					queued = [];
 					announcedAt = now();
 					publish();
@@ -325,7 +337,7 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 					timers.clear();
 					queued = [];
 					announcing = undefined;
-					announcement = "";
+					announcement = undefined;
 					announcedAt = undefined;
 					publish();
 				};
@@ -412,12 +424,12 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 							target,
 							reserved: true,
 							fiber: undefined,
-							label: request.label,
 							transportSeen: false,
 							settle: binding.settle,
 							id: crypto.randomUUID(),
 							session: binding.session,
 							state: { status: "pending" },
+							label: stampNamespace(target.pluginId, request.label),
 							request: {
 								input: request.input,
 								packageId: request.packageId,

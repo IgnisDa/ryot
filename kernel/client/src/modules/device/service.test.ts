@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { Text } from "@ryot-app/i18n/text";
 import type {
 	PluginDeviceRequest,
 	PluginHapticKind,
@@ -13,7 +14,12 @@ import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
 import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
-import { DevicePlatform, DeviceService } from "#/modules/device/service";
+import {
+	AlertChannelsUnsupported,
+	DevicePlatform,
+	DeviceService,
+	platformError,
+} from "#/modules/device/service";
 import { type DeviceState, emptyDeviceState } from "#/modules/device/state";
 import { DeviceStateAccessError } from "#/persistence/storage";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
@@ -63,6 +69,7 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 	let delivered: undefined | ((id: number) => void);
 	let listens = 0;
 	const platform = Layer.succeed(DevicePlatform, {
+		nameAlertChannels: () => Effect.void,
 		cancel: (id) =>
 			Effect.sync(() => {
 				cancelled.push(id);
@@ -372,6 +379,55 @@ describe("device authority", () => {
 					yield* Fiber.join(interrupted);
 					yield* Fiber.join(leaving);
 					expect(cancelledDuringScheduling).toEqual([1]);
+				}),
+			testTimeout,
+		);
+	});
+	const channelPlatform = Layer.succeed(DevicePlatform, {
+		...noopDevicePlatform,
+		nameAlertChannels: () => Effect.fail(new AlertChannelsUnsupported()),
+	});
+	layer(
+		DeviceService.layer.pipe(Layer.provide(channelPlatform), Layer.provide(makeClientStorage())),
+	)((test) => {
+		test.effect(
+			"skips naming alert channels where the platform has none",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* DeviceService;
+					yield* service.nameAlertChannels({ silent: Text("Silent"), audible: Text("Audible") });
+				}),
+			testTimeout,
+		);
+	});
+
+	const namings: string[] = [];
+	const flakyChannelPlatform = Layer.succeed(DevicePlatform, {
+		...noopDevicePlatform,
+		nameAlertChannels: (names) =>
+			Effect.suspend(() => {
+				namings.push(names.audible);
+				return namings.length === 1
+					? Effect.fail(platformError(new Error("channel unavailable")))
+					: Effect.void;
+			}),
+	});
+	layer(
+		DeviceService.layer.pipe(
+			Layer.provide(flakyChannelPlatform),
+			Layer.provide(makeClientStorage()),
+		),
+	)((test) => {
+		test.effect(
+			"names alert channels again with the latest names before scheduling after a failure",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* DeviceService;
+					yield* service.setScope(scope);
+					yield* service.nameAlertChannels({ silent: Text("Silent"), audible: Text("Audible") });
+					yield* service.outcome(scope, contributors, "frame", true, schedule);
+					yield* service.outcome(scope, contributors, "frame", true, schedule);
+					expect(namings).toEqual(["Audible", "Audible"]);
 				}),
 			testTimeout,
 		);

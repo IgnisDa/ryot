@@ -1,3 +1,7 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { ActivityTray, type ActivityTrayEntry } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
@@ -55,12 +59,17 @@ export function BackgroundSubmissionsProvider(props: {
 	return <BackgroundSubmissionsContext value={tray}>{props.children}</BackgroundSubmissionsContext>;
 }
 
-const detail = (entry: BackgroundSubmissionEntry): string | undefined => {
+const detail = (
+	entry: BackgroundSubmissionEntry,
+	t: (message: Message) => Text,
+): Text | undefined => {
 	const { state } = entry;
 	if (state.status === "incomplete") {
-		return state.count === undefined
-			? "Retry to finish."
-			: `${state.count} saved so far. Retry to finish.`;
+		return t(
+			state.count === undefined
+				? kernelMessage("client.background-submissions.retry-to-finish")
+				: kernelMessage("client.background-submissions.saved-so-far", { count: state.count }),
+		);
 	}
 	if (
 		state.status !== "failed" ||
@@ -70,14 +79,16 @@ const detail = (entry: BackgroundSubmissionEntry): string | undefined => {
 		return undefined;
 	}
 	if (state.reason === "operation-rejected") {
-		return state.message;
+		return t(state.message);
 	}
 	if (state.reason === "app-updated") {
-		return entry.transportSeen
-			? "It may have been saved. Reload to see the latest version."
-			: "It was not saved. Reload, then try again.";
+		return t(
+			entry.transportSeen
+				? kernelMessage("client.background-submissions.reload-may-have-saved")
+				: kernelMessage("client.background-submissions.reload-not-saved"),
+		);
 	}
-	return "It may have been saved. Retrying won't save it twice.";
+	return t(kernelMessage("client.background-submissions.retry-may-have-saved"));
 };
 
 const tones = {
@@ -104,6 +115,7 @@ export function BackgroundSubmissionTrayView(props: {
 export function backgroundSubmissionTrayEntry(options: {
 	readonly onReload: () => void;
 	readonly catalog: PluginClientCatalog;
+	readonly t: (message: Message) => Text;
 	readonly tray: BackgroundSubmissionTray;
 	readonly entry: BackgroundSubmissionEntry;
 }): ActivityTrayEntry {
@@ -112,18 +124,21 @@ export function backgroundSubmissionTrayEntry(options: {
 	const installed = catalog.some(({ installationId }) => installationId === entry.installationId);
 	let action: ActivityTrayEntry["action"];
 	if (state.status === "failed" && state.reason === "app-updated") {
-		action = { label: "Reload", onClick: options.onReload };
+		action = { onClick: options.onReload, label: options.t(kernelMessage("common.action.reload")) };
 	} else if (isRetryable(state) && installed) {
-		action = { label: "Retry", onClick: () => tray.retry(entry.id, catalog) };
+		action = {
+			onClick: () => tray.retry(entry.id, catalog),
+			label: options.t(kernelMessage("common.action.retry")),
+		};
 	}
 	return {
 		action,
 		id: entry.id,
-		title: entry.label,
-		detail: detail(entry),
-		source: entry.pluginName,
+		title: options.t(entry.label),
 		tone: tones[entry.state.status],
-		status: backgroundSubmissionStatus(entry),
+		detail: detail(entry, options.t),
+		source: options.t(entry.pluginName),
+		status: options.t(backgroundSubmissionStatus(entry)),
 		onDismiss: state.status === "pending" ? undefined : () => tray.dismiss(entry.id),
 	};
 }
@@ -137,18 +152,20 @@ function TrayEntries(props: {
 	readonly entries: readonly ActivityTrayEntry[];
 }) {
 	const { tray } = props;
+	const t = useT();
 	const snapshot = useSyncExternalStore(tray.subscribe, tray.getSnapshot, tray.getSnapshot);
 	return (
 		<ActivityTray
 			compact={props.compact}
-			label="Background activity"
-			announcement={snapshot.announcement}
 			safeAreaBottom={props.safeAreaBottom}
 			dismissIcon={<AppIcon name="x" size={14} />}
+			label={t(kernelMessage("client.background-submissions.tray-label"))}
+			announcement={snapshot.announcement === undefined ? "" : t(snapshot.announcement)}
 			entries={[
 				...props.entries,
 				...snapshot.entries.map((entry) =>
 					backgroundSubmissionTrayEntry({
+						t,
 						tray,
 						entry,
 						catalog: props.catalog,

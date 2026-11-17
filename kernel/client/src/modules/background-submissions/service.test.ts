@@ -6,6 +6,7 @@ import {
 	type BackgroundSubmissionOutcome,
 	type PluginBackgroundOperationRequest,
 } from "@ryot-app/plugin-client-contract";
+import { testCatalog } from "@ryot-app/plugin-client-sdk/testing";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -30,16 +31,19 @@ import {
 	SUCCESS_DISMISS_MS,
 } from "#/modules/background-submissions/service";
 import { backgroundSubmissionTrayEntry } from "#/modules/background-submissions/tray";
+import { testTranslate } from "#/modules/i18n/provider.test-support";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
+
+const rejection = { namespace: "fixture", key: "operation.rejected" };
 
 const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 
 const media: BackgroundSubmissionTarget = {
-	pluginName: "Media",
 	contentHash: "hash-media-1",
 	installationId: "installation-media",
 	pluginId: PluginId.make("plugin-media"),
 	packageId: PluginPackageId.make("ryot/media"),
+	pluginName: { key: "plugin.name", namespace: "plugin-media" },
 };
 
 const catalogEntry = (target: BackgroundSubmissionTarget) =>
@@ -53,24 +57,40 @@ const catalogEntry = (target: BackgroundSubmissionTarget) =>
 		homeSavedView: null,
 		clientEntities: null,
 		assistantStarters: null,
-		name: target.pluginName,
 		pluginId: target.pluginId,
 		packageId: target.packageId,
 		contentHash: target.contentHash,
 		installationId: target.installationId,
+		name: { key: "plugin.name", namespace: target.pluginId },
 	}) satisfies PluginClientCatalog[number];
 
 const catalog: PluginClientCatalog = [catalogEntry(media)];
 
+const t = testTranslate([
+	{
+		locale: "en",
+		namespace: "plugin-media",
+		catalog: {
+			"plugin.name": [{ type: 0, value: "Media" }],
+			"activity.logged": [
+				{ type: 0, value: "Logged " },
+				{ type: 1, value: "entry" },
+			],
+		},
+	},
+	testCatalog("plugin-fitness", { "plugin.name": "Fitness" }),
+	testCatalog("fixture", { "operation.rejected": "Rejected by the plugin" }),
+]);
+
 const sessionToken = (jti: string) =>
 	`header.${btoa(JSON.stringify({ jti, sub: "user-1", sid: "session-1" })).replaceAll("=", "")}.signature`;
 
-const request = (key: string, label = `Logged ${key}`): PluginBackgroundOperationRequest => ({
-	label,
+const request = (key: string): PluginBackgroundOperationRequest => ({
 	idempotencyKey: key,
 	operationSlug: "media-activity-log",
 	submittedAt: "2026-10-25T08:00:00.000Z",
 	packageId: PluginPackageId.make("ryot/media"),
+	label: { key: "activity.logged", params: { entry: key } },
 	input: { key, episodes: [1, 2, 3], entityId: "entity-1" },
 });
 
@@ -111,11 +131,17 @@ const present = (
 	options: { readonly onReload?: () => void; readonly catalog?: PluginClientCatalog } = {},
 ) =>
 	backgroundSubmissionTrayEntry({
+		t,
 		tray,
 		entry,
 		catalog: options.catalog ?? catalog,
 		onReload: options.onReload ?? (() => undefined),
 	});
+
+const announcement = (tray: BackgroundSubmissionTray): string | undefined => {
+	const { announcement: message } = tray.getSnapshot();
+	return message === undefined ? undefined : t(message);
+};
 
 const drain = Effect.gen(function* () {
 	for (let index = 0; index < 10; index += 1) {
@@ -140,11 +166,11 @@ const binding = (settled: BackgroundSubmissionOutcome[] = []): BackgroundSubmiss
 
 describe("background submission targets", () => {
 	const fitness: BackgroundSubmissionTarget = {
-		pluginName: "Fitness",
 		contentHash: "hash-fitness-1",
 		installationId: "installation-fitness",
 		pluginId: PluginId.make("plugin-fitness"),
 		packageId: PluginPackageId.make("ryot/fitness"),
+		pluginName: { key: "plugin.name", namespace: "plugin-fitness" },
 	};
 	const identity = {
 		operationTargets: [media, fitness].map(({ pluginName: _name, ...target }) => target),
@@ -329,19 +355,11 @@ describe("background submission tray", () => {
 				yield* reply(
 					test,
 					0,
-				)({
-					outcome: "failure",
-					reason: "operation-rejected",
-					message: "That episode is not part of this show.",
-				});
+				)({ outcome: "failure", message: rejection, reason: "operation-rejected" });
 				yield* reply(test, 1)({ outcome: "failure", reason: "operation-failed" });
 				const [rejected, failed] = tray.getSnapshot().entries;
 				expect(settled).toEqual([
-					{
-						status: "failed",
-						reason: "operation-rejected",
-						message: "That episode is not part of this show.",
-					},
+					{ status: "failed", message: rejection, reason: "operation-rejected" },
 					{ status: "failed", reason: "operation-failed" },
 				]);
 				for (const entry of [rejected, failed]) {
@@ -350,7 +368,7 @@ describe("background submission tray", () => {
 				expect(present(tray, rejected)).toMatchObject({
 					action: undefined,
 					status: "Not saved",
-					detail: "That episode is not part of this show.",
+					detail: "Rejected by the plugin",
 				});
 				expect(test.calls).toHaveLength(2);
 			}),
@@ -494,7 +512,8 @@ describe("background submission tray", () => {
 				yield* drain;
 				expect(tray.getSnapshot().entries).toHaveLength(BACKGROUND_SUBMISSION_LIMITS.entries);
 
-				const keys = () => tray.getSnapshot().entries.map(({ label }) => label);
+				const keys = (): readonly string[] =>
+					tray.getSnapshot().entries.map(({ label }) => t(label));
 				tray.reserve({ target: media, binding: binding(), request: request("next-1") })?.start();
 				yield* drain;
 				expect(keys()).not.toContain("Logged ok0");
@@ -539,7 +558,9 @@ describe("background submission tray", () => {
 
 				tray.reserve({ target: media, binding: binding(), request: request("k3") })?.start();
 				yield* drain;
-				expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual(["Logged k3"]);
+				expect<readonly string[]>(tray.getSnapshot().entries.map(({ label }) => t(label))).toEqual([
+					"Logged k3",
+				]);
 			}),
 		testTimeout,
 	);
@@ -559,15 +580,17 @@ describe("background submission tray", () => {
 				server.observe(makeStoredTokenSet({ accessToken: sessionToken("access-2") }));
 				yield* drain;
 				expect(test.interrupted).toEqual([]);
-				expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual(["Logged k1"]);
+				expect<readonly string[]>(tray.getSnapshot().entries.map(({ label }) => t(label))).toEqual([
+					"Logged k1",
+				]);
 
 				yield* reply(test, 0)({ value: null, outcome: "success" });
 				expect(settled).toEqual([{ status: "succeeded" }]);
 				tray.reserve({ target: media, binding: binding(), request: request("k2") })?.start();
 				yield* drain;
-				expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual<unknown>(
-					arrayContaining(["Logged k1", "Logged k2"]),
-				);
+				expect<readonly string[]>(
+					tray.getSnapshot().entries.map(({ label }) => t(label)),
+				).toEqual<unknown>(arrayContaining(["Logged k1", "Logged k2"]));
 			}),
 		testTimeout,
 	);
@@ -598,28 +621,24 @@ describe("background submission tray", () => {
 				const test = harness();
 				const tray = yield* openTray(test);
 				tray.reserve({ target: media, binding: binding(), request: request("a") })?.start();
-				expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saving….");
+				expect(announcement(tray)).toBe("Media: Logged a. Saving….");
 				for (const key of ["b", "c", "d"]) {
 					tray.reserve({ target: media, binding: binding(), request: request(key) })?.start();
 				}
 				yield* drain;
-				expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saving….");
+				expect(announcement(tray)).toBe("Media: Logged a. Saving….");
 
 				yield* TestClock.adjust(ANNOUNCEMENT_INTERVAL_MS - 1);
-				expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saving….");
+				expect(announcement(tray)).toBe("Media: Logged a. Saving….");
 				yield* TestClock.adjust(1);
 				yield* drain;
-				expect(tray.getSnapshot().announcement).toBe(
-					"3 background updates. Latest: Media: Logged d. Saving….",
-				);
+				expect(announcement(tray)).toBe("3 background updates. Latest: Media: Logged d. Saving….");
 
 				yield* reply(test, 0)({ value: null, outcome: "success" });
-				expect(tray.getSnapshot().announcement).toBe(
-					"3 background updates. Latest: Media: Logged d. Saving….",
-				);
+				expect(announcement(tray)).toBe("3 background updates. Latest: Media: Logged d. Saving….");
 				yield* TestClock.adjust(ANNOUNCEMENT_INTERVAL_MS);
 				yield* drain;
-				expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saved.");
+				expect(announcement(tray)).toBe("Media: Logged a. Saved.");
 			}),
 		testTimeout,
 	);

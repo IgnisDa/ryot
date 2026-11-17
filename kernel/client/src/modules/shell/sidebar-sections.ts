@@ -1,12 +1,16 @@
+import type { DisplayText } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
 
 import { savedViewHref } from "#/modules/plugins/catalog/location";
 
-export type SidebarItem = SidebarEntry | (NavigationCollection & { readonly kind: "home" });
-
 export type SidebarEntry =
 	| (NavigationView & { readonly kind: "view" })
 	| (NavigationCollection & { readonly kind: "collection" });
+
+export type SidebarItem =
+	| SidebarEntry
+	| (Omit<NavigationCollection, "name"> & { readonly kind: "home"; readonly name: DisplayText });
 export type SidebarSections = {
 	readonly views: readonly SidebarItem[];
 	readonly savedViews: readonly SidebarEntry[];
@@ -16,15 +20,15 @@ export type SidebarSections = {
 type NavigationCollection = NavigationData["collections"][number];
 
 const homeItem = {
-	name: "Home",
-	sortOrder: 0,
 	kind: "home",
+	sortOrder: 0,
 	slug: "home",
 	icon: "house",
 	isHidden: false,
 	reference: null,
 	packageId: null,
 	pluginInstallationId: null,
+	name: kernelMessage("client.shell.home"),
 } satisfies SidebarItem;
 
 const viewEntry = (item: NavigationView): SidebarEntry => ({ ...item, kind: "view" });
@@ -85,7 +89,7 @@ export const sidebarOverflow = <Item extends SidebarItem>(
 };
 
 export const workspaceSummary = (sections: Pick<SidebarSections, "views">) =>
-	`${sections.views.length} view${sections.views.length === 1 ? "" : "s"}`;
+	kernelMessage("client.shell.sidebar.workspace-summary", { count: sections.views.length });
 
 export const navigationViewHref = (view: Pick<NavigationView, "packageId" | "reference">) => {
 	const href = savedViewHref(view.reference, view.packageId);

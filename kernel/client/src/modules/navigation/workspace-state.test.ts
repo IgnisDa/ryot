@@ -6,6 +6,7 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
+import { testMessage } from "#/modules/i18n/provider.test-support";
 import {
 	isWorkspaceRoot,
 	resolveRememberedWorkspace,
@@ -19,12 +20,12 @@ const workspace = (
 ): PluginClientCatalogEntry => ({
 	icon: "film",
 	sortOrder: 0,
-	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
 	clientEntities: null,
 	assistantStarters: null,
+	name: testMessage("Fixture"),
 	contentHash: "source-fixture",
 	installationId: "installation-fixture",
 	...overrides,
@@ -39,16 +40,16 @@ const workspace = (
 describe("workspace state", () => {
 	it("resolves a package route to the compatible record instead of a quarantined one", () => {
 		const system = workspace({
-			name: "Whiskey",
+			name: testMessage("Whiskey"),
 			installationId: "system-installation",
 			pluginId: PluginId.make("system-owner"),
 			packageId: PluginPackageId.make("test/whiskey"),
 		});
 		const retained = workspace({
 			scope: "user",
-			name: "Whiskey",
 			health: "incompatible",
 			packageId: system.packageId,
+			name: testMessage("Whiskey"),
 			installationId: "private-installation",
 			pluginId: PluginId.make("private-owner"),
 		});

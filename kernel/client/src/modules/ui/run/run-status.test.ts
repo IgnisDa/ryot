@@ -1,11 +1,14 @@
 import { describe, expect, it } from "bun:test";
 
+import { testFormatters, testKernelText } from "@ryot-app/kernel-messages/testing";
+
 import {
+	determinateRunProgress,
 	formatRelativeTime,
 	formatRunCount,
-	formatRunDuration,
 	isTerminalRunStatus,
 	runDurationLabel,
+	runHistoryCaption,
 	runStartedLabel,
 	runStatusPill,
 	runTimestampLabel,
@@ -37,14 +40,14 @@ describe("run status presentation", () => {
 	});
 
 	it("clamps and rounds run counts", () => {
-		expect(formatRunCount(42.4)).toBe("42");
-		expect(formatRunCount(42.5)).toBe("43");
-		expect(formatRunCount(-5)).toBe("0");
-		expect(formatRunCount(1_234.5)).toBe("1,235");
+		expect(formatRunCount(testFormatters, 42.4)).toBe("42");
+		expect(formatRunCount(testFormatters, 42.5)).toBe("43");
+		expect(formatRunCount(testFormatters, -5)).toBe("0");
+		expect(formatRunCount(testFormatters, 1_234.5)).toBe("1,235");
 	});
 
 	it("maps every run status to its pill", () => {
-		expect(
+		expect<ReadonlyArray<{ icon: string; tone: string; label: string }>>(
 			(
 				[
 					"pending",
@@ -56,7 +59,9 @@ describe("run status presentation", () => {
 					"failed",
 					"cancelled",
 				] as const
-			).map(runStatusPill),
+			)
+				.map(runStatusPill)
+				.map((pill) => ({ icon: pill.icon, tone: pill.tone, label: testKernelText(pill.label) })),
 		).toEqual([
 			{ icon: "clock", tone: "muted", label: "Queued" },
 			{ icon: "clock", tone: "muted", label: "Setup required" },
@@ -69,49 +74,88 @@ describe("run status presentation", () => {
 		]);
 	});
 
-	it("formats durations at seconds, minutes, and hours boundaries", () => {
-		expect(
-			[0, 499, 500, 59_500, 61_000, 3_599_000, 3_600_000, 7_500_000].map(formatRunDuration),
-		).toEqual(["0s", "0s", "1s", "1m", "1m 1s", "59m 59s", "1h", "2h 5m"]);
+	it("clamps determinate progress to whole percents", () => {
+		expect([-3, 42.4, 140].map((value) => determinateRunProgress(testFormatters, value))).toEqual([
+			{ percent: 0, label: "0%", kind: "determinate" },
+			{ percent: 42, label: "42%", kind: "determinate" },
+			{ percent: 100, label: "100%", kind: "determinate" },
+		]);
 	});
 
 	it("labels completed and active run durations", () => {
-		expect(runDurationLabel(completed, NOW)).toBe("4m 7s");
-		expect(runDurationLabel(running, NOW)).toBe("2m");
-		expect(runDurationLabel({ ...running, startedAt: null }, NOW)).toBeUndefined();
-		expect(runDurationLabel({ ...running, status: "failed" }, NOW)).toBeUndefined();
-		expect(runDurationLabel({ ...running, status: "expired" }, NOW)).toBeUndefined();
+		expect<string | undefined>(runDurationLabel(testFormatters, completed, NOW)).toBe("4m 7s");
+		expect<string | undefined>(runDurationLabel(testFormatters, running, NOW)).toBe("2m");
+		expect<string | undefined>(
+			runDurationLabel(testFormatters, { ...running, startedAt: null }, NOW),
+		).toBeUndefined();
+		expect<string | undefined>(
+			runDurationLabel(testFormatters, { ...running, status: "failed" }, NOW),
+		).toBeUndefined();
+		expect<string | undefined>(
+			runDurationLabel(testFormatters, { ...running, status: "expired" }, NOW),
+		).toBeUndefined();
 	});
 
 	it("describes when a run happened in words", () => {
-		expect(formatRelativeTime("2026-03-13T09:01:50.000Z", NOW)).toBe("just now");
-		expect(formatRelativeTime("2026-03-13T09:01:15.000Z", NOW)).toBe("1 minute ago");
-		expect(formatRelativeTime("2026-03-13T09:00:00.000Z", NOW)).toBe("2 minutes ago");
-		expect(formatRelativeTime("2026-03-13T08:00:00.000Z", NOW)).toBe("1 hour ago");
-		expect(formatRelativeTime("2026-03-12T08:00:00.000Z", NOW)).toBe("yesterday");
-		expect(formatRelativeTime("2026-03-11T08:00:00.000Z", NOW)).toBe("2 days ago");
-		expect(formatRelativeTime("2026-02-01T08:00:00.000Z", NOW)).toBe("Feb 1, 2026");
+		expect<string>(
+			formatRelativeTime(testFormatters, testKernelText, "2026-03-13T09:01:50.000Z", NOW),
+		).toBe("just now");
+		expect<string>(
+			formatRelativeTime(testFormatters, testKernelText, "2026-03-13T09:01:15.000Z", NOW),
+		).toBe("1 minute ago");
+		expect<string>(
+			formatRelativeTime(testFormatters, testKernelText, "2026-03-13T09:00:00.000Z", NOW),
+		).toBe("2 minutes ago");
+		expect<string>(
+			formatRelativeTime(testFormatters, testKernelText, "2026-03-13T08:00:00.000Z", NOW),
+		).toBe("1 hour ago");
+		expect<string>(
+			formatRelativeTime(testFormatters, testKernelText, "2026-03-12T08:00:00.000Z", NOW),
+		).toBe("yesterday");
+		expect<string>(
+			formatRelativeTime(testFormatters, testKernelText, "2026-03-11T08:00:00.000Z", NOW),
+		).toBe("2 days ago");
+		expect<string>(
+			formatRelativeTime(testFormatters, testKernelText, "2026-02-01T08:00:00.000Z", NOW),
+		).toBe("Feb 1, 2026");
+	});
+
+	it("captions history rows with when they started and how long they ran", () => {
+		expect<string>(
+			runHistoryCaption(
+				testFormatters,
+				testKernelText,
+				{ ...completed, createdAt: completed.startedAt },
+				NOW,
+			),
+		).toBe("11 hours ago · 4m 7s");
+		expect<string>(
+			runHistoryCaption(testFormatters, testKernelText, { ...running, startedAt: null }, NOW),
+		).toBe("2 minutes ago");
 	});
 
 	it("uses the start time, or creation time when not started", () => {
-		expect(runStartedLabel(running, NOW)).toBe("Started 2 minutes ago");
-		expect(runStartedLabel({ ...running, startedAt: null }, NOW)).toBe("Started 2 minutes ago");
+		expect<string>(runStartedLabel(testFormatters, testKernelText, running, NOW)).toBe(
+			"Started 2 minutes ago",
+		);
+		expect<string>(
+			runStartedLabel(testFormatters, testKernelText, { ...running, startedAt: null }, NOW),
+		).toBe("Started 2 minutes ago");
 	});
 
 	it("stamps the detail overline with the date and time of the run", () => {
 		const value = "2026-03-12T21:40:00.000Z";
-		const date = new Date(value);
-		const day = new Intl.DateTimeFormat("en-GB", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-		}).format(date);
-		const time = new Intl.DateTimeFormat("en-GB", {
-			hour12: false,
-			hour: "2-digit",
-			minute: "2-digit",
-		}).format(date);
+		const expected = testFormatters
+			.dateTime({
+				day: "numeric",
+				month: "short",
+				year: "numeric",
+				hour: "2-digit",
+				hourCycle: "h23",
+				minute: "2-digit",
+			})
+			.format(new Date(value));
 
-		expect(runTimestampLabel(value)).toBe(`${day}, ${time}`);
+		expect(runTimestampLabel(testFormatters, value)).toBe(expected);
 	});
 });

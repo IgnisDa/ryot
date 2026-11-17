@@ -15,21 +15,28 @@ import { type MotionValue, motionValue, useMotionValue } from "motion/react";
 import { useRef, useState } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
+import {
+	testI18nWrapper,
+	testMessage,
+	testMessageCatalog,
+} from "#/modules/i18n/provider.test-support";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 import { MobileDrawer } from "#/modules/shell/mobile-drawer";
 import type { SidebarSections } from "#/modules/shell/sidebar-sections";
+
+const wrapper = testI18nWrapper([testMessageCatalog("Fixture", "Journal")]);
 
 const workspace = (
 	overrides: Partial<PluginClientCatalogEntry> = {},
 ): PluginClientCatalogEntry => ({
 	icon: "film",
 	sortOrder: 0,
-	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
 	clientEntities: null,
 	assistantStarters: null,
+	name: testMessage("Fixture"),
 	contentHash: "source-fixture",
 	installationId: "installation-fixture",
 	...overrides,
@@ -142,7 +149,7 @@ describe("mobile drawer", () => {
 		"closes on Escape, restores focus, and releases body scrolling",
 		() =>
 			Effect.gen(function* () {
-				render(<Harness />);
+				render(<Harness />, { wrapper: wrapper });
 				const { dialog, trigger } = yield* Effect.promise(() => openDrawer());
 
 				expect(document.body.style.overflow).toBe("hidden");
@@ -159,7 +166,7 @@ describe("mobile drawer", () => {
 		"passes an axe pass while open",
 		() =>
 			Effect.gen(function* () {
-				render(<Harness />);
+				render(<Harness />, { wrapper: wrapper });
 				yield* Effect.promise(() => openDrawer());
 
 				const results = yield* Effect.promise(() =>
@@ -175,7 +182,7 @@ describe("mobile drawer", () => {
 		"contains forward and reverse Tab focus",
 		() =>
 			Effect.gen(function* () {
-				render(<Harness />);
+				render(<Harness />, { wrapper: wrapper });
 				const { dialog } = yield* Effect.promise(() => openDrawer());
 				const first = screen.getByRole("button", { name: /^Fixture workspace,/ });
 				const last = screen.getByRole("link", { name: "Open settings" });
@@ -193,7 +200,7 @@ describe("mobile drawer", () => {
 
 	it("stays mounted off its route until the closing panel settles off screen", () => {
 		const progress = motionValue(0);
-		render(<Harness hasDrawer={false} progress={progress} />);
+		render(<Harness hasDrawer={false} progress={progress} />, { wrapper: wrapper });
 
 		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
 
@@ -208,7 +215,7 @@ describe("mobile drawer", () => {
 		"closes on scrim click",
 		() =>
 			Effect.gen(function* () {
-				render(<Harness />);
+				render(<Harness />, { wrapper: wrapper });
 				const { trigger } = yield* Effect.promise(() => openDrawer());
 
 				fireEvent.click(screen.getByTestId("drawer-scrim"));
@@ -223,7 +230,7 @@ describe("mobile drawer", () => {
 		"resets its workspace menu when the drawer closes",
 		() =>
 			Effect.gen(function* () {
-				render(<Harness />);
+				render(<Harness />, { wrapper: wrapper });
 				yield* Effect.promise(() => openDrawer());
 				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 				expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
@@ -241,7 +248,9 @@ describe("mobile drawer", () => {
 		() =>
 			Effect.gen(function* () {
 				const overflow: Array<string> = [];
-				render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />);
+				render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />, {
+					wrapper: wrapper,
+				});
 				yield* Effect.promise(() => openDrawer());
 
 				expect(document.body.style.overflow).toBe("hidden");
@@ -260,7 +269,7 @@ describe("mobile drawer", () => {
 				let selected: null | { readonly slug: string; readonly open: boolean } = null;
 				const journal = workspace({
 					sortOrder: 1,
-					name: "Journal",
+					name: testMessage("Journal"),
 					contentHash: "source-journal",
 					installationId: "installation-journal",
 					pluginId: PluginId.make("plugin-journal"),
@@ -283,6 +292,7 @@ describe("mobile drawer", () => {
 							};
 						}}
 					/>,
+					{ wrapper: wrapper },
 				);
 				yield* Effect.promise(() => openDrawer());
 

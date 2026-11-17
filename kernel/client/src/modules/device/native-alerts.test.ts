@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { Text } from "@ryot-app/i18n/text";
 import type { PluginDeviceRequest } from "@ryot-app/plugin-client-contract";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -8,6 +9,7 @@ import { DateTime, Effect } from "effect";
 
 import {
 	cancelNativeAlert,
+	createNativeAlertChannels,
 	removeDeliveredNativeAlerts,
 	scheduleNativeAlert,
 } from "#/modules/device/native-alerts";
@@ -54,6 +56,54 @@ it.effect(
 	testTimeout,
 );
 
+it.effect(
+	"creates both alert channels with the supplied names",
+	() =>
+		Effect.gen(function* () {
+			const channels: unknown[] = [];
+			yield* createNativeAlertChannels(
+				{
+					createChannel: (channel) => {
+						channels.push(channel);
+						return Promise.resolve();
+					},
+				},
+				{ silent: Text("Silent"), audible: Text("Audible") },
+			);
+			expect(channels).toEqual([
+				{ importance: 4, name: "Audible", vibration: false, id: "scheduled-audible" },
+				{ importance: 2, name: "Silent", vibration: false, id: "scheduled-silent" },
+			]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"classifies unavailable channel calls separately from other platform failures",
+	() =>
+		Effect.gen(function* () {
+			const names = { silent: Text("Silent"), audible: Text("Audible") };
+			const unavailable = yield* Effect.flip(
+				createNativeAlertChannels(
+					{
+						createChannel: () =>
+							Promise.reject(Object.assign(new Error("not available"), { code: "UNAVAILABLE" })),
+					},
+					names,
+				),
+			);
+			expect(unavailable._tag).toBe("AlertChannelsUnsupported");
+			const failed = yield* Effect.flip(
+				createNativeAlertChannels(
+					{ createChannel: () => Promise.reject(new Error("failed")) },
+					names,
+				),
+			);
+			expect(failed._tag).toBe("DevicePlatformError");
+		}),
+	testTimeout,
+);
+
 const deliveredHarness = (notifications: { id: number; body: string; title: string }[]) => {
 	const removedIds: number[][] = [];
 	return {
@@ -95,15 +145,10 @@ it.effect(
 
 const harness = (options: { exact?: boolean; denied?: boolean } = {}) => {
 	const calls: Parameters<NativeAlerts["schedule"]>[0][] = [];
-	const channels: Parameters<NativeAlerts["createChannel"]>[0][] = [];
 	const updates: Parameters<NativeAlerts["update"]>[0][] = [];
 	let prompted = 0;
 	const adapter: NativeAlerts = {
 		checkPermissions: () => Promise.resolve({ display: "prompt" }),
-		createChannel: (channel) => {
-			channels.push(channel);
-			return Promise.resolve();
-		},
 		schedule: (input) => {
 			calls.push(input);
 			return Promise.resolve({ notifications: [{ id: 7 }] });
@@ -119,7 +164,7 @@ const harness = (options: { exact?: boolean; denied?: boolean } = {}) => {
 			return Promise.resolve({ display: options.denied ? "denied" : "granted" });
 		},
 	};
-	return { calls, adapter, updates, channels, prompted: () => prompted };
+	return { calls, adapter, updates, prompted: () => prompted };
 };
 
 it.effect(
@@ -177,7 +222,6 @@ it.effect(
 			const h = harness({ denied: true });
 			expect(yield* scheduleNativeAlert(h.adapter, true, 7, request)).toEqual({ status: "denied" });
 			expect(h.calls).toEqual([]);
-			expect(h.channels).toEqual([]);
 		}),
 	testTimeout,
 );
@@ -211,12 +255,6 @@ it.effect(
 				sound: "silent.wav",
 				channelId: "scheduled-silent",
 			});
-			expect(h.channels).toContainEqual({
-				importance: 2,
-				vibration: false,
-				id: "scheduled-silent",
-				name: "Silent timer alerts",
-			});
 		}),
 	testTimeout,
 );
@@ -233,7 +271,6 @@ it.effect(
 				yield* scheduleNativeAlert(h.adapter, false, 7, { ...request, audible: false }),
 			).toEqual({ status: "scheduled" });
 			expect(h.calls[0]?.notifications[0]?.sound).toBeUndefined();
-			expect(h.channels).toEqual([]);
 		}),
 	testTimeout,
 );
@@ -250,7 +287,6 @@ it.effect(
 				status: "scheduled",
 			});
 			expect(h.calls[0]?.notifications[0]).toMatchObject({ sound: "default", foreground: false });
-			expect(h.channels).toEqual([]);
 		}),
 	testTimeout,
 );

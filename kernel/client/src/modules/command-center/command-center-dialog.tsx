@@ -1,5 +1,7 @@
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { HttpUrl } from "@ryot-app/contract/schema/utils";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { ManagedAssetProvider, useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 import { ChipRadioGroup, Modal } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -120,6 +122,8 @@ const managedImages = (options: readonly CommandOption[]) =>
 	);
 
 export function CommandCenterDialog(props: CommandCenterDialogProps) {
+	const t = useT();
+	const formatters = useFormatters();
 	const baseId = useId();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [activeOptionId, setActiveOptionId] = useState<string | undefined>(undefined);
@@ -175,11 +179,11 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 
 	return (
 		<Modal
-			label="Command center"
 			onClose={props.onClose}
 			initialFocusRef={inputRef}
-			closeLabel="Close command center"
 			onInterceptBack={props.onInterceptBack}
+			label={t(kernelMessage("client.command-center.label"))}
+			closeLabel={t(kernelMessage("client.command-center.close"))}
 			containerClassName="items-start justify-center p-4 pt-[12vh]"
 			className="flex h-[min(30rem,76vh)] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card"
 		>
@@ -195,10 +199,10 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 					onKeyDown={onKeyDown}
 					aria-autocomplete="list"
 					aria-busy={props.pending}
-					aria-label="Search commands"
-					placeholder="Search or jump to..."
 					aria-controls={`${baseId}-listbox`}
+					aria-label={t(kernelMessage("client.command-center.search-label"))}
 					onChange={(event) => props.onQueryChange(event.currentTarget.value)}
+					placeholder={t(kernelMessage("client.command-center.search-placeholder"))}
 					aria-activedescendant={activeId === undefined ? undefined : optionDomId(activeId)}
 					className="h-12 min-w-0 flex-1 bg-transparent text-base text-text outline-none placeholder:text-text-subtle pointer-fine:text-sm"
 				/>
@@ -216,12 +220,15 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 				<ChipRadioGroup
 					value={filter}
 					overflow="scroll"
-					label="Filter results"
 					onChange={changeFilter}
 					className="shrink-0 px-3 pt-2.5 pb-0.5"
+					label={t(kernelMessage("client.command-center.filter-label"))}
 					options={filters.map(({ key, label, count }) => ({
 						value: key,
-						label: count === undefined ? label : `${label} · ${count}`,
+						label:
+							count === undefined
+								? label
+								: t(kernelMessage("ui.multi-select.chip-count", { label, count })),
 					}))}
 				/>
 			)}
@@ -234,28 +241,32 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 				>
 					{empty && (
 						<p role="status" className="px-2.5 py-6 text-center text-body text-text-muted">
-							No matches for "{trimmed}"
+							{t(kernelMessage("client.command-center.no-matches", { query: trimmed }))}
 						</p>
 					)}
 					{props.failed.length > 0 && !props.pending && (
 						<div className="flex items-center gap-2 px-2.5 py-1.5">
 							<span className="min-w-0 flex-1 text-label text-text-muted">
-								Could not search {props.failed.join(", ")}.
+								{t(
+									kernelMessage("client.command-center.search-failed", {
+										sources: formatters.list().format(props.failed),
+									}),
+								)}
 							</span>
 							<button
 								type="button"
 								onClick={props.onRetry}
 								className="rounded px-2 py-0.5 text-label font-medium text-text underline"
 							>
-								Retry
+								{t(kernelMessage("common.action.retry"))}
 							</button>
 						</div>
 					)}
 					<ul
 						role="listbox"
-						aria-label="Results"
 						id={`${baseId}-listbox`}
 						className="flex flex-col gap-2"
+						aria-label={t(kernelMessage("client.command-center.results"))}
 					>
 						{groups.map((group) => (
 							<li key={group.key} role="presentation">
@@ -270,7 +281,9 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 									>
 										<span id={`${baseId}-group-${group.key}`}>{group.heading}</span>
 										{group.count !== undefined && (
-											<span className="font-normal tabular-nums">{group.count}</span>
+											<span className="font-normal tabular-nums">
+												{formatters.number().format(group.count)}
+											</span>
 										)}
 									</li>
 									{group.options.map((option) => (
@@ -298,7 +311,9 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 										role="presentation"
 										className="px-2.5 py-1 text-micro font-semibold tracking-wide text-text-subtle uppercase"
 									>
-										<span id={`${baseId}-group-${ASK_ID}`}>Ask</span>
+										<span id={`${baseId}-group-${ASK_ID}`}>
+											{t(kernelMessage("client.command-center.ask-heading"))}
+										</span>
 									</li>
 									<CommandRow
 										id={optionDomId(ASK_ID)}
@@ -308,8 +323,12 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 									>
 										<AssistantSprite mood="thinking" className="w-6" />
 										<span className="min-w-0 flex-1 truncate text-body text-text">
-											Ask {ASSISTANT_NAME}{" "}
-											<span className="text-accent-text">"{props.ask.text}"</span>
+											{t(kernelMessage("client.shell.sidebar.ask", { name: ASSISTANT_NAME }))}{" "}
+											<span className="text-accent-text">
+												{t(
+													kernelMessage("client.command-center.ask-text", { text: props.ask.text }),
+												)}
+											</span>
 										</span>
 									</CommandRow>
 								</ul>

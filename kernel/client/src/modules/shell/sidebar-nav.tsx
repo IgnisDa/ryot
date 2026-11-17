@@ -1,4 +1,8 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { KERNEL_SHORTCUTS } from "@ryot-app/plugin-client-contract";
 import { ShortcutHint } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -61,6 +65,8 @@ type SidebarNavProps = {
 };
 
 export function SidebarNav(props: SidebarNavProps) {
+	const t = useT();
+	const formatters = useFormatters();
 	const href = (item: SidebarItem) => {
 		if (item.kind === "home") {
 			return props.current === null ? "/" : pluginPath(props.current.packageId);
@@ -92,7 +98,10 @@ export function SidebarNav(props: SidebarNavProps) {
 	const collections = overflow("collections", props.sections.collections);
 
 	return (
-		<nav aria-label="Workspace" className="flex flex-col gap-4 px-3 pt-4 pb-5">
+		<nav
+			className="flex flex-col gap-4 px-3 pt-4 pb-5"
+			aria-label={t(kernelMessage("client.shell.sidebar.workspace"))}
+		>
 			<WorkspaceSwitcher
 				current={props.current}
 				catalog={props.catalog}
@@ -107,12 +116,14 @@ export function SidebarNav(props: SidebarNavProps) {
 			<button
 				type="button"
 				onClick={props.onOpenSearch}
-				aria-label="Open command center"
+				aria-label={t(kernelMessage("client.shell.sidebar.open-command-center"))}
 				aria-keyshortcuts={props.showSearchShortcut ? KERNEL_SHORTCUTS.commandCenter : undefined}
 				className="flex h-8 items-center gap-2.5 rounded-md bg-surface-2 px-2.5 text-left transition-colors duration-100 hover:bg-surface-3 motion-reduce:transition-none"
 			>
 				<AppIcon size={16} name="search" className="text-text-muted" />
-				<span className="min-w-0 flex-1 text-sm text-text-subtle">Search</span>
+				<span className="min-w-0 flex-1 text-sm text-text-subtle">
+					{t(kernelMessage("common.action.search"))}
+				</span>
 				{props.showSearchShortcut && <ShortcutHint shortcut={KERNEL_SHORTCUTS.commandCenter} />}
 			</button>
 
@@ -124,11 +135,15 @@ export function SidebarNav(props: SidebarNavProps) {
 			>
 				<AssistantSprite className="w-7" mood={props.assistant.mood} />
 				<span className="grid min-w-0 flex-1 leading-tight">
-					<span className="text-sm font-medium text-text">Ask {ASSISTANT_NAME}</span>
+					<span className="text-sm font-medium text-text">
+						{t(kernelMessage("client.shell.sidebar.ask", { name: ASSISTANT_NAME }))}
+					</span>
 					{props.assistant.mood === "idle" ? null : (
 						<span className="truncate text-micro font-medium text-accent-text">
-							{assistantMoodLabels[props.assistant.mood]}
-							{props.assistant.attention > 1 ? ` · ${props.assistant.attention}` : ""}
+							{t(assistantMoodLabels[props.assistant.mood])}
+							{props.assistant.attention > 1
+								? ` · ${formatters.number().format(props.assistant.attention)}`
+								: ""}
 						</span>
 					)}
 				</span>
@@ -136,9 +151,9 @@ export function SidebarNav(props: SidebarNavProps) {
 			</button>
 
 			<SidebarSection
-				title="Views"
 				toggle={views.toggle}
 				className="max-h-83.5"
+				title={kernelMessage("client.shell.section.views")}
 				onEdit={
 					props.onEditSection === undefined ? undefined : () => props.onEditSection?.("views")
 				}
@@ -155,12 +170,12 @@ export function SidebarNav(props: SidebarNavProps) {
 			</SidebarSection>
 
 			<SidebarSection
-				title="Saved Views"
 				className="max-h-52"
 				toggle={savedViews.toggle}
-				emptyMessage="No saved views yet."
 				count={props.sections.savedViews.length}
 				isEmpty={props.sections.savedViews.length === 0}
+				title={kernelMessage("client.shell.section.saved-views")}
+				emptyMessage={kernelMessage("client.shell.empty-saved-views")}
 				onEdit={
 					props.onEditSection === undefined ? undefined : () => props.onEditSection?.("savedViews")
 				}
@@ -177,13 +192,16 @@ export function SidebarNav(props: SidebarNavProps) {
 			</SidebarSection>
 
 			<SidebarSection
-				title="Collections"
 				className="max-h-52"
 				toggle={collections.toggle}
-				emptyMessage="No collections yet."
 				count={props.sections.collections.length}
 				isEmpty={props.sections.collections.length === 0}
-				onCreate={{ label: "New collection", run: props.onCreateCollection }}
+				title={kernelMessage("client.shell.sidebar.collections")}
+				emptyMessage={kernelMessage("client.shell.sidebar.empty-collections")}
+				onCreate={{
+					run: props.onCreateCollection,
+					label: kernelMessage("renderer.collections.new"),
+				}}
 			>
 				{collections.visible.map((item) => (
 					<SidebarRow
@@ -205,6 +223,7 @@ function SidebarRow(props: {
 	readonly item: SidebarItem;
 	readonly onNavigate: () => void | Promise<void>;
 }) {
+	const t = useT();
 	return (
 		<a
 			href={props.href}
@@ -222,7 +241,7 @@ function SidebarRow(props: {
 					props.active ? "text-text" : "text-text-muted",
 				)}
 			>
-				{props.item.name}
+				{formatDisplayText(t, props.item.name)}
 			</span>
 			{props.item.kind !== "home" && (
 				<AppIcon
@@ -236,23 +255,24 @@ function SidebarRow(props: {
 }
 
 function SidebarSection(props: {
-	readonly title: string;
+	readonly title: Message;
 	readonly count?: number;
 	readonly isEmpty?: boolean;
 	readonly className: string;
 	readonly children: ReactNode;
-	readonly emptyMessage?: string;
+	readonly emptyMessage?: Message;
 	readonly onEdit?: undefined | (() => void);
-	readonly onCreate?: undefined | { readonly label: string; readonly run: () => void };
+	readonly onCreate?: undefined | { readonly label: Message; readonly run: () => void };
 	readonly toggle?:
 		| undefined
 		| { readonly run: () => void; readonly expanded: boolean; readonly hiddenCount: number };
 }) {
+	const t = useT();
 	return (
 		<section className="group flex flex-col gap-1">
 			<header className="flex items-center gap-2 px-1">
 				<h2 className="text-[11px] font-semibold tracking-[0.07em] text-text-subtle uppercase">
-					{props.title}
+					{t(props.title)}
 				</h2>
 				{props.count !== undefined && (
 					<span className="text-[11px] text-text-subtle tabular-nums">{props.count}</span>
@@ -261,17 +281,19 @@ function SidebarSection(props: {
 					<button
 						type="button"
 						onClick={props.onEdit}
-						aria-label={`Edit ${props.title} section`}
+						aria-label={t(
+							kernelMessage("client.shell.sidebar.edit-section", { title: props.title }),
+						)}
 						className="ml-auto rounded px-1.5 py-0.5 text-xs font-medium text-text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
 					>
-						Edit
+						{t(kernelMessage("client.shell.sidebar.edit"))}
 					</button>
 				)}
 				{props.onCreate !== undefined && (
 					<button
 						type="button"
 						onClick={props.onCreate.run}
-						aria-label={props.onCreate.label}
+						aria-label={t(props.onCreate.label)}
 						className={clsx(
 							"rounded p-0.5 text-text-muted hover:text-text",
 							props.onEdit === undefined && "ml-auto",
@@ -283,7 +305,9 @@ function SidebarSection(props: {
 			</header>
 			<div className={clsx("flex flex-col gap-0.5 overflow-y-auto", props.className)}>
 				{props.isEmpty ? (
-					<p className="px-2 py-1 text-xs text-text-subtle">{props.emptyMessage}</p>
+					<p className="px-2 py-1 text-xs text-text-subtle">
+						{props.emptyMessage === undefined ? null : t(props.emptyMessage)}
+					</p>
 				) : (
 					props.children
 				)}
@@ -294,7 +318,13 @@ function SidebarSection(props: {
 						aria-expanded={props.toggle.expanded}
 						className="min-h-8 rounded-md px-2.5 text-left text-label font-medium text-text-muted hover:bg-hover"
 					>
-						{props.toggle.expanded ? "Show less" : `Show ${props.toggle.hiddenCount} more`}
+						{t(
+							props.toggle.expanded
+								? kernelMessage("client.shell.sidebar.show-less")
+								: kernelMessage("client.shell.sidebar.show-more", {
+										count: props.toggle.hiddenCount,
+									}),
+						)}
 					</button>
 				)}
 			</div>

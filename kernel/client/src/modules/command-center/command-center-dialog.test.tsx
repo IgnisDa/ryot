@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test";
 
+import { testFormatters, testText } from "@ryot-app/kernel-messages/testing";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { useState } from "react";
@@ -11,6 +12,7 @@ import type {
 	CommandOption,
 	CommandResults,
 } from "#/modules/command-center/model";
+import { TestKernelI18nProvider } from "#/modules/i18n/provider.test-support";
 
 const option = (id: string, label: string, extra: Partial<CommandOption> = {}): CommandOption => ({
 	id,
@@ -32,9 +34,9 @@ const groups: readonly CommandGroup[] = [
 ];
 
 const filters: readonly CommandFilter[] = [
-	{ key: "all", label: "All" },
-	{ count: 4, key: "shows", label: "Shows" },
-	{ count: 1, key: "pages", label: "Pages" },
+	{ key: "all", label: testText("All") },
+	{ count: 4, key: "shows", label: testText("Shows") },
+	{ count: 1, key: "pages", label: testText("Pages") },
 ];
 
 const results = (overrides: Partial<CommandResults> = {}): CommandResults => ({
@@ -61,27 +63,29 @@ function Harness(props: {
 	const [query, setQuery] = useState(props.initialQuery ?? "");
 	const [filter, setFilter] = useState(props.results.filter);
 	return (
-		<CommandCenterDialog
-			query={query}
-			onQueryChange={setQuery}
-			failed={props.failed ?? []}
-			stale={props.stale ?? false}
-			onInterceptBack={() => false}
-			pending={props.pending ?? false}
-			results={{ ...props.results, filter }}
-			onRetry={() => props.retried?.push("retry")}
-			onClose={() => props.closed?.push("closed")}
-			onSelect={(picked) => props.selected?.push(picked.href)}
-			onFilterChange={(next) => {
-				props.filtered?.push(next);
-				setFilter(next);
-			}}
-			ask={
-				props.asked === undefined
-					? undefined
-					: { text: query.trim(), onAsk: () => props.asked?.push(query.trim()) }
-			}
-		/>
+		<TestKernelI18nProvider>
+			<CommandCenterDialog
+				query={query}
+				onQueryChange={setQuery}
+				failed={props.failed ?? []}
+				stale={props.stale ?? false}
+				onInterceptBack={() => false}
+				pending={props.pending ?? false}
+				results={{ ...props.results, filter }}
+				onRetry={() => props.retried?.push("retry")}
+				onClose={() => props.closed?.push("closed")}
+				onSelect={(picked) => props.selected?.push(picked.href)}
+				onFilterChange={(next) => {
+					props.filtered?.push(next);
+					setFilter(next);
+				}}
+				ask={
+					props.asked === undefined
+						? undefined
+						: { text: query.trim(), onAsk: () => props.asked?.push(query.trim()) }
+				}
+			/>
+		</TestKernelI18nProvider>
 	);
 }
 
@@ -222,7 +226,9 @@ describe("command center dialog", () => {
 				failed={["Books", "Music"]}
 			/>,
 		);
-		expect(screen.getByText("Could not search Books, Music.")).toBeTruthy();
+		expect(
+			screen.getByText(`Could not search ${testFormatters.list().format(["Books", "Music"])}.`),
+		).toBeTruthy();
 		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
 		expect(retried).toEqual(["retry"]);

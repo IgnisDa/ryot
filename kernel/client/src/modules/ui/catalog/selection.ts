@@ -3,8 +3,11 @@ import {
 	definitionKey,
 	type PluginPackageReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
-import { Match } from "effect";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
 export type CatalogEntryGroup = { readonly key: string; readonly heading: string };
 
@@ -20,64 +23,68 @@ export type CatalogEntry = {
 	readonly requirement: string | undefined;
 };
 
-type CatalogSource = { readonly name: string; readonly description: string };
+type Translate = (message: Message) => Text;
 
-const UNTITLED_PLUGIN_HEADING = "Other";
+/** The served plugin names of the client catalog, keyed by installation. */
+export const pluginNamesByInstallation = (
+	catalog: PluginClientCatalog,
+): ReadonlyMap<string, Message> =>
+	new Map(catalog.map(({ name, installationId }) => [installationId, name]));
 
-export const pluginHeading = (packageId: PluginPackageId) => {
-	const words = pluginPackageSegments(packageId)
-		.name.split(/[-_\s]+/)
-		.filter((part) => part.length > 0)
-		.map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`);
-	return words.length === 0 ? UNTITLED_PLUGIN_HEADING : words.join(" ");
-};
-
-const pluginScopeLabel = (scope: null | PluginPackageReference["scope"]) =>
-	Match.value(scope).pipe(
-		Match.when("system", () => "System"),
-		Match.when("user", () => "Private"),
-		Match.when(null, () => "Unavailable"),
-		Match.exhaustive,
+const pluginInstallationLabel = (
+	input: {
+		readonly name: string;
+		readonly packageId: null | PluginPackageId;
+		readonly scope: null | PluginPackageReference["scope"];
+	},
+	t: Translate,
+) =>
+	t(
+		kernelMessage("client.ui.catalog.installation", {
+			name: input.name,
+			scope: input.scope ?? "unavailable",
+			packageId: input.packageId ?? t(kernelMessage("client.ui.catalog.unknown-package")),
+		}),
 	);
 
-const pluginInstallationLabel = (input: {
-	readonly name: string;
-	readonly packageId: null | PluginPackageId;
-	readonly scope: null | PluginPackageReference["scope"];
-}) => `${input.name} · ${pluginScopeLabel(input.scope)} · ${input.packageId ?? "Unknown package"}`;
-
-export const pluginCatalogGroup = (item: {
-	readonly name: string;
-	readonly reference: DeclarationReference;
-	readonly packageId: null | PluginPackageId;
-	readonly pluginScope: null | PluginPackageReference["scope"];
-}): CatalogEntryGroup =>
+export const pluginCatalogGroup = (
+	item: {
+		readonly pluginName: Message | undefined;
+		readonly reference: DeclarationReference;
+		readonly packageId: null | PluginPackageId;
+		readonly pluginScope: null | PluginPackageReference["scope"];
+	},
+	t: Translate,
+): CatalogEntryGroup =>
 	item.reference.owner.kind === "kernel"
-		? { key: "kernel", heading: "Ryot" }
+		? { key: "kernel", heading: t(kernelMessage("client.ui.catalog.kernel-group")) }
 		: {
 				key: definitionKey("plugin", item.reference.owner),
-				heading: pluginInstallationLabel({
-					scope: item.pluginScope,
-					packageId: item.packageId,
-					name: item.packageId === null ? item.name : pluginHeading(item.packageId),
-				}),
+				heading: pluginInstallationLabel(
+					{
+						scope: item.pluginScope,
+						packageId: item.packageId,
+						name: t(item.pluginName ?? kernelMessage("client.ui.catalog.untitled-plugin")),
+					},
+					t,
+				),
 			};
 
-const matchesCatalogQuery = (source: CatalogSource, query: string) => {
+const matchesCatalogQuery = (entry: CatalogEntry, query: string) => {
 	const needle = query.trim().toLowerCase();
 	return (
 		needle.length === 0 ||
-		source.name.toLowerCase().includes(needle) ||
-		source.description.toLowerCase().includes(needle)
+		entry.name.toLowerCase().includes(needle) ||
+		entry.description.toLowerCase().includes(needle)
 	);
 };
 
-export const groupCatalogEntries = <Source extends CatalogSource>(
+export const groupCatalogEntries = <Source>(
 	sources: readonly Source[],
 	query: string,
 	toEntry: (source: Source) => CatalogEntry,
 ): readonly CatalogGroup[] => {
-	const matched = sources.filter((source) => matchesCatalogQuery(source, query)).map(toEntry);
+	const matched = sources.map(toEntry).filter((entry) => matchesCatalogQuery(entry, query));
 	return [...new Set(matched.map((entry) => entry.group.key))].flatMap((key) => {
 		const entries = matched
 			.filter((entry) => entry.group.key === key)

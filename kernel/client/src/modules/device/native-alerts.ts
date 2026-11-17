@@ -1,18 +1,56 @@
+import { ExceptionCode } from "@capacitor/core";
 import type { LocalNotificationsPlugin } from "@capacitor/local-notifications";
 import type { PluginDeviceRequest } from "@ryot-app/plugin-client-contract";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Clock, DateTime, Effect } from "effect";
 
-import { platformError } from "#/modules/device/service";
+import {
+	type AlertChannelNames,
+	AlertChannelsUnsupported,
+	platformError,
+} from "#/modules/device/service";
 
 type NativeAlerts = Pick<
 	LocalNotificationsPlugin,
 	| "update"
 	| "schedule"
-	| "createChannel"
 	| "checkPermissions"
 	| "requestPermissions"
 	| "checkExactNotificationSetting"
 >;
+
+/** Android 7 has no notification channels, so Capacitor rejects channel calls as unavailable. */
+const channelError = (cause: unknown) =>
+	isObjectRecord(cause) && cause["code"] === ExceptionCode.Unavailable
+		? new AlertChannelsUnsupported()
+		: platformError(cause);
+
+/** Android keeps an existing channel's settings and updates only its name, so this also renames them. */
+export const createNativeAlertChannels = Effect.fn("createNativeAlertChannels")(function* (
+	platform: Pick<LocalNotificationsPlugin, "createChannel">,
+	names: AlertChannelNames,
+) {
+	yield* Effect.tryPromise({
+		catch: channelError,
+		try: () =>
+			platform.createChannel({
+				importance: 4,
+				vibration: false,
+				name: names.audible,
+				id: "scheduled-audible",
+			}),
+	});
+	yield* Effect.tryPromise({
+		catch: channelError,
+		try: () =>
+			platform.createChannel({
+				importance: 2,
+				vibration: false,
+				name: names.silent,
+				id: "scheduled-silent",
+			}),
+	});
+});
 
 export const cancelNativeAlert = Effect.fn("cancelNativeAlert")(function* (
 	platform: Pick<LocalNotificationsPlugin, "cancel" | "removeDeliveredNotificationsById">,
@@ -75,28 +113,6 @@ export const scheduleNativeAlert = Effect.fn("scheduleNativeAlert")(function* (
 			catch: platformError,
 			try: () => platform.checkExactNotificationSetting(),
 		})).exact_alarm === "granted";
-	if (android) {
-		yield* Effect.tryPromise({
-			catch: platformError,
-			try: () =>
-				platform.createChannel({
-					importance: 4,
-					vibration: false,
-					name: "Timer alerts",
-					id: "scheduled-audible",
-				}),
-		});
-		yield* Effect.tryPromise({
-			catch: platformError,
-			try: () =>
-				platform.createChannel({
-					importance: 2,
-					vibration: false,
-					id: "scheduled-silent",
-					name: "Silent timer alerts",
-				}),
-		});
-	}
 	let sound: string | undefined;
 	if (request.audible) {
 		sound = "default";

@@ -8,6 +8,7 @@ import { impactHaptic, selectionHaptic } from "#/modules/device/haptics";
 import { listenDeviceEvents } from "#/modules/device/listeners";
 import {
 	cancelNativeAlert,
+	createNativeAlertChannels,
 	removeDeliveredNativeAlerts,
 	scheduleNativeAlert,
 } from "#/modules/device/native-alerts";
@@ -39,6 +40,8 @@ export const DevicePlatformLive = Layer.effect(
 			haptic: (kind) => (kind === "selection" ? selectionHaptic : impactHaptic),
 			cancel: (id) =>
 				native ? cancelNativeAlert(LocalNotifications, id) : Effect.sync(() => cancelWeb(id)),
+			nameAlertChannels: (names) =>
+				android ? createNativeAlertChannels(LocalNotifications, names) : Effect.void,
 			listen: (tap, foreground, receivedAlert) =>
 				Effect.gen(function* () {
 					yield* Effect.acquireRelease(

@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { OverlayScope, useFocusTrap, useScrollLock, useValueChange } from "@ryot-app/plugin-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
@@ -59,6 +61,7 @@ const restoreFocus = (trigger: RefObject<null | HTMLElement>) =>
 	queueMicrotask(() => trigger.current?.focus());
 
 export function MobileDrawer(props: MobileDrawerProps) {
+	const t = useT();
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [isSettling, setIsSettling] = useState(false);
 	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
@@ -105,11 +108,11 @@ export function MobileDrawer(props: MobileDrawerProps) {
 				ref={rootRef}
 				id={props.drawerId}
 				hidden={!presented}
-				aria-label="Navigation"
 				data-testid="mobile-drawer"
 				role={props.isOpen ? "dialog" : undefined}
 				aria-modal={props.isOpen ? true : undefined}
 				aria-hidden={props.isOpen ? undefined : true}
+				aria-label={t(kernelMessage("client.shell.sidebar.navigation"))}
 				className={clsx("ui-chrome fixed inset-0 z-40 md:hidden", presented ? "block" : "hidden")}
 			>
 				<motion.div

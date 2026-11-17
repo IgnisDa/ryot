@@ -1,4 +1,5 @@
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import type { DisplayText } from "@ryot-app/i18n/message";
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
@@ -11,8 +12,8 @@ export type CustomizeDraftViewItem = CustomizeDraftItem &
 
 export type CustomizeDraftItem = {
 	readonly id: string;
-	readonly name: string;
 	readonly icon: string;
+	readonly name: DisplayText;
 	readonly isHidden: boolean;
 };
 export type CustomizeDraftWorkspaceItem = CustomizeDraftItem &

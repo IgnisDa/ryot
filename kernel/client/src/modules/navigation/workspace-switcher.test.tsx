@@ -1,6 +1,8 @@
 import { describe, expect } from "bun:test";
 
 import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { testFormatters, testKernelText } from "@ryot-app/kernel-messages/testing";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -14,9 +16,18 @@ import { Effect } from "effect";
 import { useState } from "react";
 
 import {
+	testI18nWrapper,
+	testMessage,
+	testMessageCatalog,
+} from "#/modules/i18n/provider.test-support";
+import {
 	workspacePickerSummary,
 	WorkspaceSwitcher as WorkspaceSwitcherView,
 } from "#/modules/navigation/workspace-switcher";
+
+const wrapper = testI18nWrapper([
+	testMessageCatalog("Fixture", "Hidden", "Failed", "Incompatible", "Other", "Journal"),
+]);
 
 type WorkspaceSwitcherProps = Omit<
 	Parameters<typeof WorkspaceSwitcherView>[0],
@@ -33,12 +44,12 @@ const workspace = (
 ): PluginClientCatalogEntry => ({
 	icon: "film",
 	sortOrder: 0,
-	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
 	clientEntities: null,
 	assistantStarters: null,
+	name: testMessage("Fixture"),
 	contentHash: "source-fixture",
 	installationId: "installation-fixture",
 	...overrides,
@@ -91,22 +102,22 @@ describe("workspace switcher", () => {
 		const catalog: PluginClientCatalog = [
 			workspace({
 				sortOrder: -1,
-				name: "Hidden",
 				isHidden: true,
+				name: testMessage("Hidden"),
 				installationId: "installation-disabled",
 				packageId: PluginPackageId.make("test/disabled"),
 			}),
 			workspace({
 				sortOrder: 3,
-				name: "Failed",
 				health: "failed",
+				name: testMessage("Failed"),
 				installationId: "installation-failed",
 				packageId: PluginPackageId.make("test/failed"),
 			}),
 			workspace({
 				sortOrder: 2,
-				name: "Incompatible",
 				health: "incompatible",
+				name: testMessage("Incompatible"),
 				installationId: "installation-incompatible",
 				packageId: PluginPackageId.make("test/incompatible"),
 			}),
@@ -114,12 +125,13 @@ describe("workspace switcher", () => {
 		];
 		render(
 			<WorkspaceSwitcher
-				summary="2 views"
 				current={current}
 				catalog={catalog}
 				navigation={navigation}
 				onSelect={() => undefined}
+				summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 			/>,
+			{ wrapper: wrapper },
 		);
 		expect(screen.getByText("2 views")).toBeTruthy();
 
@@ -138,16 +150,16 @@ describe("workspace switcher", () => {
 		const current = workspace();
 		const other = workspace({
 			sortOrder: 1,
-			name: "Other",
+			name: testMessage("Other"),
 			installationId: "installation-other",
 			packageId: PluginPackageId.make("test/other"),
 		});
 		render(
 			<WorkspaceSwitcher
 				current={current}
-				summary="3 views"
 				onSelect={() => undefined}
 				catalog={[current, other]}
+				summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 3 })}
 				navigation={{
 					collections: [],
 					savedViews: [
@@ -159,6 +171,7 @@ describe("workspace switcher", () => {
 					],
 				}}
 			/>,
+			{ wrapper: wrapper },
 		);
 
 		expect(screen.getByText("3 views")).toBeTruthy();
@@ -177,11 +190,12 @@ describe("workspace switcher", () => {
 				render(
 					<WorkspaceSwitcher
 						current={current}
-						summary="2 views"
 						catalog={[current]}
 						navigation={navigation}
 						onSelect={() => undefined}
+						summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 					/>,
+					{ wrapper: wrapper },
 				);
 
 				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
@@ -200,19 +214,20 @@ describe("workspace switcher", () => {
 				const current = workspace();
 				const other = workspace({
 					sortOrder: 1,
-					name: "Other",
+					name: testMessage("Other"),
 					installationId: "installation-other",
 					packageId: PluginPackageId.make("test/other"),
 				});
 				render(
 					<WorkspaceSwitcher
 						showShortcut
-						summary="2 views"
 						current={current}
 						navigation={navigation}
 						onSelect={() => undefined}
 						catalog={[current, other]}
+						summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 					/>,
+					{ wrapper: wrapper },
 				);
 				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 
@@ -240,12 +255,12 @@ describe("workspace switcher", () => {
 		const props = {
 			current,
 			navigation,
-			summary: "2 views",
 			catalog: [current],
 			onSelect: () => undefined,
 			onOpenChange: (open: boolean) => changes.push(open),
+			summary: kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 }),
 		};
-		const rendered = render(<WorkspaceSwitcherView {...props} open />);
+		const rendered = render(<WorkspaceSwitcherView {...props} open />, { wrapper: wrapper });
 
 		fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 
@@ -263,25 +278,25 @@ describe("workspace switcher", () => {
 				const current = workspace();
 				const other = workspace({
 					sortOrder: 1,
-					name: "Other",
+					name: testMessage("Other"),
 					installationId: "installation-other",
 					packageId: PluginPackageId.make("test/other"),
 				});
 				const journal = workspace({
 					sortOrder: 2,
-					name: "Journal",
+					name: testMessage("Journal"),
 					installationId: "installation-journal",
 					packageId: PluginPackageId.make("test/journal"),
 				});
 				const props = {
 					current,
 					navigation,
-					summary: "2 views",
 					onSelect: () => undefined,
 					onOpenChange: () => undefined,
 					catalog: [current, other, journal],
+					summary: kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 }),
 				};
-				const rendered = render(<WorkspaceSwitcherView {...props} open />);
+				const rendered = render(<WorkspaceSwitcherView {...props} open />, { wrapper: wrapper });
 				const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
 				const otherItem = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
 				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
@@ -305,11 +320,12 @@ describe("workspace switcher", () => {
 		render(
 			<WorkspaceSwitcher
 				current={current}
-				summary="2 views"
 				catalog={[current]}
 				navigation={navigation}
 				onSelect={() => undefined}
+				summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 			/>,
+			{ wrapper: wrapper },
 		);
 
 		fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
@@ -329,11 +345,12 @@ describe("workspace switcher", () => {
 				render(
 					<WorkspaceSwitcher
 						current={current}
-						summary="2 views"
 						catalog={[current]}
 						navigation={navigation}
 						onSelect={() => undefined}
+						summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 					/>,
+					{ wrapper: wrapper },
 				);
 				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 				fireEvent.click(trigger);
@@ -361,14 +378,15 @@ describe("workspace switcher", () => {
 				render(
 					<>
 						<WorkspaceSwitcher
-							summary="2 views"
 							current={current}
 							catalog={[current]}
 							navigation={navigation}
 							onSelect={() => undefined}
+							summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 						/>
 						<button type="button">Outside</button>
 					</>,
+					{ wrapper: wrapper },
 				);
 				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 				fireEvent.click(trigger);
@@ -398,14 +416,15 @@ describe("workspace switcher", () => {
 				const current = workspace();
 				render(
 					<WorkspaceSwitcher
-						summary="2 views"
 						current={current}
 						catalog={[current]}
 						navigation={navigation}
 						onSelect={({ pluginId }) => {
 							selections.push(pluginId);
 						}}
+						summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 					/>,
+					{ wrapper: wrapper },
 				);
 				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 				fireEvent.click(trigger);
@@ -428,12 +447,12 @@ describe("workspace switcher", () => {
 				render(
 					<WorkspaceSwitcher
 						current={current}
-						summary="2 views"
 						navigation={navigation}
+						summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 						catalog={[
 							current,
 							workspace({
-								name: "Other",
+								name: testMessage("Other"),
 								installationId: "installation-other",
 								packageId: PluginPackageId.make("test/other"),
 							}),
@@ -446,6 +465,7 @@ describe("workspace switcher", () => {
 							});
 						}}
 					/>,
+					{ wrapper: wrapper },
 				);
 				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 				fireEvent.click(trigger);
@@ -469,11 +489,12 @@ describe("workspace switcher", () => {
 				render(
 					<WorkspaceSwitcher
 						current={current}
-						summary="2 views"
 						catalog={[current]}
 						navigation={navigation}
 						onSelect={() => undefined}
+						summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 					/>,
+					{ wrapper: wrapper },
 				);
 				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 				fireEvent.click(trigger);
@@ -493,26 +514,27 @@ describe("workspace switcher", () => {
 				const current = workspace();
 				render(
 					<WorkspaceSwitcher
-						summary="2 views"
 						current={current}
 						navigation={navigation}
 						onSelect={() => undefined}
+						summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 						catalog={[
 							current,
 							workspace({
 								sortOrder: 1,
-								name: "Other",
+								name: testMessage("Other"),
 								installationId: "installation-other",
 								packageId: PluginPackageId.make("test/other"),
 							}),
 							workspace({
 								sortOrder: 2,
-								name: "Journal",
+								name: testMessage("Journal"),
 								installationId: "installation-journal",
 								packageId: PluginPackageId.make("test/journal"),
 							}),
 						]}
 					/>,
+					{ wrapper: wrapper },
 				);
 				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 				const menu = screen.getByRole("menu");
@@ -544,14 +566,15 @@ describe("workspace switcher", () => {
 				render(
 					<>
 						<WorkspaceSwitcher
-							summary="2 views"
 							current={current}
 							catalog={[current]}
 							navigation={navigation}
 							onSelect={() => undefined}
+							summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 						/>
 						<button type="button">After switcher</button>
 					</>,
+					{ wrapper: wrapper },
 				);
 				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 				yield* Effect.promise(() =>
@@ -575,11 +598,12 @@ describe("workspace switcher", () => {
 		render(
 			<WorkspaceSwitcher
 				current={current}
-				summary="2 views"
 				catalog={[current]}
 				navigation={navigation}
 				onSelect={() => undefined}
+				summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 			/>,
+			{ wrapper: wrapper },
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
@@ -593,12 +617,13 @@ describe("workspace switcher", () => {
 		render(
 			<WorkspaceSwitcher
 				current={current}
-				summary="2 views"
 				catalog={[current]}
 				navigation={navigation}
 				onSelect={() => undefined}
+				summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 				onCustomize={() => events.push(screen.queryByRole("menu") === null ? "closed" : "open")}
 			/>,
+			{ wrapper: wrapper },
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
@@ -615,12 +640,13 @@ describe("workspace switcher", () => {
 				render(
 					<WorkspaceSwitcher
 						current={current}
-						summary="2 views"
 						catalog={[current]}
 						navigation={navigation}
 						onSelect={() => undefined}
 						onCustomize={() => undefined}
+						summary={kernelMessage("client.shell.sidebar.workspace-summary", { count: 2 })}
 					/>,
+					{ wrapper: wrapper },
 				);
 
 				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
@@ -658,8 +684,12 @@ describe("workspace picker summary", () => {
 			],
 		};
 
-		expect(workspacePickerSummary(data, "installation-ryot/fixture")).toBe("First, Second, Fourth");
-		expect(workspacePickerSummary(data, "installation-ryot/other")).toBe("Other");
+		expect<string>(
+			workspacePickerSummary(testFormatters, data, "installation-ryot/fixture", testKernelText),
+		).toBe("First, Second, Fourth");
+		expect<string>(
+			workspacePickerSummary(testFormatters, data, "installation-ryot/other", testKernelText),
+		).toBe("Other");
 	});
 
 	it("adds the remaining count and handles empty workspaces", () => {
@@ -673,11 +703,11 @@ describe("workspace picker summary", () => {
 			],
 		};
 
-		expect(workspacePickerSummary(data, "installation-ryot/fixture")).toBe(
-			"First, Second, Third +1",
-		);
-		expect(workspacePickerSummary(data, "installation-ryot/other")).toBe(
-			"Custom workspace · 0 views",
-		);
+		expect<string>(
+			workspacePickerSummary(testFormatters, data, "installation-ryot/fixture", testKernelText),
+		).toBe("First, Second, Third +1");
+		expect<string>(
+			workspacePickerSummary(testFormatters, data, "installation-ryot/other", testKernelText),
+		).toBe("Custom workspace · 0 views");
 	});
 });

@@ -1,4 +1,7 @@
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { savedViewRecordsRecipe } from "@ryot-app/ryotql-recipes/saved-view-records";
@@ -52,6 +55,8 @@ const recentOptions = (
 
 export function CommandCenter(props: CommandCenterProps) {
 	const { scope, runtime, catalog, navigation } = props;
+	const t = useT();
+	const formatters = useFormatters();
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const [query, setQuery] = useState("");
@@ -63,8 +68,8 @@ export function CommandCenter(props: CommandCenterProps) {
 	const trimmed = query.trim();
 	const request = useMemo(() => ({ attempt, query: trimmed }), [trimmed, attempt]);
 	const destinations = useMemo(
-		() => destinationOptions({ catalog, navigation }),
-		[catalog, navigation],
+		() => destinationOptions({ t, catalog, navigation }),
+		[catalog, navigation, t],
 	);
 
 	useEffect(() => {
@@ -78,12 +83,12 @@ export function CommandCenter(props: CommandCenterProps) {
 					Effect.match({
 						onFailure: () => setViewsState({ status: "failed" }),
 						onSuccess: (records) =>
-							setViewsState({ status: "ready", views: libraryViews(records.items) }),
+							setViewsState({ status: "ready", views: libraryViews(records.items, t) }),
 					}),
 				),
 			() => undefined,
 		);
-	}, [ryot, schedule, viewsState.status]);
+	}, [ryot, schedule, t, viewsState.status]);
 	useEffect(() => {
 		const fiber = runtime.runFork(
 			Effect.flatMap(ClientStorage, (storage) => storage.getRecentDestinations(scope)).pipe(
@@ -120,13 +125,22 @@ export function CommandCenter(props: CommandCenterProps) {
 			filters: [],
 			empty: false,
 			filter: ALL_FILTER,
-			groups: idleGroups({ recents, destinations }),
+			groups: idleGroups({ t, recents, destinations }),
 		}),
-		[recents, destinations],
+		[t, recents, destinations],
 	);
 	const results = useMemo(
-		() => (shown === undefined ? idle : commandResults({ filter, destinations, commit: shown })),
-		[filter, destinations, shown, idle],
+		() =>
+			shown === undefined
+				? idle
+				: commandResults({
+						t,
+						filter,
+						destinations,
+						commit: shown,
+						displayValue: (value) => displayValueText(t, formatters, value),
+					}),
+		[filter, destinations, shown, idle, t, formatters],
 	);
 	const searching = trimmed !== "";
 
@@ -159,10 +173,6 @@ export function CommandCenter(props: CommandCenterProps) {
 					setCommit(undefined);
 				}
 			}}
-			failed={[
-				...(libraryFailed ? ["your library"] : []),
-				...(searching ? results.failed.map(({ name }) => name) : []),
-			]}
 			onRetry={() => {
 				if (libraryFailed) {
 					setViewsState({ status: "pending" });
@@ -170,6 +180,10 @@ export function CommandCenter(props: CommandCenterProps) {
 				}
 				setAttempt((value) => value + 1);
 			}}
+			failed={[
+				...(libraryFailed ? [t(kernelMessage("client.command-center.library"))] : []),
+				...(searching ? results.failed.map(({ name }) => name) : []),
+			]}
 		/>
 	);
 }

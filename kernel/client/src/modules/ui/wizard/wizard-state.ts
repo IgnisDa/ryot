@@ -1,3 +1,5 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Match } from "effect";
 
 /**
@@ -31,7 +33,12 @@ export const wizardStepLabel = <Step extends string>(
 	step: Step,
 	steps: readonly Step[],
 	headings: Record<Step, string>,
-) => `Step ${steps.indexOf(step) + 1} of ${steps.length} · ${headings[step]}`;
+): Message =>
+	kernelMessage("client.ui.wizard.step", {
+		total: steps.length,
+		heading: headings[step],
+		current: steps.indexOf(step) + 1,
+	});
 
 export const wizardReducer = (state: WizardState, action: WizardAction): WizardState =>
 	Match.value(action).pipe(
