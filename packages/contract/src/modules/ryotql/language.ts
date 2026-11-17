@@ -1,3 +1,4 @@
+import { WeekDay } from "@ryot-app/i18n/locale";
 import { Function, Schema } from "effect";
 
 import { JsonValue } from "../../schema/json";
@@ -711,7 +712,11 @@ export const RyotQLResult = Schema.Union([RowsResult, AggregateResult]).annotate
 });
 export type RyotQLResult = typeof RyotQLResult.Type;
 
-export const QueryExecution = strictStruct({ now: Schema.Finite, timeZone: TimeZone });
+export const QueryExecution = strictStruct({
+	now: Schema.Finite,
+	timeZone: TimeZone,
+	weekStart: WeekDay,
+});
 export type QueryExecution = typeof QueryExecution.Type;
 
 export const RyotQLResponse = strictStruct({

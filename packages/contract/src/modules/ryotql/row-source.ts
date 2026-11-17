@@ -1,6 +1,8 @@
+import { ARGUMENT_NAME_PATTERN, keysMatch, Message } from "@ryot-app/i18n/message";
 import { Result, Schema } from "effect";
 
 import { strictStruct } from "../../schema/utils";
+import { ManifestText } from "../plugins/manifest-text";
 import type { PluginIdentityReference } from "../plugins/references";
 import {
 	Include,
@@ -13,6 +15,26 @@ import {
 	type RyotQLDocument,
 	TableReference,
 } from "./authored";
+import { OutputFieldKey } from "./language";
+
+const rowText = <Text extends Schema.Top>(text: Text) =>
+	strictStruct({
+		text,
+		params: Schema.Record(Schema.String, OutputFieldKey).check(
+			keysMatch(ARGUMENT_NAME_PATTERN, "argument names"),
+		),
+	});
+
+/**
+ * A message whose arguments are bound, per row, from the named output fields. Queries yield codes
+ * and numbers, never display text; the catalog turns codes into text through `select`.
+ */
+export const RowText = rowText(Message);
+export type RowText = typeof RowText.Type;
+
+/** Plugin-authored row text names manifest text from the plugin's catalog. */
+export const AuthoredRowText = rowText(ManifestText);
+export type AuthoredRowText = typeof AuthoredRowText.Type;
 
 export const RowSourcePrecision = Schema.Literals(["date", "instant"]);
 export type RowSourcePrecision = typeof RowSourcePrecision.Type;

@@ -10,9 +10,10 @@ import {
 } from "../../schema/property-schema";
 import { formatPropertyIssues } from "../../schema/property-validation";
 import { parseAppSchemaPropertiesSafe } from "../../schema/property-values";
+import { AuthoredAppSchema } from "../plugins/manifest-text";
 
 const propertyIssues = (
-	property: AppPropertyDefinition,
+	property: AppPropertyDefinition<unknown>,
 	path: readonly string[],
 ): readonly PropertyValidationIssue[] => {
 	if (property.type === "object") {
@@ -40,12 +41,12 @@ const propertyIssues = (
 	return issues;
 };
 
-const staticChoices = (property: AppPropertyDefinition) =>
+const staticChoices = (property: AppPropertyDefinition<unknown>) =>
 	(property.type === "enum" || property.type === "enum-array") && property.choices.kind === "static"
 		? property.choices.values
 		: [];
 
-const impliedArgumentIssues = (schema: AppSchema): readonly PropertyValidationIssue[] =>
+const impliedArgumentIssues = (schema: AppSchema<unknown>): readonly PropertyValidationIssue[] =>
 	Object.entries(schema.fields).flatMap(([key, property]) =>
 		staticChoices(property).flatMap((choice, index) =>
 			Object.entries(choice.implies ?? {}).flatMap(([target, value]) => {
@@ -63,7 +64,7 @@ const impliedArgumentIssues = (schema: AppSchema): readonly PropertyValidationIs
 		),
 	);
 
-const impliedArguments = (schema: AppSchema, bound: Readonly<Record<string, unknown>>) =>
+const impliedArguments = (schema: AppSchema<unknown>, bound: Readonly<Record<string, unknown>>) =>
 	Object.fromEntries(
 		Object.entries(schema.fields).flatMap(([key, property]) =>
 			Object.entries(
@@ -72,7 +73,9 @@ const impliedArguments = (schema: AppSchema, bound: Readonly<Record<string, unkn
 		),
 	);
 
-export const validateParameterSchema = (schema: AppSchema): readonly PropertyValidationIssue[] => {
+export const validateParameterSchema = (
+	schema: AppSchema<unknown>,
+): readonly PropertyValidationIssue[] => {
 	const issues = [
 		...validateAppSchemaDefinition(schema, { parameterReferences: true }),
 		...Object.entries(schema.fields).flatMap(([key, property]) =>
@@ -98,14 +101,20 @@ export const validateParameterSchema = (schema: AppSchema): readonly PropertyVal
 	return issues;
 };
 
-export const ParameterSchema = AppSchema.check(
-	Schema.makeFilter(
-		(schema) => validateParameterSchema(schema).length === 0 || "Invalid query parameter schema",
-	),
-);
+const parameterSchema = <Text>(schema: Schema.Codec<AppSchema<Text>, unknown>) =>
+	schema.check(
+		Schema.makeFilter(
+			(value) => validateParameterSchema(value).length === 0 || "Invalid query parameter schema",
+		),
+	);
+
+export const ParameterSchema = parameterSchema(AppSchema);
+
+/** Parameters authored in plugin or kernel code: labels are manifest text or kernel messages. */
+export const PluginParameterSchema = parameterSchema(AuthoredAppSchema);
 
 const bindParameterArguments = (
-	schema: AppSchema | undefined,
+	schema: undefined | AppSchema<unknown>,
 	input: unknown,
 	partial: boolean,
 ) => {
@@ -144,13 +153,16 @@ const bindParameterArguments = (
 export const argumentIssuesMessage = (issues: readonly PropertyValidationIssue[]) =>
 	`Invalid arguments: ${formatPropertyIssues(issues)}`;
 
-export const bindArguments = (schema: AppSchema | undefined, input: unknown = {}) =>
+export const bindArguments = (schema: undefined | AppSchema<unknown>, input: unknown = {}) =>
 	bindParameterArguments(schema, input, false);
 
-export const bindPartialArguments = (schema: AppSchema | undefined, input: unknown = {}) =>
+export const bindPartialArguments = (schema: undefined | AppSchema<unknown>, input: unknown = {}) =>
 	bindParameterArguments(schema, input, true);
 
-export const argumentEntitlements = (schema: AppSchema | undefined, input: unknown = {}) => {
+export const argumentEntitlements = (
+	schema: undefined | AppSchema<unknown>,
+	input: unknown = {},
+) => {
 	const bound = bindArguments(schema, input);
 	if (Result.isFailure(bound)) {
 		return [];
@@ -174,7 +186,9 @@ export const argumentEntitlements = (schema: AppSchema | undefined, input: unkno
 
 export type ParameterExposureRisk = "bounded" | "free-text" | "identifier";
 
-export const parameterExposureRisk = (property: AppPropertyDefinition): ParameterExposureRisk => {
+export const parameterExposureRisk = (
+	property: AppPropertyDefinition<unknown>,
+): ParameterExposureRisk => {
 	if (property.type === "array") {
 		return parameterExposureRisk(property.items);
 	}

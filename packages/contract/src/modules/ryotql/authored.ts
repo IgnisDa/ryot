@@ -1,9 +1,11 @@
 import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Result, Schema } from "effect";
 
+import type { PluginId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { ValueFilterField } from "../filters/schemas";
 import { BrowseSort } from "../filters/sort";
+import { stampAppSchema } from "../plugins/manifest-text";
 import { PluginIdentityReference, QueryOwnerReference } from "../plugins/references";
 import type { CastTarget, JsonPath, TransformName } from "./grammar";
 import { DateBucketUnit, scalarOperations } from "./grammar";
@@ -18,7 +20,7 @@ import {
 	WildcardSelection,
 } from "./language";
 import * as Bound from "./language";
-import { ParameterSchema } from "./parameters";
+import { ParameterSchema, PluginParameterSchema } from "./parameters";
 
 export const ParameterExpression = strictStruct({
 	name: Schema.NonEmptyString,
@@ -512,12 +514,36 @@ export const NamedQuery = strictStruct({
 }).annotate({ identifier: "AuthoredRyotQLNamedQuery" });
 export type NamedQuery = typeof NamedQuery.Type;
 
-export const RyotQLDocument = strictStruct({
-	controls: Schema.optional(Controls),
-	parameters: Schema.optional(ParameterSchema),
-	queries: Schema.Record(Schema.String, NamedQuery),
-}).annotate({ identifier: "AuthoredRyotQLDocument" });
+const ryotQLDocument = <Parameters extends Schema.Top>(parameters: Parameters) =>
+	strictStruct({
+		controls: Schema.optional(Controls),
+		parameters: Schema.optional(parameters),
+		queries: Schema.Record(Schema.String, NamedQuery),
+	});
+
+export const RyotQLDocument = ryotQLDocument(ParameterSchema).annotate({
+	identifier: "AuthoredRyotQLDocument",
+});
 export type RyotQLDocument = typeof RyotQLDocument.Type;
+
+/**
+ * A document authored in plugin or kernel code, such as manifest queries and recipes: parameter
+ * text is manifest text or a kernel message, stamped with the authoring namespace where it enters.
+ */
+export const PluginRyotQLDocument = ryotQLDocument(PluginParameterSchema).annotate({
+	identifier: "PluginRyotQLDocument",
+});
+export type PluginRyotQLDocument = typeof PluginRyotQLDocument.Type;
+
+export const stampRyotQLDocument = (
+	namespace: string,
+	document: PluginRyotQLDocument,
+): RyotQLDocument => {
+	const { parameters, ...rest } = document;
+	return parameters === undefined
+		? rest
+		: { ...rest, parameters: stampAppSchema(namespace, parameters) };
+};
 
 type AuthoredMapping = {
 	readonly sourceEntity?: () => void;
@@ -565,7 +591,13 @@ export const mapPluginIdentityReferences = (
 ) =>
 	Schema.decodeUnknownResult(RyotQLDocument)(mapAuthoredNode(document, { reference: transform }));
 
-export const pluginIdentityReferences = (document: RyotQLDocument) => {
+/** Stamps a plugin's document with its namespace and binds its `self` references to the plugin. */
+export const resolvePluginDocument = (pluginId: PluginId, document: PluginRyotQLDocument) =>
+	mapPluginIdentityReferences(stampRyotQLDocument(pluginId, document), (reference) =>
+		reference.kind === "self" ? { pluginId, kind: "local" } : reference,
+	);
+
+export const pluginIdentityReferences = (document: RyotQLDocument | PluginRyotQLDocument) => {
 	const references: PluginIdentityReference[] = [];
 	mapAuthoredNode(document, {
 		reference: (reference) => {
@@ -584,7 +616,9 @@ export const mapScalarExpression = (
 		Schema.decodeUnknownResult(ScalarExpression)(mapAuthoredNode(expression, transform)),
 	);
 
-const referencedTables = (value: RyotQLDocument | ScalarExpression): ReadonlySet<string> => {
+const referencedTables = (
+	value: RyotQLDocument | ScalarExpression | PluginRyotQLDocument,
+): ReadonlySet<string> => {
 	const tables = new Set<string>();
 	mapAuthoredNode(value, {
 		sourceEntity: () => {
@@ -600,5 +634,6 @@ const referencedTables = (value: RyotQLDocument | ScalarExpression): ReadonlySet
 
 export const scalarExpressionTables = (expression: ScalarExpression): ReadonlySet<string> =>
 	referencedTables(expression);
-export const documentTables = (document: RyotQLDocument): ReadonlySet<string> =>
-	referencedTables(document);
+export const documentTables = (
+	document: RyotQLDocument | PluginRyotQLDocument,
+): ReadonlySet<string> => referencedTables(document);

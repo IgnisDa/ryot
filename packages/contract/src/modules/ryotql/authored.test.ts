@@ -1,6 +1,50 @@
 import { expect, it } from "bun:test";
 
-import { type ScalarExpression, scalarExpressionTables } from "./authored";
+import { Schema } from "effect";
+
+import {
+	PluginRyotQLDocument,
+	type ScalarExpression,
+	scalarExpressionTables,
+	stampRyotQLDocument,
+} from "./authored";
+
+const pluginDocument = (label: unknown) => {
+	const input: unknown = {
+		queries: {},
+		parameters: { fields: { name: { label, type: "string", description: "Name" } } },
+	};
+	return Schema.decodeUnknownResult(PluginRyotQLDocument)(input);
+};
+
+it("stamps plugin-authored parameter text and keeps kernel messages", () => {
+	const kernelLabel = { namespace: "kernel", key: "recipe.parameter.search" };
+	const document = {
+		queries: {},
+		parameters: {
+			fields: {
+				search: { type: "string", label: kernelLabel, description: "Search" },
+				name: { type: "string", description: "Name", label: { key: "query-parameter.name" } },
+			},
+		},
+	} as const;
+	expect(stampRyotQLDocument("plugin-1", document).parameters?.fields).toEqual({
+		search: { type: "string", label: kernelLabel, description: "Search" },
+		name: {
+			type: "string",
+			description: "Name",
+			label: { namespace: "plugin-1", key: "query-parameter.name" },
+		},
+	});
+});
+
+it("rejects plain strings and other plugins' messages as plugin-authored parameter text", () => {
+	expect(pluginDocument({ key: "query-parameter.name" })._tag).toBe("Success");
+	expect(pluginDocument("Name")._tag).toBe("Failure");
+	expect(pluginDocument({ namespace: "other-plugin", key: "query-parameter.name" })._tag).toBe(
+		"Failure",
+	);
+});
 
 it("discovers tables hidden in unselected authored choices and guarded correlated branches", () => {
 	const expression: ScalarExpression = {
