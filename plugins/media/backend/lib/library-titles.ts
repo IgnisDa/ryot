@@ -16,6 +16,8 @@ import {
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
+import { catalogMessage } from "../../shared/messages.generated";
+
 const containmentSlugs = [
 	"show-to-show-season",
 	"show-season-to-show-episode",
@@ -26,10 +28,14 @@ const containersRecipe = (() => {
 		fields: {
 			entityIds: {
 				type: "array",
-				label: "entityIds",
 				validation: { required: true },
 				description: "entityIds to read",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.entities"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});

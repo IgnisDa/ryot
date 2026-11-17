@@ -7,6 +7,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import { catalogMessage } from "../../shared/messages.generated";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-user-data.sandbox";
 
@@ -144,12 +145,11 @@ describe("media user data operation", () => {
 		"returns the actionable child mapping refusal from the host",
 		() =>
 			Effect.gen(function* () {
-				const message = "Cannot merge child data. Match episode names and try again.";
 				const { host } = recordingHost({
 					mergeUserEntityData: () =>
 						Effect.fail({
 							message: "child-mapping-conflict",
-							data: { message, code: "child-mapping-conflict" },
+							data: { code: "child-mapping-conflict" },
 						}),
 				});
 				expect(
@@ -166,19 +166,21 @@ describe("media user data operation", () => {
 						host,
 						execution,
 					),
-				).toEqual({ message, status: "rejected" });
+				).toEqual({
+					status: "rejected",
+					reason: catalogMessage("rejection.user-data.child-mapping-conflict"),
+				});
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"returns state conflicts with their actionable host message",
+		"returns state conflicts as an actionable message",
 		() =>
 			Effect.gen(function* () {
-				const message = "Your data changed. Refresh and try again.";
 				const { host } = recordingHost({
 					clearUserEntityData: () =>
-						Effect.fail({ message: "state-conflict", data: { message, code: "state-conflict" } }),
+						Effect.fail({ message: "state-conflict", data: { code: "state-conflict" } }),
 				});
 				expect(
 					yield* runSandboxTestScript(
@@ -193,7 +195,10 @@ describe("media user data operation", () => {
 						host,
 						execution,
 					),
-				).toEqual({ message, status: "rejected" });
+				).toEqual({
+					status: "rejected",
+					reason: catalogMessage("rejection.user-data.state-conflict"),
+				});
 			}),
 		testTimeout,
 	);

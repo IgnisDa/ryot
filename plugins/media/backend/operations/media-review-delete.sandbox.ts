@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 import { MediaReviewDeleteInput, MediaReviewOutput } from "../../shared/media-review-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 import { loadEditTargets, rejectHostFailure, reviewCombinations } from "./media-activity-edits";
 
 export const manifest = defineManifest({
@@ -21,7 +22,7 @@ export default defineOperation({
 				host,
 				[input.eventId],
 				reviewCombinations,
-				"Only reviews can be deleted here.",
+				catalogMessage("rejection.record.review-only-delete"),
 			);
 			return yield* host.deleteEvents([input.eventId]).pipe(Effect.catch(rejectHostFailure));
 		}),

@@ -4,6 +4,7 @@ import type { ProviderSearchInput } from "@ryot-app/plugin-backend-sdk/provider"
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { languageCodeForIso6393 } from "@ryot-app/plugin-kit/languages";
 
+import type { CreditRoleCode } from "../../../shared/credit-roles";
 import { MediaSandboxError } from "../failures";
 import {
 	decodeJsonResponse,
@@ -12,7 +13,7 @@ import {
 	stringValue,
 	type UnknownRecord,
 } from "../records";
-import { createRoleAccumulator, type RoleRelatedEntity } from "../role-accumulator";
+import { createRoleAccumulator, type CreditRole, creditRoleProperties } from "../role-accumulator";
 
 export type RemoteImage = { url: string; type: "remote"; purpose: TvdbImagePurpose };
 
@@ -283,44 +284,33 @@ export const collectCompanyTypes = (companyTypes: unknown) =>
 		}),
 	);
 
-const TVDB_COMPANY_ROLES: ReadonlyArray<readonly [string, string]> = [
-	["studio", "Studio"],
-	["network", "Network"],
-	["production", "Production Company"],
-	["distributor", "Distributor"],
-	["special_effects", "Special Effects"],
+const TVDB_COMPANY_ROLES: ReadonlyArray<readonly [string, CreditRoleCode]> = [
+	["studio", "studio"],
+	["network", "network"],
+	["production", "production_company"],
+	["distributor", "distributor"],
+	["special_effects", "special_effects"],
 ];
 
 export const collectCompanies = (
 	companies: unknown,
 	companyTypes: ReadonlyMap<number, string> = new Map(),
 ) => {
-	const companyByKey = new Map<string, RoleRelatedEntity>();
-	const addCompanies = (values: unknown, getRole: (company: UnknownRecord) => string) => {
+	const related = createRoleAccumulator();
+	const addCompanies = (
+		values: unknown,
+		getRole: (company: UnknownRecord) => null | CreditRole,
+	) => {
 		for (const company of recordsValue(values)) {
 			const id = numberValue(company["id"]);
 			if (id === null) {
 				continue;
 			}
-			const role = getRole(company);
-			const name = stringValue(company["name"]) ?? "Loading...";
-			const externalId = String(Math.trunc(id));
-			const companyKey = `company.tvdb:${externalId}`;
-			const existing = companyByKey.get(companyKey);
-			if (existing) {
-				existing.relationshipProperties.roles = [
-					...new Set([...existing.relationshipProperties.roles, role]),
-				];
-				if (existing.name === "Loading..." && name !== "Loading...") {
-					existing.name = name;
-				}
-				continue;
-			}
-			companyByKey.set(companyKey, {
-				name,
-				externalId,
+			related.add({
 				providerSlug: "company.tvdb",
-				relationshipProperties: { roles: [role] },
+				externalId: String(Math.trunc(id)),
+				name: stringValue(company["name"]) ?? "Loading...",
+				relationshipProperties: creditRoleProperties(getRole(company)),
 			});
 		}
 	};
@@ -328,21 +318,20 @@ export const collectCompanies = (
 	if (Array.isArray(companies)) {
 		addCompanies(companies, (company) => {
 			const companyType = numberValue(company["primaryCompanyType"]);
-			return companyType === null
-				? "Company"
-				: (companyTypes.get(Math.trunc(companyType)) ?? "Company");
+			const name = companyType === null ? undefined : companyTypes.get(Math.trunc(companyType));
+			return name === undefined ? null : { name };
 		});
-		return [...companyByKey.values()];
+		return related.entities;
 	}
 
 	const companiesRecord = asRecord(companies);
 	if (!companiesRecord) {
 		return [];
 	}
-	for (const [key, role] of TVDB_COMPANY_ROLES) {
-		addCompanies(companiesRecord[key], () => role);
+	for (const [key, code] of TVDB_COMPANY_ROLES) {
+		addCompanies(companiesRecord[key], () => ({ code }));
 	}
-	return [...companyByKey.values()];
+	return related.entities;
 };
 
 const tvdbCastTypes = new Set(["cast", "actor", "actress", "guest star", "voice actor"]);

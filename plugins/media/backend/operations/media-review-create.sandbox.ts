@@ -1,6 +1,6 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -23,6 +23,8 @@ import {
 	reviewPositionError,
 } from "../../shared/media-review-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import { catalogMessage } from "../../shared/messages.generated";
+import { reject } from "../lib/failures";
 import { requireReviewConsumption } from "./media-review-consumption";
 
 const reviewTargetRecipe = (() => {
@@ -30,9 +32,9 @@ const reviewTargetRecipe = (() => {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "Entity Id",
 				validation: { required: true },
 				description: "Entity Id for this selection",
+				label: catalogMessage("query-parameter.entity"),
 			},
 		},
 	});
@@ -75,12 +77,12 @@ export default defineOperation({
 				entityId: input.entityId,
 			});
 			if (target === undefined) {
-				return yield* new OperationRejectedError({ message: "Review target not found" });
+				return yield* reject(catalogMessage("rejection.review.target-not-found"));
 			}
 			const { position, consumptionEventId } = input;
 			const positionError = reviewPositionError(target.entitySchemaSlug, position);
 			if (positionError !== undefined) {
-				return yield* new OperationRejectedError({ message: positionError });
+				return yield* reject(positionError);
 			}
 			if (consumptionEventId) {
 				yield* requireReviewConsumption(host, { entityId: target.id, eventId: consumptionEventId });

@@ -20,9 +20,10 @@ describe("TMDB credits", () => {
 			providerSlug: "person.tmdb",
 			relationshipProperties: {
 				order: 0,
+				roles: [],
 				isGuest: false,
-				roles: ["Acting"],
 				isUncredited: true,
+				roleCodes: ["actor"],
 				creditKinds: ["cast"],
 				departments: ["Acting"],
 				character: "Character 18 (UNcredited)",
@@ -30,7 +31,7 @@ describe("TMDB credits", () => {
 		});
 	});
 
-	it("retains crew entries with missing jobs as Crew and keeps every nonempty job", () => {
+	it("retains crew entries with missing jobs without a role and keeps every nonempty job", () => {
 		expect(
 			collectPeople(
 				[],
@@ -65,12 +66,12 @@ describe("TMDB credits", () => {
 				name: "No Job",
 				externalId: "3",
 				providerSlug: "person.tmdb",
-				relationshipProperties: { roles: ["Crew"], creditKinds: ["crew"], departments: ["Camera"] },
+				relationshipProperties: { roles: [], creditKinds: ["crew"], departments: ["Camera"] },
 			},
 		]);
 	});
 
-	it("classifies cast as Acting instead of using a person's career department", () => {
+	it("classifies cast as actors instead of using a person's career department", () => {
 		expect(
 			collectPeople(
 				[
@@ -94,7 +95,8 @@ describe("TMDB credits", () => {
 					isGuest: false,
 					character: "Hero",
 					isUncredited: false,
-					roles: ["Acting", "Director"],
+					roles: ["Director"],
+					roleCodes: ["actor"],
 					creditKinds: ["cast", "crew"],
 					departments: ["Acting", "Directing"],
 				},
@@ -128,9 +130,10 @@ describe("TMDB credits", () => {
 					isGuest: false,
 					isUncredited: false,
 					creditKinds: ["crew", "cast"],
+					roles: ["Executive Producer"],
+					roleCodes: ["creator", "actor"],
 					departments: ["Acting", "Production"],
 					character: "Hero (Uncredited) / Villain",
-					roles: ["Creator", "Acting", "Executive Producer"],
 				},
 			},
 		]);
@@ -195,8 +198,9 @@ describe("TMDB credits", () => {
 				providerSlug: "person.tmdb",
 				relationshipProperties: {
 					order: 4,
-					roles: ["Acting"],
+					roles: [],
 					isUncredited: false,
+					roleCodes: ["actor"],
 					creditKinds: ["cast"],
 					departments: ["Acting"],
 					character: "Older Role / Guest Role",
@@ -208,9 +212,10 @@ describe("TMDB credits", () => {
 				providerSlug: "person.tmdb",
 				relationshipProperties: {
 					order: 5,
+					roles: [],
 					isGuest: true,
-					roles: ["Acting"],
 					isUncredited: false,
+					roleCodes: ["actor"],
 					creditKinds: ["cast"],
 					character: "Guest Star",
 					departments: ["Acting"],
@@ -222,9 +227,10 @@ describe("TMDB credits", () => {
 				providerSlug: "person.tmdb",
 				relationshipProperties: {
 					order: 2,
+					roles: [],
 					isGuest: false,
-					roles: ["Acting"],
 					isUncredited: false,
+					roleCodes: ["actor"],
 					character: "Regular",
 					creditKinds: ["cast"],
 					departments: ["Acting"],

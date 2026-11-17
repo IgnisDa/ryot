@@ -4,50 +4,47 @@ import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaUserDataInput, MediaUserDataOutput } from "../../shared/media-user-data-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 
-const HostRefusal = Schema.Struct({ code: Schema.String, message: Schema.optional(Schema.String) });
+const HostRefusal = Schema.Struct({ code: Schema.String });
 
-const hostRefusalMessage = (error: SandboxHostError): string | undefined => {
+const hostRefusalReason = (error: SandboxHostError) => {
 	const decoded = Schema.decodeUnknownOption(HostRefusal)(error.data);
 	if (decoded._tag === "None") {
 		return undefined;
 	}
-	const { code, message } = decoded.value;
-	switch (code) {
+	switch (decoded.value.code) {
 		case "state-conflict":
-			return message ?? "Your data changed. Refresh this page and try again.";
+			return catalogMessage("rejection.user-data.state-conflict");
 		case "required-field":
-			return "Required media item details are missing. Refresh and try again.";
+			return catalogMessage("rejection.user-data.required-field");
 		case "owner-mismatch":
-			return "Choose two items with the same media type.";
-		case "operation-denied":
-			return "Your data cannot be changed for this media item.";
-		case "entity-not-found":
-			return "One of these media items no longer exists. Refresh and try again.";
-		case "same-entity-merge":
-			return "Choose a different item as the merge destination.";
 		case "entity-schema-mismatch":
-			return "Choose two items with the same media type.";
+			return catalogMessage("rejection.user-data.media-type-mismatch");
+		case "operation-denied":
+			return catalogMessage("rejection.user-data.operation-denied");
+		case "entity-not-found":
+			return catalogMessage("rejection.user-data.entity-not-found");
+		case "same-entity-merge":
+			return catalogMessage("rejection.user-data.same-entity-merge");
 		case "child-mapping-conflict":
-			return (
-				message ?? "Some child data has no unique match. Refresh the media items and try again."
-			);
+			return catalogMessage("rejection.user-data.child-mapping-conflict");
 		case "relationship-merge-failed":
-			return "Some related data could not be changed. Refresh and try again.";
+			return catalogMessage("rejection.user-data.relationship-merge-failed");
 		case "command-identity-conflict":
-			return "This request was already used for different data. Start a new request.";
+			return catalogMessage("rejection.user-data.command-identity-conflict");
 		case "identity-property-mismatch":
-			return "These items do not match. Choose a destination with the same identity.";
+			return catalogMessage("rejection.user-data.identity-mismatch");
 		default:
 			return undefined;
 	}
 };
 
 const catchHostRefusal = (error: SandboxHostError) => {
-	const message = hostRefusalMessage(error);
-	return message === undefined
+	const reason = hostRefusalReason(error);
+	return reason === undefined
 		? Effect.fail(error)
-		: Effect.succeed({ message, status: "rejected" as const });
+		: Effect.succeed({ reason, status: "rejected" as const });
 };
 
 export const manifest = defineManifest({

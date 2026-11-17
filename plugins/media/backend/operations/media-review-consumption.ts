@@ -1,6 +1,5 @@
 import { EVENT_MUTATION_SANDBOX_LIMITS, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -19,15 +18,17 @@ import {
 
 import { propertyText } from "../../shared/entity-selections";
 import { mediaReviewConsumptionSlugs } from "../../shared/media-review-operations";
+import { catalogMessage } from "../../shared/messages.generated";
+import { reject } from "../lib/failures";
 
 const reviewConsumptionRecipe = (() => {
 	const inputParameters = parameters({
 		fields: {
 			eventId: {
 				type: "string",
-				label: "Event Id",
 				validation: { required: true },
 				description: "Event Id for this selection",
+				label: catalogMessage("query-parameter.event"),
 			},
 		},
 	});
@@ -62,19 +63,13 @@ export const requireReviewConsumption = (
 			eventId: input.eventId,
 		});
 		if (consumption === undefined) {
-			return yield* new OperationRejectedError({
-				message: "The record this review is about no longer exists.",
-			});
+			return yield* reject(catalogMessage("rejection.review.consumption-not-found"));
 		}
 		if (!reviewableSlugs.has(consumption.eventSchemaSlug)) {
-			return yield* new OperationRejectedError({
-				message: "A review can only be about a completion, progress or status record.",
-			});
+			return yield* reject(catalogMessage("rejection.review.consumption-not-reviewable"));
 		}
 		if (consumption.entityId !== input.entityId) {
-			return yield* new OperationRejectedError({
-				message: "A review can only be about a record of what it reviews.",
-			});
+			return yield* reject(catalogMessage("rejection.review.consumption-other-entity"));
 		}
 		return yield* Effect.void;
 	});
@@ -83,9 +78,9 @@ const reviewsOfConsumptionRecipe = (() => {
 		fields: {
 			eventId: {
 				type: "string",
-				label: "Event Id",
 				validation: { required: true },
 				description: "Event Id for this selection",
+				label: catalogMessage("query-parameter.event"),
 			},
 		},
 	});
@@ -120,9 +115,7 @@ export const reviewsNamingConsumption = (
 			{ eventId: eventId },
 		);
 		if (hasMore) {
-			return yield* new OperationRejectedError({
-				message: "Too many reviews are about this record to move it.",
-			});
+			return yield* reject(catalogMessage("rejection.review.too-many-linked"));
 		}
 		return ids;
 	});

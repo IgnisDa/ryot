@@ -9,8 +9,10 @@ import type {
 	UpdateEventItem,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
+import type { LocalMessage } from "@ryot-app/plugin-kit/messages";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -21,10 +23,10 @@ import {
 	MediaActivityUpdateInput,
 	type MediaEventSnapshot,
 } from "../../shared/media-activity-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import deleteDefinition from "./media-activity-delete.sandbox";
-import { STALE_RECORD_MESSAGE } from "./media-activity-edits";
 import updateDefinition, { manifest as updateManifest } from "./media-activity-update.sandbox";
 
 type DeleteOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["deleteEvents"]>[1]>;
@@ -161,8 +163,8 @@ const rejection = <A, E>(effect: Effect.Effect<A, E>) =>
 	Effect.gen(function* () {
 		const result = yield* Effect.result(effect);
 		expect(result).toMatchObject({ _tag: "Failure", failure: { _tag: "OperationRejectedError" } });
-		return result._tag === "Failure" && result.failure instanceof Error
-			? result.failure.message
+		return result._tag === "Failure" && result.failure instanceof OperationRejectedError
+			? result.failure.reason
 			: undefined;
 	});
 
@@ -281,7 +283,9 @@ describe("media activity update", () => {
 				});
 				expect(
 					yield* rejection(update({ episodeEntityId: "episode-9" }, host, episodeSnapshot)),
-				).toBe("Records can only move to another episode of the same show.");
+				).toEqual(
+					catalogMessage("rejection.activity.episode-move-other-parent", { parent: "show" }),
+				);
 				expect(updates).toEqual([]);
 			}),
 		testTimeout,
@@ -297,7 +301,7 @@ describe("media activity update", () => {
 				});
 				expect(
 					yield* rejection(update({ episodeEntityId: "hidden-1" }, host, episodeSnapshot)),
-				).toBe("That episode isn't available.");
+				).toEqual(catalogMessage("rejection.activity.episode-unavailable"));
 				expect(updates).toEqual([]);
 			}),
 		testTimeout,
@@ -442,8 +446,8 @@ describe("media activity update", () => {
 					disallowed: ["event-1"],
 					events: [{ ...event, id: "event-1", properties: {} }],
 				});
-				expect(yield* rejection(update({ consumedOn: ["Plex"] }, host))).toBe(
-					"Only activity records can be edited here.",
+				expect(yield* rejection(update({ consumedOn: ["Plex"] }, host))).toEqual(
+					catalogMessage("rejection.record.activity-only-edit"),
 				);
 				expect(updates).toEqual([]);
 			}),
@@ -509,7 +513,7 @@ describe("media activity update", () => {
 	});
 
 	it.live(
-		"reports a changed record as stale and a conflict with the host's message",
+		"reports a changed record as stale and any other host refusal as unsaved",
 		() =>
 			Effect.gen(function* () {
 				const stale = recordingHost({
@@ -520,8 +524,8 @@ describe("media activity update", () => {
 							data: { eventId: "event-1", code: "event-stale" },
 						}),
 				});
-				expect(yield* rejection(update({ consumedOn: ["Plex"] }, stale.host))).toBe(
-					STALE_RECORD_MESSAGE,
+				expect(yield* rejection(update({ consumedOn: ["Plex"] }, stale.host))).toEqual(
+					catalogMessage("rejection.record.stale"),
 				);
 				const conflict = recordingHost({
 					events: [movieCompletion],
@@ -531,8 +535,8 @@ describe("media activity update", () => {
 							data: { code: "mutation-conflict", message: "Conflicting event command identity" },
 						}),
 				});
-				expect(yield* rejection(update({ consumedOn: ["Plex"] }, conflict.host))).toBe(
-					"Conflicting event command identity",
+				expect(yield* rejection(update({ consumedOn: ["Plex"] }, conflict.host))).toEqual(
+					catalogMessage("rejection.record.change-refused"),
 				);
 			}),
 		testTimeout,
@@ -543,44 +547,51 @@ describe("media activity update", () => {
 			name: "a source on backlog",
 			patch: { consumedOn: ["Kindle"] },
 			event: { entitySchemaSlug: "book", eventSchemaSlug: "backlog" },
+			reason: catalogMessage("rejection.activity.field-locked", { field: "consumedOn" }),
 		},
 		{
 			patch: { progressPercent: 40 },
 			name: "progress on a show's on hold",
 			event: { entitySchemaSlug: "show", eventSchemaSlug: "on_hold" },
+			reason: catalogMessage("rejection.activity.field-locked", { field: "progress" }),
 		},
 		{
 			patch: { progressPercent: 40 },
 			name: "a percent on positional media",
+			reason: catalogMessage("rejection.progress.position-only"),
 			event: { entitySchemaSlug: "anime", eventSchemaSlug: "progress" },
 		},
 		{
 			name: "a position on percent media",
 			patch: { position: { position: 3, unit: "episodes" } },
+			reason: catalogMessage("rejection.progress.percent-only"),
 			event: { entitySchemaSlug: "book", eventSchemaSlug: "progress" },
 		},
 		{
 			name: "an episode position on manga progress",
 			patch: { position: { position: 3, unit: "episodes" } },
+			reason: catalogMessage("rejection.position.unsupported"),
 			event: { entitySchemaSlug: "manga", eventSchemaSlug: "progress" },
 		},
 		{
 			name: "a fractional anime episode",
 			patch: { position: { position: 3.5, unit: "episodes" } },
+			reason: catalogMessage("rejection.position.episode-not-whole"),
 			event: { entitySchemaSlug: "anime", eventSchemaSlug: "progress" },
 		},
 	] satisfies readonly {
 		readonly name: string;
+		readonly reason: LocalMessage;
 		readonly patch: MediaActivityPatch;
 		readonly event: Omit<StoredEvent, "id" | "properties">;
 	}[])(
 		"refuses $name as a typed rejection",
-		({ event, patch }) =>
+		({ event, patch, reason }) =>
 			Effect.gen(function* () {
 				const { host, updates } = recordingHost({
 					events: [{ ...event, id: "event-1", properties: {} }],
 				});
-				yield* rejection(update(patch, host));
+				expect(yield* rejection(update(patch, host))).toEqual(reason);
 				expect(updates).toEqual([]);
 			}),
 		testTimeout,
@@ -636,8 +647,8 @@ describe("media activity update", () => {
 				const { host, updates } = recordingHost({
 					events: [{ ...movieCompletion, properties: { legacyRating: 3 } }],
 				});
-				expect(yield* rejection(update({ consumedOn: ["Plex"] }, host))).toBe(
-					"This record can't be edited.",
+				expect(yield* rejection(update({ consumedOn: ["Plex"] }, host))).toEqual(
+					catalogMessage("rejection.record.uneditable"),
 				);
 				expect(updates).toEqual([]);
 			}),
@@ -683,8 +694,8 @@ describe("media activity delete", () => {
 					disallowed: ["event-140"],
 					events: movieCompletions(ids),
 				});
-				expect(yield* rejection(remove({ eventIds: ids }, host))).toBe(
-					"Only activity records can be deleted here.",
+				expect(yield* rejection(remove({ eventIds: ids }, host))).toEqual(
+					catalogMessage("rejection.record.activity-only-delete"),
 				);
 				expect(deletes).toEqual([]);
 			}),
@@ -773,8 +784,8 @@ describe("media activity delete", () => {
 							data: { code: "owner-mismatch", message: "Event schema is owned by another plugin" },
 						}),
 				});
-				expect(yield* rejection(remove({ eventIds: ["event-1"] }, host))).toBe(
-					"Event schema is owned by another plugin",
+				expect(yield* rejection(remove({ eventIds: ["event-1"] }, host))).toEqual(
+					catalogMessage("rejection.record.change-refused"),
 				);
 			}),
 		testTimeout,

@@ -4,6 +4,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { type CreditRoleCode, isCreditRoleCode } from "../../shared/credit-roles";
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 
 export const manifest = defineManifest({
@@ -12,16 +13,34 @@ export const manifest = defineManifest({
 	name: "Media Association Detector",
 	slug: "automation.media-association",
 	inputProjection: {
-		relationship: { properties: ["roles"], compareProperties: [], parentEntityProperties: [] },
+		relationship: {
+			compareProperties: [],
+			parentEntityProperties: [],
+			properties: ["roles", "roleCodes"],
+		},
 	},
 });
 
-const roles = (properties: undefined | Readonly<Record<string, JsonValue>>) => {
-	const value = properties?.["roles"];
+type AssociatedRole = { readonly role: string } | { readonly roleCode: CreditRoleCode };
+
+const strings = (properties: undefined | Readonly<Record<string, JsonValue>>, key: string) => {
+	const value = properties?.[key];
 	return Array.isArray(value)
-		? value.filter((role): role is string => typeof role === "string")
+		? value.filter((item): item is string => typeof item === "string")
 		: [];
 };
+
+const roleKey = (role: AssociatedRole) =>
+	"role" in role ? `role:${role.role}` : `role-code:${role.roleCode}`;
+
+const associatedRoles = (
+	properties: undefined | Readonly<Record<string, JsonValue>>,
+): AssociatedRole[] => [
+	...[...new Set(strings(properties, "roles"))].map((role) => ({ role })),
+	...strings(properties, "roleCodes")
+		.filter(isCreditRoleCode)
+		.map((roleCode) => ({ roleCode })),
+];
 
 export default defineAutomation({
 	manifest,
@@ -68,10 +87,12 @@ export default defineAutomation({
 							return [];
 						}
 						const previousRoles = new Set(
-							roles(change.operation === "update" ? change.before.properties : undefined),
+							associatedRoles(
+								change.operation === "update" ? change.before.properties : undefined,
+							).map(roleKey),
 						);
-						const addedRoles = [...new Set(roles(change.after.properties))].filter(
-							(role) => change.operation === "create" || !previousRoles.has(role),
+						const addedRoles = associatedRoles(change.after.properties).filter(
+							(role) => change.operation === "create" || !previousRoles.has(roleKey(role)),
 						);
 						const associationKind = associated.entitySchemaSlug.endsWith("-group")
 							? "media-group"
@@ -79,9 +100,9 @@ export default defineAutomation({
 						return addedRoles.map((role) =>
 							host.emitSignal({
 								subjectEntityId: subject.id,
-								discriminator: `${subject.id}:${role}`,
+								discriminator: `${subject.id}:${roleKey(role)}`,
 								schemaSlug: `${subject.entitySchemaSlug}.${associationKind}.associated`,
-								properties: { role, subjectName: subject.name, associatedName: associated.name },
+								properties: { ...role, subjectName: subject.name, associatedName: associated.name },
 							}),
 						);
 					}),

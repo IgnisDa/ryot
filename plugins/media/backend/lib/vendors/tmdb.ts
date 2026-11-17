@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ProviderDetailsRelatedEntity } from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import type { CreditRoleCode } from "../../../shared/credit-roles";
 import type { WatchProviderOffer } from "../../../shared/watch-provider";
 import type { MediaTrendingProviderOutput } from "../../contracts/workflows";
 import { mediaFailureMessage } from "../error-message";
@@ -14,7 +15,7 @@ import {
 	stringValue,
 	type UnknownRecord,
 } from "../records";
-import { createRoleAccumulator, type RoleRelatedEntity } from "../role-accumulator";
+import { createRoleAccumulator, type CreditRole, creditRoleProperties } from "../role-accumulator";
 
 export type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 export type TmdbTrendingHost = TmdbHost & Pick<ScriptHost, "log" | "upsertGlobalEntities">;
@@ -220,7 +221,7 @@ export const collectPeople = (
 	const related = createRoleAccumulator();
 	const addPerson = (
 		person: UnknownRecord,
-		role: string,
+		role: null | CreditRole,
 		creditOptions: {
 			readonly isGuest?: boolean;
 			readonly order?: null | number;
@@ -241,7 +242,7 @@ export const collectPeople = (
 			externalId,
 			providerSlug: "person.tmdb",
 			relationshipProperties: {
-				roles: [role],
+				...creditRoleProperties(role),
 				...(character === null ? {} : { character }),
 				...(creditOptions.order === null || creditOptions.order === undefined
 					? {}
@@ -257,7 +258,7 @@ export const collectPeople = (
 	};
 
 	for (const creator of recordsValue(createdBy)) {
-		addPerson(creator, "Creator", { creditKind: "crew" });
+		addPerson(creator, { code: "creator" }, { creditKind: "crew" });
 	}
 	for (const [index, member] of recordsValue(cast).entries()) {
 		const id = numberValue(member["id"]);
@@ -285,31 +286,39 @@ export const collectPeople = (
 			}
 			const guestClassification =
 				isGuest ?? (externalId && options.guestStarAppearances === undefined ? false : undefined);
-			addPerson(member, "Acting", {
-				character,
-				creditKind: "cast",
-				department: "Acting",
-				order: order ?? index,
-				...(guestClassification === undefined ? {} : { isGuest: guestClassification }),
-			});
+			addPerson(
+				member,
+				{ code: "actor" },
+				{
+					character,
+					creditKind: "cast",
+					department: "Acting",
+					order: order ?? index,
+					...(guestClassification === undefined ? {} : { isGuest: guestClassification }),
+				},
+			);
 		}
 	}
 	const castCount = recordsValue(cast).length;
 	for (const [index, guest] of recordsValue(options.guestStars).entries()) {
-		addPerson(guest, "Acting", {
-			isGuest: true,
-			creditKind: "cast",
-			department: "Acting",
-			character: stringValue(guest["character"]),
-			order: castCount + (numberValue(guest["order"]) ?? index),
-		});
+		addPerson(
+			guest,
+			{ code: "actor" },
+			{
+				isGuest: true,
+				creditKind: "cast",
+				department: "Acting",
+				character: stringValue(guest["character"]),
+				order: castCount + (numberValue(guest["order"]) ?? index),
+			},
+		);
 	}
 	for (const member of recordsValue(crew)) {
 		const listedJobs = recordsValue(member["jobs"]);
 		const jobs = listedJobs.length > 0 ? listedJobs : [member];
 		for (const crewJob of jobs) {
-			const job = stringValue(crewJob["job"]) ?? "Crew";
-			addPerson(member, job, {
+			const job = stringValue(crewJob["job"]);
+			addPerson(member, job === null ? null : { name: job }, {
 				creditKind: "crew",
 				department: stringValue(member["department"]) ?? stringValue(crewJob["department"]),
 			});
@@ -318,39 +327,25 @@ export const collectPeople = (
 	return related.entities;
 };
 
-export const collectCompanies = (companyGroups: ReadonlyArray<readonly [unknown, string]>) => {
-	const companies = new Map<string, RoleRelatedEntity>();
-	const addCompany = (company: UnknownRecord, role: string) => {
-		const idValue = numberValue(company["id"]);
-		if (idValue === null) {
-			return;
-		}
-		const id = Math.trunc(idValue);
-		const name = stringValue(company["name"]) ?? "Loading...";
-		const key = `company.tmdb:${id}`;
-		const existing = companies.get(key);
-		if (existing) {
-			existing.relationshipProperties.roles = [
-				...new Set([...existing.relationshipProperties.roles, role]),
-			];
-			if (existing.name === "Loading..." && name !== "Loading...") {
-				existing.name = name;
-			}
-			return;
-		}
-		companies.set(key, {
-			name,
-			externalId: String(id),
-			providerSlug: "company.tmdb",
-			relationshipProperties: { roles: [role] },
-		});
-	};
-	for (const [companiesList, role] of companyGroups) {
+export const collectCompanies = (
+	companyGroups: ReadonlyArray<readonly [unknown, CreditRoleCode]>,
+) => {
+	const related = createRoleAccumulator();
+	for (const [companiesList, code] of companyGroups) {
 		for (const company of recordsValue(companiesList)) {
-			addCompany(company, role);
+			const id = numberValue(company["id"]);
+			if (id === null) {
+				continue;
+			}
+			related.add({
+				providerSlug: "company.tmdb",
+				externalId: String(Math.trunc(id)),
+				name: stringValue(company["name"]) ?? "Loading...",
+				relationshipProperties: { roles: [], roleCodes: [code] },
+			});
 		}
 	}
-	return [...companies.values()];
+	return related.entities;
 };
 
 const fetchTrendingItems = (

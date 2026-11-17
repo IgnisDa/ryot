@@ -6,6 +6,7 @@ import {
 	MediaActivityDeleteInput,
 	MediaActivityLogOutput,
 } from "../../shared/media-activity-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 import {
 	activityCombinations,
 	loadEditTargets,
@@ -37,7 +38,7 @@ export default defineOperation({
 					host,
 					chunk,
 					activityCombinations,
-					"Only activity records can be deleted here.",
+					catalogMessage("rejection.record.activity-only-delete"),
 				);
 			}
 			const [onlyId] = input.eventIds;

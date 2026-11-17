@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { createRoleAccumulator } from "./role-accumulator";
+import { createRoleAccumulator, creditRoleProperties } from "./role-accumulator";
 
 const entity = (
 	role: string,
@@ -17,6 +17,13 @@ const entity = (
 	externalId: "1",
 	providerSlug: "person.tmdb",
 	relationshipProperties: { roles: [role], ...relationshipProperties },
+});
+
+const person = (properties: ReturnType<typeof creditRoleProperties>) => ({
+	name: "Person",
+	externalId: "1",
+	providerSlug: "person.tmdb",
+	relationshipProperties: properties,
 });
 
 describe("role accumulator", () => {
@@ -72,6 +79,19 @@ describe("role accumulator", () => {
 			isGuest: true,
 			isUncredited: false,
 			roles: ["Actor", "Director"],
+		});
+	});
+
+	it("keeps standard role codes apart from provider role names and merges both", () => {
+		const related = createRoleAccumulator([person(creditRoleProperties({ code: "creator" }))]);
+		related.add(person(creditRoleProperties({ code: "actor" })));
+		related.add(person(creditRoleProperties({ name: "Writer" })));
+		related.add(person(creditRoleProperties({ code: "actor" })));
+		related.add(person(creditRoleProperties(null)));
+
+		expect(related.entities[0]?.relationshipProperties).toEqual({
+			roles: ["Writer"],
+			roleCodes: ["creator", "actor"],
 		});
 	});
 });

@@ -24,6 +24,7 @@ import {
 	relationshipConnects,
 	type showEpisodicKindConfig,
 } from "../../shared/lifecycle-expressions";
+import { catalogMessage } from "../../shared/messages.generated";
 
 const EpisodeParentResolutionSchema = Schema.Union([
 	Schema.Struct({ parentEntityId: Schema.String, kind: Schema.Literal("podcast") }),
@@ -39,9 +40,9 @@ const episodeParentParameters = parameters({
 	fields: {
 		episodeEntityId: {
 			type: "string",
-			label: "Episode",
 			validation: { required: true },
 			description: "Episode whose parent to resolve",
+			label: catalogMessage("query-parameter.episode"),
 		},
 	},
 });

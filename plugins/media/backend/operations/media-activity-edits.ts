@@ -1,6 +1,5 @@
 import { EVENT_MUTATION_SANDBOX_LIMITS, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -18,6 +17,7 @@ import {
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
+import type { LocalMessage } from "@ryot-app/plugin-kit/messages";
 
 import {
 	mediaActivityDeclaredProperties,
@@ -26,14 +26,12 @@ import {
 } from "../../shared/media-activity-fields";
 import type { MediaEventSnapshot } from "../../shared/media-activity-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import { catalogMessage } from "../../shared/messages.generated";
+import { reject } from "../lib/failures";
 
 type EditableCombination = readonly [entitySchemaSlug: string, eventSchemaSlug: string];
 
 export const MEDIA_EDIT_CHUNK_SIZE = EVENT_MUTATION_SANDBOX_LIMITS.items;
-
-export const STALE_RECORD_MESSAGE = "This record changed elsewhere. Reload and try again.";
-
-const UNEDITABLE_RECORD_MESSAGE = "This record can't be edited.";
 
 export const activityCombinations: readonly EditableCombination[] =
 	mediaActivityEntitySchemaSlugs.flatMap((entity) =>
@@ -50,11 +48,15 @@ const editTargetsRecipe = (input: { readonly combinations: readonly EditableComb
 	const inputParameters = parameters({
 		fields: {
 			ids: {
-				label: "ids",
 				type: "array",
 				description: "ids to read",
 				validation: { required: true },
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.ids"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -105,8 +107,6 @@ export type EditTarget = {
 	readonly properties: { readonly [key: string]: Schema.Json };
 };
 
-const reject = (message: string) => Effect.fail(new OperationRejectedError({ message: message }));
-
 /**
  * Visible records of the allowed media schemas among `ids`. A visible record of any other schema
  * rejects the request; ids that resolve to nothing pass through for the host to treat as missing.
@@ -115,7 +115,7 @@ export const loadEditTargets = (
 	host: Pick<ScriptHost, "executeRyotql">,
 	ids: readonly string[],
 	combinations: readonly EditableCombination[],
-	disallowed: string,
+	disallowed: LocalMessage,
 ) =>
 	Effect.gen(function* () {
 		const { allowed, visibleIds } = yield* executeRyotqlRecipe(
@@ -136,7 +136,7 @@ export const requireDeclaredProperties = (
 ) =>
 	declared !== undefined && Object.keys(target.properties).every((key) => declared.includes(key))
 		? Effect.void
-		: reject(UNEDITABLE_RECORD_MESSAGE);
+		: reject(catalogMessage("rejection.record.uneditable"));
 
 const HostFailureCode = Schema.Struct({ code: Schema.String });
 
@@ -145,22 +145,24 @@ const hostFailureCode = (error: SandboxHostError) => {
 	return decoded._tag === "Some" ? decoded.value.code : undefined;
 };
 
-const hostRejectionMessage = (error: SandboxHostError, code: string) => {
+const hostRejectionReason = (code: string) => {
 	if (code === "event-stale") {
-		return STALE_RECORD_MESSAGE;
+		return catalogMessage("rejection.record.stale");
 	}
-	return code === "event-not-found" ? "This record no longer exists." : error.message;
+	return code === "event-not-found"
+		? catalogMessage("rejection.record.not-found")
+		: catalogMessage("rejection.record.change-refused");
 };
 
 /** Typed host refusals become operation rejections; failures without a code stay failures. */
 export const rejectHostFailure = (error: SandboxHostError) => {
 	const code = hostFailureCode(error);
-	return code === undefined ? Effect.fail(error) : reject(hostRejectionMessage(error, code));
+	return code === undefined ? Effect.fail(error) : reject(hostRejectionReason(code));
 };
 
 /** A failure before anything was written is final for the request as submitted. */
 export const rejectAnyHostFailure = (error: SandboxHostError) =>
-	reject(hostRejectionMessage(error, hostFailureCode(error) ?? ""));
+	reject(hostRejectionReason(hostFailureCode(error) ?? ""));
 
 export const writePrecondition = (expected: MediaEventSnapshot) => ({
 	kind: "fields" as const,

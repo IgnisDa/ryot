@@ -8,6 +8,7 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	entityRecord,
+	entitySchemaProvider,
 	entitySchemaRecord,
 	eventAutomationContext,
 	hostFailure,
@@ -54,8 +55,8 @@ const radarrIntegration = integrationRecord({
 const schema = entitySchemaRecord({
 	id: "es-movie",
 	providers: [
-		{ name: "TVDB", providerId: "script-movie-tvdb" },
-		{ name: "TMDB", providerId: "script-movie-tmdb" },
+		entitySchemaProvider("movie.tvdb", "script-movie-tvdb"),
+		entitySchemaProvider("movie.tmdb", "script-movie-tmdb"),
 	],
 });
 

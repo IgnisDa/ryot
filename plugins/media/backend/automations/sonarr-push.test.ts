@@ -8,6 +8,7 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	entityRecord,
+	entitySchemaProvider,
 	entitySchemaRecord,
 	eventAutomationContext,
 	hostFailure,
@@ -54,8 +55,8 @@ const sonarrIntegration = integrationRecord({
 const schema = entitySchemaRecord({
 	id: "es-show",
 	providers: [
-		{ name: "TMDB", providerId: "script-show-tmdb" },
-		{ name: "TVDB", providerId: "script-show-tvdb" },
+		entitySchemaProvider("show.tmdb", "script-show-tmdb"),
+		entitySchemaProvider("show.tvdb", "script-show-tvdb"),
 	],
 });
 

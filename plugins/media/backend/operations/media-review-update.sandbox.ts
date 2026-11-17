@@ -1,6 +1,6 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { reviewPropertiesPatch } from "@ryot-app/plugin-kit/schema";
 
 import { mediaReviewDeclaredProperties } from "../../shared/media-activity-fields";
@@ -9,6 +9,8 @@ import {
 	MediaReviewUpdateInput,
 	reviewPositionError,
 } from "../../shared/media-review-operations";
+import { catalogMessage } from "../../shared/messages.generated";
+import { reject } from "../lib/failures";
 import {
 	loadEditTargets,
 	rejectHostFailure,
@@ -34,10 +36,10 @@ export default defineOperation({
 				host,
 				[input.eventId],
 				reviewCombinations,
-				"Only reviews can be edited here.",
+				catalogMessage("rejection.record.review-only-edit"),
 			);
 			if (target === undefined) {
-				return yield* new OperationRejectedError({ message: "This review no longer exists." });
+				return yield* reject(catalogMessage("rejection.review.not-found"));
 			}
 			yield* requireDeclaredProperties(
 				target,
@@ -46,7 +48,7 @@ export default defineOperation({
 			const { position, consumptionEventId } = input;
 			const positionError = reviewPositionError(target.entitySchemaSlug, position);
 			if (positionError !== undefined) {
-				return yield* new OperationRejectedError({ message: positionError });
+				return yield* reject(positionError);
 			}
 			if (
 				consumptionEventId &&

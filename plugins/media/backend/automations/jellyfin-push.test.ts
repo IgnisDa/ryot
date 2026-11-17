@@ -9,6 +9,7 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	entityRecord,
+	entitySchemaProvider,
 	entitySchemaRecord,
 	eventAutomationContext,
 	hostFailure,
@@ -47,7 +48,7 @@ const jellyfinIntegration = integrationRecord({
 
 const schema = entitySchemaRecord({
 	id: "es-movie",
-	providers: [{ name: "TMDB", providerId: "script-movie-tmdb" }],
+	providers: [entitySchemaProvider("movie.tmdb", "script-movie-tmdb")],
 });
 
 const createAutomation = (overrides: Parameters<typeof eventAutomationContext>[0] = {}) =>

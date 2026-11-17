@@ -60,7 +60,7 @@ export const listActiveIntegrations = (
 	provider: NonNullable<ListIntegrationsOptions["provider"]>,
 ) => host.listIntegrations({ provider, isDisabled: false });
 
-export const resolveEntityProviderName = (host: IntegrationPushHost, entity: EntityRecord) => {
+export const resolveEntityProviderSlug = (host: IntegrationPushHost, entity: EntityRecord) => {
 	if (!entity.providerId) {
 		return Effect.succeed(null);
 	}
@@ -69,7 +69,7 @@ export const resolveEntityProviderName = (host: IntegrationPushHost, entity: Ent
 		.pipe(
 			Effect.map(
 				([schema]) =>
-					schema?.providers.find((provider) => provider.providerId === entity.providerId)?.name ??
+					schema?.providers.find((provider) => provider.providerId === entity.providerId)?.slug ??
 					null,
 			),
 		);

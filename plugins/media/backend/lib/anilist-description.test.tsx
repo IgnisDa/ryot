@@ -2,9 +2,9 @@ import { describe, expect, it } from "bun:test";
 
 import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { TestI18nProvider } from "@ryot-app/plugin-client-sdk/testing";
 import { MarkdownContent, markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import { assert } from "@ryot-app/testing/assert";
-import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { normalizeAnilistDescription } from "./anilist-description";
@@ -104,7 +104,9 @@ describe("AniList descriptions", () => {
 			expect(markdownPlainText(canonical)).toBe(visible);
 			const rendered = load(
 				renderToStaticMarkup(
-					createElement(MarkdownContent, { text: canonical, onOpenLink: () => undefined }),
+					<TestI18nProvider>
+						<MarkdownContent text={canonical} onOpenLink={() => undefined} />
+					</TestI18nProvider>,
 				),
 				undefined,
 				false,

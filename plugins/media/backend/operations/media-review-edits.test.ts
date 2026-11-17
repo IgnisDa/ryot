@@ -6,15 +6,16 @@ import type {
 	UpdateEventItem,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, type Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
-import { STALE_RECORD_MESSAGE } from "./media-activity-edits";
 import deleteDefinition from "./media-review-delete.sandbox";
 import updateDefinition, { manifest } from "./media-review-update.sandbox";
 
@@ -111,8 +112,8 @@ const failureOf = <A, E>(effect: Effect.Effect<A, E>) =>
 	Effect.gen(function* () {
 		const result = yield* Effect.result(effect);
 		expect(result).toMatchObject({ _tag: "Failure", failure: { _tag: "OperationRejectedError" } });
-		return result._tag === "Failure" && result.failure instanceof Error
-			? result.failure.message
+		return result._tag === "Failure" && result.failure instanceof OperationRejectedError
+			? result.failure.reason
 			: undefined;
 	});
 
@@ -177,21 +178,21 @@ describe("media review edits", () => {
 		"refuses occurrences that are missing, of another kind or of another entity",
 		() =>
 			Effect.gen(function* () {
-				for (const [consumption, message] of [
-					[undefined, "The record this review is about no longer exists."],
+				for (const [consumption, reason] of [
+					[undefined, catalogMessage("rejection.review.consumption-not-found")],
 					[
 						{ entityId: "anime-1", eventSchemaSlug: "backlog" },
-						"A review can only be about a completion, progress or status record.",
+						catalogMessage("rejection.review.consumption-not-reviewable"),
 					],
 					[
 						{ entityId: "anime-2", eventSchemaSlug: "progress" },
-						"A review can only be about a record of what it reviews.",
+						catalogMessage("rejection.review.consumption-other-entity"),
 					],
 				] as const) {
 					const { host, updates } = recordingHost({ consumption, allowed: true });
 					expect(
 						yield* failureOf(update({ rating: 85, consumptionEventId: "event-1" }, host)),
-					).toBe(message);
+					).toEqual(reason);
 					expect(updates).toEqual([]);
 				}
 			}),
@@ -302,8 +303,8 @@ describe("media review edits", () => {
 		() =>
 			Effect.gen(function* () {
 				const edit = recordingHost({ allowed: false });
-				expect(yield* failureOf(update({ rating: 85 }, edit.host))).toBe(
-					"Only reviews can be edited here.",
+				expect(yield* failureOf(update({ rating: 85 }, edit.host))).toEqual(
+					catalogMessage("rejection.record.review-only-edit"),
 				);
 				expect(edit.updates).toEqual([]);
 				const removal = recordingHost({ allowed: false });
@@ -316,7 +317,7 @@ describe("media review edits", () => {
 							execution,
 						),
 					),
-				).toBe("Only reviews can be deleted here.");
+				).toEqual(catalogMessage("rejection.record.review-only-delete"));
 				expect(removal.deletes).toEqual([]);
 			}),
 		testTimeout,
@@ -330,7 +331,9 @@ describe("media review edits", () => {
 					allowed: true,
 					properties: { text: "Fine", mood: "happy" },
 				});
-				expect(yield* failureOf(update({ rating: 85 }, host))).toBe("This record can't be edited.");
+				expect(yield* failureOf(update({ rating: 85 }, host))).toEqual(
+					catalogMessage("rejection.record.uneditable"),
+				);
 				expect(updates).toEqual([]);
 			}),
 		testTimeout,
@@ -348,7 +351,9 @@ describe("media review edits", () => {
 							data: { code: "event-stale", eventId: "review-1" },
 						}),
 				});
-				expect(yield* failureOf(update({ rating: 85 }, host))).toBe(STALE_RECORD_MESSAGE);
+				expect(yield* failureOf(update({ rating: 85 }, host))).toEqual(
+					catalogMessage("rejection.record.stale"),
+				);
 			}),
 		testTimeout,
 	);

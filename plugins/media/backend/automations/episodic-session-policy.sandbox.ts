@@ -13,6 +13,7 @@ import {
 	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
 } from "../../shared/lifecycle-expressions";
+import { catalogMessage } from "../../shared/messages.generated";
 import {
 	type EpisodeParentResolution,
 	resolveEpisodeParentRecipe,
@@ -34,7 +35,10 @@ const decodePolicyResult = Schema.decodeEffect(automationPolicyResultSchema);
 
 const sessionPolicyResult = (payload: EventPayload, resolution: null | EpisodeParentResolution) => {
 	if (resolution === null) {
-		return Effect.succeed({ action: "reject", reason: "episodic_parent_not_found" } as const);
+		return Effect.succeed({
+			action: "reject",
+			reason: catalogMessage("rejection.episode.parent-not-found"),
+		} as const);
 	}
 	return decodePolicyResult({
 		action: "transform",

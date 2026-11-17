@@ -22,16 +22,21 @@ import {
 	MediaOwnershipSetInput,
 } from "../../shared/media-ownership-operations";
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import { catalogMessage } from "../../shared/messages.generated";
 
 const ownershipTargetsRecipe = (() => {
 	const inputParameters = parameters({
 		fields: {
 			entityIds: {
 				type: "array",
-				label: "entityIds",
 				validation: { required: true },
 				description: "entityIds to read",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.entities"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});

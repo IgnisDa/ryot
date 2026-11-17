@@ -1,7 +1,7 @@
 import type { ScriptHost, UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, type Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { mediaPositionError } from "../../shared/consumption";
@@ -19,7 +19,9 @@ import {
 	type MediaActivityPatch,
 	MediaActivityUpdateInput,
 } from "../../shared/media-activity-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 import { resolveEpisodeParentRecipe } from "../contracts/episode-parent-recipe";
+import { reject } from "../lib/failures";
 import {
 	activityCombinations,
 	type EditTarget,
@@ -30,14 +32,16 @@ import {
 } from "./media-activity-edits";
 import { reviewsNamingConsumption } from "./media-review-consumption";
 
-const reject = (message: string) => Effect.fail(new OperationRejectedError({ message: message }));
-
-const FIELD_LABELS: Readonly<Record<string, string>> = {
-	timeSpent: "Time spent",
-	startedOn: "A start date",
-	progressPercent: "Progress",
-	dateUnknown: "An unknown date",
-	consumedOn: "Where it was consumed",
+const lockedField = (key: string) => {
+	switch (key) {
+		case "timeSpent":
+		case "startedOn":
+		case "consumedOn":
+		case "dateUnknown":
+			return key;
+		default:
+			return "progress";
+	}
 };
 
 const episodeParentId = (
@@ -74,7 +78,7 @@ const retargetedEpisode = (
 			!episodic ||
 			(target.eventSchemaSlug !== "complete" && target.eventSchemaSlug !== "progress")
 		) {
-			return yield* reject("Only watch and listen records can move to another episode.");
+			return yield* reject(catalogMessage("rejection.activity.episode-move-unsupported"));
 		}
 		if (episodeEntityId === currentEntityId) {
 			return undefined;
@@ -82,11 +86,13 @@ const retargetedEpisode = (
 		const currentParent = yield* episodeParentId(host, target.entitySchemaSlug, currentEntityId);
 		const nextParent = yield* episodeParentId(host, target.entitySchemaSlug, episodeEntityId);
 		if (nextParent === undefined) {
-			return yield* reject("That episode isn't available.");
+			return yield* reject(catalogMessage("rejection.activity.episode-unavailable"));
 		}
 		if (nextParent !== currentParent) {
 			return yield* reject(
-				`Records can only move to another episode of the same ${target.entitySchemaSlug === "show-episode" ? "show" : "podcast"}.`,
+				catalogMessage("rejection.activity.episode-move-other-parent", {
+					parent: target.entitySchemaSlug === "show-episode" ? "show" : "podcast",
+				}),
 			);
 		}
 		return episodeEntityId;
@@ -116,7 +122,7 @@ const buildPatch = (
 		const allow = (key: string) =>
 			patchable.has(key)
 				? Effect.void
-				: reject(`${FIELD_LABELS[key] ?? "Progress"} can't be changed on this record.`);
+				: reject(catalogMessage("rejection.activity.field-locked", { field: lockedField(key) }));
 		const progressError = mediaProgressRuleError(
 			target.entitySchemaSlug,
 			{ position: patch.position !== undefined, percent: patch.progressPercent !== undefined },
@@ -185,7 +191,7 @@ const buildPatch = (
 		if (patch.progressPages !== undefined) {
 			yield* allow("progressPages");
 			if (patch.progressPages !== null && patch.progressPercent != null) {
-				return yield* reject("Supply pages or percent, not both");
+				return yield* reject(catalogMessage("rejection.activity.pages-and-percent"));
 			}
 			assign(properties, "progressPages", patch.progressPages);
 			if (patch.progressPages !== null) {
@@ -216,10 +222,10 @@ export default defineOperation({
 				host,
 				[input.eventId],
 				activityCombinations,
-				"Only activity records can be edited here.",
+				catalogMessage("rejection.record.activity-only-edit"),
 			);
 			if (target === undefined) {
-				return yield* reject("This record no longer exists.");
+				return yield* reject(catalogMessage("rejection.record.not-found"));
 			}
 			yield* requireDeclaredProperties(
 				target,
@@ -227,7 +233,7 @@ export default defineOperation({
 			);
 			const patch = yield* buildPatch(host, target, input.expected.entityId, input.patch);
 			if (Object.keys(patch).length === 0) {
-				return yield* reject("Nothing to change on this record.");
+				return yield* reject(catalogMessage("rejection.activity.nothing-to-change"));
 			}
 			const unlinked =
 				patch.entityId === undefined ? [] : yield* reviewsNamingConsumption(host, target.id);

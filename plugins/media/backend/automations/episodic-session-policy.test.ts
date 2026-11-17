@@ -6,6 +6,7 @@ import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import {
 	hostSuccess,
 	policyAutomationContext,
@@ -211,7 +212,10 @@ describe("episodic session policy", () => {
 					}),
 				).pipe(
 					Effect.map((result) => {
-						expect(result).toEqual({ action: "reject", reason: "episodic_parent_not_found" });
+						expect(result).toEqual({
+							action: "reject",
+							reason: catalogMessage("rejection.episode.parent-not-found"),
+						});
 					}),
 				);
 			}),

@@ -12,7 +12,7 @@ import {
 	logPushFailure,
 	normalizeBaseUrl,
 	parseJsonBody,
-	resolveEntityProviderName,
+	resolveEntityProviderSlug,
 } from "../lib/integration-push";
 
 const JELLYFIN_AUTH_HEADER =
@@ -169,8 +169,8 @@ export default defineAutomation({
 				return null;
 			}
 			const entity = yield* fetchEntity(host, event.entityId);
-			const providerName = yield* resolveEntityProviderName(host, entity);
-			const tmdbId = providerName === "TMDB" ? entity.externalId : null;
+			const providerSlug = yield* resolveEntityProviderSlug(host, entity);
+			const tmdbId = providerSlug === `${entitySchemaSlug}.tmdb` ? entity.externalId : null;
 			const title = entity.name || null;
 			if (!tmdbId && !title) {
 				return null;

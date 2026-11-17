@@ -20,6 +20,7 @@ import {
 
 import { episodicEpisodeQuery, type EpisodicKindConfig } from "../../shared/lifecycle-expressions";
 import { mediaFoldEventSchemaSlugs } from "../../shared/media-schema-slugs";
+import { catalogMessage } from "../../shared/messages.generated";
 
 const pageSize = 100;
 export const mediaFoldSubjectRecipe = (() => {
@@ -27,8 +28,8 @@ export const mediaFoldSubjectRecipe = (() => {
 		fields: {
 			subjectEntityId: {
 				type: "string",
-				label: "Subject Entity Id",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.entity"),
 				description: "Subject Entity Id for this selection",
 			},
 		},
@@ -58,8 +59,8 @@ export const mediaFoldEventsRecipe = (() => {
 		fields: {
 			subjectEntityId: {
 				type: "string",
-				label: "Subject Entity Id",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.entity"),
 				description: "Subject Entity Id for this selection",
 			},
 		},
@@ -112,8 +113,8 @@ export const mediaFoldInventoryRecipe = (input: { readonly config: EpisodicKindC
 		fields: {
 			subjectEntityId: {
 				type: "string",
-				label: "Subject Entity Id",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.entity"),
 				description: "Subject Entity Id for this selection",
 			},
 		},
@@ -143,8 +144,8 @@ export const mediaFoldLibraryLinksRecipe = (() => {
 		fields: {
 			subjectEntityId: {
 				type: "string",
-				label: "Subject Entity Id",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.entity"),
 				description: "Subject Entity Id for this selection",
 			},
 		},

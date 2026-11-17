@@ -3,6 +3,10 @@ import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { isCalendarDate } from "@ryot-app/plugin-kit/messages";
+
+import { isCreditRoleCode } from "../../shared/credit-roles";
+import { catalogMessage } from "../../shared/messages.generated";
 
 type AutomationSignalSnapshot = Extract<
 	AutomationInput["automation"]["payload"],
@@ -21,6 +25,7 @@ export const manifest = defineManifest({
 				"subjectName",
 				"associatedName",
 				"role",
+				"roleCode",
 				"oldStatus",
 				"newStatus",
 				"contentType",
@@ -81,9 +86,44 @@ const optionalStringProperty = (properties: Readonly<Record<string, JsonValue>>,
 	return value;
 };
 
-const formatMessage = (signal: AutomationSignalSnapshot) => {
+const episodeLabel = (properties: Readonly<Record<string, JsonValue>>) => {
+	const episode = numberProperty(properties, "episodeNumber");
+	const season = optionalNumberProperty(properties, "seasonNumber");
+	return season === null
+		? catalogMessage("notification.episode-label.numbered", { episode })
+		: catalogMessage("notification.episode-label.seasonal", { season, episode });
+};
+
+const calendarDateProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {
+	const value = stringProperty(properties, key);
+	if (!isCalendarDate(value)) {
+		throw new Error(`Signal property ${key} must be a calendar date`);
+	}
+	return value;
+};
+
+const roleCodeProperty = (properties: Readonly<Record<string, JsonValue>>) => {
+	const value = stringProperty(properties, "roleCode");
+	if (!isCreditRoleCode(value)) {
+		throw new Error(`Signal property roleCode has unsupported value ${value}`);
+	}
+	return value;
+};
+
+const contentType = (properties: Readonly<Record<string, JsonValue>>) => {
+	const value = stringProperty(properties, "contentType");
+	if (value !== "chapters" && value !== "episodes") {
+		throw new Error(`Signal property contentType has unsupported value ${value}`);
+	}
+	return value;
+};
+
+const notificationMessage = (signal: AutomationSignalSnapshot) => {
+	const { properties } = signal;
 	if (signal.signalSchemaSlug === "review.created") {
-		return `Review posted for ${stringProperty(signal.properties, "entityName")}`;
+		return catalogMessage("notification.review-created", {
+			entityName: stringProperty(properties, "entityName"),
+		});
 	}
 	if (
 		signal.signalSchemaSlug === "person.media.associated" ||
@@ -91,67 +131,99 @@ const formatMessage = (signal: AutomationSignalSnapshot) => {
 		signal.signalSchemaSlug === "company.media.associated" ||
 		signal.signalSchemaSlug === "company.media-group.associated"
 	) {
-		return `${stringProperty(signal.properties, "subjectName")} has been associated with ${stringProperty(signal.properties, "associatedName")} as ${stringProperty(signal.properties, "role")}`;
+		const names = {
+			subjectName: stringProperty(properties, "subjectName"),
+			associatedName: stringProperty(properties, "associatedName"),
+		};
+		const role = optionalStringProperty(properties, "role");
+		return role === null
+			? catalogMessage("notification.associated", { ...names, role: roleCodeProperty(properties) })
+			: catalogMessage("notification.associated-named-role", { ...names, role });
 	}
 	if (signal.signalSchemaSlug === "media.status.changed") {
-		return `Status of ${stringProperty(signal.properties, "entityName")} changed from ${stringProperty(signal.properties, "oldStatus")} to ${stringProperty(signal.properties, "newStatus")}`;
+		return catalogMessage("notification.status-changed", {
+			oldStatus: stringProperty(properties, "oldStatus"),
+			newStatus: stringProperty(properties, "newStatus"),
+			entityName: stringProperty(properties, "entityName"),
+		});
 	}
 	if (signal.signalSchemaSlug === "media.content-count.changed") {
-		return `Number of ${stringProperty(signal.properties, "contentType")} changed from ${numberProperty(signal.properties, "oldCount")} to ${numberProperty(signal.properties, "newCount")} for ${stringProperty(signal.properties, "entityName")}`;
+		return catalogMessage("notification.content-count-changed", {
+			contentType: contentType(properties),
+			oldCount: numberProperty(properties, "oldCount"),
+			newCount: numberProperty(properties, "newCount"),
+			entityName: stringProperty(properties, "entityName"),
+		});
 	}
 	if (signal.signalSchemaSlug === "media.season-count.changed") {
-		return `Number of seasons changed from ${numberProperty(signal.properties, "oldCount")} to ${numberProperty(signal.properties, "newCount")} for ${stringProperty(signal.properties, "entityName")}`;
+		return catalogMessage("notification.season-count-changed", {
+			oldCount: numberProperty(properties, "oldCount"),
+			newCount: numberProperty(properties, "newCount"),
+			entityName: stringProperty(properties, "entityName"),
+		});
 	}
 	if (signal.signalSchemaSlug === "media.episode.discovered") {
-		const seasonNumber = optionalNumberProperty(signal.properties, "seasonNumber");
-		const scope = seasonNumber === null ? "" : ` in season ${seasonNumber}`;
-		const discoveredCount = numberProperty(signal.properties, "discoveredCount");
-		const episodes = discoveredCount === 1 ? "episode" : "episodes";
-		return `${discoveredCount} new ${episodes} discovered${scope} for ${stringProperty(signal.properties, "entityName")}`;
+		const season = optionalNumberProperty(properties, "seasonNumber");
+		const count = numberProperty(properties, "discoveredCount");
+		const entityName = stringProperty(properties, "entityName");
+		return season === null
+			? catalogMessage("notification.episodes-discovered", { count, entityName })
+			: catalogMessage("notification.episodes-discovered-in-season", { count, season, entityName });
 	}
 	if (signal.signalSchemaSlug === "media.release-date.changed") {
-		const entityName = stringProperty(signal.properties, "entityName");
-		if (stringProperty(signal.properties, "changeKind") === "publish_year") {
-			return `Publish year changed from ${numberProperty(signal.properties, "oldYear")} to ${numberProperty(signal.properties, "newYear")} for ${entityName}`;
+		const entityName = stringProperty(properties, "entityName");
+		if (stringProperty(properties, "changeKind") === "publish_year") {
+			return catalogMessage("notification.publish-year-changed", {
+				entityName,
+				oldYear: numberProperty(properties, "oldYear"),
+				newYear: numberProperty(properties, "newYear"),
+			});
 		}
-		const episodeNumber = numberProperty(signal.properties, "episodeNumber");
-		const seasonNumber = optionalNumberProperty(signal.properties, "seasonNumber");
-		const episode =
-			seasonNumber === null ? `EP${episodeNumber}` : `S${seasonNumber}E${episodeNumber}`;
-		return `Episode release date changed from ${stringProperty(signal.properties, "oldDate")} to ${stringProperty(signal.properties, "newDate")} (${episode}) for ${entityName}`;
+		return catalogMessage("notification.episode-release-date-changed", {
+			entityName,
+			episode: episodeLabel(properties),
+			oldDate: calendarDateProperty(properties, "oldDate"),
+			newDate: calendarDateProperty(properties, "newDate"),
+		});
 	}
 	if (signal.signalSchemaSlug === "media.episode.name.changed") {
-		const episodeNumber = numberProperty(signal.properties, "episodeNumber");
-		const seasonNumber = optionalNumberProperty(signal.properties, "seasonNumber");
-		const episode =
-			seasonNumber === null ? `EP${episodeNumber}` : `S${seasonNumber}E${episodeNumber}`;
-		return `Episode name changed from ${JSON.stringify(optionalStringProperty(signal.properties, "oldName"))} to ${JSON.stringify(optionalStringProperty(signal.properties, "newName"))} (${episode}) for ${stringProperty(signal.properties, "entityName")}`;
+		const oldName = optionalStringProperty(properties, "oldName");
+		const newName = optionalStringProperty(properties, "newName");
+		return catalogMessage("notification.episode-name-changed", {
+			oldName: oldName ?? "",
+			newName: newName ?? "",
+			episode: episodeLabel(properties),
+			oldNaming: oldName === null ? "missing" : "named",
+			newNaming: newName === null ? "missing" : "named",
+			entityName: stringProperty(properties, "entityName"),
+		});
 	}
 	if (signal.signalSchemaSlug === "media.episode.images.changed") {
-		const episodeNumber = numberProperty(signal.properties, "episodeNumber");
-		const seasonNumber = optionalNumberProperty(signal.properties, "seasonNumber");
-		const episode =
-			seasonNumber === null ? `EP${episodeNumber}` : `S${seasonNumber}E${episodeNumber}`;
-		return `Episode image changed for ${episode} in ${stringProperty(signal.properties, "entityName")}`;
+		return catalogMessage("notification.episode-image-changed", {
+			episode: episodeLabel(properties),
+			entityName: stringProperty(properties, "entityName"),
+		});
 	}
 	if (signal.signalSchemaSlug === "media.released") {
-		const episodeNumber = optionalNumberProperty(signal.properties, "episodeNumber");
-		const seasonNumber = optionalNumberProperty(signal.properties, "seasonNumber");
-		const entityName = stringProperty(signal.properties, "entityName");
-		if (episodeNumber === null) {
-			return `${entityName} has been released today`;
-		}
-		const episode =
-			seasonNumber === null ? `EP${episodeNumber}` : `S${seasonNumber}E${episodeNumber}`;
-		return `${episode} of ${entityName} has been released today`;
+		const entityName = stringProperty(properties, "entityName");
+		return optionalNumberProperty(properties, "episodeNumber") === null
+			? catalogMessage("notification.released", { entityName })
+			: catalogMessage("notification.episode-released", {
+					entityName,
+					episode: episodeLabel(properties),
+				});
 	}
 	if (signal.signalSchemaSlug === "media.progress-stale") {
-		const state =
-			stringProperty(signal.properties, "lifecycleState") === "on_hold" ? "on hold" : "in progress";
-		return `${stringProperty(signal.properties, "entityName")} has been ${state} for ${numberProperty(signal.properties, "days")} days without activity`;
+		return catalogMessage("notification.progress-stale", {
+			days: numberProperty(properties, "days"),
+			entityName: stringProperty(properties, "entityName"),
+			state: stringProperty(properties, "lifecycleState") === "on_hold" ? "on_hold" : "in_progress",
+		});
 	}
 	if (signal.signalSchemaSlug === "media.episodes-available") {
-		return `New episodes of ${stringProperty(signal.properties, "entityName")} are available`;
+		return catalogMessage("notification.episodes-available", {
+			entityName: stringProperty(properties, "entityName"),
+		});
 	}
 	throw new Error(`Unsupported signal schema: ${signal.signalSchemaSlug}`);
 };
@@ -162,6 +234,6 @@ export default defineAutomation({
 		if (automation.payload.resource !== "signal") {
 			throw new Error("Signal notification requires a signal source");
 		}
-		return host.sendNotification(formatMessage(automation.payload)).pipe(Effect.as(null));
+		return host.sendNotification(notificationMessage(automation.payload)).pipe(Effect.as(null));
 	},
 });

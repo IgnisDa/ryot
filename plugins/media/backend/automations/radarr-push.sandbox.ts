@@ -12,7 +12,7 @@ import {
 	listActiveIntegrations,
 	logPushFailure,
 	normalizeBaseUrl,
-	resolveEntityProviderName,
+	resolveEntityProviderSlug,
 } from "../lib/integration-push";
 
 export const manifest = defineManifest({
@@ -98,9 +98,9 @@ export default defineAutomation({
 				return null;
 			}
 			const entity = yield* fetchEntity(host, entityId);
-			const providerName = yield* resolveEntityProviderName(host, entity);
+			const providerSlug = yield* resolveEntityProviderSlug(host, entity);
 			const externalId = entity.externalId;
-			if (providerName !== "TMDB" || !externalId) {
+			if (providerSlug !== "movie.tmdb" || !externalId) {
 				return null;
 			}
 			yield* Effect.forEach(

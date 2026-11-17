@@ -16,11 +16,16 @@ type InputOverrides = {
 	rootEntityId?: string;
 	afterRoles?: string[];
 	beforeRoles?: string[];
+	afterRoleCodes?: string[];
+	beforeRoleCodes?: string[];
 	rootPreviouslyPopulated?: boolean;
 	subjectKind?: "person" | "company";
 	targetKind?: "movie" | "music-group";
 	operation?: "create" | "update" | "delete";
 };
+
+const roleCodes = (codes: string[] | undefined): Record<string, JsonValue> =>
+	codes === undefined ? {} : { roleCodes: codes };
 
 const input = (overrides: InputOverrides = {}) => {
 	const operation = overrides.operation ?? "create";
@@ -38,11 +43,22 @@ const input = (overrides: InputOverrides = {}) => {
 	});
 	let relationshipSource;
 	if (operation === "create") {
-		relationshipSource = { after: snapshot({ roles: overrides.afterRoles ?? ["Director"] }) };
+		relationshipSource = {
+			after: snapshot({
+				roles: overrides.afterRoles ?? ["Director"],
+				...roleCodes(overrides.afterRoleCodes),
+			}),
+		};
 	} else if (operation === "update") {
 		relationshipSource = {
-			before: snapshot({ roles: overrides.beforeRoles ?? ["Actor"] }),
-			after: snapshot({ roles: overrides.afterRoles ?? ["Actor", "Director"] }),
+			before: snapshot({
+				roles: overrides.beforeRoles ?? ["Actor"],
+				...roleCodes(overrides.beforeRoleCodes),
+			}),
+			after: snapshot({
+				roles: overrides.afterRoles ?? ["Actor", "Director"],
+				...roleCodes(overrides.afterRoleCodes),
+			}),
 		};
 	} else {
 		relationshipSource = { before: snapshot({ roles: overrides.beforeRoles ?? ["Actor"] }) };
@@ -127,7 +143,7 @@ it.each([
 					{
 						schemaSlug,
 						subjectEntityId: "subject-1",
-						discriminator: "subject-1:Director",
+						discriminator: "subject-1:role:Director",
 						properties: { role: "Director", associatedName: "Barbie", subjectName: "Greta Gerwig" },
 					},
 				]);
@@ -167,9 +183,39 @@ it("emits each newly added role once and ignores unchanged, removed, and deleted
 			{ concurrency: "unbounded" },
 		).pipe(
 			Effect.map(([added, removed, deleted]) => {
-				expect(added.map(({ discriminator }) => discriminator)).toEqual(["subject-1:Director"]);
+				expect(added.map(({ discriminator }) => discriminator)).toEqual([
+					"subject-1:role:Director",
+				]);
 				expect(removed).toEqual([]);
 				expect(deleted).toEqual([]);
+				return undefined;
+			}),
+		),
+	));
+
+it("emits newly added standard role codes apart from named roles", () =>
+	Effect.runPromise(
+		run(
+			input({
+				operation: "update",
+				afterRoles: ["Actor"],
+				beforeRoleCodes: ["creator"],
+				afterRoleCodes: ["creator", "author", "unknown"],
+			}),
+		).pipe(
+			Effect.map((calls) => {
+				expect(calls).toEqual([
+					{
+						subjectEntityId: "subject-1",
+						schemaSlug: "person.media.associated",
+						discriminator: "subject-1:role-code:author",
+						properties: {
+							roleCode: "author",
+							associatedName: "Barbie",
+							subjectName: "Greta Gerwig",
+						},
+					},
+				]);
 				return undefined;
 			}),
 		),
@@ -182,8 +228,8 @@ it("uses stable per-role discriminators across replay", () => {
 			Effect.map(([first, replay]) => {
 				expect(first).toEqual(replay);
 				expect(first.map(({ discriminator }) => discriminator)).toEqual([
-					"subject-1:Actor",
-					"subject-1:Director",
+					"subject-1:role:Actor",
+					"subject-1:role:Director",
 				]);
 				return undefined;
 			}),
@@ -238,8 +284,8 @@ it("reads every credited entity in the batch with one query", () => {
 			);
 			expect(reads).toBe(1);
 			expect(calls.map(({ discriminator }) => discriminator)).toEqual([
-				"subject-1:Director",
-				"subject-2:Writer",
+				"subject-1:role:Director",
+				"subject-2:role:Writer",
 			]);
 		}),
 	);

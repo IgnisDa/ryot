@@ -21,6 +21,7 @@ import {
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import { catalogMessage } from "../../shared/messages.generated";
 
 const mediaMonitorableEntitySchemaSlugs = [
 	"company",
@@ -61,10 +62,14 @@ const targetParameters = parameters({
 	fields: {
 		entityIds: {
 			type: "array",
-			label: "Titles",
 			validation: { minItems: 1, required: true },
+			label: catalogMessage("query-parameter.titles"),
 			description: "Media entities whose monitoring state to read",
-			items: { type: "string", label: "Title", description: "Media entity ID" },
+			items: {
+				type: "string",
+				description: "Media entity ID",
+				label: catalogMessage("query-parameter.title"),
+			},
 		},
 	},
 });

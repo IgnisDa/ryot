@@ -1,5 +1,13 @@
 import type { ProviderDetailsRelatedEntity } from "@ryot-app/plugin-backend-sdk/provider";
 
+import type { CreditRoleCode } from "../../shared/credit-roles";
+
+/** Providers only derive unlinked creators' roles, so they always carry a code. */
+export type CodedUnlinkedCreator = { name: string; roleCode: CreditRoleCode };
+
+/** A provider's own role name, or a standard role the provider implies without naming it. */
+export type CreditRole = { readonly name: string } | { readonly code: CreditRoleCode };
+
 export type RoleRelatedEntity = Omit<
 	ProviderDetailsRelatedEntity,
 	"name" | "relationshipProperties"
@@ -13,7 +21,17 @@ export type RoleRelatedEntity = Omit<
 		creditKinds?: string[];
 		departments?: string[];
 		isUncredited?: boolean;
+		roleCodes?: CreditRoleCode[];
 	};
+};
+
+export const creditRoleProperties = (
+	role: null | CreditRole,
+): { roles: string[]; roleCodes?: CreditRoleCode[] } => {
+	if (role === null) {
+		return { roles: [] };
+	}
+	return "code" in role ? { roles: [], roleCodes: [role.code] } : { roles: [role.name] };
 };
 
 const mergeFlag = (existing: boolean | undefined, incoming: boolean | undefined) => {
@@ -25,6 +43,10 @@ const mergeFlag = (existing: boolean | undefined, incoming: boolean | undefined)
 	}
 	return existing && incoming;
 };
+
+const mergeUnique = <Value>(existing: undefined | readonly Value[], incoming: readonly Value[]) => [
+	...new Set([...(existing ?? []), ...incoming]),
+];
 
 export const createRoleAccumulator = (initial: readonly RoleRelatedEntity[] = []) => {
 	const entities: RoleRelatedEntity[] = [];
@@ -49,6 +71,9 @@ export const createRoleAccumulator = (initial: readonly RoleRelatedEntity[] = []
 			} else {
 				delete relationshipProperties.character;
 			}
+			if (relationshipProperties.roleCodes !== undefined) {
+				relationshipProperties.roleCodes = [...new Set(relationshipProperties.roleCodes)];
+			}
 			if (relationshipProperties.creditKinds !== undefined) {
 				relationshipProperties.creditKinds = [...new Set(relationshipProperties.creditKinds)];
 			}
@@ -60,22 +85,17 @@ export const createRoleAccumulator = (initial: readonly RoleRelatedEntity[] = []
 			entities.push(first);
 			return;
 		}
-		for (const role of entity.relationshipProperties.roles) {
-			if (!existing.relationshipProperties.roles.includes(role)) {
-				existing.relationshipProperties.roles.push(role);
-			}
+		const merged = existing.relationshipProperties;
+		const { roles, roleCodes, creditKinds, departments } = entity.relationshipProperties;
+		merged.roles = mergeUnique(merged.roles, roles);
+		if (roleCodes !== undefined) {
+			merged.roleCodes = mergeUnique(merged.roleCodes, roleCodes);
 		}
-		for (const property of ["creditKinds", "departments"] as const) {
-			const values = entity.relationshipProperties[property];
-			if (values !== undefined) {
-				const existingValues = existing.relationshipProperties[property] ?? [];
-				existing.relationshipProperties[property] = existingValues;
-				for (const value of values) {
-					if (!existingValues.includes(value)) {
-						existingValues.push(value);
-					}
-				}
-			}
+		if (creditKinds !== undefined) {
+			merged.creditKinds = mergeUnique(merged.creditKinds, creditKinds);
+		}
+		if (departments !== undefined) {
+			merged.departments = mergeUnique(merged.departments, departments);
 		}
 		const order = entity.relationshipProperties.order;
 		if (order !== undefined) {

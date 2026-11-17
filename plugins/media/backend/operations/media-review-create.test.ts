@@ -8,6 +8,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
 import type { MediaPosition } from "../../shared/consumption";
+import { catalogMessage } from "../../shared/messages.generated";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import definition, { manifest } from "./media-review-create.sandbox";
@@ -148,20 +149,24 @@ describe("create media review", () => {
 						},
 					],
 				]);
-				for (const [slug, position, message] of [
+				for (const [slug, position, reason] of [
 					[
 						"movie",
 						{ position: 1, unit: "episodes" },
-						"This media type does not track this position",
+						catalogMessage("rejection.position.unsupported"),
 					],
 					[
 						"anime",
 						{ position: 1, unit: "chapters" },
-						"This media type does not track this position",
+						catalogMessage("rejection.position.unsupported"),
 					],
-					["anime", { position: 1.5, unit: "episodes" }, "Episode numbers are whole numbers"],
+					[
+						"anime",
+						{ position: 1.5, unit: "episodes" },
+						catalogMessage("rejection.position.episode-not-whole"),
+					],
 				] as const) {
-					expect(yield* Effect.flip(create(slug, position))).toMatchObject({ message });
+					expect(yield* Effect.flip(create(slug, position))).toMatchObject({ reason });
 				}
 				expect(creates).toHaveLength(1);
 			}),
@@ -235,18 +240,18 @@ describe("create media review", () => {
 						},
 					],
 				]);
-				for (const [consumption, message] of [
-					[undefined, "The record this review is about no longer exists."],
+				for (const [consumption, reason] of [
+					[undefined, catalogMessage("rejection.review.consumption-not-found")],
 					[
 						{ entityId: "episode-1", eventSchemaSlug: "review" },
-						"A review can only be about a completion, progress or status record.",
+						catalogMessage("rejection.review.consumption-not-reviewable"),
 					],
 					[
 						{ entityId: "show-1", eventSchemaSlug: "complete" },
-						"A review can only be about a record of what it reviews.",
+						catalogMessage("rejection.review.consumption-other-entity"),
 					],
 				] as const) {
-					expect(yield* Effect.flip(create(consumption))).toMatchObject({ message });
+					expect(yield* Effect.flip(create(consumption))).toMatchObject({ reason });
 				}
 				expect(creates).toHaveLength(1);
 			}),

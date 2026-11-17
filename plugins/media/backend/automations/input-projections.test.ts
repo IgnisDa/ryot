@@ -35,7 +35,11 @@ it("declares the media automation input projections", () => {
 			event: { compareProperties: [], properties: ["entitySchemaSlug", "entityId"] },
 		},
 		"automation.media-association": {
-			relationship: { properties: ["roles"], compareProperties: [], parentEntityProperties: [] },
+			relationship: {
+				compareProperties: [],
+				parentEntityProperties: [],
+				properties: ["roles", "roleCodes"],
+			},
 		},
 		"automation.media-relationship-sync": {
 			relationship: {
@@ -65,6 +69,7 @@ it("declares the media automation input projections", () => {
 					"subjectName",
 					"associatedName",
 					"role",
+					"roleCode",
 					"oldStatus",
 					"newStatus",
 					"contentType",

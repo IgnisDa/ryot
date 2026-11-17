@@ -1,11 +1,12 @@
 import { expect } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { englishRenderer, recordNotifications } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { automationContext } from "../../tests/backend/automations/automation-test-utils";
+import { englishCatalog } from "../../tests/english-catalog";
 import definition, { manifest } from "./notification.sandbox";
 
 const cases = [
@@ -25,6 +26,11 @@ const cases = [
 				"Greta Gerwig has been associated with Barbie as Director",
 			] as const,
 	),
+	[
+		"person.media.associated",
+		{ roleCode: "author", associatedName: "Dune", subjectName: "Frank Herbert" },
+		"Frank Herbert has been associated with Dune as an author",
+	],
 	[
 		"media.status.changed",
 		{ newStatus: "Ended", oldStatus: "Airing", entityName: "Severance" },
@@ -46,6 +52,11 @@ const cases = [
 		"3 new episodes discovered in season 2 for Severance",
 	],
 	[
+		"media.episode.discovered",
+		{ oldCount: 0, newCount: 1, discoveredCount: 1, entityName: "Podcast" },
+		"1 new episode discovered for Podcast",
+	],
+	[
 		"media.release-date.changed",
 		{ oldYear: 2025, newYear: 2026, entityName: "Dune", changeKind: "publish_year" },
 		"Publish year changed from 2025 to 2026 for Dune",
@@ -60,12 +71,17 @@ const cases = [
 			entityName: "Severance",
 			changeKind: "episode_date",
 		},
-		"Episode release date changed from 2026-01-01 to 2026-02-01 (S2E1) for Severance",
+		"Episode release date changed from Jan 1, 2026 to Feb 1, 2026 (S2E1) for Severance",
 	],
 	[
 		"media.episode.name.changed",
 		{ oldName: null, episodeNumber: 3, newName: "Premiere", entityName: "Podcast" },
-		'Episode name changed from null to "Premiere" (EP3) for Podcast',
+		'Episode name changed from no name to "Premiere" (EP3) for Podcast',
+	],
+	[
+		"media.episode.name.changed",
+		{ newName: null, oldName: "Pilot", episodeNumber: 3, entityName: "Podcast" },
+		'Episode name changed from "Pilot" to no name (EP3) for Podcast',
 	],
 	[
 		"media.episode.images.changed",
@@ -109,36 +125,27 @@ it("projects every property the formatted signals read", () => {
 	}
 });
 
+const render = englishRenderer(englishCatalog);
+
 it.effect.each(cases)(
-	"formats %s exclusively from the signal snapshot",
+	"builds the %s message exclusively from the signal snapshot",
 	([slug, properties, expected]) =>
 		Effect.gen(function* () {
-			const messages: string[] = [];
-			return yield* definition
-				.run(
-					yield* automationContext({
-						properties,
-						operation: "emit",
-						category: "signal",
-						resource: "signal",
-						actorUserId: "user-1",
-						signalSchemaSlug: slug,
-						signalSchemaPluginId: "media-plugin",
-					}),
-					defineSandboxTestHost(manifest, {
-						sendNotification: (message) => {
-							messages.push(message);
-							return Effect.succeed(null);
-						},
-					}),
-				)
-				.pipe(
-					Effect.map((result) => {
-						expect(result).toBeNull();
-						expect(messages).toEqual([expected]);
-						return undefined;
-					}),
-				);
+			const { host, messages } = recordNotifications(manifest);
+			const result = yield* definition.run(
+				yield* automationContext({
+					properties,
+					operation: "emit",
+					category: "signal",
+					resource: "signal",
+					actorUserId: "user-1",
+					signalSchemaSlug: slug,
+					signalSchemaPluginId: "media-plugin",
+				}),
+				host,
+			);
+			expect(result).toBeNull();
+			expect(messages.map(render)).toEqual([expected]);
 		}),
 	testTimeout,
 );

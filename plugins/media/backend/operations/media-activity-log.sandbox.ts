@@ -6,7 +6,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -39,8 +39,8 @@ import {
 	type MediaActivityWhen,
 } from "../../shared/media-activity-operations";
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
-
-const reject = (message: string) => Effect.fail(new OperationRejectedError({ message: message }));
+import { catalogMessage } from "../../shared/messages.generated";
+import { reject } from "../lib/failures";
 
 const EPISODE_MEMBERSHIP_PAGE_SIZE = 100;
 
@@ -56,10 +56,10 @@ const targetRecipe = (() => {
 	const inputParameters = parameters({
 		fields: {
 			id: {
-				label: "id",
 				type: "string",
 				description: "id to read",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.id"),
 			},
 		},
 	});
@@ -88,16 +88,20 @@ const episodeMembersRecipe = (input: { readonly config: EpisodicKindConfig }) =>
 		fields: {
 			parentEntityId: {
 				type: "string",
-				label: "parentEntityId",
 				validation: { required: true },
 				description: "parentEntityId to read",
+				label: catalogMessage("query-parameter.parent"),
 			},
 			episodeEntityIds: {
 				type: "array",
-				label: "episodeEntityIds",
 				validation: { required: true },
 				description: "episodeEntityIds to read",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.episodes"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -160,7 +164,7 @@ const findTarget = (host: ActivityHost, id: string) =>
 	Effect.gen(function* () {
 		const target = yield* executeRyotqlRecipe(host.executeRyotql, targetRecipe, { id: id });
 		if (target === undefined) {
-			return yield* reject("Media entity not found");
+			return yield* reject(catalogMessage("rejection.activity.entity-not-found"));
 		}
 		return target;
 	});
@@ -179,7 +183,7 @@ const buildEvents = (
 		if (entry.kind === "complete") {
 			const { schemaSlug } = yield* findTarget(host, entry.entityId);
 			if (!lifecycleSchemaSlugs.has(schemaSlug)) {
-				return yield* reject("This media type cannot be completed directly");
+				return yield* reject(catalogMessage("rejection.activity.cannot-complete-directly"));
 			}
 			return {
 				schemaSlug,
@@ -189,7 +193,7 @@ const buildEvents = (
 		if (entry.kind === "progress") {
 			const { schemaSlug } = yield* findTarget(host, entry.entityId);
 			if (!lifecycleSchemaSlugs.has(schemaSlug)) {
-				return yield* reject("This media type has no progress");
+				return yield* reject(catalogMessage("rejection.activity.no-progress"));
 			}
 			if (
 				entry.progressPages !== undefined &&
@@ -197,9 +201,7 @@ const buildEvents = (
 					entry.progressPercent !== undefined ||
 					entry.position !== undefined)
 			) {
-				return yield* reject(
-					"Pages require a book or comic book and cannot be combined with another progress amount",
-				);
+				return yield* reject(catalogMessage("rejection.activity.pages-conflict"));
 			}
 			const progressError = mediaProgressRuleError(
 				schemaSlug,
@@ -244,7 +246,7 @@ const buildEvents = (
 		const { schemaSlug } = yield* findTarget(host, entry.parentEntityId);
 		const config = episodicConfigs[schemaSlug];
 		if (config === undefined) {
-			return yield* reject("Episodes can only be logged on shows and podcasts");
+			return yield* reject(catalogMessage("rejection.activity.episodes-unsupported"));
 		}
 		let members = 0;
 		for (
@@ -265,7 +267,7 @@ const buildEvents = (
 			);
 		}
 		if (members !== entry.episodeEntityIds.length) {
-			return yield* reject("Every episode must belong to the selected parent");
+			return yield* reject(catalogMessage("rejection.activity.episode-parent-mismatch"));
 		}
 		return {
 			schemaSlug,

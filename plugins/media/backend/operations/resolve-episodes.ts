@@ -8,11 +8,11 @@ import {
 	entitySchemaPredicate,
 	eq,
 	executeRyotqlRecipe,
-	type ExecutionRequest,
 	exists,
 	join,
 	jsonPath,
 	parameters,
+	type PluginExecutionRequest,
 	type Recipe,
 	relationshipSchemaPredicate,
 	selectedField,
@@ -23,37 +23,38 @@ import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import type { ResolveEpisodesRef } from "../../shared/integration-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 
 const input = parameters({
 	fields: {
 		episodeNumber: {
 			type: "integer",
 			defaultValue: 0,
-			label: "Episode",
 			description: "Episode number",
+			label: catalogMessage("query-parameter.episode"),
 		},
 		seasonNumber: {
 			type: "integer",
-			label: "Season",
 			defaultValue: 0,
 			description: "Show season number",
+			label: catalogMessage("query-parameter.season"),
 		},
 		episodeTitle: {
 			type: "string",
 			defaultValue: "",
-			label: "Episode title",
 			description: "Exact podcast episode title",
+			label: catalogMessage("query-parameter.episode-title"),
 		},
 		parentEntityId: {
 			type: "string",
-			label: "Parent",
 			validation: { required: true },
+			label: catalogMessage("query-parameter.parent"),
 			description: "Show or podcast that contains the requested item",
 		},
 		kind: {
 			type: "enum",
-			label: "Reference",
 			validation: { required: true },
+			label: catalogMessage("query-parameter.reference"),
 			description: "Kind of season or episode reference",
 			choices: {
 				kind: "static",
@@ -163,7 +164,7 @@ export type ResolveEpisodeResult = Recipe.Success<ReturnType<typeof resolveEpiso
 
 export const resolveEpisodes = (
 	refs: ReadonlyArray<ResolveEpisodesRef>,
-	executeRyotql: (request: ExecutionRequest) => Effect.Effect<unknown, SandboxHostError>,
+	executeRyotql: (request: PluginExecutionRequest) => Effect.Effect<unknown, SandboxHostError>,
 ) =>
 	Effect.forEach(refs, (ref) =>
 		executeRyotqlRecipe(executeRyotql, resolveEpisodeRecipe({ kind: "self" }), {
