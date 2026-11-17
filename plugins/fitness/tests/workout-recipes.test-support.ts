@@ -1,8 +1,8 @@
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { revisionDefinitions } from "@ryot-app/definitions/source";
 import { PluginId } from "@ryot-app/plugin-kit/schema";
 import type { Recipe } from "@ryot-app/ryotql";
@@ -18,7 +18,7 @@ import { Result } from "effect";
 import { fitnessPlugin } from "../manifest/plugin";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 
-export const bindWorkoutRecipe = <Data, Parameters extends AppSchema>(
+export const bindWorkoutRecipe = <Data, Parameters extends AuthoredAppSchema>(
 	recipe: Recipe<Data, Parameters>,
 	argumentsValue: Readonly<Record<string, unknown>> = {},
 	filter?: Filter,
@@ -33,7 +33,7 @@ export const bindWorkoutRecipe = <Data, Parameters extends AppSchema>(
 };
 
 const workoutBindingContext = (
-	document: RyotQLDocument,
+	document: Pick<RyotQLDocument, "queries">,
 	reference: PluginIdentityReference = { kind: "local", pluginId: PluginId.make("fitness-owner") },
 ): BindingContext => {
 	const now = new Date("2026-10-18T00:00:00Z");
@@ -70,5 +70,5 @@ const workoutBindingContext = (
 		},
 	};
 };
-export const bindWorkoutRequest = (request: ExecutionRequest) =>
+export const bindWorkoutRequest = (request: PluginExecutionRequest) =>
 	bindTestRequest(request, workoutBindingContext(requireInlineDocument(request)));

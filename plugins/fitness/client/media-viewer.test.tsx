@@ -1,16 +1,17 @@
 import { afterEach, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
 	mountPluginPage,
 	routeLocation,
-	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { fitnessCatalogs, fitnessSavedViewPage } from "../tests/client/test-text";
 import { WorkoutMediaViewer } from "./media-viewer";
 
 afterEach(disposePluginBridges);
@@ -22,14 +23,15 @@ it.live(
 			const page = mountPluginPage(
 				() => (
 					<WorkoutMediaViewer
-						label="Workout"
+						label={testText("Workout")}
 						images={[{ type: "remote", url: "https://assets.test/form.jpg" }]}
 						videos={[{ type: "remote", url: "https://assets.test/form.mp4" }]}
 					/>
 				),
 				{
+					catalogs: fitnessCatalogs,
 					location: routeLocation("/media"),
-					page: savedViewPageContext({
+					page: fitnessSavedViewPage({
 						settings: {},
 						dataSources: { queries: {} },
 						savedViewId: "media-viewer-test",

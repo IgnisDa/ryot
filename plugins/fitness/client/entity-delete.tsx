@@ -16,21 +16,13 @@ import {
 	WorkoutDeleteOutputSchema,
 	workoutTemplateDeleteOperationSlug,
 } from "../shared/workout-delete-operations";
+import { useFitnessMessages } from "./messages";
 
 const entityKinds = {
+	workout: { savedViewSlug: "all-workouts", operationSlug: workoutDeleteOperationSlug },
 	template: {
-		noun: "template",
 		savedViewSlug: "all-workout-templates",
 		operationSlug: workoutTemplateDeleteOperationSlug,
-		description: (name: string) =>
-			`Permanently delete “${name}”? This cannot be undone. Workouts started from this template and its exercises will stay.`,
-	},
-	workout: {
-		noun: "workout",
-		savedViewSlug: "all-workouts",
-		operationSlug: workoutDeleteOperationSlug,
-		description: (name: string) =>
-			`Permanently delete “${name}” and its sets? This cannot be undone. Exercises, templates, other workouts, and separately logged measurements will stay.`,
 	},
 };
 
@@ -64,6 +56,7 @@ const deleteEntity = createRyotMutation<
 export function DeleteFitnessEntity(
 	props: DeleteInput & { readonly name: string; readonly onClose: () => void },
 ) {
+	const text = useFitnessMessages();
 	const client = useRyot();
 	const deletion = useRyotSubmission(deleteEntity);
 	const kind = entityKinds[props.kind];
@@ -84,13 +77,13 @@ export function DeleteFitnessEntity(
 		<Dialog
 			closeIcon={null}
 			onClose={props.onClose}
-			closeLabel="Cancel deletion"
-			title={`Delete ${kind.noun}?`}
 			dismissible={!deletion.isPending}
+			closeLabel={text("client.delete.cancel")}
+			title={text("client.delete.title", { kind: props.kind })}
 			footer={
 				<>
 					<Button variant="secondary" onClick={props.onClose} disabled={deletion.isPending}>
-						Cancel
+						{text("common.action.cancel")}
 					</Button>
 					<Button
 						variant="danger"
@@ -101,17 +94,15 @@ export function DeleteFitnessEntity(
 								: () => deletion.submit({ kind: props.kind, entityId: props.entityId })
 						}
 					>
-						{deletion.status === "retained" ? "Retry deletion" : `Delete ${kind.noun}`}
+						{deletion.status === "retained"
+							? text("client.delete.retry")
+							: text("client.delete.action", { kind: props.kind })}
 					</Button>
 				</>
 			}
 		>
-			<p>{kind.description(props.name)}</p>
-			{deletion.error ? (
-				<Notice tone="danger">
-					Deletion could not be confirmed. Retry to confirm the result safely.
-				</Notice>
-			) : null}
+			<p>{text("client.delete.description", { kind: props.kind, name: props.name })}</p>
+			{deletion.error ? <Notice tone="danger">{text("client.delete.unconfirmed")}</Notice> : null}
 		</Dialog>
 	);
 }

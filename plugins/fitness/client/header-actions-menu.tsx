@@ -1,16 +1,20 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { MenuButton, type MenuItem } from "@ryot-app/plugin-ui-sdk";
+
+import { useFitnessMessages } from "./messages";
 
 const manageReminders = createRyotMutation<{ readonly entityId: string }, void>(
 	({ input, client }) => client.screens.manageReminders(input).pipe(Effect.asVoid),
 );
 
 export function HeaderActionsMenu(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly entityId: string;
 	readonly items: ReadonlyArray<MenuItem>;
 }) {
+	const text = useFitnessMessages();
 	const reminders = useRyotMutation(manageReminders);
 	return (
 		<>
@@ -20,8 +24,8 @@ export function HeaderActionsMenu(props: {
 				items={[
 					{
 						key: "reminders",
-						label: "Reminders",
 						disabled: reminders.isPending,
+						label: text("client.header.reminders"),
 						onSelect: () => reminders.mutate({ entityId: props.entityId }),
 					},
 					...props.items,
@@ -29,7 +33,7 @@ export function HeaderActionsMenu(props: {
 			/>
 			{reminders.error === null ? null : (
 				<span role="alert" className="text-xs text-danger">
-					Unable to open reminders. Try again.
+					{text("client.header.reminders-failed")}
 				</span>
 			)}
 		</>

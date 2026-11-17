@@ -1,9 +1,11 @@
 import { expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
-import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { createTestRyotClock, TestI18nProvider } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -11,14 +13,24 @@ import { Deferred } from "effect";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { fitnessCatalogs } from "../tests/client/test-text";
 import { HeaderActionsMenu } from "./header-actions-menu";
 
 const mount = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
-	const { runtime, dispose } = createTestRyotClock(adapter);
+	const { runtime, dispose } = createTestRyotClock({
+		pluginIdentity: () => ({ kind: "local", pluginId: PluginId.make("fitness") }),
+		...adapter,
+	});
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root = createRoot(container);
-	act(() => root.render(<RyotProvider runtime={runtime}>{children}</RyotProvider>));
+	act(() =>
+		root.render(
+			<TestI18nProvider catalogs={fitnessCatalogs}>
+				<RyotProvider runtime={runtime}>{children}</RyotProvider>
+			</TestI18nProvider>,
+		),
+	);
 	return {
 		container,
 		unmount: () => {
@@ -46,8 +58,8 @@ it.live(
 				},
 				<HeaderActionsMenu
 					entityId="exercise-1"
-					label="More exercise actions"
-					items={[{ key: "other", label: "Other action", onSelect: () => undefined }]}
+					label={testText("More exercise actions")}
+					items={[{ key: "other", onSelect: () => undefined, label: testText("Other action") }]}
 				/>,
 			);
 			try {
@@ -94,7 +106,11 @@ it.live(
 							Effect.andThen(Effect.fail(new RyotClientError({ reason: "transport" }))),
 						),
 				},
-				<HeaderActionsMenu items={[]} entityId="workout-1" label="More workout actions" />,
+				<HeaderActionsMenu
+					items={[]}
+					entityId="workout-1"
+					label={testText("More workout actions")}
+				/>,
 			);
 			try {
 				act(() => getByRole(mounted.container, "button", { name: "More workout actions" }).click());

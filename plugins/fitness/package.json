@@ -97,8 +97,9 @@
 	},
 	"scripts": {
 		"build": "ryot plugin build",
-		"test": "bun ../../packages/testing/src/run-client-tests.ts --timeout=120000",
-		"check": "bun --check && bun fmt . --write && oxlint . --fix"
+		"messages": "ryot plugin messages",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix",
+		"test": "bun ../../packages/testing/src/run-client-tests.ts --timeout=120000"
 	},
 	"dependencies": {
 		"@ryot-app/config": "workspace:*",
@@ -113,7 +114,9 @@
 		"@effect/platform-bun": "4.1.2",
 		"@ryot-app/cli": "workspace:*",
 		"@ryot-app/definitions": "workspace:*",
+		"@ryot-app/i18n": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/kernel-messages": "workspace:*",
 		"@ryot-app/plugin-client-compiler": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/plugin-client-sdk": "workspace:*",

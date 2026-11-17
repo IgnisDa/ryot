@@ -1,43 +1,28 @@
 import type { WorkoutSetLot } from "../shared/workout-set";
+import type { FitnessText } from "./messages";
 
 type SetLotPresentation = {
-	readonly name: string;
 	readonly pill: string;
-	readonly label: string;
 	readonly tag: string | undefined;
 	readonly tone: string | undefined;
 };
 
 export const setLots: Record<WorkoutSetLot, SetLotPresentation> = {
-	drop: {
-		tag: "D",
-		label: "Drop",
-		name: "Drop set",
-		tone: "text-info",
-		pill: "border-border bg-surface-2 text-text",
-	},
-	failure: {
-		tag: "F",
-		label: "Failure",
-		tone: "text-danger",
-		name: "Set to failure",
-		pill: "border-danger text-danger",
-	},
-	normal: {
-		tag: undefined,
-		tone: undefined,
-		label: "Normal",
-		name: "Working set",
-		pill: "border-border bg-surface-2 text-text",
-	},
+	failure: { tag: "F", tone: "text-danger", pill: "border-danger text-danger" },
+	drop: { tag: "D", tone: "text-info", pill: "border-border bg-surface-2 text-text" },
+	normal: { tag: undefined, tone: undefined, pill: "border-border bg-surface-2 text-text" },
 	warm_up: {
 		tag: "W",
-		label: "Warm-up",
-		name: "Warm-up set",
 		tone: "text-warning",
 		pill: "border-dashed border-border-strong text-text-muted",
 	},
 };
+
+export const setLotLabel = (text: FitnessText, lot: WorkoutSetLot) =>
+	text("client.set-lot.label", { lot });
+
+export const setLotName = (text: FitnessText, lot: WorkoutSetLot) =>
+	text("client.set-lot.name", { lot });
 
 export const setLabels = (lots: readonly (null | undefined | WorkoutSetLot)[]) => {
 	let working = 0;

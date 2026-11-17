@@ -10,8 +10,14 @@ import {
 	type TimeZone,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { ManagedAssetProvider, useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
-import { Eyebrow, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
+import {
+	type Formatters,
+	ManagedAssetProvider,
+	useAssetUrl,
+	useEntitySchemaName,
+	useFormatters,
+} from "@ryot-app/plugin-client-sdk/react";
+import { Eyebrow } from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityArtWell,
 	fieldSyncState,
@@ -28,6 +34,7 @@ import {
 } from "../shared/entity-presentations";
 import { managedAssetBatch } from "./asset-urls";
 import { formatDay, formatValue } from "./measurements/model";
+import { useFitnessMessages } from "./messages";
 
 export type FitnessPresentationViewData = {
 	readonly name: string;
@@ -36,9 +43,11 @@ export type FitnessPresentationViewData = {
 	readonly secondary: null | string;
 	readonly batchAssets: readonly ManagedAssetLocator[];
 	readonly image: FitnessPresentationSourceData["presentationImage"];
+	readonly latest: null | { readonly day: string; readonly value: number };
 };
 
 const buildFitnessPresentations = (
+	formatters: Formatters,
 	references: readonly EntityReference[],
 	sources: readonly (FitnessPresentationSourceData | FitnessEntityPresentationData)[],
 	timeZone: TimeZone,
@@ -67,14 +76,18 @@ const buildFitnessPresentations = (
 						name: source.presentationName,
 						image: source.presentationImage,
 						callout: source.presentationCallout,
+						primary: source.presentationPrimary,
 						secondary: source.presentationSecondary,
-						primary:
-							!("presentationLatestAt" in source) ||
-							!("presentationLatestValue" in source) ||
-							typeof source.presentationLatestValue !== "number" ||
-							typeof source.presentationLatestAt !== "string"
-								? source.presentationPrimary
-								: `${formatValue(source.presentationLatestValue, source.presentationPrimary)} · ${formatDay(source.presentationLatestAt, timeZone)}`,
+						latest:
+							"presentationLatestAt" in source &&
+							"presentationLatestValue" in source &&
+							typeof source.presentationLatestValue === "number" &&
+							typeof source.presentationLatestAt === "string"
+								? {
+										value: source.presentationLatestValue,
+										day: formatDay(formatters, source.presentationLatestAt, timeZone),
+									}
+								: null,
 					},
 				]),
 			);
@@ -84,11 +97,17 @@ const buildFitnessPresentations = (
 
 export const prepareFitnessPresentations: EntityPresentationPrepare<
 	FitnessPresentationViewData
-> = ({ sources, context, references }) => {
+> = ({ sources, context, references, formatters }) => {
 	const source = fitnessPresentationSource(references[0]?.entitySchemaSlug ?? "");
 	return Result.flatMap(
 		Result.all(references.map((reference) => source.decode(sources.get(reference.entityId)))),
-		(rows) => buildFitnessPresentations(references, rows, context?.timeZone ?? deviceTimeZone()),
+		(rows) =>
+			buildFitnessPresentations(
+				formatters,
+				references,
+				rows,
+				context?.timeZone ?? deviceTimeZone(),
+			),
 	);
 };
 
@@ -134,42 +153,13 @@ function FitnessArtwork(props: {
 	);
 }
 
-function FitnessFacts(props: {
-	readonly reference: EntityReference;
-	readonly data: FitnessPresentationViewData;
-}) {
-	return (
-		<div className="grid min-w-0 gap-1">
-			<Eyebrow>{schemaSlugLabel(props.reference.entitySchemaSlug)}</Eyebrow>
-			<span className="flex min-w-0 items-baseline gap-1.5">
-				<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.reference.entityId }}>
-					<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
-						{props.data.name}
-					</span>
-				</PluginLink>
-				{isTitleProvisional(props.reference) && <SyncPip reason="translating" />}
-			</span>
-			{props.data.primary !== null && (
-				<span className="truncate text-xs text-text-muted">{props.data.primary}</span>
-			)}
-			{props.data.secondary !== null && (
-				<span className="truncate text-xs text-text-subtle">{props.data.secondary}</span>
-			)}
-			{props.data.callout !== null && (
-				<span className="truncate text-xs font-semibold text-accent-text">
-					{props.data.callout}
-				</span>
-			)}
-		</div>
-	);
-}
-
 function FitnessPresentation(props: {
 	readonly compact: boolean;
 	readonly layout: "grid" | "list";
 	readonly reference: EntityReference;
 	readonly data: FitnessPresentationViewData;
 }) {
+	const text = useFitnessMessages();
 	return (
 		<ManagedAssetProvider assets={props.data.batchAssets}>
 			<article
@@ -186,8 +176,8 @@ function FitnessPresentation(props: {
 				)}
 			>
 				<PluginLink
-					aria-label={`Open ${props.data.name}`}
 					to={{ kind: "entity", entityId: props.reference.entityId }}
+					aria-label={text("client.presentation.open", { name: props.data.name })}
 					className={props.layout === "grid" ? "block min-w-0" : "block shrink-0"}
 				>
 					<FitnessArtwork
@@ -205,10 +195,50 @@ function FitnessPresentation(props: {
 	);
 }
 
+function FitnessFacts(props: {
+	readonly reference: EntityReference;
+	readonly data: FitnessPresentationViewData;
+}) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
+	const schemaName = useEntitySchemaName();
+	const { data } = props;
+	const primary =
+		data.latest === null
+			? data.primary
+			: text("client.presentation.latest", {
+					day: data.latest.day,
+					value: formatValue(formatters, text, data.latest.value, data.primary),
+				});
+	return (
+		<div className="grid min-w-0 gap-1">
+			<Eyebrow>{schemaName(props.reference)}</Eyebrow>
+			<span className="flex min-w-0 items-baseline gap-1.5">
+				<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.reference.entityId }}>
+					<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
+						{props.data.name}
+					</span>
+				</PluginLink>
+				{isTitleProvisional(props.reference) && <SyncPip reason="translating" />}
+			</span>
+			{primary !== null && <span className="truncate text-xs text-text-muted">{primary}</span>}
+			{props.data.secondary !== null && (
+				<span className="truncate text-xs text-text-subtle">{props.data.secondary}</span>
+			)}
+			{props.data.callout !== null && (
+				<span className="truncate text-xs font-semibold text-accent-text">
+					{props.data.callout}
+				</span>
+			)}
+		</div>
+	);
+}
+
 const prepareEntity: EntityPresentationPrepare<FitnessPresentationViewData> = ({
 	sources,
 	context,
 	references,
+	formatters,
 }) =>
 	Result.flatMap(
 		Result.all(
@@ -218,7 +248,13 @@ const prepareEntity: EntityPresentationPrepare<FitnessPresentationViewData> = ({
 				),
 			),
 		),
-		(rows) => buildFitnessPresentations(references, rows, context?.timeZone ?? deviceTimeZone()),
+		(rows) =>
+			buildFitnessPresentations(
+				formatters,
+				references,
+				rows,
+				context?.timeZone ?? deviceTimeZone(),
+			),
 	);
 
 export const fitnessEntityCardPresentation = defineEntityPresentation({

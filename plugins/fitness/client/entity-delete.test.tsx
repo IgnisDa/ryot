@@ -1,5 +1,6 @@
 import { afterEach, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
@@ -16,6 +17,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import { fitnessCatalogs } from "../tests/client/test-text";
 import { DeleteFitnessEntity } from "./entity-delete";
 
 afterEach(disposePluginBridges);
@@ -24,11 +26,12 @@ const mountDeleteEntity = (kind: "workout" | "template", onClose: () => void) =>
 	const pluginId = PluginId.make("fitness");
 	return mountPluginPage(
 		() => (
-			<PluginScreenFrame title="Fitness">
+			<PluginScreenFrame title={testText("Fitness")}>
 				<DeleteFitnessEntity kind={kind} name="Saved" onClose={onClose} entityId="entity" />
 			</PluginScreenFrame>
 		),
 		{
+			catalogs: fitnessCatalogs,
 			location: routeLocation("/"),
 			page: {
 				view: null,

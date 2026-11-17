@@ -15,6 +15,7 @@ export const prepareWorkoutPresentations: EntityPresentationPrepare<WorkoutCard>
 	sources,
 	context,
 	references,
+	formatters,
 }) =>
 	Result.gen(function* () {
 		if (context === undefined) {
@@ -27,9 +28,10 @@ export const prepareWorkoutPresentations: EntityPresentationPrepare<WorkoutCard>
 		const rows = yield* Result.all(
 			references.map((reference) => source.decode(sources.get(reference.entityId))),
 		);
-		const cards = buildWorkoutCards({
+		const cards = buildWorkoutCards(formatters, {
 			now: new Date(context.now),
 			timeZone: context.timeZone,
+			weekStart: context.weekStart,
 			imperial: settings.unitSystem === "imperial",
 			comparisons: rows.flatMap((row) => row.comparisons.items),
 			items: rows.map(({ sets, template, ...item }) =>

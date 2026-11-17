@@ -24,8 +24,12 @@ export const preferenceSettings: typeof WorkoutPreferenceSettingsSchema.Type = {
 };
 
 export const liveDraft = (overrides: Partial<WorkoutEditorDraft> = {}): WorkoutEditorDraft => ({
-	...emptyWorkoutDraft({ id: "draft-1", now: startTime, settings: preferenceSettings }),
-	name: "Session",
+	...emptyWorkoutDraft({
+		id: "draft-1",
+		now: startTime,
+		name: "Session",
+		settings: preferenceSettings,
+	}),
 	...overrides,
 });
 

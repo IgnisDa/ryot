@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useContext } from "react";
 
+import { useFitnessMessages } from "./messages";
 import { useWorkoutProcessing } from "./use-workout-processing";
 
 const ProcessingContext = createContext({ failed: false, pending: false });
@@ -19,15 +20,14 @@ export function WorkoutProcessing(props: {
 }
 
 export function ProcessingNote() {
+	const text = useFitnessMessages();
 	const processing = useContext(ProcessingContext);
 	if (!processing.failed && !processing.pending) {
 		return null;
 	}
 	return (
 		<span role="status" className="font-ui text-text-muted">
-			{processing.failed
-				? "Calculated results could not be updated. Values shown may be incomplete."
-				: "Updating calculated results. Values shown may change."}
+			{processing.failed ? text("client.processing.failed") : text("client.processing.pending")}
 		</span>
 	);
 }

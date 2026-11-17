@@ -1,3 +1,4 @@
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { type ManagedAssetLocator, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
@@ -12,6 +13,7 @@ import type { RyotSchedule } from "@ryot-app/plugin-client-sdk/schedule";
 import { createWorkoutEditorController } from "../../client/workout-editor/controller";
 import type { WorkoutEditorControllerPorts } from "../../client/workout-editor/controller-types";
 import { preferenceSettings, startTime } from "./draft-fixtures";
+import { testFitnessText } from "./test-text";
 
 const noopSchedule: Pick<RyotSchedule, "run" | "after"> = {
 	run: () => () => undefined,
@@ -52,7 +54,8 @@ export const controllerHarness = (
 	let removals = 0;
 	const writes: string[] = [];
 	const submissions: Parameters<WorkoutEditorControllerPorts["save"]>[0][] = [];
-	const controller = createWorkoutEditorController({
+	const controller = createWorkoutEditorController(testFormatters, {
+		text: testFitnessText,
 		feedback: () => Effect.void,
 		target: options.target ?? defaultTarget,
 		schedule: options.schedule ?? noopSchedule,

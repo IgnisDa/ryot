@@ -1,6 +1,7 @@
 import { expect, it } from "bun:test";
 
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
 
 import { preferenceSettings } from "../tests/client/draft-fixtures";
@@ -27,12 +28,19 @@ const metric = {
 it("renders public measurement cards without requiring private readings", () => {
 	const references = [reference("metric", "measurement-metric")];
 	const sources = new Map([["metric", metric]]);
-	const data = Result.getOrThrow(fitnessEntityCardPresentation.prepare({ sources, references }));
+	const data = Result.getOrThrow(
+		fitnessEntityCardPresentation.prepare({ sources, references, formatters: testFormatters }),
+	);
 	expect(data["metric"]).toMatchObject({ primary: "kg", name: "Weight" });
-	expect(Result.isFailure(prepareFitnessPresentations({ sources, references }))).toBe(true);
+	expect(
+		Result.isFailure(
+			prepareFitnessPresentations({ sources, references, formatters: testFormatters }),
+		),
+	).toBe(true);
 	const owner = Result.getOrThrow(
 		prepareFitnessPresentations({
 			references,
+			formatters: testFormatters,
 			sources: new Map([
 				[
 					"metric",
@@ -45,7 +53,7 @@ it("renders public measurement cards without requiring private readings", () => 
 			]),
 		}),
 	);
-	expect(owner["metric"]?.primary).toBe("73.6 kg · 8 Oct");
+	expect(owner["metric"]).toMatchObject({ primary: "kg", latest: { value: 73.6, day: "Oct 8" } });
 });
 
 it("prepares workouts using captured context, sets and comparison data", () => {
@@ -75,17 +83,23 @@ it("prepares workouts using captured context, sets and comparison data", () => {
 		],
 	]);
 	const references = [reference("workout", "workout")];
-	expect(Result.isFailure(prepareWorkoutPresentations({ sources, references }))).toBe(true);
+	expect(
+		Result.isFailure(
+			prepareWorkoutPresentations({ sources, references, formatters: testFormatters }),
+		),
+	).toBe(true);
 	const result = Result.getOrThrow(
 		prepareWorkoutPresentations({
 			sources,
 			references,
+			formatters: testFormatters,
 			context: {
+				weekStart: 1,
 				timeZone: UTC,
 				now: Date.parse("2026-09-07T10:00:00Z"),
 				settings: { ...preferenceSettings, unitSystem: "imperial" },
 			},
 		}),
 	);
-	expect(result["workout"]).toMatchObject({ name: "Push day", volume: "1,058 lb × reps" });
+	expect(result["workout"]).toMatchObject({ volume: 480, imperial: true, name: "Push day" });
 });
