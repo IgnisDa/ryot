@@ -59,7 +59,7 @@ const ownershipRequest = (request: MediaOwnershipSetInput) => ({
 	submittedAt: anyOf(String),
 	slug: "media-ownership-set",
 	idempotencyKey: anyOf(String),
-	label: request.owned ? "Marked as owned" : "Marked as not owned",
+	label: { key: request.owned ? "ownership.marked-owned" : "ownership.marked-not-owned" },
 });
 
 it.live(

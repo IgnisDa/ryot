@@ -1,5 +1,5 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { type RyotQueryResult, useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { type RyotQueryResult, type Text, useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { Button, ProgressBar, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { MarkdownContent } from "@ryot-app/plugin-ui-sdk/markdown";
@@ -7,6 +7,7 @@ import { SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { type ReactNode, useState } from "react";
 
+import { useMediaMessages } from "../messages";
 import type { MediaSummaryFact } from "./summary-state";
 import type { MediaSyncCounts } from "./sync-counts";
 
@@ -15,18 +16,20 @@ export function MediaFactDivider() {
 }
 
 export function MediaProgressBar(props: { readonly percent: number }) {
+	const text = useMediaMessages();
 	return (
 		<ProgressBar
 			max={100}
 			tone="success"
-			label="Progress"
 			className="max-w-md"
 			value={props.percent}
+			label={text("primitives.progress")}
 		/>
 	);
 }
 
 export function MediaRefreshStatus(props: { readonly result: RyotQueryResult<unknown> }) {
+	const text = useMediaMessages();
 	if (props.result.status !== "error" || props.result.data === undefined) {
 		return null;
 	}
@@ -34,9 +37,9 @@ export function MediaRefreshStatus(props: { readonly result: RyotQueryResult<unk
 		<StatusMessage
 			tone="pending"
 			className="py-2 font-ui text-[12px]"
-			action={{ label: "Try again", onClick: props.result.refetch }}
+			action={{ onClick: props.result.refetch, label: text("common.action.try-again") }}
 		>
-			Refresh failed. Showing last loaded content.
+			{text("primitives.refresh-failed")}
 		</StatusMessage>
 	);
 }
@@ -62,8 +65,8 @@ export function MediaFact(props: {
 export function MediaLabeledRows(props: {
 	readonly rows: readonly {
 		readonly key: string;
-		readonly title: string;
-		readonly detail?: string | undefined;
+		readonly title: Text;
+		readonly detail?: Text | undefined;
 	}[];
 }) {
 	return (
@@ -139,30 +142,32 @@ export function MediaMarkdown(props: { readonly text: string }) {
 
 export function useMediaOpenLink() {
 	const client = useRyot();
+	const text = useMediaMessages();
 	const [error, setError] = useState<null | string>(null);
 	return {
 		error,
 		openLink: (url: string) => {
 			setError(null);
 			void Effect.runPromise(client.links.open({ url })).catch(() => {
-				setError("Unable to open link. Try again.");
+				setError(text("primitives.link-failed"));
 			});
 		},
 	};
 }
 
 export function MediaStatusMessage(props: {
-	readonly title: string;
-	readonly detail: string;
+	readonly title: Text;
+	readonly detail: Text;
 	readonly onRetry?: () => void;
 }) {
+	const text = useMediaMessages();
 	return (
 		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
 			<p className="text-center font-ui font-medium text-base text-text">{props.title}</p>
 			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
 			{props.onRetry === undefined ? null : (
 				<Button variant="link" onClick={props.onRetry}>
-					Try again
+					{text("common.action.try-again")}
 				</Button>
 			)}
 		</div>
@@ -199,7 +204,7 @@ export function MediaExternalLink(props: { readonly href: string; readonly label
 }
 
 export function MediaOverviewSection(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly action?: ReactNode;
 	readonly children: ReactNode;
 	readonly className?: string | undefined;

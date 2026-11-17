@@ -50,6 +50,7 @@ import {
 } from "../../tests/client/query-result-fixture";
 import { decodeMediaSummaryResult } from "../../tests/client/summary-fixture";
 import { clickRyotElement, mountRyotClient } from "../../tests/client/test-support";
+import { testMediaText } from "../../tests/client/test-text";
 import { mapMediaOverview } from "./overview-state";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -67,8 +68,8 @@ const resolvingAdapter: Partial<RyotClientAdapter> = {
 };
 
 const UNLINKED_CREATORS = [
-	{ role: "Author", name: "Ann Author" },
-	{ name: "Pan Press", role: "Publisher" },
+	{ roleCode: "author", name: "Ann Author" },
+	{ name: "Pan Press", roleCode: "publisher" },
 ];
 
 const overviewOf = (input: Parameters<typeof decodeFlatOverview>[1] = {}) =>
@@ -282,9 +283,9 @@ describe("flat media detail screen", () => {
 	});
 
 	it("labels every flat lifecycle state", () => {
-		expect(
+		expect<readonly string[]>(
 			(["untracked", "backlog", "in_progress", "on_hold", "dropped", "complete"] as const).map(
-				(state) => fixtureSchema.lifecycleLabel({ state }),
+				(state) => fixtureSchema.lifecycleLabel(testMediaText, { state }),
 			),
 		).toEqual(["Not tracked", "In backlog", "In progress", "On hold", "Dropped", "Complete"]);
 	});
@@ -383,7 +384,7 @@ describe("flat media detail screen", () => {
 				);
 				expect(container.textContent).toContain("Translation failed. Showing available text.");
 				expect(container.textContent).toContain(flatSummaryRow.name);
-				expect(container.textContent).not.toContain("Translating...");
+				expect(container.textContent).not.toContain("Translating…");
 				clickRyotElement(getByRole(container, "button", { name: "Retry translation" }));
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -423,8 +424,10 @@ describe("flat media detail screen", () => {
 		);
 		const { unmount, container } = renderBody(state);
 
-		expect(container.textContent).toContain("Fixture unavailable");
-		expect(container.textContent).toContain("This entity is not a item, and only items can be");
+		expect(container.textContent).toContain("Unavailable");
+		expect(container.textContent).toContain(
+			"This entity is of a different type and cannot be opened here.",
+		);
 		unmount();
 	});
 
@@ -441,7 +444,7 @@ describe("flat media detail screen", () => {
 
 	it("waits on a pending summary and retries a malformed one", () => {
 		const loading = renderBody(fixtureSchema.mapSummary(pendingQueryResult()));
-		expect(loading.container.textContent).toContain("Loading item...");
+		expect(loading.container.textContent).toContain("Loading details…");
 		loading.unmount();
 
 		let refreshCount = 0;
@@ -450,7 +453,7 @@ describe("flat media detail screen", () => {
 				refreshCount += 1;
 			},
 		});
-		expect(failed.container.textContent).toContain("Unable to display this item");
+		expect(failed.container.textContent).toContain("Unable to display these details");
 		const retry = Array.from(failed.container.querySelectorAll("button")).find(
 			(button) => button.textContent === "Try again",
 		);
@@ -478,7 +481,9 @@ describe("flat media detail screen", () => {
 		);
 
 		expect(container.textContent).toContain("Credits");
-		expect(container.textContent).toContain("Fetching the credits for this item.");
+		expect(container.textContent).toContain(
+			"Fetching the authors, publishers and recommendations for this book.",
+		);
 		unmount();
 	});
 });
@@ -488,8 +493,10 @@ describe("flat media overview", () => {
 		const pending = renderBody(
 			readyState({ relatedPopulationStatus: { state: "running", availability: "partial" } }),
 		);
-		expect(pending.container.textContent).toContain("Loading details...");
-		expect(pending.container.textContent).toContain("Fetching the credits for this item.");
+		expect(pending.container.textContent).toContain("Loading details…");
+		expect(pending.container.textContent).toContain(
+			"Fetching the authors, publishers and recommendations for this book.",
+		);
 		expect(pending.container.textContent).toContain(flatPersonRow.name);
 		expect(getByRole(pending.container, "button", { name: "View all companies" })).toBeDefined();
 		expect(pending.container.textContent).toContain(`Part of ${flatGroupRow.name}`);
@@ -500,7 +507,7 @@ describe("flat media overview", () => {
 			readyState({ relatedPopulationStatus: { state: "queued", availability: "missing" } }),
 			{ overview: emptyOverview },
 		);
-		expect(pendingEmpty.container.textContent).toContain("Loading details...");
+		expect(pendingEmpty.container.textContent).toContain("Loading details…");
 		pendingEmpty.unmount();
 
 		const failedBase = renderBody(
@@ -509,7 +516,7 @@ describe("flat media overview", () => {
 				relatedPopulationStatus: { state: "queued", availability: "missing" },
 			}),
 		);
-		expect(failedBase.container.textContent).toContain("Loading details...");
+		expect(failedBase.container.textContent).toContain("Loading details…");
 		expect(failedBase.container.textContent).toContain(flatPersonRow.name);
 		failedBase.unmount();
 	});
@@ -564,7 +571,7 @@ describe("flat media overview", () => {
 		expect(container.textContent).toContain(flatCompanyRow.name);
 		expect(container.textContent).toContain(flatRecommendationRow.name);
 		expect(container.textContent).toContain(`Part of ${flatGroupRow.name}`);
-		expect(container.textContent).toContain("View group");
+		expect(container.textContent).toContain("View collection");
 		expect(container.querySelector(`a[href="/e/${flatGroupRow.id}"]`)).not.toBeNull();
 		expect(container.querySelector(`a[href="/e/${flatGroupMemberRow.id}"]`)).not.toBeNull();
 		unmount();
@@ -722,11 +729,11 @@ describe("flat media descriptor rails", () => {
 		const { unmount, container } = railed(overviewOf());
 		const text = container.textContent;
 
-		expect(text).toContain("First rail");
-		expect(text).toContain("Second rail");
-		expect(text).not.toContain("Empty rail");
-		expect(text.indexOf(`Part of ${flatGroupRow.name}`)).toBeLessThan(text.indexOf("First rail"));
-		expect(text.indexOf("First rail")).toBeLessThan(text.indexOf("Second rail"));
+		expect(text).toContain("Movies");
+		expect(text).toContain("Books");
+		expect(text).not.toContain("Shows");
+		expect(text.indexOf(`Part of ${flatGroupRow.name}`)).toBeLessThan(text.indexOf("Movies"));
+		expect(text.indexOf("Movies")).toBeLessThan(text.indexOf("Books"));
 		expect(container.querySelector('a[href="/e/rail-2"]')).not.toBeNull();
 		unmount();
 	});
@@ -737,7 +744,7 @@ describe("flat media descriptor rails", () => {
 		expect(railedFixtureSchema.overviewIsEmpty(bare)).toBe(false);
 		expect(fixtureSchema.overviewIsEmpty(bare)).toBe(true);
 		const { unmount, container } = railed(bare);
-		expect(container.textContent).toContain("First rail");
+		expect(container.textContent).toContain("Movies");
 		unmount();
 	});
 
@@ -811,8 +818,8 @@ describe("flat media activity tab", () => {
 			fixtureSchema.mapActivity(readyQueryResult(repeatedFlatActivity())),
 		);
 
-		expect(container.textContent).toContain("Pass 2 ·");
-		expect(container.textContent).toContain("Pass 1 ·");
+		expect(container.textContent).toContain("Watch 2 ·");
+		expect(container.textContent).toContain("Watch 1 ·");
 		expect(container.textContent).toContain("Finished the item");
 		unmount();
 	});

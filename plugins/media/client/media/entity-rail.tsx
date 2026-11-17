@@ -1,9 +1,12 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { type Text, useDisplayText } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Shelf } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
+import { useMediaCopy, useMediaMessages } from "../messages";
 import {
 	type MediaArtworkAspect,
 	mediaArtworkClass,
@@ -25,7 +28,7 @@ export type MediaRailStatus =
 const PENDING_TILE_COUNT = 4;
 
 type MediaSectionFrameProps = {
-	readonly title: string;
+	readonly title: Text;
 	readonly compact: boolean;
 	readonly action?: ReactNode;
 	readonly children?: ReactNode;
@@ -62,19 +65,20 @@ export function MediaSectionFrame(
 	props: MediaSectionFrameProps & { readonly placeholder: ReactNode },
 ) {
 	const { status } = props;
+	const text = useMediaMessages();
 	return (
 		<MediaOverviewSection sync={props.sync} title={props.title} action={props.action}>
 			{status.kind === "ready" ? props.children : null}
 			{status.kind === "pending" ? (
-				<div role="status" aria-label={`Loading ${props.title}`}>
+				<div role="status" aria-label={text("section.loading", { title: props.title })}>
 					{props.placeholder}
 				</div>
 			) : null}
 			{status.kind === "error" ? (
 				<div role="alert" className="flex flex-col items-start gap-2">
-					<p className="font-ui text-[13px] text-text-muted">Unable to load this section.</p>
+					<p className="font-ui text-[13px] text-text-muted">{text("section.load-failed")}</p>
 					<Button variant="link" onClick={status.retry}>
-						Try again
+						{text("common.action.try-again")}
 					</Button>
 				</div>
 			) : null}
@@ -85,23 +89,25 @@ export function MediaSectionFrame(
 export function MediaEntityRailSection<
 	Item extends MediaPresentationSubject & { readonly isInMediaLibrary: boolean },
 >(props: {
-	readonly title: string;
 	readonly compact: boolean;
 	readonly action?: ReactNode;
 	readonly items: readonly Item[];
+	readonly title: string | LocalMessage;
 	readonly aspect: (item: Item) => MediaArtworkAspect;
 	readonly lines?: undefined | ((item: Item) => readonly (string | undefined)[]);
 }) {
+	const { local } = useMediaCopy();
+	const displayText = useDisplayText();
 	if (props.items.length === 0) {
 		return null;
 	}
 	return (
 		<MediaRailFrame
-			title={props.title}
 			action={props.action}
 			compact={props.compact}
 			status={{ kind: "ready" }}
 			sync={mediaSyncCounts(props.items, (item) => mediaPosterAsset(item))}
+			title={typeof props.title === "string" ? displayText(props.title) : local(props.title)}
 		>
 			{props.items.map((item) => (
 				<MediaEntityTile
@@ -127,12 +133,13 @@ export function MediaEntityTile(props: {
 	readonly lines?: undefined | readonly (string | undefined)[];
 }) {
 	const { item } = props;
+	const text = useMediaMessages();
 	const art = props.art ?? mediaPosterAsset(item);
 	return (
 		<PluginLink
-			aria-label={`Open ${item.name}`}
 			to={{ kind: "entity", entityId: item.id }}
-			aria-description={props.isInMediaLibrary ? "In your library" : undefined}
+			aria-label={text("common.open-named", { name: item.name })}
+			aria-description={props.isInMediaLibrary ? text("library.in-library") : undefined}
 			className={clsx(
 				"group flex flex-col gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-accent",
 				mediaRailWidthClass({ aspect: props.aspect, compact: props.compact }),

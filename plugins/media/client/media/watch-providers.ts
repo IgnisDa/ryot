@@ -1,3 +1,5 @@
+import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
+
 import {
 	VIEWING_REGION_SETTING,
 	type WatchProvider,
@@ -7,18 +9,9 @@ import {
 } from "../../shared/watch-provider";
 import type { MediaImageAsset } from "./image";
 
-const OFFER_LABELS: Record<WatchProviderOffer, string> = {
-	buy: "Buy",
-	rent: "Rent",
-	free: "Free",
-	stream: "Stream",
-	ads: "Free with ads",
-};
-
 export type MediaWatchProviders = { readonly watchProviders: WatchProviderList };
 
 export type WatchProviderGroup = {
-	readonly label: string;
 	readonly offer: WatchProviderOffer;
 	readonly providers: readonly WatchProvider[];
 };
@@ -32,11 +25,11 @@ export const viewerRegion = (settings?: Readonly<Record<string, unknown>>) => {
 	const region = settings?.[VIEWING_REGION_SETTING];
 	return typeof region === "string" && region !== "auto"
 		? region
-		: new Intl.Locale(Intl.DateTimeFormat().resolvedOptions().locale).region;
+		: new Intl.Locale(new Intl.Collator().resolvedOptions().locale).region;
 };
 
-export const regionLabel = (region: string) =>
-	new Intl.DisplayNames(undefined, { type: "region" }).of(region) ?? region;
+export const regionLabel = (formatters: Formatters, region: string) =>
+	formatters.displayNames({ type: "region" }).of(region) ?? region;
 
 export const watchProviderGroups = (
 	media: MediaWatchProviders,
@@ -51,7 +44,7 @@ export const watchProviderGroups = (
 		.sort((left, right) => left.name.localeCompare(right.name));
 	return watchProviderOffers.flatMap((offer) => {
 		const offered = providers.filter((provider) => provider.offers?.includes(offer) === true);
-		return offered.length === 0 ? [] : [{ offer, providers: offered, label: OFFER_LABELS[offer] }];
+		return offered.length === 0 ? [] : [{ offer, providers: offered }];
 	});
 };
 

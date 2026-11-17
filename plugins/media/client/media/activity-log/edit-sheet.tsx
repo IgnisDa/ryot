@@ -1,6 +1,7 @@
 import {
 	localDay,
 	useBackgroundSubmission,
+	useFormatters,
 	usePluginIdentity,
 	usePluginUserSettings,
 	useRyotQuery,
@@ -24,7 +25,9 @@ import { type RefObject, useState } from "react";
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
 import { consumedOnSettingKey } from "../../../shared/consumed-on-settings";
 import { mediaActivityPatchableKeys } from "../../../shared/media-activity-fields";
+import { catalogMessage } from "../../../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
+import { useMediaMessages } from "../../messages";
 import type { MediaActivityEventRef } from "../activity-timeline";
 import { EpisodeChoice } from "../episode-picker";
 import {
@@ -57,22 +60,23 @@ type EditSheetProps = {
 
 /** Edits one stored completion or progress update with the Log activity fields. */
 export function MediaActivityEditSheet(props: EditSheetProps & { readonly entityId: string }) {
+	const text = useMediaMessages();
 	const result = useRyotQuery(activityLogContextQuery, { entityId: props.entityId });
 	const preferences = useUserPreferences();
 	const failed = result.isError || preferences.isError;
 	if (result.data === undefined || result.data === null || preferences.data === undefined) {
-		let message = "Loading…";
+		let message = text("common.status.loading");
 		if (result.data === null) {
-			message = "This activity can't be edited.";
+			message = text("log.edit.not-editable");
 		} else if (failed) {
-			message = "Unable to load this item.";
+			message = text("log.load.failed");
 		}
 		return (
 			<Dialog
-				title="Edit activity"
 				onClose={props.onClose}
 				triggerRef={props.triggerRef}
-				closeLabel="Close edit activity"
+				title={text("log.edit.title")}
+				closeLabel={text("log.edit.close")}
 				placement={props.compact ? "sheet" : "center"}
 			>
 				<StatusMessage
@@ -80,7 +84,7 @@ export function MediaActivityEditSheet(props: EditSheetProps & { readonly entity
 					action={
 						failed
 							? {
-									label: "Try again",
+									label: text("common.action.try-again"),
 									onClick: () => {
 										result.refetch();
 										preferences.refetch();
@@ -116,10 +120,11 @@ function ShowEpisodeField(props: {
 	readonly family: "show" | "podcast";
 	readonly onChange: (episodeId: string) => void;
 }) {
+	const text = useMediaMessages();
 	const [currentId] = useState(props.episodeId);
 	const season = useRyotQuery(showEpisodeSeasonQuery, { episodeEntityId: currentId });
 	if (season.data === undefined) {
-		return <StatusMessage tone="pending">Loading episode…</StatusMessage>;
+		return <StatusMessage tone="pending">{text("log.edit.episode-loading")}</StatusMessage>;
 	}
 	return <EpisodePicker {...props} initialSeason={season.data ?? undefined} />;
 }
@@ -131,6 +136,7 @@ function EpisodePicker(props: {
 	readonly initialSeason: number | undefined;
 	readonly onChange: (episodeId: string) => void;
 }) {
+	const text = useMediaMessages();
 	const [seasonNumber, setSeasonNumber] = useState(props.initialSeason);
 	return (
 		<EpisodeChoice
@@ -139,7 +145,7 @@ function EpisodePicker(props: {
 			onSelect={props.onChange}
 			seasonNumber={seasonNumber}
 			selectedId={props.episodeId}
-			emptyMessage="There are no episodes to move this to."
+			emptyMessage={text("log.edit.episodes-none")}
 			onSeason={(season) => setSeasonNumber(season.seasonNumber)}
 		/>
 	);
@@ -149,6 +155,7 @@ function EditForm(
 	props: EditSheetProps & { readonly timeZone: string; readonly context: MediaActivityLogContext },
 ) {
 	const { logger, record, context } = props;
+	const text = useMediaMessages();
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
 	const update = useBackgroundSubmission(updateActivitySubmission);
@@ -169,7 +176,7 @@ function EditForm(
 		settingKey === undefined ? undefined : settings.data?.[settingKey],
 		context.consumedOn,
 	);
-	const errors = activityDraftErrors({ draft, today, logger, context });
+	const errors = activityDraftErrors({ text, draft, today, logger, context });
 	const patchAt = (submittedAt: string) =>
 		activityEditPatch({ draft, logger, initial, context, submittedAt, ref: record });
 	const unchanged = patchAt(new Date(schedule.now()).toISOString()) === undefined;
@@ -182,6 +189,7 @@ function EditForm(
 			{
 				patch,
 				eventId: record.id,
+				label: catalogMessage("log.edit.title"),
 				expected: eventPrecondition(record, mediaActivityPatchableKeys),
 			},
 			{ onAccepted: props.onClose },
@@ -189,28 +197,28 @@ function EditForm(
 	};
 	return (
 		<Dialog
-			title="Edit activity"
 			onClose={props.onClose}
 			triggerRef={props.triggerRef}
+			title={text("log.edit.title")}
 			dismissible={!update.isSending}
-			closeLabel="Close edit activity"
+			closeLabel={text("log.edit.close")}
 			placement={props.compact ? "sheet" : "center"}
 			footer={
 				<>
 					<Button variant="secondary" onClick={props.onClose} disabled={update.isSending}>
-						Cancel
+						{text("common.action.cancel")}
 					</Button>
 					<Button
 						onClick={save}
 						loading={update.isSending}
 						disabled={unchanged || hasActivityErrors(errors)}
 					>
-						Save changes
+						{text("log.edit.save")}
 					</Button>
 				</>
 			}
 		>
-			<ActionForm onSubmit={save} label="Edit activity" className="flex flex-col gap-4">
+			<ActionForm onSubmit={save} label={text("log.edit.title")} className="flex flex-col gap-4">
 				<fieldset disabled={update.isSending} className="flex min-w-0 flex-col gap-4">
 					<EditFields
 						draft={draft}
@@ -223,7 +231,7 @@ function EditForm(
 					/>
 				</fieldset>
 				{update.error === null ? null : (
-					<StatusMessage tone="error">Couldn't start saving. Try again.</StatusMessage>
+					<StatusMessage tone="error">{text("log.save-failed")}</StatusMessage>
 				)}
 			</ActionForm>
 		</Dialog>
@@ -240,7 +248,9 @@ function EditFields(props: {
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
 }) {
 	const { draft, today, logger, context } = props;
-	const errors = activityDraftErrors({ draft, today, logger, context });
+	const text = useMediaMessages();
+	const formatters = useFormatters();
+	const errors = activityDraftErrors({ text, draft, today, logger, context });
 	const item = draft.item;
 	return (
 		<>
@@ -256,19 +266,22 @@ function EditFields(props: {
 			{item !== undefined && logger.family === "positional" ? (
 				<>
 					<Select
-						label="Item unit"
 						value={item.unit}
-						choices={logger.units}
+						label={text("log.edit.item-unit")}
 						checkIcon={<AppIcon size={16} name="check" />}
 						chevronIcon={<AppIcon size={16} name="chevron-down" />}
+						choices={logger.units.map((unit) => ({
+							value: unit,
+							label: text("log.unit.label", { unit }),
+						}))}
 						onChange={(value) => {
-							const unit = logger.units.find((candidate) => candidate.value === value);
+							const unit = logger.units.find((candidate) => candidate === value);
 							if (unit !== undefined) {
-								props.onChange({ item: { unit: unit.value, position: item.position } });
+								props.onChange({ item: { unit, position: item.position } });
 							}
 						}}
 					/>
-					<Field label="Item number">
+					<Field label={text("log.edit.item-number")}>
 						{(control) => (
 							<TextField
 								min={0}
@@ -287,8 +300,8 @@ function EditFields(props: {
 							/>
 						)}
 					</Field>
-					{item.unit === "chapters" && logger.itemContextLabel !== undefined ? (
-						<Field label={logger.itemContextLabel}>
+					{item.unit === "chapters" && logger.itemContext === true ? (
+						<Field label={text("property.volume-context")}>
 							{(control) => (
 								<TextField
 									min={0}
@@ -347,8 +360,8 @@ function EditFields(props: {
 					value={draft}
 					error={errors.time}
 					onChange={props.onChange}
-					label="Cumulative time spent"
-					hint={activityRuntimeHint(context.runtime)}
+					label={text("log.time-cumulative")}
+					hint={activityRuntimeHint(text, formatters, context.runtime)}
 				/>
 			) : null}
 			<SourceField

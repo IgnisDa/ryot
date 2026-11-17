@@ -1,57 +1,46 @@
-import { DateTime, Option } from "@ryot-app/plugin-client-sdk/effect";
+import { calendarDaysBetween, deviceTimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import { type Formatters, localDay } from "@ryot-app/plugin-client-sdk/react";
 
-const DATE_LABEL_OPTIONS = {
-	day: "numeric",
-	month: "short",
-	year: "numeric",
-	locale: "en-US",
-} as const;
+const localDate = (value: string) => Date.parse(value);
 
-const localDate = (value: string) => DateTime.makeUnsafe(value);
-
-export const formatDateOnlyLabel = (value: string) =>
-	Option.match(DateTime.make(value), {
-		onNone: () => value,
-		onSome: (date) => DateTime.format(date, DATE_LABEL_OPTIONS),
-	});
-
-export const formatLocalDateKey = (value: string) =>
-	DateTime.formatLocal(localDate(value), {
-		day: "2-digit",
-		locale: "en-CA",
-		year: "numeric",
-		month: "2-digit",
-	});
-
-export const formatLocalDateLabel = (value: string) =>
-	DateTime.formatLocal(localDate(value), DATE_LABEL_OPTIONS);
-
-export const formatLocalDateTimeLabel = (value: string) =>
-	DateTime.formatLocal(localDate(value), {
-		day: "numeric",
-		month: "short",
-		locale: "en-US",
-		hour: "numeric",
-		weekday: "short",
-		minute: "2-digit",
-	});
-
-export const formatLocalMonthDayLabel = (value: string) =>
-	DateTime.formatLocal(localDate(value), { day: "numeric", month: "short", locale: "en-US" });
-
-export const formatLocalMonthLabel = (value: string) =>
-	DateTime.formatLocal(localDate(value), { month: "long", locale: "en-US", year: "numeric" });
-
-export const formatLocalYearLabel = (value: string) =>
-	DateTime.formatLocal(localDate(value), { locale: "en-US", year: "numeric" });
-
-const localDayIndex = (value: string) => {
-	const parts = formatLocalDateKey(value).split("-");
-	return Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) / 86_400_000;
+export const formatDateOnlyLabel = (formatters: Formatters, value: string) => {
+	const date = Date.parse(value);
+	return Number.isNaN(date)
+		? value
+		: formatters
+				.dateTime({ day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+				.format(date);
 };
 
+export const formatLocalDateKey = (value: string) => localDay(localDate(value));
+
+export const formatLocalDateTimeLabel = (formatters: Formatters, value: string) =>
+	formatters
+		.dateTime({
+			day: "numeric",
+			month: "short",
+			hour: "numeric",
+			weekday: "short",
+			minute: "2-digit",
+			timeZone: deviceTimeZone(),
+		})
+		.format(localDate(value));
+
+export const formatLocalMonthDayLabel = (formatters: Formatters, value: string) =>
+	formatters
+		.dateTime({ day: "numeric", month: "short", timeZone: deviceTimeZone() })
+		.format(localDate(value));
+
+export const formatLocalMonthLabel = (formatters: Formatters, value: string) =>
+	formatters
+		.dateTime({ month: "long", year: "numeric", timeZone: deviceTimeZone() })
+		.format(localDate(value));
+
+export const formatLocalYearLabel = (formatters: Formatters, value: string) =>
+	formatters.dateTime({ year: "numeric", timeZone: deviceTimeZone() }).format(localDate(value));
+
 export const localDayCount = (earliest: string, latest: string) =>
-	Math.abs(localDayIndex(latest) - localDayIndex(earliest)) + 1;
+	Math.abs(calendarDaysBetween(formatLocalDateKey(earliest), formatLocalDateKey(latest))) + 1;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 

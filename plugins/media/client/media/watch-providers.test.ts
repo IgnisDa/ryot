@@ -54,13 +54,12 @@ describe("show watch providers", () => {
 		expect(
 			watchProviderGroups(decodeShowSummary(), "US").map((group) => ({
 				offer: group.offer,
-				label: group.label,
 				providers: group.providers.map((provider) => provider.name),
 			})),
 		).toEqual([
-			{ offer: "stream", label: "Stream", providers: ["Netflix"] },
-			{ offer: "rent", label: "Rent", providers: ["Apple TV"] },
-			{ offer: "buy", label: "Buy", providers: ["Apple TV"] },
+			{ offer: "stream", providers: ["Netflix"] },
+			{ offer: "rent", providers: ["Apple TV"] },
+			{ offer: "buy", providers: ["Apple TV"] },
 		]);
 	});
 

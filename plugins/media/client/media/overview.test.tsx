@@ -6,6 +6,7 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import type { ReactNode } from "react";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import {
 	decodeShowOverview,
 	emptyShowOverview,
@@ -33,7 +34,11 @@ const relationsRender: MediaOverviewRelationsRender<Overview> = ({ overview }) =
 		aspect="poster"
 		overview={overview}
 		peopleAction={null}
-		copy={{ notice: "Cast", people: "Cast & crew", companies: "Production companies" }}
+		copy={{
+			people: catalogMessage("credits.cast-crew"),
+			notice: catalogMessage("credits.notice.movie"),
+			companies: catalogMessage("credits.production-companies"),
+		}}
 	/>
 );
 
@@ -57,12 +62,12 @@ const overviewScreen = (input: {
 			compact
 			media={media}
 			safeAreaTop={0}
-			noticeTitle="Cast"
 			overview={input.overview}
 			relations={relationsRender}
 			isEmpty={mediaRelationsAreEmpty}
+			noticeTitle={catalogMessage("credits.cast-crew")}
+			loadingDetail={catalogMessage("overview.loading.show")}
 			refreshOverview={input.refreshOverview ?? (() => undefined)}
-			loadingDetail="Fetching the cast, companies and recommendations for this show."
 			trailing={input.trailing ?? ((slot) => watchProvidersTrailing({ ...slot, summary: media }))}
 		/>
 	);
@@ -241,7 +246,7 @@ describe("MediaOverview", () => {
 			overviewScreen({ overview: { status: "loading" } }),
 		);
 
-		expect(container.textContent).toContain("Loading details...");
+		expect(container.textContent).toContain("Loading details…");
 		unmount();
 	});
 

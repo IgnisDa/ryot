@@ -1,12 +1,14 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { type PluginIdentityReference, PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import type { AppSchema, Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { createRyotQuery, type RyotQuery, useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import type { AuthoredAppSchema, Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { ComponentProps } from "react";
 
 import type { MediaCreatorCredit } from "../../shared/creator-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { useMediaCopy, useMediaMessages } from "../messages";
 import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state";
 import { MediaCursorPages } from "./cursor-pages";
 import { MediaDetailModalButton } from "./detail-modal";
@@ -15,7 +17,14 @@ import { type MediaArtworkAspect, mediaAspectClass } from "./entity-presentation
 import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
 import { MediaLibraryTitle } from "./library-title";
 import { ManagedAssetImage } from "./managed-assets";
-import { mediaCharacterLabel, mediaRolesLabel, type MediaUnlinkedCreator } from "./overview-state";
+import {
+	mediaCharacterLabel,
+	mediaCreditRolesLabel,
+	mediaListLabel,
+	type MediaUnlinkedCreator,
+	mediaUnlinkedCreatorKey,
+	mediaUnlinkedRoleLabel,
+} from "./overview-state";
 import { mediaPosterAsset } from "./summary-state";
 
 export type MediaCreditsRecipe = MediaEntityRecipe<MediaCursorPage<MediaCreatorCredit>>;
@@ -25,7 +34,10 @@ type CreditPageInput<Scope extends object> = Scope & {
 	readonly after: null | string;
 };
 
-export const createMediaCreditsQuery = <Scope extends object, const Parameters extends AppSchema>(
+export const createMediaCreditsQuery = <
+	Scope extends object,
+	const Parameters extends AuthoredAppSchema,
+>(
 	recipe: (input: {
 		readonly reference: PluginIdentityReference;
 	}) => Recipe<MediaCursorPage<MediaCreatorCredit>, Parameters>,
@@ -50,30 +62,38 @@ export const createMediaCreditsQuery = <Scope extends object, const Parameters e
 	);
 
 export function MediaCreditsButton<Scope extends object>(props: {
-	readonly label: string;
-	readonly title: string;
 	readonly compact: boolean;
+	readonly title: LocalMessage;
 	readonly safeAreaTop: number;
+	readonly label?: LocalMessage;
 	readonly aspect: MediaArtworkAspect;
 	readonly purpose: MediaImagePurposes[number];
+	readonly kind?: "all" | "people" | "companies";
 	readonly unlinked?: readonly MediaUnlinkedCreator[];
 	readonly input: Scope & { readonly entityId: string };
 	readonly fit?: ComponentProps<typeof ManagedAssetImage>["fit"];
 	readonly query: RyotQuery<CreditPageInput<NoInfer<Scope>>, MediaCursorPage<MediaCreatorCredit>>;
 }) {
+	const { text, local } = useMediaCopy();
 	return (
 		<MediaDetailModalButton
-			title={props.title}
 			compact={props.compact}
-			triggerLabel={props.label}
-			closeLabel="Close credits"
+			title={local(props.title)}
 			safeAreaTop={props.safeAreaTop}
+			closeLabel={text("credits.close")}
+			triggerLabel={
+				props.label === undefined
+					? text("credits.view-all", { kind: props.kind ?? "all" })
+					: local(props.label)
+			}
 		>
 			<div className="flex flex-col gap-3">
 				{props.unlinked?.map((creator) => (
-					<div className="py-3" key={`${creator.role}:${creator.name}`}>
+					<div className="py-3" key={mediaUnlinkedCreatorKey(creator)}>
 						<p className="font-ui font-medium text-sm text-text">{creator.name}</p>
-						<p className="font-ui text-xs text-text-muted">{creator.role}</p>
+						<p className="font-ui text-xs text-text-muted">
+							{mediaUnlinkedRoleLabel(text, creator)}
+						</p>
 					</div>
 				))}
 				<MediaCursorPages
@@ -84,9 +104,9 @@ export function MediaCreditsButton<Scope extends object>(props: {
 						collectManagedAssetLocators(items.map((item) => mediaPosterAsset(item, props.purpose)))
 					}
 					copy={{
-						empty: "No linked credits found.",
-						error: (state) => mediaCursorPageError({ state, noun: "credits" }),
-						loading: { title: "Loading credits...", detail: "Fetching the complete credit list." },
+						empty: text("credits.empty"),
+						error: (state) => mediaCursorPageError(text, { state, kind: "credits" }),
+						loading: { title: text("credits.loading"), detail: text("credits.loading-detail") },
 					}}
 					renderItems={(items) => (
 						<div className="divide-y divide-border">
@@ -114,17 +134,19 @@ function CreditRow(props: {
 	readonly fit?: ComponentProps<typeof ManagedAssetImage>["fit"];
 }) {
 	const { credit } = props;
+	const text = useMediaMessages();
+	const formatters = useFormatters();
 	const asset = mediaPosterAsset(credit, props.purpose);
 	const lines = {
-		roles: mediaRolesLabel(credit.roles),
-		character: mediaCharacterLabel(credit.character ?? null),
-		departments: mediaRolesLabel(credit.departments ?? null),
+		roles: mediaCreditRolesLabel({ text, formatters }, credit),
+		character: mediaCharacterLabel(text, credit.character ?? null),
+		departments: mediaListLabel(formatters, credit.departments ?? null),
 	};
 	return (
 		<PluginLink
-			aria-label={`Open ${credit.name}`}
 			to={{ kind: "entity", entityId: credit.id }}
-			aria-description={credit.isInMediaLibrary ? "In your library" : undefined}
+			aria-label={text("common.open-named", { name: credit.name })}
+			aria-description={credit.isInMediaLibrary ? text("library.in-library") : undefined}
 			className="flex items-center gap-3 rounded-lg py-3 focus-visible:outline-2 focus-visible:outline-accent"
 		>
 			<ManagedAssetImage

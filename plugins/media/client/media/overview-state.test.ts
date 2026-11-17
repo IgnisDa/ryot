@@ -15,15 +15,18 @@ import {
 	showPersonRow,
 	showRecommendationRow,
 } from "../../tests/client/show/overview-fixture";
+import { testMediaCopy, testMediaText } from "../../tests/client/test-text";
 import {
 	mapMediaOverview,
 	mediaCharacterLabel,
 	mediaCompanyAsset,
+	mediaCreditRolesLabel,
 	mediaOverviewError,
 	mediaOverviewManagedAssets,
 	mediaPersonAsset,
 	mediaRelationsAreEmpty,
-	mediaRolesLabel,
+	mediaUnlinkedCredits,
+	mediaUnlinkedRoleLabel,
 } from "./overview-state";
 import { mediaPosterAsset } from "./summary-state";
 
@@ -38,11 +41,14 @@ describe("media overview state", () => {
 	});
 
 	it("keeps error copy free of decoder and transport internals", () => {
-		expect(mediaOverviewError({ status: "malformed" }, "Credits").detail).not.toContain("RyotQL");
-		expect(mediaOverviewError({ status: "transport-error" }, "Credits")).toEqual({
-			title: "Unable to load these details",
-			detail: "Credits could not be loaded. Check your connection and try again.",
-		});
+		expect(
+			mediaOverviewError(testMediaText, { status: "malformed" }, "Credits").detail,
+		).not.toContain("RyotQL");
+		const failure = mediaOverviewError(testMediaText, { status: "transport-error" }, "Credits");
+		expect<string>(failure.title).toBe("Unable to load these details");
+		expect<string>(failure.detail).toBe(
+			"Credits could not be loaded. Check your connection and try again.",
+		);
 	});
 
 	it("maps decoded relational rows to the ready state", () => {
@@ -128,12 +134,34 @@ describe("media overview state", () => {
 		]);
 	});
 
+	it("labels unlinked creators by their standard or source role and lists publishers as companies", () => {
+		const unlinked = [
+			{ name: "Ada", roleCode: "author" },
+			{ name: "Penguin", roleCode: "publisher" },
+			{ name: "Bea", role: "Translator" },
+		] as const;
+		expect(unlinked.map((creator) => mediaUnlinkedRoleLabel(testMediaText, creator))).toEqual([
+			"Author",
+			"Publisher",
+			"Translator",
+		]);
+		expect(mediaUnlinkedCredits(unlinked)).toEqual({
+			companies: [unlinked[1]],
+			people: [unlinked[0], unlinked[2]],
+		});
+	});
+
 	it("labels recorded roles and characters and omits the ones providers left out", () => {
-		expect(mediaRolesLabel(["Actor", "Guest Star"])).toBe("Actor, Guest Star");
-		expect(mediaRolesLabel([])).toBeUndefined();
-		expect(mediaRolesLabel(null)).toBeUndefined();
-		expect(mediaCharacterLabel("Jamie")).toBe("as Jamie");
-		expect(mediaCharacterLabel("")).toBeUndefined();
-		expect(mediaCharacterLabel(null)).toBeUndefined();
+		expect(
+			mediaCreditRolesLabel(testMediaCopy, {
+				roleCodes: ["creator"],
+				roles: ["Director", "Guest Star"],
+			}),
+		).toBe("Creator, Director, Guest Star");
+		expect(mediaCreditRolesLabel(testMediaCopy, { roles: [], roleCodes: null })).toBeUndefined();
+		expect(mediaCreditRolesLabel(testMediaCopy, { roles: null, roleCodes: null })).toBeUndefined();
+		expect<string | undefined>(mediaCharacterLabel(testMediaText, "Jamie")).toBe("as Jamie");
+		expect(mediaCharacterLabel(testMediaText, "")).toBeUndefined();
+		expect(mediaCharacterLabel(testMediaText, null)).toBeUndefined();
 	});
 });

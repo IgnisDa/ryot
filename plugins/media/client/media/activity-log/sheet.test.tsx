@@ -40,6 +40,7 @@ import {
 	localDateTime,
 	mountRyotClient,
 } from "../../../tests/client/test-support";
+import { testMediaCopy } from "../../../tests/client/test-text";
 import { MediaSummaryHeader } from "../summary-header";
 import { MediaLogActivityButton } from "./button";
 import { MediaActivityEditSheet } from "./edit-sheet";
@@ -54,32 +55,32 @@ afterEach(() => {
 const NOW = DateTime.toEpochMillis(localDateTime({ day: 20, hour: 9, month: 10, year: 2026 }));
 const SUBMITTED_AT = new Date(NOW).toISOString();
 
-const watchCopy = { verb: "watch", noun: "movie", gerund: "watching", participle: "watched" };
+const watchCopy = { verb: "watch", kind: "movie" } as const;
 
 const movie: MediaActivityLogger = {
 	family: "flat",
 	copy: watchCopy,
-	progressUnit: { field: "runtime", plural: "minutes", singular: "minute" },
+	progressUnit: { field: "runtime" },
 };
 const book: MediaActivityLogger = {
 	family: "flat",
-	progressUnit: { field: "pages", plural: "pages", singular: "page" },
-	copy: { verb: "read", noun: "book", gerund: "reading", participle: "read" },
+	progressUnit: { field: "pages" },
+	copy: { verb: "read", kind: "book" },
 };
 const game: MediaActivityLogger = {
 	family: "flat",
 	timePrimary: true,
-	copy: { verb: "play", noun: "game", gerund: "playing", participle: "played" },
+	copy: { verb: "play", kind: "video_game" },
 };
 const anime: MediaActivityLogger = {
+	units: ["episodes"],
 	family: "positional",
-	copy: { ...watchCopy, noun: "anime" },
-	units: [{ label: "Episode", value: "episodes", plural: "episodes", singular: "episode" }],
+	copy: { ...watchCopy, kind: "anime" },
 };
-const show: MediaActivityLogger = { family: "show", copy: { ...watchCopy, noun: "show" } };
+const show: MediaActivityLogger = { family: "show", copy: { ...watchCopy, kind: "show" } };
 const podcast: MediaActivityLogger = {
 	family: "podcast",
-	copy: { noun: "podcast", verb: "listen to", gerund: "listening", participle: "listened" },
+	copy: { verb: "listen", kind: "podcast" },
 };
 
 const input = (element: HTMLElement, value: string) =>
@@ -252,7 +253,7 @@ const submitted = (mounted: ReturnType<typeof mountLog>, count = 1) =>
 	eventually(() => expect(mounted.requests).toHaveLength(count));
 
 const operation = (entry: unknown, submissionId: unknown = anyOf(String)) => ({
-	label: anyOf(String),
+	label: anyOf(Object),
 	packageId: "ryot/media",
 	slug: "media-activity-log",
 	submittedAt: anyOf(String),
@@ -260,7 +261,10 @@ const operation = (entry: unknown, submissionId: unknown = anyOf(String)) => ({
 	input: { entry, submissionId, submittedAt: SUBMITTED_AT },
 });
 
-const lastLabel = (mounted: ReturnType<typeof mountLog>) => mounted.requests.at(-1)?.label;
+const lastLabel = (mounted: ReturnType<typeof mountLog>): string | undefined => {
+	const label = mounted.requests.at(-1)?.label;
+	return label === undefined ? undefined : testMediaCopy.local(label);
+};
 
 const closedWith = (mounted: ReturnType<typeof mountLog>, label: string) =>
 	Effect.gen(function* () {
@@ -1839,11 +1843,8 @@ it.live(
 
 const manga: MediaActivityLogger = {
 	family: "positional",
-	copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
-	units: [
-		{ label: "Chapter", value: "chapters", plural: "chapters", singular: "chapter" },
-		{ label: "Volume", value: "volumes", plural: "volumes", singular: "volume" },
-	],
+	units: ["chapters", "volumes"],
+	copy: { verb: "read", kind: "manga" },
 };
 
 const quickButton = (mounted: ReturnType<typeof mountLog>, name: string) =>

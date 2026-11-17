@@ -1,3 +1,4 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotBackgroundSubmission,
 	createRyotQuery,
@@ -95,7 +96,8 @@ export const logActivitySubmission = createRyotBackgroundSubmission({
 	slug: "media-activity-log",
 	packageId: PLUGIN_PACKAGE_ID,
 	inputSchema: MediaActivityLogInput,
-	label: (input: { readonly label: string; readonly entry: ActivityEntryDraft }) => input.label,
+	label: (input: { readonly label: LocalMessage; readonly entry: ActivityEntryDraft }) =>
+		input.label,
 	input: ({ input, submittedAt, submissionId }) =>
 		activityLogInput(input.entry, { submittedAt, submissionId }),
 });
@@ -107,15 +109,16 @@ export type ActivityLogSubmission = ReturnType<typeof useActivityLogSubmission>;
 
 export const updateActivitySubmission = createRyotBackgroundSubmission({
 	packageId: PLUGIN_PACKAGE_ID,
-	label: () => "Edit activity",
 	slug: "media-activity-update",
 	inputSchema: MediaActivityUpdateInput,
+	label: (input: { readonly label: LocalMessage }) => input.label,
 	input: ({
-		input,
 		submittedAt,
 		submissionId,
+		input: { label: _label, ...input },
 	}: RyotSubmission<{
 		readonly eventId: string;
+		readonly label: LocalMessage;
 		readonly patch: MediaActivityPatch;
 		readonly expected: MediaEventSnapshot;
 	}>) => ({ ...input, submittedAt, submissionId }),
@@ -125,13 +128,13 @@ export const deleteActivitySubmission = createRyotBackgroundSubmission({
 	packageId: PLUGIN_PACKAGE_ID,
 	slug: "media-activity-delete",
 	inputSchema: MediaActivityDeleteInput,
-	label: (input: { readonly eventIds: readonly string[] }) =>
-		input.eventIds.length === 1 ? "Delete record" : `Delete ${input.eventIds.length} records`,
+	label: (input: { readonly label: LocalMessage }) => input.label,
 	input: ({
 		input,
 		submittedAt,
 		submissionId,
 	}: RyotSubmission<{
+		readonly label: LocalMessage;
 		readonly eventIds: readonly string[];
 		readonly expected?: undefined | MediaEventSnapshot;
 	}>) => ({

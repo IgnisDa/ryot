@@ -1,5 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
-import { useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
+import { type Text, useAssetUrl, useDisplayText } from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button, ProgressBar, Skeleton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
@@ -14,6 +14,7 @@ import clsx from "clsx";
 import { Fragment, useState } from "react";
 
 import { MediaEntityEditAction } from "../entity-editor/edit-action";
+import { useMediaMessages } from "../messages";
 import { MediaLogActivityButton } from "./activity-log/button";
 import type { MediaActivityLogger } from "./activity-log/state";
 import { MediaCollectionsControl } from "./collections";
@@ -35,8 +36,8 @@ import {
 import { MediaUserDataControl } from "./user-data";
 
 export function MediaSummarySkeleton(props: {
-	readonly title: string;
-	readonly detail: string;
+	readonly title: Text;
+	readonly detail: Text;
 	readonly compact: boolean;
 }) {
 	const lines = (
@@ -134,26 +135,6 @@ export function MediaSummaryHeader(props: {
 	);
 }
 
-function MediaDescription(props: { readonly text: string }) {
-	const [isExpanded, setIsExpanded] = useState(false);
-	return (
-		<div className="flex max-w-[62ch] flex-col gap-1">
-			{isExpanded ? (
-				<div className="text-body text-text-muted">
-					<MediaMarkdown text={props.text} />
-				</div>
-			) : (
-				<p className="line-clamp-3 text-body text-text-muted">{markdownPlainText(props.text)}</p>
-			)}
-			<div className="flex items-start">
-				<Button variant="linkPlain" onClick={() => setIsExpanded(!isExpanded)}>
-					{isExpanded ? "Less" : "More"}
-				</Button>
-			</div>
-		</div>
-	);
-}
-
 function MediaActions(props: {
 	readonly compact: boolean;
 	readonly media: MediaEntitySummaryValue;
@@ -178,16 +159,38 @@ function MediaActions(props: {
 	);
 }
 
+function MediaDescription(props: { readonly text: string }) {
+	const text = useMediaMessages();
+	const [isExpanded, setIsExpanded] = useState(false);
+	return (
+		<div className="flex max-w-[62ch] flex-col gap-1">
+			{isExpanded ? (
+				<div className="text-body text-text-muted">
+					<MediaMarkdown text={props.text} />
+				</div>
+			) : (
+				<p className="line-clamp-3 text-body text-text-muted">{markdownPlainText(props.text)}</p>
+			)}
+			<div className="flex items-start">
+				<Button variant="linkPlain" onClick={() => setIsExpanded(!isExpanded)}>
+					{isExpanded ? text("summary.less") : text("summary.more")}
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 function MediaIdentityLine(props: {
 	readonly detail: string | undefined;
 	readonly media: MediaEntitySummaryValue;
 	readonly facts: readonly MediaSummaryFact[];
 }) {
+	const display = useDisplayText();
 	const { providerName } = props.media;
 	const parts = [
 		...(props.detail === undefined ? [] : [{ key: "detail", text: props.detail }]),
 		...props.facts.map((fact) => ({ key: fact.label, text: `${fact.value}${fact.suffix ?? ""}` })),
-		...(providerName === null ? [] : [{ key: "provider", text: providerName }]),
+		...(providerName === null ? [] : [{ key: "provider", text: display(providerName) }]),
 	];
 	if (parts.length === 0) {
 		return null;
@@ -252,14 +255,19 @@ function MediaLibraryStrip(props: {
 	readonly media: MediaEntitySummaryValue;
 }) {
 	const { media, config } = props;
+	const text = useMediaMessages();
 	const { status, ownership } = config;
 	return (
-		<div role="group" aria-label="Your library" className="flex flex-wrap items-center gap-2">
+		<div
+			role="group"
+			aria-label={text("library.group-label")}
+			className="flex flex-wrap items-center gap-2"
+		>
 			{status === undefined ? null : (
 				<span className="inline-flex items-center gap-2">
 					<Badge dot variant={status.tone}>
-						<span className="sr-only">Status: </span>
-						{status.label}
+						<span className="sr-only">{text("library.status", { status: status.label })}</span>
+						<span aria-hidden>{status.label}</span>
 					</Badge>
 					{status.progress === undefined ? null : (
 						<>
@@ -267,11 +275,13 @@ function MediaLibraryStrip(props: {
 								max={100}
 								tone="success"
 								className="w-16"
-								label="Progress"
 								value={status.progress.percent}
+								label={text("primitives.progress")}
 							/>
 							<span className="text-xs text-text-muted tabular-nums">
-								{Math.round(status.progress.percent)}%
+								{text("activity.figure-percent", {
+									percent: Math.round(status.progress.percent) / 100,
+								})}
 							</span>
 						</>
 					)}
@@ -283,7 +293,7 @@ function MediaLibraryStrip(props: {
 					name={media.isInMediaLibrary ? "circle-check" : "library"}
 					className={media.isInMediaLibrary ? "text-success" : "text-text-subtle"}
 				/>
-				{media.isInMediaLibrary ? "In your library" : "Not in your library"}
+				{media.isInMediaLibrary ? text("library.in-library") : text("library.not-in-library")}
 			</span>
 			{ownership === undefined ? null : (
 				<MediaOwnershipControl

@@ -6,6 +6,7 @@ import { createRef } from "react";
 
 import type { MediaImage } from "../../shared/media-image";
 import type { MediaOverviewRows } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { emptyShowOverview } from "../../tests/client/show/overview-fixture";
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
 import { clickRyotElement, mountRyotClient, pressRyotKey } from "../../tests/client/test-support";
@@ -26,7 +27,11 @@ const relationsRender: MediaOverviewRelationsRender<MediaOverviewRows> = ({ over
 		aspect="poster"
 		overview={overview}
 		peopleAction={null}
-		copy={{ notice: "Cast", people: "Cast & crew", companies: "Production companies" }}
+		copy={{
+			people: catalogMessage("credits.cast-crew"),
+			notice: catalogMessage("credits.notice.movie"),
+			companies: catalogMessage("credits.production-companies"),
+		}}
 	/>
 );
 
@@ -108,11 +113,11 @@ describe("MediaImageGallery", () => {
 			<MediaOverview
 				compact
 				safeAreaTop={0}
-				noticeTitle="Cast"
 				relations={relationsRender}
 				isEmpty={mediaRelationsAreEmpty}
 				refreshOverview={() => undefined}
-				loadingDetail="Fetching the details."
+				noticeTitle={catalogMessage("credits.cast-crew")}
+				loadingDetail={catalogMessage("overview.loading.show")}
 				overview={{ status: "ready", overview: emptyShowOverview() }}
 				media={decodeShowSummary({ name: "Dark", images: twelveImages })}
 			/>,

@@ -1,3 +1,4 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { ManagedAssetProvider, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
@@ -5,6 +6,8 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui
 import clsx from "clsx";
 import { useRef, useState } from "react";
 
+import { catalogMessage } from "../../shared/messages.generated";
+import { useMediaCopy } from "../messages";
 import { useActivityLogSubmission } from "./activity-log/queries";
 import { MediaActivityLogSheet } from "./activity-log/sheet";
 import type { ActivityEpisode, MediaActivityLogger } from "./activity-log/state";
@@ -45,8 +48,8 @@ export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 	readonly aspect: MediaEpisodeArtworkAspect;
 	readonly purpose: MediaEpisodeImagePurpose;
 	readonly stateLabels: MediaEpisodeStateLabels;
-	readonly numberLabel: (episode: Episode) => string;
-	readonly originLabel: (episode: Episode) => string;
+	readonly numberLabel: (episode: Episode) => LocalMessage;
+	readonly originLabel: (episode: Episode) => LocalMessage;
 	readonly activityEpisode: (episode: Episode) => ActivityEpisode;
 };
 
@@ -156,6 +159,7 @@ function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 	readonly log: MediaEpisodeLog;
 	readonly render: MediaEpisodeRender<Episode>;
 }) {
+	const { text, local } = useMediaCopy();
 	return (
 		<div
 			className={clsx(
@@ -165,9 +169,11 @@ function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 		>
 			<div className="flex items-center gap-2">
 				<p className="text-micro font-semibold tracking-widest text-accent-text uppercase">
-					Next up
+					{text("episodes.next-up")}
 				</p>
-				<p className="text-micro text-text-subtle">{props.render.originLabel(props.episode)}</p>
+				<p className="text-micro text-text-subtle">
+					{local(props.render.originLabel(props.episode))}
+				</p>
 			</div>
 			<MediaEpisodeRow
 				divided={false}
@@ -192,13 +198,16 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 	readonly render: MediaEpisodeRender<Episode>;
 }) {
 	const { render, episode } = props;
+	const copy = useMediaCopy();
+	const { text } = copy;
 	const [overlay, setOverlay] = useState<"log" | "review" | "details">();
 	const logSubmission = useActivityLogSubmission();
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const asset = mediaEpisodeAsset(episode, render.purpose);
 	const synopsis = mediaEpisodeSynopsis(episode);
-	const lifecycle = mediaEpisodeStateLabel(episode.state, render.stateLabels);
-	const meta = mediaEpisodeMetadataLabel(episode);
+	const lifecycleMessage = mediaEpisodeStateLabel(episode.state, render.stateLabels);
+	const lifecycle = lifecycleMessage === undefined ? undefined : copy.local(lifecycleMessage);
+	const meta = mediaEpisodeMetadataLabel(copy, episode);
 	const watched = episode.state === "complete";
 	return (
 		<>
@@ -206,8 +215,8 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 				type="button"
 				ref={triggerRef}
 				aria-haspopup="dialog"
-				aria-label={`Open ${episode.name}`}
 				onClick={() => setOverlay("details")}
+				aria-label={text("common.open-named", { name: episode.name })}
 				className={clsx(
 					"group flex w-full items-center text-left focus-visible:outline-2 focus-visible:outline-accent",
 					props.compact ? "gap-3 py-2.5" : "gap-4 py-3",
@@ -223,7 +232,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<div className="flex items-baseline gap-2">
 						<span className="text-xs font-medium text-text-subtle tabular-nums">
-							{render.numberLabel(episode)}
+							{copy.local(render.numberLabel(episode))}
 						</span>
 						<span className="line-clamp-1 min-w-0 flex-1 text-sm font-medium text-text group-hover:text-accent-text">
 							{episode.name}
@@ -272,7 +281,10 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 					onClose={() => setOverlay(undefined)}
 					fixed={{
 						entityId: episode.id,
-						label: `${render.originLabel(episode)} · ${episode.name}`,
+						label: catalogMessage("activity.episode-name", {
+							name: episode.name,
+							origin: render.originLabel(episode),
+						}),
 					}}
 				/>
 			) : null}

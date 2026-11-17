@@ -244,13 +244,16 @@ it.live(
 	"keeps an actionable merge conflict in the confirmation",
 	() =>
 		Effect.gen(function* () {
-			const message =
-				"Cannot merge: episode 3 has no unique matching destination. Update child data.";
+			const message = "Some child data has no unique match. Refresh the media items and try again.";
 			const mounted = mountRyotClient(
 				{
 					query: () => entityQuery(),
-					invokeOperation: () => Effect.succeed({ message, status: "rejected" }),
 					pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
+					invokeOperation: () =>
+						Effect.succeed({
+							status: "rejected",
+							reason: { key: "rejection.user-data.child-mapping-conflict" },
+						}),
 				},
 				<MediaUserDataControl media={summary()} />,
 			);
@@ -311,11 +314,19 @@ it.live(
 );
 
 it.live(
-	"explains protected demo-operation failures",
+	"renders the rejection message of a protected demo operation",
 	() =>
 		Effect.gen(function* () {
 			const mounted = mountRyotClient(
-				{ invokeOperation: () => Effect.fail(new RyotClientError({ reason: "operation-failed" })) },
+				{
+					invokeOperation: () =>
+						Effect.fail(
+							new RyotClientError({
+								reason: "operation-rejected",
+								rejection: { namespace: "kernel", key: "client.demo-protection.unavailable" },
+							}),
+						),
+				},
 				<MediaUserDataControl media={summary()} />,
 			);
 			try {
@@ -324,7 +335,7 @@ it.live(
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(getByRole(document.body, "alert").textContent).toBe(
-							"This action could not be completed. Demo accounts cannot change media data.",
+							"This operation is unavailable while using the shared demo account.",
 						),
 					),
 				);

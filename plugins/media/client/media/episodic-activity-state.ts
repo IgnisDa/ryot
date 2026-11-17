@@ -1,12 +1,14 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { consumedOnLabel, mergeConsumedOn } from "../../shared/consumed-on";
 import type { mediaReviewEventSelection } from "../../shared/media-recipes";
-import { seasonLabel } from "./activity-log/state";
+import { catalogMessage } from "../../shared/messages.generated";
+import type { MediaCopy, MediaText } from "../messages";
+import { seasonMessage } from "./activity-log/state";
 import {
 	absorbProgressRun,
 	anchorOf,
-	decimalLabel,
 	eventRef,
 	joinEvents,
 	type MediaActivityBeatRow,
@@ -75,7 +77,7 @@ export type MediaEpisodicHistoryEvent<Episode> =
 	  });
 
 type MediaEpisodicEpisodeVocabulary<Episode> = {
-	readonly origin: (episode: Episode) => string;
+	readonly origin: (episode: Episode) => LocalMessage;
 	readonly order: (episode: Episode) => readonly number[];
 };
 
@@ -96,7 +98,7 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 		return mediaCollectionRow(event);
 	}
 	if (event.kind === "season") {
-		const name = seasonLabel(event.season.seasonNumber);
+		const name = seasonMessage(event.season.seasonNumber);
 		return { ...mediaReviewRow(event, { name, on: "season" }), subjectLabel: name };
 	}
 	const origin = vocabulary.origin(event.episode);
@@ -159,15 +161,15 @@ export type MediaEpisodicCoverage = {
 export type MediaEpisodicWatchedEpisode = {
 	readonly id: string;
 	readonly name: string;
-	readonly origin: string;
+	readonly origin: LocalMessage;
 	readonly order: readonly number[];
 	readonly minutes: number | undefined;
 };
 
 export type MediaEpisodicCoverageRow = {
 	readonly key: string;
-	readonly label: string;
 	readonly watched: number;
+	readonly label: LocalMessage;
 	readonly total: number | undefined;
 	readonly percent: number | undefined;
 };
@@ -186,8 +188,8 @@ export type MediaEpisodicActivityCopy = {
 	readonly beats: Record<MediaEpisodicBeat, string>;
 	readonly rowLabels: {
 		readonly review: string;
-		readonly watched: string;
 		readonly completion: string;
+		readonly watched: "played" | "watched";
 	};
 };
 
@@ -249,8 +251,8 @@ export type MediaEpisodicWatchRow = {
 
 type MediaEpisodicReviewSubject =
 	| { readonly on: "parent" }
-	| { readonly name: string; readonly on: "season" }
-	| { readonly name: string; readonly on: "episode"; readonly origin: string };
+	| { readonly on: "season"; readonly name: LocalMessage }
+	| { readonly name: string; readonly on: "episode"; readonly origin: LocalMessage };
 
 export const mediaEpisodicCoveragePercent = (watched: number, total: number) =>
 	total === 0 ? undefined : Math.min(Math.round((watched / total) * 100), 100);
@@ -354,13 +356,13 @@ const parentEventRow = (event: MediaEpisodicParentEvent): MediaEpisodicRow => {
 
 const episodeEventRow = (
 	event: MediaEpisodicEpisodeEvent<MediaEpisodicEpisodeValue>,
-	origin: string,
+	origin: LocalMessage,
 	order: readonly number[],
 ): MediaEpisodicRow => {
 	if (event.eventSchemaSlug === "review") {
 		return {
 			...mediaReviewRow(event, { origin, on: "episode", name: event.episode.name }),
-			subjectLabel: `${origin} · ${event.episode.name}`,
+			subjectLabel: catalogMessage("activity.episode-name", { origin, name: event.episode.name }),
 		};
 	}
 	return {
@@ -459,6 +461,7 @@ export const mediaEpisodicActivityView = <Origin>(input: {
 };
 
 export const mediaEpisodicRowLabel = (
+	{ text }: MediaCopy,
 	row: MediaEpisodicRow,
 	copy: MediaEpisodicActivityCopy,
 ): string => {
@@ -466,7 +469,7 @@ export const mediaEpisodicRowLabel = (
 		return copy.rowLabels.completion;
 	}
 	if (row.type === "collection") {
-		return mediaCollectionRowLabel(row);
+		return mediaCollectionRowLabel(text, row);
 	}
 	if (row.type === "media-library") {
 		return copy.libraryLabel;
@@ -475,42 +478,77 @@ export const mediaEpisodicRowLabel = (
 		return copy.beats[row.beat];
 	}
 	if (row.type === "progress") {
+		const episode = text("activity.episode-name", {
+			name: row.episode.name,
+			origin: row.episode.origin,
+		});
 		return row.percent === undefined
-			? `Part-way through ${row.episode.origin} · ${row.episode.name}`
-			: `${decimalLabel(row.percent)}% through ${row.episode.origin} · ${row.episode.name}`;
+			? text("activity.episode-progress-unknown", { episode })
+			: text("activity.episode-progress", { episode, percent: row.percent / 100 });
 	}
 	if (row.type === "review") {
-		return row.subject.on === "parent" ? copy.rowLabels.review : `Reviewed ${row.subject.name}`;
+		return row.subject.on === "parent"
+			? copy.rowLabels.review
+			: text("activity.row-review-named", { name: row.subject.name });
 	}
 	const [episode] = row.episodes;
 	return row.episodes.length === 1
-		? `${copy.rowLabels.watched} ${episode.origin} · ${episode.name}`
-		: `${copy.rowLabels.watched} ${row.episodes.length} episodes`;
+		? text("activity.row-watched-episode", {
+				kind: copy.rowLabels.watched,
+				episode: text("activity.episode-name", { name: episode.name, origin: episode.origin }),
+			})
+		: text("activity.row-watched-episodes", {
+				count: row.episodes.length,
+				kind: copy.rowLabels.watched,
+			});
 };
 
-export const mediaEpisodicEpisodesLabel = (summary: MediaEpisodicSummary) =>
+export const mediaEpisodicEpisodesLabel = (
+	{ text, formatters }: MediaCopy,
+	summary: MediaEpisodicSummary,
+) =>
 	summary.episodes.total === undefined
-		? `${summary.episodes.watched}`
-		: `${summary.episodes.watched} / ${summary.episodes.total}`;
+		? formatters.number().format(summary.episodes.watched)
+		: text("activity.episodes-of", {
+				total: summary.episodes.total,
+				watched: summary.episodes.watched,
+			});
 
 export const mediaEpisodicActivityFigures = (
+	copy: MediaCopy,
 	summary: MediaEpisodicSummary,
 	labels: MediaEpisodicFigureLabels,
 ): readonly MediaActivityFigure[] => {
-	const span = mediaActivitySpanLabel(summary.span);
+	const { text, formatters } = copy;
+	const span = mediaActivitySpanLabel(text, formatters, summary.span);
 	const current = summary.watches === 0 ? undefined : labels.current;
 	return [
-		{ detail: current, label: labels.episodes, value: mediaEpisodicEpisodesLabel(summary) },
+		{ detail: current, label: labels.episodes, value: mediaEpisodicEpisodesLabel(copy, summary) },
 		...(summary.watches === 0 || summary.processing !== "ready"
 			? []
-			: [{ detail: undefined, label: labels.watches, value: `${summary.watches}` }]),
-		...(summary.processing === "ready"
-			? [{ detail: "Lifetime", label: labels.time, value: mediaActivityTimeLabel(summary.minutes) }]
 			: [
 					{
 						detail: undefined,
-						label: "Consumption",
-						value: summary.processing === "failed" ? "Repair failed" : "Updating",
+						label: labels.watches,
+						value: formatters.number().format(summary.watches),
+					},
+				]),
+		...(summary.processing === "ready"
+			? [
+					{
+						label: labels.time,
+						detail: text("activity.figure-lifetime"),
+						value: mediaActivityTimeLabel(formatters, summary.minutes),
+					},
+				]
+			: [
+					{
+						detail: undefined,
+						label: text("activity.figure-consumption"),
+						value:
+							summary.processing === "failed"
+								? text("activity.figure-repair-failed")
+								: text("activity.figure-updating"),
 					},
 				]),
 		{ label: span.label, value: span.value, detail: span.detail },
@@ -532,8 +570,14 @@ const continuesRun = (previous: MediaEpisodicWatchedEpisode, next: MediaEpisodic
 	);
 };
 
+const sameMessage = (left: LocalMessage, right: LocalMessage) =>
+	JSON.stringify(left) === JSON.stringify(right);
+
 /** Contiguous stretches of sorted episodes, each shown from its first to its last origin label. */
-export const mediaEpisodicRangeSummary = (episodes: readonly MediaEpisodicWatchedEpisode[]) => {
+export const mediaEpisodicRangeSummary = (
+	{ text, local, formatters }: MediaCopy,
+	episodes: readonly MediaEpisodicWatchedEpisode[],
+) => {
 	const ranges: MediaEpisodicWatchedEpisode[][] = [];
 	for (const episode of episodes) {
 		const range = ranges.at(-1);
@@ -544,17 +588,24 @@ export const mediaEpisodicRangeSummary = (episodes: readonly MediaEpisodicWatche
 			ranges.push([episode]);
 		}
 	}
-	return ranges
-		.map((range) => {
-			const first = range[0]?.origin;
-			const last = range.at(-1)?.origin;
-			return range.length === 1 || first === last ? first : `${first} – ${last}`;
-		})
-		.join(", ");
+	return formatters.list({ type: "unit", style: "short" }).format(
+		ranges
+			.map((range) => {
+				const first = range[0]?.origin;
+				const last = range.at(-1)?.origin;
+				if (first === undefined || last === undefined) {
+					return undefined;
+				}
+				return range.length === 1 || sameMessage(first, last)
+					? local(first)
+					: text("timeline.span-range", { end: last, start: first });
+			})
+			.filter((label) => label !== undefined),
+	);
 };
 
 /** The episode span and count watched across rows ordered newest first, or `undefined` without watches. */
-export const mediaEpisodicMonthSummary = (rows: readonly MediaEpisodicRow[]) => {
+export const mediaEpisodicMonthSummary = (text: MediaText, rows: readonly MediaEpisodicRow[]) => {
 	const watches = rows.flatMap((row) => (row.type === "watch" ? [row] : []));
 	const latest = watches.at(0)?.episodes.at(-1);
 	const earliest = watches.at(-1)?.episodes[0];
@@ -562,7 +613,8 @@ export const mediaEpisodicMonthSummary = (rows: readonly MediaEpisodicRow[]) => 
 		return undefined;
 	}
 	const count = watches.reduce((total, row) => total + row.episodes.length, 0);
-	const span =
-		earliest.origin === latest.origin ? latest.origin : `${earliest.origin} – ${latest.origin}`;
-	return `${span} · ${count === 1 ? "1 episode" : `${count} episodes`}`;
+	const span = sameMessage(earliest.origin, latest.origin)
+		? latest.origin
+		: text("timeline.span-range", { end: latest.origin, start: earliest.origin });
+	return text("activity.month-summary", { span, count });
 };

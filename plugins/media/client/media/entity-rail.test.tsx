@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { fireEvent } from "@testing-library/dom";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { mountRyotClient } from "../../tests/client/test-support";
 import type { MediaPresentationSubject } from "./entity-presentation";
 import { MediaEntityRailSection, MediaEntityTile, MediaRailFrame } from "./entity-rail";
@@ -108,7 +110,7 @@ describe("MediaEntityRailSection", () => {
 			<MediaEntityRailSection
 				compact
 				items={items}
-				title="Continue"
+				title={catalogMessage("credits.section.movie")}
 				aspect={(item) => (item.id === "episode-1" ? "still" : "poster")}
 			/>,
 		);
@@ -125,7 +127,12 @@ describe("MediaEntityRailSection", () => {
 	it("renders nothing without items", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<MediaEntityRailSection compact items={[]} title="Continue" aspect={() => "poster"} />,
+			<MediaEntityRailSection
+				compact
+				items={[]}
+				aspect={() => "poster"}
+				title={catalogMessage("credits.section.movie")}
+			/>,
 		);
 
 		expect(container.textContent).toBe("");
@@ -137,7 +144,7 @@ describe("MediaRailFrame", () => {
 	it("shows a loading placeholder instead of the tiles while pending", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<MediaRailFrame compact title="Continue" status={{ kind: "pending" }}>
+			<MediaRailFrame compact title={testText("Continue")} status={{ kind: "pending" }}>
 				<span>Tile</span>
 			</MediaRailFrame>,
 		);
@@ -153,8 +160,8 @@ describe("MediaRailFrame", () => {
 			noopAdapter,
 			<MediaRailFrame
 				compact
-				title="Continue"
 				status={{ kind: "ready" }}
+				title={testText("Continue")}
 				action={<span>See all</span>}
 			>
 				<span>Tile</span>
@@ -174,7 +181,7 @@ describe("MediaRailFrame", () => {
 			noopAdapter,
 			<MediaRailFrame
 				compact
-				title="Continue"
+				title={testText("Continue")}
 				status={{
 					kind: "error",
 					retry: () => {

@@ -10,6 +10,7 @@ import { getByRole, getByText, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { Deferred } from "effect";
 
+import { catalogMessage } from "../../../shared/messages.generated";
 import { activityLogQuery, contextTarget } from "../../../tests/client/activity-log/fixtures";
 import { clickRyotElement, mountRyotClient } from "../../../tests/client/test-support";
 import { activityLogContextQuery } from "./queries";
@@ -29,7 +30,7 @@ function Probe() {
 				disabled={quick.locked}
 				onClick={() =>
 					quick.log.submit({
-						label: "Marked as dropped.",
+						label: catalogMessage("log.success.status", { status: "dropped" }),
 						entry: { kind: "status", status: "dropped", entityId: "entity-1" },
 					})
 				}

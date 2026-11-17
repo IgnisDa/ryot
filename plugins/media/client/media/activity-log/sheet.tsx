@@ -1,6 +1,9 @@
+import type { DisplayText, Text } from "@ryot-app/plugin-client-sdk/react";
 import {
 	localDay,
 	paginationItems,
+	useDisplayText,
+	useFormatters,
 	usePluginIdentity,
 	usePluginUserSettings,
 	useRyotInfiniteQuery,
@@ -37,6 +40,7 @@ import {
 	consumedOnSettingKey,
 } from "../../../shared/consumed-on-settings";
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
+import { type MediaText, useMediaMessages } from "../../messages";
 import {
 	ActivitySeasonSelector,
 	EpisodeList,
@@ -66,13 +70,13 @@ import {
 	addActivityTime,
 	BACKFILL_LIMIT,
 	backfillSummary,
-	capitalized,
 	consumedOnSuggestions,
 	convertedAmount,
 	defaultSeasonNumber,
 	draftProgressPercent,
 	EARLIER_MAX_PAGES,
 	episodeCode,
+	episodeCodeMessage,
 	episodeStateLabel,
 	hasActivityErrors,
 	initialActivityDraft,
@@ -97,20 +101,15 @@ type Earlier =
 
 const FIRST_PAGE: null | string = null;
 
-const whenOptions = (episode: boolean) =>
-	[
-		{ value: "now", label: "Just now", content: "Just now" },
-		{
-			value: "date",
-			label: episode ? "Pick date" : "Pick dates",
-			content: episode ? "Pick date" : "Pick dates",
-		},
-		{ value: "unknown", label: "I don’t remember", content: "I don’t remember" },
-	] as const satisfies readonly {
-		readonly label: string;
-		readonly content: string;
-		readonly value: ActivityWhenKind;
-	}[];
+const whenOption = (value: ActivityWhenKind, label: Text) => ({ value, label, content: label });
+
+const whenOptions = (text: MediaText, episode: boolean) => {
+	return [
+		whenOption("now", text("log.when.now")),
+		whenOption("date", episode ? text("log.when.pick-date") : text("log.when.pick-dates")),
+		whenOption("unknown", text("log.when.unknown")),
+	];
+};
 
 type ActivityLogDialogProps = {
 	readonly name: string;
@@ -153,25 +152,30 @@ export function MediaActivityLogSheet(props: {
 	readonly initialEpisode?: ActivityEpisode;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
+	const text = useMediaMessages();
 	const result = useRyotQuery(activityLogContextQuery, { entityId: props.entityId });
 	if (result.data === undefined || result.data === null) {
-		let message = "Loading…";
+		let message = text("common.status.loading");
 		if (result.data === null) {
-			message = "This item can't be logged.";
+			message = text("log.load.not-loggable");
 		} else if (result.isError) {
-			message = "Unable to load this item.";
+			message = text("log.load.failed");
 		}
 		return (
 			<Dialog
-				title="Log activity"
 				onClose={props.onClose}
+				title={text("log.title")}
 				triggerRef={props.triggerRef}
-				closeLabel="Close log activity"
+				closeLabel={text("log.close")}
 				placement={props.compact ? "sheet" : "center"}
 			>
 				<StatusMessage
 					tone={result.isError ? "error" : "pending"}
-					action={result.isError ? { label: "Try again", onClick: result.refetch } : undefined}
+					action={
+						result.isError
+							? { onClick: result.refetch, label: text("common.action.try-again") }
+							: undefined
+					}
 				>
 					{message}
 				</StatusMessage>
@@ -187,6 +191,8 @@ export function SourceField(props: {
 	readonly suggestions: readonly string[];
 	readonly onChange: (value: readonly string[]) => void;
 }) {
+	const displayText = useDisplayText();
+	const text = useMediaMessages();
 	const selected = (suggestion: string) =>
 		props.value.some((value) => value.toLowerCase() === suggestion.toLowerCase());
 	const full = props.value.length >= CONSUMED_ON_SOURCES_LIMIT;
@@ -198,7 +204,7 @@ export function SourceField(props: {
 		);
 	return (
 		<div className="flex flex-col gap-2">
-			<Field optional label={`Where did you ${props.logger.copy.verb} it?`}>
+			<Field optional label={text("log.source.label", { verb: props.logger.copy.verb })}>
 				{(control) => (
 					<TagInput
 						{...control}
@@ -206,8 +212,8 @@ export function SourceField(props: {
 						onChange={props.onChange}
 						maxLength={CONSUMED_ON_ITEM_LIMIT}
 						maxItems={CONSUMED_ON_SOURCES_LIMIT}
-						placeholder="Service, app or format"
 						removeIcon={<AppIcon name="x" size={14} />}
+						placeholder={text("log.source.placeholder")}
 					/>
 				)}
 			</Field>
@@ -221,7 +227,7 @@ export function SourceField(props: {
 							aria-pressed={selected(suggestion)}
 							disabled={full && !selected(suggestion)}
 						>
-							<Chip label={suggestion} checked={selected(suggestion)} />
+							<Chip checked={selected(suggestion)} label={displayText(suggestion)} />
 						</button>
 					))}
 				</div>
@@ -238,29 +244,27 @@ export function PositionProgress(props: {
 	readonly logger: Extract<MediaActivityLogger, { family: "positional" }>;
 }) {
 	const { draft, logger, context } = props;
+	const text = useMediaMessages();
 	const unit = positionLogUnit(logger, draft.positionUnit);
-	const total = activityPositionTotal(context, unit.value);
-	const label = `${capitalized(logger.copy.participle)} through ${unit.singular}`;
+	const total = activityPositionTotal(context, unit);
+	const label = text("log.position.label", { unit, verb: logger.copy.verb });
 	const percent =
-		total === null || draft.position === undefined
-			? undefined
-			: Math.round((draft.position / total) * 100);
+		total === null || draft.position === undefined ? undefined : draft.position / total;
 	return (
 		<div className="flex flex-col gap-2">
 			<span className="text-[13px] font-medium text-text">{label}</span>
 			{logger.units.length > 1 ? (
 				<SegmentedControl
-					label="Unit"
-					value={unit.value}
+					value={unit}
 					optionClassName="px-3"
+					label={text("property.unit")}
 					onChange={(positionUnit) =>
 						props.onChange({ positionUnit, position: nextActivityPosition(context, positionUnit) })
 					}
-					options={logger.units.map((option) => ({
-						value: option.value,
-						label: option.label,
-						content: option.label,
-					}))}
+					options={logger.units.map((option) => {
+						const optionLabel = text("log.unit.label", { unit: option });
+						return { value: option, label: optionLabel, content: optionLabel };
+					})}
 				/>
 			) : null}
 			<div className="flex items-center gap-3">
@@ -273,16 +277,19 @@ export function PositionProgress(props: {
 					invalid={props.error !== undefined}
 					incrementIcon={<AppIcon size={16} name="plus" />}
 					decrementIcon={<AppIcon size={16} name="minus" />}
+					parse={(input) => parsePositionNumber(unit, input)}
 					onChange={(position) => props.onChange({ position })}
-					parse={(text) => parsePositionNumber(unit.value, text)}
-					inputMode={unit.value === "episodes" ? "numeric" : "decimal"}
+					inputMode={unit === "episodes" ? "numeric" : "decimal"}
 				/>
-				{total === null ? null : <span className="text-text-muted">of {total}</span>}
+				{total === null ? null : (
+					<span className="text-text-muted">{text("log.position.of-total", { total })}</span>
+				)}
 			</div>
 			{props.error === undefined ? (
 				<p className="text-xs text-text-muted">
-					{percent === undefined ? "" : `${percent}% of the ${logger.copy.noun} · `}earlier{" "}
-					{unit.plural} count as {logger.copy.participle}
+					{percent === undefined
+						? text("log.position.hint", { unit, verb: logger.copy.verb })
+						: text("log.position.hint-percent", { unit, percent, verb: logger.copy.verb })}
 				</p>
 			) : (
 				<FieldMessage>{props.error}</FieldMessage>
@@ -299,6 +306,7 @@ export function FlatProgress(props: {
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
 }) {
 	const { draft, logger, context } = props;
+	const text = useMediaMessages();
 	const total = activityUnitTotal(logger, context);
 	const unit = logger.family === "flat" ? logger.progressUnit : undefined;
 	const exactPages = unit?.field === "pages" && draft.amountUnit === "unit";
@@ -309,11 +317,9 @@ export function FlatProgress(props: {
 	if (draft.progressMode === "started") {
 		return (
 			<div className="flex flex-col items-start gap-2">
-				<p className="text-text-muted">
-					Marks it as in progress without an amount. You can set one later.
-				</p>
+				<p className="text-text-muted">{text("log.flat.started-note")}</p>
 				<Button variant="link" onClick={() => props.onChange({ progressMode: "amount" })}>
-					Add an amount
+					{text("log.flat.add-amount")}
 				</Button>
 			</div>
 		);
@@ -324,18 +330,18 @@ export function FlatProgress(props: {
 			const amount = draft.amount.trim() === "" ? Number.NaN : Number(draft.amount);
 			hint =
 				Number.isFinite(amount) && amount <= total
-					? `of ${total} ${unit.plural}`
-					: `Current provider total: ${total} ${unit.plural}`;
+					? text("log.flat.hint-of", { total, field: unit.field })
+					: text("log.flat.hint-provider-total", { total, field: unit.field });
 		} else {
 			hint =
 				draft.amountUnit === "unit"
-					? `of ${total} ${unit.plural}`
-					: `${total} ${unit.plural} in total`;
+					? text("log.flat.hint-of", { total, field: unit.field })
+					: text("log.flat.hint-total", { total, field: unit.field });
 		}
 	}
 	return (
 		<div className="flex flex-col items-start gap-2">
-			<Field hint={hint} className="w-full" error={props.error} label="How far along?">
+			<Field hint={hint} className="w-full" error={props.error} label={text("log.flat.label")}>
 				{(control) => (
 					<div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
 						<TextField
@@ -346,18 +352,30 @@ export function FlatProgress(props: {
 							onChange={(event) => props.onChange({ amount: event.currentTarget.value })}
 						/>
 						{unit === undefined || !canConvert ? (
-							<span className="text-text-muted">{exactPages ? unit.plural : "%"}</span>
+							<span className="text-text-muted">
+								{exactPages
+									? text("log.flat.unit-plural", { field: unit.field })
+									: text("common.percent-sign")}
+							</span>
 						) : (
 							<SegmentedControl
-								label="Unit"
 								optionClassName="px-3"
 								value={draft.amountUnit}
+								label={text("property.unit")}
 								onChange={(amountUnit) =>
 									props.onChange({ amountUnit, amount: convertedAmount(draft, amountUnit, total) })
 								}
 								options={[
-									{ content: "%", value: "percent", label: "Percent" },
-									{ value: "unit", content: unit.plural, label: capitalized(unit.plural) },
+									{
+										value: "percent",
+										label: text("log.flat.percent"),
+										content: text("common.percent-sign"),
+									},
+									{
+										value: "unit",
+										label: text("log.flat.unit-label", { field: unit.field }),
+										content: text("log.flat.unit-plural", { field: unit.field }),
+									},
 								]}
 							/>
 						)}
@@ -365,7 +383,7 @@ export function FlatProgress(props: {
 				)}
 			</Field>
 			<Button variant="link" onClick={() => props.onChange({ progressMode: "started" })}>
-				Just started? Skip the amount
+				{text("log.flat.skip-amount")}
 			</Button>
 		</div>
 	);
@@ -374,31 +392,35 @@ export function FlatProgress(props: {
 export function WhenField(props: {
 	readonly today: string;
 	readonly draft: ActivityDraft;
-	readonly error: string | undefined;
 	readonly logger: MediaActivityLogger;
+	readonly error: undefined | DisplayText;
 	readonly kinds?: readonly ActivityWhenKind[];
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
 }) {
 	const { draft, logger } = props;
+	const displayText = useDisplayText();
+	const text = useMediaMessages();
 	const schedule = useRyotSchedule();
 	const timeZone = useUserPreferences().data?.timeZone;
 	const episode = draft.intent === "episode";
 	const { time } = draft;
-	let whenLabel = "When did you finish it?";
+	let whenLabel = text("log.when.finish");
 	if (episode) {
-		whenLabel = `When did you ${logger.copy.verb} it?`;
+		whenLabel = text("log.when.episode", { verb: logger.copy.verb });
 	}
 	if (draft.intent === "progress") {
-		whenLabel = "When did you reach this progress?";
+		whenLabel = text("log.when.progress");
 	}
-	const finishedLabel = episode ? `${capitalized(logger.copy.participle)} on` : "Finished";
+	const finishedLabel = episode
+		? text("log.when.episode-on", { verb: logger.copy.verb })
+		: text("log.when.finished");
 	const icons = {
 		checkIcon: <AppIcon size={16} name="check" />,
 		chevronIcon: <AppIcon size={16} name="chevron-down" />,
 	};
 	const dateTimeField = (
 		key: "started" | "finished",
-		label: string,
+		label: Text,
 		current: ActivityTimeDraft,
 		optional: boolean,
 	) => (
@@ -424,24 +446,24 @@ export function WhenField(props: {
 			<span className="text-[13px] font-medium text-text">{whenLabel}</span>
 			<SegmentedControl
 				fill
-				label="When"
 				value={draft.when}
 				optionClassName="px-3"
+				label={text("log.when.label")}
 				onChange={(when) => props.onChange({ when })}
-				options={whenOptions(episode).filter(
+				options={whenOptions(text, episode).filter(
 					(option) => props.kinds === undefined || props.kinds.includes(option.value),
 				)}
 			/>
 			{draft.when === "date" && time !== null ? (
 				<div className="grid gap-3">
-					{episode ? null : dateTimeField("started", "Started", time, true)}
+					{episode ? null : dateTimeField("started", text("log.when.started"), time, true)}
 					{dateTimeField("finished", finishedLabel, time, false)}
 				</div>
 			) : null}
 			{draft.when === "date" && time === null ? (
 				<div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
 					{episode ? null : (
-						<Field optional label="Started">
+						<Field optional label={text("log.when.started")}>
 							{(control) => (
 								<TextField
 									{...control}
@@ -478,14 +500,12 @@ export function WhenField(props: {
 						)
 					}
 				>
-					{time === null ? "Add time" : "Remove time"}
+					{time === null ? text("log.when.add-time") : text("log.when.remove-time")}
 				</Button>
 			) : null}
-			{props.error === undefined ? null : <FieldMessage>{props.error}</FieldMessage>}
+			{props.error === undefined ? null : <FieldMessage>{displayText(props.error)}</FieldMessage>}
 			{draft.when === "unknown" ? (
-				<p className="text-text-muted">
-					Recorded with no date. It counts toward your totals but stays off the activity calendar.
-				</p>
+				<p className="text-text-muted">{text("log.when.unknown-note")}</p>
 			) : null}
 		</div>
 	);
@@ -579,19 +599,20 @@ function StatusPicker(props: {
 	readonly context: MediaActivityLogContext;
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
 }) {
-	const note = activityStatusNote(props.logger, props.context);
+	const text = useMediaMessages();
+	const note = activityStatusNote(text, props.logger, props.context);
 	return (
 		<div className="flex flex-col gap-2">
 			<RadioGroup
-				label="Status"
 				value={props.draft.status}
 				className="flex flex-col gap-2"
+				label={text("property.status")}
 				onChange={(status) => props.onChange({ status })}
-				options={activityStatusOptions(props.logger).map((option) => {
+				options={activityStatusOptions(text, props.logger).map((option) => {
 					const current = option.value === props.context.state;
 					return Object.assign({}, option, {
 						disabled: current,
-						detail: current ? "Current status" : option.detail,
+						detail: current ? text("log.status.current") : option.detail,
 					});
 				})}
 				renderOption={(option, selected) => ({
@@ -627,10 +648,12 @@ function StatusPicker(props: {
 
 function EpisodeStep(props: Body) {
 	const { pager, logger, context, earlier, selected } = props;
+	const text = useMediaMessages();
+	const formatters = useFormatters();
 	const special = logger.family === "show" && selected?.seasonNumber === 0;
 	const summary =
 		earlier.status === "ready" && earlier.episodes.length > 0
-			? backfillSummary(logger, earlier.episodes)
+			? backfillSummary(text, formatters, logger, earlier.episodes)
 			: undefined;
 	return (
 		<div className="flex flex-col gap-3">
@@ -642,42 +665,48 @@ function EpisodeStep(props: Body) {
 				/>
 			) : null}
 			{pager === undefined ? (
-				<p className="text-text-muted">This show has no episodes to log yet.</p>
+				<p className="text-text-muted">{text("log.episodes.none-show")}</p>
 			) : (
 				<EpisodeList
 					pager={pager}
 					onSelect={props.onSelect}
 					selectedId={selected?.id}
-					emptyMessage="There are no episodes to log yet."
+					emptyMessage={text("log.episodes.none")}
 					family={logger.family === "podcast" ? "podcast" : "show"}
 					stateLabel={(episode) =>
-						episodeStateLabel({ logger, episode, nextUpId: context.nextUp?.id })
+						episodeStateLabel({ text, logger, episode, nextUpId: context.nextUp?.id })
 					}
 				/>
 			)}
 			{selected?.state === "complete" ? (
 				<p className="text-text-muted">
-					You've already {logger.copy.participle} this one. It will be logged as a rewatch.
+					{text("log.episodes.rewatch", { verb: logger.copy.verb })}
 				</p>
 			) : null}
 			{earlier.status === "error" ? (
-				<StatusMessage tone="error" action={{ label: "Try again", onClick: earlier.retry }}>
-					Unable to check earlier episodes.
+				<StatusMessage
+					tone="error"
+					action={{ onClick: earlier.retry, label: text("common.action.try-again") }}
+				>
+					{text("log.episodes.earlier-failed")}
 				</StatusMessage>
 			) : null}
 			{earlier.status === "loading" ? (
-				<StatusMessage tone="pending">Checking earlier episodes…</StatusMessage>
+				<StatusMessage tone="pending">{text("log.episodes.earlier-loading")}</StatusMessage>
 			) : null}
 			{earlier.status === "ready" && earlier.tooMany && !special ? (
 				<Row
-					title="Also mark earlier episodes"
-					description={`More than ${BACKFILL_LIMIT} earlier episodes are unwatched, so none can be marked together. Mark them in smaller steps.`}
+					title={text("log.backfill.title")}
+					description={text("log.backfill.too-many", {
+						count: BACKFILL_LIMIT,
+						verb: logger.copy.verb,
+					})}
 					trailing={
 						<Switch
 							disabled
 							checked={false}
 							onChange={() => undefined}
-							label="Mark earlier episodes"
+							label={text("log.backfill.switch")}
 						/>
 					}
 				/>
@@ -702,7 +731,9 @@ function EpisodeStep(props: Body) {
 
 function ActivityLogFields(props: Body) {
 	const { draft, today, logger, context } = props;
-	const errors = activityDraftErrors({ draft, today, logger, context });
+	const text = useMediaMessages();
+	const formatters = useFormatters();
+	const errors = activityDraftErrors({ text, draft, today, logger, context });
 	const [details, setDetails] = useState(false);
 	const finished = draft.intent === "finished";
 	const timePrimary = logger.family === "flat" && logger.timePrimary === true;
@@ -743,9 +774,9 @@ function ActivityLogFields(props: Body) {
 				<DurationField
 					value={draft}
 					error={errors.time}
-					label="Time played"
 					onChange={props.onChange}
-					hint={activityRuntimeHint(null)}
+					label={text("log.time-played")}
+					hint={activityRuntimeHint(text, formatters, null)}
 				/>
 			) : null}
 			{draft.intent === "progress" ? (
@@ -753,8 +784,8 @@ function ActivityLogFields(props: Body) {
 					value={draft}
 					error={errors.time}
 					onChange={props.onChange}
-					label="Cumulative time spent"
-					hint="Total time in this consumption run, not time since the last update."
+					label={text("log.time-cumulative")}
+					hint={text("log.time-cumulative-hint")}
 				/>
 			) : null}
 			{draft.intent === "status" ? null : (
@@ -773,15 +804,15 @@ function ActivityLogFields(props: Body) {
 						aria-expanded={details}
 						onClick={() => setDetails(!details)}
 					>
-						{details ? "Hide details" : "More details"}
+						{details ? text("log.details-hide") : text("log.details-show")}
 					</Button>
 					{details ? (
 						<DurationField
 							value={draft}
-							label="Time spent"
 							error={errors.time}
 							onChange={props.onChange}
-							hint={activityRuntimeHint(context.runtime)}
+							label={text("property.time-spent")}
+							hint={activityRuntimeHint(text, formatters, context.runtime)}
 						/>
 					) : null}
 				</div>
@@ -804,6 +835,7 @@ function ActivityLogForm(
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
 	const { log } = props;
+	const text = useMediaMessages();
 	const [draft, setDraft] = useState(() => initialActivityDraft(logger, context, today));
 	const [backfill, setBackfill] = useState(true);
 	const patch = (next: Partial<ActivityDraft>) => setDraft((current) => ({ ...current, ...next }));
@@ -839,17 +871,24 @@ function ActivityLogForm(
 			? earlier.episodes.map((episode) => episode.id)
 			: [];
 	const episodeEntityIds = selected === undefined ? [] : [...earlierIds, selected.id];
-	const errors = activityDraftErrors({ draft, today, logger, context });
+	const errors = activityDraftErrors({ text, draft, today, logger, context });
 	const waiting =
 		draft.intent === "episode" &&
 		(selected === undefined || earlier.status === "loading" || earlier.status === "error");
 	const labels = activityCopyLabels({
+		text,
 		draft,
 		logger,
 		context,
 		name: props.name,
 		episodeCount: episodeEntityIds.length,
-		episodeCode: selected === undefined ? undefined : episodeCode(logger, selected),
+		episodeCode:
+			selected === undefined
+				? undefined
+				: {
+						text: episodeCode(text, logger, selected),
+						message: episodeCodeMessage(logger, selected),
+					},
 	});
 	const submit = () => {
 		if (waiting || hasActivityErrors(errors) || log.isSending) {
@@ -866,16 +905,16 @@ function ActivityLogForm(
 	};
 	return (
 		<Dialog
-			title="Log activity"
 			onClose={props.onClose}
+			title={text("log.title")}
 			dismissible={!log.isSending}
 			triggerRef={props.triggerRef}
-			closeLabel="Close log activity"
+			closeLabel={text("log.close")}
 			placement={props.compact ? "sheet" : "center"}
 			footer={
 				<>
 					<Button variant="secondary" onClick={props.onClose} disabled={log.isSending}>
-						Cancel
+						{text("common.action.cancel")}
 					</Button>
 					<Button
 						onClick={submit}
@@ -887,14 +926,14 @@ function ActivityLogForm(
 				</>
 			}
 		>
-			<ActionForm onSubmit={submit} label="Log activity" className="flex flex-col gap-4">
-				{activityIntents(logger).length < 2 ? null : (
+			<ActionForm onSubmit={submit} label={text("log.title")} className="flex flex-col gap-4">
+				{activityIntents(text, logger).length < 2 ? null : (
 					<SegmentedControl
 						fill
 						value={draft.intent}
-						label="What happened"
 						optionClassName="px-3"
-						options={activityIntents(logger)}
+						label={text("log.intent-label")}
+						options={activityIntents(text, logger)}
 						onChange={(intent) => patch({ intent })}
 					/>
 				)}
@@ -918,7 +957,7 @@ function ActivityLogForm(
 					/>
 				</fieldset>
 				{log.error === null ? null : (
-					<StatusMessage tone="error">Couldn't start saving. Try again.</StatusMessage>
+					<StatusMessage tone="error">{text("log.save-failed")}</StatusMessage>
 				)}
 			</ActionForm>
 		</Dialog>

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
@@ -17,13 +18,17 @@ import {
 } from "../../tests/client/episodic/episodes-fixture";
 import type { EpisodicFixtureEpisode } from "../../tests/client/episodic/recipes";
 import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
+import { testMediaText } from "../../tests/client/test-text";
 import { mediaCursorPageError } from "./cursor-page-state";
 import { MediaEpisodePages, type MediaEpisodePagesCopy } from "./episodes";
 
 const COPY: MediaEpisodePagesCopy = {
 	empty: "No episodes have been recorded yet.",
-	error: (state) => mediaCursorPageError({ state, noun: "episodes" }),
-	loading: { title: "Loading episodes...", detail: "Fetching this feed's episodes." },
+	error: (state) => mediaCursorPageError(testMediaText, { state, kind: "episodes" }),
+	loading: {
+		title: testText("Loading episodes..."),
+		detail: testText("Fetching this feed's episodes."),
+	},
 };
 
 const FIRST_PAGE = [

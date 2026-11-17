@@ -1,5 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
@@ -32,6 +33,7 @@ import {
 	localDateTime,
 	mountRyotClient,
 } from "../../tests/client/test-support";
+import { testMediaText } from "../../tests/client/test-text";
 import { mediaCursorPageError } from "./cursor-page-state";
 import { MediaEpisodePages, type MediaEpisodePagesCopy } from "./episodes";
 
@@ -41,8 +43,8 @@ const contextQuery = activityLogQuery({ target: contextTarget() });
 
 const COPY: MediaEpisodePagesCopy = {
 	empty: "No episodes.",
-	loading: { title: "Loading", detail: "Loading episodes." },
-	error: (state) => mediaCursorPageError({ state, noun: "episodes" }),
+	loading: { title: testText("Loading"), detail: testText("Loading episodes.") },
+	error: (state) => mediaCursorPageError(testMediaText, { state, kind: "episodes" }),
 };
 
 afterEach(() => {
@@ -152,17 +154,19 @@ describe("episode details", () => {
 												episodicCreditRow({
 													id: "person-2",
 													name: "Scribe",
+													roleCodes: null,
 													roles: ["Writer"],
 													creditKinds: ["crew"],
 												}),
 											],
 											guestStars: [
 												episodicCreditRow({
+													roles: [],
 													isGuest: true,
 													id: "person-1",
 													name: "Visitor",
-													roles: ["Acting"],
 													character: "Doctor",
+													roleCodes: ["actor"],
 												}),
 											],
 										}),
@@ -447,7 +451,7 @@ describe("episode details actions", () => {
 				yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(1)));
 				expect(mounted.requests[0]).toMatchObject({
 					slug: "media-activity-log",
-					label: "Marked The Arrival listened.",
+					label: { key: "episode.marked", params: { verb: "listen", name: "The Arrival" } },
 					input: {
 						entry: {
 							kind: "episodes",

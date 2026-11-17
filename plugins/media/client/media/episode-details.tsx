@@ -1,11 +1,13 @@
-import { localDay, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { localDay, useDisplayText, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button, MenuButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { RefObject } from "react";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { MediaEntityEditAction } from "../entity-editor/edit-action";
+import { useMediaCopy, useMediaMessages } from "../messages";
 import { useQuickLog } from "./activity-log/quick-log";
 import { MediaDetailModal } from "./detail-modal";
 import { mediaAspectClass } from "./entity-presentation";
@@ -36,23 +38,27 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const { render, episode, compact } = props;
+	const copy = useMediaCopy();
+	const { text } = copy;
+	const displayText = useDisplayText();
 	const reminders = useMediaReminders({
 		entityId: episode.id,
 		parentEntityId: props.log.parentEntityId,
 	});
 	const asset = mediaEpisodeAsset(episode, render.purpose);
 	const synopsis = mediaEpisodeSynopsis(episode);
-	const state = mediaEpisodeStateLabel(episode.state, render.stateLabels);
-	const metadata = mediaEpisodeMetadataLabel(episode);
+	const stateMessage = mediaEpisodeStateLabel(episode.state, render.stateLabels);
+	const state = stateMessage === undefined ? undefined : copy.local(stateMessage);
+	const metadata = mediaEpisodeMetadataLabel(copy, episode);
 	return (
 		<MediaDetailModal
 			compact={compact}
-			label={episode.name}
 			onClose={props.onClose}
 			triggerRef={props.triggerRef}
 			safeAreaTop={props.safeAreaTop}
-			closeLabel="Close episode details"
-			title={render.originLabel(episode)}
+			label={displayText(episode.name)}
+			closeLabel={text("episode.close")}
+			title={copy.local(render.originLabel(episode))}
 			headerAside={<MediaProviderRefreshControl media={episode} />}
 		>
 			<div
@@ -91,17 +97,17 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 						<MediaEpisodeActions log={props.log} episode={episode} onLog={props.onLog} />
 						<Button variant="secondary" onClick={props.onReview}>
 							<AppIcon size={15} name="star" />
-							Review
+							{text("review.button")}
 						</Button>
-						<MenuButton items={[reminders.item]} label="More episode actions" />
+						<MenuButton items={[reminders.item]} label={text("episode.more-actions")} />
 					</div>
 					{reminders.error}
 					{props.editable ? (
 						<div className="flex">
 							<MediaEntityEditAction
 								isCustom
-								label="Edit episode"
 								entityId={episode.id}
+								label={text("episode.edit")}
 								entitySchemaSlug={render.entitySchemaSlug}
 							/>
 						</div>
@@ -134,12 +140,13 @@ function MediaEpisodeActions(props: {
 	readonly episode: MediaEpisode;
 }) {
 	const { log, episode } = props;
+	const text = useMediaMessages();
 	const schedule = useRyotSchedule();
 	const { locked, log: mark } = useQuickLog(log.parentEntityId);
 	if (episode.publishDate !== null && episode.publishDate > localDay(schedule.now())) {
 		return null;
 	}
-	const { participle } = log.logger.copy;
+	const { verb } = log.logger.copy;
 	return (
 		<div className="flex flex-col items-start gap-2">
 			<div className="flex flex-wrap gap-2">
@@ -147,7 +154,7 @@ function MediaEpisodeActions(props: {
 					disabled={locked}
 					onClick={() =>
 						mark.submit({
-							label: `Marked ${episode.name} ${participle}.`,
+							label: catalogMessage("episode.marked", { verb, name: episode.name }),
 							entry: {
 								kind: "episodes",
 								when: { kind: "now" },
@@ -157,14 +164,14 @@ function MediaEpisodeActions(props: {
 						})
 					}
 				>
-					{mark.isSending ? "Saving…" : `Mark ${participle}`}
+					{mark.isSending ? text("common.status.saving") : text("episode.mark", { verb })}
 				</Button>
 				<Button variant="secondary" onClick={props.onLog}>
-					Log with details…
+					{text("episode.log-with-details")}
 				</Button>
 			</div>
 			{mark.error === null ? null : (
-				<StatusMessage tone="error">Couldn't start saving. Try again.</StatusMessage>
+				<StatusMessage tone="error">{text("log.save-failed")}</StatusMessage>
 			)}
 		</div>
 	);

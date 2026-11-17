@@ -36,10 +36,10 @@ describe("image gallery state", () => {
 
 	it("builds filters in schema order with all first", () => {
 		expect(galleryFilters(galleryImages(mixed))).toEqual([
-			{ count: 4, label: "All", filter: "all" },
-			{ count: 1, filter: "cover", label: "Covers" },
-			{ count: 2, filter: "backdrop", label: "Backdrops" },
-			{ count: 1, label: "Artwork", filter: "artwork" },
+			{ count: 4, filter: "all" },
+			{ count: 1, filter: "cover" },
+			{ count: 2, filter: "backdrop" },
+			{ count: 1, filter: "artwork" },
 		]);
 	});
 
@@ -69,14 +69,14 @@ describe("image gallery state", () => {
 		);
 
 		expect(galleryFilters(images)).toEqual([
-			{ count: 7, label: "All", filter: "all" },
-			{ count: 1, filter: "cover", label: "Covers" },
-			{ count: 1, filter: "backdrop", label: "Backdrops" },
-			{ count: 1, filter: "profile", label: "Profiles" },
-			{ count: 1, filter: "logo", label: "Logos" },
-			{ count: 1, filter: "still", label: "Stills" },
-			{ count: 1, filter: "screenshot", label: "Screenshots" },
-			{ count: 1, label: "Artwork", filter: "artwork" },
+			{ count: 7, filter: "all" },
+			{ count: 1, filter: "cover" },
+			{ count: 1, filter: "backdrop" },
+			{ count: 1, filter: "profile" },
+			{ count: 1, filter: "logo" },
+			{ count: 1, filter: "still" },
+			{ count: 1, filter: "screenshot" },
+			{ count: 1, filter: "artwork" },
 		]);
 		for (const purpose of mediaImagePurposes) {
 			expect(galleryFilterImages(images, purpose)).toEqual([

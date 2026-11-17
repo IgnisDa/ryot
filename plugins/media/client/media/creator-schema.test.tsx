@@ -134,7 +134,7 @@ describe("creator credit rails", () => {
 	it("renders the sections in descriptor order with each section's aspect", () => {
 		const { unmount, container } = renderBody();
 
-		expect(sectionTitles(container)).toEqual(["Films", "Records"]);
+		expect(sectionTitles(container)).toEqual(["Movies", "Albums"]);
 		expect(
 			container.querySelector(`a[href="/e/${creatorMovieCreditRow.id}"] > div > *`)?.className,
 		).toContain("aspect-2/3");
@@ -149,7 +149,7 @@ describe("creator credit rails", () => {
 			decodeCreatorOverview({ "music-group": { items: [creatorAlbumCreditRow] } }),
 		);
 
-		expect(sectionTitles(container)).toEqual(["Records"]);
+		expect(sectionTitles(container)).toEqual(["Albums"]);
 		unmount();
 	});
 
@@ -176,10 +176,10 @@ describe("creator credit rails", () => {
 		const sections = Array.from(container.querySelectorAll("section"));
 
 		expect(
-			sections.find((section) => section.textContent.startsWith("Films"))?.textContent,
+			sections.find((section) => section.textContent.startsWith("Movies"))?.textContent,
 		).toContain("View all");
 		expect(
-			sections.find((section) => section.textContent.startsWith("Records"))?.textContent,
+			sections.find((section) => section.textContent.startsWith("Albums"))?.textContent,
 		).not.toContain("View all");
 		unmount();
 	});
@@ -212,7 +212,7 @@ describe("creator activity tab", () => {
 
 		expect(text).toContain("Reviews");
 		expect(text).toContain("Span");
-		expect(text).toContain("Reviewed this creator");
+		expect(text).toContain("Reviewed this person");
 		expect(text).toContain("Added to media library");
 		expect(text).toContain("Added to the Favourites collection");
 		expect(container.querySelector('[aria-label="Activity record"]')).not.toBeNull();

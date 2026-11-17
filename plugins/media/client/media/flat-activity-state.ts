@@ -1,13 +1,16 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
+import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
+
 import { consumedOnLabel } from "../../shared/consumed-on";
 import type {
 	MediaFlatActivityEvent,
 	MediaFlatActivityMediaEvent,
 } from "../../shared/media-recipes";
+import type { MediaCopy } from "../messages";
 import {
 	absorbProgressRun,
 	type ActivityAnchor,
 	anchorOf,
-	decimalLabel,
 	eventRef,
 	type MediaActivityBeatRow,
 	type MediaActivityCollectionRow,
@@ -196,12 +199,16 @@ export const mediaFlatActivityView = <Subject, Extra>(input: {
 };
 
 export const mediaFlatActivityFigures = (
+	{ text, local, formatters }: MediaCopy,
 	summary: MediaFlatActivitySummary,
 	labels: {
 		readonly completions: string;
 		readonly measure: {
-			readonly label: string;
-			readonly value: (amount: MediaFlatActivitySummary["amount"]) => string;
+			readonly label: LocalMessage;
+			readonly value: (
+				formatters: Formatters,
+				amount: MediaFlatActivitySummary["amount"],
+			) => string;
 		};
 	},
 ): readonly MediaActivityFigure[] => {
@@ -209,16 +216,22 @@ export const mediaFlatActivityFigures = (
 		return [
 			{
 				detail: undefined,
-				label: "Consumption",
-				value: summary.processing === "failed" ? "Repair failed" : "Updating",
+				label: text("activity.figure-consumption"),
+				value:
+					summary.processing === "failed"
+						? text("activity.figure-repair-failed")
+						: text("activity.figure-updating"),
 			},
 		];
 	}
-	const span = mediaActivitySpanLabel(summary.span);
+	const span = mediaActivitySpanLabel(text, formatters, summary.span);
 	const leading =
 		summary.completions === 0 && summary.progress !== undefined
-			? { label: "Progress", value: `${decimalLabel(summary.progress)}%` }
-			: { label: labels.completions, value: `${summary.completions}` };
+			? {
+					label: text("primitives.progress"),
+					value: text("activity.figure-percent", { percent: summary.progress / 100 }),
+				}
+			: { label: labels.completions, value: formatters.number().format(summary.completions) };
 	const hasAmount = summary.amount.total !== 0 || summary.amount.missing !== 0;
 	return [
 		{ ...leading, detail: undefined },
@@ -226,8 +239,8 @@ export const mediaFlatActivityFigures = (
 			? [
 					{
 						detail: undefined,
-						label: labels.measure.label,
-						value: labels.measure.value(summary.amount),
+						label: local(labels.measure.label),
+						value: labels.measure.value(formatters, summary.amount),
 					},
 				]
 			: []),

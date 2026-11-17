@@ -1,7 +1,9 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import type { SelectedQuery } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import type { mediaGroupQuery, MediaOverviewRows } from "../../shared/media-recipes";
+import { useMediaCopy } from "../messages";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
 import { collectManagedAssetLocators } from "./image";
@@ -32,13 +34,14 @@ export const mediaGroupOverviewIsEmpty = (
 ) => mediaRelationsAreEmpty(overview, unlinked) && mediaGroupMembers(overview).length === 0;
 
 export function MediaPartOfSection(props: {
-	readonly title: string;
 	readonly compact: boolean;
-	readonly actionLabel: string;
+	readonly title: LocalMessage;
 	readonly group: null | MediaGroup;
+	readonly actionLabel: LocalMessage;
 	readonly aspect: MediaArtworkAspect;
 }) {
 	const { group } = props;
+	const { local } = useMediaCopy();
 	if (group === null) {
 		return null;
 	}
@@ -53,7 +56,7 @@ export function MediaPartOfSection(props: {
 					to={{ kind: "entity", entityId: group.id }}
 					className="font-ui font-medium text-[13px] text-accent-text"
 				>
-					{props.actionLabel}
+					{local(props.actionLabel)}
 				</PluginLink>
 			}
 		/>

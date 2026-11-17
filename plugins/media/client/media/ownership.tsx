@@ -1,3 +1,4 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotBackgroundSubmission,
 	localDay,
@@ -17,16 +18,19 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useRef, useState } from "react";
 
 import { MediaOwnershipSetInput } from "../../shared/media-ownership-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { useMediaCopy, useMediaMessages } from "../messages";
 import { mediaOwnedLabel } from "./summary-state";
+
+type OwnershipSubmission = MediaOwnershipSetInput & { readonly label: LocalMessage };
 
 const setOwnership = createRyotBackgroundSubmission({
 	slug: "media-ownership-set",
 	packageId: PLUGIN_PACKAGE_ID,
 	inputSchema: MediaOwnershipSetInput,
-	input: ({ input }: { readonly input: MediaOwnershipSetInput }) => input,
-	label: (input: MediaOwnershipSetInput) =>
-		input.owned ? "Marked as owned" : "Marked as not owned",
+	label: (input: OwnershipSubmission) => input.label,
+	input: ({ input: { label: _label, ...input } }: { readonly input: OwnershipSubmission }) => input,
 });
 
 export function MediaOwnershipControl(props: {
@@ -34,6 +38,8 @@ export function MediaOwnershipControl(props: {
 	readonly owned: null | boolean;
 	readonly ownedOn: null | string;
 }) {
+	const copy = useMediaCopy();
+	const { text } = copy;
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const ownership = useBackgroundSubmission(setOwnership);
 	const [optimistic, setOptimistic] = useState<null | MediaOwnershipSetInput>(null);
@@ -49,7 +55,15 @@ export function MediaOwnershipControl(props: {
 	const ownedOn = intent?.owned === true ? intent.ownedOn : props.ownedOn;
 	const submit = (input: MediaOwnershipSetInput, onAccepted?: () => void) => {
 		setOptimistic(input);
-		ownership.submit(input, onAccepted === undefined ? {} : { onAccepted });
+		ownership.submit(
+			{
+				...input,
+				label: catalogMessage(
+					input.owned ? "ownership.marked-owned" : "ownership.marked-not-owned",
+				),
+			},
+			onAccepted === undefined ? {} : { onAccepted },
+		);
 	};
 	return (
 		<>
@@ -61,11 +75,11 @@ export function MediaOwnershipControl(props: {
 					owned ? submit({ owned: false, entityIds: [props.entityId] }) : setDialogOpen(true)
 				}
 			>
-				{owned ? mediaOwnedLabel(ownedOn) : "Mark owned"}
+				{owned ? mediaOwnedLabel(copy, ownedOn) : text("ownership.mark")}
 			</ChipButton>
 			{rolledBack && !dialogOpen ? (
 				<span role="alert" className="text-xs text-danger">
-					Unable to change ownership. Try again.
+					{text("ownership.failed")}
 				</span>
 			) : null}
 			{dialogOpen ? (
@@ -90,6 +104,7 @@ function MediaOwnedOnDialog(props: {
 	readonly onClose: () => void;
 	readonly onSave: (ownedOn: null | string) => void;
 }) {
+	const text = useMediaMessages();
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
 	const dateRef = useRef<HTMLInputElement>(null);
@@ -102,17 +117,17 @@ function MediaOwnedOnDialog(props: {
 	};
 	return (
 		<Dialog
-			title="Mark as owned"
 			onClose={props.onClose}
 			initialFocusRef={dateRef}
-			closeLabel="Close ownership"
 			dismissible={!props.sending}
+			title={text("ownership.title")}
+			closeLabel={text("ownership.close")}
 		>
-			<ActionForm onSubmit={save} label="Mark as owned" className="flex flex-col gap-4">
+			<ActionForm onSubmit={save} label={text("ownership.title")} className="flex flex-col gap-4">
 				<Field
 					optional
-					label="Owned on"
-					error={invalid ? "Pick a date that is not in the future." : undefined}
+					label={text("property.owned-on")}
+					error={invalid ? text("ownership.future") : undefined}
 				>
 					{(control) => (
 						<TextField
@@ -127,11 +142,11 @@ function MediaOwnedOnDialog(props: {
 					)}
 				</Field>
 				{props.failed ? (
-					<StatusMessage tone="error">Couldn't start saving ownership. Try again.</StatusMessage>
+					<StatusMessage tone="error">{text("ownership.save-failed")}</StatusMessage>
 				) : null}
 				<div className="flex gap-2">
 					<Button type="button" onClick={save} disabled={invalid || props.sending}>
-						{props.sending ? "Saving…" : "Save"}
+						{props.sending ? text("common.status.saving") : text("common.action.save")}
 					</Button>
 					<Button
 						type="button"
@@ -139,7 +154,7 @@ function MediaOwnedOnDialog(props: {
 						onClick={props.onClose}
 						disabled={props.sending}
 					>
-						Cancel
+						{text("common.action.cancel")}
 					</Button>
 				</div>
 			</ActionForm>

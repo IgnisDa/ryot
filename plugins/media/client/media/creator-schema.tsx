@@ -13,6 +13,13 @@ import type {
 	MediaReviewActivityResult,
 } from "../../shared/media-recipes";
 import type { MediaCreatorCreditSlug } from "../../shared/media-schema-slugs";
+import { catalogMessage } from "../../shared/messages.generated";
+import {
+	type MediaCopy,
+	type MediaReviewKind,
+	type MediaText,
+	useMediaMessages,
+} from "../messages";
 import type { MediaHistoryRecipe } from "./activity-history";
 import {
 	mediaCreditItems,
@@ -53,11 +60,11 @@ export type MediaCreatorSchemaDescriptor<
 	Slug extends MediaCreatorCreditSlug,
 	Overview extends MediaCreditRailsOverview<Slug>,
 > = {
+	readonly kind: MediaReviewKind;
 	readonly artwork: MediaSummaryArtwork;
 	readonly creditSections: readonly MediaCreditSection<Slug>[];
-	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
-	readonly links: (summary: Summary) => readonly MediaSummaryLink[];
-	readonly nouns: { readonly title: string; readonly plural: string; readonly singular: string };
+	readonly facts: (summary: Summary, copy: MediaCopy) => readonly MediaSummaryFact[];
+	readonly links: (copy: MediaCopy, summary: Summary) => readonly MediaSummaryLink[];
 	readonly recipes: {
 		readonly overviewRecipe: MediaEntityRecipe<Overview>;
 		readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
@@ -79,12 +86,10 @@ type CreatorSummary = MediaEntitySummaryValue & {
 	readonly collections: { readonly items: readonly { readonly id: string }[] };
 };
 
-const TABS: readonly TabOption<"overview" | "activity">[] = [
-	{ value: "overview", label: "Overview" },
-	{ value: "activity", label: "Activity" },
+const tabs = (text: MediaText): readonly TabOption<"overview" | "activity">[] => [
+	{ value: "overview", label: text("tabs.overview") },
+	{ value: "activity", label: text("browse.field.activity") },
 ];
-
-const CREDITS_NOTICE = "Credits";
 
 export const defineCreatorMediaSchema = <
 	Summary extends CreatorSummary,
@@ -93,7 +98,7 @@ export const defineCreatorMediaSchema = <
 >(
 	descriptor: MediaCreatorSchemaDescriptor<Summary, Slug, Overview>,
 ) => {
-	const { nouns, recipes } = descriptor;
+	const { kind, recipes } = descriptor;
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
 	const creditsQuery = createMediaCreditsQuery(
@@ -110,22 +115,21 @@ export const defineCreatorMediaSchema = <
 		(data) => mediaCreditItems<Slug>(data).map(({ id }) => id),
 	);
 
-	const summaryState = mediaSummaryStateMapper<CreatorSummaryResult<Summary>, Summary>({
-		...nouns,
-		select: ({ summary }) => summary,
-	});
+	const summaryState = mediaSummaryStateMapper<CreatorSummaryResult<Summary>, Summary>(
+		({ summary }) => summary,
+	);
 
 	const { Activity, ActivityTab, mapActivity, activityQuery } = defineMediaReviewActivityTab({
-		noun: nouns.singular,
+		kind,
 		historyRecipe: recipes.historyRecipe,
 		activityRecipe: recipes.activityRecipe,
 	});
 
-	const header = (summary: Summary): MediaSummaryHeaderDetail => ({
+	const header = (summary: Summary, copy: MediaCopy): MediaSummaryHeaderDetail => ({
 		identityDetail: undefined,
 		rail: { logActivity: undefined },
-		facts: descriptor.facts(summary),
-		links: descriptor.links(summary),
+		facts: descriptor.facts(summary, copy),
+		links: descriptor.links(copy, summary),
 		chips: (summary.alternateNames ?? []).slice(0, ALIAS_CHIP_LIMIT),
 	});
 
@@ -162,10 +166,11 @@ export const defineCreatorMediaSchema = <
 		readonly overview: MediaOverviewState<Overview>;
 		readonly settled: undefined | EntitySettleReason;
 	}) {
+		const text = useMediaMessages();
 		return (
 			<MediaDetailBody
-				tabs={TABS}
 				header={header}
+				tabs={tabs(text)}
 				state={props.state}
 				defaultTab="overview"
 				overviewTab="overview"
@@ -177,7 +182,6 @@ export const defineCreatorMediaSchema = <
 				loading={summaryState.loading}
 				safeAreaTop={props.safeAreaTop}
 				overviewIsEmpty={overviewIsEmpty}
-				overviewNoticeTitle={CREDITS_NOTICE}
 				overviewRelations={overviewRelations}
 				refreshOverview={props.refreshOverview}
 				summaryError={summaryState.summaryError}
@@ -185,7 +189,8 @@ export const defineCreatorMediaSchema = <
 				summaryRefreshStatus={props.summaryRefreshStatus}
 				overviewRefreshStatus={props.overviewRefreshStatus}
 				summaryUnavailable={summaryState.summaryUnavailable}
-				overviewLoadingDetail={`Fetching the credits for this ${nouns.singular}.`}
+				overviewNoticeTitle={catalogMessage("credits.notice")}
+				overviewLoadingDetail={catalogMessage("group.overview-loading")}
 			/>
 		);
 	}

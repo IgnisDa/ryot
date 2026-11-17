@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Modal } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
@@ -43,10 +44,10 @@ export function MediaDetailModal({
 	safeAreaTop,
 	headerAside,
 }: {
-	readonly title: string;
-	readonly label: string;
+	readonly title: Text;
+	readonly label: Text;
 	readonly compact: boolean;
-	readonly closeLabel: string;
+	readonly closeLabel: Text;
 	readonly safeAreaTop: number;
 	readonly onClose: () => void;
 	readonly toolbar?: ReactNode;

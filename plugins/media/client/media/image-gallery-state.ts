@@ -3,30 +3,9 @@ import { type MediaGalleryImage, mediaGalleryImages } from "./image";
 
 export type GalleryFilter = "all" | MediaImagePurpose;
 
-export type GalleryFilterOption = {
-	readonly count: number;
-	readonly label: string;
-	readonly filter: GalleryFilter;
-};
+export type GalleryFilterOption = { readonly count: number; readonly filter: GalleryFilter };
 
 type MediaImagePurpose = MediaImage["purpose"];
-
-const PURPOSE_LABELS: Record<MediaImagePurpose, string> = {
-	logo: "Logos",
-	still: "Stills",
-	cover: "Covers",
-	artwork: "Artwork",
-	profile: "Profiles",
-	backdrop: "Backdrops",
-	screenshot: "Screenshots",
-};
-
-export const galleryFilterLabel = (filter: GalleryFilter) => {
-	if (filter === "all") {
-		return "All";
-	}
-	return PURPOSE_LABELS[filter];
-};
 
 export const galleryImages = mediaGalleryImages;
 
@@ -38,12 +17,12 @@ export const galleryFilters = (
 ): readonly GalleryFilterOption[] => {
 	const present = mediaImagePurposes.flatMap((filter) => {
 		const count = galleryFilterImages(images, filter).length;
-		return count === 0 ? [] : [{ count, filter, label: galleryFilterLabel(filter) }];
+		return count === 0 ? [] : [{ count, filter }];
 	});
 	if (present.length < 2) {
 		return [];
 	}
-	return [{ filter: "all", count: images.length, label: galleryFilterLabel("all") }, ...present];
+	return [{ filter: "all", count: images.length }, ...present];
 };
 
 export const galleryTileFit = (filter: GalleryFilter) => (filter === "all" ? "contain" : "cover");
@@ -73,5 +52,3 @@ export const galleryStep = (index: number, count: number, direction: 1 | -1) => 
 	}
 	return next;
 };
-
-export const galleryCountLabel = (count: number) => `${count} ${count === 1 ? "image" : "images"}`;

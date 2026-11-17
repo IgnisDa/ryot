@@ -6,8 +6,13 @@ import {
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { ManagedAssetProvider, useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
-import { Eyebrow, RatingValue, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
+import {
+	ManagedAssetProvider,
+	useEntitySchemaName,
+	usePluginIdentity,
+	useUserPreferences,
+} from "@ryot-app/plugin-client-sdk/react";
+import { Eyebrow, RatingValue } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
@@ -15,6 +20,8 @@ import {
 	type MediaPresentationData,
 	mediaPresentationSource,
 } from "../../shared/entity-presentations";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { useMediaMessages } from "../messages";
 import { createMediaPresentationPrepare, mediaEntityPresentation } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
 
@@ -43,6 +50,7 @@ export function MediaCardContent(props: {
 	readonly compact: boolean;
 	readonly data: MediaPresentationViewData;
 }) {
+	const text = useMediaMessages();
 	return (
 		<ManagedAssetProvider assets={props.data.batchAssets}>
 			<article
@@ -52,12 +60,12 @@ export function MediaCardContent(props: {
 			>
 				<PluginLink
 					className="block min-w-0"
-					aria-label={`Open ${props.data.name}`}
 					to={{ kind: "entity", entityId: props.data.id }}
+					aria-label={text("common.open-named", { name: props.data.name })}
 				>
 					<MediaArtwork layout="grid" data={props.data} compact={props.compact} />
 				</PluginLink>
-				<MediaFacts data={props.data} schemaName={schemaSlugLabel(props.data.schemaSlug)} />
+				<MediaFacts data={props.data} />
 			</article>
 		</ManagedAssetProvider>
 	);
@@ -67,6 +75,7 @@ export function MediaRowContent(props: {
 	readonly compact: boolean;
 	readonly data: MediaPresentationViewData;
 }) {
+	const text = useMediaMessages();
 	return (
 		<ManagedAssetProvider assets={props.data.batchAssets}>
 			<article
@@ -79,13 +88,13 @@ export function MediaRowContent(props: {
 			>
 				<PluginLink
 					className="block shrink-0"
-					aria-label={`Open ${props.data.name}`}
 					to={{ kind: "entity", entityId: props.data.id }}
+					aria-label={text("common.open-named", { name: props.data.name })}
 				>
 					<MediaArtwork layout="list" data={props.data} compact={props.compact} />
 				</PluginLink>
 				<div className="min-w-0 flex-1">
-					<MediaFacts data={props.data} schemaName={schemaSlugLabel(props.data.schemaSlug)} />
+					<MediaFacts data={props.data} />
 				</div>
 			</article>
 		</ManagedAssetProvider>
@@ -118,11 +127,15 @@ function MediaArtwork(props: {
 	);
 }
 
-function MediaFacts(props: { readonly schemaName: string; readonly data: MediaPresentationData }) {
+function MediaFacts(props: { readonly data: MediaPresentationData }) {
 	const scale = useUserPreferences().data?.ratingScale;
+	const schemaName = useEntitySchemaName();
+	const { pluginId } = usePluginIdentity(PLUGIN_PACKAGE_ID);
 	return (
 		<div className="grid min-w-0 gap-1">
-			<Eyebrow>{props.schemaName}</Eyebrow>
+			<Eyebrow>
+				{schemaName({ ownerPluginId: pluginId, entitySchemaSlug: props.data.schemaSlug })}
+			</Eyebrow>
 			<span className="flex min-w-0 items-baseline gap-1.5">
 				<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.data.id }}>
 					<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">

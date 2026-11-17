@@ -7,6 +7,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getAllByRole, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { movieRecipes } from "../../shared/movie-recipes";
 import { showRecipes } from "../../shared/show-recipes";
 import { rowsResult } from "../../tests/client/query-result-fixture";
@@ -40,12 +41,12 @@ const button = (
 	<MediaCreditsButton
 		compact
 		query={query}
+		kind="people"
 		aspect="square"
 		safeAreaTop={12}
 		purpose="profile"
-		title="Cast & crew"
-		label="View all people"
 		input={{ entityId: "show-1" }}
+		title={catalogMessage("credits.cast-crew")}
 		unlinked={[{ role: "Writer", name: "Unlinked Writer" }]}
 	/>
 );
@@ -79,14 +80,14 @@ describe("credit lists", () => {
 								}),
 						},
 						<MediaCreditsButton
+							kind="people"
 							aspect="square"
 							safeAreaTop={0}
 							compact={compact}
 							purpose="profile"
 							query={movieQuery}
-							title="Cast & crew"
-							label="View all people"
 							input={{ entityId: "movie-1" }}
+							title={catalogMessage("credits.cast-crew")}
 						/>,
 					);
 					clickRyotElement(getByRole(view.container, "button", { name: "View all people" }));
@@ -156,10 +157,10 @@ describe("credit lists", () => {
 						purpose="logo"
 						aspect="square"
 						safeAreaTop={0}
-						title="Companies"
+						kind="companies"
 						query={companyQuery}
-						label="View all companies"
 						input={{ entityId: "show-1" }}
+						title={catalogMessage("credits.companies")}
 					/>,
 				);
 				clickRyotElement(getByRole(view.container, "button", { name: "View all companies" }));
@@ -177,7 +178,7 @@ describe("credit lists", () => {
 				}
 				expect(dialog.textContent).toContain("Company 89");
 				expect(dialog.querySelector("img")?.getAttribute("src")).toContain("warp.png");
-				expect(dialog.textContent).toContain("Production Company");
+				expect(dialog.textContent).toContain("Production company");
 				expect(queryByRole(dialog, "button", { name: "Load more" })).toBeNull();
 				expect(documents).toHaveLength(3);
 				expect(documents.join("")).not.toContain("character");
@@ -229,12 +230,12 @@ describe("credit lists", () => {
 					<MediaCreditsButton
 						compact
 						query={query}
-						title="People"
+						kind="people"
 						aspect="square"
 						safeAreaTop={0}
 						purpose="profile"
-						label="View all people"
 						input={{ entityId: "show-1" }}
+						title={catalogMessage("credits.people")}
 					/>,
 				);
 				clickRyotElement(getByRole(view.container, "button", { name: "View all people" }));

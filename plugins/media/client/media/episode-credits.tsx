@@ -1,7 +1,9 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { ManagedAssetProvider, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import type { mediaEpisodeCreditsRecipe } from "../../shared/media-recipes";
+import { useMediaCopy } from "../messages";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { createMediaEntityQuery } from "./detail-queries";
 import type { MediaEpisode } from "./episodes-state";
@@ -18,11 +20,11 @@ type MediaEpisodeCreditRows = Recipe.Success<
 >;
 
 type MediaEpisodeCreditCopy = {
-	readonly crew: string;
-	readonly title: string;
-	readonly loading: string;
-	readonly guestStars: string;
-	readonly fullCredits: string;
+	readonly crew: LocalMessage;
+	readonly title: LocalMessage;
+	readonly loading: LocalMessage;
+	readonly guestStars: LocalMessage;
+	readonly fullCredits: LocalMessage;
 };
 
 /** An episode descriptor's credit queries and sections; the full credit list opens from the first section. */
@@ -39,15 +41,17 @@ export const createMediaEpisodeCredits = (input: {
 		({ entityId }) => ({ entityId }),
 		"people",
 	);
-	const relations: MediaOverviewRelationsRender<MediaEpisodeCreditRows> = ({
-		compact,
-		entityId,
-		overview,
-		safeAreaTop,
-	}) => {
+	function Relations(props: {
+		readonly compact: boolean;
+		readonly entityId: string;
+		readonly safeAreaTop: number;
+		readonly overview: MediaEpisodeCreditRows;
+	}) {
+		const { compact, entityId, overview, safeAreaTop } = props;
+		const { local } = useMediaCopy();
 		const sections = [
-			{ title: copy.guestStars, people: overview.guestStars.items },
-			{ title: copy.crew, people: overview.crew.items },
+			{ title: local(copy.guestStars), people: overview.guestStars.items },
+			{ title: local(copy.crew), people: overview.crew.items },
 		].filter(({ people }) => people.length > 0);
 		return (
 			<ManagedAssetProvider
@@ -81,10 +85,12 @@ export const createMediaEpisodeCredits = (input: {
 				</div>
 			</ManagedAssetProvider>
 		);
-	};
+	}
 	return {
 		copy,
-		relations,
+		relations: ((slot) => (
+			<Relations {...slot} />
+		)) satisfies MediaOverviewRelationsRender<MediaEpisodeCreditRows>,
 		query: createMediaEntityQuery(recipes.overviewRecipe, (data) =>
 			[...data.guestStars.items, ...data.crew.items].map(({ id }) => id),
 		),

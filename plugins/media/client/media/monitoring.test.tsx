@@ -40,7 +40,7 @@ const monitoringRequest = (enable: boolean) => ({
 	submittedAt: anyOf(String),
 	idempotencyKey: anyOf(String),
 	input: { entityIds: ["media-1"] },
-	label: enable ? "Started monitoring" : "Stopped monitoring",
+	label: { key: enable ? "monitoring.started" : "monitoring.stopped" },
 	slug: enable ? "media-monitoring-enable" : "media-monitoring-disable",
 });
 
@@ -117,7 +117,7 @@ it.live(
 				background.settle("submission-1", {
 					status: "failed",
 					reason: "operation-rejected",
-					message: "Monitoring needs a provider",
+					message: { namespace: "media", key: "monitoring.provider-required" },
 				});
 				expect(control.getAttribute("aria-pressed")).toBe("false");
 				expect(getByRole(mounted.container, "alert").textContent).toBe(

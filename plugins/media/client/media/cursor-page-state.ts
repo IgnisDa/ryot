@@ -1,3 +1,4 @@
+import type { MediaGroupMemberUnit, MediaText } from "../messages";
 import type { MappedRyotQueryState } from "./query-state";
 
 export type MediaCursorPageFailure = Pick<
@@ -10,13 +11,18 @@ export type MediaCursorPage<Item> = {
 	readonly pageInfo: { readonly hasMore?: boolean; readonly nextCursor: null | string };
 };
 
-export const mediaCursorPageError = (input: {
-	readonly noun: string;
-	readonly state: MediaCursorPageFailure;
-}) => ({
-	title: `Unable to load these ${input.noun}`,
-	detail:
-		input.state.status === "transport-error"
-			? `These ${input.noun} could not be loaded. Check your connection and try again.`
-			: `These ${input.noun} came back in a form that could not be displayed. Try again later.`,
-});
+type MediaCursorPageKind = "credits" | "episodes" | "activities" | MediaGroupMemberUnit;
+
+export const mediaCursorPageError = (
+	text: MediaText,
+	input: { readonly kind: MediaCursorPageKind; readonly state: MediaCursorPageFailure },
+) => {
+	const { kind } = input;
+	return {
+		title: text("cursor.error-title", { kind }),
+		detail:
+			input.state.status === "transport-error"
+				? text("cursor.error-transport", { kind })
+				: text("cursor.error-malformed", { kind }),
+	};
+};

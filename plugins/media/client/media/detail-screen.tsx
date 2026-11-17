@@ -1,4 +1,8 @@
-import type { EntitySettleReason, ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import type {
+	EntitySettleReason,
+	LocalMessage,
+	ManagedAssetLocator,
+} from "@ryot-app/plugin-client-sdk";
 import {
 	type EntityRendererProps,
 	usePluginLocation,
@@ -8,6 +12,7 @@ import {
 	ManagedAssetProvider,
 	type RyotQuery,
 	type RyotQueryResult,
+	type Text,
 	useEntitySettle,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -15,6 +20,7 @@ import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { tabId, type TabOption, Tabs } from "@ryot-app/plugin-ui-sdk";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
+import { type MediaCopy, type MediaText, useMediaCopy } from "../messages";
 import { MediaOverview, type MediaOverviewRelationsRender } from "./overview";
 import { mapMediaOverview, type MediaOverviewState } from "./overview-state";
 import { MediaPopulationFailure, MediaTranslationFailure } from "./population-failure";
@@ -30,7 +36,7 @@ import {
 	type MediaSummaryUnavailableReason,
 } from "./summary-state";
 
-export type MediaStatusCopy = { readonly title: string; readonly detail: string };
+export type MediaStatusCopy = { readonly title: Text; readonly detail: Text };
 
 export type MediaDetailBodyInput<Summary, Overview> = {
 	readonly entityId: string;
@@ -70,46 +76,47 @@ export function MediaDetailBody<
 	readonly overviewTab: TabKey;
 	readonly safeAreaTop: number;
 	readonly refresh: () => void;
-	readonly loading: MediaStatusCopy;
 	readonly refreshOverview: () => void;
-	readonly overviewNoticeTitle: string;
 	readonly artwork: MediaSummaryArtwork;
-	readonly overviewLoadingDetail: string;
 	readonly summaryRefreshStatus: ReactNode;
 	readonly overviewRefreshStatus: ReactNode;
+	readonly overviewNoticeTitle: LocalMessage;
 	readonly state: MediaSummaryState<Summary>;
 	readonly tabs: readonly TabOption<TabKey>[];
+	readonly overviewLoadingDetail: LocalMessage;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly settled: undefined | EntitySettleReason;
 	readonly overviewEmpty?: undefined | MediaStatusCopy;
+	readonly loading: (text: MediaText) => MediaStatusCopy;
 	readonly tabContent: Partial<Record<TabKey, ReactNode>>;
 	readonly overviewIsEmpty: (overview: Overview) => boolean;
-	readonly header: (summary: Summary) => MediaSummaryHeaderDetail;
 	readonly overviewRelations: MediaOverviewRelationsRender<Overview>;
-	readonly summaryError: (state: MediaSummaryFailure) => MediaStatusCopy;
-	readonly summaryUnavailable: (reason: MediaSummaryUnavailableReason) => MediaStatusCopy;
+	readonly header: (summary: Summary, copy: MediaCopy) => MediaSummaryHeaderDetail;
+	readonly summaryError: (text: MediaText, state: MediaSummaryFailure) => MediaStatusCopy;
+	readonly summaryUnavailable: (
+		text: MediaText,
+		reason: MediaSummaryUnavailableReason,
+	) => MediaStatusCopy;
 	readonly overviewTrailing?:
 		undefined | ((input: { readonly summary: Summary; readonly compact: boolean }) => ReactNode);
 }) {
+	const copy = useMediaCopy();
+	const loading = props.loading(copy.text);
 	const { state, overviewTrailing } = props;
 	const [activeTab, setActiveTab] = useState<TabKey>(props.defaultTab);
 	if (state.status === "loading") {
 		return (
-			<MediaSummarySkeleton
-				compact={props.compact}
-				title={props.loading.title}
-				detail={props.loading.detail}
-			/>
+			<MediaSummarySkeleton title={loading.title} compact={props.compact} detail={loading.detail} />
 		);
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
-		return <MediaStatusMessage {...props.summaryError(state)} onRetry={props.refresh} />;
+		return <MediaStatusMessage {...props.summaryError(copy.text, state)} onRetry={props.refresh} />;
 	}
 	if (state.status === "unavailable") {
 		return (
 			<>
 				{props.summaryRefreshStatus}
-				<MediaStatusMessage {...props.summaryUnavailable(state.reason)} />
+				<MediaStatusMessage {...props.summaryUnavailable(copy.text, state.reason)} />
 			</>
 		);
 	}
@@ -128,14 +135,14 @@ export function MediaDetailBody<
 				compact={props.compact}
 				settled={props.settled}
 				artwork={props.artwork}
-				detail={props.header(summary)}
+				detail={props.header(summary, copy)}
 			/>
 			<Tabs
 				value={activeTab}
 				options={props.tabs}
-				label="Media sections"
 				onChange={setActiveTab}
 				panelId={MEDIA_DETAIL_PANEL_ID}
+				label={copy.text("detail.sections-label")}
 			/>
 			<div
 				role="tabpanel"

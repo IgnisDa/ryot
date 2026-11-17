@@ -4,6 +4,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type RefObject, useRef, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
+import { useMediaMessages } from "../../messages";
 import { MediaReviewForm } from "../review";
 import type { ReviewCompletion } from "../review-about";
 import { type ActivityLogSubmission, useActivityLogSubmission } from "./queries";
@@ -26,6 +27,7 @@ export function MediaLogActivityButton(props: {
 	readonly onOpenChange?: (open: boolean) => void;
 }) {
 	usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
+	const text = useMediaMessages();
 	const log = useActivityLogSubmission();
 	const [open, setOpenState] = useState<"log" | "review" | undefined>(undefined);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -38,7 +40,7 @@ export function MediaLogActivityButton(props: {
 	if (props.link) {
 		trigger = (
 			<Button variant="link" ref={triggerRef} onClick={openLog}>
-				Log activity
+				{text("log.title")}
 			</Button>
 		);
 	} else if (props.logger.family !== "flat") {
@@ -85,10 +87,11 @@ function PlainLogButton({
 	readonly onOpen: () => void;
 	readonly ref: RefObject<null | HTMLButtonElement>;
 }) {
+	const text = useMediaMessages();
 	return (
 		<Button ref={ref} onClick={onOpen}>
 			<AppIcon size={15} name="plus" />
-			Log activity
+			{text("log.title")}
 		</Button>
 	);
 }
@@ -104,9 +107,10 @@ function SplitLogButton({
 	readonly logger: MediaActivityLogger;
 	readonly ref: RefObject<null | HTMLButtonElement>;
 }) {
+	const text = useMediaMessages();
 	const { log, locked, context } = useQuickLog(entityId);
 	const quick =
-		context === undefined || context === null ? null : activityQuickAction(logger, context);
+		context === undefined || context === null ? null : activityQuickAction(text, logger, context);
 	if (quick === null) {
 		return <PlainLogButton ref={ref} onOpen={onOpen} />;
 	}
@@ -116,23 +120,23 @@ function SplitLogButton({
 				<Button
 					disabled={locked}
 					className="rounded-r-none"
-					onClick={() => log.submit({ label: quick.text, entry: quick.entry })}
+					onClick={() => log.submit({ entry: quick.entry, label: quick.success })}
 				>
 					<AppIcon size={15} name="check" />
-					{log.isSending ? "Saving…" : quick.label}
+					{log.isSending ? text("common.status.saving") : quick.label}
 				</Button>
 				<IconButton
 					ref={ref}
 					tone="filled"
 					onClick={onOpen}
-					label="More logging options"
+					label={text("log.more-options")}
 					className="rounded-l-none border-l border-border"
 				>
 					<AppIcon size={15} name="chevron-down" />
 				</IconButton>
 			</div>
 			{log.error === null ? null : (
-				<StatusMessage tone="error">Couldn't start saving. Try again.</StatusMessage>
+				<StatusMessage tone="error">{text("log.save-failed")}</StatusMessage>
 			)}
 		</div>
 	);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { assert } from "@ryot-app/testing/assert";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import {
 	decodeEpisodicActivity,
 	emptyEpisodicActivity,
@@ -16,6 +17,7 @@ import {
 	readyQueryResult,
 	transportErrorQueryResult,
 } from "../../tests/client/query-result-fixture";
+import { testMediaCopy } from "../../tests/client/test-text";
 import {
 	mediaEpisodicActivityFigures,
 	mediaEpisodicActivityRow,
@@ -35,7 +37,7 @@ describe("episodic activity state", () => {
 		for (const minutes of [0, null]) {
 			const row = mediaEpisodicActivityRow(
 				{ ...episode, timeSpent: 90, consumptionMinutes: minutes, eventSchemaSlug: "complete" },
-				{ order: () => [1], origin: () => "E1" },
+				{ order: () => [1], origin: () => catalogMessage("episode.number", { episode: 1 }) },
 			);
 			expect(row).toMatchObject({ type: "watch", episodes: [{ minutes: minutes ?? undefined }] });
 		}
@@ -43,8 +45,8 @@ describe("episodic activity state", () => {
 	it("hides lifetime figures during repair while retaining current episode coverage", () => {
 		const summary = view({ consumedAmount: 0, consumptionProcessing: "pending" }).summary;
 		expect(summary.processing).toBe("pending");
-		expect(mediaEpisodicEpisodesLabel(summary)).toBe("2 / 4");
-		const figures = mediaEpisodicActivityFigures(summary, {
+		expect(mediaEpisodicEpisodesLabel(testMediaCopy, summary)).toBe("2 / 4");
+		const figures = mediaEpisodicActivityFigures(testMediaCopy, summary, {
 			time: "Time",
 			current: "Current",
 			watches: "Watches",
@@ -77,22 +79,28 @@ describe("episodic activity state", () => {
 		assert(episode?.kind === "episode");
 		const complete = mediaEpisodicActivityRow(
 			{ ...episode, timeSpent: 25, consumptionMinutes: 25, eventSchemaSlug: "complete" },
-			{ order: () => [1], origin: () => "E1" },
+			{ order: () => [1], origin: () => catalogMessage("episode.number", { episode: 1 }) },
 		);
 		expect(complete).toMatchObject({
 			type: "watch",
 			key: `watch-${episode.id}`,
-			episodes: [{ minutes: 25, origin: "E1", id: episode.episode.id }],
+			episodes: [
+				{
+					minutes: 25,
+					id: episode.episode.id,
+					origin: catalogMessage("episode.number", { episode: 1 }),
+				},
+			],
 		});
 		const progress = mediaEpisodicActivityRow(
 			{ ...episode, progressPercent: 45, eventSchemaSlug: "progress" },
-			{ order: () => [1], origin: () => "E1" },
+			{ order: () => [1], origin: () => catalogMessage("episode.number", { episode: 1 }) },
 		);
 		expect(progress).toMatchObject({
 			percent: 45,
 			type: "progress",
 			key: `progress-${episode.id}`,
-			episode: { origin: "E1", id: episode.episode.id },
+			episode: { id: episode.episode.id, origin: catalogMessage("episode.number", { episode: 1 }) },
 		});
 	});
 	it("maps query failures apart and reports an unrecorded history as empty", () => {
@@ -164,7 +172,7 @@ describe("episodic activity state", () => {
 			"Episode 1: The Arrest",
 			"Episode 2: The Interview",
 		]);
-		expect(episodicFixtureSchema.activityRowLabel(row)).toBe("Heard 2 episodes");
+		expect(episodicFixtureSchema.activityRowLabel(testMediaCopy, row)).toBe("Played 2 episodes");
 	});
 
 	it("orders a day of completions by its latest watch, not the start of the day", () => {
@@ -209,16 +217,18 @@ describe("episodic activity state", () => {
 			watchDays: [episodicFirstWatchDayRow],
 		});
 		assert(single.timeline.layout === "flat");
-		const labels = single.timeline.rows.map(episodicFixtureSchema.activityRowLabel);
+		const labels = single.timeline.rows.map((row) =>
+			episodicFixtureSchema.activityRowLabel(testMediaCopy, row),
+		);
 
-		expect(labels).toEqual(["Heard Ep 1 · Episode 1: The Arrest"]);
+		expect(labels).toEqual(["Played Ep 1 · Episode 1: The Arrest"]);
 	});
 
 	it("labels every row kind from the schema's own copy", () => {
 		const full = view({ watchDays: [] });
 		const rows =
 			full.timeline.layout === "flat" ? full.timeline.rows : full.timeline.completed[0].rows;
-		const labels = rows.map(episodicFixtureSchema.activityRowLabel);
+		const labels = rows.map((row) => episodicFixtureSchema.activityRowLabel(testMediaCopy, row));
 
 		expect(labels).toContain("Reviewed the item");
 		expect(labels).toContain("Finished the item");
@@ -255,9 +265,9 @@ describe("episodic activity state", () => {
 		});
 		assert(beats.timeline.layout === "flat");
 
-		expect(beats.timeline.rows.map(episodicFixtureSchema.activityRowLabel)).toEqual([
-			"Stopped the item",
-		]);
+		expect(
+			beats.timeline.rows.map((row) => episodicFixtureSchema.activityRowLabel(testMediaCopy, row)),
+		).toEqual(["Stopped the item"]);
 	});
 
 	it("keeps current coverage separate from lifetime watches and minutes", () => {
@@ -265,9 +275,15 @@ describe("episodic activity state", () => {
 
 		expect(summary.watches).toBe(1);
 		expect(summary.minutes).toEqual({ total: 116, missing: 0 });
-		expect(mediaEpisodicEpisodesLabel(summary)).toBe("2 / 4");
+		expect<string>(mediaEpisodicEpisodesLabel(testMediaCopy, summary)).toBe("2 / 4");
 		expect(view().coverage).toEqual([
-			{ total: 4, watched: 2, percent: 50, key: "parent-1", label: "Episodes" },
+			{
+				total: 4,
+				watched: 2,
+				percent: 50,
+				key: "parent-1",
+				label: catalogMessage("property.episodes"),
+			},
 		]);
 	});
 

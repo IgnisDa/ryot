@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import type { EntityPresentationSource, EntityReference } from "@ryot-app/plugin-client-sdk/plugin";
 
@@ -36,6 +37,7 @@ describe("media entity presentation preparation", () => {
 	it("decodes saved-view rows and shares one deduplicated managed asset batch", () => {
 		const managed = { type: "s3", key: "portrait" } as const;
 		const result = prepareMediaPresentations({
+			formatters: testFormatters,
 			references: [reference("one"), reference("two")],
 			sources: new Map([
 				["one", source("one", managed)],
@@ -75,7 +77,11 @@ describe("media entity presentation preparation", () => {
 
 	it("fails the batch when a saved-view source is missing", () => {
 		expect(
-			prepareMediaPresentations({ sources: new Map(), references: [reference("missing")] })._tag,
+			prepareMediaPresentations({
+				sources: new Map(),
+				formatters: testFormatters,
+				references: [reference("missing")],
+			})._tag,
 		).toBe("Failure");
 	});
 });
@@ -85,6 +91,7 @@ it("prepares public cards for every media schema without private progress or rat
 		const { rating: _rating, ...data } = source("one", { type: "local", key: "poster" });
 		const result = Result.getOrThrow(
 			mediaEntityPresentation("poster", "grid").prepare({
+				formatters: testFormatters,
 				sources: new Map([["one", { ...data, schemaSlug }]]),
 				references: [{ ...reference("one"), entitySchemaSlug: schemaSlug }],
 			}),

@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -8,6 +9,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
+import { useMediaMessages } from "../messages";
 import { podcastEpisodesQuery } from "../podcast/episodes-query";
 import { activityLogSeasonsQuery, showSeasonChoicesQuery } from "./activity-log/queries";
 import { type ActivityEpisode, episodeCode, seasonLabel } from "./activity-log/state";
@@ -97,7 +99,7 @@ export function ShowEpisodes(props: {
 
 export function EpisodeChoice(props: {
 	readonly entityId: string;
-	readonly emptyMessage: string;
+	readonly emptyMessage: Text;
 	readonly family: "show" | "podcast";
 	readonly selectedId: string | undefined;
 	readonly seasonNumber: number | undefined;
@@ -137,6 +139,7 @@ export function ActivitySeasonSelector(props: {
 	readonly seasonNumber: number | undefined;
 	readonly onSeason: (season: { readonly id: string; readonly seasonNumber: number }) => void;
 }) {
+	const text = useMediaMessages();
 	const query = useRyotInfiniteQuery(
 		activityLogSeasonsQuery,
 		{ entityId: props.entityId },
@@ -153,22 +156,25 @@ export function ActivitySeasonSelector(props: {
 	);
 	const choices = seasons.map((season) => ({
 		value: String(season.seasonNumber),
-		label: seasonLabel(season.seasonNumber),
+		label: seasonLabel(text, season.seasonNumber),
 	}));
 	if (
 		props.seasonNumber !== undefined &&
 		!seasons.some((season) => season.seasonNumber === props.seasonNumber)
 	) {
-		choices.push({ value: String(props.seasonNumber), label: seasonLabel(props.seasonNumber) });
+		choices.push({
+			value: String(props.seasonNumber),
+			label: seasonLabel(text, props.seasonNumber),
+		});
 	}
 	return (
 		<div className="flex flex-col gap-2">
-			<Field label="Season">
+			<Field label={text("episodes.season")}>
 				{(control) => (
 					<Select
-						label="Season"
 						id={control.id}
 						choices={choices}
+						label={text("episodes.season")}
 						value={String(props.seasonNumber ?? "")}
 						checkIcon={<AppIcon size={16} name="check" />}
 						chevronIcon={<AppIcon size={16} name="chevron-down" />}
@@ -181,17 +187,22 @@ export function ActivitySeasonSelector(props: {
 					/>
 				)}
 			</Field>
-			{query.isPending ? <StatusMessage tone="pending">Loading seasons…</StatusMessage> : null}
+			{query.isPending ? (
+				<StatusMessage tone="pending">{text("episodes.seasons-loading")}</StatusMessage>
+			) : null}
 			{query.isError ? (
-				<StatusMessage tone="error" action={{ label: "Try again", onClick: query.retry }}>
-					Unable to load seasons.
+				<StatusMessage
+					tone="error"
+					action={{ onClick: query.retry, label: text("common.action.try-again") }}
+				>
+					{text("episodes.seasons-failed")}
 				</StatusMessage>
 			) : null}
 			{query.hasNextPage ? (
 				<LoadMoreButton
-					label="Load more seasons"
 					disabled={query.isFetching}
 					onClick={query.fetchNextPage}
+					label={text("episodes.seasons-load-more")}
 					isFetchingNextPage={query.isFetchingNextPage}
 				/>
 			) : null}
@@ -200,23 +211,27 @@ export function ActivitySeasonSelector(props: {
 }
 
 export function EpisodeList(props: {
+	readonly emptyMessage: Text;
 	readonly pager: EpisodePager;
-	readonly emptyMessage: string;
 	readonly family: "show" | "podcast";
 	readonly selectedId: string | undefined;
 	readonly onSelect: (id: string) => void;
 	readonly stateLabel?: (episode: ActivityEpisode) => string | undefined;
 }) {
 	const { pager, family } = props;
+	const text = useMediaMessages();
 	if (pager.isError && pager.choices.length === 0) {
 		return (
-			<StatusMessage tone="error" action={{ label: "Try again", onClick: pager.retry }}>
-				Unable to load episodes.
+			<StatusMessage
+				tone="error"
+				action={{ onClick: pager.retry, label: text("common.action.try-again") }}
+			>
+				{text("episodes.load-failed")}
 			</StatusMessage>
 		);
 	}
 	if (pager.isPending) {
-		return <StatusMessage tone="pending">Loading episodes…</StatusMessage>;
+		return <StatusMessage tone="pending">{text("episodes.loading")}</StatusMessage>;
 	}
 	if (pager.choices.length === 0) {
 		return <p className="text-text-muted">{props.emptyMessage}</p>;
@@ -224,9 +239,9 @@ export function EpisodeList(props: {
 	return (
 		<div className="flex flex-col gap-2">
 			<RadioGroup
-				label="Episode"
 				value={props.selectedId}
 				onChange={props.onSelect}
+				label={text("property.episode")}
 				className="max-h-56 overflow-y-auto rounded-md border border-border"
 				options={pager.choices.map((episode) => {
 					const state = props.stateLabel?.(episode);
@@ -234,7 +249,13 @@ export function EpisodeList(props: {
 						state,
 						episode,
 						value: episode.id,
-						label: `${episodeCode({ family }, episode)}${state === undefined ? "" : ` · ${state}`}`,
+						label:
+							state === undefined
+								? episodeCode(text, { family }, episode)
+								: text("episodes.choice-with-state", {
+										state,
+										code: episodeCode(text, { family }, episode),
+									}),
 					};
 				})}
 				renderOption={(option, selected) => ({
@@ -246,10 +267,12 @@ export function EpisodeList(props: {
 						<>
 							<span className="min-w-0 flex-1 truncate">
 								<span className="font-medium text-text">
-									{episodeCode({ family }, option.episode)}
+									{episodeCode(text, { family }, option.episode)}
 								</span>
 								{option.episode.name === "" ? null : (
-									<span className="text-text-muted"> · {option.episode.name}</span>
+									<span className="text-text-muted">
+										{text("episodes.name-suffix", { name: option.episode.name })}
+									</span>
 								)}
 							</span>
 							{option.state === undefined ? null : (
@@ -261,7 +284,6 @@ export function EpisodeList(props: {
 			/>
 			{pager.hasNextPage ? (
 				<LoadMoreButton
-					label="Load more"
 					onClick={pager.fetchNextPage}
 					disabled={pager.isFetchingNextPage}
 					isFetchingNextPage={pager.isFetchingNextPage}

@@ -74,7 +74,6 @@ export function MediaCursorPages<Item, Selection, Input>(
 			{!result.hasNextPage || result.errorOperation === "append" ? null : (
 				<div className="pt-1">
 					<LoadMoreButton
-						label="Load more"
 						disabled={result.isFetching}
 						onClick={result.fetchNextPage}
 						onVisible={result.fetchNextPage}

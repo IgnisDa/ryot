@@ -1,5 +1,6 @@
-import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import type { DisplayText, Formatters, RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
+import { formatDuration } from "@ryot-app/plugin-ui-sdk";
 
 import type {
 	EpisodicLifecycleState,
@@ -10,8 +11,8 @@ import type {
 	MediaGenresList,
 	MediaSummarySelection,
 } from "../../shared/media-recipes";
+import type { CountKind, MediaCopy, MediaText } from "../messages";
 import type { MediaActivityLogger } from "./activity-log/state";
-import { mediaActivityDurationLabel } from "./activity-timeline";
 import { formatDateOnlyLabel } from "./date";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import {
@@ -71,14 +72,23 @@ export type MediaSummaryState<Summary> = MappedRyotQueryState<
 	| { readonly status: "unavailable"; readonly reason: MediaSummaryUnavailableReason }
 >;
 
-export const mediaSourceLinks = (entity: {
-	readonly sourceUrl: null | string;
-	readonly providerName: null | string;
-	readonly website?: null | string | undefined;
-}): readonly MediaSummaryLink[] =>
+export const mediaSourceLinks = (
+	{ text, display }: MediaCopy,
+	entity: {
+		readonly sourceUrl: null | string;
+		readonly providerName: null | DisplayText;
+		readonly website?: null | string | undefined;
+	},
+): readonly MediaSummaryLink[] =>
 	[
-		{ label: "Website", href: entity.website ?? null },
-		{ href: entity.sourceUrl, label: `${entity.providerName ?? "Source"} page` },
+		{ href: entity.website ?? null, label: text("property.website") },
+		{
+			href: entity.sourceUrl,
+			label:
+				entity.providerName === null
+					? text("source.page")
+					: text("source.provider-page", { provider: display(entity.providerName) }),
+		},
 	].flatMap(({ href, label }) =>
 		href !== null && /^https?:\/\//i.test(href) ? [{ href, label }] : [],
 	);
@@ -131,18 +141,18 @@ export const mediaReleaseLabel = (media: {
 }) => (media.publishYear === null ? (media.publishDate ?? undefined) : String(media.publishYear));
 
 export const mediaRatingLabel = (
+	formatters: Formatters,
 	media: { readonly providerRating: null | number },
-	locales?: Intl.LocalesArgument,
 ) =>
 	media.providerRating === null
 		? undefined
-		: new Intl.NumberFormat(locales, { maximumFractionDigits: 2 }).format(media.providerRating);
+		: formatters.number({ maximumFractionDigits: 2 }).format(media.providerRating);
 
-export const mediaRatingFact = (media: {
-	readonly providerName: null | string;
-	readonly providerRating: null | number;
-}): undefined | MediaSummaryFact => {
-	const value = mediaRatingLabel(media);
+export const mediaRatingFact = (
+	{ text, display, formatters }: MediaCopy,
+	media: { readonly providerRating: null | number; readonly providerName: null | DisplayText },
+): undefined | MediaSummaryFact => {
+	const value = mediaRatingLabel(formatters, media);
 	return value === undefined
 		? undefined
 		: {
@@ -150,46 +160,43 @@ export const mediaRatingFact = (media: {
 				icon: "star",
 				suffix: RATING_SUFFIX,
 				iconClass: "text-accent-text",
-				label: media.providerName === null ? "Provider rating" : `${media.providerName} rating`,
+				label:
+					media.providerName === null
+						? text("property.provider-rating")
+						: text("summary.rating-from", { provider: display(media.providerName) }),
 			};
 };
 
 export const mediaSummaryStateMapper = <
 	Data extends { readonly entitySchemaSlug: null | string },
 	Summary,
->(input: {
-	readonly title: string;
-	readonly plural: string;
-	readonly singular: string;
-	readonly select: (value: Data) => null | Summary;
-}) => ({
-	loading: {
-		title: `Loading ${input.singular}...`,
-		detail: `Fetching the latest details for this ${input.singular}.`,
-	},
-	summaryUnavailable: (reason: MediaSummaryUnavailableReason) => ({
-		title: `${input.title} unavailable`,
+>(
+	select: (value: Data) => null | Summary,
+) => ({
+	loading: (text: MediaText) => ({
+		title: text("summary.loading-title"),
+		detail: text("summary.loading-detail"),
+	}),
+	summaryUnavailable: (text: MediaText, reason: MediaSummaryUnavailableReason) => ({
+		title: text("summary.unavailable-title"),
 		detail:
 			reason === "missing"
-				? "This entity no longer exists."
-				: `This entity is not a ${input.singular}, and only ${input.plural} can be opened here.`,
+				? text("summary.unavailable-missing")
+				: text("summary.unavailable-unsupported"),
 	}),
-	summaryError: (state: MediaSummaryFailure) =>
+	summaryError: (text: MediaText, state: MediaSummaryFailure) =>
 		state.status === "transport-error"
-			? {
-					title: `Unable to load this ${input.singular}`,
-					detail: `The server could not load this ${input.singular}. Check your connection and try again.`,
-				}
+			? { title: text("summary.error-load-title"), detail: text("summary.error-load-detail") }
 			: {
-					title: `Unable to display this ${input.singular}`,
-					detail: `This ${input.singular} returned data that could not be displayed. Try again later.`,
+					title: text("summary.error-display-title"),
+					detail: text("summary.error-display-detail"),
 				},
 	mapSummary: (result: RyotQueryResult<Data>): MediaSummaryState<Summary> => {
 		const state = classifyRyotQueryResult(result);
 		if (state.status !== "ready") {
 			return state;
 		}
-		const summary = input.select(state.value);
+		const summary = select(state.value);
 		if (summary === null) {
 			return {
 				status: "unavailable",
@@ -200,25 +207,11 @@ export const mediaSummaryStateMapper = <
 	},
 });
 
-const MEDIA_FLAT_LIFECYCLE_LABELS: Record<MediaLifecycleState, string> = {
-	on_hold: "On hold",
-	dropped: "Dropped",
-	complete: "Complete",
-	backlog: "In backlog",
-	untracked: "Not tracked",
-	in_progress: "In progress",
-};
+export const mediaFlatLifecycleLabel = (text: MediaText, state: MediaLifecycleState) =>
+	text("summary.lifecycle", { state });
 
-export const mediaFlatLifecycleLabel = (state: MediaLifecycleState) =>
-	MEDIA_FLAT_LIFECYCLE_LABELS[state];
-
-const MEDIA_EPISODIC_LIFECYCLE_LABELS: Record<EpisodicLifecycleState, string> = {
-	...MEDIA_FLAT_LIFECYCLE_LABELS,
-	caught_up: "Caught up",
-};
-
-export const mediaEpisodicLifecycleLabel = (state: EpisodicLifecycleState) =>
-	MEDIA_EPISODIC_LIFECYCLE_LABELS[state];
+export const mediaEpisodicLifecycleLabel = (text: MediaText, state: EpisodicLifecycleState) =>
+	text("summary.lifecycle", { state });
 
 const MEDIA_LIFECYCLE_TONES: Record<EpisodicLifecycleState, MediaStatusTone> = {
 	dropped: "danger",
@@ -230,22 +223,30 @@ const MEDIA_LIFECYCLE_TONES: Record<EpisodicLifecycleState, MediaStatusTone> = {
 	in_progress: "accent",
 };
 
-export const mediaOwnedLabel = (ownedOn: null | string) =>
-	ownedOn === null ? "Owned" : `Owned since ${formatDateOnlyLabel(ownedOn)}`;
+export const mediaOwnedLabel = ({ text, formatters }: MediaCopy, ownedOn: null | string) =>
+	ownedOn === null
+		? text("property.owned")
+		: text("ownership.owned-since", { date: formatDateOnlyLabel(formatters, ownedOn) });
 
-export const mediaProductionStatusFact = (media: {
-	readonly productionStatus: null | string;
-}): undefined | MediaSummaryFact =>
+export const mediaProductionStatusFact = (
+	text: MediaText,
+	media: { readonly productionStatus: null | string },
+): undefined | MediaSummaryFact =>
 	media.productionStatus === null
 		? undefined
-		: { icon: "clapperboard", label: "Production status", value: media.productionStatus };
+		: {
+				icon: "clapperboard",
+				value: media.productionStatus,
+				label: text("property.production-status"),
+			};
 
-export const mediaCountLabel = (count: number, singular: string) =>
-	`${count} ${count === 1 ? singular : `${singular}s`}`;
+export const mediaCountLabel = (text: MediaText, count: number, kind: CountKind) =>
+	text("count.value", { kind, count });
 
 export const mediaCountFact = (
+	text: MediaText,
 	count: null | number,
-	singular: string,
+	kind: CountKind,
 	icon: string,
 ): undefined | MediaSummaryFact =>
 	count === null
@@ -253,77 +254,93 @@ export const mediaCountFact = (
 		: {
 				icon,
 				inline: true,
-				label: count === 1 ? singular : `${singular}s`,
-				value: mediaCountLabel(count, singular.toLowerCase()),
+				value: mediaCountLabel(text, count, kind),
+				label: text("count.fact-label", { kind, count }),
 			};
 
 /** Episode progress over the aired set, e.g. "10 of 10 complete · 3 upcoming". */
-export const mediaEpisodicAiredLabel = (counts: {
-	readonly aired: number;
-	readonly watched: number;
-	readonly upcoming: number;
-}) => {
+export const mediaEpisodicAiredLabel = (
+	text: MediaText,
+	counts: { readonly aired: number; readonly watched: number; readonly upcoming: number },
+) => {
 	const parts = [
-		counts.aired === 0 ? undefined : `${counts.watched} of ${counts.aired} complete`,
-		counts.upcoming === 0 ? undefined : `${counts.upcoming} upcoming`,
+		counts.aired === 0
+			? undefined
+			: text("summary.aired-complete", { aired: counts.aired, watched: counts.watched }),
+		counts.upcoming === 0 ? undefined : text("summary.upcoming", { count: counts.upcoming }),
 	].filter((part) => part !== undefined);
 	return parts.length === 0 ? undefined : parts.join(" · ");
 };
 
-export const mediaEpisodicAiredFact = (summary: {
-	readonly airedEpisodes: number;
-	readonly watchedEpisodes: number;
-	readonly upcomingEpisodes: number;
-}): undefined | MediaSummaryFact => {
-	const value = mediaEpisodicAiredLabel({
+export const mediaEpisodicAiredFact = (
+	text: MediaText,
+	summary: {
+		readonly airedEpisodes: number;
+		readonly watchedEpisodes: number;
+		readonly upcomingEpisodes: number;
+	},
+): undefined | MediaSummaryFact => {
+	const value = mediaEpisodicAiredLabel(text, {
 		aired: summary.airedEpisodes,
 		watched: summary.watchedEpisodes,
 		upcoming: summary.upcomingEpisodes,
 	});
 	return value === undefined
 		? undefined
-		: { value, inline: true, label: "Progress", icon: "circle-check" };
+		: { value, inline: true, icon: "circle-check", label: text("primitives.progress") };
 };
 
-export const mediaCountLabels = (count: null | number, singular: string) =>
-	count === null ? [] : [mediaCountLabel(count, singular)];
+export const mediaCountLabels = (text: MediaText, count: null | number, kind: CountKind) =>
+	count === null ? [] : [mediaCountLabel(text, count, kind)];
 
-export const mediaDurationFact = (duration: null | number, label: string) =>
+export const mediaDurationFact = (
+	{ formatters }: MediaCopy,
+	duration: null | number,
+	label: string,
+) =>
 	duration === null
 		? undefined
-		: { label, inline: true, icon: "clock", value: mediaActivityDurationLabel(duration) };
+		: {
+				label,
+				inline: true,
+				icon: "clock",
+				value: formatDuration(formatters, duration * 60, "minute"),
+			};
 
-export const mediaDurationLabels = (duration: null | number) =>
-	duration === null ? [] : [mediaActivityDurationLabel(duration)];
+export const mediaDurationLabels = (formatters: Formatters, duration: null | number) =>
+	duration === null ? [] : [formatDuration(formatters, duration * 60, "minute")];
 
-export const mediaCollectionsLabel = ({ items, pageInfo }: MediaCollectionList) => {
+export const mediaCollectionsLabel = (
+	{ text }: MediaCopy,
+	{ items, pageInfo }: MediaCollectionList,
+) => {
 	if (items.length === 0) {
-		return "Add to collection";
+		return text("collections.add");
 	}
 	return pageInfo.hasMore
-		? `${items.length}+ collections`
-		: mediaCountLabel(items.length, "collection");
+		? text("collections.more", { count: items.length })
+		: text("collections.count", { count: items.length });
 };
 
 /** The media header: rating first and production status last around the descriptor's facts, genres as chips. */
 export const mediaSummaryHeaderDetail =
 	<Summary extends MediaSummaryValue & { readonly state: EpisodicLifecycleState }>(input: {
 		readonly logActivity: MediaActivityLogger;
-		readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
+		readonly facts: (summary: Summary, copy: MediaCopy) => readonly MediaSummaryFact[];
 		readonly progress?:
 			undefined | ((summary: Summary) => undefined | { readonly percent: number });
 	}) =>
-	(summary: Summary): MediaSummaryHeaderDetail => ({
+	(summary: Summary, copy: MediaCopy): MediaSummaryHeaderDetail => ({
 		links: [],
 		identityDetail: mediaReleaseLabel(summary),
 		chips: [
 			...summary.genres.items.map(({ name }) => name),
-			...(summary.genres.pageInfo.hasMore ? ["More genres"] : []),
+			...(summary.genres.pageInfo.hasMore ? [copy.text("summary.more-genres")] : []),
 		],
 		facts: [
-			mediaRatingFact(summary),
-			...input.facts(summary),
-			mediaProductionStatusFact(summary),
+			mediaRatingFact(copy, summary),
+			...input.facts(summary, copy),
+			mediaProductionStatusFact(copy.text, summary),
 		].filter((fact) => fact !== undefined),
 		rail: {
 			logActivity: input.logActivity,
@@ -331,7 +348,7 @@ export const mediaSummaryHeaderDetail =
 			status: {
 				progress: input.progress?.(summary),
 				tone: MEDIA_LIFECYCLE_TONES[summary.state],
-				label: mediaEpisodicLifecycleLabel(summary.state),
+				label: mediaEpisodicLifecycleLabel(copy.text, summary.state),
 			},
 		},
 	});

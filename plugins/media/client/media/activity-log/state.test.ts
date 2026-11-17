@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 import { toDateTimeInput } from "@ryot-app/plugin-ui-sdk/datetime";
@@ -14,8 +15,10 @@ import {
 	MediaActivityLogInput,
 	MediaActivityUpdateInput,
 } from "../../../shared/media-activity-operations";
+import { catalogMessage } from "../../../shared/messages.generated";
 import { contextTarget } from "../../../tests/client/activity-log/fixtures";
 import { rowsResult } from "../../../tests/client/query-result-fixture";
+import { testMediaCopy, testMediaText } from "../../../tests/client/test-text";
 import {
 	activityCopyLabels,
 	type ActivityDraft,
@@ -41,30 +44,19 @@ import {
 	selectedEpisode,
 } from "./state";
 
-const copy = { verb: "watch", noun: "movie", gerund: "watching", participle: "watched" };
+const copy = { verb: "watch", kind: "movie" } as const;
 
-const flat: MediaActivityLogger = {
-	copy,
-	family: "flat",
-	progressUnit: { field: "runtime", plural: "minutes", singular: "minute" },
-};
+const flat: MediaActivityLogger = { copy, family: "flat", progressUnit: { field: "runtime" } };
 const pages: MediaActivityLogger = {
 	family: "flat",
-	progressUnit: { field: "pages", plural: "pages", singular: "page" },
-	copy: { verb: "read", noun: "book", gerund: "reading", participle: "read" },
+	progressUnit: { field: "pages" },
+	copy: { verb: "read", kind: "book" },
 };
-const positional: MediaActivityLogger = {
-	copy,
-	family: "positional",
-	units: [{ label: "Episode", value: "episodes", plural: "episodes", singular: "episode" }],
-};
+const positional: MediaActivityLogger = { copy, units: ["episodes"], family: "positional" };
 const manga: MediaActivityLogger = {
 	family: "positional",
-	copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
-	units: [
-		{ label: "Chapter", value: "chapters", plural: "chapters", singular: "chapter" },
-		{ label: "Volume", value: "volumes", plural: "volumes", singular: "volume" },
-	],
+	units: ["chapters", "volumes"],
+	copy: { verb: "read", kind: "manga" },
 };
 const show: MediaActivityLogger = { copy, family: "show" };
 const podcast: MediaActivityLogger = { copy, family: "podcast" };
@@ -113,7 +105,8 @@ const draft = (overrides: Partial<ActivityDraft> = {}): ActivityDraft => ({
 	...overrides,
 });
 
-const order = (logger: MediaActivityLogger) => activityIntents(logger).map(({ label }) => label);
+const order = (logger: MediaActivityLogger): string[] =>
+	activityIntents(testMediaText, logger).map(({ label }): string => label);
 
 describe("intents", () => {
 	it("orders intents per family and defaults to the first", () => {
@@ -264,7 +257,13 @@ describe("picked dates", () => {
 });
 
 const errors = (value: ActivityDraft, logger: MediaActivityLogger = flat, extra = {}) =>
-	activityDraftErrors({ logger, draft: value, today: TODAY, context: loaded(extra) });
+	activityDraftErrors({
+		logger,
+		draft: value,
+		today: TODAY,
+		text: testMediaText,
+		context: loaded(extra),
+	});
 
 const timedDraft = (finished: string, started = "") =>
 	draft({
@@ -361,7 +360,10 @@ describe("validation", () => {
 
 	it("validates an exact time and its ordered start", () => {
 		expect(errors(timedDraft("2026-10-19T21:30", "2026-10-19T08:00"))).toEqual({});
-		expect(errors(timedDraft("")).when).toBe("Enter a date and time.");
+		expect(errors(timedDraft("")).when).toEqual({
+			namespace: "kernel",
+			key: "ui.datetime.required",
+		});
 		expect(errors(timedDraft("2026-10-21T08:00")).when).toBe("That day is in the future.");
 		expect(errors(timedDraft("2026-10-19T08:00", "2026-10-19T09:00")).when).toBe(
 			"The start can't be after the finish.",
@@ -574,15 +576,31 @@ describe("entries", () => {
 	});
 });
 
-const labels = (value: ActivityDraft, logger: MediaActivityLogger = flat, count = 1) =>
-	activityCopyLabels({
+const labels = (value: ActivityDraft, logger: MediaActivityLogger = flat, count = 1) => {
+	const labelled = activityCopyLabels({
 		logger,
 		name: "Heat",
 		draft: value,
 		context: loaded(),
+		text: testMediaText,
 		episodeCount: count,
-		episodeCode: "S2·E5",
+		episodeCode: {
+			text: "S2·E5",
+			message: catalogMessage("log.episode-code-seasonal", { season: 2, episode: 5 }),
+		},
 	});
+	const success: string = testMediaCopy.local(labelled.success);
+	return { ...labelled, success };
+};
+
+const quickAction = (...input: Parameters<typeof activityQuickAction>) => {
+	const action = activityQuickAction(...input);
+	if (action === null) {
+		return null;
+	}
+	const success: string = testMediaCopy.local(action.success);
+	return { ...action, success };
+};
 
 describe("episodes and copy", () => {
 	it("defaults the season to the next-up season, else the first regular one", () => {
@@ -643,23 +661,31 @@ describe("episodes and copy", () => {
 
 	it("summarises earlier episodes with codes and a remainder", () => {
 		const earlier = [3, 4, 5, 6, 7].map((episodeNumber) => ({ episodeNumber, seasonNumber: 2 }));
-		expect(backfillSummary(show, earlier)).toEqual({
+		const several: unknown = backfillSummary(testMediaText, testFormatters, show, earlier);
+		const single: unknown = backfillSummary(
+			testMediaText,
+			testFormatters,
+			podcast,
+			earlier.slice(0, 1),
+		);
+		expect(several).toEqual({
 			label: "Also mark 5 earlier unwatched episodes",
 			detail: "S2·E3, S2·E4, S2·E5 and 2 more · specials never included",
 		});
-		expect(backfillSummary(podcast, earlier.slice(0, 1))).toEqual({
+		expect(single).toEqual({
 			detail: "Episode 3 · specials never included",
 			label: "Also mark 1 earlier unwatched episode",
 		});
 	});
 
 	it("labels submit and success per intent", () => {
-		expect(labels(draft())).toEqual({
+		const finished: unknown = labels(draft());
+		expect(finished).toEqual({
 			offerReview: true,
 			submit: "Mark as watched",
 			success: "Heat marked as watched.",
 		});
-		expect(labels(draft({ when: "unknown" })).success).toBe(
+		expect<string>(labels(draft({ when: "unknown" })).success).toBe(
 			"Heat marked as watched (date unknown).",
 		);
 		expect(labels(draft({ intent: "progress", progressMode: "started" }))).toMatchObject({
@@ -669,7 +695,7 @@ describe("episodes and copy", () => {
 		expect(
 			labels(draft({ amount: "40", intent: "progress", progressMode: "amount" })),
 		).toMatchObject({ submit: "Save progress", success: "Progress saved at 40%." });
-		expect(labels(draft({ position: 13, intent: "progress" }), positional).success).toBe(
+		expect<string>(labels(draft({ position: 13, intent: "progress" }), positional).success).toBe(
 			"Now watched through episode 13.",
 		);
 		expect(labels(draft({ intent: "episode" }), show)).toMatchObject({
@@ -687,14 +713,14 @@ describe("episodes and copy", () => {
 	});
 
 	it("explains what a status keeps", () => {
-		expect(activityStatusNote(flat, loaded({ progressPercent: 42 }))).toBe(
-			"Keeps your progress at 42%.",
-		);
-		expect(activityStatusNote(flat, loaded())).toBeUndefined();
-		expect(activityStatusNote(positional, loaded({ position: episodeAt(113) }))).toBe(
-			"Keeps your place at episode 113.",
-		);
-		expect(activityStatusNote(show, loaded())).toBe(
+		expect<string | undefined>(
+			activityStatusNote(testMediaText, flat, loaded({ progressPercent: 42 })),
+		).toBe("Keeps your progress at 42%.");
+		expect<string | undefined>(activityStatusNote(testMediaText, flat, loaded())).toBeUndefined();
+		expect<string | undefined>(
+			activityStatusNote(testMediaText, positional, loaded({ position: episodeAt(113) })),
+		).toBe("Keeps your place at episode 113.");
+		expect<string | undefined>(activityStatusNote(testMediaText, show, loaded())).toBe(
 			"Episodes you have already marked stay as they are.",
 		);
 	});
@@ -706,8 +732,12 @@ describe("episodes and copy", () => {
 	});
 
 	it("hints the runtime only when known", () => {
-		expect(activityRuntimeHint(170)).toBe("Leave empty to use the runtime (2h 50m).");
-		expect(activityRuntimeHint(null)).toBe("Leave empty if you don't know.");
+		expect<string>(activityRuntimeHint(testMediaText, testFormatters, 170)).toBe(
+			"Leave empty to use the runtime (2h 50m).",
+		);
+		expect<string>(activityRuntimeHint(testMediaText, testFormatters, null)).toBe(
+			"Leave empty if you don't know.",
+		);
 	});
 });
 
@@ -720,8 +750,8 @@ describe("quick actions", () => {
 	const anime: MediaActivityLogger = positional;
 
 	it("marks the next-up show episode watched now", () => {
-		expect(activityQuickAction(show, loaded({ showNextUp: episodes(2) }))).toEqual({
-			text: "S2·E5 watched.",
+		expect(quickAction(testMediaText, show, loaded({ showNextUp: episodes(2) }))).toEqual({
+			success: "S2·E5 watched.",
 			label: "Mark S2·E5 watched",
 			entry: {
 				kind: "episodes",
@@ -733,21 +763,23 @@ describe("quick actions", () => {
 	});
 
 	it("offers nothing for a show with no next-up episode", () => {
-		expect(activityQuickAction(show, loaded())).toBeNull();
+		expect(quickAction(testMediaText, show, loaded())).toBeNull();
 	});
 
 	it("marks the next-up podcast episode listened", () => {
-		const listened = { ...podcast, copy: { ...copy, participle: "listened" } };
-		expect(activityQuickAction(listened, loaded({ podcastNextUp: episodes(null) }))).toMatchObject({
-			text: "Episode 5 listened.",
+		const listened = { ...podcast, copy: { ...copy, verb: "listen" } } as const;
+		expect(
+			quickAction(testMediaText, listened, loaded({ podcastNextUp: episodes(null) })),
+		).toMatchObject({
+			success: "Episode 5 listened.",
 			label: "Mark Episode 5 listened",
 			entry: { episodeEntityIds: ["next"] },
 		});
 	});
 
 	it("logs episode 1 for an anime with no position", () => {
-		expect(activityQuickAction(anime, loaded({ episodes: 12 }))).toEqual({
-			text: "Episode 1 watched.",
+		expect(quickAction(testMediaText, anime, loaded({ episodes: 12 }))).toEqual({
+			success: "Episode 1 watched.",
 			label: "Mark episode 1 watched",
 			entry: {
 				kind: "progress",
@@ -759,19 +791,20 @@ describe("quick actions", () => {
 
 	it("advances an anime mid-way and when the total is unknown", () => {
 		expect(
-			activityQuickAction(anime, loaded({ episodes: 28, position: episodeAt(12) })),
+			quickAction(testMediaText, anime, loaded({ episodes: 28, position: episodeAt(12) })),
 		).toMatchObject({ label: "Mark episode 13 watched", entry: { position: { position: 13 } } });
-		expect(activityQuickAction(anime, loaded({ position: episodeAt(12) }))).toMatchObject({
+		expect(quickAction(testMediaText, anime, loaded({ position: episodeAt(12) }))).toMatchObject({
 			entry: { position: { position: 13 } },
 		});
 	});
 
 	it("offers nothing for an anime at its total or marked complete", () => {
 		expect(
-			activityQuickAction(anime, loaded({ episodes: 28, position: episodeAt(28) })),
+			quickAction(testMediaText, anime, loaded({ episodes: 28, position: episodeAt(28) })),
 		).toBeNull();
 		expect(
-			activityQuickAction(
+			quickAction(
+				testMediaText,
 				anime,
 				loaded({ episodes: 28, state: "complete", position: episodeAt(3) }),
 			),
@@ -780,12 +813,13 @@ describe("quick actions", () => {
 
 	it("labels manga chapters as read", () => {
 		expect(
-			activityQuickAction(
+			quickAction(
+				testMediaText,
 				manga,
 				loaded({ chapters: 200, position: { position: 113, unit: "chapters" } }),
 			),
 		).toMatchObject({
-			text: "Chapter 114 read.",
+			success: "Chapter 114 read.",
 			label: "Mark chapter 114 read",
 			entry: { position: { position: 114, unit: "chapters" } },
 		});
@@ -793,16 +827,18 @@ describe("quick actions", () => {
 
 	it("advances a volume-only manga by volume up to its volume total", () => {
 		expect(
-			activityQuickAction(
+			quickAction(
+				testMediaText,
 				manga,
 				loaded({ volumes: 10, chapters: 200, position: { position: 3, unit: "volumes" } }),
 			),
 		).toMatchObject({
-			text: "Volume 4 read.",
+			success: "Volume 4 read.",
 			entry: { position: { position: 4, unit: "volumes" } },
 		});
 		expect(
-			activityQuickAction(
+			quickAction(
+				testMediaText,
 				manga,
 				loaded({ volumes: 10, position: { position: 10, unit: "volumes" } }),
 			),
@@ -810,7 +846,7 @@ describe("quick actions", () => {
 	});
 
 	it("never offers a quick action for flat media", () => {
-		expect(activityQuickAction(flat, loaded({ runtime: 120 }))).toBeNull();
+		expect(quickAction(testMediaText, flat, loaded({ runtime: 120 }))).toBeNull();
 	});
 });
 
@@ -1026,7 +1062,13 @@ describe("activity edits", () => {
 				});
 				expect(initial).toMatchObject({ amount: "0", amountUnit: "unit", progressMode: "amount" });
 				expect(
-					activityDraftErrors({ today: TODAY, logger: pages, draft: initial, context: target }),
+					activityDraftErrors({
+						today: TODAY,
+						logger: pages,
+						draft: initial,
+						context: target,
+						text: testMediaText,
+					}),
 				).toEqual({});
 				const patch = activityEditPatch({
 					initial,
@@ -1070,7 +1112,13 @@ describe("activity edits", () => {
 		});
 		expect(initial).toMatchObject({ amount: "250", amountUnit: "unit", progressMode: "amount" });
 		expect(
-			activityDraftErrors({ today: TODAY, logger: pages, draft: initial, context: target }),
+			activityDraftErrors({
+				today: TODAY,
+				logger: pages,
+				draft: initial,
+				context: target,
+				text: testMediaText,
+			}),
 		).toEqual({});
 	});
 });

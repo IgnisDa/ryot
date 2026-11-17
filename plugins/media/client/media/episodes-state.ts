@@ -1,13 +1,18 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
+import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
+
 import type { EntitySyncFields } from "../../shared/entity-selections";
 import type { EpisodeLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaImage } from "../../shared/media-image";
+import { catalogMessage } from "../../shared/messages.generated";
+import type { MediaCopy, MediaText } from "../messages";
 import { optionalText } from "./activity-timeline";
 import { formatDateOnlyLabel } from "./date";
 import { collectManagedAssetLocators, type MediaImages, preferredMediaImageAsset } from "./image";
 
 export type MediaEpisodeImagePurpose = MediaImage["purpose"];
 
-export type MediaEpisodeStateLabels = Record<EpisodeLifecycleState, string | undefined>;
+export type MediaEpisodeStateLabels = Record<EpisodeLifecycleState, undefined | LocalMessage>;
 
 export type MediaEpisode = EntitySyncFields & {
 	readonly id: string;
@@ -20,9 +25,9 @@ export type MediaEpisode = EntitySyncFields & {
 	readonly state: EpisodeLifecycleState;
 };
 
-export const mediaDateLabel = (value: null | string) => {
-	const text = optionalText(value);
-	return text === undefined ? undefined : formatDateOnlyLabel(text);
+export const mediaDateLabel = (formatters: Formatters, value: null | string) => {
+	const date = optionalText(value);
+	return date === undefined ? undefined : formatDateOnlyLabel(formatters, date);
 };
 
 export const mediaEpisodeAsset = (episode: MediaEpisode, purpose: MediaEpisodeImagePurpose) =>
@@ -40,16 +45,16 @@ export const mediaEpisodeStateLabel = (
 
 export const mediaEpisodeSynopsis = (episode: MediaEpisode) => optionalText(episode.description);
 
-export const mediaEpisodeAirDateLabel = (episode: MediaEpisode) =>
-	mediaDateLabel(episode.publishDate);
+export const mediaEpisodeAirDateLabel = (formatters: Formatters, episode: MediaEpisode) =>
+	mediaDateLabel(formatters, episode.publishDate);
 
-export const mediaEpisodeRuntimeLabel = (episode: MediaEpisode) =>
-	episode.runtime === null ? undefined : `${episode.runtime} min`;
+export const mediaEpisodeRuntimeLabel = (text: MediaText, episode: MediaEpisode) =>
+	episode.runtime === null ? undefined : text("episode.runtime", { minutes: episode.runtime });
 
-export const mediaEpisodeMetadataLabel = (episode: MediaEpisode) =>
-	[mediaEpisodeAirDateLabel(episode), mediaEpisodeRuntimeLabel(episode)]
+export const mediaEpisodeMetadataLabel = ({ text, formatters }: MediaCopy, episode: MediaEpisode) =>
+	[mediaEpisodeAirDateLabel(formatters, episode), mediaEpisodeRuntimeLabel(text, episode)]
 		.filter((part) => part !== undefined)
 		.join(" · ");
 
 export const mediaEpisodeNumberLabel = (episode: { readonly episodeNumber: number }) =>
-	`E${episode.episodeNumber}`;
+	catalogMessage("episode.number", { episode: episode.episodeNumber });

@@ -3,11 +3,14 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { EntitySchemaSlug } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotMutation,
+	formatError,
 	type RyotSubmission,
+	useLocalMessage,
 	usePluginIdentity,
 	useRyot,
 	useRyotSchedule,
 	useRyotSubmission,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { DestructiveConfirmation, MenuButton } from "@ryot-app/plugin-ui-sdk";
 import { useEffect, useRef, useState } from "react";
@@ -20,6 +23,7 @@ import {
 } from "../../shared/media-user-data-operations";
 import { mediaUserDataDestinationRecipe } from "../../shared/media-user-data-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { type MediaText, useMediaMessages } from "../messages";
 import { useMediaReminders } from "./reminders";
 import type { MediaEntitySummaryValue } from "./summary-state";
 
@@ -54,23 +58,18 @@ const mediaUserDataMutation = createRyotMutation<
 const isMediaLibraryMemberSchemaSlug = (slug: string): slug is MediaLibraryMemberEntitySchemaSlug =>
 	mediaLibraryMemberEntitySchemaSlugs.some((candidate) => candidate === slug);
 
-const submissionErrorMessage = (error: null | Error) => {
-	if (error === null) {
-		return undefined;
-	}
-	if (error instanceof RyotClientError && error.reason === "operation-failed") {
-		return "This action could not be completed. Demo accounts cannot change media data.";
-	}
-	if (error instanceof RyotClientError && error.reason === "transport") {
-		return "Couldn't reach the server. Retry to finish this change safely.";
-	}
-	return "Couldn't finish this change. Retry to confirm the result safely.";
-};
+const submissionErrorFallback = (text: MediaText, error: Error) =>
+	error instanceof RyotClientError && error.reason === "transport"
+		? text("user-data.error-transport")
+		: text("user-data.error-retry");
 
 export function MediaUserDataControl(props: { readonly media: MediaEntitySummaryValue }) {
 	const { media } = props;
+	const t = useT();
+	const text = useMediaMessages();
 	const reminders = useMediaReminders({ entityId: media.id });
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
+	const localMessage = useLocalMessage(PLUGIN_PACKAGE_ID);
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const submission = useRyotSubmission(mediaUserDataMutation);
@@ -135,12 +134,10 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 						}
 						const [targetId, ...others] = outcome.entityIds;
 						if (targetId === undefined || others.length > 0) {
-							return Effect.sync(() => setPickerError("Select exactly one merge destination."));
+							return Effect.sync(() => setPickerError(text("user-data.pick-one")));
 						}
 						if (targetId === media.id) {
-							return Effect.sync(() =>
-								setPickerError("Choose a different media item as the merge destination."),
-							);
+							return Effect.sync(() => setPickerError(text("user-data.pick-different")));
 						}
 						return client.data
 							.query(
@@ -156,9 +153,7 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 										target.entitySchemaSlug !== entitySchemaSlug ||
 										target.entitySchemaPluginId !== identity.pluginId
 									) {
-										return Effect.sync(() =>
-											setPickerError("Choose an existing item of the same media type."),
-										);
+										return Effect.sync(() => setPickerError(text("user-data.pick-same-type")));
 									}
 									resetSubmission();
 									return Effect.sync(() =>
@@ -176,9 +171,7 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 								}),
 							);
 					}),
-					Effect.catch(() =>
-						Effect.sync(() => setPickerError("Couldn't open the entity picker. Try again.")),
-					),
+					Effect.catch(() => Effect.sync(() => setPickerError(text("user-data.picker-failed")))),
 				),
 			() => setIsPicking(false),
 		);
@@ -199,22 +192,21 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 		submission.submit(confirmation.intent);
 	};
 	const rejectedMessage =
-		submission.data?.status === "rejected" ? submission.data.message : undefined;
-	const errorMessage = rejectedMessage ?? submissionErrorMessage(submission.error);
+		submission.data?.status === "rejected" ? localMessage(submission.data.reason) : undefined;
+	const errorMessage =
+		rejectedMessage ??
+		(submission.error === null
+			? undefined
+			: formatError(t, submission.error, submissionErrorFallback(text, submission.error)));
 	const activeConfirmation = submission.data?.status === "saved" ? undefined : confirmation;
-	let actionLabel = "";
-	if (activeConfirmation?.action === "remove") {
-		actionLabel = submission.status === "retained" ? "Retry removal" : "Remove data";
-	} else if (activeConfirmation?.action === "merge") {
-		actionLabel = submission.status === "retained" ? "Retry merge" : "Merge data";
-	}
+	const retained = submission.status === "retained";
 
 	return (
 		<>
 			<MenuButton
-				label="Your data"
 				disabled={isPicking}
 				triggerRef={triggerRef}
+				label={text("user-data.menu")}
 				items={[
 					reminders.item,
 					...(entitySchemaSlug === undefined
@@ -224,9 +216,9 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 									key: "remove",
 									destructive: true,
 									onSelect: beginRemove,
-									label: "Remove from library",
+									label: text("user-data.remove"),
 								},
-								{ key: "merge", onSelect: beginMerge, label: "Merge my data into…" },
+								{ key: "merge", onSelect: beginMerge, label: text("user-data.merge") },
 							]),
 				]}
 			/>
@@ -240,20 +232,31 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 				<DestructiveConfirmation
 					onConfirm={confirm}
 					triggerRef={triggerRef}
-					actionLabel={actionLabel}
 					onClose={closeConfirmation}
 					errorMessage={errorMessage}
 					pending={submission.isPending}
-					pendingLabel={activeConfirmation.action === "remove" ? "Removing…" : "Merging…"}
+					pendingLabel={
+						activeConfirmation.action === "remove"
+							? text("user-data.removing")
+							: text("user-data.merging")
+					}
 					title={
 						activeConfirmation.action === "remove"
-							? "Remove your media data?"
-							: "Merge your media data?"
+							? text("user-data.remove-title")
+							: text("user-data.merge-title")
+					}
+					actionLabel={
+						activeConfirmation.action === "remove"
+							? text(retained ? "user-data.retry-removal" : "user-data.remove-action")
+							: text(retained ? "user-data.retry-merge" : "user-data.merge-action")
 					}
 					detail={
 						activeConfirmation.action === "remove"
-							? `Remove all your data for “${media.name}”? This removes your history, reviews, ownership, monitoring, collection memberships, and child data. Media metadata remains. Integrations may restore data.`
-							: `Merge your data from “${media.name}” into “${activeConfirmation.target.name}”? Your history, reviews, ownership, monitoring, collection memberships, and child data move. Media metadata remains on both items. Integrations may restore data.`
+							? text("user-data.remove-detail", { name: media.name })
+							: text("user-data.merge-detail", {
+									name: media.name,
+									target: activeConfirmation.target.name,
+								})
 					}
 				/>
 			)}

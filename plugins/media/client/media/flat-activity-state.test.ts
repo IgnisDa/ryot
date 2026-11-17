@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 
@@ -20,6 +21,7 @@ import {
 	ungroupedFixtureSchema,
 } from "../../tests/client/flat-media/schema-fixture";
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
+import { testMediaCopy, testMediaText } from "../../tests/client/test-text";
 import { mediaActivityDateLabel } from "./activity-timeline";
 import type { MediaFlatSchemaActivityView, MediaFlatSchemaRow } from "./flat-schema";
 
@@ -35,7 +37,7 @@ const allRows = (view: MediaFlatSchemaActivityView): readonly MediaFlatSchemaRow
 		: [...(view.timeline.open ?? []), ...view.timeline.completed.flatMap((pass) => pass.rows)];
 
 const labelsOf = (view: MediaFlatSchemaActivityView) =>
-	allRows(view).map(fixtureSchema.activityRowLabel);
+	allRows(view).map((row) => fixtureSchema.activityRowLabel(testMediaCopy, row));
 
 describe("flat media activity state", () => {
 	it("keeps repeated item occurrences independent and preserves calendar and unknown dates", () => {
@@ -61,7 +63,9 @@ describe("flat media activity state", () => {
 		const rows = allRows(view);
 		expect(rows).toHaveLength(2);
 		expect(rows.every((row) => row.type === "item")).toBe(true);
-		expect(rows.map(mediaActivityDateLabel).sort()).toEqual(["2025-11-02", "Date unknown"]);
+		expect(
+			rows.map((row) => mediaActivityDateLabel(testMediaText, testFormatters, row)).sort(),
+		).toEqual(["2025-11-02", "Date unknown"]);
 	});
 	it("reports an empty record when nothing was ever tracked", () => {
 		expect(fixtureSchema.activityView(emptyFlatActivity())).toBeUndefined();
@@ -74,7 +78,7 @@ describe("flat media activity state", () => {
 		expect(labelsOf(viewOf())).toEqual([
 			"Reviewed the item",
 			"Finished the item",
-			"42% through the item",
+			"42% through",
 			"Added to the Watchlist collection",
 			"Added to backlog",
 			"Added to media library",
@@ -90,9 +94,7 @@ describe("flat media activity state", () => {
 			],
 		});
 
-		expect(labelsOf(view)).toEqual<unknown>(
-			arrayContaining(["Put this item on hold", "Stopped the item"]),
-		);
+		expect(labelsOf(view)).toEqual<unknown>(arrayContaining(["Put on hold", "Stopped the item"]));
 	});
 
 	it("carries the consumption source on progress rows only", () => {
@@ -124,7 +126,7 @@ describe("flat media activity state", () => {
 			events: [{ ...flatProgressEventRow, progressPercent: null }],
 		});
 
-		expect(labelsOf(view)).toEqual(["Part-way through the item"]);
+		expect(labelsOf(view)).toEqual(["Part-way through"]);
 	});
 
 	it("keeps the review body and rating the reviewer recorded", () => {
@@ -159,8 +161,10 @@ describe("flat media activity state", () => {
 		assert(completion?.type === "completion" && progress !== undefined);
 		expect(completion.dateUnknown).toBe(true);
 		expect(completion.dateKey).not.toBe(progress.dateKey);
-		expect(mediaActivityDateLabel(completion)).toBe("Date unknown");
-		expect(mediaActivityDateLabel(progress)).not.toBe("Date unknown");
+		expect(mediaActivityDateLabel(testMediaText, testFormatters, completion)).toBe("Date unknown");
+		expect(mediaActivityDateLabel(testMediaText, testFormatters, progress)).not.toBe(
+			"Date unknown",
+		);
 	});
 
 	it("keeps a single completion on the flat layout", () => {
@@ -205,7 +209,7 @@ describe("flat media activity state", () => {
 
 		assert(progress?.type === "progress");
 		expect(progress.extra.fixtureChapter).toBe(45);
-		expect(ungroupedFixtureSchema.activityRowLabel(progress)).toBe("Chapter 45");
+		expect(ungroupedFixtureSchema.activityRowLabel(testMediaCopy, progress)).toBe("Chapter 45");
 	});
 
 	it("labels a collection removal apart from an addition", () => {

@@ -91,8 +91,8 @@ describe("group detail screen", () => {
 
 		expect(
 			Array.from(container.querySelectorAll('[role="tab"]')).map(({ textContent }) => textContent),
-		).toEqual(["Items", "Overview", "Activity"]);
-		expect(getByRole(container, "tab", { name: "Items" }).getAttribute("aria-selected")).toBe(
+		).toEqual(["Books", "Overview", "Activity"]);
+		expect(getByRole(container, "tab", { name: "Books" }).getAttribute("aria-selected")).toBe(
 			"true",
 		);
 		expect(container.textContent).toContain("Member rows");
@@ -103,9 +103,9 @@ describe("group detail screen", () => {
 		const { unmount, container } = renderBody();
 
 		expect(container.textContent).toContain("Status: ");
-		expect(container.textContent).toContain("2 of 5 done");
+		expect(container.textContent).toContain("2 of 5 watched");
 		expect(container.querySelector('[style="width: 40%;"]')).not.toBeNull();
-		expect(container.textContent).toContain("5 items");
+		expect(container.textContent).toContain("5 books");
 		unmount();
 	});
 
@@ -130,7 +130,7 @@ describe("group detail screen", () => {
 		selectTab(container, "Overview");
 
 		expect(container.textContent).toContain("Nothing more to show");
-		expect(container.textContent).toContain("This group has no images or credits yet.");
+		expect(container.textContent).toContain("No images or credits yet.");
 		unmount();
 	});
 
@@ -239,7 +239,7 @@ describe("group activity tab", () => {
 		);
 
 		expect(container.textContent).toContain("Reviews");
-		expect(container.textContent).toContain("Reviewed this group");
+		expect(container.textContent).toContain("Reviewed this collection");
 		unmount();
 	});
 

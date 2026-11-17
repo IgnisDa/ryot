@@ -13,9 +13,18 @@ import type {
 	MediaReviewActivityEvent,
 	MediaReviewActivityResult,
 } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { mediaGroupParameters } from "../../shared/query-parameters";
+import {
+	type MediaCopy,
+	type MediaGroupMemberUnit,
+	type MediaReviewKind,
+	type MediaText,
+	useMediaMessages,
+} from "../messages";
 import type { MediaHistoryRecipe } from "./activity-history";
+import type { ActivityVerb } from "./activity-log/state";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
@@ -66,9 +75,9 @@ export type MediaGroupSchemaDescriptor<
 	Member extends GroupMember,
 	Overview extends GroupCredits,
 > = {
+	readonly kind: MediaReviewKind;
 	readonly aspect: MediaArtworkAspect;
-	readonly members: { readonly tab: string; readonly noun: string; readonly verb: string };
-	readonly nouns: { readonly title: string; readonly plural: string; readonly singular: string };
+	readonly members: { readonly verb: ActivityVerb; readonly unit: MediaGroupMemberUnit };
 	readonly member: {
 		readonly RowContent: (props: {
 			readonly compact: boolean;
@@ -139,10 +148,14 @@ type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
 	}) => Recipe<MediaCursorPage<Member>, typeof mediaGroupParameters.schema>;
 };
 
-const groupProgressLabel = (progress: GroupProgress, verb: string) =>
+const groupProgressLabel = (text: MediaText, progress: GroupProgress, verb: ActivityVerb) =>
 	progress.memberCount === 0
 		? undefined
-		: `${progress.completedMemberCount} of ${progress.memberCount} ${verb}`;
+		: text("group.progress", {
+				verb,
+				total: progress.memberCount,
+				completed: progress.completedMemberCount,
+			});
 
 const groupProgressTone = (progress: GroupProgress): MediaStatusTone => {
 	if (progress.completedMemberCount === progress.memberCount) {
@@ -166,7 +179,7 @@ export const defineGroupMediaSchema = <
 >(
 	descriptor: MediaGroupSchemaDescriptor<Summary, Presentation, Member, Overview>,
 ) => {
-	const { nouns, members, recipes } = descriptor;
+	const { kind, members, recipes } = descriptor;
 	const MemberRow = descriptor.member.RowContent;
 	const creditCopy = descriptor.creditCopy;
 	const overviewRecipe = recipes.overviewRecipe;
@@ -180,10 +193,10 @@ export const defineGroupMediaSchema = <
 		({ entityId }) => ({ entityId }),
 		"companies",
 	);
-	const tabs: readonly TabOption<GroupTabKey>[] = [
-		{ value: "members", label: members.tab },
-		{ value: "overview", label: "Overview" },
-		{ value: "activity", label: "Activity" },
+	const tabs = (text: MediaText): readonly TabOption<GroupTabKey>[] => [
+		{ value: "members", label: text("group.tab", { unit: members.unit }) },
+		{ value: "overview", label: text("tabs.overview") },
+		{ value: "activity", label: text("browse.field.activity") },
 	];
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
@@ -213,24 +226,24 @@ export const defineGroupMediaSchema = <
 		},
 	);
 
-	const summaryState = mediaSummaryStateMapper<GroupSummaryResult<Summary>, Summary>({
-		...nouns,
-		select: ({ summary }) => summary,
-	});
+	const summaryState = mediaSummaryStateMapper<GroupSummaryResult<Summary>, Summary>(
+		({ summary }) => summary,
+	);
 
 	const { Activity, ActivityTab, mapActivity, activityQuery } = defineMediaReviewActivityTab({
-		noun: nouns.singular,
+		kind,
 		historyRecipe: recipes.historyRecipe,
 		activityRecipe: recipes.activityRecipe,
 	});
 
-	const header = (summary: Summary): MediaSummaryHeaderDetail => {
-		const status = groupProgressLabel(summary, members.verb);
+	const header = (summary: Summary, copy: MediaCopy): MediaSummaryHeaderDetail => {
+		const { text } = copy;
+		const status = groupProgressLabel(text, summary, members.verb);
 		return {
 			chips: [],
 			identityDetail: undefined,
-			links: mediaSourceLinks(summary),
-			facts: [mediaCountFact(summary.parts, members.noun, "layers-3")].filter(
+			links: mediaSourceLinks(copy, summary),
+			facts: [mediaCountFact(text, summary.parts, members.unit, "layers-3")].filter(
 				(fact) => fact !== undefined,
 			),
 			rail: {
@@ -247,23 +260,24 @@ export const defineGroupMediaSchema = <
 		};
 	};
 
-	const membersCopy: MediaCursorPagesCopy = {
-		error: (state) => mediaCursorPageError({ state, noun: members.tab.toLowerCase() }),
-		empty: `No ${members.tab.toLowerCase()} have been linked to this ${nouns.singular} yet.`,
+	const membersCopy = (text: MediaText): MediaCursorPagesCopy => ({
+		empty: text("group.members-empty", { unit: members.unit }),
+		error: (state) => mediaCursorPageError(text, { state, kind: members.unit }),
 		loading: {
-			title: `Loading ${members.tab.toLowerCase()}...`,
-			detail: `Fetching the ${members.tab.toLowerCase()} in this ${nouns.singular}.`,
+			title: text("group.members-loading", { unit: members.unit }),
+			detail: text("group.members-loading-detail", { unit: members.unit }),
 		},
-	};
+	});
 
 	function MembersTab(props: { readonly compact: boolean; readonly entityId: string }) {
+		const text = useMediaMessages();
 		return (
 			<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
 				<MediaCursorPages
-					copy={membersCopy}
 					query={membersQuery}
 					key={props.entityId}
 					assets={memberAssets}
+					copy={membersCopy(text)}
 					input={{ entityId: props.entityId }}
 					getPageInput={(input, after) => ({ ...input, after })}
 					renderItems={(items) => {
@@ -302,12 +316,12 @@ export const defineGroupMediaSchema = <
 				companies={overview.companies.items}
 				peopleAction={
 					<MediaCreditsButton
+						kind="people"
 						aspect="square"
 						compact={compact}
 						purpose="profile"
 						query={peopleQuery}
 						input={{ entityId }}
-						label="View all people"
 						title={creditCopy.people}
 						safeAreaTop={safeAreaTop}
 					/>
@@ -317,11 +331,11 @@ export const defineGroupMediaSchema = <
 						fit="contain"
 						purpose="logo"
 						aspect="square"
+						kind="companies"
 						compact={compact}
 						input={{ entityId }}
 						query={companiesQuery}
 						safeAreaTop={safeAreaTop}
-						label="View all companies"
 						title={creditCopy.companies}
 					/>
 				}
@@ -341,10 +355,11 @@ export const defineGroupMediaSchema = <
 		readonly settled: undefined | EntitySettleReason;
 		readonly overview: MediaOverviewState<GroupOverview<Overview>>;
 	}) {
+		const text = useMediaMessages();
 		return (
 			<MediaDetailBody
-				tabs={tabs}
 				header={header}
+				tabs={tabs(text)}
 				state={props.state}
 				defaultTab="members"
 				overviewTab="overview"
@@ -360,14 +375,14 @@ export const defineGroupMediaSchema = <
 				summaryError={summaryState.summaryError}
 				summaryRefreshStatus={props.summaryRefreshStatus}
 				overviewRefreshStatus={props.overviewRefreshStatus}
-				overviewNoticeTitle={creditCopy?.notice ?? "Images"}
 				summaryUnavailable={summaryState.summaryUnavailable}
 				artwork={{ purpose: "cover", aspect: descriptor.aspect }}
+				overviewLoadingDetail={catalogMessage("group.overview-loading")}
 				tabContent={{ members: props.members, activity: props.activity }}
-				overviewLoadingDetail={`Fetching the credits for this ${nouns.singular}.`}
+				overviewNoticeTitle={creditCopy?.notice ?? catalogMessage("property.images")}
 				overviewEmpty={{
-					title: "Nothing more to show",
-					detail: `This ${nouns.singular} has no images or credits yet.`,
+					title: text("group.overview-empty-title"),
+					detail: text("group.overview-empty-detail"),
 				}}
 			/>
 		);
@@ -405,10 +420,11 @@ export const defineGroupMediaSchema = <
 
 	function Facts(props: { readonly compact: boolean; readonly data: Presentation }) {
 		const { data } = props;
-		const progress = groupProgressLabel(data, members.verb);
+		const text = useMediaMessages();
+		const progress = groupProgressLabel(text, data, members.verb);
 		return (
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-ui text-[12px] text-text-muted">
-				{mediaCountLabels(data.parts, members.noun).map((fact) => (
+				{mediaCountLabels(text, data.parts, members.unit).map((fact) => (
 					<span key={fact}>{fact}</span>
 				))}
 				{progress === undefined ? null : (

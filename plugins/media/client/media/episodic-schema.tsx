@@ -1,4 +1,4 @@
-import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
+import type { EntitySettleReason, LocalMessage } from "@ryot-app/plugin-client-sdk";
 import type { EntityRendererProps } from "@ryot-app/plugin-client-sdk/plugin";
 import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
@@ -7,7 +7,12 @@ import { createElement, type ReactNode } from "react";
 
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
-import { mediaActivityExpandLabel, mediaActivityRunLabel } from "./activity-copy";
+import { type MediaCopy, type MediaText, useMediaCopy, useMediaMessages } from "../messages";
+import {
+	mediaActivityExpandLabel,
+	mediaActivityRunLabel,
+	type MediaActivitySegment,
+} from "./activity-copy";
 import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
 import type { MediaActivityLogger } from "./activity-log/state";
 import {
@@ -105,22 +110,23 @@ export type MediaEpisodicSchemaDescriptor<
 > = {
 	readonly aspect: MediaArtworkAspect;
 	readonly creditCopy: MediaCreditCopy;
-	readonly overviewLoadingDetail: string;
 	readonly logActivity: MediaActivityLogger;
-	readonly episodeOrigin: (episode: Origin) => string;
+	readonly overviewLoadingDetail: LocalMessage;
+	readonly episodeOrigin: (episode: Origin) => LocalMessage;
 	readonly episodeOrder: (episode: Origin) => readonly number[];
 	readonly coverage: (result: Activity) => MediaEpisodicCoverage;
-	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 	readonly presentationFacts: (data: Presentation) => readonly string[];
-	readonly presentationDetail: (data: Presentation) => string | undefined;
-	readonly nouns: { readonly title: string; readonly plural: string; readonly singular: string };
+	readonly facts: (summary: Summary, copy: MediaCopy) => readonly MediaSummaryFact[];
+	readonly presentationDetail: (data: Presentation, copy: MediaCopy) => string | undefined;
 	readonly overviewTrailing?: (input: {
 		readonly summary: Summary;
 		readonly compact: boolean;
 	}) => ReactNode;
-	readonly activityCopy: MediaActivityCopy &
+	readonly activityCopy: (
+		copy: MediaCopy,
+	) => MediaActivityCopy &
 		MediaEpisodicActivityCopy & {
-			readonly segmentNoun: string;
+			readonly segment: MediaActivitySegment;
 			readonly figures: MediaEpisodicFigureLabels;
 		};
 	readonly EpisodesTab: (props: {
@@ -160,14 +166,14 @@ type EpisodicActivityValue<Origin> = MediaEpisodicActivityValue<Origin> & {
 	readonly coverage: readonly { readonly id: string }[];
 };
 
-const TABS: readonly TabOption<"overview" | "episodes" | "activity">[] = [
-	{ value: "overview", label: "Overview" },
-	{ value: "episodes", label: "Episodes" },
-	{ value: "activity", label: "Activity" },
+const tabs = (text: MediaText): readonly TabOption<"overview" | "episodes" | "activity">[] => [
+	{ value: "overview", label: text("tabs.overview") },
+	{ value: "episodes", label: text("property.episodes") },
+	{ value: "activity", label: text("browse.field.activity") },
 ];
 
-const lifecycleLabel = (media: { readonly state: EpisodicLifecycleState }) =>
-	mediaEpisodicLifecycleLabel(media.state);
+const lifecycleLabel = (text: MediaText, media: { readonly state: EpisodicLifecycleState }) =>
+	mediaEpisodicLifecycleLabel(text, media.state);
 
 const overviewIsEmpty = (overview: MediaOverviewRows & MediaUnlinkedCreatorsOverview) =>
 	mediaRelationsAreEmpty(overview, mediaUnlinkedCreators(overview));
@@ -181,7 +187,7 @@ export const defineEpisodicMediaSchema = <
 >(
 	descriptor: MediaEpisodicSchemaDescriptor<Summary, Overview, Presentation, Origin, Activity>,
 ) => {
-	const { nouns, recipes, activityCopy } = descriptor;
+	const { recipes } = descriptor;
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe, ({ nextUp }) =>
 		nextUp === null ? [] : [nextUp.id],
@@ -224,10 +230,9 @@ export const defineEpisodicMediaSchema = <
 		],
 	);
 
-	const summaryState = mediaSummaryStateMapper<EpisodicSummaryResult<Summary>, Summary>({
-		...nouns,
-		select: ({ summary }) => summary,
-	});
+	const summaryState = mediaSummaryStateMapper<EpisodicSummaryResult<Summary>, Summary>(
+		({ summary }) => summary,
+	);
 
 	const activityView = (result: Activity) =>
 		mediaEpisodicActivityView<Origin>({
@@ -236,16 +241,17 @@ export const defineEpisodicMediaSchema = <
 			episode: { order: descriptor.episodeOrder, origin: descriptor.episodeOrigin },
 		});
 
-	const activityRowLabel = (row: MediaEpisodicRow) => mediaEpisodicRowLabel(row, activityCopy);
+	const activityRowLabel = (copy: MediaCopy, row: MediaEpisodicRow) =>
+		mediaEpisodicRowLabel(copy, row, descriptor.activityCopy(copy));
 
-	const activityRender: MediaActivityRowRender<MediaEpisodicRow> = {
-		rowLabel: activityRowLabel,
-		segmentNoun: activityCopy.segmentNoun,
-		monthSummary: mediaEpisodicMonthSummary,
+	const activityRender = (copy: MediaCopy): MediaActivityRowRender<MediaEpisodicRow> => ({
+		rowLabel: (row) => activityRowLabel(copy, row),
+		segment: descriptor.activityCopy(copy).segment,
+		monthSummary: (rows) => mediaEpisodicMonthSummary(copy.text, rows),
 		rowSource: (row) => (row.type === "watch" || row.type === "progress" ? row.source : undefined),
 		rowRun: (row) =>
 			(row.type === "progress" || row.type === "watch") && row.run !== undefined
-				? mediaActivityRunLabel(row.run)
+				? mediaActivityRunLabel(copy, row.run)
 				: undefined,
 		rowBody: (row) => {
 			if (row.type === "watch") {
@@ -257,10 +263,11 @@ export const defineEpisodicMediaSchema = <
 			row.type === "watch" && mediaEpisodicEpisodesAreCollapsed(row.episodes)
 				? {
 						content: <EpisodicEpisodeList episodes={row.episodes} />,
-						label: (expanded) => mediaActivityExpandLabel({ expanded, count: row.episodes.length }),
+						label: (expanded) =>
+							mediaActivityExpandLabel(copy.text, { expanded, count: row.episodes.length }),
 					}
 				: undefined,
-	};
+	});
 
 	function ActivityRecord(props: {
 		readonly compact: boolean;
@@ -268,27 +275,52 @@ export const defineEpisodicMediaSchema = <
 		readonly view: MediaEpisodicView;
 	}) {
 		const { view } = props;
+		const copy = useMediaCopy();
+		const activityCopy = descriptor.activityCopy(copy);
 		return (
 			<MediaActivityRecord
 				history={props.history}
 				compact={props.compact}
-				render={activityRender}
 				timeline={view.timeline}
+				render={activityRender(copy)}
 				recordLabel={activityCopy.recordLabel}
 				partial={view.summary.span.bound === "partial"}
 				aside={<MediaEpisodicCoverageStrip rows={view.coverage} />}
-				figures={mediaEpisodicActivityFigures(view.summary, activityCopy.figures)}
+				figures={mediaEpisodicActivityFigures(copy, view.summary, activityCopy.figures)}
+			/>
+		);
+	}
+
+	function ActivityHistoryRows(props: {
+		readonly compact: boolean;
+		readonly events: readonly MediaEpisodicHistoryEvent<Origin & MediaEpisodicEpisodeValue>[];
+	}) {
+		const copy = useMediaCopy();
+		return (
+			<MediaActivityRows
+				compact={props.compact}
+				render={activityRender(copy)}
+				rows={mergeActivityRuns(
+					props.events.map((event) =>
+						mediaEpisodicActivityRow(event, {
+							order: descriptor.episodeOrder,
+							origin: descriptor.episodeOrigin,
+						}),
+					),
+					mergeEpisodicRuns,
+				)}
 			/>
 		);
 	}
 
 	const { Activity, ActivityTab, mapActivity } = defineMediaActivityTab({
 		view: activityView,
-		copy: activityCopy,
 		query: activityQuery,
 		Record: ActivityRecord,
+		copy: descriptor.activityCopy,
 		emptyAction: descriptor.logActivity,
 		hasMoreActivities: (result) => result.hasMoreActivities,
+		renderHistory: (events, compact) => <ActivityHistoryRows events={events} compact={compact} />,
 		historyQuery: createMediaHistoryQuery(recipes.historyRecipe, (events) =>
 			events.flatMap((event) => {
 				if (event.kind === "episode") {
@@ -300,30 +332,16 @@ export const defineEpisodicMediaSchema = <
 				return event.kind === "collection" ? [event.collection.id] : [];
 			}),
 		),
-		renderHistory: (events, compact) => (
-			<MediaActivityRows
-				compact={compact}
-				render={activityRender}
-				rows={mergeActivityRuns(
-					events.map((event) =>
-						mediaEpisodicActivityRow(event, {
-							order: descriptor.episodeOrder,
-							origin: descriptor.episodeOrigin,
-						}),
-					),
-					mergeEpisodicRuns,
-				)}
-			/>
-		),
 	});
 
-	const header = mediaSummaryHeaderDetail({
-		logActivity: descriptor.logActivity,
-		facts: (summary: Summary) =>
-			[...descriptor.facts(summary), mediaEpisodicAiredFact(summary)].filter(
-				(fact) => fact !== undefined,
-			),
-	});
+	const header = (summary: Summary, copy: MediaCopy) =>
+		mediaSummaryHeaderDetail({
+			logActivity: descriptor.logActivity,
+			facts: (value: Summary) =>
+				[...descriptor.facts(value, copy), mediaEpisodicAiredFact(copy.text, value)].filter(
+					(fact) => fact !== undefined,
+				),
+		})(summary, copy);
 
 	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
 		compact,
@@ -339,12 +357,12 @@ export const defineEpisodicMediaSchema = <
 			unlinked={mediaUnlinkedCreators(overview)}
 			peopleAction={
 				<MediaCreditsButton
+					kind="people"
 					aspect="square"
 					compact={compact}
 					purpose="profile"
 					query={peopleQuery}
 					input={{ entityId }}
-					label="View all people"
 					safeAreaTop={safeAreaTop}
 					title={descriptor.creditCopy.people}
 					unlinked={mediaUnlinkedCredits(mediaUnlinkedCreators(overview)).people}
@@ -355,11 +373,11 @@ export const defineEpisodicMediaSchema = <
 					fit="contain"
 					purpose="logo"
 					aspect="square"
+					kind="companies"
 					compact={compact}
 					input={{ entityId }}
 					query={companiesQuery}
 					safeAreaTop={safeAreaTop}
-					label="View all companies"
 					title={descriptor.creditCopy.companies}
 					unlinked={mediaUnlinkedCredits(mediaUnlinkedCreators(overview)).companies}
 				/>
@@ -380,10 +398,11 @@ export const defineEpisodicMediaSchema = <
 		readonly overview: MediaOverviewState<Overview>;
 		readonly settled: undefined | EntitySettleReason;
 	}) {
+		const text = useMediaMessages();
 		return (
 			<MediaDetailBody
-				tabs={TABS}
 				header={header}
+				tabs={tabs(text)}
 				state={props.state}
 				defaultTab="overview"
 				overviewTab="overview"
@@ -442,8 +461,10 @@ export const defineEpisodicMediaSchema = <
 
 	function Facts(props: { readonly compact: boolean; readonly data: Presentation }) {
 		const { data } = props;
+		const copy = useMediaCopy();
+		const { text } = copy;
 		const release = mediaReleaseLabel(data);
-		const detail = descriptor.presentationDetail(data);
+		const detail = descriptor.presentationDetail(data, copy);
 		return (
 			<div className={clsx("flex min-w-0 flex-col", props.compact ? "gap-1" : "gap-1.5")}>
 				<div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-ui text-[12px] text-text-muted">
@@ -451,7 +472,7 @@ export const defineEpisodicMediaSchema = <
 					{descriptor.presentationFacts(data).map((fact) => (
 						<span key={fact}>{fact}</span>
 					))}
-					<span className="font-medium text-accent-text">{lifecycleLabel(data)}</span>
+					<span className="font-medium text-accent-text">{lifecycleLabel(text, data)}</span>
 				</div>
 				{detail === undefined ? null : (
 					<p className="font-ui text-[12px] leading-5 text-text-subtle">{detail}</p>
@@ -525,21 +546,25 @@ export const defineEpisodicMediaSchema = <
 
 function EpisodicWatchBody(props: { readonly row: Extract<MediaEpisodicRow, { type: "watch" }> }) {
 	const { episodes } = props.row;
+	const copy = useMediaCopy();
 	if (episodes.length === 1) {
 		return null;
 	}
 	if (mediaEpisodicEpisodesAreCollapsed(episodes)) {
-		return <p className="text-label text-text-muted">{mediaEpisodicRangeSummary(episodes)}</p>;
+		return (
+			<p className="text-label text-text-muted">{mediaEpisodicRangeSummary(copy, episodes)}</p>
+		);
 	}
 	return <EpisodicEpisodeList episodes={episodes} />;
 }
 
 function EpisodicEpisodeList(props: { readonly episodes: readonly MediaEpisodicWatchedEpisode[] }) {
+	const { local } = useMediaCopy();
 	return (
 		<div className="flex flex-col gap-0.5">
 			{props.episodes.map((episode) => (
 				<div key={episode.id} className="flex gap-2">
-					<p className="w-14 text-micro text-text-subtle">{episode.origin}</p>
+					<p className="w-14 text-micro text-text-subtle">{local(episode.origin)}</p>
 					<p className="line-clamp-1 min-w-0 flex-1 text-label text-text-muted">{episode.name}</p>
 				</div>
 			))}

@@ -1,6 +1,12 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { Option, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { localDay } from "@ryot-app/plugin-client-sdk/react";
-import { type DurationDraft, durationDraft, parseDuration } from "@ryot-app/plugin-ui-sdk";
+import { type DisplayText, type Formatters, localDay } from "@ryot-app/plugin-client-sdk/react";
+import {
+	type DurationDraft,
+	durationDraft,
+	formatDuration,
+	parseDuration,
+} from "@ryot-app/plugin-ui-sdk";
 import { resolveDateTimeInput, toDateTimeInput } from "@ryot-app/plugin-ui-sdk/datetime";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
@@ -15,9 +21,13 @@ import {
 	type MediaActivityWhen,
 	type MediaEventSnapshot,
 } from "../../../shared/media-activity-operations";
-import { mediaActivityDurationLabel, type MediaActivityEventRef } from "../activity-timeline";
+import { catalogMessage } from "../../../shared/messages.generated";
+import type { MediaText, MediaTitleKind } from "../../messages";
+import type { MediaActivityEventRef } from "../activity-timeline";
 
 export type ActivityWhenKind = "now" | "date" | "unknown";
+
+export type ActivityVerb = "read" | "play" | "watch" | "listen";
 
 export type ActivityEntryDraft = EntryDraftShape<MediaActivityEntry>;
 
@@ -45,10 +55,10 @@ export type MediaActivityLogger =
 			readonly progressUnit?: MediaActivityLogUnit;
 	  }
 	| {
+			readonly itemContext?: true;
 			readonly family: "positional";
-			readonly itemContextLabel?: string;
 			readonly copy: MediaActivityLogCopy;
-			readonly units: readonly [MediaPositionLogUnit, ...MediaPositionLogUnit[]];
+			readonly units: readonly [MediaPosition["unit"], ...MediaPosition["unit"][]];
 	  };
 
 export type ActivityDraft = DurationDraft & {
@@ -70,34 +80,18 @@ export type ActivityDraft = DurationDraft & {
 
 type MediaActivityStatus = (typeof mediaActivityStatuses)[number];
 
+type MediaActivityLogUnit = { readonly field: "pages" | "runtime" };
+
 type ActivityIntent = "status" | "episode" | "finished" | "progress";
 
 type PositionalLogger = Extract<MediaActivityLogger, { family: "positional" }>;
+
+type MediaActivityLogCopy = { readonly verb: ActivityVerb; readonly kind: MediaTitleKind };
 
 type ActivityDateTimeDraft = {
 	readonly value: string;
 	readonly original?: string;
 	readonly occurrence?: string;
-};
-
-type MediaActivityLogUnit = {
-	readonly plural: string;
-	readonly singular: string;
-	readonly field: "pages" | "runtime";
-};
-
-type MediaActivityLogCopy = {
-	readonly verb: string;
-	readonly noun: string;
-	readonly gerund: string;
-	readonly participle: string;
-};
-
-type MediaPositionLogUnit = {
-	readonly label: string;
-	readonly plural: string;
-	readonly singular: string;
-	readonly value: MediaPosition["unit"];
 };
 
 type EntryDraftShape<Entry> = Entry extends { readonly when: MediaActivityWhen }
@@ -120,13 +114,6 @@ const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const WHOLE_NUMBER = /^\d+$/;
 const DECIMAL_NUMBER = /^\d+(?:\.\d+)?$/;
 
-const INTENT_LABELS: Record<ActivityIntent, string> = {
-	status: "Status",
-	episode: "Episode",
-	progress: "Progress",
-	finished: "Finished",
-};
-
 const INTENT_ORDER: Record<MediaActivityLogger["family"], readonly ActivityIntent[]> = {
 	show: ["episode", "status"],
 	podcast: ["episode", "status"],
@@ -134,20 +121,11 @@ const INTENT_ORDER: Record<MediaActivityLogger["family"], readonly ActivityInten
 	positional: ["progress", "finished", "status"],
 };
 
-const STATUS_COPY: Record<MediaActivityStatus, { submit: string; success: string }> = {
-	on_hold: { submit: "Put on hold", success: "Put on hold." },
-	dropped: { submit: "Mark as dropped", success: "Marked as dropped." },
-	backlog: { submit: "Add to backlog", success: "Added to your backlog." },
-};
-
-export const activityIntents = (logger: MediaActivityLogger) =>
-	INTENT_ORDER[logger.family].map((value) => ({
-		value,
-		label: INTENT_LABELS[value],
-		content: INTENT_LABELS[value],
-	}));
-
-export const capitalized = (text: string) => `${text.slice(0, 1).toUpperCase()}${text.slice(1)}`;
+export const activityIntents = (text: MediaText, logger: MediaActivityLogger) =>
+	INTENT_ORDER[logger.family].map((value) => {
+		const label = text("log.intent", { intent: value });
+		return { value, label, content: label };
+	});
 
 const dayParts = (day: string) => {
 	const match = DAY.exec(day);
@@ -178,7 +156,7 @@ export const activityPositionTotal = (
 export const positionLogUnit = (
 	logger: PositionalLogger,
 	unit: undefined | MediaPosition["unit"],
-) => logger.units.find((candidate) => candidate.value === unit) ?? logger.units[0];
+) => logger.units.find((candidate) => candidate === unit) ?? logger.units[0];
 
 export const latestPositionIn = (context: MediaActivityLogContext, unit: MediaPosition["unit"]) =>
 	context.position?.unit === unit ? context.position.position : 0;
@@ -234,12 +212,8 @@ export const initialActivityDraft = (
 ): ActivityDraft => {
 	const progress = context.progressPercent ?? 0;
 	const positionUnit =
-		logger.family === "positional"
-			? positionLogUnit(logger, context.position?.unit).value
-			: undefined;
-	const status =
-		activityStatusOptions(logger).find((option) => option.value !== context.state)?.value ??
-		"backlog";
+		logger.family === "positional" ? positionLogUnit(logger, context.position?.unit) : undefined;
+	const status = activityStatuses.find((value) => value !== context.state) ?? "backlog";
 	return {
 		status,
 		time: null,
@@ -258,12 +232,18 @@ export const initialActivityDraft = (
 };
 
 type ActivityDraftErrors = {
-	readonly when?: string;
 	readonly time?: string;
 	readonly status?: string;
 	readonly percent?: string;
 	readonly position?: string;
+	readonly when?: DisplayText;
 };
+
+const activityStatuses = [
+	"backlog",
+	"on_hold",
+	"dropped",
+] as const satisfies readonly MediaActivityStatus[];
 
 /** Switches dated fields to local date and time inputs at the current time of day. */
 export const addActivityTime = (
@@ -295,13 +275,13 @@ export const removeActivityTime = (
 export const resolveActivityDateTime = (value: ActivityDateTimeDraft, timeZone: string) =>
 	resolveDateTimeInput(value.value, value.original, value.occurrence, timeZone);
 
-const timeError = (time: ActivityTimeDraft, today: string, withStart: boolean) => {
+const timeError = (text: MediaText, time: ActivityTimeDraft, today: string, withStart: boolean) => {
 	const finished = resolveActivityDateTime(time.finished, time.timeZone);
 	if (finished.iso === null) {
 		return finished.error;
 	}
 	if (time.finished.value.slice(0, 10) > today) {
-		return "That day is in the future.";
+		return text("log.error.future");
 	}
 	if (!withStart || time.started.value === "") {
 		return undefined;
@@ -311,29 +291,31 @@ const timeError = (time: ActivityTimeDraft, today: string, withStart: boolean) =
 		return started.error;
 	}
 	return Date.parse(started.iso) > Date.parse(finished.iso)
-		? "The start can't be after the finish."
+		? text("log.error.start-after-finish")
 		: undefined;
 };
 
-const whenError = (draft: ActivityDraft, today: string) => {
+const whenError = (text: MediaText, draft: ActivityDraft, today: string) => {
 	if (draft.when !== "date") {
 		return undefined;
 	}
 	if (draft.time !== null) {
-		return timeError(draft.time, today, draft.intent !== "episode");
+		return timeError(text, draft.time, today, draft.intent !== "episode");
 	}
 	if (!isActivityDay(draft.finishedDay)) {
-		return draft.intent === "finished" ? "Pick the day you finished." : "Pick a day.";
+		return draft.intent === "finished"
+			? text("log.error.pick-finish-day")
+			: text("log.error.pick-day");
 	}
 	if (draft.finishedDay > today) {
-		return "That day is in the future.";
+		return text("log.error.future");
 	}
 	if (draft.intent !== "episode" && draft.startedDay !== "") {
 		if (!isActivityDay(draft.startedDay)) {
-			return "Pick a valid start day.";
+			return text("log.error.start-day-invalid");
 		}
 		if (draft.startedDay > draft.finishedDay) {
-			return "The start day can't be after the finish day.";
+			return text("log.error.start-day-after-finish");
 		}
 	}
 	return undefined;
@@ -341,20 +323,21 @@ const whenError = (draft: ActivityDraft, today: string) => {
 
 export const activityDraftErrors = (input: {
 	readonly today: string;
+	readonly text: MediaText;
 	readonly draft: ActivityDraft;
 	readonly logger: MediaActivityLogger;
 	readonly context: MediaActivityLogContext;
 }): ActivityDraftErrors => {
-	const { draft, today, logger, context } = input;
+	const { text, draft, today, logger, context } = input;
 	const errors: { -readonly [Key in keyof ActivityDraftErrors]: ActivityDraftErrors[Key] } = {};
 	if (draft.intent === "status") {
 		if (draft.status === context.state) {
-			errors.status = "It already has this status.";
+			errors.status = text("log.error.same-status");
 		}
 		return errors;
 	}
 	{
-		const when = whenError(draft, today);
+		const when = whenError(text, draft, today);
 		if (when !== undefined) {
 			errors.when = when;
 		}
@@ -363,7 +346,7 @@ export const activityDraftErrors = (input: {
 		(draft.intent === "finished" || draft.intent === "progress") &&
 		parseDuration(draft) === null
 	) {
-		errors.time = "Enter whole hours and nonnegative minutes.";
+		errors.time = text("log.error.duration");
 	}
 	if (draft.intent === "progress" && logger.family === "flat" && draft.progressMode === "amount") {
 		const total = activityUnitTotal(logger, context);
@@ -371,26 +354,29 @@ export const activityDraftErrors = (input: {
 		if (pages) {
 			const amount = draft.amount.trim() === "" ? Number.NaN : Number(draft.amount);
 			if (!Number.isFinite(amount) || amount < 0) {
-				errors.percent = "Enter a nonnegative page amount.";
+				errors.percent = text("log.error.pages");
 			}
 		} else if (draftProgressPercent(draft, total) === undefined) {
 			errors.percent =
 				draft.amountUnit === "unit" && logger.progressUnit !== undefined && total !== null
-					? `Enter ${logger.progressUnit.plural} above 0 and up to ${total}.`
-					: "Enter a percent above 0 and up to 100.";
+					? text("log.error.amount-range", { total, field: logger.progressUnit.field })
+					: text("log.error.percent-range");
 		}
 	}
 	if (draft.intent === "progress" && logger.family === "positional") {
 		const unit = positionLogUnit(logger, draft.positionUnit);
-		const total = activityPositionTotal(context, unit.value);
+		const total = activityPositionTotal(context, unit);
 		const { position } = draft;
 		if (
 			position === undefined ||
 			position < 1 ||
 			(total !== null && position > total) ||
-			(unit.value === "episodes" && !Number.isInteger(position))
+			(unit === "episodes" && !Number.isInteger(position))
 		) {
-			errors.position = `Enter a ${unit.singular} number${total === null ? "" : ` from 1 to ${total}`}.`;
+			errors.position =
+				total === null
+					? text("log.error.position", { unit })
+					: text("log.error.position-range", { unit, total });
 		}
 	}
 	if (
@@ -398,7 +384,7 @@ export const activityDraftErrors = (input: {
 		(Option.isNone(Schema.decodeOption(MediaPosition)(draft.item)) ||
 			mediaPositionError(context.schemaSlug, draft.item) !== undefined)
 	) {
-		errors.position = "Enter a valid item number.";
+		errors.position = text("log.error.item-number");
 	}
 	return errors;
 };
@@ -472,7 +458,7 @@ export const activityEntryDraft = (input: {
 				? {
 						position: {
 							position: draft.position,
-							unit: positionLogUnit(input.logger, draft.positionUnit).value,
+							unit: positionLogUnit(input.logger, draft.positionUnit),
 						},
 					}
 				: {}),
@@ -544,15 +530,35 @@ export const activityLogInput = (
 };
 
 export const episodeCode = (
+	text: MediaText,
 	logger: Pick<MediaActivityLogger, "family">,
 	episode: Pick<ActivityEpisode, "seasonNumber" | "episodeNumber">,
 ) =>
 	logger.family === "show"
-		? `S${episode.seasonNumber ?? 0}·E${episode.episodeNumber}`
-		: `Episode ${episode.episodeNumber}`;
+		? text("log.episode-code-seasonal", {
+				episode: episode.episodeNumber,
+				season: episode.seasonNumber ?? 0,
+			})
+		: text("log.episode-code", { episode: episode.episodeNumber });
 
-export const seasonLabel = (seasonNumber: number) =>
-	seasonNumber === 0 ? "Specials" : `Season ${seasonNumber}`;
+export const episodeCodeMessage = (
+	logger: Pick<MediaActivityLogger, "family">,
+	episode: Pick<ActivityEpisode, "seasonNumber" | "episodeNumber">,
+) =>
+	logger.family === "show"
+		? catalogMessage("log.episode-code-seasonal", {
+				episode: episode.episodeNumber,
+				season: episode.seasonNumber ?? 0,
+			})
+		: catalogMessage("log.episode-code", { episode: episode.episodeNumber });
+
+export const seasonMessage = (seasonNumber: number) =>
+	seasonNumber === 0
+		? catalogMessage("log.season-specials")
+		: catalogMessage("log.season", { season: seasonNumber });
+
+export const seasonLabel = (text: MediaText, seasonNumber: number) =>
+	seasonNumber === 0 ? text("log.season-specials") : text("log.season", { season: seasonNumber });
 
 export const defaultSeasonNumber = (context: {
 	readonly seasons: readonly { readonly seasonNumber: number }[];
@@ -590,25 +596,29 @@ export const selectedEpisode = (input: {
 };
 
 type ActivityQuickAction = {
-	readonly text: string;
 	readonly label: string;
+	readonly success: LocalMessage;
 	readonly entry: ActivityEntryDraft;
 };
 
 export const activityQuickAction = (
+	text: MediaText,
 	logger: MediaActivityLogger,
 	context: MediaActivityLogContext,
 ): null | ActivityQuickAction => {
-	const { participle } = logger.copy;
+	const { verb } = logger.copy;
 	if (logger.family === "show" || logger.family === "podcast") {
 		const { nextUp } = context;
 		if (nextUp === null) {
 			return null;
 		}
-		const code = episodeCode(logger, nextUp);
+		const code = episodeCode(text, logger, nextUp);
 		return {
-			text: `${code} ${participle}.`,
-			label: `Mark ${code} ${participle}`,
+			label: text("log.submit.episode", { code, verb }),
+			success: catalogMessage("log.quick.episode-text", {
+				verb,
+				code: episodeCodeMessage(logger, nextUp),
+			}),
 			entry: {
 				kind: "episodes",
 				when: { kind: "now" },
@@ -619,68 +629,83 @@ export const activityQuickAction = (
 	}
 	if (logger.family === "positional") {
 		const unit = positionLogUnit(logger, context.position?.unit);
-		const position = latestPositionIn(context, unit.value) + 1;
-		const total = activityPositionTotal(context, unit.value);
+		const position = latestPositionIn(context, unit) + 1;
+		const total = activityPositionTotal(context, unit);
 		if (context.state === "complete" || (total !== null && position > total)) {
 			return null;
 		}
 		return {
-			label: `Mark ${unit.singular} ${position} ${participle}`,
-			text: `${capitalized(unit.singular)} ${position} ${participle}.`,
-			entry: { kind: "progress", entityId: context.id, position: { position, unit: unit.value } },
+			label: text("log.quick.position-label", { unit, verb, position }),
+			success: catalogMessage("log.quick.position-text", { unit, verb, position }),
+			entry: { kind: "progress", entityId: context.id, position: { unit, position } },
 		};
 	}
 	return null;
 };
 
 export const episodeStateLabel = (input: {
+	readonly text: MediaText;
 	readonly logger: MediaActivityLogger;
 	readonly nextUpId: string | undefined;
 	readonly episode: Pick<ActivityEpisode, "id" | "state">;
 }) => {
 	if (input.episode.state === "complete") {
-		return capitalized(input.logger.copy.participle);
+		return input.text("log.episode-state-done", { verb: input.logger.copy.verb });
 	}
 	if (input.episode.state === "in_progress") {
-		return "In progress";
+		return input.text("browse.status.in-progress");
 	}
-	return input.episode.id === input.nextUpId ? "Next up" : undefined;
+	return input.episode.id === input.nextUpId ? input.text("episodes.next-up") : undefined;
 };
 
 export const backfillSummary = (
+	text: MediaText,
+	formatters: Formatters,
 	logger: MediaActivityLogger,
 	earlier: readonly Pick<ActivityEpisode, "seasonNumber" | "episodeNumber">[],
 ) => {
-	const codes = earlier.slice(0, 3).map((episode) => episodeCode(logger, episode));
-	const more = earlier.length > 3 ? ` and ${earlier.length - 3} more` : "";
+	const codes = formatters
+		.list({ type: "unit", style: "short" })
+		.format(earlier.slice(0, 3).map((episode) => episodeCode(text, logger, episode)));
 	return {
-		detail: `${codes.join(", ")}${more} · specials never included`,
-		label: `Also mark ${earlier.length} earlier un${logger.copy.participle} episode${earlier.length === 1 ? "" : "s"}`,
+		label: text("log.backfill-label", { count: earlier.length, verb: logger.copy.verb }),
+		detail:
+			earlier.length > 3
+				? text("log.backfill-detail-more", { codes, count: earlier.length - 3 })
+				: text("log.backfill-detail", { codes }),
 	};
 };
 
 export const activityCopyLabels = (input: {
 	readonly name: string;
+	readonly text: MediaText;
 	readonly episodeCount: number;
 	readonly draft: ActivityDraft;
 	readonly logger: MediaActivityLogger;
-	readonly episodeCode: string | undefined;
 	readonly context: MediaActivityLogContext;
-}) => {
-	const { draft, logger } = input;
-	const { gerund, participle } = logger.copy;
+	readonly episodeCode: undefined | { readonly text: string; readonly message: LocalMessage };
+}): { readonly submit: string; readonly offerReview: boolean; readonly success: LocalMessage } => {
+	const { text, draft, logger } = input;
+	const { verb } = logger.copy;
 	if (draft.intent === "finished") {
 		return {
 			offerReview: true,
-			submit: `Mark as ${participle}`,
-			success: `${input.name} marked as ${participle}${draft.when === "unknown" ? " (date unknown)." : "."}`,
+			submit: text("log.submit.finished", { verb }),
+			success:
+				draft.when === "unknown"
+					? catalogMessage("log.success.finished-unknown", { verb, name: input.name })
+					: catalogMessage("log.success.finished", { verb, name: input.name }),
 		};
 	}
 	if (draft.intent === "progress" && logger.family === "positional") {
 		return {
 			offerReview: false,
-			submit: "Save progress",
-			success: `Now ${participle} through ${positionLogUnit(logger, draft.positionUnit).singular} ${draft.position ?? ""}.`,
+			submit: text("log.submit.save-progress"),
+			success: catalogMessage("log.success.position", {
+				verb,
+				position: draft.position ?? 0,
+				unit: positionLogUnit(logger, draft.positionUnit),
+			}),
 		};
 	}
 	if (draft.intent === "progress") {
@@ -691,37 +716,64 @@ export const activityCopyLabels = (input: {
 			draft.amountUnit === "unit"
 				? logger.progressUnit
 				: undefined;
-		let success: string;
+		let success: LocalMessage;
 		if (started) {
-			success = `Marked as ${gerund}.`;
+			success = catalogMessage("log.success.started", { verb });
 		} else if (pageUnit !== undefined) {
-			success = `Progress saved at ${draft.amount} ${pageUnit.plural}.`;
+			success = catalogMessage("log.success.pages", { amount: draft.amount });
 		} else {
-			success = `Progress saved at ${draftProgressPercent(draft, activityUnitTotal(logger, input.context)) ?? ""}%.`;
+			success = catalogMessage("log.success.percent", {
+				percent: (draftProgressPercent(draft, activityUnitTotal(logger, input.context)) ?? 0) / 100,
+			});
 		}
-		return { success, offerReview: false, submit: started ? `Start ${gerund}` : "Save progress" };
+		return {
+			success,
+			offerReview: false,
+			submit: started ? text("log.submit.start", { verb }) : text("log.submit.save-progress"),
+		};
 	}
 	if (draft.intent === "episode") {
 		const many = input.episodeCount > 1;
-		const code = input.episodeCode ?? "episode";
 		return {
 			offerReview: false,
 			submit: many
-				? `Mark ${input.episodeCount} episodes ${participle}`
-				: `Mark ${code} ${participle}`,
+				? text("log.submit.episodes", { verb, count: input.episodeCount })
+				: text("log.submit.episode", {
+						verb,
+						code: input.episodeCode?.text ?? text("log.episode-fallback"),
+					}),
 			success: many
-				? `${input.episodeCount} episodes marked ${participle}.`
-				: `${code} marked ${participle}.`,
+				? catalogMessage("log.success.episodes", { verb, count: input.episodeCount })
+				: catalogMessage("log.success.episode", {
+						verb,
+						code: input.episodeCode?.message ?? catalogMessage("log.episode-fallback"),
+					}),
 		};
 	}
-	return { offerReview: false, ...STATUS_COPY[draft.status] };
+	return {
+		offerReview: false,
+		submit: text("log.submit.status", { status: draft.status }),
+		success: catalogMessage("log.success.status", { status: draft.status }),
+	};
 };
 
-export const activityStatusOptions = (logger: MediaActivityLogger) =>
+export const activityStatusOptions = (text: MediaText, logger: MediaActivityLogger) =>
 	[
-		{ value: "backlog", label: "Backlog", detail: `Want to ${logger.copy.verb} it later` },
-		{ value: "on_hold", label: "On hold", detail: "Paused for now" },
-		{ value: "dropped", label: "Dropped", detail: `Stopped ${logger.copy.gerund}` },
+		{
+			value: "backlog",
+			label: text("log.status.label", { status: "backlog" }),
+			detail: text("log.status.detail-backlog", { verb: logger.copy.verb }),
+		},
+		{
+			value: "on_hold",
+			detail: text("log.status.detail-on-hold"),
+			label: text("log.status.label", { status: "on_hold" }),
+		},
+		{
+			value: "dropped",
+			label: text("log.status.label", { status: "dropped" }),
+			detail: text("log.status.detail-dropped", { verb: logger.copy.verb }),
+		},
 	] as const satisfies readonly {
 		readonly label: string;
 		readonly detail: string;
@@ -729,25 +781,33 @@ export const activityStatusOptions = (logger: MediaActivityLogger) =>
 	}[];
 
 export const activityStatusNote = (
+	text: MediaText,
 	logger: MediaActivityLogger,
 	context: MediaActivityLogContext,
 ) => {
 	if (logger.family === "show" || logger.family === "podcast") {
-		return "Episodes you have already marked stay as they are.";
+		return text("log.status.note-episodes");
 	}
 	if (logger.family === "positional") {
 		return context.position === null
 			? undefined
-			: `Keeps your place at ${positionLogUnit(logger, context.position.unit).singular} ${context.position.position}.`;
+			: text("log.status.note-position", {
+					position: context.position.position,
+					unit: positionLogUnit(logger, context.position.unit),
+				});
 	}
 	const progress = context.progressPercent ?? 0;
-	return progress > 0 ? `Keeps your progress at ${Math.round(progress)}%.` : undefined;
+	return progress > 0 ? text("log.status.note-progress", { percent: progress / 100 }) : undefined;
 };
 
-export const activityRuntimeHint = (runtime: null | number) =>
+export const activityRuntimeHint = (
+	text: MediaText,
+	formatters: Formatters,
+	runtime: null | number,
+) =>
 	runtime === null
-		? "Leave empty if you don't know."
-		: `Leave empty to use the runtime (${mediaActivityDurationLabel(runtime)}).`;
+		? text("log.runtime-hint-empty")
+		: text("log.runtime-hint", { runtime: formatDuration(formatters, runtime * 60, "minute") });
 
 export const consumedOnSuggestions = (userList: unknown, history: readonly string[]) => {
 	const own = Array.isArray(userList)
@@ -918,7 +978,7 @@ export const activityEditPatch = (input: {
 	}
 	if (draft.intent === "progress") {
 		if (input.logger.family === "positional" && ref.entityId === input.context.id) {
-			const unit = positionLogUnit(input.logger, draft.positionUnit).value;
+			const unit = positionLogUnit(input.logger, draft.positionUnit);
 			const stored = storedPosition(ref);
 			if (
 				draft.position !== undefined &&

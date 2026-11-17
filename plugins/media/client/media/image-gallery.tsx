@@ -3,10 +3,10 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type RefObject, useEffect, useRef, useState } from "react";
 
+import { useMediaMessages } from "../messages";
 import { MediaDetailModal } from "./detail-modal";
 import type { MediaGalleryImage } from "./image";
 import {
-	galleryCountLabel,
 	type GalleryFilter,
 	galleryFilterImages,
 	galleryFilters,
@@ -29,6 +29,7 @@ export function MediaImageGallery(props: {
 	readonly images: readonly MediaGalleryImage[];
 	readonly triggerRef: RefObject<null | HTMLElement>;
 }) {
+	const text = useMediaMessages();
 	const [filter, setFilter] = useState<GalleryFilter>("all");
 	const [lightbox, setLightbox] = useState<number>();
 	const tileRef = useRef<null | HTMLElement>(null);
@@ -44,28 +45,28 @@ export function MediaImageGallery(props: {
 
 	return (
 		<MediaDetailModal
-			title="Images"
 			contentRef={gridRef}
 			compact={props.compact}
 			onClose={props.onClose}
-			closeLabel="Close images"
 			triggerRef={props.triggerRef}
-			label={`${props.name} images`}
+			title={text("property.images")}
 			safeAreaTop={props.safeAreaTop}
+			closeLabel={text("gallery.close")}
+			label={text("gallery.label", { name: props.name })}
 			toolbar={<GalleryFilterRow active={filter} images={props.images} onSelect={selectFilter} />}
 			headerAside={
 				<span className="font-ui text-[12px] text-text-muted">
-					{galleryCountLabel(visible.length)}
+					{text("gallery.count", { count: visible.length })}
 				</span>
 			}
 			overlay={
 				lightbox === undefined ? null : (
 					<Modal
 						triggerRef={tileRef}
-						closeLabel="Close image"
 						onClose={() => setLightbox(undefined)}
+						closeLabel={text("gallery.close-image")}
 						className="flex h-full w-full flex-col bg-bg"
-						label={`Image ${lightbox + 1} of ${visible.length}`}
+						label={text("gallery.position", { index: lightbox + 1, total: visible.length })}
 					>
 						<GalleryLightboxBody
 							images={visible}
@@ -85,7 +86,7 @@ export function MediaImageGallery(props: {
 					<button
 						type="button"
 						key={imageAssetKey(image)}
-						aria-label={`View image ${index + 1}`}
+						aria-label={text("gallery.view-image", { index: index + 1 })}
 						className="rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
 						onClick={(event) => {
 							tileRef.current = event.currentTarget;
@@ -124,6 +125,7 @@ function GalleryFilterRow(props: {
 	readonly images: readonly MediaGalleryImage[];
 	readonly onSelect: (filter: GalleryFilter) => void;
 }) {
+	const text = useMediaMessages();
 	const filters = galleryFilters(props.images);
 	if (filters.length === 0) {
 		return null;
@@ -132,12 +134,12 @@ function GalleryFilterRow(props: {
 		<ChipRadioGroup
 			overflow="scroll"
 			value={props.active}
-			label="Filter images"
 			className="px-4 pb-3"
 			onChange={props.onSelect}
+			label={text("gallery.filter-label")}
 			options={filters.map((option) => ({
 				value: option.filter,
-				label: `${option.label} ${option.count}`,
+				label: text("gallery.filter-option", { count: option.count, filter: option.filter }),
 			}))}
 		/>
 	);
@@ -151,6 +153,7 @@ function GalleryLightboxFooter(props: {
 	readonly images: readonly MediaGalleryImage[];
 }) {
 	const { index, images } = props;
+	const text = useMediaMessages();
 	const stripRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -188,7 +191,7 @@ function GalleryLightboxFooter(props: {
 						type="button"
 						key={imageAssetKey(thumb)}
 						onClick={() => props.onSelect(thumbIndex)}
-						aria-label={`Go to image ${thumbIndex + 1}`}
+						aria-label={text("gallery.go-to-image", { index: thumbIndex + 1 })}
 						className={clsx(
 							"w-16 shrink-0 rounded-sm",
 							thumbIndex === index ? "outline-2 outline-accent" : "opacity-45",
@@ -217,6 +220,7 @@ function GalleryLightboxBody(props: {
 	readonly images: readonly MediaGalleryImage[];
 }) {
 	const { index, images } = props;
+	const text = useMediaMessages();
 	const image = images[index];
 	const pointerStart = useRef<number>(undefined);
 
@@ -239,13 +243,13 @@ function GalleryLightboxBody(props: {
 			>
 				<div className="flex items-center gap-3">
 					<span className="font-ui font-medium text-[13px] text-text tabular-nums">
-						{`${index + 1} / ${images.length}`}
+						{text("gallery.counter", { index: index + 1, total: images.length })}
 					</span>
 					<span className="rounded-pill border border-border px-2.5 py-0.5 font-ui text-[11px] text-text-muted">
-						{image.purpose}
+						{text("gallery.purpose", { purpose: image.purpose })}
 					</span>
 				</div>
-				<GalleryCloseButton label="Close image" onClick={props.onClose} />
+				<GalleryCloseButton onClick={props.onClose} label={text("gallery.close-image")} />
 			</div>
 			<div
 				className="flex min-h-0 flex-1 items-center justify-center gap-4 px-4"
@@ -269,7 +273,7 @@ function GalleryLightboxBody(props: {
 						type="button"
 						disabled={index === 0}
 						onClick={() => step(-1)}
-						aria-label="Previous image"
+						aria-label={text("gallery.previous")}
 						className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface-2 text-text disabled:opacity-40"
 					>
 						<AppIcon size={18} name="chevron-left" />
@@ -286,7 +290,7 @@ function GalleryLightboxBody(props: {
 					<button
 						type="button"
 						onClick={() => step(1)}
-						aria-label="Next image"
+						aria-label={text("gallery.next")}
 						disabled={index === images.length - 1}
 						className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface-2 text-text disabled:opacity-40"
 					>

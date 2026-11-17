@@ -1,18 +1,20 @@
-import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import type { Formatters, RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 
 import type { MediaCreatorCredit } from "../../shared/creator-recipes";
+import type { CreditRoleCode, UnlinkedCreator } from "../../shared/credit-roles";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
+import type { MediaCopy, MediaText } from "../messages";
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 import { mediaPosterAsset } from "./summary-state";
 
 export type MediaCreditPerson = MediaCreatorCredit;
 
+export type MediaUnlinkedCreator = UnlinkedCreator;
+
 export type MediaPerson = MediaOverviewRows["people"]["items"][number];
 
 export type MediaCompany = MediaOverviewRows["companies"]["items"][number];
-
-export type MediaUnlinkedCreator = { readonly name: string; readonly role: string };
 
 export type MediaRecommendation = MediaOverviewRows["recommendations"]["items"][number];
 
@@ -36,12 +38,16 @@ export const mapMediaOverview = <Overview>(
 	return state.status === "ready" ? { status: "ready", overview: state.value } : state;
 };
 
-export const mediaOverviewError = (state: MediaOverviewFailure, subject: string) => ({
-	title: "Unable to load these details",
+export const mediaOverviewError = (
+	text: MediaText,
+	state: MediaOverviewFailure,
+	subject: string,
+) => ({
+	title: text("summary.error-load-title"),
 	detail:
 		state.status === "transport-error"
-			? `${subject} could not be loaded. Check your connection and try again.`
-			: "These details came back in a form that could not be displayed. Try again later.",
+			? text("overview.error-transport", { subject })
+			: text("overview.error-malformed"),
 });
 
 export const mediaPersonAsset = (person: MediaCreditPerson) =>
@@ -66,17 +72,36 @@ export const mediaOverviewAssets = (overview: MediaOverviewRows) => [
 export const mediaOverviewManagedAssets = (overview: MediaOverviewRows) =>
 	collectManagedAssetLocators(mediaOverviewAssets(overview));
 
-export const mediaRolesLabel = (roles: null | readonly string[]) =>
-	roles === null || roles.length === 0 ? undefined : roles.join(", ");
+export const mediaListLabel = (formatters: Formatters, values: null | readonly string[]) =>
+	values === null || values.length === 0
+		? undefined
+		: formatters.list({ type: "unit", style: "short" }).format(values);
 
-export const mediaCharacterLabel = (character: null | string) =>
-	character === null || character === "" ? undefined : `as ${character}`;
+/** Standard roles first, then the roles the provider names. */
+export const mediaCreditRolesLabel = (
+	{ text, formatters }: Pick<MediaCopy, "text" | "formatters">,
+	credit: {
+		readonly roles: null | readonly string[];
+		readonly roleCodes: null | readonly CreditRoleCode[];
+	},
+) =>
+	mediaListLabel(formatters, [
+		...(credit.roleCodes ?? []).map((role) => text("credits.role", { role })),
+		...(credit.roles ?? []),
+	]);
 
-const UNLINKED_COMPANY_ROLE = "Publisher";
+export const mediaUnlinkedRoleLabel = (text: MediaText, creator: MediaUnlinkedCreator) =>
+	creator.roleCode === undefined ? creator.role : text("credits.role", { role: creator.roleCode });
+
+export const mediaUnlinkedCreatorKey = (creator: MediaUnlinkedCreator) =>
+	`${creator.roleCode ?? creator.role ?? ""}:${creator.name}`;
+
+export const mediaCharacterLabel = (text: MediaText, character: null | string) =>
+	character === null || character === "" ? undefined : text("credits.character", { character });
 
 export const mediaUnlinkedCredits = (unlinked: readonly MediaUnlinkedCreator[]) => ({
-	people: unlinked.filter(({ role }) => role !== UNLINKED_COMPANY_ROLE),
-	companies: unlinked.filter(({ role }) => role === UNLINKED_COMPANY_ROLE),
+	people: unlinked.filter(({ roleCode }) => roleCode !== "publisher"),
+	companies: unlinked.filter(({ roleCode }) => roleCode === "publisher"),
 });
 
 export const mediaRelationsAreEmpty = (

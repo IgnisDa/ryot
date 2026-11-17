@@ -3,6 +3,7 @@ import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk
 import { ChipButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
+import { useMediaCopy } from "../messages";
 import { type MediaCollectionList, mediaCollectionsLabel } from "./summary-state";
 
 const manageCollections = createRyotMutation<{ readonly entityId: string }, void>(
@@ -13,6 +14,7 @@ export function MediaCollectionsControl(props: {
 	readonly entityId: string;
 	readonly collections: MediaCollectionList;
 }) {
+	const copy = useMediaCopy();
 	const mutation = useRyotMutation(manageCollections);
 	const inAny = props.collections.items.length > 0;
 	return (
@@ -23,11 +25,11 @@ export function MediaCollectionsControl(props: {
 				icon={<AppIcon size={13} name="layers-3" />}
 				onClick={() => mutation.mutate({ entityId: props.entityId })}
 			>
-				{mediaCollectionsLabel(props.collections)}
+				{mediaCollectionsLabel(copy, props.collections)}
 			</ChipButton>
 			{mutation.error === null ? null : (
 				<span role="alert" className="text-xs text-danger">
-					Unable to open collections. Try again.
+					{copy.text("collections.open-failed")}
 				</span>
 			)}
 		</>
