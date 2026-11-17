@@ -76,6 +76,7 @@ import {
 import {
 	type SandboxExecutionResult,
 	SandboxExecutionResult as SandboxExecutionResultSchema,
+	stampSandboxExecutionError,
 } from "./result";
 import {
 	type PinnedScriptExecutionWorkflowPayload,
@@ -1015,12 +1016,12 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				return yield* failReplay(
 					replay,
 					step,
-					{
+					stampSandboxExecutionError(pin.principal, {
 						phase: "execute",
 						kind: observed.kind,
 						message: observed.error,
 						...(observed.data === undefined ? {} : { data: observed.data }),
-					},
+					}),
 					observed.error,
 				);
 			}
@@ -1188,12 +1189,16 @@ const executeScriptDirect = Effect.fn("executeScriptDirect")(function* (
 			return yield* new DirectScriptDeferred();
 		}
 		if (observed.state === "failed") {
-			return toSandboxExecutionResult(replay, null, {
-				phase: "execute",
-				kind: observed.kind,
-				message: observed.error,
-				...(observed.data === undefined ? {} : { data: observed.data }),
-			});
+			return toSandboxExecutionResult(
+				replay,
+				null,
+				stampSandboxExecutionError(principal, {
+					phase: "execute",
+					kind: observed.kind,
+					message: observed.error,
+					...(observed.data === undefined ? {} : { data: observed.data }),
+				}),
+			);
 		}
 		return toSandboxExecutionResult(
 			replay,

@@ -6,6 +6,8 @@ import { Context, Effect, Layer } from "effect";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 
+import { definitionText } from "./text";
+
 type EventSchemaScopeInput = {
 	readonly eventSchemaSlug: EventSchemaSlug;
 	readonly entitySchemaSlug: EntitySchemaSlug;
@@ -14,10 +16,10 @@ type EventSchemaScopeInput = {
 
 const toListed = (entitySchemaSlug: string, event: EventSchemaDefinition) => ({
 	slug: event.slug,
-	name: event.name,
 	pluginId: event.pluginId,
 	id: EventSchemaSlug.make(event.slug),
 	propertiesSchema: event.propertiesSchema,
+	name: definitionText(event.pluginId, event.name),
 	...(event.projection === undefined ? {} : { projection: event.projection }),
 	...(event.eventGroup === undefined ? {} : { eventGroup: event.eventGroup }),
 	entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),

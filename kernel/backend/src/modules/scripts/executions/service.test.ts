@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 
-import { NotFound, SandboxRunError } from "@ryot-app/contract/errors";
+import { notFound, SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	PluginConfigRevisionId,
 	PluginId,
@@ -9,6 +9,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { fixtureManifest } from "@ryot-app/contract/testing";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -256,7 +257,7 @@ layer(
 					service.enqueue(executingUserId, { scriptId, context: {} }, "interactive"),
 				);
 
-				assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
+				assertExitFails(exit, notFound(kernelMessage("error.scripts.not-found")));
 				expect(yield* (yield* SandboxExecutorCalls).executions).toHaveLength(0);
 			}),
 		testTimeout,
@@ -280,7 +281,7 @@ layer(
 				expect(yield* service.getResult(executingUserId, jobId)).toEqual({ status: "pending" });
 				assertExitFails(
 					yield* Effect.exit(service.getResult(otherUserId, jobId)),
-					new NotFound({ message: "Sandbox job not found" }),
+					notFound(kernelMessage("error.scripts.job-not-found")),
 				);
 			});
 		},

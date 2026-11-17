@@ -85,7 +85,7 @@ const linkedTo = (packageValue: NormalizedPlugin, targetEntitySchemaSlug: string
 
 const relationshipSchema = (slug: string, source: string, target: string) => ({
 	slug,
-	name: slug,
+	name: { key: `test.${slug}` },
 	sourceEntitySchemaSlug: source,
 	targetEntitySchemaSlug: target,
 	propertiesSchema: { fields: {} },
@@ -682,13 +682,15 @@ describe("definition views", () => {
 						entitySchemas: [
 							{
 								...collection,
-								name: "Renamed",
+								name: { key: "test.renamed" },
 								eventSchemas: collection.eventSchemas.filter(({ slug }) => slug !== "review"),
 							},
 						],
 					});
 
-					expect(yield* kernelEntities()).toEqual([{ id: seeded.id, name: "Renamed" }]);
+					expect(yield* kernelEntities()).toEqual([
+						{ id: seeded.id, name: { namespace: "kernel", key: "test.renamed" } },
+					]);
 					const snapshot = yield* definitions.getUserSnapshot(UserId.make("recipient"), effective);
 					expect(snapshot.relationshipSchemas).toEqual({});
 					expect(
@@ -713,9 +715,9 @@ describe("definition views", () => {
 
 const integration = (slug: string) => ({
 	slug,
-	name: slug,
-	description: slug,
+	name: { key: `test.${slug}` },
 	settingsSchema: { fields: {} },
+	description: { key: `test.${slug}-description` },
 });
 
 describe("integration provider plans", () => {

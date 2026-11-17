@@ -1,11 +1,12 @@
 import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
-import { BadRequest, SandboxRunError } from "@ryot-app/contract/errors";
+import { badRequest, SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxCompilationFailure } from "@ryot-app/contract/modules/scripts/schemas";
 import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
@@ -29,6 +30,7 @@ import { truncateJsonResult } from "#platform/tool-result";
 
 import { isSandboxCapabilityAllowed } from "../authorization/capabilities";
 import type { ScriptExecutionPrincipal } from "../authorization/principal";
+import { stampSandboxExecutionError } from "../executions/result";
 import { validateWorkflowReplayEnvelope } from "../executions/workflow";
 import { SandboxCompiler } from "../registry/compiler";
 import { AgentScriptRepository } from "./repository";
@@ -75,9 +77,11 @@ export class AgentScriptService extends Context.Service<AgentScriptService>()(
 				readonly invokeCapability: AgentCapabilityCall;
 			}) {
 				if (utf8ByteLength(input.source) > SANDBOX_LIMITS.compiler.sourceBytes) {
-					return yield* new BadRequest({
-						message: "Agent script exceeds the sandbox source byte limit",
-					});
+					return yield* badRequest(
+						kernelMessage("error.scripts.source-too-large", {
+							maxBytes: SANDBOX_LIMITS.compiler.sourceBytes,
+						}),
+					);
 				}
 				const id = SandboxScriptId.make(
 					`agent-${sha256Hex(stableStringify([input.userId, input.idempotencyKey ?? generateId()]))}`,
@@ -97,9 +101,7 @@ export class AgentScriptService extends Context.Service<AgentScriptService>()(
 						(existing.principal?.subject.type === "agent" &&
 							existing.principal.subject.accessClass !== input.accessClass)
 					) {
-						return yield* new BadRequest({
-							message: "Agent execution key was reused with different input or authority",
-						});
+						return yield* badRequest(kernelMessage("error.scripts.execution-key-reused"));
 					}
 					if (existing.result !== null) {
 						return {
@@ -178,7 +180,12 @@ export class AgentScriptService extends Context.Service<AgentScriptService>()(
 							}
 						}
 						if (!result.success) {
-							return { logs, value: null, executionId: id, error: result.error };
+							return {
+								logs,
+								value: null,
+								executionId: id,
+								error: result.error && stampSandboxExecutionError(principal, result.error),
+							};
 						}
 						const envelope = yield* Schema.decodeUnknownEffect(workflowReplayEnvelopeSchema)(
 							result.value,

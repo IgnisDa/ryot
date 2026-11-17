@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { AuthoredResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { column, field, rows as queryRows, table } from "@ryot-app/ryotql";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
@@ -15,7 +15,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
-import { Effect, Layer, Schema } from "effect";
+import { Array as Arr, Effect, Layer, Schema } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -179,8 +179,8 @@ describe("sandbox execution authority", () => {
 								entitySchema,
 								{
 									...entitySchema,
-									name: "Second entity",
 									slug: secondEntitySlug,
+									name: { key: "test.second-entity" },
 									eventSchemas: secondEventSlugs.map((eventSlug) =>
 										Object.assign({}, eventSchema, { slug: eventSlug }),
 									),
@@ -190,8 +190,8 @@ describe("sandbox execution authority", () => {
 								{
 									sortOrder: 0,
 									icon: "bookmark",
-									name: "Large saved view",
 									slug: `${slug}-saved-view`,
+									name: { key: "test.large-saved-view" },
 									renderer: { kind: "kernel", name: "results-table" },
 									dataSources: {
 										queries: {
@@ -205,14 +205,12 @@ describe("sandbox execution authority", () => {
 										entityLink: null,
 										rowKeyFields: ["id"],
 										sourceName: "records",
-										columns: [
-											{
-												field: "id",
-												displayKind: "text",
-												label: "large saved view payload ".repeat(512),
-											},
-										],
-									} satisfies ResultsTableSavedViewSettings,
+										columns: Arr.makeBy(100, (index) => ({
+											field: "id",
+											displayKind: "text" as const,
+											label: { key: `test.large-saved-view-payload-${index}-${"x".repeat(90)}` },
+										})),
+									} satisfies AuthoredResultsTableSavedViewSettings,
 								},
 							],
 						},

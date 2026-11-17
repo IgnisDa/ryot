@@ -21,12 +21,15 @@ import {
 } from "@ryot-app/sandbox/host/bridge-adapter";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import type { SandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
-import { Context, Effect, Schema } from "effect";
+import { Context, Effect, Result, Schema } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http-rate-limit-authority";
 import { requireSandboxCapabilityInput } from "#modules/scripts/authorization/capabilities";
-import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import {
+	runNotification,
+	type ScriptExecutionPrincipal,
+} from "#modules/scripts/authorization/principal";
 import { sandboxLifecycleCommand, sandboxRunUserId } from "#modules/scripts/host/execution-context";
 import type { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
@@ -313,7 +316,7 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 	function* (request: HostRequest, scope: HostCallScope) {
 		const { input } = yield* loadDispatchInput(request, scope);
 		const { principal } = scope;
-		const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.sendNotification.args)(
+		const args = yield* Schema.decodeUnknownEffect(Schema.Tuple([Schema.Unknown]))(
 			request.args.args,
 		).pipe(
 			Effect.mapError(
@@ -324,23 +327,11 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 					}),
 			),
 		);
-		if (
-			principal.subject.type !== "automation-run" ||
-			principal.subject.executionUserId === null ||
-			principal.subject.accountUserId === null ||
-			principal.subject.accountUserId !== principal.subject.executionUserId
-		) {
-			return yield* new SandboxRunError({
-				kind: "script-failure",
-				message: "sendNotification requires a user automation run",
-			});
+		const admission = runNotification(principal, input.hostCallDiscriminator, args[0]);
+		if (Result.isFailure(admission)) {
+			return yield* new SandboxRunError({ kind: "script-failure", message: admission.failure });
 		}
-		return {
-			message: args[0],
-			sourceRunId: principal.subject.runId,
-			accountUserId: principal.subject.accountUserId,
-			sourceKey: `${principal.subject.runId}-host-${input.hostCallDiscriminator}-notification`,
-		};
+		return admission.success;
 	},
 );
 

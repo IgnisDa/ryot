@@ -14,6 +14,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { fixtureManifest } from "@ryot-app/contract/testing";
 import {
 	workflowDurableResultSchema,
@@ -499,6 +500,7 @@ const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const decodeEnvelope = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(workflowReplayEnvelopeSchema),
 );
+const decodeJsonValue = Schema.decodeUnknownEffect(Schema.fromJsonString(JsonValue));
 
 class ActiveWorkflowScript extends Context.Service<
 	ActiveWorkflowScript,
@@ -596,9 +598,9 @@ const hotSwapLayer = recordingLayer(
 							harvest: null,
 							pendingInline: [],
 							executionId: input.executionId,
-							value: yield* decodeEnvelope(output),
 							timing: { totalMs: 1, executionMs: 1 },
 							recovery: recoveryIdentity(input.executionId),
+							value: yield* decodeEnvelope(output).pipe(Effect.andThen(decodeJsonValue(output))),
 						};
 					}).pipe(Effect.orDie),
 				),

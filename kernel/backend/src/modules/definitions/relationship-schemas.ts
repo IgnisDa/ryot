@@ -1,7 +1,4 @@
-import type {
-	PluginProjection,
-	PluginRelationshipUserWritePolicy,
-} from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginRelationshipUserWritePolicy } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
 	type RelationshipSchemaReference,
@@ -12,19 +9,24 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
+import type {
+	DefinitionProjection,
+	RelationshipSchemaDefinition,
+} from "@ryot-app/definitions/snapshot";
+import type { Message } from "@ryot-app/i18n/message";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { definitionText } from "#modules/definitions/text";
 
 type RelationshipSchemaScope = {
-	readonly name: string;
 	readonly slug: string;
+	readonly name: Message;
 	readonly isBuiltin: boolean;
 	readonly pluginId: null | string;
 	readonly id: RelationshipSchemaSlug;
 	readonly propertiesSchema: AppSchema;
-	readonly projection?: undefined | PluginProjection;
+	readonly projection?: undefined | DefinitionProjection;
 	readonly sourceEntitySchemaSlug: null | EntitySchemaSlug;
 	readonly targetEntitySchemaSlug: null | EntitySchemaSlug;
 	readonly userWritePolicy?: undefined | PluginRelationshipUserWritePolicy;
@@ -65,12 +67,12 @@ export class RelationshipSchemaReader extends Context.Service<RelationshipSchema
 }
 
 const toScope = (definition: RelationshipSchemaDefinition): RelationshipSchemaScope => ({
-	name: definition.name,
 	slug: definition.slug,
 	pluginId: definition.pluginId,
 	isBuiltin: definition.pluginId === null,
 	propertiesSchema: definition.propertiesSchema,
 	id: RelationshipSchemaSlug.make(definition.slug),
+	name: definitionText(definition.pluginId, definition.name),
 	sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug
 		? EntitySchemaSlug.make(definition.sourceEntitySchemaSlug)
 		: null,

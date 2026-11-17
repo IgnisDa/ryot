@@ -40,7 +40,7 @@ import { isSandboxCapabilityAllowed } from "../authorization/capabilities";
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { ExecutableArtifacts } from "../registry/executable-artifacts";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
-import { SandboxExecutionResult } from "./result";
+import { SandboxExecutionResult, stampSandboxExecutionError } from "./result";
 import { infrastructureRunError } from "./run-error";
 import { sandboxReplayPriority } from "./scheduling-key";
 
@@ -329,13 +329,16 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			return {
 				pendingInline,
 				logs: result.logs,
-				error: result.error,
 				value: result.value,
 				timing: result.timing,
 				inline: result.inline,
 				harvest: result.harvest,
 				recovery: result.recovery,
 				status: "completed" as const,
+				error:
+					result.error === null
+						? null
+						: stampSandboxExecutionError(payload.principal, result.error),
 			};
 		}).pipe(
 			Effect.catchIf(

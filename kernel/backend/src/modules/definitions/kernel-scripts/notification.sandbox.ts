@@ -2,6 +2,9 @@ import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { isMessage } from "@ryot-app/plugin-kit/messages";
+
+import { catalogMessage } from "./shared/messages.generated";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -21,15 +24,32 @@ const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: st
 	return value;
 };
 
-const formatMessage = (
+/** The kernel stamps its own namespace only on local messages, so a stamped definition name passes through. */
+const messageProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {
+	const value = properties[key];
+	if (!isMessage(value)) {
+		throw new Error(`Signal property ${key} must be a message`);
+	}
+	return value;
+};
+
+const notificationMessage = (
 	signalSchemaSlug: string,
 	properties: Readonly<Record<string, JsonValue>>,
 ) => {
 	if (signalSchemaSlug === "integration.disabled") {
-		return `Integration ${stringProperty(properties, "providerName")} has been disabled due to too many errors`;
+		return catalogMessage("notification.integration-disabled", {
+			provider: messageProperty(properties, "providerName"),
+		});
 	}
 	if (signalSchemaSlug === "reminder.due") {
-		return `${stringProperty(properties, "entityTitle")}: ${stringProperty(properties, "message")}\nScheduled for ${stringProperty(properties, "dueAt")} (${stringProperty(properties, "timezone")})`;
+		const timeZone = stringProperty(properties, "timezone");
+		return catalogMessage("notification.reminder-due", {
+			timeZone,
+			message: stringProperty(properties, "message"),
+			entityTitle: stringProperty(properties, "entityTitle"),
+			dueAt: { timeZone, date: new Date(stringProperty(properties, "dueAt")) },
+		});
 	}
 	throw new Error(`Unsupported signal schema: ${signalSchemaSlug}`);
 };
@@ -45,7 +65,7 @@ export default defineAutomation({
 				return yield* Effect.die(new Error("Signal notification requires an execution user"));
 			}
 			yield* host.sendNotification(
-				formatMessage(automation.payload.signalSchemaSlug, automation.payload.properties),
+				notificationMessage(automation.payload.signalSchemaSlug, automation.payload.properties),
 			);
 			return null;
 		});

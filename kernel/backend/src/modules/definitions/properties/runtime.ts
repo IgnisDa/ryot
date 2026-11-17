@@ -1,6 +1,6 @@
+import { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { validateAppSchemaDefinition } from "@ryot-app/contract/schema/app-schema-definition";
 import {
-	AppSchema,
 	createPropertySchemaMessage,
 	type PropertyValidationError,
 } from "@ryot-app/contract/schema/property-schema";
@@ -11,7 +11,7 @@ import {
 import { Effect, Result, Schema } from "effect";
 
 const decodeAppSchemaEither = (input: unknown, emptyFieldsMessage?: string) => {
-	const decoded = Schema.decodeUnknownResult(Schema.toType(AppSchema))(input);
+	const decoded = Schema.decodeUnknownResult(Schema.toType(AuthoredAppSchema))(input);
 	if (Result.isFailure(decoded)) {
 		return Result.fail(toValidationError(parseErrorToIssues(decoded.failure)));
 	}
@@ -26,7 +26,7 @@ const decodeAppSchemaEither = (input: unknown, emptyFieldsMessage?: string) => {
 const parsePropertySchemaInput = (
 	input: unknown,
 	labels: { propertiesLabel: string },
-): Effect.Effect<AppSchema, PropertyValidationError> => {
+): Effect.Effect<AuthoredAppSchema, PropertyValidationError> => {
 	const decoded = decodeAppSchemaEither(input, createPropertySchemaMessage(labels.propertiesLabel));
 	return Effect.fromResult(decoded);
 };

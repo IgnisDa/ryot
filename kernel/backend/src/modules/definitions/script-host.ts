@@ -1,6 +1,7 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
 import { sandboxHostEffect, toSandboxJsonValue } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
@@ -17,6 +18,7 @@ import {
 } from "#modules/scripts/host/execution-context";
 
 import { DefinitionRepository } from "./repository";
+import { definitionText } from "./text";
 
 const requireNonEmptyString = (value: string, message: string): Effect.Effect<string, string> => {
 	if (value.trim().length === 0) {
@@ -80,7 +82,7 @@ export const makeDefinitionScriptHost = Effect.gen(function* () {
 														entitySchemaSlug,
 														id: eventSchema.slug,
 														slug: eventSchema.slug,
-														name: eventSchema.name,
+														name: definitionText(eventSchema.pluginId, eventSchema.name),
 														propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
 														pluginId:
 															eventSchema.pluginId === null
@@ -133,11 +135,15 @@ export const makeDefinitionScriptHost = Effect.gen(function* () {
 										});
 										const providersBySchema = new Map<
 											string,
-											Array<{ name: string; providerId: string }>
+											Array<{ slug: string; name: Message; providerId: string }>
 										>();
 										for (const { provider, entitySchemaSlug } of links) {
 											const providers = providersBySchema.get(entitySchemaSlug) ?? [];
-											providers.push({ name: provider.name, providerId: provider.id });
+											providers.push({
+												name: provider.name,
+												slug: provider.slug,
+												providerId: provider.id,
+											});
 											providersBySchema.set(entitySchemaSlug, providers);
 										}
 
@@ -145,9 +151,9 @@ export const makeDefinitionScriptHost = Effect.gen(function* () {
 											isBuiltin: true,
 											id: entitySchemaSlug,
 											icon: definition.icon,
-											name: definition.name,
 											slug: definition.slug,
 											providers: providersBySchema.get(entitySchemaSlug) ?? [],
+											name: definitionText(definition.pluginId, definition.name),
 											propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
 											pluginId:
 												definition.pluginId === null ? null : PluginId.make(definition.pluginId),

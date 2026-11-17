@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
 import { generateId } from "better-auth";
@@ -48,8 +49,9 @@ import {
 	ScriptExecutionWorkflow,
 } from "./workflow";
 
-const sandboxJobNotFoundError = "Sandbox job not found";
-const sandboxScriptNotFoundError = "Sandbox script not found";
+const jobNotFound = () => notFound(kernelMessage("error.scripts.job-not-found"));
+const scriptNotFound = () => notFound(kernelMessage("error.scripts.not-found"));
+const contextInvalid = () => badRequest(kernelMessage("error.scripts.context-invalid"));
 
 const sandboxExecutionFailure = (error: SandboxRunError) => ({
 	logs: [],
@@ -166,19 +168,19 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 			) {
 				const scriptId = trimToNull(payload.scriptId);
 				if (!scriptId) {
-					return yield* notFound(sandboxScriptNotFoundError);
+					return yield* scriptNotFound();
 				}
 				const context = payload.context ?? {};
 				const contextError = sandboxContextError(context);
 				if (contextError) {
-					return yield* badRequest(contextError);
+					return yield* contextInvalid();
 				}
 				const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
-					Effect.mapError(() => badRequest("Sandbox definition context must be JSON")),
+					Effect.mapError(contextInvalid),
 				);
 				const script = yield* repository.getScript(payload.scriptId);
 				if (!script) {
-					return yield* notFound(sandboxScriptNotFoundError);
+					return yield* scriptNotFound();
 				}
 				const executionId = generateId();
 				const resolvedPayload = yield* pinning
@@ -191,7 +193,7 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 						},
 						"active",
 					)
-					.pipe(Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)));
+					.pipe(Effect.catchTag("SandboxRunError", () => scriptNotFound()));
 				yield* dispatchAdmittedWorkflow(
 					engine,
 					ScriptExecutionWorkflow,
@@ -223,12 +225,12 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 			) {
 				const resolvedJobId = trimToNull(jobId);
 				if (!resolvedJobId) {
-					return yield* notFound(sandboxJobNotFoundError);
+					return yield* jobNotFound();
 				}
 
 				const job = resolveWorkflowJob(jobIdSecret, executingUserId, resolvedJobId);
 				if (!job) {
-					return yield* notFound(sandboxJobNotFoundError);
+					return yield* jobNotFound();
 				}
 
 				return yield* toSandboxRunResult(
@@ -389,7 +391,7 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 						input.pluginInstallationId,
 					);
 					if (!script) {
-						return yield* notFound(sandboxScriptNotFoundError);
+						return yield* scriptNotFound();
 					}
 					const payload = {
 						lane: input.lane,

@@ -26,14 +26,14 @@ const entityDefinition = (pluginSlug: string, pluginId: PluginId) => ({
 	pluginId,
 	icon: "record",
 	slug: entitySchemaSlug,
-	name: `${pluginSlug} record`,
 	propertiesSchema: { fields: {} },
+	name: { key: `test.${pluginSlug}-record` },
 	eventSchemas: [
 		{
 			pluginId,
 			slug: eventSchemaSlug,
-			name: `${pluginSlug} review`,
 			propertiesSchema: { fields: {} },
+			name: { key: `test.${pluginSlug}-review` },
 		},
 	],
 });

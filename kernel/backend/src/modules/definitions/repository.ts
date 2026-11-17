@@ -1,4 +1,5 @@
 import type { DbError } from "@ryot-app/contract/errors";
+import type { ManifestText } from "@ryot-app/contract/modules/plugins/manifest-text";
 import {
 	type DeclarationReference,
 	definitionKey,
@@ -38,6 +39,7 @@ import {
 	DefinitionCatalog,
 } from "./catalog";
 import { type DefinitionReadContext, DefinitionReadUnavailable } from "./read-context";
+import { definitionText, storedManifestText } from "./text";
 
 type Placement = "isEffective" | "pluginScope";
 type ListedOption = { readonly listed: boolean };
@@ -95,9 +97,9 @@ const toEventSchema = (
 		"name" | "slug" | "pluginId" | "eventGroup" | "projection" | "propertiesSchema"
 	>,
 ): EventSchemaDefinition => ({
-	name: row.name,
 	slug: row.slug,
 	pluginId: row.pluginId,
+	name: storedManifestText(row.name),
 	propertiesSchema: row.propertiesSchema,
 	...(row.projection === null ? {} : { projection: row.projection }),
 	...(row.eventGroup === null ? {} : { eventGroup: row.eventGroup }),
@@ -108,9 +110,9 @@ const toEntitySchema = (
 	eventSchemas: ReadonlyArray<EventSchemaFields>,
 ): EntitySchemaSnapshot => ({
 	icon: row.icon,
-	name: row.name,
 	slug: row.slug,
 	pluginId: row.pluginId,
+	name: storedManifestText(row.name),
 	propertiesSchema: row.propertiesSchema,
 	mergeIdentityProperties: row.mergeIdentityProperties,
 	...(row.editor ? { editor: row.editor } : {}),
@@ -123,9 +125,9 @@ const toEntitySchema = (
 });
 
 const toRelationshipSchema = (row: RelationshipSchemaRow): RelationshipSchemaDefinition => ({
-	name: row.name,
 	slug: row.slug,
 	pluginId: row.pluginId,
+	name: storedManifestText(row.name),
 	propertiesSchema: row.propertiesSchema,
 	sourceEntitySchemaSlug: row.sourceEntitySchemaSlug,
 	targetEntitySchemaSlug: row.targetEntitySchemaSlug,
@@ -134,10 +136,10 @@ const toRelationshipSchema = (row: RelationshipSchemaRow): RelationshipSchemaDef
 });
 
 const toSignalSchema = (row: SignalSchemaRow): SignalSchemaDefinition => ({
-	name: row.name,
 	slug: row.slug,
 	pluginId: row.pluginId,
 	catalogState: row.catalogState,
+	name: storedManifestText(row.name),
 	audiencePolicy: row.audiencePolicy,
 	propertiesSchema: row.propertiesSchema,
 	notificationHookSlug: row.notificationHookSlug,
@@ -145,7 +147,6 @@ const toSignalSchema = (row: SignalSchemaRow): SignalSchemaDefinition => ({
 
 const toSavedView = (row: SavedViewRow): SavedViewDefinition => ({
 	icon: row.icon,
-	name: row.name,
 	slug: row.slug,
 	pluginId: row.pluginId,
 	renderer: row.renderer,
@@ -153,6 +154,7 @@ const toSavedView = (row: SavedViewRow): SavedViewDefinition => ({
 	sortOrder: row.sortOrder,
 	arguments: row.arguments,
 	dataSources: row.dataSources,
+	name: storedManifestText(row.name),
 	...(row.filter === null ? {} : { filter: row.filter }),
 	...(row.sort === null ? {} : { sort: row.sort }),
 });
@@ -161,7 +163,6 @@ const toCalendarSource = (row: CalendarSourceRow): CalendarSourceDefinition => (
 	art: row.art,
 	done: row.done,
 	icon: row.icon,
-	name: row.name,
 	slug: row.slug,
 	query: row.query,
 	caption: row.caption,
@@ -169,6 +170,7 @@ const toCalendarSource = (row: CalendarSourceRow): CalendarSourceDefinition => (
 	subject: row.subject,
 	pluginId: row.pluginId,
 	precision: row.precision,
+	name: storedManifestText(row.name),
 });
 
 const recordByIdentity = <
@@ -287,10 +289,12 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			});
 			const writeRevisionDefinitions = Effect.fn("DefinitionRepository.writeRevisionDefinitions")(
 				function* (input: {
+					readonly pluginId: string;
 					readonly pluginRevisionId: string;
 					readonly definitions: RevisionDefinitions;
 				}) {
-					const { definitions, pluginRevisionId } = input;
+					const { pluginId, definitions, pluginRevisionId } = input;
+					const text = (manifestText: ManifestText) => definitionText(pluginId, manifestText);
 					if (definitions.entitySchemas.length > 0) {
 						const entities = yield* session.run((db) =>
 							db
@@ -300,8 +304,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										position,
 										pluginRevisionId,
 										icon: definition.icon,
-										name: definition.name,
 										slug: definition.slug,
+										name: text(definition.name),
 										fold: definition.fold ?? null,
 										editor: definition.editor ?? null,
 										browse: definition.browse ?? null,
@@ -322,8 +326,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								? definition.eventSchemas.map((event, position) => ({
 										position,
 										entitySchemaId,
-										name: event.name,
 										slug: event.slug,
+										name: text(event.name),
 										projection: event.projection ?? null,
 										eventGroup: event.eventGroup ?? null,
 										propertiesSchema: event.propertiesSchema,
@@ -342,8 +346,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									definitions.relationshipSchemas.map((definition, position) => ({
 										position,
 										pluginRevisionId,
-										name: definition.name,
 										slug: definition.slug,
+										name: text(definition.name),
 										retention: definition.retention ?? null,
 										projection: definition.projection ?? null,
 										propertiesSchema: definition.propertiesSchema,
@@ -362,8 +366,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									definitions.signalSchemas.map((definition, position) => ({
 										position,
 										pluginRevisionId,
-										name: definition.name,
 										slug: definition.slug,
+										name: text(definition.name),
 										catalogState: definition.catalogState,
 										audiencePolicy: definition.audiencePolicy,
 										propertiesSchema: definition.propertiesSchema,
@@ -381,10 +385,10 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										position,
 										pluginRevisionId,
 										icon: definition.icon,
-										name: definition.name,
 										slug: definition.slug,
 										sort: definition.sort,
 										filter: definition.filter,
+										name: text(definition.name),
 										renderer: definition.renderer,
 										settings: definition.settings,
 										sortOrder: definition.sortOrder,
@@ -405,9 +409,9 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										art: definition.art,
 										done: definition.done,
 										icon: definition.icon,
-										name: definition.name,
 										slug: definition.slug,
 										query: definition.query,
+										name: text(definition.name),
 										caption: definition.caption,
 										startAt: definition.startAt,
 										subject: definition.subject,
@@ -437,15 +441,25 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									definitions.importSources.map((definition, position) => ({
 										position,
 										pluginRevisionId,
-										name: definition.name,
 										slug: definition.slug,
+										name: text(definition.name),
 										plan: definition.plan ?? null,
-										description: definition.description,
 										inputSchema: definition.inputSchema,
 										workflowSlug: definition.workflowSlug,
-										exportHelp: definition.exportHelp ?? null,
+										description: text(definition.description),
 										workflowScriptSlug: definition.workflowScriptSlug,
 										requiredPluginConfigKeys: [...definition.requiredPluginConfigKeys],
+										exportHelp:
+											definition.exportHelp === undefined
+												? null
+												: {
+														...(definition.exportHelp.docsUrl === undefined
+															? {}
+															: { docsUrl: definition.exportHelp.docsUrl }),
+														...(definition.exportHelp.steps === undefined
+															? {}
+															: { steps: definition.exportHelp.steps.map(text) }),
+													},
 									})),
 								),
 						);
@@ -459,9 +473,9 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										position,
 										pluginRevisionId,
 										lot: definition.lot,
-										name: definition.name,
 										slug: definition.slug,
-										description: definition.description,
+										name: text(definition.name),
+										description: text(definition.description),
 										settingsSchema: definition.settingsSchema,
 										entitlement: definition.entitlement ?? null,
 										supportsOwnershipSync: definition.supportsOwnershipSync ?? false,
@@ -527,13 +541,13 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 											source.entitySchemas.map((definition, position) => ({
 												position,
 												icon: definition.icon,
-												name: definition.name,
 												slug: definition.slug,
 												pluginRevisionId: null,
 												fold: definition.fold ?? null,
 												editor: definition.editor ?? null,
 												browse: definition.browse ?? null,
 												userState: definition.userState ?? null,
+												name: definitionText(null, definition.name),
 												propertiesSchema: definition.propertiesSchema,
 												occursAtProperty: definition.occursAtProperty ?? null,
 												refreshIntervalDays: definition.refreshIntervalDays ?? null,
@@ -582,10 +596,10 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										definition.eventSchemas.map((event, position) => ({
 											position,
 											entitySchemaId,
-											name: event.name,
 											slug: event.slug,
 											projection: event.projection ?? null,
 											eventGroup: event.eventGroup ?? null,
+											name: definitionText(null, event.name),
 											propertiesSchema: event.propertiesSchema,
 										})),
 									)
@@ -625,11 +639,11 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.values(
 									source.relationshipSchemas.map((definition, position) => ({
 										position,
-										name: definition.name,
 										slug: definition.slug,
 										pluginRevisionId: null,
 										retention: definition.retention ?? null,
 										projection: definition.projection ?? null,
+										name: definitionText(null, definition.name),
 										propertiesSchema: definition.propertiesSchema,
 										userWritePolicy: definition.userWritePolicy ?? null,
 										sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug,
@@ -665,11 +679,11 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.values(
 									source.signalSchemas.map((definition, position) => ({
 										position,
-										name: definition.name,
 										slug: definition.slug,
 										pluginRevisionId: null,
 										catalogState: definition.catalogState,
 										audiencePolicy: definition.audiencePolicy,
+										name: definitionText(null, definition.name),
 										propertiesSchema: definition.propertiesSchema,
 										notificationHookSlug: definition.notificationHookSlug,
 									})),
@@ -702,7 +716,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									source.savedViews.map((definition, position) => ({
 										position,
 										icon: definition.icon,
-										name: definition.name,
 										slug: definition.slug,
 										sort: definition.sort,
 										pluginRevisionId: null,
@@ -712,6 +725,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										sortOrder: definition.sortOrder,
 										dataSources: definition.dataSources,
 										arguments: definition.arguments ?? {},
+										name: definitionText(null, definition.name),
 									})),
 								)
 								.onConflictDoUpdate({

@@ -17,8 +17,5 @@ export const kernelNotificationHook = {
 } as const satisfies PluginHook;
 
 export const kernelScripts = [
-	{
-		...notificationManifest,
-		entry: "src/modules/definitions/kernel-scripts/notification.sandbox.ts",
-	},
+	{ ...notificationManifest, entry: "notification.sandbox.ts" },
 ] as const;

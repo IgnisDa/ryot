@@ -3,9 +3,10 @@ import {
 	dataJsonIntegrationSettingsSchema,
 } from "@ryot-app/contract/modules/imports/data-json";
 import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
-import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/authored";
+import { resolvePluginDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { and, asc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Result } from "effect";
@@ -317,7 +318,6 @@ const dataJsonImportSource = (userId: string): CatalogImportSource => ({
 	exportHelp: null,
 	slug: "data-json",
 	pluginScope: null,
-	name: "Data import",
 	installationId: null,
 	pluginRevisionId: null,
 	workflowScriptId: null,
@@ -327,7 +327,8 @@ const dataJsonImportSource = (userId: string): CatalogImportSource => ({
 	requiredPluginConfigKeys: [],
 	id: `kernel:data-json:${userId}`,
 	inputSchema: dataJsonImportInputSchema,
-	description: "Import generic entities, relationships, and events from JSON.",
+	name: kernelMessage("definition.import-source.data-json.name"),
+	description: kernelMessage("definition.import-source.data-json.description"),
 });
 
 const dataJsonIntegrationProvider = (userId: string): CatalogIntegrationProvider => ({
@@ -342,14 +343,14 @@ const dataJsonIntegrationProvider = (userId: string): CatalogIntegrationProvider
 	slug: "data-json",
 	pluginScope: null,
 	entitlement: null,
-	name: "Data webhook",
 	installationId: null,
 	configRevisionId: null,
 	pluginRevisionId: null,
 	supportsOwnershipSync: false,
 	id: `kernel:data-json:${userId}`,
 	settingsSchema: dataJsonIntegrationSettingsSchema,
-	description: "Receive generic entities, relationships, and events as JSON.",
+	name: kernelMessage("definition.integration-provider.data-json.name"),
+	description: kernelMessage("definition.integration-provider.data-json.description"),
 });
 
 export const pluginOwner = (plugin: Pick<UserPlugin, "scope" | "pluginId" | "packageId">) => ({
@@ -912,10 +913,9 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 				if (!declaration) {
 					return null;
 				}
-				const document = mapPluginIdentityReferences(declaration.document, (owner) =>
-					owner.kind === "self"
-						? { kind: "local", pluginId: PluginId.make(installed.pluginId) }
-						: owner,
+				const document = resolvePluginDocument(
+					PluginId.make(installed.pluginId),
+					declaration.document,
 				);
 				return Result.isFailure(document)
 					? null

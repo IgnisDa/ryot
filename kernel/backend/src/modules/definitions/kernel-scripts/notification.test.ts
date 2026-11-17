@@ -1,13 +1,25 @@
 import { expect } from "bun:test";
 
+import { KERNEL_NAMESPACE, type LocalMessage, stampTrustedNamespace } from "@ryot-app/i18n/message";
+import { testKernelText } from "@ryot-app/kernel-messages/testing";
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { recordNotifications } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Exit } from "effect";
 
 import definition, { manifest } from "./notification.sandbox";
+
+const renderInEnglish = (messages: ReadonlyArray<LocalMessage>) =>
+	messages.map((message) =>
+		String(testKernelText(stampTrustedNamespace(KERNEL_NAMESPACE, message))),
+	);
+
+const providerName = {
+	namespace: KERNEL_NAMESPACE,
+	key: "definition.integration-provider.data-json.name",
+};
 
 const inputFor = (executionUserId: null | string, reminder = false) =>
 	Schema.decodeEffect(automationInputSchema)({
@@ -41,27 +53,24 @@ const inputFor = (executionUserId: null | string, reminder = false) =>
 							message: "Read the notes_*",
 							dueAt: "2026-09-15T08:30:00.000Z",
 						}
-					: { providerName: "Example", integrationId: "integration-1" },
+					: { providerName, integrationId: "integration-1" },
 			},
 		},
 	}).pipe(Effect.orDie);
 
 it.effect(
-	"formats the inline signal for the trusted execution recipient",
+	"builds a kernel message for the trusted execution recipient",
 	() =>
 		Effect.gen(function* () {
-			const messages: string[] = [];
-			const result = yield* definition.run(
-				yield* inputFor("recipient"),
-				defineSandboxTestHost(manifest, {
-					sendNotification: (message) => {
-						messages.push(message);
-						return Effect.succeed(null);
-					},
-				}),
-			);
+			const { host, messages } = recordNotifications(manifest);
+			const result = yield* definition.run(yield* inputFor("recipient"), host);
 			expect(result).toBeNull();
-			expect(messages).toEqual(["Integration Example has been disabled due to too many errors"]);
+			expect(messages).toEqual([
+				{ params: { provider: providerName }, key: "notification.integration-disabled" },
+			]);
+			expect(renderInEnglish(messages)).toEqual([
+				"Integration Data webhook has been disabled due to too many errors",
+			]);
 		}),
 	testTimeout,
 );
@@ -70,18 +79,8 @@ it.effect(
 	"does not use the actor as a fallback for a missing execution recipient",
 	() =>
 		Effect.gen(function* () {
-			const messages: string[] = [];
-			const exit = yield* Effect.exit(
-				definition.run(
-					yield* inputFor(null),
-					defineSandboxTestHost(manifest, {
-						sendNotification: (message) => {
-							messages.push(message);
-							return Effect.succeed(null);
-						},
-					}),
-				),
-			);
+			const { host, messages } = recordNotifications(manifest);
+			const exit = yield* Effect.exit(definition.run(yield* inputFor(null), host));
 			expect(Exit.isFailure(exit)).toBe(true);
 			if (Exit.isFailure(exit)) {
 				expect(Cause.pretty(exit.cause)).toContain(
@@ -94,22 +93,25 @@ it.effect(
 );
 
 it.effect(
-	"formats reminder evidence as plain text for the trusted recipient",
+	"passes reminder text through unchanged and shows the due time in the reminder's zone",
 	() =>
 		Effect.gen(function* () {
-			const messages: string[] = [];
-			yield* definition.run(
-				yield* inputFor("recipient", true),
-				defineSandboxTestHost(manifest, {
-					sendNotification: (message) => {
-						messages.push(message);
-						return Effect.succeed(null);
-					},
-				}),
-			);
+			const { host, messages } = recordNotifications(manifest);
+			yield* definition.run(yield* inputFor("recipient", true), host);
 			expect(messages).toEqual([
-				"Target_[1]: Read the notes_*\nScheduled for 2026-09-15T08:30:00.000Z (Asia/Kolkata)",
+				{
+					key: "notification.reminder-due",
+					params: {
+						timeZone: "Asia/Kolkata",
+						entityTitle: "Target_[1]",
+						message: "Read the notes_*",
+						dueAt: { timeZone: "Asia/Kolkata", date: "2026-09-15T08:30:00.000Z" },
+					},
+				},
 			]);
+			expect(renderInEnglish(messages).join("\n")).toMatch(
+				/^Target_\[1\]: Read the notes_\*\nScheduled for Sep 15, 2026 at 2:00\sPM \(Asia\/Kolkata\)$/,
+			);
 		}),
 	testTimeout,
 );

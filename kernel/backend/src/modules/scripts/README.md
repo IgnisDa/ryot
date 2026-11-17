@@ -12,6 +12,15 @@ source-provenance proof. Authoring builds compile `.sandbox.ts`; `tooling/kernel
 generates source-zero kernel scripts. Root scripts pin before execution; children resolve from the
 exact pinned plugin revision when first observed and retain that target for their durable step.
 
+Kernel scripts are one sandbox package rooted at `src/modules/definitions/kernel-scripts`, with
+entries registered in `builtin-scripts.ts`. Its catalog is the kernel's English catalog from
+`@ryot-app/kernel-messages`: `tooling/kernel-script-messages.ts` writes the reserved
+`shared/messages.generated.ts` with `catalogMessagesModule` for editors and type checks, and
+`tooling/kernel-scripts.ts` passes the same catalog to the compiler, which regenerates that module.
+Scripts build messages with its `catalogMessage`, and the kernel stamps the `kernel` namespace on
+them. The package `build` script runs both, and Turbo runs it after the kernel catalog build; the
+module is git-ignored.
+
 Every invocation reloads persisted authority and verifies compiled SHA-256 and package identity
 across manifest, plugin row, and authority projection. Historical pins preserve code/config/definitions,
 not expired authority: fresh host calls still enforce current account and installation access.
@@ -39,7 +48,7 @@ keyed by parent execution/request index. Replay validates the envelope and ident
 This preserves completed members of partially settled batches; journal appends remain ordered.
 A failed envelope carries the escaped error's boundary reason as `data`, which reaches the run error.
 The `operation-rejected` reason marks a deliberate operation refusal: the guest runner keeps it,
-`OperationsService` answers it with HTTP 422 `PluginOperationRejected` carrying the message while every
+`OperationsService` answers it with HTTP 422 `PluginOperationRejected` carrying a message reason while every
 other operation failure stays HTTP 502 `PluginInvocationError`, an automation run records it as a
 `business-failure` under the code `operation-rejected`, and workflow classification is unchanged.
 

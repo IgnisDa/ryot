@@ -1,5 +1,6 @@
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Message } from "@ryot-app/i18n/message";
 import { type SQL, sql } from "drizzle-orm";
 import { QueryBuilder } from "drizzle-orm/pg-core";
 import { Effect } from "effect";
@@ -78,11 +79,11 @@ export const userPluginQuery = (plugins: ReadonlyArray<UserPlugin>) =>
 const executable = () => ({
 	id: text("id", "id"),
 	slug: text("slug", "slug"),
-	name: text("name", "name"),
 	userId: text("userId", "user_id"),
+	name: json<Message>("name", "name"),
 	position: integer("position", "position"),
-	description: text("description", "description"),
 	pluginId: optionalText("pluginId", "plugin_id"),
+	description: json<Message>("description", "description"),
 	installationId: optionalText("installationId", "installation_id"),
 	packageId: literal<null | PluginPackageId>("packageId", "package_id"),
 	pluginScope: literal<null | PluginScope>("pluginScope", "plugin_scope"),
@@ -128,8 +129,8 @@ const sandboxProviderQuery = (rows: ReadonlyArray<CatalogSandboxProvider>) =>
 		.select({
 			id: text("id", "id"),
 			slug: text("slug", "slug"),
-			name: text("name", "name"),
 			userId: text("userId", "user_id"),
+			name: json<Message>("name", "name"),
 			pluginId: text("pluginId", "plugin_id"),
 			installationId: text("installationId", "installation_id"),
 			packageId: literal<PluginPackageId>("packageId", "package_id"),

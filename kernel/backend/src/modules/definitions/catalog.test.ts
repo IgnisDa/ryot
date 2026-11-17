@@ -51,11 +51,11 @@ const createWorld = Effect.fn(function* (scope: Scope) {
 					revisionIds.map((pluginRevisionId) => ({
 						icon: "box",
 						position: 0,
-						name: "Root",
 						slug: "root",
 						pluginRevisionId,
 						mergeIdentityProperties: [],
 						propertiesSchema: { fields: {} },
+						name: { key: "test.root", namespace: pluginId },
 					})),
 				);
 			yield* db
@@ -72,10 +72,10 @@ const createWorld = Effect.fn(function* (scope: Scope) {
 				.insert(tables.sandboxProvider)
 				.values({
 					pluginId,
-					name: "Provider",
 					slug: "provider",
 					rootEntitySchemaSlug: "root",
 					information: { source: "fixture" },
+					name: { namespace: pluginId, key: "test.provider" },
 				});
 			yield* db
 				.update(tables.plugin)

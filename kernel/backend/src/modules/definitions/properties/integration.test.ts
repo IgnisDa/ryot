@@ -1,6 +1,9 @@
 import { describe, expect } from "bun:test";
 
-import { PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
+import {
+	mapAppSchemaText,
+	PropertyValidationError,
+} from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -15,12 +18,18 @@ describe("property schema DSL", () => {
 		() =>
 			Effect.gen(function* () {
 				const parsed = yield* parseLabeledPropertySchemaInput(
-					{ fields: { rating: { type: "number", label: "Rating", description: "Rating" } } },
+					{
+						fields: {
+							rating: { type: "number", description: "Rating", label: { key: "test.rating" } },
+						},
+					},
 					"Entity schema properties",
 				);
 
 				expect(parsed).toEqual({
-					fields: { rating: { type: "number", label: "Rating", description: "Rating" } },
+					fields: {
+						rating: { type: "number", description: "Rating", label: { key: "test.rating" } },
+					},
 				});
 			}),
 		testTimeout,
@@ -49,7 +58,9 @@ describe("property schema DSL", () => {
 				const error = yield* Effect.flip(
 					parseLabeledPropertySchemaInput(
 						{
-							fields: { status: { type: "string", label: "Status", description: "Status" } },
+							fields: {
+								status: { type: "string", description: "Status", label: { key: "test.status" } },
+							},
 							rules: [
 								{
 									kind: "validation",
@@ -88,16 +99,16 @@ describe("property schema DSL", () => {
 						fields: {
 							status: {
 								type: "string",
-								label: "Status",
 								description: "Status",
+								label: { key: "test.status" },
 								validation: { required: true },
 							},
 							progressPercent: {
 								type: "number",
 								defaultValue: 0,
-								label: "Progress Percent",
 								description: "Progress Percent",
 								normalize: { round: { scale: 2 } },
+								label: { key: "test.progress-percent" },
 								validation: { minimum: 0, exclusiveMaximum: 100 },
 							},
 						},
@@ -134,21 +145,23 @@ describe("property schema DSL", () => {
 						fields: {
 							looseMeta: {
 								type: "object",
-								label: "Loose Meta",
 								description: "Loose Meta",
 								unknownKeys: "passthrough",
-								properties: { name: { label: "Name", type: "string", description: "Name" } },
+								label: { key: "test.loose-meta" },
+								properties: {
+									name: { type: "string", description: "Name", label: { key: "test.name" } },
+								},
 							},
 							strictMeta: {
 								type: "object",
-								label: "Strict Meta",
 								unknownKeys: "strict",
 								description: "Strict Meta",
+								label: { key: "test.strict-meta" },
 								properties: {
 									name: {
-										label: "Name",
 										type: "string",
 										description: "Name",
+										label: { key: "test.name" },
 										validation: { required: true },
 									},
 								},
@@ -184,7 +197,13 @@ describe("property schema DSL", () => {
 
 	it.effect(
 		"accepts representative schema data",
-		() => parseLabeledPropertySchemaInput(fixtureEntityPropertiesSchema, "Entity properties"),
+		() =>
+			parseLabeledPropertySchemaInput(
+				mapAppSchemaText(fixtureEntityPropertiesSchema, (text) =>
+					typeof text === "string" ? { key: "test.label" } : text,
+				),
+				"Entity properties",
+			),
 		testTimeout,
 	);
 });

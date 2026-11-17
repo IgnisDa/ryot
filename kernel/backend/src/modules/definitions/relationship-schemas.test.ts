@@ -19,15 +19,15 @@ const relationshipSlug = RelationshipSchemaSlug.make("shared-relation");
 const kernelDefinition: RelationshipSchemaDefinition = {
 	pluginId: null,
 	slug: relationshipSlug,
-	name: "Kernel relation",
 	sourceEntitySchemaSlug: null,
 	targetEntitySchemaSlug: null,
 	propertiesSchema: { fields: {} },
+	name: { key: "test.kernel-relation" },
 };
 const pluginDefinition: RelationshipSchemaDefinition = {
 	...kernelDefinition,
 	pluginId,
-	name: "Plugin relation",
+	name: { key: "test.plugin-relation" },
 };
 const kernelReference: RelationshipSchemaReference = {
 	slug: relationshipSlug,
@@ -83,15 +83,19 @@ layer(repositoryLayer)((test) => {
 				const repository = yield* RelationshipSchemaReader;
 				expect(
 					yield* repository.findByReference(pluginReference, UserId.make("user")),
-				).toMatchObject({ pluginId, slug: relationshipSlug, name: "Plugin relation" });
+				).toMatchObject({
+					pluginId,
+					slug: relationshipSlug,
+					name: { namespace: pluginId, key: "test.plugin-relation" },
+				});
 				expect(yield* repository.findByReference(kernelReference, null)).toMatchObject({
 					pluginId: null,
 					slug: relationshipSlug,
-					name: "Kernel relation",
+					name: { namespace: "kernel", key: "test.kernel-relation" },
 				});
 				expect(yield* repository.findKernelBySlug("shared-relation")).toMatchObject({
 					pluginId: null,
-					name: "Kernel relation",
+					name: { namespace: "kernel", key: "test.kernel-relation" },
 				});
 				expect(yield* (yield* RelationshipCalls).globalReferences).toEqual([
 					kernelReference,

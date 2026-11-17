@@ -329,7 +329,7 @@ layer(hostWriteLayer({}))((test) => {
 							index: 1,
 							kind: "host",
 							name: "sendNotification",
-							args: { args: ["Ready"], capability: "sendNotification" },
+							args: { capability: "sendNotification", args: [{ key: "notification.ready" }] },
 						},
 						payload,
 						principal,
@@ -343,10 +343,10 @@ layer(hostWriteLayer({}))((test) => {
 				]);
 				expect(yield* recorded.messages).toEqual([
 					{
-						message: "Ready",
 						sourceRunId: runId,
 						accountUserId: subject.accountUserId,
 						sourceKey: `${runId}-host-1-notification`,
+						message: { key: "notification.ready", namespace: subject.pluginId },
 					},
 				]);
 			}),

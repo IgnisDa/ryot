@@ -2,8 +2,9 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
-import { BadRequest } from "@ryot-app/contract/errors";
+import { badRequest } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
@@ -96,9 +97,7 @@ layer(agentLayer)((test) => {
 				expect(requests).toHaveLength(1);
 				assertExitFails(
 					yield* Effect.exit(scripts.run({ ...input, source: source("return null;") })),
-					new BadRequest({
-						message: "Agent execution key was reused with different input or authority",
-					}),
+					badRequest(kernelMessage("error.scripts.execution-key-reused")),
 				);
 			}),
 		testTimeout,

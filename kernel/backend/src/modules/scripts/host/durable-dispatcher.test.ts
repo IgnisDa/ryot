@@ -63,7 +63,7 @@ it.effect(
 					index: 0,
 					kind: "host",
 					name: "sendNotification",
-					args: { args: ["Ready"], capability: "sendNotification" },
+					args: { capability: "sendNotification", args: [{ key: "notification.ready" }] },
 				},
 				{
 					context: {},
