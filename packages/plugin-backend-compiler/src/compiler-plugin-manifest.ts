@@ -1,4 +1,5 @@
 import { type PluginManifest, PluginScript } from "@ryot-app/contract/modules/plugins/manifest";
+import type { CompiledCatalog } from "@ryot-app/i18n/catalog";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Match, Schema } from "effect";
 
@@ -65,10 +66,17 @@ const derivedPluginScript = (
 	);
 };
 
+/** `catalog` is the source-locale catalog the compiler generates the `catalogMessage` builder from. */
 export const derivePluginSandboxScripts = Effect.fn("derivePluginSandboxScripts")(function* (
 	files: SandboxTypeScriptSources["files"],
+	catalog: CompiledCatalog,
 ) {
-	const compiled = yield* compilePluginSandboxEntryPaths(files, pluginSandboxEntryPaths(files));
+	const compiled = yield* compilePluginSandboxEntryPaths(
+		files,
+		pluginSandboxEntryPaths(files),
+		new Map(),
+		catalog,
+	);
 	return yield* Effect.forEach(compiled, (output) =>
 		derivedPluginScript(output).pipe(
 			Effect.map((script) => ({ script, source: output.source, compiled: output.compiled })),
@@ -79,8 +87,9 @@ export const derivePluginSandboxScripts = Effect.fn("derivePluginSandboxScripts"
 export const compilePluginManifestScripts = Effect.fn("compilePluginManifestScripts")(function* (
 	manifest: PluginManifest,
 	files: SandboxTypeScriptSources["files"],
+	catalog: CompiledCatalog,
 ) {
-	const derived = yield* derivePluginSandboxScripts(files);
+	const derived = yield* derivePluginSandboxScripts(files, catalog);
 	const derivedByEntry = new Map(derived.map((output) => [output.script.entry, output]));
 	return yield* Effect.forEach(manifest.scripts, (script) => {
 		const output = derivedByEntry.get(script.entry);

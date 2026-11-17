@@ -25,6 +25,13 @@ TypeScript server. `pluginBackendCompilerEnvironmentLayer` also type-checks the 
 resolved dependencies to verify the compiler environment. Standalone user scripts enter through `./worker`. Built-ins and plugin manifest scripts use the same
 semantic and Vite Sandbox ESM build stages, but retain their separate public APIs and metadata checks.
 
+`derivePluginSandboxScripts` and `compilePluginManifestScripts` take the package's compiled
+source-locale catalog, and `compilePluginSandboxSourceEntries` accepts one; kernel source-zero
+generation passes the kernel catalog. Package compiles reject an authored `shared/messages.generated.ts`; with a
+catalog, the compiler generates the typed `catalogMessage` builder there from
+`@ryot-app/plugin-kit/messages-module`. The builder is bounded by the catalog limits rather than the
+per-file source limit, and a catalog over those limits fails with `RYOT_PLUGIN_MESSAGES`.
+
 ## Build Pipeline
 
 The compiler creates a TypeScript 7 no-emit project, inspects each entry's import policy and

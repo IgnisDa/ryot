@@ -1,4 +1,9 @@
-import { Effect } from "effect";
+import type { CompiledCatalog } from "@ryot-app/i18n/catalog";
+import {
+	CATALOG_MESSAGES_MODULE,
+	catalogMessagesModule,
+} from "@ryot-app/plugin-kit/messages-module";
+import { Effect, Result } from "effect";
 
 import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
@@ -60,13 +65,33 @@ export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 				),
 			);
 
+const fileDiagnostic = (code: string, file: string, message: string) => ({
+	...pluginBackendCompilerDiagnostic(code, message),
+	file,
+});
+
+const generatedSources = (catalog: undefined | CompiledCatalog) => {
+	if (catalog === undefined) {
+		return Effect.succeed({});
+	}
+	const module = catalogMessagesModule(catalog);
+	return Result.isSuccess(module)
+		? Effect.succeed({ [CATALOG_MESSAGES_MODULE]: module.success })
+		: sandboxCompilationFailure(
+				module.failure.map((issue) =>
+					fileDiagnostic("RYOT_PLUGIN_MESSAGES", CATALOG_MESSAGES_MODULE, issue),
+				),
+			);
+};
+
 const createSandboxPackageProject = (
-	sources: SandboxTypeScriptSources,
+	authored: SandboxTypeScriptSources,
 	entries: ReadonlyArray<string>,
+	catalog: undefined | CompiledCatalog,
 ) =>
 	Effect.gen(function* () {
 		for (const entry of entries) {
-			if (sources.files[entry] === undefined) {
+			if (authored.files[entry] === undefined) {
 				return yield* sandboxCompilationFailure([
 					pluginBackendCompilerDiagnostic(
 						"RYOT_SANDBOX_ENTRY",
@@ -75,19 +100,30 @@ const createSandboxPackageProject = (
 				]);
 			}
 		}
-		for (const [path, contents] of Object.entries(sources.files)) {
+		if (Object.hasOwn(authored.files, CATALOG_MESSAGES_MODULE)) {
+			return yield* sandboxCompilationFailure([
+				fileDiagnostic(
+					"RYOT_PLUGIN_SOURCE",
+					CATALOG_MESSAGES_MODULE,
+					"Source is reserved for the message builder the compiler generates from the catalog",
+				),
+			]);
+		}
+		for (const [path, contents] of Object.entries(authored.files)) {
 			if (utf8ByteLength(contents) > SANDBOX_COMPILER_LIMITS.sourceBytes) {
 				return yield* sandboxCompilationFailure([
-					{
-						...pluginBackendCompilerDiagnostic(
-							"RYOT_SOURCE_SIZE",
-							`Sandbox source exceeds ${SANDBOX_COMPILER_LIMITS.sourceBytes} UTF-8 bytes`,
-						),
-						file: path,
-					},
+					fileDiagnostic(
+						"RYOT_SOURCE_SIZE",
+						path,
+						`Sandbox source exceeds ${SANDBOX_COMPILER_LIMITS.sourceBytes} UTF-8 bytes`,
+					),
 				]);
 			}
 		}
+		const sources = {
+			...authored,
+			files: { ...authored.files, ...(yield* generatedSources(catalog)) },
+		};
 
 		const dependencies = yield* resolveSandboxCompilerDependencies;
 		const project = yield* createTypeScriptSourcesProjectForEntries(
@@ -107,7 +143,7 @@ const createSandboxPackageProject = (
 						]),
 			),
 		);
-		return { project, dependencies };
+		return { project, sources, dependencies };
 	});
 
 const inspectSandboxPackageEntries = (
@@ -194,15 +230,20 @@ const compileValidatedSandboxEntries = (
 	});
 
 export const compileSandboxPackageEntries = (
-	sources: SandboxTypeScriptSources,
+	authored: SandboxTypeScriptSources,
 	entries: ReadonlyArray<string>,
 	declarations: ReadonlyMap<string, SandboxEntryDeclaration> = new Map(),
+	catalog?: CompiledCatalog,
 ) =>
 	Effect.gen(function* () {
 		if (entries.length === 0) {
 			return [];
 		}
-		const { project, dependencies } = yield* createSandboxPackageProject(sources, entries);
+		const { project, sources, dependencies } = yield* createSandboxPackageProject(
+			authored,
+			entries,
+			catalog,
+		);
 		const inspectedEntries = yield* inspectSandboxPackageEntries(sources, project);
 		yield* validateSandboxProjectDiagnostics(project);
 		const validatedEntries = yield* validateSandboxPackageEntries(

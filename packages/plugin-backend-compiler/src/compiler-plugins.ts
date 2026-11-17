@@ -1,3 +1,4 @@
+import type { CompiledCatalog } from "@ryot-app/i18n/catalog";
 import { Effect, FileSystem } from "effect";
 
 import {
@@ -19,18 +20,25 @@ export const compilePluginSandboxEntryPaths = (
 	files: SandboxTypeScriptSources["files"],
 	entries: ReadonlyArray<string>,
 	declarations: ReadonlyMap<string, SandboxEntryDeclaration> = new Map(),
+	catalog?: CompiledCatalog,
 ) => {
 	if (new Set(entries).size !== entries.length) {
 		return sandboxCompilationFailure([
 			pluginBackendCompilerDiagnostic("RYOT_PLUGIN_ENTRY", "Plugin script entries must be unique"),
 		]);
 	}
-	return compileSandboxPackageEntries({ files, entry: entries[0] ?? "" }, entries, declarations);
+	return compileSandboxPackageEntries(
+		{ files, entry: entries[0] ?? "" },
+		entries,
+		declarations,
+		catalog,
+	);
 };
 
 export const compilePluginSandboxSourceEntries = (
 	files: SandboxTypeScriptSources["files"],
 	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
+	catalog?: CompiledCatalog,
 ) =>
 	compilePluginSandboxEntryPaths(
 		files,
@@ -41,6 +49,7 @@ export const compilePluginSandboxSourceEntries = (
 					[entry, providerOperation ? { kind, providerOperation } : { kind }] as const,
 			),
 		),
+		catalog,
 	);
 
 const loadPluginSources = (packageRoot: string) =>

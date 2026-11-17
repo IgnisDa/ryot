@@ -65,6 +65,7 @@
 		"@effect/platform-bun": "4.1.2",
 		"@ryot-app/compiler-worker": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/i18n": "workspace:*",
 		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",

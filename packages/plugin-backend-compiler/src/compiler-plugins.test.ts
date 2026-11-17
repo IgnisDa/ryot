@@ -573,7 +573,7 @@ export const manifest = defineManifest({
 		fields: {
 			passRawQuery: {
 				type: "boolean",
-				label: "Pass raw query",
+				label: { key: "test.pass-raw-query" },
 				description: "Pass the query without modification",
 			},
 		},
@@ -600,7 +600,7 @@ export default defineProvider({
 					fields: {
 						passRawQuery: {
 							type: "boolean",
-							label: "Pass raw query",
+							label: { key: "test.pass-raw-query" },
 							description: "Pass the query without modification",
 						},
 					},
@@ -623,9 +623,10 @@ export const manifest = defineManifest({
 });
 export default defineProvider({ manifest, operation: "translate", run: () => Effect.succeed({}) });
 `;
-				const [compiled] = yield* derivePluginSandboxScripts({
-					"backend/providers/record/catalog/translate.sandbox.ts": source,
-				});
+				const [compiled] = yield* derivePluginSandboxScripts(
+					{ "backend/providers/record/catalog/translate.sandbox.ts": source },
+					{},
+				);
 				expect(compiled?.compiled.manifest).toMatchObject({
 					translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
 				});
@@ -692,9 +693,10 @@ export const manifest = defineManifest({
 });
 export default defineProvider({ manifest, operation: "${operation}", run: () => Effect.die("unused") });
 `;
-				const [compiled] = yield* derivePluginSandboxScripts({
-					"backend/providers/record/catalog/related.sandbox.ts": source("related"),
-				});
+				const [compiled] = yield* derivePluginSandboxScripts(
+					{ "backend/providers/record/catalog/related.sandbox.ts": source("related") },
+					{},
+				);
 				if (!compiled) {
 					throw new Error("Expected a compiled related provider");
 				}
@@ -765,8 +767,8 @@ export default defineOperation({ manifest, drivers: { main } });
 			Effect.gen(function* () {
 				const shared = `
 export const TYPE_CHOICES = [
-	{ value: "bug", label: "Bug" },
-	{ value: "dark", label: "Dark" },
+	{ value: "bug", label: { key: "test.bug" } },
+	{ value: "dark", label: { key: "test.dark" } },
 ] as const;
 `;
 				const source = `
@@ -784,7 +786,7 @@ export const manifest = defineManifest({
 		unknownKeys: "strict",
 		fields: {
 			typeNames: {
-				label: "Types",
+				label: { key: "test.types" },
 				type: "enum-array",
 				description: "Only include moves that have every selected type",
 				choices: { kind: "static", values: TYPE_CHOICES },
@@ -1029,6 +1031,76 @@ export const rowSlug = label;
 				expect(failure.diagnostics[0]?.code).toBe("RYOT_IMPORT");
 				expect(failure.diagnostics[0]?.message).toContain("../backend/label");
 				expect(failure.diagnostics[0]?.message).toContain("plugin shared sources");
+			}),
+		testTimeout,
+	);
+});
+
+const messageCatalog = Object.fromEntries(
+	Array.from({ length: 5000 }, (_, index) => [
+		`home.generated-item-${index}`,
+		[{ value: "name", type: 1 as const }],
+	]),
+);
+
+const messageEntry = (call: string) =>
+	script(
+		"messages",
+		'import { catalogMessage } from "./shared/messages.generated";',
+		`Effect.succeed(${call})`,
+	);
+
+it.layer(pluginBackendCompilerPlatformLayer)("generated plugin message builder", (test) => {
+	test.effect(
+		"types messages from the catalog without holding the builder to the source limit",
+		() =>
+			Effect.gen(function* () {
+				const [compiled] = yield* derivePluginSandboxScripts(
+					{
+						"messages.sandbox.ts": messageEntry(
+							'catalogMessage("home.generated-item-4999", { name: "Ada" })',
+						),
+					},
+					messageCatalog,
+				);
+				expect(compiled?.script.entry).toBe("messages.sandbox.ts");
+
+				const failure = yield* derivePluginSandboxScripts(
+					{
+						"messages.sandbox.ts": messageEntry(
+							'catalogMessage("home.generated-item-4999", { name: 1 })',
+						),
+					},
+					messageCatalog,
+				).pipe(Effect.flip);
+				expect(failure).toEqual<unknown>(
+					objectContaining({ diagnostics: [objectContaining({ file: "messages.sandbox.ts" })] }),
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects an authored builder source",
+		() =>
+			Effect.gen(function* () {
+				const failure = yield* derivePluginSandboxScripts(
+					{
+						"shared/messages.generated.ts": "export const catalogMessage = () => null;",
+						"messages.sandbox.ts": messageEntry('catalogMessage("home.generated-item-0")'),
+					},
+					messageCatalog,
+				).pipe(Effect.flip);
+				expect(failure).toEqual<unknown>(
+					objectContaining({
+						diagnostics: [
+							objectContaining({
+								code: "RYOT_PLUGIN_SOURCE",
+								file: "shared/messages.generated.ts",
+							}),
+						],
+					}),
+				);
 			}),
 		testTimeout,
 	);
