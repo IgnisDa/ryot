@@ -1,1 +1,0 @@
-CREATE INDEX "event_user_session_entity_schema_idx" ON "event" ("user_id","session_entity_id","entity_id","event_schema_slug");

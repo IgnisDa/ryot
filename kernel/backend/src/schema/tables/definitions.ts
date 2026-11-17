@@ -8,7 +8,6 @@ import type {
 	PluginEntityUserStatePolicy,
 	PluginImportSource,
 	PluginIntegrationProvider,
-	PluginProjection,
 	PluginRelationshipRetention,
 	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
@@ -19,6 +18,7 @@ import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored"
 import type {
 	RowSourcePrecision,
 	RowSourceQuery,
+	RowText,
 } from "@ryot-app/contract/modules/ryotql/row-source";
 import type {
 	SavedViewRenderer,
@@ -27,6 +27,8 @@ import type {
 import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { DefinitionProjection } from "@ryot-app/definitions/snapshot";
+import type { Message } from "@ryot-app/i18n/message";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -44,12 +46,17 @@ import {
 
 import { pluginRevision } from "./core";
 
+export type StoredExportHelp = { readonly steps?: ReadonlyArray<Message> } & Omit<
+	NonNullable<PluginImportSource["exportHelp"]>,
+	"steps"
+>;
+
 type SavedViewSettings = Readonly<Record<string, JsonValue>>;
 
 const definitionColumns = () => ({
 	slug: text().notNull(),
-	name: text().notNull(),
 	position: integer().notNull(),
+	name: jsonb().$type<Message>().notNull(),
 	id: text()
 		.primaryKey()
 		.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -90,7 +97,7 @@ export const definitionEventSchema = snakeCase.table(
 	{
 		...definitionColumns(),
 		eventGroup: jsonb().$type<PluginEventGroup>(),
-		projection: jsonb().$type<PluginProjection>(),
+		projection: jsonb().$type<DefinitionProjection>(),
 		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		entitySchemaId: text()
 			.notNull()
@@ -107,7 +114,7 @@ export const definitionRelationshipSchema = snakeCase.table(
 		...definitionColumns(),
 		sourceEntitySchemaSlug: text(),
 		targetEntitySchemaSlug: text(),
-		projection: jsonb().$type<PluginProjection>(),
+		projection: jsonb().$type<DefinitionProjection>(),
 		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		retention: text().$type<PluginRelationshipRetention>(),
 		userWritePolicy: text().$type<PluginRelationshipUserWritePolicy>(),
@@ -167,9 +174,9 @@ export const definitionCalendarSource = snakeCase.table(
 		...definitionColumns(),
 		art: text(),
 		done: text(),
-		caption: text(),
 		icon: text().notNull(),
 		startAt: text().notNull(),
+		caption: jsonb().$type<RowText>(),
 		query: jsonb().$type<RowSourceQuery>().notNull(),
 		subject: jsonb().$type<SavedViewSubject>().notNull(),
 		precision: text().$type<RowSourcePrecision>().notNull(),
@@ -221,12 +228,12 @@ export const definitionImportSource = snakeCase.table(
 	{
 		...definitionColumns(),
 		workflowScriptSlug: text(),
-		description: text().notNull(),
 		workflowSlug: text().notNull(),
+		exportHelp: jsonb().$type<StoredExportHelp>(),
+		description: jsonb().$type<Message>().notNull(),
 		inputSchema: jsonb().$type<AppSchema>().notNull(),
 		requiredPluginConfigKeys: text().array().notNull(),
 		plan: jsonb().$type<NonNullable<PluginImportSource["plan"]>>(),
-		exportHelp: jsonb().$type<NonNullable<PluginImportSource["exportHelp"]>>(),
 		pluginRevisionId: text()
 			.notNull()
 			.references(() => pluginRevision.id, { onDelete: "cascade" }),
@@ -242,9 +249,9 @@ export const definitionIntegrationProvider = snakeCase.table(
 	{
 		...definitionColumns(),
 		scriptSlug: text(),
-		description: text().notNull(),
 		plan: jsonb().$type<SourcePlan>(),
 		entitlement: text().$type<Entitlement>(),
+		description: jsonb().$type<Message>().notNull(),
 		settingsSchema: jsonb().$type<AppSchema>().notNull(),
 		supportsOwnershipSync: boolean().notNull().default(false),
 		lot: text().$type<PluginIntegrationProvider["lot"]>().notNull(),

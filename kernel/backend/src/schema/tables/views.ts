@@ -6,6 +6,7 @@ import type {
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { DisplayText } from "@ryot-app/i18n/message";
 import { generateId } from "better-auth";
 import { type SQL, sql } from "drizzle-orm";
 import {
@@ -46,13 +47,13 @@ export const savedView = snakeCase.table(
 	{
 		sort: text(),
 		slug: text().notNull(),
-		name: text().notNull(),
 		icon: text().notNull(),
 		pluginInstallationId: text(),
 		updatedAt: updatedAtColumn(),
 		filter: jsonb().$type<Filter>(),
 		revision: integer().notNull().default(1),
 		sortOrder: integer().notNull().default(0),
+		name: jsonb().$type<DisplayText>().notNull(),
 		dataSources: jsonb().$type<RyotQLDocument>(),
 		isHidden: boolean().notNull().default(false),
 		createdAt: timestamptz().defaultNow().notNull(),

@@ -53,12 +53,26 @@ CREATE TABLE "apikey" (
 CREATE TABLE "assistant_conversation" (
 	"id" text PRIMARY KEY,
 	"title" text NOT NULL,
+	"prompt_tokens" integer,
+	"prompt_characters" integer,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"revision" integer DEFAULT 1 NOT NULL,
 	"next_sequence" integer DEFAULT 1 NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	CONSTRAINT "assistant_conversation_id_user_id_unique" UNIQUE("id","user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "assistant_inbox" (
+	"text" text NOT NULL,
+	"id" text PRIMARY KEY,
+	"turn_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"delivered_at" timestamp(3) with time zone,
+	"request_id" text NOT NULL,
+	"conversation_id" text NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "assistant_inbox_user_id_request_id_unique" UNIQUE("user_id","request_id")
 );
 --> statement-breakpoint
 CREATE TABLE "assistant_message" (
@@ -75,7 +89,9 @@ CREATE TABLE "assistant_message" (
 --> statement-breakpoint
 CREATE TABLE "assistant_provider" (
 	"model" text NOT NULL,
+	"context_window" integer,
 	"base_url" text NOT NULL,
+	"max_output_tokens" integer,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"encrypted_api_key" jsonb,
@@ -99,6 +115,15 @@ CREATE TABLE "assistant_tool_call" (
 	CONSTRAINT "assistant_tool_call_turn_id_round_position_unique" UNIQUE("turn_id","round","position")
 );
 --> statement-breakpoint
+CREATE TABLE "assistant_tool_output" (
+	"text" text NOT NULL,
+	"id" text PRIMARY KEY,
+	"turn_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"conversation_id" text NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "assistant_turn" (
 	"text" text NOT NULL,
 	"id" text PRIMARY KEY,
@@ -113,7 +138,7 @@ CREATE TABLE "assistant_turn" (
 	"status" text DEFAULT 'queued' NOT NULL,
 	CONSTRAINT "assistant_turn_user_id_request_id_unique" UNIQUE("user_id","request_id"),
 	CONSTRAINT "assistant_turn_id_conversation_id_user_id_unique" UNIQUE("id","conversation_id","user_id"),
-	CONSTRAINT "assistant_turn_status" CHECK ("status" in ('queued', 'running', 'awaiting-approval', 'completed', 'failed', 'interrupted'))
+	CONSTRAINT "assistant_turn_status" CHECK ("status" in ('queued', 'running', 'awaiting-approval', 'awaiting-input', 'completed', 'failed', 'interrupted'))
 );
 --> statement-breakpoint
 CREATE TABLE "automation_run" (
@@ -288,14 +313,14 @@ CREATE TABLE "client_page_composition" (
 --> statement-breakpoint
 CREATE TABLE "definition_calendar_source" (
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"position" integer NOT NULL,
+	"name" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"art" text,
 	"done" text,
-	"caption" text,
 	"icon" text NOT NULL,
 	"start_at" text NOT NULL,
+	"caption" jsonb,
 	"query" jsonb NOT NULL,
 	"subject" jsonb NOT NULL,
 	"precision" text NOT NULL,
@@ -305,8 +330,8 @@ CREATE TABLE "definition_calendar_source" (
 --> statement-breakpoint
 CREATE TABLE "definition_entity_schema" (
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"position" integer NOT NULL,
+	"name" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"icon" text NOT NULL,
 	"occurs_at_property" text,
@@ -323,8 +348,8 @@ CREATE TABLE "definition_entity_schema" (
 --> statement-breakpoint
 CREATE TABLE "definition_event_schema" (
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"position" integer NOT NULL,
+	"name" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"event_group" jsonb,
 	"projection" jsonb,
@@ -335,29 +360,29 @@ CREATE TABLE "definition_event_schema" (
 --> statement-breakpoint
 CREATE TABLE "definition_import_source" (
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"position" integer NOT NULL,
+	"name" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"workflow_script_slug" text,
-	"description" text NOT NULL,
 	"workflow_slug" text NOT NULL,
+	"export_help" jsonb,
+	"description" jsonb NOT NULL,
 	"input_schema" jsonb NOT NULL,
 	"required_plugin_config_keys" text[] NOT NULL,
 	"plan" jsonb,
-	"export_help" jsonb,
 	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_import_source_revision_slug_unique" UNIQUE("plugin_revision_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "definition_integration_provider" (
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"position" integer NOT NULL,
+	"name" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"script_slug" text,
-	"description" text NOT NULL,
 	"plan" jsonb,
-	"requires_pro_key" boolean NOT NULL,
+	"entitlement" text,
+	"description" jsonb NOT NULL,
 	"settings_schema" jsonb NOT NULL,
 	"supports_ownership_sync" boolean DEFAULT false NOT NULL,
 	"lot" text NOT NULL,
@@ -384,8 +409,8 @@ CREATE TABLE "definition_provider_operation" (
 --> statement-breakpoint
 CREATE TABLE "definition_relationship_schema" (
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"position" integer NOT NULL,
+	"name" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"source_entity_schema_slug" text,
 	"target_entity_schema_slug" text,
@@ -399,8 +424,8 @@ CREATE TABLE "definition_relationship_schema" (
 --> statement-breakpoint
 CREATE TABLE "definition_saved_view" (
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"position" integer NOT NULL,
+	"name" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"sort" text,
 	"icon" text NOT NULL,
@@ -421,7 +446,7 @@ CREATE TABLE "definition_signal_schedule" (
 	"signal" text NOT NULL,
 	"occurrence" text NOT NULL,
 	"position" integer NOT NULL,
-	"requires_pro_key" boolean NOT NULL,
+	"entitlement" text,
 	"query" jsonb NOT NULL,
 	"subject" jsonb NOT NULL,
 	"precision" text NOT NULL,
@@ -434,8 +459,8 @@ CREATE TABLE "definition_signal_schedule" (
 --> statement-breakpoint
 CREATE TABLE "definition_signal_schema" (
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"position" integer NOT NULL,
+	"name" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"notification_hook_slug" text NOT NULL,
 	"properties_schema" jsonb NOT NULL,
@@ -746,7 +771,7 @@ CREATE TABLE "notification" (
 	"user_id" text NOT NULL,
 	CONSTRAINT "notification_state_check" CHECK (("state" = 'admitted' and "outcome" is null and "settled_at" is null) or ("state" = 'settled' and "outcome" is not null and "outcome" in ('accepted', 'partial', 'failed', 'unknown', 'not-sent') and "settled_at" is not null)),
 	CONSTRAINT "notification_reason_check" CHECK ("reason" is null or ("state" = 'settled' and "outcome" = 'not-sent' and "reason" = 'no-enabled-channels')),
-	CONSTRAINT "notification_request_check" CHECK (jsonb_typeof("request") = 'object' and ("request" = '{"kind":"test"}'::jsonb or ("request" @> '{"kind":"message"}'::jsonb and "request" ? 'message' and jsonb_typeof("request"->'message') = 'string')))
+	CONSTRAINT "notification_request_check" CHECK (jsonb_typeof("request") = 'object' and ("request" = '{"kind":"test"}'::jsonb or ("request" @> '{"kind":"message"}'::jsonb and "request" ? 'message' and jsonb_typeof("request"->'message') = 'object')))
 );
 --> statement-breakpoint
 CREATE TABLE "notification_channel" (
@@ -1029,25 +1054,25 @@ CREATE TABLE "plugin_installation" (
 );
 --> statement-breakpoint
 CREATE TABLE "plugin_revision" (
-	"name" text,
 	"icon" text,
-	"description" text,
 	"version" text NOT NULL,
 	"client_artifact_hash" text,
 	"plugin_id" text NOT NULL,
 	"content_hash" text NOT NULL,
+	"name" jsonb,
+	"description" jsonb,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"client" jsonb,
 	"manifest" jsonb NOT NULL,
 	"queries" jsonb,
 	"package_id" text NOT NULL,
-	"client_config_schema" jsonb NOT NULL,
 	"hooks" jsonb NOT NULL,
 	"crons" jsonb NOT NULL,
 	"memberships" jsonb,
 	"dependencies" jsonb,
 	"scripts" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
+	"client_config_schema" jsonb NOT NULL,
 	"workflows" jsonb NOT NULL,
 	"providers" jsonb NOT NULL,
 	"oauth_providers" jsonb,
@@ -1063,7 +1088,14 @@ CREATE TABLE "plugin_revision" (
 	"integration_providers" jsonb NOT NULL,
 	CONSTRAINT "plugin_revision_plugin_content_unique" UNIQUE("plugin_id","content_hash"),
 	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id"),
-	CONSTRAINT "plugin_revision_manifest_sections_check" CHECK ("name" is not distinct from ("manifest" -> 'metadata' ->> 'name') and "icon" is not distinct from ("manifest" -> 'metadata' ->> 'icon') and "description" is not distinct from ("manifest" -> 'metadata' ->> 'description') and "version" is not distinct from ("manifest" -> 'metadata' ->> 'version') and "package_id" is not distinct from ("manifest" -> 'metadata' ->> 'packageId') and "client" is not distinct from ("manifest" -> 'client') and "hooks" is not distinct from ("manifest" -> 'hooks') and "crons" is not distinct from ("manifest" -> 'crons') and "scripts" is not distinct from ("manifest" -> 'scripts') and "workflows" is not distinct from ("manifest" -> 'workflows') and "providers" is not distinct from ("manifest" -> 'providers') and "oauth_providers" is not distinct from ("manifest" -> 'oauthProviders') and "operations" is not distinct from ("manifest" -> 'operations') and "config_schema" is not distinct from ("manifest" -> 'configSchema') and "signal_schemas" is not distinct from ("manifest" -> 'signalSchemas') and "entity_schemas" is not distinct from ("manifest" -> 'entitySchemas') and "user_bootstrap" is not distinct from ("manifest" -> 'userBootstrap') and "memberships" is not distinct from ("manifest" -> 'memberships') and "user_settings_schema" is not distinct from ("manifest" -> 'userSettingsSchema') and "http_rate_limits" is not distinct from ("manifest" -> 'httpRateLimits') and "relationship_schemas" is not distinct from ("manifest" -> 'relationshipSchemas') and "integration_providers" is not distinct from ("manifest" -> 'integrationProviders'))
+	CONSTRAINT "plugin_revision_manifest_sections_check" CHECK ("name" is not distinct from ("manifest" -> 'metadata' -> 'name') and "icon" is not distinct from ("manifest" -> 'metadata' ->> 'icon') and "description" is not distinct from ("manifest" -> 'metadata' -> 'description') and "version" is not distinct from ("manifest" -> 'metadata' ->> 'version') and "package_id" is not distinct from ("manifest" -> 'metadata' ->> 'packageId') and "client" is not distinct from ("manifest" -> 'client') and "hooks" is not distinct from ("manifest" -> 'hooks') and "crons" is not distinct from ("manifest" -> 'crons') and "scripts" is not distinct from ("manifest" -> 'scripts') and "workflows" is not distinct from ("manifest" -> 'workflows') and "providers" is not distinct from ("manifest" -> 'providers') and "oauth_providers" is not distinct from ("manifest" -> 'oauthProviders') and "operations" is not distinct from ("manifest" -> 'operations') and "config_schema" is not distinct from ("manifest" -> 'configSchema') and "signal_schemas" is not distinct from ("manifest" -> 'signalSchemas') and "entity_schemas" is not distinct from ("manifest" -> 'entitySchemas') and "user_bootstrap" is not distinct from ("manifest" -> 'userBootstrap') and "memberships" is not distinct from ("manifest" -> 'memberships') and "user_settings_schema" is not distinct from ("manifest" -> 'userSettingsSchema') and "http_rate_limits" is not distinct from ("manifest" -> 'httpRateLimits') and "relationship_schemas" is not distinct from ("manifest" -> 'relationshipSchemas') and "integration_providers" is not distinct from ("manifest" -> 'integrationProviders'))
+);
+--> statement-breakpoint
+CREATE TABLE "plugin_revision_catalog" (
+	"locale" text,
+	"catalog" jsonb NOT NULL,
+	"plugin_revision_id" text,
+	CONSTRAINT "plugin_revision_catalog_pkey" PRIMARY KEY("plugin_revision_id","locale")
 );
 --> statement-breakpoint
 CREATE TABLE "provider_rate_limit" (
@@ -1157,9 +1189,9 @@ CREATE TABLE "sandbox_journal_entry" (
 --> statement-breakpoint
 CREATE TABLE "sandbox_provider" (
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"root_entity_schema_slug" text NOT NULL,
+	"name" jsonb NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"information" jsonb NOT NULL,
 	"plugin_id" text NOT NULL,
@@ -1193,13 +1225,13 @@ CREATE TABLE "sandbox_workflow_reference" (
 CREATE TABLE "saved_view" (
 	"sort" text,
 	"slug" text NOT NULL,
-	"name" text NOT NULL,
 	"icon" text NOT NULL,
 	"plugin_installation_id" text,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"filter" jsonb,
 	"revision" integer DEFAULT 1 NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
+	"name" jsonb NOT NULL,
 	"data_sources" jsonb,
 	"is_hidden" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
@@ -1278,22 +1310,29 @@ CREATE TABLE "user" (
 	"bootstrap_completed_at" timestamp(3) with time zone,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
-	"preferences" jsonb DEFAULT '{"language":null,"ratingScale":"hundred","reportingTimeZone":"UTC","disableIntegrations":false}' NOT NULL,
+	"preferences" jsonb DEFAULT '{"weekStart":null,"interfaceLocale":null,"contentLanguage":null,"ratingScale":"hundred","reportingTimeZone":"UTC","disableIntegrations":false}' NOT NULL,
 	CONSTRAINT "user_preferences_check" CHECK (
 		jsonb_typeof("preferences") = 'object'
-		and "preferences" ?& array['disableIntegrations', 'language', 'ratingScale', 'reportingTimeZone']
-		and "preferences" - 'disableIntegrations' - 'language' - 'ratingScale' - 'reportingTimeZone' = '{}'::jsonb
+		and "preferences" ?& array['contentLanguage', 'disableIntegrations', 'interfaceLocale', 'ratingScale', 'reportingTimeZone', 'weekStart']
+		and "preferences" - 'contentLanguage' - 'disableIntegrations' - 'interfaceLocale' - 'ratingScale' - 'reportingTimeZone' - 'weekStart' = '{}'::jsonb
 		and jsonb_typeof("preferences"->'disableIntegrations') = 'boolean'
 		and "preferences"->>'ratingScale' in ('hundred', 'ten', 'five', 'three-point')
 		and jsonb_typeof("preferences"->'reportingTimeZone') = 'string'
 		and "preferences"->>'reportingTimeZone' <> ''
 		and btrim("preferences"->>'reportingTimeZone') = "preferences"->>'reportingTimeZone'
 		and (
-			jsonb_typeof("preferences"->'language') = 'null'
-			or (jsonb_typeof("preferences"->'language') = 'string'
-				and "preferences"->>'language' <> ''
-				and btrim("preferences"->>'language', E' 	
-') = "preferences"->>'language')
+			jsonb_typeof("preferences"->'interfaceLocale') = 'null'
+			or (jsonb_typeof("preferences"->'interfaceLocale') = 'string'
+				and "preferences"->>'interfaceLocale' ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')
+		)
+		and (
+			jsonb_typeof("preferences"->'contentLanguage') = 'null'
+			or (jsonb_typeof("preferences"->'contentLanguage') = 'string'
+				and "preferences"->>'contentLanguage' ~ '^[a-z]{2,3}$')
+		)
+		and (
+			jsonb_typeof("preferences"->'weekStart') = 'null'
+			or "preferences"->'weekStart' in ('0', '1', '2', '3', '4', '5', '6')
 		)
 	)
 );
@@ -1362,9 +1401,11 @@ CREATE INDEX "account_userId_idx" ON "account" ("user_id");--> statement-breakpo
 CREATE INDEX "apikey_configId_idx" ON "apikey" ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" ("reference_id");--> statement-breakpoint
 CREATE INDEX "apikey_key_idx" ON "apikey" ("key");--> statement-breakpoint
+CREATE INDEX "assistant_inbox_turn_idx" ON "assistant_inbox" ("turn_id");--> statement-breakpoint
 CREATE INDEX "assistant_message_turn_sequence_idx" ON "assistant_message" ("turn_id","sequence");--> statement-breakpoint
+CREATE INDEX "assistant_tool_output_turn_idx" ON "assistant_tool_output" ("turn_id");--> statement-breakpoint
 CREATE INDEX "assistant_turn_conversation_created_idx" ON "assistant_turn" ("conversation_id","created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "assistant_turn_active_unique" ON "assistant_turn" ("conversation_id") WHERE "status" in ('queued', 'running', 'awaiting-approval');--> statement-breakpoint
+CREATE UNIQUE INDEX "assistant_turn_active_unique" ON "assistant_turn" ("conversation_id") WHERE "status" in ('queued', 'running', 'awaiting-approval', 'awaiting-input');--> statement-breakpoint
 CREATE INDEX "automation_run_reconciliation_idx" ON "automation_run" ("status","next_attempt_at","queued_at","id");--> statement-breakpoint
 CREATE INDEX "automation_run_history_idx" ON "automation_run" ("execution_user_id","queued_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "automation_run_trigger_idx" ON "automation_run" ("trigger_id");--> statement-breakpoint
@@ -1418,6 +1459,7 @@ CREATE INDEX "event_session_entity_id_idx" ON "event" ("session_entity_id");--> 
 CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_id","event_schema_slug","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_user_schema_occurred_at_idx" ON "event" ("user_id","event_schema_plugin_id","event_schema_slug","occurred_at");--> statement-breakpoint
+CREATE INDEX "event_user_session_entity_schema_idx" ON "event" ("user_id","session_entity_id","entity_id","event_schema_slug");--> statement-breakpoint
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_reference_referenced_event_id_idx" ON "event_reference" ("referenced_event_id");--> statement-breakpoint
 CREATE INDEX "idempotency_key_created_at_idx" ON "idempotency_key" ("created_at");--> statement-breakpoint
@@ -1519,9 +1561,11 @@ ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY 
 ALTER TABLE "agent_script_execution" ADD CONSTRAINT "agent_script_execution_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fkey" FOREIGN KEY ("reference_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assistant_conversation" ADD CONSTRAINT "assistant_conversation_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assistant_inbox" ADD CONSTRAINT "assistant_inbox_7kTv54GGAwnu_fkey" FOREIGN KEY ("turn_id","conversation_id","user_id") REFERENCES "assistant_turn"("id","conversation_id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assistant_message" ADD CONSTRAINT "assistant_message_5nOssrZ23nTD_fkey" FOREIGN KEY ("turn_id","conversation_id","user_id") REFERENCES "assistant_turn"("id","conversation_id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assistant_provider" ADD CONSTRAINT "assistant_provider_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assistant_tool_call" ADD CONSTRAINT "assistant_tool_call_kwOjAAwu8Gpn_fkey" FOREIGN KEY ("turn_id","conversation_id","user_id") REFERENCES "assistant_turn"("id","conversation_id","user_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assistant_tool_output" ADD CONSTRAINT "assistant_tool_output_RBIfuTAFHrJc_fkey" FOREIGN KEY ("turn_id","conversation_id","user_id") REFERENCES "assistant_turn"("id","conversation_id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assistant_turn" ADD CONSTRAINT "assistant_turn_dX1hPmBw1nmZ_fkey" FOREIGN KEY ("conversation_id","user_id") REFERENCES "assistant_conversation"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "automation_run" ADD CONSTRAINT "automation_run_sandbox_script_id_sandbox_script_id_fkey" FOREIGN KEY ("sandbox_script_id") REFERENCES "sandbox_script"("id");--> statement-breakpoint
 ALTER TABLE "automation_run" ADD CONSTRAINT "automation_run_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1621,6 +1665,7 @@ ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_Y0qNbD8s1J
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_owner_package_fk" FOREIGN KEY ("plugin_id","package_id") REFERENCES "plugin"("id","package_id") ON DELETE CASCADE ON UPDATE RESTRICT;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_package_fk" FOREIGN KEY ("client_artifact_hash","package_id") REFERENCES "client_artifact"("hash","package_id");--> statement-breakpoint
+ALTER TABLE "plugin_revision_catalog" ADD CONSTRAINT "plugin_revision_catalog_oVaviW9p9zpb_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "publication" ADD CONSTRAINT "publication_snapshot_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("snapshot_artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "publication" ADD CONSTRAINT "publication_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "publication" ADD CONSTRAINT "publication_page_owner_fk" FOREIGN KEY ("page_id","user_id") REFERENCES "page"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint

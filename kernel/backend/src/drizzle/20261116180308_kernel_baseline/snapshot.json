@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "d5e97f2f-7a1c-4fc6-9821-325a6d3f7f98",
+	"id": "8e1dbcf5-73ae-4490-908e-bb0bcbea6ee8",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -60,6 +60,20 @@
 		},
 		{
 			"statementType": "create_table",
+			"statementTarget": ["table", "public", "assistant_inbox"],
+			"writes": [
+				"s|tbl|public.assistant_inbox",
+				"n|tbl|public.assistant_inbox",
+				"e|tbl|public.assistant_inbox",
+				"n|rel|public.assistant_inbox",
+				"n|type|public.assistant_inbox",
+				"n|rel|public.assistant_inbox_pkey",
+				"n|rel|public.assistant_inbox_user_id_request_id_unique"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
 			"statementTarget": ["table", "public", "assistant_message"],
 			"writes": [
 				"s|tbl|public.assistant_message",
@@ -96,6 +110,19 @@
 				"n|type|public.assistant_tool_call",
 				"n|rel|public.assistant_tool_call_pkey",
 				"n|rel|public.assistant_tool_call_turn_id_round_position_unique"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "assistant_tool_output"],
+			"writes": [
+				"s|tbl|public.assistant_tool_output",
+				"n|tbl|public.assistant_tool_output",
+				"e|tbl|public.assistant_tool_output",
+				"n|rel|public.assistant_tool_output",
+				"n|type|public.assistant_tool_output",
+				"n|rel|public.assistant_tool_output_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -942,6 +969,19 @@
 		},
 		{
 			"statementType": "create_table",
+			"statementTarget": ["table", "public", "plugin_revision_catalog"],
+			"writes": [
+				"s|tbl|public.plugin_revision_catalog",
+				"n|tbl|public.plugin_revision_catalog",
+				"e|tbl|public.plugin_revision_catalog",
+				"n|rel|public.plugin_revision_catalog",
+				"n|type|public.plugin_revision_catalog",
+				"n|rel|public.plugin_revision_catalog_pkey"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
 			"statementTarget": ["table", "public", "provider_rate_limit"],
 			"writes": [
 				"s|tbl|public.provider_rate_limit",
@@ -1266,6 +1306,21 @@
 		},
 		{
 			"statementType": "create_index",
+			"statementTarget": ["index", "public", "assistant_inbox", "assistant_inbox_turn_idx"],
+			"writes": [
+				"s|idx|public.assistant_inbox_turn_idx",
+				"n|idx|public.assistant_inbox_turn_idx",
+				"e|idx|public.assistant_inbox_turn_idx",
+				"n|rel|public.assistant_inbox_turn_idx"
+			],
+			"reads": [
+				"n|tbl|public.assistant_inbox",
+				"n|sch|public",
+				"n|col|public.assistant_inbox.turn_id"
+			]
+		},
+		{
+			"statementType": "create_index",
 			"statementTarget": [
 				"index",
 				"public",
@@ -1283,6 +1338,26 @@
 				"n|sch|public",
 				"n|col|public.assistant_message.turn_id",
 				"n|col|public.assistant_message.sequence"
+			]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": [
+				"index",
+				"public",
+				"assistant_tool_output",
+				"assistant_tool_output_turn_idx"
+			],
+			"writes": [
+				"s|idx|public.assistant_tool_output_turn_idx",
+				"n|idx|public.assistant_tool_output_turn_idx",
+				"e|idx|public.assistant_tool_output_turn_idx",
+				"n|rel|public.assistant_tool_output_turn_idx"
+			],
+			"reads": [
+				"n|tbl|public.assistant_tool_output",
+				"n|sch|public",
+				"n|col|public.assistant_tool_output.turn_id"
 			]
 		},
 		{
@@ -2210,6 +2285,24 @@
 				"n|col|public.event.event_schema_plugin_id",
 				"n|col|public.event.event_schema_slug",
 				"n|col|public.event.occurred_at"
+			]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "event", "event_user_session_entity_schema_idx"],
+			"writes": [
+				"s|idx|public.event_user_session_entity_schema_idx",
+				"n|idx|public.event_user_session_entity_schema_idx",
+				"e|idx|public.event_user_session_entity_schema_idx",
+				"n|rel|public.event_user_session_entity_schema_idx"
+			],
+			"reads": [
+				"n|tbl|public.event",
+				"n|sch|public",
+				"n|col|public.event.user_id",
+				"n|col|public.event.session_entity_id",
+				"n|col|public.event.entity_id",
+				"n|col|public.event.event_schema_slug"
 			]
 		},
 		{
@@ -3941,6 +4034,29 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "assistant_inbox"],
+			"writes": [
+				"s|fk|public.assistant_inbox.assistant_inbox_7kTv54GGAwnu_fkey",
+				"n|fk|public.assistant_inbox.assistant_inbox_7kTv54GGAwnu_fkey",
+				"e|fk|public.assistant_inbox.assistant_inbox_7kTv54GGAwnu_fkey",
+				"n|con|public.assistant_inbox.assistant_inbox_7kTv54GGAwnu_fkey"
+			],
+			"reads": [
+				"n|tbl|public.assistant_inbox",
+				"n|sch|public",
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|col|public.assistant_inbox.turn_id",
+				"n|col|public.assistant_inbox.conversation_id",
+				"n|col|public.assistant_inbox.user_id",
+				"n|col|public.assistant_turn.id",
+				"n|col|public.assistant_turn.conversation_id",
+				"n|col|public.assistant_turn.user_id",
+				"e|uniqueness|public.assistant_turn.conversation_id.id.user_id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "assistant_message"],
 			"writes": [
 				"s|fk|public.assistant_message.assistant_message_5nOssrZ23nTD_fkey",
@@ -3998,6 +4114,29 @@
 				"n|col|public.assistant_tool_call.turn_id",
 				"n|col|public.assistant_tool_call.conversation_id",
 				"n|col|public.assistant_tool_call.user_id",
+				"n|col|public.assistant_turn.id",
+				"n|col|public.assistant_turn.conversation_id",
+				"n|col|public.assistant_turn.user_id",
+				"e|uniqueness|public.assistant_turn.conversation_id.id.user_id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "assistant_tool_output"],
+			"writes": [
+				"s|fk|public.assistant_tool_output.assistant_tool_output_RBIfuTAFHrJc_fkey",
+				"n|fk|public.assistant_tool_output.assistant_tool_output_RBIfuTAFHrJc_fkey",
+				"e|fk|public.assistant_tool_output.assistant_tool_output_RBIfuTAFHrJc_fkey",
+				"n|con|public.assistant_tool_output.assistant_tool_output_RBIfuTAFHrJc_fkey"
+			],
+			"reads": [
+				"n|tbl|public.assistant_tool_output",
+				"n|sch|public",
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|col|public.assistant_tool_output.turn_id",
+				"n|col|public.assistant_tool_output.conversation_id",
+				"n|col|public.assistant_tool_output.user_id",
 				"n|col|public.assistant_turn.id",
 				"n|col|public.assistant_turn.conversation_id",
 				"n|col|public.assistant_turn.user_id",
@@ -5919,6 +6058,25 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "plugin_revision_catalog"],
+			"writes": [
+				"s|fk|public.plugin_revision_catalog.plugin_revision_catalog_oVaviW9p9zpb_fkey",
+				"n|fk|public.plugin_revision_catalog.plugin_revision_catalog_oVaviW9p9zpb_fkey",
+				"e|fk|public.plugin_revision_catalog.plugin_revision_catalog_oVaviW9p9zpb_fkey",
+				"n|con|public.plugin_revision_catalog.plugin_revision_catalog_oVaviW9p9zpb_fkey"
+			],
+			"reads": [
+				"n|tbl|public.plugin_revision_catalog",
+				"n|sch|public",
+				"n|tbl|public.plugin_revision",
+				"n|sch|public",
+				"n|col|public.plugin_revision_catalog.plugin_revision_id",
+				"n|col|public.plugin_revision.id",
+				"e|uniqueness|public.plugin_revision.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "publication"],
 			"writes": [
 				"s|fk|public.publication.publication_snapshot_artifact_hash_client_artifact_hash_fkey",
@@ -6418,6 +6576,12 @@
 		},
 		{
 			"schema": "public",
+			"name": "assistant_inbox",
+			"isRlsEnabled": false,
+			"entityType": "tables"
+		},
+		{
+			"schema": "public",
 			"name": "assistant_message",
 			"isRlsEnabled": false,
 			"entityType": "tables"
@@ -6431,6 +6595,12 @@
 		{
 			"schema": "public",
 			"name": "assistant_tool_call",
+			"isRlsEnabled": false,
+			"entityType": "tables"
+		},
+		{
+			"schema": "public",
+			"name": "assistant_tool_output",
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
@@ -6698,6 +6868,12 @@
 		{
 			"schema": "public",
 			"name": "plugin_revision",
+			"isRlsEnabled": false,
+			"entityType": "tables"
+		},
+		{
+			"schema": "public",
+			"name": "plugin_revision_catalog",
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
@@ -7360,6 +7536,32 @@
 		{
 			"schema": "public",
 			"table": "assistant_conversation",
+			"name": "prompt_tokens",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_conversation",
+			"name": "prompt_characters",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_conversation",
 			"name": "updated_at",
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
@@ -7418,6 +7620,110 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "text",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "turn_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "user_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "delivered_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "request_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "conversation_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "created_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -7542,10 +7848,36 @@
 		{
 			"schema": "public",
 			"table": "assistant_provider",
+			"name": "context_window",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_provider",
 			"name": "base_url",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_provider",
+			"name": "max_output_tokens",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -7769,6 +8101,84 @@
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_tool_output",
+			"name": "text",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_tool_output",
+			"name": "id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_tool_output",
+			"name": "turn_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_tool_output",
+			"name": "user_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_tool_output",
+			"name": "conversation_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_tool_output",
+			"name": "created_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -9414,8 +9824,8 @@
 		{
 			"schema": "public",
 			"table": "definition_calendar_source",
-			"name": "name",
-			"type": "text",
+			"name": "position",
+			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -9427,8 +9837,8 @@
 		{
 			"schema": "public",
 			"table": "definition_calendar_source",
-			"name": "position",
-			"type": "integer",
+			"name": "name",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -9479,19 +9889,6 @@
 		{
 			"schema": "public",
 			"table": "definition_calendar_source",
-			"name": "caption",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "definition_calendar_source",
 			"name": "icon",
 			"type": "text",
 			"typeSchema": null,
@@ -9509,6 +9906,19 @@
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "definition_calendar_source",
+			"name": "caption",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -9583,8 +9993,8 @@
 		{
 			"schema": "public",
 			"table": "definition_entity_schema",
-			"name": "name",
-			"type": "text",
+			"name": "position",
+			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -9596,8 +10006,8 @@
 		{
 			"schema": "public",
 			"table": "definition_entity_schema",
-			"name": "position",
-			"type": "integer",
+			"name": "name",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -9765,8 +10175,8 @@
 		{
 			"schema": "public",
 			"table": "definition_event_schema",
-			"name": "name",
-			"type": "text",
+			"name": "position",
+			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -9778,8 +10188,8 @@
 		{
 			"schema": "public",
 			"table": "definition_event_schema",
-			"name": "position",
-			"type": "integer",
+			"name": "name",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -9869,8 +10279,8 @@
 		{
 			"schema": "public",
 			"table": "definition_import_source",
-			"name": "name",
-			"type": "text",
+			"name": "position",
+			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -9882,8 +10292,8 @@
 		{
 			"schema": "public",
 			"table": "definition_import_source",
-			"name": "position",
-			"type": "integer",
+			"name": "name",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -9921,7 +10331,7 @@
 		{
 			"schema": "public",
 			"table": "definition_import_source",
-			"name": "description",
+			"name": "workflow_slug",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -9934,8 +10344,21 @@
 		{
 			"schema": "public",
 			"table": "definition_import_source",
-			"name": "workflow_slug",
-			"type": "text",
+			"name": "export_help",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "definition_import_source",
+			"name": "description",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -9986,19 +10409,6 @@
 		{
 			"schema": "public",
 			"table": "definition_import_source",
-			"name": "export_help",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "definition_import_source",
 			"name": "plugin_revision_id",
 			"type": "text",
 			"typeSchema": null,
@@ -10025,8 +10435,8 @@
 		{
 			"schema": "public",
 			"table": "definition_integration_provider",
-			"name": "name",
-			"type": "text",
+			"name": "position",
+			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -10038,8 +10448,8 @@
 		{
 			"schema": "public",
 			"table": "definition_integration_provider",
-			"name": "position",
-			"type": "integer",
+			"name": "name",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -10077,19 +10487,6 @@
 		{
 			"schema": "public",
 			"table": "definition_integration_provider",
-			"name": "description",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "definition_integration_provider",
 			"name": "plan",
 			"type": "jsonb",
 			"typeSchema": null,
@@ -10103,8 +10500,21 @@
 		{
 			"schema": "public",
 			"table": "definition_integration_provider",
-			"name": "requires_pro_key",
-			"type": "boolean",
+			"name": "entitlement",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "definition_integration_provider",
+			"name": "description",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -10285,8 +10695,8 @@
 		{
 			"schema": "public",
 			"table": "definition_relationship_schema",
-			"name": "name",
-			"type": "text",
+			"name": "position",
+			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -10298,8 +10708,8 @@
 		{
 			"schema": "public",
 			"table": "definition_relationship_schema",
-			"name": "position",
-			"type": "integer",
+			"name": "name",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -10428,8 +10838,8 @@
 		{
 			"schema": "public",
 			"table": "definition_saved_view",
-			"name": "name",
-			"type": "text",
+			"name": "position",
+			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -10441,8 +10851,8 @@
 		{
 			"schema": "public",
 			"table": "definition_saved_view",
-			"name": "position",
-			"type": "integer",
+			"name": "name",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -10662,10 +11072,10 @@
 		{
 			"schema": "public",
 			"table": "definition_signal_schedule",
-			"name": "requires_pro_key",
-			"type": "boolean",
+			"name": "entitlement",
+			"type": "text",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -10779,8 +11189,8 @@
 		{
 			"schema": "public",
 			"table": "definition_signal_schema",
-			"name": "name",
-			"type": "text",
+			"name": "position",
+			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -10792,8 +11202,8 @@
 		{
 			"schema": "public",
 			"table": "definition_signal_schema",
-			"name": "position",
-			"type": "integer",
+			"name": "name",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -16239,33 +16649,7 @@
 		{
 			"schema": "public",
 			"table": "plugin_revision",
-			"name": "name",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "plugin_revision",
 			"name": "icon",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "plugin_revision",
-			"name": "description",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
@@ -16330,6 +16714,32 @@
 		{
 			"schema": "public",
 			"table": "plugin_revision",
+			"name": "name",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "plugin_revision",
+			"name": "description",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "plugin_revision",
 			"name": "created_at",
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
@@ -16384,19 +16794,6 @@
 			"table": "plugin_revision",
 			"name": "package_id",
 			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "plugin_revision",
-			"name": "client_config_schema",
-			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -16475,6 +16872,19 @@
 			"table": "plugin_revision",
 			"name": "id",
 			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "plugin_revision",
+			"name": "client_config_schema",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -16644,6 +17054,45 @@
 			"table": "plugin_revision",
 			"name": "integration_providers",
 			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "plugin_revision_catalog",
+			"name": "locale",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "plugin_revision_catalog",
+			"name": "catalog",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "plugin_revision_catalog",
+			"name": "plugin_revision_id",
+			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -17461,19 +17910,6 @@
 		{
 			"schema": "public",
 			"table": "sandbox_provider",
-			"name": "name",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "sandbox_provider",
 			"name": "updated_at",
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
@@ -17489,6 +17925,19 @@
 			"table": "sandbox_provider",
 			"name": "root_entity_schema_slug",
 			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "sandbox_provider",
+			"name": "name",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -17760,19 +18209,6 @@
 		{
 			"schema": "public",
 			"table": "saved_view",
-			"name": "name",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "saved_view",
 			"name": "icon",
 			"type": "text",
 			"typeSchema": null,
@@ -17844,6 +18280,19 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": "0",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "saved_view",
+			"name": "name",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -18574,7 +19023,7 @@
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
-			"default": "'{\"language\":null,\"ratingScale\":\"hundred\",\"reportingTimeZone\":\"UTC\",\"disableIntegrations\":false}'",
+			"default": "'{\"weekStart\":null,\"interfaceLocale\":null,\"contentLanguage\":null,\"ratingScale\":\"hundred\",\"reportingTimeZone\":\"UTC\",\"disableIntegrations\":false}'",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -19192,6 +19641,27 @@
 		},
 		{
 			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "assistant_inbox_turn_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "turn_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
 			"table": "assistant_message",
 			"name": "assistant_message_turn_sequence_idx",
 			"nameExplicit": true,
@@ -19205,6 +19675,27 @@
 				},
 				{
 					"value": "sequence",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_tool_output",
+			"name": "assistant_tool_output_turn_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "turn_id",
 					"isExpression": false,
 					"asc": true,
 					"nullsFirst": false,
@@ -19261,7 +19752,7 @@
 				}
 			],
 			"isUnique": true,
-			"where": "\"status\" in ('queued', 'running', 'awaiting-approval')",
+			"where": "\"status\" in ('queued', 'running', 'awaiting-approval', 'awaiting-input')",
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
@@ -20571,6 +21062,48 @@
 				},
 				{
 					"value": "occurred_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
+			"table": "event",
+			"name": "event_user_session_entity_schema_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "session_entity_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "entity_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "event_schema_slug",
 					"isExpression": false,
 					"asc": true,
 					"nullsFirst": false,
@@ -22963,6 +23496,19 @@
 		},
 		{
 			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "assistant_inbox_7kTv54GGAwnu_fkey",
+			"nameExplicit": false,
+			"columns": ["turn_id", "conversation_id", "user_id"],
+			"schemaTo": "public",
+			"tableTo": "assistant_turn",
+			"columnsTo": ["id", "conversation_id", "user_id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "assistant_message",
 			"name": "assistant_message_5nOssrZ23nTD_fkey",
 			"nameExplicit": false,
@@ -22991,6 +23537,19 @@
 			"schema": "public",
 			"table": "assistant_tool_call",
 			"name": "assistant_tool_call_kwOjAAwu8Gpn_fkey",
+			"nameExplicit": false,
+			"columns": ["turn_id", "conversation_id", "user_id"],
+			"schemaTo": "public",
+			"tableTo": "assistant_turn",
+			"columnsTo": ["id", "conversation_id", "user_id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_tool_output",
+			"name": "assistant_tool_output_RBIfuTAFHrJc_fkey",
 			"nameExplicit": false,
 			"columns": ["turn_id", "conversation_id", "user_id"],
 			"schemaTo": "public",
@@ -24294,6 +24853,19 @@
 		},
 		{
 			"schema": "public",
+			"table": "plugin_revision_catalog",
+			"name": "plugin_revision_catalog_oVaviW9p9zpb_fkey",
+			"nameExplicit": false,
+			"columns": ["plugin_revision_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin_revision",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "publication",
 			"name": "publication_snapshot_artifact_hash_client_artifact_hash_fkey",
 			"nameExplicit": false,
@@ -24739,6 +25311,14 @@
 		},
 		{
 			"schema": "public",
+			"table": "plugin_revision_catalog",
+			"name": "plugin_revision_catalog_pkey",
+			"columns": ["plugin_revision_id", "locale"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
 			"table": "sandbox_journal_entry",
 			"name": "sandbox_journal_entry_pkey",
 			"columns": ["execution_id", "entry_index"],
@@ -24803,6 +25383,14 @@
 		},
 		{
 			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "assistant_inbox_pkey",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
 			"table": "assistant_message",
 			"name": "assistant_message_pkey",
 			"columns": ["id"],
@@ -24821,6 +25409,14 @@
 			"schema": "public",
 			"table": "assistant_tool_call",
 			"name": "assistant_tool_call_pkey",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
+			"table": "assistant_tool_output",
+			"name": "assistant_tool_output_pkey",
 			"columns": ["id"],
 			"nameExplicit": false,
 			"entityType": "pks"
@@ -25332,6 +25928,15 @@
 		},
 		{
 			"schema": "public",
+			"table": "assistant_inbox",
+			"name": "assistant_inbox_user_id_request_id_unique",
+			"nameExplicit": false,
+			"columns": ["user_id", "request_id"],
+			"nullsNotDistinct": false,
+			"entityType": "uniques"
+		},
+		{
+			"schema": "public",
 			"table": "assistant_message",
 			"name": "assistant_message_conversation_id_sequence_unique",
 			"nameExplicit": false,
@@ -25754,7 +26359,7 @@
 			"schema": "public",
 			"table": "assistant_turn",
 			"name": "assistant_turn_status",
-			"value": "\"status\" in ('queued', 'running', 'awaiting-approval', 'completed', 'failed', 'interrupted')",
+			"value": "\"status\" in ('queued', 'running', 'awaiting-approval', 'awaiting-input', 'completed', 'failed', 'interrupted')",
 			"entityType": "checks"
 		},
 		{
@@ -26020,7 +26625,7 @@
 			"schema": "public",
 			"table": "notification",
 			"name": "notification_request_check",
-			"value": "jsonb_typeof(\"request\") = 'object' and (\"request\" = '{\"kind\":\"test\"}'::jsonb or (\"request\" @> '{\"kind\":\"message\"}'::jsonb and \"request\" ? 'message' and jsonb_typeof(\"request\"->'message') = 'string'))",
+			"value": "jsonb_typeof(\"request\") = 'object' and (\"request\" = '{\"kind\":\"test\"}'::jsonb or (\"request\" @> '{\"kind\":\"message\"}'::jsonb and \"request\" ? 'message' and jsonb_typeof(\"request\"->'message') = 'object'))",
 			"entityType": "checks"
 		},
 		{
@@ -26132,7 +26737,7 @@
 			"schema": "public",
 			"table": "plugin_revision",
 			"name": "plugin_revision_manifest_sections_check",
-			"value": "\"name\" is not distinct from (\"manifest\" -> 'metadata' ->> 'name') and \"icon\" is not distinct from (\"manifest\" -> 'metadata' ->> 'icon') and \"description\" is not distinct from (\"manifest\" -> 'metadata' ->> 'description') and \"version\" is not distinct from (\"manifest\" -> 'metadata' ->> 'version') and \"package_id\" is not distinct from (\"manifest\" -> 'metadata' ->> 'packageId') and \"client\" is not distinct from (\"manifest\" -> 'client') and \"hooks\" is not distinct from (\"manifest\" -> 'hooks') and \"crons\" is not distinct from (\"manifest\" -> 'crons') and \"scripts\" is not distinct from (\"manifest\" -> 'scripts') and \"workflows\" is not distinct from (\"manifest\" -> 'workflows') and \"providers\" is not distinct from (\"manifest\" -> 'providers') and \"oauth_providers\" is not distinct from (\"manifest\" -> 'oauthProviders') and \"operations\" is not distinct from (\"manifest\" -> 'operations') and \"config_schema\" is not distinct from (\"manifest\" -> 'configSchema') and \"signal_schemas\" is not distinct from (\"manifest\" -> 'signalSchemas') and \"entity_schemas\" is not distinct from (\"manifest\" -> 'entitySchemas') and \"user_bootstrap\" is not distinct from (\"manifest\" -> 'userBootstrap') and \"memberships\" is not distinct from (\"manifest\" -> 'memberships') and \"user_settings_schema\" is not distinct from (\"manifest\" -> 'userSettingsSchema') and \"http_rate_limits\" is not distinct from (\"manifest\" -> 'httpRateLimits') and \"relationship_schemas\" is not distinct from (\"manifest\" -> 'relationshipSchemas') and \"integration_providers\" is not distinct from (\"manifest\" -> 'integrationProviders')",
+			"value": "\"name\" is not distinct from (\"manifest\" -> 'metadata' -> 'name') and \"icon\" is not distinct from (\"manifest\" -> 'metadata' ->> 'icon') and \"description\" is not distinct from (\"manifest\" -> 'metadata' -> 'description') and \"version\" is not distinct from (\"manifest\" -> 'metadata' ->> 'version') and \"package_id\" is not distinct from (\"manifest\" -> 'metadata' ->> 'packageId') and \"client\" is not distinct from (\"manifest\" -> 'client') and \"hooks\" is not distinct from (\"manifest\" -> 'hooks') and \"crons\" is not distinct from (\"manifest\" -> 'crons') and \"scripts\" is not distinct from (\"manifest\" -> 'scripts') and \"workflows\" is not distinct from (\"manifest\" -> 'workflows') and \"providers\" is not distinct from (\"manifest\" -> 'providers') and \"oauth_providers\" is not distinct from (\"manifest\" -> 'oauthProviders') and \"operations\" is not distinct from (\"manifest\" -> 'operations') and \"config_schema\" is not distinct from (\"manifest\" -> 'configSchema') and \"signal_schemas\" is not distinct from (\"manifest\" -> 'signalSchemas') and \"entity_schemas\" is not distinct from (\"manifest\" -> 'entitySchemas') and \"user_bootstrap\" is not distinct from (\"manifest\" -> 'userBootstrap') and \"memberships\" is not distinct from (\"manifest\" -> 'memberships') and \"user_settings_schema\" is not distinct from (\"manifest\" -> 'userSettingsSchema') and \"http_rate_limits\" is not distinct from (\"manifest\" -> 'httpRateLimits') and \"relationship_schemas\" is not distinct from (\"manifest\" -> 'relationshipSchemas') and \"integration_providers\" is not distinct from (\"manifest\" -> 'integrationProviders')",
 			"entityType": "checks"
 		},
 		{
@@ -26202,7 +26807,7 @@
 			"schema": "public",
 			"table": "user",
 			"name": "user_preferences_check",
-			"value": "\n\t\tjsonb_typeof(\"preferences\") = 'object'\n\t\tand \"preferences\" ?& array['disableIntegrations', 'language', 'ratingScale', 'reportingTimeZone']\n\t\tand \"preferences\" - 'disableIntegrations' - 'language' - 'ratingScale' - 'reportingTimeZone' = '{}'::jsonb\n\t\tand jsonb_typeof(\"preferences\"->'disableIntegrations') = 'boolean'\n\t\tand \"preferences\"->>'ratingScale' in ('hundred', 'ten', 'five', 'three-point')\n\t\tand jsonb_typeof(\"preferences\"->'reportingTimeZone') = 'string'\n\t\tand \"preferences\"->>'reportingTimeZone' <> ''\n\t\tand btrim(\"preferences\"->>'reportingTimeZone') = \"preferences\"->>'reportingTimeZone'\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'language') = 'null'\n\t\t\tor (jsonb_typeof(\"preferences\"->'language') = 'string'\n\t\t\t\tand \"preferences\"->>'language' <> ''\n\t\t\t\tand btrim(\"preferences\"->>'language', E' \t\n\r') = \"preferences\"->>'language')\n\t\t)\n\t",
+			"value": "\n\t\tjsonb_typeof(\"preferences\") = 'object'\n\t\tand \"preferences\" ?& array['contentLanguage', 'disableIntegrations', 'interfaceLocale', 'ratingScale', 'reportingTimeZone', 'weekStart']\n\t\tand \"preferences\" - 'contentLanguage' - 'disableIntegrations' - 'interfaceLocale' - 'ratingScale' - 'reportingTimeZone' - 'weekStart' = '{}'::jsonb\n\t\tand jsonb_typeof(\"preferences\"->'disableIntegrations') = 'boolean'\n\t\tand \"preferences\"->>'ratingScale' in ('hundred', 'ten', 'five', 'three-point')\n\t\tand jsonb_typeof(\"preferences\"->'reportingTimeZone') = 'string'\n\t\tand \"preferences\"->>'reportingTimeZone' <> ''\n\t\tand btrim(\"preferences\"->>'reportingTimeZone') = \"preferences\"->>'reportingTimeZone'\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'interfaceLocale') = 'null'\n\t\t\tor (jsonb_typeof(\"preferences\"->'interfaceLocale') = 'string'\n\t\t\t\tand \"preferences\"->>'interfaceLocale' ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')\n\t\t)\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'contentLanguage') = 'null'\n\t\t\tor (jsonb_typeof(\"preferences\"->'contentLanguage') = 'string'\n\t\t\t\tand \"preferences\"->>'contentLanguage' ~ '^[a-z]{2,3}$')\n\t\t)\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'weekStart') = 'null'\n\t\t\tor \"preferences\"->'weekStart' in ('0', '1', '2', '3', '4', '5', '6')\n\t\t)\n\t",
 			"entityType": "checks"
 		},
 		{

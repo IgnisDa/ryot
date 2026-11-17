@@ -70,7 +70,7 @@ export const notification = snakeCase.table(
 		),
 		check(
 			"notification_request_check",
-			sql`jsonb_typeof(${table.request}) = 'object' and (${table.request} = '{"kind":"test"}'::jsonb or (${table.request} @> '{"kind":"message"}'::jsonb and ${table.request} ? 'message' and jsonb_typeof(${table.request}->'message') = 'string'))`,
+			sql`jsonb_typeof(${table.request}) = 'object' and (${table.request} = '{"kind":"test"}'::jsonb or (${table.request} @> '{"kind":"message"}'::jsonb and ${table.request} ? 'message' and jsonb_typeof(${table.request}->'message') = 'object'))`,
 		),
 	],
 );

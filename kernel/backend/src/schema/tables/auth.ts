@@ -37,18 +37,26 @@ export const user = snakeCase.table(
 			"user_preferences_check",
 			sql`
 		jsonb_typeof(${table.preferences}) = 'object'
-		and ${table.preferences} ?& array['disableIntegrations', 'language', 'ratingScale', 'reportingTimeZone']
-		and ${table.preferences} - 'disableIntegrations' - 'language' - 'ratingScale' - 'reportingTimeZone' = '{}'::jsonb
+		and ${table.preferences} ?& array['contentLanguage', 'disableIntegrations', 'interfaceLocale', 'ratingScale', 'reportingTimeZone', 'weekStart']
+		and ${table.preferences} - 'contentLanguage' - 'disableIntegrations' - 'interfaceLocale' - 'ratingScale' - 'reportingTimeZone' - 'weekStart' = '{}'::jsonb
 		and jsonb_typeof(${table.preferences}->'disableIntegrations') = 'boolean'
 		and ${table.preferences}->>'ratingScale' in ('hundred', 'ten', 'five', 'three-point')
 		and jsonb_typeof(${table.preferences}->'reportingTimeZone') = 'string'
 		and ${table.preferences}->>'reportingTimeZone' <> ''
 		and btrim(${table.preferences}->>'reportingTimeZone') = ${table.preferences}->>'reportingTimeZone'
 		and (
-			jsonb_typeof(${table.preferences}->'language') = 'null'
-			or (jsonb_typeof(${table.preferences}->'language') = 'string'
-				and ${table.preferences}->>'language' <> ''
-				and btrim(${table.preferences}->>'language', E' \t\n\r') = ${table.preferences}->>'language')
+			jsonb_typeof(${table.preferences}->'interfaceLocale') = 'null'
+			or (jsonb_typeof(${table.preferences}->'interfaceLocale') = 'string'
+				and ${table.preferences}->>'interfaceLocale' ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')
+		)
+		and (
+			jsonb_typeof(${table.preferences}->'contentLanguage') = 'null'
+			or (jsonb_typeof(${table.preferences}->'contentLanguage') = 'string'
+				and ${table.preferences}->>'contentLanguage' ~ '^[a-z]{2,3}$')
+		)
+		and (
+			jsonb_typeof(${table.preferences}->'weekStart') = 'null'
+			or ${table.preferences}->'weekStart' in ('0', '1', '2', '3', '4', '5', '6')
 		)
 	`,
 		),

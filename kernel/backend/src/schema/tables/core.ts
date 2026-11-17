@@ -1,4 +1,8 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type {
+	AuthoredAppSchema,
+	ManifestText,
+} from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	ProviderInformation,
@@ -6,7 +10,8 @@ import type {
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { PLUGIN_PACKAGE_ID_PATTERN, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { CompiledCatalog } from "@ryot-app/i18n/catalog";
+import type { Message } from "@ryot-app/i18n/message";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -19,6 +24,7 @@ import {
 	integer,
 	jsonb,
 	type PgTableExtraConfigValue,
+	primaryKey,
 	smallint,
 	snakeCase,
 	text,
@@ -98,19 +104,18 @@ export const plugin = snakeCase.table(
 export const pluginRevision = snakeCase.table(
 	"plugin_revision",
 	{
-		name: text(),
 		icon: text(),
-		description: text(),
 		version: text().notNull(),
 		clientArtifactHash: text(),
 		pluginId: text().notNull(),
 		contentHash: text().notNull(),
+		name: jsonb().$type<ManifestText>(),
+		description: jsonb().$type<ManifestText>(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		client: jsonb().$type<PluginManifest["client"]>(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
 		queries: jsonb().$type<PluginManifest["queries"]>(),
 		packageId: text().$type<PluginPackageId>().notNull(),
-		clientConfigSchema: jsonb().$type<AppSchema>().notNull(),
 		hooks: jsonb().$type<PluginManifest["hooks"]>().notNull(),
 		crons: jsonb().$type<PluginManifest["crons"]>().notNull(),
 		memberships: jsonb().$type<PluginManifest["memberships"]>(),
@@ -119,6 +124,7 @@ export const pluginRevision = snakeCase.table(
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => generateId()),
+		clientConfigSchema: jsonb().$type<AuthoredAppSchema>().notNull(),
 		workflows: jsonb().$type<PluginManifest["workflows"]>().notNull(),
 		providers: jsonb().$type<PluginManifest["providers"]>().notNull(),
 		oauthProviders: jsonb().$type<PluginManifest["oauthProviders"]>(),
@@ -136,7 +142,7 @@ export const pluginRevision = snakeCase.table(
 	(table): PgTableExtraConfigValue[] => [
 		check(
 			"plugin_revision_manifest_sections_check",
-			sql`${table.name} is not distinct from (${table.manifest} -> 'metadata' ->> 'name') and ${table.icon} is not distinct from (${table.manifest} -> 'metadata' ->> 'icon') and ${table.description} is not distinct from (${table.manifest} -> 'metadata' ->> 'description') and ${table.version} is not distinct from (${table.manifest} -> 'metadata' ->> 'version') and ${table.packageId} is not distinct from (${table.manifest} -> 'metadata' ->> 'packageId') and ${table.client} is not distinct from (${table.manifest} -> 'client') and ${table.hooks} is not distinct from (${table.manifest} -> 'hooks') and ${table.crons} is not distinct from (${table.manifest} -> 'crons') and ${table.scripts} is not distinct from (${table.manifest} -> 'scripts') and ${table.workflows} is not distinct from (${table.manifest} -> 'workflows') and ${table.providers} is not distinct from (${table.manifest} -> 'providers') and ${table.oauthProviders} is not distinct from (${table.manifest} -> 'oauthProviders') and ${table.operations} is not distinct from (${table.manifest} -> 'operations') and ${table.configSchema} is not distinct from (${table.manifest} -> 'configSchema') and ${table.signalSchemas} is not distinct from (${table.manifest} -> 'signalSchemas') and ${table.entitySchemas} is not distinct from (${table.manifest} -> 'entitySchemas') and ${table.userBootstrap} is not distinct from (${table.manifest} -> 'userBootstrap') and ${table.memberships} is not distinct from (${table.manifest} -> 'memberships') and ${table.userSettingsSchema} is not distinct from (${table.manifest} -> 'userSettingsSchema') and ${table.httpRateLimits} is not distinct from (${table.manifest} -> 'httpRateLimits') and ${table.relationshipSchemas} is not distinct from (${table.manifest} -> 'relationshipSchemas') and ${table.integrationProviders} is not distinct from (${table.manifest} -> 'integrationProviders')`,
+			sql`${table.name} is not distinct from (${table.manifest} -> 'metadata' -> 'name') and ${table.icon} is not distinct from (${table.manifest} -> 'metadata' ->> 'icon') and ${table.description} is not distinct from (${table.manifest} -> 'metadata' -> 'description') and ${table.version} is not distinct from (${table.manifest} -> 'metadata' ->> 'version') and ${table.packageId} is not distinct from (${table.manifest} -> 'metadata' ->> 'packageId') and ${table.client} is not distinct from (${table.manifest} -> 'client') and ${table.hooks} is not distinct from (${table.manifest} -> 'hooks') and ${table.crons} is not distinct from (${table.manifest} -> 'crons') and ${table.scripts} is not distinct from (${table.manifest} -> 'scripts') and ${table.workflows} is not distinct from (${table.manifest} -> 'workflows') and ${table.providers} is not distinct from (${table.manifest} -> 'providers') and ${table.oauthProviders} is not distinct from (${table.manifest} -> 'oauthProviders') and ${table.operations} is not distinct from (${table.manifest} -> 'operations') and ${table.configSchema} is not distinct from (${table.manifest} -> 'configSchema') and ${table.signalSchemas} is not distinct from (${table.manifest} -> 'signalSchemas') and ${table.entitySchemas} is not distinct from (${table.manifest} -> 'entitySchemas') and ${table.userBootstrap} is not distinct from (${table.manifest} -> 'userBootstrap') and ${table.memberships} is not distinct from (${table.manifest} -> 'memberships') and ${table.userSettingsSchema} is not distinct from (${table.manifest} -> 'userSettingsSchema') and ${table.httpRateLimits} is not distinct from (${table.manifest} -> 'httpRateLimits') and ${table.relationshipSchemas} is not distinct from (${table.manifest} -> 'relationshipSchemas') and ${table.integrationProviders} is not distinct from (${table.manifest} -> 'integrationProviders')`,
 		),
 		unique("plugin_revision_plugin_content_unique").on(table.pluginId, table.contentHash),
 		unique("plugin_revision_id_plugin_unique").on(table.id, table.pluginId),
@@ -153,6 +159,18 @@ export const pluginRevision = snakeCase.table(
 			foreignColumns: [clientArtifact.hash, clientArtifact.packageId],
 		}),
 	],
+);
+
+export const pluginRevisionCatalog = snakeCase.table(
+	"plugin_revision_catalog",
+	{
+		locale: text().notNull(),
+		catalog: jsonb().$type<CompiledCatalog>().notNull(),
+		pluginRevisionId: text()
+			.notNull()
+			.references(() => pluginRevision.id, { onDelete: "cascade" }),
+	},
+	(table) => [primaryKey({ columns: [table.pluginRevisionId, table.locale] })],
 );
 
 export const pluginInstallation = snakeCase.table(
@@ -244,9 +262,9 @@ export const sandboxProvider = snakeCase.table(
 	"sandbox_provider",
 	{
 		slug: text().notNull(),
-		name: text().notNull(),
 		updatedAt: updatedAtColumn(),
 		rootEntitySchemaSlug: text().notNull(),
+		name: jsonb().$type<Message>().notNull(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		information: jsonb().$type<ProviderInformation>().notNull(),
 		pluginId: text()

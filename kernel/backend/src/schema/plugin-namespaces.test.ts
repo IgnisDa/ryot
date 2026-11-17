@@ -285,7 +285,11 @@ describe("plugin namespaces in the generated migration baseline", () => {
 											...schema.propertiesSchema,
 											fields: {
 												...schema.propertiesSchema.fields,
-												label: { type: "string", label: "Label", description: "Optional label" },
+												label: {
+													type: "string",
+													label: { key: "test.label" },
+													description: "Optional label",
+												},
 											},
 										},
 									}),
