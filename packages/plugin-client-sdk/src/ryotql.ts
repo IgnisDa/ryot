@@ -1,6 +1,7 @@
 export * from "@ryot-app/ryotql";
 
 export type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+export type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 
 export {
 	now,

@@ -9,14 +9,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { useShortcut } from "@ryot-app/plugin-ui-sdk";
 import { Result, Schema } from "effect";
-import {
-	type ComponentType,
-	type ContextType,
-	createContext,
-	type ReactNode,
-	useContext,
-	useSyncExternalStore,
-} from "react";
+import { type ComponentType, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import {
@@ -25,6 +18,7 @@ import {
 } from "../analytics/sections";
 import { createPluginRuntime } from "../bridge/session";
 import type { RyotClient } from "../client/client";
+import { PluginI18nProvider } from "../i18n/provider";
 import {
 	createClientPageRouteResolver,
 	createPluginRouteResolver,
@@ -40,36 +34,9 @@ import {
 } from "../presentations/entity-results";
 import { RyotProvider } from "../queries/provider";
 import { makeRyotPluginRuntime, type RyotPluginRuntime } from "../runtime/runtime";
+import { PageStoreProvider } from "./page-context";
 
 type ClientPluginDefinition = PluginRouterDefinition;
-
-const PageContext = createContext<
-	| undefined
-	| {
-			readonly subscribe: (listener: () => void) => () => void;
-			readonly getSnapshot: () => undefined | ClientPageContext;
-	  }
->(undefined);
-
-const PageStoreProvider = ({
-	store,
-	children,
-}: {
-	readonly children: ReactNode;
-	readonly store: NonNullable<ContextType<typeof PageContext>>;
-}) => <PageContext.Provider value={store}>{children}</PageContext.Provider>;
-
-export const usePageContext = () => {
-	const store = useContext(PageContext);
-	if (!store) {
-		throw new Error("Page context is only available in a mounted page");
-	}
-	const context = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-	if (!context) {
-		throw new Error("Page context is only available in a mounted page");
-	}
-	return context;
-};
 
 const decodeCompositionMetadata = Schema.decodeUnknownResult(
 	Schema.fromJsonString(ClientCompositionMetadata),
@@ -125,16 +92,18 @@ const bootstrapClientApplication = (
 			return;
 		}
 		root.render(
-			<RyotProvider key={documentKey} runtime={sdkRuntime}>
-				<AnalyticsSectionsProvider registrations={analyticsSections}>
-					<EntityPresentationRegistryProvider registrations={registrations}>
-						<PageStoreProvider store={pageStore}>
-							<KernelShortcutForwarder runtime={runtime} />
-							<PluginRouter />
-						</PageStoreProvider>
-					</EntityPresentationRegistryProvider>
-				</AnalyticsSectionsProvider>
-			</RyotProvider>,
+			<PluginI18nProvider store={runtime.locale}>
+				<RyotProvider key={documentKey} runtime={sdkRuntime}>
+					<AnalyticsSectionsProvider registrations={analyticsSections}>
+						<EntityPresentationRegistryProvider registrations={registrations}>
+							<PageStoreProvider store={pageStore}>
+								<KernelShortcutForwarder runtime={runtime} />
+								<PluginRouter />
+							</PageStoreProvider>
+						</EntityPresentationRegistryProvider>
+					</AnalyticsSectionsProvider>
+				</RyotProvider>
+			</PluginI18nProvider>,
 		);
 	};
 	const handleFatalEvent = (event: Event) => {

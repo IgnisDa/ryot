@@ -1,6 +1,7 @@
 import { afterEach, describe, expect } from "bun:test";
 
 import { EntityId, EntitySchemaSlug, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testText } from "@ryot-app/kernel-messages/testing";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -30,13 +31,14 @@ import { useRyotQuery } from "../queries/hooks";
 import { useRyot, useRyotSchedule, useRyotTheme } from "../queries/provider";
 import { RyotClientService, RyotNavigationService } from "../runtime/runtime";
 import { RyotScheduleService } from "../schedule";
-import { createTestRyotClock, mountPluginPage, waitForMessagePortMacrotask } from "../testing";
 import {
-	bootstrapClientPage,
-	bootstrapClientPlugin,
-	createClientBootstrap,
-	usePageContext,
-} from "./application";
+	createTestRyotClock,
+	mountPluginPage,
+	testBridgeLocale,
+	waitForMessagePortMacrotask,
+} from "../testing";
+import { bootstrapClientPage, bootstrapClientPlugin, createClientBootstrap } from "./application";
+import { usePageContext } from "./page-context";
 
 const metadata = {
 	hash: "composition-hash",
@@ -46,6 +48,7 @@ const metadata = {
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 };
 const init: PluginBridgeInit = {
+	...testBridgeLocale(),
 	mode: "light",
 	safeAreaTop: 0,
 	safeAreaBottom: 0,
@@ -130,7 +133,11 @@ const OverlayHome = () => {
 				Open
 			</button>
 			{open && (
-				<Modal label="Overlay" closeLabel="Close" onClose={() => setOpen(false)}>
+				<Modal
+					label={testText("Overlay")}
+					closeLabel={testText("Close")}
+					onClose={() => setOpen(false)}
+				>
 					<button type="button">Inside</button>
 				</Modal>
 			)}

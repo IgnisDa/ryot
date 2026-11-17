@@ -31,6 +31,49 @@ binds the same key in its own realm and sends a press message back. Key events n
 boundary, so exactly one document sees any press and each realm's overlays suppress only their own
 registrations.
 
+## Messages And Locale
+
+Init and every later `locale` message carry the host's locale, text direction and the catalogs in
+that locale's fallback chain: the kernel catalog plus the document's plugin contributors' catalogs
+(every catalog for kernel renderer documents). A plugin therefore renders only its own messages,
+kernel messages and served messages of those namespaces. The session sets the document's `lang`
+and `dir` from each of them and keeps the catalogs in one registry, and bootstrap wraps the
+application in `I18nProvider`, so `useT()` from `./react` renders any `Message` and re-renders when
+the host changes locale or plugin catalogs reload. Missing messages of the namespaces the host
+lists as pending render the neutral `message.loading` text instead of `message.unavailable`.
+`useMessages(packageId, messages)` takes the `LocalMessageBuilder` from `@ryot-app/plugin-kit/messages`
+and returns a `LocalTextBuilder` that stamps the contributor's resolved plugin namespace before
+rendering. It also renders a curated set of kernel `common.*` messages, so plugin catalogs do not
+copy them: `common.action.{back,cancel,close,delete,done,refresh,retry,save,try-again}`,
+`common.status.{deleting,loading,saving}` and `common.value.{no,yes}`. The list is
+`PLUGIN_COMMON_MESSAGE_KEYS` in `@ryot-app/contract/modules/plugins/common-messages`; plugin
+catalogs must not define these keys, and `ryot plugin messages`, `ryot plugin build` and
+installation reject catalogs that do. `testPluginText(pluginId, catalogMessage, catalog)` from `./testing` renders
+the same way outside React, for plugin unit tests. `useLocalMessage(packageId)` renders a `LocalMessage` (its schema is exported from the
+package root) that the plugin's own backend returned, such as an operation outcome, or that its
+client carries in an error, with the same stamping. `useDisplayText()` renders a `DisplayText`,
+passing user-authored strings through. `useRichText(builder)` renders a namespaced builder's
+messages, such as kernel renderers' `kernelMessage`, with React elements as text argument values,
+for emphasis around user data that catalogs cannot mark up.
+Names decoded from recipes are messages; render them before sorting or searching.
+`useEntitySchemaName()` renders an entity schema's served name from an `{ ownerPluginId,
+entitySchemaSlug }` reference, with a neutral kernel fallback while names load or when the schema is
+not readable.
+
+`./react` also exports `useFormatters()` and the `Formatters`, `DisplayText` and `Text` types. SDK
+component text props accept only `Text`, the value `useT()`, `useMessages()` and `useDisplayText()`
+return. Format every
+number, date, list and relative time with them, in the active locale. Pure helpers take
+`formatters` as a parameter. Entity presentation `prepare` receives `formatters` for the same reason.
+Cached formatters keep the time zone they were created in, so zone-sensitive formatting passes an
+explicit `timeZone` (`deviceTimeZone()` for the device's).
+
+`TestI18nProvider` from `./testing` renders components outside the bridge with the English kernel
+catalog plus optional catalogs. `testFormatters` and `testText(value)` (a literal branded as `Text`
+for component props) come from `@ryot-app/kernel-messages/testing`; `testCatalog(namespace, texts)`
+builds an English catalog of plain texts, and `mountPluginPage` accepts the same `catalogs`. `testBridgeLocale(catalogs)` returns the
+matching init locale fields.
+
 ## Capabilities
 
 Capability failures use the canonical `RyotClientError.reason` values in the
@@ -53,7 +96,9 @@ mutation listeners by default. `refreshOnSuccess: false` suppresses that notific
 context operations, so a page-refresh handler does not trigger itself again, and for writes whose
 caller calls `mutationCompleted.hint()` itself once later steps such as navigation finish.
 An operation that refuses the request fails with `operation-rejected`, and the `RyotClientError`
-`message` carries the operation's explanation; resubmitting the same input cannot succeed.
+`rejection` carries the operation's explanation as a message; resubmitting the same input cannot
+succeed. `formatError(t, error, fallback?)` (`/react`) renders any client error: the rejection
+message when present, else `fallback` (rendered text or a message), else a kernel default.
 Retryable writes may pass an `idempotencyKey`. Retain the same key and exact immutable input across
 retries; the server replays the recorded result and rejects reuse of the key with different input.
 Each bridge attempt has its own transport `requestId`; it is not a write identity.
@@ -92,24 +137,26 @@ keyed by local ID that refreshes after mutations, so an operation that calls `up
 is reflected on the next page refresh. Writes go through backend operations; the client is read-only.
 
 `client.userPreferences` (an Effect) and `useUserPreferences()` read only the account's reporting
-`timeZone` and `ratingScale`. This narrow authenticated capability is available to renderers and
-plugins without a plugin ID and refreshes after preference mutations. It exposes no user profile
-data; publication visitors receive the defaults (UTC, out of 100). Pass `ratingScale` to the UI
-SDK's `RatingInput`, `RatingValue`, and `ReviewComposer`; ratings are always stored 0–100.
-`PreferencesGate` wraps `useUserPreferences()` in `QueryStatus` with retry and renders its children
-with the loaded preferences. Use it for any UI that needs the rating scale or time zone instead of
-reading `data?.…` with a fallback, so a load failure shows a retry state rather than a blank or
-defaulted screen.
+`timeZone`, resolved `weekStart` (0 is Sunday), and `ratingScale`. This narrow authenticated
+capability is available to renderers and plugins without a plugin ID and refreshes after preference
+mutations. It exposes no user profile data; publication visitors receive the defaults (UTC, Sunday,
+out of 100). Pass `ratingScale` to the UI SDK's `RatingInput`, `RatingValue`, and `ReviewComposer`;
+ratings are always stored 0–100. `PreferencesGate` wraps `useUserPreferences()` in `QueryStatus`
+with retry and renders its children with the loaded preferences. Use it for any UI that needs the
+rating scale, time zone, or week start instead of reading `data?.…` with a fallback, so a load
+failure shows a retry state rather than a blank or defaulted screen.
 Compiled client sources import the canonical reporting definitions from
 `@ryot-app/plugin-client-sdk/plugin`: the `ReportingSelection` schema and its parts, URL encoding
 (`reportingSearchParams`, `parseReportingSearch`, `analyticsSectionKey`) with the labelled
-`reportingRangeOptions`, and execution helpers. `reportingExecution(selection, { now, timeZone })`
-resolves half-open local-calendar boundaries and pins the resolved period as a custom `selection`.
+`reportingRangeOptions`, and execution helpers.
+`reportingExecution(selection, { now, timeZone, weekStart })` resolves half-open local-calendar
+boundaries and pins the resolved period as a custom `selection`.
 `resolveReportingSelection` coarsens grouping so every bounded period stays within
 `REPORTING_BUCKET_LIMIT` buckets, and all-time groups by year. `calendarBuckets` lays out every
 bucket of a period (or of the data's extent for all time) with its points, so charts never page or
-truncate buckets. `selectionForPeriod` and `periodCaption` (readable ranges such as `Oct 2 – 31, 2026`)
-are the shared reporting vocabulary; figures, units, and period-over-period changes format through
+truncate buckets. `selectionForPeriod` and `usePeriodCaption()` (readable ranges such as
+`Oct 2 – 31, 2026` in the active locale; `periodCaption(t, formatters, period)` outside React) are
+the shared reporting vocabulary; figures, units, and period-over-period changes format through
 the UI SDK's metric helpers.
 
 Reporting queries come from `@ryot-app/plugin-client-sdk/react`. Their read callbacks use `query`
@@ -283,12 +330,12 @@ whether an incomplete submission can be abandoned remain caller-owned.
 
 `useBackgroundSubmission(definition, { createId })` hands a write to the kernel shell. A definition
 from `createRyotBackgroundSubmission` names the operation `slug`, `packageId`, and `inputSchema`, a
-`label(input)` for the shell's activity tray, and `input(submission)`, which builds the operation
+`label(input)` for the shell's activity tray (a `LocalMessage` from the plugin's catalog, which
+the shell stamps with the plugin's namespace and renders), and `input(submission)`, which builds the operation
 input from the frozen `RyotSubmission` snapshot. `submit(input, { onAccepted, onRejected })` freezes
 the input, uses the submission ID as the idempotency key, and resolves once the kernel accepts the
 request; the shell then owns the attempt, its tray entry, and its Retry, so the caller may close a
-dialog or navigate away. The SDK collapses control characters and whitespace in labels and truncates
-them to 120 characters. `state` moves through `sending`, `accepted` or `rejected`, and `settled`;
+dialog or navigate away. `state` moves through `sending`, `accepted` or `rejected`, and `settled`;
 `last` is the latest submission's settled outcome while the component stays mounted, for optimistic
 rollback in toggles. Settlements never carry the operation result. A successful settlement also
 reaches the page through the normal `page-refresh` hint. Tests pass the adapter from
@@ -339,7 +386,7 @@ mutation hook.
 
 `ryot.entities.save({ submission, idempotencyKey, submittedAt })` sends one `EntityEditorSubmission`
 to the kernel editor save and returns `EntityEditorSaveOutput`: `{ kind: "saved", entityId }`,
-`{ kind: "stale" }`, or `{ kind: "invalid", message }`. The submission names its schema with an
+`{ kind: "stale" }`, or `{ kind: "invalid", reason }`, whose `reason` is a kernel `Message`. The submission names its schema with an
 `EntitySchemaReference`; the runtime refuses an owner that is not a plugin contributor of the
 document with `invalid-request`, and server refusals of the request itself fail with
 `entity-save-failed`. A saved result notifies mutation listeners.
@@ -446,8 +493,25 @@ crash a screen; invalid input and unsupported capabilities remain explicit.
 ## Client Pages And Routing
 
 `PluginRouter` retains a stack of screens and reconciles it only from the kernel entry `index` and
-stable `key`; paths never imply push, pop, or replace. In-place location updates preserve focused
-controls, while a changed active key moves focus to the new screen. Route targets contain `path` and optional `search`.
+stable `key`; paths never imply push, pop, or replace. Each screen is one history entry showing one
+content identity: the screen component its location resolves to. Locations rendered by one component,
+whatever their path, parameters or search, are the same screen, so a replacement between them updates
+the mounted screen in place and keeps its state. A replacement that keeps the key but resolves a
+different component mounts a new screen. Route targets contain `path` and optional `search`.
+
+Scroll and focus follow the shared view history from the UI SDK, kept by the navigation store for the
+frame session so it survives document replacement:
+
+- A new screen (push, kernel replacement, or a same-key replacement with different content) opens at
+  the top, and focus moves to its screen container.
+- Returning to a retained screen keeps its scroll position and refocuses the element that last had
+  focus in it. A screen remounted for an entry it showed before, after the stack dropped it or the
+  document was replaced, restores its saved scroll position as its content grows.
+- An in-place location update of the same screen, such as a page-search replacement, keeps scroll and
+  focus.
+
+Focus moves only while the frame document has focus, never for the session's first screen. The kernel
+moves focus out of the frame when a navigation shows a different document.
 Entity targets contain only `entityId`; the kernel builds the canonical URL and returns an entity
 location with `entitySchemaSlug`. A `{ kind: "plugin-preferences", packageId }` target resolves to the
 matching workspace installation in the kernel and is unresolved when no installation matches. A
@@ -461,8 +525,8 @@ hosts plugin routes, entity pages, saved-view renderers, and workspace homes.
 `usePageContext` exposes target, renderer, settings, optional named data sources, and route parameters.
 Settings and data-source values are page inputs, not executable source or artifact identity.
 
-Retained screens keep their React keys and use `visibility: hidden`, preserving state, layout, and
-scroll position. `leading` selects visible back, drawer, or no control; `edgeBack` independently
+Retained screens keep their React keys, entry key plus content identity, and use
+`visibility: hidden`, preserving state, layout, and scroll position. `leading` selects visible back, drawer, or no control; `edgeBack` independently
 enables a kernel-granted interactive edge. A gesture commit requests kernel navigation and owns its
 settling animation. Pop animation runs only for compact layouts and when reduced motion is not
 requested; screen retention is unconditional.
@@ -480,7 +544,11 @@ in every plugin document because the host cannot inspect sandboxed focus.
 `primaryAction`, in that order, and the compact bar from `barActions`, a view-options button, and the
 overflow menu. `viewOptions` is controlled by its caller and owns its triggers, the `F` shortcut, and
 the filters sheet (titled `compactTitle` in compact layouts). `menuActions` renders as a single
-**More actions** menu so secondary screen actions never widen the toolbar.
+**More actions** menu so secondary screen actions never widen the toolbar. Its `title` (and
+`usePluginTitle`) takes `DisplayText`: a message, or user-authored text such as an item's name. The
+frame renders it and publishes it unrendered, and the host renders it in the shell, accepting
+messages only from namespaces the document receives. `useStampedMessages(packageId, catalogMessage)`
+builds the plugin's own messages stamped with its namespace for such props.
 
 Shared Layers construct synchronously and React context distributes their services. Location,
 screen, and active-screen contexts remain per-screen because several retained screens coexist.
@@ -489,7 +557,8 @@ belong to router navigation rather than public `RyotClient` capabilities.
 
 ## Static data requests
 
-`client.data.query(recipe, arguments, options?)` sends an ExecutionRequest and decodes with the recipe.
+`client.data.query(recipe, arguments, options?)` sends a `PluginExecutionRequest` and decodes with
+the recipe. Recipe parameter labels are `AuthoredAppSchema` text, which the host stamps.
 Options carry `pages`, `filter`, and `sort`; runtime values never rebuild the authored document.
 `selectRecipe(recipe, name)` retains the full document but executes and decodes one named result.
 `client.data.execute(request, decode)` supports stored references; `client.data.describe(source, arguments?)`

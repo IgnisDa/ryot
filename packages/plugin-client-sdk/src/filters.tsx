@@ -1,5 +1,4 @@
 import {
-	formatRating,
 	type RatingScale,
 	ratingScales,
 	scaledRangeBound,
@@ -9,16 +8,24 @@ import {
 	filterOperatorEntitlement,
 	filterRuleCountEntitlement,
 } from "@ryot-app/contract/modules/filters/schemas";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	Button,
 	Checkbox,
 	entitlementActionLabel,
 	IconButton,
+	type MetricFormat,
 	Modal,
 	MultiSelect,
 	SegmentedControl,
 	Select,
 	TextField,
+	useMetricFormat,
 	useValueChange,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -57,10 +64,8 @@ type ViewFilterRule = NonNullable<ReturnType<typeof draftRule>>;
 type FilterOperator = ReturnType<typeof filterOperatorsFor>[number];
 type LinkedField = Exclude<ViewFilterField, { readonly kind: "value" }>;
 
-export const activeFiltersPhrase = (count: number) =>
-	`${count} active ${count === 1 ? "filter" : "filters"}`;
-
-export const filtersLabel = (count: number) => `Filters, ${activeFiltersPhrase(count)}`;
+export const activeFiltersMessage = (count: number) =>
+	kernelMessage("sdk.filters.active-count", { count });
 
 export const useViewFilter = (fields: readonly ViewFilterField[]) => {
 	const ryot = useRyot();
@@ -81,18 +86,19 @@ export function ViewFiltersSheet({
 	children,
 	triggerRef,
 }: {
-	readonly title: string;
+	readonly title: Text;
 	readonly compact: boolean;
 	readonly onClose: () => void;
 	readonly children: ReactNode;
 	readonly triggerRef?: undefined | RefObject<null | HTMLElement>;
 }) {
+	const t = useT();
 	return (
 		<Modal
 			label={title}
 			onClose={onClose}
 			triggerRef={triggerRef}
-			closeLabel={`Close ${title.toLowerCase()}`}
+			closeLabel={t(kernelMessage("common.action.close"))}
 			containerClassName={compact ? "items-end justify-center" : "items-center justify-center p-4"}
 			className={
 				compact
@@ -129,73 +135,172 @@ const choicesKey = (
 	extra: { readonly searchText?: string; readonly ids?: readonly string[] },
 ) => JSON.stringify(linkedFilterChoicesInput(field, extra));
 
-const operatorLabels: Readonly<Record<FilterOperator, string>> = {
-	is: "is",
-	eq: "equals",
-	isTrue: "is yes",
-	isFalse: "is no",
-	lte: "is at most",
-	after: "is after",
-	gte: "is at least",
-	anyOf: "is any of",
-	notEmpty: "is set",
-	empty: "is not set",
-	before: "is before",
-	contains: "contains",
-	noneOf: "is none of",
-	between: "is between",
-	allOf: "includes all of",
-	betweenDates: "is between",
-	notContains: "does not contain",
-	withinLastDays: "is within the last (days)",
+type RuleText = { readonly field: string; readonly value: string };
+type OperatorMessages = { readonly label: Message; readonly rule: (text: RuleText) => Message };
+
+const operatorMessages: Readonly<Record<FilterOperator, OperatorMessages>> = {
+	is: {
+		label: kernelMessage("sdk.filters.operator.is"),
+		rule: (text) => kernelMessage("sdk.filters.rule.is", text),
+	},
+	eq: {
+		label: kernelMessage("sdk.filters.operator.eq"),
+		rule: (text) => kernelMessage("sdk.filters.rule.eq", text),
+	},
+	lte: {
+		label: kernelMessage("sdk.filters.operator.lte"),
+		rule: (text) => kernelMessage("sdk.filters.rule.lte", text),
+	},
+	gte: {
+		label: kernelMessage("sdk.filters.operator.gte"),
+		rule: (text) => kernelMessage("sdk.filters.rule.gte", text),
+	},
+	after: {
+		label: kernelMessage("sdk.filters.operator.after"),
+		rule: (text) => kernelMessage("sdk.filters.rule.after", text),
+	},
+	anyOf: {
+		label: kernelMessage("sdk.filters.operator.any-of"),
+		rule: (text) => kernelMessage("sdk.filters.rule.any-of", text),
+	},
+	allOf: {
+		label: kernelMessage("sdk.filters.operator.all-of"),
+		rule: (text) => kernelMessage("sdk.filters.rule.all-of", text),
+	},
+	before: {
+		label: kernelMessage("sdk.filters.operator.before"),
+		rule: (text) => kernelMessage("sdk.filters.rule.before", text),
+	},
+	noneOf: {
+		label: kernelMessage("sdk.filters.operator.none-of"),
+		rule: (text) => kernelMessage("sdk.filters.rule.none-of", text),
+	},
+	between: {
+		label: kernelMessage("sdk.filters.operator.between"),
+		rule: (text) => kernelMessage("sdk.filters.rule.between", text),
+	},
+	contains: {
+		label: kernelMessage("sdk.filters.operator.contains"),
+		rule: (text) => kernelMessage("sdk.filters.rule.contains", text),
+	},
+	empty: {
+		label: kernelMessage("sdk.filters.operator.empty"),
+		rule: ({ field }) => kernelMessage("sdk.filters.rule.empty", { field }),
+	},
+	betweenDates: {
+		label: kernelMessage("sdk.filters.operator.between"),
+		rule: (text) => kernelMessage("sdk.filters.rule.between", text),
+	},
+	isTrue: {
+		label: kernelMessage("sdk.filters.operator.is-true"),
+		rule: ({ field }) => kernelMessage("sdk.filters.rule.is-true", { field }),
+	},
+	isFalse: {
+		label: kernelMessage("sdk.filters.operator.is-false"),
+		rule: ({ field }) => kernelMessage("sdk.filters.rule.is-false", { field }),
+	},
+	notContains: {
+		label: kernelMessage("sdk.filters.operator.not-contains"),
+		rule: (text) => kernelMessage("sdk.filters.rule.not-contains", text),
+	},
+	notEmpty: {
+		label: kernelMessage("sdk.filters.operator.not-empty"),
+		rule: ({ field }) => kernelMessage("sdk.filters.rule.not-empty", { field }),
+	},
+	withinLastDays: {
+		label: kernelMessage("sdk.filters.operator.within-last-days"),
+		rule: (text) => kernelMessage("sdk.filters.rule.within-last-days", text),
+	},
 };
 
-const listOperatorLabels: Partial<Record<FilterOperator, string>> = {
-	anyOf: "includes any of",
-	noneOf: "includes none of",
+const listOperatorMessages: Partial<Record<FilterOperator, OperatorMessages>> = {
+	anyOf: {
+		label: kernelMessage("sdk.filters.operator.list-any-of"),
+		rule: (text) => kernelMessage("sdk.filters.rule.list-any-of", text),
+	},
+	noneOf: {
+		label: kernelMessage("sdk.filters.operator.list-none-of"),
+		rule: (text) => kernelMessage("sdk.filters.rule.list-none-of", text),
+	},
 };
 
-const operatorLabel = (field: ViewFilterField, operator: FilterOperator) =>
+const operatorMessagesFor = (field: ViewFilterField, operator: FilterOperator) =>
 	(field.kind !== "value" || field.type === "enum-list"
-		? listOperatorLabels[operator]
-		: undefined) ?? operatorLabels[operator];
+		? listOperatorMessages[operator]
+		: undefined) ?? operatorMessages[operator];
 
-const fieldChoices = (field: ViewFilterField) => ("choices" in field ? field.choices : []);
+const fieldChoices = (t: Translate, field: ViewFilterField) =>
+	"choices" in field
+		? field.choices.map(({ value, label }) => ({ value, label: formatDisplayText(t, label) }))
+		: [];
 
 const isRatingField = (field: ViewFilterField) => field.kind === "value" && field.type === "rating";
 
-const ratingBoundText = (stored: number, bound: "min" | "max", scale: RatingScale) =>
-	scale === "three-point"
-		? (threePointRatings[scaledRangeBound(stored, bound, scale)] ?? "")
-		: formatRating(stored, scale);
+type Translate = (message: Message) => Text;
 
-const ratingRuleValueText = (rule: ViewFilterRule, scale: RatingScale) => {
+const threePointMessage = (index: number) =>
+	kernelMessage("ui.rating.three-point", { rating: threePointRatings[index] ?? "neutral" });
+
+const ratingBoundText = (
+	t: Translate,
+	format: MetricFormat,
+	stored: number,
+	bound: "min" | "max",
+	scale: RatingScale,
+) =>
+	scale === "three-point"
+		? t(threePointMessage(scaledRangeBound(stored, bound, scale)))
+		: format.formatRating(stored, scale);
+
+const ratingRuleValueText = (
+	t: Translate,
+	format: MetricFormat,
+	rule: ViewFilterRule,
+	scale: RatingScale,
+) => {
 	if (rule.operator === "gte" || rule.operator === "lte") {
-		return ratingBoundText(rule.value, rule.operator === "gte" ? "min" : "max", scale);
+		return ratingBoundText(t, format, rule.value, rule.operator === "gte" ? "min" : "max", scale);
 	}
 	return rule.operator === "between"
-		? `${ratingBoundText(rule.min, "min", scale)} and ${ratingBoundText(rule.max, "max", scale)}`
+		? t(
+				kernelMessage("sdk.filters.range-value", {
+					min: ratingBoundText(t, format, rule.min, "min", scale),
+					max: ratingBoundText(t, format, rule.max, "max", scale),
+				}),
+			)
 		: "";
 };
 
-const ruleValueText = (rule: ViewFilterRule, labelOf: (value: string) => string) => {
+const ruleValueText = (
+	t: Translate,
+	formatters: Formatters,
+	rule: ViewFilterRule,
+	labelOf: (value: string) => string,
+) => {
 	if ("values" in rule) {
-		return rule.values.map(labelOf).join(", ");
+		return formatters.list({ type: "unit", style: "short" }).format(rule.values.map(labelOf));
 	}
 	if ("value" in rule) {
 		return String(rule.value);
 	}
 	if ("min" in rule) {
-		return `${rule.min} and ${rule.max}`;
+		return t(
+			kernelMessage("sdk.filters.range-value", { min: String(rule.min), max: String(rule.max) }),
+		);
 	}
 	if ("from" in rule) {
-		return `${rule.from} and ${rule.to}`;
+		return t(kernelMessage("sdk.filters.range-value", { max: rule.to, min: rule.from }));
 	}
-	return "days" in rule ? `${rule.days} days` : "";
+	return "days" in rule ? t(kernelMessage("sdk.filters.days-value", { days: rule.days })) : "";
 };
 
-const ruleText = (field: ViewFilterField, rule: ViewFilterRule, valueText: string) =>
-	[field.label, operatorLabel(field, rule.operator), valueText].filter(Boolean).join(" ");
+const ruleText = (t: Translate, field: ViewFilterField, rule: ViewFilterRule, value: string) =>
+	t(
+		operatorMessagesFor(field, rule.operator).rule({
+			value,
+			field: formatDisplayText(t, field.label),
+		}),
+	);
 
 type RatingScaleOf = (fieldKey: string) => undefined | RatingScale;
 
@@ -245,6 +350,8 @@ function LinkedValueEditor({
 	readonly selected: readonly string[];
 	readonly onChange: (values: readonly string[]) => void;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	const searchText = useDeferredValue(search.trim());
@@ -261,11 +368,13 @@ function LinkedValueEditor({
 	];
 	const labels = new Map((known.data ?? []).map(({ value, label }) => [value, label]));
 	const resolved = selected.every((value) => labels.has(value));
-	let summary = "Select options";
+	let summary: string = t(kernelMessage("ui.multi-select.placeholder"));
 	if (selected.length > 0) {
 		summary = resolved
-			? selected.map((value) => labels.get(value)).join(", ")
-			: `${selected.length} selected`;
+			? formatters
+					.list({ type: "unit", style: "short" })
+					.format(selected.map((value) => labels.get(value) ?? value))
+			: t(kernelMessage("sdk.selection.selected-count", { count: selected.length }));
 	}
 	const close = () => {
 		setOpen(false);
@@ -276,7 +385,7 @@ function LinkedValueEditor({
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				aria-label={`${field.label} values: ${summary}`}
+				aria-label={t(kernelMessage("sdk.filters.values-summary", { summary, field: field.label }))}
 				className="flex h-9 min-w-0 items-center justify-between gap-2 rounded-md border border-border-strong bg-surface px-3 pointer-coarse:h-11"
 			>
 				<span className="min-w-0 flex-1 truncate text-left text-sm text-text">{summary}</span>
@@ -285,18 +394,20 @@ function LinkedValueEditor({
 			{open && (
 				<Modal
 					onClose={close}
-					label={field.label}
-					closeLabel="Close options"
+					label={formatDisplayText(t, field.label)}
 					containerClassName="items-center justify-center p-4"
+					closeLabel={t(kernelMessage("ui.select.close-options"))}
 					className="flex max-h-[80%] w-full max-w-sm flex-col overflow-hidden rounded-xl bg-raised p-4 shadow-modal"
 				>
-					<h3 className="mb-3 text-base font-semibold text-text">{field.label}</h3>
+					<h3 className="mb-3 text-base font-semibold text-text">
+						{formatDisplayText(t, field.label)}
+					</h3>
 					<TextField
 						value={search}
 						autoComplete="off"
-						placeholder="Search"
-						aria-label={`Search ${field.label}`}
+						placeholder={t(kernelMessage("common.action.search"))}
 						onChange={(event) => setSearch(event.currentTarget.value)}
+						aria-label={t(kernelMessage("ui.select.search-field", { label: field.label }))}
 					/>
 					<div className="mt-3 grid min-h-0 flex-1 content-start gap-1 overflow-y-auto">
 						{choices.map((choice) => (
@@ -314,11 +425,13 @@ function LinkedValueEditor({
 							/>
 						))}
 						{choices.length === 0 && !page.isPending && (
-							<p className="py-4 text-center text-sm text-text-muted">No matching options.</p>
+							<p className="py-4 text-center text-sm text-text-muted">
+								{t(kernelMessage("ui.select.no-matches"))}
+							</p>
 						)}
 					</div>
 					<Button onClick={close} className="mt-3" variant="secondary">
-						Done
+						{t(kernelMessage("common.action.done"))}
 					</Button>
 				</Modal>
 			)}
@@ -342,10 +455,11 @@ function ValueEditor({
 	readonly field: ViewFilterField;
 	readonly onChange: (update: Partial<FilterDraft>) => void;
 }) {
+	const t = useT();
 	const { operator } = draft;
 	const rating = isRatingField(field) ? ratingScales[scale] : undefined;
 	const input = (
-		role: string,
+		role: "to" | "date" | "days" | "from" | "value" | "maximum" | "minimum",
 		key: "text" | "second",
 		type: "text" | "date" | "number",
 		extra: { readonly min?: number; readonly max?: number; readonly step?: number } = {},
@@ -354,10 +468,13 @@ function ValueEditor({
 			<Select
 				{...selectIcons}
 				value={draft[key]}
-				placeholder="Select a rating"
-				label={`${field.label} ${role}`}
 				onChange={(value) => onChange({ [key]: value })}
-				choices={threePointRatings.map((label, index) => ({ label, value: String(index) }))}
+				placeholder={t(kernelMessage("sdk.filters.select-rating"))}
+				label={t(kernelMessage("sdk.filters.value-input", { role, field: field.label }))}
+				choices={threePointRatings.map((_, index) => ({
+					value: String(index),
+					label: t(threePointMessage(index)),
+				}))}
 			/>
 		) : (
 			<TextField
@@ -366,8 +483,8 @@ function ValueEditor({
 				density="compact"
 				value={draft[key]}
 				className="min-w-0 flex-1"
-				aria-label={`${field.label} ${role}`}
 				onChange={(event) => onChange({ [key]: event.currentTarget.value })}
+				aria-label={t(kernelMessage("sdk.filters.value-input", { role, field: field.label }))}
 			/>
 		);
 	const numberExtra = rating === undefined ? {} : { min: 0, max: rating.max, step: rating.step };
@@ -384,13 +501,13 @@ function ValueEditor({
 		return (
 			<MultiSelect
 				selected={draft.values}
-				choices={fieldChoices(field)}
-				label={`${field.label} values`}
+				choices={fieldChoices(t, field)}
 				closeIcon={<AppIcon name="x" size={18} />}
 				onChange={(values) => onChange({ values })}
 				checkIcon={<AppIcon size={14} name="check" />}
 				searchIcon={<AppIcon size={16} name="search" />}
 				chevronIcon={<AppIcon size={14} name="chevron-down" />}
+				label={t(kernelMessage("sdk.filters.values", { field: field.label }))}
 			/>
 		);
 	}
@@ -414,8 +531,8 @@ function ValueEditor({
 	if (operator === "betweenDates") {
 		return (
 			<div className="flex gap-2">
-				{input("from date", "text", "date")}
-				{input("to date", "second", "date")}
+				{input("from", "text", "date")}
+				{input("to", "second", "date")}
 			</div>
 		);
 	}
@@ -452,6 +569,7 @@ function RatingScaleStatus(props: { readonly children: (scale: RatingScale) => R
 }
 
 const filterFieldChoices = (
+	t: Translate,
 	fields: readonly ViewFilterField[],
 	draftFor: (field: ViewFilterField) => undefined | FilterDraft,
 	current?: string,
@@ -461,7 +579,7 @@ const filterFieldChoices = (
 		return {
 			value: field.key,
 			disabled: !granted,
-			label: entitlementActionLabel(field.label, "pro", granted),
+			label: entitlementActionLabel(t, formatDisplayText(t, field.label), "pro", granted),
 		};
 	});
 
@@ -486,6 +604,7 @@ function RuleRow({
 	readonly allowed: (operator: FilterOperator) => boolean;
 	readonly draftFor: (field: ViewFilterField) => undefined | FilterDraft;
 }) {
+	const t = useT();
 	const field = fields.find(({ key }) => key === draft.field);
 	if (field === undefined) {
 		return null;
@@ -494,15 +613,15 @@ function RuleRow({
 	return (
 		<div
 			role="group"
-			aria-label={`Filter ${position}`}
+			aria-label={t(kernelMessage("sdk.filters.rule-group", { position }))}
 			className="grid gap-2 rounded-lg border border-border bg-surface-2 p-3"
 		>
 			<div className={compact ? "grid gap-2" : "grid grid-cols-2 gap-2"}>
 				<Select
 					{...selectIcons}
 					value={field.key}
-					label={`Filter ${position} field`}
-					choices={filterFieldChoices(fields, draftFor, field.key)}
+					choices={filterFieldChoices(t, fields, draftFor, field.key)}
+					label={t(kernelMessage("sdk.filters.rule-field", { position }))}
 					onChange={(key) => {
 						const next = fields.find((candidate) => candidate.key === key);
 						const nextDraft = next === undefined ? undefined : draftFor(next);
@@ -514,7 +633,7 @@ function RuleRow({
 				<Select
 					{...selectIcons}
 					value={draft.operator}
-					label={`Filter ${position} operator`}
+					label={t(kernelMessage("sdk.filters.rule-operator", { position }))}
 					onChange={(operator) => {
 						const next = filterOperatorsFor(field).find((candidate) => candidate === operator);
 						if (next !== undefined && allowed(next)) {
@@ -526,7 +645,12 @@ function RuleRow({
 						return {
 							value: operator,
 							disabled: !granted,
-							label: entitlementActionLabel(operatorLabel(field, operator), "pro", granted),
+							label: entitlementActionLabel(
+								t,
+								t(operatorMessagesFor(field, operator).label),
+								"pro",
+								granted,
+							),
 						};
 					})}
 				/>
@@ -540,7 +664,11 @@ function RuleRow({
 						onChange={(update) => onChange({ ...draft, ...update })}
 					/>
 				</div>
-				<IconButton size="sm" onClick={onRemove} label={`Remove filter ${position}`}>
+				<IconButton
+					size="sm"
+					onClick={onRemove}
+					label={t(kernelMessage("sdk.filters.remove-rule", { position }))}
+				>
 					<AppIcon name="x" size={16} />
 				</IconButton>
 			</div>
@@ -555,6 +683,7 @@ function FilterRulesPanel({
 	compact,
 	onChange,
 }: FilterRulesProps & { readonly scale: RatingScale }) {
+	const t = useT();
 	const group = editableGroup(filter);
 	const scaleOf = ratingScaleOf(fields, scale);
 	const [state, setState] = useState<PanelState>(() =>
@@ -581,11 +710,9 @@ function FilterRulesPanel({
 	if (group === null) {
 		return (
 			<div className="mt-4 grid gap-2">
-				<p className="text-xs text-text-muted">
-					A custom filter is applied. Clear it to build one here.
-				</p>
+				<p className="text-xs text-text-muted">{t(kernelMessage("sdk.filters.custom-applied"))}</p>
 				<Button variant="secondary" onClick={() => onChange(undefined)}>
-					Clear all
+					{t(kernelMessage("sdk.filters.clear-all"))}
 				</Button>
 			</div>
 		);
@@ -595,13 +722,13 @@ function FilterRulesPanel({
 			{state.rows.length >= 2 && (
 				<SegmentedControl
 					value={state.match}
-					label="Match rules"
 					optionClassName="px-3"
 					onChange={(match) => commit({ ...state, match })}
-					options={[
-						{ value: "all", label: "Match all", content: "Match all" },
-						{ value: "any", label: "Match any", content: "Match any" },
-					]}
+					label={t(kernelMessage("sdk.filters.match-rules"))}
+					options={(["all", "any"] as const).map((match) => {
+						const label = t(kernelMessage("sdk.filters.match", { match }));
+						return { label, value: match, content: label };
+					})}
 				/>
 			)}
 			{state.rows.map((row, index) => (
@@ -628,10 +755,10 @@ function FilterRulesPanel({
 			<Select
 				{...selectIcons}
 				value=""
-				label="Add filter"
 				disabled={!canAdd}
-				choices={filterFieldChoices(fields, draftFor)}
-				placeholder={entitlementActionLabel("Add filter", "pro", canAdd)}
+				label={t(kernelMessage("sdk.filters.add"))}
+				choices={filterFieldChoices(t, fields, draftFor)}
+				placeholder={entitlementActionLabel(t, t(kernelMessage("sdk.filters.add")), "pro", canAdd)}
 				onChange={(key) => {
 					const next = fields.find((candidate) => candidate.key === key);
 					const draft = next === undefined ? undefined : draftFor(next);
@@ -646,7 +773,7 @@ function FilterRulesPanel({
 			/>
 			{state.rows.length > 0 && (
 				<Button variant="ghost" onClick={() => commit({ ...state, rows: [] })}>
-					Clear all
+					{t(kernelMessage("sdk.filters.clear-all"))}
 				</Button>
 			)}
 		</div>
@@ -681,8 +808,8 @@ function FilterChip({
 	removeLabel,
 }: {
 	readonly text: string;
+	readonly removeLabel: Text;
 	readonly onOpen: () => void;
-	readonly removeLabel: string;
 	readonly onRemove?: undefined | (() => void);
 }) {
 	return (
@@ -717,18 +844,29 @@ function LinkedRuleChip({
 	readonly onRemove: () => void;
 	readonly ids: readonly string[];
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const known = useRyotQuery(choicesQuery, choicesKey(field, { ids }));
 	const labels = new Map((known.data ?? []).map(({ value, label }) => [value, label]));
 	const values = "values" in rule ? rule.values : [];
 	const resolved = values.every((value) => labels.has(value));
-	const valueText = resolved ? ruleValueText(rule, (value) => labels.get(value) ?? value) : "";
+	const valueText = resolved
+		? ruleValueText(t, formatters, rule, (value) => labels.get(value) ?? value)
+		: "";
 	return (
 		<FilterChip
 			onOpen={onOpen}
 			onRemove={onRemove}
-			removeLabel={`Remove ${field.label} filter`}
+			removeLabel={t(kernelMessage("sdk.filters.remove-field-rule", { field: field.label }))}
 			text={
-				resolved ? ruleText(field, rule, valueText) : `${field.label}: ${values.length} selected`
+				resolved
+					? ruleText(t, field, rule, valueText)
+					: t(
+							kernelMessage("sdk.filters.unresolved-rule", {
+								field: field.label,
+								count: values.length,
+							}),
+						)
 			}
 		/>
 	);
@@ -741,6 +879,9 @@ function FilterChipsList({
 	onOpen,
 	onChange,
 }: FilterChipsProps & { readonly scale: RatingScale }) {
+	const t = useT();
+	const formatters = useFormatters();
+	const format = useMetricFormat();
 	if (filter === undefined) {
 		return null;
 	}
@@ -750,9 +891,9 @@ function FilterChipsList({
 		chips = (
 			<FilterChip
 				onOpen={onOpen}
-				text="Custom filter"
-				removeLabel="Remove custom filter"
 				onRemove={() => onChange(undefined)}
+				text={t(kernelMessage("sdk.filters.custom"))}
+				removeLabel={t(kernelMessage("sdk.filters.remove-custom"))}
 			/>
 		);
 	} else {
@@ -771,7 +912,11 @@ function FilterChipsList({
 		chips = (
 			<>
 				{group.match === "any" && group.rules.length > 1 && (
-					<FilterChip onOpen={onOpen} text="Match any" removeLabel="Match any" />
+					<FilterChip
+						onOpen={onOpen}
+						text={t(kernelMessage("sdk.filters.match", { match: "any" }))}
+						removeLabel={t(kernelMessage("sdk.filters.match", { match: "any" }))}
+					/>
 				)}
 				{group.rules.map((rule, index) => {
 					const field = fields.find(({ key }) => key === rule.field);
@@ -791,19 +936,21 @@ function FilterChipsList({
 							/>
 						);
 					}
-					const choices = new Map(fieldChoices(field).map(({ value, label }) => [value, label]));
+					const choices = new Map(fieldChoices(t, field).map(({ value, label }) => [value, label]));
 					const chip = (valueText: string) => (
 						<FilterChip
 							key={key}
 							onOpen={onOpen}
 							onRemove={() => remove(index)}
-							text={ruleText(field, rule, valueText)}
-							removeLabel={`Remove ${field.label} filter`}
+							text={ruleText(t, field, rule, valueText)}
+							removeLabel={t(
+								kernelMessage("sdk.filters.remove-field-rule", { field: field.label }),
+							)}
 						/>
 					);
 					return isRatingField(field)
-						? chip(ratingRuleValueText(rule, scale))
-						: chip(ruleValueText(rule, (value) => choices.get(value) ?? value));
+						? chip(ratingRuleValueText(t, format, rule, scale))
+						: chip(ruleValueText(t, formatters, rule, (value) => choices.get(value) ?? value));
 				})}
 			</>
 		);
@@ -811,7 +958,7 @@ function FilterChipsList({
 	return (
 		<div
 			role="group"
-			aria-label="Active filters"
+			aria-label={t(kernelMessage("sdk.filters.active"))}
 			className="flex flex-wrap items-center gap-1.5 pb-2"
 		>
 			{chips}
@@ -821,7 +968,7 @@ function FilterChipsList({
 				onClick={() => onChange(undefined)}
 				className="text-xs text-accent-text"
 			>
-				Clear
+				{t(kernelMessage("sdk.selection.clear"))}
 			</Button>
 		</div>
 	);

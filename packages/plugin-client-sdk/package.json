@@ -52,8 +52,8 @@
 			"default": "./src/plugin-screen.tsx"
 		},
 		"./testing": {
-			"types": "./src/testing.ts",
-			"default": "./src/testing.ts"
+			"types": "./src/testing.tsx",
+			"default": "./src/testing.tsx"
 		}
 	},
 	"scripts": {
@@ -63,6 +63,8 @@
 	"dependencies": {
 		"@effect/atom-react": "4.1.2",
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/i18n": "workspace:*",
+		"@ryot-app/kernel-messages": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/plugin-ui-sdk": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",

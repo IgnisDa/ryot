@@ -18,21 +18,20 @@ import {
 	RequestEntityEnrichmentResult,
 } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/live-updates/messages";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { QueryExecution } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	DescribeResponse,
-	ExecutionRequest,
-	type ExecutionSource,
+	PluginExecutionRequest,
+	type PluginExecutionSource,
 	VisitorDescribeRequest,
 	VisitorRequest,
 } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityId, type PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	AddToCollectionOutcome,
 	AddToCollectionRequest,
-	BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH,
 	BackgroundSubmissionOutcome,
 	ChangeCollectionMembersOutcome,
 	ChangeCollectionMembersRequest,
@@ -41,7 +40,6 @@ import {
 	EntityWatch,
 	ExternalLinkRequest,
 	ExternalLinkSuccess,
-	isBackgroundSubmissionLabelCharacterAllowed,
 	ManageCollectionReviewsOutcome,
 	ManageCollectionReviewsRequest,
 	ManageRemindersOutcome,
@@ -103,26 +101,6 @@ const BackgroundSettlementMessage = Schema.Struct({
 	submissionId: Schema.String,
 	outcome: BackgroundSubmissionOutcome,
 });
-
-const normalizeBackgroundLabel = (label: string) => {
-	const cleaned = Array.from(label, (character) =>
-		isBackgroundSubmissionLabelCharacterAllowed(character) ? character : " ",
-	)
-		.join("")
-		.replaceAll(/\s+/g, " ")
-		.trim();
-	if (cleaned.length <= BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH) {
-		return cleaned;
-	}
-	let truncated = "";
-	for (const character of cleaned) {
-		if (truncated.length + character.length >= BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH) {
-			break;
-		}
-		truncated += character;
-	}
-	return `${truncated.trimEnd()}…`;
-};
 
 const decodeCapability = <A>(
 	schema: Schema.Codec<A, unknown>,
@@ -460,17 +438,20 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		);
 	});
 
-	const queryRecipe = Effect.fnUntraced(function* <Success, const Parameters extends AppSchema>(
+	const queryRecipe = Effect.fnUntraced(function* <
+		Success,
+		const Parameters extends AuthoredAppSchema,
+	>(
 		recipe: Recipe<Success, Parameters>,
 		arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-		options: Omit<ExecutionRequest, "source" | "arguments"> = {},
-		source: ExecutionSource = {
+		options: Omit<PluginExecutionRequest, "source" | "arguments"> = {},
+		source: PluginExecutionSource = {
 			kind: "inline",
 			document: recipe.document,
 			...(recipe.query === undefined ? {} : { query: recipe.query }),
 		},
 	) {
-		const request = Schema.decodeUnknownResult(ExecutionRequest)({
+		const request = Schema.decodeUnknownResult(PluginExecutionRequest)({
 			...options,
 			source,
 			arguments: Object.fromEntries(
@@ -492,7 +473,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	});
 
 	const executeQuery = <Success>(
-		request: ExecutionRequest,
+		request: PluginExecutionRequest,
 		decode: (response: unknown) => Result.Result<Success, unknown>,
 	) =>
 		decodeQuery(
@@ -713,7 +694,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			},
 		},
 		page: {
-			describe: (name: string, argumentsValue?: ExecutionRequest["arguments"]) =>
+			describe: (name: string, argumentsValue?: PluginExecutionRequest["arguments"]) =>
 				Effect.gen(function* () {
 					const describePage = adapter.pageDescribe;
 					if (!describePage) {
@@ -732,7 +713,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}),
 			query: <Success>(
 				name: string,
-				request: Omit<ExecutionRequest, "source"> & {
+				request: Omit<PluginExecutionRequest, "source"> & {
 					readonly decode: (response: unknown) => Result.Result<Success, unknown>;
 				},
 			): Effect.Effect<Success, RyotClientError> =>
@@ -754,21 +735,24 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		},
 		data: {
 			execute: executeQuery,
-			query: <Success, const Parameters extends AppSchema>(
+			query: <Success, const Parameters extends AuthoredAppSchema>(
 				recipe: Recipe<Success, Parameters>,
 				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+				options: Omit<PluginExecutionRequest, "source" | "arguments"> = {},
 			) => queryRecipe(recipe, arguments_, options).pipe(Effect.map(({ data }) => data)),
-			queryDeclared: <Success, const Parameters extends AppSchema>(
+			queryDeclared: <Success, const Parameters extends AuthoredAppSchema>(
 				recipe: Recipe<Success, Parameters>,
-				source: Omit<Extract<ExecutionSource, { readonly kind: "plugin" }>, "kind">,
+				source: Omit<Extract<PluginExecutionSource, { readonly kind: "plugin" }>, "kind">,
 				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+				options: Omit<PluginExecutionRequest, "source" | "arguments"> = {},
 			) =>
 				queryRecipe(recipe, arguments_, options, { kind: "plugin", ...source }).pipe(
 					Effect.map(({ data }) => data),
 				),
-			describe: (source: ExecutionSource, argumentsValue?: ExecutionRequest["arguments"]) => {
+			describe: (
+				source: PluginExecutionSource,
+				argumentsValue?: PluginExecutionRequest["arguments"],
+			) => {
 				const describe = adapter.describe;
 				return describe
 					? adapterEffect(() =>
@@ -779,10 +763,10 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						).pipe(Effect.flatMap((value) => decodeCapability(DescribeResponse, value)))
 					: Effect.fail(new RyotClientError({ reason: "unsupported-capability" }));
 			},
-			queryWithExecution: <Success, const Parameters extends AppSchema>(
+			queryWithExecution: <Success, const Parameters extends AuthoredAppSchema>(
 				recipe: Recipe<Success, Parameters>,
 				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+				options: Omit<PluginExecutionRequest, "source" | "arguments"> = {},
 			) =>
 				queryRecipe(recipe, arguments_, options).pipe(
 					Effect.flatMap(({ data, response }) =>
@@ -814,11 +798,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					).pipe(Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })));
 					const decoded = Schema.decodeResult(PluginBackgroundOperationRequest)({
 						input,
+						label: request.label,
 						operationSlug: request.slug,
 						packageId: request.packageId,
 						submittedAt: request.submittedAt,
 						idempotencyKey: request.idempotencyKey,
-						label: normalizeBackgroundLabel(request.label),
 					});
 					if (Result.isFailure(decoded)) {
 						return yield* new RyotClientError({ reason: "invalid-input" });

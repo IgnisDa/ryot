@@ -1,4 +1,9 @@
 import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { DisplayText, Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	Button,
 	MenuButton,
@@ -11,7 +16,8 @@ import { Match } from "effect";
 import { type ComponentProps, type ReactNode, type Ref, useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { activeFiltersPhrase, filtersLabel, ViewFiltersSheet } from "./filters";
+import { activeFiltersMessage, ViewFiltersSheet } from "./filters";
+import { useDisplayText } from "./i18n/messages";
 import {
 	usePageShortcut,
 	usePluginChrome,
@@ -22,21 +28,22 @@ import {
 type ViewOptions = {
 	readonly open: boolean;
 	readonly content: ReactNode;
+	readonly compactTitle: Text;
 	readonly activeCount: number;
-	readonly compactTitle: string;
 	readonly onOpenChange: (open: boolean) => void;
 };
 
 type PluginScreenFrameProps = {
 	readonly meta?: ReactNode;
-	readonly backLabel?: string;
-	readonly menuLabel?: string;
+	readonly backLabel?: Text;
+	readonly menuLabel?: Text;
 	readonly children: ReactNode;
 	readonly actions?: ReactNode;
-	readonly title: null | string;
 	readonly titleIcon?: ReactNode;
 	readonly searchRow?: ReactNode;
 	readonly barActions?: ReactNode;
+	/** A message from the document's own catalogs or user-authored text; the host shows it too. */
+	readonly title: null | DisplayText;
 	readonly primaryAction?: ReactNode;
 	readonly viewOptions?: ViewOptions;
 	readonly floatingAction?: ReactNode;
@@ -62,17 +69,25 @@ export function PluginScreenFrame({
 	primaryAction,
 	floatingAction,
 }: PluginScreenFrameProps) {
+	const t = useT();
+	const displayText = useDisplayText();
 	const chrome = usePluginChrome();
 	const optionsTrigger = useRef<HTMLButtonElement>(null);
 	const { floatingRoot, scrollRootRef } = usePluginScreenSurface();
 	const leading = Match.value(chrome.leading).pipe(
 		Match.when("back", () => (
-			<ScreenBarButton onClick={chrome.back} label={backLabel ?? "Go back"}>
+			<ScreenBarButton
+				onClick={chrome.back}
+				label={backLabel ?? t(kernelMessage("sdk.screen.go-back"))}
+			>
 				<AppIcon size={22} name="chevron-left" />
 			</ScreenBarButton>
 		)),
 		Match.when("drawer", () => (
-			<ScreenBarButton onClick={chrome.openDrawer} label={menuLabel ?? "Open navigation"}>
+			<ScreenBarButton
+				onClick={chrome.openDrawer}
+				label={menuLabel ?? t(kernelMessage("sdk.screen.open-navigation"))}
+			>
 				<AppIcon size={22} name="menu" />
 			</ScreenBarButton>
 		)),
@@ -85,7 +100,11 @@ export function PluginScreenFrame({
 		menuActions === undefined || menuActions.length === 0
 			? undefined
 			: (trigger: "bar" | "toolbar") => (
-					<MenuButton trigger={trigger} items={menuActions} label="More actions" />
+					<MenuButton
+						trigger={trigger}
+						items={menuActions}
+						label={t(kernelMessage("sdk.screen.more-actions"))}
+					/>
 				);
 	const toolbar =
 		actions === undefined &&
@@ -113,13 +132,13 @@ export function PluginScreenFrame({
 				hero={hero}
 				leading={leading}
 				actions={toolbar}
-				title={title ?? ""}
 				hideTitle={hideTitle}
 				searchRow={searchRow}
 				titleIcon={titleIcon}
 				compact={chrome.compact}
 				scrollRootRef={scrollRootRef}
 				safeAreaTop={chrome.safeAreaTop}
+				title={title === null ? null : displayText(title)}
 				barActions={
 					<>
 						{barActions}
@@ -127,7 +146,12 @@ export function PluginScreenFrame({
 							<ScreenBarButton
 								ref={optionsTrigger}
 								onClick={openOptions}
-								label={`${viewOptions.compactTitle}, ${activeFiltersPhrase(viewOptions.activeCount)}`}
+								label={t(
+									kernelMessage("sdk.screen.options-button", {
+										title: viewOptions.compactTitle,
+										active: t(activeFiltersMessage(viewOptions.activeCount)),
+									}),
+								)}
 							>
 								<AppIcon size={22} name="sliders-horizontal" />
 							</ScreenBarButton>
@@ -143,7 +167,7 @@ export function PluginScreenFrame({
 					compact={chrome.compact}
 					triggerRef={optionsTrigger}
 					onClose={() => viewOptions.onOpenChange(false)}
-					title={chrome.compact ? viewOptions.compactTitle : "Filters"}
+					title={chrome.compact ? viewOptions.compactTitle : t(kernelMessage("sdk.filters.title"))}
 				>
 					{viewOptions.content}
 				</ViewFiltersSheet>
@@ -156,11 +180,23 @@ export function PluginScreenFrame({
 }
 
 export const viewLayoutOptions = [
-	{ value: "grid", label: "Grid view", content: <AppIcon size={15} name="grid" /> },
-	{ value: "list", label: "List view", content: <AppIcon size={15} name="list" /> },
-	{ value: "table", label: "Table view", content: <AppIcon size={15} name="table" /> },
+	{
+		value: "grid",
+		content: <AppIcon size={15} name="grid" />,
+		label: kernelMessage("sdk.screen.layout", { layout: "grid" }),
+	},
+	{
+		value: "list",
+		content: <AppIcon size={15} name="list" />,
+		label: kernelMessage("sdk.screen.layout", { layout: "list" }),
+	},
+	{
+		value: "table",
+		content: <AppIcon size={15} name="table" />,
+		label: kernelMessage("sdk.screen.layout", { layout: "table" }),
+	},
 ] as const satisfies readonly {
-	readonly label: string;
+	readonly label: Message;
 	readonly content: ReactNode;
 	readonly value: EntityBrowserLayout;
 }[];
@@ -172,17 +208,39 @@ export const normalizeViewSearch = (search: string) =>
 		.filter(Boolean)
 		.join(" ");
 
-export const viewResultLabel = (input: {
-	readonly loaded: number;
-	readonly hasMore: boolean;
-	readonly total: number | undefined;
-	readonly noun?: undefined | { readonly one: string; readonly other: string };
-}) => {
-	const { one, other } = input.noun ?? { one: "result", other: "results" };
+/** `noun` names the results for a count, such as a plural-aware catalog message. */
+export const viewResultLabel = (
+	t: (message: Message) => Text,
+	formatters: Formatters,
+	input: {
+		readonly loaded: number;
+		readonly hasMore: boolean;
+		readonly total: number | undefined;
+		readonly noun?: undefined | ((count: number) => string);
+	},
+) => {
+	const noun =
+		input.noun ?? ((count: number) => t(kernelMessage("sdk.browser.result-noun", { count })));
+	const number = formatters.number();
+	const loaded = number.format(input.loaded);
 	if (input.hasMore && input.total !== undefined) {
-		return `${input.loaded.toLocaleString()} of ${input.total.toLocaleString()} ${other}`;
+		return t(
+			kernelMessage("sdk.browser.result-count", {
+				loaded,
+				state: "partial",
+				noun: noun(input.total),
+				total: number.format(input.total),
+			}),
+		);
 	}
-	return `${input.loaded.toLocaleString()}${input.hasMore ? "+" : ""} ${input.loaded === 1 && !input.hasMore ? one : other}`;
+	return t(
+		kernelMessage("sdk.browser.result-count", {
+			loaded,
+			total: loaded,
+			state: input.hasMore ? "more" : "complete",
+			noun: noun(input.loaded + (input.hasMore ? 1 : 0)),
+		}),
+	);
 };
 
 function ViewFiltersButton({
@@ -194,6 +252,7 @@ function ViewFiltersButton({
 	readonly activeCount: number;
 	readonly ref: Ref<HTMLButtonElement>;
 }) {
+	const t = useT();
 	usePageShortcut("F", onClick);
 
 	return (
@@ -202,10 +261,15 @@ function ViewFiltersButton({
 			shortcut="F"
 			onClick={onClick}
 			variant="secondary"
-			aria-label={filtersLabel(activeCount)}
+			aria-label={t(
+				kernelMessage("sdk.screen.options-button", {
+					title: t(kernelMessage("sdk.filters.title")),
+					active: t(activeFiltersMessage(activeCount)),
+				}),
+			)}
 		>
 			<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
-			Filters
+			{t(kernelMessage("sdk.filters.title"))}
 		</Button>
 	);
 }

@@ -1,4 +1,6 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { SchemaAssetUpload } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Effect } from "effect";
 import { useState } from "react";
@@ -26,6 +28,7 @@ export const renderSchemaAsset = (asset: AssetLocator) => (
 );
 
 export function useSchemaAssetUpload(): SchemaAssetUpload {
+	const t = useT();
 	const client = useRyot();
 	return (request) =>
 		Effect.runPromise(
@@ -34,7 +37,10 @@ export function useSchemaAssetUpload(): SchemaAssetUpload {
 				.pipe(
 					Effect.match({
 						onSuccess: (asset) => ({ asset, kind: "uploaded" as const }),
-						onFailure: () => ({ kind: "failed" as const, message: "Upload failed. Try again." }),
+						onFailure: () => ({
+							kind: "failed" as const,
+							message: t(kernelMessage("sdk.assets.upload-failed")),
+						}),
 					}),
 				),
 		);

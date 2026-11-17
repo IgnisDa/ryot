@@ -1,6 +1,8 @@
 import { afterEach, describe, expect } from "bun:test";
 
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import type { Text } from "@ryot-app/i18n/text";
+import { testKernelText, testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -9,37 +11,37 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import {
-	activeFiltersPhrase,
+	activeFiltersMessage,
 	FilterChips,
 	FilterRules,
-	filtersLabel,
 	type ViewFilter,
 	type ViewFilterField,
 	ViewFiltersSheet,
 } from "./filters";
-import { disposePluginBridges, mountPluginPage, routeLocation } from "./testing";
+import { disposePluginBridges, mountPluginPage, routeLocation, TestI18nProvider } from "./testing";
 
 const roots: Root[] = [];
 
-const renderSheet = (compact: boolean, title: string) => {
+const renderSheet = (compact: boolean, title: Text) => {
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root = createRoot(container);
 	roots.push(root);
 	act(() =>
 		root.render(
-			<ViewFiltersSheet title={title} compact={compact} onClose={() => undefined}>
-				<p>Sheet body</p>
-			</ViewFiltersSheet>,
+			<TestI18nProvider>
+				<ViewFiltersSheet title={title} compact={compact} onClose={() => undefined}>
+					<p>Sheet body</p>
+				</ViewFiltersSheet>
+			</TestI18nProvider>,
 		),
 	);
 };
 
 describe("filter labels", () => {
 	it("pluralizes the active filter phrase", () => {
-		expect(activeFiltersPhrase(1)).toBe("1 active filter");
-		expect(activeFiltersPhrase(0)).toBe("0 active filters");
-		expect(filtersLabel(2)).toBe("Filters, 2 active filters");
+		expect<string>(testKernelText(activeFiltersMessage(1))).toBe("1 active filter");
+		expect<string>(testKernelText(activeFiltersMessage(0))).toBe("0 active filters");
 	});
 });
 
@@ -50,15 +52,15 @@ describe("ViewFiltersSheet", () => {
 	});
 
 	it("titles the dialog and names its close control from the title", () => {
-		renderSheet(false, "View options");
+		renderSheet(false, testText("View options"));
 		expect(screen.getByRole("heading", { level: 2, name: "View options" })).toBeTruthy();
 		expect(screen.getByRole("dialog", { name: "View options" })).toBeTruthy();
 		expect(screen.getByText("Sheet body")).toBeTruthy();
-		expect(screen.getAllByLabelText("Close view options").length).toBeGreaterThan(0);
+		expect(screen.getAllByLabelText("Close").length).toBeGreaterThan(0);
 	});
 
 	it("anchors to the bottom edge when compact", () => {
-		renderSheet(true, "Filters");
+		renderSheet(true, testText("Filters"));
 		expect(screen.getByRole("dialog", { name: "Filters" }).className).toContain("rounded-t-xl");
 	});
 });
@@ -95,7 +97,7 @@ describe("rating filters", () => {
 					),
 					{
 						location: routeLocation("/"),
-						userPreferences: { ratingScale: "ten", timeZone: TimeZone.make("UTC") },
+						userPreferences: { weekStart: 1, ratingScale: "ten", timeZone: TimeZone.make("UTC") },
 						page: {
 							settings: {},
 							contributors: [],
@@ -145,7 +147,7 @@ describe("filter entitlements", () => {
 					{
 						entitlements: [],
 						location: routeLocation("/"),
-						userPreferences: { ratingScale: "ten", timeZone: TimeZone.make("UTC") },
+						userPreferences: { weekStart: 1, ratingScale: "ten", timeZone: TimeZone.make("UTC") },
 						page: {
 							settings: {},
 							contributors: [],

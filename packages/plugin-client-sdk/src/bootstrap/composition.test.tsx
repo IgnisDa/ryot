@@ -109,18 +109,18 @@ describe("composition bootstrap", () => {
 						{
 							icon: "box",
 							slug: "activity",
-							name: "Activity",
 							ownerPluginId: "private-owner",
 							module: reference("/section.js", "activity"),
 							stylesheets: ["/dependency.css", "/section.css"],
+							name: { namespace: "private-owner", key: "analytics.activity.name" },
 						},
 						{
 							icon: "box",
 							module: null,
 							stylesheets: [],
 							slug: "unavailable",
-							name: "Unavailable",
 							ownerPluginId: "missing-owner",
+							name: { namespace: "missing-owner", key: "analytics.unavailable.name" },
 						},
 					],
 				});

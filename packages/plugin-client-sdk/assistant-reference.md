@@ -50,7 +50,7 @@ This component expects a declared query named `summary` whose aggregate output s
 ```tsx
 import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { createRyotQuery, useDisplayText, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { countUnit, MetricGrid, QueryStatus } from "@ryot-app/plugin-ui-sdk";
 
 const SummaryResponse = Schema.Struct({
@@ -68,19 +68,20 @@ const summaryQuery = createRyotQuery(({ client }) =>
 export default function SummaryPage() {
   const { compact } = useRyotViewport();
   const query = useRyotQuery(summaryQuery);
+  const text = useDisplayText();
   return (
     <main className="p-4">
-      <QueryStatus label="summary" query={query} onRetry={query.refetch}>
+      <QueryStatus query={query} onRetry={query.refetch}>
         {(response) => (
           <MetricGrid
             compact={compact}
             variant="tiles"
-            comparisonLabel=""
+            comparisonLabel={text("")}
             metrics={[
               {
                 key: "total",
-                label: "Total",
-                unit: countUnit("item"),
+                label: text("Total"),
+                unit: countUnit((count) => (count === 1 ? "item" : "items")),
                 value: response.data.summary.items[0]?.total ?? 0,
               },
             ]}

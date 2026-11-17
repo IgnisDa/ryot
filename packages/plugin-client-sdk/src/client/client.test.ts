@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test";
 
+import { stampRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	column,
@@ -326,19 +327,19 @@ describe("Effect-native client capabilities", () => {
 				const fields = parameters({
 					fields: {
 						name: {
-							label: "Name",
 							type: "string",
 							description: "Exact name",
 							validation: { required: true },
+							label: { key: "parameter.name" },
 						},
 						ids: {
-							label: "IDs",
 							type: "array",
 							description: "Selected IDs",
+							label: { key: "parameter.ids" },
 							items: {
-								label: "ID",
 								type: "string",
 								description: "Entity ID",
+								label: { key: "parameter.id" },
 								validation: { required: true },
 							},
 						},
@@ -375,7 +376,7 @@ describe("Effect-native client capabilities", () => {
 									right: { name: "name", type: "parameter" },
 								});
 								const bound = Result.getOrThrow(
-									bindDocument(request.source.document, request, {
+									bindDocument(stampRyotQLDocument("plugin", request.source.document), request, {
 										now: bindingNow,
 										reportingTimeZone: "UTC",
 									}),

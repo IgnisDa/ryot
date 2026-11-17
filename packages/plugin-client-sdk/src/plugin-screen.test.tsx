@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { fireEvent, screen } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
@@ -10,7 +11,7 @@ import { createPluginRouteResolver, PluginRouter } from "./navigation/routing";
 import { createPluginNavigationStore } from "./navigation/store";
 import { PluginScreenFrame } from "./plugin-screen";
 import { RyotProvider } from "./queries/provider";
-import { createTestRyotClock } from "./testing";
+import { createTestRyotClock, TestI18nProvider } from "./testing";
 
 const roots: Root[] = [];
 const clocks: Array<ReturnType<typeof createTestRyotClock>> = [];
@@ -23,15 +24,20 @@ function ViewScreen(props: {
 	const [open, setOpen] = useState(false);
 	return (
 		<PluginScreenFrame
-			title="Shelf"
+			title={testText("Shelf")}
 			menuActions={[
-				{ key: "share", icon: "share", label: "Share", onSelect: () => props.onSelect("share") },
+				{
+					key: "share",
+					icon: "share",
+					label: testText("Share"),
+					onSelect: () => props.onSelect("share"),
+				},
 			]}
 			viewOptions={{
 				open,
-				compactTitle: "View options",
 				content: <p>Option rules</p>,
 				activeCount: props.activeCount,
+				compactTitle: testText("View options"),
 				onOpenChange: (next) => {
 					if (next) {
 						props.onOpen();
@@ -71,6 +77,7 @@ const renderScreen = (
 	const clock = createTestRyotClock(
 		{},
 		{
+			views: store.views,
 			back: () => undefined,
 			subscribe: store.subscribe,
 			openDrawer: () => undefined,
@@ -102,9 +109,11 @@ const renderScreen = (
 	roots.push(root);
 	act(() =>
 		root.render(
-			<RyotProvider runtime={clock.runtime}>
-				<PluginRouter />
-			</RyotProvider>,
+			<TestI18nProvider>
+				<RyotProvider runtime={clock.runtime}>
+					<PluginRouter />
+				</RyotProvider>
+			</TestI18nProvider>,
 		),
 	);
 	return { navigate, shortcuts };
@@ -145,14 +154,14 @@ describe("PluginScreenFrame toolbar", () => {
 		expect(opened).toBe(1);
 		expect(screen.getByRole("dialog", { name: "Filters" }).textContent).toContain("Option rules");
 		act(() => {
-			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+			fireEvent.click(screen.getByRole("button", { name: "Close" }));
 		});
 		act(() => {
 			shortcuts.get("F")?.();
 		});
 		expect(opened).toBe(2);
 		act(() => {
-			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+			fireEvent.click(screen.getByRole("button", { name: "Close" }));
 		});
 		act(() => {
 			fireEvent.click(screen.getByRole("button", { name: "Filters, 0 active filters" }));
