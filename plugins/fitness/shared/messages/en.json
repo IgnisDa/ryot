@@ -1,0 +1,1872 @@
+{
+	"analytics-section.fitness.name": "Fitness",
+	"assistant-starter.log-bodyweight": "Log today's bodyweight",
+	"assistant-starter.strongest-lift-progress": "How has my strongest lift progressed this year?",
+	"assistant-starter.summarize-workouts": "Summarize my workouts this week",
+	"browse.exercise-force.pull": "Pull",
+	"browse.exercise-force.push": "Push",
+	"browse.exercise-force.static": {
+		"message": "Static",
+		"description": "Exercise force of a static hold, such as a plank."
+	},
+	"browse.exercise-kind.distance-and-duration": "Distance and duration",
+	"browse.exercise-kind.duration": "Duration",
+	"browse.exercise-kind.reps": "Reps",
+	"browse.exercise-kind.reps-and-duration": "Reps and duration",
+	"browse.exercise-kind.reps-and-duration-and-distance": "Reps, duration and distance",
+	"browse.exercise-kind.reps-and-weight": "Reps and weight",
+	"browse.exercise-level.beginner": "Beginner",
+	"browse.exercise-level.expert": "Expert",
+	"browse.exercise-level.intermediate": "Intermediate",
+	"browse.exercise-mechanic.compound": {
+		"message": "Compound",
+		"description": "Exercise mechanic of a movement that uses multiple joints."
+	},
+	"browse.exercise-mechanic.isolation": {
+		"message": "Isolation",
+		"description": "Exercise mechanic of a movement that uses a single joint."
+	},
+	"browse.field.created": "Created",
+	"browse.field.equipment": "Equipment",
+	"browse.field.exercise-count": "Exercise count",
+	"browse.field.last-performed": "Last performed",
+	"browse.field.muscles": "Muscles",
+	"browse.field.started": "Started",
+	"browse.field.template": "Template",
+	"browse.field.times-performed": "Times performed",
+	"browse.sort.fewest-first": "Fewest first",
+	"browse.sort.most-first": "Most first",
+	"browse.sort.newest-first": "Newest first",
+	"browse.sort.oldest-first": "Oldest first",
+	"calendar-source.workouts.caption": {
+		"message": "{count, plural, one {# exercise} other {# exercises}}",
+		"description": "Calendar caption of a workout. {count} is how many exercises it contains."
+	},
+	"calendar-source.workouts.name": "Workouts",
+	"client.actions.check-issue.duplicate-id": {
+		"message": "duplicate ID",
+		"description": "A problem that blocks saving a workout draft, worded to follow \"Check the workout:\" in a list."
+	},
+	"client.actions.check-issue.invalid-measurement": {
+		"message": "invalid measurement",
+		"description": "A problem that blocks saving a workout draft, worded to follow \"Check the workout:\" in a list."
+	},
+	"client.actions.check-issue.invalid-rest": {
+		"message": "invalid rest time",
+		"description": "A problem that blocks saving a workout draft, worded to follow \"Check the workout:\" in a list."
+	},
+	"client.actions.check-issue.invalid-rpe": {
+		"message": "invalid RPE",
+		"description": "A problem that blocks saving a workout draft, worded to follow \"Check the workout:\" in a list."
+	},
+	"client.actions.check-issue.invalid-superset": {
+		"message": "invalid superset",
+		"description": "A problem that blocks saving a workout draft, worded to follow \"Check the workout:\" in a list."
+	},
+	"client.actions.check-issue.missing-measurement": {
+		"message": "missing measurement",
+		"description": "A problem that blocks saving a workout draft, worded to follow \"Check the workout:\" in a list."
+	},
+	"client.actions.check-issue.missing-name": {
+		"message": "missing name",
+		"description": "A problem that blocks saving a workout draft, worded to follow \"Check the workout:\" in a list."
+	},
+	"client.actions.check-issue.missing-start-time": {
+		"message": "missing start time",
+		"description": "A problem that blocks saving a workout draft, worded to follow \"Check the workout:\" in a list."
+	},
+	"client.actions.check-issue.unconfirmed-set": {
+		"message": "unconfirmed set",
+		"description": "A problem that blocks saving a workout draft, worded to follow \"Check the workout:\" in a list."
+	},
+	"client.actions.check-workout": {
+		"message": "Check the workout: {issues}.",
+		"description": "{issues} is the list of problems found in the draft, such as a missing name or an invalid RPE."
+	},
+	"client.actions.defaults-unreadable": "Exercise defaults could not be read. Refresh the picker and retry.",
+	"client.actions.failed": "This action could not be completed. Your draft is retained. Try again.",
+	"client.actions.invalid-rest": "Enter a valid rest duration.",
+	"client.actions.no-following-set": "There is no following set to fill. Add a set first.",
+	"client.actions.no-previous": "No previous value is available for this set.",
+	"client.actions.not-added": "This exercise is not in your library or has no kind, so it was not added.",
+	"client.actions.pro": "This change requires Ryot Pro. Your data has been retained.",
+	"client.actions.reload-blocked": "The saved version has an unavailable exercise or invalid data. Your draft has been retained.",
+	"client.actions.save-invalid.duplicate-id": "This workout could not be saved because two entries share the same identifier.",
+	"client.actions.save-invalid.invalid-exercise-kind": "This workout could not be saved because an exercise does not match its recorded type.",
+	"client.actions.save-invalid.invalid-measurement": "This workout could not be saved because a set has an invalid measurement.",
+	"client.actions.save-invalid.invalid-source": "This workout could not be saved because the saved version it was based on is no longer valid.",
+	"client.actions.save-invalid.invalid-superset": "This workout could not be saved because a superset is invalid.",
+	"client.actions.save-invalid.invalid-time": "This workout could not be saved because a time is invalid.",
+	"client.actions.save-invalid.media-forbidden": "This workout could not be saved because an attached image or video is not allowed.",
+	"client.actions.save-invalid.missing-exercise": "This workout could not be saved because an exercise is missing from your library.",
+	"client.actions.save-invalid.missing-measurement": "This workout could not be saved because a set is missing a measurement.",
+	"client.actions.save-invalid.unrelated-event": "This workout could not be saved because it includes a set that does not belong to it.",
+	"client.actions.too-large": "This workout exceeds the 64 KiB save limit. Shorten notes or remove entries before saving. Nothing was truncated.",
+	"client.actions.wait-upload": "Wait for the attachment upload to finish before saving.",
+	"client.adjust.clear": "Clear",
+	"client.adjust.clear-label": "Clear to unknown",
+	"client.adjust.close": "Close time correction",
+	"client.adjust.conflict": "This workout changed. Close and reopen Adjust time to load the saved version.",
+	"client.adjust.description": "Change session timestamps only. Set, confirmation, and rest-start times stay unchanged.",
+	"client.adjust.duration-seconds": "Active duration (seconds)",
+	"client.adjust.end": "End time",
+	"client.adjust.invalid": "Enter valid times and a nonnegative whole active duration.",
+	"client.adjust.keep": "Keep",
+	"client.adjust.keep-label": "Keep recorded duration",
+	"client.adjust.load-failed": "Workout times could not be loaded.",
+	"client.adjust.loading": "Loading workout times…",
+	"client.adjust.rejected": "This correction is invalid. Close and reopen the form to try again.",
+	"client.adjust.retry": "Retry times",
+	"client.adjust.retry-correction": "Retry correction",
+	"client.adjust.save": "Save time correction",
+	"client.adjust.set": "Set",
+	"client.adjust.set-label": "Set duration",
+	"client.adjust.start": "Start time",
+	"client.adjust.title": "Adjust workout time",
+	"client.adjust.unconfirmed": "The result could not be confirmed. Retry the same correction.",
+	"client.adjust.unprepared": "This workout could not be prepared for a time correction.",
+	"client.alerts.body": "{timer, select, rest {Your rest timer is complete.} execution {Your exercise timer is complete.} other {Your timer is complete.}}",
+	"client.alerts.title": "{timer, select, rest {Rest complete} execution {Exercise complete} other {Timer complete}}",
+	"client.analytics.drill.append-failed": "More workouts couldn't be loaded.",
+	"client.analytics.drill.close": {
+		"message": "Close contributing workouts for {title}",
+		"description": "Button label. {title} names what the workouts contribute to."
+	},
+	"client.analytics.drill.empty": "No contributing workouts",
+	"client.analytics.drill.load-failed": "The workouts couldn't be loaded.",
+	"client.analytics.drill.loaded": "{count, plural, one {# workout} other {# workouts}} loaded",
+	"client.analytics.drill.loaded-more": "{count, plural, one {#+ workout} other {#+ workouts}} loaded",
+	"client.analytics.drill.loading": "Loading workouts…",
+	"client.analytics.drill.refresh-failed": "The workouts couldn't be refreshed.",
+	"client.analytics.drill.refreshing": "Refreshing workouts…",
+	"client.analytics.drill.section-label": {
+		"message": "Contributing workouts for {title}",
+		"description": "Section label. {title} names what the workouts contribute to."
+	},
+	"client.analytics.drill.show-more": "Show more workouts",
+	"client.analytics.drill.table-label": "Contributing workouts",
+	"client.analytics.drill.title": {
+		"message": "{title} · {period}",
+		"description": "Dialog title. {title} names what the workouts contribute to and {period} is the reporting period caption."
+	},
+	"client.analytics.measurements.bucket-averages": {
+		"message": "{name} bucket averages",
+		"description": "Chart label. {name} is the measurement metric's name."
+	},
+	"client.analytics.measurements.choose-metric": "Choose a metric",
+	"client.analytics.measurements.choose-metric-hint": "Choose a metric to view its trend and readings.",
+	"client.analytics.measurements.column-entry": "Entry ID",
+	"client.analytics.measurements.column-value": "Exact value",
+	"client.analytics.measurements.load-more-metrics": "Load more metrics",
+	"client.analytics.measurements.load-more-readings": "Load more readings",
+	"client.analytics.measurements.metric-heading": "Measurement metric",
+	"client.analytics.measurements.metrics-empty-description": "There are no metrics to select.",
+	"client.analytics.measurements.metrics-empty-title": "No measurement metrics",
+	"client.analytics.measurements.metrics-load-failed": "Metrics could not be loaded",
+	"client.analytics.measurements.metrics-load-failed-detail": "Your selected metric has not changed.",
+	"client.analytics.measurements.metrics-more-failed": "More metrics could not be loaded",
+	"client.analytics.measurements.metrics-more-failed-detail": "Loaded metric choices remain available.",
+	"client.analytics.measurements.mixed-units-body": "This metric has readings in different units. The chart is hidden because those values cannot share one axis. Exact readings remain available below.",
+	"client.analytics.measurements.mixed-units-title": "Mixed units",
+	"client.analytics.measurements.picker-close": "Close metric picker",
+	"client.analytics.measurements.picker-description": "Select one metric to view its grouped averages and exact readings.",
+	"client.analytics.measurements.picker-title": "Choose measurement metric",
+	"client.analytics.measurements.readings-empty": "No readings in this period.",
+	"client.analytics.measurements.readings-heading": "Loaded readings",
+	"client.analytics.measurements.readings-loaded": {
+		"message": "{count, number} loaded",
+		"description": "Count of readings loaded so far."
+	},
+	"client.analytics.measurements.readings-table-label": {
+		"message": "Loaded measurement readings in {timeZone}",
+		"description": "Table label. {timeZone} is the reporting time zone."
+	},
+	"client.analytics.measurements.smooth-label": "Smooth bucket averages (3/7-point)",
+	"client.analytics.measurements.smooth-note": "Smoothing uses rolling averages of the grouped bucket averages. It uses 3 or 7 points, does not cross missing buckets or unit changes, and leaves exact readings unchanged.",
+	"client.analytics.measurements.trend-heading": "Measurement trend",
+	"client.analytics.metric.label": {
+		"message": "{metric, select, sets {Sets} volume {Volume} calories {Energy} setDuration {Set time} repetitions {Reps} distance {Distance} plannedRest {Planned rest} workouts {Workouts} activeDuration {Active time} personalBests {Personal bests} personalBestSets {Sets with personal bests} measurementReadings {Measurement readings} measurementEntries {Measurement entries} other {Metric}}",
+		"description": "Name of a fitness analytics metric. {metric} is the metric code."
+	},
+	"client.analytics.rankings.append-failed": "More {kind, select, exercises {exercises} equipment {equipment} targets {targets} other {targets}} couldn't be loaded.",
+	"client.analytics.rankings.column-occurrences": "Exercise occurrences",
+	"client.analytics.rankings.column-sets": "Recorded sets",
+	"client.analytics.rankings.column-weighted-sets": "Weighted sets",
+	"client.analytics.rankings.column-workouts": "Distinct workouts",
+	"client.analytics.rankings.count-loaded": {
+		"message": "{count, number} {kind, select, exercises {exercises} equipment {equipment} targets {targets} other {targets}} loaded",
+		"description": "Count of ranked rows loaded so far. {kind} is what is ranked."
+	},
+	"client.analytics.rankings.count-loaded-more": {
+		"message": "{count, number}+ {kind, select, exercises {exercises} equipment {equipment} targets {targets} other {targets}} loaded",
+		"description": "Count of ranked rows loaded so far when more are available. {kind} is what is ranked."
+	},
+	"client.analytics.rankings.empty": "No {kind, select, exercises {exercises} equipment {equipment} targets {targets} other {targets}} found",
+	"client.analytics.rankings.heading": "{kind, select, exercises {Exercises} equipment {Equipment} targets {Targets} other {Targets}}",
+	"client.analytics.rankings.kind-equipment": "Equipment",
+	"client.analytics.rankings.kind-label": "Ranking kind",
+	"client.analytics.rankings.kind-targets": "Targets",
+	"client.analytics.rankings.label": "Historical rankings",
+	"client.analytics.rankings.load-failed": "The {kind, select, exercises {exercises} equipment {equipment} targets {targets} other {targets}} rankings couldn't be loaded.",
+	"client.analytics.rankings.loading": "Loading rankings…",
+	"client.analytics.rankings.preview-empty": "No known {measure, select, weighted {weighted sets} recorded {recorded sets} other {recorded sets}} values in the preview.",
+	"client.analytics.rankings.preview-note": "First 10 loaded rows",
+	"client.analytics.rankings.preview-recorded": "Top recorded sets",
+	"client.analytics.rankings.preview-weighted": "Top weighted sets",
+	"client.analytics.rankings.refresh-failed": "The {kind, select, exercises {exercises} equipment {equipment} targets {targets} other {targets}} rankings couldn't be refreshed.",
+	"client.analytics.rankings.refreshing": "Refreshing rankings…",
+	"client.analytics.rankings.show-more": "Show more {kind, select, exercises {exercises} equipment {equipment} targets {targets} other {targets}}",
+	"client.analytics.rankings.table-label": "{kind, select, exercises {exercises} equipment {equipment} targets {targets} other {targets}} rankings",
+	"client.analytics.rankings.view-workouts": "View workouts",
+	"client.analytics.rankings.view-workouts-label": {
+		"message": "View workouts contributing to {name}",
+		"description": "Button label. {name} is the name of the target, exercise or equipment."
+	},
+	"client.analytics.section.preferences-invalid": "Fitness display preferences are invalid.",
+	"client.analytics.section.preferences-retry": "Retry fitness display preferences",
+	"client.analytics.section.tab-rankings": "Rankings",
+	"client.analytics.section.tabs-label": "Fitness analytics",
+	"client.analytics.summary.active-days": "Active days",
+	"client.analytics.summary.compared": {
+		"message": "{current}; compared with {previous}",
+		"description": "Reporting period caption. {current} and {previous} are formatted period captions."
+	},
+	"client.analytics.summary.comparison-panel": "vs previous",
+	"client.analytics.summary.comparison-tiles": "vs previous period",
+	"client.analytics.summary.coverage": {
+		"message": "{known, number} of {total, plural, one {# workout} other {# workouts}} {qualifier, select, energy {with energy} timed {timed} other {timed}}",
+		"description": "Coverage hint on a metric. {known} is how many workouts have the value, {total} is all workouts and {qualifier} says which value is partly missing."
+	},
+	"client.analytics.summary.label": "Fitness analytics summary",
+	"client.analytics.summary.processing-failed": "Processing failed; may be incomplete",
+	"client.analytics.summary.processing-pending": "Still processing",
+	"client.analytics.trend.detail-average": {
+		"message": "Average of {count, plural, one {# reading} other {# readings}}",
+		"description": "Chart bucket detail. {count} is how many readings the average covers."
+	},
+	"client.analytics.trend.detail-average-smoothed": {
+		"message": "Average of {count, plural, one {# reading} other {# readings}} · {points, number}-point smoothing",
+		"description": "Chart bucket detail. {count} is how many readings the average covers and {points} is the smoothing window size."
+	},
+	"client.analytics.trend.detail-no-readings": "No readings",
+	"client.analytics.trend.detail-no-value": "No known value",
+	"client.analytics.trend.detail-partial": {
+		"message": "{known, number} of {observations, number} with a value",
+		"description": "Chart bucket detail. {known} is how many observations have a value and {observations} is how many were recorded."
+	},
+	"client.analytics.trend.detail-partial-processing": {
+		"message": "{known, number} of {observations, number} with a value · {processing, select, failed {Processing failed} pending {Still processing} other {Still processing}}",
+		"description": "Chart bucket detail. {known} is how many observations have a value, {observations} is how many were recorded and {processing} is the processing state of the bucket."
+	},
+	"client.analytics.trend.detail-processing": "{processing, select, failed {Processing failed} pending {Still processing} other {Still processing}}",
+	"client.analytics.trend.detail-raw-average": {
+		"message": "{detail} · raw average {value}",
+		"description": "Chart bucket detail. {detail} is the bucket's existing detail text and {value} is the unsmoothed average with its unit."
+	},
+	"client.analytics.workouts.bucket-title": "Workouts starting in this bucket",
+	"client.analytics.workouts.consistency": "Consistency",
+	"client.analytics.workouts.consistency-description": "Workout starts per day",
+	"client.analytics.workouts.consistency-description-clipped": {
+		"message": "Workout starts per day · {period} · last {days, plural, one {# day} other {# days}}",
+		"description": "Chart description when the period is cut to its most recent days. {period} is the reporting period caption and {days} is how many days are shown."
+	},
+	"client.analytics.workouts.consistency-description-period": {
+		"message": "Workout starts per day · {period}",
+		"description": "Chart description. {period} is the reporting period caption."
+	},
+	"client.analytics.workouts.consistency-label": {
+		"message": "Workout starts · {period}",
+		"description": "Chart label. {period} is the reporting period caption."
+	},
+	"client.analytics.workouts.start-times": "Start times",
+	"client.analytics.workouts.start-times-description": "Workout starts by hour",
+	"client.analytics.workouts.start-times-description-zone": {
+		"message": "Workout starts by hour, in {timeZone}",
+		"description": "Chart description. {timeZone} is the reporting time zone."
+	},
+	"client.analytics.workouts.start-times-label": "Workout starts by reporting hour",
+	"client.analytics.workouts.trend": "Workout trend",
+	"client.analytics.workouts.trend-description": "Grouped by workout start date",
+	"client.analytics.workouts.trend-label": {
+		"message": "{metric} by workout-start period",
+		"description": "Chart label. {metric} is the name of the metric being charted."
+	},
+	"client.analytics.workouts.trend-show": "Show",
+	"client.bulk.close": "Cancel bulk delete",
+	"client.bulk.confirm-description": {
+		"message": "Delete {exercises, plural, one {# exercise} other {# exercises}} and {sets, plural, one {# individual set} other {# individual sets}}?",
+		"description": "{exercises} is how many whole exercises and {sets} is how many individual sets are selected."
+	},
+	"client.bulk.confirm-title": "Delete selected items?",
+	"client.bulk.delete-count": {
+		"message": "Delete {count, number} selected",
+		"description": "Button label. {count} is how many items are selected."
+	},
+	"client.bulk.delete-selected": "Delete selected",
+	"client.bulk.set": {
+		"message": "Set {index, number}",
+		"description": "Checkbox label. {index} is the set's position."
+	},
+	"client.bulk.whole-exercise": "whole exercise",
+	"client.card.actions": {
+		"message": "{name} actions",
+		"description": "Menu label. {name} is the exercise's name."
+	},
+	"client.card.add-set": "Add set",
+	"client.card.attachments": "{count, plural, one {# attachment} other {# attachments}}",
+	"client.card.blocked": {
+		"message": "Saving is blocked until it's removed or restored. Its {count, plural, one {# set is} other {# sets are}} kept in the draft.",
+		"description": "{count} is how many sets the unavailable exercise has."
+	},
+	"client.card.collapse": "Collapse",
+	"client.card.cycle": "Go to next in superset",
+	"client.card.defaults": "Units and rest defaults",
+	"client.card.done": {
+		"message": "{done, number}/{total, number} done",
+		"description": "Set progress. {done} is how many sets are done and {total} is how many sets the exercise has."
+	},
+	"client.card.edit-superset": "Edit superset",
+	"client.card.expand": "Expand",
+	"client.card.notes": "Instructions and notes",
+	"client.card.planned": {
+		"message": "{count, number} planned",
+		"description": "How many sets a template exercise plans."
+	},
+	"client.card.remove": "Remove exercise",
+	"client.card.remove-from-workout": "Remove from workout",
+	"client.card.removed": "Removed from your library",
+	"client.card.reorder": "Reorder this exercise",
+	"client.card.replace": "Replace exercise",
+	"client.card.rest": {
+		"message": "Rest {time}",
+		"description": "{time} is the rest duration as minutes and seconds."
+	},
+	"client.card.sets": "{count, plural, one {# set} other {# sets}}",
+	"client.delete.action": "{kind, select, template {Delete template} workout {Delete workout} other {Delete item}}",
+	"client.delete.cancel": "Cancel deletion",
+	"client.delete.description": {
+		"message": "{kind, select, template {Permanently delete “{name}”? This cannot be undone. Workouts started from this template and its exercises will stay.} workout {Permanently delete “{name}” and its sets? This cannot be undone. Exercises, templates, other workouts, and separately logged measurements will stay.} other {Permanently delete “{name}”? This cannot be undone.}}",
+		"description": "Confirmation text. {kind} is whether a template or a workout is deleted and {name} is its name."
+	},
+	"client.delete.retry": "Retry deletion",
+	"client.delete.title": "{kind, select, template {Delete template?} workout {Delete workout?} other {Delete item?}}",
+	"client.delete.unconfirmed": "Deletion could not be confirmed. Retry to confirm the result safely.",
+	"client.editor-media.add-photo": "Add photo",
+	"client.editor-media.add-video": "Add video",
+	"client.editor-media.close": "Close attachments",
+	"client.editor-media.empty-description": "Add form-check videos or photos. They save with the workout.",
+	"client.editor-media.empty-title": "No attachments yet",
+	"client.editor-media.limits": "Images or MP4, WebM and MOV videos up to 50 MiB each. Video playback depends on your device.",
+	"client.editor-media.pro-body": "You can still view and remove existing ones.",
+	"client.editor-media.pro-title": "Adding workout attachments requires Pro",
+	"client.editor-media.remove": {
+		"message": "Remove {kind, select, image {image} video {video} other {attachment}} {index, number}",
+		"description": "Button label. {kind} is the attachment type and {index} is its position."
+	},
+	"client.editor-media.title": {
+		"message": "Attachments for {label}",
+		"description": "{label} is the name of the workout or exercise."
+	},
+	"client.editor-media.upload-failed": "The attachment could not be uploaded or stored. Check the file type, size, and connection, then retry. Completed uploads remain in your draft.",
+	"client.editor-media.upload-image": "Upload image",
+	"client.editor-media.upload-video": "Upload video",
+	"client.editor.actions": "Workout actions",
+	"client.editor.add-exercises": "Add exercises",
+	"client.editor.attachments-count": {
+		"message": "Attachments ({count, number})",
+		"description": "Button label. {count} is how many attachments the workout has."
+	},
+	"client.editor.default-name-template": {
+		"message": "New template",
+		"description": "The name a new workout template starts with. It is saved as the template's name."
+	},
+	"client.editor.default-name-workout": {
+		"message": "New workout",
+		"description": "The name a new workout starts with. It is saved as the workout's name."
+	},
+	"client.editor.delete-ellipsis": "Delete…",
+	"client.editor.delete-sets": "Delete exercises or sets",
+	"client.editor.details": "Details",
+	"client.editor.edit-details": {
+		"message": "Edit {kind, select, template {template} workout {workout} other {workout}} details, {title}",
+		"description": "Button label. {kind} says whether a template or a workout is being edited and {title} is its title."
+	},
+	"client.editor.editor-actions": "Editor actions",
+	"client.editor.empty-description": "Start an empty workout and add exercises as you go, or plan a reusable template.",
+	"client.editor.empty-title": "No workout in progress",
+	"client.editor.exercise": "Exercise",
+	"client.editor.eyebrow-historical": "Editing saved workout",
+	"client.editor.finish": "Finish",
+	"client.editor.footnote-historical": "Unchecked sets are removed when you save.",
+	"client.editor.footnote-live": "Only completed sets are saved.",
+	"client.editor.footnote-template": "Empty set rows are dropped when you save.",
+	"client.editor.loading-settings": "Loading Fitness settings",
+	"client.editor.measurement-load-failed": "Couldn't load",
+	"client.editor.media-template": "template",
+	"client.editor.media-workout": "workout",
+	"client.editor.pause": "Pause workout",
+	"client.editor.preferences": "Workout preferences",
+	"client.editor.preparing": "Preparing workout editor",
+	"client.editor.recovering": "Recovering your workout",
+	"client.editor.reorder": "Reorder",
+	"client.editor.retry-measurements": "Retry measurements",
+	"client.editor.save-changes": "Save changes",
+	"client.editor.save-template": "Save template",
+	"client.editor.saves-separately": "Saves separately",
+	"client.editor.screen-title": "Workout editor",
+	"client.editor.started-now": "Started now",
+	"client.editor.stat.active": "Active",
+	"client.editor.stat.planned-sets": "Planned sets",
+	"client.editor.stat.unknown": "Unknown",
+	"client.editor.templates-pro": "Creating templates requires Ryot Pro.",
+	"client.editor.timers": "Timers",
+	"client.exercise.add-to-collection": "Add to collection",
+	"client.exercise.add-to-draft": {
+		"message": "{timing, select, historical {Add to workout} current {Add to current {target, select, template {template} workout {workout} other {workout}}} other {Add to workout}}",
+		"description": "Button label to add the exercise to the draft being edited. {timing} says whether a past workout is being logged and {target} says whether the draft is a workout or a template."
+	},
+	"client.exercise.created-by-you": "Created by you",
+	"client.exercise.duplicate": "Duplicate",
+	"client.exercise.eyebrow-custom": "Exercise · Custom",
+	"client.exercise.fact.tracked-as": "Tracked as",
+	"client.exercise.history.bar-empty": {
+		"message": "{label}: no recorded value",
+		"description": "Chart bar tooltip. {label} is the month."
+	},
+	"client.exercise.history.bar-value": {
+		"message": "{label}: {value}",
+		"description": "Chart bar tooltip. {label} is the month and {value} is the formatted value with its unit."
+	},
+	"client.exercise.history.best-weight": "Best weight by rep count",
+	"client.exercise.history.best-weight-note": "Heaviest set completed for at least that many reps",
+	"client.exercise.history.chart-label": {
+		"message": "{title} from {first} to {last}, peaking at {top} in {peak}",
+		"description": "Chart summary for screen readers. {title} is the chart title, {first} and {last} are the first and last months shown, {top} is the highest value with its unit and {peak} is the month it was reached."
+	},
+	"client.exercise.history.empty": "You haven't logged this exercise yet. Your sessions, personal bests and progress will show up here after your first set.",
+	"client.exercise.history.last-done": {
+		"message": "Last done {ago}.",
+		"description": "{ago} is how long ago the exercise was last done, such as \"2 years ago\"."
+	},
+	"client.exercise.history.last-session": {
+		"message": "Your last session was on {date}.",
+		"description": "{date} is the date of the last session."
+	},
+	"client.exercise.history.last-trained": {
+		"message": "last trained {ago}",
+		"description": "{ago} is how long ago the exercise was last done, such as \"3 days ago\"."
+	},
+	"client.exercise.history.no-data": "No data yet",
+	"client.exercise.history.no-results": "No results in this range.",
+	"client.exercise.history.peak": {
+		"message": "{value} peak · {label}",
+		"description": "Chart peak caption. {value} is the formatted peak value and {label} is the month it was reached."
+	},
+	"client.exercise.history.personal-bests": "Personal bests",
+	"client.exercise.history.range": "Range",
+	"client.exercise.history.recent-sessions": "Recent sessions",
+	"client.exercise.history.sets-in": {
+		"message": "Sets in {name}",
+		"description": "List label. {name} is the workout's name."
+	},
+	"client.exercise.history.since": {
+		"message": "Since {date}",
+		"description": "{date} is the date of the first recorded set."
+	},
+	"client.exercise.history.title": "Your history",
+	"client.exercise.images": "Exercise images",
+	"client.exercise.instructions.empty": "You haven't written instructions for this exercise.",
+	"client.exercise.instructions.title": "How to perform",
+	"client.exercise.load-failed": "This exercise couldn't be loaded.",
+	"client.exercise.loading": "Loading exercise…",
+	"client.exercise.merge-blocked-item": {
+		"message": "Merge into… ({reason})",
+		"description": "Disabled menu item. {reason} explains why merging is unavailable."
+	},
+	"client.exercise.merge-item": "Merge into…",
+	"client.exercise.merge.action": "Merge",
+	"client.exercise.merge.apply": "Merge into",
+	"client.exercise.merge.blocked": {
+		"message": "Not available while this exercise is in your current {draft, select, template {template} workout {workout} other {workout}}",
+		"description": "Why merging is unavailable. {draft} says whether the current draft is a workout or a template."
+	},
+	"client.exercise.merge.confirm-detail": {
+		"message": "Merge {name} into {target}? Its history, notes and collection memberships move to {target}. {name} is removed from your library.",
+		"description": "Confirmation text. {name} is the exercise being merged away and {target} is the exercise that keeps the data."
+	},
+	"client.exercise.merge.confirm-title": "Merge exercise?",
+	"client.exercise.merge.failure": "{failure, select, same {An exercise can't be merged into itself.} missing {One of the exercises no longer exists.} kind_mismatch {Exercises can only be merged into an exercise of the same kind.} other {The exercises couldn't be merged.}}",
+	"client.exercise.merge.pending": "Merging…",
+	"client.exercise.merge.picker-description": {
+		"message": "Only {kind} exercises can be merged into.",
+		"description": "Picker description. {kind} is the exercise type, such as Reps."
+	},
+	"client.exercise.merge.title": {
+		"message": "Merge {name} into…",
+		"description": "Dialog title. {name} is the exercise being merged away."
+	},
+	"client.exercise.merge.unfinished": "The merge didn't finish. Try again to complete it.",
+	"client.exercise.metric.label": "{metric, select, reps {Total reps} volume {Volume} maxReps {Best set} oneRm {1RM} distance {Distance} duration {Set duration} sessions {Sessions} maxWeight {Weight} maxDuration {Longest set} pace {Speed} other {Metric}}",
+	"client.exercise.metric.title": "{metric, select, reps {Reps per month} volume {Volume per month} maxReps {Best set per month} oneRm {Est. one-rep max per month} distance {Distance per month} duration {Time per month} sessions {Sessions per month} maxWeight {Heaviest weight per month} maxDuration {Longest set per month} pace {Best speed per month} other {Per month}}",
+	"client.exercise.missing": "This exercise no longer exists.",
+	"client.exercise.more-actions": "More exercise actions",
+	"client.exercise.muscles-worked": "Muscles worked",
+	"client.exercise.no-muscles": "No muscles tagged yet.",
+	"client.exercise.notes.delete-action": "Delete note",
+	"client.exercise.notes.delete-detail": "This private note will be removed permanently.",
+	"client.exercise.notes.delete-title": "Delete note?",
+	"client.exercise.notes.deleted": "Deleted note",
+	"client.exercise.notes.edit-label": "Edit note",
+	"client.exercise.notes.empty": "Empty note",
+	"client.exercise.notes.failure": "This change couldn't be started. Try again.",
+	"client.exercise.notes.from-workouts": "From your workouts",
+	"client.exercise.notes.new-label": "New note",
+	"client.exercise.notes.placeholder": "Cues, setup, how it felt…",
+	"client.exercise.notes.private": "Private to you",
+	"client.exercise.notes.quote": {
+		"message": "“{note}”",
+		"description": "A note shown as a quotation. {note} is the note text."
+	},
+	"client.exercise.notes.read-only": "Read-only",
+	"client.exercise.notes.save": "Save note",
+	"client.exercise.notes.saved": "Saved note",
+	"client.exercise.notes.times": {
+		"message": "{count, number} times",
+		"description": "How many times a note was written. {count} is the number of occurrences."
+	},
+	"client.exercise.notes.title": "Your notes",
+	"client.exercise.notes.updated": "Updated note",
+	"client.exercise.overview.label": "Overview",
+	"client.exercise.personal-best": "{type, select, reps {Most reps} time {Longest set} pace {Fastest speed} volume {Best set volume} weight {Heaviest weight} one_rm {Est. one-rep max} distance {Longest distance} other {Personal best}}",
+	"client.exercise.post-review": "Post a review",
+	"client.exercise.preferences": "Preferences",
+	"client.exercise.range": "{range, select, 1y {1Y} 3y {3Y} all {All} other {All}}",
+	"client.exercise.role": "{role, select, primary {Primary} secondary {Secondary} stabilizer {Stabilizer} unassigned {Other} other {Other}}",
+	"client.exercise.show-image": {
+		"message": "Show image {index, number} of {total, number}",
+		"description": "Button label. {index} is the image's position and {total} is how many images the exercise has."
+	},
+	"client.exercise.tile": "{tile, select, time {Set duration} distance {Distance} typicalSet {Typical set} longestSet {Longest set} volume {Total volume} bestReps {Most reps in a set} reps {Total reps} speed {Average speed} sessions {Sessions} sets {Sets} other {Total}}",
+	"client.exercise.tile.failure": {
+		"message": "{count, number} to failure",
+		"description": "Number of sets taken to failure."
+	},
+	"client.exercise.tile.reps-per-set": {
+		"message": "{value, number} per set on average",
+		"description": "Average repetitions per set. {value} is the rounded average."
+	},
+	"client.exercise.tile.sets-per-session": {
+		"message": "{value, plural, one {# set per session} other {# sets per session}}",
+		"description": "Average sets per session. {value} is the rounded average."
+	},
+	"client.exercise.tile.warm-up": {
+		"message": "{count, number} warm-up",
+		"description": "Number of warm-up sets."
+	},
+	"client.format.distance-in-duration": {
+		"message": "{distance} in {duration}",
+		"description": "A set's distance and time. {distance} is a formatted distance and {duration} is a formatted duration."
+	},
+	"client.format.reps": "{count, plural, one {# rep} other {# reps}}",
+	"client.format.same-as-last-time": "Same as last time",
+	"client.format.weight-reps": {
+		"message": "{weight} × {reps}",
+		"description": "A set's weight and repetitions. {weight} is a formatted weight with its unit and {reps} is the formatted repetition count."
+	},
+	"client.grid.complete": {
+		"message": "Complete set {index, number}",
+		"description": "Button label. {index} is the set's position."
+	},
+	"client.grid.copy-previous": {
+		"message": "Set {index, number}: copy previous {summary}",
+		"description": "Button label. {index} is the set's position and {summary} is the previous set's values."
+	},
+	"client.grid.copy-previous-values": {
+		"message": "Set {index, number}: copy previous values",
+		"description": "Button label. {index} is the set's position."
+	},
+	"client.grid.execution": {
+		"message": "{state, select, running {Running} paused {Paused} other {Running}} · {time} left",
+		"description": "Timed set status. {state} says whether the timer runs or is paused and {time} is the time left."
+	},
+	"client.grid.field": "{field, select, reps {reps} weight {weight} distance {distance} duration {duration} other {value}}",
+	"client.grid.field-label": {
+		"message": "Set {index, number} {field, select, reps {reps} weight {weight} distance {distance} duration {duration} other {value}}",
+		"description": "Input label. {index} is the set's position and {field} is the measurement."
+	},
+	"client.grid.field-label-unit": {
+		"message": "Set {index, number} {field, select, reps {reps} weight {weight} distance {distance} duration {duration} other {value}} ({unit})",
+		"description": "Input label. {index} is the set's position, {field} is the measurement and {unit} is its unit."
+	},
+	"client.grid.finish": {
+		"message": "Finish set {index, number} now",
+		"description": "Button label. {index} is the set's position."
+	},
+	"client.grid.include": {
+		"message": "Include set {index, number}",
+		"description": "Checkbox label. {index} is the set's position."
+	},
+	"client.grid.included": "Incl.",
+	"client.grid.invalid": {
+		"message": "Enter {fields} to complete this set. Zero is allowed.",
+		"description": "{fields} is the list of missing measurements, such as \"weight and reps\"."
+	},
+	"client.grid.invalid-generic": "Enter valid values to complete this set. Zero is allowed.",
+	"client.grid.min": "Min",
+	"client.grid.previous": "Previous",
+	"client.grid.reps": "Reps",
+	"client.grid.rest-invalid": "Invalid rest",
+	"client.grid.rest-label": {
+		"message": "Rest after set {index, number}: {rest}. Change rest",
+		"description": "Button label. {index} is the set's position and {rest} describes the rest."
+	},
+	"client.grid.rest-off": "Rest off",
+	"client.grid.resting": {
+		"message": "Resting {remaining} / {total}",
+		"description": "Rest countdown. {remaining} is the time left and {total} is the full rest, both as minutes and seconds."
+	},
+	"client.grid.rpe-label": {
+		"message": "Set {index, number} RPE",
+		"description": "Button label. {index} is the set's position."
+	},
+	"client.grid.rpe-value": {
+		"message": "@{rpe}",
+		"description": "A set's entered RPE, shown on its button."
+	},
+	"client.grid.sec": "Sec",
+	"client.grid.set-options": {
+		"message": "Set {index, number}, {lot}. Set options",
+		"description": "Button label. {index} is the set's position and {lot} is the set type, such as Warm-up."
+	},
+	"client.grid.start-timer": {
+		"message": "Start set {index, number} timer",
+		"description": "Button label. {index} is the set's position."
+	},
+	"client.grid.value-reps": {
+		"message": "{value} reps",
+		"description": "A previous repetition count. {value} is the entered number."
+	},
+	"client.header.reminders": "Reminders",
+	"client.header.reminders-failed": "Unable to open reminders. Try again.",
+	"client.history.add-description": {
+		"message": "{count, plural, one {# set} other {# sets}} from this session will be added to the exercise.",
+		"description": "{count} is how many sets will be added."
+	},
+	"client.history.add-sets": "Add sets",
+	"client.history.add-title": {
+		"message": "Add sets from {name}?",
+		"description": "{name} is the past workout's name."
+	},
+	"client.history.close": "Close history",
+	"client.history.empty-description": "Sets you log for this exercise show up here next time.",
+	"client.history.empty-title": "No earlier sessions",
+	"client.history.exercise-title": "Exercise history",
+	"client.history.got-it": "Got it",
+	"client.history.load-failed": "History could not be loaded.",
+	"client.history.loading": "Loading history",
+	"client.history.loading-sets": "Loading sets",
+	"client.history.more-sessions": "More sessions",
+	"client.history.pagination-failed": "History pagination could not continue. Retry loading this page.",
+	"client.history.pro-body": "Tap a value in the Previous column to copy last session's numbers. New exercises are still prefilled automatically.",
+	"client.history.pro-title": "History in the logger requires Pro",
+	"client.history.retry": "Retry history",
+	"client.history.retry-sets": "Retry history sets",
+	"client.history.sets-failed": "History sets could not be loaded.",
+	"client.history.title": "History",
+	"client.home.analytics": "Analytics",
+	"client.home.draft-edit-resume": "Resume editing",
+	"client.home.draft-editing-template": "Editing template",
+	"client.home.draft-editing-workout": "Editing workout",
+	"client.home.draft-elapsed": {
+		"message": "{minutes, number} min elapsed",
+		"description": "How long the live workout has been running, in minutes."
+	},
+	"client.home.draft-live-resume": "Resume workout",
+	"client.home.draft-live-title": "Workout in progress",
+	"client.home.draft-sets-confirmed": {
+		"message": "{confirmed, number} of {total, plural, one {# set} other {# sets}} confirmed",
+		"description": "Progress of the draft workout. {confirmed} is how many sets are confirmed and {total} is how many sets the draft has."
+	},
+	"client.home.draft-started": {
+		"message": "Started {time}",
+		"description": "{time} is the formatted time the workout started."
+	},
+	"client.home.edit-goal": "Edit goal",
+	"client.home.goal-choose": "Choose a goal",
+	"client.home.goal-description": "Pick how many workouts you aim for each week, and Home tracks how often you hit it.",
+	"client.home.goal-label": "Weekly goal",
+	"client.home.goal-met": {
+		"message": "Goal met {met, number} of last {weeks, plural, one {# week} other {# weeks}}",
+		"description": "{met} is how many recent weeks reached the goal and {weeks} is how many weeks are considered."
+	},
+	"client.home.history-hint": "Imports add to your history and can't be undone. Importing the same file twice creates duplicates.",
+	"client.home.history-title": "Bring your history",
+	"client.home.import-description": "{source, select, hevy {Workouts from a Hevy CSV export} strong {Workouts from a Strong CSV export} openscale {Measurements from an OpenScale CSV export} other {Data from a CSV export}}",
+	"client.home.import-label": {
+		"message": "{source, select, hevy {Hevy export} strong {Strong App export} openscale {OpenScale export} other {Export}}",
+		"description": "Import source names (Hevy, Strong App, OpenScale) are product names and are not translated."
+	},
+	"client.home.import-upload": "Upload CSV",
+	"client.home.import-upload-label": {
+		"message": "Upload CSV for {label}",
+		"description": "Link label. {label} is the import source's name."
+	},
+	"client.home.last-done": {
+		"message": "Last done {ago}",
+		"description": "A template card's last use. {ago} is a relative day such as \"yesterday\" or \"3 weeks ago\"."
+	},
+	"client.home.last-logged": {
+		"message": "Last logged {when}",
+		"description": "{when} is either a relative phrase such as \"3 days ago\" or a date."
+	},
+	"client.home.last-took": {
+		"message": "last took {took}",
+		"description": "{took} is the formatted duration of the previous session."
+	},
+	"client.home.last-workout": {
+		"message": "last workout {ago}",
+		"description": "{ago} is how long ago the last workout was, such as \"yesterday\"."
+	},
+	"client.home.last-workout-title": "Last workout",
+	"client.home.library-hint": "Or browse the exercise library to plan your first session.",
+	"client.home.load-failed": "{noun, select, templates {Your templates couldn't be loaded.} weekly_goal {Your weekly goal couldn't be loaded.} your_workouts {Your workouts couldn't be loaded.} measurements {Your measurements couldn't be loaded.} personal_bests {Your personal bests couldn't be loaded.} muscle_activity {Your muscle activity couldn't be loaded.} other {This couldn't be loaded.}}",
+	"client.home.loading": "{noun, select, templates {Loading templates…} weekly_goal {Loading weekly goal…} your_workouts {Loading your workouts…} measurements {Loading measurements…} personal_bests {Loading personal bests…} muscle_activity {Loading muscle activity…} other {Loading…}}",
+	"client.home.muscle-days": {
+		"message": "{days, number}d",
+		"description": "Days since a muscle was last trained, abbreviated."
+	},
+	"client.home.muscle-never": "Never",
+	"client.home.muscle-no-sets": "No sets this week",
+	"client.home.muscles-hint": "Days since last trained · sets in the last 7 days",
+	"client.home.muscles-longer-ago": "Longer ago",
+	"client.home.muscles-note": "From logged sets. A set counts 1 toward primary targets and ½ toward secondary; stabilizers excluded.",
+	"client.home.muscles-recent": "Recent",
+	"client.home.never-done": "Never done",
+	"client.home.not-logged": "Not logged yet",
+	"client.home.of-goal": {
+		"message": "of {goal, plural, one {# workout} other {# workouts}}",
+		"description": "Weekly goal progress, following the count of workouts done. {goal} is the weekly goal."
+	},
+	"client.home.pinned-all": "All",
+	"client.home.pinned-empty": "Add a metric to start tracking weight, body fat, or anything else.",
+	"client.home.pinned-measurements": "Pinned measurements",
+	"client.home.pinned-none-pinned": "Star up to 3 metrics on All Measurements to pin them here.",
+	"client.home.prs-empty": "Personal bests appear here as soon as you set one.",
+	"client.home.prs-hint": {
+		"message": "{count, plural, one {# set} other {# sets}} with awards in the last {days, plural, one {# day} other {# days}}",
+		"description": "{count} is how many sets earned personal-best awards and {days} is the length of the recent window."
+	},
+	"client.home.prs-title": "Recent personal bests",
+	"client.home.repeat": "Repeat",
+	"client.home.save-as-template": "Save as template",
+	"client.home.setup-progress": {
+		"message": "{done, number} of {total, number} done",
+		"description": "Setup checklist progress. {done} is how many steps are complete and {total} is how many there are."
+	},
+	"client.home.setup-progress-label": "Setup progress",
+	"client.home.setup-title": "Get set up",
+	"client.home.setup.goal-action": "Choose goal",
+	"client.home.setup.goal-hint": "How many workouts you aim for each week",
+	"client.home.setup.goal-title": "Set a weekly goal",
+	"client.home.setup.metric-hint": "Weight, body fat, or any metric you choose",
+	"client.home.setup.metric-title": "Track a measurement",
+	"client.home.setup.template-action": "New template",
+	"client.home.setup.template-hint": "Save a routine you can start in one tap",
+	"client.home.setup.template-title": "Create a template",
+	"client.home.setup.workout-hint": "Start empty, or import past sessions",
+	"client.home.setup.workout-title": "Log your first workout",
+	"client.home.start-empty": "Start empty workout",
+	"client.home.template-start": "Start",
+	"client.home.template-start-label": {
+		"message": "Start {name}",
+		"description": "Link label. {name} is the workout template's name."
+	},
+	"client.home.templates-all": "All templates",
+	"client.home.templates-hint": "Longest since last done first",
+	"client.home.templates-title": "Start from a template",
+	"client.home.title": "Home",
+	"client.home.today": "Today",
+	"client.home.view": "View",
+	"client.home.weekly-chart": {
+		"message": "Workouts per week, last {weeks, plural, one {# week} other {# weeks}}: {counts}",
+		"description": "Chart label. {weeks} is how many weeks are shown and {counts} is the list of weekly workout counts."
+	},
+	"client.home.welcome-body": "Log a workout or bring in your history. Home then shows your week, your templates, which muscles you've trained and your newest personal bests.",
+	"client.home.welcome-import": "Import history",
+	"client.home.welcome-start": "Start your first workout",
+	"client.home.welcome-title": "Your training starts here",
+	"client.instructions.close": "Close instructions and notes",
+	"client.instructions.demonstration": {
+		"message": "{name} demonstration",
+		"description": "Image description. {name} is the exercise's name."
+	},
+	"client.instructions.none": "No instructions are available.",
+	"client.instructions.notes-hint": "Saved with this workout. Set notes live on each set.",
+	"client.instructions.notes-label": "Notes for this workout",
+	"client.live.all-completed": "All sets completed",
+	"client.live.next": {
+		"message": "Next: {exercise} · Set {set, number}",
+		"description": "Live Activity detail. {exercise} is the exercise's name and {set} is the set's position."
+	},
+	"client.live.next-with": {
+		"message": "Next: {exercise} · Set {set, number} · {measurements}",
+		"description": "Live Activity detail. {exercise} is the exercise's name, {set} is the set's position and {measurements} lists the planned values."
+	},
+	"client.live.no-exercises": "No exercises added",
+	"client.live.rest-prompt": {
+		"message": "Set completed · Rest for {time}?",
+		"description": "Live Activity status. {time} is the rest duration as minutes and seconds."
+	},
+	"client.live.resting": "Resting",
+	"client.live.set-timer-complete": "Set timer complete",
+	"client.live.status": {
+		"message": "{heading}{timer, select, paused { · timer paused} running {} other {}}{workout, select, paused { · workout paused} running {} other {}}",
+		"description": "Live Activity status. {heading} is Working or Resting, {timer} says whether the countdown is paused and {workout} says whether the workout clock is paused."
+	},
+	"client.live.unsaved": "Workout not saved yet",
+	"client.live.working": "Working",
+	"client.measurements.add-metric": "Add metric",
+	"client.measurements.add.close": "Close add metric",
+	"client.measurements.add.duplicate": "This metric already exists. Choose a different name.",
+	"client.measurements.add.failed": "The metric couldn't be added. Try again.",
+	"client.measurements.add.name": "Name",
+	"client.measurements.add.name-required": "Enter a name with at least one letter from A–Z or a number.",
+	"client.measurements.add.pending": "Adding…",
+	"client.measurements.add.unit-hint": {
+		"message": "This metric uses {unit} to match OpenScale imports.",
+		"description": "{unit} is the unit symbol fixed for imported metrics, such as kg."
+	},
+	"client.measurements.all-metrics": "All metrics",
+	"client.measurements.chart-empty": {
+		"message": "{range, select, All {No {name} readings in your history.} 1M {No {name} readings in the last 30 days.} 3M {No {name} readings in the last 3 months.} 1Y {No {name} readings in the last 12 months.} other {No {name} readings in your history.}}",
+		"description": "Empty chart message. {name} is the metric's name and {range} is the selected time range."
+	},
+	"client.measurements.chart-empty-last": {
+		"message": "The last one was on {date}.",
+		"description": "{date} is the date of the most recent reading."
+	},
+	"client.measurements.chart-label": "Metric chart",
+	"client.measurements.chart-note": "Line uses 3- or 7-bucket smoothing within continuous runs. Dots and the shaded low-to-high band show grouped averages. Smoothing restarts after missing buckets.",
+	"client.measurements.chart-over": {
+		"message": "{name} over {range, select, All {all time} 1M {30 days} 3M {3 months} 1Y {12 months} other {all time}}",
+		"description": "Chart label. {name} is the metric's name and {range} is the selected time range."
+	},
+	"client.measurements.chart-right-axis": {
+		"message": "{name} uses the right axis.",
+		"description": "{name} is the name of the compared metric."
+	},
+	"client.measurements.column-actions": "Actions",
+	"client.measurements.column-change": {
+		"message": "Change, {range, select, All {all time} 1M {30 days} 3M {3 months} 1Y {12 months} other {all time}}",
+		"description": "Table header. {range} is the selected time range."
+	},
+	"client.measurements.column-last-logged": "Last logged",
+	"client.measurements.column-latest": "Latest",
+	"client.measurements.column-metric": "Metric",
+	"client.measurements.column-other": "Other",
+	"client.measurements.column-pin": "Pin",
+	"client.measurements.column-trend": "Trend",
+	"client.measurements.compare-nothing": "Nothing",
+	"client.measurements.compare-with": "Compare with",
+	"client.measurements.composer.add-value": "Add metric value",
+	"client.measurements.composer.date-time": "Date and time",
+	"client.measurements.composer.number-required": "Enter a number.",
+	"client.measurements.composer.value-required": "Enter at least one value.",
+	"client.measurements.composer.values": "Values",
+	"client.measurements.delete-action": "Delete measurement",
+	"client.measurements.delete-detail": {
+		"message": "{count, plural, one {The reading taken on {takenAt} will be removed permanently.} other {The # readings taken on {takenAt} will be removed permanently.}}",
+		"description": "Confirmation text. {count} is how many readings the measurement holds and {takenAt} is when it was taken."
+	},
+	"client.measurements.delete-from": {
+		"message": "Delete measurement from {takenAt}",
+		"description": "Button label. {takenAt} is the date and time of the measurement."
+	},
+	"client.measurements.delete-title": "Delete measurement?",
+	"client.measurements.deleted": "Deleted measurement",
+	"client.measurements.edit-close": "Close edit measurement",
+	"client.measurements.edit-from": {
+		"message": "Edit measurement from {takenAt}",
+		"description": "Button label. {takenAt} is the date and time of the measurement."
+	},
+	"client.measurements.edit-title": "Edit measurement",
+	"client.measurements.empty-description": "Add a metric to track, or import your history from OpenScale, to get started.",
+	"client.measurements.empty-title": "No measurements yet",
+	"client.measurements.failure": "The measurement couldn't be {action, select, delete {deleted} save {saved} other {saved}}. Try again.",
+	"client.measurements.grouped-average": {
+		"message": "{name} grouped average",
+		"description": "Chart series label. {name} is the metric's name."
+	},
+	"client.measurements.hide": "Hide",
+	"client.measurements.last-date": {
+		"message": "last {date}",
+		"description": "Badge for a stale metric. {date} is the date of the latest reading."
+	},
+	"client.measurements.load-failed": "Your measurements couldn't be loaded.",
+	"client.measurements.loading": "Loading measurements…",
+	"client.measurements.loading-trends": "Loading trends…",
+	"client.measurements.log": "Log measurement",
+	"client.measurements.log-close": "Close log measurement",
+	"client.measurements.log-count": {
+		"message": "{count, plural, one {# reading} other {# readings}} in {range, select, All {your history} 1M {the last 30 days} 3M {the last 3 months} 1Y {the last 12 months} other {your history}}",
+		"description": "Reading log summary. {count} is how many readings are loaded and {range} is the selected time range."
+	},
+	"client.measurements.log-count-more": {
+		"message": "{count, plural, one {#+ reading} other {#+ readings}} in {range, select, All {your history} 1M {the last 30 days} 3M {the last 3 months} 1Y {the last 12 months} other {your history}}",
+		"description": "Reading log summary when more readings can be loaded. {count} is how many readings are loaded and {range} is the selected time range."
+	},
+	"client.measurements.log-failed": "The reading log couldn't be loaded.",
+	"client.measurements.log-heading": "Log",
+	"client.measurements.log-loading": "Loading readings…",
+	"client.measurements.log-more-failed": "More readings couldn't be loaded.",
+	"client.measurements.log-show-more": "Show more readings",
+	"client.measurements.logged": {
+		"message": "Logged {names}",
+		"description": "Label of a logged measurement. {names} is the list of metric names."
+	},
+	"client.measurements.logged-fallback": "measurement",
+	"client.measurements.more-count": {
+		"message": "+{count, number}",
+		"description": "Button label showing how many more values a reading has."
+	},
+	"client.measurements.name-with-unit": {
+		"message": "{name} ({unit})",
+		"description": "A metric name followed by its unit. {name} is the metric's name and {unit} is its unit symbol."
+	},
+	"client.measurements.no-change": "no change",
+	"client.measurements.pin-failed": "The pin couldn't be changed. Try again.",
+	"client.measurements.pin-hint-more": {
+		"message": "Star up to {remaining, plural, one {# more metric} other {# more metrics}} below to pin them here",
+		"description": "{remaining} is how many more metrics can be pinned."
+	},
+	"client.measurements.pin-hint-none": {
+		"message": "Star up to {limit, plural, one {# metric} other {# metrics}} below to pin them here",
+		"description": "{limit} is the maximum number of pinned metrics."
+	},
+	"client.measurements.pin-hint-one": "Star one more metric below to pin it here",
+	"client.measurements.pin-label": {
+		"message": "Pin {name}",
+		"description": "Button label. {name} is the metric's name."
+	},
+	"client.measurements.pin-limit": {
+		"message": "Only {limit, plural, one {# metric} other {# metrics}} can be pinned. Unpin one first.",
+		"description": "{limit} is the maximum number of pinned metrics."
+	},
+	"client.measurements.pinned-metrics": "Pinned metrics",
+	"client.measurements.range": "{range, select, 1M {1M} 3M {3M} 1Y {1Y} All {All} other {All}}",
+	"client.measurements.range-change": {
+		"message": "{change} over {range, select, All {all time} 1M {30 days} 3M {3 months} 1Y {12 months} other {all time}}",
+		"description": "Metric change over a period. {change} is the formatted change and {range} is the selected time range."
+	},
+	"client.measurements.range-readings": {
+		"message": "{count, plural, one {# reading} other {# readings}} in {range, select, All {all time} 1M {30 days} 3M {3 months} 1Y {12 months} other {all time}}",
+		"description": "Number of readings in a period. {count} is how many readings and {range} is the selected time range."
+	},
+	"client.measurements.reading-count": "{count, plural, one {# reading} other {# readings}}",
+	"client.measurements.sort-az": "A–Z",
+	"client.measurements.sort-changed": "Most changed",
+	"client.measurements.sort-label": "Sort metrics",
+	"client.measurements.sort-recent": "Recent",
+	"client.measurements.taken-at": {
+		"message": "{day} {time}",
+		"description": "When a measurement was taken. {day} is the date and {time} is the time of day."
+	},
+	"client.measurements.time-range": "Time range",
+	"client.measurements.title": "Measurements",
+	"client.measurements.trend-label": {
+		"message": "{name} trend",
+		"description": "Chart label. {name} is the metric's name."
+	},
+	"client.measurements.trends-failed": "Your measurement trends couldn't be loaded.",
+	"client.measurements.unit-parenthesized": {
+		"message": "({unit})",
+		"description": "A unit symbol in parentheses. {unit} is the unit symbol."
+	},
+	"client.measurements.updated": "Updated measurement",
+	"client.measurements.versus": {
+		"message": "vs {name}",
+		"description": "Chart heading comparing two metrics. {name} is the compared metric's name, with its unit."
+	},
+	"client.media.attachments": "Attachments",
+	"client.media.attachments-label": {
+		"message": "{label} attachments",
+		"description": "Section label. {label} is the name of the item the attachments belong to."
+	},
+	"client.media.image-failed": "This image could not be loaded.",
+	"client.media.image-label": {
+		"message": "{label} image {index, number}",
+		"description": "Attachment label. {label} is the name of the item and {index} is the image's position."
+	},
+	"client.media.loading": "Loading attachment… If it stays unavailable, reopen this panel to retry.",
+	"client.media.preview": {
+		"message": "Preview {label}",
+		"description": "{label} is the attachment's label."
+	},
+	"client.media.preview-close": "Close image preview",
+	"client.media.video-failed": "This video could not be played. Its codec may not be supported by this device.",
+	"client.media.video-label": {
+		"message": "{label} video {index, number}",
+		"description": "Attachment label. {label} is the name of the item and {index} is the video's position."
+	},
+	"client.notices.alerts-inexact": "Timer alerts may arrive late on this device. Rest still ends on time here.",
+	"client.notices.alerts-unavailable": "Some device alerts are unavailable. The workout deadline is still retained.",
+	"client.notices.cleanup-unfinished": "Clearing the draft on this device didn't finish.",
+	"client.notices.conflict-body": "Your draft is kept. Saving won't overwrite the newer version.",
+	"client.notices.conflict-title": "This workout changed elsewhere",
+	"client.notices.discard-unreadable": "Discard unreadable draft",
+	"client.notices.exercises-body": "Saving is paused until they load.",
+	"client.notices.exercises-title": "Exercise details couldn't load",
+	"client.notices.finish-cleanup": "Finish local cleanup",
+	"client.notices.historical-body": "Times and active duration stay as recorded. Use Adjust time on the workout page to change them.",
+	"client.notices.historical-title": "Editing a saved workout",
+	"client.notices.historical-when": {
+		"message": "{date}, {start}.",
+		"description": "Start of a saved workout. {date} is the date and {start} is the start time."
+	},
+	"client.notices.historical-when-range": {
+		"message": "{date}, {start}–{end}.",
+		"description": "Time span of a saved workout. {date} is the date, {start} is the start time and {end} is the end time."
+	},
+	"client.notices.paused-body": "Active time is stopped. Timers keep their remaining time.",
+	"client.notices.paused-title": "Workout paused",
+	"client.notices.recovery-body": "Nothing has been deleted. Try again, or discard it to start fresh.",
+	"client.notices.recovery-title": "Your saved draft couldn't be read",
+	"client.notices.reload": "Reload saved version",
+	"client.notices.retry-exercises": "Retry exercises",
+	"client.notices.retry-recovery": "Retry recovery",
+	"client.notices.retry-requested": "Retry requested draft",
+	"client.notices.retry-save": "Retry save",
+	"client.notices.retry-settings": "Retry settings",
+	"client.notices.retry-storage": "Retry draft storage",
+	"client.notices.save-unfinished": "Saving didn't finish",
+	"client.notices.saved": "Saved. Personal-best processing may still be pending.",
+	"client.notices.settings-body": "Your entries are unchanged.",
+	"client.notices.settings-title": "Fitness settings couldn't refresh",
+	"client.notices.storage-body": "Keep this page open and retry before leaving.",
+	"client.notices.storage-title": "Changes aren't being saved on this device",
+	"client.notices.submission-fixed": "This submission is fixed until saving completes. Retrying won't create a duplicate.",
+	"client.notices.template-body": "Values are optional. Clocks and completion are off until you start a workout from it.",
+	"client.notices.template-title": "Planning a template",
+	"client.notices.upload-failed-body": "Completed uploads stay in your draft. Reopen attachments to retry, or retry draft storage if needed.",
+	"client.notices.upload-failed-title": "An attachment couldn't upload",
+	"client.notices.uploading-body": "Saving and leaving wait until the upload finishes.",
+	"client.notices.uploading-title": "Uploading attachment…",
+	"client.notices.workout-saved": "Workout saved",
+	"client.overlays.delete-exercise": "Delete exercise",
+	"client.overlays.delete-exercise-description": "This removes the exercise and all its sets from this draft. This cannot be undone.",
+	"client.overlays.delete-exercise-title": "Delete exercise with completed sets?",
+	"client.overlays.discard-changes": "Discard changes",
+	"client.overlays.discard-changes-title": "Discard changes?",
+	"client.overlays.discard-description": "Everything in this draft is lost. Saved workouts and measurements stay as they are.",
+	"client.overlays.discard-start": "Discard and start",
+	"client.overlays.discard-workout": "Discard workout",
+	"client.overlays.discard-workout-title": "Discard workout?",
+	"client.overlays.exercise-fallback": "exercise",
+	"client.overlays.exercise-unavailable": "Unavailable exercise",
+	"client.overlays.existing-close": "Resume workout in progress",
+	"client.overlays.existing-description": {
+		"message": "{name} · {done, number} of {total, plural, one {# set} other {# sets}} done. Resume it, or discard it to start the requested workout.{pending, select, yes { Finish the pending save before starting another workout.} no {} other {}}",
+		"description": "{name} is the draft's name, {done} is how many sets are done and {total} is how many sets the draft has. {pending} is yes while a save is still pending, which adds a note that it must finish first."
+	},
+	"client.overlays.existing-title": "You have a workout in progress",
+	"client.overlays.keep-draft": "Keep draft",
+	"client.overlays.keep-exercise": "Keep exercise",
+	"client.overlays.keep-logging": "Keep logging",
+	"client.overlays.pro-description": "Your current draft hasn't changed.",
+	"client.overlays.pro-title": "Templates require Pro",
+	"client.overlays.reload-confirm": "Discard changes and reload",
+	"client.overlays.reload-description": "Your unsaved changes will be discarded. The newer saved record will not be overwritten.",
+	"client.overlays.reload-title": "Reload the saved version?",
+	"client.overlays.resume-draft": "Resume draft",
+	"client.overlays.return": "Return to editor",
+	"client.picker.add-count": "{count, plural, one {Add # exercise} other {Add # exercises}}",
+	"client.picker.add-from-provider": "Add from provider",
+	"client.picker.cancel": "Cancel exercise selection",
+	"client.picker.checked": {
+		"message": "{label} ✓",
+		"description": "The selected menu choice. {label} is the choice's name."
+	},
+	"client.picker.choose-one": "Choose one exercise",
+	"client.picker.collection": "Collection",
+	"client.picker.filters": "Filters",
+	"client.picker.filters-failed": "Filter options could not be loaded.",
+	"client.picker.ineligible": "The exercise was added to your library, but its kind is not eligible for this selection.",
+	"client.picker.library": "Exercise library",
+	"client.picker.load-failed": "Exercises could not be loaded.",
+	"client.picker.loading": "Loading exercises",
+	"client.picker.mechanics": "Mechanics",
+	"client.picker.no-match-filters": "No exercises match these filters",
+	"client.picker.no-match-hint": "Try another name or clear filters, or add it from an exercise provider.",
+	"client.picker.no-match-search": {
+		"message": "No exercises match “{search}”",
+		"description": "{search} is the text the user searched for."
+	},
+	"client.picker.nothing": "Nothing selected",
+	"client.picker.provider-failed": "The provider search could not be completed. Your selection is unchanged.",
+	"client.picker.remove": {
+		"message": "Remove {name}",
+		"description": "Button label. {name} is the exercise's name."
+	},
+	"client.picker.replace-description": {
+		"message": "Only {kind} exercises can replace it. Matching values are kept.",
+		"description": "{kind} is the exercise type, such as Reps."
+	},
+	"client.picker.replace-title": {
+		"message": "Replace {name}",
+		"description": "Dialog title. {name} is the exercise being replaced."
+	},
+	"client.picker.retry-filters": "Retry filters",
+	"client.picker.search": "Search exercises",
+	"client.picker.search-placeholder": "Search your library",
+	"client.picker.searching": "Searching providers…",
+	"client.picker.selected": {
+		"message": "{count, number} selected",
+		"description": "Screen-reader announcement of how many exercises are selected."
+	},
+	"client.picker.selected-label": "Selected exercises",
+	"client.picker.show-more": "Show more",
+	"client.picker.sort": "{sort, select, name {Name} recently_added {Recently added} times_performed {Times performed} other {Name}}",
+	"client.picker.sort-label": "Sort exercises",
+	"client.preferences.load-failed": "Display preferences could not be loaded.",
+	"client.preferences.loading": "Loading display preferences…",
+	"client.preferences.retry": "Retry preferences",
+	"client.prefs.close": "Close exercise preferences",
+	"client.prefs.default-duration": "Default duration unit",
+	"client.prefs.defaults": "Defaults for every workout",
+	"client.prefs.defaults-note": "Blank uses your Fitness settings. 0 turns rest off. Sets with their own rest keep it.",
+	"client.prefs.distance-unit": "Distance unit",
+	"client.prefs.inherited": "Fitness setting",
+	"client.prefs.invalid": "These defaults are invalid.",
+	"client.prefs.invalid-rest": "Enter whole seconds of 0 or more, or leave a field blank to use your Fitness settings.",
+	"client.prefs.kilograms": "Kilograms",
+	"client.prefs.kilometres": "Kilometres",
+	"client.prefs.miles": "Miles",
+	"client.prefs.minutes": "Minutes",
+	"client.prefs.pounds": "Pounds",
+	"client.prefs.rest-label": "{field, select, dropRestTime {Drop set rest (seconds)} normalRestTime {Normal rest (seconds)} warmUpRestTime {Warm-up rest (seconds)} failureRestTime {Failure rest (seconds)} other {Rest (seconds)}}",
+	"client.prefs.save": "Save defaults",
+	"client.prefs.save-failed": "Defaults could not be saved. Try again.",
+	"client.prefs.seconds": "Seconds",
+	"client.prefs.title": "Exercise preferences",
+	"client.prefs.unavailable": "This exercise is unavailable.",
+	"client.prefs.units": "Units in this workout",
+	"client.prefs.units-close": "Close units and rest defaults",
+	"client.prefs.units-note": "Changes how values show here. Entered values are converted, not changed.",
+	"client.prefs.weight-unit": "Weight unit",
+	"client.prepare.blocked": {
+		"message": "This record contains unavailable exercises or invalid data ({ids}). Restore the missing exercise or correct the record, then retry.",
+		"description": "{ids} is the comma-separated list of exercise identifiers that could not be found."
+	},
+	"client.prepare.draft-failed": "The draft could not be loaded or stored. Retry before leaving this page.",
+	"client.prepare.invalid-action": "This editor action is invalid.",
+	"client.prepare.invalid-source": "Invalid workout source.",
+	"client.prepare.pro": "Creating templates requires Ryot Pro. No new draft was started.",
+	"client.presentation.latest": {
+		"message": "{value} · {day}",
+		"description": "Latest reading of a metric. {value} is the formatted value and {day} is the date it was logged."
+	},
+	"client.presentation.open": {
+		"message": "Open {name}",
+		"description": "Link label. {name} is the entity's name."
+	},
+	"client.presets.full": {
+		"message": "You can save up to {max, plural, one {# preset} other {# presets}}. Delete one to save another.",
+		"description": "{max} is the most presets that can be saved."
+	},
+	"client.presets.hint": {
+		"message": "Saves search, filters and sort on this device. {used, number} of {max, number} used.",
+		"description": "{used} is how many presets exist and {max} is the most that can be saved."
+	},
+	"client.presets.name": "Preset name",
+	"client.presets.name-error": "Enter a name with 1 to 80 characters.",
+	"client.presets.read-failed": "Saved presets could not be read or decoded. They were not changed.",
+	"client.presets.retry-load": "Retry loading presets",
+	"client.presets.retry-save": "Retry saving presets",
+	"client.presets.save": "Save preset",
+	"client.presets.save-current": "Save current filters…",
+	"client.presets.title": "Presets",
+	"client.presets.write-failed": "Saved presets could not be written. Your change is ready to retry.",
+	"client.processing.failed": "Calculated results could not be updated. Values shown may be incomplete.",
+	"client.processing.pending": "Updating calculated results. Values shown may change.",
+	"client.reorder.close": "Close reorder",
+	"client.reorder.complete": "Complete",
+	"client.reorder.in-progress": "In progress",
+	"client.reorder.not-started": "Not started",
+	"client.reorder.title": "Reorder exercises",
+	"client.set-lot.label": "{lot, select, drop {Drop} failure {Failure} normal {Normal} warm_up {Warm-up} other {Set}}",
+	"client.set-lot.name": "{lot, select, drop {Drop set} failure {Set to failure} normal {Working set} warm_up {Warm-up set} other {Set}}",
+	"client.sheet.clear-rpe": "Clear RPE",
+	"client.sheet.close": "Close set options",
+	"client.sheet.copy-previous": {
+		"message": "Copy previous ({summary})",
+		"description": "Button label. {summary} is the previous set's values."
+	},
+	"client.sheet.delete-description": "This completed set will be removed. This action cannot be undone.",
+	"client.sheet.delete-set": "Delete set",
+	"client.sheet.delete-title": "Delete completed set?",
+	"client.sheet.note": "Set note",
+	"client.sheet.note-pro": "Adding set notes requires Ryot Pro.",
+	"client.sheet.optional": "(optional)",
+	"client.sheet.remove-note": "Remove existing note",
+	"client.sheet.rest-custom": "Custom for this set. 0:00 turns rest off.",
+	"client.sheet.rest-default": {
+		"message": "Using the {lot, select, drop {drop} failure {failure} normal {normal} warm_up {warm-up} other {standard}} default for this exercise ({time}). 0:00 turns rest off.",
+		"description": "Rest hint. {lot} is the set type and {time} is the default rest as minutes and seconds."
+	},
+	"client.sheet.rest-label": "Rest after this set",
+	"client.sheet.rpe-help": "Rate of perceived exertion, a whole number from 0 (no effort) to 10 (no more repetitions possible). 9 means about one repetition remained; 8 means about two.",
+	"client.sheet.set-type": "Set type",
+	"client.sheet.use-default": "Use default",
+	"client.sheet.what-is-rpe": "What is RPE?",
+	"client.superset.alternate": {
+		"message": "Alternate {tags}",
+		"description": "{tags} is the list of exercise tags in the superset, such as \"A1 and A2\"."
+	},
+	"client.superset.fallback": "Superset",
+	"client.superset.group-note": {
+		"message": "Alternate · {count, plural, one {# exercise} other {# exercises}}",
+		"description": "{count} is how many exercises the superset holds."
+	},
+	"client.superset.name": {
+		"message": "Superset {letter}",
+		"description": "Name of a superset group. {letter} is its identifying letter, such as A."
+	},
+	"client.supersets.close": "Close supersets",
+	"client.supersets.color-label": "Superset color",
+	"client.supersets.color-name": "{color, select, blue {Blue} purple {Purple} teal {Teal} orange {Orange} crimson {Crimson} other {Color}}",
+	"client.supersets.create": "Create superset",
+	"client.supersets.current": "Current",
+	"client.supersets.delete": "Delete superset",
+	"client.supersets.delete-description": "The superset will be removed. Its exercises and sets will remain in the workout.",
+	"client.supersets.delete-label": {
+		"message": "Delete {name}",
+		"description": "{name} is the superset's name."
+	},
+	"client.supersets.delete-title": {
+		"message": "Delete {name}?",
+		"description": "{name} is the superset's name."
+	},
+	"client.supersets.description": "Group exercises you alternate between.",
+	"client.supersets.edit-label": {
+		"message": "Edit {name}",
+		"description": "{name} is the superset's name."
+	},
+	"client.supersets.editing": {
+		"message": "Editing {name}",
+		"description": "{name} is the superset's name."
+	},
+	"client.supersets.in": {
+		"message": "in {name}",
+		"description": "Marks an exercise already in a superset. {name} is the superset's name."
+	},
+	"client.supersets.new": "New superset · pick two or more",
+	"client.supersets.note": "Moving an exercise here takes it out of its current superset. Supersets left with one exercise are removed.",
+	"client.supersets.save": "Save superset",
+	"client.template.blocked": "This template contains unavailable exercises or invalid data. Restore the missing references before starting or editing it.",
+	"client.template.delete": "Delete template",
+	"client.template.edit": "{pro, select, yes {Edit template} no {Edit template (Pro)} other {Edit template (Pro)}}",
+	"client.template.exercise-unavailable": "Exercise unavailable",
+	"client.template.load-failed": "This template or its display preferences could not be loaded. The record may no longer exist.",
+	"client.template.loading": "Loading template…",
+	"client.template.more-actions": "More template actions",
+	"client.template.no-measurements": "Measurements not specified",
+	"client.template.no-sets": "No planned sets.",
+	"client.template.planned-exercises": "Planned exercises",
+	"client.template.planned-rest": {
+		"message": "Planned rest {time}",
+		"description": "{time} is the planned rest as minutes and seconds."
+	},
+	"client.template.planned-sets": {
+		"message": "Planned sets for {name}",
+		"description": "List label. {name} is the exercise's name."
+	},
+	"client.template.retry": "Retry template",
+	"client.template.rpe": {
+		"message": "RPE {rpe, number}",
+		"description": "Rate of perceived exertion. RPE is an established abbreviation."
+	},
+	"client.template.rpe-label": "RPE",
+	"client.template.title": "Workout template",
+	"client.template.totals": {
+		"message": "{exercises, plural, one {# exercise} other {# exercises}} · {sets, plural, one {# set} other {# sets}}",
+		"description": "{exercises} is how many exercises the template plans and {sets} is how many sets."
+	},
+	"client.timers.active": "Active",
+	"client.timers.add": "Add 15 seconds",
+	"client.timers.all-done": "All sets done",
+	"client.timers.done-now": "Done now",
+	"client.timers.execution-remaining": "Execution remaining",
+	"client.timers.minus-15": "−15s",
+	"client.timers.next-set": {
+		"message": "{name} · set {number, number}",
+		"description": "The next set to do. {name} is the exercise's name and {number} is the set's position."
+	},
+	"client.timers.of-total": {
+		"message": "/ {total}",
+		"description": "Total of a countdown, shown after the remaining time. {total} is minutes and seconds."
+	},
+	"client.timers.pause": "Pause",
+	"client.timers.pause-stopwatch": "Pause stopwatch",
+	"client.timers.paused": "Paused",
+	"client.timers.plus-15": "+15s",
+	"client.timers.reset-stopwatch": "Reset stopwatch",
+	"client.timers.rest-for": {
+		"message": "Rest for {time}?",
+		"description": "{time} is the rest duration as minutes and seconds."
+	},
+	"client.timers.rest-progress": "Rest progress",
+	"client.timers.rest-prompt": "Rest prompt",
+	"client.timers.rest-remaining": "Rest remaining",
+	"client.timers.resting": "{state, select, running {Resting} paused {Rest paused} other {Resting}}",
+	"client.timers.resting-next": {
+		"message": "{state, select, running {Resting} paused {Rest paused} other {Resting}} · next {next}",
+		"description": "Rest heading. {state} says whether the timer runs or is paused and {next} names the next set."
+	},
+	"client.timers.resume": "Resume",
+	"client.timers.set-completed": "Set completed",
+	"client.timers.skip-rest": "Skip rest",
+	"client.timers.skip-timer": "Skip timer",
+	"client.timers.start-rest": "Start rest",
+	"client.timers.start-stopwatch": "Start stopwatch",
+	"client.timers.stopwatch": "Stopwatch",
+	"client.timers.stopwatch-menu": {
+		"message": "{action, select, pause {Pause} start {Start} other {Start}} stopwatch ({time})",
+		"description": "Menu item. {action} is what the item does and {time} is the stopwatch reading."
+	},
+	"client.timers.stopwatch-toggle": {
+		"message": "{action, select, pause {Pause} resume {Resume} other {Pause}} stopwatch {time}",
+		"description": "Button label. {action} is what the button does and {time} is the stopwatch reading."
+	},
+	"client.timers.subtract": "Subtract 15 seconds",
+	"client.timers.timer-progress": "Set timer progress",
+	"client.timers.toggle": "{action, select, resume {Resume} pause {Pause} other {Pause}} {subject, select, rest {rest} set_timer {set timer} other {timer}}",
+	"client.timers.up-next": "Up next",
+	"client.timers.working": {
+		"message": "{state, select, running {Working} paused {Paused} other {Working}} · {name}",
+		"description": "Timed set heading. {state} says whether the timer runs or is paused and {name} is the exercise's name."
+	},
+	"client.workout.across-sets": {
+		"message": "Across {count, plural, one {# set} other {# sets}}",
+		"description": "{count} is how many sets earned personal bests."
+	},
+	"client.workout.active-duration": "Active duration",
+	"client.workout.adjust-time": "Adjust time",
+	"client.workout.column-one-rm": "Est. 1RM",
+	"client.workout.column-performed": "Performed",
+	"client.workout.column-records": "Records",
+	"client.workout.column-set": "Set",
+	"client.workout.create-template": "{pro, select, yes {Create template} no {Create template (Pro)} other {Create template (Pro)}}",
+	"client.workout.delete": "Delete workout",
+	"client.workout.elapsed-duration": "Elapsed duration",
+	"client.workout.energy": "Energy",
+	"client.workout.equipment-occurrences": {
+		"message": "{name}: {count, plural, one {# exercise occurrence} other {# exercise occurrences}}",
+		"description": "{name} is the equipment's name and {count} is how many exercise occurrences used it."
+	},
+	"client.workout.exercises-over-time": "Exercises over time",
+	"client.workout.linked": {
+		"message": "{kind, select, repeated {Repeated from {name}} template {Template: {name}} other {Template: {name}}}",
+		"description": "Link to a related workout. {kind} says whether it is the workout this one repeats or its template and {name} is that workout's name."
+	},
+	"client.workout.linked-dated": {
+		"message": "{kind, select, repeated {Repeated from {name}} template {Template: {name}} other {Template: {name}}} · {date}",
+		"description": "Link to a related workout with its date. {kind} says whether it is the workout this one repeats or its template, {name} is its name and {date} is its date."
+	},
+	"client.workout.load-failed": "This workout couldn't be loaded.",
+	"client.workout.loading": "Loading workout…",
+	"client.workout.missing": "This workout no longer exists.",
+	"client.workout.more-actions": "More workout actions",
+	"client.workout.one-rm-value": {
+		"message": "{value} 1RM",
+		"description": "Estimated one-rep max. {value} is the formatted weight."
+	},
+	"client.workout.record": "{record, select, time {Time} pace {Pace} reps {Reps} one_rm {1RM} volume {Volume} weight {Weight} distance {Distance} other {Record}}",
+	"client.workout.records-failed": "Records couldn't be updated for this exercise.",
+	"client.workout.records-updating": "Updating records…",
+	"client.workout.repeat": "Repeat workout",
+	"client.workout.rest-total": {
+		"message": "{duration} planned rest",
+		"description": "{duration} is the formatted total planned rest."
+	},
+	"client.workout.segment-title": {
+		"message": "{label} · {duration}",
+		"description": "Timeline segment tooltip. {label} is the exercise or superset name and {duration} is its formatted length."
+	},
+	"client.workout.session": "Session",
+	"client.workout.session-flow": "Session flow",
+	"client.workout.set-label": {
+		"message": "{name} {label}",
+		"description": "Accessible label of a set. {name} is the set type, such as Working set, and {label} is the set's number or tag."
+	},
+	"client.workout.sets-for": {
+		"message": "Sets for {name}",
+		"description": "Table label. {name} is the exercise's name."
+	},
+	"client.workout.vs-date": {
+		"message": "{change} vs {date}",
+		"description": "{change} is the signed change since the previous session and {date} is that session's date."
+	},
+	"client.workout.vs-previous": {
+		"message": "{change} vs previous sessions",
+		"description": "{change} is the signed volume change."
+	},
+	"client.workout.weighted-sets": "weighted sets",
+	"client.workouts.active": {
+		"message": "{duration} active",
+		"description": "Active workout time. {duration} is the formatted duration."
+	},
+	"client.workouts.active-unknown": "Active duration unknown",
+	"client.workouts.collapse": {
+		"message": "Collapse {name}",
+		"description": "Button label. {name} is the workout's name."
+	},
+	"client.workouts.column-best-set": "Best set",
+	"client.workouts.column-date": "Date",
+	"client.workouts.column-workout": "Workout",
+	"client.workouts.duration-caption": "{kind, select, active {duration} elapsed {elapsed} other {duration}}",
+	"client.workouts.elapsed": "Elapsed",
+	"client.workouts.elapsed-caption": "elapsed",
+	"client.workouts.empty": "Start a workout, or import your history from Hevy or Strong, to see it here.",
+	"client.workouts.expand": {
+		"message": "Expand {name}",
+		"description": "Button label. {name} is the workout's name."
+	},
+	"client.workouts.filter-records": "Personal records",
+	"client.workouts.last-week": "Last week",
+	"client.workouts.load-failed": "Your workouts couldn't be loaded.",
+	"client.workouts.more-exercises": {
+		"message": "{count, plural, one {+# more exercise} other {+# more exercises}}",
+		"description": "{count} is how many exercises are not listed."
+	},
+	"client.workouts.no-comparison": "no comparison",
+	"client.workouts.nothing-to-compare": "Started empty · nothing to compare",
+	"client.workouts.period": "{period, select, 7D {Last 7 days} 1M {Last 30 days} 3M {Last 90 days} 1Y {Last 12 months} other {Last 30 days}}",
+	"client.workouts.period-short": "{period, select, 7D {7D} 1M {1M} 3M {3M} 1Y {1Y} other {1M}}",
+	"client.workouts.pr": "PR",
+	"client.workouts.prs-caption": "PRs",
+	"client.workouts.repeated": "Repeated workout",
+	"client.workouts.repeated-from": {
+		"message": "Repeated from {day}",
+		"description": "{day} is the date of the workout this one repeats."
+	},
+	"client.workouts.sets-caption": "sets",
+	"client.workouts.sets-exercises": {
+		"message": "Sets · {exercises}",
+		"description": "Stat label. {exercises} is the counted exercises, such as \"3 exercises\"."
+	},
+	"client.workouts.start": "Start workout",
+	"client.workouts.summary.active-duration": "Recorded active duration",
+	"client.workouts.summary.average": {
+		"message": "avg {average}",
+		"description": "{average} is the formatted average duration."
+	},
+	"client.workouts.summary.average-partial": {
+		"message": "avg {average} · {timed, number} of {workouts, number} timed",
+		"description": "{average} is the formatted average duration, {timed} is how many workouts have a duration and {workouts} is all workouts."
+	},
+	"client.workouts.summary.awards": "Personal-best awards",
+	"client.workouts.summary.awards-latest": {
+		"message": "latest: {name} {set}",
+		"description": "{name} is the exercise's name and {set} is the formatted record set."
+	},
+	"client.workouts.summary.awards-none": "None in this period",
+	"client.workouts.summary.consistency": {
+		"message": "Consistency · {weeks, plural, one {# week} other {# weeks}}",
+		"description": "{weeks} is how many weeks the heatmap shows."
+	},
+	"client.workouts.summary.failed": "Your training summary couldn't be loaded.",
+	"client.workouts.summary.heatmap-label": {
+		"message": "Training days over the last {weeks, plural, one {# week} other {# weeks}}",
+		"description": "{weeks} is how many weeks the heatmap shows."
+	},
+	"client.workouts.summary.label": "Summary",
+	"client.workouts.summary.less": "Less",
+	"client.workouts.summary.loading": "Loading your training summary…",
+	"client.workouts.summary.more": "More volume",
+	"client.workouts.summary.no-timed": "No timed workouts",
+	"client.workouts.summary.per-week": {
+		"message": "{count, number} per week",
+		"description": "Average workouts per week."
+	},
+	"client.workouts.summary.period-label": "Summary period",
+	"client.workouts.summary.streak": {
+		"message": "{weeks, number}-week streak",
+		"description": "{weeks} is how many consecutive weeks have a workout."
+	},
+	"client.workouts.summary.volume-change": {
+		"message": "{change} vs previous {days, plural, one {# day} other {# days}}",
+		"description": "{change} is the formatted percentage change and {days} is the length of the compared period."
+	},
+	"client.workouts.summary.volume-none": "Nothing to compare yet",
+	"client.workouts.template-first": {
+		"message": "{name} · first session",
+		"description": "{name} is the workout template's name."
+	},
+	"client.workouts.template-last": {
+		"message": "{name} · last {day}",
+		"description": "{name} is the workout template's name and {day} is the date of its previous session."
+	},
+	"client.workouts.this-week": "This week",
+	"client.workouts.title": "Workouts",
+	"client.workouts.unavailable": "Workouts unavailable",
+	"client.workouts.undated": "Undated",
+	"client.workouts.volume-change": {
+		"message": "{change} volume",
+		"description": "{change} is the formatted percentage change in volume."
+	},
+	"client.wsheets.active-time": "Active time",
+	"client.wsheets.apply-only": "Apply to this workout only.",
+	"client.wsheets.ask-rest": "Ask before resting",
+	"client.wsheets.ask-rest-description": "Confirm before each rest timer starts",
+	"client.wsheets.attachments-body": {
+		"message": "Attachments on exercises with no included sets will not be saved: {names}.",
+		"description": "{names} is the list of exercise names."
+	},
+	"client.wsheets.attachments-title": "Some attachments won't be saved",
+	"client.wsheets.close-details": "Close details",
+	"client.wsheets.close-preferences": "Close preferences",
+	"client.wsheets.close-review": "Close review",
+	"client.wsheets.duration-timer": "Timer for duration sets",
+	"client.wsheets.duration-timer-description": "Count down the target time before completing",
+	"client.wsheets.energy": {
+		"message": "Energy burned ({unit})",
+		"description": "{unit} is the energy unit, such as kcal."
+	},
+	"client.wsheets.energy-unit-kcal": "kcal",
+	"client.wsheets.energy-unit-kj": "kJ",
+	"client.wsheets.excluded": "Excluded",
+	"client.wsheets.finish-title": "Finish workout?",
+	"client.wsheets.fraction": {
+		"message": "{done, number}/{total, number}",
+		"description": "How many of an exercise's sets are saved."
+	},
+	"client.wsheets.included": "Included sets",
+	"client.wsheets.mute-description": "Set, rest and timer sounds",
+	"client.wsheets.not-completed": "Not completed",
+	"client.wsheets.omitted": {
+		"message": "{kind, select, excluded {{count, plural, one {# excluded set won't} other {# excluded sets won't}}} unfinished {{count, plural, one {# unfinished set won't} other {# unfinished sets won't}}} other {{count, plural, one {# unfinished set won't} other {# unfinished sets won't}}}} be saved",
+		"description": "{count} is how many sets are left out and {kind} says whether they were excluded or unfinished."
+	},
+	"client.wsheets.omitted-historical": "Only included sets are saved.",
+	"client.wsheets.omitted-live": "Only completed sets are saved. Go back to complete or delete them.",
+	"client.wsheets.pro": "PRO",
+	"client.wsheets.reflection": "Reflection",
+	"client.wsheets.reflection-placeholder": "How did it go?",
+	"client.wsheets.reset": "Reset to default",
+	"client.wsheets.save-changes-title": "Save changes?",
+	"client.wsheets.save-template-title": "Save template?",
+	"client.wsheets.save-workout": "Save workout",
+	"client.wsheets.saved": "Sets saved",
+	"client.wsheets.template-comment": "Template comment",
+	"client.wsheets.template-details": "Template details",
+	"client.wsheets.template-placeholder": "Who it's for, progression notes…",
+	"client.wsheets.template-summary": {
+		"message": "{exercises, plural, one {# exercise} other {# exercises}} and {sets, plural, one {# planned set} other {# planned sets}}. Partly filled sets are kept; completely empty set rows are dropped.",
+		"description": "{exercises} is how many exercises and {sets} is how many sets the template plans."
+	},
+	"client.wsheets.workout-details": "Workout details",
+	"common.action.edit": "Edit",
+	"common.count": {
+		"message": "{noun, select, set {{count, plural, one {# set} other {# sets}}} exercise {{count, plural, one {# exercise} other {# exercises}}} workout {{count, plural, one {# workout} other {# workouts}}} award {{count, plural, one {# personal-best award} other {# personal-best awards}}} pr {{count, plural, one {# PR} other {# PRs}}} other {{count, plural, one {# item} other {# items}}}}",
+		"description": "A counted noun. {noun} names what is counted and {count} is the figure."
+	},
+	"common.unit.count": {
+		"message": "{noun, select, set {{count, plural, one {set} other {sets}}} rep {{count, plural, one {rep} other {reps}}} workout {{count, plural, one {workout} other {workouts}}} personal_best {{count, plural, one {personal best} other {personal bests}}} reading {{count, plural, one {reading} other {readings}}} entry {{count, plural, one {entry} other {entries}}} day {{count, plural, one {day} other {days}}} weighted_set {{count, plural, one {weighted set} other {weighted sets}}} occurrence {{count, plural, one {occurrence} other {occurrences}}} other {{count, plural, one {item} other {items}}}}",
+		"description": "The counted noun shown after a figure in charts and tiles. {noun} names what is counted and {count} is the figure."
+	},
+	"common.unit.value": {
+		"message": "{value} {unit}",
+		"description": "A figure with a user-defined unit that has no standard localized form. {value} is the formatted number and {unit} is the unit as the user wrote it."
+	},
+	"common.unit.volume": {
+		"message": "{unit} × reps",
+		"description": "Unit of weighted volume. {unit} is a weight unit symbol such as kg or lb."
+	},
+	"common.unit.weighted-volume": {
+		"message": "{weight} × reps",
+		"description": "Weighted volume, which is weight multiplied by repetitions. {weight} is a formatted weight with its unit."
+	},
+	"entity-schema.exercise-equipment.name": "Exercise Equipment",
+	"entity-schema.exercise-target.name": "Exercise Target",
+	"entity-schema.exercise.name": "Exercise",
+	"entity-schema.fitness-library.name": "Fitness Library",
+	"entity-schema.measurement-entry.name": "Measurement Entry",
+	"entity-schema.measurement-metric.name": "Measurement Metric",
+	"entity-schema.workout-template.name": "Workout Template",
+	"entity-schema.workout.name": "Workout",
+	"event-schema.exercise.review.name": "Review",
+	"event-schema.exercise.workout-exercise.name": "Recorded exercise occurrence",
+	"event-schema.exercise.workout-set.name": "Workout Set",
+	"event-schema.measurement-metric.measurement-reading.name": "Measurement Reading",
+	"event-schema.workout.workout-completed.name": "Workout completed",
+	"import-source.hevy.description": "Import workouts from a Hevy CSV export",
+	"import-source.hevy.name": {
+		"message": "Hevy",
+		"description": "Name of the Hevy workout tracking app; not translated."
+	},
+	"import-source.open-scale.description": "Import measurements from an OpenScale CSV export",
+	"import-source.open-scale.name": {
+		"message": "OpenScale",
+		"description": "Name of the OpenScale body measurement app; not translated."
+	},
+	"import-source.strong-app.description": "Import workouts from a Strong CSV export",
+	"import-source.strong-app.name": {
+		"message": "Strong App",
+		"description": "Name of the Strong workout tracking app; not translated."
+	},
+	"notification.workout-created": {
+		"message": "Workout {workoutName} was created",
+		"description": "Notification body. {workoutName} is the workout's name."
+	},
+	"plugin.description": "Track workouts, measurements, and progress.",
+	"plugin.name": "Fitness",
+	"property.active-duration": "Active Duration",
+	"property.calories-burnt": "Calories Burnt",
+	"property.color": "Color",
+	"property.comment": "Comment",
+	"property.confirmed-at": "Confirmed At",
+	"property.description": "Description",
+	"property.display-units": "Display units",
+	"property.distance": "Distance",
+	"property.drop-set-rest": "Drop set rest",
+	"property.drop-set-rest-hint": "Default drop set rest in seconds; zero disables rest",
+	"property.duration": "Duration",
+	"property.duration-unit": "Duration unit",
+	"property.ended-at": "Ended At",
+	"property.energy-unit": "Energy unit",
+	"property.energy-unit-hint": "Display energy in kcal or kJ; recorded energy stays in kcal",
+	"property.exercise-id": "Exercise Id",
+	"property.exercise-kind": "Exercise Kind",
+	"property.exercise-media": "Exercise Media",
+	"property.exercise-notes": "Exercise Notes",
+	"property.exercise-order": "Exercise Order",
+	"property.exercise-order-2": "Exercise order",
+	"property.exercises": "Exercises",
+	"property.failure-set-rest": "Failure set rest",
+	"property.failure-set-rest-hint": "Default failure set rest in seconds; zero disables rest",
+	"property.force": "Force",
+	"property.hevy-export": "Hevy export",
+	"property.hevy-export-hint": "Hevy workout export CSV",
+	"property.instructions": "Instructions",
+	"property.item": "Item",
+	"property.key": "Key",
+	"property.kind": "Kind",
+	"property.level": "Level",
+	"property.mechanic": "Mechanic",
+	"property.mute-sounds": "Mute sounds",
+	"property.mute-sounds-hint": "Mute workout action and timer sounds",
+	"property.normal-set-rest": "Normal set rest",
+	"property.normal-set-rest-hint": "Default normal set rest in seconds; zero disables rest",
+	"property.note": "Note",
+	"property.notes": "Notes",
+	"property.one-rm": "One Rm",
+	"property.openscale-export": "OpenScale export",
+	"property.openscale-export-hint": "OpenScale measurements export CSV",
+	"property.pace": "Pace",
+	"property.personal-bests": "Personal Bests",
+	"property.planned-rest": "Planned rest",
+	"property.prompt-for-rest-timer": "Prompt for rest timer",
+	"property.prompt-for-rest-timer-hint": "Ask before starting a rest timer when a set is confirmed",
+	"property.recorded-equipment": "Recorded equipment",
+	"property.recorded-kind": "Recorded kind",
+	"property.recorded-targets": "Recorded targets",
+	"property.reps": "Reps",
+	"property.rest-timer-started-at": "Rest Timer Started At",
+	"property.role": "Role",
+	"property.rpe": "Rpe",
+	"property.set-lot": "Set Lot",
+	"property.set-order": "Set Order",
+	"property.sets": "Sets",
+	"property.started-at": "Started At",
+	"property.strong-app-export": "Strong App export",
+	"property.strong-app-export-hint": "Strong App workout export CSV",
+	"property.supersets": "Supersets",
+	"property.taken-at": "Taken at",
+	"property.target": "Target",
+	"property.taxonomy-entity": "Taxonomy entity",
+	"property.timezone": "Timezone",
+	"property.timezone-hint": "Timezone the export's dates were recorded in",
+	"property.unit": "Unit",
+	"property.use-duration-countdowns": "Use duration countdowns",
+	"property.use-duration-countdowns-hint": "Offer a countdown when a duration-based set has a planned duration",
+	"property.value": "Value",
+	"property.volume": "Volume",
+	"property.warm-up-set-rest": "Warm-up set rest",
+	"property.warm-up-set-rest-hint": "Default warm-up set rest in seconds; zero disables rest",
+	"property.weekly-workout-goal": "Weekly workout goal",
+	"property.weekly-workout-goal-hint": "Workouts you aim to complete each week; Home tracks progress",
+	"property.weight": "Weight",
+	"property.workout-id": "Workout ID",
+	"property.workout-name": "Workout name",
+	"provider.exercise-equipment-fitness-catalog.name": {
+		"message": "Exercise Equipment Fitness Catalog",
+		"description": "Name of the catalog that provides exercise equipment entries for the Fitness plugin."
+	},
+	"provider.exercise-free-exercise-db.name": {
+		"message": "Free Exercise DB",
+		"description": "Name of the Free Exercise DB open exercise dataset; not translated."
+	},
+	"provider.exercise-target-fitness-catalog.name": {
+		"message": "Exercise Target Fitness Catalog",
+		"description": "Name of the catalog that provides exercise target (muscle) entries for the Fitness plugin."
+	},
+	"query-parameter.collections": {
+		"message": "Collections",
+		"description": "Label of a query parameter that selects collections."
+	},
+	"query-parameter.entity": {
+		"message": "Entity",
+		"description": "Label of a query parameter that selects one entry."
+	},
+	"query-parameter.entries": {
+		"message": "Entries",
+		"description": "Label of a query parameter that selects measurement entries."
+	},
+	"query-parameter.entry": {
+		"message": "Entry",
+		"description": "Label of a query parameter that selects one measurement entry."
+	},
+	"query-parameter.equipment": {
+		"message": "Equipment",
+		"description": "Label of a query parameter that selects equipment."
+	},
+	"query-parameter.events": {
+		"message": "Events",
+		"description": "Label of a query parameter that selects events."
+	},
+	"query-parameter.excluded-workout": {
+		"message": "Excluded workout",
+		"description": "Label of a query parameter naming a workout to leave out."
+	},
+	"query-parameter.exercise": {
+		"message": "Exercise",
+		"description": "Label of a query parameter that selects one exercise."
+	},
+	"query-parameter.exercises": {
+		"message": "Exercises",
+		"description": "Label of a query parameter that selects exercises."
+	},
+	"query-parameter.filter-entity": {
+		"message": "Filter",
+		"description": "Label of a query parameter that selects the exercise, muscle or equipment to filter by."
+	},
+	"query-parameter.filter-kind": {
+		"message": "Filter kind",
+		"description": "Label of a query parameter choosing whether the filter is an exercise, muscle or equipment."
+	},
+	"query-parameter.first-reading": {
+		"message": "First reading",
+		"description": "Label of a query parameter holding the time of the earliest measurement reading."
+	},
+	"query-parameter.forces": {
+		"message": "Forces",
+		"description": "Label of a query parameter that selects exercise forces."
+	},
+	"query-parameter.from": {
+		"message": "From",
+		"description": "Label of a query parameter holding the start of a time range."
+	},
+	"query-parameter.id": {
+		"message": "ID",
+		"description": "Label of a query parameter holding one identifier."
+	},
+	"query-parameter.kind": {
+		"message": "Kind",
+		"description": "Label of a query parameter choosing between a workout and a workout template."
+	},
+	"query-parameter.kinds": {
+		"message": "Kinds",
+		"description": "Label of a query parameter that selects exercise measurement kinds."
+	},
+	"query-parameter.levels": {
+		"message": "Levels",
+		"description": "Label of a query parameter that selects exercise experience levels."
+	},
+	"query-parameter.mechanics": {
+		"message": "Mechanics",
+		"description": "Label of a query parameter that selects exercise mechanics."
+	},
+	"query-parameter.merge-from": {
+		"message": "Merge from",
+		"description": "Label of a query parameter naming the exercise that is merged away."
+	},
+	"query-parameter.merge-into": {
+		"message": "Merge into",
+		"description": "Label of a query parameter naming the exercise that is kept."
+	},
+	"query-parameter.metric": {
+		"message": "Metric",
+		"description": "Label of a query parameter that selects one measured value."
+	},
+	"query-parameter.metrics": {
+		"message": "Metrics",
+		"description": "Label of a query parameter that selects measured values."
+	},
+	"query-parameter.muscles": {
+		"message": "Muscles",
+		"description": "Label of a query parameter that selects muscles."
+	},
+	"query-parameter.name": {
+		"message": "Name",
+		"description": "Label of a query parameter holding a name."
+	},
+	"query-parameter.note": {
+		"message": "Note",
+		"description": "Label of a query parameter that selects one exercise note."
+	},
+	"query-parameter.order": {
+		"message": "Order",
+		"description": "Label of a query parameter choosing how exercises are ordered."
+	},
+	"query-parameter.ranking": {
+		"message": "Ranking",
+		"description": "Label of a query parameter choosing what is ranked."
+	},
+	"query-parameter.recorded-kind": {
+		"message": "Recorded kind",
+		"description": "Label of a query parameter holding how an exercise's sets are recorded."
+	},
+	"query-parameter.search": {
+		"message": "Search",
+		"description": "Label of a query parameter holding search text."
+	},
+	"query-parameter.started-before": {
+		"message": "Started before",
+		"description": "Label of a query parameter holding a workout start time; earlier workouts are read."
+	},
+	"query-parameter.until": {
+		"message": "Until",
+		"description": "Label of a query parameter holding the end of a time range."
+	},
+	"query-parameter.value": {
+		"message": "Value",
+		"description": "Label of one item of a list query parameter."
+	},
+	"query-parameter.workout": {
+		"message": "Workout",
+		"description": "Label of a query parameter that selects one workout."
+	},
+	"query-parameter.workouts": {
+		"message": "Workouts",
+		"description": "Label of a query parameter that selects workouts."
+	},
+	"rejection.workout-exercise.context-missing": "This exercise is not part of a workout.",
+	"rejection.workout-exercise.taxonomy-capacity": "This exercise lists more muscles or equipment than a workout can record.",
+	"rejection.workout-set.confirmed-at-invalid": "This set's completion time is not valid.",
+	"rejection.workout-set.context-missing": "This set is not part of a workout exercise.",
+	"rejection.workout-set.exercise-kind-invalid": "This set's exercise type is not supported.",
+	"rejection.workout-set.measurements-invalid": "This set's measurements don't fit its exercise type.",
+	"relationship-schema.exercise-targets.name": "Exercise Targets",
+	"relationship-schema.exercise-uses-equipment.name": "Exercise Uses Equipment",
+	"relationship-schema.in-fitness-library.name": "In Fitness Library",
+	"relationship-schema.measurement-metric-pinned.name": "Measurement Metric Pinned",
+	"relationship-schema.workout-repeated-from.name": "Workout Repeated From",
+	"relationship-schema.workout-to-workout-template.name": "Workout to Workout Template",
+	"saved-view.all-exercises.name": "All Exercises",
+	"saved-view.all-measurements.name": "All Measurements",
+	"saved-view.all-workout-templates.name": "All Workout Templates",
+	"saved-view.all-workouts.name": "All Workouts",
+	"signal-schema.workout-created.name": "Workout Created",
+	"table-column.created-at": "Created At",
+	"table-column.name": "Name"
+}
