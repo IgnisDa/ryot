@@ -247,6 +247,34 @@ A `RAISE EXCEPTION` rolls back its own `DO $$` block, so an abort can leave noth
 
 ## Validation Runbook
 
+For internationalization, inventory every distinct role and its count before migration:
+
+```sql
+SELECT source, role, count(*)
+FROM (
+  SELECT 'metadata_to_person' AS source, role FROM "metadata_to_person"
+  UNION ALL
+  SELECT 'metadata_group_to_person', role FROM "metadata_group_to_person"
+  UNION ALL
+  SELECT 'metadata.free_creators', creator->>'role'
+  FROM "metadata", jsonb_array_elements(coalesce(free_creators::jsonb, '[]'::jsonb)) creator
+) roles
+GROUP BY source, role ORDER BY source, role;
+```
+
+Compare trimmed, lowercased roles with `legacyCreditRoleCodes` in `legacy-credit-roles.ts`.
+For retained credits, require mapped values in `roleCodes` and unmapped provider text unchanged
+in `roles`. For retained free creators, require mapped `roleCode` values with the original `role`
+removed; unmapped roles stay verbatim. Account for the existing recursive removal of null object
+properties when comparing creator records.
+
+Check that shipped plugin revisions store message-shaped names and descriptions and have their
+English, translated, and pseudo-locale catalogs. Migrated users must have null `interfaceLocale`
+and `contentLanguage`, with `reportingTimeZone` matching the dump's deployment `TZ`. In an isolated
+interrupted run, change those preferences after the user phase commits, restart with another valid
+`TZ`, and require the stored values to survive. A completed restart must preserve counts, credits,
+preferences, plugin revision identities, and catalog contents.
+
 For original language, compare each retained TMDB/TVDB movie/show with its nonblank legacy value
 and canonical code, including skeletons. Other media and blank values must remain absent. Repeat an
 interrupted migration with legacy tables retained: codes, timestamps, generations, and report counts
