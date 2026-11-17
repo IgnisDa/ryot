@@ -2,7 +2,7 @@ import { afterEach, describe, expect } from "bun:test";
 
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { periodCaption, PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId, usePeriodCaption } from "@ryot-app/plugin-client-sdk/plugin";
 import { useReportedPages, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	createTestRyotClock,
@@ -21,6 +21,7 @@ import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { reportingSelectionResponse, zeroMeasures } from "../../tests/client/analytics-fixture";
+import { servedTypeName } from "../../tests/client/served-names";
 import type { AnalyticsInput, MediaAnalyticsRecord } from "./model";
 import {
 	mediaAnalyticsConsistencyQuery,
@@ -90,6 +91,7 @@ function UnmountProbe() {
 	);
 }
 function ConsistencyProbe() {
+	const periodCaption = usePeriodCaption();
 	const query = useRyotQuery(mediaAnalyticsConsistencyQuery, input);
 	return (
 		<>
@@ -114,6 +116,7 @@ function RankingProbe() {
 	);
 }
 function ReportProbe() {
+	const periodCaption = usePeriodCaption();
 	const query = useRyotQuery(mediaAnalyticsSummaryQuery, input);
 	return (
 		<>
@@ -154,6 +157,7 @@ function RecordsProbe() {
 const hourRow = { ...zeroMeasures, hour: 1, titleCompletions: 1, minutesRecorded: 2.125 };
 const monthProbe = (selected: AnalyticsInput): ComponentType =>
 	function MonthProbe() {
+		const periodCaption = usePeriodCaption();
 		const summary = useRyotQuery(mediaAnalyticsSummaryQuery, selected);
 		const trend = useRyotQuery(mediaAnalyticsTrendQuery, selected);
 		return (
@@ -179,10 +183,10 @@ const sourceRecord = (name: string): MediaAnalyticsRecord => ({
 	id: name,
 	facts: {},
 	orderKey: name,
-	label: "Music",
 	mediaType: "music",
 	eventType: "complete",
 	entityId: "original-title",
+	label: servedTypeName("music"),
 	occurredAt: "2026-10-29T12:00:00Z",
 	orderCreatedAt: "2026-10-29T12:00:00Z",
 	contribution: {
@@ -196,7 +200,11 @@ const mount = (clock: ReturnType<typeof createTestRyotClock>, Probe: ComponentTy
 	mountPluginPage(Probe, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/k/analytics"),
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+		queryExecution: () => ({
+			weekStart: 1,
+			now: clock.now(),
+			timeZone: TimeZone.make("America/New_York"),
+		}),
 		page: {
 			...savedViewPageContext({
 				settings: {},

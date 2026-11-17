@@ -1,48 +1,67 @@
 import type { RatingScale } from "@ryot-app/plugin-client-sdk";
-import { periodCaption, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
+import { usePeriodCaption, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { useT, useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ChartCard,
 	countUnit,
-	formatMetric,
-	formatNumber,
 	type Metric,
 	metricDelta,
+	type MetricFormat,
 	MetricGrid,
 	ratingUnit,
 	ReportText,
+	useMetricFormat,
 } from "@ryot-app/plugin-ui-sdk";
 import { CoverageBar } from "@ryot-app/plugin-ui-sdk/charts";
 import { DataTable } from "@ryot-app/plugin-ui-sdk/table";
+import { useMemo } from "react";
 
 import { consumptionMeasureUnits } from "../../shared/consumption-allocation";
+import { useMediaMessages } from "../messages";
 import {
-	dayUnit,
-	entryUnit,
-	episodeUnit,
-	measureLabels,
-	measureUnits,
+	measureLabel,
 	type reviewModel,
 	type SummaryChartsProps,
 	summaryModel,
-	titleUnit,
-	uniqueTitleUnit,
+	useAnalyticsUnits,
 } from "./model";
+
+type AnalyticsUnits = ReturnType<typeof useAnalyticsUnits>;
 
 type PeriodModel = ReturnType<typeof summaryModel>["current"];
 
-const reviewUnit = countUnit("review");
-const ratedUnit = countUnit("rating");
-const undatedUnit = countUnit("undated entry", "undated entries");
-
-const typeAmounts = (row: PeriodModel["types"][number]) =>
+const typeAmounts = (
+	units: AnalyticsUnits,
+	format: MetricFormat,
+	row: PeriodModel["types"][number],
+) =>
 	consumptionMeasureUnits
 		.filter((unit) => unit !== "minutes" && row.quantities[unit].value !== null)
-		.map((unit) => formatMetric(row.quantities[unit].value, measureUnits[unit]))
+		.map((unit) => format.formatMetric(row.quantities[unit].value, units.measureUnits[unit]))
 		.join(" · ");
 
+const useReviewUnits = () => {
+	const text = useMediaMessages();
+	return useMemo(
+		() => ({
+			ratedUnit: countUnit((count) => text("analytics.unit.rating", { count })),
+			reviewUnit: countUnit((count) => text("analytics.unit.review", { count })),
+			undatedUnit: countUnit((count) => text("analytics.unit.undated-entry", { count })),
+		}),
+		[text],
+	);
+};
+
 export function MediaAnalyticsSummary(props: SummaryChartsProps) {
+	const periodCaption = usePeriodCaption();
+	const format = useMetricFormat();
+	const { formatMetric, formatNumber } = format;
 	const { compact } = useRyotViewport();
+	const t = useT();
+	const text = useMediaMessages();
+	const units = useAnalyticsUnits();
+	const { undatedUnit } = useReviewUnits();
+	const { dayUnit, titleUnit, entryUnit, episodeUnit, measureUnits, uniqueTitleUnit } = units;
 	const ratingScale = useUserPreferences().data?.ratingScale;
 	const model = summaryModel(props.summary);
 	const { current, previous } = model;
@@ -53,32 +72,32 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 		{
 			unit: titleUnit,
 			key: "title-completions",
-			label: "Titles completed",
 			value: current.titleCompletions,
+			label: text("analytics.metric.titles-completed"),
 			hint: formatMetric(current.distinctTitles, uniqueTitleUnit),
 			delta: delta(current.titleCompletions, previous?.titleCompletions),
 		},
 		{
 			unit: episodeUnit,
 			key: "episode-completions",
-			label: "Episodes finished",
-			hint: "Shows and podcasts",
 			value: current.episodeCompletions,
+			hint: text("analytics.summary.episodes-hint"),
+			label: text("analytics.metric.episodes-finished"),
 			delta: delta(current.episodeCompletions, previous?.episodeCompletions),
 		},
 		{
 			key: "minutes",
-			label: "Time spent",
 			value: minutes.value,
 			atLeast: minutes.partial,
 			unit: measureUnits.minutes,
+			label: measureLabel(text, "minutes"),
 			delta: delta(minutes.value, previous?.quantities.minutes.value),
 		},
 		{
 			unit: dayUnit,
 			key: "active-days",
-			label: "Active days",
 			value: current.activeDays,
+			label: text("analytics.summary.active-days"),
 			delta: delta(current.activeDays, previous?.activeDays),
 			hint: formatMetric(current.activeObservations, entryUnit),
 		},
@@ -95,7 +114,10 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 		.sort((left, right) => right.activeObservations - left.activeObservations);
 
 	return (
-		<section aria-label="Media analytics summary" className="flex min-w-0 flex-col gap-4 font-ui">
+		<section
+			className="flex min-w-0 flex-col gap-4 font-ui"
+			aria-label={text("analytics.summary.aria-label")}
+		>
 			<ReportText>
 				<p className="text-label text-text-muted">
 					{periodCaption(props.summary.reporting.resolved.current)}
@@ -105,12 +127,12 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 				variant="tiles"
 				compact={compact}
 				metrics={metrics}
-				comparisonLabel="vs previous period"
+				comparisonLabel={text("analytics.summary.comparison")}
 			/>
 			{amounts.length === 0 ? null : (
 				<ChartCard
-					title="Amounts"
-					description="Recorded amounts plus estimates from title lengths. Each unit is counted separately."
+					title={text("analytics.summary.amounts-title")}
+					description={text("analytics.summary.amounts-description")}
 				>
 					<div
 						className={compact ? "grid min-w-0 gap-5" : "grid min-w-0 grid-cols-2 gap-x-8 gap-y-5"}
@@ -122,7 +144,7 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 								<div key={unit} className="flex min-w-0 flex-col gap-2">
 									<ReportText>
 										<div className="flex min-w-0 items-baseline justify-between gap-3">
-											<span className="text-label text-text-muted">{measureLabels[unit]}</span>
+											<span className="text-label text-text-muted">{measureLabel(text, unit)}</span>
 											<span className="text-body font-semibold text-text tabular-nums">
 												{quantity.partial ? "≥ " : ""}
 												{formatMetric(quantity.value, measure)}
@@ -130,27 +152,31 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 										</div>
 									</ReportText>
 									<CoverageBar
-										ariaLabel={`${measureLabels[unit]} sources`}
 										formatValue={(segment) => formatMetric(segment.value, measure)}
+										ariaLabel={text("analytics.summary.sources-label", {
+											unit: measureLabel(text, unit),
+										})}
 										segments={[
 											{
 												tone: "solid",
 												key: "recorded",
-												label: "Recorded",
 												value: quantity.recorded,
+												label: text("analytics.summary.recorded"),
 											},
 											{
 												tone: "soft",
 												key: "estimated",
-												label: "Estimated",
 												value: quantity.estimated,
+												label: text("analytics.summary.estimated"),
 											},
 										]}
 									/>
 									{quantity.missing > 0 ? (
 										<ReportText>
 											<p className="text-micro text-text-subtle">
-												{formatMetric(quantity.missing, entryUnit)} without an amount
+												{text("analytics.summary.missing-amount", {
+													amount: formatMetric(quantity.missing, entryUnit),
+												})}
 											</p>
 										</ReportText>
 									) : null}
@@ -161,7 +187,9 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 					{model.unknownDate > 0 ? (
 						<ReportText>
 							<p className="text-micro text-text-subtle">
-								Not counted in any period: {formatMetric(model.unknownDate, undatedUnit)}.
+								{text("analytics.summary.undated", {
+									amount: formatMetric(model.unknownDate, undatedUnit),
+								})}
 							</p>
 						</ReportText>
 					) : null}
@@ -169,8 +197,8 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 			)}
 			{types.length === 0 ? null : (
 				<ChartCard
-					title="By media type"
-					description="Episodes and seasons are counted separately from their shows."
+					title={text("analytics.summary.types-title")}
+					description={text("analytics.summary.types-description")}
 				>
 					<div className="min-w-0 overflow-x-auto">
 						<DataTable
@@ -179,44 +207,52 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 							getRowId={(row) => row.source.mediaType}
 							headerCellClassName="py-2 pr-3 font-medium text-right"
 							headerClassName="text-text-muted border-b border-border"
-							aria-label="Completions, activity, and amounts by media type"
+							aria-label={text("analytics.summary.types-table-label")}
 							cellClassName="py-2.5 pr-3 text-text tabular-nums text-right"
 							className="w-full min-w-[36rem] border-collapse text-left text-label"
 							columns={[
 								{
 									id: "type",
-									header: "Type",
 									rowHeader: true,
-									cell: (row) => row.source.label,
+									header: text("property.type"),
+									cell: (row) => t(row.source.label),
 									headerClassName: "py-2 pr-3 font-medium text-left",
 									cellClassName: "py-2.5 pr-3 font-medium text-text",
 								},
 								{
 									id: "completed",
-									header: "Completed",
 									cell: (row) => formatNumber(row.titleCompletions),
+									header: text("analytics.summary.column-completed"),
 								},
 								{
 									id: "episodes",
-									header: "Episodes",
+									header: measureLabel(text, "episodes"),
 									cell: (row) => formatNumber(row.episodeCompletions),
 								},
-								{ id: "days", header: "Active days", cell: (row) => formatNumber(row.activeDays) },
+								{
+									id: "days",
+									cell: (row) => formatNumber(row.activeDays),
+									header: text("analytics.summary.active-days"),
+								},
 								{
 									id: "time",
-									header: "Time spent",
+									header: measureLabel(text, "minutes"),
 									cell: (row) =>
 										row.quantities.minutes.value === null
 											? "—"
 											: formatMetric(row.quantities.minutes.value, measureUnits.minutes),
 								},
-								{ id: "amounts", header: "Other amounts", cell: (row) => typeAmounts(row) || "—" },
+								{
+									id: "amounts",
+									cell: (row) => typeAmounts(units, format, row) || "—",
+									header: text("analytics.summary.column-other-amounts"),
+								},
 							]}
 						/>
 					</div>
 				</ChartCard>
 			)}
-			<ChartCard title="Reviews">
+			<ChartCard title={text("activity.figure-reviews")}>
 				<ReviewFigures
 					ratingScale={ratingScale}
 					reviews={current.reviews}
@@ -228,25 +264,33 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 							data={current.reviews.categories}
 							getRowId={(row) => row.mediaType}
 							rowClassName="border-b border-border"
-							aria-label="Review count and rating by media category"
 							headerCellClassName="py-2 pr-3 font-medium text-right"
 							headerClassName="text-text-muted border-b border-border"
+							aria-label={text("analytics.summary.reviews-table-label")}
 							cellClassName="py-2.5 pr-3 text-text tabular-nums text-right"
 							className="w-full min-w-[28rem] border-collapse text-left text-label"
 							columns={[
 								{
 									id: "category",
 									rowHeader: true,
-									header: "Category",
-									cell: (row) => row.label,
+									cell: (row) => t(row.label),
+									header: text("analytics.table.category"),
 									headerClassName: "py-2 pr-3 font-medium text-left",
 									cellClassName: "py-2.5 pr-3 font-medium text-text",
 								},
-								{ id: "reviews", header: "Reviews", cell: (row) => formatNumber(row.reviews) },
-								{ id: "rated", header: "Rated", cell: (row) => formatNumber(row.rated ?? 0) },
+								{
+									id: "reviews",
+									header: text("activity.figure-reviews"),
+									cell: (row) => formatNumber(row.reviews),
+								},
+								{
+									id: "rated",
+									header: text("analytics.summary.rated"),
+									cell: (row) => formatNumber(row.rated ?? 0),
+								},
 								{
 									id: "average",
-									header: "Average rating",
+									header: text("analytics.summary.average-rating"),
 									cell: (row) =>
 										row.averageRating == null || ratingScale === undefined
 											? "—"
@@ -259,7 +303,9 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 				{props.summary.reporting.resolved.previous === null ? null : (
 					<ReportText>
 						<p className="text-micro text-text-subtle">
-							Changes compare with {periodCaption(props.summary.reporting.resolved.previous)}.
+							{text("analytics.summary.compares-with", {
+								period: periodCaption(props.summary.reporting.resolved.previous),
+							})}
 						</p>
 					</ReportText>
 				)}
@@ -275,17 +321,19 @@ function ReviewFigures(props: {
 }) {
 	const { ratingScale } = props;
 	const { compact } = useRyotViewport();
+	const text = useMediaMessages();
+	const { ratedUnit, reviewUnit } = useReviewUnits();
 	return (
 		<MetricGrid
 			variant="plain"
 			compact={compact}
-			comparisonLabel="vs previous period"
+			comparisonLabel={text("analytics.summary.comparison")}
 			metrics={[
 				{
 					key: "reviews",
-					label: "Reviews",
 					unit: reviewUnit,
 					value: props.reviews.reviews,
+					label: text("activity.figure-reviews"),
 					delta:
 						props.previous === null
 							? undefined
@@ -293,9 +341,9 @@ function ReviewFigures(props: {
 				},
 				{
 					key: "rated",
-					label: "Rated",
 					unit: ratedUnit,
 					value: props.reviews.rated,
+					label: text("analytics.summary.rated"),
 					delta:
 						props.previous === null
 							? undefined
@@ -303,8 +351,8 @@ function ReviewFigures(props: {
 				},
 				{
 					key: "average",
-					label: "Average rating",
 					unit: ratingUnit(ratingScale ?? "hundred"),
+					label: text("analytics.summary.average-rating"),
 					value: ratingScale === undefined ? null : props.reviews.averageRating,
 					delta:
 						props.previous === null

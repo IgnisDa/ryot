@@ -21,6 +21,7 @@ import {
 	analyticsSummary,
 	analyticsTypeRow,
 } from "../../tests/client/analytics-fixture";
+import { mediaMessages } from "../../tests/client/test-support";
 import type { AnalyticsInput, MediaAnalyticsProcessing, SummaryChartsProps } from "./model";
 import { MediaAnalyticsSummary } from "./summary";
 
@@ -42,7 +43,7 @@ const input: AnalyticsInput = {
 const now = Date.parse("2026-03-15T12:00:00Z");
 
 const types = (pageAmounts: Record<string, number> = {}) => [
-	analyticsTypeRow("book", "Book", {
+	analyticsTypeRow("book", {
 		activeDays: 2,
 		pagesKnown: 1,
 		distinctTitles: 2,
@@ -53,12 +54,8 @@ const types = (pageAmounts: Record<string, number> = {}) => [
 		activeObservations: 4,
 		...pageAmounts,
 	}),
-	analyticsTypeRow("show", "Show", { minutesKnown: 2, titleCompletions: 1 }),
-	analyticsTypeRow("show-episode", "Show episode", {
-		minutesKnown: 2,
-		minutesRecorded: 20,
-		episodeCompletions: 3,
-	}),
+	analyticsTypeRow("show", { minutesKnown: 2, titleCompletions: 1 }),
+	analyticsTypeRow("show-episode", { minutesKnown: 2, minutesRecorded: 20, episodeCompletions: 3 }),
 ];
 
 const summaryProps = (
@@ -71,17 +68,13 @@ const summaryProps = (
 		now,
 		processing,
 		unknownDate: 3,
-		previous: { types: [analyticsTypeRow("book", "Book")] },
+		previous: { types: [analyticsTypeRow("book")] },
 		current: {
 			activeDays: 2,
 			types: types(pageAmounts),
 			reviews: [
-				analyticsReviewRow("person", "Person", { rated: 1, reviews: 1, averageRating: 0 }),
-				analyticsReviewRow("show-episode", "Show episode", {
-					rated: 1,
-					reviews: 1,
-					averageRating: 80,
-				}),
+				analyticsReviewRow("person", { rated: 1, reviews: 1, averageRating: 0 }),
+				analyticsReviewRow("show-episode", { rated: 1, reviews: 1, averageRating: 80 }),
 			],
 		},
 	}),
@@ -90,9 +83,14 @@ const summaryProps = (
 const mountSummary = (clock: ReturnType<typeof createTestRyotClock>, props: SummaryChartsProps) =>
 	mountPluginPage(() => <MediaAnalyticsSummary {...props} />, {
 		bootstrap: clock.bootstrap,
+		catalogs: [mediaMessages("media-owner")],
 		location: routeLocation("/v/k/analytics"),
-		userPreferences: { ratingScale: "ten", timeZone: TimeZone.make("UTC") },
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+		userPreferences: { weekStart: 1, ratingScale: "ten", timeZone: TimeZone.make("UTC") },
+		queryExecution: () => ({
+			weekStart: 1,
+			now: clock.now(),
+			timeZone: TimeZone.make("America/New_York"),
+		}),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -126,7 +124,7 @@ describe("Media analytics summary UI", () => {
 					expect(screen.queryByRole("img", { name: /^Volumes sources/ })).toBeNull();
 					expect(screen.getAllByText("0 pages").length).toBeGreaterThan(0);
 					const rows = screen.getAllByRole("rowheader").map((row) => row.textContent);
-					expect(rows).toEqual(["Book", "Show", "Show episode", "Person", "Show episode"]);
+					expect(rows).toEqual(["Book", "Show", "Show Episode", "Person", "Show Episode"]);
 					expect(screen.getByText("Not counted in any period: 3 undated entries.")).toBeDefined();
 				} finally {
 					page.dispose();

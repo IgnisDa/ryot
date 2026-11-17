@@ -15,6 +15,8 @@ import {
 	reportingSelectionResponse,
 	zeroMeasures,
 } from "../../tests/client/analytics-fixture";
+import { servedTypeName } from "../../tests/client/served-names";
+import { testMediaText } from "../../tests/client/test-text";
 import {
 	consistencyModel,
 	hourlyModel,
@@ -53,21 +55,18 @@ const summary = (processing: "ready" | "failed" | "pending" = "ready") =>
 		unknownDate: 2,
 		current: {
 			activeDays: 1,
-			types: [analyticsTypeRow("book", "Book", book), analyticsTypeRow("movie", "Movie", book)],
+			types: [analyticsTypeRow("book", book), analyticsTypeRow("movie", book)],
 			reviews: [
-				analyticsReviewRow("person", "Person", { rated: 1, reviews: 1, averageRating: 0 }),
-				analyticsReviewRow("show-episode", "Show episode", {
-					rated: 2,
-					reviews: 2,
-					averageRating: 60,
-				}),
+				analyticsReviewRow("person", { rated: 1, reviews: 1, averageRating: 0 }),
+				analyticsReviewRow("show-episode", { rated: 2, reviews: 2, averageRating: 60 }),
 			],
 		},
 	});
+const calendar = { weekStart: 1, timeZone: input.timeZone } as const;
 const trend = (startDate = "2026-10-01", endDate = "2026-10-02"): MediaAnalyticsTrend => {
 	const reporting = resolveReportingSelection(
 		{ grouping: "day", comparison: "none", range: { endDate, startDate, kind: "custom" } },
-		{ now, timeZone: input.timeZone },
+		{ now, weekStart: 1, timeZone: input.timeZone },
 	);
 	const data = Result.getOrThrow(
 		bindRecipe(
@@ -76,7 +75,7 @@ const trend = (startDate = "2026-10-01", endDate = "2026-10-02"): MediaAnalytics
 					...input,
 					reporting: resolveReportingSelection(
 						{ grouping: "day", comparison: "none", range: { endDate, startDate, kind: "custom" } },
-						{ now, timeZone: input.timeZone },
+						{ now, weekStart: 1, timeZone: input.timeZone },
 					),
 				}.reference,
 			}),
@@ -133,7 +132,7 @@ describe("Media analytics presentation model", () => {
 			titleCompletions: 4,
 			activeObservations: 6,
 		});
-		expect(model.current.types[0]?.source.label).toBe("Book");
+		expect(model.current.types[0]?.source.mediaType).toBe("book");
 		expect(model.current.types[0]?.quantities.pages).toMatchObject({
 			value: 100,
 			missing: 1,
@@ -147,18 +146,18 @@ describe("Media analytics presentation model", () => {
 	});
 	it("fills every calendar bucket of the period and zero-fills empty days", () => {
 		const current = trend();
-		const buckets = trendBuckets(current, current.current, "titleCompletions", input.timeZone);
+		const buckets = trendBuckets(current, current.current, "titleCompletions", calendar);
 		expect(buckets.map(({ date, value }) => ({ date, value }))).toEqual([
 			{ value: 2, date: "2026-10-01" },
 			{ value: 0, date: "2026-10-02" },
 		]);
-		expect(trendBuckets(current, current.current, "pages", input.timeZone)[1]?.value).toBeNull();
-		expect(
-			consistencyModel(current, input.timeZone).map(({ date, value }) => ({ date, value })),
-		).toEqual([
-			{ value: 3, date: "2026-10-01" },
-			{ value: 0, date: "2026-10-02" },
-		]);
+		expect(trendBuckets(current, current.current, "pages", calendar)[1]?.value).toBeNull();
+		expect(consistencyModel(current, calendar).map(({ date, value }) => ({ date, value }))).toEqual(
+			[
+				{ value: 3, date: "2026-10-01" },
+				{ value: 0, date: "2026-10-02" },
+			],
+		);
 	});
 	it("groups hours into a 24-hour grid without combining units", () => {
 		const hours = Result.getOrThrow(
@@ -168,6 +167,7 @@ describe("Media analytics presentation model", () => {
 						...input,
 						reporting: resolveReportingSelection(input.selection, {
 							now,
+							weekStart: 1,
 							timeZone: input.timeZone,
 						}),
 					}.reference,
@@ -193,8 +193,8 @@ describe("Media analytics presentation model", () => {
 		const model = reviewModel(summary().current.reviews);
 		expect(model).toMatchObject({ rated: 3, reviews: 3, averageRating: 40 });
 		expect(model.categories).toMatchObject([
-			{ rated: 1, label: "Person", averageRating: 0 },
-			{ rated: 2, averageRating: 60, label: "Show episode" },
+			{ rated: 1, averageRating: 0, mediaType: "person" },
+			{ rated: 2, averageRating: 60, mediaType: "show-episode" },
 		]);
 		expect(reviewModel([]).averageRating).toBeNull();
 	});
@@ -202,11 +202,11 @@ describe("Media analytics presentation model", () => {
 		const row = {
 			id: "item",
 			name: "Anime",
-			label: "Anime",
 			orderKey: "item",
 			entityId: "anime",
 			mediaType: "anime",
 			eventType: "item-complete",
+			label: servedTypeName("anime"),
 			occurredAt: "2026-10-01T00:00:00Z",
 			orderCreatedAt: "2026-10-01T00:00:00Z",
 			facts: {
@@ -222,10 +222,10 @@ describe("Media analytics presentation model", () => {
 				episodes: { recorded: 1, estimated: 0, missing: false, supersededEstimate: false },
 			},
 		} as const;
-		const model = recordModel(row);
-		expect(model.position).toBe("Ep 12");
+		const model = recordModel(testMediaText, row);
+		expect<null | string>(model.position).toBe("Ep 12");
 		expect(model.sourceProgress).toContain("not an allocated amount");
 		expect(model.manualMinutes).toBe(0);
-		expect(model.date).toBe("Unknown date");
+		expect<string>(model.date).toBe("Unknown date");
 	});
 });

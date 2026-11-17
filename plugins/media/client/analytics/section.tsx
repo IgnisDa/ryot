@@ -1,13 +1,14 @@
 import {
 	type AnalyticsSectionProps,
-	periodCaption,
 	useDrillRequest,
+	usePeriodCaption,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, QueryStatus, StatusMessage, tabId, Tabs } from "@ryot-app/plugin-ui-sdk";
 import { useId, useState } from "react";
 
+import { useMediaMessages } from "../messages";
 import { MediaAnalyticsCharts } from "./charts";
 import type { MediaAnalyticsProcessing, RecordsDrillRequest, SummaryChartsProps } from "./model";
 import { mediaAnalyticsSummaryQuery } from "./queries";
@@ -22,7 +23,7 @@ export default function MediaAnalyticsSection(props: AnalyticsSectionProps) {
 	const summary = useRyotQuery(mediaAnalyticsSummaryQuery, props);
 	const [tab, setTab] = useState<AnalyticsTab>("charts");
 	return (
-		<QueryStatus query={summary} label="media analytics" onRetry={summary.refetch}>
+		<QueryStatus query={summary} onRetry={summary.refetch}>
 			{(data) => (
 				<div className={compact ? "grid min-w-0 gap-4" : "grid min-w-0 gap-6"}>
 					<ProcessingNotice processing={data.processing} />
@@ -40,17 +41,12 @@ export default function MediaAnalyticsSection(props: AnalyticsSectionProps) {
 }
 
 function ProcessingNotice(props: { readonly processing: MediaAnalyticsProcessing }) {
+	const text = useMediaMessages();
 	if (props.processing === "pending") {
-		return (
-			<StatusMessage tone="pending">
-				Consumption is still processing. Values shown may change.
-			</StatusMessage>
-		);
+		return <StatusMessage tone="pending">{text("analytics.processing.pending")}</StatusMessage>;
 	}
 	return props.processing === "failed" ? (
-		<StatusMessage tone="error">
-			Consumption processing failed. Values shown may be incomplete.
-		</StatusMessage>
+		<StatusMessage tone="error">{text("analytics.processing.failed")}</StatusMessage>
 	) : null;
 }
 
@@ -61,6 +57,8 @@ function MediaAnalyticsContent(props: {
 	readonly summary: SummaryChartsProps["summary"];
 	readonly onTabChange: (value: AnalyticsTab) => void;
 }) {
+	const periodCaption = usePeriodCaption();
+	const text = useMediaMessages();
 	const [request, setRequest] = useDrillRequest<RecordsDrillRequest>(props.input);
 	const panelId = useId();
 	const childProps: SummaryChartsProps = {
@@ -70,8 +68,8 @@ function MediaAnalyticsContent(props: {
 	};
 	const openAllRecords = () =>
 		setRequest({
-			title: "All contributing records",
 			selection: props.summary.reporting.selection,
+			title: text("analytics.section.all-records-title"),
 			periodCaption: periodCaption(props.summary.reporting.resolved.current),
 		});
 	return (
@@ -81,15 +79,15 @@ function MediaAnalyticsContent(props: {
 				<Tabs
 					value={props.tab}
 					panelId={panelId}
-					label="Media analytics"
 					onChange={props.onTabChange}
+					label={text("analytics.section.tabs-label")}
 					options={[
-						{ value: "charts", label: "Charts" },
-						{ value: "rankings", label: "Rankings" },
+						{ value: "charts", label: text("analytics.section.tab-charts") },
+						{ value: "rankings", label: text("analytics.rankings.title") },
 					]}
 				/>
 				<Button variant="link" onClick={openAllRecords}>
-					View contributing records
+					{text("analytics.section.view-records")}
 				</Button>
 			</div>
 			<div id={panelId} role="tabpanel" aria-labelledby={tabId(panelId, props.tab)}>

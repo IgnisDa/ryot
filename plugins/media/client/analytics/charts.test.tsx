@@ -13,6 +13,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { bindTestRequest, requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
+import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -24,6 +25,7 @@ import {
 	reportingSelectionResponse,
 	zeroMeasures,
 } from "../../tests/client/analytics-fixture";
+import { mediaMessages } from "../../tests/client/test-support";
 import { MediaAnalyticsCharts } from "./charts";
 import type { AnalyticsInput, SummaryChartsProps } from "./model";
 
@@ -60,8 +62,13 @@ const chartProps = (
 const mountPage = (clock: ReturnType<typeof createTestRyotClock>, component: ComponentType) =>
 	mountPluginPage(component, {
 		bootstrap: clock.bootstrap,
+		catalogs: [mediaMessages("media-owner")],
 		location: routeLocation("/v/k/analytics"),
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+		queryExecution: () => ({
+			weekStart: 1,
+			now: clock.now(),
+			timeZone: TimeZone.make("America/New_York"),
+		}),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -205,7 +212,7 @@ describe("Media analytics charts UI", () => {
 						screen.getByRole("button", { name: "View records: Mar 2, 2026 · 12.5 pages" }),
 					);
 					expect(requests.at(-1)).toMatchObject({
-						mediaType: "book",
+						mediaType: { slug: "book", label: "Book" },
 						selection: {
 							comparison: "none",
 							range: { kind: "custom", endDate: "2026-03-02", startDate: "2026-03-02" },
@@ -216,12 +223,13 @@ describe("Media analytics charts UI", () => {
 					fireEvent.click(
 						screen.getByRole("button", { name: "View records: Mar 2, 2026 · 1 title" }),
 					);
-					expect(requests.at(-1)?.mediaType).toBe("book");
+					expect(requests.at(-1)?.mediaType).toEqual({ slug: "book", label: "Book" });
 					yield* openExactValues(1);
 					fireEvent.click(screen.getByRole("button", { name: /View records: 08:00–09:00/ }));
 					expect(requests.at(-1)).toMatchObject({
 						hour: 8,
-						mediaType: "book",
+						title: "Titles completed at 8 AM",
+						mediaType: { slug: "book", label: "Book" },
 						selection: {
 							range: { kind: "custom", endDate: "2026-03-03", startDate: "2026-03-02" },
 						},
@@ -330,23 +338,19 @@ describe("Media analytics charts UI", () => {
 						page.replyQuery(request.requestId, { outcome: "failure", reason: "query-failed" });
 					}
 					yield* Effect.promise(() => clock.advance(0));
-					for (const label of ["Retry trend", "Retry hourly activity", "Retry consistency"]) {
-						yield* Effect.promise(() =>
-							waitFor(() => expect(screen.getByRole("button", { name: label })).toBeDefined()),
-						);
-					}
-					expect(tables.map((table) => table.textContent)).toEqual(loaded);
 					yield* Effect.promise(() =>
-						act(() => fireEvent.click(screen.getByRole("button", { name: "Retry consistency" }))),
+						waitFor(() => expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(3)),
 					);
+					expect(tables.map((table) => table.textContent)).toEqual(loaded);
+					const consistencyRetry = screen.getAllByRole("button", { name: "Retry" }).at(-1);
+					assert(consistencyRetry !== undefined);
+					yield* Effect.promise(() => act(() => fireEvent.click(consistencyRetry)));
 					yield* Effect.promise(() =>
 						waitFor(() => expect(requestsNotReplied(page, replied).length).toBe(1)),
 					);
 					replyRequests(page, replied);
 					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.queryByRole("button", { name: "Retry consistency" })).toBeNull(),
-						),
+						waitFor(() => expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(2)),
 					);
 				} finally {
 					page.dispose();

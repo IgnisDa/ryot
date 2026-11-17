@@ -1,18 +1,24 @@
 import {
-	periodCaption,
 	type Reported,
 	REPORTING_BUCKET_LIMIT,
 	type ReportingPeriod,
 	selectionForPeriod,
+	usePeriodCaption,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { type RyotQueryResult, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	type RyotQueryResult,
+	useFormatters,
+	useRyotQuery,
+	useT,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	ChartCard,
-	formatMetric,
 	MenuSelect,
+	type MetricFormat,
 	type MetricUnit,
 	QueryStatus,
+	useMetricFormat,
 	useValueChange,
 } from "@ryot-app/plugin-ui-sdk";
 import {
@@ -24,22 +30,22 @@ import {
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useCallback, useMemo, useState } from "react";
 
-import type { MediaAnalyticsFilter } from "../../shared/analytics-recipes";
 import { consumptionMeasureUnits } from "../../shared/consumption-allocation";
+import { type MediaText, useMediaMessages } from "../messages";
 import {
+	type AnalyticsDrillMediaType,
+	analyticsHourLabel,
 	consistencyModel,
-	entryUnit,
-	episodeUnit,
 	hourlyModel,
-	measureLabels,
-	measureUnits,
+	measureLabel,
 	type MediaAnalyticsHours,
 	type MediaAnalyticsMetric,
 	type MediaAnalyticsTrend,
+	type RecordsDrillRequest,
 	type SummaryChartsProps,
-	titleUnit,
 	type TrendBucket,
 	trendBuckets,
+	useAnalyticsUnits,
 } from "./model";
 import {
 	type ChartInput,
@@ -59,30 +65,37 @@ const analyticsMetrics: readonly MediaAnalyticsMetric[] = [
 	"minutes",
 ];
 
-const metricLabels: Record<MediaAnalyticsMetric, string> = {
-	...measureLabels,
-	titleCompletions: "Titles completed",
-	activeObservations: "Activity entries",
-	episodeCompletions: "Episodes finished",
-};
-
-const metricUnit = (metric: MediaAnalyticsMetric): MetricUnit => {
+const metricLabel = (text: MediaText, metric: MediaAnalyticsMetric) => {
 	if (metric === "titleCompletions") {
-		return titleUnit;
+		return text("analytics.metric.titles-completed");
 	}
 	if (metric === "episodeCompletions") {
-		return episodeUnit;
+		return text("analytics.metric.episodes-finished");
 	}
-	return metric === "activeObservations" ? entryUnit : measureUnits[metric];
+	return metric === "activeObservations"
+		? text("analytics.metric.activity-entries")
+		: measureLabel(text, metric);
 };
 
-const metricFilter = (metric: MediaAnalyticsMetric, mediaType: string | undefined) => {
-	const filter: MediaAnalyticsFilter = {
-		...(mediaType === undefined ? {} : { mediaType }),
-		...(metric === "activeObservations" ? { activeOnly: true } : {}),
-	};
-	return Object.keys(filter).length === 0 ? undefined : filter;
+type AnalyticsUnits = ReturnType<typeof useAnalyticsUnits>;
+
+const metricUnit = (units: AnalyticsUnits, metric: MediaAnalyticsMetric): MetricUnit => {
+	if (metric === "titleCompletions") {
+		return units.titleUnit;
+	}
+	if (metric === "episodeCompletions") {
+		return units.episodeUnit;
+	}
+	return metric === "activeObservations" ? units.entryUnit : units.measureUnits[metric];
 };
+
+const metricFilter = (
+	metric: MediaAnalyticsMetric,
+	mediaType: undefined | AnalyticsDrillMediaType,
+): Pick<RecordsDrillRequest, "mediaType" | "activeOnly"> => ({
+	...(mediaType === undefined ? {} : { mediaType }),
+	...(metric === "activeObservations" ? { activeOnly: true } : {}),
+});
 
 type MetricValue = {
 	readonly lowerBound: boolean;
@@ -96,27 +109,50 @@ type MetricValue = {
 const isMeasure = (metric: MediaAnalyticsMetric) =>
 	consumptionMeasureUnits.some((unit) => unit === metric);
 
-const metricDetail = (metric: MediaAnalyticsMetric, value: MetricValue) => {
+const metricDetail = (
+	text: MediaText,
+	units: AnalyticsUnits,
+	format: MetricFormat,
+	metric: MediaAnalyticsMetric,
+	value: MetricValue,
+) => {
 	if (!isMeasure(metric)) {
 		return undefined;
 	}
-	const parts = [
-		...(value.estimated !== null && value.estimated > 0
-			? [`${formatMetric(value.estimated, metricUnit(metric))} estimated`]
-			: []),
-		...(value.missing !== null && value.missing > 0
-			? [`${formatMetric(value.missing, entryUnit)} without an amount`]
-			: []),
-	];
-	return parts.length === 0 ? undefined : parts.join(" · ");
+	const estimated =
+		value.estimated !== null && value.estimated > 0
+			? text("analytics.charts.detail-estimated", {
+					amount: format.formatMetric(value.estimated, metricUnit(units, metric)),
+				})
+			: undefined;
+	const missing =
+		value.missing !== null && value.missing > 0
+			? text("analytics.summary.missing-amount", {
+					amount: format.formatMetric(value.missing, units.entryUnit),
+				})
+			: undefined;
+	if (estimated !== undefined && missing !== undefined) {
+		return text("analytics.charts.detail-both", { missing, estimated });
+	}
+	return estimated ?? missing;
 };
 
 export function MediaAnalyticsCharts(props: SummaryChartsProps) {
 	const { compact } = useRyotViewport();
+	const text = useMediaMessages();
 	const [metric, setMetric] = useState<MediaAnalyticsMetric>("activeObservations");
 	const [selectedType, setSelectedType] = useState("all");
+	const t = useT();
 	const types = props.summary.current.types;
-	const mediaType = types.some((row) => row.mediaType === selectedType) ? selectedType : undefined;
+	const selectedRow = types.find((row) => row.mediaType === selectedType);
+	const mediaType = selectedRow?.mediaType;
+	const drillType = useMemo(
+		() =>
+			selectedRow === undefined
+				? undefined
+				: { slug: selectedRow.mediaType, label: t(selectedRow.label) },
+		[selectedRow, t],
+	);
 	useValueChange(JSON.stringify(props.input), () => setSelectedType("all"));
 	const input = useMemo(
 		(): ChartInput => ({ ...props.input, ...(mediaType === undefined ? {} : { mediaType }) }),
@@ -127,14 +163,17 @@ export function MediaAnalyticsCharts(props: SummaryChartsProps) {
 	const consistencyResult = useRyotQuery(mediaAnalyticsConsistencyQuery, props.input);
 
 	return (
-		<section aria-label="Media analytics charts" className="flex min-w-0 flex-col gap-4 font-ui">
+		<section
+			className="flex min-w-0 flex-col gap-4 font-ui"
+			aria-label={text("analytics.charts.aria-label")}
+		>
 			<TrendRegion
 				types={types}
 				metric={metric}
 				compact={compact}
 				input={props.input}
 				result={trendResult}
-				mediaType={mediaType}
+				mediaType={drillType}
 				onDrill={props.onDrill}
 				onMetricChange={setMetric}
 				onTypeChange={setSelectedType}
@@ -148,7 +187,7 @@ export function MediaAnalyticsCharts(props: SummaryChartsProps) {
 					compact={compact}
 					input={props.input}
 					result={hoursResult}
-					mediaType={mediaType}
+					mediaType={drillType}
 					onDrill={props.onDrill}
 				/>
 				<ConsistencyRegion compact={compact} onDrill={props.onDrill} result={consistencyResult} />
@@ -157,12 +196,18 @@ export function MediaAnalyticsCharts(props: SummaryChartsProps) {
 	);
 }
 
-const trendPoints = (buckets: ReadonlyArray<TrendBucket>, metric: MediaAnalyticsMetric) =>
+const trendPoints = (
+	text: MediaText,
+	units: AnalyticsUnits,
+	format: MetricFormat,
+	buckets: ReadonlyArray<TrendBucket>,
+	metric: MediaAnalyticsMetric,
+) =>
 	buckets.map((bucket) => ({
 		at: bucket.date,
 		value: bucket.value,
 		period: bucket.period,
-		detail: metricDetail(metric, bucket),
+		detail: metricDetail(text, units, format, metric, bucket),
 	}));
 
 function ConsistencyRegion(props: {
@@ -170,6 +215,9 @@ function ConsistencyRegion(props: {
 	readonly onDrill: SummaryChartsProps["onDrill"];
 	readonly result: RyotQueryResult<Reported<MediaAnalyticsTrend> & { readonly clipped: boolean }>;
 }) {
+	const periodCaption = usePeriodCaption();
+	const text = useMediaMessages();
+	const { entryUnit } = useAnalyticsUnits();
 	const data = props.result.data;
 	const { onDrill } = props;
 	const openDay = useCallback(
@@ -180,30 +228,40 @@ function ConsistencyRegion(props: {
 			onDrill({
 				activeOnly: true,
 				periodCaption: periodCaption(day.period),
-				title: `Activity entries · ${periodCaption(day.period)}`,
 				selection: selectionForPeriod(data.reporting.selection, day.period),
+				title: text("analytics.charts.title-with-period", {
+					period: periodCaption(day.period),
+					label: text("analytics.metric.activity-entries"),
+				}),
 			});
 		},
-		[data, onDrill],
+		[data, onDrill, periodCaption, text],
 	);
+	const consistencyDescription = () => {
+		if (data === undefined) {
+			return text("analytics.charts.all-media-types");
+		}
+		const period = periodCaption(data.current.period);
+		return data.clipped
+			? text("analytics.charts.consistency-clipped", { period, count: REPORTING_BUCKET_LIMIT })
+			: text("analytics.charts.consistency-period", { period });
+	};
 	return (
 		<ChartCard
-			title="Consistency"
-			description={
-				data === undefined
-					? "All media types"
-					: `All media types · ${periodCaption(data.current.period)}${data.clipped ? ` · last ${REPORTING_BUCKET_LIMIT} days` : ""}`
-			}
+			description={consistencyDescription()}
+			title={text("analytics.charts.consistency-title")}
 		>
-			<QueryStatus label="consistency" query={props.result} onRetry={props.result.refetch}>
+			<QueryStatus query={props.result} onRetry={props.result.refetch}>
 				{(loaded) => (
 					<CalendarHeatmap
-						weekStart={1}
 						unit={entryUnit}
 						onSelect={openDay}
 						compact={props.compact}
-						days={consistencyModel(loaded, loaded.reporting.resolved.timeZone)}
-						ariaLabel={`Daily activity entries · ${periodCaption(loaded.current.period)}`}
+						weekStart={loaded.reporting.resolved.weekStart}
+						days={consistencyModel(loaded, loaded.reporting.resolved)}
+						ariaLabel={text("analytics.charts.consistency-aria-label", {
+							period: periodCaption(loaded.current.period),
+						})}
 					/>
 				)}
 			</QueryStatus>
@@ -214,11 +272,16 @@ function ConsistencyRegion(props: {
 function HourlyRegion(props: {
 	readonly compact: boolean;
 	readonly metric: MediaAnalyticsMetric;
-	readonly mediaType: string | undefined;
 	readonly input: SummaryChartsProps["input"];
 	readonly onDrill: SummaryChartsProps["onDrill"];
+	readonly mediaType: undefined | AnalyticsDrillMediaType;
 	readonly result: RyotQueryResult<Reported<{ readonly hours: MediaAnalyticsHours }>>;
 }) {
+	const periodCaption = usePeriodCaption();
+	const text = useMediaMessages();
+	const units = useAnalyticsUnits();
+	const format = useMetricFormat();
+	const formatters = useFormatters();
 	const data = props.result.data;
 	const { metric, onDrill, mediaType } = props;
 	const [view, setView] = useState<ChartView>("chart");
@@ -231,34 +294,42 @@ function HourlyRegion(props: {
 				hour: bucket.hour,
 				selection: data.reporting.selection,
 				periodCaption: periodCaption(data.reporting.resolved.current),
-				title: `${metricLabels[metric]} at ${String(bucket.hour).padStart(2, "0")}:00`,
+				title: text("analytics.charts.hour-title", {
+					metric: metricLabel(text, metric),
+					hour: analyticsHourLabel(formatters, bucket.hour),
+				}),
 				...metricFilter(metric, mediaType),
 			});
 		},
-		[data, metric, mediaType, onDrill],
+		[data, formatters, metric, mediaType, onDrill, periodCaption, text],
 	);
 	return (
 		<ChartCard
-			title="Time of day"
+			title={text("analytics.charts.hourly-title")}
 			description={
 				data === undefined
-					? `${metricLabels[metric]} with an exact time`
-					: `${metricLabels[metric]} with an exact time, in ${data.reporting.resolved.timeZone}`
+					? text("analytics.charts.hourly-description", { metric: metricLabel(text, metric) })
+					: text("analytics.charts.hourly-description-zone", {
+							metric: metricLabel(text, metric),
+							timeZone: data.reporting.resolved.timeZone,
+						})
 			}
 		>
-			<QueryStatus query={props.result} label="hourly activity" onRetry={props.result.refetch}>
+			<QueryStatus query={props.result} onRetry={props.result.refetch}>
 				{(loaded) => (
 					<HourlyHistogram
 						onSelect={openHour}
 						compact={props.compact}
-						unit={metricUnit(metric)}
+						unit={metricUnit(units, metric)}
 						view={{ value: view, onChange: setView }}
 						timeZone={loaded.reporting.resolved.timeZone}
-						ariaLabel={`${metricLabels[metric]} by local hour`}
+						ariaLabel={text("analytics.charts.hourly-aria-label", {
+							metric: metricLabel(text, metric),
+						})}
 						buckets={hourlyModel(loaded.hours, metric).map((row) => ({
 							hour: row.hour,
 							value: row.value,
-							detail: metricDetail(metric, row),
+							detail: metricDetail(text, units, format, metric, row),
 						}))}
 					/>
 				)}
@@ -271,15 +342,20 @@ function TrendRegion(props: {
 	readonly compact: boolean;
 	readonly selectedType: string;
 	readonly metric: MediaAnalyticsMetric;
-	readonly mediaType: string | undefined;
 	readonly input: SummaryChartsProps["input"];
 	readonly onDrill: SummaryChartsProps["onDrill"];
 	readonly onTypeChange: (mediaType: string) => void;
+	readonly mediaType: undefined | AnalyticsDrillMediaType;
 	readonly result: RyotQueryResult<Reported<MediaAnalyticsTrend>>;
 	readonly onMetricChange: (metric: MediaAnalyticsMetric) => void;
 	readonly types: SummaryChartsProps["summary"]["current"]["types"];
 }) {
+	const periodCaption = usePeriodCaption();
+	const text = useMediaMessages();
+	const units = useAnalyticsUnits();
+	const format = useMetricFormat();
 	const data = props.result.data;
+	const t = useT();
 	const { metric, onDrill, mediaType } = props;
 	const [view, setView] = useState<ChartView>("chart");
 	const openPeriod = useCallback(
@@ -290,54 +366,65 @@ function TrendRegion(props: {
 			const caption = periodCaption(bucket.period);
 			onDrill({
 				periodCaption: caption,
-				title: `${metricLabels[metric]} · ${caption}`,
 				selection: selectionForPeriod(data.reporting.selection, bucket.period),
+				title: text("analytics.charts.title-with-period", {
+					period: caption,
+					label: metricLabel(text, metric),
+				}),
 				...metricFilter(metric, mediaType),
 			});
 		},
-		[data, metric, mediaType, onDrill],
+		[data, metric, mediaType, onDrill, periodCaption, text],
 	);
 	const points = (series: MediaAnalyticsTrend["current"], trend: Reported<MediaAnalyticsTrend>) =>
-		trendPoints(trendBuckets(trend, series, metric, trend.reporting.resolved.timeZone), metric);
+		trendPoints(
+			text,
+			units,
+			format,
+			trendBuckets(trend, series, metric, trend.reporting.resolved),
+			metric,
+		);
 	return (
 		<ChartCard
-			title="Activity over time"
+			title={text("analytics.charts.trend-title")}
 			actions={
 				<>
 					<MenuSelect
-						label="Show"
 						value={props.metric}
 						onChange={props.onMetricChange}
+						label={text("analytics.charts.metric-select")}
 						checkIcon={<AppIcon size={14} name="check" />}
 						chevronIcon={<AppIcon size={14} name="chevron-down" />}
-						choices={analyticsMetrics.map((value) => ({ value, label: metricLabels[value] }))}
+						choices={analyticsMetrics.map((value) => ({ value, label: metricLabel(text, value) }))}
 					/>
 					<MenuSelect
-						label="Type"
 						value={props.selectedType}
 						onChange={props.onTypeChange}
+						label={text("property.type")}
 						checkIcon={<AppIcon size={14} name="check" />}
 						chevronIcon={<AppIcon size={14} name="chevron-down" />}
 						choices={[
-							{ value: "all", label: "All" },
-							...props.types.map((row) => ({ label: row.label, value: row.mediaType })),
+							{ value: "all", label: text("analytics.charts.all-types") },
+							...props.types.map((row) => ({ label: t(row.label), value: row.mediaType })),
 						]}
 					/>
 				</>
 			}
 		>
-			<QueryStatus label="trend" query={props.result} onRetry={props.result.refetch}>
+			<QueryStatus query={props.result} onRetry={props.result.refetch}>
 				{(loaded) => (
 					<PeriodTrendChart
 						onSelect={openPeriod}
 						compact={props.compact}
-						unit={metricUnit(metric)}
 						grouping={loaded.grouping}
+						unit={metricUnit(units, metric)}
 						current={points(loaded.current, loaded)}
 						view={{ value: view, onChange: setView }}
 						label={periodCaption(loaded.current.period)}
 						timeZone={loaded.reporting.resolved.timeZone}
-						ariaLabel={`${metricLabels[metric]} by reporting period`}
+						ariaLabel={text("analytics.charts.trend-aria-label", {
+							metric: metricLabel(text, metric),
+						})}
 						previous={
 							loaded.previous === null
 								? undefined

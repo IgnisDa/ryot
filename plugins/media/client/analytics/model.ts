@@ -1,13 +1,16 @@
 import {
 	calendarBuckets,
 	type Reported,
+	type ReportingCalendar,
 	type ReportingPeriod,
 	type ReportingSelection,
 	type ResolvedReportingSelection,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { countUnit, durationUnit, type MetricUnit } from "@ryot-app/plugin-ui-sdk";
+import { useMemo } from "react";
 
 import type {
 	MediaAnalyticsFilter,
@@ -20,6 +23,7 @@ import type {
 } from "../../shared/analytics-recipes";
 import type { ConsumptionMeasureUnit } from "../../shared/consumption-allocation";
 import { mediaPositionLabel } from "../media/activity-copy";
+import { type MediaText, useMediaMessages } from "../messages";
 
 export type SummaryChartsProps = RankingsRecordsProps;
 export type MediaAnalyticsRecord = MediaAnalyticsRecords["items"][number];
@@ -39,11 +43,17 @@ export type RankingsRecordsProps = {
 	readonly summary: Reported<MediaAnalyticsSummary>;
 	readonly onDrill: (request: RecordsDrillRequest) => void;
 };
-export type RecordsDrillRequest = MediaAnalyticsFilter & {
+/** An hour of the reporting day, such as 7 AM; the hour is already in the reporting time zone. */
+export const analyticsHourLabel = (formatters: Formatters, hour: number) =>
+	formatters.dateTime({ hour: "numeric", timeZone: "UTC" }).format(hour * 3_600_000);
+
+export type AnalyticsDrillMediaType = { readonly slug: string; readonly label: string };
+export type RecordsDrillRequest = Omit<MediaAnalyticsFilter, "mediaType"> & {
 	readonly title: string;
 	readonly entityId?: string;
 	readonly periodCaption: string;
 	readonly selection: ReportingSelection;
+	readonly mediaType?: AnalyticsDrillMediaType;
 };
 export type MediaAnalyticsTrend = {
 	readonly grouping: ResolvedReportingSelection["grouping"];
@@ -54,27 +64,30 @@ export type MediaAnalyticsTrend = {
 type TypeRow = MediaAnalyticsSummary["current"]["types"][number];
 type TrendData = Recipe.Success<ReturnType<typeof mediaAnalyticsTrendRecipe>>;
 
-export const titleUnit = countUnit("title");
-export const episodeUnit = countUnit("episode");
-export const dayUnit = countUnit("day");
-export const entryUnit = countUnit("entry", "entries");
-export const uniqueTitleUnit = countUnit("unique title");
-
-export const measureUnits: Record<ConsumptionMeasureUnit, MetricUnit> = {
-	pages: countUnit("page"),
-	volumes: countUnit("volume"),
-	chapters: countUnit("chapter"),
-	episodes: countUnit("episode"),
-	minutes: durationUnit("minutes"),
+export const useAnalyticsUnits = () => {
+	const text = useMediaMessages();
+	return useMemo(
+		() => ({
+			dayUnit: countUnit((count) => text("analytics.unit.day", { count })),
+			titleUnit: countUnit((count) => text("analytics.unit.title", { count })),
+			entryUnit: countUnit((count) => text("analytics.unit.entry", { count })),
+			episodeUnit: countUnit((count) => text("analytics.unit.episode", { count })),
+			uniqueTitleUnit: countUnit((count) => text("analytics.unit.unique-title", { count })),
+			measureUnits: {
+				minutes: durationUnit("minutes"),
+				pages: countUnit((count) => text("analytics.unit.page", { count })),
+				volumes: countUnit((count) => text("analytics.unit.volume", { count })),
+				chapters: countUnit((count) => text("analytics.unit.chapter", { count })),
+				episodes: countUnit((count) => text("analytics.unit.episode", { count })),
+			} satisfies Record<ConsumptionMeasureUnit, MetricUnit>,
+		}),
+		[text],
+	);
 };
 
-export const measureLabels: Record<ConsumptionMeasureUnit, string> = {
-	pages: "Pages",
-	volumes: "Volumes",
-	chapters: "Chapters",
-	episodes: "Episodes",
-	minutes: "Time spent",
-};
+export const measureLabel = (text: MediaText, unit: ConsumptionMeasureUnit) =>
+	text("analytics.measure-label", { unit });
+
 type MeasureRow = Omit<MediaAnalyticsTrend["current"]["items"][number], "at">;
 
 const total = <Row>(rows: readonly Row[], value: (row: Row) => null | number | undefined) =>
@@ -168,10 +181,10 @@ export const trendBuckets = (
 	trend: MediaAnalyticsTrend,
 	series: MediaAnalyticsTrend["current"],
 	metric: MediaAnalyticsMetric,
-	timeZone: TimeZone,
+	calendar: ReportingCalendar,
 ) =>
 	calendarBuckets(series.items, {
-		timeZone,
+		...calendar,
 		at: (row) => row.at,
 		period: series.period,
 		grouping: trend.grouping,
@@ -188,21 +201,24 @@ export const hourlyModel = (hours: MediaAnalyticsHours, metric: MediaAnalyticsMe
 		),
 	}));
 
-export const consistencyModel = (trend: MediaAnalyticsTrend, timeZone: TimeZone) =>
-	trendBuckets(trend, trend.current, "activeObservations", timeZone).map(
+export const consistencyModel = (trend: MediaAnalyticsTrend, calendar: ReportingCalendar) =>
+	trendBuckets(trend, trend.current, "activeObservations", calendar).map(
 		({ date, value, period }) => ({ date, value, period }),
 	);
 
-export const recordModel = (row: MediaAnalyticsRecord) => ({
+export const recordModel = (text: MediaText, row: MediaAnalyticsRecord) => ({
 	source: row,
 	manualMinutes: row.facts.timeSpent ?? null,
-	position: row.facts.position === undefined ? null : mediaPositionLabel(row.facts.position),
+	position: row.facts.position === undefined ? null : mediaPositionLabel(text, row.facts.position),
 	date:
 		row.contribution.attribution.kind === "unknown"
-			? "Unknown date"
+			? text("analytics.record.unknown-date")
 			: row.contribution.attribution.value,
 	sourceProgress:
 		row.facts.sourceProgress === undefined
 			? null
-			: `Original source progress: ${mediaPositionLabel(row.facts.sourceProgress)}, ${row.facts.sourceProgress.percent}% (not an allocated amount)`,
+			: text("analytics.record.source-progress", {
+					percent: row.facts.sourceProgress.percent,
+					position: mediaPositionLabel(text, row.facts.sourceProgress),
+				}),
 });

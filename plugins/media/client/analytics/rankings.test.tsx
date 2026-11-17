@@ -1,7 +1,7 @@
 import { afterEach, describe, expect } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { periodCaption, PluginId, reportingExecution } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -10,7 +10,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
-import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { PluginPackageId, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
@@ -19,10 +19,14 @@ import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { analyticsSummary } from "../../tests/client/analytics-fixture";
-import type { AnalyticsInput, MediaAnalyticsRanking, RecordsDrillRequest } from "./model";
+import { servedTypeName } from "../../tests/client/served-names";
+import { mediaMessages } from "../../tests/client/test-support";
+import type { AnalyticsInput, RecordsDrillRequest } from "./model";
 import { MediaAnalyticsRankings } from "./rankings";
 
 afterEach(disposePluginBridges);
+
+const NEXT_OWNER_PACKAGE_ID = PluginPackageId.make("ryot/next-owner");
 
 const selection = {
 	grouping: "day",
@@ -44,18 +48,19 @@ const rankingRow = (
 	activeObservations: number,
 	mediaType = "book",
 	options: { readonly titleCompletions?: number; readonly episodeCompletions?: number } = {},
-): MediaAnalyticsRanking["items"][number] => ({
+) => ({
 	name,
 	entityId,
 	mediaType,
 	activeObservations,
+	labelKey: servedTypeName(mediaType).key,
 	titleCompletions: options.titleCompletions ?? 0,
+	labelNamespace: servedTypeName(mediaType).namespace,
 	episodeCompletions: options.episodeCompletions ?? 0,
-	label: mediaType === "book" ? "Book" : "Show episode",
 });
 const rankingResponse = (
 	nextCursor: null | string,
-	items: readonly MediaAnalyticsRanking["items"][number][] = [],
+	items: readonly ReturnType<typeof rankingRow>[] = [],
 ) => ({
 	data: {
 		ranking: {
@@ -69,8 +74,13 @@ const rankingResponse = (
 const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: ComponentType) =>
 	mountPluginPage(Component, {
 		bootstrap: clock.bootstrap,
+		catalogs: [mediaMessages("media-owner")],
 		location: routeLocation("/v/k/analytics"),
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+		queryExecution: () => ({
+			weekStart: 1,
+			now: clock.now(),
+			timeZone: TimeZone.make("America/New_York"),
+		}),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -79,9 +89,14 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: Com
 				dataSources: { queries: {} },
 				view: { icon: "chart", name: "Analytics" },
 			}),
-			contributors: ["media-owner", "media-next"].map((pluginId) =>
-				pluginContributor({ pluginId, name: "Media", packageId: PLUGIN_PACKAGE_ID }),
-			),
+			contributors: [
+				pluginContributor({ name: "Media", pluginId: "media-owner", packageId: PLUGIN_PACKAGE_ID }),
+				pluginContributor({
+					name: "Next owner",
+					pluginId: "media-next",
+					packageId: NEXT_OWNER_PACKAGE_ID,
+				}),
+			],
 		},
 	});
 
@@ -146,7 +161,7 @@ describe("Media analytics rankings", () => {
 					expect(within(preview).getAllByRole("listitem")).toHaveLength(10);
 					expect(within(preview).getByText("First 10 loaded rows")).toBeDefined();
 					expect(within(preview).queryByText("Entity 11")).toBeNull();
-					expect(within(rankingTable).getByText("Show episode")).toBeDefined();
+					expect(within(rankingTable).getByText("Show Episode")).toBeDefined();
 					expect(within(rankingTable).getByText("2 episodes")).toBeDefined();
 					act(() => {
 						fireEvent.click(screen.getByRole("button", { name: "Show more rankings" }));
@@ -226,9 +241,9 @@ describe("Media analytics rankings", () => {
 						);
 					});
 					expect(screen.getByRole("radio", { name: "Book" })).toBeDefined();
-					expect(screen.getByRole("radio", { name: "Show episode" })).toBeDefined();
+					expect(screen.getByRole("radio", { name: "Show Episode" })).toBeDefined();
 					act(() => {
-						fireEvent.click(screen.getByRole("radio", { name: "Show episode" }));
+						fireEvent.click(screen.getByRole("radio", { name: "Show Episode" }));
 					});
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(2)));
 					const filteredRequest = itemAt(rankingRequests(page), 1);
@@ -250,7 +265,7 @@ describe("Media analytics rankings", () => {
 					);
 					expect(within(getCurrentRankingTable()).queryByText("Late book result")).toBeNull();
 					expect(
-						screen.getByRole("button", { name: "Ranking media type: Show episode" }),
+						screen.getByRole("button", { name: "Ranking media type: Show Episode" }),
 					).toBeDefined();
 				} finally {
 					page.dispose();
@@ -289,16 +304,12 @@ describe("Media analytics rankings", () => {
 						fireEvent.click(screen.getByRole("button", { name: rowAction }));
 					});
 					const captured = itemAt(opened, 0);
-					const firstPageReporting = reportingExecution(input.selection, {
-						timeZone: input.timeZone,
-						now: Date.parse("2026-11-01T18:00:00Z"),
-					});
 					expect(captured).toEqual({
 						activeOnly: true,
-						mediaType: "book",
 						entityId: "title/exact",
 						title: "Title to inspect",
-						periodCaption: periodCaption(firstPageReporting.resolved.current),
+						periodCaption: "Oct 26 – Nov 1, 2026",
+						mediaType: { slug: "book", label: "Book" },
 						selection: {
 							grouping: "day",
 							comparison: "none",

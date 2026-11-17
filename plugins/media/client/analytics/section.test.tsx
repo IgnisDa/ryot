@@ -11,7 +11,7 @@ import {
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
-import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { PluginPackageId, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -21,9 +21,12 @@ import { act, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { reportingSelectionResponse } from "../../tests/client/analytics-fixture";
+import { mediaMessages } from "../../tests/client/test-support";
 import MediaAnalyticsSection from "./section";
 
 afterEach(disposePluginBridges);
+
+const OTHER_OWNER_PACKAGE_ID = PluginPackageId.make("ryot/other-owner");
 
 const scopeFor = (pluginId = "media-owner"): AnalyticsSectionProps => ({
 	timeZone: TimeZone.make("UTC"),
@@ -80,7 +83,8 @@ const mountSection = (clock: ReturnType<typeof createTestRyotClock>, Component =
 	mountPluginPage(Component, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("UTC") }),
+		catalogs: [mediaMessages("media-owner")],
+		queryExecution: () => ({ weekStart: 1, now: clock.now(), timeZone: TimeZone.make("UTC") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -89,9 +93,14 @@ const mountSection = (clock: ReturnType<typeof createTestRyotClock>, Component =
 				dataSources: { queries: {} },
 				view: { name: "Analytics", icon: "chart-column" },
 			}),
-			contributors: ["media-owner", "media-other"].map((pluginId) =>
-				pluginContributor({ pluginId, name: "Media", packageId: PLUGIN_PACKAGE_ID }),
-			),
+			contributors: [
+				pluginContributor({ name: "Media", pluginId: "media-owner", packageId: PLUGIN_PACKAGE_ID }),
+				pluginContributor({
+					name: "Other owner",
+					pluginId: "media-other",
+					packageId: OTHER_OWNER_PACKAGE_ID,
+				}),
+			],
 		},
 	});
 
@@ -137,18 +146,18 @@ describe("media analytics section", () => {
 				const page = mountSection(clock);
 				try {
 					const first = yield* Effect.promise(() => waitForRequest(() => reportRequests(page)));
-					expect(screen.getByRole("status").textContent).toContain("Loading media analytics");
+					expect(screen.getByRole("status").textContent).toContain("Loading…");
 					page.replyQuery(first.requestId, { outcome: "failure", reason: "query-failed" });
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(screen.getByRole("alert").textContent).toContain(
-								"Could not load media analytics.",
+								"Could not load this content.",
 							),
 						),
 					);
 
 					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Retry media analytics" }));
+						fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 					});
 					const retry = yield* Effect.promise(() =>
 						waitFor(() => {
@@ -273,15 +282,14 @@ describe("media analytics section", () => {
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(screen.getByRole("alert").textContent).toContain(
-								"Could not update media analytics.",
+								"Could not refresh. Showing the last loaded values.",
 							),
 						),
 					);
 					expect(screen.getByRole("tablist")).toBeDefined();
-					expect(screen.queryByText("Loading media analytics…")).toBeNull();
 
 					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Retry media analytics" }));
+						fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 					});
 					const retry = yield* Effect.promise(() =>
 						waitFor(() => {
@@ -358,7 +366,6 @@ describe("media analytics section", () => {
 									items: [
 										{
 											facts: {},
-											label: "Music",
 											id: "late-record",
 											mediaType: "music",
 											entityId: "old-title",
@@ -422,13 +429,14 @@ describe("media analytics section", () => {
 									pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 									items: [
 										{
-											label: "Book",
 											mediaType: "book",
 											titleCompletions: 1,
 											name: "Ranked title",
 											activeObservations: 1,
 											episodeCompletions: 0,
+											labelNamespace: "media-owner",
 											entityId: "title/ranked-title",
+											labelKey: "entity-schema.book.name",
 										},
 									],
 								},
@@ -466,7 +474,6 @@ describe("media analytics section", () => {
 									items: [
 										{
 											facts: {},
-											label: "Book",
 											mediaType: "book",
 											eventType: "progress",
 											id: "record/ranked-title",
@@ -475,6 +482,7 @@ describe("media analytics section", () => {
 											orderKey: "record/ranked-title",
 											occurredAt: "2026-09-04T12:00:00Z",
 											orderCreatedAt: "2026-09-04T12:00:00Z",
+											label: { namespace: "media-owner", key: "entity-schema.book.name" },
 											contribution: {
 												titleCompletions: 1,
 												episodeCompletions: 0,

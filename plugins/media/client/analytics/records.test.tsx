@@ -18,6 +18,8 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { servedTypeName } from "../../tests/client/served-names";
+import { mediaMessages } from "../../tests/client/test-support";
 import type { AnalyticsInput, MediaAnalyticsRecord, RecordsDrillRequest } from "./model";
 import { MediaAnalyticsRecords } from "./records";
 
@@ -40,11 +42,11 @@ const selectedPeriod = {
 const request: RecordsDrillRequest = {
 	hour: 1,
 	activeOnly: true,
-	mediaType: "book",
 	title: "Captured title",
 	selection: selectedPeriod,
 	entityId: "title/record-source",
 	periodCaption: "Sep 1 – 7, 2026",
+	mediaType: { slug: "book", label: "Book" },
 };
 const contribution = (
 	attribution: MediaAnalyticsRecord["contribution"]["attribution"] = {
@@ -75,11 +77,11 @@ const recordRow = (
 	facts: options.facts ?? {},
 	mediaType: options.mediaType ?? "book",
 	eventType: options.eventType ?? "progress",
+	label: servedTypeName(options.mediaType ?? "book"),
 	entityId: options.entityId ?? "title/record-source",
 	contribution: options.contribution ?? contribution(),
 	occurredAt: options.occurredAt ?? "2026-09-04T14:00:00Z",
 	orderCreatedAt: options.occurredAt ?? "2026-09-04T14:00:00Z",
-	label: options.mediaType === "show-episode" ? "Show episode" : "Book",
 });
 const recordsResponse = (
 	nextCursor: null | string,
@@ -97,8 +99,13 @@ const documentText = (value: unknown) => JSON.stringify(value);
 const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: ComponentType) =>
 	mountPluginPage(Component, {
 		bootstrap: clock.bootstrap,
+		catalogs: [mediaMessages("media-owner")],
 		location: routeLocation("/v/k/analytics"),
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+		queryExecution: () => ({
+			weekStart: 1,
+			now: clock.now(),
+			timeZone: TimeZone.make("America/New_York"),
+		}),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -107,9 +114,9 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: Com
 				dataSources: { queries: {} },
 				view: { icon: "chart", name: "Analytics" },
 			}),
-			contributors: ["media-owner", "media-next"].map((pluginId) =>
-				pluginContributor({ pluginId, name: "Media", packageId: PLUGIN_PACKAGE_ID }),
-			),
+			contributors: [
+				pluginContributor({ name: "Media", pluginId: "media-owner", packageId: PLUGIN_PACKAGE_ID }),
+			],
 		},
 	});
 const mountRecords = (clock: ReturnType<typeof createTestRyotClock>, selectedRequest = request) =>
@@ -137,10 +144,10 @@ function DrillProbe() {
 				onClick={() =>
 					setDrillRequest({
 						activeOnly: false,
-						mediaType: "show-episode",
 						title: "All show records",
 						selection: request.selection,
 						periodCaption: request.periodCaption,
+						mediaType: { label: "Episode", slug: "show-episode" },
 					})
 				}
 			>
@@ -201,7 +208,7 @@ describe("Media analytics records drill", () => {
 					);
 					expect(
 						screen.getByText(
-							"Period: Sep 1 – 7, 2026 · Time zone: America/New_York · Type: book · Hour: 1 · Active observations only",
+							"Period: Sep 1 – 7, 2026 · Time zone: America/New_York · Type: Book · Hour: 1 AM · Active observations only",
 						),
 					).toBeDefined();
 					const table = screen.getByRole("table", { name: "Media analytics records" });
@@ -291,7 +298,7 @@ describe("Media analytics records drill", () => {
 					);
 					const table = screen.getByRole("table", { name: "Media analytics records" });
 					const itemRow = within(table).getByRole("row", { name: /Independent episode item/ });
-					expect(within(itemRow).getByText("Show episode")).toBeDefined();
+					expect(within(itemRow).getByText("Show Episode")).toBeDefined();
 					expect(within(itemRow).getByText("item-complete")).toBeDefined();
 					expect(within(itemRow).getByText("Consumed item position:")).toBeDefined();
 					expect(within(itemRow).getByText("Ep 12")).toBeDefined();

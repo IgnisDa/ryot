@@ -1,28 +1,34 @@
-import { periodCaption, PluginLink, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { paginationItems, useReportedPages } from "@ryot-app/plugin-client-sdk/react";
+import { PluginLink, usePeriodCaption, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	paginationItems,
+	useDisplayText,
+	useReportedPages,
+	useT,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
 	EmptyState,
-	formatMetric,
 	LoadMoreButton,
+	type MetricFormat,
 	type MetricUnit,
 	ReportText,
 	Select,
 	StatusMessage,
+	useMetricFormat,
 } from "@ryot-app/plugin-ui-sdk";
 import { RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import { useMemo, useState } from "react";
 
+import { type MediaText, useMediaMessages } from "../messages";
 import {
-	entryUnit,
-	episodeUnit,
+	type AnalyticsDrillMediaType,
 	type MediaAnalyticsRanking,
 	type RankingsRecordsProps,
 	type RecordsDrillRequest,
-	titleUnit,
+	useAnalyticsUnits,
 } from "./model";
 import { mediaAnalyticsRankingQuery } from "./queries";
 
@@ -32,41 +38,49 @@ type RankingTableProps = {
 	readonly items: readonly RankingRow[];
 	readonly onDrill: (request: RecordsDrillRequest) => void;
 	readonly request: (
-		row: Pick<MediaAnalyticsRanking["items"][number], "name" | "entityId" | "mediaType">,
+		row: Pick<RankingRow, "name" | "label" | "entityId" | "mediaType">,
 	) => null | RecordsDrillRequest;
 };
 export function MediaAnalyticsRankings(props: RankingsRecordsProps) {
 	const viewport = useRyotViewport();
+	const t = useT();
+	const text = useMediaMessages();
 	const [mediaType, setMediaType] = useState<string>();
+	const types = props.summary.current.types;
 	const choices = [
-		{ value: "", label: "All media types" },
-		...props.summary.current.types.map((row) => ({ label: row.label, value: row.mediaType })),
+		{ value: "", label: text("analytics.charts.all-media-types") },
+		...types.map((row) => ({ label: t(row.label), value: row.mediaType })),
 	];
+	const selectedRow = types.find((row) => row.mediaType === mediaType);
+	const drillType =
+		selectedRow === undefined
+			? undefined
+			: { slug: selectedRow.mediaType, label: t(selectedRow.label) };
 	return (
 		<section
-			aria-label="Media rankings"
+			aria-label={text("analytics.rankings.aria-label")}
 			className={`flex min-w-0 flex-col font-ui ${viewport.compact ? "gap-3" : "gap-4"}`}
 		>
 			<header className="flex min-w-0 flex-wrap items-baseline justify-between gap-3">
 				<div>
-					<h2 className="text-heading font-semibold text-text">Rankings</h2>
+					<h2 className="text-heading font-semibold text-text">
+						{text("analytics.rankings.title")}
+					</h2>
 					<ReportText>
-						<p className="text-label text-text-muted">
-							Ranked by active observations in the selected period.
-						</p>
+						<p className="text-label text-text-muted">{text("analytics.rankings.description")}</p>
 					</ReportText>
 				</div>
 				<Select
 					choices={choices}
 					value={mediaType ?? ""}
-					label="Ranking media type"
 					className="w-full max-w-xs"
+					label={text("analytics.rankings.type-label")}
 					checkIcon={<AppIcon size={14} name="check" />}
 					chevronIcon={<AppIcon size={14} name="chevron-down" />}
 					onChange={(value) => setMediaType(value === "" ? undefined : value)}
 				/>
 			</header>
-			<RankingResults input={props.input} mediaType={mediaType} onDrill={props.onDrill} />
+			<RankingResults input={props.input} mediaType={drillType} onDrill={props.onDrill} />
 		</section>
 	);
 }
@@ -76,6 +90,7 @@ const countHeaderClassName = "px-3 py-2.5 text-right font-medium text-text-muted
 const countCellClassName = "px-3 py-2.5 text-right text-text-muted";
 
 const countColumn = (
+	format: MetricFormat,
 	id: string,
 	header: string,
 	unit: MetricUnit,
@@ -85,15 +100,21 @@ const countColumn = (
 	header,
 	cellClassName: countCellClassName,
 	headerClassName: countHeaderClassName,
-	cell: (row) => formatMetric(value(row), unit),
+	cell: (row) => format.formatMetric(value(row), unit),
 });
 
-const rankingColumns = ({ request, onDrill }: RankingTableProps): DataTableColumn<RankingRow>[] => [
+const rankingColumns = (
+	{ request, onDrill }: RankingTableProps,
+	t: ReturnType<typeof useT>,
+	text: MediaText,
+	units: ReturnType<typeof useAnalyticsUnits>,
+	format: MetricFormat,
+): DataTableColumn<RankingRow>[] => [
 	{
 		id: "name",
-		header: "Name",
 		headerClassName,
 		cellClassName: "px-3 py-2.5",
+		header: text("property.name"),
 		cell: (row) => (
 			<PluginLink
 				className="font-medium text-accent-text"
@@ -106,19 +127,37 @@ const rankingColumns = ({ request, onDrill }: RankingTableProps): DataTableColum
 	{
 		id: "category",
 		headerClassName,
-		header: "Category",
-		cell: (row) => row.label,
+		cell: (row) => t(row.label),
+		header: text("analytics.table.category"),
 		cellClassName: "px-3 py-2.5 text-text-muted",
 	},
-	countColumn("active", "Activity entries", entryUnit, (row) => row.activeObservations),
-	countColumn("titles", "Titles completed", titleUnit, (row) => row.titleCompletions),
-	countColumn("episodes", "Episodes finished", episodeUnit, (row) => row.episodeCompletions),
+	countColumn(
+		format,
+		"active",
+		text("analytics.metric.activity-entries"),
+		units.entryUnit,
+		(row) => row.activeObservations,
+	),
+	countColumn(
+		format,
+		"titles",
+		text("analytics.metric.titles-completed"),
+		units.titleUnit,
+		(row) => row.titleCompletions,
+	),
+	countColumn(
+		format,
+		"episodes",
+		text("analytics.metric.episodes-finished"),
+		units.episodeUnit,
+		(row) => row.episodeCompletions,
+	),
 	{
 		id: "actions",
 		report: false,
 		headerClassName: countHeaderClassName,
 		cellClassName: "px-3 py-2.5 text-right",
-		header: <span className="sr-only">Actions</span>,
+		header: <span className="sr-only">{text("analytics.rankings.actions")}</span>,
 		cell: (row) => {
 			const drill = request(row);
 			return (
@@ -126,14 +165,14 @@ const rankingColumns = ({ request, onDrill }: RankingTableProps): DataTableColum
 					size="sm"
 					variant="link"
 					disabled={drill === null}
-					aria-label={`View records contributing to ${row.name}`}
+					aria-label={text("analytics.rankings.view-records-label", { name: row.name })}
 					onClick={() => {
 						if (drill !== null) {
 							onDrill(drill);
 						}
 					}}
 				>
-					View records
+					{text("analytics.rankings.view-records")}
 				</Button>
 			);
 		},
@@ -141,14 +180,18 @@ const rankingColumns = ({ request, onDrill }: RankingTableProps): DataTableColum
 ];
 
 function RankingTable(props: RankingTableProps) {
+	const t = useT();
+	const text = useMediaMessages();
+	const units = useAnalyticsUnits();
+	const format = useMetricFormat();
 	return (
 		<Card padding="none" className="overflow-x-auto">
 			<DataTable
 				data={props.items}
-				columns={rankingColumns(props)}
 				getRowId={(row) => row.entityId}
-				aria-label="Media entity rankings"
 				rowClassName="border-t border-border"
+				aria-label={text("analytics.rankings.table-label")}
+				columns={rankingColumns(props, t, text, units, format)}
 				className="w-full min-w-190 border-collapse text-sm tabular-nums"
 			/>
 		</Card>
@@ -156,13 +199,19 @@ function RankingTable(props: RankingTableProps) {
 }
 
 function RankingResults(props: {
-	readonly mediaType: string | undefined;
 	readonly input: RankingsRecordsProps["input"];
 	readonly onDrill: RankingsRecordsProps["onDrill"];
+	readonly mediaType: undefined | AnalyticsDrillMediaType;
 }) {
+	const periodCaption = usePeriodCaption();
+	const t = useT();
+	const text = useMediaMessages();
+	const displayText = useDisplayText();
+	const { entryUnit } = useAnalyticsUnits();
+	const { formatMetric } = useMetricFormat();
 	const result = useReportedPages(mediaAnalyticsRankingQuery, {
 		...props.input,
-		...(props.mediaType === undefined ? {} : { mediaType: props.mediaType }),
+		...(props.mediaType === undefined ? {} : { mediaType: props.mediaType.slug }),
 	});
 	const rows = useMemo(
 		() =>
@@ -178,21 +227,28 @@ function RankingResults(props: {
 		() =>
 			rows
 				.slice(0, 10)
-				.map((row) => ({ label: row.name, key: row.entityId, value: row.activeObservations ?? 0 })),
-		[rows],
+				.map((row) => ({
+					key: row.entityId,
+					label: displayText(row.name),
+					value: row.activeObservations ?? 0,
+				})),
+		[displayText, rows],
 	);
 	const loadedCaption =
 		firstPage === undefined
 			? null
-			: `${rows.length}${result.hasNextPage ? "+" : ""} ${rows.length === 1 ? "entity" : "entities"}`;
-	let errorMessage = "The rankings couldn't be loaded.";
+			: text("analytics.rankings.loaded", {
+					count: rows.length,
+					more: result.hasNextPage ? "more" : "all",
+				});
+	let errorMessage = text("analytics.rankings.load-failed");
 	if (result.errorOperation === "append") {
-		errorMessage = "More rankings couldn't be loaded.";
+		errorMessage = text("analytics.rankings.load-more-failed");
 	} else if (result.errorOperation === "refresh") {
-		errorMessage = "The rankings couldn't be refreshed.";
+		errorMessage = text("analytics.rankings.refresh-failed");
 	}
 	const requestFor = (
-		row: Pick<MediaAnalyticsRanking["items"][number], "name" | "entityId" | "mediaType">,
+		row: Pick<RankingRow, "name" | "label" | "entityId" | "mediaType">,
 	): null | RecordsDrillRequest => {
 		if (firstPage === undefined) {
 			return null;
@@ -201,8 +257,8 @@ function RankingResults(props: {
 			title: row.name,
 			activeOnly: true,
 			entityId: row.entityId,
-			mediaType: row.mediaType,
 			selection: firstPage.reporting.selection,
+			mediaType: { slug: row.mediaType, label: t(row.label) },
 			periodCaption: periodCaption(firstPage.reporting.resolved.current),
 		};
 	};
@@ -212,20 +268,20 @@ function RankingResults(props: {
 			: {
 					...(props.mediaType === undefined ? {} : { mediaType: props.mediaType }),
 					activeOnly: false,
-					title: "All records",
 					selection: firstPage.reporting.selection,
+					title: text("analytics.rankings.all-records"),
 					periodCaption: periodCaption(firstPage.reporting.resolved.current),
 				};
 	return (
 		<div className="flex min-w-0 flex-col gap-4">
 			<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
-				<h3 className="text-body font-semibold text-text">Ranked entities</h3>
+				<h3 className="text-body font-semibold text-text">
+					{text("analytics.rankings.ranked-entities")}
+				</h3>
 				<div className="flex items-center gap-3">
 					{loadedCaption === null ? null : (
 						<ReportText>
-							<span className="text-label text-text-muted tabular-nums">
-								{loadedCaption} loaded
-							</span>
+							<span className="text-label text-text-muted tabular-nums">{loadedCaption}</span>
 						</ReportText>
 					)}
 					<Button
@@ -234,7 +290,7 @@ function RankingResults(props: {
 						onClick={result.refetch}
 						disabled={result.isFetching}
 					>
-						Refresh
+						{text("common.action.refresh")}
 					</Button>
 				</div>
 			</div>
@@ -242,38 +298,53 @@ function RankingResults(props: {
 				<StatusMessage
 					blocked
 					tone="error"
-					action={{ label: "Try again", onClick: result.retry, disabled: result.isFetching }}
+					action={{
+						onClick: result.retry,
+						disabled: result.isFetching,
+						label: text("common.action.try-again"),
+					}}
 				>
 					{errorMessage}
 				</StatusMessage>
 			) : null}
 			{result.pages.length === 0 && !result.isError ? (
 				<StatusMessage blocked tone="pending">
-					Loading rankings…
+					{text("analytics.rankings.loading")}
 				</StatusMessage>
 			) : null}
 			{result.pages.length > 0 ? (
 				<>
 					{result.operation === "refresh" ? (
-						<StatusMessage tone="pending">Refreshing rankings…</StatusMessage>
+						<StatusMessage tone="pending">{text("analytics.rankings.refreshing")}</StatusMessage>
 					) : null}
 					{result.isError ? (
 						<StatusMessage
 							tone="error"
-							action={{ label: "Try again", onClick: result.retry, disabled: result.isFetching }}
+							action={{
+								onClick: result.retry,
+								disabled: result.isFetching,
+								label: text("common.action.try-again"),
+							}}
 						>
 							{errorMessage}
 						</StatusMessage>
 					) : null}
 					{rows.length === 0 ? (
-						<EmptyState title="No ranked entities" />
+						<EmptyState title={text("analytics.rankings.empty")} />
 					) : (
 						<>
-							<section className="flex flex-col gap-2" aria-label="Top active observations">
+							<section
+								className="flex flex-col gap-2"
+								aria-label={text("analytics.rankings.top-title")}
+							>
 								<div className="flex items-baseline justify-between gap-3">
-									<h4 className="text-body font-semibold text-text">Top active observations</h4>
+									<h4 className="text-body font-semibold text-text">
+										{text("analytics.rankings.top-title")}
+									</h4>
 									<ReportText>
-										<span className="text-label text-text-muted">First 10 loaded rows</span>
+										<span className="text-label text-text-muted">
+											{text("analytics.rankings.top-caption")}
+										</span>
 									</ReportText>
 								</div>
 								<RankedBarList
@@ -294,16 +365,16 @@ function RankingResults(props: {
 								}
 							}}
 						>
-							All records
+							{text("analytics.rankings.all-records")}
 						</Button>
 					</div>
 					{result.hasNextPage && !result.isError ? (
 						<LoadMoreButton
 							variant="secondary"
 							className="self-center"
-							label="Show more rankings"
 							disabled={result.isFetching}
 							onClick={result.fetchNextPage}
+							label={text("analytics.rankings.show-more")}
 							isFetchingNextPage={result.isFetchingNextPage}
 						/>
 					) : null}
