@@ -27,6 +27,7 @@ const packageId = PluginPackageId.make("test/primary");
 const dependencyPackageId = PluginPackageId.make("test/dependency");
 const pluginIdentity = {
 	packageId,
+	catalog: {},
 	kind: "plugin" as const,
 	clientDeclarationHash: clientDeclarationHash({ homeView: null, apiVersion: CLIENT_API_VERSION }),
 };
@@ -61,7 +62,6 @@ const emittedLayer = (javascript: string, css = "") =>
 
 const emittedInput = {
 	...pluginIdentity,
-	name: "Reference plugin",
 	apiVersion: CLIENT_API_VERSION,
 	publicExports: { home: { entry: "client/home.tsx", kind: "component" as const } },
 	files: { "client/home.tsx": bytes("export default function Home() { return null; }") },
@@ -148,6 +148,79 @@ it.layer(emittedLayer("export default {};"))("source input capacity", (test) => 
 	);
 });
 
+const catalogKeys = Array.from({ length: 2000 }, (_, index) => `home.item-${index}`);
+const messagesInput = (call: string) => {
+	const home = bytes(
+		`import { catalogMessage } from "../shared/messages.generated";\nexport const title = ${call};\nexport default function Home() { return null; }`,
+	);
+	return {
+		...emittedInput,
+		catalog: Object.fromEntries(
+			catalogKeys.map((key) => [key, [{ value: "name", type: 1 as const }]]),
+		),
+		files: {
+			"client/home.tsx": home,
+			"client/padding.ts": bytes(
+				`/*${" ".repeat(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes - home.byteLength - 4)}*/`,
+			),
+		},
+	};
+};
+
+it.layer(emittedLayer("export default {};"))("generated message builder", (test) => {
+	test.effect(
+		"types messages from the catalog without counting the builder as source",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compileClientPluginModule(
+					messagesInput('catalogMessage("home.item-1999", { name: "Ada" })'),
+				);
+				expect(compiled.artifact.files.some(({ name }) => name === "module.js")).toBe(true);
+
+				const error = yield* compileClientPluginModule(
+					messagesInput('catalogMessage("home.item-1999", { name: 1 })'),
+				).pipe(Effect.flip);
+				expect(error.diagnostics).toEqual<unknown>(
+					arrayContaining([objectContaining({ file: "client/home.tsx" })]),
+				);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"rejects authored builder sources and catalogs over the catalog limits",
+		() =>
+			Effect.gen(function* () {
+				const authored = yield* compileClientPluginModule({
+					...emittedInput,
+					files: {
+						...emittedInput.files,
+						"shared/messages.generated.ts": bytes("export const catalogMessage = 1;"),
+					},
+				}).pipe(Effect.flip);
+				expect(authored.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_CLIENT_SOURCE_PATH",
+						file: "shared/messages.generated.ts",
+					}),
+				]);
+
+				const oversized = yield* compileClientPluginModule({
+					...emittedInput,
+					catalog: Object.fromEntries(
+						Array.from({ length: 5001 }, (_, index) => [`home.item-${index}`, []]),
+					),
+				}).pipe(Effect.flip);
+				expect(oversized.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_CLIENT_MESSAGES",
+						message: "error too-many-keys: Catalog has more than 5000 keys",
+					}),
+				]);
+			}),
+		testTimeout,
+	);
+});
+
 for (const [reference, accepted] of [
 	["./module.js?query#fragment", true],
 	["module.js#fragment", true],
@@ -218,7 +291,6 @@ it.layer(
 			Effect.gen(function* () {
 				const { artifact } = yield* compileClientPluginModule({
 					...pluginIdentity,
-					name: "Compression plugin",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { home: { kind: "component", entry: "client/home.tsx" } },
 					files: {
@@ -331,7 +403,6 @@ it.layer(pluginClientCompilerPlatformLayer)("compiled audio assets", (test) => {
 					.join(", ");
 				const { artifact } = yield* compileClientPluginModule({
 					...pluginIdentity,
-					name: "Audio plugin",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { home: { kind: "component", entry: "client/home.tsx" } },
 					files: {
@@ -699,7 +770,6 @@ it.layer(pluginClientCompilerPlatformLayer)("compileClientPluginModule", (test) 
 			Effect.gen(function* () {
 				const input = {
 					...pluginIdentity,
-					name: "Module plugin",
 					apiVersion: CLIENT_API_VERSION,
 					pluginDependencies: {
 						media: { scope: "system" as const, packageId: dependencyPackageId },
@@ -773,7 +843,7 @@ export default function Alpha() {
 				expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
 				expect(artifact.compilerVersion).toBe(CLIENT_COMPILER_VERSION);
 				expect(artifact.hash).toBe(
-					clientArtifactMetadata(input.name, input.packageId, artifact.files, artifact).hash,
+					clientArtifactMetadata(input.packageId, artifact.files, artifact).hash,
 				);
 			}),
 		testTimeout,
@@ -785,7 +855,6 @@ export default function Alpha() {
 			Effect.gen(function* () {
 				const failure = yield* compileClientPluginModule({
 					...pluginIdentity,
-					name: "Invalid module plugin",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { invalid: { kind: "component", entry: "client/invalid.tsx" } },
 					files: {
@@ -807,7 +876,6 @@ export default function Alpha() {
 			Effect.gen(function* () {
 				const input = {
 					...pluginIdentity,
-					name: "Invalid exports",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { home: { kind: "page" as const, entry: "client/home.tsx" } },
 					files: {
@@ -845,7 +913,6 @@ export default function Alpha() {
 			Effect.gen(function* () {
 				const input = {
 					...pluginIdentity,
-					name: "Invalid package",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { home: { kind: "page" as const, entry: "client/home.tsx" } },
 					files: { "client/home.tsx": bytes("export default function Home() { return null; }") },
@@ -874,7 +941,6 @@ export default function Alpha() {
 				const image = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x01]);
 				const { artifact } = yield* compileClientPluginModule({
 					...pluginIdentity,
-					name: "Styled plugin",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { home: { kind: "page", entry: "client/home.tsx" } },
 					files: {
@@ -902,7 +968,6 @@ export default function Alpha() {
 			Effect.gen(function* () {
 				const input = {
 					...pluginIdentity,
-					name: "CLI test plugin",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { home: { entry: "client/home.tsx", kind: "component" as const } },
 					files: {
@@ -965,13 +1030,13 @@ export default function Alpha() {
 		"builds kernel modules without an authored package identity",
 		() =>
 			Effect.gen(function* () {
-				const { name, files, apiVersion, publicExports } = emittedInput;
+				const { files, apiVersion, publicExports } = emittedInput;
 				const kernel = yield* compileClientPluginModule({
-					name,
 					files,
 					apiVersion,
 					publicExports,
 					kind: "kernel",
+					name: "Reference kernel",
 				});
 				expect(kernel.artifact).not.toHaveProperty("packageId");
 				const plugin = yield* compileClientPluginModule(emittedInput);
@@ -987,13 +1052,22 @@ it.layer(emittedLayer("export const page = () => null;"))("page modules", (test)
 		"binds page identity and declarations independently from kernel modules",
 		() =>
 			Effect.gen(function* () {
-				const input = { ...emittedInput, kind: "page" as const, pageDeclarationHash: "first" };
+				const input = {
+					...emittedInput,
+					kind: "page" as const,
+					name: "Reference page",
+					pageDeclarationHash: "first",
+				};
 				const first = yield* compileClientPluginModule(input);
 				const changed = yield* compileClientPluginModule({
 					...input,
 					pageDeclarationHash: "second",
 				});
-				const kernel = yield* compileClientPluginModule({ ...emittedInput, kind: "kernel" });
+				const kernel = yield* compileClientPluginModule({
+					...emittedInput,
+					kind: "kernel",
+					name: "Reference kernel",
+				});
 				expect(first.artifact.kind).toBe("page");
 				expect(first.artifact.pageDeclarationHash).toBe("first");
 				expect(first.artifact.hash).not.toBe(changed.artifact.hash);
@@ -1008,6 +1082,7 @@ it.layer(emittedLayer("export const page = () => null;"))("page modules", (test)
 				const result = yield* compileClientPluginModule({
 					...emittedInput,
 					kind: "page",
+					name: "Reference page",
 					pageDeclarationHash: "first",
 					files: { ...emittedInput.files, "backend/code.ts": bytes("export default 1") },
 				}).pipe(Effect.result);
@@ -1025,6 +1100,7 @@ it.layer(emittedLayer("export const page = () => null;"))("page modules", (test)
 				const result = yield* compileClientPluginModule({
 					...emittedInput,
 					kind: "page",
+					name: "Reference page",
 					pageDeclarationHash: "first",
 					files: {
 						"client/other.ts": bytes("export default 1"),

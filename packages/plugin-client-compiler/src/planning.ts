@@ -4,6 +4,7 @@ import {
 	pluginClientAssetMimeType,
 	pluginClientFileExtension,
 } from "@ryot-app/plugin-client-contract";
+import { CATALOG_MESSAGES_MODULE } from "@ryot-app/plugin-kit/messages-module";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Effect } from "effect";
@@ -53,6 +54,13 @@ export const planClientCompilation = (
 ): Effect.Effect<ClientCompilationPlan, PluginClientCompilerFailure> =>
 	Effect.gen(function* () {
 		for (const path of Object.keys(input.files)) {
+			if (path === CATALOG_MESSAGES_MODULE) {
+				return yield* failure(
+					path,
+					"RYOT_CLIENT_SOURCE_PATH",
+					`Source "${path}" is reserved for the message builder the compiler generates from the catalog`,
+				);
+			}
 			if (
 				(input.kind === "page" || isClientSourcePath(path) || isSharedSourcePath(path)) &&
 				sourcePathIssue(path) !== null

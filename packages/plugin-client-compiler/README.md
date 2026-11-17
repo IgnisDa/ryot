@@ -19,7 +19,9 @@ and supply `publicExports: { page: { kind: "page", entry } }`. All three module 
 import, AST, semantic, stylesheet and output validation. Pages accept only `client/**` and `shared/**`
 files; plugin package inputs may also contain unrelated backend and manifest files.
 Plugin input also requires `clientDeclarationHash`, computed from the full canonical manifest client
-declaration. Module artifacts record the scoped package/export targets encountered during import
+declaration, and `catalog`, the plugin's compiled source-locale catalog. The compiler generates the
+typed `catalogMessage` builder from it at the reserved path `shared/messages.generated.ts`, which no
+input may supply; a catalog over the catalog limits fails with `RYOT_CLIENT_MESSAGES`. Module artifacts record the scoped package/export targets encountered during import
 resolution, not every declared dependency alias. Kernel modules share this import metadata; the root
 runtime has no plugin imports. Embedded composition metadata remains separate.
 
@@ -31,8 +33,9 @@ TypeScript bundler resolution handles relative TypeScript imports, including ext
 and `.js` specifiers that resolve to TypeScript sources.
 
 Author imports are checked before Vite runs, including type-only imports. The data-only dependency
-registry in `src/dependencies.ts` is the authority for trusted and neutral module membership and
-TypeScript entry resolution. Shared sources can use only neutral registry entries and relative
+registry in `src/dependencies.ts` is the authority for trusted, neutral and kernel module membership
+and TypeScript entry resolution. Kernel entries, currently `@ryot-app/kernel-messages/message`,
+are importable only by `kind: "kernel"` renderer sources, so plugins cannot reference kernel keys. Shared sources can use only neutral registry entries and relative
 shared files. Plugin dependencies map importer-local aliases to `{ packageId, scope }`. Authored
 `@ryot-app/plugins/<alias>/<export>` imports resolve at Vite's import boundary to
 `@ryot-app/plugins/<scope>/<packageId>/<export>`, stay external, and resolve through the page import map. Dynamic
@@ -50,6 +53,11 @@ dependencies are private implementation details; plugin sources cannot import th
 Motion is a private UI SDK dependency, included in the shared runtime. Plugin authors use the SDK's
 motion primitives; direct `motion/react` imports are not in the dependency registry.
 
+`@ryot-app/i18n` is likewise private to the SDK. Plugins render messages through the client SDK's
+`useMessages` and `useT`, and build them with the neutral `@ryot-app/plugin-kit/messages` entry. The
+runtime build aliases `@formatjs/icu-messageformat-parser` to its `no-parser.js` entry, since
+catalogs arrive pre-parsed over the bridge.
+
 ## Compilation Stages
 
 Effect schemas in `src/input.ts` define package inputs and public exports. Their derived types are
@@ -64,8 +72,9 @@ isolated in `src/generated-source.ts`.
 `analytics-section` exports are checked as `ComponentType<AnalyticsSectionProps>` through the public
 client SDK contract. Their manifest registrations may name only same-owner analytics exports; those
 declarations also participate in the existing client declaration hash.
-Combined client/shared source and raw asset input is limited to 1 MiB; individual raw assets remain
-limited to 256 KiB. Emitted artifacts have a separate 8 MiB limit.
+Combined authored client/shared source and raw asset input is limited to 2 MiB; the generated
+message builder is bounded by the catalog limits instead. Individual raw assets remain limited to
+256 KiB. Emitted artifacts have a separate 8 MiB limit.
 
 ## Vite Module
 
@@ -105,7 +114,7 @@ database IDs are not embedded in the plugin module.
 Vite may also emit `chunk-[hash].js` and `asset-[hash][extname]` files. Multiple and nested authored
 CSS imports are resolved into `module.css`; Vite owns asset URLs. Every emitted path, MIME type,
 local reference, file count, per-asset size, and total size is validated. The hash covers every
-output byte and content type plus the name, package or kernel identity, and compiler/protocol identity. Final files are
+output byte and content type plus the package identity (the name of kernel and page inputs), and compiler/protocol identity. Final files are
 sorted by name. Compiler version 1 identifies minified module artifacts.
 Hashes also cover the canonically sorted import targets and, for authored plugins, the client
 declaration hash. Archives require that declaration hash to match the manifest.

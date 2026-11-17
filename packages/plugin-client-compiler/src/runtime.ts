@@ -165,6 +165,12 @@ export const buildClientRuntime = Effect.gen(function* () {
 			define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' },
 			resolve: {
 				dedupe: ["react", "react-dom", "@ryot-app/plugin-client-sdk", "@ryot-app/plugin-ui-sdk"],
+				alias: [
+					{
+						find: /^@formatjs\/icu-messageformat-parser$/,
+						replacement: "@formatjs/icu-messageformat-parser/no-parser.js",
+					},
+				],
 			},
 			build: {
 				minify: true,

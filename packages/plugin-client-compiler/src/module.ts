@@ -24,7 +24,12 @@ import tailwindcss from "@tailwindcss/vite";
 import { Effect, type FileSystem, Path, Result } from "effect";
 
 import { validateClientPluginPackage } from "./compile";
-import { isNeutralPluginModule, isTrustedClientModule, PLUGIN_IMPORT } from "./dependencies";
+import {
+	isKernelClientModule,
+	isNeutralPluginModule,
+	isTrustedClientModule,
+	PLUGIN_IMPORT,
+} from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 import type { ClientPluginCompilerDiagnostic, PluginClientCompilerFailure } from "./diagnostics";
 import { compilerStylesheet } from "./generated-source";
@@ -139,8 +144,11 @@ export function compileClientPluginModule(
 	readonly artifact: PageClientArtifact | PluginClientArtifact | ClientRuntimeArtifact;
 }> {
 	return Effect.gen(function* () {
-		const { dependencies, compiledFiles: sourceEntries } =
-			yield* validateClientPluginPackage(input);
+		const {
+			generated,
+			dependencies,
+			compiledFiles: sourceEntries,
+		} = yield* validateClientPluginPackage(input);
 		const reachableSources = sourceEntries
 			.filter(([path]) => isCompiledTextSource(path))
 			.map(([path]) => path);
@@ -148,7 +156,10 @@ export function compileClientPluginModule(
 		const workspace = yield* acquireCompilerWorkspace({
 			parentPath: dependencies.compilerRoot,
 			...options,
-			sources: sourceEntries.map(([path, contents]) => ({ path, contents })),
+			sources: [
+				...sourceEntries.map(([path, contents]) => ({ path, contents })),
+				...Object.entries(generated).map(([path, contents]) => ({ path, contents })),
+			],
 			generated: (pathsForWorkspace) => [
 				{ path: "module.ts", contents: moduleSource(input) },
 				{
@@ -167,7 +178,10 @@ export function compileClientPluginModule(
 
 		const trustedModules = new Set(
 			Object.keys(dependencies.typeScriptEntries).filter(
-				(specifier) => isTrustedClientModule(specifier) || isNeutralPluginModule(specifier),
+				(specifier) =>
+					isTrustedClientModule(specifier) ||
+					isNeutralPluginModule(specifier) ||
+					isKernelClientModule(specifier),
 			),
 		);
 		const pluginDependencies = new Map<string, PluginClientImport>();
@@ -357,7 +371,7 @@ export function compileClientPluginModule(
 		if (input.kind === "plugin") {
 			return {
 				artifact: {
-					...clientArtifactMetadata(input.name, input.packageId, files, {
+					...clientArtifactMetadata(input.packageId, files, {
 						imports,
 						clientDeclarationHash: input.clientDeclarationHash,
 					}),

@@ -40,6 +40,7 @@ it("derives the exact trusted and neutral client import policies from the regist
 		"@ryot-app/plugin-kit/ryotql",
 		"@ryot-app/plugin-kit/schema",
 		"@ryot-app/plugin-kit/languages",
+		"@ryot-app/plugin-kit/messages",
 	];
 	for (const specifier of trusted) {
 		expect(isTrustedClientModule(specifier)).toBe(true);

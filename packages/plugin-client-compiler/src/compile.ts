@@ -1,8 +1,16 @@
+import {
+	CATALOG_MESSAGES_MODULE,
+	catalogMessagesModule,
+} from "@ryot-app/plugin-kit/messages-module";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 
 import { resolveClientPluginCompilerDependencies } from "./dependencies";
-import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
+import {
+	clientPluginCompilationFailure,
+	clientPluginCompilerDiagnostic,
+	type PluginClientCompilerFailure,
+} from "./diagnostics";
 import { GENERATED_VALIDATION } from "./generated-source";
 import type { PluginClientCompilerPackageInput } from "./input";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
@@ -18,6 +26,22 @@ import { validateClientSourcePolicy } from "./styles";
 
 const failure = (entry: string, code: string, message: string) =>
 	clientPluginCompilationFailure([clientPluginCompilerDiagnostic(code, entry, message)]);
+
+const generatedSources = (
+	input: PluginClientCompilerPackageInput,
+): Effect.Effect<Readonly<Record<string, string>>, PluginClientCompilerFailure> => {
+	if (input.kind !== "plugin") {
+		return Effect.succeed({});
+	}
+	const module = catalogMessagesModule(input.catalog);
+	return Result.isSuccess(module)
+		? Effect.succeed({ [CATALOG_MESSAGES_MODULE]: module.success })
+		: clientPluginCompilationFailure(
+				module.failure.map((issue) =>
+					clientPluginCompilerDiagnostic("RYOT_CLIENT_MESSAGES", CATALOG_MESSAGES_MODULE, issue),
+				),
+			);
+};
 
 export const validateClientPluginPackage = (input: PluginClientCompilerPackageInput) =>
 	Effect.gen(function* () {
@@ -61,10 +85,12 @@ export const validateClientPluginPackage = (input: PluginClientCompilerPackageIn
 					failure(path, "RYOT_CLIENT_UTF8", `Client text source "${path}" is not valid UTF-8`),
 			});
 		}
+		const generated = yield* generatedSources(input);
 		const dependencies = yield* resolveClientPluginCompilerDependencies;
 		const analysis = yield* analyzeClientPluginTypes(
 			{
 				...sourceFiles,
+				...generated,
 				[GENERATED_VALIDATION]: plan.validationSource,
 				...(plan.dependencyDeclarations === undefined
 					? {}
@@ -80,6 +106,7 @@ export const validateClientPluginPackage = (input: PluginClientCompilerPackageIn
 		const policyDiagnostics = validateClientSourcePolicy({
 			sourceFiles,
 			files: plan.files,
+			kernel: input.kind === "kernel",
 			parsedFiles: analysis.sourceFiles,
 			unresolvedPluginDependencies: plan.pluginDependencies,
 		});
@@ -89,5 +116,5 @@ export const validateClientPluginPackage = (input: PluginClientCompilerPackageIn
 		if (analysis.diagnostics.length > 0) {
 			return yield* clientPluginCompilationFailure(analysis.diagnostics);
 		}
-		return { dependencies, compiledFiles };
+		return { generated, dependencies, compiledFiles };
 	});

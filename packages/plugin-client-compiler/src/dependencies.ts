@@ -56,6 +56,8 @@ const CLIENT_DEPENDENCY_REGISTRY = [
 	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/ryotql" },
 	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/schema" },
 	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/languages" },
+	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/messages" },
+	{ policy: "kernel", specifier: "@ryot-app/kernel-messages/message" },
 ] as const;
 
 export const CLIENT_DEPENDENCY_SPECIFIERS: readonly string[] = Object.freeze(
@@ -73,7 +75,15 @@ const neutralModules = new Set<string>(
 	),
 );
 
+const kernelModules = new Set<string>(
+	CLIENT_DEPENDENCY_REGISTRY.filter(({ policy }) => policy === "kernel").map(
+		({ specifier }) => specifier,
+	),
+);
+
 export const isTrustedClientModule = (specifier: string) => trustedModules.has(specifier);
+/** Modules only kernel renderer sources may import, such as the kernel message builder. */
+export const isKernelClientModule = (specifier: string) => kernelModules.has(specifier);
 export const isNeutralPluginModule = (specifier: string) => neutralModules.has(specifier);
 
 const directoryOf = (path: string) => path.slice(0, path.lastIndexOf("/"));

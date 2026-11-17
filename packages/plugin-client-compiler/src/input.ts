@@ -1,5 +1,6 @@
 import { PluginDependencies } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { CompiledCatalog } from "@ryot-app/i18n/catalog";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
 import { Schema } from "effect";
 
@@ -23,7 +24,6 @@ export const clientPluginCompilerInputSchema = <Encoded, DecodingServices, Encod
 	contents: Schema.Codec<Uint8Array, Encoded, DecodingServices, EncodingServices>,
 ) => {
 	const commonInputFields = {
-		name: Schema.String,
 		files: Schema.Record(Schema.String, contents),
 		apiVersion: Schema.Literal(CLIENT_API_VERSION),
 		pluginDependencies: Schema.optional(PluginDependencies),
@@ -32,13 +32,15 @@ export const clientPluginCompilerInputSchema = <Encoded, DecodingServices, Encod
 	return Schema.Union([
 		Schema.Struct({
 			...commonInputFields,
+			catalog: CompiledCatalog,
 			packageId: PluginPackageId,
 			kind: Schema.Literal("plugin"),
 			clientDeclarationHash: Schema.String,
 		}),
-		Schema.Struct({ ...commonInputFields, kind: Schema.Literal("kernel") }),
+		Schema.Struct({ ...commonInputFields, name: Schema.String, kind: Schema.Literal("kernel") }),
 		Schema.Struct({
 			...commonInputFields,
+			name: Schema.String,
 			kind: Schema.Literal("page"),
 			pageDeclarationHash: Schema.String,
 		}),

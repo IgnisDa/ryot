@@ -6,7 +6,12 @@ import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
 import * as ts from "typescript/unstable/ast";
 
-import { isNeutralPluginModule, isTrustedClientModule, PLUGIN_IMPORT } from "./dependencies";
+import {
+	isKernelClientModule,
+	isNeutralPluginModule,
+	isTrustedClientModule,
+	PLUGIN_IMPORT,
+} from "./dependencies";
 import { type ClientPluginCompilerDiagnostic, clientPluginCompilerDiagnostic } from "./diagnostics";
 import { isClientSourcePath, isSharedSourcePath } from "./planning";
 
@@ -62,6 +67,7 @@ const validateScript = (
 	file: ts.SourceFile,
 	files: Readonly<Record<string, Uint8Array>>,
 	unresolvedPluginDependencies: ReadonlySet<string>,
+	kernel: boolean,
 ) => {
 	const diagnostics: ClientPluginCompilerDiagnostic[] = [];
 	const validateImport = (specifier: string) => {
@@ -103,7 +109,7 @@ const validateScript = (
 		}
 		const allowed = isSharedSource(path)
 			? isNeutralPluginModule(specifier)
-			: isTrustedClientModule(specifier);
+			: isTrustedClientModule(specifier) || (kernel && isKernelClientModule(specifier));
 		if (!allowed) {
 			diagnostics.push(
 				importFailure(
@@ -248,8 +254,10 @@ export const validateClientSourcePolicy = ({
 	files,
 	sourceFiles,
 	parsedFiles,
+	kernel = false,
 	unresolvedPluginDependencies = [],
 }: {
+	readonly kernel?: boolean;
 	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly sourceFiles: Readonly<Record<string, string>>;
 	readonly unresolvedPluginDependencies?: readonly string[];
@@ -265,7 +273,7 @@ export const validateClientSourcePolicy = ({
 		}
 		const file = parsedFiles[path];
 		return file
-			? validateScript(path, file, files, unresolved)
+			? validateScript(path, file, files, unresolved, kernel)
 			: [importFailure(path, "Script source was not parsed")];
 	});
 };
