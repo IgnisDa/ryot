@@ -18,6 +18,7 @@ import {
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { comicBookPresentationFacts, comicBookSchema, comicBookSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -35,16 +36,16 @@ afterEach(() => {
 
 describe("comic book schema", () => {
 	it("lists the pages and drops them when unrecorded", () => {
-		expect(comicBookSummaryFacts(comicBookSummary())).toEqual([
+		expect(comicBookSummaryFacts(comicBookSummary(), testMediaCopy)).toEqual([
 			{ inline: true, label: "Pages", value: "32 pages", icon: "book-open" },
 		]);
-		expect(comicBookSummaryFacts(comicBookSummary({ pages: null }))).toEqual([]);
+		expect(comicBookSummaryFacts(comicBookSummary({ pages: null }), testMediaCopy)).toEqual([]);
 	});
 
 	it("reads the page count on rows, hints how much was read and draws poster art", () => {
 		const data = decodeFlatPresentation(comicBookRecipes, { pages: 32, schemaSlug: "comic-book" });
 
-		expect(comicBookPresentationFacts({ ...data, pages: null })).toEqual([]);
+		expect(comicBookPresentationFacts({ ...data, pages: null }, testMediaCopy)).toEqual([]);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<comicBookSchema.RowContent compact data={data} entityId="media-1" />,

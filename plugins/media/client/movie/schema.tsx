@@ -1,4 +1,5 @@
 import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { movieRecipes } from "../../shared/movie-recipes";
 import { originalLanguageFact } from "../../shared/original-language";
 import { mediaFlatActivityCopy } from "../media/activity-copy";
@@ -10,40 +11,43 @@ import {
 	mediaDurationLabels,
 	type MediaSummaryFact,
 } from "../media/summary-state";
+import type { MediaCopy } from "../messages";
 import { mediaSchemaAspects } from "../schema-aspects";
 
 type MovieSummary = MediaSummaryOf<typeof movieRecipes>;
 
 type MoviePresentation = MediaPresentationDataOf<typeof movieRecipes>;
 
-export const movieSummaryFacts = (movie: MovieSummary): readonly MediaSummaryFact[] =>
+export const movieSummaryFacts = (
+	movie: MovieSummary,
+	copy: MediaCopy,
+): readonly MediaSummaryFact[] =>
 	[
-		...originalLanguageFact(movie.originalLanguage),
-		mediaDurationFact(movie.runtime, "Runtime"),
+		...originalLanguageFact(copy.text("property.original-language"), movie.originalLanguage),
+		mediaDurationFact(copy, movie.runtime, copy.text("property.runtime")),
 	].filter((fact) => fact !== undefined);
 
-export const moviePresentationFacts = (movie: MoviePresentation) =>
-	mediaDurationLabels(movie.runtime);
+export const moviePresentationFacts = (movie: MoviePresentation, { formatters }: MediaCopy) =>
+	mediaDurationLabels(formatters, movie.runtime);
 
 export const movieSchema = defineFlatMediaSchema({
 	recipes: movieRecipes,
 	facts: movieSummaryFacts,
 	aspect: mediaSchemaAspects.movie,
 	presentationFacts: moviePresentationFacts,
-	nouns: { title: "Movie", plural: "movies", singular: "movie" },
-	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
+	overviewLoadingDetail: catalogMessage("overview.loading.movie"),
+	group: { actionLabel: catalogMessage("group.view-collection") },
 	overviewTrailing: mediaWatchProvidersTrailing((summary) => summary),
-	activityCopy: mediaFlatActivityCopy({ verb: "watch", noun: "movie" }),
-	group: { actionLabel: "View collection", title: (name) => `Part of ${name}` },
-	overviewLoadingDetail: "Fetching the cast, companies and recommendations for this movie.",
-	creditCopy: {
-		people: "Cast & crew",
-		companies: "Production companies",
-		notice: "Cast, companies and recommendations",
-	},
+	activityCopy: (copy) => mediaFlatActivityCopy(copy, { verb: "watch", kind: "movie" }),
+	measureFigure: { value: mediaActivityTimeLabel, label: catalogMessage("activity.figure-time") },
 	logActivity: {
 		family: "flat",
-		progressUnit: { field: "runtime", plural: "minutes", singular: "minute" },
-		copy: { verb: "watch", noun: "movie", gerund: "watching", participle: "watched" },
+		progressUnit: { field: "runtime" },
+		copy: { verb: "watch", kind: "movie" },
+	},
+	creditCopy: {
+		people: catalogMessage("credits.cast-crew"),
+		notice: catalogMessage("credits.notice.movie"),
+		companies: catalogMessage("credits.production-companies"),
 	},
 });

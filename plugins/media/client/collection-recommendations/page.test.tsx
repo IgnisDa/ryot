@@ -17,6 +17,7 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { collectionRecommendationsQuery } from "../../shared/discovery-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { mediaMessages } from "../../tests/client/test-support";
 import CollectionRecommendationsPage from "./page";
 
 afterEach(disposePluginBridges);
@@ -27,6 +28,7 @@ const path = "/collections/col-1/recommendations";
 const openPage = (search = "", entitlements: readonly Entitlement[] = ["pro"]) =>
 	mountPluginPage(CollectionRecommendationsPage, {
 		entitlements,
+		catalogs: [mediaMessages(pluginId)],
 		location: routeLocation(path, search),
 		page: {
 			view: null,
@@ -85,6 +87,25 @@ const answerSources = (page: Page, sourceCount: null | number) =>
 		});
 	});
 
+const answerSchemaNames = (page: Page) =>
+	Effect.gen(function* () {
+		const names = yield* request(page, "schemas");
+		page.replyQuery(names.requestId, {
+			outcome: "success",
+			response: {
+				data: {
+					schemas: rows([
+						{
+							pluginId,
+							slug: "video-game",
+							name: { namespace: pluginId, key: "entity-schema.video-game.name" },
+						},
+					]),
+				},
+			},
+		});
+	});
+
 const answerRecommendations = (
 	page: Page,
 	items: RowsResult["items"],
@@ -114,10 +135,11 @@ describe("collection recommendations page", () => {
 					],
 					{ nextCursor: "next" },
 				);
+				yield* answerSchemaNames(page);
 				const first = yield* Effect.promise(() =>
 					screen.findByRole("link", { name: "Open Title a" }),
 				);
-				expect(first.textContent).toContain("video game · Suggested by 2");
+				expect(first.textContent).toContain("Video Game · Suggested by 2");
 				expect(screen.getByRole("link", { name: "Open Title b" }).textContent).not.toContain(
 					"Suggested by",
 				);

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { podcastRecipes } from "../../shared/podcast-recipes";
 import {
 	decodePodcastActivity,
@@ -10,6 +11,7 @@ import {
 } from "../../tests/client/podcast/fixtures";
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy, testMediaText } from "../../tests/client/test-text";
 import { mapMediaOverview } from "../media/overview-state";
 import { podcastEpisodeCountLine } from "./episodes";
 import {
@@ -73,10 +75,12 @@ afterEach(() => {
 
 describe("podcast schema", () => {
 	it("lists the published episode count", () => {
-		expect(podcastSummaryFacts(decodePodcastSummary())).toEqual([
+		expect(podcastSummaryFacts(decodePodcastSummary(), testMediaCopy)).toEqual([
 			{ inline: true, icon: "podcast", label: "Episodes", value: "412 episodes" },
 		]);
-		expect(podcastSummaryFacts(decodePodcastSummary({ totalEpisodes: null }))).toEqual([]);
+		expect(
+			podcastSummaryFacts(decodePodcastSummary({ totalEpisodes: null }), testMediaCopy),
+		).toEqual([]);
 	});
 
 	it("heads the summary with progress over aired episodes and the upcoming count", () => {
@@ -135,27 +139,42 @@ describe("podcast schema", () => {
 		row.unmount();
 
 		expect(podcastPresentationFacts(data)).toEqual(["Ended"]);
-		expect(podcastPresentationDetail(data)).toBe(
+		expect(podcastPresentationDetail(data, testMediaCopy)).toBe(
 			"400 aired episodes · 183 played · 1 episode in progress",
 		);
-		expect(podcastPresentationDetail(presentationData({ airedEpisodes: 0 }))).toBeUndefined();
+		expect(
+			podcastPresentationDetail(presentationData({ airedEpisodes: 0 }), testMediaCopy),
+		).toBeUndefined();
 	});
 
 	it("counts the feed from the summary aggregates", () => {
-		expect(podcastEpisodeCountLine(decodePodcastSummary())).toBe("412 episodes · 183 played");
-		expect(podcastEpisodeCountLine(decodePodcastSummary({ watchedEpisodes: 0 }))).toBe(
-			"412 episodes",
+		expect(podcastEpisodeCountLine(testMediaText, decodePodcastSummary())).toBe(
+			"412 episodes · 183 played",
 		);
 		expect(
-			podcastEpisodeCountLine(decodePodcastSummary({ airedEpisodes: 0, totalEpisodes: null })),
+			podcastEpisodeCountLine(testMediaText, decodePodcastSummary({ watchedEpisodes: 0 })),
+		).toBe("412 episodes");
+		expect(
+			podcastEpisodeCountLine(
+				testMediaText,
+				decodePodcastSummary({ airedEpisodes: 0, totalEpisodes: null }),
+			),
 		).toBeUndefined();
-		expect(podcastEpisodeCountLine(undefined)).toBeUndefined();
+		expect(podcastEpisodeCountLine(testMediaText, undefined)).toBeUndefined();
 	});
 
 	it("shows one Episodes coverage bar for the whole feed", () => {
 		expect(podcastActivityCoverage(decodePodcastActivity())).toEqual({
 			headline: { total: 400, watched: 183 },
-			rows: [{ total: 400, percent: 46, watched: 183, key: "podcast-1", label: "Episodes" }],
+			rows: [
+				{
+					total: 400,
+					percent: 46,
+					watched: 183,
+					key: "podcast-1",
+					label: catalogMessage("property.episodes"),
+				},
+			],
 		});
 		expect(podcastActivityCoverage(decodePodcastActivity({ coverage: [] })).rows).toEqual([]);
 	});

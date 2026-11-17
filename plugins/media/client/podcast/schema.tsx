@@ -3,6 +3,7 @@ import type {
 	MediaPresentationDataOf,
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { podcastRecipes } from "../../shared/podcast-recipes";
 import { mediaEpisodicActivityCopy } from "../media/activity-copy";
 import {
@@ -11,6 +12,7 @@ import {
 } from "../media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../media/episodic-schema";
 import { mediaCountFact, mediaCountLabel, type MediaSummaryFact } from "../media/summary-state";
+import type { MediaCopy } from "../messages";
 import { mediaSchemaAspects } from "../schema-aspects";
 import { podcastEpisodeOriginLabel, PodcastEpisodesTab } from "./episodes";
 
@@ -30,33 +32,38 @@ export const podcastActivityCoverage = (
 		rows: [
 			{
 				key: episodes.id,
-				label: "Episodes",
 				total: episodes.episodeTotal,
 				watched: episodes.watchedTotal,
+				label: catalogMessage("property.episodes"),
 				percent: mediaEpisodicCoveragePercent(episodes.watchedTotal, episodes.episodeTotal),
 			},
 		],
 	};
 };
 
-export const podcastSummaryFacts = (podcast: PodcastSummary): readonly MediaSummaryFact[] =>
-	[mediaCountFact(podcast.totalEpisodes, "Episode", "podcast")].filter(
+export const podcastSummaryFacts = (
+	podcast: PodcastSummary,
+	{ text }: MediaCopy,
+): readonly MediaSummaryFact[] =>
+	[mediaCountFact(text, podcast.totalEpisodes, "episode", "podcast")].filter(
 		(fact) => fact !== undefined,
 	);
 
 export const podcastPresentationFacts = (podcast: PodcastPresentation) =>
 	podcast.productionStatus === null ? [] : [podcast.productionStatus];
 
-export const podcastPresentationDetail = (podcast: PodcastPresentation) => {
+export const podcastPresentationDetail = (podcast: PodcastPresentation, { text }: MediaCopy) => {
 	if (podcast.airedEpisodes === 0) {
 		return undefined;
 	}
 	return [
-		mediaCountLabel(podcast.airedEpisodes, "aired episode"),
-		podcast.watchedEpisodes === 0 ? undefined : `${podcast.watchedEpisodes} played`,
+		mediaCountLabel(text, podcast.airedEpisodes, "aired_episode"),
+		podcast.watchedEpisodes === 0
+			? undefined
+			: text("podcast.played", { count: podcast.watchedEpisodes }),
 		podcast.inProgressEpisodes === 0
 			? undefined
-			: `${mediaCountLabel(podcast.inProgressEpisodes, "episode")} in progress`,
+			: text("count.in-progress", { count: podcast.inProgressEpisodes }),
 	]
 		.filter((part) => part !== undefined)
 		.join(" · ");
@@ -72,20 +79,13 @@ export const podcastSchema = defineEpisodicMediaSchema({
 	presentationFacts: podcastPresentationFacts,
 	presentationDetail: podcastPresentationDetail,
 	episodeOrder: (episode) => [episode.episodeNumber],
-	nouns: { title: "Podcast", plural: "podcasts", singular: "podcast" },
-	overviewLoadingDetail: "Fetching the hosts, networks and recommendations for this podcast.",
-	activityCopy: mediaEpisodicActivityCopy({
-		verb: "listen",
-		noun: "podcast",
-		watchedLabel: "Played",
-	}),
-	logActivity: {
-		family: "podcast",
-		copy: { noun: "podcast", verb: "listen to", gerund: "listening", participle: "listened" },
-	},
+	overviewLoadingDetail: catalogMessage("overview.loading.podcast"),
+	logActivity: { family: "podcast", copy: { verb: "listen", kind: "podcast" } },
+	activityCopy: (copy) =>
+		mediaEpisodicActivityCopy(copy.text, { verb: "listen", kind: "podcast", watched: "played" }),
 	creditCopy: {
-		people: "Hosts & guests",
-		companies: "Networks & publishers",
-		notice: "Hosts, networks and recommendations",
+		people: catalogMessage("credits.hosts-guests"),
+		notice: catalogMessage("credits.notice.podcast"),
+		companies: catalogMessage("credits.networks-publishers"),
 	},
 });

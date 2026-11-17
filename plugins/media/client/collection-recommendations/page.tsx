@@ -9,6 +9,8 @@ import {
 	ManagedAssetProvider,
 	nextPageCursor,
 	useEntitlement,
+	useEntitySchemaName,
+	usePluginIdentity,
 	useRyot,
 	useRyotInfiniteQuery,
 	useRyotQuery,
@@ -21,7 +23,6 @@ import {
 	EntitlementNotice,
 	LoadMoreButton,
 	resultsLayoutClasses,
-	schemaSlugLabel,
 	SearchField,
 	Skeleton,
 } from "@ryot-app/plugin-ui-sdk";
@@ -46,6 +47,7 @@ import { MediaLibraryTitle } from "../media/library-title";
 import { ManagedAssetImage } from "../media/managed-assets";
 import { MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
 import { mediaPosterAsset } from "../media/summary-state";
+import { useMediaMessageBuilder, useMediaMessages } from "../messages";
 import { mediaAspectOf } from "../schema-aspects";
 
 const SEARCH_PARAM = "search";
@@ -87,28 +89,36 @@ const recommendationsQuery = createRyotQuery<RecommendationsInput, CollectionRec
 	},
 );
 
-const pluralize = (count: number, noun: string) =>
-	`${count.toLocaleString()} ${noun}${count === 1 ? "" : "s"}`;
-
-const unavailable = (
-	<MediaStatusMessage
-		title="Collection unavailable"
-		detail="This collection was deleted or you no longer have access to it."
-	/>
-);
-
 export default function CollectionRecommendationsPage() {
 	const { collectionId } = usePluginParams();
+	const message = useMediaMessageBuilder();
 	return collectionId === undefined || collectionId === "" ? (
-		<PluginScreenFrame title="Recommendations">{unavailable}</PluginScreenFrame>
+		<PluginScreenFrame title={message("collection-page.recommendations.label")}>
+			<Unavailable />
+		</PluginScreenFrame>
 	) : (
 		<CollectionRecommendationsScreen collectionId={collectionId} />
 	);
 }
 
-function RecommendationsSkeleton() {
+function Unavailable() {
+	const text = useMediaMessages();
 	return (
-		<div role="status" aria-label="Loading recommendations" className={resultsLayoutClasses.grid}>
+		<MediaStatusMessage
+			title={text("recommendations.unavailable-title")}
+			detail={text("recommendations.unavailable-detail")}
+		/>
+	);
+}
+
+function RecommendationsSkeleton() {
+	const text = useMediaMessages();
+	return (
+		<div
+			role="status"
+			className={resultsLayoutClasses.grid}
+			aria-label={text("recommendations.loading")}
+		>
 			{Array.from({ length: 8 }, (_, index) => (
 				<div key={index} className="flex flex-col gap-2">
 					<Skeleton className={clsx("w-full rounded-md", mediaAspectClass("poster"))} />
@@ -125,6 +135,9 @@ function RecommendationCard(props: {
 	readonly item: CollectionRecommendation;
 }) {
 	const { item } = props;
+	const text = useMediaMessages();
+	const schemaName = useEntitySchemaName();
+	const { pluginId } = usePluginIdentity(PLUGIN_PACKAGE_ID);
 	const art = mediaPosterAsset(item);
 	const aspect = mediaAspectOf(item.schemaSlug);
 	const image = (
@@ -140,9 +153,9 @@ function RecommendationCard(props: {
 	);
 	return (
 		<PluginLink
-			aria-label={`Open ${item.name}`}
 			to={{ kind: "entity", entityId: item.id }}
-			aria-description={item.isInMediaLibrary ? "In your library" : undefined}
+			aria-label={text("common.open-named", { name: item.name })}
+			aria-description={item.isInMediaLibrary ? text("library.in-library") : undefined}
 			className={clsx(
 				"group flex min-w-0 flex-col rounded-md focus-visible:outline-2 focus-visible:outline-accent",
 				props.compact ? "gap-2.5" : "gap-3",
@@ -160,73 +173,13 @@ function RecommendationCard(props: {
 					className="line-clamp-2 font-display leading-5 font-semibold"
 				/>
 				<span className="line-clamp-1 text-xs text-text-muted">
-					<span className="capitalize">{schemaSlugLabel(item.schemaSlug)}</span>
-					{item.suggestedBy > 1 ? ` · Suggested by ${item.suggestedBy}` : null}
+					<span>{schemaName({ ownerPluginId: pluginId, entitySchemaSlug: item.schemaSlug })}</span>
+					{item.suggestedBy > 1
+						? text("recommendations.suggested-by", { count: item.suggestedBy })
+						: null}
 				</span>
 			</span>
 		</PluginLink>
-	);
-}
-
-function CollectionRecommendationsScreen(props: { readonly collectionId: string }) {
-	const { collectionId } = props;
-	const { compact } = useRyotViewport();
-	const sources = useRyotQuery(sourcesQuery, collectionId);
-	const pro = useEntitlement("pro");
-	const collection = sources.data;
-	let body: ReactNode;
-	if (collection === null) {
-		body = unavailable;
-	} else if (collection === undefined) {
-		body = sources.isError ? (
-			<MediaStatusMessage
-				onRetry={sources.refetch}
-				title="Unable to load recommendations"
-				detail="This collection could not be loaded. Check your connection and try again."
-			/>
-		) : (
-			<RecommendationsSkeleton />
-		);
-	} else if (pro.granted) {
-		body = (
-			<Recommendations compact={compact} collection={collection} collectionId={collectionId} />
-		);
-	} else if (pro.data !== undefined) {
-		body = (
-			<EntitlementNotice
-				entitlement="pro"
-				icon={<AppIcon size={16} name="sparkles" />}
-				feature="Recommending titles for this collection"
-			/>
-		);
-	} else {
-		body = pro.isError ? (
-			<MediaStatusMessage
-				onRetry={pro.refetch}
-				title="Unable to load recommendations"
-				detail="Your account could not be loaded. Check your connection and try again."
-			/>
-		) : (
-			<RecommendationsSkeleton />
-		);
-	}
-	return (
-		<PluginScreenFrame
-			title="Recommendations"
-			titleIcon={<AppIcon size={22} name="sparkles" />}
-			meta={
-				collection ? (
-					<PluginLink
-						to={{ kind: "entity", entityId: collection.id }}
-						className="font-ui text-[13px] text-text-muted hover:text-text"
-					>
-						From {collection.name}
-					</PluginLink>
-				) : undefined
-			}
-		>
-			<div className={clsx("@container flex flex-col", compact ? "gap-4" : "gap-5")}>{body}</div>
-		</PluginScreenFrame>
 	);
 }
 
@@ -235,6 +188,7 @@ function Recommendations(props: {
 	readonly collectionId: string;
 	readonly collection: NonNullable<CollectionRecommendationSourcesResult>;
 }) {
+	const text = useMediaMessages();
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const searchText = usePluginSearch().get(SEARCH_PARAM)?.trim() ?? "";
@@ -253,7 +207,7 @@ function Recommendations(props: {
 			{sourceCount === 0 ? null : (
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<p className="font-ui text-[13px] text-text-muted">
-						Suggested by {pluralize(sourceCount, "title")} in this collection
+						{text("recommendations.sources", { count: sourceCount })}
 					</p>
 					<SearchField
 						shortcut="/"
@@ -261,7 +215,7 @@ function Recommendations(props: {
 						onChange={setDraft}
 						className="h-9 sm:w-72"
 						onSubmit={() => commit(draft)}
-						label="Search recommendations"
+						label={text("recommendations.search")}
 						icon={<AppIcon size={15} name="search" />}
 						clearIcon={<AppIcon name="x" size={14} />}
 					/>
@@ -269,9 +223,9 @@ function Recommendations(props: {
 			)}
 			{sourceCount === 0 ? (
 				<EmptyState
-					title="No suggestions yet"
+					title={text("recommendations.none-title")}
 					icon={<AppIcon size={18} name="sparkles" />}
-					description="None of the titles in this collection have provider suggestions. Add titles from a provider, or refresh a title to fetch its suggestions."
+					description={text("recommendations.none-description")}
 				/>
 			) : (
 				<RecommendationResults
@@ -288,12 +242,77 @@ function Recommendations(props: {
 	);
 }
 
+function CollectionRecommendationsScreen(props: { readonly collectionId: string }) {
+	const { collectionId } = props;
+	const { compact } = useRyotViewport();
+	const text = useMediaMessages();
+	const message = useMediaMessageBuilder();
+	const sources = useRyotQuery(sourcesQuery, collectionId);
+	const pro = useEntitlement("pro");
+	const collection = sources.data;
+	let body: ReactNode;
+	if (collection === null) {
+		body = <Unavailable />;
+	} else if (collection === undefined) {
+		body = sources.isError ? (
+			<MediaStatusMessage
+				onRetry={sources.refetch}
+				title={text("recommendations.error-title")}
+				detail={text("recommendations.error-collection")}
+			/>
+		) : (
+			<RecommendationsSkeleton />
+		);
+	} else if (pro.granted) {
+		body = (
+			<Recommendations compact={compact} collection={collection} collectionId={collectionId} />
+		);
+	} else if (pro.data !== undefined) {
+		body = (
+			<EntitlementNotice
+				entitlement="pro"
+				icon={<AppIcon size={16} name="sparkles" />}
+				detail={text("recommendations.pro-required")}
+			/>
+		);
+	} else {
+		body = pro.isError ? (
+			<MediaStatusMessage
+				onRetry={pro.refetch}
+				title={text("recommendations.error-title")}
+				detail={text("recommendations.error-account")}
+			/>
+		) : (
+			<RecommendationsSkeleton />
+		);
+	}
+	return (
+		<PluginScreenFrame
+			titleIcon={<AppIcon size={22} name="sparkles" />}
+			title={message("collection-page.recommendations.label")}
+			meta={
+				collection ? (
+					<PluginLink
+						to={{ kind: "entity", entityId: collection.id }}
+						className="font-ui text-[13px] text-text-muted hover:text-text"
+					>
+						{text("recommendations.from", { name: collection.name })}
+					</PluginLink>
+				) : undefined
+			}
+		>
+			<div className={clsx("@container flex flex-col", compact ? "gap-4" : "gap-5")}>{body}</div>
+		</PluginScreenFrame>
+	);
+}
+
 function RecommendationResults(props: {
 	readonly compact: boolean;
 	readonly searchText: string;
 	readonly collectionId: string;
 	readonly onClearSearch: () => void;
 }) {
+	const text = useMediaMessages();
 	const result = useRyotInfiniteQuery(
 		recommendationsQuery,
 		{ searchText: props.searchText, collectionId: props.collectionId },
@@ -307,8 +326,8 @@ function RecommendationResults(props: {
 		return (
 			<MediaStatusMessage
 				onRetry={result.retry}
-				title="Unable to load recommendations"
-				detail="These recommendations could not be loaded. Check your connection and try again."
+				title={text("recommendations.error-title")}
+				detail={text("recommendations.error-list")}
 			/>
 		);
 	}
@@ -319,17 +338,17 @@ function RecommendationResults(props: {
 	if (items.length === 0) {
 		return props.searchText === "" ? (
 			<EmptyState
-				title="Nothing new to recommend"
+				title={text("recommendations.nothing-title")}
 				icon={<AppIcon size={18} name="circle-check" />}
-				description="Every title suggested by this collection is already in it."
+				description={text("recommendations.nothing-description")}
 			/>
 		) : (
 			<EmptyState
 				icon={<AppIcon size={18} name="search" />}
-				title={`No recommendations match “${props.searchText}”`}
+				title={text("recommendations.no-match", { search: props.searchText })}
 				action={
 					<Button variant="secondary" onClick={props.onClearSearch}>
-						Clear search
+						{text("recommendations.clear-search")}
 					</Button>
 				}
 			/>
@@ -341,7 +360,10 @@ function RecommendationResults(props: {
 			<ManagedAssetProvider
 				assets={collectManagedAssetLocators(items.map((item) => mediaPosterAsset(item)))}
 			>
-				<ul aria-label="Recommendations" className={resultsLayoutClasses.grid}>
+				<ul
+					className={resultsLayoutClasses.grid}
+					aria-label={text("collection-page.recommendations.label")}
+				>
 					{items.map((item) => (
 						<li key={item.id} className="min-w-0">
 							<RecommendationCard item={item} compact={props.compact} />
@@ -352,13 +374,12 @@ function RecommendationResults(props: {
 			{result.errorOperation === "append" && result.isError ? (
 				<MediaStatusMessage
 					onRetry={result.retry}
-					title="Unable to load more recommendations"
-					detail="The next recommendations could not be loaded. Check your connection and try again."
+					detail={text("recommendations.error-more")}
+					title={text("recommendations.error-more-title")}
 				/>
 			) : null}
 			{!result.hasNextPage || result.errorOperation === "append" ? null : (
 				<LoadMoreButton
-					label="Load more"
 					disabled={result.isFetching}
 					onClick={result.fetchNextPage}
 					onVisible={result.fetchNextPage}

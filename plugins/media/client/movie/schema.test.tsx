@@ -15,6 +15,7 @@ import {
 } from "../../tests/client/flat-media/summary-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { moviePresentationFacts, movieSchema, movieSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -34,16 +35,16 @@ afterEach(() => {
 
 describe("movie schema", () => {
 	it("displays the source language name when the summary has a code", () => {
-		expect(movieSummaryFacts(movieSummary({ runtime: null, originalLanguage: "ja" }))).toEqual([
-			{ icon: "globe", value: "Japanese", label: "Original language" },
-		]);
+		expect(
+			movieSummaryFacts(movieSummary({ runtime: null, originalLanguage: "ja" }), testMediaCopy),
+		).toEqual([{ icon: "globe", value: "Japanese", label: "Original language" }]);
 	});
 
 	it("lists the runtime and drops it when unrecorded", () => {
-		expect(movieSummaryFacts(movieSummary())).toEqual([
+		expect(movieSummaryFacts(movieSummary(), testMediaCopy)).toEqual([
 			{ inline: true, icon: "clock", value: "2h 49m", label: "Runtime" },
 		]);
-		expect(movieSummaryFacts(movieSummary({ runtime: null }))).toEqual([]);
+		expect(movieSummaryFacts(movieSummary({ runtime: null }), testMediaCopy)).toEqual([]);
 	});
 
 	it("titles the credits as cast and crew and the group as a collection", () => {
@@ -66,8 +67,8 @@ describe("movie schema", () => {
 	it("reads the runtime on rows and hints how much was watched", () => {
 		const data = decodeFlatPresentation(movieRecipes, { runtime: 169, schemaSlug: "movie" });
 
-		expect(moviePresentationFacts(data)).toEqual(["2h 49m"]);
-		expect(moviePresentationFacts({ ...data, runtime: null })).toEqual([]);
+		expect(moviePresentationFacts(data, testMediaCopy)).toEqual(["2h 49m"]);
+		expect(moviePresentationFacts({ ...data, runtime: null }, testMediaCopy)).toEqual([]);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<movieSchema.CardContent compact data={data} entityId="media-1" />,

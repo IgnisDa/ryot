@@ -1,14 +1,17 @@
+import { formatDateLabel } from "@ryot-app/plugin-ui-sdk/datetime";
+
 import { animeRecipes } from "../../shared/anime-recipes";
 import type {
 	MediaActivityEventOf,
 	MediaPresentationDataOf,
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { mediaFlatActivityCopy, mediaListStateDetail } from "../media/activity-copy";
 import { mediaActivityCountFigure } from "../media/activity-timeline";
-import { formatLocalDateLabel } from "../media/date";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
+import type { MediaCopy } from "../messages";
 import { mediaSchemaAspects } from "../schema-aspects";
 import { animeAiringTrailing, animeUpcomingEpisodes } from "./sections";
 
@@ -21,18 +24,25 @@ type AnimeListStateSnapshot = Pick<
 	"listState"
 >;
 
-export const animeSummaryFacts = (anime: AnimeSummary): readonly MediaSummaryFact[] => {
+export const animeSummaryFacts = (
+	anime: AnimeSummary,
+	{ text, formatters }: MediaCopy,
+): readonly MediaSummaryFact[] => {
 	const [next] = animeUpcomingEpisodes(anime.airingSchedule);
 	return [
 		next === undefined
 			? undefined
-			: { icon: "clock", label: "Next episode", value: formatLocalDateLabel(next.airingAt) },
-		mediaCountFact(anime.episodes, "Episode", "tv"),
+			: {
+					icon: "clock",
+					label: text("fact.next-episode"),
+					value: formatDateLabel(formatters, next.airingAt),
+				},
+		mediaCountFact(text, anime.episodes, "episode", "tv"),
 	].filter((fact) => fact !== undefined);
 };
 
-export const animePresentationFacts = (anime: AnimePresentation) =>
-	mediaCountLabels(anime.episodes, "episode");
+export const animePresentationFacts = (anime: AnimePresentation, { text }: MediaCopy) =>
+	mediaCountLabels(text, anime.episodes, "episode");
 
 export const animeSchema = defineFlatMediaSchema({
 	recipes: animeRecipes,
@@ -40,22 +50,22 @@ export const animeSchema = defineFlatMediaSchema({
 	aspect: mediaSchemaAspects.anime,
 	overviewTrailing: animeAiringTrailing,
 	presentationFacts: animePresentationFacts,
-	nouns: { title: "Anime", plural: "anime", singular: "anime" },
-	measureFigure: { label: "Episodes", value: mediaActivityCountFigure },
-	overviewLoadingDetail: "Fetching the studios and recommendations for this anime.",
-	creditCopy: {
-		companies: "Studios",
-		people: "Cast & crew",
-		notice: "Studios and recommendations",
-	},
-	activityCopy: mediaFlatActivityCopy<AnimeListStateSnapshot>({
-		verb: "watch",
-		noun: "anime",
-		snapshot: { label: "Synced from AniList", detail: mediaListStateDetail },
-	}),
+	overviewLoadingDetail: catalogMessage("overview.loading.anime"),
+	measureFigure: { value: mediaActivityCountFigure, label: catalogMessage("property.episodes") },
 	logActivity: {
+		units: ["episodes"],
 		family: "positional",
-		copy: { verb: "watch", noun: "anime", gerund: "watching", participle: "watched" },
-		units: [{ label: "Episode", value: "episodes", plural: "episodes", singular: "episode" }],
+		copy: { verb: "watch", kind: "anime" },
 	},
+	creditCopy: {
+		people: catalogMessage("credits.cast-crew"),
+		companies: catalogMessage("credits.studios"),
+		notice: catalogMessage("credits.notice.anime"),
+	},
+	activityCopy: (copy) =>
+		mediaFlatActivityCopy<AnimeListStateSnapshot>(copy, {
+			verb: "watch",
+			kind: "anime",
+			snapshot: { source: "anilist", detail: mediaListStateDetail },
+		}),
 });

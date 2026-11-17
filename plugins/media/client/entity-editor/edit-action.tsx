@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 
@@ -9,26 +10,10 @@ import {
 	mediaEntityEditRoute,
 } from "../../shared/media-entity-editors";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-
-export function MediaEntityEditAction(props: {
-	readonly label?: string;
-	readonly entityId: string;
-	readonly isCustom: boolean;
-	readonly entitySchemaSlug: string;
-}) {
-	if (!props.isCustom || !Object.hasOwn(mediaEntityEditors, props.entitySchemaSlug)) {
-		return null;
-	}
-	return (
-		<MediaEditorRouteButton
-			label={props.label ?? "Edit"}
-			path={mediaEntityEditRoute(props.entitySchemaSlug, props.entityId)}
-		/>
-	);
-}
+import { useMediaMessages } from "../messages";
 
 export function MediaChildCreateAction(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly parentEntityId: string;
 	readonly childSchemaSlug: MediaChildEntitySchemaSlug;
 	readonly initialProperties: Readonly<Record<string, number>>;
@@ -42,9 +27,27 @@ export function MediaChildCreateAction(props: {
 	);
 }
 
+export function MediaEntityEditAction(props: {
+	readonly label?: Text;
+	readonly entityId: string;
+	readonly isCustom: boolean;
+	readonly entitySchemaSlug: string;
+}) {
+	const text = useMediaMessages();
+	if (!props.isCustom || !Object.hasOwn(mediaEntityEditors, props.entitySchemaSlug)) {
+		return null;
+	}
+	return (
+		<MediaEditorRouteButton
+			label={props.label ?? text("record.edit")}
+			path={mediaEntityEditRoute(props.entitySchemaSlug, props.entityId)}
+		/>
+	);
+}
+
 function MediaEditorRouteButton(props: {
+	readonly label: Text;
 	readonly path: string;
-	readonly label: string;
 	readonly search?: Readonly<Record<string, string>>;
 }) {
 	const client = useRyot();

@@ -16,6 +16,7 @@ import {
 } from "../../tests/client/flat-media/summary-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { audiobookPresentationFacts, audiobookSchema, audiobookSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -33,10 +34,10 @@ afterEach(() => {
 
 describe("audiobook schema", () => {
 	it("lists the length and drops it when unrecorded", () => {
-		expect(audiobookSummaryFacts(audiobookSummary())).toEqual([
+		expect(audiobookSummaryFacts(audiobookSummary(), testMediaCopy)).toEqual([
 			{ inline: true, icon: "clock", label: "Length", value: "12h 30m" },
 		]);
-		expect(audiobookSummaryFacts(audiobookSummary({ runtime: null }))).toEqual([]);
+		expect(audiobookSummaryFacts(audiobookSummary({ runtime: null }), testMediaCopy)).toEqual([]);
 	});
 
 	it("titles the credits as authors and narrators and the group as a series", () => {
@@ -47,7 +48,7 @@ describe("audiobook schema", () => {
 				bindRecipe(audiobookRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }), {
 					entityId: FLAT_OVERVIEW_INPUT.entityId,
 				}),
-				{ unlinkedCreators: [{ role: "Narrator", name: "Nia Voice" }] },
+				{ unlinkedCreators: [{ name: "Nia Voice", roleCode: "narrator" }] },
 			),
 		);
 
@@ -64,8 +65,8 @@ describe("audiobook schema", () => {
 			schemaSlug: "audiobook",
 		});
 
-		expect(audiobookPresentationFacts(data)).toEqual(["12h 30m"]);
-		expect(audiobookPresentationFacts({ ...data, runtime: null })).toEqual([]);
+		expect(audiobookPresentationFacts(data, testMediaCopy)).toEqual(["12h 30m"]);
+		expect(audiobookPresentationFacts({ ...data, runtime: null }, testMediaCopy)).toEqual([]);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<audiobookSchema.CardContent compact data={data} entityId="media-1" />,

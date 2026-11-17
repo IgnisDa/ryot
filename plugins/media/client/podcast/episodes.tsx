@@ -1,6 +1,7 @@
 import clsx from "clsx";
 
 import type { MediaSummaryOf } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import type { podcastRecipes } from "../../shared/podcast-recipes";
 import { MediaChildCreateAction } from "../entity-editor/edit-action";
 import type { MediaActivityLogger } from "../media/activity-log/state";
@@ -11,13 +12,13 @@ import {
 	type MediaEpisodeRender,
 } from "../media/episodes";
 import { mediaEpisodeNumberLabel } from "../media/episodes-state";
-import { mediaCountLabel } from "../media/summary-state";
+import { type MediaText, useMediaMessages } from "../messages";
 import { type PodcastEpisode, podcastEpisodesQuery } from "./episodes-query";
 
 type PodcastSummary = MediaSummaryOf<typeof podcastRecipes>;
 
 export const podcastEpisodeOriginLabel = (episode: { readonly episodeNumber: number }) =>
-	`Ep ${episode.episodeNumber}`;
+	catalogMessage("home.episode-position", { episode: episode.episodeNumber });
 
 const PODCAST_EPISODE_RENDER: MediaEpisodeRender<PodcastEpisode> = {
 	aspect: "square",
@@ -25,7 +26,11 @@ const PODCAST_EPISODE_RENDER: MediaEpisodeRender<PodcastEpisode> = {
 	entitySchemaSlug: "podcast-episode",
 	numberLabel: mediaEpisodeNumberLabel,
 	originLabel: podcastEpisodeOriginLabel,
-	stateLabels: { complete: "Played", untracked: undefined, in_progress: "In progress" },
+	stateLabels: {
+		untracked: undefined,
+		complete: catalogMessage("episodes.state-played"),
+		in_progress: catalogMessage("browse.status.in-progress"),
+	},
 	activityEpisode: (episode) => ({
 		id: episode.id,
 		seasonNumber: null,
@@ -35,13 +40,13 @@ const PODCAST_EPISODE_RENDER: MediaEpisodeRender<PodcastEpisode> = {
 	}),
 };
 
-const PODCAST_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
-	empty: "No episodes have been recorded for this podcast yet.",
-	error: (state) => mediaCursorPageError({ state, noun: "episodes" }),
-	loading: { title: "Loading episodes...", detail: "Fetching this podcast's episodes." },
-};
+const podcastEpisodePagesCopy = (text: MediaText): MediaEpisodePagesCopy => ({
+	empty: text("podcast.episodes-empty"),
+	error: (state) => mediaCursorPageError(text, { state, kind: "episodes" }),
+	loading: { title: text("episodes.loading-title"), detail: text("podcast.episodes-loading") },
+});
 
-export const podcastEpisodeCountLine = (summary: undefined | PodcastSummary) => {
+export const podcastEpisodeCountLine = (text: MediaText, summary: undefined | PodcastSummary) => {
 	if (summary === undefined) {
 		return undefined;
 	}
@@ -49,8 +54,11 @@ export const podcastEpisodeCountLine = (summary: undefined | PodcastSummary) => 
 	if (total === 0) {
 		return undefined;
 	}
-	const played = summary.watchedEpisodes === 0 ? undefined : `${summary.watchedEpisodes} played`;
-	return [mediaCountLabel(total, "episode"), played]
+	const played =
+		summary.watchedEpisodes === 0
+			? undefined
+			: text("podcast.played", { count: summary.watchedEpisodes });
+	return [text("podcast.episode-count", { count: total }), played]
 		.filter((part) => part !== undefined)
 		.join(" · ");
 };
@@ -62,7 +70,8 @@ export function PodcastEpisodesTab(props: {
 	readonly logger: MediaActivityLogger;
 	readonly summary: undefined | PodcastSummary;
 }) {
-	const counts = podcastEpisodeCountLine(props.summary);
+	const text = useMediaMessages();
+	const counts = podcastEpisodeCountLine(text, props.summary);
 	const { summary } = props;
 	const editable = summary?.isCustom === true;
 	return (
@@ -73,9 +82,9 @@ export function PodcastEpisodesTab(props: {
 			{summary?.isCustom === true ? (
 				<div className="flex">
 					<MediaChildCreateAction
-						label="Add episode"
 						parentEntityId={props.entityId}
 						childSchemaSlug="podcast-episode"
+						label={text("podcast.add-episode")}
 						initialProperties={{
 							episodeNumber: summary.airedEpisodes + summary.upcomingEpisodes + 1,
 						}}
@@ -90,7 +99,7 @@ export function PodcastEpisodesTab(props: {
 				query={podcastEpisodesQuery}
 				safeAreaTop={props.safeAreaTop}
 				render={PODCAST_EPISODE_RENDER}
-				copy={PODCAST_EPISODE_PAGES_COPY}
+				copy={podcastEpisodePagesCopy(text)}
 				nextUp={props.summary?.nextUp ?? null}
 				log={{ logger: props.logger, parentEntityId: props.entityId }}
 			/>

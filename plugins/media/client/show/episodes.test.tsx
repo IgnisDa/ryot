@@ -27,10 +27,7 @@ import type { MediaActivityLogger } from "../media/activity-log/state";
 import { ShowEpisodesTab } from "./episodes";
 import type { ShowEpisode } from "./episodes-state";
 
-const SHOW_LOGGER: MediaActivityLogger = {
-	family: "show",
-	copy: { noun: "show", verb: "watch", gerund: "watching", participle: "watched" },
-};
+const SHOW_LOGGER: MediaActivityLogger = { family: "show", copy: { kind: "show", verb: "watch" } };
 
 const rows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 60, hasMore: false, nextCursor: null });

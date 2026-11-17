@@ -5,8 +5,8 @@ import { mediaSchemaAspects } from "../schema-aspects";
 
 export const bookGroupSchema = defineGroupMediaSchema({
 	member: bookSchema,
+	kind: "book_group",
 	recipes: bookGroupRecipes,
+	members: { unit: "book", verb: "read" },
 	aspect: mediaSchemaAspects["book-group"],
-	members: { tab: "Books", noun: "book", verb: "read" },
-	nouns: { plural: "series", singular: "series", title: "Book series" },
 });

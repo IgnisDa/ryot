@@ -5,8 +5,8 @@ import { mediaSchemaAspects } from "../schema-aspects";
 
 export const movieGroupSchema = defineGroupMediaSchema({
 	member: movieSchema,
+	kind: "movie_group",
 	recipes: movieGroupRecipes,
 	aspect: mediaSchemaAspects["movie-group"],
-	members: { tab: "Movies", noun: "movie", verb: "watched" },
-	nouns: { title: "Collection", plural: "collections", singular: "collection" },
+	members: { unit: "movie", verb: "watch" },
 });

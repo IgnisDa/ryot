@@ -1,17 +1,20 @@
-import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import type { Formatters, RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import type {
 	showOrderEpisodesRecipe,
 	showOrderGroupCoverageRecipe,
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
 } from "../../shared/show-recipes";
+import { seasonLabel } from "../media/activity-log/state";
 import { optionalText } from "../media/activity-timeline";
 import { mediaDateLabel } from "../media/episodes-state";
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media/image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "../media/query-state";
 import { mediaEpisodicAiredLabel } from "../media/summary-state";
+import type { MediaText } from "../messages";
 
 export type ShowSeason = ShowSeasons["seasons"]["items"][number];
 
@@ -49,8 +52,6 @@ type ShowSeasonsFailure = Pick<
 	"status"
 >;
 
-const SPECIALS_LABEL = "Specials";
-
 const SPECIALS_SEASON_NUMBER = 0;
 
 type SeasonNumbered = { readonly seasonNumber: number };
@@ -61,8 +62,8 @@ export const isSpecialsSeason = (season: SeasonNumbered) =>
 export const seasonOrder = (season: SeasonNumbered) =>
 	isSpecialsSeason(season) ? Number.MAX_SAFE_INTEGER : season.seasonNumber;
 
-export const showSeasonOriginLabel = (season: SeasonNumbered) =>
-	isSpecialsSeason(season) ? SPECIALS_LABEL : `Season ${season.seasonNumber}`;
+export const showSeasonOriginLabel = (text: MediaText, season: SeasonNumbered) =>
+	seasonLabel(text, season.seasonNumber);
 
 const orderShowSeasons = (seasons: readonly ShowSeason[]) =>
 	[...seasons].sort((left, right) => seasonOrder(left) - seasonOrder(right));
@@ -84,12 +85,12 @@ export const mapShowSeasons = (result: RyotQueryResult<ShowSeasonsResult>): Show
 			};
 };
 
-export const showSeasonsError = (state: ShowSeasonsFailure) => ({
-	title: "Unable to load episodes",
+export const showSeasonsError = (text: MediaText, state: ShowSeasonsFailure) => ({
+	title: text("show.seasons-error-title"),
 	detail:
 		state.status === "transport-error"
-			? "The seasons could not be loaded. Check your connection and try again."
-			: "These seasons came back in a form that could not be displayed. Try again later.",
+			? text("show.seasons-error-transport")
+			: text("show.seasons-error-malformed"),
 });
 
 export const selectedShowSeason = (seasons: ShowSeasonList, seasonId: null | string) =>
@@ -97,11 +98,11 @@ export const selectedShowSeason = (seasons: ShowSeasonList, seasonId: null | str
 	seasons.find((season) => !isSpecialsSeason(season)) ??
 	seasons[0];
 
-export const showSeasonLabel = (season: ShowSeason) => {
+export const showSeasonLabel = (text: MediaText, season: ShowSeason) => {
 	if (isSpecialsSeason(season)) {
-		return SPECIALS_LABEL;
+		return seasonLabel(text, season.seasonNumber);
 	}
-	return season.name.trim() === "" ? showSeasonOriginLabel(season) : season.name;
+	return season.name.trim() === "" ? showSeasonOriginLabel(text, season) : season.name;
 };
 
 export const showCoverageCompletionPercent = (coverage: ShowEpisodeCoverage) =>
@@ -109,8 +110,8 @@ export const showCoverageCompletionPercent = (coverage: ShowEpisodeCoverage) =>
 		? undefined
 		: Math.min(Math.round((coverage.watchedTotal / coverage.episodeTotal) * 100), 100);
 
-export const showCoverageAiredLabel = (coverage: ShowEpisodeCoverage) =>
-	mediaEpisodicAiredLabel({
+export const showCoverageAiredLabel = (text: MediaText, coverage: ShowEpisodeCoverage) =>
+	mediaEpisodicAiredLabel(text, {
 		aired: coverage.episodeTotal,
 		watched: coverage.watchedTotal,
 		upcoming: coverage.upcomingTotal,
@@ -118,15 +119,19 @@ export const showCoverageAiredLabel = (coverage: ShowEpisodeCoverage) =>
 
 export const showSeasonDescription = (season: ShowSeason) => optionalText(season.description);
 
-export const showSeasonReleaseLabel = (season: ShowSeason) => mediaDateLabel(season.releaseDate);
+export const showSeasonReleaseLabel = (formatters: Formatters, season: ShowSeason) =>
+	mediaDateLabel(formatters, season.releaseDate);
 
 export const showEpisodeOriginLabel = (episode: {
 	readonly seasonNumber: number;
 	readonly episodeNumber: number;
 }) =>
 	isSpecialsSeason(episode)
-		? `${SPECIALS_LABEL} • E${episode.episodeNumber}`
-		: `S${episode.seasonNumber} • E${episode.episodeNumber}`;
+		? catalogMessage("show.episode-origin-specials", { episode: episode.episodeNumber })
+		: catalogMessage("show.episode-origin", {
+				season: episode.seasonNumber,
+				episode: episode.episodeNumber,
+			});
 
 export const showSeasonAsset = (season: ShowSeason) =>
 	preferredMediaImageAsset(season.images, "cover");

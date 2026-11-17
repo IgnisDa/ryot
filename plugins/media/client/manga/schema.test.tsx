@@ -17,6 +17,7 @@ import {
 import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { mangaPresentationFacts, mangaSchema, mangaSummaryFacts } from "./schema";
 
 const noopAdapter = {
@@ -80,11 +81,13 @@ afterEach(() => {
 
 describe("manga schema", () => {
 	it("lists the chapter and volume facts and drops the unrecorded ones", () => {
-		expect(mangaSummaryFacts(mangaSummary())).toEqual([
+		expect(mangaSummaryFacts(mangaSummary(), testMediaCopy)).toEqual([
 			{ inline: true, icon: "book-open", label: "Chapters", value: "120 chapters" },
 			{ inline: true, icon: "layers", label: "Volumes", value: "12 volumes" },
 		]);
-		expect(mangaSummaryFacts(mangaSummary({ volumes: null, chapters: null }))).toEqual([]);
+		expect(
+			mangaSummaryFacts(mangaSummary({ volumes: null, chapters: null }), testMediaCopy),
+		).toEqual([]);
 	});
 
 	it("labels each imported chapter on its own activity row", () => {
@@ -113,7 +116,7 @@ describe("manga schema", () => {
 
 		expect(container.textContent).toContain("Ch 45 · Vol 3");
 		expect(container.textContent).toContain("Ch 46.5");
-		expect(container.textContent).not.toContain("62% through the manga");
+		expect(container.textContent).not.toContain("62% through");
 		expect(container.textContent).toContain("Chapters");
 		expect(container.textContent).toContain("120");
 		unmount();
@@ -144,9 +147,15 @@ describe("manga schema", () => {
 			schemaSlug: "manga",
 		});
 
-		expect(mangaPresentationFacts(data)).toEqual(["120 chapters"]);
-		expect(mangaPresentationFacts({ ...data, chapters: 1 })).toEqual(["1 chapter"]);
-		expect(mangaPresentationFacts({ ...data, chapters: null })).toEqual([]);
+		expect<readonly string[]>(mangaPresentationFacts(data, testMediaCopy)).toEqual([
+			"120 chapters",
+		]);
+		expect<readonly string[]>(
+			mangaPresentationFacts({ ...data, chapters: 1 }, testMediaCopy),
+		).toEqual(["1 chapter"]);
+		expect<readonly string[]>(
+			mangaPresentationFacts({ ...data, chapters: null }, testMediaCopy),
+		).toEqual([]);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<mangaSchema.CardContent compact data={data} entityId="media-1" />,

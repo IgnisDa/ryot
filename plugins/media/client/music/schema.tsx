@@ -1,50 +1,57 @@
+import { formatClock } from "@ryot-app/plugin-ui-sdk";
+
 import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { musicRecipes } from "../../shared/music-recipes";
 import { mediaFlatActivityCopy } from "../media/activity-copy";
-import { mediaActivityTimeLabel, mediaTrackLengthLabel } from "../media/activity-timeline";
+import { mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import type { MediaSummaryFact } from "../media/summary-state";
+import type { MediaCopy } from "../messages";
 import { mediaSchemaAspects } from "../schema-aspects";
 
 type MusicSummary = MediaSummaryOf<typeof musicRecipes>;
 
 type MusicPresentation = MediaPresentationDataOf<typeof musicRecipes>;
 
-export const musicSummaryFacts = (music: MusicSummary): readonly MediaSummaryFact[] =>
+export const musicSummaryFacts = (
+	music: MusicSummary,
+	{ text }: MediaCopy,
+): readonly MediaSummaryFact[] =>
 	[
 		music.duration === null
 			? undefined
 			: {
 					inline: true,
 					icon: "clock",
-					label: "Length",
-					value: mediaTrackLengthLabel(music.duration),
+					label: text("fact.length"),
+					value: formatClock(music.duration),
 				},
 		music.byVariousArtists === null
 			? undefined
-			: { icon: "users", label: "Various artists", value: music.byVariousArtists ? "Yes" : "No" },
+			: {
+					icon: "users",
+					label: text("property.various-artists"),
+					value: music.byVariousArtists ? text("common.value.yes") : text("common.value.no"),
+				},
 	].filter((fact) => fact !== undefined);
 
 export const musicPresentationFacts = (music: MusicPresentation) =>
-	music.duration === null ? [] : [mediaTrackLengthLabel(music.duration)];
+	music.duration === null ? [] : [formatClock(music.duration)];
 
 export const musicSchema = defineFlatMediaSchema({
 	recipes: musicRecipes,
 	facts: musicSummaryFacts,
 	aspect: mediaSchemaAspects.music,
 	presentationFacts: musicPresentationFacts,
-	nouns: { title: "Music", plural: "tracks", singular: "track" },
-	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
-	activityCopy: mediaFlatActivityCopy({ noun: "track", verb: "listen" }),
-	group: { actionLabel: "View album", title: (name) => `Part of ${name}` },
-	overviewLoadingDetail: "Fetching the artists, labels and recommendations for this track.",
+	group: { actionLabel: catalogMessage("group.view-album") },
+	overviewLoadingDetail: catalogMessage("overview.loading.music"),
+	logActivity: { family: "flat", copy: { kind: "music", verb: "listen" } },
+	activityCopy: (copy) => mediaFlatActivityCopy(copy, { kind: "music", verb: "listen" }),
+	measureFigure: { value: mediaActivityTimeLabel, label: catalogMessage("activity.figure-time") },
 	creditCopy: {
-		companies: "Labels",
-		people: "Artists & credits",
-		notice: "Artists, labels and recommendations",
-	},
-	logActivity: {
-		family: "flat",
-		copy: { noun: "track", verb: "listen to", gerund: "listening", participle: "listened" },
+		companies: catalogMessage("credits.labels"),
+		notice: catalogMessage("credits.notice.music"),
+		people: catalogMessage("credits.artists-credits"),
 	},
 });

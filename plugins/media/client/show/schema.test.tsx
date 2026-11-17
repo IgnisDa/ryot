@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { showRecipes } from "../../shared/show-recipes";
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import { decodeShowActivity } from "../../tests/client/show/activity-fixture";
 import { decodeShowOverview } from "../../tests/client/show/overview-fixture";
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { mapMediaOverview } from "../media/overview-state";
 import { viewerRegion } from "../media/watch-providers";
 import {
@@ -59,17 +61,21 @@ describe("show schema", () => {
 		expect(
 			showSummaryFacts(
 				decodeShowSummary({ totalSeasons: null, totalEpisodes: null, originalLanguage: "fr" }),
+				testMediaCopy,
 			),
 		).toEqual([{ icon: "globe", value: "French", label: "Original language" }]);
 	});
 
 	it("lists the provider's season and episode counts", () => {
-		expect(showSummaryFacts(decodeShowSummary())).toEqual([
+		expect(showSummaryFacts(decodeShowSummary(), testMediaCopy)).toEqual([
 			{ inline: true, label: "Season", icon: "layers-3", value: "1 season" },
 			{ icon: "tv", inline: true, label: "Episodes", value: "4 episodes" },
 		]);
 		expect(
-			showSummaryFacts(decodeShowSummary({ totalSeasons: null, totalEpisodes: null })),
+			showSummaryFacts(
+				decodeShowSummary({ totalSeasons: null, totalEpisodes: null }),
+				testMediaCopy,
+			),
 		).toEqual([]);
 	});
 
@@ -119,7 +125,7 @@ describe("show schema", () => {
 		card.unmount();
 
 		expect(showPresentationFacts(data)).toEqual(["Returning Series"]);
-		expect(showPresentationDetail(data)).toBe(
+		expect(showPresentationDetail(data, testMediaCopy)).toBe(
 			"2 stored seasons · 11 of 19 aired episodes watched · 1 episode in progress",
 		);
 		expect(
@@ -131,6 +137,7 @@ describe("show schema", () => {
 					upcomingEpisodes: 0,
 					inProgressEpisodes: 0,
 				}),
+				testMediaCopy,
 			),
 		).toBeUndefined();
 	});
@@ -139,8 +146,20 @@ describe("show schema", () => {
 		const coverage = showActivityCoverage(decodeShowActivity());
 
 		expect(coverage.rows).toEqual([
-			{ total: 4, watched: 2, percent: 50, key: "season-1", label: "Season 1" },
-			{ total: 2, watched: 0, percent: 0, key: "season-0", label: "Specials" },
+			{
+				total: 4,
+				watched: 2,
+				percent: 50,
+				key: "season-1",
+				label: catalogMessage("log.season", { season: 1 }),
+			},
+			{
+				total: 2,
+				watched: 0,
+				percent: 0,
+				key: "season-0",
+				label: catalogMessage("log.season-specials"),
+			},
 		]);
 		expect(coverage.headline).toEqual({ total: 4, watched: 2 });
 	});

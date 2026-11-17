@@ -9,6 +9,7 @@ import {
 	decodeCreatorSummary,
 } from "../../tests/client/creator/summary-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { companySchema, companySummaryFacts } from "./schema";
 
 const companySummary = (overrides: Record<string, unknown> = {}) =>
@@ -30,13 +31,13 @@ afterEach(() => {
 
 describe("company schema", () => {
 	it("lists the founding year and headquarters and drops them when unrecorded", () => {
-		expect(companySummaryFacts(companySummary())).toEqual([
+		expect(companySummaryFacts(companySummary(), testMediaCopy)).toEqual([
 			{ icon: "clock", value: "1994", label: "Founded" },
 			{ icon: "building-2", label: "Headquarters", value: "Los Angeles, California" },
 		]);
-		expect(companySummaryFacts(companySummary({ foundedYear: null, headquarters: null }))).toEqual(
-			[],
-		);
+		expect(
+			companySummaryFacts(companySummary({ foundedYear: null, headquarters: null }), testMediaCopy),
+		).toEqual([]);
 	});
 
 	it("draws the logo square and contained", () => {

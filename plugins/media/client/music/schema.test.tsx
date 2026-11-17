@@ -21,6 +21,7 @@ import {
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { musicPresentationFacts, musicSchema, musicSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -38,11 +39,13 @@ afterEach(() => {
 
 describe("music schema", () => {
 	it("lists the track length as m:ss and various artists", () => {
-		expect(musicSummaryFacts(musicSummary())).toEqual([
+		expect(musicSummaryFacts(musicSummary(), testMediaCopy)).toEqual([
 			{ inline: true, icon: "clock", value: "3:42", label: "Length" },
 			{ value: "No", icon: "users", label: "Various artists" },
 		]);
-		expect(musicSummaryFacts(musicSummary({ duration: null, byVariousArtists: null }))).toEqual([]);
+		expect(
+			musicSummaryFacts(musicSummary({ duration: null, byVariousArtists: null }), testMediaCopy),
+		).toEqual([]);
 	});
 
 	it("titles the credits as artists and labels and the group as an album", () => {
@@ -106,6 +109,8 @@ describe("music schema", () => {
 
 		const view = musicSchema.activityView(decodeFlatActivity());
 		assert(view?.timeline.layout === "flat");
-		expect(view.timeline.rows.map(musicSchema.activityRowLabel)).toContain("42% through the track");
+		expect(
+			view.timeline.rows.map((row) => musicSchema.activityRowLabel(testMediaCopy, row)),
+		).toContain("42% through");
 	});
 });

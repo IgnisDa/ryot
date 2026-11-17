@@ -17,6 +17,7 @@ import {
 } from "../../tests/client/flat-media/summary-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import {
 	videoGameOverviewRails,
 	videoGamePresentationFacts,
@@ -81,22 +82,29 @@ afterEach(() => {
 
 describe("video game schema", () => {
 	it("lists the game type and time to beat, dropping each when unrecorded", () => {
-		expect(videoGameSummaryFacts(videoGameSummary())).toEqual([
+		expect(videoGameSummaryFacts(videoGameSummary(), testMediaCopy)).toEqual([
 			{ value: "Port", label: "Type", icon: "gamepad-2" },
 			{ value: "15h", icon: "hourglass", label: "Time to beat" },
 		]);
-		expect(videoGameSummaryFacts(videoGameSummary({ timeToBeat: null }))).toEqual([
+		expect(videoGameSummaryFacts(videoGameSummary({ timeToBeat: null }), testMediaCopy)).toEqual([
 			{ value: "Port", label: "Type", icon: "gamepad-2" },
 		]);
 		expect(
-			videoGameSummaryFacts(videoGameSummary({ gameType: null, timeToBeat: { hastily: 600 } })),
+			videoGameSummaryFacts(
+				videoGameSummary({ gameType: null, timeToBeat: { hastily: 600 } }),
+				testMediaCopy,
+			),
 		).toEqual([]);
 	});
 
 	it("titles one rail per original, then groups derivatives by kind in priority order", () => {
 		const rails = videoGameOverviewRails(
 			videoGameOverview({
-				originals: [relatedRow("g-0", "Skyrim", "Port")],
+				originals: [
+					relatedRow("g-0", "Skyrim", "Port"),
+					relatedRow("g-8", "Oblivion", null),
+					relatedRow("g-9", "Morrowind", "Fan Remake"),
+				],
 				derivatives: [
 					relatedRow("g-1", "Beyond Skyrim", "Mod"),
 					relatedRow("g-2", "Dawnguard", "DLC"),
@@ -109,8 +117,15 @@ describe("video game schema", () => {
 			}),
 		);
 
-		expect(rails.map((rail) => [rail.title, rail.items.map((item) => item.id)])).toEqual([
+		expect<(string | string[])[][]>(
+			rails.map((rail) => [
+				typeof rail.title === "string" ? rail.title : testMediaCopy.local(rail.title),
+				rail.items.map((item) => item.id),
+			]),
+		).toEqual([
 			["Port of Skyrim", ["g-0"]],
+			["Related to Oblivion", ["g-8"]],
+			["Fan Remake of Morrowind", ["g-9"]],
 			["Ports", ["g-3", "g-7"]],
 			["Remasters", ["g-4"]],
 			["DLC", ["g-2"]],
@@ -124,8 +139,12 @@ describe("video game schema", () => {
 		const related = renderBody(
 			{},
 			videoGameOverview({
-				originals: [relatedRow("g-0", "Skyrim", "Port")],
 				derivatives: [relatedRow("g-3", "Skyrim PS3", "Remake")],
+				originals: [
+					relatedRow("g-0", "Skyrim", "Port"),
+					relatedRow("g-8", "Oblivion", null),
+					relatedRow("g-9", "Morrowind", "Fan Remake"),
+				],
 			}),
 		);
 		expect(related.container.textContent).toContain("Port of Skyrim");
@@ -157,7 +176,7 @@ describe("video game schema", () => {
 		expect(container.textContent).toContain("25h");
 		expect(container.textContent).toContain("Platforms");
 		expect(container.textContent).toContain("PlayStation 5");
-		expect(container.textContent).toContain("Worldwide");
+		expect(container.textContent).toContain(" · Worldwide");
 		expect(container.textContent).toContain("2022");
 		expect(container.textContent).toContain("PC");
 		unmount();
@@ -174,8 +193,8 @@ describe("video game schema", () => {
 	it("reads the time to beat on rows and hints how much was played", () => {
 		const data = presentationData(videoGameFields.timeToBeat.normally);
 
-		expect(videoGamePresentationFacts(data)).toEqual(["15h"]);
-		expect(videoGamePresentationFacts(presentationData(null))).toEqual([]);
+		expect(videoGamePresentationFacts(data, testMediaCopy)).toEqual(["15h"]);
+		expect(videoGamePresentationFacts(presentationData(null), testMediaCopy)).toEqual([]);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<videoGameSchema.CardContent compact data={data} entityId="media-1" />,

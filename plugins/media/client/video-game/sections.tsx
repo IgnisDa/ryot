@@ -1,42 +1,48 @@
+import { useDisplayText } from "@ryot-app/plugin-client-sdk/react";
+import { formatDuration } from "@ryot-app/plugin-ui-sdk";
 import type { ReactNode } from "react";
 
 import type { PlatformReleaseList, TimeToBeatValue } from "../../shared/video-game";
-import { mediaActivityDurationLabel } from "../media/activity-timeline";
 import { formatDateOnlyLabel } from "../media/date";
 import { MediaFactRow, MediaLabeledRows, MediaOverviewSection } from "../media/primitives";
 import type { MediaSummaryFact } from "../media/summary-state";
+import { type MediaCopy, useMediaCopy } from "../messages";
 
 type VideoGameOverviewSummary = {
 	readonly timeToBeat: TimeToBeatValue;
 	readonly platformReleases: PlatformReleaseList;
 };
 
-const TIME_TO_BEAT_PACES = [
-	{ key: "hastily", label: "Rushed" },
-	{ key: "normally", label: "Main story" },
-	{ key: "completely", label: "Completionist" },
-] as const;
+const TIME_TO_BEAT_PACES = ["hastily", "normally", "completely"] as const;
 
 export const videoGameTimeToBeatFacts = (
+	{ text, formatters }: MediaCopy,
 	timeToBeat: TimeToBeatValue,
 ): readonly MediaSummaryFact[] =>
-	TIME_TO_BEAT_PACES.flatMap(({ key, label }) => {
+	TIME_TO_BEAT_PACES.flatMap((key) => {
 		const minutes = timeToBeat?.[key];
 		return minutes === undefined || minutes === null
 			? []
-			: [{ label, icon: "hourglass", value: mediaActivityDurationLabel(minutes) }];
+			: [
+					{
+						icon: "hourglass",
+						label: text("video-game.pace", { pace: key }),
+						value: formatDuration(formatters, minutes * 60, "minute"),
+					},
+				];
 	});
 
 export function VideoGameTimeToBeatSection(props: {
 	readonly compact: boolean;
 	readonly timeToBeat: TimeToBeatValue;
 }) {
-	const facts = videoGameTimeToBeatFacts(props.timeToBeat);
+	const copy = useMediaCopy();
+	const facts = videoGameTimeToBeatFacts(copy, props.timeToBeat);
 	if (facts.length === 0) {
 		return null;
 	}
 	return (
-		<MediaOverviewSection title="How long to beat">
+		<MediaOverviewSection title={copy.text("video-game.time-to-beat")}>
 			<MediaFactRow facts={facts} compact={props.compact} />
 		</MediaOverviewSection>
 	);
@@ -45,6 +51,8 @@ export function VideoGameTimeToBeatSection(props: {
 export function VideoGamePlatformsSection(props: {
 	readonly platformReleases: PlatformReleaseList;
 }) {
+	const { text, formatters } = useMediaCopy();
+	const displayText = useDisplayText();
 	const releases = [...(props.platformReleases ?? [])].sort((left, right) =>
 		left.name.localeCompare(right.name),
 	);
@@ -52,17 +60,22 @@ export function VideoGamePlatformsSection(props: {
 		return null;
 	}
 	return (
-		<MediaOverviewSection title="Platforms">
+		<MediaOverviewSection title={text("video-game.platforms")}>
 			<MediaLabeledRows
 				rows={releases.map((release) => {
 					const releaseDate = release.releaseDate ?? undefined;
-					const detail = [
-						releaseDate === undefined ? undefined : formatDateOnlyLabel(releaseDate),
-						release.releaseRegion ?? undefined,
-					]
-						.filter((part) => part !== undefined)
-						.join(" · ");
-					return { detail, title: release.name, key: `${release.name}:${detail}` };
+					const date =
+						releaseDate === undefined ? undefined : formatDateOnlyLabel(formatters, releaseDate);
+					const region = release.releaseRegion ?? undefined;
+					const detail =
+						date !== undefined && region !== undefined
+							? text("video-game.release-date-region", { date, region })
+							: (date ?? region ?? "");
+					return {
+						detail: displayText(detail),
+						key: `${release.name}:${detail}`,
+						title: displayText(release.name),
+					};
 				})}
 			/>
 		</MediaOverviewSection>

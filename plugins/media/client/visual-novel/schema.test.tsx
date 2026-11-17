@@ -16,6 +16,7 @@ import {
 } from "../../tests/client/flat-media/summary-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { visualNovelPresentationFacts, visualNovelSchema, visualNovelSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -33,10 +34,12 @@ afterEach(() => {
 
 describe("visual novel schema", () => {
 	it("lists the length and drops it when unrecorded", () => {
-		expect(visualNovelSummaryFacts(visualNovelSummary())).toEqual([
+		expect(visualNovelSummaryFacts(visualNovelSummary(), testMediaCopy)).toEqual([
 			{ inline: true, icon: "clock", label: "Length", value: "12h 30m" },
 		]);
-		expect(visualNovelSummaryFacts(visualNovelSummary({ lengthMinutes: null }))).toEqual([]);
+		expect(
+			visualNovelSummaryFacts(visualNovelSummary({ lengthMinutes: null }), testMediaCopy),
+		).toEqual([]);
 	});
 
 	it("titles the credits as developers and never claims it is part of a series", () => {
@@ -63,7 +66,9 @@ describe("visual novel schema", () => {
 			schemaSlug: "visual-novel",
 		});
 
-		expect(visualNovelPresentationFacts({ ...data, lengthMinutes: null })).toEqual([]);
+		expect(visualNovelPresentationFacts({ ...data, lengthMinutes: null }, testMediaCopy)).toEqual(
+			[],
+		);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<visualNovelSchema.CardContent compact data={data} entityId="media-1" />,

@@ -18,6 +18,7 @@ import {
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { bookPresentationFacts, bookSchema, bookSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -35,24 +36,30 @@ afterEach(() => {
 
 describe("book schema", () => {
 	it("lists the pages and compilation facts and drops the unrecorded ones", () => {
-		expect(bookSummaryFacts(bookSummary())).toEqual([
+		expect(bookSummaryFacts(bookSummary(), testMediaCopy)).toEqual([
 			{ inline: true, label: "Pages", icon: "book-open", value: "320 pages" },
 			{ value: "No", icon: "layers", label: "Compilation" },
 		]);
-		expect(bookSummaryFacts(bookSummary({ isCompilation: true }))).toContainEqual({
+		expect(bookSummaryFacts(bookSummary({ isCompilation: true }), testMediaCopy)).toContainEqual({
 			value: "Yes",
 			icon: "layers",
 			label: "Compilation",
 		});
-		expect(bookSummaryFacts(bookSummary({ pages: null, isCompilation: null }))).toEqual([]);
+		expect(
+			bookSummaryFacts(bookSummary({ pages: null, isCompilation: null }), testMediaCopy),
+		).toEqual([]);
 	});
 
 	it("reads the page count on rows, hints how much was read and draws poster art", () => {
 		const data = decodeFlatPresentation(bookRecipes, { pages: 320, schemaSlug: "book" });
 
-		expect(bookPresentationFacts(data)).toEqual(["320 pages"]);
-		expect(bookPresentationFacts({ ...data, pages: 1 })).toEqual(["1 page"]);
-		expect(bookPresentationFacts({ ...data, pages: null })).toEqual([]);
+		expect<readonly string[]>(bookPresentationFacts(data, testMediaCopy)).toEqual(["320 pages"]);
+		expect<readonly string[]>(bookPresentationFacts({ ...data, pages: 1 }, testMediaCopy)).toEqual([
+			"1 page",
+		]);
+		expect<readonly string[]>(
+			bookPresentationFacts({ ...data, pages: null }, testMediaCopy),
+		).toEqual([]);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<bookSchema.RowContent compact data={data} entityId="media-1" />,

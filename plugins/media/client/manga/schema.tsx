@@ -4,10 +4,12 @@ import type {
 	MediaPresentationDataOf,
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { mediaFlatActivityCopy, mediaListStateDetail } from "../media/activity-copy";
 import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
+import type { MediaCopy } from "../messages";
 import { mediaSchemaAspects } from "../schema-aspects";
 
 type MangaSummary = MediaSummaryOf<typeof mangaRecipes>;
@@ -19,40 +21,40 @@ type MangaListStateSnapshot = Pick<
 	"listState"
 >;
 
-export const mangaSummaryFacts = (manga: MangaSummary): readonly MediaSummaryFact[] =>
+export const mangaSummaryFacts = (
+	manga: MangaSummary,
+	{ text }: MediaCopy,
+): readonly MediaSummaryFact[] =>
 	[
-		mediaCountFact(manga.chapters, "Chapter", "book-open"),
-		mediaCountFact(manga.volumes, "Volume", "layers"),
+		mediaCountFact(text, manga.chapters, "chapter", "book-open"),
+		mediaCountFact(text, manga.volumes, "volume", "layers"),
 	].filter((fact) => fact !== undefined);
 
-export const mangaPresentationFacts = (manga: MangaPresentation) =>
-	mediaCountLabels(manga.chapters, "chapter");
+export const mangaPresentationFacts = (manga: MangaPresentation, { text }: MediaCopy) =>
+	mediaCountLabels(text, manga.chapters, "chapter");
 
 export const mangaSchema = defineFlatMediaSchema({
 	recipes: mangaRecipes,
 	facts: mangaSummaryFacts,
 	aspect: mediaSchemaAspects.manga,
 	presentationFacts: mangaPresentationFacts,
-	nouns: { title: "Manga", plural: "manga", singular: "manga" },
-	measureFigure: { label: "Chapters", value: mediaActivityCountFigure },
-	overviewLoadingDetail: "Fetching the credits and recommendations for this manga.",
-	creditCopy: {
-		companies: "Publishers",
-		people: "Authors & artists",
-		notice: "Credits and recommendations",
-	},
-	activityCopy: mediaFlatActivityCopy<MangaListStateSnapshot>({
-		verb: "read",
-		noun: "manga",
-		snapshot: { label: "Synced from AniList", detail: mediaListStateDetail },
-	}),
+	overviewLoadingDetail: catalogMessage("overview.loading.manga"),
+	measureFigure: { value: mediaActivityCountFigure, label: catalogMessage("property.chapters") },
 	logActivity: {
+		itemContext: true,
 		family: "positional",
-		itemContextLabel: "Volume context",
-		copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
-		units: [
-			{ label: "Chapter", value: "chapters", plural: "chapters", singular: "chapter" },
-			{ label: "Volume", value: "volumes", plural: "volumes", singular: "volume" },
-		],
+		units: ["chapters", "volumes"],
+		copy: { verb: "read", kind: "manga" },
 	},
+	creditCopy: {
+		notice: catalogMessage("credits.notice.manga"),
+		companies: catalogMessage("credits.publishers"),
+		people: catalogMessage("credits.authors-artists"),
+	},
+	activityCopy: (copy) =>
+		mediaFlatActivityCopy<MangaListStateSnapshot>(copy, {
+			verb: "read",
+			kind: "manga",
+			snapshot: { source: "anilist", detail: mediaListStateDetail },
+		}),
 });

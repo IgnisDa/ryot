@@ -18,6 +18,7 @@ import {
 import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { animePresentationFacts, animeSchema, animeSummaryFacts } from "./schema";
 import { AnimeAiringScheduleSection, animeUpcomingEpisodes } from "./sections";
 
@@ -92,12 +93,15 @@ afterEach(() => {
 
 describe("anime schema", () => {
 	it("lists the next episode and episode count facts and drops the unrecorded ones", () => {
-		expect(animeSummaryFacts(animeSummary())).toEqual<unknown>([
+		expect(animeSummaryFacts(animeSummary(), testMediaCopy)).toEqual<unknown>([
 			objectContaining({ icon: "clock", label: "Next episode" }),
 			{ icon: "tv", inline: true, label: "Episodes", value: "24 episodes" },
 		]);
 		expect(
-			animeSummaryFacts(animeSummary({ episodes: null, airingSchedule: [AIRED_EPISODE] })),
+			animeSummaryFacts(
+				animeSummary({ episodes: null, airingSchedule: [AIRED_EPISODE] }),
+				testMediaCopy,
+			),
 		).toEqual([]);
 	});
 
@@ -127,7 +131,7 @@ describe("anime schema", () => {
 
 		expect(container.textContent).toContain("Ep 12");
 		expect(container.textContent).toContain("Ep 13");
-		expect(container.textContent).not.toContain("62% through the anime");
+		expect(container.textContent).not.toContain("62% through");
 		expect(container.textContent).toContain("Episodes");
 		expect(container.textContent).toContain("24");
 		unmount();
@@ -211,9 +215,13 @@ describe("anime schema", () => {
 			schemaSlug: "anime",
 		});
 
-		expect(animePresentationFacts(data)).toEqual(["24 episodes"]);
-		expect(animePresentationFacts({ ...data, episodes: 1 })).toEqual(["1 episode"]);
-		expect(animePresentationFacts({ ...data, episodes: null })).toEqual([]);
+		expect<readonly string[]>(animePresentationFacts(data, testMediaCopy)).toEqual(["24 episodes"]);
+		expect<readonly string[]>(
+			animePresentationFacts({ ...data, episodes: 1 }, testMediaCopy),
+		).toEqual(["1 episode"]);
+		expect<readonly string[]>(
+			animePresentationFacts({ ...data, episodes: null }, testMediaCopy),
+		).toEqual([]);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<animeSchema.CardContent compact data={data} entityId="media-1" />,

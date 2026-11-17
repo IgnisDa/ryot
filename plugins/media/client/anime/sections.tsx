@@ -1,8 +1,10 @@
+import { useDisplayText } from "@ryot-app/plugin-client-sdk/react";
 import type { ReactNode } from "react";
 
 import type { AiringScheduleList } from "../../shared/anime";
 import { formatLocalDateTimeLabel } from "../media/date";
 import { MediaLabeledRows, MediaOverviewSection } from "../media/primitives";
+import { useMediaCopy } from "../messages";
 
 const UPCOMING_EPISODE_LIMIT = 6;
 
@@ -14,17 +16,19 @@ export const animeUpcomingEpisodes = (schedule: AiringScheduleList, now: number 
 		.slice(0, UPCOMING_EPISODE_LIMIT);
 
 export function AnimeAiringScheduleSection(props: { readonly schedule: AiringScheduleList }) {
+	const { text, formatters } = useMediaCopy();
+	const displayText = useDisplayText();
 	const upcoming = animeUpcomingEpisodes(props.schedule);
 	if (upcoming.length === 0) {
 		return null;
 	}
 	return (
-		<MediaOverviewSection title="Airing schedule">
+		<MediaOverviewSection title={text("property.airing-schedule")}>
 			<MediaLabeledRows
 				rows={upcoming.map((entry) => ({
-					title: `Episode ${entry.episode}`,
 					key: `${entry.episode}:${entry.airingAt}`,
-					detail: formatLocalDateTimeLabel(entry.airingAt),
+					title: text("log.episode-code", { episode: entry.episode }),
+					detail: displayText(formatLocalDateTimeLabel(formatters, entry.airingAt)),
 				}))}
 			/>
 		</MediaOverviewSection>

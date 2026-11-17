@@ -4,6 +4,7 @@ import {
 	ManagedAssetProvider,
 	nextPageCursor,
 	type PluginStorageState,
+	useDisplayText,
 	usePluginIdentity,
 	usePluginStorage,
 	useRyotInfiniteQuery,
@@ -16,6 +17,7 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui
 import clsx from "clsx";
 import { type ReactNode, useEffect, useState } from "react";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { ShowEpisodeOrder } from "../../shared/show-episode-order";
 import {
@@ -40,6 +42,7 @@ import { mediaEpisodeNumberLabel } from "../media/episodes-state";
 import { ManagedAssetImage } from "../media/managed-assets";
 import { MediaProgressBar, MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
 import { MediaChildReviewButton } from "../media/review";
+import { type MediaText, useMediaCopy, useMediaMessages } from "../messages";
 import {
 	orderByExternalIds,
 	resolveShowEpisodeOrder,
@@ -173,15 +176,19 @@ const SHOW_EPISODE_RENDER: MediaEpisodeRender<ShowEpisode> = {
 	originLabel: showEpisodeOriginLabel,
 	activityEpisode: showActivityEpisode,
 	numberLabel: mediaEpisodeNumberLabel,
-	stateLabels: { complete: "Watched", untracked: undefined, in_progress: "In progress" },
+	stateLabels: {
+		untracked: undefined,
+		complete: catalogMessage("episodes.state-watched"),
+		in_progress: catalogMessage("browse.status.in-progress"),
+	},
 	credits: createMediaEpisodeCredits({
 		recipes: showEpisodeCreditRecipes,
 		copy: {
-			crew: "Crew",
-			title: "Cast & crew",
-			guestStars: "Guest stars",
-			fullCredits: "Full cast & crew",
-			loading: "Fetching this episode's cast and crew.",
+			title: catalogMessage("credits.cast-crew"),
+			crew: catalogMessage("episode-credits.crew"),
+			loading: catalogMessage("episode-credits.loading"),
+			fullCredits: catalogMessage("episode-credits.full"),
+			guestStars: catalogMessage("episode-credits.guest-stars"),
 		},
 	}),
 };
@@ -192,23 +199,28 @@ const SHOW_ORDER_EPISODE_RENDER: MediaEpisodeRender<ShowOrderEpisode> = {
 	activityEpisode: showActivityEpisode,
 };
 
-const SHOW_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
-	empty: "No episodes have been recorded for this season yet.",
-	loading: { title: "Loading season...", detail: "Fetching this season's episodes." },
+const showEpisodePagesCopy = (text: MediaText): MediaEpisodePagesCopy => ({
+	empty: text("show.season-empty"),
+	loading: { title: text("show.season-loading"), detail: text("show.season-loading-detail") },
 	error: (state) => ({
-		...mediaCursorPageError({ state, noun: "episodes" }),
-		title: "Unable to load this season",
+		...mediaCursorPageError(text, { state, kind: "episodes" }),
+		title: text("show.season-failed"),
 	}),
-};
+});
 
-const SHOW_ORDER_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
-	empty: "No episodes have been recorded for this group yet.",
-	error: (state) => mediaCursorPageError({ state, noun: "episodes" }),
-	loading: { title: "Loading episodes...", detail: "Fetching this group's episodes." },
-};
+const showOrderEpisodePagesCopy = (text: MediaText): MediaEpisodePagesCopy => ({
+	empty: text("show.group-empty"),
+	error: (state) => mediaCursorPageError(text, { state, kind: "episodes" }),
+	loading: { title: text("episodes.loading-title"), detail: text("show.group-loading-detail") },
+});
 
-const metaLabel = (parts: readonly (string | undefined)[]) =>
-	parts.filter((part) => part !== undefined).join(" • ");
+const metaLabel = (text: MediaText, parts: readonly (string | undefined)[]) => {
+	const [first, second] = parts.filter((part) => part !== undefined);
+	if (first === undefined) {
+		return "";
+	}
+	return second === undefined ? first : text("show.meta", { first, second });
+};
 
 export function ShowEpisodes(props: {
 	readonly compact: boolean;
@@ -226,24 +238,22 @@ export function ShowEpisodes(props: {
 	readonly onSelectOrder: (orderId: null | string) => void;
 }) {
 	const { state, order } = props;
+	const text = useMediaMessages();
 	if (state.status === "loading") {
 		return (
 			<MediaStatusMessage
-				title="Loading episodes..."
-				detail="Fetching the seasons for this show."
+				title={text("episodes.loading-title")}
+				detail={text("show.seasons-loading-detail")}
 			/>
 		);
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
-		return <MediaStatusMessage {...showSeasonsError(state)} onRetry={props.refresh} />;
+		return <MediaStatusMessage {...showSeasonsError(text, state)} onRetry={props.refresh} />;
 	}
 	if (state.status === "empty") {
 		return (
 			<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
-				<MediaStatusMessage
-					title="No episodes yet"
-					detail="This show has no seasons or episodes recorded yet."
-				/>
+				<MediaStatusMessage title={text("show.empty-title")} detail={text("show.empty-detail")} />
 				{props.editable ? <ShowAddSeasonAction entityId={props.entityId} /> : null}
 			</div>
 		);
@@ -288,11 +298,12 @@ function ShowAddSeasonAction(props: {
 	readonly entityId: string;
 	readonly lastSeasonNumber?: null | number;
 }) {
+	const text = useMediaMessages();
 	return (
 		<div className="flex">
 			<MediaChildCreateAction
-				label="Add season"
 				childSchemaSlug="show-season"
+				label={text("show.add-season")}
 				parentEntityId={props.entityId}
 				initialProperties={{ seasonNumber: (props.lastSeasonNumber ?? 0) + 1 }}
 			/>
@@ -305,20 +316,25 @@ function ShowEpisodeOrderSelector(props: {
 	readonly orders: readonly ShowEpisodeOrder[];
 	readonly onSelect: (orderId: null | string) => void;
 }) {
+	const text = useMediaMessages();
+	const displayText = useDisplayText();
 	if (props.orders.length === 0) {
 		return null;
 	}
 	return (
 		<Select
-			label="Episode order"
+			label={text("show.order-label")}
 			className="w-full max-w-64 self-end"
 			value={props.selected?.externalId ?? ""}
 			checkIcon={<AppIcon size={15} name="check" />}
 			chevronIcon={<AppIcon size={15} name="chevron-down" />}
 			onChange={(value) => props.onSelect(value === "" ? null : value)}
 			choices={[
-				{ value: "", label: "Aired order" },
-				...props.orders.map((order) => ({ label: order.name, value: order.externalId })),
+				{ value: "", label: text("show.order-aired") },
+				...props.orders.map((order) => ({
+					value: order.externalId,
+					label: displayText(order.name),
+				})),
 			]}
 		/>
 	);
@@ -333,9 +349,10 @@ function ShowOrderGroupHeader(props: {
 		entityId: props.entityId,
 		externalIds: props.group.episodeExternalIds,
 	});
+	const copy = useMediaCopy();
 	const coverage = result.data ?? null;
 	const percent = coverage === null ? undefined : showCoverageCompletionPercent(coverage);
-	const meta = coverage === null ? undefined : showCoverageAiredLabel(coverage);
+	const meta = coverage === null ? undefined : showCoverageAiredLabel(copy.text, coverage);
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-col gap-1">
@@ -363,14 +380,16 @@ function ShowOrderBrowser(props: {
 	readonly logger: MediaActivityLogger;
 }) {
 	const { order } = props;
+	const text = useMediaMessages();
+	const displayText = useDisplayText();
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const index = selectedIndex < order.groups.length ? selectedIndex : 0;
 	const group = order.groups[index];
 	if (group === undefined) {
 		return (
 			<MediaStatusMessage
-				title="No episodes yet"
-				detail="This episode order has no groups recorded yet."
+				title={text("show.empty-title")}
+				detail={text("show.order-empty-detail")}
 			/>
 		);
 	}
@@ -379,12 +398,12 @@ function ShowOrderBrowser(props: {
 			{order.groups.length === 1 ? null : (
 				<ChipRadioGroup
 					overflow="scroll"
-					label="Episode group"
 					value={String(index)}
+					label={text("show.group-label")}
 					onChange={(value) => setSelectedIndex(Number(value))}
 					options={order.groups.map((option, optionIndex) => ({
-						label: option.name,
 						value: String(optionIndex),
+						label: displayText(option.name),
 					}))}
 				/>
 			)}
@@ -397,7 +416,7 @@ function ShowOrderBrowser(props: {
 				query={showOrderEpisodesQuery}
 				safeAreaTop={props.safeAreaTop}
 				render={SHOW_ORDER_EPISODE_RENDER}
-				copy={SHOW_ORDER_EPISODE_PAGES_COPY}
+				copy={showOrderEpisodePagesCopy(text)}
 				containerId={`${order.externalId}:${index}`}
 				scope={{ episodeExternalIds: group.episodeExternalIds }}
 				log={{ logger: props.logger, parentEntityId: props.entityId }}
@@ -421,19 +440,24 @@ function ShowSeasonBrowser(props: {
 	readonly onSelect: (seasonId: string) => void;
 }) {
 	const { nextUp } = props;
+	const copy = useMediaCopy();
+	const displayText = useDisplayText();
+	const { text } = copy;
 	const season = selectedShowSeason(props.seasons, props.selectedId);
 	return (
 		<ManagedAssetProvider assets={showSeasonsManagedAssets(props.seasons)}>
-			<p className="font-ui text-xs text-text-muted">{props.seasonTotal} seasons</p>
+			<p className="font-ui text-xs text-text-muted">
+				{text("show.season-count", { count: props.seasonTotal })}
+			</p>
 			{props.seasons.length === 1 ? null : (
 				<ChipRadioGroup
-					label="Season"
 					value={season.id}
 					overflow="scroll"
 					onChange={props.onSelect}
+					label={text("episodes.season")}
 					options={props.seasons.map((option) => ({
 						value: option.id,
-						label: showSeasonLabel(option),
+						label: displayText(showSeasonLabel(text, option)),
 					}))}
 				/>
 			)}
@@ -448,9 +472,9 @@ function ShowSeasonBrowser(props: {
 				editable={props.editable}
 				entityId={props.entityId}
 				render={SHOW_EPISODE_RENDER}
-				copy={SHOW_EPISODE_PAGES_COPY}
 				safeAreaTop={props.safeAreaTop}
 				query={showSeasonEpisodesQuery}
+				copy={showEpisodePagesCopy(text)}
 				log={{ logger: props.logger, parentEntityId: props.entityId }}
 				nextUp={nextUp?.seasonNumber === season.seasonNumber ? nextUp : null}
 			/>
@@ -464,12 +488,14 @@ function ShowSeasonHeader(props: {
 	readonly season: ShowSeason;
 }) {
 	const { season } = props;
-	const release = showSeasonReleaseLabel(season);
+	const copy = useMediaCopy();
+	const { text } = copy;
+	const release = showSeasonReleaseLabel(copy.formatters, season);
 	const percent = showCoverageCompletionPercent(season);
 	const description = showSeasonDescription(season);
-	const meta = metaLabel([
-		release === undefined ? undefined : `Released ${release}`,
-		showCoverageAiredLabel(season),
+	const meta = metaLabel(text, [
+		release === undefined ? undefined : text("show.released", { date: release }),
+		showCoverageAiredLabel(text, season),
 	]);
 	return (
 		<div className="flex flex-col gap-3">
@@ -487,26 +513,26 @@ function ShowSeasonHeader(props: {
 							props.compact ? "text-[17px]" : "text-xl",
 						)}
 					>
-						{showSeasonLabel(season)}
+						{showSeasonLabel(text, season)}
 						{isTitleProvisional(season) && <SyncPip className="ml-1.5" reason="translating" />}
 					</p>
 					{meta === "" ? null : <p className="font-ui text-[12px] text-text-subtle">{meta}</p>}
 				</div>
 			</div>
 			<div className="flex flex-wrap gap-2">
-				<MediaChildReviewButton entityId={season.id} label={showSeasonLabel(season)} />
+				<MediaChildReviewButton entityId={season.id} label={showSeasonLabel(text, season)} />
 				{props.editable ? (
 					<>
 						<MediaEntityEditAction
 							isCustom
-							label="Edit season"
 							entityId={season.id}
 							entitySchemaSlug="show-season"
+							label={text("show.edit-season")}
 						/>
 						<MediaChildCreateAction
-							label="Add episode"
 							parentEntityId={season.id}
 							childSchemaSlug="show-episode"
+							label={text("podcast.add-episode")}
 							initialProperties={{
 								seasonNumber: season.seasonNumber,
 								episodeNumber: season.episodeTotal + season.upcomingTotal + 1,
@@ -537,6 +563,7 @@ export function ShowEpisodesTab(props: {
 	readonly logger: MediaActivityLogger;
 	readonly summary: undefined | { readonly isCustom: boolean; readonly nextUp: null | ShowEpisode };
 }) {
+	const text = useMediaMessages();
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
 	const storage = usePluginStorage({
 		schema: Schema.String,
@@ -545,7 +572,10 @@ export function ShowEpisodesTab(props: {
 	});
 	if (storage.status === "loading") {
 		return (
-			<MediaStatusMessage title="Loading episodes..." detail="Restoring your episode order." />
+			<MediaStatusMessage
+				detail={text("show.order-restoring")}
+				title={text("episodes.loading-title")}
+			/>
 		);
 	}
 	return (
@@ -571,6 +601,7 @@ function ShowEpisodesWithOrder(props: {
 	readonly storage: Extract<PluginStorageState<string>, { readonly status: "ready" }>;
 }) {
 	const { storage } = props;
+	const text = useMediaMessages();
 	const [selectedId, setSelectedId] = useState<null | string>(null);
 	const result = useRyotInfiniteQuery(
 		showSeasonsQuery,
@@ -608,16 +639,16 @@ function ShowEpisodesWithOrder(props: {
 	if (result.isError && result.errorOperation === "append") {
 		pagination = (
 			<MediaStatusMessage
-				{...showSeasonsError({ status: "transport-error" })}
+				{...showSeasonsError(text, { status: "transport-error" })}
 				onRetry={result.retry}
 			/>
 		);
 	} else if (result.hasNextPage) {
 		pagination = (
 			<LoadMoreButton
-				label="Load more seasons"
 				disabled={result.isFetching}
 				onClick={result.fetchNextPage}
+				label={text("episodes.seasons-load-more")}
 				isFetchingNextPage={result.isFetchingNextPage}
 			/>
 		);

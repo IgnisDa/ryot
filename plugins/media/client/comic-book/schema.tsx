@@ -1,38 +1,39 @@
 import { comicBookRecipes } from "../../shared/comic-book-recipes";
 import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
+import type { MediaCopy } from "../messages";
 import { mediaSchemaAspects } from "../schema-aspects";
 
 type ComicBookSummary = MediaSummaryOf<typeof comicBookRecipes>;
 
 type ComicBookPresentation = MediaPresentationDataOf<typeof comicBookRecipes>;
 
-export const comicBookSummaryFacts = (comicBook: ComicBookSummary): readonly MediaSummaryFact[] =>
-	[mediaCountFact(comicBook.pages, "Page", "book-open")].filter((fact) => fact !== undefined);
+export const comicBookSummaryFacts = (
+	comicBook: ComicBookSummary,
+	{ text }: MediaCopy,
+): readonly MediaSummaryFact[] =>
+	[mediaCountFact(text, comicBook.pages, "page", "book-open")].filter((fact) => fact !== undefined);
 
-export const comicBookPresentationFacts = (comicBook: ComicBookPresentation) =>
-	mediaCountLabels(comicBook.pages, "page");
+export const comicBookPresentationFacts = (comicBook: ComicBookPresentation, { text }: MediaCopy) =>
+	mediaCountLabels(text, comicBook.pages, "page");
 
 export const comicBookSchema = defineFlatMediaSchema({
 	recipes: comicBookRecipes,
 	facts: comicBookSummaryFacts,
 	aspect: mediaSchemaAspects["comic-book"],
 	presentationFacts: comicBookPresentationFacts,
-	measureFigure: { label: "Pages", value: mediaActivityCountFigure },
-	activityCopy: mediaFlatActivityCopy({ verb: "read", noun: "comic book" }),
-	group: { actionLabel: "View series", title: (name) => `Part of ${name}` },
-	nouns: { title: "Comic Book", plural: "comic books", singular: "comic book" },
-	overviewLoadingDetail: "Fetching the credits, series and recommendations for this comic book.",
-	logActivity: {
-		family: "flat",
-		copy: { verb: "read", gerund: "reading", participle: "read", noun: "comic book" },
-	},
+	group: { actionLabel: catalogMessage("group.view-series") },
+	overviewLoadingDetail: catalogMessage("overview.loading.comic-book"),
+	logActivity: { family: "flat", copy: { verb: "read", kind: "comic_book" } },
+	activityCopy: (copy) => mediaFlatActivityCopy(copy, { verb: "read", kind: "comic_book" }),
+	measureFigure: { value: mediaActivityCountFigure, label: catalogMessage("property.pages") },
 	creditCopy: {
-		companies: "Publishers",
-		people: "Writers & artists",
-		notice: "Credits, series and recommendations",
+		companies: catalogMessage("credits.publishers"),
+		people: catalogMessage("credits.writers-artists"),
+		notice: catalogMessage("credits.notice.comic-book"),
 	},
 });

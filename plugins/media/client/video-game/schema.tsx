@@ -1,12 +1,15 @@
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { formatDuration } from "@ryot-app/plugin-ui-sdk";
 
 import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
 import { videoGameRelationKinds } from "../../shared/video-game";
 import { videoGameRecipes } from "../../shared/video-game-recipes";
 import { mediaFlatActivityCopy } from "../media/activity-copy";
-import { mediaActivityDurationLabel, mediaActivityTimeLabel } from "../media/activity-timeline";
+import { mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema, type MediaOverviewRail } from "../media/flat-schema";
 import type { MediaSummaryFact } from "../media/summary-state";
+import type { MediaCopy } from "../messages";
 import { mediaSchemaAspects } from "../schema-aspects";
 import { videoGameOverviewTrailing } from "./sections";
 
@@ -16,18 +19,36 @@ type VideoGamePresentation = MediaPresentationDataOf<typeof videoGameRecipes>;
 
 type VideoGameOverview = Recipe.Success<ReturnType<typeof videoGameRecipes.overviewRecipe>>;
 
+/** Groups children without a provider kind; it is a key, never displayed. */
 const RELATED_KIND = "Related";
 
-const RELATION_KIND_PLURALS: Readonly<Record<string, string>> = {
-	DLC: "DLC",
-	Mod: "Mods",
-	Port: "Ports",
-	Remake: "Remakes",
-	Edition: "Editions",
-	Remaster: "Remasters",
-	Expansion: "Expansions",
-	"Expanded Game": "Expanded games",
-	"Standalone Expansion": "Standalone expansions",
+const RELATION_KIND_CODES = [
+	["DLC", "DLC"],
+	["Mod", "Mod"],
+	["Port", "Port"],
+	["Remake", "Remake"],
+	["Edition", "Edition"],
+	["Remaster", "Remaster"],
+	["Expansion", "Expansion"],
+	["Expanded Game", "Expanded_Game"],
+	["Standalone Expansion", "Standalone_Expansion"],
+] as const;
+
+const relationCode = (kind: string) => RELATION_KIND_CODES.find(([known]) => known === kind)?.[1];
+
+const relationPlural = (kind: string) => {
+	const code = relationCode(kind);
+	return code === undefined ? kind : catalogMessage("video-game.relation-plural", { kind: code });
+};
+
+const originalOf = (parent: { readonly name: string; readonly kind: null | string }) => {
+	if (parent.kind === null) {
+		return catalogMessage("video-game.original-of", { kind: "related", name: parent.name });
+	}
+	const code = relationCode(parent.kind);
+	return code === undefined
+		? catalogMessage("video-game.original-of-custom", { kind: parent.kind, name: parent.name })
+		: catalogMessage("video-game.original-of", { kind: code, name: parent.name });
 };
 
 const kindRank = (kind: string) => {
@@ -35,14 +56,23 @@ const kindRank = (kind: string) => {
 	return rank === -1 ? videoGameRelationKinds.length : rank;
 };
 
-export const videoGameSummaryFacts = (game: VideoGameSummary): readonly MediaSummaryFact[] => {
+export const videoGameSummaryFacts = (
+	game: VideoGameSummary,
+	{ text, formatters }: MediaCopy,
+): readonly MediaSummaryFact[] => {
 	const normally = game.timeToBeat?.normally ?? undefined;
 	return [
-		...(game.gameType === null ? [] : [{ label: "Type", icon: "gamepad-2", value: game.gameType }]),
+		...(game.gameType === null
+			? []
+			: [{ icon: "gamepad-2", value: game.gameType, label: text("property.type") }]),
 		...(normally === undefined
 			? []
 			: [
-					{ icon: "hourglass", label: "Time to beat", value: mediaActivityDurationLabel(normally) },
+					{
+						icon: "hourglass",
+						label: text("fact.time-to-beat"),
+						value: formatDuration(formatters, normally * 60, "minute"),
+					},
 				]),
 	];
 };
@@ -58,21 +88,26 @@ export const videoGameOverviewRails = (
 	return [
 		...overview.originals.items.map((parent) => ({
 			items: [parent],
+			title: originalOf(parent),
 			key: `original:${parent.id}`,
-			title: `${parent.kind ?? RELATED_KIND} of ${parent.name}`,
 		})),
 		...[...children]
 			.sort(([left], [right]) => kindRank(left) - kindRank(right) || left.localeCompare(right))
 			.map(([kind, items]) => ({
 				items,
 				key: `kind:${kind}`,
-				title: RELATION_KIND_PLURALS[kind] ?? kind,
+				title: kind === RELATED_KIND ? catalogMessage("video-game.related") : relationPlural(kind),
 			})),
 	];
 };
 
-export const videoGamePresentationFacts = (game: VideoGamePresentation) =>
-	game.timeToBeatNormally === null ? [] : [mediaActivityDurationLabel(game.timeToBeatNormally)];
+export const videoGamePresentationFacts = (
+	game: VideoGamePresentation,
+	{ formatters }: MediaCopy,
+) =>
+	game.timeToBeatNormally === null
+		? []
+		: [formatDuration(formatters, game.timeToBeatNormally * 60, "minute")];
 
 export const videoGameSchema = defineFlatMediaSchema({
 	recipes: videoGameRecipes,
@@ -81,19 +116,14 @@ export const videoGameSchema = defineFlatMediaSchema({
 	aspect: mediaSchemaAspects["video-game"],
 	overviewTrailing: videoGameOverviewTrailing,
 	presentationFacts: videoGamePresentationFacts,
-	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
-	nouns: { plural: "games", singular: "game", title: "Video Game" },
-	activityCopy: mediaFlatActivityCopy({ verb: "play", noun: "game" }),
-	group: { actionLabel: "View collection", title: (name) => `Part of ${name}` },
-	overviewLoadingDetail: "Fetching the credits, companies and recommendations for this game.",
+	group: { actionLabel: catalogMessage("group.view-collection") },
+	overviewLoadingDetail: catalogMessage("overview.loading.video-game"),
+	activityCopy: (copy) => mediaFlatActivityCopy(copy, { verb: "play", kind: "video_game" }),
+	logActivity: { family: "flat", timePrimary: true, copy: { verb: "play", kind: "video_game" } },
+	measureFigure: { value: mediaActivityTimeLabel, label: catalogMessage("activity.figure-time") },
 	creditCopy: {
-		people: "Cast & credits",
-		companies: "Developers & publishers",
-		notice: "Credits, companies and recommendations",
-	},
-	logActivity: {
-		family: "flat",
-		timePrimary: true,
-		copy: { verb: "play", noun: "game", gerund: "playing", participle: "played" },
+		people: catalogMessage("credits.cast-credits"),
+		notice: catalogMessage("credits.notice.video-game"),
+		companies: catalogMessage("credits.developers-publishers"),
 	},
 });

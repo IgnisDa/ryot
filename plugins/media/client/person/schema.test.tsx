@@ -13,6 +13,7 @@ import {
 	decodeCreatorSummary,
 } from "../../tests/client/creator/summary-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
+import { testMediaCopy } from "../../tests/client/test-text";
 import { mediaSourceLinks } from "../media/summary-state";
 import { personSchema, personSummaryFacts } from "./schema";
 
@@ -39,7 +40,7 @@ afterEach(() => {
 
 describe("person schema", () => {
 	it("lists the birth date with the living age, birthplace and gender", () => {
-		expect(personSummaryFacts(personSummary(), TODAY)).toEqual([
+		expect(personSummaryFacts(testMediaCopy, personSummary(), TODAY)).toEqual([
 			{ icon: "clock", label: "Born", suffix: " (age 57)", value: "Aug 18, 1969" },
 			{ icon: "globe", label: "Birthplace", value: "Boston, Massachusetts, USA" },
 			{ icon: "user", value: "Male", label: "Gender" },
@@ -49,6 +50,7 @@ describe("person schema", () => {
 	it("reports the age at death instead of a living age", () => {
 		expect(
 			personSummaryFacts(
+				testMediaCopy,
 				personSummary({ gender: null, birthPlace: null, deathDate: "2020-08-17" }),
 				TODAY,
 			),
@@ -61,12 +63,14 @@ describe("person schema", () => {
 	it("counts a living age only once this year's birthday has passed, and never a negative one", () => {
 		expect(
 			personSummaryFacts(
+				testMediaCopy,
 				personSummary({ gender: null, birthPlace: null, birthDate: "1969-12-18" }),
 				TODAY,
 			),
 		).toEqual([{ icon: "clock", label: "Born", suffix: " (age 56)", value: "Dec 18, 1969" }]);
 		expect(
 			personSummaryFacts(
+				testMediaCopy,
 				personSummary({ gender: null, birthPlace: null, birthDate: "2030-01-01" }),
 				TODAY,
 			),
@@ -76,6 +80,7 @@ describe("person schema", () => {
 	it("links only web addresses", () => {
 		expect(
 			mediaSourceLinks(
+				testMediaCopy,
 				personSummary({ website: "javascript:alert(1)", sourceUrl: "https://tmdb.test/edward" }),
 			),
 		).toEqual([{ label: "TMDB page", href: "https://tmdb.test/edward" }]);
@@ -83,10 +88,15 @@ describe("person schema", () => {
 
 	it("drops unrecorded facts and omits the age for a date that is not a full ISO date", () => {
 		expect(
-			personSummaryFacts(personSummary({ gender: null, birthDate: null, birthPlace: null }), TODAY),
+			personSummaryFacts(
+				testMediaCopy,
+				personSummary({ gender: null, birthDate: null, birthPlace: null }),
+				TODAY,
+			),
 		).toEqual([]);
 		expect(
 			personSummaryFacts(
+				testMediaCopy,
 				personSummary({ gender: null, birthPlace: null, birthDate: "1969" }),
 				TODAY,
 			),
