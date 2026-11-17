@@ -1,5 +1,5 @@
 import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
-import { BadRequest, DbError } from "@ryot-app/contract/errors";
+import { badRequest, DbError } from "@ryot-app/contract/errors";
 import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
 import {
 	type CreatePageBody,
@@ -13,6 +13,7 @@ import {
 	type ReplacePageDraftBody,
 } from "@ryot-app/contract/modules/pages/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
 import type { Result } from "effect";
 import { Context, Effect, Layer } from "effect";
@@ -185,7 +186,7 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				input: PageDraftRevisionBody,
 				change: {
 					readonly request: unknown;
-					readonly apply: (definition: PageDefinition) => Result.Result<PageDefinition, string>;
+					readonly apply: (definition: PageDefinition) => Result.Result<PageDefinition, Message>;
 				},
 				idempotencyKey?: string,
 			) {
@@ -194,7 +195,7 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 					const row = yield* requireRevision(actor.userId, input, true);
 					const prepared = yield* preparePageDefinition(
 						yield* Effect.fromResult(change.apply(row.draftDefinition)).pipe(
-							Effect.mapError((message) => new BadRequest({ message })),
+							Effect.mapError(badRequest),
 						),
 					);
 					yield* checkDependencies(actor.userId, prepared.definition);

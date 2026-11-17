@@ -92,16 +92,19 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 							.from(tables.definitionCalendarSource),
 					);
 				expect(yield* stored()).toEqual([
-					{ name: "Dates", pluginRevisionId: installed.revisionId },
+					{
+						pluginRevisionId: installed.revisionId,
+						name: { key: "test.dates", namespace: installed.pluginId },
+					},
 				]);
 				expect(yield* listSources(owner)).toEqual([
 					{
-						name: "Dates",
 						slug: "dates",
 						isHidden: false,
 						startAt: "startAt",
 						precision: "instant",
 						pluginId: installed.pluginId,
+						name: { key: "test.dates", namespace: installed.pluginId },
 						subject: {
 							entityAlias: "entity",
 							schemas: [
@@ -127,17 +130,24 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 					Effect.gen(function* () {
 						yield* plugins.lockIngestion();
 						yield* plugins.persist(
-							calendarSourcePackage("alpha", "v2", first.manifest.metadata.packageId, "Renamed"),
+							calendarSourcePackage("alpha", "v2", first.manifest.metadata.packageId, {
+								key: "test.renamed",
+							}),
 							{ scope: "user", ownerId: owner, pluginId: PluginId.make(installed.pluginId) },
 						);
 					}),
 				);
 				const revisions = yield* stored();
-				expect(revisions.map(({ name }) => name).sort()).toEqual(["Dates", "Renamed"]);
-				expect(revisions.find(({ name }) => name === "Renamed")?.pluginRevisionId).not.toBe(
-					installed.revisionId,
-				);
-				expect((yield* listSources(owner)).map(({ name }) => name)).toEqual(["Renamed"]);
+				expect(revisions.map(({ name }) => name.key).sort()).toEqual([
+					"test.dates",
+					"test.renamed",
+				]);
+				expect(
+					revisions.find(({ name }) => name.key === "test.renamed")?.pluginRevisionId,
+				).not.toBe(installed.revisionId);
+				expect((yield* listSources(owner)).map(({ name }) => name)).toEqual([
+					{ key: "test.renamed", namespace: installed.pluginId },
+				]);
 			}),
 		testTimeout,
 	);

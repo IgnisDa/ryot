@@ -1,3 +1,4 @@
+import { stampAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
@@ -7,6 +8,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { DefinitionSource } from "@ryot-app/definitions/snapshot";
+import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import { assert } from "@ryot-app/testing/assert";
 import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
@@ -60,12 +62,12 @@ export const relationshipSchemaSlug = RelationshipSchemaSlug.make("relationship-
 export const propertiesSchema = {
 	fields: {
 		image: managedAssetProperty,
-		rank: { label: "Rank", type: "number", description: "Rank" },
+		rank: { type: "number", description: "Rank", label: { key: "test.rank" } },
 		labels: {
 			type: "array",
-			label: "Labels",
 			description: "Labels",
-			items: { label: "Label", type: "string", description: "Label" },
+			label: { key: "test.labels" },
+			items: { type: "string", description: "Label", label: { key: "test.label" } },
 		},
 	},
 } as const;
@@ -259,12 +261,12 @@ export const relationshipDatabaseLayer = (
 			const database = { url: Redacted.make(url) };
 			const config = makeAppConfigLayer({ database });
 			const relationshipSchema = {
-				name: "Link",
 				pluginId: null,
-				propertiesSchema,
+				name: { key: "test.link" },
 				slug: relationshipSchemaSlug,
 				sourceEntitySchemaSlug: null,
 				targetEntitySchemaSlug: null,
+				propertiesSchema: stampAppSchema(KERNEL_NAMESPACE, propertiesSchema),
 				...(options.userWritePolicy ? { userWritePolicy: options.userWritePolicy } : {}),
 			};
 			const source: DefinitionSource = {
@@ -275,9 +277,9 @@ export const relationshipDatabaseLayer = (
 				entitySchemas: [
 					{
 						pluginId: null,
-						name: "Fixture",
 						icon: "fixture",
 						eventSchemas: [],
+						name: { key: "test.fixture" },
 						slug: EntitySchemaSlug.make("fixture"),
 						propertiesSchema: {
 							fields: { title: { label: "Title", type: "string", description: "Title" } },

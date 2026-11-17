@@ -19,7 +19,7 @@ import {
 } from "@ryot-app/ryotql";
 import { filter as filterPlaceholder } from "@ryot-app/ryotql/authoring";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
-import { DateTime, Result } from "effect";
+import { Array as Arr, DateTime, Result } from "effect";
 
 import { bindControlFixture } from "./controls.test-support";
 
@@ -120,11 +120,18 @@ const browse = [
 		pluginId: null,
 		browse: {
 			fields: filterFields.map((filterField) => {
+				const label = { namespace: "kernel", key: `test.${filterField.key}` };
 				if (filterField.kind !== "value") {
-					return filterField;
+					return { ...filterField, label };
 				}
 				const { field: _, ...rest } = filterField;
-				return Object.assign({}, rest, { expression: browseExpression(filterField) });
+				return Object.assign({}, rest, {
+					label,
+					expression: browseExpression(filterField),
+					...("choices" in rest
+						? { choices: Arr.map(rest.choices, ({ value }) => ({ value, label })) }
+						: {}),
+				});
 			}),
 		},
 	},

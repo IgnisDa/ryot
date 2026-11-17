@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/modules/publications/schemas";
 import type { VisitorRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { type PublicationId, UserId } from "@ryot-app/contract/schema/brands";
+import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
 import { decodeSavedViewCount } from "@ryot-app/ryotql-recipes/saved-views";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Clock, Context, Duration, Effect, Layer, Result } from "effect";
@@ -161,7 +162,10 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 						principal.sessionKey,
 						ryotql
 							.executeDeclared(
-								{ userId: publication.userId, language: found.owner.preferences.language },
+								{
+									userId: publication.userId,
+									language: resolveContentLanguage(found.owner.preferences),
+								},
 								found.document,
 								{ query: "count", arguments: publication.definition.arguments },
 								PUBLICATION_RESULT_BYTES,
@@ -286,7 +290,10 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 				const result = yield* limits.withSessionPermit(
 					principal.sessionKey,
 					ryotql.executeDeclared(
-						{ userId: publication.userId, language: found.owner.preferences.language },
+						{
+							userId: publication.userId,
+							language: resolveContentLanguage(found.owner.preferences),
+						},
 						found.document,
 						{
 							...request,
@@ -329,7 +336,10 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 				return yield* limits.withSessionPermit(
 					principal.sessionKey,
 					ryotql.describeDeclared(
-						{ userId: found.publication.userId, language: found.owner.preferences.language },
+						{
+							userId: found.publication.userId,
+							language: resolveContentLanguage(found.owner.preferences),
+						},
 						found.document,
 						queryName,
 						yield* visitorArguments(

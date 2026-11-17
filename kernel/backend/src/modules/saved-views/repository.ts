@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
+import type { DisplayText } from "@ryot-app/i18n/message";
 import { and, eq, getTableColumns, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
@@ -65,9 +66,9 @@ const nextSortOrder = (rows: ReadonlyArray<ListedSavedViewRow>) =>
 
 type CreateSavedViewInput = {
 	readonly slug: string;
-	readonly name: string;
 	readonly icon: string;
 	readonly userId: UserId;
+	readonly name: DisplayText;
 	readonly pluginInstallationId?: null | string | undefined;
 	readonly sort?: (typeof schema.savedView.$inferSelect)["sort"];
 	readonly filter?: (typeof schema.savedView.$inferSelect)["filter"];
@@ -79,7 +80,7 @@ type CreateSavedViewInput = {
 
 type UpdateSavedViewData = {
 	readonly icon: string;
-	readonly name: string;
+	readonly name: DisplayText;
 	readonly isHidden: boolean;
 	readonly sortOrder?: number | undefined;
 	readonly pluginInstallationId: null | string;

@@ -447,7 +447,7 @@ describe("Relationships lifecycle owner", () => {
 												}
 												const output =
 													invoked.length === 2
-														? { reason: "Rejected", action: "reject" as const }
+														? { action: "reject" as const, reason: { key: "rejection.rejected" } }
 														: { action: "allow" as const };
 												yield* attempts
 													.finalizeAttempt(
@@ -509,10 +509,14 @@ describe("Relationships lifecycle owner", () => {
 							assertExitFails(
 								exit,
 								new RelationshipBadRequest({
-									reason: {
-										runId: rejectingRunId,
-										code: mode === "reject" ? "policy-rejected" : "policy-execution-failed",
-									},
+									reason:
+										mode === "reject"
+											? {
+													runId: rejectingRunId,
+													code: "policy-rejected",
+													message: { key: "rejection.rejected", namespace: installed.pluginId },
+												}
+											: { runId: rejectingRunId, code: "policy-execution-failed" },
 								}),
 							);
 							expect(invoked).toHaveLength(2);
@@ -932,8 +936,8 @@ describe("Relationships lifecycle owner", () => {
 											return {
 												...plan,
 												policies: [
-													{ position: 1, runId: AutomationRunId.make("first") },
-													{ position: 2, runId: AutomationRunId.make("second") },
+													{ position: 1, pluginId: null, runId: AutomationRunId.make("first") },
+													{ position: 2, pluginId: null, runId: AutomationRunId.make("second") },
 												],
 											};
 										}),
@@ -1013,7 +1017,13 @@ describe("Relationships lifecycle owner", () => {
 												assert(plan.trigger);
 												return {
 													...plan,
-													policies: [{ position: 1, runId: AutomationRunId.make("concurrent") }],
+													policies: [
+														{
+															position: 1,
+															pluginId: null,
+															runId: AutomationRunId.make("concurrent"),
+														},
+													],
 												};
 											}),
 										),
@@ -1053,7 +1063,7 @@ describe("Relationships lifecycle owner", () => {
 										executePolicy: () => {
 											return Effect.succeed(
 												mode === "reject"
-													? { reason: "Rejected", action: "reject" as const }
+													? { action: "reject" as const, reason: { key: "rejection.rejected" } }
 													: {
 															action: "transform" as const,
 															patch: {
@@ -1071,7 +1081,9 @@ describe("Relationships lifecycle owner", () => {
 													assert(plan.trigger);
 													return {
 														...plan,
-														policies: [{ position: 1, runId: AutomationRunId.make(mode) }],
+														policies: [
+															{ position: 1, pluginId: null, runId: AutomationRunId.make(mode) },
+														],
 														trigger:
 															mode === "limit"
 																? {
@@ -1100,7 +1112,11 @@ describe("Relationships lifecycle owner", () => {
 									assertExitFails(
 										exit,
 										new RelationshipBadRequest({
-											reason: { code: "policy-rejected", runId: AutomationRunId.make(mode) },
+											reason: {
+												code: "policy-rejected",
+												runId: AutomationRunId.make(mode),
+												message: { namespace: "kernel", key: "rejection.rejected" },
+											},
 										}),
 									);
 									break;
@@ -1401,11 +1417,11 @@ describe("Relationships lifecycle owner", () => {
 								.insert(tables.sandboxProvider)
 								.values({
 									id: providerId,
-									name: "Group provider",
 									slug: "group-provider",
 									pluginId: installed.pluginId,
 									information: { source: "fixture" },
 									rootEntitySchemaSlug: "group-fixture",
+									name: { key: "test.group-provider", namespace: installed.pluginId },
 								}),
 						);
 
@@ -1809,7 +1825,7 @@ describe("Relationships lifecycle owner", () => {
 								executePolicy: () =>
 									Effect.gen(function* () {
 										expect(!(yield* session.isTransactionActive)).toBe(true);
-										return { reason: "Rejected", action: "reject" as const };
+										return { action: "reject" as const, reason: { key: "rejection.rejected" } };
 									}),
 							}),
 							planner: withLifecycleBatchPlanning({
@@ -1820,7 +1836,11 @@ describe("Relationships lifecycle owner", () => {
 											return {
 												...plan,
 												policies: [
-													{ position: 1, runId: AutomationRunId.make("reject-relationship") },
+													{
+														position: 1,
+														pluginId: null,
+														runId: AutomationRunId.make("reject-relationship"),
+													},
 												],
 											};
 										}),

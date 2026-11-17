@@ -96,14 +96,19 @@ const analyticsPlugin = (name: string) =>
 	plugin(name, {
 		apiVersion: 1,
 		homeView: null,
-		analyticsSections: {
-			activity: { sortOrder: 0, name: "Activity", icon: "chart-column", exportName: "activity" },
-		},
 		exports: {
 			activity: {
 				kind: "analytics-section",
 				entry: "client/activity.tsx",
 				automaticEntityPresentations: false,
+			},
+		},
+		analyticsSections: {
+			activity: {
+				sortOrder: 0,
+				icon: "chart-column",
+				exportName: "activity",
+				name: { key: "test.activity" },
 			},
 		},
 	});
@@ -230,9 +235,9 @@ it.effect(
 				analyticsSections: {
 					activity: {
 						sortOrder: 0,
-						name: "Activity",
 						icon: "chart-column",
 						exportName: "activity",
+						name: { key: "test.activity" },
 					},
 				},
 				exports: {
@@ -257,9 +262,9 @@ it.effect(
 				analyticsSections: {
 					activity: {
 						sortOrder: 0,
-						name: "Activity",
 						icon: "chart-column",
 						exportName: "activity",
+						name: { key: "test.activity" },
 					},
 				},
 				exports: {
@@ -624,7 +629,10 @@ it.effect(
 			});
 			const plugins = Array.from([root, left, right, leftDependency, rightDependency], (entry) => ({
 				...entry,
-				manifest: { ...entry.manifest, metadata: { ...entry.manifest.metadata, name: "Whiskey" } },
+				manifest: {
+					...entry.manifest,
+					metadata: { ...entry.manifest.metadata, name: { key: "test.whiskey" } },
+				},
 			}));
 			const graph = yield* resolveClientPageGraph({
 				plugins,

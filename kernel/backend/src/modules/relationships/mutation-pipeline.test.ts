@@ -177,7 +177,9 @@ const policyLifecycle = Effect.fnUntraced(function* (
 								? plan
 								: {
 										...plan,
-										policies: [{ position: 1, runId: AutomationRunId.make("test-policy") }],
+										policies: [
+											{ position: 1, pluginId: null, runId: AutomationRunId.make("test-policy") },
+										],
 									},
 						),
 					),

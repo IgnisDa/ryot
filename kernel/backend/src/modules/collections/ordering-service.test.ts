@@ -51,7 +51,9 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	email: `${id}@example.test`,
 	name: id === ownerId ? "Owner" : "Recipient",
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,

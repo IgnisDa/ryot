@@ -38,7 +38,9 @@ const user = {
 	id: UserId.make("owner"),
 	email: "owner@example.test",
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -60,11 +62,11 @@ const definition = (slug: string, sortOrder: number, pluginRevisionId: null | st
 	slug,
 	renderer,
 	sortOrder,
-	name: slug,
 	icon: "box",
 	settings: {},
 	pluginRevisionId,
 	position: sortOrder,
+	name: { namespace: "kernel", key: `test.${slug}` },
 });
 const customView = (
 	id: string,

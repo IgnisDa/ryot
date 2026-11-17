@@ -48,11 +48,11 @@ const builtinView = (pluginId: null | string): CatalogSavedView => ({
 	arguments: {},
 	dataSources: null,
 	isEffective: true,
-	name: pluginId ?? "Kernel",
 	id: `definition-${pluginId ?? "kernel"}`,
 	pluginRevisionId: pluginId && "revision-1",
 	pluginScope: pluginId === null ? null : "system",
 	renderer: { kind: "kernel", name: "entity-browser" },
+	name: { key: "test.view", namespace: pluginId ?? "kernel" },
 	packageId: pluginId === null ? null : PluginPackageId.make("test/owner"),
 });
 
@@ -127,7 +127,7 @@ layer(repositoryLayer([customRow("same", {})], [builtinView(null), builtinView("
 					expect([kernel?.isBuiltin, kernel?.pluginId, kernel?.name]).toEqual([
 						true,
 						null,
-						"Kernel",
+						{ key: "test.view", namespace: "kernel" },
 					]);
 					expect([plugin?.isBuiltin, plugin?.pluginId]).toEqual([true, "owner-1"]);
 				}),

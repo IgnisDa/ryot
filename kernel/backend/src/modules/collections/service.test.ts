@@ -71,7 +71,9 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -112,10 +114,10 @@ const memberOfSchema = {
 	pluginId: null,
 	isBuiltin: true,
 	slug: "member-of",
-	name: "Member Of",
 	sourceEntitySchemaSlug: null,
 	targetEntitySchemaSlug: null,
 	id: RelationshipSchemaSlug.make("member-of"),
+	name: { namespace: "kernel", key: "test.member-of" },
 	propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
 };
 const collectionPropertiesSchema = {
@@ -146,17 +148,17 @@ const collectionEntitySchema = {
 };
 const addEventSchema = {
 	pluginId: null,
-	name: "Add Entity to Collection",
 	slug: "add-entity-to-collection",
 	propertiesSchema: { fields: {} },
+	name: { key: "test.add-entity-to-collection" },
 	id: EventSchemaSlug.make("add-event-schema-id"),
 };
 const removeEventSchema = {
 	pluginId: null,
 	propertiesSchema: { fields: {} },
-	name: "Remove Entity from Collection",
 	slug: "remove-entity-from-collection",
 	id: EventSchemaSlug.make("remove-event-schema-id"),
+	name: { key: "test.remove-entity-from-collection" },
 };
 const noteFields = [{ key: "note", type: "text", label: "Note", required: false }];
 const noteCollection = {

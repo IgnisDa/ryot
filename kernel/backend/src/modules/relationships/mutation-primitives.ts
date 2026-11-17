@@ -21,6 +21,7 @@ import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
 } from "#modules/automations/lifecycle/policy-patch";
+import { definitionText } from "#modules/definitions/text";
 import type { MutationEntity } from "#modules/entities/repository";
 import {
 	assertStableUnder,
@@ -310,14 +311,21 @@ export const makeRelationshipMutationPrimitives = ({
 				);
 			if (output.action === "reject") {
 				return yield* new RelationshipBadRequest({
-					reason: { runId: policy.runId, code: "policy-rejected" },
+					reason: {
+						runId: policy.runId,
+						code: "policy-rejected",
+						message: definitionText(policy.pluginId, output.reason),
+					},
 				});
 			}
 			if (output.action === "transform") {
 				const patched = applyLifecyclePolicyPatch(request, output.patch);
 				if (!patched.ok || patched.request.operation === "delete") {
+					yield* Effect.logDebug(
+						`Invalid relationship policy transform: ${patched.ok ? "Relationship delete policies cannot transform requests" : patched.reason}`,
+					);
 					return yield* new RelationshipBadRequest({
-						reason: { runId: policy.runId, code: "policy-rejected" },
+						reason: { runId: policy.runId, code: "policy-execution-failed" },
 					});
 				}
 				if (!mutation.propertiesSchema) {

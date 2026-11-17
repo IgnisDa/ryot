@@ -15,6 +15,8 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { deriveSavedViewQueries } from "@ryot-app/definitions/saved-view-queries";
 import { validateSavedViewDefinition } from "@ryot-app/definitions/saved-views";
+import { type DisplayText, KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -36,14 +38,28 @@ import { trimToNull } from "#platform/validation";
 import { buildSavedViewReorderPlan } from "./reorder";
 import { SavedViewsRepository } from "./repository";
 
+/** A copy keeps a message name until it is renamed, so its slug comes from the source. */
+type ClonedSavedViewBody = Omit<CreateSavedViewBody, "name"> & {
+	readonly slug: string;
+	readonly name: DisplayText;
+};
+
 const missing = (reference: SavedViewReference) =>
 	new SavedViewNotFound({ reason: { reference, code: "saved-view-not-found" } });
 
 const immutable = (reference: SavedViewReference) =>
 	new SavedViewBadRequest({ reason: { reference, code: "builtin-view-immutable" } });
 
-const definitionIncompatible = (error: Error) =>
-	new SavedViewBadRequest({ reason: { message: error.message, code: "settings-incompatible" } });
+const definitionIncompatible = () =>
+	new SavedViewBadRequest({ reason: { code: "settings-incompatible" } });
+
+/** A copy of a copy keeps one copy marker, so repeated clones stay within the message nesting depth. */
+const copyName = (name: DisplayText): DisplayText =>
+	typeof name !== "string" &&
+	name.namespace === KERNEL_NAMESPACE &&
+	name.key === "saved-views.copy-name"
+		? name
+		: kernelMessage("saved-views.copy-name", { name });
 
 export class SavedViewsService extends Context.Service<SavedViewsService>()(
 	"@ryot-app/kernel-backend/modules/saved-views/service/SavedViewsService",
@@ -160,17 +176,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 			) {
 				const parsed = yield* Effect.fromResult(
 					bindArguments(document?.parameters, selection.arguments),
-				).pipe(
-					Effect.mapError(
-						(issues) =>
-							new SavedViewBadRequest({
-								reason: {
-									code: "settings-incompatible",
-									message: issues.map(({ message }) => message).join("; "),
-								},
-							}),
-					),
-				);
+				).pipe(Effect.mapError(definitionIncompatible));
 				const argumentsValue = yield* Schema.decodeUnknownEffect(
 					Schema.Record(Schema.String, JsonValue),
 				)(parsed).pipe(Effect.orDie);
@@ -178,12 +184,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 					(selection.filter !== undefined && !document?.controls?.filter) ||
 					(selection.sort !== undefined && !document?.controls?.sort)
 				) {
-					return yield* new SavedViewBadRequest({
-						reason: {
-							code: "settings-incompatible",
-							message: "Selection requires declared controls",
-						},
-					});
+					return yield* definitionIncompatible();
 				}
 				if (document !== null) {
 					yield* ryotql
@@ -207,17 +208,17 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 			});
 			const create = Effect.fn(function* (
 				user: Pick<CurrentUserValue, "id">,
-				payload: CreateSavedViewBody & { slug?: string | undefined },
+				payload: ClonedSavedViewBody | (CreateSavedViewBody & { readonly slug?: string }),
 				trusted?: boolean,
 				idempotencyKey?: string,
 			) {
-				const name = trimToNull(payload.name);
+				const name = typeof payload.name === "string" ? trimToNull(payload.name) : payload.name;
 				if (!name) {
 					return yield* new SavedViewBadRequest({
 						reason: { field: "name", code: "required-field" },
 					});
 				}
-				const slug = slugify(payload.slug ?? name);
+				const slug = slugify(payload.slug ?? (typeof name === "string" ? name : ""));
 				if (!slug) {
 					return yield* new SavedViewBadRequest({
 						reason: { field: "slug", code: "required-field" },
@@ -267,13 +268,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 										SavedViewCommandResponse,
 										write,
 									)
-									.pipe(
-										Effect.catchTag("IdempotencyConflict", () =>
-											definitionIncompatible(
-												new Error("Saved view idempotency key was reused with different input"),
-											),
-										),
-									),
+									.pipe(Effect.catchTag("IdempotencyConflict", () => definitionIncompatible())),
 					),
 				);
 			});
@@ -310,7 +305,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 						}
 						return { id: updated.id };
 					}
-					const name = trimToNull(payload.name ?? current.name);
+					const name = payload.name === undefined ? current.name : trimToNull(payload.name);
 					if (!name) {
 						return yield* new SavedViewBadRequest({
 							reason: { field: "name", code: "required-field" },
@@ -387,13 +382,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 										SavedViewCommandResponse,
 										write,
 									)
-									.pipe(
-										Effect.catchTag("IdempotencyConflict", () =>
-											definitionIncompatible(
-												new Error("Saved view idempotency key was reused with different input"),
-											),
-										),
-									),
+									.pipe(Effect.catchTag("IdempotencyConflict", () => definitionIncompatible())),
 					),
 				);
 			});
@@ -431,13 +420,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 										SavedViewCommandResponse,
 										write,
 									)
-									.pipe(
-										Effect.catchTag("IdempotencyConflict", () =>
-											definitionIncompatible(
-												new Error("Saved view idempotency key was reused with different input"),
-											),
-										),
-									),
+									.pipe(Effect.catchTag("IdempotencyConflict", () => definitionIncompatible())),
 					),
 				);
 			});
@@ -450,23 +433,14 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 					settings: source.settings,
 					arguments: source.arguments,
 					dataSources: source.dataSources,
-				}).pipe(
-					Effect.mapError(
-						() =>
-							new SavedViewBadRequest({
-								reason: {
-									code: "settings-incompatible",
-									message: "Saved view definition is invalid",
-								},
-							}),
-					),
-				);
+				}).pipe(Effect.mapError(definitionIncompatible));
 				return yield* create(
 					user,
 					{
 						...config,
 						icon: source.icon,
-						name: `${source.name} (Copy)`,
+						slug: `${source.slug}-copy`,
+						name: copyName(source.name),
 						...(source.pluginInstallationId
 							? { workspaceInstallationId: source.pluginInstallationId }
 							: {}),

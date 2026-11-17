@@ -1,11 +1,12 @@
 import { expect } from "bun:test";
 
 import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
-import { BadRequest } from "@ryot-app/contract/errors";
+import { badRequest } from "@ryot-app/contract/errors";
 import { PageAuthoringError, type PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { entitlementRequired, type Entitlements } from "@ryot-app/contract/schema/entitlement";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	clientPluginCompilationFailure,
 	clientPluginCompilerDiagnostic,
@@ -233,10 +234,13 @@ layer(database)((test) => {
 					service.editDraft(
 						actor,
 						{ pageId: created.pageId, expectedDraftRevision: 2 },
-						{ request: null, apply: () => Result.fail("oldText was not found") },
+						{
+							request: null,
+							apply: () => Result.fail(kernelMessage("error.agent-tools.page-edit-text-not-found")),
+						},
 					),
 				),
-				new BadRequest({ message: "oldText was not found" }),
+				badRequest(kernelMessage("error.agent-tools.page-edit-text-not-found")),
 			);
 			expect((yield* service.readDraft(owner, created.pageId)).draftRevision).toBe(2);
 		}),

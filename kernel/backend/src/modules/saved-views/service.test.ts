@@ -8,6 +8,7 @@ import {
 import { PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { fixtureManifest } from "@ryot-app/contract/testing";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -39,7 +40,9 @@ const user = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -74,7 +77,7 @@ const baseView = {
 		sourceName: "entities",
 		rowKeyFields: ["entityId"],
 		entityLink: { entityIdField: "entityId" },
-		columns: [{ label: "Name", field: "name", displayKind: "text" }],
+		columns: [{ field: "name", label: "Name", displayKind: "text" }],
 	},
 } satisfies ListedSavedView & {
 	readonly revision: number;
@@ -117,8 +120,8 @@ const pluginManifest = {
 					unknownKeys: "strict" as const,
 					fields: {
 						title: {
-							label: "Title",
 							type: "string" as const,
+							label: { key: "test.title" },
 							description: "Summary title",
 							validation: { required: true as const },
 						},
@@ -247,15 +250,40 @@ layer(
 	);
 });
 
-layer(
+const copiedView = {
+	...baseView,
+	slug: "my-view-copy",
+	name: kernelMessage("saved-views.copy-name", { name: "My View" }),
+	reference: { kind: "custom" as const, savedViewId: SavedViewId.make("copied-view") },
+};
+
+const cloneLayer = () =>
 	makeLayer({
 		repository: {
 			create: () => Effect.succeed({ id: SavedViewId.make("copy-id") }),
 			findByReference: (_userId, reference) =>
-				Effect.succeed(Bun.deepEquals(reference, baseView.reference) ? baseView : null),
+				Effect.succeed(
+					[baseView, copiedView].find((view) => Bun.deepEquals(reference, view.reference)) ?? null,
+				),
 		},
-	}).pipe(Layer.provide(makeAppConfigLayer())),
-)((test) => {
+	}).pipe(Layer.provide(makeAppConfigLayer()));
+
+layer(cloneLayer())((test) => {
+	test.effect(
+		"keeps a single copy marker when cloning a copy",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* SavedViewsService;
+				yield* service.clone(user, copiedView.reference);
+				expect(yield* (yield* SavedViewsCalls).created).toMatchObject([
+					{ name: copiedView.name, slug: "my-view-copy-copy" },
+				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(cloneLayer())((test) => {
 	test.effect(
 		"clones renderer settings and data sources without copying source code",
 		() =>
@@ -265,10 +293,11 @@ layer(
 				expect(cloned).toEqual({ id: SavedViewId.make("copy-id") });
 				expect(yield* (yield* SavedViewsCalls).created).toMatchObject([
 					{
-						name: "My View (Copy)",
+						slug: "my-view-copy",
 						renderer: baseView.renderer,
 						settings: baseView.settings,
 						dataSources: baseView.dataSources,
+						name: kernelMessage("saved-views.copy-name", { name: "My View" }),
 					},
 				]);
 			}),
@@ -282,11 +311,11 @@ const calendarView = {
 	createdAt: null,
 	updatedAt: null,
 	slug: "calendar",
-	name: "Calendar",
 	icon: "calendar",
 	dataSources: null,
 	defaultSortOrder: 0,
 	isBuiltin: true as const,
+	name: { namespace: "kernel", key: "test.calendar" },
 	reference: { slug: "calendar", kind: "kernel" as const },
 	renderer: { kind: "kernel" as const, name: "calendar" as const },
 };
@@ -346,9 +375,7 @@ layer(
 				const exit = yield* Effect.exit(service.clone(user, calendarView.reference));
 				assertExitFails(
 					exit,
-					new SavedViewBadRequest({
-						reason: { code: "settings-incompatible", message: "Saved view definition is invalid" },
-					}),
+					new SavedViewBadRequest({ reason: { code: "settings-incompatible" } }),
 				);
 				const calls = yield* SavedViewsCalls;
 				expect(yield* calls.created).toEqual([]);

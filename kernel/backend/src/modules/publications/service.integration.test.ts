@@ -72,8 +72,8 @@ const seed = Effect.gen(function* () {
 					icon: "box",
 					position: 0,
 					slug: "root",
-					name: "Root",
 					mergeIdentityProperties: [],
+					name: { key: "test.root", namespace: "kernel" },
 					propertiesSchema: {
 						fields: {
 							cover: {
@@ -92,9 +92,9 @@ const seed = Effect.gen(function* () {
 					icon: "box",
 					position: 0,
 					sortOrder: 0,
-					name: "Roots",
 					slug: "root-presentation",
 					settings: browser.settings,
+					name: { key: "test.roots", namespace: "kernel" },
 					renderer: { kind: "kernel", name: "entity-browser" },
 					dataSources: document({
 						items: rows(subject, {

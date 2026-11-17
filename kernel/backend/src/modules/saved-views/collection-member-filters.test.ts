@@ -19,17 +19,19 @@ const now = DateTime.makeUnsafe("2026-03-10T12:00:00.000Z");
 const subject = table("entity", "subject");
 const linked = table("relationship", "relationship");
 
+const text = (key: string) => ({ key: `test.${key}`, namespace: "kernel" });
+
 const rating = (property: string): BrowseField => ({
 	key: "rating",
 	kind: "value",
 	type: "number",
-	label: "Rating",
+	label: text("rating"),
 	expression: castNumber(jsonPath(column(subject, "properties"), property)),
 	sort: {
-		label: "Rating",
+		label: text("rating"),
 		defaultDirection: "desc",
-		ascending: "Lowest rated",
-		descending: "Highest rated",
+		ascending: text("lowest-rated"),
+		descending: text("highest-rated"),
 	},
 });
 
@@ -37,13 +39,13 @@ const links: BrowseField = {
 	key: "links",
 	kind: "value",
 	type: "number",
-	label: "Links",
+	label: text("links"),
 	expression: count(linked, { where: eq(column(linked, "sourceEntityId"), column(subject, "id")) }),
 	sort: {
-		label: "Links",
+		label: text("links"),
 		defaultDirection: "desc",
-		descending: "Most links",
-		ascending: "Fewest links",
+		descending: text("most-links"),
+		ascending: text("fewest-links"),
 	},
 };
 
@@ -62,9 +64,9 @@ const fields = {
 			{
 				count: 1,
 				ownerPluginId: null,
-				ownerPluginName: null,
-				typeLabel: "Collections",
+				ownerPackageId: null,
 				entitySchemaSlug: "collection",
+				typeLabel: { namespace: "kernel", key: "definition.entity-schema.collection" },
 			},
 		],
 	},

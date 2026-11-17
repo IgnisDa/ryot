@@ -13,6 +13,12 @@ namespace. A custom view's installation is its workspace association, not its de
 Built-in IDs frame the user, owner kind, owner ID, and slug, and remain stable across revisions.
 Overrides have separate unique keys for kernel and plugin ownership.
 
+View names are display text. Built-in names are messages stamped with their owner's namespace;
+create and update store the user's text. A clone stores the kernel `saved-views.copy-name` message
+wrapping the source name, so a copy of a built-in stays translatable, and derives its slug from the
+source slug. Cloning a copy keeps its single `saved-views.copy-name` wrapper, so repeated clones stay
+within the message nesting depth.
+
 Writes carry a tagged saved-view reference. Workspace associations use exact installation IDs.
 Saving validates every authored branch and owner reference in the transaction's catalog snapshot; execution resolves those references again under current authority.
 Known entity-browser provider actions use an owner-qualified `schema`; authored settings may use

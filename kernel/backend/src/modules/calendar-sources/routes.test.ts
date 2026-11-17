@@ -54,7 +54,9 @@ const credential = (userId: UserId, accessClass: AccessClass) => ({
 		accountUserId: userId,
 		email: `${userId}@example.test`,
 		preferences: {
-			language: null,
+			weekStart: null,
+			interfaceLocale: null,
+			contentLanguage: null,
 			reportingTimeZone: UTC,
 			disableIntegrations: false,
 			ratingScale: "hundred" as const,

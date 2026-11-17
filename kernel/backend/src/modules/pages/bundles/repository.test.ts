@@ -17,7 +17,7 @@ const file = clientArtifactFile({
 	bytes: new TextEncoder().encode("export default 1;"),
 });
 const artifact = {
-	...clientArtifactMetadata("Whiskey", packageId, [file], {
+	...clientArtifactMetadata(packageId, [file], {
 		imports: [],
 		clientDeclarationHash: "d".repeat(64),
 	}),

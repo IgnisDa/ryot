@@ -13,6 +13,7 @@ import {
 	type PluginPackageReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { stampNamespace } from "@ryot-app/i18n/message";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -163,7 +164,7 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 		rootEntry = pageModule(input.pageId);
 		rootArtifacts = [input.artifactHash];
 	} else {
-		rootName = input.plugin.manifest.metadata.name;
+		rootName = input.plugin.packageId;
 		rootEntry = pluginModule(input.plugin, input.exportName);
 		rootArtifacts = [];
 	}
@@ -278,10 +279,10 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 			for (const [slug, registration] of sections) {
 				analyticsSections.push({
 					slug,
-					name: registration.name,
 					icon: registration.icon,
 					sortOrder: registration.sortOrder,
 					ownerPluginId: PluginId.make(plugin.id),
+					name: stampNamespace(plugin.id, registration.name),
 					artifactClosure: Option.getOrElse(closure, () => []),
 					module: Option.isSome(closure) ? pluginModule(plugin, registration.exportName) : null,
 				});

@@ -29,9 +29,9 @@ import { CollectionsRepository } from "./repository";
 const pluginCollectionSchema: EntitySchemaSnapshot = {
 	eventSchemas: {},
 	icon: "collection",
-	name: "Plugin collection",
 	mergeIdentityProperties: [],
 	propertiesSchema: { fields: {} },
+	name: { key: "test.plugin-collection" },
 	slug: EntitySchemaSlug.make("collection"),
 	pluginId: PluginId.make("collection-plugin"),
 };
