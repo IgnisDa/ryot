@@ -28,9 +28,9 @@ import {
 } from "@ryot-app/contract/modules/live-updates/messages";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import {
-	DescribeRequest,
 	DescribeResponse,
-	ExecutionRequest,
+	PluginDescribeRequest,
+	PluginExecutionRequest,
 	VisitorDescribeRequest,
 	VisitorRequest,
 } from "@ryot-app/contract/modules/ryotql/request";
@@ -39,6 +39,8 @@ import { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
+import { WeekDay } from "@ryot-app/i18n/locale";
+import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import { PluginFileSource } from "./files";
@@ -359,7 +361,7 @@ const pluginOperationFailureVariants = [
 		]),
 	},
 	{
-		message: Schema.String,
+		message: Message,
 		outcome: Schema.Literal("failure"),
 		reason: Schema.Literal("operation-rejected"),
 	},
@@ -610,7 +612,11 @@ export type PluginBridgeUserSettingsResult = Schema.Schema.Type<
 	typeof PluginBridgeUserSettingsResult
 >;
 
-export const PluginUserPreferences = strictStruct({ timeZone: TimeZone, ratingScale: RatingScale });
+export const PluginUserPreferences = strictStruct({
+	timeZone: TimeZone,
+	weekStart: WeekDay,
+	ratingScale: RatingScale,
+});
 
 export type PluginUserPreferences = Schema.Schema.Type<typeof PluginUserPreferences>;
 
@@ -748,12 +754,12 @@ export const PluginBridgeRyotQLRequest = Schema.Union([
 	}),
 	strictStruct({
 		...ryotqlRequestFields,
-		request: ExecutionRequest,
+		request: PluginExecutionRequest,
 		action: Schema.Literal("execute"),
 	}),
 	strictStruct({
 		...ryotqlRequestFields,
-		request: DescribeRequest,
+		request: PluginDescribeRequest,
 		action: Schema.Literal("describe"),
 	}),
 ]);
@@ -761,10 +767,10 @@ export const PluginBridgeRyotQLRequest = Schema.Union([
 export type PluginBridgeRyotQLRequest = Schema.Schema.Type<typeof PluginBridgeRyotQLRequest>;
 
 export type PluginRyotQLRequest =
-	| { readonly action: "execute"; readonly request: ExecutionRequest }
 	| { readonly action: "page-execute"; readonly request: VisitorRequest }
+	| { readonly action: "execute"; readonly request: PluginExecutionRequest }
 	| { readonly action: "page-describe"; readonly request: VisitorDescribeRequest }
-	| { readonly action: "describe"; readonly request: typeof DescribeRequest.Type };
+	| { readonly action: "describe"; readonly request: typeof PluginDescribeRequest.Type };
 
 export const PluginBridgeRyotQLCancel = strictStruct({
 	requestId: Schema.String,

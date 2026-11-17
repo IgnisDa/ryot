@@ -56,6 +56,8 @@ import {
 	RyotClientErrorReason,
 } from "./index";
 
+const rejection = { namespace: "fixture", key: "operation.rejected" };
+
 const document = {
 	queries: {
 		items: {
@@ -72,6 +74,19 @@ const identity = {
 	format: CLIENT_ARTIFACT_FORMAT,
 	compilerVersion: CLIENT_COMPILER_VERSION,
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+};
+
+const bridgeLocale = {
+	dir: "rtl",
+	locale: "ar",
+	pendingNamespaces: ["plugin-2"],
+	catalogs: [
+		{
+			locale: "ar",
+			namespace: "plugin-1",
+			catalog: { "plugin.name": [{ type: 0, value: "Name" }] },
+		},
+	],
 };
 
 describe("plugin client artifact contract", () => {
@@ -335,6 +350,16 @@ describe("plugin client bridge contract", () => {
 		);
 		expect(Result.isFailure(decode({ type: "header", header: { title: "Details" } }))).toBe(true);
 		expect(
+			Result.isSuccess(
+				decode({
+					index: 2,
+					key: "k2",
+					type: "header",
+					header: { title: { key: "screen.title", namespace: "plugin-1" } },
+				}),
+			),
+		).toBe(true);
+		expect(
 			Result.isFailure(decode({ index: 2, key: "k2", type: "header", header: { title: "" } })),
 		).toBe(true);
 		expect(
@@ -350,11 +375,12 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decode({ extra: true, resolvedMode: "dark" }))).toBe(true);
 	});
 
-	it("carries the theme mode and safe-area insets on init and never on the ready echo", () => {
+	it("carries the theme mode, locale and safe-area insets on init and never on the ready echo", () => {
 		const decodeInit = Schema.decodeUnknownResult(PluginBridgeInit);
 		const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
 		const init = {
 			...identity,
+			...bridgeLocale,
 			mode: "dark",
 			safeAreaTop: 59,
 			safeAreaBottom: 34,
@@ -372,6 +398,18 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isSuccess(decodeReady(identity))).toBe(true);
 		expect(Result.isFailure(decodeReady({ ...identity, bridgeVersion: 2 }))).toBe(true);
 		expect(Result.isFailure(decodeReady(init))).toBe(true);
+		expect(Result.isFailure(decodeInit({ ...init, dir: "auto" }))).toBe(true);
+		expect(Result.isFailure(decodeInit({ ...init, pendingNamespaces: [""] }))).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeInit({ ...init, catalogs: [{ ...bridgeLocale.catalogs[0], namespace: "" }] }),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				Schema.decodeUnknownResult(PluginBridgeHostMessage)({ ...bridgeLocale, type: "locale" }),
+			),
+		).toBe(true);
 	});
 
 	it("carries saved-view, plugin-route, and entity page identities", () => {
@@ -1133,12 +1171,13 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeHost(request))).toBe(true);
 
 		const result = { requestId: "account-1", type: "account-result" as const };
-		const preferences = { ratingScale: "five", timeZone: "Asia/Kolkata" };
+		const preferences = { weekStart: 0, ratingScale: "five", timeZone: "Asia/Kolkata" };
 		const account = { preferences, entitlements: ["pro"] };
 		expect(Result.isSuccess(decodeHost({ ...result, account, outcome: "success" }))).toBe(true);
 		for (const invalid of [
 			{ ...account, preferences: { ...preferences, timeZone: "+05:30" } },
 			{ ...account, preferences: { ...preferences, ratingScale: "stars" } },
+			{ ...account, preferences: { ...preferences, weekStart: 7 } },
 			{ ...account, entitlements: ["platinum"] },
 			{ preferences },
 		]) {
@@ -1524,7 +1563,7 @@ describe("plugin client bridge contract", () => {
 			type: "operation-result",
 			reason: "operation-rejected",
 		};
-		expect(Result.isSuccess(decode({ ...rejected, message: "Not allowed" }))).toBe(true);
+		expect(Result.isSuccess(decode({ ...rejected, message: rejection }))).toBe(true);
 		expect(Result.isFailure(decode(rejected))).toBe(true);
 		expect(
 			Result.isFailure(

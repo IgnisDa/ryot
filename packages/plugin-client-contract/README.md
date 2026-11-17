@@ -9,20 +9,30 @@ Artifact metadata includes content hash, artifact format, client API version, co
 bridge version. Bridge init establishes a runtime identity from a random bridge session ID and the
 composition hash and version metadata. Ready repeats it, and the kernel accepts only an exact match.
 The iframe reports metadata embedded in the composition document rather than treating echoed kernel
-input as proof. Document replacement and retained-frame policy belong to the
+input as proof. Init also carries `locale`, `dir` and `catalogs`: the registered
+`{ namespace, locale, catalog }` entries for the locale's fallback chain. A plugin or page document
+receives the kernel namespace plus its plugin contributors' namespaces. A kernel renderer document
+receives every namespace, because it renders served names from any installed plugin.
+`pendingNamespaces` lists the plugin namespaces whose catalogs are still loading, so the document
+renders their missing messages as loading rather than unavailable.
+The host posts `PluginBridgeLocale` (`type: "locale"`, the same fields) whenever the locale or its
+catalogs change, latching a pre-ready change like theme. A `header` publication's title is also `DisplayText`; the host renders a message only from a
+namespace the document receives catalogs for. Page context view names are `DisplayText`:
+a stamped `Message` for declared views or a user-authored string. Document replacement and retained-frame policy belong to the
 [kernel host](../../kernel/client/README.md#ownership-and-isolation).
 
 Internal modules split the package: `src/source-policy.ts` (file extensions, content types, source
 predicates), `src/navigation.ts` (page targets and context, locations, navigation targets, shortcuts),
-`src/bridge/lifecycle.ts` (init, document, theme, viewport, header, screen, entity picker,
+`src/bridge/lifecycle.ts` (init, document, theme, locale, viewport, header, screen, entity picker,
 overlay, and close messages), `src/bridge/capabilities.ts` (operation, collection, calendar source visibility, asset, upload,
 storage, RyotQL, entity-watch, and external-link payloads), `src/bridge/background-submissions.ts`
 (background operation requests, acceptance, settlement, and shared limits), and
 `src/bridge/messages.ts` (the client and host message unions). `src/index.ts` only aggregates them.
 
 `src/artifact.ts` defines artifact schemas, exact-byte file copies, and the single metadata hash
-calculation used by the compiler, ingestion, and server assembly. The hash includes the plugin name,
-versions, and sorted file names, MIME types, and byte hashes. The package entry point exports these
+calculation used by the compiler, ingestion, and server assembly. A plugin artifact's hash includes
+its package ID and client declaration hash, versions, sorted resolved imports, and sorted file names,
+MIME types, and byte hashes; kernel and page artifacts include their name instead of a package. The package entry point exports these
 definitions for callers. `PageClientArtifact` adds `kind: "page"` and `pageDeclarationHash` to the
 generic artifact metadata. The page hash covers those fields, name, versions, sorted resolved imports
 and every output byte and MIME type. `PageClientDeclaration` and `pageDeclarationHash` define portable compiler identity from the entry
@@ -55,12 +65,13 @@ The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `tran
 `operation-result` failures carry `transport`, `operation-failed`, or `malformed-result`, or
 `operation-rejected` with the operation's `message`. `operation-failed` is a declared platform
 failure with no user-facing text; `operation-rejected` is a deterministic refusal whose message may
-be shown to the user, and retrying the same input cannot succeed.
+be shown to the user, and retrying the same input cannot succeed. The kernel reports a write refused
+by demo protection as `operation-rejected` with its own message.
 
 `background-operation-request` carries the same package, operation slug, and JSON input as
 `operation-request`, plus a required idempotency key (non-empty, at most 128 characters) and a
-`label` (non-empty, at most 120 characters, with no C0/C1 control or U+202A–U+202E/U+2066–U+2069
-bidi control characters). It never carries a content hash, action, URL, or icon. The reply
+`label`: a local message from the plugin's own catalog, which the host stamps with the plugin's
+namespace and renders in the tray. It never carries a content hash, action, URL, or icon. The reply
 `background-operation-accepted` returns a kernel `submissionId` or fails with `transport`,
 `operation-failed`, or `malformed-result`. Later, `background-operation-settled` reports that
 submission's outcome: `succeeded`, `incomplete`, or `failed` with `transport`, `operation-failed`,
@@ -87,8 +98,8 @@ and defaults belong to the kernel host; hook behavior belongs to the
 [SDK user settings API](../plugin-client-sdk/README.md#capabilities).
 
 `account-request` carries no plugin, installation, or user. Result success returns the
-`PluginAccount`: its `PluginUserPreferences` (reporting `timeZone` and `ratingScale`) and the
-instance `entitlements`. Failures use `invalid-request` or `transport`.
+`PluginAccount`: its `PluginUserPreferences` (reporting `timeZone`, resolved `weekStart`, and
+`ratingScale`) and the instance `entitlements`. Failures use `invalid-request` or `transport`.
 
 `enrichment-request` carries the `RequestEntityEnrichmentBody` fields and an entity ID. Its action
 selects a refresh or retry. Result success returns `enrichmentRequestId`, the durable request ID, or
@@ -112,8 +123,10 @@ This package derives specialized fields from generic HTTP-contract schemas such 
 RyotQL documents, and asset locators. The dependency remains one-way: `@ryot-app/contract` must not
 import this package.
 
-RyotQL messages select `action: "execute" | "describe" | "page-execute" | "page-describe"`. Execute carries the canonical
-`ExecutionRequest`; describe carries its canonical source and optional arguments. Runtime paging,
+RyotQL messages select `action: "execute" | "describe" | "page-execute" | "page-describe"`. Execute carries a
+`PluginExecutionRequest`; describe carries a `PluginDescribeRequest` with its source and optional
+arguments. Inline documents carry the requesting code's parameter text unstamped; the host stamps it
+with the document's plugin namespace, or the kernel namespace for kernel renderer documents. Runtime paging,
 filter, and sort values remain outside the authored document. The shared cancellation message
 interrupts either action. Page-context data sources are authored definitions; binding belongs to
 the server execution boundary. Publication frames use `page-execute` and `page-describe` with a

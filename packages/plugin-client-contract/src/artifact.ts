@@ -107,10 +107,10 @@ export const pageClientArtifactMetadata = (
 	identity: Pick<PageClientArtifactMetadata, "imports" | "pageDeclarationHash">,
 ): PageClientArtifactMetadata => ({
 	...artifactMetadata(
-		name,
 		files,
 		{ kind: "page", pageDeclarationHash: identity.pageDeclarationHash },
 		identity.imports,
+		name,
 	),
 	kind: "page",
 	pageDeclarationHash: identity.pageDeclarationHash,
@@ -131,29 +131,29 @@ export const clientArtifactFile = ({
 });
 
 export const clientArtifactMetadata = (
-	pluginName: string,
 	packageId: PluginPackageId,
 	files: readonly PluginClientArtifactFile[],
 	identity: Pick<PluginClientArtifactMetadata, "imports" | "clientDeclarationHash">,
 ): PluginClientArtifactMetadata => {
 	const owner = { packageId, clientDeclarationHash: identity.clientDeclarationHash };
-	return { ...artifactMetadata(pluginName, files, owner, identity.imports), ...owner };
+	return { ...artifactMetadata(files, owner, identity.imports), ...owner };
 };
 
 export const clientRuntimeArtifactMetadata = (
 	name: string,
 	files: readonly PluginClientArtifactFile[],
 	imports: readonly PluginClientImport[] = [],
-): ClientRuntimeArtifactMetadata => artifactMetadata(name, files, { kind: "kernel" }, imports);
+): ClientRuntimeArtifactMetadata => artifactMetadata(files, { kind: "kernel" }, imports, name);
 
+/** Plugin artifacts are identified by their package; kernel and page artifacts by their name. */
 const artifactMetadata = (
-	pluginName: string,
 	files: readonly PluginClientArtifactFile[],
 	owner:
 		| { readonly kind: "kernel" }
 		| { readonly kind: "page"; readonly pageDeclarationHash: string }
 		| Pick<PluginClientArtifactMetadata, "packageId" | "clientDeclarationHash">,
 	imports: readonly PluginClientImport[],
+	artifactName?: string,
 ): ClientRuntimeArtifactMetadata => {
 	const versions = {
 		format: CLIENT_ARTIFACT_FORMAT,
@@ -176,7 +176,9 @@ const artifactMetadata = (
 	return {
 		...versions,
 		imports: sortedImports,
-		hash: sha256Hex(stableStringify({ name: pluginName, metadata: identity, files: fileIdentity })),
+		hash: sha256Hex(
+			stableStringify({ name: artifactName, metadata: identity, files: fileIdentity }),
+		),
 	};
 };
 

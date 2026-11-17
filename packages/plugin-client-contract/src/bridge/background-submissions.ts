@@ -1,6 +1,7 @@
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
+import { LocalMessage, Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 export const BACKGROUND_SUBMISSION_LIMITS = {
@@ -9,28 +10,7 @@ export const BACKGROUND_SUBMISSION_LIMITS = {
 	inFlightPerSession: 4,
 } as const;
 
-export const BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH = 120;
 export const BACKGROUND_SUBMISSION_KEY_MAX_LENGTH = 128;
-
-const isControlCodePoint = (codePoint: number) =>
-	codePoint <= 0x1f ||
-	(codePoint >= 0x7f && codePoint <= 0x9f) ||
-	(codePoint >= 0x202a && codePoint <= 0x202e) ||
-	(codePoint >= 0x2066 && codePoint <= 0x2069);
-
-export const isBackgroundSubmissionLabelCharacterAllowed = (character: string) =>
-	!isControlCodePoint(character.codePointAt(0) ?? 0);
-
-const BackgroundSubmissionLabel = Schema.NonEmptyString.pipe(
-	Schema.check(
-		Schema.isMaxLength(BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH),
-		Schema.makeFilter(
-			(label: string) =>
-				Array.from(label).every(isBackgroundSubmissionLabelCharacterAllowed) ||
-				"Label contains control characters",
-		),
-	),
-);
 
 const BackgroundSubmissionIdempotencyKey = Schema.NonEmptyString.pipe(
 	Schema.check(Schema.isMaxLength(BACKGROUND_SUBMISSION_KEY_MAX_LENGTH)),
@@ -38,10 +18,10 @@ const BackgroundSubmissionIdempotencyKey = Schema.NonEmptyString.pipe(
 
 export const PluginBackgroundOperationRequest = strictStruct({
 	input: JsonValue,
+	label: LocalMessage,
 	packageId: PluginPackageId,
 	submittedAt: Schema.String,
 	operationSlug: Schema.String,
-	label: BackgroundSubmissionLabel,
 	idempotencyKey: BackgroundSubmissionIdempotencyKey,
 });
 
@@ -129,7 +109,7 @@ export const BackgroundSubmissionOutcome = Schema.Union([
 		]),
 	}),
 	strictStruct({
-		message: Schema.String,
+		message: Message,
 		status: Schema.Literal("failed"),
 		reason: Schema.Literal("operation-rejected"),
 	}),

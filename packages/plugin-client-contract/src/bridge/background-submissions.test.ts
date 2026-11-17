@@ -4,10 +4,11 @@ import { Result, Schema } from "effect";
 
 import {
 	BACKGROUND_SUBMISSION_KEY_MAX_LENGTH,
-	BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH,
 	BACKGROUND_SUBMISSION_LIMITS,
 } from "./background-submissions";
 import { PluginBridgeClientMessage, PluginBridgeHostMessage } from "./messages";
+
+const rejection = { namespace: "fixture", key: "operation.rejected" };
 
 const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
@@ -15,12 +16,12 @@ const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 const request = {
 	requestId: "request-1",
 	idempotencyKey: "key-1",
-	label: "Logged episode 3",
 	packageId: "test/fixture",
 	operationSlug: "log-activity",
 	input: { entityId: "entity-1" },
 	type: "background-operation-request",
 	submittedAt: "2026-10-19T00:00:00.000Z",
+	label: { key: "activity.logged", params: { episode: 3 } },
 };
 
 describe("background submission bridge contract", () => {
@@ -60,30 +61,8 @@ describe("background submission bridge contract", () => {
 		expect(Result.isFailure(decodeClient({ ...request, action: { url: "https://x" } }))).toBe(true);
 	});
 
-	it("rejects empty, oversized, control, and bidi labels", () => {
-		expect(
-			Result.isSuccess(
-				decodeClient({ ...request, label: "l".repeat(BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH) }),
-			),
-		).toBe(true);
-		expect(Result.isSuccess(decodeClient({ ...request, label: "Logged 進撃の巨人 — Ep. 3" }))).toBe(
-			true,
-		);
-		for (const label of [
-			"",
-			"l".repeat(BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH + 1),
-			"Logged\nepisode",
-			"Logged\tepisode",
-			"Logged\u0000episode",
-			"Logged\u007Fepisode",
-			"Logged\u0085episode",
-			"Logged\u009Fepisode",
-			`${String.fromCodePoint(0x202e)}Saved by Ryot`,
-			`Logged${String.fromCodePoint(0x202a)}episode`,
-			`Logged${String.fromCodePoint(0x202c)}episode`,
-			`Logged${String.fromCodePoint(0x2066)}episode`,
-			`Logged${String.fromCodePoint(0x2069)}episode`,
-		]) {
+	it("accepts only a local message as the label", () => {
+		for (const label of ["Logged episode 3", { key: "Not a key" }]) {
 			expect(Result.isFailure(decodeClient({ ...request, label }))).toBe(true);
 		}
 	});
@@ -111,7 +90,7 @@ describe("background submission bridge contract", () => {
 			{ status: "failed", reason: "operation-failed" },
 			{ status: "failed", reason: "malformed-result" },
 			{ status: "failed", reason: "app-updated" },
-			{ status: "failed", reason: "operation-rejected", message: "Not part of this show" },
+			{ status: "failed", message: rejection, reason: "operation-rejected" },
 		]) {
 			expect(Result.isSuccess(decodeHost({ ...settled, outcome }))).toBe(true);
 		}

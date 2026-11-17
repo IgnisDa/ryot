@@ -15,6 +15,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
+import { DisplayText } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 export const KERNEL_SHORTCUTS = {
@@ -101,7 +102,7 @@ export const ClientPageOperationTarget = strictStruct({
 
 export type ClientPageOperationTarget = Schema.Schema.Type<typeof ClientPageOperationTarget>;
 
-export const ClientPageViewIdentity = strictStruct({ icon: Schema.String, name: Schema.String });
+export const ClientPageViewIdentity = strictStruct({ name: DisplayText, icon: Schema.String });
 
 export type ClientPageViewIdentity = Schema.Schema.Type<typeof ClientPageViewIdentity>;
 
@@ -178,7 +179,7 @@ export type KernelShortcut = Schema.Schema.Type<typeof KernelShortcut>;
 export const pageQuerySource = (
 	page: ClientPageContext,
 	query: string,
-): undefined | ExecutionSource => {
+): undefined | Extract<ExecutionSource, { readonly kind: "page" | "page-preview" }> => {
 	const renderer = page.renderer;
 	if (renderer.kind !== "page") {
 		return undefined;

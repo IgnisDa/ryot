@@ -3,6 +3,9 @@ import { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/refere
 import { EntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
+import { NamespaceCatalog } from "@ryot-app/i18n/catalog";
+import { TextDirection } from "@ryot-app/i18n/locale";
+import { Message, MessageNamespace } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import { clientVersionFields } from "../artifact";
@@ -39,8 +42,27 @@ const pluginBridgeIdentityFields = {
 
 const pluginSafeAreaInset = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
+export const PluginBridgeCatalog = strictStruct({
+	...NamespaceCatalog.fields,
+	locale: Schema.String,
+});
+
+export type PluginBridgeCatalog = Schema.Schema.Type<typeof PluginBridgeCatalog>;
+
+/**
+ * The host's catalogs for the locale's fallback chain: the kernel's and every listed plugin's.
+ * `pendingNamespaces` lists the namespaces whose catalogs are still loading.
+ */
+const pluginBridgeLocaleFields = {
+	dir: TextDirection,
+	locale: Schema.String,
+	catalogs: Schema.Array(PluginBridgeCatalog),
+	pendingNamespaces: Schema.Array(MessageNamespace),
+};
+
 export const PluginBridgeInit = strictStruct({
 	...pluginBridgeIdentityFields,
+	...pluginBridgeLocaleFields,
 	mode: PluginThemeMode,
 	documentKey: Schema.String,
 	safeAreaTop: pluginSafeAreaInset,
@@ -486,8 +508,15 @@ export type PluginBridgeScreenState = Schema.Schema.Type<typeof PluginBridgeScre
 
 export const PLUGIN_HEADER_TITLE_MAX = 120;
 
+/**
+ * Display text: a message from a namespace the document receives catalogs for, rendered by the
+ * host, or user-authored text such as an item name.
+ */
 export const PluginHeaderContent = strictStruct({
-	title: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(PLUGIN_HEADER_TITLE_MAX))),
+	title: Schema.Union([
+		Message,
+		Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(PLUGIN_HEADER_TITLE_MAX))),
+	]),
 });
 
 export type PluginHeaderContent = Schema.Schema.Type<typeof PluginHeaderContent>;
@@ -515,6 +544,13 @@ export const PluginBridgeTheme = strictStruct({
 });
 
 export type PluginBridgeTheme = Schema.Schema.Type<typeof PluginBridgeTheme>;
+
+export const PluginBridgeLocale = strictStruct({
+	...pluginBridgeLocaleFields,
+	type: Schema.Literal("locale"),
+});
+
+export type PluginBridgeLocale = Schema.Schema.Type<typeof PluginBridgeLocale>;
 
 export const PluginBridgeLifecycleClose = strictStruct({
 	type: Schema.Literal("lifecycle-close"),

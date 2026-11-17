@@ -1,5 +1,6 @@
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
+import { LocalMessage } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import { PluginNavigationTarget } from "../navigation";
@@ -30,7 +31,7 @@ const variants = [
 	strictStruct({
 		...owner,
 		action: Schema.Literal("return-shortcut"),
-		shortcut: Schema.NullOr(strictStruct({ label, target: PluginNavigationTarget })),
+		shortcut: Schema.NullOr(strictStruct({ label: LocalMessage, target: PluginNavigationTarget })),
 	}),
 ] as const;
 
