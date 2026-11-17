@@ -8,11 +8,13 @@ import {
 
 import type { ConfigDefinition, ConfigEnvironmentKeyResolver, ConfigNode } from "./index";
 
-export type ConfigReferencePlugin = Pick<PluginMetadata, "name" | "packageId"> & {
-	readonly schema: AppSchema | ConfigDefinition;
+/** Plugin schemas arrive with their labels rendered. */
+export type ConfigReferencePlugin = Pick<PluginMetadata, "packageId"> & {
+	readonly name: string;
+	readonly schema: ConfigDefinition | AppSchema<string>;
 };
 
-const isDefinition = (value: AppSchema | ConfigDefinition): value is ConfigDefinition =>
+const isDefinition = (value: ConfigDefinition | AppSchema<string>): value is ConfigDefinition =>
 	"schema" in value && "fields" in value;
 
 const fieldHidden = (definition: undefined | ConfigDefinition, path: ReadonlyArray<string>) => {
@@ -31,7 +33,7 @@ const formatDefaultValue = (value: unknown) =>
 		: JSON.stringify(value);
 
 const renderTable = (
-	schema: AppSchemaFields,
+	schema: AppSchemaFields<string>,
 	definition: undefined | ConfigDefinition,
 	resolveEnvKey: ConfigEnvironmentKeyResolver,
 	lines: string[],

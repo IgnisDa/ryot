@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { mapAppSchemaText } from "@ryot-app/contract/schema/property-schema";
 
 import { defineConfig, definePluginConfig, group, stringField } from "./index";
 import { renderConfigReference } from "./reference";
@@ -31,12 +32,13 @@ describe("config reference", () => {
 		const plugin = definePluginConfig(packageId, {
 			token: stringField({
 				secret: true,
-				label: "Token",
 				defaultValue: "token",
 				description: "Plugin token",
+				label: { key: "test.token" },
 			}),
 		});
-		const markdown = renderConfigReference(core, [{ packageId, schema: plugin, name: "Fixture" }]);
+		const schema = mapAppSchemaText(plugin.schema, () => "Token");
+		const markdown = renderConfigReference(core, [{ schema, packageId, name: "Fixture" }]);
 
 		expect(markdown).toContain("# App Backend Configuration Reference");
 		expect(markdown).toContain("### Server settings");

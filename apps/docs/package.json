@@ -10,8 +10,11 @@
 	},
 	"devDependencies": {
 		"@ryot-app/config": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/fitness-plugin": "workspace:*",
+		"@ryot-app/i18n": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/kernel-messages": "workspace:*",
 		"@ryot-app/media-plugin": "workspace:*",
 		"@ryot-app/plugin-archive": "workspace:*",
 		"bun-types": "1.4.4",

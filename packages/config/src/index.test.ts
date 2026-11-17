@@ -85,9 +85,18 @@ describe("config definitions", () => {
 			Effect.gen(function* () {
 				const definition = definePluginConfig(packageId, {
 					apiToken: stringField({
-						label: "API token",
 						description: "Plugin token",
 						validation: { required: true },
+						label: { key: "test.api-token" },
+					}),
+					region: enumField({
+						defaultValue: "eu",
+						description: "Plugin region",
+						label: { key: "test.region" },
+						choices: {
+							kind: "static",
+							values: [{ value: "eu", label: { key: "test.region-eu" } }, { value: "us" }],
+						},
 					}),
 				});
 				expect(pluginConfigEnvironmentKey(packageId, "apiToken")).toBe(
@@ -95,7 +104,20 @@ describe("config definitions", () => {
 				);
 				expect(
 					yield* load(definition.config, { RYOT_PLUGIN__RYOT__SUBJECT__API_TOKEN: "token" }),
-				).toEqual({ apiToken: "token" });
+				).toEqual({ region: "eu", apiToken: "token" });
+				expect(
+					group(
+						{ description: "Plugin limits", label: { key: "test.limits" } },
+						{ retries: integerField({ description: "Retries", label: { key: "test.retries" } }) },
+					).schema,
+				).toMatchObject({
+					label: { key: "test.limits" },
+					properties: { retries: { label: { key: "test.retries" } } },
+				});
+				expect(definition.schema.fields.region).toMatchObject({
+					label: { key: "test.region" },
+					choices: { values: [{ label: { key: "test.region-eu" } }, { value: "us" }] },
+				});
 			}),
 		testTimeout,
 	);
@@ -141,7 +163,7 @@ describe("config definitions", () => {
 				const otherPackageId = PluginPackageId.make("ryot/fixture");
 				const fields = {
 					apiToken: stringField({
-						label: "Token",
+						label: { key: "test.token" },
 						description: "Provider token",
 						validation: { required: true },
 					}),
