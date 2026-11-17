@@ -25,6 +25,7 @@ import {
 	exerciseRecord,
 	storedEditorDraft,
 } from "../../tests/client/exercise-fixtures";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { ExerciseDetailsView } from "./screen";
 
 afterEach(disposePluginBridges);
@@ -55,6 +56,7 @@ const renderDetails = (details: ReturnType<typeof exerciseDetails>, storedDraft:
 		),
 		{
 			page: pageContext,
+			catalogs: fitnessCatalogs,
 			location: routeLocation("/"),
 			onClientMessage: (message) => {
 				if (message.type === "storage-request" && message.action === "get") {
@@ -610,6 +612,7 @@ const mountCustomExercise = () => {
 		),
 		{
 			page: pageContext,
+			catalogs: fitnessCatalogs,
 			location: routeLocation("/"),
 			onClientMessage: (message) => {
 				if (message.type === "storage-request" && message.action === "get") {

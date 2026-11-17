@@ -1,9 +1,11 @@
 import { describe, expect } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { exerciseRecord } from "../../tests/client/exercise-fixtures";
+import { testFitnessText } from "../../tests/client/test-text";
 import {
 	buildMonthSeries,
 	dedupeWorkoutNotes,
@@ -76,9 +78,9 @@ describe("exercise details model", () => {
 			months: [month("2023-01-01T00:00:00.000Z", 60), month("2026-08-01T00:00:00.000Z", 80)],
 		};
 
-		const year = buildMonthSeries({ ...input, range: "1y" });
-		const threeYears = buildMonthSeries({ ...input, range: "3y" });
-		const all = buildMonthSeries({ ...input, range: "all" });
+		const year = buildMonthSeries(testFormatters, { ...input, range: "1y" });
+		const threeYears = buildMonthSeries(testFormatters, { ...input, range: "3y" });
+		const all = buildMonthSeries(testFormatters, { ...input, range: "all" });
 
 		expect(year.map((point) => point.label).at(0)).toBe("Nov 2025");
 		expect(year).toHaveLength(12);
@@ -87,12 +89,12 @@ describe("exercise details model", () => {
 		expect(all).toHaveLength(46);
 		expect(all.at(0)).toMatchObject({ value: 60, label: "Jan 2023" });
 		expect(all.at(-1)).toMatchObject({ value: null, label: "Oct 2026" });
-		expect(buildMonthSeries({ ...input, months: [], range: "all" })).toEqual([]);
+		expect(buildMonthSeries(testFormatters, { ...input, months: [], range: "all" })).toEqual([]);
 	});
 
 	it("buckets months in the caller's time zone", () => {
 		const metric = heaviestWeight();
-		const [point] = buildMonthSeries({
+		const [point] = buildMonthSeries(testFormatters, {
 			metric,
 			range: "all",
 			now: new Date("2026-06-15T00:00:00.000Z"),
@@ -152,28 +154,28 @@ describe("exercise details model", () => {
 		expect(notes).toEqual([
 			{
 				count: 2,
-				source: "Set note",
+				source: { kind: "set" },
 				text: "Needed spotter.",
 				latestAt: "2025-01-01T00:00:00.000Z",
 			},
 			{
 				count: 1,
-				source: "Chest",
 				text: "Keep legs off the ground.",
 				latestAt: "2023-01-01T00:00:00.000Z",
+				source: { name: "Chest", kind: "workout" },
 			},
 		]);
 	});
 
 	it("groups targets by role only when roles exist", () => {
 		expect(
-			groupTargets([
+			groupTargets(testFitnessText, [
 				{ id: "lats", role: null, name: "Lats" },
 				{ role: null, id: "biceps", name: "Biceps" },
 			]),
-		).toEqual([{ label: null, names: ["Lats", "Biceps"] }]);
+		).toEqual([{ label: null, primary: false, names: ["Lats", "Biceps"] }]);
 		expect(
-			groupTargets([
+			groupTargets(testFitnessText, [
 				{ id: "chest", name: "Chest", role: "primary" },
 				{ id: "triceps", name: "Triceps", role: "secondary" },
 			]).map((group) => group.label),

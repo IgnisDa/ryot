@@ -1,26 +1,33 @@
 import { PluginLink, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { useFormatters, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
 import { fitnessRoute } from "../../shared/workout-editor-routes";
+import { useFitnessMessages } from "../messages";
 import { buildTemplateCards } from "./model";
 import { homeTemplatesQuery } from "./queries";
 import { Chips, HomeSection, primaryLinkClass, QueryBody, SavedViewLink } from "./section";
 
 export function TemplatesSection(props: { readonly now: Date; readonly timeZone: TimeZone }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const result = useRyotQuery(homeTemplatesQuery);
 	return (
 		<HomeSection
 			id="templates-heading"
-			title="Start from a template"
-			hint="Longest since last done first"
-			link={<SavedViewLink slug="all-workout-templates">All templates</SavedViewLink>}
+			hint={text("client.home.templates-hint")}
+			title={text("client.home.templates-title")}
+			link={
+				<SavedViewLink slug="all-workout-templates">
+					{text("client.home.templates-all")}
+				</SavedViewLink>
+			}
 		>
 			<QueryBody result={result} noun="templates">
 				{(data) => (
 					<div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-						{buildTemplateCards({ ...data, ...props }).map((template, index) => (
+						{buildTemplateCards(formatters, text, { ...data, ...props }).map((template, index) => (
 							<article
 								key={template.id}
 								className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-surface p-4"
@@ -39,12 +46,12 @@ export function TemplatesSection(props: { readonly now: Date; readonly timeZone:
 								<span className="text-[12.5px] text-text-muted">{template.meta}</span>
 								<Chips names={template.chips} more={template.moreChips} />
 								<PluginLink
-									aria-label={`Start ${template.name}`}
 									className={clsx(primaryLinkClass, "mt-auto self-start")}
 									to={fitnessRoute(`/templates/${encodeURIComponent(template.id)}/start`)}
+									aria-label={text("client.home.template-start-label", { name: template.name })}
 								>
 									<AppIcon size={14} name="play" />
-									Start
+									{text("client.home.template-start")}
 								</PluginLink>
 							</article>
 						))}
@@ -53,7 +60,7 @@ export function TemplatesSection(props: { readonly now: Date; readonly timeZone:
 							className="flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border-emphasis text-[13px] font-medium text-text-muted"
 						>
 							<AppIcon size={18} name="plus" />
-							<span>New template</span>
+							<span>{text("client.home.setup.template-action")}</span>
 						</PluginLink>
 					</div>
 				)}

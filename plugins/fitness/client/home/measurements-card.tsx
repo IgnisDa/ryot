@@ -1,5 +1,6 @@
 import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
+import { useFormatters, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { Sparkline } from "@ryot-app/plugin-ui-sdk/charts";
 
@@ -8,11 +9,12 @@ import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { MeasurementDialogs, useMeasurementLogger } from "../measurements/measurement-logger";
 import { selectPinnedMetrics } from "../measurements/model";
 import { seriesQuery, summaryQuery } from "../measurements/queries";
+import { useFitnessMessages } from "../messages";
 import { loggedPhrase, measurementValue } from "./model";
 import { HomeCard, QueryBody, SavedViewLink } from "./section";
 
 export function LogMeasurementButton(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly measurement: ReturnType<typeof useMeasurementLogger>;
 }) {
 	const { log, setTrigger, unavailable } = props.measurement;
@@ -37,14 +39,15 @@ export function LogMeasurementButton(props: {
 }
 
 export function MeasurementsCard(props: { readonly now: Date; readonly timeZone: TimeZone }) {
+	const text = useFitnessMessages();
 	const { now, timeZone } = props;
 	const logger = useMeasurementLogger();
 	const summaries = useRyotQuery(summaryQuery, { range: "All" });
 	return (
 		<HomeCard
-			label="Pinned measurements"
-			title="Pinned measurements"
-			link={<SavedViewLink slug="all-measurements">All</SavedViewLink>}
+			label={text("client.home.pinned-measurements")}
+			title={text("client.home.pinned-measurements")}
+			link={<SavedViewLink slug="all-measurements">{text("client.home.pinned-all")}</SavedViewLink>}
 		>
 			<QueryBody result={summaries} noun="measurements">
 				{(data) => {
@@ -52,15 +55,15 @@ export function MeasurementsCard(props: { readonly now: Date; readonly timeZone:
 					return pinned.length === 0 ? (
 						<p className="text-[13px] text-text-muted">
 							{data.length === 0
-								? "Add a metric to start tracking weight, body fat, or anything else."
-								: "Star up to 3 metrics on All Measurements to pin them here."}
+								? text("client.home.pinned-empty")
+								: text("client.home.pinned-none-pinned")}
 						</p>
 					) : (
 						<PinnedTiles now={now} pinned={pinned} summaries={data} timeZone={timeZone} />
 					);
 				}}
 			</QueryBody>
-			<LogMeasurementButton measurement={logger} label="Log measurement" />
+			<LogMeasurementButton measurement={logger} label={text("client.measurements.log")} />
 		</HomeCard>
 	);
 }
@@ -71,6 +74,8 @@ function PinnedTiles(props: {
 	readonly pinned: readonly MeasurementSummary[];
 	readonly summaries: readonly MeasurementSummary[];
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { now, pinned, timeZone } = props;
 	const series = useRyotQuery(seriesQuery, {
 		timeZone,
@@ -94,17 +99,17 @@ function PinnedTiles(props: {
 					<div className="flex min-w-0 flex-col">
 						<span className="truncate text-[13px] text-text-muted">{summary.name}</span>
 						<span className="text-[20px] leading-tight font-semibold text-text tabular-nums">
-							{measurementValue(summary.latestValue, summary.unit)}
+							{measurementValue(formatters, text, summary.latestValue, summary.unit)}
 						</span>
 						<span className="text-[12px] text-text-muted">
-							{loggedPhrase(summary.latestAt, now, timeZone)}
+							{loggedPhrase(formatters, text, summary.latestAt, now, timeZone)}
 						</span>
 					</div>
 					{rows.has(summary.id) ? (
 						<Sparkline
 							tone="accent"
 							points={rows.get(summary.id) ?? []}
-							ariaLabel={`${summary.name} trend`}
+							ariaLabel={text("client.measurements.trend-label", { name: summary.name })}
 						/>
 					) : null}
 				</div>

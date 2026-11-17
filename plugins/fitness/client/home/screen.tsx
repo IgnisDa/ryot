@@ -1,11 +1,16 @@
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	PluginLink,
-	type TimeZone,
+	type ReportingCalendar,
 	usePageRefresh,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { PreferencesGate, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	PreferencesGate,
+	useFormatters,
+	useRyot,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -14,6 +19,7 @@ import { useMemo, useState } from "react";
 
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { useActiveEditorDraft } from "../exercise/active-draft";
+import { useFitnessMessageBuilder, useFitnessMessages } from "../messages";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
 import { WorkoutProcessing } from "../workout-processing";
 import { buildWorkoutCards } from "../workouts/model";
@@ -28,11 +34,16 @@ import { TemplatesSection } from "./templates";
 
 export default function FitnessHomePage() {
 	return (
-		<PreferencesGate>{({ timeZone }) => <FitnessHomeBody timeZone={timeZone} />}</PreferencesGate>
+		<PreferencesGate>
+			{({ timeZone, weekStart }) => <FitnessHomeBody timeZone={timeZone} weekStart={weekStart} />}
+		</PreferencesGate>
 	);
 }
 
-function FitnessHomeBody({ timeZone }: { readonly timeZone: TimeZone }) {
+function FitnessHomeBody({ timeZone, weekStart }: ReportingCalendar) {
+	const text = useFitnessMessages();
+	const message = useFitnessMessageBuilder();
+	const formatters = useFormatters();
 	const client = useRyot();
 	const { compact } = useRyotViewport();
 	const draft = useActiveEditorDraft();
@@ -49,40 +60,48 @@ function FitnessHomeBody({ timeZone }: { readonly timeZone: TimeZone }) {
 		() =>
 			latest.data === undefined
 				? undefined
-				: buildWorkoutCards({ ...latest.data, now, imperial, timeZone }),
-		[latest.data, now, imperial, timeZone],
+				: buildWorkoutCards(formatters, { ...latest.data, now, imperial, timeZone, weekStart }),
+		[formatters, latest.data, now, imperial, timeZone, weekStart],
 	);
-	const phrase = lastWorkoutPhrase(latest.data?.items[0]?.startedAt ?? null, now, timeZone);
+	const phrase = lastWorkoutPhrase(
+		formatters,
+		text,
+		latest.data?.items[0]?.startedAt ?? null,
+		now,
+		timeZone,
+	);
 	const controls = (
 		<div className={clsx("flex flex-wrap items-center gap-2.5", compact && "pb-4")}>
 			{draft === undefined ? (
 				<Button onClick={() => client.navigation.push(fitnessRoute("/workouts/new"))}>
 					<AppIcon size={15} name="plus" />
-					Start empty workout
+					{text("client.home.start-empty")}
 				</Button>
 			) : (
 				<Button onClick={() => client.navigation.push(fitnessRoute("/workout-editor"))}>
 					<AppIcon size={15} name="play" />
-					{draftBanner(draft, now, timeZone).resumeLabel}
+					{draftBanner(formatters, text, draft, now, timeZone).resumeLabel}
 				</Button>
 			)}
 			<PluginLink
 				className={secondaryLinkClass}
 				to={{ kind: "saved-view", reference: { kind: "kernel", slug: "analytics" } }}
 			>
-				Analytics
+				{text("client.home.analytics")}
 			</PluginLink>
 		</div>
 	);
 	return (
 		<WorkoutProcessing>
 			<PluginScreenFrame
-				title="Home"
+				title={message("client.home.title")}
 				actions={compact ? undefined : controls}
 				titleIcon={<AppIcon size={20} name="home" className="shrink-0 text-text-muted" />}
 				meta={
 					<p className="pb-2 text-[13px] text-text-muted">
-						{[formatHomeDate(now, timeZone), phrase].filter((part) => part !== null).join(" · ")}
+						{[formatHomeDate(formatters, now, timeZone), phrase]
+							.filter((part) => part !== null)
+							.join(" · ")}
 					</p>
 				}
 			>
@@ -91,7 +110,7 @@ function FitnessHomeBody({ timeZone }: { readonly timeZone: TimeZone }) {
 					{draft === undefined ? null : (
 						<ResumeBanner now={now} draft={draft} timeZone={timeZone} />
 					)}
-					<QueryBody result={latest} noun="your workouts">
+					<QueryBody result={latest} noun="your_workouts">
 						{() =>
 							cards?.[0] === undefined ? (
 								<FirstRun goalSet={(context.data?.settings.weeklyWorkoutGoal ?? null) !== null} />
@@ -101,6 +120,7 @@ function FitnessHomeBody({ timeZone }: { readonly timeZone: TimeZone }) {
 										<WeekGoalSection
 											now={now}
 											timeZone={timeZone}
+											weekStart={weekStart}
 											hasLiveDraft={draft?.mode.kind === "live"}
 										/>
 										<LastWorkoutCard card={cards[0]} />

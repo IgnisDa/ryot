@@ -1,6 +1,12 @@
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { createRyotMutation, useRyot, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotMutation,
+	formatError,
+	useRyot,
+	useRyotMutation,
+	useT,
+} from "@ryot-app/plugin-client-sdk/react";
 import { DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { useEffect, useRef, useState } from "react";
 
@@ -11,8 +17,9 @@ import {
 	ExerciseMergeOutputSchema,
 } from "../../shared/exercise-merge-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { type FitnessText, useExerciseLabels, useFitnessMessages } from "../messages";
 import { ExercisePicker } from "../workout-editor/exercise-picker";
-import { labelForKind, type PickerExercise } from "../workout-editor/picker-model";
+import type { PickerExercise } from "../workout-editor/picker-model";
 
 type MergeOutput = typeof ExerciseMergeOutputSchema.Type;
 type MergeFailure = Exclude<MergeOutput, { kind: "merged" }>["kind"];
@@ -35,26 +42,18 @@ const mergeMutation = createRyotMutation<
 	),
 );
 
-const failureMessages: Record<MergeFailure, string> = {
-	same: "An exercise can't be merged into itself.",
-	missing: "One of the exercises no longer exists.",
-	"kind-mismatch": "Exercises can only be merged into an exercise of the same kind.",
-};
-
-const mergeErrorMessage = (error: null | Error) => {
-	if (error === null) {
-		return undefined;
-	}
-	return error instanceof RyotClientError && error.reason === "operation-failed"
-		? "The server declined this merge. Demo accounts can't merge exercises."
-		: "The merge didn't finish. Try again to complete it.";
-};
-
-export const mergeBlockedReason = (draftKind: "workout" | "template") =>
-	`Not available while this exercise is in your current ${draftKind}`;
+export const mergeBlockedReason = (text: FitnessText, draftKind: "workout" | "template") =>
+	text("client.exercise.merge.blocked", { draft: draftKind });
 
 export function MergeFailureMessage(props: { readonly failure: MergeFailure }) {
-	return <StatusMessage tone="error">{failureMessages[props.failure]}</StatusMessage>;
+	const text = useFitnessMessages();
+	return (
+		<StatusMessage tone="error">
+			{text("client.exercise.merge.failure", {
+				failure: props.failure === "kind-mismatch" ? "kind_mismatch" : props.failure,
+			})}
+		</StatusMessage>
+	);
 }
 
 export function ExerciseMergeFlow(props: {
@@ -65,6 +64,9 @@ export function ExerciseMergeFlow(props: {
 	readonly onFailed: (failure: MergeFailure) => void;
 }) {
 	const { kind, name, onClose, onFailed, exerciseId } = props;
+	const t = useT();
+	const text = useFitnessMessages();
+	const labels = useExerciseLabels();
 	const client = useRyot();
 	const applied = useRef(false);
 	const handled = useRef<MergeOutput>(undefined);
@@ -100,10 +102,12 @@ export function ExerciseMergeFlow(props: {
 				replacement={{
 					kind,
 					name,
-					applyLabel: "Merge into",
 					excludeIds: [exerciseId],
-					title: `Merge ${name} into…`,
-					description: `Only ${labelForKind(kind)} exercises can be merged into.`,
+					applyLabel: text("client.exercise.merge.apply"),
+					title: text("client.exercise.merge.title", { name }),
+					description: text("client.exercise.merge.picker-description", {
+						kind: labels.kind(kind),
+					}),
 				}}
 			/>
 		);
@@ -111,14 +115,18 @@ export function ExerciseMergeFlow(props: {
 	return (
 		<DestructiveConfirmation
 			onClose={onClose}
-			actionLabel="Merge"
 			triggerRef={trigger}
-			title="Merge exercise?"
-			pendingLabel="Merging…"
 			pending={merge.isPending}
-			errorMessage={mergeErrorMessage(merge.error)}
+			actionLabel={text("client.exercise.merge.action")}
+			title={text("client.exercise.merge.confirm-title")}
+			pendingLabel={text("client.exercise.merge.pending")}
 			onConfirm={() => merge.mutate({ mergeInto: target.id, mergeFrom: exerciseId })}
-			detail={`Merge ${name} into ${target.name}? Its history, notes and collection memberships move to ${target.name}. ${name} is removed from your library.`}
+			detail={text("client.exercise.merge.confirm-detail", { name, target: target.name })}
+			errorMessage={
+				merge.error === null
+					? undefined
+					: formatError(t, merge.error, text("client.exercise.merge.unfinished"))
+			}
 		/>
 	);
 }

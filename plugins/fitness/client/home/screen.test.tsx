@@ -23,6 +23,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { preferenceSettings } from "../../tests/client/draft-fixtures";
 import { storedEditorDraft } from "../../tests/client/exercise-fixtures";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import FitnessHomePage from "./screen";
 
 afterEach(disposePluginBridges);
@@ -205,9 +206,10 @@ const openHome = (scenario: Scenario, clock?: ReturnType<typeof createTestRyotCl
 	const page = mountPluginPage(FitnessHomePage, {
 		entitlements: [],
 		page: pageContext,
+		catalogs: fitnessCatalogs,
 		bootstrap: clock?.bootstrap,
 		location: routeLocation("/"),
-		userPreferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
+		userPreferences: { weekStart: 1, ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
 	});
 	const answered = new Set<string>();
 	const answerPending = () => {

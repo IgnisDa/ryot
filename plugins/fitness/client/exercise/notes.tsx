@@ -2,6 +2,7 @@ import type { RatingScale } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotBackgroundSubmission,
 	useBackgroundSubmission,
+	useFormatters,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -22,7 +23,9 @@ import {
 	exerciseNoteOperationSlugs,
 	ExerciseNoteUpdateInput,
 } from "../../shared/exercise-note-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { type FitnessText, useFitnessMessages } from "../messages";
 import { formatShortDate } from "../workout/format";
 import type { WorkoutNote } from "./details-model";
 import { cardHeadingClass, sectionHeadingClass } from "./styles";
@@ -32,63 +35,34 @@ type Note = ExerciseDetails["notes"][number];
 const maxNoteLength = 2000;
 
 const createNote = createRyotBackgroundSubmission({
-	label: () => "Saved note",
 	packageId: PLUGIN_PACKAGE_ID,
+	input: ({ input }) => input.note,
 	inputSchema: ExerciseNoteCreateInput,
 	slug: exerciseNoteOperationSlugs.create,
-	input: ({ input }: { readonly input: ExerciseNoteCreateInput }) => input,
+	label: (_input: { readonly note: ExerciseNoteCreateInput }) =>
+		catalogMessage("client.exercise.notes.saved"),
 });
 
 const updateNote = createRyotBackgroundSubmission({
-	label: () => "Updated note",
 	packageId: PLUGIN_PACKAGE_ID,
+	input: ({ input }) => input.note,
 	inputSchema: ExerciseNoteUpdateInput,
 	slug: exerciseNoteOperationSlugs.update,
-	input: ({ input }: { readonly input: ExerciseNoteUpdateInput }) => input,
+	label: (_input: { readonly note: ExerciseNoteUpdateInput }) =>
+		catalogMessage("client.exercise.notes.updated"),
 });
 
 const deleteNote = createRyotBackgroundSubmission({
-	label: () => "Deleted note",
 	packageId: PLUGIN_PACKAGE_ID,
+	input: ({ input }) => input.note,
 	inputSchema: ExerciseNoteDeleteInput,
 	slug: exerciseNoteOperationSlugs.delete,
-	input: ({ input }: { readonly input: ExerciseNoteDeleteInput }) => input,
+	label: (_input: { readonly note: ExerciseNoteDeleteInput }) =>
+		catalogMessage("client.exercise.notes.deleted"),
 });
 
-const failureMessage = (error: null | Error) =>
-	error === null ? undefined : "This change couldn't be started. Try again.";
-
-export function WorkoutNotes(props: { readonly notes: readonly WorkoutNote[] }) {
-	if (props.notes.length === 0) {
-		return null;
-	}
-	return (
-		<div className="flex flex-col gap-3 border-t border-border pt-4">
-			<div className="flex items-baseline justify-between">
-				<h3 className={cardHeadingClass}>From your workouts</h3>
-				<span className="text-[13px] text-text-muted">Read-only</span>
-			</div>
-			<ul className="flex flex-col gap-3">
-				{props.notes.map((note) => (
-					<li key={note.text} className="flex flex-col gap-0.5">
-						<span className="whitespace-pre-wrap break-words text-[15px] text-text">
-							“{note.text}”
-						</span>
-						<span className="text-[13px] text-text-muted">
-							{[
-								note.source,
-								note.latestAt === null ? null : formatShortDate(note.latestAt, null),
-								note.count > 1 ? `${note.count} times` : null,
-							]
-								.filter((part) => part !== null)
-								.join(" · ")}
-						</span>
-					</li>
-				))}
-			</ul>
-		</div>
-	);
-}
+const failureMessage = (text: FitnessText, error: null | Error) =>
+	error === null ? undefined : text("client.exercise.notes.failure");
 
 export function NotesSection(props: {
 	readonly exerciseId: string;
@@ -97,15 +71,16 @@ export function NotesSection(props: {
 	readonly notes: ExerciseDetails["notes"];
 	readonly workoutNotes: readonly WorkoutNote[];
 }) {
+	const text = useFitnessMessages();
 	const [composerKey, setComposerKey] = useState(0);
 	return (
 		<section
-			aria-label="Your notes"
+			aria-label={text("client.exercise.notes.title")}
 			className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-surface p-5 font-ui"
 		>
 			<div className="flex items-baseline justify-between">
-				<h2 className={sectionHeadingClass}>Your notes</h2>
-				<span className="text-[13px] text-text-muted">Private to you</span>
+				<h2 className={sectionHeadingClass}>{text("client.exercise.notes.title")}</h2>
+				<span className="text-[13px] text-text-muted">{text("client.exercise.notes.private")}</span>
 			</div>
 			<NoteComposer
 				key={composerKey}
@@ -126,25 +101,62 @@ export function NotesSection(props: {
 	);
 }
 
+export function WorkoutNotes(props: { readonly notes: readonly WorkoutNote[] }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
+	if (props.notes.length === 0) {
+		return null;
+	}
+	return (
+		<div className="flex flex-col gap-3 border-t border-border pt-4">
+			<div className="flex items-baseline justify-between">
+				<h3 className={cardHeadingClass}>{text("client.exercise.notes.from-workouts")}</h3>
+				<span className="text-[13px] text-text-muted">
+					{text("client.exercise.notes.read-only")}
+				</span>
+			</div>
+			<ul className="flex flex-col gap-3">
+				{props.notes.map((note) => (
+					<li key={note.text} className="flex flex-col gap-0.5">
+						<span className="whitespace-pre-wrap break-words text-[15px] text-text">
+							{text("client.exercise.notes.quote", { note: note.text })}
+						</span>
+						<span className="text-[13px] text-text-muted">
+							{[
+								note.source.kind === "set" ? text("client.sheet.note") : note.source.name,
+								note.latestAt === null ? null : formatShortDate(formatters, note.latestAt, null),
+								note.count > 1 ? text("client.exercise.notes.times", { count: note.count }) : null,
+							]
+								.filter((part) => part !== null)
+								.join(" · ")}
+						</span>
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+}
+
 function DeleteNoteConfirmation(props: {
 	readonly noteId: string;
 	readonly onClose: () => void;
 	readonly onDeleted: () => void;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
+	const text = useFitnessMessages();
 	const { onDeleted } = props;
 	const remove = useBackgroundSubmission(deleteNote);
 	return (
 		<DestructiveConfirmation
-			title="Delete note?"
 			onClose={props.onClose}
-			pendingLabel="Deleting…"
-			actionLabel="Delete note"
 			pending={remove.isSending}
 			triggerRef={props.triggerRef}
-			errorMessage={failureMessage(remove.error)}
-			detail="This private note will be removed permanently."
-			onConfirm={() => remove.submit({ noteId: props.noteId }, { onAccepted: onDeleted })}
+			pendingLabel={text("common.status.deleting")}
+			errorMessage={failureMessage(text, remove.error)}
+			title={text("client.exercise.notes.delete-title")}
+			detail={text("client.exercise.notes.delete-detail")}
+			actionLabel={text("client.exercise.notes.delete-action")}
+			onConfirm={() => remove.submit({ note: { noteId: props.noteId } }, { onAccepted: onDeleted })}
 		/>
 	);
 }
@@ -156,6 +168,7 @@ function NoteEditor(props: {
 	readonly ratingScale: RatingScale;
 }) {
 	const inputId = useId();
+	const messages = useFitnessMessages();
 	const [text, setText] = useState(props.note.text ?? "");
 	const rating = useRatingDraft(props.note.rating, props.ratingScale);
 	const update = useBackgroundSubmission(updateNote);
@@ -164,16 +177,16 @@ function NoteEditor(props: {
 	const save = () => {
 		if (rating.result.valid) {
 			update.submit(
-				{ text: trimmed, noteId: props.note.id, rating: rating.result.rating },
+				{ note: { text: trimmed, noteId: props.note.id, rating: rating.result.rating } },
 				{ onAccepted: onChanged },
 			);
 		}
 	};
-	const message = failureMessage(update.error);
+	const message = failureMessage(messages, update.error);
 	return (
 		<div className="flex flex-col gap-3">
 			<label htmlFor={inputId} className="sr-only">
-				Edit note
+				{messages("client.exercise.notes.edit-label")}
 			</label>
 			<TextArea
 				rows={3}
@@ -193,10 +206,10 @@ function NoteEditor(props: {
 					onClick={save}
 					disabled={trimmed === "" || !rating.result.valid || update.isSending}
 				>
-					{update.isSending ? "Saving…" : "Save"}
+					{update.isSending ? messages("common.status.saving") : messages("common.action.save")}
 				</Button>
 				<Button variant="secondary" onClick={props.onCancel} disabled={update.isSending}>
-					Cancel
+					{messages("common.action.cancel")}
 				</Button>
 			</div>
 			{message === undefined ? null : <StatusMessage tone="error">{message}</StatusMessage>}
@@ -205,6 +218,8 @@ function NoteEditor(props: {
 }
 
 function NoteRow(props: { readonly note: Note; readonly ratingScale: RatingScale }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { note } = props;
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
 	const [editing, setEditing] = useState(false);
@@ -225,7 +240,7 @@ function NoteRow(props: { readonly note: Note; readonly ratingScale: RatingScale
 	return (
 		<li className="flex flex-col gap-2 rounded-lg border border-border p-3">
 			<div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-text-muted">
-				<span>{formatShortDate(note.occurredAt, null)}</span>
+				<span>{formatShortDate(formatters, note.occurredAt, null)}</span>
 				{note.rating === null ? null : (
 					<RatingValue
 						rating={note.rating}
@@ -240,19 +255,23 @@ function NoteRow(props: { readonly note: Note; readonly ratingScale: RatingScale
 					hasText ? "text-text" : "text-text-muted italic",
 				)}
 			>
-				{hasText ? note.text : "Empty note"}
+				{hasText ? note.text : text("client.exercise.notes.empty")}
 			</p>
 			<div className="flex gap-2">
-				<Button variant="ghost" aria-label="Edit note" onClick={() => setEditing(true)}>
-					Edit
+				<Button
+					variant="ghost"
+					onClick={() => setEditing(true)}
+					aria-label={text("client.exercise.notes.edit-label")}
+				>
+					{text("common.action.edit")}
 				</Button>
 				<Button
 					variant="ghost"
 					ref={deleteTrigger}
-					aria-label="Delete note"
 					onClick={() => setConfirming(true)}
+					aria-label={text("client.exercise.notes.delete-action")}
 				>
-					Delete
+					{text("common.action.delete")}
 				</Button>
 			</div>
 			{confirming ? (
@@ -275,6 +294,7 @@ function NoteComposer(props: {
 }) {
 	const { onSaved } = props;
 	const inputId = useId();
+	const messages = useFitnessMessages();
 	const textArea = useRef<HTMLTextAreaElement>(null);
 	const handledFocusRequest = useRef(props.focusRequest);
 	const [text, setText] = useState("");
@@ -292,19 +312,21 @@ function NoteComposer(props: {
 		if (rating.result.valid) {
 			create.submit(
 				{
-					text: trimmed,
-					exerciseId: props.exerciseId,
-					...(rating.result.rating === null ? {} : { rating: rating.result.rating }),
+					note: {
+						text: trimmed,
+						exerciseId: props.exerciseId,
+						...(rating.result.rating === null ? {} : { rating: rating.result.rating }),
+					},
 				},
 				{ onAccepted: onSaved },
 			);
 		}
 	};
-	const message = failureMessage(create.error);
+	const message = failureMessage(messages, create.error);
 	return (
 		<div className="flex flex-col gap-3">
 			<label htmlFor={inputId} className="text-[14px] font-semibold text-text-muted">
-				New note
+				{messages("client.exercise.notes.new-label")}
 			</label>
 			<TextArea
 				rows={3}
@@ -312,8 +334,8 @@ function NoteComposer(props: {
 				value={text}
 				ref={textArea}
 				maxLength={maxNoteLength}
-				placeholder="Cues, setup, how it felt…"
 				onChange={(event) => setText(event.currentTarget.value)}
+				placeholder={messages("client.exercise.notes.placeholder")}
 			/>
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<RatingInput
@@ -326,7 +348,9 @@ function NoteComposer(props: {
 					onClick={save}
 					disabled={trimmed === "" || !rating.result.valid || create.isSending}
 				>
-					{create.isSending ? "Saving…" : "Save note"}
+					{create.isSending
+						? messages("common.status.saving")
+						: messages("client.exercise.notes.save")}
 				</Button>
 			</div>
 			{message === undefined ? null : <StatusMessage tone="error">{message}</StatusMessage>}

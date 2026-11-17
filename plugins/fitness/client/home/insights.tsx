@@ -1,8 +1,9 @@
 import { PluginLink, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { useFormatters, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
+import { useFitnessMessages } from "../messages";
 import { ProcessingNote } from "../workout-processing";
 import {
 	buildMuscleTiles,
@@ -22,31 +23,32 @@ const bandClasses: Readonly<Record<MuscleBand, string>> = {
 };
 
 export function MusclesSection(props: { readonly now: Date; readonly timeZone: TimeZone }) {
+	const text = useFitnessMessages();
 	const { now, timeZone } = props;
 	const result = useRyotQuery(muscleActivityQuery, { timeZone });
 	return (
 		<HomeSection
-			title="Muscles"
 			id="muscles-heading"
-			hint="Days since last trained · sets in the last 7 days"
+			title={text("browse.field.muscles")}
+			hint={text("client.home.muscles-hint")}
 			link={
 				<span
 					aria-hidden="true"
 					className="flex items-center gap-1.5 text-[11.5px] text-text-subtle"
 				>
-					Longer ago
+					{text("client.home.muscles-longer-ago")}
 					{muscleBands.map((band) => (
 						<span key={band} className={clsx("size-3 rounded-xs", bandClasses[band])} />
 					))}
-					Recent
+					{text("client.home.muscles-recent")}
 				</span>
 			}
 		>
-			<QueryBody result={result} noun="muscle activity">
+			<QueryBody result={result} noun="muscle_activity">
 				{(activity) => (
 					<>
 						<div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2">
-							{buildMuscleTiles(activity, now, timeZone).map((tile) => (
+							{buildMuscleTiles(text, activity, now, timeZone).map((tile) => (
 								<div
 									key={tile.id}
 									className={clsx(
@@ -62,10 +64,7 @@ export function MusclesSection(props: { readonly now: Date; readonly timeZone: T
 								</div>
 							))}
 						</div>
-						<p className="text-[12px] text-text-subtle">
-							From logged sets. A set counts 1 toward primary targets and ½ toward secondary;
-							stabilizers excluded.
-						</p>
+						<p className="text-[12px] text-text-subtle">{text("client.home.muscles-note")}</p>
 					</>
 				)}
 			</QueryBody>
@@ -78,28 +77,33 @@ export function PersonalBestsSection(props: {
 	readonly imperial: boolean;
 	readonly timeZone: TimeZone;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { now, imperial, timeZone } = props;
 	const result = useRyotQuery(recentPersonalBestsQuery, { timeZone });
 	return (
 		<HomeSection
 			id="prs-heading"
-			title="Recent personal bests"
+			title={text("client.home.prs-title")}
 			hint={
 				result.data === undefined
 					? undefined
-					: `${result.data.recentCount} sets with awards in the last ${RECENT_DAYS} days`
+					: text("client.home.prs-hint", { days: RECENT_DAYS, count: result.data.recentCount })
 			}
 		>
 			<ProcessingNote />
-			<QueryBody result={result} noun="personal bests">
+			<QueryBody result={result} noun="personal_bests">
 				{(data) =>
 					data.items.length === 0 ? (
-						<p className="text-[13px] text-text-muted">
-							Personal bests appear here as soon as you set one.
-						</p>
+						<p className="text-[13px] text-text-muted">{text("client.home.prs-empty")}</p>
 					) : (
 						<div className="flex flex-col divide-y divide-border rounded-xl border border-border bg-surface">
-							{buildPersonalBests({ now, imperial, timeZone, items: data.items }).map((row) => (
+							{buildPersonalBests(formatters, text, {
+								now,
+								imperial,
+								timeZone,
+								items: data.items,
+							}).map((row) => (
 								<PluginLink
 									key={row.id}
 									to={{ kind: "entity", entityId: row.exerciseId }}

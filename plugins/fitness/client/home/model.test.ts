@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 
 import type { HomeTemplate, MuscleActivity } from "../../shared/home-recipes";
 import type { WorkoutSummary } from "../../shared/workout-list-recipes";
+import { testFitnessText } from "../../tests/client/test-text";
 import type { ActiveEditorDraft } from "../exercise/active-draft";
 import {
 	buildMuscleTiles,
@@ -53,7 +55,12 @@ const draft = (mode: ActiveEditorDraft["mode"]): ActiveEditorDraft => ({
 });
 
 describe("buildWeekProgress", () => {
-	const week = buildWeekProgress({ now, summary, goal: 3, timeZone: TimeZone.make("UTC") });
+	const week = buildWeekProgress(testFormatters, testFitnessText, {
+		now,
+		summary,
+		goal: 3,
+		calendar: { weekStart: 1, timeZone: TimeZone.make("UTC") },
+	});
 
 	it("marks trained days and labels today within the current local week", () => {
 		expect(week.days.map(({ label }) => label)).toEqual([
@@ -87,7 +94,12 @@ describe("buildWeekProgress", () => {
 
 	it("reports no goal-met weeks without a goal", () => {
 		expect(
-			buildWeekProgress({ now, summary, goal: undefined, timeZone: TimeZone.make("UTC") }).goalMet,
+			buildWeekProgress(testFormatters, testFitnessText, {
+				now,
+				summary,
+				goal: undefined,
+				calendar: { weekStart: 1, timeZone: TimeZone.make("UTC") },
+			}).goalMet,
 		).toBe(0);
 	});
 });
@@ -102,18 +114,21 @@ describe("buildMuscleTiles", () => {
 	];
 
 	it("bands days since the last session and labels weekly sets", () => {
-		expect(buildMuscleTiles(activity, now, TimeZone.make("UTC"))).toEqual([
-			{ id: "neck", name: "Neck", band: "cold", days: "Never", sets: "No sets this week" },
-			{ id: "lats", days: "3d", name: "Lats", band: "fresh", sets: "12 sets" },
-			{ days: "0d", id: "chest", name: "Chest", band: "recent", sets: "4.5 sets" },
-			{ days: "7d", id: "calves", band: "stale", name: "Calves", sets: "No sets this week" },
-			{ days: "20d", id: "glutes", band: "cold", name: "Glutes", sets: "No sets this week" },
-		]);
+		expect(buildMuscleTiles(testFitnessText, activity, now, TimeZone.make("UTC"))).toEqual<unknown>(
+			[
+				{ id: "neck", name: "Neck", band: "cold", days: "Never", sets: "No sets this week" },
+				{ id: "lats", days: "3d", name: "Lats", band: "fresh", sets: "12 sets" },
+				{ days: "0d", id: "chest", name: "Chest", band: "recent", sets: "4.5 sets" },
+				{ days: "7d", id: "calves", band: "stale", name: "Calves", sets: "No sets this week" },
+				{ days: "20d", id: "glutes", band: "cold", name: "Glutes", sets: "No sets this week" },
+			],
+		);
 	});
 
 	it("keeps equal-name tiles distinct and describes stabilizer-only recent activity", () => {
 		expect(
 			buildMuscleTiles(
+				testFitnessText,
 				[
 					{ id: "shared", name: "Chest", weeklySets: 1, lastTrainedAt: "2026-10-14T08:00:00.000Z" },
 					{
@@ -126,7 +141,7 @@ describe("buildMuscleTiles", () => {
 				now,
 				TimeZone.make("UTC"),
 			),
-		).toEqual([
+		).toEqual<unknown>([
 			{ days: "7d", id: "shared", name: "Chest", band: "stale", sets: "1 set" },
 			{ days: "0d", id: "private", name: "Chest", band: "recent", sets: "No sets this week" },
 		]);
@@ -135,6 +150,7 @@ describe("buildMuscleTiles", () => {
 	it("uses local calendar dates and treats invalid dates as never trained", () => {
 		expect(
 			buildMuscleTiles(
+				testFitnessText,
 				[
 					{ id: "local", name: "Local", weeklySets: 1, lastTrainedAt: "2026-10-21T00:30:00.000Z" },
 					{ id: "invalid", weeklySets: 0, name: "Invalid", lastTrainedAt: "invalid" },
@@ -142,7 +158,7 @@ describe("buildMuscleTiles", () => {
 				now,
 				TimeZone.make("America/Los_Angeles"),
 			),
-		).toEqual([
+		).toEqual<unknown>([
 			{ days: "1d", id: "local", name: "Local", sets: "1 set", band: "recent" },
 			{ band: "cold", id: "invalid", days: "Never", name: "Invalid", sets: "No sets this week" },
 		]);
@@ -151,7 +167,7 @@ describe("buildMuscleTiles", () => {
 
 describe("buildTemplateCards", () => {
 	it("keeps the recipe order and describes last session, duration and muscles", () => {
-		const cards = buildTemplateCards({
+		const cards = buildTemplateCards(testFormatters, testFitnessText, {
 			now,
 			timeZone: TimeZone.make("UTC"),
 			templates: [
@@ -182,7 +198,7 @@ describe("buildTemplateCards", () => {
 		expect(cards[0]).toMatchObject({ last: "Never done", meta: "2 exercises" });
 		expect(cards[1]).toMatchObject({
 			moreChips: 0,
-			last: "6 days ago",
+			last: "Last done 6 days ago",
 			meta: "2 exercises · last took 1h 21m",
 			chips: ["Quadriceps", "Shoulders", "Glutes"],
 		});
@@ -191,7 +207,15 @@ describe("buildTemplateCards", () => {
 
 describe("draftBanner", () => {
 	it("describes a live session with its progress", () => {
-		expect(draftBanner(draft({ kind: "live" }), now, TimeZone.make("UTC"))).toEqual({
+		expect(
+			draftBanner(
+				testFormatters,
+				testFitnessText,
+				draft({ kind: "live" }),
+				now,
+				TimeZone.make("UTC"),
+			),
+		).toEqual<unknown>({
 			title: "Workout in progress",
 			resumeLabel: "Resume workout",
 			detail: "Started 11:26 AM · 34 min elapsed · 12 of 28 sets confirmed",
@@ -201,23 +225,39 @@ describe("draftBanner", () => {
 	it("names the edited record for historical and template drafts", () => {
 		expect(
 			draftBanner(
+				testFormatters,
+				testFitnessText,
 				draft({ kind: "historical", conflictToken: "c", entityId: EntityId.make("w") }),
 				now,
 				TimeZone.make("UTC"),
 			),
 		).toMatchObject({ title: "Editing workout", resumeLabel: "Resume editing" });
 		expect(
-			draftBanner(draft({ kind: "template-create" }), now, TimeZone.make("UTC")),
+			draftBanner(
+				testFormatters,
+				testFitnessText,
+				draft({ kind: "template-create" }),
+				now,
+				TimeZone.make("UTC"),
+			),
 		).toMatchObject({ detail: "28 sets", title: "Editing template" });
 	});
 });
 
 describe("header copy", () => {
 	it("formats the local date and the age of the last workout", () => {
-		expect(formatHomeDate(now, TimeZone.make("UTC"))).toBe("Wednesday, 21 October");
-		expect(lastWorkoutPhrase("2026-10-19T09:00:00.000Z", now, TimeZone.make("UTC"))).toBe(
-			"last workout 2 days ago",
-		);
-		expect(lastWorkoutPhrase(null, now, TimeZone.make("UTC"))).toBeNull();
+		expect(formatHomeDate(testFormatters, now, TimeZone.make("UTC"))).toBe("Wednesday, October 21");
+		expect(
+			lastWorkoutPhrase(
+				testFormatters,
+				testFitnessText,
+				"2026-10-19T09:00:00.000Z",
+				now,
+				TimeZone.make("UTC"),
+			),
+		).toBe<unknown>("last workout 2 days ago");
+		expect(
+			lastWorkoutPhrase(testFormatters, testFitnessText, null, now, TimeZone.make("UTC")),
+		).toBeNull();
 	});
 });

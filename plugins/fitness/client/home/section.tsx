@@ -1,11 +1,16 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { type RyotQueryResult, usePluginIdentity } from "@ryot-app/plugin-client-sdk/react";
+import {
+	type RyotQueryResult,
+	type Text,
+	usePluginIdentity,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { cardClass, cardHeadingClass } from "../exercise/styles";
+import { useFitnessMessages } from "../messages";
 
 export const linkClass = "text-[13px] font-medium text-accent-text";
 
@@ -22,6 +27,14 @@ export const goalPreferencesTarget = {
 	kind: "plugin-preferences",
 	packageId: PLUGIN_PACKAGE_ID,
 } as const;
+
+export type HomeNoun =
+	| "templates"
+	| "weekly_goal"
+	| "measurements"
+	| "your_workouts"
+	| "personal_bests"
+	| "muscle_activity";
 
 export function SavedViewLink(props: { readonly slug: string; readonly children: ReactNode }) {
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
@@ -55,7 +68,7 @@ export function Chips(props: { readonly more: number; readonly names: readonly s
 
 export function HomeSection(props: {
 	readonly id: string;
-	readonly title: string;
+	readonly title: Text;
 	readonly hint?: ReactNode;
 	readonly link?: ReactNode;
 	readonly children: ReactNode;
@@ -69,8 +82,8 @@ export function HomeSection(props: {
 }
 
 export function HomeCard(props: {
-	readonly title: string;
-	readonly label: string;
+	readonly title: Text;
+	readonly label: Text;
 	readonly hint?: ReactNode;
 	readonly link?: ReactNode;
 	readonly className?: string;
@@ -85,10 +98,11 @@ export function HomeCard(props: {
 }
 
 export function QueryBody<A>(props: {
-	readonly noun: string;
+	readonly noun: HomeNoun;
 	readonly result: RyotQueryResult<A>;
 	readonly children: (data: A) => ReactNode;
 }) {
+	const text = useFitnessMessages();
 	const { result } = props;
 	if (result.data !== undefined) {
 		return props.children(result.data);
@@ -96,18 +110,24 @@ export function QueryBody<A>(props: {
 	if (result.isError) {
 		return (
 			<div className="flex flex-col items-start gap-3">
-				<StatusMessage tone="error">Your {props.noun} couldn&apos;t be loaded.</StatusMessage>
+				<StatusMessage tone="error">
+					{text("client.home.load-failed", { noun: props.noun })}
+				</StatusMessage>
 				<Button variant="secondary" onClick={result.refetch}>
-					Try again
+					{text("common.action.try-again")}
 				</Button>
 			</div>
 		);
 	}
-	return <StatusMessage tone="pending">Loading {props.noun}…</StatusMessage>;
+	return (
+		<StatusMessage tone="pending">
+			{text("client.home.loading", { noun: props.noun })}
+		</StatusMessage>
+	);
 }
 
 function SectionHeader(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly hint?: ReactNode;
 	readonly link?: ReactNode;
 	readonly id?: string | undefined;

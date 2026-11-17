@@ -1,5 +1,5 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { type Text, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { ProgressBar } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { useMeasurementLogger } from "../measurements/measurement-logger";
 import { summaryQuery } from "../measurements/queries";
+import { useFitnessMessages } from "../messages";
 import { LogMeasurementButton } from "./measurements-card";
 import { setupSteps } from "./model";
 import { homeTemplatesQuery } from "./queries";
@@ -19,11 +20,7 @@ import {
 	secondaryLinkClass,
 } from "./section";
 
-const importSources = [
-	{ label: "Hevy export", description: "Workouts from a Hevy CSV export" },
-	{ label: "Strong App export", description: "Workouts from a Strong CSV export" },
-	{ label: "OpenScale export", description: "Measurements from an OpenScale CSV export" },
-] as const;
+const importSources = ["hevy", "strong", "openscale"] as const;
 
 const importPage = { kind: "kernel-page", page: "import-data" } as const;
 
@@ -53,6 +50,7 @@ export function FirstRun(props: { readonly goalSet: boolean }) {
 }
 
 function Welcome() {
+	const text = useFitnessMessages();
 	return (
 		<section
 			aria-labelledby="welcome-heading"
@@ -60,18 +58,15 @@ function Welcome() {
 		>
 			<div className="flex max-w-xl flex-col gap-3">
 				<h2 id="welcome-heading" className="font-display text-[22px] font-semibold text-text">
-					Your training starts here
+					{text("client.home.welcome-title")}
 				</h2>
-				<p className="text-[14px] text-text-muted">
-					Log a workout or bring in your history. Home then shows your week, your templates, which
-					muscles you&apos;ve trained and your newest personal bests.
-				</p>
+				<p className="text-[14px] text-text-muted">{text("client.home.welcome-body")}</p>
 				<div className="flex flex-wrap gap-2">
 					<PluginLink className={primaryLinkClass} to={fitnessRoute("/workouts/new")}>
-						Start your first workout
+						{text("client.home.welcome-start")}
 					</PluginLink>
 					<PluginLink to={importPage} className={secondaryLinkClass}>
-						Import history
+						{text("client.home.welcome-import")}
 					</PluginLink>
 				</div>
 			</div>
@@ -85,15 +80,16 @@ function Welcome() {
 }
 
 function BringHistory() {
+	const text = useFitnessMessages();
 	return (
 		<HomeCard
-			label="Bring your history"
-			title="Bring your history"
-			hint="Imports add to your history and can't be undone. Importing the same file twice creates duplicates."
+			hint={text("client.home.history-hint")}
+			label={text("client.home.history-title")}
+			title={text("client.home.history-title")}
 		>
 			<div className="flex flex-col divide-y divide-border">
 				{importSources.map((source) => (
-					<div key={source.label} className="flex items-center gap-3 py-2.5">
+					<div key={source} className="flex items-center gap-3 py-2.5">
 						<span
 							aria-hidden="true"
 							className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-text-muted"
@@ -101,38 +97,44 @@ function BringHistory() {
 							<AppIcon size={15} name="upload" />
 						</span>
 						<span className="flex min-w-0 flex-1 flex-col">
-							<span className="text-[14px] font-medium text-text">{source.label}</span>
-							<span className="text-[12.5px] text-text-muted">{source.description}</span>
+							<span className="text-[14px] font-medium text-text">
+								{text("client.home.import-label", { source })}
+							</span>
+							<span className="text-[12.5px] text-text-muted">
+								{text("client.home.import-description", { source })}
+							</span>
 						</span>
 						<PluginLink
 							to={importPage}
 							className={compactLinkClass}
-							aria-label={`Upload CSV for ${source.label}`}
+							aria-label={text("client.home.import-upload-label", {
+								label: text("client.home.import-label", { source }),
+							})}
 						>
-							Upload CSV
+							{text("client.home.import-upload")}
 						</PluginLink>
 					</div>
 				))}
 			</div>
 			<p className="text-[13px] text-text-muted">
-				Or <SavedViewLink slug="all-exercises">browse the exercise library</SavedViewLink> to plan
-				your first session.
+				<SavedViewLink slug="all-exercises">{text("client.home.library-hint")}</SavedViewLink>
 			</p>
 		</HomeCard>
 	);
 }
 
 function SetupChecklist(props: { readonly goalSet: boolean }) {
+	const text = useFitnessMessages();
 	const logger = useMeasurementLogger();
 	const templates = useRyotQuery(homeTemplatesQuery);
 	const metrics = useRyotQuery(summaryQuery, { range: "All" });
-	const steps = setupSteps({
+	const steps = setupSteps(text, {
 		goalSet: props.goalSet,
 		hasMetric: (metrics.data?.length ?? 0) > 0,
 		hasTemplate: (templates.data?.templates.length ?? 0) > 0,
 	});
 	const done = steps.filter((step) => step.done).length;
-	const action = (key: string, label: string) => {
+	const action = (key: string, label: Text) => {
 		if (key === "metric") {
 			return <LogMeasurementButton label={label} measurement={logger} />;
 		}
@@ -147,8 +149,17 @@ function SetupChecklist(props: { readonly goalSet: boolean }) {
 		);
 	};
 	return (
-		<HomeCard label="Get set up" title="Get set up" hint={`${done} of ${steps.length} done`}>
-			<ProgressBar value={done} tone="success" max={steps.length} label="Setup progress" />
+		<HomeCard
+			label={text("client.home.setup-title")}
+			title={text("client.home.setup-title")}
+			hint={text("client.home.setup-progress", { done, total: steps.length })}
+		>
+			<ProgressBar
+				value={done}
+				tone="success"
+				max={steps.length}
+				label={text("client.home.setup-progress-label")}
+			/>
 			<div className="flex flex-col divide-y divide-border">
 				{steps.map((step) => (
 					<div key={step.key} className="flex items-center gap-3 py-2.5">

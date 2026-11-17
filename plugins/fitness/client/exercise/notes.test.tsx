@@ -1,5 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
@@ -15,6 +16,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { NotesSection } from "./notes";
 
 afterEach(disposePluginBridges);
@@ -31,7 +33,7 @@ const openNotes = () => {
 	const pluginId = PluginId.make("fitness");
 	return mountPluginPage(
 		() => (
-			<PluginScreenFrame title="Exercise">
+			<PluginScreenFrame title={testText("Exercise")}>
 				<NotesSection
 					notes={[note]}
 					focusRequest={0}
@@ -42,6 +44,7 @@ const openNotes = () => {
 			</PluginScreenFrame>
 		),
 		{
+			catalogs: fitnessCatalogs,
 			location: routeLocation("/"),
 			page: {
 				view: null,
@@ -83,9 +86,9 @@ describe("exercise notes", () => {
 					}),
 				);
 				expect(request).toMatchObject({
-					label: "Saved note",
 					packageId: PLUGIN_PACKAGE_ID,
 					operationSlug: "exercise-note-create",
+					label: { key: "client.exercise.notes.saved" },
 					input: { rating: 75, exerciseId: "exercise-1", text: "Keep elbows tucked" },
 				});
 				expect(screen.getByRole("button", { name: "Saving…" }).hasAttribute("disabled")).toBe(true);
@@ -129,8 +132,8 @@ describe("exercise notes", () => {
 					}),
 				);
 				expect(first).toMatchObject({
-					label: "Updated note",
 					operationSlug: "exercise-note-update",
+					label: { key: "client.exercise.notes.updated" },
 					input: { rating: null, noteId: "note-1", text: "Brace harder" },
 				});
 				page.send({

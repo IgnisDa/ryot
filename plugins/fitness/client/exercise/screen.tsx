@@ -19,6 +19,7 @@ import { useMemo, useState } from "react";
 import { type ExerciseDetails, exerciseDetailsRecipe } from "../../shared/exercise-details-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { managedAssetBatch } from "../asset-urls";
+import { useFitnessMessages } from "../messages";
 import { WorkoutProcessing } from "../workout-processing";
 import { useActiveEditorDraft } from "./active-draft";
 import { dedupeWorkoutNotes, type ExerciseRecord } from "./details-model";
@@ -141,6 +142,7 @@ function ExerciseDetailsBody(props: {
 	readonly ratingScale: RatingScale;
 	readonly result: RyotQueryResult<ExerciseDetails>;
 }) {
+	const text = useFitnessMessages();
 	const { result, compact, timeZone } = props;
 	const [now] = useState(() => new Date());
 	const details = result.data;
@@ -160,16 +162,16 @@ function ExerciseDetailsBody(props: {
 	if (result.isError) {
 		return (
 			<div className="flex flex-col items-start gap-3 font-ui">
-				<StatusMessage tone="error">This exercise couldn't be loaded.</StatusMessage>
+				<StatusMessage tone="error">{text("client.exercise.load-failed")}</StatusMessage>
 				<Button variant="secondary" onClick={result.refetch}>
-					Try again
+					{text("common.action.try-again")}
 				</Button>
 			</div>
 		);
 	}
 	return (
 		<StatusMessage tone="pending" className="font-ui">
-			{details === undefined ? "Loading exercise…" : "This exercise no longer exists."}
+			{details === undefined ? text("client.exercise.loading") : text("client.exercise.missing")}
 		</StatusMessage>
 	);
 }

@@ -8,6 +8,7 @@ import {
 	decodeWorkoutEditorDraft,
 	type WorkoutEditorMode,
 } from "../../shared/workout-editor-draft";
+import type { FitnessText } from "../messages";
 import { DRAFT_STORAGE_KEY } from "../workout-editor/draft-storage";
 
 export type ActiveEditorDraft = {
@@ -19,14 +20,12 @@ export type ActiveEditorDraft = {
 	readonly exerciseIds: readonly string[];
 };
 
-const addToDraftLabels: Record<WorkoutEditorMode["kind"], string> = {
-	historical: "Add to workout",
-	live: "Add to current workout",
-	"template-edit": "Add to current template",
-	"template-create": "Add to current template",
-};
-
-export const addToDraftLabel = (mode: WorkoutEditorMode) => addToDraftLabels[mode.kind];
+export const addToDraftLabel = (text: FitnessText, mode: WorkoutEditorMode) =>
+	text("client.exercise.add-to-draft", {
+		timing: mode.kind === "historical" ? "historical" : "current",
+		target:
+			mode.kind === "template-edit" || mode.kind === "template-create" ? "template" : "workout",
+	});
 
 const activeDraftOf = (value: unknown): undefined | ActiveEditorDraft => {
 	if (value === null || value === undefined) {
