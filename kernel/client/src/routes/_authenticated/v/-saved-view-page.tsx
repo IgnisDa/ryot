@@ -7,6 +7,10 @@ import {
 	EntityBrowserLayout,
 	EntityBrowserSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type {
 	PickEntityOutcome,
 	PluginBridgePickEntityScreen,
@@ -95,6 +99,7 @@ export function SavedViewPage({
 	readonly search: SavedViewSearch;
 	readonly loaded: Effect.Success<ReturnType<typeof loadSavedView>>;
 }) {
+	const t = useT();
 	const router = useRouter();
 	const navigate = useNavigate();
 	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
@@ -170,10 +175,13 @@ export function SavedViewPage({
 		onEditCollection: collections.onEditCollection,
 		onManageReminders: reminders.onManageReminders,
 		onAddToCollection: collections.onAddToCollection,
-		title: loaded.prepared.context.view?.name ?? "Saved view",
 		onManageCollectionReviews: reviews.onManageCollectionReviews,
 		onChangeCollectionMembers: collections.onChangeCollectionMembers,
 		inert: addOpen || collections.open || reviews.open || reminders.open || share.open,
+		title:
+			loaded.prepared.context.view === null
+				? t(kernelMessage("client.route.saved-view.default-title"))
+				: formatDisplayText(t, loaded.prepared.context.view.name),
 	});
 
 	return (
@@ -197,27 +205,38 @@ export function SavedViewPage({
 }
 
 function SavedViewNotFound() {
-	return <SavedViewNotice title="Saved view not found" message="This saved view does not exist." />;
+	return (
+		<SavedViewNotice
+			title={kernelMessage("client.route.saved-view.not-found-title")}
+			message={kernelMessage("client.route.saved-view.not-found-detail")}
+		/>
+	);
 }
 
 function SavedViewError() {
+	const t = useT();
 	const router = useRouter();
 	return (
 		<SavedViewNotice
-			title="Saved view unavailable"
-			message="The saved view could not be loaded."
-			action={<Button onClick={() => void router.invalidate()}>Retry</Button>}
+			title={kernelMessage("renderer.entity-browser.unavailable")}
+			message={kernelMessage("client.route.saved-view.load-failed")}
+			action={
+				<Button onClick={() => void router.invalidate()}>
+					{t(kernelMessage("common.action.retry"))}
+				</Button>
+			}
 		/>
 	);
 }
 
 function SavedViewNotice(props: {
-	readonly title: string;
-	readonly message: string;
+	readonly title: Message;
+	readonly message: Message;
 	readonly action?: React.ReactNode;
 }) {
+	const t = useT();
 	useClearClientPageDocument();
-	usePageTitle(props.title);
+	usePageTitle(t(props.title));
 	return (
 		<main
 			{...mainContentProps}
@@ -229,10 +248,10 @@ function SavedViewNotice(props: {
 			>
 				<div>
 					<h1 id="saved-view-notice-title" className="text-xl font-semibold">
-						{props.title}
+						{t(props.title)}
 					</h1>
 					<p role="status" className="mt-1 text-sm text-text-muted">
-						{props.message}
+						{t(props.message)}
 					</p>
 				</div>
 				{props.action}

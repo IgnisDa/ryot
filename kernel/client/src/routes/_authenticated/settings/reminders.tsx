@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AuthService } from "#/modules/auth/service";
@@ -10,10 +12,14 @@ export const Route = createFileRoute("/_authenticated/settings/reminders")({
 });
 
 function RemindersRoute() {
+	const t = useT();
 	const { server, runtime } = Route.useRouteContext();
 	const disabled = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	return (
-		<SettingsFrame title="Reminders" backFallbackHref="/settings">
+		<SettingsFrame
+			backFallbackHref="/settings"
+			title={t(kernelMessage("client.settings.section.reminders"))}
+		>
 			<ReminderManager disabled={disabled} />
 		</SettingsFrame>
 	);

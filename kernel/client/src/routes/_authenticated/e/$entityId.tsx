@@ -1,4 +1,7 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
@@ -24,24 +27,31 @@ export const Route = createFileRoute("/_authenticated/e/$entityId")({
 });
 
 function EntityError() {
-	return <EntityNotice title="Retryable entity load failure" />;
+	return <EntityNotice title={kernelMessage("client.route.entity.load-failed")} />;
 }
 
-function EntityNotice(props: { readonly title: string }) {
+function EntityNotice(props: { readonly title: Message }) {
+	const t = useT();
 	useClearClientPageDocument();
-	return <AppScreen title={props.title}>{null}</AppScreen>;
+	return <AppScreen title={t(props.title)}>{null}</AppScreen>;
 }
 
 function EntityPage() {
+	const t = useT();
 	const { preparation } = Route.useLoaderData();
 	if (preparation.kind === "ready") {
-		return <ClientPage title="Entity details" prepared={preparation.prepared} />;
+		return (
+			<ClientPage
+				prepared={preparation.prepared}
+				title={t(kernelMessage("client.route.entity.details"))}
+			/>
+		);
 	}
 	if (preparation.reason.code === "entity-not-found") {
-		return <EntityNotice title="Entity not found" />;
+		return <EntityNotice title={kernelMessage("client.route.entity.not-found")} />;
 	}
 	if (preparation.reason.code === "entity-detail-page-not-registered") {
-		return <EntityNotice title="Entity page not registered" />;
+		return <EntityNotice title={kernelMessage("client.route.entity.page-not-registered")} />;
 	}
-	return <EntityNotice title="Required plugin unavailable" />;
+	return <EntityNotice title={kernelMessage("client.route.entity.plugin-unavailable")} />;
 }

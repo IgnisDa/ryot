@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	type RyotQueryResult,
 	useRyotInfiniteQuery,
@@ -51,6 +53,7 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/")({
 });
 
 function ImportDataRoute() {
+	const t = useT();
 	const navigate = Route.useNavigate();
 	const { start } = Route.useSearch();
 	const runs = useRyotInfiniteQuery(importRunsQuery, undefined, {
@@ -81,7 +84,10 @@ function ImportDataRoute() {
 	});
 
 	return (
-		<SettingsFrame title="Import data" backFallbackHref="/settings">
+		<SettingsFrame
+			backFallbackHref="/settings"
+			title={t(kernelMessage("client.settings.section.import-data"))}
+		>
 			<ImportDataView
 				state={state}
 				nowMs={nowMs}
@@ -89,7 +95,7 @@ function ImportDataRoute() {
 				onStartImport={wizard.open}
 				isFetching={runs.isFetching}
 				isFetchingNextPage={runs.isFetchingNextPage}
-				sourceNames={importSourceNames(sources.status === "ready" ? sources.sources : [])}
+				sourceNames={importSourceNames(sourceResult.data ?? [], t)}
 				onShowOlder={() => {
 					if (runs.errorOperation === "append") {
 						runs.retry();

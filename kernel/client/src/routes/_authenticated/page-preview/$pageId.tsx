@@ -1,4 +1,6 @@
 import { PagePreviewTarget } from "@ryot-app/contract/modules/pages/schemas";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
@@ -35,21 +37,30 @@ export const Route = createFileRoute("/_authenticated/page-preview/$pageId")({
 });
 
 function PagePreview() {
+	const t = useT();
 	const prepared = Route.useLoaderData();
-	useClientPageDocument({ prepared, title: "Read-only draft preview" });
+	useClientPageDocument({
+		prepared,
+		title: t(kernelMessage("client.assistant.draft.preview-description")),
+	});
 	return null;
 }
 
 function PreviewError() {
+	const t = useT();
 	useClearClientPageDocument();
 	const navigate = useNavigate();
 	return (
-		<AppScreen title="Preview unavailable" backFallbackHref="/settings/pages">
+		<AppScreen
+			backFallbackHref="/settings/pages"
+			title={t(kernelMessage("client.route.page-preview.unavailable"))}
+		>
 			<p className="text-text-muted">
-				This compiled draft is unavailable or has changed. Return to Pages, reload the latest draft
-				and compile it again.
+				{t(kernelMessage("client.route.page-preview.unavailable-detail"))}
 			</p>
-			<Button onClick={() => void navigate({ to: "/settings/pages" })}>Return to Pages</Button>
+			<Button onClick={() => void navigate({ to: "/settings/pages" })}>
+				{t(kernelMessage("client.route.page-preview.return"))}
+			</Button>
 		</AppScreen>
 	);
 }

@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	useRyotInfiniteQuery,
 	useRyotMutation,
@@ -64,7 +67,7 @@ function IntegrationsRoute() {
 	const navigate = Route.useNavigate();
 	const { create } = Route.useSearch();
 	const [syncSucceeded, setSyncSucceeded] = useState(false);
-	const [syncDetail, setSyncDetail] = useState<string | undefined>();
+	const [syncDetail, setSyncDetail] = useState<Message | undefined>();
 	const listed = useRyotInfiniteQuery(integrationsQuery, undefined, {
 		mode: "replace",
 		getPageInput: (_input, limit) => limit,
@@ -72,6 +75,7 @@ function IntegrationsRoute() {
 		getNextPageParam: (page, limit) =>
 			page.pageInfo.hasMore ? limit + INTEGRATIONS_PAGE_SIZE : null,
 	});
+	const t = useT();
 	const providerQuery = useRyotQuery(integrationProvidersQuery);
 	useIngestionCatalogRefresh(providerQuery.refetch);
 	const sync = useRyotMutation(syncIntegrationsMutation);
@@ -99,11 +103,13 @@ function IntegrationsRoute() {
 				Effect.tap(() =>
 					Effect.sync(() => {
 						setSyncSucceeded(true);
-						setSyncDetail("Sync started. Updates will appear as integrations finish.");
+						setSyncDetail(kernelMessage("client.route.settings.integrations.sync-started"));
 					}),
 				),
 				Effect.catchCause(() =>
-					Effect.sync(() => setSyncDetail("Integration sync could not be started. Try again.")),
+					Effect.sync(() =>
+						setSyncDetail(kernelMessage("client.route.settings.integrations.sync-failed")),
+					),
 				),
 			),
 		);
@@ -114,9 +120,9 @@ function IntegrationsRoute() {
 		storedPause === undefined
 			? undefined
 			: {
+					error: updatePreferences.error,
 					paused: requestedPause ?? storedPause,
 					isSaving: updatePreferences.isPending,
-					failed: updatePreferences.status === "error",
 				};
 
 	const changePause = (paused: boolean) => {
@@ -136,9 +142,15 @@ function IntegrationsRoute() {
 	});
 
 	return (
-		<SettingsFrame title="Integrations" backFallbackHref="/settings">
+		<SettingsFrame
+			backFallbackHref="/settings"
+			title={t(kernelMessage("client.settings.section.integrations"))}
+		>
 			{state === undefined ? (
-				<StatusState className="py-16" detail="Loading your integrations..." />
+				<StatusState
+					className="py-16"
+					detail={t(kernelMessage("client.route.settings.integrations.loading"))}
+				/>
 			) : (
 				<IntegrationsView
 					state={state}
@@ -146,7 +158,6 @@ function IntegrationsRoute() {
 					pause={pause}
 					readOnly={isDemo}
 					onConnect={wizard.open}
-					syncDetail={syncDetail}
 					onRetry={listed.refetch}
 					isSyncing={sync.isPending}
 					syncSucceeded={syncSucceeded}
@@ -154,8 +165,10 @@ function IntegrationsRoute() {
 					onSyncAll={() => void syncAll()}
 					isFetchingNextPage={listed.isFetchingNextPage}
 					onPauseChange={(paused) => void changePause(paused)}
+					syncDetail={syncDetail === undefined ? undefined : t(syncDetail)}
 					providerNames={integrationProviderNames(
 						providers.status === "ready" ? providers.sources : [],
+						t,
 					)}
 					onShowMore={() => {
 						if (listed.errorOperation === "append") {

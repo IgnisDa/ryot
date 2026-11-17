@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { createRyotHostQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -31,16 +33,20 @@ const serverVersionQuery = createRyotHostQuery<void, string, KernelHostServices>
 );
 
 function AdministrationRoute() {
+	const t = useT();
 	const { server, runtime } = Route.useRouteContext();
 	const { isNative } = runtime.runSync(RuntimeOAuthClientService);
 	const serverVersion = useRyotQuery(serverVersionQuery);
 
 	return (
-		<SettingsFrame title="Administration" backFallbackHref="/settings">
+		<SettingsFrame
+			backFallbackHref="/settings"
+			title={t(kernelMessage("client.settings.section.administration"))}
+		>
 			<div className="flex flex-col gap-8">
 				<SettingsSection
-					title="Server administration"
-					detail="Manage server-wide data and operations."
+					title={t(kernelMessage("client.instance-admin.shell.overline"))}
+					detail={t(kernelMessage("client.route.settings.administration.server-detail"))}
 				>
 					<Link
 						to="/instance-admin"
@@ -50,9 +56,11 @@ function AdministrationRoute() {
 							<AppIcon size={20} name="crown" />
 						</span>
 						<span className="min-w-0 flex-1">
-							<span className="block font-semibold text-text">Instance Admin</span>
+							<span className="block font-semibold text-text">
+								{t(kernelMessage("client.instance-admin.shell.title"))}
+							</span>
 							<span className="block text-sm text-text-muted">
-								Requires an admin access token. The token stays in memory on this device.
+								{t(kernelMessage("client.route.settings.administration.instance-admin-detail"))}
 							</span>
 						</span>
 						<AppIcon name="chevron-right" className="shrink-0 text-text-subtle" />

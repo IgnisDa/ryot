@@ -1,4 +1,9 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	useRyotInfiniteQuery,
 	useRyotMutation,
@@ -12,7 +17,7 @@ import { Cause, Effect, Option } from "effect";
 import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
-import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
+import { demoProtectionMessage } from "#/modules/demo-protection";
 import { IntegrationDetailView } from "#/modules/integrations/integration-detail-view";
 import { useOAuthConnect } from "#/modules/integrations/oauth-connect";
 import { storedIntegrationFormValues, updateIntegrationBody } from "#/modules/integrations/payload";
@@ -74,14 +79,6 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 		),
 });
 
-function IntegrationPending() {
-	return (
-		<IntegrationFrame title="Integration">
-			<StatusState className="py-16" detail="Loading this integration..." />
-		</IntegrationFrame>
-	);
-}
-
 function IntegrationDetailRoute() {
 	const loaded = Route.useLoaderData();
 	if (loaded.access === "demo") {
@@ -90,33 +87,20 @@ function IntegrationDetailRoute() {
 	return <StandardIntegrationDetail integration={loaded.integration} />;
 }
 
-function DemoIntegrationDetail() {
+function IntegrationPending() {
+	const t = useT();
 	return (
-		<IntegrationFrame title="Integration">
-			<StatusState
-				detail={DEMO_PROTECTION_MESSAGE}
-				title="Integration configuration unavailable"
-				className="rounded-xl border border-border bg-surface p-6"
-			/>
-		</IntegrationFrame>
-	);
-}
-
-function IntegrationNotFound() {
-	return (
-		<IntegrationFrame title="Integration">
+		<IntegrationFrame title={t(kernelMessage("client.route.settings.integration.title"))}>
 			<StatusState
 				className="py-16"
-				title="Integration not found"
-				detail="This integration may have been deleted from another device."
-				icon={<AppIcon size={36} name="search-x" className="text-text-subtle" />}
+				detail={t(kernelMessage("client.route.settings.integration.loading"))}
 			/>
 		</IntegrationFrame>
 	);
 }
 
 function IntegrationFrame(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly meta?: ReactNode;
 	readonly actions?: ReactNode;
 	readonly children: ReactNode;
@@ -133,18 +117,46 @@ function IntegrationFrame(props: {
 	);
 }
 
+function DemoIntegrationDetail() {
+	const t = useT();
+	return (
+		<IntegrationFrame title={t(kernelMessage("client.route.settings.integration.title"))}>
+			<StatusState
+				detail={t(demoProtectionMessage)}
+				className="rounded-xl border border-border bg-surface p-6"
+				title={t(kernelMessage("client.route.settings.integration.demo-unavailable"))}
+			/>
+		</IntegrationFrame>
+	);
+}
+
+function IntegrationNotFound() {
+	const t = useT();
+	return (
+		<IntegrationFrame title={t(kernelMessage("client.route.settings.integration.title"))}>
+			<StatusState
+				className="py-16"
+				icon={<AppIcon size={36} name="search-x" className="text-text-subtle" />}
+				title={t(kernelMessage("client.route.settings.integration.not-found-title"))}
+				detail={t(kernelMessage("client.route.settings.integration.not-found-detail"))}
+			/>
+		</IntegrationFrame>
+	);
+}
+
 function IntegrationLoadError() {
+	const t = useT();
 	const router = useRouter();
 	return (
-		<IntegrationFrame title="Integration">
+		<IntegrationFrame title={t(kernelMessage("client.route.settings.integration.title"))}>
 			<StatusState
 				detailTone="danger"
-				title="Unable to load this integration"
 				className="rounded-xl border border-border bg-surface p-6"
-				detail="This integration could not be loaded. Check the server and try again."
+				title={t(kernelMessage("client.route.settings.integration.load-failed-title"))}
+				detail={t(kernelMessage("client.route.settings.integration.load-failed-detail"))}
 				action={
 					<Button type="button" variant="secondary" onClick={() => void router.load()}>
-						Try again
+						{t(kernelMessage("common.action.try-again"))}
 					</Button>
 				}
 			/>
@@ -162,6 +174,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const [isConfirming, setIsConfirming] = useState(false);
 	const [deleteFailed, setDeleteFailed] = useState(false);
 	const detail = useRyotQuery(integrationDetailQuery, props.integration.id);
+	const t = useT();
 	const providers = useRyotQuery(integrationProvidersQuery);
 	useIngestionCatalogRefresh(providers.refetch);
 	const integration = detail.data ?? props.integration;
@@ -174,9 +187,9 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	});
 	const update = useRyotMutation(updateIntegrationMutation);
 	const remove = useRyotMutation(deleteIntegrationMutation);
-	const providerNames = integrationProviderNames(providers.data ?? []);
-	const title = integrationTitle(integration, providerNames);
-	const [saveDetail, setSaveDetail] = useState<string | undefined>();
+	const providerNames = integrationProviderNames(providers.data ?? [], t);
+	const title = formatDisplayText(t, integrationTitle(integration, providerNames));
+	const [saveDetail, setSaveDetail] = useState<Message | undefined>();
 	const { backInterceptors } = Route.useRouteContext();
 	const provider = useLatestDefined(
 		findOwnedIntegrationProvider(providers.data ?? [], integration),
@@ -283,7 +296,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 		{
 			key: "delete",
 			destructive: true,
-			label: "Delete integration",
+			label: t(kernelMessage("client.route.settings.integration.delete-action")),
 			onSelect: () => {
 				setMenuOpen(false);
 				setDeleteFailed(false);
@@ -297,7 +310,12 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 			title={title}
 			meta={
 				<p className="text-xs text-text-subtle">
-					{`${integrationLotLabel(integration.lot)} · ${integration.isDisabled ? "Paused" : "Active"}`}
+					{t(
+						kernelMessage("client.route.settings.integration.meta", {
+							lot: integrationLotLabel(integration.lot),
+							state: integration.isDisabled ? "paused" : "active",
+						}),
+					)}
 				</p>
 			}
 			actions={
@@ -307,8 +325,8 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 						ref={menuTrigger}
 						aria-haspopup="menu"
 						aria-expanded={menuOpen}
-						aria-label="Integration actions"
 						onClick={() => setMenuOpen((open) => !open)}
+						aria-label={t(kernelMessage("client.route.settings.integration.actions"))}
 						className="flex size-11 shrink-0 items-center justify-center text-text-muted"
 					>
 						<AppIcon size={20} name="more-horizontal" />
@@ -318,9 +336,9 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 							items={menuItems}
 							triggerRef={menuTrigger}
 							activeIndex={activeIndex}
-							label="Integration actions"
 							onClose={() => setMenuOpen(false)}
 							onActiveIndexChange={setActiveIndex}
+							label={t(kernelMessage("client.route.settings.integration.actions"))}
 						/>
 					)}
 				</>
@@ -331,7 +349,6 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 				nowMs={nowMs}
 				provider={provider}
 				uploadFile={uploadFile}
-				saveDetail={saveDetail}
 				integration={integration}
 				saving={update.isPending}
 				connectOAuth={oauth.connect}
@@ -341,6 +358,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 				oauthDisabledReason={oauth.disabledReason}
 				isFetchingNextRuns={runs.isFetchingNextPage}
 				hasMoreRuns={runs.data?.pageInfo.hasMore === true}
+				saveDetail={saveDetail === undefined ? undefined : t(saveDetail)}
 				onShowOlderRuns={() => {
 					if (runs.errorOperation === "append") {
 						runs.retry();
@@ -353,17 +371,19 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 				<DestructiveConfirmation
 					triggerRef={menuTrigger}
 					pending={remove.isPending}
-					pendingLabel="Deleting..."
-					title="Delete this integration?"
-					actionLabel="Delete integration"
 					onConfirm={() => void confirmDelete()}
-					detail={integrationDeleteConfirmation(integration, providerNames)}
+					pendingLabel={t(kernelMessage("common.status.deleting"))}
+					detail={t(integrationDeleteConfirmation(integration, providerNames))}
+					title={t(kernelMessage("client.route.settings.integration.delete-title"))}
+					actionLabel={t(kernelMessage("client.route.settings.integration.delete-action"))}
 					onClose={() => {
 						setDeleteFailed(false);
 						setIsConfirming(false);
 					}}
 					errorMessage={
-						deleteFailed ? "This integration could not be deleted. Try again." : undefined
+						deleteFailed
+							? t(kernelMessage("client.route.settings.integration.delete-failed"))
+							: undefined
 					}
 				/>
 			)}

@@ -1,4 +1,7 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
+	formatError,
 	renderSchemaAsset,
 	useRyotMutation,
 	useRyotQuery,
@@ -41,23 +44,28 @@ export const Route = createFileRoute("/_authenticated/settings/plugin-preference
 );
 
 function PluginUserSettingsRoute() {
+	const t = useT();
 	const { installationId } = Route.useParams();
 	const { server, runtime } = Route.useRouteContext();
 	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const setting = useRyotQuery(pluginUserSettingQuery, { installationId });
-	let content = <StatusMessage tone="pending">Loading plugin preferences...</StatusMessage>;
+	let content = (
+		<StatusMessage tone="pending">
+			{t(kernelMessage("client.route.settings.plugin-preferences.loading"))}
+		</StatusMessage>
+	);
 	if (setting.data !== undefined) {
 		content = <PluginUserSettingsEditor disabled={isDemo} setting={setting.data} />;
 	} else if (setting.isError) {
 		content = (
 			<StatusMessage tone="error">
-				Could not load plugin preferences. Check the server and try again.
+				{t(kernelMessage("client.route.settings.plugin-preferences.load-failed"))}
 			</StatusMessage>
 		);
 	} else if (!setting.isPending) {
 		content = (
 			<p role="status" className="text-sm text-text-muted">
-				Plugin preferences not found.
+				{t(kernelMessage("client.route.settings.plugin-preferences.not-found"))}
 			</p>
 		);
 	}
@@ -65,7 +73,11 @@ function PluginUserSettingsRoute() {
 	return (
 		<SettingsFrame
 			backFallbackHref="/settings/plugin-preferences"
-			title={setting.data?.name ?? "Plugin preferences"}
+			title={
+				setting.data === undefined
+					? t(kernelMessage("client.settings.section.plugin-preferences"))
+					: t(setting.data.name)
+			}
 		>
 			{content}
 		</SettingsFrame>
@@ -76,6 +88,7 @@ function PluginUserSettingsEditor(props: {
 	readonly disabled: boolean;
 	readonly setting: PluginUserSetting;
 }) {
+	const t = useT();
 	const { backInterceptors } = Route.useRouteContext();
 	const uploadFile = useSchemaFileUpload();
 	const uploadAsset = useSchemaAssetUpload();
@@ -133,18 +146,36 @@ function PluginUserSettingsEditor(props: {
 	const pending = save.isPending || reset.isPending;
 	let statusMessage: ReactNode;
 	if (status === "saved") {
-		statusMessage = <StatusMessage tone="success">Plugin settings saved.</StatusMessage>;
+		statusMessage = (
+			<StatusMessage tone="success">
+				{t(kernelMessage("client.route.settings.plugin-preferences.save-succeeded"))}
+			</StatusMessage>
+		);
 	} else if (status === "save-failed") {
 		statusMessage = (
-			<StatusMessage tone="error">Could not save plugin settings. Try again.</StatusMessage>
+			<StatusMessage tone="error">
+				{formatError(
+					t,
+					save.error,
+					kernelMessage("client.route.settings.plugin-preferences.save-failed"),
+				)}
+			</StatusMessage>
 		);
 	} else if (status === "reset") {
 		statusMessage = (
-			<StatusMessage tone="success">Plugin settings reset to defaults.</StatusMessage>
+			<StatusMessage tone="success">
+				{t(kernelMessage("client.route.settings.plugin-preferences.reset-succeeded"))}
+			</StatusMessage>
 		);
 	} else if (status === "reset-failed") {
 		statusMessage = (
-			<StatusMessage tone="error">Could not reset plugin settings. Try again.</StatusMessage>
+			<StatusMessage tone="error">
+				{formatError(
+					t,
+					reset.error,
+					kernelMessage("client.route.settings.plugin-preferences.reset-failed"),
+				)}
+			</StatusMessage>
 		);
 	}
 
@@ -184,7 +215,9 @@ function PluginUserSettingsEditor(props: {
 										disabled={props.disabled || pending}
 										onClick={() => void resetSettings()}
 									>
-										{reset.isPending ? "Resetting..." : "Reset to defaults"}
+										{reset.isPending
+											? t(kernelMessage("client.route.settings.plugin-preferences.resetting"))
+											: t(kernelMessage("client.route.settings.plugin-preferences.reset-action"))}
 									</Button>
 									<Button
 										type="submit"
@@ -193,7 +226,9 @@ function PluginUserSettingsEditor(props: {
 										ref={confirmationTrigger}
 										disabled={props.disabled || pending || !isDirty}
 									>
-										{save.isPending ? "Saving..." : "Save changes"}
+										{save.isPending
+											? t(kernelMessage("common.status.saving"))
+											: t(kernelMessage("common.action.save-changes"))}
 									</Button>
 								</div>
 							)}
@@ -207,11 +242,11 @@ function PluginUserSettingsEditor(props: {
 					onClose={blocker.reset}
 					errorMessage={undefined}
 					onConfirm={blocker.proceed}
-					pendingLabel="Discarding..."
-					actionLabel="Discard changes"
-					title="Discard unsaved changes?"
 					triggerRef={confirmationTrigger}
-					detail="Your changes will be lost if you leave this page."
+					title={t(kernelMessage("client.route.settings.plugin-preferences.discard-title"))}
+					detail={t(kernelMessage("client.route.settings.plugin-preferences.discard-detail"))}
+					pendingLabel={t(kernelMessage("client.route.settings.plugin-preferences.discarding"))}
+					actionLabel={t(kernelMessage("client.route.settings.plugin-preferences.discard-action"))}
 				/>
 			)}
 		</>

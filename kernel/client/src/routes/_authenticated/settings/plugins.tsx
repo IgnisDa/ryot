@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -23,12 +26,12 @@ export const Route = createFileRoute("/_authenticated/settings/plugins")({
 	component: PluginManagement,
 });
 
-const completedStatus: Record<PluginManagementAction["kind"], string> = {
-	package: "Package updated.",
-	state: "Installation updated.",
-	uninstall: "Plugin uninstalled.",
-	configure: "Configuration saved.",
-	install: "Plugin installed. It finishes setting up in the background.",
+const completedStatus: Record<PluginManagementAction["kind"], Message> = {
+	state: kernelMessage("client.route.settings.plugins.completed-state"),
+	package: kernelMessage("client.route.settings.plugins.completed-package"),
+	install: kernelMessage("client.route.settings.plugins.completed-install"),
+	uninstall: kernelMessage("client.route.settings.plugins.completed-uninstall"),
+	configure: kernelMessage("client.route.settings.plugins.completed-configure"),
 };
 
 const feedbackTarget = (action: PluginManagementAction) =>
@@ -37,6 +40,7 @@ const feedbackTarget = (action: PluginManagementAction) =>
 		: action.installation.installationId;
 
 function PluginManagement() {
+	const t = useT();
 	const { backInterceptors } = Route.useRouteContext();
 	const query = useRyotQuery(pluginManagementQuery, undefined);
 	const mutation = useRyotMutation(pluginManagementMutation);
@@ -62,14 +66,18 @@ function PluginManagement() {
 				Effect.tap(() =>
 					Effect.sync(() => {
 						setArchive(undefined);
-						setFeedback({ installationId, tone: "success", message: completedStatus[action.kind] });
+						setFeedback({
+							installationId,
+							tone: "success",
+							message: t(completedStatus[action.kind]),
+						});
 						query.refetch();
 					}),
 				),
 				Effect.catch((error) =>
 					Effect.sync(() => {
 						if (!isArchiveOpen) {
-							setFeedback({ tone: "error", installationId, message: error.detail });
+							setFeedback({ tone: "error", installationId, message: t(error.detail) });
 						}
 					}),
 				),
@@ -87,14 +95,14 @@ function PluginManagement() {
 		if (query.status === "pending") {
 			return (
 				<p role="status" className="text-sm text-text-muted">
-					Loading installations…
+					{t(kernelMessage("client.route.settings.plugins.loading"))}
 				</p>
 			);
 		}
 		if (query.status === "error") {
 			return (
 				<p role="alert" className="text-sm text-danger">
-					{errorDetail(query.error)}
+					{errorDetail(t, query.error)}
 				</p>
 			);
 		}
@@ -110,8 +118,8 @@ function PluginManagement() {
 	})();
 	return (
 		<SettingsFrame
-			title="Plugins"
 			backFallbackHref="/settings"
+			title={t(kernelMessage("client.settings.section.plugins"))}
 			actions={
 				<Button
 					variant="secondary"
@@ -122,7 +130,7 @@ function PluginManagement() {
 					}}
 				>
 					<AppIcon size={14} name="rotate-ccw" className="text-text" />
-					Refresh
+					{t(kernelMessage("common.action.refresh"))}
 				</Button>
 			}
 		>
@@ -132,7 +140,7 @@ function PluginManagement() {
 					pending={mutation.isPending}
 					installation={archive.installation}
 					onClose={() => setArchive(undefined)}
-					failureDetail={errorDetail(mutation.error)}
+					failureDetail={errorDetail(t, mutation.error)}
 					onSubmit={(submission) =>
 						run(
 							archive.installation === undefined

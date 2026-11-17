@@ -1,3 +1,6 @@
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { DestructiveConfirmation, Menu, type MenuItem } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -61,38 +64,30 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 		),
 });
 
-function ImportRunPending() {
-	return (
-		<ImportRunFrame title="Import">
-			<StatusState className="py-16" detail="Loading this import..." />
-		</ImportRunFrame>
-	);
-}
-
 function ImportRunLoaderError() {
+	const t = useT();
 	const router = useRouter();
 	return (
-		<ImportRunFrame title="Import">
+		<ImportRunFrame title={t(kernelMessage("client.route.settings.import-run.title"))}>
 			<ImportRunLoadErrorBody onRetry={() => void router.load()} />
 		</ImportRunFrame>
 	);
 }
 
-function ImportRunNotFound() {
+function ImportRunPending() {
+	const t = useT();
 	return (
-		<ImportRunFrame title="Import">
+		<ImportRunFrame title={t(kernelMessage("client.route.settings.import-run.title"))}>
 			<StatusState
 				className="py-16"
-				title="Import not found"
-				detail="This import is no longer on your server."
-				icon={<AppIcon size={36} name="search-x" className="text-text-subtle" />}
+				detail={t(kernelMessage("client.route.settings.import-run.loading"))}
 			/>
 		</ImportRunFrame>
 	);
 }
 
 function ImportRunFrame(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly meta?: ReactNode;
 	readonly actions?: ReactNode;
 	readonly children: ReactNode;
@@ -109,20 +104,35 @@ function ImportRunFrame(props: {
 	);
 }
 
+function ImportRunNotFound() {
+	const t = useT();
+	return (
+		<ImportRunFrame title={t(kernelMessage("client.route.settings.import-run.title"))}>
+			<StatusState
+				className="py-16"
+				icon={<AppIcon size={36} name="search-x" className="text-text-subtle" />}
+				title={t(kernelMessage("client.route.settings.import-run.not-found-title"))}
+				detail={t(kernelMessage("client.route.settings.import-run.not-found-detail"))}
+			/>
+		</ImportRunFrame>
+	);
+}
+
 function ImportRunLoadErrorBody(props: { readonly onRetry: () => void }) {
+	const t = useT();
 	return (
 		<StatusState
 			detailTone="danger"
-			title="Unable to load this import"
 			className="rounded-xl border border-border bg-surface p-6"
-			detail="This import could not be loaded. Check the server and try again."
+			title={t(kernelMessage("client.imports.run-load-error.title"))}
+			detail={t(kernelMessage("client.imports.run-load-error.detail"))}
 			action={
 				<button
 					type="button"
 					onClick={props.onRetry}
 					className="min-h-11 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-text"
 				>
-					Try again
+					{t(kernelMessage("common.action.try-again"))}
 				</button>
 			}
 		/>
@@ -130,6 +140,7 @@ function ImportRunLoadErrorBody(props: { readonly onRetry: () => void }) {
 }
 
 function ImportRunRoute() {
+	const formatters = useFormatters();
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const { runId } = Route.useLoaderData();
@@ -143,6 +154,7 @@ function ImportRunRoute() {
 		readonly status: "failed" | "downloading";
 	}>();
 	const issueDownloadController = useRef<undefined | AbortController>(undefined);
+	const t = useT();
 	const detail = useRyotQuery(importRunQuery, { runId });
 	const sources = useRyotQuery(importSourcesQuery);
 	const deletion = useRyotMutation(deleteImportRunMutation);
@@ -161,10 +173,14 @@ function ImportRunRoute() {
 		detail.data ?? (retainedDetail?.runId === runId ? retainedDetail.detail : undefined);
 	const state = displayedDetail === undefined ? undefined : detailState(displayedDetail);
 	const nowMs = useNowMs(RUN_POLL_MS);
-	const sourceNames = importSourceNames(sources.data ?? []);
+	const cancelPhrase = t(kernelMessage("client.route.settings.import-run.cancel-phrase"));
+	const sourceNames = importSourceNames(sources.data ?? [], t);
 	const run = state?.status === "ready" ? state.run : undefined;
-	const title = run === undefined ? "Import" : importSourceName(run, sourceNames);
-	const duration = run === undefined ? undefined : runDurationLabel(run, nowMs);
+	const title =
+		run === undefined
+			? t(kernelMessage("client.route.settings.import-run.title"))
+			: importSourceName(t, run, sourceNames);
+	const duration = run === undefined ? undefined : runDurationLabel(formatters, run, nowMs);
 
 	useRunPolling({
 		intervalMs: RUN_POLL_MS,
@@ -247,7 +263,7 @@ function ImportRunRoute() {
 					{
 						key: "cancel",
 						destructive: true,
-						label: "Cancel import",
+						label: t(kernelMessage("client.route.settings.import-run.cancel-action")),
 						onSelect: () => {
 							setMenuOpen(false);
 							cancellation.reset();
@@ -259,7 +275,7 @@ function ImportRunRoute() {
 					{
 						key: "delete",
 						destructive: true,
-						label: "Delete record",
+						label: t(kernelMessage("client.route.settings.delete-record")),
 						onSelect: () => {
 							setMenuOpen(false);
 							deletion.reset();
@@ -281,7 +297,12 @@ function ImportRunRoute() {
 			/>
 		);
 	} else if (detail.isPending) {
-		body = <StatusState className="py-16" detail="Loading this import..." />;
+		body = (
+			<StatusState
+				className="py-16"
+				detail={t(kernelMessage("client.route.settings.import-run.loading"))}
+			/>
+		);
 	} else {
 		body = <ImportRunLoadErrorBody onRetry={detail.refetch} />;
 	}
@@ -293,7 +314,11 @@ function ImportRunRoute() {
 				run === undefined ? undefined : (
 					<div className="flex flex-col gap-2">
 						<p className="text-xs text-text-subtle">
-							{`Import · ${runTimestampLabel(run.createdAt)}`}
+							{t(
+								kernelMessage("client.route.settings.import-run.meta", {
+									timestamp: runTimestampLabel(formatters, run.createdAt),
+								}),
+							)}
 						</p>
 						<div className="flex items-center gap-2">
 							<RunStatusPill status={run.status} />
@@ -312,8 +337,8 @@ function ImportRunRoute() {
 							ref={menuTrigger}
 							aria-haspopup="menu"
 							aria-expanded={menuOpen}
-							aria-label="Import actions"
 							onClick={() => setMenuOpen((open) => !open)}
+							aria-label={t(kernelMessage("client.route.settings.import-run.actions"))}
 							className="flex size-11 shrink-0 items-center justify-center text-text-muted"
 						>
 							<AppIcon size={20} name="more-horizontal" />
@@ -321,11 +346,11 @@ function ImportRunRoute() {
 						{menuOpen && (
 							<Menu
 								items={menuItems}
-								label="Import actions"
 								triggerRef={menuTrigger}
 								activeIndex={activeIndex}
 								onClose={() => setMenuOpen(false)}
 								onActiveIndexChange={setActiveIndex}
+								label={t(kernelMessage("client.route.settings.import-run.actions"))}
 							/>
 						)}
 					</>
@@ -336,38 +361,40 @@ function ImportRunRoute() {
 			{confirmation === "delete" && run !== undefined && (
 				<DestructiveConfirmation
 					triggerRef={menuTrigger}
-					pendingLabel="Deleting..."
-					actionLabel="Delete record"
 					pending={deletion.isPending}
-					title="Delete this import record?"
 					onConfirm={() => void confirmDelete()}
-					detail={importRunDeleteConfirmation()}
+					detail={t(importRunDeleteConfirmation())}
+					pendingLabel={t(kernelMessage("common.status.deleting"))}
+					actionLabel={t(kernelMessage("client.route.settings.delete-record"))}
+					title={t(kernelMessage("client.route.settings.import-run.delete-title"))}
 					onClose={() => {
 						deletion.reset();
 						setConfirmation(null);
 					}}
 					errorMessage={
-						deletion.status === "error" ? "This record could not be deleted. Try again." : undefined
+						deletion.status === "error"
+							? t(kernelMessage("client.route.settings.record-delete-failed"))
+							: undefined
 					}
 				/>
 			)}
 			{confirmation === "cancel" && run !== undefined && (
 				<DestructiveConfirmation
 					triggerRef={menuTrigger}
-					actionLabel="Cancel import"
-					title="Cancel this import?"
-					pendingLabel="Cancelling..."
 					pending={cancellation.isPending}
-					detail={importRunCancelConfirmation}
-					confirmationPhrase="Cancel this import"
+					confirmationPhrase={cancelPhrase}
 					onConfirm={() => void confirmCancellation()}
+					detail={t(importRunCancelConfirmation(cancelPhrase))}
+					title={t(kernelMessage("client.route.settings.import-run.cancel-title"))}
+					pendingLabel={t(kernelMessage("client.route.settings.import-run.cancelling"))}
+					actionLabel={t(kernelMessage("client.route.settings.import-run.cancel-action"))}
 					onClose={() => {
 						cancellation.reset();
 						setConfirmation(null);
 					}}
 					errorMessage={
 						cancellation.status === "error"
-							? "This import could not be cancelled. Try again."
+							? t(kernelMessage("client.route.settings.import-run.cancel-failed"))
 							: undefined
 					}
 				/>

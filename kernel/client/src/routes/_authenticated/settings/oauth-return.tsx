@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect, Match, Option } from "effect";
@@ -17,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/settings/oauth-return")({
 type OAuthReturnState = "empty" | "failed" | "connected" | "completing";
 
 function OAuthReturnRoute() {
+	const t = useT();
 	const { runtime } = Route.useRouteContext();
 	const complete = useRyotMutation(completeOAuthConnectionMutation);
 	const [fragment] = useState(() =>
@@ -51,31 +54,37 @@ function OAuthReturnRoute() {
 	}, [runtime]);
 
 	return (
-		<SettingsFrame title="Connect an account" backFallbackHref="/settings/integrations">
+		<SettingsFrame
+			backFallbackHref="/settings/integrations"
+			title={t(kernelMessage("client.route.settings.oauth-return.title"))}
+		>
 			{Match.value(state).pipe(
 				Match.when("completing", () => (
-					<StatusState className="py-16" detail="Finishing the connection…" />
+					<StatusState
+						className="py-16"
+						detail={t(kernelMessage("client.route.settings.oauth-return.completing"))}
+					/>
 				)),
 				Match.when("connected", () => (
 					<StatusState
 						className="py-16"
-						title="Connected"
-						detail="Connected — you can close this window."
+						title={t(kernelMessage("client.route.settings.oauth-return.connected-title"))}
+						detail={t(kernelMessage("client.route.settings.oauth-return.connected-detail"))}
 					/>
 				)),
 				Match.when("failed", () => (
 					<StatusState
 						className="py-16"
 						detailTone="danger"
-						title="Couldn't connect"
-						detail="The account could not be connected. Close this window and try again."
+						title={t(kernelMessage("client.route.settings.oauth-return.failed-title"))}
+						detail={t(kernelMessage("client.route.settings.oauth-return.failed-detail"))}
 					/>
 				)),
 				Match.when("empty", () => (
 					<StatusState
 						className="py-16"
-						title="Nothing to connect"
-						detail="There is no account connection waiting to finish."
+						title={t(kernelMessage("client.route.settings.oauth-return.empty-title"))}
+						detail={t(kernelMessage("client.route.settings.oauth-return.empty-detail"))}
 					/>
 				)),
 				Match.exhaustive,

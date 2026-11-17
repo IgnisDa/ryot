@@ -1,15 +1,20 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { isEntitled } from "@ryot-app/contract/schema/entitlement";
+import { useT } from "@ryot-app/i18n/react";
+import type { KernelLocale } from "@ryot-app/kernel-messages/catalog";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect, Stream } from "effect";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
+import { PluginsApi } from "#/api/plugins";
 import { KernelRyotProvider } from "#/api/ryot-client-provider";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
 import { BackgroundSubmissionsProvider } from "#/modules/background-submissions/tray";
 import { EntitlementsProvider } from "#/modules/entitlements/context";
 import { loadEntitlements } from "#/modules/entitlements/service";
 import { EntityWatchService } from "#/modules/entity-watches/service";
+import { AuthenticatedMessages } from "#/modules/i18n/authenticated-messages";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { NavigationService } from "#/modules/navigation/service";
 import { mainContentProps } from "#/modules/navigation/skip-link";
@@ -64,7 +69,8 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function RestoringSession() {
-	usePageTitle("Restoring session");
+	const t = useT();
+	usePageTitle(t(kernelMessage("client.route.authenticated.restoring-title")));
 	return (
 		<main {...mainContentProps} className="ui-page">
 			<section
@@ -73,10 +79,10 @@ function RestoringSession() {
 			>
 				<div>
 					<h1 id="session-title" className="ui-heading">
-						Restoring your session
+						{t(kernelMessage("client.route.authenticated.restoring-heading"))}
 					</h1>
 					<p role="status" className="ui-subtitle">
-						Checking your signed-in state...
+						{t(kernelMessage("client.route.authenticated.restoring-detail"))}
 					</p>
 				</div>
 			</section>
@@ -85,7 +91,8 @@ function RestoringSession() {
 }
 
 function AuthenticatedLoadError() {
-	usePageTitle("Workspaces unavailable");
+	const t = useT();
+	usePageTitle(t(kernelMessage("client.route.authenticated.load-failed-title")));
 	return (
 		<main {...mainContentProps} className="ui-page">
 			<section
@@ -94,10 +101,10 @@ function AuthenticatedLoadError() {
 			>
 				<div>
 					<h1 className="ui-heading" id="authenticated-load-title">
-						Workspaces unavailable
+						{t(kernelMessage("client.route.authenticated.load-failed-title"))}
 					</h1>
 					<p role="alert" className="ui-subtitle">
-						Your workspaces could not be loaded.
+						{t(kernelMessage("client.route.authenticated.load-failed-detail"))}
 					</p>
 				</div>
 			</section>
@@ -107,7 +114,7 @@ function AuthenticatedLoadError() {
 
 function AuthenticatedLayout() {
 	const { catalog, navigation, entitlements, rememberedPluginId } = Route.useLoaderData();
-	const { ryot, scope, runtime, ryotClients, hostServices } = Route.useRouteContext();
+	const { ryot, i18n, scope, runtime, ryotClients, hostServices } = Route.useRouteContext();
 	const { userId, serverUrl } = scope;
 	useEffect(
 		() =>
@@ -128,21 +135,43 @@ function AuthenticatedLayout() {
 		);
 		return () => controller.abort();
 	}, [runtime, ryot, serverUrl, userId]);
+	const loadPluginCatalogs = useMemo(
+		() =>
+			runtime.runSync(
+				Effect.map(
+					PluginsApi,
+					(api) => (locale: string) =>
+						Effect.map(api.messages({ userId, serverUrl }, locale), ({ catalogs }) => catalogs),
+				),
+			),
+		[runtime, serverUrl, userId],
+	);
+	const rememberInterfaceLocale = (preference: null | KernelLocale) =>
+		runtime.runSync(
+			Effect.flatMap(ClientStorage, (storage) => storage.setInterfaceLocale(preference)),
+		);
 	return (
 		<EntitlementsProvider entitlements={entitlements}>
 			<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
 				<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
-					<BackgroundSubmissionsProvider
-						scope={scope}
-						runtime={runtime}
-						onSucceeded={ryot.mutationCompleted.hint}
+					<AuthenticatedMessages
+						store={i18n}
+						load={loadPluginCatalogs}
+						fallback={<RestoringSession />}
+						onInterfaceLocale={rememberInterfaceLocale}
 					>
-						<AuthenticatedShell
-							navigation={navigation}
-							isPro={isEntitled(entitlements, "pro")}
-							initialRememberedPluginId={rememberedPluginId}
-						/>
-					</BackgroundSubmissionsProvider>
+						<BackgroundSubmissionsProvider
+							scope={scope}
+							runtime={runtime}
+							onSucceeded={ryot.mutationCompleted.hint}
+						>
+							<AuthenticatedShell
+								navigation={navigation}
+								isPro={isEntitled(entitlements, "pro")}
+								initialRememberedPluginId={rememberedPluginId}
+							/>
+						</BackgroundSubmissionsProvider>
+					</AuthenticatedMessages>
 				</PluginCatalogProvider>
 			</KernelRyotProvider>
 		</EntitlementsProvider>

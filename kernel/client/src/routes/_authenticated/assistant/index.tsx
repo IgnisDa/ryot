@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -13,6 +15,7 @@ import { useEdge } from "#/modules/shell/authenticated-shell-context";
 export const Route = createFileRoute("/_authenticated/assistant/")({ component: AssistantHome });
 
 function AssistantHome() {
+	const t = useT();
 	const { server, runtime } = Route.useRouteContext();
 	const disabled = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const edge = useEdge();
@@ -26,7 +29,7 @@ function AssistantHome() {
 			barActions={
 				<Button size="sm" variant="ghost" onClick={() => void navigate({ to: "/assistant/new" })}>
 					<AppIcon size={14} name="plus" />
-					New chat
+					{t(kernelMessage("client.assistant.new-chat"))}
 				</Button>
 			}
 		>

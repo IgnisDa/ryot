@@ -1,4 +1,6 @@
 import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	createRyotHostMutation,
 	createRyotQuery,
@@ -32,7 +34,7 @@ import {
 	liveBackupRun,
 } from "#/modules/backups/presentation";
 import { BackupRestoreWizard } from "#/modules/backups/restore-wizard";
-import { DEMO_PROTECTION_MESSAGE, useIsDemoSession } from "#/modules/demo-protection";
+import { demoProtectionMessage, useIsDemoSession } from "#/modules/demo-protection";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
@@ -40,11 +42,11 @@ import { useSearchParamModal } from "#/modules/ui/search-param-modal";
 import { StatusState } from "#/modules/ui/status-state";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
-const CREATE_FAILURE_DETAIL = "This backup could not be started. Try again.";
+const CREATE_FAILURE_DETAIL = kernelMessage("client.route.settings.backups.create-failed");
 
-const DELETE_FAILURE_DETAIL = "This record could not be deleted. Try again.";
+const DELETE_FAILURE_DETAIL = kernelMessage("client.route.settings.record-delete-failed");
 
-const DOWNLOAD_FAILURE_DETAIL = "Could not download this backup. Try again.";
+const DOWNLOAD_FAILURE_DETAIL = kernelMessage("client.route.settings.backups.download-failed");
 
 const PAGE_SIZE = 50;
 
@@ -89,28 +91,12 @@ export const Route = createFileRoute("/_authenticated/settings/backups")({
 });
 
 function BackupsPending() {
-	return (
-		<BackupsFrame>
-			<StatusState className="py-16" detail="Loading your backups..." />
-		</BackupsFrame>
-	);
-}
-
-function BackupsFrame(props: { readonly children: ReactNode }) {
-	return (
-		<SettingsFrame title="Backups" backFallbackHref="/settings">
-			{props.children}
-		</SettingsFrame>
-	);
-}
-
-function BackupsDemoProtected() {
+	const t = useT();
 	return (
 		<BackupsFrame>
 			<StatusState
 				className="py-16"
-				title="Backups are unavailable"
-				detail={DEMO_PROTECTION_MESSAGE}
+				detail={t(kernelMessage("client.route.settings.backups.loading"))}
 			/>
 		</BackupsFrame>
 	);
@@ -122,19 +108,46 @@ function BackupsRoute() {
 	return isDemo ? <BackupsDemoProtected /> : <BackupsStandard />;
 }
 
+function BackupsFrame(props: { readonly children: ReactNode }) {
+	const t = useT();
+	return (
+		<SettingsFrame
+			backFallbackHref="/settings"
+			title={t(kernelMessage("client.settings.section.backups"))}
+		>
+			{props.children}
+		</SettingsFrame>
+	);
+}
+
+function BackupsDemoProtected() {
+	const t = useT();
+	return (
+		<BackupsFrame>
+			<StatusState
+				className="py-16"
+				detail={t(demoProtectionMessage)}
+				title={t(kernelMessage("client.route.settings.backups.unavailable"))}
+			/>
+		</BackupsFrame>
+	);
+}
+
 function BackupsLoadError(props: { readonly onRetry: () => void }) {
+	const t = useT();
 	return (
 		<BackupsFrame>
 			<LoadErrorState
 				onRetry={props.onRetry}
-				title={BACKUP_LOAD_ERROR.title}
-				detail={BACKUP_LOAD_ERROR.detail}
+				title={t(BACKUP_LOAD_ERROR.title)}
+				detail={t(BACKUP_LOAD_ERROR.detail)}
 			/>
 		</BackupsFrame>
 	);
 }
 
 function BackupsStandard() {
+	const t = useT();
 	const navigate = Route.useNavigate();
 	const { restore } = Route.useSearch();
 	const pagination = useRyotInfiniteQuery(backupRunsQuery, undefined, {
@@ -252,8 +265,8 @@ function BackupsStandard() {
 				downloadingRunId={downloadingRunId}
 				isCreating={createMutation.isPending}
 				onCreateExport={() => void startExport()}
-				downloadFailureDetail={downloadFailed ? DOWNLOAD_FAILURE_DETAIL : undefined}
-				createFailureDetail={createMutation.error === null ? undefined : CREATE_FAILURE_DETAIL}
+				downloadFailureDetail={downloadFailed ? t(DOWNLOAD_FAILURE_DETAIL) : undefined}
+				createFailureDetail={createMutation.error === null ? undefined : t(CREATE_FAILURE_DETAIL)}
 				onRequestDelete={(run, trigger) => {
 					deleteMutation.reset();
 					deleteTrigger.current = trigger;
@@ -264,38 +277,36 @@ function BackupsStandard() {
 				<div className="grid justify-items-center gap-2">
 					<LoadMoreButton
 						type="button"
-						label="Load more backups"
-						loadingLabel="Loading..."
 						onClick={pagination.fetchNextPage}
 						isFetchingNextPage={pagination.isFetchingNextPage}
 						disabled={pagination.isFetching && !pagination.isFetchingNextPage}
+						label={t(kernelMessage("client.route.settings.backups.load-more"))}
 					/>
 				</div>
 			)}
 			{pagination.errorOperation === "append" && (
 				<div className="grid justify-items-center gap-2">
 					<p role="alert" className="text-sm text-danger">
-						Could not load more backups. Try again.
+						{t(kernelMessage("client.route.settings.backups.load-more-failed"))}
 					</p>
 					<LoadMoreButton
 						type="button"
-						label="Load more backups"
-						loadingLabel="Loading..."
 						onClick={pagination.retry}
 						isFetchingNextPage={pagination.isFetchingNextPage}
+						label={t(kernelMessage("client.route.settings.backups.load-more"))}
 					/>
 				</div>
 			)}
 			{pendingDelete === undefined ? null : (
 				<DestructiveConfirmation
-					pendingLabel="Deleting..."
 					triggerRef={deleteTrigger}
-					actionLabel="Delete record"
-					title="Delete this backup record?"
 					pending={deleteMutation.isPending}
-					detail={backupRunDeleteConfirmation(pendingDelete)}
 					onConfirm={() => void confirmDelete(pendingDelete)}
-					errorMessage={deleteMutation.error === null ? undefined : DELETE_FAILURE_DETAIL}
+					detail={t(backupRunDeleteConfirmation(pendingDelete))}
+					pendingLabel={t(kernelMessage("common.status.deleting"))}
+					actionLabel={t(kernelMessage("client.route.settings.delete-record"))}
+					title={t(kernelMessage("client.route.settings.backups.delete-title"))}
+					errorMessage={deleteMutation.error === null ? undefined : t(DELETE_FAILURE_DETAIL)}
 					onClose={() => {
 						deleteMutation.reset();
 						setPendingDelete(undefined);

@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	useRyotInfiniteQuery,
 	useRyotMutation,
@@ -55,39 +58,49 @@ export const Route = createFileRoute("/_authenticated/settings/notification-chan
 });
 
 function NotificationChannelsPending() {
+	const t = useT();
 	return (
 		<NotificationChannelsFrame>
-			<StatusState className="py-16" detail="Loading your notification channels..." />
+			<StatusState
+				className="py-16"
+				detail={t(kernelMessage("client.route.settings.notification-channels.loading"))}
+			/>
 		</NotificationChannelsFrame>
 	);
 }
 
 function NotificationChannelsFrame(props: { readonly children: ReactNode }) {
+	const t = useT();
 	return (
-		<SettingsFrame backFallbackHref="/settings" title="Notification channels">
+		<SettingsFrame
+			backFallbackHref="/settings"
+			title={t(kernelMessage("client.settings.section.notification-channels"))}
+		>
 			{props.children}
 		</SettingsFrame>
 	);
 }
 
 function NotificationChannelsLoadError(props: { readonly onRetry: () => void }) {
+	const t = useT();
 	return (
 		<NotificationChannelsFrame>
 			<LoadErrorState
 				onRetry={props.onRetry}
-				title={NOTIFICATION_CHANNELS_LOAD_ERROR.title}
-				detail={NOTIFICATION_CHANNELS_LOAD_ERROR.detail}
+				title={t(NOTIFICATION_CHANNELS_LOAD_ERROR.title)}
+				detail={t(NOTIFICATION_CHANNELS_LOAD_ERROR.detail)}
 			/>
 		</NotificationChannelsFrame>
 	);
 }
 
 function NotificationChannelsRoute() {
+	const t = useT();
 	const { server, runtime } = Route.useRouteContext();
 	const isDemoProtected = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const navigate = Route.useNavigate();
 	const { create } = Route.useSearch();
-	const [testDetail, setTestDetail] = useState<string | undefined>();
+	const [testDetail, setTestDetail] = useState<Message | undefined>();
 	const [testSucceeded, setTestSucceeded] = useState(false);
 	const [testNotificationId, setTestNotificationId] = useState<string>();
 	const [deleteFailedId, setDeleteFailedId] = useState<string | undefined>();
@@ -123,8 +136,8 @@ function NotificationChannelsRoute() {
 				setTestSucceeded(queued);
 				setTestDetail(
 					queued
-						? "Test notification queued. Delivery results are shown separately."
-						: "The test notification could not be sent. Try again.",
+						? kernelMessage("client.route.settings.notification-channels.test-queued")
+						: kernelMessage("client.route.settings.notification-channels.test-failed"),
 				);
 			}),
 		);
@@ -185,7 +198,6 @@ function NotificationChannelsRoute() {
 				state={state}
 				nowMs={nowMs}
 				onAdd={wizard.open}
-				testDetail={testDetail}
 				onRetry={listed.refetch}
 				enabledCount={enabledCount}
 				testSucceeded={testSucceeded}
@@ -197,6 +209,7 @@ function NotificationChannelsRoute() {
 				isTesting={sendTestMutation.isPending}
 				onDelete={(id) => void deleteChannel(id)}
 				isFetchingNextPage={listed.isFetchingNextPage}
+				testDetail={testDetail === undefined ? undefined : t(testDetail)}
 				onToggle={(id, isDisabled) => void toggleChannel(id, isDisabled)}
 				onShowMore={() => {
 					if (listed.errorOperation === "append") {

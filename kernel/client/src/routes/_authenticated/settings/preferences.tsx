@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute } from "@tanstack/react-router";
@@ -18,11 +20,16 @@ export const Route = createFileRoute("/_authenticated/settings/preferences")({
 });
 
 function PreferencesRoute() {
+	const t = useT();
 	const { theme, server, runtime } = Route.useRouteContext();
 	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const preferences = useRyotQuery(preferencesQuery);
 	const updatePreferences = useRyotMutation(updatePreferencesMutation);
-	let content = <StatusMessage tone="pending">Loading your settings...</StatusMessage>;
+	let content = (
+		<StatusMessage tone="pending">
+			{t(kernelMessage("client.route.settings.preferences.loading"))}
+		</StatusMessage>
+	);
 	if (preferences.data !== undefined) {
 		content = (
 			<PreferencesForm
@@ -34,20 +41,26 @@ function PreferencesRoute() {
 	} else if (preferences.isError) {
 		content = (
 			<StatusMessage tone="error">
-				Could not load your settings. Check the server and try again.
+				{t(kernelMessage("client.route.settings.preferences.load-failed"))}
 			</StatusMessage>
 		);
 	}
 
 	return (
-		<SettingsFrame title="Preferences" backFallbackHref="/settings">
+		<SettingsFrame
+			backFallbackHref="/settings"
+			title={t(kernelMessage("client.settings.section.preferences"))}
+		>
 			<div className="flex flex-col gap-8">
-				<SettingsSection title="Appearance" detail="Choose how Ryot looks on this device.">
+				<SettingsSection
+					title={t(kernelMessage("client.settings.appearance.label"))}
+					detail={t(kernelMessage("client.route.settings.preferences.appearance-detail"))}
+				>
 					<Appearance theme={theme} />
 				</SettingsSection>
 				<SettingsSection
-					title="Language and reporting"
-					detail="Choose the entity language and account reporting time zone. Translation availability depends on the provider."
+					title={t(kernelMessage("client.route.settings.preferences.language-title"))}
+					detail={t(kernelMessage("client.route.settings.preferences.language-detail"))}
 				>
 					{isDemo && <DemoProtectionMessage />}
 					{content}
