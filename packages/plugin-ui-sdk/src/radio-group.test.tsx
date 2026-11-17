@@ -1,18 +1,20 @@
 import { describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
 import { useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { RadioGroup } from "./radio-group";
 
 const options = [
-	{ value: "light", label: "Light" },
-	{ value: "dark", label: "Dark" },
-	{ value: "system", label: "System" },
+	{ value: "light", label: testText("Light") },
+	{ value: "dark", label: testText("Dark") },
+	{ value: "system", label: testText("System") },
 ] as const;
 
 function ThemeChoice(props: {
@@ -23,8 +25,8 @@ function ThemeChoice(props: {
 	return (
 		<RadioGroup
 			value={value}
-			label="Appearance"
 			onChange={setValue}
+			label={testText("Appearance")}
 			options={options.map((option) =>
 				Object.assign({}, option, { disabled: option.value === props.disabled }),
 			)}

@@ -1,3 +1,6 @@
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { type ReactNode, useDeferredValue, useRef, useState } from "react";
@@ -7,12 +10,12 @@ import { Modal } from "./modal";
 
 export type MultiSelectChoice<Value extends string = string> = {
 	readonly value: Value;
-	readonly label?: string | undefined;
+	readonly label?: Text | undefined;
 };
 
 type MultiSelectProps<Value extends string> = {
-	readonly label: string;
-	readonly placeholder?: string;
+	readonly label: Text;
+	readonly placeholder?: Text;
 	readonly checkIcon?: ReactNode;
 	readonly closeIcon?: ReactNode;
 	readonly searchIcon?: ReactNode;
@@ -44,6 +47,8 @@ export function MultiSelect<Value extends string>({
 	searchIcon = defaultSearchIcon,
 	chevronIcon = defaultChevronIcon,
 }: MultiSelectProps<Value>) {
+	const t = useT();
+	const formatters = useFormatters();
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const search = useRef<HTMLInputElement>(null);
@@ -71,12 +76,20 @@ export function MultiSelect<Value extends string>({
 		);
 	const triggerText = (() => {
 		if (selectedLabels.length === 0) {
-			return placeholder === undefined || placeholder === "" ? "Select options" : placeholder;
+			return placeholder === undefined || placeholder === ""
+				? t(kernelMessage("ui.multi-select.placeholder"))
+				: placeholder;
 		}
+		const names = formatters.list({ type: "unit", style: "short" });
 		if (selectedLabels.length < 3) {
-			return selectedLabels.join(", ");
+			return names.format(selectedLabels);
 		}
-		return `${selectedLabels.slice(0, 2).join(", ")} +${selectedLabels.length - 2} selected`;
+		return t(
+			kernelMessage("ui.multi-select.overflow-summary", {
+				count: selectedLabels.length - 2,
+				names: names.format(selectedLabels.slice(0, 2)),
+			}),
+		);
 	})();
 
 	return (
@@ -94,7 +107,14 @@ export function MultiSelect<Value extends string>({
 							: "border-accent-border bg-accent-soft text-accent-text",
 					)}
 				>
-					{selectedLabels.length === 0 ? label : `${label} · ${selectedLabels.length}`}
+					{selectedLabels.length === 0
+						? label
+						: t(
+								kernelMessage("ui.multi-select.chip-count", {
+									label,
+									count: selectedLabels.length,
+								}),
+							)}
 					<span aria-hidden="true">{chevronIcon}</span>
 				</button>
 			) : (
@@ -122,7 +142,7 @@ export function MultiSelect<Value extends string>({
 						<button
 							type="button"
 							onClick={() => onChange([])}
-							aria-label={`Clear ${label}`}
+							aria-label={t(kernelMessage("ui.multi-select.clear-field", { label }))}
 							className="flex size-8 shrink-0 items-center justify-center rounded-sm text-text-subtle transition-colors duration-100 hover:bg-hover hover:text-text motion-reduce:transition-none pointer-coarse:size-10"
 						>
 							{closeIcon}
@@ -134,9 +154,9 @@ export function MultiSelect<Value extends string>({
 				<Modal
 					label={label}
 					onClose={close}
-					closeLabel="Close options"
 					onInterceptBack={onInterceptBack ?? (() => false)}
 					containerClassName="items-center justify-center p-4"
+					closeLabel={t(kernelMessage("ui.select.close-options"))}
 					className="flex h-[80%] max-h-[80%] w-full max-w-xl flex-col rounded-xl bg-raised p-4 shadow-modal md:h-auto"
 				>
 					<div className="mb-3 flex items-center justify-between">
@@ -144,7 +164,7 @@ export function MultiSelect<Value extends string>({
 						<button
 							type="button"
 							onClick={close}
-							aria-label="Close options"
+							aria-label={t(kernelMessage("ui.select.close-options"))}
 							className="flex min-h-6 min-w-6 items-center justify-center rounded-md p-1 text-text-muted"
 						>
 							{closeIcon}
@@ -158,9 +178,9 @@ export function MultiSelect<Value extends string>({
 							ref={search}
 							value={query}
 							autoComplete="off"
-							placeholder="Search options"
-							aria-label={`Search ${label}`}
 							onChange={(event) => setQuery(event.currentTarget.value)}
+							placeholder={t(kernelMessage("ui.select.search-options"))}
+							aria-label={t(kernelMessage("ui.select.search-field", { label }))}
 							className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
 						/>
 					</div>
@@ -168,10 +188,10 @@ export function MultiSelect<Value extends string>({
 						<button
 							type="button"
 							onClick={() => onChange([])}
-							aria-label={`Clear selections in ${label}`}
+							aria-label={t(kernelMessage("ui.multi-select.clear-selections-in", { label }))}
 							className="mb-2 min-h-6 self-start rounded-md px-1.5 py-1 text-xs font-medium text-text-muted"
 						>
-							Clear selections
+							{t(kernelMessage("ui.multi-select.clear-selections"))}
 						</button>
 					)}
 					<div className="min-h-0 flex-1 overflow-y-auto">
@@ -203,7 +223,9 @@ export function MultiSelect<Value extends string>({
 						})}
 					</div>
 					{visibleChoices.length === 0 && (
-						<p className="py-4 text-center text-sm text-text-muted">No matching options.</p>
+						<p className="py-4 text-center text-sm text-text-muted">
+							{t(kernelMessage("ui.select.no-matches"))}
+						</p>
 					)}
 				</Modal>
 			)}

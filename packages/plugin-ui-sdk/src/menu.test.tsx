@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { Menu, type MenuItem } from "./menu";
 
 function MenuHarness(props: {
@@ -19,10 +21,10 @@ function MenuHarness(props: {
 			<div data-testid="outside">outside</div>
 			<Menu
 				items={props.items}
-				label="User actions"
 				triggerRef={trigger}
 				onClose={props.onClose}
 				activeIndex={activeIndex}
+				label={testText("User actions")}
 				onActiveIndexChange={setActiveIndex}
 			/>
 		</>
@@ -30,9 +32,9 @@ function MenuHarness(props: {
 }
 
 const items: ReadonlyArray<MenuItem> = [
-	{ key: "password", onSelect: () => {}, label: "Send password reset" },
-	{ disabled: true, key: "disabled", onSelect: () => {}, label: "Disable user" },
-	{ key: "delete", destructive: true, onSelect: () => {}, label: "Delete user" },
+	{ key: "password", onSelect: () => {}, label: testText("Send password reset") },
+	{ disabled: true, key: "disabled", onSelect: () => {}, label: testText("Disable user") },
+	{ key: "delete", destructive: true, onSelect: () => {}, label: testText("Delete user") },
 ];
 
 describe("Menu", () => {
@@ -56,7 +58,7 @@ describe("Menu", () => {
 		render(
 			<MenuHarness
 				onClose={() => {}}
-				items={[{ key: "share", icon: "share", label: "Share", onSelect: () => {} }]}
+				items={[{ key: "share", icon: "share", onSelect: () => {}, label: testText("Share") }]}
 			/>,
 		);
 
@@ -101,9 +103,9 @@ describe("Menu", () => {
 			<Menu
 				items={items}
 				activeIndex={0}
-				label="User actions"
 				triggerRef={trigger}
 				onActiveIndexChange={() => {}}
+				label={testText("User actions")}
 				onClose={(restore) => closes.push(restore)}
 				onInterceptBack={() => {
 					intercepts += 1;

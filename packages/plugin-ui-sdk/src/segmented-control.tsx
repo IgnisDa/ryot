@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
@@ -5,13 +6,13 @@ import { RadioGroup } from "./radio-group";
 
 type SegmentedControlOption<T extends string> = {
 	readonly value: T;
-	readonly label: string;
+	readonly label: Text;
 	readonly content: ReactNode;
 };
 
 type SegmentedControlProps<T extends string> = {
 	readonly value: T;
-	readonly label: string;
+	readonly label: Text;
 	readonly fill?: boolean;
 	readonly className?: string;
 	readonly optionClassName?: string;

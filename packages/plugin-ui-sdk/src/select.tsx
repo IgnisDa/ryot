@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import { type ReactNode, useDeferredValue, useRef, useState } from "react";
 
@@ -6,20 +9,20 @@ import { Modal } from "./modal";
 import { RadioGroup } from "./radio-group";
 
 export type SelectChoice = {
+	readonly label: Text;
+	readonly hint?: Text;
 	readonly value: string;
-	readonly label: string;
-	readonly hint?: string;
 	readonly disabled?: boolean;
 };
 
 type SelectProps = {
 	readonly id?: string;
-	readonly label: string;
+	readonly label: Text;
 	readonly value: string;
 	readonly disabled?: boolean;
 	readonly className?: string;
+	readonly placeholder?: Text;
 	readonly checkIcon: ReactNode;
-	readonly placeholder?: string;
 	readonly searchIcon?: ReactNode;
 	readonly chevronIcon: ReactNode;
 	readonly onInterceptBack?: () => boolean;
@@ -43,6 +46,7 @@ export function Select({
 	placeholder,
 	onInterceptBack,
 }: SelectProps) {
+	const t = useT();
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const navigating = useRef(false);
@@ -51,7 +55,7 @@ export function Select({
 	useFieldEscape(searchRef, { hasValue: query !== "", onClear: () => setQuery("") });
 	const deferredQuery = useDeferredValue(query);
 	const selected = choices.find((choice) => choice.value === value);
-	const triggerText = selected?.label ?? placeholder ?? "Select an option";
+	const triggerText = selected?.label ?? placeholder ?? t(kernelMessage("ui.select.placeholder"));
 	const normalizedQuery = deferredQuery.trim().toLocaleLowerCase();
 	const visibleChoices =
 		searchIcon === undefined
@@ -82,7 +86,7 @@ export function Select({
 				disabled={disabled}
 				aria-expanded={open}
 				onClick={() => setOpen(true)}
-				aria-label={`${label}: ${triggerText}`}
+				aria-label={t(kernelMessage("ui.field-value", { label, value: triggerText }))}
 				className={clsx(
 					"flex h-9 w-full items-center justify-between gap-2 rounded-md border border-border-strong bg-surface px-3 transition-colors duration-100 hover:border-text-subtle motion-reduce:transition-none pointer-coarse:h-11",
 					disabled === true && "opacity-50",
@@ -107,9 +111,9 @@ export function Select({
 					label={label}
 					onClose={close}
 					triggerRef={triggerRef}
-					closeLabel="Close options"
 					onInterceptBack={onInterceptBack ?? (() => false)}
 					containerClassName="items-center justify-center p-4"
+					closeLabel={t(kernelMessage("ui.select.close-options"))}
 					className="flex max-h-[80%] w-full max-w-sm flex-col overflow-hidden rounded-xl bg-raised shadow-modal"
 				>
 					<div className="border-b border-border px-4 py-3">
@@ -124,9 +128,9 @@ export function Select({
 								value={query}
 								ref={searchRef}
 								autoComplete="off"
-								placeholder="Search options"
-								aria-label={`Search ${label}`}
 								onChange={(event) => setQuery(event.currentTarget.value)}
+								placeholder={t(kernelMessage("ui.select.search-options"))}
+								aria-label={t(kernelMessage("ui.select.search-field", { label }))}
 								className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
 							/>
 						</div>
@@ -168,7 +172,9 @@ export function Select({
 							})}
 						/>
 						{visibleChoices.length === 0 && (
-							<p className="py-4 text-center text-sm text-text-muted">No matching options.</p>
+							<p className="py-4 text-center text-sm text-text-muted">
+								{t(kernelMessage("ui.select.no-matches"))}
+							</p>
 						)}
 					</div>
 				</Modal>

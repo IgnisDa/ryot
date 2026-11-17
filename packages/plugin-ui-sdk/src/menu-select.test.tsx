@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { MenuSelect } from "./menu-select";
 
 describe("MenuSelect", () => {
@@ -12,11 +14,11 @@ describe("MenuSelect", () => {
 				value="day"
 				checkIcon="✓"
 				chevronIcon="▾"
-				label="Group by"
+				label={testText("Group by")}
 				onChange={(value) => changes.push(value)}
 				choices={[
-					{ value: "day", label: "Day" },
-					{ value: "week", label: "Week" },
+					{ value: "day", label: testText("Day") },
+					{ value: "week", label: testText("Week") },
 				]}
 			/>,
 		);

@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import { type ReactNode, type Ref, useImperativeHandle, useMemo, useState } from "react";
 
 import { IconButton } from "./button";
@@ -13,7 +14,7 @@ type MenuTrigger = {
 };
 
 export function MenuButton(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly icon?: ReactNode;
 	readonly disabled?: boolean;
 	readonly items: ReadonlyArray<MenuItem>;

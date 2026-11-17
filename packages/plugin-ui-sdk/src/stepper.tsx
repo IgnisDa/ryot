@@ -1,18 +1,21 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import { type KeyboardEvent, type ReactNode, useState } from "react";
 
 import { IconButton } from "./button";
+import { formatClock } from "./metric-format";
 
 const wholeNumber = /^\d+$/;
-const minutesAndSeconds = /^(\d+):([0-5]\d)$/;
+const clockText = /^(?:(\d+):)?(\d+):([0-5]\d)$/;
 
 export const clockFormat = {
-	format: (seconds: number) =>
-		`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`,
+	format: formatClock,
 	parse: (text: string) => {
-		const clock = minutesAndSeconds.exec(text);
+		const clock = clockText.exec(text);
 		if (clock !== null) {
-			return Number(clock[1]) * 60 + Number(clock[2]);
+			return Number(clock[1] ?? 0) * 3600 + Number(clock[2]) * 60 + Number(clock[3]);
 		}
 		return wholeNumber.test(text) ? Number(text) : undefined;
 	},
@@ -24,8 +27,8 @@ const plainFormat = {
 };
 
 type StepperProps = {
+	readonly label: Text;
 	readonly step: number;
-	readonly label: string;
 	readonly id?: string | undefined;
 	readonly min?: number | undefined;
 	readonly incrementIcon: ReactNode;
@@ -58,6 +61,7 @@ export function Stepper({
 	format = plainFormat.format,
 	"aria-describedby": describedBy,
 }: StepperProps) {
+	const t = useT();
 	const [draft, setDraft] = useState<null | string>(null);
 	const shift = (delta: number) => {
 		setDraft(null);
@@ -79,8 +83,8 @@ export function Stepper({
 			<IconButton
 				tone="filled"
 				disabled={disabled}
-				label={`Decrease ${label}`}
 				onClick={() => shift(-step)}
+				label={t(kernelMessage("ui.stepper.decrease", { label }))}
 			>
 				{decrementIcon}
 			</IconButton>
@@ -114,8 +118,8 @@ export function Stepper({
 			<IconButton
 				tone="filled"
 				disabled={disabled}
-				label={`Increase ${label}`}
 				onClick={() => shift(step)}
+				label={t(kernelMessage("ui.stepper.increase", { label }))}
 			>
 				{incrementIcon}
 			</IconButton>

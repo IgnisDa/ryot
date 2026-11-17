@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
@@ -10,7 +13,7 @@ export type ItemSelection = {
 };
 
 type SelectionAction = {
-	readonly label: string;
+	readonly label: Text;
 	readonly icon: ReactNode;
 	readonly run: () => void;
 	readonly danger?: boolean | undefined;
@@ -24,11 +27,12 @@ export function SelectableItem({
 	className,
 }: {
 	readonly id: string;
-	readonly label: string;
+	readonly label: Text;
 	readonly children: ReactNode;
 	readonly className?: string | undefined;
 	readonly selection: undefined | ItemSelection;
 }) {
+	const t = useT();
 	if (selection === undefined) {
 		return children;
 	}
@@ -40,8 +44,8 @@ export function SelectableItem({
 				type="button"
 				role="checkbox"
 				aria-checked={selected}
-				aria-label={`Select ${label}`}
 				onClick={() => selection.toggle(id)}
+				aria-label={t(kernelMessage("ui.selection.select-item", { name: label }))}
 				className={clsx(
 					"absolute inset-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus",
 					selected && "bg-accent-soft/40 ring-2 ring-accent-border",
@@ -62,16 +66,17 @@ export function SelectionBar({
 	disabled,
 	safeAreaBottom,
 }: {
-	readonly label: string;
+	readonly label: Text;
 	readonly disabled: boolean;
 	readonly onExit: () => void;
 	readonly safeAreaBottom: number;
 	readonly busy?: string | undefined;
 	readonly actions: readonly SelectionAction[];
-	readonly extend?: undefined | { readonly label: string; readonly run: () => void };
+	readonly extend?: undefined | { readonly label: Text; readonly run: () => void };
 }) {
+	const t = useT();
 	return (
-		<ActionDock label="Selection" safeAreaBottom={safeAreaBottom}>
+		<ActionDock safeAreaBottom={safeAreaBottom} label={t(kernelMessage("ui.selection.label"))}>
 			<div className="flex flex-wrap items-center gap-2">
 				<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
 					<span role="status" className="text-sm font-semibold text-text">
@@ -95,7 +100,7 @@ export function SelectionBar({
 					</Button>
 				))}
 				<Button variant="ghost" onClick={onExit}>
-					Done
+					{t(kernelMessage("common.action.done"))}
 				</Button>
 			</div>
 		</ActionDock>

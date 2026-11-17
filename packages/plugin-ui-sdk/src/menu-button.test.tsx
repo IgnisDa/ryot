@@ -1,14 +1,19 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 import { createRef } from "react";
 
+import { render } from "./i18n.test-support";
 import { MenuButton } from "./menu-button";
 
 describe("MenuButton", () => {
 	it("restores focus to the trigger when Escape closes the menu", () => {
 		render(
-			<MenuButton label="Actions" items={[{ key: "one", label: "One", onSelect: () => {} }]} />,
+			<MenuButton
+				label={testText("Actions")}
+				items={[{ key: "one", onSelect: () => {}, label: testText("One") }]}
+			/>,
 		);
 		const trigger = screen.getByRole("button", { name: "Actions" });
 
@@ -24,8 +29,8 @@ describe("MenuButton", () => {
 		const selected: string[] = [];
 		render(
 			<MenuButton
-				label="Actions"
-				items={[{ key: "one", label: "One", onSelect: () => selected.push("one") }]}
+				label={testText("Actions")}
+				items={[{ key: "one", label: testText("One"), onSelect: () => selected.push("one") }]}
 				renderTrigger={(trigger) => (
 					<button type="button" {...trigger}>
 						Custom trigger
@@ -52,9 +57,9 @@ describe("MenuButton", () => {
 			render(
 				<MenuButton
 					trigger={trigger}
-					label="More actions"
 					triggerRef={triggerRef}
-					items={[{ key: "one", label: "One", onSelect: () => {} }]}
+					label={testText("More actions")}
+					items={[{ key: "one", onSelect: () => {}, label: testText("One") }]}
 				/>,
 			);
 

@@ -1,18 +1,20 @@
 import { describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
 import { useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { Select } from "./select";
 
 const choices = [
-	{ value: "default", label: "Provider default" },
-	{ hint: "es", value: "es", label: "Spanish" },
-	{ hint: "fr", value: "fr", label: "French" },
+	{ value: "default", label: testText("Provider default") },
+	{ value: "es", hint: testText("es"), label: testText("Spanish") },
+	{ value: "fr", hint: testText("fr"), label: testText("French") },
 ];
 
 function LanguageSelect() {
@@ -24,7 +26,7 @@ function LanguageSelect() {
 			choices={choices}
 			chevronIcon={null}
 			onChange={setValue}
-			label="Metadata language"
+			label={testText("Metadata language")}
 		/>
 	);
 }

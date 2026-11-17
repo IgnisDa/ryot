@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { SearchField } from "./search-field";
 
 const icons = { clearIcon: <span />, icon: <span data-testid="search-icon" /> };
@@ -13,7 +15,7 @@ describe("SearchField", () => {
 			<SearchField
 				{...icons}
 				value=""
-				label="Search Items"
+				label={testText("Search Items")}
 				onChange={(value) => changes.push(value)}
 			/>,
 		);
@@ -26,16 +28,30 @@ describe("SearchField", () => {
 	});
 
 	it("shows the shortcut hint only while empty and only when a shortcut is bound", () => {
-		const view = render(<SearchField {...icons} value="" label="Search" onChange={() => {}} />);
+		const view = render(
+			<SearchField {...icons} value="" onChange={() => {}} label={testText("Search")} />,
+		);
 		expect(screen.queryByText("/")).toBeNull();
 
 		view.rerender(
-			<SearchField {...icons} value="" shortcut="/" label="Search" onChange={() => {}} />,
+			<SearchField
+				{...icons}
+				value=""
+				shortcut="/"
+				onChange={() => {}}
+				label={testText("Search")}
+			/>,
 		);
 		expect(screen.getByText("/").getAttribute("aria-hidden")).toBe("true");
 
 		view.rerender(
-			<SearchField {...icons} value="du" shortcut="/" label="Search" onChange={() => {}} />,
+			<SearchField
+				{...icons}
+				value="du"
+				shortcut="/"
+				onChange={() => {}}
+				label={testText("Search")}
+			/>,
 		);
 		expect(screen.queryByText("/")).toBeNull();
 	});
@@ -43,7 +59,12 @@ describe("SearchField", () => {
 	it("clears through onChange once the field has a value", () => {
 		const changes: string[] = [];
 		const view = render(
-			<SearchField {...icons} value="" label="Search" onChange={(value) => changes.push(value)} />,
+			<SearchField
+				{...icons}
+				value=""
+				label={testText("Search")}
+				onChange={(value) => changes.push(value)}
+			/>,
 		);
 		expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
 
@@ -51,7 +72,7 @@ describe("SearchField", () => {
 			<SearchField
 				{...icons}
 				value="sample"
-				label="Search"
+				label={testText("Search")}
 				onChange={(value) => changes.push(value)}
 			/>,
 		);
@@ -66,8 +87,8 @@ describe("SearchField", () => {
 			<SearchField
 				{...icons}
 				value="sample"
-				label="Search"
 				onChange={() => {}}
+				label={testText("Search")}
 				onSubmit={() => {
 					submits += 1;
 				}}
@@ -81,7 +102,15 @@ describe("SearchField", () => {
 	});
 
 	it("focuses itself when its shortcut is pressed", () => {
-		render(<SearchField {...icons} value="" shortcut="/" label="Search" onChange={() => {}} />);
+		render(
+			<SearchField
+				{...icons}
+				value=""
+				shortcut="/"
+				onChange={() => {}}
+				label={testText("Search")}
+			/>,
+		);
 
 		fireEvent.keyDown(document, { key: "/" });
 
@@ -94,7 +123,7 @@ describe("SearchField", () => {
 			<SearchField
 				{...icons}
 				value="sample"
-				label="Search"
+				label={testText("Search")}
 				onChange={(next) => changes.push(next)}
 			/>,
 		);
@@ -111,7 +140,12 @@ describe("SearchField", () => {
 	it("blurs on Escape once it is empty and lets the event through", () => {
 		const changes: string[] = [];
 		render(
-			<SearchField {...icons} value="" label="Search" onChange={(next) => changes.push(next)} />,
+			<SearchField
+				{...icons}
+				value=""
+				label={testText("Search")}
+				onChange={(next) => changes.push(next)}
+			/>,
 		);
 		const input = screen.getByRole("searchbox");
 		input.focus();

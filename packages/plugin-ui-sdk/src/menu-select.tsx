@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import { type ReactNode, useMemo, useState } from "react";
 
@@ -6,13 +9,13 @@ import { useReportBlock } from "./report";
 
 type MenuSelectChoice<T extends string> = {
 	readonly value: T;
-	readonly label: string;
+	readonly label: Text;
 	readonly disabled?: boolean;
 };
 
 export function MenuSelect<T extends string>(props: {
 	readonly value: T;
-	readonly label: string;
+	readonly label: Text;
 	readonly disabled?: boolean;
 	readonly className?: string;
 	readonly checkIcon: ReactNode;
@@ -20,6 +23,7 @@ export function MenuSelect<T extends string>(props: {
 	readonly onChange: (value: T) => void;
 	readonly choices: ReadonlyArray<MenuSelectChoice<T>>;
 }) {
+	const t = useT();
 	const [trigger, setTrigger] = useState<null | HTMLButtonElement>(null);
 	const triggerRef = useMemo(() => ({ current: trigger }), [trigger]);
 	const [open, setOpen] = useState(false);
@@ -31,7 +35,9 @@ export function MenuSelect<T extends string>(props: {
 	const selected = props.choices[selectedIndex];
 	const report = useReportBlock(() => ({
 		kind: "text",
-		lines: [`${props.label}: ${selected?.label ?? ""}`],
+		lines: [
+			t(kernelMessage("ui.field-value", { label: props.label, value: selected?.label ?? "" })),
+		],
 	}));
 	return (
 		<div ref={report} className="contents">
@@ -41,11 +47,13 @@ export function MenuSelect<T extends string>(props: {
 				aria-haspopup="menu"
 				aria-expanded={open}
 				disabled={props.disabled}
-				aria-label={`${props.label}: ${selected?.label ?? ""}`}
 				onClick={() => {
 					setActiveIndex(selectedIndex);
 					setOpen(true);
 				}}
+				aria-label={t(
+					kernelMessage("ui.field-value", { label: props.label, value: selected?.label ?? "" }),
+				)}
 				className={clsx(
 					"inline-flex h-8 max-w-full min-w-0 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 text-label whitespace-nowrap shadow-sm transition-colors duration-100 hover:border-border-emphasis hover:bg-hover disabled:opacity-60 disabled:hover:bg-surface motion-reduce:transition-none pointer-coarse:h-11",
 					props.className,

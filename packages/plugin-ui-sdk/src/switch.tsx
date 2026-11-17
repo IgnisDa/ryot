@@ -1,7 +1,8 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 
 type SwitchProps = {
-	readonly label: string;
+	readonly label: Text;
 	readonly checked: boolean;
 	readonly disabled?: boolean;
 	readonly className?: string;

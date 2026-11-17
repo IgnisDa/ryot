@@ -1,10 +1,11 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 
 import { Chip } from "./chips";
 import { RadioGroup, type RadioGroupOption } from "./radio-group";
 
 type ChipRadioGroupProps<O extends RadioGroupOption> = {
-	readonly label: string;
+	readonly label: Text;
 	readonly className?: string;
 	readonly options: readonly O[];
 	readonly overflow: "wrap" | "scroll";

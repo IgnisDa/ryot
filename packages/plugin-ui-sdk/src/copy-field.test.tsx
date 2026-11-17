@@ -1,12 +1,13 @@
 import { expect } from "bun:test";
 
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 
 import { CopyField, type CopyFieldAction } from "./copy-field";
+import { render } from "./i18n.test-support";
 
 const recordingAction = Effect.fnUntraced(function* (kind: CopyFieldAction["kind"]) {
 	const run = Effect.runCallbackWith(yield* Effect.context());

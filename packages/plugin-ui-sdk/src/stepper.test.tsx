@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { clockFormat, Stepper } from "./stepper";
 
 function RestStepper(props: { readonly initial: number | undefined }) {
@@ -11,9 +13,9 @@ function RestStepper(props: { readonly initial: number | undefined }) {
 		<>
 			<Stepper
 				step={15}
-				label="Rest"
 				value={value}
 				onChange={setValue}
+				label={testText("Rest")}
 				incrementIcon={<span />}
 				decrementIcon={<span />}
 				parse={clockFormat.parse}
@@ -76,7 +78,10 @@ describe("Stepper", () => {
 		expect(output()).toBe("inherited");
 	});
 
-	it.each([0, 5, 59, 60, 61, 90, 600, 3599])("round-trips %i seconds through m:ss", (seconds) => {
-		expect(clockFormat.parse(clockFormat.format(seconds))).toBe(seconds);
-	});
+	it.each([0, 5, 59, 60, 61, 90, 600, 3599, 3600, 3725])(
+		"round-trips %i seconds through the clock",
+		(seconds) => {
+			expect(clockFormat.parse(clockFormat.format(seconds))).toBe(seconds);
+		},
+	);
 });

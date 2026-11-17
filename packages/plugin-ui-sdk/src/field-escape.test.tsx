@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
 
 import { useFieldEscape } from "./field-escape";
+import { render } from "./i18n.test-support";
 
 const handled = (event: KeyboardEvent) => event.preventDefault();
 

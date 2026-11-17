@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { TagInput } from "./tag-input";
 
 function Tags(props: { readonly maxItems?: number; readonly initial?: readonly string[] }) {
@@ -13,8 +15,8 @@ function Tags(props: { readonly maxItems?: number; readonly initial?: readonly s
 				values={values}
 				onChange={setValues}
 				maxItems={props.maxItems}
-				placeholder="Add a source"
 				removeIcon={<span>x</span>}
+				placeholder={testText("Add a source")}
 			/>
 			<output>{values.join("|")}</output>
 		</>

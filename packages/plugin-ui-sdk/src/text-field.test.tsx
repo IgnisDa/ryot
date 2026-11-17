@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { Field, TextField } from "./text-field";
 
 describe("Field", () => {

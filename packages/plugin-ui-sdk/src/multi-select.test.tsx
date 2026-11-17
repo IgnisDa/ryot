@@ -1,26 +1,28 @@
 import { describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
 import { useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { MultiSelect } from "./multi-select";
 
 const choices = [
-	{ value: "action", label: "Action" },
-	{ value: "comedy", label: "Comedy" },
+	{ value: "action", label: testText("Action") },
+	{ value: "comedy", label: testText("Comedy") },
 ];
 
 function DefaultIconSelect() {
 	const [selected, setSelected] = useState<ReadonlyArray<"action" | "comedy">>([]);
 	return (
 		<MultiSelect
-			label="Genres"
 			selected={selected}
 			onChange={setSelected}
+			label={testText("Genres")}
 			choices={[{ value: "action" }, { value: "comedy" }]}
 		/>
 	);
@@ -30,7 +32,6 @@ function GenreSelect(props: { readonly variant?: "chip" | "field" }) {
 	const [selected, setSelected] = useState<ReadonlyArray<string>>(["action"]);
 	return (
 		<MultiSelect
-			label="Genres"
 			checkIcon={null}
 			closeIcon={null}
 			choices={choices}
@@ -39,6 +40,7 @@ function GenreSelect(props: { readonly variant?: "chip" | "field" }) {
 			selected={selected}
 			onChange={setSelected}
 			variant={props.variant}
+			label={testText("Genres")}
 		/>
 	);
 }

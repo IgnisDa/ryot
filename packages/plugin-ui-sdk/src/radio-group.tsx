@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
 
 import { useReportBlock } from "./report";
@@ -5,13 +6,13 @@ import { useReportBlock } from "./report";
 export type RadioGroupOptionView = { readonly content: ReactNode; readonly className?: string };
 
 export type RadioGroupOption = {
+	readonly label: Text;
 	readonly value: string;
-	readonly label: string;
 	readonly disabled?: boolean;
 };
 
 type RadioGroupProps<O extends RadioGroupOption> = {
-	readonly label: string;
+	readonly label: Text;
 	readonly className?: string;
 	readonly options: readonly O[];
 	readonly value: undefined | O["value"];

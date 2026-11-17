@@ -1,13 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { SelectableItem, SelectionBar } from "./selection";
 
 describe("SelectableItem", () => {
 	it("renders its content untouched outside selection mode", () => {
 		render(
-			<SelectableItem id="item-1" label="Dune" selection={undefined}>
+			<SelectableItem id="item-1" selection={undefined} label={testText("Dune")}>
 				<a href="/dune">Dune</a>
 			</SelectableItem>,
 		);
@@ -21,7 +23,7 @@ describe("SelectableItem", () => {
 		render(
 			<SelectableItem
 				id="item-1"
-				label="Dune"
+				label={testText("Dune")}
 				selection={{ toggle: (id) => toggled.push(id), isSelected: (id) => id === "item-1" }}
 			>
 				<a href="/dune">Dune</a>
@@ -39,15 +41,17 @@ describe("SelectableItem", () => {
 describe("SelectionBar", () => {
 	it("replaces its label and hides the extend link while busy", () => {
 		const runs: string[] = [];
-		const actions = [{ icon: null, danger: true, label: "Remove", run: () => runs.push("remove") }];
+		const actions = [
+			{ icon: null, danger: true, label: testText("Remove"), run: () => runs.push("remove") },
+		];
 		const { rerender } = render(
 			<SelectionBar
 				disabled={false}
 				actions={actions}
-				label="2 selected"
 				safeAreaBottom={0}
+				label={testText("2 selected")}
 				onExit={() => runs.push("exit")}
-				extend={{ label: "Select all 9", run: () => runs.push("extend") }}
+				extend={{ run: () => runs.push("extend"), label: testText("Select all 9") }}
 			/>,
 		);
 
@@ -60,11 +64,11 @@ describe("SelectionBar", () => {
 			<SelectionBar
 				disabled={false}
 				actions={actions}
-				label="2 selected"
 				safeAreaBottom={0}
 				onExit={() => undefined}
 				busy="Preparing selection..."
-				extend={{ run: () => undefined, label: "Select all 9" }}
+				label={testText("2 selected")}
+				extend={{ run: () => undefined, label: testText("Select all 9") }}
 			/>,
 		);
 		expect(screen.getByRole("status").textContent).toBe("Preparing selection...");

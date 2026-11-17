@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import {
 	type KeyboardEvent,
@@ -20,7 +21,7 @@ const VIEWPORT_PADDING = 8;
 
 export type MenuItem = {
 	readonly key: string;
-	readonly label: string;
+	readonly label: Text;
 	/** An `AppIcon` name shown before the label. */
 	readonly icon?: string;
 	/** Makes the item a radio choice; the checked one shows `checkIcon`. */
@@ -32,8 +33,8 @@ export type MenuItem = {
 
 type MenuProps = {
 	readonly id?: string;
+	readonly label: Text;
 	readonly note?: string;
-	readonly label: string;
 	readonly className?: string;
 	readonly activeIndex: number;
 	readonly checkIcon?: ReactNode;

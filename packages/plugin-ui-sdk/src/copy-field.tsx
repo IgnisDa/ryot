@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import * as Effect from "effect/Effect";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
@@ -18,9 +20,11 @@ type Feedback = { readonly value: string; readonly status: "copied" | "failed" }
 
 const buttonPresentation = (kind: CopyFieldAction["kind"], copied: boolean) => {
 	if (kind === "share") {
-		return { icon: "share", label: "Share" };
+		return { icon: "share", label: kernelMessage("common.action.share") };
 	}
-	return copied ? { icon: "check", label: "Copied" } : { icon: "copy", label: "Copy" };
+	return copied
+		? { icon: "check", label: kernelMessage("ui.copy-field.copied") }
+		: { icon: "copy", label: kernelMessage("ui.copy-field.copy") };
 };
 
 export function CopyField(props: {
@@ -32,6 +36,7 @@ export function CopyField(props: {
 	readonly multiline?: boolean;
 	readonly action: CopyFieldAction;
 }) {
+	const t = useT();
 	const id = useId();
 	const labelId = `${id}-label`;
 	const hintId = props.hint === undefined ? undefined : `${id}-hint`;
@@ -99,22 +104,22 @@ export function CopyField(props: {
 						name={presentation.icon}
 						className={clsx(status === "copied" && "text-success")}
 					/>
-					{presentation.label}
+					{t(presentation.label)}
 				</Button>
 				{props.href !== undefined && (
 					<a
 						target="_blank"
 						href={props.href}
 						rel="noopener noreferrer"
-						aria-label="Open in new tab"
 						className={iconButtonClassName("sm", "ghost")}
+						aria-label={t(kernelMessage("ui.copy-field.open-in-new-tab"))}
 					>
 						<AppIcon size={16} name="external-link" />
 					</a>
 				)}
 			</div>
 			{status === "failed" && (
-				<FieldMessage>Could not copy. Select the text and copy it manually.</FieldMessage>
+				<FieldMessage>{t(kernelMessage("ui.copy-field.copy-failed"))}</FieldMessage>
 			)}
 			{hintId !== undefined && (
 				<p id={hintId} className="text-xs text-text-muted">

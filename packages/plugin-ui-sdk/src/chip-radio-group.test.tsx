@@ -1,14 +1,16 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
 
 import { ChipRadioGroup } from "./chip-radio-group";
+import { render } from "./i18n.test-support";
 
 const options = [
-	{ value: "all", label: "All 4" },
-	{ value: "cover", label: "Cover 2" },
-	{ value: "logo", label: "Logo 2" },
+	{ value: "all", label: testText("All 4") },
+	{ value: "cover", label: testText("Cover 2") },
+	{ value: "logo", label: testText("Logo 2") },
 ] as const;
 
 function Filter(props: { readonly overflow: "wrap" | "scroll" }) {
@@ -19,8 +21,8 @@ function Filter(props: { readonly overflow: "wrap" | "scroll" }) {
 			className="px-4"
 			options={options}
 			onChange={setValue}
-			label="Filter images"
 			overflow={props.overflow}
+			label={testText("Filter images")}
 		/>
 	);
 }

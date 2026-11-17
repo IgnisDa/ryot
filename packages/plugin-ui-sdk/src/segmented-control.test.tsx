@@ -1,12 +1,14 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { SegmentedControl } from "./segmented-control";
 
 const options = [
-	{ value: "grid", label: "Grid view", content: <span data-testid="grid-icon" /> },
-	{ value: "list", label: "List view", content: <span data-testid="list-icon" /> },
+	{ value: "grid", label: testText("Grid view"), content: <span data-testid="grid-icon" /> },
+	{ value: "list", label: testText("List view"), content: <span data-testid="list-icon" /> },
 ] as const;
 
 describe("SegmentedControl", () => {
@@ -16,7 +18,7 @@ describe("SegmentedControl", () => {
 				value="grid"
 				options={options}
 				onChange={() => {}}
-				label="Saved view layout"
+				label={testText("Saved view layout")}
 			/>,
 		);
 
@@ -36,7 +38,7 @@ describe("SegmentedControl", () => {
 			<SegmentedControl
 				value="grid"
 				options={options}
-				label="Saved view layout"
+				label={testText("Saved view layout")}
 				onChange={(value) => selected.push(value)}
 			/>,
 		);
@@ -57,7 +59,7 @@ describe("SegmentedControl", () => {
 			<SegmentedControl
 				value="grid"
 				options={options}
-				label="Saved view layout"
+				label={testText("Saved view layout")}
 				onChange={(value) => selected.push(value)}
 			/>,
 		);
@@ -70,7 +72,12 @@ describe("SegmentedControl", () => {
 
 	it("stretches the control and its options only when asked to fill", () => {
 		const { rerender } = render(
-			<SegmentedControl value="grid" label="Layout" options={options} onChange={() => {}} />,
+			<SegmentedControl
+				value="grid"
+				options={options}
+				onChange={() => {}}
+				label={testText("Layout")}
+			/>,
 		);
 		const group = screen.getByRole("radiogroup", { name: "Layout" });
 		const grid = screen.getByRole("radio", { name: "Grid view" });
@@ -82,10 +89,10 @@ describe("SegmentedControl", () => {
 			<SegmentedControl
 				fill
 				value="grid"
-				label="Layout"
 				options={options}
 				onChange={() => {}}
 				optionClassName="px-3"
+				label={testText("Layout")}
 			/>,
 		);
 		expect(group.classList.contains("w-full")).toBe(true);

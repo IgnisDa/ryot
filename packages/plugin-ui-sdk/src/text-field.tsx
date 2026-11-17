@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import { type ComponentProps, type ReactNode, useId } from "react";
 
@@ -105,6 +107,7 @@ export function Field(props: {
 	readonly error?: string | undefined;
 	readonly children: (control: FieldControl) => ReactNode;
 }) {
+	const t = useT();
 	const id = useId();
 	const hintId = props.hint === undefined ? undefined : `${id}-hint`;
 	const errorId = props.error === undefined ? undefined : `${id}-error`;
@@ -114,7 +117,9 @@ export function Field(props: {
 			<label htmlFor={id} className="text-label font-medium text-text">
 				{props.label}
 				{props.optional === true && (
-					<span className="font-normal text-text-subtle"> (optional)</span>
+					<span className="font-normal text-text-subtle">
+						{t(kernelMessage("ui.field.optional-suffix"))}
+					</span>
 				)}
 			</label>
 			{props.children({

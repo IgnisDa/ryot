@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { type KeyboardEvent, type ReactNode, useState } from "react";
 
 import { Chip } from "./chips";
@@ -10,11 +13,12 @@ export function TagInput(props: {
 	readonly invalid?: boolean | undefined;
 	readonly maxItems?: number | undefined;
 	readonly maxLength?: number | undefined;
-	readonly placeholder?: string | undefined;
+	readonly placeholder?: Text | undefined;
+	readonly removeLabel?: (value: string) => Text;
 	readonly "aria-describedby"?: string | undefined;
-	readonly removeLabel?: (value: string) => string;
 	readonly onChange: (values: readonly string[]) => void;
 }) {
+	const t = useT();
 	const [text, setText] = useState("");
 	const full = props.maxItems !== undefined && props.values.length >= props.maxItems;
 	const commit = () => {
@@ -42,11 +46,13 @@ export function TagInput(props: {
 				<ul className="flex flex-wrap gap-1.5">
 					{props.values.map((value) => (
 						<li key={value} className="flex items-center gap-1">
-							<Chip checked label={value} />
+							<Chip checked label={Text(value)} />
 							<button
 								type="button"
-								aria-label={props.removeLabel?.(value) ?? `Remove ${value}`}
 								onClick={() => props.onChange(props.values.filter((item) => item !== value))}
+								aria-label={
+									props.removeLabel?.(value) ?? t(kernelMessage("ui.tag-input.remove", { value }))
+								}
 								className="flex text-text-muted hover:text-text pointer-coarse:size-9 pointer-coarse:items-center pointer-coarse:justify-center"
 							>
 								{props.removeIcon}

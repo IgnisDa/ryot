@@ -1,11 +1,12 @@
 import { describe, expect } from "bun:test";
 
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { revealFocusedField, revealOffset, useFocusedFieldVisibility } from "./focused-field";
+import { render } from "./i18n.test-support";
 
 function Fields() {
 	useFocusedFieldVisibility();

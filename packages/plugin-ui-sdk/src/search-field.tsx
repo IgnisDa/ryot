@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { HotkeyChord } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
 import { type ReactNode, type RefObject, useRef } from "react";
@@ -7,13 +10,13 @@ import { useShortcut } from "./shortcut";
 import { ShortcutHint } from "./shortcut-hint";
 
 type SearchFieldProps = {
-	readonly label: string;
+	readonly label: Text;
 	readonly value: string;
 	readonly icon: ReactNode;
 	readonly className?: string;
+	readonly placeholder?: Text;
 	readonly autoFocus?: boolean;
 	readonly clearIcon: ReactNode;
-	readonly placeholder?: string;
 	readonly onSubmit?: () => void;
 	readonly shortcut?: HotkeyChord;
 	readonly onChange: (value: string) => void;
@@ -33,6 +36,7 @@ export function SearchField({
 	className,
 	placeholder,
 }: SearchFieldProps) {
+	const t = useT();
 	const fallbackRef = useRef<HTMLInputElement>(null);
 	const input = inputRef ?? fallbackRef;
 	useShortcut(shortcut ?? "/", () => input.current?.focus(), { enabled: shortcut !== undefined });
@@ -70,8 +74,8 @@ export function SearchField({
 			{value !== "" && (
 				<button
 					type="button"
-					aria-label="Clear search"
 					onClick={() => onChange("")}
+					aria-label={t(kernelMessage("ui.search-field.clear"))}
 					className="absolute top-1/2 right-2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-text-muted"
 				>
 					{clearIcon}
