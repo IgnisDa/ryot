@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -17,15 +19,13 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 
 export const Route = createFileRoute("/oauth/two-factor")({
 	component: OAuthTwoFactor,
+	pendingComponent: OAuthTwoFactorPending,
 	errorComponent: OAuthTwoFactorUnavailable,
 	validateSearch: (search) => ({
 		from: search.from === "settings" ? ("settings" as const) : undefined,
 	}),
 	beforeLoad: ({ context }) =>
 		context.runtime.runPromise(Effect.map(browserServerOrigin, (server) => ({ server }))),
-	pendingComponent: () => (
-		<AuthStatus title="Loading sign-in options" message="Reading this server's settings..." />
-	),
 	loader: ({ context, abortController }) =>
 		context.runtime.runPromise(
 			Effect.flatMap(PublicApi, (api) => api.getSystemConfig(context.server)),
@@ -43,8 +43,19 @@ type Step =
 			readonly methods: readonly TwoFactorMethod[];
 	  };
 
+function OAuthTwoFactorPending() {
+	const t = useT();
+	return (
+		<AuthStatus
+			title={t(kernelMessage("client.route.oauth-shared.options-loading-title"))}
+			message={t(kernelMessage("client.route.oauth-shared.options-loading-detail"))}
+		/>
+	);
+}
+
 function OAuthTwoFactorFrame(props: { readonly children: ReactNode }) {
-	usePageTitle("Two-factor authentication");
+	const t = useT();
+	usePageTitle(t(kernelMessage("client.settings.account.two-factor.title")));
 	return (
 		<main {...mainContentProps} className="ui-page">
 			{props.children}
@@ -53,11 +64,12 @@ function OAuthTwoFactorFrame(props: { readonly children: ReactNode }) {
 }
 
 function OAuthTwoFactorUnavailable() {
+	const t = useT();
 	const router = useRouter();
 	return (
 		<AuthStatus
-			title="Could not reach this server"
-			message="Authentication settings could not be loaded. Check the server and try again."
+			title={t(kernelMessage("client.route.oauth-shared.server-unreachable-title"))}
+			message={t(kernelMessage("client.route.oauth-shared.server-unreachable-detail"))}
 			actions={
 				<Button
 					type="button"
@@ -65,7 +77,7 @@ function OAuthTwoFactorUnavailable() {
 					className="w-full"
 					onClick={() => void router.invalidate()}
 				>
-					Try again
+					{t(kernelMessage("common.action.try-again"))}
 				</Button>
 			}
 		/>
@@ -73,6 +85,7 @@ function OAuthTwoFactorUnavailable() {
 }
 
 function OAuthTwoFactor() {
+	const t = useT();
 	const config = Route.useLoaderData();
 	const { from } = Route.useSearch();
 	const navigate = Route.useNavigate();
@@ -84,7 +97,7 @@ function OAuthTwoFactor() {
 	const openManagement = (password: string) =>
 		auth.twoFactorSession.pipe(
 			Effect.match({
-				onFailure: (error) => error.message,
+				onFailure: (error) => error.reason,
 				onSuccess: (session) => {
 					setStep({ password, kind: "manage", enabled: session.twoFactorEnabled });
 					return undefined;
@@ -95,7 +108,7 @@ function OAuthTwoFactor() {
 	function submitCredentials(values: CredentialsValues) {
 		return auth.submitCredentials({ values, mode: "login", oauthQuery: hostedOAuthQuery() }).pipe(
 			Effect.matchEffect({
-				onFailure: (error) => Effect.succeed(error.message),
+				onFailure: (error) => Effect.succeed(error.reason),
 				onSuccess: (result) => {
 					if (result._tag === "TwoFactor") {
 						setTwoFactorMethod(result.methods[0]);
@@ -114,7 +127,7 @@ function OAuthTwoFactor() {
 			.pipe(
 				Effect.matchEffect({
 					onSuccess: () => openManagement(password),
-					onFailure: (error) => Effect.succeed(error.message),
+					onFailure: (error) => Effect.succeed(error.reason),
 				}),
 			);
 	}
@@ -135,8 +148,12 @@ function OAuthTwoFactor() {
 	if (config.frontendOrigin !== server) {
 		return (
 			<AuthStatus
-				title="Server configuration mismatch"
-				message={`This server is configured for ${config.frontendOrigin}. Open that address to manage two-factor authentication.`}
+				title={t(kernelMessage("client.route.oauth-shared.config-mismatch-title"))}
+				message={t(
+					kernelMessage("client.route.oauth-two-factor.mismatch-detail", {
+						origin: config.frontendOrigin,
+					}),
+				)}
 			/>
 		);
 	}
@@ -144,8 +161,8 @@ function OAuthTwoFactor() {
 	if (!deriveAuthMethods(config).emailSignIn) {
 		return (
 			<AuthStatus
-				title="Two-factor authentication unavailable"
-				message="Two-factor authentication management requires password sign-in, which this server has disabled."
+				title={t(kernelMessage("client.route.oauth-two-factor.unavailable-title"))}
+				message={t(kernelMessage("client.route.oauth-two-factor.unavailable-detail"))}
 			/>
 		);
 	}
@@ -153,8 +170,8 @@ function OAuthTwoFactor() {
 	if (step.kind === "finished") {
 		return (
 			<AuthStatus
-				title="Two-factor authentication"
-				message="You can close this window and return to Ryot."
+				title={t(kernelMessage("client.settings.account.two-factor.title"))}
+				message={t(kernelMessage("client.route.oauth-two-factor.finished-detail"))}
 			/>
 		);
 	}
@@ -192,7 +209,11 @@ function OAuthTwoFactor() {
 							onModeChange={() => undefined}
 						/>
 						<p className="text-center text-xs text-text-subtle">
-							Sign in again to manage two-factor authentication on {new URL(server).hostname}.
+							{t(
+								kernelMessage("client.route.oauth-two-factor.sign-in-again", {
+									hostname: new URL(server).hostname,
+								}),
+							)}
 						</p>
 					</>
 				)}

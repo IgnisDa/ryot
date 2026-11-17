@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Effect, Schedule } from "effect";
@@ -9,11 +12,12 @@ import { AuthStatus } from "#/modules/auth/status";
 export const Route = createFileRoute("/oauth/initializing")({ component: OAuthInitializing });
 
 function OAuthInitializing() {
+	const t = useT();
 	const navigate = useNavigate();
 	const { runtime, hostedOAuthQuery } = Route.useRouteContext();
 	const auth = runtime.runSync(HostedAuthService);
 	const controller = useRef(new AbortController());
-	const [error, setError] = useState<string>();
+	const [error, setError] = useState<Message>();
 	const [signingOut, setSigningOut] = useState(false);
 	function watchInitialization(signal: AbortSignal) {
 		runtime.runFork(
@@ -23,7 +27,7 @@ function OAuthInitializing() {
 					while: ({ status }) => status === "initializing",
 				}),
 				Effect.andThen(() => auth.continueAfterInitialization(hostedOAuthQuery())),
-				Effect.catch((failure) => Effect.sync(() => setError(failure.message))),
+				Effect.catch((failure) => Effect.sync(() => setError(failure.reason))),
 			),
 			{ signal },
 		);
@@ -56,7 +60,7 @@ function OAuthInitializing() {
 				),
 				Effect.catch((failure) =>
 					Effect.sync(() => {
-						setError(failure.message);
+						setError(failure.reason);
 						setSigningOut(false);
 					}),
 				),
@@ -66,16 +70,17 @@ function OAuthInitializing() {
 
 	return (
 		<AuthStatus
-			title={error ? "Account initialization paused" : "Preparing your account"}
-			message={
-				error ??
-				"Your account is secure. Ryot is preparing your workspace and will continue automatically."
+			message={t(error ?? kernelMessage("client.route.oauth-initializing.preparing-detail"))}
+			title={
+				error
+					? t(kernelMessage("client.route.oauth-initializing.paused-title"))
+					: t(kernelMessage("client.route.oauth-initializing.preparing-title"))
 			}
 			actions={
 				<div className="grid gap-2">
 					{error && (
 						<Button type="button" variant="primary" className="w-full" onClick={tryAgain}>
-							Try again
+							{t(kernelMessage("common.action.try-again"))}
 						</Button>
 					)}
 					<Button
@@ -85,7 +90,9 @@ function OAuthInitializing() {
 						variant="secondary"
 						disabled={signingOut}
 					>
-						{signingOut ? "Signing out..." : "Sign out"}
+						{signingOut
+							? t(kernelMessage("client.settings.account.session.signing-out"))
+							: t(kernelMessage("common.action.sign-out"))}
 					</Button>
 				</div>
 			}

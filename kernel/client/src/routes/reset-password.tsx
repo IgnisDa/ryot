@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createErrorVisibility, useForm } from "@tanstack/react-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
@@ -41,7 +44,8 @@ export const Route = createFileRoute("/reset-password")({
 });
 
 function ResetPasswordFrame(props: { readonly children: ReactNode }) {
-	usePageTitle("Choose a new password");
+	const t = useT();
+	usePageTitle(t(kernelMessage("client.route.reset-password.choose-title")));
 	return (
 		<main {...mainContentProps} className="ui-page">
 			{props.children}
@@ -50,6 +54,7 @@ function ResetPasswordFrame(props: { readonly children: ReactNode }) {
 }
 
 function ResetPassword() {
+	const t = useT();
 	const { token } = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const { server, runtime } = Route.useRouteContext();
@@ -57,8 +62,8 @@ function ResetPassword() {
 	if (token === undefined) {
 		return (
 			<AuthStatus
-				title="Invalid reset link"
-				message="This password reset link is missing its token. Ask your administrator for a new link."
+				title={t(kernelMessage("client.route.reset-password.invalid-title"))}
+				message={t(kernelMessage("client.route.reset-password.invalid-detail"))}
 				actions={
 					<Button
 						type="button"
@@ -68,7 +73,7 @@ function ResetPassword() {
 							void navigate({ to: "/auth", replace: true, search: { redirect: undefined } })
 						}
 					>
-						Back to sign in
+						{t(kernelMessage("client.auth.back-to-sign-in"))}
 					</Button>
 				}
 			/>
@@ -87,12 +92,13 @@ function ResetPasswordForm(props: {
 	readonly server: ServerOrigin;
 	readonly runtime: ClientRuntime;
 }) {
+	const t = useT();
 	const navigate = Route.useNavigate();
 	const auth = props.runtime.runSync(HostedAuthService);
 	const confirmationRef = useRef<HTMLInputElement>(null);
 	const controller = useRef(new AbortController());
 	const [done, setDone] = useState(false);
-	const [serverError, setServerError] = useState<string>();
+	const [serverError, setServerError] = useState<Message>();
 	useEffect(() => () => controller.current.abort(), []);
 
 	const form = useForm({
@@ -103,7 +109,7 @@ function ResetPasswordForm(props: {
 				Effect.gen(function* () {
 					setServerError(undefined);
 					if (value.password !== value.confirmation) {
-						setServerError("Passwords do not match.");
+						setServerError(kernelMessage("client.route.reset-password.passwords-differ"));
 						return;
 					}
 					yield* auth
@@ -114,8 +120,8 @@ function ResetPasswordForm(props: {
 								onFailure: (error) =>
 									setServerError(
 										error.code === "INVALID_TOKEN"
-											? "This password reset link is invalid or has expired."
-											: "Could not reset your password.",
+											? kernelMessage("client.route.reset-password.token-invalid")
+											: kernelMessage("client.route.reset-password.reset-failed"),
 									),
 							}),
 						);
@@ -127,8 +133,8 @@ function ResetPasswordForm(props: {
 	if (done) {
 		return (
 			<AuthStatus
-				title="Password updated"
-				message="Sign in with your new password to continue."
+				title={t(kernelMessage("client.route.reset-password.done-title"))}
+				message={t(kernelMessage("client.route.reset-password.done-detail"))}
 				actions={
 					<Button
 						type="button"
@@ -138,7 +144,7 @@ function ResetPasswordForm(props: {
 							void navigate({ to: "/auth", replace: true, search: { redirect: undefined } })
 						}
 					>
-						Sign in
+						{t(kernelMessage("common.action.sign-in"))}
 					</Button>
 				}
 			/>
@@ -153,9 +159,9 @@ function ResetPasswordForm(props: {
 			>
 				<div>
 					<h1 className="ui-heading" id="reset-password-title">
-						Choose a new password
+						{t(kernelMessage("client.route.reset-password.choose-title"))}
 					</h1>
-					<p className="ui-subtitle">Use at least 8 characters.</p>
+					<p className="ui-subtitle">{t(kernelMessage("client.route.reset-password.hint"))}</p>
 				</div>
 				<form
 					noValidate
@@ -174,13 +180,13 @@ function ResetPasswordForm(props: {
 										{
 											runOnMount: true,
 											triggers: ["change", "blur"],
-											run: ({ value }) => validatePassword(value),
+											run: ({ value }) => validatePassword(t, value),
 										},
 									]}
 								>
 									{(field) => (
 										<label className="ui-field-label">
-											<span>New password</span>
+											<span>{t(kernelMessage("client.route.reset-password.new-password"))}</span>
 											<input
 												autoFocus
 												type="password"
@@ -188,10 +194,10 @@ function ResetPasswordForm(props: {
 												value={field.value}
 												disabled={isSubmitting}
 												onBlur={field.handleBlur}
-												placeholder="New password"
 												className="ui-field-input"
 												autoComplete="new-password"
 												aria-invalid={field.errors.length > 0}
+												placeholder={t(kernelMessage("client.route.reset-password.new-password"))}
 												aria-describedby={
 													field.errors.length > 0 ? "new-password-error" : undefined
 												}
@@ -217,7 +223,9 @@ function ResetPasswordForm(props: {
 								<form.Field name="confirmation">
 									{(field) => (
 										<label className="ui-field-label">
-											<span>Confirm password</span>
+											<span>
+												{t(kernelMessage("client.route.reset-password.confirm-password"))}
+											</span>
 											<input
 												type="password"
 												name={field.name}
@@ -227,7 +235,9 @@ function ResetPasswordForm(props: {
 												onBlur={field.handleBlur}
 												className="ui-field-input"
 												autoComplete="new-password"
-												placeholder="Confirm password"
+												placeholder={t(
+													kernelMessage("client.route.reset-password.confirm-password"),
+												)}
 												onChange={(event) => {
 													field.handleChange(event.currentTarget.value);
 													setServerError(undefined);
@@ -241,13 +251,15 @@ function ResetPasswordForm(props: {
 					</form.Subscribe>
 					{serverError && (
 						<p role="alert" className="ui-field-error">
-							{serverError}
+							{t(serverError)}
 						</p>
 					)}
 					<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
 						{([canSubmit, isSubmitting]) => (
 							<Button type="submit" variant="primary" className="w-full" disabled={!canSubmit}>
-								{isSubmitting ? "Updating..." : "Update password"}
+								{isSubmitting
+									? t(kernelMessage("client.route.reset-password.updating"))
+									: t(kernelMessage("client.route.reset-password.update"))}
 							</Button>
 						)}
 					</form.Subscribe>

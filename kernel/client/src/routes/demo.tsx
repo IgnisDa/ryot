@@ -4,6 +4,8 @@ import {
 	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef } from "react";
@@ -17,10 +19,8 @@ import { AuthStatus } from "#/modules/auth/status";
 
 export const Route = createFileRoute("/demo")({
 	component: DemoLaunch,
+	pendingComponent: DemoPending,
 	errorComponent: DemoUnavailable,
-	pendingComponent: () => (
-		<AuthStatus title="Opening demo" message="Preparing the shared demo account..." />
-	),
 	beforeLoad: ({ context }) =>
 		context.runtime.runPromise(
 			Effect.gen(function* () {
@@ -63,16 +63,28 @@ export const Route = createFileRoute("/demo")({
 		),
 });
 
-function DemoUnavailable() {
+function DemoPending() {
+	const t = useT();
 	return (
 		<AuthStatus
-			title="Demo unavailable"
-			message="The shared demo account is not available on this server."
+			title={t(kernelMessage("client.route.demo.opening-title"))}
+			message={t(kernelMessage("client.route.demo.preparing-detail"))}
+		/>
+	);
+}
+
+function DemoUnavailable() {
+	const t = useT();
+	return (
+		<AuthStatus
+			title={t(kernelMessage("client.route.demo.unavailable-title"))}
+			message={t(kernelMessage("client.route.demo.unavailable-detail"))}
 		/>
 	);
 }
 
 function DemoLaunch() {
+	const t = useT();
 	const { plan, runtime } = Route.useRouteContext();
 	const launcher = runtime.runSync(OAuthLauncher);
 	const launched = useRef(false);
@@ -87,5 +99,10 @@ function DemoLaunch() {
 		}
 	}, []);
 
-	return <AuthStatus title="Opening demo" message="Continuing to the shared demo account..." />;
+	return (
+		<AuthStatus
+			title={t(kernelMessage("client.route.demo.opening-title"))}
+			message={t(kernelMessage("client.route.demo.opening-detail"))}
+		/>
+	);
 }

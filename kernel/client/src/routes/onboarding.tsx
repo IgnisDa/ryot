@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -15,15 +18,19 @@ import { ServerService } from "#/modules/server/service";
 const serverOptions = [
 	{
 		mode: "cloud",
-		label: "Ryot Cloud",
-		description: "The quickest way to start your personal library.",
+		label: kernelMessage("client.route.onboarding.cloud-label"),
+		description: kernelMessage("client.route.onboarding.cloud-detail"),
 	},
 	{
 		mode: "self-hosted",
-		label: "Self-hosted",
-		description: "Connect to a Ryot instance you manage.",
+		label: kernelMessage("client.route.onboarding.self-hosted-label"),
+		description: kernelMessage("client.route.onboarding.self-hosted-detail"),
 	},
-] as const;
+] as const satisfies readonly {
+	readonly label: Message;
+	readonly mode: ServerMode;
+	readonly description: Message;
+}[];
 
 export const Route = createFileRoute("/onboarding")({
 	component: Onboarding,
@@ -45,17 +52,18 @@ export const Route = createFileRoute("/onboarding")({
 });
 
 function Onboarding() {
+	const t = useT();
 	const { runtime } = Route.useRouteContext();
 	const search = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const serverService = runtime.runSync(ServerService);
 	const [mode, setMode] = useState<ServerMode>("cloud");
 	const [serverUrl, setServerUrl] = useState(() => suggestedServerOrigin(undefined));
-	const [validationError, setValidationError] = useState<string>();
+	const [validationError, setValidationError] = useState<Message>();
 	const [connection, dispatch] = useReducer(reduceConnectionState, initialConnectionState);
 	const connectionController = useRef<AbortController>(null);
 	const checking = connection.status === "checking";
-	usePageTitle("Set up your server");
+	usePageTitle(t(kernelMessage("client.route.onboarding.page-title")));
 	useEffect(() => () => connectionController.current?.abort(), []);
 
 	function changeMode(nextMode: ServerMode) {
@@ -64,11 +72,11 @@ function Onboarding() {
 		dispatch({ type: "changed" });
 	}
 
-	let submitLabel = "Continue";
+	let submitLabel = t(kernelMessage("common.action.continue"));
 	if (checking) {
-		submitLabel = "Checking...";
+		submitLabel = t(kernelMessage("client.route.onboarding.checking"));
 	} else if (connection.status === "error") {
-		submitLabel = "Retry";
+		submitLabel = t(kernelMessage("common.action.retry"));
 	}
 
 	function connect() {
@@ -76,7 +84,7 @@ function Onboarding() {
 
 		const result = resolveServerOrigin(mode, serverUrl);
 		if (!result.ok) {
-			setValidationError("Enter a valid URL, including http:// or https://.");
+			setValidationError(kernelMessage("client.route.onboarding.invalid-url"));
 			dispatch({ type: "changed" });
 			return Promise.resolve();
 		}
@@ -119,13 +127,11 @@ function Onboarding() {
 			className="ui-page md:grid-cols-[minmax(260px,400px)_minmax(400px,480px)] md:items-center md:justify-center md:gap-[clamp(48px,8vw,112px)] md:px-12"
 		>
 			<section aria-labelledby="onboarding-title" className="mx-auto w-[min(100%,480px)] md:mx-0">
-				<p className="ui-overline">Your private library</p>
+				<p className="ui-overline">{t(kernelMessage("client.route.onboarding.overline"))}</p>
 				<h1 id="onboarding-title" className="ui-heading">
-					Your Ryot, your server.
+					{t(kernelMessage("client.route.onboarding.heading"))}
 				</h1>
-				<p className="ui-subtitle">
-					Choose where your data lives. Ryot checks the connection before saving your selection.
-				</p>
+				<p className="ui-subtitle">{t(kernelMessage("client.route.onboarding.intro"))}</p>
 			</section>
 
 			<form
@@ -137,7 +143,9 @@ function Onboarding() {
 				}}
 			>
 				<fieldset disabled={checking}>
-					<legend className="ui-field-caption">Choose a server</legend>
+					<legend className="ui-field-caption">
+						{t(kernelMessage("client.route.onboarding.choose-server"))}
+					</legend>
 					<div className="grid gap-2.5">
 						{serverOptions.map((option) => (
 							<label
@@ -153,8 +161,8 @@ function Onboarding() {
 									className="mt-0.75 size-4.5 accent-accent"
 								/>
 								<span className="grid gap-0.75">
-									<strong className="text-base font-semibold">{option.label}</strong>
-									<small className="text-sm text-text-muted">{option.description}</small>
+									<strong className="text-base font-semibold">{t(option.label)}</strong>
+									<small className="text-sm text-text-muted">{t(option.description)}</small>
 								</span>
 							</label>
 						))}
@@ -162,7 +170,9 @@ function Onboarding() {
 
 					{mode === "self-hosted" && (
 						<label className="mt-4 grid">
-							<span className="ui-field-caption">Server URL</span>
+							<span className="ui-field-caption">
+								{t(kernelMessage("client.route.onboarding.server-url"))}
+							</span>
 							<input
 								type="url"
 								inputMode="url"
@@ -170,9 +180,9 @@ function Onboarding() {
 								value={serverUrl}
 								autoCapitalize="none"
 								className="ui-field-input"
-								placeholder="https://ryot.example.com"
 								aria-invalid={validationError !== undefined}
 								aria-describedby={validationError ? "server-url-error" : undefined}
+								placeholder={t(kernelMessage("client.route.onboarding.server-url-placeholder"))}
 								onChange={(event) => {
 									setServerUrl(event.currentTarget.value);
 									setValidationError(undefined);
@@ -181,7 +191,7 @@ function Onboarding() {
 							/>
 							{validationError && (
 								<small role="alert" id="server-url-error" className="ui-field-error mt-1.5">
-									{validationError}
+									{t(validationError)}
 								</small>
 							)}
 						</label>
@@ -191,17 +201,17 @@ function Onboarding() {
 				<div aria-live="polite">
 					{connection.status === "checking" && (
 						<p role="status" className="ui-form-status">
-							Checking server...
+							{t(kernelMessage("client.route.onboarding.status-checking"))}
 						</p>
 					)}
 					{connection.status === "error" && (
 						<p role="alert" className="ui-form-status text-danger">
-							Could not reach a healthy Ryot server. Check the address and try again.
+							{t(kernelMessage("client.route.onboarding.status-failed"))}
 						</p>
 					)}
 					{connection.status === "success" && (
 						<p role="status" className="ui-form-status text-success">
-							Server connected. Continuing...
+							{t(kernelMessage("client.route.onboarding.status-succeeded"))}
 						</p>
 					)}
 				</div>

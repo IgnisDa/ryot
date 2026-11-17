@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test";
 
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -20,6 +21,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -106,7 +108,7 @@ const mountConsent = (overrides: Partial<HostedAuthService["Service"]> = {}) => 
 		).pipe(Layer.provideMerge(oauth), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [`/oauth/consent?${signedOAuthQuery}`] }),
 	);
 	render(<RouterProvider router={router} />);
@@ -120,8 +122,16 @@ describe("Hosted OAuth consent", () => {
 			Effect.gen(function* () {
 				const mounted = mountConsent();
 				yield* Effect.promise(() => screen.findByRole("heading", { name: "Approve access" }));
-				expect(screen.getByText("Registered app")).not.toBeNull();
-				expect(screen.getByText("https://client.example")).not.toBeNull();
+				const clientName = screen.getByText("Registered app");
+				expect(clientName.tagName).toBe("STRONG");
+				expect(clientName.parentElement?.textContent).toBe(
+					"Registered app wants to access your Ryot account.",
+				);
+				const redirectOrigin = screen.getByText("https://client.example");
+				expect(redirectOrigin.tagName).toBe("STRONG");
+				expect(redirectOrigin.parentElement?.textContent).toBe(
+					"You will return to https://client.example.",
+				);
 				expect(screen.getByRole("button", { name: /^Access:/ }).textContent).toContain(
 					"Ask before each change",
 				);
@@ -233,14 +243,19 @@ describe("Hosted OAuth consent", () => {
 		() =>
 			Effect.gen(function* () {
 				mountConsent({
-					submitConsent: () => Effect.fail(new HostedAuthError({ message: "Connection lost" })),
+					submitConsent: () =>
+						Effect.fail(
+							new HostedAuthError({
+								reason: kernelMessage("client.auth.hosted.consent-submit-failed"),
+							}),
+						),
 				});
 				const button = yield* Effect.promise(() =>
 					screen.findByRole("button", { name: "Approve" }),
 				);
 				yield* Effect.promise(() => userEvent.click(button));
 				const alert = yield* Effect.promise(() => screen.findByRole("alert"));
-				expect(alert.textContent).toBe("Connection lost");
+				expect(alert.textContent).toBe("Could not submit your decision. Try again.");
 				expect(screen.getByRole<HTMLButtonElement>("button", { name: "Deny" }).disabled).toBe(
 					false,
 				);
@@ -253,11 +268,18 @@ describe("Hosted OAuth consent", () => {
 		() =>
 			Effect.gen(function* () {
 				mountConsent({
-					consentDetails: () => Effect.fail(new HostedAuthError({ message: "Invalid signature" })),
+					consentDetails: () =>
+						Effect.fail(
+							new HostedAuthError({ reason: kernelMessage("client.auth.hosted.consent-invalid") }),
+						),
 				});
-				yield* Effect.promise(() => screen.findByText("Invalid signature"));
+				yield* Effect.promise(() =>
+					screen.findByText(
+						"This access request is invalid or has expired. Start the connection again from your app.",
+					),
+				);
 				expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
-				expect(screen.queryByText("Registered app")).toBeNull();
+				expect(screen.queryByText(/Registered app/)).toBeNull();
 			}),
 		testTimeout,
 	);
@@ -267,7 +289,10 @@ describe("Hosted OAuth consent", () => {
 		(stage) =>
 			Effect.gen(function* () {
 				const failure = Effect.fail(
-					new HostedAuthError({ code: "UNAUTHORIZED", message: "Session expired" }),
+					new HostedAuthError({
+						code: "UNAUTHORIZED",
+						reason: kernelMessage("client.auth.hosted.session-ended"),
+					}),
 				);
 				mountConsent(
 					stage === "load" ? { consentDetails: () => failure } : { submitConsent: () => failure },

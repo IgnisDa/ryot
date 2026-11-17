@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
@@ -12,10 +15,11 @@ export const Route = createFileRoute("/oauth/impersonate")({
 });
 
 function OAuthImpersonate() {
+	const t = useT();
 	const { url, ticket, runtime } = Route.useRouteContext();
 	const auth = runtime.runSync(HostedAuthService);
 	const started = useRef(false);
-	const [error, setError] = useState<string>();
+	const [error, setError] = useState<Message>();
 
 	useEffect(() => {
 		if (started.current) {
@@ -31,7 +35,7 @@ function OAuthImpersonate() {
 				Effect.tap(({ authorizationUrl }) =>
 					Effect.sync(() => window.location.assign(authorizationUrl)),
 				),
-				Effect.catch((failure) => Effect.sync(() => setError(failure.message))),
+				Effect.catch((failure) => Effect.sync(() => setError(failure.reason))),
 			),
 		);
 	}, [auth, runtime, ticket, url]);
@@ -39,13 +43,17 @@ function OAuthImpersonate() {
 	const message =
 		error ??
 		(ticket === null
-			? "This impersonation request is missing or invalid. Start it again from Instance Admin."
-			: "Continuing through the server's secure sign-in flow...");
+			? kernelMessage("client.route.oauth-impersonate.invalid-detail")
+			: kernelMessage("client.route.oauth-impersonate.continuing-detail"));
 
 	return (
 		<AuthStatus
-			message={message}
-			title={error || ticket === null ? "Could not start impersonation" : "Starting secure sign-in"}
+			message={t(message)}
+			title={t(
+				error || ticket === null
+					? kernelMessage("client.route.oauth-impersonate.failed-title")
+					: kernelMessage("client.route.oauth-impersonate.starting-title"),
+			)}
 		/>
 	);
 }

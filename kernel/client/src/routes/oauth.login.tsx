@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -16,12 +19,10 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 
 export const Route = createFileRoute("/oauth/login")({
 	component: OAuthLogin,
+	pendingComponent: OAuthLoginPending,
 	errorComponent: OAuthLoginUnavailable,
 	beforeLoad: ({ context }) =>
 		context.runtime.runPromise(Effect.map(browserServerOrigin, (server) => ({ server }))),
-	pendingComponent: () => (
-		<AuthStatus title="Loading sign-in options" message="Reading this server's settings..." />
-	),
 	loader: ({ context, abortController }) =>
 		context.runtime.runPromise(
 			Effect.flatMap(PublicApi, (api) => api.getSystemConfig(context.server)),
@@ -30,7 +31,8 @@ export const Route = createFileRoute("/oauth/login")({
 });
 
 function OAuthLoginFrame(props: { readonly children: ReactNode }) {
-	usePageTitle("Sign in");
+	const t = useT();
+	usePageTitle(t(kernelMessage("common.action.sign-in")));
 	return (
 		<main {...mainContentProps} className="ui-page">
 			{props.children}
@@ -38,12 +40,23 @@ function OAuthLoginFrame(props: { readonly children: ReactNode }) {
 	);
 }
 
+function OAuthLoginPending() {
+	const t = useT();
+	return (
+		<AuthStatus
+			title={t(kernelMessage("client.route.oauth-shared.options-loading-title"))}
+			message={t(kernelMessage("client.route.oauth-shared.options-loading-detail"))}
+		/>
+	);
+}
+
 function OAuthLoginUnavailable() {
+	const t = useT();
 	const router = useRouter();
 	return (
 		<AuthStatus
-			title="Could not reach this server"
-			message="Authentication settings could not be loaded. Check the server and try again."
+			title={t(kernelMessage("client.route.oauth-shared.server-unreachable-title"))}
+			message={t(kernelMessage("client.route.oauth-shared.server-unreachable-detail"))}
 			actions={
 				<Button
 					type="button"
@@ -51,7 +64,7 @@ function OAuthLoginUnavailable() {
 					className="w-full"
 					onClick={() => void router.invalidate()}
 				>
-					Try again
+					{t(kernelMessage("common.action.try-again"))}
 				</Button>
 			}
 		/>
@@ -59,13 +72,14 @@ function OAuthLoginUnavailable() {
 }
 
 function OAuthLogin() {
+	const t = useT();
 	const config = Route.useLoaderData();
 	const { server, runtime, hostedOAuthQuery } = Route.useRouteContext();
 	const auth = runtime.runSync(HostedAuthService);
 	const controller = useRef(new AbortController());
 	const oidcAutoLaunched = useRef(false);
 	const [mode, setMode] = useState<AuthMode>("login");
-	const [oidcError, setOidcError] = useState<string>();
+	const [oidcError, setOidcError] = useState<Message>();
 	const [oidcPending, setOidcPending] = useState(false);
 	const [twoFactorMethods, setTwoFactorMethods] = useState<readonly TwoFactorMethod[]>();
 	const [twoFactorMethod, setTwoFactorMethod] = useState<TwoFactorMethod>("totp");
@@ -76,7 +90,7 @@ function OAuthLogin() {
 	function submitCredentials(values: CredentialsValues) {
 		return auth.submitCredentials({ mode, values, oauthQuery: hostedOAuthQuery() }).pipe(
 			Effect.match({
-				onFailure: (error) => error.message,
+				onFailure: (error) => error.reason,
 				onSuccess: (result) => {
 					if (result._tag === "TwoFactor") {
 						setTwoFactorMethods(result.methods);
@@ -91,7 +105,7 @@ function OAuthLogin() {
 	function submitTwoFactor(code: string) {
 		return auth
 			.verifyTwoFactor(twoFactorMethod, code, hostedOAuthQuery())
-			.pipe(Effect.match({ onSuccess: () => undefined, onFailure: (error) => error.message }));
+			.pipe(Effect.match({ onSuccess: () => undefined, onFailure: (error) => error.reason }));
 	}
 
 	function signInWithOidc() {
@@ -104,7 +118,7 @@ function OAuthLogin() {
 			auth.signInWithOidc(hostedOAuthQuery()).pipe(
 				Effect.catch((failure) =>
 					Effect.sync(() => {
-						setOidcError(failure.message);
+						setOidcError(failure.reason);
 						setOidcPending(false);
 					}),
 				),
@@ -129,8 +143,12 @@ function OAuthLogin() {
 	if (config.frontendOrigin !== server) {
 		return (
 			<AuthStatus
-				title="Server configuration mismatch"
-				message={`This server is configured for ${config.frontendOrigin}. Open that address to sign in.`}
+				title={t(kernelMessage("client.route.oauth-shared.config-mismatch-title"))}
+				message={t(
+					kernelMessage("client.route.oauth-login.mismatch-detail", {
+						origin: config.frontendOrigin,
+					}),
+				)}
 			/>
 		);
 	}
@@ -138,8 +156,8 @@ function OAuthLogin() {
 	if (!methods.emailSignIn && !methods.oidc) {
 		return (
 			<AuthStatus
-				title="Authentication unavailable"
-				message="This server has no browser sign-in method enabled."
+				title={t(kernelMessage("client.route.oauth-login.auth-unavailable-title"))}
+				message={t(kernelMessage("client.route.oauth-login.auth-unavailable-detail"))}
 			/>
 		);
 	}
@@ -163,9 +181,11 @@ function OAuthLogin() {
 						{!methods.emailSignIn && (
 							<div>
 								<h1 id="auth-title" className="ui-heading">
-									Welcome back
+									{t(kernelMessage("client.auth.mode.login.title"))}
 								</h1>
-								<p className="ui-subtitle">Continue with this server's identity provider.</p>
+								<p className="ui-subtitle">
+									{t(kernelMessage("client.route.oauth-login.welcome-detail"))}
+								</p>
 							</div>
 						)}
 						{methods.emailSignIn && (
@@ -181,12 +201,12 @@ function OAuthLogin() {
 							<div className="ui-stack">
 								{methods.emailSignIn && (
 									<p className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-xs text-text-subtle uppercase before:h-px before:bg-border before:content-[''] after:h-px after:bg-border after:content-['']">
-										or
+										{t(kernelMessage("client.route.oauth-login.or"))}
 									</p>
 								)}
 								{oidcError && (
 									<p role="alert" className="ui-field-error">
-										{oidcError}
+										{t(oidcError)}
 									</p>
 								)}
 								<Button
@@ -197,13 +217,18 @@ function OAuthLogin() {
 									onClick={signInWithOidc}
 								>
 									{oidcPending
-										? "Opening provider..."
-										: (methods.oidc.buttonLabel ?? "Sign in with OpenID Connect")}
+										? t(kernelMessage("client.route.oauth-login.opening-provider"))
+										: (methods.oidc.buttonLabel ??
+											t(kernelMessage("client.route.oauth-login.provider-default")))}
 								</Button>
 							</div>
 						)}
 						<p className="text-center text-xs text-text-subtle">
-							Server: {new URL(server).hostname}
+							{t(
+								kernelMessage("client.route.oauth-login.server", {
+									hostname: new URL(server).hostname,
+								}),
+							)}
 						</p>
 					</>
 				)}

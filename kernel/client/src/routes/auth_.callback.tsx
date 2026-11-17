@@ -5,6 +5,8 @@ import {
 	OAUTH_WEB_CLIENT_IDS,
 	type OAuthCallbackQuery,
 } from "@ryot-app/contract/oauth";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 
@@ -19,15 +21,10 @@ import { ServerService } from "#/modules/server/service";
 const searchValue = (value: unknown) =>
 	typeof value === "string" && value !== "" ? value : undefined;
 
-const completingSignIn = {
-	title: "Completing sign-in",
-	message: "Finishing the secure token exchange...",
-};
-
 export const Route = createFileRoute("/auth_/callback")({
 	component: CompletingSignIn,
+	pendingComponent: CompletingSignIn,
 	errorComponent: CouldNotCompleteSignIn,
-	pendingComponent: () => <AuthStatus {...completingSignIn} />,
 	validateSearch: (search): OAuthCallbackQuery => ({
 		code: searchValue(search.code),
 		error: searchValue(search.error),
@@ -91,15 +88,22 @@ export const Route = createFileRoute("/auth_/callback")({
 		),
 });
 
-function CompletingSignIn() {
-	return <AuthStatus {...completingSignIn} />;
-}
-
 function CouldNotCompleteSignIn() {
+	const t = useT();
 	return (
 		<AuthStatus
-			title="Could not complete sign-in"
-			message="This authorization response is invalid or has already been used. Start sign-in again."
+			title={t(kernelMessage("client.route.auth-callback.failed-title"))}
+			message={t(kernelMessage("client.route.auth-callback.failed-detail"))}
+		/>
+	);
+}
+
+function CompletingSignIn() {
+	const t = useT();
+	return (
+		<AuthStatus
+			title={t(kernelMessage("client.route.auth-callback.completing-title"))}
+			message={t(kernelMessage("client.route.auth-callback.completing-detail"))}
 		/>
 	);
 }

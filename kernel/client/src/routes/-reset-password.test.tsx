@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { Capacitor } from "@capacitor/core";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -22,6 +23,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -86,7 +88,7 @@ const makeView = (
 		).pipe(Layer.provideMerge(oauth), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [path] }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -195,7 +197,12 @@ describe("Reset password route", () => {
 		() =>
 			Effect.gen(function* () {
 				makeView("/reset-password?token=expired", server, () =>
-					Effect.fail(new HostedAuthError({ code: "INVALID_TOKEN", message: "internal detail" })),
+					Effect.fail(
+						new HostedAuthError({
+							code: "INVALID_TOKEN",
+							reason: kernelMessage("client.route.reset-password.reset-failed"),
+						}),
+					),
 				);
 				const user = yield* Effect.promise(() => fillPasswords("new-password"));
 
@@ -207,7 +214,7 @@ describe("Reset password route", () => {
 						screen.findByText("This password reset link is invalid or has expired."),
 					),
 				).not.toBeNull();
-				expect(screen.queryByText("internal detail")).toBeNull();
+				expect(screen.queryByText("Could not reset your password.")).toBeNull();
 			}),
 		testTimeout,
 	);

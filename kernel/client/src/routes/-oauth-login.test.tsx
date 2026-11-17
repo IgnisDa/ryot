@@ -20,6 +20,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -100,7 +101,7 @@ const mountLogin = (
 		).pipe(Layer.provideMerge(oauth), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [path] }),
 	);
 	render(<RouterProvider router={router} />);

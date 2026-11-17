@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import type { AccessClass } from "@ryot-app/contract/oauth";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -20,6 +21,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -61,7 +63,9 @@ const mountDemo = (
 			signInDemo: Effect.suspend(() => {
 				hostedCalls += 1;
 				return options.failHosted
-					? Effect.fail(new HostedAuthError({ message: "sensitive server detail" }))
+					? Effect.fail(
+							new HostedAuthError({ reason: kernelMessage("client.auth.hosted.demo-open-failed") }),
+						)
 					: Effect.succeed({ mode: options.mode ?? "demo" });
 			}),
 		},
@@ -114,7 +118,7 @@ const mountDemo = (
 		).pipe(Layer.provideMerge(oauth), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: ["/demo"] }),
 	);
 	render(<RouterProvider router={router} />);
@@ -169,7 +173,7 @@ describe("demo entry route", () => {
 				expect(
 					screen.getByText("The shared demo account is not available on this server."),
 				).not.toBeNull();
-				expect(screen.queryByText("sensitive server detail")).toBeNull();
+				expect(screen.queryByText("Could not open the shared demo.")).toBeNull();
 			}),
 		testTimeout,
 	);

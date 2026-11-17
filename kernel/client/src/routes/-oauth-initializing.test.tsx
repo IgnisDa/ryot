@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test";
 
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -18,6 +19,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -63,7 +65,7 @@ const mountInitializing = (
 		).pipe(Layer.provideMerge(oauth), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [path] }),
 	);
 	render(<RouterProvider router={router} />);
@@ -107,7 +109,7 @@ describe("OAuth initialization", () => {
 				fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
 				const pending = yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Signing out..." }),
+					screen.findByRole("button", { name: "Signing out…" }),
 				);
 				expect(pending.hasAttribute("disabled")).toBe(true);
 				expect(signOuts).toBe(1);
@@ -129,14 +131,18 @@ describe("OAuth initialization", () => {
 					initializationStatus: Effect.suspend(() => {
 						statusCalls += 1;
 						return statusCalls === 1
-							? Effect.fail(new HostedAuthError({ message: "Could not prepare this account." }))
+							? Effect.fail(
+									new HostedAuthError({
+										reason: kernelMessage("client.auth.hosted.initialization-check-failed"),
+									}),
+								)
 							: Effect.never;
 					}),
 				});
 				yield* Effect.promise(() =>
 					screen.findByRole("heading", { name: "Account initialization paused" }),
 				);
-				expect(screen.getByText("Could not prepare this account.")).not.toBeNull();
+				expect(screen.getByText("Could not check account initialization.")).not.toBeNull();
 
 				fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
@@ -144,7 +150,7 @@ describe("OAuth initialization", () => {
 					screen.findByRole("heading", { name: "Preparing your account" }),
 				);
 				yield* Effect.promise(() => waitFor(() => expect(statusCalls).toBe(2)));
-				expect(screen.queryByText("Could not prepare this account.")).toBeNull();
+				expect(screen.queryByText("Could not check account initialization.")).toBeNull();
 			}),
 		testTimeout,
 	);
