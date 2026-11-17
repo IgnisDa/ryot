@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { testFormatters, testText } from "@ryot-app/kernel-messages/testing";
 import { localDateOf, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
 import {
@@ -13,7 +14,10 @@ import {
 describe("activityWindow", () => {
 	it("starts on the Monday 51 weeks before this week and spans local midnights", () => {
 		// 2026-09-25 is a Friday.
-		expect(activityWindow("2026-09-25", TimeZone.make("Asia/Kolkata"))).toEqual({
+		expect(
+			activityWindow("2026-09-25", { weekStart: 1, timeZone: TimeZone.make("Asia/Kolkata") }),
+		).toEqual({
+			weekStart: 1,
 			end: "2026-09-25",
 			start: "2025-09-29",
 			from: "2025-09-28T18:30:00.000Z",
@@ -21,14 +25,23 @@ describe("activityWindow", () => {
 		});
 	});
 
+	it("starts columns on the supplied week start", () => {
+		const window = activityWindow("2026-09-25", { weekStart: 0, timeZone: TimeZone.make("UTC") });
+		expect(window.start).toBe("2025-09-28");
+		expect(window.weekStart).toBe(0);
+	});
+
 	it("keeps a Monday today as the first day of the newest week", () => {
-		const window = activityWindow("2026-09-21", TimeZone.make("UTC"));
+		const window = activityWindow("2026-09-21", { weekStart: 1, timeZone: TimeZone.make("UTC") });
 		expect(window.start).toBe("2025-09-29");
 		expect(window.until).toBe("2026-09-22T00:00:00.000Z");
 	});
 
 	it("follows daylight saving shifts for the bounds", () => {
-		const window = activityWindow("2026-03-08", TimeZone.make("America/New_York"));
+		const window = activityWindow("2026-03-08", {
+			weekStart: 1,
+			timeZone: TimeZone.make("America/New_York"),
+		});
 		expect(window.from).toBe("2025-03-10T04:00:00.000Z");
 		expect(window.until).toBe("2026-03-09T04:00:00.000Z");
 	});
@@ -36,7 +49,10 @@ describe("activityWindow", () => {
 
 describe("activityDays", () => {
 	it("pads every date of the window and reads bucket instants as local dates", () => {
-		const window = activityWindow("2026-09-25", TimeZone.make("Asia/Kolkata"));
+		const window = activityWindow("2026-09-25", {
+			weekStart: 1,
+			timeZone: TimeZone.make("Asia/Kolkata"),
+		});
 		const days = activityDays(
 			window,
 			new Map([[localDateOf("2026-09-24T18:30:00.000Z", TimeZone.make("Asia/Kolkata")), 3]]),
@@ -74,17 +90,23 @@ describe("largestRemainderPercents", () => {
 	});
 });
 
+const copy = { underOne: "<1%", other: testText("Everything else") };
+
 describe("activityShares", () => {
 	it("drops inactive types and marks shares under one percent", () => {
 		expect(
-			activityShares([
-				{ events: 995, slug: "show", label: "Show" },
-				{ events: 5, slug: "book", label: "Book" },
-				{ events: 0, slug: "music", label: "Music" },
-			]),
+			activityShares(
+				[
+					{ events: 995, slug: "show", label: testText("Show") },
+					{ events: 5, slug: "book", label: testText("Book") },
+					{ events: 0, slug: "music", label: testText("Music") },
+				],
+				testFormatters,
+				copy,
+			),
 		).toEqual([
-			{ value: 995, key: "show", label: "Show", share: "100%" },
-			{ value: 5, key: "book", share: "<1%", label: "Book" },
+			{ value: 995, key: "show", share: "100%", label: testText("Show") },
+			{ value: 5, key: "book", share: "<1%", label: testText("Book") },
 		]);
 	});
 
@@ -92,9 +114,11 @@ describe("activityShares", () => {
 		const rows = ["a", "b", "c", "d", "e", "f"].map((slug, index) => ({
 			slug,
 			events: (index + 1) * 10,
-			label: slug.toUpperCase(),
+			label: testText(slug.toUpperCase()),
 		}));
-		expect(activityShares(rows).map(({ key, value }) => [key, value])).toEqual([
+		expect(
+			activityShares(rows, testFormatters, copy).map(({ key, value }) => [key, value]),
+		).toEqual([
 			["f", 60],
 			["e", 50],
 			["d", 40],

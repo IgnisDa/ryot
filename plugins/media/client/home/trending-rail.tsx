@@ -3,6 +3,7 @@ import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { trendingLatestMediaRecipe } from "../../shared/discovery-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { useMediaMessages } from "../messages";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail, HomeTileBadge } from "./home-rail";
 import { createHomeSectionQuery } from "./section-query";
@@ -20,10 +21,11 @@ const trendingQuery = createHomeSectionQuery(
 );
 
 export function TrendingRail(props: { readonly compact: boolean }) {
+	const text = useMediaMessages();
 	return (
 		<HomeRail
 			compact={props.compact}
-			title="Trending in films & shows"
+			title={text("home.trending.title")}
 			result={useRyotQuery(trendingQuery)}
 			tiles={({ trending }) =>
 				trending.items.map((item) => ({

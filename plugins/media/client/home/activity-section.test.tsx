@@ -26,7 +26,8 @@ import {
 	pendingQueryResult,
 	readyQueryResult,
 } from "../../tests/client/query-result-fixture";
-import { clickRyotElement, mountRyotClient } from "../../tests/client/test-support";
+import { servedTypeName } from "../../tests/client/served-names";
+import { clickRyotElement, mediaMessages, mountRyotClient } from "../../tests/client/test-support";
 import { type ActivityWindow, activityWindow } from "./activity-model";
 import { ActivitySection, ActivitySectionView } from "./activity-section";
 
@@ -72,6 +73,7 @@ function ActivityTestHarness() {
 const mountActivity = (clock: ReturnType<typeof createTestRyotClock>) =>
 	mountPluginPage(ActivityTestHarness, {
 		bootstrap: clock.bootstrap,
+		catalogs: [mediaMessages("media-owner")],
 		location: routeLocation("/v/k/analytics"),
 		page: {
 			...savedViewPageContext({
@@ -121,7 +123,10 @@ const replyUserPreferences = (
 					outcome,
 					requestId,
 					type: "account-result",
-					account: { entitlements: ["pro"], preferences: { timeZone, ratingScale: "hundred" } },
+					account: {
+						entitlements: ["pro"],
+						preferences: { timeZone, weekStart: 1, ratingScale: "hundred" },
+					},
 				}
 			: { outcome, requestId, reason: "transport", type: "account-result" },
 	);
@@ -135,8 +140,8 @@ const replyActivity = (
 const activity: MediaActivity = {
 	figures: { reviews: 7, minutes: 5430, finished: 1204, minutesMissing: 0 },
 	mediaTypes: [
-		{ events: 995, slug: "show", label: "Show" },
-		{ events: 5, slug: "book", label: "Book" },
+		{ events: 995, slug: "show", label: servedTypeName("show") },
+		{ events: 5, slug: "book", label: servedTypeName("book") },
 	],
 	days: [
 		{ events: 1, day: "2026-09-21" },
@@ -148,7 +153,7 @@ const activity: MediaActivity = {
 
 const activityResult = (value: MediaActivity): ActivityResult => ({
 	activity: value,
-	window: activityWindow(TODAY, TIME_ZONE),
+	window: activityWindow(TODAY, { weekStart: 1, timeZone: TIME_ZONE }),
 });
 
 const mount = (result: RyotQueryResult<ActivityResult>) =>

@@ -1,4 +1,5 @@
-import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import type { Formatters, RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import {
@@ -8,6 +9,7 @@ import {
 } from "../../shared/lifecycle-list-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { MediaProgressBar } from "../media/primitives";
+import { type MediaText, useMediaMessages } from "../messages";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail, type HomeTile, HomeTileBadge } from "./home-rail";
 import { episodePositionLabel, flatProgressLabel, resumeLabel } from "./labels";
@@ -45,14 +47,19 @@ export const libraryStateQuery = createHomeSectionQuery(
 	(data) => libraryEntries(data).map(({ item }) => item.id),
 );
 
-const continueTile = (entry: LibraryEntry, today: string): HomeTile => {
+const continueTile = (
+	text: MediaText,
+	formatters: Formatters,
+	entry: LibraryEntry,
+	today: string,
+): HomeTile => {
 	const { item } = entry;
 	const base = { item, key: item.id, aspect: mediaAspectOf(item.schemaSlug) };
 	if (entry.kind === "flat") {
 		const percent = entry.item.progressPercent;
 		return {
 			...base,
-			lines: [flatProgressLabel(entry.item)],
+			lines: [flatProgressLabel(text, formatters, entry.item)],
 			overlay:
 				percent === null ? undefined : (
 					<div className="absolute inset-x-1.5 bottom-1.5">
@@ -63,12 +70,12 @@ const continueTile = (entry: LibraryEntry, today: string): HomeTile => {
 	}
 	const { nextUp } = entry.item;
 	if (nextUp === null) {
-		return { ...base, lines: [resumeLabel(entry.item.latestActivityAt, today)] };
+		return { ...base, lines: [resumeLabel(text, formatters, entry.item.latestActivityAt, today)] };
 	}
 	return {
 		...base,
 		lines: [nextUp.name],
-		overlay: <HomeTileBadge label={episodePositionLabel(nextUp)} />,
+		overlay: <HomeTileBadge label={episodePositionLabel(text, nextUp)} />,
 	};
 };
 
@@ -77,12 +84,16 @@ export function ContinueRail(props: {
 	readonly compact: boolean;
 	readonly result: RyotQueryResult<LibraryStateData>;
 }) {
+	const formatters = useFormatters();
+	const text = useMediaMessages();
 	return (
 		<HomeRail
-			title="Continue"
 			result={props.result}
 			compact={props.compact}
-			tiles={(data) => libraryEntries(data).map((entry) => continueTile(entry, props.today))}
+			title={text("home.continue.title")}
+			tiles={(data) =>
+				libraryEntries(data).map((entry) => continueTile(text, formatters, entry, props.today))
+			}
 		/>
 	);
 }

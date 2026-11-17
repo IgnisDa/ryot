@@ -6,6 +6,7 @@ import {
 	latestCompletionSuggestionsRecipe,
 } from "../../shared/discovery-recipes";
 import { declaredQuerySource, PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { useMediaMessages } from "../messages";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail } from "./home-rail";
 import { createHomeSectionQuery } from "./section-query";
@@ -31,13 +32,18 @@ export function SuggestionsRail(props: { readonly compact: boolean }) {
 }
 
 function EntitledSuggestionsRail(props: { readonly compact: boolean }) {
+	const text = useMediaMessages();
 	const result = useRyotQuery(suggestionsQuery);
 	const source = result.data?.suggestions.source;
 	return (
 		<HomeRail
 			result={result}
 			compact={props.compact}
-			title={source ? `Because you finished ${source.name}` : "Because you finished"}
+			title={
+				source
+					? text("home.suggestions.title-from", { name: source.name })
+					: text("home.suggestions.title")
+			}
 			tiles={({ suggestions }) =>
 				suggestions.items.map((item) => ({
 					item,

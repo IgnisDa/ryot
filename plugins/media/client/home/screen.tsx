@@ -6,6 +6,7 @@ import type { RefObject } from "react";
 
 import { libraryMediaCountRecipe } from "../../shared/lifecycle-list-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { useMediaMessageBuilder, useMediaMessages } from "../messages";
 import { ActivitySection } from "./activity-section";
 import { AddTitleMenu } from "./add-title";
 import { BacklogRail } from "./backlog-rail";
@@ -30,9 +31,10 @@ const SKELETON_RAILS = 3;
 export default function Home() {
 	const { compact } = useRyotViewport();
 	const { scrollRootRef } = usePluginScreenSurface();
+	const message = useMediaMessageBuilder();
 	return (
 		<PluginScreenFrame
-			title="Media"
+			title={message("plugin.name")}
 			actions={<AddTitleMenu variant="button" />}
 			barActions={<AddTitleMenu variant="icon" />}
 		>
@@ -75,8 +77,9 @@ export function HomeBody(props: {
 }
 
 function HomeSkeleton() {
+	const text = useMediaMessages();
 	return (
-		<div role="status" aria-label="Loading your media" className="flex flex-col gap-8">
+		<div role="status" className="flex flex-col gap-8" aria-label={text("home.loading")}>
 			{Array.from({ length: SKELETON_RAILS }, (_rail, index) => (
 				<div key={index} className="flex flex-col gap-3">
 					<Skeleton className="h-5 w-40" />

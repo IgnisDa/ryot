@@ -1,72 +1,76 @@
-import { DateTime } from "@ryot-app/plugin-client-sdk/effect";
+import { calendarDaysBetween } from "@ryot-app/plugin-client-sdk/plugin";
+import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
+import { formatDaysAgo } from "@ryot-app/plugin-ui-sdk/datetime";
 
 import type { MediaPosition } from "../../shared/consumption";
 import { mediaPositionLabel } from "../media/activity-copy";
 import { formatLocalDateKey } from "../media/date";
+import type { MediaText } from "../messages";
 
-const DAY_MS = 86_400_000;
-
-const dayIndex = (day: string) =>
-	Date.UTC(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, Number(day.slice(8, 10))) / DAY_MS;
-
-const daysBetween = (from: string, to: string) => dayIndex(to) - dayIndex(from);
-
-export const episodePositionLabel = (episode: {
-	readonly episodeNumber: number;
-	readonly seasonNumber: null | number;
-}) =>
+export const episodePositionLabel = (
+	text: MediaText,
+	episode: { readonly episodeNumber: number; readonly seasonNumber: null | number },
+) =>
 	episode.seasonNumber === null
-		? `Ep ${episode.episodeNumber}`
-		: `S${episode.seasonNumber} E${episode.episodeNumber}`;
+		? text("home.episode-position", { episode: episode.episodeNumber })
+		: text("home.episode-position-seasonal", {
+				season: episode.seasonNumber,
+				episode: episode.episodeNumber,
+			});
 
-export const flatProgressLabel = (item: {
-	readonly position: null | MediaPosition;
-	readonly progressPercent: null | number;
-}) => {
+export const flatProgressLabel = (
+	text: MediaText,
+	formatters: Formatters,
+	item: { readonly position: null | MediaPosition; readonly progressPercent: null | number },
+) => {
 	if (item.position !== null) {
-		return mediaPositionLabel(item.position);
+		return mediaPositionLabel(text, item.position);
 	}
-	return item.progressPercent === null ? undefined : `${Math.round(item.progressPercent)}%`;
+	return item.progressPercent === null
+		? undefined
+		: formatters.number({ style: "percent" }).format(Math.round(item.progressPercent) / 100);
 };
 
-const RELATIVE_UNITS = [
-	{ days: 365, unit: "year" },
-	{ days: 30, unit: "month" },
-	{ days: 7, unit: "week" },
-	{ days: 1, unit: "day" },
-] as const;
-
-const relativeFormat = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
-
-export const resumeLabel = (latestActivityAt: null | string, today: string) => {
+export const resumeLabel = (
+	text: MediaText,
+	formatters: Formatters,
+	latestActivityAt: null | string,
+	today: string,
+) => {
 	if (latestActivityAt === null) {
-		return "Resume";
+		return text("home.resume");
 	}
-	const days = Math.max(0, daysBetween(formatLocalDateKey(latestActivityAt), today));
-	const { unit, days: size } = RELATIVE_UNITS.find((entry) => days >= entry.days) ?? {
-		days: 1,
-		unit: "day",
-	};
-	return `Resume · ${relativeFormat.format(-Math.floor(days / size), unit)}`;
+	return text("home.resume-since", {
+		when: formatDaysAgo(
+			formatters,
+			calendarDaysBetween(formatLocalDateKey(latestActivityAt), today),
+		),
+	});
 };
 
 const WEEK_DAYS = 7;
 
-export const airingDayCaption = (day: string, today: string) => {
-	const days = daysBetween(today, day);
+export const airingDayCaption = (
+	text: MediaText,
+	formatters: Formatters,
+	day: string,
+	today: string,
+) => {
+	const days = calendarDaysBetween(today, day);
 	if (days === 0) {
-		return "Today";
+		return text("home.today");
 	}
 	if (days === 1) {
-		return "Tomorrow";
+		return text("home.tomorrow");
 	}
-	return DateTime.format(
-		DateTime.makeUnsafe(day),
-		days > 1 && days < WEEK_DAYS
-			? { weekday: "long", locale: "en-US" }
-			: { month: "short", day: "numeric", locale: "en-US" },
-	);
+	return formatters
+		.dateTime(
+			days > 1 && days < WEEK_DAYS
+				? { weekday: "long", timeZone: "UTC" }
+				: { month: "short", day: "numeric", timeZone: "UTC" },
+		)
+		.format(Date.parse(day));
 };
 
-export const moreLabel = (caption: string, more: number) =>
-	more > 0 ? `${caption} · +${more} more` : caption;
+export const moreLabel = (text: MediaText, caption: string, more: number) =>
+	more > 0 ? text("home.more-caption", { caption, count: more }) : caption;

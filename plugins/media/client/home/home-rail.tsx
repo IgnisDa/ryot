@@ -1,4 +1,8 @@
-import { ManagedAssetProvider, type RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import {
+	ManagedAssetProvider,
+	type RyotQueryResult,
+	type Text,
+} from "@ryot-app/plugin-client-sdk/react";
 import type { ReactNode } from "react";
 
 import type { MediaArtworkAspect, MediaPresentationSubject } from "../media/entity-presentation";
@@ -28,7 +32,7 @@ export function HomeTileBadge(props: { readonly label: string }) {
 const tileArt = (tile: HomeTile) => tile.art ?? mediaPosterAsset(tile.item);
 
 export function HomeRail<Data>(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly compact: boolean;
 	readonly result: RyotQueryResult<Data>;
 	readonly tiles: (data: Data) => readonly HomeTile[];

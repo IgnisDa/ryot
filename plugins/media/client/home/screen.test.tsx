@@ -1,6 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import {
 	type RyotClientAdapter,
 	RyotClientError,
@@ -55,7 +55,7 @@ const homeAdapter = (input: {
 	readonly gate: number | "error" | "pending";
 }) => {
 	const requested: string[][] = [];
-	const requests: ExecutionRequest[] = [];
+	const requests: PluginExecutionRequest[] = [];
 	const navigations: RyotNavigationTarget[] = [];
 	const entityPicks: unknown[] = [];
 	let userPreferenceReads = 0;
@@ -71,7 +71,10 @@ const homeAdapter = (input: {
 		readAccount: () =>
 			Effect.sync(() => {
 				userPreferenceReads += 1;
-				return { entitlements: ["pro"], preferences: { timeZone: "UTC", ratingScale: "hundred" } };
+				return {
+					entitlements: ["pro"],
+					preferences: { weekStart: 1, timeZone: "UTC", ratingScale: "hundred" },
+				};
 			}),
 		query: (document) => {
 			const names = requestQueryNames(document);
@@ -489,7 +492,7 @@ describe("first run", () => {
 				expect(home.navigations).toEqual([{ kind: "kernel-page", page: "import-data" }]);
 
 				clickRyotElement(getByRole(view.container, "button", { name: "Add a title" }));
-				clickRyotElement(getByRole(document.body, "menuitem", { name: "Comic book" }));
+				clickRyotElement(getByRole(document.body, "menuitem", { name: "Comic Book" }));
 				expect(home.entityPicks).toEqual([
 					{
 						schema: { slug: "comic-book", owner: { kind: "plugin", pluginId: "media-owner" } },

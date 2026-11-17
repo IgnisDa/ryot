@@ -1,21 +1,29 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { localDateOf, PluginLink, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	localDateOf,
+	PluginLink,
+	type ReportingCalendar,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
+	type Formatters,
 	type RyotQueryResult,
+	useFormatters,
 	useRyotQuery,
 	useRyotSchedule,
+	useT,
 	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import { countUnit, StatStrip, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { CalendarHeatmap, RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
 import clsx from "clsx";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 import { type MediaActivity, mediaHomeActivityRecipe } from "../../shared/activity-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { type MediaRailStatus, MediaSectionFrame } from "../media/entity-rail";
 import { classifyRyotQueryResult } from "../media/query-state";
+import { useMediaMessages } from "../messages";
 import {
 	activityDays,
 	activityShares,
@@ -24,16 +32,12 @@ import {
 	activityWindow,
 } from "./activity-model";
 
-const TITLE = "Your activity";
-
-const activityUnit = countUnit("update");
-
-type MediaActivityInput = { readonly timeZone: TimeZone };
+type MediaActivityInput = ReportingCalendar;
 type MediaActivityResult = { readonly window: ActivityWindow; readonly activity: MediaActivity };
 
 const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivityResult>(
 	({ input, client, schedule }) => {
-		const window = activityWindow(localDateOf(schedule.now(), input.timeZone), input.timeZone);
+		const window = activityWindow(localDateOf(schedule.now(), input.timeZone), input);
 		return client.data
 			.query(mediaHomeActivityRecipe(client.pluginIdentity(PLUGIN_PACKAGE_ID)), {})
 			.pipe(Effect.map((activity) => ({ window, activity })));
@@ -41,16 +45,31 @@ const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivityResu
 	{ cancelOnUnmount: true },
 );
 
-const formatHours = (minutes: number) => Math.round(minutes / 60).toLocaleString("en-US");
+const formatHours = (formatters: Formatters, minutes: number) =>
+	formatters.number().format(Math.round(minutes / 60));
 
 function ActivityBody(props: {
 	readonly compact: boolean;
 	readonly window: ActivityWindow;
 	readonly activity: MediaActivity;
 }) {
+	const formatters = useFormatters();
 	const { window, activity } = props;
+	const t = useT();
+	const text = useMediaMessages();
+	const activityUnit = useMemo(
+		() => countUnit((count) => text("home.activity.unit-update", { count })),
+		[text],
+	);
 	const counts = new Map(activity.days.map(({ day, events }) => [day, events]));
-	const shares = activityShares(activity.mediaTypes);
+	const shares = activityShares(
+		activity.mediaTypes.map(({ slug, label, events }) => ({ slug, events, label: t(label) })),
+		formatters,
+		{
+			other: text("home.activity.everything-else"),
+			underOne: text("home.activity.share-under-one", { percent: 0.01 }),
+		},
+	);
 	const shareLabels = new Map(shares.map(({ key, share }) => [key, share]));
 	return (
 		<div className={clsx("flex flex-col", props.compact ? "gap-5" : "gap-7")}>
@@ -59,26 +78,28 @@ function ActivityBody(props: {
 				stats={[
 					{
 						key: "finished",
-						label: "Finished",
-						value: activity.figures.finished.toLocaleString("en-US"),
+						label: text("log.when.finished"),
+						value: formatters.number().format(activity.figures.finished),
 					},
 					{
 						key: "hours",
-						label: "Hours",
+						label: text("home.activity.hours"),
 						value:
 							activity.figures.minutesMissing > 0
-								? `≥${Math.floor(activity.figures.minutes / 60).toLocaleString("en-US")}`
-								: formatHours(activity.figures.minutes),
+								? text("home.activity.hours-at-least", {
+										hours: Math.floor(activity.figures.minutes / 60),
+									})
+								: formatHours(formatters, activity.figures.minutes),
 					},
 					{
 						key: "reviews",
-						label: "Reviews",
-						value: activity.figures.reviews.toLocaleString("en-US"),
+						label: text("activity.figure-reviews"),
+						value: formatters.number().format(activity.figures.reviews),
 					},
 					{
 						key: "streak",
-						label: "Day streak",
-						value: String(activityStreak(new Set(counts.keys()), window.end)),
+						label: text("home.activity.day-streak"),
+						value: formatters.number().format(activityStreak(new Set(counts.keys()), window.end)),
 					},
 				]}
 			/>
@@ -89,11 +110,11 @@ function ActivityBody(props: {
 				)}
 			>
 				<CalendarHeatmap
-					weekStart={1}
 					unit={activityUnit}
 					compact={props.compact}
+					weekStart={window.weekStart}
 					days={activityDays(window, counts)}
-					ariaLabel="Activity over the last 52 weeks"
+					ariaLabel={text("home.activity.heatmap-label")}
 				/>
 				{shares.length === 0 ? null : (
 					<RankedBarList rows={shares} formatValue={({ key }) => shareLabels.get(key) ?? ""} />
@@ -114,13 +135,14 @@ const sectionStatus = (
 };
 
 export function ActivitySection(props: { readonly compact: boolean }) {
+	const text = useMediaMessages();
 	const preferences = useUserPreferences();
 	if (preferences.data === undefined) {
 		return (
 			<MediaSectionFrame
-				title={TITLE}
 				compact={props.compact}
 				action={<AnalyticsLink />}
+				title={text("home.activity.title")}
 				placeholder={<ActivityPlaceholder compact={props.compact} />}
 				status={
 					preferences.isError ? { kind: "error", retry: preferences.refetch } : { kind: "pending" }
@@ -134,6 +156,7 @@ export function ActivitySection(props: { readonly compact: boolean }) {
 		<ActivitySectionForTimeZone
 			compact={props.compact}
 			timeZone={preferences.data.timeZone}
+			weekStart={preferences.data.weekStart}
 			retryPreferences={preferences.refetch}
 			preferencesRefreshingFailed={preferences.isError}
 		/>
@@ -146,13 +169,14 @@ export function ActivitySectionView(props: {
 	readonly preferencesRefreshingFailed?: boolean;
 	readonly result: RyotQueryResult<MediaActivityResult>;
 }) {
+	const text = useMediaMessages();
 	const state = classifyRyotQueryResult(props.result);
 	const hasData = state.status === "ready";
 	return (
 		<MediaSectionFrame
-			title={TITLE}
 			compact={props.compact}
 			action={<AnalyticsLink />}
+			title={text("home.activity.title")}
 			placeholder={<ActivityPlaceholder compact={props.compact} />}
 			status={hasData ? { kind: "ready" } : sectionStatus(state.status, props.result.refetch)}
 		>
@@ -161,17 +185,20 @@ export function ActivitySectionView(props: {
 					{props.preferencesRefreshingFailed && props.retryPreferences !== undefined ? (
 						<StatusMessage
 							tone="error"
-							action={{ label: "Retry preferences", onClick: props.retryPreferences }}
+							action={{
+								onClick: props.retryPreferences,
+								label: text("home.activity.retry-preferences"),
+							}}
 						>
-							Reporting preferences could not be refreshed. The last loaded time zone is being used.
+							{text("home.activity.preferences-failed")}
 						</StatusMessage>
 					) : null}
 					{props.result.isError ? (
 						<StatusMessage
 							tone="error"
-							action={{ label: "Try again", onClick: props.result.refetch }}
+							action={{ onClick: props.result.refetch, label: text("common.action.try-again") }}
 						>
-							Your activity could not be refreshed. The last loaded activity is being shown.
+							{text("home.activity.refresh-failed")}
 						</StatusMessage>
 					) : null}
 					<ActivityBody
@@ -197,24 +224,29 @@ function ActivityPlaceholder(props: { readonly compact: boolean }) {
 }
 
 function AnalyticsLink() {
+	const text = useMediaMessages();
 	return (
 		<PluginLink
 			to={{ kind: "saved-view", reference: { kind: "kernel", slug: "analytics" } }}
 			className="inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-accent"
 		>
-			Analytics
+			{text("home.activity.analytics-link")}
 		</PluginLink>
 	);
 }
 
 function ActivitySectionForTimeZone(props: {
 	readonly compact: boolean;
-	readonly timeZone: TimeZone;
 	readonly retryPreferences: () => void;
 	readonly preferencesRefreshingFailed: boolean;
+	readonly timeZone: ReportingCalendar["timeZone"];
+	readonly weekStart: ReportingCalendar["weekStart"];
 }) {
 	const schedule = useRyotSchedule();
-	const result = useRyotQuery(mediaActivityQuery, { timeZone: props.timeZone });
+	const result = useRyotQuery(mediaActivityQuery, {
+		timeZone: props.timeZone,
+		weekStart: props.weekStart,
+	});
 	const until = result.data?.window.until;
 	useEffect(() => {
 		if (until === undefined) {

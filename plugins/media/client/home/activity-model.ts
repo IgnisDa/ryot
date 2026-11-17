@@ -1,10 +1,11 @@
 import {
 	addCalendarDays,
 	calendarDaysBetween,
+	type ReportingCalendar,
 	startOfCalendarUnit,
 	startOfLocalDay,
-	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import type { Formatters, Text } from "@ryot-app/plugin-client-sdk/react";
 
 const ACTIVITY_WEEKS = 52;
 
@@ -13,16 +14,24 @@ export type ActivityWindow = {
 	readonly end: string;
 	/** Instant `start` begins in the time zone, inclusive. */
 	readonly from: string;
-	/** First local date shown, always a Monday. */
+	/** First local date shown, always on `weekStart`. */
 	readonly start: string;
 	/** Instant the day after `end` begins in the time zone, exclusive. */
 	readonly until: string;
+	readonly weekStart: ReportingCalendar["weekStart"];
 };
 
-export const activityWindow = (today: string, timeZone: TimeZone): ActivityWindow => {
-	const start = addCalendarDays(startOfCalendarUnit(today, "week"), -(ACTIVITY_WEEKS - 1) * 7);
+export const activityWindow = (
+	today: string,
+	{ timeZone, weekStart }: ReportingCalendar,
+): ActivityWindow => {
+	const start = addCalendarDays(
+		startOfCalendarUnit(today, "week", weekStart),
+		-(ACTIVITY_WEEKS - 1) * 7,
+	);
 	return {
 		start,
+		weekStart,
 		end: today,
 		from: startOfLocalDay(start, timeZone),
 		until: startOfLocalDay(addCalendarDays(today, 1), timeZone),
@@ -71,16 +80,18 @@ export const largestRemainderPercents = (values: readonly number[]) => {
 
 type ActivityShare = {
 	readonly key: string;
-	readonly label: string;
+	readonly label: Text;
 	readonly value: number;
-	/** `"<1%"` for any share under one percent, otherwise the rounded percentage. */
+	/** The under-one-percent copy for any share under one percent, otherwise the rounded percentage. */
 	readonly share: string;
 };
 
 const ACTIVITY_SHARE_LIMIT = 5;
 
 export const activityShares = (
-	rows: readonly { readonly slug: string; readonly label: string; readonly events: number }[],
+	rows: readonly { readonly label: Text; readonly slug: string; readonly events: number }[],
+	formatters: Formatters,
+	copy: { readonly other: Text; readonly underOne: string },
 ): readonly ActivityShare[] => {
 	const active = rows
 		.filter(({ events }) => events > 0)
@@ -92,7 +103,7 @@ export const activityShares = (
 					...active.slice(0, ACTIVITY_SHARE_LIMIT - 1),
 					{
 						slug: "other",
-						label: "Everything else",
+						label: copy.other,
 						events: active
 							.slice(ACTIVITY_SHARE_LIMIT - 1)
 							.reduce((sum, { events }) => sum + events, 0),
@@ -104,6 +115,9 @@ export const activityShares = (
 		key: row.slug,
 		label: row.label,
 		value: row.events,
-		share: row.events / total < 0.01 ? "<1%" : `${percents[index] ?? 0}%`,
+		share:
+			row.events / total < 0.01
+				? copy.underOne
+				: formatters.number({ style: "percent" }).format((percents[index] ?? 0) / 100),
 	}));
 };

@@ -1,6 +1,8 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	type Formatters,
 	type RyotQueryResult,
+	useFormatters,
 	usePluginIdentity,
 	usePluginUserSettings,
 	useRyotQuery,
@@ -13,6 +15,7 @@ import { upcomingSettings } from "../../shared/upcoming-settings";
 import { formatLocalDateKey } from "../media/date";
 import { mediaImageAsset } from "../media/image";
 import { mediaBackdropAsset, mediaPosterAsset } from "../media/summary-state";
+import { type MediaText, useMediaMessages } from "../messages";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail, type HomeTile } from "./home-rail";
 import { airingDayCaption, episodePositionLabel, moreLabel } from "./labels";
@@ -20,7 +23,6 @@ import { createHomeSectionQuery } from "./section-query";
 
 const RAIL_LIMIT = 20;
 
-const TITLE = "Upcoming";
 type UpcomingSelection = ReturnType<typeof upcomingSettings>;
 type UpcomingData = { readonly titles: Recipe.Success<ReturnType<typeof upcomingRecipe>> };
 const upcomingQuery = createHomeSectionQuery(
@@ -39,6 +41,8 @@ const upcomingQuery = createHomeSectionQuery(
  * title, a title keeps its soonest occurrence and counts the rest of its window across sources.
  */
 const upcomingTiles = (
+	text: MediaText,
+	formatters: Formatters,
 	data: UpcomingData,
 	today: string,
 	onePerTitle: boolean,
@@ -83,8 +87,8 @@ const upcomingTiles = (
 						mediaPosterAsset(entity))
 					: undefined,
 				lines: [
-					occurrence.episode === null ? undefined : episodePositionLabel(occurrence.episode),
-					moreLabel(airingDayCaption(day, today), more),
+					occurrence.episode === null ? undefined : episodePositionLabel(text, occurrence.episode),
+					moreLabel(text, airingDayCaption(text, formatters, day, today), more),
 				],
 			};
 		});
@@ -96,20 +100,30 @@ export function UpcomingRail(props: {
 	readonly onePerTitle: boolean;
 	readonly result: RyotQueryResult<UpcomingData>;
 }) {
+	const text = useMediaMessages();
+	const formatters = useFormatters();
 	return (
 		<HomeRail
-			title={TITLE}
 			result={props.result}
 			compact={props.compact}
-			tiles={(data) => upcomingTiles(data, props.today, props.onePerTitle)}
+			title={text("home.upcoming.title")}
+			tiles={(data) => upcomingTiles(text, formatters, data, props.today, props.onePerTitle)}
 		/>
 	);
 }
 
 export function UpcomingSection(props: { readonly today: string; readonly compact: boolean }) {
+	const text = useMediaMessages();
 	const settings = usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
 	if (settings.data === undefined) {
-		return <HomeRail title={TITLE} tiles={() => []} result={settings} compact={props.compact} />;
+		return (
+			<HomeRail
+				tiles={() => []}
+				result={settings}
+				compact={props.compact}
+				title={text("home.upcoming.title")}
+			/>
+		);
 	}
 	return (
 		<UpcomingQueryRail

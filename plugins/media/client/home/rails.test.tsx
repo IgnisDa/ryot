@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import type { ExecutionRequest as ImportedExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { type EntityWatch, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
@@ -486,7 +486,7 @@ describe("UpcomingRail", () => {
 type QueryResponder = (queries: readonly string[]) => Effect.Effect<unknown, RyotClientError>;
 
 const respondingAdapter = (respond: QueryResponder, interests: EntityWatch[] = []) => ({
-	query: (request: ImportedExecutionRequest) => respond(requestQueryNames(request)),
+	query: (request: PluginExecutionRequest) => respond(requestQueryNames(request)),
 	watchEntities: (interest: EntityWatch) => {
 		interests.push(interest);
 		return {
@@ -580,7 +580,11 @@ describe("lazily queried rails", () => {
 						readAccount: () =>
 							Effect.succeed({
 								entitlements: [],
-								preferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
+								preferences: {
+									weekStart: 1,
+									ratingScale: "hundred",
+									timeZone: TimeZone.make("UTC"),
+								},
 							}),
 					},
 					<SuggestionsRail compact />,
