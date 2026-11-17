@@ -1,8 +1,10 @@
-import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import type { ReportingCalendar, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Card, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 
 import type { WorkoutSummary } from "../../shared/workout-list-recipes";
+import { useFitnessMessages } from "../messages";
 import { ProcessingNote } from "../workout-processing";
 import { buildHeatmap, buildSummaryTiles, type PeriodKey, periodOptions } from "./model";
 import { toneClasses } from "./styles";
@@ -25,17 +27,21 @@ export function WorkoutSummarySection(props: {
 	readonly timeZone: TimeZone;
 	readonly onRetry: () => void;
 	readonly summary: undefined | WorkoutSummary;
+	readonly weekStart: ReportingCalendar["weekStart"];
 	readonly onPeriodChange: (period: PeriodKey) => void;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { period, summary } = props;
-	const label = periodOptions.find(({ key }) => key === period)?.label ?? "";
-	let content = <StatusMessage tone="pending">Loading your training summary…</StatusMessage>;
+	let content = (
+		<StatusMessage tone="pending">{text("client.workouts.summary.loading")}</StatusMessage>
+	);
 	if (summary === undefined && props.isError) {
 		content = (
 			<div className="flex flex-col items-start gap-3">
-				<StatusMessage tone="error">Your training summary couldn&apos;t be loaded.</StatusMessage>
+				<StatusMessage tone="error">{text("client.workouts.summary.failed")}</StatusMessage>
 				<Button variant="secondary" onClick={props.onRetry}>
-					Try again
+					{text("common.action.try-again")}
 				</Button>
 			</div>
 		);
@@ -44,7 +50,7 @@ export function WorkoutSummarySection(props: {
 		content = (
 			<div className="flex flex-wrap gap-4">
 				<div className="grid min-w-0 flex-[999_1_560px] grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-					{buildSummaryTiles(summary, period, props.imperial).map((tile) => (
+					{buildSummaryTiles(formatters, text, summary, period, props.imperial).map((tile) => (
 						<Card key={tile.label} className="flex min-w-0 flex-col gap-1.5">
 							<span className="text-[13px] text-text-muted">{tile.label}</span>
 							<span className="text-[28px] leading-tight font-semibold text-text tabular-nums">
@@ -56,20 +62,31 @@ export function WorkoutSummarySection(props: {
 						</Card>
 					))}
 				</div>
-				<Heatmap now={props.now} summary={summary} timeZone={props.timeZone} />
+				<Heatmap
+					now={props.now}
+					summary={summary}
+					calendar={{ timeZone: props.timeZone, weekStart: props.weekStart }}
+				/>
 			</div>
 		);
 	}
 	return (
-		<section aria-label="Summary" className="flex min-w-0 flex-col gap-3 font-ui">
+		<section
+			className="flex min-w-0 flex-col gap-3 font-ui"
+			aria-label={text("client.workouts.summary.label")}
+		>
 			<div className="flex flex-wrap items-center justify-between gap-3">
-				<h2 className={headingClass}>{label}</h2>
+				<h2 className={headingClass}>{text("client.workouts.period", { period })}</h2>
 				<SegmentedControl
 					value={period}
-					label="Summary period"
 					optionClassName="px-3"
 					onChange={props.onPeriodChange}
-					options={periodOptions.map(({ key }) => ({ value: key, label: key, content: key }))}
+					label={text("client.workouts.summary.period-label")}
+					options={periodOptions.map(({ key }) => ({
+						value: key,
+						label: text("client.workouts.period-short", { period: key }),
+						content: text("client.workouts.period-short", { period: key }),
+					}))}
 				/>
 			</div>
 			<ProcessingNote />
@@ -80,20 +97,28 @@ export function WorkoutSummarySection(props: {
 
 function Heatmap(props: {
 	readonly now: Date;
-	readonly timeZone: TimeZone;
 	readonly summary: WorkoutSummary;
+	readonly calendar: ReportingCalendar;
 }) {
-	const { weeks, streak } = buildHeatmap(props.summary, props.now, props.timeZone);
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
+	const { weeks, streak } = buildHeatmap(formatters, props.summary, props.now, props.calendar);
 	return (
 		<Card className="flex min-w-0 flex-[1_1_400px] flex-col gap-3">
 			<div className="flex items-baseline justify-between gap-2 text-[13px]">
-				<span className="text-text-muted">Consistency · {weeks.length} weeks</span>
-				{streak > 1 ? <span className="text-success">{streak}-week streak</span> : null}
+				<span className="text-text-muted">
+					{text("client.workouts.summary.consistency", { weeks: weeks.length })}
+				</span>
+				{streak > 1 ? (
+					<span className="text-success">
+						{text("client.workouts.summary.streak", { weeks: streak })}
+					</span>
+				) : null}
 			</div>
 			<div
 				role="img"
 				className="flex gap-0.75 overflow-x-auto"
-				aria-label={`Training days over the last ${weeks.length} weeks`}
+				aria-label={text("client.workouts.summary.heatmap-label", { weeks: weeks.length })}
 			>
 				{weeks.map((week) => (
 					<div key={week.key} className="flex flex-col gap-0.75">
@@ -116,11 +141,11 @@ function Heatmap(props: {
 					)}
 				</span>
 				<span className="flex items-center gap-0.75">
-					Less
+					{text("client.workouts.summary.less")}
 					{levelClasses.map((level) => (
 						<span key={level} className={clsx("size-2.25 rounded-[2px]", level)} />
 					))}
-					More volume
+					{text("client.workouts.summary.more")}
 				</span>
 			</div>
 		</Card>

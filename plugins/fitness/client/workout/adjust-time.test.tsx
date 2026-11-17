@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
@@ -16,6 +17,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { AdjustWorkoutTime } from "./adjust-time";
 
 afterEach(disposePluginBridges);
@@ -32,11 +34,12 @@ const openWorkout = (
 		const pluginId = PluginId.make("fitness");
 		const page = mountPluginPage(
 			() => (
-				<PluginScreenFrame title="Workout">
+				<PluginScreenFrame title={testText("Workout")}>
 					<AdjustWorkoutTime onClose={onClose} entityId="workout" />
 				</PluginScreenFrame>
 			),
 			{
+				catalogs: fitnessCatalogs,
 				location: routeLocation("/"),
 				page: {
 					view: null,

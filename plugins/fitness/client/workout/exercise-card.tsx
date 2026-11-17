@@ -1,5 +1,6 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { Card } from "@ryot-app/plugin-ui-sdk";
+import { useDisplayText, useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import { Card, formatClock } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 
 import { supersetColor } from "../../shared/superset-colors";
@@ -7,15 +8,15 @@ import { durationDisplayUnit } from "../../shared/workout-units";
 import { AssetArtWell } from "../asset-urls";
 import { supersetColorVariable } from "../group-colors";
 import { WorkoutMediaViewer } from "../media-viewer";
-import { setLabels, setLots } from "../set-lots";
+import { useFitnessMessages } from "../messages";
+import { setLabels, setLotName, setLots } from "../set-lots";
 import {
 	type CardGroup,
 	type ExerciseCard,
-	personalBestLabels,
+	personalBestLabel,
 	type WorkoutSet,
 } from "./details-model";
 import {
-	formatClock,
 	formatExerciseMeta,
 	formatMeasure,
 	formatNumber,
@@ -35,6 +36,7 @@ function ExerciseArtwork(props: { readonly compact: boolean; readonly card: Exer
 }
 
 function RecordBadges(props: { readonly set: WorkoutSet }) {
+	const text = useFitnessMessages();
 	if (props.set.recordStatus !== "ready") {
 		return null;
 	}
@@ -45,7 +47,7 @@ function RecordBadges(props: { readonly set: WorkoutSet }) {
 					key={record}
 					className="rounded-pill bg-accent-soft px-2 py-0.5 font-ui font-semibold text-[12px] text-accent-text"
 				>
-					{personalBestLabels[record]}
+					{personalBestLabel(text, record)}
 				</span>
 			))}
 		</span>
@@ -70,6 +72,8 @@ export function ExerciseGroups(props: {
 	readonly groups: readonly CardGroup[];
 	readonly workoutStartedAt: null | string;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	return (
 		<div className={clsx("grid items-start gap-4", !props.compact && "grid-cols-2")}>
 			{props.groups.map((group) =>
@@ -84,8 +88,8 @@ export function ExerciseGroups(props: {
 				) : (
 					<section
 						className="col-span-full grid gap-3"
-						aria-label={`Superset ${group.label}`}
 						key={group.cards.map((card) => card.key).join("+")}
+						aria-label={text("client.superset.name", { letter: group.label })}
 					>
 						<div className="flex items-center gap-3 font-ui">
 							<span
@@ -95,10 +99,14 @@ export function ExerciseGroups(props: {
 									backgroundColor: supersetColorVariable(group.color, { soft: true }),
 								}}
 							>
-								Superset {group.label}
+								{text("client.superset.name", { letter: group.label })}
 							</span>
 							<span className="text-[14px] text-text-muted">
-								Alternate {group.cards.map((card) => card.supersetTag).join(" and ")}
+								{text("client.superset.alternate", {
+									tags: formatters
+										.list({ style: "long", type: "conjunction" })
+										.format(group.cards.map((card) => card.supersetTag ?? "")),
+								})}
 							</span>
 						</div>
 						<div className={clsx("grid items-start gap-4", !props.compact && "grid-cols-2")}>
@@ -127,6 +135,9 @@ export function ExerciseCardView(props: {
 	readonly groupColor?: string;
 	readonly workoutStartedAt: null | string;
 }) {
+	const displayText = useDisplayText();
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { card, compact } = props;
 	const meta = formatExerciseMeta({
 		targets: card.exercise.targets.items,
@@ -141,8 +152,8 @@ export function ExerciseCardView(props: {
 		>
 			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
 				<PluginLink
-					aria-label={`Open ${card.exercise.name}`}
 					to={{ kind: "entity", entityId: card.exercise.id }}
+					aria-label={text("client.presentation.open", { name: card.exercise.name })}
 				>
 					<ExerciseArtwork card={card} compact={compact} />
 				</PluginLink>
@@ -173,11 +184,19 @@ export function ExerciseCardView(props: {
 				</div>
 				<div className="flex shrink-0 flex-col items-end gap-0.5 text-right font-ui">
 					{card.kind === "reps_and_weight" && card.total === null ? (
-						<span className="text-[15px] text-text-muted">Unknown</span>
+						<span className="text-[15px] text-text-muted">
+							{text("client.editor.stat.unknown")}
+						</span>
 					) : null}
 					{card.total === null ? null : (
 						<span className="font-semibold text-[15px] text-text">
-							{formatMeasure(card.total.value, card.total.measure, props.imperial)}
+							{formatMeasure(
+								formatters,
+								text,
+								card.total.value,
+								card.total.measure,
+								props.imperial,
+							)}
 						</span>
 					)}
 					{card.comparison === null ? null : (
@@ -187,10 +206,28 @@ export function ExerciseCardView(props: {
 								card.comparison.delta > 0 ? "text-success" : "text-text-muted",
 							)}
 						>
-							{formatSignedMeasure(card.comparison.delta, card.comparison.measure, props.imperial)}
 							{card.comparison.delta === 0
-								? ""
-								: ` vs ${formatShortDate(card.comparison.previousStartedAt, props.workoutStartedAt)}`}
+								? formatSignedMeasure(
+										formatters,
+										text,
+										card.comparison.delta,
+										card.comparison.measure,
+										props.imperial,
+									)
+								: text("client.workout.vs-date", {
+										date: formatShortDate(
+											formatters,
+											card.comparison.previousStartedAt,
+											props.workoutStartedAt,
+										),
+										change: formatSignedMeasure(
+											formatters,
+											text,
+											card.comparison.delta,
+											card.comparison.measure,
+											props.imperial,
+										),
+									})}
 						</span>
 					)}
 				</div>
@@ -207,9 +244,9 @@ export function ExerciseCardView(props: {
 			<SetTable card={card} compact={compact} imperial={props.imperial} />
 			{card.media ? (
 				<WorkoutMediaViewer
-					label={card.exercise.name}
 					images={card.media.images}
 					videos={card.media.videos}
+					label={displayText(card.exercise.name)}
 				/>
 			) : null}
 		</Card>
@@ -217,14 +254,15 @@ export function ExerciseCardView(props: {
 }
 
 function RecordStatusNote(props: { readonly card: ExerciseCard }) {
+	const text = useFitnessMessages();
 	if (props.card.recordStatus === "ready") {
 		return null;
 	}
 	return (
 		<p role="status" className="px-4 pb-2 font-ui text-[13px] text-text-muted">
 			{props.card.recordStatus === "failed"
-				? "Records couldn't be updated for this exercise."
-				: "Updating records…"}
+				? text("client.workout.records-failed")
+				: text("client.workout.records-updating")}
 		</p>
 	);
 }
@@ -234,6 +272,8 @@ function SetTable(props: {
 	readonly imperial: boolean;
 	readonly card: ExerciseCard;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { card, compact } = props;
 	const labels = setLabels(card.sets.map((set) => set.setLot));
 	const showRpe = card.sets.some((set) => set.rpe !== null);
@@ -241,7 +281,11 @@ function SetTable(props: {
 		card.kind === "reps_and_weight" && card.sets.some((set) => set.recordStatus === "ready");
 	const columns = compact ? "grid-cols-[2rem_minmax(0,1fr)_auto]" : wideColumns(showOneRm, showRpe);
 	return (
-		<div role="table" className="font-ui" aria-label={`Sets for ${card.exercise.name}`}>
+		<div
+			role="table"
+			className="font-ui"
+			aria-label={text("client.workout.sets-for", { name: card.exercise.name })}
+		>
 			{compact ? null : (
 				<div
 					role="row"
@@ -250,12 +294,14 @@ function SetTable(props: {
 						columns,
 					)}
 				>
-					<span role="columnheader">Set</span>
-					<span role="columnheader">Performed</span>
-					{showOneRm ? <span role="columnheader">Est. 1RM</span> : null}
-					{showRpe ? <span role="columnheader">RPE</span> : null}
-					<span role="columnheader">Planned rest</span>
-					<span role="columnheader">Records</span>
+					<span role="columnheader">{text("client.workout.column-set")}</span>
+					<span role="columnheader">{text("client.workout.column-performed")}</span>
+					{showOneRm ? (
+						<span role="columnheader">{text("client.workout.column-one-rm")}</span>
+					) : null}
+					{showRpe ? <span role="columnheader">{text("client.template.rpe-label")}</span> : null}
+					<span role="columnheader">{text("property.planned-rest")}</span>
+					<span role="columnheader">{text("client.workout.column-records")}</span>
 				</div>
 			)}
 			{card.sets.map((set, index) => {
@@ -263,9 +309,11 @@ function SetTable(props: {
 				const lot = setLots[set.setLot ?? "normal"];
 				const secondary = [
 					showOneRm && set.recordStatus === "ready" && set.oneRm !== null
-						? `${formatMeasure(set.oneRm, "weight", props.imperial)} 1RM`
+						? text("client.workout.one-rm-value", {
+								value: formatMeasure(formatters, text, set.oneRm, "weight", props.imperial),
+							})
 						: null,
-					set.rpe === null ? null : `RPE ${formatNumber(set.rpe)}`,
+					set.rpe === null ? null : text("client.template.rpe", { rpe: set.rpe }),
 				].filter((part) => part !== null);
 				return (
 					<div
@@ -280,8 +328,11 @@ function SetTable(props: {
 					>
 						<span
 							role="cell"
-							title={lot.name}
-							aria-label={`${lot.name} ${labels[index]}`}
+							title={setLotName(text, set.setLot ?? "normal")}
+							aria-label={text("client.workout.set-label", {
+								label: labels[index] ?? "",
+								name: setLotName(text, set.setLot ?? "normal"),
+							})}
 							className={clsx(
 								"flex size-6.5 items-center justify-center rounded-pill bg-surface-2 text-[13px] font-semibold",
 								lot.tone ?? "text-text-muted",
@@ -291,6 +342,8 @@ function SetTable(props: {
 						</span>
 						<span role="cell" className="font-medium text-text">
 							{formatSetMain(
+								formatters,
+								text,
 								card.kind,
 								set,
 								props.imperial,
@@ -298,7 +351,8 @@ function SetTable(props: {
 							)}
 							{compact && secondary.length > 0 ? (
 								<span className="font-normal text-[13px] text-text-muted">
-									{` · ${secondary.join(" · ")}`}
+									{" "}
+									· {secondary.join(" · ")}
 								</span>
 							) : null}
 						</span>
@@ -308,12 +362,12 @@ function SetTable(props: {
 									<span role="cell" className="text-text-muted">
 										{set.recordStatus !== "ready" || set.oneRm === null
 											? "—"
-											: formatMeasure(set.oneRm, "weight", props.imperial)}
+											: formatMeasure(formatters, text, set.oneRm, "weight", props.imperial)}
 									</span>
 								) : null}
 								{showRpe ? (
 									<span role="cell" className="font-medium text-text">
-										{set.rpe === null ? "—" : formatNumber(set.rpe)}
+										{set.rpe === null ? "—" : formatNumber(formatters, set.rpe)}
 									</span>
 								) : null}
 								<span role="cell" className="text-[14px] text-text-muted">
@@ -326,7 +380,7 @@ function SetTable(props: {
 						</span>
 						{set.note === null ? null : (
 							<span className="col-start-2 col-end-[-1] text-[13px] text-text-muted italic">
-								“{set.note}”
+								{text("client.exercise.notes.quote", { note: set.note })}
 							</span>
 						)}
 					</div>

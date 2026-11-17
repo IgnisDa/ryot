@@ -35,6 +35,7 @@ import {
 	WorkoutTimeCorrectionInputSchema,
 	WorkoutTimeCorrectionOutputSchema,
 } from "../../shared/workout-time-operations";
+import { useFitnessMessages } from "../messages";
 
 type Correction = Omit<
 	typeof WorkoutTimeCorrectionInputSchema.Type,
@@ -75,6 +76,7 @@ export function AdjustWorkoutTime(props: {
 	readonly entityId: string;
 	readonly onClose: () => void;
 }) {
+	const text = useFitnessMessages();
 	const [query] = useState(timeSourceQuery);
 	const source = useRyotQuery(query, props.entityId, { refreshOnMutation: false });
 	if (source.data) {
@@ -87,21 +89,25 @@ export function AdjustWorkoutTime(props: {
 		);
 	}
 	return (
-		<Dialog onClose={props.onClose} title="Adjust workout time" closeLabel="Close time correction">
+		<Dialog
+			onClose={props.onClose}
+			title={text("client.adjust.title")}
+			closeLabel={text("client.adjust.close")}
+		>
 			{source.isError ? (
 				<Notice
 					tone="danger"
 					action={
 						<Button size="sm" variant="secondary" onClick={source.refetch}>
-							Retry times
+							{text("client.adjust.retry")}
 						</Button>
 					}
 				>
-					Workout times could not be loaded.
+					{text("client.adjust.load-failed")}
 				</Notice>
 			) : (
 				<p role="status" className="text-text-muted">
-					{source.data === null ? "This workout no longer exists." : "Loading workout times…"}
+					{source.data === null ? text("client.workout.missing") : text("client.adjust.loading")}
 				</p>
 			)}
 		</Dialog>
@@ -113,6 +119,7 @@ function TimeForm(props: {
 	readonly properties: WorkoutProperties;
 	readonly entity: WorkoutEditorBaseline["entity"];
 }) {
+	const text = useFitnessMessages();
 	const { entity, onClose, properties } = props;
 	const start = useDateTimeInput(properties.startedAt);
 	const end = useDateTimeInput(properties.endedAt);
@@ -138,7 +145,7 @@ function TimeForm(props: {
 			(intent === "set" &&
 				(seconds.trim() === "" || !Number.isSafeInteger(Number(seconds)) || Number(seconds) < 0))
 		) {
-			setMessage("Enter valid times and a nonnegative whole active duration.");
+			setMessage(text("client.adjust.invalid"));
 			return;
 		}
 		let activeDuration: Correction["activeDuration"] = { kind: "preserve" };
@@ -150,7 +157,7 @@ function TimeForm(props: {
 		}
 		const conflictToken = encodeWorkoutEditorBaseline({ entity, sets: [] });
 		if (Result.isFailure(conflictToken)) {
-			setMessage("This workout could not be prepared for a time correction.");
+			setMessage(text("client.adjust.unprepared"));
 			return;
 		}
 		save.submit({
@@ -161,20 +168,20 @@ function TimeForm(props: {
 			conflictToken: conflictToken.success,
 		});
 	};
-	let submitLabel = "Save time correction";
+	let submitLabel = text("client.adjust.save");
 	if (save.status === "retained") {
-		submitLabel = "Retry correction";
+		submitLabel = text("client.adjust.retry-correction");
 	}
 	if (save.isPending) {
-		submitLabel = "Saving…";
+		submitLabel = text("common.status.saving");
 	}
 	return (
 		<Dialog
 			onClose={onClose}
-			title="Adjust workout time"
 			dismissible={!save.isPending}
-			closeLabel="Close time correction"
-			description="Change session timestamps only. Set, confirmation, and rest-start times stay unchanged."
+			title={text("client.adjust.title")}
+			closeLabel={text("client.adjust.close")}
+			description={text("client.adjust.description")}
 			footer={
 				<Button
 					onClick={save.status === "retained" ? save.retry : submit}
@@ -193,35 +200,49 @@ function TimeForm(props: {
 				>
 					<DateTimeField
 						{...start}
-						label="Start time"
 						showError={submitted}
+						label={text("client.adjust.start")}
 						checkIcon={<AppIcon size={14} name="check" />}
 						chevronIcon={<AppIcon size={14} name="chevron-down" />}
 					/>
 					<DateTimeField
 						{...end}
-						label="End time"
+						label={text("client.adjust.end")}
 						showError={submitted && end.value !== ""}
 						checkIcon={<AppIcon size={14} name="check" />}
 						chevronIcon={<AppIcon size={14} name="chevron-down" />}
 					/>
 					<div className="grid gap-1.5">
-						<span className="text-[13px] font-medium">Active duration</span>
+						<span className="text-[13px] font-medium">
+							{text("client.workout.active-duration")}
+						</span>
 						<SegmentedControl
 							fill
 							value={intent}
 							onChange={setIntent}
 							optionClassName="px-2"
-							label="Active duration"
+							label={text("client.workout.active-duration")}
 							options={[
-								{ content: "Keep", value: "preserve", label: "Keep recorded duration" },
-								{ value: "set", content: "Set", label: "Set duration" },
-								{ value: "clear", content: "Clear", label: "Clear to unknown" },
+								{
+									value: "preserve",
+									content: text("client.adjust.keep"),
+									label: text("client.adjust.keep-label"),
+								},
+								{
+									value: "set",
+									content: text("client.adjust.set"),
+									label: text("client.adjust.set-label"),
+								},
+								{
+									value: "clear",
+									content: text("client.adjust.clear"),
+									label: text("client.adjust.clear-label"),
+								},
 							]}
 						/>
 					</div>
 					{intent === "set" ? (
-						<Field label="Active duration (seconds)">
+						<Field label={text("client.adjust.duration-seconds")}>
 							{(control) => (
 								<TextField
 									{...control}
@@ -234,20 +255,12 @@ function TimeForm(props: {
 					) : null}
 				</fieldset>
 				{message ? <Notice tone="danger">{message}</Notice> : null}
-				{save.error ? (
-					<Notice tone="danger">
-						The result could not be confirmed. Retry the same correction.
-					</Notice>
-				) : null}
+				{save.error ? <Notice tone="danger">{text("client.adjust.unconfirmed")}</Notice> : null}
 				{save.data?.kind === "conflict" ? (
-					<Notice tone="danger">
-						This workout changed. Close and reopen Adjust time to load the saved version.
-					</Notice>
+					<Notice tone="danger">{text("client.adjust.conflict")}</Notice>
 				) : null}
 				{save.data?.kind === "invalid" ? (
-					<Notice tone="danger">
-						This correction is invalid. Close and reopen the form to try again.
-					</Notice>
+					<Notice tone="danger">{text("client.adjust.rejected")}</Notice>
 				) : null}
 			</div>
 		</Dialog>

@@ -8,6 +8,7 @@ import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import type { PersonalBest } from "../../shared/workout-records";
 import type { WorkoutTaxonomy } from "../../shared/workout-taxonomy-recipes";
 import { supersetLetter } from "../group-colors";
+import type { FitnessText } from "../messages";
 import { type Measure, parseDate } from "./format";
 
 export type WorkoutSet = WorkoutExercise["sets"]["items"][number];
@@ -19,9 +20,10 @@ export type WorkoutExercise = WorkoutDetails["exercises"]["items"][number] &
 	Pick<WorkoutTaxonomy, "targets" | "equipment">;
 export type TimelineSegment = {
 	readonly key: string;
-	readonly label: string;
 	readonly seconds: number;
 	readonly superset: boolean;
+	readonly name: null | string;
+	readonly letter: null | string;
 };
 
 export type CardGroup =
@@ -242,10 +244,8 @@ export const buildTimeline = (
 			seconds: (finish - cursor) / 1000,
 			superset: group.kind === "superset",
 			key: cards.map((card) => card.key).join("+"),
-			label:
-				group.kind === "superset"
-					? `Superset ${group.label}`
-					: (cards[0]?.exercise.name ?? "Exercise"),
+			letter: group.kind === "superset" ? group.label : null,
+			name: group.kind === "superset" ? null : (cards[0]?.exercise.name ?? null),
 		});
 		cursor = finish;
 	}
@@ -259,12 +259,10 @@ export const cardMuscleSources = (groups: readonly CardGroup[]): readonly Muscle
 		: [];
 };
 
-export const personalBestLabels: Readonly<Record<PersonalBest, string>> = {
-	time: "Time",
-	pace: "Pace",
-	reps: "Reps",
-	one_rm: "1RM",
-	volume: "Volume",
-	weight: "Weight",
-	distance: "Distance",
-};
+export const personalBestLabel = (text: FitnessText, record: PersonalBest) =>
+	text("client.workout.record", { record });
+
+export const segmentLabel = (text: FitnessText, segment: TimelineSegment) =>
+	segment.letter === null
+		? (segment.name ?? text("client.editor.exercise"))
+		: text("client.superset.name", { letter: segment.letter });

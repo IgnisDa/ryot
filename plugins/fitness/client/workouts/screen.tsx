@@ -4,10 +4,17 @@ import {
 	EntityBrowserController,
 } from "@ryot-app/plugin-client-sdk/browser";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { type TimeZone, usePageContext, usePageRefresh } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	type ReportingCalendar,
+	type TimeZone,
+	usePageContext,
+	usePageRefresh,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	paginationItems,
 	PreferencesGate,
+	useDisplayText,
+	useFormatters,
 	useRyot,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -16,6 +23,7 @@ import { useMemo, useState } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { DisplayPreferences } from "../display-preferences";
+import { useFitnessMessages } from "../messages";
 import { WorkoutProcessing } from "../workout-processing";
 import { workoutFilterFields } from "./filters";
 import {
@@ -39,7 +47,9 @@ import { WorkoutSummarySection } from "./summary";
 export default function WorkoutsPage() {
 	return (
 		<WorkoutProcessing>
-			<PreferencesGate>{({ timeZone }) => <WorkoutsBody timeZone={timeZone} />}</PreferencesGate>
+			<PreferencesGate>
+				{({ timeZone, weekStart }) => <WorkoutsBody timeZone={timeZone} weekStart={weekStart} />}
+			</PreferencesGate>
 		</WorkoutProcessing>
 	);
 }
@@ -47,6 +57,7 @@ export default function WorkoutsPage() {
 function WorkoutResults(props: {
 	readonly now: Date;
 	readonly timeZone: TimeZone;
+	readonly weekStart: ReportingCalendar["weekStart"];
 	readonly results: BrowserResultsInput<WorkoutPage>;
 }) {
 	return (
@@ -56,7 +67,7 @@ function WorkoutResults(props: {
 	);
 }
 
-function SummaryLoader(props: { readonly now: Date; readonly timeZone: TimeZone }) {
+function SummaryLoader(props: ReportingCalendar & { readonly now: Date }) {
 	const [period, setPeriod] = useState<PeriodKey>("1M");
 	const summary = useRyotQuery(workoutSummaryQuery, { period, timeZone: props.timeZone });
 	return (
@@ -82,10 +93,13 @@ function WeekResults(props: {
 	readonly timeZone: TimeZone;
 	readonly layout: "grid" | "list";
 	readonly cards: readonly WorkoutCard[];
+	readonly weekStart: ReportingCalendar["weekStart"];
 	readonly results: BrowserResultsInput<WorkoutPage>;
 	readonly window: { readonly endAt: string; readonly startAt: string };
 }) {
-	const { now, cards, imperial, timeZone } = props;
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
+	const { now, cards, imperial, timeZone, weekStart } = props;
 	const weeks = useRyotQuery(workoutWeeksQuery, {
 		timeZone,
 		...props.window,
@@ -93,8 +107,16 @@ function WeekResults(props: {
 		search: props.results.controls.searchText,
 	});
 	const sections = useMemo(
-		() => groupByWeek({ now, cards, imperial, timeZone, totals: weeks.data ?? [] }),
-		[now, cards, imperial, timeZone, weeks.data],
+		() =>
+			groupByWeek(formatters, text, {
+				now,
+				cards,
+				imperial,
+				timeZone,
+				weekStart,
+				totals: weeks.data ?? [],
+			}),
+		[formatters, text, now, cards, imperial, timeZone, weekStart, weeks.data],
 	);
 	return (
 		<WorkoutWeeks sections={sections} layout={props.layout} selection={props.results.selection} />
@@ -105,9 +127,11 @@ function WorkoutCards(props: {
 	readonly now: Date;
 	readonly imperial: boolean;
 	readonly timeZone: TimeZone;
+	readonly weekStart: ReportingCalendar["weekStart"];
 	readonly results: BrowserResultsInput<WorkoutPage>;
 }) {
-	const { now, results, imperial, timeZone } = props;
+	const formatters = useFormatters();
+	const { now, results, imperial, timeZone, weekStart } = props;
 	const { items, pages, layout } = results;
 	const comparisons = useMemo(
 		() =>
@@ -119,8 +143,8 @@ function WorkoutCards(props: {
 		[pages],
 	);
 	const cards = useMemo(
-		() => buildWorkoutCards({ now, items, imperial, timeZone, comparisons }),
-		[items, comparisons, now, imperial, timeZone],
+		() => buildWorkoutCards(formatters, { now, items, imperial, timeZone, weekStart, comparisons }),
+		[formatters, items, comparisons, now, imperial, timeZone, weekStart],
 	);
 	const window = weeksWindow(cards);
 	return layout === "table" || window === null ? (
@@ -134,17 +158,20 @@ function WorkoutCards(props: {
 			results={results}
 			imperial={imperial}
 			timeZone={timeZone}
+			weekStart={weekStart}
 		/>
 	);
 }
 
-function WorkoutsBody({ timeZone }: { readonly timeZone: TimeZone }) {
+function WorkoutsBody({ timeZone, weekStart }: ReportingCalendar) {
 	const ryot = useRyot();
+	const text = useFitnessMessages();
 	const { view } = usePageContext();
+	const displayText = useDisplayText();
 	const [now, setNow] = useState(() => new Date());
 	const filterFields = useMemo(
-		() => workoutFilterFields(ryot.pluginIdentity(PLUGIN_PACKAGE_ID)),
-		[ryot],
+		() => workoutFilterFields(text, ryot.pluginIdentity(PLUGIN_PACKAGE_ID)),
+		[ryot, text],
 	);
 	usePageRefresh(() =>
 		DateTime.now.pipe(
@@ -159,21 +186,21 @@ function WorkoutsBody({ timeZone }: { readonly timeZone: TimeZone }) {
 			count={countWorkouts}
 			identityKey="workouts"
 			filterFields={filterFields}
-			name={view?.name ?? "Workouts"}
 			icon={view?.icon ?? "dumbbell"}
-			errorTitle="Workouts unavailable"
 			layouts={["grid", "list", "table"]}
-			noun={{ one: "workout", other: "workouts" }}
-			errorMessage="Your workouts couldn't be loaded."
-			renderSummary={() => <SummaryLoader now={now} timeZone={timeZone} />}
+			emptyMessage={text("client.workouts.empty")}
+			errorTitle={text("client.workouts.unavailable")}
+			errorMessage={text("client.workouts.load-failed")}
+			name={view ? displayText(view.name) : text("client.workouts.title")}
+			noun={(count) => text("common.unit.count", { count, noun: "workout" })}
 			selection={{ readIds: readWorkoutIds, actions: [addToCollectionAction(ryot)] }}
-			emptyMessage="Start a workout, or import your history from Hevy or Strong, to see it here."
+			renderSummary={() => <SummaryLoader now={now} timeZone={timeZone} weekStart={weekStart} />}
 			renderResults={(results) => (
-				<WorkoutResults now={now} results={results} timeZone={timeZone} />
+				<WorkoutResults now={now} results={results} timeZone={timeZone} weekStart={weekStart} />
 			)}
 			add={{
 				searchesOnline: false,
-				label: "Start workout",
+				label: text("client.workouts.start"),
 				open: () => ryot.navigation.push(fitnessRoute("/workouts/new")),
 			}}
 		/>

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
 import { countMuscleSets } from "../../shared/fitness-metrics";
+import { testFitnessText } from "../../tests/client/test-text";
 import { workoutDetails, workoutExercise, workoutSet } from "../../tests/client/workout-fixtures";
 import {
 	buildExerciseGroups,
 	buildTimeline,
 	cardMuscleSources,
+	segmentLabel,
 	summarizeWorkout,
 } from "./details-model";
 
@@ -226,7 +228,12 @@ describe("workout details model", () => {
 			],
 		});
 		const timeline = buildTimeline(timed, buildExerciseGroups(timed), 600);
-		expect(timeline?.segments.map(({ label, seconds }) => [label, seconds])).toEqual([
+		expect(
+			timeline?.segments.map((segment) => [
+				segmentLabel(testFitnessText, segment),
+				segment.seconds,
+			]),
+		).toEqual([
 			["Seated Dumbbell Curl", 1200],
 			["Cable Rear Delt Fly", 1800],
 		]);

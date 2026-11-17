@@ -6,6 +6,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { workoutCardsRecipe, workoutWeeksRecipe } from "../../shared/workout-list-recipes";
+import { testFitnessText } from "../../tests/client/test-text";
 import { bindWorkoutRecipe } from "../../tests/workout-recipes.test-support";
 import { workoutFilterFields } from "./filters";
 
@@ -93,7 +94,7 @@ describe("compileWorkoutFilter", () => {
 
 describe("workoutFilterFields", () => {
 	it("declares unique keys and labels", () => {
-		const fields = workoutFilterFields(reference);
+		const fields = workoutFilterFields(testFitnessText, reference);
 		expect(new Set(fields.map(({ key }) => key)).size).toBe(fields.length);
 		expect(new Set(fields.map(({ label }) => label)).size).toBe(fields.length);
 	});

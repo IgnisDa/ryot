@@ -18,6 +18,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import WorkoutTemplatePage from "./screen";
 
 afterEach(disposePluginBridges);
@@ -73,6 +74,7 @@ const mountTemplate = (input: {
 	let answer: undefined | (() => void);
 	const page = mountPluginPage(WorkoutTemplatePage, {
 		page: context,
+		catalogs: fitnessCatalogs,
 		onClientMessage: () => answer?.(),
 		entitlements: input.proAvailable === true ? ["pro"] : [],
 		location: entityLocation("template", "workout-template"),
@@ -280,7 +282,7 @@ it.live.each([
 				}),
 			);
 			expect(screen.getByText("Weekly plan")).toBeTruthy();
-			expect(screen.getByText(`${input.distance} in 120 s`)).toBeTruthy();
+			expect(screen.getByText(`${input.distance} in 120 sec`)).toBeTruthy();
 			expect(screen.getByRole("region", { name: "Partial plan attachments" })).toBeTruthy();
 			expect(screen.getByRole("region", { name: "Row attachments" })).toBeTruthy();
 			expect(screen.getAllByRole("img").map((element) => element.getAttribute("alt"))).toContain(

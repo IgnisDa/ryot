@@ -1,14 +1,20 @@
 import { describe, expect, it } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 import { stringMatching } from "@ryot-app/testing/matchers";
 
 import type { WorkoutListItem, WorkoutSummary } from "../../shared/workout-list-recipes";
+import { testFitnessText } from "../../tests/client/test-text";
+import { formatSetMain } from "../workout/format";
 import {
 	buildHeatmap,
 	buildSummaryTiles,
 	buildWorkoutCards,
+	cardVolume,
+	comparisonLabel,
+	describeDuration,
 	groupByWeek,
 	summaryWindows,
 } from "./model";
@@ -81,10 +87,11 @@ const template: NonNullable<WorkoutListItem["template"]> = {
 };
 
 const cards = (items: readonly WorkoutListItem[], imperial = false) =>
-	buildWorkoutCards({
+	buildWorkoutCards(testFormatters, {
 		now,
 		items,
 		imperial,
+		weekStart: 1,
 		timeZone: TimeZone.make("UTC"),
 		comparisons: [
 			{ id: "prior", volume: 800, startedAt: "2026-10-07T17:00:00.000Z" },
@@ -100,21 +107,14 @@ describe("buildWorkoutCards", () => {
 			workout({ template }),
 			workout(),
 		]);
-		expect(repeated?.comparison).toEqual({
-			change: 25,
-			kind: "repeated",
-			label: "Repeated from Oct 7",
-		});
-		expect(fromTemplate?.comparison).toEqual({
-			change: 25,
-			kind: "template",
-			label: "Legs B · last Oct 7",
-		});
-		expect(firstTemplate?.comparison).toEqual({
-			change: null,
-			kind: "template",
-			label: "Legs B · first session",
-		});
+		const label = (card: typeof repeated) =>
+			card === undefined ? undefined : comparisonLabel(testFitnessText, card.comparison);
+		expect(repeated?.comparison).toMatchObject({ change: 25, kind: "repeated" });
+		expect(label(repeated)).toBe<unknown>("Repeated from Oct 7");
+		expect(fromTemplate?.comparison).toMatchObject({ change: 25, kind: "template" });
+		expect(label(fromTemplate)).toBe<unknown>("Legs B · last Oct 7");
+		expect(firstTemplate?.comparison).toMatchObject({ change: null, kind: "template" });
+		expect(label(firstTemplate)).toBe<unknown>("Legs B · first session");
 		expect(empty?.comparison).toEqual({ kind: "none" });
 	});
 
@@ -144,7 +144,12 @@ describe("buildWorkoutCards", () => {
 				],
 			}),
 		]);
-		expect(card?.top).toEqual([
+		expect(
+			card?.top.map(({ best, ...line }) => ({
+				...line,
+				best: formatSetMain(testFormatters, testFitnessText, best.exerciseKind, best, false),
+			})),
+		).toEqual([
 			{ sets: 2, record: true, name: "squat", key: "0:squat", best: "110 kg × 3" },
 			{ sets: 1, name: "press", record: false, key: "1:press", best: "200 kg × 10" },
 			{ sets: 1, name: "lunge", record: false, key: "2:lunge", best: "20 kg × 12" },
@@ -153,23 +158,30 @@ describe("buildWorkoutCards", () => {
 	});
 
 	it("labels timestamp time as elapsed when active duration is unknown", () => {
-		expect(cards([workout({ activeDuration: null })])[0]?.duration).toEqual({
+		const described = (card: undefined | ReturnType<typeof cards>[number]) =>
+			card?.duration == null
+				? undefined
+				: describeDuration(testFormatters, testFitnessText, card.duration);
+		expect(described(cards([workout({ activeDuration: null })])[0])).toEqual<unknown>({
 			value: "1h 30m",
 			label: "Elapsed",
 		});
-		expect(cards([workout()])[0]?.duration).toEqual({ value: "1h", label: "Duration" });
+		expect(described(cards([workout()])[0])).toEqual<unknown>({ value: "1h", label: "Duration" });
 	});
 
 	it("shows volume in the display unit system", () => {
-		expect(cards([workout({ volume: 14820 })])[0]?.volume).toBe("14,820 kg × reps");
-		expect(cards([workout({ volume: 100 })], true)[0]?.volume).toBe("220 lb × reps");
+		const shown = (card: undefined | ReturnType<typeof cards>[number]) =>
+			card === undefined ? undefined : cardVolume(testFormatters, testFitnessText, card);
+		expect(shown(cards([workout({ volume: 14820 })])[0])).toBe<unknown>("14,820 kg × reps");
+		expect(shown(cards([workout({ volume: 100 })], true)[0])).toBe<unknown>("220 lb × reps");
 	});
 });
 
 describe("groupByWeek", () => {
 	it("titles the current and previous weeks and attaches their totals", () => {
-		const sections = groupByWeek({
+		const sections = groupByWeek(testFormatters, testFitnessText, {
 			now,
+			weekStart: 1,
 			imperial: false,
 			timeZone: TimeZone.make("UTC"),
 			totals: [
@@ -223,6 +235,7 @@ const trained = (at: string) => ({ at, ...totals(500, 1) });
 describe("buildHeatmap", () => {
 	it("counts the streak through the last trained week and leaves future days empty", () => {
 		const heatmap = buildHeatmap(
+			testFormatters,
 			summary({
 				days: [
 					trained("2026-09-30T00:00:00.000Z"),
@@ -231,7 +244,7 @@ describe("buildHeatmap", () => {
 				],
 			}),
 			new Date("2026-10-15T12:00:00.000Z"),
-			TimeZone.make("UTC"),
+			{ weekStart: 1, timeZone: TimeZone.make("UTC") },
 		);
 		expect(heatmap.streak).toBe(3);
 		expect(heatmap.weeks.at(-1)?.cells.map(({ level }) => level)).toEqual([
@@ -248,14 +261,20 @@ describe("buildHeatmap", () => {
 
 describe("buildSummaryTiles", () => {
 	it("compares volume with the previous period", () => {
-		expect(buildSummaryTiles(summary(), "1M", false)[2]).toEqual({
+		expect(buildSummaryTiles(testFormatters, testFitnessText, summary(), "1M", false)[2]).toEqual({
 			tone: "up",
 			label: "Volume",
 			value: "1.1K kg × reps",
 			detail: "▲ 10% vs previous 30 days",
 		});
-		expect(buildSummaryTiles(summary({ previous: totals(0, 0) }), "1M", false)[2]?.detail).toBe(
-			"Nothing to compare yet",
-		);
+		expect(
+			buildSummaryTiles(
+				testFormatters,
+				testFitnessText,
+				summary({ previous: totals(0, 0) }),
+				"1M",
+				false,
+			)[2]?.detail,
+		).toBe("Nothing to compare yet");
 	});
 });

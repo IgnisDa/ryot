@@ -23,6 +23,7 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { preferenceSettings } from "../../tests/client/draft-fixtures";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { bindWorkoutRequest } from "../../tests/workout-recipes.test-support";
 import WorkoutsPage from "./screen";
 
@@ -140,8 +141,9 @@ const respond = (queries: Queries, answers: Answers) => {
 const openPage = (answers: Answers = {}, search = "") => {
 	const page = mountPluginPage(WorkoutsPage, {
 		entitlements: [],
+		catalogs: fitnessCatalogs,
 		location: routeLocation("/v/all-workouts", search),
-		userPreferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
+		userPreferences: { weekStart: 1, ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
 		page: {
 			...savedViewPageContext({
 				settings: {},

@@ -2,6 +2,7 @@ import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/
 import {
 	ManagedAssetProvider,
 	type RyotQueryResult,
+	useDisplayText,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
@@ -15,6 +16,7 @@ import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-pref
 import { managedAssetBatch } from "../asset-urls";
 import { DisplayPreferences } from "../display-preferences";
 import { WorkoutMediaViewer } from "../media-viewer";
+import { useFitnessMessages } from "../messages";
 import { WorkoutProcessing } from "../workout-processing";
 import {
 	buildExerciseGroups,
@@ -37,6 +39,8 @@ export function WorkoutDetailsView(props: {
 	readonly workout: WorkoutDetails;
 	readonly settings: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
 }) {
+	const displayText = useDisplayText();
+	const text = useFitnessMessages();
 	const { compact, workout } = props;
 	const imperial = props.settings.unitSystem === "imperial";
 	const view = useMemo(() => {
@@ -75,16 +79,20 @@ export function WorkoutDetailsView(props: {
 				/>
 				<WorkoutComment comment={workout.comment} />
 				<WorkoutMediaViewer
-					label={workout.name}
 					images={workout.images ?? []}
 					videos={workout.videos ?? []}
+					label={displayText(workout.name)}
 				/>
-				<section aria-label="Exercises" className="flex flex-col gap-4">
+				<section className="flex flex-col gap-4" aria-label={text("property.exercises")}>
 					<div className="flex items-baseline justify-between font-ui">
-						<h2 className="font-display font-semibold text-[22px] text-text">Exercises</h2>
+						<h2 className="font-display font-semibold text-[22px] text-text">
+							{text("property.exercises")}
+						</h2>
 						<span className="text-[14px] text-text-muted">
-							{view.summary.exercises} {view.summary.exercises === 1 ? "exercise" : "exercises"} ·{" "}
-							{view.summary.sets} {view.summary.sets === 1 ? "set" : "sets"}
+							{text("client.template.totals", {
+								sets: view.summary.sets,
+								exercises: view.summary.exercises,
+							})}
 						</span>
 					</div>
 					<ExerciseGroups
@@ -126,6 +134,7 @@ function WorkoutDetailsBody(props: {
 	readonly result: RyotQueryResult<null | WorkoutDetails>;
 	readonly settings: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
 }) {
+	const text = useFitnessMessages();
 	const { result, compact } = props;
 	const workout = result.data;
 	if (workout !== undefined && workout !== null) {
@@ -141,16 +150,16 @@ function WorkoutDetailsBody(props: {
 	if (result.isError) {
 		return (
 			<div className="flex flex-col items-start gap-3 font-ui">
-				<StatusMessage tone="error">This workout couldn't be loaded.</StatusMessage>
+				<StatusMessage tone="error">{text("client.workout.load-failed")}</StatusMessage>
 				<Button variant="secondary" onClick={result.refetch}>
-					Try again
+					{text("common.action.try-again")}
 				</Button>
 			</div>
 		);
 	}
 	return (
 		<StatusMessage tone="pending" className="font-ui">
-			{workout === null ? "This workout no longer exists." : "Loading workout…"}
+			{workout === null ? text("client.workout.missing") : text("client.workout.loading")}
 		</StatusMessage>
 	);
 }

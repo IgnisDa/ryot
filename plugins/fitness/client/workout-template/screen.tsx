@@ -1,12 +1,14 @@
 import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
+	useDisplayText,
+	useFormatters,
 	useHostScreen,
 	useRyot,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, Card, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, Card, formatClock, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
 
@@ -19,9 +21,10 @@ import { DeleteFitnessEntity } from "../entity-delete";
 import { supersetColorVariable, supersetName } from "../group-colors";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { WorkoutMediaViewer } from "../media-viewer";
+import { useFitnessMessageBuilder, useFitnessMessages } from "../messages";
 import { setLabels, setLots } from "../set-lots";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
-import { formatClock, formatExerciseMeta, formatSetMain } from "../workout/format";
+import { formatExerciseMeta, formatSetMain } from "../workout/format";
 import { type TemplateExercise, templateQuery } from "./queries";
 
 export default function WorkoutTemplatePage() {
@@ -36,8 +39,11 @@ function PlannedExercise(props: {
 	readonly occurrence: TemplateOccurrenceProperties;
 	readonly group: undefined | { readonly name: string; readonly color: string };
 }) {
+	const displayText = useDisplayText();
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { exercise, occurrence } = props;
-	const name = exercise?.name ?? "Exercise unavailable";
+	const name = exercise?.name ?? text("client.template.exercise-unavailable");
 	const notes = occurrence.notes.join("\n").trim();
 	const meta = exercise === undefined ? "" : formatExerciseMeta(exercise);
 	const labels = setLabels(occurrence.sets.map(({ setLot }) => setLot));
@@ -76,10 +82,10 @@ function PlannedExercise(props: {
 			)}
 			{occurrence.sets.length === 0 ? (
 				<p className="border-t border-border px-4 py-2.5 text-[14px] text-text-muted">
-					No planned sets.
+					{text("client.template.no-sets")}
 				</p>
 			) : (
-				<ol aria-label={`Planned sets for ${name}`}>
+				<ol aria-label={text("client.template.planned-sets", { name })}>
 					{occurrence.sets.map((set, index) => {
 						const lot = setLots[set.setLot];
 						return (
@@ -92,6 +98,8 @@ function PlannedExercise(props: {
 								</span>
 								<span className="text-text">
 									{formatSetMain(
+										formatters,
+										text,
 										exercise?.exerciseKind ?? null,
 										{
 											reps: set.reps ?? null,
@@ -101,14 +109,18 @@ function PlannedExercise(props: {
 										},
 										props.imperial,
 										durationDisplayUnit(exercise?.overrides.defaultDurationUnit),
-									) || "Measurements not specified"}
+									) || text("client.template.no-measurements")}
 									<span className="text-[13px] text-text-muted">
-										{set.restTime == null ? "" : ` · Planned rest ${formatClock(set.restTime)}`}
-										{set.rpe == null ? "" : ` · RPE ${set.rpe}`}
+										{set.restTime == null
+											? ""
+											: ` · ${text("client.template.planned-rest", { time: formatClock(set.restTime) })}`}
+										{set.rpe == null ? "" : ` · ${text("client.template.rpe", { rpe: set.rpe })}`}
 									</span>
 								</span>
 								{set.note ? (
-									<p className="col-start-2 text-[13px] text-text-muted italic">“{set.note}”</p>
+									<p className="col-start-2 text-[13px] text-text-muted italic">
+										{text("client.exercise.notes.quote", { note: set.note })}
+									</p>
 								) : null}
 							</li>
 						);
@@ -116,7 +128,7 @@ function PlannedExercise(props: {
 				</ol>
 			)}
 			<WorkoutMediaViewer
-				label={name}
+				label={displayText(name)}
 				images={occurrence.images ?? []}
 				videos={occurrence.videos ?? []}
 			/>
@@ -125,6 +137,9 @@ function PlannedExercise(props: {
 }
 
 function TemplateDetails(props: { readonly entityId: string }) {
+	const displayText = useDisplayText();
+	const text = useFitnessMessages();
+	const message = useFitnessMessageBuilder();
 	const client = useRyot();
 	const { compact } = useRyotViewport();
 	const source = useRyotQuery(templateQuery, props.entityId);
@@ -139,37 +154,31 @@ function TemplateDetails(props: { readonly entityId: string }) {
 		);
 	if (source.isError || context.isError) {
 		return (
-			<PluginScreenFrame title="Workout template">
-				<StatusMessage tone="error">
-					This template or its display preferences could not be loaded. The record may no longer
-					exist.
-				</StatusMessage>
+			<PluginScreenFrame title={message("client.template.title")}>
+				<StatusMessage tone="error">{text("client.template.load-failed")}</StatusMessage>
 				<Button
 					onClick={() => {
 						source.refetch();
 						context.refetch();
 					}}
 				>
-					Retry template
+					{text("client.template.retry")}
 				</Button>
 			</PluginScreenFrame>
 		);
 	}
 	if (source.data?.kind === "blocked") {
 		return (
-			<PluginScreenFrame title="Workout template">
-				<StatusMessage tone="error">
-					This template contains unavailable exercises or invalid data. Restore the missing
-					references before starting or editing it.
-				</StatusMessage>
-				<Button onClick={source.refetch}>Retry template</Button>
+			<PluginScreenFrame title={message("client.template.title")}>
+				<StatusMessage tone="error">{text("client.template.blocked")}</StatusMessage>
+				<Button onClick={source.refetch}>{text("client.template.retry")}</Button>
 			</PluginScreenFrame>
 		);
 	}
 	if (template === undefined || context.data === undefined) {
 		return (
-			<PluginScreenFrame title="Workout template">
-				<StatusMessage tone="pending">Loading template…</StatusMessage>
+			<PluginScreenFrame title={message("client.template.title")}>
+				<StatusMessage tone="pending">{text("client.template.loading")}</StatusMessage>
 			</PluginScreenFrame>
 		);
 	}
@@ -180,7 +189,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 			orders.includes(occurrence.exerciseOrder),
 		);
 		if (index !== undefined && index !== -1 && !names.has(index)) {
-			names.set(index, supersetName(names.size));
+			names.set(index, supersetName(text, names.size));
 		}
 	}
 	const plannedSets = plan.exercises.reduce((total, { sets }) => total + sets.length, 0);
@@ -198,7 +207,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 					>
 						<div className="flex min-w-0 flex-col gap-2">
 							<span className="text-[13px] font-semibold tracking-wide text-accent-text uppercase">
-								Workout template
+								{text("client.template.title")}
 							</span>
 							<h1
 								className={clsx(
@@ -211,26 +220,26 @@ function TemplateDetails(props: { readonly entityId: string }) {
 						</div>
 						<div className={clsx("flex gap-2", compact && "w-full")}>
 							<Button onClick={() => action("start")} className={clsx(compact && "flex-1")}>
-								Start workout
+								{text("client.workouts.start")}
 							</Button>
 							<Button variant="secondary" onClick={() => action("edit")}>
-								Edit template{context.data.pro ? "" : " (Pro)"}
+								{text("client.template.edit", { pro: context.data.pro ? "yes" : "no" })}
 							</Button>
 							<HeaderActionsMenu
 								entityId={props.entityId}
-								label="More template actions"
+								label={text("client.template.more-actions")}
 								items={[
 									{
 										key: "collections",
-										label: "Add to collection",
+										label: text("client.exercise.add-to-collection"),
 										onSelect: () =>
 											openScreen(client.screens.addToCollection({ entityId: props.entityId })),
 									},
 									{
 										key: "delete",
 										destructive: true,
-										label: "Delete template",
 										onSelect: () => setDialog("delete"),
+										label: text("client.template.delete"),
 									},
 								]}
 							/>
@@ -245,12 +254,12 @@ function TemplateDetails(props: { readonly entityId: string }) {
 						</div>
 					</header>
 					<section
-						aria-label="Summary"
+						aria-label={text("client.workouts.summary.label")}
 						className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border-card bg-border"
 					>
 						{[
-							{ label: "Exercises", value: plan.exercises.length },
-							{ value: plannedSets, label: "Planned sets" },
+							{ value: plan.exercises.length, label: text("property.exercises") },
+							{ value: plannedSets, label: text("client.editor.stat.planned-sets") },
 						].map((stat) => (
 							<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4">
 								<span className="text-[13px] text-text-muted">{stat.label}</span>
@@ -269,16 +278,23 @@ function TemplateDetails(props: { readonly entityId: string }) {
 						<Card className="text-[15px] whitespace-pre-wrap text-text">{plan.comment}</Card>
 					) : null}
 					<WorkoutMediaViewer
-						label={entity.name}
 						images={plan.images ?? []}
 						videos={plan.videos ?? []}
+						label={displayText(entity.name)}
 					/>
-					<section aria-label="Planned exercises" className="flex flex-col gap-4">
+					<section
+						className="flex flex-col gap-4"
+						aria-label={text("client.template.planned-exercises")}
+					>
 						<div className="flex items-baseline justify-between">
-							<h2 className="font-display text-[22px] font-semibold text-text">Exercises</h2>
+							<h2 className="font-display text-[22px] font-semibold text-text">
+								{text("property.exercises")}
+							</h2>
 							<span className="text-[14px] text-text-muted">
-								{plan.exercises.length} {plan.exercises.length === 1 ? "exercise" : "exercises"} ·{" "}
-								{plannedSets} {plannedSets === 1 ? "set" : "sets"}
+								{text("client.template.totals", {
+									sets: plannedSets,
+									exercises: plan.exercises.length,
+								})}
 							</span>
 						</div>
 						<div className={clsx("grid items-start gap-4", !compact && "grid-cols-2")}>
@@ -298,7 +314,10 @@ function TemplateDetails(props: { readonly entityId: string }) {
 										group={
 											group === undefined
 												? undefined
-												: { color: group.color, name: names.get(groupIndex ?? -1) ?? "Superset" }
+												: {
+														color: group.color,
+														name: names.get(groupIndex ?? -1) ?? text("client.superset.fallback"),
+													}
 										}
 									/>
 								);

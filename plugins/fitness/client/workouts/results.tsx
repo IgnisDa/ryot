@@ -1,22 +1,30 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { Badge, Card, type ItemSelection, SelectableItem } from "@ryot-app/plugin-ui-sdk";
+import { useDisplayText, useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import {
+	Badge,
+	Card,
+	formatDuration,
+	type ItemSelection,
+	SelectableItem,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type ReactNode, useState } from "react";
 
 import { tableHeaderClass } from "../measurements/styles";
-import { formatNumber } from "../workout/format";
-import { changeTone, formatChange, plural, type WeekSection, type WorkoutCard } from "./model";
+import { useFitnessMessages } from "../messages";
+import { formatNumber, formatSetMain } from "../workout/format";
+import {
+	cardVolume,
+	changeTone,
+	comparisonLabel,
+	countLabel,
+	describeDuration,
+	formatChange,
+	type WeekSection,
+	type WorkoutCard,
+} from "./model";
 import { toneClasses } from "./styles";
-
-function RecordBadge(props: { readonly count: null | number }) {
-	return props.count !== null && props.count > 0 ? (
-		<Badge variant="accent">
-			<AppIcon size={12} name="star" />
-			{plural(props.count, "PR")}
-		</Badge>
-	) : null;
-}
 
 function WorkoutName(props: { readonly card: WorkoutCard; readonly className?: string }) {
 	return (
@@ -24,6 +32,16 @@ function WorkoutName(props: { readonly card: WorkoutCard; readonly className?: s
 			<span className={clsx("font-semibold text-text", props.className)}>{props.card.name}</span>
 		</PluginLink>
 	);
+}
+
+function RecordBadge(props: { readonly count: null | number }) {
+	const text = useFitnessMessages();
+	return props.count !== null && props.count > 0 ? (
+		<Badge variant="accent">
+			<AppIcon size={12} name="star" />
+			{countLabel(text, "pr", props.count)}
+		</Badge>
+	) : null;
 }
 
 const muscleList = (card: WorkoutCard) =>
@@ -34,6 +52,7 @@ export function WorkoutWeeks(props: {
 	readonly sections: readonly WeekSection[];
 	readonly selection: undefined | ItemSelection;
 }) {
+	const displayText = useDisplayText();
 	return (
 		<div className="flex min-w-0 flex-col gap-7 font-ui">
 			{props.sections.map((section) => (
@@ -57,8 +76,8 @@ export function WorkoutWeeks(props: {
 								<SelectableItem
 									id={card.id}
 									key={card.id}
-									label={card.name}
 									selection={props.selection}
+									label={displayText(card.name)}
 								>
 									<WorkoutGridCard card={card} />
 								</SelectableItem>
@@ -70,8 +89,8 @@ export function WorkoutWeeks(props: {
 								<SelectableItem
 									id={card.id}
 									key={card.id}
-									label={card.name}
 									selection={props.selection}
+									label={displayText(card.name)}
 								>
 									<WorkoutListRow card={card} />
 								</SelectableItem>
@@ -86,6 +105,7 @@ export function WorkoutWeeks(props: {
 
 export function WorkoutGridCard(props: { readonly card: WorkoutCard }) {
 	const { card } = props;
+	const { best, text, volume, duration, formatters } = useCardText(card);
 	return (
 		<Card padding="none" className="flex min-w-0 flex-col overflow-hidden">
 			<article
@@ -106,15 +126,23 @@ export function WorkoutGridCard(props: { readonly card: WorkoutCard }) {
 					<RecordBadge count={card.personalBests} />
 				</div>
 				<div className="grid grid-cols-3 gap-2 px-4.5 py-3.5">
-					<Stat value={card.duration?.value ?? "—"} label={card.duration?.label ?? "Duration"} />
-					<Stat label="Volume" value={card.volume ?? "—"} />
 					<Stat
-						value={formatNumber(card.sets)}
-						label={`Sets · ${plural(card.exercises, "exercise")}`}
+						value={duration?.value ?? "—"}
+						label={duration?.label ?? text("property.duration")}
+					/>
+					<Stat value={volume ?? "—"} label={text("property.volume")} />
+					<Stat
+						value={formatNumber(formatters, card.sets)}
+						label={text("client.workouts.sets-exercises", {
+							exercises: countLabel(text, "exercise", card.exercises),
+						})}
 					/>
 				</div>
 				{card.muscles.length === 0 ? null : (
-					<ul aria-label="Muscles" className="flex flex-wrap gap-1.5 px-4.5 pb-3.5">
+					<ul
+						aria-label={text("browse.field.muscles")}
+						className="flex flex-wrap gap-1.5 px-4.5 pb-3.5"
+					>
 						{muscleList(card).map((muscle) => (
 							<li key={muscle}>
 								<Badge variant="neutral">{muscle}</Badge>
@@ -136,13 +164,13 @@ export function WorkoutGridCard(props: { readonly card: WorkoutCard }) {
 										line.record ? "text-accent-text" : "text-text-muted",
 									)}
 								>
-									{line.best}
+									{best(line)}
 								</span>
 							</li>
 						))}
 						{card.moreExercises > 0 ? (
 							<li className="text-[13px] text-text-subtle">
-								+{plural(card.moreExercises, "more exercise")}
+								{text("client.workouts.more-exercises", { count: card.moreExercises })}
 							</li>
 						) : null}
 					</ul>
@@ -157,6 +185,7 @@ export function WorkoutGridCard(props: { readonly card: WorkoutCard }) {
 
 export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 	const { card } = props;
+	const { best, text, volume, duration, formatters } = useCardText(card);
 	const [open, setOpen] = useState(false);
 	const muscles = muscleList(card);
 	return (
@@ -178,22 +207,26 @@ export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 						<WorkoutName card={card} className="text-[16px]" />
 						<span className="text-[13px] text-text-subtle tabular-nums">{card.time}</span>
 						{muscles.length === 0 ? null : (
-							<span className="text-[13px] text-text-muted">· {muscles.join(", ")}</span>
+							<span className="text-[13px] text-text-muted">
+								· {formatters.list({ type: "unit", style: "long" }).format(muscles)}
+							</span>
 						)}
 					</div>
 					<span className="truncate text-[13.5px] text-text-muted">
-						{card.lines.map(({ name }) => name).join(", ")}
+						{formatters
+							.list({ type: "unit", style: "long" })
+							.format(card.lines.map(({ name }) => name))}
 					</span>
 				</div>
 				<div className="grid flex-[1_1_420px] grid-cols-[repeat(4,minmax(0,1fr))_auto] items-center gap-3 text-right text-[14px] tabular-nums">
 					<span>
-						<span className="block font-semibold text-text">{card.duration?.value ?? "—"}</span>
+						<span className="block font-semibold text-text">{duration?.value ?? "—"}</span>
 						<span className="text-[11.5px] text-text-subtle">
-							{(card.duration?.label ?? "Duration").toLowerCase()}
+							{text("client.workouts.duration-caption", { kind: card.duration?.kind ?? "active" })}
 						</span>
 					</span>
 					<span>
-						<span className="block font-semibold text-text">{card.volume ?? "—"}</span>
+						<span className="block font-semibold text-text">{volume ?? "—"}</span>
 						<span
 							className={clsx(
 								"text-[11.5px]",
@@ -203,24 +236,32 @@ export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 							)}
 						>
 							{card.comparison.kind === "none" || card.comparison.change === null
-								? "no comparison"
-								: formatChange(card.comparison.change)}
+								? text("client.workouts.no-comparison")
+								: formatChange(formatters, card.comparison.change)}
 						</span>
 					</span>
 					<span>
-						<span className="block font-semibold text-text">{formatNumber(card.sets)}</span>
-						<span className="text-[11.5px] text-text-subtle">sets</span>
+						<span className="block font-semibold text-text">
+							{formatNumber(formatters, card.sets)}
+						</span>
+						<span className="text-[11.5px] text-text-subtle">
+							{text("client.workouts.sets-caption")}
+						</span>
 					</span>
 					<span>
 						<RecordCount className="block" count={card.personalBests} />
-						<span className="text-[11.5px] text-text-subtle">PRs</span>
+						<span className="text-[11.5px] text-text-subtle">
+							{text("client.workouts.prs-caption")}
+						</span>
 					</span>
 					<button
 						type="button"
 						aria-expanded={open}
 						onClick={() => setOpen((current) => !current)}
-						aria-label={`${open ? "Collapse" : "Expand"} ${card.name}`}
 						className="grid size-7 place-items-center rounded-md bg-surface-2 text-text-muted"
+						aria-label={text(open ? "client.workouts.collapse" : "client.workouts.expand", {
+							name: card.name,
+						})}
 					>
 						<AppIcon size={14} name={open ? "chevron-up" : "chevron-down"} />
 					</button>
@@ -232,13 +273,13 @@ export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 						<thead>
 							<tr>
 								<th scope="col" className={tableHeaderClass}>
-									Exercise
+									{text("client.editor.exercise")}
 								</th>
 								<th scope="col" className={clsx(tableHeaderClass, "text-right")}>
-									Sets
+									{text("property.sets")}
 								</th>
 								<th scope="col" className={clsx(tableHeaderClass, "text-right")}>
-									Best set
+									{text("client.workouts.column-best-set")}
 								</th>
 							</tr>
 						</thead>
@@ -248,11 +289,13 @@ export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 									<td className="px-3 py-2 text-text">
 										<span>{line.name}</span>
 										{line.record ? (
-											<span className="ml-1.5 text-[12px] text-accent-text">★ PR</span>
+											<span className="ml-1.5 text-[12px] text-accent-text">
+												★ {text("client.workouts.pr")}
+											</span>
 										) : null}
 									</td>
 									<td className="px-3 py-2 text-right text-text-muted">{line.sets}</td>
-									<td className="px-3 py-2 text-right">{line.best}</td>
+									<td className="px-3 py-2 text-right">{best(line)}</td>
 								</tr>
 							))}
 						</tbody>
@@ -278,6 +321,7 @@ function Stat(props: { readonly label: string; readonly value: ReactNode }) {
 }
 
 function RecordCount(props: { readonly className?: string; readonly count: null | number }) {
+	const formatters = useFormatters();
 	return (
 		<span
 			className={clsx(
@@ -286,19 +330,34 @@ function RecordCount(props: { readonly className?: string; readonly count: null 
 				props.className,
 			)}
 		>
-			{props.count !== null && props.count > 0 ? formatNumber(props.count) : "—"}
+			{props.count !== null && props.count > 0 ? formatNumber(formatters, props.count) : "—"}
 		</span>
 	);
 }
 
+function useCardText(card: WorkoutCard) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
+	return {
+		text,
+		formatters,
+		volume: cardVolume(formatters, text, card),
+		duration: card.duration === null ? null : describeDuration(formatters, text, card.duration),
+		best: (line: WorkoutCard["lines"][number]) =>
+			formatSetMain(formatters, text, line.best.exerciseKind, line.best, card.imperial),
+	};
+}
+
 function Comparison(props: { readonly card: WorkoutCard }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { comparison } = props.card;
 	if (comparison.kind === "none") {
-		return <span className="text-text-subtle">Started empty · nothing to compare</span>;
+		return <span className="text-text-subtle">{text("client.workouts.nothing-to-compare")}</span>;
 	}
 	return (
 		<>
-			<span className="truncate text-text-subtle">{comparison.label}</span>
+			<span className="truncate text-text-subtle">{comparisonLabel(text, comparison)}</span>
 			{comparison.change === null ? null : (
 				<span
 					className={clsx(
@@ -306,7 +365,9 @@ function Comparison(props: { readonly card: WorkoutCard }) {
 						toneClasses[changeTone(comparison.change)],
 					)}
 				>
-					{formatChange(comparison.change)} volume
+					{text("client.workouts.volume-change", {
+						change: formatChange(formatters, comparison.change),
+					})}
 				</span>
 			)}
 		</>
@@ -319,34 +380,37 @@ export function WorkoutTable(props: {
 	readonly cards: readonly WorkoutCard[];
 	readonly selection: undefined | ItemSelection;
 }) {
+	const displayText = useDisplayText();
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	return (
 		<Card padding="none" className="overflow-x-auto font-ui">
 			<table className="w-full min-w-235 border-collapse text-[14px] tabular-nums">
 				<thead>
 					<tr>
 						<th scope="col" className={tableHeaderClass}>
-							Date
+							{text("client.workouts.column-date")}
 						</th>
 						<th scope="col" className={tableHeaderClass}>
-							Workout
+							{text("client.workouts.column-workout")}
 						</th>
 						<th scope="col" className={tableHeaderClass}>
-							Muscles
+							{text("browse.field.muscles")}
 						</th>
 						<th scope="col" className={numericHeader}>
-							Duration
+							{text("property.duration")}
 						</th>
 						<th scope="col" className={numericHeader}>
-							Exercises
+							{text("property.exercises")}
 						</th>
 						<th scope="col" className={numericHeader}>
-							Sets
+							{text("property.sets")}
 						</th>
 						<th scope="col" className={numericHeader}>
-							Volume
+							{text("property.volume")}
 						</th>
 						<th scope="col" className={numericHeader}>
-							PRs
+							{text("client.workouts.prs-caption")}
 						</th>
 					</tr>
 				</thead>
@@ -358,24 +422,36 @@ export function WorkoutTable(props: {
 								<span className="text-[12px] text-text-subtle">{card.time}</span>
 							</td>
 							<td className="px-3 py-2.5">
-								<SelectableItem id={card.id} label={card.name} selection={props.selection}>
+								<SelectableItem
+									id={card.id}
+									selection={props.selection}
+									label={displayText(card.name)}
+								>
 									<WorkoutName card={card} />
 								</SelectableItem>
 							</td>
 							<td className="px-3 py-2.5 text-[13px] text-text-muted">
-								{card.muscles.join(", ") || "—"}
+								{card.muscles.length === 0
+									? "—"
+									: formatters.list({ type: "unit", style: "long" }).format(card.muscles)}
 							</td>
 							<td className="px-3 py-2.5 text-right">
-								{card.duration === null ? "—" : card.duration.value}
-								{card.duration?.label === "Elapsed" ? (
-									<span className="block text-[11.5px] text-text-subtle">elapsed</span>
+								{card.duration === null ? "—" : formatDuration(formatters, card.duration.seconds)}
+								{card.duration?.kind === "elapsed" ? (
+									<span className="block text-[11.5px] text-text-subtle">
+										{text("client.workouts.elapsed-caption")}
+									</span>
 								) : null}
 							</td>
 							<td className="px-3 py-2.5 text-right text-text-muted">
-								{formatNumber(card.exercises)}
+								{formatNumber(formatters, card.exercises)}
 							</td>
-							<td className="px-3 py-2.5 text-right text-text-muted">{formatNumber(card.sets)}</td>
-							<td className="px-3 py-2.5 text-right">{card.volume ?? "—"}</td>
+							<td className="px-3 py-2.5 text-right text-text-muted">
+								{formatNumber(formatters, card.sets)}
+							</td>
+							<td className="px-3 py-2.5 text-right">
+								{cardVolume(formatters, text, card) ?? "—"}
+							</td>
 							<td className="px-3 py-2.5 text-right">
 								<RecordCount count={card.personalBests} />
 							</td>

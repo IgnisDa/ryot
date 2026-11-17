@@ -18,6 +18,7 @@ import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { WorkoutSummary } from "../../shared/workout-list-recipes";
 import { emptyTotals, exerciseDetails, exerciseRecord } from "../../tests/client/exercise-fixtures";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { workoutDetails, workoutExercise, workoutSet } from "../../tests/client/workout-fixtures";
 import { HistorySection, RecentSessions } from "../exercise/history";
 import { WorkoutProcessing } from "../workout-processing";
@@ -30,6 +31,7 @@ const now = new Date("2026-10-12T12:00:00.000Z");
 
 const mountProcessing = (children: ReactNode) => {
 	const page = mountPluginPage(() => <WorkoutProcessing>{children}</WorkoutProcessing>, {
+		catalogs: fitnessCatalogs,
 		location: routeLocation("/"),
 		page: {
 			...savedViewPageContext({
@@ -115,6 +117,7 @@ const Summary = (props: { readonly value?: WorkoutSummary }) => (
 	<WorkoutSummarySection
 		now={now}
 		period="7D"
+		weekStart={1}
 		isError={false}
 		imperial={false}
 		onRetry={() => undefined}

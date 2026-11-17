@@ -6,32 +6,49 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/plugin-client-sdk/plugin";
 
+import type { FitnessText } from "../messages";
+
 type WorkoutFilterField = QueryFilterField;
 
 type Reference = ReturnType<RyotClient["pluginIdentity"]>;
 
-export const workoutFilterFields = (reference: Reference): readonly WorkoutFilterField[] => [
-	{ type: "date", kind: "value", key: "startedAt", label: "Started", field: "startedAt" },
+export const workoutFilterFields = (
+	text: FitnessText,
+	reference: Reference,
+): readonly WorkoutFilterField[] => [
+	{
+		type: "date",
+		kind: "value",
+		key: "startedAt",
+		field: "startedAt",
+		label: text("browse.field.started"),
+	},
 	{
 		kind: "value",
 		type: "number",
 		key: "exerciseCount",
 		field: "exerciseCount",
-		label: "Exercise count",
+		label: text("browse.field.exercise-count"),
 	},
-	{ kind: "value", label: "Sets", type: "number", key: "setCount", field: "setCount" },
+	{
+		kind: "value",
+		type: "number",
+		key: "setCount",
+		field: "setCount",
+		label: text("property.sets"),
+	},
 	{
 		kind: "value",
 		type: "number",
 		key: "personalBests",
 		field: "personalBests",
-		label: "Personal records",
+		label: text("client.workouts.filter-records"),
 	},
 	{
 		key: "template",
-		label: "Template",
 		kind: "relationship",
 		direction: "outgoing",
+		label: text("browse.field.template"),
 		relationship: {
 			owner: reference,
 			slug: RelationshipSchemaSlug.make("workout-to-workout-template"),
@@ -39,8 +56,8 @@ export const workoutFilterFields = (reference: Reference): readonly WorkoutFilte
 	},
 	{
 		key: "exercises",
-		label: "Exercises",
 		kind: "session-event",
+		label: text("property.exercises"),
 		event: {
 			owner: reference,
 			slug: EventSchemaSlug.make("workout-set"),

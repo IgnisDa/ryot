@@ -10,6 +10,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { fitnessCatalogs, fitnessSavedViewPage } from "../../tests/client/test-text";
 import { workoutDetails, workoutExercise, workoutSet } from "../../tests/client/workout-fixtures";
 import { WorkoutDetailsView } from "./screen";
 
@@ -25,7 +26,16 @@ const renderDetails = (workout: Parameters<typeof WorkoutDetailsView>[0]["workou
 				settings={{ energyUnit: "kcal", unitSystem: "metric" }}
 			/>
 		),
-		{ location: routeLocation("/") },
+		{
+			catalogs: fitnessCatalogs,
+			location: routeLocation("/"),
+			page: fitnessSavedViewPage({
+				settings: {},
+				savedViewId: "workout",
+				rendererName: "workout",
+				dataSources: { queries: {} },
+			}),
+		},
 	);
 
 describe("workout details view", () => {
@@ -60,13 +70,22 @@ describe("workout details view", () => {
 							settings={{ energyUnit: "kJ", unitSystem: "imperial" }}
 						/>
 					),
-					{ location: routeLocation("/") },
+					{
+						catalogs: fitnessCatalogs,
+						location: routeLocation("/"),
+						page: fitnessSavedViewPage({
+							settings: {},
+							savedViewId: "workout",
+							rendererName: "workout",
+							dataSources: { queries: {} },
+						}),
+					},
 				);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.container?.textContent).toContain("220.46 lb")),
 				);
 				const text = page.container?.textContent ?? "";
-				expect(text).toContain("Active duration50 min");
+				expect(text).toContain("Active duration50m");
 				expect(text).toContain("Elapsed duration1h");
 				expect(text).toContain("418.4");
 				expect(text).toContain("kJ");
