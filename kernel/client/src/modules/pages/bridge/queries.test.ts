@@ -15,6 +15,9 @@ import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const document = {
+	parameters: {
+		fields: { title: { type: "string", description: "Title", label: { key: "parameter.title" } } },
+	},
 	queries: {
 		items: {
 			from: { alias: "item", table: "item" },
@@ -59,17 +62,36 @@ const response = { data: {} };
 describe("plugin queries service", () => {
 	layer(queriesLayer(() => Effect.succeed(response)))((test) => {
 		test.effect(
-			"executes the plugin-audience RyotQL endpoint without adding identity fields",
+			"executes the plugin-audience RyotQL endpoint with parameter text in the document's namespace",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* PluginQueriesService;
 					const outcome = yield* service.query({
 						scope,
+						namespace: "plugin-1",
 						request: { action: "execute", request: { source: { document, kind: "inline" } } },
 					});
 
 					expect(yield* (yield* FakeRyotQLApi).requests).toEqual([
-						{ payload: { source: { document, kind: "inline" } } },
+						{
+							payload: {
+								source: {
+									kind: "inline",
+									document: {
+										...document,
+										parameters: {
+											fields: {
+												title: {
+													type: "string",
+													description: "Title",
+													label: { namespace: "plugin-1", key: "parameter.title" },
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					]);
 					expect(outcome).toEqual({ response, outcome: "success" });
 				}),
@@ -95,6 +117,7 @@ describe("plugin queries service", () => {
 						const service = yield* PluginQueriesService;
 						const outcome = yield* service.query({
 							scope,
+							namespace: "plugin-1",
 							request: { action: "execute", request: { source: { document, kind: "inline" } } },
 						});
 
@@ -113,6 +136,7 @@ describe("plugin queries service", () => {
 					const service = yield* PluginQueriesService;
 					const outcome = yield* service.query({
 						scope,
+						namespace: "plugin-1",
 						request: { action: "execute", request: { source: { document, kind: "inline" } } },
 					});
 

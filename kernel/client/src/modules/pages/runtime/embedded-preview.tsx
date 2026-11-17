@@ -1,5 +1,8 @@
 import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createRyotHostQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Notice } from "@ryot-app/plugin-ui-sdk";
 import { useRouteContext, useRouterState } from "@tanstack/react-router";
@@ -30,9 +33,10 @@ const pagePreviewQuery = createRyotHostQuery<
 );
 
 export function EmbeddedPagePreview(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly identity: PageDraftBuildIdentity;
 }) {
+	const t = useT();
 	const preview = useRyotQuery(pagePreviewQuery, props.identity);
 	const { scope, theme, runtime, backInterceptors } = useRouteContext({ from: "/_authenticated" });
 	const chrome = useShellChrome();
@@ -49,8 +53,11 @@ export function EmbeddedPagePreview(props: {
 	};
 	if (preview.isError) {
 		return (
-			<Notice tone="danger" action={<Button onClick={retry}>Retry</Button>}>
-				This preview is unavailable or has changed.
+			<Notice
+				tone="danger"
+				action={<Button onClick={retry}>{t(kernelMessage("common.action.retry"))}</Button>}
+			>
+				{t(kernelMessage("client.pages.preview.unavailable"))}
 			</Notice>
 		);
 	}
@@ -58,7 +65,7 @@ export function EmbeddedPagePreview(props: {
 	if (prepared === undefined || preview.isFetching) {
 		return (
 			<p role="status" className="text-sm text-text-muted">
-				Loading preview…
+				{t(kernelMessage("client.pages.preview.loading"))}
 			</p>
 		);
 	}

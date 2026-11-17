@@ -1,5 +1,9 @@
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
+import type { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
+import type { CatalogRegistry } from "@ryot-app/i18n/catalog";
+import { fallbackChain, textDirection } from "@ryot-app/i18n/locale";
+import { type DisplayText, KERNEL_NAMESPACE, messageNamespaces } from "@ryot-app/i18n/message";
 import {
 	type AddToCollectionOutcome,
 	type AddToCollectionRequest,
@@ -46,6 +50,7 @@ import {
 	PluginBridgeHostMessage,
 	type PluginBridgeInit,
 	PluginBridgeLifecycleClose,
+	type PluginBridgeLocale,
 	type PluginBridgeLocation,
 	type PluginBridgeNavigate,
 	type PluginBridgeOperationRequest,
@@ -100,9 +105,65 @@ import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
 const HANDSHAKE_TIMEOUT_MS = 15_000;
 const OVERLAY_DISMISS_TIMEOUT_MS = 1_000;
 
+export type PluginBridgeLocaleState = Omit<PluginBridgeLocale, "type">;
+
 export type PluginBridgeViewportInsets = Omit<PluginBridgeViewport, "type">;
 
 export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
+
+/**
+ * Plugin and page documents receive the kernel catalog and their plugin contributors' catalogs.
+ * Kernel renderers render served messages from any installed plugin, so their documents receive all.
+ */
+export const bridgeCatalogNamespaces = (
+	contributors: readonly ClientPageCodeContributor[],
+): undefined | ReadonlySet<string> =>
+	contributors.some(({ kind }) => kind === "kernel-renderer")
+		? undefined
+		: new Set([
+				KERNEL_NAMESPACE,
+				...contributors.flatMap((contributor) =>
+					contributor.kind === "plugin" ? [contributor.pluginId] : [],
+				),
+			]);
+
+/** Whether a document may show display text: user text, or messages from catalogs it receives. */
+export const isDisplayTextAllowed = (
+	text: DisplayText,
+	namespaces: undefined | ReadonlySet<string>,
+) =>
+	typeof text === "string" ||
+	namespaces === undefined ||
+	[...messageNamespaces(text)].every((namespace) => namespaces.has(namespace));
+
+/**
+ * While plugin catalogs load, every plugin namespace the document may render is pending: its listed
+ * namespaces, or for a document receiving all catalogs, every registered plugin namespace.
+ */
+export const bridgeLocaleState = (
+	locale: string,
+	registry: CatalogRegistry,
+	namespaces: undefined | ReadonlySet<string>,
+	pluginCatalogsLoading: boolean,
+): PluginBridgeLocaleState => {
+	const chain = fallbackChain(locale);
+	const pendingNamespaces = pluginCatalogsLoading
+		? [...(namespaces ?? registry.keys())].filter((namespace) => namespace !== KERNEL_NAMESPACE)
+		: [];
+	return {
+		locale,
+		pendingNamespaces,
+		dir: textDirection(locale),
+		catalogs: [...registry].flatMap(([namespace, catalogs]) =>
+			namespaces?.has(namespace) === false
+				? []
+				: chain.flatMap((candidate) => {
+						const catalog = catalogs.get(candidate);
+						return catalog === undefined ? [] : [{ catalog, namespace, locale: candidate }];
+					}),
+		),
+	};
+};
 export type PluginBridgeSession = {
 	readonly close: () => void;
 	readonly sendPageRefresh: () => void;
@@ -110,6 +171,7 @@ export type PluginBridgeSession = {
 	readonly requestFlush: () => Effect.Effect<boolean>;
 	readonly sendTheme: (theme: PluginThemeSnapshot) => void;
 	readonly sendShortcut: (shortcut: PageShortcutKey) => void;
+	readonly sendLocale: (locale: PluginBridgeLocaleState) => void;
 	readonly sendViewport: (insets: PluginBridgeViewportInsets) => void;
 	readonly sendLocation: (navigation: PluginBridgeNavigationState) => void;
 	readonly sendDocument: (
@@ -189,6 +251,7 @@ type PluginBridgeOptions = {
 	readonly target: PluginBridgeTarget;
 	readonly onNavigateBack: () => void;
 	readonly watchEntities: WatchEntities;
+	readonly locale: PluginBridgeLocaleState;
 	readonly viewport: PluginBridgeViewportInsets;
 	readonly navigation: PluginBridgeNavigationState;
 	readonly onOverlayState: (count: number) => void;
@@ -278,6 +341,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		sessionId: crypto.randomUUID(),
 		apiVersion: CLIENT_API_VERSION,
 		format: CLIENT_ARTIFACT_FORMAT,
+		...options.locale,
 		mode: options.theme.resolvedMode,
 		compositionHash: options.compositionHash,
 		compilerVersion: CLIENT_COMPILER_VERSION,
@@ -295,6 +359,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	let currentPage = options.page;
 	let pendingDocument: undefined | { readonly key: string; readonly page: ClientPageContext };
 	let mode = options.theme.resolvedMode;
+	let locale = options.locale;
 	let interestIds = new Set<string>();
 	const channel = new MessageChannel();
 	let state: PluginBridgeState = "ready";
@@ -375,6 +440,14 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			return;
 		}
 		post({ mode, type: "theme" } satisfies PluginBridgeTheme);
+	}
+
+	function sendLocale(next: PluginBridgeLocaleState) {
+		locale = next;
+		if (state !== "active") {
+			return;
+		}
+		post({ ...locale, type: "locale" } satisfies PluginBridgeLocale);
 	}
 
 	function sendViewport(next: PluginBridgeViewportInsets) {
@@ -1072,6 +1145,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			if (mode !== init.mode) {
 				post({ mode, type: "theme" } satisfies PluginBridgeTheme);
 			}
+			if (locale !== options.locale) {
+				post({ ...locale, type: "locale" } satisfies PluginBridgeLocale);
+			}
 			if (
 				viewport.safeAreaTop !== init.safeAreaTop ||
 				viewport.safeAreaBottom !== init.safeAreaBottom
@@ -1094,6 +1170,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	return {
 		close,
 		sendTheme,
+		sendLocale,
 		requestFlush,
 		sendShortcut,
 		sendLocation,

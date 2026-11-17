@@ -1,4 +1,8 @@
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
+import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { CLIENT_BRIDGE_BOOTSTRAP_READY } from "@ryot-app/plugin-client-contract";
 import type {
 	AddToCollectionOutcome,
@@ -59,6 +63,7 @@ import {
 	useEffect,
 	useEffectEvent,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -66,10 +71,14 @@ import {
 import type { BackgroundSubmissionBinding } from "#/modules/background-submissions/service";
 import type { WatchEntities } from "#/modules/entity-watches/service";
 import { subscribeNativeResume } from "#/modules/entity-watches/transport";
+import { useI18nSnapshot } from "#/modules/i18n/provider";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/pages/bridge/operations";
 import {
 	type BackgroundOperationAcceptance,
+	bridgeCatalogNamespaces,
+	bridgeLocaleState,
+	isDisplayTextAllowed,
 	openPluginBridge,
 	type PluginBridgeNavigationState,
 	type PluginBridgeSession,
@@ -95,7 +104,7 @@ const afterFlush = (
 	);
 
 export function PageIframeHost(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly icon?: string;
 	readonly active: boolean;
 	readonly inert?: boolean;
@@ -367,6 +376,30 @@ export function PageIframeHost(props: {
 		bridge.current?.sendLocation(bridgeNavigation);
 	}, [props.active, bridgeNavigation]);
 
+	const t = useT();
+	const { locale, registry, pluginCatalogs } = useI18nSnapshot();
+	const namespaces =
+		props.page === undefined
+			? new Set([KERNEL_NAMESPACE])
+			: bridgeCatalogNamespaces(props.page.contributors);
+	const namespacesKey = namespaces === undefined ? undefined : [...namespaces].sort().join("\n");
+	const pluginCatalogsLoading = pluginCatalogs === "loading";
+	const bridgeLocale = useMemo(
+		() =>
+			bridgeLocaleState(
+				locale,
+				registry,
+				namespacesKey === undefined ? undefined : new Set(namespacesKey.split("\n")),
+				pluginCatalogsLoading,
+			),
+		[locale, registry, namespacesKey, pluginCatalogsLoading],
+	);
+	const latestLocale = useRef(bridgeLocale);
+	useEffect(() => {
+		latestLocale.current = bridgeLocale;
+		bridge.current?.sendLocale(bridgeLocale);
+	}, [bridgeLocale]);
+
 	useEffect(
 		() =>
 			props.theme.subscribe(() => {
@@ -432,6 +465,7 @@ export function PageIframeHost(props: {
 		const nextBridge = openPluginBridge({
 			target: plugin,
 			page: latest.current.page,
+			locale: latestLocale.current,
 			viewport: latest.current.viewport,
 			navigation: latest.current.navigation,
 			compositionHash: props.compositionHash,
@@ -498,16 +532,6 @@ export function PageIframeHost(props: {
 				!latest.current.active || latest.current.inert === true || updatePending.current
 					? Effect.succeed({ outcome: "failure", reason: "operation-failed" })
 					: latest.current.onBackgroundOperation(request, binding),
-			onHeader: (request) => {
-				const current = latest.current.navigation;
-				if (request.index === current.index && request.key === current.key) {
-					latest.current.onHeader({
-						key: request.key,
-						index: request.index,
-						title: request.header?.title ?? null,
-					});
-				}
-			},
 			onOperation: (request) =>
 				latest.current.onInvokeOperation(request).pipe(
 					Effect.map((outcome): PluginOperationOutcome => {
@@ -520,6 +544,21 @@ export function PageIframeHost(props: {
 						return { outcome: "failure", reason: "operation-failed" };
 					}),
 				),
+			onHeader: (request) => {
+				const current = latest.current.navigation;
+				const title = request.header?.title ?? null;
+				const allowedNamespaces =
+					latest.current.page === undefined
+						? new Set([KERNEL_NAMESPACE])
+						: bridgeCatalogNamespaces(latest.current.page.contributors);
+				if (
+					request.index === current.index &&
+					request.key === current.key &&
+					(title === null || isDisplayTextAllowed(title, allowedNamespaces))
+				) {
+					latest.current.onHeader({ title, key: request.key, index: request.index });
+				}
+			},
 		});
 		if (!connection.failed) {
 			connection.session = nextBridge;
@@ -545,8 +584,10 @@ export function PageIframeHost(props: {
 	if (frameStatus === "handshake-failure" && props.embedded) {
 		return (
 			<div role="alert">
-				<p>This preview could not be opened.</p>
-				<Button onClick={retryDocument}>Retry preview</Button>
+				<p>{t(kernelMessage("client.pages.host.preview-failed"))}</p>
+				<Button onClick={retryDocument}>
+					{t(kernelMessage("client.pages.host.retry-preview"))}
+				</Button>
 			</div>
 		);
 	}
@@ -558,9 +599,11 @@ export function PageIframeHost(props: {
 		<div className="relative h-full w-full">
 			{persistenceFailed && (
 				<div className="absolute top-0 right-0 left-0 z-10 flex items-center justify-between gap-2 bg-surface px-4 py-2 text-sm">
-					<StatusMessage tone="error">Your changes could not be saved.</StatusMessage>
+					<StatusMessage tone="error">
+						{t(kernelMessage("client.pages.host.save-failed"))}
+					</StatusMessage>
 					<Button type="button" variant="secondary" onClick={retryDocument}>
-						Retry
+						{t(kernelMessage("common.action.retry"))}
 					</Button>
 				</div>
 			)}
@@ -580,8 +623,8 @@ export function PageIframeHost(props: {
 				<iframe
 					srcDoc={srcDoc}
 					sandbox="allow-scripts"
-					title={`${props.title} plugin`}
 					inert={props.inert === true || updateAvailable}
+					title={t(kernelMessage("client.pages.host.frame-title", { title: props.title }))}
 					className={clsx("h-full w-full border-0", frameStatus !== "ready" && "invisible")}
 					ref={(node) => {
 						frame.current = node;
@@ -594,29 +637,33 @@ export function PageIframeHost(props: {
 			{frameStatus === "ready" ? null : (
 				<div className="absolute inset-0">
 					{props.embedded ? (
-						<p role="status">Loading preview…</p>
+						<p role="status">{t(kernelMessage("client.pages.preview.loading"))}</p>
 					) : (
-						<ClientPageLoading {...chrome} icon={props.icon} title={`Opening ${props.title}`} />
+						<ClientPageLoading
+							{...chrome}
+							icon={props.icon}
+							title={t(kernelMessage("client.pages.host.opening", { title: props.title }))}
+						/>
 					)}
 				</div>
 			)}
 			{updateAvailable && props.embedded ? (
-				<p role="status">This preview has changed. Prepare a new preview to continue.</p>
+				<p role="status">{t(kernelMessage("client.pages.host.preview-changed"))}</p>
 			) : null}
 			{updateAvailable && !props.embedded ? (
 				<div className="absolute inset-0">
 					<PluginChromeFrame
 						compact={compact}
-						title="Update available"
 						leading={props.chromeLeading}
 						safeAreaTop={props.viewport.safeAreaTop}
+						title={t(kernelMessage("client.pages.host.update-title"))}
 					>
 						<section className="ui-stack ui-card mx-auto w-[min(100%,480px)]">
 							<p role="alert" className="text-text-muted">
-								An update is available. Reloading will discard unsaved local state.
+								{t(kernelMessage("client.pages.host.update-detail"))}
 							</p>
 							<Button type="button" onClick={props.onReloadCurrent}>
-								Reload updated page
+								{t(kernelMessage("client.pages.host.update-reload"))}
 							</Button>
 						</section>
 					</PluginChromeFrame>
@@ -636,7 +683,7 @@ function PageShortcut(props: { readonly onPress: () => void; readonly shortcut: 
 }
 
 function PluginChromeFrame(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly compact: boolean;
 	readonly leading: ReactNode;
 	readonly safeAreaTop: number;
@@ -668,20 +715,21 @@ function PluginNotice(props: {
 	readonly safeAreaTop: number;
 	readonly onRetry: () => void;
 }) {
+	const t = useT();
 	return (
 		<div className="h-full">
 			<PluginChromeFrame
 				compact={props.compact}
 				leading={props.leading}
-				title="Plugin unavailable"
 				safeAreaTop={props.safeAreaTop}
+				title={t(kernelMessage("client.pages.host.unavailable-title"))}
 			>
 				<section className="ui-stack ui-card mx-auto w-[min(100%,480px)]">
 					<p role="alert" className="text-text-muted">
-						This plugin stopped working.
+						{t(kernelMessage("client.pages.host.unavailable-detail"))}
 					</p>
 					<Button type="button" onClick={props.onRetry}>
-						Retry
+						{t(kernelMessage("common.action.retry"))}
 					</Button>
 				</section>
 			</PluginChromeFrame>

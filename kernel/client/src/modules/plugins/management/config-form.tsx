@@ -1,5 +1,6 @@
-import type { PluginConfigSchema } from "@ryot-app/contract/modules/plugins/manifest";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Text } from "@ryot-app/i18n/text";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import {
 	initialSchemaFormValues,
@@ -16,11 +17,11 @@ import { useFormSeed } from "#/modules/ui/use-form-seed";
 export function PluginConfigForm(props: {
 	readonly seedKey: string;
 	readonly pending: boolean;
+	readonly schema: AppSchema;
+	readonly pendingLabel: Text;
 	readonly submitLabel: string;
 	readonly actions?: ReactNode;
-	readonly pendingLabel: string;
 	readonly submitClassName?: string;
-	readonly schema: PluginConfigSchema;
 	readonly stored?: Readonly<Record<string, JsonValue>>;
 	readonly onSubmit: (config: Record<string, JsonValue>) => void;
 }) {

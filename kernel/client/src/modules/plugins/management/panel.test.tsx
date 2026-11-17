@@ -1,13 +1,17 @@
 import { expect } from "bun:test";
 
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { testCatalog } from "@ryot-app/plugin-client-sdk/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import { PluginManagementPanel } from "#/modules/plugins/management/panel";
 import type { PluginManagementAction } from "#/modules/plugins/management/service";
 import { managedInstallation } from "#/modules/plugins/management/service.test-fixtures";
+
+const wrapper = testI18nWrapper([testCatalog("private-owner", { "plugin.name": "Whiskey" })]);
 
 it("shows a retained private identity separately from the system copy without loading client code", () => {
 	const retained = managedInstallation();
@@ -28,6 +32,7 @@ it("shows a retained private identity separately from the system copy without lo
 			installations={[system, retained]}
 			onAction={(action) => actions.push(action)}
 		/>,
+		{ wrapper: wrapper },
 	);
 	const [systemDetails, details] = view.container.querySelectorAll("details");
 	assert(details);
@@ -66,6 +71,7 @@ it("requires confirmation for exact private removal and offers no system package
 			installations={[installation]}
 			onAction={(action) => actions.push(action)}
 		/>,
+		{ wrapper: wrapper },
 	);
 	const summary = view.container.querySelector("summary");
 	assert(summary);

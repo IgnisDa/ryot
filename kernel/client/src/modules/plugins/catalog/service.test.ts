@@ -34,7 +34,6 @@ const theme: ThemeStore = {
 const entry = {
 	sortOrder: 0,
 	icon: "puzzle",
-	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	scope: "system",
@@ -46,6 +45,7 @@ const entry = {
 	packageId: "test/fixture",
 	contentHash: "source-hash",
 	installationId: "installation-1",
+	name: { key: "plugin.name", namespace: "plugin-1" },
 } as const;
 
 const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "execute">>) => {

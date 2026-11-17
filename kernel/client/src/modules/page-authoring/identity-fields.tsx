@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Field, TextField } from "@ryot-app/plugin-ui-sdk";
 import { normalizeSlug } from "@ryot-app/ts-utils/slug";
 import { useState } from "react";
@@ -18,10 +20,11 @@ export function PageIdentityFields(props: {
 	readonly disabled: boolean;
 	readonly identity: ReturnType<typeof usePageIdentity>;
 }) {
+	const t = useT();
 	const { identity } = props;
 	return (
 		<>
-			<Field label="Page name">
+			<Field label={t(kernelMessage("client.page-authoring.identity.name"))}>
 				{(control) => (
 					<TextField
 						{...control}
@@ -32,7 +35,7 @@ export function PageIdentityFields(props: {
 					/>
 				)}
 			</Field>
-			<Field label="Page address">
+			<Field label={t(kernelMessage("client.page-authoring.identity.address"))}>
 				{(control) => (
 					<TextField
 						{...control}

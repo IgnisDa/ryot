@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { ScreenBarButton } from "@ryot-app/plugin-ui-sdk";
 import { fireEvent, render, screen } from "@testing-library/react";
 
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import { ClientPageLoading } from "#/modules/pages/loading";
 
 describe("client page loading", () => {
@@ -12,8 +14,9 @@ describe("client page loading", () => {
 				leading={null}
 				compact={false}
 				safeAreaTop={0}
-				title="Opening your page"
+				title={testText("Opening your page")}
 			/>,
+			{ wrapper: testI18nWrapper() },
 		);
 		expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
 		expect(screen.getByRole("heading").textContent).toBe("Opening your page");
@@ -29,10 +32,10 @@ describe("client page loading", () => {
 				compact
 				safeAreaTop={24}
 				icon="book-open"
-				title="Opening Library"
+				title={testText("Opening Library")}
 				leading={
 					<ScreenBarButton
-						label="Open navigation"
+						label={testText("Open navigation")}
 						onClick={() => {
 							opened = true;
 						}}
@@ -41,6 +44,7 @@ describe("client page loading", () => {
 					</ScreenBarButton>
 				}
 			/>,
+			{ wrapper: testI18nWrapper() },
 		);
 		fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
 		expect(opened).toBe(true);

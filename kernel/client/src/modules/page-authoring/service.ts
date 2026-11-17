@@ -1,7 +1,10 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { PageAuthoringError } from "@ryot-app/contract/modules/pages/schemas";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createRyotHostMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	type PageList,
 	pageRecipe,
@@ -108,33 +111,33 @@ export const authoringReason = (error: unknown) =>
 		? error.cause.reason
 		: null;
 
-export const authoringFailureText = (error: unknown): string => {
+export const authoringFailureText = (t: (message: Message) => Text, error: unknown): Text => {
 	if (isDemoOperationProtectedError(error)) {
-		return "Page changes are unavailable in demo sessions.";
+		return t(kernelMessage("client.page-authoring.error.demo"));
 	}
 	if (isEntitlementRequiredError(error)) {
-		return entitlementRequiredMessage(error.cause.reason.entitlement, "Authoring pages");
+		return t(kernelMessage("client.page-authoring.error.pro-required"));
 	}
 	const reason = authoringReason(error);
 	if (reason === null) {
-		return "The page command failed. Try again.";
+		return t(kernelMessage("client.page-authoring.error.command-failed"));
 	}
 	switch (reason.code) {
 		case "page-in-use":
-			return "This page is used by a saved view or publication. Remove those references before deleting it.";
+			return t(kernelMessage("client.page-authoring.error.page-in-use"));
 		case "build-failed":
-			return "Compilation failed. Fix the source files and save the draft before compiling again.";
+			return t(kernelMessage("client.page-authoring.error.build-failed"));
 		case "page-not-found":
-			return "This page no longer exists.";
+			return t(kernelMessage("client.page-authoring.error.not-found"));
 		case "definition-invalid":
-			return reason.message;
+			return formatDisplayText(t, reason.message);
 		case "draft-revision-stale":
-			return "This draft changed elsewhere. Reload the latest draft before saving again. Your changes have not been saved.";
+			return t(kernelMessage("client.page-authoring.error.draft-stale"));
 		case "compiler-unavailable":
-			return "The page compiler is temporarily unavailable. Try compiling again shortly.";
+			return t(kernelMessage("client.page-authoring.error.compiler-unavailable"));
 		case "dependency-unavailable":
-			return "A declared plugin dependency is unavailable. Check its package and scope.";
+			return t(kernelMessage("client.page-authoring.error.dependency-unavailable"));
 		default:
-			return "The page command failed. Try again.";
+			return t(kernelMessage("client.page-authoring.error.command-failed"));
 	}
 };

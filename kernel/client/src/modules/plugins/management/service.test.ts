@@ -4,6 +4,7 @@ import {
 	PluginConflictError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -60,14 +61,15 @@ const dependencies = Layer.effectContext(
 					}
 					return Ref.update(calls, (all) => [...all, { request, method: "inspect" }]).pipe(
 						Effect.as({
+							catalogs: {},
 							operations: [],
 							configSchema: { fields: {}, unknownKeys: "strict" as const },
 							metadata: {
 								icon: installation.icon,
-								name: installation.name,
+								name: { key: "plugin.name" },
 								version: installation.version,
 								packageId: installation.packageId,
-								description: installation.description,
+								description: { key: "plugin.description" },
 							},
 						}),
 					);
@@ -134,7 +136,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 				const error = yield* Effect.flip(
 					service.execute(scope, { kind: "uninstall", installation: managedInstallation() }),
 				);
-				expect(error.detail).toBe("Your library still has entities that use this plugin.");
+				expect(error.detail).toEqual(kernelMessage("client.plugins.error.entity-referenced"));
 			}),
 		testTimeout,
 	);
@@ -203,9 +205,9 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 					details.push((yield* Effect.flip(service.inspect(scope, { uploadToken }))).detail);
 				}
 				expect(details).toEqual([
-					"This archive was not built for this version of Ryot. Rebuild it with `ryot plugin build` and try again.",
-					"This archive is larger than this server allows.",
-					"This file is not a valid plugin archive.",
+					kernelMessage("client.plugins.error.rebuild-required"),
+					kernelMessage("client.plugins.error.archive-too-large"),
+					kernelMessage("client.plugins.error.package-archive-invalid"),
 				]);
 			}),
 		testTimeout,

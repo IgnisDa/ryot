@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { ScreenFrame } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type ReactNode, useRef } from "react";
@@ -13,12 +16,13 @@ export function ClientPagePending() {
 }
 
 export function ClientPageLoading(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly icon?: string;
 	readonly compact: boolean;
 	readonly leading: ReactNode;
 	readonly safeAreaTop: number;
 }) {
+	const t = useT();
 	const scrollRootRef = useRef<HTMLDivElement>(null);
 	return (
 		<div
@@ -51,7 +55,9 @@ export function ClientPageLoading(props: {
 					<h1 className="max-w-full text-base font-medium wrap-break-word text-text">
 						{props.title}
 					</h1>
-					<p className="mt-2 text-sm text-text-muted">Getting your view ready</p>
+					<p className="mt-2 text-sm text-text-muted">
+						{t(kernelMessage("client.pages.loading.detail"))}
+					</p>
 					<div aria-hidden="true" className="mt-6 flex gap-1.5 text-accent/60">
 						{[0, 1, 2].map((index) => (
 							<span
@@ -70,8 +76,9 @@ export function ClientPageLoading(props: {
 function ClientPageLoadingScreen() {
 	const { compact } = useEdge();
 	const { safeAreaTop } = useShellChrome();
+	const t = useT();
 	const leading = useScreenLeadingControl();
-	const title = "Opening your page";
+	const title = t(kernelMessage("client.pages.loading.title"));
 	usePageTitle(title);
 	return (
 		<main {...mainContentProps} className="h-full">

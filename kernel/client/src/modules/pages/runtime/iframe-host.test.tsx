@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testText } from "@ryot-app/kernel-messages/testing";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
 	type AddToCollectionOutcome,
@@ -30,6 +31,7 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { testHostServices } from "#/host-services.test-support";
+import { TestKernelI18nProvider } from "#/modules/i18n/provider.test-support";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/pages/bridge/operations";
 import { PageIframeHost } from "#/modules/pages/runtime/iframe-host";
@@ -75,7 +77,7 @@ function mount(
 	const withCatalog = (children: ReactNode) => (
 		<RyotProvider runtime={ryot.runtime} hostServices={testHostServices(scope, catalogRuntime)}>
 			<PluginCatalogProvider scope={scope} initialCatalog={[]} runtime={catalogRuntime}>
-				{children}
+				<TestKernelI18nProvider>{children}</TestKernelI18nProvider>
 			</PluginCatalogProvider>
 		</RyotProvider>
 	);
@@ -134,7 +136,6 @@ function mount(
 		active,
 		location,
 		onLoadDocument,
-		title: "Fixture",
 		backInterceptors,
 		mutationCompleted,
 		chromeLeading: null,
@@ -142,6 +143,7 @@ function mount(
 		inert: screens.inert,
 		freshnessCheckRevision,
 		onHeader: () => undefined,
+		title: testText("Fixture"),
 		onFlushReady: () => undefined,
 		onOpenDrawer: () => undefined,
 		onNavigateBack: () => undefined,
@@ -311,11 +313,15 @@ function connect(frame: HTMLIFrameElement) {
 		throw new Error("Bridge did not connect");
 	}
 	const {
+		dir: _dir,
 		mode: _mode,
 		page: _page,
+		locale: _locale,
 		safeAreaTop: _top,
+		catalogs: _catalogs,
 		safeAreaBottom: _bottom,
 		documentKey: _documentKey,
+		pendingNamespaces: _pendingNamespaces,
 		...ready
 	} = init;
 	return { init, port, ready, messages };
@@ -1007,11 +1013,11 @@ describe("PageIframeHost", () => {
 				const submit = (key: string) =>
 					bridge.port.postMessage({
 						input: null,
-						label: "Logged",
 						idempotencyKey: key,
 						operationSlug: "log",
 						packageId: "test/fixture",
 						requestId: `request-${key}`,
+						label: { key: "entry.logged" },
 						type: "background-operation-request",
 						submittedAt: "2026-10-19T00:00:00.000Z",
 					});

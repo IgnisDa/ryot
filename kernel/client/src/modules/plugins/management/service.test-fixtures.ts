@@ -9,7 +9,6 @@ export const managedInstallation = (
 	sortOrder: 0,
 	scope: "user",
 	icon: "puzzle",
-	name: "Whiskey",
 	isHidden: false,
 	version: "1.0.0",
 	isInitialized: true,
@@ -18,7 +17,6 @@ export const managedInstallation = (
 	health: "incompatible",
 	contentHash: "source-hash",
 	activationId: "activation",
-	description: "Independent package",
 	installationId: "private-installation",
 	pluginId: PluginId.make("private-owner"),
 	packageId: PluginPackageId.make("test/whiskey"),
@@ -26,5 +24,7 @@ export const managedInstallation = (
 	activeRevisionId: PluginRevisionId.make("revision"),
 	configSchema: { fields: {}, unknownKeys: "strict" },
 	healthReason: "A system package claims this identity.",
+	name: { key: "plugin.name", namespace: "private-owner" },
+	description: { key: "plugin.description", namespace: "private-owner" },
 	...overrides,
 });

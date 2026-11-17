@@ -33,7 +33,7 @@ export const renderClientDocument = (
 		),
 	].join("\n\t\t");
 	return `<!doctype html>
-<html lang="en">
+<html>
 	<head>
 		<base href="${escapeHtml(`${serverUrl}/`)}" />
 		<meta name="referrer" content="no-referrer" />

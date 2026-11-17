@@ -13,6 +13,8 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { emptyCatalogRegistry, registerCatalog } from "@ryot-app/i18n/catalog";
+import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort takes a transfer list, not an origin
 import {
 	CLIENT_API_VERSION,
@@ -52,15 +54,28 @@ import {
 	type PluginUserSettingsOutcome,
 } from "@ryot-app/plugin-client-contract";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
-import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
+import {
+	createTestRyotAdapter,
+	testBridgeLocale,
+	testCatalog,
+} from "@ryot-app/plugin-client-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Option, Schema } from "effect";
 
-import { openPluginBridge, type PluginBridgeSession } from "#/modules/pages/bridge/session";
+import {
+	bridgeCatalogNamespaces,
+	bridgeLocaleState,
+	isDisplayTextAllowed,
+	openPluginBridge,
+	type PluginBridgeLocaleState,
+	type PluginBridgeSession,
+} from "#/modules/pages/bridge/session";
 import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
+
+const rejection = { namespace: "fixture", key: "operation.rejected" };
 
 const decodeInit = Schema.decodeUnknownOption(PluginBridgeInit);
 
@@ -86,6 +101,9 @@ const at = (location: PluginLogicalLocation = home, index = 0) => ({
 	type: "location" as const,
 });
 const lightTheme: PluginThemeSnapshot = { resolvedMode: "light" };
+const englishLocale = testBridgeLocale();
+const portuguese = testCatalog("plugin-1", { "plugin.name": "Português" });
+const brazilian = testCatalog("plugin-1", { "plugin.name": "Brasileiro" });
 const darkTheme: PluginThemeSnapshot = { resolvedMode: "dark" };
 const membership = MembershipResponse.make({
 	warnings: [],
@@ -227,6 +245,7 @@ const connect = (
 		theme: lightTheme,
 		page: options.page,
 		onHeader: () => {},
+		locale: englishLocale,
 		documentKey: "page-1",
 		timeoutMs: options.timeoutMs,
 		onReady: () => readies.push(null),
@@ -1376,6 +1395,15 @@ describe("bridge entity interest", () => {
 	);
 });
 
+const pluginContributor = (pluginId: string) => ({
+	revisionId: "revision",
+	contentHash: "content",
+	kind: "plugin" as const,
+	installationId: "installation",
+	pluginId: PluginId.make(pluginId),
+	packageId: PluginPackageId.make("test/fixture"),
+});
+
 describe("plugin bridge", () => {
 	it.live(
 		"allows one acknowledged overlay dismissal at a time and preserves aggregate order",
@@ -1466,6 +1494,7 @@ describe("plugin bridge", () => {
 
 		expect(origins).toEqual(["*"]);
 		expect(init).toEqual({
+			...englishLocale,
 			mode: "light",
 			safeAreaTop: 0,
 			compositionHash,
@@ -1491,6 +1520,7 @@ describe("plugin bridge", () => {
 					navigation: nav(),
 					theme: lightTheme,
 					onHeader: () => {},
+					locale: englishLocale,
 					documentKey: "page-1",
 					onReady: () => undefined,
 					onNavigate: () => undefined,
@@ -1824,6 +1854,92 @@ describe("plugin bridge", () => {
 			}),
 		testTimeout,
 	);
+
+	it.live(
+		"latches a pre-ready locale change and sends later locales on the active channel",
+		() =>
+			Effect.gen(function* () {
+				const { init, readies, session, messages, pluginPort } = connect();
+				const pt = { ...englishLocale, locale: "pt" };
+				const ar: PluginBridgeLocaleState = { ...englishLocale, dir: "rtl", locale: "ar" };
+
+				session.sendLocale(pt);
+				pluginPort.postMessage(readyFor(init));
+
+				yield* Effect.promise(() => waitFor(() => expect(readies).toHaveLength(1)));
+				expect(messages).toEqual([at(), { ...pt, type: "locale" }]);
+
+				session.sendLocale(ar);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(messages).toEqual([at(), { ...pt, type: "locale" }, { ...ar, type: "locale" }]),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it("sends every registered catalog in the locale's fallback chain", () => {
+		const registry = registerCatalog(
+			registerCatalog(
+				registerCatalog(emptyCatalogRegistry, "plugin-1", "pt-BR", brazilian.catalog),
+				"plugin-1",
+				"pt",
+				portuguese.catalog,
+			),
+			"plugin-1",
+			"de",
+			portuguese.catalog,
+		);
+		expect(bridgeLocaleState("pt-BR", registry, undefined, false)).toEqual({
+			dir: "ltr",
+			locale: "pt-BR",
+			pendingNamespaces: [],
+			catalogs: [
+				{ locale: "pt-BR", namespace: "plugin-1", catalog: brazilian.catalog },
+				{ locale: "pt", namespace: "plugin-1", catalog: portuguese.catalog },
+			],
+		});
+	});
+
+	it("shows display text only from namespaces the document receives catalogs for", () => {
+		const own = { key: "screen.title", namespace: "plugin-1" };
+		const nested = { ...own, params: { name: { key: "item.name", namespace: "plugin-2" } } };
+		const namespaces = new Set(["plugin-1", KERNEL_NAMESPACE]);
+		expect(isDisplayTextAllowed("Dune", namespaces)).toBe(true);
+		expect(isDisplayTextAllowed(own, namespaces)).toBe(true);
+		expect(isDisplayTextAllowed(nested, namespaces)).toBe(false);
+		expect(isDisplayTextAllowed(nested, undefined)).toBe(true);
+	});
+
+	it("marks the document's plugin namespaces pending while plugin catalogs load", () => {
+		const registry = [KERNEL_NAMESPACE, "plugin-1", "plugin-2"].reduce(
+			(current, namespace) => registerCatalog(current, namespace, "en", portuguese.catalog),
+			emptyCatalogRegistry,
+		);
+		const pending = (namespaces: undefined | ReadonlySet<string>) =>
+			bridgeLocaleState("en", registry, namespaces, true).pendingNamespaces;
+		expect(pending(new Set(["plugin-3", KERNEL_NAMESPACE]))).toEqual(["plugin-3"]);
+		expect(pending(undefined)).toEqual(["plugin-1", "plugin-2"]);
+	});
+
+	it("sends a plugin document only the kernel and its contributors' catalogs", () => {
+		const registry = [KERNEL_NAMESPACE, "plugin-1", "plugin-2"].reduce(
+			(current, namespace) => registerCatalog(current, namespace, "en", portuguese.catalog),
+			emptyCatalogRegistry,
+		);
+		const namespaces = (contributors: Parameters<typeof bridgeCatalogNamespaces>[0]) =>
+			bridgeLocaleState("en", registry, bridgeCatalogNamespaces(contributors), false).catalogs.map(
+				({ namespace }) => namespace,
+			);
+		expect(namespaces([pluginContributor("plugin-1")])).toEqual([KERNEL_NAMESPACE, "plugin-1"]);
+		expect(
+			namespaces([
+				pluginContributor("plugin-1"),
+				{ sourceHash: "source", name: "entity-browser", kind: "kernel-renderer" },
+			]),
+		).toEqual([KERNEL_NAMESPACE, "plugin-1", "plugin-2"]);
+	});
 
 	it.live(
 		"sends no theme when the pre-ready mode still matches init",
@@ -2418,7 +2534,11 @@ describe("plugin bridge", () => {
 			Effect.gen(function* () {
 				const account = {
 					entitlements: ["pro"] as const,
-					preferences: { ratingScale: "ten" as const, timeZone: TimeZone.make("Asia/Tokyo") },
+					preferences: {
+						weekStart: 1 as const,
+						ratingScale: "ten" as const,
+						timeZone: TimeZone.make("Asia/Tokyo"),
+					},
 				};
 				const outcomes: PluginAccountOutcome[] = [
 					{ account, outcome: "success" },
@@ -3661,11 +3781,11 @@ describe("plugin bridge", () => {
 describe("bridge background submissions", () => {
 	const backgroundRequest = {
 		input: { n: 1 },
-		label: "Logged 1",
 		operationSlug: "log",
 		idempotencyKey: "key-1",
 		requestId: "background-1",
 		packageId: "test/fixture",
+		label: { key: "entry.logged" },
 		type: "background-operation-request",
 		submittedAt: "2026-10-19T00:00:00.000Z",
 	};
@@ -3687,7 +3807,7 @@ describe("bridge background submissions", () => {
 	const recordingReservation = (events: string[]) => {
 		const bindings: Array<Parameters<BackgroundHandler>[1]> = [];
 		const handler: BackgroundHandler = (request, binding) => {
-			events.push(`request:${request.idempotencyKey}:${request.label}`);
+			events.push(`request:${request.idempotencyKey}:${request.label.key}`);
 			bindings.push(binding);
 			const index = bindings.length;
 			return Effect.succeed({
@@ -3716,7 +3836,7 @@ describe("bridge background submissions", () => {
 
 				pluginPort.postMessage(backgroundRequest);
 				yield* Effect.promise(() => waitFor(() => expect(events).toContain("start:1")));
-				expect(events).toEqual(["request:key-1:Logged 1", "start:1"]);
+				expect(events).toEqual(["request:key-1:entry.logged", "start:1"]);
 				expect(received[1]).toEqual({
 					outcome: "success",
 					requestId: "background-1",
@@ -3736,16 +3856,16 @@ describe("bridge background submissions", () => {
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(4)));
 				recorder.bindings[0]?.settle("submission-1", {
 					status: "failed",
+					message: rejection,
 					reason: "operation-rejected",
-					message: "Not part of this show",
 				});
 				pluginPort.postMessage({ ...backgroundRequest, requestId: "background-2" });
 				yield* Effect.promise(() => waitFor(() => expect(events).toContain("start:2")));
 				expect(recorder.bindings[1]?.session).toBe(recorder.bindings[0]?.session);
 				recorder.bindings[1]?.settle("submission-2", {
 					status: "failed",
+					message: rejection,
 					reason: "operation-rejected",
-					message: "Not part of this show",
 				});
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(6)));
 				expect(received.slice(4)).toEqual([
@@ -3758,11 +3878,7 @@ describe("bridge background submissions", () => {
 					{
 						submissionId: "submission-2",
 						type: "background-operation-settled",
-						outcome: {
-							status: "failed",
-							reason: "operation-rejected",
-							message: "Not part of this show",
-						},
+						outcome: { status: "failed", message: rejection, reason: "operation-rejected" },
 					},
 				]);
 
@@ -3840,8 +3956,8 @@ describe("bridge background submissions", () => {
 				const { init, received, pluginPort } = connect({
 					onOperation: () =>
 						Effect.succeed({
+							message: rejection,
 							outcome: "failure" as const,
-							message: "Not part of this show",
 							reason: "operation-rejected" as const,
 						}),
 				});
@@ -3856,10 +3972,10 @@ describe("bridge background submissions", () => {
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
 				expect(received[1]).toEqual({
 					outcome: "failure",
+					message: rejection,
 					requestId: "operation-1",
 					type: "operation-result",
 					reason: "operation-rejected",
-					message: "Not part of this show",
 				});
 			}),
 		testTimeout,
@@ -4109,11 +4225,11 @@ describe("page frame authority", () => {
 					pluginPort.postMessage({ ...capabilityRequests.operation, requestId: "operation" });
 					pluginPort.postMessage({
 						input: null,
-						label: "Write",
 						idempotencyKey: "key",
 						operationSlug: "write",
 						requestId: "background",
 						packageId: "test/fixture",
+						label: { key: "entry.written" },
 						type: "background-operation-request",
 						submittedAt: "2026-10-19T00:00:00.000Z",
 					});

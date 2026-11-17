@@ -1,7 +1,7 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
-import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { resolveWeekStart, type UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import type {
 	PluginAccountOutcome,
 	PluginUserPreferences,
@@ -28,6 +28,7 @@ const isCurrentScope = (scope: ApiScope, currentScope: () => ApiScope | undefine
 export const pluginUserPreferences = (preferences: UserPreferences): PluginUserPreferences => ({
 	ratingScale: preferences.ratingScale,
 	timeZone: preferences.reportingTimeZone,
+	weekStart: resolveWeekStart(preferences),
 });
 
 export const accountOutcome = (input: {

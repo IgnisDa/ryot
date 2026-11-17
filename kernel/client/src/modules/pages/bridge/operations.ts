@@ -20,6 +20,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { isDemoOperationProtectedError } from "#/api/authenticated";
 import { PluginsApi } from "#/api/plugins";
 import type { ApiScope } from "#/api/scope";
+import { demoProtectionMessage } from "#/modules/demo-protection";
 
 const isDeclaredFailure = Schema.is(
 	Schema.Union([
@@ -87,17 +88,17 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 								if (isStaleRevision(error.cause)) {
 									return { outcome: "stale-session" } as const;
 								}
-								if (isOperationRejected(error.cause)) {
+								if (isOperationRejected(error.cause) || isDemoOperationProtectedError(error)) {
 									return {
 										outcome: "failure",
-										message: error.cause.message,
 										reason: "operation-rejected",
+										message: isOperationRejected(error.cause)
+											? error.cause.reason
+											: demoProtectionMessage,
 									} as const;
 								}
 								const reason = (
-									isDeclaredFailure(error.cause) || isDemoOperationProtectedError(error)
-										? "operation-failed"
-										: "transport"
+									isDeclaredFailure(error.cause) ? "operation-failed" : "transport"
 								) satisfies PluginOperationBridgeErrorReason;
 								return { reason, outcome: "failure" } as const;
 							},

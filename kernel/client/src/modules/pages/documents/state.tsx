@@ -1,4 +1,5 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
+import type { Text } from "@ryot-app/i18n/text";
 import type {
 	AddToCollectionOutcome,
 	AddToCollectionRequest,
@@ -28,7 +29,7 @@ import {
 } from "react";
 
 export type ClientPageDocument = {
-	readonly title: string;
+	readonly title: Text;
 	readonly inert?: boolean;
 	readonly prepared: PreparedClientPage;
 	readonly onPickEntity?: (

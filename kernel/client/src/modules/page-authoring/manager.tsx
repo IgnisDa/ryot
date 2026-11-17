@@ -1,4 +1,8 @@
 import { PageDefinition, PagePluginQueries } from "@ryot-app/contract/modules/pages/schemas";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -45,6 +49,7 @@ import {
 const initialCursor: string | undefined = undefined;
 
 export function PagesManager(props: { readonly disabled: boolean }) {
+	const t = useT();
 	const [selected, setSelected] = useState<null | string>(null);
 	const pro = useEntitlement("pro");
 	const query = useRyotInfiniteQuery(
@@ -81,8 +86,7 @@ export function PagesManager(props: { readonly disabled: boolean }) {
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 				<div className="grid gap-1">
 					<p className="text-sm text-text-muted">
-						Upload or paste a self-contained page, compile a read-only preview, then publish it and
-						add a view to navigation.
+						{t(kernelMessage("client.page-authoring.intro"))}
 					</p>
 					<DocsLink />
 				</div>
@@ -92,25 +96,30 @@ export function PagesManager(props: { readonly disabled: boolean }) {
 					onClick={() => setSelected("new")}
 				>
 					<AppIcon size={15} name="plus" />
-					New page
+					{t(kernelMessage("client.page-authoring.new"))}
 				</Button>
 			</div>
 			{pro ? null : (
 				<EntitlementNotice
 					entitlement="pro"
-					feature="Authoring and publishing pages"
 					icon={<AppIcon size={16} name="file-text" />}
+					detail={t(kernelMessage("client.page-authoring.pro-required"))}
 				/>
 			)}
 			{query.isError && (
-				<Notice tone="danger" action={<Button onClick={query.refetch}>Retry</Button>}>
-					Pages could not be loaded.
+				<Notice
+					tone="danger"
+					action={
+						<Button onClick={query.refetch}>{t(kernelMessage("common.action.retry"))}</Button>
+					}
+				>
+					{t(kernelMessage("client.page-authoring.list.load-failed"))}
 				</Notice>
 			)}
 			{!query.isPending && !query.isError && pages.length === 0 && (
 				<EmptyState
-					title="No pages yet"
-					description="Create a page to get started."
+					title={t(kernelMessage("client.page-authoring.list.empty-title"))}
+					description={t(kernelMessage("client.page-authoring.list.empty-detail"))}
 					icon={<AppIcon size={36} name="file-text" className="text-text-subtle" />}
 				/>
 			)}
@@ -128,10 +137,12 @@ export function PagesManager(props: { readonly disabled: boolean }) {
 							<Button
 								size="sm"
 								variant="secondary"
-								aria-label={`Manage ${page.name}`}
 								onClick={() => setSelected(page.id)}
+								aria-label={t(
+									kernelMessage("client.page-authoring.list.manage-label", { name: page.name }),
+								)}
 							>
-								Manage
+								{t(kernelMessage("client.page-authoring.list.manage"))}
 								<AppIcon size={14} name="chevron-right" />
 							</Button>
 						</div>
@@ -140,7 +151,6 @@ export function PagesManager(props: { readonly disabled: boolean }) {
 			)}
 			{query.data?.pageInfo.hasMore === true && (
 				<LoadMoreButton
-					label="Load more"
 					onClick={query.fetchNextPage}
 					isFetchingNextPage={query.isFetchingNextPage}
 				/>
@@ -150,6 +160,7 @@ export function PagesManager(props: { readonly disabled: boolean }) {
 }
 
 function DocsLink() {
+	const t = useT();
 	return (
 		<a
 			target="_blank"
@@ -157,35 +168,9 @@ function DocsLink() {
 			href="https://docs.ryot.io/concepts/pages.html"
 			className="flex items-center gap-1.5 self-start py-1 text-sm font-medium text-accent-text"
 		>
-			Read the pages guide
+			{t(kernelMessage("client.page-authoring.guide"))}
 			<AppIcon size={14} name="external-link" />
 		</a>
-	);
-}
-
-function PageStatus(props: {
-	readonly slug?: string;
-	readonly draftRevision: number;
-	readonly origin?: PageRecord["origin"];
-	readonly publishedRevision: null | number;
-}) {
-	return (
-		<div className="flex flex-wrap items-center gap-1.5">
-			{props.slug !== undefined && (
-				<Badge variant="outline" className="font-mono">
-					{props.slug}
-				</Badge>
-			)}
-			<Badge variant="neutral">Draft {props.draftRevision}</Badge>
-			<Badge variant={props.publishedRevision === null ? "neutral" : "success"}>
-				{props.publishedRevision === null ? "Unpublished" : `Published ${props.publishedRevision}`}
-			</Badge>
-			{props.origin !== undefined && (
-				<Badge variant="neutral">
-					{props.origin === "assistant" ? "Assistant authored" : "User authored"}
-				</Badge>
-			)}
-		</div>
 	);
 }
 
@@ -194,20 +179,26 @@ function PageDetails(props: {
 	readonly disabled: boolean;
 	readonly onDone: () => void;
 }) {
+	const t = useT();
 	const [reload, setReload] = useState(0);
 	const query = useRyotQuery(pageQuery, { reload, pageId: props.pageId });
 	if (query.isError) {
 		return (
-			<Notice tone="danger" action={<Button onClick={query.refetch}>Retry</Button>}>
-				This page could not be loaded.
+			<Notice
+				tone="danger"
+				action={<Button onClick={query.refetch}>{t(kernelMessage("common.action.retry"))}</Button>}
+			>
+				{t(kernelMessage("client.page-authoring.page.load-failed"))}
 			</Notice>
 		);
 	}
 	if (query.data === undefined) {
-		return <p role="status">Loading page…</p>;
+		return <p role="status">{t(kernelMessage("client.page-authoring.page.loading"))}</p>;
 	}
 	if (query.data === null) {
-		return <Notice tone="danger">This page no longer exists.</Notice>;
+		return (
+			<Notice tone="danger">{t(kernelMessage("client.page-authoring.error.not-found"))}</Notice>
+		);
 	}
 	return (
 		<PageEditor
@@ -221,6 +212,41 @@ function PageDetails(props: {
 	);
 }
 
+function PageStatus(props: {
+	readonly slug?: string;
+	readonly draftRevision: number;
+	readonly origin?: PageRecord["origin"];
+	readonly publishedRevision: null | number;
+}) {
+	const t = useT();
+	return (
+		<div className="flex flex-wrap items-center gap-1.5">
+			{props.slug !== undefined && (
+				<Badge variant="outline" className="font-mono">
+					{props.slug}
+				</Badge>
+			)}
+			<Badge variant="neutral">
+				{t(kernelMessage("client.page-authoring.status.draft", { revision: props.draftRevision }))}
+			</Badge>
+			<Badge variant={props.publishedRevision === null ? "neutral" : "success"}>
+				{t(
+					props.publishedRevision === null
+						? kernelMessage("client.page-authoring.status.unpublished")
+						: kernelMessage("client.page-authoring.status.published", {
+								revision: props.publishedRevision,
+							}),
+				)}
+			</Badge>
+			{props.origin !== undefined && (
+				<Badge variant="neutral">
+					{t(kernelMessage("client.page-authoring.status.origin", { origin: props.origin }))}
+				</Badge>
+			)}
+		</div>
+	);
+}
+
 function PageEditor(props: {
 	readonly disabled: boolean;
 	readonly onDone: () => void;
@@ -230,6 +256,7 @@ function PageEditor(props: {
 	readonly onSaved?: (pageId: string) => void;
 }) {
 	const page = props.page;
+	const t = useT();
 	const navigate = useNavigate();
 	const router = useRouter();
 	const create = useRyotMutation(createPageMutation);
@@ -241,7 +268,7 @@ function PageEditor(props: {
 	const [iconQuery, setIconQuery] = useState("");
 	const iconOptions = appIconNames
 		.filter((value) => value.includes(iconQuery.trim().toLowerCase()))
-		.map((value) => ({ value, label: value }));
+		.map((value) => ({ value, label: formatDisplayText(t, value) }));
 	const [entry, setEntry] = useState(page?.draftDefinition.entry ?? "client/page.tsx");
 	const [dependencies, setDependencies] = useState(
 		JSON.stringify(page?.draftDefinition.pluginDependencies ?? {}, null, 2),
@@ -268,7 +295,7 @@ function PageEditor(props: {
 			: null,
 	);
 	const [failure, setFailure] = useState<unknown>(null);
-	const [message, setMessage] = useState<null | string>(null);
+	const [message, setMessage] = useState<null | Message>(null);
 	const [conflict, setConflict] = useState(false);
 	const [confirming, setConfirming] = useState(false);
 	const trigger = useRef<HTMLButtonElement>(null);
@@ -310,9 +337,7 @@ function PageEditor(props: {
 				Effect.matchEffect({
 					onFailure: () =>
 						Effect.sync(() =>
-							setMessage(
-								"Check the entry, files, plugin dependencies, declared queries and plugin queries. Enter valid JSON matching the page definition.",
-							),
+							setMessage(kernelMessage("client.page-authoring.error.save-invalid")),
 						),
 					onSuccess: (definition) =>
 						(page === null
@@ -330,7 +355,7 @@ function PageEditor(props: {
 												setRevision((value) => value + 1);
 												setDirty(false);
 												setCompiled(null);
-												setMessage("Draft saved.");
+												setMessage(kernelMessage("client.page-authoring.draft-saved"));
 											}),
 										),
 									)
@@ -341,12 +366,12 @@ function PageEditor(props: {
 	};
 	const draftStatus = () => {
 		if (dirty) {
-			return "Unsaved changes. Save and compile to preview this definition.";
+			return kernelMessage("client.page-authoring.draft-status.unsaved");
 		}
 		if (compiled !== null && !conflict) {
-			return "Compiled. Preview is always read-only.";
+			return kernelMessage("client.page-authoring.compiled-draft");
 		}
-		return "Saved. Compile to preview this draft.";
+		return kernelMessage("client.page-authoring.draft-status.saved");
 	};
 	const reason = authoringReason(failure);
 	return (
@@ -354,12 +379,15 @@ function PageEditor(props: {
 			<div className="flex items-center justify-between gap-3">
 				<Button size="sm" variant="ghost" className="-ml-2.5" onClick={props.onDone}>
 					<AppIcon size={15} name="chevron-left" />
-					All pages
+					{t(kernelMessage("client.page-authoring.all-pages"))}
 				</Button>
 				<DocsLink />
 			</div>
 			{page === null ? (
-				<SettingsSection title="New page" detail="Name the page and choose its URL slug.">
+				<SettingsSection
+					title={t(kernelMessage("client.page-authoring.new"))}
+					detail={t(kernelMessage("client.page-authoring.new-detail"))}
+				>
 					<Card className="grid gap-4">
 						<PageIdentityFields disabled={busy} identity={identity} />
 					</Card>
@@ -412,7 +440,11 @@ function PageEditor(props: {
 							variant={page === null ? "primary" : "secondary"}
 							disabled={busy || conflict || !dirty || !identity.complete}
 						>
-							{page === null ? "Create draft" : "Save draft"}
+							{t(
+								page === null
+									? kernelMessage("client.page-authoring.create-draft")
+									: kernelMessage("client.page-authoring.save-draft"),
+							)}
 						</Button>
 						{page !== null && (
 							<>
@@ -431,7 +463,7 @@ function PageEditor(props: {
 										)
 									}
 								>
-									Compile draft
+									{t(kernelMessage("client.page-authoring.compile"))}
 								</Button>
 								{compiled !== null && !dirty && !conflict && (
 									<Button
@@ -449,7 +481,7 @@ function PageEditor(props: {
 										}
 									>
 										<AppIcon size={15} name="eye" />
-										Preview compiled draft
+										{t(kernelMessage("client.page-authoring.preview-compiled"))}
 									</Button>
 								)}
 								<Button
@@ -462,13 +494,13 @@ function PageEditor(props: {
 												payload: { pageId: page.id, expectedDraftRevision: revision },
 											},
 											() => {
-												setMessage("Page published.");
+												setMessage(kernelMessage("client.page-authoring.published"));
 												props.onReload?.();
 											},
 										)
 									}
 								>
-									Publish
+									{t(kernelMessage("client.page-authoring.publish"))}
 								</Button>
 							</>
 						)}
@@ -476,28 +508,33 @@ function PageEditor(props: {
 					{page !== null && (
 						<div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
 							<p role="status" className="text-sm text-text-muted">
-								{draftStatus()}
+								{t(draftStatus())}
 							</p>
 							<Button size="sm" disabled={busy} variant="ghost" onClick={props.onReload}>
-								Reload latest draft (discard local changes)
+								{t(kernelMessage("client.page-authoring.reload-latest"))}
 							</Button>
 						</div>
 					)}
 				</Card>
-				{message !== null && <Notice tone="info">{message}</Notice>}
-				{failure !== null && <Notice tone="danger">{authoringFailureText(failure)}</Notice>}
+				{message !== null && <Notice tone="info">{t(message)}</Notice>}
+				{failure !== null && <Notice tone="danger">{authoringFailureText(t, failure)}</Notice>}
 				{reason?.code === "build-failed" && (
 					<Card className="overflow-x-auto">
-						<ul className="grid gap-2" aria-label="Compile diagnostics">
-							{reason.diagnostics.map((diagnostic) => (
-								<li
-									className="break-words font-mono text-sm text-danger"
-									key={`${diagnostic.file}:${diagnostic.line}:${diagnostic.column}:${diagnostic.code}:${diagnostic.message}`}
-								>
-									{diagnostic.file}:{diagnostic.line}:{diagnostic.column} [{diagnostic.code}]{" "}
-									{diagnostic.message}
-								</li>
-							))}
+						<ul
+							className="grid gap-2"
+							aria-label={t(kernelMessage("client.page-authoring.compile-diagnostics"))}
+						>
+							{reason.diagnostics.map((diagnostic) => {
+								const location = `${diagnostic.file}:${diagnostic.line}:${diagnostic.column}`;
+								return (
+									<li
+										className="break-words font-mono text-sm text-danger"
+										key={`${location}:${diagnostic.code}:${diagnostic.message}`}
+									>
+										{[location, `[${diagnostic.code}]`, diagnostic.message].join(" ")}
+									</li>
+								);
+							})}
 						</ul>
 					</Card>
 				)}
@@ -505,12 +542,16 @@ function PageEditor(props: {
 			{page !== null && (
 				<>
 					<SettingsSection
-						title="Write access"
-						detail="Published page operations require your grant. Assistant edits revoke it. Previews stay read-only."
+						title={t(kernelMessage("client.page-authoring.write-access.title"))}
+						detail={t(kernelMessage("client.page-authoring.write-access.detail"))}
 					>
 						<div className="flex flex-wrap items-center gap-3">
 							<Badge dot variant={page.writeAccess ? "success" : "neutral"}>
-								{page.writeAccess ? "Granted" : "Not granted"}
+								{t(
+									page.writeAccess
+										? kernelMessage("client.page-authoring.write-access.granted")
+										: kernelMessage("client.page-authoring.write-access.not-granted"),
+								)}
 							</Badge>
 							<Button
 								size="sm"
@@ -526,18 +567,24 @@ function PageEditor(props: {
 									)
 								}
 							>
-								{page.writeAccess ? "Revoke write access" : "Grant write access"}
+								{t(
+									page.writeAccess
+										? kernelMessage("client.page-authoring.write-access.revoke")
+										: kernelMessage("client.page-authoring.write-access.grant"),
+								)}
 							</Button>
 						</div>
 					</SettingsSection>
 					{page.publishedRevision !== null && (
 						<SettingsSection
-							title="Navigation"
-							detail="Create a saved view of the published page. Query values are controlled by page code."
+							title={t(kernelMessage("client.page-authoring.navigation.title"))}
+							detail={t(kernelMessage("client.page-authoring.navigation.detail"))}
 						>
 							<div className="grid gap-2">
 								<div className="flex items-center justify-between gap-2">
-									<span className="text-sm font-medium text-text">Icon</span>
+									<span className="text-sm font-medium text-text">
+										{t(kernelMessage("client.page-authoring.navigation.icon"))}
+									</span>
 									<span className="flex items-center gap-1.5 font-mono text-xs text-text-muted">
 										<AppIcon size={14} name={viewIcon} />
 										{viewIcon}
@@ -547,21 +594,25 @@ function PageEditor(props: {
 									<div className="border-b border-border p-2">
 										<SearchField
 											value={iconQuery}
-											label="Search icons"
 											onChange={setIconQuery}
-											placeholder="Search icons"
 											icon={<AppIcon size={15} name="search" />}
 											clearIcon={<AppIcon name="x" size={14} />}
+											label={t(kernelMessage("client.page-authoring.navigation.search-icons"))}
+											placeholder={t(
+												kernelMessage("client.page-authoring.navigation.search-icons"),
+											)}
 										/>
 									</div>
 									{iconOptions.length === 0 ? (
-										<p className="px-4 py-6 text-center text-sm text-text-muted">No icons match.</p>
+										<p className="px-4 py-6 text-center text-sm text-text-muted">
+											{t(kernelMessage("client.page-authoring.navigation.no-icons"))}
+										</p>
 									) : (
 										<RadioGroup
 											value={viewIcon}
-											label="View icon"
 											options={iconOptions}
 											onChange={setViewIcon}
+											label={t(kernelMessage("client.page-authoring.navigation.view-icon"))}
 											className="grid max-h-48 grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-1 overflow-y-auto p-2"
 											renderOption={(option, selected) => ({
 												content: (
@@ -608,14 +659,14 @@ function PageEditor(props: {
 										);
 									}}
 								>
-									Create view and open
+									{t(kernelMessage("client.page-authoring.create-view"))}
 								</Button>
 							</div>
 						</SettingsSection>
 					)}
 					<SettingsSection
-						title="Delete page"
-						detail="The draft and published page are deleted permanently. Remove saved views and publications using this page first."
+						detail={t(kernelMessage("client.page-authoring.delete.detail"))}
+						title={t(kernelMessage("client.page-authoring.delete.section-title"))}
 					>
 						<div>
 							<Button
@@ -629,23 +680,23 @@ function PageEditor(props: {
 								}}
 							>
 								<AppIcon size={15} name="trash-2" />
-								Delete page
+								{t(kernelMessage("client.page-authoring.delete.action"))}
 							</Button>
 						</div>
 					</SettingsSection>
 					{confirming && (
 						<DestructiveConfirmation
 							triggerRef={trigger}
-							pendingLabel="Deleting…"
-							title="Delete this page?"
-							actionLabel="Delete page"
 							pending={command.isPending}
 							onClose={() => setConfirming(false)}
-							errorMessage={failure === null ? undefined : authoringFailureText(failure)}
+							pendingLabel={t(kernelMessage("common.status.deleting"))}
+							title={t(kernelMessage("client.page-authoring.delete.title"))}
+							detail={t(kernelMessage("client.page-authoring.delete.detail"))}
+							actionLabel={t(kernelMessage("client.page-authoring.delete.action"))}
+							errorMessage={failure === null ? undefined : authoringFailureText(t, failure)}
 							onConfirm={() =>
 								run({ action: "delete", payload: { pageId: page.id } }, props.onDone)
 							}
-							detail="The draft and published page are deleted permanently. Remove saved views and publications using this page first."
 						/>
 					)}
 				</>

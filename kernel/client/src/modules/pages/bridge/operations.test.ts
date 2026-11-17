@@ -26,7 +26,10 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 import { ServerOrigin } from "#/api/origin";
 import { makePluginsApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
+import { demoProtectionMessage } from "#/modules/demo-protection";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
+
+const rejection = { namespace: "fixture", key: "operation.rejected" };
 
 const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 
@@ -143,7 +146,6 @@ describe("plugin operations service", () => {
 	const declaredFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
 		new AuthRateLimited({ reason: { retryAfterMs: null, code: "api-key-rate-limited" } }),
-		new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 		new PluginNotFoundError({
 			reason: { code: "plugin-not-found", pluginId: PluginId.make("fixture") },
 		}),
@@ -178,10 +180,18 @@ describe("plugin operations service", () => {
 		});
 	}
 
-	layer(failing(new PluginOperationRejected({ message: "Episode is not part of this show" })))(
-		(test) => {
+	const rejections = [
+		{ message: rejection, cause: new PluginOperationRejected({ reason: rejection }) },
+		{
+			message: demoProtectionMessage,
+			cause: new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+		},
+	];
+
+	for (const { cause, message } of rejections) {
+		layer(failing(cause))((test) => {
 			test.effect(
-				"carries the rejection message as an operation-rejected failure",
+				`carries the ${cause._tag} message as an operation-rejected failure`,
 				() =>
 					Effect.gen(function* () {
 						const service = yield* PluginOperationsService;
@@ -195,16 +205,12 @@ describe("plugin operations service", () => {
 							},
 						});
 
-						expect(outcome).toEqual({
-							outcome: "failure",
-							reason: "operation-rejected",
-							message: "Episode is not part of this show",
-						});
+						expect(outcome).toEqual({ message, outcome: "failure", reason: "operation-rejected" });
 					}),
 				testTimeout,
 			);
-		},
-	);
+		});
+	}
 
 	layer(failing(new TypeError("network down")))((test) => {
 		test.effect(

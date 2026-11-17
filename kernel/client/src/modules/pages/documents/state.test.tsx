@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testText } from "@ryot-app/kernel-messages/testing";
 import type { ManageRemindersOutcome } from "@ryot-app/plugin-client-contract";
 import { render } from "@testing-library/react";
 import { Effect } from "effect";
@@ -23,7 +24,7 @@ const prepared = preparePluginPage({
 type RouteScreens = Omit<ClientPageDocument, "title" | "prepared">;
 
 function Page(props: { readonly screens: RouteScreens }) {
-	useClientPageDocument({ ...props.screens, prepared, title: "Fixture" });
+	useClientPageDocument({ ...props.screens, prepared, title: testText("Fixture") });
 	return null;
 }
 

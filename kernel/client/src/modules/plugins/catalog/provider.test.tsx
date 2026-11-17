@@ -19,6 +19,7 @@ import type { ApiScope } from "#/api/scope";
 import { testHostServices } from "#/host-services.test-support";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
+import { testMessage } from "#/modules/i18n/provider.test-support";
 import { makePluginCatalogEventsLayer } from "#/modules/plugins/catalog/events";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { PluginCatalogProvider, usePluginCatalog } from "#/modules/plugins/catalog/provider";
@@ -29,7 +30,6 @@ const catalog: PluginClientCatalog = [
 	{
 		sortOrder: 0,
 		icon: "puzzle",
-		name: "Fixture",
 		health: "ready",
 		isHidden: false,
 		scope: "system",
@@ -38,6 +38,7 @@ const catalog: PluginClientCatalog = [
 		clientEntities: null,
 		assistantStarters: null,
 		contentHash: "source-hash",
+		name: testMessage("Fixture"),
 		installationId: "installation-1",
 		pluginId: PluginId.make("plugin-1"),
 		packageId: PluginPackageId.make("test/fixture"),

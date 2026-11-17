@@ -5,8 +5,10 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createRyotHostMutation, createRyotHostQuery } from "@ryot-app/plugin-client-sdk/react";
-import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	type PluginInstallationsPage,
 	pluginInstallationsRecipe,
@@ -55,7 +57,7 @@ type PluginArchiveInspectionRequest = {
 export class PluginManagementError extends Schema.TaggedError<
 	PluginManagementError,
 	{ readonly brand: unique symbol }
->()("PluginManagementError", { detail: Schema.String }) {}
+>()("PluginManagementError", { detail: Message }) {}
 
 const DeclaredPluginFailure = Schema.Union([
 	PluginConflictError,
@@ -63,38 +65,42 @@ const DeclaredPluginFailure = Schema.Union([
 	PluginRequestError,
 ]);
 
-const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code"], string> = {
-	"plugin-not-found": "This plugin no longer exists.",
-	"validation-failed": "The plugin failed validation.",
-	"home-view-hidden": "The plugin's home view is hidden.",
-	"already-installed": "This package is already installed.",
-	"compilation-failed": "The plugin archive failed to compile.",
-	"operation-not-found": "The plugin operation does not exist.",
-	"page-write-access-required": "Page write access is required.",
-	"workflow-referenced": "Your workflows still use this plugin.",
-	"home-view-not-found": "The plugin's home view does not exist.",
-	"installation-not-found": "This installation no longer exists.",
-	"saved-view-referenced": "Your saved views still use this plugin.",
-	"integration-referenced": "Your integrations still use this plugin.",
-	"package-archive-invalid": "This file is not a valid plugin archive.",
-	"asset-forbidden": "A file in these settings is not available to you.",
-	"operation-scope-not-found": "The plugin operation scope does not exist.",
-	"installation-not-ready": "This installation is not ready for that change.",
-	"system-plugin": "System plugins are managed by deployment administrators.",
-	"entity-referenced": "Your library still has entities that use this plugin.",
-	"home-view-renderer-unavailable": "The plugin's home view renderer is unavailable.",
-	"package-id-mismatch": "The archive's package ID does not match this installation.",
-	"invalid-operation-scope": "The plugin declares an operation with an invalid scope.",
-	"definition-referenced": "Your data still uses definitions this plugin would remove.",
-	"upload-unavailable": "The uploaded archive is no longer available. Upload it again.",
-	"schema-evolution-failed": "The update cannot migrate this plugin's existing schemas.",
-	"package-identity-conflict": "Another installation already uses this package identity.",
-	"unsupported-manifest-surface": "The plugin uses features this server does not support.",
-	"source-revision-stale": "This installation changed since it was loaded. Refresh and try again.",
-	"referenced-definition-incompatible":
-		"The update is incompatible with definitions your data uses.",
-	"reserved-system-identity":
-		"This package ID is reserved for Ryot's own plugins. Change the publisher in the plugin's package ID, rebuild it, and try again.",
+const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code"], Message> = {
+	"system-plugin": kernelMessage("client.plugins.error.system-plugin"),
+	"asset-forbidden": kernelMessage("client.plugins.error.asset-forbidden"),
+	"plugin-not-found": kernelMessage("client.plugins.error.plugin-not-found"),
+	"home-view-hidden": kernelMessage("client.plugins.error.home-view-hidden"),
+	"validation-failed": kernelMessage("client.plugins.error.validation-failed"),
+	"already-installed": kernelMessage("client.plugins.error.already-installed"),
+	"entity-referenced": kernelMessage("client.plugins.error.entity-referenced"),
+	"compilation-failed": kernelMessage("client.plugins.error.compilation-failed"),
+	"upload-unavailable": kernelMessage("client.plugins.error.upload-unavailable"),
+	"operation-not-found": kernelMessage("client.plugins.error.operation-not-found"),
+	"workflow-referenced": kernelMessage("client.plugins.error.workflow-referenced"),
+	"home-view-not-found": kernelMessage("client.plugins.error.home-view-not-found"),
+	"package-id-mismatch": kernelMessage("client.plugins.error.package-id-mismatch"),
+	"saved-view-referenced": kernelMessage("client.plugins.error.saved-view-referenced"),
+	"definition-referenced": kernelMessage("client.plugins.error.definition-referenced"),
+	"source-revision-stale": kernelMessage("client.plugins.error.source-revision-stale"),
+	"installation-not-found": kernelMessage("client.plugins.error.installation-not-found"),
+	"integration-referenced": kernelMessage("client.plugins.error.integration-referenced"),
+	"installation-not-ready": kernelMessage("client.plugins.error.installation-not-ready"),
+	"package-archive-invalid": kernelMessage("client.plugins.error.package-archive-invalid"),
+	"invalid-operation-scope": kernelMessage("client.plugins.error.invalid-operation-scope"),
+	"schema-evolution-failed": kernelMessage("client.plugins.error.schema-evolution-failed"),
+	"reserved-system-identity": kernelMessage("client.plugins.error.reserved-system-identity"),
+	"operation-scope-not-found": kernelMessage("client.plugins.error.operation-scope-not-found"),
+	"package-identity-conflict": kernelMessage("client.plugins.error.package-identity-conflict"),
+	"page-write-access-required": kernelMessage("client.plugins.error.page-write-access-required"),
+	"unsupported-manifest-surface": kernelMessage(
+		"client.plugins.error.unsupported-manifest-surface",
+	),
+	"home-view-renderer-unavailable": kernelMessage(
+		"client.plugins.error.home-view-renderer-unavailable",
+	),
+	"referenced-definition-incompatible": kernelMessage(
+		"client.plugins.error.referenced-definition-incompatible",
+	),
 };
 
 const rebuildRequiredIssues = new Set([
@@ -112,30 +118,27 @@ const failureDetail = (failure: typeof DeclaredPluginFailure.Type) => {
 		return failureDetails[reason.code];
 	}
 	if (rebuildRequiredIssues.has(reason.issue)) {
-		return "This archive was not built for this version of Ryot. Rebuild it with `ryot plugin build` and try again.";
+		return kernelMessage("client.plugins.error.rebuild-required");
 	}
 	return reason.issue.endsWith("-exceeded")
-		? "This archive is larger than this server allows."
+		? kernelMessage("client.plugins.error.archive-too-large")
 		: failureDetails[reason.code];
 };
 
 const commandFailureDetail = (cause: unknown) => {
 	if (isEntitlementRequiredError(cause)) {
-		return entitlementRequiredMessage(
-			cause.cause.reason.entitlement,
-			"Installing and updating private plugins",
-		);
+		return kernelMessage("client.plugins.error.pro-required");
 	}
 	return cause instanceof AuthenticatedApiError && Schema.is(DeclaredPluginFailure)(cause.cause)
 		? failureDetail(cause.cause)
-		: "The plugin command failed.";
+		: kernelMessage("client.plugins.error.command-failed");
 };
 
 const commandFailure = (cause: unknown) =>
 	new PluginManagementError({ detail: commandFailureDetail(cause) });
 
-export const errorDetail = (error: null | Error) =>
-	error instanceof PluginManagementError ? error.detail : error?.message;
+export const errorDetail = (t: (message: Message) => Text, error: null | Error) =>
+	error instanceof PluginManagementError ? t(error.detail) : error?.message;
 
 export class PluginManagementService extends Context.Service<PluginManagementService>()(
 	"@ryot-app/kernel-client/modules/plugins/management/service/PluginManagementService",
@@ -153,7 +156,10 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 					),
 				).pipe(
 					Effect.mapError(
-						() => new PluginManagementError({ detail: "Could not load plugin installations." }),
+						() =>
+							new PluginManagementError({
+								detail: kernelMessage("client.plugins.error.load-failed"),
+							}),
 					),
 				);
 			});

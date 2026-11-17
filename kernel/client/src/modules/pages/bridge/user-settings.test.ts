@@ -37,20 +37,35 @@ const contributors: PreparedClientPage["identity"]["contributors"] = [
 const settingsSchema = {
 	unknownKeys: "strict" as const,
 	fields: {
-		theme: { label: "Theme", description: "Theme", type: "string" as const },
-		limit: { label: "Limit", defaultValue: 5, description: "Limit", type: "integer" as const },
+		theme: { description: "Theme", type: "string" as const, label: { key: "setting.theme" } },
+		limit: {
+			defaultValue: 5,
+			description: "Limit",
+			type: "integer" as const,
+			label: { key: "setting.limit" },
+		},
 		enabled: {
-			label: "Enabled",
 			defaultValue: false,
 			description: "Enabled",
 			type: "boolean" as const,
+			label: { key: "setting.enabled" },
 		},
 	},
 };
 
 const installedRows: Partial<Record<string, Readonly<Record<string, unknown>>>> = {
-	[pluginA]: { settingsSchema, id: "installation-a", settings: { enabled: true } },
-	[pluginC]: { settingsSchema, id: "installation-c", settings: { limit: 9, theme: "dark" } },
+	[pluginA]: {
+		settingsSchema,
+		pluginId: pluginA,
+		id: "installation-a",
+		settings: { enabled: true },
+	},
+	[pluginC]: {
+		settingsSchema,
+		pluginId: pluginC,
+		id: "installation-c",
+		settings: { limit: 9, theme: "dark" },
+	},
 };
 
 const rowsFor = (request: ExecutionRequest) => {
@@ -140,7 +155,9 @@ describe("plugin user settings bridge read", () => {
 								installation: {
 									type: "rows" as const,
 									pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-									items: [{ settings: {}, settingsSchema: null, id: "installation-a" }],
+									items: [
+										{ settings: {}, pluginId: pluginA, settingsSchema: null, id: "installation-a" },
+									],
 								},
 							},
 						}),
@@ -224,8 +241,10 @@ describe("account bridge read", () => {
 													name: "Private name",
 													email: "private@example.com",
 													preferences: {
-														language: "en",
+														weekStart: 6,
 														ratingScale: "five",
+														interfaceLocale: null,
+														contentLanguage: "en",
 														disableIntegrations: true,
 														reportingTimeZone: "Asia/Tokyo",
 													},
@@ -241,7 +260,7 @@ describe("account bridge read", () => {
 					outcome: "success",
 					account: {
 						entitlements: ["pro"],
-						preferences: { ratingScale: "five", timeZone: "Asia/Tokyo" },
+						preferences: { weekStart: 6, ratingScale: "five", timeZone: "Asia/Tokyo" },
 					},
 				});
 				switchAccount = true;

@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { EntityId, PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
+import { testMessage } from "#/modules/i18n/provider.test-support";
 import {
 	toGlobalHref,
 	toNavigationRequest,
@@ -14,7 +15,6 @@ const catalog: PluginClientCatalog = [
 	{
 		icon: "film",
 		sortOrder: 0,
-		name: "Owner",
 		scope: "system",
 		health: "ready",
 		isHidden: false,
@@ -23,6 +23,7 @@ const catalog: PluginClientCatalog = [
 		clientEntities: null,
 		contentHash: "source",
 		assistantStarters: null,
+		name: testMessage("Owner"),
 		installationId: "installation",
 		pluginId: PluginId.make("owner"),
 		packageId: PluginPackageId.make("test/owner"),

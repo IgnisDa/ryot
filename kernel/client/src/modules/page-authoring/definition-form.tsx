@@ -1,4 +1,7 @@
 import type { PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button, Card, Field, RowGroup, TextArea, TextField } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { pickBrowserUploadFile } from "@ryot-app/plugin-ui-sdk/schema-form";
@@ -13,6 +16,9 @@ class PageFileReadError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("PageFileReadError", { cause: Schema.Unknown }) {}
 
+const PLUGIN_QUERIES_EXAMPLE =
+	'{"series": {"dependency": "fitness", "query": "measurement-series"}}';
+
 export function DefinitionForm(props: {
 	readonly entry: string;
 	readonly queries: string;
@@ -22,17 +28,18 @@ export function DefinitionForm(props: {
 	readonly files: PageDefinition["files"];
 	readonly onEntry: (entry: string) => void;
 	readonly onQueries: (value: string) => void;
-	readonly onError: (message: string) => void;
+	readonly onError: (message: Message) => void;
 	readonly onDependencies: (value: string) => void;
 	readonly onPluginQueries: (value: string) => void;
 	readonly onFiles: (files: PageDefinition["files"]) => void;
 }) {
+	const t = useT();
 	const [path, setPath] = useState("client/page.tsx");
 	const [source, setSource] = useState("");
 	const [reading, setReading] = useState(false);
 	const add = (content: string) => {
 		if (!path.startsWith("client/") && !path.startsWith("shared/")) {
-			props.onError("Use a file path under client/ or shared/.");
+			props.onError(kernelMessage("client.page-authoring.definition.invalid-path"));
 			return;
 		}
 		props.onFiles([...props.files.filter((file) => file.path !== path), { path, content }]);
@@ -58,7 +65,7 @@ export function DefinitionForm(props: {
 					onSuccess: () => setReading(false),
 					onFailure: () => {
 						setReading(false);
-						props.onError("The file could not be read.");
+						props.onError(kernelMessage("client.page-authoring.definition.read-failed"));
 					},
 				}),
 			),
@@ -67,11 +74,11 @@ export function DefinitionForm(props: {
 	return (
 		<fieldset className="grid gap-8" disabled={props.disabled || reading}>
 			<SettingsSection
-				title="Definition"
-				detail="The entry module, plugin dependencies and queries the page may run."
+				title={t(kernelMessage("client.page-authoring.definition.title"))}
+				detail={t(kernelMessage("client.page-authoring.definition.detail"))}
 			>
 				<Card className="grid gap-4">
-					<Field label="Entry file">
+					<Field label={t(kernelMessage("client.page-authoring.definition.entry"))}>
 						{(control) => (
 							<TextField
 								{...control}
@@ -83,8 +90,10 @@ export function DefinitionForm(props: {
 						)}
 					</Field>
 					<Field
-						label="Plugin dependencies (JSON)"
-						hint="Map each import alias to its plugin package reference and scope. Use {} when there are no dependencies."
+						label={t(kernelMessage("client.page-authoring.definition.dependencies-label"))}
+						hint={t(
+							kernelMessage("client.page-authoring.definition.dependencies-hint", { empty: "{}" }),
+						)}
 					>
 						{(control) => (
 							<TextArea
@@ -97,8 +106,8 @@ export function DefinitionForm(props: {
 						)}
 					</Field>
 					<Field
-						label="Declared queries (JSON)"
-						hint="A RyotQL document. Page code supplies query arguments and controls."
+						hint={t(kernelMessage("client.page-authoring.definition.queries-hint"))}
+						label={t(kernelMessage("client.page-authoring.definition.queries-label"))}
 					>
 						{(control) => (
 							<TextArea
@@ -111,8 +120,12 @@ export function DefinitionForm(props: {
 						)}
 					</Field>
 					<Field
-						label="Plugin queries (JSON)"
-						hint='Map each name to a dependency alias and one of its declared queries, such as {"series": {"dependency": "fitness", "query": "measurement-series"}}. Page code runs them as name.query.'
+						label={t(kernelMessage("client.page-authoring.definition.plugin-queries-label"))}
+						hint={t(
+							kernelMessage("client.page-authoring.definition.plugin-queries-hint", {
+								example: PLUGIN_QUERIES_EXAMPLE,
+							}),
+						)}
 					>
 						{(control) => (
 							<TextArea
@@ -127,12 +140,14 @@ export function DefinitionForm(props: {
 				</Card>
 			</SettingsSection>
 			<SettingsSection
-				title="Source files and assets"
-				detail="Files under client/ or shared/ compiled into the page. Assets are kept as bytes."
+				title={t(kernelMessage("client.page-authoring.definition.files-title"))}
+				detail={t(kernelMessage("client.page-authoring.definition.files-detail"))}
 			>
 				<RowGroup>
 					{props.files.length === 0 ? (
-						<p className="px-4 py-3 text-sm text-text-muted">No files yet.</p>
+						<p className="px-4 py-3 text-sm text-text-muted">
+							{t(kernelMessage("client.page-authoring.definition.no-files"))}
+						</p>
 					) : (
 						<ul className="divide-y divide-border">
 							{props.files.map((file) => (
@@ -145,12 +160,16 @@ export function DefinitionForm(props: {
 										size="sm"
 										type="button"
 										variant="dangerGhost"
-										aria-label={`Remove ${file.path}`}
 										onClick={() =>
 											props.onFiles(props.files.filter((candidate) => candidate.path !== file.path))
 										}
+										aria-label={t(
+											kernelMessage("client.page-authoring.definition.remove-label", {
+												path: file.path,
+											}),
+										)}
 									>
-										Remove
+										{t(kernelMessage("common.action.remove"))}
 									</Button>
 								</li>
 							))}
@@ -158,8 +177,8 @@ export function DefinitionForm(props: {
 					)}
 					<div className="grid gap-4 p-4">
 						<Field
-							label="File path"
-							hint="Choose the destination before uploading or pasting. Adding the same path replaces that file."
+							label={t(kernelMessage("client.page-authoring.definition.file-path"))}
+							hint={t(kernelMessage("client.page-authoring.definition.file-path-hint"))}
 						>
 							{(control) => (
 								<TextField
@@ -170,7 +189,7 @@ export function DefinitionForm(props: {
 								/>
 							)}
 						</Field>
-						<Field label="Paste source">
+						<Field label={t(kernelMessage("client.page-authoring.definition.paste-source"))}>
 							{(control) => (
 								<TextArea
 									{...control}
@@ -187,11 +206,11 @@ export function DefinitionForm(props: {
 								variant="secondary"
 								onClick={() => add(Base64.encode(new TextEncoder().encode(source)))}
 							>
-								Add pasted file
+								{t(kernelMessage("client.page-authoring.definition.add-pasted"))}
 							</Button>
 							<Button type="button" onClick={upload} variant="outline">
 								<AppIcon size={15} name="upload" />
-								Upload file
+								{t(kernelMessage("client.page-authoring.definition.upload"))}
 							</Button>
 						</div>
 					</div>

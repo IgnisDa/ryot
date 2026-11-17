@@ -10,6 +10,7 @@ import {
 	PluginId,
 	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
@@ -103,7 +104,7 @@ describe("plugin entity saves", () => {
 					expect(calls).toEqual([request]);
 
 					failures.push(
-						new EntityEditorRefused({ message: "reused" }),
+						new EntityEditorRefused({ reason: kernelMessage("error.internal.unexpected") }),
 						new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 						new Error("network"),
 					);

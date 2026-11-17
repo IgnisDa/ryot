@@ -28,7 +28,7 @@ export const makePluginCalendarSources = (
 	overrides: Partial<PluginCalendarSources["Service"]> = {},
 ) => Layer.succeed(PluginCalendarSources, { outcome: unused, ...overrides });
 
-const emptySnapshot = { entries: [], announcement: "" };
+const emptySnapshot = { entries: [], announcement: undefined };
 
 const emptyBackgroundSubmissions = Layer.succeed(BackgroundSubmissionService, {
 	open: () =>
