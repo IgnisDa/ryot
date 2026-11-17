@@ -3,6 +3,8 @@ import type {
 	SearchProviderEntitiesResponse,
 } from "@ryot-app/contract/modules/entity-providers/schemas";
 import type { EntityId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
 import { Button, LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -50,6 +52,7 @@ type EntityPickPanelProps = {
 };
 
 export function EntityPickPanel(props: EntityPickPanelProps) {
+	const t = useT();
 	const available = props.providers.status === "ready" ? props.providers.providers : [];
 	const selected = selectPreferredProvider(available, props.selectedProviderId ?? null);
 	const [query, setQuery] = useState(props.initialQuery ?? "");
@@ -59,7 +62,12 @@ export function EntityPickPanel(props: EntityPickPanelProps) {
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="grid gap-3 p-4 pb-3">
-				<PickerSearchBar query={query} label="Search" onChange={setQuery} onClose={props.onClose} />
+				<PickerSearchBar
+					query={query}
+					onChange={setQuery}
+					onClose={props.onClose}
+					label={t(kernelMessage("common.action.search"))}
+				/>
 				{available.length > 1 ? (
 					<ProviderChips
 						providers={available}
@@ -91,7 +99,11 @@ export function EntityPickPanel(props: EntityPickPanelProps) {
 				<div className="flex items-center justify-end gap-3 border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 					<Button variant="secondary" onClick={() => props.onCreate?.(trimmed)}>
 						<AppIcon size={15} name="plus" />
-						{trimmed === "" ? "Create new" : `Create "${trimmed}"`}
+						{t(
+							trimmed === ""
+								? kernelMessage("client.provider-add.create-new")
+								: kernelMessage("client.provider-add.create-query", { query: trimmed }),
+						)}
 					</Button>
 				</div>
 			)}
@@ -113,6 +125,7 @@ function ExistingEntities(props: {
 	readonly onSelect: (entityId: EntityId) => void;
 	readonly loadEntities: EntityPickPanelProps["loadEntities"];
 }) {
+	const t = useT();
 	const pagination = usePagination<EntityPickerEntitiesPage, string | undefined>({
 		identity: props.query,
 		initialPageParam: undefined,
@@ -127,18 +140,27 @@ function ExistingEntities(props: {
 	if (pagination.pages.length === 0) {
 		return pagination.isError ? (
 			<div className="grid justify-items-center gap-2">
-				<StatusMessage tone="error">Could not load existing items.</StatusMessage>
-				<Button onClick={pagination.retry}>Try again</Button>
+				<StatusMessage tone="error">
+					{t(kernelMessage("client.provider-add.existing.load-failed"))}
+				</StatusMessage>
+				<Button onClick={pagination.retry}>{t(kernelMessage("common.action.try-again"))}</Button>
 			</div>
 		) : (
-			<Spinner className="py-4" label="Loading existing items" />
+			<Spinner className="py-4" label={t(kernelMessage("client.provider-add.existing.loading"))} />
 		);
 	}
 	return (
-		<section aria-label="Existing" className="grid gap-1">
+		<section
+			className="grid gap-1"
+			aria-label={t(kernelMessage("client.provider-add.existing.label"))}
+		>
 			{entities.length === 0 ? (
 				<p className="text-sm text-text-muted">
-					{props.query.trim() === "" ? "Nothing here yet." : `No matches for "${props.query}".`}
+					{t(
+						props.query.trim() === ""
+							? kernelMessage("client.provider-add.existing.empty")
+							: kernelMessage("client.provider-add.existing.no-matches", { query: props.query }),
+					)}
 				</p>
 			) : (
 				entities.map((entity) => (
@@ -154,16 +176,16 @@ function ExistingEntities(props: {
 			)}
 			{pagination.errorOperation === "append" ? (
 				<StatusMessage tone="error" className="text-sm">
-					Could not load more items.
+					{t(kernelMessage("client.provider-add.existing.more-failed"))}
 				</StatusMessage>
 			) : null}
 			{pagination.hasNextPage ? (
 				<LoadMoreButton
-					label="Load more items"
 					disabled={pagination.isFetching}
 					onClick={pagination.fetchNextPage}
-					loadingLabel="Loading more items..."
 					isFetchingNextPage={pagination.isFetchingNextPage}
+					label={t(kernelMessage("client.provider-add.existing.load-more"))}
+					loadingLabel={t(kernelMessage("client.provider-add.existing.loading-more"))}
 				/>
 			) : null}
 		</section>
@@ -178,6 +200,8 @@ function ProviderResults(props: {
 	readonly importEntity: EntityPickPanelProps["importEntity"];
 	readonly loadMaterialized: EntityPickPanelProps["loadMaterialized"];
 }) {
+	const t = useT();
+	const providerName = t(props.provider.providerName);
 	const providerId = props.provider.providerId;
 	const pagination = usePagination<SearchProviderEntitiesResponse, number>({
 		initialPageParam: 1,
@@ -203,32 +227,35 @@ function ProviderResults(props: {
 		importEntity: props.importEntity,
 	});
 
-	const heading = (
-		<h3 className="text-sm font-semibold text-text">{props.provider.providerName}</h3>
-	);
+	const heading = <h3 className="text-sm font-semibold text-text">{providerName}</h3>;
 	if (pagination.pages.length === 0 || materializedIds === undefined) {
 		return (
-			<section className="grid gap-2" aria-label={props.provider.providerName}>
+			<section className="grid gap-2" aria-label={providerName}>
 				{heading}
 				{pagination.isError ? (
 					<PanelFailure
 						className="min-h-24"
 						error={pagination.error}
 						onRetry={pagination.retry}
-						providerName={props.provider.providerName}
+						providerName={providerName}
 					/>
 				) : (
-					<Spinner className="py-4" label="Searching" />
+					<Spinner
+						className="py-4"
+						label={t(kernelMessage("client.provider-add.search.searching"))}
+					/>
 				)}
 			</section>
 		);
 	}
 	const visible = items.filter((item) => !materializedIds.has(item.externalId));
 	return (
-		<section className="grid gap-2" aria-label={props.provider.providerName}>
+		<section className="grid gap-2" aria-label={providerName}>
 			{heading}
 			{visible.length === 0 ? (
-				<p className="text-sm text-text-muted">No other results for "{props.query}".</p>
+				<p className="text-sm text-text-muted">
+					{t(kernelMessage("client.provider-add.no-other-results", { query: props.query }))}
+				</p>
 			) : (
 				<div className="grid gap-1">
 					{visible.map((item) => (
@@ -244,16 +271,16 @@ function ProviderResults(props: {
 			)}
 			{pagination.errorOperation === "append" ? (
 				<StatusMessage tone="error" className="text-sm">
-					Could not load more results.
+					{t(kernelMessage("client.provider-add.results.more-failed"))}
 				</StatusMessage>
 			) : null}
 			{pagination.hasNextPage ? (
 				<LoadMoreButton
-					label="Load more results"
 					disabled={pagination.isFetching}
 					onClick={pagination.fetchNextPage}
-					loadingLabel="Loading more results..."
 					isFetchingNextPage={pagination.isFetchingNextPage}
+					label={t(kernelMessage("client.provider-add.results.load-more"))}
+					loadingLabel={t(kernelMessage("client.provider-add.results.loading-more"))}
 				/>
 			) : null}
 		</section>

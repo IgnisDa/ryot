@@ -6,13 +6,14 @@ import {
 	EntityEditorRefused,
 	type EntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createRyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -25,8 +26,8 @@ import type { EntityProvidersApi } from "#/api/entity-providers";
 import { ServerOrigin } from "#/api/origin";
 import { makeEntityProvidersApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
-import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
-import { ENTITY_CREATE_REFUSED_MESSAGE, ProviderAddService } from "#/modules/provider-add/service";
+import { demoProtectionMessage } from "#/modules/demo-protection";
+import { ProviderAddService } from "#/modules/provider-add/service";
 
 const ownerPluginId = PluginId.make("stable-plugin-id");
 const entitySchemaSlug = EntitySchemaSlug.make("unit");
@@ -40,9 +41,9 @@ const rowsResult = (items: readonly unknown[]) => ({ items, pageInfo, type: "row
 const providerRow = {
 	providerId,
 	searchOptionsSchema: null,
-	providerName: "Open Library",
 	providerSlug: "example-provider",
 	rootEntitySchemaSlug: entitySchemaSlug,
+	providerName: { key: "provider.name", namespace: "plugin-1" },
 };
 
 type EntityProvidersMethod = keyof EntityProvidersApi["Service"];
@@ -109,8 +110,8 @@ const providerAddLayer = (offline = false) =>
 							search: record("search", {
 								items: [],
 								providerId,
-								providerName: "Open Library",
 								rootEntitySchemaSlug: entitySchemaSlug,
+								providerName: { key: "provider.name", namespace: "plugin-1" },
 							}),
 						}),
 					),
@@ -120,7 +121,7 @@ const providerAddLayer = (offline = false) =>
 		}),
 	);
 
-const dataClient = (queries: ExecutionRequest[]) =>
+const dataClient = (queries: PluginExecutionRequest[]) =>
 	createRyotClient(
 		createTestRyotAdapter({
 			query: (query) => {
@@ -158,7 +159,7 @@ describe("ProviderAddService", () => {
 						externalId: `ext-${index % 205}`,
 						entityId: EntityId.make(`entity-${index}`),
 					}));
-					const requests: ExecutionRequest[] = [];
+					const requests: PluginExecutionRequest[] = [];
 					const client = createRyotClient(
 						createTestRyotAdapter({
 							query: (request) => {
@@ -218,7 +219,7 @@ describe("ProviderAddService", () => {
 		test.effect(
 			"loads provider summaries and entity links through the RyotQL client",
 			() => {
-				const queries: ExecutionRequest[] = [];
+				const queries: PluginExecutionRequest[] = [];
 				const client = dataClient(queries);
 
 				return Effect.gen(function* () {
@@ -322,17 +323,17 @@ describe("ProviderAddService", () => {
 					const service = yield* ProviderAddService;
 					createFailures.push(
 						new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
-						new EntityEditorRefused({ message: "No editor" }),
+						new EntityEditorRefused({ reason: kernelMessage("error.internal.unexpected") }),
 						"offline",
 					);
 
 					expect(yield* service.createEntity(scope, createRequest)).toEqual({
 						kind: "invalid",
-						message: DEMO_PROTECTION_MESSAGE,
+						reason: demoProtectionMessage,
 					});
 					expect(yield* service.createEntity(scope, createRequest)).toEqual({
 						kind: "invalid",
-						message: ENTITY_CREATE_REFUSED_MESSAGE,
+						reason: kernelMessage("client.provider-add.create.refused"),
 					});
 					expect((yield* Effect.flip(service.createEntity(scope, createRequest))).stage).toBe(
 						"create",

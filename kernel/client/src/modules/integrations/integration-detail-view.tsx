@@ -1,3 +1,6 @@
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
 import { Button, CopyField, FieldMessage, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import type {
@@ -37,34 +40,33 @@ export function IntegrationDetailView(props: {
 	readonly connectOAuth: SchemaOAuthConnect;
 	readonly runs: readonly ImportRunSummary[];
 	readonly integration: IntegrationClientDetail;
-	readonly oauthDisabledReason: string | undefined;
+	readonly oauthDisabledReason: Text | undefined;
 	readonly provider: undefined | IntegrationProviderItem;
 }) {
+	const t = useT();
 	const uploadAsset = useSchemaAssetUpload();
 	const shareAction = useShareAction();
 	return (
 		<div className="flex flex-col gap-6 pb-4">
 			{props.integration.webhookUrl === undefined ? (
 				<p className="text-sm leading-6 text-text-muted">
-					{props.provider === undefined ? "" : integrationLotDetail(props.provider.lot)}
+					{props.provider === undefined ? "" : t(integrationLotDetail(props.provider.lot))}
 				</p>
 			) : (
 				<CopyField
-					label="Webhook URL"
 					value={props.integration.webhookUrl}
 					action={shareAction({ url: props.integration.webhookUrl })}
+					label={t(kernelMessage("client.integrations.detail.webhook-url"))}
 				/>
 			)}
 			{props.integration.pluginId === null ? (
 				<p className="text-sm leading-6 text-text-muted">
-					Send a JSON data document with Content-Type: application/json and an Idempotency-Key
-					header. Reuse the key only when retrying the same submission. A new key appends new
-					records.
+					{t(kernelMessage("client.integrations.detail.webhook-help"))}
 				</p>
 			) : null}
 			{props.provider === undefined ? (
 				<p className="text-sm text-text-muted">
-					This service is no longer available on your server, so its settings cannot be edited.
+					{t(kernelMessage("client.integrations.detail.provider-gone"))}
 				</p>
 			) : (
 				<div className="flex flex-col gap-4">
@@ -98,16 +100,22 @@ export function IntegrationDetailView(props: {
 						disabled={props.saving}
 						className="w-full sm:w-auto sm:self-start sm:px-6"
 					>
-						{props.saving ? "Saving..." : "Save changes"}
+						{t(
+							props.saving
+								? kernelMessage("common.status.saving")
+								: kernelMessage("common.action.save-changes"),
+						)}
 					</Button>
 				</div>
 			)}
 			<div className="flex flex-col gap-2">
 				<span className="text-[11px] font-medium uppercase tracking-[0.8px] text-text-subtle">
-					Recent runs
+					{t(kernelMessage("client.integrations.detail.recent-runs"))}
 				</span>
 				{props.runs.length === 0 ? (
-					<p className="text-sm text-text-muted">This integration has not run yet.</p>
+					<p className="text-sm text-text-muted">
+						{t(kernelMessage("client.integrations.detail.no-runs"))}
+					</p>
 				) : (
 					<div>
 						{props.runs.map((run, index) => (
@@ -119,13 +127,13 @@ export function IntegrationDetailView(props: {
 					<LoadMoreButton
 						type="button"
 						variant="ghost"
-						label="Show older runs"
-						aria-label="Show older runs"
 						onClick={props.onShowOlderRuns}
 						disabled={props.isFetchingRuns}
-						loadingLabel="Loading older runs..."
 						isFetchingNextPage={props.isFetchingNextRuns}
 						className="self-start py-2 text-sm font-medium text-accent-text"
+						label={t(kernelMessage("client.integrations.detail.older-runs"))}
+						aria-label={t(kernelMessage("client.integrations.detail.older-runs"))}
+						loadingLabel={t(kernelMessage("client.integrations.detail.loading-older"))}
 					/>
 				) : null}
 			</div>
@@ -138,6 +146,8 @@ function IntegrationRunRow(props: {
 	readonly isFirst: boolean;
 	readonly run: ImportRunSummary;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	return (
 		<div>
 			<Link
@@ -150,10 +160,10 @@ function IntegrationRunRow(props: {
 			>
 				<RunStatusGlyph status={props.run.status} />
 				<span className="min-w-0 flex-1 truncate text-xs text-text-subtle">
-					{formatRelativeTime(props.run.createdAt, props.nowMs)}
+					{formatRelativeTime(formatters, t, props.run.createdAt, props.nowMs)}
 				</span>
 				<span className="max-w-40 text-right text-xs tabular-nums text-text-muted">
-					{importRunOutcomeLabel(props.run)}
+					{importRunOutcomeLabel(t, formatters, props.run)}
 				</span>
 			</Link>
 			{props.run.status === "blocked" ||

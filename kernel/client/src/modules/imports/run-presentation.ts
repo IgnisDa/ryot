@@ -8,24 +8,30 @@ import type {
 	ImportRunStatus,
 } from "@ryot-app/contract/modules/imports/schemas";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
-import { entitlementName, entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Match } from "effect";
 
 import {
-	formatRunCount,
+	determinateRunProgress,
 	isTerminalRunStatus,
 	type RunProgress,
 	type RunProgressValue,
 } from "#/modules/ui/run/run-status";
 
+type Translate = (message: Message) => Text;
+
 type RunCounts = Pick<ImportRunSummary, "summary">;
 
-type ImportRunFailureNotice = { readonly label: string; readonly detail: string };
+type ImportRunFailureNotice = { readonly label: Message; readonly detail: Message };
 
 const stoppedEarly = {
-	label: "Stopped early",
-	detail: "This import stopped before it finished. Nothing further was added.",
+	label: kernelMessage("client.imports.failure.stopped-early.label"),
+	detail: kernelMessage("client.imports.failure.stopped-early.detail"),
 } as const;
 
 export const canDeleteImportRun = (status: ImportRunStatus) =>
@@ -34,66 +40,132 @@ export const canDeleteImportRun = (status: ImportRunStatus) =>
 export const canCancelImportRun = (status: ImportRunStatus) =>
 	status === "pending" || status === "blocked" || status === "running";
 
-export const importRunCancelConfirmation =
-	'This stops future work. Items already added stay in your library. Type "Cancel this import" to continue.';
+export const importRunCancelConfirmation = (phrase: string) =>
+	kernelMessage("client.imports.cancel-confirmation", { phrase });
 
-export const ingestionActivityProgress = (activity: IngestionActivity): RunProgress => {
+const wholeCount = (value: number) => Math.max(Math.round(value), 0);
+
+export const ingestionActivityProgress = (
+	t: Translate,
+	formatters: Formatters,
+	activity: IngestionActivity,
+): RunProgress => {
 	if (activity.exactTotal === null) {
 		return {
 			kind: "indeterminate",
-			label: `${formatRunCount(activity.completed)} ${activity.unit}`,
+			label: t(
+				kernelMessage("client.imports.activity.count", {
+					unit: activity.unit,
+					count: wholeCount(activity.completed),
+				}),
+			),
 		};
 	}
-	const percent =
-		activity.exactTotal <= 0
-			? 100
-			: Math.min(Math.max(Math.round((activity.completed / activity.exactTotal) * 100), 0), 100);
-	return { percent, kind: "determinate", label: `${percent}%` };
+	return determinateRunProgress(
+		formatters,
+		activity.exactTotal <= 0 ? 100 : (activity.completed / activity.exactTotal) * 100,
+	);
 };
 
-export const ingestionActivityProgressValue = (activity: IngestionActivity): RunProgressValue =>
+export const ingestionActivityProgressValue = (
+	t: Translate,
+	activity: IngestionActivity,
+): RunProgressValue =>
 	activity.exactTotal === null
-		? { text: `${formatRunCount(activity.completed)} ${activity.unit}` }
+		? {
+				text: t(
+					kernelMessage("client.imports.activity.count", {
+						unit: activity.unit,
+						count: wholeCount(activity.completed),
+					}),
+				),
+			}
 		: {
 				min: 0,
 				now: activity.completed,
 				max: activity.exactTotal,
-				text: `${formatRunCount(activity.completed)} of ${formatRunCount(activity.exactTotal)} ${activity.unit}`,
+				text: t(
+					kernelMessage("client.imports.activity.of-total", {
+						unit: activity.unit,
+						total: wholeCount(activity.exactTotal),
+						completed: wholeCount(activity.completed),
+					}),
+				),
 			};
 
-export const ingestionSummaryLabel = (summary: IngestionSummary) =>
-	summary
-		.map(
-			({ unit, counts }) =>
-				`${unit}: ${(["created", "updated", "unchanged", "skipped", "unsuccessful"] as const)
-					.map((result) => `${formatRunCount(counts[result])} ${result}`)
-					.join(" · ")}`,
-		)
-		.join("; ");
+export const ingestionSummaryLabel = (
+	t: Translate,
+	formatters: Formatters,
+	summary: IngestionSummary,
+) =>
+	formatters
+		.list({ type: "unit", style: "long" })
+		.format(
+			summary.map(({ unit, counts }) =>
+				t(
+					kernelMessage("client.imports.summary-unit", {
+						unit,
+						created: wholeCount(counts.created),
+						updated: wholeCount(counts.updated),
+						skipped: wholeCount(counts.skipped),
+						unchanged: wholeCount(counts.unchanged),
+						unsuccessful: wholeCount(counts.unsuccessful),
+					}),
+				),
+			),
+		);
 
-export const importRunCountsLabel = (run: RunCounts & Pick<ImportRunSummary, "status">) => {
+export const importRunCountsLabel = (
+	t: Translate,
+	formatters: Formatters,
+	run: RunCounts & Pick<ImportRunSummary, "status">,
+) => {
 	if (run.summary.length > 0) {
-		return ingestionSummaryLabel(run.summary);
+		return ingestionSummaryLabel(t, formatters, run.summary);
 	}
-	return isTerminalRunStatus(run.status) ? "No outcomes recorded" : "No committed outcomes yet";
+	return t(
+		kernelMessage(
+			isTerminalRunStatus(run.status)
+				? "client.imports.no-outcomes"
+				: "client.imports.no-outcomes-yet",
+		),
+	);
 };
 
-export const ingestionBlockReasonLabel = (
+export const ingestionBlockReasonMessage = (
 	reason: IngestionBlockReason,
 	scope?: null | "user" | "system",
-) => {
+): Message => {
 	if (reason.code === "connection-required") {
-		return `Connect ${reason.key} for this account.`;
+		return kernelMessage("client.imports.block.connection-required", { key: reason.key });
 	}
-	let location = "for this source";
+	let location: "source" | "server" | "installation" = "source";
 	if (scope === "user") {
-		location = "in this plugin installation";
+		location = "installation";
 	} else if (scope === "system") {
-		location = "on your server";
+		location = "server";
 	}
-	return reason.code === "oauth-client-required"
-		? `Configure the OAuth client ${reason.key} ${location}.`
-		: `Set ${reason.key} ${location}.`;
+	return kernelMessage(
+		reason.code === "oauth-client-required"
+			? "client.imports.block.oauth-client-required"
+			: "client.imports.block.setting-required",
+		{ location, key: reason.key },
+	);
+};
+
+/** The first block reason and how many more remain, or `fallback` when none are known. */
+export const ingestionBlockReasonsMessage = (
+	reasons: readonly IngestionBlockReason[],
+	fallback: Message,
+	scope?: null | "user" | "system",
+): Message => {
+	const first = reasons.at(0);
+	return first === undefined
+		? fallback
+		: kernelMessage("client.imports.block.reasons", {
+				remaining: reasons.length - 1,
+				first: ingestionBlockReasonMessage(first, scope),
+			});
 };
 
 export const importRunFailureNotice = (
@@ -104,52 +176,49 @@ export const importRunFailureNotice = (
 	}
 	return Match.value(reason).pipe(
 		Match.when({ code: "captured-input-unavailable" }, () => ({
-			label: "Captured input unavailable",
-			detail: "The saved source input is missing. Start a new import with the source data.",
+			label: kernelMessage("client.imports.failure.captured-input-unavailable.label"),
+			detail: kernelMessage("client.imports.failure.captured-input-unavailable.detail"),
 		})),
 		Match.when({ code: "captured-input-corrupt" }, () => ({
-			label: "Captured input damaged",
-			detail:
-				"The saved source input could not be verified. Start a new import with the source data.",
+			label: kernelMessage("client.imports.failure.captured-input-corrupt.label"),
+			detail: kernelMessage("client.imports.failure.captured-input-corrupt.detail"),
 		})),
 		Match.when({ code: "source-fetch-failed" }, () => ({
-			label: "Source unavailable",
-			detail: "The source could not be read. Check its availability, then start the import again.",
+			label: kernelMessage("client.imports.failure.source-fetch-failed.label"),
+			detail: kernelMessage("client.imports.failure.source-fetch-failed.detail"),
 		})),
 		Match.when({ code: "input-transformation-failed" }, () => ({
-			label: "Data unreadable",
-			detail: "Some source data was not in the expected shape. Correct it, then try again.",
+			label: kernelMessage("client.imports.failure.input-transformation-failed.label"),
+			detail: kernelMessage("client.imports.failure.input-transformation-failed.detail"),
 		})),
 		Match.when({ code: "provider-resolution-failed" }, () => stoppedEarly),
 		Match.when({ code: "provider-details-failed" }, () => stoppedEarly),
 		Match.when({ code: "event-policy-failed" }, () => stoppedEarly),
 		Match.when({ code: "database-commit-failed" }, () => stoppedEarly),
 		Match.when({ code: "integration-not-found" }, () => ({
-			label: "Integration unavailable",
-			detail: "The connected service no longer exists, so this import could not continue.",
+			label: kernelMessage("client.imports.failure.integration-not-found.label"),
+			detail: kernelMessage("client.imports.failure.integration-not-found.detail"),
 		})),
 		Match.when({ code: "integration-disabled" }, () => ({
-			label: "Integration paused",
-			detail: "This connected service is paused. Enable it before trying again.",
+			label: kernelMessage("client.imports.failure.integration-disabled.label"),
+			detail: kernelMessage("client.imports.failure.integration-disabled.detail"),
 		})),
 		Match.when({ code: "integrations-disabled" }, () => ({
-			label: "Integrations paused",
-			detail: "Integrations are disabled for this account.",
+			label: kernelMessage("client.imports.failure.integrations-disabled.label"),
+			detail: kernelMessage("client.imports.failure.integrations-disabled.detail"),
 		})),
 		Match.when({ code: "entitlement-required" }, ({ entitlement }) => ({
-			label: `${entitlementName(entitlement)} required`,
-			detail: entitlementRequiredMessage(entitlement, "This integration"),
+			detail: entitlementRequiredMessage(entitlement),
+			label: kernelMessage("ui.entitlement.required-title", { entitlement }),
 		})),
 		Match.when({ code: "queue-unavailable" }, () => stoppedEarly),
 		Match.when({ code: "installation-unavailable" }, () => ({
-			label: "Plugin unavailable",
-			detail:
-				"This plugin installation is not available. Manage it in plugin settings before trying again.",
+			label: kernelMessage("client.pages.host.unavailable-title"),
+			detail: kernelMessage("client.imports.failure.installation-unavailable.detail"),
 		})),
 		Match.when({ code: "package-identity-conflict" }, () => ({
-			label: "Package identity conflict",
-			detail:
-				"This private installation is quarantined. Its data and history remain attached to the private plugin.",
+			label: kernelMessage("client.imports.failure.package-identity-conflict.label"),
+			detail: kernelMessage("client.imports.failure.package-identity-conflict.detail"),
 		})),
 		Match.when({ code: "unexpected-failure" }, () => stoppedEarly),
 		Match.exhaustive,
@@ -157,43 +226,48 @@ export const importRunFailureNotice = (
 };
 
 export const importRunOutcomeLabel = (
+	t: Translate,
+	formatters: Formatters,
 	run: RunCounts & Pick<ImportRunSummary, "status" | "failureReason">,
 ) => {
 	if (run.status === "failed") {
-		return `${importRunFailureNotice(run.failureReason).label} · ${importRunCountsLabel(run)}`;
+		return t(
+			kernelMessage("client.imports.outcome.failed", {
+				counts: importRunCountsLabel(t, formatters, run),
+				label: importRunFailureNotice(run.failureReason).label,
+			}),
+		);
 	}
 	if (run.status === "cancelled") {
-		return `Cancelled · ${importRunCountsLabel(run)}`;
+		return t(
+			kernelMessage("client.imports.outcome.cancelled", {
+				counts: importRunCountsLabel(t, formatters, run),
+			}),
+		);
 	}
 	if (run.status === "blocked") {
-		return "Waiting for setup";
+		return t(kernelMessage("client.imports.waiting-for-setup"));
 	}
 	if (run.status === "expired") {
-		return "Setup deadline expired";
+		return t(kernelMessage("client.imports.outcome.setup-expired"));
 	}
-	return importRunCountsLabel(run);
+	return importRunCountsLabel(t, formatters, run);
 };
 
 export const importRunDeleteConfirmation = () =>
-	"This removes the run report and its diagnostics. All committed changes remain in your library.";
-
-export const humanizeImportSourceSlug = (slug: string) => {
-	const words = slug
-		.split(/[^A-Za-z0-9]+/)
-		.filter((word) => word.length > 0)
-		.map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`);
-	return words.length === 0 ? slug : words.join(" ");
-};
+	kernelMessage("client.imports.delete-confirmation");
 
 export const importRunSourceKey = (installationId: null | string, slug: string) =>
 	identityTupleKey(installationId, slug);
 
+/** The run's served source name, or a neutral fallback once the source is gone. */
 export const importSourceName = (
+	t: Translate,
 	run: Pick<ImportRunSummary, "source" | "pluginInstallationId">,
-	names: ReadonlyMap<string, string>,
+	names: ReadonlyMap<string, Text>,
 ) =>
 	names.get(importRunSourceKey(run.pluginInstallationId, run.source)) ??
-	humanizeImportSourceSlug(run.source);
+	t(kernelMessage("client.imports.unknown-source"));
 
 const importRunFileNames = (inputSummary: Record<string, unknown>) => {
 	const names = inputSummary["fileNames"];
@@ -202,9 +276,19 @@ const importRunFileNames = (inputSummary: Record<string, unknown>) => {
 		: [];
 };
 
-export const importRunProvenanceLabel = (inputSummary: Record<string, unknown>) => {
+export const importRunProvenanceLabel = (
+	t: Translate,
+	formatters: Formatters,
+	inputSummary: Record<string, unknown>,
+) => {
 	const names = importRunFileNames(inputSummary);
-	return names.length === 0 ? undefined : `From ${names.join(", ")}`;
+	return names.length === 0
+		? undefined
+		: t(
+				kernelMessage("client.imports.provenance", {
+					files: formatters.list({ type: "unit", style: "long" }).format(names),
+				}),
+			);
 };
 
 export const liveImportRun = <Run extends Pick<ImportRunSummary, "status">>(runs: readonly Run[]) =>

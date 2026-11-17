@@ -1,3 +1,6 @@
+import type { IngestionIssue } from "@ryot-app/contract/modules/imports/ingestion";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -10,11 +13,25 @@ import { importIssuesQuery } from "./service";
 
 const initialCursor: string | undefined = undefined;
 
+const ingestionIssueReasonMessage = ({ reason, recordKind: kind }: IngestionIssue) => {
+	if ("message" in reason) {
+		return kernelMessage("client.imports.issues.policy-reason", { kind, reason: reason.message });
+	}
+	return reason.key === null
+		? kernelMessage("client.imports.issues.reason", { kind, code: reason.code })
+		: kernelMessage("client.imports.issues.reason-with-key", {
+				kind,
+				key: reason.key,
+				code: reason.code,
+			});
+};
+
 export function IngestionIssues(props: {
 	readonly runId: string;
 	readonly revision: string;
 	readonly children: ReactNode;
 }) {
+	const t = useT();
 	const query = useRyotInfiniteQuery(
 		importIssuesQuery,
 		{ runId: props.runId },
@@ -42,9 +59,9 @@ export function IngestionIssues(props: {
 	if (query.isError && query.pages.length === 0) {
 		return (
 			<div role="alert" className="text-sm text-danger">
-				Could not load record issues.{" "}
+				{t(kernelMessage("client.imports.issues.load-failed"))}{" "}
 				<Button variant="secondary" onClick={query.refetch}>
-					Try again
+					{t(kernelMessage("common.action.try-again"))}
 				</Button>
 			</div>
 		);
@@ -56,38 +73,49 @@ export function IngestionIssues(props: {
 	return (
 		<>
 			<section className="flex flex-col gap-3">
-				<h2 className="text-base font-semibold text-text">Record issues</h2>
-				<p className="text-xs text-text-muted">
-					Warnings and record errors are separate from a run failure. Expected skips appear in the
-					outcome summary.
-				</p>
+				<h2 className="text-base font-semibold text-text">
+					{t(kernelMessage("client.imports.issues.title"))}
+				</h2>
+				<p className="text-xs text-text-muted">{t(kernelMessage("client.imports.issues.note"))}</p>
 				{query.errorOperation === "refresh" ? (
 					<div role="alert" className="text-sm text-danger">
-						Could not refresh record issues.{" "}
+						{t(kernelMessage("client.imports.issues.refresh-failed"))}{" "}
 						<Button variant="secondary" onClick={query.refetch}>
-							Try again
+							{t(kernelMessage("common.action.try-again"))}
 						</Button>
 					</div>
 				) : null}
 				{issues.map(({ id, data: issue }) => (
 					<div key={id} className="border-b border-border py-3 text-sm text-text-muted">
 						<p className="font-medium text-text">
-							{issue.attribution?.sourceLabel ?? issue.attribution?.recordId ?? "Run issue"} ·{" "}
-							{issue.severity}
+							{t(
+								kernelMessage("client.imports.issues.heading", {
+									severity: issue.severity,
+									subject:
+										issue.attribution?.sourceLabel ??
+										issue.attribution?.recordId ??
+										t(kernelMessage("client.imports.issues.run-issue")),
+								}),
+							)}
 						</p>
-						<p>
-							{issue.recordKind} · {issue.reason.code}
-							{issue.reason.key === null ? "" : ` · ${issue.reason.key}`}
-						</p>
+						<p>{t(ingestionIssueReasonMessage(issue))}</p>
 						{issue.operationId === null ? null : (
-							<p className="text-xs">Operation: {issue.operationId}</p>
+							<p className="text-xs">
+								{t(kernelMessage("client.imports.issues.operation", { id: issue.operationId }))}
+							</p>
 						)}
 						{issue.attribution === null ? null : (
 							<p className="text-xs">
-								Record: {issue.attribution.recordId}
-								{issue.attribution.sourceIdentifier === null
-									? ""
-									: ` · Source: ${issue.attribution.sourceIdentifier}`}
+								{t(
+									issue.attribution.sourceIdentifier === null
+										? kernelMessage("client.imports.issues.record", {
+												id: issue.attribution.recordId,
+											})
+										: kernelMessage("client.imports.issues.record-with-source", {
+												id: issue.attribution.recordId,
+												source: issue.attribution.sourceIdentifier,
+											}),
+								)}
 							</p>
 						)}
 					</div>
@@ -98,7 +126,11 @@ export function IngestionIssues(props: {
 						disabled={query.isFetching}
 						isFetchingNextPage={query.isFetchingNextPage}
 						onClick={appendFailed ? query.retry : query.fetchNextPage}
-						label={appendFailed ? "Try again" : "Show more record issues"}
+						label={t(
+							appendFailed
+								? kernelMessage("common.action.try-again")
+								: kernelMessage("client.imports.issues.show-more"),
+						)}
 					/>
 				) : null}
 			</section>

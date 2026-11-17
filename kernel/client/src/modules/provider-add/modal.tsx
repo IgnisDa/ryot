@@ -4,6 +4,8 @@ import {
 	type EntitySchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { PickEntityOutcome } from "@ryot-app/plugin-client-contract";
 import {
 	renderSchemaAsset,
@@ -31,8 +33,6 @@ import { ProviderAddService } from "#/modules/provider-add/service";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { ClientStorage } from "#/persistence/storage";
 
-export const PROVIDER_ADD_TITLE = "Add from a provider";
-
 type EntityPickerView =
 	{ readonly kind: "browse" } | { readonly name: string; readonly kind: "create" };
 
@@ -51,6 +51,7 @@ type EntityPickerModalProps = {
 };
 
 export function EntityPickerModal(props: EntityPickerModalProps) {
+	const t = useT();
 	const uploadAsset = useSchemaAssetUpload();
 	const ryot = useRyot();
 	const uploadFile = useSchemaFileUpload();
@@ -275,12 +276,18 @@ export function EntityPickerModal(props: EntityPickerModalProps) {
 	return (
 		<Modal
 			onClose={close}
-			closeLabel="Close"
+			closeLabel={t(kernelMessage("common.action.close"))}
 			containerClassName="md:items-center md:justify-center md:p-6"
-			label={
-				props.library === undefined ? `Choose ${definition?.name ?? "an item"}` : PROVIDER_ADD_TITLE
-			}
 			className="flex w-full flex-1 flex-col overflow-hidden bg-bg pt-[env(safe-area-inset-top)] md:max-h-[85%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card md:pt-0"
+			label={
+				props.library === undefined
+					? t(
+							definition === null
+								? kernelMessage("client.provider-add.modal.choose-item")
+								: kernelMessage("client.provider-add.modal.choose", { name: t(definition.name) }),
+						)
+					: t(kernelMessage("client.provider-add.modal.title"))
+			}
 		>
 			{renderContent()}
 		</Modal>

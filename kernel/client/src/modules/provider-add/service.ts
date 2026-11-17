@@ -8,6 +8,7 @@ import type {
 } from "@ryot-app/contract/modules/entity-providers/schemas";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
 	entityPickerEntitiesRecipe,
@@ -25,7 +26,7 @@ import { EntitiesApi, isDeclaredEntitySaveFailure } from "#/api/entities";
 import { EntityProvidersApi } from "#/api/entity-providers";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
-import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
+import { demoProtectionMessage } from "#/modules/demo-protection";
 
 export type ProviderSearchSummary = ProviderSearchResult["items"][number];
 
@@ -50,8 +51,6 @@ export class ProviderAddLoadError extends Schema.TaggedError<
 
 const query = <A, E>(stage: ProviderAddLoadError["stage"], effect: Effect.Effect<A, E>) =>
 	effect.pipe(Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage })));
-
-export const ENTITY_CREATE_REFUSED_MESSAGE = "This item could not be created here.";
 
 export class ProviderAddService extends Context.Service<ProviderAddService>()(
 	"@ryot-app/kernel-client/modules/provider-add/service/ProviderAddService",
@@ -110,13 +109,13 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 						if (isDemoOperationProtectedError(cause)) {
 							return Effect.succeed<EntityEditorSaveOutput>({
 								kind: "invalid",
-								message: DEMO_PROTECTION_MESSAGE,
+								reason: demoProtectionMessage,
 							});
 						}
 						return isDeclaredEntitySaveFailure(cause)
 							? Effect.succeed<EntityEditorSaveOutput>({
 									kind: "invalid",
-									message: ENTITY_CREATE_REFUSED_MESSAGE,
+									reason: kernelMessage("client.provider-add.create.refused"),
 								})
 							: Effect.fail(new ProviderAddLoadError({ cause, stage: "create" }));
 					}),

@@ -1,3 +1,5 @@
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
@@ -23,23 +25,25 @@ type ImportRunViewProps = {
 };
 
 export function ImportRunView(props: ImportRunViewProps) {
+	const t = useT();
+	const formatters = useFormatters();
 	if (props.state.status === "failed") {
 		return (
 			<StatusState
 				detailTone="danger"
-				title="Unable to load this import"
 				className="rounded-xl border border-border bg-surface p-6"
-				detail="This import could not be loaded. Check the server and try again."
+				title={t(kernelMessage("client.imports.run-load-error.title"))}
+				detail={t(kernelMessage("client.imports.run-load-error.detail"))}
 				action={
 					<Button type="button" variant="secondary" onClick={props.onRetry}>
-						Try again
+						{t(kernelMessage("common.action.try-again"))}
 					</Button>
 				}
 			/>
 		);
 	}
 	const run = props.state.run;
-	const provenance = importRunProvenanceLabel(run.inputSummary);
+	const provenance = importRunProvenanceLabel(t, formatters, run.inputSummary);
 	const notice = run.status === "failed" ? importRunFailureNotice(run.failureReason) : undefined;
 	const wasCancelled = run.status === "cancelled";
 	return (
@@ -56,32 +60,38 @@ export function ImportRunView(props: ImportRunViewProps) {
 				<Button
 					type="button"
 					variant="secondary"
-					aria-label="Download issues"
 					onClick={props.onDownloadIssues}
 					disabled={props.isDownloadingIssues}
+					aria-label={t(kernelMessage("client.imports.download-issues"))}
 					className="flex min-h-9 self-start items-center gap-1.5 px-3 py-1.5 text-sm"
 				>
 					<AppIcon size={15} name="download" className="text-text-muted" />
-					{props.isDownloadingIssues ? "Preparing download..." : "Download issues"}
+					{t(
+						props.isDownloadingIssues
+							? kernelMessage("client.imports.preparing-download")
+							: kernelMessage("client.imports.download-issues"),
+					)}
 				</Button>
 				{props.downloadIssuesFailed ? (
 					<p role="alert" className="text-sm text-danger">
-						Could not download these issues. Try again.
+						{t(kernelMessage("client.imports.download-issues-failed"))}
 					</p>
 				) : null}
 			</IngestionIssues>
 			{run.status === "running" || run.status === "pending" || run.status === "cancelling" ? (
 				<p className="text-xs text-text-muted">
-					This keeps running on your server, even if you close Ryot or the server restarts.
+					{t(kernelMessage("client.imports.keeps-running"))}
 				</p>
 			) : null}
 			{wasCancelled ? (
 				<div className="flex gap-3 rounded-xl border border-border bg-surface p-4">
 					<AppIcon size={18} name="circle-x" className="shrink-0 text-text-muted" />
 					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span className="text-sm font-medium text-text">Import cancelled</span>
+						<span className="text-sm font-medium text-text">
+							{t(kernelMessage("client.imports.cancelled.title"))}
+						</span>
 						<span className="text-sm leading-5 text-text-muted">
-							Future work stopped. Items already added remain in your library.
+							{t(kernelMessage("client.imports.cancelled.detail"))}
 						</span>
 					</div>
 				</div>
@@ -90,8 +100,8 @@ export function ImportRunView(props: ImportRunViewProps) {
 				<div className="flex gap-3 rounded-xl border border-border bg-surface p-4">
 					<AppIcon size={18} name="circle-alert" className="shrink-0 text-danger" />
 					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span className="text-sm font-medium text-danger">{notice.label}</span>
-						<span className="text-sm leading-5 text-text-muted">{notice.detail}</span>
+						<span className="text-sm font-medium text-danger">{t(notice.label)}</span>
+						<span className="text-sm leading-5 text-text-muted">{t(notice.detail)}</span>
 					</div>
 				</div>
 			)}

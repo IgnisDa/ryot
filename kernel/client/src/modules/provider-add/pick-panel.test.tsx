@@ -10,24 +10,31 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
+import {
+	testI18nWrapper,
+	testMessage,
+	testMessageCatalog,
+} from "#/modules/i18n/provider.test-support";
 import { EntityPickPanel } from "#/modules/provider-add/pick-panel";
 import type { ProviderSearchSummary } from "#/modules/provider-add/service";
+
+const wrapper = testI18nWrapper([testMessageCatalog("Catalog")]);
 
 const schemaSlug = EntitySchemaSlug.make("target");
 const providerId = SandboxProviderId.make("catalog");
 const provider: ProviderSearchSummary = {
 	providerId,
 	providerSlug: "catalog",
-	providerName: "Catalog",
 	searchOptionsSchema: null,
 	rootEntitySchemaSlug: schemaSlug,
+	providerName: testMessage("Catalog"),
 };
 const emptyPage = { items: [], pageInfo: { limit: 30, hasMore: false, nextCursor: null } };
 
 const searchResponse: SearchProviderEntitiesResponse = {
 	providerId,
-	providerName: "Catalog",
 	rootEntitySchemaSlug: schemaSlug,
+	providerName: testMessage("Catalog"),
 	details: { totalItems: 2, nextPage: null },
 	items: [
 		{ title: "Biceps", externalId: "biceps" },
@@ -53,6 +60,7 @@ const renderPanel = ({
 			loadMaterialized={() => Effect.succeed(new Set<string>())}
 			{...overrides}
 		/>,
+		{ wrapper: wrapper },
 	);
 
 describe("entity pick panel", () => {

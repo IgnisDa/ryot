@@ -3,6 +3,9 @@ import {
 	type DeclarationReference,
 	sameDeclaration,
 } from "@ryot-app/contract/modules/plugins/references";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { type RyotQueryResult, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { evaluateImportSourceReadiness } from "@ryot-app/ryotql-recipes/import-sources";
@@ -34,7 +37,7 @@ export function SelectedImportReadiness(props: SelectedReadinessProps) {
 			scope={source?.pluginScope}
 			readiness={Result.getOrUndefined(evaluation)}
 			evaluationFailed={Result.isFailure(evaluation)}
-			missingLabel="This source is no longer available."
+			missingLabel={kernelMessage("client.imports.source-missing")}
 		>
 			{props.children}
 		</SelectedReadiness>
@@ -55,7 +58,7 @@ export function SelectedIntegrationReadiness(props: SelectedReadinessProps) {
 			scope={provider?.pluginScope}
 			readiness={Result.getOrUndefined(evaluation)}
 			evaluationFailed={Result.isFailure(evaluation)}
-			missingLabel="This service is no longer available."
+			missingLabel={kernelMessage("client.imports.service-missing")}
 		>
 			{props.children}
 		</SelectedReadiness>
@@ -63,28 +66,33 @@ export function SelectedIntegrationReadiness(props: SelectedReadinessProps) {
 }
 
 function SelectedReadiness(props: {
-	readonly missingLabel: string;
+	readonly missingLabel: Message;
 	readonly evaluationFailed: boolean;
 	readonly children: (ready: boolean) => ReactNode;
 	readonly readiness: undefined | IngestionReadiness;
 	readonly scope: null | "user" | "system" | undefined;
 	readonly query: Pick<RyotQueryResult<unknown>, "status" | "refetch" | "isFetching">;
 }) {
+	const t = useT();
 	const { query, readiness } = props;
 	let notice: ReactNode;
 	if (query.status === "error" || props.evaluationFailed) {
 		notice = (
 			<p role="status" className="text-sm text-text-muted">
-				Could not check setup.{" "}
+				{t(kernelMessage("client.imports.setup-check-failed"))}{" "}
 				<Button variant="secondary" onClick={query.refetch}>
-					Try again
+					{t(kernelMessage("common.action.try-again"))}
 				</Button>
 			</p>
 		);
 	} else if (readiness === undefined) {
 		notice = (
 			<p role="status" className="text-sm text-text-muted">
-				{query.status === "success" ? props.missingLabel : "Checking setup..."}
+				{t(
+					query.status === "success"
+						? props.missingLabel
+						: kernelMessage("client.imports.checking-setup"),
+				)}
 			</p>
 		);
 	} else {
@@ -95,7 +103,7 @@ function SelectedReadiness(props: {
 			{notice}
 			{query.status === "error" ? null : (
 				<Button variant="secondary" onClick={query.refetch} disabled={query.isFetching}>
-					Check setup again
+					{t(kernelMessage("client.imports.check-setup-again"))}
 				</Button>
 			)}
 			{props.children(

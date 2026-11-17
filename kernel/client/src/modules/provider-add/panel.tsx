@@ -9,6 +9,9 @@ import type {
 	EntitySchemaSlug,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	paginationItems,
 	type RyotQuery,
@@ -54,7 +57,7 @@ import {
 	buildSearchPayload,
 	type ProviderSearchResultItem,
 } from "#/modules/provider-add/search-controller";
-import { describeSearchFailure, TRANSPORT_FAILURE } from "#/modules/provider-add/search-failure";
+import { describeSearchFailure, transportFailure } from "#/modules/provider-add/search-failure";
 import type { ProviderAddLoadError, ProviderSearchSummary } from "#/modules/provider-add/service";
 import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
@@ -175,10 +178,12 @@ export function PanelFailure(props: {
 	readonly onRetry?: () => void;
 	readonly providerName?: string;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const copy =
 		props.providerName === undefined
-			? TRANSPORT_FAILURE
-			: describeSearchFailure(props.error, props.providerName);
+			? transportFailure(t)
+			: describeSearchFailure(t, formatters, props.error, props.providerName);
 	return (
 		<div className={clsx("flex flex-col items-center justify-center gap-3 px-6", props.className)}>
 			<p className="text-center text-base font-medium text-text">{copy.title}</p>
@@ -186,43 +191,13 @@ export function PanelFailure(props: {
 				{copy.detail}
 			</StatusMessage>
 			{copy.retryable && props.onRetry !== undefined ? (
-				<Button onClick={props.onRetry} aria-label="Try searching again">
-					Try again
+				<Button
+					onClick={props.onRetry}
+					aria-label={t(kernelMessage("client.provider-add.failure.retry-label"))}
+				>
+					{t(kernelMessage("common.action.try-again"))}
 				</Button>
 			) : null}
-		</div>
-	);
-}
-
-export function ProviderChips(props: {
-	readonly providers: readonly ProviderSearchSummary[];
-	readonly selectedProviderId: undefined | SandboxProviderId;
-	readonly onSelect: (provider: ProviderSearchSummary) => void;
-}) {
-	const options = props.providers.map((provider) => ({
-		provider,
-		value: provider.providerId,
-		label: provider.providerName,
-	}));
-
-	return (
-		<div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none]">
-			<RadioGroup
-				options={options}
-				label="Search provider"
-				className="flex w-max gap-1.5"
-				value={props.selectedProviderId}
-				renderOption={(option, selected) => ({
-					className: "shrink-0",
-					content: <Chip checked={selected} label={option.label} className="whitespace-nowrap" />,
-				})}
-				onChange={(value) => {
-					const selected = options.find((option) => option.value === value);
-					if (selected !== undefined) {
-						props.onSelect(selected.provider);
-					}
-				}}
-			/>
 		</div>
 	);
 }
@@ -264,6 +239,40 @@ export function useExternalIdLookup<A>(input: {
 	return loaded?.key === input.key ? loaded.value : undefined;
 }
 
+export function ProviderChips(props: {
+	readonly providers: readonly ProviderSearchSummary[];
+	readonly selectedProviderId: undefined | SandboxProviderId;
+	readonly onSelect: (provider: ProviderSearchSummary) => void;
+}) {
+	const t = useT();
+	const options = props.providers.map((provider) => ({
+		provider,
+		value: provider.providerId,
+		label: t(provider.providerName),
+	}));
+
+	return (
+		<div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none]">
+			<RadioGroup
+				options={options}
+				className="flex w-max gap-1.5"
+				value={props.selectedProviderId}
+				label={t(kernelMessage("client.provider-add.provider-label"))}
+				renderOption={(option, selected) => ({
+					className: "shrink-0",
+					content: <Chip checked={selected} label={option.label} className="whitespace-nowrap" />,
+				})}
+				onChange={(value) => {
+					const selected = options.find((option) => option.value === value);
+					if (selected !== undefined) {
+						props.onSelect(selected.provider);
+					}
+				}}
+			/>
+		</div>
+	);
+}
+
 export function useProviderEntityImports(input: {
 	readonly showImported: boolean;
 	readonly importEntity: ImportProviderEntity;
@@ -303,12 +312,13 @@ export function useProviderEntityImports(input: {
 }
 
 export function PickerSearchBar(props: {
+	readonly label: Text;
 	readonly query: string;
-	readonly label: string;
 	readonly onClose: () => void;
 	readonly onEnter?: () => void;
 	readonly onChange: (query: string) => void;
 }) {
+	const t = useT();
 	const input = useRef<HTMLInputElement>(null);
 	const onEnter = props.onEnter;
 	useFieldEscape(input, { hasValue: props.query !== "", onClear: () => props.onChange("") });
@@ -321,8 +331,8 @@ export function PickerSearchBar(props: {
 					ref={input}
 					type="text"
 					value={props.query}
-					placeholder="Search"
 					aria-label={props.label}
+					placeholder={t(kernelMessage("common.action.search"))}
 					onChange={(event) => props.onChange(event.target.value)}
 					className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
 					onKeyDown={
@@ -338,8 +348,8 @@ export function PickerSearchBar(props: {
 				{props.query === "" ? null : (
 					<button
 						type="button"
-						aria-label="Clear search"
 						onClick={() => props.onChange("")}
+						aria-label={t(kernelMessage("ui.search-field.clear"))}
 						className="flex size-6 shrink-0 items-center justify-center rounded"
 					>
 						<AppIcon name="x" size={15} className="shrink-0 text-text-subtle" />
@@ -351,12 +361,14 @@ export function PickerSearchBar(props: {
 				onClick={props.onClose}
 				className="flex min-h-6 items-center px-1 md:hidden"
 			>
-				<span className="text-sm font-medium text-text-muted">Cancel</span>
+				<span className="text-sm font-medium text-text-muted">
+					{t(kernelMessage("common.action.cancel"))}
+				</span>
 			</button>
 			<button
 				type="button"
-				aria-label="Close"
 				onClick={props.onClose}
+				aria-label={t(kernelMessage("common.action.close"))}
 				className="hidden md:flex md:h-8 md:w-8 md:items-center md:justify-center md:rounded-md"
 			>
 				<AppIcon name="x" size={16} className="text-text-muted" />
@@ -378,6 +390,7 @@ function ProviderSearchSession(props: ProviderSearchSessionProps) {
 }
 
 function ProviderSearchOptions(props: ProviderSearchSessionProps) {
+	const t = useT();
 	const options = useRyotQuery(props.searchOptionsQuery, props.provider.providerId, {
 		refreshOnMutation: false,
 	});
@@ -386,13 +399,21 @@ function ProviderSearchOptions(props: ProviderSearchSessionProps) {
 			<ProviderSearchLayout {...props}>
 				{options.isError && !options.isFetching ? (
 					<div className="grid gap-2 rounded-lg bg-surface-2 p-3">
-						<p className="text-sm text-text-muted">Could not load filters.</p>
-						<Button onClick={options.refetch} aria-label="Retry loading filters">
-							Retry
+						<p className="text-sm text-text-muted">
+							{t(kernelMessage("client.provider-add.filters.load-failed"))}
+						</p>
+						<Button
+							onClick={options.refetch}
+							aria-label={t(kernelMessage("client.provider-add.filters.retry"))}
+						>
+							{t(kernelMessage("common.action.retry"))}
 						</Button>
 					</div>
 				) : (
-					<Spinner label="Loading filters" className="items-center py-2" />
+					<Spinner
+						className="items-center py-2"
+						label={t(kernelMessage("client.provider-add.filters.loading"))}
+					/>
 				)}
 			</ProviderSearchLayout>
 		);
@@ -472,19 +493,24 @@ function ProviderSearchResults(props: {
 	readonly loadEntityLinks: ProviderSearchPanelProps["loadEntityLinks"];
 	readonly onAdd: (externalId: string, entryEventSchemaSlug?: string) => void;
 }) {
+	const t = useT();
 	const renderPaginationAction = () => {
 		if (props.errorOperation !== null) {
-			const message =
+			const message = t(
 				props.errorOperation === "append"
-					? "Could not load more results."
-					: "Could not refresh results.";
+					? kernelMessage("client.provider-add.results.more-failed")
+					: kernelMessage("client.provider-add.results.refresh-failed"),
+			);
 			return (
 				<div className="grid justify-items-center gap-2">
 					<StatusMessage tone="error" className="text-center text-sm">
 						{message}
 					</StatusMessage>
-					<Button onClick={props.onRetry} aria-label="Retry provider search">
-						Try again
+					<Button
+						onClick={props.onRetry}
+						aria-label={t(kernelMessage("client.provider-add.results.retry-label"))}
+					>
+						{t(kernelMessage("common.action.try-again"))}
 					</Button>
 				</div>
 			);
@@ -494,11 +520,11 @@ function ProviderSearchResults(props: {
 		}
 		return (
 			<LoadMoreButton
-				label="Load more results"
 				onClick={props.onLoadMore}
 				disabled={props.isFetching}
-				loadingLabel="Loading more results..."
 				isFetchingNextPage={props.isFetchingNextPage}
+				label={t(kernelMessage("client.provider-add.results.load-more"))}
+				loadingLabel={t(kernelMessage("client.provider-add.results.loading-more"))}
 			/>
 		);
 	};
@@ -506,7 +532,9 @@ function ProviderSearchResults(props: {
 	return (
 		<div className="grid gap-3">
 			{props.items.length === 0 ? (
-				<StatusLine text={`No results for "${props.query}".`} />
+				<StatusLine
+					text={t(kernelMessage("client.provider-add.results.none", { query: props.query }))}
+				/>
 			) : (
 				<ProviderSearchResultList
 					onAdd={props.onAdd}
@@ -520,7 +548,9 @@ function ProviderSearchResults(props: {
 					librarySchemaSlug={props.librarySchemaSlug}
 				/>
 			)}
-			{props.isRefreshing ? <Spinner label="Refreshing results" /> : null}
+			{props.isRefreshing ? (
+				<Spinner label={t(kernelMessage("client.provider-add.refreshing"))} />
+			) : null}
 			{renderPaginationAction()}
 		</div>
 	);
@@ -536,6 +566,7 @@ function ProviderSearchLayout(
 		readonly onQueryChange: (query: string) => void;
 	},
 ) {
+	const t = useT();
 	const timer = useRef<undefined | ReturnType<typeof setTimeout>>(undefined);
 	const submit = useEffectEvent(() => props.onEnter?.());
 	const searchKey =
@@ -564,8 +595,8 @@ function ProviderSearchLayout(
 				<PickerSearchBar
 					query={props.query}
 					onClose={props.onClose}
-					label="Search providers"
 					onChange={props.onQueryChange}
+					label={t(kernelMessage("client.provider-add.search.providers"))}
 					onEnter={() => {
 						if (timer.current !== undefined) {
 							clearTimeout(timer.current);
@@ -576,12 +607,15 @@ function ProviderSearchLayout(
 				/>
 				{Match.value(props.providers).pipe(
 					Match.when({ status: "loading" }, () => (
-						<Spinner label="Loading providers" className="min-h-32 items-center" />
+						<Spinner
+							className="min-h-32 items-center"
+							label={t(kernelMessage("client.provider-add.providers.loading"))}
+						/>
 					)),
 					Match.when({ status: "failed" }, () => <PanelFailure className="min-h-32" />),
 					Match.when({ status: "ready" }, (ready) =>
 						ready.providers.length === 0 ? (
-							<StatusLine text="No providers are configured for this item type." />
+							<StatusLine text={t(kernelMessage("client.provider-add.providers.none"))} />
 						) : (
 							<ProviderChips
 								providers={ready.providers}
@@ -598,10 +632,12 @@ function ProviderSearchLayout(
 			</div>
 			{props.onCreateCustom === undefined ? null : (
 				<div className="flex items-center justify-end gap-3 border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-					<p className="text-sm text-text-muted">Can't find it?</p>
+					<p className="text-sm text-text-muted">
+						{t(kernelMessage("client.provider-add.cant-find"))}
+					</p>
 					<Button variant="secondary" onClick={() => props.onCreateCustom?.(props.query.trim())}>
 						<AppIcon size={15} name="plus" />
-						Create custom
+						{t(kernelMessage("client.provider-add.create-custom"))}
 					</Button>
 				</div>
 			)}
@@ -614,6 +650,8 @@ function ProviderSearchForm(
 		readonly optionsSchema?: undefined | SearchProviderOptionsResponse["schema"];
 	},
 ) {
+	const t = useT();
+	const providerName = t(props.provider.providerName);
 	const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
 	const [submitted, setSubmitted] = useState<ProviderSearchInput>();
 	const optionsSchema = props.optionsSchema ?? undefined;
@@ -680,8 +718,8 @@ function ProviderSearchForm(
 				<EmptyState
 					className="py-16"
 					icon={<AppIcon size={18} name="search" />}
-					title={`Search ${props.provider.providerName}`}
-					description="Start typing above to find something to add."
+					description={t(kernelMessage("client.provider-add.search.hint"))}
+					title={t(kernelMessage("client.provider-add.search.title", { provider: providerName }))}
 				/>
 			);
 		}
@@ -692,11 +730,16 @@ function ProviderSearchForm(
 						className="min-h-32"
 						error={pagination.error}
 						onRetry={pagination.retry}
-						providerName={props.provider.providerName}
+						providerName={providerName}
 					/>
 				);
 			}
-			return <Spinner label="Searching" className="min-h-32 items-center" />;
+			return (
+				<Spinner
+					className="min-h-32 items-center"
+					label={t(kernelMessage("client.provider-add.search.searching"))}
+				/>
+			);
 		}
 		return (
 			<ProviderSearchResults
@@ -735,16 +778,24 @@ function ProviderSearchForm(
 						{optionsSchema === undefined ? null : (
 							<button
 								type="button"
-								aria-label="Advanced options"
 								aria-expanded={advancedOptionsOpen}
+								aria-label={t(kernelMessage("client.provider-add.advanced"))}
 								onClick={() => setAdvancedOptionsOpen((current) => !current)}
 								className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5"
 							>
 								<span className="flex items-center gap-2">
 									<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
-									<span className="text-sm font-medium text-text">Advanced options</span>
+									<span className="text-sm font-medium text-text">
+										{t(kernelMessage("client.provider-add.advanced"))}
+									</span>
 									{activeOptionCount > 0 ? (
-										<span className="text-xs text-text-muted">({activeOptionCount})</span>
+										<span className="text-xs text-text-muted">
+											{t(
+												kernelMessage("client.provider-add.advanced-count", {
+													count: activeOptionCount,
+												}),
+											)}
+										</span>
 									) : null}
 								</span>
 								<AppIcon

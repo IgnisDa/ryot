@@ -1,3 +1,5 @@
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
@@ -11,15 +13,16 @@ import { useReducer, useState } from "react";
 
 import { ImportInputStep } from "#/modules/imports/input-step";
 import { ImportReviewStep } from "#/modules/imports/review-step";
-import type { ImportSourceItem } from "#/modules/imports/service";
-import { createImportRunMutation } from "#/modules/imports/service";
+import { createImportRunMutation, type ImportSourceItem } from "#/modules/imports/service";
 import {
 	importSourceChooseLabel,
 	importSourceEntry,
 	importSourceKey,
 } from "#/modules/imports/source-selection";
 import { type ImportStartFailure, importStartFailure } from "#/modules/imports/start-failure";
+import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
+import { pluginNamesByInstallation } from "#/modules/ui/catalog/selection";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
 import { useLatestDefined } from "#/modules/ui/use-latest-defined";
@@ -34,25 +37,7 @@ import {
 
 import { SelectedImportReadiness } from "./selected-readiness";
 
-export const IMPORT_WIZARD_TITLE = "Start an import";
-
 export type ImportSourcePickerState = CatalogPickerState<ImportSourceItem>;
-
-const stepHeadings = {
-	pick: "Choose a service",
-	review: "Review and start",
-	configure: "Provide the details",
-} as const satisfies WizardStepHeadings;
-
-const pickerCopy = {
-	emptyTitle: "No services yet",
-	searchLabel: "Search services",
-	loadingLabel: "Loading services",
-	errorTitle: "Unable to load services",
-	loadingDetail: "Loading the services you can import from...",
-	emptyDetail: "Once a plugin on this server contributes an importer, it shows up here.",
-	errorDetail: "The list of services could not be loaded. Check the server and try again.",
-};
 
 export function ImportStartWizard(props: {
 	readonly onClose: () => void;
@@ -60,6 +45,23 @@ export function ImportStartWizard(props: {
 	readonly onRetrySources: () => void;
 	readonly sources: ImportSourcePickerState;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
+	const pluginNames = pluginNamesByInstallation(usePluginCatalog().catalog);
+	const stepHeadings = {
+		pick: t(kernelMessage("client.ui.wizard.service.step-pick")),
+		review: t(kernelMessage("client.imports.wizard.step.review")),
+		configure: t(kernelMessage("client.ui.wizard.step.configure")),
+	} as const satisfies WizardStepHeadings;
+	const pickerCopy = {
+		searchLabel: t(kernelMessage("client.ui.wizard.service.search")),
+		loadingLabel: t(kernelMessage("client.ui.wizard.service.loading")),
+		emptyDetail: t(kernelMessage("client.imports.wizard.empty-detail")),
+		emptyTitle: t(kernelMessage("client.ui.wizard.service.empty-title")),
+		errorTitle: t(kernelMessage("client.ui.wizard.service.error-title")),
+		errorDetail: t(kernelMessage("client.ui.wizard.service.error-detail")),
+		loadingDetail: t(kernelMessage("client.imports.wizard.loading-detail")),
+	};
 	const uploadFile = useSchemaFileUpload();
 	const uploadAsset = useSchemaAssetUpload();
 	const startMutation = useRyotMutation(createImportRunMutation);
@@ -90,7 +92,7 @@ export function ImportStartWizard(props: {
 						),
 						Effect.catchCause((cause) =>
 							Effect.sync(() => {
-								const nextFailure = importStartFailure(Cause.squash(cause));
+								const nextFailure = importStartFailure(t, Cause.squash(cause));
 								setFailure(nextFailure);
 								if (nextFailure.step !== undefined) {
 									dispatch({ type: "recover-at", step: nextFailure.step });
@@ -139,9 +141,9 @@ export function ImportStartWizard(props: {
 					copy={pickerCopy}
 					state={props.sources}
 					onChoose={chooseSource}
-					toEntry={importSourceEntry}
 					onRetry={props.onRetrySources}
-					chooseLabel={importSourceChooseLabel}
+					chooseLabel={(entry) => importSourceChooseLabel(t, entry)}
+					toEntry={(item) => importSourceEntry(item, t, formatters, pluginNames)}
 				/>
 			</>
 		)),
@@ -191,8 +193,8 @@ export function ImportStartWizard(props: {
 	return (
 		<WizardShell
 			onClose={props.onClose}
-			title={IMPORT_WIZARD_TITLE}
-			closeLabel="Close the import wizard"
+			title={t(kernelMessage("client.imports.wizard.title"))}
+			closeLabel={t(kernelMessage("client.imports.wizard.close"))}
 			stepLabel={wizardStepLabel(state.step, WIZARD_STEPS, stepHeadings)}
 		>
 			{stepBody}

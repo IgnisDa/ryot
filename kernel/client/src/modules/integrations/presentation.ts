@@ -1,4 +1,8 @@
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 
@@ -31,18 +35,26 @@ export const integrationTitle = (
 };
 
 export const integrationStateLabel = (integration: { readonly isDisabled: boolean }) =>
-	integration.isDisabled ? "Paused" : "Active";
+	kernelMessage("client.integrations.state", {
+		state: integration.isDisabled ? "paused" : "active",
+	});
 
 export const integrationSyncLabel = (
+	formatters: Formatters,
+	t: (message: Message) => Text,
 	integration: { readonly lastFinishedAt: null | string },
 	nowMs: number,
 ) =>
 	integration.lastFinishedAt === null
-		? "Never synced"
-		: `Synced ${formatRelativeTime(integration.lastFinishedAt, nowMs)}`;
+		? kernelMessage("client.integrations.sync.never")
+		: kernelMessage("client.integrations.sync.synced", {
+				when: formatRelativeTime(formatters, t, integration.lastFinishedAt, nowMs),
+			});
 
 export const integrationDeleteConfirmation = (
 	integration: IntegrationIdentity,
 	names: IntegrationProviderNames,
 ) =>
-	`${integrationTitle(integration, names)} will stop syncing and its settings will be removed. Anything it already brought into your library stays.`;
+	kernelMessage("client.integrations.delete-detail", {
+		title: integrationTitle(integration, names),
+	});

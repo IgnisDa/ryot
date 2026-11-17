@@ -3,43 +3,44 @@ import {
 	type IntegrationRequestFailureReason,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
-import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Match } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { WizardStep } from "#/modules/ui/wizard/wizard-state";
 
 export type IntegrationSaveFailure = {
-	readonly detail: string;
+	readonly detail: Message;
 	readonly step: undefined | WizardStep;
 };
 
 const fallback = {
 	step: undefined,
-	detail: "This integration could not be saved. Try again.",
+	detail: kernelMessage("client.integrations.save.failed"),
 } as const;
 
 const presentReason = (reason: IntegrationRequestFailureReason): IntegrationSaveFailure =>
 	Match.value(reason).pipe(
 		Match.when({ code: "invalid-provider-settings" }, () => ({
 			step: "configure" as const,
-			detail: "Some of these details could not be used. Check them and try again.",
+			detail: kernelMessage("client.ui.wizard.invalid-input"),
 		})),
 		Match.when({ code: "asset-forbidden" }, () => ({
 			step: "configure" as const,
-			detail: "A file in these details is not available to you. Upload it again.",
+			detail: kernelMessage("client.integrations.save.asset-forbidden"),
 		})),
 		Match.when({ code: "invalid-progress-range" }, () => ({
 			step: "configure" as const,
-			detail: "The lowest progress must not be higher than the highest progress.",
+			detail: kernelMessage("client.integrations.save.progress-range"),
 		})),
 		Match.when({ code: "progress-out-of-range" }, () => ({
 			step: "configure" as const,
-			detail: "Progress values must be between 0 and 100.",
+			detail: kernelMessage("client.integrations.save.progress-bounds"),
 		})),
 		Match.when({ code: "provider-not-found" }, () => ({
 			step: "pick" as const,
-			detail: "This service is no longer available on your server. Choose another one.",
+			detail: kernelMessage("client.ui.wizard.service.removed"),
 		})),
 		Match.when({ code: "integration-not-found" }, () => fallback),
 		Match.when({ code: "integration-webhook-not-found" }, () => fallback),
@@ -51,10 +52,7 @@ const presentReason = (reason: IntegrationRequestFailureReason): IntegrationSave
 export const integrationSaveFailure = (error: unknown): IntegrationSaveFailure => {
 	const cause = error instanceof AuthenticatedApiError ? error.cause : error;
 	if (cause instanceof EntitlementRequired) {
-		return {
-			step: "pick",
-			detail: entitlementRequiredMessage(cause.reason.entitlement, "This integration"),
-		};
+		return { step: "pick", detail: kernelMessage("client.integrations.pro-required") };
 	}
 	return cause instanceof IntegrationRequestError ? presentReason(cause.reason) : fallback;
 };

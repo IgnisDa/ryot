@@ -1,4 +1,6 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import { Link } from "@tanstack/react-router";
@@ -18,6 +20,7 @@ export function ProviderSearchResultRow(props: {
 	readonly entryEventLabel?: string | undefined;
 	readonly onAdd: (withEntryEvent: boolean) => void;
 }) {
+	const t = useT();
 	const display = describeProviderSearchResultItem(props.item);
 	const [withEntryEvent, setWithEntryEvent] = useState(false);
 	const add = (next: boolean) => {
@@ -44,7 +47,7 @@ export function ProviderSearchResultRow(props: {
 					<p className="truncate text-xs text-text-muted">{display.metaText}</p>
 				)}
 				{props.entry.status === "failed" ? (
-					<p className="text-xs text-text-muted">{props.entry.message}</p>
+					<p className="text-xs text-text-muted">{t(props.entry.message)}</p>
 				) : null}
 			</div>
 			<ResultAction
@@ -60,15 +63,18 @@ export function ProviderSearchResultRow(props: {
 }
 
 function InLibraryLink(props: { readonly title: string; readonly entityId: EntityId }) {
+	const t = useT();
 	return (
 		<Link
 			to="/e/$entityId"
-			aria-label={`Open ${props.title}`}
 			params={{ entityId: props.entityId }}
 			className="flex items-center gap-1.5"
+			aria-label={t(kernelMessage("client.provider-add.row.open", { title: props.title }))}
 		>
 			<AppIcon size={14} name="check" className="text-text-muted" />
-			<span className="text-xs text-text-muted">Added</span>
+			<span className="text-xs text-text-muted">
+				{t(kernelMessage("client.provider-add.row.added"))}
+			</span>
 		</Link>
 	);
 }
@@ -81,6 +87,7 @@ function ResultAction(props: {
 	readonly linkedEntityId: EntityId | undefined;
 	readonly onAdd: (withEntryEvent: boolean) => void;
 }) {
+	const t = useT();
 	if (props.linkedEntityId !== undefined) {
 		return <InLibraryLink title={props.title} entityId={props.linkedEntityId} />;
 	}
@@ -89,8 +96,13 @@ function ResultAction(props: {
 		return (
 			<span
 				role="status"
-				aria-label={`${importing ? "Adding" : "Queued"} ${props.title}`}
 				className="inline-flex h-7 shrink-0 items-center gap-1.5 px-1 text-xs whitespace-nowrap text-text-muted"
+				aria-label={t(
+					kernelMessage("client.provider-add.row.progress-label", {
+						title: props.title,
+						state: importing ? "importing" : "queued",
+					}),
+				)}
 			>
 				{importing ? (
 					<span
@@ -100,7 +112,11 @@ function ResultAction(props: {
 				) : (
 					<AppIcon size={14} name="clock" />
 				)}
-				{importing ? "Adding…" : "Queued"}
+				{t(
+					importing
+						? kernelMessage("client.provider-add.row.adding")
+						: kernelMessage("client.provider-add.row.queued"),
+				)}
 			</span>
 		);
 	}
@@ -111,11 +127,11 @@ function ResultAction(props: {
 		Match.when({ status: "failed" }, () => (
 			<button
 				type="button"
-				aria-label={`Retry adding ${props.title}`}
 				onClick={() => props.onAdd(props.withEntryEvent)}
 				className="flex h-7 shrink-0 items-center px-1 text-xs font-medium text-accent-text"
+				aria-label={t(kernelMessage("client.provider-add.row.retry-label", { title: props.title }))}
 			>
-				Retry
+				{t(kernelMessage("common.action.retry"))}
 			</button>
 		)),
 		Match.when({ status: "idle" }, () => (
@@ -124,20 +140,27 @@ function ResultAction(props: {
 					<button
 						type="button"
 						onClick={() => props.onAdd(true)}
-						aria-label={`${props.entryEventLabel}: ${props.title}`}
 						className="flex h-7 shrink-0 items-center px-2 text-xs font-medium whitespace-nowrap text-text-muted"
+						aria-label={t(
+							kernelMessage("client.provider-add.row.event-label", {
+								title: props.title,
+								action: props.entryEventLabel,
+							}),
+						)}
 					>
 						{props.entryEventLabel}
 					</button>
 				)}
 				<button
 					type="button"
-					aria-label={`Add ${props.title}`}
 					onClick={() => props.onAdd(false)}
+					aria-label={t(kernelMessage("client.provider-add.row.add-label", { title: props.title }))}
 					className="flex h-7 shrink-0 items-center gap-1 rounded-pill bg-accent-soft px-2.5 md:rounded-md md:border md:border-border-strong md:bg-transparent md:px-3"
 				>
 					<AppIcon size={13} name="plus" className="text-accent-text md:hidden" />
-					<span className="text-xs font-medium text-accent-text md:text-text">Add</span>
+					<span className="text-xs font-medium text-accent-text md:text-text">
+						{t(kernelMessage("common.action.add"))}
+					</span>
 				</button>
 			</div>
 		)),

@@ -2,13 +2,14 @@ import { describe, expect, it } from "bun:test";
 
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 
+import { testMessage } from "#/modules/i18n/provider.test-support";
 import { selectPreferredProvider } from "#/modules/provider-add/preferred-provider";
 import type { ProviderSearchSummary } from "#/modules/provider-add/service";
 
 const provider = (id: string): ProviderSearchSummary => ({
 	providerSlug: id,
-	providerName: "Provider",
 	searchOptionsSchema: null,
+	providerName: testMessage("Provider"),
 	providerId: SandboxProviderId.make(id),
 	rootEntitySchemaSlug: EntitySchemaSlug.make("item"),
 });

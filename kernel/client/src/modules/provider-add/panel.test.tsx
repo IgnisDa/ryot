@@ -16,9 +16,16 @@ import axe from "axe-core";
 import { Effect } from "effect";
 import { type ComponentProps, useState } from "react";
 
+import {
+	testI18nWrapper,
+	testMessage,
+	testMessageCatalog,
+} from "#/modules/i18n/provider.test-support";
 import type { ProviderEntityImportEntry } from "#/modules/provider-add/import-controller";
 import { ProviderSearchPanel, SEARCH_DEBOUNCE_MS } from "#/modules/provider-add/panel";
 import { ProviderAddLoadError, type ProviderSearchSummary } from "#/modules/provider-add/service";
+
+const wrapper = testI18nWrapper([testMessageCatalog("Provider 1", "Provider 2")]);
 
 const unitSlug = EntitySchemaSlug.make("unit");
 
@@ -26,7 +33,7 @@ const provider = (index: number): ProviderSearchSummary => ({
 	searchOptionsSchema: null,
 	rootEntitySchemaSlug: unitSlug,
 	providerSlug: `provider-${index}`,
-	providerName: `Provider ${index}`,
+	providerName: testMessage(`Provider ${index}`),
 	providerId: SandboxProviderId.make(`provider-${index}`),
 });
 
@@ -90,6 +97,7 @@ const renderPanel = (
 		<RyotProvider runtime={clock.runtime}>
 			<Panel />
 		</RyotProvider>,
+		{ wrapper: wrapper },
 	);
 };
 

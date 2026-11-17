@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { fireEvent, render, screen } from "@testing-library/react";
 
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import { ProviderSearchResultRow } from "#/modules/provider-add/result-row";
 
 const item = { externalId: "fixture", title: "Fixture item" };
@@ -19,6 +21,7 @@ describe("provider search result row", () => {
 				entry={{ status: "idle" }}
 				linkedEntityId={undefined}
 			/>,
+			{ wrapper: testI18nWrapper() },
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "Add Fixture item" }));
@@ -74,6 +77,7 @@ describe("provider search result row", () => {
 				linkedEntityId={undefined}
 				entry={{ status: "importing" }}
 			/>,
+			{ wrapper: testI18nWrapper() },
 		);
 
 		view.rerender(
@@ -81,11 +85,13 @@ describe("provider search result row", () => {
 				item={item}
 				onAdd={onAdd}
 				linkedEntityId={undefined}
-				entry={{ status: "failed", message: "Could not add this item." }}
+				entry={{ status: "failed", message: kernelMessage("client.provider-add.import.failed") }}
 			/>,
 		);
 		expect(screen.queryByRole("status")).toBeNull();
-		expect(screen.getByText("Could not add this item.")).toBeTruthy();
+		expect(
+			screen.getByText("The provider could not import this item. Try again later."),
+		).toBeTruthy();
 		expect(view.container.firstElementChild?.getAttribute("aria-busy")).toBeNull();
 
 		fireEvent.click(screen.getByRole("button", { name: "Retry adding Fixture item" }));
@@ -105,6 +111,7 @@ describe("provider search result row", () => {
 				linkedEntityId={undefined}
 				entryEventLabel="Add to backlog"
 			/>,
+			{ wrapper: testI18nWrapper() },
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "Add to backlog: Fixture item" }));
@@ -118,7 +125,7 @@ describe("provider search result row", () => {
 				onAdd={onAdd}
 				linkedEntityId={undefined}
 				entryEventLabel="Add to backlog"
-				entry={{ status: "failed", message: "Could not add this item." }}
+				entry={{ status: "failed", message: kernelMessage("client.provider-add.import.failed") }}
 			/>,
 		);
 		fireEvent.click(screen.getByRole("button", { name: "Retry adding Fixture item" }));

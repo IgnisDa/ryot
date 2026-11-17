@@ -1,4 +1,9 @@
 import { ProviderEntityBadRequest } from "@ryot-app/contract/modules/entity-providers/schemas";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Schema } from "effect";
 
 import { ProviderAddLoadError } from "#/modules/provider-add/service";
@@ -11,35 +16,49 @@ type SearchFailureCopy = {
 
 const isSearchRefusal = Schema.is(ProviderEntityBadRequest);
 
-export const TRANSPORT_FAILURE = {
+export const transportFailure = (t: (message: Message) => Text): SearchFailureCopy => ({
 	retryable: true,
-	title: "Unable to reach the server",
-	detail: "The server could not be reached. Check your connection and try again.",
-} as const satisfies SearchFailureCopy;
+	title: t(kernelMessage("client.provider-add.failure.transport-title")),
+	detail: t(kernelMessage("client.provider-add.failure.transport-detail")),
+});
 
-export const describeSearchFailure = (error: unknown, providerName: string): SearchFailureCopy => {
+export const describeSearchFailure = (
+	t: (message: Message) => Text,
+	formatters: Formatters,
+	error: unknown,
+	providerName: string,
+): SearchFailureCopy => {
 	if (
 		!(error instanceof ProviderAddLoadError) ||
 		error.stage !== "search" ||
 		!isSearchRefusal(error.cause) ||
 		error.cause.reason.code !== "search-failed"
 	) {
-		return TRANSPORT_FAILURE;
+		return transportFailure(t);
 	}
 	const { cause } = error.cause.reason;
 	if (cause.code === "missing-config") {
 		return {
 			retryable: false,
-			title: `${providerName} isn't configured on this server`,
-			detail:
+			title: t(
+				kernelMessage("client.provider-add.failure.not-configured", { provider: providerName }),
+			),
+			detail: t(
 				cause.configNames.length === 0
-					? "A required setting is missing from this plugin's configuration."
-					: `A server administrator needs to add ${cause.configNames.join(", ")} to this plugin's configuration.`,
+					? kernelMessage("client.provider-add.failure.missing-setting")
+					: kernelMessage("client.provider-add.failure.admin-add", {
+							names: formatters
+								.list()
+								.format(cause.configNames.map((name) => formatDisplayText(t, name))),
+						}),
+			),
 		};
 	}
 	return {
 		retryable: true,
-		title: `${providerName} couldn't complete the search`,
-		detail: "The provider returned an error. Try again later.",
+		detail: t(kernelMessage("client.provider-add.failure.provider-error")),
+		title: t(
+			kernelMessage("client.provider-add.failure.search-failed", { provider: providerName }),
+		),
 	};
 };

@@ -5,6 +5,7 @@ import type {
 	OAuthConnectionStatus,
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -216,7 +217,7 @@ describe("OAuth connect on the web", () => {
 
 				expect(yield* service.connect(harness.input)).toEqual({
 					kind: "failed",
-					message: "Allow pop-ups to connect",
+					message: kernelMessage("client.integrations.oauth.popup-blocked"),
 				});
 				expect(harness.creates).toEqual([]);
 			}),
@@ -232,7 +233,7 @@ describe("OAuth connect on the web", () => {
 
 				expect(yield* service.connect(harness.input)).toEqual({
 					kind: "failed",
-					message: "Couldn't connect. Try again.",
+					message: kernelMessage("ui.oauth-field.connect-failed"),
 				});
 				expect(harness.popups.at(0)?.location.href).toBe("about:blank");
 				expect(harness.popups.at(0)?.closed).toBe(true);
@@ -276,9 +277,9 @@ describe("OAuth connect on the web", () => {
 	);
 
 	it.effect.each([
-		["failed", "The account wasn't connected. Try again."],
-		["expired", "The connection request expired. Try again."],
-		["not-found", "This connection is no longer available. Try again."],
+		["failed", kernelMessage("client.integrations.oauth.not-authorized")],
+		["expired", kernelMessage("client.integrations.oauth.expired")],
+		["not-found", kernelMessage("client.integrations.oauth.missing")],
 	] as const)(
 		"ends a %s connection as failed and closes the popup",
 		([status, message]) =>
@@ -372,7 +373,7 @@ describe("OAuth connect on the web", () => {
 
 				expect(yield* Fiber.join(fiber)).toEqual({
 					kind: "failed",
-					message: "The connection request expired. Try again.",
+					message: kernelMessage("client.integrations.oauth.expired"),
 				});
 				expect(harness.popups.at(0)?.closed).toBe(true);
 			}),
@@ -438,7 +439,7 @@ describe("OAuth connect in the native app", () => {
 
 				expect(yield* Fiber.join(fiber)).toEqual({
 					kind: "failed",
-					message: "The account wasn't connected. Try again.",
+					message: kernelMessage("client.integrations.oauth.not-authorized"),
 				});
 				expect(harness.completes).toEqual([]);
 				expect(harness.isClaimed()).toBe(false);

@@ -1,54 +1,71 @@
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
-import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 
 import { ingestionReadinessRequirement } from "#/modules/imports/readiness-presentation";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { type CatalogEntry, pluginCatalogGroup } from "#/modules/ui/catalog/selection";
 
-const lotLabels = { push: "Push", sink: "Webhook", yank: "Scheduled" } as const satisfies Record<
-	IntegrationLot,
-	string
->;
-
 export const integrationProviderItemKey = (provider: Pick<IntegrationProviderItem, "reference">) =>
 	definitionKey("integration-provider", provider.reference.owner, provider.reference.slug);
 
-export const integrationLotLabel = (lot: IntegrationLot) => lotLabels[lot];
+export const integrationLotLabel = (lot: IntegrationLot) =>
+	kernelMessage("client.integrations.lot.label", { lot });
 
-export const integrationLotDetail = (lot: IntegrationLot) => {
-	if (lot === "sink") {
-		return "This service posts to a webhook URL that Ryot gives you once the integration exists.";
-	}
-	return lot === "yank"
-		? "Ryot checks this service on a schedule and brings across what it finds."
-		: "Ryot pushes changes out to this service as your library changes.";
-};
+export const integrationLotDetail = (lot: IntegrationLot) =>
+	kernelMessage("client.integrations.lot.detail", { lot });
 
-const integrationProviderRequirement = (provider: IntegrationProviderItem) => {
+const integrationProviderRequirement = (
+	provider: IntegrationProviderItem,
+	t: (message: Message) => Text,
+) => {
 	if (!provider.isCreatable) {
-		return provider.entitlement === null
-			? "This service is unavailable in this plugin installation."
-			: entitlementRequiredMessage(provider.entitlement, "This integration");
+		return t(
+			provider.entitlement === null
+				? kernelMessage("client.ui.wizard.service.installation-unavailable")
+				: kernelMessage("client.integrations.pro-required"),
+		);
 	}
-	return ingestionReadinessRequirement(provider.readiness, provider.pluginScope);
+	return ingestionReadinessRequirement(t, provider.readiness, provider.pluginScope);
 };
 
-export const integrationProviderEntry = (provider: IntegrationProviderItem): CatalogEntry => ({
-	name: provider.name,
-	description: provider.description,
-	group: pluginCatalogGroup(provider),
-	badge: integrationLotLabel(provider.lot),
+export const integrationProviderEntry = (
+	provider: IntegrationProviderItem,
+	t: (message: Message) => Text,
+	pluginNames: ReadonlyMap<string, Message>,
+): CatalogEntry => ({
+	name: t(provider.name),
+	description: t(provider.description),
 	key: integrationProviderItemKey(provider),
-	requirement: integrationProviderRequirement(provider),
+	badge: t(integrationLotLabel(provider.lot)),
+	requirement: integrationProviderRequirement(provider, t),
 	isAvailable: provider.isCreatable && provider.readiness.ready,
+	group: pluginCatalogGroup(
+		{
+			...provider,
+			pluginName:
+				provider.installationId === null ? undefined : pluginNames.get(provider.installationId),
+		},
+		t,
+	),
 });
 
-export const integrationProviderChooseLabel = (entry: CatalogEntry) =>
-	entry.isAvailable ? `Connect ${entry.name}` : `${entry.name} is unavailable`;
+export const integrationProviderChooseLabel = (
+	t: (message: Message) => Text,
+	entry: CatalogEntry,
+) =>
+	t(
+		entry.isAvailable
+			? kernelMessage("client.integrations.choose.available", { name: entry.name })
+			: kernelMessage("client.ui.wizard.unavailable", { name: entry.name }),
+	);
 
-export const integrationProviderNames = (providers: readonly IntegrationProviderItem[]) =>
-	new Map(providers.map((provider) => [integrationProviderItemKey(provider), provider.name]));
+export const integrationProviderNames = (
+	providers: readonly IntegrationProviderItem[],
+	t: (message: Message) => Text,
+) => new Map(providers.map((provider) => [integrationProviderItemKey(provider), t(provider.name)]));
 
 export const findOwnedIntegrationProvider = (
 	providers: readonly IntegrationProviderItem[],

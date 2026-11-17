@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
 import { Button, FieldMessage, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
@@ -31,7 +34,9 @@ import {
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { createIntegrationMutation } from "#/modules/integrations/service";
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
+import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
+import { pluginNamesByInstallation } from "#/modules/ui/catalog/selection";
 import { schemaReviewRows } from "#/modules/ui/review-rows";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
@@ -45,25 +50,7 @@ import {
 	wizardStepLabel,
 } from "#/modules/ui/wizard/wizard-state";
 
-export const INTEGRATION_WIZARD_TITLE = "Connect a service";
-
 export type IntegrationProviderPickerState = CatalogPickerState<IntegrationProviderItem>;
-
-const stepHeadings = {
-	pick: "Choose a service",
-	review: "Review and connect",
-	configure: "Provide the details",
-} as const satisfies WizardStepHeadings;
-
-const pickerCopy = {
-	emptyTitle: "No services yet",
-	searchLabel: "Search services",
-	loadingLabel: "Loading services",
-	errorTitle: "Unable to load services",
-	loadingDetail: "Loading the services you can connect...",
-	errorDetail: "The list of services could not be loaded. Check the server and try again.",
-	emptyDetail: "Once a plugin on this server contributes an integration, it shows up here.",
-};
 
 type CreateWizardProps = {
 	readonly onClose: () => void;
@@ -73,6 +60,22 @@ type CreateWizardProps = {
 };
 
 export function IntegrationCreateWizard(props: CreateWizardProps) {
+	const t = useT();
+	const pluginNames = pluginNamesByInstallation(usePluginCatalog().catalog);
+	const stepHeadings = {
+		pick: t(kernelMessage("client.ui.wizard.service.step-pick")),
+		configure: t(kernelMessage("client.ui.wizard.step.configure")),
+		review: t(kernelMessage("client.integrations.wizard.step.review")),
+	} as const satisfies WizardStepHeadings;
+	const pickerCopy = {
+		searchLabel: t(kernelMessage("client.ui.wizard.service.search")),
+		loadingLabel: t(kernelMessage("client.ui.wizard.service.loading")),
+		emptyTitle: t(kernelMessage("client.ui.wizard.service.empty-title")),
+		errorTitle: t(kernelMessage("client.ui.wizard.service.error-title")),
+		errorDetail: t(kernelMessage("client.ui.wizard.service.error-detail")),
+		emptyDetail: t(kernelMessage("client.integrations.wizard.empty-detail")),
+		loadingDetail: t(kernelMessage("client.integrations.wizard.loading-detail")),
+	};
 	const uploadFile = useSchemaFileUpload();
 	const uploadAsset = useSchemaAssetUpload();
 	const create = useRyotMutation(createIntegrationMutation);
@@ -144,7 +147,7 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 			<>
 				{providerFailure === undefined ? null : (
 					<StatusMessage tone="error" className="text-sm">
-						{providerFailure}
+						{t(providerFailure)}
 					</StatusMessage>
 				)}
 				<CatalogPicker
@@ -152,8 +155,8 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 					state={props.providers}
 					onChoose={chooseProvider}
 					onRetry={props.onRetryProviders}
-					toEntry={integrationProviderEntry}
-					chooseLabel={integrationProviderChooseLabel}
+					chooseLabel={(entry) => integrationProviderChooseLabel(t, entry)}
+					toEntry={(item) => integrationProviderEntry(item, t, pluginNames)}
 				/>
 			</>
 		)),
@@ -192,8 +195,8 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	return (
 		<WizardShell
 			onClose={props.onClose}
-			title={INTEGRATION_WIZARD_TITLE}
-			closeLabel="Close the integration wizard"
+			title={t(kernelMessage("client.integrations.wizard.title"))}
+			closeLabel={t(kernelMessage("client.integrations.wizard.close"))}
 			stepLabel={wizardStepLabel(state.step, WIZARD_STEPS, stepHeadings)}
 		>
 			{stepBody}
@@ -207,15 +210,16 @@ function SettingsStep(props: {
 	readonly onContinue: () => void;
 	readonly uploadFile: SchemaFileUpload;
 	readonly uploadAsset: SchemaAssetUpload;
-	readonly failureDetail: string | undefined;
 	readonly provider: IntegrationProviderItem;
+	readonly failureDetail: Message | undefined;
 }) {
+	const t = useT();
 	const oauth = useOAuthConnect({ integrationProvider: props.provider.reference });
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex flex-col gap-1">
-				<h3 className="font-display text-lg font-semibold text-text">{props.provider.name}</h3>
-				<p className="text-sm leading-6 text-text-muted">{props.provider.description}</p>
+				<h3 className="font-display text-lg font-semibold text-text">{t(props.provider.name)}</h3>
+				<p className="text-sm leading-6 text-text-muted">{t(props.provider.description)}</p>
 			</div>
 			<IntegrationSettingsForm
 				mode="create"
@@ -237,14 +241,14 @@ function SettingsStep(props: {
 				)}
 			</props.form.Subscribe>
 			{props.failureDetail === undefined ? null : (
-				<FieldMessage>{props.failureDetail}</FieldMessage>
+				<FieldMessage>{t(props.failureDetail)}</FieldMessage>
 			)}
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
 				<Button type="button" variant="primary" className="sm:px-6" onClick={props.onContinue}>
-					Continue
+					{t(kernelMessage("common.action.continue"))}
 				</Button>
 				<Button type="button" variant="secondary" className="sm:px-6" onClick={props.onBack}>
-					Back
+					{t(kernelMessage("common.action.back"))}
 				</Button>
 			</div>
 		</div>
@@ -256,26 +260,30 @@ function ReviewStep(props: {
 	readonly onBack: () => void;
 	readonly onConnect: () => void;
 	readonly values: SchemaFormValues;
-	readonly failureDetail: string | undefined;
 	readonly provider: IntegrationProviderItem;
+	readonly failureDetail: Message | undefined;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const rows = [
-		...schemaReviewRows(props.provider.settingsSchema, props.values),
-		...schemaReviewRows(props.provider.commonSchema, props.values),
+		...schemaReviewRows(formatters, t, props.provider.settingsSchema, props.values),
+		...schemaReviewRows(formatters, t, props.provider.commonSchema, props.values),
 	];
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
 				<div className="flex items-center justify-between gap-3">
 					<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
-						{props.provider.name}
+						{t(props.provider.name)}
 					</span>
 					<span className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-medium text-text-muted">
-						{integrationLotLabel(props.provider.lot)}
+						{t(integrationLotLabel(props.provider.lot))}
 					</span>
 				</div>
 				{rows.length === 0 ? (
-					<p className="text-sm text-text-muted">This service needs nothing else from you.</p>
+					<p className="text-sm text-text-muted">
+						{t(kernelMessage("client.ui.wizard.service.nothing-needed"))}
+					</p>
 				) : (
 					<div className="flex flex-col gap-2">
 						{rows.map((row) => (
@@ -291,10 +299,10 @@ function ReviewStep(props: {
 				)}
 			</div>
 			<p className="text-sm leading-6 text-text-muted">
-				{integrationLotDetail(props.provider.lot)}
+				{t(integrationLotDetail(props.provider.lot))}
 			</p>
 			{props.failureDetail === undefined ? null : (
-				<FieldMessage>{props.failureDetail}</FieldMessage>
+				<FieldMessage>{t(props.failureDetail)}</FieldMessage>
 			)}
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
 				<SelectedIntegrationReadiness
@@ -309,7 +317,11 @@ function ReviewStep(props: {
 							onClick={props.onConnect}
 							disabled={props.pending || !ready}
 						>
-							{props.pending ? "Connecting..." : "Connect"}
+							{t(
+								props.pending
+									? kernelMessage("client.integrations.wizard.connecting")
+									: kernelMessage("client.integrations.wizard.connect"),
+							)}
 						</Button>
 					)}
 				</SelectedIntegrationReadiness>
@@ -320,7 +332,7 @@ function ReviewStep(props: {
 					onClick={props.onBack}
 					disabled={props.pending}
 				>
-					Back
+					{t(kernelMessage("common.action.back"))}
 				</Button>
 			</div>
 		</div>

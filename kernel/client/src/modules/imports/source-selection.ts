@@ -1,6 +1,10 @@
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { getOrderedAppSchemaFieldEntries } from "@ryot-app/contract/schema/property-schema";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 
 import type { ImportSourceItem } from "#/modules/imports/service";
 import { type CatalogEntry, pluginCatalogGroup } from "#/modules/ui/catalog/selection";
@@ -13,8 +17,6 @@ export type ImportWizardSource = Pick<
 	"slug" | "name" | "reference" | "exportHelp" | "description" | "inputSchema"
 >;
 
-const SERVER_INPUT_SHAPE = "Server";
-
 const uploadFieldExtensions = (schema: AppSchema) =>
 	getOrderedAppSchemaFieldEntries(schema.fields).flatMap(([, property]) =>
 		property.type === "string" && property.format?.kind === "upload"
@@ -22,40 +24,76 @@ const uploadFieldExtensions = (schema: AppSchema) =>
 			: [],
 	);
 
-const fileShapeLabel = (extensions: readonly string[]) => {
+const fileShapeLabel = (
+	t: (message: Message) => Text,
+	formatters: Formatters,
+	extensions: readonly string[],
+) => {
 	const labels = extensions.map((extension) => extension.toUpperCase());
-	const last = labels.at(-1);
-	if (last === undefined) {
-		return "File";
+	if (labels.length === 0) {
+		return t(kernelMessage("client.imports.shape.file"));
 	}
-	return labels.length < 2 ? `${last} file` : `${labels.slice(0, -1).join(", ")} or ${last} file`;
+	return t(
+		kernelMessage("client.imports.shape.file-of-type", {
+			types: formatters.list({ type: "disjunction" }).format(labels),
+		}),
+	);
 };
 
-export const importSourceInputShape = (schema: AppSchema) => {
+export const importSourceInputShape = (
+	t: (message: Message) => Text,
+	formatters: Formatters,
+	schema: AppSchema,
+) => {
 	const uploads = uploadFieldExtensions(schema);
 	const single = uploads.at(0);
 	if (single === undefined) {
-		return SERVER_INPUT_SHAPE;
+		return t(kernelMessage("client.imports.shape.server"));
 	}
-	return uploads.length === 1 ? fileShapeLabel(single) : `${uploads.length} files`;
+	return uploads.length === 1
+		? fileShapeLabel(t, formatters, single)
+		: t(kernelMessage("client.imports.shape.files", { count: uploads.length }));
 };
 
-export const importSourceEntry = (source: ImportSourceItem): CatalogEntry => ({
-	name: source.name,
+export const importSourceEntry = (
+	source: ImportSourceItem,
+	t: (message: Message) => Text,
+	formatters: Formatters,
+	pluginNames: ReadonlyMap<string, Message>,
+): CatalogEntry => ({
+	name: t(source.name),
 	key: importSourceKey(source),
-	description: source.description,
-	group: pluginCatalogGroup(source),
+	description: t(source.description),
 	isAvailable: source.readiness.ready,
-	badge: importSourceInputShape(source.inputSchema),
-	requirement: ingestionReadinessRequirement(source.readiness, source.pluginScope),
+	badge: importSourceInputShape(t, formatters, source.inputSchema),
+	requirement: ingestionReadinessRequirement(t, source.readiness, source.pluginScope),
+	group: pluginCatalogGroup(
+		{
+			...source,
+			pluginName:
+				source.installationId === null ? undefined : pluginNames.get(source.installationId),
+		},
+		t,
+	),
 });
 
-export const importSourceChooseLabel = (entry: CatalogEntry) =>
-	entry.isAvailable ? `Import from ${entry.name}` : `${entry.name} is unavailable`;
+export const importSourceChooseLabel = (t: (message: Message) => Text, entry: CatalogEntry) =>
+	t(
+		kernelMessage(
+			entry.isAvailable ? "client.imports.choose-source" : "client.ui.wizard.unavailable",
+			{ name: entry.name },
+		),
+	);
 
-export const importSourceNames = (sources: readonly ImportSourceItem[]) =>
+export const importSourceNames = (
+	sources: readonly ImportSourceItem[],
+	t: (message: Message) => Text,
+) =>
 	new Map(
-		sources.map((source) => [importRunSourceKey(source.installationId, source.slug), source.name]),
+		sources.map((source) => [
+			importRunSourceKey(source.installationId, source.slug),
+			t(source.name),
+		]),
 	);
 
 export const importSourceKey = (source: Pick<ImportSourceItem, "reference">) =>

@@ -7,6 +7,10 @@ import {
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { ActionForm, Button, Field, StatusMessage, TextField } from "@ryot-app/plugin-ui-sdk";
 import {
 	initialSchemaFormValues,
@@ -26,12 +30,10 @@ import type { ProviderAddLoadError } from "#/modules/provider-add/service";
 import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
 
-const CREATE_FAILED_MESSAGE = "Could not create this item. Try again.";
-
 type CreateStatus =
 	| { readonly kind: "idle" }
 	| { readonly kind: "saving" }
-	| { readonly kind: "error"; readonly message: string };
+	| { readonly kind: "error"; readonly message: Text };
 
 export function InlineEntityCreate(props: {
 	readonly onBack: () => void;
@@ -41,11 +43,13 @@ export function InlineEntityCreate(props: {
 	readonly uploadAsset: SchemaAssetUpload;
 	readonly renderAsset: SchemaAssetRenderer;
 	readonly onCreated: (entityId: EntityId) => void;
-	readonly definition: { readonly name: string; readonly propertiesSchema: AppSchema };
+	readonly definition: { readonly name: Message; readonly propertiesSchema: AppSchema };
 	readonly create: (
 		request: EntityEditorSaveRequest,
 	) => Effect.Effect<EntityEditorSaveOutput, ProviderAddLoadError>;
 }) {
+	const t = useT();
+	const definitionName = t(props.definition.name);
 	const propertiesSchema = props.definition.propertiesSchema;
 	const [name, setName] = useState(props.initialName);
 	const [nameError, setNameError] = useState<string>();
@@ -54,7 +58,7 @@ export function InlineEntityCreate(props: {
 
 	const submit = (values: SchemaFormValues) => {
 		if (name.trim() === "") {
-			setNameError("Enter a name");
+			setNameError(t(kernelMessage("sdk.entity-editor.name-required")));
 			return;
 		}
 		setNameError(undefined);
@@ -76,7 +80,7 @@ export function InlineEntityCreate(props: {
 					.pipe(
 						Effect.orElseSucceed((): EntityEditorSaveOutput => ({
 							kind: "invalid",
-							message: CREATE_FAILED_MESSAGE,
+							reason: kernelMessage("client.provider-add.create.failed"),
 						})),
 					);
 				if (output.kind === "saved") {
@@ -85,7 +89,10 @@ export function InlineEntityCreate(props: {
 				}
 				setStatus({
 					kind: "error",
-					message: output.kind === "invalid" ? output.message : CREATE_FAILED_MESSAGE,
+					message:
+						output.kind === "invalid"
+							? t(output.reason)
+							: t(kernelMessage("client.provider-add.create.failed")),
 				});
 			}),
 		);
@@ -96,13 +103,15 @@ export function InlineEntityCreate(props: {
 
 	return (
 		<ActionForm
-			label={`New ${props.definition.name}`}
 			className="flex min-h-0 flex-1 flex-col"
 			onSubmit={() => void form.handleSubmit()}
+			label={t(kernelMessage("client.provider-add.create.new", { name: definitionName }))}
 		>
 			<div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-4">
-				<h2 className="text-base font-semibold text-text">New {props.definition.name}</h2>
-				<Field label="Name" error={nameError}>
+				<h2 className="text-base font-semibold text-text">
+					{t(kernelMessage("client.provider-add.create.new", { name: definitionName }))}
+				</h2>
+				<Field error={nameError} label={t(kernelMessage("client.provider-add.create.name"))}>
 					{(control) => (
 						<TextField
 							{...control}
@@ -128,10 +137,10 @@ export function InlineEntityCreate(props: {
 			</div>
 			<div className="flex justify-end gap-2 border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 				<Button variant="ghost" onClick={props.onBack} disabled={status.kind === "saving"}>
-					Back
+					{t(kernelMessage("common.action.back"))}
 				</Button>
 				<Button loading={status.kind === "saving"} onClick={() => void form.handleSubmit()}>
-					Create
+					{t(kernelMessage("client.provider-add.create.submit"))}
 				</Button>
 			</div>
 		</ActionForm>

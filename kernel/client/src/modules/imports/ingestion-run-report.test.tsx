@@ -4,6 +4,8 @@ import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { cleanup, render, screen } from "@testing-library/react";
 
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
+
 import { IngestionRunReport } from "./ingestion-run-report";
 
 afterEach(cleanup);
@@ -59,7 +61,7 @@ const run: ImportRunSummary = {
 
 describe("ingestion reports", () => {
 	it("shows concurrent activities with their own units, waits and exact denominators", () => {
-		render(<IngestionRunReport run={run} />);
+		render(<IngestionRunReport run={run} />, { wrapper: testI18nWrapper() });
 		const bars = screen.getAllByRole("progressbar");
 		expect(bars[0]?.hasAttribute("aria-valuemax")).toBe(false);
 		expect(bars[0]?.getAttribute("aria-valuetext")).toBe("2 files");
@@ -87,6 +89,7 @@ describe("ingestion reports", () => {
 					],
 				}}
 			/>,
+			{ wrapper: testI18nWrapper() },
 		);
 		expect(screen.getByText("Set CLIENT_ID for this source.")).toBeTruthy();
 		expect(screen.getByText("Connect account for this account.")).toBeTruthy();

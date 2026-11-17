@@ -3,25 +3,29 @@ import {
 	ProviderEntityImportBacklogFull,
 } from "@ryot-app/contract/modules/entity-providers/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Clock, Duration, Effect, Match, Option, Result, Schema } from "effect";
 
 import { ProviderAddLoadError } from "#/modules/provider-add/service";
 
 const PROVIDER_IMPORT_TIMEOUT_MILLIS = 120_000;
 
-export const PROVIDER_IMPORT_FAILED_MESSAGE =
-	"The provider could not import this item. Try again later.";
+export const PROVIDER_IMPORT_FAILED_MESSAGE = kernelMessage("client.provider-add.import.failed");
 
-export const PROVIDER_IMPORT_CANCELLED_MESSAGE = "The import was cancelled.";
+export const PROVIDER_IMPORT_CANCELLED_MESSAGE = kernelMessage(
+	"client.provider-add.import.cancelled",
+);
 
-export const PROVIDER_IMPORT_UNAVAILABLE_MESSAGE =
-	"The import could not be started. Check your connection and try again.";
+export const PROVIDER_IMPORT_UNAVAILABLE_MESSAGE = kernelMessage(
+	"client.provider-add.import.unavailable",
+);
 
-export const PROVIDER_IMPORT_BACKLOG_FULL_MESSAGE =
-	"You have too many imports waiting. Try again once some of them finish.";
+export const PROVIDER_IMPORT_BACKLOG_FULL_MESSAGE = kernelMessage(
+	"client.provider-add.import.backlog-full",
+);
 
-export const PROVIDER_IMPORT_TIMEOUT_MESSAGE =
-	"The import is taking longer than expected. Check your library in a few minutes.";
+export const PROVIDER_IMPORT_TIMEOUT_MESSAGE = kernelMessage("client.provider-add.import.timeout");
 
 export type ProviderEntityImportState = ReadonlyMap<string, ProviderEntityImportEntry>;
 
@@ -29,10 +33,10 @@ export type ProviderEntityImportEntry =
 	| { readonly status: "idle" }
 	| { readonly status: "queued" }
 	| { readonly status: "importing" }
-	| { readonly message: string; readonly status: "failed" }
+	| { readonly message: Message; readonly status: "failed" }
 	| { readonly status: "imported"; readonly entityId: EntityId };
 
-const failedEntry = (message: string) => ({ message, status: "failed" }) as const;
+const failedEntry = (message: Message) => ({ message, status: "failed" }) as const;
 
 export const createProviderEntityImportState = (): ProviderEntityImportState => new Map();
 

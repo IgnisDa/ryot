@@ -9,8 +9,11 @@ import {
 import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import type { IntegrationId, OAuthConnectionId } from "@ryot-app/contract/schema/brands";
 import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
+import { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
-import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import type {
 	SchemaOAuthConnect,
 	SchemaOAuthConnectOutcome,
@@ -38,7 +41,7 @@ import { RyotQLApi } from "#/api/ryotql";
 import type { ApiScope } from "#/api/scope";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
-import { DEMO_PROTECTION_MESSAGE, useIsDemoSession } from "#/modules/demo-protection";
+import { demoProtectionMessage, useIsDemoSession } from "#/modules/demo-protection";
 import { decodeOAuthReturnFragment } from "#/modules/integrations/oauth-return";
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { nativeListener } from "#/modules/navigation/native-navigation";
@@ -51,20 +54,25 @@ const POLL_SCHEDULE = Schedule.min([
 ]);
 
 const MESSAGES = {
-	failed: "Couldn't connect. Try again.",
-	popupBlocked: "Allow pop-ups to connect",
-	browser: "Couldn't open the browser. Try again.",
-	expired: "The connection request expired. Try again.",
-	notAuthorized: "The account wasn't connected. Try again.",
-	signedOut: "Your session has ended. Sign in and try again.",
-	missing: "This connection is no longer available. Try again.",
-	unavailable: "This integration can't be connected right now.",
-	busy: "Too many connections are in progress. Try again later.",
-	tokenExchange: "The service didn't accept the connection. Try again.",
-	notConfigured: "This service isn't set up for connecting on this server.",
+	busy: kernelMessage("client.integrations.oauth.busy"),
+	failed: kernelMessage("ui.oauth-field.connect-failed"),
+	browser: kernelMessage("client.integrations.oauth.browser"),
+	expired: kernelMessage("client.integrations.oauth.expired"),
+	missing: kernelMessage("client.integrations.oauth.missing"),
+	signedOut: kernelMessage("client.integrations.oauth.signed-out"),
+	unavailable: kernelMessage("client.integrations.oauth.unavailable"),
+	proRequired: kernelMessage("client.integrations.oauth.pro-required"),
+	popupBlocked: kernelMessage("client.integrations.oauth.popup-blocked"),
+	notAuthorized: kernelMessage("client.integrations.oauth.not-authorized"),
+	tokenExchange: kernelMessage("client.integrations.oauth.token-exchange"),
+	notConfigured: kernelMessage("client.integrations.oauth.not-configured"),
 } as const;
 
 export type OAuthPopup = { opener: unknown; close: () => void; location: { href: string } };
+
+export type OAuthConnectOutcome =
+	| { readonly kind: "failed"; readonly message: Message }
+	| Exclude<SchemaOAuthConnectOutcome, { readonly kind: "failed" }>;
 
 export type OAuthConnectInput = {
 	readonly field: string;
@@ -74,9 +82,9 @@ export type OAuthConnectInput = {
 	readonly integrationProvider: DeclarationReference;
 };
 
-type SettledOutcome = Exclude<PollOutcome, { readonly kind: "pending" }>;
+type PollOutcome = OAuthConnectOutcome | { readonly kind: "pending" };
 
-type PollOutcome = SchemaOAuthConnectOutcome | { readonly kind: "pending" };
+type SettledOutcome = Exclude<PollOutcome, { readonly kind: "pending" }>;
 
 type NativeReturn =
 	{ readonly kind: "failed" } | { readonly kind: "secret"; readonly secret: string };
@@ -84,7 +92,7 @@ type NativeReturn =
 class OAuthConnectFailed extends Schema.TaggedError<
 	OAuthConnectFailed,
 	{ readonly brand: unique symbol }
->()("OAuthConnectFailed", { message: Schema.String }) {}
+>()("OAuthConnectFailed", { reason: Message }) {}
 
 export class OAuthConnectPlatform extends Context.Service<
 	OAuthConnectPlatform,
@@ -113,23 +121,23 @@ export class OAuthConnectPlatform extends Context.Service<
 			open: (url) =>
 				Effect.tryPromise({
 					try: () => Browser.open({ url }),
-					catch: () => new OAuthConnectFailed({ message: MESSAGES.browser }),
+					catch: () => new OAuthConnectFailed({ reason: MESSAGES.browser }),
 				}),
 			onFinished: (handler) =>
 				nativeListener(
 					Effect.tryPromise({
 						try: () => Browser.addListener("browserFinished", handler),
-						catch: () => new OAuthConnectFailed({ message: MESSAGES.browser }),
+						catch: () => new OAuthConnectFailed({ reason: MESSAGES.browser }),
 					}),
 				),
 		},
 	});
 }
 
-const failed = (message: OAuthConnectFailed["message"]) =>
-	({ message, kind: "failed" }) as const satisfies SchemaOAuthConnectOutcome;
+const failed = (message: Message) =>
+	({ message, kind: "failed" }) as const satisfies OAuthConnectOutcome;
 
-const cancelled = { kind: "cancelled" } as const satisfies SchemaOAuthConnectOutcome;
+const cancelled = { kind: "cancelled" } as const satisfies OAuthConnectOutcome;
 
 const isSettled = (outcome: PollOutcome): outcome is SettledOutcome => outcome.kind !== "pending";
 
@@ -137,10 +145,10 @@ const isHttpsUrl = (value: string) => URL.parse(value)?.protocol === "https:";
 
 const apiCause = (error: unknown) => (error instanceof AuthenticatedApiError ? error.cause : error);
 
-const requestFailureMessage = (error: unknown): string => {
+const requestFailureMessage = (error: unknown): Message => {
 	const cause = apiCause(error);
 	if (error instanceof OAuthConnectFailed) {
-		return error.message;
+		return error.reason;
 	}
 	if (cause instanceof OAuthConnectionNotFoundError) {
 		return MESSAGES.missing;
@@ -149,7 +157,7 @@ const requestFailureMessage = (error: unknown): string => {
 		return MESSAGES.signedOut;
 	}
 	if (cause instanceof EntitlementRequired) {
-		return entitlementRequiredMessage(cause.reason.entitlement, "Connecting this service");
+		return MESSAGES.proRequired;
 	}
 	if (!(cause instanceof OAuthConnectionRequestError)) {
 		return MESSAGES.failed;
@@ -234,7 +242,7 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 					.pipe(
 						Effect.filterOrFail(
 							(created) => isHttpsUrl(created.authorizeUrl),
-							() => new OAuthConnectFailed({ message: MESSAGES.failed }),
+							() => new OAuthConnectFailed({ reason: MESSAGES.failed }),
 						),
 					);
 
@@ -257,7 +265,7 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 											onSome: (status) => statusOutcome(status, connectionId),
 										}),
 									)
-								: Effect.fail(new OAuthConnectFailed({ message: MESSAGES.failed }));
+								: Effect.fail(new OAuthConnectFailed({ reason: MESSAGES.failed }));
 						}),
 						Effect.catch((error) => Effect.succeed(statusErrorOutcome(error))),
 					);
@@ -366,7 +374,7 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 				return connectWeb(input, popup);
 			};
 
-			const connect = (input: OAuthConnectInput): Effect.Effect<SchemaOAuthConnectOutcome> => {
+			const connect = (input: OAuthConnectInput): Effect.Effect<OAuthConnectOutcome> => {
 				const attempt = runtimeClient.isNative ? connectNative(input) : startWeb(input);
 				return Effect.raceFirst(
 					attempt.pipe(
@@ -390,13 +398,14 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 export const useOAuthConnect = (input: {
 	readonly integrationId?: IntegrationId;
 	readonly integrationProvider: DeclarationReference;
-}): { readonly connect: SchemaOAuthConnect; readonly disabledReason: string | undefined } => {
+}): { readonly connect: SchemaOAuthConnect; readonly disabledReason: Text | undefined } => {
+	const t = useT();
 	const { scope, server, runtime } = useRouteContext({ from: "/_authenticated" });
 	const client = useRyot();
 	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const connect: SchemaOAuthConnect = (request) => {
 		if (isDemo) {
-			return Promise.resolve(failed(MESSAGES.failed));
+			return Promise.resolve({ kind: "failed", message: t(MESSAGES.failed) });
 		}
 		const service = runtime.runSync(OAuthConnectService);
 		return Effect.runPromise(
@@ -408,8 +417,11 @@ export const useOAuthConnect = (input: {
 						}
 					}),
 				),
+				Effect.map((outcome): SchemaOAuthConnectOutcome =>
+					outcome.kind === "failed" ? { kind: "failed", message: t(outcome.message) } : outcome,
+				),
 			),
 		);
 	};
-	return { connect, disabledReason: isDemo ? DEMO_PROTECTION_MESSAGE : undefined };
+	return { connect, disabledReason: isDemo ? t(demoProtectionMessage) : undefined };
 };
