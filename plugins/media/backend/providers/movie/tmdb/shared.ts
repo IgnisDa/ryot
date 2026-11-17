@@ -120,7 +120,7 @@ export const translate = defineProvider({
 					message: "externalId must be a numeric TMDB movie ID",
 				});
 			}
-			const { region, langCode } = parseTranslationLanguage(input.language);
+			const { region, script, langCode } = parseTranslationLanguage(input.language);
 			const token = yield* getTmdbAccessToken(host);
 			const [translationsData, imagesData] = yield* Effect.all([
 				tmdbGet(host, `/movie/${input.externalId}/translations`, {}, token),
@@ -131,7 +131,7 @@ export const translate = defineProvider({
 					token,
 				),
 			]);
-			const [candidate] = orderedTranslationCandidates(translationsData, langCode, region);
+			const [candidate] = orderedTranslationCandidates(translationsData, langCode, region, script);
 			const translation = asRecord(candidate?.["data"]);
 			const name = stringValue(translation?.["title"]);
 			const description = normalizePlainDescription(translation?.["overview"]);

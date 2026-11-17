@@ -233,7 +233,7 @@ export const translate = defineProvider({
 		if (!/^\d+$/.test(input.externalId)) {
 			throw new Error("externalId must be a numeric TMDB person ID");
 		}
-		const { region, langCode } = parseTranslationLanguage(input.language);
+		const { region, script, langCode } = parseTranslationLanguage(input.language);
 		return getTmdbAccessToken(host).pipe(
 			Effect.flatMap((token) =>
 				Effect.all(
@@ -247,7 +247,7 @@ export const translate = defineProvider({
 				),
 			),
 			Effect.map(([translationsData, imagesData]) => {
-				const candidates = orderedTranslationCandidates(translationsData, langCode, region);
+				const candidates = orderedTranslationCandidates(translationsData, langCode, region, script);
 				const name = firstTranslationValue(candidates, (data) => data["name"]);
 				const description = normalizePlainDescription(
 					firstTranslationValue(candidates, (data) => data["biography"]),

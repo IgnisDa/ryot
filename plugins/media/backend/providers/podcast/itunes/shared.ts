@@ -35,22 +35,15 @@ const positiveInt = (value: unknown) => {
 const resultsArray = (payload: unknown) => {
 	return asArray(asRecord(payload)?.["results"]);
 };
-const ITUNES_LANGUAGE_MAP: Record<string, string> = {
-	en: "en_us",
-	es: "es_es",
-	fr: "fr_fr",
-	de: "de_de",
-	it: "it_it",
-	pt: "pt_br",
-	ja: "ja_jp",
-	ko: "ko_kr",
-	zh: "zh_cn",
-	ru: "ru_ru",
-	nl: "nl_nl",
-};
 const bcp47ToItunes = (language: string) => {
-	const base = language.trim().toLowerCase().split("-")[0] ?? "";
-	return ITUNES_LANGUAGE_MAP[base] ?? base;
+	const locale = new Intl.Locale(language).maximize();
+	if (locale.language === "en" && locale.script === "Latn") {
+		return "en_us";
+	}
+	if (locale.language === "ja" && locale.script === "Jpan") {
+		return "ja_jp";
+	}
+	return null;
 };
 const getPublishYear = (value: unknown) => {
 	const parsed = stringValue(value);
@@ -214,7 +207,7 @@ export const details = defineProvider({
 	manifest,
 	operation: "details",
 	run: (input, host) => {
-		const language = bcp47ToItunes("en");
+		const language = "en_us";
 		return lookup(host, {
 			lang: language,
 			media: "podcast",
@@ -383,6 +376,9 @@ export const translate = defineProvider({
 	operation: "translate",
 	run: (input, host) => {
 		const providerLanguage = bcp47ToItunes(input.language);
+		if (providerLanguage === null) {
+			return Effect.succeed({});
+		}
 		if (input.entitySchemaSlug === "podcast") {
 			return lookup(host, {
 				media: "podcast",

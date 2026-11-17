@@ -44,14 +44,14 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 			try: () => getTranslationRequest(input),
 			catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 		});
-		const { region, langCode } = parseTranslationLanguage(input.language);
+		const { region, script, langCode } = parseTranslationLanguage(input.language);
 		const [translationsData, imagesData] = yield* Effect.all([
 			tmdbGet(host, request.translationsPath, {}, token),
 			tmdbGet(host, request.imagesPath, { include_image_language: langCode }, token).pipe(
 				Effect.orElseSucceed(() => ({})),
 			),
 		]);
-		const candidates = orderedTranslationCandidates(translationsData, langCode, region);
+		const candidates = orderedTranslationCandidates(translationsData, langCode, region, script);
 		const name = firstTranslationValue(
 			candidates,
 			(data) => stringValue(data["name"]) ?? data["title"],

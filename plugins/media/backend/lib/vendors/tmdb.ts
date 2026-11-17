@@ -423,10 +423,12 @@ export const runTmdbTrending = (
 	});
 
 export const parseTranslationLanguage = (language: string) => {
-	const [languagePart = "", regionPart] = language.split("-");
+	const locale = new Intl.Locale(language);
+	const maximized = locale.maximize();
 	return {
-		langCode: languagePart.trim().toLowerCase(),
-		region: regionPart ? regionPart.trim().toUpperCase() : null,
+		script: maximized.script,
+		langCode: locale.language,
+		region: locale.region ?? (locale.script ? maximized.region : null) ?? null,
 	};
 };
 
@@ -434,10 +436,17 @@ export const orderedTranslationCandidates = (
 	translationsData: UnknownRecord,
 	langCode: string,
 	region: null | string,
+	script: string | undefined,
 ) => {
-	const candidates = recordsValue(translationsData["translations"]).filter(
-		(entry) => stringValue(entry["iso_639_1"])?.toLowerCase() === langCode,
-	);
+	const candidates = recordsValue(translationsData["translations"]).filter((entry) => {
+		if (stringValue(entry["iso_639_1"])?.toLowerCase() !== langCode) {
+			return false;
+		}
+		const country = stringValue(entry["iso_3166_1"]);
+		return (
+			new Intl.Locale(langCode, country ? { region: country } : {}).maximize().script === script
+		);
+	});
 	const regionMatch = region
 		? candidates.find((entry) => stringValue(entry["iso_3166_1"])?.toUpperCase() === region)
 		: null;

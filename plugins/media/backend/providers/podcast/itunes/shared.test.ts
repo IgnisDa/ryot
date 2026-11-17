@@ -101,7 +101,7 @@ describe("podcast.itunes sandbox script", () => {
 				runSandboxTestScript(
 					translate,
 					{
-						language: "fr",
+						language: "ja",
 						name: "Episode",
 						externalId: "55",
 						entitySchemaSlug,
@@ -390,30 +390,70 @@ describe("podcast.itunes sandbox script", () => {
 			),
 		);
 	});
-	it("translates a podcast entity from the collection payload", () => {
-		const host = makeHost(() =>
-			httpSuccess({ results: [{ description: "Descripción", collectionName: "Traducido" }] }),
-		);
+	it.each([
+		["en-GB", "en_us"],
+		["ja-JP", "ja_jp"],
+	])("translates a podcast entity using the requested locale %s", (language, providerLanguage) => {
+		const requests: URL[] = [];
+		const host = makeHost((_method, url) => {
+			requests.push(new URL(url));
+			return httpSuccess({
+				results: [{ collectionName: "Translated", description: "Translated description" }],
+			});
+		});
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
 				{
+					language,
 					properties: {},
 					name: "Podcast",
 					externalId: "p1",
-					language: "es-ES",
 					entitySchemaSlug: "podcast",
 				},
 				host,
 				execution,
 			).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({ name: "Traducido", properties: { description: "Descripción" } });
+					expect(result).toEqual({
+						name: "Translated",
+						properties: { description: "Translated description" },
+					});
+					expect(requests.map((url) => url.searchParams.get("lang"))).toEqual([providerLanguage]);
 					return undefined;
 				}),
 			),
 		);
 	});
+	it.each(["fr", "de", "es-ES", "pt-BR", "pt-PT", "zh-Hans"])(
+		"keeps canonical content for unsupported iTunes response language %s",
+		(language) => {
+			const requests: string[] = [];
+			const host = makeHost((_method, url) => {
+				requests.push(url);
+				return httpSuccess({ results: [] });
+			});
+			return Effect.runPromise(
+				runSandboxTestScript(
+					translate,
+					{
+						language,
+						properties: {},
+						name: "Podcast",
+						externalId: "p1",
+						entitySchemaSlug: "podcast",
+					},
+					host,
+					execution,
+				).pipe(
+					Effect.map((result) => {
+						expect(result).toEqual({});
+						expect(requests).toEqual([]);
+					}),
+				),
+			);
+		},
+	);
 	it("translates a podcast episode by locating it in the parent lookup", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -429,7 +469,7 @@ describe("podcast.itunes sandbox script", () => {
 				{
 					name: "Episode",
 					externalId: "55",
-					language: "fr-FR",
+					language: "ja-JP",
 					entitySchemaSlug: "podcast-episode",
 					properties: { parentPodcastExternalId: "p1" },
 				},

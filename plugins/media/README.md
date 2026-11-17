@@ -351,6 +351,14 @@ show ID and season number, plus the episode number for episodes. TVDB show child
 parent show ID; iTunes episodes select the parent podcast ID. No other canonical properties enter
 translation execution snapshots.
 
+Translation requests preserve the user's BCP 47 region and script. Shared TMDB helpers prefer
+the requested region, infer a region for script-only tags such as `zh-Hans`, and exclude
+translation candidates with a different likely script. iTunes supports only English and Japanese
+response languages, as [documented by Apple](https://performance-partners.apple.com/search-api);
+other languages return an empty translation so canonical content remains visible. AniList maps
+supported English and Japanese tags to its English, native, or romaji title modes.
+Providers that expose only a language code retain their own language-level conversion.
+
 ## Operations
 
 Operation inputs/outputs live in `shared/`, including integration and episode-resolution contracts.

@@ -140,7 +140,7 @@ export const translate = defineProvider({
 					message: "externalId must be a numeric TMDB collection ID",
 				});
 			}
-			const { region, langCode } = parseTranslationLanguage(input.language);
+			const { region, script, langCode } = parseTranslationLanguage(input.language);
 			const token = yield* getTmdbAccessToken(host);
 			const [translationsData, imagesData] = yield* Effect.all(
 				[
@@ -154,7 +154,7 @@ export const translate = defineProvider({
 				],
 				{ concurrency: "unbounded" },
 			);
-			const candidates = orderedTranslationCandidates(translationsData, langCode, region);
+			const candidates = orderedTranslationCandidates(translationsData, langCode, region, script);
 			const translatedName = firstTranslationValue(
 				candidates,
 				(data) => stringValue(data["title"]) ?? data["name"],

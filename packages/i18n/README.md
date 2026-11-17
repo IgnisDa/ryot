@@ -120,8 +120,8 @@ and the formatter, not any call site.
 ## Locales
 
 `/locale` exports `SOURCE_LOCALE` (`en`), `PSEUDO_LOCALE` (`en-XA`), `canonicalLocale`, the
-`LocaleTag` schema (canonical BCP 47 tags), `fallbackChain`, `parseAcceptLanguage`, `negotiateLocale` (exact or truncated match, then the same
-language, never the pseudo-locale by language), `textDirection` with its `TextDirection` schema,
+`LocaleTag` schema (canonical BCP 47 tags), `fallbackChain`, `parseAcceptLanguage`, `negotiateLocale` (exact or truncated match with the same likely script, then the same
+language and script, preferring the likely region; never the pseudo-locale by language), `textDirection` with its `TextDirection` schema,
 `languageOfLocale`, and
 `weekStartForLocale`. Week days are the `WeekDay` schema and type, in Effect's `weekStartsOn`
 numbering (`0` is Sunday). The week

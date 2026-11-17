@@ -33,6 +33,22 @@ describe("locale negotiation", () => {
 		expect(negotiateLocale([], available, "de")).toBe("de");
 	});
 
+	it("matches the requested script without substituting another writing system", () => {
+		const simplified = ["en", "zh-Hans"] as const;
+		expect(negotiateLocale(["zh-CN"], simplified, "en")).toBe("zh-Hans");
+		expect(negotiateLocale(["zh-SG"], simplified, "en")).toBe("zh-Hans");
+		expect(negotiateLocale(["zh-TW"], simplified, "en")).toBe("en");
+		expect(negotiateLocale(["zh-Hant", "de"], available, "en")).toBe("de");
+		expect(negotiateLocale(["zh-HK"], ["en", "zh-Hans", "zh-Hant"], "en")).toBe("zh-Hant");
+		expect(negotiateLocale(["sr-Latn-RS"], ["en", "sr"], "en")).toBe("en");
+	});
+
+	it("prefers the likely region over catalog order for a language-only request", () => {
+		expect(negotiateLocale(["pt"], ["en", "pt-PT", "pt-BR"], "en")).toBe("pt-BR");
+		expect(negotiateLocale(["pt-PT"], ["en", "pt-BR", "pt-PT"], "en")).toBe("pt-PT");
+		expect(negotiateLocale(["en-GB"], ["en-XA", "de"], "de")).toBe("de");
+	});
+
 	it("orders Accept-Language entries by quality", () => {
 		expect(parseAcceptLanguage("de;q=0.5, fr-CH, fr;q=0.9, *;q=0.1, en;q=0")).toEqual([
 			"fr-CH",

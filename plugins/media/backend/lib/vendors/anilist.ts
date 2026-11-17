@@ -89,14 +89,14 @@ export const normalizeAnilistTitleLanguage = (language: unknown): null | Anilist
 };
 
 export const bcp47ToAnilistMode = (language: string): null | AnilistTitleLanguage => {
-	const normalized = language.trim().toLowerCase();
-	if (normalized === "en") {
+	const locale = new Intl.Locale(language);
+	if (locale.language === "en" && locale.maximize().script === "Latn") {
 		return "english";
 	}
-	if (normalized === "ja-latn") {
+	if (locale.language === "ja" && locale.script === "Latn") {
 		return "romaji";
 	}
-	if (normalized === "ja") {
+	if (locale.language === "ja" && locale.maximize().script === "Jpan") {
 		return "native";
 	}
 	return null;

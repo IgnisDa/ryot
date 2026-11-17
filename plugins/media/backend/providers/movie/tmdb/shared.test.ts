@@ -457,6 +457,68 @@ describe("movie.tmdb sandbox script", () => {
 		);
 	});
 
+	it.each([
+		["pt-BR", "Filme brasileiro"],
+		["pt-PT", "Filme português"],
+		["zh-Hans", "简体标题"],
+		["zh-Hant", "繁體標題"],
+	])("selects the requested region and script for %s", (language, title) => {
+		const host = makeHost((_method, url) =>
+			httpSuccess(
+				url.includes("/translations")
+					? {
+							translations: [
+								{ iso_639_1: "pt", iso_3166_1: "PT", data: { title: "Filme português" } },
+								{ iso_639_1: "pt", iso_3166_1: "BR", data: { title: "Filme brasileiro" } },
+								{ iso_639_1: "zh", iso_3166_1: "TW", data: { title: "繁體標題" } },
+								{ iso_639_1: "zh", iso_3166_1: "CN", data: { title: "简体标题" } },
+							],
+						}
+					: { posters: [] },
+			),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(
+				translate,
+				{ language, name: "Movie", properties: {}, externalId: "1", entitySchemaSlug: "movie" },
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe(title);
+				}),
+			),
+		);
+	});
+
+	it("does not substitute a Traditional Chinese title for Simplified Chinese", () => {
+		const host = makeHost((_method, url) =>
+			httpSuccess(
+				url.includes("/translations")
+					? { translations: [{ iso_639_1: "zh", iso_3166_1: "TW", data: { title: "繁體標題" } }] }
+					: { posters: [] },
+			),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(
+				translate,
+				{
+					name: "Movie",
+					properties: {},
+					externalId: "1",
+					language: "zh-Hans",
+					entitySchemaSlug: "movie",
+				},
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({});
+				}),
+			),
+		);
+	});
+
 	it("classifies localized movie posters as covers", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/movie/1/translations")

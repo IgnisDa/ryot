@@ -50,16 +50,25 @@ export const negotiateLocale = <const Available extends string>(
 		if (canonical === undefined) {
 			continue;
 		}
+		const requestedLocale = new Intl.Locale(canonical).maximize();
+		const matchesScript = (locale: string) =>
+			new Intl.Locale(locale).maximize().script === requestedLocale.script;
 		for (const candidate of subtagChain(canonical)) {
 			const match = byCanonical.get(candidate);
-			if (match !== undefined) {
+			if (match !== undefined && matchesScript(match)) {
 				return match;
 			}
 		}
-		const language = new Intl.Locale(canonical).language;
-		const regional = available.find(
-			(locale) => locale !== PSEUDO_LOCALE && new Intl.Locale(locale).language === language,
+		const compatible = available.filter(
+			(locale) =>
+				locale !== PSEUDO_LOCALE &&
+				new Intl.Locale(locale).language === requestedLocale.language &&
+				matchesScript(locale),
 		);
+		const regional =
+			compatible.find(
+				(locale) => new Intl.Locale(locale).maximize().region === requestedLocale.region,
+			) ?? compatible[0];
 		if (regional !== undefined) {
 			return regional;
 		}
