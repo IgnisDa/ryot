@@ -3,6 +3,7 @@ import {
 	NotificationDeliveryResult,
 	NotificationOutcome,
 } from "@ryot-app/contract/modules/notifications/delivery";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	column,
 	defineRecipe,
@@ -23,10 +24,10 @@ export const notificationOutcomeRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
 			id: {
-				label: "id",
 				type: "string",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.id"),
 			},
 		},
 	});
@@ -67,9 +68,9 @@ export const notificationDeliveriesRecipe = (() => {
 		fields: {
 			notificationId: {
 				type: "string",
-				label: "notificationId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.notification"),
 			},
 		},
 	});
@@ -120,9 +121,9 @@ export const reminderDeliveriesRecipe = (() => {
 		fields: {
 			reminderId: {
 				type: "string",
-				label: "reminderId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.reminder"),
 			},
 		},
 	});

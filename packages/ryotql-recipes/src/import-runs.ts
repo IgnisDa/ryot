@@ -1,6 +1,7 @@
 import { IngestionIssue, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import { ListedImportRun } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	ascending,
 	column,
@@ -64,9 +65,9 @@ export const integrationImportRunsRecipe = (() => {
 		fields: {
 			integrationId: {
 				type: "string",
-				label: "integrationId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.integration"),
 			},
 		},
 	});
@@ -90,9 +91,9 @@ export const importRunRecipe = (() => {
 		fields: {
 			runId: {
 				type: "string",
-				label: "runId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.run"),
 			},
 		},
 	});
@@ -120,9 +121,9 @@ export const importIssuesRecipe = (() => {
 		fields: {
 			runId: {
 				type: "string",
-				label: "runId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.run"),
 			},
 		},
 	});

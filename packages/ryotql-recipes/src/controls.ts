@@ -302,7 +302,7 @@ const resolveAtomicControl = (
 	target: undefined | AtomicTarget,
 	query: NamedQuery,
 	schemas: readonly ControlSchema[],
-	document?: RyotQLDocument,
+	document?: Pick<RyotQLDocument, "queries">,
 	context?: ControlContext,
 ): Result.Result<ResolvedControls, Error> => {
 	if (target === undefined) {
@@ -414,7 +414,7 @@ export const resolveControl = (
 	target: Target | undefined,
 	query: NamedQuery,
 	schemas: readonly ControlSchema[],
-	document?: RyotQLDocument,
+	document?: Pick<RyotQLDocument, "queries">,
 	context?: ControlContext,
 ): Result.Result<ResolvedControls, Error> => {
 	const targets = target === undefined ? [] : controlTargets(target);

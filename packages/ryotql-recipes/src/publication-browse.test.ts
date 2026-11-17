@@ -7,6 +7,8 @@ import { Result } from "effect";
 import { kernelPublicationPage, publicationBrowse } from "./publication-browse";
 import { bindRecipe, rowsResponse } from "./test-utils";
 
+const text = (key: string) => ({ namespace: "test", key: `test.${key}` });
+
 const subject = table("entity", "subject");
 const schema = {
 	slug: "record",
@@ -16,8 +18,8 @@ const schema = {
 			{
 				key: "score",
 				kind: "value",
-				label: "Score",
 				type: "number",
+				label: text("score"),
 				expression: castNumber(jsonPath(column(subject, "properties"), "score")),
 			},
 		],
@@ -92,7 +94,7 @@ it("excludes identity, unbound aliases, and correlated reads from browse and pre
 					type: "text",
 					kind: "value",
 					key: `${index}`,
-					label: "Unsafe",
+					label: text("unsafe"),
 				})),
 			},
 		},
@@ -122,7 +124,7 @@ it("reuses entity-browser presentation decoding and formats the selected schema'
 	expect(item?.entityId).toBe("entity");
 	expect(item?.presentation).toBeNull();
 	expect(item?.details).toEqual([
-		{ key: "score", label: "Score", value: { value: 12, displayKind: "number" } },
+		{ key: "score", label: text("score"), value: { value: 12, displayKind: "number" } },
 	]);
 	expect(
 		Result.getOrThrow(
@@ -137,10 +139,10 @@ it("requires scalar type metadata for sort-only fields and keeps them out of fil
 		key: "score-order",
 		expression: castNumber(jsonPath(column(subject, "properties"), "score")),
 		sort: {
-			label: "Score",
-			ascending: "Low first",
-			descending: "High first",
+			label: text("score"),
 			defaultDirection: "desc",
+			ascending: text("low-first"),
+			descending: text("high-first"),
 		},
 	} as const;
 	expect(() =>

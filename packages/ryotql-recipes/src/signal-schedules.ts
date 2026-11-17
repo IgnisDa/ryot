@@ -2,6 +2,7 @@ import { rowsResultSchema } from "@ryot-app/contract/modules/ryotql/language";
 import type { RowSourceQuery } from "@ryot-app/contract/modules/ryotql/row-source";
 import type { SavedViewSubject } from "@ryot-app/contract/modules/saved-views/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -54,20 +55,20 @@ export const signalSchedulePageRecipe = (input: { readonly schedule: SignalSched
 		fields: {
 			confirmedAfter: {
 				type: "datetime",
-				label: "Confirmed after",
 				description: "Freshness boundary",
+				label: kernelMessage("recipe.parameter.confirmed-after"),
 			},
 			end: {
-				label: "End",
 				type: "datetime",
 				validation: { required: true },
 				description: "Exclusive bounded scan end",
+				label: kernelMessage("recipe.parameter.end"),
 			},
 			start: {
-				label: "Start",
 				type: "datetime",
 				validation: { required: true },
 				description: "Inclusive bounded scan start",
+				label: kernelMessage("recipe.parameter.start"),
 			},
 		},
 	});

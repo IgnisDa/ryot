@@ -4,6 +4,8 @@ import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { DisplayText } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -28,8 +30,8 @@ import { IsoDateString } from "./codecs";
 const savedView = table("savedView", "savedView");
 const selection = {
 	id: selectedField(column(savedView, "id"), SavedViewId),
+	name: selectedField(column(savedView, "name"), DisplayText),
 	slug: selectedField(column(savedView, "slug"), Schema.String),
-	name: selectedField(column(savedView, "name"), Schema.String),
 	icon: selectedField(column(savedView, "icon"), Schema.String),
 	isHidden: selectedField(column(savedView, "isHidden"), Schema.Boolean),
 	sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Finite),
@@ -46,12 +48,16 @@ const selection = {
 export const savedViewRecordsRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
-			pluginId: { type: "string", label: "pluginId", description: "Query pluginId" },
+			pluginId: {
+				type: "string",
+				description: "Query pluginId",
+				label: kernelMessage("recipe.parameter.plugin"),
+			},
 			includeHidden: {
 				type: "boolean",
 				defaultValue: false,
-				label: "includeHidden",
 				description: "Query includeHidden",
+				label: kernelMessage("recipe.parameter.include-hidden"),
 			},
 		},
 	});
@@ -87,24 +93,29 @@ export const savedViewRecordsRecipe = (() => {
 })();
 
 export const savedViewReferenceFields = {
-	slug: { label: "Slug", type: "string", defaultValue: "", description: "Builtin saved view slug" },
+	slug: {
+		type: "string",
+		defaultValue: "",
+		description: "Builtin saved view slug",
+		label: kernelMessage("recipe.parameter.slug"),
+	},
 	pluginId: {
 		type: "string",
-		label: "Plugin",
 		defaultValue: "",
 		description: "Local saved view plugin ID",
+		label: kernelMessage("recipe.parameter.plugin"),
 	},
 	savedViewId: {
 		type: "string",
 		defaultValue: "",
-		label: "Saved view",
 		description: "Custom saved view ID",
+		label: kernelMessage("recipe.parameter.saved-view"),
 	},
 	referenceKind: {
 		type: "enum",
 		defaultValue: "kernel",
-		label: "Reference kind",
 		description: "Saved view reference kind",
+		label: kernelMessage("recipe.parameter.reference-kind"),
 		choices: {
 			kind: "static",
 			values: [{ value: "custom" }, { value: "kernel" }, { value: "plugin" }],

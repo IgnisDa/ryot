@@ -1,4 +1,5 @@
 import { PageDefinition, PageOrigin } from "@ryot-app/contract/modules/pages/schemas";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	ascending,
 	column,
@@ -56,10 +57,10 @@ export const pagesRecipe = defineRecipe({
 const detailParameters = parameters({
 	fields: {
 		pageId: {
-			label: "Page",
 			type: "string",
 			description: "Page ID",
 			validation: { required: true },
+			label: kernelMessage("recipe.parameter.page"),
 		},
 	},
 });

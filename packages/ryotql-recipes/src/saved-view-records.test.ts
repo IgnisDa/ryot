@@ -43,8 +43,8 @@ describe("saved-view record recipes", () => {
 		expect(query.output.pagination).toEqual({ limit: 7, after: "cursor" });
 		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
-			"slug",
 			"name",
+			"slug",
 			"icon",
 			"isHidden",
 			"sortOrder",

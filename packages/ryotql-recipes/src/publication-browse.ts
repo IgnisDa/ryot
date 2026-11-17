@@ -5,7 +5,10 @@ import {
 	ownerIdentityReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { PublicationMode } from "@ryot-app/contract/modules/publications/schemas";
-import type { Controls, ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
+import type {
+	OutputControlField,
+	ScalarExpression,
+} from "@ryot-app/contract/modules/ryotql/authored";
 import { rowsResultSchema } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	entityBrowserFields,
@@ -17,6 +20,8 @@ import type {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { DisplayText } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -40,7 +45,7 @@ import {
 import { filter, parameters, sort } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
-import type { BrowseSchema } from "./browse";
+import { type BrowseSchema, nameOutputField } from "./browse";
 import { decodeEntityBrowserResult, decodeSavedViewCount } from "./saved-views";
 
 export const publicationBrowse = (browse: readonly BrowseSchema[]): readonly BrowseSchema[] =>
@@ -68,12 +73,12 @@ const DetailValue = Schema.NullOr(
 
 export const PublicationItemDetailField = Schema.Struct({
 	key: Schema.String,
+	label: DisplayText,
 	slug: Schema.String,
 	field: Schema.String,
-	label: Schema.String,
 	pluginId: Schema.NullOr(Schema.String),
 	choices: Schema.optionalKey(
-		Schema.Array(Schema.Struct({ value: Schema.String, label: Schema.String })),
+		Schema.Array(Schema.Struct({ label: DisplayText, value: Schema.String })),
 	),
 	type: Schema.Literals([
 		"text",
@@ -90,7 +95,7 @@ export type PublicationItemDetailField = typeof PublicationItemDetailField.Type;
 
 export type PublicationItemDetail = {
 	readonly key: string;
-	readonly label: string;
+	readonly label: DisplayText;
 	readonly value: SavedViewDisplayValue;
 };
 
@@ -112,9 +117,7 @@ const itemDetail = (
 	}
 	if (typeof value === "object" && value !== null) {
 		const items = value.flatMap((item) => (item === "" ? [] : [choiceLabel(browseField, item)]));
-		return items.length === 0
-			? []
-			: [{ ...base, value: { displayKind: "text", value: items.join(", ") } }];
+		return items.length === 0 ? [] : [{ ...base, value: { value: items, displayKind: "text" } }];
 	}
 	if (typeof value !== "string" || value === "") {
 		return [];
@@ -144,18 +147,22 @@ export const kernelPublicationPage = (input: {
 	const browse = publicationBrowse(input.schemas);
 	const args = parameters({
 		fields: {
-			search: { type: "string", label: "Search", description: "Item name contains" },
+			search: {
+				type: "string",
+				description: "Item name contains",
+				label: kernelMessage("recipe.parameter.search"),
+			},
 			entityId: {
 				type: "string",
-				label: "Entity",
 				reference: { kind: "entity-id" },
+				label: kernelMessage("recipe.parameter.entity"),
 				description: "Selected entity for live item and linked queries",
 			},
 			source: {
 				type: "string",
-				label: "Source",
 				validation: { required: true },
 				reference: { kind: "entity-source" },
+				label: kernelMessage("recipe.parameter.source"),
 				description: "Owner-bound encoded entity source",
 			},
 		},
@@ -184,19 +191,7 @@ export const kernelPublicationPage = (input: {
 				return detail;
 			}),
 	);
-	const controlFields: Extract<
-		NonNullable<Controls["filter"]>,
-		{ readonly kind: "outputs" }
-	>["fields"][number][] = [
-		{
-			key: "name",
-			type: "text",
-			kind: "value",
-			field: "name",
-			label: "Name",
-			sort: { label: "Name", ascending: "A–Z", descending: "Z–A", defaultDirection: "asc" },
-		},
-	];
+	const controlFields: OutputControlField[] = [nameOutputField];
 	const sortFields: typeof controlFields = [];
 	for (const [index, schema] of browse.entries()) {
 		for (const field of schema.browse?.fields ?? []) {

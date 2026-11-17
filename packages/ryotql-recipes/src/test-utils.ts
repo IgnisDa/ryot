@@ -1,3 +1,4 @@
+import type { AuthoredSchemaText } from "@ryot-app/contract/modules/plugins/manifest-text";
 import type * as Authored from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	NamedQuery,
@@ -5,9 +6,14 @@ import type {
 	RowsResult,
 	RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
-import { type ExecutionRequest, QueryPage } from "@ryot-app/contract/modules/ryotql/request";
+import {
+	type ExecutionRequest,
+	type PluginExecutionRequest,
+	QueryPage,
+} from "@ryot-app/contract/modules/ryotql/request";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { type AppSchema, mapAppSchemaText } from "@ryot-app/contract/schema/property-schema";
+import { type DisplayText, stampNamespace } from "@ryot-app/i18n/message";
 import type { Recipe } from "@ryot-app/ryotql";
 import { bindDocument, type BindingContext } from "@ryot-app/ryotql/binding";
 import { Result, Schema } from "effect";
@@ -24,6 +30,10 @@ export const rowsResponse = (
 	pageInfo: RowsResult["pageInfo"],
 ) => ({ data: { [queryName]: rowsResult(items, pageInfo) } });
 
+type TestText = DisplayText | AuthoredSchemaText;
+type TestDocument = Omit<Authored.RyotQLDocument, "parameters"> & {
+	readonly parameters?: undefined | AppSchema<TestText>;
+};
 export function requireRowsQuery(
 	query: undefined | Authored.NamedQuery,
 ): Authored.NamedQuery & { readonly output: Authored.RowsOutput };
@@ -37,7 +47,18 @@ export function requireRowsQuery(query: undefined | NamedQuery | Authored.NamedQ
 	return { ...query, output: query.output };
 }
 
-export const bindRecipe = <Success, Parameters extends AppSchema>(
+/** Stamps plugin-authored parameter text with a test namespace, as the receiving side would. */
+const stampTestDocument = ({ parameters, ...document }: TestDocument): Authored.RyotQLDocument =>
+	parameters === undefined
+		? document
+		: {
+				...document,
+				parameters: mapAppSchemaText(parameters, (text) =>
+					typeof text === "string" || "namespace" in text ? text : stampNamespace("testing", text),
+				),
+			};
+
+export const bindRecipe = <Success, Parameters extends AppSchema<TestText>>(
 	recipe: Recipe<Success, Parameters>,
 	input: Readonly<Record<string, unknown>> = {},
 	context: BindingContext = {
@@ -46,7 +67,7 @@ export const bindRecipe = <Success, Parameters extends AppSchema>(
 		resolveSourceEntity: (_reference, alias) =>
 			Result.succeed({ alias, table: "sourceEntity:testing" }),
 	},
-	requestValues: Omit<ExecutionRequest, "source" | "arguments"> = {},
+	requestValues: Omit<PluginExecutionRequest, "source" | "arguments"> = {},
 ) => {
 	const argumentsValue = Result.getOrThrow(
 		Schema.decodeUnknownResult(Schema.Record(Schema.String, JsonValue))(
@@ -72,12 +93,18 @@ export const bindRecipe = <Success, Parameters extends AppSchema>(
 		),
 	);
 	const bound = Result.getOrThrow(
-		bindDocument(recipe.document, { pages, ...requestValues, arguments: argumentsValue }, context),
+		bindDocument(
+			stampTestDocument(recipe.document),
+			{ pages, ...requestValues, arguments: argumentsValue },
+			context,
+		),
 	);
 	return { ...recipe, document: bound.document };
 };
 
-export const requireInlineDocument = (request: Pick<ExecutionRequest, "source">) => {
+export const requireInlineDocument = (
+	request: Pick<ExecutionRequest | PluginExecutionRequest, "source">,
+) => {
 	if (request.source.kind !== "inline") {
 		throw new Error("Expected an inline query source");
 	}
@@ -85,7 +112,7 @@ export const requireInlineDocument = (request: Pick<ExecutionRequest, "source">)
 };
 
 export const bindTestRequest = (
-	request: undefined | ExecutionRequest,
+	request: undefined | ExecutionRequest | PluginExecutionRequest,
 	context: BindingContext = {
 		reportingTimeZone: "UTC",
 		now: new Date("2026-01-01T00:00:00Z"),
@@ -96,11 +123,13 @@ export const bindTestRequest = (
 	if (request === undefined) {
 		throw new Error("Expected an execution request");
 	}
-	return Result.getOrThrow(bindDocument(requireInlineDocument(request), request, context)).document;
+	return Result.getOrThrow(
+		bindDocument(stampTestDocument(requireInlineDocument(request)), request, context),
+	).document;
 };
 
 export const recipeResponse = (
-	recipe: { readonly document: RyotQLDocument | Authored.RyotQLDocument },
+	recipe: { readonly document: Pick<RyotQLDocument | Authored.RyotQLDocument, "queries"> },
 	overrides: Readonly<Record<string, unknown>> = {},
 ) => {
 	const data: Record<string, unknown> = {};

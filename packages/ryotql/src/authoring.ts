@@ -19,7 +19,7 @@ type EnumValues<Property> = Property extends {
 	? Value
 	: never;
 type KeysOfType<
-	Definition extends AppSchema,
+	Definition extends AppSchema<unknown>,
 	Types extends AppPropertyDefinition["type"],
 > = string &
 	{
@@ -27,7 +27,7 @@ type KeysOfType<
 			? Key
 			: never;
 	}[keyof Definition["fields"]];
-type OptionalKeys<Definition extends AppSchema> = string &
+type OptionalKeys<Definition extends AppSchema<unknown>> = string &
 	{
 		[Key in keyof Definition["fields"]]: Definition["fields"][Key] extends
 			{ readonly defaultValue: unknown } | { readonly validation: { readonly required: true } }
@@ -35,7 +35,7 @@ type OptionalKeys<Definition extends AppSchema> = string &
 			: Key;
 	}[keyof Definition["fields"]];
 
-export const parameters = <const Definition extends AppSchema>(schema: Definition) => ({
+export const parameters = <const Definition extends AppSchema<unknown>>(schema: Definition) => ({
 	schema,
 	whenSet: (name: OptionalKeys<Definition>, predicate: Predicate): Predicate => ({
 		predicate,
@@ -87,7 +87,7 @@ export const aggregateSort = (otherwise: readonly AggregateOrderBy[]): Aggregate
 	type: "sort",
 });
 
-type SourceKeys<Definition extends AppSchema> = string &
+type SourceKeys<Definition extends AppSchema<unknown>> = string &
 	{
 		[Key in keyof Definition["fields"]]: Definition["fields"][Key] extends {
 			readonly type: "string";

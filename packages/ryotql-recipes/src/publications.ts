@@ -5,6 +5,7 @@ import {
 } from "@ryot-app/contract/modules/ryotql/entity-source";
 import type { TableReference } from "@ryot-app/contract/modules/ryotql/language";
 import { PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	castText,
@@ -86,10 +87,10 @@ const sourceParameters = parameters({
 	fields: {
 		source: {
 			type: "string",
-			label: "Source",
 			validation: { required: true },
 			description: "Encoded entity source",
 			reference: { kind: "entity-source" },
+			label: kernelMessage("recipe.parameter.source"),
 		},
 	},
 });

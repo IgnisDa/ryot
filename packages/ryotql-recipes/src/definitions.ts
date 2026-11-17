@@ -11,6 +11,7 @@ import {
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { Message } from "@ryot-app/i18n/message";
 import {
 	and,
 	ascending,
@@ -41,8 +42,8 @@ export const entityDefinitionsRecipe = defineRecipe({
 			maxLimit: 1000,
 			orderBy: [ascending(column(entity, "slug")), ascending(column(entity, "id"))],
 			selection: {
+				name: selectedField(column(entity, "name"), Message),
 				id: selectedField(column(entity, "id"), Schema.String),
-				name: selectedField(column(entity, "name"), Schema.String),
 				icon: selectedField(column(entity, "icon"), Schema.String),
 				slug: selectedField(column(entity, "slug"), EntitySchemaSlug),
 				propertiesSchema: selectedField(column(entity, "propertiesSchema"), AppSchema),
@@ -59,15 +60,15 @@ export const entityDefinitionsRecipe = defineRecipe({
 			include: {
 				providers: selectedInclude(provider, {
 					limit: 100,
-					orderBy: [ascending(column(provider, "name")), ascending(column(provider, "id"))],
+					orderBy: [ascending(column(provider, "slug")), ascending(column(provider, "id"))],
+					selection: {
+						name: selectedField(column(provider, "name"), Message),
+						providerId: selectedField(column(provider, "id"), SandboxProviderId),
+					},
 					where: and(
 						eq(column(provider, "rootEntitySchemaSlug"), column(entity, "slug")),
 						schemaOwnerJoin(provider, "pluginId", entity, "pluginId"),
 					),
-					selection: {
-						name: selectedField(column(provider, "name"), Schema.String),
-						providerId: selectedField(column(provider, "id"), SandboxProviderId),
-					},
 				}),
 				eventSchemas: selectedInclude(event, {
 					limit: 100,
@@ -77,7 +78,7 @@ export const entityDefinitionsRecipe = defineRecipe({
 						schemaOwnerJoin(event, "pluginId", entity, "pluginId"),
 					),
 					selection: {
-						name: selectedField(column(event, "name"), Schema.String),
+						name: selectedField(column(event, "name"), Message),
 						slug: selectedField(column(event, "slug"), EventSchemaSlug),
 						propertiesSchema: selectedField(column(event, "propertiesSchema"), AppSchema),
 					},
@@ -95,8 +96,8 @@ export const relationshipDefinitionsRecipe = defineRecipe({
 			maxLimit: 1000,
 			orderBy: [ascending(column(relationship, "slug")), ascending(column(relationship, "id"))],
 			selection: {
+				name: selectedField(column(relationship, "name"), Message),
 				id: selectedField(column(relationship, "id"), Schema.String),
-				name: selectedField(column(relationship, "name"), Schema.String),
 				slug: selectedField(column(relationship, "slug"), RelationshipSchemaSlug),
 				propertiesSchema: selectedField(column(relationship, "propertiesSchema"), AppSchema),
 				pluginId: selectedField(column(relationship, "pluginId"), Schema.NullOr(Schema.String)),
@@ -122,8 +123,8 @@ export const activeSignalSchemasRecipe = defineRecipe({
 			where: eq(column(signal, "catalogState"), literal("active")),
 			orderBy: [ascending(column(signal, "slug")), ascending(column(signal, "id"))],
 			selection: {
+				name: selectedField(column(signal, "name"), Message),
 				id: selectedField(column(signal, "id"), Schema.String),
-				name: selectedField(column(signal, "name"), Schema.String),
 				slug: selectedField(column(signal, "slug"), SignalSchemaSlug),
 				propertiesSchema: selectedField(column(signal, "propertiesSchema"), AppSchema),
 				catalogState: selectedField(column(signal, "catalogState"), SignalCatalogState),

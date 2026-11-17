@@ -7,6 +7,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
 	ascending,
@@ -27,14 +28,14 @@ export const entityWatchRecipe = (() => {
 		fields: {
 			entityIds: {
 				type: "array",
-				label: "entityIds",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.entities"),
 				items: {
 					type: "string",
-					label: "Value",
 					validation: { required: true },
 					description: "Query argument value",
+					label: kernelMessage("recipe.parameter.value"),
 				},
 			},
 		},

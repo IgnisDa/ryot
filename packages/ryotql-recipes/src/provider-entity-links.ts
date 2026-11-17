@@ -1,5 +1,6 @@
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, type EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -28,20 +29,20 @@ export const providerEntityLinksRecipe = (input: {
 		fields: {
 			providerId: {
 				type: "string",
-				label: "providerId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.provider"),
 			},
 			externalIds: {
 				type: "array",
-				label: "externalIds",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.external-ids"),
 				items: {
 					type: "string",
-					label: "Value",
 					validation: { required: true },
 					description: "Query argument value",
+					label: kernelMessage("recipe.parameter.value"),
 				},
 			},
 		},

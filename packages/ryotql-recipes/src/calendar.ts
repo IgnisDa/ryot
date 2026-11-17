@@ -1,10 +1,16 @@
 import { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { rowsResultSchema } from "@ryot-app/contract/modules/ryotql/language";
-import { RowSourcePrecision, RowSourceQuery } from "@ryot-app/contract/modules/ryotql/row-source";
+import {
+	RowSourcePrecision,
+	RowSourceQuery,
+	RowText,
+} from "@ryot-app/contract/modules/ryotql/row-source";
 import { SavedViewSubject } from "@ryot-app/contract/modules/saved-views/schemas";
 import { CalendarSourceSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -45,25 +51,23 @@ export const calendarSourcesRecipe = defineRecipe({
 			limit: 100,
 			joins: [join("inner", plugin, eq(column(plugin, "id"), column(calendarSource, "pluginId")))],
 			orderBy: [
-				ascending(column(plugin, "name")),
-				ascending(column(calendarSource, "name")),
 				ascending(column(calendarSource, "pluginId")),
 				ascending(column(calendarSource, "slug")),
 			],
 			selection: {
-				name: selectedField(column(calendarSource, "name"), Schema.String),
+				name: selectedField(column(calendarSource, "name"), Message),
 				icon: selectedField(column(calendarSource, "icon"), Schema.String),
 				pluginId: selectedField(column(calendarSource, "pluginId"), PluginId),
 				query: selectedField(column(calendarSource, "query"), RowSourceQuery),
 				slug: selectedField(column(calendarSource, "slug"), CalendarSourceSlug),
 				startAt: selectedField(column(calendarSource, "startAt"), Schema.String),
+				pluginName: selectedField(column(plugin, "name"), Schema.NullOr(Message)),
 				subject: selectedField(column(calendarSource, "subject"), SavedViewSubject),
 				isHidden: selectedField(column(calendarSource, "isHidden"), Schema.Boolean),
-				pluginName: selectedField(column(plugin, "name"), Schema.NullOr(Schema.String)),
 				art: selectedField(column(calendarSource, "art"), Schema.NullOr(Schema.String)),
 				done: selectedField(column(calendarSource, "done"), Schema.NullOr(Schema.String)),
 				precision: selectedField(column(calendarSource, "precision"), RowSourcePrecision),
-				caption: selectedField(column(calendarSource, "caption"), Schema.NullOr(Schema.String)),
+				caption: selectedField(column(calendarSource, "caption"), Schema.NullOr(RowText)),
 			},
 		}),
 	},
@@ -94,7 +98,7 @@ export type CalendarOccurrence = {
 	readonly done: boolean;
 	readonly startAt: string;
 	readonly sourceKey: string;
-	readonly caption: null | string;
+	readonly caption: null | Message;
 	readonly art: null | AssetLocator;
 	readonly precision: RowSourcePrecision;
 	readonly subject: {
@@ -120,6 +124,22 @@ const textValue = (row: OccurrenceRow, key: string) => {
 		: Result.fail(new Error(`Calendar occurrence field '${key}' must be text`));
 };
 
+/** A caption binds each argument from its row field; a row lacking one has no caption. */
+const captionValue = (row: OccurrenceRow, caption: null | RowText): null | Message => {
+	if (caption === null) {
+		return null;
+	}
+	const params: Record<string, number | string> = {};
+	for (const [name, key] of Object.entries(caption.params)) {
+		const value = row[key];
+		if (typeof value !== "string" && (typeof value !== "number" || !Number.isFinite(value))) {
+			return null;
+		}
+		params[name] = value;
+	}
+	return { ...caption.text, params };
+};
+
 const nullableTextValue = (row: OccurrenceRow, key: string) => {
 	const value = row[key];
 	return value === null || typeof value === "string"
@@ -136,7 +156,8 @@ export const calendarOccurrencesPageRecipe = (input: { readonly source: Calendar
 	if (startAt === undefined) {
 		return Result.fail(new Error(`Calendar source '${source.slug}' does not project its start`));
 	}
-	const named = new Set([source.art, source.done, source.startAt, source.caption]);
+	const captionFields = Object.values(source.caption?.params ?? {});
+	const named = new Set([source.art, source.done, source.startAt, ...captionFields]);
 	const subject = table("entity", source.subject.entityAlias);
 	const idKey = unusedFieldKey(fields, "__calendarSubjectId");
 	const nameKey = unusedFieldKey(fields, "__calendarSubjectName");
@@ -145,15 +166,15 @@ export const calendarOccurrencesPageRecipe = (input: { readonly source: Calendar
 	const recipeParameters = parameters({
 		fields: {
 			windowEnd: {
-				label: "Window end",
 				validation: { required: true },
 				description: "Exclusive bounded scan end",
+				label: kernelMessage("recipe.parameter.window-end"),
 				type: source.precision === "date" ? "date" : "datetime",
 			},
 			windowStart: {
-				label: "Window start",
 				validation: { required: true },
 				description: "Inclusive bounded scan start",
+				label: kernelMessage("recipe.parameter.window-start"),
 				type: source.precision === "date" ? "date" : "datetime",
 			},
 		},
@@ -162,16 +183,16 @@ export const calendarOccurrencesPageRecipe = (input: { readonly source: Calendar
 		Result.gen(function* () {
 			const start = yield* textValue(row, source.startAt);
 			const subjectId = yield* textValue(row, idKey);
-			const caption = rowValue(row, source.caption);
+			const caption = captionValue(row, source.caption);
 			const art = decodeArt(rowValue(row, source.art));
 			return {
+				caption,
 				startAt: start,
 				sourceKey: source.sourceKey,
 				precision: source.precision,
 				done: rowValue(row, source.done) === true,
 				art: Result.isSuccess(art) ? art.success : null,
-				key: identityTupleKey(subjectId, start, caption),
-				caption: typeof caption === "string" ? caption : null,
+				key: identityTupleKey(subjectId, start, ...captionFields.map((key) => row[key] ?? null)),
 				subject: {
 					id: subjectId,
 					name: yield* textValue(row, nameKey),

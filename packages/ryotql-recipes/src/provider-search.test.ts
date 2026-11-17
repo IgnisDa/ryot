@@ -21,9 +21,9 @@ const pageInfo = { limit: 100, hasMore: false, nextCursor: null };
 const provider = {
 	searchOptionsSchema,
 	providerSlug: "provider",
-	providerName: "Provider",
 	providerId: "provider-1",
 	rootEntitySchemaSlug: "entry",
+	providerName: { key: "test.provider", namespace: "plugin-1" },
 };
 const recipe = bindRecipe(
 	providerSearchRecipe({
@@ -49,9 +49,9 @@ describe("provider search recipe", () => {
 		expect(
 			query.output.fields.map((selection) => ("key" in selection ? selection.key : null)),
 		).toEqual([
+			"providerName",
 			"providerId",
 			"providerSlug",
-			"providerName",
 			"rootEntitySchemaSlug",
 			"searchOptionsSchema",
 		]);

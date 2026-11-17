@@ -4,12 +4,12 @@ import {
 	evaluateIngestionReadiness,
 	IngestionReadinessMetadata,
 } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
-import {
-	PluginImportExportHelp,
-	PluginImportSource,
-} from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginImportSource } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { HttpUrl } from "@ryot-app/contract/schema/utils";
+import { Message } from "@ryot-app/i18n/message";
 import {
 	ascending,
 	column,
@@ -23,20 +23,25 @@ import {
 import { Result, Schema } from "effect";
 
 const source = table("importSource", "source");
-const exportHelp = Schema.NullOr(PluginImportExportHelp);
+const exportHelp = Schema.NullOr(
+	Schema.Struct({
+		docsUrl: Schema.optional(HttpUrl),
+		steps: Schema.optional(Schema.Array(Message)),
+	}),
+);
 
 const sourceSelection = {
+	name: selectedField(column(source, "name"), Message),
 	id: selectedField(column(source, "id"), Schema.String),
+	description: selectedField(column(source, "description"), Message),
 	exportHelp: selectedField(column(source, "exportHelp"), exportHelp),
+	inputSchema: selectedField(column(source, "inputSchema"), AppSchema),
 	plan: selectedField(column(source, "plan"), Schema.NullOr(SourcePlan)),
 	isStartable: selectedField(column(source, "isStartable"), Schema.Boolean),
 	slug: selectedField(column(source, "slug"), PluginImportSource.fields.slug),
-	name: selectedField(column(source, "name"), PluginImportSource.fields.name),
 	pluginId: selectedField(column(source, "pluginId"), Schema.NullOr(PluginId)),
 	packageId: selectedField(column(source, "packageId"), Schema.NullOr(PluginPackageId)),
 	installationId: selectedField(column(source, "installationId"), Schema.NullOr(Schema.String)),
-	inputSchema: selectedField(column(source, "inputSchema"), PluginImportSource.fields.inputSchema),
-	description: selectedField(column(source, "description"), PluginImportSource.fields.description),
 	workflowSlug: selectedField(
 		column(source, "workflowSlug"),
 		PluginImportSource.fields.workflowSlug,
@@ -86,7 +91,7 @@ export const importSourcesRecipe = defineRecipe({
 			limit: 20,
 			maxLimit: 1000,
 			selection: sourceSelection,
-			orderBy: [ascending(column(source, "name")), ascending(column(source, "id"))],
+			orderBy: [ascending(column(source, "slug")), ascending(column(source, "id"))],
 		}),
 	},
 	map: ({ sources }) =>

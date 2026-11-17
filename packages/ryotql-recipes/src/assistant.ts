@@ -18,6 +18,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -96,9 +97,9 @@ const detail = parameters({
 	fields: {
 		conversationId: {
 			type: "string",
-			label: "Conversation",
 			description: "Conversation ID",
 			validation: { required: true },
+			label: kernelMessage("recipe.parameter.conversation"),
 		},
 	},
 });

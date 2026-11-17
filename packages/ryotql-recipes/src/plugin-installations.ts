@@ -1,4 +1,5 @@
 import { PluginConfigSchema } from "@ryot-app/contract/modules/plugins/manifest";
+import { stampAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	PluginInstallationHealth,
@@ -6,6 +7,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, PluginPackageId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { Message } from "@ryot-app/i18n/message";
 import {
 	and,
 	ascending,
@@ -26,7 +28,14 @@ const plugin = table("plugin", "plugin");
 const installation = table("pluginInstallation", "installation");
 
 export const pluginInstallationsRecipe = defineRecipe({
-	map: ({ installations }) => Result.succeed(installations),
+	map: ({ installations }) =>
+		Result.succeed({
+			...installations,
+			items: installations.items.map((item) => ({
+				...item,
+				configSchema: stampAppSchema(item.pluginId, item.configSchema),
+			})),
+		}),
 	queries: {
 		installations: selectedRows(installation, {
 			limit: 20,
@@ -42,13 +51,13 @@ export const pluginInstallationsRecipe = defineRecipe({
 				ascending(column(installation, "id")),
 			],
 			selection: {
+				name: selectedField(column(plugin, "name"), Message),
 				pluginId: selectedField(column(plugin, "id"), PluginId),
 				icon: selectedField(column(plugin, "icon"), Schema.String),
-				name: selectedField(column(plugin, "name"), Schema.String),
 				version: selectedField(column(plugin, "version"), Schema.String),
+				description: selectedField(column(plugin, "description"), Message),
 				packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
 				contentHash: selectedField(column(plugin, "contentHash"), Schema.String),
-				description: selectedField(column(plugin, "description"), Schema.String),
 				installationId: selectedField(column(installation, "id"), Schema.String),
 				isHidden: selectedField(column(installation, "isHidden"), Schema.Boolean),
 				sortOrder: selectedField(column(installation, "sortOrder"), Schema.Finite),

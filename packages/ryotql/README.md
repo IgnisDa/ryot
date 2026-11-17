@@ -34,6 +34,11 @@ export const entities = defineRecipe({
 });
 ```
 
+The recipe's `document` (`RecipeDocument`) keeps its parameters' display text type, so the same
+builders serve documents users send over HTTP (`DisplayText` labels) and documents authored in
+plugin or kernel code (`AuthoredAppSchema` labels: manifest text or kernel messages); see
+[Display text](../contract/README.md#display-text).
+
 `parameters(schema)` supplies typed `value`, `list`, `whenSet`, `choice`, and `sourceEntity` handles.
 `choice` requires every static enum value; runtime validation also rejects extra cases. `value`
 accepts scalar fields and `list` accepts list fields. Source handles require a string field with
@@ -119,9 +124,11 @@ audience of a standard user.
 
 ## Execution boundary
 
-HTTP execution, sandbox host calls, and iframe bridge execution use `ExecutionRequest` from
-`modules/ryotql/request`; describe takes its source and optional arguments. SDK recipe helpers send
-static authored documents with request arguments and controls. Saved views and declared plugin queries
+HTTP execution uses `ExecutionRequest` from `modules/ryotql/request`; sandbox host calls and
+iframe bridge execution use `PluginExecutionRequest`, whose inline document is a
+`PluginRyotQLDocument` that the sandbox host or the kernel client stamps with the authoring
+namespace before it reaches HTTP or the service. Describe takes its source and optional arguments.
+SDK recipe helpers send static authored documents with request arguments and controls. Saved views and declared plugin queries
 execute by reference. Page execution sources return `source-unavailable`.
 
 The backend loads and authorizes sources, resolves controls and saved entity selections, binds
@@ -130,7 +137,7 @@ execution transaction. Import authored types when building or storing queries an
 `language` types after binding. Generic AppSchema definition validation lives in
 `contract/schema/app-schema-definition`; parameters use its explicit parameter-reference policy.
 
-`ExecutionSource.inline` may select `query` while retaining the full authored document for control
+An inline source may select `query` while retaining the full authored document for control
 resolution. Output control targets may name a rows `query`; a flat nonempty `composite.targets`
 combines browse and output targets. The backend validates actual table bindings, duplicate field keys
 and sort IDs before using a projection in another query. Describe accepts optional arguments for

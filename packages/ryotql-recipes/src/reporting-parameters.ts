@@ -13,6 +13,8 @@ import {
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	castDate,
@@ -28,7 +30,7 @@ import {
 } from "@ryot-app/ryotql";
 import { dateAdd, now, parameters, reportingTimeZone } from "@ryot-app/ryotql/authoring";
 
-const offset = (label: string, defaultValue: number) => ({
+const offset = (label: Message, defaultValue: number) => ({
 	label,
 	defaultValue,
 	type: "integer" as const,
@@ -61,57 +63,72 @@ const rangeChoices = reportingRangeChoices.map((choice) => {
 		implies: preset === undefined ? { rangeKind: choice.value } : rangeImplications(preset),
 	});
 });
-const customDate = (label: string) => ({
+const customDate = (label: Message) => ({
 	label,
 	type: "date" as const,
 	defaultValue: "1970-01-01",
 	description: "Inclusive calendar date used for a custom reporting period",
 });
 export const reportingParameterFields = {
-	customEndDate: customDate("Custom last day"),
-	customStartDate: customDate("Custom first day"),
-	startOffsetDays: offset("First day offset", -29),
-	endOffsetDays: offset("Exclusive last day offset", 1),
-	customPreviousEndDate: customDate("Comparison last day"),
-	customPreviousStartDate: customDate("Comparison first day"),
-	calendarStartOffset: offset("First calendar period offset", 0),
-	previousStartOffsetDays: offset("Comparison first day offset", -59),
-	calendarEndOffset: offset("Exclusive last calendar period offset", 1),
-	previousEndOffsetDays: offset("Comparison exclusive last day offset", -29),
-	previousCalendarStartOffset: offset("Comparison calendar period offset", -1),
-	previousCalendarEndOffset: offset("Comparison exclusive calendar period offset", 0),
+	customEndDate: customDate(kernelMessage("recipe.parameter.custom-last-day")),
+	customStartDate: customDate(kernelMessage("recipe.parameter.custom-first-day")),
+	startOffsetDays: offset(kernelMessage("recipe.parameter.first-day-offset"), -29),
+	endOffsetDays: offset(kernelMessage("recipe.parameter.exclusive-last-day-offset"), 1),
+	customPreviousEndDate: customDate(kernelMessage("recipe.parameter.comparison-last-day")),
+	customPreviousStartDate: customDate(kernelMessage("recipe.parameter.comparison-first-day")),
+	calendarStartOffset: offset(kernelMessage("recipe.parameter.first-calendar-period-offset"), 0),
+	previousStartOffsetDays: offset(
+		kernelMessage("recipe.parameter.comparison-first-day-offset"),
+		-59,
+	),
+	calendarEndOffset: offset(
+		kernelMessage("recipe.parameter.exclusive-last-calendar-period-offset"),
+		1,
+	),
+	previousEndOffsetDays: offset(
+		kernelMessage("recipe.parameter.comparison-exclusive-last-day-offset"),
+		-29,
+	),
+	previousCalendarStartOffset: offset(
+		kernelMessage("recipe.parameter.comparison-calendar-period-offset"),
+		-1,
+	),
+	previousCalendarEndOffset: offset(
+		kernelMessage("recipe.parameter.comparison-exclusive-calendar-period-offset"),
+		0,
+	),
 	consistency: {
 		type: "boolean",
 		defaultValue: false,
-		label: "Daily consistency",
+		label: kernelMessage("recipe.parameter.daily-consistency"),
 		description:
 			"Read at most the latest reporting bucket limit of civil days within the selected period, without comparison",
 	},
 	range: {
 		type: "enum",
-		label: "Period",
 		defaultValue: "rolling-30",
+		label: kernelMessage("recipe.parameter.period"),
 		choices: { kind: "static", values: rangeChoices },
 		description: "Reporting period, resolved with the server clock and account time zone",
 	},
 	comparison: {
 		type: "enum",
-		label: "Comparison",
 		defaultValue: "none",
+		label: kernelMessage("recipe.parameter.comparison"),
 		description: "Include the preceding reporting period when requested",
 		choices: { kind: "static", values: [{ value: "none" }, { value: "previous-period" }] },
 	},
 	comparisonSide: {
 		type: "enum",
 		defaultValue: "current",
-		label: "Comparison period",
+		label: kernelMessage("recipe.parameter.comparison-period"),
 		description: "Read the selected period or its preceding comparison period",
 		choices: { kind: "static", values: [{ value: "current" }, { value: "previous" }] },
 	},
 	grouping: {
 		type: "enum",
-		label: "Grouping",
 		defaultValue: "day",
+		label: kernelMessage("recipe.parameter.grouping"),
 		description: "Calendar unit used to group observations",
 		choices: {
 			kind: "static",
@@ -126,8 +143,8 @@ export const reportingParameterFields = {
 	},
 	rangeKind: {
 		type: "enum",
-		label: "Period kind",
 		defaultValue: "rolling",
+		label: kernelMessage("recipe.parameter.period-kind"),
 		description: "Reporting period kind implied by the selected range; supplied values are ignored",
 		choices: {
 			kind: "static",

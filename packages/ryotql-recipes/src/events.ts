@@ -7,6 +7,7 @@ import {
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	column,
@@ -36,8 +37,16 @@ export const eventHistoryRecipe = (input: {
 }) => {
 	const recipeParameters = parameters({
 		fields: {
-			entityId: { type: "string", label: "entityId", description: "Query argument" },
-			sessionEntityId: { type: "string", label: "sessionEntityId", description: "Query argument" },
+			entityId: {
+				type: "string",
+				description: "Query argument",
+				label: kernelMessage("recipe.parameter.entity"),
+			},
+			sessionEntityId: {
+				type: "string",
+				description: "Query argument",
+				label: kernelMessage("recipe.parameter.session"),
+			},
 		},
 	});
 

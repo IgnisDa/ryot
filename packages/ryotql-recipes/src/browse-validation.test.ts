@@ -6,18 +6,20 @@ import { castNumber, castText, column, jsonPath, literal, table } from "@ryot-ap
 
 import { browseConsistencyIssue, browseIssue } from "./browse-validation";
 
+const text = (key: string) => ({ namespace: "test", key: `test.${key}` });
+
 const subject = table("entity", "subject");
 const rating: BrowseField = {
 	key: "rating",
 	kind: "value",
 	type: "number",
-	label: "Rating",
+	label: text("rating"),
 	expression: castNumber(jsonPath(column(subject, "properties"), "rating")),
 	sort: {
-		label: "Rating",
+		label: text("rating"),
 		defaultDirection: "desc",
-		ascending: "Lowest rated",
-		descending: "Highest rated",
+		ascending: text("lowest-rated"),
+		descending: text("highest-rated"),
 	},
 };
 
@@ -28,7 +30,12 @@ const sorted = (expression: ScalarExpression): { readonly browse: EntitySchemaBr
 				expression,
 				key: "added",
 				kind: "sort",
-				sort: { label: "Added", ascending: "Old", descending: "New", defaultDirection: "desc" },
+				sort: {
+					label: text("added"),
+					ascending: text("old"),
+					descending: text("new"),
+					defaultDirection: "desc",
+				},
 			},
 		],
 	},
@@ -43,7 +50,12 @@ it("accepts read-only expressions whose kind matches the declared type", () => {
 			kind: "sort",
 			key: "named",
 			expression: column(subject, "name"),
-			sort: { label: "Name", ascending: "A-Z", descending: "Z-A", defaultDirection: "asc" },
+			sort: {
+				label: text("name"),
+				ascending: text("a-z"),
+				descending: text("z-a"),
+				defaultDirection: "asc",
+			},
 		}),
 	).toBeUndefined();
 });
@@ -73,12 +85,12 @@ it("rejects duplicate choices and sorted list fields", () => {
 		issue({
 			key: "tags",
 			kind: "value",
-			label: "Tags",
 			type: "enum-list",
+			label: text("tags"),
 			expression: jsonPath(column(subject, "properties"), "tags"),
 			choices: [
-				{ value: "a", label: "A" },
-				{ value: "a", label: "B" },
+				{ value: "a", label: text("a") },
+				{ value: "a", label: text("b") },
 			],
 		}),
 	).toBe("browse field 'tags' choices must be unique");
@@ -86,10 +98,15 @@ it("rejects duplicate choices and sorted list fields", () => {
 		issue({
 			key: "tags",
 			kind: "value",
-			label: "Tags",
 			type: "text-list",
+			label: text("tags"),
 			expression: jsonPath(column(subject, "properties"), "tags"),
-			sort: { label: "Tags", ascending: "A", descending: "Z", defaultDirection: "desc" },
+			sort: {
+				label: text("tags"),
+				ascending: text("a"),
+				descending: text("z"),
+				defaultDirection: "desc",
+			},
 		}),
 	).toBe("browse field 'tags' of type text-list cannot be sorted");
 });
@@ -98,7 +115,7 @@ it("requires a key shared across entity schemas to keep its kind and type", () =
 	expect(
 		browseConsistencyIssue([
 			{ slug: "movie", browse: { fields: [rating] } },
-			{ slug: "show", browse: { fields: [{ ...rating, label: "Score" }] } },
+			{ slug: "show", browse: { fields: [{ ...rating, label: text("score") }] } },
 			{ slug: "person" },
 		]),
 	).toBeUndefined();
@@ -113,7 +130,7 @@ it("requires a key shared across entity schemas to keep its kind and type", () =
 							key: "rating",
 							kind: "value",
 							type: "boolean",
-							label: "Rating",
+							label: text("rating"),
 							expression: literal(true),
 						},
 					],
@@ -152,7 +169,7 @@ it("rejects caller placeholders in standalone browse declarations", () => {
 		expect(
 			browseIssue({
 				fields: [
-					{ expression, type: "text", kind: "value", key: "standalone", label: "Standalone" },
+					{ expression, type: "text", kind: "value", key: "standalone", label: text("standalone") },
 				],
 			}),
 		).toBeDefined();

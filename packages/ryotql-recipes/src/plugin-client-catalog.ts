@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { Message, stampNamespace } from "@ryot-app/i18n/message";
 import {
 	and,
 	ascending,
@@ -29,7 +30,17 @@ const installation = table("pluginInstallation", "installation");
 
 export const pluginClientCatalogRecipe = (() => {
 	return defineRecipe({
-		map: ({ installations }) => Result.succeed(installations),
+		map: ({ installations }) =>
+			Result.succeed({
+				...installations,
+				items: installations.items.map((item) => ({
+					...item,
+					assistantStarters:
+						item.assistantStarters === null
+							? null
+							: item.assistantStarters.map((starter) => stampNamespace(item.pluginId, starter)),
+				})),
+			}),
 		queries: {
 			installations: selectedRows(installation, {
 				limit: 100,
@@ -45,8 +56,8 @@ export const pluginClientCatalogRecipe = (() => {
 					ascending(column(installation, "id")),
 				],
 				selection: {
+					name: selectedField(column(plugin, "name"), Message),
 					pluginId: selectedField(column(plugin, "id"), PluginId),
-					name: selectedField(column(plugin, "name"), Schema.String),
 					icon: selectedField(column(plugin, "icon"), Schema.String),
 					packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
 					contentHash: selectedField(column(plugin, "contentHash"), Schema.String),

@@ -9,7 +9,6 @@ const entry = {
 	sortOrder: 0,
 	icon: "puzzle",
 	scope: "system",
-	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
@@ -18,9 +17,15 @@ const entry = {
 	packageId: "ryot/other",
 	contentHash: "source-hash",
 	installationId: "installation-1",
-	assistantStarters: ["Summarize my items"],
+	assistantStarters: [{ key: "assistant.summarize" }],
+	name: { key: "test.fixture", namespace: "plugin-1" },
 	clientEntities: { item: { createRoute: "/items/new" } },
 };
+
+const stamped = <Row extends typeof entry>(row: Row) => ({
+	...row,
+	assistantStarters: [{ namespace: "plugin-1", key: "assistant.summarize" }],
+});
 
 const response = {
 	data: { installations: rowsResult([entry], { limit: 100, hasMore: false, nextCursor: null }) },
@@ -57,13 +62,10 @@ describe("plugin client catalog recipe", () => {
 		]);
 	});
 
-	it("decodes installations with their public client availability", () => {
+	it("decodes installations and stamps assistant starters with the plugin namespace", () => {
 		expect(
 			Result.getOrThrow(bindRecipe(pluginClientCatalogRecipe, {}).decode(response)),
-		).toEqual<unknown>({
-			items: response.data.installations.items,
-			pageInfo: response.data.installations.pageInfo,
-		});
+		).toEqual<unknown>({ items: [stamped(entry)], pageInfo: response.data.installations.pageInfo });
 	});
 
 	it("retains hidden and incompatible installations", () => {
@@ -79,7 +81,10 @@ describe("plugin client catalog recipe", () => {
 			},
 		});
 
-		expect(Result.getOrThrow(decoded).items).toEqual<unknown>([hidden, incompatible]);
+		expect(Result.getOrThrow(decoded).items).toEqual<unknown>([
+			stamped(hidden),
+			stamped(incompatible),
+		]);
 	});
 
 	it("rejects an unknown installation health", () => {

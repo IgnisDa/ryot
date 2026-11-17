@@ -3,6 +3,7 @@ import {
 	PluginId,
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	ascending,
 	column,
@@ -55,10 +56,10 @@ export const notificationSubscriptionRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
 			id: {
-				label: "id",
 				type: "string",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.id"),
 			},
 		},
 	});

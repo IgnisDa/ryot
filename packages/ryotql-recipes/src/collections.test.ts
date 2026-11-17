@@ -9,6 +9,7 @@ import {
 	collectionMembersCountRecipe,
 	collectionMembersRecipe,
 	collectionPickerRecipe,
+	collectionPluginPagesRecipe,
 } from "./collections";
 import { bindRecipe, rowsResponse } from "./test-utils";
 
@@ -18,9 +19,10 @@ const member = {
 	properties: {},
 	entityId: "one",
 	orderRevision: 4,
+	typeLabelKey: null,
 	ownerPluginId: null,
-	ownerPluginName: null,
 	"member-type": "/item",
+	typeLabelNamespace: null,
 	entitySchemaSlug: "item",
 	__entityPresentation: null,
 	addedAt: "2026-01-01T00:00:00Z",
@@ -123,5 +125,27 @@ describe("collection request binding", () => {
 		const second = bindRecipe(collectionPickerRecipe, { search: "other" });
 		expect(first.document).not.toEqual(second.document);
 		expect(JSON.stringify(collectionPickerRecipe.document)).not.toContain("needle");
+	});
+});
+
+it("stamps collection page labels with the declaring plugin's namespace", () => {
+	const page = {
+		icon: "film",
+		entitySchemaSlugs: ["movie"],
+		route: "/collections/$collectionId/related",
+		label: { key: "collection-page.related.label" },
+	};
+	const decoded = Result.getOrThrow(
+		bindRecipe(collectionPluginPagesRecipe, { pluginIds: ["plugin-1"] }).decode(
+			rowsResponse(
+				"plugins",
+				[{ pluginId: "plugin-1", packageId: "ryot/media", pages: { related: page } }],
+				{ limit: 100, hasMore: false, nextCursor: null },
+			),
+		),
+	);
+	expect(decoded[0]?.pages["related"]?.label).toEqual({
+		namespace: "plugin-1",
+		key: "collection-page.related.label",
 	});
 });

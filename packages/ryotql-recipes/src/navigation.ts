@@ -1,5 +1,6 @@
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { DisplayText } from "@ryot-app/i18n/message";
 import {
 	ascending,
 	column,
@@ -48,8 +49,8 @@ export const navigationRecipe = defineRecipe({
 				ascending(column(savedView, "slug")),
 			],
 			selection: {
+				name: selectedField(column(savedView, "name"), DisplayText),
 				slug: selectedField(column(savedView, "slug"), Schema.String),
-				name: selectedField(column(savedView, "name"), Schema.String),
 				icon: selectedField(column(savedView, "icon"), Schema.String),
 				isHidden: selectedField(column(savedView, "isHidden"), Schema.Boolean),
 				sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Finite),

@@ -35,15 +35,18 @@ const source: CalendarSource = {
 	art: "art",
 	icon: "box",
 	done: "done",
-	name: "Tasks",
 	isHidden: false,
 	pluginId: owner,
 	precision: "date",
-	caption: "caption",
 	startAt: "startsAt",
-	pluginName: "Workspace",
 	slug: CalendarSourceSlug.make("tasks"),
 	sourceKey: JSON.stringify(["plugin-1", "tasks"]),
+	pluginName: { namespace: owner, key: "plugin.name" },
+	name: { namespace: owner, key: "calendar-source.tasks.name" },
+	caption: {
+		params: { label: "caption" },
+		text: { namespace: owner, key: "calendar-source.tasks.caption" },
+	},
 	subject: {
 		entityAlias: "record",
 		schemas: [
@@ -112,8 +115,6 @@ describe("calendar recipes", () => {
 			joins: [{ type: "inner", table: { table: "plugin" } }],
 		});
 		expect(query.output.orderBy.map(({ expr }) => expr)).toEqual<unknown>([
-			{ field: "name", type: "column", tableAlias: "calendarSourcePlugin" },
-			{ field: "name", type: "column", tableAlias: "calendarSource" },
 			{ type: "column", field: "pluginId", tableAlias: "calendarSource" },
 			{ field: "slug", type: "column", tableAlias: "calendarSource" },
 		]);
@@ -197,12 +198,16 @@ describe("calendar recipes", () => {
 			{
 				done: true,
 				precision: "date",
-				caption: "Step 2",
 				startAt: row.startsAt,
 				sourceKey: source.sourceKey,
 				art: { type: "local", key: "records/one.webp" },
 				key: JSON.stringify(["record-1", row.startsAt, "Step 2"]),
 				subject: { name: "Alpha", id: "record-1", owner: "plugin-1", schemaSlug: "record" },
+				caption: {
+					namespace: owner,
+					params: { label: "Step 2" },
+					key: "calendar-source.tasks.caption",
+				},
 			},
 			{
 				art: null,

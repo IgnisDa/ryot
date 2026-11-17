@@ -4,9 +4,13 @@ import {
 	definitionOwner,
 	ownerIdentityReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { TableReference } from "@ryot-app/contract/modules/ryotql/authored";
+import type {
+	OutputControlField,
+	TableReference,
+} from "@ryot-app/contract/modules/ryotql/authored";
 import type { RowsPageInfo } from "@ryot-app/contract/modules/ryotql/language";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -48,14 +52,28 @@ export type BrowseSchema = {
 	readonly browse: null | EntitySchemaBrowse;
 };
 
-export const nameSortTarget = (entity: TableReference): SortTarget => ({
-	label: "Name",
-	ascending: "A–Z",
-	descending: "Z–A",
-	key: NAME_SORT_KEY,
+const nameSort = {
 	defaultDirection: "asc",
+	label: kernelMessage("recipe.browse.name"),
+	ascending: kernelMessage("recipe.browse.a-to-z"),
+	descending: kernelMessage("recipe.browse.z-to-a"),
+} as const satisfies BrowseSort;
+
+export const nameSortTarget = (entity: TableReference): SortTarget => ({
+	...nameSort,
+	key: NAME_SORT_KEY,
 	branches: [{ value: column(entity, "name") }],
 });
+
+/** A query's `name` output as a text field sorted A–Z by default. */
+export const nameOutputField: OutputControlField = {
+	type: "text",
+	kind: "value",
+	field: "name",
+	sort: nameSort,
+	key: NAME_SORT_KEY,
+	label: nameSort.label,
+};
 
 const schemaOwner = (schema: BrowseSchema) =>
 	ownerIdentityReference(definitionOwner(schema.pluginId));

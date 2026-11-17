@@ -26,6 +26,7 @@ import {
 	type SavedViewSubject,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { DisplayText } from "@ryot-app/i18n/message";
 import { entitySchemaPredicate, or } from "@ryot-app/ryotql";
 import { DateTime, Option, Result, Schema } from "effect";
 
@@ -101,14 +102,14 @@ export const EntityBrowserResultItem = Schema.Struct({
 	ownerPluginId: Schema.NullOr(Schema.String),
 	presentation: Schema.NullOr(EntityPresentationPayload),
 	cells: Schema.Array(
-		Schema.Struct({ key: Schema.String, label: Schema.String, value: SavedViewDisplayValue }),
+		Schema.Struct({ key: Schema.String, label: DisplayText, value: SavedViewDisplayValue }),
 	),
 });
 export type EntityBrowserResultItem = typeof EntityBrowserResultItem.Type;
 
 export type EntityBrowserResult = SavedViewResult<EntityBrowserResultItem>;
 
-export const SavedViewPageIdentity = Schema.Struct({ icon: Schema.String, name: Schema.String });
+export const SavedViewPageIdentity = Schema.Struct({ name: DisplayText, icon: Schema.String });
 export const EntityBrowserPageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
 	target: SavedViewClientPageTarget,
@@ -158,7 +159,7 @@ export type ResultsTableResultItem = {
 	readonly entityId: string | undefined;
 	readonly cells: readonly {
 		readonly key: string;
-		readonly label: string;
+		readonly label: DisplayText;
 		readonly value: SavedViewDisplayValue;
 	}[];
 };

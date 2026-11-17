@@ -4,6 +4,7 @@ import {
 } from "@ryot-app/contract/modules/instance-admin/migration-report";
 import { UserLifecycleOperation } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	ascending,
 	column,
@@ -35,7 +36,13 @@ const operation = table("userLifecycleOperation", "operation");
 
 export const instanceAdminUsersRecipe = (() => {
 	const recipeParameters = parameters({
-		fields: { search: { type: "string", label: "search", description: "Query search" } },
+		fields: {
+			search: {
+				type: "string",
+				description: "Query search",
+				label: kernelMessage("recipe.parameter.search"),
+			},
+		},
 	});
 
 	const where = recipeParameters.whenSet(
@@ -116,10 +123,10 @@ export const userLifecycleOperationRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
 			id: {
-				label: "id",
 				type: "string",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.id"),
 			},
 		},
 	});

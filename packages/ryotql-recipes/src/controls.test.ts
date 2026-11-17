@@ -5,6 +5,8 @@ import { Result } from "effect";
 
 import { type ControlSchema, resolveControl } from "./controls";
 
+const text = (key: string) => ({ namespace: "test", key: `test.${key}` });
+
 const schema: ControlSchema = {
 	slug: "root",
 	pluginId: null,
@@ -17,7 +19,7 @@ const schema: ControlSchema = {
 				key: "label",
 				type: "text",
 				kind: "value",
-				label: "Label",
+				label: text("label"),
 				expression: { field: "name", type: "column", tableAlias: "subject" },
 			},
 		],

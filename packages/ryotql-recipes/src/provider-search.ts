@@ -4,6 +4,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { Message } from "@ryot-app/i18n/message";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
@@ -30,11 +31,7 @@ export const providerSearchRecipe = (input: { readonly schema: EntitySchemaRefer
 		queries: {
 			providers: selectedRows(provider, {
 				limit: 100,
-				orderBy: [
-					ascending(column(provider, "name")),
-					ascending(column(provider, "slug")),
-					ascending(column(provider, "id")),
-				],
+				orderBy: [ascending(column(provider, "slug")), ascending(column(provider, "id"))],
 				joins: [
 					join("inner", operation, eq(column(provider, "id"), column(operation, "providerId"))),
 					join("inner", plugin, eq(column(provider, "pluginId"), column(plugin, "id"))),
@@ -46,9 +43,9 @@ export const providerSearchRecipe = (input: { readonly schema: EntitySchemaRefer
 					eq(column(plugin, "status"), literal("active")),
 				),
 				selection: {
+					providerName: selectedField(column(provider, "name"), Message),
 					providerId: selectedField(column(provider, "id"), SandboxProviderId),
 					providerSlug: selectedField(column(provider, "slug"), Schema.String),
-					providerName: selectedField(column(provider, "name"), Schema.String),
 					rootEntitySchemaSlug: selectedField(
 						column(provider, "rootEntitySchemaSlug"),
 						EntitySchemaSlug,

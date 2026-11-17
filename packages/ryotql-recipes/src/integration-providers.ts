@@ -9,6 +9,7 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { Message } from "@ryot-app/i18n/message";
 import {
 	ascending,
 	column,
@@ -33,12 +34,12 @@ const readinessConnections = Schema.Array(
 );
 
 const providerSelection = {
+	name: selectedField(column(provider, "name"), Message),
 	id: selectedField(column(provider, "id"), Schema.String),
 	slug: selectedField(column(provider, "slug"), Schema.String),
-	name: selectedField(column(provider, "name"), Schema.String),
+	description: selectedField(column(provider, "description"), Message),
 	hasScript: selectedField(column(provider, "hasScript"), Schema.Boolean),
 	plan: selectedField(column(provider, "plan"), Schema.NullOr(SourcePlan)),
-	description: selectedField(column(provider, "description"), Schema.String),
 	settingsSchema: selectedField(column(provider, "settingsSchema"), AppSchema),
 	pluginId: selectedField(column(provider, "pluginId"), Schema.NullOr(PluginId)),
 	lot: selectedField(column(provider, "lot"), Schema.Literals([...integrationLots])),
@@ -104,7 +105,7 @@ export const integrationProvidersRecipe = defineRecipe({
 			limit: 20,
 			maxLimit: 1000,
 			selection: providerSelection,
-			orderBy: [ascending(column(provider, "name")), ascending(column(provider, "id"))],
+			orderBy: [ascending(column(provider, "slug")), ascending(column(provider, "id"))],
 		}),
 	},
 	map: ({ providers }) =>

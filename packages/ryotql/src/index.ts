@@ -817,15 +817,25 @@ export const selectedInclude = <
 	};
 };
 
+/**
+ * A recipe document keeps its parameters' text type: kernel recipes carry stamped messages, and
+ * plugin recipes carry manifest text that the receiving side stamps with the plugin namespace.
+ */
+export type RecipeDocument<Parameters extends AppSchema<unknown>> = {
+	readonly parameters?: Parameters;
+	readonly queries: RyotQLDocument["queries"];
+	readonly controls?: RyotQLDocument["controls"];
+};
+
 export type Recipe<
 	Success,
-	Parameters extends AppSchema = { readonly fields: {} },
+	Parameters extends AppSchema<unknown> = { readonly fields: {} },
 	Queries extends RecipeQueries = RecipeQueries,
 > = {
 	readonly query?: string;
 	readonly queries: Queries;
 	readonly parameters: Parameters;
-	readonly document: RyotQLDocument;
+	readonly document: RecipeDocument<Parameters>;
 	readonly decode: (response: unknown) => Result.Result<Success, unknown>;
 };
 
@@ -869,14 +879,18 @@ const decodeNamedQuery = (
 type SelectedQuerySuccess<Query> = Query extends SelectedQuery<infer Success> ? Success : never;
 export function selectRecipe<
 	Success,
-	Parameters extends AppSchema,
+	Parameters extends AppSchema<unknown>,
 	Queries extends RecipeQueries,
 	Name extends string & keyof Queries,
 >(
 	recipe: Recipe<Success, Parameters, Queries>,
 	name: Name,
 ): { readonly query: Name } & Recipe<SelectedQuerySuccess<Queries[Name]>, Parameters, Queries>;
-export function selectRecipe<Success, Parameters extends AppSchema, Queries extends RecipeQueries>(
+export function selectRecipe<
+	Success,
+	Parameters extends AppSchema<unknown>,
+	Queries extends RecipeQueries,
+>(
 	recipe: Recipe<Success, Parameters, Queries>,
 	name: string & keyof Queries,
 ): Recipe<unknown, Parameters, Queries> {
@@ -893,7 +907,7 @@ export function selectRecipe<Success, Parameters extends AppSchema, Queries exte
 
 export function defineRecipe<
 	const Queries extends RecipeQueries,
-	const Parameters extends AppSchema = { readonly fields: {} },
+	const Parameters extends AppSchema<unknown> = { readonly fields: {} },
 >(input: {
 	readonly map?: never;
 	readonly queries: Queries;
@@ -903,7 +917,7 @@ export function defineRecipe<
 export function defineRecipe<
 	const Queries extends RecipeQueries,
 	Success,
-	const Parameters extends AppSchema = { readonly fields: {} },
+	const Parameters extends AppSchema<unknown> = { readonly fields: {} },
 >(input: {
 	readonly queries: Queries;
 	readonly controls?: Controls;
@@ -913,9 +927,9 @@ export function defineRecipe<
 export function defineRecipe<const Queries extends RecipeQueries>(input: {
 	readonly queries: Queries;
 	readonly controls?: Controls;
-	readonly parameters?: AppSchema;
+	readonly parameters?: AppSchema<unknown>;
 	readonly map?: (queries: QueryResults<Queries>) => Result.Result<unknown, unknown>;
-}): Recipe<unknown, AppSchema, Queries> {
+}): Recipe<unknown, AppSchema<unknown>, Queries> {
 	const { map, queries, controls, parameters = { fields: {} } } = input;
 	return {
 		queries,
@@ -1007,10 +1021,10 @@ type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
 
 type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, infer _I> ? A : never;
 
-type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = { readonly measures: Measures; readonly groupBy?: undefined } & Omit<
-	Parameters<typeof aggregate>[1],
-	"groupBy" | "measures"
->;
+type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = Omit<Parameters<typeof aggregate>[1], "groupBy" | "measures"> & {
+	readonly measures: Measures;
+	readonly groupBy?: undefined;
+};
 
 type SelectedAggregateInput<
 	GroupBy extends SelectedSelection,

@@ -1,5 +1,6 @@
 import { ReviewProperties } from "@ryot-app/contract/modules/events/review";
 import { EntityId, EventId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	column,
@@ -23,9 +24,9 @@ export const collectionReviewsRecipe = (() => {
 		fields: {
 			collectionId: {
 				type: "string",
-				label: "collectionId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.collection"),
 			},
 		},
 	});

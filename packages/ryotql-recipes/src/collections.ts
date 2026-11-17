@@ -30,6 +30,8 @@ import {
 	type AppSchema as AppSchemaValue,
 	getOrderedAppSchemaFieldEntries,
 } from "@ryot-app/contract/schema/property-schema";
+import { type DisplayText, stampNamespace } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
@@ -66,7 +68,12 @@ import {
 import { filter, parameters, sort } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
-import { type BrowseSchema, ENTITY_IDS_PAGE_SIZE, type EntityIdsResult } from "./browse";
+import {
+	type BrowseSchema,
+	ENTITY_IDS_PAGE_SIZE,
+	type EntityIdsResult,
+	nameOutputField,
+} from "./browse";
 import { propertyFilterFields } from "./property-filter-fields";
 
 const MembershipProperties = Schema.Record(Schema.String, JsonValue);
@@ -75,22 +82,50 @@ const collectionMembershipTables = () => {
 	const membership = table("relationship", "collectionMembership");
 	const entity = table("entity", "collectionMember");
 	const ownerPlugin = table("plugin", "collectionMemberOwnerPlugin");
+	const memberSchema = table("entitySchema", "collectionMemberSchema");
 	return {
 		entity,
 		membership,
 		ownerPlugin,
+		memberSchema,
 		entityJoin: join(
 			"inner",
 			entity,
 			eq(column(membership, "sourceEntityId"), column(entity, "id")),
+		),
+		/** Cursor-paged groupings need scalar values; schema names carry no parameters, so these rebuild it. */
+		typeLabelKey: selectedField(
+			castText(jsonPath(column(memberSchema, "name"), "key")),
+			Schema.NullOr(Schema.String),
 		),
 		ownerPluginJoin: join(
 			"left",
 			ownerPlugin,
 			eq(column(entity, "entitySchemaPluginId"), column(ownerPlugin, "id")),
 		),
+		typeLabelNamespace: selectedField(
+			castText(jsonPath(column(memberSchema, "name"), "namespace")),
+			Schema.NullOr(Schema.String),
+		),
+		memberSchemaJoin: join(
+			"left",
+			memberSchema,
+			and(
+				eq(column(memberSchema, "slug"), column(entity, "entitySchemaSlug")),
+				eq(
+					coalesce(column(memberSchema, "pluginId"), literal("")),
+					coalesce(column(entity, "entitySchemaPluginId"), literal("")),
+				),
+			),
+		),
 	};
 };
+
+/** The member type filter value: the stable owner and schema identity, never rendered text. */
+export const collectionMemberTypeValue = (input: {
+	readonly entitySchemaSlug: string;
+	readonly ownerPluginId: null | string;
+}) => `${input.ownerPluginId ?? ""}/${input.entitySchemaSlug}`;
 
 const membershipFieldPrefix = "membership.";
 export type CollectionMemberFields = {
@@ -113,18 +148,15 @@ export const collectionControlFields = (schema: null | AppSchemaValue) =>
 					: result.success.map((field) => Object.assign({}, field, { key }));
 			});
 
+/** The member's served entity schema name, or its slug when the schema is no longer readable. */
 const collectionTypeLabel = (input: {
 	readonly entitySchemaSlug: string;
-	readonly ownerPluginId: null | string;
-	readonly ownerPluginName: null | string;
-}) => {
-	if (input.ownerPluginId === null && input.entitySchemaSlug === "collection") {
-		return "Collections";
-	}
-	return input.ownerPluginName === null
+	readonly typeLabelKey: null | string;
+	readonly typeLabelNamespace: null | string;
+}): DisplayText =>
+	input.typeLabelKey === null || input.typeLabelNamespace === null
 		? input.entitySchemaSlug
-		: `${input.ownerPluginName} / ${input.entitySchemaSlug}`;
-};
+		: { key: input.typeLabelKey, namespace: input.typeLabelNamespace };
 
 const displayKindForMembershipField = (
 	field: AppPropertyDefinition,
@@ -165,8 +197,22 @@ const collectionMemberColumnDescriptors = (
 		return key;
 	};
 	return [
-		{ source: "name", column: { label: "Name", displayKind: "text", field: fixedKey("name") } },
-		{ source: "type", column: { label: "Type", displayKind: "text", field: fixedKey("type") } },
+		{
+			source: "name",
+			column: {
+				displayKind: "text",
+				field: fixedKey("name"),
+				label: kernelMessage("recipe.collections.name"),
+			},
+		},
+		{
+			source: "type",
+			column: {
+				displayKind: "text",
+				field: fixedKey("type"),
+				label: kernelMessage("recipe.collections.type"),
+			},
+		},
 		...fields.map(([field, definition]) => ({
 			source: { property: field },
 			column: {
@@ -199,8 +245,8 @@ const collectionMemberCells = (
 	member: {
 		readonly name: string;
 		readonly entitySchemaSlug: string;
-		readonly ownerPluginId: null | string;
-		readonly ownerPluginName: null | string;
+		readonly typeLabelKey: null | string;
+		readonly typeLabelNamespace: null | string;
 		readonly properties: Readonly<Record<string, JsonValue>>;
 	},
 	membershipPropertiesSchema: null | AppSchemaValue,
@@ -251,9 +297,9 @@ export const collectionMembershipTargetRecipe = (() => {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "entityId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.entity"),
 			},
 		},
 	});
@@ -275,8 +321,17 @@ export const collectionMembershipTargetRecipe = (() => {
 export const collectionPickerRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
-			entityId: { type: "string", label: "entityId", description: "Query entityId" },
-			search: { type: "string", label: "search", defaultValue: "", description: "Query search" },
+			entityId: {
+				type: "string",
+				description: "Query entityId",
+				label: kernelMessage("recipe.parameter.entity"),
+			},
+			search: {
+				type: "string",
+				defaultValue: "",
+				description: "Query search",
+				label: kernelMessage("recipe.parameter.search"),
+			},
 		},
 	});
 
@@ -352,9 +407,9 @@ export const collectionHeaderRecipe = (() => {
 		fields: {
 			collectionId: {
 				type: "string",
-				label: "collectionId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.collection"),
 			},
 		},
 	});
@@ -399,15 +454,15 @@ export const collectionMembershipRecipe = (() => {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "entityId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.entity"),
 			},
 			collectionId: {
 				type: "string",
-				label: "collectionId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.collection"),
 			},
 		},
 	});
@@ -443,25 +498,30 @@ export type CollectionMembershipResult = Recipe.Success<typeof collectionMembers
 const collectionRecipe = (input?: CollectionMemberFields) => {
 	const recipeParameters = parameters({
 		fields: {
-			searchText: { type: "string", label: "Search", description: "Member name contains" },
+			searchText: {
+				type: "string",
+				description: "Member name contains",
+				label: kernelMessage("recipe.parameter.search"),
+			},
 			source: {
 				type: "string",
-				label: "Source",
 				validation: { required: true },
 				reference: { kind: "entity-source" },
+				label: kernelMessage("recipe.parameter.source"),
 				description: "Encoded collection entity source",
 			},
 			collectionId: {
 				type: "string",
-				label: "Collection",
 				validation: { required: true },
 				reference: { kind: "entity-id" },
 				description: "Stored collection selection",
+				label: kernelMessage("recipe.parameter.collection"),
 			},
 		},
 	});
 	const source = recipeParameters.sourceEntity("source", "collectionSource");
-	const { entity, membership, ownerPlugin, ownerPluginJoin } = collectionMembershipTables();
+	const { entity, membership, typeLabelKey, memberSchemaJoin, typeLabelNamespace } =
+		collectionMembershipTables();
 	const collection = table("entity", "collectionOrder");
 	const joins = [
 		join("inner", entity, eq(column(source, "entityId"), column(entity, "id"))),
@@ -474,7 +534,7 @@ const collectionRecipe = (input?: CollectionMemberFields) => {
 				relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
 			),
 		),
-		ownerPluginJoin,
+		memberSchemaJoin,
 	];
 	const where = and(
 		recipeParameters.whenSet(
@@ -502,17 +562,17 @@ const collectionRecipe = (input?: CollectionMemberFields) => {
 		kind: "value",
 		field: "addedAt",
 		key: "date-added",
-		label: "Date added",
+		label: kernelMessage("recipe.collections.date-added"),
 		sort: {
 			defaultDirection: "desc",
-			ascending: "Oldest first",
-			descending: "Newest first",
-			label: "Date added to collection",
+			ascending: kernelMessage("recipe.collections.oldest-first"),
+			descending: kernelMessage("recipe.collections.newest-first"),
+			label: kernelMessage("recipe.collections.date-added-to-collection"),
 		},
 	};
 	const [memberType, ...otherMemberTypes] = (input?.groups.items ?? []).map((group) => ({
 		label: group.typeLabel,
-		value: `${group.ownerPluginId ?? ""}/${group.entitySchemaSlug}`,
+		value: collectionMemberTypeValue(group),
 	}));
 	const outputFields: readonly OutputControlField[] = [
 		...(memberType === undefined
@@ -521,10 +581,10 @@ const collectionRecipe = (input?: CollectionMemberFields) => {
 					{
 						type: "enum",
 						kind: "value",
-						label: "Type",
 						key: "member-type",
 						field: "member-type",
 						choices: [memberType, ...otherMemberTypes],
+						label: kernelMessage("recipe.collections.type"),
 					} as const,
 				]),
 		addedAtField,
@@ -548,20 +608,7 @@ const collectionRecipe = (input?: CollectionMemberFields) => {
 	const sortOutputs = { kind: "outputs", query: "members", fields: [addedAtField] } as const;
 	const sortTarget: NonNullable<Controls["sort"]> =
 		schema === undefined
-			? {
-					...sortOutputs,
-					fields: [
-						{
-							key: "name",
-							type: "text",
-							kind: "value",
-							field: "name",
-							label: "Name",
-							sort: { label: "Name", ascending: "A–Z", descending: "Z–A", defaultDirection: "asc" },
-						},
-						addedAtField,
-					],
-				}
+			? { ...sortOutputs, fields: [nameOutputField, addedAtField] }
 			: {
 					kind: "composite",
 					targets: [
@@ -579,6 +626,8 @@ const collectionRecipe = (input?: CollectionMemberFields) => {
 		orderBy: sort([ascending(column(source, "rank")), ascending(column(entity, "id"))]),
 		selection: {
 			...projectedProperties,
+			typeLabelKey,
+			typeLabelNamespace,
 			entityId: selectedField(column(entity, "id"), EntityId),
 			name: selectedField(column(entity, "name"), Schema.String),
 			addedAt: selectedField(column(membership, "createdAt"), Schema.String),
@@ -586,7 +635,6 @@ const collectionRecipe = (input?: CollectionMemberFields) => {
 			entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
 			populationStatus: selectedField(column(entity, "populationStatus"), EnrichmentState),
 			translationStatus: selectedField(column(entity, "translationStatus"), EnrichmentState),
-			ownerPluginName: selectedField(column(ownerPlugin, "name"), Schema.NullOr(Schema.String)),
 			ownerPluginId: selectedField(
 				column(entity, "entitySchemaPluginId"),
 				Schema.NullOr(Schema.String),
@@ -704,14 +752,14 @@ export const collectionMembersCountsRecipe = (() => {
 		fields: {
 			collectionIds: {
 				type: "array",
-				label: "collectionIds",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.collections"),
 				items: {
 					type: "string",
-					label: "Value",
 					validation: { required: true },
 					description: "Query argument value",
+					label: kernelMessage("recipe.parameter.value"),
 				},
 			},
 		},
@@ -753,37 +801,65 @@ export const collectionMembersAggregateRecipe = (() => {
 		fields: {
 			source: {
 				type: "string",
-				label: "Source",
 				validation: { required: true },
 				reference: { kind: "entity-source" },
+				label: kernelMessage("recipe.parameter.source"),
 				description: "Encoded collection entity source",
 			},
 			collectionId: {
 				type: "string",
-				label: "Collection",
 				validation: { required: true },
 				reference: { kind: "entity-id" },
 				description: "Stored collection selection",
+				label: kernelMessage("recipe.parameter.collection"),
 			},
 		},
 	});
 	const source = recipeParameters.sourceEntity("source", "collectionAggregateSource");
-	const { entity, membership, entityJoin, ownerPlugin, ownerPluginJoin } =
-		collectionMembershipTables();
+	const {
+		entity,
+		membership,
+		entityJoin,
+		ownerPlugin,
+		typeLabelKey,
+		ownerPluginJoin,
+		memberSchemaJoin,
+		typeLabelNamespace,
+	} = collectionMembershipTables();
 	return defineRecipe({
 		parameters: recipeParameters.schema,
 		map: ({ aggregate }) =>
 			Result.succeed({
 				...aggregate,
-				items: aggregate.items.map((group) => ({
-					...group,
-					typeLabel: collectionTypeLabel(group),
-				})),
+				items: aggregate.items.map(
+					({ typeLabelKey: key, typeLabelNamespace: namespace, ...group }) => ({
+						...group,
+						typeLabel: collectionTypeLabel({
+							typeLabelKey: key,
+							typeLabelNamespace: namespace,
+							entitySchemaSlug: group.entitySchemaSlug,
+						}),
+					}),
+				),
 			}),
 		queries: {
 			aggregate: selectedAggregate(source, {
 				limit: 100,
 				measures: { count: countAll },
+				orderBy: [groupAscending("ownerPluginId"), groupAscending("entitySchemaSlug")],
+				groupBy: {
+					typeLabelKey,
+					typeLabelNamespace,
+					entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+					ownerPackageId: selectedField(
+						column(ownerPlugin, "packageId"),
+						Schema.NullOr(Schema.String),
+					),
+					ownerPluginId: selectedField(
+						column(entity, "entitySchemaPluginId"),
+						Schema.NullOr(Schema.String),
+					),
+				},
 				joins: [
 					join(
 						"inner",
@@ -796,17 +872,8 @@ export const collectionMembersAggregateRecipe = (() => {
 					),
 					entityJoin,
 					ownerPluginJoin,
+					memberSchemaJoin,
 				],
-
-				orderBy: [groupAscending("ownerPluginId"), groupAscending("entitySchemaSlug")],
-				groupBy: {
-					entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
-					ownerPluginName: selectedField(column(ownerPlugin, "name"), Schema.NullOr(Schema.String)),
-					ownerPluginId: selectedField(
-						column(entity, "entitySchemaPluginId"),
-						Schema.NullOr(Schema.String),
-					),
-				},
 			}),
 		},
 	});
@@ -821,14 +888,14 @@ export const collectionPluginPagesRecipe = (() => {
 		fields: {
 			pluginIds: {
 				type: "array",
-				label: "pluginIds",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.plugins"),
 				items: {
 					type: "string",
-					label: "Value",
 					validation: { required: true },
 					description: "Query argument value",
+					label: kernelMessage("recipe.parameter.value"),
 				},
 			},
 		},
@@ -837,7 +904,18 @@ export const collectionPluginPagesRecipe = (() => {
 	const plugin = table("plugin", "collectionPagesPlugin");
 	return defineRecipe({
 		parameters: recipeParameters.schema,
-		map: ({ plugins }) => Result.succeed(plugins.items),
+		map: ({ plugins }) =>
+			Result.succeed(
+				plugins.items.map((item) => ({
+					...item,
+					pages: Object.fromEntries(
+						Object.entries(item.pages).map(([slug, page]) => [
+							slug,
+							{ ...page, label: stampNamespace(item.pluginId, page.label) },
+						]),
+					),
+				})),
+			),
 		queries: {
 			plugins: selectedRows(plugin, {
 				limit: 100,

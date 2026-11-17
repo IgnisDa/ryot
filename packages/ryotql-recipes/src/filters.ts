@@ -22,6 +22,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
@@ -53,9 +54,9 @@ import { Base64Url } from "effect/encoding";
 
 export const collectionsFilterField = {
 	key: "collections",
-	label: "Collections",
 	kind: "relationship",
 	direction: "outgoing",
+	label: kernelMessage("recipe.browse.collections"),
 	relationship: { owner: { kind: "kernel" }, slug: RelationshipSchemaSlug.make("member-of") },
 } as const satisfies QueryRelationshipFilterField;
 
@@ -333,16 +334,20 @@ export const linkedFilterChoicesRecipe = (
 ) => {
 	const recipeParameters = parameters({
 		fields: {
-			searchText: { type: "string", label: "searchText", description: "Query searchText" },
+			searchText: {
+				type: "string",
+				description: "Query searchText",
+				label: kernelMessage("recipe.parameter.search"),
+			},
 			ids: {
-				label: "ids",
 				type: "array",
 				description: "Query ids",
+				label: kernelMessage("recipe.parameter.ids"),
 				items: {
-					label: "ID",
 					type: "string",
 					validation: { required: true },
 					description: "Selected entity ID",
+					label: kernelMessage("recipe.parameter.id"),
 				},
 			},
 		},

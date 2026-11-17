@@ -1,4 +1,5 @@
 import { OAuthConnectionStatus } from "@ryot-app/contract/modules/oauth-connections/schemas";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	column,
 	defineRecipe,
@@ -16,10 +17,10 @@ export const oauthConnectionStatusRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
 			id: {
-				label: "id",
 				type: "string",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.id"),
 			},
 		},
 	});

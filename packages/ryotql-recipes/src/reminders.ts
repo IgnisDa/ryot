@@ -5,6 +5,7 @@ import {
 	ReminderState,
 } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, NotificationSubscriptionId, ReminderId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -31,12 +32,16 @@ import { IsoDateString } from "./codecs";
 export const remindersRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
-			entityId: { type: "string", label: "entityId", description: "Query argument" },
+			entityId: {
+				type: "string",
+				description: "Query argument",
+				label: kernelMessage("recipe.parameter.entity"),
+			},
 			states: {
-				label: "States",
 				type: "enum-array",
 				validation: { required: true },
 				description: "Reminder lifecycle states",
+				label: kernelMessage("recipe.parameter.states"),
 				choices: {
 					kind: "static",
 					values: [

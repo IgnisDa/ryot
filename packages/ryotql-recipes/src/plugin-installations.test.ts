@@ -12,7 +12,6 @@ it("keeps quarantined ownership, workspace association, and initialization separ
 		scope: "user",
 		icon: "puzzle",
 		isHidden: true,
-		name: "Shared",
 		version: "1.0.0",
 		isInitialized: false,
 		configuredSecrets: [],
@@ -22,11 +21,12 @@ it("keeps quarantined ownership, workspace association, and initialization separ
 		contentHash: "private-source",
 		activationId: "private-activation",
 		activeRevisionId: "private-revision",
-		description: "Shared display metadata",
 		installationId: "private-installation",
 		incompatibilityReason: "package-identity-conflict",
+		name: { key: "test.shared", namespace: "plugin-1" },
 		configSchema: { fields: {}, unknownKeys: "strict" },
 		healthReason: "A system package claims this identity",
+		description: { namespace: "plugin-1", key: "test.shared-display-metadata" },
 		homeSavedView: { kind: "plugin", slug: "all-items", pluginId: "private-owner" },
 	};
 	const systemInstallation = {

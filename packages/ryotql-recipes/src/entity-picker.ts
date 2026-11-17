@@ -5,6 +5,8 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -39,7 +41,7 @@ export const entityPickerSchemaRecipe = (input: { readonly schema: EntitySchemaR
 					schemaOwnerPredicate(definition, "pluginId", ownerIdentityReference(input.schema.owner)),
 				),
 				selection: {
-					name: selectedField(column(definition, "name"), Schema.String),
+					name: selectedField(column(definition, "name"), Message),
 					propertiesSchema: selectedField(column(definition, "propertiesSchema"), AppSchema),
 					editor: selectedField(column(definition, "editor"), Schema.NullOr(PluginEntityEditor)),
 				},
@@ -53,7 +55,12 @@ export type EntityPickerSchema = Recipe.Success<ReturnType<typeof entityPickerSc
 export const entityPickerEntitiesRecipe = (input: { readonly schema: EntitySchemaReference }) => {
 	const recipeParameters = parameters({
 		fields: {
-			query: { label: "query", type: "string", defaultValue: "", description: "Query query" },
+			query: {
+				type: "string",
+				defaultValue: "",
+				description: "Query query",
+				label: kernelMessage("recipe.parameter.search"),
+			},
 		},
 	});
 
@@ -94,20 +101,20 @@ export const entityPickerMaterializedRecipe = (input: {
 		fields: {
 			providerId: {
 				type: "string",
-				label: "providerId",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.provider"),
 			},
 			externalIds: {
 				type: "array",
-				label: "externalIds",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.external-ids"),
 				items: {
 					type: "string",
-					label: "Value",
 					validation: { required: true },
 					description: "Query argument value",
+					label: kernelMessage("recipe.parameter.value"),
 				},
 			},
 		},

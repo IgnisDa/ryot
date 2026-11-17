@@ -16,24 +16,33 @@ it("selects at most one active installation of the named plugin", () => {
 			{ left: { field: "status" }, right: { value: "active" } },
 		],
 	});
+	const limit = { type: "integer", description: "Limit" } as const;
 	const row = {
 		id: "installation-a",
+		pluginId: "plugin-a",
 		settings: { limit: 3 },
 		settingsSchema: {
 			unknownKeys: "strict",
-			fields: { limit: { label: "Limit", type: "integer", description: "Limit" } },
+			fields: { limit: { ...limit, label: { key: "test.limit" } } },
 		},
 	};
 	expect(
 		Result.getOrThrow(recipe.decode(rowsResponse("installation", [row], pageInfo))),
-	).toEqual<unknown>(row);
+	).toEqual<unknown>({
+		id: row.id,
+		settings: row.settings,
+		settingsSchema: {
+			unknownKeys: "strict",
+			fields: { limit: { ...limit, label: { key: "test.limit", namespace: "plugin-a" } } },
+		},
+	});
 	expect(
 		Result.getOrThrow(
 			recipe.decode(
 				rowsResponse("installation", [{ ...row, settings: {}, settingsSchema: null }], pageInfo),
 			),
 		),
-	).toEqual({ ...row, settings: {}, settingsSchema: null });
+	).toEqual({ id: row.id, settings: {}, settingsSchema: null });
 	expect(Result.getOrThrow(recipe.decode(rowsResponse("installation", [], pageInfo)))).toBe(
 		undefined,
 	);

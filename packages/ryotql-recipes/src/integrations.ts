@@ -3,6 +3,7 @@ import {
 	IntegrationSnapshot,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import { IntegrationId, IntegrationWebhookToken, PluginId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -47,8 +48,16 @@ const selection = {
 export const integrationsRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
-			provider: { type: "string", label: "provider", description: "Query provider" },
-			isDisabled: { type: "boolean", label: "isDisabled", description: "Query isDisabled" },
+			provider: {
+				type: "string",
+				description: "Query provider",
+				label: kernelMessage("recipe.parameter.provider"),
+			},
+			isDisabled: {
+				type: "boolean",
+				description: "Query isDisabled",
+				label: kernelMessage("recipe.parameter.disabled"),
+			},
 		},
 	});
 
@@ -85,10 +94,10 @@ export const integrationRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
 			id: {
-				label: "id",
 				type: "string",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.id"),
 			},
 		},
 	});

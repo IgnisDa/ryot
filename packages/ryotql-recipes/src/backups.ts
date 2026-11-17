@@ -5,6 +5,7 @@ import {
 	BackupRunStatus,
 } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	ascending,
 	column,
@@ -56,10 +57,10 @@ export const backupRunRecipe = (() => {
 	const recipeParameters = parameters({
 		fields: {
 			id: {
-				label: "id",
 				type: "string",
 				description: "Query argument",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.id"),
 			},
 		},
 	});

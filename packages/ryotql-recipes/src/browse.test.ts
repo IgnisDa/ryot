@@ -24,6 +24,8 @@ import {
 } from "./browse";
 import { bindRecipe } from "./test-utils";
 
+const text = (key: string) => ({ namespace: "test", key: `test.${key}` });
+
 const subject = table("entity", "subject");
 const entity = table("entity", "member");
 const property = (from: ReturnType<typeof table>, name: string) =>
@@ -33,13 +35,13 @@ const rating = (name: string): BrowseField => ({
 	key: "rating",
 	kind: "value",
 	type: "number",
-	label: "Rating",
+	label: text("rating"),
 	expression: property(subject, name),
 	sort: {
-		label: "Rating",
+		label: text("rating"),
 		defaultDirection: "desc",
-		ascending: "Lowest first",
-		descending: "Highest first",
+		ascending: text("lowest-first"),
+		descending: text("highest-first"),
 	},
 });
 
@@ -61,10 +63,10 @@ describe("sort compilation", () => {
 			nameSortTarget(entity),
 			{
 				key: "rating",
-				label: "Rating",
+				label: text("rating"),
 				defaultDirection: "desc",
-				ascending: "Lowest first",
-				descending: "Highest first",
+				ascending: text("lowest-first"),
+				descending: text("highest-first"),
 				branches: [{ when: movie, value: property(entity, "score") }],
 			} as const,
 		];
