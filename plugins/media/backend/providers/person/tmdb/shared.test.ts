@@ -80,9 +80,10 @@ describe("person.tmdb sandbox script", () => {
 								relationshipProperties: {
 									order: 0,
 									isGuest: false,
+									roles: ["Writer"],
 									isUncredited: false,
+									roleCodes: ["actor"],
 									departments: ["Acting"],
-									roles: ["Acting", "Writer"],
 									character: "Hero / Villain",
 									creditKinds: ["cast", "crew"],
 								},
@@ -100,8 +101,9 @@ describe("person.tmdb sandbox script", () => {
 								externalId: "3",
 								providerSlug: "show.tmdb",
 								relationshipProperties: {
+									roles: ["Director"],
+									roleCodes: ["actor"],
 									departments: ["Acting"],
-									roles: ["Acting", "Director"],
 									creditKinds: ["cast", "crew"],
 								},
 							},

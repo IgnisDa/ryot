@@ -3,6 +3,7 @@ import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import type { CreditRoleCode } from "../../../../shared/credit-roles";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, stringValue } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
@@ -91,7 +92,7 @@ export const details = defineProvider({
 				const website = firstWebsiteUrl ?? stringValue(company?.["url"]);
 
 				const accumulator = createRoleAccumulator();
-				const addGames = (games: unknown, role: string) => {
+				const addGames = (games: unknown, code: CreditRoleCode) => {
 					for (const game of asArray(games)) {
 						const record = asRecord(game);
 						const id = numberValue(record?.["id"]);
@@ -103,12 +104,12 @@ export const details = defineProvider({
 							name: gameName,
 							providerSlug: "video-game.igdb",
 							externalId: String(Math.trunc(id)),
-							relationshipProperties: { roles: [role] },
+							relationshipProperties: { roles: [], roleCodes: [code] },
 						});
 					}
 				};
-				addGames(company?.["developed"], "Developer");
-				addGames(company?.["published"], "Publisher");
+				addGames(company?.["developed"], "developer");
+				addGames(company?.["published"], "publisher");
 
 				return {
 					name,

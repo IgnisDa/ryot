@@ -119,7 +119,7 @@ const studioInventory = (studio: UnknownRecord, page: number) => {
 			providerSlug,
 			externalId: String(Math.trunc(id)),
 			name: pickPreferredMediaName(node["title"]),
-			relationshipProperties: { roles: ["Animation Studio"] },
+			relationshipProperties: { roles: [], roleCodes: ["studio"] },
 		});
 	}
 	return {

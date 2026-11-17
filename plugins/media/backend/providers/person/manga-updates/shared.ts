@@ -116,8 +116,8 @@ export const details = defineProvider({
 								{
 									providerSlug: "manga.manga-updates",
 									externalId: String(Math.trunc(idValue)),
-									relationshipProperties: { roles: ["Author"] },
 									name: stringValue(record?.["title"]) ?? "Loading...",
+									relationshipProperties: { roles: [], roleCodes: ["author"] },
 								},
 							];
 						});

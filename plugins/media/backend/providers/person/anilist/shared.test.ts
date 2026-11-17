@@ -175,7 +175,11 @@ describe("person.anilist sandbox script", () => {
 								externalId: "2",
 								name: "Anime Credit",
 								providerSlug: "anime.anilist",
-								relationshipProperties: { roles: ["Voicing"], character: "Hero / Villain" },
+								relationshipProperties: {
+									roles: [],
+									roleCodes: ["voice_actor"],
+									character: "Hero / Villain",
+								},
 							},
 						],
 					},

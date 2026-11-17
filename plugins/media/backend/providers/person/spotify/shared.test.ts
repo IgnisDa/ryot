@@ -152,19 +152,19 @@ describe("person.spotify sandbox script", () => {
 						name: "Track 0",
 						externalId: "t0",
 						providerSlug: "music.spotify",
-						relationshipProperties: { roles: ["Artist"] },
+						relationshipProperties: { roles: [], roleCodes: ["artist"] },
 					},
 					{
 						name: "Track 2",
 						externalId: "t2",
 						providerSlug: "music.spotify",
-						relationshipProperties: { roles: ["Artist"] },
+						relationshipProperties: { roles: [], roleCodes: ["artist"] },
 					},
 					{
 						name: "Guest track",
 						externalId: "appearance",
 						providerSlug: "music.spotify",
-						relationshipProperties: { roles: ["Artist"] },
+						relationshipProperties: { roles: [], roleCodes: ["artist"] },
 					},
 				]);
 				const catalog = yield* runSandboxTestScript(

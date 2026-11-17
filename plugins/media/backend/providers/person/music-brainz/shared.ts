@@ -111,8 +111,8 @@ const inventoryEntities = (items: readonly Record<string, unknown>[], providerSl
 			entities.set(externalId, {
 				externalId,
 				providerSlug,
-				relationshipProperties: { roles: ["Artist"] },
 				name: stringValue(item["title"]) ?? externalId,
+				relationshipProperties: { roles: [], roleCodes: ["artist"] },
 			});
 		}
 	}

@@ -5,6 +5,7 @@ import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
+import { creditRoleProperties } from "../../../lib/role-accumulator";
 import {
 	firstGraphqlErrorMessage,
 	getHardcoverApiKey,
@@ -146,14 +147,15 @@ query GetHardcoverAuthorDetails($id: Int!) {
 						if (!bookId) {
 							return [];
 						}
+						const role = stringValue(contrib?.["contribution"]);
 						return [
 							{
 								externalId: bookId,
 								providerSlug: "book.hardcover",
 								name: stringValue(book?.["title"]) ?? "Loading...",
-								relationshipProperties: {
-									roles: [stringValue(contrib?.["contribution"]) ?? "Author"],
-								},
+								relationshipProperties: creditRoleProperties(
+									role === null ? { code: "author" } : { name: role },
+								),
 							},
 						];
 					});

@@ -172,7 +172,7 @@ const collectArtistEntities = (artist: null | UnknownRecord, inventory: readonly
 		accumulator.add({
 			name: title,
 			externalId: id,
-			relationshipProperties: { roles: ["Artist"] },
+			relationshipProperties: { roles: [], roleCodes: ["artist"] },
 			providerSlug: isAlbum ? "music-group.youtube-music" : "music.youtube-music",
 		});
 	}

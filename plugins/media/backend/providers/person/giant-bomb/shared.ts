@@ -134,7 +134,7 @@ const collectRelated = (items: unknown, providerSlug: string): RoleRelatedEntity
 		if (!externalId || !name) {
 			return [];
 		}
-		return [{ name, externalId, providerSlug, relationshipProperties: { roles: ["Person"] } }];
+		return [{ name, externalId, providerSlug, relationshipProperties: { roles: [] } }];
 	});
 };
 

@@ -10,7 +10,11 @@ import { normalizeAnilistDescription } from "../../../lib/anilist-description";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
-import { createRoleAccumulator } from "../../../lib/role-accumulator";
+import {
+	createRoleAccumulator,
+	type CreditRole,
+	creditRoleProperties,
+} from "../../../lib/role-accumulator";
 import {
 	anilistConnection,
 	anilistGraphql,
@@ -156,7 +160,7 @@ const staffInventory = (staffData: UnknownRecord, page: number) => {
 	const staffMedia = anilistConnection(staffData["staffMedia"], "edges");
 	const characterMedia = anilistConnection(staffData["characterMedia"], "edges");
 	const related = createRoleAccumulator();
-	const addMedia = (media: unknown, role: string, character: null | string = null) => {
+	const addMedia = (media: unknown, role: null | CreditRole, character: null | string = null) => {
 		const record = asRecord(media);
 		const idValue = numberValue(record?.["id"]);
 		const providerSlug = mediaScriptSlug(record?.["type"]);
@@ -173,7 +177,10 @@ const staffInventory = (staffData: UnknownRecord, page: number) => {
 			providerSlug,
 			externalId: String(Math.trunc(idValue)),
 			name: pickPreferredMediaName(record["title"]),
-			relationshipProperties: { roles: [role], ...(character === null ? {} : { character }) },
+			relationshipProperties: {
+				...creditRoleProperties(role),
+				...(character === null ? {} : { character }),
+			},
 		});
 	};
 	for (const edge of characterMedia.items) {
@@ -183,12 +190,13 @@ const staffInventory = (staffData: UnknownRecord, page: number) => {
 			return name ? [name] : [];
 		});
 		for (const name of names.length ? names : [null]) {
-			addMedia(record?.["node"], "Voicing", name);
+			addMedia(record?.["node"], { code: "voice_actor" }, name);
 		}
 	}
 	for (const edge of staffMedia.items) {
 		const record = asRecord(edge);
-		addMedia(record?.["node"], stringValue(record?.["staffRole"]) ?? "Production");
+		const staffRole = stringValue(record?.["staffRole"]);
+		addMedia(record?.["node"], staffRole === null ? null : { name: staffRole });
 	}
 	return {
 		entities: related.entities,

@@ -60,7 +60,7 @@ describe("company.tmdb sandbox script", () => {
 								name: "Film",
 								externalId: "2",
 								providerSlug: "movie.tmdb",
-								relationshipProperties: { roles: ["Production Company"] },
+								relationshipProperties: { roles: [], roleCodes: ["production_company"] },
 							},
 						],
 					},
@@ -74,7 +74,7 @@ describe("company.tmdb sandbox script", () => {
 								name: "Show",
 								externalId: "3",
 								providerSlug: "show.tmdb",
-								relationshipProperties: { roles: ["Production Company"] },
+								relationshipProperties: { roles: [], roleCodes: ["production_company"] },
 							},
 						],
 					},
@@ -177,7 +177,7 @@ describe("company.tmdb related script", () => {
 					name: "Show 2",
 					externalId: "2",
 					providerSlug: "show.tmdb",
-					relationshipProperties: { roles: ["Production Company"] },
+					relationshipProperties: { roles: [], roleCodes: ["production_company"] },
 				});
 				return undefined;
 			}),

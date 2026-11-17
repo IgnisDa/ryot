@@ -87,7 +87,7 @@ describe("company.giant-bomb sandbox script", () => {
 								name: "Game One",
 								externalId: "3030-1",
 								providerSlug: "video-game.giant-bomb",
-								relationshipProperties: { roles: ["Developer", "Publisher"] },
+								relationshipProperties: { roles: [], roleCodes: ["developer", "publisher"] },
 							},
 						],
 					},

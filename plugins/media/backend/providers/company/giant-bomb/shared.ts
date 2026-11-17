@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import type { CreditRoleCode } from "../../../../shared/credit-roles";
 import { stringValue } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -135,7 +136,7 @@ export const details = defineProvider({
 							: [];
 
 					const accumulator = createRoleAccumulator();
-					const addGames = (games: unknown, role: string) => {
+					const addGames = (games: unknown, code: CreditRoleCode) => {
 						for (const game of asArray(games)) {
 							const record = asRecord(game);
 							const externalId = getGameGuid(record);
@@ -147,12 +148,12 @@ export const details = defineProvider({
 								externalId,
 								name: gameName,
 								providerSlug: "video-game.giant-bomb",
-								relationshipProperties: { roles: [role] },
+								relationshipProperties: { roles: [], roleCodes: [code] },
 							});
 						}
 					};
-					addGames(company["developed_games"], "Developer");
-					addGames(company["published_games"], "Publisher");
+					addGames(company["developed_games"], "developer");
+					addGames(company["published_games"], "publisher");
 
 					return {
 						name,

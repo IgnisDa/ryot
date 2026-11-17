@@ -88,7 +88,7 @@ const discoveryEntity = (
 ): ProviderDetailsRelatedEntity => ({
 	providerSlug,
 	externalId: stringValue(item["id"]) ?? "",
-	relationshipProperties: { roles: ["Artist"] },
+	relationshipProperties: { roles: [], roleCodes: ["artist"] },
 	name: stringValue(item["name"]) ?? stringValue(item["id"]) ?? "Loading...",
 });
 

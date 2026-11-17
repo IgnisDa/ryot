@@ -86,7 +86,7 @@ describe("company.hardcover sandbox script", () => {
 								name: "The Book",
 								externalId: "42",
 								providerSlug: "book.hardcover",
-								relationshipProperties: { roles: ["Publisher"] },
+								relationshipProperties: { roles: [], roleCodes: ["publisher"] },
 							},
 						],
 					},

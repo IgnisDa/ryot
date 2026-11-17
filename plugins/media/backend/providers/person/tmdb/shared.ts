@@ -6,7 +6,11 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { getUserAllowNsfw } from "../../../lib/host";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
-import { createRoleAccumulator } from "../../../lib/role-accumulator";
+import {
+	createRoleAccumulator,
+	type CreditRole,
+	creditRoleProperties,
+} from "../../../lib/role-accumulator";
 import {
 	firstTranslationValue,
 	getImageUrl,
@@ -74,7 +78,6 @@ const collectCredits = (combinedCredits: UnknownRecord) => {
 	const related = createRoleAccumulator();
 	const addMedia = (
 		media: UnknownRecord,
-		fallbackRole: string,
 		character: null | string,
 		creditKind: "cast" | "crew",
 	) => {
@@ -90,7 +93,13 @@ const collectCredits = (combinedCredits: UnknownRecord) => {
 			return;
 		}
 		const externalId = String(Math.trunc(id));
-		const role = creditKind === "cast" ? "Acting" : (stringValue(media["job"]) ?? fallbackRole);
+		const job = stringValue(media["job"]);
+		let role: null | CreditRole = null;
+		if (creditKind === "cast") {
+			role = { code: "actor" };
+		} else if (job !== null) {
+			role = { name: job };
+		}
 		const department = creditKind === "cast" ? "Acting" : stringValue(media["department"]);
 		const normalizedCharacter = stringValue(character);
 		const order = numberValue(media["order"]);
@@ -99,7 +108,7 @@ const collectCredits = (combinedCredits: UnknownRecord) => {
 			providerSlug,
 			name: stringValue(media["title"]) ?? stringValue(media["name"]) ?? "Loading...",
 			relationshipProperties: {
-				roles: [role],
+				...creditRoleProperties(role),
 				...(normalizedCharacter === null ? {} : { character: normalizedCharacter }),
 				...(order === null ? {} : { order: Math.trunc(order) }),
 				creditKinds: [creditKind],
@@ -113,10 +122,10 @@ const collectCredits = (combinedCredits: UnknownRecord) => {
 	};
 
 	for (const media of recordsValue(combinedCredits["cast"])) {
-		addMedia(media, "Acting", stringValue(media["character"]), "cast");
+		addMedia(media, stringValue(media["character"]), "cast");
 	}
 	for (const media of recordsValue(combinedCredits["crew"])) {
-		addMedia(media, "Production", null, "crew");
+		addMedia(media, null, "crew");
 	}
 	return related.entities;
 };

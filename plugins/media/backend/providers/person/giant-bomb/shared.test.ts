@@ -94,7 +94,7 @@ describe("person.giant-bomb sandbox script", () => {
 								name: "Game A",
 								externalId: "3030-9",
 								providerSlug: "video-game.giant-bomb",
-								relationshipProperties: { roles: ["Person"] },
+								relationshipProperties: { roles: [] },
 							},
 						],
 					},
@@ -107,8 +107,8 @@ describe("person.giant-bomb sandbox script", () => {
 							{
 								name: "Zelda",
 								externalId: "3025-1",
+								relationshipProperties: { roles: [] },
 								providerSlug: "video-game-group.giant-bomb",
-								relationshipProperties: { roles: ["Person"] },
 							},
 						],
 					},

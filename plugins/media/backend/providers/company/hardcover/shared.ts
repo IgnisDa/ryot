@@ -129,8 +129,8 @@ query GetHardcoverPublisherDetails($id: Int!) {
 						{
 							externalId: bookId,
 							providerSlug: "book.hardcover",
-							relationshipProperties: { roles: ["Publisher"] },
 							name: stringValue(book?.["title"]) ?? "Loading...",
+							relationshipProperties: { roles: [], roleCodes: ["publisher"] },
 						},
 					];
 				});

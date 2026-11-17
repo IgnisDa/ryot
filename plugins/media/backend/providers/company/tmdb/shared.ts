@@ -84,7 +84,7 @@ const productionEntities = (
 				providerSlug: options.providerSlug,
 				externalId: String(Math.trunc(id)),
 				name: stringValue(item[options.nameKey]) ?? "Loading...",
-				relationshipProperties: { roles: ["Production Company"] },
+				relationshipProperties: { roles: [], roleCodes: ["production_company"] },
 			},
 		];
 	});
