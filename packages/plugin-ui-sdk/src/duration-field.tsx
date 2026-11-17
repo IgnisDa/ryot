@@ -1,3 +1,7 @@
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+
 import { FieldMessage, TextField } from "./text-field";
 
 export type DurationDraft = { readonly hours: string; readonly minutes: string };
@@ -28,12 +32,14 @@ export const parseDuration = (draft: DurationDraft) => {
 };
 
 export function DurationField(props: {
-	readonly hint: string;
-	readonly label: string;
+	readonly hint: Text;
+	readonly label: Text;
 	readonly value: DurationDraft;
 	readonly error: string | undefined;
 	readonly onChange: (value: DurationDraft) => void;
 }) {
+	const t = useT();
+	const zero = useFormatters().number().format(0);
 	const invalid = props.error !== undefined;
 	return (
 		<div className="flex flex-col gap-1.5">
@@ -41,30 +47,32 @@ export function DurationField(props: {
 			<div className="flex items-center gap-2">
 				<TextField
 					type="text"
-					placeholder="0"
 					className="w-20"
 					invalid={invalid}
-					aria-label="Hours"
+					placeholder={zero}
 					inputMode="numeric"
 					value={props.value.hours}
+					aria-label={t(kernelMessage("ui.duration-field.hours"))}
 					onChange={(event) =>
 						props.onChange({ minutes: props.value.minutes, hours: event.currentTarget.value })
 					}
 				/>
-				<span className="text-text-muted">h</span>
+				<span className="text-text-muted">{t(kernelMessage("ui.duration-field.hours-unit"))}</span>
 				<TextField
 					type="text"
-					placeholder="0"
 					className="w-20"
 					invalid={invalid}
+					placeholder={zero}
 					inputMode="decimal"
-					aria-label="Minutes"
 					value={props.value.minutes}
+					aria-label={t(kernelMessage("ui.duration-field.minutes"))}
 					onChange={(event) =>
 						props.onChange({ hours: props.value.hours, minutes: event.currentTarget.value })
 					}
 				/>
-				<span className="text-text-muted">min</span>
+				<span className="text-text-muted">
+					{t(kernelMessage("ui.duration-field.minutes-unit"))}
+				</span>
 			</div>
 			{invalid ? (
 				<FieldMessage>{props.error}</FieldMessage>

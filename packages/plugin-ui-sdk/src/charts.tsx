@@ -4,6 +4,12 @@ import {
 	isCalendarDate,
 } from "@ryot-app/contract/modules/analytics/calendar";
 import { type TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { WeekDay } from "@ryot-app/i18n/locale";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { areaY, barY, defineChart, dot, lineY } from "@tanstack/charts";
 import { serializeChartSvg } from "@tanstack/charts/export";
 import { decorative } from "@tanstack/charts/mark/decorative";
@@ -20,11 +26,10 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./button";
 import {
 	axisTicks,
-	formatAxisValue,
-	formatMetric,
-	formatNumber,
+	countUnit,
+	type MetricFormat,
 	type MetricUnit,
-	REPORTING_LOCALE,
+	useMetricFormat,
 } from "./metric-format";
 import { type ReportBlock, ReportText, useReportBlock } from "./report";
 import { SegmentedControl } from "./segmented-control";
@@ -41,54 +46,57 @@ const reportingStyles = {
 	weekday: { weekday: "short" },
 	day: { day: "numeric", month: "short" },
 	monthYear: { month: "long", year: "numeric" },
+	monthShortYear: { month: "short", year: "2-digit" },
 	date: { day: "numeric", month: "short", year: "numeric" },
 	dateTime: { day: "numeric", month: "short", hour: "numeric", year: "numeric", minute: "2-digit" },
 } satisfies Record<string, Intl.DateTimeFormatOptions>;
-const reportingFormats = new Map<string, Intl.DateTimeFormat>();
 
-const reportingFormat = (style: keyof typeof reportingStyles, timeZone: string) => {
-	const key = `${timeZone}:${style}`;
-	let format = reportingFormats.get(key);
-	if (format === undefined) {
-		format = new Intl.DateTimeFormat(REPORTING_LOCALE, { ...reportingStyles[style], timeZone });
-		reportingFormats.set(key, format);
-	}
-	return format;
-};
+type Translate = (message: Message) => Text;
+
+const reportingFormat = (
+	formatters: Formatters,
+	style: keyof typeof reportingStyles,
+	timeZone: string,
+) => formatters.dateTime({ ...reportingStyles[style], timeZone });
 
 /** Date-only values carry no zone, so they format in UTC to keep their calendar date. */
 const reportingDate = (
+	formatters: Formatters,
 	at: string,
 	timeZone: TimeZone,
 	style: keyof typeof reportingStyles = "date",
-) => reportingFormat(style, isCalendarDate(at) ? UTC : timeZone).format(new Date(at));
+) =>
+	Text(
+		reportingFormat(formatters, style, isCalendarDate(at) ? UTC : timeZone).format(new Date(at)),
+	);
 
-export const formatReportingDateTime = (at: string, timeZone: TimeZone) =>
-	reportingFormat("dateTime", timeZone).format(new Date(at));
+export const formatReportingDateTime = (formatters: Formatters, at: string, timeZone: TimeZone) =>
+	Text(reportingFormat(formatters, "dateTime", timeZone).format(new Date(at)));
 
 type ChartGrouping = "day" | "week" | "year" | "month";
 
 const bucketLabel = (
+	t: Translate,
+	formatters: Formatters,
 	at: string,
 	grouping: ChartGrouping,
 	timeZone: TimeZone,
 	form: "axis" | "full" | "axis-multi-year",
 ) => {
 	if (grouping === "year") {
-		return reportingDate(at, timeZone, "year");
+		return reportingDate(formatters, at, timeZone, "year");
 	}
 	if (grouping === "month") {
 		if (form === "full") {
-			return reportingDate(at, timeZone, "monthYear");
+			return reportingDate(formatters, at, timeZone, "monthYear");
 		}
-		const month = reportingDate(at, timeZone, "month");
-		return form === "axis" ? month : `${month} ’${reportingDate(at, timeZone, "year").slice(-2)}`;
+		return reportingDate(formatters, at, timeZone, form === "axis" ? "month" : "monthShortYear");
 	}
 	if (form !== "full") {
-		return reportingDate(at, timeZone, "day");
+		return reportingDate(formatters, at, timeZone, "day");
 	}
-	const date = reportingDate(at, timeZone, "date");
-	return grouping === "week" ? `Week of ${date}` : date;
+	const date = reportingDate(formatters, at, timeZone, "date");
+	return grouping === "week" ? t(kernelMessage("ui.chart.week-of", { date })) : date;
 };
 
 const useElementWidth = () => {
@@ -115,14 +123,14 @@ export type CalendarHeatmapLevel = (typeof LEVELS)[number];
 export type CalendarHeatmapDay = { readonly date: string; readonly value: null | number };
 
 export type CalendarHeatmapProps<Day extends CalendarHeatmapDay> = {
-	/** First row of each week column: 0 = Sunday, 1 = Monday. */
-	readonly weekStart: 0 | 1;
+	/** Accessible chart name. */
+	readonly ariaLabel: Text;
 	/** Smaller cells for touch layouts. */
 	readonly compact: boolean;
 	/** Formats tooltips, totals, and the exact-value table. */
 	readonly unit: MetricUnit;
-	/** Accessible chart name. */
-	readonly ariaLabel: string;
+	/** First row of each week column: 0 = Sunday … 6 = Saturday. */
+	readonly weekStart: WeekDay;
 	/** Every day to show, in any order. Missing dates and null values render as gaps. */
 	readonly days: ReadonlyArray<Day>;
 	readonly onSelect?: undefined | ((day: Day) => void);
@@ -138,7 +146,7 @@ type CalendarCell<Day> = {
 
 const calendarParts = (date: string) => DateTime.toParts(DateTime.makeUnsafe(date));
 
-const leadingDays = (date: string, weekStart: 0 | 1) =>
+const leadingDays = (date: string, weekStart: WeekDay) =>
 	(calendarParts(date).weekDay - weekStart + 7) % 7;
 
 /** Level 0 is no activity; positive values split into five equal bands of the maximum value. */
@@ -147,7 +155,7 @@ const levelOf = (value: number, max: number): CalendarHeatmapLevel =>
 
 const calendarCells = <Day extends CalendarHeatmapDay>(
 	days: ReadonlyArray<Day>,
-	weekStart: 0 | 1,
+	weekStart: WeekDay,
 ) => {
 	const sorted = [...days].sort((left, right) => left.date.localeCompare(right.date));
 	const first = sorted[0];
@@ -178,14 +186,18 @@ const calendarCells = <Day extends CalendarHeatmapDay>(
 	};
 };
 
-const monthLabels = (days: ReadonlyArray<CalendarHeatmapDay>, weekStart: 0 | 1) => {
+const monthLabels = (
+	formatters: Formatters,
+	days: ReadonlyArray<CalendarHeatmapDay>,
+	weekStart: WeekDay,
+) => {
 	const first = days[0];
 	const last = days.at(-1);
 	if (first === undefined || last === undefined) {
 		return [];
 	}
 	const leading = leadingDays(first.date, weekStart);
-	const labels: { readonly week: number; readonly label: string }[] = [];
+	const labels: { readonly label: Text; readonly week: number }[] = [];
 	for (let offset = 0; offset <= calendarDaysBetween(first.date, last.date); offset++) {
 		const date = addCalendarDays(first.date, offset);
 		const previous = labels.at(-1);
@@ -194,7 +206,10 @@ const monthLabels = (days: ReadonlyArray<CalendarHeatmapDay>, weekStart: 0 | 1) 
 			((offset === 0 && calendarParts(date).day <= 15) || calendarParts(date).day === 1) &&
 			(previous === undefined || week - previous.week >= MIN_MONTH_LABEL_GAP_WEEKS)
 		) {
-			labels.push({ week, label: reportingFormat("month", UTC).format(new Date(date)) });
+			labels.push({
+				week,
+				label: Text(reportingFormat(formatters, "month", UTC).format(new Date(date))),
+			});
 		}
 	}
 	return labels;
@@ -219,11 +234,27 @@ const activityRuns = (days: ReadonlyArray<CalendarHeatmapDay>) => {
 	return { active, longest, latest: run, total: days.length };
 };
 
-const reportingValue = (point: ReportingChartValue, unit: MetricUnit) =>
-	point.value === null ? "Not recorded" : formatMetric(point.value, unit);
+const reportingValue = (
+	t: Translate,
+	format: MetricFormat,
+	point: ReportingChartValue,
+	unit: MetricUnit,
+) =>
+	point.value === null
+		? t(kernelMessage("ui.chart.not-recorded"))
+		: format.formatMetric(point.value, unit);
 
-const tooltipValue = (point: ReportingChartValue, unit: MetricUnit) =>
-	[reportingValue(point, unit), point.detail].filter(Boolean).join(" · ");
+const withDetail = (t: Translate, value: Text, detail: Text | undefined): Text =>
+	detail === undefined || detail === ""
+		? value
+		: t(kernelMessage("ui.chart.value-detail", { value, detail }));
+
+const tooltipValue = (
+	t: Translate,
+	format: MetricFormat,
+	point: ReportingChartValue,
+	unit: MetricUnit,
+) => withDetail(t, reportingValue(t, format, point, unit), point.detail);
 
 /** A timestamped value; `null` marks a line break, not a known zero. */
 export type TimeSeriesPoint = { readonly at: string; readonly value: null | number };
@@ -231,7 +262,7 @@ export type TimeSeriesPoint = { readonly at: string; readonly value: null | numb
 /** One ranked row; `key` must be unique and stable. */
 export type RankedBarListRow = {
 	readonly key: string;
-	readonly label: string;
+	readonly label: Text;
 	readonly value: number;
 };
 
@@ -242,7 +273,7 @@ export type RankedBarListProps = {
 };
 
 export type SparklineProps = {
-	readonly ariaLabel: string;
+	readonly ariaLabel: Text;
 	/** `accent` draws in the chart accent color, `muted` in a neutral. */
 	readonly tone: "muted" | "accent";
 	readonly points: ReadonlyArray<TimeSeriesPoint>;
@@ -252,7 +283,7 @@ type SeriesRow = { readonly ms: number; readonly value: null | number };
 
 type CoverageSegment = {
 	readonly key: string;
-	readonly label: string;
+	readonly label: Text;
 	readonly value: number;
 	/** `solid` for the primary share, `soft` for a secondary share, `empty` for what is missing. */
 	readonly tone: "soft" | "solid" | "empty";
@@ -260,10 +291,13 @@ type CoverageSegment = {
 
 /** Rows sorted by descending value, each with a single-hue bar scaled to the largest value. */
 export function RankedBarList({ rows, formatValue }: RankedBarListProps) {
+	const t = useT();
 	const ranked = [...rows].sort((left, right) => right.value - left.value);
 	const report = useReportBlock(() => ({
 		kind: "text",
-		lines: ranked.map((row) => `${row.label}: ${formatValue(row)}`),
+		lines: ranked.map((row) =>
+			t(kernelMessage("ui.field-value", { label: row.label, value: formatValue(row) })),
+		),
 	}));
 	const max = Math.max(0, ...ranked.map(({ value }) => value));
 	return (
@@ -295,14 +329,30 @@ const coverageTones = {
 } as const;
 
 export function CoverageBar(props: {
-	readonly ariaLabel: string;
+	readonly ariaLabel: Text;
 	readonly segments: ReadonlyArray<CoverageSegment>;
 	readonly formatValue: (segment: CoverageSegment) => string;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
+	const segmentText = (segment: CoverageSegment) =>
+		t(
+			kernelMessage("ui.chart.segment", {
+				label: segment.label,
+				value: props.formatValue(segment),
+			}),
+		);
 	const report = useReportBlock(() => ({
 		kind: "text",
 		title: props.ariaLabel,
-		lines: props.segments.map((segment) => `${segment.label}: ${props.formatValue(segment)}`),
+		lines: props.segments.map((segment) =>
+			t(
+				kernelMessage("ui.field-value", {
+					label: segment.label,
+					value: props.formatValue(segment),
+				}),
+			),
+		),
 	}));
 	const total = props.segments.reduce((sum, segment) => sum + Math.max(0, segment.value), 0);
 	return (
@@ -310,9 +360,14 @@ export function CoverageBar(props: {
 			<div
 				role="img"
 				className="flex h-1.5 overflow-hidden rounded-pill bg-chart-seq-0"
-				aria-label={`${props.ariaLabel}: ${props.segments
-					.map((segment) => `${segment.label} ${props.formatValue(segment)}`)
-					.join(", ")}`}
+				aria-label={t(
+					kernelMessage("ui.field-value", {
+						label: props.ariaLabel,
+						value: formatters
+							.list({ type: "unit", style: "short" })
+							.format(props.segments.map(segmentText)),
+					}),
+				)}
 			>
 				{total === 0
 					? null
@@ -330,7 +385,7 @@ export function CoverageBar(props: {
 				{props.segments.map((segment) => (
 					<li key={segment.key} className="inline-flex items-center gap-1">
 						<span className={clsx("size-2 rounded-xs", coverageTones[segment.tone])} />
-						{segment.label} {props.formatValue(segment)}
+						{segmentText(segment)}
 					</li>
 				))}
 			</ul>
@@ -342,8 +397,7 @@ const WEEKDAY_LABEL_WIDTH = 28;
 const MONTH_LABEL_HEIGHT = 16;
 const CALENDAR_RIGHT_PADDING = 24;
 const MAX_CELL_PITCH = 26;
-const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
-const dayUnit: MetricUnit = { one: "day", kind: "count", other: "days" };
+const FIRST_SUNDAY = Date.UTC(2023, 0, 1);
 
 export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 	days,
@@ -353,8 +407,18 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 	ariaLabel,
 	weekStart,
 }: CalendarHeatmapProps<Day>) {
+	const t = useT();
+	const formatters = useFormatters();
+	const format = useMetricFormat();
+	const dayUnit = useMemo(
+		() => countUnit((count) => t(kernelMessage("ui.chart.day-unit", { count }))),
+		[t],
+	);
 	const layout = useMemo(() => calendarCells(days, weekStart), [days, weekStart]);
-	const months = useMemo(() => monthLabels(layout.days, weekStart), [layout.days, weekStart]);
+	const months = useMemo(
+		() => monthLabels(formatters, layout.days, weekStart),
+		[formatters, layout.days, weekStart],
+	);
 	const runs = useMemo(() => activityRuns(layout.days), [layout.days]);
 	const [measure, width] = useElementWidth();
 	const [view, setView] = useState<ChartView>("chart");
@@ -400,7 +464,10 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 								size: 0,
 								padding: 4,
 								values: WEEKDAYS.filter((row) => (weekStart + row) % 2 === 1),
-								format: (row: number) => WEEKDAY_NAMES[(weekStart + row) % 7] ?? "",
+								format: (row: number) =>
+									formatters
+										.dateTime({ timeZone: "UTC", weekday: "short" })
+										.format(FIRST_SUNDAY + ((weekStart + row) % 7) * DAY_MS),
 							},
 						},
 					},
@@ -422,7 +489,7 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 					},
 				},
 			}),
-		[layout, months, weekStart],
+		[formatters, layout, months, weekStart],
 	);
 	const chartWidth = pitch * layout.weeks;
 	if (layout.days.length === 0) {
@@ -434,31 +501,38 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 				<ReportText>
 					<dl className="flex flex-wrap gap-x-5 gap-y-1 text-label">
 						<div className="flex gap-1.5">
-							<dt className="text-text-muted">Active days</dt>
+							<dt className="text-text-muted">{t(kernelMessage("ui.chart.active-days"))}</dt>
 							<dd className="font-medium tabular-nums">
-								{formatNumber(runs.active)} of {formatNumber(runs.total)}
+								{t(
+									kernelMessage("ui.chart.active-days-value", {
+										total: runs.total,
+										active: runs.active,
+									}),
+								)}
 							</dd>
 						</div>
 						<div className="flex gap-1.5">
-							<dt className="text-text-muted">Longest streak</dt>
-							<dd className="font-medium tabular-nums">{formatMetric(runs.longest, dayUnit)}</dd>
+							<dt className="text-text-muted">{t(kernelMessage("ui.chart.longest-streak"))}</dt>
+							<dd className="font-medium tabular-nums">
+								{format.formatMetric(runs.longest, dayUnit)}
+							</dd>
 						</div>
 					</dl>
 				</ReportText>
 			</ChartToolbar>
 			{view === "table" ? (
 				<ExactValuesTable
-					headers={["Value"]}
 					ariaLabel={ariaLabel}
+					headers={[t(kernelMessage("ui.chart.value"))]}
 					rows={layout.days.map((day) => {
-						const period = reportingDate(day.date, UTC);
+						const period = reportingDate(formatters, day.date, UTC);
 						return {
 							period,
 							key: day.date,
 							cells: [
 								{
 									label: period,
-									value: reportingValue(day, unit),
+									value: reportingValue(t, format, day, unit),
 									select: onSelect && day.value !== null ? () => onSelect(day) : undefined,
 								},
 							],
@@ -484,7 +558,11 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 										const hovered = points[0]?.datum;
 										return hovered === undefined
 											? null
-											: `${reportingValue(hovered.day, unit)} · ${reportingDate(hovered.date, UTC)}`;
+											: withDetail(
+													t,
+													reportingValue(t, format, hovered.day, unit),
+													reportingDate(formatters, hovered.date, UTC),
+												);
 									}}
 								/>
 							</ReportChart>
@@ -492,11 +570,11 @@ export function CalendarHeatmap<Day extends CalendarHeatmapDay>({
 					</div>
 					<ChartLegend
 						items={LEVEL_COLORS.map((color, index) => {
-							let label = "";
+							let label = Text("");
 							if (index === 0) {
-								label = "Less";
+								label = t(kernelMessage("ui.chart.less"));
 							} else if (index === LEVEL_COLORS.length - 1) {
-								label = "More";
+								label = t(kernelMessage("ui.chart.more"));
 							}
 							return { color, label, mark: "bar" as const };
 						})}
@@ -517,7 +595,7 @@ const chronological = (points: ReadonlyArray<TimeSeriesPoint>): ReadonlyArray<Se
 	points.map(({ at, value }) => ({ value, ms: Date.parse(at) })).sort((a, b) => a.ms - b.ms);
 
 export type TimeSeriesChartSeries = {
-	readonly label: string;
+	readonly label: Text;
 	/** Precomputed smoothed values, drawn as the emphasised line. */
 	readonly trend: ReadonlyArray<TimeSeriesPoint>;
 	readonly formatValue: (value: number) => string;
@@ -528,9 +606,9 @@ export type TimeSeriesChartSeries = {
 export type TimeSeriesChartProps = {
 	/** Trend lines break between consecutive trend points further apart than this. */
 	readonly gapMs: number;
+	readonly ariaLabel: Text;
 	/** Smaller height for touch layouts. */
 	readonly compact: boolean;
-	readonly ariaLabel: string;
 	readonly primary: TimeSeriesChartSeries;
 	/** Drawn against its own right-hand axis. */
 	readonly compare?: TimeSeriesChartSeries;
@@ -599,14 +677,6 @@ const withGaps = (rows: ReadonlyArray<SeriesRow>, gapMs: number): ReadonlyArray<
 			: [row];
 	});
 
-const dateFormat = new Intl.DateTimeFormat(REPORTING_LOCALE, { day: "numeric", month: "short" });
-const monthFormat = new Intl.DateTimeFormat(REPORTING_LOCALE, { month: "short", year: "2-digit" });
-const fullDateFormat = new Intl.DateTimeFormat(REPORTING_LOCALE, {
-	day: "numeric",
-	month: "short",
-	year: "numeric",
-});
-
 const nearestRow = (rows: ReadonlyArray<SeriesRow>, ms: number, within: number) =>
 	rows.reduce<SeriesRow | undefined>((best, row) => {
 		const distance = Math.abs(row.ms - ms);
@@ -669,7 +739,7 @@ export type HourlyHistogramBucket = ReportingChartValue & {
 export type ReportingChartValue = {
 	readonly value: null | number;
 	/** Quantity coverage, estimate provenance, or other domain-owned context. */
-	readonly detail?: string | undefined;
+	readonly detail?: Text | undefined;
 };
 
 export type HourlyHistogramProps<Bucket extends HourlyHistogramBucket> = ReportingChartProps & {
@@ -679,7 +749,7 @@ export type HourlyHistogramProps<Bucket extends HourlyHistogramBucket> = Reporti
 };
 
 export type PeriodTrendChartProps<Point extends PeriodTrendPoint> = ReportingChartProps & {
-	readonly label: string;
+	readonly label: Text;
 	/** Bars suit per-bucket totals; lines suit levels such as averages. Defaults to bars. */
 	readonly mark?: "bar" | "line";
 	/** Resolved bucket size; it chooses axis and tooltip date formats. */
@@ -688,7 +758,7 @@ export type PeriodTrendChartProps<Point extends PeriodTrendPoint> = ReportingCha
 	readonly current: ReadonlyArray<Point>;
 	readonly onSelect?: undefined | ((point: Point, period: "current" | "previous") => void);
 	/** Same-unit buckets aligned to `current` by index; a longer period extends the x-axis. */
-	readonly previous?: undefined | { readonly label: string; readonly points: ReadonlyArray<Point> };
+	readonly previous?: undefined | { readonly label: Text; readonly points: ReadonlyArray<Point> };
 };
 
 type ExactRow = {
@@ -698,9 +768,9 @@ type ExactRow = {
 };
 
 type ExactCell = {
-	readonly label: string;
+	readonly label: Text;
 	readonly value: string;
-	readonly detail?: string | undefined;
+	readonly detail?: Text | undefined;
 	readonly select?: undefined | (() => void);
 };
 
@@ -712,10 +782,10 @@ type PeriodChartRow<Point> = {
 };
 
 type ReportingChartProps = {
+	readonly ariaLabel: Text;
 	readonly compact: boolean;
 	/** Formats axes, tooltips, and the exact-value table. */
 	readonly unit: MetricUnit;
-	readonly ariaLabel: string;
 	readonly timeZone: TimeZone;
 	/** Hold the Chart/Table choice above a query boundary so it survives reloads; uncontrolled otherwise. */
 	readonly view?:
@@ -738,6 +808,8 @@ export function TimeSeriesChart({
 	compact,
 	ariaLabel,
 }: TimeSeriesChartProps) {
+	const t = useT();
+	const formatters = useFormatters();
 	const startMs = Date.parse(range.startAt);
 	const endMs = Date.parse(range.endAt);
 	const primaryRows = useMemo(() => seriesRows(primary), [primary]);
@@ -828,7 +900,13 @@ export function TimeSeriesChart({
 						ticks: {
 							values: timeTicks(startMs, endMs),
 							format: (ms: number) =>
-								(endMs - startMs > 180 * DAY_MS ? monthFormat : dateFormat).format(ms),
+								formatters
+									.dateTime(
+										endMs - startMs > 180 * DAY_MS
+											? reportingStyles.monthShortYear
+											: reportingStyles.day,
+									)
+									.format(ms),
 						},
 					},
 				},
@@ -856,7 +934,7 @@ export function TimeSeriesChart({
 					const other =
 						compareRows && nearestRow(compareRows.readings, reading.ms, COMPARE_WINDOW_MS);
 					return {
-						title: fullDateFormat.format(reading.ms),
+						title: formatters.dateTime(reportingStyles.date).format(reading.ms),
 						rows: [
 							{
 								color: ACCENT_COLOR,
@@ -867,9 +945,9 @@ export function TimeSeriesChart({
 								? []
 								: [
 										{
-											label: "Trend",
 											color: ACCENT_COLOR,
 											value: primary.formatValue(trend.value),
+											label: t(kernelMessage("ui.chart.trend")),
 										},
 									]),
 							...(compare
@@ -877,7 +955,10 @@ export function TimeSeriesChart({
 										{
 											color: COMPARE_COLOR,
 											label: compare.label,
-											value: other?.value == null ? "not logged" : compare.formatValue(other.value),
+											value:
+												other?.value == null
+													? t(kernelMessage("ui.chart.not-logged"))
+													: compare.formatValue(other.value),
 										},
 									]
 								: []),
@@ -886,7 +967,7 @@ export function TimeSeriesChart({
 				},
 			},
 		});
-	}, [primary, compare, primaryRows, compareRows, startMs, endMs, gapMs]);
+	}, [t, formatters, primary, compare, primaryRows, compareRows, startMs, endMs, gapMs]);
 
 	return (
 		<div className="text-text">
@@ -903,7 +984,12 @@ const Y_AXIS = { line: false, ticks: { size: 0, padding: 8 } } as const;
 
 const chartHeight = (compact: boolean) => (compact ? 200 : 260);
 
-const yScale = (values: ReadonlyArray<number>, unit: MetricUnit, compact: boolean) => {
+const yScale = (
+	format: MetricFormat,
+	values: ReadonlyArray<number>,
+	unit: MetricUnit,
+	compact: boolean,
+) => {
 	const ticks = axisTicks(Math.min(0, ...values), Math.max(0, ...values), unit, compact ? 3 : 4);
 	return {
 		grid: true,
@@ -913,7 +999,7 @@ const yScale = (values: ReadonlyArray<number>, unit: MetricUnit, compact: boolea
 			ticks: {
 				...Y_AXIS.ticks,
 				values: ticks,
-				format: (value: number) => formatAxisValue(value, unit),
+				format: (value: number) => format.formatAxisValue(value, unit),
 			},
 		},
 	};
@@ -921,10 +1007,10 @@ const yScale = (values: ReadonlyArray<number>, unit: MetricUnit, compact: boolea
 
 const emptyMessage = (values: ReadonlyArray<null | number>) => {
 	if (values.every((value) => value === null)) {
-		return "No recorded values in this period.";
+		return kernelMessage("ui.chart.no-values");
 	}
 	return values.every((value) => value === null || value === 0)
-		? "Nothing recorded in this period."
+		? kernelMessage("ui.chart.nothing-recorded")
 		: null;
 };
 
@@ -947,6 +1033,9 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 	mark = "bar",
 	view: controlledView,
 }: PeriodTrendChartProps<Point>) {
+	const t = useT();
+	const formatters = useFormatters();
+	const format = useMetricFormat();
 	const [view, setView] = useChartView(controlledView);
 	const previousLabel = previous?.label;
 	const previousPoints = previous?.points;
@@ -958,7 +1047,7 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 	const length = Math.max(currentRows.length, previousRows.length);
 	const pointAt = (index: number) => currentRows[index]?.point ?? previousRows[index]?.point;
 	const fullLabel = (row: PeriodChartRow<Point>) =>
-		bucketLabel(row.point.at, grouping, timeZone, "full");
+		bucketLabel(t, formatters, row.point.at, grouping, timeZone, "full");
 	const definition = useMemo(() => {
 		const indices = Array.from({ length }, (_, index) => index);
 		const known = [...currentRows, ...previousRows].flatMap(({ value }) =>
@@ -971,15 +1060,16 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 		const multiYear =
 			firstAt !== undefined &&
 			lastAt !== undefined &&
-			reportingDate(firstAt, timeZone, "year") !== reportingDate(lastAt, timeZone, "year");
+			reportingDate(formatters, firstAt, timeZone, "year") !==
+				reportingDate(formatters, lastAt, timeZone, "year");
 		const tooltipRow = (row: undefined | PeriodChartRow<Point>, color: string) =>
 			row === undefined
 				? []
 				: [
 						{
 							color,
-							value: tooltipValue(row.point, unit),
-							label: bucketLabel(row.point.at, grouping, timeZone, "full"),
+							value: tooltipValue(t, format, row.point, unit),
+							label: bucketLabel(t, formatters, row.point.at, grouping, timeZone, "full"),
 						},
 					];
 		const marks =
@@ -1052,7 +1142,7 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 				},
 			},
 			scales: {
-				y: yScale(known, unit, compact),
+				y: yScale(format, known, unit, compact),
 				x: {
 					scale:
 						mark === "bar"
@@ -1066,17 +1156,36 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 								const value = at(index);
 								return value === undefined
 									? ""
-									: bucketLabel(value, grouping, timeZone, multiYear ? "axis-multi-year" : "axis");
+									: bucketLabel(
+											t,
+											formatters,
+											value,
+											grouping,
+											timeZone,
+											multiYear ? "axis-multi-year" : "axis",
+										);
 							},
 						},
 					},
 				},
 			},
 		});
-	}, [currentRows, previousRows, length, compact, timeZone, grouping, mark, unit]);
+	}, [
+		t,
+		format,
+		formatters,
+		currentRows,
+		previousRows,
+		length,
+		compact,
+		timeZone,
+		grouping,
+		mark,
+		unit,
+	]);
 	const empty = emptyMessage([...currentRows, ...previousRows].map(({ value }) => value));
 	if (empty !== null) {
-		return <ChartEmpty message={empty} compact={compact} />;
+		return <ChartEmpty compact={compact} message={t(empty)} />;
 	}
 	const exactCell = (row: undefined | PeriodChartRow<Point>): null | ExactCell => {
 		if (row === undefined) {
@@ -1085,12 +1194,10 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 		const period = fullLabel(row);
 		return {
 			label: period,
-			value: reportingValue(row.point, unit),
+			value: reportingValue(t, format, row.point, unit),
 			select: onSelect && row.value !== null ? () => onSelect(row.point, row.period) : undefined,
 			detail:
-				row.period === "previous"
-					? [period, row.point.detail].filter(Boolean).join(" · ")
-					: row.point.detail,
+				row.period === "previous" ? withDetail(t, period, row.point.detail) : row.point.detail,
 		};
 	};
 	return (
@@ -1113,12 +1220,19 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 			{view === "table" ? (
 				<ExactValuesTable
 					ariaLabel={ariaLabel}
-					headers={previousLabel === undefined ? ["Value"] : [label, previousLabel]}
+					headers={
+						previousLabel === undefined
+							? [t(kernelMessage("ui.chart.value"))]
+							: [label, previousLabel]
+					}
 					rows={Array.from({ length }, (_, index) => {
 						const point = pointAt(index);
 						return {
 							key: String(index),
-							period: point === undefined ? "" : bucketLabel(point.at, grouping, timeZone, "full"),
+							period:
+								point === undefined
+									? ""
+									: bucketLabel(t, formatters, point.at, grouping, timeZone, "full"),
 							cells: [
 								exactCell(currentRows[index]),
 								...(previousLabel === undefined ? [] : [exactCell(previousRows[index])]),
@@ -1132,12 +1246,12 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 						ariaLabel={ariaLabel}
 						definition={definition}
 						height={chartHeight(compact)}
+						ariaDescription={t(kernelMessage("ui.chart.bucket-keyboard-help"))}
 						onSelect={(point) => {
 							if (point && onSelect) {
 								onSelect(point.datum.point, point.datum.period);
 							}
 						}}
-						ariaDescription="Use left and right arrow keys to inspect buckets. Missing values are gaps. Switch to the table for exact values and record links."
 					/>
 				</ReportChart>
 			)}
@@ -1145,7 +1259,7 @@ export function PeriodTrendChart<Point extends PeriodTrendPoint>({
 	);
 }
 
-function ChartEmpty(props: { readonly message: string; readonly compact: boolean }) {
+function ChartEmpty(props: { readonly message: Text; readonly compact: boolean }) {
 	return (
 		<div
 			style={{ height: chartHeight(props.compact) }}
@@ -1158,7 +1272,8 @@ function ChartEmpty(props: { readonly message: string; readonly compact: boolean
 	);
 }
 
-function exactValue(entry: null | ExactCell) {
+function ExactValue({ entry }: { readonly entry: null | ExactCell }) {
+	const t = useT();
 	if (entry === null) {
 		return <span className="text-text-subtle">—</span>;
 	}
@@ -1169,7 +1284,9 @@ function exactValue(entry: null | ExactCell) {
 					variant="linkPlain"
 					onClick={entry.select}
 					className="tabular-nums hover:underline"
-					aria-label={`View records: ${entry.label} · ${entry.value}`}
+					aria-label={t(
+						kernelMessage("ui.chart.view-records", { value: entry.value, period: entry.label }),
+					)}
 				>
 					{entry.value}
 				</Button>
@@ -1185,10 +1302,13 @@ function exactValue(entry: null | ExactCell) {
 
 function ChartToolbar(props: {
 	readonly view: ChartView;
-	readonly ariaLabel: string;
+	readonly ariaLabel: Text;
 	readonly children?: ReactNode;
 	readonly onViewChange: (view: ChartView) => void;
 }) {
+	const t = useT();
+	const chart = t(kernelMessage("ui.chart.view-chart"));
+	const table = t(kernelMessage("ui.chart.view-table"));
 	return (
 		<div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
 			<div className="min-w-0">{props.children}</div>
@@ -1196,10 +1316,10 @@ function ChartToolbar(props: {
 				value={props.view}
 				optionClassName="px-2.5"
 				onChange={props.onViewChange}
-				label={`${props.ariaLabel} display`}
+				label={t(kernelMessage("ui.chart.display", { chart: props.ariaLabel }))}
 				options={[
-					{ value: "chart", label: "Chart", content: "Chart" },
-					{ value: "table", label: "Table", content: "Table" },
+					{ label: chart, value: "chart", content: chart },
+					{ label: table, value: "table", content: table },
 				]}
 			/>
 		</div>
@@ -1258,10 +1378,13 @@ function ChartLegend(props: {
 	);
 }
 
-const exactColumns = (headers: ReadonlyArray<string>): ReadonlyArray<DataTableColumn<ExactRow>> => [
+const exactColumns = (
+	period: string,
+	headers: ReadonlyArray<string>,
+): ReadonlyArray<DataTableColumn<ExactRow>> => [
 	{
 		id: "period",
-		header: "Period",
+		header: period,
 		cell: (row) => row.period,
 		headerClassName: "px-3 py-2 font-medium",
 		cellClassName: "px-3 py-2 align-middle text-text",
@@ -1270,33 +1393,45 @@ const exactColumns = (headers: ReadonlyArray<string>): ReadonlyArray<DataTableCo
 		header,
 		id: `value-${index}`,
 		headerClassName: "px-3 py-2 text-right font-medium",
-		cell: (row: ExactRow) => exactValue(row.cells[index] ?? null),
+		cell: (row: ExactRow) => <ExactValue entry={row.cells[index] ?? null} />,
 		cellClassName: "px-3 py-2 text-right align-middle text-text tabular-nums",
 	})),
 ];
 
 function ExactValuesTable(props: {
-	readonly ariaLabel: string;
+	readonly ariaLabel: Text;
 	readonly rows: ReadonlyArray<ExactRow>;
 	readonly headers: ReadonlyArray<string>;
 }) {
+	const t = useT();
 	return (
 		<div className="max-h-80 overflow-y-auto rounded-md border border-border">
 			<DataTable
 				data={props.rows}
 				getRowId={(row) => row.key}
-				columns={exactColumns(props.headers)}
 				rowClassName="border-t border-border"
-				aria-label={`${props.ariaLabel} exact values`}
 				className="w-full border-collapse text-left text-label"
 				headerClassName="sticky top-0 bg-surface-2 text-text-muted"
+				columns={exactColumns(t(kernelMessage("ui.chart.period")), props.headers)}
+				aria-label={t(kernelMessage("ui.chart.exact-values", { chart: props.ariaLabel }))}
 			/>
 		</div>
 	);
 }
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
-const hourLabel = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
+const hourLabel = (formatters: Formatters, hour: number) =>
+	formatters
+		.dateTime({ hour: "2-digit", timeZone: "UTC", hourCycle: "h23", minute: "2-digit" })
+		.format(hour * 3_600_000);
+
+const hourRange = (t: Translate, formatters: Formatters, hour: number) =>
+	t(
+		kernelMessage("ui.chart.hour-range", {
+			start: hourLabel(formatters, hour),
+			end: hourLabel(formatters, hour + 1),
+		}),
+	);
 
 type HourRow<Bucket> = ReportingChartValue & {
 	readonly hour: number;
@@ -1311,6 +1446,9 @@ export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 	ariaLabel,
 	view: controlledView,
 }: HourlyHistogramProps<Bucket>) {
+	const t = useT();
+	const formatters = useFormatters();
+	const format = useMetricFormat();
 	const [view, setView] = useChartView(controlledView);
 	const rows = useMemo(() => {
 		const byHour = new Map(buckets.map((bucket) => [bucket.hour, bucket]));
@@ -1336,6 +1474,7 @@ export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 				],
 				scales: {
 					y: yScale(
+						format,
 						rows.map(({ value }) => value ?? 0),
 						unit,
 						compact,
@@ -1345,7 +1484,7 @@ export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 						axis: {
 							ticks: {
 								size: 0,
-								format: hourLabel,
+								format: (hour: number) => hourLabel(formatters, hour),
 								values: HOURS.filter((hour) => hour % (compact ? 6 : 3) === 0),
 							},
 						},
@@ -1364,8 +1503,8 @@ export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 								? [
 										{
 											color: ACCENT_COLOR,
-											value: tooltipValue(row, unit),
-											label: `${hourLabel(row.hour)}–${hourLabel(row.hour + 1)}`,
+											value: tooltipValue(t, format, row, unit),
+											label: hourRange(t, formatters, row.hour),
 										},
 									]
 								: [],
@@ -1373,22 +1512,22 @@ export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 					},
 				},
 			}),
-		[rows, compact, unit],
+		[t, format, formatters, rows, compact, unit],
 	);
 	const empty = emptyMessage(buckets.length === 0 ? [] : rows.map(({ value }) => value));
 	if (empty !== null) {
-		return <ChartEmpty message={empty} compact={compact} />;
+		return <ChartEmpty compact={compact} message={t(empty)} />;
 	}
 	return (
 		<div className="flex min-w-0 flex-col gap-3 text-text">
 			<ChartToolbar view={view} ariaLabel={ariaLabel} onViewChange={setView} />
 			{view === "table" ? (
 				<ExactValuesTable
-					headers={["Value"]}
 					ariaLabel={ariaLabel}
+					headers={[t(kernelMessage("ui.chart.value"))]}
 					rows={rows.map((row) => {
 						const bucket = row.bucket;
-						const period = `${hourLabel(row.hour)}–${hourLabel(row.hour + 1)}`;
+						const period = hourRange(t, formatters, row.hour);
 						return {
 							period,
 							key: String(row.hour),
@@ -1396,7 +1535,7 @@ export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 								{
 									label: period,
 									detail: row.detail,
-									value: reportingValue(row, unit),
+									value: reportingValue(t, format, row, unit),
 									select:
 										onSelect && bucket !== null && bucket.value !== null
 											? () => onSelect(bucket)
@@ -1412,12 +1551,12 @@ export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 						ariaLabel={ariaLabel}
 						definition={definition}
 						height={chartHeight(compact)}
+						ariaDescription={t(kernelMessage("ui.chart.hour-keyboard-help"))}
 						onSelect={(point) => {
 							if (point?.datum.bucket && onSelect) {
 								onSelect(point.datum.bucket);
 							}
 						}}
-						ariaDescription="Local hour of day. Use left and right arrow keys to inspect hours. Switch to the table for exact values and record links."
 					/>
 				</ReportChart>
 			)}
@@ -1425,7 +1564,7 @@ export function HourlyHistogram<Bucket extends HourlyHistogramBucket>({
 	);
 }
 
-function ReportChart(props: { readonly title: string; readonly children: ReactNode }) {
+function ReportChart(props: { readonly title: Text; readonly children: ReactNode }) {
 	const ref = useRef<HTMLDivElement>(null);
 	const read = (): ReportBlock => {
 		const svg = ref.current?.querySelector("svg.ts-chart");

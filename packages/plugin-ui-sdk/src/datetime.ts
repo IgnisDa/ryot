@@ -1,3 +1,7 @@
+import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { DateTime, Option } from "effect";
 
 export const toDateTimeInput = (
@@ -38,7 +42,10 @@ export const resolveDateTimeInput = (
 	const choices = [...candidates].map(([iso, candidate], index) => ({
 		value: iso,
 		offset: DateTime.zonedOffset(candidate),
-		label: `${index === 0 ? "First" : "Second"} occurrence (UTC${DateTime.zonedOffsetIso(candidate)})`,
+		label: kernelMessage("ui.datetime.occurrence", {
+			offset: DateTime.zonedOffsetIso(candidate),
+			occurrence: index === 0 ? "first" : "second",
+		}),
 	}));
 	const previous = original == null ? Option.none() : DateTime.makeZoned(original, { timeZone });
 	const previousLocal = Option.isSome(previous)
@@ -61,15 +68,35 @@ export const resolveDateTimeInput = (
 	) {
 		iso = original;
 	}
-	let error: string | undefined;
+	let error: Message | undefined;
 	if (selected === undefined) {
 		if (!validFormat) {
-			error = "Enter a date and time.";
+			error = kernelMessage("ui.datetime.required");
 		} else if (choices.length === 0) {
-			error = "This local date and time does not exist. Choose another time.";
+			error = kernelMessage("ui.datetime.nonexistent");
 		} else {
-			error = "This local time occurs twice. Choose an occurrence.";
+			error = kernelMessage("ui.datetime.ambiguous");
 		}
 	}
 	return { iso, error, choices, occurrence: selected?.value ?? "" };
+};
+
+/** An instant's day in the device time zone, such as `Mar 12, 2026`. */
+export const formatDateLabel = (formatters: Formatters, value: string) =>
+	formatters
+		.dateTime({ day: "numeric", month: "short", year: "numeric", timeZone: deviceTimeZone() })
+		.format(Date.parse(value));
+
+const relativeDayUnits = [
+	[365, "year"],
+	[30, "month"],
+	[7, "week"],
+] as const;
+
+/** Calendar days back in the largest whole unit, such as `yesterday` or `3 weeks ago`. */
+export const formatDaysAgo = (formatters: Formatters, days: number) => {
+	const [size, unit] = relativeDayUnits.find(([threshold]) => days >= threshold) ?? [1, "day"];
+	return formatters
+		.relativeTime({ numeric: "auto" })
+		.format(-Math.floor(Math.max(0, days) / size), unit);
 };

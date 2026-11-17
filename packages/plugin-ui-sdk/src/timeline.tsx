@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import { type ReactNode, useId } from "react";
 
@@ -54,7 +55,7 @@ export function TimelineEntry(props: {
 	readonly expand?:
 		| undefined
 		| {
-				readonly label: string;
+				readonly label: Text;
 				readonly expanded: boolean;
 				readonly content: ReactNode;
 				readonly onToggle: () => void;

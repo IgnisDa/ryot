@@ -1,23 +1,25 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { Timeline, TimelineEntry, TimelineGroup } from "./timeline";
 
 function Batch() {
 	const [expanded, setExpanded] = useState(false);
 	return (
 		<Timeline>
-			<TimelineGroup compact={false} label="Oct 25, 2026">
+			<TimelineGroup compact={false} label={testText("Oct 25, 2026")}>
 				<TimelineEntry
-					title="Watched 37 episodes"
 					marker={{ tone: "success" }}
+					title={testText("Watched 37 episodes")}
 					expand={{
 						expanded,
 						content: <p>S3·E1 · Gay Witch Hunt</p>,
 						onToggle: () => setExpanded((value) => !value),
-						label: expanded ? "Hide episodes" : "Show episodes",
+						label: testText(expanded ? "Hide episodes" : "Show episodes"),
 					}}
 				/>
 			</TimelineGroup>

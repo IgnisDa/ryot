@@ -1,6 +1,27 @@
 import { describe, expect, it } from "bun:test";
 
-import { resolveDateTimeInput, toDateTimeInput } from "./datetime";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
+
+import { formatDaysAgo, resolveDateTimeInput, toDateTimeInput } from "./datetime";
+
+describe("formatDaysAgo", () => {
+	it("names calendar days back in the largest whole unit", () => {
+		expect(
+			[0, 1, 6, 7, 29, 30, 364, 365, 800].map((days) => formatDaysAgo(testFormatters, days)),
+		).toEqual([
+			"today",
+			"yesterday",
+			"6 days ago",
+			"last week",
+			"4 weeks ago",
+			"last month",
+			"12 months ago",
+			"last year",
+			"2 years ago",
+		]);
+	});
+});
 
 describe("date-time input resolution", () => {
 	it("retains seconds and fractional input precision in schema forms", () => {
@@ -82,7 +103,7 @@ describe("date-time input resolution", () => {
 			iso: null,
 			choices: [{ value: "2026-11-01T05:30:00.000Z" }, { value: "2026-11-01T06:30:00.000Z" }],
 		});
-		expect(result.error).toContain("occurs twice");
+		expect(result.error).toEqual(kernelMessage("ui.datetime.ambiguous"));
 		expect(
 			resolveDateTimeInput(
 				"2026-11-01T01:30",

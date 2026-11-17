@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import { Effect, Schema } from "effect";
 import {
 	createContext,
@@ -13,15 +14,15 @@ import {
 
 export type ReportBlock = TextBlock | ChartBlock | TableBlock | LegendBlock;
 export type ReportSnapshot = {
-	readonly title: string;
-	readonly subtitle: string;
+	readonly title: Text;
+	readonly subtitle: Text;
 	readonly blocks: readonly ReportBlock[];
 	readonly palette: { readonly text: string; readonly background: string };
 };
 type TextBlock = {
 	readonly kind: "text";
 	readonly lines: readonly string[];
-	readonly title?: string | undefined;
+	readonly title?: Text | undefined;
 };
 type Entry = {
 	readonly blocked: boolean;
@@ -30,8 +31,8 @@ type Entry = {
 };
 type ChartBlock = {
 	readonly svg: string;
+	readonly title: Text;
 	readonly kind: "chart";
-	readonly title: string;
 	readonly width: number;
 	readonly height: number;
 };
@@ -43,9 +44,9 @@ type TableBlock = {
 };
 type LegendBlock = {
 	readonly kind: "legend";
-	readonly title?: string | undefined;
+	readonly title?: Text | undefined;
 	readonly items: readonly {
-		readonly label: string;
+		readonly label: Text;
 		readonly color: string;
 		readonly mark: "bar" | "line";
 		readonly dashed?: boolean | undefined;
@@ -104,7 +105,7 @@ export const createReport = () => {
 				publish();
 			};
 		},
-		snapshot: (title: string, subtitle: string): ReportSnapshot => {
+		snapshot: (title: Text, subtitle: Text): ReportSnapshot => {
 			if (entries.size === 0 || [...entries.values()].some((entry) => entry.blocked)) {
 				throw new Error("Wait for the report to finish loading");
 			}
@@ -149,15 +150,15 @@ export const useReportBlock = (read: () => ReportBlock, blocked = false) => {
 	);
 	return element;
 };
-class ReportExportError extends Schema.TaggedError<
+export class ReportExportError extends Schema.TaggedError<
 	ReportExportError,
 	{ readonly brand: unique symbol }
->()("ReportExportError", { message: Schema.String }) {}
+>()("ReportExportError", { reason: Schema.Literals(["too-large", "render-failed"]) }) {}
 
 export function ReportText(props: {
 	readonly blocked?: boolean;
 	readonly children: ReactNode;
-	readonly title?: string | undefined;
+	readonly title?: Text | undefined;
 }) {
 	const read = (): ReportBlock => ({
 		kind: "text",
@@ -272,9 +273,7 @@ export const reportSvg = (
 		y += 20;
 	}
 	if (y > 6000) {
-		throw new Error(
-			"This report is too large for one image. Select fewer rows or a smaller report.",
-		);
+		throw new ReportExportError({ reason: "too-large" });
 	}
 	return {
 		width: 1200,
@@ -283,9 +282,7 @@ export const reportSvg = (
 	};
 };
 const imageError = (cause: unknown) =>
-	new ReportExportError({
-		message: cause instanceof Error ? cause.message : "Could not render the report",
-	});
+	cause instanceof ReportExportError ? cause : new ReportExportError({ reason: "render-failed" });
 export const renderReportPng = Effect.fn("renderReportPng")(function* (snapshot: ReportSnapshot) {
 	const surface = yield* Effect.try({
 		catch: imageError,

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { StatStrip } from "./stat-strip";
 
 describe("StatStrip", () => {
@@ -10,8 +12,8 @@ describe("StatStrip", () => {
 			<StatStrip
 				compact={false}
 				stats={[
-					{ value: "3", key: "finished", label: "Finished" },
-					{ key: "span", label: "Span", value: "189 days", detail: "Dec 8 – Jun 13" },
+					{ value: "3", key: "finished", label: testText("Finished") },
+					{ key: "span", value: "189 days", label: testText("Span"), detail: "Dec 8 – Jun 13" },
 				]}
 			/>,
 		);

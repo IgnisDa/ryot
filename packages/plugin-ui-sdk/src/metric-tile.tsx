@@ -1,20 +1,24 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import { Badge } from "./badge";
 import {
-	formatMetric,
-	formatNumber,
 	type MetricDelta,
-	metricParts,
+	type MetricFormat,
 	type MetricUnit,
+	percentUnit,
+	useMetricFormat,
 } from "./metric-format";
 import { reportText, useReportBlock } from "./report";
 import { Card } from "./surface";
 
 export type Metric = {
 	readonly key: string;
-	readonly label: string;
+	readonly label: Text;
 	readonly unit: MetricUnit;
 	/** Small supporting context, such as coverage of the recorded total. */
 	readonly hint?: ReactNode;
@@ -25,11 +29,14 @@ export type Metric = {
 	readonly delta?: undefined | MetricDelta;
 };
 
-const formatPercent = (percent: number) =>
-	`${formatNumber(Math.abs(percent) >= 10 ? Math.round(Math.abs(percent)) : Math.abs(percent))}%`;
+const formatPercent = (format: MetricFormat, percent: number) =>
+	format.formatMetric(
+		Math.abs(percent) >= 10 ? Math.round(Math.abs(percent)) : Math.abs(percent),
+		percentUnit,
+	);
 
 export function ChartCard(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly className?: string;
 	readonly actions?: ReactNode;
 	readonly children: ReactNode;
@@ -68,25 +75,31 @@ export function MetricGrid(props: {
 	readonly compact: boolean;
 	readonly className?: string;
 	/** Trailing context for change badges, such as "vs previous period". */
-	readonly comparisonLabel: string;
+	readonly comparisonLabel: Text;
 	readonly metrics: readonly Metric[];
 	readonly variant: "tiles" | "panel" | "plain";
 }) {
+	const t = useT();
+	const format = useMetricFormat();
 	const report = useReportBlock(() => ({
 		kind: "text",
 		lines: props.metrics.map((metric) => {
 			const delta =
 				metric.delta === undefined
 					? undefined
-					: deltaDisplay({
+					: deltaDisplay(t, format, {
 							unit: metric.unit,
 							delta: metric.delta,
 							comparisonLabel: props.comparisonLabel,
 						});
 			return [
-				metric.label + ":",
-				metric.atLeast && metric.value !== null ? "at least" : "",
-				formatMetric(metric.value, metric.unit),
+				t(
+					kernelMessage("ui.metric.report-figure", {
+						label: metric.label,
+						value: format.formatMetric(metric.value, metric.unit),
+						bound: metric.atLeast === true && metric.value !== null ? "minimum" : "exact",
+					}),
+				),
 				delta?.text,
 				delta?.comparison,
 				reportText(metric.hint),
@@ -158,7 +171,7 @@ export function MetricGrid(props: {
 }
 
 function MetricFigure(props: { readonly metric: Metric; readonly primary: boolean }) {
-	const parts = metricParts(props.metric.value, props.metric.unit);
+	const parts = useMetricFormat().metricParts(props.metric.value, props.metric.unit);
 	return (
 		<span className="flex min-w-0 items-baseline gap-1">
 			{props.metric.atLeast === true && parts.value !== "—" ? (
@@ -179,38 +192,55 @@ function MetricFigure(props: { readonly metric: Metric; readonly primary: boolea
 	);
 }
 
-const deltaDisplay = (props: {
-	readonly unit: MetricUnit;
-	readonly delta: MetricDelta;
-	readonly comparisonLabel: string;
-}) => {
+const deltaDisplay = (
+	t: (message: Message) => Text,
+	format: MetricFormat,
+	props: { readonly unit: MetricUnit; readonly delta: MetricDelta; readonly comparisonLabel: Text },
+) => {
 	const { delta } = props;
 	if (delta.kind === "unavailable") {
-		return { variant: null, comparison: "", text: "No comparison" };
+		return { variant: null, comparison: "", text: t(kernelMessage("ui.metric.no-comparison")) };
 	}
 	const bucketed = props.unit.kind === "rating" && props.unit.scale === "three-point";
-	const signed = `${delta.absolute > 0 ? "+" : ""}${formatMetric(delta.absolute, props.unit)}`;
+	const signed = t(
+		kernelMessage("ui.metric.signed-change", {
+			sign: delta.absolute > 0 ? "positive" : "negative",
+			value: format.formatMetric(delta.absolute, props.unit),
+		}),
+	);
 	let variant: "info" | "danger" | "neutral" | "success" = "neutral";
-	let text = "No change";
+	let text = t(kernelMessage("ui.metric.no-change"));
 	if (delta.kind === "new") {
 		variant = "info";
-		text = "New";
+		text = t(kernelMessage("ui.metric.new"));
 	} else if (Math.round(delta.percent * 10) !== 0) {
 		variant = delta.percent > 0 ? "success" : "danger";
-		text = `${delta.percent > 0 ? "↑" : "↓"} ${formatPercent(delta.percent)}`;
+		text = t(
+			kernelMessage("ui.metric.percent-change", {
+				direction: delta.percent > 0 ? "up" : "down",
+				percent: formatPercent(format, delta.percent),
+			}),
+		);
 	}
 	return {
 		text,
 		variant,
-		comparison: bucketed ? props.comparisonLabel : `${signed} ${props.comparisonLabel}`,
+		comparison: bucketed
+			? props.comparisonLabel
+			: t(
+					kernelMessage("ui.metric.change-comparison", {
+						change: signed,
+						comparison: props.comparisonLabel,
+					}),
+				),
 	};
 };
 function DeltaBadge(props: {
 	readonly unit: MetricUnit;
 	readonly delta: MetricDelta;
-	readonly comparisonLabel: string;
+	readonly comparisonLabel: Text;
 }) {
-	const { text, variant, comparison } = deltaDisplay(props);
+	const { text, variant, comparison } = deltaDisplay(useT(), useMetricFormat(), props);
 	if (variant === null) {
 		return <span className="text-micro text-text-subtle">{text}</span>;
 	}

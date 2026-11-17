@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
 
 import { type DurationDraft, durationDraft, DurationField, parseDuration } from "./duration-field";
+import { render } from "./i18n.test-support";
 
 function Duration(props: { readonly error?: string }) {
 	const [value, setValue] = useState<DurationDraft>(durationDraft(95));
@@ -11,10 +13,10 @@ function Duration(props: { readonly error?: string }) {
 		<>
 			<DurationField
 				value={value}
-				label="Time spent"
 				onChange={setValue}
 				error={props.error}
-				hint="Leave empty if you don't know."
+				label={testText("Time spent")}
+				hint={testText("Leave empty if you don't know.")}
 			/>
 			<output>{String(parseDuration(value))}</output>
 		</>

@@ -1,5 +1,4 @@
 import {
-	formatRating,
 	fromScale,
 	type RatingScale,
 	ratingScales,
@@ -7,21 +6,19 @@ import {
 	toScale,
 } from "@ryot-app/contract/modules/events/rating-scale";
 import { roundHalfUp } from "@ryot-app/contract/schema/numeric-normalization";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import { type ReactNode, type RefObject, useId, useState } from "react";
 
 import { Button } from "./button";
 import { Chip } from "./chips";
+import { type MetricFormat, ratingUnit, useMetricFormat } from "./metric-format";
 import { RadioGroup } from "./radio-group";
 import { StatusMessage } from "./status-message";
 import { TextField } from "./text-field";
-
-const scaleCaptions = {
-	five: "5 stars",
-	ten: "out of 10",
-	hundred: "out of 100",
-	"three-point": "3-point",
-} as const satisfies Record<RatingScale, string>;
 
 const threePointFaces = ["🙁", "😐", "🙂"] as const;
 
@@ -30,13 +27,21 @@ const stepDecimals = (step: number) => String(step).split(".")[1]?.length ?? 0;
 const isStepMultiple = (value: number, step: number) =>
 	Math.abs(value / step - Math.round(value / step)) < 1e-9;
 
-const ratingLabel = (rating: number, scale: RatingScale) => {
-	if (scale === "three-point") {
-		return formatRating(rating, scale);
-	}
-	const max = ratingScales[scale].max;
-	return `${formatRating(rating, scale)} out of ${max}${scale === "five" ? " stars" : ""}`;
-};
+const ratingLabel = (
+	t: (message: Message) => Text,
+	format: MetricFormat,
+	rating: number,
+	scale: RatingScale,
+) =>
+	scale === "three-point"
+		? format.formatRating(rating, scale)
+		: t(
+				kernelMessage("ui.rating.value-label", {
+					scale,
+					max: ratingScales[scale].max,
+					value: format.formatRating(rating, scale),
+				}),
+			);
 
 const ratingDraft = (rating: null | number | undefined, scale: RatingScale) => {
 	if (rating === null || rating === undefined) {
@@ -75,18 +80,26 @@ export function useRatingDraft(initial: null | number | undefined, scale: Rating
 const numberError = (scale: RatingScale) => {
 	const { max, step } = ratingScales[scale];
 	return step === 1
-		? `Enter a whole number from 0 to ${max}.`
-		: `Enter a number from 0 to ${max} with at most one decimal place.`;
+		? kernelMessage("ui.rating.whole-number-required", { max })
+		: kernelMessage("ui.rating.decimal-number-required", { max });
 };
 
-const starOptions = (disabled: boolean) =>
+const starOptions = (t: (message: Message) => Text, disabled: boolean) =>
 	Array.from({ length: 10 }, (_, index) => {
 		const value = (index + 1) / 2;
-		return { disabled, value: String(value), label: `${value} ${value === 1 ? "star" : "stars"}` };
+		return {
+			disabled,
+			value: String(value),
+			label: t(kernelMessage("ui.rating.stars", { count: value })),
+		};
 	});
 
-const threePointOptions = (disabled: boolean) =>
-	threePointRatings.map((label, index) => ({ label, disabled, value: String(index) }));
+const threePointOptions = (t: (message: Message) => Text, disabled: boolean) =>
+	threePointRatings.map((rating, index) => ({
+		disabled,
+		value: String(index),
+		label: t(kernelMessage("ui.rating.three-point", { rating })),
+	}));
 
 export function RatingInput(props: {
 	readonly value: string;
@@ -95,9 +108,14 @@ export function RatingInput(props: {
 	readonly onChange: (draft: string) => void;
 	readonly inputRef?: undefined | RefObject<null | HTMLInputElement>;
 }) {
+	const t = useT();
 	const id = useId();
 	const { scale, value, inputRef, onChange } = props;
-	const label = `Rating (${scaleCaptions[scale]}, optional)`;
+	const label = t(
+		kernelMessage("ui.rating.input-label", {
+			scale: scale === "three-point" ? "three_point" : scale,
+		}),
+	);
 	const definition = ratingScales[scale];
 	if (definition.input === "number") {
 		const valid = readRatingDraft(value, scale).valid;
@@ -117,7 +135,7 @@ export function RatingInput(props: {
 				/>
 				{valid ? null : (
 					<StatusMessage tone="error" id={`${id}-error`}>
-						{numberError(scale)}
+						{t(numberError(scale))}
 					</StatusMessage>
 				)}
 			</div>
@@ -125,7 +143,7 @@ export function RatingInput(props: {
 	}
 	const selected = value === "" ? undefined : value;
 	const disabled = props.disabled === true;
-	const options = (definition.input === "stars" ? starOptions : threePointOptions)(disabled);
+	const options = (definition.input === "stars" ? starOptions : threePointOptions)(t, disabled);
 	return (
 		<div className="flex flex-col gap-2">
 			<span aria-hidden="true">{label}</span>
@@ -168,7 +186,12 @@ export function RatingInput(props: {
 							content: (
 								<Chip
 									checked={checked}
-									label={`${threePointFaces[Number(option.value)] ?? ""} ${option.label}`}
+									label={t(
+										kernelMessage("ui.rating.three-point-option", {
+											label: option.label,
+											face: threePointFaces[Number(option.value)] ?? "",
+										}),
+									)}
 								/>
 							),
 						})}
@@ -176,7 +199,7 @@ export function RatingInput(props: {
 				)}
 				{selected === undefined ? null : (
 					<Button size="sm" variant="ghost" disabled={disabled} onClick={() => onChange("")}>
-						Clear rating
+						{t(kernelMessage("ui.rating.clear"))}
 					</Button>
 				)}
 			</div>
@@ -207,14 +230,14 @@ function Stars(props: { readonly stars: number }) {
 	});
 }
 
-const ratingVisual = (rating: number, scale: RatingScale): ReactNode => {
+const ratingVisual = (format: MetricFormat, rating: number, scale: RatingScale): ReactNode => {
 	if (scale === "five") {
 		return <Stars stars={Number(ratingDraft(rating, scale))} />;
 	}
 	if (scale === "three-point") {
-		return `${threePointFaces[toScale(rating, scale)] ?? ""} ${formatRating(rating, scale)}`;
+		return `${threePointFaces[toScale(rating, scale)] ?? ""} ${format.formatRating(rating, scale)}`;
 	}
-	return `${formatRating(rating, scale)} / ${ratingScales[scale].max}`;
+	return format.formatMetric(rating, ratingUnit(scale));
 };
 
 export function RatingValue(props: {
@@ -222,13 +245,15 @@ export function RatingValue(props: {
 	readonly scale: RatingScale;
 	readonly className?: string | undefined;
 }) {
+	const t = useT();
+	const format = useMetricFormat();
 	return (
 		<span
 			role="img"
-			aria-label={ratingLabel(props.rating, props.scale)}
+			aria-label={ratingLabel(t, format, props.rating, props.scale)}
 			className={clsx("inline-flex items-baseline tabular-nums", props.className)}
 		>
-			{ratingVisual(props.rating, props.scale)}
+			{ratingVisual(format, props.rating, props.scale)}
 		</span>
 	);
 }

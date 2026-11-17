@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
 import type { RatingScale } from "@ryot-app/contract/modules/events/rating-scale";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { RatingInput, RatingValue, useRatingDraft } from "./rating";
 
 function DraftHarness(props: {

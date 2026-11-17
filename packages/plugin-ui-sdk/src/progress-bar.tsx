@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 
 const toneClasses = { info: "bg-info", accent: "bg-accent", success: "bg-success" } as const;
@@ -6,7 +7,7 @@ const trackClasses = { art: "bg-raised/70", surface: "bg-surface-2" } as const;
 
 export function ProgressBar(props: {
 	readonly max: number;
-	readonly label: string;
+	readonly label: Text;
 	readonly value: number;
 	readonly className?: string | undefined;
 	readonly tone: keyof typeof toneClasses;

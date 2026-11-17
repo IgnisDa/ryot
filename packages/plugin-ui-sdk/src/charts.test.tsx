@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { testFormatters, testText } from "@ryot-app/kernel-messages/testing";
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 
 import {
 	CalendarHeatmap,
@@ -19,7 +20,10 @@ import {
 	type TimeSeriesChartSeries,
 	type TimeSeriesPoint,
 } from "./charts";
+import { render } from "./i18n.test-support";
 import { countUnit, durationUnit } from "./metric-format";
+
+const plural = (one: string, other: string) => countUnit((count) => (count === 1 ? one : other));
 
 const renderHeatmap = (
 	days: ReadonlyArray<CalendarHeatmapDay>,
@@ -31,9 +35,9 @@ const renderHeatmap = (
 			days={days}
 			compact={false}
 			onSelect={onSelect}
-			ariaLabel="Activity"
 			weekStart={weekStart}
-			unit={countUnit("event")}
+			ariaLabel={testText("Activity")}
+			unit={plural("event", "events")}
 		/>,
 	);
 
@@ -157,7 +161,11 @@ describe("CalendarHeatmap", () => {
 describe("formatReportingDateTime", () => {
 	it("formats an instant in the reporting time zone", () => {
 		expect(
-			formatReportingDateTime("2026-09-02T01:30:00.000Z", TimeZone.make("America/New_York")),
+			formatReportingDateTime(
+				testFormatters,
+				"2026-09-02T01:30:00.000Z",
+				TimeZone.make("America/New_York"),
+			),
 		).toMatch(/^Sep 1, 2026(?:,| at)\s9:30\sPM$/u);
 	});
 });
@@ -168,9 +176,9 @@ describe("RankedBarList", () => {
 			<RankedBarList
 				formatValue={(row) => `${row.value} events`}
 				rows={[
-					{ value: 5, key: "unit", label: "Units" },
-					{ value: 20, key: "record", label: "Records" },
-					{ value: 10, key: "show", label: "Shows" },
+					{ value: 5, key: "unit", label: testText("Units") },
+					{ value: 20, key: "record", label: testText("Records") },
+					{ value: 10, key: "show", label: testText("Shows") },
 				]}
 			/>,
 		);
@@ -197,7 +205,7 @@ const seriesOf = (days: ReadonlyArray<number>, value: number): ReadonlyArray<Tim
 describe("Sparkline", () => {
 	it("draws no line with fewer than two points but keeps the accessible name", () => {
 		const { container } = render(
-			<Sparkline tone="accent" ariaLabel="Weight trend" points={seriesOf([2], 80)} />,
+			<Sparkline tone="accent" points={seriesOf([2], 80)} ariaLabel={testText("Weight trend")} />,
 		);
 
 		expect(screen.getByRole("img", { name: "Weight trend" })).toBeDefined();
@@ -206,7 +214,11 @@ describe("Sparkline", () => {
 
 	it("draws the line in the tone color with an emphasised last point", () => {
 		const { container } = render(
-			<Sparkline tone="muted" ariaLabel="Weight trend" points={seriesOf([3, 1, 2], 80)} />,
+			<Sparkline
+				tone="muted"
+				points={seriesOf([3, 1, 2], 80)}
+				ariaLabel={testText("Weight trend")}
+			/>,
 		);
 
 		expect(container.querySelector(".ts-chart__line path")?.getAttribute("stroke")).toBe(
@@ -219,7 +231,7 @@ describe("Sparkline", () => {
 		const { container } = render(
 			<Sparkline
 				tone="accent"
-				ariaLabel="Weight trend"
+				ariaLabel={testText("Weight trend")}
 				points={[
 					{ value: 70, at: septemberOn(2) },
 					{ value: null, at: septemberOn(3) },
@@ -237,7 +249,7 @@ describe("Sparkline", () => {
 		const zeros = render(
 			<Sparkline
 				tone="accent"
-				ariaLabel="Weight trend"
+				ariaLabel={testText("Weight trend")}
 				points={[
 					{ value: 0, at: septemberOn(2) },
 					{ value: 0, at: septemberOn(3) },
@@ -263,7 +275,7 @@ describe("Sparkline", () => {
 			],
 		]) {
 			const placeholder = render(
-				<Sparkline tone="accent" points={points} ariaLabel="Weight trend" />,
+				<Sparkline tone="accent" points={points} ariaLabel={testText("Weight trend")} />,
 			);
 			expect(screen.getByRole("img", { name: "Weight trend" })).toBeDefined();
 			expect(placeholder.container.querySelector("svg")).toBeNull();
@@ -278,10 +290,10 @@ const renderTimeSeries = (overrides: Partial<TimeSeriesChartProps> = {}) =>
 		<TimeSeriesChart
 			compact={false}
 			gapMs={3 * DAY_MS}
-			ariaLabel="Weight over time"
+			ariaLabel={testText("Weight over time")}
 			range={{ endAt: septemberOn(30), startAt: septemberOn(1) }}
 			primary={{
-				label: "Weight",
+				label: testText("Weight"),
 				trend: seriesOf([2, 3, 4, 5], 80),
 				readings: seriesOf([2, 3, 4, 5], 80),
 				formatValue: (value) => `${value} kg`,
@@ -291,7 +303,7 @@ const renderTimeSeries = (overrides: Partial<TimeSeriesChartProps> = {}) =>
 	);
 
 const bodyFat = (readingDays: ReadonlyArray<number>): TimeSeriesChartSeries => ({
-	label: "Body fat",
+	label: testText("Body fat"),
 	trend: seriesOf(readingDays, 20),
 	formatValue: (value) => `${value}%`,
 	readings: seriesOf(readingDays, 20),
@@ -307,7 +319,7 @@ describe("TimeSeriesChart", () => {
 	it("breaks the trend path between consecutive points further apart than the gap", () => {
 		const { container } = renderTimeSeries({
 			primary: {
-				label: "Weight",
+				label: testText("Weight"),
 				trend: seriesOf([2, 3, 20, 21], 80),
 				formatValue: (value) => `${value} kg`,
 				readings: seriesOf([2, 3, 20, 21], 80),
@@ -353,7 +365,7 @@ describe("TimeSeriesChart", () => {
 		const compareFormatted: number[] = [];
 		const { container } = renderTimeSeries({
 			compare: {
-				label: "Body fat",
+				label: testText("Body fat"),
 				trend: [{ value: null, at: septemberOn(2) }],
 				formatValue: (value) => {
 					compareFormatted.push(value);
@@ -366,7 +378,7 @@ describe("TimeSeriesChart", () => {
 				],
 			},
 			primary: {
-				label: "Weight",
+				label: testText("Weight"),
 				formatValue: (value) => {
 					primaryFormatted.push(value);
 					return `${value} kg`;
@@ -413,21 +425,21 @@ const renderPeriodTrend = (overrides: Partial<PeriodTrendChartProps<PeriodTrendP
 			grouping="day"
 			compact={false}
 			timeZone={losAngeles}
-			label="Current period"
-			ariaLabel="Recorded activity"
 			unit={durationUnit("minutes")}
+			label={testText("Current period")}
+			ariaLabel={testText("Recorded activity")}
+			current={[
+				{ value: 12.25, at: "2026-09-02T01:00:00Z" },
+				{ value: null, at: "2026-09-03T01:00:00Z", detail: testText("Duration missing") },
+				{ value: 0, at: "2026-09-04T01:00:00Z" },
+			]}
 			previous={{
-				label: "Previous period",
+				label: testText("Previous period"),
 				points: [
-					{ value: 12.25, detail: "Estimated", at: "2026-08-02T01:00:00Z" },
+					{ value: 12.25, at: "2026-08-02T01:00:00Z", detail: testText("Estimated") },
 					{ value: 0, at: "2026-08-03T01:00:00Z" },
 				],
 			}}
-			current={[
-				{ value: 12.25, at: "2026-09-02T01:00:00Z" },
-				{ value: null, at: "2026-09-03T01:00:00Z", detail: "Duration missing" },
-				{ value: 0, at: "2026-09-04T01:00:00Z" },
-			]}
 			{...overrides}
 		/>,
 	);
@@ -472,21 +484,21 @@ describe("PeriodTrendChart", () => {
 		const months = renderPeriodTrend({
 			grouping: "month",
 			previous: undefined,
-			unit: countUnit("review"),
+			unit: plural("review", "reviews"),
 			current: [
 				{ value: 1, at: "2025-12-01" },
 				{ value: 3, at: "2026-01-01" },
 			],
 		});
 		expect(axisText(months.container)).toEqual<unknown>(
-			expect.arrayContaining(["Dec ’25", "Jan ’26", "0", "1", "2", "3"]),
+			expect.arrayContaining(["Dec 25", "Jan 26", "0", "1", "2", "3"]),
 		);
 		expect(axisText(months.container).some((label) => label.includes("."))).toBe(false);
 		months.unmount();
 		const years = renderPeriodTrend({
 			grouping: "year",
 			previous: undefined,
-			unit: countUnit("review"),
+			unit: plural("review", "reviews"),
 			current: [
 				{ value: 4, at: "2024-01-01" },
 				{ value: 2, at: "2025-01-01" },
@@ -508,10 +520,10 @@ describe("PeriodTrendChart", () => {
 				compact={false}
 				current={current}
 				timeZone={losAngeles}
-				label="Current period"
-				unit={countUnit("set")}
-				ariaLabel="Recorded activity"
-				previous={{ points: previous, label: "Previous period" }}
+				unit={plural("set", "sets")}
+				label={testText("Current period")}
+				ariaLabel={testText("Recorded activity")}
+				previous={{ points: previous, label: testText("Previous period") }}
 				onSelect={(point, period) => selected.push(`${period}:${point.id}`)}
 			/>,
 		);
@@ -570,13 +582,13 @@ describe("HourlyHistogram", () => {
 		render(
 			<HourlyHistogram
 				compact={true}
-				ariaLabel="Hourly activity"
-				unit={countUnit("observation")}
+				ariaLabel={testText("Hourly activity")}
 				timeZone={TimeZone.make("Asia/Kolkata")}
+				unit={plural("observation", "observations")}
 				onSelect={(bucket) => selected.push(bucket.hour)}
 				buckets={[
 					{ hour: 0, value: 0 },
-					{ hour: 23, value: 8, detail: "Exact instants only" },
+					{ hour: 23, value: 8, detail: testText("Exact instants only") },
 				]}
 			/>,
 		);
@@ -586,13 +598,13 @@ describe("HourlyHistogram", () => {
 		);
 		fireEvent.keyDown(screen.getByRole("img"), { key: "ArrowRight" });
 		expect(screen.getByRole("status", { hidden: true }).textContent).toContain(
-			"23:00–24:008 observations · Exact instants only",
+			"23:00–00:008 observations · Exact instants only",
 		);
 		fireEvent.click(screen.getByRole("radio", { name: "Table" }));
 		const table = screen.getByRole("table");
 		expect(within(table).getAllByRole("row")).toHaveLength(25);
 		expect(within(table).getAllByText("Not recorded")).toHaveLength(22);
-		fireEvent.click(within(table).getByRole("button", { name: /23:00–24:00/ }));
+		fireEvent.click(within(table).getByRole("button", { name: /23:00–00:00/ }));
 		expect(selected).toEqual([23]);
 	});
 });
@@ -601,12 +613,12 @@ describe("CoverageBar", () => {
 	it("sizes segments by their share and names every segment for assistive technology", () => {
 		const { container } = render(
 			<CoverageBar
-				ariaLabel="Minutes coverage"
+				ariaLabel={testText("Minutes coverage")}
 				formatValue={(segment) => `${segment.value}`}
 				segments={[
-					{ value: 3, tone: "solid", key: "recorded", label: "Recorded" },
-					{ value: 1, tone: "soft", key: "estimated", label: "Estimated" },
-					{ value: 0, tone: "empty", key: "missing", label: "Missing" },
+					{ value: 3, tone: "solid", key: "recorded", label: testText("Recorded") },
+					{ value: 1, tone: "soft", key: "estimated", label: testText("Estimated") },
+					{ value: 0, tone: "empty", key: "missing", label: testText("Missing") },
 				]}
 			/>,
 		);

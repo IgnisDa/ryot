@@ -1,12 +1,16 @@
 import { expect, it } from "bun:test";
 
-import { render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { countUnit, metricDelta } from "./metric-format";
 import { MetricGrid } from "./metric-tile";
 import { createReport, ReportProvider, reportSvg, ReportText } from "./report";
 import { StatusMessage } from "./status-message";
 import { DataTable } from "./table";
+
+const plural = (one: string, other: string) => countUnit((count) => (count === 1 ? one : other));
 
 it("freezes displayed values, comparisons, report context and loaded rows in visual order", () => {
 	const report = createReport();
@@ -16,15 +20,15 @@ it("freezes displayed values, comparisons, report context and loaded rows in vis
 			<MetricGrid
 				compact={false}
 				variant="plain"
-				comparisonLabel="vs previous period"
+				comparisonLabel={testText("vs previous period")}
 				metrics={[
 					{
 						value,
 						key: "total",
-						label: "Completed",
-						unit: countUnit("title"),
 						hint: "Still processing",
+						label: testText("Completed"),
 						delta: metricDelta(value, 2),
+						unit: plural("title", "titles"),
 					},
 				]}
 			/>
@@ -51,7 +55,10 @@ it("freezes displayed values, comparisons, report context and loaded rows in vis
 	const view = render(content(3));
 	expect(screen.getByRole("rowheader", { name: "A & B" })).toBeTruthy();
 	expect(report.ready()).toBe(true);
-	const snapshot = report.snapshot("Media Analytics", "Reporting timezone: UTC");
+	const snapshot = report.snapshot(
+		testText("Media Analytics"),
+		testText("Reporting timezone: UTC"),
+	);
 	expect(snapshot.blocks).toEqual([
 		{ kind: "text", title: undefined, lines: ["Sep 1 – 7, 2026 · UTC"] },
 		{
@@ -62,7 +69,9 @@ it("freezes displayed values, comparisons, report context and loaded rows in vis
 		{ kind: "text", lines: ["Values may change."] },
 	]);
 	view.rerender(content(9));
-	expect(report.snapshot("Media Analytics", "UTC").blocks).not.toEqual(snapshot.blocks);
+	expect(report.snapshot(testText("Media Analytics"), testText("UTC")).blocks).not.toEqual(
+		snapshot.blocks,
+	);
 	expect(reportSvg(snapshot, (value, size) => value.length * size).svg).toContain("A &amp; B");
 	expect(reportSvg(snapshot, (value, size) => value.length * size).svg).toContain(
 		"Completed: 3 titles",
@@ -82,14 +91,14 @@ it("blocks incomplete reports and removes the blocker after data arrives", () =>
 		</ReportProvider>,
 	);
 	expect(report.ready()).toBe(false);
-	expect(() => report.snapshot("Report", "UTC")).toThrow("finish loading");
+	expect(() => report.snapshot(testText("Report"), testText("UTC"))).toThrow("finish loading");
 	view.rerender(
 		<ReportProvider report={report}>
 			<ReportText>No activity in this period.</ReportText>
 		</ReportProvider>,
 	);
 	expect(report.ready()).toBe(true);
-	expect(report.snapshot("Report", "UTC").blocks).toEqual([
+	expect(report.snapshot(testText("Report"), testText("UTC")).blocks).toEqual([
 		{ kind: "text", title: undefined, lines: ["No activity in this period."] },
 	]);
 	view.unmount();
@@ -100,8 +109,8 @@ it("wraps long labels and unbroken values to the measured image width without lo
 	const value = "W".repeat(500) + "漢字👩🏽‍💻".repeat(20);
 	const report = reportSvg(
 		{
-			title: "",
-			subtitle: "",
+			title: testText(""),
+			subtitle: testText(""),
 			blocks: [{ kind: "text", lines: [value] }],
 			palette: { text: "black", background: "white" },
 		},

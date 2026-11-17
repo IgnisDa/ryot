@@ -1,9 +1,10 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
 export type Stat = {
 	readonly key: string;
-	readonly label: string;
+	readonly label: Text;
 	readonly value: ReactNode;
 	readonly detail?: ReactNode | undefined;
 };

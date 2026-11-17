@@ -1,9 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
-import { render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { countUnit, durationUnit, metricDelta } from "./metric-format";
 import { ChartCard, MetricGrid } from "./metric-tile";
+
+const plural = (one: string, other: string) => countUnit((count) => (count === 1 ? one : other));
 
 describe("MetricGrid", () => {
 	it("pairs each formatted value with its label and change against the comparison period", () => {
@@ -11,32 +15,32 @@ describe("MetricGrid", () => {
 			<MetricGrid
 				variant="tiles"
 				compact={false}
-				comparisonLabel="vs previous period"
+				comparisonLabel={testText("vs previous period")}
 				metrics={[
 					{
 						value: 1771,
 						key: "titles",
-						label: "Completed",
-						unit: countUnit("title"),
+						label: testText("Completed"),
 						delta: metricDelta(1771, 2040),
+						unit: plural("title", "titles"),
 					},
 					{
 						key: "time",
 						value: 89239,
 						atLeast: true,
-						label: "Active time",
 						unit: durationUnit("seconds"),
+						label: testText("Active time"),
 						hint: "16 of 20 workouts timed",
 						delta: metricDelta(89239, 89239),
 					},
 					{
 						value: 2,
 						key: "new",
-						label: "Awards",
-						unit: countUnit("award"),
 						delta: metricDelta(2, 0),
+						label: testText("Awards"),
+						unit: plural("award", "awards"),
 					},
-					{ value: 1, key: "plain", label: "Sets", unit: countUnit("set") },
+					{ value: 1, key: "plain", label: testText("Sets"), unit: plural("set", "sets") },
 				]}
 			/>,
 		);
@@ -63,7 +67,7 @@ describe("ChartCard", () => {
 	it("titles its content and keeps actions beside the heading", () => {
 		render(
 			<ChartCard
-				title="Trend"
+				title={testText("Trend")}
 				description="Oct 2 – 31, 2026"
 				actions={<button type="button">Metric</button>}
 			>

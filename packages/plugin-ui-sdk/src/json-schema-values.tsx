@@ -1,4 +1,6 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import clsx from "clsx";
@@ -12,18 +14,6 @@ type JsonObject = Readonly<Record<string, JsonValue>>;
 const isJsonObject = (value: JsonValue | undefined): value is JsonObject => isObjectRecord(value);
 const isJsonArray = (value: JsonValue | undefined): value is readonly JsonValue[] =>
 	Array.isArray(value);
-
-const humanize = (key: string) => {
-	const words = key
-		.replaceAll(/([a-z0-9])([A-Z])/g, "$1 $2")
-		.replaceAll(/[_-]+/g, " ")
-		.trim()
-		.toLowerCase()
-		.split(/\s+/)
-		.map((word) => (word === "id" ? "ID" : word));
-	const [first = "", ...rest] = words;
-	return [first.charAt(0).toUpperCase() + first.slice(1), ...rest].join(" ");
-};
 
 const valueType = (value: JsonValue) => {
 	if (value === null) {
@@ -75,12 +65,13 @@ const isComposite = (value: JsonValue) =>
 	(isJsonArray(value) && value.some((item) => item !== null && typeof item === "object")) ||
 	(isJsonObject(value) && Object.keys(value).length > 0);
 
-const countLabel = (value: JsonValue) => {
-	const [count, noun] = isJsonArray(value)
-		? [value.length, "item"]
-		: [Object.keys(isJsonObject(value) ? value : {}).length, "field"];
-	return `${count} ${noun}${count === 1 ? "" : "s"}`;
-};
+const countMessage = (value: JsonValue) =>
+	isJsonArray(value)
+		? kernelMessage("ui.json-values.count", { kind: "items", count: value.length })
+		: kernelMessage("ui.json-values.count", {
+				kind: "fields",
+				count: Object.keys(isJsonObject(value) ? value : {}).length,
+			});
 
 type ValueProps = {
 	readonly depth: number;
@@ -106,6 +97,7 @@ export function JsonSchemaValues(props: {
 }
 
 function Group(props: ValueProps & { readonly label: string; readonly term: boolean }) {
+	const t = useT();
 	const [open, setOpen] = useState(props.depth <= OPEN_DEPTH);
 	const Header = props.term ? "dt" : "div";
 	const Body = props.term ? "dd" : "div";
@@ -127,7 +119,11 @@ function Group(props: ValueProps & { readonly label: string; readonly term: bool
 						)}
 					/>
 					<span className="min-w-0 break-words">{props.label}</span>{" "}
-					<span className="shrink-0 text-xs">· {countLabel(props.value)}</span>
+					<span className="shrink-0 text-xs">
+						{t(
+							kernelMessage("ui.json-values.group-count", { count: t(countMessage(props.value)) }),
+						)}
+					</span>
 				</button>
 			</Header>
 			{open && (
@@ -140,23 +136,28 @@ function Group(props: ValueProps & { readonly label: string; readonly term: bool
 }
 
 function Value(props: ValueProps): ReactNode {
+	const t = useT();
+	const formatters = useFormatters();
 	const { root, depth, value, schema } = props;
+	const none = t(kernelMessage("common.value.none"));
 	if (value === null) {
-		return <span className="text-text-subtle">None</span>;
+		return <span className="text-text-subtle">{none}</span>;
 	}
 	if (typeof value === "boolean") {
-		return value ? "Yes" : "No";
+		return t(kernelMessage(value ? "common.value.yes" : "common.value.no"));
 	}
 	if (typeof value === "number" || typeof value === "string") {
 		return <span className="break-words whitespace-pre-wrap">{String(value)}</span>;
 	}
 	if (!isJsonObject(value)) {
 		if (value.length === 0) {
-			return <span className="text-text-subtle">None</span>;
+			return <span className="text-text-subtle">{none}</span>;
 		}
 		const items = resolve(schema["items"], root, value[0] ?? null);
 		if (value.every((item) => item === null || typeof item !== "object")) {
-			return value.map((item) => (item === null ? "None" : String(item))).join(", ");
+			return formatters
+				.list({ type: "unit", style: "short" })
+				.format(value.map((item) => (item === null ? none : String(item))));
 		}
 		const occurrences = new Map<string, number>();
 		const keyed = value.map((item) => {
@@ -175,8 +176,8 @@ function Value(props: ValueProps): ReactNode {
 								term={false}
 								value={item}
 								depth={depth + 1}
-								label={`Item ${index + 1}`}
 								schema={resolve(items, root, item)}
+								label={t(kernelMessage("ui.json-values.item", { position: index + 1 }))}
 							/>
 						) : (
 							<Value
@@ -197,7 +198,7 @@ function Value(props: ValueProps): ReactNode {
 		...Object.keys(value).filter((key) => properties[key] === undefined),
 	];
 	if (keys.length === 0) {
-		return <span className="text-text-subtle">None</span>;
+		return <span className="text-text-subtle">{none}</span>;
 	}
 	return (
 		<dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1.5">
@@ -205,7 +206,7 @@ function Value(props: ValueProps): ReactNode {
 				const child = value[key] ?? null;
 				const childSchema = resolve(properties[key], root, child);
 				const title = childSchema["title"];
-				const label = typeof title === "string" ? title : humanize(key);
+				const label = typeof title === "string" ? title : key;
 				return isComposite(child) ? (
 					<Group
 						term
