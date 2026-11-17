@@ -31,6 +31,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -166,7 +167,7 @@ const mountView = (
 		),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -187,7 +188,7 @@ const attachArchive = () => {
 				}),
 			);
 			fireEvent.change(input, { target: { files: fileListOf(zipArchive()) } });
-			yield* Effect.promise(() => screen.findByText("4 B · Ready to restore"));
+			yield* Effect.promise(() => screen.findByText("4B · Ready to restore"));
 		}),
 	);
 };
@@ -295,7 +296,7 @@ describe("backups list", () => {
 					Effect.promise(() => new Promise((resolve) => (complete = resolve))),
 				);
 
-				yield* Effect.promise(() => screen.findByText("Loading your backups..."));
+				yield* Effect.promise(() => screen.findByText("Loading your backups…"));
 				complete({ items: [] });
 				yield* Effect.promise(() => screen.findByText("No backups yet"));
 			}),

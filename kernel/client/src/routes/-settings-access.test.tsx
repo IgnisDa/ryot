@@ -23,6 +23,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -136,7 +137,7 @@ const mountView = (options: {
 		),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: ["/settings/access"] }),
 	);
 	render(<RouterProvider router={router} />);
@@ -240,7 +241,7 @@ it.live(
 			const revoked: ConnectedAppId[] = [];
 			mountView({ keys: () => [], apps: [claudeApp], revokedApp: (id) => revoked.push(id) });
 			const apps = yield* Effect.promise(() =>
-				screen.findByRole("list", { name: "connected apps" }),
+				screen.findByRole("list", { name: "Connected apps" }),
 			);
 			const [claude] = within(apps).getAllByRole("listitem");
 			expect(claude.textContent).toContain("Ask before each change");

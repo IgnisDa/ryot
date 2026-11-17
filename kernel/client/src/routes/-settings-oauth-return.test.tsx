@@ -24,6 +24,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -113,7 +114,7 @@ const mountReturn = (
 	);
 	runtime.runSync(capture.record(fragment));
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [entry] }),
 	);
 	const view = render(<RouterProvider router={router} />);

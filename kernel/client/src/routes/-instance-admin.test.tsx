@@ -29,6 +29,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
 	makeAuthStub,
@@ -90,7 +91,7 @@ const makeView = (
 		).pipe(Layer.provideMerge(OAuthRouteStubs), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [path] }),
 	);
 	const view = render(<RouterProvider router={router} />);

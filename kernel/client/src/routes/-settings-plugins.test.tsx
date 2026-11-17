@@ -5,6 +5,7 @@ import {
 	type PluginInspection,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testCatalog } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -30,6 +31,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -48,11 +50,18 @@ import {
 } from "#/routes/-route-fixtures";
 
 const inspection: PluginInspection = {
+	catalogs: {
+		en: testCatalog("unused", {
+			"plugin.region": "Region",
+			"plugin.name": "Whiskey Shelf",
+			"plugin.description": "Tracks tastings.",
+		}).catalog,
+	},
 	metadata: {
 		icon: "puzzle",
 		version: "1.2.0",
-		name: "Whiskey Shelf",
-		description: "Tracks tastings.",
+		name: { key: "plugin.name" },
+		description: { key: "plugin.description" },
 		packageId: PluginPackageId.make("test/whiskey"),
 	},
 	configSchema: {
@@ -60,9 +69,9 @@ const inspection: PluginInspection = {
 		fields: {
 			region: {
 				type: "string",
-				label: "Region",
 				description: "Region",
 				validation: { required: true },
+				label: { key: "plugin.region" },
 			},
 		},
 	},
@@ -140,7 +149,7 @@ const mountView = (api: Partial<PluginInstallationsApi["Service"]>) => {
 		),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: ["/settings/plugins"] }),
 	);
 	return render(<RouterProvider router={router} />);
@@ -165,7 +174,7 @@ const chooseArchive = Effect.gen(function* () {
 		type: "application/zip",
 	});
 	fireEvent.change(input, { target: { files: fileListOf(archive) } });
-	yield* Effect.promise(() => wizard.findByText("4 B · Ready to review"));
+	yield* Effect.promise(() => wizard.findByText("4B · Ready to review"));
 	fireEvent.click(wizard.getByRole("button", { name: "Continue" }));
 	return wizard;
 });

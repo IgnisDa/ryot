@@ -27,6 +27,7 @@ import type { IntegrationsApi } from "#/api/integrations";
 import { KernelApiTestLayer, makeIntegrationsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
 import type { AuthService } from "#/modules/auth/service";
+import { testMessage, testMessageCatalog } from "#/modules/i18n/provider.test-support";
 import { type OAuthConnectInput, OAuthConnectService } from "#/modules/integrations/oauth-connect";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { IntegrationsService } from "#/modules/integrations/service";
@@ -41,6 +42,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	makeAuthStub,
@@ -52,6 +54,7 @@ import {
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
 	PagesApiRouteStubs,
+	pluginMessages,
 	ProviderAddRouteStubs,
 	ServerStub,
 	theme,
@@ -106,17 +109,17 @@ const libraryProvider: IntegrationProviderItem = {
 	entitlement: null,
 	pluginScope: "system",
 	slug: "sample-library",
-	name: "Sample Library",
 	readinessMetadata: null,
 	readinessConnections: [],
 	supportsOwnershipSync: true,
 	scriptSlug: "sample-library",
+	name: testMessage("Sample Library"),
 	pluginId: PluginId.make("plugin-a"),
 	installationId: "fixture-installation",
 	commonSchema: ownershipSyncCommonSchema,
 	packageId: PluginPackageId.make("ryot/fixture"),
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	description: "Import progress and ownership from Sample Library",
+	description: testMessage("Import progress and ownership from Sample Library"),
 	reference: {
 		slug: "sample-library",
 		owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") },
@@ -142,18 +145,18 @@ const sinkProvider: IntegrationProviderItem = {
 	isCreatable: true,
 	entitlement: null,
 	slug: "sample-sink",
-	name: "Sample Sink",
 	pluginScope: "system",
 	readinessMetadata: null,
 	readinessConnections: [],
 	scriptSlug: "sample-sink",
 	supportsOwnershipSync: false,
 	settingsSchema: { fields: {} },
+	name: testMessage("Sample Sink"),
 	pluginId: PluginId.make("plugin-a"),
 	installationId: "fixture-installation",
 	packageId: PluginPackageId.make("ryot/fixture"),
-	description: "Receive Sample Sink playback webhooks",
 	readiness: { plan: null, ready: true, blockReasons: [] },
+	description: testMessage("Receive Sample Sink playback webhooks"),
 	reference: {
 		slug: "sample-sink",
 		owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") },
@@ -372,6 +375,16 @@ const mountView = (
 			ManagedAssetRouteStubs,
 			publicApi,
 			KernelApiTestLayer,
+			pluginMessages(
+				testMessageCatalog(
+					"Sample Library",
+					"Import progress and ownership from Sample Library",
+					"Sample Sink",
+					"Receive Sample Sink playback webhooks",
+					"Try the connection again.",
+					...Array.from({ length: 100 }, (_, index) => `A ${index}`),
+				),
+			),
 			PagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
 			userSettingsApi,
@@ -395,7 +408,7 @@ const mountView = (
 		),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -456,8 +469,8 @@ describe("integrations list", () => {
 				let current = oauthProvider;
 				const otherProviders = Array.from({ length: 100 }, (_, index) => ({
 					...sinkProvider,
-					name: `A ${index}`,
 					slug: `provider-${index}`,
+					name: testMessage(`A ${index}`),
 					reference: { ...sinkProvider.reference, slug: `provider-${index}` },
 				}));
 				mountView(
@@ -477,7 +490,10 @@ describe("integrations list", () => {
 									return { kind: "cancelled" } as const;
 								}
 								if (connects.length === 2) {
-									return { kind: "failed", message: "Try the connection again." } as const;
+									return {
+										kind: "failed",
+										message: testMessage("Try the connection again."),
+									} as const;
 								}
 								return { connectionId, kind: "connected" } as const;
 							}),
@@ -546,7 +562,7 @@ describe("integrations list", () => {
 				);
 				yield* Effect.promise(() =>
 					screen.findByText(
-						"Set CLIENT_ID in this plugin installation. Set CLIENT_SECRET in this plugin installation.",
+						"Set CLIENT_ID in this plugin installation. One more setup step is also required.",
 					),
 				);
 				expect(

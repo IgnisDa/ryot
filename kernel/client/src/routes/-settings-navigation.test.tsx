@@ -3,6 +3,7 @@ import { describe, expect } from "bun:test";
 import type { TwoFactorStatus } from "@ryot-app/contract/modules/account/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -17,6 +18,7 @@ import { KernelApiTestLayer, makeEntityWatchService, makeRyotQLApi } from "#/api
 import { PublicApi, PublicApiError } from "#/api/public";
 import type { RyotQLApi } from "#/api/ryotql";
 import type { AuthService, SettledAuthSession } from "#/modules/auth/service";
+import { testMessage, testMessageCatalog } from "#/modules/i18n/provider.test-support";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
@@ -29,6 +31,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -43,6 +46,7 @@ import {
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
 	PagesApiRouteStubs,
+	pluginMessages,
 	ProviderAddRouteStubs,
 	server,
 	ServerStub,
@@ -110,6 +114,7 @@ const mountView = (
 			ManagedAssetRouteStubs,
 			publicLayer,
 			KernelApiTestLayer,
+			pluginMessages(testMessageCatalog("Journal")),
 			PagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
 			makeEntityWatchService({
@@ -138,7 +143,7 @@ const mountView = (
 	);
 	const initialEntries = typeof initialEntry === "string" ? [initialEntry] : initialEntry;
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -243,9 +248,9 @@ describe("settings navigation", () => {
 				expect(banner.textContent).toContain("Test User");
 				expect(banner.textContent).toContain("user@ryot.example");
 				expect(banner.textContent).toContain(
-					new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "medium" }).format(
-						DateTime.toDate(DateTime.makeUnsafe(expiresAt)),
-					),
+					testFormatters
+						.dateTime({ timeStyle: "short", dateStyle: "medium" })
+						.format(DateTime.toDate(DateTime.makeUnsafe(expiresAt))),
 				);
 				fireEvent.click(screen.getByRole("button", { name: "Stop impersonating" }));
 				yield* Effect.promise(() => waitFor(() => expect(signOuts).toEqual([server])));
@@ -491,7 +496,7 @@ describe("settings navigation", () => {
 					{
 						...catalog[0],
 						sortOrder: 1,
-						name: "Journal",
+						name: testMessage("Journal"),
 						installationId: "installation-2",
 						pluginId: PluginId.make("plugin-2"),
 						packageId: PluginPackageId.make("test/plugin-2"),
@@ -538,7 +543,7 @@ describe("settings navigation", () => {
 					{
 						...catalog[0],
 						sortOrder: 1,
-						name: "Journal",
+						name: testMessage("Journal"),
 						installationId: "installation-2",
 						pluginId: PluginId.make("plugin-2"),
 						packageId: PluginPackageId.make("test/plugin-2"),
@@ -839,9 +844,9 @@ describe("account settings", () => {
 			const input = yield* Effect.promise(() => screen.findByRole("textbox", { name: "Name" }));
 			fireEvent.change(input, { target: { value: "New Name" } });
 			fireEvent.click(screen.getByRole("button", { name: "Save" }));
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Saving..." }));
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Saving…" }));
 			expect(input.hasAttribute("disabled")).toBe(true);
-			expect(screen.getByRole("button", { name: "Saving..." }).hasAttribute("disabled")).toBe(true);
+			expect(screen.getByRole("button", { name: "Saving…" }).hasAttribute("disabled")).toBe(true);
 			yield* Deferred.succeed(gate, undefined);
 			yield* Effect.promise(() => screen.findByText("Could not save your name. Try again."));
 			expect(screen.getByDisplayValue("New Name")).toBe(input);
@@ -916,7 +921,7 @@ describe("account settings", () => {
 				fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
 
 				const pending = yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Generating..." }),
+					screen.findByRole("button", { name: "Generating…" }),
 				);
 				expect(pending.hasAttribute("disabled")).toBe(true);
 				yield* Deferred.succeed(gate, undefined);
@@ -999,7 +1004,7 @@ describe("account settings", () => {
 
 				fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 				const pending = yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Signing out..." }),
+					screen.findByRole("button", { name: "Signing out…" }),
 				);
 				expect(pending.hasAttribute("disabled")).toBe(true);
 
@@ -1172,7 +1177,7 @@ describe("preferences settings", () => {
 				);
 				expect(
 					screen
-						.getByRole("button", { name: "Entity language: Provider default" })
+						.getByRole("button", { name: "Entity language: Same as interface language" })
 						.hasAttribute("disabled"),
 				).toBe(true);
 				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
@@ -1193,7 +1198,7 @@ describe("preferences settings", () => {
 			Effect.gen(function* () {
 				mountPreferences();
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Entity language: Provider default" }),
+					screen.findByRole("button", { name: "Entity language: Same as interface language" }),
 				);
 
 				expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
@@ -1205,7 +1210,7 @@ describe("preferences settings", () => {
 				).not.toBeNull();
 				expect(screen.queryByRole("switch")).toBeNull();
 				expect(
-					screen.getByRole("button", { name: "Entity language: Provider default" }),
+					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
 				).not.toBeNull();
 			}),
 		testTimeout,
@@ -1240,14 +1245,16 @@ describe("preferences settings", () => {
 				);
 				expect(submit.hasAttribute("disabled")).toBe(true);
 
-				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(
+					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				expect(submit.hasAttribute("disabled")).toBe(false);
 				fireEvent.click(submit);
 
 				yield* Effect.promise(() => screen.findByText("Preferences saved."));
 				yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
-				expect(saved).toEqual([{ language: "es" }]);
+				expect(saved).toEqual([{ contentLanguage: "es" }]);
 				expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
 				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 					true,
@@ -1293,6 +1300,38 @@ describe("preferences settings", () => {
 	);
 
 	it.live(
+		"submits interface language and week start choices without offering the pseudo-locale",
+		() =>
+			Effect.gen(function* () {
+				const saved: UserPreferencesPatch[] = [];
+				mountPreferences(
+					makeUserSettingsStub({
+						updatePreferences: (_scope, request) =>
+							Effect.sync(() => {
+								saved.push(request.payload);
+							}),
+					}),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
+
+				fireEvent.click(
+					screen.getByRole("button", { name: "Interface language: Device language" }),
+				);
+				expect(screen.queryByRole("radio", { name: /en-XA/ })).toBeNull();
+				fireEvent.click(screen.getByRole("radio", { name: /English/ }));
+				fireEvent.click(
+					screen.getByRole("button", { name: "First day of the week: Language default (Sunday)" }),
+				);
+				fireEvent.click(screen.getByRole("radio", { name: "Monday" }));
+				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+				yield* Effect.promise(() => screen.findByText("Preferences saved."));
+				expect(saved).toEqual([{ weekStart: 1, interfaceLocale: "en" }]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
 		"submits a custom entity language code",
 		() =>
 			Effect.gen(function* () {
@@ -1307,15 +1346,17 @@ describe("preferences settings", () => {
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
-				fireEvent.click(screen.getByRole("radio", { name: "Other language..." }));
+				fireEvent.click(
+					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+				);
+				fireEvent.click(screen.getByRole("radio", { name: "Other language…" }));
 				fireEvent.change(screen.getByRole("textbox", { name: "Custom entity language code" }), {
 					target: { value: "sv" },
 				});
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 				yield* Effect.promise(() => screen.findByText("Preferences saved."));
-				expect(saved).toEqual([{ language: "sv" }]);
+				expect(saved).toEqual([{ contentLanguage: "sv" }]);
 				expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
 			}),
 		testTimeout,
@@ -1328,12 +1369,14 @@ describe("preferences settings", () => {
 				const gate = Deferred.makeUnsafe<void>();
 				mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(
+					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 				const savingButton = yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Saving..." }),
+					screen.findByRole("button", { name: "Saving…" }),
 				);
 				expect(savingButton.hasAttribute("disabled")).toBe(true);
 				expect(
@@ -1354,7 +1397,9 @@ describe("preferences settings", () => {
 					makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(
+					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 				yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
@@ -1372,7 +1417,9 @@ describe("preferences settings", () => {
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(
+					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -1404,10 +1451,12 @@ describe("preferences settings", () => {
 					}),
 				);
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Entity language: Provider default" }),
+					screen.findByRole("button", { name: "Entity language: Same as interface language" }),
 				);
 
-				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(
+					screen.getByRole("button", { name: "Entity language: Same as interface language" }),
+				);
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				const language = screen.getByRole("button", { name: "Entity language: Spanish" });
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));

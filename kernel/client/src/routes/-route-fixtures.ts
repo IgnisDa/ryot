@@ -11,12 +11,15 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { catalog as sourceCatalog } from "@ryot-app/kernel-messages/locales/en";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	type PluginBridgeCatalog,
 } from "@ryot-app/plugin-client-contract";
+import { testCatalog } from "@ryot-app/plugin-client-sdk/testing";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import type { UserSettingsResult } from "@ryot-app/ryotql-recipes/user-settings";
@@ -25,7 +28,7 @@ import { Effect, Layer } from "effect";
 import type { AccountApi } from "#/api/account";
 import { ServerOrigin } from "#/api/origin";
 import { PagesApi } from "#/api/pages";
-import { makeAccountApi, makeInstanceAdminApi } from "#/api/ports.test-layer";
+import { makeAccountApi, makeInstanceAdminApi, makePluginsApi } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
@@ -38,6 +41,7 @@ import { OAuthTokenService } from "#/modules/auth/token-service";
 import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
+import { createI18nStore, type I18nStore } from "#/modules/i18n/store";
 import { ImportsService } from "#/modules/imports/service";
 import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
 import { InstanceAdminService } from "#/modules/instance-admin/service";
@@ -71,12 +75,32 @@ export const theme: ThemeStore = {
 	getSnapshot: () => ({ resolvedMode: "light" }),
 };
 
+export const i18n: I18nStore = createI18nStore({
+	sourceCatalog,
+	deviceLocales: [],
+	run: (effect) => Effect.runSync(effect),
+	load: () => Effect.succeed(sourceCatalog),
+});
+
+export const pluginMessages = (...extra: readonly PluginBridgeCatalog[]) =>
+	makePluginsApi({
+		messages: () =>
+			Effect.succeed({
+				catalogs: [
+					testCatalog("plugin-1", {
+						"plugin.name": "Fixture",
+						"episode.logged": "Logged episode 1",
+					}),
+					...extra,
+				].map(({ catalog, namespace }) => ({ catalog, namespace })),
+			}),
+	});
+
 export const catalog: PluginClientCatalog = [
 	{
 		sortOrder: 0,
 		icon: "puzzle",
 		scope: "system",
-		name: "Fixture",
 		health: "ready",
 		isHidden: false,
 		clientApiVersion: 1,
@@ -87,6 +111,7 @@ export const catalog: PluginClientCatalog = [
 		installationId: "installation-1",
 		pluginId: PluginId.make("plugin-1"),
 		packageId: PluginPackageId.make("test/plugin-1"),
+		name: { key: "plugin.name", namespace: "plugin-1" },
 	},
 ];
 
@@ -159,7 +184,9 @@ export const userSettings: UserSettingsResult = {
 	id: UserId.make("user-1"),
 	email: "user@ryot.example",
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,

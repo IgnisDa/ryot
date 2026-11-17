@@ -18,6 +18,7 @@ import { Effect, Layer, ManagedRuntime, Result } from "effect";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { ImportsApi } from "#/api/imports";
 import { KernelApiTestLayer, makeImportsApi, makeRyotQLApi } from "#/api/ports.test-layer";
+import { testMessage, testMessageCatalog } from "#/modules/i18n/provider.test-support";
 import {
 	ImportsLoadError,
 	type ImportSourceItem,
@@ -33,6 +34,7 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -46,6 +48,7 @@ import {
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
 	PagesApiRouteStubs,
+	pluginMessages,
 	ProviderAddRouteStubs,
 	ServerStub,
 	theme,
@@ -61,18 +64,20 @@ const alphaSource: ImportSourceItem = {
 	plan: null,
 	isStartable: true,
 	slug: "alpha-service",
-	name: "Alpha Service",
 	pluginScope: "system",
 	workflowSlug: "import",
 	readinessMetadata: null,
 	missingPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
+	name: testMessage("Alpha Service"),
 	pluginId: PluginId.make("plugin-b"),
 	installationId: "other-installation",
 	packageId: PluginPackageId.make("ryot/other"),
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	description: "Import records from a Alpha Service CSV export",
-	exportHelp: { steps: ["Open the Alpha Service app", "Export your records"] },
+	description: testMessage("Import records from a Alpha Service CSV export"),
+	exportHelp: {
+		steps: [testMessage("Open the Alpha Service app"), testMessage("Export your records")],
+	},
 	reference: {
 		slug: "alpha-service",
 		owner: { kind: "plugin", pluginId: PluginId.make("plugin-b") },
@@ -94,17 +99,17 @@ const betaSource: ImportSourceItem = {
 	plan: null,
 	isStartable: true,
 	slug: "beta-service",
-	name: "Beta Service",
 	pluginScope: "system",
 	workflowSlug: "import",
 	readinessMetadata: null,
 	missingPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
+	name: testMessage("Beta Service"),
 	pluginId: PluginId.make("plugin-a"),
 	installationId: "fixture-installation",
 	packageId: PluginPackageId.make("ryot/fixture"),
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	description: "Import watched history from a Beta Service profile",
+	description: testMessage("Import watched history from a Beta Service profile"),
 	reference: {
 		slug: "beta-service",
 		owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") },
@@ -121,11 +126,11 @@ const lockedSource: ImportSourceItem = {
 	...betaSource,
 	isStartable: false,
 	slug: "gamma-service",
-	name: "Gamma Service",
 	exportHelp: undefined,
+	name: testMessage("Gamma Service"),
 	missingPluginConfigKeys: ["RYOT_FIXTURE_TOKEN"],
-	description: "Import watched history from Gamma Service",
 	reference: { ...betaSource.reference, slug: "gamma-service" },
+	description: testMessage("Import watched history from Gamma Service"),
 	readiness: {
 		plan: null,
 		ready: false,
@@ -165,13 +170,13 @@ const makeRun = (overrides: Partial<ImportRunSummary> = {}) => ({
 	failureReason: null,
 	status: "completed",
 	source: "alpha-service",
-	pluginInstallationId: null,
 	summary: outcomeSummary(12),
 	id: ImportRunId.make("run_1"),
 	createdAt: "2026-08-23T11:00:00.000Z",
 	updatedAt: "2026-08-23T11:05:00.000Z",
 	startedAt: "2026-08-23T11:00:10.000Z",
 	finishedAt: "2026-08-23T11:05:00.000Z",
+	pluginInstallationId: "other-installation",
 	...overrides,
 });
 
@@ -281,6 +286,19 @@ const mountView = (
 			ManagedAssetRouteStubs,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			pluginMessages(
+				testMessageCatalog(
+					"Alpha Service",
+					"Import records from a Alpha Service CSV export",
+					"Open the Alpha Service app",
+					"Export your records",
+					"Beta Service",
+					"Import watched history from a Beta Service profile",
+					"Gamma Service",
+					"Import watched history from Gamma Service",
+					...Array.from({ length: 100 }, (_, index) => `A ${index}`),
+				),
+			),
 			PagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
 			makeUserSettingsStub(),
@@ -299,7 +317,7 @@ const mountView = (
 		),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -372,7 +390,7 @@ describe("import data list", () => {
 				const catalogSources = [
 					...Array.from({ length: 100 }, (_, index) => ({
 						...alphaSource,
-						name: `A ${index}`,
+						name: testMessage(`A ${index}`),
 						slug: index === 0 ? betaSource.slug : `source-${index}`,
 						reference: {
 							...alphaSource.reference,
@@ -482,7 +500,7 @@ describe("import data list", () => {
 				);
 				expect(row.textContent).toContain("12 created");
 				expect(
-					screen.getByRole("link", { name: /Open the Open Scale import from/ }).textContent,
+					screen.getByRole("link", { name: /Open the Unknown source import from/ }).textContent,
 				).toContain("9 created · 0 updated · 0 unchanged · 0 skipped · 3 unsuccessful");
 
 				fireEvent.click(row);
@@ -633,7 +651,14 @@ describe("import data list", () => {
 							limits.push(input.limit);
 							return Effect.succeed(
 								decodeRuns(
-									limits.length < 3 ? [makeRun()] : [makeRun({ source: "beta-service" })],
+									limits.length < 3
+										? [makeRun()]
+										: [
+												makeRun({
+													source: "beta-service",
+													pluginInstallationId: "fixture-installation",
+												}),
+											],
 									limits.length === 1,
 								),
 							);
@@ -810,7 +835,7 @@ describe("import data list", () => {
 					yield* Effect.promise(() => screen.findByRole("button", { name: "Start import" })),
 				);
 				yield* Effect.promise(() =>
-					screen.findByText("Set CLIENT_ID for this source. Connect account for this account."),
+					screen.findByText("Set CLIENT_ID for this source. One more setup step is also required."),
 				);
 				expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Username" }).value).toBe(
 					"someone",

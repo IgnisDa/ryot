@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testCatalog } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -21,6 +22,7 @@ import {
 	catalog,
 	ClientPageSessionsRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -34,6 +36,7 @@ import {
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
 	PagesApiRouteStubs,
+	pluginMessages,
 	ProviderAddRouteStubs,
 	ServerStub,
 	stubCompactMatchMedia,
@@ -66,6 +69,7 @@ const mountView = (
 			ManagedAssetRouteStubs,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			pluginMessages(testCatalog("plugin-2", { "plugin.name": "Alternate" })),
 			PagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
 			events.layer,
@@ -88,7 +92,7 @@ const mountView = (
 		),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -288,10 +292,10 @@ describe("customize sidebar route", () => {
 			const alternate = {
 				...primary,
 				sortOrder: 1,
-				name: "Alternate",
 				installationId: "installation-2",
 				pluginId: PluginId.make("plugin-2"),
 				packageId: PluginPackageId.make("test/plugin-2"),
+				name: { key: "plugin.name", namespace: "plugin-2" },
 			};
 			return Effect.gen(function* () {
 				const view = mountView("/customize-sidebar", [], {
