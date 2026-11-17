@@ -1,0 +1,24 @@
+{
+	"extends": ["//"],
+	"tasks": {
+		"test": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
+		"check": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
+		"build": {
+			"outputs": ["src/catalog.generated.ts", "src/locales/*.generated.ts"],
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"!src/**/*.generated.ts",
+				"$TURBO_ROOT$/packages/i18n/src/**",
+				"$TURBO_ROOT$/packages/contract/src/**",
+				"$TURBO_ROOT$/packages/definitions/src/**",
+				"$TURBO_ROOT$/kernel/backend/src/**",
+				"$TURBO_ROOT$/kernel/client/src/**",
+				"$TURBO_ROOT$/packages/plugin-ui-sdk/src/**",
+				"$TURBO_ROOT$/packages/plugin-client-sdk/src/**",
+				"$TURBO_ROOT$/packages/kernel-renderers/src/**",
+				"$TURBO_ROOT$/packages/ryotql-recipes/src/**",
+				"$TURBO_ROOT$/packages/plugin-backend-sdk/src/**"
+			]
+		}
+	}
+}
