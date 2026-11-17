@@ -32,6 +32,6 @@
 		{ "path": "packages/typescript-compiler" },
 		{ "path": "packages/plugin-client-compiler" },
 		{ "path": "packages/plugin-client-contract" },
-		{ "path": "packages/plugin-backend-compiler" },
+		{ "path": "packages/plugin-backend-compiler" }
 	]
 }

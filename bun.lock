@@ -43,8 +43,11 @@
       "name": "@ryot-app/docs",
       "devDependencies": {
         "@ryot-app/config": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/media-plugin": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
         "bun-types": "1.4.4",
@@ -155,6 +158,7 @@
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
         "@ryot-app/fixture-plugin": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/kernel-client": "workspace:*",
         "@ryot-app/media-plugin": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
@@ -199,12 +203,16 @@
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/definitions": "workspace:*",
         "@ryot-app/email-templates": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/kernel-renderers": "workspace:*",
+        "@ryot-app/languages": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
         "@ryot-app/plugin-backend-compiler": "workspace:*",
         "@ryot-app/plugin-backend-sdk": "workspace:*",
         "@ryot-app/plugin-client-compiler": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
+        "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
         "@ryot-app/sandbox": "workspace:*",
@@ -252,6 +260,8 @@
         "@fontsource-variable/lora": "5.3.0",
         "@noble/hashes": "2.4.0",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",
         "@ryot-app/plugin-ui-sdk": "workspace:*",
@@ -323,10 +333,12 @@
         "@effect/platform-bun": "4.1.2",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/definitions": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
         "@ryot-app/plugin-backend-compiler": "workspace:*",
         "@ryot-app/plugin-client-compiler": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
+        "@ryot-app/plugin-kit": "workspace:*",
         "effect": "4.1.2",
       },
       "devDependencies": {
@@ -363,6 +375,8 @@
     "packages/contract": {
       "name": "@ryot-app/contract",
       "dependencies": {
+        "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.1.2",
       },
@@ -376,6 +390,8 @@
       "name": "@ryot-app/definitions",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
@@ -389,12 +405,45 @@
     "packages/email-templates": {
       "name": "@ryot-app/email-templates",
       "dependencies": {
+        "@ryot-app/i18n": "workspace:*",
         "react": "19.3.1",
         "react-dom": "19.3.1",
         "react-email": "6.11.6",
       },
       "devDependencies": {
         "@types/react": "19.3.0",
+      },
+    },
+    "packages/i18n": {
+      "name": "@ryot-app/i18n",
+      "dependencies": {
+        "@formatjs/icu-messageformat-parser": "3.5.22",
+        "@ryot-app/ts-utils": "workspace:*",
+        "@types/react": "19.3.0",
+        "effect": "4.1.2",
+        "intl-messageformat": "12.1.4",
+        "react": "19.3.1",
+      },
+      "devDependencies": {
+        "@ryot-app/testing": "workspace:*",
+        "@testing-library/react": "16.3.3",
+        "@types/react-dom": "19.3.0",
+        "bun-types": "1.4.4",
+        "jsdom": "30.1.3",
+        "react-dom": "19.3.1",
+      },
+    },
+    "packages/kernel-messages": {
+      "name": "@ryot-app/kernel-messages",
+      "dependencies": {
+        "@ryot-app/i18n": "workspace:*",
+        "effect": "4.1.2",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "4.1.2",
+        "@ryot-app/testing": "workspace:*",
+        "@voila.dev/effect-bun-test": "4.0.4",
+        "bun-types": "1.4.4",
       },
     },
     "packages/kernel-renderers": {
@@ -404,6 +453,7 @@
       },
       "devDependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",
         "@ryot-app/plugin-ui-sdk": "workspace:*",
@@ -434,6 +484,7 @@
       "name": "@ryot-app/plugin-archive",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.1.2",
@@ -451,6 +502,7 @@
         "@effect/platform-bun": "4.1.2",
         "@ryot-app/compiler-worker": "workspace:*",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/plugin-backend-sdk": "workspace:*",
         "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
@@ -470,6 +522,7 @@
       "dependencies": {
         "@nodable/entities": "3.1.0",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/languages": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
@@ -505,6 +558,8 @@
         "@fontsource-variable/lora": "5.3.0",
         "@ryot-app/compiler-worker": "workspace:*",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",
         "@ryot-app/plugin-kit": "workspace:*",
@@ -536,6 +591,7 @@
       "name": "@ryot-app/plugin-client-contract",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.1.2",
       },
@@ -549,6 +605,8 @@
       "dependencies": {
         "@effect/atom-react": "4.1.2",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-ui-sdk": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
@@ -572,6 +630,7 @@
       "name": "@ryot-app/plugin-kit",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/languages": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
@@ -588,6 +647,8 @@
       "name": "@ryot-app/plugin-ui-sdk",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "@tanstack/charts": "1.2.1",
         "@tanstack/react-form": "2.0.0-alpha.3",
@@ -638,6 +699,8 @@
       "name": "@ryot-app/ryotql-recipes",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.1.2",
@@ -725,7 +788,9 @@
         "@effect/platform-bun": "4.1.2",
         "@ryot-app/cli": "workspace:*",
         "@ryot-app/definitions": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/plugin-client-compiler": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",
@@ -757,6 +822,7 @@
       },
       "devDependencies": {
         "@ryot-app/cli": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",
         "@ryot-app/plugin-ui-sdk": "workspace:*",
         "@ryot-app/testing": "workspace:*",
@@ -790,7 +856,9 @@
         "@ryot-app/definitions": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
         "@ryot-app/fixture-plugin": "workspace:*",
+        "@ryot-app/i18n": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
+        "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",
         "@ryot-app/plugin-ui-sdk": "workspace:*",
@@ -1100,6 +1168,12 @@
     "@fontsource-variable/geist": ["@fontsource-variable/geist@5.3.0", "", {}, "sha512-j0m+vLQuG5XAYoHtGCVu0spvlGreR3EzpECUVzkFmI1mTVnAO38l/NEPDCFgZ177JxzYJCLSmTQibIiYPilGrA=="],
 
     "@fontsource-variable/lora": ["@fontsource-variable/lora@5.3.0", "", {}, "sha512-2ph8KiZ8Bn141hWuC3ErtpJ+Ui8p2MJQn8TJNRSRmLmnCIOCtHfiBM9R7WLRPeUG/q6hXyHOxWQ8DvRSX+ixvQ=="],
+
+    "@formatjs/fast-memoize": ["@formatjs/fast-memoize@3.1.7", "", {}, "sha512-zXfhLpvA6T7+efdt9JLbBwZ00tT7NsBMDVnDu8rpHeNNv8KfRZAMo2gkG0k9lK/Nzc//3kJ9pImsfuJxk3KhUA=="],
+
+    "@formatjs/icu-messageformat-parser": ["@formatjs/icu-messageformat-parser@3.5.22", "", { "dependencies": { "@formatjs/icu-skeleton-parser": "2.1.12" } }, "sha512-YuwN+dDKgssfuYwtOyGQD0CSn7K46g9cv1Fp0VgKpjZDDFvv8b8crzP990IcJhRPWHhKzCGsbUSJVIguyyFA5A=="],
+
+    "@formatjs/icu-skeleton-parser": ["@formatjs/icu-skeleton-parser@2.1.12", "", {}, "sha512-ca7tZMLpfHX3sUD7hP6gE/qr6Iq89EDd3ZLeRhbsB7r0UD55DGJq+tmFLzrGrnx5StahUevQmQQVtbDRHsfDHA=="],
 
     "@grpc/grpc-js": ["@grpc/grpc-js@1.14.7", "", { "dependencies": { "@grpc/proto-loader": "^0.8.0", "@js-sdsl/ordered-map": "^4.4.2" } }, "sha512-W4W/fcBMGRVtG6dW2c7cw2mnpS3hvbBd+oQXjh2iYFTZDk1JJmcNqkM5KSaPubQpamlUUurrlb7G1s9NJeERmQ=="],
 
@@ -1487,9 +1561,13 @@
 
     "@ryot-app/fixture-plugin": ["@ryot-app/fixture-plugin@workspace:plugins/fixture"],
 
+    "@ryot-app/i18n": ["@ryot-app/i18n@workspace:packages/i18n"],
+
     "@ryot-app/kernel-backend": ["@ryot-app/kernel-backend@workspace:kernel/backend"],
 
     "@ryot-app/kernel-client": ["@ryot-app/kernel-client@workspace:kernel/client"],
+
+    "@ryot-app/kernel-messages": ["@ryot-app/kernel-messages@workspace:packages/kernel-messages"],
 
     "@ryot-app/kernel-renderers": ["@ryot-app/kernel-renderers@workspace:packages/kernel-renderers"],
 
@@ -2496,6 +2574,8 @@
     "input-otp": ["input-otp@1.5.0", "", { "peerDependencies": { "react": "^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc", "react-dom": "^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc" } }, "sha512-3AcfdW1sNG0FmSA5hHMBXG7jNW5CdcdKs8ln8JOmn6S2SRkoXoJx+2UwC+ZvjflfnOdHJx0SfQ9/YjlxVYLtGQ=="],
 
     "internmap": ["internmap@1.0.1", "", {}, "sha512-lDB5YccMydFBtasVtxnZ3MRBHuaoE8GKsppq+EchKL2U4nK/DmEpPHNH8MZe5HkMtpSiTSOZwfN0tzYjO/lJEw=="],
+
+    "intl-messageformat": ["intl-messageformat@12.1.4", "", { "dependencies": { "@formatjs/fast-memoize": "3.1.7", "@formatjs/icu-messageformat-parser": "3.5.22" } }, "sha512-JUkmv3cAEyijN3oiRiV3ctel7yVMuUCgfh7Pu8pj1/z6L1DSEPRyhuMaLjVw3pGmGJ5RDH54WVFxfMHZWTwyHw=="],
 
     "ipaddr.js": ["ipaddr.js@1.9.1", "", {}, "sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g=="],
 

@@ -16,6 +16,7 @@
 		"kernel/sandbox/native/**",
 		"apps/frontend/app/styles/*.css",
 		"kernel/sandbox/protocol-fixtures/**",
+		"packages/kernel-messages/src/**/*.generated.ts",
 		"kernel/sandbox/src/host/test-fixtures/*.sandbox.ts"
 	],
 	"rules": {
@@ -69,7 +70,15 @@
 		"react-hooks/exhaustive-deps": "error",
 		"typescript/only-throw-error": [
 			"error",
-			{ "allow": [{ "from": "package", "package": "@tanstack/router-core", "name": ["Redirect", "NotFoundError"] }] }
+			{
+				"allow": [
+					{
+						"from": "package",
+						"package": "@tanstack/router-core",
+						"name": ["Redirect", "NotFoundError"]
+					}
+				]
+			}
 		],
 		"import/newline-after-import": "error",
 		"typescript/no-unsafe-return": "error",
@@ -175,6 +184,48 @@
 				"property": "make",
 				"object": "Activity",
 				"message": "Create activities with makeActivity from kernel/backend/src/platform/workflow/scope.ts."
+			},
+			{
+				"object": "Intl",
+				"property": "DateTimeFormat",
+				"message": "Format through the active locale's formatters from @ryot-app/i18n (useFormatters, or formatters passed in)."
+			},
+			{
+				"object": "Intl",
+				"property": "NumberFormat",
+				"message": "Format through the active locale's formatters from @ryot-app/i18n (useFormatters, or formatters passed in)."
+			},
+			{
+				"object": "Intl",
+				"property": "RelativeTimeFormat",
+				"message": "Format through the active locale's formatters from @ryot-app/i18n (useFormatters, or formatters passed in)."
+			},
+			{
+				"object": "Intl",
+				"property": "ListFormat",
+				"message": "Format through the active locale's formatters from @ryot-app/i18n (useFormatters, or formatters passed in)."
+			},
+			{
+				"object": "Intl",
+				"property": "PluralRules",
+				"message": "Format through the active locale's formatters from @ryot-app/i18n (useFormatters, or formatters passed in)."
+			},
+			{
+				"object": "Intl",
+				"property": "DisplayNames",
+				"message": "Format through the active locale's formatters from @ryot-app/i18n (useFormatters, or formatters passed in)."
+			},
+			{
+				"property": "toLocaleString",
+				"message": "Format through the active locale's formatters from @ryot-app/i18n (useFormatters, or formatters passed in)."
+			},
+			{
+				"property": "toLocaleDateString",
+				"message": "Format through the active locale's formatters from @ryot-app/i18n (useFormatters, or formatters passed in)."
+			},
+			{
+				"property": "toLocaleTimeString",
+				"message": "Format through the active locale's formatters from @ryot-app/i18n (useFormatters, or formatters passed in)."
 			}
 		]
 	},
@@ -317,6 +368,73 @@
 				]
 			},
 			"excludeFiles": ["plugins/*/shared/**/*.test.ts"]
+		},
+		{
+			"files": ["packages/i18n/**", "apps/website/**"],
+			"rules": {
+				"no-restricted-properties": [
+					"error",
+					{ "property": "toSorted", "message": "Use sortBy from @ryot-app/ts-utils instead." },
+					{
+						"property": "make",
+						"object": "Activity",
+						"message": "Create activities with makeActivity from kernel/backend/src/platform/workflow/scope.ts."
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/plugin-ui-sdk/src/**/*.tsx",
+				"packages/plugin-client-sdk/src/**/*.tsx",
+				"packages/kernel-renderers/src/**/*.tsx",
+				"kernel/client/src/modules/access/**/*.tsx",
+				"kernel/client/src/modules/assistant/**/*.tsx",
+				"kernel/client/src/modules/auth/**/*.tsx",
+				"kernel/client/src/modules/page-authoring/**/*.tsx",
+				"kernel/client/src/modules/plugins/**/*.tsx",
+				"kernel/client/src/modules/provider-add/**/*.tsx",
+				"kernel/client/src/modules/integrations/**/*.tsx",
+				"kernel/client/src/modules/instance-admin/**/*.tsx",
+				"kernel/client/src/modules/settings/**/*.tsx",
+				"kernel/client/src/modules/shell/**/*.tsx",
+				"kernel/client/src/modules/navigation/**/*.tsx",
+				"kernel/client/src/modules/pages/**/*.tsx",
+				"kernel/client/src/modules/ui/**/*.tsx",
+				"kernel/client/src/modules/collections/**/*.tsx",
+				"kernel/client/src/modules/publications/**/*.tsx",
+				"kernel/client/src/modules/reminders/**/*.tsx",
+				"kernel/client/src/modules/imports/**/*.tsx",
+				"kernel/client/src/modules/backups/**/*.tsx",
+				"kernel/client/src/modules/notifications/**/*.tsx",
+				"kernel/client/src/modules/command-center/**/*.tsx",
+				"kernel/client/src/modules/background-submissions/**/*.tsx",
+				"kernel/client/src/modules/device/**/*.tsx",
+				"kernel/client/src/routes/**/*.tsx",
+				"plugins/fitness/client/**/*.tsx",
+				"plugins/fixture/client/**/*.tsx",
+				"plugins/media/client/**/*.tsx"
+			],
+			"rules": {
+				"react/jsx-no-literals": [
+					"error",
+					{
+						"noStrings": true,
+						"ignoreProps": true,
+						"allowedStrings": [" ", "·", "—", "–", "★", "≥"],
+						"restrictedAttributes": [
+							"aria-label",
+							"title",
+							"placeholder",
+							"alt",
+							"label",
+							"description",
+							"hint"
+						]
+					}
+				]
+			},
+			"excludeFiles": ["**/*.test.tsx", "**/*.test-support.tsx"]
 		}
 	]
 }
