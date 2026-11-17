@@ -6,17 +6,17 @@ import {
 	installPreferencePrivatePlugin,
 	listPluginUserSettings,
 } from "~/fixtures/kernel/plugin-user-settings";
+import { startProApiServer } from "~/fixtures/kernel/pro-server";
 import { findMediaPluginUserSettings } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getFrontendUrl } from "~/support/harness-target";
 
 const settingsSidebar = (page: Playwright.Page) => page.getByTestId("settings-sidebar");
 
-const openPluginPreferences = (page: Playwright.Page) =>
+const openPluginPreferences = (page: Playwright.Page, frontendUrl: string) =>
 	Effect.gen(function* () {
-		yield* page.goto(`${getFrontendUrl()}/settings/preferences`);
+		yield* page.goto(`${frontendUrl}/settings/preferences`);
 		yield* settingsSidebar(page).waitFor({ state: "visible" });
 		yield* settingsSidebar(page).getByRole("link", { name: "Plugin preferences" }).click();
 		yield* page.waitForURL((url) => url.pathname === "/settings/plugin-preferences");
@@ -25,14 +25,17 @@ const openPluginPreferences = (page: Playwright.Page) =>
 
 it.live("saves plugin preferences, validates drafts, and guards unsaved navigation", () =>
 	Effect.gen(function* () {
-		const owner = yield* createAuthenticatedClient();
+		const { target } = yield* startProApiServer("Plugin preferences Pro");
+		const owner = yield* createAuthenticatedClient(target);
 		const privatePlugin = yield* installPreferencePrivatePlugin({ client: owner.client });
-		const outsider = yield* createAuthenticatedClient();
+		const outsider = yield* createAuthenticatedClient(target);
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
-		yield* signInThroughHostedOAuth(page, owner.email, owner.password);
+		yield* signInThroughHostedOAuth(page, owner.email, owner.password, {
+			frontendUrl: target.frontendUrl,
+		});
 
-		yield* page.goto(`${getFrontendUrl()}/settings/preferences`);
+		yield* page.goto(`${target.frontendUrl}/settings/preferences`);
 		yield* page
 			.getByRole("button", { name: "Content language: Same as interface language" })
 			.waitFor();
@@ -46,7 +49,7 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		yield* page.reload;
 		yield* page.getByRole("button", { name: "Content language: Spanish" }).waitFor();
 
-		yield* openPluginPreferences(page);
+		yield* openPluginPreferences(page, target.frontendUrl);
 		const mediaLink = page.getByRole("link", { name: "Media" });
 		yield* mediaLink.click();
 		yield* page.waitForURL((url) => /\/settings\/plugin-preferences\/[^/]+$/.test(url.pathname));
@@ -83,7 +86,7 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 			.waitFor();
 		expect((yield* findMediaPluginUserSettings(owner.client)).settings).toEqual({});
 
-		yield* openPluginPreferences(page);
+		yield* openPluginPreferences(page, target.frontendUrl);
 		yield* page.getByRole("link", { name: "Preference test plugin" }).click();
 		yield* page.waitForURL((url) => /\/settings\/plugin-preferences\/[^/]+$/.test(url.pathname));
 		const enabled = page.getByRole("switch", { name: "Enable reminders" });
@@ -124,9 +127,11 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		expect(persistedPrivate.settings).toEqual({ limit: 3, enabled: true });
 
 		const outsiderPage = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
-		yield* signInThroughHostedOAuth(outsiderPage, outsider.email, outsider.password);
+		yield* signInThroughHostedOAuth(outsiderPage, outsider.email, outsider.password, {
+			frontendUrl: target.frontendUrl,
+		});
 		yield* outsiderPage.goto(
-			`${getFrontendUrl()}/settings/plugin-preferences/${privatePlugin.setting.id}`,
+			`${target.frontendUrl}/settings/plugin-preferences/${privatePlugin.setting.id}`,
 		);
 		yield* outsiderPage.getByText("Plugin preferences not found.").waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),

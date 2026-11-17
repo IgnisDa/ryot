@@ -5,6 +5,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect, Exit, Scope } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
+import { startProApiServer } from "~/fixtures/kernel/pro-server";
 import {
 	createExerciseEntityFixture,
 	editTarget,
@@ -16,7 +17,6 @@ import {
 	templateData,
 	type WorkoutData,
 	workoutData,
-	workoutEditorProServer,
 	workoutEditorTimes,
 	workoutOccurrence,
 	workoutReference,
@@ -28,12 +28,12 @@ import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support
 const { setOccurredAt: occurredAt } = workoutEditorTimes;
 
 const scope = Scope.makeUnsafe();
-let target: Effect.Success<typeof workoutEditorProServer>["target"];
+let target: Effect.Success<ReturnType<typeof startProApiServer>>["target"];
 
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
-			const server = yield* workoutEditorProServer;
+			const server = yield* startProApiServer("Workout editor Pro");
 			target = server.target;
 		}).pipe(
 			Effect.provideService(Scope.Scope, scope),

@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import { startIsolatedApiServer } from "~/support/isolated-harness";
 
-export const workoutEditorProServer = Effect.gen(function* () {
+export const startProApiServer = Effect.fn("startProApiServer")(function* (label: string) {
 	const fakeUnkey = yield* startFakeHttpServerScoped(() =>
 		Response.json({
 			meta: { requestId: crypto.randomUUID() },
@@ -11,10 +11,7 @@ export const workoutEditorProServer = Effect.gen(function* () {
 		}),
 	);
 	return yield* startIsolatedApiServer({
-		label: "Workout editor Pro",
-		extraEnv: {
-			SERVER_PRO_KEY: "e2e-workout-editor-pro-key",
-			SERVER_PRO_KEY_VERIFICATION_URL: fakeUnkey.url,
-		},
+		label,
+		extraEnv: { SERVER_PRO_KEY: "e2e-pro-key", SERVER_PRO_KEY_VERIFICATION_URL: fakeUnkey.url },
 	});
 });

@@ -9,4 +9,3 @@ export * from "./workout-details";
 export * from "./exercise-details";
 export * from "./workout-templates";
 export * from "./taxonomy-provider";
-export * from "./workout-editor-pro-server";
