@@ -1,5 +1,11 @@
+import type { CompiledMessage } from "@ryot-app/i18n/catalog";
+
 import type { SandboxExecutionMetadata } from "./modules/plugins/execution-metadata";
-import type { PluginManifest } from "./modules/plugins/manifest";
+import {
+	type AuthoredPluginManifest,
+	manifestTexts,
+	type PluginManifest,
+} from "./modules/plugins/manifest";
 import { PluginPackageId } from "./schema/brands";
 
 export const emptySandboxExecutionMetadata = {
@@ -10,6 +16,25 @@ export const emptySandboxExecutionMetadata = {
 	optionalPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
 } as const satisfies SandboxExecutionMetadata;
+
+/**
+ * An `en` catalog covering every display text of `manifest`: each message renders `texts[key]`, or
+ * the key itself, then its declared arguments.
+ */
+export const manifestCatalogs = (
+	manifest: AuthoredPluginManifest,
+	texts: Readonly<Record<string, string>> = {},
+) => ({
+	en: Object.fromEntries(
+		manifestTexts(manifest).map(({ text, arguments: names = [] }): [string, CompiledMessage] => [
+			text.key,
+			[
+				{ type: 0, value: texts[text.key] ?? text.key },
+				...names.map((name) => ({ value: name, type: 1 as const })),
+			],
+		]),
+	),
+});
 
 const fixturePackageId = PluginPackageId.make("test/fixture");
 
@@ -33,26 +58,26 @@ export const fixtureManifest = (packageId = fixturePackageId) =>
 		metadata: {
 			packageId,
 			icon: "box",
-			name: "Fixture",
 			version: "1.0.0",
-			description: "Fixture plugin",
+			name: { key: "test.fixture" },
+			description: { key: "test.fixture-plugin" },
 		},
 		relationshipSchemas: [
 			{
-				name: "Fixture Link",
 				slug: "fixture-link",
 				propertiesSchema: { fields: {} },
+				name: { key: "test.fixture-link" },
 				sourceEntitySchemaSlug: "fixture-entity",
 				targetEntitySchemaSlug: "fixture-entity",
 			},
 		],
 		signalSchemas: [
 			{
-				name: "Fixture Signal",
 				slug: "fixture.signal",
 				catalogState: "active",
 				propertiesSchema: { fields: {} },
 				audiencePolicy: { kind: "actor" },
+				name: { key: "test.fixture-signal" },
 				notificationHookSlug: "fixture.automation",
 			},
 		],
@@ -86,23 +111,29 @@ export const fixtureManifest = (packageId = fixturePackageId) =>
 		entitySchemas: [
 			{
 				icon: "box",
-				name: "Fixture",
 				slug: "fixture-entity",
+				name: { key: "test.fixture" },
 				eventSchemas: [
 					{
-						name: "Changed",
 						slug: "changed",
+						name: { key: "test.changed" },
 						propertiesSchema: {
-							fields: { value: { type: "string", label: "Value", description: "Changed value" } },
+							fields: {
+								value: {
+									type: "string",
+									label: { key: "test.value" },
+									description: "Changed value",
+								},
+							},
 						},
 					},
 				],
 				propertiesSchema: {
 					fields: {
-						name: { label: "Name", type: "string", description: "Fixture name" },
+						name: { type: "string", label: { key: "test.name" }, description: "Fixture name" },
 						kind: {
 							type: "enum",
-							label: "Kind",
+							label: { key: "test.kind" },
 							description: "Fixture kind",
 							choices: { kind: "static", values: [{ value: "one" }, { value: "two" }] },
 						},

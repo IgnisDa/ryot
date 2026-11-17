@@ -1,6 +1,8 @@
-import { Effect, Schema } from "effect";
+import { isMessage, Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { Effect, Predicate, Schema, SchemaIssue } from "effect";
 
-import { SandboxBoundaryReason } from "./modules/scripts/boundary-reason";
+import { StampedSandboxBoundaryReason } from "./modules/scripts/boundary-reason";
 import { SANDBOX_FAILURE_KINDS } from "./modules/scripts/wire";
 
 export const SandboxFailureKind = Schema.Literals([...SANDBOX_FAILURE_KINDS]);
@@ -32,8 +34,12 @@ const pgStringField = (cause: unknown, field: keyof PgErrorLike) => {
 	return typeof value === "string" ? value : undefined;
 };
 
+export const messageReasonOf = (error: unknown) =>
+	Predicate.hasProperty(error, "reason") && isMessage(error.reason) ? error.reason : undefined;
+
 export const unknownToMessage = (cause: unknown) =>
-	cause instanceof Error && typeof cause.message === "string" ? cause.message : String(cause);
+	messageReasonOf(cause)?.key ??
+	(cause instanceof Error && typeof cause.message === "string" ? cause.message : String(cause));
 
 export const unknownToDbError = (cause: unknown) =>
 	new DbError({
@@ -46,40 +52,97 @@ export const unknownToDbError = (cause: unknown) =>
 			: {}),
 	});
 
+/** The field set of boundary errors: they only select an HTTP status, and `reason` is their text. */
+export const contractErrorFields = { reason: Message };
+
 export class Conflict extends Schema.TaggedError<Conflict, { readonly brand: unique symbol }>()(
 	"Conflict",
-	{ message: Schema.String },
+	contractErrorFields,
 ) {}
 
 export class NotFound extends Schema.TaggedError<NotFound, { readonly brand: unique symbol }>()(
 	"NotFound",
-	{ message: Schema.String },
+	contractErrorFields,
 ) {}
 
 export class BadRequest extends Schema.TaggedError<BadRequest, { readonly brand: unique symbol }>()(
 	"BadRequest",
-	{ message: Schema.String },
+	contractErrorFields,
 ) {}
 
 export class RateLimited extends Schema.TaggedError<
 	RateLimited,
 	{ readonly brand: unique symbol }
->()("RateLimited", { message: Schema.String }) {}
-
-export class Unauthorized extends Schema.TaggedError<
-	Unauthorized,
-	{ readonly brand: unique symbol }
->()("Unauthorized", { message: Schema.String }) {}
+>()("RateLimited", contractErrorFields) {}
 
 export class InternalError extends Schema.TaggedError<
 	InternalError,
 	{ readonly brand: unique symbol }
->()("InternalError", { message: Schema.String }) {}
+>()("InternalError", contractErrorFields) {}
 
 export class SubmissionExpired extends Schema.TaggedError<
 	SubmissionExpired,
 	{ readonly brand: unique symbol }
->()("SubmissionExpired", { message: Schema.String }) {}
+>()("SubmissionExpired", contractErrorFields) {}
+
+export const ValidationIssueCode = Schema.Literals([
+	"forbidden",
+	"invalid-type",
+	"invalid-value",
+	"missing-key",
+	"one-of",
+	"unexpected-key",
+]);
+export type ValidationIssueCode = typeof ValidationIssueCode.Type;
+
+export const ValidationIssue = Schema.Struct({
+	issue: ValidationIssueCode,
+	path: Schema.Array(Schema.Union([Schema.String, Schema.Finite])),
+});
+export type ValidationIssue = typeof ValidationIssue.Type;
+
+export class ValidationFailed extends Schema.TaggedError<
+	ValidationFailed,
+	{ readonly brand: unique symbol }
+>()("ValidationFailed", { ...contractErrorFields, issues: Schema.Array(ValidationIssue) }) {}
+
+const leafIssueCodes = {
+	OneOf: "one-of",
+	Forbidden: "forbidden",
+	MissingKey: "missing-key",
+	InvalidType: "invalid-type",
+	InvalidValue: "invalid-value",
+	UnexpectedKey: "unexpected-key",
+} as const satisfies Record<SchemaIssue.Leaf["_tag"], ValidationIssueCode>;
+
+const isValidationIssueCode = Schema.is(ValidationIssueCode);
+
+const formatIssueCodes = SchemaIssue.makeFormatterStandardSchemaV1({
+	checkHook: () => leafIssueCodes.InvalidValue,
+	leafHook: (issue) => leafIssueCodes[issue._tag],
+});
+
+const pathSegment = (segment: PropertyKey | { readonly key: PropertyKey }) => {
+	const key = typeof segment === "object" ? segment.key : segment;
+	return typeof key === "symbol" ? String(key) : key;
+};
+
+export const validationFailed = (issues: ReadonlyArray<ValidationIssue>) =>
+	new ValidationFailed({ issues, reason: kernelMessage("error.validation.invalid") });
+
+export const schemaValidationFailed = (issue: SchemaIssue.Issue) =>
+	validationFailed(
+		formatIssueCodes(issue).issues.map((entry) => ({
+			path: (entry.path ?? []).map(pathSegment),
+			issue: isValidationIssueCode(entry.message) ? entry.message : leafIssueCodes.InvalidValue,
+		})),
+	);
+
+export const conflict = (reason: Message) => new Conflict({ reason });
+export const notFound = (reason: Message) => new NotFound({ reason });
+export const badRequest = (reason: Message) => new BadRequest({ reason });
+export const rateLimited = (reason: Message) => new RateLimited({ reason });
+export const internalError = (reason: Message) => new InternalError({ reason });
 
 export class SandboxRunError extends Schema.TaggedError<
 	SandboxRunError,
@@ -87,7 +150,7 @@ export class SandboxRunError extends Schema.TaggedError<
 >()("SandboxRunError", {
 	message: Schema.String,
 	kind: SandboxFailureKind,
-	data: Schema.optional(SandboxBoundaryReason),
+	data: Schema.optional(StampedSandboxBoundaryReason),
 }) {}
 
 export const toSandboxRunError = (cause: unknown, kind: SandboxFailureKind): SandboxRunError =>
@@ -99,19 +162,6 @@ export class TimeoutError extends Schema.TaggedError<
 	TimeoutError,
 	{ readonly brand: unique symbol }
 >()("TimeoutError", { message: Schema.String }) {}
-
-export class HealthCheckFailedError extends Schema.TaggedError<
-	HealthCheckFailedError,
-	{ readonly brand: unique symbol }
->()("HealthCheckFailedError", { message: Schema.String }) {}
-
-export const conflict = (message: string) => new Conflict({ message });
-export const notFound = (message: string) => new NotFound({ message });
-export const badRequest = (message: string) => new BadRequest({ message });
-export const rateLimited = (message: string) => new RateLimited({ message });
-export const unauthorized = () => new Unauthorized({ message: "Unauthorized" });
-export const internalError = (message: string) => new InternalError({ message });
-export const healthCheckFailed = (message: string) => new HealthCheckFailedError({ message });
 
 // Unexpected database failures are not part of any route contract; convert them to
 // defects so they surface as 500s without leaking PostgreSQL metadata to clients.

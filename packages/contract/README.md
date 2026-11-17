@@ -15,6 +15,51 @@ HTTP routes author renderers, prepare pages by saved-view slug or plugin route, 
 authenticated artifact grants, and check prepared-page freshness separately. Static artifact requests
 use the grant and immutable artifact hash; plugin catalog entries do not select or serve artifacts.
 
+### Display text
+
+- `modules/plugins/manifest-text` defines `ManifestText`, the only schema for manifest display
+  fields: a `{ key }` reference without arguments into the declaring catalog. `manifestTexts`
+  lists every display field of a manifest with its path, and with the argument names its message
+  must declare exactly (none unless listed); `manifestKernelMessages` lists the kernel messages that
+  kernel-provided schema building blocks embed. `modules/plugins/manifest-text-issues` exports
+  `manifestTextIssues(manifest, englishCatalog)`, the one check shared by `ryot plugin build` and
+  installation: manifest text names a plugin key with exactly its declared arguments, and every
+  embedded kernel message (including nested ones) names an English kernel key whose argument names
+  and kinds its parameters match. It is a separate module because it loads the English kernel
+  catalog.
+  `testing` exports `manifestCatalogs(manifest, texts?)`, an `en` catalog covering every manifest
+  text for tests, rendering `texts[key]` (default the key) followed by the declared arguments.
+- Shared shapes that both plugins and users author keep `DisplayText` (`FilterChoice`,
+  `SavedViewTableColumn`, `BrowseSort`), and their plugin-authored manifest variants take
+  `ManifestText`: `AuthoredBrowseField` and `AuthoredSavedViewTableColumn`, built from the same
+  text-parameterized schema factories. Definitions resolve them with the owner's namespace
+  (`resolveBrowseField`), so stored browse fields (`BrowseField`) carry `Message` labels.
+- `AppSchema<Text>` is parameterized by its display text. Property and choice `label` and the
+  optional `hint` are display text; forms show the hint as help. A static choice with
+  `kind: "region"` has no label: its value is an ISO 3166-1 alpha-2 or UN M49 region code, and
+  clients name it in the viewer's locale and sort region choices by that name. `description` is English
+  documentation for models and developers and is never rendered in forms. Manifests use
+  `AuthoredAppSchema`, whose text is `AuthoredSchemaText`: `ManifestText`, or a kernel message for
+  kernel-provided building blocks such as `schema/core` fields and review, integration and data
+  import fields. `stampAppSchema` resolves manifest text with the plugin namespace and keeps kernel
+  messages; `mapAppSchemaText` renders text, such as `formatForModel` for model-facing JSON
+  Schema. RyotQL parameter labels are `DisplayText` in `RyotQLDocument`, which users and the
+  HTTP API author. Documents authored in plugin or kernel code are `PluginRyotQLDocument`, whose
+  parameter text is `AuthoredSchemaText`: declared `queries`, saved-view `dataSources` and recipes
+  sent inline. `manifestTexts` lists the labels of declared documents. `stampRyotQLDocument` stamps
+  them like `stampAppSchema`, and `resolvePluginDocument` also binds `self` references to the
+  installed plugin.
+- `modules/ryotql/row-source` defines `RowText` and `AuthoredRowText`: a message whose arguments
+  are bound by name to row output fields, such as a calendar source `caption`. Queries yield codes
+  and numbers; the message's `select` turns codes into text.
+  Model-facing manifest text (operation and query titles and descriptions, assistant
+  instructions, hook, cron and script names) stays English.
+- Served definition names are stamped `Message`s (`@ryot-app/i18n`): the plugin ID, or `kernel` for
+  kernel definitions, is the namespace. Text a user can rename, such as saved view names, is
+  `DisplayText`: a message until the user renames it, then user-authored text.
+- `GET /plugins/messages/:locale` returns one locale's catalogs of the caller's listed plugins;
+  plugin inspection returns the archive's catalogs for its manifest text.
+
 ## Failure Contract
 
 | Layer              | Owner           | Contract                                                     |
@@ -30,6 +75,33 @@ Persisted workflow failures retain the structured category, code, and parameters
 
 Clients decode the contract and exhaustively handle typed variants. Tests assert categories, codes, and parameters, not backend English.
 
+### Message reasons
+
+- `errors.ts` boundary errors (`BadRequest`, `NotFound`, `Conflict`, `RateLimited`, `InternalError`,
+  `SubmissionExpired`), `EntityEditorRefused` and `PluginOperationRejected` exist only to select an
+  HTTP status. They share `contractErrorFields`: a single `reason: Message` (`@ryot-app/i18n`) whose
+  key is the code and whose params are the parameters. Helpers such as `badRequest` accept only
+  messages. Their `Error.message` is empty; `messageReasonOf` reads an error's message reason and
+  `unknownToMessage` reports its key.
+- `ValidationFailed` adds `issues: { path, issue }[]`, where `issue` is a closed
+  `ValidationIssueCode`. `schemaValidationFailed` derives it from an Effect Schema issue;
+  request decoding failures return it with HTTP 400.
+- A sandbox reports a `SandboxBoundaryReason`, whose `operation-rejected` reason carries the
+  plugin's `LocalMessage`. Where the backend records a sandbox failure, `stampBoundaryReason`
+  stamps the run's catalog namespace (dropping a rejection from a run without one), so
+  `SandboxRunError` and backend execution results carry a `StampedSandboxBoundaryReason`.
+  `boundaryReasonMessage` maps each stamped reason to its message: the plugin's own message for an
+  operation rejection, a kernel message otherwise. The code union stays the machine-readable
+  classification. `PluginOperationRejected` carries the stamped rejection message.
+- A before-stage policy rejects with a `LocalMessage` from its owner's catalog. The kernel stamps the
+  policy owner's namespace, and the `policy-rejected` reasons of `EntityBadRequest`,
+  `EventBadRequest` and `RelationshipBadRequest`, like a `skipped_by_policy` event outcome, carry
+  that `Message`.
+- `DbError`, `SandboxRunError` and `TimeoutError` are internal: their `message` is a diagnostic and
+  never reaches a client.
+- A contract test walks every `AppContract` error schema and fails on string fields named like text
+  (`message`, `detail`, `title`, …) outside its explicit list of plugin-author diagnostics.
+
 ## Query Language And AppSchema
 
 `modules/ryotql/authored` defines stored/inline documents with parameter declarations, controls,
@@ -40,7 +112,9 @@ is the executable grammar and response format. They share scalar grammar machine
 `modules/ryotql/request` defines inline, saved-view, plugin-package and page execution sources,
 request arguments/filter/sort/pages, visitor requests and describe request/response schemas. All
 Authenticated RyotQL execution HTTP payloads use `ExecutionRequest`; the backend loads sources
-under the caller's authority before binding. Publication visitors use `VisitorRequest` and
+under the caller's authority before binding. Plugin and kernel code send `PluginExecutionRequest`
+and `PluginDescribeRequest`, whose inline document is a `PluginRyotQLDocument`; the trusted side
+that knows the authoring namespace converts them with `stampExecutionSource`. Publication visitors use `VisitorRequest` and
 `VisitorDescribeRequest`, naming only a query of the publication's page, without execution sources
 or inline documents. Describe routes return normalized strict parameters and resolved control
 choices. Query responses carry optional generic `execution` metadata (`now` in epoch milliseconds
