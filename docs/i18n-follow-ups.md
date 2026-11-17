@@ -37,26 +37,6 @@ The same override lists about 30 `kernel/client/src/modules/*` globs from the in
 The unlisted modules already pass, so replace the list with `kernel/client/src/**/*.tsx` to cover
 new modules automatically.
 
-## Documentation and release
-
-### Design document state
-
-`docs/i18n-design.md` is partly stale:
-
-- the header says rollout steps 1 to 4 are implemented, but all six are;
-- "Current state" describes the codebase before the rollout;
-- the Enforcement table says the literal-text lint covers only the SDKs and that SDK text props
-  stay `string`;
-- rollout step 6 says German awaits native-speaker review.
-
-Move what is still useful into the owning READMEs and trim the document, as its header requires.
-
-### German sign-off
-
-German is signed off; problems are raised as issues. The iOS String Catalogs
-`kernel/client/ios/App/RyotLiveActivities/Localizable.xcstrings` (3 entries) and
-`InfoPlist.xcstrings` (1 entry) still mark German strings `needs_review`. Mark them reviewed.
-
 ## Validation
 
 ### Legacy migration on real dumps
@@ -68,10 +48,3 @@ list every distinct V1 credit role with its count from `metadata_to_person.role`
 `metadata_group_to_person.role` and `metadata.free_creators[*].role`, and compare it with
 `legacyCreditRoleCodes` in `apps/server/src/migrations/legacy-credit-roles.ts`. Unmapped roles keep
 their provider text and render untranslated.
-
-### Fitness e2e test under load
-
-`keeps independently saved zero measurements when the workout is discarded` in
-`e2e/src/browser/fitness-workout-actions.test.ts` passes alone but timed out in two full
-multi-file e2e runs while waiting for the measurement's background "Saved" state. Signed off as
-load-related; investigate if it recurs.
