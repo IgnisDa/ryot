@@ -1,4 +1,5 @@
 import {
+	type LocalMessage,
 	type PluginUserPreferences,
 	type ReviewContent,
 	reviewPropertyKeys,
@@ -19,7 +20,9 @@ import {
 	MediaReviewDeleteInput,
 	MediaReviewUpdateInput,
 } from "../../shared/media-review-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { useMediaMessages } from "../messages";
 import { eventPrecondition, type MediaActivityLogger } from "./activity-log/state";
 import type { MediaActivityEventRef } from "./activity-timeline";
 import { linkedOccurrenceId, ReviewAboutSelect, type ReviewCompletion } from "./review-about";
@@ -31,24 +34,29 @@ import {
 	WHOLE_REVIEW_SUBJECT,
 } from "./review-subject-state";
 
+type Labeled<Input> = Input & { readonly label: LocalMessage };
+
 const createReview = createRyotBackgroundSubmission({
-	label: () => "Review",
 	slug: "media-review-create",
 	packageId: PLUGIN_PACKAGE_ID,
 	inputSchema: MediaReviewCreateInput,
-	input: ({ input }: { readonly input: MediaReviewCreateInput }) => input,
+	label: (input: Labeled<MediaReviewCreateInput>) => input.label,
+	input: ({
+		input: { label: _label, ...input },
+	}: RyotSubmission<Labeled<MediaReviewCreateInput>>) => input,
 });
 
 const updateReview = createRyotBackgroundSubmission({
-	label: () => "Edit review",
 	slug: "media-review-update",
 	packageId: PLUGIN_PACKAGE_ID,
 	inputSchema: MediaReviewUpdateInput,
+	label: (input: Labeled<Omit<MediaReviewUpdateInput, "submittedAt" | "submissionId">>) =>
+		input.label,
 	input: ({
-		input,
 		submittedAt,
 		submissionId,
-	}: RyotSubmission<Omit<MediaReviewUpdateInput, "submittedAt" | "submissionId">>) => ({
+		input: { label: _label, ...input },
+	}: RyotSubmission<Labeled<Omit<MediaReviewUpdateInput, "submittedAt" | "submissionId">>>) => ({
 		...input,
 		submittedAt,
 		submissionId,
@@ -57,17 +65,21 @@ const updateReview = createRyotBackgroundSubmission({
 
 export const deleteReviewSubmission = createRyotBackgroundSubmission({
 	slug: "media-review-delete",
-	label: () => "Delete review",
 	packageId: PLUGIN_PACKAGE_ID,
 	inputSchema: MediaReviewDeleteInput,
-	input: ({ input, submittedAt, submissionId }: RyotSubmission<{ readonly eventId: string }>) => ({
+	label: (input: Labeled<{ readonly eventId: string }>) => input.label,
+	input: ({
+		input,
+		submittedAt,
+		submissionId,
+	}: RyotSubmission<Labeled<{ readonly eventId: string }>>) => ({
 		submittedAt,
 		submissionId,
 		eventId: input.eventId,
 	}),
 });
 
-type FixedReviewSubject = { readonly label: string; readonly entityId: string };
+type FixedReviewSubject = { readonly entityId: string; readonly label: string | LocalMessage };
 
 type MediaReviewFormProps = {
 	readonly entityId: string;
@@ -83,8 +95,8 @@ type MediaReviewEditFormProps = {
 	readonly onClose: () => void;
 	readonly initial: ReviewContent;
 	readonly record: MediaActivityEventRef;
-	readonly subjectLabel?: string | undefined;
 	readonly position?: undefined | MediaPosition;
+	readonly subjectLabel?: undefined | LocalMessage;
 	readonly logger?: undefined | MediaActivityLogger;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 };
@@ -106,13 +118,14 @@ export function MediaReviewEditForm(props: MediaReviewEditFormProps) {
 }
 
 export function MediaChildReviewButton(props: FixedReviewSubject) {
+	const text = useMediaMessages();
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	return (
 		<>
 			<Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)}>
 				<AppIcon size={15} name="star" />
-				Review
+				{text("review.button")}
 			</Button>
 			{open ? (
 				<MediaReviewForm
@@ -131,18 +144,19 @@ export function MediaReviewButton(props: {
 	readonly entityId: string;
 	readonly logger?: undefined | MediaActivityLogger;
 }) {
+	const text = useMediaMessages();
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	return (
 		<>
 			{props.link ? (
 				<Button variant="link" ref={triggerRef} onClick={() => setOpen(true)}>
-					Rate or review
+					{text("review.rate-or-review")}
 				</Button>
 			) : (
 				<Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)}>
 					<AppIcon size={15} name="star" />
-					Rate or review
+					{text("review.rate-or-review")}
 				</Button>
 			)}
 			{open ? (
@@ -154,14 +168,6 @@ export function MediaReviewButton(props: {
 				/>
 			) : null}
 		</>
-	);
-}
-
-function FixedSubject(props: { readonly label: string }) {
-	return (
-		<p className="text-label text-text-muted">
-			Review of <span className="font-medium text-text">{props.label}</span>
-		</p>
 	);
 }
 
@@ -177,9 +183,17 @@ function ReviewSubjectAndAbout(props: {
 	);
 }
 
+function FixedSubject(props: { readonly label: string | LocalMessage }) {
+	const text = useMediaMessages();
+	return (
+		<p className="text-label text-text-muted">{text("review.of", { subject: props.label })}</p>
+	);
+}
+
 function MediaReviewFormBody(
 	props: MediaReviewFormProps & { readonly scale: PluginUserPreferences["ratingScale"] },
 ) {
+	const text = useMediaMessages();
 	const review = useBackgroundSubmission(createReview);
 	const { scale } = props;
 	const [subject, setSubject] = useState(WHOLE_REVIEW_SUBJECT);
@@ -191,7 +205,7 @@ function MediaReviewFormBody(
 	let picker = null;
 	if (props.fixed !== undefined) {
 		picker = <FixedSubject label={props.fixed.label} />;
-	} else if (props.logger !== undefined && reviewSubjectModes(props.logger).length > 0) {
+	} else if (props.logger !== undefined && reviewSubjectModes(text, props.logger).length > 0) {
 		picker = (
 			<ReviewSubjectPicker
 				draft={subject}
@@ -207,19 +221,22 @@ function MediaReviewFormBody(
 	return (
 		<ReviewComposer
 			scale={scale}
-			title="Rate or review"
 			onClose={props.onClose}
 			isSending={review.isSending}
 			triggerRef={props.triggerRef}
 			canSave={target !== undefined}
-			errorMessage={
-				review.error === null ? undefined : "Couldn't start saving your review. Try again."
-			}
+			title={text("review.rate-or-review")}
+			errorMessage={review.error === null ? undefined : text("review.save-failed")}
 			onSave={(draft) =>
 				target === undefined
 					? undefined
 					: review.submit(
-							{ ...draft, ...target, ...(about === null ? {} : { consumptionEventId: about }) },
+							{
+								...draft,
+								...target,
+								label: catalogMessage("review.label"),
+								...(about === null ? {} : { consumptionEventId: about }),
+							},
 							{ onAccepted: props.onClose },
 						)
 			}
@@ -243,6 +260,7 @@ function MediaReviewFormBody(
 function MediaReviewEditFormBody(
 	props: MediaReviewEditFormProps & { readonly scale: PluginUserPreferences["ratingScale"] },
 ) {
+	const text = useMediaMessages();
 	const review = useBackgroundSubmission(updateReview);
 	const { scale } = props;
 	const [subject, setSubject] = useState(() => positionalReviewSubject(props.position));
@@ -267,15 +285,13 @@ function MediaReviewEditFormBody(
 	return (
 		<ReviewComposer
 			scale={scale}
-			title="Edit review"
 			initial={props.initial}
 			onClose={props.onClose}
+			title={text("review.edit")}
 			isSending={review.isSending}
 			triggerRef={props.triggerRef}
 			canSave={!positional || target !== undefined}
-			errorMessage={
-				review.error === null ? undefined : "Couldn't start saving your review. Try again."
-			}
+			errorMessage={review.error === null ? undefined : text("review.save-failed")}
 			subject={
 				<ReviewSubjectAndAbout picker={picker}>
 					<ReviewAboutSelect value={about} onChange={setAbout} entityId={props.record.entityId} />
@@ -287,6 +303,7 @@ function MediaReviewEditFormBody(
 						...draft,
 						eventId: props.record.id,
 						consumptionEventId: about,
+						label: catalogMessage("review.edit"),
 						...(positional ? { position: target?.position ?? null } : {}),
 						expected: eventPrecondition(props.record, [
 							...reviewPropertyKeys,

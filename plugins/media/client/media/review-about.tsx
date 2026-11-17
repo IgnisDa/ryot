@@ -12,6 +12,7 @@ import {
 	mediaReviewLinksRecipe,
 	type MediaReviewOccurrence,
 } from "../../shared/review-link-recipes";
+import { useMediaCopy } from "../messages";
 import { mediaReviewOccurrenceChoiceLabel } from "./activity-copy";
 import type { MediaActivityEventRef } from "./activity-timeline";
 
@@ -76,6 +77,7 @@ export function ReviewAboutSelect(props: {
 	readonly completion?: undefined | ReviewCompletion;
 	readonly onChange: (eventId: null | string) => void;
 }) {
+	const copy = useMediaCopy();
 	const result = useRyotQuery(reviewableOccurrencesQuery, { entityId: props.entityId });
 	const [refresh, setRefresh] = useState<
 		| { readonly phase: "idle" }
@@ -125,22 +127,22 @@ export function ReviewAboutSelect(props: {
 	return (
 		<div className="flex flex-col gap-1.5">
 			<Select
-				label="About"
 				disabled={data === undefined}
 				value={value ?? NO_OCCURRENCE}
+				label={copy.text("review.about")}
 				checkIcon={<AppIcon size={16} name="check" />}
 				chevronIcon={<AppIcon size={16} name="chevron-down" />}
 				onChange={(choice) => onChange(choice === NO_OCCURRENCE ? null : choice)}
 				choices={[
-					{ value: NO_OCCURRENCE, label: "Not a specific time" },
+					{ value: NO_OCCURRENCE, label: copy.text("review.about-none") },
 					...occurrences.map((occurrence) => ({
 						value: occurrence.id,
-						label: mediaReviewOccurrenceChoiceLabel(occurrence),
+						label: mediaReviewOccurrenceChoiceLabel(copy, occurrence),
 					})),
 				]}
 			/>
 			{props.completion === "pending" ? (
-				<p className="text-micro text-text-subtle">Saving your activity…</p>
+				<p className="text-micro text-text-subtle">{copy.text("review.about-pending")}</p>
 			) : null}
 		</div>
 	);

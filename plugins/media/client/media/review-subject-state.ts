@@ -1,4 +1,7 @@
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
+
 import type { MediaPosition } from "../../shared/consumption";
+import type { MediaText } from "../messages";
 import type { MediaActivityLogger } from "./activity-log/state";
 
 export type ReviewSubjectMode = "whole" | "season" | "episode" | "position";
@@ -49,31 +52,31 @@ export const reviewTarget = (
 };
 
 export const reviewSubjectModes = (
+	text: MediaText,
 	logger: undefined | MediaActivityLogger,
 ): readonly {
-	readonly label: string;
-	readonly content: string;
+	readonly label: Text;
+	readonly content: Text;
 	readonly value: ReviewSubjectMode;
 }[] => {
-	const whole = `Whole ${logger?.copy.noun ?? "title"}`;
-	if (logger?.family === "show") {
-		return [
-			{ label: whole, value: "whole", content: whole },
-			{ value: "season", label: "Season", content: "Season" },
-			{ value: "episode", label: "Episode", content: "Episode" },
-		];
+	if (logger === undefined) {
+		return [];
 	}
-	if (logger?.family === "podcast") {
-		return [
-			{ label: whole, value: "whole", content: whole },
-			{ value: "episode", label: "Episode", content: "Episode" },
-		];
+	const mode = (value: ReviewSubjectMode) => {
+		const label =
+			value === "whole"
+				? text("review.mode-whole", { kind: logger.copy.kind })
+				: text("review.mode", { mode: value });
+		return { value, label, content: label };
+	};
+	if (logger.family === "show") {
+		return [mode("whole"), mode("season"), mode("episode")];
 	}
-	if (logger?.family === "positional") {
-		return [
-			{ label: whole, value: "whole", content: whole },
-			{ value: "position", label: "Specific part", content: "Specific part" },
-		];
+	if (logger.family === "podcast") {
+		return [mode("whole"), mode("episode")];
+	}
+	if (logger.family === "positional") {
+		return [mode("whole"), mode("position")];
 	}
 	return [];
 };

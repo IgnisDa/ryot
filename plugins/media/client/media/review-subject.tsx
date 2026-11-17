@@ -3,6 +3,7 @@ import { SegmentedControl, Stepper } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
 import type { MediaActivityLogContext } from "../../shared/activity-log-recipes";
+import { useMediaMessages } from "../messages";
 import { activityLogContextQuery } from "./activity-log/queries";
 import {
 	defaultSeasonNumber,
@@ -25,7 +26,7 @@ const modeDraft = (
 	context: MediaActivityLogContext,
 ): ReviewSubjectDraft => {
 	if (mode === "position" && logger.family === "positional") {
-		const unit = positionLogUnit(logger, draft.unit).value;
+		const unit = positionLogUnit(logger, draft.unit);
 		return { ...draft, mode, unit, position: Math.max(1, latestPositionIn(context, unit)) };
 	}
 	if (mode === "season") {
@@ -49,6 +50,7 @@ export function ReviewSubjectPicker(props: {
 	readonly onChange: (draft: ReviewSubjectDraft) => void;
 }) {
 	const { draft, logger, entityId } = props;
+	const text = useMediaMessages();
 	const result = useRyotQuery(activityLogContextQuery, { entityId });
 	const context = result.data;
 	if (context === undefined || context === null) {
@@ -58,10 +60,10 @@ export function ReviewSubjectPicker(props: {
 		<div className="flex flex-col gap-3">
 			<SegmentedControl
 				fill
-				label="Review of"
 				value={draft.mode}
 				optionClassName="px-3"
-				options={reviewSubjectModes(logger)}
+				label={text("review.of-label")}
+				options={reviewSubjectModes(text, logger)}
 				onChange={(mode) => props.onChange(modeDraft(mode, draft, logger, context))}
 			/>
 			{draft.mode === "position" && logger.family === "positional" ? (
@@ -93,12 +95,13 @@ function ReviewEpisodeChoice(props: {
 	readonly onChange: (draft: ReviewSubjectDraft) => void;
 }) {
 	const { draft, logger, entityId } = props;
+	const text = useMediaMessages();
 	return (
 		<EpisodeChoice
 			entityId={entityId}
 			selectedId={draft.episodeId}
 			seasonNumber={draft.season?.seasonNumber}
-			emptyMessage="There are no episodes to review yet."
+			emptyMessage={text("review.episodes-none")}
 			family={logger.family === "podcast" ? "podcast" : "show"}
 			onSelect={(episodeId) => props.onChange({ ...draft, episodeId })}
 			onSeason={(season) => props.onChange({ ...draft, season, episodeId: undefined })}
@@ -113,19 +116,15 @@ function PositionChoice(props: {
 	readonly logger: Extract<MediaActivityLogger, { family: "positional" }>;
 }) {
 	const { draft, logger, context } = props;
+	const text = useMediaMessages();
 	const unit = positionLogUnit(logger, draft.unit);
 	return (
 		<div className="flex flex-col gap-2">
 			{logger.units.length > 1 ? (
 				<SegmentedControl
-					label="Unit"
-					value={unit.value}
+					value={unit}
 					optionClassName="px-3"
-					options={logger.units.map((option) => ({
-						value: option.value,
-						label: option.label,
-						content: option.label,
-					}))}
+					label={text("property.unit")}
 					onChange={(next) =>
 						props.onChange({
 							...draft,
@@ -133,18 +132,22 @@ function PositionChoice(props: {
 							position: Math.max(1, latestPositionIn(context, next)),
 						})
 					}
+					options={logger.units.map((option) => {
+						const label = text("log.unit.label", { unit: option });
+						return { label, value: option, content: label };
+					})}
 				/>
 			) : null}
 			<Stepper
 				min={1}
 				step={1}
 				className="w-44"
-				label={unit.label}
 				value={draft.position}
+				label={text("log.unit.label", { unit })}
 				incrementIcon={<AppIcon size={16} name="plus" />}
 				decrementIcon={<AppIcon size={16} name="minus" />}
-				parse={(text) => parsePositionNumber(unit.value, text)}
-				inputMode={unit.value === "episodes" ? "numeric" : "decimal"}
+				parse={(input) => parsePositionNumber(unit, input)}
+				inputMode={unit === "episodes" ? "numeric" : "decimal"}
 				onChange={(position) => props.onChange({ ...draft, position })}
 			/>
 		</div>

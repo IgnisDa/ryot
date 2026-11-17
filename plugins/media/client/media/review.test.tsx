@@ -57,12 +57,7 @@ it.live(
 						facts: [],
 						links: [],
 						identityDetail: undefined,
-						rail: {
-							logActivity: {
-								family: "flat",
-								copy: { verb: "watch", noun: "movie", gerund: "watching", participle: "watched" },
-							},
-						},
+						rail: { logActivity: { family: "flat", copy: { verb: "watch", kind: "movie" } } },
 					}}
 				/>,
 			);
@@ -91,11 +86,11 @@ it.live(
 				expect(queryByRole(document.body, "dialog")).not.toBeNull();
 				expect(requests).toEqual([
 					{
-						label: "Review",
 						packageId: "ryot/media",
 						submittedAt: anyOf(String),
 						slug: "media-review-create",
 						idempotencyKey: anyOf(String),
+						label: { key: "review.label" },
 						input: { rating: 82, isSpoiler: true, entityId: "media-1", text: "Great ending" },
 					},
 				]);
@@ -152,11 +147,11 @@ it.live(
 				);
 				expect(requests).toEqual([
 					{
-						label: "Review",
 						packageId: "ryot/media",
 						submittedAt: anyOf(String),
 						slug: "media-review-create",
 						idempotencyKey: anyOf(String),
+						label: { key: "review.label" },
 						input: { rating: 80, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
 					},
 				]);
@@ -243,11 +238,11 @@ for (const invalidRating of ["not a number", "1e", "-1", "101", "82.5"]) {
 					);
 					expect(requests).toEqual([
 						{
-							label: "Review",
 							packageId: "ryot/media",
 							submittedAt: anyOf(String),
 							slug: "media-review-create",
 							idempotencyKey: anyOf(String),
+							label: { key: "review.label" },
 							input: { rating: 0, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
 						},
 					]);
@@ -334,11 +329,11 @@ it.live(
 				);
 				expect(requests).toEqual(
 					[1, 2].map(() => ({
-						label: "Review",
 						packageId: "ryot/media",
 						submittedAt: anyOf(String),
 						slug: "media-review-create",
 						idempotencyKey: anyOf(String),
+						label: { key: "review.label" },
 						input: { rating: null, text: "Thoughts", isSpoiler: false, entityId: "creator-1" },
 					})),
 				);

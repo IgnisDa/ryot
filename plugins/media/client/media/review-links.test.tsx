@@ -193,7 +193,7 @@ describe("review links", () => {
 							}),
 					},
 					<MediaReviewLinksScope
-						segmentNoun="watch"
+						segment="watch"
 						rows={[
 							{
 								key: "row",
@@ -366,7 +366,7 @@ describe("review links", () => {
 				);
 				try {
 					yield* eventually(() =>
-						expect(mounted.container.textContent).toContain("About your pass on Nov 4, 2025"),
+						expect(mounted.container.textContent).toContain("About your watch on Nov 4, 2025"),
 					);
 					clickRyotElement(getByRole(mounted.container, "button", { name: "Reviewed" }));
 					const dialog = yield* eventually(() =>

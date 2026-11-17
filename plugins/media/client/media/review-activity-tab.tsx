@@ -4,6 +4,7 @@ import type {
 	MediaReviewActivityEvent,
 	MediaReviewActivityResult,
 } from "../../shared/media-recipes";
+import { type MediaCopy, type MediaReviewKind, useMediaCopy } from "../messages";
 import { mediaReviewActivityCopy } from "./activity-copy";
 import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
 import {
@@ -23,18 +24,18 @@ import {
 } from "./review-activity-state";
 /** The activity tab of an entity whose only own events are reviews. */
 export const defineMediaReviewActivityTab = (input: {
-	readonly noun: string;
+	readonly kind: MediaReviewKind;
 	readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
 	readonly activityRecipe: MediaEntityRecipe<MediaReviewActivityResult>;
 }) => {
-	const activityCopy = mediaReviewActivityCopy(input.noun);
 	const activityQuery = createMediaEntityQuery(input.activityRecipe, (data) =>
 		data.events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
 	);
 
-	const activityRowLabel = (row: MediaReviewActivityRow) => {
+	const activityRowLabel = (copy: MediaCopy, row: MediaReviewActivityRow) => {
+		const activityCopy = mediaReviewActivityCopy(copy.text, input.kind);
 		if (row.type === "collection") {
-			return mediaCollectionRowLabel(row);
+			return mediaCollectionRowLabel(copy.text, row);
 		}
 		if (row.type === "media-library") {
 			return activityCopy.libraryLabel;
@@ -42,12 +43,12 @@ export const defineMediaReviewActivityTab = (input: {
 		return activityCopy.rowLabels.review;
 	};
 
-	const activityRender: MediaActivityRowRender<MediaReviewActivityRow> = {
+	const activityRender = (copy: MediaCopy): MediaActivityRowRender<MediaReviewActivityRow> => ({
+		segment: "activity",
 		rowSource: () => undefined,
-		rowLabel: activityRowLabel,
-		segmentNoun: activityCopy.segmentNoun,
+		rowLabel: (row) => activityRowLabel(copy, row),
 		rowBody: (row) => (row.type === "review" ? <MediaActivityReviewDetail row={row} /> : null),
-	};
+	});
 
 	function ActivityRecord(props: {
 		readonly compact: boolean;
@@ -55,39 +56,52 @@ export const defineMediaReviewActivityTab = (input: {
 		readonly view: MediaReviewActivityView;
 	}) {
 		const { summary, timeline } = props.view;
-		const span = mediaActivitySpanLabel(summary.span);
+		const copy = useMediaCopy();
+		const span = mediaActivitySpanLabel(copy.text, copy.formatters, summary.span);
 		return (
 			<MediaActivityRecord
 				timeline={timeline}
 				history={props.history}
-				render={activityRender}
 				compact={props.compact}
-				recordLabel={activityCopy.recordLabel}
+				render={activityRender(copy)}
 				partial={summary.span.bound === "partial"}
+				recordLabel={mediaReviewActivityCopy(copy.text, input.kind).recordLabel}
 				figures={[
-					{ label: "Reviews", detail: undefined, value: `${summary.reviews}` },
+					{
+						detail: undefined,
+						label: copy.text("activity.figure-reviews"),
+						value: copy.formatters.number().format(summary.reviews),
+					},
 					{ label: span.label, value: span.value, detail: span.detail },
 				]}
 			/>
 		);
 	}
 
+	function ReviewHistoryRows(props: {
+		readonly compact: boolean;
+		readonly events: readonly MediaReviewActivityEvent[];
+	}) {
+		const copy = useMediaCopy();
+		return (
+			<MediaActivityRows
+				compact={props.compact}
+				render={activityRender(copy)}
+				rows={props.events.map(mediaReviewActivityRow)}
+			/>
+		);
+	}
+
 	const { Activity, ActivityTab, mapActivity } = defineMediaActivityTab({
-		copy: activityCopy,
 		query: activityQuery,
 		Record: ActivityRecord,
 		emptyAction: "write-review",
 		view: mediaReviewActivityView,
 		hasMoreActivities: (result) => result.truncated,
+		copy: (copy) => mediaReviewActivityCopy(copy.text, input.kind),
+		renderHistory: (events, compact) => <ReviewHistoryRows events={events} compact={compact} />,
 		historyQuery: createMediaHistoryQuery(input.historyRecipe, (events) =>
 			events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
-		),
-		renderHistory: (events, compact) => (
-			<MediaActivityRows
-				compact={compact}
-				render={activityRender}
-				rows={events.map(mediaReviewActivityRow)}
-			/>
 		),
 	});
 

@@ -2,13 +2,17 @@ import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createContext, type ReactNode, useContext, useMemo, useRef, useState } from "react";
 
 import type { MediaLinkedReview, MediaReviewLinks } from "../../shared/review-link-recipes";
-import { mediaReviewOccurrenceLabel } from "./activity-copy";
+import { useMediaCopy, useMediaMessages } from "../messages";
+import { type MediaActivitySegment, mediaReviewOccurrenceLabel } from "./activity-copy";
 import { MediaActivityActionsContext } from "./activity-row-menu";
 import type { MediaActivityEventRef, MediaActivityRowBase } from "./activity-timeline";
 import { MediaReviewEditForm } from "./review";
 import { linkedOccurrenceId, reviewLinksQuery } from "./review-about";
 
-type ReviewLinks = { readonly segmentNoun: string; readonly data: undefined | MediaReviewLinks };
+type ReviewLinks = {
+	readonly segment: MediaActivitySegment;
+	readonly data: undefined | MediaReviewLinks;
+};
 
 const ReviewLinksContext = createContext<undefined | ReviewLinks>(undefined);
 
@@ -34,8 +38,8 @@ const linkEventIds = (rows: readonly MediaActivityRowBase[]) =>
 
 /** Resolves review links once for `rows`; nested timelines reuse the nearest resolution. */
 export function MediaReviewLinksScope(props: {
-	readonly segmentNoun: string;
 	readonly children: ReactNode;
+	readonly segment: MediaActivitySegment;
 	readonly rows: readonly MediaActivityRowBase[];
 }) {
 	const parent = useContext(ReviewLinksContext);
@@ -44,7 +48,7 @@ export function MediaReviewLinksScope(props: {
 		return props.children;
 	}
 	return (
-		<ResolvedReviewLinks eventIds={eventIds} segmentNoun={props.segmentNoun}>
+		<ResolvedReviewLinks eventIds={eventIds} segment={props.segment}>
 			{props.children}
 		</ResolvedReviewLinks>
 	);
@@ -52,6 +56,7 @@ export function MediaReviewLinksScope(props: {
 
 /** "About your watch on …" for a review that names one of its subject's occurrences. */
 export function MediaReviewOccurrenceNote(props: { readonly event: MediaActivityEventRef }) {
+	const copy = useMediaCopy();
 	const links = useContext(ReviewLinksContext);
 	const linked = linkedOccurrenceId(props.event);
 	const occurrence = links?.data?.occurrences.find(({ id }) => id === linked);
@@ -60,21 +65,18 @@ export function MediaReviewOccurrenceNote(props: { readonly event: MediaActivity
 	}
 	return (
 		<p className="text-micro text-text-subtle">
-			{mediaReviewOccurrenceLabel(links.segmentNoun, occurrence)}
+			{mediaReviewOccurrenceLabel(copy, links.segment, occurrence)}
 		</p>
 	);
 }
 
 function ResolvedReviewLinks(props: {
-	readonly segmentNoun: string;
 	readonly children: ReactNode;
 	readonly eventIds: readonly string[];
+	readonly segment: MediaActivitySegment;
 }) {
 	const { data } = useRyotQuery(reviewLinksQuery, { eventIds: props.eventIds });
-	const links = useMemo(
-		() => ({ data, segmentNoun: props.segmentNoun }),
-		[data, props.segmentNoun],
-	);
+	const links = useMemo(() => ({ data, segment: props.segment }), [data, props.segment]);
 	return <ReviewLinksContext value={links}>{props.children}</ReviewLinksContext>;
 }
 
@@ -88,6 +90,7 @@ export const useLinkedReview = (row: MediaActivityRowBase) => {
 /** Marks a consumption row that a review names and opens that review. */
 export function MediaReviewedBadge(props: { readonly review: MediaLinkedReview }) {
 	const { review } = props;
+	const text = useMediaMessages();
 	const actions = useContext(MediaActivityActionsContext);
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -99,7 +102,7 @@ export function MediaReviewedBadge(props: { readonly review: MediaLinkedReview }
 				onClick={() => setOpen(true)}
 				className="rounded-pill border border-accent-border px-1.5 text-micro font-medium text-accent-text hover:bg-hover"
 			>
-				Reviewed
+				{text("review.reviewed")}
 			</button>
 			{open ? (
 				<MediaReviewEditForm
