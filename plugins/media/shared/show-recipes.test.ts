@@ -11,6 +11,8 @@ import {
 	showSeasonsRecipe,
 } from "./show-recipes";
 
+const TMDB_NAME = { namespace: "media-owner", key: "provider.tmdb.name" };
+
 const showRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
 const ACTIVITY_RECIPE = bindRecipe(showRecipes.activityRecipe({ reference: { kind: "self" } }), {
@@ -156,11 +158,11 @@ const SHOW_SUMMARY_ROW = {
 	schemaSlug: "show",
 	upcomingEpisodes: 0,
 	name: "Adolescence",
-	providerName: "TMDB",
 	inProgressEpisodes: 0,
 	providerRating: 78.25,
 	originalLanguage: "en",
 	isInMediaLibrary: true,
+	providerName: TMDB_NAME,
 	providerCheckedAt: null,
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
@@ -616,9 +618,9 @@ describe("media show query recipes", () => {
 					state: "complete",
 					publishYear: 2025,
 					isMonitored: true,
-					providerName: "TMDB",
 					originalLanguage: "en",
 					isInMediaLibrary: true,
+					providerName: TMDB_NAME,
 					collections: { items: [{ name: "Completed", id: "collection-1" }] },
 					genres: {
 						pageInfo: { limit: 100, hasMore: false },
@@ -967,6 +969,7 @@ describe("media show query recipes", () => {
 			"images",
 			"order",
 			"roles",
+			"roleCodes",
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
@@ -983,6 +986,7 @@ describe("media show query recipes", () => {
 			"images",
 			"order",
 			"roles",
+			"roleCodes",
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
@@ -1079,10 +1083,11 @@ describe("media show query recipes", () => {
 					companies: showRows([
 						{
 							order: 1,
+							roles: [],
 							id: "company-1",
 							name: "Warp Films",
 							isInMediaLibrary: false,
-							roles: ["Production Company"],
+							roleCodes: ["production_company"],
 							translationStatus: { state: "idle", availability: "none" },
 							images: [{ type: "s3", purpose: "logo", key: "warp-logo" }],
 							populationStatus: { state: "succeeded", availability: "complete" },
@@ -1092,13 +1097,14 @@ describe("media show query recipes", () => {
 					people: showRows([
 						{
 							order: 1,
+							roles: [],
 							isGuest: null,
 							id: "person-1",
-							roles: ["Creator"],
 							name: "Jack Thorne",
 							isUncredited: false,
 							character: "Narrator",
 							creditKinds: ["crew"],
+							roleCodes: ["creator"],
 							isInMediaLibrary: false,
 							departments: ["Writing"],
 							translationStatus: { state: "idle", availability: "none" },
@@ -1124,9 +1130,10 @@ describe("media show query recipes", () => {
 					items: [
 						{
 							order: 1,
+							roles: [],
 							id: "company-1",
 							name: "Warp Films",
-							roles: ["Production Company"],
+							roleCodes: ["production_company"],
 							images: [{ type: "s3", purpose: "logo", key: "warp-logo" }],
 						},
 					],
@@ -1135,10 +1142,11 @@ describe("media show query recipes", () => {
 					items: [
 						{
 							order: 1,
+							roles: [],
 							id: "person-1",
-							roles: ["Creator"],
 							name: "Jack Thorne",
 							character: "Narrator",
+							roleCodes: ["creator"],
 							images: [{ type: "remote", purpose: "profile", url: "https://images.test/jack.jpg" }],
 						},
 					],
@@ -1170,6 +1178,7 @@ describe("media show query recipes", () => {
 							images: null,
 							isGuest: null,
 							id: "person-1",
+							roleCodes: null,
 							character: null,
 							creditKinds: null,
 							departments: null,
@@ -1187,7 +1196,16 @@ describe("media show query recipes", () => {
 			success: {
 				recommendations: { items: [{ images: null }] },
 				people: {
-					items: [{ order: null, roles: null, images: null, character: null, name: "Jo Johnson" }],
+					items: [
+						{
+							order: null,
+							roles: null,
+							images: null,
+							roleCodes: null,
+							character: null,
+							name: "Jo Johnson",
+						},
+					],
 				},
 			},
 		});
@@ -1214,6 +1232,7 @@ describe("media show query recipes", () => {
 							order: 1,
 							roles: null,
 							id: "person-1",
+							roleCodes: null,
 							character: null,
 							name: "Jack Thorne",
 							images: [{ url: 12, type: "ftp" }],

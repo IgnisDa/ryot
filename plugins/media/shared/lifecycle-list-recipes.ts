@@ -20,7 +20,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { AppSchema, PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import type { AuthoredAppSchema, PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { MediaPosition } from "./consumption";
 import {
@@ -45,6 +45,7 @@ import {
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 import { builtinMediaEntitySchemaSlugs, flatMediaSchemaSlugs } from "./media-schema-slugs";
+import { catalogMessage } from "./messages.generated";
 
 const listedMediaSelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
@@ -84,10 +85,14 @@ export const episodicByLifecycleStateRecipe = (input: {
 }) => {
 	const inputParameters = parameters({
 		fields: {
-			entityId: { type: "string", label: "entityId", description: "entityId for this selection" },
+			entityId: {
+				type: "string",
+				description: "entityId for this selection",
+				label: catalogMessage("query-parameter.entity"),
+			},
 			mediaTypes: {
 				type: "enum-array",
-				label: "Media types",
+				label: catalogMessage("query-parameter.media-types"),
 				description: "Restrict the library to these media types",
 				choices: {
 					kind: "static",
@@ -95,20 +100,20 @@ export const episodicByLifecycleStateRecipe = (input: {
 				},
 			},
 			states: {
-				label: "states",
 				type: "enum-array",
 				validation: { required: true },
 				description: "states for this selection",
+				label: catalogMessage("query-parameter.states"),
 				choices: {
 					kind: "static",
 					values: [
-						{ value: "untracked", label: "Untracked" },
-						{ value: "backlog", label: "backlog" },
-						{ value: "in_progress", label: "in_progress" },
-						{ value: "on_hold", label: "on_hold" },
-						{ value: "dropped", label: "dropped" },
-						{ value: "complete", label: "complete" },
-						{ value: "caught_up", label: "caught_up" },
+						{ value: "untracked" },
+						{ value: "backlog" },
+						{ value: "in_progress" },
+						{ value: "on_hold" },
+						{ value: "dropped" },
+						{ value: "complete" },
+						{ value: "caught_up" },
 					],
 				},
 			},
@@ -178,7 +183,7 @@ export const flatByLifecycleStateRecipe = (input: {
 		fields: {
 			mediaTypes: {
 				type: "enum-array",
-				label: "Media types",
+				label: catalogMessage("query-parameter.media-types"),
 				description: "Restrict the library to these media types",
 				choices: {
 					kind: "static",
@@ -186,20 +191,20 @@ export const flatByLifecycleStateRecipe = (input: {
 				},
 			},
 			states: {
-				label: "states",
 				type: "enum-array",
 				validation: { required: true },
 				description: "states for this selection",
+				label: catalogMessage("query-parameter.states"),
 				choices: {
 					kind: "static",
 					values: [
-						{ value: "untracked", label: "Untracked" },
-						{ value: "backlog", label: "backlog" },
-						{ value: "in_progress", label: "in_progress" },
-						{ value: "on_hold", label: "on_hold" },
-						{ value: "dropped", label: "dropped" },
-						{ value: "complete", label: "complete" },
-						{ value: "caught_up", label: "caught_up" },
+						{ value: "untracked" },
+						{ value: "backlog" },
+						{ value: "in_progress" },
+						{ value: "on_hold" },
+						{ value: "dropped" },
+						{ value: "complete" },
+						{ value: "caught_up" },
 					],
 				},
 			},
@@ -273,7 +278,7 @@ export const libraryByLifecycleStateRecipe = (reference: PluginIdentityReference
 		},
 	});
 };
-const lifecycleItems = <Success, const Parameters extends AppSchema>(
+const lifecycleItems = <Success, const Parameters extends AuthoredAppSchema>(
 	recipe: Recipe<Success, Parameters>,
 ) => {
 	const query = recipe.document.queries.items;

@@ -63,6 +63,7 @@ import {
 import { latestPosition } from "./lifecycle-list-recipes";
 import { MediaImageListSchema } from "./media-image";
 import { flatMediaSchemaSlugs } from "./media-schema-slugs";
+import { catalogMessage } from "./messages.generated";
 import { DEFAULT_UPCOMING_DAYS_AHEAD, MAX_UPCOMING_DAYS_AHEAD } from "./upcoming-settings";
 
 const upcomingParameters = parameters({
@@ -70,13 +71,13 @@ const upcomingParameters = parameters({
 		onePerTitle: {
 			type: "boolean",
 			defaultValue: true,
-			label: "One per title",
+			label: catalogMessage("query-parameter.one-per-title"),
 			description: "Return only the next occurrence for each title",
 		},
 		daysAhead: {
 			type: "integer",
-			label: "Days ahead",
 			defaultValue: DEFAULT_UPCOMING_DAYS_AHEAD,
+			label: catalogMessage("query-parameter.days-ahead"),
 			validation: { minimum: 1, maximum: MAX_UPCOMING_DAYS_AHEAD },
 			description:
 				"Include releases from today through this many reporting-zone calendar days ahead",

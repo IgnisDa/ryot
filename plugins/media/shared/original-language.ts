@@ -7,6 +7,7 @@ import {
 import { selectedField } from "@ryot-app/plugin-kit/ryotql";
 
 import { propertyText, type Table } from "./entity-selections";
+import { catalogMessage } from "./messages.generated";
 
 const OriginalLanguage = Schema.String.check(
 	Schema.makeFilter(
@@ -17,8 +18,8 @@ const OriginalLanguage = Schema.String.check(
 export const originalLanguageFields = {
 	originalLanguage: {
 		type: "string" as const,
-		label: "Original language",
 		validation: { pattern: canonicalLanguagePattern },
+		label: catalogMessage("property.original-language"),
 		description: "Original language code supplied by the movie or show provider",
 	},
 };
@@ -30,7 +31,7 @@ export const originalLanguageSelection = (entity: Table) => ({
 	),
 });
 
-export const originalLanguageFact = (code: null | string) => {
+export const originalLanguageFact = (label: string, code: null | string) => {
 	const name = code === null ? undefined : languageName(code);
-	return name === undefined ? [] : [{ value: name, icon: "globe", label: "Original language" }];
+	return name === undefined ? [] : [{ label, value: name, icon: "globe" }];
 };

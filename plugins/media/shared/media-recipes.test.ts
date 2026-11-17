@@ -8,6 +8,8 @@ import {
 } from "../tests/client/flat-media/recipes";
 import { mediaReviewActivityRecipe } from "./media-recipes";
 
+const TMDB_NAME = { namespace: "media-owner", key: "provider.tmdb.name" };
+
 const singleRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
 
@@ -40,11 +42,11 @@ const SUMMARY_ROW = {
 	publishDate: null,
 	isMonitored: false,
 	name: "Fight Club",
-	providerName: "TMDB",
 	providerRating: 86.5,
 	schemaSlug: "fixture",
 	progressPercent: null,
 	isInMediaLibrary: true,
+	providerName: TMDB_NAME,
 	providerCheckedAt: null,
 	productionStatus: "Released",
 	translationStatus: { state: "idle", availability: "none" },

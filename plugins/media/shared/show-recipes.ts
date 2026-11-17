@@ -50,6 +50,7 @@ import {
 	mediaPeopleRecipe,
 	mediaWatchProviderSelection,
 } from "./media-recipes";
+import { catalogMessage } from "./messages.generated";
 import { originalLanguageSelection } from "./original-language";
 import { ShowEpisodeOrderListSchema } from "./show-episode-order";
 
@@ -219,10 +220,10 @@ export const showSeasonsRecipe = (structural: { readonly reference: PluginIdenti
 	const args = parameters({
 		fields: {
 			entityId: {
-				label: "Show",
 				type: "string",
 				description: "Show to read",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.show"),
 			},
 		},
 	});
@@ -281,17 +282,21 @@ export const showOrderEpisodesRecipe = (structural: {
 	const args = parameters({
 		fields: {
 			entityId: {
-				label: "Show",
 				type: "string",
 				description: "Show to read",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.show"),
 			},
 			externalIds: {
 				type: "array",
-				label: "Provider episodes",
 				validation: { required: true },
 				description: "Provider episodes to read",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.episodes"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -331,17 +336,21 @@ export const showOrderGroupCoverageRecipe = (structural: {
 	const args = parameters({
 		fields: {
 			entityId: {
-				label: "Show",
 				type: "string",
 				description: "Show to read",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.show"),
 			},
 			externalIds: {
 				type: "array",
-				label: "Provider episodes",
 				validation: { required: true },
 				description: "Provider episodes to read",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.episodes"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});

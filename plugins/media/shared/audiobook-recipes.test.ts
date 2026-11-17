@@ -147,11 +147,13 @@ describe("media audiobook query recipes", () => {
 					people: singleRows([]),
 					companies: singleRows([]),
 					recommendations: singleRows([]),
-					creators: singleRows([{ unlinkedCreators: [{ role: "Narrator", name: "Nia Voice" }] }]),
+					creators: singleRows([
+						{ unlinkedCreators: [{ name: "Nia Voice", roleCode: "narrator" }] },
+					]),
 				},
 			}),
 		).toMatchObject({
-			success: { creators: { unlinkedCreators: [{ role: "Narrator", name: "Nia Voice" }] } },
+			success: { creators: { unlinkedCreators: [{ name: "Nia Voice", roleCode: "narrator" }] } },
 		});
 	});
 });

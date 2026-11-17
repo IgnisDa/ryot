@@ -46,6 +46,7 @@ import {
 } from "./entity-selections";
 import { MediaImageListSchema } from "./media-image";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
+import { catalogMessage } from "./messages.generated";
 
 const discoveredMediaSelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
@@ -157,10 +158,14 @@ export const trendingLatestMediaRecipe = (input: {
 		fields: {
 			entitySchemaSlugs: {
 				type: "array",
-				label: "entitySchemaSlugs",
 				validation: { required: true },
 				description: "entitySchemaSlugs for this selection",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.media-types"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -260,9 +265,9 @@ export const collectionRecommendationSourcesRecipe = (structural: {
 		fields: {
 			collectionId: {
 				type: "string",
-				label: "Collection",
 				validation: { required: true },
 				description: "Collection to read",
+				label: catalogMessage("query-parameter.collection"),
 			},
 		},
 	});
@@ -316,15 +321,15 @@ export const collectionRecommendationsRecipe = (structural: {
 		fields: {
 			searchText: {
 				type: "string",
-				label: "Search",
 				defaultValue: "",
 				description: "Find suggestions by name",
+				label: catalogMessage("query-parameter.search"),
 			},
 			collectionId: {
 				type: "string",
-				label: "Collection",
 				validation: { required: true },
 				description: "Collection to read",
+				label: catalogMessage("query-parameter.collection"),
 			},
 		},
 	});

@@ -39,6 +39,7 @@ import {
 	creatorGroupTargetSlugs,
 	type MediaCreatorCreditSlug,
 } from "./media-schema-slugs";
+import { catalogMessage } from "./messages.generated";
 import { mediaDetailLimits, mediaEntityParameters } from "./query-parameters";
 
 type GroupTargetSlug = (typeof creatorGroupTargetSlugs)[number];
@@ -125,14 +126,13 @@ export const creatorCreditParameters = parameters({
 		...mediaEntityParameters.schema.fields,
 		target: {
 			type: "enum",
-			label: "Credit type",
 			validation: { required: true },
 			description: "Kind of credited title or group",
+			label: catalogMessage("query-parameter.credit-type"),
 			choices: {
 				kind: "static",
 				values: [...builtinMediaEntitySchemaSlugs, ...creatorGroupTargetSlugs].map((value) => ({
 					value,
-					label: value,
 				})),
 			},
 		},

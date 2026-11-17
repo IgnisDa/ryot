@@ -1,4 +1,5 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { Message } from "@ryot-app/plugin-kit/messages";
 import {
 	and,
 	castBoolean,
@@ -32,7 +33,7 @@ import {
 	sumOf,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { AppSchema, PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import type { AuthoredAppSchema, PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { consumptionEventSlugs } from "./consumption-projection";
 import {
@@ -50,6 +51,7 @@ import {
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
+import { catalogMessage } from "./messages.generated";
 
 const episodicKindConfigs = [showEpisodicKindConfig, podcastEpisodicKindConfig] as const;
 
@@ -84,13 +86,13 @@ const DAY_LIMIT = 371;
 const activityParameterFields = {
 	mediaTypes: {
 		type: "enum-array",
-		label: "Media types",
+		label: catalogMessage("query-parameter.media-types"),
 		description: "Restrict activity to these media types",
 		choices: { kind: "static", values: builtinMediaEntitySchemaSlugs.map((value) => ({ value })) },
 	},
 } as const;
 const activityParameters = parameters({ fields: activityParameterFields });
-const activityRecipe = <const Parameters extends AppSchema>(
+const activityRecipe = <const Parameters extends AuthoredAppSchema>(
 	reference: PluginIdentityReference,
 	period: ReportingWindow,
 	parameterSchema: Parameters,
@@ -171,7 +173,7 @@ const activityRecipe = <const Parameters extends AppSchema>(
 				where: and(types.where, active(types.event)),
 				orderBy: [measureDescending("events"), groupAscending("slug")],
 				groupBy: {
-					label: selectedField(column(typeSchema, "name"), Schema.String),
+					label: selectedField(column(typeSchema, "name"), Message),
 					slug: selectedField(
 						mediaTypeOf(types.entity),
 						Schema.Literals(builtinMediaEntitySchemaSlugs),

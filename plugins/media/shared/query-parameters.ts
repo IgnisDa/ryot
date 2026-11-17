@@ -1,12 +1,14 @@
 import { parameters } from "@ryot-app/plugin-kit/ryotql";
 
+import { catalogMessage } from "./messages.generated";
+
 export const mediaEntityParameters = parameters({
 	fields: {
 		entityId: {
 			type: "string",
-			label: "Title",
 			validation: { required: true },
 			description: "Media entity to read",
+			label: catalogMessage("query-parameter.title"),
 		},
 	},
 });
@@ -31,8 +33,8 @@ export const mediaGroupParameters = parameters({
 	fields: {
 		groupId: {
 			type: "string",
-			label: "Group",
 			validation: { required: true },
+			label: catalogMessage("query-parameter.group"),
 			description: "Group whose member titles to read",
 		},
 	},
@@ -41,8 +43,8 @@ export const mediaEpisodeParameters = parameters({
 	fields: {
 		containerId: {
 			type: "string",
-			label: "Container",
 			validation: { required: true },
+			label: catalogMessage("query-parameter.parent"),
 			description: "Season or podcast whose episodes to read",
 		},
 	},

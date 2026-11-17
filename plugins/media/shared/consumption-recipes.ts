@@ -1,4 +1,5 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { Message } from "@ryot-app/plugin-kit/messages";
 import {
 	add,
 	and,
@@ -35,6 +36,7 @@ import { CALENDAR_DATE_TOLERANCE_DAYS } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
 import { consumptionEventSlugs } from "./consumption-projection";
 import { propertyBoolean, propertyText } from "./entity-selections";
+import { catalogMessage } from "./messages.generated";
 
 type Table = Parameters<typeof column>[0];
 export const consumptionValue = (event: Table, ...path: string[]) =>
@@ -128,7 +130,11 @@ export type ConsumptionScope = {
 	readonly reference: PluginIdentityReference;
 };
 export const consumptionScopeParameterFields = {
-	entityId: { type: "string", label: "Title", description: "Restrict activity to this title" },
+	entityId: {
+		type: "string",
+		label: catalogMessage("query-parameter.title"),
+		description: "Restrict activity to this title",
+	},
 } as const;
 const scopeParameters = parameters({ fields: consumptionScopeParameterFields });
 export const consumptionScope = (event: Table, input: Pick<ConsumptionScope, "reference">) =>
@@ -162,8 +168,14 @@ export const consumptionDetail = (
 export const mediaTypeJoin = (entity: Table, alias: string, reference: PluginIdentityReference) => {
 	const schema = table("entitySchema", alias);
 	return {
-		label: selectedField(column(schema, "name"), Schema.String),
+		label: selectedField(column(schema, "name"), Message),
 		slug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+		/** Cursor-paged groupings need scalar values; names carry no parameters, so these rebuild `label`. */
+		labelKey: selectedField(castText(jsonPath(column(schema, "name"), "key")), Schema.String),
+		labelNamespace: selectedField(
+			castText(jsonPath(column(schema, "name"), "namespace")),
+			Schema.String,
+		),
 		join: join(
 			"inner",
 			schema,

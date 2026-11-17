@@ -1,4 +1,5 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { Message } from "@ryot-app/plugin-kit/messages";
 import {
 	and,
 	ascending,
@@ -51,6 +52,7 @@ import { ConsumedOnSelection } from "./consumed-on";
 import { MediaPosition } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
 import { mediaConsumptionTotalsSelection } from "./consumption-recipes";
+import { CreditRoleCodeSchema, UnlinkedCreatorSchema } from "./credit-roles";
 import { mediaPresentationImageSelection } from "./entity-presentations";
 import {
 	entityId,
@@ -168,7 +170,7 @@ export const mediaEntitySummarySelection = (entity: Table, provider: Table) => (
 		Schema.NullOr(Schema.String),
 	),
 	...entityIdentitySelection(entity),
-	providerName: selectedField(column(provider, "name"), Schema.NullOr(Schema.String)),
+	providerName: selectedField(column(provider, "name"), Schema.NullOr(Message)),
 	description: selectedField(propertyText(entity, "description"), Schema.NullOr(Schema.String)),
 	images: selectedField(
 		propertyJson(entity, "images"),
@@ -275,6 +277,10 @@ export const creditSelection = (credit: Table, relationship: Table) => ({
 	roles: selectedField(
 		propertyJson(relationship, "roles"),
 		Schema.NullOr(Schema.Array(Schema.String)),
+	),
+	roleCodes: selectedField(
+		propertyJson(relationship, "roleCodes"),
+		Schema.NullOr(Schema.Array(CreditRoleCodeSchema)),
 	),
 	...entitySyncSelection(credit),
 	...mediaLibrarySelection(credit),
@@ -963,7 +969,7 @@ export const mediaUnlinkedCreatorsQuery = (
 		selection: {
 			unlinkedCreators: selectedField(
 				propertyJson(entity, "unlinkedCreators"),
-				Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, role: Schema.String }))),
+				Schema.NullOr(Schema.Array(UnlinkedCreatorSchema)),
 			),
 		},
 	});

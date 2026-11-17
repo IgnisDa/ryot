@@ -58,6 +58,7 @@ import {
 } from "./lifecycle-expressions";
 import { mediaNumberField } from "./media-recipes";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
+import { catalogMessage } from "./messages.generated";
 
 const NextUpSeasonNumber = Schema.NullOr(Schema.Finite);
 
@@ -142,9 +143,9 @@ export const mediaActivityLogContextRecipe = (structural: {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "Title",
 				description: "Title to read",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.title"),
 			},
 		},
 	});
@@ -279,9 +280,9 @@ export const showSeasonChoicesRecipe = (input: { readonly reference: PluginIdent
 		fields: {
 			entityId: {
 				type: "string",
-				label: "Entity Id",
 				validation: { required: true },
 				description: "Entity Id for this selection",
+				label: catalogMessage("query-parameter.entity"),
 			},
 		},
 	});
@@ -324,9 +325,9 @@ export const showEpisodeSeasonRecipe = (() => {
 		fields: {
 			episodeEntityId: {
 				type: "string",
-				label: "Episode",
 				description: "Episode to read",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.episode"),
 			},
 		},
 	});
@@ -356,16 +357,16 @@ export const showSeasonEpisodeChoicesRecipe = (structural: {
 	const args = parameters({
 		fields: {
 			showEntityId: {
-				label: "Show",
 				type: "string",
 				description: "Show to read",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.show"),
 			},
 			seasonNumber: {
 				type: "integer",
-				label: "Season number",
 				validation: { required: true },
 				description: "Season number to read",
+				label: catalogMessage("query-parameter.season"),
 			},
 		},
 	});
@@ -426,15 +427,15 @@ export const episodicEarlierUnwatchedRecipe = (structural: {
 		fields: {
 			parentEntityId: {
 				type: "string",
-				label: "Title",
 				description: "Title to read",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.title"),
 			},
 			episodeEntityId: {
 				type: "string",
-				label: "Selected episode",
 				validation: { required: true },
 				description: "Selected episode to read",
+				label: catalogMessage("query-parameter.episode"),
 			},
 		},
 	});

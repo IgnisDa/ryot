@@ -137,14 +137,15 @@ describe("Media analytics recipes", () => {
 		});
 	});
 	test.each([false, true])("preserves decoded previous-period totals (empty: %s)", (empty) => {
+		const bookName = { namespace: "plugin1", key: "entity-schema.book.name" };
 		const recipe = mediaAnalyticsSummaryRecipe({ reference: input.reference });
 		const types = empty
 			? []
 			: [
 					{
 						...zeros,
-						label: "Book",
 						activeDays: 2,
+						label: bookName,
 						mediaType: "book",
 						distinctTitles: 1,
 						pagesRecorded: 42,
@@ -152,7 +153,7 @@ describe("Media analytics recipes", () => {
 				];
 		const reviews = empty
 			? []
-			: [{ rated: 1, reviews: 1, label: "Book", mediaType: "book", averageRating: 80 }];
+			: [{ rated: 1, reviews: 1, label: bookName, mediaType: "book", averageRating: 80 }];
 		const previous = { types, reviews, activeDays: empty ? 0 : 2 };
 		const report = Result.getOrThrow(
 			recipe.decode(
@@ -298,13 +299,14 @@ describe("Media analytics recipes", () => {
 			],
 		});
 		const item = {
-			label: "Show",
 			name: "Parent",
 			mediaType: "show",
 			entityId: "parent",
 			titleCompletions: 1,
 			activeObservations: 0,
 			episodeCompletions: 0,
+			labelNamespace: "plugin1",
+			labelKey: "entity-schema.show.name",
 		};
 		const result = Result.getOrThrow(
 			recipe.decode(
@@ -317,7 +319,15 @@ describe("Media analytics recipes", () => {
 				}),
 			),
 		);
-		expect(result.items[0]).toMatchObject({ label: "Show", activeObservations: 0 });
+		expect(result.items[0]).toEqual({
+			name: "Parent",
+			mediaType: "show",
+			entityId: "parent",
+			titleCompletions: 1,
+			activeObservations: 0,
+			episodeCompletions: 0,
+			label: { namespace: "plugin1", key: "entity-schema.show.name" },
+		});
 		expect(result.pageInfo.nextCursor).toBe("next-opaque");
 	});
 	it("keeps source facts and canonical contributions separate in logical-order event cursor rows", () => {
@@ -368,7 +378,6 @@ describe("Media analytics recipes", () => {
 						{
 							id: "item",
 							name: "Anime",
-							label: "Anime",
 							orderKey: "item",
 							entityId: "title",
 							mediaType: "anime",
@@ -376,6 +385,7 @@ describe("Media analytics recipes", () => {
 							occurredAt: "2026-10-10T00:00:00Z",
 							orderCreatedAt: "2026-10-10T00:00:00Z",
 							facts: { position: { position: 12, unit: "episodes" } },
+							label: { namespace: "plugin1", key: "entity-schema.anime.name" },
 							contribution: {
 								titleCompletions: 0,
 								episodeCompletions: 0,

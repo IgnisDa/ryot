@@ -102,10 +102,10 @@ const seed = Effect.gen(function* () {
 					["provider", "elsewhere"].map((id) => ({
 						id,
 						slug: id,
-						name: id,
 						pluginId: "plugin",
 						rootEntitySchemaSlug: "item",
 						information: { source: "fixture" },
+						name: { namespace: "plugin", key: "test.provider" },
 					})),
 				);
 			yield* db

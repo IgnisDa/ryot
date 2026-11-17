@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { stampRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { RyotQLService } from "@ryot-app/kernel-backend/modules/ryotql/service";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
@@ -114,7 +115,7 @@ layer(database)((test) => {
 					const response = yield* service.executeForUser("owner", null, "plugin", {
 						arguments: { entityId: "target" },
 						pages: { history: { after, limit: 2 } },
-						source: { kind: "inline", document: history.document },
+						source: { kind: "inline", document: stampRyotQLDocument("media", history.document) },
 					});
 					const result = Result.getOrThrow(history.decode(response));
 					items.push(...result.items.map((row) => row.id));
@@ -131,7 +132,10 @@ layer(database)((test) => {
 	test.effect("rejects invalid cursors and prevents rebinding a cursor to another entity", () =>
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
-			const source = { kind: "inline", document: history.document } as const;
+			const source = {
+				kind: "inline",
+				document: stampRyotQLDocument("media", history.document),
+			} as const;
 			assertExitFails(
 				yield* Effect.exit(
 					service.executeForUser("owner", null, "plugin", {

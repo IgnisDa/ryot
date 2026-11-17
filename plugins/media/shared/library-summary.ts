@@ -51,6 +51,7 @@ import {
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { flatMediaSchemaSlugs } from "./media-schema-slugs";
+import { catalogMessage } from "./messages.generated";
 import { averageUserRating } from "./user-rating";
 
 /** Output of the `in-media-library` projection; absent values are omitted. */
@@ -58,23 +59,23 @@ export const librarySummaryPropertiesSchema = {
 	unknownKeys: "strict" as const,
 	fields: {
 		lifecycleState: {
-			label: "Status",
 			type: "string" as const,
+			label: catalogMessage("property.status"),
 			description: "Lifecycle state computed from the user's history",
 		},
 		releaseDate: {
-			label: "Release date",
 			type: "datetime" as const,
+			label: catalogMessage("property.release-date"),
 			description: "Publish date, else the start of the publish year",
 		},
 		nextAiringAt: {
-			label: "Next airing",
 			type: "datetime" as const,
+			label: catalogMessage("property.next-airing"),
 			description: "Earliest publish date of an unaired regular episode",
 		},
 		lastActivityAt: {
-			label: "Recent activity",
 			type: "datetime" as const,
+			label: catalogMessage("property.recent-activity"),
 			description: "When the user's latest lifecycle activity occurred",
 		},
 	},
@@ -142,10 +143,14 @@ export const librarySummaryEntitiesRecipe = (() => {
 		fields: {
 			entityIds: {
 				type: "array",
-				label: "entityIds",
 				validation: { required: true },
 				description: "entityIds for this selection",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.entities"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -174,10 +179,14 @@ const summaryParameters = parameters({
 	fields: {
 		entityIds: {
 			type: "array",
-			label: "Entities",
 			validation: { required: true },
+			label: catalogMessage("query-parameter.entities"),
 			description: "Titles whose library state to compute",
-			items: { type: "string", label: "Entity", description: "Title ID" },
+			items: {
+				type: "string",
+				description: "Title ID",
+				label: catalogMessage("query-parameter.entity"),
+			},
 		},
 	},
 });

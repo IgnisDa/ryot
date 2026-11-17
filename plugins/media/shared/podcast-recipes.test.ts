@@ -128,11 +128,11 @@ describe("media podcast query recipes", () => {
 					people: rows([]),
 					companies: rows([]),
 					recommendations: rows([]),
-					creators: rows([{ unlinkedCreators: [{ role: "Publisher", name: "Acme Media" }] }]),
+					creators: rows([{ unlinkedCreators: [{ name: "Acme Media", roleCode: "publisher" }] }]),
 				},
 			}),
 		).toMatchObject({
-			success: { creators: { unlinkedCreators: [{ role: "Publisher", name: "Acme Media" }] } },
+			success: { creators: { unlinkedCreators: [{ name: "Acme Media", roleCode: "publisher" }] } },
 		});
 	});
 

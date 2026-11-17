@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { stampRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { PluginId, PluginPackageId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import { measurementSeriesRecipe } from "@ryot-app/fitness-plugin/measurement-recipes";
 import { RyotQLService } from "@ryot-app/kernel-backend/modules/ryotql/service";
@@ -60,7 +61,7 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(database))))((test) => 
 			yield* TestClock.setTime(Date.parse("2026-11-11T12:00:00Z"));
 			const service = yield* RyotQLService;
 			const recipe = measurementSeriesRecipe({ reference: { kind: "self" } });
-			const document = recipe.document;
+			const document = stampRyotQLDocument("media", recipe.document);
 			for (const consistency of [true, false]) {
 				const response = yield* service.executeForUser(
 					"owner",
@@ -90,8 +91,8 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(database))))((test) => 
 								{ value: 20, at: "2026-11-03T00:00:00.000Z" },
 							]
 						: [
-								{ value: 100, at: "2019-12-30T00:00:00.000Z" },
-								{ value: 15, at: "2026-11-02T00:00:00.000Z" },
+								{ value: 100, at: "2019-12-29T00:00:00.000Z" },
+								{ value: 15, at: "2026-11-01T00:00:00.000Z" },
 							],
 				);
 			}

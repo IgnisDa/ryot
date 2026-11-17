@@ -178,7 +178,7 @@ describe("media creator recipes", () => {
 	});
 
 	it("selects the character only when configured and only on media targets", () => {
-		const creditFieldKeys = ["id", "name", "images", "order", "roles"];
+		const creditFieldKeys = ["id", "name", "images", "order", "roles", "roleCodes"];
 
 		expect(creditKeys(OVERVIEW_RECIPE, "movie")).toEqual([
 			...creditFieldKeys,

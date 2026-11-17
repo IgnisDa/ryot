@@ -1,6 +1,7 @@
 import { reviewPropertyKeys } from "@ryot-app/plugin-kit/schema";
 
 import { builtinMediaEntitySchemaSlugs, isPositional } from "./media-schema-slugs";
+import { catalogMessage } from "./messages.generated";
 
 export const mediaActivityEventSchemaSlugs = [
 	"complete",
@@ -119,10 +120,10 @@ export const mediaProgressRuleError = (
 ) => {
 	const positional = isPositional(entitySchemaSlug);
 	if (!positional && progress.position) {
-		return "This media type tracks progress as a percent";
+		return catalogMessage("rejection.progress.percent-only");
 	}
 	if (positional && (progress.percent || (requirePosition && !progress.position))) {
-		return "This media type tracks progress as a position";
+		return catalogMessage("rejection.progress.position-only");
 	}
 	return undefined;
 };

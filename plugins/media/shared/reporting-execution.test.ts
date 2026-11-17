@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import { stampRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { PluginId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
@@ -115,6 +116,7 @@ const seed = Effect.gen(function* () {
 					email: "report-owner@test.local",
 					preferences: {
 						...defaultUserPreferences,
+						weekStart: 1,
 						reportingTimeZone: TimeZone.make("America/New_York"),
 					},
 				});
@@ -241,7 +243,10 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(database))))((test) => 
 								"plugin",
 								{
 									arguments: argumentsValue,
-									source: { kind: "inline", document: summary.document },
+									source: {
+										kind: "inline",
+										document: stampRyotQLDocument("media", summary.document),
+									},
 								},
 								"standard",
 								undefined,
@@ -260,7 +265,13 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(database))))((test) => 
 								"report-owner",
 								null,
 								"plugin",
-								{ arguments: argumentsValue, source: { kind: "inline", document: trend.document } },
+								{
+									arguments: argumentsValue,
+									source: {
+										kind: "inline",
+										document: stampRyotQLDocument("media", trend.document),
+									},
+								},
 								"standard",
 								undefined,
 								definitionContext,
@@ -285,7 +296,7 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(database))))((test) => 
 						null,
 						"plugin",
 						{
-							source: { kind: "inline", document: trend.document },
+							source: { kind: "inline", document: stampRyotQLDocument("media", trend.document) },
 							arguments: {
 								...reportingArguments({
 									grouping: "day",

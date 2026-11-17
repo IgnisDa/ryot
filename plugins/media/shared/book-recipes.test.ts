@@ -160,8 +160,8 @@ describe("media book query recipes", () => {
 					creators: singleRows([
 						{
 							unlinkedCreators: [
-								{ role: "Author", name: "Ann Author" },
-								{ name: "Pan Press", role: "Publisher" },
+								{ roleCode: "author", name: "Ann Author" },
+								{ name: "Pan Press", roleCode: "publisher" },
 							],
 						},
 					]),
@@ -171,8 +171,8 @@ describe("media book query recipes", () => {
 			success: {
 				creators: {
 					unlinkedCreators: [
-						{ role: "Author", name: "Ann Author" },
-						{ name: "Pan Press", role: "Publisher" },
+						{ roleCode: "author", name: "Ann Author" },
+						{ name: "Pan Press", roleCode: "publisher" },
 					],
 				},
 			},
@@ -181,7 +181,7 @@ describe("media book query recipes", () => {
 			OVERVIEW_RECIPE.decode({
 				data: {
 					...overviewData,
-					creators: singleRows([{ unlinkedCreators: [{ name: "Nameless" }] }]),
+					creators: singleRows([{ unlinkedCreators: [{ name: "Ann", roleCode: "editor" }] }]),
 				},
 			})._tag,
 		).toBe("Failure");

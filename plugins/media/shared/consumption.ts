@@ -1,6 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
 import { isPositional } from "./media-schema-slugs";
+import { catalogMessage } from "./messages.generated";
 
 export const ConsumptionUnit = Schema.Literals([
 	"minutes",
@@ -61,12 +62,14 @@ export const mediaPositionError = (entitySchemaSlug: string, position: MediaPosi
 		!isPositional(entitySchemaSlug) ||
 		!mediaPositionUnits(entitySchemaSlug).includes(position.unit)
 	) {
-		return "This media type does not track this position";
+		return catalogMessage("rejection.position.unsupported");
 	}
 	if (position.unit === "episodes" && !Number.isInteger(position.position)) {
-		return "Episode numbers are whole numbers";
+		return catalogMessage("rejection.position.episode-not-whole");
 	}
-	return hasStrayVolume(position) ? "Volume context belongs to a chapter position" : undefined;
+	return hasStrayVolume(position)
+		? catalogMessage("rejection.position.volume-without-chapter")
+		: undefined;
 };
 
 export const sameMediaPosition = (

@@ -22,6 +22,7 @@ import { MediaPosition } from "./consumption";
 import { propertyBoolean, propertyJson, propertyText, type Table } from "./entity-selections";
 import { eventSchemaIsOneOf, mediaReviewEventSelection } from "./media-recipes";
 import { mediaReviewConsumptionSlugs } from "./media-review-operations";
+import { catalogMessage } from "./messages.generated";
 
 /** Event IDs, named occurrences and naming reviews resolved by one review links query. */
 export const MEDIA_REVIEW_LINK_LIMIT = 100;
@@ -50,10 +51,14 @@ export const mediaReviewLinksRecipe = (input: { readonly reference: PluginIdenti
 		fields: {
 			eventIds: {
 				type: "array",
-				label: "eventIds",
 				validation: { required: true },
 				description: "eventIds for this selection",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.events"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -100,9 +105,9 @@ export const mediaReviewableOccurrencesRecipe = (input: {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "Entity Id",
 				validation: { required: true },
 				description: "Entity Id for this selection",
+				label: catalogMessage("query-parameter.entity"),
 			},
 		},
 	});

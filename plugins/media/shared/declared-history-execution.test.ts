@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { stampRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { PluginId, PluginPackageId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import { RyotQLService } from "@ryot-app/kernel-backend/modules/ryotql/service";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
@@ -111,7 +112,10 @@ layer(database)((test) => {
 								pages: { history: { after, limit: 2 } },
 								source: {
 									kind: "inline",
-									document: mediaDeclaredQueries["title-history"].document,
+									document: stampRyotQLDocument(
+										"media",
+										mediaDeclaredQueries["title-history"].document,
+									),
 								},
 							},
 							"standard",

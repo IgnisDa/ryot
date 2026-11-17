@@ -62,6 +62,7 @@ import {
 	mediaTypeJoin,
 } from "./consumption-recipes";
 import type { Table } from "./entity-selections";
+import { catalogMessage } from "./messages.generated";
 import { reviewRating } from "./user-rating";
 
 export type MediaAnalyticsInput = ConsumptionScope;
@@ -74,7 +75,7 @@ type MediaAnalyticsQueryInput = {
 };
 const mediaTypeParameter = {
 	type: "string",
-	label: "Media type",
+	label: catalogMessage("query-parameter.media-type"),
 	description: "Restrict results to one kind of media",
 } as const;
 const mediaFilterParameters = parameters({ fields: { mediaType: mediaTypeParameter } });
@@ -411,8 +412,8 @@ export const mediaAnalyticsRankingRecipe = (structural: {
 			mediaType: mediaTypeParameter,
 			rankingBy: {
 				type: "enum",
-				label: "Rank by",
 				defaultValue: "activeObservations",
+				label: catalogMessage("query-parameter.rank-by"),
 				description: "Order titles by activity entries or completions",
 				choices: {
 					kind: "static",
@@ -439,7 +440,14 @@ export const mediaAnalyticsRankingRecipe = (structural: {
 	const type = mediaTypeJoin(source.entity, "analyticsRankType", input.reference);
 	return defineRecipe({
 		parameters: args.schema,
-		map: ({ ranking }) => Result.succeed(ranking),
+		map: ({ ranking }) =>
+			Result.succeed({
+				...ranking,
+				items: ranking.items.map(({ labelKey, labelNamespace, ...row }) => ({
+					...row,
+					label: { key: labelKey, namespace: labelNamespace },
+				})),
+			}),
 		queries: {
 			ranking: selectedAggregate(source.event, {
 				limit: 100,
@@ -447,8 +455,9 @@ export const mediaAnalyticsRankingRecipe = (structural: {
 				joins: [...source.joins, type.join],
 				measures: completionMeasures(source.event),
 				groupBy: {
-					label: type.label,
 					mediaType: type.slug,
+					labelKey: type.labelKey,
+					labelNamespace: type.labelNamespace,
 					name: selectedField(column(source.entity, "name"), Schema.String),
 					entityId: selectedField(column(source.event, "entityId"), Schema.String),
 				},
@@ -485,13 +494,13 @@ export const mediaAnalyticsRecordsRecipe = (structural: {
 			activeOnly: {
 				type: "boolean",
 				defaultValue: false,
-				label: "Active observations",
 				description: "Include only active observations",
+				label: catalogMessage("query-parameter.active-only"),
 			},
 			hour: {
-				label: "Hour",
 				type: "integer",
 				validation: { minimum: 0, maximum: 23 },
+				label: catalogMessage("query-parameter.hour"),
 				description: "Reporting-zone hour of timed activity",
 			},
 		},

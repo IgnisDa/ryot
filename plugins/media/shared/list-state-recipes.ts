@@ -23,6 +23,7 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { propertyText, type Table } from "./entity-selections";
 import { ListStatePropertiesSchema } from "./list-state";
+import { catalogMessage } from "./messages.generated";
 
 export const listStateActivityPropertiesField = (event: Table) =>
 	selectedField(
@@ -40,16 +41,20 @@ export const listStateSnapshotsRecipe = (input: {
 		fields: {
 			sourceAccountId: {
 				type: "string",
-				label: "sourceAccountId",
 				validation: { required: true },
 				description: "sourceAccountId for this selection",
+				label: catalogMessage("query-parameter.source-account"),
 			},
 			sourceEntryIds: {
 				type: "array",
-				label: "sourceEntryIds",
 				validation: { required: true },
 				description: "sourceEntryIds for this selection",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.source-entries"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});

@@ -18,6 +18,8 @@ import {
 	type PluginIdentityReference,
 } from "@ryot-app/plugin-kit/schema";
 
+import { catalogMessage } from "./messages.generated";
+
 export const mediaUserDataDestinationRecipe = (input: {
 	readonly reference: PluginIdentityReference;
 }) => {
@@ -25,15 +27,15 @@ export const mediaUserDataDestinationRecipe = (input: {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "entityId",
 				validation: { required: true },
 				description: "entityId for this selection",
+				label: catalogMessage("query-parameter.entity"),
 			},
 			entitySchemaSlug: {
 				type: "string",
-				label: "entitySchemaSlug",
 				validation: { required: true },
 				description: "entitySchemaSlug for this selection",
+				label: catalogMessage("query-parameter.media-type"),
 			},
 		},
 	});

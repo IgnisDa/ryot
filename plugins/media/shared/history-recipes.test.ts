@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { stampRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { bindDocument } from "@ryot-app/ryotql/binding";
@@ -265,7 +266,10 @@ describe("complete activity history recipes", () => {
 		for (const recipes of [movieRecipes, personRecipes, showRecipes, animeRecipes]) {
 			const document = Result.getOrThrow(
 				bindDocument(
-					recipes.historyRecipe({ reference: input.reference }).document,
+					stampRyotQLDocument(
+						"media",
+						recipes.historyRecipe({ reference: input.reference }).document,
+					),
 					{ arguments: { entityId: input.entityId } },
 					{ reportingTimeZone: "UTC", now: new Date("2026-01-01T00:00:00Z") },
 				),
