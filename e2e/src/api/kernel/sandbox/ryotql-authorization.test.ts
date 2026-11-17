@@ -45,6 +45,7 @@ import {
 	requireRyotQLValue,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	requireArray,
 	requireObjectRecord,
@@ -82,7 +83,7 @@ import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/drive
 
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
-import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { PluginRyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -90,7 +91,7 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(input.slug)},
 });
 
-const query: RyotQLDocument = ${JSON.stringify(input.query)};
+const query: PluginRyotQLDocument = ${JSON.stringify(input.query)};
 
 const errorReasonCode = (error: unknown) => {
 	if (typeof error !== "object" || error === null || !("data" in error)) return null;
@@ -198,15 +199,17 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const foreignEntitySchemas: PluginEntitySchema[] = [
 				{
 					icon: "ban",
-					name: "Foreign root",
 					slug: foreignRootSlug,
 					propertiesSchema: { fields: {} },
+					name: manifestText("Foreign root"),
 					eventSchemas: [
 						{
-							name: "Foreign event",
 							slug: foreignEventSlug,
+							name: manifestText("Foreign event"),
 							propertiesSchema: {
-								fields: { value: { label: "Value", type: "integer", description: "Value" } },
+								fields: {
+									value: { type: "integer", description: "Value", label: manifestText("Value") },
+								},
 							},
 						},
 					],
@@ -214,19 +217,19 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 				{
 					eventSchemas: [],
 					icon: "circle-slash",
-					name: "Foreign target",
 					slug: foreignTargetSlug,
 					propertiesSchema: { fields: {} },
+					name: manifestText("Foreign target"),
 				},
 			];
 			const foreignRelationshipSchemas: PluginRelationshipSchema[] = [
 				{
-					name: "Foreign relationship",
 					slug: foreignRelationshipSlug,
 					sourceEntitySchemaSlug: foreignRootSlug,
 					targetEntitySchemaSlug: foreignTargetSlug,
+					name: manifestText("Foreign relationship"),
 					propertiesSchema: {
-						fields: { rank: { label: "Rank", type: "integer", description: "Rank" } },
+						fields: { rank: { type: "integer", description: "Rank", label: manifestText("Rank") } },
 					},
 				},
 			];
@@ -274,16 +277,20 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 				{
 					icon: "box",
 					slug: rootSlug,
-					name: "Owned root",
+					name: manifestText("Owned root"),
 					propertiesSchema: {
-						fields: { score: { label: "Score", type: "integer", description: "Score" } },
+						fields: {
+							score: { type: "integer", description: "Score", label: manifestText("Score") },
+						},
 					},
 					eventSchemas: [
 						{
 							slug: eventSlug,
-							name: "Owned event",
+							name: manifestText("Owned event"),
 							propertiesSchema: {
-								fields: { value: { label: "Value", type: "integer", description: "Value" } },
+								fields: {
+									value: { type: "integer", description: "Value", label: manifestText("Value") },
+								},
 							},
 						},
 					],
@@ -292,25 +299,25 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					icon: "circle",
 					slug: targetSlug,
 					eventSchemas: [],
-					name: "Owned target",
 					propertiesSchema: { fields: {} },
+					name: manifestText("Owned target"),
 				},
 				{
 					eventSchemas: [],
 					icon: "database",
 					slug: markerSlug,
-					name: "Authorization marker",
+					name: manifestText("Authorization marker"),
 					propertiesSchema: { fields: {}, unknownKeys: "passthrough" },
 				},
 			];
 			const relationshipSchemas: PluginRelationshipSchema[] = [
 				{
 					slug: relationshipSlug,
-					name: "Owned relationship",
 					sourceEntitySchemaSlug: rootSlug,
 					targetEntitySchemaSlug: targetSlug,
+					name: manifestText("Owned relationship"),
 					propertiesSchema: {
-						fields: { rank: { label: "Rank", type: "integer", description: "Rank" } },
+						fields: { rank: { type: "integer", description: "Rank", label: manifestText("Rank") } },
 					},
 				},
 			];
@@ -526,7 +533,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 							slug: providerSlug,
 							rootEntitySchemaSlug: rootSlug,
 							information: { source: "e2e" },
-							name: "RyotQL authorization provider",
+							name: manifestText("RyotQL authorization provider"),
 						},
 					],
 					files: {

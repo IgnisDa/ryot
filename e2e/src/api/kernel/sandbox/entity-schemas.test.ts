@@ -9,6 +9,7 @@ import {
 	pollSandboxResult,
 	testPluginEntitySchema,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertCompleted } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -38,8 +39,8 @@ describe("sandbox entity schema reads", () => {
 			assertCompleted(result, "get entity schemas sandbox job");
 			expect(result.error).toBeNull();
 			expect(result.value).toMatchObject([
-				{ id: "second", name: "Second schema" },
-				{ id: "first", name: "First schema" },
+				{ id: "second", name: manifestText("Second schema") },
+				{ id: "first", name: manifestText("First schema") },
 			]);
 
 			const { jobId: emptyJobId } = yield* enqueueSandboxScript(userId, {

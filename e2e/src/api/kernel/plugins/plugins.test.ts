@@ -1,4 +1,5 @@
 import { EntityId, EventSchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
+import { manifestCatalogs } from "@ryot-app/contract/testing";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { anyOf } from "@ryot-app/testing/matchers";
@@ -29,6 +30,7 @@ import {
 	uninstallTestPlugin,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
+import { manifestEnglish, manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	assertCompleted,
 	assertPresent,
@@ -222,8 +224,8 @@ export default defineAutomation({
 						{
 							slug: providerSlug,
 							information: { source: "e2e" },
-							name: "E2E Lifecycle Provider",
 							rootEntitySchemaSlug: schemaSlug,
+							name: manifestText("E2E Lifecycle Provider"),
 						},
 					],
 					hooks: [
@@ -249,49 +251,61 @@ export default defineAutomation({
 						{
 							icon: "box",
 							slug: schemaSlug,
-							name: "Lifecycle Entity",
+							name: manifestText("Lifecycle Entity"),
 							propertiesSchema: {
 								unknownKeys: "strict",
 								fields: {
-									category: { type: "string", label: "Category", description: "Fixture category" },
+									category: {
+										type: "string",
+										label: manifestText("Category"),
+										description: "Fixture category",
+									},
 								},
 							},
 							eventSchemas: [
 								{
 									slug: eventSlug,
-									name: "Observed",
+									name: manifestText("Observed"),
 									propertiesSchema: {
 										unknownKeys: "strict",
 										fields: {
-											note: { label: "Note", type: "string", description: "Observed note" },
+											note: {
+												type: "string",
+												label: manifestText("Note"),
+												description: "Observed note",
+											},
 										},
 									},
 								},
 								{
 									slug: resultEventSlug,
-									name: "Automated Result",
+									name: manifestText("Automated Result"),
 									propertiesSchema: {
 										unknownKeys: "strict",
 										fields: {
-											note: { label: "Note", type: "string", description: "Source note" },
+											note: {
+												type: "string",
+												description: "Source note",
+												label: manifestText("Note"),
+											},
 											runId: {
 												type: "string",
-												label: "Run ID",
+												label: manifestText("Run ID"),
 												description: "Bound automation run ID",
 											},
 											hookSlug: {
 												type: "string",
-												label: "Hook slug",
+												label: manifestText("Hook slug"),
 												description: "Invoked automation hook slug",
 											},
 											sourceEventId: {
 												type: "string",
-												label: "Source event ID",
 												description: "Triggering event ID",
+												label: manifestText("Source event ID"),
 											},
 											hookLabel: {
 												type: "string",
-												label: "Hook label",
+												label: manifestText("Hook label"),
 												description: "Inline automation hook metadata",
 											},
 										},
@@ -328,7 +342,7 @@ export default defineAutomation({
 			assertPresent(activePlugin, "Missing hot-installed lifecycle plugin");
 			expect(activePlugin).toMatchObject({
 				version: "1.0.0",
-				name: "E2E Test Plugin",
+				name: manifestText("E2E Test Plugin"),
 				packageId: provider.manifest.metadata.packageId,
 			});
 			expect(activePlugin.activeRevisionId).toBe(provider.activePluginRevisionId);
@@ -525,7 +539,7 @@ export default defineAutomation({
 			assertTaggedError(historicalFailure, "TestSupportNotFound");
 			expect(historicalFailure.reason).toEqual({
 				code: "resource-not-found",
-				diagnostic: "Sandbox script not found",
+				diagnostic: "error.scripts.not-found",
 			});
 		}),
 	);
@@ -565,7 +579,13 @@ export default defineAutomation({
 				),
 				Effect.flip(
 					client.call((c) =>
-						c.testSupport.installSystemPlugin({ payload: { manifest, compiledScripts: [] } }),
+						c.testSupport.installSystemPlugin({
+							payload: {
+								manifest,
+								compiledScripts: [],
+								catalogs: manifestCatalogs(manifest, manifestEnglish),
+							},
+						}),
 					),
 				),
 				Effect.flip(

@@ -89,7 +89,7 @@ describe("outbound HTTP address policy", () => {
 			expect(landed?.headers["host"]).toBe(new URL(server.url).host);
 			expect(landed?.body).toEqual({
 				title: "Ryot",
-				body: "This is a test notification for channel: apprise",
+				body: "This is a test notification sent through Apprise.",
 			});
 			expect(ipv6Server.requests).toEqual([]);
 		}),

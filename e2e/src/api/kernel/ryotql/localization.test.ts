@@ -31,10 +31,11 @@ import {
 	seedEntity,
 	seedEntityTranslation,
 	seedPopulatedEntity,
-	setUserLanguage,
+	setUserContentLanguage,
 	testProviderEntitySchema,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -107,8 +108,12 @@ describe("RyotQL entity localization", () => {
 				schemaName: "RyotQLLocalizedItem",
 				propertiesSchema: {
 					fields: {
-						rating: { type: "integer", label: "Rating", description: "Rating" },
-						description: { type: "string", label: "Description", description: "Description" },
+						rating: { type: "integer", description: "Rating", label: manifestText("Rating") },
+						description: {
+							type: "string",
+							description: "Description",
+							label: manifestText("Description"),
+						},
 					},
 				},
 			});
@@ -148,7 +153,7 @@ describe("RyotQL entity localization", () => {
 				["Zulu", "Canonical Zulu overview"],
 			]);
 
-			yield* setUserLanguage(client, "es");
+			yield* setUserContentLanguage(client, "es");
 			const localized = yield* executeRyotQL(client, {
 				source: { kind: "inline", document: localizedDocument(slug) },
 			});
@@ -222,7 +227,7 @@ describe("RyotQL entity localization", () => {
 			const missingCanonicalLanguage = yield* seed(providers.withoutLanguage.providerId, true);
 
 			const { client: spanish } = yield* createAuthenticatedClient();
-			yield* setUserLanguage(spanish, "es");
+			yield* setUserContentLanguage(spanish, "es");
 			expect(yield* readStatus(spanish, ready.id)).toEqual({
 				state: "idle",
 				availability: "complete",
@@ -249,7 +254,7 @@ describe("RyotQL entity localization", () => {
 			});
 
 			const { client: canonical } = yield* createAuthenticatedClient();
-			yield* setUserLanguage(canonical, "en");
+			yield* setUserContentLanguage(canonical, "en");
 			expect(yield* readStatus(canonical, pending.id)).toEqual({
 				state: "idle",
 				availability: "none",

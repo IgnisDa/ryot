@@ -1,3 +1,4 @@
+import { manifestCatalogs } from "@ryot-app/contract/testing";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
@@ -23,6 +24,7 @@ import {
 	uploadTemporaryArchive,
 } from "~/fixtures/kernel";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
+import { manifestEnglish, manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -111,7 +113,10 @@ describe("plugin namespaces", () => {
 					expect(a.pluginId).not.toBe(b.pluginId);
 					expect(a.id).not.toBe(b.id);
 					for (const installed of [a, b]) {
-						expect(installed.installation).toMatchObject({ health: "ready", name: "Whiskey" });
+						expect(installed.installation).toMatchObject({
+							health: "ready",
+							name: manifestText("Whiskey"),
+						});
 					}
 					expect(
 						(yield* invokeNamespaceOperation(client, a.installation.packageId)).result,
@@ -225,11 +230,18 @@ describe("plugin namespaces", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const packages = pluginNamespacePackages();
 			const a = yield* installNamespacePackage(client, packages.a);
+			const renamedManifest = {
+				...packages.a2.manifest,
+				metadata: { ...packages.a2.manifest.metadata, name: manifestText("Renamed Whiskey") },
+			};
 			const renamed = {
 				...packages.a2,
-				manifest: {
-					...packages.a2.manifest,
-					metadata: { ...packages.a2.manifest.metadata, name: "Renamed Whiskey" },
+				manifest: renamedManifest,
+				catalogs: {
+					en: {
+						...packages.a2.catalogs?.en,
+						...manifestCatalogs(renamedManifest, manifestEnglish).en,
+					},
 				},
 			};
 			const updated = yield* updateNamespacePackage(client, a, renamed);

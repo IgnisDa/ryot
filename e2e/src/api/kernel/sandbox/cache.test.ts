@@ -13,6 +13,7 @@ import {
 	requireCompletedSandboxValue,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	assertPresent,
 	assertTaggedError,
@@ -73,8 +74,8 @@ const installCacheProviderScoped = (client: Client, key: string, value: string) 
 			providers: [
 				{
 					slug: providerSlug,
-					name: "Cache provider",
 					information: { source: "e2e" },
+					name: manifestText("Cache provider"),
 					rootEntitySchemaSlug: entitySchemaSlug,
 				},
 			],
@@ -82,8 +83,8 @@ const installCacheProviderScoped = (client: Client, key: string, value: string) 
 				{
 					icon: "box",
 					eventSchemas: [],
-					name: "Cache entity",
 					slug: entitySchemaSlug,
+					name: manifestText("Cache entity"),
 					propertiesSchema: { fields: {}, unknownKeys: "strict" },
 				},
 			],

@@ -22,6 +22,7 @@ import {
 	throwingSandboxSource,
 	userPreferencesSandboxSource,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	assertCompleted,
 	requireArray,
@@ -41,13 +42,13 @@ const configFixtureSchema = {
 	fields: {
 		fixtureLimit: {
 			type: "integer",
-			label: "Fixture limit",
+			label: manifestText("Fixture limit"),
 			description: "Deterministic sandbox plugin config batch fixture",
 		},
 		fixtureValue: {
 			type: "string",
-			label: "Fixture value",
 			validation: { required: true },
+			label: manifestText("Fixture value"),
 			description: "Deterministic sandbox plugin config fixture",
 		},
 	},
@@ -179,7 +180,7 @@ describe("sandbox async flow", () => {
 			const pluginSlug = createPluginScope();
 			const { slug, reference } = yield* createEntitySchema(client, {
 				pluginSlug,
-				name: "Sandbox Schema",
+				name: manifestText("Sandbox Schema"),
 				slug: `sandbox-schema-${yield* randomUuid}`,
 			});
 			yield* createEntity(client, { properties: {}, name: "Test Entity", entitySchema: reference });

@@ -26,6 +26,7 @@ import {
 	requireRyotQLValue,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -65,11 +66,13 @@ const createFixture = (client: Client, name: string) =>
 			schemaName: `${name}-${yield* randomUuid}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
-			name: `${name} Event`,
+			name: manifestText(`${name} Event`),
 			entitySchema: entitySchema.reference,
 			slug: `${name.toLowerCase()}-${yield* randomUuid}`,
 			propertiesSchema: {
-				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
+				fields: {
+					rating: { type: "integer", description: "Rating", label: manifestText("Rating") },
+				},
 			},
 		});
 		const entity = yield* createEntityFixture(client, {

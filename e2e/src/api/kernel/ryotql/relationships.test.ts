@@ -33,6 +33,7 @@ import {
 	executeRyotQL,
 	requireRows,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -101,11 +102,13 @@ describe("RyotQL relationship rows and includes", () => {
 				const relationshipSchema = yield* createRelationshipSchema(client, {
 					pluginSlug,
 					slug: relationshipSlug,
-					name: "RyotQL Membership",
 					targetEntitySchemaSlug: courseSchemaId,
 					sourceEntitySchemaSlug: memberSchemaId,
+					name: manifestText("RyotQL Membership"),
 					propertiesSchema: {
-						fields: { role: { label: "Role", type: "string", description: "Member role" } },
+						fields: {
+							role: { type: "string", description: "Member role", label: manifestText("Role") },
+						},
 					},
 				});
 				const course = yield* createEntityFixture(client, {
@@ -157,38 +160,32 @@ describe("RyotQL relationship rows and includes", () => {
 							),
 						],
 					});
+				const membershipDocument = document({
+					multiplied: multipliedPage(),
+					memberships: rows(membership, {
+						orderBy: [ascending(column(member, "name"))],
+						fields: [
+							field("memberName", column(member, "name")),
+							field("courseName", column(joinedCourse, "name")),
+							field("role", castText(jsonPath(column(membership, "properties"), "role"))),
+						],
+						where: and(
+							eq(column(membership, "relationshipSchemaSlug"), literal(relationshipSlug)),
+							eq(column(member, "entitySchemaSlug"), literal(memberSlug)),
+							eq(column(joinedCourse, "entitySchemaSlug"), literal(courseSlug)),
+						),
+						joins: [
+							join("inner", member, eq(column(membership, "sourceEntityId"), column(member, "id"))),
+							join(
+								"inner",
+								joinedCourse,
+								eq(column(membership, "targetEntityId"), column(joinedCourse, "id")),
+							),
+						],
+					}),
+				});
 				const result = yield* executeRyotQL(client, {
-					source: {
-						kind: "inline",
-						document: document({
-							multiplied: multipliedPage(),
-							memberships: rows(membership, {
-								orderBy: [ascending(column(member, "name"))],
-								fields: [
-									field("memberName", column(member, "name")),
-									field("courseName", column(joinedCourse, "name")),
-									field("role", castText(jsonPath(column(membership, "properties"), "role"))),
-								],
-								where: and(
-									eq(column(membership, "relationshipSchemaSlug"), literal(relationshipSlug)),
-									eq(column(member, "entitySchemaSlug"), literal(memberSlug)),
-									eq(column(joinedCourse, "entitySchemaSlug"), literal(courseSlug)),
-								),
-								joins: [
-									join(
-										"inner",
-										member,
-										eq(column(membership, "sourceEntityId"), column(member, "id")),
-									),
-									join(
-										"inner",
-										joinedCourse,
-										eq(column(membership, "targetEntityId"), column(joinedCourse, "id")),
-									),
-								],
-							}),
-						}),
-					},
+					source: { kind: "inline", document: membershipDocument },
 				});
 
 				const memberships = requireRows(result.data["memberships"], "memberships");
@@ -206,7 +203,8 @@ describe("RyotQL relationship rows and includes", () => {
 				const multipliedPageOne = requireRows(result.data["multiplied"], "multiplied");
 				expect(multipliedPageOne.pageInfo.nextCursor).not.toBeNull();
 				const next = yield* executeRyotQL(client, {
-					source: { kind: "inline", document: document({ multiplied: multipliedPage() }) },
+					source: { kind: "inline", document: membershipDocument },
+					pages: { multiplied: { after: multipliedPageOne.pageInfo.nextCursor ?? undefined } },
 				});
 				const multipliedPageTwo = requireRows(next.data["multiplied"], "multiplied");
 				expect(multipliedPageTwo.pageInfo).toEqual({ limit: 1, hasMore: false, nextCursor: null });
@@ -241,7 +239,11 @@ describe("RyotQL relationship rows and includes", () => {
 					schemaName: "RyotQLIncludeModule",
 					propertiesSchema: {
 						fields: {
-							position: { type: "integer", label: "Position", description: "Module order" },
+							position: {
+								type: "integer",
+								description: "Module order",
+								label: manifestText("Position"),
+							},
 						},
 					},
 				});
@@ -251,7 +253,11 @@ describe("RyotQL relationship rows and includes", () => {
 					schemaName: "RyotQLIncludeLesson",
 					propertiesSchema: {
 						fields: {
-							position: { type: "integer", label: "Position", description: "Lesson order" },
+							position: {
+								type: "integer",
+								description: "Lesson order",
+								label: manifestText("Position"),
+							},
 						},
 					},
 				});
@@ -260,27 +266,35 @@ describe("RyotQL relationship rows and includes", () => {
 			const courseModuleSchema = yield* createRelationshipSchema(client, {
 				pluginSlug,
 				slug: courseModuleSlug,
-				name: "RyotQL Course Module",
 				targetEntitySchemaSlug: moduleSchemaId,
 				sourceEntitySchemaSlug: courseSchemaId,
+				name: manifestText("RyotQL Course Module"),
 				propertiesSchema: {
-					fields: { position: { type: "integer", label: "Position", description: "Module order" } },
+					fields: {
+						position: {
+							type: "integer",
+							description: "Module order",
+							label: manifestText("Position"),
+						},
+					},
 				},
 			});
 			const moduleLessonSchema = yield* createRelationshipSchema(client, {
 				pluginSlug,
 				slug: moduleLessonSlug,
-				name: "RyotQL Module Lesson",
 				targetEntitySchemaSlug: lessonSchemaId,
 				sourceEntitySchemaSlug: moduleSchemaId,
+				name: manifestText("RyotQL Module Lesson"),
 			});
 			const completionSlug = `ryotql-completion-${yield* randomUuid}`;
 			const completionSchema = yield* createEventSchema(client, {
 				slug: completionSlug,
-				name: "RyotQL Completion",
 				entitySchema: lessonSchemaReference,
+				name: manifestText("RyotQL Completion"),
 				propertiesSchema: {
-					fields: { score: { label: "Score", type: "integer", description: "Score" } },
+					fields: {
+						score: { type: "integer", description: "Score", label: manifestText("Score") },
+					},
 				},
 			});
 
@@ -461,16 +475,16 @@ describe("RyotQL relationship rows and includes", () => {
 			const ownRelationshipSchema = yield* createRelationshipSchema(userA.client, {
 				slug: ownRelationshipSlug,
 				pluginSlug: userAPluginName,
-				name: "RyotQL Visible Relationship",
 				targetEntitySchemaSlug: ownSchema.schemaId,
 				sourceEntitySchemaSlug: ownSchema.schemaId,
+				name: manifestText("RyotQL Visible Relationship"),
 			});
 			const otherRelationshipSchema = yield* createRelationshipSchema(userB.client, {
 				pluginSlug: userBPluginName,
 				slug: otherRelationshipSlug,
-				name: "RyotQL Hidden Relationship",
 				targetEntitySchemaSlug: otherSchema.schemaId,
 				sourceEntitySchemaSlug: otherSchema.schemaId,
+				name: manifestText("RyotQL Hidden Relationship"),
 			});
 			const ownSource = yield* createEntityFixture(userA.client, {
 				name: "Visible Source",

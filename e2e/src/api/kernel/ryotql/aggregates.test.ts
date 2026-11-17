@@ -35,6 +35,7 @@ import {
 	executeRyotQL,
 	requireRyotQLValue,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -54,11 +55,15 @@ describe("RyotQL aggregate outputs", () => {
 			});
 			const eventSchema = yield* createEventSchema(client, {
 				entitySchema: reference,
-				name: "RyotQL Date Bucket Watch",
+				name: manifestText("RyotQL Date Bucket Watch"),
 				slug: `ryotql-date-bucket-watch-${yield* randomUuid}`,
 				propertiesSchema: {
 					fields: {
-						timeSpent: { type: "integer", label: "Time spent", description: "Minutes watched" },
+						timeSpent: {
+							type: "integer",
+							description: "Minutes watched",
+							label: manifestText("Time spent"),
+						},
 					},
 				},
 			});
@@ -157,9 +162,17 @@ describe("RyotQL aggregate outputs", () => {
 				propertiesSchema: {
 					unknownKeys: "passthrough",
 					fields: {
-						featured: { type: "boolean", label: "Featured", description: "Featured" },
-						difficulty: { type: "string", label: "Difficulty", description: "Difficulty" },
-						durationMinutes: { type: "integer", label: "Duration", description: "Duration" },
+						featured: { type: "boolean", description: "Featured", label: manifestText("Featured") },
+						difficulty: {
+							type: "string",
+							description: "Difficulty",
+							label: manifestText("Difficulty"),
+						},
+						durationMinutes: {
+							type: "integer",
+							description: "Duration",
+							label: manifestText("Duration"),
+						},
 					},
 				},
 			});
@@ -344,16 +357,16 @@ describe("RyotQL aggregate outputs", () => {
 			});
 			const ownerRelationship = yield* createRelationshipSchema(owner.client, {
 				pluginSlug: ownerPluginName,
-				name: "RyotQL Aggregate Visible Link",
 				targetEntitySchemaSlug: ownerSchema.schemaId,
 				sourceEntitySchemaSlug: ownerSchema.schemaId,
+				name: manifestText("RyotQL Aggregate Visible Link"),
 				slug: `ryotql-aggregate-visible-${yield* randomUuid}`,
 			});
 			const otherRelationship = yield* createRelationshipSchema(other.client, {
 				pluginSlug: otherPluginName,
-				name: "RyotQL Aggregate Hidden Link",
 				targetEntitySchemaSlug: otherSchema.schemaId,
 				sourceEntitySchemaSlug: otherSchema.schemaId,
+				name: manifestText("RyotQL Aggregate Hidden Link"),
 				slug: `ryotql-aggregate-hidden-${yield* randomUuid}`,
 			});
 			const ownerEntities = yield* Effect.forEach(

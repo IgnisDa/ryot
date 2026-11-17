@@ -8,12 +8,15 @@ import {
 	installTestIntegrationProvider,
 	uninstallTestPluginStrict,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const settingsSchema = {
 	unknownKeys: "strict",
-	fields: { endpoint: { type: "string", label: "Endpoint", description: "Provider URL" } },
+	fields: {
+		endpoint: { type: "string", description: "Provider URL", label: manifestText("Endpoint") },
+	},
 } satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 
 describe("plugin integration ownership", () => {

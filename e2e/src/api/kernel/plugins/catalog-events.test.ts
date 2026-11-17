@@ -1,3 +1,4 @@
+import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
@@ -74,7 +75,11 @@ describe("plugin catalog events", () => {
 			yield* outsiderEvents.drainQueuedEvents();
 
 			const before = yield* fixtureCatalogEntry(owner.client);
-			expect(before).toMatchObject({ sortOrder: 2, icon: "puzzle", name: "Fixture" });
+			expect(before).toMatchObject({
+				sortOrder: 2,
+				icon: "puzzle",
+				name: fixturePlugin.metadata.name,
+			});
 			yield* updateFixtureClientPlugin(owner.client, "B", variant);
 			yield* ownerEvents.waitForCatalogInvalidated();
 			yield* outsiderEvents.assertNoInvalidation();

@@ -1,3 +1,4 @@
+import { stampAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
@@ -6,10 +7,11 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
 
-import { getUserSettings, setUserLanguage } from "~/fixtures/kernel/account";
+import { getUserSettings, setUserContentLanguage } from "~/fixtures/kernel/account";
 import type { Client } from "~/fixtures/kernel/auth";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	installPreferencePrivatePlugin,
 	listPluginUserSettings,
@@ -21,17 +23,9 @@ import {
 } from "~/fixtures/kernel/plugin-user-settings";
 import { updatePrivatePlugin } from "~/fixtures/kernel/private-plugin";
 import { uploadTemporaryArchive } from "~/fixtures/kernel/temporary-archive";
+import { findMediaPluginUserSettings } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const mediaSetting = (client: Client) =>
-	Effect.gen(function* () {
-		const settings = yield* listPluginUserSettings(client);
-		return requirePresent(
-			settings.find(({ name }) => name === "Media"),
-			"Media settings not found",
-		);
-	});
 
 const invokeSettingsOperation = (
 	client: Client,
@@ -53,40 +47,42 @@ const storedSettings = (client: Client, id: string) =>
 	);
 
 describe("plugin user settings", () => {
-	it.live("validates Media settings, resets raw values, and preserves kernel language", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			yield* setUserLanguage(client, "es");
+	it.live(
+		"validates Media settings, resets raw values, and preserves kernel content language",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				yield* setUserContentLanguage(client, "es");
 
-			const initial = yield* mediaSetting(client);
-			const allowNsfw = requirePresent(
-				initial.settingsSchema.fields.allowNsfw,
-				"Media plugin has no allowNsfw setting",
-			);
-			expect(initial.settings).toEqual({});
-			expect(allowNsfw.defaultValue).toBe(false);
+				const initial = yield* findMediaPluginUserSettings(client);
+				const allowNsfw = requirePresent(
+					initial.settingsSchema.fields.allowNsfw,
+					"Media plugin has no allowNsfw setting",
+				);
+				expect(initial.settings).toEqual({});
+				expect(allowNsfw.defaultValue).toBe(false);
 
-			yield* savePluginUserSettings(client, initial.id, { allowNsfw: true });
-			expect((yield* mediaSetting(client)).settings).toEqual({ allowNsfw: true });
+				yield* savePluginUserSettings(client, initial.id, { allowNsfw: true });
+				expect((yield* findMediaPluginUserSettings(client)).settings).toEqual({ allowNsfw: true });
 
-			const invalidType = yield* Effect.flip(
-				savePluginUserSettings(client, initial.id, { allowNsfw: "true" }),
-			);
-			assertTaggedError(invalidType, "PluginRequestError");
-			expect(invalidType.reason.code).toBe("validation-failed");
-			expect((yield* mediaSetting(client)).settings).toEqual({ allowNsfw: true });
+				const invalidType = yield* Effect.flip(
+					savePluginUserSettings(client, initial.id, { allowNsfw: "true" }),
+				);
+				assertTaggedError(invalidType, "ValidationFailed");
+				expect(invalidType.issues).toEqual([{ path: ["allowNsfw"], issue: "invalid-value" }]);
+				expect((yield* findMediaPluginUserSettings(client)).settings).toEqual({ allowNsfw: true });
 
-			const unknownField = yield* Effect.flip(
-				savePluginUserSettings(client, initial.id, { unknown: true, allowNsfw: false }),
-			);
-			assertTaggedError(unknownField, "PluginRequestError");
-			expect(unknownField.reason.code).toBe("validation-failed");
-			expect((yield* mediaSetting(client)).settings).toEqual({ allowNsfw: true });
+				const unknownField = yield* Effect.flip(
+					savePluginUserSettings(client, initial.id, { unknown: true, allowNsfw: false }),
+				);
+				assertTaggedError(unknownField, "ValidationFailed");
+				expect(unknownField.reason.key).toBe("error.validation.invalid");
+				expect((yield* findMediaPluginUserSettings(client)).settings).toEqual({ allowNsfw: true });
 
-			yield* resetPluginUserSettings(client, initial.id);
-			expect((yield* mediaSetting(client)).settings).toEqual({});
-			expect((yield* getUserSettings(client)).preferences.language).toBe("es");
-		}),
+				yield* resetPluginUserSettings(client, initial.id);
+				expect((yield* findMediaPluginUserSettings(client)).settings).toEqual({});
+				expect((yield* getUserSettings(client)).preferences.contentLanguage).toBe("es");
+			}),
 	);
 
 	it.live("returns default, saved, and reset settings to a private plugin operation", () =>
@@ -102,7 +98,9 @@ describe("plugin user settings", () => {
 				);
 
 			expect(setting.settings).toEqual({});
-			expect(setting.settingsSchema).toEqual(preferencePluginUserSettingsSchema);
+			expect(setting.settingsSchema).toEqual(
+				stampAppSchema(plugin.installation.pluginId, preferencePluginUserSettingsSchema),
+			);
 			expect((yield* readSettings()).result).toEqual({ limit: 5, enabled: false });
 
 			yield* savePluginUserSettings(client, setting.id, { limit: 3, enabled: true });
@@ -229,8 +227,8 @@ describe("plugin user settings", () => {
 					enabled: {
 						type: "string",
 						defaultValue: "no",
-						label: "Enable reminders",
 						description: "Enable reminders",
+						label: manifestText("Enable reminders"),
 					},
 				},
 			} satisfies PreferencePluginUserSettingsSchema;

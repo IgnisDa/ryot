@@ -28,6 +28,7 @@ import {
 	systemRyotqlProbeSandboxSource,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -158,9 +159,9 @@ describe("sandbox RyotQL reads", () => {
 					providers: [
 						{
 							slug: providerSlug,
-							name: "RyotQL system provider",
 							information: { source: "e2e" },
 							rootEntitySchemaSlug: entitySchemaSlug,
+							name: manifestText("RyotQL system provider"),
 						},
 					],
 					entitySchemas: [
@@ -168,13 +169,13 @@ describe("sandbox RyotQL reads", () => {
 							icon: "box",
 							eventSchemas: [],
 							slug: entitySchemaSlug,
-							name: "RyotQL system entity",
+							name: manifestText("RyotQL system entity"),
 							propertiesSchema: {
 								unknownKeys: "strict",
 								fields: {
 									rowCount: {
 										type: "number",
-										label: "Row count",
+										label: manifestText("Row count"),
 										description: "Number of rows visible to the system script",
 									},
 								},

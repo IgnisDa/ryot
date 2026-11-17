@@ -26,6 +26,7 @@ import {
 	requireRows,
 	requireRyotQLValue,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { RyotQLPayload } from "~/fixtures/kernel/ryotql";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -49,7 +50,13 @@ const createSchema = (client: Parameters<typeof createPluginEntitySchema>[0], na
 		schemaName: name,
 		propertiesSchema: {
 			unknownKeys: "passthrough",
-			fields: { sortValue: { type: "integer", label: "Sort Value", description: "Sort Value" } },
+			fields: {
+				sortValue: {
+					type: "integer",
+					description: "Sort Value",
+					label: manifestText("Sort Value"),
+				},
+			},
 		},
 	});
 

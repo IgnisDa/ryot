@@ -17,6 +17,7 @@ import {
 	trendingSandboxSource,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import {
 	afterAll,
@@ -75,8 +76,8 @@ describe("plugin cron global writes", () => {
 						{
 							slug: PROVIDER_SLUG,
 							information: { source: "e2e" },
-							name: "E2E Test Trending Provider",
 							rootEntitySchemaSlug: MOVIE_SCHEMA_SLUG,
+							name: manifestText("E2E Test Trending Provider"),
 						},
 					],
 					files: {
@@ -90,14 +91,18 @@ describe("plugin cron global writes", () => {
 					},
 					relationshipSchemas: [
 						{
-							name: "Trending",
 							slug: TRENDING_SCHEMA_SLUG,
 							sourceEntitySchemaSlug: null,
 							targetEntitySchemaSlug: null,
+							name: manifestText("Trending"),
 							propertiesSchema: {
 								fields: {
-									rank: { label: "Rank", type: "number", description: "Rank" },
-									fetchedAt: { type: "datetime", label: "Fetched at", description: "Fetched at" },
+									rank: { type: "number", description: "Rank", label: manifestText("Rank") },
+									fetchedAt: {
+										type: "datetime",
+										description: "Fetched at",
+										label: manifestText("Fetched at"),
+									},
 								},
 							},
 						},

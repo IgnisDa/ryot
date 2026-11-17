@@ -9,10 +9,15 @@ import {
 	pollSandboxResult,
 	testPluginEntitySchema,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertCompleted } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const eventSchema = (name: string) => ({ name, slug: "event", propertiesSchema: { fields: {} } });
+const eventSchema = (name: string) => ({
+	slug: "event",
+	name: manifestText(name),
+	propertiesSchema: { fields: {} },
+});
 
 describe("sandbox event schema reads", () => {
 	it.live("reads deduplicated schemas in first-seen input order", () =>
@@ -46,8 +51,8 @@ describe("sandbox event schema reads", () => {
 			assertCompleted(result, "list event schemas sandbox job");
 			expect(result.error).toBeNull();
 			expect(result.value).toMatchObject([
-				{ id: "event", name: "Second event", entitySchemaSlug: "second" },
-				{ id: "event", name: "First event", entitySchemaSlug: "first" },
+				{ id: "event", entitySchemaSlug: "second", name: manifestText("Second event") },
+				{ id: "event", entitySchemaSlug: "first", name: manifestText("First event") },
 			]);
 
 			const { jobId: emptyJobId } = yield* enqueueSandboxScript(userId, {

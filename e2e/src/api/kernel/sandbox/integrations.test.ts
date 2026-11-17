@@ -12,6 +12,7 @@ import {
 	integrationReadOperationSandboxSource,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -40,12 +41,16 @@ describe("sandbox integration reads", () => {
 						{
 							lot: "push",
 							slug: providerSlug,
-							name: "Integration read provider",
-							description: "Owns the integrations this operation reads",
+							name: manifestText("Integration read provider"),
+							description: manifestText("Owns the integrations this operation reads"),
 							settingsSchema: {
 								unknownKeys: "strict",
 								fields: {
-									endpoint: { type: "string", label: "Endpoint", description: "Provider URL" },
+									endpoint: {
+										type: "string",
+										description: "Provider URL",
+										label: manifestText("Endpoint"),
+									},
 								},
 							},
 						},

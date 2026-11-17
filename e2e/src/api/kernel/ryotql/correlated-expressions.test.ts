@@ -45,6 +45,7 @@ import {
 	requireRyotQLDate,
 	requireRyotQLValue,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -274,8 +275,12 @@ describe("RyotQL correlated expressions", () => {
 				schemaName: "RyotQLArithmeticCourse",
 				propertiesSchema: {
 					fields: {
-						total: { label: "Total", type: "integer", description: "Total" },
-						completed: { type: "integer", label: "Completed", description: "Completed" },
+						total: { type: "integer", description: "Total", label: manifestText("Total") },
+						completed: {
+							type: "integer",
+							description: "Completed",
+							label: manifestText("Completed"),
+						},
 					},
 				},
 			});
@@ -445,7 +450,7 @@ describe("RyotQL correlated expressions", () => {
 			});
 			const eventSchema = yield* createEventSchema(client, {
 				entitySchema: reference,
-				name: "RyotQL Maximum Date Event",
+				name: manifestText("RyotQL Maximum Date Event"),
 				slug: `ryotql-maximum-date-${yield* randomUuid}`,
 			});
 			const entity = yield* createEntityFixture(client, {
