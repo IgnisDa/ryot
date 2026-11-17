@@ -13,3 +13,8 @@ export const servedProviderName = (slug: string) => ({
 	namespace: MEDIA_OWNER_ID,
 	key: `provider.${slug}.name`,
 });
+
+export const servedEventName = (slug: string) => ({
+	namespace: MEDIA_OWNER_ID,
+	key: `event-schema.${slug}.name`,
+});

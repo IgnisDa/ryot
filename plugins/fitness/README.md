@@ -92,7 +92,7 @@ plugin `reference` remains part of the cache key. Root cursors and limits use re
 | ---------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------- | ------------- |
 | `fitnessAnalyticsTotalsRecipe`     | optional `filterId`/`filterKind`           | Counts, entered measurements, derived metrics, missing-data and processing state | 4             |
 | `fitnessAnalyticsTrendRecipe`      | `metric`, optional `filterId`/`filterKind` | Sparse buckets with observations, known values and processing state              | 3             |
-| `fitnessWorkoutStartsByHourRecipe` | optional `filterId`/`filterKind`           | 24 reporting-timezone bins labeled **Workout starts**                            | 1             |
+| `fitnessWorkoutStartsByHourRecipe` | optional `filterId`/`filterKind`           | 24 reporting-timezone bins of workout starts                                     | 1             |
 | `historicalFitnessRankingRecipe`   | `kind`, optional `filterId`/`filterKind`   | 100-row cursor page of retained-taxonomy counts and weighted sets                | 3             |
 | `fitnessAnalyticsWorkoutsRecipe`   | optional `filterId`/`filterKind`           | 100-row cursor page, newest workout start first                                  | 1             |
 | `fitnessMeasurementTrendRecipe`    | `metricId`                                 | Sparse average buckets with reading count and metric unit                        | 1             |

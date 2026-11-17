@@ -21,7 +21,7 @@ import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { reportingSelectionResponse, zeroMeasures } from "../../tests/client/analytics-fixture";
-import { servedTypeName } from "../../tests/client/served-names";
+import { servedEventName, servedTypeName } from "../../tests/client/served-names";
 import type { AnalyticsInput, MediaAnalyticsRecord } from "./model";
 import {
 	mediaAnalyticsConsistencyQuery,
@@ -189,6 +189,7 @@ const sourceRecord = (name: string): MediaAnalyticsRecord => ({
 	label: servedTypeName("music"),
 	occurredAt: "2026-10-29T12:00:00Z",
 	orderCreatedAt: "2026-10-29T12:00:00Z",
+	eventLabel: servedEventName("complete"),
 	contribution: {
 		titleCompletions: 1,
 		episodeCompletions: 0,

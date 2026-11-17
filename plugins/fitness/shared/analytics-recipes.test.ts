@@ -233,7 +233,6 @@ describe("fitness analytics trends", () => {
 				},
 			}),
 		);
-		expect(result.label).toBe("Workout starts");
 		expect(result.hours).toHaveLength(24);
 		expect(result.hours[1]).toEqual({ hour: 1, starts: 2 });
 		expect(result.hours[2]).toEqual({ hour: 2, starts: 0 });

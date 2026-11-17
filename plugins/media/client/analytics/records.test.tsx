@@ -18,7 +18,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { servedTypeName } from "../../tests/client/served-names";
+import { servedEventName, servedTypeName } from "../../tests/client/served-names";
 import { mediaMessages } from "../../tests/client/test-support";
 import type { AnalyticsInput, MediaAnalyticsRecord, RecordsDrillRequest } from "./model";
 import { MediaAnalyticsRecords } from "./records";
@@ -81,6 +81,7 @@ const recordRow = (
 	entityId: options.entityId ?? "title/record-source",
 	contribution: options.contribution ?? contribution(),
 	occurredAt: options.occurredAt ?? "2026-09-04T14:00:00Z",
+	eventLabel: servedEventName(options.eventType ?? "progress"),
 	orderCreatedAt: options.occurredAt ?? "2026-09-04T14:00:00Z",
 });
 const recordsResponse = (
@@ -299,7 +300,7 @@ describe("Media analytics records drill", () => {
 					const table = screen.getByRole("table", { name: "Media analytics records" });
 					const itemRow = within(table).getByRole("row", { name: /Independent episode item/ });
 					expect(within(itemRow).getByText("Show Episode")).toBeDefined();
-					expect(within(itemRow).getByText("item-complete")).toBeDefined();
+					expect(within(itemRow).getByText("Item consumed")).toBeDefined();
 					expect(within(itemRow).getByText("Consumed item position:")).toBeDefined();
 					expect(within(itemRow).getByText("Ep 12")).toBeDefined();
 					expect(within(itemRow).getByText("Manually recorded time:")).toBeDefined();
@@ -363,7 +364,7 @@ describe("Media analytics records drill", () => {
 					const row = within(
 						screen.getByRole("table", { name: "Media analytics records" }),
 					).getByRole("row", { name: /Pending source title/ });
-					expect(within(row).getByText("item-complete")).toBeDefined();
+					expect(within(row).getByText("Item consumed")).toBeDefined();
 					expect(within(row).getByText("Ch 3")).toBeDefined();
 					expect(within(row).getByText("0s")).toBeDefined();
 					expect(within(row).getByText("Active observation:")).toBeDefined();

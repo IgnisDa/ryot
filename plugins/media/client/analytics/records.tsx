@@ -299,7 +299,7 @@ const recordColumns = (
 	{
 		headerClassName,
 		id: "event-type",
-		cell: ({ source: row }) => row.eventType,
+		cell: ({ source: row }) => t(row.eventLabel),
 		cellClassName: "px-3 py-2.5 text-text-muted",
 		header: text("analytics.records.column-event-type"),
 	},

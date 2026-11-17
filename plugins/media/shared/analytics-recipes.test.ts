@@ -386,6 +386,7 @@ describe("Media analytics recipes", () => {
 							orderCreatedAt: "2026-10-10T00:00:00Z",
 							facts: { position: { position: 12, unit: "episodes" } },
 							label: { namespace: "plugin1", key: "entity-schema.anime.name" },
+							eventLabel: { namespace: "plugin1", key: "event-schema.item-complete.name" },
 							contribution: {
 								titleCompletions: 0,
 								episodeCompletions: 0,

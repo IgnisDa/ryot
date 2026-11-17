@@ -487,7 +487,6 @@ export const fitnessWorkoutStartsByHourRecipe = (structural: {
 		parameters: args.schema,
 		map: ({ hours }) =>
 			Result.succeed({
-				label: "Workout starts",
 				hours: Array.from({ length: 24 }, (_, hour) => ({
 					hour,
 					starts: hours.items.find((item) => item.hour === hour)?.starts ?? 0,

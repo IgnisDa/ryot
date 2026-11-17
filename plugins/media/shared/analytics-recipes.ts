@@ -1,4 +1,5 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { Message } from "@ryot-app/plugin-kit/messages";
 import {
 	and,
 	castBoolean,
@@ -518,13 +519,13 @@ export const mediaAnalyticsRecordsRecipe = (structural: {
 	const source = consumptionDetail(input, "analyticsRecord", period);
 	const type = mediaTypeJoin(source.entity, "analyticsRecordType", input.reference);
 	const event = source.event;
+	const eventSchema = table("eventSchema", "analyticsRecordEventSchema");
 	return defineRecipe({
 		parameters: args.schema,
 		map: ({ records }) => Result.succeed(records),
 		queries: {
 			records: selectedRows(event, {
 				limit: 100,
-				joins: [...source.joins, type.join],
 				orderBy: [
 					descending(column(event, "occurredAt")),
 					descending(column(event, "orderCreatedAt")),
@@ -545,10 +546,27 @@ export const mediaAnalyticsRecordsRecipe = (structural: {
 						),
 					),
 				),
+				joins: [
+					...source.joins,
+					type.join,
+					join(
+						"inner",
+						eventSchema,
+						and(
+							eq(column(eventSchema, "slug"), column(event, "eventSchemaSlug")),
+							eq(
+								column(eventSchema, "entitySchemaSlug"),
+								column(source.entity, "entitySchemaSlug"),
+							),
+							schemaOwnerPredicate(eventSchema, "pluginId", input.reference),
+						),
+					),
+				],
 				selection: {
 					label: type.label,
 					mediaType: type.slug,
 					id: selectedField(column(event, "id"), Schema.String),
+					eventLabel: selectedField(column(eventSchema, "name"), Message),
 					entityId: selectedField(column(event, "entityId"), Schema.String),
 					name: selectedField(column(source.entity, "name"), Schema.String),
 					orderKey: selectedField(column(event, "orderKey"), Schema.String),

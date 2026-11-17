@@ -21,6 +21,7 @@ import { act, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { reportingSelectionResponse } from "../../tests/client/analytics-fixture";
+import { servedEventName } from "../../tests/client/served-names";
 import { mediaMessages } from "../../tests/client/test-support";
 import MediaAnalyticsSection from "./section";
 
@@ -374,6 +375,7 @@ describe("media analytics section", () => {
 											name: "Late old-owner record",
 											occurredAt: "2026-10-29T12:00:00Z",
 											orderCreatedAt: "2026-10-29T12:00:00Z",
+											eventLabel: servedEventName("complete"),
 											contribution: {
 												titleCompletions: 1,
 												episodeCompletions: 0,
@@ -482,6 +484,7 @@ describe("media analytics section", () => {
 											orderKey: "record/ranked-title",
 											occurredAt: "2026-09-04T12:00:00Z",
 											orderCreatedAt: "2026-09-04T12:00:00Z",
+											eventLabel: servedEventName("progress"),
 											label: { namespace: "media-owner", key: "entity-schema.book.name" },
 											contribution: {
 												titleCompletions: 1,

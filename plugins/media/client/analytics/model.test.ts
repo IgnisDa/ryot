@@ -15,7 +15,7 @@ import {
 	reportingSelectionResponse,
 	zeroMeasures,
 } from "../../tests/client/analytics-fixture";
-import { servedTypeName } from "../../tests/client/served-names";
+import { servedEventName, servedTypeName } from "../../tests/client/served-names";
 import { testMediaText } from "../../tests/client/test-text";
 import {
 	consistencyModel,
@@ -209,6 +209,7 @@ describe("Media analytics presentation model", () => {
 			label: servedTypeName("anime"),
 			occurredAt: "2026-10-01T00:00:00Z",
 			orderCreatedAt: "2026-10-01T00:00:00Z",
+			eventLabel: servedEventName("item-complete"),
 			facts: {
 				timeSpent: 0,
 				position: { position: 12, unit: "episodes" },

@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { usePageTitle } from "#/modules/navigation/page-title";
@@ -15,7 +17,8 @@ export const Route = createFileRoute("/_authenticated/customize-sidebar")({
 // The panel itself is shell chrome: on desktop it takes over the sidebar rail, so this route's
 // content region only dims. Below `md` the panel is the page, and the shell drops its own header.
 function CustomizeSidebarRoute() {
-	usePageTitle("Customize sidebar");
+	const t = useT();
+	usePageTitle(t(kernelMessage("client.shell.customize.title")));
 	const isDesktop = useIsDesktop();
 	const { section } = Route.useSearch();
 	const { onSave, onLeave, readOnly, customize } = useCustomizeController();

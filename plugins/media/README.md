@@ -874,8 +874,8 @@ the server clock and account reporting timezone to resolve windows and grouping 
   it with day grouping over at most the last 366 days of the period.
 - `mediaAnalyticsHoursRecipe` groups exact instants by local hour. Rankings are one grouped aggregate
   of period contributions per title, paged with a grouped cursor; records page source rows with
-  cursors. Rows carry the media type slug; the client renders its label from the plugin catalog's
-  `entity-schema.<slug>.name` message.
+  cursors. Rows carry the media type slug and message labels from the entity and event definitions;
+  the client renders those labels in the active locale.
 
 Values are always shown; a pending or failed state adds a processing note. Analytics queries refresh
 on the kernel's projection page refresh when consumption processing settles.
