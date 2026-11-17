@@ -1,14 +1,16 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { ActionForm } from "./index";
 
 describe("ActionForm", () => {
 	it("submits on Enter without rendering a native form", () => {
 		let submissions = 0;
 		render(
-			<ActionForm label="Search" onSubmit={() => (submissions += 1)}>
+			<ActionForm label={testText("Search")} onSubmit={() => (submissions += 1)}>
 				<input aria-label="Query" />
 			</ActionForm>,
 		);
@@ -23,7 +25,7 @@ describe("ActionForm", () => {
 	it("does not submit from multiline inputs or during IME composition", () => {
 		let submissions = 0;
 		render(
-			<ActionForm label="Notes" onSubmit={() => (submissions += 1)}>
+			<ActionForm label={testText("Notes")} onSubmit={() => (submissions += 1)}>
 				<input aria-label="Title" />
 				<textarea aria-label="Body" />
 			</ActionForm>,

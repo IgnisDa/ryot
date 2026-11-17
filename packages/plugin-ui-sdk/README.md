@@ -111,7 +111,7 @@ reduced motion inside its document, not through kernel-only CSS.
 | `Dialog`                          | Choose compact sheets and pass safe-area padding. `closeIcon={null}` requires footer decisions; touch users cannot rely on tooltips.                                                                                                                                                                                                                                                                                                                                |
 | `ActionDock`                      | Mount through the floating root, pass bottom inset, and pad scrolled content.                                                                                                                                                                                                                                                                                                                                                                                       |
 | `SelectableItem` / `SelectionBar` | Selection mode: the item covers its inert content with one checkbox toggle; the bar is an `ActionDock` with the count, one extend link, bulk actions, and Done.                                                                                                                                                                                                                                                                                                     |
-| `Stepper`                         | Integer stepping; `clockFormat` adapts seconds to `m:ss`. `inputMode="decimal"` offers a decimal keyboard when `parse` accepts fractions.                                                                                                                                                                                                                                                                                                                           |
+| `Stepper`                         | Integer stepping; `clockFormat` adapts seconds to `formatClock` text. `inputMode="decimal"` offers a decimal keyboard when `parse` accepts fractions.                                                                                                                                                                                                                                                                                                               |
 | `DateTimeField`                   | A local date and time in a named zone. `useDateTimeInput(original, timeZone?)` owns the text, occurrence, and resolution; controlled callers pass `resolveDateTimeInput` results. Nonexistent times are rejected, repeated times offer both offsets, and an unchanged value keeps the original instant.                                                                                                                                                             |
 | `DurationField`                   | Whole hours plus minutes; `parseDuration` returns minutes, `undefined` when empty, and `null` when invalid, so a recorded zero differs from unknown. `durationDraft(minutes)` seeds it.                                                                                                                                                                                                                                                                             |
 | `TagInput`                        | Creatable multi-value text input: Enter, comma or blur adds the trimmed text, ignoring blanks and case-insensitive duplicates; Backspace on empty text removes the last tag. `maxItems` disables the input when full and `maxLength` caps each tag. Pass `removeIcon`; spread `Field` control props onto it.                                                                                                                                                        |
@@ -123,7 +123,7 @@ reduced motion inside its document, not through kernel-only CSS.
 | `MenuSelect`                      | Compact "Label: Value" toolbar choice that opens an anchored radio `Menu`; use `Select` for form fields.                                                                                                                                                                                                                                                                                                                                                            |
 | `Timeline`                        | `TimelineGroup` dates and `TimelineEntry` rows with semantic markers; `expand` reveals collapsed batches. Markers are decorative, so titles carry the meaning.                                                                                                                                                                                                                                                                                                      |
 | `ActivityTray` / `Toast`          | Shell-owned activity notices: attributed `source`, text-only `title`/`status`/`detail`, one optional action, and dismissal. The tray owns one visually hidden polite region; callers throttle its `announcement`. Compact trays span the bottom above the safe area.                                                                                                                                                                                                |
-| `JsonSchemaValues`                | Read-only labeled view of a JSON value described by a JSON Schema document. Follows `$defs` references and `anyOf`/`oneOf` branches, orders fields by the schema, labels them from `title` or the humanized key, and lists unknown fields last. Nested objects and object arrays render as labelled groups with their field or item count under a left rule; groups below the second level start collapsed.                                                         |
+| `JsonSchemaValues`                | Read-only labeled view of a JSON value described by a JSON Schema document. Follows `$defs` references and `anyOf`/`oneOf` branches, orders fields by the schema, labels them from `title` or the raw key, and lists unknown fields last. Nested objects and object arrays render as labelled groups with their field or item count under a left rule; groups below the second level start collapsed.                                                               |
 
 `groupColors`, `groupColorVariable`, and `Card.groupColor` provide labeled group identity; never
 communicate identity through color alone.
@@ -139,6 +139,8 @@ using the supplied/device zone. Edit disables immutable fields. Omitted object s
 secret-bearing arrays are retained; editing an array replaces it and requires its secrets again.
 Static enums with more than eight choices use a searchable `Select`; shorter lists use chips or
 segmented controls.
+Labels, hints and choice labels render through the active catalogs; a field shows its `hint` as
+help and never its model-facing `description`.
 
 ## Markdown
 
@@ -168,9 +170,17 @@ right axis for potentially different units. Root theme variables also apply to p
 `TimeSeriesPoint` uses `{ at, value }`; `value: null` marks a missing-data line break, not zero.
 Points may represent observations or caller-labelled bucket averages.
 
-Figures format through `metric-format`: a `MetricUnit` (`countUnit`, `durationUnit`, `measureUnit`,
-`percentUnit`) drives `formatMetric`, tile figures, compact axis ticks, and whole-number count axes.
+Figures format through `metric-format` in the active locale. `useMetricFormat()` (or
+`metricFormat(t, formatters)` outside React) returns `formatNumber`, `formatRating`, `formatMetric`,
+`formatAxisValue` and `metricParts`. A `MetricUnit` (`countUnit(label)`, `durationUnit`,
+`measureUnit`, `ratingUnit`, `percentUnit`) drives them, tile figures, compact axis ticks, and
+whole-number count axes. A count unit's `label` names the counted thing for a count, such as a
+plural catalog message. Keep units referentially stable, at module scope or memoized.
 `metricDelta` compares with the previous period and separates new activity from unknown values.
+`formatDuration(formatters, seconds, smallestUnit?)` is the one compact duration (`1h 5m`), also
+used by duration units; `formatClock(seconds)` is the one elapsed clock (`m:ss`, `h:mm:ss` from an
+hour). `./datetime` adds `formatDateLabel` for an instant's day and `formatDaysAgo` for relative
+calendar days.
 
 The reporting charts (`PeriodTrendChart`, `HourlyHistogram`, `CalendarHeatmap`) take `ariaLabel`,
 bridged `compact`, and a stable `unit`, which keys the chart definition. `value: null` is missing,
@@ -270,6 +280,14 @@ is there. Scrolling away stops following until the reader returns to the end; a 
 to the end again, and `undefined` disables it. `content` must wrap everything inside the scroller so
 its growth is observed.
 
+`createViewHistory` is the one navigation scroll and focus policy, shared by the kernel shell and the
+client SDK. `enter` classifies each displayed view `{ key, identity }` against the previous one:
+`initial` for the first, `restore` when returning to another entry saved with the same identity, `new`
+when the identity changes, and `same` otherwise. Each caller chooses an identity that changes exactly
+when its view shows different content, saves per-entry state while a view is active, and applies the
+result. `restoreScrollTop` sets a saved offset and retries as content grows, until it is reached or the
+reader scrolls.
+
 Title-collapse observation follows the sentinel node, including search-row replacement. Search keeps
 a visually hidden semantic `<h1>` and opaque bar.
 
@@ -284,8 +302,9 @@ callers add only layout classes such as `relative`.
 
 `LoadMoreButton` uses `isFetchingNextPage` for its loading label and spinner. Its independent
 `disabled` prop can block interaction during background refresh without claiming that another page
-is loading. Callers supply labels and optional icon content; the component does not depend on query
-or transport services.
+is loading. Labels default to the kernel's "Load more" and "Loading more…"; callers pass `label` or
+`loadingLabel` only for more specific text. The component does not depend on query or transport
+services.
 
 `RadioGroup` owns radiogroup semantics, roving focus, and Arrow/Home/End selection; disabled options
 are announced but never selected, focused by arrows, or used as the tab stop. Consumers provide

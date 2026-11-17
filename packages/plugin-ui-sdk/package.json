@@ -48,6 +48,8 @@
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/i18n": "workspace:*",
+		"@ryot-app/kernel-messages": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@tanstack/charts": "1.2.1",
 		"@tanstack/react-form": "2.0.0-alpha.3",

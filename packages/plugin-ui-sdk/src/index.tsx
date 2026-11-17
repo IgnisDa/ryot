@@ -6,6 +6,7 @@ export { Dialog } from "./dialog";
 export { Switch } from "./switch";
 export { Select } from "./select";
 export { Tooltip } from "./tooltip";
+export { Eyebrow } from "./eyebrow";
 export { Tabs, tabId } from "./tabs";
 export type { MenuItem } from "./menu";
 export { TagInput } from "./tag-input";
@@ -36,7 +37,6 @@ export { StatusMessage } from "./status-message";
 export { ReviewComposer } from "./review-composer";
 export { ChipRadioGroup } from "./chip-radio-group";
 export { LoadMoreButton } from "./load-more-button";
-export { Eyebrow, schemaSlugLabel } from "./eyebrow";
 export { ReorderableList } from "./reorderable-list";
 export type { OverlayBackAdapter } from "./shortcut";
 export { Toast, ActivityTray } from "./activity-tray";
@@ -49,7 +49,6 @@ export { JsonSchemaValues } from "./json-schema-values";
 export { Notice, Skeleton, EmptyState } from "./feedback";
 export { ScreenFrame, ScreenBarButton } from "./screen-frame";
 export { CopyField, type CopyFieldAction } from "./copy-field";
-export type { MetricUnit, MetricDelta } from "./metric-format";
 export { groupColors, groupColorVariable } from "./group-colors";
 export { DateTimeField, useDateTimeInput } from "./datetime-field";
 export { RatingInput, RatingValue, useRatingDraft } from "./rating";
@@ -61,8 +60,14 @@ export { useShortcut, OverlayScope, OverlayBackProvider } from "./shortcut";
 export type { HotkeyChord, RegisterableHotkey } from "@tanstack/react-hotkeys";
 export { SelectionBar, SelectableItem, type ItemSelection } from "./selection";
 export type { ActivityTone, ActivityAction, ActivityTrayEntry } from "./activity-tray";
+export type { MetricUnit, MetricDelta, MetricParts, MetricFormat } from "./metric-format";
 export { DurationField, durationDraft, parseDuration, type DurationDraft } from "./duration-field";
 export { Field, Radio, Checkbox, TextArea, CellInput, TextField, FieldMessage } from "./text-field";
+export {
+	EntitlementNotice,
+	entitlementActionLabel,
+	entitlementRequiredMessage,
+} from "./entitlement";
 export {
 	useFocusTrap,
 	useScrollLock,
@@ -71,11 +76,12 @@ export {
 	useDismissOnOutside,
 } from "./overlay";
 export {
-	entitlementName,
-	EntitlementNotice,
-	entitlementActionLabel,
-	entitlementRequiredMessage,
-} from "./entitlement";
+	type ViewEntry,
+	type ViewChange,
+	restoreScrollTop,
+	type ViewHistory,
+	createViewHistory,
+} from "./view-history";
 export {
 	Collapse,
 	MotionList,
@@ -91,16 +97,19 @@ export {
 	ReportProvider,
 	useReportReady,
 	renderReportPng,
+	ReportExportError,
 	type ReportSnapshot,
 } from "./report";
 
 export {
 	countUnit,
 	ratingUnit,
+	formatClock,
 	measureUnit,
 	metricDelta,
 	percentUnit,
-	formatMetric,
-	formatNumber,
+	metricFormat,
 	durationUnit,
+	formatDuration,
+	useMetricFormat,
 } from "./metric-format";

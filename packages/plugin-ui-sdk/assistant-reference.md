@@ -17,21 +17,30 @@ helpers for entity cards instead of reconstructing plugin-specific fields.
 
 ```tsx
 import { useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { useDisplayText } from "@ryot-app/plugin-client-sdk/react";
 import { countUnit, MetricGrid } from "@ryot-app/plugin-ui-sdk";
 import { RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
 
 export default function AggregatePresentation() {
   const { compact } = useRyotViewport();
+  const text = useDisplayText();
   return (
     <main className="space-y-4 p-4">
       <MetricGrid
         compact={compact}
         variant="panel"
-        comparisonLabel=""
-        metrics={[{ key: "recorded", label: "Recorded", value: 12, unit: countUnit("item") }]}
+        comparisonLabel={text("")}
+        metrics={[
+          {
+            key: "recorded",
+            label: text("Recorded"),
+            value: 12,
+            unit: countUnit((count) => (count === 1 ? "item" : "items")),
+          },
+        ]}
       />
       <RankedBarList
-        rows={[{ key: "recorded", label: "Recorded", value: 12 }]}
+        rows={[{ key: "recorded", label: text("Recorded"), value: 12 }]}
         formatValue={(row) => String(row.value)}
       />
     </main>
