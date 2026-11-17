@@ -18,17 +18,31 @@ describe("buildViewExpressions", () => {
 	});
 
 	it.each([
-		["person", ["Name", "Birth Place"]],
-		["company", ["Name", "Founded Year"]],
-		["movie-group", ["Name", "Parts"]],
-		["movie", ["Name", "Year", "Runtime", "Your rating"]],
-		["show", ["Name", "Year", "Status", "Your rating"]],
-		["book", ["Name", "Year", "Pages", "Your rating"]],
-		["custom-schema", ["Name", "Year", "Your rating"]],
-		["anime", ["Name", "Year", "Episodes", "Your rating"]],
-	] as const)("builds the expected %s table columns", (slug, labels) => {
-		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual<unknown>(
-			labels,
+		["person", ["property.name", "property.birth-place"]],
+		["company", ["property.name", "property.founded-year"]],
+		["movie-group", ["property.name", "property.parts"]],
+		[
+			"movie",
+			["property.name", "table-column.year", "property.runtime", "table-column.user-rating"],
+		],
+		[
+			"show",
+			[
+				"property.name",
+				"table-column.year",
+				"table-column.production-status",
+				"table-column.user-rating",
+			],
+		],
+		["book", ["property.name", "table-column.year", "property.pages", "table-column.user-rating"]],
+		["custom-schema", ["property.name", "table-column.year", "table-column.user-rating"]],
+		[
+			"anime",
+			["property.name", "table-column.year", "property.episodes", "table-column.user-rating"],
+		],
+	] as const)("builds the expected %s table columns", (slug, columns) => {
+		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label.key)).toEqual<unknown>(
+			columns,
 		);
 	});
 

@@ -7,7 +7,6 @@ import {
 	castNumber,
 	coalesce,
 	column,
-	concat,
 	conditional,
 	entitySchemaPredicate,
 	eq,
@@ -38,7 +37,7 @@ import {
 } from "../shared/lifecycle-expressions";
 import { latestPosition } from "../shared/lifecycle-list-recipes";
 import { flatMediaSchemaSlugs } from "../shared/media-schema-slugs";
-import { mediaEntitySchemas } from "./schemas/entity";
+import { catalogMessage, catalogRowText } from "../shared/messages.generated";
 
 export const self = { kind: "self" } as const;
 
@@ -75,9 +74,6 @@ export const episodeSource = (
 		seasonNumber,
 		episodeNumber,
 		state: episodeDisplayStateExpression(episode, parent, "calendarEpisodeState"),
-		caption: seasonNumber
-			? concat(literal("S"), seasonNumber, literal(" · E"), episodeNumber)
-			: concat(literal("Episode "), episodeNumber),
 		query: {
 			from: episode,
 			joins: nonEmpty([
@@ -95,7 +91,8 @@ export const episodeSource = (
 
 const episodeFields = (source: ReturnType<typeof episodeSource>) => [
 	field("startAt", occursAt(source.episode)),
-	field("caption", source.caption),
+	field("episode", source.episodeNumber),
+	...(source.seasonNumber ? [field("season", source.seasonNumber)] : []),
 	field(
 		"art",
 		coalesce(
@@ -113,12 +110,15 @@ const showEpisodes = () => {
 		done: "done",
 		precision: "date",
 		startAt: "startAt",
-		caption: "caption",
 		icon: "monitor-play",
 		slug: "show-episodes",
-		name: "Show episodes",
 		subject: subjectOf("show", ["show"]),
+		name: catalogMessage("calendar-source.show-episodes.name"),
 		query: { ...source.query, output: { type: "rows", fields: episodeFields(source) } },
+		caption: catalogRowText("calendar-source.show-episodes.caption", {
+			season: "season",
+			episode: "episode",
+		}),
 	} satisfies PluginCalendarSource;
 };
 
@@ -130,11 +130,11 @@ const podcastEpisodes = () => {
 		icon: "podcast",
 		precision: "date",
 		startAt: "startAt",
-		caption: "caption",
 		slug: "podcast-episodes",
-		name: "Podcast episodes",
 		subject: subjectOf("podcast", ["podcast"]),
+		name: catalogMessage("calendar-source.podcast-episodes.name"),
 		query: { ...source.query, output: { type: "rows", fields: episodeFields(source) } },
+		caption: catalogRowText("calendar-source.podcast-episodes.caption", { episode: "episode" }),
 	} satisfies PluginCalendarSource;
 };
 
@@ -168,11 +168,11 @@ const animeAirings = () => {
 		art: "art",
 		done: "done",
 		startAt: "startAt",
-		caption: "caption",
 		precision: "instant",
 		slug: "anime-airings",
-		name: "Anime airings",
 		subject: subjectOf("anime", ["anime"]),
+		name: catalogMessage("calendar-source.anime-airings.name"),
+		caption: catalogRowText("calendar-source.anime-airings.caption", { episode: "episode" }),
 		query: {
 			where,
 			from: anime,
@@ -181,7 +181,7 @@ const animeAirings = () => {
 				type: "rows",
 				fields: [
 					field("startAt", airingAt),
-					field("caption", concat(literal("Episode "), episodeNumber)),
+					field("episode", episodeNumber),
 					field("art", preferredMediaImageExpression(anime)),
 					field(
 						"done",
@@ -196,14 +196,6 @@ const animeAirings = () => {
 			},
 		},
 	} satisfies PluginCalendarSource;
-};
-
-const releaseLabel = (slug: string) => {
-	const schema = mediaEntitySchemas().find((candidate) => candidate.slug === slug);
-	if (!schema) {
-		throw new Error(`Missing media entity schema: ${slug}`);
-	}
-	return `${schema.name} release`;
 };
 
 export const flatReleaseSource = () => {
@@ -224,11 +216,11 @@ export const flatReleaseSource = () => {
 const releases = () => {
 	const { where, entity } = flatReleaseSource();
 	const lifecycle = mediaLifecycleExpressions(entity, "calendarReleaseLifecycle");
-	const caption = flatMediaSchemaSlugs.reduceRight<ScalarExpression>(
+	const kind = flatMediaSchemaSlugs.reduceRight<ScalarExpression>(
 		(otherwise, slug) =>
 			conditional(
 				eq(column(entity, "entitySchemaSlug"), literal(slug)),
-				literal(releaseLabel(slug)),
+				literal(slug.replaceAll("-", "_")),
 				otherwise,
 			),
 		literal(null),
@@ -238,11 +230,11 @@ const releases = () => {
 		done: "done",
 		icon: "calendar",
 		slug: "releases",
-		name: "Releases",
 		precision: "date",
 		startAt: "startAt",
-		caption: "caption",
 		subject: subjectOf("entity", flatMediaSchemaSlugs),
+		name: catalogMessage("calendar-source.releases.name"),
+		caption: catalogRowText("calendar-source.releases.caption", { kind: "kind" }),
 		query: {
 			where,
 			from: entity,
@@ -250,7 +242,7 @@ const releases = () => {
 				type: "rows",
 				fields: [
 					field("startAt", occursAt(entity)),
-					field("caption", caption),
+					field("kind", kind),
 					field("art", preferredMediaImageExpression(entity)),
 					field("done", asTrue(eq(lifecycle.state, literal("complete")))),
 				],

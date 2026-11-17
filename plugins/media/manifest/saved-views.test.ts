@@ -1,23 +1,24 @@
 import { describe, expect, it } from "bun:test";
 
+import { stampRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { bindDocument } from "@ryot-app/ryotql/binding";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 import { Result } from "effect";
 
 import { mediaSavedViews } from "./saved-views";
 
-const source = (name: string) => {
-	const view = mediaSavedViews().find((candidate) => candidate.name === name);
+const source = (slug: string) => {
+	const view = mediaSavedViews().find((candidate) => candidate.slug === slug);
 	const query = view?.dataSources.queries["savedView"];
 	if (!view || query?.output.type !== "rows") {
-		throw new Error(`Expected ${name} to have one saved-view rows source`);
+		throw new Error(`Expected ${slug} to have one saved-view rows source`);
 	}
 	return { view, output: query.output };
 };
 
 describe("media saved views", () => {
 	it("selects the show table columns independently of card data", () => {
-		const { output } = source("All Shows");
+		const { output } = source("all-shows");
 
 		expect(output.fields.map((selection) => ("key" in selection ? selection.key : null))).toEqual([
 			"entityId",
@@ -35,7 +36,7 @@ describe("media saved views", () => {
 	});
 
 	it("uses the group member artwork fallback in the shared image projection", () => {
-		const { output } = source("All Movie Series");
+		const { output } = source("all-movie-series");
 		const image = output.fields.find(
 			(selection) => "key" in selection && selection.key === "image",
 		);
@@ -50,7 +51,7 @@ describe("media saved views", () => {
 				validateRyotQLDocument(
 					Result.getOrThrow(
 						bindDocument(
-							view.dataSources,
+							stampRyotQLDocument("media", view.dataSources),
 							{ arguments: { search: "" } },
 							{ reportingTimeZone: "UTC", now: new Date("2026-01-01T00:00:00Z") },
 						),
@@ -64,7 +65,7 @@ describe("media saved views", () => {
 	it("uses credit membership only for All People", () => {
 		for (const view of mediaSavedViews()) {
 			const dataSources = JSON.stringify(view.dataSources);
-			if (view.name === "All People") {
+			if (view.slug === "all-people") {
 				expect(dataSources).toContain('"value":"person-to-book"');
 				expect(dataSources).toContain('"value":"person-to-music-group"');
 			} else {
@@ -74,10 +75,10 @@ describe("media saved views", () => {
 	});
 
 	it("orders titles by recent activity, creators by credits and groups by parts", () => {
-		const order = (name: string) => JSON.stringify(source(name).view.dataSources);
-		expect(order("All Movies")).toContain('"path":["lastActivityAt"]');
-		expect(order("All People")).toContain('"function":"countDistinct"');
-		expect(order("All Book Series")).toContain('"path":["parts"]');
-		expect(source("All Movies").view.settings).not.toHaveProperty("filterFields");
+		const order = (slug: string) => JSON.stringify(source(slug).view.dataSources);
+		expect(order("all-movies")).toContain('"path":["lastActivityAt"]');
+		expect(order("all-people")).toContain('"function":"countDistinct"');
+		expect(order("all-book-series")).toContain('"path":["parts"]');
+		expect(source("all-movies").view.settings).not.toHaveProperty("filterFields");
 	});
 });

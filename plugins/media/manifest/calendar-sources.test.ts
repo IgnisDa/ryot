@@ -32,14 +32,15 @@ describe("media calendar sources", () => {
 			["anime-airings", "instant", "anime", ["anime"]],
 			["releases", "date", "entity", [...flatMediaSchemaSlugs]],
 		]);
-		for (const { art, done, startAt, caption } of calendarSources) {
-			expect({ art, done, startAt, caption }).toEqual({
-				art: "art",
-				done: "done",
-				startAt: "startAt",
-				caption: "caption",
-			});
+		for (const { art, done, startAt } of calendarSources) {
+			expect({ art, done, startAt }).toEqual({ art: "art", done: "done", startAt: "startAt" });
 		}
+		expect(calendarSources.map(({ caption }) => caption?.params)).toEqual([
+			{ season: "season", episode: "episode" },
+			{ episode: "episode" },
+			{ episode: "episode" },
+			{ kind: "kind" },
+		]);
 	});
 
 	it.each(["show-episodes", "podcast-episodes", "anime-airings", "releases"])(

@@ -1,20 +1,47 @@
 import type { PluginRelationshipSchema } from "@ryot-app/contract/modules/plugins/manifest";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type {
+	AuthoredAppSchema,
+	ManifestText,
+} from "@ryot-app/contract/modules/plugins/manifest-text";
 
+import { creditRoleCodes } from "../../shared/credit-roles";
 import { librarySummaryPropertiesSchema } from "../../shared/library-summary";
 import {
 	builtinMediaEntitySchemaSlugs,
+	type MediaCreatorCreditSlug,
 	mediaGroupMemberSlugs,
 } from "../../shared/media-schema-slugs";
+import { catalogMessage } from "../../shared/messages.generated";
 import { slugify } from "../../shared/slug";
 
-const sentenceLabel = (slug: string) =>
-	`${slug.charAt(0).toUpperCase()}${slug.slice(1).replaceAll("-", " ")}`;
+const creditRelationshipName: Record<"show-episode" | MediaCreatorCreditSlug, ManifestText> = {
+	book: catalogMessage("relationship-schema.book-credits.name"),
+	show: catalogMessage("relationship-schema.show-credits.name"),
+	anime: catalogMessage("relationship-schema.anime-credits.name"),
+	movie: catalogMessage("relationship-schema.movie-credits.name"),
+	manga: catalogMessage("relationship-schema.manga-credits.name"),
+	music: catalogMessage("relationship-schema.music-credits.name"),
+	podcast: catalogMessage("relationship-schema.podcast-credits.name"),
+	audiobook: catalogMessage("relationship-schema.audiobook-credits.name"),
+	"comic-book": catalogMessage("relationship-schema.comic-book-credits.name"),
+	"video-game": catalogMessage("relationship-schema.video-game-credits.name"),
+	"music-group": catalogMessage("relationship-schema.music-group-credits.name"),
+	"visual-novel": catalogMessage("relationship-schema.visual-novel-credits.name"),
+	"show-episode": catalogMessage("relationship-schema.show-episode-credits.name"),
+	"video-game-group": catalogMessage("relationship-schema.video-game-group-credits.name"),
+};
+
+const roleCodesField = {
+	type: "enum-array" as const,
+	label: catalogMessage("property.role-codes"),
+	description: "Standard roles derived by the provider rather than named by it",
+	choices: { kind: "static" as const, values: creditRoleCodes.map((value) => ({ value })) },
+};
 
 type BuiltinRelationshipSchema = {
 	slug: string;
-	name: string;
-	propertiesSchema: AppSchema;
+	name: ManifestText;
+	propertiesSchema: AuthoredAppSchema;
 	sourceEntitySchemaSlug: null | string;
 	targetEntitySchemaSlug: null | string;
 	retention?: PluginRelationshipSchema["retention"];
@@ -25,15 +52,19 @@ type BuiltinRelationshipSchema = {
 const groupRolesPropertiesSchema = {
 	fields: {
 		order: {
-			label: "Order",
 			type: "number" as const,
+			label: catalogMessage("property.order"),
 			description: "Position of this media item within the group (1-based)",
 		},
 		roles: {
-			label: "Roles",
 			type: "array" as const,
+			label: catalogMessage("property.roles"),
 			description: "Roles this group filled in this media",
-			items: { label: "Role", type: "string" as const, description: "A specific role name" },
+			items: {
+				type: "string" as const,
+				description: "A specific role name",
+				label: catalogMessage("property.role"),
+			},
 		},
 	},
 };
@@ -44,58 +75,67 @@ const buildCreditRelationshipSchemas = (input: {
 	rolesDescription: string;
 	rolesItemDescription: string;
 	characterDescription?: string;
-	targetEntitySchemaSlugs?: ReadonlyArray<string>;
+	targetEntitySchemaSlugs?: ReadonlyArray<keyof typeof creditRelationshipName>;
 }) =>
 	(input.targetEntitySchemaSlugs ?? builtinMediaEntitySchemaSlugs).map((mediaSlug) => ({
 		targetEntitySchemaSlug: mediaSlug,
+		name: creditRelationshipName[mediaSlug],
 		sourceEntitySchemaSlug: input.sourceSlug,
-		name: `${sentenceLabel(mediaSlug)} credits`,
 		slug: slugify(`${input.sourceSlug} to ${mediaSlug}`),
 		propertiesSchema: {
 			fields: {
 				...(input.characterDescription !== undefined
 					? {
 							character: {
-								label: "Character",
 								type: "string" as const,
 								description: input.characterDescription,
+								label: catalogMessage("property.character"),
 							},
 							isGuest: {
 								type: "boolean" as const,
-								label: "Guest appearance",
+								label: catalogMessage("property.guest-appearance"),
 								description: "Whether all known cast appearances are guest appearances",
 							},
 							isUncredited: {
 								type: "boolean" as const,
-								label: "Uncredited appearance",
+								label: catalogMessage("property.uncredited-appearance"),
 								description: "Whether all known named cast appearances are uncredited",
 							},
 							creditKinds: {
-								label: "Credit kinds",
 								type: "array" as const,
+								label: catalogMessage("property.credit-kinds"),
 								description: "Kinds of credit held by this person in this production",
-								items: { label: "Kind", type: "string" as const, description: "Cast or crew" },
+								items: {
+									type: "string" as const,
+									description: "Cast or crew",
+									label: catalogMessage("property.kind"),
+								},
 							},
 							departments: {
-								label: "Departments",
 								type: "array" as const,
+								label: catalogMessage("property.departments"),
 								description: "Production departments associated with this person's credits",
 								items: {
-									label: "Department",
 									type: "string" as const,
 									description: "A production department name",
+									label: catalogMessage("property.department"),
 								},
 							},
 						}
 					: {}),
-				order: { label: "Order", type: "number" as const, description: input.orderDescription },
+				roleCodes: roleCodesField,
+				order: {
+					type: "number" as const,
+					description: input.orderDescription,
+					label: catalogMessage("property.order"),
+				},
 				roles: {
-					label: "Roles",
 					type: "array" as const,
 					description: input.rolesDescription,
+					label: catalogMessage("property.roles"),
 					items: {
-						label: "Role",
 						type: "string" as const,
+						label: catalogMessage("property.role"),
 						description: input.rolesItemDescription,
 					},
 				},
@@ -106,34 +146,34 @@ const buildCreditRelationshipSchemas = (input: {
 export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	{
 		slug: "in-media-library",
-		name: "In Media Library",
 		sourceEntitySchemaSlug: null,
 		targetEntitySchemaSlug: "media-library",
 		projection: { propertiesSchema: librarySummaryPropertiesSchema },
+		name: catalogMessage("relationship-schema.in-media-library.name"),
 		propertiesSchema: {
 			fields: {
 				owned: {
-					label: "Owned",
 					type: "boolean" as const,
+					label: catalogMessage("property.owned"),
 					description: "Whether the user owns this item",
 				},
 				ownedOn: {
-					label: "Owned on",
 					type: "date" as const,
+					label: catalogMessage("property.owned-on"),
 					description: "When the user acquired this item",
 				},
 				ownershipSyncedAt: {
 					type: "datetime" as const,
-					label: "Ownership synced at",
+					label: catalogMessage("property.ownership-synced-at"),
 					description: "When ownership was last synced from an external source",
 				},
 				ownershipSources: {
 					type: "array" as const,
-					label: "Ownership sources",
+					label: catalogMessage("property.ownership-sources"),
 					description: "Integrations or sources that reported ownership",
 					items: {
-						label: "Source",
 						type: "string" as const,
+						label: catalogMessage("property.source"),
 						description: "An integration or source that reported ownership",
 					},
 				},
@@ -142,34 +182,34 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	},
 	{
 		slug: "media-monitoring",
-		name: "Media Monitoring",
 		sourceEntitySchemaSlug: null,
 		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "media-library",
+		name: catalogMessage("relationship-schema.media-monitoring.name"),
 	},
 	{
 		slug: "media-suggestion",
-		name: "Media Suggestion",
 		sourceEntitySchemaSlug: null,
 		targetEntitySchemaSlug: null,
 		propertiesSchema: { fields: {} },
+		name: catalogMessage("relationship-schema.media-suggestion.name"),
 	},
 	{
 		retention: "root",
 		slug: "media-trending",
-		name: "Media Trending",
 		sourceEntitySchemaSlug: null,
 		targetEntitySchemaSlug: null,
+		name: catalogMessage("relationship-schema.media-trending.name"),
 		propertiesSchema: {
 			fields: {
 				rank: {
-					label: "Rank",
 					type: "number" as const,
+					label: catalogMessage("property.rank"),
 					description: "Provider trend rank, ascending from the top item",
 				},
 				fetchedAt: {
-					label: "Fetched at",
 					type: "datetime" as const,
+					label: catalogMessage("property.fetched-at"),
 					description: "When this trend entry was refreshed",
 				},
 			},
@@ -178,20 +218,20 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	{
 		retention: "composition",
 		slug: "show-to-show-season",
-		name: "Show to Show Season",
 		sourceEntitySchemaSlug: "show",
 		userWritePolicy: "source-owner",
 		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "show-season",
+		name: catalogMessage("relationship-schema.show-to-show-season.name"),
 	},
 	{
 		retention: "composition",
 		userWritePolicy: "source-owner",
 		propertiesSchema: { fields: {} },
 		slug: "show-season-to-show-episode",
-		name: "Show Season to Show Episode",
 		sourceEntitySchemaSlug: "show-season",
 		targetEntitySchemaSlug: "show-episode",
+		name: catalogMessage("relationship-schema.show-season-to-show-episode.name"),
 	},
 	{
 		retention: "composition",
@@ -199,52 +239,55 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		propertiesSchema: { fields: {} },
 		sourceEntitySchemaSlug: "podcast",
 		slug: "podcast-to-podcast-episode",
-		name: "Podcast to Podcast Episode",
 		targetEntitySchemaSlug: "podcast-episode",
+		name: catalogMessage("relationship-schema.podcast-to-podcast-episode.name"),
 	},
 	...builtinMediaEntitySchemaSlugs.map((sourceEntitySchemaSlug) => ({
-		name: "Genres",
 		sourceEntitySchemaSlug,
 		targetEntitySchemaSlug: "genre",
 		propertiesSchema: { fields: {} },
 		userWritePolicy: "source-owner" as const,
 		slug: `${sourceEntitySchemaSlug}-to-genre`,
+		name: catalogMessage("relationship-schema.genres.name"),
 	})),
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
+		rolesItemDescription: "A specific role name (e.g. Director, Writer)",
 		characterDescription: "Character played by this person in this production",
 		orderDescription: "Display order of this person in the production credits",
 		targetEntitySchemaSlugs: [...builtinMediaEntitySchemaSlugs, "show-episode"],
-		rolesItemDescription: "A specific role name (e.g. Director, Actor, Writer)",
-		rolesDescription: "Roles this person filled in this production (e.g. Director, Actor, Writer)",
+		rolesDescription:
+			"Roles this person filled in this production, as the provider names them (e.g. Director, Writer)",
 	}),
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "company",
 		targetEntitySchemaSlugs: builtinMediaEntitySchemaSlugs,
+		rolesItemDescription: "A specific role name (e.g. Animation)",
 		orderDescription: "Display order of this company in the production credits",
-		rolesItemDescription: "A specific role name (e.g. Developer, Publisher, Studio)",
 		rolesDescription:
-			"Roles this company filled in this production (e.g. Developer, Publisher, Studio)",
+			"Roles this company filled in this production, as the provider names them (e.g. Animation)",
 	}),
 	{
-		name: "Music group credits",
 		slug: "person-to-music-group",
 		sourceEntitySchemaSlug: "person",
 		targetEntitySchemaSlug: "music-group",
+		name: creditRelationshipName["music-group"],
 		propertiesSchema: {
 			fields: {
+				roleCodes: roleCodesField,
 				order: {
-					label: "Order",
 					type: "number" as const,
+					label: catalogMessage("property.order"),
 					description: "Display order of this person in the group credits",
 				},
 				roles: {
-					label: "Roles",
 					type: "array" as const,
-					description: "Roles this person filled in this group (e.g. Artist)",
+					label: catalogMessage("property.roles"),
+					description:
+						"Roles this person filled in this group, as the provider names them (e.g. Artist)",
 					items: {
-						label: "Role",
 						type: "string" as const,
+						label: catalogMessage("property.role"),
 						description: "A specific role name (e.g. Artist)",
 					},
 				},
@@ -253,23 +296,25 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	},
 	{
 		sourceEntitySchemaSlug: "person",
-		name: "Video game group credits",
 		slug: "person-to-video-game-group",
 		targetEntitySchemaSlug: "video-game-group",
+		name: creditRelationshipName["video-game-group"],
 		propertiesSchema: {
 			fields: {
+				roleCodes: roleCodesField,
 				order: {
-					label: "Order",
 					type: "number" as const,
+					label: catalogMessage("property.order"),
 					description: "Display order of this person in the group credits",
 				},
 				roles: {
-					label: "Roles",
 					type: "array" as const,
-					description: "Roles this person filled in this group (e.g. Developer)",
+					label: catalogMessage("property.roles"),
+					description:
+						"Roles this person filled in this group, as the provider names them (e.g. Developer)",
 					items: {
-						label: "Role",
 						type: "string" as const,
+						label: catalogMessage("property.role"),
 						description: "A specific role name (e.g. Developer)",
 					},
 				},
@@ -278,21 +323,22 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	},
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "company",
+		rolesItemDescription: "A specific role name (e.g. Label)",
 		targetEntitySchemaSlugs: ["music-group", "video-game-group"],
-		rolesItemDescription: "A specific role name (e.g. Label, Publisher)",
 		orderDescription: "Display order of this company in the group credits",
-		rolesDescription: "Roles this company filled in this group (e.g. Label, Publisher)",
+		rolesDescription:
+			"Roles this company filled in this group, as the provider names them (e.g. Label)",
 	}),
 	{
-		name: "Related games",
 		slug: "video-game-to-video-game",
 		sourceEntitySchemaSlug: "video-game",
 		targetEntitySchemaSlug: "video-game",
+		name: catalogMessage("relationship-schema.video-game-to-video-game.name"),
 		propertiesSchema: {
 			fields: {
 				kind: {
-					label: "Kind",
 					type: "string" as const,
+					label: catalogMessage("property.kind"),
 					description: "How the target relates to the source, e.g. Port, Remake, Edition",
 				},
 			},
@@ -300,12 +346,27 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	},
 	...(
 		[
-			{ name: "Books", group: "book-group" },
-			{ name: "Music", group: "music-group" },
-			{ name: "Movies", group: "movie-group" },
-			{ name: "Audiobooks", group: "audiobook-group" },
-			{ name: "Comic books", group: "comic-book-group" },
-			{ name: "Video games", group: "video-game-group" },
+			{ group: "book-group", name: catalogMessage("relationship-schema.book-group-to-book.name") },
+			{
+				group: "music-group",
+				name: catalogMessage("relationship-schema.music-group-to-music.name"),
+			},
+			{
+				group: "movie-group",
+				name: catalogMessage("relationship-schema.movie-group-to-movie.name"),
+			},
+			{
+				group: "audiobook-group",
+				name: catalogMessage("relationship-schema.audiobook-group-to-audiobook.name"),
+			},
+			{
+				group: "comic-book-group",
+				name: catalogMessage("relationship-schema.comic-book-group-to-comic-book.name"),
+			},
+			{
+				group: "video-game-group",
+				name: catalogMessage("relationship-schema.video-game-group-to-video-game.name"),
+			},
 		] as const
 	).map(({ name, group }) => ({
 		name,

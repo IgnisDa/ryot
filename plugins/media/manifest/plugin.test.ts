@@ -29,6 +29,7 @@ import {
 	mediaLibraryEligibleEntitySchemaSlugs,
 	mediaLibraryMemberEntitySchemaSlugs,
 } from "../shared/media-schema-slugs";
+import { catalogMessage } from "../shared/messages.generated";
 import { mediaPlugin } from "./plugin";
 import { mediaSavedViews } from "./saved-views";
 
@@ -95,19 +96,24 @@ it.effect(
 				entities: anyOf(Object),
 				apiVersion: CLIENT_API_VERSION,
 				analyticsSections: {
-					media: { icon: "film", name: "Media", sortOrder: 10, exportName: "media-analytics" },
+					media: {
+						icon: "film",
+						sortOrder: 10,
+						exportName: "media-analytics",
+						name: catalogMessage("analytics-section.media.name"),
+					},
 				},
 				assistantStarters: [
-					"What should I watch next from my watchlist?",
-					"Which titles did I finish this month?",
-					"What's releasing for titles I follow this week?",
+					catalogMessage("assistant-starter.watch-next"),
+					catalogMessage("assistant-starter.finished-this-month"),
+					catalogMessage("assistant-starter.releasing-this-week"),
 				],
 				collectionPages: {
 					recommendations: {
 						icon: "sparkles",
-						label: "Recommendations",
 						route: "/collections/$collectionId/recommendations",
 						entitySchemaSlugs: [...builtinMediaEntitySchemaSlugs],
+						label: catalogMessage("collection-page.recommendations.label"),
 					},
 				},
 				routes: {
@@ -644,22 +650,22 @@ it.effect(
 					scopes: [],
 					pkce: "none",
 					slug: "anilist",
-					name: "AniList",
 					clientIdConfigKey: "anilistClientId",
 					accessTokenLifetimeSeconds: 31536000,
 					tokenEndpointAuth: "client_secret_post",
 					clientSecretConfigKey: "anilistClientSecret",
+					name: catalogMessage("provider.anilist.name"),
 					tokenUrl: "https://anilist.co/api/v2/oauth/token",
 					authorizeUrl: "https://anilist.co/api/v2/oauth/authorize",
 				},
 				{
 					pkce: "S256",
 					slug: "spotify",
-					name: "Spotify",
 					clientIdConfigKey: "spotifyClientId",
 					scopes: ["user-read-recently-played"],
 					tokenEndpointAuth: "client_secret_basic",
 					clientSecretConfigKey: "spotifyClientSecret",
+					name: catalogMessage("provider.spotify.name"),
 					tokenUrl: "https://accounts.spotify.com/api/token",
 					authorizeUrl: "https://accounts.spotify.com/authorize",
 				},
@@ -777,35 +783,35 @@ it.effect(
 				slug: "media-monitoring-targets",
 			});
 			expect(
-				yield* Effect.forEach(mediaPlugin.savedViews, ({ name, settings }) =>
+				yield* Effect.forEach(mediaPlugin.savedViews, ({ slug, settings }) =>
 					Effect.map(
 						Schema.decodeEffect(AuthoredEntityBrowserAddAction)(settings["addAction"]),
 						(addAction) => {
 							assert(addAction.type === "provider-search");
-							return { name, entitySchemaSlug: addAction.schema.slug };
+							return { slug, entitySchemaSlug: addAction.schema.slug };
 						},
 					),
 				),
 			).toEqual<unknown>([
-				{ name: "All People", entitySchemaSlug: "person" },
-				{ name: "All Companies", entitySchemaSlug: "company" },
-				{ name: "All Shows", entitySchemaSlug: "show" },
-				{ name: "All Books", entitySchemaSlug: "book" },
-				{ name: "All Movies", entitySchemaSlug: "movie" },
-				{ name: "All Music", entitySchemaSlug: "music" },
-				{ name: "All Manga", entitySchemaSlug: "manga" },
-				{ name: "All Anime", entitySchemaSlug: "anime" },
-				{ name: "All Podcasts", entitySchemaSlug: "podcast" },
-				{ name: "All Audiobooks", entitySchemaSlug: "audiobook" },
-				{ name: "All Video Games", entitySchemaSlug: "video-game" },
-				{ name: "All Comic Books", entitySchemaSlug: "comic-book" },
-				{ name: "All Book Series", entitySchemaSlug: "book-group" },
-				{ name: "All Movie Series", entitySchemaSlug: "movie-group" },
-				{ name: "All Music Albums", entitySchemaSlug: "music-group" },
-				{ name: "All Visual Novels", entitySchemaSlug: "visual-novel" },
-				{ name: "All Audiobook Series", entitySchemaSlug: "audiobook-group" },
-				{ name: "All Comic Book Series", entitySchemaSlug: "comic-book-group" },
-				{ name: "All Video Game Franchises", entitySchemaSlug: "video-game-group" },
+				{ slug: "all-people", entitySchemaSlug: "person" },
+				{ slug: "all-companies", entitySchemaSlug: "company" },
+				{ slug: "all-shows", entitySchemaSlug: "show" },
+				{ slug: "all-books", entitySchemaSlug: "book" },
+				{ slug: "all-movies", entitySchemaSlug: "movie" },
+				{ slug: "all-music", entitySchemaSlug: "music" },
+				{ slug: "all-manga", entitySchemaSlug: "manga" },
+				{ slug: "all-anime", entitySchemaSlug: "anime" },
+				{ slug: "all-podcasts", entitySchemaSlug: "podcast" },
+				{ slug: "all-audiobooks", entitySchemaSlug: "audiobook" },
+				{ slug: "all-video-games", entitySchemaSlug: "video-game" },
+				{ slug: "all-comic-books", entitySchemaSlug: "comic-book" },
+				{ slug: "all-book-series", entitySchemaSlug: "book-group" },
+				{ slug: "all-movie-series", entitySchemaSlug: "movie-group" },
+				{ slug: "all-music-albums", entitySchemaSlug: "music-group" },
+				{ slug: "all-visual-novels", entitySchemaSlug: "visual-novel" },
+				{ slug: "all-audiobook-series", entitySchemaSlug: "audiobook-group" },
+				{ slug: "all-comic-book-series", entitySchemaSlug: "comic-book-group" },
+				{ slug: "all-video-game-franchises", entitySchemaSlug: "video-game-group" },
 			]);
 			expect(
 				mediaPlugin.providers.find(({ slug }) => slug === "book.google-books"),
@@ -835,15 +841,15 @@ it("declares genres as provider-backed entities with outgoing media relationship
 	expect(mediaPlugin.entitySchemas.find(({ slug }) => slug === "genre")).toEqual({
 		icon: "tags",
 		slug: "genre",
-		name: "Genre",
 		eventSchemas: [],
 		editor: { relationships: [] },
 		propertiesSchema: { fields: {} },
+		name: catalogMessage("entity-schema.genre.name"),
 	});
 	expect(mediaPlugin.providers.find(({ slug }) => slug === "genre.media-catalog")).toEqual({
-		name: "Media Catalog",
 		slug: "genre.media-catalog",
 		rootEntitySchemaSlug: "genre",
+		name: catalogMessage("provider.media-catalog.name"),
 		information: { source: "media-catalog", canonicalLanguage: "en" },
 	});
 	expect(
@@ -864,12 +870,12 @@ it("declares genres as provider-backed entities with outgoing media relationship
 			"music",
 			"visual-novel",
 		].map((sourceEntitySchemaSlug) => ({
-			name: "Genres",
 			sourceEntitySchemaSlug,
 			userWritePolicy: "source-owner",
 			targetEntitySchemaSlug: "genre",
 			propertiesSchema: { fields: {} },
 			slug: `${sourceEntitySchemaSlug}-to-genre`,
+			name: catalogMessage("relationship-schema.genres.name"),
 		})),
 	);
 	for (const slug of builtinMediaEntitySchemaSlugs) {
@@ -1084,16 +1090,16 @@ it("declares viewing country, upcoming controls, and one bounded where-you-consu
 		position: 3,
 		type: "enum",
 		defaultValue: "auto",
-		label: "Viewing country",
 		choices: { kind: "static" },
 		validation: { required: true },
+		label: catalogMessage("property.viewing-country"),
 	});
 	for (const choice of [
-		{ value: "auto", label: "Automatic (browser region)" },
-		{ value: "US", label: "United States" },
-		{ value: "GB", label: "United Kingdom" },
-		{ value: "IN", label: "India" },
-	]) {
+		{ value: "auto", label: catalogMessage("choice.automatic-browser-region") },
+		{ value: "US", kind: "region" },
+		{ value: "GB", kind: "region" },
+		{ value: "IN", kind: "region" },
+	] as const) {
 		expect(mediaPlugin.userSettingsSchema.fields.viewingRegion.choices.values).toContainEqual(
 			choice,
 		);
@@ -1107,7 +1113,7 @@ it("declares viewing country, upcoming controls, and one bounded where-you-consu
 		});
 	}
 	expect(fields.get("consumedOnVideoGame")).toMatchObject({
-		label: "Where you consume: Video game",
+		label: catalogMessage("user-setting.consumed-on.video-game"),
 		defaultValue: ["PC", "PlayStation 5", "Xbox Series X|S", "Nintendo Switch", "Steam Deck"],
 	});
 	expect(fields.get("consumedOnMovie")).toMatchObject({

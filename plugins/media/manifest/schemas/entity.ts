@@ -1,10 +1,14 @@
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type {
+	AuthoredAppSchema,
+	ManifestText,
+} from "@ryot-app/contract/modules/plugins/manifest-text";
 import { reviewPropertyFields } from "@ryot-app/plugin-kit/schema";
 
 import {
 	CONSUMED_ON_ITEM_LIMIT,
 	CONSUMED_ON_SOURCES_LIMIT,
 } from "../../shared/consumed-on-settings";
+import { catalogMessage } from "../../shared/messages.generated";
 import { mediaPositionField, withConsumptionFacts } from "./consumption";
 import {
 	animePropertiesSchema,
@@ -28,56 +32,58 @@ import {
 
 const consumedOnField = {
 	consumedOn: {
-		label: "Consumed on",
 		type: "array" as const,
+		label: catalogMessage("property.consumed-on"),
 		validation: { maxItems: CONSUMED_ON_SOURCES_LIMIT },
 		description:
 			"The sources or platforms where this content was consumed (e.g. Netflix, Jellyfin)",
 		items: {
-			label: "Source",
 			type: "string" as const,
 			description: "A source or platform",
+			label: catalogMessage("property.source"),
 			validation: { maxLength: CONSUMED_ON_ITEM_LIMIT },
 		},
 	},
 };
 
 const startedOnField = {
-	label: "Started on",
 	type: "datetime" as const,
+	label: catalogMessage("property.started-on"),
 	description: "Date and time you started consuming this media",
 };
 
 const timeSpentField = {
-	label: "Time spent",
 	type: "number" as const,
 	validation: { minimum: 0 },
+	label: catalogMessage("property.time-spent"),
 	description: "Time spent consuming this media in minutes",
 };
 
-const withStartedOn = (schema: AppSchema): AppSchema => ({
+const withStartedOn = (schema: AuthoredAppSchema): AuthoredAppSchema => ({
 	...schema,
 	fields: { startedOn: startedOnField, ...schema.fields },
 });
 
-const withTimeSpent = (schema: AppSchema): AppSchema => ({
+const withTimeSpent = (schema: AuthoredAppSchema): AuthoredAppSchema => ({
 	...schema,
 	fields: { ...schema.fields, timeSpent: timeSpentField },
 });
 
-const progressPercentPropertiesSchema = (): AppSchema => ({
+const progressPercentPropertiesSchema = (): AuthoredAppSchema => ({
 	fields: {
 		...consumedOnField,
 		progressPercent: {
 			type: "number" as const,
-			label: "Progress percent",
 			validation: { maximum: 100, exclusiveMinimum: 0 },
+			label: catalogMessage("property.progress-percent"),
 			description: "Percentage of the media completed so far (0 to 100)",
 		},
 	},
 });
 
-const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema => {
+const progressPropertiesSchemaByEntity = (
+	entitySchemaSlug: string | undefined,
+): AuthoredAppSchema => {
 	if (entitySchemaSlug === undefined) {
 		return progressPercentPropertiesSchema();
 	}
@@ -89,8 +95,8 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 					...progressPercentPropertiesSchema().fields,
 					progressPages: {
 						type: "number",
-						label: "Pages reached",
 						validation: { minimum: 0 },
+						label: catalogMessage("property.pages-reached"),
 						description: "Exact cumulative pages in this run",
 					},
 				},
@@ -101,7 +107,7 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 				fields: {
 					...progressPercentPropertiesSchema().fields,
 					position: mediaPositionField(entitySchemaSlug, {
-						label: "Position",
+						label: catalogMessage("property.position"),
 						description: "Cumulative position consumed through",
 					}),
 				},
@@ -111,95 +117,102 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 	}
 };
 
-const statusPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema =>
+const statusPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AuthoredAppSchema =>
 	entitySchemaSlug === "show" || entitySchemaSlug === "podcast"
 		? { fields: { ...consumedOnField } }
 		: progressPropertiesSchemaByEntity(entitySchemaSlug);
 
-const listStateDateComponent = (label: string, maximum?: number) => ({
+const listStateDateComponent = (label: ManifestText, description: string, maximum?: number) => ({
 	label,
+	description,
 	type: "integer" as const,
-	description: `${label} in the AniList date`,
 	validation: { minimum: 1, ...(maximum === undefined ? {} : { maximum }) },
 });
 
-const listStateDateField = (label: string, description: string, position: number) => ({
+const listStateDateField = (label: ManifestText, description: string, position: number) => ({
 	label,
 	position,
 	description,
 	type: "object" as const,
 	unknownKeys: "strict" as const,
 	properties: {
-		year: listStateDateComponent("Year"),
-		day: listStateDateComponent("Day", 31),
-		month: listStateDateComponent("Month", 12),
+		year: listStateDateComponent(catalogMessage("property.year"), "Year in the AniList date"),
+		day: listStateDateComponent(catalogMessage("property.day"), "Day in the AniList date", 31),
+		month: listStateDateComponent(
+			catalogMessage("property.month"),
+			"Month in the AniList date",
+			12,
+		),
 	},
 });
 
 const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
-	name: "List State",
 	slug: "list-state",
+	name: catalogMessage("event-schema.list-state.name"),
 	propertiesSchema: {
 		unknownKeys: "strict" as const,
 		fields: {
 			startedDate: listStateDateField(
-				"Started Date",
+				catalogMessage("property.started-date"),
 				"The partial start date AniList reports, without inferred components",
 				6,
 			),
 			completedDate: listStateDateField(
-				"Completed Date",
+				catalogMessage("property.completed-date"),
 				"The partial completion date AniList reports, without inferred components",
 				7,
 			),
 			position: {
 				...mediaPositionField(entitySchemaSlug, {
-					label: "Position",
+					label: catalogMessage("property.position"),
 					description: "The position AniList reports",
 				}),
 				position: 8,
 			},
 			repeatCount: {
 				position: 5,
-				label: "Repeat count",
 				type: "integer" as const,
+				label: catalogMessage("property.repeat-count"),
 				validation: { minimum: 0, required: true as const },
 				description: "The number of repeats recorded by AniList",
 			},
 			sourceEntryId: {
 				position: 2,
 				type: "string" as const,
-				label: "Source entry ID",
+				label: catalogMessage("property.source-entry-id"),
 				validation: { minLength: 1, required: true as const },
 				description: "The AniList list entry that provided this state",
 			},
 			sourceUpdatedAt: {
 				position: 4,
 				type: "datetime" as const,
-				label: "Source updated at",
 				validation: { required: true as const },
+				label: catalogMessage("property.source-updated-at"),
 				description: "The last update time AniList reports for this list entry",
 			},
 			sourceAccountId: {
 				position: 1,
 				type: "string" as const,
-				label: "Source account ID",
+				label: catalogMessage("property.source-account-id"),
 				validation: { minLength: 1, required: true as const },
 				description: "The AniList account that provided this list state",
 			},
 			source: {
 				position: 0,
-				label: "Source",
 				type: "enum" as const,
 				validation: { required: true as const },
+				label: catalogMessage("property.source"),
 				description: "The source that provided this list state",
-				choices: { kind: "static" as const, values: [{ value: "anilist", label: "AniList" }] },
+				choices: {
+					kind: "static" as const,
+					values: [{ value: "anilist", label: catalogMessage("choice.anilist") }],
+				},
 			},
 			state: {
 				position: 3,
-				label: "List state",
 				type: "enum" as const,
 				validation: { required: true as const },
+				label: catalogMessage("property.list-state"),
 				description: "The current state recorded by AniList",
 				choices: {
 					kind: "static" as const,
@@ -226,17 +239,19 @@ const lifecycleEventSchemaBySlug = (slug: string) => {
 
 const libraryEventSchema = () => ({
 	slug: "add-to-media-library",
-	name: "Added to media library",
 	propertiesSchema: { fields: {} },
+	name: catalogMessage("event-schema.add-to-media-library.name"),
 });
 
-const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema => {
-	const fields: AppSchema["fields"] = {
+const reviewPropertiesSchemaByEntity = (
+	entitySchemaSlug: string | undefined,
+): AuthoredAppSchema => {
+	const fields: AuthoredAppSchema["fields"] = {
 		...reviewPropertyFields("Your written thoughts or notes about this media"),
 		consumptionEventId: {
 			type: "string",
-			label: "About",
 			reference: { kind: "event-id" },
+			label: catalogMessage("property.about"),
 			description: "The completion, progress or status record this review is about",
 		},
 	};
@@ -247,7 +262,7 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 				fields: {
 					...fields,
 					position: mediaPositionField(entitySchemaSlug, {
-						label: "Reviewed item",
+						label: catalogMessage("property.reviewed-item"),
 						description: "The episode, chapter or volume being reviewed",
 					}),
 				},
@@ -260,36 +275,40 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 
 const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	libraryEventSchema(),
-	{ name: "Backlog", slug: "backlog", propertiesSchema: { fields: {} } },
 	{
-		name: "Progress",
+		slug: "backlog",
+		propertiesSchema: { fields: {} },
+		name: catalogMessage("event-schema.backlog.name"),
+	},
+	{
 		slug: "progress",
+		name: catalogMessage("event-schema.progress.name"),
 		propertiesSchema: withConsumptionFacts(
 			withStartedOn(withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug))),
 		),
 	},
 	{
-		name: "Review",
 		slug: "review",
+		name: catalogMessage("event-schema.review.name"),
 		propertiesSchema: reviewPropertiesSchemaByEntity(entitySchemaSlug),
 	},
 	{
-		name: "Dropped",
 		slug: "dropped",
+		name: catalogMessage("event-schema.dropped.name"),
 		propertiesSchema: withStartedOn(
 			withTimeSpent(withConsumptionFacts(statusPropertiesSchemaByEntity(entitySchemaSlug))),
 		),
 	},
 	{
-		name: "On Hold",
 		slug: "on_hold",
+		name: catalogMessage("event-schema.on-hold.name"),
 		propertiesSchema: withStartedOn(
 			withTimeSpent(withConsumptionFacts(statusPropertiesSchemaByEntity(entitySchemaSlug))),
 		),
 	},
 	{
-		name: "Complete",
 		slug: "complete",
+		name: catalogMessage("event-schema.complete.name"),
 		propertiesSchema: withConsumptionFacts({
 			fields: {
 				...consumedOnField,
@@ -297,17 +316,17 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 				startedOn: startedOnField,
 				completionKey: {
 					type: "string" as const,
-					label: "Automatic completion identity",
+					label: catalogMessage("property.automatic-completion-identity"),
 					description: "Key of the completion occurrence that derived this record",
 				},
 				completionSilent: {
 					type: "boolean" as const,
-					label: "Silent history correction",
+					label: catalogMessage("property.silent-history-correction"),
 					description: "Whether creating this derived record must skip external delivery",
 				},
 				dateUnknown: {
-					label: "Date unknown",
 					type: "boolean" as const,
+					label: catalogMessage("property.date-unknown"),
 					description:
 						"Whether the completion date is unknown; occurredAt is the real completion time otherwise",
 				},
@@ -318,8 +337,8 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		? [
 				listStateEventSchema(entitySchemaSlug),
 				{
-					name: "Item consumed",
 					slug: "item-complete",
+					name: catalogMessage("event-schema.item-complete.name"),
 					propertiesSchema: withConsumptionFacts({
 						fields: {
 							...consumedOnField,
@@ -327,7 +346,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 							startedOn: startedOnField,
 							position: mediaPositionField(entitySchemaSlug, {
 								required: true,
-								label: "Consumed item",
+								label: catalogMessage("property.consumed-item"),
 								description:
 									"One independent numbered occurrence, not cumulative progress or title completion",
 							}),
@@ -338,7 +357,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		: []),
 ];
 
-const buildMediaGroupEntitySchema = (slug: string, name: string, icon: string) => ({
+const buildMediaGroupEntitySchema = (slug: string, name: ManifestText, icon: string) => ({
 	slug,
 	name,
 	icon,
@@ -353,16 +372,16 @@ export const mediaEntitySchemas = () => [
 		icon: "library",
 		eventSchemas: [],
 		slug: "media-library",
-		name: "Media Library",
 		propertiesSchema: { fields: {} },
+		name: catalogMessage("entity-schema.media-library.name"),
 		userState: { deniedOperations: ["clear", "merge"] as const },
 	},
 	{
 		icon: "user",
 		slug: "person",
-		name: "Person",
 		refreshIntervalDays: 365,
 		propertiesSchema: personPropertiesSchema,
+		name: catalogMessage("entity-schema.person.name"),
 		eventSchemas: mediaLifecycleEventSchemas("person").filter(
 			(schema) => schema.slug === "review" || schema.slug === "add-to-media-library",
 		),
@@ -370,75 +389,99 @@ export const mediaEntitySchemas = () => [
 	{
 		icon: "tags",
 		slug: "genre",
-		name: "Genre",
 		eventSchemas: [],
 		propertiesSchema: { fields: {} },
+		name: catalogMessage("entity-schema.genre.name"),
 	},
 	{
 		slug: "company",
-		name: "Company",
 		icon: "building-2",
 		refreshIntervalDays: 365,
 		propertiesSchema: companyPropertiesSchema,
+		name: catalogMessage("entity-schema.company.name"),
 		eventSchemas: mediaLifecycleEventSchemas("company").filter(
 			(schema) => schema.slug === "review" || schema.slug === "add-to-media-library",
 		),
 	},
-	buildMediaGroupEntitySchema("movie-group", "Movie Collection", "film"),
-	buildMediaGroupEntitySchema("audiobook-group", "Audiobook Series", "mic"),
-	buildMediaGroupEntitySchema("book-group", "Book Series", "book-copy"),
-	buildMediaGroupEntitySchema("comic-book-group", "Comic Book Series", "sparkles"),
-	buildMediaGroupEntitySchema("music-group", "Music Album", "disc-3"),
-	buildMediaGroupEntitySchema("video-game-group", "Video Game Collection", "joystick"),
+	buildMediaGroupEntitySchema(
+		"movie-group",
+		catalogMessage("entity-schema.movie-group.name"),
+		"film",
+	),
+	buildMediaGroupEntitySchema(
+		"audiobook-group",
+		catalogMessage("entity-schema.audiobook-group.name"),
+		"mic",
+	),
+	buildMediaGroupEntitySchema(
+		"book-group",
+		catalogMessage("entity-schema.book-group.name"),
+		"book-copy",
+	),
+	buildMediaGroupEntitySchema(
+		"comic-book-group",
+		catalogMessage("entity-schema.comic-book-group.name"),
+		"sparkles",
+	),
+	buildMediaGroupEntitySchema(
+		"music-group",
+		catalogMessage("entity-schema.music-group.name"),
+		"disc-3",
+	),
+	buildMediaGroupEntitySchema(
+		"video-game-group",
+		catalogMessage("entity-schema.video-game-group.name"),
+		"joystick",
+	),
 	{
 		slug: "book",
-		name: "Book",
 		icon: "book-open",
 		refreshIntervalDays: 365,
 		occursAtProperty: "publishDate",
 		propertiesSchema: bookPropertiesSchema,
+		name: catalogMessage("entity-schema.book.name"),
 		eventSchemas: mediaLifecycleEventSchemas("book"),
 	},
 	{
 		icon: "book-image",
 		slug: "comic-book",
-		name: "Comic Book",
 		refreshIntervalDays: 365,
 		occursAtProperty: "publishDate",
 		propertiesSchema: comicBookPropertiesSchema,
+		name: catalogMessage("entity-schema.comic-book.name"),
 		eventSchemas: mediaLifecycleEventSchemas("comic-book"),
 	},
 	{
 		icon: "tv",
 		slug: "anime",
-		name: "Anime",
 		refreshIntervalDays: 30,
 		occursAtProperty: "publishDate",
 		propertiesSchema: animePropertiesSchema,
+		name: catalogMessage("entity-schema.anime.name"),
 		eventSchemas: mediaLifecycleEventSchemas("anime"),
 	},
 	{
 		slug: "movie",
-		name: "Movie",
 		icon: "clapperboard",
 		refreshIntervalDays: 180,
 		occursAtProperty: "publishDate",
 		propertiesSchema: moviePropertiesSchema,
+		name: catalogMessage("entity-schema.movie.name"),
 		eventSchemas: mediaLifecycleEventSchemas("movie"),
 	},
 	{
 		slug: "show",
-		name: "Show",
 		icon: "monitor-play",
 		refreshIntervalDays: 7,
 		propertiesSchema: showPropertiesSchema,
+		name: catalogMessage("entity-schema.show.name"),
 		eventSchemas: mediaLifecycleEventSchemas("show").filter((schema) => schema.slug !== "progress"),
 	},
 	{
 		icon: "list-video",
 		slug: "show-season",
-		name: "Show Season",
 		propertiesSchema: showSeasonPropertiesSchema,
+		name: catalogMessage("entity-schema.show-season.name"),
 		eventSchemas: [
 			lifecycleEventSchemaBySlug("review"),
 			lifecycleEventSchemaBySlug("add-to-media-library"),
@@ -447,9 +490,9 @@ export const mediaEntitySchemas = () => [
 	{
 		icon: "play-square",
 		slug: "show-episode",
-		name: "Show Episode",
 		occursAtProperty: "publishDate",
 		propertiesSchema: showEpisodePropertiesSchema,
+		name: catalogMessage("entity-schema.show-episode.name"),
 		eventSchemas: [
 			lifecycleEventSchemaBySlug("progress"),
 			lifecycleEventSchemaBySlug("review"),
@@ -460,27 +503,27 @@ export const mediaEntitySchemas = () => [
 	{
 		icon: "book",
 		slug: "manga",
-		name: "Manga",
 		refreshIntervalDays: 30,
 		occursAtProperty: "publishDate",
 		propertiesSchema: mangaPropertiesSchema,
+		name: catalogMessage("entity-schema.manga.name"),
 		eventSchemas: mediaLifecycleEventSchemas("manga"),
 	},
 	{
 		slug: "audiobook",
-		name: "Audiobook",
 		icon: "headphones",
 		refreshIntervalDays: 365,
 		occursAtProperty: "publishDate",
 		propertiesSchema: audiobookPropertiesSchema,
+		name: catalogMessage("entity-schema.audiobook.name"),
 		eventSchemas: mediaLifecycleEventSchemas("audiobook"),
 	},
 	{
 		slug: "podcast",
-		name: "Podcast",
 		icon: "podcast",
 		refreshIntervalDays: 30,
 		propertiesSchema: podcastPropertiesSchema,
+		name: catalogMessage("entity-schema.podcast.name"),
 		eventSchemas: mediaLifecycleEventSchemas("podcast").filter(
 			(schema) => schema.slug !== "progress",
 		),
@@ -488,9 +531,9 @@ export const mediaEntitySchemas = () => [
 	{
 		icon: "radio",
 		slug: "podcast-episode",
-		name: "Podcast Episode",
 		occursAtProperty: "publishDate",
 		propertiesSchema: podcastEpisodePropertiesSchema,
+		name: catalogMessage("entity-schema.podcast-episode.name"),
 		eventSchemas: [
 			lifecycleEventSchemaBySlug("progress"),
 			lifecycleEventSchemaBySlug("review"),
@@ -501,28 +544,28 @@ export const mediaEntitySchemas = () => [
 	{
 		icon: "gamepad-2",
 		slug: "video-game",
-		name: "Video Game",
 		refreshIntervalDays: 180,
 		occursAtProperty: "publishDate",
 		propertiesSchema: videoGamePropertiesSchema,
+		name: catalogMessage("entity-schema.video-game.name"),
 		eventSchemas: mediaLifecycleEventSchemas("video-game"),
 	},
 	{
 		slug: "music",
-		name: "Music",
 		icon: "music",
 		refreshIntervalDays: 180,
 		occursAtProperty: "publishDate",
 		propertiesSchema: musicPropertiesSchema,
+		name: catalogMessage("entity-schema.music.name"),
 		eventSchemas: mediaLifecycleEventSchemas("music"),
 	},
 	{
 		icon: "book-heart",
 		slug: "visual-novel",
-		name: "Visual Novel",
 		refreshIntervalDays: 180,
 		occursAtProperty: "publishDate",
 		propertiesSchema: visualNovelPropertiesSchema,
+		name: catalogMessage("entity-schema.visual-novel.name"),
 		eventSchemas: mediaLifecycleEventSchemas("visual-novel"),
 	},
 ];

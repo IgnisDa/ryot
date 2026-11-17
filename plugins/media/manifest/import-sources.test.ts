@@ -1,8 +1,9 @@
 import { expect, it } from "bun:test";
 
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { assert } from "@ryot-app/testing/assert";
 
+import { catalogMessage } from "../shared/messages.generated";
 import { mediaPlugin } from "./plugin";
 
 const sources = new Map(mediaPlugin.importSources.map((source) => [source.slug, source]));
@@ -63,7 +64,7 @@ it("declares strict, positioned input schemas and export documentation for every
 it("declares every upload field with its extensions and required state", () => {
 	const uploads = Object.fromEntries(
 		mediaPlugin.importSources.flatMap((source) =>
-			Object.entries<AppSchema["fields"][string]>(source.inputSchema.fields).flatMap(
+			Object.entries<AuthoredAppSchema["fields"][string]>(source.inputSchema.fields).flatMap(
 				([field, property]) =>
 					property.type === "string" && property.format?.kind === "upload"
 						? [
@@ -126,9 +127,9 @@ it("declares Trakt modes and hides only fields outside the selected mode", () =>
 		choices: {
 			kind: "static",
 			values: [
-				{ value: "export", label: "Export file" },
-				{ value: "user", label: "Username" },
-				{ value: "list", label: "List" },
+				{ value: "export", label: catalogMessage("property.export-file") },
+				{ value: "user", label: catalogMessage("property.username") },
+				{ value: "list", label: catalogMessage("choice.list") },
 			],
 		},
 	});

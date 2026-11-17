@@ -1,18 +1,23 @@
-const requiredString = (label: string, description: string) => ({
+import type { ManifestText } from "@ryot-app/contract/modules/plugins/manifest-text";
+
+import { creditRoleCodes } from "../../shared/credit-roles";
+import { catalogMessage } from "../../shared/messages.generated";
+
+const requiredString = (label: ManifestText, description: string) => ({
 	label,
 	description,
 	type: "string" as const,
 	validation: { required: true as const },
 });
 
-const requiredNumber = (label: string, description: string) => ({
+const requiredNumber = (label: ManifestText, description: string) => ({
 	label,
 	description,
 	type: "number" as const,
 	validation: { required: true as const },
 });
 
-const requiredInteger = (label: string, description: string) => ({
+const requiredInteger = (label: ManifestText, description: string) => ({
 	label,
 	description,
 	type: "integer" as const,
@@ -30,45 +35,51 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 		{
 			catalogState: "active",
 			slug: "review.created",
-			name: "Review Created",
 			audiencePolicy: { kind: "actor" },
 			notificationHookSlug: "media.notification",
+			name: catalogMessage("signal-schema.review-created.name"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
 					entityId: {
 						type: "string",
-						label: "Entity ID",
 						validation: { required: true },
 						description: "Reviewed entity ID",
+						label: catalogMessage("property.entity-id"),
 					},
 					entityName: {
 						type: "string",
-						label: "Entity name",
 						validation: { required: true },
 						description: "Reviewed entity name",
+						label: catalogMessage("property.entity-name"),
 					},
 					reviewEventId: {
 						type: "string",
-						label: "Review event ID",
 						validation: { required: true },
 						description: "Created review event ID",
+						label: catalogMessage("property.review-event-id"),
 					},
 					entitySchemaSlug: {
 						type: "string",
-						label: "Entity schema slug",
 						validation: { required: true },
 						description: "Reviewed entity schema slug",
+						label: catalogMessage("property.entity-schema-slug"),
 					},
 				},
 			},
 		},
 		...(
 			[
-				["person.media.associated", "Person Media Associated"],
-				["company.media.associated", "Company Media Associated"],
-				["person.media-group.associated", "Person Media Group Associated"],
-				["company.media-group.associated", "Company Media Group Associated"],
+				["person.media.associated", catalogMessage("signal-schema.person-media-associated.name")],
+				["company.media.associated", catalogMessage("signal-schema.company-media-associated.name")],
+				[
+					"person.media-group.associated",
+					catalogMessage("signal-schema.person-media-group-associated.name"),
+				],
+				[
+					"company.media-group.associated",
+					catalogMessage("signal-schema.company-media-group-associated.name"),
+				],
 			] as const
 		).map(([slug, name]) => ({
 			name,
@@ -79,45 +90,73 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			propertiesSchema: {
 				unknownKeys: "strict" as const,
 				fields: {
-					role: requiredString("Role", "Role in the associated media or group"),
-					subjectName: requiredString("Subject name", "Credited person or company name"),
-					associatedName: requiredString("Associated name", "Associated media or group name"),
+					subjectName: requiredString(
+						catalogMessage("property.subject-name"),
+						"Credited person or company name",
+					),
+					associatedName: requiredString(
+						catalogMessage("property.associated-name"),
+						"Associated media or group name",
+					),
+					role: {
+						type: "string" as const,
+						label: catalogMessage("property.role"),
+						description: "Role in the associated media or group, as the provider names it",
+					},
+					roleCode: {
+						type: "enum" as const,
+						label: catalogMessage("property.role-code"),
+						description: "Standard role in the associated media or group, when no named role",
+						choices: {
+							kind: "static" as const,
+							values: creditRoleCodes.map((value) => ({ value })),
+						},
+					},
 				},
 			},
 		})),
 		{
 			catalogState: "active",
 			slug: "media.status.changed",
-			name: "Media Status Changed",
 			notificationHookSlug: "media.notification",
+			name: catalogMessage("signal-schema.media-status-changed.name"),
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					entityName: requiredString("Entity name", "Changed media name"),
-					newStatus: requiredString("New status", "Current production status"),
-					oldStatus: requiredString("Old status", "Previous production status"),
-					entitySchemaSlug: requiredString("Entity schema slug", "Changed media schema slug"),
+					entityName: requiredString(catalogMessage("property.entity-name"), "Changed media name"),
+					newStatus: requiredString(
+						catalogMessage("property.new-status"),
+						"Current production status",
+					),
+					oldStatus: requiredString(
+						catalogMessage("property.old-status"),
+						"Previous production status",
+					),
+					entitySchemaSlug: requiredString(
+						catalogMessage("property.entity-schema-slug"),
+						"Changed media schema slug",
+					),
 				},
 			},
 		},
 		{
 			catalogState: "active",
 			slug: "media.content-count.changed",
-			name: "Media Content Count Changed",
 			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
+			name: catalogMessage("signal-schema.media-content-count-changed.name"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					newCount: requiredNumber("New count", "Current content count"),
-					oldCount: requiredNumber("Old count", "Previous content count"),
-					entityName: requiredString("Entity name", "Changed media name"),
+					newCount: requiredNumber(catalogMessage("property.new-count"), "Current content count"),
+					oldCount: requiredNumber(catalogMessage("property.old-count"), "Previous content count"),
+					entityName: requiredString(catalogMessage("property.entity-name"), "Changed media name"),
 					contentType: {
 						type: "enum",
-						label: "Content type",
 						validation: { required: true },
 						description: "Type of counted content",
+						label: catalogMessage("property.content-type"),
 						choices: { kind: "static", values: [{ value: "chapters" }, { value: "episodes" }] },
 					},
 				},
@@ -126,9 +165,9 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 		{
 			catalogState: "active",
 			slug: "media.release-date.changed",
-			name: "Media Release Date Changed",
 			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
+			name: catalogMessage("signal-schema.media-release-date-changed.name"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				rules: [
@@ -146,26 +185,42 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 					})),
 				],
 				fields: {
-					entityName: requiredString("Entity name", "Changed media name"),
-					newDate: { type: "date", label: "New date", description: "Current episode date" },
-					oldDate: { type: "date", label: "Old date", description: "Previous episode date" },
-					newYear: { type: "integer", label: "New year", description: "Current publish year" },
-					oldYear: { type: "integer", label: "Old year", description: "Previous publish year" },
+					entityName: requiredString(catalogMessage("property.entity-name"), "Changed media name"),
+					newDate: {
+						type: "date",
+						description: "Current episode date",
+						label: catalogMessage("property.new-date"),
+					},
+					oldDate: {
+						type: "date",
+						description: "Previous episode date",
+						label: catalogMessage("property.old-date"),
+					},
+					newYear: {
+						type: "integer",
+						description: "Current publish year",
+						label: catalogMessage("property.new-year"),
+					},
+					oldYear: {
+						type: "integer",
+						description: "Previous publish year",
+						label: catalogMessage("property.old-year"),
+					},
 					seasonNumber: {
 						type: "integer",
-						label: "Season number",
 						description: "Optional season number",
+						label: catalogMessage("property.season-number"),
 					},
 					episodeNumber: {
 						type: "integer",
-						label: "Episode number",
 						description: "Episode number within its parent",
+						label: catalogMessage("property.episode-number"),
 					},
 					changeKind: {
 						type: "enum",
-						label: "Change kind",
 						validation: { required: true },
 						description: "Kind of release date change",
+						label: catalogMessage("property.change-kind"),
 						choices: {
 							kind: "static",
 							values: [{ value: "publish_year" }, { value: "episode_date" }],
@@ -177,20 +232,31 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 		{
 			catalogState: "active",
 			slug: "media.episode.name.changed",
-			name: "Media Episode Name Changed",
 			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
+			name: catalogMessage("signal-schema.media-episode-name-changed.name"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					entityName: requiredString("Entity name", "Parent media name"),
-					newName: { type: "string", label: "New name", description: "Current episode name" },
-					oldName: { type: "string", label: "Old name", description: "Previous episode name" },
-					episodeNumber: requiredInteger("Episode number", "Episode number within its parent"),
+					entityName: requiredString(catalogMessage("property.entity-name"), "Parent media name"),
+					episodeNumber: requiredInteger(
+						catalogMessage("property.episode-number"),
+						"Episode number within its parent",
+					),
+					newName: {
+						type: "string",
+						description: "Current episode name",
+						label: catalogMessage("property.new-name"),
+					},
+					oldName: {
+						type: "string",
+						description: "Previous episode name",
+						label: catalogMessage("property.old-name"),
+					},
 					seasonNumber: {
 						type: "integer",
-						label: "Season number",
 						description: "Optional season number",
+						label: catalogMessage("property.season-number"),
 					},
 				},
 			},
@@ -198,18 +264,21 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 		{
 			catalogState: "active",
 			slug: "media.episode.images.changed",
-			name: "Media Episode Images Changed",
 			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
+			name: catalogMessage("signal-schema.media-episode-images-changed.name"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					entityName: requiredString("Entity name", "Parent media name"),
-					episodeNumber: requiredInteger("Episode number", "Episode number within its parent"),
+					entityName: requiredString(catalogMessage("property.entity-name"), "Parent media name"),
+					episodeNumber: requiredInteger(
+						catalogMessage("property.episode-number"),
+						"Episode number within its parent",
+					),
 					seasonNumber: {
 						type: "integer",
-						label: "Season number",
 						description: "Optional season number",
+						label: catalogMessage("property.season-number"),
 					},
 				},
 			},
@@ -217,84 +286,95 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 		{
 			catalogState: "active",
 			slug: "media.season-count.changed",
-			name: "Media Season Count Changed",
 			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
+			name: catalogMessage("signal-schema.media-season-count-changed.name"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					newCount: requiredInteger("New count", "Current season count"),
-					entityName: requiredString("Entity name", "Changed show name"),
-					oldCount: requiredInteger("Old count", "Previous season count"),
+					newCount: requiredInteger(catalogMessage("property.new-count"), "Current season count"),
+					entityName: requiredString(catalogMessage("property.entity-name"), "Changed show name"),
+					oldCount: requiredInteger(catalogMessage("property.old-count"), "Previous season count"),
 				},
 			},
 		},
 		{
 			catalogState: "active",
 			slug: "media.released",
-			name: "Media Released",
 			audiencePolicy: { kind: "actor" },
 			notificationHookSlug: "media.notification",
+			name: catalogMessage("signal-schema.media-released.name"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					entityName: requiredString("Entity name", "Released media name"),
+					entityName: requiredString(catalogMessage("property.entity-name"), "Released media name"),
 					seasonNumber: {
 						type: "integer",
-						label: "Season number",
 						description: "Optional season number",
+						label: catalogMessage("property.season-number"),
 					},
 					episodeNumber: {
 						type: "integer",
-						label: "Episode number",
 						description: "Optional episode number",
+						label: catalogMessage("property.episode-number"),
 					},
 				},
 			},
 		},
 		{
 			catalogState: "active",
-			name: "Media Progress Stale",
 			slug: "media.progress-stale",
 			audiencePolicy: { kind: "actor" },
 			notificationHookSlug: "media.notification",
+			name: catalogMessage("signal-schema.media-progress-stale.name"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					entityName: requiredString("Entity name", "Stale media name"),
-					days: requiredInteger("Days", "Days without lifecycle activity"),
-					lifecycleState: requiredString("Lifecycle state", "Unchanged lifecycle state"),
+					entityName: requiredString(catalogMessage("property.entity-name"), "Stale media name"),
+					days: requiredInteger(catalogMessage("property.days"), "Days without lifecycle activity"),
+					lifecycleState: requiredString(
+						catalogMessage("property.lifecycle-state"),
+						"Unchanged lifecycle state",
+					),
 				},
 			},
 		},
 		{
 			catalogState: "active",
-			name: "Media Episodes Available",
 			slug: "media.episodes-available",
 			audiencePolicy: { kind: "actor" },
 			notificationHookSlug: "media.notification",
+			name: catalogMessage("signal-schema.media-episodes-available.name"),
 			propertiesSchema: {
 				unknownKeys: "strict",
-				fields: { entityName: requiredString("Entity name", "Caught-up series name") },
+				fields: {
+					entityName: requiredString(
+						catalogMessage("property.entity-name"),
+						"Caught-up series name",
+					),
+				},
 			},
 		},
 		{
 			catalogState: "active",
 			slug: "media.episode.discovered",
-			name: "Media Episode Discovered",
 			notificationHookSlug: "media.notification",
+			name: catalogMessage("signal-schema.media-episode-discovered.name"),
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					entityName: requiredString("Entity name", "Parent media name"),
-					newCount: requiredInteger("New count", "Current episode count"),
-					oldCount: requiredInteger("Old count", "Previous episode count"),
-					discoveredCount: requiredInteger("Discovered count", "Newly discovered episodes"),
+					entityName: requiredString(catalogMessage("property.entity-name"), "Parent media name"),
+					newCount: requiredInteger(catalogMessage("property.new-count"), "Current episode count"),
+					oldCount: requiredInteger(catalogMessage("property.old-count"), "Previous episode count"),
+					discoveredCount: requiredInteger(
+						catalogMessage("property.discovered-count"),
+						"Newly discovered episodes",
+					),
 					seasonNumber: {
 						type: "integer",
-						label: "Season number",
 						description: "Optional season number",
+						label: catalogMessage("property.season-number"),
 					},
 				},
 			},

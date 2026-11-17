@@ -1,7 +1,10 @@
 import type { AuthoredBrowseField } from "@ryot-app/contract/modules/filters/browse";
+import type {
+	AuthoredAppSchema,
+	ManifestText,
+} from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	and,
 	ascending,
@@ -26,6 +29,7 @@ import { libraryLinkExists, type Table } from "../shared/entity-selections";
 import { libraryMembershipValue, librarySummary } from "../shared/library-summary";
 import { sameSchemaOwner } from "../shared/lifecycle-expressions";
 import { builtinMediaEntitySchemaSlugs, mediaGroupMemberSlugs } from "../shared/media-schema-slugs";
+import { catalogMessage } from "../shared/messages.generated";
 import { averageUserRating } from "../shared/user-rating";
 import { mediaProviders } from "./providers";
 
@@ -61,9 +65,9 @@ const sourceField = (slug: string): AuthoredBrowseField => {
 		type: "enum",
 		key: "source",
 		kind: "value",
-		label: "Source",
+		label: catalogMessage("property.source"),
 		choices: [
-			{ value: "custom", label: "Custom" },
+			{ value: "custom", label: catalogMessage("browse.source.custom") },
 			...mediaProviders
 				.filter(({ rootEntitySchemaSlug }) => rootEntitySchemaSlug === slug)
 				.map(({ name, slug: value }) => ({ value, label: name })),
@@ -88,28 +92,30 @@ const userRatingField = (expression: ScalarExpression): AuthoredBrowseField => (
 	kind: "value",
 	type: "rating",
 	key: "userRating",
-	label: "Your rating",
+	label: catalogMessage("browse.field.user-rating"),
 	sort: {
-		label: "Your rating",
 		defaultDirection: "desc",
-		ascending: "Lowest first",
-		descending: "Highest first",
+		label: catalogMessage("browse.field.user-rating"),
+		ascending: catalogMessage("browse.sort.lowest-first"),
+		descending: catalogMessage("browse.sort.highest-first"),
 	},
 });
 
-type Choice = { readonly value: string; readonly label: string };
+type Choice = { readonly value: string; readonly label: ManifestText };
 
 const statusChoices = (slug: string): readonly [Choice, ...Choice[]] => [
-	{ value: "untracked", label: "Not tracked" },
-	{ value: "backlog", label: "Planned" },
-	{ value: "in_progress", label: "In progress" },
-	{ value: "on_hold", label: "On hold" },
-	{ value: "dropped", label: "Dropped" },
-	...(slug === "show" || slug === "podcast" ? [{ value: "caught_up", label: "Caught up" }] : []),
-	{ value: "complete", label: "Completed" },
+	{ value: "untracked", label: catalogMessage("browse.status.untracked") },
+	{ value: "backlog", label: catalogMessage("browse.status.backlog") },
+	{ value: "in_progress", label: catalogMessage("browse.status.in-progress") },
+	{ value: "on_hold", label: catalogMessage("browse.status.on-hold") },
+	{ value: "dropped", label: catalogMessage("event-schema.dropped.name") },
+	...(slug === "show" || slug === "podcast"
+		? [{ value: "caught_up", label: catalogMessage("browse.status.caught-up") }]
+		: []),
+	{ value: "complete", label: catalogMessage("browse.status.complete") },
 ];
 
-const propertyFields = (propertiesSchema: AppSchema): readonly AuthoredBrowseField[] => {
+const propertyFields = (propertiesSchema: AuthoredAppSchema): readonly AuthoredBrowseField[] => {
 	const fields = propertiesSchema.fields;
 	return [
 		...("publishYear" in fields
@@ -118,7 +124,7 @@ const propertyFields = (propertiesSchema: AppSchema): readonly AuthoredBrowseFie
 						kind: "value",
 						type: "number",
 						key: "publishYear",
-						label: "Publish year",
+						label: catalogMessage("property.publish-year"),
 						expression: castNumber(property("publishYear")),
 					} as const,
 				]
@@ -129,13 +135,13 @@ const propertyFields = (propertiesSchema: AppSchema): readonly AuthoredBrowseFie
 						kind: "value",
 						type: "number",
 						key: "providerRating",
-						label: "Provider rating",
+						label: catalogMessage("property.provider-rating"),
 						expression: castNumber(property("providerRating")),
 						sort: {
-							label: "Provider rating",
 							defaultDirection: "desc",
-							ascending: "Lowest first",
-							descending: "Highest first",
+							label: catalogMessage("property.provider-rating"),
+							ascending: catalogMessage("browse.sort.lowest-first"),
+							descending: catalogMessage("browse.sort.highest-first"),
 						},
 					} as const,
 				]
@@ -146,34 +152,37 @@ const propertyFields = (propertiesSchema: AppSchema): readonly AuthoredBrowseFie
 						kind: "value",
 						type: "boolean",
 						key: "adultContent",
-						label: "Adult content",
 						expression: castBoolean(property("isNsfw")),
+						label: catalogMessage("property.adult-content"),
 					} as const,
 				]
 			: []),
 	];
 };
 
-const titleFields = (slug: string, propertiesSchema: AppSchema): readonly AuthoredBrowseField[] => [
+const titleFields = (
+	slug: string,
+	propertiesSchema: AuthoredAppSchema,
+): readonly AuthoredBrowseField[] => [
 	{
 		type: "enum",
 		key: "status",
 		kind: "value",
-		label: "Status",
 		choices: statusChoices(slug),
+		label: catalogMessage("property.status"),
 		expression: coalesce(castText(summary((value) => value.lifecycleState)), literal("untracked")),
 	},
 	{
 		kind: "value",
 		type: "number",
 		key: "timesCompleted",
-		label: "Times completed",
+		label: catalogMessage("browse.field.times-completed"),
 		expression: coalesce(castNumber(summary((value) => value.timesCompleted)), literal(0)),
 		sort: {
-			label: "Times completed",
 			defaultDirection: "desc",
-			descending: "Most first",
-			ascending: "Fewest first",
+			descending: catalogMessage("browse.sort.most-first"),
+			label: catalogMessage("browse.field.times-completed"),
+			ascending: catalogMessage("browse.sort.fewest-first"),
 		},
 	},
 	userRatingField(castNumber(summary((value) => value.userRating))),
@@ -181,61 +190,61 @@ const titleFields = (slug: string, propertiesSchema: AppSchema): readonly Author
 		type: "date",
 		kind: "value",
 		key: "lastCompletedAt",
-		label: "Last completed",
+		label: catalogMessage("browse.field.last-completed"),
 		expression: summary((value) => value.lastCompletedAt),
 		sort: {
-			label: "Last completed",
 			defaultDirection: "desc",
-			ascending: "Oldest first",
-			descending: "Newest first",
+			label: catalogMessage("browse.field.last-completed"),
+			ascending: catalogMessage("browse.sort.oldest-first"),
+			descending: catalogMessage("browse.sort.newest-first"),
 		},
 	},
 	{
 		type: "date",
 		kind: "value",
 		key: "lastActivityAt",
-		label: "Recent activity",
 		expression: recentActivity(subject),
+		label: catalogMessage("property.recent-activity"),
 		sort: {
-			label: "Activity",
 			defaultDirection: "desc",
-			ascending: "Oldest first",
-			descending: "Newest first",
+			label: catalogMessage("browse.field.activity"),
+			ascending: catalogMessage("browse.sort.oldest-first"),
+			descending: catalogMessage("browse.sort.newest-first"),
 		},
 	},
 	{
 		type: "date",
 		kind: "value",
 		key: "releaseDate",
-		label: "Release date",
+		label: catalogMessage("property.release-date"),
 		expression: summary((value) => value.releaseDate),
 		sort: {
-			label: "Release date",
 			defaultDirection: "desc",
-			ascending: "Oldest first",
-			descending: "Newest first",
+			label: catalogMessage("property.release-date"),
+			ascending: catalogMessage("browse.sort.oldest-first"),
+			descending: catalogMessage("browse.sort.newest-first"),
 		},
 	},
 	{
 		type: "date",
 		kind: "value",
 		key: "addedAt",
-		label: "Date added to library",
+		label: catalogMessage("browse.field.added-at"),
 		expression: libraryMembershipValue(subject, (membership) => column(membership, "createdAt")),
 		sort: {
 			defaultDirection: "desc",
-			ascending: "Oldest first",
-			descending: "Newest first",
-			label: "Date added to library",
+			label: catalogMessage("browse.field.added-at"),
+			ascending: catalogMessage("browse.sort.oldest-first"),
+			descending: catalogMessage("browse.sort.newest-first"),
 		},
 	},
 	sourceField(slug),
 	...propertyFields(propertiesSchema),
 	{
 		key: "genres",
-		label: "Genres",
 		kind: "relationship",
 		direction: "outgoing",
+		label: catalogMessage("browse.field.genres"),
 		relationship: {
 			owner: { kind: "self" },
 			slug: RelationshipSchemaSlug.make(`${slug}-to-genre`),
@@ -244,8 +253,8 @@ const titleFields = (slug: string, propertiesSchema: AppSchema): readonly Author
 	{
 		key: "owned",
 		kind: "value",
-		label: "Owned",
 		type: "boolean",
+		label: catalogMessage("property.owned"),
 		expression: coalesce(
 			libraryMembershipValue(subject, (membership) =>
 				castBoolean(jsonPath(column(membership, "properties"), "owned")),
@@ -257,7 +266,7 @@ const titleFields = (slug: string, propertiesSchema: AppSchema): readonly Author
 		kind: "value",
 		type: "boolean",
 		key: "monitored",
-		label: "Monitored",
+		label: catalogMessage("browse.field.monitored"),
 		expression: libraryLinkExists(subject, "browseMonitoring", "media-monitoring"),
 	},
 ];
@@ -270,26 +279,26 @@ const creatorFields = (slug: "person" | "company"): readonly AuthoredBrowseField
 				type: "date",
 				kind: "value",
 				key: "birthDate",
-				label: "Birth date",
 				expression: castDate(property("birthDate")),
+				label: catalogMessage("property.birth-date"),
 				sort: {
-					label: "Birth date",
 					defaultDirection: "desc",
-					ascending: "Oldest first",
-					descending: "Newest first",
+					label: catalogMessage("property.birth-date"),
+					ascending: catalogMessage("browse.sort.oldest-first"),
+					descending: catalogMessage("browse.sort.newest-first"),
 				},
 			}
 		: {
 				kind: "value",
 				type: "number",
 				key: "foundedYear",
-				label: "Founded year",
+				label: catalogMessage("property.founded-year"),
 				expression: castNumber(property("foundedYear")),
 				sort: {
-					label: "Founded year",
 					defaultDirection: "desc",
-					ascending: "Oldest first",
-					descending: "Newest first",
+					label: catalogMessage("property.founded-year"),
+					ascending: catalogMessage("browse.sort.oldest-first"),
+					descending: catalogMessage("browse.sort.newest-first"),
 				},
 			},
 	{
@@ -297,10 +306,10 @@ const creatorFields = (slug: "person" | "company"): readonly AuthoredBrowseField
 		key: "credits",
 		expression: creditCount(subject, slug),
 		sort: {
-			label: "Credits",
 			defaultDirection: "desc",
-			descending: "Most first",
-			ascending: "Fewest first",
+			label: catalogMessage("browse.field.credits"),
+			descending: catalogMessage("browse.sort.most-first"),
+			ascending: catalogMessage("browse.sort.fewest-first"),
 		},
 	},
 ];
@@ -314,21 +323,21 @@ const groupFields = (slug: string): readonly AuthoredBrowseField[] => [
 	{
 		key: "parts",
 		kind: "value",
-		label: "Parts",
 		type: "number",
 		expression: groupParts(subject),
+		label: catalogMessage("property.parts"),
 		sort: {
-			label: "Parts",
 			defaultDirection: "desc",
-			descending: "Most first",
-			ascending: "Fewest first",
+			label: catalogMessage("property.parts"),
+			descending: catalogMessage("browse.sort.most-first"),
+			ascending: catalogMessage("browse.sort.fewest-first"),
 		},
 	},
 ];
 
 export const mediaBrowse = (schema: {
 	readonly slug: string;
-	readonly propertiesSchema: AppSchema;
+	readonly propertiesSchema: AuthoredAppSchema;
 }) => {
 	if (schema.slug === "person" || schema.slug === "company") {
 		return { fields: creatorFields(schema.slug) };

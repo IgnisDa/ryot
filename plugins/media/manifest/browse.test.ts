@@ -53,9 +53,9 @@ describe("media browse declarations", () => {
 		expect(status("movie")).not.toContain("caught_up");
 		expect(browse("movie").find(({ key }) => key === "source")).toMatchObject({
 			choices: [
-				{ value: "custom", label: "Custom" },
-				{ label: "TMDB", value: "movie.tmdb" },
-				{ label: "TVDB", value: "movie.tvdb" },
+				{ value: "custom", label: { namespace: "media-plugin", key: "browse.source.custom" } },
+				{ value: "movie.tmdb", label: { namespace: "media-plugin", key: "provider.tmdb.name" } },
+				{ value: "movie.tvdb", label: { namespace: "media-plugin", key: "provider.tvdb.name" } },
 			],
 		});
 	});

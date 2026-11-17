@@ -1,3 +1,4 @@
+import type { ManifestText } from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { column, descending, field, table } from "@ryot-app/ryotql";
@@ -6,8 +7,8 @@ import {
 	mediaBacklogLibraryMembership,
 	mediaLibraryMembership,
 } from "../shared/media-schema-slugs";
+import { catalogMessage } from "../shared/messages.generated";
 import { mediaPresentationProjection } from "../shared/presentation-sources";
-import { slugify } from "../shared/slug";
 import { creditCount, groupParts, recentActivity } from "./browse";
 import { mediaSavedViewDataSources } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity";
@@ -33,24 +34,54 @@ const mediaEntitySchemaSlugs = [
 	"video-game-group",
 ] as const;
 
-const mediaViewName: Record<(typeof mediaEntitySchemaSlugs)[number], string> = {
-	book: "All Books",
-	show: "All Shows",
-	anime: "All Anime",
-	manga: "All Manga",
-	music: "All Music",
-	movie: "All Movies",
-	podcast: "All Podcasts",
-	audiobook: "All Audiobooks",
-	"book-group": "All Book Series",
-	"comic-book": "All Comic Books",
-	"video-game": "All Video Games",
-	"movie-group": "All Movie Series",
-	"music-group": "All Music Albums",
-	"visual-novel": "All Visual Novels",
-	"audiobook-group": "All Audiobook Series",
-	"comic-book-group": "All Comic Book Series",
-	"video-game-group": "All Video Game Franchises",
+const mediaViews: Record<
+	(typeof mediaEntitySchemaSlugs)[number],
+	{ readonly slug: string; readonly name: ManifestText }
+> = {
+	book: { slug: "all-books", name: catalogMessage("saved-view.all-books.name") },
+	show: { slug: "all-shows", name: catalogMessage("saved-view.all-shows.name") },
+	anime: { slug: "all-anime", name: catalogMessage("saved-view.all-anime.name") },
+	manga: { slug: "all-manga", name: catalogMessage("saved-view.all-manga.name") },
+	music: { slug: "all-music", name: catalogMessage("saved-view.all-music.name") },
+	movie: { slug: "all-movies", name: catalogMessage("saved-view.all-movies.name") },
+	podcast: { slug: "all-podcasts", name: catalogMessage("saved-view.all-podcasts.name") },
+	audiobook: { slug: "all-audiobooks", name: catalogMessage("saved-view.all-audiobooks.name") },
+	"book-group": {
+		slug: "all-book-series",
+		name: catalogMessage("saved-view.all-book-series.name"),
+	},
+	"comic-book": {
+		slug: "all-comic-books",
+		name: catalogMessage("saved-view.all-comic-books.name"),
+	},
+	"video-game": {
+		slug: "all-video-games",
+		name: catalogMessage("saved-view.all-video-games.name"),
+	},
+	"movie-group": {
+		slug: "all-movie-series",
+		name: catalogMessage("saved-view.all-movie-series.name"),
+	},
+	"music-group": {
+		slug: "all-music-albums",
+		name: catalogMessage("saved-view.all-music-albums.name"),
+	},
+	"visual-novel": {
+		slug: "all-visual-novels",
+		name: catalogMessage("saved-view.all-visual-novels.name"),
+	},
+	"audiobook-group": {
+		slug: "all-audiobook-series",
+		name: catalogMessage("saved-view.all-audiobook-series.name"),
+	},
+	"comic-book-group": {
+		slug: "all-comic-book-series",
+		name: catalogMessage("saved-view.all-comic-book-series.name"),
+	},
+	"video-game-group": {
+		slug: "all-video-game-franchises",
+		name: catalogMessage("saved-view.all-video-game-franchises.name"),
+	},
 };
 
 const savedViewOrderBy = (slug: string) => {
@@ -68,12 +99,20 @@ export const mediaSavedViews = () => {
 	const schemas = new Map(mediaEntitySchemas().map((schema) => [schema.slug, schema]));
 	const entity = table("entity", "entity");
 	const definitions = [
-		{ name: "All People", slug: "all-people", entitySchemaSlug: "person" },
-		{ name: "All Companies", slug: "all-companies", entitySchemaSlug: "company" },
+		{
+			slug: "all-people",
+			entitySchemaSlug: "person",
+			name: catalogMessage("saved-view.all-people.name"),
+		},
+		{
+			slug: "all-companies",
+			entitySchemaSlug: "company",
+			name: catalogMessage("saved-view.all-companies.name"),
+		},
 		...mediaEntitySchemaSlugs.map((entitySchemaSlug) => ({
 			entitySchemaSlug,
-			name: mediaViewName[entitySchemaSlug],
-			slug: slugify(mediaViewName[entitySchemaSlug]),
+			slug: mediaViews[entitySchemaSlug].slug,
+			name: mediaViews[entitySchemaSlug].name,
 		})),
 	] as const;
 
@@ -136,7 +175,11 @@ export const mediaSavedViews = () => {
 					],
 				},
 				tableColumns: [
-					{ label: "Image", field: "image", displayKind: "managed-asset" as const },
+					{
+						field: "image",
+						displayKind: "managed-asset" as const,
+						label: catalogMessage("property.image"),
+					},
 					...tableExpressions.columns.map(({ expression: _, ...tableColumn }) => tableColumn),
 				],
 				addAction: {

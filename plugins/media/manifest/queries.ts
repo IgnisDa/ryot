@@ -40,6 +40,7 @@ import {
 	mediaReviewActivityRecipe,
 } from "../shared/media-recipes";
 import { builtinMediaEntitySchemaSlugs } from "../shared/media-schema-slugs";
+import { catalogMessage } from "../shared/messages.generated";
 import { mediaEntityParameters } from "../shared/query-parameters";
 import { upcomingRecipe } from "../shared/upcoming-recipes";
 
@@ -87,7 +88,7 @@ const reviewParameters = parameters({
 		...reportingParameterFields,
 		mediaTypes: {
 			type: "enum-array",
-			label: "Media types",
+			label: catalogMessage("query-parameter.media-types"),
 			description: "Restrict reviews to these types of media",
 			choices: {
 				kind: "static",

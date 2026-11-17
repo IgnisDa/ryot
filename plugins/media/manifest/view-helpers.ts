@@ -1,14 +1,15 @@
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
+	AuthoredSavedViewTableColumn,
 	EntityBrowserSummary,
-	SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { column, jsonPath, table } from "@ryot-app/ryotql";
 
 import { preferredMediaImageExpression } from "../shared/entity-presentations";
+import { catalogMessage } from "../shared/messages.generated";
 import { averageUserRating } from "../shared/user-rating";
 
-type ViewColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
+type ViewColumn = AuthoredSavedViewTableColumn & { readonly expression: ScalarExpression };
 
 type ViewExpressions = {
 	readonly summary: EntityBrowserSummary;
@@ -24,66 +25,121 @@ const yearValue = (expression: ScalarExpression) => ({ expression, displayKind: 
 const number = (expression: ScalarExpression) => ({ expression, displayKind: "number" as const });
 
 const entityColumns = (slug: string): ViewExpressions["table"]["columns"] => {
-	const name = { field: "name", label: "Name", ...text(entityColumn("name")) };
-	const year = { label: "Year", field: "publishYear", ...yearValue(entityProperty("publishYear")) };
+	const name = {
+		field: "name",
+		label: catalogMessage("property.name"),
+		...text(entityColumn("name")),
+	};
+	const year = {
+		field: "publishYear",
+		label: catalogMessage("table-column.year"),
+		...yearValue(entityProperty("publishYear")),
+	};
 	if (slug === "person") {
 		return [
 			name,
-			{ field: "birthPlace", label: "Birth Place", ...text(entityProperty("birthPlace")) },
+			{
+				field: "birthPlace",
+				label: catalogMessage("property.birth-place"),
+				...text(entityProperty("birthPlace")),
+			},
 		];
 	}
 	if (slug === "company") {
 		return [
 			name,
-			{ field: "foundedYear", label: "Founded Year", ...yearValue(entityProperty("foundedYear")) },
+			{
+				field: "foundedYear",
+				label: catalogMessage("property.founded-year"),
+				...yearValue(entityProperty("foundedYear")),
+			},
 		];
 	}
 	if (slug.endsWith("-group")) {
-		return [name, { field: "parts", label: "Parts", ...number(entityProperty("parts")) }];
+		return [
+			name,
+			{
+				field: "parts",
+				label: catalogMessage("property.parts"),
+				...number(entityProperty("parts")),
+			},
+		];
 	}
 	if (slug === "book" || slug === "comic-book") {
-		return [name, year, { field: "pages", label: "Pages", ...number(entityProperty("pages")) }];
+		return [
+			name,
+			year,
+			{
+				field: "pages",
+				label: catalogMessage("property.pages"),
+				...number(entityProperty("pages")),
+			},
+		];
 	}
 	if (slug === "show") {
 		return [
 			name,
 			year,
-			{ label: "Status", field: "productionStatus", ...text(entityProperty("productionStatus")) },
+			{
+				field: "productionStatus",
+				label: catalogMessage("table-column.production-status"),
+				...text(entityProperty("productionStatus")),
+			},
 		];
 	}
 	if (slug === "movie" || slug === "audiobook") {
 		return [
 			name,
 			year,
-			{ field: "runtime", label: "Runtime", ...number(entityProperty("runtime")) },
+			{
+				field: "runtime",
+				label: catalogMessage("property.runtime"),
+				...number(entityProperty("runtime")),
+			},
 		];
 	}
 	if (slug === "anime") {
 		return [
 			name,
 			year,
-			{ field: "episodes", label: "Episodes", ...number(entityProperty("episodes")) },
+			{
+				field: "episodes",
+				label: catalogMessage("property.episodes"),
+				...number(entityProperty("episodes")),
+			},
 		];
 	}
 	if (slug === "manga") {
 		return [
 			name,
 			year,
-			{ field: "chapters", label: "Chapters", ...number(entityProperty("chapters")) },
+			{
+				field: "chapters",
+				label: catalogMessage("property.chapters"),
+				...number(entityProperty("chapters")),
+			},
 		];
 	}
 	if (slug === "podcast") {
 		return [
 			name,
 			year,
-			{ label: "Episodes", field: "totalEpisodes", ...number(entityProperty("totalEpisodes")) },
+			{
+				field: "totalEpisodes",
+				label: catalogMessage("property.episodes"),
+				...number(entityProperty("totalEpisodes")),
+			},
 		];
 	}
 	if (slug === "visual-novel") {
 		return [
 			name,
 			year,
-			{ label: "Length", field: "lengthMinutes", ...number(entityProperty("lengthMinutes")) },
+			{
+				field: "lengthMinutes",
+				label: catalogMessage("fact.length"),
+				...number(entityProperty("lengthMinutes")),
+			},
 		];
 	}
 	return [name, year];
@@ -94,8 +150,8 @@ const isTitle = (slug: string) =>
 
 const userRating = (): ViewColumn => ({
 	field: "userRating",
-	label: "Your rating",
 	displayKind: "rating",
+	label: catalogMessage("table-column.user-rating"),
 	expression: averageUserRating(
 		"tableReview",
 		entityColumn("id"),

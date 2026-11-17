@@ -26,6 +26,7 @@ import {
 	builtinMediaEntitySchemaSlugs,
 	creatorGroupTargetSlugs,
 } from "../shared/media-schema-slugs";
+import { catalogMessage } from "../shared/messages.generated";
 
 export const mediaSavedViewDataSources = (input: {
 	readonly schema: string;
@@ -97,9 +98,9 @@ export const mediaSavedViewDataSources = (input: {
 		fields: {
 			search: {
 				type: "string",
-				label: "Search",
 				defaultValue: "",
 				description: "Search library entries",
+				label: catalogMessage("query-parameter.search"),
 			},
 		},
 	});
