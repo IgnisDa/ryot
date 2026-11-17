@@ -28,6 +28,7 @@ type SelectProps = {
 	readonly onInterceptBack?: () => boolean;
 	readonly onChange: (value: string) => void;
 	readonly choices: ReadonlyArray<SelectChoice>;
+	readonly "aria-describedby"?: string | undefined;
 };
 
 const NAVIGATION_KEYS = new Set(["End", "Home", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
@@ -45,6 +46,7 @@ export function Select({
 	chevronIcon,
 	placeholder,
 	onInterceptBack,
+	"aria-describedby": describedBy,
 }: SelectProps) {
 	const t = useT();
 	const [open, setOpen] = useState(false);
@@ -86,6 +88,7 @@ export function Select({
 				disabled={disabled}
 				aria-expanded={open}
 				onClick={() => setOpen(true)}
+				aria-describedby={describedBy}
 				aria-label={t(kernelMessage("ui.field-value", { label, value: triggerText }))}
 				className={clsx(
 					"flex h-9 w-full items-center justify-between gap-2 rounded-md border border-border-strong bg-surface px-3 transition-colors duration-100 hover:border-text-subtle motion-reduce:transition-none pointer-coarse:h-11",

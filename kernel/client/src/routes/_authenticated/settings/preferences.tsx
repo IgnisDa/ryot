@@ -58,13 +58,8 @@ function PreferencesRoute() {
 				>
 					<Appearance theme={theme} />
 				</SettingsSection>
-				<SettingsSection
-					title={t(kernelMessage("client.route.settings.preferences.language-title"))}
-					detail={t(kernelMessage("client.route.settings.preferences.language-detail"))}
-				>
-					{isDemo && <DemoProtectionMessage />}
-					{content}
-				</SettingsSection>
+				{isDemo && <DemoProtectionMessage />}
+				{content}
 			</div>
 		</SettingsFrame>
 	);
