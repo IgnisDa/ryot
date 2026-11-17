@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import type { ComponentProps } from "react";
 
@@ -14,8 +15,7 @@ type StatusMessageProps = ComponentProps<"p"> & {
 	readonly blocked?: boolean;
 	readonly tone: keyof typeof toneClasses;
 	readonly action?:
-		| undefined
-		| { readonly label: string; readonly disabled?: boolean; readonly onClick: () => void };
+		undefined | { readonly label: Text; readonly disabled?: boolean; readonly onClick: () => void };
 };
 
 export function StatusMessage({

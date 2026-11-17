@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { StatusMessage } from "./status-message";
 
 describe("StatusMessage", () => {
@@ -44,7 +46,7 @@ describe("StatusMessage", () => {
 		render(
 			<StatusMessage
 				tone="error"
-				action={{ label: "Try again", onClick: () => activated.push("retry") }}
+				action={{ label: testText("Try again"), onClick: () => activated.push("retry") }}
 			>
 				Unable to load.
 			</StatusMessage>,
@@ -57,7 +59,10 @@ describe("StatusMessage", () => {
 
 	it("disables the action on request", () => {
 		render(
-			<StatusMessage tone="pending" action={{ label: "Wait", disabled: true, onClick: () => {} }}>
+			<StatusMessage
+				tone="pending"
+				action={{ disabled: true, onClick: () => {}, label: testText("Wait") }}
+			>
 				Counting
 			</StatusMessage>,
 		);

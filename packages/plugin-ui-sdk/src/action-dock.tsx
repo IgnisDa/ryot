@@ -1,8 +1,9 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
 export function ActionDock(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly children: ReactNode;
 	readonly safeAreaBottom: number;
 	readonly className?: string | undefined;

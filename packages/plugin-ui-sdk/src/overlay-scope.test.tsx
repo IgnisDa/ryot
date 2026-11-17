@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { Modal } from "./modal";
 import {
 	type OverlayBackAdapter,
@@ -23,7 +25,11 @@ function Page() {
 				Open
 			</button>
 			{open && (
-				<Modal label="Overlay" closeLabel="Close" onClose={() => setOpen(false)}>
+				<Modal
+					label={testText("Overlay")}
+					closeLabel={testText("Close")}
+					onClose={() => setOpen(false)}
+				>
 					<button type="button">Inside</button>
 				</Modal>
 			)}

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { LoadMoreButton } from "./load-more-button";
 
 describe("LoadMoreButton", () => {
-	it("keeps the idle label and independent disabled state", () => {
-		render(<LoadMoreButton disabled label="Load more" isFetchingNextPage={false} />);
+	it("keeps the default idle label and independent disabled state", () => {
+		render(<LoadMoreButton disabled isFetchingNextPage={false} />);
 
 		const button = screen.getByRole("button", { name: "Load more" });
 		expect(button.hasAttribute("disabled")).toBe(true);
@@ -15,12 +17,20 @@ describe("LoadMoreButton", () => {
 		expect(button.classList.contains("bg-surface-2")).toBe(true);
 	});
 
+	it("defaults the pending label while fetching", () => {
+		render(<LoadMoreButton isFetchingNextPage={true} />);
+
+		expect(screen.getByRole("button", { name: "Loading more…" }).getAttribute("aria-busy")).toBe(
+			"true",
+		);
+	});
+
 	it("shows the loading label and reports busy while fetching", () => {
 		render(
 			<LoadMoreButton
-				label="Load more"
 				isFetchingNextPage={true}
-				loadingLabel="Fetching next page..."
+				label={testText("Load more")}
+				loadingLabel={testText("Fetching next page...")}
 			/>,
 		);
 
@@ -37,11 +47,11 @@ describe("LoadMoreButton", () => {
 		render(
 			<LoadMoreButton
 				type="submit"
-				label="Load more"
 				variant="primary"
 				className="w-full"
 				onClick={recordClick}
 				isFetchingNextPage={false}
+				label={testText("Load more")}
 			/>,
 		);
 

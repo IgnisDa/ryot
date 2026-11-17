@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import type { ComponentProps, KeyboardEvent } from "react";
 
 const submitOnEnterInputTypes = new Set([
@@ -11,7 +12,7 @@ const submitOnEnterInputTypes = new Set([
 ]);
 
 type ActionFormProps = Omit<ComponentProps<"div">, "role" | "onSubmit" | "aria-label"> & {
-	readonly label: string;
+	readonly label: Text;
 	readonly onSubmit: () => void;
 };
 

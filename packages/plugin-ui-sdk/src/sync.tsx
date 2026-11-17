@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import { type ImgHTMLAttributes, type ReactNode, useState } from "react";
 
@@ -31,15 +33,6 @@ const shapeClassName = (shape: ArtShape | undefined) => {
 	return shape === "circle" ? "rounded-full" : "rounded-lg";
 };
 
-export function TranslationChip(props: { readonly icon: ReactNode }) {
-	return (
-		<span className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-2 px-2.5 py-1 font-ui text-xs text-text-muted">
-			<span className="text-translate">{props.icon}</span>
-			Translating...
-		</span>
-	);
-}
-
 export function SyncPip(props: {
 	readonly reason: SyncReason;
 	readonly className?: string | undefined;
@@ -53,6 +46,16 @@ export function SyncPip(props: {
 				props.className,
 			)}
 		/>
+	);
+}
+
+export function TranslationChip(props: { readonly icon: ReactNode }) {
+	const t = useT();
+	return (
+		<span className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-2 px-2.5 py-1 font-ui text-xs text-text-muted">
+			<span className="text-translate">{props.icon}</span>
+			{t(kernelMessage("ui.sync.translating"))}
+		</span>
 	);
 }
 
@@ -80,6 +83,7 @@ export function SyncCountLine(props: {
 	readonly populating: number;
 	readonly translating: number;
 }) {
+	const t = useT();
 	if (props.populating === 0 && props.translating === 0) {
 		return null;
 	}
@@ -88,14 +92,14 @@ export function SyncCountLine(props: {
 			{props.populating > 0 && (
 				<span className="inline-flex items-center gap-1.5">
 					<SyncPip reason="populating" />
-					{`${props.populating} populating`}
+					{t(kernelMessage("ui.sync.populating-count", { count: props.populating }))}
 				</span>
 			)}
 			{props.populating > 0 && props.translating > 0 && <span aria-hidden="true">·</span>}
 			{props.translating > 0 && (
 				<span className="inline-flex items-center gap-1.5">
 					<SyncPip reason="translating" />
-					{`${props.translating} translating`}
+					{t(kernelMessage("ui.sync.translating-count", { count: props.translating }))}
 				</span>
 			)}
 		</span>

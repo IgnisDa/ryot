@@ -1,12 +1,14 @@
 import { describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
 import { useRef, useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { Menu } from "./menu";
 import { Modal, shouldDismissSheet } from "./modal";
 import { type OverlayBackAdapter, OverlayBackProvider } from "./shortcut";
@@ -24,10 +26,10 @@ function TriggeredModal(props: {
 			</button>
 			{props.open === false ? null : (
 				<Modal
-					label="Confirm"
 					triggerRef={trigger}
 					onClose={props.onClose}
-					closeLabel="Close dialog"
+					label={testText("Confirm")}
+					closeLabel={testText("Close dialog")}
 					onInterceptBack={props.onInterceptBack ?? (() => false)}
 				>
 					<button type="button">Cancel</button>
@@ -44,18 +46,18 @@ function MenuInModal() {
 	const trigger = useRef<HTMLButtonElement>(null);
 	const [open, setOpen] = useState(false);
 	return (
-		<Modal label="Confirm" onClose={() => {}} closeLabel="Close dialog">
+		<Modal onClose={() => {}} label={testText("Confirm")} closeLabel={testText("Close dialog")}>
 			<button type="button" ref={trigger} onClick={() => setOpen(true)}>
 				Actions
 			</button>
 			{open ? (
 				<Menu
-					label="Actions"
 					activeIndex={0}
 					triggerRef={trigger}
+					label={testText("Actions")}
 					onActiveIndexChange={() => {}}
 					onClose={() => setOpen(false)}
-					items={[{ key: "rename", label: "Rename", onSelect: () => {} }]}
+					items={[{ key: "rename", onSelect: () => {}, label: testText("Rename") }]}
 				/>
 			) : null}
 		</Modal>
@@ -68,10 +70,18 @@ function NestedModals(props: { readonly adapter: OverlayBackAdapter }) {
 	return (
 		<OverlayBackProvider adapter={props.adapter}>
 			{outerOpen ? (
-				<Modal label="Outer" closeLabel="Close outer" onClose={() => setOuterOpen(false)}>
+				<Modal
+					label={testText("Outer")}
+					onClose={() => setOuterOpen(false)}
+					closeLabel={testText("Close outer")}
+				>
 					<button type="button">Outer action</button>
 					{innerOpen ? (
-						<Modal label="Inner" closeLabel="Close inner" onClose={() => setInnerOpen(false)}>
+						<Modal
+							label={testText("Inner")}
+							onClose={() => setInnerOpen(false)}
+							closeLabel={testText("Close inner")}
+						>
 							<button type="button">Inner action</button>
 						</Modal>
 					) : null}
@@ -136,10 +146,10 @@ describe("Modal", () => {
 							</button>
 							{open ? (
 								<Modal
-									label="Overlay"
 									triggerRef={trigger}
-									closeLabel="Close overlay"
+									label={testText("Overlay")}
 									onClose={() => setOpen(false)}
+									closeLabel={testText("Close overlay")}
 								>
 									<button type="button">Inside overlay</button>
 								</Modal>
@@ -181,8 +191,8 @@ describe("Modal", () => {
 		let closes = 0;
 		render(
 			<Modal
-				label="Information"
-				closeLabel="Close dialog"
+				label={testText("Information")}
+				closeLabel={testText("Close dialog")}
 				onClose={() => {
 					closes += 1;
 				}}
@@ -225,10 +235,18 @@ describe("Modal", () => {
 		const closed: string[] = [];
 		const view = render(
 			<>
-				<Modal label="Outer" closeLabel="Close outer" onClose={() => closed.push("outer")}>
+				<Modal
+					label={testText("Outer")}
+					closeLabel={testText("Close outer")}
+					onClose={() => closed.push("outer")}
+				>
 					<button type="button">Outer action</button>
 				</Modal>
-				<Modal label="Inner" closeLabel="Close inner" onClose={() => closed.push("inner")}>
+				<Modal
+					label={testText("Inner")}
+					closeLabel={testText("Close inner")}
+					onClose={() => closed.push("inner")}
+				>
 					<button type="button">Inner action</button>
 				</Modal>
 			</>,
@@ -238,7 +256,11 @@ describe("Modal", () => {
 		expect(closed).toEqual(["inner"]);
 
 		view.rerender(
-			<Modal label="Outer" closeLabel="Close outer" onClose={() => closed.push("outer")}>
+			<Modal
+				label={testText("Outer")}
+				closeLabel={testText("Close outer")}
+				onClose={() => closed.push("outer")}
+			>
 				<button type="button">Outer action</button>
 			</Modal>,
 		);
@@ -283,10 +305,10 @@ describe("Modal", () => {
 	it("inerts an underlying modal while a modal is stacked over it", () => {
 		const view = render(
 			<>
-				<Modal label="Outer" onClose={() => {}} closeLabel="Close outer">
+				<Modal onClose={() => {}} label={testText("Outer")} closeLabel={testText("Close outer")}>
 					<button type="button">Outer action</button>
 				</Modal>
-				<Modal label="Inner" onClose={() => {}} closeLabel="Close inner">
+				<Modal onClose={() => {}} label={testText("Inner")} closeLabel={testText("Close inner")}>
 					<button type="button">Inner action</button>
 				</Modal>
 			</>,
@@ -298,7 +320,7 @@ describe("Modal", () => {
 		expect(inner?.hasAttribute("inert")).toBe(false);
 
 		view.rerender(
-			<Modal label="Outer" onClose={() => {}} closeLabel="Close outer">
+			<Modal onClose={() => {}} label={testText("Outer")} closeLabel={testText("Close outer")}>
 				<button type="button">Outer action</button>
 			</Modal>,
 		);
@@ -337,9 +359,9 @@ describe("Modal", () => {
 		let closes = 0;
 		render(
 			<Modal
-				label="Pending"
 				dismissible={false}
-				closeLabel="Close pending"
+				label={testText("Pending")}
+				closeLabel={testText("Close pending")}
 				onClose={() => {
 					closes += 1;
 				}}

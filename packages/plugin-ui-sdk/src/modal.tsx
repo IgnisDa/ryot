@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import { motion, useDragControls, useIsPresent, useReducedMotion } from "motion/react";
 import {
@@ -26,8 +27,8 @@ import { ReportProvider } from "./report";
 import { OverlayScope } from "./shortcut";
 
 type ModalProps = {
-	readonly label?: string;
-	readonly closeLabel: string;
+	readonly label?: Text;
+	readonly closeLabel: Text;
 	readonly className?: string;
 	readonly children: ReactNode;
 	readonly labelledBy?: string;

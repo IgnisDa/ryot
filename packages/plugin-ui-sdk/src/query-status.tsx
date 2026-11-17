@@ -1,25 +1,26 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { ReactNode } from "react";
 
 import { StatusMessage } from "./status-message";
 
 export type QueryStatusProps<Data> = {
-	/** Lower-case noun phrase, e.g. "workout trend". */
-	readonly label: string;
 	readonly onRetry: () => void;
 	readonly children?: undefined | ((data: Data) => ReactNode);
 	readonly query: { readonly isError: boolean; readonly data: Data | undefined };
 };
 
-export function QueryStatus<Data>({ label, query, onRetry, children }: QueryStatusProps<Data>) {
-	const retry = { onClick: onRetry, label: `Retry ${label}` };
+export function QueryStatus<Data>({ query, onRetry, children }: QueryStatusProps<Data>) {
+	const t = useT();
+	const retry = { onClick: onRetry, label: t(kernelMessage("common.action.retry")) };
 	if (query.data === undefined) {
 		return query.isError ? (
 			<StatusMessage blocked tone="error" action={retry}>
-				Could not load {label}.
+				{t(kernelMessage("ui.query-status.load-failed"))}
 			</StatusMessage>
 		) : (
 			<StatusMessage blocked tone="pending">
-				Loading {label}…
+				{t(kernelMessage("common.status.loading"))}
 			</StatusMessage>
 		);
 	}
@@ -27,7 +28,7 @@ export function QueryStatus<Data>({ label, query, onRetry, children }: QueryStat
 		<>
 			{query.isError && (
 				<StatusMessage tone="error" action={retry}>
-					Could not update {label}. Showing the last loaded values.
+					{t(kernelMessage("ui.query-status.refresh-failed"))}
 				</StatusMessage>
 			)}
 			{children?.(query.data)}

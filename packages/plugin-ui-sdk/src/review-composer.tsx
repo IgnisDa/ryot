@@ -4,6 +4,9 @@ import {
 	ReviewContent,
 	type ReviewProperties,
 } from "@ryot-app/contract/modules/events/review";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Schema } from "effect";
 import { type ReactNode, type RefObject, useId, useRef, useState } from "react";
 
@@ -20,18 +23,19 @@ import { TextArea } from "./text-field";
 const isReviewContent = Schema.is(ReviewContent.pipe(Schema.check(requireReviewContent)));
 
 export function ReviewComposer(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly canSave?: boolean;
 	readonly isSending: boolean;
 	readonly scale: RatingScale;
 	readonly subject?: ReactNode;
 	readonly onClose: () => void;
-	readonly errorMessage?: string | undefined;
+	readonly errorMessage?: Text | undefined;
 	readonly onDelete?: undefined | (() => void);
 	readonly onSave: (review: ReviewContent) => void;
 	readonly initial?: undefined | typeof ReviewProperties.Type;
 	readonly triggerRef?: undefined | RefObject<null | HTMLButtonElement>;
 }) {
+	const t = useT();
 	const id = useId();
 	const [deletion, setDeletion] = useState<"closed" | "submitted" | "confirming">("closed");
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
@@ -60,13 +64,13 @@ export function ReviewComposer(props: {
 			onClose={onClose}
 			title={props.title}
 			dismissible={!isSending}
-			closeLabel="Close review"
+			closeLabel={t(kernelMessage("ui.review.close"))}
 			initialFocusRef={ratingScales[props.scale].input === "number" ? ratingRef : textRef}
 			{...(props.triggerRef === undefined ? {} : { triggerRef: props.triggerRef })}
 		>
 			<ActionForm onSubmit={save} label={props.title} className="flex flex-col gap-4">
 				{props.subject}
-				<p className="text-label text-text-muted">Add a rating, a review, or both.</p>
+				<p className="text-label text-text-muted">{t(kernelMessage("ui.review.instructions"))}</p>
 				<RatingInput
 					scale={props.scale}
 					inputRef={ratingRef}
@@ -74,7 +78,7 @@ export function ReviewComposer(props: {
 					disabled={isSending}
 					onChange={rating.setDraft}
 				/>
-				<label htmlFor={`${id}-text`}>Review (optional)</label>
+				<label htmlFor={`${id}-text`}>{t(kernelMessage("ui.review.text-label"))}</label>
 				<TextArea
 					rows={5}
 					value={text}
@@ -85,20 +89,20 @@ export function ReviewComposer(props: {
 				/>
 				{hasText ? (
 					<Row
-						title="Contains spoilers"
+						title={t(kernelMessage("ui.review.contains-spoilers"))}
 						trailing={
 							<Switch
 								checked={isSpoiler}
 								disabled={isSending}
 								onChange={setIsSpoiler}
-								label="Contains spoilers"
+								label={t(kernelMessage("ui.review.contains-spoilers"))}
 							/>
 						}
 					/>
 				) : null}
 				{props.initial !== undefined && !hasContent ? (
 					<StatusMessage tone="error">
-						Keep a rating or review text, or delete this review.
+						{t(kernelMessage("ui.review.content-required"))}
 					</StatusMessage>
 				) : null}
 				{props.errorMessage && !isSending ? (
@@ -106,10 +110,10 @@ export function ReviewComposer(props: {
 				) : null}
 				<div className="flex flex-wrap gap-2">
 					<Button type="button" onClick={save} disabled={!canSave}>
-						{isSending ? "Saving…" : "Save review"}
+						{t(kernelMessage(isSending ? "common.status.saving" : "ui.review.save"))}
 					</Button>
 					<Button type="button" onClick={onClose} variant="secondary" disabled={isSending}>
-						Cancel
+						{t(kernelMessage("common.action.cancel"))}
 					</Button>
 					{props.onDelete ? (
 						<Button
@@ -118,7 +122,7 @@ export function ReviewComposer(props: {
 							variant="dangerGhost"
 							onClick={() => setDeletion("confirming")}
 						>
-							Delete review
+							{t(kernelMessage("ui.review.delete"))}
 						</Button>
 					) : null}
 				</div>
@@ -126,12 +130,12 @@ export function ReviewComposer(props: {
 			{deletion !== "closed" && props.onDelete ? (
 				<DestructiveConfirmation
 					pending={isSending}
-					pendingLabel="Deleting…"
 					triggerRef={deleteTrigger}
-					title="Delete this review?"
-					actionLabel="Delete review"
 					onClose={() => setDeletion("closed")}
-					detail="This review will be permanently deleted."
+					title={t(kernelMessage("ui.review.delete-title"))}
+					actionLabel={t(kernelMessage("ui.review.delete"))}
+					detail={t(kernelMessage("ui.review.delete-detail"))}
+					pendingLabel={t(kernelMessage("common.status.deleting"))}
 					onConfirm={() => {
 						setDeletion("submitted");
 						props.onDelete?.();

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen, within } from "@testing-library/react";
 
 import { ActivityTray } from "./activity-tray";
+import { render } from "./i18n.test-support";
 
 describe("ActivityTray", () => {
 	it("renders attributed entries as text with one polite announcement region", () => {
@@ -12,19 +14,25 @@ describe("ActivityTray", () => {
 				compact={false}
 				dismissIcon="×"
 				safeAreaBottom={0}
-				label="Background activity"
+				label={testText("Background activity")}
 				announcement="Media: Logged episode 3 saved"
 				entries={[
 					{
 						id: "a",
 						tone: "error",
 						source: "Media",
-						title: "<img src=x onerror=alert(1)>",
 						onDismiss: () => calls.push("dismiss"),
 						status: "Couldn't confirm this was saved.",
-						action: { label: "Retry", onClick: () => calls.push("retry") },
+						title: testText("<img src=x onerror=alert(1)>"),
+						action: { label: testText("Retry"), onClick: () => calls.push("retry") },
 					},
-					{ id: "b", tone: "pending", title: "Weight", source: "Fitness", status: "Saving…" },
+					{
+						id: "b",
+						tone: "pending",
+						source: "Fitness",
+						status: "Saving…",
+						title: testText("Weight"),
+					},
 				]}
 			/>,
 		);
@@ -59,7 +67,7 @@ describe("ActivityTray", () => {
 				dismissIcon="×"
 				announcement=""
 				safeAreaBottom={34}
-				label="Background activity"
+				label={testText("Background activity")}
 			/>,
 		);
 		const tray = screen.getByRole("region", { name: "Background activity" });

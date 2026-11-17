@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import type { ComponentProps, ReactNode } from "react";
 
@@ -61,7 +62,7 @@ export function Notice(props: {
 }
 
 export function EmptyState(props: {
-	readonly title: string;
+	readonly title: Text;
 	readonly icon?: ReactNode;
 	readonly action?: ReactNode;
 	readonly className?: string;

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { render } from "@testing-library/react";
-
+import { render } from "./i18n.test-support";
 import { EntityArtWell } from "./sync";
 
 const artWell = (state: "failed" | "absent" | "pending") =>

@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { type RefObject, useId, useRef, useState } from "react";
 
 import { Button } from "./button";
@@ -5,18 +8,19 @@ import { Dialog } from "./dialog";
 import { TextField } from "./text-field";
 
 export function DestructiveConfirmation(props: {
-	readonly title: string;
-	readonly detail: string;
+	readonly title: Text;
+	readonly detail: Text;
 	readonly pending: boolean;
+	readonly actionLabel: Text;
+	readonly pendingLabel: Text;
 	readonly onClose: () => void;
-	readonly actionLabel: string;
-	readonly pendingLabel: string;
 	readonly onConfirm: () => void;
 	readonly actionDisabled?: boolean;
 	readonly confirmationPhrase?: string;
-	readonly errorMessage: string | undefined;
+	readonly errorMessage: Text | undefined;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
+	const t = useT();
 	const confirmationId = useId();
 	const cancelRef = useRef<HTMLButtonElement>(null);
 	const confirmationRef = useRef<HTMLInputElement>(null);
@@ -27,17 +31,17 @@ export function DestructiveConfirmation(props: {
 	return (
 		<Dialog
 			closeIcon={null}
-			closeLabel="Close"
 			title={props.title}
 			onClose={props.onClose}
 			description={props.detail}
 			triggerRef={props.triggerRef}
 			onInterceptBack={() => props.pending}
+			closeLabel={t(kernelMessage("common.action.close"))}
 			initialFocusRef={requiresConfirmation ? confirmationRef : cancelRef}
 			footer={
 				<>
 					<Button ref={cancelRef} variant="ghost" onClick={props.onClose} disabled={props.pending}>
-						Cancel
+						{t(kernelMessage("common.action.cancel"))}
 					</Button>
 					<Button
 						variant="danger"
@@ -56,7 +60,11 @@ export function DestructiveConfirmation(props: {
 							htmlFor={confirmationId}
 							className="grid gap-1.5 text-label font-medium text-text"
 						>
-							{`Type "${props.confirmationPhrase}" to confirm`}
+							{t(
+								kernelMessage("ui.destructive-confirmation.type-to-confirm", {
+									phrase: props.confirmationPhrase ?? "",
+								}),
+							)}
 							<TextField
 								autoComplete="off"
 								id={confirmationId}

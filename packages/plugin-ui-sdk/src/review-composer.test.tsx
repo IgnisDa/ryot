@@ -1,19 +1,21 @@
 import { expect } from "bun:test";
 
 import type { ReviewContent } from "@ryot-app/contract/modules/events/review";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { render } from "./i18n.test-support";
 import { ReviewComposer } from "./review-composer";
 
 it("normalizes rating-only submissions and does not retain a spoiler flag without text", () => {
 	const saved: ReviewContent[] = [];
 	render(
 		<ReviewComposer
-			title="Review"
 			scale="hundred"
 			isSending={false}
 			onClose={() => {}}
+			title={testText("Review")}
 			onSave={(review) => saved.push(review)}
 			initial={{ isSpoiler: true, text: "Old thoughts" }}
 		/>,
@@ -35,8 +37,8 @@ it("normalizes rating-only submissions and does not retain a spoiler flag withou
 it("retains drafts after a failed submission and confirms deletion separately", () => {
 	const events: string[] = [];
 	const props = {
-		title: "Review",
 		isSending: false,
+		title: testText("Review"),
 		scale: "hundred" as const,
 		onSave: () => events.push("save"),
 		onClose: () => events.push("close"),
@@ -49,7 +51,7 @@ it("retains drafts after a failed submission and confirms deletion separately", 
 	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
 	view.rerender(<ReviewComposer {...props} isSending />);
 	expect(screen.getByRole("button", { name: "Saving…" }).hasAttribute("disabled")).toBe(true);
-	view.rerender(<ReviewComposer {...props} errorMessage="Save failed" />);
+	view.rerender(<ReviewComposer {...props} errorMessage={testText("Save failed")} />);
 	expect(screen.getByDisplayValue("Keep my draft")).toBeTruthy();
 	expect(screen.getByText("Save failed")).toBeTruthy();
 	fireEvent.click(screen.getByRole("button", { name: "Delete review" }));
@@ -65,9 +67,9 @@ it("enters ratings on the chosen scale and keeps an untouched stored rating exac
 	const view = render(
 		<ReviewComposer
 			scale="ten"
-			title="Review"
 			isSending={false}
 			onClose={() => {}}
+			title={testText("Review")}
 			onSave={(review) => saved.push(review)}
 			initial={{ text: "Fine", rating: 66.66, isSpoiler: false }}
 		/>,
@@ -89,10 +91,10 @@ it("enters ratings on the chosen scale and keeps an untouched stored rating exac
 
 	render(
 		<ReviewComposer
-			title="Review"
 			isSending={false}
 			onClose={() => {}}
 			scale="three-point"
+			title={testText("Review")}
 			onSave={(review) => saved.push(review)}
 		/>,
 	);

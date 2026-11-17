@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { screen } from "@testing-library/react";
 
 import { ActionDock } from "./action-dock";
+import { render } from "./i18n.test-support";
 
 describe("ActionDock", () => {
 	it.each([
@@ -10,7 +12,7 @@ describe("ActionDock", () => {
 		[34, "42px"],
 	])("labels its region and clears a %ipx bottom safe area", (safeAreaBottom, bottom) => {
 		render(
-			<ActionDock label="Timers" safeAreaBottom={safeAreaBottom}>
+			<ActionDock label={testText("Timers")} safeAreaBottom={safeAreaBottom}>
 				<button type="button">Skip rest</button>
 			</ActionDock>,
 		);

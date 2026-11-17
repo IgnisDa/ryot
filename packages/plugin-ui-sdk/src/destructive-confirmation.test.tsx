@@ -1,12 +1,15 @@
 import { describe, expect } from "bun:test";
 
+import type { Text } from "@ryot-app/i18n/text";
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { useRef, useState } from "react";
 
 import { DestructiveConfirmation } from "./destructive-confirmation";
+import { render } from "./i18n.test-support";
 import { type OverlayBackAdapter, OverlayBackProvider } from "./shortcut";
 
 type Event = "close" | "confirm";
@@ -30,7 +33,7 @@ const createBackAdapter = () => {
 function ConfirmationPage(props: {
 	readonly events: Event[];
 	readonly pending?: boolean;
-	readonly errorMessage?: string;
+	readonly errorMessage?: Text;
 	readonly adapter: OverlayBackAdapter;
 	readonly confirmationPhrase?: string;
 }) {
@@ -43,13 +46,13 @@ function ConfirmationPage(props: {
 			</button>
 			{open ? (
 				<DestructiveConfirmation
-					title="Delete item?"
 					triggerRef={triggerRef}
-					actionLabel="Delete item"
-					pendingLabel="Deleting..."
-					detail="This cannot be undone."
+					title={testText("Delete item?")}
 					pending={props.pending ?? false}
 					errorMessage={props.errorMessage}
+					actionLabel={testText("Delete item")}
+					pendingLabel={testText("Deleting...")}
+					detail={testText("This cannot be undone.")}
 					{...(props.confirmationPhrase === undefined
 						? {}
 						: { confirmationPhrase: props.confirmationPhrase })}
@@ -124,7 +127,13 @@ describe("DestructiveConfirmation", () => {
 
 	it("announces errors", () => {
 		const { adapter } = createBackAdapter();
-		render(<ConfirmationPage events={[]} adapter={adapter} errorMessage="Deletion failed." />);
+		render(
+			<ConfirmationPage
+				events={[]}
+				adapter={adapter}
+				errorMessage={testText("Deletion failed.")}
+			/>,
+		);
 		openConfirmation();
 
 		expect(screen.getByRole("alert").textContent).toBe("Deletion failed.");

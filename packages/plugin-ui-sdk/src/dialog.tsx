@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import { type ReactNode, type RefObject, useId } from "react";
 
@@ -22,8 +23,8 @@ const panelClasses = {
 const defaultCloseIcon = <AppIcon name="x" size={18} />;
 
 export function Dialog(props: {
-	readonly title: string;
-	readonly closeLabel: string;
+	readonly title: Text;
+	readonly closeLabel: Text;
 	readonly footer?: ReactNode;
 	readonly onClose: () => void;
 	readonly children?: ReactNode;
@@ -114,7 +115,7 @@ export function Dialog(props: {
 }
 
 function CloseButton(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly disabled: boolean;
 	readonly children: ReactNode;
 }) {

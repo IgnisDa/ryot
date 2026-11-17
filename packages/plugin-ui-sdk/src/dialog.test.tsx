@@ -1,18 +1,20 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen, within } from "@testing-library/react";
 
 import { Dialog } from "./dialog";
+import { render } from "./i18n.test-support";
 
 const renderSheet = (props: { readonly onClose: () => void; readonly dismissible: boolean }) =>
 	render(
 		<Dialog
-			title="Set 1"
 			placement="sheet"
 			safeAreaBottom={34}
-			closeLabel="Close set"
 			onClose={props.onClose}
+			title={testText("Set 1")}
 			dismissible={props.dismissible}
+			closeLabel={testText("Close set")}
 			footer={<button type="button">Done</button>}
 		>
 			<p>Set options</p>
@@ -51,7 +53,11 @@ describe("Dialog close button", () => {
 	it("shows a close button beside the backdrop by default and omits it for a null icon", () => {
 		const closes: Array<string> = [];
 		const { rerender } = render(
-			<Dialog title="Sheet" closeLabel="Close sheet" onClose={() => closes.push("close")} />,
+			<Dialog
+				title={testText("Sheet")}
+				closeLabel={testText("Close sheet")}
+				onClose={() => closes.push("close")}
+			/>,
 		);
 
 		expect(screen.getAllByRole("button", { name: "Close sheet" })).toHaveLength(2);
@@ -60,7 +66,14 @@ describe("Dialog close button", () => {
 		);
 		expect(closes).toEqual(["close"]);
 
-		rerender(<Dialog title="Sheet" closeIcon={null} onClose={() => {}} closeLabel="Close sheet" />);
+		rerender(
+			<Dialog
+				closeIcon={null}
+				onClose={() => {}}
+				title={testText("Sheet")}
+				closeLabel={testText("Close sheet")}
+			/>,
+		);
 		expect(screen.getAllByRole("button", { name: "Close sheet" })).toHaveLength(1);
 	});
 });

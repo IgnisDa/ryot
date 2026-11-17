@@ -1,11 +1,14 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { type ComponentProps, type ReactNode, useEffect, useRef } from "react";
 
 import { Button } from "./button";
 
 type LoadMoreButtonProps = Omit<ComponentProps<typeof Button>, "loading" | "children"> & {
-	readonly label: string;
+	readonly label?: Text;
 	readonly icon?: ReactNode;
-	readonly loadingLabel?: string;
+	readonly loadingLabel?: Text;
 	readonly isFetchingNextPage: boolean;
 	readonly onVisible?: undefined | (() => void);
 };
@@ -26,12 +29,13 @@ export function LoadMoreButton({
 	icon,
 	label,
 	onVisible,
+	loadingLabel,
 	type = "button",
 	isFetchingNextPage,
 	variant = "secondary",
-	loadingLabel = "Loading...",
 	...props
 }: LoadMoreButtonProps) {
+	const t = useT();
 	const ref = useRef<HTMLButtonElement>(null);
 	const idle = props.disabled !== true && !isFetchingNextPage;
 	useEffect(() => {
@@ -59,7 +63,9 @@ export function LoadMoreButton({
 	return (
 		<Button {...props} ref={ref} type={type} variant={variant} loading={isFetchingNextPage}>
 			{icon}
-			{isFetchingNextPage ? loadingLabel : label}
+			{isFetchingNextPage
+				? (loadingLabel ?? t(kernelMessage("common.status.loading-more")))
+				: (label ?? t(kernelMessage("common.action.load-more")))}
 		</Button>
 	);
 }

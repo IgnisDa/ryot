@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
@@ -6,15 +9,15 @@ import { MotionList } from "./motion";
 
 export type ActivityTone = "error" | "pending" | "success" | "warning";
 
-export type ActivityAction = { readonly label: string; readonly onClick: () => void };
+export type ActivityAction = { readonly label: Text; readonly onClick: () => void };
 
 export type ActivityTrayEntry = {
 	readonly id: string;
-	readonly title: string;
+	readonly title: Text;
 	readonly source: string;
 	readonly status: string;
 	readonly tone: ActivityTone;
-	readonly detail?: string | undefined;
+	readonly detail?: Text | undefined;
 	readonly action?: undefined | ActivityAction;
 	readonly onDismiss?: undefined | (() => void);
 };
@@ -34,7 +37,7 @@ const markerClasses = {
 } as const satisfies Record<ActivityTone, string>;
 
 export function ActivityTray(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly compact: boolean;
 	readonly announcement: string;
 	readonly dismissIcon: ReactNode;
@@ -68,10 +71,13 @@ export function Toast(props: {
 	readonly dismissIcon: ReactNode;
 	readonly entry: ActivityTrayEntry;
 }) {
+	const t = useT();
 	const { entry } = props;
 	return (
 		<article
-			aria-label={`${entry.source}: ${entry.title}`}
+			aria-label={t(
+				kernelMessage("ui.activity-tray.entry", { title: entry.title, source: entry.source }),
+			)}
 			className="pointer-events-auto flex w-full gap-3 rounded-lg border border-border-card bg-raised p-3 text-sm text-text shadow-card"
 		>
 			<span
@@ -100,7 +106,7 @@ export function Toast(props: {
 					size="sm"
 					className="-mt-1 -mr-1"
 					onClick={entry.onDismiss}
-					label={`Dismiss ${entry.title}`}
+					label={t(kernelMessage("ui.activity-tray.dismiss", { title: entry.title }))}
 				>
 					{props.dismissIcon}
 				</IconButton>
