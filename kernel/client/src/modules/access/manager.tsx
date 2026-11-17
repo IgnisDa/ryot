@@ -1,3 +1,8 @@
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -11,7 +16,7 @@ import { type ReactNode, useRef, useState } from "react";
 
 import { DemoProtectionMessage } from "#/modules/demo-protection";
 import { useEntitlement } from "#/modules/entitlements/context";
-import { formatDateLabel, formatRelativeTime } from "#/modules/ui/run/run-status";
+import { formatRelativeTime } from "#/modules/ui/run/run-status";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 import { CreateApiKeyDialog } from "./create-api-key-dialog";
@@ -26,18 +31,27 @@ import { writeAccessLabel } from "./write-access";
 
 const EXPIRING_SOON_MS = 7 * 86_400_000;
 
-const lastUsed = (value: null | string, now: number) =>
-	value === null ? "Never used" : `Last used ${formatRelativeTime(value, now)}`;
+const KEY_MASK = "••••••••";
+
+const lastUsed = (
+	formatters: Formatters,
+	t: (message: Message) => Text,
+	value: null | string,
+	now: number,
+) =>
+	value === null
+		? kernelMessage("client.access.credentials.never-used")
+		: kernelMessage("client.access.credentials.last-used", {
+				when: formatRelativeTime(formatters, t, value, now),
+			});
 
 export function AccessManager(props: { readonly isDemo: boolean }) {
+	const t = useT();
 	const createTrigger = useRef<null | HTMLButtonElement>(null);
 	const [creating, setCreating] = useState(false);
 	const pro = useEntitlement("pro");
 	const intro = (
-		<p className="text-sm text-text-muted">
-			Apps and scripts reach your account through connected apps and API keys. Each has its own
-			access level and can be revoked here.
-		</p>
+		<p className="text-sm text-text-muted">{t(kernelMessage("client.access.intro"))}</p>
 	);
 
 	if (props.isDemo) {
@@ -58,28 +72,28 @@ export function AccessManager(props: { readonly isDemo: boolean }) {
 		<div className="flex flex-col gap-8">
 			{intro}
 			<AccessSection
-				title="Connected apps"
-				description="Apps you approved on Ryot's sign-in page, such as AI assistants connected over MCP."
+				title={t(kernelMessage("client.access.apps.title"))}
+				description={t(kernelMessage("client.access.apps.description"))}
 			>
 				{pro ? null : (
 					<EntitlementNotice
 						entitlement="pro"
-						feature="Connecting assistants over MCP"
 						icon={<AppIcon size={16} name="sparkles" />}
+						detail={t(kernelMessage("client.access.apps.pro-required"))}
 					/>
 				)}
 				<ConnectedAppsList />
 			</AccessSection>
 			<AccessSection
-				title="API keys"
-				description="Keys let scripts, automations and other apps work with your account without signing in. Keep them secret."
+				title={t(kernelMessage("client.access.keys.title"))}
+				description={t(kernelMessage("client.access.keys.description"))}
 				action={
 					<Button
 						className="shrink-0 self-start sm:self-center"
 						onClick={(event) => openCreate(event.currentTarget)}
 					>
 						<AppIcon size={16} name="plus" />
-						Create key
+						{t(kernelMessage("client.access.create.submit"))}
 					</Button>
 				}
 			>
@@ -87,7 +101,7 @@ export function AccessManager(props: { readonly isDemo: boolean }) {
 					<EntitlementNotice
 						entitlement="pro"
 						icon={<AppIcon size={16} name="key-round" />}
-						feature="Running custom RyotQL queries with API keys"
+						detail={t(kernelMessage("client.access.keys.pro-required"))}
 					/>
 				)}
 				<ApiKeysList onCreate={openCreate} />
@@ -100,10 +114,10 @@ export function AccessManager(props: { readonly isDemo: boolean }) {
 }
 
 function AccessSection(props: {
-	readonly title: string;
+	readonly title: Text;
+	readonly description: Text;
 	readonly action?: ReactNode;
 	readonly children: ReactNode;
-	readonly description: string;
 }) {
 	return (
 		<section aria-label={props.title} className="flex flex-col gap-4">
@@ -120,6 +134,8 @@ function AccessSection(props: {
 }
 
 function ConnectedAppsList() {
+	const t = useT();
+	const formatters = useFormatters();
 	const now = useNowMs(RELATIVE_TIME_REFRESH_MS);
 	const revoke = useRyotMutation(revokeConnectedAppMutation);
 	const query = useRyotInfiniteQuery(connectedAppsQuery, undefined, {
@@ -134,53 +150,62 @@ function ConnectedAppsList() {
 	);
 	return (
 		<CredentialList
-			label="connected apps"
 			isError={query.isError}
 			isPending={query.isPending}
 			onRetry={() => query.refetch()}
+			label={t(kernelMessage("client.access.apps.title"))}
+			loadingLabel={t(kernelMessage("client.access.apps.loading"))}
+			loadFailedTitle={t(kernelMessage("client.access.apps.load-failed"))}
 			loadMore={
 				query.data?.pageInfo.hasMore === true
 					? {
-							label: "Load more apps",
 							onClick: query.fetchNextPage,
 							isFetchingNextPage: query.isFetchingNextPage,
+							label: t(kernelMessage("client.access.apps.load-more")),
 						}
 					: null
 			}
-			rows={apps.map((app) => ({
-				id: app.id,
-				icon: "link",
-				name: app.name,
-				access: writeAccessLabel(app.writeAccess),
-				detail: [`Connected ${formatDateLabel(app.createdAt)}`, lastUsed(app.lastUsedAt, now)].join(
-					" · ",
-				),
-			}))}
 			empty={
 				<EmptyState
-					title="No connected apps"
 					icon={<AppIcon size={20} name="link" />}
+					title={t(kernelMessage("client.access.apps.empty-title"))}
 					className="rounded-xl border border-dashed border-border-emphasis"
-					description="Apps you connect through Ryot's sign-in page appear here."
+					description={t(kernelMessage("client.access.apps.empty-description"))}
 				/>
 			}
 			revoke={{
 				reset: revoke.reset,
 				run: revoke.mutateEffect,
 				pending: revoke.isPending,
-				actionLabel: "Revoke access",
 				failed: revoke.error !== null,
-				errorMessage: "Access could not be revoked. Try again.",
-				detail:
-					"The app can no longer renew its access, and access it already holds ends within 15 minutes. Connect it again to restore access.",
+				detail: t(kernelMessage("client.access.apps.revoke-detail")),
+				actionLabel: t(kernelMessage("client.access.apps.revoke-action")),
+				errorMessage: t(kernelMessage("client.access.apps.revoke-failed")),
 			}}
+			rows={apps.map((app) => ({
+				id: app.id,
+				icon: "link",
+				name: app.name,
+				access: writeAccessLabel(t, app.writeAccess),
+				detail: t(
+					kernelMessage("client.access.apps.detail", {
+						lastUsed: lastUsed(formatters, t, app.lastUsedAt, now),
+						connected: kernelMessage("client.access.apps.connected", {
+							date: new Date(app.createdAt),
+						}),
+					}),
+				),
+			}))}
 		/>
 	);
 }
 
-const keyName = (key: ApiKeyItem) => key.name ?? "Unnamed key";
+const keyName = (t: (message: Message) => Text, key: ApiKeyItem) =>
+	key.name ?? t(kernelMessage("client.access.keys.unnamed"));
 
 function ApiKeysList(props: { readonly onCreate: (trigger: HTMLButtonElement) => void }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const now = useNowMs(RELATIVE_TIME_REFRESH_MS);
 	const revoke = useRyotMutation(revokeApiKeyMutation);
 	const query = useRyotInfiniteQuery(apiKeysQuery, undefined, {
@@ -195,16 +220,18 @@ function ApiKeysList(props: { readonly onCreate: (trigger: HTMLButtonElement) =>
 	);
 	return (
 		<CredentialList
-			label="API keys"
 			isError={query.isError}
 			isPending={query.isPending}
 			onRetry={() => query.refetch()}
+			label={t(kernelMessage("client.access.keys.title"))}
+			loadingLabel={t(kernelMessage("client.access.keys.loading"))}
+			loadFailedTitle={t(kernelMessage("client.access.keys.load-failed"))}
 			loadMore={
 				query.data?.pageInfo.hasMore === true
 					? {
-							label: "Load more keys",
 							onClick: query.fetchNextPage,
 							isFetchingNextPage: query.isFetchingNextPage,
+							label: t(kernelMessage("client.access.keys.load-more")),
 						}
 					: null
 			}
@@ -212,21 +239,21 @@ function ApiKeysList(props: { readonly onCreate: (trigger: HTMLButtonElement) =>
 				reset: revoke.reset,
 				run: revoke.mutateEffect,
 				pending: revoke.isPending,
-				actionLabel: "Revoke key",
 				failed: revoke.error !== null,
-				errorMessage: "The key could not be revoked. Try again.",
-				detail: "Scripts and apps using this key stop working right away. This cannot be undone.",
+				detail: t(kernelMessage("client.access.keys.revoke-detail")),
+				actionLabel: t(kernelMessage("client.access.keys.revoke-action")),
+				errorMessage: t(kernelMessage("client.access.keys.revoke-failed")),
 			}}
 			empty={
 				<EmptyState
-					title="No API keys yet"
 					icon={<AppIcon size={20} name="key-round" />}
+					title={t(kernelMessage("client.access.keys.empty-title"))}
 					className="rounded-xl border border-dashed border-border-emphasis"
-					description="Create a key to connect a script, automation or another app to your account."
+					description={t(kernelMessage("client.access.keys.empty-description"))}
 					action={
 						<Button variant="secondary" onClick={(event) => props.onCreate(event.currentTarget)}>
 							<AppIcon size={16} name="plus" />
-							Create key
+							{t(kernelMessage("client.access.create.submit"))}
 						</Button>
 					}
 				/>
@@ -235,37 +262,44 @@ function ApiKeysList(props: { readonly onCreate: (trigger: HTMLButtonElement) =>
 				const remainingMs = key.expiresAt === null ? null : Date.parse(key.expiresAt) - now;
 				const expired = remainingMs !== null && remainingMs <= 0;
 				const expiringSoon = remainingMs !== null && !expired && remainingMs <= EXPIRING_SOON_MS;
-				let expiry = "Never expires";
+				let expiry = kernelMessage("client.access.keys.never-expires");
 				if (key.expiresAt !== null) {
-					expiry = `${expired ? "Expired" : "Expires"} ${formatDateLabel(key.expiresAt)}`;
+					expiry = kernelMessage(
+						expired ? "client.access.keys.expired-on" : "client.access.keys.expires-on",
+						{ date: new Date(key.expiresAt) },
+					);
 				}
 				return {
 					id: key.id,
 					icon: "key-round",
 					inactive: expired,
-					name: keyName(key),
-					access: writeAccessLabel(key.writeAccess),
-					detail: [
-						`Created ${formatDateLabel(key.createdAt)}`,
-						lastUsed(key.lastUsedAt, now),
-						expiry,
-					].join(" · "),
+					name: keyName(t, key),
+					access: writeAccessLabel(t, key.writeAccess),
 					secondary: (
 						<code className="truncate font-mono text-xs text-text-muted">
 							{key.start ?? ""}
-							<span aria-hidden="true">••••••••</span>
+							<span aria-hidden="true">{KEY_MASK}</span>
 						</code>
+					),
+					detail: t(
+						kernelMessage("client.access.keys.detail", {
+							expiry,
+							lastUsed: lastUsed(formatters, t, key.lastUsedAt, now),
+							created: kernelMessage("client.access.keys.created", {
+								date: new Date(key.createdAt),
+							}),
+						}),
 					),
 					badges: (
 						<>
 							{expired ? (
 								<Badge size="sm" variant="neutral">
-									Expired
+									{t(kernelMessage("client.access.keys.expired-badge"))}
 								</Badge>
 							) : null}
 							{expiringSoon ? (
 								<Badge size="sm" variant="warning">
-									Expires soon
+									{t(kernelMessage("client.access.keys.expires-soon-badge"))}
 								</Badge>
 							) : null}
 						</>

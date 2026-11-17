@@ -1,5 +1,7 @@
 import { describe, expect } from "bun:test";
 
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -9,6 +11,7 @@ import { Effect } from "effect";
 import type { AuthMode, TwoFactorMethod } from "#/modules/auth/flow";
 import type { CredentialsValues } from "#/modules/auth/form-values";
 import { CredentialsForm, TwoFactorForm } from "#/modules/auth/forms";
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 
 const MODE_SWITCHER = { name: "Authentication mode" };
 
@@ -27,7 +30,7 @@ const submitButton = () => {
 function renderCredentialsForm(overrides?: {
 	mode?: AuthMode;
 	disabled?: boolean;
-	submitError?: string;
+	submitError?: Message;
 	signupAllowed?: boolean;
 }) {
 	const modeChanges: AuthMode[] = [];
@@ -44,13 +47,13 @@ function renderCredentialsForm(overrides?: {
 		disabled: overrides?.disabled ?? false,
 		signupAllowed: overrides?.signupAllowed ?? true,
 	};
-	const view = render(<CredentialsForm {...props} />);
+	const view = render(<CredentialsForm {...props} />, { wrapper: testI18nWrapper() });
 
 	return { view, props, modeChanges, submissions, user: userEvent.setup() };
 }
 
 function renderTwoFactorForm(overrides?: {
-	submitError?: string;
+	submitError?: Message;
 	method?: TwoFactorMethod;
 	methods?: readonly TwoFactorMethod[];
 }) {
@@ -70,7 +73,7 @@ function renderTwoFactorForm(overrides?: {
 		method: overrides?.method ?? "totp",
 		methods: overrides?.methods ?? (["totp", "backupCode"] as const),
 	};
-	const view = render(<TwoFactorForm {...props} />);
+	const view = render(<TwoFactorForm {...props} />, { wrapper: testI18nWrapper() });
 
 	return { view, props, submissions, backRequests, methodChanges, user: userEvent.setup() };
 }
@@ -158,7 +161,9 @@ describe("credentials form", () => {
 		"shows a submission error until the password changes",
 		() =>
 			Effect.gen(function* () {
-				const { user } = renderCredentialsForm({ submitError: "Invalid credentials." });
+				const { user } = renderCredentialsForm({
+					submitError: kernelMessage("client.auth.hosted.sign-in-failed"),
+				});
 
 				yield* Effect.promise(() =>
 					user.type(screen.getByLabelText("Email address"), "user@example.com"),
@@ -166,7 +171,7 @@ describe("credentials form", () => {
 				yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "Sup3rSecret"));
 				yield* Effect.promise(() => user.click(submitButton()));
 
-				expect(screen.getByRole("alert").textContent).toBe("Invalid credentials.");
+				expect(screen.getByRole("alert").textContent).toBe("Could not sign in.");
 
 				yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "!"));
 
@@ -275,14 +280,16 @@ describe("two-factor form", () => {
 		"shows a submission error and clears the code",
 		() =>
 			Effect.gen(function* () {
-				const { user } = renderTwoFactorForm({ submitError: "That code did not work." });
+				const { user } = renderTwoFactorForm({
+					submitError: kernelMessage("client.auth.hosted.code-verify-failed"),
+				});
 
 				yield* Effect.promise(() =>
 					user.type(screen.getByLabelText("Authenticator code"), "123456"),
 				);
 				yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Verify" })));
 
-				expect(screen.getByRole("alert").textContent).toBe("That code did not work.");
+				expect(screen.getByRole("alert").textContent).toBe("Could not verify that code.");
 				expect(screen.getByLabelText<HTMLInputElement>("Authenticator code").value).toBe("");
 			}),
 		testTimeout,

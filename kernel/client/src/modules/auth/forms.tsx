@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createErrorVisibility, useForm } from "@tanstack/react-form";
 import { Effect } from "effect";
@@ -17,16 +20,16 @@ const errorVisibility = createErrorVisibility(
 
 const modeContent = {
 	login: {
-		action: "Sign in",
-		title: "Welcome back",
-		pending: "Signing in...",
-		subtitle: "Pick up where you left off.",
+		action: kernelMessage("common.action.sign-in"),
+		title: kernelMessage("client.auth.mode.login.title"),
+		pending: kernelMessage("client.auth.mode.login.pending"),
+		subtitle: kernelMessage("client.auth.mode.login.subtitle"),
 	},
 	signup: {
-		title: "Make it yours",
-		action: "Create account",
-		pending: "Creating account...",
-		subtitle: "Start a library shaped around you.",
+		title: kernelMessage("client.auth.mode.signup.title"),
+		action: kernelMessage("client.auth.mode.signup.action"),
+		pending: kernelMessage("client.auth.mode.signup.pending"),
+		subtitle: kernelMessage("client.auth.mode.signup.subtitle"),
 	},
 } as const;
 
@@ -35,9 +38,10 @@ export function TwoFactorForm(props: {
 	method: TwoFactorMethod;
 	methods: readonly TwoFactorMethod[];
 	onMethodChange: (method: TwoFactorMethod) => void;
-	onSubmit: (code: string) => Effect.Effect<string | undefined>;
+	onSubmit: (code: string) => Effect.Effect<Message | undefined>;
 }) {
-	const [serverError, setServerError] = useState<string>();
+	const t = useT();
+	const [serverError, setServerError] = useState<Message>();
 	const usingBackupCode = props.method === "backupCode";
 	const controller = useRef(new AbortController());
 	useEffect(() => () => controller.current.abort(), []);
@@ -71,12 +75,14 @@ export function TwoFactorForm(props: {
 		<div className="ui-stack">
 			<div>
 				<h1 id="auth-title" className="ui-heading">
-					One more step
+					{t(kernelMessage("client.auth.two-factor.title"))}
 				</h1>
 				<p className="ui-subtitle">
-					{usingBackupCode
-						? "Enter one of your saved backup codes."
-						: "Enter the 6-digit code from your authenticator app."}
+					{t(
+						usingBackupCode
+							? kernelMessage("client.auth.two-factor.backup-prompt")
+							: kernelMessage("client.auth.two-factor.totp-prompt"),
+					)}
 				</p>
 			</div>
 			<form
@@ -94,13 +100,21 @@ export function TwoFactorForm(props: {
 							runOnMount: true,
 							triggers: ["change", "blur"],
 							run: ({ value }) =>
-								value.trim() === "" ? "Enter your two-factor authentication code." : undefined,
+								value.trim() === ""
+									? t(kernelMessage("client.auth.two-factor.code-required"))
+									: undefined,
 						},
 					]}
 				>
 					{(field) => (
 						<label className="ui-field-label">
-							<span>{usingBackupCode ? "Backup code" : "Authenticator code"}</span>
+							<span>
+								{t(
+									usingBackupCode
+										? kernelMessage("client.auth.two-factor.backup-code")
+										: kernelMessage("client.auth.two-factor.authenticator-code"),
+								)}
+							</span>
 							<input
 								autoFocus
 								name={field.name}
@@ -112,12 +126,16 @@ export function TwoFactorForm(props: {
 								aria-invalid={field.errors.length > 0}
 								maxLength={usingBackupCode ? undefined : 6}
 								inputMode={usingBackupCode ? "text" : "numeric"}
-								placeholder={usingBackupCode ? "Backup code" : "000000"}
 								aria-describedby={field.errors.length > 0 ? "code-error" : undefined}
 								onChange={(event) => {
 									field.handleChange(event.currentTarget.value);
 									setServerError(undefined);
 								}}
+								placeholder={
+									usingBackupCode
+										? t(kernelMessage("client.auth.two-factor.backup-code"))
+										: "000000"
+								}
 							/>
 							{field.errors[0] && (
 								<small role="alert" id="code-error" className="ui-field-error">
@@ -129,14 +147,18 @@ export function TwoFactorForm(props: {
 				</form.Field>
 				{serverError && (
 					<p role="alert" className="ui-field-error">
-						{serverError}
+						{t(serverError)}
 					</p>
 				)}
 				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
 					{([canSubmit, isSubmitting]) => (
 						<>
 							<Button type="submit" variant="primary" className="w-full" disabled={!canSubmit}>
-								{isSubmitting ? "Verifying..." : "Verify"}
+								{t(
+									isSubmitting
+										? kernelMessage("client.auth.two-factor.verifying")
+										: kernelMessage("client.auth.two-factor.verify"),
+								)}
 							</Button>
 							{props.methods.length > 1 && (
 								<Button
@@ -145,11 +167,15 @@ export function TwoFactorForm(props: {
 									onClick={changeMethod}
 									disabled={isSubmitting}
 								>
-									{usingBackupCode ? "Use an authenticator code" : "Use a backup code"}
+									{t(
+										usingBackupCode
+											? kernelMessage("client.auth.two-factor.use-authenticator")
+											: kernelMessage("client.auth.two-factor.use-backup"),
+									)}
 								</Button>
 							)}
 							<Button type="button" variant="ghost" onClick={props.onBack} disabled={isSubmitting}>
-								Back to sign in
+								{t(kernelMessage("client.auth.back-to-sign-in"))}
 							</Button>
 						</>
 					)}
@@ -164,10 +190,11 @@ export function CredentialsForm(props: {
 	disabled: boolean;
 	signupAllowed: boolean;
 	onModeChange: (mode: AuthMode) => void;
-	onSubmit: (values: CredentialsValues) => Effect.Effect<string | undefined>;
+	onSubmit: (values: CredentialsValues) => Effect.Effect<Message | undefined>;
 }) {
+	const t = useT();
 	const passwordRef = useRef<HTMLInputElement>(null);
-	const [serverError, setServerError] = useState<string>();
+	const [serverError, setServerError] = useState<Message>();
 	const content = modeContent[props.mode];
 	const controller = useRef(new AbortController());
 	useEffect(() => () => controller.current.abort(), []);
@@ -195,14 +222,14 @@ export function CredentialsForm(props: {
 		<div className="ui-stack">
 			<div>
 				<h1 id="auth-title" className="ui-heading">
-					{content.title}
+					{t(content.title)}
 				</h1>
-				<p className="ui-subtitle">{content.subtitle}</p>
+				<p className="ui-subtitle">{t(content.subtitle)}</p>
 			</div>
 			{props.signupAllowed && (
 				<div
 					role="group"
-					aria-label="Authentication mode"
+					aria-label={t(kernelMessage("client.auth.mode.label"))}
 					className="grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1"
 				>
 					<Button
@@ -212,7 +239,7 @@ export function CredentialsForm(props: {
 						onClick={() => changeMode("login")}
 						aria-pressed={props.mode === "login"}
 					>
-						Sign in
+						{t(kernelMessage("common.action.sign-in"))}
 					</Button>
 					<Button
 						type="button"
@@ -221,7 +248,7 @@ export function CredentialsForm(props: {
 						onClick={() => changeMode("signup")}
 						aria-pressed={props.mode === "signup"}
 					>
-						Sign up
+						{t(kernelMessage("client.auth.mode.signup.tab"))}
 					</Button>
 				</div>
 			)}
@@ -242,13 +269,13 @@ export function CredentialsForm(props: {
 									{
 										runOnMount: true,
 										triggers: ["change", "blur"],
-										run: ({ value }) => validateEmail(value),
+										run: ({ value }) => validateEmail(t, value),
 									},
 								]}
 							>
 								{(field) => (
 									<label className="ui-field-label">
-										<span>Email address</span>
+										<span>{t(kernelMessage("client.auth.email"))}</span>
 										<input
 											autoFocus
 											type="email"
@@ -258,9 +285,9 @@ export function CredentialsForm(props: {
 											autoCapitalize="none"
 											onBlur={field.handleBlur}
 											className="ui-field-input"
-											placeholder="you@example.com"
 											aria-invalid={field.errors.length > 0}
 											disabled={props.disabled || isSubmitting}
+											placeholder={t(kernelMessage("client.auth.email-placeholder"))}
 											aria-describedby={field.errors.length > 0 ? "email-error" : undefined}
 											onChange={(event) => {
 												field.handleChange(event.currentTarget.value);
@@ -287,23 +314,23 @@ export function CredentialsForm(props: {
 									{
 										runOnMount: true,
 										triggers: ["change", "blur"],
-										run: ({ value }) => validatePassword(value),
+										run: ({ value }) => validatePassword(t, value),
 									},
 								]}
 							>
 								{(field) => (
 									<label className="ui-field-label">
-										<span>Password</span>
+										<span>{t(kernelMessage("client.auth.password"))}</span>
 										<input
 											type="password"
 											ref={passwordRef}
 											name={field.name}
 											value={field.value}
-											placeholder="Password"
 											onBlur={field.handleBlur}
 											className="ui-field-input"
 											aria-invalid={field.errors.length > 0}
 											disabled={props.disabled || isSubmitting}
+											placeholder={t(kernelMessage("client.auth.password"))}
 											aria-describedby={field.errors.length > 0 ? "password-error" : undefined}
 											autoComplete={props.mode === "login" ? "current-password" : "new-password"}
 											onChange={(event) => {
@@ -324,7 +351,7 @@ export function CredentialsForm(props: {
 				</form.Subscribe>
 				{serverError && (
 					<p role="alert" className="ui-field-error">
-						{serverError}
+						{t(serverError)}
 					</p>
 				)}
 				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
@@ -335,7 +362,7 @@ export function CredentialsForm(props: {
 							className="w-full"
 							disabled={props.disabled || !canSubmit}
 						>
-							{isSubmitting ? content.pending : content.action}
+							{t(isSubmitting ? content.pending : content.action)}
 						</Button>
 					)}
 				</form.Subscribe>

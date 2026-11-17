@@ -1,3 +1,4 @@
+import { useT } from "@ryot-app/i18n/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
@@ -15,14 +16,15 @@ type SettingsSectionNavProps = {
 };
 
 export function SettingsSectionNav(props: SettingsSectionNavProps) {
+	const t = useT();
 	const isIndex = props.variant === "index";
 	return (
 		<div className={clsx("flex flex-col", isIndex ? "gap-6" : "gap-4")}>
 			{settingsGroups.map((group) => (
 				<div
 					role="group"
-					key={group.label}
-					aria-label={group.label}
+					key={group.label.key}
+					aria-label={t(group.label)}
 					className={clsx("flex flex-col", isIndex ? "gap-2" : "gap-1")}
 				>
 					<span
@@ -31,7 +33,7 @@ export function SettingsSectionNav(props: SettingsSectionNavProps) {
 							isIndex ? "px-4" : "px-3",
 						)}
 					>
-						{group.label}
+						{t(group.label)}
 					</span>
 					<div
 						className={clsx(
@@ -58,7 +60,7 @@ export function SettingsSectionNav(props: SettingsSectionNavProps) {
 									)}
 								>
 									<AppIcon size={17} name={section.icon} className="text-text-muted" />
-									<span className="flex-1">{section.label}</span>
+									<span className="flex-1">{t(section.label)}</span>
 									{isIndex && (
 										<AppIcon size={15} name="chevron-right" className="text-text-subtle" />
 									)}

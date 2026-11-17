@@ -1,3 +1,8 @@
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -76,41 +81,65 @@ function UserPageStatus(props: {
 	readonly onRetry: () => void;
 	readonly state: "error" | "loading";
 }) {
+	const t = useT();
 	if (props.state === "loading") {
-		return <p role="status">Loading users...</p>;
+		return <p role="status">{t(kernelMessage("client.instance-admin.users.loading"))}</p>;
 	}
 	return (
 		<div className="grid justify-items-center gap-3">
 			<p role="alert" className="text-danger">
-				Could not load users. Check the server and try again.
+				{t(kernelMessage("client.instance-admin.users.load-failed"))}
 			</p>
 			<Button type="button" variant="secondary" onClick={props.onRetry}>
-				Retry
+				{t(kernelMessage("common.action.retry"))}
 			</Button>
 		</div>
 	);
 }
 
-const formatDate = (value: string) =>
-	new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
+const formatDate = (formatters: Formatters, value: string) =>
+	formatters.dateTime({ dateStyle: "medium" }).format(new Date(value));
 
-const userColumns: ReadonlyArray<DataTableColumn<InstanceAdminUser>> = [
-	{ id: "email", header: "Email", headerClassName: "px-2 py-3 font-semibold" },
-	{ id: "name", header: "Name", headerClassName: "hidden px-2 py-3 font-semibold md:table-cell" },
-	{ id: "auth", header: "Auth", headerClassName: "hidden px-2 py-3 font-semibold md:table-cell" },
-	{ id: "status", header: "Status", headerClassName: "px-2 py-3 font-semibold" },
+const userColumns = (
+	t: (message: Message) => Text,
+): ReadonlyArray<DataTableColumn<InstanceAdminUser>> => [
+	{
+		id: "email",
+		headerClassName: "px-2 py-3 font-semibold",
+		header: t(kernelMessage("client.instance-admin.users.column.email")),
+	},
+	{
+		id: "name",
+		headerClassName: "hidden px-2 py-3 font-semibold md:table-cell",
+		header: t(kernelMessage("client.instance-admin.users.column.name")),
+	},
+	{
+		id: "auth",
+		headerClassName: "hidden px-2 py-3 font-semibold md:table-cell",
+		header: t(kernelMessage("client.instance-admin.users.column.auth")),
+	},
+	{
+		id: "status",
+		headerClassName: "px-2 py-3 font-semibold",
+		header: t(kernelMessage("client.instance-admin.users.column.status")),
+	},
 	{
 		id: "created",
-		header: "Created",
 		headerClassName: "hidden px-2 py-3 font-semibold lg:table-cell",
+		header: t(kernelMessage("client.instance-admin.users.column.created")),
 	},
-	{ id: "actions", header: "Actions", headerClassName: "px-2 py-3 font-semibold" },
+	{
+		id: "actions",
+		headerClassName: "px-2 py-3 font-semibold",
+		header: t(kernelMessage("sdk.browser.actions")),
+	},
 ];
 
 const logFailure = (label: string, cause: Cause.Cause<unknown>) =>
 	Effect.runSync(Effect.logWarning(label, Cause.pretty(cause)));
 
 export function UsersAdministration(props: UsersAdministrationProps) {
+	const t = useT();
 	const [search, setSearch] = useState("");
 	const searchInput = useRef<HTMLInputElement>(null);
 	useFieldEscape(searchInput, { hasValue: search !== "", onClear: () => setSearch("") });
@@ -172,32 +201,32 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 
 	return (
 		<section className="ui-card max-w-6xl" aria-labelledby="instance-admin-users-title">
-			<p className="ui-overline">Administration</p>
+			<p className="ui-overline">{t(kernelMessage("client.settings.section.administration"))}</p>
 			<h1 id="instance-admin-users-title" className="font-display text-3xl font-semibold">
-				Users
+				{t(kernelMessage("client.instance-admin.users.title"))}
 			</h1>
-			<p className="ui-subtitle">Manage account access, recovery, and user data.</p>
+			<p className="ui-subtitle">{t(kernelMessage("client.instance-admin.users.subtitle"))}</p>
 			<form role="search" onSubmit={submitSearch} className="mt-6 flex max-w-md gap-2">
 				<label className="sr-only" htmlFor="instance-admin-user-search">
-					Search users by email
+					{t(kernelMessage("client.instance-admin.users.search-label"))}
 				</label>
 				<input
 					type="search"
 					value={search}
 					ref={searchInput}
 					className="ui-field-input"
-					placeholder="Search by email"
 					id="instance-admin-user-search"
 					onChange={(event) => setSearch(event.currentTarget.value)}
+					placeholder={t(kernelMessage("client.instance-admin.users.search-placeholder"))}
 				/>
 				<Button type="submit" variant="secondary">
-					Search
+					{t(kernelMessage("common.action.search"))}
 				</Button>
 			</form>
 			<div className="mt-5 overflow-x-auto">
 				<DataTable
 					data={users}
-					columns={userColumns}
+					columns={userColumns(t)}
 					bodyEndRows={bodyEndRows}
 					getRowId={(user) => user.id}
 					className="w-full border-collapse text-left text-sm"
@@ -216,28 +245,30 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 			</div>
 			{pagination.pages.length > 0 && loaded === 0 && !pagination.isFetching && (
 				<div className="py-12 text-center">
-					<h2 className="font-display text-lg font-semibold">No users found</h2>
+					<h2 className="font-display text-lg font-semibold">
+						{t(kernelMessage("client.instance-admin.users.empty-title"))}
+					</h2>
 					<p className="mt-1 text-sm text-text-muted">
 						{query === ""
-							? "This server has no user accounts yet."
-							: `No user email matches “${query}”.`}
+							? t(kernelMessage("client.instance-admin.users.empty-all"))
+							: t(kernelMessage("client.instance-admin.users.empty-search", { query }))}
 					</p>
 				</div>
 			)}
 			{pagination.pages.length > 0 && loaded > 0 && (
 				<p className="mt-4 text-center text-sm text-text-muted">
-					Showing {loaded.toLocaleString()} of {total.toLocaleString()} users
+					{t(kernelMessage("client.instance-admin.users.showing", { total, loaded }))}
 				</p>
 			)}
 			{pagination.hasNextPage && pagination.errorOperation !== "append" && (
 				<div className="mt-5 flex justify-center">
 					<LoadMoreButton
 						type="button"
-						label="Load more users"
 						onClick={pagination.fetchNextPage}
-						loadingLabel="Loading more users..."
 						isFetchingNextPage={pagination.isFetchingNextPage}
+						label={t(kernelMessage("client.instance-admin.users.load-more"))}
 						disabled={pagination.isFetching && !pagination.isFetchingNextPage}
+						loadingLabel={t(kernelMessage("client.instance-admin.users.loading-more"))}
 					/>
 				</div>
 			)}
@@ -261,8 +292,8 @@ function Badge(props: { readonly children: string; readonly tone?: "danger" | "s
 
 function UserActionsMenu(props: {
 	readonly id: string;
+	readonly note?: Text;
 	readonly open: boolean;
-	readonly note?: string;
 	readonly activeIndex: number;
 	readonly items: ReadonlyArray<MenuItem>;
 	readonly backInterceptors: BackInterceptors;
@@ -270,6 +301,7 @@ function UserActionsMenu(props: {
 	readonly onActiveIndexChange: (index: number) => void;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
+	const t = useT();
 	const { open, backInterceptors } = props;
 	const close = useEffectEvent((restoreFocus: boolean) => props.onClose(restoreFocus));
 
@@ -288,11 +320,11 @@ function UserActionsMenu(props: {
 			id={props.id}
 			note={props.note}
 			items={props.items}
-			label="User actions"
 			onClose={props.onClose}
 			triggerRef={props.triggerRef}
 			activeIndex={props.activeIndex}
 			onActiveIndexChange={props.onActiveIndexChange}
+			label={t(kernelMessage("client.instance-admin.users.actions-menu"))}
 		/>
 	) : null;
 }
@@ -305,11 +337,13 @@ function UserRow(props: {
 	readonly backInterceptors: BackInterceptors;
 	readonly operations: InstanceAdminUserOperations;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const pendingRef = useRef<null | string>(null);
 	const unmountSignal = useUnmountSignal();
 	const menuId = useId();
-	const [error, setError] = useState<string>();
+	const [error, setError] = useState<Message>();
 	const [confirmation, setConfirmation] = useState<null | "reset" | "delete">(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeMenuIndex, setActiveMenuIndex] = useState(0);
@@ -321,25 +355,37 @@ function UserRow(props: {
 	>(null);
 	const [impersonationUrl, setImpersonationUrl] = useState<null | string>(null);
 	const linkUrl = impersonationUrl ?? result?.resetUrl;
-	const linkLabel = impersonationUrl === null ? "Password reset link" : "Impersonation link";
+	const linkLabel = t(
+		impersonationUrl === null
+			? kernelMessage("client.instance-admin.users.reset-link")
+			: kernelMessage("client.instance-admin.users.impersonation-link"),
+	);
 	const isDisabled = props.user.disabledAt !== null;
 	const canResetPassword = props.user.authState === "credential" || props.user.authState === "none";
-	let resetNote: string | undefined;
+	let resetNote: Text | undefined;
 	if (props.user.authState === "oidc") {
-		resetNote = "OIDC-only user: password reset links are unavailable.";
+		resetNote = t(kernelMessage("client.instance-admin.users.reset-note.oidc"));
 	} else if (props.user.authState === "mixed") {
-		resetNote = "Mixed authentication: manual recovery is required.";
+		resetNote = t(kernelMessage("client.instance-admin.users.reset-note.mixed"));
 	}
-	let disabledActionLabel = isDisabled ? "Enable user" : "Disable user";
+	let disabledActionLabel = t(
+		isDisabled
+			? kernelMessage("client.instance-admin.users.action.enable")
+			: kernelMessage("client.instance-admin.users.action.disable"),
+	);
 	if (pending === "disabled") {
-		disabledActionLabel = isDisabled ? "Enabling..." : "Disabling...";
+		disabledActionLabel = t(
+			isDisabled
+				? kernelMessage("client.instance-admin.users.action.enabling")
+				: kernelMessage("client.instance-admin.users.action.disabling"),
+		);
 	}
 
 	const run = <A,>(
 		kind: NonNullable<typeof pending>,
 		operation: () => Effect.Effect<A, unknown>,
 		onSuccess: (value: A) => void,
-		failureMessage: string,
+		failureMessage: Message,
 	) =>
 		Effect.suspend(() => {
 			const signal = unmountSignal();
@@ -375,14 +421,16 @@ function UserRow(props: {
 				return props.operations.resetUserPassword(props.user.id);
 			},
 			setResult,
-			"Could not generate a reset link. Try again.",
+			kernelMessage("client.instance-admin.users.error.reset-link"),
 		);
 	const toggleDisabled = () =>
 		run(
 			"disabled",
 			() => props.operations.setUserDisabled(props.user.id, !isDisabled),
 			props.onRefresh,
-			`Could not ${isDisabled ? "enable" : "disable"} this user. Try again.`,
+			isDisabled
+				? kernelMessage("client.instance-admin.users.error.enable")
+				: kernelMessage("client.instance-admin.users.error.disable"),
 		);
 	const impersonate = () =>
 		run(
@@ -393,7 +441,7 @@ function UserRow(props: {
 				return props.operations.impersonateUser(props.user.id);
 			},
 			setImpersonationUrl,
-			"Could not start impersonation. Try again.",
+			kernelMessage("client.instance-admin.users.error.impersonate"),
 		);
 	const confirm = () => {
 		const kind = confirmation;
@@ -412,7 +460,7 @@ function UserRow(props: {
 					setConfirmation(null);
 					setResult(value);
 				},
-				"Could not reset this user. Try again.",
+				kernelMessage("client.instance-admin.users.error.reset"),
 			);
 		}
 		return run(
@@ -426,7 +474,7 @@ function UserRow(props: {
 				setConfirmation(null);
 				props.onRefresh();
 			},
-			"Could not delete this user. Try again.",
+			kernelMessage("client.instance-admin.users.error.delete"),
 		);
 	};
 	const closeMenu = (restoreFocus: boolean) => {
@@ -458,7 +506,11 @@ function UserRow(props: {
 			destructive: false,
 			onSelect: () => selectAction("password"),
 			disabled: !canResetPassword || pending !== null,
-			label: pending === "password" ? "Generating..." : "Generate reset link",
+			label: t(
+				pending === "password"
+					? kernelMessage("client.instance-admin.users.action.generating")
+					: kernelMessage("client.instance-admin.users.action.generate-link"),
+			),
 		},
 		{
 			key: "disabled",
@@ -472,21 +524,33 @@ function UserRow(props: {
 			destructive: false,
 			disabled: pending !== null,
 			onSelect: () => selectAction("impersonate"),
-			label: pending === "impersonation" ? "Starting..." : "Impersonate user",
+			label: t(
+				pending === "impersonation"
+					? kernelMessage("common.status.starting")
+					: kernelMessage("client.instance-admin.users.action.impersonate"),
+			),
 		},
 		{
 			key: "reset",
 			destructive: true,
 			disabled: pending !== null,
 			onSelect: () => selectAction("reset"),
-			label: pending === "reset" ? "Resetting..." : "Reset account",
+			label: t(
+				pending === "reset"
+					? kernelMessage("client.instance-admin.users.action.resetting")
+					: kernelMessage("client.instance-admin.users.action.reset"),
+			),
 		},
 		{
 			key: "delete",
 			destructive: true,
 			disabled: pending !== null,
 			onSelect: () => selectAction("delete"),
-			label: pending === "delete" ? "Deleting..." : "Delete user",
+			label: t(
+				pending === "delete"
+					? kernelMessage("common.status.deleting")
+					: kernelMessage("client.instance-admin.users.action.delete"),
+			),
 		},
 	];
 	const openMenu = () => {
@@ -503,25 +567,33 @@ function UserRow(props: {
 						{props.user.email}
 					</p>
 					<p className="mt-0.5 text-xs text-text-muted md:hidden">
-						{props.user.name} · {authLabel(props.user.authState)}
+						{props.user.name} · {t(authLabel(props.user.authState))}
 					</p>
 					{props.user.disabledAt && (
 						<p className="mt-1 text-xs text-text-subtle">
-							Disabled since {formatDate(props.user.disabledAt)}
+							{t(
+								kernelMessage("client.instance-admin.users.disabled-since", {
+									date: new Date(props.user.disabledAt),
+								}),
+							)}
 						</p>
 					)}
 				</td>
 				<td className="hidden px-2 py-4 text-text-muted md:table-cell">{props.user.name}</td>
 				<td className="hidden px-2 py-4 md:table-cell">
-					<Badge>{authLabel(props.user.authState)}</Badge>
+					<Badge>{t(authLabel(props.user.authState))}</Badge>
 				</td>
 				<td className="px-2 py-4">
 					<Badge tone={isDisabled ? "danger" : "success"}>
-						{isDisabled ? "Disabled" : "Enabled"}
+						{t(
+							isDisabled
+								? kernelMessage("client.instance-admin.users.status.disabled")
+								: kernelMessage("client.instance-admin.users.status.enabled"),
+						)}
 					</Badge>
 				</td>
 				<td className="hidden px-2 py-4 whitespace-nowrap text-text-muted lg:table-cell">
-					{formatDate(props.user.createdAt)}
+					{formatDate(formatters, props.user.createdAt)}
 				</td>
 				<td className="w-14 px-2 py-3">
 					<button
@@ -531,8 +603,10 @@ function UserRow(props: {
 						aria-controls={menuId}
 						aria-expanded={menuOpen}
 						disabled={pending !== null}
-						aria-label={`Actions for ${props.user.email}`}
 						onClick={() => (menuOpen ? closeMenu(true) : openMenu())}
+						aria-label={t(
+							kernelMessage("client.instance-admin.users.row-actions", { email: props.user.email }),
+						)}
 						className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-border-strong bg-raised text-text-muted hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-text-subtle"
 					>
 						<AppIcon size={18} name="more-horizontal" />
@@ -555,13 +629,12 @@ function UserRow(props: {
 					<td colSpan={6} className="px-2 py-3">
 						{error && (
 							<p role="alert" className="text-sm text-danger">
-								{error}
+								{t(error)}
 							</p>
 						)}
 						{result?.resetUrl === null && (
 							<p role="status" className="text-sm text-success">
-								Account reset completed. This user signs in through OIDC, so no password reset link
-								was created.
+								{t(kernelMessage("client.instance-admin.users.reset-completed"))}
 							</p>
 						)}
 						{linkUrl && (
@@ -571,7 +644,11 @@ function UserRow(props: {
 								label={linkLabel}
 								className="max-w-2xl"
 								action={props.shareAction({ url: linkUrl })}
-								hint={`For ${result?.email ?? props.user.email}`}
+								hint={t(
+									kernelMessage("client.instance-admin.users.link-hint", {
+										email: result?.email ?? props.user.email,
+									}),
+								)}
 							/>
 						)}
 					</td>
@@ -598,10 +675,10 @@ function UserRow(props: {
 }
 
 const authLabel = (state: InstanceAdminUser["authState"]) =>
-	({ oidc: "OIDC", none: "None", mixed: "Mixed", credential: "Password" })[state];
+	kernelMessage("client.instance-admin.users.auth", { state });
 
 function ConfirmationDialog(props: {
-	readonly error?: string;
+	readonly error?: Message;
 	readonly pending: boolean;
 	readonly onClose: () => void;
 	readonly onConfirm: () => void;
@@ -609,6 +686,7 @@ function ConfirmationDialog(props: {
 	readonly backInterceptors: BackInterceptors;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
+	const t = useT();
 	const cancelRef = useRef<HTMLButtonElement>(null);
 	const close = useEffectEvent(() => props.onClose());
 	const interceptBack = useEffectEvent(() => {
@@ -622,33 +700,47 @@ function ConfirmationDialog(props: {
 	useEffect(() => props.backInterceptors.register(interceptBack), [props.backInterceptors]);
 
 	const reset = props.kind === "reset";
-	let pendingLabel = reset ? "Reset account" : "Delete user";
+	let pendingLabel = t(
+		reset
+			? kernelMessage("client.instance-admin.users.action.reset")
+			: kernelMessage("client.instance-admin.users.action.delete"),
+	);
 	if (props.pending) {
-		pendingLabel = reset ? "Resetting..." : "Deleting...";
+		pendingLabel = t(
+			reset
+				? kernelMessage("client.instance-admin.users.action.resetting")
+				: kernelMessage("common.status.deleting"),
+		);
 	}
 
 	return (
 		<Modal
-			closeLabel="Close"
 			onClose={props.onClose}
 			initialFocusRef={cancelRef}
 			triggerRef={props.triggerRef}
 			labelledBy="user-confirmation-title"
 			onInterceptBack={() => props.pending}
 			className="ui-card w-[min(100%,460px)]"
+			closeLabel={t(kernelMessage("common.action.close"))}
 			containerClassName="items-center justify-center p-4"
 		>
 			<h2 id="user-confirmation-title" className="font-display text-xl font-semibold">
-				{reset ? "Reset this user?" : "Delete this user?"}
+				{t(
+					reset
+						? kernelMessage("client.instance-admin.users.confirm.reset-title")
+						: kernelMessage("client.instance-admin.users.confirm.delete-title"),
+				)}
 			</h2>
 			<p className="mt-3 text-sm text-text-muted">
-				{reset
-					? "This permanently deletes all user data, including progress, collections, and preferences. This cannot be undone."
-					: "This permanently deletes the user and all of their data. This cannot be undone."}
+				{t(
+					reset
+						? kernelMessage("client.instance-admin.users.confirm.reset-body")
+						: kernelMessage("client.instance-admin.users.confirm.delete-body"),
+				)}
 			</p>
 			{props.error && (
 				<p role="alert" className="mt-3 text-sm text-danger">
-					{props.error}
+					{t(props.error)}
 				</p>
 			)}
 			<div className="mt-6 flex justify-end gap-3">
@@ -659,7 +751,7 @@ function ConfirmationDialog(props: {
 					onClick={props.onClose}
 					disabled={props.pending}
 				>
-					Cancel
+					{t(kernelMessage("common.action.cancel"))}
 				</Button>
 				<button
 					type="button"

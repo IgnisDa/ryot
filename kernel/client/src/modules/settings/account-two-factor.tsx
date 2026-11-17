@@ -1,4 +1,6 @@
 import type { TwoFactorStatus } from "@ryot-app/contract/modules/account/schemas";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Link } from "@tanstack/react-router";
@@ -15,14 +17,15 @@ export function AccountTwoFactor(props: {
 	readonly status: undefined | TwoFactorStatus;
 	readonly onOpenNative: undefined | (() => void);
 }) {
+	const t = useT();
 	if (props.isDemo || props.status?.available === false) {
 		return null;
 	}
 
 	return (
 		<SettingsSection
-			title="Two-factor authentication"
-			detail="Require a code from an authenticator app when you sign in with your password."
+			title={t(kernelMessage("client.settings.account.two-factor.title"))}
+			detail={t(kernelMessage("client.settings.account.two-factor.detail"))}
 		>
 			<AccountTwoFactorContent {...props} />
 		</SettingsSection>
@@ -30,14 +33,19 @@ export function AccountTwoFactor(props: {
 }
 
 function AccountTwoFactorContent(props: Parameters<typeof AccountTwoFactor>[0]) {
+	const t = useT();
 	if (props.status === undefined) {
 		return props.isLoading ? (
-			<StatusMessage tone="pending">Loading two-factor authentication...</StatusMessage>
+			<StatusMessage tone="pending">
+				{t(kernelMessage("client.settings.account.two-factor.loading"))}
+			</StatusMessage>
 		) : (
 			<div className="flex flex-col items-start gap-3">
-				<StatusMessage tone="error">Could not load two-factor authentication.</StatusMessage>
+				<StatusMessage tone="error">
+					{t(kernelMessage("client.settings.account.two-factor.load-failed"))}
+				</StatusMessage>
 				<Button type="button" variant="secondary" onClick={props.onRetry}>
-					Try again
+					{t(kernelMessage("common.action.try-again"))}
 				</Button>
 			</div>
 		);
@@ -49,16 +57,24 @@ function AccountTwoFactorContent(props: Parameters<typeof AccountTwoFactor>[0]) 
 				<AppIcon size={20} name="lock" />
 			</span>
 			<span className="min-w-0 flex-1">
-				<span className="block font-semibold text-text">Authenticator app</span>
-				<span className="block text-sm text-text-muted">{props.status.enabled ? "On" : "Off"}</span>
+				<span className="block font-semibold text-text">
+					{t(kernelMessage("client.settings.account.two-factor.authenticator"))}
+				</span>
+				<span className="block text-sm text-text-muted">
+					{t(
+						props.status.enabled
+							? kernelMessage("client.settings.account.two-factor.on")
+							: kernelMessage("client.settings.account.two-factor.off"),
+					)}
+				</span>
 			</span>
 			{props.onOpenNative ? (
 				<Button type="button" variant="secondary" onClick={props.onOpenNative}>
-					Manage
+					{t(kernelMessage("client.settings.account.two-factor.manage"))}
 				</Button>
 			) : (
 				<Link to="/oauth/two-factor" className={manageClassName} search={{ from: "settings" }}>
-					Manage
+					{t(kernelMessage("client.settings.account.two-factor.manage"))}
 				</Link>
 			)}
 		</div>

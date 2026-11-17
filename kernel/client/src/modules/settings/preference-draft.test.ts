@@ -7,25 +7,42 @@ import { makePreferenceDraft, preferencePayload } from "#/modules/settings/prefe
 const preferences = defaultUserPreferences;
 
 describe("user settings preference draft", () => {
-	it("does not treat the empty language field as a change from provider default", () => {
+	it("does not treat empty default fields as changes", () => {
 		const draft = makePreferenceDraft(preferences);
 
 		expect(preferencePayload(preferences, draft)).toEqual({});
 	});
 
-	it("only includes a changed language preference", () => {
+	it("only includes a changed content language, normalized to its code", () => {
 		expect(
-			preferencePayload(preferences, { ...makePreferenceDraft(preferences), language: " es " }),
-		).toEqual({ language: "es" });
+			preferencePayload(preferences, {
+				...makePreferenceDraft(preferences),
+				contentLanguage: " ES ",
+			}),
+		).toEqual({ contentLanguage: "es" });
 	});
 
-	it("clears an existing language when the field is blank", () => {
+	it("clears an existing content language when the field is blank", () => {
 		expect(
 			preferencePayload(
-				{ ...preferences, language: "es" },
-				{ ...makePreferenceDraft(preferences), language: "  " },
+				{ ...preferences, contentLanguage: "es" },
+				{ ...makePreferenceDraft(preferences), contentLanguage: "  " },
 			),
-		).toEqual({ language: null });
+		).toEqual({ contentLanguage: null });
+	});
+
+	it("includes interface locale and week start changes and their resets", () => {
+		const draft = makePreferenceDraft(preferences);
+
+		expect(
+			preferencePayload(preferences, { ...draft, weekStart: "0", interfaceLocale: "en" }),
+		).toEqual({ weekStart: 0, interfaceLocale: "en" });
+		expect(
+			preferencePayload(
+				{ ...preferences, weekStart: 6, interfaceLocale: "en-XA" },
+				{ ...draft, weekStart: "", interfaceLocale: "" },
+			),
+		).toEqual({ weekStart: null, interfaceLocale: null });
 	});
 
 	it("only includes a changed rating scale", () => {

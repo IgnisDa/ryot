@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
 import type { MigrationReportDetail } from "@ryot-app/contract/modules/instance-admin/migration-report";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { testFormatters, testKernelText } from "@ryot-app/kernel-messages/testing";
 
 import {
 	buildMigrationReportClipboardText,
@@ -24,20 +26,20 @@ const skippedRecord = {
 describe("migration report presentation", () => {
 	it("presents warning and information levels", () => {
 		expect(migrationReportLevelPresentation("warning")).toEqual({
-			label: "Warning",
 			tone: "text-warning",
 			icon: "circle-alert",
+			label: kernelMessage("client.instance-admin.migration-report.level.warning"),
 		});
 		expect(migrationReportLevelPresentation("info")).toEqual({
 			icon: "info",
-			label: "Info",
 			tone: "text-info",
+			label: kernelMessage("client.instance-admin.migration-report.level.info"),
 		});
 	});
 
 	it("formats optional elapsed seconds", () => {
-		expect(formatMigrationReportElapsed(null)).toBe("-");
-		expect(formatMigrationReportElapsed(12.5)).toBe("12.5s");
+		expect(formatMigrationReportElapsed(testFormatters, null)).toBe("-");
+		expect(formatMigrationReportElapsed(testFormatters, 12.5)).toBe("12.5s");
 	});
 
 	it("omits provenance entries that carry no value", () => {
@@ -49,7 +51,7 @@ describe("migration report presentation", () => {
 
 	it("builds shareable text that notes details beyond the served page", () => {
 		expect(
-			buildMigrationReportClipboardText({
+			buildMigrationReportClipboardText(testKernelText, {
 				totalDetails: 3,
 				code: "record-skipped",
 				details: [skippedRecord],
@@ -66,7 +68,7 @@ describe("migration report presentation", () => {
 				"    Title: Record one",
 				"    User: usr_1",
 				"",
-				"...and 2 more not listed here.",
+				"…and 2 more not listed here.",
 			].join("\n"),
 		);
 	});

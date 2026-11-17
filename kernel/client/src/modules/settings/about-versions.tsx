@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 
 import { SettingsSection } from "#/modules/settings/settings-section";
@@ -10,30 +12,20 @@ type AboutVersionsProps = {
 };
 
 export function AboutVersions(props: AboutVersionsProps) {
+	const t = useT();
 	return (
-		<SettingsSection title="Version" detail="The builds of this app and its server.">
+		<SettingsSection
+			title={t(kernelMessage("client.settings.about.version.title"))}
+			detail={t(kernelMessage("client.settings.about.version.detail"))}
+		>
 			<div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
-				<VersionRow label="Client" version={import.meta.env.RYOT_VERSION} />
+				<VersionRow
+					version={import.meta.env.RYOT_VERSION}
+					label={t(kernelMessage("client.settings.about.version.client"))}
+				/>
 				<ServerVersion {...props} />
 			</div>
 		</SettingsSection>
-	);
-}
-
-function ServerVersion(props: AboutVersionsProps) {
-	if (props.serverVersion !== undefined) {
-		return <VersionRow label="Server" version={props.serverVersion} />;
-	}
-	if (props.isLoading) {
-		return <StatusMessage tone="pending">Loading server version...</StatusMessage>;
-	}
-	return (
-		<div className="flex flex-col items-start gap-3">
-			<StatusMessage tone="error">Could not load the server version.</StatusMessage>
-			<Button type="button" variant="secondary" onClick={props.onRetry}>
-				Try again
-			</Button>
-		</div>
 	);
 }
 
@@ -54,6 +46,35 @@ function VersionRow(props: { readonly label: string; readonly version: string })
 					{props.version}
 				</a>
 			)}
+		</div>
+	);
+}
+
+function ServerVersion(props: AboutVersionsProps) {
+	const t = useT();
+	if (props.serverVersion !== undefined) {
+		return (
+			<VersionRow
+				version={props.serverVersion}
+				label={t(kernelMessage("client.settings.about.version.server"))}
+			/>
+		);
+	}
+	if (props.isLoading) {
+		return (
+			<StatusMessage tone="pending">
+				{t(kernelMessage("client.settings.about.version.loading"))}
+			</StatusMessage>
+		);
+	}
+	return (
+		<div className="flex flex-col items-start gap-3">
+			<StatusMessage tone="error">
+				{t(kernelMessage("client.settings.about.version.load-failed"))}
+			</StatusMessage>
+			<Button type="button" variant="secondary" onClick={props.onRetry}>
+				{t(kernelMessage("common.action.try-again"))}
+			</Button>
 		</div>
 	);
 }

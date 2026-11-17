@@ -9,6 +9,7 @@ import { Deferred, Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 import { FileDownloadError } from "#/modules/downloads/file";
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import { ServerLogsView } from "#/modules/instance-admin/logs-view";
 import type { InstanceAdminLogs } from "#/modules/instance-admin/service";
 
@@ -55,6 +56,7 @@ describe("ServerLogsView", () => {
 								return outcome === "defect" ? Effect.die("download defect") : Effect.interrupt;
 							}}
 						/>,
+						{ wrapper: testI18nWrapper() },
 					);
 					yield* Effect.promise(() => screen.findByText("server.log"));
 					const download = screen.getByRole<HTMLButtonElement>("button", {
@@ -98,6 +100,7 @@ describe("ServerLogsView", () => {
 							return Deferred.await(release);
 						}}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 				yield* Effect.promise(() => screen.findByText("server.log"));
 				const download = screen.getByRole<HTMLButtonElement>("button", {
@@ -107,7 +110,7 @@ describe("ServerLogsView", () => {
 					fireEvent.click(download);
 					fireEvent.click(download);
 				});
-				yield* Effect.promise(() => screen.findByText("Downloading..."));
+				yield* Effect.promise(() => screen.findByText("Downloading…"));
 				expect(requests).toBe(1);
 				expect(screen.queryByRole("alert")).toBeNull();
 				yield* Deferred.succeed(release, undefined);
@@ -145,6 +148,7 @@ describe("ServerLogsView", () => {
 							})
 						}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 				yield* Effect.promise(() => screen.findByText("server.log"));
 				fireEvent.click(screen.getByRole("button", { name: "Download server.log" }));
@@ -168,6 +172,7 @@ describe("ServerLogsView", () => {
 						unauthorized={() => undefined}
 						load={() => Effect.succeed(logs)}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				yield* Effect.promise(() => screen.findByText("server.log"));
@@ -207,6 +212,7 @@ describe("ServerLogsView", () => {
 							);
 						}}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				yield* Effect.promise(() => screen.findByText("server.log"));
@@ -240,6 +246,7 @@ describe("ServerLogsView", () => {
 							return Effect.void;
 						}}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 				yield* Effect.promise(() => screen.findByText("server.log"));
 
@@ -279,6 +286,7 @@ describe("ServerLogsView", () => {
 							})
 						}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				yield* Effect.promise(() => screen.findByText("No server logs available."));
@@ -306,6 +314,7 @@ describe("ServerLogsView", () => {
 								: Effect.succeed(logs);
 						}}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				const alert = yield* Effect.promise(() => screen.findByRole("alert"));
@@ -329,12 +338,13 @@ describe("ServerLogsView", () => {
 						load={() => Effect.succeed(logs)}
 						download={() => Deferred.await(release)}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 				yield* Effect.promise(() => screen.findByText("server.log"));
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Download server.log" })),
 				);
-				yield* Effect.promise(() => screen.findByText("Downloading..."));
+				yield* Effect.promise(() => screen.findByText("Downloading…"));
 
 				const refresh = screen.getByRole<HTMLButtonElement>("button", { name: "Refresh" });
 				const downloadAll = screen.getByRole<HTMLButtonElement>("button", {
@@ -370,6 +380,7 @@ describe("ServerLogsView", () => {
 							Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }))
 						}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				yield* Effect.promise(() => waitFor(() => expect(calls).toEqual(["unauthorized"])));
@@ -392,6 +403,7 @@ describe("ServerLogsView", () => {
 							Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }))
 						}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 				yield* Effect.promise(() => screen.findByText("server.log"));
 				yield* Effect.promise(() =>
@@ -420,6 +432,7 @@ describe("ServerLogsView", () => {
 							)
 						}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 				yield* Effect.promise(() => screen.findByText("server.log"));
 				yield* Effect.promise(() =>

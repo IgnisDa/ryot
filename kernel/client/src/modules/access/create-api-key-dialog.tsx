@@ -1,5 +1,7 @@
 import { API_KEY_NAME_MAX_LENGTH } from "@ryot-app/contract/modules/account/schemas";
 import type { WriteAccess } from "@ryot-app/contract/oauth";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -15,7 +17,6 @@ import { Effect } from "effect";
 import { type RefObject, type SubmitEvent, useId, useRef, useState } from "react";
 
 import { useShareAction } from "#/modules/device/share";
-import { formatDateLabel } from "#/modules/ui/run/run-status";
 
 import { createApiKeyMutation } from "./service";
 import { WriteAccessField } from "./write-access";
@@ -23,10 +24,10 @@ import { WriteAccessField } from "./write-access";
 const DAY_MS = 86_400_000;
 
 const expiryOptions = [
-	{ days: 30, value: "30", label: "30 days" },
-	{ days: 90, value: "90", label: "90 days" },
-	{ days: 365, value: "365", label: "1 year" },
-	{ days: null, value: "never", label: "Never" },
+	{ days: 30, value: "30", label: kernelMessage("client.access.expiry.days", { count: 30 }) },
+	{ days: 90, value: "90", label: kernelMessage("client.access.expiry.days", { count: 90 }) },
+	{ days: 365, value: "365", label: kernelMessage("client.access.expiry.years", { count: 1 }) },
+	{ days: null, value: "never", label: kernelMessage("client.access.expiry.never") },
 ] as const;
 
 type Expiry = (typeof expiryOptions)[number]["value"];
@@ -37,6 +38,7 @@ export function CreateApiKeyDialog(props: {
 	readonly onClose: () => void;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
+	const t = useT();
 	const formId = useId();
 	const schedule = useRyotSchedule();
 	const create = useRyotMutation(createApiKeyMutation);
@@ -52,7 +54,7 @@ export function CreateApiKeyDialog(props: {
 		event.preventDefault();
 		const trimmed = name.trim();
 		if (trimmed === "") {
-			setNameError("Enter a name for this key.");
+			setNameError(t(kernelMessage("client.access.create.name-required")));
 			return;
 		}
 		setNameError(undefined);
@@ -71,12 +73,12 @@ export function CreateApiKeyDialog(props: {
 	if (created !== null) {
 		return (
 			<Dialog
-				closeLabel="Close"
 				onClose={props.onClose}
-				title="Save your API key"
 				triggerRef={props.triggerRef}
-				footer={<Button onClick={props.onClose}>Done</Button>}
-				description="This is the only time the key is shown. Copy it now and store it somewhere safe, like a password manager."
+				closeLabel={t(kernelMessage("common.action.close"))}
+				title={t(kernelMessage("client.access.create.saved-title"))}
+				description={t(kernelMessage("client.access.create.saved-description"))}
+				footer={<Button onClick={props.onClose}>{t(kernelMessage("common.action.done"))}</Button>}
 			>
 				<RevealedKey created={created} />
 			</Dialog>
@@ -85,26 +87,26 @@ export function CreateApiKeyDialog(props: {
 
 	return (
 		<Dialog
-			closeLabel="Close"
-			title="Create API key"
 			onClose={props.onClose}
 			initialFocusRef={nameRef}
 			triggerRef={props.triggerRef}
 			onInterceptBack={() => create.isPending}
-			description="Name the key after the script or app that will use it."
+			closeLabel={t(kernelMessage("common.action.close"))}
+			title={t(kernelMessage("client.access.create.title"))}
+			description={t(kernelMessage("client.access.create.description"))}
 			footer={
 				<>
 					<Button variant="ghost" onClick={props.onClose} disabled={create.isPending}>
-						Cancel
+						{t(kernelMessage("common.action.cancel"))}
 					</Button>
 					<Button type="submit" form={formId} loading={create.isPending}>
-						Create key
+						{t(kernelMessage("client.access.create.submit"))}
 					</Button>
 				</>
 			}
 		>
 			<form noValidate id={formId} onSubmit={submit} className="grid gap-5">
-				<Field label="Name" error={nameError}>
+				<Field error={nameError} label={t(kernelMessage("client.access.create.name-label"))}>
 					{(control) => (
 						<TextField
 							{...control}
@@ -112,8 +114,8 @@ export function CreateApiKeyDialog(props: {
 							ref={nameRef}
 							autoComplete="off"
 							maxLength={API_KEY_NAME_MAX_LENGTH}
-							placeholder="For example, Home server"
 							onChange={(event) => setName(event.target.value)}
+							placeholder={t(kernelMessage("client.access.create.name-placeholder"))}
 						/>
 					)}
 				</Field>
@@ -124,27 +126,31 @@ export function CreateApiKeyDialog(props: {
 				/>
 				<div className="grid gap-1.5">
 					<span aria-hidden="true" className="text-label font-medium text-text">
-						Expiration
+						{t(kernelMessage("client.access.create.expiration"))}
 					</span>
 					<SegmentedControl
 						fill
 						value={expiry}
-						label="Expiration"
 						onChange={setExpiry}
+						label={t(kernelMessage("client.access.create.expiration"))}
 						options={expiryOptions.map((option) => ({
 							value: option.value,
-							label: option.label,
-							content: option.label,
+							label: t(option.label),
+							content: t(option.label),
 						}))}
 					/>
 					<p className="text-xs text-text-muted">
-						{days === null
-							? "The key works until you revoke it."
-							: `The key stops working on ${formatDateLabel(new Date(schedule.now() + days * DAY_MS).toISOString())}.`}
+						{t(
+							days === null
+								? kernelMessage("client.access.create.expiry-never-hint")
+								: kernelMessage("client.access.create.expiry-date-hint", {
+										date: new Date(schedule.now() + days * DAY_MS),
+									}),
+						)}
 					</p>
 				</div>
 				{create.error !== null ? (
-					<Notice tone="danger">The key could not be created. Try again.</Notice>
+					<Notice tone="danger">{t(kernelMessage("client.access.create.failed"))}</Notice>
 				) : null}
 			</form>
 		</Dialog>
@@ -152,6 +158,7 @@ export function CreateApiKeyDialog(props: {
 }
 
 function RevealedKey(props: { readonly created: Created }) {
+	const t = useT();
 	const shareAction = useShareAction();
 	return (
 		<div className="grid gap-4">
@@ -162,15 +169,18 @@ function RevealedKey(props: { readonly created: Created }) {
 				action={shareAction({ text: props.created.key })}
 			/>
 			<div className="grid gap-1.5">
-				<span className="text-label font-medium text-text">Using the key</span>
-				<p className="text-xs text-text-muted">Send it in a header with each request:</p>
+				<span className="text-label font-medium text-text">
+					{t(kernelMessage("client.access.create.usage-title"))}
+				</span>
+				<p className="text-xs text-text-muted">
+					{t(kernelMessage("client.access.create.usage-detail"))}
+				</p>
 				<code className="rounded-md bg-surface-2 px-3 py-2 font-mono text-xs text-text">
-					X-Api-Key: &lt;your key&gt;
+					{t(kernelMessage("client.access.create.usage-header"))}
 				</code>
 			</div>
 			<Notice tone="warning" icon={<AppIcon size={16} name="lock" />}>
-				Anyone with this key can use it with the access you chose. If it leaks, revoke it and create
-				a new one.
+				{t(kernelMessage("client.access.create.leak-warning"))}
 			</Notice>
 		</div>
 	);

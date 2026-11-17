@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test";
 
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -8,13 +9,18 @@ import { Effect } from "effect";
 
 import { HostedAuthError } from "#/modules/auth/hosted-service";
 import { TwoFactorManagement } from "#/modules/auth/two-factor-management";
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 
 const totpURI = "otpauth://totp/Ryot:user%40ryot.example?secret=JBSWY3DPEHPK3PXP&issuer=Ryot";
 
 const passwordCheck = (password: string) =>
 	password === "correct-password"
 		? Effect.void
-		: Effect.fail(new HostedAuthError({ message: "Invalid password" }));
+		: Effect.fail(
+				new HostedAuthError({
+					reason: kernelMessage("client.auth.hosted.two-factor-setup-failed"),
+				}),
+			);
 
 const renderManagement = (enabled: boolean, signInPassword = "correct-password") => {
 	const calls: string[] = [];
@@ -33,12 +39,6 @@ const renderManagement = (enabled: boolean, signInPassword = "correct-password")
 					calls.push(`regenerate:${password}`);
 					return passwordCheck(password).pipe(Effect.as(["fresh-code-1", "fresh-code-2"]));
 				},
-				confirmTwoFactor: (code) => {
-					calls.push(`confirm:${code}`);
-					return code === "123456"
-						? Effect.void
-						: Effect.fail(new HostedAuthError({ message: "Invalid code" }));
-				},
 				enableTwoFactor: (password) => {
 					calls.push(`enable:${password}`);
 					return passwordCheck(password).pipe(
@@ -49,8 +49,19 @@ const renderManagement = (enabled: boolean, signInPassword = "correct-password")
 						}),
 					);
 				},
+				confirmTwoFactor: (code) => {
+					calls.push(`confirm:${code}`);
+					return code === "123456"
+						? Effect.void
+						: Effect.fail(
+								new HostedAuthError({
+									reason: kernelMessage("client.auth.hosted.code-verify-failed"),
+								}),
+							);
+				},
 			}}
 		/>,
+		{ wrapper: testI18nWrapper() },
 	);
 	return { done, calls, user: userEvent.setup() };
 };
@@ -84,7 +95,7 @@ describe("two-factor management", () => {
 					user.click(screen.getByRole("button", { name: "Turn on two-factor authentication" })),
 				);
 				expect((yield* Effect.promise(() => screen.findByRole("alert"))).textContent).toBe(
-					"Invalid code",
+					"Could not verify that code.",
 				);
 
 				yield* Effect.promise(() => user.clear(codeInput));
@@ -123,7 +134,7 @@ describe("two-factor management", () => {
 				);
 
 				expect((yield* Effect.promise(() => screen.findByRole("alert"))).textContent).toBe(
-					"Invalid password",
+					"Could not start two-factor setup.",
 				);
 				expect(screen.queryByRole("img")).toBeNull();
 			}),

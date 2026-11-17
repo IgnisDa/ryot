@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
@@ -12,11 +15,22 @@ import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import type { ClientRuntime } from "#/runtime";
 
-const invalidTokenMessage = "The admin access token is invalid or expired.";
 const sections = [
-	{ icon: "users", label: "Users", path: "/instance-admin/users" },
-	{ icon: "file-text", label: "Migration report", path: "/instance-admin/migration-report" },
-	{ icon: "file-text", label: "Server logs", path: "/instance-admin/logs" },
+	{
+		icon: "users",
+		path: "/instance-admin/users",
+		label: kernelMessage("client.instance-admin.users.title"),
+	},
+	{
+		icon: "file-text",
+		path: "/instance-admin/migration-report",
+		label: kernelMessage("client.instance-admin.migration-report.title"),
+	},
+	{
+		icon: "file-text",
+		path: "/instance-admin/logs",
+		label: kernelMessage("client.instance-admin.logs.title"),
+	},
 ] as const;
 
 type InstanceAdminShellProps = { readonly server: ServerOrigin; readonly runtime: ClientRuntime };
@@ -25,7 +39,7 @@ export function InstanceAdminShell({ server, runtime }: InstanceAdminShellProps)
 	const sessionService = runtime.runSync(InstanceAdminSessionService);
 	const sessionIdRef = useRef<string>(null);
 	const [sessionId, setSessionId] = useState<string>();
-	const [tokenGateError, setTokenGateError] = useState<string>();
+	const [tokenGateError, setTokenGateError] = useState<Message>();
 
 	function clearSession() {
 		const current = sessionIdRef.current;
@@ -41,7 +55,7 @@ export function InstanceAdminShell({ server, runtime }: InstanceAdminShellProps)
 	}
 	function unauthorized() {
 		clearSession();
-		setTokenGateError(invalidTokenMessage);
+		setTokenGateError(kernelMessage("client.instance-admin.shell.invalid-token"));
 	}
 
 	useEffect(
@@ -79,11 +93,12 @@ export function InstanceAdminShell({ server, runtime }: InstanceAdminShellProps)
 
 function InstanceAdminTokenGate(props: {
 	readonly server: ServerOrigin;
-	readonly initialError?: string;
+	readonly initialError?: Message;
 	readonly runtime: ClientRuntime;
 	readonly onUnlock: (sessionId: string) => void;
 }) {
-	usePageTitle("Instance Admin");
+	const t = useT();
+	usePageTitle(t(kernelMessage("client.instance-admin.shell.title")));
 	const sessionService = props.runtime.runSync(InstanceAdminSessionService);
 	const [token, setToken] = useState("");
 	const [error, setError] = useState(props.initialError);
@@ -92,7 +107,7 @@ function InstanceAdminTokenGate(props: {
 	function unlock() {
 		const trimmedToken = token.trim();
 		if (!trimmedToken) {
-			setError("Enter an admin access token.");
+			setError(kernelMessage("client.instance-admin.shell.token-required"));
 			return;
 		}
 		setSubmitting(true);
@@ -102,7 +117,7 @@ function InstanceAdminTokenGate(props: {
 				Effect.matchCause({
 					onSuccess: (sessionId) => props.onUnlock(sessionId),
 					onFailure: () => {
-						setError("Could not start Instance Admin.");
+						setError(kernelMessage("client.instance-admin.shell.start-failed"));
 						setSubmitting(false);
 					},
 				}),
@@ -119,13 +134,16 @@ function InstanceAdminTokenGate(props: {
 				aria-labelledby="instance-admin-title"
 				className="mx-auto w-[min(100%,460px)] md:mx-0"
 			>
-				<p className="ui-overline">Server administration</p>
+				<p className="ui-overline">{t(kernelMessage("client.instance-admin.shell.overline"))}</p>
 				<h1 className="ui-heading" id="instance-admin-title">
-					Instance Admin
+					{t(kernelMessage("client.instance-admin.shell.title"))}
 				</h1>
 				<p className="ui-subtitle">
-					Use an admin access token for {new URL(props.server).host}. The token stays in memory on
-					this device.
+					{t(
+						kernelMessage("client.instance-admin.shell.token-help", {
+							host: new URL(props.server).host,
+						}),
+					)}
 				</p>
 			</section>
 			<form
@@ -137,7 +155,7 @@ function InstanceAdminTokenGate(props: {
 				}}
 			>
 				<label className="ui-field-label">
-					Admin access token
+					{t(kernelMessage("client.instance-admin.shell.token-label"))}
 					<input
 						required
 						autoFocus
@@ -156,12 +174,18 @@ function InstanceAdminTokenGate(props: {
 				<div aria-live="polite" className="flex min-h-11 items-center">
 					{error && (
 						<p role="alert" id="instance-admin-token-error" className="ui-form-status text-danger">
-							{error}
+							{t(error)}
 						</p>
 					)}
 				</div>
 				<Button type="submit" variant="primary" className="w-full" disabled={submitting}>
-					{submitting ? "Unlocking..." : "Unlock Instance Admin"}
+					{t(
+						kernelMessage(
+							submitting
+								? "client.instance-admin.shell.unlocking"
+								: "client.instance-admin.shell.unlock",
+						),
+					)}
 				</Button>
 			</form>
 		</main>
@@ -169,10 +193,11 @@ function InstanceAdminTokenGate(props: {
 }
 
 function InstanceAdminWorkspace({ onLock }: { readonly onLock: () => void }) {
+	const t = useT();
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
 	const active = sections.find((section) => section.path === pathname) ?? sections[0];
-	usePageTitle(active.label);
+	usePageTitle(t(active.label));
 
 	return (
 		<div className="flex min-h-dvh bg-surface-2 text-text">
@@ -182,10 +207,15 @@ function InstanceAdminWorkspace({ onLock }: { readonly onLock: () => void }) {
 			>
 				<Link to="/" className="mb-8 flex min-h-11 items-center gap-2 px-3 text-sm text-text-muted">
 					<AppIcon name="chevron-left" />
-					Back to Ryot
+					{t(kernelMessage("client.instance-admin.shell.back"))}
 				</Link>
-				<p className="px-3 font-display text-2xl font-semibold">Instance Admin</p>
-				<nav aria-label="Instance Admin sections" className="mt-6 flex flex-col gap-1">
+				<p className="px-3 font-display text-2xl font-semibold">
+					{t(kernelMessage("client.instance-admin.shell.title"))}
+				</p>
+				<nav
+					className="mt-6 flex flex-col gap-1"
+					aria-label={t(kernelMessage("client.instance-admin.shell.sections"))}
+				>
 					{sections.map((section) => (
 						<Link
 							to={section.path}
@@ -197,7 +227,7 @@ function InstanceAdminWorkspace({ onLock }: { readonly onLock: () => void }) {
 							)}
 						>
 							<AppIcon size={17} name={section.icon} />
-							{section.label}
+							{t(section.label)}
 						</Link>
 					))}
 				</nav>
@@ -206,22 +236,24 @@ function InstanceAdminWorkspace({ onLock }: { readonly onLock: () => void }) {
 				<header className="flex min-h-16 items-center gap-2 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] md:px-6">
 					<Link
 						to="/"
-						aria-label="Back to Ryot"
 						className="flex size-11 items-center justify-center md:hidden"
+						aria-label={t(kernelMessage("client.instance-admin.shell.back"))}
 					>
 						<AppIcon size={20} name="chevron-left" />
 					</Link>
 					<div className="min-w-0 flex-1">
-						<p className="truncate font-display text-lg font-semibold md:text-xl">{active.label}</p>
+						<p className="truncate font-display text-lg font-semibold md:text-xl">
+							{t(active.label)}
+						</p>
 					</div>
 					<Button type="button" variant="ghost" onClick={onLock}>
 						<span className="flex items-center gap-2">
-							<AppIcon name="lock" /> Lock
+							<AppIcon name="lock" /> {t(kernelMessage("client.instance-admin.shell.lock"))}
 						</span>
 					</Button>
 				</header>
 				<nav
-					aria-label="Instance Admin compact sections"
+					aria-label={t(kernelMessage("client.instance-admin.shell.compact-sections"))}
 					className="flex gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-2 md:hidden"
 				>
 					{sections.map((section) => (
@@ -235,7 +267,7 @@ function InstanceAdminWorkspace({ onLock }: { readonly onLock: () => void }) {
 								section === active && "bg-nav-indicator text-text",
 							)}
 						>
-							{section.label}
+							{t(section.label)}
 						</button>
 					))}
 				</nav>

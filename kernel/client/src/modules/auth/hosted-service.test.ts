@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
@@ -71,7 +72,7 @@ describe("hosted auth service demo sign-in", () => {
 
 				expect(yield* Effect.flip(request)).toMatchObject({
 					_tag: "HostedAuthError",
-					message: "Could not open the shared demo.",
+					reason: kernelMessage("client.auth.hosted.demo-open-failed"),
 				});
 			}),
 		testTimeout,
@@ -112,7 +113,7 @@ describe("hosted auth initialization status", () => {
 
 				expect(yield* Effect.flip(request)).toMatchObject({
 					_tag: "HostedAuthError",
-					message: "The server returned an invalid account status.",
+					reason: kernelMessage("client.auth.hosted.initialization-status-invalid"),
 				});
 			}),
 		testTimeout,
@@ -129,7 +130,7 @@ describe("hosted auth initialization status", () => {
 
 				expect(yield* Effect.flip(request)).toMatchObject({
 					_tag: "HostedAuthError",
-					message: "Your sign-in session has ended. Please sign in again.",
+					reason: kernelMessage("client.auth.hosted.session-ended"),
 				});
 			}),
 		testTimeout,
@@ -184,7 +185,9 @@ describe("hosted impersonation redemption", () => {
 						"ticket",
 					),
 				);
-				expect(failure.message).toBe("The server returned an invalid impersonation response.");
+				expect(failure.reason).toEqual(
+					kernelMessage("client.auth.hosted.impersonation-response-invalid"),
+				);
 			}),
 		testTimeout,
 	);
@@ -274,7 +277,7 @@ describe("hosted consent details", () => {
 						"query",
 					),
 				);
-				expect(error.message).toBe("The server returned an invalid access request.");
+				expect(error.reason).toEqual(kernelMessage("client.auth.hosted.consent-response-invalid"));
 			}),
 		testTimeout,
 	);

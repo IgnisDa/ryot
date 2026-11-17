@@ -1,3 +1,6 @@
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
 import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -17,16 +20,17 @@ import type { InstanceAdminMigrationReport } from "#/modules/instance-admin/serv
 
 type MigrationReportEntry = InstanceAdminMigrationReport["items"][number];
 
-const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
-	day: "numeric",
-	month: "short",
-	year: "numeric",
-	hour: "numeric",
-	minute: "2-digit",
-	second: "2-digit",
-});
-
-const formatMigrationReportTime = (value: string) => dateTimeFormatter.format(new Date(value));
+const formatMigrationReportTime = (formatters: Formatters, value: string) =>
+	formatters
+		.dateTime({
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+			hour: "numeric",
+			minute: "2-digit",
+			second: "2-digit",
+		})
+		.format(new Date(value));
 
 export function MigrationReportView(props: {
 	readonly unauthorized: () => void;
@@ -34,6 +38,7 @@ export function MigrationReportView(props: {
 		after: string | undefined,
 	) => Effect.Effect<InstanceAdminMigrationReport, unknown>;
 }) {
+	const t = useT();
 	const pagination = usePagination<InstanceAdminMigrationReport, string | undefined>({
 		initialPageParam: undefined,
 		getNextPageParam: nextPageCursor,
@@ -53,31 +58,37 @@ export function MigrationReportView(props: {
 
 	return (
 		<section aria-labelledby="migration-report-title" className="ui-card w-full overflow-hidden">
-			<p className="ui-overline">Administration</p>
+			<p className="ui-overline">{t(kernelMessage("client.settings.section.administration"))}</p>
 			<h1 id="migration-report-title" className="font-display text-3xl font-semibold">
-				Migration report
+				{t(kernelMessage("client.instance-admin.migration-report.title"))}
 			</h1>
-			<p className="ui-subtitle mb-5">Legacy migration activity reported by this server.</p>
+			<p className="ui-subtitle mb-5">
+				{t(kernelMessage("client.instance-admin.migration-report.subtitle"))}
+			</p>
 			{entries.length > 0 && <MigrationReportTable entries={entries} />}
 			{entries.length === 0 && pagination.pages.length > 0 && !pagination.isFetching && (
 				<div className="grid justify-items-center gap-2 py-12 text-center">
 					<AppIcon size={36} name="clipboard-list" className="text-text-subtle" />
-					<h2 className="font-display text-lg font-semibold">No migration report</h2>
-					<p className="text-sm text-text-muted">This server has no legacy migration activity.</p>
+					<h2 className="font-display text-lg font-semibold">
+						{t(kernelMessage("client.instance-admin.migration-report.empty-title"))}
+					</h2>
+					<p className="text-sm text-text-muted">
+						{t(kernelMessage("client.instance-admin.migration-report.empty-detail"))}
+					</p>
 				</div>
 			)}
 			{pagination.isPending || pagination.isFetchingNextPage ? (
 				<p role="status" className="py-12 text-center text-sm text-text-muted">
-					Loading migration report...
+					{t(kernelMessage("client.instance-admin.migration-report.loading"))}
 				</p>
 			) : null}
 			{pagination.errorOperation !== null && (
 				<div className="grid justify-items-center gap-4 py-10 text-center">
 					<p role="alert" className="text-sm text-danger">
-						Could not load the migration report. Check the server and try again.
+						{t(kernelMessage("client.instance-admin.migration-report.load-failed"))}
 					</p>
 					<Button type="button" variant="secondary" onClick={pagination.retry}>
-						Retry
+						{t(kernelMessage("common.action.retry"))}
 					</Button>
 				</div>
 			)}
@@ -85,11 +96,11 @@ export function MigrationReportView(props: {
 				<div className="mt-5 flex justify-center">
 					<LoadMoreButton
 						type="button"
-						label="Load more reports"
 						onClick={pagination.fetchNextPage}
-						loadingLabel="Loading more reports..."
 						isFetchingNextPage={pagination.isFetchingNextPage}
 						disabled={pagination.isFetching && !pagination.isFetchingNextPage}
+						label={t(kernelMessage("client.instance-admin.migration-report.load-more"))}
+						loadingLabel={t(kernelMessage("client.instance-admin.migration-report.loading-more"))}
 					/>
 				</div>
 			)}
@@ -98,28 +109,29 @@ export function MigrationReportView(props: {
 }
 
 function MigrationReportTable(props: { readonly entries: ReadonlyArray<MigrationReportEntry> }) {
+	const t = useT();
 	return (
 		<div className="overflow-x-auto">
 			<table className="w-full min-w-225 border-collapse text-left text-xs">
 				<thead>
 					<tr className="border-b border-border text-text-muted">
 						<th scope="col" className="w-44 px-2 py-3 font-semibold">
-							Time
+							{t(kernelMessage("client.instance-admin.migration-report.column.time"))}
 						</th>
 						<th scope="col" className="w-28 px-2 py-3 font-semibold">
-							Severity
+							{t(kernelMessage("client.instance-admin.migration-report.column.severity"))}
 						</th>
 						<th scope="col" className="w-52 px-2 py-3 font-semibold">
-							Phase
+							{t(kernelMessage("client.instance-admin.migration-report.column.phase"))}
 						</th>
 						<th scope="col" className="min-w-72 px-2 py-3 font-semibold">
-							Message
+							{t(kernelMessage("client.instance-admin.migration-report.column.message"))}
 						</th>
 						<th scope="col" className="w-20 px-2 py-3 font-semibold">
-							Count
+							{t(kernelMessage("client.instance-admin.migration-report.column.count"))}
 						</th>
 						<th scope="col" className="w-20 px-2 py-3 font-semibold">
-							Elapsed
+							{t(kernelMessage("client.instance-admin.migration-report.column.elapsed"))}
 						</th>
 					</tr>
 				</thead>
@@ -134,6 +146,8 @@ function MigrationReportTable(props: { readonly entries: ReadonlyArray<Migration
 }
 
 function MigrationReportRow(props: { readonly entry: MigrationReportEntry }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const { entry } = props;
 	const [isExpanded, setIsExpanded] = useState(false);
 	const level = migrationReportLevelPresentation(entry.level);
@@ -142,12 +156,12 @@ function MigrationReportRow(props: { readonly entry: MigrationReportEntry }) {
 		<>
 			<tr className="border-b border-border last:border-b-0">
 				<td className="px-2 py-3 whitespace-nowrap text-text-muted">
-					{formatMigrationReportTime(entry.createdAt)}
+					{formatMigrationReportTime(formatters, entry.createdAt)}
 				</td>
 				<td className="px-2 py-3">
 					<span className={clsx("flex items-center gap-1.5 font-semibold", level.tone)}>
 						<AppIcon size={13} name={level.icon} />
-						{level.label}
+						{t(level.label)}
 					</span>
 				</td>
 				<td className="px-2 py-3 text-text">{entry.phase}</td>
@@ -172,10 +186,10 @@ function MigrationReportRow(props: { readonly entry: MigrationReportEntry }) {
 					)}
 				</td>
 				<td className="px-2 py-3 tabular-nums text-text-muted">
-					{entry.count?.toLocaleString() ?? "-"}
+					{entry.count === null ? "-" : formatters.number().format(entry.count)}
 				</td>
 				<td className="px-2 py-3 tabular-nums text-text-muted">
-					{formatMigrationReportElapsed(entry.elapsedSeconds)}
+					{formatMigrationReportElapsed(formatters, entry.elapsedSeconds)}
 				</td>
 			</tr>
 			{isExpanded ? (
@@ -190,6 +204,7 @@ function MigrationReportRow(props: { readonly entry: MigrationReportEntry }) {
 }
 
 function DetailList(props: { readonly entry: MigrationReportEntry }) {
+	const t = useT();
 	const { entry } = props;
 	const code = entry.code;
 	if (code === null) {
@@ -202,9 +217,13 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<span className="text-xs text-text-subtle">
 					{details.length === 0
-						? "Per-record detail is not recorded for this check."
+						? t(kernelMessage("client.instance-admin.migration-report.no-detail"))
 						: remaining > 0 &&
-							`...and ${remaining.toLocaleString()} more, queryable in migration_report_detail.`}
+							t(
+								kernelMessage("client.instance-admin.migration-report.more-detail", {
+									count: remaining,
+								}),
+							)}
 				</span>
 				<Button
 					size="sm"
@@ -213,7 +232,7 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 					onClick={() =>
 						Effect.runFork(
 							shareOrCopy({
-								text: buildMigrationReportClipboardText({
+								text: buildMigrationReportClipboardText(t, {
 									code,
 									details,
 									phase: entry.phase,
@@ -225,7 +244,7 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 					}
 				>
 					<AppIcon size={14} name="copy" />
-					Copy details
+					{t(kernelMessage("client.instance-admin.migration-report.copy-details"))}
 				</Button>
 			</div>
 			{details.length > 0 && (

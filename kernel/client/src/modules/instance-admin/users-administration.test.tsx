@@ -10,6 +10,7 @@ import { Deferred, Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 import { shareActionWith, type ShareContent, type ShareOrCopy } from "#/modules/device/share";
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import type { InstanceAdminUser } from "#/modules/instance-admin/service";
 import {
 	type InstanceAdminUserOperations,
@@ -99,6 +100,7 @@ const renderUsers = (
 				transfer,
 			)}
 		/>,
+		{ wrapper: testI18nWrapper() },
 	);
 	return { ...view, calls, backInterceptors };
 };
@@ -191,7 +193,7 @@ describe("Instance Admin users administration", () => {
 					fireEvent.click(confirm);
 					fireEvent.click(confirm);
 				});
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Resetting..." }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Resetting…" }));
 				expect(requests).toBe(1);
 				expect(screen.queryByRole("alert")).toBeNull();
 				expect(screen.queryByLabelText("Password reset link")).toBeNull();
@@ -572,7 +574,7 @@ describe("Instance Admin users administration", () => {
 					screen.findByRole("dialog", { name: "Delete this user?" }),
 				);
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete user" }));
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Deleting..." }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Deleting…" }));
 
 				fireEvent.keyDown(document, { key: "Escape" });
 				fireEvent.click(screen.getByRole("button", { name: "Close" }));

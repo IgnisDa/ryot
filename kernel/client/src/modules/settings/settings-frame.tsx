@@ -1,9 +1,10 @@
+import type { Text } from "@ryot-app/i18n/text";
 import type { ReactNode } from "react";
 
 import { AppScreen } from "#/modules/shell/app-screen";
 
 type SettingsFrameProps = {
-	readonly title: string;
+	readonly title: Text;
 	readonly meta?: ReactNode;
 	readonly actions?: ReactNode;
 	readonly children?: ReactNode;

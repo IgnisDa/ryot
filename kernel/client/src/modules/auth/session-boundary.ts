@@ -1,3 +1,5 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Effect } from "effect";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
@@ -23,7 +25,7 @@ export function useAuthenticatedSession(runtime: ClientRuntime, server: ServerOr
 	const impersonation =
 		authSnapshot.status === "authenticated" ? authSnapshot.impersonation : undefined;
 	const [stopPending, setStopPending] = useState(false);
-	const [stopError, setStopError] = useState<string>();
+	const [stopError, setStopError] = useState<Message>();
 	const stopImpersonation = () => {
 		setStopPending(true);
 		setStopError(undefined);
@@ -32,12 +34,12 @@ export function useAuthenticatedSession(runtime: ClientRuntime, server: ServerOr
 				Effect.matchCause({
 					onFailure: () => {
 						setStopPending(false);
-						setStopError("Could not stop impersonation. Please try again.");
+						setStopError(kernelMessage("client.auth.impersonation.stop-failed"));
 					},
 					onSuccess: (launched) => {
 						setStopPending(false);
 						if (!launched) {
-							setStopError("Could not open the server logout page. Please try again.");
+							setStopError(kernelMessage("client.auth.impersonation.logout-failed"));
 						}
 					},
 				}),

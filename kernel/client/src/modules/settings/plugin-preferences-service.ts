@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { Effect } from "effect";
 
+import type { AuthenticatedApiError } from "#/api/authenticated";
 import { loadAllPages } from "#/api/load-all-pages";
 import { PluginsApi } from "#/api/plugins";
 import type { KernelRyotClient } from "#/api/ryot-client";
@@ -45,7 +46,8 @@ export const pluginUserSettingQuery = createRyotQuery<
 export const savePluginUserSettingsMutation = createRyotHostMutation<
 	SavePluginUserSettingsInput,
 	void,
-	KernelHostServices
+	KernelHostServices,
+	AuthenticatedApiError
 >(
 	({ input, client, hostServices }) =>
 		hostServices.runtime
@@ -54,25 +56,20 @@ export const savePluginUserSettingsMutation = createRyotHostMutation<
 				payload: input.payload,
 				params: { installationId: input.installationId },
 			})
-			.pipe(
-				Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
-				Effect.mapError(() => new RyotClientError({ reason: "transport" })),
-			),
+			.pipe(Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint()))),
 	{ hostServices: KernelHostServices },
 );
 
 export const resetPluginUserSettingsMutation = createRyotHostMutation<
 	string,
 	void,
-	KernelHostServices
+	KernelHostServices,
+	AuthenticatedApiError
 >(
 	({ input, client, hostServices }) =>
 		hostServices.runtime
 			.runSync(PluginsApi)
 			.resetUserSettings(hostServices.scope, { params: { installationId: input } })
-			.pipe(
-				Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
-				Effect.mapError(() => new RyotClientError({ reason: "transport" })),
-			),
+			.pipe(Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint()))),
 	{ hostServices: KernelHostServices },
 );

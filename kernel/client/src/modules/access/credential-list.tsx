@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	Badge,
 	Button,
@@ -17,7 +20,7 @@ export type CredentialRow<Id extends string> = {
 	readonly id: Id;
 	readonly name: string;
 	readonly icon: string;
-	readonly detail: string;
+	readonly detail: Text;
 	readonly access: string;
 	readonly inactive?: boolean;
 	readonly badges?: ReactNode;
@@ -25,33 +28,36 @@ export type CredentialRow<Id extends string> = {
 };
 
 export function CredentialList<Id extends string>(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly empty: ReactNode;
 	readonly isError: boolean;
 	readonly isPending: boolean;
+	readonly loadingLabel: Text;
 	readonly onRetry: () => void;
+	readonly loadFailedTitle: Text;
 	readonly rows: readonly CredentialRow<Id>[];
 	readonly loadMore: null | {
-		readonly label: string;
+		readonly label: Text;
 		readonly onClick: () => void;
 		readonly isFetchingNextPage: boolean;
 	};
 	readonly revoke: {
-		readonly detail: string;
+		readonly detail: Text;
 		readonly failed: boolean;
 		readonly pending: boolean;
 		readonly reset: () => void;
-		readonly actionLabel: string;
-		readonly errorMessage: string;
+		readonly actionLabel: Text;
+		readonly errorMessage: Text;
 		readonly run: (id: Id) => Effect.Effect<unknown, unknown>;
 	};
 }) {
+	const t = useT();
 	const revokeTrigger = useRef<null | HTMLButtonElement>(null);
 	const [revoking, setRevoking] = useState<null | CredentialRow<Id>>(null);
 
 	if (props.isPending) {
 		return (
-			<RowGroup aria-busy="true" aria-label={`Loading ${props.label}`}>
+			<RowGroup aria-busy="true" aria-label={props.loadingLabel}>
 				{[0, 1].map((index) => (
 					<div key={index} className="flex items-center gap-3 px-4 py-3.5">
 						<Skeleton className="size-10 shrink-0 rounded-lg" />
@@ -69,8 +75,8 @@ export function CredentialList<Id extends string>(props: {
 		return (
 			<LoadErrorState
 				onRetry={props.onRetry}
-				title={`Could not load ${props.label}`}
-				detail="Check your connection and try again."
+				title={props.loadFailedTitle}
+				detail={t(kernelMessage("client.access.credentials.load-failed-detail"))}
 			/>
 		);
 	}
@@ -109,13 +115,15 @@ export function CredentialList<Id extends string>(props: {
 						<Button
 							size="sm"
 							variant="dangerGhost"
-							aria-label={`Revoke ${row.name}`}
+							aria-label={t(
+								kernelMessage("client.access.credentials.revoke-row", { name: row.name }),
+							)}
 							onClick={(event) => {
 								revokeTrigger.current = event.currentTarget;
 								setRevoking(row);
 							}}
 						>
-							Revoke
+							{t(kernelMessage("client.access.credentials.revoke"))}
 						</Button>
 					</div>
 				))}
@@ -130,17 +138,19 @@ export function CredentialList<Id extends string>(props: {
 			)}
 			{revoking === null ? null : (
 				<DestructiveConfirmation
-					pendingLabel="Revoking..."
 					triggerRef={revokeTrigger}
 					detail={props.revoke.detail}
 					pending={props.revoke.pending}
-					title={`Revoke "${revoking.name}"?`}
 					actionLabel={props.revoke.actionLabel}
+					pendingLabel={t(kernelMessage("client.access.credentials.revoking"))}
 					errorMessage={props.revoke.failed ? props.revoke.errorMessage : undefined}
 					onClose={() => {
 						props.revoke.reset();
 						setRevoking(null);
 					}}
+					title={t(
+						kernelMessage("client.access.credentials.revoke-title", { name: revoking.name }),
+					)}
 					onConfirm={() =>
 						void Effect.runPromise(
 							props.revoke

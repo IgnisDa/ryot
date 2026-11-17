@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { formatError } from "@ryot-app/plugin-client-sdk/react";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useNavigate } from "@tanstack/react-router";
@@ -7,10 +10,11 @@ import { Effect } from "effect";
 import { SettingsSection } from "#/modules/settings/settings-section";
 
 export function AccountSession(props: {
-	readonly failed: boolean;
 	readonly isPending: boolean;
+	readonly error: null | Error;
 	readonly onSignOut: () => Effect.Effect<boolean, Error>;
 }) {
+	const t = useT();
 	const navigate = useNavigate();
 
 	function signOut() {
@@ -30,7 +34,10 @@ export function AccountSession(props: {
 	}
 
 	return (
-		<SettingsSection title="Session" detail="Manage your current session.">
+		<SettingsSection
+			title={t(kernelMessage("client.settings.account.session.title"))}
+			detail={t(kernelMessage("client.settings.account.session.detail"))}
+		>
 			<div className="flex flex-col gap-3">
 				<button
 					type="button"
@@ -43,10 +50,18 @@ export function AccountSession(props: {
 				>
 					<AppIcon size={18} name="logout" className="text-danger" />
 					<span className="flex-1 text-left text-sm font-medium text-danger">
-						{props.isPending ? "Signing out..." : "Sign out"}
+						{t(
+							props.isPending
+								? kernelMessage("client.settings.account.session.signing-out")
+								: kernelMessage("common.action.sign-out"),
+						)}
 					</span>
 				</button>
-				{props.failed && <StatusMessage tone="error">Could not sign out.</StatusMessage>}
+				{props.error !== null && (
+					<StatusMessage tone="error">
+						{formatError(t, props.error, kernelMessage("client.settings.account.session.failed"))}
+					</StatusMessage>
+				)}
 			</div>
 		</SettingsSection>
 	);

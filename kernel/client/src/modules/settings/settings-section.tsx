@@ -1,8 +1,9 @@
+import type { Text } from "@ryot-app/i18n/text";
 import type { ReactNode } from "react";
 
 type SettingsSectionProps = {
-	readonly title: string;
-	readonly detail: string;
+	readonly title: Text;
+	readonly detail: Text;
 	readonly children: ReactNode;
 };
 

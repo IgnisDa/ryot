@@ -8,6 +8,8 @@ import {
 } from "@ryot-app/contract/oauth";
 import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
+import { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { Context, Deferred, Effect, Layer, Schema } from "effect";
@@ -18,15 +20,12 @@ import { availableTwoFactorMethods, isTwoFactorRedirect } from "#/modules/auth/f
 import { type CredentialsValues, registrationName } from "#/modules/auth/form-values";
 import type { OAuthFetch } from "#/modules/auth/oauth-endpoint";
 
-type AuthResponse<A> = {
-	readonly data: A;
-	readonly error: null | { readonly code?: string; readonly message?: string };
-};
+type AuthResponse<A> = { readonly data: A; readonly error: null | { readonly code?: string } };
 
 export class HostedAuthError extends Schema.TaggedError<
 	HostedAuthError,
 	{ readonly brand: unique symbol }
->()("HostedAuthError", { message: Schema.String, code: Schema.optionalKey(Schema.String) }) {}
+>()("HostedAuthError", { reason: Message, code: Schema.optionalKey(Schema.String) }) {}
 
 const DemoSignInResponse = strictStruct({ mode: Schema.Literals(["demo", "standard"]) });
 const InitializationStatusResponse = strictStruct({
@@ -38,10 +37,8 @@ const ImpersonationRedeemResponse = strictStruct({ authorizationUrl: Schema.Stri
 export const requestDemoSignIn = (fetcher: OAuthFetch, baseURL: string) =>
 	Effect.gen(function* () {
 		const response = yield* Effect.tryPromise({
-			catch: (cause) =>
-				new HostedAuthError({
-					message: cause instanceof Error ? cause.message : "Could not open the shared demo.",
-				}),
+			catch: () =>
+				new HostedAuthError({ reason: kernelMessage("client.auth.hosted.demo-open-failed") }),
 			try: () =>
 				fetcher(new URL("/api/auth/demo/sign-in", baseURL), {
 					body: "{}",
@@ -52,15 +49,21 @@ export const requestDemoSignIn = (fetcher: OAuthFetch, baseURL: string) =>
 				}),
 		});
 		if (!response.ok) {
-			return yield* new HostedAuthError({ message: "Could not open the shared demo." });
+			return yield* new HostedAuthError({
+				reason: kernelMessage("client.auth.hosted.demo-open-failed"),
+			});
 		}
 		const payload: unknown = yield* Effect.tryPromise({
 			try: () => response.json(),
-			catch: () => new HostedAuthError({ message: "Could not read the shared demo response." }),
+			catch: () =>
+				new HostedAuthError({ reason: kernelMessage("client.auth.hosted.demo-read-failed") }),
 		});
 		return yield* Schema.decodeUnknownEffect(DemoSignInResponse)(payload).pipe(
 			Effect.mapError(
-				() => new HostedAuthError({ message: "The shared demo returned an invalid response." }),
+				() =>
+					new HostedAuthError({
+						reason: kernelMessage("client.auth.hosted.demo-response-invalid"),
+					}),
 			),
 		);
 	});
@@ -68,10 +71,9 @@ export const requestDemoSignIn = (fetcher: OAuthFetch, baseURL: string) =>
 export const requestInitializationStatus = (fetcher: OAuthFetch, baseURL: string) =>
 	Effect.gen(function* () {
 		const response = yield* Effect.tryPromise({
-			catch: (cause) =>
+			catch: () =>
 				new HostedAuthError({
-					message:
-						cause instanceof Error ? cause.message : "Could not check account initialization.",
+					reason: kernelMessage("client.auth.hosted.initialization-check-failed"),
 				}),
 			try: () =>
 				fetcher(new URL("/api/auth/initialization-status", baseURL), {
@@ -82,20 +84,25 @@ export const requestInitializationStatus = (fetcher: OAuthFetch, baseURL: string
 		});
 		if (!response.ok) {
 			return yield* new HostedAuthError({
-				message:
+				reason:
 					response.status === 401
-						? "Your sign-in session has ended. Please sign in again."
-						: "Could not check account initialization.",
+						? kernelMessage("client.auth.hosted.session-ended")
+						: kernelMessage("client.auth.hosted.initialization-check-failed"),
 			});
 		}
 		const payload = yield* Effect.tryPromise({
 			try: () => response.json() as Promise<unknown>,
 			catch: () =>
-				new HostedAuthError({ message: "Could not read the account initialization response." }),
+				new HostedAuthError({
+					reason: kernelMessage("client.auth.hosted.initialization-read-failed"),
+				}),
 		});
 		return yield* Schema.decodeUnknownEffect(InitializationStatusResponse)(payload).pipe(
 			Effect.mapError(
-				() => new HostedAuthError({ message: "The server returned an invalid account status." }),
+				() =>
+					new HostedAuthError({
+						reason: kernelMessage("client.auth.hosted.initialization-status-invalid"),
+					}),
 			),
 		);
 	});
@@ -106,13 +113,16 @@ export const requestImpersonationRedeem = (fetcher: OAuthFetch, baseURL: string,
 			ticket,
 		}).pipe(
 			Effect.mapError(
-				() => new HostedAuthError({ message: "Could not prepare the impersonation request." }),
+				() =>
+					new HostedAuthError({
+						reason: kernelMessage("client.auth.hosted.impersonation-prepare-failed"),
+					}),
 			),
 		);
 		const response = yield* Effect.tryPromise({
-			catch: (cause) =>
+			catch: () =>
 				new HostedAuthError({
-					message: cause instanceof Error ? cause.message : "Could not continue impersonation.",
+					reason: kernelMessage("client.auth.hosted.impersonation-continue-failed"),
 				}),
 			try: () =>
 				fetcher(new URL("/api/auth/impersonation/redeem", baseURL), {
@@ -124,17 +134,22 @@ export const requestImpersonationRedeem = (fetcher: OAuthFetch, baseURL: string,
 				}),
 		});
 		if (!response.ok) {
-			return yield* new HostedAuthError({ message: "Could not continue impersonation." });
+			return yield* new HostedAuthError({
+				reason: kernelMessage("client.auth.hosted.impersonation-continue-failed"),
+			});
 		}
 		const payload: unknown = yield* Effect.tryPromise({
 			try: () => response.json(),
-			catch: () => new HostedAuthError({ message: "Could not read the impersonation response." }),
+			catch: () =>
+				new HostedAuthError({
+					reason: kernelMessage("client.auth.hosted.impersonation-read-failed"),
+				}),
 		});
 		return yield* Schema.decodeUnknownEffect(ImpersonationRedeemResponse)(payload).pipe(
 			Effect.mapError(
 				() =>
 					new HostedAuthError({
-						message: "The server returned an invalid impersonation response.",
+						reason: kernelMessage("client.auth.hosted.impersonation-response-invalid"),
 					}),
 			),
 		);
@@ -146,11 +161,15 @@ export const requestConsentDetails = Effect.fn("HostedAuthService.requestConsent
 			oauth_query: oauthQuery,
 		}).pipe(
 			Effect.mapError(
-				() => new HostedAuthError({ message: "Could not prepare this access request." }),
+				() =>
+					new HostedAuthError({
+						reason: kernelMessage("client.auth.hosted.consent-prepare-failed"),
+					}),
 			),
 		);
 		const response = yield* Effect.tryPromise({
-			catch: () => new HostedAuthError({ message: "Could not reach this server. Try again." }),
+			catch: () =>
+				new HostedAuthError({ reason: kernelMessage("client.auth.hosted.server-unreachable") }),
 			try: () =>
 				fetcher(new URL(OAUTH_CONSENT_DETAILS_PATH, baseURL), {
 					body,
@@ -163,19 +182,23 @@ export const requestConsentDetails = Effect.fn("HostedAuthService.requestConsent
 		if (!response.ok) {
 			return yield* new HostedAuthError({
 				...(response.status === 401 ? { code: "UNAUTHORIZED" } : {}),
-				message:
+				reason:
 					response.status === 400
-						? "This access request is invalid or has expired. Start the connection again from your app."
-						: "Could not load this access request. Try again or restart the connection from your app.",
+						? kernelMessage("client.auth.hosted.consent-invalid")
+						: kernelMessage("client.auth.hosted.consent-load-failed"),
 			});
 		}
 		const payload: unknown = yield* Effect.tryPromise({
 			try: () => response.json(),
-			catch: () => new HostedAuthError({ message: "Could not read this access request." }),
+			catch: () =>
+				new HostedAuthError({ reason: kernelMessage("client.auth.hosted.consent-read-failed") }),
 		});
 		return yield* Schema.decodeUnknownEffect(OAuthConsentDetails)(payload).pipe(
 			Effect.mapError(
-				() => new HostedAuthError({ message: "The server returned an invalid access request." }),
+				() =>
+					new HostedAuthError({
+						reason: kernelMessage("client.auth.hosted.consent-response-invalid"),
+					}),
 			),
 		);
 	},
@@ -204,17 +227,16 @@ const makeHostedClient = (baseURL = window.location.origin) =>
 		plugins: [twoFactorClient(), oauthProviderClient()],
 	});
 
-const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: string) =>
+const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: Message) =>
 	Effect.tryPromise({
 		try: operation,
-		catch: (cause) =>
-			new HostedAuthError({ message: cause instanceof Error ? cause.message : fallback }),
+		catch: () => new HostedAuthError({ reason: fallback }),
 	}).pipe(
 		Effect.flatMap((response) =>
 			response.error
 				? Effect.fail(
 						new HostedAuthError({
-							message: response.error.message ?? fallback,
+							reason: fallback,
 							...(response.error.code ? { code: response.error.code } : {}),
 						}),
 					)
@@ -247,13 +269,13 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 								},
 								{ headers: { [REPORTING_TIME_ZONE_HEADER]: deviceTimeZone() } },
 							),
-						"Could not create your account.",
+						kernelMessage("client.auth.hosted.sign-up-failed"),
 					);
 					return { _tag: "Authenticated" } as const;
 				}
 				const result = yield* request(
 					() => client().signIn.email({ ...input.values, ...oauthQueryBody(input.oauthQuery) }),
-					"Could not sign in.",
+					kernelMessage("client.auth.hosted.sign-in-failed"),
 				);
 				return isTwoFactorRedirect(result)
 					? ({
@@ -268,7 +290,7 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 						method === "backupCode"
 							? client().twoFactor.verifyBackupCode({ code, ...oauthQueryBody(oauthQuery) })
 							: client().twoFactor.verifyTotp({ code, ...oauthQueryBody(oauthQuery) }),
-					"Could not verify that code.",
+					kernelMessage("client.auth.hosted.code-verify-failed"),
 				).pipe(Effect.asVoid);
 			const signInWithOidc = (oauthQuery: string) =>
 				request(
@@ -279,13 +301,13 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 							callbackURL: `${window.location.origin}/oauth/login`,
 							additionalData: { reportingTimeZone: deviceTimeZone() },
 						}),
-					"Could not open the identity provider.",
+					kernelMessage("client.auth.hosted.identity-provider-failed"),
 				).pipe(Effect.asVoid);
 			const submitConsent = (oauthQuery: string, accept: boolean, scopes: readonly string[]) =>
 				request(
 					() =>
 						client().oauth2.consent({ accept, scope: scopes.join(" "), oauth_query: oauthQuery }),
-					"Could not submit your decision. Try again.",
+					kernelMessage("client.auth.hosted.consent-submit-failed"),
 				).pipe(Effect.asVoid);
 
 			const initializationStatus = Effect.suspend(() =>
@@ -294,29 +316,28 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 			const continueAfterInitialization = (oauthQuery: string) =>
 				request(
 					() => client().oauth2.continue({ postLogin: true, ...oauthQueryBody(oauthQuery) }),
-					"Could not continue sign-in.",
+					kernelMessage("client.auth.hosted.continue-failed"),
 				).pipe(Effect.asVoid);
-			const signOutHosted = request(() => client().signOut(), "Could not sign out.").pipe(
-				Effect.asVoid,
-			);
+			const signOutHosted = request(
+				() => client().signOut(),
+				kernelMessage("client.settings.account.session.failed"),
+			).pipe(Effect.asVoid);
 			const twoFactorSession = request(
 				() => client().getSession(),
-				"Could not read your sign-in session.",
+				kernelMessage("client.auth.hosted.session-read-failed"),
 			).pipe(
 				Effect.flatMap((session) =>
 					session
 						? Effect.succeed({ twoFactorEnabled: session.user.twoFactorEnabled === true })
 						: Effect.fail(
-								new HostedAuthError({
-									message: "Your sign-in session has ended. Please sign in again.",
-								}),
+								new HostedAuthError({ reason: kernelMessage("client.auth.hosted.session-ended") }),
 							),
 				),
 			);
 			const enableTwoFactor = (password: string) =>
 				request(
 					() => client().twoFactor.enable({ password, method: "totp" }),
-					"Could not start two-factor setup.",
+					kernelMessage("client.auth.hosted.two-factor-setup-failed"),
 				).pipe(
 					Effect.flatMap((result) => {
 						const enrollment =
@@ -324,47 +345,58 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 						return enrollment && result?.method === "totp"
 							? Effect.succeed({ ...enrollment, backupCodes: result.backupCodes })
 							: Effect.fail(
-									new HostedAuthError({ message: "The server returned an invalid setup key." }),
+									new HostedAuthError({
+										reason: kernelMessage("client.auth.hosted.setup-key-invalid"),
+									}),
 								);
 					}),
 				);
 			const confirmTwoFactor = (code: string) =>
-				request(() => client().twoFactor.verifyTotp({ code }), "Could not verify that code.").pipe(
-					Effect.asVoid,
-				);
+				request(
+					() => client().twoFactor.verifyTotp({ code }),
+					kernelMessage("client.auth.hosted.code-verify-failed"),
+				).pipe(Effect.asVoid);
 			const regenerateBackupCodes = (password: string) =>
 				request(
 					() => client().twoFactor.generateBackupCodes({ password }),
-					"Could not generate new backup codes.",
+					kernelMessage("client.auth.hosted.backup-codes-failed"),
 				).pipe(
 					Effect.flatMap((result) =>
 						result
 							? Effect.succeed(result.backupCodes)
 							: Effect.fail(
-									new HostedAuthError({ message: "The server returned no backup codes." }),
+									new HostedAuthError({
+										reason: kernelMessage("client.auth.hosted.backup-codes-missing"),
+									}),
 								),
 					),
 				);
 			const disableTwoFactor = (password: string) =>
 				request(
 					() => client().twoFactor.disable({ password }),
-					"Could not turn off two-factor authentication.",
+					kernelMessage("client.auth.hosted.two-factor-disable-failed"),
 				).pipe(Effect.asVoid);
 			const openTwoFactorManagement = Effect.fn("HostedAuthService.openTwoFactorManagement")(
 				function* (server: ServerOrigin) {
 					const finished = yield* Deferred.make<void>();
 					yield* Effect.acquireUseRelease(
 						Effect.tryPromise({
-							catch: () => new HostedAuthError({ message: "Could not open the browser." }),
 							try: () =>
 								Browser.addListener("browserFinished", () =>
 									Deferred.doneUnsafe(finished, Effect.void),
 								),
+							catch: () =>
+								new HostedAuthError({
+									reason: kernelMessage("client.auth.hosted.browser-open-failed"),
+								}),
 						}),
 						() =>
 							Effect.tryPromise({
 								try: () => Browser.open({ url: `${server}/oauth/two-factor` }),
-								catch: () => new HostedAuthError({ message: "Could not open the browser." }),
+								catch: () =>
+									new HostedAuthError({
+										reason: kernelMessage("client.auth.hosted.browser-open-failed"),
+									}),
 							}).pipe(Effect.andThen(Deferred.await(finished))),
 						(listener) => Effect.promise(() => listener.remove()),
 					);
@@ -373,7 +405,7 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 			const resetPassword = (server: ServerOrigin, token: string, newPassword: string) =>
 				request(
 					() => makeHostedClient(server).resetPassword({ token, newPassword }),
-					"Could not reset your password.",
+					kernelMessage("client.route.reset-password.reset-failed"),
 				).pipe(Effect.asVoid);
 
 			return {

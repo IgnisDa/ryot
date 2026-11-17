@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -8,6 +9,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import { MigrationReportView } from "#/modules/instance-admin/migration-report-view";
 import type { InstanceAdminMigrationReport } from "#/modules/instance-admin/service";
 
@@ -59,14 +61,16 @@ const emptyReport: InstanceAdminMigrationReport = {
 	pageInfo: { limit: 50, hasMore: false, nextCursor: null },
 };
 
-const expectedReportTime = new Intl.DateTimeFormat("en-US", {
-	day: "numeric",
-	month: "short",
-	year: "numeric",
-	hour: "numeric",
-	minute: "2-digit",
-	second: "2-digit",
-}).format(new Date("2025-01-02T03:04:05"));
+const expectedReportTime = testFormatters
+	.dateTime({
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		second: "2-digit",
+	})
+	.format(new Date("2025-01-02T03:04:05"));
 
 describe("MigrationReportView", () => {
 	it.live(
@@ -82,6 +86,7 @@ describe("MigrationReportView", () => {
 							return Effect.succeed(report);
 						}}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				const table = yield* Effect.promise(() => screen.findByRole("table"));
@@ -111,6 +116,7 @@ describe("MigrationReportView", () => {
 						unauthorized={() => undefined}
 						load={() => Effect.succeed(report)}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				const toggle = yield* Effect.promise(() =>
@@ -140,6 +146,7 @@ describe("MigrationReportView", () => {
 						unauthorized={() => undefined}
 						load={() => Effect.succeed(report)}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				yield* Effect.promise(() => screen.findByRole("table"));
@@ -176,6 +183,7 @@ describe("MigrationReportView", () => {
 									});
 						}}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				yield* Effect.promise(() => screen.findByText("Skipped malformed item"));
@@ -206,6 +214,7 @@ describe("MigrationReportView", () => {
 								: Effect.succeed(emptyReport);
 						}}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				fireEvent.click(
@@ -231,6 +240,7 @@ describe("MigrationReportView", () => {
 							Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }))
 						}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				yield* Effect.promise(() => waitFor(() => expect(relocks).toBe(1)));
@@ -262,6 +272,7 @@ describe("MigrationReportView", () => {
 							)
 						}
 					/>,
+					{ wrapper: testI18nWrapper() },
 				);
 
 				yield* Effect.promise(() => waitFor(() => expect(started).toBe(true)));

@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { fireEvent, render, screen } from "@testing-library/react";
 
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import { Appearance } from "#/modules/settings/appearance";
 import { makeTestThemeStore } from "#/modules/theme/store.test-store";
 
@@ -9,7 +10,7 @@ const themeRadios = () => screen.getAllByRole("radio");
 
 describe("Appearance", () => {
 	it("renders a labelled radiogroup with the current preference checked", () => {
-		render(<Appearance theme={makeTestThemeStore("dark")} />);
+		render(<Appearance theme={makeTestThemeStore("dark")} />, { wrapper: testI18nWrapper() });
 
 		expect(screen.getByRole("radiogroup", { name: "Appearance" })).toBeTruthy();
 		const light = screen.getByRole("radio", { name: "Use Light theme" });
@@ -23,7 +24,7 @@ describe("Appearance", () => {
 
 	it("selects a preference through the store and updates the checked state", () => {
 		const theme = makeTestThemeStore("system");
-		render(<Appearance theme={theme} />);
+		render(<Appearance theme={theme} />, { wrapper: testI18nWrapper() });
 
 		fireEvent.click(screen.getByRole("radio", { name: "Use Light theme" }));
 
@@ -38,7 +39,7 @@ describe("Appearance", () => {
 
 	it("moves the selection with the arrow, Home, and End keys", () => {
 		const theme = makeTestThemeStore("light");
-		render(<Appearance theme={theme} />);
+		render(<Appearance theme={theme} />, { wrapper: testI18nWrapper() });
 
 		fireEvent.keyDown(screen.getByRole("radio", { name: "Use Light theme" }), {
 			key: "ArrowRight",
@@ -60,7 +61,7 @@ describe("Appearance", () => {
 
 	it("keeps a single tab stop on the checked option", () => {
 		const theme = makeTestThemeStore("system");
-		render(<Appearance theme={theme} />);
+		render(<Appearance theme={theme} />, { wrapper: testI18nWrapper() });
 
 		expect(themeRadios().map((radio) => radio.getAttribute("tabindex"))).toEqual(["-1", "-1", "0"]);
 

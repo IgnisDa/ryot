@@ -1,4 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useNavigate } from "@tanstack/react-router";
 
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
@@ -10,6 +12,7 @@ import { useRememberedWorkspacePluginId } from "#/modules/shell/authenticated-sh
 import { useDesktopEffect } from "#/modules/shell/breakpoint";
 
 export function SettingsIndex() {
+	const t = useT();
 	const navigate = useNavigate();
 	const { catalog } = usePluginCatalog();
 	const rememberedPluginId = useRememberedWorkspacePluginId();
@@ -21,7 +24,10 @@ export function SettingsIndex() {
 	);
 
 	return (
-		<SettingsFrame title="Settings" backFallbackHref={backFallbackHref}>
+		<SettingsFrame
+			backFallbackHref={backFallbackHref}
+			title={t(kernelMessage("client.settings.title"))}
+		>
 			<div data-testid="settings-index-sections">
 				<SettingsSectionNav
 					active={null}

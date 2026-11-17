@@ -1,3 +1,7 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
 import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
@@ -18,12 +22,32 @@ const PAGE_SIZE = 25;
 
 type LogFile = InstanceAdminLogs["files"][number];
 
-const logColumns: ReadonlyArray<DataTableColumn<LogFile>> = [
-	{ id: "file", header: "Log file", headerClassName: "px-3 py-3 font-semibold" },
-	{ id: "type", header: "Type", headerClassName: "px-3 py-3 font-semibold" },
-	{ id: "size", header: "Size", headerClassName: "px-3 py-3 font-semibold" },
-	{ id: "modified", header: "Modified", headerClassName: "px-3 py-3 font-semibold" },
-	{ id: "actions", header: "Actions", headerClassName: "px-3 py-3 text-right font-semibold" },
+const logColumns = (t: (message: Message) => Text): ReadonlyArray<DataTableColumn<LogFile>> => [
+	{
+		id: "file",
+		headerClassName: "px-3 py-3 font-semibold",
+		header: t(kernelMessage("client.instance-admin.logs.column.file")),
+	},
+	{
+		id: "type",
+		headerClassName: "px-3 py-3 font-semibold",
+		header: t(kernelMessage("client.instance-admin.logs.column.type")),
+	},
+	{
+		id: "size",
+		headerClassName: "px-3 py-3 font-semibold",
+		header: t(kernelMessage("client.instance-admin.logs.column.size")),
+	},
+	{
+		id: "modified",
+		headerClassName: "px-3 py-3 font-semibold",
+		header: t(kernelMessage("client.instance-admin.logs.column.modified")),
+	},
+	{
+		id: "actions",
+		header: t(kernelMessage("sdk.browser.actions")),
+		headerClassName: "px-3 py-3 text-right font-semibold",
+	},
 ];
 
 const downloadMessage = (cause: Cause.Cause<unknown>) => {
@@ -31,8 +55,8 @@ const downloadMessage = (cause: Cause.Cause<unknown>) => {
 	return error instanceof AdminApiError &&
 		error.cause instanceof FileDownloadError &&
 		error.cause.status === 404
-		? "The log file is no longer available. Refresh the list and try again."
-		: "Could not download the logs. Check the server and try again.";
+		? kernelMessage("client.instance-admin.logs.download-unavailable")
+		: kernelMessage("client.instance-admin.logs.download-failed");
 };
 
 export function ServerLogsView(props: {
@@ -43,7 +67,8 @@ export function ServerLogsView(props: {
 		limit: number,
 	) => Effect.Effect<InstanceAdminLogs, unknown>;
 }) {
-	const [downloadError, setDownloadError] = useState<string>();
+	const t = useT();
+	const [downloadError, setDownloadError] = useState<Message>();
 	const [downloading, setDownloading] = useState<string>();
 	const downloadBusy = useRef(false);
 	const unmountSignal = useUnmountSignal();
@@ -95,16 +120,13 @@ export function ServerLogsView(props: {
 
 	return (
 		<section className="ui-card w-full" aria-labelledby="server-logs-title">
-			<p className="ui-overline">Administration</p>
+			<p className="ui-overline">{t(kernelMessage("client.settings.section.administration"))}</p>
 			<h1 id="server-logs-title" className="font-display text-3xl font-semibold">
-				Server logs
+				{t(kernelMessage("client.instance-admin.logs.title"))}
 			</h1>
-			<p className="ui-subtitle">
-				Download the active log or retained compressed logs from this server.
-			</p>
+			<p className="ui-subtitle">{t(kernelMessage("client.instance-admin.logs.subtitle"))}</p>
 			<p className="mt-3 text-sm text-text-muted">
-				The active log includes messages written when the download starts. Recent messages can take
-				about one second to appear.
+				{t(kernelMessage("client.instance-admin.logs.note"))}
 			</p>
 			<div className="my-5 flex flex-wrap gap-3">
 				<Button
@@ -113,7 +135,7 @@ export function ServerLogsView(props: {
 					variant="secondary"
 					disabled={loading || downloading !== undefined}
 				>
-					Refresh
+					{t(kernelMessage("common.action.refresh"))}
 				</Button>
 				<Button
 					type="button"
@@ -121,30 +143,40 @@ export function ServerLogsView(props: {
 					onClick={() => download()}
 					disabled={loading || files.length === 0 || downloading !== undefined}
 				>
-					{downloading === "all" ? "Downloading all logs..." : "Download all logs"}
+					{t(
+						kernelMessage(
+							downloading === "all"
+								? "client.instance-admin.logs.downloading-all"
+								: "client.instance-admin.logs.download-all",
+						),
+					)}
 				</Button>
 			</div>
-			{!unauthorized && pagination.isPending && <p role="status">Loading server logs...</p>}
+			{!unauthorized && pagination.isPending && (
+				<p role="status">{t(kernelMessage("client.instance-admin.logs.loading"))}</p>
+			)}
 			{!unauthorized &&
 				pagination.errorOperation !== null &&
 				pagination.errorOperation !== "append" && (
 					<p role="alert" className="text-danger">
-						Could not load the server logs. Check the server and try again.
+						{t(kernelMessage("client.instance-admin.logs.load-failed"))}
 					</p>
 				)}
 			{downloadError && (
 				<p role="alert" className="text-danger">
-					{downloadError}
+					{t(downloadError)}
 				</p>
 			)}
 			{pagination.pages.length > 0 && files.length === 0 && !loading && (
-				<p className="py-8 text-center text-sm text-text-muted">No server logs available.</p>
+				<p className="py-8 text-center text-sm text-text-muted">
+					{t(kernelMessage("client.instance-admin.logs.empty"))}
+				</p>
 			)}
 			{files.length > 0 && (
 				<div className="mt-5 overflow-x-auto rounded-xl border border-border">
 					<DataTable
 						data={files}
-						columns={logColumns}
+						columns={logColumns(t)}
 						getRowId={(file) => file.id}
 						className="w-full border-collapse text-left text-sm"
 						headerClassName="border-b border-border bg-surface-2 text-xs text-text-muted"
@@ -161,16 +193,16 @@ export function ServerLogsView(props: {
 			)}
 			{pagination.isFetchingNextPage && (
 				<p role="status" className="mt-4 text-center text-sm text-text-muted">
-					Loading more logs...
+					{t(kernelMessage("client.instance-admin.logs.loading-more"))}
 				</p>
 			)}
 			{!unauthorized && pagination.errorOperation === "append" && (
 				<div className="mt-5 grid justify-items-center gap-3">
 					<p role="alert" className="text-sm text-danger">
-						Could not load more server logs. Check the server and try again.
+						{t(kernelMessage("client.instance-admin.logs.load-more-failed"))}
 					</p>
 					<Button type="button" variant="secondary" onClick={pagination.retry}>
-						Retry loading logs
+						{t(kernelMessage("client.instance-admin.logs.retry"))}
 					</Button>
 				</div>
 			)}
@@ -178,10 +210,10 @@ export function ServerLogsView(props: {
 				<div className="mt-5 flex justify-center">
 					<LoadMoreButton
 						type="button"
-						label="Load more logs"
 						onClick={pagination.fetchNextPage}
-						loadingLabel="Loading more logs..."
 						isFetchingNextPage={pagination.isFetchingNextPage}
+						label={t(kernelMessage("client.instance-admin.logs.load-more"))}
+						loadingLabel={t(kernelMessage("client.instance-admin.logs.loading-more"))}
 						disabled={
 							downloading !== undefined || (pagination.isFetching && !pagination.isFetchingNextPage)
 						}
@@ -198,6 +230,8 @@ function LogTableRow(props: {
 	readonly downloading: string | undefined;
 	readonly onDownload: (file: LogFile) => void;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	return (
 		<tr className="border-b border-border last:border-b-0">
 			<td className="min-w-56 px-3 py-4 font-mono text-sm">
@@ -211,24 +245,40 @@ function LogTableRow(props: {
 							: "inline-flex rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-text-muted"
 					}
 				>
-					{props.file.active ? "Active" : "Compressed"}
+					{t(
+						kernelMessage(
+							props.file.active
+								? "client.instance-admin.logs.type.active"
+								: "client.instance-admin.logs.type.compressed",
+						),
+					)}
 				</span>
 			</td>
 			<td className="px-3 py-4 whitespace-nowrap text-text-muted">
-				{props.file.size.toLocaleString()} bytes
+				{t(kernelMessage("client.instance-admin.logs.size", { size: props.file.size }))}
 			</td>
 			<td className="px-3 py-4 whitespace-nowrap text-text-muted">
-				{new Date(props.file.modifiedAt).toLocaleString()}
+				{formatters
+					.dateTime({ timeStyle: "short", dateStyle: "medium" })
+					.format(new Date(props.file.modifiedAt))}
 			</td>
 			<td className="px-3 py-3 text-right">
 				<Button
 					type="button"
 					variant="secondary"
-					aria-label={`Download ${props.file.name}`}
 					onClick={() => props.onDownload(props.file)}
 					disabled={props.loading || props.downloading !== undefined}
+					aria-label={t(
+						kernelMessage("client.instance-admin.logs.download-file", { name: props.file.name }),
+					)}
 				>
-					{props.downloading === props.file.id ? "Downloading..." : "Download"}
+					{t(
+						kernelMessage(
+							props.downloading === props.file.id
+								? "client.instance-admin.logs.downloading"
+								: "common.action.download",
+						),
+					)}
 				</Button>
 			</td>
 		</tr>
