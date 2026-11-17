@@ -4,6 +4,9 @@ import type {
 } from "@ryot-app/contract/modules/assistant/schemas";
 import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
 import type { AssistantConversationId, AssistantTurnId } from "@ryot-app/contract/schema/brands";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button, Dialog, Notice, tabId, Tabs } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -17,7 +20,7 @@ import { EmbeddedPagePreview } from "#/modules/pages/runtime/embedded-preview";
 import { PublicationPageEditor } from "#/modules/publications/manager";
 import { useEdge } from "#/modules/shell/authenticated-shell-context";
 
-import { assistantFailureText, savePageMutation } from "./service";
+import { assistantFailureMessage, savePageMutation } from "./service";
 
 type DraftProps = {
 	readonly disabled: boolean;
@@ -39,6 +42,7 @@ const decodeSource = (content: string) => {
 export function AssistantPageSave(
 	props: DraftProps & { readonly name: string; readonly onNavigate: (href: string) => void },
 ) {
+	const t = useT();
 	const save = useRyotMutation(savePageMutation);
 	const identity = usePageIdentity(props.name);
 	const [requestId, setRequestId] = useState(() => crypto.randomUUID());
@@ -61,12 +65,14 @@ export function AssistantPageSave(
 		) : (
 			<div className="flex flex-wrap items-center gap-2">
 				<AppIcon size={16} name="circle-check" className="text-success" />
-				<p className="flex-1 text-sm text-text">Saved to your saved views.</p>
+				<p className="flex-1 text-sm text-text">
+					{t(kernelMessage("client.assistant.draft.saved"))}
+				</p>
 				<Button variant="secondary" disabled={props.disabled} onClick={() => setSharing(true)}>
-					Share
+					{t(kernelMessage("common.action.share"))}
 				</Button>
 				<Button onClick={() => props.onNavigate(`/v/c/${encodeURIComponent(saved.savedViewId)}`)}>
-					Open page
+					{t(kernelMessage("client.assistant.draft.open-page"))}
 				</Button>
 			</div>
 		);
@@ -96,7 +102,7 @@ export function AssistantPageSave(
 			<PageIdentityFields identity={identity} disabled={submission !== null} />
 			<div className="flex flex-wrap items-center gap-2">
 				<p className="flex-1 text-label text-text-subtle">
-					Saved pages start without write access.
+					{t(kernelMessage("client.assistant.draft.no-write-access"))}
 				</p>
 				{save.error === null ? null : (
 					<Button
@@ -108,26 +114,35 @@ export function AssistantPageSave(
 							save.reset();
 						}}
 					>
-						Edit details
+						{t(kernelMessage("client.assistant.draft.edit-details"))}
 					</Button>
 				)}
 				<Button type="submit" disabled={props.disabled || save.isPending || !identity.complete}>
-					{save.isPending ? "Saving…" : "Save page"}
+					{t(
+						save.isPending
+							? kernelMessage("common.status.saving")
+							: kernelMessage("client.assistant.draft.save"),
+					)}
 				</Button>
 			</div>
 			{save.error === null ? null : (
-				<Notice tone="danger">{assistantFailureText(save.error)}</Notice>
+				<Notice tone="danger">{t(assistantFailureMessage(save.error))}</Notice>
 			)}
 		</form>
 	);
 }
 
 function DraftSource(props: { readonly pageId: string }) {
+	const t = useT();
 	const page = useRyotQuery(pageQuery, { reload: 0, pageId: props.pageId });
 	if (page.data == null) {
 		return (
 			<p role="status" className="text-sm text-text-muted">
-				{page.isError ? "The page source is unavailable." : "Loading source…"}
+				{t(
+					page.isError
+						? kernelMessage("client.assistant.draft.source-unavailable")
+						: kernelMessage("client.assistant.draft.source-loading"),
+				)}
 			</p>
 		);
 	}
@@ -137,7 +152,7 @@ function DraftSource(props: { readonly pageId: string }) {
 				<section key={file.path} className="grid gap-1.5">
 					<h3 className="font-mono text-label text-text-muted">{file.path}</h3>
 					<pre className="max-h-96 overflow-auto rounded-md bg-surface-2 p-3 font-mono text-micro text-text">
-						{decodeSource(file.content) ?? "Binary file"}
+						{decodeSource(file.content) ?? t(kernelMessage("client.assistant.draft.binary-file"))}
 					</pre>
 				</section>
 			))}
@@ -146,11 +161,12 @@ function DraftSource(props: { readonly pageId: string }) {
 }
 
 const tabs = [
-	{ value: "preview", label: "Preview" },
-	{ value: "source", label: "Source" },
+	{ value: "preview", label: kernelMessage("client.assistant.draft.tab.preview") },
+	{ value: "source", label: kernelMessage("client.assistant.draft.tab.source") },
 ] as const;
 
 export function AssistantPageDraft(props: DraftProps) {
+	const t = useT();
 	const edge = useEdge();
 	const navigate = useNavigate();
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -158,7 +174,10 @@ export function AssistantPageDraft(props: DraftProps) {
 	const [open, setOpen] = useState(false);
 	const [tab, setTab] = useState<(typeof tabs)[number]["value"]>("preview");
 	const panelId = useId();
-	const name = page.data?.name ?? "Page draft";
+	const name =
+		page.data?.name === undefined
+			? t(kernelMessage("client.assistant.draft.default-name"))
+			: formatDisplayText(t, page.data.name);
 	const files = page.data?.draftDefinition.files.length;
 	return (
 		<>
@@ -170,14 +189,20 @@ export function AssistantPageDraft(props: DraftProps) {
 					<p className="truncate font-medium text-text">{name}</p>
 					<p className="flex flex-wrap items-center gap-1.5 text-label text-text-subtle">
 						<Badge size="sm" variant="neutral">
-							Draft
+							{t(kernelMessage("client.assistant.draft.badge"))}
 						</Badge>
-						Revision {props.identity.draftRevision}
-						{files === undefined ? null : ` · ${files} ${files === 1 ? "file" : "files"}`}
+						{t(
+							kernelMessage("client.assistant.draft.revision", {
+								revision: props.identity.draftRevision,
+							}),
+						)}
+						{files === undefined ? null : (
+							<> · {t(kernelMessage("client.assistant.draft.files", { count: files }))}</>
+						)}
 					</p>
 				</div>
 				<Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)}>
-					Open preview
+					{t(kernelMessage("client.assistant.draft.open-preview"))}
 				</Button>
 			</div>
 			{open ? (
@@ -185,10 +210,10 @@ export function AssistantPageDraft(props: DraftProps) {
 					size="lg"
 					title={name}
 					triggerRef={triggerRef}
-					closeLabel="Close preview"
 					onClose={() => setOpen(false)}
-					description="Read-only draft preview"
 					placement={edge.compact ? "sheet" : "center"}
+					closeLabel={t(kernelMessage("client.assistant.draft.close-preview"))}
+					description={t(kernelMessage("client.assistant.draft.preview-description"))}
 					footer={
 						page.data == null ? undefined : (
 							<AssistantPageSave
@@ -205,10 +230,10 @@ export function AssistantPageDraft(props: DraftProps) {
 					<div className="grid gap-4">
 						<Tabs
 							value={tab}
-							options={tabs}
 							panelId={panelId}
 							onChange={setTab}
-							label="Draft view"
+							label={t(kernelMessage("client.assistant.draft.tabs-label"))}
+							options={tabs.map(({ value, label }) => ({ value, label: t(label) }))}
 						/>
 						<div id={panelId} role="tabpanel" aria-labelledby={tabId(panelId, tab)}>
 							{tab === "preview" ? (

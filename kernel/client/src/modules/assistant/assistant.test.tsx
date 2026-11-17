@@ -19,6 +19,8 @@ import {
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
 import { CapabilityId } from "@ryot-app/contract/schema/capability";
+import { testKernelText, testText } from "@ryot-app/kernel-messages/testing";
+import { testCatalog } from "@ryot-app/plugin-client-sdk/testing";
 import type {
 	AssistantCallRecord,
 	AssistantTranscriptTurn,
@@ -32,6 +34,7 @@ import { Effect } from "effect";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { makeAssistantApi } from "#/api/ports.test-layer";
 import { mountHostedTestScreen } from "#/host-screen.test-support";
+import { testTranslate } from "#/modules/i18n/provider.test-support";
 
 import { AssistantApproval } from "./approval";
 import { AssistantComposer, useAssistantSubmit } from "./composer";
@@ -39,7 +42,7 @@ import { AssistantPageSave } from "./page-draft";
 import { assistantStarters, stepDetail } from "./presentation";
 import { AssistantProviderForm } from "./provider";
 import { AssistantQuestion } from "./question";
-import { assistantFailureText } from "./service";
+import { assistantFailureMessage } from "./service";
 import { AssistantTurn } from "./turn";
 
 const conversationId = AssistantConversationId.make("conversation");
@@ -51,7 +54,6 @@ const catalog: PluginClientCatalog = [
 		isHidden: false,
 		health: "ready",
 		scope: "system",
-		name: "Fitness",
 		icon: "dumbbell",
 		homeSavedView: null,
 		clientApiVersion: 1,
@@ -60,12 +62,12 @@ const catalog: PluginClientCatalog = [
 		installationId: "installation",
 		pluginId: PluginId.make("fitness"),
 		packageId: PluginPackageId.make("ryot/fitness"),
-		assistantStarters: ["Summarize my workouts this week"],
+		name: { key: "plugin.name", namespace: "fitness" },
+		assistantStarters: [{ namespace: "fitness", key: "starter.workouts" }],
 	},
 	{
 		icon: "film",
 		sortOrder: 1,
-		name: "Media",
 		isHidden: true,
 		health: "ready",
 		scope: "system",
@@ -75,9 +77,17 @@ const catalog: PluginClientCatalog = [
 		clientEntities: null,
 		installationId: "hidden",
 		pluginId: PluginId.make("media"),
-		assistantStarters: ["Hidden starter"],
 		packageId: PluginPackageId.make("ryot/media"),
+		name: { namespace: "media", key: "plugin.name" },
+		assistantStarters: [{ namespace: "media", key: "starter.hidden" }],
 	},
+];
+const catalogs = [
+	testCatalog("fitness", {
+		"plugin.name": "Fitness",
+		"starter.workouts": "Summarize my workouts this week",
+	}),
+	testCatalog("media", { "plugin.name": "Media", "starter.hidden": "Hidden starter" }),
 ];
 const write: AssistantToolCall = {
 	hostCallIndex: 0,
@@ -134,6 +144,7 @@ for (const decision of ["approve", "decline"] as const) {
 						conversationId={conversationId}
 					/>,
 					{
+						catalogs,
 						query: empty,
 						layer: makeAssistantApi({
 							decide: (_scope, request) =>
@@ -274,7 +285,9 @@ it.live(
 
 function NewChatComposer(props: { readonly onSubmitted: (id: string) => void }) {
 	const submit = useAssistantSubmit({ onSubmitted: props.onSubmitted });
-	return <AssistantComposer submit={submit} disabled={false} placeholder="Message Ryo" />;
+	return (
+		<AssistantComposer submit={submit} disabled={false} placeholder={testText("Message Ryo")} />
+	);
 }
 
 it.live(
@@ -352,7 +365,7 @@ it.live(
 					<AssistantComposer
 						submit={submit}
 						disabled={false}
-						placeholder="Reply"
+						placeholder={testText("Reply")}
 						stop={{ pending: false, onStop: () => stops.push({ turnId, conversationId }) }}
 					/>
 				);
@@ -513,7 +526,7 @@ it.live(
 
 it.live("offers starters from visible plugins and labels search steps by their target", () =>
 	Effect.sync(() => {
-		expect(assistantStarters(catalog)).toEqual([
+		expect(assistantStarters(catalog, testTranslate(catalogs))).toEqual([
 			{ source: "Fitness", text: "Summarize my workouts this week" },
 			{ source: "Pages", text: "Build a page that summarizes my recent activity" },
 		]);
@@ -605,24 +618,30 @@ it.live(
 it.live("names typed provider, stale approval and demo failures", () =>
 	Effect.sync(() => {
 		expect(
-			assistantFailureText(
-				new AuthenticatedApiError({
-					cause: new AssistantError({ reason: { code: "provider-unavailable" } }),
-				}),
+			testKernelText(
+				assistantFailureMessage(
+					new AuthenticatedApiError({
+						cause: new AssistantError({ reason: { code: "provider-unavailable" } }),
+					}),
+				),
 			),
 		).toContain("Settings → Ryo");
 		expect(
-			assistantFailureText(
-				new AuthenticatedApiError({
-					cause: new AssistantError({ reason: { code: "revision-stale" } }),
-				}),
+			testKernelText(
+				assistantFailureMessage(
+					new AuthenticatedApiError({
+						cause: new AssistantError({ reason: { code: "revision-stale" } }),
+					}),
+				),
 			),
 		).toContain("Refresh the conversation");
 		expect(
-			assistantFailureText(
-				new AuthenticatedApiError({
-					cause: new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
-				}),
+			testKernelText(
+				assistantFailureMessage(
+					new AuthenticatedApiError({
+						cause: new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+					}),
+				),
 			),
 		).toContain("demo sessions");
 	}),

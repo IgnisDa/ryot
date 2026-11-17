@@ -1,4 +1,7 @@
 import type { AssistantConversationId } from "@ryot-app/contract/schema/brands";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { EntitlementNotice, IconButton, Notice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -8,7 +11,7 @@ import { type ReactNode, useId, useState } from "react";
 import { useEntitlement } from "#/modules/entitlements/context";
 
 import { ASSISTANT_NAME } from "./presentation";
-import { assistantFailureText, submitMutation } from "./service";
+import { assistantFailureMessage, submitMutation } from "./service";
 
 export const useAssistantSubmit = (options: {
 	readonly conversationId?: undefined | AssistantConversationId;
@@ -59,12 +62,13 @@ export const useAssistantSubmit = (options: {
 
 export function AssistantComposer(props: {
 	readonly disabled: boolean;
+	readonly placeholder: Text;
 	readonly footer?: ReactNode;
-	readonly placeholder: string;
 	readonly submit: ReturnType<typeof useAssistantSubmit>;
 	readonly stop?: undefined | { readonly pending: boolean; readonly onStop: () => void };
 }) {
 	const { submit } = props;
+	const t = useT();
 	const inputId = useId();
 	const pro = useEntitlement("pro");
 	const canSend = !props.disabled && !submit.sending && submit.text.trim() !== "";
@@ -73,8 +77,8 @@ export function AssistantComposer(props: {
 			<div className="mx-auto w-full max-w-2xl">
 				<EntitlementNotice
 					entitlement="pro"
-					feature={`Chatting with ${ASSISTANT_NAME}`}
 					icon={<AppIcon size={16} name="sparkles" />}
+					detail={t(kernelMessage("client.assistant.pro-required", { name: ASSISTANT_NAME }))}
 				/>
 			</div>
 		);
@@ -82,7 +86,7 @@ export function AssistantComposer(props: {
 	return (
 		<div className="mx-auto grid w-full max-w-2xl gap-2">
 			{submit.error === null ? null : (
-				<Notice tone="danger">{assistantFailureText(submit.error)}</Notice>
+				<Notice tone="danger">{t(assistantFailureMessage(submit.error))}</Notice>
 			)}
 			<form
 				onSubmit={(event) => {
@@ -94,7 +98,7 @@ export function AssistantComposer(props: {
 				className="grid gap-1.5 rounded-xl border border-border-emphasis bg-surface p-2 pl-3 shadow-sm focus-within:border-border-strong"
 			>
 				<label htmlFor={inputId} className="sr-only">
-					Message {ASSISTANT_NAME}
+					{t(kernelMessage("client.assistant.composer.label", { name: ASSISTANT_NAME }))}
 				</label>
 				<div className="flex items-end gap-2">
 					<textarea
@@ -119,10 +123,10 @@ export function AssistantComposer(props: {
 					/>
 					{props.stop === undefined ? null : (
 						<IconButton
-							label="Stop"
 							tone="filled"
 							onClick={props.stop.onStop}
 							disabled={props.stop.pending}
+							label={t(kernelMessage("client.assistant.composer.stop"))}
 						>
 							<AppIcon size={14} name="square" />
 						</IconButton>
@@ -132,7 +136,11 @@ export function AssistantComposer(props: {
 							type="submit"
 							tone="accent"
 							disabled={!canSend && !submit.retrying}
-							label={submit.retrying ? "Retry message" : "Send"}
+							label={t(
+								submit.retrying
+									? kernelMessage("client.assistant.composer.retry")
+									: kernelMessage("client.assistant.composer.send"),
+							)}
 						>
 							<AppIcon size={16} name={submit.retrying ? "rotate-ccw" : "arrow-up"} />
 						</IconButton>

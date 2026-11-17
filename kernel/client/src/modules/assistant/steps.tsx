@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Collapse } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type {
@@ -11,14 +14,34 @@ import { stepDetail, stepTitle } from "./presentation";
 
 const spinning = "animate-spin text-accent-text motion-reduce:animate-none";
 const statusIcons = {
-	done: { name: "check", label: "Done", className: "text-success" },
-	running: { label: "Running", className: spinning, name: "loader-circle" },
-	declined: { name: "x", label: "Declined", className: "text-text-subtle" },
-	failed: { label: "Failed", name: "circle-alert", className: "text-danger" },
-	interrupted: { name: "square", label: "Stopped", className: "text-text-subtle" },
+	done: {
+		name: "check",
+		className: "text-success",
+		label: kernelMessage("client.assistant.step-status.done"),
+	},
+	declined: {
+		name: "x",
+		className: "text-text-subtle",
+		label: kernelMessage("client.assistant.approval.declined"),
+	},
+	running: {
+		className: spinning,
+		name: "loader-circle",
+		label: kernelMessage("client.assistant.step-status.running"),
+	},
+	interrupted: {
+		name: "square",
+		className: "text-text-subtle",
+		label: kernelMessage("client.assistant.turn.stopped"),
+	},
+	failed: {
+		name: "circle-alert",
+		className: "text-danger",
+		label: kernelMessage("client.assistant.step-status.failed"),
+	},
 } as const satisfies Record<
 	AssistantStepStatus,
-	{ readonly name: string; readonly label: string; readonly className: string }
+	{ readonly name: string; readonly label: Message; readonly className: string }
 >;
 
 export function AssistantSteps(props: {
@@ -69,6 +92,7 @@ export function AssistantSteps(props: {
 
 function StepRow(props: { readonly step: AssistantTranscriptStep }) {
 	const { step } = props;
+	const t = useT();
 	const detail = stepDetail(step);
 	const icon = step.kind === "reasoning" ? null : statusIcons[step.status];
 	return (
@@ -78,11 +102,11 @@ function StepRow(props: { readonly step: AssistantTranscriptStep }) {
 			) : (
 				<span className="flex">
 					<AppIcon size={14} name={icon.name} className={icon.className} />
-					<span className="sr-only">{icon.label}</span>
+					<span className="sr-only">{t(icon.label)}</span>
 				</span>
 			)}
 			<div className="min-w-0">
-				<span className="font-medium text-text">{stepTitle(step)}</span>
+				<span className="font-medium text-text">{t(stepTitle(step))}</span>
 				{detail === undefined ? null : <span className="text-text-subtle"> · {detail}</span>}
 				{step.kind === "reasoning" ? (
 					<p className="mt-1 whitespace-pre-wrap text-text-muted">{step.text}</p>

@@ -1,17 +1,19 @@
 import type { AssistantConversationStatus } from "@ryot-app/contract/modules/assistant/schemas";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { AssistantTranscriptTurn } from "@ryot-app/ryotql-recipes/assistant";
 import clsx from "clsx";
 import { useEffect, useId, useState } from "react";
 
 export type AssistantMood = "done" | "idle" | "oops" | "waiting" | "working" | "thinking";
 
-export const assistantMoodLabels: Record<AssistantMood, string> = {
-	done: "Done",
-	idle: "Ready",
-	working: "Working…",
-	thinking: "Thinking…",
-	oops: "Something went wrong",
-	waiting: "Needs your approval",
+export const assistantMoodLabels: Record<AssistantMood, Message> = {
+	done: kernelMessage("client.assistant.mood.done"),
+	idle: kernelMessage("client.assistant.mood.idle"),
+	oops: kernelMessage("client.assistant.mood.oops"),
+	working: kernelMessage("client.assistant.mood.working"),
+	thinking: kernelMessage("client.assistant.mood.thinking"),
+	waiting: kernelMessage("client.assistant.activity.needs-approval"),
 };
 
 const INK = "#2a1606";

@@ -2,6 +2,9 @@ import type {
 	AssistantToolName,
 	AssistantTurnFailure,
 } from "@ryot-app/contract/modules/assistant/schemas";
+import type { Message } from "@ryot-app/i18n/message";
+import { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type {
 	AssistantTranscriptStep,
 	AssistantTranscriptTurn,
@@ -9,37 +12,35 @@ import type {
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
-export const ASSISTANT_NAME = "Ryo";
+export const ASSISTANT_NAME = Text("Ryo");
 
-const toolLabels = {
-	read_docs: { detail: "topic", done: "Read docs", running: "Reading docs" },
-	execute: { detail: null, done: "Ran a script", running: "Running a script" },
-	todo: { detail: null, done: "Updated the plan", running: "Updating the plan" },
-	question: { detail: null, done: "Asked a question", running: "Asking a question" },
-	page_publish: { detail: null, done: "Published a page", running: "Publishing a page" },
-	page_read: { detail: "path", done: "Read a page draft", running: "Reading a page draft" },
-	page_edit: { detail: null, done: "Edited a page draft", running: "Editing a page draft" },
-	page_write: { detail: "name", done: "Wrote a page draft", running: "Writing a page draft" },
-	search: { detail: "query", done: "Searched capabilities", running: "Searching capabilities" },
-	read_result: { detail: "pattern", done: "Read stored output", running: "Reading stored output" },
-} as const satisfies Record<
-	AssistantToolName,
-	{ readonly done: string; readonly running: string; readonly detail: null | string }
->;
+const toolDetailKeys = {
+	todo: null,
+	execute: null,
+	question: null,
+	page_edit: null,
+	search: "query",
+	page_read: "path",
+	page_publish: null,
+	read_docs: "topic",
+	page_write: "name",
+	read_result: "pattern",
+} as const satisfies Record<AssistantToolName, null | string>;
 
-export const stepTitle = (step: AssistantTranscriptStep) => {
+export const stepTitle = (step: AssistantTranscriptStep): Message => {
 	if (step.kind === "reasoning") {
-		return "Thought it through";
+		return kernelMessage("client.assistant.step.reasoning");
 	}
-	const labels = toolLabels[step.tool];
-	return step.status === "running" ? `${labels.running}…` : labels.done;
+	return step.status === "running"
+		? kernelMessage("client.assistant.step.running", { tool: step.tool })
+		: kernelMessage("client.assistant.step.done", { tool: step.tool });
 };
 
 export const stepDetail = (step: AssistantTranscriptStep): string | undefined => {
 	if (step.kind === "reasoning") {
 		return undefined;
 	}
-	const key = toolLabels[step.tool].detail;
+	const key = toolDetailKeys[step.tool];
 	const value = key !== null && isObjectRecord(step.arguments) ? step.arguments[key] : undefined;
 	if (typeof value === "string" && value.trim() !== "") {
 		return value;
@@ -51,10 +52,15 @@ export const stepDetail = (step: AssistantTranscriptStep): string | undefined =>
 	return undefined;
 };
 
-export const catalogSourceName = (catalog: PluginClientCatalog) => (packageId: string) =>
-	catalog.find((entry) => entry.packageId === packageId)?.name ?? packageId;
+export const catalogSourceName =
+	(catalog: PluginClientCatalog, t: (message: Message) => Text) => (packageId: string) => {
+		const entry = catalog.find((candidate) => candidate.packageId === packageId);
+		return entry === undefined ? packageId : t(entry.name);
+	};
 
-export const workedFor = (turn: Pick<AssistantTranscriptTurn, "createdAt" | "completedAt">) => {
+export const workedFor = (
+	turn: Pick<AssistantTranscriptTurn, "createdAt" | "completedAt">,
+): null | Message => {
 	if (turn.completedAt === null) {
 		return null;
 	}
@@ -62,27 +68,40 @@ export const workedFor = (turn: Pick<AssistantTranscriptTurn, "createdAt" | "com
 		1,
 		Math.round((Date.parse(turn.completedAt) - Date.parse(turn.createdAt)) / 1000),
 	);
-	return seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`;
+	return seconds < 60
+		? kernelMessage("client.assistant.turn.worked-seconds", { count: seconds })
+		: kernelMessage("client.assistant.turn.worked-minutes", { count: Math.round(seconds / 60) });
 };
 
-const retryText = `${ASSISTANT_NAME} could not finish this reply. You can try again.`;
+const retryMessage = kernelMessage("client.assistant.turn.failure.retry", { name: ASSISTANT_NAME });
 
-const turnFailureTexts: Record<AssistantTurnFailure["code"], string> = {
-	"tool-failed": retryText,
-	"provider-failed": retryText,
-	"execution-failed": retryText,
-	"request-limit": "This conversation is too long to continue. Start a new conversation.",
-	"provider-unavailable": `Your provider is unavailable. Check Settings → ${ASSISTANT_NAME}.`,
+const turnFailureMessages: Record<AssistantTurnFailure["code"], Message> = {
+	"tool-failed": retryMessage,
+	"provider-failed": retryMessage,
+	"execution-failed": retryMessage,
+	"request-limit": kernelMessage("client.assistant.turn.failure.request-limit"),
+	"provider-unavailable": kernelMessage("client.assistant.turn.failure.provider-unavailable", {
+		name: ASSISTANT_NAME,
+	}),
 };
 
-export const turnFailureText = (failure: null | AssistantTurnFailure) =>
-	failure === null ? retryText : turnFailureTexts[failure.code];
+export const turnFailureMessage = (failure: null | AssistantTurnFailure) =>
+	failure === null ? retryMessage : turnFailureMessages[failure.code];
 
-export const assistantStarters = (catalog: PluginClientCatalog) => [
+export const assistantStarters = (
+	catalog: PluginClientCatalog,
+	t: (message: Message) => Text,
+): ReadonlyArray<{ readonly text: string; readonly source: string }> => [
 	...catalog.flatMap((entry) =>
 		entry.isHidden
 			? []
-			: (entry.assistantStarters ?? []).map((text) => ({ text, source: entry.name })),
+			: (entry.assistantStarters ?? []).map((starter) => ({
+					text: t(starter),
+					source: t(entry.name),
+				})),
 	),
-	{ source: "Pages", text: "Build a page that summarizes my recent activity" },
+	{
+		source: t(kernelMessage("client.settings.section.pages")),
+		text: t(kernelMessage("client.assistant.starter.build-page")),
+	},
 ];

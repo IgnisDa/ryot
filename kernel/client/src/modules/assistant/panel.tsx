@@ -1,4 +1,6 @@
 import type { AssistantConversationId } from "@ryot-app/contract/schema/brands";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { IconButton, Modal, useFollowEnd } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useNavigate } from "@tanstack/react-router";
@@ -53,6 +55,7 @@ export function AssistantPanel(props: {
 	readonly disabled: boolean;
 	readonly panel: ReturnType<typeof useAssistantPanel>;
 }) {
+	const t = useT();
 	const navigate = useNavigate();
 	const { panel } = props;
 	if (!panel.open) {
@@ -73,7 +76,11 @@ export function AssistantPanel(props: {
 	};
 	const content =
 		panel.view.kind === "start" ? (
-			<PanelLayout {...chrome} title="New chat" mood={panel.start.sending ? "working" : "idle"}>
+			<PanelLayout
+				{...chrome}
+				mood={panel.start.sending ? "working" : "idle"}
+				title={t(kernelMessage("client.assistant.new-chat"))}
+			>
 				<AssistantStart submit={panel.start} disabled={props.disabled} />
 			</PanelLayout>
 		) : (
@@ -93,7 +100,7 @@ export function AssistantPanel(props: {
 				onClose={panel.close}
 				label={ASSISTANT_NAME}
 				containerClassName="items-end"
-				closeLabel={`Close ${ASSISTANT_NAME}`}
+				closeLabel={t(kernelMessage("client.assistant.panel.close", { name: ASSISTANT_NAME }))}
 				className="flex h-[88dvh] w-full flex-col overflow-hidden rounded-t-xl bg-surface pb-[env(safe-area-inset-bottom)] shadow-card"
 			>
 				{content}
@@ -117,6 +124,7 @@ function PanelLayout(
 		readonly onHistory: () => void;
 	},
 ) {
+	const t = useT();
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const contentRef = useRef<HTMLDivElement>(null);
 	useFollowEnd(scrollRef, contentRef, props.followEnd);
@@ -130,17 +138,28 @@ function PanelLayout(
 				<div className="grid min-w-0 flex-1">
 					<h2 className="truncate text-body font-semibold text-text">{props.title}</h2>
 					<span className="truncate text-micro text-text-subtle">
-						{ASSISTANT_NAME} · {assistantMoodLabels[props.mood]}
+						{t(
+							kernelMessage("client.assistant.panel.subtitle", {
+								name: ASSISTANT_NAME,
+								mood: assistantMoodLabels[props.mood],
+							}),
+						)}
 					</span>
 				</div>
 				{props.actions}
-				<IconButton label="New chat" onClick={props.onNew}>
+				<IconButton onClick={props.onNew} label={t(kernelMessage("client.assistant.new-chat"))}>
 					<AppIcon size={16} name="plus" />
 				</IconButton>
-				<IconButton label="All conversations" onClick={props.onHistory}>
+				<IconButton
+					onClick={props.onHistory}
+					label={t(kernelMessage("client.assistant.panel.all-conversations"))}
+				>
 					<AppIcon size={16} name="history" />
 				</IconButton>
-				<IconButton onClick={props.onClose} label={`Close ${ASSISTANT_NAME}`}>
+				<IconButton
+					onClick={props.onClose}
+					label={t(kernelMessage("client.assistant.panel.close", { name: ASSISTANT_NAME }))}
+				>
 					<AppIcon name="x" size={16} />
 				</IconButton>
 			</header>

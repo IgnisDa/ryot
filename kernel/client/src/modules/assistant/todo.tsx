@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { AssistantTranscriptEntry } from "@ryot-app/ryotql-recipes/assistant";
 import clsx from "clsx";
@@ -11,9 +13,10 @@ const marks = {
 export function AssistantTodo(props: {
 	readonly items: Extract<AssistantTranscriptEntry, { readonly kind: "todo" }>["items"];
 }) {
+	const t = useT();
 	return (
 		<ul
-			aria-label="Plan"
+			aria-label={t(kernelMessage("client.assistant.todo.label"))}
 			className="grid gap-1.5 rounded-lg border border-border-card bg-surface px-3 py-2"
 		>
 			{props.items.map((item) => (

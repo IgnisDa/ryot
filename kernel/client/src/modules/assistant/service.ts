@@ -1,11 +1,12 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { AssistantError } from "@ryot-app/contract/modules/assistant/schemas";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	createRyotHostMutation,
 	createRyotHostQuery,
 	createRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	assistantActivityRecipe,
 	type AssistantConversationDetail,
@@ -107,41 +108,38 @@ export const deleteConversationMutation = assistantMutation(
 export const deleteProviderMutation = assistantMutation((api, scope, _payload: undefined) =>
 	api.deleteProvider(scope, {}),
 );
-export const assistantFailureText = (error: unknown): string => {
+export const assistantFailureMessage = (error: unknown): Message => {
 	if (isDemoOperationProtectedError(error)) {
-		return "This change is unavailable in demo sessions.";
+		return kernelMessage("client.assistant.error.demo");
 	}
 	if (isEntitlementRequiredError(error)) {
-		return entitlementRequiredMessage(
-			error.cause.reason.entitlement,
-			`Chatting with ${ASSISTANT_NAME}`,
-		);
+		return kernelMessage("client.assistant.pro-required", { name: ASSISTANT_NAME });
 	}
 	const reason =
 		error instanceof AuthenticatedApiError && Schema.is(AssistantError)(error.cause)
 			? error.cause.reason.code
 			: null;
 	if (reason === "provider-unavailable") {
-		return `Set up a provider in Settings → ${ASSISTANT_NAME} to start chatting.`;
+		return kernelMessage("client.assistant.error.provider-unavailable", { name: ASSISTANT_NAME });
 	}
 	if (
 		reason === "revision-stale" ||
 		reason === "turn-not-active" ||
 		reason === "decision-conflict"
 	) {
-		return "This request changed. Refresh the conversation and try again.";
+		return kernelMessage("client.assistant.error.stale");
 	}
 	if (reason === "answer-invalid") {
-		return "Answer every question to continue.";
+		return kernelMessage("client.assistant.error.answer-invalid");
 	}
 	if (reason === "conversation-active") {
-		return `Wait for ${ASSISTANT_NAME} to finish or review its pending requests.`;
+		return kernelMessage("client.assistant.error.conversation-active", { name: ASSISTANT_NAME });
 	}
 	if (reason === "conversation-not-found") {
-		return "This conversation is no longer available.";
+		return kernelMessage("client.assistant.error.conversation-not-found");
 	}
 	if (reason === "page-preview-not-found") {
-		return `This preview has changed. Ask ${ASSISTANT_NAME} for a new preview.`;
+		return kernelMessage("client.assistant.error.preview-changed", { name: ASSISTANT_NAME });
 	}
-	return `${ASSISTANT_NAME} could not complete this request. Try again.`;
+	return kernelMessage("client.assistant.error.failed", { name: ASSISTANT_NAME });
 };

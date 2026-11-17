@@ -1,5 +1,9 @@
 import { AssistantConversationTitle } from "@ryot-app/contract/modules/assistant/schemas";
 import type { AssistantConversationId } from "@ryot-app/contract/schema/brands";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -32,7 +36,7 @@ import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { AssistantComposer, useAssistantSubmit } from "./composer";
 import { ASSISTANT_NAME } from "./presentation";
 import {
-	assistantFailureText,
+	assistantFailureMessage,
 	deleteConversationMutation,
 	interruptMutation,
 	providerQuery,
@@ -46,7 +50,7 @@ const initialCursor: string | undefined = undefined;
 const isTitle = Schema.is(AssistantConversationTitle);
 
 export type AssistantFrameParts = {
-	readonly title: string;
+	readonly title: Text;
 	readonly dock?: ReactNode;
 	readonly followEnd?: string;
 	readonly mood: AssistantMood;
@@ -61,6 +65,7 @@ export function AssistantConversation(props: {
 	readonly conversationId: AssistantConversationId;
 	readonly renderFrame: (parts: AssistantFrameParts) => ReactNode;
 }) {
+	const t = useT();
 	const { catalog } = usePluginCatalog();
 	const provider = useRyotQuery(providerQuery, {});
 	const transcript = useRyotInfiniteQuery(
@@ -104,23 +109,32 @@ export function AssistantConversation(props: {
 	if (transcript.isSuccess && conversation === undefined) {
 		return props.renderFrame({
 			mood: "oops",
-			title: "Conversation",
+			title: t(kernelMessage("client.assistant.thread.default-title")),
 			children: (
 				<EmptyState
-					description="It may have been deleted."
-					title="This conversation is no longer available"
-					action={<Button onClick={props.onStartNew}>New chat</Button>}
+					title={t(kernelMessage("client.assistant.thread.unavailable-title"))}
+					description={t(kernelMessage("client.assistant.thread.unavailable-detail"))}
+					action={
+						<Button onClick={props.onStartNew}>
+							{t(kernelMessage("client.assistant.new-chat"))}
+						</Button>
+					}
 				/>
 			),
 		});
 	}
 
-	const title = conversation?.title ?? "Conversation";
+	const title =
+		conversation === undefined
+			? t(kernelMessage("client.assistant.thread.default-title"))
+			: formatDisplayText(t, conversation.title);
 	let dock = (
 		<AssistantComposer
 			submit={submit}
 			disabled={provider.data == null}
-			placeholder={`Reply to ${ASSISTANT_NAME}`}
+			placeholder={t(
+				kernelMessage("client.assistant.thread.reply-placeholder", { name: ASSISTANT_NAME }),
+			)}
 			stop={
 				active
 					? {
@@ -141,8 +155,12 @@ export function AssistantConversation(props: {
 			<div className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-xl border border-dashed border-border-strong bg-surface px-4 py-3 text-label text-text-muted">
 				<span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-warning" />
 				<span className="flex-1">
-					{ASSISTANT_NAME} is waiting for your{" "}
-					{latest.status === "awaiting-input" ? "answer" : "decision"}.
+					{t(
+						kernelMessage("client.assistant.thread.waiting", {
+							name: ASSISTANT_NAME,
+							kind: latest.status === "awaiting-input" ? "answer" : "decision",
+						}),
+					)}
 				</span>
 				<Button
 					size="sm"
@@ -153,7 +171,7 @@ export function AssistantConversation(props: {
 							?.scrollIntoView({ block: "center", behavior: "smooth" })
 					}
 				>
-					Review
+					{t(kernelMessage("client.assistant.thread.review"))}
 				</Button>
 			</div>
 		);
@@ -166,15 +184,19 @@ export function AssistantConversation(props: {
 		followEnd: latest?.id ?? "",
 		actions: (
 			<MenuButton
-				label="Conversation actions"
+				label={t(kernelMessage("client.assistant.thread.actions"))}
 				items={[
-					{ key: "rename", label: "Rename", onSelect: () => setRenaming(true) },
+					{
+						key: "rename",
+						onSelect: () => setRenaming(true),
+						label: t(kernelMessage("client.assistant.thread.rename")),
+					},
 					{
 						key: "delete",
-						label: "Delete",
 						disabled: active,
 						destructive: true,
 						onSelect: () => setDeleting(true),
+						label: t(kernelMessage("common.action.delete")),
 					},
 				]}
 			/>
@@ -182,31 +204,42 @@ export function AssistantConversation(props: {
 		children: (
 			<div className="grid gap-6 pb-2">
 				{props.disabled ? (
-					<Notice tone="info">
-						Demo sessions can chat, but cannot approve changes or save pages.
-					</Notice>
+					<Notice tone="info">{t(kernelMessage("client.assistant.start.demo-notice"))}</Notice>
 				) : null}
 				{provider.data === null ? (
-					<Notice tone="info">
-						Connect your provider in{" "}
-						<Link to="/settings/assistant">Settings → {ASSISTANT_NAME}</Link> to keep chatting.
+					<Notice
+						tone="info"
+						action={
+							<Link to="/settings/assistant">
+								{t(kernelMessage("client.assistant.settings-link", { name: ASSISTANT_NAME }))}
+							</Link>
+						}
+					>
+						{t(kernelMessage("client.assistant.thread.connect-provider"))}
 					</Notice>
 				) : null}
 				{transcript.isError ? (
-					<Notice tone="danger" action={<Button onClick={transcript.refetch}>Retry</Button>}>
-						The conversation could not be loaded.
+					<Notice
+						tone="danger"
+						action={
+							<Button onClick={transcript.refetch}>
+								{t(kernelMessage("common.action.retry"))}
+							</Button>
+						}
+					>
+						{t(kernelMessage("client.assistant.thread.load-failed"))}
 					</Notice>
 				) : null}
 				{transcript.hasNextPage ? (
 					<LoadMoreButton
-						label="Show earlier messages"
 						onClick={transcript.fetchNextPage}
 						isFetchingNextPage={transcript.isFetchingNextPage}
+						label={t(kernelMessage("client.assistant.thread.earlier"))}
 					/>
 				) : null}
 				{transcript.isPending ? (
 					<p role="status" className="text-sm text-text-muted">
-						Loading conversation…
+						{t(kernelMessage("client.assistant.thread.loading"))}
 					</p>
 				) : null}
 				{turns.map((turn) => (
@@ -219,7 +252,7 @@ export function AssistantConversation(props: {
 					/>
 				))}
 				{interrupt.error === null ? null : (
-					<Notice tone="danger">{assistantFailureText(interrupt.error)}</Notice>
+					<Notice tone="danger">{t(assistantFailureMessage(interrupt.error))}</Notice>
 				)}
 				{renaming ? (
 					<RenameDialog
@@ -231,13 +264,15 @@ export function AssistantConversation(props: {
 				{deleting ? (
 					<DestructiveConfirmation
 						triggerRef={menuTrigger}
-						pendingLabel="Deleting…"
 						pending={remove.isPending}
-						title="Delete this conversation?"
-						actionLabel="Delete conversation"
 						onClose={() => setDeleting(false)}
-						detail="Its messages and history are removed permanently. Saved pages stay."
-						errorMessage={remove.error === null ? undefined : assistantFailureText(remove.error)}
+						pendingLabel={t(kernelMessage("common.status.deleting"))}
+						title={t(kernelMessage("client.assistant.thread.delete-title"))}
+						detail={t(kernelMessage("client.assistant.thread.delete-detail"))}
+						actionLabel={t(kernelMessage("client.assistant.thread.delete-action"))}
+						errorMessage={
+							remove.error === null ? undefined : t(assistantFailureMessage(remove.error))
+						}
 						onConfirm={() =>
 							void Effect.runPromise(
 								remove
@@ -257,18 +292,23 @@ function RenameDialog(props: {
 	readonly onClose: () => void;
 	readonly conversationId: AssistantConversationId;
 }) {
+	const t = useT();
 	const rename = useRyotMutation(renameConversationMutation);
 	const [title, setTitle] = useState(props.title);
 	const formId = "assistant-rename";
 	return (
 		<Dialog
 			size="sm"
-			closeLabel="Cancel"
 			onClose={props.onClose}
-			title="Rename conversation"
+			closeLabel={t(kernelMessage("common.action.cancel"))}
+			title={t(kernelMessage("client.assistant.thread.rename-title"))}
 			footer={
 				<Button type="submit" form={formId} disabled={rename.isPending || !isTitle(title.trim())}>
-					{rename.isPending ? "Saving…" : "Save"}
+					{t(
+						rename.isPending
+							? kernelMessage("common.status.saving")
+							: kernelMessage("common.action.save"),
+					)}
 				</Button>
 			}
 		>
@@ -284,7 +324,7 @@ function RenameDialog(props: {
 					);
 				}}
 			>
-				<Field label="Title">
+				<Field label={t(kernelMessage("client.assistant.thread.title-label"))}>
 					{(control) => (
 						<TextField
 							{...control}
@@ -296,7 +336,7 @@ function RenameDialog(props: {
 					)}
 				</Field>
 				{rename.error === null ? null : (
-					<Notice tone="danger">{assistantFailureText(rename.error)}</Notice>
+					<Notice tone="danger">{t(assistantFailureMessage(rename.error))}</Notice>
 				)}
 			</form>
 		</Dialog>

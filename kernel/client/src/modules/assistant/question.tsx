@@ -1,4 +1,6 @@
 import type { AssistantConversationId } from "@ryot-app/contract/schema/brands";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Checkbox, Notice, Radio, TextField } from "@ryot-app/plugin-ui-sdk";
 import type { AssistantTranscriptEntry } from "@ryot-app/ryotql-recipes/assistant";
@@ -6,7 +8,7 @@ import { Effect } from "effect";
 import { useState } from "react";
 
 import { ASSISTANT_NAME } from "./presentation";
-import { answerMutation, assistantFailureText } from "./service";
+import { answerMutation, assistantFailureMessage } from "./service";
 
 type QuestionEntry = Extract<AssistantTranscriptEntry, { readonly kind: "question" }>;
 
@@ -19,41 +21,47 @@ export function AssistantQuestion(props: {
 	readonly conversationId: AssistantConversationId;
 }) {
 	const { entry } = props;
+	const t = useT();
+	const formatters = useFormatters();
 	const answer = useRyotMutation(answerMutation);
 	const [chosen, setChosen] = useState<readonly (readonly string[])[]>(() =>
 		entry.questions.map(() => []),
 	);
 	const [written, setWritten] = useState<readonly string[]>(() => entry.questions.map(() => ""));
+	const sectionLabel = t(
+		kernelMessage("client.assistant.question.label", { name: ASSISTANT_NAME }),
+	);
 	if (entry.state !== "pending") {
 		return (
 			<section
-				aria-label={`${ASSISTANT_NAME}'s questions`}
+				aria-label={sectionLabel}
 				className="grid gap-2 rounded-lg border border-border-card bg-surface px-3 py-2 text-label"
 			>
 				{entry.questions.map((question, index) => (
 					<div key={question.question} className="grid gap-0.5">
 						<span className="text-text-muted">{question.question}</span>
 						<span className="font-medium text-text">
-							{entry.answers?.[index] ?? "Not answered"}
+							{entry.answers?.[index] ?? t(kernelMessage("client.assistant.question.not-answered"))}
 						</span>
 					</div>
 				))}
 			</section>
 		);
 	}
+	const answerList = formatters.list({ type: "unit" });
 	const answers = entry.questions.map((_, index) =>
-		[...(chosen[index] ?? []), (written[index] ?? "").trim()]
-			.filter((value) => value !== "")
-			.join(", "),
+		answerList.format(
+			[...(chosen[index] ?? []), (written[index] ?? "").trim()].filter((value) => value !== ""),
+		),
 	);
 	return (
 		<section
+			aria-label={sectionLabel}
 			data-assistant-pending-approval=""
-			aria-label={`${ASSISTANT_NAME}'s questions`}
 			className="overflow-hidden rounded-xl border border-border-emphasis bg-surface shadow-card"
 		>
 			<p className="bg-info-soft px-4 py-2 text-label font-medium text-info">
-				{ASSISTANT_NAME} needs your input
+				{t(kernelMessage("client.assistant.question.needs-input", { name: ASSISTANT_NAME }))}
 			</p>
 			<form
 				className="grid gap-4 p-4"
@@ -102,11 +110,11 @@ export function AssistantQuestion(props: {
 								value={written[index] ?? ""}
 								aria-label={question.question}
 								onChange={(event) => setWritten(replaced(written, index, event.target.value))}
-								placeholder={
+								placeholder={t(
 									(question.options ?? []).length > 0
-										? "Or answer in your own words"
-										: "Your answer"
-								}
+										? kernelMessage("client.assistant.question.own-words")
+										: kernelMessage("client.assistant.question.answer-placeholder"),
+								)}
 							/>
 						</fieldset>
 					);
@@ -117,11 +125,15 @@ export function AssistantQuestion(props: {
 						type="submit"
 						disabled={answers.includes("") || props.disabled || answer.isPending}
 					>
-						{answer.isPending ? "Sending…" : "Send answers"}
+						{t(
+							answer.isPending
+								? kernelMessage("client.assistant.question.sending")
+								: kernelMessage("client.assistant.question.send"),
+						)}
 					</Button>
 				</div>
 				{answer.error === null ? null : (
-					<Notice tone="danger">{assistantFailureText(answer.error)}</Notice>
+					<Notice tone="danger">{t(assistantFailureMessage(answer.error))}</Notice>
 				)}
 			</form>
 		</section>

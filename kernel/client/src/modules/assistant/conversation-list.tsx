@@ -1,4 +1,7 @@
 import type { AssistantConversationStatus } from "@ryot-app/contract/modules/assistant/schemas";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -17,19 +20,33 @@ import { AssistantSprite, conversationMood } from "./sprite";
 
 const initialCursor: string | undefined = undefined;
 const statuses = {
-	failed: { label: "Failed", className: "text-danger" },
-	working: { label: "Working", className: "text-accent-text" },
-	"awaiting-input": { className: "text-info", label: "Needs your answer" },
-	"awaiting-approval": { label: "Needs approval", className: "text-warning" },
+	failed: {
+		className: "text-danger",
+		label: kernelMessage("client.assistant.conversations.status.failed"),
+	},
+	"awaiting-input": {
+		className: "text-info",
+		label: kernelMessage("client.assistant.activity.needs-answer"),
+	},
+	working: {
+		className: "text-accent-text",
+		label: kernelMessage("client.assistant.conversations.status.working"),
+	},
+	"awaiting-approval": {
+		className: "text-warning",
+		label: kernelMessage("client.assistant.conversations.status.awaiting-approval"),
+	},
 } as const satisfies Record<
 	Exclude<AssistantConversationStatus, "idle">,
-	{ readonly label: string; readonly className: string }
+	{ readonly label: Message; readonly className: string }
 >;
 
 export function AssistantConversationList(props: {
 	readonly compact: boolean;
 	readonly activeId: null | string;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const nowMs = useNowMs(RELATIVE_TIME_REFRESH_MS);
 	const conversations = useRyotInfiniteQuery(
 		conversationsQuery,
@@ -46,20 +63,30 @@ export function AssistantConversationList(props: {
 		(item) => item.id,
 	);
 	return (
-		<nav aria-label="Conversations" className="grid content-start gap-0.5">
+		<nav
+			className="grid content-start gap-0.5"
+			aria-label={t(kernelMessage("client.assistant.conversations.label"))}
+		>
 			{conversations.isError ? (
-				<Notice tone="danger" action={<Button onClick={conversations.refetch}>Retry</Button>}>
-					Conversations could not be loaded.
+				<Notice
+					tone="danger"
+					action={
+						<Button onClick={conversations.refetch}>
+							{t(kernelMessage("common.action.retry"))}
+						</Button>
+					}
+				>
+					{t(kernelMessage("client.assistant.conversations.load-failed"))}
 				</Notice>
 			) : null}
 			{items.length === 0 && !conversations.isPending && !conversations.isError ? (
 				<p className="px-2.5 py-4 text-label text-text-subtle">
-					Your conversations with {ASSISTANT_NAME} appear here.
+					{t(kernelMessage("client.assistant.conversations.empty", { name: ASSISTANT_NAME }))}
 				</p>
 			) : null}
 			{items.map((item) => {
 				const status = item.status === "idle" ? null : statuses[item.status];
-				const when = formatRelativeTime(item.updatedAt, nowMs);
+				const when = formatRelativeTime(formatters, t, item.updatedAt, nowMs);
 				return (
 					<Link
 						key={item.id}
@@ -77,7 +104,7 @@ export function AssistantConversationList(props: {
 							{status === null ? null : (
 								<>
 									<AssistantSprite className="w-4" mood={conversationMood(item.status)} />
-									<span className={clsx("font-medium", status.className)}>{status.label}</span>
+									<span className={clsx("font-medium", status.className)}>{t(status.label)}</span>
 									<span aria-hidden="true">·</span>
 								</>
 							)}
@@ -88,9 +115,9 @@ export function AssistantConversationList(props: {
 			})}
 			{conversations.hasNextPage ? (
 				<LoadMoreButton
-					label="Load more conversations"
 					onClick={conversations.fetchNextPage}
 					isFetchingNextPage={conversations.isFetchingNextPage}
+					label={t(kernelMessage("client.assistant.conversations.load-more"))}
 				/>
 			) : null}
 		</nav>
