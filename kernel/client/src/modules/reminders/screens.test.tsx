@@ -9,8 +9,8 @@ import { Effect } from "effect";
 
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 
+import { mountReminderTestScreen } from "./reminder-screen.test-support";
 import { useReminderScreen } from "./screens";
-import { mountReminderTestScreen } from "./test-support";
 
 function Harness(props: { readonly outcomes: Array<unknown> }) {
 	const host = useReminderScreen();

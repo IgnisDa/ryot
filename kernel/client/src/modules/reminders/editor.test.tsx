@@ -11,7 +11,7 @@ import { Effect } from "effect";
 import { AuthenticatedApiError } from "#/api/authenticated";
 
 import { ReminderEditor } from "./editor";
-import { mountReminderTestScreen } from "./test-support";
+import { mountReminderTestScreen } from "./reminder-screen.test-support";
 
 const mountEditor = (
 	options: { readonly conflict?: boolean; readonly transport?: boolean } = {},

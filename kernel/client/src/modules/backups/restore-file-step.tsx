@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import {
 	pickBrowserUploadFile,
@@ -7,27 +9,27 @@ import {
 
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 
-const INTRO =
-	"Choose the zip archive Ryot exported. It is uploaded to your own server and read once.";
-
 export function BackupRestoreFileStep(props: {
 	readonly onContinue: () => void;
 	readonly uploadFile: SchemaFileUpload;
 	readonly uploadToken: string | undefined;
 	readonly onTokenChange: (token: string | undefined) => void;
 }) {
+	const t = useT();
 	return (
 		<div className="flex flex-col gap-4">
-			<p className="text-sm leading-6 text-text-muted">{INTRO}</p>
+			<p className="text-sm leading-6 text-text-muted">
+				{t(kernelMessage("client.backups.file.intro"))}
+			</p>
 			<SchemaFileField
-				label="Backup archive"
 				icons={schemaFormIcons}
 				value={props.uploadToken}
 				uploadFile={props.uploadFile}
-				readyLabel="Ready to restore"
 				onChange={props.onTokenChange}
 				allowedFileExtensions={["zip"]}
 				pickFile={pickBrowserUploadFile}
+				label={t(kernelMessage("client.backups.file.label"))}
+				readyLabel={t(kernelMessage("client.backups.file.ready"))}
 			/>
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
 				<Button
@@ -36,9 +38,9 @@ export function BackupRestoreFileStep(props: {
 					className="sm:px-6"
 					onClick={props.onContinue}
 					disabled={props.uploadToken === undefined}
-					aria-label="Continue to confirm the restore"
+					aria-label={t(kernelMessage("client.backups.file.continue-aria"))}
 				>
-					Continue
+					{t(kernelMessage("common.action.continue"))}
 				</Button>
 			</div>
 		</div>

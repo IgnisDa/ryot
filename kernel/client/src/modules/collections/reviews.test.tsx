@@ -32,8 +32,10 @@ const account = {
 	name: "Reader",
 	email: "reader@example.com",
 	preferences: {
-		language: null,
+		weekStart: null,
 		ratingScale: "ten",
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: "UTC",
 		disableIntegrations: false,
 	},
@@ -90,7 +92,13 @@ const mountReviews = (overrides: Partial<EventsApi["Service"]> = {}) => {
 							count: 0,
 							warnings: [],
 							failure: null,
-							outcomes: [{ index: 0, reason: "policy", status: "skipped_by_policy" }],
+							outcomes: [
+								{
+									index: 0,
+									status: "skipped_by_policy",
+									reason: { namespace: "plugin1", key: "rejection.policy" },
+								},
+							],
 						};
 					}),
 				...overrides,

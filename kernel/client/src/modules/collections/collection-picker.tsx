@@ -1,4 +1,7 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotQuery,
@@ -50,13 +53,14 @@ const collectionOptions = createRyotQuery(
 );
 
 export function CollectionPicker(props: {
-	readonly title: string;
+	readonly title: Text;
+	readonly closeLabel: Text;
 	readonly footer: ReactNode;
-	readonly closeLabel: string;
 	readonly onClose: () => void;
 	readonly entityId?: EntityId | undefined;
 	readonly onChosen: (collectionId: EntityId) => void;
 }) {
+	const t = useT();
 	const [search, setSearch] = useState("");
 	const [creating, setCreating] = useState<null | string>(null);
 	if (creating !== null) {
@@ -78,7 +82,7 @@ export function CollectionPicker(props: {
 			closeLabel={props.closeLabel}
 		>
 			<div className="grid gap-3">
-				<Field label="Search collections">
+				<Field label={t(kernelMessage("client.collections.picker.search"))}>
 					{(control) => (
 						<TextField
 							{...control}
@@ -88,7 +92,11 @@ export function CollectionPicker(props: {
 					)}
 				</Field>
 				<Button variant="secondary" onClick={() => setCreating(query)}>
-					{query === "" ? "New collection" : `Create “${query}” and add`}
+					{t(
+						query === ""
+							? kernelMessage("renderer.collections.new")
+							: kernelMessage("client.collections.picker.create-and-add", { name: query }),
+					)}
 				</Button>
 				<CollectionOptions
 					key={search}
@@ -106,6 +114,7 @@ function CollectionOptions(props: {
 	readonly entityId: EntityId | undefined;
 	readonly onSelect: (option: CollectionOption) => void;
 }) {
+	const t = useT();
 	const result = useRyotInfiniteQuery(
 		collectionOptions,
 		{ search: props.search, ...(props.entityId === undefined ? {} : { entityId: props.entityId }) },
@@ -125,26 +134,34 @@ function CollectionOptions(props: {
 	);
 	const errorNotice =
 		result.error instanceof PaginationError ? (
-			<Notice tone="danger">More collections could not be loaded. Close and reopen this.</Notice>
+			<Notice tone="danger">{t(kernelMessage("client.collections.picker.more-failed"))}</Notice>
 		) : (
 			<Notice
 				tone="danger"
 				action={
 					<Button variant="secondary" onClick={result.retry}>
-						Retry collections
+						{t(kernelMessage("common.action.retry"))}
 					</Button>
 				}
 			>
-				Collections could not be loaded.
+				{t(kernelMessage("client.collections.picker.load-failed"))}
 			</Notice>
 		);
 	if (result.pages.length === 0) {
-		return result.isError ? errorNotice : <p role="status">Loading collections…</p>;
+		return result.isError ? (
+			errorNotice
+		) : (
+			<p role="status">{t(kernelMessage("client.collections.picker.loading"))}</p>
+		);
 	}
 	if (items.length === 0 && result.pageParams[0] === undefined) {
 		return (
 			<p role="status">
-				{props.search.trim() === "" ? "You have no collections yet." : "No matching collections."}
+				{t(
+					props.search.trim() === ""
+						? kernelMessage("client.collections.picker.empty")
+						: kernelMessage("client.collections.picker.no-match"),
+				)}
 			</p>
 		);
 	}
@@ -159,7 +176,7 @@ function CollectionOptions(props: {
 								{option.added ? (
 									<Badge size="sm" variant="success">
 										<AppIcon size={12} name="check" />
-										Added
+										{t(kernelMessage("client.collections.picker.added"))}
 									</Badge>
 								) : null}
 								<AppIcon size={15} name="chevron-right" className="text-text-subtle" />
@@ -172,10 +189,10 @@ function CollectionOptions(props: {
 			{result.hasNextPage && !result.isError ? (
 				<LoadMoreButton
 					variant="secondary"
-					label="Show more collections"
 					onClick={result.fetchNextPage}
 					disabled={result.isFetchingNextPage}
 					isFetchingNextPage={result.isFetchingNextPage}
+					label={t(kernelMessage("client.collections.picker.show-more"))}
 				/>
 			) : null}
 		</>

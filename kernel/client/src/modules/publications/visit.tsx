@@ -3,6 +3,10 @@ import type {
 	PublicationVisitorPage,
 } from "@ryot-app/contract/modules/publications/schemas";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -50,34 +54,46 @@ type VisitState =
 			readonly page: PublicationVisitorPage;
 	  };
 
-const unavailableCopy: Record<PublicationUnavailableCode, { title: string; detail: string }> = {
-	revoked: { title: "Link revoked", detail: "The owner stopped sharing this page." },
-	disabled: { title: "Sharing disabled", detail: "This server does not allow shared pages." },
-	"not-found": { title: "Link not found", detail: "This link is incomplete or does not exist." },
-	expired: { title: "Link expired", detail: "This link has expired. Ask the owner for a new one." },
-	"source-unavailable": {
-		title: "Page unavailable",
-		detail: "The shared data source is unavailable.",
+const unavailableCopy: Record<PublicationUnavailableCode, { title: Message; detail: Message }> = {
+	revoked: {
+		title: kernelMessage("client.publications.visit.title.link-revoked"),
+		detail: kernelMessage("client.publications.visit.unavailable.revoked.detail"),
 	},
-	"page-unavailable": {
-		title: "Page unavailable",
-		detail: "This shared page is not available right now.",
+	expired: {
+		title: kernelMessage("client.publications.visit.title.link-expired"),
+		detail: kernelMessage("client.publications.visit.unavailable.expired.detail"),
 	},
-	"snapshot-too-large": {
-		title: "Page unavailable",
-		detail: "This snapshot exceeds the server size limit.",
+	disabled: {
+		title: kernelMessage("client.publications.visit.title.sharing-disabled"),
+		detail: kernelMessage("client.publications.visit.unavailable.disabled.detail"),
 	},
-	"dependency-unavailable": {
-		title: "Page unavailable",
-		detail: "A required page dependency is unavailable.",
-	},
-	"bindings-invalid": {
-		title: "Page unavailable",
-		detail: "The page arguments need attention from its owner.",
+	"not-found": {
+		title: kernelMessage("client.publications.visit.title.link-not-found"),
+		detail: kernelMessage("client.publications.visit.unavailable.not-found.detail"),
 	},
 	"session-expired": {
-		title: "Link needed",
-		detail: "Open the full link you were given to view this page again.",
+		title: kernelMessage("client.publications.visit.title.link-needed"),
+		detail: kernelMessage("client.publications.visit.unavailable.session-expired.detail"),
+	},
+	"page-unavailable": {
+		title: kernelMessage("client.publications.visit.title.page-unavailable"),
+		detail: kernelMessage("client.publications.visit.unavailable.page-unavailable.detail"),
+	},
+	"bindings-invalid": {
+		title: kernelMessage("client.publications.visit.title.page-unavailable"),
+		detail: kernelMessage("client.publications.visit.unavailable.bindings-invalid.detail"),
+	},
+	"source-unavailable": {
+		title: kernelMessage("client.publications.visit.title.page-unavailable"),
+		detail: kernelMessage("client.publications.visit.unavailable.source-unavailable.detail"),
+	},
+	"snapshot-too-large": {
+		title: kernelMessage("client.publications.visit.title.page-unavailable"),
+		detail: kernelMessage("client.publications.visit.unavailable.snapshot-too-large.detail"),
+	},
+	"dependency-unavailable": {
+		title: kernelMessage("client.publications.visit.title.page-unavailable"),
+		detail: kernelMessage("client.publications.visit.unavailable.dependency-unavailable.detail"),
 	},
 };
 
@@ -112,6 +128,7 @@ export function PublicationVisit(props: {
 }
 
 function PreviewBanner() {
+	const t = useT();
 	const router = useRouter();
 	const navigate = useNavigate();
 	return (
@@ -121,7 +138,7 @@ function PreviewBanner() {
 		>
 			<span className="flex items-center gap-2 text-xs font-medium text-text">
 				<AppIcon size={14} name="eye" className="text-text-muted" />
-				Previewing as a visitor
+				{t(kernelMessage("client.publications.visit.previewing"))}
 			</span>
 			<Button
 				size="sm"
@@ -134,7 +151,7 @@ function PreviewBanner() {
 					void navigate({ to: "/settings/publications" });
 				}}
 			>
-				Exit preview
+				{t(kernelMessage("client.publications.visit.exit-preview"))}
 			</Button>
 		</div>
 	);
@@ -149,8 +166,13 @@ function PublicationVisitAttempt(props: {
 	readonly backInterceptors: BackInterceptors;
 }) {
 	const { runtime, credentials, publicationId } = props;
+	const t = useT();
 	const [state, setState] = useState<VisitState>({ kind: "loading" });
-	usePageTitle(state.kind === "ready" ? state.page.publication.title : "Shared page");
+	usePageTitle(
+		state.kind === "ready"
+			? state.page.publication.title
+			: t(kernelMessage("client.publications.visit.page-title")),
+	);
 
 	useEffect(() => {
 		const fiber = runtime.runFork(
@@ -177,7 +199,10 @@ function PublicationVisitAttempt(props: {
 	if (state.kind === "loading") {
 		return (
 			<main {...mainContentProps} className="ui-page">
-				<StatusState className="py-16" detail="Opening shared page..." />
+				<StatusState
+					className="py-16"
+					detail={t(kernelMessage("client.publications.visit.opening"))}
+				/>
 			</main>
 		);
 	}
@@ -185,10 +210,13 @@ function PublicationVisitAttempt(props: {
 		const copy =
 			state.kind === "unavailable"
 				? unavailableCopy[state.code]
-				: { title: "Page unavailable", detail: "The shared page could not be loaded." };
+				: {
+						detail: kernelMessage("client.publications.visit.load-failed"),
+						title: kernelMessage("client.publications.visit.title.page-unavailable"),
+					};
 		return (
 			<main {...mainContentProps} className="ui-page">
-				<StatusState className="py-16" title={copy.title} detail={copy.detail} />
+				<StatusState className="py-16" title={t(copy.title)} detail={t(copy.detail)} />
 			</main>
 		);
 	}
@@ -221,6 +249,7 @@ function PublicationFrame(props: {
 	readonly page: PublicationVisitorPage;
 	readonly backInterceptors: BackInterceptors;
 }) {
+	const t = useT();
 	const desktop = useIsDesktop();
 	const insets = useSafeAreaInsets();
 	const chromeTriggerRef = useRef<HTMLElement>(null);
@@ -260,7 +289,6 @@ function PublicationFrame(props: {
 			freshnessCheckRevision={0}
 			onHeader={() => undefined}
 			icon={page.publication.icon}
-			title={page.publication.title}
 			onOpenDrawer={() => undefined}
 			onFlushReady={() => undefined}
 			onScreenState={() => undefined}
@@ -273,6 +301,7 @@ function PublicationFrame(props: {
 			compositionHash={page.composition.hash}
 			backInterceptors={props.backInterceptors}
 			onCheckFreshness={() => Effect.succeed(true)}
+			title={formatDisplayText(t, page.publication.title)}
 			onPickEntity={() => refused({ kind: "cancelled" as const })}
 			onQuery={(request) => queryPublication(session, api, request)}
 			onSharePublication={() => refused({ kind: "closed" as const })}

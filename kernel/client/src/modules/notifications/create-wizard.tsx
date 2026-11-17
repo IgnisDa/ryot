@@ -1,3 +1,7 @@
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	renderSchemaAsset,
 	useRyotMutation,
@@ -41,34 +45,31 @@ import {
 	wizardStepLabel,
 } from "#/modules/ui/wizard/wizard-state";
 
-export const NOTIFICATION_CHANNEL_WIZARD_TITLE = "Add a channel";
-
-const stepHeadings = {
-	pick: "Choose a channel",
-	review: "Review and add",
-	configure: "Provide the details",
-} as const satisfies WizardStepHeadings;
-
-/** The channel list is static, so only the ready-state copy is reachable. */
-const pickerCopy = {
-	emptyTitle: "No channels",
-	searchLabel: "Search channels",
-	loadingLabel: "Loading channels",
-	errorTitle: "Unable to load channels",
-	loadingDetail: "Loading the channels you can add...",
-	emptyDetail: "No notification channels are available.",
-	errorDetail: "The list of channels could not be loaded.",
-};
-
 export function NotificationChannelCreateWizard(props: {
 	readonly onClose: () => void;
 	readonly smtpEnabled: boolean;
 	readonly onCreated: () => void;
 }) {
+	const t = useT();
+	const stepHeadings = {
+		configure: t(kernelMessage("client.ui.wizard.step.configure")),
+		pick: t(kernelMessage("client.notifications.wizard.step.pick")),
+		review: t(kernelMessage("client.notifications.wizard.step.review")),
+	} as const satisfies WizardStepHeadings;
+	/** The channel list is static, so only the ready-state copy is reachable. */
+	const pickerCopy = {
+		searchLabel: t(kernelMessage("client.notifications.wizard.search")),
+		emptyTitle: t(kernelMessage("client.notifications.wizard.empty-title")),
+		errorTitle: t(kernelMessage("client.notifications.wizard.error-title")),
+		emptyDetail: t(kernelMessage("client.notifications.wizard.empty-detail")),
+		errorDetail: t(kernelMessage("client.notifications.wizard.error-detail")),
+		loadingLabel: t(kernelMessage("client.notifications.wizard.loading-label")),
+		loadingDetail: t(kernelMessage("client.notifications.wizard.loading-detail")),
+	};
 	const create = useRyotMutation(createNotificationChannelMutation);
 	const uploadAsset = useSchemaAssetUpload();
 	const [failure, setFailure] = useState<
-		undefined | { readonly detail: string; readonly step: "review" | "configure" }
+		undefined | { readonly detail: Text; readonly step: "review" | "configure" }
 	>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const definition = findBySlug(notificationChannelList, state.slug);
@@ -83,7 +84,7 @@ export function NotificationChannelCreateWizard(props: {
 				if (Result.isFailure(body)) {
 					setFailure({
 						step: "configure",
-						detail: "Some of these details could not be used. Check them and try again.",
+						detail: t(kernelMessage("client.ui.wizard.invalid-input")),
 					});
 					dispatch({ step: "configure", type: "recover-at" });
 					return;
@@ -98,7 +99,10 @@ export function NotificationChannelCreateWizard(props: {
 					),
 					Effect.catchCause(() =>
 						Effect.sync(() => {
-							setFailure({ step: "review", detail: "This channel could not be saved. Try again." });
+							setFailure({
+								step: "review",
+								detail: t(kernelMessage("client.notifications.wizard.save-failed")),
+							});
 						}),
 					),
 				);
@@ -135,9 +139,9 @@ export function NotificationChannelCreateWizard(props: {
 			<CatalogPicker
 				copy={pickerCopy}
 				onChoose={chooseChannel}
-				chooseLabel={notificationChannelChooseLabel}
 				state={{ status: "ready", sources: notificationChannelList }}
-				toEntry={notificationChannelEntry({ smtpEnabled: props.smtpEnabled })}
+				chooseLabel={(entry) => notificationChannelChooseLabel(t, entry)}
+				toEntry={notificationChannelEntry({ t, smtpEnabled: props.smtpEnabled })}
 			/>
 		)),
 		Match.when("configure", () =>
@@ -174,8 +178,8 @@ export function NotificationChannelCreateWizard(props: {
 	return (
 		<WizardShell
 			onClose={props.onClose}
-			title={NOTIFICATION_CHANNEL_WIZARD_TITLE}
-			closeLabel="Close the notification channel wizard"
+			title={t(kernelMessage("client.notifications.add"))}
+			closeLabel={t(kernelMessage("client.notifications.wizard.close"))}
 			stepLabel={wizardStepLabel(state.step, WIZARD_STEPS, stepHeadings)}
 		>
 			{stepBody}
@@ -188,15 +192,18 @@ function ConfigureStep(props: {
 	readonly form: SchemaFormApi;
 	readonly onContinue: () => void;
 	readonly uploadAsset: SchemaAssetUpload;
-	readonly failureDetail: string | undefined;
+	readonly failureDetail: Text | undefined;
 	readonly definition: NotificationChannelDefinition;
 }) {
+	const t = useT();
 	const uploadFile = useSchemaFileUpload();
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex flex-col gap-1">
-				<h3 className="font-display text-lg font-semibold text-text">{props.definition.name}</h3>
-				<p className="text-sm leading-6 text-text-muted">{props.definition.description}</p>
+				<h3 className="font-display text-lg font-semibold text-text">
+					{formatDisplayText(t, props.definition.name)}
+				</h3>
+				<p className="text-sm leading-6 text-text-muted">{t(props.definition.description)}</p>
 			</div>
 			<SchemaForm
 				form={props.form}
@@ -213,10 +220,10 @@ function ConfigureStep(props: {
 			)}
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
 				<Button type="button" variant="primary" className="sm:px-6" onClick={props.onContinue}>
-					Continue
+					{t(kernelMessage("common.action.continue"))}
 				</Button>
 				<Button type="button" variant="secondary" className="sm:px-6" onClick={props.onBack}>
-					Back
+					{t(kernelMessage("common.action.back"))}
 				</Button>
 			</div>
 		</div>
@@ -228,19 +235,21 @@ function ReviewStep(props: {
 	readonly onAdd: () => void;
 	readonly onBack: () => void;
 	readonly values: SchemaFormValues;
-	readonly failureDetail: string | undefined;
+	readonly failureDetail: Text | undefined;
 	readonly definition: NotificationChannelDefinition;
 }) {
-	const rows = schemaReviewRows(props.definition.schema, props.values);
+	const t = useT();
+	const formatters = useFormatters();
+	const rows = schemaReviewRows(formatters, t, props.definition.schema, props.values);
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
 				<div className="flex items-center justify-between gap-3">
 					<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
-						{props.definition.name}
+						{formatDisplayText(t, props.definition.name)}
 					</span>
 					<span className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-medium text-text-muted">
-						{props.definition.badge}
+						{t(props.definition.badge)}
 					</span>
 				</div>
 				<div className="flex flex-col gap-2">
@@ -256,8 +265,7 @@ function ReviewStep(props: {
 				</div>
 			</div>
 			<p className="text-sm leading-6 text-text-muted">
-				Ryot sends notifications here as soon as the channel is added. Credentials are never shown
-				again once saved.
+				{t(kernelMessage("client.notifications.wizard.review-note"))}
 			</p>
 			{props.failureDetail === undefined ? null : (
 				<FieldMessage>{props.failureDetail}</FieldMessage>
@@ -270,7 +278,11 @@ function ReviewStep(props: {
 					onClick={props.onAdd}
 					disabled={props.pending}
 				>
-					{props.pending ? "Adding..." : "Add channel"}
+					{t(
+						props.pending
+							? kernelMessage("client.notifications.wizard.adding")
+							: kernelMessage("client.notifications.wizard.add-channel"),
+					)}
 				</Button>
 				<Button
 					type="button"
@@ -279,7 +291,7 @@ function ReviewStep(props: {
 					onClick={props.onBack}
 					disabled={props.pending}
 				>
-					Back
+					{t(kernelMessage("common.action.back"))}
 				</Button>
 			</div>
 		</div>

@@ -1,5 +1,7 @@
 import type { RatingScale } from "@ryot-app/contract/modules/events/rating-scale";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type {
 	ManageCollectionReviewsOutcome,
 	ManageCollectionReviewsRequest,
@@ -43,6 +45,7 @@ export function CollectionReviewScreen(props: {
 	readonly collectionId: EntityId;
 	readonly complete: (outcome: ManageCollectionReviewsOutcome) => void;
 }) {
+	const t = useT();
 	const header = useRyotQuery(collectionHeaderQuery, props.collectionId);
 	const changed = useRef(false);
 	const close = () => props.complete({ kind: changed.current ? "changed" : "cancelled" });
@@ -52,9 +55,9 @@ export function CollectionReviewScreen(props: {
 				onClose={close}
 				failed={header.isError}
 				onRetry={header.refetch}
-				title="Collection reviews"
-				closeLabel="Close reviews"
 				missing={header.data === null}
+				title={t(kernelMessage("client.collections.reviews.title"))}
+				closeLabel={t(kernelMessage("client.collections.reviews.close"))}
 			/>
 		);
 	}
@@ -62,8 +65,10 @@ export function CollectionReviewScreen(props: {
 		<Dialog
 			size="lg"
 			onClose={close}
-			closeLabel="Close reviews"
-			title={`Reviews of ${header.data.name}`}
+			closeLabel={t(kernelMessage("client.collections.reviews.close"))}
+			title={t(
+				kernelMessage("client.collections.reviews.dialog-title", { name: header.data.name }),
+			)}
 		>
 			<CollectionReviews
 				collectionId={props.collectionId}
@@ -82,6 +87,8 @@ function CollectionReviewCard(props: {
 	readonly review: CollectionReview;
 	readonly scale: undefined | RatingScale;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const { review } = props;
 	const [revealed, setRevealed] = useState(false);
 	const { text, rating, isSpoiler } = review.properties;
@@ -89,9 +96,9 @@ function CollectionReviewCard(props: {
 		<Card className="grid gap-3">
 			<div className="flex items-center justify-between gap-3">
 				<time dateTime={review.occurredAt}>
-					{new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "medium" }).format(
-						new Date(review.occurredAt),
-					)}
+					{formatters
+						.dateTime({ timeStyle: "short", dateStyle: "medium" })
+						.format(new Date(review.occurredAt))}
 				</time>
 				{rating == null || props.scale === undefined ? null : (
 					<RatingValue rating={rating} scale={props.scale} className="font-semibold" />
@@ -99,14 +106,14 @@ function CollectionReviewCard(props: {
 			</div>
 			{text && isSpoiler && !revealed ? (
 				<Button variant="secondary" onClick={() => setRevealed(true)}>
-					Show spoiler
+					{t(kernelMessage("ui.markdown.show-spoiler"))}
 				</Button>
 			) : null}
 			{text && (!isSpoiler || revealed) ? (
 				<p className="whitespace-pre-wrap break-words">{text}</p>
 			) : null}
 			<Button variant="ghost" onClick={props.onEdit}>
-				Edit review
+				{t(kernelMessage("client.collections.reviews.edit"))}
 			</Button>
 		</Card>
 	);
@@ -116,6 +123,7 @@ function CollectionReviews(props: {
 	readonly onChanged: () => void;
 	readonly collectionId: EntityId;
 }) {
+	const t = useT();
 	const [editor, setEditor] = useState<null | "new" | CollectionReview>(null);
 	const preferences = useRyotQuery(preferencesQuery);
 	const scale = preferences.data?.ratingScale;
@@ -135,14 +143,23 @@ function CollectionReviews(props: {
 	);
 	return (
 		<div className="grid gap-4">
-			<Button onClick={() => setEditor("new")}>Post a review</Button>
-			{query.isPending ? <p role="status">Loading reviews…</p> : null}
+			<Button onClick={() => setEditor("new")}>
+				{t(kernelMessage("client.collections.reviews.post"))}
+			</Button>
+			{query.isPending ? (
+				<p role="status">{t(kernelMessage("client.collections.reviews.loading"))}</p>
+			) : null}
 			{query.isError ? (
-				<Notice tone="danger" action={<Button onClick={query.retry}>Retry</Button>}>
-					Reviews could not be loaded.
+				<Notice
+					tone="danger"
+					action={<Button onClick={query.retry}>{t(kernelMessage("common.action.retry"))}</Button>}
+				>
+					{t(kernelMessage("client.collections.reviews.load-failed"))}
 				</Notice>
 			) : null}
-			{!query.isPending && !query.isError && reviews.length === 0 ? <p>No reviews yet.</p> : null}
+			{!query.isPending && !query.isError && reviews.length === 0 ? (
+				<p>{t(kernelMessage("client.collections.reviews.empty"))}</p>
+			) : null}
 			<ul className="grid gap-3">
 				{reviews.map((review) => (
 					<li key={review.id}>
@@ -152,18 +169,23 @@ function CollectionReviews(props: {
 			</ul>
 			{query.hasNextPage ? (
 				<LoadMoreButton
-					label="Load more reviews"
 					onClick={query.fetchNextPage}
 					isFetchingNextPage={query.isFetchingNextPage}
+					label={t(kernelMessage("client.collections.reviews.load-more"))}
 				/>
 			) : null}
 			{editor !== null && scale === undefined && preferences.isError ? (
-				<Notice tone="danger" action={<Button onClick={preferences.refetch}>Retry</Button>}>
-					Preferences could not be loaded.
+				<Notice
+					tone="danger"
+					action={
+						<Button onClick={preferences.refetch}>{t(kernelMessage("common.action.retry"))}</Button>
+					}
+				>
+					{t(kernelMessage("client.collections.reviews.preferences-failed"))}
 				</Notice>
 			) : null}
 			{editor !== null && scale === undefined && !preferences.isError ? (
-				<p role="status">Loading preferences…</p>
+				<p role="status">{t(kernelMessage("client.collections.reviews.preferences-loading"))}</p>
 			) : null}
 			{editor === null || scale === undefined ? null : (
 				<CollectionReviewEditor

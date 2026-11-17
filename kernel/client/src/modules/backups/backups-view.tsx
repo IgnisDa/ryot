@@ -1,3 +1,5 @@
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { BackupRunItem } from "@ryot-app/ryotql-recipes/backups";
@@ -15,19 +17,17 @@ import {
 	liveBackupRun,
 } from "#/modules/backups/presentation";
 import { RunProgressBar } from "#/modules/ui/run/run-progress-bar";
-import { formatRelativeTime, runDurationLabel, runStartedLabel } from "#/modules/ui/run/run-status";
+import {
+	formatRelativeTime,
+	runHistoryCaption,
+	runStartedLabel,
+} from "#/modules/ui/run/run-status";
 import { RunStatusGlyph, RunStatusPill } from "#/modules/ui/run/run-status-pill";
 import { StatusState } from "#/modules/ui/status-state";
 
-const INTRO =
-	"A backup is a portable copy of everything in this account. It does not include your password, integrations, or notification channels. Download links expire 24 hours after the backup is made.";
-
-const LIVE_REASON =
-	"A backup or restore is already under way. You can start another when it finishes.";
-
 export const BACKUP_LOAD_ERROR = {
-	title: "Unable to load backups",
-	detail: "Your backups could not be loaded. Check the server and try again.",
+	title: kernelMessage("client.backups.load-error.title"),
+	detail: kernelMessage("client.backups.load-error.detail"),
 };
 
 export type BackupRunListState =
@@ -48,12 +48,15 @@ type BackupsViewProps = {
 };
 
 export function BackupsView(props: BackupsViewProps) {
+	const t = useT();
 	const runs = props.state.status === "ready" ? props.state.runs : [];
 	const live = liveBackupRun(runs);
 	const historyRuns = live === undefined ? runs : runs.filter((run) => run.id !== live.id);
 	return (
 		<div className="flex flex-col gap-6 pb-4">
-			<p className="text-sm leading-6 text-text-muted">{INTRO}</p>
+			<p className="text-sm leading-6 text-text-muted">
+				{t(kernelMessage("client.backups.intro"))}
+			</p>
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
 				{props.state.status === "empty" ? null : (
 					<Button
@@ -64,7 +67,11 @@ export function BackupsView(props: BackupsViewProps) {
 						className="flex w-full items-center justify-center gap-2 sm:w-auto sm:px-6"
 					>
 						<AppIcon size={16} name="archive" className="text-accent-ink" />
-						{props.isCreating ? "Starting..." : "Create a backup"}
+						{t(
+							props.isCreating
+								? kernelMessage("common.status.starting")
+								: kernelMessage("client.backups.create"),
+						)}
 					</Button>
 				)}
 				<Button
@@ -74,10 +81,14 @@ export function BackupsView(props: BackupsViewProps) {
 					className="w-full sm:w-auto sm:px-6"
 					disabled={live !== undefined || props.isCreating}
 				>
-					Restore from a backup
+					{t(kernelMessage("client.backups.wizard.title"))}
 				</Button>
 			</div>
-			{live === undefined ? null : <span className="text-xs text-text-subtle">{LIVE_REASON}</span>}
+			{live === undefined ? null : (
+				<span className="text-xs text-text-subtle">
+					{t(kernelMessage("client.backups.live-reason"))}
+				</span>
+			)}
 			{props.createFailureDetail === undefined ? null : (
 				<StatusMessage tone="error" className="text-sm">
 					{props.createFailureDetail}
@@ -92,9 +103,9 @@ export function BackupsView(props: BackupsViewProps) {
 			{props.state.status !== "empty" ? null : (
 				<StatusState
 					className="py-12"
-					title="No backups yet"
+					title={t(kernelMessage("client.backups.empty.title"))}
+					detail={t(kernelMessage("client.backups.empty.detail"))}
 					icon={<AppIcon size={40} name="archive" className="text-text-subtle" />}
-					detail="Make a backup whenever you want a copy you keep yourself. Every backup and restore shows up here."
 					action={
 						<Button
 							type="button"
@@ -102,7 +113,11 @@ export function BackupsView(props: BackupsViewProps) {
 							onClick={props.onCreateExport}
 							className="w-full sm:w-auto sm:px-6"
 						>
-							{props.isCreating ? "Starting..." : "Create a backup"}
+							{t(
+								props.isCreating
+									? kernelMessage("common.status.starting")
+									: kernelMessage("client.backups.create"),
+							)}
 						</Button>
 					}
 				/>
@@ -110,7 +125,7 @@ export function BackupsView(props: BackupsViewProps) {
 			{props.state.status === "empty" || historyRuns.length === 0 ? null : (
 				<div className="flex flex-col gap-2">
 					<span className="text-[11px] font-medium uppercase tracking-[0.8px] text-text-subtle">
-						Recent
+						{t(kernelMessage("client.backups.recent"))}
 					</span>
 					<div>
 						{historyRuns.map((run, index) => (
@@ -133,20 +148,25 @@ export function BackupsView(props: BackupsViewProps) {
 }
 
 function LiveBackupRunCard(props: { readonly nowMs: number; readonly run: BackupRunItem }) {
-	const progress = backupRunProgress(props.run);
+	const t = useT();
+	const formatters = useFormatters();
+	const progress = backupRunProgress(t, formatters, props.run);
 	return (
 		<div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
 			<div className="flex items-center justify-between gap-3">
 				<span className="min-w-0 flex-1 truncate text-base font-semibold text-text">
-					{backupRunKindLabel(props.run.kind)}
+					{t(backupRunKindLabel(props.run.kind))}
 				</span>
 				<RunStatusPill status={props.run.status} />
 			</div>
 			<div className="flex flex-col gap-2">
-				<RunProgressBar progress={progress} value={backupRunProgressValue(props.run)} />
+				<RunProgressBar
+					progress={progress}
+					value={backupRunProgressValue(t, formatters, props.run)}
+				/>
 				<div className="flex items-center justify-between gap-3">
 					<span className="text-xs text-text-subtle">
-						{runStartedLabel(props.run, props.nowMs)}
+						{runStartedLabel(formatters, t, props.run, props.nowMs)}
 					</span>
 					<span className="text-xs font-medium tabular-nums text-text-subtle">
 						{progress.label}
@@ -166,9 +186,10 @@ function BackupHistoryRow(props: {
 	readonly onDownload: (run: BackupRunItem) => void;
 	readonly onRequestDelete: (run: BackupRunItem, trigger: HTMLButtonElement) => void;
 }) {
-	const kind = backupRunKindLabel(props.run.kind);
-	const duration = runDurationLabel(props.run, props.nowMs);
-	const relative = formatRelativeTime(props.run.createdAt, props.nowMs);
+	const t = useT();
+	const formatters = useFormatters();
+	const kind = t(backupRunKindLabel(props.run.kind));
+	const relative = formatRelativeTime(formatters, t, props.run.createdAt, props.nowMs);
 	const notice =
 		props.run.status === "failed" ? backupRunFailureNotice(props.run.failure) : undefined;
 	const expiry = backupExpiryLabel(props.run, props.nowMs);
@@ -186,15 +207,15 @@ function BackupHistoryRow(props: {
 				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<span className="truncate text-sm font-medium text-text">{kind}</span>
 					<span className="truncate text-xs text-text-subtle">
-						{duration === undefined ? relative : `${relative} · ${duration}`}
+						{runHistoryCaption(formatters, t, props.run, props.nowMs)}
 					</span>
 				</span>
 				<span className="line-clamp-2 max-w-40 text-right text-xs tabular-nums text-text-muted">
-					{backupRunOutcomeLabel(props.run, props.nowMs)}
+					{backupRunOutcomeLabel(t, formatters, props.run, props.nowMs)}
 				</span>
 			</div>
 			{notice === undefined ? null : (
-				<p className="text-xs leading-5 text-danger">{notice.detail}</p>
+				<p className="text-xs leading-5 text-danger">{t(notice.detail)}</p>
 			)}
 			{!canDownload && !canDelete ? null : (
 				<div className="flex items-center gap-3">
@@ -204,22 +225,28 @@ function BackupHistoryRow(props: {
 							variant="secondary"
 							disabled={props.downloadDisabled}
 							onClick={() => props.onDownload(props.run)}
-							aria-label={`Download the backup from ${relative}`}
 							className="flex min-h-9 items-center gap-1.5 px-3 py-1.5 text-sm"
+							aria-label={t(kernelMessage("client.backups.download-aria", { relative }))}
 						>
 							<AppIcon size={15} name="download" className="text-text" />
-							{props.isDownloading ? "Preparing..." : "Download"}
+							{t(
+								props.isDownloading
+									? kernelMessage("client.backups.download-preparing")
+									: kernelMessage("common.action.download"),
+							)}
 						</Button>
 					) : null}
 					{canDownload && expiry !== undefined ? (
-						<span className="min-w-0 flex-1 text-xs text-text-subtle">{expiry}</span>
+						<span className="min-w-0 flex-1 text-xs text-text-subtle">{t(expiry)}</span>
 					) : null}
 					{canDelete ? (
 						<button
 							type="button"
 							className="ml-auto shrink-0 p-1"
-							aria-label={`Delete the ${kind.toLowerCase()} record from ${relative}`}
 							onClick={(event) => props.onRequestDelete(props.run, event.currentTarget)}
+							aria-label={t(
+								kernelMessage("client.backups.delete-aria", { relative, kind: props.run.kind }),
+							)}
 						>
 							<AppIcon size={16} name="trash-2" className="text-text-subtle" />
 						</button>

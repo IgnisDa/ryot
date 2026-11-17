@@ -4,6 +4,8 @@ import {
 	hasCollectionFieldChoices,
 	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 
 export type FieldDraft = {
 	readonly id: string;
@@ -18,17 +20,17 @@ export type FieldDraft = {
 };
 
 export const fieldTypeChoices: ReadonlyArray<{
-	readonly label: string;
+	readonly label: Message;
 	readonly value: CollectionFieldType;
 }> = [
-	{ value: "text", label: "Text" },
-	{ value: "number", label: "Number" },
-	{ value: "boolean", label: "Yes / No" },
-	{ value: "date", label: "Date" },
-	{ value: "datetime", label: "Date and time" },
-	{ value: "choice", label: "Choice" },
-	{ value: "multi-choice", label: "Multiple choice" },
-	{ value: "text-list", label: "List of text" },
+	{ value: "text", label: kernelMessage("client.collections.field-type.text") },
+	{ value: "number", label: kernelMessage("client.collections.field-type.number") },
+	{ value: "boolean", label: kernelMessage("client.collections.field-type.boolean") },
+	{ value: "date", label: kernelMessage("client.collections.field-type.date") },
+	{ value: "datetime", label: kernelMessage("client.collections.field-type.datetime") },
+	{ value: "choice", label: kernelMessage("client.collections.field-type.choice") },
+	{ value: "multi-choice", label: kernelMessage("client.collections.field-type.multi-choice") },
+	{ value: "text-list", label: kernelMessage("client.collections.field-type.text-list") },
 ];
 
 export const hasDefaultValue = (type: CollectionFieldType) =>

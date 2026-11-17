@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, render, screen } from "@testing-library/react";
 
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
 import { NotificationChannelsView } from "#/modules/notifications/channels-view";
 
 const channel = {
@@ -35,6 +36,7 @@ const renderView = (isDemoProtected: boolean) => {
 			nowMs={Date.parse("2026-09-20T09:00:00.000Z")}
 			state={{ hasMore: false, status: "ready", channels: [channel] }}
 		/>,
+		{ wrapper: testI18nWrapper() },
 	);
 	return actions;
 };

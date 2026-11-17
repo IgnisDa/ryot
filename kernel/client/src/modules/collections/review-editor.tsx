@@ -1,6 +1,9 @@
 import type { RatingScale } from "@ryot-app/contract/modules/events/rating-scale";
 import { EventNotFound, EventStale } from "@ryot-app/contract/modules/events/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { ReviewComposer } from "@ryot-app/plugin-ui-sdk";
 
@@ -8,18 +11,18 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 
 import { type CollectionReview, collectionReviewMutation, ReviewNotSaved } from "./review-service";
 
-const failureMessage = (error: unknown) => {
+const failureMessage = (error: unknown): Message => {
 	const cause = error instanceof AuthenticatedApiError ? error.cause : error;
 	if (cause instanceof EventStale) {
-		return "This review changed elsewhere. Close and reopen it before saving.";
+		return kernelMessage("client.collections.reviews.failure.stale");
 	}
 	if (cause instanceof EventNotFound) {
-		return "This review no longer exists. Close the editor to refresh the list.";
+		return kernelMessage("client.collections.reviews.failure.not-found");
 	}
 	if (cause instanceof ReviewNotSaved) {
-		return "The review was not saved. Check your review and try again.";
+		return kernelMessage("client.collections.reviews.failure.not-saved");
 	}
-	return "The result could not be confirmed. Your draft is still here. Check the review list before trying again.";
+	return kernelMessage("client.collections.reviews.failure.unconfirmed");
 };
 
 export function CollectionReviewEditor(props: {
@@ -29,6 +32,7 @@ export function CollectionReviewEditor(props: {
 	readonly collectionId: EntityId;
 	readonly initial: null | CollectionReview;
 }) {
+	const t = useT();
 	const mutation = useRyotMutation(collectionReviewMutation);
 
 	const initial = props.initial;
@@ -38,8 +42,12 @@ export function CollectionReviewEditor(props: {
 			onClose={props.onClose}
 			initial={initial?.properties}
 			isSending={mutation.isPending}
-			title={initial === null ? "Post a review" : "Edit review"}
-			errorMessage={mutation.error === null ? undefined : failureMessage(mutation.error)}
+			errorMessage={mutation.error === null ? undefined : t(failureMessage(mutation.error))}
+			title={t(
+				kernelMessage(
+					initial === null ? "client.collections.reviews.post" : "client.collections.reviews.edit",
+				),
+			)}
 			onSave={(draft) =>
 				mutation.mutate({
 					onSaved: props.onSaved,

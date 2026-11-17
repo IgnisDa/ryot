@@ -1,4 +1,8 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { AddToCollectionOutcome } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import {
@@ -78,6 +82,7 @@ export function AddToCollection(props: {
 	readonly onRemoved: () => void;
 	readonly collectionId?: EntityId | undefined;
 }) {
+	const t = useT();
 	const target = useRyotQuery(membershipTarget, { entityId: props.entityId });
 	const outcome = useRef<AddToCollectionOutcome["kind"]>("cancelled");
 	const [collectionId, setCollectionId] = useState(props.collectionId);
@@ -112,9 +117,13 @@ export function AddToCollection(props: {
 			onClose={close}
 			entityId={props.entityId}
 			onChosen={setCollectionId}
-			closeLabel="Close collections"
-			footer={<Button onClick={close}>Done</Button>}
-			title={target.data ? `Collections for ${target.data.name}` : "Collections"}
+			closeLabel={t(kernelMessage("client.collections.picker.close"))}
+			footer={<Button onClick={close}>{t(kernelMessage("common.action.done"))}</Button>}
+			title={t(
+				target.data
+					? kernelMessage("client.collections.picker.title-for", { name: target.data.name })
+					: kernelMessage("client.collections.picker.title"),
+			)}
 		/>
 	);
 }
@@ -125,6 +134,7 @@ function SelectedCollection(props: {
 	readonly onRemoved: () => void;
 	readonly target: MembershipTarget;
 }) {
+	const t = useT();
 	const [membershipDetails] = useState(createMembershipDetailsQuery);
 	const result = useRyotQuery(membershipDetails, props.target, { refreshOnMutation: false });
 	const header = result.data?.header;
@@ -133,12 +143,12 @@ function SelectedCollection(props: {
 	}
 	return (
 		<CollectionLoadDialog
-			title="Collection"
 			onClose={props.onClose}
 			failed={result.isError}
 			onRetry={result.refetch}
 			missing={result.data !== undefined}
-			closeLabel="Close collection membership"
+			title={t(kernelMessage("client.collections.load.title"))}
+			closeLabel={t(kernelMessage("client.collections.close-membership"))}
 		/>
 	);
 }
@@ -152,6 +162,7 @@ function MembershipForm(props: {
 	readonly header: NonNullable<CollectionHeaderResult>;
 }) {
 	const { header, membership } = props;
+	const t = useT();
 	const removeTrigger = useRef<HTMLButtonElement>(null);
 	const [confirmingRemove, setConfirmingRemove] = useState(false);
 	const schema = membershipSchema(header);
@@ -187,35 +198,53 @@ function MembershipForm(props: {
 			{hasFields ? <MembershipFields form={form} schema={schema} disabled={busy} /> : null}
 			{save.error ? (
 				<Notice tone="danger">
-					{editing ? "The details could not be saved." : "The item could not be added."} Try again.
+					{t(
+						editing
+							? kernelMessage("client.collections.membership.save-failed")
+							: kernelMessage("client.collections.membership.add-failed"),
+					)}
 				</Notice>
 			) : null}
 			{confirmingRemove ? (
 				<DestructiveConfirmation
 					triggerRef={removeTrigger}
 					pending={remove.isPending}
-					pendingLabel="Removing..."
-					actionLabel="Remove from collection"
-					title={`Remove from ${header.name}?`}
 					onClose={() => setConfirmingRemove(false)}
 					onConfirm={() => remove.mutate(props.target)}
-					detail="The item stays in your library; only its membership and details are removed."
-					errorMessage={remove.error ? "The item could not be removed. Try again." : undefined}
+					pendingLabel={t(kernelMessage("client.collections.removing"))}
+					detail={t(kernelMessage("client.collections.membership.remove-detail"))}
+					actionLabel={t(kernelMessage("client.collections.remove-from-collection"))}
+					title={t(
+						kernelMessage("client.collections.membership.remove-title", { name: header.name }),
+					)}
+					errorMessage={
+						remove.error
+							? t(kernelMessage("client.collections.membership.remove-failed"))
+							: undefined
+					}
 				/>
 			) : null}
 		</>
 	);
-	let title = `Add to ${header.name}`;
+	let title: Text = t(
+		kernelMessage("client.collections.membership.add-title", { name: header.name }),
+	);
 	if (editing) {
-		title = hasFields ? `Details in ${header.name}` : header.name;
+		title = hasFields
+			? t(kernelMessage("client.collections.membership.details-title", { name: header.name }))
+			: formatDisplayText(t, header.name);
 	}
 	return (
 		<Dialog
 			title={title}
 			dismissible={!busy}
 			onClose={props.onClose}
-			closeLabel="Close collection membership"
-			description={editing && !hasFields ? "This item is in this collection." : undefined}
+			closeLabel={t(kernelMessage("client.collections.close-membership"))}
+			description={
+				editing && !hasFields
+					? t(kernelMessage("client.collections.membership.in-collection"))
+					: undefined
+			}
 			footer={
 				<>
 					<Button
@@ -223,20 +252,20 @@ function MembershipForm(props: {
 						disabled={busy}
 						className="mr-auto"
 						onClick={props.onClose}
-						aria-label="Back to collections"
+						aria-label={t(kernelMessage("client.collections.back-to-collections"))}
 					>
 						<AppIcon size={16} name="chevron-left" />
-						Back
+						{t(kernelMessage("common.action.back"))}
 					</Button>
 					{editing ? (
 						<Button
 							disabled={busy}
 							ref={removeTrigger}
 							variant="dangerGhost"
-							aria-label="Remove from collection"
 							onClick={() => setConfirmingRemove(true)}
+							aria-label={t(kernelMessage("client.collections.remove-from-collection"))}
 						>
-							Remove
+							{t(kernelMessage("common.action.remove"))}
 						</Button>
 					) : null}
 					{editing && !hasFields ? null : (
@@ -245,7 +274,11 @@ function MembershipForm(props: {
 							loading={save.isPending}
 							onClick={() => void form.handleSubmit()}
 						>
-							{editing ? "Save details" : "Add to collection"}
+							{t(
+								editing
+									? kernelMessage("client.collections.membership.save-details")
+									: kernelMessage("sdk.selection.add-to-collection"),
+							)}
 						</Button>
 					)}
 				</>

@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { PublicationUnavailable } from "@ryot-app/contract/modules/publications/schemas";
-import { ExecutionSource } from "@ryot-app/contract/modules/ryotql/request";
+import { PluginExecutionSource } from "@ryot-app/contract/modules/ryotql/request";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Duration, Effect, Result, Schema } from "effect";
@@ -76,7 +76,9 @@ describe("publication visit session", () => {
 					{ kind: "page", query: "items", pageId: "page-1" },
 					{ kind: "plugin", query: "items", scope: "system", packageId: "example/plugin" },
 				]) {
-					const validated = Result.getOrThrow(Schema.decodeUnknownResult(ExecutionSource)(source));
+					const validated = Result.getOrThrow(
+						Schema.decodeUnknownResult(PluginExecutionSource)(source),
+					);
 					for (const action of ["execute", "describe"] as const) {
 						expect(
 							yield* queryPublication(session, api, { action, request: { source: validated } }),

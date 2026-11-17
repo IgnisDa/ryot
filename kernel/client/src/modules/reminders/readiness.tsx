@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Notice, Row, RowGroup, Skeleton, Switch } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -8,11 +10,15 @@ import { reminderReadinessQuery, reminderSubscriptionMutation } from "./service"
 const warningIcon = <AppIcon size={16} name="circle-alert" />;
 
 export function ReminderReadiness(props: { readonly disabled?: boolean | undefined }) {
+	const t = useT();
 	const query = useRyotQuery(reminderReadinessQuery, undefined);
 	const subscription = useRyotMutation(reminderSubscriptionMutation);
 	const result = query.data;
 	return (
-		<section aria-label="Delivery" className="grid gap-2">
+		<section
+			className="grid gap-2"
+			aria-label={t(kernelMessage("client.reminders.readiness.delivery"))}
+		>
 			{query.isPending ? <Skeleton className="h-28 rounded-lg" /> : null}
 			{query.isError ? (
 				<Notice
@@ -20,74 +26,82 @@ export function ReminderReadiness(props: { readonly disabled?: boolean | undefin
 					icon={warningIcon}
 					action={
 						<Button size="sm" variant="secondary" onClick={query.refetch}>
-							Retry readiness
+							{t(kernelMessage("common.action.retry"))}
 						</Button>
 					}
 				>
-					Notification readiness could not be checked. Scheduling does not guarantee delivery.
+					{t(kernelMessage("client.reminders.readiness.check-failed"))}
 				</Notice>
 			) : null}
 			{result ? (
 				<>
 					{!result.configuration.dispatchersEnabled ? (
 						<Notice tone="warning" icon={warningIcon}>
-							Scheduled processing is disabled on this server. Reminders wait until processing
-							resumes.
+							{t(kernelMessage("client.reminders.readiness.processing-disabled"))}
 						</Notice>
 					) : null}
 					{!result.configuration.deliveryEnabled ? (
 						<Notice tone="warning" icon={warningIcon}>
-							Notification delivery is disabled on this server. Due reminders will be Not sent.
+							{t(kernelMessage("client.reminders.readiness.delivery-disabled"))}
 						</Notice>
 					) : null}
 					<RowGroup>
 						<Row
-							title="Notification channels"
 							leading={<RowIcon name="send" />}
+							title={t(kernelMessage("client.settings.section.notification-channels"))}
+							description={t(
+								result.channels.enabledChannels === 0
+									? kernelMessage("client.reminders.readiness.no-channels")
+									: kernelMessage("client.reminders.readiness.enabled-channels", {
+											count: result.channels.enabledChannels,
+										}),
+							)}
 							trailing={
 								<Link
 									search={{ create: undefined }}
 									to="/settings/notification-channels"
 									className="shrink-0 text-label font-medium text-accent-text hover:underline"
 								>
-									Manage
+									{t(kernelMessage("client.reminders.readiness.manage"))}
 								</Link>
-							}
-							description={
-								result.channels.enabledChannels === 0
-									? "No notification channels are enabled. Due reminders will be Not sent."
-									: `${result.channels.enabledChannels} enabled ${result.channels.enabledChannels === 1 ? "channel" : "channels"}. Provider acceptance is not guaranteed.`
 							}
 						/>
 						<Row
-							title="Reminder subscription"
 							leading={<RowIcon name="clock" />}
-							description={
+							title={t(kernelMessage("client.reminders.readiness.subscription"))}
+							description={t(
 								result.channels.subscriptionEnabled
-									? "Due reminders go to your enabled channels."
-									: "Your reminder subscription is disabled or missing. Due reminders will be Not sent."
-							}
+									? kernelMessage("client.reminders.readiness.subscription-on")
+									: kernelMessage("client.reminders.readiness.subscription-off"),
+							)}
 							trailing={
 								<Switch
 									checked={result.channels.subscriptionEnabled}
 									disabled={props.disabled === true || subscription.isPending}
-									label={`${result.channels.subscriptionEnabled ? "Disable" : "Enable"} reminder subscription`}
 									onChange={(enable) =>
 										subscription.mutate({ enable, id: result.channels.subscriptionId })
 									}
+									label={t(
+										result.channels.subscriptionEnabled
+											? kernelMessage("client.reminders.readiness.disable-subscription")
+											: kernelMessage("client.reminders.readiness.enable-subscription"),
+									)}
 								/>
 							}
 						/>
 					</RowGroup>
 					<p className="text-xs text-text-subtle">
-						Checked {result.configuration.scanSchedule}, not at an exact minute. Enabling delivery
-						later does not replay a Not sent occurrence.
+						{t(
+							kernelMessage("client.reminders.readiness.schedule-note", {
+								schedule: result.configuration.scanSchedule,
+							}),
+						)}
 					</p>
 				</>
 			) : null}
 			{subscription.error ? (
 				<Notice tone="danger">
-					The subscription could not be changed. Reload readiness before trying again.
+					{t(kernelMessage("client.reminders.readiness.subscription-failed"))}
 				</Notice>
 			) : null}
 		</section>

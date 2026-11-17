@@ -10,6 +10,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
+
 import { AddToCollection } from "./add-to-collection";
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
@@ -108,6 +110,7 @@ const mountManager = (
 				}
 			/>
 		</RyotProvider>,
+		{ wrapper: testI18nWrapper() },
 	);
 	return {
 		requests,

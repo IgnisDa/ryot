@@ -1,9 +1,10 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type {
 	ChangeCollectionMembersOutcome,
 	ChangeCollectionMembersRequest,
 } from "@ryot-app/plugin-client-contract";
-import { countLabel } from "@ryot-app/plugin-client-sdk/browser";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -33,15 +34,11 @@ import {
 
 type Complete = (outcome: ChangeCollectionMembersOutcome) => void;
 
-const copy = {
-	add: { done: "Added", active: "Adding", failed: "could not be added" },
-	remove: { done: "Removed", active: "Removing", failed: "could not be removed" },
-} as const;
-
 export function ChangeCollectionMembers(props: {
 	readonly complete: Complete;
 	readonly request: ChangeCollectionMembersRequest;
 }) {
+	const t = useT();
 	const { request } = props;
 	const [collectionId, setCollectionId] = useState(
 		request.kind === "remove" ? request.collectionId : undefined,
@@ -52,11 +49,13 @@ export function ChangeCollectionMembers(props: {
 			<CollectionPicker
 				onClose={cancel}
 				onChosen={setCollectionId}
-				closeLabel="Close collections"
-				title={`Add ${countLabel(request.entityIds.length)} to a collection`}
+				closeLabel={t(kernelMessage("client.collections.picker.close"))}
+				title={t(
+					kernelMessage("client.collections.change.add-title", { count: request.entityIds.length }),
+				)}
 				footer={
 					<Button variant="ghost" onClick={cancel}>
-						Cancel
+						{t(kernelMessage("common.action.cancel"))}
 					</Button>
 				}
 			/>
@@ -79,6 +78,7 @@ function RemoveConfirmation(props: {
 	readonly onClose: () => void;
 	readonly onConfirm: () => void;
 }) {
+	const t = useT();
 	const trigger = useRef<HTMLButtonElement>(null);
 	return (
 		<DestructiveConfirmation
@@ -86,11 +86,16 @@ function RemoveConfirmation(props: {
 			triggerRef={trigger}
 			onClose={props.onClose}
 			errorMessage={undefined}
-			pendingLabel="Removing..."
 			onConfirm={props.onConfirm}
-			actionLabel="Remove from collection"
-			title={`Remove ${countLabel(props.count)} from ${props.name}?`}
-			detail="The items stay in your library; only their memberships and details are removed."
+			pendingLabel={t(kernelMessage("client.collections.removing"))}
+			detail={t(kernelMessage("client.collections.change.remove-detail"))}
+			actionLabel={t(kernelMessage("client.collections.remove-from-collection"))}
+			title={t(
+				kernelMessage("client.collections.change.remove-title", {
+					name: props.name,
+					count: props.count,
+				}),
+			)}
 		/>
 	);
 }
@@ -102,6 +107,7 @@ function AddConfirmation(props: {
 	readonly onConfirm: (properties: unknown) => void;
 	readonly header: NonNullable<CollectionHeaderResult>;
 }) {
+	const t = useT();
 	const schema = membershipSchema(props.header);
 	const hasFields = hasMembershipFields(schema);
 	const form = useMembershipForm({
@@ -113,13 +119,18 @@ function AddConfirmation(props: {
 	return (
 		<Dialog
 			onClose={props.onClose}
-			closeLabel="Close collection"
-			title={`Add ${countLabel(props.count)} to ${props.header.name}`}
-			description={
+			closeLabel={t(kernelMessage("client.collections.close"))}
+			title={t(
+				kernelMessage("client.collections.change.add-confirm-title", {
+					count: props.count,
+					name: props.header.name,
+				}),
+			)}
+			description={t(
 				hasFields
-					? `The details below will be applied to all ${countLabel(props.count)}.`
-					: "Items already in this collection keep their details."
-			}
+					? kernelMessage("client.collections.change.add-details", { count: props.count })
+					: kernelMessage("client.collections.change.add-no-details"),
+			)}
 			footer={
 				<>
 					{props.onBack === undefined ? null : (
@@ -127,67 +138,19 @@ function AddConfirmation(props: {
 							variant="ghost"
 							className="mr-auto"
 							onClick={props.onBack}
-							aria-label="Back to collections"
+							aria-label={t(kernelMessage("client.collections.back-to-collections"))}
 						>
 							<AppIcon size={16} name="chevron-left" />
-							Back
+							{t(kernelMessage("common.action.back"))}
 						</Button>
 					)}
-					<Button onClick={() => void form.handleSubmit()}>Add to collection</Button>
+					<Button onClick={() => void form.handleSubmit()}>
+						{t(kernelMessage("sdk.selection.add-to-collection"))}
+					</Button>
 				</>
 			}
 		>
 			{hasFields ? <MembershipFields form={form} schema={schema} disabled={false} /> : undefined}
-		</Dialog>
-	);
-}
-
-function MembershipProgress(props: {
-	readonly name: string;
-	readonly run: MembershipRun;
-	readonly onClose: () => void;
-	readonly onRetry: () => void;
-	readonly kind: MembershipChange["kind"];
-}) {
-	const { run } = props;
-	const words = copy[props.kind];
-	const settled = run.succeeded + run.failed.length;
-	const title = `${words.active} ${props.kind === "add" ? "to" : "from"} ${props.name}`;
-	return (
-		<Dialog
-			title={title}
-			onClose={props.onClose}
-			closeLabel="Close progress"
-			footer={
-				<Button onClick={props.onClose} variant={run.running ? "ghost" : "primary"}>
-					{run.running ? "Stop" : "Done"}
-				</Button>
-			}
-		>
-			<div className="grid gap-3">
-				{run.running ? (
-					<>
-						<p role="status">
-							{`${words.active} ${settled.toLocaleString()} of ${countLabel(run.total)}…`}
-						</p>
-						<ProgressBar tone="accent" label={title} max={run.total} value={settled} />
-					</>
-				) : (
-					<p role="status">{`${words.done} ${countLabel(run.succeeded)}.`}</p>
-				)}
-				{!run.running && run.failed.length > 0 ? (
-					<Notice
-						tone="danger"
-						action={
-							<Button variant="secondary" onClick={props.onRetry}>
-								Retry failed
-							</Button>
-						}
-					>
-						{`${countLabel(run.failed.length)} ${words.failed}.`}
-					</Notice>
-				) : null}
-			</div>
 		</Dialog>
 	);
 }
@@ -199,6 +162,7 @@ function ChosenCollection(props: {
 	readonly entityIds: readonly EntityId[];
 	readonly onBack: undefined | (() => void);
 }) {
+	const t = useT();
 	const header = useRyotQuery(collectionHeaderQuery, props.collectionId, {
 		refreshOnMutation: false,
 	});
@@ -211,11 +175,11 @@ function ChosenCollection(props: {
 		return (
 			<CollectionLoadDialog
 				onClose={close}
-				title="Collection"
 				failed={header.isError}
 				onRetry={header.refetch}
-				closeLabel="Close collection"
 				missing={header.data === null}
+				title={t(kernelMessage("client.collections.load.title"))}
+				closeLabel={t(kernelMessage("client.collections.close"))}
 			/>
 		);
 	}
@@ -252,5 +216,85 @@ function ChosenCollection(props: {
 				membership.start({ kind: "remove", collectionId: props.collectionId }, props.entityIds)
 			}
 		/>
+	);
+}
+
+function MembershipProgress(props: {
+	readonly name: string;
+	readonly run: MembershipRun;
+	readonly onClose: () => void;
+	readonly onRetry: () => void;
+	readonly kind: MembershipChange["kind"];
+}) {
+	const t = useT();
+	const { run } = props;
+	const settled = run.succeeded + run.failed.length;
+	const title = t(
+		kernelMessage(
+			props.kind === "add"
+				? "client.collections.change.add-progress-title"
+				: "client.collections.change.remove-progress-title",
+			{ name: props.name },
+		),
+	);
+	return (
+		<Dialog
+			title={title}
+			onClose={props.onClose}
+			closeLabel={t(kernelMessage("client.collections.change.close-progress"))}
+			footer={
+				<Button onClick={props.onClose} variant={run.running ? "ghost" : "primary"}>
+					{t(kernelMessage(run.running ? "common.action.stop" : "common.action.done"))}
+				</Button>
+			}
+		>
+			<div className="grid gap-3">
+				{run.running ? (
+					<>
+						<p role="status">
+							{t(
+								kernelMessage(
+									props.kind === "add"
+										? "client.collections.change.add-running"
+										: "client.collections.change.remove-running",
+									{ settled, total: run.total },
+								),
+							)}
+						</p>
+						<ProgressBar tone="accent" label={title} max={run.total} value={settled} />
+					</>
+				) : (
+					<p role="status">
+						{t(
+							kernelMessage(
+								props.kind === "add"
+									? "client.collections.change.add-done"
+									: "client.collections.change.remove-done",
+								{ count: run.succeeded },
+							),
+						)}
+					</p>
+				)}
+				{!run.running && run.failed.length > 0 ? (
+					<Notice
+						tone="danger"
+						action={
+							<Button variant="secondary" onClick={props.onRetry}>
+								{t(kernelMessage("client.collections.change.retry-failed"))}
+							</Button>
+						}
+					>
+						{t(
+							kernelMessage(
+								props.kind === "add"
+									? "client.collections.change.add-failed"
+									: "client.collections.change.remove-failed",
+								{ count: run.failed.length },
+							),
+						)}
+					</Notice>
+				) : null}
+			</div>
+		</Dialog>
 	);
 }

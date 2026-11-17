@@ -1,5 +1,8 @@
 import { ReminderConflict, type ReminderState } from "@ryot-app/contract/modules/reminders/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -27,6 +30,7 @@ import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-pollin
 
 import { ReminderDeliveries } from "./deliveries";
 import { ReminderEditor } from "./editor";
+import { reminderReasonMessages } from "./presentation";
 import { ReminderReadiness } from "./readiness";
 import { type ReminderCommand, reminderCommandMutation, remindersQuery } from "./service";
 
@@ -37,20 +41,20 @@ const states: Readonly<Record<string, ReadonlyArray<ReminderState>>> = {
 	upcoming: ["scheduled", "processing"],
 };
 const labels = {
-	failed: "Failed",
-	"not-sent": "Not sent",
-	unknown: "Delivery unknown",
-	partial: "Partially accepted",
-	accepted: "Accepted by providers",
+	failed: kernelMessage("client.reminders.delivery.failed"),
+	partial: kernelMessage("client.reminders.outcome.partial"),
+	unknown: kernelMessage("client.reminders.delivery.unknown"),
+	accepted: kernelMessage("client.reminders.outcome.accepted"),
+	"not-sent": kernelMessage("client.reminders.delivery.skipped"),
 };
 const initialCursor: string | undefined = undefined;
 
 const stateLabels = {
-	settled: "Completed",
-	cancelled: "Cancelled",
-	scheduled: "Scheduled",
-	processing: "Processing",
-	"needs-scheduling": "Needs scheduling",
+	settled: kernelMessage("client.reminders.state.settled"),
+	cancelled: kernelMessage("client.reminders.state.cancelled"),
+	scheduled: kernelMessage("client.reminders.state.scheduled"),
+	processing: kernelMessage("client.reminders.state.processing"),
+	"needs-scheduling": kernelMessage("client.reminders.state.needs-scheduling"),
 };
 const stateLabel = (row: Reminder) => (row.outcome ? labels[row.outcome] : stateLabels[row.state]);
 const outcomeVariants = {
@@ -69,18 +73,18 @@ const stateVariants = {
 } as const;
 const statusVariant = (row: Reminder) =>
 	row.outcome ? outcomeVariants[row.outcome] : stateVariants[row.state];
-const emptyStates: Readonly<Record<string, { title: string; description: string }>> = {
+const emptyStates: Readonly<Record<string, { title: Message; description: Message }>> = {
+	needs: {
+		title: kernelMessage("client.reminders.empty.needs.title"),
+		description: kernelMessage("client.reminders.empty.needs.description"),
+	},
 	history: {
-		title: "No reminder history",
-		description: "Sent and cancelled reminders appear here.",
+		title: kernelMessage("client.reminders.empty.history.title"),
+		description: kernelMessage("client.reminders.empty.history.description"),
 	},
 	upcoming: {
-		title: "No upcoming reminders",
-		description: "Scheduled reminders appear here until they are sent.",
-	},
-	needs: {
-		title: "Nothing needs scheduling",
-		description: "Reminders that need a new time before they can be sent appear here.",
+		title: kernelMessage("client.reminders.empty.upcoming.title"),
+		description: kernelMessage("client.reminders.empty.upcoming.description"),
 	},
 };
 
@@ -90,9 +94,11 @@ export function ReminderManager(props: {
 	readonly entityId?: EntityId | undefined;
 	readonly parentEntityId?: null | EntityId | undefined;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const [tab, setTab] = useState("upcoming");
 	const [editor, setEditor] = useState<null | "new" | Reminder>(null);
-	const [notice, setNotice] = useState<null | { text: string; tone: "danger" | "success" }>(null);
+	const [notice, setNotice] = useState<null | { text: Message; tone: "danger" | "success" }>(null);
 	const [stale, setStale] = useState(false);
 	const [detail, setDetail] = useState<null | string>(null);
 	const writesDisabled = props.disabled === true || stale;
@@ -134,15 +140,6 @@ export function ReminderManager(props: {
 		void Effect.runPromise(
 			mutation.mutateEffect(command).pipe(
 				Effect.match({
-					onSuccess: (result) => {
-						props.onChanged?.();
-						submissions.current.delete(key);
-						let message = action === "cancel" ? "Reminder cancelled." : "Reminder history removed.";
-						if (result.sendStarted) {
-							message = "Cancelled unsent work. A send already started and cannot be recalled.";
-						}
-						setNotice({ text: message, tone: "success" });
-					},
 					onFailure: (error) => {
 						const cause = error instanceof AuthenticatedApiError ? error.cause : undefined;
 						const changed = Schema.is(ReminderConflict)(cause);
@@ -150,9 +147,22 @@ export function ReminderManager(props: {
 						setNotice({
 							tone: "danger",
 							text: changed
-								? "This reminder changed. Reload before you continue."
-								: "The result could not be confirmed. Retry the same action to reuse its submission.",
+								? kernelMessage("client.reminders.changed")
+								: kernelMessage("client.reminders.notice.unconfirmed"),
 						});
+					},
+					onSuccess: (result) => {
+						props.onChanged?.();
+						submissions.current.delete(key);
+						let message = kernelMessage(
+							action === "cancel"
+								? "client.reminders.notice.cancelled"
+								: "client.reminders.notice.removed",
+						);
+						if (result.sendStarted) {
+							message = kernelMessage("client.reminders.notice.send-started");
+						}
+						setNotice({ text: message, tone: "success" });
 					},
 				}),
 			),
@@ -167,18 +177,30 @@ export function ReminderManager(props: {
 				<SegmentedControl
 					value={tab}
 					onChange={setTab}
-					label="Reminder view"
 					optionClassName="px-3"
+					label={t(kernelMessage("client.reminders.view"))}
 					options={[
-						{ value: "upcoming", label: "Upcoming", content: "Upcoming" },
-						{ value: "needs", label: "Needs scheduling", content: "Needs scheduling" },
-						{ value: "history", label: "History", content: "History" },
+						{
+							value: "upcoming",
+							label: t(kernelMessage("client.reminders.tab.upcoming")),
+							content: t(kernelMessage("client.reminders.tab.upcoming")),
+						},
+						{
+							value: "needs",
+							label: t(kernelMessage("client.reminders.state.needs-scheduling")),
+							content: t(kernelMessage("client.reminders.state.needs-scheduling")),
+						},
+						{
+							value: "history",
+							label: t(kernelMessage("client.reminders.tab.history")),
+							content: t(kernelMessage("client.reminders.tab.history")),
+						},
 					]}
 				/>
 				{props.entityId ? (
 					<Button size="sm" disabled={writesDisabled} onClick={() => setEditor("new")}>
 						<AppIcon size={14} name="plus" />
-						New reminder
+						{t(kernelMessage("client.reminders.new"))}
 					</Button>
 				) : null}
 			</div>
@@ -188,12 +210,12 @@ export function ReminderManager(props: {
 					action={
 						stale ? (
 							<Button size="sm" onClick={reload} variant="secondary">
-								Reload
+								{t(kernelMessage("common.action.reload"))}
 							</Button>
 						) : null
 					}
 				>
-					{notice.text}
+					{t(notice.text)}
 				</Notice>
 			) : null}
 			{query.isError ? (
@@ -201,31 +223,35 @@ export function ReminderManager(props: {
 					tone="danger"
 					action={
 						<Button size="sm" variant="secondary" onClick={query.retry}>
-							Retry
+							{t(kernelMessage("common.action.retry"))}
 						</Button>
 					}
 				>
-					Reminders could not be loaded.
+					{t(kernelMessage("client.reminders.load-failed"))}
 				</Notice>
 			) : null}
 			{query.isPending ? (
-				<div role="status" className="grid gap-3" aria-label="Loading reminders">
+				<div
+					role="status"
+					className="grid gap-3"
+					aria-label={t(kernelMessage("client.reminders.loading"))}
+				>
 					<Skeleton className="h-24 rounded-lg" />
 					<Skeleton className="h-24 rounded-lg" />
 				</div>
 			) : null}
 			{!query.isPending && !query.isError && reminders.length === 0 ? (
 				<EmptyState
-					title={emptyStates[tab].title}
+					title={t(emptyStates[tab].title)}
 					icon={<AppIcon size={18} name="clock" />}
-					description={emptyStates[tab].description}
+					description={t(emptyStates[tab].description)}
 					className="rounded-lg border border-dashed border-border"
 				/>
 			) : null}
 			<ul className="grid gap-3">
 				{reminders.map((row) => {
-					const status = stateLabel(row);
-					const reason = row.reason?.replaceAll("-", " ");
+					const status = t(stateLabel(row));
+					const reason = row.reason === null ? undefined : t(reminderReasonMessages[row.reason]);
 					return (
 						<li key={row.id}>
 							<Card className="grid gap-3">
@@ -245,38 +271,55 @@ export function ReminderManager(props: {
 										<AppIcon size={14} name="calendar" />
 										<span>
 											{row.dueAt
-												? new Intl.DateTimeFormat(undefined, {
-														timeStyle: "short",
-														dateStyle: "medium",
-														timeZone: row.timezone ?? "UTC",
-													}).format(new Date(row.dueAt))
-												: `Original schedule: ${row.originalSchedule?.date ?? row.originalSchedule?.dueAt ?? "Not available"}`}
+												? formatters
+														.dateTime({
+															timeStyle: "short",
+															dateStyle: "medium",
+															timeZone: row.timezone ?? "UTC",
+														})
+														.format(new Date(row.dueAt))
+												: t(
+														kernelMessage("client.reminders.original-schedule", {
+															schedule:
+																row.originalSchedule?.date ??
+																row.originalSchedule?.dueAt ??
+																t(kernelMessage("client.reminders.not-available")),
+														}),
+													)}
 										</span>
 										{row.dueAt && row.timezone ? (
 											<span className="text-text-subtle">· {row.timezone}</span>
 										) : null}
 									</p>
-									{reason && reason !== status.toLowerCase() ? (
-										<p className="first-letter:uppercase">{reason}</p>
-									) : null}
+									{reason && reason !== status ? <p>{reason}</p> : null}
 									{row.processingAt &&
 									row.dueAt &&
 									Date.parse(row.processingAt) > Date.parse(row.dueAt) ? (
-										<p>Processed after its scheduled time at {row.processingAt}.</p>
-									) : null}
-									{row.outcome === "unknown" ? (
 										<p>
-											A request may have reached a provider. It will not be resent automatically.
+											{t(
+												kernelMessage("client.reminders.processed-late", {
+													time: formatters
+														.dateTime({
+															timeStyle: "short",
+															dateStyle: "medium",
+															timeZone: row.timezone ?? "UTC",
+														})
+														.format(new Date(row.processingAt)),
+												}),
+											)}
 										</p>
 									) : null}
+									{row.outcome === "unknown" ? (
+										<p>{t(kernelMessage("client.reminders.unknown-detail"))}</p>
+									) : null}
 									{row.outcome === "accepted" || row.outcome === "partial" ? (
-										<p>Provider acceptance does not confirm that the recipient read the message.</p>
+										<p>{t(kernelMessage("client.reminders.accepted-detail"))}</p>
 									) : null}
 								</div>
 								<div className="-mx-1 flex flex-wrap items-center gap-1 border-t border-border pt-2">
 									{row.state === "needs-scheduling" && row.entityId ? (
 										<Button size="sm" disabled={writesDisabled} onClick={() => setEditor(row)}>
-											Schedule reminder
+											{t(kernelMessage("client.reminders.schedule"))}
 										</Button>
 									) : null}
 									{row.state === "scheduled" && row.entityId ? (
@@ -287,7 +330,7 @@ export function ReminderManager(props: {
 											onClick={() => setEditor(row)}
 										>
 											<AppIcon size={14} name="pencil" />
-											Edit
+											{t(kernelMessage("client.reminders.edit"))}
 										</Button>
 									) : null}
 									{row.state === "scheduled" ||
@@ -300,7 +343,7 @@ export function ReminderManager(props: {
 											disabled={writesDisabled || mutation.isPending}
 										>
 											<AppIcon size={14} name="circle-x" />
-											Cancel reminder
+											{t(kernelMessage("client.reminders.cancel"))}
 										</Button>
 									) : (
 										<>
@@ -312,7 +355,7 @@ export function ReminderManager(props: {
 													onClick={() => setEditor(row)}
 												>
 													<AppIcon size={14} name="rotate-ccw" />
-													Schedule again
+													{t(kernelMessage("client.reminders.schedule-again"))}
 												</Button>
 											) : null}
 											<Button
@@ -322,7 +365,7 @@ export function ReminderManager(props: {
 												disabled={writesDisabled || mutation.isPending}
 											>
 												<AppIcon size={14} name="archive" />
-												Remove history
+												{t(kernelMessage("client.reminders.remove-history"))}
 											</Button>
 										</>
 									)}
@@ -334,7 +377,7 @@ export function ReminderManager(props: {
 											aria-expanded={detail === row.id}
 											onClick={() => setDetail(detail === row.id ? null : row.id)}
 										>
-											Channel outcomes
+											{t(kernelMessage("client.reminders.channel-outcomes"))}
 											<AppIcon size={14} name={detail === row.id ? "chevron-up" : "chevron-down"} />
 										</Button>
 									) : null}
@@ -349,7 +392,6 @@ export function ReminderManager(props: {
 			</ul>
 			{query.hasNextPage ? (
 				<LoadMoreButton
-					label="Load more"
 					onClick={() => query.fetchNextPage()}
 					isFetchingNextPage={query.isFetchingNextPage}
 				/>
@@ -373,17 +415,18 @@ export function ReminderManager(props: {
 }
 
 function ReminderEntity(props: { readonly row: Reminder }) {
+	const t = useT();
 	return props.row.entityId ? (
 		<Link
 			to="/e/$entityId"
 			params={{ entityId: props.row.entityId }}
 			className="truncate text-label font-medium text-text-muted hover:text-text hover:underline"
 		>
-			{props.row.entityTitle ?? "Entity"}
+			{props.row.entityTitle ?? t(kernelMessage("client.reminders.entity"))}
 		</Link>
 	) : (
 		<span className="truncate text-label font-medium text-text-muted">
-			{props.row.entityTitle ?? "Entity no longer available"}
+			{props.row.entityTitle ?? t(kernelMessage("client.reminders.entity-unavailable"))}
 		</span>
 	);
 }

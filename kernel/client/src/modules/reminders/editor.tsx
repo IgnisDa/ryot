@@ -5,6 +5,11 @@ import {
 } from "@ryot-app/contract/modules/reminders/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -26,6 +31,20 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 import { type ReminderCommand, reminderCommandMutation } from "./service";
 
 type Reminder = RemindersResult["items"][number];
+type OriginalSchedule = NonNullable<Reminder["originalSchedule"]>;
+
+const originalScheduleText = (t: (message: Message) => Text, schedule: OriginalSchedule) => {
+	const value =
+		schedule.date ?? schedule.dueAt ?? t(kernelMessage("client.reminders.not-available"));
+	return schedule.timezone === null
+		? value
+		: t(
+				kernelMessage("client.reminders.editor.schedule-with-zone", {
+					value,
+					timezone: schedule.timezone,
+				}),
+			);
+};
 const selectIcons = {
 	checkIcon: <AppIcon size={16} name="check" />,
 	chevronIcon: <AppIcon size={16} name="chevron-down" />,
@@ -39,6 +58,7 @@ export function ReminderEditor(props: {
 	readonly initial?: Reminder | undefined;
 	readonly parentEntityId: null | EntityId;
 }) {
+	const t = useT();
 	const schedule = useRyotSchedule();
 	const mutation = useRyotMutation(reminderCommandMutation);
 	const initial = props.initial;
@@ -51,14 +71,14 @@ export function ReminderEditor(props: {
 	const [message, setMessage] = useState(initial?.message ?? "");
 	const [occurrence, setOccurrence] = useState("");
 	const [failure, setFailure] = useState<null | {
-		detail: string;
 		retry: boolean;
+		detail: Message;
 		reload: boolean;
 	}>(null);
 	const pending = useRef<null | ReminderCommand>(null);
 	const resolution = resolveDateTimeInput(wallTime, original, occurrence, timezone);
 	const zones = [...new Set(["UTC", timezone, ...Intl.supportedValuesOf("timeZone")])].map(
-		(zone) => ({ value: zone, label: zone }),
+		(zone) => ({ value: zone, label: formatDisplayText(t, zone) }),
 	);
 	const save = () => {
 		if (pending.current === null) {
@@ -70,7 +90,7 @@ export function ReminderEditor(props: {
 				setFailure({
 					retry: false,
 					reload: false,
-					detail: resolution.error ?? "Enter a message and a future date and time.",
+					detail: resolution.error ?? kernelMessage("client.reminders.editor.incomplete"),
 				});
 				return;
 			}
@@ -119,7 +139,7 @@ export function ReminderEditor(props: {
 							setFailure({
 								reload: true,
 								retry: false,
-								detail: "This reminder changed. Reload before you continue.",
+								detail: kernelMessage("client.reminders.changed"),
 							});
 						} else if (Schema.is(ReminderInvalid)(cause)) {
 							pending.current = null;
@@ -128,15 +148,14 @@ export function ReminderEditor(props: {
 								reload: cause.reason === "invalid-state",
 								detail:
 									cause.reason === "invalid-state"
-										? "Processing has started. Reload this reminder."
-										: "Check the message, future date and time, timezone and entity scope.",
+										? kernelMessage("client.reminders.editor.processing-started")
+										: kernelMessage("client.reminders.editor.invalid"),
 							});
 						} else {
 							setFailure({
 								retry: true,
 								reload: false,
-								detail:
-									"The result could not be confirmed. Retry sends the same submission, not a new reminder.",
+								detail: kernelMessage("client.reminders.editor.unconfirmed"),
 							});
 						}
 					},
@@ -145,23 +164,31 @@ export function ReminderEditor(props: {
 		);
 	};
 	const locked = mutation.isPending || failure?.retry === true || failure?.reload === true;
-	let saveLabel = editing ? "Save reminder" : "Schedule reminder";
+	let saveLabel = t(
+		editing
+			? kernelMessage("client.reminders.editor.save")
+			: kernelMessage("client.reminders.schedule"),
+	);
 	if (failure?.retry) {
-		saveLabel = "Retry submission";
+		saveLabel = t(kernelMessage("client.reminders.editor.retry-submission"));
 	}
 	return (
 		<Dialog
 			onClose={props.onClose}
 			dismissible={!mutation.isPending}
-			closeLabel="Close reminder editor"
-			title={editing ? "Edit reminder" : "Schedule reminder"}
+			closeLabel={t(kernelMessage("client.reminders.editor.close"))}
+			title={t(
+				editing
+					? kernelMessage("client.reminders.editor.edit")
+					: kernelMessage("client.reminders.schedule"),
+			)}
 			footer={
 				<>
 					<Button variant="secondary" onClick={props.onClose} disabled={mutation.isPending}>
-						Cancel
+						{t(kernelMessage("common.action.cancel"))}
 					</Button>
 					{failure?.reload ? (
-						<Button onClick={props.onReload}>Reload</Button>
+						<Button onClick={props.onReload}>{t(kernelMessage("common.action.reload"))}</Button>
 					) : (
 						<Button onClick={save} loading={mutation.isPending} disabled={mutation.isPending}>
 							{saveLabel}
@@ -173,17 +200,18 @@ export function ReminderEditor(props: {
 			<div className="grid gap-5">
 				{initial?.originalSchedule ? (
 					<Notice tone="info" icon={<AppIcon size={16} name="history" />}>
-						Original schedule:{" "}
-						{initial.originalSchedule.date ?? initial.originalSchedule.dueAt ?? "Not available"}
-						{initial.originalSchedule.timezone ? ` (${initial.originalSchedule.timezone})` : ""}.
-						Choose a new future time.
-						{initial.originalSchedule.mayHaveSent
-							? " The original occurrence may already have sent a notification."
-							: ""}
+						{t(
+							kernelMessage("client.reminders.editor.original-schedule", {
+								schedule: originalScheduleText(t, initial.originalSchedule),
+							}),
+						)}
+						{initial.originalSchedule.mayHaveSent ? (
+							<> {t(kernelMessage("client.reminders.editor.may-have-sent"))}</>
+						) : null}
 					</Notice>
 				) : null}
 				<fieldset disabled={locked} className="grid gap-4 border-0 p-0">
-					<Field label="Message">
+					<Field label={t(kernelMessage("client.reminders.editor.message"))}>
 						{(control) => (
 							<TextArea
 								{...control}
@@ -191,13 +219,18 @@ export function ReminderEditor(props: {
 								autoFocus
 								value={message}
 								maxLength={REMINDER_MESSAGE_MAX_LENGTH}
-								placeholder="What should this remind you about?"
 								onChange={(event) => setMessage(event.currentTarget.value)}
+								placeholder={t(kernelMessage("client.reminders.editor.message-placeholder"))}
 							/>
 						)}
 					</Field>
 					<div className="grid gap-4 sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-						<Field label="Date and time" error={wallTime === "" ? undefined : resolution.error}>
+						<Field
+							label={t(kernelMessage("client.reminders.editor.date-time"))}
+							error={
+								wallTime === "" || resolution.error === undefined ? undefined : t(resolution.error)
+							}
+						>
 							{(control) => (
 								<TextField
 									{...control}
@@ -214,14 +247,14 @@ export function ReminderEditor(props: {
 						</Field>
 						<div className="grid min-w-0 content-start gap-1.5">
 							<span aria-hidden="true" className="text-label font-medium text-text">
-								Timezone
+								{t(kernelMessage("client.reminders.editor.timezone"))}
 							</span>
 							<Select
 								{...selectIcons}
 								choices={zones}
-								label="Timezone"
 								value={timezone}
 								searchIcon={<AppIcon size={16} name="search" />}
+								label={t(kernelMessage("client.reminders.editor.timezone"))}
 								onChange={(zone) => {
 									setTimezone(zone);
 									setOccurrence("");
@@ -232,20 +265,21 @@ export function ReminderEditor(props: {
 					{resolution.choices.length > 1 ? (
 						<Select
 							{...selectIcons}
-							label="Time occurrence"
 							onChange={setOccurrence}
-							choices={resolution.choices}
 							value={resolution.occurrence}
-							placeholder="Choose an occurrence"
+							label={t(kernelMessage("client.reminders.editor.occurrence"))}
+							placeholder={t(kernelMessage("ui.datetime.choose-occurrence"))}
+							choices={resolution.choices.map((choice) =>
+								Object.assign({}, choice, { label: t(choice.label) }),
+							)}
 						/>
 					) : null}
 				</fieldset>
 				<p className="flex gap-2 text-xs text-text-subtle">
 					<AppIcon size={14} name="info" className="mt-px shrink-0" />
-					Saved as one fixed instant. Travel and device timezone changes do not move it. Delivery is
-					checked periodically, so it is not a precise alarm.
+					{t(kernelMessage("client.reminders.editor.fixed-instant"))}
 				</p>
-				{failure ? <Notice tone="danger">{failure.detail}</Notice> : null}
+				{failure ? <Notice tone="danger">{t(failure.detail)}</Notice> : null}
 			</div>
 		</Dialog>
 	);

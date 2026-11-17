@@ -5,6 +5,9 @@ import {
 	type EntitySourceReference,
 } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { type EntityId, PublicationId } from "@ryot-app/contract/schema/brands";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type {
 	SharePublicationOutcome,
 	SharePublicationRequest,
@@ -42,8 +45,6 @@ import {
 	sourcePublicationsQuery,
 } from "./service";
 import { PublicationHeader } from "./status";
-
-const FIRST_LINK_LABEL = "Shared link";
 
 type PublishDefaults = { readonly name: string; readonly icon: string };
 
@@ -84,6 +85,7 @@ export function ShareSheet(props: {
 	readonly serverUrl: ServerOrigin;
 	readonly source: EntitySourceReference;
 }) {
+	const t = useT();
 	const { disabled, serverUrl: server } = props;
 	const publications = useRyotQuery(sourcePublicationsQuery, props.source);
 	const pro = useEntitlement("pro");
@@ -94,20 +96,21 @@ export function ShareSheet(props: {
 		content = null;
 	} else if (publications.data === undefined) {
 		content = publications.isError ? (
-			<Notice tone="danger" action={<Button onClick={publications.refetch}>Retry</Button>}>
-				Sharing details could not be loaded.
+			<Notice
+				tone="danger"
+				action={
+					<Button onClick={publications.refetch}>{t(kernelMessage("common.action.retry"))}</Button>
+				}
+			>
+				{t(kernelMessage("client.publications.share.load-failed"))}
 			</Notice>
 		) : (
-			<StatusMessage tone="pending">Loading sharing details...</StatusMessage>
+			<StatusMessage tone="pending">
+				{t(kernelMessage("client.publications.share.loading"))}
+			</StatusMessage>
 		);
 	} else if (publication === undefined && !pro) {
-		content = (
-			<EntitlementNotice
-				entitlement="pro"
-				feature="Publishing share links"
-				icon={<AppIcon size={16} name="share" />}
-			/>
-		);
+		content = <EntitlementNotice entitlement="pro" icon={<AppIcon size={16} name="share" />} />;
 	} else if (publication === undefined) {
 		content = (
 			<PublishForm
@@ -130,10 +133,10 @@ export function ShareSheet(props: {
 	return (
 		<Dialog
 			size="md"
-			title="Share"
 			onClose={props.onClose}
-			closeLabel="Close sharing"
-			description="Anyone with a link can view a read-only page of these items without an account."
+			title={t(kernelMessage("common.action.share"))}
+			closeLabel={t(kernelMessage("client.publications.share.close"))}
+			description={t(kernelMessage("client.publications.share.description"))}
 		>
 			<div className="grid gap-4">
 				{created === null ? null : <CreatedLink url={created.url} title={created.title} />}
@@ -152,6 +155,7 @@ function PublishForm(props: PublishFormProps) {
 }
 
 function CollectionPublishForm(props: PublishFormProps & { readonly collectionId: EntityId }) {
+	const t = useT();
 	const header = useRyotQuery(collectionHeaderQuery, props.collectionId);
 	return (
 		<PublishDefaultsGate
@@ -161,7 +165,12 @@ function CollectionPublishForm(props: PublishFormProps & { readonly collectionId
 			defaults={
 				header.data === undefined
 					? undefined
-					: { icon: COLLECTION_PUBLICATION_ICON, name: header.data?.name ?? "Collection" }
+					: {
+							icon: COLLECTION_PUBLICATION_ICON,
+							name:
+								header.data?.name ??
+								t(kernelMessage("client.publications.share.default-collection")),
+						}
 			}
 		/>
 	);
@@ -170,6 +179,7 @@ function CollectionPublishForm(props: PublishFormProps & { readonly collectionId
 function SavedViewPublishForm(
 	props: PublishFormProps & { readonly reference: SavedViewReference },
 ) {
+	const t = useT();
 	const view = useRyotQuery(publicationSavedViewQuery, props.reference);
 	return (
 		<PublishDefaultsGate
@@ -179,7 +189,13 @@ function SavedViewPublishForm(
 			defaults={
 				view.data === undefined
 					? undefined
-					: { icon: view.data?.icon ?? "library", name: view.data?.name ?? "Saved view" }
+					: {
+							icon: view.data?.icon ?? "library",
+							name:
+								view.data === null
+									? t(kernelMessage("client.route.saved-view.default-title"))
+									: formatDisplayText(t, view.data.name),
+						}
 			}
 		/>
 	);
@@ -192,13 +208,17 @@ function PublishDefaultsGate(
 		readonly defaults: undefined | PublishDefaults;
 	},
 ) {
+	const t = useT();
 	if (props.defaults === undefined) {
 		return props.isError ? (
-			<Notice tone="danger" action={<Button onClick={props.onRetry}>Retry</Button>}>
-				This could not be loaded.
+			<Notice
+				tone="danger"
+				action={<Button onClick={props.onRetry}>{t(kernelMessage("common.action.retry"))}</Button>}
+			>
+				{t(kernelMessage("client.publications.share.defaults-failed"))}
 			</Notice>
 		) : (
-			<StatusMessage tone="pending">Loading...</StatusMessage>
+			<StatusMessage tone="pending">{t(kernelMessage("common.status.loading"))}</StatusMessage>
 		);
 	}
 	return <PublishDetails {...props} defaults={props.defaults} />;
@@ -210,6 +230,7 @@ function SharedPublication(props: {
 	readonly serverUrl: ServerOrigin;
 	readonly publication: PublicationSummary;
 }) {
+	const t = useT();
 	const navigate = useNavigate();
 	const preview = usePublicationPreview();
 	const { publication } = props;
@@ -229,7 +250,7 @@ function SharedPublication(props: {
 					onClick={() => preview.open(publication.id)}
 				>
 					<AppIcon size={16} name="eye" />
-					Preview as visitor
+					{t(kernelMessage("client.publications.share.preview"))}
 				</Button>
 				<Button
 					size="sm"
@@ -239,7 +260,7 @@ function SharedPublication(props: {
 						void navigate({ to: "/settings/publications" });
 					}}
 				>
-					Manage publications
+					{t(kernelMessage("client.publications.share.manage"))}
 				</Button>
 			</div>
 		</>
@@ -247,6 +268,8 @@ function SharedPublication(props: {
 }
 
 function PublishDetails(props: PublishFormProps & { readonly defaults: PublishDefaults }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const publish = useRyotMutation(createPublicationMutation);
 	const createLink = useRyotMutation(createPublicationLinkMutation);
 	const [title, setTitle] = useState(props.defaults.name);
@@ -271,14 +294,14 @@ function PublishDetails(props: PublishFormProps & { readonly defaults: PublishDe
 				});
 				const { secret } = yield* createLink.mutateEffect({
 					expiresAt: null,
-					label: FIRST_LINK_LABEL,
 					publicationId: PublicationId.make(publicationId),
+					label: t(kernelMessage("client.publications.share.first-link")),
 				});
 				return publicationShareUrl(props.serverUrl, publicationId, `#${secret}`);
 			}).pipe(
 				Effect.match({
 					onSuccess: (url) => props.onCreated({ url, title }),
-					onFailure: (failure) => setError(publicationFailureText(failure)),
+					onFailure: (failure) => setError(publicationFailureText(t, formatters, failure)),
 				}),
 			),
 		);
@@ -300,7 +323,7 @@ function PublishDetails(props: PublishFormProps & { readonly defaults: PublishDe
 					disabled={props.disabled || publish.isPending || createLink.isPending}
 				>
 					<AppIcon size={16} name="link" />
-					Publish and create link
+					{t(kernelMessage("client.publications.share.publish"))}
 				</Button>
 			</div>
 		</form>

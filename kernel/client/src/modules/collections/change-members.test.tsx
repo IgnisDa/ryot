@@ -14,6 +14,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
+
 import { ChangeCollectionMembers } from "./change-members";
 
 const rows = (items: readonly unknown[]) => ({
@@ -95,6 +97,7 @@ const mountMembers = (
 		<RyotProvider runtime={ryot.runtime}>
 			<ChangeCollectionMembers request={request} complete={(outcome) => outcomes.push(outcome)} />
 		</RyotProvider>,
+		{ wrapper: testI18nWrapper() },
 	);
 	return {
 		outcomes,

@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Checkbox, Field, TextField } from "@ryot-app/plugin-ui-sdk";
 import type { ReactNode } from "react";
 
@@ -8,9 +10,10 @@ export function PublicationDetailsFields(props: {
 	readonly onTitleChange: (title: string) => void;
 	readonly onShowOwnerNameChange: (showOwnerName: boolean) => void;
 }) {
+	const t = useT();
 	return (
 		<>
-			<Field label="Title">
+			<Field label={t(kernelMessage("client.publications.details.title"))}>
 				{(control) => (
 					<TextField
 						{...control}
@@ -23,12 +26,11 @@ export function PublicationDetailsFields(props: {
 			{props.children}
 			<Checkbox
 				checked={props.showOwnerName}
-				label="Show my name to visitors"
+				label={t(kernelMessage("client.publications.details.show-owner"))}
 				onChange={(event) => props.onShowOwnerNameChange(event.target.checked)}
 			/>
 			<p className="text-xs text-text-muted">
-				Visitors see these items as they change, but not your activity, ratings, or other
-				collections.
+				{t(kernelMessage("client.publications.details.visitors-note"))}
 			</p>
 		</>
 	);

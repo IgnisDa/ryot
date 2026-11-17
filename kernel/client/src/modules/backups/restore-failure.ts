@@ -1,4 +1,6 @@
 import { BackupConflict } from "@ryot-app/contract/modules/backups/schemas";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Match } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -8,26 +10,24 @@ export const BACKUP_RESTORE_STEPS = ["choose", "confirm"] as const;
 export type BackupRestoreStep = (typeof BACKUP_RESTORE_STEPS)[number];
 
 export type BackupRestoreFailure = {
-	readonly detail: string;
+	readonly detail: Message;
 	readonly step: undefined | BackupRestoreStep;
 };
 
 const fallback = {
 	step: undefined,
-	detail: "This restore could not be started. Try again.",
+	detail: kernelMessage("client.backups.restore-failure.fallback"),
 } as const;
 
 const presentReason = (reason: BackupConflict["reason"]): BackupRestoreFailure =>
 	Match.value(reason).pipe(
 		Match.when({ category: "pages", code: "account-not-clean" }, () => ({
 			step: "confirm" as const,
-			detail:
-				"This account already has pages, including any unpublished drafts. Restore this backup into a new, empty account.",
+			detail: kernelMessage("client.backups.restore-failure.account-has-pages"),
 		})),
 		Match.when({ code: "account-not-clean" }, () => ({
 			step: "confirm" as const,
-			detail:
-				"This account already has data in it. A backup can only be restored into a new, empty account.",
+			detail: kernelMessage("client.backups.restore-failure.account-not-empty"),
 		})),
 		Match.when({ code: "active-run-exists" }, () => fallback),
 		Match.when({ code: "export-still-running" }, () => fallback),

@@ -8,6 +8,9 @@ import {
 	CollectionNotFound,
 } from "@ryot-app/contract/modules/collections/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	createRyotHostMutation,
 	useRyotMutation,
@@ -102,9 +105,9 @@ const selectIcons = {
 };
 
 type EditorErrors = {
-	readonly name?: string | undefined;
-	readonly general?: string | undefined;
-	readonly fields: Readonly<Record<number, ReadonlyArray<string>>>;
+	readonly name?: Message | undefined;
+	readonly general?: Message | undefined;
+	readonly fields: Readonly<Record<number, ReadonlyArray<Message>>>;
 };
 
 const noErrors: EditorErrors = { fields: {} };
@@ -112,47 +115,55 @@ const noErrors: EditorErrors = { fields: {} };
 const isBadRequest = Schema.is(CollectionBadRequest);
 const isNotFound = Schema.is(CollectionNotFound);
 
-const fieldErrorLabels: Partial<Record<string, string>> = {
-	defaultValue: "The default value doesn't fit this field.",
-	key: "This field can't be kept; remove it and add it again.",
-	label: `Enter a label of at most ${collectionFieldLimits.labelLength} characters.`,
-	description: `Descriptions are at most ${collectionFieldLimits.descriptionLength} characters.`,
-	choices: `Enter at least one unique choice per line, each at most ${collectionFieldLimits.choiceLength} characters.`,
+const fieldErrorLabels: Partial<Record<string, Message>> = {
+	key: kernelMessage("client.collections.editor.field-error.key"),
+	defaultValue: kernelMessage("client.collections.editor.field-error.default-value"),
+	label: kernelMessage("client.collections.editor.field-error.label", {
+		max: collectionFieldLimits.labelLength,
+	}),
+	choices: kernelMessage("client.collections.editor.field-error.choices", {
+		max: collectionFieldLimits.choiceLength,
+	}),
+	description: kernelMessage("client.collections.editor.field-error.description", {
+		max: collectionFieldLimits.descriptionLength,
+	}),
 };
 
 const editorErrors = (error: unknown): EditorErrors => {
 	const cause = error instanceof AuthenticatedApiError ? error.cause : undefined;
 	if (isNotFound(cause)) {
-		return { ...noErrors, general: "This collection no longer exists." };
+		return { ...noErrors, general: kernelMessage("client.collections.load.missing") };
 	}
 	if (!isBadRequest(cause)) {
-		return { ...noErrors, general: "The collection could not be saved. Try again." };
+		return { ...noErrors, general: kernelMessage("client.collections.editor.error.save-failed") };
 	}
 	const reason = cause.reason;
 	if (reason.code === "name-taken") {
-		return { ...noErrors, name: "You already have a collection with this name." };
+		return { ...noErrors, name: kernelMessage("client.collections.editor.error.name-taken") };
 	}
 	if (reason.code === "name-required") {
-		return { ...noErrors, name: "Enter a name." };
+		return { ...noErrors, name: kernelMessage("error.entity-editor.name-required") };
 	}
 	if (reason.code === "collection-stale") {
-		return { ...noErrors, general: "This collection changed elsewhere. Close and reopen it." };
+		return { ...noErrors, general: kernelMessage("client.collections.editor.error.stale") };
 	}
 	if (reason.code === "invalid-fields" || reason.code === "reserved-field-key") {
-		const fields: Record<number, Array<string>> = {};
-		let general: string | undefined;
+		const fields: Record<number, Array<Message>> = {};
+		let general: Message | undefined;
 		for (const path of reason.paths) {
 			const index = Number(path[1]);
 			const label = fieldErrorLabels[path[2] ?? ""];
 			if (path[0] === "fields" && Number.isInteger(index) && label !== undefined) {
 				fields[index] = [...(fields[index] ?? []), label];
 			} else {
-				general = `Collections can have at most ${collectionFieldLimits.fields} fields.`;
+				general = kernelMessage("client.collections.editor.error.too-many-fields", {
+					max: collectionFieldLimits.fields,
+				});
 			}
 		}
 		return { fields, general };
 	}
-	return { ...noErrors, general: "The collection could not be saved. Check the fields." };
+	return { ...noErrors, general: kernelMessage("client.collections.editor.error.check-fields") };
 };
 
 export function CollectionEditor(props: {
@@ -174,6 +185,7 @@ function ExistingCollectionEditor(props: {
 	readonly collectionId: EntityId;
 	readonly onSaved: (collectionId: EntityId) => void;
 }) {
+	const t = useT();
 	const result = useRyotQuery(collectionHeaderQuery, props.collectionId, {
 		refreshOnMutation: false,
 	});
@@ -182,12 +194,12 @@ function ExistingCollectionEditor(props: {
 	}
 	return (
 		<CollectionLoadDialog
-			title="Edit collection"
 			onClose={props.onClose}
 			failed={result.isError}
 			onRetry={result.refetch}
 			missing={result.data === null}
-			closeLabel="Close collection editor"
+			title={t(kernelMessage("client.collections.editor.load-title"))}
+			closeLabel={t(kernelMessage("client.collections.editor.close"))}
 		/>
 	);
 }
@@ -197,20 +209,25 @@ function FieldDraftEditor(props: {
 	readonly draft: FieldDraft;
 	readonly disabled: boolean;
 	readonly onRemove: () => void;
-	readonly errors: ReadonlyArray<string>;
+	readonly errors: ReadonlyArray<Message>;
 	readonly onChange: (draft: FieldDraft) => void;
 }) {
+	const t = useT();
 	const { draft } = props;
 	const update = (change: Partial<FieldDraft>) => props.onChange({ ...draft, ...change });
 	const position = props.index + 1;
+	const typeChoices = fieldTypeChoices.map((choice) => ({
+		value: choice.value,
+		label: t(choice.label),
+	}));
 	return (
 		<fieldset
 			disabled={props.disabled}
-			aria-label={`Field ${position}`}
 			className="grid min-w-0 gap-3 rounded-lg border border-border p-3"
+			aria-label={t(kernelMessage("client.collections.editor.field", { position }))}
 		>
 			<div className="grid gap-3 sm:grid-cols-2">
-				<Field label="Label">
+				<Field label={t(kernelMessage("client.collections.editor.label"))}>
 					{(control) => (
 						<TextField
 							{...control}
@@ -219,14 +236,14 @@ function FieldDraftEditor(props: {
 						/>
 					)}
 				</Field>
-				<Field label="Type">
+				<Field label={t(kernelMessage("client.collections.editor.type"))}>
 					{(control) => (
 						<Select
 							{...control}
 							{...selectIcons}
-							label="Type"
 							value={draft.type}
-							choices={fieldTypeChoices}
+							choices={typeChoices}
+							label={t(kernelMessage("client.collections.editor.type"))}
 							onChange={(value) => {
 								const type = fieldTypeChoices.find((choice) => choice.value === value)?.value;
 								if (type !== undefined) {
@@ -237,7 +254,7 @@ function FieldDraftEditor(props: {
 					)}
 				</Field>
 			</div>
-			<Field optional label="Description">
+			<Field optional label={t(kernelMessage("client.collections.editor.description"))}>
 				{(control) => (
 					<TextField
 						{...control}
@@ -247,7 +264,10 @@ function FieldDraftEditor(props: {
 				)}
 			</Field>
 			{hasCollectionFieldChoices(draft.type) ? (
-				<Field label="Choices" hint="One choice per line">
+				<Field
+					label={t(kernelMessage("client.collections.editor.choices"))}
+					hint={t(kernelMessage("client.collections.editor.choices-hint"))}
+				>
 					{(control) => (
 						<TextArea
 							{...control}
@@ -259,19 +279,19 @@ function FieldDraftEditor(props: {
 				</Field>
 			) : null}
 			{hasDefaultValue(draft.type) ? (
-				<Field optional label="Default value">
+				<Field optional label={t(kernelMessage("client.collections.editor.default-value"))}>
 					{(control) =>
 						draft.type === "boolean" ? (
 							<Select
 								{...control}
 								{...selectIcons}
-								label="Default value"
 								value={draft.defaultValue}
 								onChange={(defaultValue) => update({ defaultValue })}
+								label={t(kernelMessage("client.collections.editor.default-value"))}
 								choices={[
-									{ value: "", label: "None" },
-									{ label: "Yes", value: "true" },
-									{ label: "No", value: "false" },
+									{ value: "", label: t(kernelMessage("common.value.none")) },
+									{ value: "true", label: t(kernelMessage("common.value.yes")) },
+									{ value: "false", label: t(kernelMessage("common.value.no")) },
 								]}
 							/>
 						) : (
@@ -287,17 +307,17 @@ function FieldDraftEditor(props: {
 			) : null}
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<Checkbox
-					label="Required"
 					checked={draft.required}
+					label={t(kernelMessage("client.collections.editor.required"))}
 					onChange={(event) => update({ required: event.currentTarget.checked })}
 				/>
 				<Button variant="ghost" onClick={props.onRemove}>
-					Remove field {position}
+					{t(kernelMessage("client.collections.editor.remove-field", { position }))}
 				</Button>
 			</div>
 			{props.errors.map((error) => (
-				<Notice key={error} tone="danger">
-					{error}
+				<Notice tone="danger" key={error.key}>
+					{t(error)}
 				</Notice>
 			))}
 		</fieldset>
@@ -312,6 +332,7 @@ function CollectionEditorForm(props: {
 	readonly header: null | NonNullable<CollectionHeaderResult>;
 }) {
 	const { header } = props;
+	const t = useT();
 	const router = useRouter();
 	const saveMutation = useRyotMutation(saveCollection);
 	const deleteMutation = useRyotMutation(deleteCollection);
@@ -331,7 +352,7 @@ function CollectionEditorForm(props: {
 
 	let errors = noErrors;
 	if (nameRequired) {
-		errors = { ...noErrors, name: "Enter a name." };
+		errors = { ...noErrors, name: kernelMessage("error.entity-editor.name-required") };
 	} else if (saveMutation.error !== null && !saveMutation.isPending) {
 		errors = editorErrors(saveMutation.error);
 	}
@@ -387,8 +408,12 @@ function CollectionEditorForm(props: {
 			size="lg"
 			dismissible={!busy}
 			onClose={props.onClose}
-			closeLabel="Close collection editor"
-			title={header === null ? "New collection" : `Edit ${header.name}`}
+			closeLabel={t(kernelMessage("client.collections.editor.close"))}
+			title={t(
+				header === null
+					? kernelMessage("client.collections.editor.title-new")
+					: kernelMessage("client.collections.editor.title-edit", { name: header.name }),
+			)}
 			footer={
 				<>
 					{header === null ? null : (
@@ -402,20 +427,27 @@ function CollectionEditorForm(props: {
 								setConfirmingDelete(true);
 							}}
 						>
-							Delete collection
+							{t(kernelMessage("client.collections.editor.delete"))}
 						</Button>
 					)}
 					<Button disabled={busy} variant="secondary" onClick={props.onClose}>
-						Cancel
+						{t(kernelMessage("common.action.cancel"))}
 					</Button>
 					<Button onClick={save} disabled={busy} loading={saveMutation.isPending}>
-						{header === null ? "Create collection" : "Save collection"}
+						{t(
+							header === null
+								? kernelMessage("client.collections.editor.create")
+								: kernelMessage("client.collections.editor.save"),
+						)}
 					</Button>
 				</>
 			}
 		>
 			<fieldset disabled={busy} className="grid min-w-0 gap-4 border-0 p-0">
-				<Field label="Name" error={errors.name}>
+				<Field
+					label={t(kernelMessage("client.collections.editor.name"))}
+					error={errors.name === undefined ? undefined : t(errors.name)}
+				>
 					{(control) => (
 						<TextField
 							{...control}
@@ -425,7 +457,7 @@ function CollectionEditorForm(props: {
 						/>
 					)}
 				</Field>
-				<Field optional label="Description">
+				<Field optional label={t(kernelMessage("client.collections.editor.description"))}>
 					{(control) => (
 						<TextArea
 							{...control}
@@ -435,17 +467,21 @@ function CollectionEditorForm(props: {
 						/>
 					)}
 				</Field>
-				<section className="grid gap-3" aria-label="Member fields">
+				<section
+					className="grid gap-3"
+					aria-label={t(kernelMessage("client.collections.editor.member-fields"))}
+				>
 					<div>
-						<h3 className="text-sm font-semibold text-text">Member fields</h3>
+						<h3 className="text-sm font-semibold text-text">
+							{t(kernelMessage("client.collections.editor.member-fields"))}
+						</h3>
 						<p className="text-xs text-text-muted">
-							Extra details recorded for each item you add to this collection.
+							{t(kernelMessage("client.collections.editor.member-fields-hint"))}
 						</p>
 					</div>
 					{header !== null && header.fields === null ? (
 						<Notice tone="warning">
-							This collection's existing fields use an unsupported format and will be replaced when
-							you save.
+							{t(kernelMessage("client.collections.editor.unsupported-fields"))}
 						</Notice>
 					) : null}
 					{drafts.map((draft, index) => (
@@ -467,24 +503,24 @@ function CollectionEditorForm(props: {
 						variant="secondary"
 						onClick={() => setDrafts((current) => [...current, newFieldDraft()])}
 					>
-						Add field
+						{t(kernelMessage("client.collections.editor.add-field"))}
 					</Button>
 				</section>
-				{errors.general === undefined ? null : <Notice tone="danger">{errors.general}</Notice>}
+				{errors.general === undefined ? null : <Notice tone="danger">{t(errors.general)}</Notice>}
 			</fieldset>
 			{header !== null && confirmingDelete ? (
 				<DestructiveConfirmation
 					triggerRef={deleteTrigger}
-					pendingLabel="Deleting..."
-					actionLabel="Delete collection"
-					title={`Delete ${header.name}?`}
 					pending={deleteMutation.isPending}
 					onConfirm={() => remove(header.entityId)}
 					onClose={() => setConfirmingDelete(false)}
-					detail="The collection, its memberships, and its history are deleted. The items in it are kept."
+					pendingLabel={t(kernelMessage("common.status.deleting"))}
+					actionLabel={t(kernelMessage("client.collections.editor.delete"))}
+					detail={t(kernelMessage("client.collections.editor.delete-detail"))}
+					title={t(kernelMessage("client.collections.editor.delete-title", { name: header.name }))}
 					errorMessage={
 						deleteMutation.error !== null && !deleteMutation.isPending
-							? "The collection could not be deleted. Try again."
+							? t(kernelMessage("client.collections.editor.delete-failed"))
 							: undefined
 					}
 				/>

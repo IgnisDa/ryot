@@ -16,7 +16,7 @@ import {
 	defaultReminderQueryResponse,
 	makeReminderRow,
 	mountReminderTestScreen,
-} from "./test-support";
+} from "./reminder-screen.test-support";
 
 const rowPage = (items: readonly unknown[], hasMore = false, nextCursor: null | string = null) => ({
 	items,
@@ -474,7 +474,7 @@ it.live(
 				fireEvent.click(screen.getByRole("button", { name: "Channel outcomes" }));
 				yield* Effect.promise(() => screen.findByText("Email channel: Accepted by provider"));
 				expect(
-					screen.getByText("Telegram channel: Delivery unknown · delivery unknown"),
+					screen.getByText("Telegram channel: Delivery unknown · Delivery unknown"),
 				).toBeDefined();
 				const loadMore = screen.getByRole("button", { name: "Load more channel outcomes" });
 				fireEvent.click(loadMore);

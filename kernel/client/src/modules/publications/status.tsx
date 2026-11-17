@@ -1,4 +1,6 @@
 import { PublicationId } from "@ryot-app/contract/schema/brands";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Badge } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -6,10 +8,21 @@ import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
 
 import { publicationStatusQuery } from "./service";
 
+const attentionMessages = {
+	"page-unavailable": kernelMessage("client.publications.status.attention.page-unavailable"),
+	"bindings-invalid": kernelMessage("client.publications.status.attention.bindings-invalid"),
+	"source-unavailable": kernelMessage("client.publications.status.attention.source-unavailable"),
+	"snapshot-too-large": kernelMessage("client.publications.status.attention.snapshot-too-large"),
+	"dependency-unavailable": kernelMessage(
+		"client.publications.status.attention.dependency-unavailable",
+	),
+} as const;
+
 export function PublicationHeader(props: {
 	readonly heading: "h2" | "h3";
 	readonly publication: PublicationSummary;
 }) {
+	const t = useT();
 	const { publication } = props;
 	const Heading = props.heading;
 	const active = publication.revokedAt === null;
@@ -24,14 +37,22 @@ export function PublicationHeader(props: {
 						{publication.title}
 					</Heading>
 					<Badge variant="neutral">
-						{publication.definition.mode === "snapshot" ? "Snapshot" : "Live"}
+						{t(
+							publication.definition.mode === "snapshot"
+								? kernelMessage("client.publications.mode.snapshot")
+								: kernelMessage("client.publications.mode.live"),
+						)}
 					</Badge>
-					{!active && <Badge variant="danger">Revoked</Badge>}
+					{!active && (
+						<Badge variant="danger">{t(kernelMessage("client.publications.status.revoked"))}</Badge>
+					)}
 				</div>
 				{active ? (
 					<PublicationStatusLine publicationId={PublicationId.make(publication.id)} />
 				) : (
-					<span className="text-xs text-text-muted">No one can open it anymore.</span>
+					<span className="text-xs text-text-muted">
+						{t(kernelMessage("client.publications.status.revoked-detail"))}
+					</span>
 				)}
 			</div>
 		</div>
@@ -39,36 +60,37 @@ export function PublicationHeader(props: {
 }
 
 function PublicationStatusLine(props: { readonly publicationId: PublicationId }) {
+	const t = useT();
 	const status = useRyotQuery(publicationStatusQuery, props.publicationId);
 	if (status.data === undefined) {
 		return (
 			<span className="text-xs text-text-muted">
-				{status.isError ? "Status unavailable" : "Checking..."}
+				{t(
+					status.isError
+						? kernelMessage("client.publications.status.unavailable")
+						: kernelMessage("client.publications.status.checking"),
+				)}
 			</span>
 		);
 	}
 	if (status.data.status === "ready") {
 		const count = status.data.itemCount;
 		if (count === undefined) {
-			return <span className="text-xs text-text-muted">Ready</span>;
+			return (
+				<span className="text-xs text-text-muted">
+					{t(kernelMessage("client.publications.status.ready"))}
+				</span>
+			);
 		}
 		return (
 			<span className="text-xs text-text-muted">
-				{count === 1 ? "1 item" : `${count.toLocaleString()} items`}
+				{t(kernelMessage("sdk.browser.item-count", { count }))}
 			</span>
 		);
 	}
 	return (
 		<span className="text-xs font-medium text-danger">
-			{
-				{
-					"page-unavailable": "Needs attention: page is unavailable",
-					"source-unavailable": "Needs attention: source is unavailable",
-					"bindings-invalid": "Needs attention: check the bound arguments",
-					"dependency-unavailable": "Needs attention: a page dependency is unavailable",
-					"snapshot-too-large": "Needs attention: snapshot exceeds the server size limit",
-				}[status.data.reason.code]
-			}
+			{t(attentionMessages[status.data.reason.code])}
 		</span>
 	);
 }

@@ -165,7 +165,7 @@ it.live(
 		Effect.gen(function* () {
 			const view = mountSheet([]);
 			try {
-				yield* Effect.promise(() => screen.findByText("Publishing share links requires Ryot Pro."));
+				yield* Effect.promise(() => screen.findByText("This requires Ryot Pro."));
 				expect(screen.queryByRole("button", { name: "Publish and create link" })).toBeNull();
 				expect(view.requests).toEqual([]);
 			} finally {

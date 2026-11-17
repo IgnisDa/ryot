@@ -1,3 +1,6 @@
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	Button,
 	DestructiveConfirmation,
@@ -20,12 +23,9 @@ import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { StatusState } from "#/modules/ui/status-state";
 
 export const NOTIFICATION_CHANNELS_LOAD_ERROR = {
-	title: "Unable to load notification channels",
-	detail: "Your notification channels could not be loaded. Check the server and try again.",
+	title: kernelMessage("client.notifications.load-error.title"),
+	detail: kernelMessage("client.notifications.load-error.detail"),
 };
-
-const INTRO =
-	"Ryot sends notifications to every channel you leave enabled here. Automations and integrations use the same channels.";
 
 export type NotificationChannelListState =
 	| { readonly status: "empty" }
@@ -57,19 +57,22 @@ type NotificationChannelsViewProps = {
 };
 
 export function NotificationChannelsView(props: NotificationChannelsViewProps) {
+	const t = useT();
 	if (props.state.status === "failed") {
 		return (
 			<LoadErrorState
 				onRetry={props.onRetry}
-				title={NOTIFICATION_CHANNELS_LOAD_ERROR.title}
-				detail={NOTIFICATION_CHANNELS_LOAD_ERROR.detail}
+				title={t(NOTIFICATION_CHANNELS_LOAD_ERROR.title)}
+				detail={t(NOTIFICATION_CHANNELS_LOAD_ERROR.detail)}
 			/>
 		);
 	}
 	const ready = props.state.status === "ready" ? props.state : undefined;
 	return (
 		<div className="flex flex-col gap-6 pb-4">
-			<p className="text-sm leading-6 text-text-muted">{INTRO}</p>
+			<p className="text-sm leading-6 text-text-muted">
+				{t(kernelMessage("client.notifications.intro"))}
+			</p>
 			{props.isDemoProtected ? <DemoProtectionMessage /> : null}
 			{ready === undefined ? null : (
 				<Button
@@ -80,15 +83,15 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 					className="flex w-full items-center justify-center gap-2 sm:w-auto sm:self-start sm:px-6"
 				>
 					<AppIcon size={16} name="plus" className="text-accent-ink" />
-					Add a channel
+					{t(kernelMessage("client.notifications.add"))}
 				</Button>
 			)}
 			{ready === undefined ? (
 				<StatusState
 					className="py-12"
-					title="No notification channels yet"
+					title={t(kernelMessage("client.notifications.empty.title"))}
+					detail={t(kernelMessage("client.notifications.empty.detail"))}
 					icon={<AppIcon size={40} name="inbox" className="text-text-subtle" />}
-					detail="Add a channel and Ryot can tell you when something in your library changes."
 					action={
 						<Button
 							type="button"
@@ -97,7 +100,7 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 							disabled={props.isDemoProtected}
 							className="w-full sm:w-auto sm:px-6"
 						>
-							Add a channel
+							{t(kernelMessage("client.notifications.add"))}
 						</Button>
 					}
 				/>
@@ -105,18 +108,22 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 				<div className="flex flex-col gap-2">
 					<div className="flex items-center justify-between">
 						<span className="text-[11px] font-medium uppercase tracking-[0.8px] text-text-subtle">
-							Channels
+							{t(kernelMessage("client.notifications.channels"))}
 						</span>
 						<Button
 							type="button"
 							variant="secondary"
 							onClick={props.onSendTest}
-							aria-label="Send a test notification to every enabled channel"
 							className="flex min-h-9 items-center gap-1.5 px-3 py-1.5 text-sm"
+							aria-label={t(kernelMessage("client.notifications.send-test-aria"))}
 							disabled={props.isDemoProtected || props.isTesting || props.enabledCount === 0}
 						>
 							<AppIcon size={14} name="send" className="text-text" />
-							{props.isTesting ? "Sending..." : "Send test notification"}
+							{t(
+								props.isTesting
+									? kernelMessage("client.notifications.sending")
+									: kernelMessage("client.notifications.send-test"),
+							)}
 						</Button>
 					</div>
 					{props.testDetail === undefined ? null : (
@@ -144,12 +151,11 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 							type="button"
 							variant="ghost"
 							onClick={props.onShowMore}
-							label="Show more channels"
 							disabled={props.isFetching}
-							loadingLabel="Loading more..."
-							aria-label="Show more notification channels"
 							isFetchingNextPage={props.isFetchingNextPage}
+							label={t(kernelMessage("client.notifications.show-more"))}
 							className="self-start py-2 text-sm font-medium text-accent-text"
+							aria-label={t(kernelMessage("client.notifications.show-more-aria"))}
 						/>
 					) : null}
 				</div>
@@ -168,9 +174,11 @@ function NotificationChannelRow(props: {
 	readonly channel: NotificationChannelSummary;
 	readonly onToggle: (isDisabled: boolean) => void;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const [isConfirming, setIsConfirming] = useState(false);
-	const name = notificationChannelName(props.channel.channel);
+	const name = formatDisplayText(t, notificationChannelName(props.channel.channel));
 
 	return (
 		<div
@@ -183,22 +191,26 @@ function NotificationChannelRow(props: {
 			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 				<span className="truncate text-sm font-medium text-text">{name}</span>
 				<span className="truncate text-xs text-text-subtle">
-					{notificationChannelDetail(props.channel, props.nowMs)}
+					{notificationChannelDetail(t, formatters, props.channel, props.nowMs)}
 				</span>
 			</span>
 			<Switch
 				checked={!props.channel.isDisabled}
 				onChange={(checked) => props.onToggle(!checked)}
 				disabled={props.isPending || props.isDemoProtected}
-				label={`${props.channel.isDisabled ? "Enable" : "Pause"} the ${name} channel`}
+				label={t(
+					props.channel.isDisabled
+						? kernelMessage("client.notifications.enable-aria", { name })
+						: kernelMessage("client.notifications.pause-aria", { name }),
+				)}
 			/>
 			<button
 				type="button"
 				ref={triggerRef}
 				onClick={() => setIsConfirming(true)}
-				aria-label={`Delete the ${name} channel`}
 				disabled={props.isPending || props.isDemoProtected}
 				className="shrink-0 p-1.5 text-text-subtle disabled:opacity-50"
+				aria-label={t(kernelMessage("client.notifications.delete-aria", { name }))}
 			>
 				<AppIcon size={16} name="trash-2" />
 			</button>
@@ -207,13 +219,13 @@ function NotificationChannelRow(props: {
 					triggerRef={triggerRef}
 					pending={props.isPending}
 					onConfirm={props.onDelete}
-					pendingLabel="Deleting..."
-					actionLabel="Delete channel"
-					title={`Delete the ${name} channel?`}
 					onClose={() => setIsConfirming(false)}
-					detail={notificationChannelDeleteConfirmation(props.channel)}
+					pendingLabel={t(kernelMessage("common.status.deleting"))}
+					detail={notificationChannelDeleteConfirmation(t, props.channel)}
+					actionLabel={t(kernelMessage("client.notifications.delete-action"))}
+					title={t(kernelMessage("client.notifications.delete-title", { name }))}
 					errorMessage={
-						props.deleteFailed ? "This channel could not be deleted. Try again." : undefined
+						props.deleteFailed ? t(kernelMessage("client.notifications.delete-failed")) : undefined
 					}
 				/>
 			)}

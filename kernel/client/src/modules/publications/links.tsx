@@ -2,6 +2,11 @@ import {
 	PublicationBadRequest,
 	PublicationsDisabled,
 } from "@ryot-app/contract/modules/publications/schemas";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Badge,
@@ -15,6 +20,7 @@ import {
 	RowGroup,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
+import { formatDateLabel } from "@ryot-app/plugin-ui-sdk/datetime";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
 import { Effect, Schema } from "effect";
@@ -23,45 +29,55 @@ import { type SubmitEvent, useRef, useState } from "react";
 import { AuthenticatedApiError, isEntitlementRequiredError } from "#/api/authenticated";
 import type { ServerOrigin } from "#/api/origin";
 import { useShareAction } from "#/modules/device/share";
-import { formatDateLabel, formatRelativeTime } from "#/modules/ui/run/run-status";
+import { formatRelativeTime } from "#/modules/ui/run/run-status";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 import { createPublicationLinkMutation, publicationCommandMutation } from "./service";
 
-export const publicationFailureText = (error: unknown) => {
+export const publicationFailureText = (
+	t: (message: Message) => Text,
+	formatters: Formatters,
+	error: unknown,
+) => {
 	if (isEntitlementRequiredError(error)) {
-		return entitlementRequiredMessage(error.cause.reason.entitlement, "Publishing share links");
+		return t(entitlementRequiredMessage(error.cause.reason.entitlement));
 	}
 	const cause = error instanceof AuthenticatedApiError ? error.cause : undefined;
 	if (Schema.is(PublicationBadRequest)(cause)) {
 		const { reason } = cause;
 		if (reason.code === "required-field") {
-			return `Enter a ${reason.field}.`;
+			return t(kernelMessage("client.publications.error.required-field", { field: reason.field }));
 		}
 		if (reason.code === "snapshot-too-large") {
-			return `The snapshot exceeds the server limit of ${reason.limitBytes.toLocaleString()} bytes.`;
+			return t(
+				kernelMessage("client.publications.error.snapshot-too-large", { limit: reason.limitBytes }),
+			);
 		}
 		if (reason.code === "source-unavailable") {
-			return "This collection or view can no longer be published.";
+			return t(kernelMessage("client.publications.error.source-unavailable"));
 		}
 		if (reason.code === "expiry-in-past") {
-			return "Choose an expiry in the future.";
+			return t(kernelMessage("client.publications.error.expiry-in-past"));
 		}
 		if (reason.code === "page-unavailable") {
-			return "This page is not published or is unavailable.";
+			return t(kernelMessage("client.publications.error.page-unavailable"));
 		}
 		if (reason.code === "dependency-unavailable") {
-			return "A page dependency is unavailable.";
+			return t(kernelMessage("client.publications.error.dependency-unavailable"));
 		}
 		if (reason.code === "bindings-invalid") {
-			return reason.issues.map((issue) => issue.message).join("; ");
+			return Text(
+				formatters
+					.list({ type: "unit", style: "long" })
+					.format(reason.issues.map((issue) => issue.message)),
+			);
 		}
-		return "This publication was revoked.";
+		return t(kernelMessage("client.publications.error.revoked"));
 	}
 	if (Schema.is(PublicationsDisabled)(cause)) {
-		return "Sharing is turned off on this server.";
+		return t(kernelMessage("client.publications.error.disabled"));
 	}
-	return "The change could not be saved. Try again.";
+	return t(kernelMessage("client.publications.error.generic"));
 };
 
 export const publicationShareUrl = (
@@ -75,29 +91,44 @@ type Link = PublicationSummary["links"]["items"][number];
 const isActive = (link: Link, now: number) =>
 	link.revokedAt === null && (link.expiresAt === null || Date.parse(link.expiresAt) > now);
 
-const linkDetail = (link: Link, now: number) => {
+const linkDetail = (
+	t: (message: Message) => Text,
+	formatters: Formatters,
+	link: Link,
+	now: number,
+) => {
 	if (!isActive(link, now)) {
-		return `Created ${formatDateLabel(link.createdAt)}`;
+		return kernelMessage("client.publications.link.created", {
+			date: formatDateLabel(formatters, link.createdAt),
+		});
 	}
-	const parts = [
-		link.expiresAt === null ? "Never expires" : `Expires ${formatDateLabel(link.expiresAt)}`,
-		link.lastExchangedAt === null
-			? "Not opened yet"
-			: `Last opened ${formatRelativeTime(link.lastExchangedAt, now)}`,
-	];
-	return parts.join(" · ");
+	return kernelMessage("client.publications.link.detail", {
+		expiry:
+			link.expiresAt === null
+				? kernelMessage("client.publications.link.never-expires")
+				: kernelMessage("client.publications.link.expires", {
+						date: formatDateLabel(formatters, link.expiresAt),
+					}),
+		opened:
+			link.lastExchangedAt === null
+				? kernelMessage("client.publications.link.not-opened")
+				: kernelMessage("client.publications.link.last-opened", {
+						relative: formatRelativeTime(formatters, t, link.lastExchangedAt, now),
+					}),
+	});
 };
 
 export function CreatedLink(props: { readonly url: string; readonly title: string }) {
+	const t = useT();
 	const shareAction = useShareAction();
 	return (
-		<Notice tone="success" title="Your link is ready">
+		<Notice tone="success" title={t(kernelMessage("client.publications.link.ready"))}>
 			<CopyField
-				label="New link"
 				className="mt-2"
 				value={props.url}
+				label={t(kernelMessage("client.publications.link.new"))}
 				action={shareAction({ url: props.url, title: props.title })}
-				hint="Copy it now. It is shown only once, and anyone with it can view this page."
+				hint={t(kernelMessage("client.publications.link.copy-hint"))}
 			/>
 		</Notice>
 	);
@@ -108,6 +139,8 @@ export function PublicationLinks(props: {
 	readonly serverUrl: ServerOrigin;
 	readonly publication: PublicationSummary;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const create = useRyotMutation(createPublicationLinkMutation);
 	const command = useRyotMutation(publicationCommandMutation);
 	const [label, setLabel] = useState("");
@@ -133,7 +166,7 @@ export function PublicationLinks(props: {
 				})
 				.pipe(
 					Effect.match({
-						onFailure: (failure) => setError(publicationFailureText(failure)),
+						onFailure: (failure) => setError(publicationFailureText(t, formatters, failure)),
 						onSuccess: ({ secret }) => {
 							setLabel("");
 							setExpiresOn("");
@@ -146,11 +179,14 @@ export function PublicationLinks(props: {
 	};
 
 	return (
-		<section aria-label="Links" className="grid gap-3">
+		<section
+			className="grid gap-3"
+			aria-label={t(kernelMessage("client.publications.link.section"))}
+		>
 			{created === null ? null : <CreatedLink url={created} title={props.publication.title} />}
 			{links.length === 0 ? (
 				<p className="text-sm text-text-muted">
-					No links yet. Create one to share this page with people.
+					{t(kernelMessage("client.publications.link.empty"))}
 				</p>
 			) : (
 				<RowGroup>
@@ -158,7 +194,7 @@ export function PublicationLinks(props: {
 						<Row
 							key={link.id}
 							title={link.label}
-							description={linkDetail(link, now)}
+							description={t(linkDetail(t, formatters, link, now))}
 							leading={
 								<AppIcon
 									size={16}
@@ -177,11 +213,15 @@ export function PublicationLinks(props: {
 											setRevoking(link);
 										}}
 									>
-										Revoke
+										{t(kernelMessage("client.publications.link.revoke"))}
 									</Button>
 								) : (
 									<Badge variant={link.revokedAt === null ? "neutral" : "danger"}>
-										{link.revokedAt === null ? "Expired" : "Revoked"}
+										{t(
+											link.revokedAt === null
+												? kernelMessage("client.publications.link.expired")
+												: kernelMessage("client.publications.status.revoked"),
+										)}
 									</Badge>
 								)
 							}
@@ -191,17 +231,23 @@ export function PublicationLinks(props: {
 			)}
 			{revoking === null ? null : (
 				<DestructiveConfirmation
-					title="Revoke this link?"
-					actionLabel="Revoke link"
-					pendingLabel="Revoking..."
 					triggerRef={revokeTrigger}
 					pending={command.isPending}
+					title={t(kernelMessage("client.publications.link.revoke-title"))}
+					pendingLabel={t(kernelMessage("client.publications.link.revoking"))}
+					actionLabel={t(kernelMessage("client.publications.link.revoke-action"))}
 					onClose={() => {
 						command.reset();
 						setRevoking(null);
 					}}
-					errorMessage={command.error === null ? undefined : publicationFailureText(command.error)}
-					detail={`Anyone using "${revoking.label}" can no longer open this page. Other links keep working.`}
+					detail={t(
+						kernelMessage("client.publications.link.revoke-detail", { label: revoking.label }),
+					)}
+					errorMessage={
+						command.error === null
+							? undefined
+							: publicationFailureText(t, formatters, command.error)
+					}
 					onConfirm={() =>
 						void Effect.runPromise(
 							command
@@ -225,25 +271,25 @@ export function PublicationLinks(props: {
 						onClick={() => setAdding(true)}
 					>
 						<AppIcon size={16} name="plus" />
-						New link
+						{t(kernelMessage("client.publications.link.new"))}
 					</Button>
 				</div>
 			)}
 			{active && adding && (
 				<form onSubmit={submit} className="flex flex-wrap items-end gap-2">
-					<Field label="Who is it for?">
+					<Field label={t(kernelMessage("client.publications.link.audience"))}>
 						{(control) => (
 							<TextField
 								{...control}
 								value={label}
 								maxLength={80}
 								density="compact"
-								placeholder="For example, Family"
 								onChange={(event) => setLabel(event.target.value)}
+								placeholder={t(kernelMessage("client.publications.link.audience-placeholder"))}
 							/>
 						)}
 					</Field>
-					<Field optional label="Expires on">
+					<Field optional label={t(kernelMessage("client.publications.link.expires-on"))}>
 						{(control) => (
 							<TextField
 								{...control}
@@ -255,10 +301,10 @@ export function PublicationLinks(props: {
 						)}
 					</Field>
 					<Button size="sm" type="submit" disabled={props.disabled || create.isPending}>
-						Create link
+						{t(kernelMessage("client.publications.link.create"))}
 					</Button>
 					<Button size="sm" type="button" variant="ghost" onClick={() => setAdding(false)}>
-						Cancel
+						{t(kernelMessage("common.action.cancel"))}
 					</Button>
 				</form>
 			)}

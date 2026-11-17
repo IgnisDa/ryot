@@ -3,20 +3,27 @@ import type {
 	BackupRunKind,
 	BackupRunStatus,
 } from "@ryot-app/contract/modules/backups/schemas";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { BackupRunItem } from "@ryot-app/ryotql-recipes/backups";
 import { DateTime, Match } from "effect";
 
 import {
+	determinateRunProgress,
 	isTerminalRunStatus,
 	type RunProgress,
 	type RunProgressValue,
 } from "#/modules/ui/run/run-status";
 
+type Translate = (message: Message) => Text;
+
 type BackupRunProgress = Pick<BackupRunItem, "status" | "progress">;
 
 type BackupRunExpiry = Pick<BackupRunItem, "kind" | "status" | "expiresAt">;
 
-type BackupRunFailureNotice = { readonly label: string; readonly detail: string };
+type BackupRunFailureNotice = { readonly label: Message; readonly detail: Message };
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -31,8 +38,8 @@ export const liveBackupRun = <Run extends Pick<BackupRunItem, "status">>(runs: r
 
 export const backupRunKindLabel = (kind: BackupRunKind) =>
 	Match.value(kind).pipe(
-		Match.when("export", () => "Backup"),
-		Match.when("restore", () => "Restore"),
+		Match.when("export", () => kernelMessage("client.backups.kind.export")),
+		Match.when("restore", () => kernelMessage("client.backups.kind.restore")),
 		Match.exhaustive,
 	);
 
@@ -42,47 +49,61 @@ export const canDownloadBackupRun = (run: BackupRunExpiry, nowMs: number) =>
 	run.expiresAt !== null &&
 	instant(run.expiresAt) > nowMs;
 
-export const backupRunProgress = (run: BackupRunProgress): RunProgress => {
-	if (run.status === "pending") {
-		return { label: "Preparing", kind: "indeterminate" };
-	}
-	const percent = Math.min(Math.max(Math.round(run.progress), 0), 100);
-	return { percent, kind: "determinate", label: `${percent}%` };
-};
+export const backupRunProgress = (
+	t: Translate,
+	formatters: Formatters,
+	run: BackupRunProgress,
+): RunProgress =>
+	run.status === "pending"
+		? { kind: "indeterminate", label: t(kernelMessage("client.backups.preparing")) }
+		: determinateRunProgress(formatters, run.progress);
 
-export const backupRunProgressValue = (run: BackupRunProgress): RunProgressValue => {
-	const progress = backupRunProgress(run);
+export const backupRunProgressValue = (
+	t: Translate,
+	formatters: Formatters,
+	run: BackupRunProgress,
+): RunProgressValue => {
+	const progress = backupRunProgress(t, formatters, run);
 	return progress.kind === "indeterminate"
-		? { text: "Preparing" }
-		: { min: 0, max: 100, now: progress.percent, text: `${progress.percent}% done` };
+		? { text: progress.label }
+		: {
+				min: 0,
+				max: 100,
+				now: progress.percent,
+				text: t(
+					kernelMessage("client.backups.progress-done", { fraction: progress.percent / 100 }),
+				),
+			};
 };
 
-export const backupExpiryLabel = (run: Pick<BackupRunItem, "expiresAt">, nowMs: number) => {
+export const backupExpiryLabel = (
+	run: Pick<BackupRunItem, "expiresAt">,
+	nowMs: number,
+): Message | undefined => {
 	if (run.expiresAt === null) {
 		return undefined;
 	}
 	const remaining = instant(run.expiresAt) - nowMs;
 	if (remaining <= 0) {
-		return "Expired";
+		return kernelMessage("client.backups.expiry.expired");
 	}
 	if (remaining < MINUTE_MS) {
-		return "Expires in under a minute";
+		return kernelMessage("client.backups.expiry.under-a-minute");
 	}
 	if (remaining < HOUR_MS) {
-		const minutes = Math.round(remaining / MINUTE_MS);
-		return minutes === 1 ? "Expires in 1 minute" : `Expires in ${minutes} minutes`;
+		return kernelMessage("client.backups.expiry.minutes", {
+			count: Math.round(remaining / MINUTE_MS),
+		});
 	}
 	if (remaining < DAY_MS) {
-		const hours = Math.round(remaining / HOUR_MS);
-		return hours === 1 ? "Expires in 1 hour" : `Expires in ${hours} hours`;
+		return kernelMessage("client.backups.expiry.hours", { count: Math.round(remaining / HOUR_MS) });
 	}
-	const days = Math.round(remaining / DAY_MS);
-	return days === 1 ? "Expires in 1 day" : `Expires in ${days} days`;
+	return kernelMessage("client.backups.expiry.days", { count: Math.round(remaining / DAY_MS) });
 };
 
 const stoppedEarly = {
-	label: "Stopped early",
-	detail: "This stopped before it finished. Nothing was left half-written.",
+	label: kernelMessage("client.backups.failure.stopped-early.label"),
+	detail: kernelMessage("client.backups.failure.stopped-early.detail"),
 } as const;
 
 export const backupRunFailureNotice = (failure: null | BackupRunFailure): BackupRunFailureNotice =>
@@ -90,29 +111,24 @@ export const backupRunFailureNotice = (failure: null | BackupRunFailure): Backup
 		? stoppedEarly
 		: Match.value(failure).pipe(
 				Match.when({ category: "pages", code: "account-not-clean" }, () => ({
-					label: "Account has pages",
-					detail:
-						"This account already had pages, including any unpublished drafts, so nothing was changed. Restore this backup into a new, empty account.",
+					label: kernelMessage("client.backups.failure.account-has-pages.label"),
+					detail: kernelMessage("client.backups.failure.account-has-pages.detail"),
 				})),
 				Match.when({ code: "account-not-clean" }, () => ({
-					label: "Account not empty",
-					detail:
-						"This account already had data in it, so nothing was changed. A backup can only be restored into a new, empty account.",
+					label: kernelMessage("client.backups.failure.account-not-empty.label"),
+					detail: kernelMessage("client.backups.failure.account-not-empty.detail"),
 				})),
 				Match.when({ code: "archive-unsupported" }, () => ({
-					label: "Archive unsupported",
-					detail:
-						"This archive uses a zip form Ryot cannot open. Upload the original file exactly as Ryot exported it.",
+					label: kernelMessage("client.backups.failure.archive-unsupported.label"),
+					detail: kernelMessage("client.backups.failure.archive-unsupported.detail"),
 				})),
 				Match.when({ code: "required-plugin-unavailable" }, () => ({
-					label: "Plugin missing",
-					detail:
-						"This backup needs a plugin that is not installed on this server. Install it, then restore again.",
+					label: kernelMessage("client.backups.failure.plugin-missing.label"),
+					detail: kernelMessage("client.backups.failure.plugin-missing.detail"),
 				})),
 				Match.when({ code: "upload-unavailable" }, () => ({
-					label: "Upload expired",
-					detail:
-						"The file you uploaded was no longer on the server when this restore ran, so nothing was changed. Upload the backup again.",
+					label: kernelMessage("client.backups.failure.upload-expired.label"),
+					detail: kernelMessage("client.backups.failure.upload-expired.detail"),
 				})),
 				Match.when({ code: "archive-invalid" }, ({ issue, maxCount }) =>
 					issue === "entry-too-large" ||
@@ -120,34 +136,45 @@ export const backupRunFailureNotice = (failure: null | BackupRunFailure): Backup
 					issue === "total-size-exceeded" ||
 					issue === "entry-count-exceeded"
 						? {
-								label: "Backup limit reached",
-								detail:
-									"This backup exceeds a supported size or entry limit. No account data was changed.",
+								label: kernelMessage("client.backups.failure.limit-reached.label"),
+								detail: kernelMessage("client.backups.failure.limit-reached.detail"),
 							}
 						: {
-								label: "Archive damaged",
-								detail:
-									"This archive was damaged or incomplete, so nothing was changed. Download the backup again and retry.",
+								label: kernelMessage("client.backups.failure.archive-damaged.label"),
+								detail: kernelMessage("client.backups.failure.archive-damaged.detail"),
 							},
 				),
 				Match.when({ code: "unexpected-failure" }, () => stoppedEarly),
 				Match.exhaustive,
 			);
 
-export const backupRunOutcomeLabel = (run: BackupRunItem, nowMs: number) => {
+export const backupRunOutcomeLabel = (
+	t: Translate,
+	formatters: Formatters,
+	run: BackupRunItem,
+	nowMs: number,
+) => {
 	if (run.status === "failed") {
-		return backupRunFailureNotice(run.failure).label;
+		return t(backupRunFailureNotice(run.failure).label);
 	}
 	if (!isTerminalRunStatus(run.status)) {
-		return backupRunProgress(run).label;
+		return backupRunProgress(t, formatters, run).label;
 	}
 	if (run.kind === "restore") {
-		return "Restored";
+		return t(kernelMessage("client.backups.outcome.restored"));
 	}
-	return canDownloadBackupRun(run, nowMs) ? "Ready to download" : "No longer available";
+	return t(
+		kernelMessage(
+			canDownloadBackupRun(run, nowMs)
+				? "client.backups.outcome.ready-to-download"
+				: "client.backups.outcome.unavailable",
+		),
+	);
 };
 
 export const backupRunDeleteConfirmation = (run: Pick<BackupRunItem, "kind">) =>
-	run.kind === "export"
-		? "This removes this record and the stored archive from your server. Nothing in your account is deleted, and any copy you already downloaded is untouched."
-		: "This removes this record only. Nothing that was restored into your account is deleted.";
+	kernelMessage(
+		run.kind === "export"
+			? "client.backups.delete-confirmation.export"
+			: "client.backups.delete-confirmation.restore",
+	);

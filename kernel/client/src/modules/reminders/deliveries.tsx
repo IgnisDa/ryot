@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -8,15 +10,16 @@ import clsx from "clsx";
 
 import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 
+import { reminderReasonMessages } from "./presentation";
 import { reminderDeliveriesQuery } from "./service";
 
 const statusLabels = {
-	queued: "Queued",
-	failed: "Failed",
-	sending: "Sending",
-	skipped: "Not sent",
-	unknown: "Delivery unknown",
-	accepted: "Accepted by provider",
+	queued: kernelMessage("client.reminders.delivery.queued"),
+	failed: kernelMessage("client.reminders.delivery.failed"),
+	sending: kernelMessage("client.reminders.delivery.sending"),
+	skipped: kernelMessage("client.reminders.delivery.skipped"),
+	unknown: kernelMessage("client.reminders.delivery.unknown"),
+	accepted: kernelMessage("client.reminders.delivery.accepted"),
 };
 const statusDots = {
 	sending: "bg-info",
@@ -32,6 +35,7 @@ export function ReminderDeliveries(props: {
 	readonly reminderId: string;
 	readonly processing: boolean;
 }) {
+	const t = useT();
 	const query = useRyotInfiniteQuery(
 		reminderDeliveriesQuery,
 		{ reminderId: props.reminderId },
@@ -53,27 +57,26 @@ export function ReminderDeliveries(props: {
 	});
 	return (
 		<div
-			aria-label="Channel outcomes"
+			aria-label={t(kernelMessage("client.reminders.channel-outcomes"))}
 			className="grid gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-label text-text"
 		>
-			{query.isPending ? <p role="status">Loading channel outcomes...</p> : null}
+			{query.isPending ? (
+				<p role="status">{t(kernelMessage("client.reminders.delivery.loading"))}</p>
+			) : null}
 			{query.isError ? (
 				<Notice
 					tone="danger"
 					action={
 						<Button size="sm" variant="secondary" onClick={query.retry}>
-							Retry outcomes
+							{t(kernelMessage("common.action.retry"))}
 						</Button>
 					}
 				>
-					Channel outcomes could not be loaded.
+					{t(kernelMessage("client.reminders.delivery.load-failed"))}
 				</Notice>
 			) : null}
 			{!query.isPending && items.length === 0 ? (
-				<p className="text-text-muted">
-					No retained channel details. Detailed outcomes expire after 30 days; the reminder's
-					compact outcome remains.
-				</p>
+				<p className="text-text-muted">{t(kernelMessage("client.reminders.delivery.empty"))}</p>
 			) : null}
 			<ul className="grid gap-1.5">
 				{items.map((row) => (
@@ -83,17 +86,27 @@ export function ReminderDeliveries(props: {
 							className={clsx("size-1.5 shrink-0 rounded-full", statusDots[row.status])}
 						/>
 						<span>
-							{row.description || row.channel}: {statusLabels[row.status]}
-							{row.reason ? ` · ${row.reason.replaceAll("-", " ")}` : ""}
+							{t(
+								row.reason === null
+									? kernelMessage("client.reminders.delivery.line", {
+											status: statusLabels[row.status],
+											channel: row.description || row.channel,
+										})
+									: kernelMessage("client.reminders.delivery.line-with-reason", {
+											status: statusLabels[row.status],
+											channel: row.description || row.channel,
+											reason: reminderReasonMessages[row.reason],
+										}),
+							)}
 						</span>
 					</li>
 				))}
 			</ul>
 			{query.hasNextPage ? (
 				<LoadMoreButton
-					label="Load more channel outcomes"
 					onClick={() => query.fetchNextPage()}
 					isFetchingNextPage={query.isFetchingNextPage}
+					label={t(kernelMessage("client.reminders.delivery.load-more"))}
 				/>
 			) : null}
 		</div>

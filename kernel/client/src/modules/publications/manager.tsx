@@ -10,6 +10,10 @@ import {
 import { PublicationId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -70,15 +74,20 @@ export function PublicationPageEditor(props: {
 	readonly publication: null | PublicationSummary;
 	readonly onCreated?: (publicationId: string) => void;
 }) {
+	const t = useT();
 	const page = useRyotQuery(publicationPageQuery, { arguments: { pageId: props.pageId } });
 	if (page.data?.publishedDefinition == null) {
 		return (
 			<>
 				<Notice tone={page.isError ? "danger" : "info"}>
-					{page.isPending ? "Loading page…" : "This page is not published or is unavailable."}
+					{t(
+						page.isPending
+							? kernelMessage("client.page-authoring.page.loading")
+							: kernelMessage("client.publications.error.page-unavailable"),
+					)}
 				</Notice>
 				<Button variant="ghost" onClick={props.onDone}>
-					Cancel
+					{t(kernelMessage("common.action.cancel"))}
 				</Button>
 			</>
 		);
@@ -96,6 +105,7 @@ export function PublicationsManager(props: {
 	readonly disabled: boolean;
 	readonly serverUrl: ServerOrigin;
 }) {
+	const t = useT();
 	const [editing, setEditing] = useState<null | "new" | PublicationSummary>(null);
 	const query = useRyotInfiniteQuery(
 		publicationsQuery,
@@ -125,23 +135,27 @@ export function PublicationsManager(props: {
 	return (
 		<div className="grid gap-4">
 			<p className="text-sm text-text-muted">
-				Publish a read-only page with live data or a frozen snapshot. Anyone with a link can view it
-				without an account.
+				{t(kernelMessage("client.publications.manager.intro"))}
 			</p>
 			<div>
 				<Button disabled={props.disabled} onClick={() => setEditing("new")}>
-					New publication
+					{t(kernelMessage("client.publications.manager.new"))}
 				</Button>
 			</div>
 			{query.isError && publications.length === 0 ? (
-				<Notice tone="danger" action={<Button onClick={query.refetch}>Retry</Button>}>
-					Your publications could not be loaded.
+				<Notice
+					tone="danger"
+					action={
+						<Button onClick={query.refetch}>{t(kernelMessage("common.action.retry"))}</Button>
+					}
+				>
+					{t(kernelMessage("client.publications.manager.load-failed"))}
 				</Notice>
 			) : null}
 			{!query.isPending && !query.isError && publications.length === 0 ? (
 				<EmptyState
-					title="Nothing shared yet"
-					description="Use Share on a collection or saved view, or create a publication here."
+					title={t(kernelMessage("client.publications.manager.empty.title"))}
+					description={t(kernelMessage("client.publications.manager.empty.description"))}
 				/>
 			) : null}
 			{publications.map((publication) => (
@@ -155,7 +169,6 @@ export function PublicationsManager(props: {
 			))}
 			{query.data?.pageInfo.hasMore === true && (
 				<LoadMoreButton
-					label="Load more"
 					onClick={query.fetchNextPage}
 					disabled={query.isFetchingNextPage}
 					isFetchingNextPage={query.isFetchingNextPage}
@@ -170,6 +183,7 @@ function PublicationEditor(props: {
 	readonly onDone: () => void;
 	readonly publication: null | PublicationSummary;
 }) {
+	const t = useT();
 	const pages = useRyotInfiniteQuery(
 		publicationPagesQuery,
 		{ arguments: {} },
@@ -196,7 +210,7 @@ function PublicationEditor(props: {
 	});
 	let content = (
 		<Button variant="ghost" onClick={props.onDone}>
-			Cancel
+			{t(kernelMessage("common.action.cancel"))}
 		</Button>
 	);
 	if (selected === "kernel" && props.publication?.definition.page.kind === "kernel") {
@@ -215,38 +229,52 @@ function PublicationEditor(props: {
 	return (
 		<Card className="grid gap-4">
 			<Select
-				label="Page"
 				value={selected}
 				onChange={setSelected}
 				disabled={props.disabled}
-				placeholder="Choose a published page"
 				checkIcon={<AppIcon size={16} name="check" />}
 				chevronIcon={<AppIcon size={16} name="chevron-down" />}
+				label={t(kernelMessage("client.publications.manager.page"))}
+				placeholder={t(kernelMessage("client.publications.manager.choose-page"))}
 				choices={[
 					...(initial?.kind === "kernel"
-						? [{ value: "kernel", label: "Collection or saved view page" }]
+						? [
+								{
+									value: "kernel",
+									label: t(kernelMessage("client.publications.manager.kernel-page")),
+								},
+							]
 						: []),
 					...(initial?.kind === "page" && !available.some((page) => page.id === initial.pageId)
-						? [{ value: initial.pageId, label: "Current page" }]
+						? [
+								{
+									value: initial.pageId,
+									label: t(kernelMessage("client.publications.manager.current-page")),
+								},
+							]
 						: []),
-					...available.map((page) => ({ value: page.id, label: page.name })),
+					...available.map((page) => ({ value: page.id, label: formatDisplayText(t, page.name) })),
 				]}
 			/>
 			{pages.isError ? (
-				<Notice tone="danger" action={<Button onClick={pages.refetch}>Retry</Button>}>
-					Pages could not be loaded.
+				<Notice
+					tone="danger"
+					action={
+						<Button onClick={pages.refetch}>{t(kernelMessage("common.action.retry"))}</Button>
+					}
+				>
+					{t(kernelMessage("client.page-authoring.list.load-failed"))}
 				</Notice>
 			) : null}
 			{pages.data?.pageInfo.hasMore === true ? (
 				<LoadMoreButton
-					label="Load more pages"
 					onClick={pages.fetchNextPage}
 					isFetchingNextPage={pages.isFetchingNextPage}
+					label={t(kernelMessage("client.publications.manager.load-more-pages"))}
 				/>
 			) : null}
 			<p className="text-sm text-text-muted">
-				Choose a page published in Settings → Pages. Use Share on a collection or saved view to
-				publish its items.
+				{t(kernelMessage("client.publications.manager.page-help"))}
 			</p>
 			{content}
 		</Card>
@@ -259,6 +287,8 @@ function PublicationCard(props: {
 	readonly serverUrl: ServerOrigin;
 	readonly publication: PublicationSummary;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const { publication } = props;
 	const command = useRyotMutation(publicationCommandMutation);
 	const preview = usePublicationPreview();
@@ -277,24 +307,26 @@ function PublicationCard(props: {
 	const confirmation =
 		confirming === "revoke"
 			? {
-					actionLabel: "Stop sharing",
-					pendingLabel: "Stopping...",
-					title: "Stop sharing this publication?",
-					detail: "Every link to it stops working, and it cannot be shared again.",
+					title: t(kernelMessage("client.publications.manager.stop-title")),
+					detail: t(kernelMessage("client.publications.manager.stop-detail")),
+					pendingLabel: t(kernelMessage("client.publications.manager.stopping")),
+					actionLabel: t(kernelMessage("client.publications.manager.stop-sharing")),
 				}
 			: {
-					pendingLabel: "Deleting...",
-					actionLabel: "Delete publication",
-					title: "Delete this publication?",
-					detail: "The publication and its links are deleted permanently.",
+					pendingLabel: t(kernelMessage("common.status.deleting")),
+					title: t(kernelMessage("client.publications.manager.delete-title")),
+					detail: t(kernelMessage("client.publications.manager.delete-detail")),
+					actionLabel: t(kernelMessage("client.publications.manager.delete-action")),
 				};
 	return (
 		<Card className="grid gap-4" id={`publication-${publication.id}`}>
 			<PublicationHeader heading="h2" publication={publication} />
 			<p className="text-sm text-text-muted">
-				{publication.definition.mode === "snapshot"
-					? "Snapshot · First page of every query, with frozen page code. Refresh to capture current data and code."
-					: "Live · Latest published page and current data."}
+				{t(
+					publication.definition.mode === "snapshot"
+						? kernelMessage("client.publications.manager.snapshot-summary")
+						: kernelMessage("client.publications.manager.live-summary"),
+				)}
 			</p>
 			{publication.description === null ? null : (
 				<p className="text-sm text-text-muted">{publication.description}</p>
@@ -316,7 +348,7 @@ function PublicationCard(props: {
 							onClick={() => preview.open(publication.id)}
 						>
 							<AppIcon size={16} name="eye" />
-							Preview
+							{t(kernelMessage("client.publications.manager.preview"))}
 						</Button>
 						<Button
 							size="sm"
@@ -342,10 +374,10 @@ function PublicationCard(props: {
 								)
 							}
 						>
-							Refresh
+							{t(kernelMessage("common.action.refresh"))}
 						</Button>
 						<Button size="sm" variant="secondary" onClick={props.onEdit} disabled={props.disabled}>
-							Edit
+							{t(kernelMessage("client.publications.manager.edit"))}
 						</Button>
 						<Button
 							size="sm"
@@ -353,7 +385,7 @@ function PublicationCard(props: {
 							disabled={props.disabled}
 							onClick={(event) => confirm("revoke", event.currentTarget)}
 						>
-							Stop sharing
+							{t(kernelMessage("client.publications.manager.stop-sharing"))}
 						</Button>
 					</>
 				)}
@@ -363,11 +395,11 @@ function PublicationCard(props: {
 					disabled={props.disabled}
 					onClick={(event) => confirm("delete", event.currentTarget)}
 				>
-					Delete
+					{t(kernelMessage("common.action.delete"))}
 				</Button>
 			</div>
 			{command.error === null || confirming !== null ? null : (
-				<Notice tone="danger">{publicationFailureText(command.error)}</Notice>
+				<Notice tone="danger">{publicationFailureText(t, formatters, command.error)}</Notice>
 			)}
 			{confirming === null ? null : (
 				<DestructiveConfirmation
@@ -375,7 +407,11 @@ function PublicationCard(props: {
 					onClose={closeConfirmation}
 					triggerRef={confirmTrigger}
 					pending={command.isPending}
-					errorMessage={command.error === null ? undefined : publicationFailureText(command.error)}
+					errorMessage={
+						command.error === null
+							? undefined
+							: publicationFailureText(t, formatters, command.error)
+					}
 					onConfirm={() =>
 						void Effect.runPromise(
 							command
@@ -394,10 +430,10 @@ function PublicationCard(props: {
 	);
 }
 
-const exposureRiskText: Record<ParameterExposureRisk, null | string> = {
+const exposureRiskText: Record<ParameterExposureRisk, null | Message> = {
 	bounded: null,
-	"free-text": "Visitors could enter any text",
-	identifier: "Visitors could read any of your items by ID",
+	"free-text": kernelMessage("client.publications.manager.risk.free-text"),
+	identifier: kernelMessage("client.publications.manager.risk.identifier"),
 };
 
 function PublicationEditorForm(props: {
@@ -408,6 +444,8 @@ function PublicationEditorForm(props: {
 	readonly onCreated?: (publicationId: string) => void;
 	readonly page: PublicationSummary["definition"]["page"];
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const create = useRyotMutation(createPublicationMutation);
 	const command = useRyotMutation(publicationCommandMutation);
 	const [title, setTitle] = useState(props.publication?.title ?? "");
@@ -454,7 +492,7 @@ function PublicationEditorForm(props: {
 		void Effect.runPromise(
 			effect.pipe(
 				Effect.match({
-					onFailure: (failure) => setError(publicationFailureText(failure)),
+					onFailure: (failure) => setError(publicationFailureText(t, formatters, failure)),
 					onSuccess: (result) => {
 						if (result !== null && props.onCreated !== undefined) {
 							props.onCreated(result);
@@ -480,7 +518,11 @@ function PublicationEditorForm(props: {
 				arguments: payload,
 			});
 			if (Result.isFailure(parsed)) {
-				setError(parsed.failure.map((issue) => issue.message).join("; "));
+				setError(
+					formatters
+						.list({ type: "unit", style: "long" })
+						.format(parsed.failure.map((issue) => issue.message)),
+				);
 				return;
 			}
 			save(payload);
@@ -501,7 +543,7 @@ function PublicationEditorForm(props: {
 				showOwnerName={showOwnerName}
 				onShowOwnerNameChange={setShowOwnerName}
 			>
-				<Field optional label="Description">
+				<Field optional label={t(kernelMessage("client.publications.details.description"))}>
 					{(control) => (
 						<TextArea
 							{...control}
@@ -516,21 +558,24 @@ function PublicationEditorForm(props: {
 			{props.page.kind === "page" && Object.keys(props.schema.fields).length > 0 ? (
 				<div className="grid gap-2">
 					<p className="text-sm text-text-muted">
-						Set the value of each argument for every visitor. Visitors can set any value for
-						arguments you let them change, and the page reads your data with it. Snapshots require
-						enough values to execute every query at publish time.
+						{t(kernelMessage("client.publications.manager.arguments-help"))}
 					</p>
 					<fieldset className="grid gap-3" disabled={props.disabled}>
 						{Object.entries(props.schema.fields).map(([key, field]) => {
 							const risk = exposureRiskText[parameterExposureRisk(field)];
+							const changeLabel = t(
+								kernelMessage("client.publications.manager.visitors-can-change", {
+									label: field.label,
+								}),
+							);
 							return (
 								<div key={key} className="grid gap-1">
 									<div className="flex items-center justify-between gap-3">
-										<span className="text-sm text-text">Visitors can change {field.label}</span>
+										<span className="text-sm text-text">{changeLabel}</span>
 										<Switch
+											label={changeLabel}
 											disabled={mode === "snapshot"}
 											checked={visitorParameters.includes(key)}
-											label={`Visitors can change ${field.label}`}
 											onChange={(checked) =>
 												setVisitorChoices((choices) =>
 													checked ? [...choices, key] : choices.filter((choice) => choice !== key),
@@ -538,7 +583,7 @@ function PublicationEditorForm(props: {
 											}
 										/>
 									</div>
-									{risk === null ? null : <span className="text-xs text-warning">{risk}</span>}
+									{risk === null ? null : <span className="text-xs text-warning">{t(risk)}</span>}
 								</div>
 							);
 						})}
@@ -556,10 +601,14 @@ function PublicationEditorForm(props: {
 			{error === null ? null : <Notice tone="danger">{error}</Notice>}
 			<div className="flex gap-2">
 				<Button type="submit" disabled={props.disabled || create.isPending || command.isPending}>
-					{props.publication === null ? "Publish" : "Save and republish"}
+					{t(
+						props.publication === null
+							? kernelMessage("client.page-authoring.publish")
+							: kernelMessage("client.publications.manager.save-republish"),
+					)}
 				</Button>
 				<Button type="button" variant="ghost" onClick={props.onDone}>
-					Cancel
+					{t(kernelMessage("common.action.cancel"))}
 				</Button>
 			</div>
 		</form>

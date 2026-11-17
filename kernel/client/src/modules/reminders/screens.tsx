@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type {
 	ManageRemindersOutcome,
 	ManageRemindersRequest,
@@ -28,11 +30,12 @@ function ReminderScreen(props: {
 	readonly request: ManageRemindersRequest;
 	readonly complete: (outcome: ManageRemindersOutcome) => void;
 }) {
+	const t = useT();
 	const changed = useRef(false);
 	return (
 		<Dialog
-			title="Reminders"
-			closeLabel="Close reminders"
+			closeLabel={t(kernelMessage("client.reminders.close"))}
+			title={t(kernelMessage("client.settings.section.reminders"))}
 			onClose={() => props.complete({ kind: changed.current ? "changed" : "cancelled" })}
 		>
 			<ReminderManager

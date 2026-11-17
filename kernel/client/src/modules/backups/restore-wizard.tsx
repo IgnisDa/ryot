@@ -1,4 +1,6 @@
 import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createRyotHostMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { Cause, Effect, Match } from "effect";
 import { useState } from "react";
@@ -18,13 +20,6 @@ import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import { wizardStepLabel } from "#/modules/ui/wizard/wizard-state";
 
-const WIZARD_TITLE = "Restore from a backup";
-
-const stepHeadings = {
-	confirm: "Confirm the restore",
-	choose: "Choose your backup file",
-} as const satisfies Record<BackupRestoreStep, string>;
-
 const createRestoreMutation = createRyotHostMutation<
 	string,
 	BackupRunIdResponse,
@@ -43,6 +38,7 @@ export function BackupRestoreWizard(props: {
 	readonly disabled: boolean;
 	readonly onClose: () => void;
 }) {
+	const t = useT();
 	const uploadFile = useSchemaFileUpload();
 	const mutation = useRyotMutation(createRestoreMutation);
 	const [step, setStep] = useState<BackupRestoreStep>("choose");
@@ -86,6 +82,11 @@ export function BackupRestoreWizard(props: {
 		setStep("choose");
 	};
 
+	const stepHeadings = {
+		choose: t(kernelMessage("client.backups.wizard.step.choose")),
+		confirm: t(kernelMessage("client.backups.wizard.step.confirm")),
+	} as const satisfies Record<BackupRestoreStep, string>;
+
 	const stepBody = Match.value(step).pipe(
 		Match.when("choose", () => (
 			<BackupRestoreFileStep
@@ -109,9 +110,9 @@ export function BackupRestoreWizard(props: {
 
 	return (
 		<WizardShell
-			title={WIZARD_TITLE}
 			onClose={props.onClose}
-			closeLabel="Close the restore wizard"
+			title={t(kernelMessage("client.backups.wizard.title"))}
+			closeLabel={t(kernelMessage("client.backups.wizard.close"))}
 			stepLabel={wizardStepLabel(step, BACKUP_RESTORE_STEPS, stepHeadings)}
 		>
 			{stepBody}
