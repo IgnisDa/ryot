@@ -7,6 +7,7 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
+import { catalogMessage } from "../../shared/messages.generated";
 import { exerciseEquipmentRecipe, exerciseTargetsRecipe } from "../../shared/taxonomy-recipes";
 import { WORKOUT_TAXONOMY_LIMIT } from "../../shared/workout-taxonomy";
 import { workoutEventExercise } from "./workout-event-exercise";
@@ -40,7 +41,10 @@ export default defineAutomationPolicy({
 				if (exercise === undefined) {
 					results.push({
 						itemIdentity,
-						decision: { action: "reject", reason: "workout_exercise_context_missing" },
+						decision: {
+							action: "reject",
+							reason: catalogMessage("rejection.workout-exercise.context-missing"),
+						},
 					});
 					continue;
 				}
@@ -55,7 +59,10 @@ export default defineAutomationPolicy({
 				if (exerciseKind._tag === "Failure") {
 					results.push({
 						itemIdentity,
-						decision: { action: "reject", reason: "workout_exercise_context_missing" },
+						decision: {
+							action: "reject",
+							reason: catalogMessage("rejection.workout-exercise.context-missing"),
+						},
 					});
 					continue;
 				}
@@ -74,7 +81,10 @@ export default defineAutomationPolicy({
 				if (targets.pageInfo.hasMore || equipment.pageInfo.hasMore) {
 					results.push({
 						itemIdentity,
-						decision: { action: "reject", reason: "workout_taxonomy_capacity" },
+						decision: {
+							action: "reject",
+							reason: catalogMessage("rejection.workout-exercise.taxonomy-capacity"),
+						},
 					});
 					continue;
 				}

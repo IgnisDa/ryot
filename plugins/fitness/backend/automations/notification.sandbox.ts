@@ -2,6 +2,8 @@ import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
+import { catalogMessage } from "../../shared/messages.generated";
+
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
@@ -42,6 +44,8 @@ export default defineAutomation({
 						}),
 				),
 			);
-			return yield* host.sendNotification(`Workout ${properties.workoutName} was created`);
+			return yield* host.sendNotification(
+				catalogMessage("notification.workout-created", { workoutName: properties.workoutName }),
+			);
 		}),
 });

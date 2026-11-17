@@ -5,6 +5,7 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import definition from "./workout-set-policy.sandbox";
 
 const now = "2026-06-02T10:00:00.000Z";
@@ -138,7 +139,7 @@ it.effect(
 			expect(yield* run({ reps: 10, exerciseKind: "reps" })).toEqual({ action: "allow" });
 			expect(yield* run({ reps: 10, confirmedAt: "invalid" })).toEqual({
 				action: "reject",
-				reason: "workout_set_confirmed_at_invalid",
+				reason: catalogMessage("rejection.workout-set.confirmed-at-invalid"),
 			});
 		}),
 	testTimeout,
@@ -172,7 +173,7 @@ it.effect(
 			]) {
 				expect(yield* run({ reps: 10 }, options)).toEqual({
 					action: "reject",
-					reason: "workout_set_context_missing",
+					reason: catalogMessage("rejection.workout-set.context-missing"),
 				});
 			}
 		}),
@@ -185,11 +186,11 @@ it.effect(
 		Effect.gen(function* () {
 			expect(yield* run({ reps: 10, exerciseKind: "invalid" })).toEqual({
 				action: "reject",
-				reason: "workout_set_exercise_kind_invalid",
+				reason: catalogMessage("rejection.workout-set.exercise-kind-invalid"),
 			});
 			expect(yield* run({ reps: "invalid" })).toEqual({
 				action: "reject",
-				reason: "workout_set_measurements_invalid",
+				reason: catalogMessage("rejection.workout-set.measurements-invalid"),
 			});
 		}),
 	testTimeout,
@@ -223,7 +224,10 @@ it.effect(
 			expect(result.items).toEqual([
 				{
 					itemIdentity: "missing",
-					decision: { action: "reject", reason: "workout_set_context_missing" },
+					decision: {
+						action: "reject",
+						reason: catalogMessage("rejection.workout-set.context-missing"),
+					},
 				},
 				{ itemIdentity: "valid", decision: { action: "allow" } },
 			]);

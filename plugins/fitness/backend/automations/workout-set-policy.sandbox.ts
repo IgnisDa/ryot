@@ -8,6 +8,7 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
+import { catalogMessage } from "../../shared/messages.generated";
 import { WorkoutSetMeasurementsSchema } from "../../shared/workout-records";
 import { workoutEventExercise } from "./workout-event-exercise";
 
@@ -38,7 +39,7 @@ const validate = ({ automation }: AutomationPolicyInput): AutomationPolicyResult
 	const draft = payload.draft;
 	const exercise = workoutEventExercise(automation, draft);
 	if (exercise === undefined) {
-		return { action: "reject", reason: "workout_set_context_missing" };
+		return { action: "reject", reason: catalogMessage("rejection.workout-set.context-missing") };
 	}
 	const kind = draft.properties["exerciseKind"] ?? exercise.properties["kind"];
 	const decodedKind = Schema.decodeUnknownResult(exerciseKindSchema)(kind);
@@ -46,7 +47,9 @@ const validate = ({ automation }: AutomationPolicyInput): AutomationPolicyResult
 		return {
 			action: "reject",
 			reason:
-				kind === undefined ? "workout_set_context_missing" : "workout_set_exercise_kind_invalid",
+				kind === undefined
+					? catalogMessage("rejection.workout-set.context-missing")
+					: catalogMessage("rejection.workout-set.exercise-kind-invalid"),
 		};
 	}
 	const measurements = Schema.decodeUnknownResult(WorkoutSetMeasurementsSchema)({
@@ -56,7 +59,10 @@ const validate = ({ automation }: AutomationPolicyInput): AutomationPolicyResult
 		duration: draft.properties["duration"],
 	});
 	if (measurements._tag === "Failure") {
-		return { action: "reject", reason: "workout_set_measurements_invalid" };
+		return {
+			action: "reject",
+			reason: catalogMessage("rejection.workout-set.measurements-invalid"),
+		};
 	}
 	const confirmedAt = draft.properties["confirmedAt"];
 	const confirmed =
@@ -64,7 +70,10 @@ const validate = ({ automation }: AutomationPolicyInput): AutomationPolicyResult
 			? undefined
 			: Schema.decodeUnknownResult(IsoDateString)(confirmedAt);
 	if (confirmed?._tag === "Failure") {
-		return { action: "reject", reason: "workout_set_confirmed_at_invalid" };
+		return {
+			action: "reject",
+			reason: catalogMessage("rejection.workout-set.confirmed-at-invalid"),
+		};
 	}
 	const occurredAt = confirmed?.success;
 	const properties =

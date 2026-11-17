@@ -7,6 +7,7 @@ import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import definition, { manifest } from "./workout-exercise-policy.sandbox";
 
 const now = "2026-10-01T10:00:00.000Z";
@@ -157,7 +158,10 @@ it.effect(
 		Effect.gen(function* () {
 			expect(
 				(yield* definition.run(yield* input("create"), host(true))).items[0]?.decision,
-			).toEqual({ action: "reject", reason: "workout_taxonomy_capacity" });
+			).toEqual({
+				action: "reject",
+				reason: catalogMessage("rejection.workout-exercise.taxonomy-capacity"),
+			});
 		}),
 	testTimeout,
 );

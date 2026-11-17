@@ -1,5 +1,5 @@
 import { Array, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import type { ExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { PluginExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
@@ -10,7 +10,7 @@ import {
 	measurementMetricIdsRecipe,
 } from "../../shared/measurement-recipes";
 
-type ExecuteRyotql = (request: ExecutionRequest) => Effect.Effect<unknown, SandboxHostError>;
+type ExecuteRyotql = (request: PluginExecutionRequest) => Effect.Effect<unknown, SandboxHostError>;
 export class MeasurementEntryNotFoundError extends Schema.TaggedError<
 	MeasurementEntryNotFoundError,
 	{ readonly brand: unique symbol }

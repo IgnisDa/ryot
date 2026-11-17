@@ -1,5 +1,5 @@
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import type { ExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { PluginExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
 import {
 	and,
 	ascending,
@@ -17,7 +17,9 @@ import {
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
-type ExecuteRyotql = (request: ExecutionRequest) => Effect.Effect<unknown, SandboxHostError>;
+import { catalogMessage } from "../../shared/messages.generated";
+
+type ExecuteRyotql = (request: PluginExecutionRequest) => Effect.Effect<unknown, SandboxHostError>;
 export class ExerciseNoteNotFoundError extends Schema.TaggedError<
 	ExerciseNoteNotFoundError,
 	{ readonly brand: unique symbol }
@@ -27,9 +29,9 @@ const exerciseNoteExerciseRecipe = (() => {
 		fields: {
 			exerciseId: {
 				type: "string",
-				label: "Exercise Id",
 				validation: { required: true },
 				description: "Exercise Id for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 		},
 	});
@@ -54,9 +56,9 @@ const exerciseNoteEventRecipe = (() => {
 		fields: {
 			noteId: {
 				type: "string",
-				label: "Note Id",
 				validation: { required: true },
 				description: "Note Id for this selection",
+				label: catalogMessage("query-parameter.note"),
 			},
 		},
 	});
