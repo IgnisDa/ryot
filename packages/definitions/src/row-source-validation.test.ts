@@ -30,10 +30,10 @@ const entity = table("entity", "entity");
 const authoredSource = (overrides: Partial<PluginCalendarSource> = {}): PluginCalendarSource => ({
 	icon: "calendar",
 	startAt: "startAt",
-	caption: "caption",
 	precision: "instant",
-	name: "Entity dates",
 	slug: "entity-dates",
+	name: { key: "test.entity-dates" },
+	caption: { params: { title: "caption" }, text: { key: "test.entity-dates.caption" } },
 	subject: {
 		entityAlias: "entity",
 		schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("fixture-entity") }],
@@ -74,10 +74,18 @@ describe("calendar source definition validation", () => {
 
 	it("requires the named fields to have their calendar kinds", () => {
 		expect(issue({ startAt: "caption" })).toBe("startAt field 'caption' must be a date expression");
-		expect(issue({ caption: "startAt" })).toBe("caption field 'startAt' must be a text expression");
 		expect(issue({ done: "caption" })).toBe("done field 'caption' must be a boolean expression");
 		expect(issue({ art: "label" })).toBe("art field 'label' must be a json expression");
 		expect(issue({ art: "missing" })).toBe("art field 'missing' must be a projected field");
+		expect(
+			issue({
+				caption: {
+					...authoredSource().caption,
+					params: { title: "missing" },
+					text: { key: "test.caption" },
+				},
+			}),
+		).toBe("caption argument title field 'missing' must be a projected field");
 	});
 
 	it("requires the subject alias to name an entity table", () => {

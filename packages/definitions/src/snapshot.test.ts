@@ -22,7 +22,7 @@ const source = (pluginId: null | string): DefinitionSource => ({
 		{
 			pluginId,
 			slug: "bottled-by",
-			name: "Bottled by",
+			name: { key: "test.bottled-by" },
 			sourceEntitySchemaSlug: "bottle",
 			targetEntitySchemaSlug: "bottle",
 			propertiesSchema: { fields: {} },
@@ -33,10 +33,15 @@ const source = (pluginId: null | string): DefinitionSource => ({
 			pluginId,
 			icon: "box",
 			slug: "bottle",
+			name: { key: "test.bottle" },
 			propertiesSchema: { fields: {} },
-			name: pluginId ?? "Kernel bottle",
 			eventSchemas: [
-				{ pluginId, slug: "tasted", name: "Tasted", propertiesSchema: { fields: {} } },
+				{
+					pluginId,
+					slug: "tasted",
+					name: { key: "test.tasted" },
+					propertiesSchema: { fields: {} },
+				},
 			],
 		},
 	],
@@ -44,8 +49,8 @@ const source = (pluginId: null | string): DefinitionSource => ({
 		{
 			pluginId,
 			slug: "catalog",
-			name: "Catalog",
 			catalogState: "active",
+			name: { key: "test.catalog" },
 			notificationHookSlug: "notify",
 			propertiesSchema: { fields: {} },
 			audiencePolicy: {
@@ -153,7 +158,7 @@ const bottleBrowserView = (settings: Readonly<Record<string, JsonValue>>): Saved
 		sortOrder: 0,
 		pluginId: null,
 		slug: "bottles",
-		name: "Bottles",
+		name: { key: "test.bottles" },
 		renderer: { kind: "kernel", name: "entity-browser" },
 		dataSources: document({
 			source: rows(entity, { fields: [field("name", column(entity, "name"))] }),
@@ -206,7 +211,17 @@ it("rejects entity-browser filter fields and validates entity schema browse fiel
 			entitySchemas: [
 				{
 					...bottle,
-					browse: { fields: [{ key, expression, type: "date", kind: "value", label: "Bottled" }] },
+					browse: {
+						fields: [
+							{
+								key,
+								expression,
+								type: "date",
+								kind: "value",
+								label: { key: "test.bottled", namespace: "plugin-a" },
+							},
+						],
+					},
 				},
 			],
 		});
@@ -243,8 +258,8 @@ it("rejects calendar views with settings or data sources", () => {
 		pluginId: null,
 		icon: "calendar",
 		slug: "calendar",
-		name: "Calendar",
 		dataSources: null,
+		name: { key: "test.calendar" },
 		renderer: { kind: "kernel", name: "calendar" },
 	};
 	const entity = table("entity", "entity");

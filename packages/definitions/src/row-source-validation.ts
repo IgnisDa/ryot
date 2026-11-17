@@ -90,9 +90,11 @@ const rowSourceIssue = (
 export const calendarSourceIssue = (source: CalendarSourceDefinition) =>
 	rowSourceIssue(source, [
 		["startAt", source.startAt, "date"],
-		["caption", source.caption, "text"],
 		["art", source.art, "json"],
 		["done", source.done, "boolean"],
+		...Object.entries(source.caption?.params ?? {}).map(
+			([name, key]) => [`caption argument ${name}`, key, null] as const,
+		),
 	]);
 
 export const signalScheduleIssue = (schedule: SignalScheduleDefinition) =>

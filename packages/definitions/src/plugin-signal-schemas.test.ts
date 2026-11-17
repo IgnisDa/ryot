@@ -20,27 +20,27 @@ const signalDefinitions = () => {
 			...base,
 			signalSchemas: [
 				{
-					name: "Actor Signal",
 					slug: "fixture.actor",
 					catalogState: "active",
 					audiencePolicy: { kind: "actor" },
+					name: { key: "test.actor-signal" },
 					notificationHookSlug: "fixture.automation",
 					propertiesSchema: {
 						unknownKeys: "strict",
 						fields: {
 							message: {
 								type: "string",
-								label: "Message",
 								description: "Message",
+								label: { key: "test.message" },
 								validation: { required: true },
 							},
 						},
 					},
 				},
 				{
-					name: "Related Signal",
 					catalogState: "active",
 					slug: "fixture.related",
+					name: { key: "test.related-signal" },
 					notificationHookSlug: "fixture.automation",
 					audiencePolicy: {
 						kind: "related_users",
@@ -51,9 +51,9 @@ const signalDefinitions = () => {
 						unknownKeys: "strict",
 						fields: {
 							count: {
-								label: "Count",
 								type: "integer",
 								description: "Count",
+								label: { key: "test.count" },
 								validation: { required: true },
 							},
 						},

@@ -1,24 +1,29 @@
 import {
 	type AuthoredEntitySchemaBrowse,
 	type EntitySchemaBrowse,
-	mapBrowseFieldReferences,
+	resolveBrowseField,
 } from "@ryot-app/contract/modules/filters/browse";
 import { sourcePlanConfigKeys } from "@ryot-app/contract/modules/plugins/execution";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginManifest, PluginProjection } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	type AuthoredDefinitionOwner,
+	type ManifestText,
+	stampAppSchema,
+} from "@ryot-app/contract/modules/plugins/manifest-text";
+import {
 	type AuthoredEntitySchemaReference,
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
-import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/authored";
+import { resolvePluginDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import { mapRowSourceQueryReferences } from "@ryot-app/contract/modules/ryotql/row-source";
 import {
 	AuthoredEntityBrowserSavedViewSettings,
+	AuthoredResultsTableSavedViewSettings,
 	mapEntityBrowserAddActionSchema,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { stampNamespace } from "@ryot-app/i18n/message";
 import { Array as Arr, Result, Schema } from "effect";
 
 import { deriveSavedViewQueries } from "./saved-view-queries";
@@ -34,13 +39,7 @@ export const materializeSavedView = (
 	const dataSources =
 		definition.dataSources === null
 			? null
-			: Result.getOrThrow(
-					mapPluginIdentityReferences(definition.dataSources, (reference) =>
-						reference.kind === "self"
-							? { kind: "local", pluginId: PluginId.make(pluginId) }
-							: reference,
-					),
-				);
+			: Result.getOrThrow(resolvePluginDocument(PluginId.make(pluginId), definition.dataSources));
 	const parsedArguments = bindArguments(dataSources?.parameters, definition.arguments);
 	if (Result.isFailure(parsedArguments)) {
 		throw new Error(
@@ -66,29 +65,39 @@ export const materializeSavedView = (
 			renderer: { pluginId, kind: "plugin" as const, exportName: definition.renderer.exportName },
 		};
 	}
+	const rendererName = definition.renderer.name;
+	const invalidSettings = () =>
+		new Error(`Invalid saved view ${definition.slug}: invalid ${rendererName} settings`);
+	const stampColumns = <Column extends { readonly label: ManifestText }>(
+		columns: Arr.NonEmptyReadonlyArray<Column>,
+	) => Arr.map(columns, (column) => ({ ...column, label: stampNamespace(pluginId, column.label) }));
 	let settings = definition.settings;
-	if (
-		definition.renderer.name === "entity-browser" ||
-		definition.renderer.name === "collection-browser"
-	) {
+	if (rendererName === "entity-browser" || rendererName === "collection-browser") {
 		const decoded = Schema.decodeUnknownResult(AuthoredEntityBrowserSavedViewSettings)(
 			definition.settings,
 		);
 		if (Result.isFailure(decoded)) {
-			throw new Error(
-				`Invalid saved view ${definition.slug}: invalid ${definition.renderer.name} settings`,
-			);
+			throw invalidSettings();
 		}
 		const resolveSchema = ({ slug, owner }: AuthoredEntitySchemaReference) => ({
 			slug,
 			owner: owner.kind === "self" ? definitionOwner(pluginId) : owner,
 		});
-		const { subject, addAction } = decoded.success;
+		const { subject, addAction, tableColumns } = decoded.success;
 		settings = {
 			...decoded.success,
 			addAction: mapEntityBrowserAddActionSchema(addAction, resolveSchema),
+			tableColumns: tableColumns === null ? null : stampColumns(tableColumns),
 			subject: { ...subject, schemas: Arr.map(subject.schemas, resolveSchema) },
 		};
+	} else {
+		const decoded = Schema.decodeUnknownResult(AuthoredResultsTableSavedViewSettings)(
+			definition.settings,
+		);
+		if (Result.isFailure(decoded)) {
+			throw invalidSettings();
+		}
+		settings = { ...decoded.success, columns: stampColumns(decoded.success.columns) };
 	}
 	return {
 		...definition,
@@ -115,10 +124,16 @@ export const materializeCalendarSource = (
 	art: definition.art ?? null,
 	done: definition.done ?? null,
 	precision: definition.precision,
-	caption: definition.caption ?? null,
 	query: mapRowSourceQueryReferences(definition.query, (reference) =>
 		reference.kind === "self" ? { kind: "local", pluginId: PluginId.make(pluginId) } : reference,
 	),
+	caption:
+		definition.caption === undefined
+			? null
+			: {
+					params: definition.caption.params,
+					text: stampNamespace(pluginId, definition.caption.text),
+				},
 	subject: {
 		entityAlias: definition.subject.entityAlias,
 		schemas: Arr.map(definition.subject.schemas, ({ slug, owner }) => ({
@@ -133,30 +148,23 @@ const materializeBrowse = (
 	pluginId: string,
 ): EntitySchemaBrowse => ({
 	fields: browse.fields.map((browseField) =>
-		mapBrowseFieldReferences(
-			browseField,
-			<Slug extends string>({
-				slug,
-				owner,
-			}: {
-				readonly slug: Slug;
-				readonly owner: AuthoredDefinitionOwner;
-			}) => ({ slug, owner: owner.kind === "self" ? definitionOwner(pluginId) : owner }),
-			(reference) =>
+		resolveBrowseField(browseField, {
+			text: (text) => stampNamespace(pluginId, text),
+			owner: (owner) => (owner.kind === "self" ? definitionOwner(pluginId) : owner),
+			reference: (reference) =>
 				reference.kind === "self"
 					? { kind: "local", pluginId: PluginId.make(pluginId) }
 					: reference,
-		),
+		}),
 	),
 });
 
+const stampProjection = (pluginId: string, projection: undefined | PluginProjection) =>
+	projection === undefined
+		? {}
+		: { projection: { propertiesSchema: stampAppSchema(pluginId, projection.propertiesSchema) } };
+
 export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) => ({
-	integrationProviders: manifest.integrationProviders,
-	signalSchemas: manifest.signalSchemas.map((definition) => ({ ...definition, pluginId })),
-	relationshipSchemas: manifest.relationshipSchemas.map((definition) => ({
-		...definition,
-		pluginId,
-	})),
 	providers: manifest.providers.map(({ slug, rootEntitySchemaSlug }) => ({
 		slug,
 		rootEntitySchemaSlug,
@@ -170,6 +178,15 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 	signalSchedules: (manifest.signalSchedules ?? []).map((definition) =>
 		materializeSignalSchedule(definition, pluginId),
 	),
+	integrationProviders: manifest.integrationProviders.map((definition) => ({
+		...definition,
+		settingsSchema: stampAppSchema(pluginId, definition.settingsSchema),
+	})),
+	signalSchemas: manifest.signalSchemas.map((definition) => ({
+		...definition,
+		pluginId,
+		propertiesSchema: stampAppSchema(pluginId, definition.propertiesSchema),
+	})),
 	providerOperations: manifest.scripts.flatMap((script) =>
 		script.kind === "provider"
 			? [
@@ -181,8 +198,15 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 				]
 			: [],
 	),
+	relationshipSchemas: manifest.relationshipSchemas.map(({ projection, ...definition }) => ({
+		...definition,
+		pluginId,
+		...stampProjection(pluginId, projection),
+		propertiesSchema: stampAppSchema(pluginId, definition.propertiesSchema),
+	})),
 	importSources: manifest.importSources.map((source) => ({
 		...source,
+		inputSchema: stampAppSchema(pluginId, source.inputSchema),
 		requiredPluginConfigKeys: sourcePlanConfigKeys(manifest, source),
 		workflowScriptSlug:
 			manifest.workflows.find(({ slug }) => slug === source.workflowSlug)?.scriptSlug ?? null,
@@ -192,7 +216,13 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 		pluginId,
 		...(browse ? { browse: materializeBrowse(browse, pluginId) } : {}),
 		mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
-		eventSchemas: definition.eventSchemas.map((eventSchema) => ({ ...eventSchema, pluginId })),
+		propertiesSchema: stampAppSchema(pluginId, definition.propertiesSchema),
+		eventSchemas: definition.eventSchemas.map(({ projection, ...eventSchema }) => ({
+			...eventSchema,
+			pluginId,
+			...stampProjection(pluginId, projection),
+			propertiesSchema: stampAppSchema(pluginId, eventSchema.propertiesSchema),
+		})),
 	})),
 });
 

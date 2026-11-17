@@ -1,4 +1,5 @@
 import { reviewPropertyFields } from "@ryot-app/contract/modules/events/review";
+import { kernelMessage, kernelText } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -27,24 +28,24 @@ const collectionSchema = {
 	pluginId: null,
 	icon: "folders",
 	slug: "collection",
-	name: "Collection",
+	name: kernelText("definition.entity-schema.collection"),
 	propertiesSchema: {
 		fields: {
 			description: {
-				label: "Description",
 				type: "string" as const,
 				description: "A short summary or description of this collection",
+				label: kernelMessage("definition.property.collection-description"),
 			},
 			membershipFields: {
 				type: "array" as const,
-				label: "Membership Fields",
+				label: kernelMessage("definition.property.membership-fields"),
 				description: "Ordered field declarations for collection members",
 				items: {
 					properties: {},
-					label: "Field",
 					type: "object" as const,
 					unknownKeys: "passthrough" as const,
 					description: "Collection member field declaration",
+					label: kernelMessage("definition.property.membership-field"),
 				},
 			},
 		},
@@ -52,36 +53,40 @@ const collectionSchema = {
 	eventSchemas: [
 		{
 			pluginId: null,
-			name: "Review",
 			slug: "review",
+			name: kernelText("definition.event-schema.review"),
 			propertiesSchema: {
 				fields: reviewPropertyFields("Your written thoughts or notes about this entity"),
 			},
 		},
 		...(["Add", "Remove"] as const).map((operation) => ({
 			pluginId: null,
-			name: `${operation} Entity ${operation === "Add" ? "to" : "from"} Collection`,
 			slug: `${operation.toLowerCase()}-entity-${operation === "Add" ? "to" : "from"}-collection`,
+			name: kernelText(
+				operation === "Add"
+					? "definition.event-schema.add-entity-to-collection"
+					: "definition.event-schema.remove-entity-from-collection",
+			),
 			propertiesSchema: {
 				fields: {
 					entitySchemaSlug: {
 						type: "string" as const,
-						label: "Entity Schema Slug",
 						validation: { required: true as const },
+						label: kernelMessage("definition.property.entity-schema-slug"),
 						description: `Schema slug of the entity ${operation === "Add" ? "added to" : "removed from"} the collection`,
 					},
 					entityId: {
-						label: "Entity ID",
 						type: "string" as const,
 						validation: { required: true as const },
 						reference: { kind: "entity-id" as const },
+						label: kernelMessage("definition.property.entity-id"),
 						description: `ID of the entity ${operation === "Add" ? "added to" : "removed from"} the collection`,
 					},
 					relationshipProperties: {
 						properties: {},
 						type: "object" as const,
-						label: "Relationship Properties",
 						unknownKeys: "passthrough" as const,
+						label: kernelMessage("definition.property.relationship-properties"),
 						description:
 							operation === "Add"
 								? "Properties of the membership relationship"
@@ -89,9 +94,9 @@ const collectionSchema = {
 					},
 					relationshipId: {
 						type: "string" as const,
-						label: "Relationship ID",
 						validation: { required: true as const },
 						reference: { kind: "relationship-id" as const },
+						label: kernelMessage("definition.property.relationship-id"),
 						description:
 							operation === "Add"
 								? "ID of the membership relationship"
@@ -110,9 +115,9 @@ const collectionParameters = parameters({
 	fields: {
 		searchText: {
 			type: "string",
-			label: "Search",
 			defaultValue: "",
 			description: "Collection name",
+			label: kernelMessage("recipe.parameter.search"),
 		},
 	},
 });
@@ -126,8 +131,12 @@ const collectionSettings = {
 	summary: { image: null, subtitle: null },
 	subject: { entityAlias: "entity", schemas: [{ slug: "collection", owner: { kind: "kernel" } }] },
 	tableColumns: [
-		{ label: "Name", field: "name", displayKind: "text" },
-		{ label: "Items", field: "memberCount", displayKind: "number" },
+		{ field: "name", displayKind: "text", label: kernelMessage("definition.table-column.name") },
+		{
+			field: "memberCount",
+			displayKind: "number",
+			label: kernelMessage("definition.table-column.items"),
+		},
 	],
 } as const;
 const collectionQuery = rows(collection, {
@@ -177,16 +186,16 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 		{
 			pluginId: null,
 			slug: "member-of",
-			name: "Member Of",
 			sourceEntitySchemaSlug: null,
 			targetEntitySchemaSlug: "collection",
+			name: kernelText("definition.relationship-schema.member-of"),
 			propertiesSchema: {
 				unknownKeys: "passthrough",
 				fields: {
 					rank: {
-						label: "Rank",
 						type: "integer",
 						defaultValue: 0,
+						label: kernelMessage("definition.property.rank"),
 						description: "Sort order of this entity within the collection",
 					},
 				},
@@ -198,31 +207,31 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			sortOrder: 0,
 			pluginId: null,
 			slug: "collections",
-			name: "All Collections",
 			icon: collectionSchema.icon,
 			settings: collectionSettings,
 			dataSources: collectionDataSources,
 			renderer: { kind: "kernel", name: "collection-browser" },
+			name: kernelText("definition.saved-view.all-collections"),
 		},
 		{
 			sortOrder: 1,
 			settings: {},
 			pluginId: null,
 			slug: "calendar",
-			name: "Calendar",
 			icon: "calendar",
 			dataSources: null,
 			renderer: { kind: "kernel", name: "calendar" },
+			name: kernelText("definition.saved-view.calendar"),
 		},
 		{
 			sortOrder: 2,
 			settings: {},
 			pluginId: null,
 			slug: "analytics",
-			name: "Analytics",
 			dataSources: null,
 			icon: "chart-column",
 			renderer: { kind: "kernel", name: "analytics" },
+			name: kernelText("definition.saved-view.analytics"),
 		},
 	],
 
@@ -230,42 +239,42 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 		{
 			pluginId: null,
 			slug: "reminder.due",
-			name: "Reminder due",
 			catalogState: "active",
 			audiencePolicy: { kind: "actor" },
 			notificationHookSlug: kernelNotificationHookSlug,
+			name: kernelText("definition.signal-schema.reminder-due"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
-					message: {
-						type: "string",
-						label: "Message",
-						validation: { required: true },
-						description: "Authored reminder text",
-					},
 					timezone: {
 						type: "string",
-						label: "Timezone",
 						validation: { required: true },
 						description: "Selected IANA timezone",
+						label: kernelMessage("definition.property.timezone"),
 					},
 					dueAt: {
 						type: "string",
-						label: "Scheduled time",
 						validation: { required: true },
 						description: "Fixed UTC due instant",
+						label: kernelMessage("definition.property.scheduled-time"),
 					},
 					entityTitle: {
 						type: "string",
-						label: "Entity",
 						validation: { required: true },
 						description: "Target title at scheduling",
+						label: kernelMessage("definition.property.entity"),
+					},
+					message: {
+						type: "string",
+						validation: { required: true },
+						description: "Authored reminder text",
+						label: kernelMessage("definition.property.reminder-message"),
 					},
 					reminderId: {
 						type: "string",
-						label: "Reminder ID",
 						validation: { required: true },
 						description: "Independent reminder occurrence",
+						label: kernelMessage("definition.property.reminder-id"),
 					},
 				},
 			},
@@ -274,23 +283,25 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			pluginId: null,
 			catalogState: "active",
 			slug: "integration.disabled",
-			name: "Integration Disabled",
 			audiencePolicy: { kind: "actor" },
 			notificationHookSlug: kernelNotificationHookSlug,
+			name: kernelText("definition.signal-schema.integration-disabled"),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
 					integrationId: {
 						type: "string",
-						label: "Integration ID",
 						validation: { required: true },
 						description: "Disabled integration ID",
+						label: kernelMessage("definition.property.integration-id"),
 					},
 					providerName: {
-						type: "string",
-						label: "Provider name",
+						properties: {},
+						type: "object",
+						unknownKeys: "passthrough",
 						validation: { required: true },
-						description: "Disabled integration provider",
+						label: kernelMessage("definition.property.provider-name"),
+						description: "The disabled integration provider's name, as a stamped message",
 					},
 				},
 			},

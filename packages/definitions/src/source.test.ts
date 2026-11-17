@@ -8,6 +8,7 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { fixtureManifest } from "@ryot-app/contract/testing";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 
@@ -39,8 +40,8 @@ const client = {
 				unknownKeys: "strict" as const,
 				fields: {
 					title: {
-						label: "Title",
 						type: "string" as const,
+						label: { key: "test.title" },
 						description: "Summary title",
 						validation: { required: true as const },
 					},
@@ -53,9 +54,9 @@ const client = {
 const savedView = {
 	icon: "box",
 	sortOrder: 0,
-	name: "Summary",
 	slug: "summary",
 	dataSources: null,
+	name: { key: "test.summary" },
 	settings: { title: "Fixture" },
 	renderer: { exportName: "summary", kind: "plugin" as const },
 };
@@ -78,10 +79,10 @@ it("materializes portable saved-view page exports to stable plugin ids", () => {
 it("resolves import source workflow scripts from the revision workflows", () => {
 	const importSource = {
 		slug: "csv",
-		name: "CSV",
-		description: "CSV import",
+		name: { key: "test.csv" },
 		requiredPluginConfigKeys: [],
 		workflowSlug: "fixture-flow",
+		description: { key: "test.csv-import" },
 		inputSchema: { fields: {}, unknownKeys: "strict" as const },
 	};
 	const manifest = {
@@ -118,7 +119,7 @@ it("materializes self expressions uniformly and binds only typed renderer settin
 		icon: "box",
 		sortOrder: 1,
 		slug: "bottles",
-		name: "Bottles",
+		name: { key: "test.bottles" },
 		renderer: { kind: "kernel", name: "entity-browser" } as const,
 		settings: {
 			...browserSettings,
@@ -186,8 +187,8 @@ it("keeps plugin-route add actions portable while materializing saved views", ()
 	const browserView = {
 		icon: "box",
 		sortOrder: 0,
-		name: "Bottles",
 		slug: "bottles",
+		name: { key: "test.bottles" },
 		settings: { ...browserSettings, addAction },
 		renderer: { kind: "kernel", name: "entity-browser" } as const,
 		dataSources: document({ savedView: rows(table("entity", "entity"), { fields: [] }) }),
@@ -201,29 +202,56 @@ it("keeps plugin-route add actions portable while materializing saved views", ()
 	expect(view.settings["addAction"]).toEqual(addAction);
 });
 
+it("stamps saved-view data source parameter text with the plugin namespace", () => {
+	const view = revisionDefinitions("plugin-a", {
+		...fixtureManifest(),
+		client,
+		savedViews: [
+			{
+				...savedView,
+				dataSources: {
+					...document({ savedView: rows(table("entity", "entity"), { fields: [] }) }),
+					parameters: {
+						fields: {
+							search: { type: "string", description: "Search", label: { key: "test.search" } },
+						},
+					},
+				},
+			},
+		],
+	}).savedViews[0];
+	assert(view);
+	expect(view.dataSources?.parameters?.fields["search"]?.label).toEqual({
+		key: "test.search",
+		namespace: "plugin-a",
+	});
+});
+
+const stamped = (key: string) => ({ key: `test.${key}`, namespace: "plugin-a" });
+
 it("resolves self owners and plugin references in entity schema browse fields", () => {
 	const manifest = fixtureManifest();
 	const [entitySchema] = manifest.entitySchemas;
 	assert(entitySchema);
 	const tags = {
 		key: "tags",
-		label: "Tags",
 		kind: "relationship",
 		direction: "incoming",
+		label: { key: "test.tags" },
 		relationship: { owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("tagged") },
 	} as const;
 	const labels = {
 		key: "labels",
-		label: "Labels",
 		kind: "relationship",
 		direction: "outgoing",
+		label: { key: "test.labels" },
 		relationship: { owner: { kind: "kernel" }, slug: RelationshipSchemaSlug.make("labelled") },
 	} as const;
 	const owned = {
 		key: "owned",
 		kind: "value",
-		label: "Owned",
 		type: "boolean",
+		label: { key: "test.owned" },
 		expression: { type: "isNotNull", expr: pluginId({ kind: "self" }) },
 	} as const;
 	const [materialized] = revisionDefinitions("plugin-a", {
@@ -234,6 +262,7 @@ it("resolves self owners and plugin references in entity schema browse fields", 
 		fields: [
 			{
 				...owned,
+				label: stamped("owned"),
 				expression: {
 					type: "isNotNull",
 					expr: pluginId({ kind: "local", pluginId: PluginId.make("plugin-a") }),
@@ -241,22 +270,77 @@ it("resolves self owners and plugin references in entity schema browse fields", 
 			},
 			{
 				...tags,
+				label: stamped("tags"),
 				relationship: { slug: "tagged", owner: { kind: "plugin", pluginId: "plugin-a" } },
 			},
-			labels,
+			{ ...labels, label: stamped("labels") },
 		],
+	});
+});
+
+it("stamps property text with the plugin namespace and keeps kernel messages", () => {
+	const manifest = fixtureManifest();
+	const [entitySchema] = manifest.entitySchemas;
+	assert(entitySchema);
+	const item = kernelMessage("definition.property.item");
+	const [materialized] = revisionDefinitions("plugin-a", {
+		...manifest,
+		entitySchemas: [
+			{
+				...entitySchema,
+				propertiesSchema: {
+					fields: {
+						tags: {
+							label: item,
+							type: "array",
+							description: "Tags",
+							items: { type: "string", description: "Tag", label: { key: "test.tag" } },
+						},
+						kind: {
+							type: "enum",
+							description: "Kind",
+							label: { key: "test.kind" },
+							hint: { key: "test.kind-hint" },
+							choices: {
+								kind: "static",
+								values: [{ value: "one", label: { key: "test.one" } }, { value: "two" }],
+							},
+						},
+					},
+				},
+			},
+		],
+	}).entitySchemas;
+	expect(materialized?.propertiesSchema.fields).toEqual({
+		tags: {
+			label: item,
+			type: "array",
+			description: "Tags",
+			items: { type: "string", description: "Tag", label: stamped("tag") },
+		},
+		kind: {
+			type: "enum",
+			description: "Kind",
+			label: stamped("kind"),
+			hint: stamped("kind-hint"),
+			choices: {
+				kind: "static",
+				values: [{ value: "one", label: stamped("one") }, { value: "two" }],
+			},
+		},
 	});
 });
 
 it("materializes calendar sources with self references bound to the stable plugin id", () => {
 	const entity = table("entity", "entity");
 	const calendarSource = {
-		name: "Dates",
 		slug: "dates",
 		icon: "calendar",
 		startAt: "startAt",
 		precision: "date" as const,
+		name: { key: "test.dates" },
 		subject: browserSettings.subject,
+		caption: { params: { owner: "owner" }, text: { key: "test.dates.caption" } },
 		query: {
 			from: entity,
 			output: {
@@ -277,13 +361,16 @@ it("materializes calendar sources with self references bound to the stable plugi
 		{
 			art: null,
 			done: null,
-			name: "Dates",
 			slug: "dates",
-			caption: null,
 			icon: "calendar",
 			precision: "date",
 			startAt: "startAt",
 			pluginId: "plugin-a",
+			name: { key: "test.dates" },
+			caption: {
+				params: { owner: "owner" },
+				text: { namespace: "plugin-a", key: "test.dates.caption" },
+			},
 			subject: {
 				entityAlias: "entity",
 				schemas: [{ slug: "bottle", owner: { kind: "plugin", pluginId: "plugin-a" } }],

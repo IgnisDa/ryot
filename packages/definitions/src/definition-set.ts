@@ -2,6 +2,7 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import {
 	mapPluginIdentityReferences,
 	type RyotQLDocument,
+	stampRyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/authored";
 import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import { PluginId } from "@ryot-app/contract/schema/brands";
@@ -110,7 +111,7 @@ const validateStoredQueries = (
 			if (name.includes("/")) {
 				throw new Error(`Query name '${name}' cannot contain '/'`);
 			}
-			const document = bindOwners(declaration.document, plugin.id);
+			const document = bindOwners(stampRyotQLDocument(plugin.id, declaration.document), plugin.id);
 			Result.getOrThrow(storedValidationBranches(document, schemas));
 		}
 	}

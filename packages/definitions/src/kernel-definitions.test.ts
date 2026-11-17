@@ -1,6 +1,7 @@
 import { expect, it } from "bun:test";
 
 import { entityBrowserFields } from "@ryot-app/contract/modules/saved-views/entity-browser-fields";
+import { kernelText } from "@ryot-app/kernel-messages/message";
 import { assert } from "@ryot-app/testing/assert";
 
 import { kernelDefinitionSource } from "./kernel-definitions";
@@ -10,9 +11,9 @@ it("keeps source zero limited to generic kernel definitions", () => {
 	expect(source.entitySchemas.map(({ slug }) => slug)).toEqual(["collection"]);
 	expect(source.relationshipSchemas.map(({ slug }) => slug)).toEqual(["member-of"]);
 	expect(source.savedViews.map(({ name }) => name)).toEqual([
-		"All Collections",
-		"Calendar",
-		"Analytics",
+		kernelText("definition.saved-view.all-collections"),
+		kernelText("definition.saved-view.calendar"),
+		kernelText("definition.saved-view.analytics"),
 	]);
 	expect(source.savedViews.map(({ slug }) => slug)).toEqual([
 		"collections",

@@ -7,11 +7,11 @@ import {
 	PluginEntityEditor,
 	PluginEntityFold,
 	PluginEntityUserStatePolicy,
-	PluginProjection,
 	PluginRelationshipRetention,
 	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import { ManifestText } from "@ryot-app/contract/modules/plugins/manifest-text";
 import {
 	type DeclarationReference,
 	definitionKey,
@@ -21,7 +21,11 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
-import { RowSourcePrecision, RowSourceQuery } from "@ryot-app/contract/modules/ryotql/row-source";
+import {
+	RowSourcePrecision,
+	RowSourceQuery,
+	RowText,
+} from "@ryot-app/contract/modules/ryotql/row-source";
 import {
 	SavedViewRenderer,
 	SavedViewSelection,
@@ -41,21 +45,24 @@ import { savedViewIssueMessage, savedViewSourceIssue } from "./saved-views";
 
 const pluginIdField = { pluginId: Schema.NullOr(Schema.String) };
 
+export const DefinitionProjection = Schema.Struct({ propertiesSchema: AppSchema });
+export type DefinitionProjection = typeof DefinitionProjection.Type;
+
 export const EventSchemaDefinition = Schema.Struct({
 	...pluginIdField,
-	name: Schema.String,
+	name: ManifestText,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
 	eventGroup: Schema.optional(PluginEventGroup),
-	projection: Schema.optional(PluginProjection),
+	projection: Schema.optional(DefinitionProjection),
 });
 
 export type EventSchemaDefinition = typeof EventSchemaDefinition.Type;
 
 export const EntitySchemaDefinition = Schema.Struct({
 	...pluginIdField,
+	name: ManifestText,
 	icon: Schema.String,
-	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
 	fold: Schema.optional(PluginEntityFold),
@@ -76,10 +83,10 @@ type EntitySchemaSourceDefinition = Omit<EntitySchemaDefinition, "mergeIdentityP
 
 export const RelationshipSchemaDefinition = Schema.Struct({
 	...pluginIdField,
-	name: Schema.String,
+	name: ManifestText,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
-	projection: Schema.optional(PluginProjection),
+	projection: Schema.optional(DefinitionProjection),
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
 	retention: Schema.optional(PluginRelationshipRetention),
@@ -90,7 +97,7 @@ export type RelationshipSchemaDefinition = typeof RelationshipSchemaDefinition.T
 
 export const SignalSchemaDefinition = Schema.Struct({
 	...pluginIdField,
-	name: Schema.String,
+	name: ManifestText,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
 	notificationHookSlug: Schema.String,
@@ -103,8 +110,8 @@ export type SignalSchemaDefinition = typeof SignalSchemaDefinition.Type;
 export const SavedViewDefinition = Schema.Struct({
 	...SavedViewSelection,
 	...pluginIdField,
+	name: ManifestText,
 	icon: Schema.String,
-	name: Schema.String,
 	slug: Schema.String,
 	sortOrder: Schema.Finite,
 	renderer: SavedViewRenderer,
@@ -115,17 +122,17 @@ export const SavedViewDefinition = Schema.Struct({
 export type SavedViewDefinition = typeof SavedViewDefinition.Type;
 
 export const CalendarSourceDefinition = Schema.Struct({
+	name: ManifestText,
 	icon: Schema.String,
-	name: Schema.String,
 	slug: Schema.String,
 	query: RowSourceQuery,
 	startAt: Schema.String,
 	pluginId: Schema.String,
 	subject: SavedViewSubject,
 	precision: RowSourcePrecision,
+	caption: Schema.NullOr(RowText),
 	art: Schema.NullOr(Schema.String),
 	done: Schema.NullOr(Schema.String),
-	caption: Schema.NullOr(Schema.String),
 });
 
 export type CalendarSourceDefinition = typeof CalendarSourceDefinition.Type;

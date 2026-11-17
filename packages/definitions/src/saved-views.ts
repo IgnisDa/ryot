@@ -30,7 +30,7 @@ export type SavedViewIssue =
 
 type Settings = Readonly<Record<string, unknown>>;
 
-type PluginPage = { readonly settingsSchema: AppSchema };
+type PluginPage = { readonly settingsSchema: AppSchema<unknown> };
 
 type SourceOptions = {
 	/** Calendar and analytics views exist only as kernel-owned built-ins. */
