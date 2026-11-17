@@ -74,6 +74,7 @@ import {
 } from "~/fixtures/kernel";
 import { installBackupReferencePlugin, readBackupSection } from "~/fixtures/kernel/backups";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	assertCompleted,
 	assertPresent,
@@ -515,31 +516,39 @@ describe("backup export and restore round trip", () => {
 			const entityPropertiesSchema = {
 				fields: {
 					details: {
-						label: "Details",
 						type: "object" as const,
+						label: manifestText("Details"),
 						description: "Portable nested details",
 						properties: {
-							note: { label: "Note", type: "string" as const, description: "Optional note" },
+							note: {
+								type: "string" as const,
+								label: manifestText("Note"),
+								description: "Optional note",
+							},
 							tags: {
-								label: "Tags",
 								type: "array" as const,
+								label: manifestText("Tags"),
 								description: "Ordered tags",
-								items: { label: "Tag", description: "Tag", type: "string" as const },
+								items: { description: "Tag", type: "string" as const, label: manifestText("Tag") },
 							},
 							metrics: {
-								label: "Metrics",
 								type: "object" as const,
 								description: "Nested metrics",
+								label: manifestText("Metrics"),
 								properties: {
-									score: { label: "Score", description: "Score", type: "number" as const },
+									score: {
+										description: "Score",
+										type: "number" as const,
+										label: manifestText("Score"),
+									},
 									checkpoints: {
-										label: "Checkpoints",
 										type: "array" as const,
 										description: "Checkpoints",
+										label: manifestText("Checkpoints"),
 										items: {
-											label: "Checkpoint",
 											type: "integer" as const,
 											description: "Checkpoint",
+											label: manifestText("Checkpoint"),
 										},
 									},
 								},
@@ -550,31 +559,43 @@ describe("backup export and restore round trip", () => {
 			};
 			const eventPropertiesSchema = {
 				fields: {
-					sequence: { label: "Sequence", type: "integer" as const, description: "Event sequence" },
+					sequence: {
+						type: "integer" as const,
+						description: "Event sequence",
+						label: manifestText("Sequence"),
+					},
 					labels: {
-						label: "Labels",
 						type: "array" as const,
 						description: "Event labels",
-						items: { label: "Label", description: "Label", type: "string" as const },
+						label: manifestText("Labels"),
+						items: { description: "Label", type: "string" as const, label: manifestText("Label") },
 					},
 					context: {
-						label: "Context",
 						type: "object" as const,
 						description: "Event context",
+						label: manifestText("Context"),
 						properties: {
-							note: { label: "Note", type: "string" as const, description: "Context note" },
+							note: {
+								type: "string" as const,
+								label: manifestText("Note"),
+								description: "Context note",
+							},
 						},
 					},
 				},
 			};
 			const relationshipPropertiesSchema = {
 				fields: {
-					weight: { label: "Weight", type: "integer" as const, description: "Relationship weight" },
+					weight: {
+						type: "integer" as const,
+						label: manifestText("Weight"),
+						description: "Relationship weight",
+					},
 					labels: {
-						label: "Labels",
 						type: "array" as const,
+						label: manifestText("Labels"),
 						description: "Relationship labels",
-						items: { label: "Label", description: "Label", type: "string" as const },
+						items: { description: "Label", type: "string" as const, label: manifestText("Label") },
 					},
 				},
 			};
@@ -609,17 +630,17 @@ describe("backup export and restore round trip", () => {
 							dataSources: null,
 							slug: pluginViewSlug,
 							icon: "layout-dashboard",
-							name: "Backup plugin page",
+							name: manifestText("Backup plugin page"),
 							renderer: { kind: "plugin", exportName: "backup-page" },
 						},
 					],
 					relationshipSchemas: [
 						{
 							slug: relationshipSchemaSlug,
-							name: "Backup Round Trip Relationship",
 							sourceEntitySchemaSlug: entitySchemaSlug,
 							targetEntitySchemaSlug: entitySchemaSlug,
 							propertiesSchema: relationshipPropertiesSchema,
+							name: manifestText("Backup Round Trip Relationship"),
 						},
 					],
 					clientDefinition: {
@@ -640,13 +661,13 @@ describe("backup export and restore round trip", () => {
 						{
 							icon: "book",
 							slug: entitySchemaSlug,
-							name: "Backup Round Trip Entity",
 							propertiesSchema: entityPropertiesSchema,
+							name: manifestText("Backup Round Trip Entity"),
 							eventSchemas: [
 								{
 									slug: eventSchemaSlug,
-									name: "Backup Round Trip Event",
 									propertiesSchema: eventPropertiesSchema,
+									name: manifestText("Backup Round Trip Event"),
 								},
 							],
 						},
@@ -682,7 +703,7 @@ describe("backup export and restore round trip", () => {
 				fields: {
 					[privateSettingKey]: {
 						type: "boolean",
-						label: "Backup preference",
+						label: manifestText("Backup preference"),
 						description: "Private plugin backup preference",
 					},
 				},
@@ -693,7 +714,7 @@ describe("backup export and restore round trip", () => {
 				userSettingsSchema: privateSettingsSchema,
 				metadata: {
 					...basePrivateSettingsManifest.metadata,
-					name: "Backup private settings fixture",
+					name: manifestText("Backup private settings fixture"),
 				},
 			};
 			const pluginPackage = yield* compilePluginPackage({
@@ -926,8 +947,8 @@ describe("backup export and restore round trip", () => {
 			);
 			expect(restoredEntitySchema).toMatchObject({
 				slug: entitySchema.schemaId,
-				name: "Backup Round Trip Entity",
 				propertiesSchema: entityPropertiesSchema,
+				name: manifestText("Backup Round Trip Entity"),
 			});
 			const restoredEventSchema = requirePresent(
 				(yield* listEventSchemas(target.client, restoredEntitySchemaReference)).find(
@@ -935,7 +956,7 @@ describe("backup export and restore round trip", () => {
 				),
 				"Restored event schema is not installed",
 			);
-			expect(restoredEventSchema.propertiesSchema).toEqual(eventSchema.propertiesSchema);
+			expect(restoredEventSchema.propertiesSchema).toMatchObject(eventSchema.propertiesSchema);
 			const restoredRelationshipSchema = requirePresent(
 				(yield* listRelationshipSchemas(target.client, {
 					slugs: [relationshipSchema.id],
@@ -1025,15 +1046,15 @@ describe("backup export and restore round trip", () => {
 					providers: [
 						{
 							slug: providerSlug,
-							name: "Backup Provider",
 							information: { source: "e2e" },
+							name: manifestText("Backup Provider"),
 							rootEntitySchemaSlug: entitySchemaSlug,
 						},
 					],
 					relationshipSchemas: [
 						{
-							name: "On shelf",
 							slug: onShelfSlug,
+							name: manifestText("On shelf"),
 							propertiesSchema: { fields: {} },
 							targetEntitySchemaSlug: shelfSchemaSlug,
 							sourceEntitySchemaSlug: entitySchemaSlug,
@@ -1057,13 +1078,13 @@ describe("backup export and restore round trip", () => {
 							icon: "book",
 							eventSchemas: [],
 							slug: entitySchemaSlug,
-							name: "Backup Provider Entity",
+							name: manifestText("Backup Provider Entity"),
 							propertiesSchema: {
 								fields: {
 									description: {
-										label: "Description",
 										type: "string" as const,
 										description: "Provider state",
+										label: manifestText("Description"),
 									},
 								},
 							},

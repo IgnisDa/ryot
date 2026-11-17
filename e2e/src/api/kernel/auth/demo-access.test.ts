@@ -289,7 +289,9 @@ describe("shared demo access acceptance", () => {
 			const rawProtectedResponse = yield* webRequest(`${apiUrl}/account/preferences`, {
 				method: "PATCH",
 				headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ language: "de" }),
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					contentLanguage: "de",
+				}),
 			});
 			expect(rawProtectedResponse.status).toBe(403);
 			expect(yield* Effect.promise(() => rawProtectedResponse.json())).toEqual({
@@ -326,7 +328,7 @@ describe("shared demo access acceptance", () => {
 			});
 
 			const protectedError = yield* Effect.flip(
-				updateUserSettingsPreferences(demoClient, { language: "de" }),
+				updateUserSettingsPreferences(demoClient, { contentLanguage: "de" }),
 			);
 			expect(protectedError).toEqual(
 				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
@@ -370,8 +372,8 @@ describe("shared demo access acceptance", () => {
 			const ownerClient = makeSession(harnessTarget, {
 				Authorization: `Bearer ${requirePresent(ownerSignIn.token, "Owner sign-in returned no token")}`,
 			});
-			yield* updateUserSettingsPreferences(ownerClient, { language: "en" });
-			expect((yield* getUserSettings(ownerClient)).preferences.language).toBe("en");
+			yield* updateUserSettingsPreferences(ownerClient, { contentLanguage: "en" });
+			expect((yield* getUserSettings(ownerClient)).preferences.contentLanguage).toBe("en");
 		}),
 	);
 
@@ -379,7 +381,7 @@ describe("shared demo access acceptance", () => {
 		Effect.gen(function* () {
 			const apiKeyClient = makeSession(harnessTarget, { "X-Api-Key": demoApiKey });
 			const apiKeyError = yield* Effect.flip(
-				updateUserSettingsPreferences(apiKeyClient, { language: "fr" }),
+				updateUserSettingsPreferences(apiKeyClient, { contentLanguage: "fr" }),
 			);
 			assertTaggedError(apiKeyError, "DemoOperationProtected");
 			expect(apiKeyError.reason.code).toBe("demo-operation-protected");

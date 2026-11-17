@@ -9,6 +9,7 @@ import {
 	createSavedView,
 	deleteSavedView,
 	entityBrowserSettings,
+	findBuiltinSavedView,
 	findSavedViewById,
 	getSavedView,
 	listInstalledPlugins,
@@ -17,7 +18,7 @@ import {
 	updateSavedView,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
-import { requirePresent } from "~/support/assertions";
+import { requirePresent, requireString } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("saved views management", () => {
@@ -33,17 +34,21 @@ describe("saved views management", () => {
 			const clone = yield* findSavedViewById(client, cloned.id);
 
 			expect(clone.id).not.toBe(source.id);
-			expect(clone.name).toBe(`${source.name} (Copy)`);
+			expect(clone.name).toEqual({
+				namespace: "kernel",
+				key: "saved-views.copy-name",
+				params: { name: source.name },
+			});
 			expect(clone.renderer).toEqual(source.renderer);
 			expect(clone.settings).toEqual(source.settings);
 			expect(clone.dataSources).toEqual(source.dataSources);
 
 			yield* updateSavedView(client, clone.reference, {
-				name: `${clone.name} Updated`,
 				settings: { ...entityBrowserSettings(pluginId), pageSize: 5 },
+				name: `${requireString(source.name, "Created view names are user text")} Updated`,
 			});
 			const unchangedSource = yield* getSavedView(client, source.reference);
-			expect(unchangedSource.name).toBe(source.name);
+			expect(unchangedSource.name).toEqual(source.name);
 			expect(unchangedSource.settings).toEqual(source.settings);
 		}),
 	);
@@ -51,10 +56,12 @@ describe("saved views management", () => {
 	it.live("deletes a saved view clone without deleting its built-in source", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtin = (yield* listSavedViews(client)).find((view) => view.name === "All Movies");
-			if (!builtin) {
-				throw new Error("All Movies saved view not found");
-			}
+			const { pluginId } = yield* findMediaEntitySchema(client, "movie");
+			const builtin = yield* findBuiltinSavedView(client, {
+				pluginId,
+				kind: "plugin",
+				slug: "all-movies",
+			});
 			const cloned = yield* cloneSavedView(client, builtin.reference);
 			const clone = yield* findSavedViewById(client, cloned.id);
 			yield* deleteSavedView(client, clone.reference);

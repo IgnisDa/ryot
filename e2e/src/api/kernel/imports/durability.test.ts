@@ -19,6 +19,7 @@ import {
 	testPluginPackageId,
 } from "~/fixtures/kernel";
 import { checkpointWaitSource } from "~/fixtures/kernel/checkpoint-wait";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { describe, expect, it } from "~/support/effect-test";
 import {
 	buildApiEnv,
@@ -250,8 +251,8 @@ describe("isolated import durability", () => {
 					fields: {
 						[CONFIG_KEY]: {
 							type: "string",
-							label: "Fixture value",
 							validation: { required: true },
+							label: manifestText("Fixture value"),
 							description: "Configuration pinned by the durable import run",
 						},
 					},
@@ -260,20 +261,20 @@ describe("isolated import durability", () => {
 					{
 						workflowSlug,
 						slug: sourceSlug,
-						name: "E2E durable import",
-						description: "Exercise import recovery and configuration pinning",
+						name: manifestText("E2E durable import"),
+						description: manifestText("Exercise import recovery and configuration pinning"),
 						inputSchema: {
 							unknownKeys: "strict",
 							fields: {
 								expectedValue: {
 									type: "string",
-									label: "Expected value",
 									validation: { required: true },
+									label: manifestText("Expected value"),
 									description: "Expected pinned configuration value",
 								},
 								delayMs: {
-									label: "Delay",
 									type: "integer",
+									label: manifestText("Delay"),
 									validation: { minimum: 0, required: true },
 									description: "Checkpointed wait before reading configuration",
 								},

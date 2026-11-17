@@ -1,4 +1,5 @@
 import { SavedViewId } from "@ryot-app/contract/schema/brands";
+import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -20,7 +21,7 @@ import {
 	updateSavedView,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
-import { assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertTaggedError, requirePresent, requireString } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const missingViewReference = {
@@ -68,33 +69,48 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("seeds the All Collections built-in view against the collection schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const views = yield* listSavedViews(client);
-			const collectionsView = views.find((view) => view.name === "All Collections");
-			expect(collectionsView).toBeDefined();
+			const collectionsView = yield* findBuiltinSavedView(client, {
+				kind: "kernel",
+				slug: "collections",
+			});
 			expect(collectionsView).toMatchObject({
 				icon: "folders",
 				isBuiltin: true,
-				name: "All Collections",
+				name: { key: "definition.saved-view.all-collections" },
 			});
-			expect(collectionsView?.renderer).toEqual({ kind: "kernel", name: "collection-browser" });
-			expect(collectionsView?.settings).toMatchObject({
+			expect(collectionsView.renderer).toEqual({ kind: "kernel", name: "collection-browser" });
+			expect(collectionsView.settings).toMatchObject({
 				sourceName: "savedView",
 				subject: {
 					entityAlias: "entity",
 					schemas: [{ slug: "collection", owner: { kind: "kernel" } }],
 				},
 			});
-			expect(collectionsView?.dataSources).toMatchObject({
+			const collectionSubject = {
+				type: "and",
+				predicates: [
+					{
+						right: { type: "literal", value: "collection" },
+						left: { tableAlias: "entity", field: "entitySchemaSlug" },
+					},
+					{ type: "isNull", expr: { tableAlias: "entity", field: "entitySchemaPluginId" } },
+				],
+			};
+			expect(collectionsView.dataSources).toMatchObject({
+				parameters: { fields: { searchText: { label: { key: "recipe.parameter.search" } } } },
 				queries: {
 					savedView: {
 						where: {
 							type: "and",
 							predicates: [
 								{
-									right: { type: "literal", value: "collection" },
-									left: { tableAlias: "entity", field: "entitySchemaSlug" },
+									type: "and",
+									predicates: [
+										collectionSubject,
+										{ type: "contains", right: { type: "parameter", name: "searchText" } },
+									],
 								},
-								{ type: "isNull", expr: { tableAlias: "entity", field: "entitySchemaPluginId" } },
+								{ type: "or", predicates: [collectionSubject] },
 							],
 						},
 					},
@@ -149,7 +165,11 @@ describe("Saved views lifecycle E2E", () => {
 			const cloned = yield* cloneSavedView(client, createdView.reference);
 			const clonedView = yield* findSavedViewById(client, cloned.id);
 			expect(clonedView.id).not.toBe(createdView.id);
-			expect(clonedView.name).toBe("Lifecycle View (Copy)");
+			expect(clonedView.name).toEqual({
+				namespace: KERNEL_NAMESPACE,
+				key: "saved-views.copy-name",
+				params: { name: "Lifecycle View" },
+			});
 			expect(clonedView.isBuiltin).toBe(false);
 			expect(clonedView.renderer).toEqual(createdView.renderer);
 			expect(clonedView.settings).toEqual(createdView.settings);
@@ -179,7 +199,11 @@ describe("Saved views lifecycle E2E", () => {
 			const builtinView = yield* findAllMoviesView(client);
 			const cloned = yield* cloneSavedView(client, builtinView.reference);
 			const clonedView = yield* findSavedViewById(client, cloned.id);
-			expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
+			expect(clonedView.name).toEqual({
+				namespace: "kernel",
+				key: "saved-views.copy-name",
+				params: { name: builtinView.name },
+			});
 			expect(clonedView.isBuiltin).toBe(false);
 			expect(clonedView.renderer).toEqual(builtinView.renderer);
 			expect(clonedView.settings).toEqual(builtinView.settings);
@@ -246,7 +270,7 @@ describe("Saved views lifecycle E2E", () => {
 
 			expect(fetchedReEnabled.isHidden).toBe(false);
 			expect(fetchedReEnabled.settings).toEqual(builtinView.settings);
-			expect(fetchedReEnabled.name).toBe(builtinView.name);
+			expect(fetchedReEnabled.name).toEqual(builtinView.name);
 		}),
 	);
 
@@ -456,7 +480,7 @@ describe("Saved views lifecycle E2E", () => {
 
 			const updatedView = yield* updateSavedView(client, movedView.reference, {
 				workspaceInstallationId: null,
-				name: `${movedView.name} Updated`,
+				name: `${requireString(movedView.name, "Created view names are user text")} Updated`,
 			});
 			const fetchedView = yield* getSavedView(client, movedView.reference);
 			const topLevelViews = yield* listSavedViews(client, { includeHidden: true });

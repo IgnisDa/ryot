@@ -9,6 +9,7 @@ import {
 	createPluginSchemaAndEntity,
 	waitForEventCount,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
@@ -19,12 +20,12 @@ describe("Entity write path — propertiesSchema validation", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { reference } = yield* createPluginSchema(client, {
-				name: "Required Field Schema",
+				name: manifestText("Required Field Schema"),
 				propertiesSchema: {
 					fields: {
 						title: {
-							label: "Title",
 							type: "string" as const,
+							label: manifestText("Title"),
 							description: "Title of the item",
 							validation: { required: true as const },
 						},
@@ -49,12 +50,12 @@ describe("Entity write path — propertiesSchema validation", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { reference } = yield* createPluginSchema(client, {
-				name: "Type Check Schema",
+				name: manifestText("Type Check Schema"),
 				propertiesSchema: {
 					fields: {
 						count: {
-							label: "Count",
 							type: "integer" as const,
+							label: manifestText("Count"),
 							description: "An integer count",
 							validation: { required: true as const },
 						},
@@ -85,9 +86,15 @@ describe("Entity write path — propertiesSchema validation", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const { reference } = yield* createPluginSchema(client, {
-					name: "Strict Schema",
+					name: manifestText("Strict Schema"),
 					propertiesSchema: {
-						fields: { title: { label: "Title", description: "Title", type: "string" as const } },
+						fields: {
+							title: {
+								description: "Title",
+								type: "string" as const,
+								label: manifestText("Title"),
+							},
+						},
 					},
 				});
 
@@ -105,14 +112,18 @@ describe("Entity write path — propertiesSchema validation", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { reference } = yield* createPluginSchema(client, {
-				name: "Valid Schema",
+				name: manifestText("Valid Schema"),
 				propertiesSchema: {
 					fields: {
-						rating: { label: "Rating", description: "Rating", type: "integer" as const },
+						rating: {
+							description: "Rating",
+							type: "integer" as const,
+							label: manifestText("Rating"),
+						},
 						title: {
-							label: "Title",
 							description: "Title",
 							type: "string" as const,
+							label: manifestText("Title"),
 							validation: { required: true as const },
 						},
 					},

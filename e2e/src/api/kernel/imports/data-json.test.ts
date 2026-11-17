@@ -39,6 +39,7 @@ import {
 	submitDataJsonImport,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
@@ -91,8 +92,8 @@ describe("Native data JSON imports", () => {
 								icon: "file",
 								eventSchemas: [],
 								slug: matchedSlug,
-								name: "Matched record",
 								propertiesSchema: { fields: {} },
+								name: manifestText("Matched record"),
 							},
 						],
 					}),
@@ -109,8 +110,8 @@ describe("Native data JSON imports", () => {
 								icon: "file",
 								eventSchemas: [],
 								slug: missingSlug,
-								name: "Missing record",
 								propertiesSchema: { fields: {} },
+								name: manifestText("Missing record"),
 							},
 						],
 					}),
@@ -553,7 +554,7 @@ describe("Native data JSON imports", () => {
 					fields: {
 						attachment: {
 							...managedAssetItemSchema,
-							label: "Attachment",
+							label: manifestText("Attachment"),
 							description: "Managed attachment",
 						},
 					},
@@ -612,7 +613,7 @@ describe("Native data JSON imports", () => {
 					fields: {
 						attachment: {
 							...managedAssetItemSchema,
-							label: "Attachment",
+							label: manifestText("Attachment"),
 							description: "Managed attachment",
 						},
 					},

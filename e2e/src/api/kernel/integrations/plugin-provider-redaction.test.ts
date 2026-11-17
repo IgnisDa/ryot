@@ -11,40 +11,46 @@ import {
 	installTestIntegrationProvider,
 	uninstallTestPluginStrict,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const settingsSchema = {
 	unknownKeys: "strict",
 	fields: {
-		endpoint: { type: "string", label: "Endpoint", description: "Provider URL" },
+		endpoint: { type: "string", description: "Provider URL", label: manifestText("Endpoint") },
 		credentials: {
 			type: "object",
-			label: "Credentials",
 			unknownKeys: "strict",
+			label: manifestText("Credentials"),
 			description: "Account credentials",
 			properties: {
-				username: { type: "string", label: "Username", description: "Account name" },
+				username: { type: "string", description: "Account name", label: manifestText("Username") },
 				password: {
 					secret: true,
 					type: "string",
-					label: "Password",
+					label: manifestText("Password"),
 					description: "Account password",
 				},
 			},
 		},
 		accounts: {
 			type: "array",
-			label: "Accounts",
+			label: manifestText("Accounts"),
 			description: "Provider accounts",
 			items: {
 				type: "object",
-				label: "Account",
 				unknownKeys: "strict",
+				label: manifestText("Account"),
 				description: "Provider account",
 				properties: {
-					name: { label: "Name", type: "string", description: "Account label" },
-					token: { secret: true, type: "string", label: "Token", description: "Account token" },
+					name: { type: "string", label: manifestText("Name"), description: "Account label" },
+					token: {
+						secret: true,
+						type: "string",
+						label: manifestText("Token"),
+						description: "Account token",
+					},
 				},
 			},
 		},

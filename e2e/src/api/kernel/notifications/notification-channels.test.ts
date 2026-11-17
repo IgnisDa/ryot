@@ -333,8 +333,8 @@ describe("notification delivery", () => {
 
 			expect(delivered).toEqual(["/notify/fail", "/notify/success"]);
 			expect(fakeApprise.requests.map((request) => request.body)).toEqual([
-				{ title: "Ryot", body: "This is a test notification for channel: apprise" },
-				{ title: "Ryot", body: "This is a test notification for channel: apprise" },
+				{ title: "Ryot", body: "This is a test notification sent through Apprise." },
+				{ title: "Ryot", body: "This is a test notification sent through Apprise." },
 			]);
 			expect(fakeApprise.requests.some((request) => request.path === "/notify/disabled")).toBe(
 				false,

@@ -20,6 +20,7 @@ import {
 	installTestProvider,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -65,8 +66,8 @@ describe("Definitions E2E", () => {
 							icon: "box",
 							eventSchemas: [],
 							slug: schemaSlug,
-							name: "Private entity",
 							propertiesSchema: { fields: {} },
+							name: manifestText("Private entity"),
 						},
 					],
 				}),
@@ -76,8 +77,9 @@ describe("Definitions E2E", () => {
 			const schemas = yield* listEntities(client);
 			const schema = schemas.find(({ slug }) => slug === schemaSlug);
 			assertPresent(schema, "Private entity schema was not listed");
+			const stampedName = { namespace: provider.pluginId, key: manifestText(providerName).key };
 			expect(schema.providers.items).toContainEqual({
-				name: providerName,
+				name: stampedName,
 				providerId: provider.providerId,
 			});
 
@@ -92,7 +94,7 @@ describe("Definitions E2E", () => {
 				{},
 			);
 			expect(providers.items).toContainEqual<unknown>(
-				objectContaining({ providerName, providerId: provider.providerId }),
+				objectContaining({ providerName: stampedName, providerId: provider.providerId }),
 			);
 
 			const outsider = yield* createAuthenticatedClient();
@@ -133,13 +135,16 @@ describe("Definitions E2E", () => {
 			);
 			expect(collectionSchema).toMatchObject({
 				icon: "folders",
-				name: "Collection",
+				name: { key: "definition.entity-schema.collection" },
 				propertiesSchema: {
 					fields: {
-						description: { type: "string", label: "Description" },
+						description: {
+							type: "string",
+							label: { key: "definition.property.collection-description" },
+						},
 						membershipFields: {
 							type: "array",
-							label: "Membership Fields",
+							label: { key: "definition.property.membership-fields" },
 							items: { type: "object", properties: {}, unknownKeys: "passthrough" },
 						},
 					},

@@ -24,6 +24,7 @@ import {
 	type TestPluginScript,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -156,7 +157,7 @@ const installRetryFixture = (
 			fields: {
 				marker: {
 					type: "string",
-					label: "Marker",
+					label: manifestText("Marker"),
 					validation: { required: true },
 					description: "Pinned retry configuration marker",
 				},

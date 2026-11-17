@@ -16,6 +16,7 @@ import {
 	uninstallTestProvider,
 	waitOutGraceWindow,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertCompleted } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -37,10 +38,10 @@ beforeAll(() =>
 				relationshipSchemas: [
 					{
 						slug: COMPANY_TO_ANIME,
-						name: "Company to anime",
 						targetEntitySchemaSlug: "anime",
 						propertiesSchema: { fields: {} },
 						sourceEntitySchemaSlug: "company",
+						name: manifestText("Company to anime"),
 					},
 				],
 				providers: {

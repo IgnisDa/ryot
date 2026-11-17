@@ -31,6 +31,7 @@ import {
 	uninstallTestPluginStrict,
 	updateUserSettingsPreferences,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	assertTaggedError,
 	requireObjectRecord,
@@ -44,7 +45,11 @@ const kodiPayload = { lot: "movie", progress: 50, identifier: "tt1234567" };
 const testSettingsSchema = {
 	unknownKeys: "strict",
 	fields: {
-		label: { type: "string", label: "Label", description: "Optional test integration label" },
+		label: {
+			type: "string",
+			label: manifestText("Label"),
+			description: "Optional test integration label",
+		},
 	},
 } satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 

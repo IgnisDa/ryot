@@ -25,6 +25,7 @@ import {
 	startBackupExport,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
@@ -111,10 +112,10 @@ describe("backup lifecycle", () => {
 			const entry = "backend/scripts/fixture.sandbox.ts";
 			const propertiesSchema = {
 				fields: {
-					title: { label: "Title", description: "Title", type: "string" as const },
+					title: { description: "Title", type: "string" as const, label: manifestText("Title") },
 					attachment: {
 						...managedAssetItemSchema,
-						label: "Attachment",
+						label: manifestText("Attachment"),
 						description: "Managed attachment",
 					},
 				},
@@ -136,7 +137,7 @@ describe("backup lifecycle", () => {
 							slug: schemaSlug,
 							eventSchemas: [],
 							propertiesSchema,
-							name: "Backup Asset Fixture",
+							name: manifestText("Backup Asset Fixture"),
 						},
 					],
 					scripts: [

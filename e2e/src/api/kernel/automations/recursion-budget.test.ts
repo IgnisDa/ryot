@@ -23,6 +23,7 @@ import {
 	uninstallTestPlugin,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -222,31 +223,39 @@ describe("automation recursion budgets", () => {
 							relationshipSchemaSlug,
 						}),
 					},
+					relationshipSchemas: [
+						{
+							slug: relationshipSchemaSlug,
+							sourceEntitySchemaSlug: entitySchemaSlug,
+							targetEntitySchemaSlug: entitySchemaSlug,
+							name: manifestText("E2E recursion relationship"),
+							propertiesSchema: schemaFields({
+								chainId: {
+									type: "string",
+									validation: { required: true },
+									label: manifestText("Chain ID"),
+									description: "Unique recursion chain ID",
+								},
+							}),
+						},
+					],
 					signalSchemas: [
 						{
 							slug: "recursion",
 							catalogState: "active",
-							name: "E2E recursion signal",
 							audiencePolicy: { kind: "actor" },
 							notificationHookSlug: formatterHookSlug,
+							name: manifestText("E2E recursion signal"),
 							propertiesSchema: schemaFields({
-								providerName: { type: "string", label: "Provider", description: "Emitter" },
-								integrationId: { type: "string", label: "Chain ID", description: "Chain ID" },
-							}),
-						},
-					],
-					relationshipSchemas: [
-						{
-							slug: relationshipSchemaSlug,
-							name: "E2E recursion relationship",
-							sourceEntitySchemaSlug: entitySchemaSlug,
-							targetEntitySchemaSlug: entitySchemaSlug,
-							propertiesSchema: schemaFields({
-								chainId: {
+								providerName: {
 									type: "string",
-									label: "Chain ID",
-									validation: { required: true },
-									description: "Unique recursion chain ID",
+									description: "Emitter",
+									label: manifestText("Provider"),
+								},
+								integrationId: {
+									type: "string",
+									description: "Chain ID",
+									label: manifestText("Chain ID"),
 								},
 							}),
 						},
@@ -290,35 +299,35 @@ describe("automation recursion budgets", () => {
 						{
 							icon: "network",
 							slug: entitySchemaSlug,
-							name: "E2E recursion entity",
 							propertiesSchema: schemaFields({}),
+							name: manifestText("E2E recursion entity"),
 							eventSchemas: [
 								{
 									slug: seedEventSchemaSlug,
-									name: "E2E recursion seed",
+									name: manifestText("E2E recursion seed"),
 									propertiesSchema: schemaFields({
 										chainId: {
 											type: "string",
-											label: "Chain ID",
 											validation: { required: true },
+											label: manifestText("Chain ID"),
 											description: "Unique recursion chain ID",
 										},
 										targetEntityId: {
 											type: "string",
-											label: "Target entity ID",
 											validation: { required: true },
+											label: manifestText("Target entity ID"),
 											description: "Relationship target entity ID",
 										},
 									}),
 								},
 								{
 									slug: childEventSchemaSlug,
-									name: "E2E recursion child",
+									name: manifestText("E2E recursion child"),
 									propertiesSchema: schemaFields({
 										chainId: {
 											type: "string",
-											label: "Chain ID",
 											validation: { required: true },
+											label: manifestText("Chain ID"),
 											description: "Unique recursion chain ID",
 										},
 									}),
@@ -545,21 +554,21 @@ describe("automation recursion budgets", () => {
 						{
 							icon: "git-fork",
 							slug: entitySchemaSlug,
-							name: "E2E fanout entity",
 							propertiesSchema: schemaFields({}),
+							name: manifestText("E2E fanout entity"),
 							eventSchemas: [
 								{
-									name: "E2E fanout seed",
 									slug: seedEventSchemaSlug,
 									propertiesSchema: schemaFields({}),
+									name: manifestText("E2E fanout seed"),
 								},
 								{
-									name: "E2E fanout child",
 									slug: childEventSchemaSlug,
+									name: manifestText("E2E fanout child"),
 									propertiesSchema: schemaFields({
 										branch: {
 											type: "string",
-											label: "Branch",
+											label: manifestText("Branch"),
 											validation: { required: true },
 											description: "Concurrent fanout branch",
 										},

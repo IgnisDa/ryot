@@ -82,7 +82,7 @@ describe("integration auto-disable on continuous errors", () => {
 				);
 				expect(delivered.body).toEqual({
 					title: "Ryot",
-					body: "Integration kodi has been disabled due to too many errors",
+					body: "Integration Kodi has been disabled due to too many errors",
 				});
 				expect(
 					fakeApprise.requests.filter((request) => request.path === "/notify/disabled"),

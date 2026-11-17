@@ -38,6 +38,7 @@ import {
 	type TestPluginScript,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -149,7 +150,7 @@ const decide = Effect.fn(function* (automation: AutomationPolicyInput["automatio
   }
   const marker = payload.draft.properties.marker;
   if (marker === "reject") {
-    return { action: "reject", reason: "fixture-policy-rejection" };
+    return { action: "reject", reason: { key: "e2e.fixture-policy-rejection" } };
   }
   if (marker === "fail") {
     return yield* Effect.fail(new Error("fixture policy execution failure"));
@@ -260,8 +261,8 @@ const markerSchema = {
 	unknownKeys: "strict" as const,
 	fields: {
 		marker: {
-			label: "Marker",
 			type: "string" as const,
+			label: manifestText("Marker"),
 			description: "E2E lifecycle marker",
 			validation: { required: true as const },
 		},
@@ -280,7 +281,7 @@ const afterInputProjection = {
 
 const eventSchema = (slug: string, name: string) => ({
 	slug,
-	name,
+	name: manifestText(name),
 	propertiesSchema: markerSchema,
 });
 
@@ -335,17 +336,17 @@ const installLifecyclePlugin = () =>
 			{
 				slug: slugs.relationship,
 				propertiesSchema: markerSchema,
-				name: "E2E Lifecycle Relationship",
 				sourceEntitySchemaSlug: slugs.entity,
 				targetEntitySchemaSlug: slugs.entity,
+				name: manifestText("E2E Lifecycle Relationship"),
 			},
 		],
 		entitySchemas: [
 			{
 				icon: "box",
 				slug: slugs.entity,
-				name: "E2E Lifecycle Entity",
 				propertiesSchema: markerSchema,
+				name: manifestText("E2E Lifecycle Entity"),
 				eventSchemas: [
 					eventSchema(slugs.policyEvent, "Policy event"),
 					eventSchema(slugs.requiredEvent, "Required event"),
@@ -824,7 +825,13 @@ describe("automation lifecycle triggers", () => {
 				count: 0,
 				warnings: [],
 				failure: null,
-				outcomes: [{ index: 0, status: "skipped_by_policy", reason: "fixture-policy-rejection" }],
+				outcomes: [
+					{
+						index: 0,
+						status: "skipped_by_policy",
+						reason: { namespace: lifecyclePluginId(), key: "e2e.fixture-policy-rejection" },
+					},
+				],
 			});
 			const rejectedRequest = requireBatchRequestForEvent(
 				yield* listPolicyRequestTriggers(userId),

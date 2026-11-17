@@ -82,7 +82,7 @@ import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/drive
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { ascending, column, defineRecipe, eq, executeRyotqlRecipe, parameters, selectedField, selectedOptionalRow, table } from "@ryot-app/plugin-backend-sdk/ryotql";
 const bootstrapOwnerRecipe = (() => {
- const input = parameters({ fields: { entityId: { type: "string", label: "Marker", description: "Bootstrap marker", validation: { required: true } } } });
+ const input = parameters({ fields: { entityId: { type: "string", label: { key: "parameter.marker" }, description: "Bootstrap marker", validation: { required: true } } } });
  const entity = table("entity", "marker");
  return defineRecipe({ parameters: input.schema,
   map: ({ owner }) => Result.succeed(owner),

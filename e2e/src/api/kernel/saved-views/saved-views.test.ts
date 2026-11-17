@@ -8,9 +8,9 @@ import {
 	createAuthenticatedClient,
 	createSavedView,
 	entityBrowserSettings,
+	findBuiltinSavedView,
 	findSavedViewById,
 	getSavedView,
-	listSavedViews,
 	rowsDataSources,
 	updateSavedView,
 } from "~/fixtures/kernel";
@@ -40,10 +40,11 @@ describe("saved view definitions", () => {
 				schema.reference.owner.kind === "plugin" ? schema.reference.owner.pluginId : undefined,
 				"Media book schema must have a plugin owner",
 			);
-			const allBooks = requirePresent(
-				(yield* listSavedViews(client, { pluginId })).find((view) => view.name === "All Books"),
-				"All Books saved view not found",
-			);
+			const allBooks = yield* findBuiltinSavedView(client, {
+				pluginId,
+				kind: "plugin",
+				slug: "all-books",
+			});
 
 			expect(allBooks.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
 			expect(allBooks.settings).toMatchObject({

@@ -141,7 +141,7 @@ describe("notification subscription catalog and rules", () => {
 				"Expected the reinstalled signal schema",
 			);
 			expect(loadedReinstalled.isActive).toBe(true);
-			expect(refreshedSchema.name).toBe(reviewSchema.name);
+			expect(refreshedSchema.name).toEqual(reviewSchema.name);
 			expect(refreshedSchema.propertiesSchema).toEqual(reviewSchema.propertiesSchema);
 
 			const conflict = yield* Effect.flip(

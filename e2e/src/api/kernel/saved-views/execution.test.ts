@@ -15,7 +15,6 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
-import type { BrowseSchema } from "@ryot-app/ryotql-recipes/browse";
 import { linkedFilterChoicesRecipe } from "@ryot-app/ryotql-recipes/filters";
 import { decodeSavedViewCount, decodeSavedViewIds } from "@ryot-app/ryotql-recipes/saved-views";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -39,6 +38,7 @@ import {
 	rowsFields,
 } from "~/fixtures/kernel";
 import { setTestEntitySchemaBrowse } from "~/fixtures/kernel/entity-schemas";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { executeRyotQL } from "~/fixtures/kernel/ryotql";
 import {
 	findMediaEntitySchema,
@@ -169,17 +169,17 @@ describe("saved views execution", () => {
 				schemaName: `Saved View Filter ${yield* randomUuid}`,
 				propertiesSchema: {
 					fields: {
-						reps: { label: "Reps", description: "Reps", type: "integer" as const },
+						reps: { description: "Reps", type: "integer" as const, label: manifestText("Reps") },
 						level: {
-							label: "Level",
 							description: "Level",
 							type: "enum" as const,
+							label: manifestText("Level"),
 							choices: choices(["beginner", "advanced"]),
 						},
 						muscles: {
-							label: "Muscles",
 							description: "Muscles",
 							type: "enum-array" as const,
+							label: manifestText("Muscles"),
 							choices: choices(["chest", "back", "legs"]),
 						},
 					},
@@ -233,54 +233,40 @@ describe("saved views execution", () => {
 					}),
 				}),
 			};
-			const browse: readonly BrowseSchema[] = [
-				{
-					pluginId,
-					slug: schemaId,
-					browse: {
-						fields: [
-							{
-								key: "reps",
-								label: "Reps",
-								kind: "value" as const,
-								type: "number" as const,
-								expression: castNumber(jsonPath(column(subject, "properties"), "reps")),
-							},
-							{
-								key: "level",
-								label: "Level",
-								type: "enum" as const,
-								kind: "value" as const,
-								expression: castText(jsonPath(column(subject, "properties"), "level")),
-								choices: [
-									{ value: "beginner", label: "Beginner" },
-									{ value: "advanced", label: "Advanced" },
-								],
-							},
-							{
-								label: "Muscles",
-								key: "testMuscles",
-								kind: "value" as const,
-								type: "enum-list" as const,
-								expression: jsonPath(column(subject, "properties"), "muscles"),
-								choices: [
-									{ value: "chest", label: "Chest" },
-									{ value: "back", label: "Back" },
-									{ value: "legs", label: "Legs" },
-								],
-							},
+			yield* setTestEntitySchemaBrowse(client, reference, {
+				fields: [
+					{
+						key: "reps",
+						kind: "value" as const,
+						type: "number" as const,
+						label: manifestText("Reps"),
+						expression: castNumber(jsonPath(column(subject, "properties"), "reps")),
+					},
+					{
+						key: "level",
+						type: "enum" as const,
+						kind: "value" as const,
+						label: manifestText("Level"),
+						expression: castText(jsonPath(column(subject, "properties"), "level")),
+						choices: [
+							{ value: "beginner", label: manifestText("Beginner") },
+							{ value: "advanced", label: manifestText("Advanced") },
 						],
 					},
-				},
-			];
-			yield* setTestEntitySchemaBrowse(
-				client,
-				reference,
-				requirePresent(
-					requirePresent(browse[0], "Browse schema missing").browse,
-					"Browse metadata missing",
-				),
-			);
+					{
+						key: "testMuscles",
+						kind: "value" as const,
+						type: "enum-list" as const,
+						label: manifestText("Muscles"),
+						expression: jsonPath(column(subject, "properties"), "muscles"),
+						choices: [
+							{ value: "chest", label: manifestText("Chest") },
+							{ value: "back", label: manifestText("Back") },
+							{ value: "legs", label: manifestText("Legs") },
+						],
+					},
+				],
+			});
 			const settings: EntityBrowserSavedViewSettings = {
 				...entityBrowserSettings(pluginId),
 				pageSize: 50,
@@ -374,9 +360,9 @@ describe("saved views execution", () => {
 			const eventSlug = `logged-${yield* randomUuid}`;
 			for (const { reference } of [exerciseSchema, otherSchema]) {
 				yield* createEventSchema(client, {
-					name: "Logged",
 					slug: eventSlug,
 					entitySchema: reference,
+					name: manifestText("Logged"),
 				});
 			}
 			const workspace = requirePresent(
@@ -412,25 +398,16 @@ describe("saved views execution", () => {
 				owner: { pluginId, kind: "plugin" as const },
 				entitySchemaSlug: EntitySchemaSlug.make(exerciseSchema.slug),
 			};
-			const browse: readonly BrowseSchema[] = [
-				{
-					pluginId,
-					slug: workoutSchema.schemaId,
-					browse: {
-						fields: [
-							{ event, key: "exercises", label: "Exercises", kind: "session-event" as const },
-						],
+			yield* setTestEntitySchemaBrowse(client, workoutSchema.reference, {
+				fields: [
+					{
+						key: "exercises",
+						kind: "session-event",
+						label: manifestText("Exercises"),
+						event: { ...event, owner: { kind: "self" } },
 					},
-				},
-			];
-			yield* setTestEntitySchemaBrowse(
-				client,
-				workoutSchema.reference,
-				requirePresent(
-					requirePresent(browse[0], "Browse schema missing").browse,
-					"Browse metadata missing",
-				),
-			);
+				],
+			});
 			const entity = table("entity", "entity");
 			const base = buildSavedViewDataSources([workoutSchema.schemaId], { pluginId, kind: "local" });
 			const query = requirePresent(base.queries.savedView, "Saved-view query is missing");

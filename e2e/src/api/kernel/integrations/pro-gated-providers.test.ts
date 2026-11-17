@@ -20,6 +20,7 @@ import {
 	postIntegrationWebhook,
 	postIntegrationWebhookAndWait,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
@@ -31,7 +32,9 @@ const PRO_KEY_ENV_VALUE = "e2e-pro-gated-key";
 
 const settingsSchema = {
 	unknownKeys: "strict",
-	fields: { endpoint: { type: "string", label: "Endpoint", description: "Provider URL" } },
+	fields: {
+		endpoint: { type: "string", description: "Provider URL", label: manifestText("Endpoint") },
+	},
 } satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 
 const providerSpecifics = { endpoint: "https://pro-gated.example.com" };

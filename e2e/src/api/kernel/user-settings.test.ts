@@ -144,21 +144,27 @@ describe("user settings", () => {
 			expect(initial.email).toBe(email);
 			expect(initial.name).toBe("Test User");
 			expect(initial.preferences).toEqual({
-				language: null,
+				weekStart: null,
+				interfaceLocale: null,
+				contentLanguage: null,
 				ratingScale: "hundred",
 				disableIntegrations: false,
 				reportingTimeZone: TimeZone.make("UTC"),
 			});
 
 			yield* updateUserSettingsPreferences(client, {
-				language: "es",
+				weekStart: 0,
 				ratingScale: "five",
+				contentLanguage: "es",
+				interfaceLocale: "en",
 				disableIntegrations: true,
 			});
 
 			expect((yield* getUserSettings(client)).preferences).toEqual({
-				language: "es",
+				weekStart: 0,
 				ratingScale: "five",
+				contentLanguage: "es",
+				interfaceLocale: "en",
 				disableIntegrations: true,
 				reportingTimeZone: TimeZone.make("UTC"),
 			});
@@ -170,7 +176,9 @@ describe("user settings", () => {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const defaultPreferences = {
-				language: null,
+				weekStart: null,
+				interfaceLocale: null,
+				contentLanguage: null,
 				disableIntegrations: false,
 				ratingScale: "hundred" as const,
 				reportingTimeZone: TimeZone.make("UTC"),
@@ -180,9 +188,11 @@ describe("user settings", () => {
 			yield* updateUserSettingsPreferences(owner.client, {
 				reportingTimeZone: TimeZone.make("Asia/Kolkata"),
 			});
-			yield* updateUserSettingsPreferences(owner.client, { language: "fr" });
+			yield* updateUserSettingsPreferences(owner.client, { contentLanguage: "fr" });
 			expect((yield* getUserSettings(owner.client)).preferences).toEqual({
-				language: "fr",
+				weekStart: null,
+				interfaceLocale: null,
+				contentLanguage: "fr",
 				ratingScale: "hundred",
 				disableIntegrations: false,
 				reportingTimeZone: TimeZone.make("Asia/Kolkata"),
@@ -229,12 +239,14 @@ describe("user settings", () => {
 			const warmBody: unknown = yield* Effect.promise(() => warm.json());
 			expect(warmBody).not.toHaveProperty("user.preferences");
 
-			yield* updateUserSettingsPreferences(client, { language: "  fr  " });
-			expect((yield* getUserSettings(client)).preferences.language).toBe("fr");
+			yield* updateUserSettingsPreferences(client, { contentLanguage: "fra" });
+			expect((yield* getUserSettings(client)).preferences.contentLanguage).toBe("fr");
 			yield* updateUserSettingsPreferences(client, { disableIntegrations: true });
-			yield* updateUserSettingsPreferences(client, { language: null });
+			yield* updateUserSettingsPreferences(client, { contentLanguage: null });
 			expect((yield* getUserSettings(client)).preferences).toEqual({
-				language: null,
+				weekStart: null,
+				interfaceLocale: null,
+				contentLanguage: null,
 				ratingScale: "hundred",
 				disableIntegrations: true,
 				reportingTimeZone: TimeZone.make("UTC"),
@@ -245,8 +257,12 @@ describe("user settings", () => {
 			expect(refreshedBody).not.toHaveProperty("user.preferences");
 
 			for (const payload of [
-				{ language: ["fr"] },
-				{ language: { value: "fr" } },
+				{ contentLanguage: ["fr"] },
+				{ contentLanguage: "qqq" },
+				{ contentLanguage: "pt-BR" },
+				{ interfaceLocale: "xx" },
+				{ weekStart: 7 },
+				{ language: "fr" },
 				{ disableIntegrations: "true" },
 				{ ratingScale: "stars" },
 				{ unknownField: true },
