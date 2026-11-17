@@ -1,6 +1,5 @@
 import { expect } from "bun:test";
 
-import { BadRequest } from "@ryot-app/contract/errors";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -10,6 +9,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { deleteFailed } from "#platform/storage/errors";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -41,7 +41,7 @@ const objectStorageLayer = Layer.unwrap(
 				deleteObject: (locator) =>
 					Effect.gen(function* () {
 						if ((yield* Ref.get(failing)) === locator.key) {
-							return yield* new BadRequest({ message: "storage unavailable" });
+							return yield* deleteFailed();
 						}
 						return yield* Ref.update(deleted, (keys) => [...keys, locator.key]);
 					}),

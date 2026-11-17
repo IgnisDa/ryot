@@ -18,7 +18,9 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-1"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,

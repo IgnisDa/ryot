@@ -5,6 +5,7 @@ import {
 	CreateEventsResponse,
 } from "@ryot-app/contract/modules/events/schemas";
 import {
+	type IngestionReason,
 	type IngestionScope,
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
@@ -79,6 +80,7 @@ import {
 	genericIngestionFailureOperation,
 	genericIngestionOperations,
 	type IngestionOperation,
+	operationIssue,
 	reconcileGenericIngestionBatch,
 } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";
@@ -929,22 +931,9 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 		const record = Effect.fnUntraced(function* (
 			operation: IngestionOperation,
 			result: "skipped" | "unsuccessful",
-			code: string,
+			reason: IngestionReason,
 		) {
-			const outcome = {
-				...operation,
-				result,
-				reason: { code, key: null },
-				inputFingerprint: payload.inputFingerprint,
-			};
-			const issue = {
-				reason: outcome.reason,
-				id: operation.operationId,
-				severity: "error" as const,
-				recordKind: operation.recordKind,
-				operationId: operation.operationId,
-				attribution: operation.attribution,
-			};
+			const outcome = { ...operation, result, reason, inputFingerprint: payload.inputFingerprint };
 			yield* makeActivity({
 				error: ImportRunError,
 				name: `record-ingestion-result:${operation.operationId}`,
@@ -952,9 +941,10 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 					.transaction(
 						Effect.gen(function* () {
 							yield* repository.recordOutcome(scope, outcome);
-							if (result === "unsuccessful") {
-								yield* repository.recordIssue(scope, issue);
-							}
+							yield* repository.recordIssue(
+								scope,
+								operationIssue(operation, result === "unsuccessful" ? "error" : "warning", reason),
+							);
 						}),
 					)
 					.pipe(Effect.mapError(toWorkflowError)),
@@ -996,11 +986,10 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 		const definitions = definitionLookup(snapshot);
 		for (const failure of chunk.failures) {
 			const stage = failure.stage ?? "input_transformation";
-			yield* record(
-				genericIngestionFailureOperation(failure, scope.runId),
-				"unsuccessful",
-				failureReasonByStage[stage].code,
-			);
+			yield* record(genericIngestionFailureOperation(failure, scope.runId), "unsuccessful", {
+				key: null,
+				code: failureReasonByStage[stage].code,
+			});
 		}
 		for (const [index, item] of chunk.items.entries()) {
 			const run = yield* repository.getIngestionRunControl(scope);
@@ -1048,7 +1037,10 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 							(value) => value.operationId === membership.operationId,
 						);
 						if (operation) {
-							yield* record(operation, "unsuccessful", "membership-event-failed");
+							yield* record(operation, "unsuccessful", {
+								key: null,
+								code: "membership-event-failed",
+							});
 						}
 					} else if (collectionResult._tag === "Success") {
 						warnings.push(...collectionResult.success.warnings);
@@ -1087,7 +1079,10 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 						const operation =
 							intent && operations.find((value) => value.operationId === intent.operationId);
 						if (operation && event.status === "skipped_by_policy") {
-							yield* record(operation, "skipped", event.reason);
+							yield* record(operation, "skipped", {
+								message: event.reason,
+								code: "policy-rejected",
+							});
 						}
 					}
 				}
@@ -1116,7 +1111,7 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 						!committed.some((value) => value.itemIdentity === operation.itemIdentity) &&
 						!(yield* repository.getOutcome(scope, operation.operationId))
 					) {
-						yield* record(operation, "unsuccessful", failureCode);
+						yield* record(operation, "unsuccessful", { key: null, code: failureCode });
 					}
 				}
 			}

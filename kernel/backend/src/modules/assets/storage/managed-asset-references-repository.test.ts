@@ -5,9 +5,9 @@ import {
 	type AutomationSignalPayload,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -98,9 +98,9 @@ const insertKernelAssetSchema = Effect.fn(function* () {
 				slug,
 				icon: "box",
 				position: 0,
-				name: "Asset schema",
 				pluginRevisionId: null,
 				mergeIdentityProperties: [],
+				name: { namespace: "kernel", key: "test.asset-schema" },
 				propertiesSchema: { fields: { image: managedAssetProperty } },
 			}),
 	);
@@ -274,10 +274,10 @@ const insertReferenceSource = Effect.fn(function* (
 							position: 0,
 							icon: "view",
 							sortOrder: 0,
-							name: "Reference",
 							settings: properties,
 							slug: crypto.randomUUID(),
 							pluginRevisionId: revisionId,
+							name: { namespace: "kernel", key: "test.reference" },
 							renderer: { kind: "kernel", name: "entity-browser" },
 						}),
 				);
@@ -588,17 +588,17 @@ layer(testLayer)((test) => {
 				const otherUserId = UserId.make(yield* randomUuid);
 				const locator = yield* insertManagedAsset(ownerUserId);
 				yield* insertManagedAsset(otherUserId);
-				const schema: AppSchema = {
+				const schema: AuthoredAppSchema = {
 					unknownKeys: "strict",
 					fields: {
 						'escaped"\\.[]': {
 							type: "array",
-							label: "Array",
 							description: "Array",
+							label: { key: "test.array" },
 							items: {
 								type: "object",
-								label: "Object",
 								description: "Object",
+								label: { key: "test.object" },
 								properties: { image: managedAssetProperty },
 							},
 						},
@@ -1066,11 +1066,11 @@ layer(testLayer)((test) => {
 							position: 0,
 							sortOrder: 0,
 							icon: "view",
-							name: "Kernel view",
 							pluginRevisionId: null,
 							slug: crypto.randomUUID(),
 							settings: { image: locator },
 							renderer: { kind: "kernel", name: "entity-browser" },
+							name: { namespace: "kernel", key: "test.kernel-view" },
 						}),
 				);
 				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);

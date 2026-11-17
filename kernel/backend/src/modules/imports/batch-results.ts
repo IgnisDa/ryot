@@ -1,6 +1,8 @@
 import {
 	IngestionAttribution,
 	type IngestionBatch,
+	type IngestionIssue,
+	type IngestionReason,
 	type IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type {
@@ -32,6 +34,19 @@ export const IngestionOperation = Schema.Struct({
 	itemIdentity: Schema.NonEmptyString,
 });
 export type IngestionOperation = typeof IngestionOperation.Type;
+
+export const operationIssue = (
+	operation: IngestionOperation,
+	severity: IngestionIssue["severity"],
+	reason: IngestionReason,
+): IngestionIssue => ({
+	reason,
+	severity,
+	id: operation.operationId,
+	recordKind: operation.recordKind,
+	operationId: operation.operationId,
+	attribution: operation.attribution,
+});
 
 export const reconcileIngestionBatch = Effect.fn("imports.reconcileIngestionBatch")(function* (
 	scope: IngestionScope,

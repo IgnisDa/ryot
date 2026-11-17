@@ -1,10 +1,13 @@
 import { badRequest, notFound } from "@ryot-app/contract/errors";
 import { IntegrationId, IntegrationWebhookToken } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Effect, Layer, Schema } from "effect";
 
 import { IntegrationOperationScopeResolver } from "#modules/plugins/operations/service";
 
 import { IntegrationsRepository } from "./repository";
+
+const integrationNotFound = () => notFound(kernelMessage("error.integrations.not-found"));
 
 const IntegrationPayload = Schema.Union([
 	Schema.Struct({ integrationId: Schema.String }),
@@ -20,7 +23,9 @@ export const IntegrationOperationScopeResolverLive = Layer.effect(
 			resolve: (payload: unknown) =>
 				Effect.gen(function* () {
 					const decoded = yield* Schema.decodeUnknownEffect(IntegrationPayload)(payload).pipe(
-						Effect.mapError(() => badRequest("integrationId or webhookToken is required")),
+						Effect.mapError(() =>
+							badRequest(kernelMessage("error.integrations.identifier-required")),
+						),
 					);
 					const integration = yield* "webhookToken" in decoded
 						? repository.getByWebhookToken(IntegrationWebhookToken.make(decoded.webhookToken))
@@ -28,10 +33,10 @@ export const IntegrationOperationScopeResolverLive = Layer.effect(
 								integrationId: IntegrationId.make(decoded.integrationId),
 							});
 					if (!integration || integration.isDisabled || integration.pluginInstallationId === null) {
-						return yield* notFound("Integration not found");
+						return yield* integrationNotFound();
 					}
 					if ("integrationId" in decoded && integration.lot === "sink") {
-						return yield* notFound("Integration not found");
+						return yield* integrationNotFound();
 					}
 					return {
 						userId: integration.userId,

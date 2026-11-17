@@ -8,6 +8,7 @@ import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/p
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type AppPropertyDefinition,
+	type AppSchema,
 	getOrderedAppSchemaFieldEntries,
 } from "@ryot-app/contract/schema/property-schema";
 import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
@@ -22,14 +23,16 @@ export type ImportSourceFileInput = {
 	allowedExtensions: string[];
 };
 
-type UploadProperty = Extract<AppPropertyDefinition, { type: "string" }> & {
+type ImportInputSource = { readonly inputSchema: AppSchema<unknown> };
+
+type UploadProperty = Extract<AppPropertyDefinition<unknown>, { type: "string" }> & {
 	readonly format: {
 		readonly kind: "upload";
 		readonly allowedFileExtensions: ReadonlyArray<string>;
 	};
 };
 
-const uploadFields = (source: Pick<RegisteredImportSource, "inputSchema">) =>
+const uploadFields = (source: ImportInputSource) =>
 	getOrderedAppSchemaFieldEntries(source.inputSchema.fields).filter(
 		(entry): entry is [string, UploadProperty] =>
 			entry[1].type === "string" && entry[1].format?.kind === "upload",
@@ -38,7 +41,7 @@ const uploadFields = (source: Pick<RegisteredImportSource, "inputSchema">) =>
 const isJsonValue = Schema.is(JsonValue);
 
 export const parseRegistryImportSourceInput = Effect.fn("parseRegistryImportSourceInput")(
-	function* (source: Pick<RegisteredImportSource, "inputSchema">, body: CreateImportRunBody) {
+	function* (source: ImportInputSource, body: CreateImportRunBody) {
 		const declaredUploadFields = new Set(uploadFields(source).map(([field]) => field));
 		const undeclaredTokenField = Object.keys(body).find(
 			(field) => isImportUploadTokenField(field) && !declaredUploadFields.has(field),

@@ -43,7 +43,9 @@ const user: CurrentUserValue = {
 	email: "user@example.test",
 	id: ingestionTestScope.userId,
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -51,16 +53,16 @@ const user: CurrentUserValue = {
 };
 const source: RegisteredImportSource = {
 	slug: "fixture",
-	name: "Fixture",
 	pluginId: "plugin-1",
 	pluginScope: "system",
-	description: "Fixture",
 	workflowSlug: "fixture",
 	configSchema: { fields: {} },
 	requiredPluginConfigKeys: [],
 	configuredPluginConfigKeys: [],
 	installationId: "installation-1",
 	packageId: fixtureManifest().metadata.packageId,
+	name: { key: "test.fixture", namespace: "plugin-1" },
+	description: { key: "test.fixture", namespace: "plugin-1" },
 	reference: { slug: "fixture", owner: { kind: "plugin", pluginId: PluginId.make("plugin-1") } },
 	readinessMetadata: { scripts: [], workflows: [], oauthProviders: [], availableConfigKeys: [] },
 	configContext: {
@@ -151,9 +153,9 @@ const serviceCase = (
 							fields: {
 								timezone: {
 									type: "string",
-									label: "Timezone",
 									defaultValue: "UTC",
 									description: "Import timezone",
+									label: { key: "test.timezone" },
 								},
 							},
 						},

@@ -30,7 +30,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { DatabaseSession } from "#platform/db/session";
 import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
 
-import { IngestionOperation, reconcileIngestionBatch } from "./batch-results";
+import { IngestionOperation, operationIssue, reconcileIngestionBatch } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";
 import { maximumDocumentBytes } from "./data-admission";
 import {
@@ -734,12 +734,16 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 				}
 				const outcome = result.outcomes[0];
 				if (outcome?.status === "skipped_by_policy") {
+					const reason = { message: outcome.reason, code: "policy-rejected" as const };
 					yield* database.transaction(
-						repository.recordOutcome(scope, {
-							...operation,
-							result: "skipped",
-							reason: { key: null, code: outcome.reason },
-							inputFingerprint: input.batch.inputFingerprint,
+						Effect.gen(function* () {
+							yield* repository.recordOutcome(scope, {
+								...operation,
+								reason,
+								result: "skipped",
+								inputFingerprint: input.batch.inputFingerprint,
+							});
+							yield* repository.recordIssue(scope, operationIssue(operation, "warning", reason));
 						}),
 					);
 				}

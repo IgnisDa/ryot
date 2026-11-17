@@ -7,6 +7,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
 
+import { writeFailed } from "#platform/storage/errors";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
 
@@ -39,11 +40,7 @@ const boundedWriteLayer = ObjectStorageService.layer.pipe(
 						writeObject: (_key, stream) =>
 							Stream.runDrain(
 								stream.pipe(
-									Stream.mapError((error) =>
-										error instanceof BadRequest
-											? error
-											: new BadRequest({ message: "S3 object write failed" }),
-									),
+									Stream.mapError((error) => (error instanceof BadRequest ? error : writeFailed())),
 								),
 							),
 					}),

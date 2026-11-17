@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
@@ -14,6 +13,7 @@ import { ByteSize, Clock, Context, DateTime, Effect, Layer, Option, Ref, Stream 
 
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import { mapDatabaseErrors } from "#platform/db/errors";
+import { missingObject, writeFailed } from "#platform/storage/errors";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
 import { databaseLayer, fakeDatabaseSession } from "#testing/effect";
@@ -35,7 +35,9 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -80,8 +82,6 @@ class FakeObjectStorage extends Context.Service<
 	{ readonly deletes: Effect.Effect<number>; readonly stored: Effect.Effect<null | Uint8Array> }
 >()("@ryot-app/kernel-backend/modules/assets/storage/managed-assets.test/FakeObjectStorage") {}
 
-const missingObject = () => Effect.fail(new BadRequest({ message: "missing" }));
-
 const inMemoryObjectStorageLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const stored = yield* Ref.make<null | Uint8Array>(null);
@@ -94,14 +94,14 @@ const inMemoryObjectStorageLayer = Layer.unwrap(
 				openObject: () =>
 					Ref.get(stored).pipe(
 						Effect.flatMap((body) =>
-							body === null ? missingObject() : Effect.succeed(Stream.make(body)),
+							body === null ? Effect.fail(missingObject()) : Effect.succeed(Stream.make(body)),
 						),
 					),
 				statObject: () =>
 					Ref.get(stored).pipe(
 						Effect.flatMap((body) =>
 							body === null
-								? missingObject()
+								? Effect.fail(missingObject())
 								: Effect.succeed({
 										size: body.byteLength,
 										contentType: "application/octet-stream",
@@ -111,9 +111,7 @@ const inMemoryObjectStorageLayer = Layer.unwrap(
 				writeObjectIfAbsent: (_locator, stream) =>
 					Effect.gen(function* () {
 						const chunks = yield* Stream.runCollect(
-							stream.pipe(
-								Stream.mapError(() => new BadRequest({ message: "asset stream failed" })),
-							),
+							stream.pipe(Stream.mapError(() => writeFailed())),
 						);
 						const body = Uint8Array.from(Array.from(chunks).flatMap((chunk) => Array.from(chunk)));
 						return yield* Ref.modify(stored, (current) =>

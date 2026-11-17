@@ -19,9 +19,9 @@ const definitions = buildDefinitionSnapshot({
 	calendarSources: [],
 	relationshipSchemas: [
 		{
-			name: "Link",
 			slug: "link",
 			pluginId: null,
+			name: { key: "test.link" },
 			propertiesSchema: { fields: {} },
 			sourceEntitySchemaSlug: "record",
 			targetEntitySchemaSlug: "record",
@@ -31,8 +31,8 @@ const definitions = buildDefinitionSnapshot({
 		{
 			icon: "file",
 			pluginId: null,
-			name: "Record",
 			slug: "record",
+			name: { key: "test.record" },
 			propertiesSchema: {
 				fields: {
 					parent: {
@@ -46,8 +46,8 @@ const definitions = buildDefinitionSnapshot({
 			eventSchemas: [
 				{
 					pluginId: null,
-					name: "Recorded",
 					slug: "recorded",
+					name: { key: "test.recorded" },
 					propertiesSchema: {
 						fields: {
 							link: {

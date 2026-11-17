@@ -39,16 +39,21 @@ const providerPackage = (version: string, endpointSecret: boolean, packageId?: P
 			integrationProviders: [
 				{
 					slug: "notes-push",
-					name: "Notes push",
 					lot: "push" as const,
-					description: "Push progress to notes",
+					name: { key: "test.notes-push" },
+					description: { key: "test.push-progress-to-notes" },
 					settingsSchema: {
 						fields: {
-							token: { secret: true, type: "string", label: "Token", description: "API token" },
+							token: {
+								secret: true,
+								type: "string",
+								description: "API token",
+								label: { key: "test.token" },
+							},
 							endpoint: {
 								type: "string",
-								label: "Endpoint",
 								description: "Server URL",
+								label: { key: "test.endpoint" },
 								...(endpointSecret ? { secret: true } : {}),
 							},
 						},

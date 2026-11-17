@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import type {
 	IngestionBatch,
+	IngestionIssue,
 	IngestionOutcome,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import {
@@ -59,14 +60,14 @@ const snapshot = buildDefinitionSnapshot({
 		{
 			icon: "file",
 			pluginId: null,
-			name: "Record",
 			slug: "record",
+			name: { key: "test.record" },
 			propertiesSchema: { fields: {} },
 			eventSchemas: [
 				{
 					pluginId: null,
-					name: "Recorded",
 					slug: "recorded",
+					name: { key: "test.recorded" },
 					propertiesSchema: {
 						fields: {
 							related: {
@@ -113,6 +114,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 	let run = ingestionTestRun();
 	const items: ReturnType<typeof ingestionTestItem>[] = [];
 	const outcomes = new Map<string, IngestionOutcome>();
+	const issues: IngestionIssue[] = [];
 	const projections: IngestionBatch[] = [];
 	const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
 	const submitted: Parameters<EventsService["Service"]["create"]>[0][] = [];
@@ -169,7 +171,13 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 							count: 0,
 							warnings: [],
 							failure: null,
-							outcomes: [{ index: 0, reason: "filtered", status: "skipped_by_policy" as const }],
+							outcomes: [
+								{
+									index: 0,
+									status: "skipped_by_policy" as const,
+									reason: { namespace: "plugin1", key: "rejection.filtered" },
+								},
+							],
 						};
 					}
 					const item = ingestionTestItem(lifecycle.itemIdentity, "created");
@@ -189,12 +197,16 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 		}),
 		Layer.mock(ImportsRepository)({
 			storeBatchResult: () => Effect.void,
-			recordIssue: () => Effect.succeed(true),
 			getIngestionRunControl: () => Effect.sync(() => run),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 			startBatch: (...input) =>
 				Effect.sync(() => {
 					starts.push(input);
+					return true;
+				}),
+			recordIssue: (_scope, issue) =>
+				Effect.sync(() => {
+					issues.push(issue);
 					return true;
 				}),
 			projectBatch: (_scope, value) =>
@@ -246,7 +258,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 			subject: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
 		},
 	}).pipe(Effect.provideContext(context));
-	return { items, starts, execute, outcomes, submitted, projections };
+	return { items, starts, issues, execute, outcomes, submitted, projections };
 });
 
 it.effect(
@@ -275,7 +287,17 @@ it.effect(
 			expect(test.submitted[0]?.payload[0]?.properties).toEqual({
 				related: { entity: "related-id" },
 			});
-			expect(test.outcomes.get("data:event:skipped")?.result).toBe("skipped");
+			const rejection = {
+				code: "policy-rejected",
+				message: { namespace: "plugin1", key: "rejection.filtered" },
+			};
+			expect(test.outcomes.get("data:event:skipped")).toMatchObject({
+				result: "skipped",
+				reason: rejection,
+			});
+			expect(
+				test.issues.find(({ operationId }) => operationId === "data:event:skipped"),
+			).toMatchObject({ reason: rejection, severity: "warning" });
 			expect(test.outcomes.get("data:event:failed-dependency")?.result).toBe("unsuccessful");
 			expect(test.projections).toHaveLength(2);
 			expect(test.projections[0]?.summary).toEqual([

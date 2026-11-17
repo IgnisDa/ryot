@@ -20,11 +20,15 @@ import {
 const configSchema = {
 	unknownKeys: "strict",
 	fields: {
-		deltaApiKey: { type: "string", label: "Delta API key", description: "Delta API key" },
+		deltaApiKey: {
+			type: "string",
+			description: "Delta API key",
+			label: { key: "test.delta-api-key" },
+		},
 		alphaAccessToken: {
 			type: "string",
-			label: "Alpha access token",
 			description: "Alpha access token",
+			label: { key: "test.alpha-access-token" },
 		},
 	},
 } as const;
@@ -40,17 +44,17 @@ const uploadProperty = (allowedFileExtensions: ReadonlyArray<string>, required =
 const registeredSource = (
 	overrides: Partial<RegisteredImportSource> = {},
 ): RegisteredImportSource => ({
-	name: "Nu",
 	slug: "nu",
 	configSchema,
 	pluginScope: "system",
-	description: "Nu export",
 	workflowSlug: "nu-import",
 	requiredPluginConfigKeys: [],
 	pluginId: "example-plugin-id",
 	configuredPluginConfigKeys: [],
 	installationId: "example-installation",
 	packageId: fixtureManifest().metadata.packageId,
+	name: { key: "test.nu", namespace: "example-plugin-id" },
+	description: { key: "test.nu-export", namespace: "example-plugin-id" },
 	reference: {
 		slug: overrides.slug ?? "nu",
 		owner: { kind: "plugin", pluginId: PluginId.make("example-plugin-id") },

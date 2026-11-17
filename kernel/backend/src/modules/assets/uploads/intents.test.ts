@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import { badRequest } from "@ryot-app/contract/errors";
 import {
 	type ManagedAssetLocator,
 	UploadBadRequest,
@@ -29,6 +28,7 @@ import {
 import { TestClock } from "effect/testing";
 
 import { DatabaseSession } from "#platform/db/session";
+import { deleteFailed, missingObject } from "#platform/storage/errors";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
 import { TransientValues } from "#platform/transient-values";
@@ -52,7 +52,9 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -156,7 +158,7 @@ const makeUploadIntentsLayer = (options: {
 							yield* Deferred.await(statReleased);
 						}
 						if (options.missingObject) {
-							return yield* badRequest("object missing");
+							return yield* missingObject();
 						}
 						return { size: 3, etag: "etag", type: "image/png", lastModified: epoch };
 					});
@@ -180,9 +182,7 @@ const makeUploadIntentsLayer = (options: {
 							deleteObject: (locator) =>
 								append(deletedObjects, locator).pipe(
 									Effect.andThen(
-										options.objectDeletionFails
-											? Effect.fail(badRequest("object deletion failed"))
-											: Effect.void,
+										options.objectDeletionFails ? Effect.fail(deleteFailed()) : Effect.void,
 									),
 								),
 						}),

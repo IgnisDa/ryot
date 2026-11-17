@@ -5,6 +5,7 @@ import {
 import { IntegrationSnapshot } from "@ryot-app/contract/modules/integrations/schemas";
 import { AutomationExecutionId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { Message, unavailableMessage } from "@ryot-app/i18n/message";
 import {
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
@@ -18,6 +19,7 @@ import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { SignalEmissionService } from "#modules/automations/signal-service";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { runDataImportWorkflow } from "#modules/imports/data-workflow";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { DataImportServicesLive, IngestionExecutionLive } from "#modules/imports/layer";
@@ -249,10 +251,28 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			),
 		});
 		if (disabled) {
+			const providerName = yield* makeActivity({
+				success: Message,
+				error: IntegrationRunError,
+				name: "integration-provider-name",
+				execute: Effect.flatMap(DefinitionCatalog, (catalogs) =>
+					catalogs.forUser(payload.userId),
+				).pipe(
+					Effect.mapBoth({
+						onFailure: toIntegrationWorkflowError,
+						onSuccess: (catalog) =>
+							catalog.integrationProviders.find(
+								(provider) =>
+									provider.slug === integration.provider &&
+									provider.installationId === integration.pluginInstallationId,
+							)?.name ?? unavailableMessage,
+					}),
+				),
+			});
 			const signals = yield* SignalEmissionService;
 			yield* signals.emitSignal({
 				principal: { kind: "user", userId: payload.userId },
-				properties: { integrationId: integration.id, providerName: integration.provider },
+				properties: { providerName, integrationId: integration.id },
 				reference: {
 					owner: { kind: "kernel" },
 					slug: SignalSchemaSlug.make("integration.disabled"),
@@ -277,6 +297,11 @@ export const IntegrationWorkflowDefinitionsLive = implementWorkflow(
 	runIntegrationRunWorkflow,
 ).pipe(
 	Layer.provide(
-		Layer.mergeAll(IntegrationIngestionLive, IngestionExecutionLive, DataImportServicesLive),
+		Layer.mergeAll(
+			IntegrationIngestionLive,
+			IngestionExecutionLive,
+			DataImportServicesLive,
+			DefinitionCatalog.layer,
+		),
 	),
 );

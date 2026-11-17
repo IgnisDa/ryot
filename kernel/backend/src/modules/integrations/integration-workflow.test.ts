@@ -14,6 +14,7 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { SignalEmissionService } from "#modules/automations/signal-service";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -69,6 +70,7 @@ const rootCase = (
 		const dependencies = Layer.mergeAll(
 			unusedDataImportServices,
 			Layer.mock(DefinitionRepository)({}),
+			Layer.mock(DefinitionCatalog)({}),
 			Layer.mock(IngestionCaptures)({}),
 			mutationAdmissionTestLayer,
 			workflowAccountsTestLayer,

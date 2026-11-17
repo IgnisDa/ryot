@@ -4,6 +4,7 @@ import {
 	UploadBadRequest,
 } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { and, asc, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -186,7 +187,7 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 					return yield* new UploadBadRequest({ reason: { code: "asset-forbidden" } });
 				}
 				if (!isIdenticalRegistration(existing, input)) {
-					return yield* conflict("Managed asset locator is already registered");
+					return yield* conflict(kernelMessage("error.assets.locator-already-registered"));
 				}
 				return existing;
 			});

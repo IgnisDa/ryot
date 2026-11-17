@@ -151,7 +151,11 @@ const runCase = (
 						userSettingsSchema: {
 							unknownKeys: "strict",
 							fields: {
-								timezone: { type: "string", label: "Timezone", description: "Import timezone" },
+								timezone: {
+									type: "string",
+									description: "Import timezone",
+									label: { key: "test.timezone" },
+								},
 							},
 						},
 					}),
@@ -223,16 +227,16 @@ const runCase = (
 							},
 							provider: {
 								slug: "fixture",
-								name: "Fixture",
 								entitlement: null,
 								lot: "sink" as const,
 								pluginId: "plugin-1",
-								description: "Fixture",
 								pluginScope: "system" as const,
 								settingsSchema: { fields: {} },
 								installationId: "installation-1",
 								scriptSlug: "workflow.media-integration",
 								packageId: ingestionTestRevision.packageId,
+								name: { key: "test.fixture", namespace: "example-plugin" },
+								description: { key: "test.fixture", namespace: "example-plugin" },
 								reference: {
 									slug: "fixture",
 									owner: { kind: "plugin" as const, pluginId: ingestionTestRevision.id },

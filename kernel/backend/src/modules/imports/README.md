@@ -9,6 +9,8 @@ A chunk carries one operation ID per intent and per failure, unique across the c
 `operationId` is the ID of the operation the plugin would have written had the record succeeded, so
 issues and outcomes for failed records share the identity scheme of written records. The kernel
 registers every ID of a chunk against its batch, so a second batch cannot reuse an operation.
+A record a policy skips gets a `skipped` outcome and a warning issue whose `policy-rejected` reason
+carries the policy owner's stamped message, so the run report shows the policy's explanation.
 
 The `data-json` source validates records against definitions already available to the user. Its
 document-local keys resolve entity and relationship dependencies, including schema-declared nested

@@ -185,11 +185,11 @@ layer(referenceTestLayer)((test) => {
 						.values({
 							position: 0,
 							icon: "box",
-							name: "Owned entity",
 							pluginRevisionId: null,
 							slug: entitySchemaSlug,
 							mergeIdentityProperties: [],
 							propertiesSchema: assetSchema,
+							name: { namespace: "kernel", key: "test.owned-entity" },
 						}),
 				);
 				const locked = yield* Deferred.make<void>();
@@ -263,11 +263,11 @@ layer(referenceTestLayer)((test) => {
 						.values({
 							position: 0,
 							icon: "box",
-							name: "Shared entity",
 							pluginRevisionId: null,
 							mergeIdentityProperties: [],
 							propertiesSchema: assetSchema,
 							slug: "shared-asset-reference",
+							name: { namespace: "kernel", key: "test.shared-entity" },
 						}),
 				);
 				yield* session.run((db) =>

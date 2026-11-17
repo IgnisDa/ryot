@@ -68,7 +68,9 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -246,10 +248,10 @@ describe("update", () => {
 		lot: "yank",
 		entitlement: null,
 		...systemPlugin("example"),
-		name: "Mu",
 		slug: "mu",
-		description: "Test yank",
 		scriptSlug: "integration.mu",
+		name: { key: "test.mu", namespace: "example-plugin" },
+		description: { key: "test.test-yank", namespace: "example-plugin" },
 		settingsSchema: {
 			fields: {
 				baseUrl: {
@@ -333,12 +335,12 @@ describe("update", () => {
 	const replacementProvider = {
 		lot: "yank",
 		entitlement: null,
-		name: "Replacement",
 		slug: "shared-provider",
 		settingsSchema: { fields: {} },
+		name: { key: "test.replacement", namespace: "example-plugin" },
 		...systemPlugin("replacement-owner"),
-		description: "Replacement provider",
 		scriptSlug: "replacement.integration",
+		description: { namespace: "example-plugin", key: "test.replacement-provider" },
 	} satisfies RegisteredIntegrationProvider;
 
 	layer(
@@ -379,13 +381,13 @@ describe("update", () => {
 
 	const proSinkProvider = {
 		lot: "sink",
-		name: "Pro sink",
 		slug: "pro-sink",
 		entitlement: "pro",
+		name: { key: "test.pro-sink", namespace: "example-plugin" },
 		...systemPlugin("example"),
 		settingsSchema: { fields: {} },
 		scriptSlug: "integration.pro-sink",
-		description: "Pro-gated sink provider",
+		description: { namespace: "example-plugin", key: "test.pro-gated-sink-provider" },
 	} satisfies RegisteredIntegrationProvider;
 	const proSinkIntegration = makeIntegration({
 		lot: "sink",
@@ -428,12 +430,12 @@ describe("update", () => {
 describe("create", () => {
 	const pushProvider = {
 		lot: "push",
-		name: "Push",
 		scriptSlug: null,
 		entitlement: null,
 		slug: "example-push",
+		name: { key: "test.push", namespace: "example-plugin" },
 		...systemPlugin("example"),
-		description: "Test push provider",
+		description: { namespace: "example-plugin", key: "test.test-push-provider" },
 		settingsSchema: {
 			fields: { token: { secret: true, type: "string", label: "Token", description: "API token" } },
 		},
@@ -472,13 +474,13 @@ describe("create", () => {
 
 	const proSinkProvider = {
 		lot: "sink",
-		name: "Pro sink",
 		slug: "pro-sink",
 		entitlement: "pro",
+		name: { key: "test.pro-sink", namespace: "example-plugin" },
 		...systemPlugin("example"),
 		settingsSchema: { fields: {} },
 		scriptSlug: "integration.pro-sink",
-		description: "Pro-gated sink provider",
+		description: { namespace: "example-plugin", key: "test.pro-gated-sink-provider" },
 	} satisfies RegisteredIntegrationProvider;
 
 	layer(
@@ -593,12 +595,12 @@ describe("prepareYankRuns", () => {
 	const registeredYank: RegisteredIntegrationProvider = {
 		...systemPlugin("example"),
 		lot: "yank",
-		name: "Theta",
 		slug: "theta",
 		entitlement: null,
-		description: "Theta",
 		scriptSlug: "theta-sync",
 		settingsSchema: { fields: {} },
+		name: { key: "test.theta", namespace: "example-plugin" },
+		description: { key: "test.theta", namespace: "example-plugin" },
 	};
 
 	const layerFor = (admitted: boolean, ready = true, unavailable = false) =>
@@ -814,11 +816,11 @@ describe("handleWebhook", () => {
 							...systemPlugin("example"),
 							lot: "sink",
 							entitlement: null,
-							name: "Example sink",
 							slug: "example-sink",
-							description: "Example sink",
 							scriptSlug: "example-webhook",
 							settingsSchema: { fields: {} },
+							name: { key: "test.example-sink", namespace: "example-plugin" },
+							description: { key: "test.example-sink", namespace: "example-plugin" },
 						}),
 				},
 			}),
@@ -944,11 +946,11 @@ describe("handleWebhook", () => {
 		...systemPlugin("example"),
 		lot: "sink",
 		entitlement: null,
-		name: "Sample Sink",
 		slug: "sample-sink",
-		description: "Sample Sink",
 		settingsSchema: { fields: {} },
 		scriptSlug: "sample-sink-webhook",
+		name: { key: "test.sample-sink", namespace: "example-plugin" },
+		description: { key: "test.sample-sink", namespace: "example-plugin" },
 	};
 	for (const code of [
 		"integration-disabled",
@@ -1042,11 +1044,11 @@ describe("handleWebhook", () => {
 		...systemPlugin("example"),
 		lot: "sink",
 		entitlement: null,
-		name: "Lambda sink",
 		slug: "lambda_sink",
-		description: "Lambda sink",
 		scriptSlug: "lambda-webhook",
 		settingsSchema: { fields: {} },
+		name: { key: "test.lambda-sink", namespace: "example-plugin" },
+		description: { key: "test.lambda-sink", namespace: "example-plugin" },
 	};
 	const rawBody =
 		'--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n{"event":"example.scrobble"}\r\n--abc--';
@@ -1141,11 +1143,11 @@ describe("managed asset settings", () => {
 		lot: "push",
 		scriptSlug: null,
 		entitlement: null,
-		name: "Asset push",
 		slug: "asset-push",
+		name: { key: "test.asset-push", namespace: "example-plugin" },
 		...systemPlugin("example"),
-		description: "Provider with an asset setting",
 		settingsSchema: { fields: { image: managedAssetProperty } },
+		description: { namespace: "example-plugin", key: "test.provider-with-an-asset-setting" },
 	} satisfies RegisteredIntegrationProvider;
 	const assetIntegration = makeIntegration({
 		lot: "push",
