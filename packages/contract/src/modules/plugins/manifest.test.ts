@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test";
 
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -12,6 +13,7 @@ import {
 	CLIENT_API_VERSION,
 	collectionPagePath,
 	definePlugin,
+	manifestTexts,
 	PluginManifest,
 	PluginOperation,
 } from "./manifest";
@@ -39,7 +41,6 @@ const authoredManifest = definePlugin({
 	httpRateLimits: [],
 	relationshipSchemas: [],
 	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
-	metadata: { packageId, icon: "box", name: "Test", version: "1.0.0", description: "Test plugin" },
 	userBootstrap: [
 		{
 			slug: "bootstrap.test",
@@ -47,15 +48,13 @@ const authoredManifest = definePlugin({
 			scriptSlug: "provider.test.preload",
 		},
 	],
-	entitySchemas: [
-		{
-			icon: "box",
-			name: "Entity",
-			eventSchemas: [],
-			slug: "entity.test",
-			propertiesSchema: { fields: {} },
-		},
-	],
+	metadata: {
+		packageId,
+		icon: "box",
+		version: "1.0.0",
+		name: { key: "test.test" },
+		description: { key: "test.test-plugin" },
+	},
 	crons: [
 		{
 			slug: "refresh.test",
@@ -64,36 +63,33 @@ const authoredManifest = definePlugin({
 			description: "Refresh test data",
 		},
 	],
+	entitySchemas: [
+		{
+			icon: "box",
+			eventSchemas: [],
+			slug: "entity.test",
+			name: { key: "test.entity" },
+			propertiesSchema: { fields: {} },
+		},
+	],
 	providers: [
 		{
 			slug: "provider.test",
-			name: "Test provider",
+			name: { key: "test.test-provider" },
 			rootEntitySchemaSlug: "entity.test",
 			information: { source: "Test source", canonicalLanguage: "en" },
 		},
 	],
 	signalSchemas: [
 		{
-			name: "Test signal",
 			slug: "test.signal",
 			catalogState: "active",
 			propertiesSchema: { fields: {} },
+			name: { key: "test.test-signal" },
 			audiencePolicy: { kind: "actor" },
 			notificationHookSlug: "test.notify",
 		},
 	],
-	configSchema: {
-		unknownKeys: "strict",
-		fields: {
-			TEST_KEY: {
-				secret: true,
-				type: "string",
-				label: "Test key",
-				description: "Test plugin key",
-				validation: { minLength: 1, required: true },
-			},
-		},
-	},
 	hooks: [
 		{
 			stage: "after",
@@ -104,6 +100,18 @@ const authoredManifest = definePlugin({
 			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "test.signal" }],
 		},
 	],
+	configSchema: {
+		unknownKeys: "strict",
+		fields: {
+			TEST_KEY: {
+				secret: true,
+				type: "string",
+				description: "Test plugin key",
+				label: { key: "test.test-key" },
+				validation: { minLength: 1, required: true },
+			},
+		},
+	},
 	operations: [
 		{
 			auth: "user",
@@ -121,32 +129,32 @@ const authoredManifest = definePlugin({
 		{
 			sortOrder: 0,
 			icon: "bookmark",
-			name: "All entities",
 			slug: "all-entities",
 			dataSources: queryDocument,
+			name: { key: "test.all-entities" },
 			renderer: { kind: "kernel", name: "results-table" },
 			settings: {
 				pageSize: 20,
 				sourceName: "entities",
 				rowKeyFields: ["entityId"],
 				entityLink: { entityIdField: "entityId" },
-				columns: [{ label: "Title", field: "title", displayKind: "text" }],
+				columns: [{ field: "title", displayKind: "text", label: { key: "test.title" } }],
 			},
 		},
 	],
 	integrationProviders: [
 		{
 			lot: "yank",
-			name: "Test yank",
 			slug: "integration.yank",
 			scriptSlug: "automation.test",
-			description: "Yank test data",
+			name: { key: "test.test-yank" },
+			description: { key: "test.yank-test-data" },
 			settingsSchema: {
 				fields: {
 					apiKey: {
 						secret: true,
 						type: "string",
-						label: "API key",
+						label: { key: "test.api-key" },
 						description: "Provider API key",
 					},
 				},
@@ -154,28 +162,28 @@ const authoredManifest = definePlugin({
 		},
 		{
 			lot: "push",
-			name: "Test push",
 			slug: "integration.push",
-			description: "Push test data",
 			settingsSchema: { fields: {} },
+			name: { key: "test.test-push" },
+			description: { key: "test.push-test-data" },
 		},
 	],
 	importSources: [
 		{
 			slug: "import.test",
-			name: "Test import source",
 			workflowSlug: "refresh.workflow",
-			description: "Import test data from a file",
+			name: { key: "test.test-import-source" },
+			description: { key: "test.import-test-data-from-a-file" },
 			exportHelp: {
 				docsUrl: "https://example.com/export",
-				steps: ["Export the data as JSON", "Upload the exported file"],
+				steps: [{ key: "test.export-the-data-as-json" }, { key: "test.upload-the-exported-file" }],
 			},
 			inputSchema: {
 				unknownKeys: "strict",
 				fields: {
 					file: {
-						label: "File",
 						type: "string",
+						label: { key: "test.file" },
 						validation: { required: true },
 						description: "Exported JSON file",
 						format: { kind: "upload", allowedFileExtensions: ["json"] },
@@ -236,7 +244,7 @@ const scripts = [
 			fields: {
 				passRawQuery: {
 					type: "boolean",
-					label: "Pass raw query",
+					label: { key: "test.pass-raw-query" },
 					description: "Pass the query without modification",
 				},
 			},
@@ -270,19 +278,21 @@ const incoming = (slug: string): DeclaredEditorRelationship => ({ slug, directio
 
 const editorRelationship = (slug: string, sourceEntitySchemaSlug: null | string) => ({
 	slug,
-	name: slug,
 	sourceEntitySchemaSlug,
 	propertiesSchema: { fields: {} },
+	name: { key: "test.relationship" },
 	targetEntitySchemaSlug: "target.test",
 });
 
 const childEntitySchema = {
 	icon: "box",
-	name: "Child",
 	eventSchemas: [],
 	slug: "entity.child",
+	name: { key: "test.child" },
 	propertiesSchema: {
-		fields: { parentExternalId: { type: "string", label: "Parent", description: "Parent ID" } },
+		fields: {
+			parentExternalId: { type: "string", description: "Parent ID", label: { key: "test.parent" } },
+		},
 	},
 };
 
@@ -358,8 +368,8 @@ describe("definePlugin", () => {
 					relationshipSchemas: [
 						...manifest.relationshipSchemas,
 						{
-							name: "Credits",
 							slug: "child.credits",
+							name: { key: "test.credits" },
 							propertiesSchema: { fields: {} },
 							sourceEntitySchemaSlug: "entity.test",
 							targetEntitySchemaSlug: "entity.child",
@@ -404,7 +414,7 @@ describe("definePlugin", () => {
 						...manifest.relationshipSchemas,
 						{
 							slug: "member-of",
-							name: "Member of",
+							name: { key: "test.member-of" },
 							propertiesSchema: { fields: {} },
 							sourceEntitySchemaSlug: "collection",
 							targetEntitySchemaSlug: "collection",
@@ -414,10 +424,12 @@ describe("definePlugin", () => {
 						...manifest.entitySchemas,
 						{
 							icon: "box",
-							name: "Collection",
 							slug: "collection",
+							name: { key: "test.collection" },
 							propertiesSchema: { fields: {} },
-							eventSchemas: [{ slug: "review", name: "Review", propertiesSchema: { fields: {} } }],
+							eventSchemas: [
+								{ slug: "review", name: { key: "test.review" }, propertiesSchema: { fields: {} } },
+							],
 						},
 					],
 					hooks: [
@@ -560,7 +572,7 @@ describe("definePlugin", () => {
 					collectionPages: {
 						related: {
 							icon: "sparkles",
-							label: "Related things",
+							label: { key: "test.related-things" },
 							entitySchemaSlugs: ["thing"] as const,
 							route: "/collections/$collectionId/related",
 						},
@@ -582,7 +594,11 @@ describe("definePlugin", () => {
 							automaticEntityPresentations: true,
 							settingsSchema: {
 								fields: {
-									title: { label: "Title", type: "string" as const, description: "Page title" },
+									title: {
+										type: "string" as const,
+										description: "Page title",
+										label: { key: "test.title" },
+									},
 								},
 							},
 						},
@@ -595,9 +611,9 @@ describe("definePlugin", () => {
 						...manifest.entitySchemas,
 						{
 							icon: "box",
-							name: "Thing",
 							slug: "thing",
 							eventSchemas: [],
+							name: { key: "test.thing" },
 							propertiesSchema: { fields: {} },
 						},
 					],
@@ -726,8 +742,8 @@ describe("definePlugin", () => {
 					sortOrder: 1,
 					settings: {},
 					dataSources: null,
-					name: "Plugin page",
 					slug: "plugin-page",
+					name: { key: "test.plugin-page" },
 					renderer: { exportName: "page", kind: "plugin" as const },
 				};
 
@@ -1088,12 +1104,14 @@ describe("definePlugin", () => {
 					entitySchemas: [
 						{
 							icon: "box",
-							name: "Entity",
 							eventSchemas: [],
 							slug: "entity.test",
+							name: { key: "test.entity" },
 							mergeIdentityProperties: ["kind"],
 							propertiesSchema: {
-								fields: { kind: { label: "Kind", type: "string", description: "Entity kind" } },
+								fields: {
+									kind: { type: "string", description: "Entity kind", label: { key: "test.kind" } },
+								},
 							},
 						},
 					],
@@ -1110,9 +1128,9 @@ describe("definePlugin", () => {
 			Effect.gen(function* () {
 				const target = {
 					icon: "box",
-					name: "Target",
 					eventSchemas: [],
 					slug: "target.test",
+					name: { key: "test.target" },
 					propertiesSchema: { fields: {} },
 				};
 				const withEditor = (
@@ -1176,16 +1194,16 @@ describe("definePlugin", () => {
 						{
 							icon: "box",
 							eventSchemas: [],
-							name: "Protected Entity",
 							slug: "protected-entity",
 							propertiesSchema: { fields: {} },
+							name: { key: "test.protected-entity" },
 							userState: { deniedOperations: ["clear", "merge"] },
 						},
 						{
 							icon: "box",
-							name: "Entity",
 							eventSchemas: [],
 							slug: "entity.test",
+							name: { key: "test.entity" },
 							propertiesSchema: { fields: {} },
 						},
 					],
@@ -1402,8 +1420,8 @@ describe("definePlugin", () => {
 							...manifest.configSchema.fields,
 							value: {
 								type: "string",
-								label: "Value",
 								translatable: true,
+								label: { key: "test.value" },
 								description: "A translated value",
 							},
 						},
@@ -1414,7 +1432,7 @@ describe("definePlugin", () => {
 							...manifest.configSchema.fields,
 							value: {
 								type: "number",
-								label: "Value",
+								label: { key: "test.value" },
 								description: "A normalized value",
 								normalize: { round: { scale: 1 } },
 							},
@@ -1427,21 +1445,26 @@ describe("definePlugin", () => {
 				}
 
 				for (const field of [
-					{ type: "date", label: "Value", description: "A date value" },
-					{ label: "Value", type: "datetime", description: "A datetime value" },
+					{ type: "date", description: "A date value", label: { key: "test.value" } },
+					{ type: "datetime", label: { key: "test.value" }, description: "A datetime value" },
 					{
-						label: "Value",
 						type: "enum-array",
+						label: { key: "test.value" },
 						description: "An enum array value",
 						choices: { kind: "static", values: [{ value: "one" }] },
 					},
 					{
 						type: "array",
-						label: "Value",
+						label: { key: "test.value" },
 						description: "An array value",
-						items: { label: "Item", type: "string", description: "An item" },
+						items: { type: "string", description: "An item", label: { key: "test.item" } },
 					},
-					{ type: "object", label: "Value", properties: {}, description: "An object value" },
+					{
+						type: "object",
+						properties: {},
+						label: { key: "test.value" },
+						description: "An object value",
+					},
 				]) {
 					yield* Effect.flip(
 						Schema.decodeUnknownEffect(PluginManifest)({
@@ -1496,8 +1519,12 @@ describe("definePlugin", () => {
 					configSchema: {
 						unknownKeys: "strict",
 						fields: {
-							api_token: { type: "string", label: "API token", description: "Token" },
-							"api-token": { type: "string", label: "API token", description: "Token" },
+							api_token: { type: "string", description: "Token", label: { key: "test.api-token" } },
+							"api-token": {
+								type: "string",
+								description: "Token",
+								label: { key: "test.api-token" },
+							},
 						},
 					},
 				}),
@@ -1550,9 +1577,9 @@ describe("definePlugin", () => {
 						fields: {
 							...search.searchOptionsSchema.fields,
 							status: {
-								label: "Status",
 								type: "enum" as const,
 								description: "Status",
+								label: { key: "test.status" },
 								choices: { source: "statuses", kind: "dynamic" as const },
 							},
 						},
@@ -1924,9 +1951,9 @@ describe("definePlugin", () => {
 					}),
 				);
 				yield* Effect.flip(
-					Schema.decodeEffect(PluginManifest)({
+					Schema.decodeUnknownEffect(PluginManifest)({
 						...manifest,
-						integrationProviders: [{ ...yank, description: " " }, push],
+						integrationProviders: [{ ...yank, description: "Yank test data" }, push],
 					}),
 				);
 				yield* Effect.flip(
@@ -1947,7 +1974,7 @@ describe("definePlugin", () => {
 				const oauthProvider = {
 					pkce: "S256",
 					slug: "account",
-					name: "Account",
+					name: { key: "test.account" },
 					clientIdConfigKey: "CLIENT_ID",
 					clientSecretConfigKey: "TEST_KEY",
 					scopes: ["user-read-recently-played"],
@@ -1958,8 +1985,8 @@ describe("definePlugin", () => {
 				} as const;
 				const accountField = {
 					type: "string",
-					label: "Account",
 					description: "Linked account",
+					label: { key: "test.account" },
 					format: { provider: "account", kind: "oauth-connection" },
 				} as const;
 				const withOAuth = (
@@ -1981,7 +2008,11 @@ describe("definePlugin", () => {
 						...manifest.configSchema,
 						fields: {
 							...manifest.configSchema.fields,
-							CLIENT_ID: { type: "string", label: "Client ID", description: "OAuth client ID" },
+							CLIENT_ID: {
+								type: "string",
+								description: "OAuth client ID",
+								label: { key: "test.client-id" },
+							},
 						},
 					},
 				});
@@ -2026,8 +2057,8 @@ describe("definePlugin", () => {
 						settingsFields: {
 							nested: {
 								type: "object",
-								label: "Nested",
 								description: "Nested",
+								label: { key: "test.nested" },
 								properties: { account: accountField },
 							},
 						},
@@ -2111,21 +2142,21 @@ describe("definePlugin", () => {
 				const importSource = manifest.importSources[0];
 				const nestedUpload = {
 					type: "object",
-					label: "Options",
 					description: "Import options",
+					label: { key: "test.options" },
 					properties: {
 						file: {
-							label: "File",
 							type: "string",
 							description: "Import file",
+							label: { key: "test.file" },
 							format: { kind: "upload", allowedFileExtensions: ["json"] },
 						},
 					},
 				};
 				const dynamicChoice = {
 					type: "enum",
-					label: "Account",
 					description: "Import account",
+					label: { key: "test.account" },
 					choices: { kind: "dynamic", source: "accounts" },
 				};
 
@@ -2154,13 +2185,13 @@ describe("definePlugin", () => {
 					fields: {
 						options: {
 							type: "object",
-							label: "Options",
 							description: "Options",
+							label: { key: "test.options" },
 							properties: {
 								file: {
-									label: "File",
 									type: "string",
 									description: "File",
+									label: { key: "test.file" },
 									format: { kind: "upload", allowedFileExtensions: ["json"] },
 								},
 							},
@@ -2169,18 +2200,22 @@ describe("definePlugin", () => {
 				};
 				const entitySchema = {
 					icon: "box",
-					name: "Entity",
 					slug: "entity",
 					eventSchemas: [],
+					name: { key: "test.entity" },
 					propertiesSchema: { fields: {} },
 				};
-				const eventSchema = { name: "Event", slug: "event", propertiesSchema: uploadSchema };
+				const eventSchema = {
+					slug: "event",
+					name: { key: "test.event" },
+					propertiesSchema: uploadSchema,
+				};
 				const relationshipSchema = {
-					name: "Relationship",
 					slug: "relationship",
 					sourceEntitySchemaSlug: null,
 					targetEntitySchemaSlug: null,
 					propertiesSchema: uploadSchema,
+					name: { key: "test.relationship" },
 				};
 				const integrationProvider = manifest.integrationProviders[0];
 				const searchScript = manifest.scripts[3];
@@ -2237,6 +2272,104 @@ describe("definePlugin", () => {
 
 const withSources = (calendarSources: ReadonlyArray<unknown>) => ({ ...manifest, calendarSources });
 
+const label = (key: string) => ({ key: `test.${key}` });
+
+describe("manifest texts", () => {
+	it("lists browse labels and table column labels", () => {
+		const [entitySchema] = authoredManifest.entitySchemas;
+		const paths = manifestTexts({
+			...authoredManifest,
+			entitySchemas: [
+				{
+					...entitySchema,
+					browse: {
+						fields: [
+							{
+								type: "enum",
+								key: "rating",
+								kind: "value",
+								label: label("rating"),
+								expression: { value: "high", type: "literal" },
+								choices: [{ value: "high", label: label("high") }],
+								sort: {
+									label: label("rating"),
+									defaultDirection: "desc",
+									ascending: label("lowest"),
+									descending: label("highest"),
+								},
+							},
+						],
+					},
+				},
+			],
+		}).map(({ path }) => path);
+		expect(
+			paths.filter((path) => path.includes(".browse.") || path.includes(".settings.")),
+		).toEqual([
+			"entitySchemas.entity.test.browse.fields.rating.label",
+			"entitySchemas.entity.test.browse.fields.rating.choices.high.label",
+			"entitySchemas.entity.test.browse.fields.rating.sort.label",
+			"entitySchemas.entity.test.browse.fields.rating.sort.ascending",
+			"entitySchemas.entity.test.browse.fields.rating.sort.descending",
+			"savedViews.all-entities.settings.columns.title.label",
+		]);
+	});
+
+	it("lists property labels, hints and choice labels but not kernel messages", () => {
+		const [entitySchema] = authoredManifest.entitySchemas;
+		const paths = manifestTexts({
+			...authoredManifest,
+			entitySchemas: [
+				{
+					...entitySchema,
+					propertiesSchema: {
+						fields: {
+							tags: {
+								type: "array",
+								description: "Tags",
+								label: kernelMessage("definition.property.item"),
+								items: { type: "string", description: "Tag", label: label("tag") },
+							},
+							kind: {
+								type: "enum",
+								description: "Kind",
+								label: label("kind"),
+								hint: label("kind-hint"),
+								choices: { kind: "static", values: [{ value: "one", label: label("one") }] },
+							},
+						},
+					},
+				},
+			],
+		}).map(({ path }) => path);
+		expect(paths.filter((path) => path.startsWith("entitySchemas.entity.test.properties"))).toEqual(
+			[
+				"entitySchemas.entity.test.propertiesSchema.fields.tags.items.label",
+				"entitySchemas.entity.test.propertiesSchema.fields.kind.label",
+				"entitySchemas.entity.test.propertiesSchema.fields.kind.hint",
+				"entitySchemas.entity.test.propertiesSchema.fields.kind.choices.one.label",
+			],
+		);
+	});
+
+	it("lists every display text with its path and rejects plain strings", () => {
+		const texts = manifestTexts(authoredManifest);
+		expect(texts.map(({ path }) => path)).toContain("metadata.name");
+		expect(texts.map(({ path }) => path)).toContain("metadata.description");
+		expect(texts.find(({ path }) => path === "metadata.name")?.text).toEqual(
+			authoredManifest.metadata.name,
+		);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(PluginManifest)({
+					...manifest,
+					metadata: { ...manifest.metadata, name: "Plain name" },
+				}),
+			),
+		).toBe(true);
+	});
+});
+
 describe("collection pages", () => {
 	it("substitutes only the collection route segment", () => {
 		expect(collectionPagePath("/collections/$collectionId/related", "a/b c")).toBe(
@@ -2251,9 +2384,9 @@ describe("calendar sources", () => {
 		icon: "calendar",
 		precision: "date",
 		startAt: "startAt",
-		caption: "caption",
-		name: "Entity dates",
 		slug: "entity-dates",
+		name: { key: "test.entity-dates" },
+		caption: { params: { title: "caption" }, text: { key: "test.entity-dates.caption" } },
 		subject: {
 			entityAlias: "entity",
 			schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("entity.test") }],
@@ -2292,16 +2425,33 @@ describe("calendar sources", () => {
 		"rejects named fields the query does not project",
 		() =>
 			Effect.gen(function* () {
-				for (const field of ["startAt", "caption", "art", "done"] as const) {
+				for (const override of [
+					{ startAt: "missing" },
+					{ art: "missing" },
+					{ done: "missing" },
+					{ caption: { ...calendarSource.caption, params: { title: "missing" } } },
+				]) {
 					yield* Effect.flip(
 						Schema.decodeUnknownEffect(PluginManifest)(
-							withSources([{ ...calendarSource, [field]: "missing" }]),
+							withSources([{ ...calendarSource, ...override }]),
 						),
 					);
 				}
 			}),
 		testTimeout,
 	);
+
+	it("lists the caption text with the arguments its message must declare", () => {
+		expect(
+			manifestTexts({ ...authoredManifest, calendarSources: [calendarSource] }).find(
+				({ path }) => path === "calendarSources.entity-dates.caption.text",
+			),
+		).toEqual({
+			arguments: ["title"],
+			text: calendarSource.caption.text,
+			path: "calendarSources.entity-dates.caption.text",
+		});
+	});
 
 	it.effect(
 		"rejects a subject alias that is not in the query",

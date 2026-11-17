@@ -78,15 +78,15 @@ const authored = {
 	configSchema: { fields: {}, unknownKeys: "strict" },
 	metadata: {
 		icon: "box",
-		name: "Test",
 		version: "1",
-		description: "Test",
+		name: { key: "test.test" },
 		packageId: "test/contract",
+		description: { key: "test.test" },
 	},
 	relationshipSchemas: [
 		{
 			slug: "contains",
-			name: "Contains",
+			name: { key: "test.contains" },
 			sourceEntitySchemaSlug: "item",
 			targetEntitySchemaSlug: "item",
 			propertiesSchema: { fields: {} },
@@ -96,9 +96,11 @@ const authored = {
 		{
 			icon: "box",
 			slug: "item",
-			name: "Item",
+			name: { key: "test.item" },
 			propertiesSchema: { fields: {} },
-			eventSchemas: [{ slug: "progress", name: "Progress", propertiesSchema: { fields: {} } }],
+			eventSchemas: [
+				{ slug: "progress", name: { key: "test.progress" }, propertiesSchema: { fields: {} } },
+			],
 		},
 	],
 } as const;
@@ -202,13 +204,15 @@ describe("lifecycle hook declarations", () => {
 				const collection = {
 					icon: "box",
 					slug: "collection",
-					name: "Collection",
+					name: { key: "test.collection" },
 					propertiesSchema: { fields: {} },
-					eventSchemas: [{ slug: "review", name: "Review", propertiesSchema: { fields: {} } }],
+					eventSchemas: [
+						{ slug: "review", name: { key: "test.review" }, propertiesSchema: { fields: {} } },
+					],
 				};
 				const membership = {
 					slug: "member-of",
-					name: "Member of",
+					name: { key: "test.member-of" },
 					propertiesSchema: { fields: {} },
 					sourceEntitySchemaSlug: "collection",
 					targetEntitySchemaSlug: "collection",
@@ -434,8 +438,8 @@ describe("lifecycle hook declarations", () => {
 						signalSchemas: [
 							{
 								slug: "changed",
-								name: "Changed",
 								catalogState: "active",
+								name: { key: "test.changed" },
 								propertiesSchema: { fields: {} },
 								audiencePolicy: { kind: "actor" },
 								notificationHookSlug: "item.policy",
@@ -625,8 +629,8 @@ describe("lifecycle hook declarations", () => {
 			Effect.gen(function* () {
 				const signal = {
 					slug: "changed",
-					name: "Changed",
 					catalogState: "active",
+					name: { key: "test.changed" },
 					propertiesSchema: { fields: {} },
 					audiencePolicy: { kind: "actor" },
 					notificationHookSlug: "item.notify",

@@ -1,3 +1,4 @@
+import { LocaleTag } from "@ryot-app/i18n/locale";
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
@@ -10,7 +11,7 @@ import {
 	WriteAccessDenied,
 } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { SubmissionExpired } from "../../errors";
+import { BadRequest, SubmissionExpired, ValidationFailed } from "../../errors";
 import { PluginPackageSegment, UserId } from "../../schema/brands";
 import { EntitlementRequired } from "../../schema/entitlement";
 import { JsonValue } from "../../schema/json";
@@ -25,6 +26,7 @@ import {
 	PluginInvocationError,
 	PluginInvokeBody,
 	PluginInvokeResult,
+	PluginLocaleCatalogs,
 	PluginNotFoundError,
 	PluginOperationRejected,
 	PluginRequestError,
@@ -56,6 +58,15 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		HttpApiEndpoint.get("events", "/plugins/events", {
 			success: PluginCatalogEventStream,
 		}).annotate(OpenApi.Description, "Streams plugin catalog events for the caller."),
+	)
+	.add(
+		HttpApiEndpoint.get("messages", "/plugins/messages/:locale", {
+			params: { locale: LocaleTag },
+			success: PluginLocaleCatalogs,
+		}).annotate(
+			OpenApi.Description,
+			"Returns the caller's listed plugins' message catalogs for one locale, without fallbacks.",
+		),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.post("write")("inspect", "/plugins/inspect", {
@@ -163,6 +174,8 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				payload: Schema.Record(Schema.String, JsonValue),
 				success: Schema.Void.pipe(HttpApiSchema.status(204)),
 				error: [
+					BadRequest.pipe(HttpApiSchema.status(400)),
+					ValidationFailed.pipe(HttpApiSchema.status(400)),
 					PluginRequestError.pipe(HttpApiSchema.status(400)),
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 				],
@@ -177,6 +190,8 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				params: { installationId: Schema.String },
 				success: Schema.Void.pipe(HttpApiSchema.status(204)),
 				error: [
+					BadRequest.pipe(HttpApiSchema.status(400)),
+					ValidationFailed.pipe(HttpApiSchema.status(400)),
 					PluginRequestError.pipe(HttpApiSchema.status(400)),
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 				],

@@ -28,7 +28,7 @@ export const PluginEventGroup = strictStruct({
 
 export type PluginEventGroup = typeof PluginEventGroup.Type;
 
-const scalarKind = (property: undefined | AppPropertyDefinition): string | undefined => {
+const scalarKind = (property: undefined | AppPropertyDefinition<unknown>): string | undefined => {
 	if (
 		!property ||
 		property.type === "array" ||
@@ -53,7 +53,7 @@ const scalarKind = (property: undefined | AppPropertyDefinition): string | undef
 export const pluginEventGroupIssue = (
 	eventSchemas: ReadonlyArray<{
 		readonly slug: string;
-		readonly propertiesSchema: AppSchema;
+		readonly propertiesSchema: AppSchema<unknown>;
 		readonly eventGroup?: undefined | PluginEventGroup;
 	}>,
 ): string | undefined => {

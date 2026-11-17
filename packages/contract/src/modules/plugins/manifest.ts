@@ -1,10 +1,15 @@
+import type { Message } from "@ryot-app/i18n/message";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Result, Schema, SchemaGetter } from "effect";
 
 import { PluginPackageId, SignalSchemaSlug } from "../../schema/brands";
 import { Entitlement } from "../../schema/entitlement";
 import { JsonValue } from "../../schema/json";
-import { type AppPropertyDefinition, AppSchema } from "../../schema/property-schema";
+import {
+	type AppPropertyDefinition,
+	type AppSchema,
+	appSchemaTexts,
+} from "../../schema/property-schema";
 import { HttpUrl, strictStruct } from "../../schema/utils";
 import { isSupportedUploadFileExtension } from "../assets/upload-policy";
 import {
@@ -13,24 +18,29 @@ import {
 	AutomationRetryPolicy,
 	AutomationSource,
 } from "../automations/lifecycle";
-import { AuthoredEntitySchemaBrowse } from "../filters/browse";
+import { authoredBrowseFieldTexts, AuthoredEntitySchemaBrowse } from "../filters/browse";
 import { relationshipEnds } from "../relationships/orientation";
 import {
 	FieldSelection,
 	Include,
 	mapScalarExpression,
 	pluginIdentityReferences,
-	RyotQLDocument as AuthoredRyotQLDocument,
+	PluginRyotQLDocument,
 } from "../ryotql/authored";
 import { OutputFieldKey } from "../ryotql/language";
 import {
+	AuthoredRowText,
 	rowSourceAliases,
 	rowSourceDocument,
 	RowSourcePrecision,
 	rowSourceProjectedKeys,
 	RowSourceQuery,
 } from "../ryotql/row-source";
-import { AuthoredSavedViewSubject, withAuthoredSavedViewConfig } from "../saved-views/schemas";
+import {
+	authoredSavedViewColumnTexts,
+	AuthoredSavedViewSubject,
+	withAuthoredSavedViewConfig,
+} from "../saved-views/schemas";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
 import { PluginEventGroup } from "./event-groups";
 import {
@@ -39,6 +49,7 @@ import {
 	SourcePlan,
 } from "./execution";
 import { SandboxExecutionMetadata } from "./execution-metadata";
+import { AuthoredAppSchema, type AuthoredSchemaText, ManifestText } from "./manifest-text";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 import { presentationDeclarationIssue } from "./presentation";
 import { ProviderRelatedInputs, ProviderTranslationInputs } from "./provider-inputs";
@@ -90,7 +101,7 @@ const PluginClientSourceEntry = Schema.String.pipe(
 	),
 );
 
-const hasDynamicChoices = (property: AppPropertyDefinition): boolean => {
+const hasDynamicChoices = (property: AppPropertyDefinition<unknown>): boolean => {
 	if (
 		(property.type === "enum" || property.type === "enum-array") &&
 		property.choices.kind === "dynamic"
@@ -106,7 +117,7 @@ const hasDynamicChoices = (property: AppPropertyDefinition): boolean => {
 	return false;
 };
 
-const hasUploadFormat = (property: AppPropertyDefinition): boolean => {
+const hasUploadFormat = (property: AppPropertyDefinition<unknown>): boolean => {
 	if (property.type === "string") {
 		return property.format?.kind === "upload";
 	}
@@ -119,7 +130,9 @@ const hasUploadFormat = (property: AppPropertyDefinition): boolean => {
 	return false;
 };
 
-const unsupportedUploadFileExtension = (property: AppPropertyDefinition): string | undefined => {
+const unsupportedUploadFileExtension = (
+	property: AppPropertyDefinition<unknown>,
+): string | undefined => {
 	if (property.type === "string" && property.format?.kind === "upload") {
 		return property.format.allowedFileExtensions.find(
 			(extension) => !isSupportedUploadFileExtension(extension),
@@ -136,7 +149,7 @@ const unsupportedUploadFileExtension = (property: AppPropertyDefinition): string
 	return undefined;
 };
 
-const hasOAuthConnectionFormat = (property: AppPropertyDefinition): boolean => {
+const hasOAuthConnectionFormat = (property: AppPropertyDefinition<unknown>): boolean => {
 	if (property.type === "string") {
 		return property.format?.kind === "oauth-connection";
 	}
@@ -150,12 +163,12 @@ const hasOAuthConnectionFormat = (property: AppPropertyDefinition): boolean => {
 };
 
 const rejectsOAuthConnectionFormats = Schema.makeFilter(
-	(schema: AppSchema) =>
+	(schema: AppSchema<unknown>) =>
 		Object.values(schema.fields).every((property) => !hasOAuthConnectionFormat(property)) ||
 		"OAuth connection fields are only supported by integration provider settings schemas",
 );
 
-const AppSchemaWithoutUploads = Schema.toType(AppSchema).pipe(
+const AppSchemaWithoutUploads = Schema.toType(AuthoredAppSchema).pipe(
 	Schema.check(
 		Schema.makeFilter(
 			(schema) =>
@@ -167,12 +180,12 @@ const AppSchemaWithoutUploads = Schema.toType(AppSchema).pipe(
 
 const PluginAppSchema = AppSchemaWithoutUploads.pipe(Schema.check(rejectsOAuthConnectionFormats));
 
-const hasSecretField = (property: AppPropertyDefinition): boolean =>
+const hasSecretField = (property: AppPropertyDefinition<unknown>): boolean =>
 	property.secret === true ||
 	(property.type === "array" && hasSecretField(property.items)) ||
 	(property.type === "object" && Object.values(property.properties).some(hasSecretField));
 
-const isUserSettingsProperty = (property: AppPropertyDefinition): boolean => {
+const isUserSettingsProperty = (property: AppPropertyDefinition<unknown>): boolean => {
 	if (property.type === "object") {
 		return false;
 	}
@@ -267,9 +280,9 @@ const COLLECTION_PAGE_ROUTE_PARAM = "$collectionId";
 export const PluginClientCollectionPages = Schema.Record(
 	pluginManifestSlug,
 	strictStruct({
+		label: ManifestText,
 		route: Schema.String,
 		icon: Schema.NonEmptyString,
-		label: Schema.NonEmptyString,
 		entitySchemaSlugs: Schema.NonEmptyArray(pluginManifestSlug),
 	}),
 );
@@ -283,9 +296,9 @@ export const collectionPagePath = (route: string, collectionId: string) =>
 		.join("/");
 
 export const PLUGIN_ASSISTANT_STARTERS_MAX = 3;
-export const PluginAssistantStarters = Schema.Array(
-	Schema.NonEmptyString.check(Schema.isMaxLength(120)),
-).check(Schema.isMaxLength(PLUGIN_ASSISTANT_STARTERS_MAX));
+export const PluginAssistantStarters = Schema.Array(ManifestText).check(
+	Schema.isMaxLength(PLUGIN_ASSISTANT_STARTERS_MAX),
+);
 
 const PLUGIN_ASSISTANT_INSTRUCTIONS_MAX_LENGTH = 2_000;
 
@@ -305,8 +318,8 @@ export const PluginClientEntry = strictStruct({
 		Schema.Record(
 			pluginManifestSlug,
 			strictStruct({
+				name: ManifestText,
 				sortOrder: Schema.Finite,
-				name: Schema.NonEmptyString,
 				icon: Schema.NonEmptyString,
 				exportName: pluginManifestSlug,
 			}),
@@ -317,11 +330,11 @@ export const PluginClientEntry = strictStruct({
 export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
 
 export const PluginMetadata = strictStruct({
+	name: ManifestText,
 	icon: Schema.String,
-	name: Schema.String,
 	version: Schema.String,
+	description: ManifestText,
 	packageId: PluginPackageId,
-	description: Schema.String,
 });
 
 export type PluginMetadata = Schema.Schema.Type<typeof PluginMetadata>;
@@ -331,7 +344,7 @@ export const PluginProjection = strictStruct({ propertiesSchema: PluginAppSchema
 export type PluginProjection = Schema.Schema.Type<typeof PluginProjection>;
 
 export const PluginEventSchema = strictStruct({
-	name: Schema.String,
+	name: ManifestText,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	eventGroup: Schema.optional(PluginEventGroup),
@@ -390,8 +403,8 @@ export const PluginEntityFold = strictStruct({
 export type PluginEntityFold = Schema.Schema.Type<typeof PluginEntityFold>;
 
 export const PluginEntitySchema = strictStruct({
+	name: ManifestText,
 	icon: Schema.String,
-	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	fold: Schema.optional(PluginEntityFold),
@@ -417,7 +430,7 @@ export const PluginRelationshipRetention = Schema.Literals(["root", "composition
 export type PluginRelationshipRetention = Schema.Schema.Type<typeof PluginRelationshipRetention>;
 
 export const PluginRelationshipSchema = strictStruct({
-	name: Schema.String,
+	name: ManifestText,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	projection: Schema.optional(PluginProjection),
@@ -441,7 +454,7 @@ export const PluginSignalAudiencePolicy = Schema.Union([
 export type PluginSignalAudiencePolicy = Schema.Schema.Type<typeof PluginSignalAudiencePolicy>;
 
 export const PluginSignalSchema = strictStruct({
-	name: Schema.String,
+	name: ManifestText,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	notificationHookSlug: pluginManifestSlug,
@@ -452,8 +465,8 @@ export const PluginSignalSchema = strictStruct({
 export type PluginSignalSchema = Schema.Schema.Type<typeof PluginSignalSchema>;
 
 export const PluginSavedView = withAuthoredSavedViewConfig({
+	name: ManifestText,
 	icon: Schema.String,
-	name: Schema.String,
 	slug: pluginManifestSlug,
 	sortOrder: Schema.Finite,
 });
@@ -461,8 +474,8 @@ export const PluginSavedView = withAuthoredSavedViewConfig({
 export type PluginSavedView = Schema.Schema.Type<typeof PluginSavedView>;
 
 export const PluginCalendarSource = strictStruct({
+	name: ManifestText,
 	icon: Schema.String,
-	name: Schema.String,
 	startAt: OutputFieldKey,
 	slug: pluginManifestSlug,
 	precision: RowSourcePrecision,
@@ -470,7 +483,7 @@ export const PluginCalendarSource = strictStruct({
 	art: Schema.optional(OutputFieldKey),
 	query: Schema.toType(RowSourceQuery),
 	done: Schema.optional(OutputFieldKey),
-	caption: Schema.optional(OutputFieldKey),
+	caption: Schema.optional(AuthoredRowText),
 });
 
 export type PluginCalendarSource = Schema.Schema.Type<typeof PluginCalendarSource>;
@@ -617,8 +630,8 @@ export const PluginProviderInformation = strictStruct({
 export type PluginProviderInformation = Schema.Schema.Type<typeof PluginProviderInformation>;
 
 export const PluginProvider = strictStruct({
+	name: ManifestText,
 	slug: sandboxManifestSlug,
-	name: sandboxManifestString,
 	rootEntitySchemaSlug: Schema.String,
 	information: PluginProviderInformation,
 });
@@ -793,9 +806,9 @@ export const PluginWorkflow = strictStruct({
 export type PluginWorkflow = Schema.Schema.Type<typeof PluginWorkflow>;
 
 const PluginIntegrationProviderFields = {
+	name: ManifestText,
 	slug: sandboxManifestSlug,
-	name: sandboxManifestString,
-	description: sandboxManifestString,
+	description: ManifestText,
 	settingsSchema: IntegrationSettingsSchema,
 	entitlement: Schema.optional(Entitlement),
 	supportsOwnershipSync: Schema.optional(Schema.Boolean),
@@ -860,9 +873,9 @@ const oauthScope = Schema.String.pipe(
 );
 
 export const PluginOAuthProvider = strictStruct({
+	name: ManifestText,
 	tokenUrl: httpsUrl(),
 	slug: sandboxManifestSlug,
-	name: sandboxManifestString,
 	scopes: Schema.Array(oauthScope),
 	issuer: Schema.optional(httpsUrl()),
 	pkce: Schema.Literals(["S256", "none"]),
@@ -876,14 +889,14 @@ export const PluginOAuthProvider = strictStruct({
 export type PluginOAuthProvider = Schema.Schema.Type<typeof PluginOAuthProvider>;
 
 const PluginImportSourceFields = {
+	name: ManifestText,
 	slug: sandboxManifestSlug,
-	name: sandboxManifestString,
+	description: ManifestText,
 	workflowSlug: sandboxManifestSlug,
 	plan: Schema.optional(SourcePlan),
-	description: sandboxManifestString,
 };
 
-const ImportInputSchema = Schema.toType(AppSchema).pipe(
+const ImportInputSchema = Schema.toType(AuthoredAppSchema).pipe(
 	Schema.check(
 		Schema.makeFilter((schema) => {
 			const extension = Object.values(schema.fields)
@@ -910,9 +923,7 @@ const ImportInputSchema = Schema.toType(AppSchema).pipe(
 
 export const PluginImportExportHelp = strictStruct({
 	docsUrl: Schema.optional(HttpUrl),
-	steps: Schema.optional(
-		Schema.Array(sandboxManifestString).pipe(Schema.check(Schema.isMinLength(1))),
-	),
+	steps: Schema.optional(Schema.Array(ManifestText).pipe(Schema.check(Schema.isMinLength(1)))),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter(
@@ -1076,7 +1087,7 @@ const PluginManifestAuthoredFields = {
 			Schema.NonEmptyString,
 			strictStruct({
 				title: Schema.NonEmptyString,
-				document: AuthoredRyotQLDocument,
+				document: PluginRyotQLDocument,
 				description: Schema.NonEmptyString,
 				entitlement: Schema.optional(Entitlement),
 			}),
@@ -1335,7 +1346,9 @@ const hasValidCalendarSource = ({
 	const projected = rowSourceProjectedKeys(query);
 	return (
 		rowSourceAliases(query).has(subject.entityAlias) &&
-		[startAt, caption, art, done].every((key) => key === undefined || projected.has(key))
+		[startAt, art, done, ...Object.values(caption?.params ?? {})].every(
+			(key) => key === undefined || projected.has(key),
+		)
 	);
 };
 
@@ -1690,3 +1703,152 @@ export type PluginManifest = Schema.Schema.Type<typeof PluginManifest>;
 export const definePlugin = <const Manifest extends AuthoredPluginManifest>(
 	manifest: Manifest & Record<Exclude<keyof Manifest, keyof AuthoredPluginManifest>, never>,
 ) => manifest;
+
+/** A kernel message embedded by a kernel-provided AppSchema building block. */
+export type ManifestKernelMessageUse = { readonly path: string; readonly message: Message };
+
+/** Compiled manifests add sandbox scripts, whose provider search options carry display text. */
+export type ManifestTextSource = AuthoredPluginManifest & {
+	readonly scripts?: PluginManifest["scripts"];
+};
+
+/** A manifest text and the argument names its message must declare exactly, none when absent. */
+export type ManifestTextUse = {
+	readonly path: string;
+	readonly text: ManifestText;
+	readonly arguments?: ReadonlyArray<string>;
+};
+
+type AuthoredTextUse = {
+	readonly path: string;
+	readonly text: AuthoredSchemaText;
+	readonly arguments?: ReadonlyArray<string>;
+};
+
+const schemaTexts = (path: string, schema: undefined | AuthoredAppSchema) =>
+	schema === undefined
+		? []
+		: appSchemaTexts(schema).map((use) => ({ text: use.text, path: `${path}.${use.path}` }));
+
+/** Every display text of a manifest with its path, so builds and ingestion can check catalog keys. */
+const manifestTextUses = (manifest: ManifestTextSource): ReadonlyArray<AuthoredTextUse> => [
+	{ path: "metadata.name", text: manifest.metadata.name },
+	...schemaTexts("configSchema", manifest.configSchema),
+	...schemaTexts("userSettingsSchema", manifest.userSettingsSchema),
+	{ path: "metadata.description", text: manifest.metadata.description },
+	...manifest.entitySchemas.flatMap((entitySchema) => [
+		{ text: entitySchema.name, path: `entitySchemas.${entitySchema.slug}.name` },
+		...schemaTexts(
+			`entitySchemas.${entitySchema.slug}.propertiesSchema`,
+			entitySchema.propertiesSchema,
+		),
+		...entitySchema.eventSchemas.flatMap((eventSchema) => {
+			const path = `entitySchemas.${entitySchema.slug}.eventSchemas.${eventSchema.slug}`;
+			return [
+				{ path: `${path}.name`, text: eventSchema.name },
+				...schemaTexts(`${path}.propertiesSchema`, eventSchema.propertiesSchema),
+				...schemaTexts(
+					`${path}.projection.propertiesSchema`,
+					eventSchema.projection?.propertiesSchema,
+				),
+			];
+		}),
+		...(entitySchema.browse?.fields ?? []).flatMap((field) =>
+			authoredBrowseFieldTexts(field).map(({ path, text }) => ({
+				text,
+				path: `entitySchemas.${entitySchema.slug}.browse.fields.${field.key}.${path}`,
+			})),
+		),
+	]),
+	...manifest.relationshipSchemas.flatMap(({ slug, name, projection, propertiesSchema }) => [
+		{ text: name, path: `relationshipSchemas.${slug}.name` },
+		...schemaTexts(`relationshipSchemas.${slug}.propertiesSchema`, propertiesSchema),
+		...schemaTexts(
+			`relationshipSchemas.${slug}.projection.propertiesSchema`,
+			projection?.propertiesSchema,
+		),
+	]),
+	...manifest.signalSchemas.flatMap(({ slug, name, propertiesSchema }) => [
+		{ text: name, path: `signalSchemas.${slug}.name` },
+		...schemaTexts(`signalSchemas.${slug}.propertiesSchema`, propertiesSchema),
+	]),
+	...(manifest.scripts ?? []).flatMap((script) =>
+		script.kind === "provider" && script.providerOperation === "search"
+			? schemaTexts(`scripts.${script.slug}.searchOptionsSchema`, script.searchOptionsSchema)
+			: [],
+	),
+	...manifest.savedViews.flatMap((view) => [
+		{ text: view.name, path: `savedViews.${view.slug}.name` },
+		...authoredSavedViewColumnTexts(view).map(({ path, text }) => ({
+			text,
+			path: `savedViews.${view.slug}.${path}`,
+		})),
+		...schemaTexts(`savedViews.${view.slug}.dataSources.parameters`, view.dataSources?.parameters),
+	]),
+	...Object.entries(manifest.queries ?? {}).flatMap(([name, { document }]) =>
+		schemaTexts(`queries.${name}.document.parameters`, document.parameters),
+	),
+	...(manifest.calendarSources ?? []).map(({ slug, name }) => ({
+		text: name,
+		path: `calendarSources.${slug}.name`,
+	})),
+	...(manifest.calendarSources ?? []).flatMap(({ slug, caption }) =>
+		caption === undefined
+			? []
+			: [
+					{
+						text: caption.text,
+						arguments: Object.keys(caption.params),
+						path: `calendarSources.${slug}.caption.text`,
+					},
+				],
+	),
+	...manifest.providers.map(({ slug, name }) => ({ text: name, path: `providers.${slug}.name` })),
+	...manifest.integrationProviders.flatMap(({ slug, name, description, settingsSchema }) => [
+		{ text: name, path: `integrationProviders.${slug}.name` },
+		{ text: description, path: `integrationProviders.${slug}.description` },
+		...schemaTexts(`integrationProviders.${slug}.settingsSchema`, settingsSchema),
+	]),
+	...(manifest.oauthProviders ?? []).map(({ slug, name }) => ({
+		text: name,
+		path: `oauthProviders.${slug}.name`,
+	})),
+	...manifest.importSources.flatMap(({ slug, name, exportHelp, inputSchema, description }) => [
+		{ text: name, path: `importSources.${slug}.name` },
+		{ text: description, path: `importSources.${slug}.description` },
+		...schemaTexts(`importSources.${slug}.inputSchema`, inputSchema),
+		...(exportHelp?.steps ?? []).map((text, index) => ({
+			text,
+			path: `importSources.${slug}.exportHelp.steps.${index}`,
+		})),
+	]),
+	...Object.entries(manifest.client?.exports ?? {}).flatMap(([name, entry]) =>
+		entry.kind === "page"
+			? schemaTexts(`client.exports.${name}.settingsSchema`, entry.settingsSchema)
+			: [],
+	),
+	...Object.entries(manifest.client?.collectionPages ?? {}).map(([slug, { label }]) => ({
+		text: label,
+		path: `client.collectionPages.${slug}.label`,
+	})),
+	...Object.entries(manifest.client?.analyticsSections ?? {}).map(([slug, { name }]) => ({
+		text: name,
+		path: `client.analyticsSections.${slug}.name`,
+	})),
+	...(manifest.client?.assistantStarters ?? []).map((text, index) => ({
+		text,
+		path: `client.assistantStarters.${index}`,
+	})),
+];
+
+export const manifestTexts = (manifest: ManifestTextSource): ReadonlyArray<ManifestTextUse> =>
+	manifestTextUses(manifest).flatMap((use) =>
+		"namespace" in use.text ? [] : [{ ...use, text: use.text }],
+	);
+
+export const manifestKernelMessages = (
+	manifest: ManifestTextSource,
+): ReadonlyArray<ManifestKernelMessageUse> =>
+	manifestTextUses(manifest).flatMap(({ path, text }) =>
+		"namespace" in text ? [{ path, message: text }] : [],
+	);

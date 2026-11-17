@@ -5,7 +5,7 @@ import type { AppSchema } from "../../schema/property-schema";
 import { parseAppSchemaProperties } from "../../schema/property-values";
 
 export const resolvePluginUserSettings = Effect.fn("resolvePluginUserSettings")(function* (
-	settingsSchema: AppSchema,
+	settingsSchema: AppSchema<unknown>,
 	values: unknown,
 ) {
 	const parsed = yield* parseAppSchemaProperties({
@@ -17,7 +17,7 @@ export const resolvePluginUserSettings = Effect.fn("resolvePluginUserSettings")(
 });
 
 export const resolveStoredPluginUserSettings = Effect.fn("resolveStoredPluginUserSettings")(
-	function* (settingsSchema: AppSchema, values: Readonly<Record<string, unknown>>) {
+	function* (settingsSchema: AppSchema<unknown>, values: Readonly<Record<string, unknown>>) {
 		return yield* resolvePluginUserSettings(
 			settingsSchema,
 			Object.fromEntries(

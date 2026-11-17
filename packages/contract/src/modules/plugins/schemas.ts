@@ -1,5 +1,7 @@
+import { CompiledCatalog, NamespaceCatalog } from "@ryot-app/i18n/catalog";
 import { Schema } from "effect";
 
+import { contractErrorFields } from "../../errors";
 import { PluginId, PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
@@ -71,6 +73,9 @@ const PluginPackageArchiveIssue = Schema.Literals([
 	"compiled-script-bytes-exceeded",
 	"compiled-script-invalid",
 	"compiled-script-metadata-bytes-exceeded",
+	"messages-bytes-exceeded",
+	"messages-count-exceeded",
+	"messages-invalid",
 ]);
 
 const PluginRequestFailureReason = Schema.Union([
@@ -169,6 +174,11 @@ const PluginInvocationFailureReason = Schema.Union([
 	}),
 ]);
 
+export class PluginOperationRejected extends Schema.TaggedError<
+	PluginOperationRejected,
+	{ readonly brand: unique symbol }
+>()("PluginOperationRejected", contractErrorFields) {}
+
 export class PluginConflictError extends Schema.TaggedError<
 	PluginConflictError,
 	{ readonly brand: unique symbol }
@@ -183,11 +193,6 @@ export class PluginRequestError extends Schema.TaggedError<
 	PluginRequestError,
 	{ readonly brand: unique symbol }
 >()("PluginRequestError", { reason: PluginRequestFailureReason }) {}
-
-export class PluginOperationRejected extends Schema.TaggedError<
-	PluginOperationRejected,
-	{ readonly brand: unique symbol }
->()("PluginOperationRejected", { message: Schema.String }) {}
 
 export class PluginInvocationError extends Schema.TaggedError<
 	PluginInvocationError,
@@ -208,8 +213,19 @@ export const InspectPluginBody = strictStruct({
 
 export type InspectPluginBody = typeof InspectPluginBody.Type;
 
+/** An archive's catalogs by locale, limited to the keys its manifest text names. */
+export const PluginMessageCatalogs = Schema.Record(Schema.String, CompiledCatalog);
+export type PluginMessageCatalogs = typeof PluginMessageCatalogs.Type;
+
+/** One locale's catalogs of the caller's listed plugins, each under its plugin namespace. */
+export const PluginLocaleCatalogs = strictStruct({
+	catalogs: Schema.Array(strictStruct(NamespaceCatalog.fields)),
+});
+export type PluginLocaleCatalogs = typeof PluginLocaleCatalogs.Type;
+
 export const PluginInspection = Schema.Struct({
 	metadata: PluginMetadata,
+	catalogs: PluginMessageCatalogs,
 	configSchema: PluginConfigSchema,
 	operations: Schema.Array(
 		Schema.Struct({

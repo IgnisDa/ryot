@@ -33,8 +33,8 @@ export type IngestionReadiness = typeof IngestionReadiness.Type;
 
 export const evaluateIngestionReadiness = (input: {
 	readonly operation: string;
-	readonly settingsSchema: AppSchema;
 	readonly kind: "script" | "workflow";
+	readonly settingsSchema: AppSchema<unknown>;
 	readonly sourcePlan?: undefined | SourcePlan;
 	readonly metadata: IngestionReadinessMetadata;
 	readonly acceptedPlan?: undefined | IngestionPlan;

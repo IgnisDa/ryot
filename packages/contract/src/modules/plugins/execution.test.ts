@@ -164,17 +164,17 @@ it("limits unconditional requirements to the source's declared alternatives", ()
 it("validates integration plans against finite settings and linked executable choices", () => {
 	const provider = {
 		slug: "sync",
-		name: "Sync",
 		scriptSlug: "root",
-		description: "Sync",
 		lot: "sink" as const,
+		name: { key: "test.sync" },
+		description: { key: "test.sync" },
 		plan: { selections: { collector: { field: "mode", cases: { api: "api", export: "file" } } } },
 		settingsSchema: {
 			fields: {
 				mode: {
-					label: "Mode",
 					description: "Mode",
 					type: "enum" as const,
+					label: { key: "test.mode" },
 					choices: { kind: "static" as const, values: [{ value: "api" }, { value: "export" }] },
 				},
 			},
@@ -198,7 +198,7 @@ it("validates integration plans against finite settings and linked executable ch
 					...provider,
 					plan: booleanPlan,
 					settingsSchema: {
-						fields: { mode: { label: "Mode", type: "boolean", description: "Mode" } },
+						fields: { mode: { type: "boolean", description: "Mode", label: { key: "test.mode" } } },
 					},
 				},
 			],
@@ -238,7 +238,7 @@ it("validates integration plans against finite settings and linked executable ch
 				{
 					...provider,
 					settingsSchema: {
-						fields: { mode: { label: "Mode", type: "string", description: "Mode" } },
+						fields: { mode: { type: "string", description: "Mode", label: { key: "test.mode" } } },
 					},
 				},
 			],
