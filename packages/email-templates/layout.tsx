@@ -22,6 +22,8 @@ export type LayoutProps = {
 	children: ReactNode;
 };
 
+const brandName = "Ryot";
+const copyright = "©";
 const copyrightYear = new Date().getFullYear();
 
 const Layout = (props: LayoutProps) => (
@@ -38,7 +40,7 @@ const Layout = (props: LayoutProps) => (
 			<Body style={main} className="bg-white">
 				<Container className="my-0 mx-auto pt-5 px-0 pb-10 max-w-xl">
 					<Img
-						alt="Ryot"
+						alt={brandName}
 						className="h-10 w-10 rounded-xl"
 						src="https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png"
 					/>
@@ -48,7 +50,7 @@ const Layout = (props: LayoutProps) => (
 					<Section className="py-7 text-paragraph-gray">{props.children}</Section>
 					<Hr className="border-[#dfe1e4] my-6" />
 					<Link href="https://ryot.io" className="text-sm text-[#b4becc]">
-						Ryot &copy; {copyrightYear}
+						{brandName} {copyright} {copyrightYear}
 					</Link>
 				</Container>
 			</Body>
