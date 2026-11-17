@@ -42,7 +42,7 @@ const userId = UserId.make("relationship-owner");
 const bottle = EntitySchemaSlug.make("bottle");
 const label = EntitySchemaSlug.make("label");
 const titleProperties = {
-	fields: { title: { type: "string", label: "Title", description: "Title" } },
+	fields: { title: { type: "string", description: "Title", label: { key: "test.title" } } },
 } as const;
 
 const fixturePackage = (): NormalizedPlugin => {
@@ -53,9 +53,9 @@ const fixturePackage = (): NormalizedPlugin => {
 			...source.manifest,
 			entitySchemas: [bottle, label].map((slug) => ({
 				slug,
-				name: slug,
 				icon: "box",
 				eventSchemas: [],
+				name: { key: `test.${slug}` },
 				propertiesSchema: titleProperties,
 			})),
 			relationshipSchemas: [
@@ -65,16 +65,18 @@ const fixturePackage = (): NormalizedPlugin => {
 					{ anchor: label, slug: "label-credits" },
 				].map(({ slug, anchor }) => ({
 					slug,
-					name: "Credits",
+					name: { key: "test.credits" },
 					sourceEntitySchemaSlug: anchor,
 					targetEntitySchemaSlug: "bottle",
 					propertiesSchema: {
-						fields: { role: { label: "Role", description: "Role", type: "string" as const } },
+						fields: {
+							role: { description: "Role", type: "string" as const, label: { key: "test.role" } },
+						},
 					},
 				})),
 				{
-					name: "Labels",
 					slug: "bottle-labels",
+					name: { key: "test.labels" },
 					targetEntitySchemaSlug: "label",
 					sourceEntitySchemaSlug: "bottle",
 					propertiesSchema: { fields: {} },

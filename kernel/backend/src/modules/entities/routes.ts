@@ -2,6 +2,7 @@ import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
+import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
@@ -67,7 +68,7 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 						{
 							userId: user.id,
 							accountUserId: user.id,
-							preferredLanguage: user.preferences.language,
+							preferredLanguage: resolveContentLanguage(user.preferences),
 						},
 						payload,
 					)

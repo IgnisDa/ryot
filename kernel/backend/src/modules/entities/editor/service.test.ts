@@ -16,6 +16,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { column, field, rows, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
@@ -68,15 +69,15 @@ const partEditor = {
 
 const itemProperties = {
 	fields: {
-		title: { type: "string", label: "Title", description: "Title" },
-		code: { label: "Code", type: "string", immutable: true, description: "Code" },
+		title: { type: "string", description: "Title", label: { key: "test.title" } },
+		code: { type: "string", immutable: true, description: "Code", label: { key: "test.code" } },
 	},
 } as const;
 const titleProperties = {
-	fields: { title: { type: "string", label: "Title", description: "Title" } },
+	fields: { title: { type: "string", description: "Title", label: { key: "test.title" } } },
 } as const;
 const roleProperties = {
-	fields: { role: { label: "Role", type: "string", description: "Role" } },
+	fields: { role: { type: "string", description: "Role", label: { key: "test.role" } } },
 } as const;
 
 const editorPackage = (options: { readonly policy?: boolean } = {}) => {
@@ -98,7 +99,7 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 	const declaration = (
 		slug: string,
 		propertiesSchema: typeof itemProperties | typeof titleProperties,
-	) => ({ slug, name: slug, icon: "box", propertiesSchema, eventSchemas: [] });
+	) => ({ slug, icon: "box", propertiesSchema, eventSchemas: [], name: { key: `test.${slug}` } });
 	return {
 		...source,
 		scripts: options.policy ? [...source.scripts, policy] : source.scripts,
@@ -151,46 +152,46 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 			],
 			relationshipSchemas: [
 				{
-					name: "Parts",
 					slug: "item-part",
+					name: { key: "test.parts" },
 					sourceEntitySchemaSlug: "item",
 					targetEntitySchemaSlug: "part",
 					propertiesSchema: roleProperties,
 				},
 				{
-					name: "Links",
 					slug: "item-link",
+					name: { key: "test.links" },
 					sourceEntitySchemaSlug: "item",
 					targetEntitySchemaSlug: "item",
 					propertiesSchema: { fields: {} },
 				},
 				{
-					name: "Children",
 					slug: "item-child",
+					name: { key: "test.children" },
 					sourceEntitySchemaSlug: "item",
 					targetEntitySchemaSlug: "part",
 					propertiesSchema: { fields: {} },
 				},
 				{
-					name: "Extras",
 					slug: "item-extra",
+					name: { key: "test.extras" },
 					sourceEntitySchemaSlug: "item",
 					targetEntitySchemaSlug: "part",
 					propertiesSchema: { fields: {} },
 				},
 				{
 					slug: "part-link",
-					name: "Part links",
 					sourceEntitySchemaSlug: "part",
 					targetEntitySchemaSlug: "part",
+					name: { key: "test.part-links" },
 					propertiesSchema: { fields: {} },
 				},
 				{
 					slug: "loose-link",
-					name: "Loose links",
 					sourceEntitySchemaSlug: null,
 					targetEntitySchemaSlug: null,
 					propertiesSchema: { fields: {} },
+					name: { key: "test.loose-links" },
 				},
 			],
 		},
@@ -559,7 +560,7 @@ describe("EntityEditorService", () => {
 				const result = yield* update(id, properties);
 				expect(result.output).toEqual({
 					kind: "invalid",
-					message: "code cannot be changed after creation",
+					reason: kernelMessage("error.entity-editor.immutable-property", { property: "code" }),
 				});
 			}
 			const kept = yield* update("immutable-kept", { code: "c", title: "changed" });
@@ -584,7 +585,7 @@ describe("EntityEditorService", () => {
 				);
 				expect(result.output).toEqual({
 					kind: "invalid",
-					message: "This entity schema cannot be edited here",
+					reason: kernelMessage("error.entity-editor.not-editable"),
 				});
 			}
 			for (const slug of ["nope", "item-extra", "part-link", "loose-link"]) {
@@ -597,7 +598,9 @@ describe("EntityEditorService", () => {
 				);
 				expect(result.output).toEqual({
 					kind: "invalid",
-					message: `Relationship ${slug} is not editable here`,
+					reason: kernelMessage("error.entity-editor.relationship-not-editable", {
+						relationship: slug,
+					}),
 				});
 			}
 			const kernel = yield* run(
@@ -1101,7 +1104,7 @@ describe("EntityEditorService", () => {
 			);
 			expect(result.output).toEqual({
 				kind: "invalid",
-				message: "code cannot be changed after creation",
+				reason: kernelMessage("error.entity-editor.immutable-property", { property: "code" }),
 			});
 			expect((yield* tablesState).entityRows).toEqual(before.entityRows);
 		}),
@@ -1253,17 +1256,17 @@ describe("EntityEditorService", () => {
 						entitySchema: { slug: item, owner: { kind: "kernel" } },
 					}),
 				})).output,
-			).toEqual({ kind: "invalid", message: "This entity schema cannot be edited here" });
+			).toEqual({ kind: "invalid", reason: kernelMessage("error.entity-editor.not-editable") });
 			expect(
 				(yield* submitAs(otherUser, { ...request(owner), idempotencyKey: "foreign" })).output,
-			).toEqual({ kind: "invalid", message: "This entity schema cannot be edited here" });
+			).toEqual({ kind: "invalid", reason: kernelMessage("error.entity-editor.not-editable") });
 			const invalidProperties = yield* submitAs(userId, {
 				...request(owner, { properties: { title: 7, code: "c" } }),
 				idempotencyKey: "invalid-properties",
 			});
 			expect(invalidProperties.output).toEqual({
 				kind: "invalid",
-				message: "The entity properties are invalid",
+				reason: kernelMessage("error.entity-editor.invalid-properties"),
 			});
 			expect(installed.pluginId).toBe(owner);
 		}),
@@ -1313,7 +1316,9 @@ describe("EntityEditorService", () => {
 			});
 			expect((yield* save("catalog-undeclared", "item-extra")).output).toEqual({
 				kind: "invalid",
-				message: "Relationship item-extra is not editable here",
+				reason: kernelMessage("error.entity-editor.relationship-not-editable", {
+					relationship: "item-extra",
+				}),
 			});
 		}),
 	);
@@ -1327,7 +1332,9 @@ describe("EntityEditorService", () => {
 			const editor = yield* makeEditor();
 			const parentRefusal = {
 				kind: "invalid",
-				message: "Relationship item-child needs one parent set at creation",
+				reason: kernelMessage("error.entity-editor.parent-required", {
+					relationship: "item-child",
+				}),
 			};
 			expect(
 				(yield* submitEdit(
@@ -1445,7 +1452,7 @@ describe("EntityEditorService", () => {
 			);
 			expect(
 				(yield* submitDelete(editor, "historied-delete", { owner, ...historied })).output,
-			).toEqual({ kind: "invalid", message: "Remove this entity's history before deleting it" });
+			).toEqual({ kind: "invalid", reason: kernelMessage("error.entity-editor.has-history") });
 			const afterHistory = yield* session.run((db) =>
 				db.select().from(tables.event).where(eq(tables.event.id, "history-event")),
 			);
@@ -1465,7 +1472,7 @@ describe("EntityEditorService", () => {
 			);
 			expect((yield* submitDelete(editor, "linked-delete", { owner, ...linked })).output).toEqual({
 				kind: "invalid",
-				message: "Remove this entity's linked items before deleting it",
+				reason: kernelMessage("error.entity-editor.has-links"),
 			});
 
 			expect(
@@ -1475,7 +1482,7 @@ describe("EntityEditorService", () => {
 					entityId: parent.id,
 					expectedUpdatedAt: parent.updatedAt,
 				})).output,
-			).toEqual({ kind: "invalid", message: "This entity cannot be deleted here" });
+			).toEqual({ kind: "invalid", reason: kernelMessage("error.entity-editor.not-deletable") });
 			expect(
 				yield* submitDelete(editor, "foreign-delete", {
 					owner,

@@ -74,7 +74,9 @@ const user = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -177,10 +179,10 @@ const makeDefinitionsLayer = (
 						...pluginIds.map((pluginId): DefinitionSource["entitySchemas"][number] => ({
 							pluginId,
 							icon: "record",
-							name: "Record",
 							slug: "record",
 							eventSchemas: [],
 							mergeIdentityProperties,
+							name: { key: "test.record" },
 							propertiesSchema: {
 								fields: { kind: { label: "Kind", type: "string", description: "Record kind" } },
 							},
@@ -192,10 +194,10 @@ const makeDefinitionsLayer = (
 							.filter(([slug]) => slug !== "record")
 							.map(([slug, deniedOperations]) => ({
 								slug,
-								name: slug,
 								icon: "box",
 								pluginId: null,
 								eventSchemas: [],
+								name: { key: `test.${slug}` },
 								userState: { deniedOperations },
 								propertiesSchema: { fields: {} },
 							})),
@@ -389,16 +391,7 @@ layer(changingScope.layer)((test) => {
 				const exit = yield* Effect.exit(
 					service.clearEntityUserData(user, EntityId.make("entity-1"), command),
 				);
-				assertExitFails(
-					exit,
-					new EntityUserDataBadRequest({
-						reason: {
-							code: "state-conflict",
-							message:
-								"Your data or the entity inventory changed. Refresh this page and try again. No data was changed.",
-						},
-					}),
-				);
+				assertExitFails(exit, new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }));
 				expect(yield* changingScope.recorded).toEqual(["prepare"]);
 			}),
 		testTimeout,
@@ -462,8 +455,8 @@ const retainedChildClear = recordingServiceLayer<EventId>(({ record }) => ({
 		relationshipSchemas: [
 			{
 				slug: "parts",
-				name: "Parts",
 				pluginId: null,
+				name: { key: "test.parts" },
 				targetEntitySchemaSlug: "part",
 				sourceEntitySchemaSlug: "record",
 				propertiesSchema: { fields: {} },
@@ -474,13 +467,13 @@ const retainedChildClear = recordingServiceLayer<EventId>(({ record }) => ({
 				icon: "box",
 				pluginId: null,
 				slug: "record",
-				name: "Record",
+				name: { key: "test.record" },
 				propertiesSchema: { fields: {} },
 				eventSchemas: [
 					{
 						pluginId: null,
 						slug: "evidence",
-						name: "Evidence",
+						name: { key: "test.evidence" },
 						propertiesSchema: {
 							fields: {
 								subjectId: {
@@ -511,9 +504,9 @@ const retainedChildClear = recordingServiceLayer<EventId>(({ record }) => ({
 			{
 				icon: "box",
 				slug: "part",
-				name: "Part",
 				pluginId: null,
 				eventSchemas: [],
+				name: { key: "test.part" },
 				propertiesSchema: {
 					fields: { number: { type: "integer", label: "Number", description: "Number" } },
 				},
@@ -563,16 +556,7 @@ layer(
 				const exit = yield* Effect.exit(
 					service.clearEntityUserData(user, EntityId.make("entity-1"), command),
 				);
-				assertExitFails(
-					exit,
-					new EntityUserDataBadRequest({
-						reason: {
-							code: "state-conflict",
-							message:
-								"Your data or the entity inventory changed. Refresh this page and try again. No data was changed.",
-						},
-					}),
-				);
+				assertExitFails(exit, new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }));
 			}),
 		testTimeout,
 	);

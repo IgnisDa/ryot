@@ -83,7 +83,6 @@ it.effect.each([
 			expect(error.reason.code).toBe("child-mapping-conflict");
 			assert(error.reason.code === "child-mapping-conflict");
 			expect(error.reason.entityIds).toEqual<unknown>(["source"]);
-			expect(error.reason.message).toContain("No data was moved");
 		}),
 	testTimeout,
 );
@@ -115,7 +114,7 @@ it.effect(
 );
 
 it.effect(
-	"reports the full conflict count with bounded diagnostic details",
+	"bounds the reported conflicting entity ids",
 	() =>
 		Effect.gen(function* () {
 			const source = graph(
@@ -126,8 +125,6 @@ it.effect(
 			);
 			assert(error.reason.code === "child-mapping-conflict");
 			expect(error.reason.entityIds).toHaveLength(10);
-			expect(error.reason.message).toContain("1000 child item(s)");
-			expect(error.reason.message).toContain("showing the first 10");
 			expect(source.children[0]?.items).toHaveLength(1000);
 		}),
 	testTimeout,

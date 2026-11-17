@@ -6,6 +6,7 @@ import {
 	type RequestEntityEnrichmentResult,
 } from "@ryot-app/contract/modules/entities/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
@@ -71,13 +72,12 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 					) {
 						return yield* refused("provider-unavailable");
 					}
+					const language = resolveContentLanguage(user.preferences);
 					const selection = {
 						requester: user.id,
 						entityId: entity.id,
 						operation: input.operation,
-						...(input.operation === "translation" && user.preferences.language !== null
-							? { language: user.preferences.language }
-							: {}),
+						...(input.operation === "translation" && language !== null ? { language } : {}),
 					};
 					const inputHash = sha256Hex(stableStringify({ ...input, user: user.id }));
 					const attempt = generateId();
@@ -86,14 +86,12 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 						level: "full" as const,
 						mode: "refresh" as const,
 						manualRefresh: input.action === "refresh",
-						...(user.preferences.language
-							? { translationLanguage: user.preferences.language }
-							: {}),
+						...(language ? { translationLanguage: language } : {}),
 					};
 					const executionId =
 						input.operation === "population"
 							? entityPopulationExecutionId(entity.id, user.id, execution)
-							: explicitTranslationExecutionId(entity.id, user.preferences.language ?? "", attempt);
+							: explicitTranslationExecutionId(entity.id, language ?? "", attempt);
 					const latestForOperation = yield* requests.latest(selection);
 					const latestFull =
 						input.operation === "population"
@@ -112,7 +110,6 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 						return { enrichmentRequestId: null } satisfies RequestEntityEnrichmentResult;
 					}
 					if (input.operation === "translation") {
-						const language = user.preferences.language;
 						if (language === null) {
 							return { enrichmentRequestId: null } satisfies RequestEntityEnrichmentResult;
 						}

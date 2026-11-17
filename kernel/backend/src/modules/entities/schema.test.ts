@@ -39,10 +39,10 @@ layer(revisionDatabaseLayer)((test) => {
 							.values({
 								id: "provider",
 								slug: "provider",
-								name: "Provider",
 								pluginId: "provider-plugin",
 								rootEntitySchemaSlug: "item",
 								information: { source: "fixture" },
+								name: { key: "test.provider", namespace: "provider-plugin" },
 							});
 					}),
 				);

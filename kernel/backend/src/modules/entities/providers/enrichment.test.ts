@@ -56,7 +56,9 @@ const currentUser = (id: string): CurrentUserValue => ({
 	id: UserId.make(id),
 	email: `${id}@example.test`,
 	preferences: {
-		language: "es",
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: "es",
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,

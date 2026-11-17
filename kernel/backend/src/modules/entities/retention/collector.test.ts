@@ -64,9 +64,9 @@ const installGraphPlugin = Effect.fn(function* () {
 		manifest: {
 			...plugin.manifest,
 			relationshipSchemas: [
-				{ ...endpoints, name: "Part", slug: "part", retention: "composition" },
-				{ ...endpoints, name: "Trend", slug: "trend", retention: "root" },
-				{ ...endpoints, name: "Credit", slug: "credit" },
+				{ ...endpoints, slug: "part", retention: "composition", name: { key: "test.part" } },
+				{ ...endpoints, slug: "trend", retention: "root", name: { key: "test.trend" } },
+				{ ...endpoints, slug: "credit", name: { key: "test.credit" } },
 			],
 		},
 	});
@@ -430,9 +430,9 @@ layer(testLayer)((test) => {
 							slug,
 							icon: "box",
 							position: 0,
-							name: "Reference",
 							pluginRevisionId: null,
 							mergeIdentityProperties: [],
+							name: { namespace: "kernel", key: "test.reference" },
 							propertiesSchema: {
 								fields: {
 									subjects: {

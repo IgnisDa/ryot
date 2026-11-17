@@ -48,6 +48,7 @@ import {
 	type LifecyclePreparedStep,
 	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
+import { definitionText } from "#modules/definitions/text";
 import { EntityUserDataAttachments } from "#modules/entities/user-data/attachments";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService, type PreparedEventDelete } from "#modules/events/service";
@@ -61,6 +62,7 @@ import { trimToNull } from "#platform/validation";
 
 import { EntitySnapshotResult } from "./mutation-outcomes";
 import {
+	conflict,
 	draftOf,
 	isUnchangedUpdate,
 	makePersistMutation,
@@ -188,22 +190,13 @@ export type GlobalEntityUpsertCursor = {
 
 const bad = (
 	code:
-		| "policy-rejected"
-		| "automation-limit"
-		| "mutation-conflict"
-		| "enclosing-transaction"
-		| "invalid-policy-transform",
-	message: string,
-) => new EntityBadRequest({ reason: { code, message } });
-const enclosingTransaction = () =>
-	bad(
-		"enclosing-transaction",
-		"EntitiesService must own the transaction and post-commit execution",
-	);
+		"automation-limit" | "mutation-conflict" | "enclosing-transaction" | "invalid-policy-transform",
+) => new EntityBadRequest({ reason: { code } });
+const enclosingTransaction = () => bad("enclosing-transaction");
 const writeFailure = (error: DbError | DomainWriteConflict) =>
 	error instanceof DomainWriteConflict
-		? new EntityBadRequest({ reason: error.reason })
-		: bad("mutation-conflict", error.message);
+		? Effect.fail(new EntityBadRequest({ reason: error.reason }))
+		: conflict(error.message);
 const itemCommand = (
 	lifecycle: DomainLifecycleCommand,
 	identity: string,
@@ -246,10 +239,7 @@ const batchRepresentatives = Effect.fnUntraced(function* <T>(
 			firstItem === undefined ||
 			stableStringify(inputOf(firstItem)) !== stableStringify(inputOf(item))
 		) {
-			return yield* bad(
-				"mutation-conflict",
-				"Entity batch repeats an identity with different input",
-			);
+			return yield* conflict("Entity batch repeats an identity with different input");
 		}
 		representatives.push(first);
 	}
@@ -333,7 +323,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 									input.userId,
 									true,
 								)
-								.pipe(Effect.mapError(writeFailure));
+								.pipe(Effect.catch(writeFailure));
 							const entity = yield* repository.getByIdForUser(input);
 							if (!entity) {
 								return yield* new EntityNotFound({
@@ -378,15 +368,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					verified === undefined
 						? yield* writeChecks
 								.check(lifecycle, owner, scopeUserId, commit)
-								.pipe(Effect.mapError(writeFailure))
+								.pipe(Effect.catch(writeFailure))
 						: verified;
 				const { pinned: pinnedDeclaration, active: activeDeclaration } =
 					yield* writeChecks.resolvePinnedDeclaration("entity", pin, owner, draft.entitySchemaSlug);
 				if (pin && !activeDeclaration) {
-					return yield* bad(
-						"mutation-conflict",
-						"Pinned entity declaration has no active storage definition",
-					);
+					return yield* conflict("Pinned entity declaration has no active storage definition");
 				}
 				const activeDefinition = activeDeclaration
 					? {
@@ -398,16 +385,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				if (draft.providerId !== null) {
 					const provider = yield* writeChecks
 						.checkProvider(draft.providerId, owner)
-						.pipe(Effect.mapError((error) => bad("mutation-conflict", error.message)));
+						.pipe(Effect.catch((error) => conflict(error.message)));
 					if (provider.ownerId !== scopeUserId) {
 						return yield* new EntityBadRequest({ reason: { code: "provider-scope-mismatch" } });
 					}
 				}
 				if (pin && !pinnedDeclaration) {
-					return yield* bad(
-						"mutation-conflict",
-						"Entity schema is not declared by the pinned writer",
-					);
+					return yield* conflict("Entity schema is not declared by the pinned writer");
 				}
 				const definition = pinnedDeclaration
 					? { ...activeDefinition, propertiesSchema: pinnedDeclaration.propertiesSchema }
@@ -435,13 +419,15 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						"Entity",
 						writerPropertiesSchema(activeDefinition.propertiesSchema),
 						properties,
-						(reason) =>
-							bad(
-								"mutation-conflict",
+						(reason) => reason,
+					).pipe(
+						Effect.catch((reason) =>
+							conflict(
 								reason === "invalid"
 									? "Pinned entity payload violates active storage constraints"
 									: "Active entity constraints would change the pinned payload",
 							),
+						),
 					);
 				}
 				const validated = yield* Schema.decodeUnknownEffect(AutomationEntityDraft)({
@@ -484,15 +470,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					false,
 					pin,
 				).pipe(
-					Effect.mapError(() =>
-						bad("mutation-conflict", "Current entity cannot be processed by the pinned writer"),
-					),
+					Effect.catch(() => conflict("Current entity cannot be processed by the pinned writer")),
 				);
 				if (!same(parsed.draft.properties, entity.properties)) {
-					return yield* bad(
-						"mutation-conflict",
-						"Pinned entity constraints would change the current stored value",
-					);
+					return yield* conflict("Pinned entity constraints would change the current stored value");
 				}
 				return yield* Effect.void;
 			});
@@ -506,9 +487,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						input.scopeUserId,
 						true,
 					)
-					.pipe(Effect.mapError(writeFailure));
+					.pipe(Effect.catch(writeFailure));
 				const lifecycle = yield* Schema.decodeEffect(DomainLifecycleCommand)(input.lifecycle).pipe(
-					Effect.mapError(() => bad("mutation-conflict", "Invalid lifecycle command")),
+					Effect.catch(() => conflict("Invalid lifecycle command")),
 				);
 				let request: AutomationEntityRequestPayload;
 				if (input.operation === "create") {
@@ -520,10 +501,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					};
 				} else {
 					if (input.before === null) {
-						return yield* bad(
-							"mutation-conflict",
-							"Mutation requires the persisted entity snapshot",
-						);
+						return yield* conflict("Mutation requires the persisted entity snapshot");
 					}
 					if (input.operation === "update") {
 						request = {
@@ -564,7 +542,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				).pipe(
 					Effect.filterOrFail(
 						(planned): planned is PendingEntityMutation => "request" in planned,
-						() => bad("automation-limit", "Entity request exceeds automation limits"),
+						() => bad("automation-limit"),
 					),
 				);
 			const applyMutationPolicies = Effect.fn("EntitiesService.applyMutationPolicies")(function* (
@@ -586,15 +564,20 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								),
 							);
 						if (output.action === "reject") {
-							return yield* bad("policy-rejected", output.reason);
+							return yield* new EntityBadRequest({
+								reason: {
+									code: "policy-rejected",
+									message: definitionText(policy.pluginId, output.reason),
+								},
+							});
 						}
 						if (output.action === "transform") {
 							const patched = applyLifecyclePolicyPatch(payload, output.patch);
 							if (!patched.ok || patched.request.operation === "delete") {
-								return yield* bad(
-									"invalid-policy-transform",
-									patched.ok ? "Entity delete policies cannot transform requests" : patched.reason,
+								yield* Effect.logDebug(
+									`Invalid entity policy transform: ${patched.ok ? "Entity delete policies cannot transform requests" : patched.reason}`,
 								);
+								return yield* bad("invalid-policy-transform");
 							}
 							const validated = yield* validateDraft(
 								patched.request.draft,
@@ -636,10 +619,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					final.entitySchemaPluginId !== pending.entitySchemaPluginId ||
 					!same(final.entitySchemaFingerprint, pending.entitySchemaFingerprint)
 				) {
-					return yield* bad(
-						"mutation-conflict",
-						"Entity schema ownership changed while policies ran",
-					);
+					return yield* conflict("Entity schema ownership changed while policies ran");
 				}
 				const { request: _request, policies: _policies, ...prepared } = pending;
 				return { ...prepared, draft: final.draft } satisfies PreparedMutation;
@@ -659,7 +639,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							input.scopeUserId,
 							true,
 						)
-						.pipe(Effect.asVoid, Effect.mapError(writeFailure)),
+						.pipe(Effect.asVoid, Effect.catch(writeFailure)),
 			};
 			const persistSnapshots = makePersistMutation({
 				...persistence,
@@ -671,7 +651,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				resultOf: (entity, wasInserted) => ({ wasInserted, entityId: entity.id }),
 			});
 			const verifyWrites = (checks: ReadonlyArray<DomainWriteCheck>) =>
-				writeChecks.checkMany(checks).pipe(Effect.mapError(writeFailure));
+				writeChecks.checkMany(checks).pipe(Effect.catch(writeFailure));
 
 			const entityBatchPlans = Effect.fnUntraced(function* (batch: EntityUpsertBatchScope) {
 				const pin = batch.command.writeContext?.pluginRevision;
@@ -682,7 +662,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						pin?.scope === "user" ? pin.ownerId : null,
 						true,
 					)
-					.pipe(Effect.mapError(writeFailure));
+					.pipe(Effect.catch(writeFailure));
 				return yield* planner.planBatch({ ...batch, resource: "entity" });
 			});
 			const assertImmutablePropertiesKept = Effect.fnUntraced(function* (
@@ -860,7 +840,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						input.entitySchema.owner,
 						input.scope === "user" ? input.userId : null,
 					)
-					.pipe(Effect.mapError(writeFailure));
+					.pipe(Effect.catch(writeFailure));
 				const planned = yield* planCreate(input, updateExisting, true);
 				if (planned.existing) {
 					const before = yield* snapshot(planned.existing);
@@ -869,7 +849,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						Effect.gen(function* () {
 							const current = yield* repository.getMutationEntity(planned.existing.id, true);
 							if (!current || !same(yield* snapshot(current.entity), before)) {
-								return yield* bad("mutation-conflict", "Entity changed before no-op was recorded");
+								return yield* conflict("Entity changed before no-op was recorded");
 							}
 							const batchScope = { identity: ["batch"], command: input.lifecycle };
 							yield* planner.prepareBatch({
@@ -902,7 +882,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				).pipe(
 					Effect.filterOrFail(
 						(step) => step._tag !== "Blocked",
-						() => bad("automation-limit", "Entity request exceeds automation limits"),
+						() => bad("automation-limit"),
 					),
 				);
 			});
@@ -972,10 +952,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					),
 					(entry) =>
 						Schema.decodeEffect(DomainLifecycleCommand)(entry.item.lifecycle).pipe(
-							Effect.mapBoth({
-								onSuccess: (lifecycle) => ({ ...entry, lifecycle }),
-								onFailure: () => bad("mutation-conflict", "Invalid lifecycle command"),
-							}),
+							Effect.map((lifecycle) => ({ ...entry, lifecycle })),
+							Effect.catch(() => conflict("Invalid lifecycle command")),
 						),
 				);
 				const pending = yield* Effect.forEach(unique, (entry) =>
@@ -1106,7 +1084,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							definitionOwner(ownedCurrent.entity.entitySchemaPluginId),
 							ownedCurrent.userId,
 						)
-						.pipe(Effect.mapError(writeFailure));
+						.pipe(Effect.catch(writeFailure));
 				}
 				const current = yield* repository.getMutationEntity(input.entityId);
 				if (
@@ -1172,7 +1150,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					).pipe(
 						Effect.filterOrFail(
 							(step) => step._tag !== "Blocked",
-							() => bad("automation-limit", "Entity request exceeds automation limits"),
+							() => bad("automation-limit"),
 						),
 					),
 					(pending) =>
@@ -1226,7 +1204,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					}
 					yield* writeChecks
 						.check(lifecycle, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
-						.pipe(Effect.mapError(writeFailure));
+						.pipe(Effect.catch(writeFailure));
 					const before = yield* snapshot(current.entity);
 					if (
 						!same(expected, {
@@ -1328,7 +1306,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 									definitionOwner(current.entity.entitySchemaPluginId),
 									current.userId,
 								)
-								.pipe(Effect.mapError(writeFailure));
+								.pipe(Effect.catch(writeFailure));
 						}
 					}
 					const eventIdentities =
@@ -1390,7 +1368,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 									definitionOwner(current.entity.entitySchemaPluginId),
 									current.userId,
 								)
-								.pipe(Effect.mapError(writeFailure));
+								.pipe(Effect.catch(writeFailure));
 							const pending = yield* planMutation({
 								before,
 								entityId,
@@ -1498,11 +1476,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				yield* assertOwner;
 				yield* writeChecks
 					.check(lifecycle, principalOwner(lifecycle.writeContext), userId)
-					.pipe(Effect.mapError(writeFailure));
+					.pipe(Effect.catch(writeFailure));
 				for (const item of items) {
 					yield* writeChecks
 						.check(lifecycle, item.entitySchema.owner, userId)
-						.pipe(Effect.mapError(writeFailure));
+						.pipe(Effect.catch(writeFailure));
 				}
 				const entries = items.map((item) => {
 					const command = itemCommand(
@@ -1583,10 +1561,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								continue;
 							}
 							if (!entry.prepared) {
-								return yield* bad(
-									"mutation-conflict",
-									"Ensured entity disappeared while policies ran",
-								);
+								return yield* conflict("Ensured entity disappeared while policies ran");
 							}
 							persisted.push({
 								input: entry.prepared,
@@ -1727,10 +1702,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								}
 							}
 							if (!item.prepared) {
-								return yield* bad(
-									"mutation-conflict",
-									"Provider entity disappeared while policies ran",
-								);
+								return yield* conflict("Provider entity disappeared while policies ran");
 							}
 							persisted.push({
 								input: item.prepared,
@@ -1789,11 +1761,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				yield* assertOwner;
 				yield* writeChecks
 					.check(lifecycle, principalOwner(lifecycle.writeContext), null)
-					.pipe(Effect.mapError(writeFailure));
+					.pipe(Effect.catch(writeFailure));
 				for (const item of items) {
 					yield* writeChecks
 						.check(lifecycle, item.entitySchema.owner, null)
-						.pipe(Effect.mapError(writeFailure));
+						.pipe(Effect.catch(writeFailure));
 				}
 				if (
 					options?.maximumTotal !== undefined &&

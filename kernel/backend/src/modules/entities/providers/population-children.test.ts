@@ -93,15 +93,15 @@ const definitions = {
 	relationshipSchemas: {
 		[definitionKey("relationship", owner, "credits")]: {
 			slug: "credits",
-			name: "Credits",
 			pluginId: "private-plugin",
+			name: { key: "test.credits" },
 			propertiesSchema: { fields: {} },
 			targetEntitySchemaSlug: "person",
 			sourceEntitySchemaSlug: rootSchemaSlug,
 		},
 		[definitionKey("relationship", owner, relationshipSchemaSlug)]: {
 			pluginId,
-			name: "Parts",
+			name: { key: "test.parts" },
 			slug: relationshipSchemaSlug,
 			propertiesSchema: { fields: {} },
 			sourceEntitySchemaSlug: rootSchemaSlug,

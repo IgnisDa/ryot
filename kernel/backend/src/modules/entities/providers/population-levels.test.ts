@@ -37,7 +37,7 @@ import type { PopulationLevel } from "./schemas";
 
 const bottle = EntitySchemaSlug.make("bottle");
 const titleProperties = {
-	fields: { title: { type: "string", label: "Title", description: "Title" } },
+	fields: { title: { type: "string", description: "Title", label: { key: "test.title" } } },
 } as const;
 
 const levelsPackage = () => {
@@ -48,29 +48,29 @@ const levelsPackage = () => {
 			...source.manifest,
 			entitySchemas: ["bottle", "part"].map((slug) => ({
 				slug,
-				name: slug,
 				icon: "box",
 				eventSchemas: [],
+				name: { key: `test.${slug}` },
 				propertiesSchema: titleProperties,
 			})),
 			relationshipSchemas: [
 				{
-					name: "Parts",
 					slug: "bottle-part",
+					name: { key: "test.parts" },
 					targetEntitySchemaSlug: "part",
 					sourceEntitySchemaSlug: "bottle",
 					propertiesSchema: { fields: {} },
 				},
 				{
-					name: "Subparts",
 					slug: "part-part",
+					name: { key: "test.subparts" },
 					targetEntitySchemaSlug: "part",
 					sourceEntitySchemaSlug: "part",
 					propertiesSchema: { fields: {} },
 				},
 				{
 					slug: "credits",
-					name: "Credits",
+					name: { key: "test.credits" },
 					sourceEntitySchemaSlug: "bottle",
 					targetEntitySchemaSlug: "bottle",
 					propertiesSchema: { fields: {} },

@@ -33,6 +33,8 @@ because the provider owns that data.
 relationships in one transaction. It is a kernel capability gated by the manifest-declared `editor`
 on a plugin entity schema (persisted with the definition and exposed as `entitySchema.editor` in
 RyotQL). Kernel-owned schemas and schemas without an editor return `invalid`. Demo users are refused.
+Every `invalid` output carries `reason`, an `error.entity-editor.*` kernel message (or the shared
+`error.sandbox.asset-forbidden`).
 
 An editor lists relationships with a direction: `outgoing` links start at the edited entity,
 `incoming` links end at it, and a `parent` link is an incoming link that needs exactly one related

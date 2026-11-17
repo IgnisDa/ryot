@@ -1,8 +1,8 @@
-import { internalError, unknownToMessage } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationExecutionId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { DateTime, Effect, Layer, Schema } from "effect";
 
+import { unexpected } from "#lib/domain/logged-rejection";
 import { lifecycleActor, rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
@@ -47,9 +47,8 @@ export const PluginBootstrapEntitiesLive = Layer.effect(
 				);
 				return yield* Schema.encodeEffect(plansSchema)(committed.flatMap((item) => item.dispatch));
 			},
-			Effect.mapError((error) =>
-				internalError(`Plugin user bootstrap entities failed: ${unknownToMessage(error)}`),
-			),
+			Effect.tapError((error) => Effect.logError("Plugin user bootstrap entities failed", error)),
+			Effect.mapError(unexpected),
 		);
 		const dispatch = Effect.fn("PluginBootstrapEntities.dispatch")(
 			function* (encoded: PluginBootstrapDispatch) {
@@ -61,9 +60,8 @@ export const PluginBootstrapEntitiesLive = Layer.effect(
 					).pipe(Effect.annotateLogs({ warnings }));
 				}
 			},
-			Effect.mapError((error) =>
-				internalError(`Plugin user bootstrap dispatch failed: ${unknownToMessage(error)}`),
-			),
+			Effect.tapError((error) => Effect.logError("Plugin user bootstrap dispatch failed", error)),
+			Effect.mapError(unexpected),
 		);
 		return { ensure, dispatch };
 	}),

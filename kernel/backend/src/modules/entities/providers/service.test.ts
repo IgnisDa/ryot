@@ -46,7 +46,9 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-1"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -60,7 +62,6 @@ const provider: NonNullable<
 	Effect.Success<ReturnType<PluginRuntimeResolver["Service"]["findProviderAvailableToUser"]>>
 > = {
 	id: providerId,
-	name: "Provider",
 	pluginId: "plugin",
 	slug: "provider.slug",
 	pluginScope: "system",
@@ -68,6 +69,7 @@ const provider: NonNullable<
 	updatedAt: new Date(0),
 	information: { source: "provider" },
 	rootEntitySchemaSlug: entitySchemaSlug,
+	name: { key: "test.provider", namespace: "provider-plugin" },
 };
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
@@ -115,12 +117,12 @@ const serviceLayerOver = <E>(
 								input.entitySchemaSlug === entitySchemaSlug &&
 								input.entitySchemaPluginId === provider.pluginId
 								? {
-										name: "Planned",
 										id: input.eventSchemaSlug,
 										slug: input.eventSchemaSlug,
 										pluginId: provider.pluginId,
 										propertiesSchema: { fields: {} },
 										entitySchemaSlug: input.entitySchemaSlug,
+										name: { namespace: "kernel", key: "test.planned" },
 									}
 								: null,
 						),

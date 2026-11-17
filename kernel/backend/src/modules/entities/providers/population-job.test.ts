@@ -93,14 +93,14 @@ const definitions = {
 		credits: {
 			pluginId: null,
 			slug: "credits",
-			name: "Credits",
+			name: { key: "test.credits" },
 			propertiesSchema: { fields: {} },
 			sourceEntitySchemaSlug: rootSchemaSlug,
 			targetEntitySchemaSlug: relatedSchemaSlug,
 		},
 		[relationshipSchemaSlug]: {
-			name: "Parts",
 			pluginId: null,
+			name: { key: "test.parts" },
 			slug: relationshipSchemaSlug,
 			propertiesSchema: { fields: {} },
 			sourceEntitySchemaSlug: rootSchemaSlug,
@@ -208,16 +208,16 @@ const populationLayer = (options: {
 					),
 					entitySchemas: Object.values(definitions.entitySchemas).map(({ slug }) => ({
 						slug,
-						name: slug,
 						icon: "box",
 						eventSchemas: [],
+						name: { key: `test.${slug}` },
 						propertiesSchema: { fields: {} },
 					})),
 					providers: [
 						...source.manifest.providers,
 						{
-							name: "Person",
 							slug: "person.provider",
+							name: { key: "test.person" },
 							information: { source: "fixture" },
 							rootEntitySchemaSlug: relatedSchemaSlug,
 						},
@@ -640,7 +640,10 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 					new SandboxRunError({
 						kind: "timeout",
 						message: "Boundary timeout",
-						data: { code: "operation-rejected" },
+						data: {
+							code: "operation-rejected",
+							reason: { namespace: "test", key: "test.declined" },
+						},
 					}),
 				],
 				(failure) =>

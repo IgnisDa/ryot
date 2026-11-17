@@ -57,12 +57,12 @@ const firstUser = UserId.make("relationship-owner");
 const secondUser = UserId.make("second-namespace-owner");
 const bottle = EntitySchemaSlug.make("bottle");
 const titleProperties = {
-	fields: { title: { type: "string", label: "Title", description: "Title" } },
+	fields: { title: { type: "string", description: "Title", label: { key: "test.title" } } },
 } as const;
 const bottleProperties = {
 	fields: {
 		...titleProperties.fields,
-		code: { label: "Code", type: "string", immutable: true, description: "Code" },
+		code: { type: "string", immutable: true, description: "Code", label: { key: "test.code" } },
 	},
 } as const;
 const namespacePackage = (packageId = testPluginPackageId(), version = "one") => {
@@ -71,39 +71,41 @@ const namespacePackage = (packageId = testPluginPackageId(), version = "one") =>
 		...source,
 		manifest: {
 			...source.manifest,
-			metadata: { ...source.manifest.metadata, name: "Whiskey" },
+			metadata: { ...source.manifest.metadata, name: { key: "test.whiskey" } },
 			entitySchemas: ["bottle", "part", "section"].map((slug) => ({
 				slug,
-				name: slug,
 				icon: "box",
+				name: { key: `test.${slug}` },
 				propertiesSchema: slug === "bottle" ? bottleProperties : titleProperties,
-				eventSchemas: [{ slug: "tasted", name: "Tasted", propertiesSchema: titleProperties }],
+				eventSchemas: [
+					{ slug: "tasted", name: { key: "test.tasted" }, propertiesSchema: titleProperties },
+				],
 			})),
 			relationshipSchemas: [
 				{
 					slug: "link",
-					name: "Link",
+					name: { key: "test.link" },
 					sourceEntitySchemaSlug: null,
 					targetEntitySchemaSlug: null,
 					propertiesSchema: { fields: {} },
 				},
 				{
-					name: "Parts",
 					slug: "bottle-part",
+					name: { key: "test.parts" },
 					targetEntitySchemaSlug: "part",
 					sourceEntitySchemaSlug: "bottle",
 					propertiesSchema: { fields: {} },
 				},
 				{
-					name: "Sections",
 					slug: "part-section",
+					name: { key: "test.sections" },
 					sourceEntitySchemaSlug: "part",
 					propertiesSchema: { fields: {} },
 					targetEntitySchemaSlug: "section",
 				},
 				{
 					slug: "credits",
-					name: "Credits",
+					name: { key: "test.credits" },
 					sourceEntitySchemaSlug: "bottle",
 					targetEntitySchemaSlug: "bottle",
 					propertiesSchema: { fields: {} },
@@ -115,9 +117,9 @@ const namespacePackage = (packageId = testPluginPackageId(), version = "one") =>
 
 const entityDeclaration = (slug: string) => ({
 	slug,
-	name: slug,
 	icon: "box",
 	eventSchemas: [],
+	name: { key: `test.${slug}` },
 	propertiesSchema: titleProperties,
 });
 const retiredAt = new Date("2026-10-13T00:00:00.000Z");
@@ -796,12 +798,12 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 						userId: firstUser,
 						entityId: foreignFrom.id,
 						sessionEntityId: from.id,
-						eventSchemaName: "Tasted",
 						eventSchemaPluginId: b.pluginId,
 						propertiesSchema: { fields: {} },
 						properties: { title: "Foreign" },
 						id: EventId.make("foreign-session-event"),
 						eventSchemaSlug: EventSchemaSlug.make("tasted"),
+						eventSchemaName: { key: "test.tasted", namespace: b.pluginId },
 						occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-13T00:00:00.000Z")),
 					}),
 				);
@@ -841,7 +843,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 								propertiesSchema: {
 									fields: {
 										...definition.propertiesSchema.fields,
-										newer: { type: "string", label: "Newer", description: "Newer" },
+										newer: { type: "string", description: "Newer", label: { key: "test.newer" } },
 									},
 								},
 							})),
@@ -963,7 +965,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 								propertiesSchema: {
 									fields: {
 										...definition.propertiesSchema.fields,
-										newer: { type: "string", label: "Newer", description: "Newer" },
+										newer: { type: "string", description: "Newer", label: { key: "test.newer" } },
 									},
 								},
 							})),
@@ -1043,7 +1045,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 									unknownKeys: "passthrough",
 									fields: {
 										...definition.propertiesSchema.fields,
-										newer: { type: "string", label: "Newer", description: "Newer" },
+										newer: { type: "string", description: "Newer", label: { key: "test.newer" } },
 									},
 								},
 							})),
@@ -1275,8 +1277,8 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 							relationshipSchemas: [
 								...newer.manifest.relationshipSchemas,
 								{
-									name: "Added",
 									slug: "added-link",
+									name: { key: "test.added" },
 									sourceEntitySchemaSlug: null,
 									targetEntitySchemaSlug: null,
 									propertiesSchema: { fields: {} },
@@ -1287,7 +1289,11 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 									...newerBottle,
 									eventSchemas: [
 										...newerBottle.eventSchemas,
-										{ slug: "opened", name: "Opened", propertiesSchema: titleProperties },
+										{
+											slug: "opened",
+											name: { key: "test.opened" },
+											propertiesSchema: titleProperties,
+										},
 									],
 								},
 								...newerEntities,
@@ -1312,16 +1318,10 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 						}),
 					);
 				expect(yield* create("retired", "retired-entity")).toMatchObject({
-					reason: {
-						code: "mutation-conflict",
-						message: "Pinned entity declaration has no active storage definition",
-					},
+					reason: { code: "mutation-conflict" },
 				});
 				expect(yield* create("added", "added-entity")).toMatchObject({
-					reason: {
-						code: "mutation-conflict",
-						message: "Entity schema is not declared by the pinned writer",
-					},
+					reason: { code: "mutation-conflict" },
 				});
 				const own = yield* entities.create({
 					name: "Own",
@@ -1436,7 +1436,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					index: 0,
 					reason: { entityId: foreign.entity.id, code: "session-entity-not-found" },
 				});
-				const rejected = (itemIdentity: string, message: string) =>
+				const rejected = (itemIdentity: string) =>
 					Effect.gen(function* () {
 						expect(
 							yield* Effect.flip(
@@ -1449,10 +1449,8 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 									entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
 								}),
 							),
-						).toMatchObject({ reason: { message, code: "mutation-conflict" } });
+						).toMatchObject({ reason: { code: "mutation-conflict" } });
 					});
-				const installationUnavailable =
-					"Current domain write installation authority is unavailable";
 				const setInstallation = (values: Partial<typeof tables.pluginInstallation.$inferInsert>) =>
 					session.run((db) =>
 						db
@@ -1461,9 +1459,9 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 					);
 				yield* setInstallation({ ingestionRetiring: true });
-				yield* rejected("retiring", installationUnavailable);
+				yield* rejected("retiring");
 				yield* setInstallation({ ingestionRetiring: false, uninstalledAt: retiredAt });
-				yield* rejected("uninstalled", installationUnavailable);
+				yield* rejected("uninstalled");
 				yield* setInstallation({ uninstalledAt: null });
 				yield* session.run((db) =>
 					db
@@ -1492,7 +1490,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 						.set({ status: "disabled" })
 						.where(eq(tables.plugin.id, installed.pluginId)),
 				);
-				yield* rejected("disabled-plugin", "Pinned domain write authority is unavailable");
+				yield* rejected("disabled-plugin");
 			}),
 		testTimeout,
 	);
@@ -1743,10 +1741,7 @@ layer(relationshipDatabaseLayer())((test) => {
 					],
 					[
 						[item("own"), { ...item("other-user"), userId: otherUser }],
-						{
-							code: "mutation-conflict",
-							message: "Domain write authority does not match the stored owner or scope",
-						},
+						{ code: "mutation-conflict" },
 					],
 					[
 						[
@@ -1769,10 +1764,7 @@ layer(relationshipDatabaseLayer())((test) => {
 						.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 				);
 				expect(yield* Effect.flip(write([item("retiring")]))).toMatchObject({
-					reason: {
-						code: "mutation-conflict",
-						message: "Current domain write installation authority is unavailable",
-					},
+					reason: { code: "mutation-conflict" },
 				});
 				yield* session.run((db) =>
 					db

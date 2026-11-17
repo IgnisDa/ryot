@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
+import { stampAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
@@ -344,12 +345,12 @@ const makeServiceLayer = (
 				findProviderAvailableToUser: () =>
 					Effect.succeed({
 						slug: "catalog",
-						name: "Catalog",
 						pluginScope: "user",
 						id: payload.providerId,
 						createdAt: new Date(0),
 						updatedAt: new Date(0),
 						information: { source: "Test", canonicalLanguage: "en" },
+						name: { key: "test.catalog", namespace: "provider-plugin" },
 						rootEntitySchemaSlug: options.rootSchemaSlug ?? payload.entitySchemaSlug,
 						pluginId: options.foreignProvider ? "foreign-plugin" : payload.entitySchemaPluginId,
 					}),
@@ -475,18 +476,18 @@ const makeServiceLayer = (
 										mergeIdentityProperties: [],
 										slug: payload.entitySchemaSlug,
 										pluginId: payload.entitySchemaPluginId,
-										propertiesSchema: {
+										propertiesSchema: stampAppSchema(payload.entitySchemaPluginId, {
 											fields: {
 												...entitySchema.propertiesSchema.fields,
 												image: {
 													type: "object",
 													properties: {},
-													label: "Image",
 													description: "Image",
 													validation: { asset: true },
+													label: { key: "test.image" },
 												},
 											},
-										},
+										}),
 									},
 								}),
 						}),

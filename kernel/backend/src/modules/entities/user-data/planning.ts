@@ -56,7 +56,7 @@ export const mergeChildReferences = (
 	requiredIds: ReadonlySet<string>,
 ) => {
 	const references: { from: EntityId; into: EntityId }[] = [];
-	const conflicts: { id: EntityId; name: string; identity: string }[] = [];
+	const conflicts: EntityId[] = [];
 	const currentTargets = new Set(target.currentEntityIds);
 	for (const [index, group] of source.children.entries()) {
 		const declaration = group.declaration;
@@ -95,17 +95,7 @@ export const mergeChildReferences = (
 						child.properties[property] === undefined || child.properties[property] === null,
 				)
 			) {
-				conflicts.push({
-					id: child.id,
-					name: child.name,
-					identity: declaration.identityProperties
-						.map(
-							(property) =>
-								`${property}=${JSON.stringify(child.properties[property] ?? "missing")}`,
-						)
-						.join(", ")
-						.slice(0, 256),
-				});
+				conflicts.push(child.id);
 			} else {
 				references.push({ from: child.id, into: match.id });
 			}
@@ -115,16 +105,7 @@ export const mergeChildReferences = (
 		? Effect.succeed(references)
 		: Effect.fail(
 				new EntityUserDataBadRequest({
-					reason: {
-						code: "child-mapping-conflict",
-						entityIds: conflicts.slice(0, 10).map(({ id }) => id),
-						message: `Cannot merge ${conflicts.length} child item(s) without a unique matching destination: ${conflicts
-							.slice(0, 10)
-							.map(({ name, identity }) => `${name.slice(0, 160)} (${identity})`)
-							.join(
-								"; ",
-							)}${conflicts.length > 10 ? "; showing the first 10" : ""}. Refresh source data or correct the custom child names and identity fields, then try again. No data was moved.`,
-					},
+					reason: { code: "child-mapping-conflict", entityIds: conflicts.slice(0, 10) },
 				}),
 			);
 };

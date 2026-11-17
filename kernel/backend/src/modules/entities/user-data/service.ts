@@ -61,18 +61,10 @@ const itemCommand = (
 
 const lifecyclePersistenceFailure = (error: LifecyclePersistenceError) =>
 	new DbError({ message: `User-state lifecycle persistence failed: ${error.code}` });
-const eventMutationFailure = (error: EventBadRequest) =>
-	new EntityUserDataBadRequest({
-		reason: {
-			code: "state-conflict",
-			message:
-				"message" in error.reason
-					? error.reason.message
-					: "The requested event change is not allowed",
-		},
-	});
+const eventMutationFailure = () =>
+	new EntityUserDataBadRequest({ reason: { code: "state-conflict" } });
 const eventCommandFailure = (error: EventBadRequest) =>
-	error.reason.code === "owner-mismatch" ? error : eventMutationFailure(error);
+	error.reason.code === "owner-mismatch" ? error : eventMutationFailure();
 const relationshipFailure =
 	(operation: "clear" | "merge") => (error: RelationshipNotFound | RelationshipBadRequest) =>
 		Effect.logWarning(`relationship ${operation} failed`, error).pipe(
@@ -99,14 +91,7 @@ const relationshipKey = (
 		relationship.targetEntityId,
 	]);
 
-const stateConflict = () =>
-	new EntityUserDataBadRequest({
-		reason: {
-			code: "state-conflict",
-			message:
-				"Your data or the entity inventory changed. Refresh this page and try again. No data was changed.",
-		},
-	});
+const stateConflict = () => new EntityUserDataBadRequest({ reason: { code: "state-conflict" } });
 
 const assertState = (before: unknown, after: unknown) =>
 	stableStringify(before) === stableStringify(after) ? Effect.void : Effect.fail(stateConflict());
@@ -679,7 +664,6 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						reason: {
 							code: "child-mapping-conflict",
 							entityIds: missingReferences.slice(0, 10).map((id) => EntityId.make(id)),
-							message: `Cannot merge retained history with ${missingReferences.length} unavailable referenced item(s). Refresh source data or correct the custom inventory, or remove the affected history, then try again. No data was moved.`,
 						},
 					});
 				}

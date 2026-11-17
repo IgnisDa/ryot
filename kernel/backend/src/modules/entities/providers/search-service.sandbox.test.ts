@@ -25,7 +25,9 @@ const user = {
 	id: realSandboxUserId,
 	email: "user@example.com",
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -64,7 +66,6 @@ const searchLayer = (source: string) =>
 							findProviderAvailableToUser: () =>
 								Effect.succeed({
 									id: providerId,
-									name: "Failing",
 									createdAt: new Date(0),
 									updatedAt: new Date(0),
 									slug: "failing.provider",
@@ -72,6 +73,7 @@ const searchLayer = (source: string) =>
 									rootEntitySchemaSlug: "record",
 									information: { source: "failing" },
 									pluginId: installed.pluginRevision.id,
+									name: { key: "test.failing", namespace: "provider-plugin" },
 								}),
 							resolveUserSearchScript: () =>
 								Effect.succeed({

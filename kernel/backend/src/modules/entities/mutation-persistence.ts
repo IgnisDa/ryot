@@ -15,6 +15,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 
+import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import type {
 	ManagedAssetReferenceLocker,
 	OwnedManagedAssetPropertyRecord,
@@ -57,8 +58,8 @@ export const draftOf = ({
 }: AutomationEntitySnapshot) => draft;
 export const same = (left: unknown, right: unknown) =>
 	stableStringify(left) === stableStringify(right);
-const conflict = (message: string) =>
-	new EntityBadRequest({ reason: { message, code: "mutation-conflict" } });
+export const conflict = (cause: string) =>
+	rejectWithLoggedCause(new EntityBadRequest({ reason: { code: "mutation-conflict" } }), cause);
 const duplicateCollectionName = () =>
 	new EntityBadRequest({ reason: { code: "duplicate-collection-name" } });
 const isKernelCollection = (input: PreparedMutation) =>
@@ -198,9 +199,7 @@ export const makePersistMutation = <E, R, Result>({
 					false,
 					item.pin,
 				).pipe(
-					Effect.mapError(() =>
-						conflict("Current entity cannot be processed by the pinned writer"),
-					),
+					Effect.catch(() => conflict("Current entity cannot be processed by the pinned writer")),
 				);
 				if (!same(parsed.draft.properties, before.properties)) {
 					return yield* conflict("Pinned entity constraints would change the current stored value");

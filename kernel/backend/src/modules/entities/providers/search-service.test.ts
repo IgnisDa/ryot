@@ -29,7 +29,9 @@ const user = {
 	email: "user@example.com",
 	id: UserId.make("user-1"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -39,7 +41,6 @@ const user = {
 const providerId = SandboxProviderId.make("provider-1");
 const provider = {
 	id: providerId,
-	name: "Records",
 	pluginId: "records",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
@@ -47,6 +48,7 @@ const provider = {
 	rootEntitySchemaSlug: "record",
 	pluginScope: "system" as const,
 	information: { source: "records" },
+	name: { key: "test.records", namespace: "provider-plugin" },
 };
 
 const optionsSchema = {
@@ -251,8 +253,8 @@ layer(
 				const executions = yield* (yield* FakeProviderSearch).executions;
 				expect(result).toEqual<unknown>({
 					providerId,
-					providerName: "Records",
 					rootEntitySchemaSlug: "record",
+					providerName: { key: "test.records", namespace: "provider-plugin" },
 					items: [{ title: "Record", externalId: "search-script-id-external" }],
 				});
 				expect(executions).toHaveLength(1);

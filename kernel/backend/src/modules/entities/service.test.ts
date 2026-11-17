@@ -25,10 +25,11 @@ import {
 	EntitySchemaSlug,
 	EventId,
 	EventSchemaSlug,
+	PluginId,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { type AppSchema, mapAppSchemaText } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import type { DefinitionSource } from "@ryot-app/definitions/snapshot";
@@ -136,9 +137,9 @@ const createEvent = (id: EventId, userId: UserId, entityId: EntityId, sessionEnt
 				entityId,
 				properties: {},
 				eventSchemaPluginId: null,
-				eventSchemaName: "Progress",
 				propertiesSchema: { fields: {} },
 				eventSchemaSlug: EventSchemaSlug.make("progress"),
+				eventSchemaName: { namespace: "kernel", key: "test.progress" },
 				occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z")),
 				...(sessionEntityId === undefined ? {} : { sessionEntityId }),
 			}),
@@ -185,13 +186,13 @@ const entitiesLayer = (options: TestOptions = {}) =>
 				const recordSchema: DefinitionSource["entitySchemas"][number] = {
 					slug,
 					pluginId: null,
-					name: "Record",
 					icon: "record",
+					name: { key: "test.record" },
 					eventSchemas: [
 						{
 							pluginId: null,
-							name: "Progress",
 							slug: "progress",
+							name: { key: "test.progress" },
 							propertiesSchema: { fields: {} },
 						},
 					],
@@ -245,14 +246,14 @@ const entitiesLayer = (options: TestOptions = {}) =>
 										fields: {
 											...definition.propertiesSchema.fields,
 											activated: {
-												label: "Activated",
 												type: "boolean" as const,
 												description: "Activated",
+												label: { key: "test.activated" },
 											},
 											score: {
-												label: "Score",
 												description: "Score",
 												type: "number" as const,
+												label: { key: "test.score" },
 												normalize: { round: { scale: 0 } },
 											},
 										},
@@ -352,11 +353,11 @@ const entitiesLayer = (options: TestOptions = {}) =>
 														entityId: before.entityId,
 														eventSchemaPluginId: null,
 														userId: trigger.scopeUserId,
-														eventSchemaName: "Progress",
 														properties: before.properties,
 														propertiesSchema: { fields: {} },
 														id: EventId.make("late-cascade-event"),
 														eventSchemaSlug: before.eventSchemaSlug,
+														eventSchemaName: { namespace: "kernel", key: "test.progress" },
 														occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.occurredAt)),
 														...(before.sessionEntityId === null
 															? {}
@@ -394,6 +395,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 													trigger.kind.category === "request"
 														? (options.policies ?? []).map((_, index) => ({
 																position: index,
+																pluginId: PluginId.make("policy-plugin"),
 																runId: AutomationRunId.make(`policy-${index}`),
 															}))
 														: [],
@@ -1297,7 +1299,9 @@ describe("EntitiesService committed lifecycle", () => {
 			...source,
 			entitySchemas: Array.from(source.entitySchemas, (definition) => ({
 				...definition,
-				propertiesSchema: kernelSchema.propertiesSchema,
+				propertiesSchema: mapAppSchemaText(kernelSchema.propertiesSchema, (text) =>
+					typeof text === "string" ? { key: "test.kernel-property" } : text,
+				),
 			})).flatMap((definition) => [
 				definition,
 				{ ...definition, slug: otherProviderEntitySchema.slug },
@@ -1328,10 +1332,10 @@ describe("EntitiesService committed lifecycle", () => {
 						.values({
 							id: providerId,
 							slug: "provider",
-							name: "Provider",
 							rootEntitySchemaSlug: slug,
 							pluginId: "provider-plugin",
 							information: { source: "fixture" },
+							name: { key: "test.provider", namespace: "provider-plugin" },
 						});
 				}),
 			),
@@ -1339,6 +1343,7 @@ describe("EntitiesService committed lifecycle", () => {
 		yield* (yield* DefinitionRepository.make.pipe(
 			Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
 		)).writeRevisionDefinitions({
+			pluginId: "provider-plugin",
 			pluginRevisionId: "provider-revision",
 			definitions: revisionDefinitions("provider-plugin", manifest),
 		});
@@ -1835,8 +1840,8 @@ describe("EntitiesService committed lifecycle", () => {
 			"rejected",
 			{
 				policies: [
-					{ action: "reject", reason: "Denied" },
-					{ action: "reject", reason: "Should not execute" },
+					{ action: "reject", reason: { key: "rejection.denied" } },
+					{ action: "reject", reason: { key: "rejection.not-executed" } },
 				],
 			},
 			"policy-rejected",
@@ -1844,7 +1849,7 @@ describe("EntitiesService committed lifecycle", () => {
 		["blocked", { blocked: true }, "automation-limit"],
 		[
 			"failed",
-			{ policies: ["fail", { action: "reject", reason: "Should not execute" }] },
+			{ policies: ["fail", { action: "reject", reason: { key: "rejection.not-executed" } }] },
 			"policy-execution-failed",
 		],
 	] as const) {
@@ -1857,11 +1862,13 @@ describe("EntitiesService committed lifecycle", () => {
 						const session = yield* DatabaseSession;
 						const error = yield* service.create(createInput(name)).pipe(Effect.flip);
 						expect(error).toMatchObject({ reason: { code }, _tag: "EntityBadRequest" });
-						if (name === "rejected") {
-							expect(error).toMatchObject({ reason: { message: "Denied" } });
-						}
 						if (name === "failed") {
 							expect(error).toMatchObject({ reason: { runId: "policy-0" } });
+						}
+						if (name === "rejected") {
+							expect(error).toMatchObject({
+								reason: { message: { key: "rejection.denied", namespace: "policy-plugin" } },
+							});
 						}
 						expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 						const [request] = yield* session.run((db) =>
@@ -2393,12 +2400,7 @@ describe("EntitiesService committed lifecycle", () => {
 								command("schema-change"),
 							)
 							.pipe(Effect.flip),
-					).toMatchObject({
-						reason: {
-							code: "mutation-conflict",
-							message: "Entity schema changed before the source write committed",
-						},
-					});
+					).toMatchObject({ reason: { code: "mutation-conflict" } });
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				}),
 			testTimeout,
