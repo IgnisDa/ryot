@@ -37,8 +37,8 @@ const signalReference = { slug: signalSchemaSlug, owner: { kind: "kernel" } } as
 const signalSchema = {
 	slug: signalSchemaSlug,
 	catalogState: "active",
-	name: "Review Created",
 	audiencePolicy: { kind: "actor" },
+	name: { key: "test.review-created" },
 	notificationHookSlug: "automation.notification",
 	propertiesSchema: { fields: {}, unknownKeys: "strict" },
 } as const;

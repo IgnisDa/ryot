@@ -19,8 +19,8 @@ export class EventReferenceUnavailable extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("EventReferenceUnavailable", { message: Schema.String }) {}
 
-export const eventReferenceBadRequest = (error: EventReferenceUnavailable) =>
-	new EventBadRequest({ reason: { message: error.message, code: "invalid-properties" } });
+export const eventReferenceBadRequest = () =>
+	new EventBadRequest({ reason: { code: "invalid-properties" } });
 
 /** References a transaction's deletions removed, cleared from their referrers before it settles. */
 export const PendingEventReferenceClears = Context.Reference<null | Array<ClearedEventReference>>(

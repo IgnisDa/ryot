@@ -1,4 +1,10 @@
-import { badRequest, DbError, notFound } from "@ryot-app/contract/errors";
+import {
+	badRequest,
+	DbError,
+	notFound,
+	schemaValidationFailed,
+	validationFailed,
+} from "@ryot-app/contract/errors";
 import { AutomationSignalPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	definitionKey,
@@ -10,6 +16,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -54,7 +61,9 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 					Effect.mapError(() => new DbError({ message: "Signal planning requires a transaction" })),
 				);
 				const command = yield* Schema.decodeEffect(DomainLifecycleCommand)(input.command).pipe(
-					Effect.mapError(() => badRequest("Invalid signal lifecycle command")),
+					Effect.mapError(() =>
+						badRequest(kernelMessage("error.automations.invalid-lifecycle-command")),
+					),
 				);
 				const actorUserId = input.principal.kind === "user" ? input.principal.userId : null;
 				const pinnedPlugin = command.writeContext?.pluginRevision;
@@ -63,7 +72,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 					(input.reference.owner.kind !== "plugin" ||
 						input.reference.owner.pluginId !== pinnedPlugin.id)
 				) {
-					return yield* badRequest("Signal owner does not match the pinned execution authority");
+					return yield* badRequest(kernelMessage("error.automations.signal-owner-mismatch"));
 				}
 				const definitionContext = pinnedPlugin
 					? { pluginId: pinnedPlugin.id, pluginRevisionId: pinnedPlugin.revisionId }
@@ -80,13 +89,22 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 							? definitions.findGlobalSignalSchema(input.reference)
 							: definitions.findUserSignalSchema(actorUserId, input.reference);
 				if (!schema) {
-					return yield* notFound("Signal schema not found");
+					return yield* notFound(kernelMessage("error.automations.signal-schema-not-found"));
 				}
 				const properties = yield* parseAppSchemaProperties({
 					kind: "Signal",
 					properties: input.properties,
 					propertiesSchema: schema.propertiesSchema,
-				}).pipe(Effect.mapError((error) => badRequest(error.message)));
+				}).pipe(
+					Effect.mapError((error) =>
+						validationFailed(
+							error.issues.map(({ path }) => ({
+								issue: "invalid-value",
+								path: ["properties", ...path],
+							})),
+						),
+					),
+				);
 				yield* assetReferences.lock([
 					{ properties, ownerUserId: actorUserId, propertiesSchema: schema.propertiesSchema },
 				]);
@@ -101,13 +119,15 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 					...(input.subjectEntityId === undefined
 						? {}
 						: { subjectEntityId: input.subjectEntityId }),
-				}).pipe(Effect.mapError(() => badRequest("Invalid signal properties")));
+				}).pipe(Effect.mapError((error) => schemaValidationFailed(error.issue)));
 				const trigger = yield* lifecycleTrigger(command, actorUserId, normalized);
 				const existing = yield* triggers.findById(trigger.id);
 				let recipients: ReadonlyArray<UserId> = [];
 				if (!existing) {
 					if (schema.audiencePolicy.kind === "actor" && actorUserId === null) {
-						return yield* badRequest("Actor audience requires a user principal");
+						return yield* badRequest(
+							kernelMessage("error.automations.actor-audience-requires-user"),
+						);
 					}
 					if (input.subjectEntityId) {
 						const subject = yield* actorUserId === null
@@ -117,16 +137,20 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 									entityId: input.subjectEntityId,
 								});
 						if (!subject) {
-							return yield* notFound("Entity not found");
+							return yield* notFound(kernelMessage("error.entities.not-found"));
 						}
 						if (pinnedPlugin && subject.entitySchemaPluginId !== pinnedPlugin.id) {
-							return yield* badRequest("Signal subject does not belong to the pinned plugin owner");
+							return yield* badRequest(
+								kernelMessage("error.automations.signal-subject-owner-mismatch"),
+							);
 						}
 					}
 					const policy = schema.audiencePolicy;
 					if (policy.kind === "related_users") {
 						if (!input.subjectEntityId) {
-							return yield* badRequest("Related-users audience requires a subject entity");
+							return yield* badRequest(
+								kernelMessage("error.automations.related-users-audience-requires-subject"),
+							);
 						}
 						const relationshipSchemaKey = definitionKey(
 							"relationship",
@@ -148,7 +172,9 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 							relationshipSchema = schemas[relationshipSchemaKey];
 						}
 						if (!relationshipSchema) {
-							return yield* badRequest("Signal audience relationship schema not found");
+							return yield* badRequest(
+								kernelMessage("error.automations.signal-audience-schema-not-found"),
+							);
 						}
 						recipients = yield* relationships.listEnabledOwnersForSubject({
 							subjectSide: policy.subjectSide,

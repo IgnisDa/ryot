@@ -27,6 +27,7 @@ import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-val
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Array as Arr, Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
 
+import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -40,6 +41,7 @@ import {
 	canonicalLifecyclePolicyPatch,
 } from "#modules/automations/lifecycle/policy-patch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { definitionText } from "#modules/definitions/text";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	assertStableUnder,
@@ -130,22 +132,25 @@ const eventDraft = ({
 const eventBadRequest = (
 	code:
 		| "owner-mismatch"
-		| "policy-rejected"
 		| "automation-limit"
 		| "mutation-conflict"
 		| "invalid-properties"
 		| "global-scope-forbidden"
 		| "policy-execution-failed"
 		| "invalid-policy-transform",
-	message: string,
-) => new EventBadRequest({ reason: { code, message } });
+) => new EventBadRequest({ reason: { code } });
+const rejected = (code: "mutation-conflict" | "invalid-policy-transform", cause: string) =>
+	rejectWithLoggedCause(eventBadRequest(code), cause);
 const eventCreateFailure = (error: EventCreateItemError) =>
-	eventBadRequest("mutation-conflict", `Event reference is not writable: ${error.reason.code}`);
+	rejected("mutation-conflict", `Event reference is not writable: ${error.reason.code}`);
+const moveContextFailure = (error: { readonly _tag: string; readonly message: string }) =>
+	new DbError({
+		message: `Invalid event move context: ${error instanceof DbError ? error.message : error._tag}`,
+	});
 const eventWriteFailure = (error: DbError | DomainWriteConflict) =>
-	eventBadRequest(
-		error instanceof DomainWriteConflict ? error.reason.code : "mutation-conflict",
-		error.message,
-	);
+	error instanceof DomainWriteConflict
+		? Effect.fail(eventBadRequest(error.reason.code))
+		: rejected("mutation-conflict", error.message);
 
 const matchesEventPrecondition = (
 	before: AutomationEventSnapshot,
@@ -302,7 +307,7 @@ export class EventsService extends Context.Service<EventsService>()(
 				if (!cascadeEntityIds) {
 					return yield* writeChecks
 						.check(command, definitionOwner(before.eventSchemaPluginId), input.userId, lock)
-						.pipe(Effect.mapError(eventWriteFailure));
+						.pipe(Effect.catch(eventWriteFailure));
 				}
 				const entityId = cascadeEntityIds.find(
 					(id) => id === before.entityId || id === before.sessionEntityId,
@@ -320,7 +325,7 @@ export class EventsService extends Context.Service<EventsService>()(
 				}
 				return yield* writeChecks
 					.check(command, definitionOwner(source.entity.entitySchemaPluginId), source.userId, lock)
-					.pipe(Effect.mapError(eventWriteFailure));
+					.pipe(Effect.catch(eventWriteFailure));
 			});
 			const validateEventDeleteValue = Effect.fnUntraced(function* (
 				before: AutomationEventSnapshot,
@@ -336,7 +341,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					{ eventSchemaSlug: before.eventSchemaSlug, entitySchemaSlug: before.entitySchemaSlug },
 				);
 				if (!pinned) {
-					return yield* eventBadRequest(
+					return yield* rejected(
 						"mutation-conflict",
 						"Event schema conflict: the pinned event definition is unavailable",
 					);
@@ -345,16 +350,19 @@ export class EventsService extends Context.Service<EventsService>()(
 					"Event",
 					writerPropertiesSchema(pinned.propertiesSchema),
 					before.properties,
-					(reason) =>
-						eventBadRequest(
+					(reason) => reason,
+				).pipe(
+					Effect.catch((reason) =>
+						rejected(
 							"mutation-conflict",
 							reason === "invalid"
 								? "Event schema conflict: current event cannot be processed by the pinned writer"
 								: "Event schema conflict: pinned constraints would change the current stored value",
 						),
+					),
 				);
 				if (!active) {
-					return yield* eventBadRequest(
+					return yield* rejected(
 						"mutation-conflict",
 						"Event schema conflict: active storage constraints are unavailable",
 					);
@@ -364,8 +372,8 @@ export class EventsService extends Context.Service<EventsService>()(
 					properties: before.properties,
 					propertiesSchema: writerPropertiesSchema(active.propertiesSchema),
 				}).pipe(
-					Effect.mapError(() =>
-						eventBadRequest(
+					Effect.catch(() =>
+						rejected(
 							"mutation-conflict",
 							"Event schema conflict: current event violates active storage constraints",
 						),
@@ -424,26 +432,19 @@ export class EventsService extends Context.Service<EventsService>()(
 					draftInput.eventSchemaSlug !== before.eventSchemaSlug ||
 					draftInput.entitySchemaSlug !== before.entitySchemaSlug
 				) {
-					return yield* eventBadRequest(
-						"invalid-policy-transform",
-						"Event schema identity is immutable",
-					);
+					return yield* rejected("invalid-policy-transform", "Event schema identity is immutable");
 				}
 				const scope = yield* resolveEventScopes({
 					userId,
 					command,
 					commit: commit ?? false,
 					item: { ...draftInput, sessionEntityId: draftInput.sessionEntityId ?? undefined },
-				}).pipe(
-					Effect.catchTag("EventCreateItemError", (error) =>
-						Effect.fail(eventCreateFailure(error)),
-					),
-				);
+				}).pipe(Effect.catchTag("EventCreateItemError", eventCreateFailure));
 				if (
 					scope.entityScope.entitySchemaSlug !== before.entitySchemaSlug ||
 					scope.entityScope.entitySchemaPluginId !== before.eventSchemaPluginId
 				) {
-					return yield* eventBadRequest(
+					return yield* rejected(
 						"mutation-conflict",
 						"Event entity schema does not match its event schema",
 					);
@@ -454,7 +455,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					stableStringify(eventSchemaFingerprint) !==
 						stableStringify(pinnedSchema.eventSchemaFingerprint)
 				) {
-					return yield* eventBadRequest(
+					return yield* rejected(
 						"invalid-policy-transform",
 						"Event schema changed while lifecycle policies ran",
 					);
@@ -468,23 +469,22 @@ export class EventsService extends Context.Service<EventsService>()(
 						command.writeContext?.pluginRevision && before.eventSchemaPluginId !== null
 							? writerPropertiesSchema(propertiesSchema)
 							: propertiesSchema,
-				}).pipe(
-					Effect.mapError(() =>
-						eventBadRequest("invalid-properties", "Event properties are invalid"),
-					),
-				);
+				}).pipe(Effect.mapError(() => eventBadRequest("invalid-properties")));
 				if (command.writeContext?.pluginRevision) {
 					yield* assertStableUnder(
 						"Event",
 						writerPropertiesSchema(propertiesSchema),
 						before.properties,
-						(reason) =>
-							eventBadRequest(
+						(reason) => reason,
+					).pipe(
+						Effect.catch((reason) =>
+							rejected(
 								"mutation-conflict",
 								reason === "invalid"
 									? "Current event cannot be processed by the pinned writer"
 									: "Pinned event constraints would change the current stored value",
 							),
+						),
 					);
 				}
 				if (commit) {
@@ -494,13 +494,16 @@ export class EventsService extends Context.Service<EventsService>()(
 							? writerPropertiesSchema(scope.activePropertiesSchema)
 							: scope.activePropertiesSchema,
 						properties,
-						(reason) =>
-							eventBadRequest(
+						(reason) => reason,
+					).pipe(
+						Effect.catch((reason) =>
+							rejected(
 								"mutation-conflict",
 								reason === "invalid"
 									? "Pinned event payload violates active storage constraints"
 									: "Active event constraints would change the pinned payload",
 							),
+						),
 					);
 				}
 				const draft = yield* Schema.decodeUnknownEffect(AutomationEventDraft)({
@@ -513,20 +516,14 @@ export class EventsService extends Context.Service<EventsService>()(
 					eventSchemaPluginId: scope.eventSchemaScope.pluginId,
 					entitySchemaSlug: scope.entityScope.entitySchemaSlug,
 					entitySchemaPluginId: scope.entityScope.entitySchemaPluginId,
-				}).pipe(
-					Effect.mapError(() =>
-						eventBadRequest("invalid-properties", "Event properties are invalid"),
-					),
-				);
+				}).pipe(Effect.mapError(() => eventBadRequest("invalid-properties")));
 				const capturedReferences = yield* capturedEventReferences(
 					userId,
 					draft,
 					previousReferences,
 				).pipe(
 					Effect.provideService(EntitiesRepository, entities),
-					Effect.catchTag("EventCreateItemError", (error) =>
-						Effect.fail(eventCreateFailure(error)),
-					),
+					Effect.catchTag("EventCreateItemError", eventCreateFailure),
 				);
 				const referenceIds = [
 					...new Set([
@@ -563,7 +560,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					Effect.gen(function* () {
 						yield* writeChecks
 							.check(command, principalOwner(command.writeContext), userId, true)
-							.pipe(Effect.mapError(eventWriteFailure));
+							.pipe(Effect.catch(eventWriteFailure));
 						const current = yield* repository.getEventSnapshot(input);
 						if (!current) {
 							return yield* new EventNotFound({
@@ -578,7 +575,7 @@ export class EventsService extends Context.Service<EventsService>()(
 						}
 						yield* writeChecks
 							.check(command, definitionOwner(before.eventSchemaPluginId), userId)
-							.pipe(Effect.mapError(eventWriteFailure));
+							.pipe(Effect.catch(eventWriteFailure));
 						const initial = yield* resolveEditContext(
 							userId,
 							before,
@@ -622,10 +619,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					[userId],
 				);
 				if (prepared.plan.trigger?.blockedReason) {
-					return yield* eventBadRequest(
-						"automation-limit",
-						"Event request exceeds automation limits",
-					);
+					return yield* eventBadRequest("automation-limit");
 				}
 				let request = prepared.request;
 				let draft = prepared.draft;
@@ -648,24 +642,19 @@ export class EventsService extends Context.Service<EventsService>()(
 					for (const policy of orderedPolicies) {
 						const output = yield* execution
 							.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
-							.pipe(
-								Effect.mapError((error) =>
-									eventBadRequest(
-										"policy-execution-failed",
-										`Event policy execution failed: ${error.runId}`,
-									),
-								),
-							);
+							.pipe(Effect.mapError(() => eventBadRequest("policy-execution-failed")));
 						if (output.action === "reject") {
-							return yield* eventBadRequest(
-								"policy-rejected",
-								`Event policy rejected mutation: ${policy.runId}`,
-							);
+							return yield* new EventBadRequest({
+								reason: {
+									code: "policy-rejected",
+									message: definitionText(policy.pluginId, output.reason),
+								},
+							});
 						}
 						if (output.action === "transform") {
 							const patched = applyLifecyclePolicyPatch(request, output.patch);
 							if (!patched.ok) {
-								return yield* eventBadRequest("invalid-policy-transform", patched.reason);
+								return yield* rejected("invalid-policy-transform", patched.reason);
 							}
 							const validated = yield* resolveEditContext(
 								userId,
@@ -752,7 +741,7 @@ export class EventsService extends Context.Service<EventsService>()(
 						}
 						yield* writeChecks
 							.check(command, principalOwner(command.writeContext), scopeUserId, true)
-							.pipe(Effect.mapError(eventWriteFailure));
+							.pipe(Effect.catch(eventWriteFailure));
 						const current = yield* repository.getEventSnapshot(input);
 						if (!current) {
 							if (input.expected) {
@@ -811,12 +800,7 @@ export class EventsService extends Context.Service<EventsService>()(
 								before,
 								draftInput,
 								command,
-							).pipe(
-								Effect.mapError(
-									(error) =>
-										new DbError({ message: `Invalid event move context: ${error.message}` }),
-								),
-							);
+							).pipe(Effect.mapError(moveContextFailure));
 							draft = context.draft;
 							referenceContextFingerprint = context.referenceContextFingerprint;
 							eventSchemaFingerprint = context.eventSchemaFingerprint;
@@ -851,10 +835,7 @@ export class EventsService extends Context.Service<EventsService>()(
 									: yield* lifecycleTrigger(command, input.userId, request, discriminator),
 						});
 						if (plan.trigger?.blockedReason) {
-							return yield* eventBadRequest(
-								"automation-limit",
-								"Event request exceeds automation limits",
-							);
+							return yield* eventBadRequest("automation-limit");
 						}
 						const makePrepared = (
 							parentTriggerId: null | AutomationTriggerId,
@@ -937,31 +918,28 @@ export class EventsService extends Context.Service<EventsService>()(
 						const output = yield* execution
 							.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
 							.pipe(
-								Effect.catchTag("AutomationPolicyExecutionError", (error) =>
-									Effect.fail(
-										eventBadRequest(
-											"policy-execution-failed",
-											`Event policy execution failed: ${error.runId}`,
-										),
-									),
+								Effect.catchTag("AutomationPolicyExecutionError", () =>
+									Effect.fail(eventBadRequest("policy-execution-failed")),
 								),
 							);
 						if (output.action === "reject") {
-							return yield* eventBadRequest("policy-rejected", "Event policy rejected mutation");
+							return yield* new EventBadRequest({
+								reason: {
+									code: "policy-rejected",
+									message: definitionText(policy.pluginId, output.reason),
+								},
+							});
 						}
 						if (output.action === "transform") {
 							if (!move || request.operation !== "update") {
-								return yield* eventBadRequest(
+								return yield* rejected(
 									"invalid-policy-transform",
 									"Event policy cannot transform this mutation",
 								);
 							}
 							const patched = applyLifecyclePolicyPatch(request, output.patch);
 							if (!patched.ok) {
-								return yield* eventBadRequest(
-									"invalid-policy-transform",
-									"Event policy cannot transform this mutation",
-								);
+								return yield* rejected("invalid-policy-transform", patched.reason);
 							}
 							if (
 								planned.eventSchemaFingerprint === undefined ||
@@ -980,12 +958,7 @@ export class EventsService extends Context.Service<EventsService>()(
 									propertiesSchema: planned.propertiesSchema,
 									eventSchemaFingerprint: planned.eventSchemaFingerprint,
 								},
-							).pipe(
-								Effect.mapError(
-									(error) =>
-										new DbError({ message: `Invalid event move context: ${error.message}` }),
-								),
-							);
+							).pipe(Effect.mapError(moveContextFailure));
 							const successor = { ...patched.request, draft: context.draft };
 							const accepted = canonicalLifecyclePolicyPatch(request, successor);
 							request = successor;
@@ -1153,7 +1126,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							prepared.input.userId,
 							true,
 						)
-						.pipe(Effect.mapError(eventWriteFailure));
+						.pipe(Effect.catch(eventWriteFailure));
 				}
 				if (
 					!(yield* groups.isCaptured({
@@ -1363,13 +1336,10 @@ export class EventsService extends Context.Service<EventsService>()(
 				command: DomainLifecycleCommand,
 			) {
 				if (items.length > 100) {
-					return yield* eventBadRequest(
-						"mutation-conflict",
-						"Event update batch exceeds 100 items",
-					);
+					return yield* rejected("mutation-conflict", "Event update batch exceeds 100 items");
 				}
 				if (new Set(items.map((item) => item.eventId)).size !== items.length) {
-					return yield* eventBadRequest(
+					return yield* rejected(
 						"mutation-conflict",
 						"Event update batch contains duplicate event IDs",
 					);
@@ -1388,7 +1358,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							Effect.gen(function* () {
 								yield* writeChecks
 									.check(command, principalOwner(command.writeContext), userId, true)
-									.pipe(Effect.mapError(eventWriteFailure));
+									.pipe(Effect.catch(eventWriteFailure));
 								yield* captureEventGroups({ items: prepared });
 								yield* entities.lockEntityReferencesByIds(
 									prepared.flatMap(({ [preparedEventUpdate]: item }) => [
@@ -1446,13 +1416,10 @@ export class EventsService extends Context.Service<EventsService>()(
 				expected?: Readonly<Record<string, NonNullable<EventIdentityInput["expected"]>>>,
 			) {
 				if (eventIds.length > 100) {
-					return yield* eventBadRequest(
-						"mutation-conflict",
-						"Event delete batch exceeds 100 items",
-					);
+					return yield* rejected("mutation-conflict", "Event delete batch exceeds 100 items");
 				}
 				if (new Set(eventIds).size !== eventIds.length) {
-					return yield* eventBadRequest(
+					return yield* rejected(
 						"mutation-conflict",
 						"Event delete batch contains duplicate event IDs",
 					);
@@ -1471,7 +1438,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					(Object.keys(expected).length !== eventIds.length ||
 						eventIds.some((id) => !Object.hasOwn(expected, id)))
 				) {
-					return yield* eventBadRequest(
+					return yield* rejected(
 						"mutation-conflict",
 						"Event delete preconditions must match event IDs",
 					);
@@ -1491,7 +1458,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							Effect.gen(function* () {
 								yield* writeChecks
 									.check(command, principalOwner(command.writeContext), userId, true)
-									.pipe(Effect.mapError(eventWriteFailure));
+									.pipe(Effect.catch(eventWriteFailure));
 								yield* captureEventGroups({ items: prepared.filter((item) => item !== null) });
 								yield* entities.lockEntityReferencesByIds(
 									prepared.flatMap((item) =>

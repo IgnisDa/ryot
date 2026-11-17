@@ -54,17 +54,17 @@ const fixture = Effect.fnUntraced(function* () {
 				icon: "file",
 				pluginId: null,
 				slug: "subject",
-				name: "Subject",
+				name: { key: "test.subject" },
 				propertiesSchema: { fields: {} },
 				eventSchemas: [
 					{
 						pluginId: null,
 						slug: "anchor",
-						name: "Anchor",
 						propertiesSchema,
 						eventGroup: declaration,
+						name: { key: "test.anchor" },
 					},
-					{ pluginId: null, slug: "member", name: "Member", propertiesSchema },
+					{ pluginId: null, slug: "member", propertiesSchema, name: { key: "test.member" } },
 				],
 			},
 		],
@@ -168,13 +168,7 @@ layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRando
 				yield* Fiber.join(first);
 				assertExitFails(
 					yield* Fiber.join(second),
-					new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message:
-								"Event group constraint violated: an anchor key must be unique within its session",
-						},
-					}),
+					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				expect(yield* count(input)).toBe(2);
 			}).pipe(Effect.scoped),
@@ -212,13 +206,7 @@ layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRando
 				yield* Fiber.join(first);
 				assertExitFails(
 					yield* Fiber.join(second),
-					new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message:
-								"Event group constraint violated: an anchor requires its declared dependents",
-						},
-					}),
+					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				expect(yield* count(input)).toBe(2);
 			}).pipe(Effect.scoped),
@@ -254,13 +242,7 @@ layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRando
 				yield* Fiber.join(removal);
 				assertExitFails(
 					yield* Fiber.join(addition),
-					new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message:
-								"Event group constraint violated: every dependent requires exactly one matching anchor",
-						},
-					}),
+					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				expect(yield* count(input)).toBe(0);
 			}).pipe(Effect.scoped),
@@ -309,13 +291,7 @@ layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRando
 				yield* Fiber.join(reorder);
 				assertExitFails(
 					yield* Fiber.join(edit),
-					new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message:
-								"Event group constraint violated: a retained dependent cannot bind to another anchor event",
-						},
-					}),
+					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				expect(yield* count(input)).toBe(5);
 			}).pipe(Effect.scoped),
@@ -404,13 +380,7 @@ layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRando
 							}),
 						),
 					),
-					new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message:
-								"Event group constraint violated: an anchor requires its declared dependents",
-						},
-					}),
+					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				expect(yield* count(input)).toBe(2);
 			}),
@@ -436,13 +406,7 @@ layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRando
 							run(sql`delete from event where id = ${input.memberId}`),
 						),
 					),
-					new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message:
-								"Event group constraint violated: an anchor requires its declared dependents",
-						},
-					}),
+					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				expect(yield* count(input)).toBe(4);
 			}),

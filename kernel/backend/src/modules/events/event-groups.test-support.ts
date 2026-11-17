@@ -1,9 +1,12 @@
 import type { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
 import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-groups";
 import type { PluginEntityUserStatePolicy } from "@ryot-app/contract/modules/plugins/manifest";
+import type {
+	AuthoredAppSchema,
+	ManifestText,
+} from "@ryot-app/contract/modules/plugins/manifest-text";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Layer, Schema } from "effect";
@@ -37,16 +40,21 @@ export const eventGroupDeclaration: PluginEventGroup = {
 	immutableProperties: ["kind", "evidence"],
 	dependents: [{ eventSchemaSlug: "member", matchProperties: ["position", "kind"] }],
 };
-const propertiesSchema: AppSchema = {
+const propertiesSchema: AuthoredAppSchema = {
 	fields: {
-		amount: { type: "number", label: "Amount", description: "Amount" },
-		evidence: { type: "string", label: "Evidence", description: "Evidence" },
-		kind: { label: "Kind", type: "string", description: "Kind", validation: { required: true } },
+		amount: { type: "number", description: "Amount", label: { key: "test.amount" } },
+		evidence: { type: "string", description: "Evidence", label: { key: "test.evidence" } },
+		kind: {
+			type: "string",
+			description: "Kind",
+			label: { key: "test.kind" },
+			validation: { required: true },
+		},
 		position: {
 			type: "integer",
-			label: "Position",
 			description: "Position",
 			validation: { required: true },
+			label: { key: "test.position" },
 		},
 	},
 };
@@ -75,15 +83,20 @@ export const createGroupEvents = (input: EventCreateInput) =>
 	Effect.flatMap(makeEventCreate, (create) => create(input));
 
 const groupEventSchemas = [
-	{ slug: "anchor", name: "Anchor", propertiesSchema, eventGroup: eventGroupDeclaration },
-	{ slug: "member", name: "Member", propertiesSchema },
+	{
+		slug: "anchor",
+		propertiesSchema,
+		name: { key: "test.anchor" },
+		eventGroup: eventGroupDeclaration,
+	},
+	{ slug: "member", propertiesSchema, name: { key: "test.member" } },
 ];
 
 type FixtureEventSchema = {
 	readonly slug: string;
-	readonly name: string;
-	readonly propertiesSchema: AppSchema;
+	readonly name: ManifestText;
 	readonly eventGroup?: PluginEventGroup;
+	readonly propertiesSchema: AuthoredAppSchema;
 };
 
 export const eventGroupFixture = Effect.fnUntraced(function* (
@@ -103,7 +116,7 @@ export const eventGroupFixture = Effect.fnUntraced(function* (
 					{
 						icon: "file",
 						slug: "subject",
-						name: "Subject",
+						name: { key: "test.subject" },
 						eventSchemas: [...eventSchemas],
 						propertiesSchema: { fields: {} },
 						...(declarations.userState ? { userState: declarations.userState } : {}),
@@ -111,7 +124,7 @@ export const eventGroupFixture = Effect.fnUntraced(function* (
 					{
 						icon: "file",
 						slug: "session",
-						name: "Session",
+						name: { key: "test.session" },
 						propertiesSchema: { fields: {} },
 						eventSchemas: [...(declarations.sessionEventSchemas ?? [])],
 					},

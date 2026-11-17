@@ -2,13 +2,13 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
 	EventSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -34,12 +34,12 @@ import {
 import { EventMutations } from "./mutations";
 import { EventsService } from "./service";
 
-const noteSchema: AppSchema = {
+const noteSchema: AuthoredAppSchema = {
 	fields: {
-		text: { label: "Text", type: "string", description: "Text" },
+		text: { type: "string", description: "Text", label: { key: "test.text" } },
 		about: {
 			type: "string",
-			label: "About",
+			label: { key: "test.about" },
 			reference: { kind: "event-id" },
 			description: "Referenced occurrence",
 		},
@@ -48,12 +48,18 @@ const noteSchema: AppSchema = {
 
 const referenceSchemas = [
 	{
-		name: "Occurrence",
 		slug: "occurrence",
-		propertiesSchema: { fields: { amount: { type: "number", label: "Amount", description: "" } } },
+		name: { key: "test.occurrence" },
+		propertiesSchema: {
+			fields: { amount: { type: "number", description: "", label: { key: "test.amount" } } },
+		},
 	},
-	{ slug: "note", name: "Note", propertiesSchema: noteSchema },
-] as const satisfies ReadonlyArray<{ slug: string; name: string; propertiesSchema: AppSchema }>;
+	{ slug: "note", name: { key: "test.note" }, propertiesSchema: noteSchema },
+] as const satisfies ReadonlyArray<{
+	slug: string;
+	name: { key: string };
+	propertiesSchema: AuthoredAppSchema;
+}>;
 
 const subjectSchemaSlug = EntitySchemaSlug.make("subject");
 
@@ -178,12 +184,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				]);
 				assertExitFails(
 					yield* Effect.exit(update({ about: foreign }, [])),
-					new EventBadRequest({
-						reason: {
-							code: "invalid-properties",
-							message: "Event property 'about' references an event that does not exist",
-						},
-					}),
+					new EventBadRequest({ reason: { code: "invalid-properties" } }),
 				);
 				yield* update({}, ["about"]);
 				expect(yield* fixture.references([note])).toEqual([]);
@@ -338,22 +339,6 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* referenceFixture({
-					sessionEventSchemas: [
-						{
-							slug: "trace",
-							name: "Trace",
-							propertiesSchema: {
-								fields: {
-									subjectId: {
-										type: "string",
-										label: "Subject",
-										description: "Subject",
-										reference: { kind: "entity-id" },
-									},
-								},
-							},
-						},
-					],
 					userState: {
 						deniedOperations: [],
 						evidence: [
@@ -368,6 +353,22 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 							},
 						],
 					},
+					sessionEventSchemas: [
+						{
+							slug: "trace",
+							name: { key: "test.trace" },
+							propertiesSchema: {
+								fields: {
+									subjectId: {
+										type: "string",
+										description: "Subject",
+										label: { key: "test.subject" },
+										reference: { kind: "entity-id" },
+									},
+								},
+							},
+						},
+					],
 				});
 				const holder = yield* fixture.insertSubject("session");
 				const destination = yield* fixture.insertSubject("subject");

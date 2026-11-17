@@ -9,8 +9,8 @@ import {
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { AutomationHookSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -61,37 +61,46 @@ const signalManifest: PluginManifest = {
 		...signal,
 		propertiesSchema: {
 			fields: {
-				public: { type: "string", label: "Public", description: "Public field" },
-				password: { secret: true, type: "string", label: "Password", description: "Secret field" },
+				public: { type: "string", description: "Public field", label: { key: "test.public" } },
+				password: {
+					secret: true,
+					type: "string",
+					description: "Secret field",
+					label: { key: "test.password" },
+				},
 				nested: {
 					type: "object",
-					label: "Nested",
 					description: "Nested object",
+					label: { key: "test.nested" },
 					properties: {
-						visible: { type: "string", label: "Visible", description: "Visible field" },
+						visible: {
+							type: "string",
+							description: "Visible field",
+							label: { key: "test.visible" },
+						},
 						credential: {
 							secret: true,
 							type: "string",
-							label: "Credential",
 							description: "Secret credential",
+							label: { key: "test.credential" },
 						},
 					},
 				},
 				items: {
 					type: "array",
-					label: "Items",
+					label: { key: "test.items" },
 					description: "Array of objects",
 					items: {
-						label: "Item",
 						type: "object",
 						description: "Array item",
+						label: { key: "test.item" },
 						properties: {
-							label: { type: "string", label: "Label", description: "Public label" },
+							label: { type: "string", description: "Public label", label: { key: "test.label" } },
 							private: {
 								secret: true,
 								type: "string",
-								label: "Private",
 								description: "Private field",
+								label: { key: "test.private" },
 							},
 						},
 					},
@@ -115,8 +124,8 @@ it.effect(
 				properties: {
 					public: "visible",
 					password: "hidden",
-					items: [{ label: "ok", private: "hidden" }],
 					nested: { visible: "ok", credential: "hidden" },
+					items: [{ private: "hidden", label: { key: "test.ok" } }],
 				},
 			});
 			expect(
@@ -127,7 +136,11 @@ it.effect(
 				),
 			).toEqual<unknown>({
 				...payload,
-				properties: { public: "visible", items: [{ label: "ok" }], nested: { visible: "ok" } },
+				properties: {
+					public: "visible",
+					nested: { visible: "ok" },
+					items: [{ label: { key: "test.ok" } }],
+				},
 			});
 			expect(
 				yield* redactAutomationHistoryPayload(payload, null, payload.signalSchemaPluginId),
@@ -150,15 +163,15 @@ it.effect(
 					Object.assign({}, entity, {
 						propertiesSchema: {
 							fields: {
-								count: { type: "number", label: "Count", description: "Counter" },
+								count: { type: "number", description: "Counter", label: { key: "test.count" } },
 								token: {
 									secret: true,
 									type: "string",
-									label: "Token",
 									description: "Secret token",
+									label: { key: "test.token" },
 								},
 							},
-						} satisfies AppSchema,
+						} satisfies AuthoredAppSchema,
 					}),
 				),
 			};

@@ -11,6 +11,7 @@ import { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationRunId,
 	AutomationTriggerId,
+	PluginId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
@@ -52,6 +53,7 @@ export const lifecycleRunId = (
 
 export const LifecyclePlannedPolicy = Schema.Struct({
 	position: Schema.Finite,
+	pluginId: Schema.NullOr(PluginId),
 	runId: AutomationPluginAfterRun.fields.id,
 	batchFrequency: PluginBeforeHook.fields.batchFrequency,
 });

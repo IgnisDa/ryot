@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { SubmissionExpired } from "@ryot-app/contract/errors";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -12,7 +13,7 @@ import { requireOpenSubmission } from "./submission-window";
 const now = Date.parse("2026-10-28T00:00:00.000Z");
 const days = (count: number) => new Date(now + count * 86_400_000).toISOString();
 const expired = new SubmissionExpired({
-	message: "Submission expired; retry with a new idempotency key",
+	reason: kernelMessage("error.mutations.submission-expired"),
 });
 
 it.effect(

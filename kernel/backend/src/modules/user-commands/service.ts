@@ -128,20 +128,13 @@ export class UserCommands extends Context.Service<UserCommands>()(
 					...input.events.changes,
 				];
 				if (new Set(changes.map((item) => item.itemIdentity)).size !== changes.length) {
-					return yield* new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message: "Command item identities must be unique",
-						},
-					});
+					return yield* new EventBadRequest({ reason: { code: "mutation-conflict" } });
 				}
 				const changedIds = changes.flatMap((item) =>
 					item.kind === "create" ? [] : [item.kind === "delete" ? item.eventId : item.item.eventId],
 				);
 				if (new Set(changedIds).size !== changedIds.length) {
-					return yield* new EventBadRequest({
-						reason: { code: "mutation-conflict", message: "Command repeats an existing event" },
-					});
+					return yield* new EventBadRequest({ reason: { code: "mutation-conflict" } });
 				}
 				const preparedRelations: PreparedUserRelationshipCreate[] = [];
 				for (const [index, relation] of input.relationships.entries()) {
@@ -194,25 +187,19 @@ export class UserCommands extends Context.Service<UserCommands>()(
 						Effect.provideContext(policyContext),
 						Effect.catchTag(
 							"PolicyBatchBlocked",
-							() =>
-								new EventBadRequest({
-									reason: {
-										code: "automation-limit",
-										message: "Command exceeds automation limits",
-									},
-								}),
+							() => new EventBadRequest({ reason: { code: "automation-limit" } }),
 						),
 					);
-					if (validated.items.some((item) => item.rejected !== null)) {
+					const rejection = validated.items.find((item) => item.rejected !== null)?.rejected;
+					if (rejection) {
 						return yield* new EventBadRequest({
-							reason: { code: "policy-rejected", message: "Command rejected by event policy" },
+							reason: { message: rejection, code: "policy-rejected" },
 						});
 					}
 					const invalid = validated.items.find((item) => item.error !== null);
 					if (invalid?.error) {
 						return yield* new EventBadRequest({
 							reason: {
-								message: "Command draft validation failed",
 								code:
 									invalid.error.code === "reference-not-found"
 										? "invalid-policy-transform"
@@ -236,12 +223,7 @@ export class UserCommands extends Context.Service<UserCommands>()(
 										!visible ||
 										visible.entitySchemaPluginId !== command.writeContext?.pluginRevision?.id
 									) {
-										return yield* new EventBadRequest({
-											reason: {
-												code: "mutation-conflict",
-												message: "Event baseline is outside the command scope",
-											},
-										});
+										return yield* new EventBadRequest({ reason: { code: "mutation-conflict" } });
 									}
 								}
 								const references = [

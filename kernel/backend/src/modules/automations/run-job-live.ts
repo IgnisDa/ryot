@@ -16,9 +16,8 @@ import {
 	definitionOwner,
 	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
-import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
+import { StampedSandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import {
-	type SandboxExecutionError,
 	SandboxExecutionSubject,
 	SandboxScriptManifest,
 	type SandboxScriptManifest as SandboxScriptManifestType,
@@ -36,7 +35,10 @@ import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/poli
 import { EntitiesRepository } from "#modules/entities/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
-import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
+import type {
+	SandboxExecutionResult,
+	StampedSandboxExecutionError,
+} from "#modules/scripts/executions/result";
 import { executeScriptDirectly, ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -77,7 +79,7 @@ class AutomationPreparationError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("AutomationPreparationError", {
 	message: Schema.String,
-	data: Schema.optional(SandboxBoundaryReason),
+	data: Schema.optional(StampedSandboxBoundaryReason),
 	kind: Schema.Literals(["missing-artifact", "invalid-input", "business-failure"]),
 }) {}
 
@@ -546,7 +548,7 @@ const AUTOMATION_FAILURE_KINDS: Record<SandboxFailureKind, AutomationFailureKind
 };
 
 export const classifyAutomationSandboxError = (
-	error: SandboxExecutionError,
+	error: StampedSandboxExecutionError,
 ): AutomationFailureKind => AUTOMATION_FAILURE_KINDS[error.kind];
 
 const completion = (

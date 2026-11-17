@@ -1,4 +1,5 @@
 import { SubmissionExpired } from "@ryot-app/contract/errors";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { DateTime, Duration, Effect } from "effect";
 
 const submissionWindow = Duration.days(7);
@@ -11,7 +12,7 @@ export const requireOpenSubmission = Effect.fnUntraced(function* (submittedAt: s
 	const now = yield* DateTime.nowAsDate;
 	if (Math.abs(now.getTime() - Date.parse(submittedAt)) > Duration.toMillis(submissionWindow)) {
 		return yield* new SubmissionExpired({
-			message: "Submission expired; retry with a new idempotency key",
+			reason: kernelMessage("error.mutations.submission-expired"),
 		});
 	}
 	return undefined;

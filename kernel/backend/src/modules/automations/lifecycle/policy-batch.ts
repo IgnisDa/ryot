@@ -9,8 +9,10 @@ import {
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { Message } from "@ryot-app/i18n/message";
 import { Cause, Effect, Schema } from "effect";
 
+import { definitionText } from "#modules/definitions/text";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DatabaseSession } from "#platform/db/session";
@@ -27,7 +29,7 @@ export const PolicyBatchItem = Schema.Struct({
 });
 const State = Schema.Struct({
 	...PolicyBatchItem.fields,
-	rejected: Schema.NullOr(Schema.String),
+	rejected: Schema.NullOr(Message),
 	patches: Schema.Array(AutomationPolicyPatch),
 	processed: Schema.Array(AutomationHookIdentity),
 	error: Schema.NullOr(
@@ -150,7 +152,7 @@ const applyPolicies = Effect.fnUntraced(function* (
 						? [...item.processed, { hookSlug: run.hookSlug, pluginId: run.pluginId }]
 						: item.processed;
 				if (decision.action === "reject") {
-					return { ...item, processed, rejected: decision.reason };
+					return { ...item, processed, rejected: definitionText(run.pluginId, decision.reason) };
 				}
 				if (decision.action === "allow") {
 					return { ...item, processed };

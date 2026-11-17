@@ -354,12 +354,16 @@ describe("LifecyclePlanner PostgreSQL", () => {
 									Object.assign({}, signal, {
 										propertiesSchema: {
 											fields: {
-												visible: { type: "string", label: "Visible", description: "Public field" },
+												visible: {
+													type: "string",
+													description: "Public field",
+													label: { key: "test.visible" },
+												},
 												secret: {
 													secret: true,
 													type: "string",
-													label: "Secret",
 													description: "Private field",
+													label: { key: "test.secret" },
 												},
 											},
 										},
@@ -629,9 +633,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 										slug: "collection",
 										eventSchemas: [
 											{
-												name: "Local collection add",
 												slug: target.eventSchemaSlug,
 												propertiesSchema: { fields: {} },
+												name: { key: "test.local-collection-add" },
 											},
 										],
 									},
@@ -896,7 +900,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							second.runs.map(({ status, hookSlug }) => ({ status, hookSlug })),
 						).toEqual<unknown>([{ status: "queued", hookSlug: "fixture.a-second" }]);
 						expect(second.policies).toEqual<unknown>([
-							{ position: 7, batchFrequency: "item", runId: second.runs[0]?.id },
+							{
+								position: 7,
+								batchFrequency: "item",
+								runId: second.runs[0]?.id,
+								pluginId: installed.pluginId,
+							},
 						]);
 						const persisted = yield* session.run((db) => db.select().from(tables.automationRun));
 						expect(persisted).toHaveLength(3);
@@ -969,8 +978,8 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						);
 						expect(defaultItems.runs).toHaveLength(2);
 						expect(defaultItems.policies).toEqual<unknown>([
-							{ position: 7, runId: defaultItems.runs[0]?.id },
-							{ position: 7, runId: defaultItems.runs[1]?.id },
+							{ position: 7, pluginId: installed.pluginId, runId: defaultItems.runs[0]?.id },
+							{ position: 7, pluginId: installed.pluginId, runId: defaultItems.runs[1]?.id },
 						]);
 					}),
 				testTimeout,
@@ -1205,8 +1214,18 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							payload: { ...trigger.payload, excludedOncePerSubjectPolicies: [] },
 						});
 						expect(first.policies).toEqual<unknown>([
-							{ position: 7, runId: first.runs[0]?.id, batchFrequency: "once-per-subject" },
-							{ position: 7, runId: first.runs[1]?.id, batchFrequency: "once-per-subject" },
+							{
+								position: 7,
+								runId: first.runs[0]?.id,
+								pluginId: installed.pluginId,
+								batchFrequency: "once-per-subject",
+							},
+							{
+								position: 7,
+								runId: first.runs[1]?.id,
+								pluginId: installed.pluginId,
+								batchFrequency: "once-per-subject",
+							},
 						]);
 						expect(first.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>([
 							"fixture.a-second",
@@ -1265,8 +1284,8 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							{ retryPolicy: null, delivery: "policy", hookSlug: "fixture.a-second" },
 						]);
 						expect(policies.policies).toEqual<unknown>([
-							{ position: -1, runId: policies.runs[0]?.id },
-							{ position: 1000, runId: policies.runs[1]?.id },
+							{ position: -1, runId: policies.runs[0]?.id, pluginId: installed.pluginId },
+							{ position: 1000, runId: policies.runs[1]?.id, pluginId: installed.pluginId },
 						]);
 						for (const operation of ["create", "update", "delete"] as const) {
 							const planned = yield* planner.plan({
@@ -1952,8 +1971,8 @@ describe("LifecyclePlanner PostgreSQL", () => {
 											eventSchemas: [
 												...entitySchema.eventSchemas,
 												{
-													name: "Record set",
 													slug: "record-set",
+													name: { key: "test.record-set" },
 													propertiesSchema: { fields: {} },
 												},
 											],

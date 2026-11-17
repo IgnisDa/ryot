@@ -181,13 +181,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					yield* Effect.exit(
 						events.delete({ userId: fixture.userId, eventId: member.eventId }, fixture.command),
 					),
-					new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message:
-								"Event group constraint violated: an anchor requires its declared dependents",
-						},
-					}),
+					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				const database = yield* DatabaseSession;
 				expect(
@@ -303,13 +297,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					yield* Effect.exit(
 						commitUserCommand({ input, userId: fixture.userId, command: failedCommand }),
 					),
-					new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message:
-								"Event group constraint violated: retained anchor fields and properties are immutable",
-						},
-					}),
+					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				expect(
 					(yield* (yield* EntitiesRepository).getByIdForUser({
@@ -516,13 +504,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 							},
 						),
 					),
-					new EntityUserDataBadRequest({
-						reason: {
-							code: "state-conflict",
-							message:
-								"Event group constraint violated: retained anchor fields and properties are immutable",
-						},
-					}),
+					new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }),
 				);
 				const database = yield* DatabaseSession;
 				expect(
@@ -598,16 +580,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				expect(outcomes.filter(Exit.isSuccess)).toHaveLength(1);
 				const failed = outcomes.find(Exit.isFailure);
 				assert(failed);
-				assertExitFails(
-					failed,
-					new EventBadRequest({
-						reason: {
-							code: "mutation-conflict",
-							message:
-								"Event group constraint violated: an anchor key must be unique within its session",
-						},
-					}),
-				);
+				assertExitFails(failed, new EventBadRequest({ reason: { code: "mutation-conflict" } }));
 				const database = yield* DatabaseSession;
 				expect(
 					yield* database.run((db) =>

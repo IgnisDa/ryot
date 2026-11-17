@@ -14,14 +14,13 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { type SQL, sql } from "drizzle-orm";
 import { Context, Effect, Schema } from "effect";
 
+import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
 
 const violation = (message: string) =>
-	new EventBadRequest({
-		reason: { code: "mutation-conflict", message: `Event group constraint violated: ${message}` },
-	});
+	rejectWithLoggedCause(new EventBadRequest({ reason: { code: "mutation-conflict" } }), message);
 
 const StoredGroupRecord = Schema.Struct({
 	id: EventId,

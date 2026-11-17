@@ -285,10 +285,10 @@ layer(
 					entityId,
 					eventSchemaPluginId: null,
 					properties: { rating: 5 },
-					eventSchemaName: "Review",
 					id: EventId.make("event-write"),
 					propertiesSchema: { fields: {} },
 					eventSchemaSlug: EventSchemaSlug.make("review"),
+					eventSchemaName: { key: "test.review", namespace: "kernel" },
 					occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z")),
 				};
 				const transactionError = yield* Effect.flip(repository.createEvent(event));

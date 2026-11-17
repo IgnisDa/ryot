@@ -88,15 +88,19 @@ const privateSignalPackage = (slug: string) => {
 			signalSchemas: value.manifest.signalSchemas.map((schema) =>
 				Object.assign({}, schema, {
 					slug: "shared.signal",
-					propertiesSchema: {
-						fields: {
-							value: { label: "Value", type: "string" as const, description: "Signal value" },
-						},
-					},
 					audiencePolicy: {
 						kind: "related_users" as const,
 						subjectSide: "source" as const,
 						relationshipSchemaSlug: "shared-link",
+					},
+					propertiesSchema: {
+						fields: {
+							value: {
+								type: "string" as const,
+								description: "Signal value",
+								label: { key: "test.value" },
+							},
+						},
 					},
 				}),
 			),
@@ -126,7 +130,11 @@ const setup = (
 								propertiesSchema: {
 									fields: {
 										image: managedAssetProperty,
-										value: { label: "Value", type: "string" as const, description: "Signal value" },
+										value: {
+											type: "string" as const,
+											description: "Signal value",
+											label: { key: "test.value" },
+										},
 									},
 								},
 							}),

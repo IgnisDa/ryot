@@ -2,10 +2,10 @@ import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { FOLD_LIMITS, FoldAbsorbed, FoldOutput } from "@ryot-app/contract/modules/events/folds";
 import type { EventMutationChange } from "@ryot-app/contract/modules/events/mutations";
-import type { PluginProjection } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { isAdmissionQueueFull } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
@@ -59,10 +59,7 @@ export type ApplyFoldChanges = (input: {
 	readonly changes: ReadonlyArray<EventMutationChange>;
 }) => Effect.Effect<void, unknown>;
 
-type Target = {
-	readonly id: string;
-	readonly propertiesSchema: PluginProjection["propertiesSchema"];
-};
+type Target = { readonly id: string; readonly propertiesSchema: AppSchema<unknown> };
 
 type StoredRow = {
 	readonly targetId: string;

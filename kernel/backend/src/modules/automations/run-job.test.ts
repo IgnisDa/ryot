@@ -825,7 +825,7 @@ layer(
 						items: [
 							{
 								itemIdentity: requestTrigger.id,
-								decision: { action: "reject", reason: "Rule declined" },
+								decision: { action: "reject", reason: { key: "rejection.rule-declined" } },
 							},
 						],
 					},
@@ -844,7 +844,7 @@ layer(
 				expect(outcomes).toHaveLength(1);
 				expect(outcomes[0]).toMatchObject({
 					status: "succeeded",
-					returnedValue: { action: "reject", reason: "Rule declined" },
+					returnedValue: { action: "reject", reason: { key: "rejection.rule-declined" } },
 				});
 			}),
 		testTimeout,
@@ -865,7 +865,7 @@ layer(
 						items: [
 							{
 								itemIdentity: requestTrigger.id,
-								decision: { action: "reject", reason: "Rule declined" },
+								decision: { action: "reject", reason: { key: "rejection.rule-declined" } },
 							},
 						],
 					},
@@ -879,7 +879,10 @@ layer(
 			Effect.gen(function* () {
 				const harness = yield* RunJobHarness;
 				const result = yield* runAutomationAttemptDirect(payload);
-				expect(result.policyOutput).toEqual({ action: "reject", reason: "Rule declined" });
+				expect(result.policyOutput).toEqual({
+					action: "reject",
+					reason: { key: "rejection.rule-declined" },
+				});
 				expect(result.attempt?.status).toBe("succeeded");
 				expect(yield* runAutomationAttemptDirect(payload)).toEqual(result);
 				expect(yield* harness.outcomes).toHaveLength(1);
@@ -940,7 +943,10 @@ layer(
 					new SandboxRunError({
 						kind: "script-failure",
 						message: "Rule declined the request",
-						data: { code: "operation-rejected" },
+						data: {
+							code: "operation-rejected",
+							reason: { namespace: "test", key: "test.declined" },
+						},
 					}),
 				),
 		},
@@ -990,7 +996,7 @@ it("classifies an operation rejection raised by an automation script as a busine
 			phase: "execute",
 			message: "Not allowed",
 			kind: "script-failure",
-			data: { code: "operation-rejected" },
+			data: { code: "operation-rejected", reason: { namespace: "test", key: "test.declined" } },
 		}),
 	).toBe("business-failure");
 });

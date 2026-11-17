@@ -19,6 +19,7 @@ import {
 	EventId,
 	EventSchemaSlug,
 	ImportRunId,
+	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
@@ -257,6 +258,7 @@ const planner = (
 								policies:
 									kind.category === "request" && kind.operation === "update"
 										? Array.from({ length: policyCount }, (_, index) => ({
+												pluginId: null,
 												position: index,
 												runId: AutomationRunId.make(`event-policy-${index}`),
 											}))
@@ -285,9 +287,9 @@ const workflowEntity = (requestedId: EntityId) => ({
 const workflowEventSchema = {
 	slug: "rating",
 	pluginId: null,
-	name: "Rating",
 	id: eventSchemaSlug,
 	propertiesSchema: { fields: {} },
+	name: { key: "test.rating", namespace: "kernel" },
 	entitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 const workflowLayer = Layer.mergeAll(
@@ -400,12 +402,12 @@ const lifecycleDatabaseLayer = (
 			}) =>
 				input.eventSchemaSlug === eventSchemaSlug && input.entitySchemaSlug === entitySchemaSlug
 					? {
-							name: "Rating",
 							pluginId: null,
 							entitySchemaSlug,
 							id: eventSchemaSlug,
 							slug: eventSchemaSlug,
 							propertiesSchema: editPropertiesSchema,
+							name: { key: "test.rating", namespace: "kernel" },
 						}
 					: null;
 			const listedEntity = (requestedId: EntityId, properties: Record<string, unknown>) => ({
@@ -633,10 +635,10 @@ describe("Event lifecycle PostgreSQL", () => {
 							id: eventId,
 							eventSchemaSlug,
 							eventSchemaPluginId: null,
-							eventSchemaName: "Rating",
 							properties: { rating: 3 },
 							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+							eventSchemaName: { key: "test.rating", namespace: "kernel" },
 						}),
 					);
 					const before = yield* repository.getEventSnapshot({ userId, eventId });
@@ -730,11 +732,11 @@ describe("Event lifecycle PostgreSQL", () => {
 							eventSchemaSlug,
 							entityId: ownedEntityId,
 							sessionEntityId: movedId,
-							eventSchemaName: "Rating",
 							properties: { rating: 5 },
 							propertiesSchema: { fields: {} },
 							eventSchemaPluginId: "event-plugin",
 							occurredAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+							eventSchemaName: { key: "test.rating", namespace: "kernel" },
 						}),
 					);
 					const current = yield* repository.getEventSnapshot(identity);
@@ -789,11 +791,11 @@ describe("Event lifecycle PostgreSQL", () => {
 							id: eventId,
 							eventSchemaSlug,
 							occurredAt: beforeTime,
-							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
 							properties: { rating: 3 },
 							sessionEntityId: entityId,
 							propertiesSchema: { fields: {} },
+							eventSchemaName: { key: "test.rating", namespace: "kernel" },
 						}),
 					);
 					const replay = yield* session.transaction(
@@ -803,11 +805,11 @@ describe("Event lifecycle PostgreSQL", () => {
 							id: eventId,
 							eventSchemaSlug,
 							occurredAt: beforeTime,
-							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
 							properties: { rating: 3 },
 							sessionEntityId: entityId,
 							propertiesSchema: { fields: {} },
+							eventSchemaName: { key: "test.rating", namespace: "kernel" },
 						}),
 					);
 					expect(replay.id).toBe(eventId);
@@ -820,11 +822,11 @@ describe("Event lifecycle PostgreSQL", () => {
 									id: eventId,
 									eventSchemaSlug,
 									occurredAt: beforeTime,
-									eventSchemaName: "Rating",
 									eventSchemaPluginId: null,
 									properties: { rating: 9 },
 									sessionEntityId: entityId,
 									propertiesSchema: { fields: {} },
+									eventSchemaName: { key: "test.rating", namespace: "kernel" },
 								}),
 							),
 						),
@@ -962,9 +964,9 @@ describe("Event lifecycle PostgreSQL", () => {
 								id: EventId.make(id),
 								occurredAt: createdAt,
 								properties: { rating: 3 },
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								propertiesSchema: { fields: {} },
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 
@@ -1099,7 +1101,13 @@ describe("Event lifecycle PostgreSQL", () => {
 											assert(plan.trigger);
 											return {
 												...plan,
-												policies: [{ position: 1, runId: AutomationRunId.make("reject-event") }],
+												policies: [
+													{
+														position: 1,
+														pluginId: PluginId.make("policy-plugin"),
+														runId: AutomationRunId.make("reject-event"),
+													},
+												],
 											};
 										}),
 									),
@@ -1110,7 +1118,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							executePolicy: () =>
 								Effect.gen(function* () {
 									expect(!(yield* session.isTransactionActive)).toBe(true);
-									return { reason: "Rejected", action: "reject" as const };
+									return { action: "reject" as const, reason: { key: "rejection.rejected" } };
 								}),
 						}),
 					);
@@ -1119,7 +1127,10 @@ describe("Event lifecycle PostgreSQL", () => {
 						.pipe(Effect.flip);
 					expect(rejected).toMatchObject({
 						_tag: "EventBadRequest",
-						reason: { code: "policy-rejected", message: "Event policy rejected mutation" },
+						reason: {
+							code: "policy-rejected",
+							message: { key: "rejection.rejected", namespace: "policy-plugin" },
+						},
 					});
 					expect(
 						yield* repository.getEventSnapshot({ userId, eventId: rejectedId }),
@@ -1146,10 +1157,10 @@ describe("Event lifecycle PostgreSQL", () => {
 								id: eventId,
 								eventSchemaSlug,
 								properties: { rating: 3 },
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 					}
@@ -1168,7 +1179,13 @@ describe("Event lifecycle PostgreSQL", () => {
 											return input.trigger.kind.category === "request"
 												? {
 														...plan,
-														policies: [{ position: 1, runId: AutomationRunId.make("race-event") }],
+														policies: [
+															{
+																position: 1,
+																pluginId: null,
+																runId: AutomationRunId.make("race-event"),
+															},
+														],
 													}
 												: plan;
 										}),
@@ -1241,10 +1258,10 @@ describe("Event lifecycle PostgreSQL", () => {
 							id: eventId,
 							eventSchemaSlug,
 							properties: { rating: 1 },
-							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
 							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+							eventSchemaName: { key: "test.rating", namespace: "kernel" },
 						}),
 					);
 					const failure = yield* Effect.flip(
@@ -1383,10 +1400,10 @@ describe("Event lifecycle PostgreSQL", () => {
 								id: eventId,
 								properties: {},
 								eventSchemaSlug,
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 						const move = { userId, eventId, mergeInto: movedId, mergeFrom: entityId };
@@ -1472,10 +1489,10 @@ describe("Event lifecycle PostgreSQL", () => {
 							id: eventId,
 							eventSchemaSlug,
 							properties: { rating: 1 },
-							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
 							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+							eventSchemaName: { key: "test.rating", namespace: "kernel" },
 						}),
 					);
 					const submitted = updateItem("policy-edit-event", {
@@ -1507,10 +1524,10 @@ describe("Event lifecycle PostgreSQL", () => {
 							id: moveEventId,
 							eventSchemaSlug,
 							properties: { rating: 1 },
-							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
 							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+							eventSchemaName: { key: "test.rating", namespace: "kernel" },
 						}),
 					);
 					policyInputs.length = 0;
@@ -1558,10 +1575,10 @@ describe("Event lifecycle PostgreSQL", () => {
 								id: eventId,
 								eventSchemaSlug,
 								properties: { rating: 1 },
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 						const invalidProperties = yield* Effect.flip(
@@ -1615,11 +1632,11 @@ describe("Event lifecycle PostgreSQL", () => {
 								entityId,
 								id: eventId,
 								eventSchemaSlug,
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								propertiesSchema: { fields: {} },
 								properties: { rating: 1, note: "before" },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 						const expected = {
@@ -1659,10 +1676,10 @@ describe("Event lifecycle PostgreSQL", () => {
 								id: staleId,
 								eventSchemaSlug,
 								properties: { rating: 2 },
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 						const rejectsEdit = (precondition: UpdateEventItem["expected"], commandId: string) =>
@@ -1696,10 +1713,10 @@ describe("Event lifecycle PostgreSQL", () => {
 								id: deleteId,
 								eventSchemaSlug,
 								properties: { rating: 1 },
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 						const deleted = yield* service.delete(
@@ -1731,10 +1748,10 @@ describe("Event lifecycle PostgreSQL", () => {
 								id: eventId,
 								eventSchemaSlug,
 								properties: { rating: 1 },
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 						const prepared = yield* service.prepareUpdate(
@@ -1819,11 +1836,11 @@ describe("Event lifecycle PostgreSQL", () => {
 								entityId,
 								id: eventId,
 								eventSchemaSlug,
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								properties: { note, rating: 1 },
 								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 					}
@@ -1907,10 +1924,10 @@ describe("Event lifecycle PostgreSQL", () => {
 								id: eventId,
 								eventSchemaSlug,
 								properties: { rating: 1 },
-								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
 							}),
 						);
 					}
@@ -1957,10 +1974,10 @@ describe("Event lifecycle PostgreSQL", () => {
 							id: eventId,
 							eventSchemaSlug,
 							properties: { rating: 1 },
-							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
 							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+							eventSchemaName: { key: "test.rating", namespace: "kernel" },
 						}),
 					);
 					assertExitFails(

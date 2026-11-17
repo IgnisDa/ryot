@@ -62,8 +62,10 @@ type PinnedSchemas = Pick<
 	"entitySchemas" | "signalSchemas" | "relationshipSchemas"
 >;
 
-const properties = (schema: AppSchema | undefined, values: Readonly<Record<string, unknown>>) =>
-	schema ? redactPluginConfig(schema, values).config : {};
+const properties = (
+	schema: undefined | AppSchema<unknown>,
+	values: Readonly<Record<string, unknown>>,
+) => (schema ? redactPluginConfig(schema, values).config : {});
 
 const toJsonValue = (value: unknown) =>
 	Schema.decodeUnknownEffect(JsonValue)(value).pipe(Effect.orDie);
@@ -110,7 +112,7 @@ export const redactAutomationHistoryPayload = Effect.fnUntraced(function* (
 		});
 	}
 	const snapshot = (value: Readonly<Record<string, unknown>>) => {
-		let schema: AppSchema | undefined;
+		let schema: undefined | AppSchema<unknown>;
 		if (payload.resource === "entity") {
 			schema = entitySchema(String(value["entitySchemaSlug"]))?.propertiesSchema;
 		} else if (payload.resource === "event") {

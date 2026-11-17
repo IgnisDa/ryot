@@ -134,6 +134,7 @@ export const LifecyclePlannerLive = Layer.effect(
 				}
 				policies.push({
 					runId: run.id,
+					pluginId: run.pluginId,
 					position: hook.position ?? DEFAULT_POLICY_HOOK_POSITION,
 					...(hook.batchFrequency === undefined ? {} : { batchFrequency: hook.batchFrequency }),
 				});

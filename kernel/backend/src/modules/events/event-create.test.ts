@@ -177,12 +177,12 @@ const eventSchemaScope = (schemaDisabled: boolean, schemaActivated: boolean) =>
 	schemaDisabled
 		? null
 		: {
-				name: "Rating",
 				pluginId: null,
 				slug: "rating",
 				entitySchemaSlug,
 				id: eventSchemaSlug,
 				propertiesSchema: ratingSchema(schemaActivated),
+				name: { key: "test.rating", namespace: "kernel" },
 			};
 
 const triggerRating = (input: AutomationTrigger | AutomationRequestPayload): number | undefined => {
@@ -549,6 +549,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 										trigger: plannedTrigger,
 										policies: runs.map((run, index) => ({
 											runId: run.id,
+											pluginId: run.pluginId,
 											batchFrequency: declarations[index]?.frequency,
 											position: declarations[index]?.position ?? 1000,
 										})),
@@ -951,11 +952,11 @@ layer(
 
 layer(
 	harnessLayer({
-		execute: () => Effect.succeed({ action: "reject", reason: "Declined" }),
 		policies: [
 			{ position: 1, slug: "first" },
 			{ position: 2, slug: "second" },
 		],
+		execute: () => Effect.succeed({ action: "reject", reason: { key: "rejection.declined" } }),
 	}),
 )("event create", (test) => {
 	test.effect(
@@ -967,7 +968,13 @@ layer(
 					count: 0,
 					warnings: [],
 					failure: null,
-					outcomes: [{ index: 0, reason: "Declined", status: "skipped_by_policy" }],
+					outcomes: [
+						{
+							index: 0,
+							status: "skipped_by_policy",
+							reason: { namespace: "plugin", key: "rejection.declined" },
+						},
+					],
 				});
 				expect(yield* h.inputs).toHaveLength(1);
 				expect(yield* h.created).toEqual([]);
@@ -1291,7 +1298,7 @@ layer(
 		execute: ({ index }) =>
 			Effect.succeed(
 				index === 0
-					? { reason: "First only", action: "reject" as const }
+					? { action: "reject" as const, reason: { key: "rejection.first-only" } }
 					: { action: "allow" as const },
 			),
 	}),

@@ -14,6 +14,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { isEntitled } from "@ryot-app/contract/schema/entitlement";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
 import {
 	type SignalScheduleCandidate,
 	signalSchedulePageRecipe,
@@ -180,7 +181,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					);
 					const response = yield* ryotql.executeForUser(
 						target.userId,
-						target.preferences.language,
+						resolveContentLanguage(target.preferences),
 						"kernel",
 						{
 							source: { kind: "inline", document: recipe.document },

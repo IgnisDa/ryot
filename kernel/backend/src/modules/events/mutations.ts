@@ -22,6 +22,7 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Duration, Effect, Layer, Schedule, Schema } from "effect";
 
+import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
@@ -185,10 +186,9 @@ export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedE
 	);
 });
 
-const bad = (
-	code: "policy-rejected" | "mutation-conflict" | "invalid-properties" | "invalid-policy-transform",
-	message: string,
-) => new EventBadRequest({ reason: { code, message } });
+const bad = (code: "mutation-conflict" | "invalid-properties" | "invalid-policy-transform") =>
+	new EventBadRequest({ reason: { code } });
+const conflict = (cause: string) => rejectWithLoggedCause(bad("mutation-conflict"), cause);
 const commandFor = (
 	command: DomainLifecycleCommand,
 	itemIdentity: string,
@@ -361,9 +361,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							allowedMissingRequiredPaths: Object.keys(
 								scope.eventSchemaScope.propertiesSchema.fields,
 							).map((key) => [key]),
-						}).pipe(
-							Effect.mapError(() => bad("invalid-properties", "Event properties are invalid")),
-						);
+						}).pipe(Effect.mapError(() => bad("invalid-properties")));
 						const draft = yield* Schema.decodeUnknownEffect(AutomationEventDraft)({
 							properties,
 							entityId: scope.entityId,
@@ -373,7 +371,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							entitySchemaSlug: scope.entityScope.entitySchemaSlug,
 							eventSchemaPluginId: scope.eventSchemaScope.pluginId,
 							entitySchemaPluginId: scope.entityScope.entitySchemaPluginId,
-						}).pipe(Effect.mapError(() => bad("invalid-properties", "Event draft is invalid")));
+						}).pipe(Effect.mapError(() => bad("invalid-properties")));
 						let anchor;
 						if (item.change.kind === "create") {
 							anchor = item.change.item.orderAfter;
@@ -397,10 +395,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 									(id) => id !== null && (id === source.entityId || id === source.sessionEntityId),
 								)
 							) {
-								return yield* bad(
-									"mutation-conflict",
-									"Event order anchor is outside the command scope",
-								);
+								return yield* conflict("Event order anchor is outside the command scope");
 							}
 							order = {
 								anchorId: anchor.eventId,
@@ -535,7 +530,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 								entitySchemaPluginId: expected.entitySchemaPluginId,
 							})
 					) {
-						return yield* bad("mutation-conflict", "Event reference changed during validation");
+						return yield* conflict("Event reference changed during validation");
 					}
 				}
 				const batch = input.batch ?? {
@@ -593,14 +588,15 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							accepted.error.code === "reference-not-found"
 								? "invalid-policy-transform"
 								: accepted.error.code,
-							"Event draft validation failed",
 						);
 					}
-					if (accepted?.rejected !== null || accepted.request.resource !== "event") {
-						return yield* bad(
-							"policy-rejected",
-							accepted?.rejected ?? "Event policy approval is unavailable",
-						);
+					if (accepted?.request.resource !== "event") {
+						return yield* conflict("Event policy approval is unavailable");
+					}
+					if (accepted.rejected !== null) {
+						return yield* new EventBadRequest({
+							reason: { code: "policy-rejected", message: accepted.rejected },
+						});
 					}
 					const draft = accepted.request.draft;
 					if (row.order) {
@@ -632,7 +628,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					if (!checkedOwners.has(draft.eventSchemaPluginId)) {
 						yield* writes
 							.check(command, definitionOwner(draft.eventSchemaPluginId), input.userId, true)
-							.pipe(Effect.mapError((error) => bad("mutation-conflict", error.message)));
+							.pipe(Effect.catch((error) => conflict(error.message)));
 						checkedOwners.add(draft.eventSchemaPluginId);
 					}
 					const schema = schemasByScope.get(scopeKey(draft));
@@ -641,10 +637,10 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						stableStringify(catalogDefinitionFingerprint(schema)) !==
 							stableStringify(row.schemaFingerprint)
 					) {
-						return yield* bad("mutation-conflict", "Event schema changed during validation");
+						return yield* conflict("Event schema changed during validation");
 					}
 					yield* assertStableUnder("Event", schema.propertiesSchema, draft.properties, () =>
-						bad("invalid-properties", "Event properties changed during validation"),
+						bad("invalid-properties"),
 					);
 					assetOwners.push({
 						ownerUserId: input.userId,

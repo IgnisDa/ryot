@@ -15,6 +15,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Message } from "@ryot-app/i18n/message";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, getTableColumns, gt, inArray, or, sql } from "drizzle-orm";
@@ -49,7 +50,7 @@ export type UpdateEventEntityReferencesInput = EventIdentityInput & {
 	readonly references?: ReadonlyArray<{ readonly from: EntityId; readonly into: EntityId }>;
 };
 
-type EventRow = { readonly eventSchemaName: string } & Pick<
+type EventRow = { readonly eventSchemaName: Message } & Pick<
 	typeof schema.event.$inferSelect,
 	| "id"
 	| "entityId"
@@ -115,7 +116,7 @@ type CreateEventInput = {
 	readonly userId: UserId;
 	readonly occurredAt: Date;
 	readonly entityId: EntityId;
-	readonly eventSchemaName: string;
+	readonly eventSchemaName: Message;
 	readonly propertiesSchema: AppSchema;
 	readonly eventSchemaSlug: EventSchemaSlug;
 	readonly eventSchemaPluginId: null | string;
