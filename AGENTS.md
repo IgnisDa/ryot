@@ -23,6 +23,8 @@
 | `packages/cli`, `packages/plugin-archive`                                             | Canonical plugin builds and deterministic archive reading/writing.                                                                                                               |
 | `packages/ryotql`, `packages/ryotql-recipes`                                          | Query documents, the logical catalog and semantic validation, application recipes, and control resolution; domain recipes live in each plugin's `shared/`.                       |
 | `packages/definitions`                                                                | Definition model, kernel baseline definitions, and definition-set validation shared by ingestion and `ryot plugin build`.                                                        |
+| `packages/i18n`                                                                       | Environment-neutral message model, ICU runtime, locale utilities, React binding, and the shared catalog compiler. See its [README](packages/i18n/README.md).                     |
+| `packages/kernel-messages`                                                            | Kernel message catalogs, their build and reference checks, and the typed `kernelMessage` builder.                                                                                |
 | `packages/kernel-renderers`                                                           | Kernel-shipped saved-view renderers compiled as client plugin sources.                                                                                                           |
 
 ## Engineering
@@ -37,6 +39,7 @@
 - Model-written `execute` code is a platform boundary: its generated wrapper exposes an async/await `ryot.call` client over the Effect host.
 - Resolve dependencies in service constructors and feature-owned Layers; boot Layers compose features. Use `Effect.fn`/`Effect.fnUntraced` for reusable operations and `Effect.gen` for local flow.
 - Derive types from Effect Schema and existing types. Build queries with `@ryot-app/ryotql` and named recipes; colocate result schemas, decoders, and types with recipes. Consumers never parse generic `RowItem` values; reusable wire codecs belong in `@ryot-app/contract`.
+- User-facing text crosses boundaries (HTTP, iframe bridge, sandbox host calls, the database) only as a `Message`, rendered at the edge; boundary errors carry `reason: Message` (see `packages/contract/README.md`).
 - Key rolling queries by stable selections; compute moving timestamps from the supplied clock during execution.
 - User-facing pagination uses shared SDK primitives; load-more indicators follow `isFetchingNextPage`, never generic `isFetching`.
 - Plugin layouts use bridged `compact` and safe-area values, not iframe media queries or `env()`.
