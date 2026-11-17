@@ -19,6 +19,7 @@ import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { rankingResponse } from "../../tests/client/analytics-fixtures";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { AnalyticsRankings } from "./rankings";
 import type { AnalyticsScope, WorkoutDrillRequest } from "./reporting-model";
 
@@ -60,9 +61,14 @@ const rankingRow = (
 ) => ({ id, name, sets, workouts, weightedSets, exerciseOccurrences });
 const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: ComponentType) =>
 	mountPluginPage(Component, {
+		catalogs: fitnessCatalogs,
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+		queryExecution: () => ({
+			weekStart: 1,
+			now: clock.now(),
+			timeZone: TimeZone.make("America/New_York"),
+		}),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -71,9 +77,13 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: Com
 				dataSources: { queries: {} },
 				view: { icon: "chart", name: "Analytics" },
 			}),
-			contributors: ["fitness-owner", "fitness-next"].map((pluginId) =>
-				pluginContributor({ pluginId, name: "Fitness", packageId: PLUGIN_PACKAGE_ID }),
-			),
+			contributors: [
+				pluginContributor({
+					name: "Fitness",
+					pluginId: "fitness-owner",
+					packageId: PLUGIN_PACKAGE_ID,
+				}),
+			],
 		},
 	});
 

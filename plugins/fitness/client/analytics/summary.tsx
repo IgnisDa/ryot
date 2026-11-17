@@ -1,7 +1,6 @@
-import { periodCaption } from "@ryot-app/plugin-client-sdk/plugin";
+import { usePeriodCaption } from "@ryot-app/plugin-client-sdk/plugin";
 import { type Compared, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
-	countUnit,
 	type Metric,
 	metricDelta,
 	MetricGrid,
@@ -9,24 +8,26 @@ import {
 	ReportText,
 } from "@ryot-app/plugin-ui-sdk";
 
-import { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
+import type { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
+import { type FitnessText, useCountUnits, useFitnessMessages } from "../messages";
 import { analyticsSummaryQuery } from "./queries";
 import {
 	type AnalyticsDisplayPreferences,
 	type AnalyticsScope,
 	type AnalyticsTotals,
 	metricDisplay,
+	type MetricUnitContext,
 } from "./reporting-model";
 
 type MetricKey = keyof typeof fitnessMetricDefinitions;
 
-const dayUnit = countUnit("day");
-
-const processingHint = (processing: AnalyticsTotals["processing"]) => {
+const processingHint = (text: FitnessText, processing: AnalyticsTotals["processing"]) => {
 	if (processing === "ready") {
 		return undefined;
 	}
-	return processing === "failed" ? "Processing failed; may be incomplete" : "Still processing";
+	return processing === "failed"
+		? text("client.analytics.summary.processing-failed")
+		: text("client.analytics.summary.processing-pending");
 };
 
 export function AnalyticsSummary({
@@ -40,7 +41,7 @@ export function AnalyticsSummary({
 }) {
 	const result = useRyotQuery(analyticsSummaryQuery, scope);
 	return (
-		<QueryStatus query={result} onRetry={result.refetch} label="Fitness analytics summary">
+		<QueryStatus query={result} onRetry={result.refetch}>
 			{(summary) => (
 				<SummaryContent summary={summary} compact={compact} preferences={preferences} />
 			)}
@@ -48,9 +49,21 @@ export function AnalyticsSummary({
 	);
 }
 
-const coverage = (known: null | number, missing: null | number, noun: string) =>
+const coverage = (
+	text: FitnessText,
+	known: null | number,
+	missing: null | number,
+	qualifier: "timed" | "energy",
+) =>
 	(missing ?? 0) > 0
-		? { atLeast: true, hint: `${known ?? 0} of ${(known ?? 0) + (missing ?? 0)} workouts ${noun}` }
+		? {
+				atLeast: true,
+				hint: text("client.analytics.summary.coverage", {
+					qualifier,
+					known: known ?? 0,
+					total: (known ?? 0) + (missing ?? 0),
+				}),
+			}
 		: {};
 
 function SummaryContent({
@@ -62,22 +75,27 @@ function SummaryContent({
 	readonly summary: Compared<AnalyticsTotals>;
 	readonly preferences: AnalyticsDisplayPreferences;
 }) {
+	const text = useFitnessMessages();
+	const units = useCountUnits();
+	const periodCaption = usePeriodCaption();
 	const current = summary.current;
 	const previous = summary.previous;
-	const processing = processingHint(current.processing);
+	const processing = processingHint(text, current.processing);
+	const context: MetricUnitContext = { text, units };
 	const metric = (
 		key: MetricKey,
 		extra: Pick<Metric, "hint" | "atLeast"> = {},
 	): Metric & { readonly unknown: boolean } => {
 		const value = current[key];
-		const display = metricDisplay(key, value, preferences);
-		const old = previous === null ? null : metricDisplay(key, previous[key], preferences).value;
+		const display = metricDisplay(context, key, value, preferences);
+		const old =
+			previous === null ? null : metricDisplay(context, key, previous[key], preferences).value;
 		return {
 			...extra,
 			key,
 			unit: display.unit,
 			value: display.value,
-			label: fitnessMetricDefinitions[key].label,
+			label: text("client.analytics.metric.label", { metric: key }),
 			delta: previous === null ? undefined : metricDelta(display.value, old),
 			unknown: value === null && extra.hint === undefined && (previous?.[key] ?? null) === null,
 		};
@@ -86,18 +104,18 @@ function SummaryContent({
 		metric("workouts"),
 		metric(
 			"activeDuration",
-			coverage(current.timedWorkouts, current.missingDurationWorkouts, "timed"),
+			coverage(text, current.timedWorkouts, current.missingDurationWorkouts, "timed"),
 		),
 		metric("volume", { hint: processing }),
 		metric("sets"),
 	];
 	const secondary = [
 		{
-			unit: dayUnit,
 			unknown: false,
 			key: "activeDays",
-			label: "Active days",
+			unit: units("day"),
 			value: current.activeDays,
+			label: text("client.analytics.summary.active-days"),
 			delta: previous === null ? undefined : metricDelta(current.activeDays, previous.activeDays),
 		},
 		metric("repetitions"),
@@ -108,33 +126,38 @@ function SummaryContent({
 		metric("plannedRest"),
 		metric(
 			"calories",
-			coverage(current.calorieWorkouts, current.missingCalorieWorkouts, "with energy"),
+			coverage(text, current.calorieWorkouts, current.missingCalorieWorkouts, "energy"),
 		),
 		metric("measurementEntries"),
 		metric("measurementReadings"),
 	].filter((item) => !item.unknown);
 
 	return (
-		<section aria-label="Fitness analytics summary" className="flex min-w-0 flex-col gap-3 font-ui">
+		<section
+			className="flex min-w-0 flex-col gap-3 font-ui"
+			aria-label={text("client.analytics.summary.label")}
+		>
 			<ReportText>
 				<p className="text-label text-text-muted">
-					{periodCaption(summary.reporting.resolved.current)}
 					{summary.reporting.resolved.previous === null
-						? ""
-						: `; compared with ${periodCaption(summary.reporting.resolved.previous)}`}
+						? periodCaption(summary.reporting.resolved.current)
+						: text("client.analytics.summary.compared", {
+								current: periodCaption(summary.reporting.resolved.current),
+								previous: periodCaption(summary.reporting.resolved.previous),
+							})}
 				</p>
 			</ReportText>
 			<MetricGrid
 				variant="tiles"
 				compact={compact}
 				metrics={primary}
-				comparisonLabel="vs previous period"
+				comparisonLabel={text("client.analytics.summary.comparison-tiles")}
 			/>
 			<MetricGrid
 				variant="panel"
 				compact={compact}
 				metrics={secondary}
-				comparisonLabel="vs previous"
+				comparisonLabel={text("client.analytics.summary.comparison-panel")}
 			/>
 		</section>
 	);

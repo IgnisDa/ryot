@@ -1,7 +1,7 @@
 import { afterEach, describe, expect } from "bun:test";
 
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { periodCaption, PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId, TimeZone, usePeriodCaption } from "@ryot-app/plugin-client-sdk/plugin";
 import { useReportedPages, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	createTestRyotClock,
@@ -19,6 +19,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import {
 	analyticsMeasurementMetricsQuery,
 	analyticsRankingQuery,
@@ -66,6 +67,7 @@ const mountSummary = (
 	selection: ReportingSelection,
 ) => {
 	function Probe() {
+		const periodCaption = usePeriodCaption();
 		const query = useRyotQuery(analyticsSummaryQuery, {
 			selection,
 			timeZone: TimeZone.make("America/New_York"),
@@ -86,9 +88,14 @@ const mountSummary = (
 		);
 	}
 	return mountPluginPage(Probe, {
+		catalogs: fitnessCatalogs,
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+		queryExecution: () => ({
+			weekStart: 1,
+			now: clock.now(),
+			timeZone: TimeZone.make("America/New_York"),
+		}),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -272,9 +279,14 @@ function MetricsProbe() {
 }
 const mountProbe = (clock: ReturnType<typeof createTestRyotClock>, Probe: ComponentType) =>
 	mountPluginPage(Probe, {
+		catalogs: fitnessCatalogs,
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+		queryExecution: () => ({
+			weekStart: 1,
+			now: clock.now(),
+			timeZone: TimeZone.make("America/New_York"),
+		}),
 		page: {
 			...savedViewPageContext({
 				settings: {},

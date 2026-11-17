@@ -9,6 +9,7 @@ import { QueryStatus, StatusMessage, tabId, Tabs } from "@ryot-app/plugin-ui-sdk
 import { type ReactNode, useId, useState } from "react";
 
 import { WorkoutPreferenceSettingsSchema } from "../../shared/workout-editor-preferences";
+import { useFitnessMessages } from "../messages";
 import { AnalyticsMeasurements } from "./measurements";
 import { AnalyticsRankings } from "./rankings";
 import type {
@@ -23,19 +24,23 @@ import { AnalyticsWorkouts } from "./workouts";
 const decodeWorkoutPreferences = Schema.decodeUnknownResult(WorkoutPreferenceSettingsSchema);
 
 export default function FitnessAnalyticsSection(props: AnalyticsSectionProps) {
+	const text = useFitnessMessages();
 	const settings = usePluginUserSettings(props.reference.pluginId);
 	const { compact } = useRyotViewport();
 	return (
-		<QueryStatus query={settings} onRetry={settings.refetch} label="fitness display preferences">
+		<QueryStatus query={settings} onRetry={settings.refetch}>
 			{(data) => {
 				const decoded = decodeWorkoutPreferences(data);
 				if (decoded._tag === "Failure") {
 					return (
 						<StatusMessage
 							tone="error"
-							action={{ onClick: settings.refetch, label: "Retry fitness display preferences" }}
+							action={{
+								onClick: settings.refetch,
+								label: text("client.analytics.section.preferences-retry"),
+							}}
 						>
-							Fitness display preferences are invalid.
+							{text("client.analytics.section.preferences-invalid")}
 						</StatusMessage>
 					);
 				}
@@ -54,6 +59,7 @@ function AnalyticsContent(props: {
 	readonly scope: AnalyticsScope;
 	readonly preferences: AnalyticsDisplayPreferences;
 }) {
+	const text = useFitnessMessages();
 	const [tab, setTab] = useState<"workouts" | "rankings" | "measurements">("workouts");
 	const [request, setRequest] = useDrillRequest<WorkoutDrillRequest>(props.scope);
 	const panelId = useId();
@@ -86,11 +92,11 @@ function AnalyticsContent(props: {
 				value={tab}
 				panelId={panelId}
 				onChange={setTab}
-				label="Fitness analytics"
+				label={text("client.analytics.section.tabs-label")}
 				options={[
-					{ value: "workouts", label: "Workouts" },
-					{ value: "rankings", label: "Rankings" },
-					{ value: "measurements", label: "Measurements" },
+					{ value: "workouts", label: text("client.workouts.title") },
+					{ value: "rankings", label: text("client.analytics.section.tab-rankings") },
+					{ value: "measurements", label: text("client.measurements.title") },
 				]}
 			/>
 			<div id={panelId} role="tabpanel" className="min-w-0" aria-labelledby={tabId(panelId, tab)}>

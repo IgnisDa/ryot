@@ -19,6 +19,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { AnalyticsMeasurements } from "./measurements";
 import type { AnalyticsScope, MeasurementReading } from "./reporting-model";
 
@@ -92,9 +93,14 @@ const mountMeasurements = (clock: ReturnType<typeof createTestRyotClock>, select
 	const page = mountPluginPage(
 		() => <AnalyticsMeasurements compact={false} scope={scopeFor("fitness-owner", selected)} />,
 		{
+			catalogs: fitnessCatalogs,
 			bootstrap: clock.bootstrap,
 			location: routeLocation("/v/analytics"),
-			queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+			queryExecution: () => ({
+				weekStart: 1,
+				now: clock.now(),
+				timeZone: TimeZone.make("America/New_York"),
+			}),
 			page: {
 				...savedViewPageContext({
 					settings: {},
@@ -103,9 +109,13 @@ const mountMeasurements = (clock: ReturnType<typeof createTestRyotClock>, select
 					dataSources: { queries: {} },
 					view: { icon: "chart", name: "Analytics" },
 				}),
-				contributors: ["fitness-owner", "fitness-other"].map((pluginId) =>
-					pluginContributor({ pluginId, name: "Fitness", packageId: PLUGIN_PACKAGE_ID }),
-				),
+				contributors: [
+					pluginContributor({
+						name: "Fitness",
+						pluginId: "fitness-owner",
+						packageId: PLUGIN_PACKAGE_ID,
+					}),
+				],
 			},
 		},
 	);
@@ -124,9 +134,14 @@ const mountOwnerSwitch = (clock: ReturnType<typeof createTestRyotClock>) =>
 			);
 		},
 		{
+			catalogs: fitnessCatalogs,
 			bootstrap: clock.bootstrap,
 			location: routeLocation("/v/analytics"),
-			queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+			queryExecution: () => ({
+				weekStart: 1,
+				now: clock.now(),
+				timeZone: TimeZone.make("America/New_York"),
+			}),
 			page: {
 				...savedViewPageContext({
 					settings: {},
@@ -135,9 +150,13 @@ const mountOwnerSwitch = (clock: ReturnType<typeof createTestRyotClock>) =>
 					dataSources: { queries: {} },
 					view: { icon: "chart", name: "Analytics" },
 				}),
-				contributors: ["fitness-owner", "fitness-other"].map((pluginId) =>
-					pluginContributor({ pluginId, name: "Fitness", packageId: PLUGIN_PACKAGE_ID }),
-				),
+				contributors: [
+					pluginContributor({
+						name: "Fitness",
+						pluginId: "fitness-owner",
+						packageId: PLUGIN_PACKAGE_ID,
+					}),
+				],
 			},
 		},
 	);
@@ -478,12 +497,12 @@ describe("Fitness analytics measurements", () => {
 					);
 					replyRequest(page, "readings", 1, { outcome: "failure", reason: "query-failed" });
 					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText(/Could not update readings/)).toBeDefined()),
+						waitFor(() => expect(screen.getByText(/Could not refresh/)).toBeDefined()),
 					);
 					expect(screen.getByText("Loaded readings")).toBeDefined();
 					expect(screen.getByText("1 loaded")).toBeDefined();
 					expect(screen.getByText("entry-one")).toBeDefined();
-					fireEvent.click(screen.getByRole("button", { name: "Retry readings" }));
+					fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 					yield* Effect.promise(() =>
 						waitFor(() => expect(page.queryRequests("readings")).toHaveLength(3)),
 					);

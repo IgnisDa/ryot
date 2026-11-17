@@ -1,5 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { type AnalyticsSectionProps, PluginId } from "@ryot-app/plugin-client-sdk/plugin";
@@ -22,6 +23,7 @@ import { act, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { rankingResponse as rankingResultResponse } from "../../tests/client/analytics-fixtures";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import FitnessAnalyticsSection from "./section";
 
 afterEach(disposePluginBridges);
@@ -75,9 +77,10 @@ function AnalyticsHost() {
 
 const mountSection = (clock: ReturnType<typeof createTestRyotClock>) =>
 	mountPluginPage(AnalyticsHost, {
+		catalogs: fitnessCatalogs,
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
-		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("UTC") }),
+		queryExecution: () => ({ weekStart: 1, now: clock.now(), timeZone: TimeZone.make("UTC") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -86,9 +89,18 @@ const mountSection = (clock: ReturnType<typeof createTestRyotClock>) =>
 				dataSources: { queries: {} },
 				view: { name: "Analytics", icon: "chart-column" },
 			}),
-			contributors: ["fitness-owner", "fitness-other"].map((pluginId) =>
-				pluginContributor({ pluginId, name: "Fitness", packageId: PLUGIN_PACKAGE_ID }),
-			),
+			contributors: [
+				pluginContributor({
+					name: "Fitness",
+					pluginId: "fitness-owner",
+					packageId: PLUGIN_PACKAGE_ID,
+				}),
+				pluginContributor({
+					name: "Other fitness",
+					pluginId: "fitness-other",
+					packageId: PluginPackageId.make("ryot/other-fitness"),
+				}),
+			],
 		},
 	});
 
@@ -156,9 +168,7 @@ describe("fitness analytics section", () => {
 				try {
 					const settingsRequest = yield* Effect.promise(() => waitForSettingsRequest(page));
 					expect(settingsRequest.pluginId).toBe<unknown>("fitness-owner");
-					expect(screen.getByRole("status").textContent).toContain(
-						"Loading fitness display preferences",
-					);
+					expect(screen.getByRole("status").textContent).toContain("Loading…");
 					expect(page.queryRequests()).toHaveLength(0);
 
 					replySettings(page, settingsRequest.requestId, preferences);
@@ -244,16 +254,14 @@ describe("fitness analytics section", () => {
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(screen.getByRole("alert").textContent).toContain(
-								"Could not load fitness display preferences",
+								"Could not load this content.",
 							),
 						),
 					);
 					expect(page.queryRequests()).toHaveLength(0);
 
 					act(() => {
-						fireEvent.click(
-							screen.getByRole("button", { name: "Retry fitness display preferences" }),
-						);
+						fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 					});
 					const retry = yield* Effect.promise(() => waitForSettingsRequest(page, 1));
 					replySettings(page, retry.requestId, { ...preferences, unitSystem: "unknown" });

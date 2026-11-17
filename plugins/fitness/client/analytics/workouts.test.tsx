@@ -19,6 +19,7 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { analyticsTrendResponse } from "../../tests/client/analytics-fixtures";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import type {
 	AnalyticsDisplayPreferences,
 	AnalyticsScope,
@@ -72,9 +73,10 @@ const mountWorkouts = (
 			/>
 		),
 		{
+			catalogs: fitnessCatalogs,
 			bootstrap: clock.bootstrap,
 			location: routeLocation("/v/analytics"),
-			queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("UTC") }),
+			queryExecution: () => ({ weekStart: 1, now: clock.now(), timeZone: TimeZone.make("UTC") }),
 			page: {
 				...savedViewPageContext({
 					settings: {},
@@ -344,9 +346,7 @@ describe("Fitness analytics workout charts", () => {
 						}
 					}
 					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.getByText(/Could not update hourly workout starts/)).toBeDefined(),
-						),
+						waitFor(() => expect(screen.getByText(/Could not refresh/)).toBeDefined()),
 					);
 					expect(
 						screen.getByRole("img", { name: "Workout starts by reporting hour" }),
@@ -354,7 +354,7 @@ describe("Fitness analytics workout charts", () => {
 					expect(
 						screen.getByRole("img", { name: "Workouts by workout-start period" }),
 					).toBeDefined();
-					fireEvent.click(screen.getByRole("button", { name: "Retry hourly workout starts" }));
+					fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 					yield* Effect.promise(() =>
 						waitFor(() => expect(page.queryRequests("hours")).toHaveLength(3)),
 					);

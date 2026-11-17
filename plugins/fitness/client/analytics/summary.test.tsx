@@ -16,6 +16,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import type { AnalyticsDisplayPreferences, AnalyticsScope } from "./reporting-model";
 import { AnalyticsSummary } from "./summary";
 
@@ -121,9 +122,14 @@ const mountSummary = (
 	return mountPluginPage(
 		() => <AnalyticsSummary scope={scope} compact={false} preferences={preferencesInput} />,
 		{
+			catalogs: fitnessCatalogs,
 			bootstrap: clock.bootstrap,
 			location: routeLocation("/v/analytics"),
-			queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
+			queryExecution: () => ({
+				weekStart: 1,
+				now: clock.now(),
+				timeZone: TimeZone.make("America/New_York"),
+			}),
 			page: {
 				...savedViewPageContext({
 					settings: {},
@@ -153,19 +159,15 @@ describe("Fitness analytics summary UI", () => {
 				const page = mountSummary(clock, selection);
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
-					expect(screen.getByText("Loading Fitness analytics summary…")).toBeDefined();
+					expect(screen.getByText("Loading…")).toBeDefined();
 					page.replyQuery(page.queryRequests()[0]?.requestId ?? "", {
 						outcome: "failure",
 						reason: "query-failed",
 					});
 					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(
-								screen.getByRole("button", { name: "Retry Fitness analytics summary" }),
-							).toBeDefined(),
-						),
+						waitFor(() => expect(screen.getByRole("button", { name: "Retry" })).toBeDefined()),
 					);
-					fireEvent.click(screen.getByRole("button", { name: "Retry Fitness analytics summary" }));
+					fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
 					page.replyQuery(page.queryRequests()[1]?.requestId ?? "", {
 						outcome: "success",
@@ -187,8 +189,8 @@ describe("Fitness analytics summary UI", () => {
 					);
 					expect(metricText("Active days")).toBe("Active days0days");
 					expect(metricText("Measurement entries")).toBe("Measurement entries2entries");
-					expect(metricText("Active time")).toBe("Active time—0 of 1 workouts timed");
-					expect(metricText("Energy")).toBe("Energy—0 of 1 workouts with energy");
+					expect(metricText("Active time")).toBe("Active time—0 of 1 workout timed");
+					expect(metricText("Energy")).toBe("Energy—0 of 1 workout with energy");
 					expect(screen.queryByText("Distance", { selector: "dt" })).toBeNull();
 					expect(
 						screen.getAllByText("Processing failed; may be incomplete").length,

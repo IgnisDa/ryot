@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import { PluginId, resolveReportingSelection, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
+import { testFitnessText } from "../../tests/client/test-text";
+import { countUnits } from "../messages";
 import {
 	type AnalyticsInput,
 	type AnalyticsTrend,
@@ -25,8 +27,10 @@ const input: AnalyticsInput = {
 const customPeriod = (startDate: string, endDate: string, timeZone = TimeZone.make("UTC")) =>
 	resolveReportingSelection(
 		{ grouping: "day", comparison: "none", range: { endDate, startDate, kind: "custom" } },
-		{ now: 0, timeZone },
+		{ now: 0, timeZone, weekStart: 1 },
 	).current;
+const context = { text: testFitnessText, units: countUnits(testFitnessText) };
+const utc = { weekStart: 1, timeZone: TimeZone.make("UTC") } as const;
 const trend = (overrides: Partial<AnalyticsTrend> = {}): AnalyticsTrend => ({
 	points: [],
 	grouping: "day",
@@ -55,55 +59,57 @@ const measurement = (
 
 describe("trend buckets", () => {
 	it("keeps unknown derived buckets distinct from zero counts", () => {
-		expect(trendBuckets(trend(), TimeZone.make("UTC"), 0).map(({ value }) => value)).toEqual([
+		expect(trendBuckets(testFitnessText, trend(), utc, 0).map(({ value }) => value)).toEqual([
 			0, 0, 0, 0,
 		]);
 		const buckets = trendBuckets(
+			testFitnessText,
 			trend({
 				metric: "volume",
 				points: [point("2024-02-29T00:00:00Z", 0), point("2024-03-01T00:00:00Z", null)],
 			}),
-			TimeZone.make("UTC"),
+			utc,
 		);
 		expect(buckets.map(({ value }) => value)).toEqual([null, 0, null, null]);
 		expect(buckets[2]?.source?.value).toBeNull();
-		expect(buckets[0]?.detail).toBe("No known value");
+		expect<string>(buckets[0]?.detail).toBe("No known value");
 	});
 });
 
 describe("exact quantities and comparisons", () => {
 	it("keeps exact table decimals and storage-unit conversions", () => {
 		const imperial = { energyUnit: "kJ", unitSystem: "imperial" } as const;
-		expect(metricDisplay("volume", 0.45359237, imperial)).toEqual({
+		expect(metricDisplay(context, "volume", 0.45359237, imperial)).toEqual({
 			value: 1,
 			unit: { kind: "measure", symbol: "lb × reps" },
 		});
-		expect(metricDisplay("distance", 1.609344, imperial)).toEqual({
+		expect(metricDisplay(context, "distance", 1.609344, imperial)).toEqual({
 			value: 1,
 			unit: { symbol: "mi", kind: "measure" },
 		});
-		expect(metricDisplay("calories", 1, imperial)).toEqual({
+		expect(metricDisplay(context, "calories", 1, imperial)).toEqual({
 			value: 4.184,
 			unit: { symbol: "kJ", kind: "measure" },
 		});
-		expect(metricDisplay("volume", null, imperial)).toEqual({
+		expect(metricDisplay(context, "volume", null, imperial)).toEqual({
 			value: null,
 			unit: { kind: "measure", symbol: "lb × reps" },
 		});
-		expect(metricDisplay("activeDuration", 90, imperial)).toEqual({
+		expect(metricDisplay(context, "activeDuration", 90, imperial)).toEqual({
 			value: 90,
 			unit: { from: "seconds", kind: "duration" },
 		});
 	});
 	it("converts both workout periods without replacing prior dates or unknown volume", () => {
 		const model = workoutTrendModel(
+			context,
 			trend({ metric: "volume", points: [point("2024-02-28T00:00:00Z", 0.45359237)] }),
 			trend({
 				metric: "volume",
 				points: [point("2024-02-24T00:00:00Z", 0)],
 				period: customPeriod("2024-02-24", "2024-02-27"),
 			}),
-			TimeZone.make("UTC"),
+			utc,
 			{ energyUnit: "kcal", unitSystem: "imperial" },
 		);
 		expect(model.current[0]?.value).toBe(1);
@@ -120,13 +126,13 @@ describe("measurement averages", () => {
 			{ value: 2, unit: "kg", readings: 3, at: "2024-02-29T00:00:00Z" },
 			{ value: 8, unit: "kg", readings: 1, at: "2024-03-02T00:00:00Z" },
 		]);
-		const smooth = measurementTrendModel(data, null, TimeZone.make("UTC"), true).current;
+		const smooth = measurementTrendModel(testFitnessText, data, null, utc, true).current;
 		expect(smooth.map(({ value }) => value)).toEqual([0, 1, null, 8]);
 		expect(smooth[1]?.source).toEqual(data.points[1]);
 		expect(smooth[1]?.smoothing).toBe(3);
-		expect(measurementTrendModel(data, null, TimeZone.make("UTC"), true).current[1]?.detail).toBe(
-			"Average of 3 readings · 3-point smoothing",
-		);
+		expect(
+			measurementTrendModel(testFitnessText, data, null, utc, true).current[1]?.detail,
+		).toBe<unknown>("Average of 3 readings · 3-point smoothing");
 	});
 	it("labels seven-point smoothing for long continuous known runs", () => {
 		const data = measurement(
@@ -138,7 +144,7 @@ describe("measurement averages", () => {
 			})),
 			{ period: customPeriod("2024-01-01", "2024-02-14") },
 		);
-		const smooth = measurementTrendModel(data, null, TimeZone.make("UTC"), true).current;
+		const smooth = measurementTrendModel(testFitnessText, data, null, utc, true).current;
 		expect(smooth.at(-1)).toMatchObject({ value: 41, smoothing: 7, source: { value: 44 } });
 	});
 	it("does not overlay measurements with different units", () => {
@@ -148,7 +154,7 @@ describe("measurement averages", () => {
 		const previous = measurement([
 			{ value: 2, unit: "lb", readings: 1, at: "2024-02-28T00:00:00Z" },
 		]);
-		const model = measurementTrendModel(current, previous, TimeZone.make("UTC"));
+		const model = measurementTrendModel(testFitnessText, current, previous, utc);
 		expect(model.mixedUnits).toBe(true);
 		expect(model.previous).toBeNull();
 	});
@@ -157,17 +163,18 @@ describe("measurement averages", () => {
 describe("workout consistency", () => {
 	it("fills every day of the period with zero for days without workouts", () => {
 		const model = consistencyModel(
+			testFitnessText,
 			trend({ period: customPeriod("2023-09-03", "2024-03-02", input.timeZone) }),
-			input.timeZone,
+			{ weekStart: 1, timeZone: input.timeZone },
 		);
 		expect(model.days).toHaveLength(182);
 		expect(model.days[0]?.value).toBe(0);
-		expect(model.periodCaption).toBe("Sep 3, 2023 – Mar 2, 2024");
 	});
 	it("places recorded workouts on their local day", () => {
 		const model = consistencyModel(
+			testFitnessText,
 			trend({ points: [point("2024-02-29T00:00:00Z", 2)] }),
-			TimeZone.make("UTC"),
+			utc,
 		);
 		expect(model.days).toEqual([
 			{ value: 0, date: "2024-02-28" },

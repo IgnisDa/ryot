@@ -1,15 +1,15 @@
 import {
-	periodCaption,
 	REPORTING_BUCKET_LIMIT,
 	type ReportingPeriod,
 	selectionForPeriod,
+	usePeriodCaption,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	type Compared,
 	type RyotQueryResult,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { ChartCard, countUnit, MenuSelect, QueryStatus } from "@ryot-app/plugin-ui-sdk";
+import { ChartCard, MenuSelect, QueryStatus } from "@ryot-app/plugin-ui-sdk";
 import {
 	CalendarHeatmap,
 	type ChartView,
@@ -19,7 +19,7 @@ import {
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useCallback, useState } from "react";
 
-import { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
+import { useCountUnits, useFitnessMessages } from "../messages";
 import {
 	analyticsConsistencyQuery,
 	analyticsTrendQuery,
@@ -82,61 +82,31 @@ export function AnalyticsWorkouts({
 	);
 }
 
-const workoutUnit = countUnit("workout");
-
 function HourlyRegion(props: { readonly compact: boolean; readonly input: AnalyticsScope }) {
+	const text = useFitnessMessages();
+	const workoutUnit = useCountUnits()("workout");
 	const result = useRyotQuery(workoutStartsByHourQuery, props.input);
 	return (
 		<ChartCard
-			title="Start times"
+			title={text("client.analytics.workouts.start-times")}
 			description={
 				result.data === undefined
-					? "Workout starts by hour"
-					: `Workout starts by hour, in ${result.data.reporting.resolved.timeZone}`
+					? text("client.analytics.workouts.start-times-description")
+					: text("client.analytics.workouts.start-times-description-zone", {
+							timeZone: result.data.reporting.resolved.timeZone,
+						})
 			}
 		>
-			<QueryStatus query={result} onRetry={result.refetch} label="hourly workout starts">
+			<QueryStatus query={result} onRetry={result.refetch}>
 				{(data) => (
 					<HourlyHistogram
 						unit={workoutUnit}
 						compact={props.compact}
 						timeZone={data.reporting.resolved.timeZone}
-						ariaLabel="Workout starts by reporting hour"
+						ariaLabel={text("client.analytics.workouts.start-times-label")}
 						buckets={data.hours.map(({ hour, starts }) => ({ hour, value: starts }))}
 					/>
 				)}
-			</QueryStatus>
-		</ChartCard>
-	);
-}
-
-function ConsistencyRegion(props: { readonly compact: boolean; readonly input: AnalyticsScope }) {
-	const result = useRyotQuery(analyticsConsistencyQuery, props.input);
-	const model =
-		result.data === undefined
-			? null
-			: consistencyModel(result.data, result.data.reporting.resolved.timeZone);
-	return (
-		<ChartCard
-			title="Consistency"
-			description={
-				model === null
-					? "Workout starts per day"
-					: `Workout starts per day · ${model.periodCaption}${model.clipped ? ` · last ${REPORTING_BUCKET_LIMIT} days` : ""}`
-			}
-		>
-			<QueryStatus query={result} onRetry={result.refetch} label="workout consistency">
-				{() =>
-					model === null ? null : (
-						<CalendarHeatmap
-							weekStart={1}
-							days={model.days}
-							unit={workoutUnit}
-							compact={props.compact}
-							ariaLabel={`Workout starts · ${model.periodCaption}`}
-						/>
-					)
-				}
 			</QueryStatus>
 		</ChartCard>
 	);
@@ -150,22 +120,23 @@ function TrendRegion(props: {
 	readonly onMetricChange: (metric: AnalyticsMetric) => void;
 	readonly onOpenWorkouts: (request: WorkoutDrillRequest) => void;
 }) {
+	const text = useFitnessMessages();
 	const trend = useRyotQuery(analyticsTrendQuery, { ...props.input, metric: props.metric });
 	const [view, setView] = useState<ChartView>("chart");
 	return (
 		<ChartCard
-			title="Workout trend"
-			description="Grouped by workout start date"
+			title={text("client.analytics.workouts.trend")}
+			description={text("client.analytics.workouts.trend-description")}
 			actions={
 				<MenuSelect
-					label="Show"
 					value={props.metric}
 					onChange={props.onMetricChange}
 					checkIcon={<AppIcon size={14} name="check" />}
+					label={text("client.analytics.workouts.trend-show")}
 					chevronIcon={<AppIcon size={14} name="chevron-down" />}
 					choices={analyticsMetrics.map((value) => ({
 						value,
-						label: fitnessMetricDefinitions[value].label,
+						label: text("client.analytics.metric.label", { metric: value }),
 					}))}
 				/>
 			}
@@ -182,6 +153,47 @@ function TrendRegion(props: {
 	);
 }
 
+function ConsistencyRegion(props: { readonly compact: boolean; readonly input: AnalyticsScope }) {
+	const text = useFitnessMessages();
+	const workoutUnit = useCountUnits()("workout");
+	const periodCaption = usePeriodCaption();
+	const result = useRyotQuery(analyticsConsistencyQuery, props.input);
+	const model =
+		result.data === undefined
+			? null
+			: consistencyModel(text, result.data, result.data.reporting.resolved);
+	let description = text("client.analytics.workouts.consistency-description");
+	if (model !== null) {
+		description = model.clipped
+			? text("client.analytics.workouts.consistency-description-clipped", {
+					days: REPORTING_BUCKET_LIMIT,
+					period: periodCaption(model.period),
+				})
+			: text("client.analytics.workouts.consistency-description-period", {
+					period: periodCaption(model.period),
+				});
+	}
+	return (
+		<ChartCard description={description} title={text("client.analytics.workouts.consistency")}>
+			<QueryStatus query={result} onRetry={result.refetch}>
+				{(data) =>
+					model === null ? null : (
+						<CalendarHeatmap
+							days={model.days}
+							unit={workoutUnit}
+							compact={props.compact}
+							weekStart={data.reporting.resolved.weekStart}
+							ariaLabel={text("client.analytics.workouts.consistency-label", {
+								period: periodCaption(model.period),
+							})}
+						/>
+					)
+				}
+			</QueryStatus>
+		</ChartCard>
+	);
+}
+
 function TrendChart(props: {
 	readonly compact: boolean;
 	readonly trend: TrendQueryResult;
@@ -190,14 +202,18 @@ function TrendChart(props: {
 	readonly onOpenWorkouts: (request: WorkoutDrillRequest) => void;
 	readonly view: { readonly value: ChartView; readonly onChange: (view: ChartView) => void };
 }) {
+	const text = useFitnessMessages();
+	const units = useCountUnits();
+	const periodCaption = usePeriodCaption();
 	const data = props.trend.data;
 	const model =
 		data === undefined
 			? null
 			: workoutTrendModel(
+					{ text, units },
 					data.current,
 					data.previous,
-					data.reporting.resolved.timeZone,
+					data.reporting.resolved,
 					props.preferences,
 				);
 	const { onOpenWorkouts } = props;
@@ -205,16 +221,16 @@ function TrendChart(props: {
 		(bucket: { readonly period: ReportingPeriod }) => {
 			if (data !== undefined) {
 				onOpenWorkouts({
-					title: "Workouts starting in this bucket",
 					periodCaption: periodCaption(bucket.period),
+					title: text("client.analytics.workouts.bucket-title"),
 					selection: selectionForPeriod(data.reporting.selection, bucket.period),
 				});
 			}
 		},
-		[data, onOpenWorkouts],
+		[data, onOpenWorkouts, periodCaption, text],
 	);
 	return (
-		<QueryStatus query={props.trend} label="workout trend" onRetry={props.trend.refetch}>
+		<QueryStatus query={props.trend} onRetry={props.trend.refetch}>
 			{({ current, previous, reporting }) =>
 				model === null ? null : (
 					<PeriodTrendChart
@@ -226,7 +242,9 @@ function TrendChart(props: {
 						grouping={current.grouping}
 						label={periodCaption(current.period)}
 						timeZone={reporting.resolved.timeZone}
-						ariaLabel={`${fitnessMetricDefinitions[props.metric].label} by workout-start period`}
+						ariaLabel={text("client.analytics.workouts.trend-label", {
+							metric: text("client.analytics.metric.label", { metric: props.metric }),
+						})}
 						previous={
 							previous === null || model.previous === null
 								? undefined

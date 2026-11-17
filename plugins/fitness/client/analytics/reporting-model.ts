@@ -1,14 +1,15 @@
 import {
 	type AnalyticsSectionProps,
 	calendarBuckets,
-	periodCaption,
 	type PluginIdentityReference,
+	type ReportingCalendar,
 	type ReportingExecution,
 	type ReportingPeriod,
 	type ReportingSelection,
 	type ResolvedReportingSelection,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { measureUnit, type MetricUnit } from "@ryot-app/plugin-ui-sdk";
 
@@ -28,6 +29,8 @@ import { smoothRuns } from "../../shared/measurement-metrics";
 import type { measurementSummaryRecipe } from "../../shared/measurement-recipes";
 import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
 import { type ConvertedMeasure, displayMeasure } from "../../shared/workout-units";
+import type { countUnits, FitnessText } from "../messages";
+import { displayUnit } from "../workout/format";
 
 export type AnalyticsScope = AnalyticsSectionProps;
 export type AnalyticsMetric = FitnessAnalyticsMetric;
@@ -50,13 +53,17 @@ export type AnalyticsDisplayPreferences = Pick<
 	WorkoutPreferenceSettings,
 	"unitSystem" | "energyUnit"
 >;
+export type MetricUnitContext = {
+	readonly text: FitnessText;
+	readonly units: ReturnType<typeof countUnits>;
+};
+
 export type WorkoutDrillRequest = {
 	readonly title: string;
 	readonly periodCaption: string;
 	readonly filter?: AnalyticsFilter;
 	readonly selection: ReportingSelection;
 };
-
 export type AnalyticsInput = {
 	readonly timeZone: TimeZone;
 	readonly selection: ReportingSelection;
@@ -68,6 +75,7 @@ export type MeasurementTrend = Recipe.Success<ReturnType<typeof fitnessMeasureme
 	readonly period: null | ReportingPeriod;
 	readonly grouping: ResolvedReportingSelection["grouping"];
 };
+
 export type AnalyticsTrend = Recipe.Success<ReturnType<typeof fitnessAnalyticsTrendRecipe>> & {
 	readonly metric: FitnessAnalyticsMetric;
 	readonly period: null | ReportingPeriod;
@@ -75,6 +83,7 @@ export type AnalyticsTrend = Recipe.Success<ReturnType<typeof fitnessAnalyticsTr
 };
 
 export const metricDisplay = (
+	context: MetricUnitContext,
 	metric: keyof typeof fitnessMetricDefinitions,
 	value: null | number,
 	preferences: AnalyticsDisplayPreferences,
@@ -82,10 +91,17 @@ export const metricDisplay = (
 	const definition: { readonly unit: FitnessMetricUnit } | { readonly measure: ConvertedMeasure } =
 		fitnessMetricDefinitions[metric];
 	if (!("measure" in definition)) {
-		return { value, unit: definition.unit };
+		return {
+			value,
+			unit:
+				definition.unit.kind === "count" ? context.units(definition.unit.noun) : definition.unit,
+		};
 	}
 	const display = displayMeasure(definition.measure, value ?? 0, preferences);
-	return { unit: measureUnit(display.unit), value: value === null ? null : display.value };
+	return {
+		value: value === null ? null : display.value,
+		unit: measureUnit(displayUnit(context.text, display)),
+	};
 };
 
 export type TrendBucket<Point> = {
@@ -93,20 +109,21 @@ export type TrendBucket<Point> = {
 	readonly value: null | number;
 	readonly source: null | Point;
 	readonly period: ReportingPeriod;
-	readonly detail: string | undefined;
+	readonly detail: Text | undefined;
 };
 
 export const trendBuckets = <Point extends { readonly at: string; readonly value: null | number }>(
+	text: FitnessText,
 	trend: {
 		readonly points: readonly Point[];
 		readonly period: null | ReportingPeriod;
 		readonly grouping: ReportingExecution["resolved"]["grouping"];
 	},
-	timeZone: TimeZone,
+	calendar: ReportingCalendar,
 	emptyValue: 0 | null = null,
 ): ReadonlyArray<TrendBucket<Point>> =>
 	calendarBuckets(trend.points, {
-		timeZone,
+		...calendar,
 		period: trend.period,
 		at: (point) => point.at,
 		grouping: trend.grouping,
@@ -117,40 +134,48 @@ export const trendBuckets = <Point extends { readonly at: string; readonly value
 			period: bucket.period,
 			at: bucket.period.startAt,
 			value: source === null ? emptyValue : source.value,
-			detail: source === null && emptyValue === null ? "No known value" : undefined,
+			detail:
+				source === null && emptyValue === null
+					? text("client.analytics.trend.detail-no-value")
+					: undefined,
 		};
 	});
 
-const processingDetail = {
-	ready: [],
-	pending: ["Still processing"],
-	failed: ["Processing failed"],
-} as const;
-
-const trendBucketDetail = (point: AnalyticsTrendPoint) => {
+const trendBucketDetail = (text: FitnessText, point: AnalyticsTrendPoint) => {
 	const known = point.knownValues ?? 0;
-	const parts = [
-		...(known < point.observations ? [`${known} of ${point.observations} with a value`] : []),
-		...processingDetail[point.processing],
-	];
-	return parts.length === 0 ? undefined : parts.join(" · ");
+	const partial = known < point.observations;
+	if (point.processing === "ready") {
+		return partial
+			? text("client.analytics.trend.detail-partial", { known, observations: point.observations })
+			: undefined;
+	}
+	return partial
+		? text("client.analytics.trend.detail-partial-processing", {
+				known,
+				processing: point.processing,
+				observations: point.observations,
+			})
+		: text("client.analytics.trend.detail-processing", { processing: point.processing });
 };
 
 export const workoutTrendModel = (
+	context: MetricUnitContext,
 	current: AnalyticsTrend,
 	previous: null | AnalyticsTrend,
-	timeZone: TimeZone,
+	calendar: ReportingCalendar,
 	preferences: AnalyticsDisplayPreferences,
 ) => {
 	const build = (trend: AnalyticsTrend) =>
 		trendBuckets(
+			context.text,
 			trend,
-			timeZone,
+			calendar,
 			trend.metric === "workouts" || trend.metric === "sets" ? 0 : null,
 		).map((bucket) =>
 			Object.assign({}, bucket, {
-				value: metricDisplay(trend.metric, bucket.value, preferences).value,
-				detail: bucket.source === null ? bucket.detail : trendBucketDetail(bucket.source),
+				value: metricDisplay(context, trend.metric, bucket.value, preferences).value,
+				detail:
+					bucket.source === null ? bucket.detail : trendBucketDetail(context.text, bucket.source),
 			}),
 		);
 	const comparable =
@@ -160,18 +185,24 @@ export const workoutTrendModel = (
 	return {
 		current: build(current),
 		previous: comparable ? build(previous) : null,
-		unit: metricDisplay(current.metric, null, preferences).unit,
+		unit: metricDisplay(context, current.metric, null, preferences).unit,
 	};
 };
 
+const averageDetail = (text: FitnessText, count: number, smoothing: null | number) =>
+	smoothing === null
+		? text("client.analytics.trend.detail-average", { count })
+		: text("client.analytics.trend.detail-average-smoothed", { count, points: smoothing });
+
 export const measurementTrendModel = (
+	text: FitnessText,
 	current: MeasurementTrend,
 	previous: null | MeasurementTrend,
-	timeZone: TimeZone,
+	calendar: ReportingCalendar,
 	smooth = false,
 ) => {
 	const build = (trend: MeasurementTrend) => {
-		const buckets = trendBuckets(trend, timeZone);
+		const buckets = trendBuckets(text, trend, calendar);
 		return (
 			smooth
 				? smoothRuns(buckets, (left, right) => left.source?.unit !== right.source?.unit)
@@ -180,8 +211,8 @@ export const measurementTrendModel = (
 			Object.assign({}, bucket, {
 				detail:
 					bucket.source === null
-						? "No readings"
-						: `Average of ${bucket.source.readings} ${bucket.source.readings === 1 ? "reading" : "readings"}${bucket.smoothing === null ? "" : ` · ${bucket.smoothing}-point smoothing`}`,
+						? text("client.analytics.trend.detail-no-readings")
+						: averageDetail(text, bucket.source.readings, bucket.smoothing),
 			}),
 		);
 	};
@@ -201,12 +232,13 @@ export const measurementTrendModel = (
 };
 
 export const consistencyModel = (
+	text: FitnessText,
 	trend: AnalyticsTrend & { readonly clipped?: boolean },
-	timeZone: TimeZone,
+	calendar: ReportingCalendar,
 ) => ({
+	period: trend.period,
 	clipped: trend.clipped ?? false,
-	periodCaption: periodCaption(trend.period),
-	days: trendBuckets(trend, timeZone, 0).map(({ value, period }) => ({
+	days: trendBuckets(text, trend, calendar, 0).map(({ value, period }) => ({
 		value,
 		date: period.startDate,
 	})),
