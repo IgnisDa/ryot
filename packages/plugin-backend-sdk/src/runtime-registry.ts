@@ -9,6 +9,7 @@ export const PLUGIN_KIT_EFFECT_IMPORT = "@ryot-app/plugin-kit/effect";
 export const PLUGIN_KIT_RYOTQL_IMPORT = "@ryot-app/plugin-kit/ryotql";
 export const PLUGIN_KIT_LANGUAGES_IMPORT = "@ryot-app/plugin-kit/languages";
 export const PLUGIN_KIT_SCHEMA_IMPORT = "@ryot-app/plugin-kit/schema";
+export const PLUGIN_KIT_MESSAGES_IMPORT = "@ryot-app/plugin-kit/messages";
 export const PLUGIN_KIT_COMPRESSION_IMPORT = "@ryot-app/plugin-kit/compression";
 
 const sharedRuntimeExternals = ["effect", "dependency-runtime", "filesystem"] as const;
@@ -126,5 +127,6 @@ export const PLUGIN_KIT_IMPORTS = [
 	PLUGIN_KIT_EFFECT_IMPORT,
 	PLUGIN_KIT_RYOTQL_IMPORT,
 	PLUGIN_KIT_SCHEMA_IMPORT,
+	PLUGIN_KIT_MESSAGES_IMPORT,
 	PLUGIN_KIT_COMPRESSION_IMPORT,
 ] as const;

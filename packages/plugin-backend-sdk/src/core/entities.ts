@@ -1,5 +1,6 @@
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, jsonValueSchema, strictStruct } from "../wire";
@@ -27,13 +28,14 @@ export const entityRecordSchema = strictStruct({
 });
 export type EntityRecord = Schema.Schema.Type<typeof entityRecordSchema>;
 export const entitySchemaProviderSchema = strictStruct({
-	name: Schema.String,
+	name: Message,
+	slug: Schema.String,
 	providerId: Schema.String,
 });
 export const entitySchemaRecordSchema = strictStruct({
+	name: Message,
 	id: Schema.String,
 	icon: Schema.String,
-	name: Schema.String,
 	slug: Schema.String,
 	isBuiltin: Schema.Boolean,
 	pluginId: Schema.NullOr(PluginId),

@@ -6,6 +6,7 @@ import {
 	EventWritePrecondition,
 } from "@ryot-app/contract/modules/events/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { Message } from "@ryot-app/i18n/message";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, jsonValueSchema, strictStruct } from "../wire";
@@ -14,8 +15,8 @@ import { EVENT_MUTATION_SANDBOX_LIMITS } from "./limits";
 import { sandboxIdSchema } from "./primitives";
 
 export const eventSchemaRecordSchema = strictStruct({
+	name: Message,
 	id: Schema.String,
-	name: Schema.String,
 	slug: Schema.String,
 	entitySchemaSlug: Schema.String,
 	pluginId: Schema.NullOr(PluginId),

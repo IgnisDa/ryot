@@ -1,5 +1,5 @@
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { Recipe } from "@ryot-app/ryotql";
 
@@ -8,9 +8,9 @@ export { JsonValue } from "@ryot-app/contract/schema/json";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export { withinPeriod } from "@ryot-app/ryotql-recipes/periods";
 export { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
-export type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
-export type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
+export type { PluginRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+export type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 export {
 	now,
 	sort,
@@ -58,11 +58,16 @@ export class RyotqlRecipeDecodeError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("RyotqlRecipeDecodeError", { message: Schema.String }) {}
 
-export const executeRyotqlRecipe = <Success, Parameters extends AppSchema, Error, Requirements>(
-	executeRyotql: (request: ExecutionRequest) => Effect.Effect<unknown, Error, Requirements>,
+export const executeRyotqlRecipe = <
+	Success,
+	Parameters extends AuthoredAppSchema,
+	Error,
+	Requirements,
+>(
+	executeRyotql: (request: PluginExecutionRequest) => Effect.Effect<unknown, Error, Requirements>,
 	recipe: Recipe<Success, Parameters>,
 	arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-	options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+	options: Omit<PluginExecutionRequest, "source" | "arguments"> = {},
 ) =>
 	executeRyotql({
 		...options,

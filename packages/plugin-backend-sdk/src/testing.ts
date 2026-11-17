@@ -1,3 +1,8 @@
+import { catalogRegistry, type CompiledCatalog } from "@ryot-app/i18n/catalog";
+import { format } from "@ryot-app/i18n/format";
+import { SOURCE_LOCALE } from "@ryot-app/i18n/locale";
+import { type LocalMessage, stampNamespace } from "@ryot-app/i18n/message";
+
 import type { CoreSandboxHostMethodMap } from "./core/host-contracts";
 import type { PolicyHost, ScriptHost } from "./core/script-host";
 import type { ExecutionMetadata, SandboxManifest } from "./core/script-manifest";
@@ -31,6 +36,27 @@ export function defineSandboxTestHost<const Manifest extends SandboxManifest>(
 export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown): unknown {
 	return host;
 }
+
+/** The host of an automation, plus the notification messages it sends. */
+export const recordNotifications = (
+	manifest: Extract<SandboxManifest, { readonly automationType: "automation" }>,
+) => {
+	const messages: LocalMessage[] = [];
+	const host = defineSandboxTestHost(manifest, {
+		sendNotification: (message) => {
+			messages.push(message);
+			return Effect.succeed(null);
+		},
+	});
+	return { host, messages };
+};
+
+/** Renders a plugin's messages from its English catalog, as delivery does for English recipients. */
+export const englishRenderer = (catalog: CompiledCatalog) => {
+	const registry = catalogRegistry([{ catalog, namespace: "plugin", locale: SOURCE_LOCALE }]);
+	return (message: LocalMessage): string =>
+		format(registry, SOURCE_LOCALE, stampNamespace("plugin", message));
+};
 
 export const makeWorkflowReplayHost = (entries: ReadonlyArray<unknown>): WorkflowReplayHost => ({
 	replayJournal: () =>

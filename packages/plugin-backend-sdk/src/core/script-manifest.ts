@@ -2,17 +2,17 @@ import {
 	AutomationAfterInputProjection,
 	AutomationPolicyInputProjection,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import {
 	ProviderRelatedInputs,
 	ProviderTranslationInputs,
 } from "@ryot-app/contract/modules/plugins/provider-inputs";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { jsonValueSchema, strictStruct } from "../wire";
 import { nonEmptyString } from "./primitives";
 
-const appSchema = Schema.declare<AppSchema>((_value): _value is AppSchema => true);
+const appSchema = Schema.declare<AuthoredAppSchema>((_value): _value is AuthoredAppSchema => true);
 const manifestStringSchema = Schema.String.pipe(
 	Schema.check(Schema.makeFilter((value) => value.length > 0 && value === value.trim())),
 );

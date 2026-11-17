@@ -1,4 +1,5 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { Message } from "@ryot-app/i18n/message";
 import { defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
@@ -141,8 +142,11 @@ defineScript({
 			const setting: JsonValue | undefined = integration.providerSpecifics["customSetting"];
 			yield* host.listEventSchemas(["schema-1"]);
 			yield* host.listIntegrations({ provider: "plugin_defined_provider" });
-			const providers: ReadonlyArray<{ readonly name: string; readonly providerId: string }> =
-				entitySchema.providers;
+			const providers: ReadonlyArray<{
+				readonly slug: string;
+				readonly name: Message;
+				readonly providerId: string;
+			}> = entitySchema.providers;
 			const created = yield* host.createEvents([
 				{ entityId: "entity-1", properties: { watched: true }, eventSchemaSlug: "event-schema-1" },
 			]);

@@ -8,7 +8,8 @@ continue to fail with `SandboxHostError`; composing them into `run` includes tha
 inferred failure union. No plugin-wide error schema is required.
 
 `executeRyotqlRecipe(executeRyotql, recipe, arguments, options?)` takes the host execution function
-and sends it the canonical ExecutionRequest.
+and sends it a `PluginExecutionRequest`; the host stamps inline parameter text with the run's
+plugin namespace.
 Options carry request filter, sort, and pages; selected recipes include their named query. Server
 binding supplies execution clock and authority. `executeRyotqlRecipe` keeps host failures in their original channel and returns
 `RyotqlRecipeDecodeError` for malformed recipe responses. `runSandboxTestScript` infers the
@@ -107,6 +108,10 @@ subjects. Fold scripts use `FoldInput`, `FoldOutput` and `FOLD_LIMITS` from
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and
 projected entity references; `items` holds `{ itemIdentity, payload }` requests. Return
 `{ items: [{ itemIdentity, decision }] }` with exactly one decision for each supplied identity.
+A `reject` decision's `reason` is a `LocalMessage` from the plugin's catalog; the kernel stamps the
+plugin's namespace before it reaches a caller. After-stage automations notify the execution user
+with `host.sendNotification(message)`, which also takes a `LocalMessage`; see
+[Messages](../plugin-kit/README.md#messages).
 Shared metadata is sent once, not repeated per request, so normal batches retain the sandbox input limit.
 
 ## Boundary Errors
@@ -114,13 +119,17 @@ Shared metadata is sent once, not repeated per request, so normal batches retain
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
 `data`. Stable boundary codes belong in `data`: `missing-required-config`, `missing-artifact-grant`,
 `unavailable-operation`, `invalid-executable-target`, `execution-limit`, and `operation-rejected`.
-Callers can branch on those codes without replacing or parsing the message. `isCommitConflict`
+Callers can branch on those codes without replacing or parsing the message. When the kernel rejects
+a host call with a message reason, such as a rejected operation call, `data` is that stamped
+`Message` and `message` is its key. `isCommitConflict`
 from `core` recognizes a `commitUserChanges` failure whose `data.code` is a contract
 `CommitConflictCode`: the command's baseline changed or vanished concurrently.
 
 An operation that refuses a request for a deterministic, user-correctable reason fails with
-`OperationRejectedError(message)` from `@ryot-app/plugin-backend-sdk/operation`. Its message reaches
-the caller as an HTTP 422 `PluginOperationRejected`; any other thrown error stays an HTTP 502
+`new OperationRejectedError({ reason })` from `@ryot-app/plugin-backend-sdk/operation`, where
+`reason` is a `LocalMessage`; its `data` is the local `operation-rejected` boundary reason, and the
+kernel stamps the run's plugin namespace when it records the failure. It reaches the caller as an
+HTTP 422 `PluginOperationRejected`; any other thrown error stays an HTTP 502
 `PluginInvocationError` with `runtime-failed`. Use it only for operation entrypoints, never for
 provider scripts, which report failures through their results.
 

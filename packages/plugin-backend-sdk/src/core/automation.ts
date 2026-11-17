@@ -1,3 +1,4 @@
+import { LocalMessage } from "@ryot-app/i18n/message";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, jsonValueSchema, strictStruct } from "../wire";
@@ -15,6 +16,4 @@ export const emitSignalDataSchema = strictStruct({
 	wasCreated: Schema.Boolean,
 });
 export const emitSignalResultSchema = hostResultSchema(emitSignalDataSchema);
-export const sendNotificationArgsSchema = Schema.Tuple([
-	Schema.Trim.pipe(Schema.check(Schema.isMinLength(1))),
-]);
+export const sendNotificationArgsSchema = Schema.Tuple([LocalMessage]);

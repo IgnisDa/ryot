@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import type { ExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { PluginExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
 import {
 	column,
 	continuationCursor,
@@ -65,7 +65,7 @@ describe("RyotQL sandbox SDK", () => {
 
 	it("executes and decodes a prepared recipe", () => {
 		const recipe = entityReadRecipe;
-		const executeRyotql = (request: ExecutionRequest) => {
+		const executeRyotql = (request: PluginExecutionRequest) => {
 			expect(request).toEqual({
 				arguments: { entityIds: ["entity-1"] },
 				source: { kind: "inline", document: recipe.document },

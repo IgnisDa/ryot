@@ -119,6 +119,7 @@
 	"dependencies": {
 		"@nodable/entities": "3.1.0",
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/i18n": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
