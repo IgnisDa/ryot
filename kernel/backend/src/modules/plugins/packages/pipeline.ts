@@ -1,12 +1,17 @@
 import type { BadRequest, DbError } from "@ryot-app/contract/errors";
 import type { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { manifestTextIssues } from "@ryot-app/contract/modules/plugins/manifest-text-issues";
 import {
 	type PluginConflictError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
+import { formatCatalogDiagnostic } from "@ryot-app/i18n/catalog";
+import { SOURCE_LOCALE } from "@ryot-app/i18n/locale";
 import {
+	decodePluginCatalogs,
 	PLUGIN_ARCHIVE_LIMITS,
+	type PluginArchiveCatalogs,
 	type PluginArchiveCompiledScript,
 	type PluginArchiveError,
 } from "@ryot-app/plugin-archive";
@@ -68,12 +73,19 @@ export const toPluginScriptDescriptor = (
 
 export const pluginContentHash = (
 	manifest: PluginManifest,
+	catalogs: PluginArchiveCatalogs,
 	compiledScripts: ReadonlyArray<PluginArchiveCompiledScript> = [],
 	compiledClient?: PluginClientArtifact,
 ) =>
 	digest(
 		stableStringify({
 			manifest,
+			catalogs: Object.fromEntries(
+				Object.entries(catalogs).map(([locale, catalog]) => [
+					locale,
+					digest(stableStringify(catalog)),
+				]),
+			),
 			compiledScripts: compiledScripts
 				.slice()
 				.sort((left, right) => compareCodeUnits(left.entry, right.entry))
@@ -120,10 +132,21 @@ export const verifyPluginClientArtifact = (
 					dependency.packageId === reference.packageId && dependency.scope === reference.scope,
 			),
 		) &&
-		clientArtifactMetadata(manifest.metadata.name, manifest.metadata.packageId, artifact.files, {
+		clientArtifactMetadata(manifest.metadata.packageId, artifact.files, {
 			imports: artifact.imports,
 			clientDeclarationHash: declarationHash,
 		}).hash === artifact.hash
+	);
+};
+
+/** Archive catalogs are untrusted: decode them, reapply the limits, and resolve manifest text. */
+const catalogIssues = (manifest: PluginManifest, catalogs: PluginArchiveCatalogs) => {
+	const decoded = decodePluginCatalogs(catalogs);
+	if (Result.isFailure(decoded)) {
+		return decoded.failure.issues;
+	}
+	return manifestTextIssues(manifest, decoded.success[SOURCE_LOCALE] ?? {}).map(
+		formatCatalogDiagnostic,
 	);
 };
 
@@ -131,6 +154,10 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	source: PluginSource,
 ) {
 	const manifest = yield* decodePluginManifest(source.manifest);
+	const messageIssues = catalogIssues(manifest, source.catalogs);
+	if (messageIssues.length > 0) {
+		return yield* new PluginValidationError({ issues: messageIssues });
+	}
 	yield* validateIntegrationProviderSettingsSchemas(manifest);
 	yield* validateImportSourceInputSchemas(manifest);
 	if (source.compiledScripts === undefined) {
@@ -242,10 +269,16 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 			});
 		}
 	}
-	const contentHash = pluginContentHash(manifest, source.compiledScripts, compiledClient);
+	const contentHash = pluginContentHash(
+		manifest,
+		source.catalogs,
+		source.compiledScripts,
+		compiledClient,
+	);
 	return {
 		scripts,
 		manifest,
+		catalogs: source.catalogs,
 		compiledScripts: source.compiledScripts,
 		...(compiledClient ? { compiledClient } : {}),
 		contentHash,
@@ -257,6 +290,7 @@ export const normalizePluginPackage = (
 ) =>
 	({
 		manifest: input.manifest,
+		catalogs: input.catalogs,
 		contentHash: input.contentHash,
 		...(input.compiledClient ? { compiledClient: input.compiledClient } : {}),
 		scripts: input.scripts.map(({ declared, compiled }): NormalizedPluginScript => ({

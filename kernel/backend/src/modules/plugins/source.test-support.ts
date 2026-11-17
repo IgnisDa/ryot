@@ -1,14 +1,18 @@
 import type {
+	AuthoredPluginManifest,
 	PluginClientEntry,
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { manifestCatalogs } from "@ryot-app/contract/testing";
 import { derivePluginSandboxScripts } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
 import {
 	clientArtifactMetadata,
 	clientDeclarationHash,
 	type PluginClientArtifact,
 } from "@ryot-app/plugin-client-contract";
+import { CATALOG_MESSAGES_MODULE } from "@ryot-app/plugin-kit/messages-module";
+import { compilePluginCatalog } from "@ryot-app/plugin-kit/testing";
 import { Effect, FileSystem, Schema, Stream } from "effect";
 
 import type { PluginSource } from "./packages/types";
@@ -18,8 +22,11 @@ export class PluginSourceError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("PluginSourceError", { message: Schema.String }) {}
 
+export const withCatalogs = <Source extends { readonly manifest: AuthoredPluginManifest }>(
+	source: Source,
+) => ({ ...source, catalogs: manifestCatalogs(source.manifest) });
+
 export const fixtureClientArtifact = (
-	pluginName: string,
 	packageId: PluginPackageId,
 	client: PluginClientEntry,
 ): PluginClientArtifact => {
@@ -36,7 +43,7 @@ export const fixtureClientArtifact = (
 		},
 	];
 	return {
-		...clientArtifactMetadata(pluginName, packageId, files, {
+		...clientArtifactMetadata(packageId, files, {
 			imports: [],
 			clientDeclarationHash: clientDeclarationHash(client),
 		}),
@@ -49,7 +56,7 @@ const pluginSourcePaths = (packageRoot: string) =>
 		new Bun.Glob("**/*.ts").scan({ onlyFiles: true, cwd: packageRoot, followSymlinks: false }),
 		(error) => new PluginSourceError({ message: String(error) }),
 	).pipe(
-		Stream.filter((path) => !path.endsWith(".test.ts")),
+		Stream.filter((path) => !path.endsWith(".test.ts") && path !== CATALOG_MESSAGES_MODULE),
 		Stream.runCollect,
 	);
 
@@ -69,6 +76,7 @@ export const loadPluginSandboxScripts = Effect.fn("loadPluginSandboxScripts")(fu
 			),
 	);
 	const files = Object.fromEntries(entries);
+	const catalog = yield* compilePluginCatalog(packageRoot);
 	return yield* derivePluginSandboxScripts(
 		Object.fromEntries(
 			Object.entries(files)
@@ -78,6 +86,7 @@ export const loadPluginSandboxScripts = Effect.fn("loadPluginSandboxScripts")(fu
 					new TextDecoder("utf-8", { fatal: true }).decode(contents),
 				]),
 		),
+		catalog,
 	);
 });
 
@@ -98,14 +107,9 @@ export const loadPluginSource = (packageRoot: string, manifest: PluginManifest) 
 		return {
 			compiledScripts,
 			manifest: { ...manifest, scripts },
+			catalogs: manifestCatalogs(manifest),
 			...(manifest.client
-				? {
-						compiledClient: fixtureClientArtifact(
-							manifest.metadata.name,
-							manifest.metadata.packageId,
-							manifest.client,
-						),
-					}
+				? { compiledClient: fixtureClientArtifact(manifest.metadata.packageId, manifest.client) }
 				: {}),
 		} satisfies PluginSource;
 	});

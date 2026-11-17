@@ -1,4 +1,4 @@
-import { badRequest } from "@ryot-app/contract/errors";
+import { unknownToMessage } from "@ryot-app/contract/errors";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import {
@@ -10,6 +10,7 @@ import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
+import { archiveError } from "#modules/backups/archive/error";
 import type { ArchivePrivatePlugin } from "#modules/backups/archive/schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
 
@@ -27,7 +28,7 @@ import {
 type PreparedBackupPrivatePlugin = ArchivePrivatePlugin & { readonly normalized: NormalizedPlugin };
 
 const asInvalidBackup = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	effect.pipe(Effect.mapError((error) => badRequest(String(error))));
+	effect.pipe(Effect.mapError((error) => archiveError("invalid_entry", unknownToMessage(error))));
 
 export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 	"@ryot-app/kernel-backend/modules/plugins/packages/backup-restore/PluginBackupRestore",
@@ -48,7 +49,10 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 						packageIds.has(item.packageId) ||
 						item.key !== pluginPackageKey({ scope: "user", packageId: item.packageId })
 					) {
-						return yield* badRequest("Backup contains duplicate private plugin identity");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup contains duplicate private plugin identity",
+						);
 					}
 					keys.add(item.key);
 					packageIds.add(item.packageId);
@@ -58,17 +62,24 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 						manifest.metadata.version !== item.version ||
 						stableStringify(manifest) !== stableStringify(item.manifest)
 					) {
-						return yield* badRequest("Backup private plugin metadata is inconsistent");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup private plugin metadata is inconsistent",
+						);
 					}
 					const normalizedSource = yield* asInvalidBackup(
 						normalizePluginSource({
 							manifest,
+							catalogs: item.catalogs,
 							compiledScripts: item.compiledScripts,
 							...(item.compiledClient ? { compiledClient: item.compiledClient } : {}),
 						}),
 					);
 					if (normalizedSource.contentHash !== item.contentHash) {
-						return yield* badRequest("Backup private plugin source hash is invalid");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup private plugin source hash is invalid",
+						);
 					}
 					yield* asInvalidBackup(
 						validatePluginManifestPolicy(manifest, { scope: "user", systemPackageIds: new Set() }),
@@ -109,12 +120,15 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 				for (const item of prepared) {
 					const id = pluginIdByKey.get(item.key);
 					if (!id) {
-						return yield* badRequest("Backup private plugin mapping is incomplete");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup private plugin mapping is incomplete",
+						);
 					}
 					candidates.push({ id, manifest: item.normalized.manifest });
 				}
 				return yield* Effect.try({
-					catch: (error) => badRequest(String(error)),
+					catch: (error) => archiveError("invalid_entry", unknownToMessage(error)),
 					try: (): DefinitionSnapshot =>
 						buildDefinitionSnapshot(mergeManifestDefinitions(global, candidates)),
 				});

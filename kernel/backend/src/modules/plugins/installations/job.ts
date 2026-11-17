@@ -1,9 +1,9 @@
 import type { InternalError } from "@ryot-app/contract/errors";
-import { internalError } from "@ryot-app/contract/errors";
 import { PluginUserBootstrapEntity } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
+import { Context, Effect, Layer, Result, Schema } from "effect";
 
+import { asUnexpected, unexpected } from "#lib/domain/logged-rejection";
 import { FoldRebuildJob } from "#modules/derived-values/marks";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
@@ -100,15 +100,6 @@ export class PluginInstallationJobOperations extends Context.Service<
 	PluginInstallationJobOperationsValue
 >()("@ryot-app/kernel-backend/modules/plugins/installations/job/PluginInstallationJobOperations") {}
 
-const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
-	effect.pipe(
-		Effect.catchCauseIf(
-			(cause) => !Cause.hasInterruptsOnly(cause),
-			(cause) => Effect.logError(message, cause).pipe(Effect.andThen(internalError(message))),
-		),
-		Effect.mapError(() => internalError(message)),
-	);
-
 export const PluginInstallationJobOperationsLive = Layer.effect(
 	PluginInstallationJobOperations,
 	Effect.gen(function* () {
@@ -124,7 +115,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 		const jobs = yield* JobQueue;
 
 		const begin = (installationId: string, activationId: string) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const located = yield* installations.findById(installationId);
 					if (!located) {
@@ -150,7 +141,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 											continue;
 										}
 										if (!entry.scriptId) {
-											return yield* internalError(
+											return yield* Effect.die(
 												`Plugin installation bootstrap script is unavailable: ${entry.slug}`,
 											);
 										}
@@ -162,7 +153,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 											initialization,
 										);
 										if (!pin?.pluginRevision) {
-											return yield* internalError(
+											return yield* Effect.die(
 												`Plugin installation bootstrap owner is unavailable: ${entry.slug}`,
 											);
 										}
@@ -195,7 +186,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 			);
 
 		const fail = (installationId: string, activationId: string, healthReason: string) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const installation = yield* installations.findById(installationId);
 					if (installation) {
@@ -220,7 +211,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 			);
 
 		const complete = (installationId: string, activationId: string, userId: UserId) =>
-			asInternal(
+			asUnexpected(
 				database
 					.transaction(
 						Effect.gen(function* () {
@@ -254,7 +245,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 		const runBootstrapEntry = (
 			input: Parameters<PluginInstallationJobOperationsValue["runBootstrapEntry"]>[0],
 		) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const result = yield* sandbox.executeScript({
 						input: {},
@@ -272,7 +263,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 							input.entrySlug,
 						),
 					});
-					return result.error ? yield* internalError(result.error.message) : yield* Effect.void;
+					return result.error ? yield* Effect.die(result.error.message) : yield* Effect.void;
 				}),
 				`Plugin installation bootstrap entry failed: ${input.entrySlug}`,
 			);
@@ -280,11 +271,11 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 		const ensureBootstrapEntities = (
 			input: Parameters<PluginInstallationJobOperationsValue["ensureBootstrapEntities"]>[0],
 		) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const installation = yield* installations.findById(input.installationId);
 					if (!installation) {
-						return yield* internalError("Plugin installation is unavailable");
+						return yield* Effect.die("Plugin installation is unavailable");
 					}
 					return yield* bootstrapEntities.ensure({
 						userId: input.userId,
@@ -312,7 +303,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 			ensureBootstrapEntities,
 			dispatchBootstrapEntities: bootstrapEntities.dispatch,
 			releaseBootstrapEntry: (installationId, activationId, entrySlug) =>
-				asInternal(
+				asUnexpected(
 					sandbox.releaseWorkflowRegistration(
 						pluginInstallationBootstrapExecutionId(installationId, activationId, entrySlug),
 					),
@@ -428,12 +419,7 @@ export const PluginInstallationLifecycleDispatcherLive = Layer.effect(
 					.enqueue(PluginInstallationJob, payload, {
 						key: `${payload.installationId}:${payload.activationId}`,
 					})
-					.pipe(
-						Effect.asVoid,
-						Effect.mapError(() =>
-							internalError("Plugin installation lifecycle could not be dispatched"),
-						),
-					),
+					.pipe(Effect.asVoid, Effect.mapError(unexpected)),
 		};
 	}),
 );

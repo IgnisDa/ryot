@@ -38,7 +38,7 @@ const writeArchive = Effect.fn("writeArchive")(function* (
 	const base = fixtureManifest(PluginPackageId.make(`${publisher}/${name}`));
 	const manifest = {
 		...base,
-		metadata: { ...base.metadata, name },
+		metadata: { ...base.metadata, name: { key: `test.${name}` } },
 		client: {
 			homeView: null,
 			apiVersion: 1 as const,

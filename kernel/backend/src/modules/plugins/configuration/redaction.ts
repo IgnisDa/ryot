@@ -3,7 +3,7 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
 const collectSecretPaths = (
-	definition: AppPropertyDefinition,
+	definition: AppPropertyDefinition<unknown>,
 	value: unknown,
 	path: ReadonlyArray<string>,
 	paths: Array<ReadonlyArray<string>>,
@@ -24,7 +24,7 @@ const collectSecretPaths = (
 };
 
 export const concretePluginConfigSecretPaths = (
-	schema: AppSchema,
+	schema: AppSchema<unknown>,
 	values: Readonly<Record<string, unknown>>,
 ) => {
 	const paths: Array<ReadonlyArray<string>> = [];
@@ -35,7 +35,7 @@ export const concretePluginConfigSecretPaths = (
 };
 
 const sanitizeValue = (
-	definition: AppPropertyDefinition,
+	definition: AppPropertyDefinition<unknown>,
 	value: unknown,
 	path: string,
 	secrets: Set<string>,
@@ -69,7 +69,7 @@ const sanitizeValue = (
 };
 
 const sanitize = (
-	fields: AppSchema["fields"],
+	fields: AppSchema<unknown>["fields"],
 	values: Readonly<Record<string, unknown>>,
 	prefix: string,
 	secrets: Set<string>,
@@ -94,7 +94,9 @@ const sanitize = (
 	return result;
 };
 
-const sanitizeDefinition = (definition: AppPropertyDefinition): AppPropertyDefinition => {
+const sanitizeDefinition = <Text>(
+	definition: AppPropertyDefinition<Text>,
+): AppPropertyDefinition<Text> => {
 	if (definition.type === "object") {
 		const { defaultValue, properties: _properties, ...rest } = definition;
 		const properties = Object.fromEntries(
@@ -127,10 +129,10 @@ const sanitizeDefinition = (definition: AppPropertyDefinition): AppPropertyDefin
 	return definition;
 };
 
-export const redactPluginConfig = (
-	schema: AppSchema,
+export const redactPluginConfig = <Text>(
+	schema: AppSchema<Text>,
 	values: Readonly<Record<string, unknown>>,
-	retainedSchema?: AppSchema,
+	retainedSchema?: AppSchema<unknown>,
 ) => {
 	const secrets = new Set<string>();
 	const current = sanitize(schema.fields, values, "", secrets);

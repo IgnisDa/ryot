@@ -280,7 +280,9 @@ const makeLayer = (input: {
 								name: "User",
 								email: "user@example.com",
 								preferences: {
-									language: null,
+									weekStart: null,
+									interfaceLocale: null,
+									contentLanguage: null,
 									reportingTimeZone: UTC,
 									ratingScale: "hundred",
 									disableIntegrations: false,
@@ -303,7 +305,9 @@ const makeLayer = (input: {
 										email: "user@example.com",
 										accountUserId: input.currentUserId,
 										preferences: {
-											language: null,
+											weekStart: null,
+											interfaceLocale: null,
+											contentLanguage: null,
 											reportingTimeZone: UTC,
 											ratingScale: "hundred",
 											disableIntegrations: false,

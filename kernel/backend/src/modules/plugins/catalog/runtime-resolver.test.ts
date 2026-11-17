@@ -14,7 +14,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { testPluginPackageId } from "@ryot-app/contract/testing";
+import { manifestCatalogs, testPluginPackageId } from "@ryot-app/contract/testing";
 import { definitionLookup } from "@ryot-app/definitions/snapshot";
 import {
 	clientArtifactMetadata,
@@ -110,7 +110,7 @@ const providerScript = (
 
 const multiProvider = (slug: string) => ({
 	slug,
-	name: slug,
+	name: { key: `test.${slug}` },
 	information: { source: "fixture" },
 	rootEntitySchemaSlug: "multi-entity",
 });
@@ -150,6 +150,7 @@ const multiProviderPackage = (
 	return {
 		manifest,
 		contentHash: `multi-${version}`,
+		catalogs: manifestCatalogs(manifest),
 		scripts: manifest.scripts.map(({ entry, ...metadata }) => ({
 			entry,
 			metadata,
@@ -209,12 +210,10 @@ const withClient = (
 		...value,
 		manifest: { ...value.manifest, client, ...(dependencies ? { dependencies } : {}) },
 		compiledClient: {
-			...clientArtifactMetadata(
-				value.manifest.metadata.name,
-				value.manifest.metadata.packageId,
-				files,
-				{ imports, clientDeclarationHash: clientDeclarationHash(client) },
-			),
+			...clientArtifactMetadata(value.manifest.metadata.packageId, files, {
+				imports,
+				clientDeclarationHash: clientDeclarationHash(client),
+			}),
 			files,
 		},
 	};

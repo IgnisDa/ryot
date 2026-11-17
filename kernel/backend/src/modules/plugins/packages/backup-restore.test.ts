@@ -2,7 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { fixtureManifest } from "@ryot-app/contract/testing";
+import { fixtureManifest, manifestCatalogs } from "@ryot-app/contract/testing";
 import type { DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import {
 	CLIENT_API_VERSION,
@@ -22,7 +22,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { databaseLayer } from "#testing/effect";
 
-import { fixtureClientArtifact } from "../source.test-support";
+import { fixtureClientArtifact, withCatalogs } from "../source.test-support";
 import { PluginBackupRestore } from "./backup-restore";
 import { pluginContentHash } from "./pipeline";
 import { PluginRepository } from "./repository";
@@ -104,11 +104,7 @@ layer(makeLayer())((test) => {
 				},
 			};
 			const files = [
-				...fixtureClientArtifact(
-					manifest.metadata.name,
-					manifest.metadata.packageId,
-					manifest.client,
-				).files,
+				...fixtureClientArtifact(manifest.metadata.packageId, manifest.client).files,
 				{
 					name: "asset.png",
 					contentType: "image/png",
@@ -116,24 +112,31 @@ layer(makeLayer())((test) => {
 				},
 			];
 			const compiledClient = {
-				...clientArtifactMetadata(manifest.metadata.name, manifest.metadata.packageId, files, {
+				...clientArtifactMetadata(manifest.metadata.packageId, files, {
 					imports: [],
 					clientDeclarationHash: clientDeclarationHash(manifest.client),
 				}),
 				files,
 			};
-			const contentHash = pluginContentHash(manifest, [], compiledClient);
+			const contentHash = pluginContentHash(
+				manifest,
+				manifestCatalogs(manifest),
+				[],
+				compiledClient,
+			);
 			return Effect.gen(function* () {
 				const service = yield* PluginBackupRestore;
-				const archived = yield* Schema.encodeEffect(ArchivePrivatePlugin)({
-					manifest,
-					contentHash,
-					compiledClient,
-					compiledScripts: [],
-					version: manifest.metadata.version,
-					packageId: manifest.metadata.packageId,
-					key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
-				});
+				const archived = yield* Schema.encodeEffect(ArchivePrivatePlugin)(
+					withCatalogs({
+						manifest,
+						contentHash,
+						compiledClient,
+						compiledScripts: [],
+						version: manifest.metadata.version,
+						packageId: manifest.metadata.packageId,
+						key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
+					}),
+				);
 				expect(archived).not.toHaveProperty("files");
 				expect(archived.compiledClient?.files.at(-1)?.contents).toBe("AP+AQQ==");
 				const decoded = yield* Schema.decodeEffect(ArchivePrivatePlugin)(archived);
@@ -161,7 +164,7 @@ layer(makeLayer())((test) => {
 						},
 					])
 					.pipe(Effect.flip);
-				expect(error).toMatchObject({ _tag: "BadRequest" });
+				expect(error).toMatchObject({ reason: "invalid_entry", _tag: "BackupArchiveError" });
 			});
 		},
 		testTimeout,
@@ -177,14 +180,14 @@ layer(makeLayer())((test) => {
 				const service = yield* PluginBackupRestore;
 				const error = yield* service
 					.prepare([
-						{
+						withCatalogs({
 							manifest,
 							compiledScripts: [],
 							contentHash: "a".repeat(64),
 							version: manifest.metadata.version,
 							packageId: manifest.metadata.packageId,
 							key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
-						},
+						}),
 					])
 					.pipe(Effect.flip);
 				expect(error.message).toContain("source hash");
@@ -202,10 +205,10 @@ layer(
 				collision: {
 					icon: "box",
 					eventSchemas: {},
-					name: "Collision",
 					slug: "collision",
 					pluginId: "system-id",
 					mergeIdentityProperties: [],
+					name: { key: "test.collision" },
 					propertiesSchema: { fields: {} },
 				},
 			},
@@ -221,24 +224,24 @@ layer(
 					{
 						icon: "box",
 						eventSchemas: [],
-						name: "Collision",
 						slug: "collision",
+						name: { key: "test.collision" },
 						propertiesSchema: { fields: {} },
 					},
 				],
 			};
-			const contentHash = pluginContentHash(manifest);
+			const contentHash = pluginContentHash(manifest, manifestCatalogs(manifest));
 			return Effect.gen(function* () {
 				const service = yield* PluginBackupRestore;
 				const prepared = yield* service.prepare([
-					{
+					withCatalogs({
 						manifest,
 						contentHash,
 						compiledScripts: [],
 						version: manifest.metadata.version,
 						packageId: manifest.metadata.packageId,
 						key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
-					},
+					}),
 				]);
 				expect(prepared).toHaveLength(1);
 				expect(yield* (yield* FakeBackupRepository).persists).toBe(0);
@@ -271,18 +274,18 @@ layer(makeLayer())((test) => {
 				],
 			};
 			const compiledScripts = [{ entry, format: 1, javascript: "export {};" }];
-			const contentHash = pluginContentHash(manifest, compiledScripts);
+			const contentHash = pluginContentHash(manifest, manifestCatalogs(manifest), compiledScripts);
 			return Effect.gen(function* () {
 				const service = yield* PluginBackupRestore;
 				const prepared = yield* service.prepare([
-					{
+					withCatalogs({
 						manifest,
 						contentHash,
 						compiledScripts,
 						version: manifest.metadata.version,
 						packageId: manifest.metadata.packageId,
 						key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
-					},
+					}),
 				]);
 				expect(prepared[0]?.normalized.scripts[0]?.compiledCode).toBe("export {};");
 				expect(prepared[0]?.normalized.scripts[0]).not.toHaveProperty("source");
@@ -300,7 +303,7 @@ layer(makeLayer())((test) => {
 				const missing = yield* service
 					.prepare([{ ...archived, compiledScripts: [] }])
 					.pipe(Effect.flip);
-				expect(missing).toMatchObject({ _tag: "BadRequest" });
+				expect(missing).toMatchObject({ reason: "invalid_entry", _tag: "BackupArchiveError" });
 				expect(yield* (yield* FakeBackupRepository).persists).toBe(0);
 			});
 		},
@@ -313,18 +316,18 @@ layer(makeLayer())((test) => {
 		"rejects duplicate scoped package identities before persistence",
 		() => {
 			const manifest = privateManifest();
-			const contentHash = pluginContentHash(manifest);
+			const contentHash = pluginContentHash(manifest, manifestCatalogs(manifest));
 			return Effect.gen(function* () {
 				const service = yield* PluginBackupRestore;
 				const prepared = yield* service.prepare([
-					{
+					withCatalogs({
 						manifest,
 						contentHash,
 						compiledScripts: [],
 						version: manifest.metadata.version,
 						packageId: manifest.metadata.packageId,
 						key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
-					},
+					}),
 				]);
 				const error = yield* service.prepare([...prepared, ...prepared]).pipe(Effect.flip);
 				expect(error.message).toContain("duplicate private plugin identity");
@@ -338,7 +341,11 @@ layer(makeLayer())((test) => {
 const packageAt = (version: string) => {
 	const base = privateManifest();
 	const manifest = { ...base, metadata: { ...base.metadata, version } };
-	return { manifest, scripts: [], contentHash: pluginContentHash(manifest) };
+	return {
+		manifest,
+		scripts: [],
+		contentHash: pluginContentHash(manifest, manifestCatalogs(manifest)),
+	};
 };
 
 describe("private package backup restore in PostgreSQL", () => {
@@ -352,10 +359,10 @@ describe("private package backup restore in PostgreSQL", () => {
 					const sourceV1 = packageAt("1.0.0");
 					const sourceV2 = packageAt("2.0.0");
 					const sourcePluginId = yield* session.transaction(
-						plugins.persist(sourceV1, { scope: "user", ownerId: "owner" }),
+						plugins.persist(withCatalogs(sourceV1), { scope: "user", ownerId: "owner" }),
 					);
 					yield* session.transaction(
-						plugins.persist(sourceV2, { scope: "user", ownerId: "owner" }),
+						plugins.persist(withCatalogs(sourceV2), { scope: "user", ownerId: "owner" }),
 					);
 					const [current] = yield* plugins.listPrivateForUser("owner");
 					expect(current?.contentHash).toBe(sourceV2.contentHash);
@@ -365,14 +372,14 @@ describe("private package backup restore in PostgreSQL", () => {
 						packageId: sourceV2.manifest.metadata.packageId,
 					});
 					const prepared = yield* service.prepare([
-						{
+						withCatalogs({
 							key,
 							compiledScripts: [],
 							manifest: sourceV2.manifest,
 							contentHash: sourceV2.contentHash,
 							version: sourceV2.manifest.metadata.version,
 							packageId: sourceV2.manifest.metadata.packageId,
-						},
+						}),
 					]);
 					const destinationPluginId = (yield* session.transaction(
 						service.persist(UserId.make("recipient"), prepared),

@@ -22,26 +22,26 @@ const packageWithProviders = (slug: string, version = "v1", packageId = testPlug
 	const integrationProviders: PluginManifest["integrationProviders"] = [
 		{
 			lot: "push",
-			name: "Push",
-			description: "Push",
 			slug: `${slug}-push`,
+			name: { key: "test.push" },
 			settingsSchema: { fields: {} },
+			description: { key: "test.push" },
 		},
 		{
 			lot: "sink",
-			name: "Sink",
-			description: "Sink",
 			slug: `${slug}-sink`,
+			name: { key: "test.sink" },
 			scriptSlug: `${slug}.task`,
 			settingsSchema: { fields: {} },
+			description: { key: "test.sink" },
 		},
 		{
 			lot: "yank",
-			name: "Yank",
-			description: "Yank",
 			slug: `${slug}-yank`,
+			name: { key: "test.yank" },
 			scriptSlug: `${slug}.task`,
 			settingsSchema: { fields: {} },
+			description: { key: "test.yank" },
 		},
 	];
 	return { ...plugin, manifest: { ...plugin.manifest, integrationProviders } };

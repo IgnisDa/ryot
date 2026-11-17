@@ -27,6 +27,7 @@ import {
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { definitionText } from "#modules/definitions/text";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import {
 	lockPluginIngestionForUser,
@@ -792,6 +793,21 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 				return row !== undefined;
 			});
 
+			const listRevisionCatalogs = Effect.fn("PluginRepository.listRevisionCatalogs")(function* (
+				pluginRevisionId: string,
+			) {
+				const rows = yield* database.run((db) =>
+					db
+						.select({
+							locale: schema.pluginRevisionCatalog.locale,
+							catalog: schema.pluginRevisionCatalog.catalog,
+						})
+						.from(schema.pluginRevisionCatalog)
+						.where(eq(schema.pluginRevisionCatalog.pluginRevisionId, pluginRevisionId)),
+				);
+				return Object.fromEntries(rows.map(({ locale, catalog }) => [locale, catalog]));
+			});
+
 			const listCompiledPackageArtifacts = Effect.fn(
 				"PluginRepository.listCompiledPackageArtifacts",
 			)(function* (pluginId: string) {
@@ -851,9 +867,11 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 					});
 				});
 
+				const catalogs = yield* listRevisionCatalogs(revision.id);
 				const normalizeRetainedArtifacts = (compiledClient?: PluginClientArtifact) =>
 					normalizePluginSource({
 						manifest,
+						catalogs,
 						compiledScripts,
 						...(compiledClient ? { compiledClient } : {}),
 					}).pipe(
@@ -891,7 +909,11 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 						message: `Plugin ${pluginId} retained package hash does not match its artifacts`,
 					});
 				}
-				return { compiledScripts, ...(archivedClient ? { compiledClient: archivedClient } : {}) };
+				return {
+					catalogs,
+					compiledScripts,
+					...(archivedClient ? { compiledClient: archivedClient } : {}),
+				};
 			});
 			const findRevisionClientArtifact = Effect.fn("PluginRepository.findRevisionClientArtifact")(
 				function* (revisionId: string) {
@@ -1123,7 +1145,19 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 				}
 				const pluginRevisionId = revision.id;
 				if (insertedRevision) {
+					yield* database.run((db) =>
+						db
+							.insert(schema.pluginRevisionCatalog)
+							.values(
+								Object.entries(plugin.catalogs).map(([locale, catalog]) => ({
+									locale,
+									catalog,
+									pluginRevisionId,
+								})),
+							),
+					);
 					yield* definitions.writeRevisionDefinitions({
+						pluginId,
 						pluginRevisionId,
 						definitions: yield* Effect.try({
 							catch: (error) => new DbError({ message: String(error) }),
@@ -1140,8 +1174,8 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 										plugin.manifest.providers.map((provider) => ({
 											pluginId,
 											slug: provider.slug,
-											name: provider.name,
 											information: provider.information,
+											name: definitionText(pluginId, provider.name),
 											rootEntitySchemaSlug: provider.rootEntitySchemaSlug,
 										})),
 									)

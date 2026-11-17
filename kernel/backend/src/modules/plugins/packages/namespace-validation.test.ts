@@ -69,10 +69,10 @@ it.effect(
 				importSources: [
 					{
 						slug: "data-json",
-						name: "Local JSON",
 						workflowSlug: "import",
-						description: "Local JSON",
 						inputSchema: { fields: {} },
+						name: { key: "test.local-json" },
+						description: { key: "test.local-json" },
 					},
 				],
 				scripts: [

@@ -9,16 +9,16 @@ import { validateImportSourceInputSchemas } from "./validation";
 
 const importSource = {
 	slug: "fixture",
-	name: "Fixture",
-	description: "Fixture import",
+	name: { key: "test.fixture" },
 	workflowSlug: "fixture-workflow",
+	description: { key: "test.fixture-import" },
 	inputSchema: {
 		unknownKeys: "strict" as const,
 		fields: {
 			uploadToken: {
-				label: "Export",
 				description: "Export",
 				type: "string" as const,
+				label: { key: "test.export" },
 				validation: { required: true as const },
 				format: { kind: "upload" as const, allowedFileExtensions: ["zip"] },
 			},
@@ -90,7 +90,11 @@ it.effect(
 								inputSchema: {
 									unknownKeys: "strict",
 									fields: {
-										[field]: { type: "string", label: "Reserved", description: "Reserved" },
+										[field]: {
+											type: "string",
+											description: "Reserved",
+											label: { key: "test.reserved" },
+										},
 									},
 								},
 							},
@@ -119,7 +123,9 @@ it.effect(
 								...importSource,
 								inputSchema: {
 									unknownKeys: "strict",
-									fields: { [field]: { type: "string", label: "Token", description: "Token" } },
+									fields: {
+										[field]: { type: "string", description: "Token", label: { key: "test.token" } },
+									},
 								},
 							},
 						],

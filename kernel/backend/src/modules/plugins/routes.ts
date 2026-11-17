@@ -7,6 +7,7 @@ import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { PluginCatalogHub } from "./catalog/events";
+import { PluginMessageCatalogs } from "./catalog/messages";
 import { PluginInstallationService } from "./installations/service";
 import { OperationsService } from "./operations/service";
 
@@ -24,6 +25,13 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 						"content-type": "text/event-stream",
 					},
 				});
+			}),
+		)
+		.handle("messages", ({ params }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const catalogs = yield* PluginMessageCatalogs;
+				return yield* catalogs.forUser(user.id, params.locale).pipe(dieOnDbError);
 			}),
 		)
 		.handle("inspect", ({ payload }) =>

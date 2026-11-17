@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assert } from "@ryot-app/testing/assert";
@@ -104,7 +105,7 @@ it.effect(
 	testTimeout,
 );
 
-const assetConfigSchema: AppSchema = {
+const assetConfigSchema: AuthoredAppSchema = {
 	unknownKeys: "strict",
 	fields: { image: managedAssetProperty },
 };

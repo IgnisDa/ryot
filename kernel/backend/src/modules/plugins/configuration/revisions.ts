@@ -59,8 +59,8 @@ const decodePointer = (pointer: string) => {
 	return encoded.map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"));
 };
 
-const definitionAtPointer = (schema: AppSchema, path: ReadonlyArray<string>) => {
-	let definition: undefined | AppPropertyDefinition = schema.fields[path[0] ?? ""];
+const definitionAtPointer = (schema: AppSchema<unknown>, path: ReadonlyArray<string>) => {
+	let definition: undefined | AppPropertyDefinition<unknown> = schema.fields[path[0] ?? ""];
 	for (const segment of path.slice(1)) {
 		if (definition?.type === "object") {
 			definition = definition.properties[segment];
@@ -142,7 +142,7 @@ const addMissingValue = (properties: Record<string, unknown>, path: ReadonlyArra
 };
 
 const addMissingSecretArrayItems = (
-	definition: AppPropertyDefinition,
+	definition: AppPropertyDefinition<unknown>,
 	value: unknown,
 	path: ReadonlyArray<string>,
 	configured: Set<string>,
@@ -182,7 +182,7 @@ const addMissingSecretArrayItems = (
 };
 
 const stripConfiguredSecrets = (
-	definition: AppPropertyDefinition,
+	definition: AppPropertyDefinition<unknown>,
 	value: unknown,
 	path: string,
 	configured: ReadonlySet<string>,
@@ -210,7 +210,7 @@ const stripConfiguredSecrets = (
 
 export const validateRestoredProperties = Effect.fn(function* (
 	properties: Readonly<Record<string, unknown>>,
-	propertiesSchema: AppSchema,
+	propertiesSchema: AppSchema<unknown>,
 	configuredSecretPaths: ReadonlyArray<string>,
 	allowMissingRequiredSecrets: boolean,
 ) {

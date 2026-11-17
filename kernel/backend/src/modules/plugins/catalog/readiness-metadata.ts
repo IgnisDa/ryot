@@ -4,7 +4,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 
 export const availablePluginConfigKeys = (
-	configSchema: AppSchema,
+	configSchema: AppSchema<unknown>,
 	oauthProviders: IngestionReadinessMetadata["oauthProviders"],
 	properties: Readonly<Record<string, unknown>>,
 ) => {

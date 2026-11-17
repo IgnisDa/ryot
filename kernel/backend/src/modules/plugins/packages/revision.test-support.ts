@@ -2,7 +2,7 @@ import { BunCrypto } from "@effect/platform-bun";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
-import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
+import { fixtureManifest, manifestCatalogs, testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { eq, sql } from "drizzle-orm";
@@ -108,24 +108,29 @@ export const revisionPackage = (
 		metadata: { ...fixture.metadata, version },
 		entitySchemas: [{ ...entity, slug: entitySlug }],
 		workflows: [{ slug: `${slug}-flow`, scriptSlug: `${slug}.workflow` }],
-		configSchema: {
-			unknownKeys: "strict",
-			fields: {
-				token: { secret: true, type: "string", label: "Token", description: "Private token" },
-			},
-		},
 		providers: [
 			{
-				name: "Provider",
 				slug: `${slug}-provider`,
+				name: { key: "test.provider" },
 				rootEntitySchemaSlug: entitySlug,
 				information: { source: "fixture" },
 			},
 		],
+		configSchema: {
+			unknownKeys: "strict",
+			fields: {
+				token: {
+					secret: true,
+					type: "string",
+					label: { key: "test.token" },
+					description: "Private token",
+				},
+			},
+		},
 		relationshipSchemas: [
 			{
-				name: "Link",
 				slug: `${slug}-link`,
+				name: { key: "test.link" },
 				propertiesSchema: { fields: {} },
 				sourceEntitySchemaSlug: entitySlug,
 				targetEntitySchemaSlug: entitySlug,
@@ -133,9 +138,9 @@ export const revisionPackage = (
 		],
 		signalSchemas: [
 			{
-				name: "Signal",
 				slug: `${slug}.signal`,
 				catalogState: "active",
+				name: { key: "test.signal" },
 				propertiesSchema: { fields: {} },
 				audiencePolicy: { kind: "actor" },
 				notificationHookSlug: `${slug}.notify`,
@@ -205,6 +210,7 @@ export const revisionPackage = (
 	return {
 		manifest,
 		contentHash: `${slug}-${version}`,
+		catalogs: manifestCatalogs(manifest),
 		scripts: manifest.scripts.map(({ entry, ...metadata }) => ({
 			entry,
 			metadata,
@@ -254,8 +260,8 @@ export const installRevisionPackage = Effect.fn(function* (
 		.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 });
 
-const oauthConnectionField = (label: string) => ({
-	label,
+const oauthConnectionField = (key: string) => ({
+	label: { key },
 	type: "string" as const,
 	description: "Linked account",
 	format: { provider: "account", kind: "oauth-connection" as const },
@@ -276,38 +282,25 @@ export const oauthRevisionPackage = (
 		configSchema: {
 			unknownKeys: "strict" as const,
 			fields: {
-				clientId: { label: "Client ID", type: "string" as const, description: "Client ID" },
+				clientId: {
+					type: "string" as const,
+					description: "Client ID",
+					label: { key: "test.client-id" },
+				},
 				clientSecret: {
 					secret: true as const,
-					label: "Client secret",
 					type: "string" as const,
 					description: "Client secret",
+					label: { key: "test.client-secret" },
 				},
 			},
 		},
-		integrationProviders: [
-			{
-				name: "OAuth yank",
-				lot: "yank" as const,
-				scriptSlug: `${slug}.task`,
-				slug: integrationProviderSlug,
-				...(options.entitlement === undefined ? {} : { entitlement: options.entitlement }),
-				description: "Yank with a linked account",
-				settingsSchema: {
-					fields: {
-						account: oauthConnectionField("Account"),
-						backup: oauthConnectionField("Backup account"),
-						endpoint: { label: "Endpoint", type: "string" as const, description: "Endpoint" },
-					},
-				},
-			},
-		],
 		oauthProviders: [
 			{
 				slug: "account",
-				name: "Account",
 				scopes: ["read", "offline"],
 				pkce: options.pkce ?? "S256",
+				name: { key: "test.account" },
 				...(options.accessTokenLifetimeSeconds === undefined
 					? {}
 					: { accessTokenLifetimeSeconds: options.accessTokenLifetimeSeconds }),
@@ -318,12 +311,35 @@ export const oauthRevisionPackage = (
 				authorizeUrl: "https://accounts.example.test/authorize?prompt=consent",
 			},
 		],
+		integrationProviders: [
+			{
+				lot: "yank" as const,
+				scriptSlug: `${slug}.task`,
+				slug: integrationProviderSlug,
+				name: { key: "test.oauth-yank" },
+				...(options.entitlement === undefined ? {} : { entitlement: options.entitlement }),
+				description: { key: "test.yank-with-a-linked-account" },
+				settingsSchema: {
+					fields: {
+						account: oauthConnectionField("test.account"),
+						backup: oauthConnectionField("test.backup-account"),
+						endpoint: {
+							type: "string" as const,
+							description: "Endpoint",
+							label: { key: "test.endpoint" },
+						},
+					},
+				},
+			},
+		],
 	};
 	return {
 		...plugin,
 		manifest,
+		catalogs: manifestCatalogs(manifest),
 		contentHash: pluginContentHash(
 			manifest,
+			manifestCatalogs(manifest),
 			plugin.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
 				entry,
 				format: compiledFormat,

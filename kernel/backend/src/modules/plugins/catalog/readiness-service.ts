@@ -16,7 +16,7 @@ export class IngestionReadinessError extends Schema.TaggedError<
 >()("IngestionReadinessError", { message: Schema.String }) {}
 
 const parseSettings = Effect.fn("parseIngestionReadinessSettings")(function* (
-	settingsSchema: AppSchema,
+	settingsSchema: AppSchema<unknown>,
 	settings: undefined | Readonly<Record<string, unknown>>,
 ) {
 	if (settings === undefined) {

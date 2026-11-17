@@ -11,7 +11,7 @@ export const manifest = defineManifest({
 		fields: {
 			passRawQuery: {
 				type: "boolean",
-				label: "Pass raw query",
+				label: { key: "test.pass-raw-query" },
 				description: "Pass the query without modification",
 			},
 		},

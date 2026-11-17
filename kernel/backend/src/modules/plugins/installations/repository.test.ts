@@ -41,11 +41,16 @@ const configuredPackage = (version: string, endpointSecret: boolean) => {
 			configSchema: {
 				unknownKeys: "strict" as const,
 				fields: {
-					token: { secret: true, type: "string", label: "Token", description: "Private token" },
+					token: {
+						secret: true,
+						type: "string",
+						label: { key: "test.token" },
+						description: "Private token",
+					},
 					endpoint: {
 						type: "string",
-						label: "Endpoint",
 						description: "Server URL",
+						label: { key: "test.endpoint" },
 						...(endpointSecret ? { secret: true } : {}),
 					},
 				},
@@ -558,7 +563,9 @@ const settingsPackage = (version: string, field: string) => {
 			...plugin.manifest,
 			userSettingsSchema: {
 				unknownKeys: "strict" as const,
-				fields: { [field]: { label: field, description: field, type: "string" as const } },
+				fields: {
+					[field]: { description: field, type: "string" as const, label: { key: `test.${field}` } },
+				},
 			},
 		},
 	} satisfies typeof plugin;

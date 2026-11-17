@@ -1,4 +1,4 @@
-import { DbError } from "@ryot-app/contract/errors";
+import { badRequest, DbError, validationFailed } from "@ryot-app/contract/errors";
 import {
 	PluginNotFoundError,
 	PluginRequestError,
@@ -8,6 +8,7 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -21,23 +22,15 @@ import { PluginRepository } from "../packages/repository";
 
 export const PLUGIN_USER_SETTINGS_MAX_BYTES = 64 * 1024;
 
+class PluginUserSettingsTooLarge extends Schema.TaggedError<
+	PluginUserSettingsTooLarge,
+	{ readonly brand: unique symbol }
+>()("PluginUserSettingsTooLarge", {}) {}
+
 export class PluginUserSettingsPatchError extends Schema.TaggedError<
 	PluginUserSettingsPatchError,
 	{ readonly brand: unique symbol }
 >()("PluginUserSettingsPatchError", { message: Schema.String }) {}
-
-const invalidUserSettings = (messages: ReadonlyArray<string>) =>
-	new PluginRequestError({
-		reason: {
-			code: "validation-failed",
-			diagnostics: messages.map((message) => ({
-				message,
-				phase: "validate" as const,
-				severity: "error" as const,
-				code: "invalid-user-settings",
-			})),
-		},
-	});
 
 export class PluginUserSettingsWriter extends Context.Service<PluginUserSettingsWriter>()(
 	"@ryot-app/kernel-backend/modules/plugins/preferences/user-settings-writer/PluginUserSettingsWriter",
@@ -56,24 +49,16 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 			const persist = Effect.fn("PluginUserSettingsWriter.persist")(function* (input: {
 				readonly userId: UserId;
 				readonly installationId: string;
-				readonly settingsSchema: AppSchema;
 				readonly stored: Record<string, JsonValue>;
+				readonly settingsSchema: AppSchema<unknown>;
 				readonly validated: Readonly<Record<string, unknown>>;
 			}) {
 				const settings = yield* resolvePluginUserSettings(
 					input.settingsSchema,
 					input.validated,
-				).pipe(
-					Effect.catchTags({
-						SchemaError: Effect.die,
-						PropertyValidationError: (error) =>
-							invalidUserSettings(error.issues.map((issue) => issue.message)),
-					}),
-				);
+				).pipe(Effect.catchTag("SchemaError", Effect.die));
 				if ((jsonByteLength(input.stored) ?? Infinity) > PLUGIN_USER_SETTINGS_MAX_BYTES) {
-					return yield* invalidUserSettings([
-						`Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`,
-					]);
+					return yield* new PluginUserSettingsTooLarge();
 				}
 				yield* assetReferences
 					.lock([
@@ -125,7 +110,20 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 											row.installation.userSettings,
 											values,
 										),
-							});
+							}).pipe(
+								Effect.catchTags({
+									PropertyValidationError: (error) =>
+										validationFailed(
+											error.issues.map(({ path }) => ({ path, issue: "invalid-value" as const })),
+										),
+									PluginUserSettingsTooLarge: () =>
+										badRequest(
+											kernelMessage("error.plugins.user-settings-too-large", {
+												maxBytes: PLUGIN_USER_SETTINGS_MAX_BYTES,
+											}),
+										),
+								}),
+							);
 						}),
 					),
 			);
@@ -193,16 +191,20 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 								installationId: pinned.installationId,
 								settingsSchema: active.userSettingsSchema,
 							}).pipe(
-								Effect.catchTag("PluginRequestError", (error) =>
-									Effect.fail(
+								Effect.catchTags({
+									PluginRequestError: () =>
 										new PluginUserSettingsPatchError({
-											message:
-												error.reason.code === "validation-failed"
-													? error.reason.diagnostics.map(({ message }) => message).join("; ")
-													: "Plugin user settings were rejected",
+											message: "Plugin user settings were rejected",
 										}),
-									),
-								),
+									PropertyValidationError: (error) =>
+										new PluginUserSettingsPatchError({
+											message: error.issues.map(({ message }) => message).join("; "),
+										}),
+									PluginUserSettingsTooLarge: () =>
+										new PluginUserSettingsPatchError({
+											message: `Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`,
+										}),
+								}),
 							);
 						}),
 					),

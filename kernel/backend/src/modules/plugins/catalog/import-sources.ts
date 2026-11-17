@@ -13,6 +13,8 @@ import {
 	SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Message } from "@ryot-app/i18n/message";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -20,15 +22,23 @@ import { type CatalogImportSource, DefinitionCatalog } from "#modules/definition
 import { importSourceQuery } from "#modules/definitions/catalog-relations";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
+import type { StoredExportHelp } from "#schema/tables/definitions";
 
 import { type CatalogScript, catalogScriptFields } from "../packages/persisted-projections";
 import { ingestionReadinessMetadata } from "./readiness-metadata";
 import type { pluginConfigContextFor } from "./runtime-resolver";
 
-export type RegisteredImportSource = PluginImportSource & {
+export type RegisteredImportSource = Omit<
+	PluginImportSource,
+	"name" | "exportHelp" | "inputSchema" | "description"
+> & {
+	readonly name: Message;
 	readonly pluginId: string;
+	readonly description: Message;
+	readonly inputSchema: AppSchema;
 	readonly installationId: string;
 	readonly packageId: PluginPackageId;
+	readonly exportHelp?: StoredExportHelp;
 	readonly pluginScope: "user" | "system";
 	readonly reference: DeclarationReference;
 	readonly configSchema: PluginConfigSchema;

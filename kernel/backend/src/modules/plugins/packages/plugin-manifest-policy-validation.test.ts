@@ -91,9 +91,9 @@ it.effect(
 				oauthProviders: [
 					{
 						slug: "account",
-						name: "Account",
 						scopes: ["read"],
 						pkce: "S256" as const,
+						name: { key: "test.account" },
 						clientIdConfigKey: "clientId",
 						clientSecretConfigKey: "clientSecret",
 						tokenUrl: "https://accounts.example.test/token",
@@ -145,9 +145,9 @@ it.effect(
 				sortOrder: 0,
 				settings: {},
 				slug: "calendar",
-				name: "Calendar",
 				icon: "calendar",
 				dataSources: null,
+				name: { key: "test.calendar" },
 				renderer: { kind: "kernel", name: "calendar" },
 			};
 			const exit = yield* Effect.exit(

@@ -19,14 +19,17 @@ export const SchemaEvolutionIssue = Schema.Struct({
 
 export type SchemaEvolutionIssue = typeof SchemaEvolutionIssue.Type;
 
-type PropertySchemaDefinition = { readonly slug: string; readonly propertiesSchema: AppSchema };
+type PropertySchemaDefinition = {
+	readonly slug: string;
+	readonly propertiesSchema: AppSchema<unknown>;
+};
 
 export class SchemaEvolutionError extends Schema.TaggedError<
 	SchemaEvolutionError,
 	{ readonly brand: unique symbol }
 >()("SchemaEvolutionError", { issues: Schema.Array(SchemaEvolutionIssue) }) {}
 
-const structuralProperty = (property: AppPropertyDefinition) => {
+const structuralProperty = (property: AppPropertyDefinition<unknown>) => {
 	if (property.type === "enum" || property.type === "enum-array") {
 		const { choices: _choices, ...rest } = property;
 		return rest;
@@ -42,15 +45,15 @@ const structuralProperty = (property: AppPropertyDefinition) => {
 	return property;
 };
 
-const comparableProperty = (property: AppPropertyDefinition) => {
+const comparableProperty = (property: AppPropertyDefinition<unknown>) => {
 	const { label: _label, description: _description, ...behavior } = structuralProperty(property);
 	return behavior;
 };
 
 const compareProperty = (
 	path: string,
-	previous: AppPropertyDefinition,
-	next: AppPropertyDefinition,
+	previous: AppPropertyDefinition<unknown>,
+	next: AppPropertyDefinition<unknown>,
 	issues: Array<SchemaEvolutionIssue>,
 ) => {
 	if (previous.type !== next.type) {
@@ -89,8 +92,8 @@ const compareProperty = (
 
 const compareFields = (
 	path: string,
-	previous: AppSchema["fields"],
-	next: AppSchema["fields"],
+	previous: AppSchema<unknown>["fields"],
+	next: AppSchema<unknown>["fields"],
 	issues: Array<SchemaEvolutionIssue>,
 ) => {
 	for (const [key, previousProperty] of Object.entries(previous)) {
@@ -111,8 +114,8 @@ const compareFields = (
 
 const compareAppSchema = (
 	path: string,
-	previous: AppSchema,
-	next: AppSchema,
+	previous: AppSchema<unknown>,
+	next: AppSchema<unknown>,
 	issues: Array<SchemaEvolutionIssue>,
 ) => {
 	compareFields(path, previous.fields, next.fields, issues);

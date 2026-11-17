@@ -8,12 +8,12 @@ import { Cause, Effect, Exit, Option } from "effect";
 
 import { PluginValidationError, validatePluginManifestReferences } from "./validation";
 
-const score = { label: "Score", description: "Score", type: "number" as const };
+const score = { description: "Score", type: "number" as const, label: { key: "test.score" } };
 
 const manifestWithFold = (input: {
 	readonly eventSchemaSlugs?: readonly [string, ...string[]];
 	readonly capabilities?: ReadonlyArray<"createEvents" | "executeRyotql">;
-	readonly fields?: Record<string, { label: string; type: "number"; description: string }>;
+	readonly fields?: Record<string, { type: "number"; description: string; label: { key: string } }>;
 }) => {
 	const fixture = fixtureManifest();
 	const [script] = fixture.scripts;
@@ -39,15 +39,17 @@ const manifestWithFold = (input: {
 		],
 		relationshipSchemas: [
 			{
-				name: "Link",
 				slug: "link",
+				name: { key: "test.link" },
 				sourceEntitySchemaSlug: null,
 				targetEntitySchemaSlug: null,
-				propertiesSchema: {
-					fields: { note: { label: "Note", description: "Note", type: "number" as const } },
-				},
 				projection: {
 					propertiesSchema: { unknownKeys: "strict" as const, fields: input.fields ?? { score } },
+				},
+				propertiesSchema: {
+					fields: {
+						note: { description: "Note", type: "number" as const, label: { key: "test.note" } },
+					},
 				},
 			},
 		],

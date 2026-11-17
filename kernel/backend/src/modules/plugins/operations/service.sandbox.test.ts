@@ -9,6 +9,8 @@ import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { fixtureManifest } from "@ryot-app/contract/testing";
+import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
+import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 import { Headers } from "effect/http";
@@ -49,7 +51,11 @@ export default defineOperation({
   output: Schema.String,
   run: (input) =>
     input.mode === "reject"
-      ? Effect.fail(new OperationRejectedError({ message: "Every episode must belong to the selected parent" }))
+      ? Effect.fail(
+          new OperationRejectedError({
+            reason: { key: "episode.parent-required", params: { parent: { key: "episode.parent" } } },
+          }),
+        )
       : input.mode === "entitlement"
         ? Effect.fail(new EntitlementRequiredError({ entitlement: "pro" }))
         : Effect.fail(new Error("Unexpected failure")),
@@ -126,7 +132,9 @@ const fakeLayer = Layer.unwrap(
 							email: "user@example.com",
 							accountUserId: realSandboxUserId,
 							preferences: {
-								language: null,
+								weekStart: null,
+								interfaceLocale: null,
+								contentLanguage: null,
 								reportingTimeZone: UTC,
 								ratingScale: "hundred",
 								disableIntegrations: false,
@@ -165,13 +173,18 @@ layer(
 	{ excludeTestServices: true },
 )((test) => {
 	test.effect(
-		"maps an operation rejection thrown inside the sandbox to a message-carrying 422 error",
+		"maps an operation rejection thrown inside the sandbox to a 422 error with the plugin-stamped reason",
 		() =>
 			Effect.gen(function* () {
 				const error = yield* Effect.flip(invoke("reject"));
 				expect(error).toBeInstanceOf(PluginOperationRejected);
-				expect(error).toMatchObject({
-					message: "Every episode must belong to the selected parent",
+				assert(error instanceof PluginOperationRejected);
+				const { namespace } = error.reason;
+				expect(namespace).not.toBe(KERNEL_NAMESPACE);
+				expect(error.reason).toEqual({
+					namespace,
+					key: "episode.parent-required",
+					params: { parent: { namespace, key: "episode.parent" } },
 				});
 			}),
 		30_000,

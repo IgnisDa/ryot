@@ -26,9 +26,9 @@ const providerManifest = () => {
 		scripts: [...manifest.scripts, details],
 		providers: [
 			{
-				name: "Fixture provider",
 				slug: "fixture-provider",
 				information: { source: "fixture" },
+				name: { key: "test.fixture-provider" },
 				rootEntitySchemaSlug: "fixture-entity",
 			},
 		],

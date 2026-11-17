@@ -20,9 +20,29 @@ lifecycle locks use the same operation path.
 ## Operation failures
 
 `OperationsService` distinguishes a refusal from a crash. A script error whose boundary reason is
-`operation-rejected` becomes HTTP 422 `PluginOperationRejected { message }`; every other sandbox
-failure remains HTTP 502 `PluginInvocationError` with `runtime-failed`, because proxies may replace
-502 bodies and the client treats them as transport failures.
+`operation-rejected` becomes HTTP 422 `PluginOperationRejected`, whose reason is the script's local
+message stamped with the plugin's namespace. HTTP, page and agent-tool invocations, including
+idempotent background submissions, share this dispatch. Every other sandbox failure remains HTTP 502
+`PluginInvocationError` with `runtime-failed`, because proxies may replace 502 bodies and the client
+treats them as transport failures.
+
+## Message catalogs
+
+Ingestion validates an archive's compiled catalogs: an `en` catalog is required, and every manifest
+text key must name an `en` message whose arguments are exactly the ones the manifest binds (none for
+plain display text). Catalogs count toward the revision content hash and
+are stored per revision and locale in `plugin_revision_catalog`. Definition names and descriptions are
+stored as messages stamped with the plugin ID as namespace; `plugin_revision` keeps the manifest's
+local name and description, which RyotQL stamps when it reads them. Definition property schemas are
+stamped the same way; revision-level schemas (configuration, user settings, provider search options)
+keep their manifest text and are stamped by the recipes and resolver that serve them.
+
+`GET /plugins/messages/:locale` returns exactly that locale's catalogs for the caller's listed plugins
+at the active revisions of one catalog snapshot, without fallbacks. Inspection returns the archive's
+catalogs limited to manifest text keys. `PluginMessageCatalogSourceLive` implements the platform
+`MessageCatalogSource`, so `MessageRegistry` renders plugin messages from the active revision's
+catalogs: in English for models, and in the recipient's locale for notifications. Messages of
+inactive or removed plugins render `message.unavailable`.
 
 ## Repository composition
 
@@ -140,12 +160,15 @@ receipt. Retrying an interrupted uninstall retains the same fence and cleanup ow
 ## Declared queries
 
 `manifest.queries` is an optional record of `{ description, document }`, where `document` is an
-authored, parameterized RyotQL document. Operation metadata is independent and retains its existing
+authored, parameterized `PluginRyotQLDocument` whose parameter labels are manifest text, checked at
+installation like other manifest text. Operation metadata is independent and retains its existing
 shape. Ingestion validates all query branches and catalog-dependent controls against the effective
 system/private definition set. A definition set is validated once, in the transaction that produces it:
 kernel definition replacement at startup, a changed system package, uninstall, and installation changes.
 An unchanged system package is not revalidated. The immutable `plugin_revision.queries` section is the runtime read
-source; execution does not load the cold manifest. User calls require the exact available installation;
+source; execution does not load the cold manifest. Readers resolve a declaration with
+`resolvePluginDocument`, which stamps its labels with the plugin's namespace and binds `self`
+references. User calls require the exact available installation;
 pinned system scripts resolve their own declared queries at the retained revision.
 
 `validateDefinitionSet` from `@ryot-app/definitions/definition-set`, with `kernelDefinitionSource()`

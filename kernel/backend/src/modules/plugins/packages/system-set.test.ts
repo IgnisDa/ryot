@@ -32,7 +32,9 @@ const withConfig = (id: string) => {
 		manifest: {
 			...plugin.manifest,
 			configSchema: {
-				fields: { token: { label: "Token", description: "Token", type: "string" as const } },
+				fields: {
+					token: { description: "Token", type: "string" as const, label: { key: "test.token" } },
+				},
 			},
 		},
 	};
@@ -62,7 +64,11 @@ it("allows same-slug configuration fields in independent packages", () => {
 
 it("rejects normalized configuration key collisions inside a package", () => {
 	const plugin = systemPlugin("a");
-	const configField = { label: "Token", description: "Token", type: "string" as const };
+	const configField = {
+		description: "Token",
+		type: "string" as const,
+		label: { key: "test.token" },
+	};
 	expect(() =>
 		validateSystemPluginSet(emptySource, [
 			{

@@ -1,7 +1,8 @@
 import { expect } from "bun:test";
 
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginRequestError } from "@ryot-app/contract/modules/plugins/schemas";
-import { fixtureManifest } from "@ryot-app/contract/testing";
+import { fixtureManifest, manifestCatalogs } from "@ryot-app/contract/testing";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -15,6 +16,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
+import { withCatalogs } from "#modules/plugins/source.test-support";
 
 import { normalizePluginSource, pluginContentHash, structurePluginFailure } from "./pipeline";
 
@@ -28,10 +30,9 @@ it.effect(
 			const entry = manifest.scripts[0]?.entry;
 			assert(entry);
 			for (const javascript of ['export default "\ud800";', 'export default "\udfff";']) {
-				const error = yield* normalizePluginSource({
-					manifest,
-					compiledScripts: [{ entry, format: 1, javascript }],
-				}).pipe(Effect.flip);
+				const error = yield* normalizePluginSource(
+					withCatalogs({ manifest, compiledScripts: [{ entry, format: 1, javascript }] }),
+				).pipe(Effect.flip);
 				expect(error.issues).toEqual([
 					`Plugin compiled script JavaScript is not valid UTF-8: ${entry}`,
 				]);
@@ -48,7 +49,9 @@ it("hashes compiled scripts in canonical entry order", () => {
 	];
 	const reordered = first.toReversed();
 
-	expect(pluginContentHash(manifest, first)).toBe(pluginContentHash(manifest, reordered));
+	expect(pluginContentHash(manifest, manifestCatalogs(manifest), first)).toBe(
+		pluginContentHash(manifest, manifestCatalogs(manifest), reordered),
+	);
 });
 
 it("hashes manifest metadata, compiled JavaScript, entries, and format into package identity", () => {
@@ -57,18 +60,25 @@ it("hashes manifest metadata, compiled JavaScript, entries, and format into pack
 	assert(entry);
 	const script = { entry, format: 1, javascript: "export {};" };
 	const scripts = [script];
-	const contentHash = pluginContentHash(manifest, scripts);
+	const contentHash = pluginContentHash(manifest, manifestCatalogs(manifest), scripts);
 
 	expect(
-		pluginContentHash(manifest, [{ ...script, javascript: "export const value = 1;" }]),
+		pluginContentHash(manifest, manifestCatalogs(manifest), [
+			{ ...script, javascript: "export const value = 1;" },
+		]),
 	).not.toBe(contentHash);
-	expect(pluginContentHash(manifest, [{ ...script, entry: "backend/other.sandbox.ts" }])).not.toBe(
-		contentHash,
-	);
-	expect(pluginContentHash(manifest, [{ ...script, format: 2 }])).not.toBe(contentHash);
+	expect(
+		pluginContentHash(manifest, manifestCatalogs(manifest), [
+			{ ...script, entry: "backend/other.sandbox.ts" },
+		]),
+	).not.toBe(contentHash);
+	expect(
+		pluginContentHash(manifest, manifestCatalogs(manifest), [{ ...script, format: 2 }]),
+	).not.toBe(contentHash);
 	expect(
 		pluginContentHash(
 			{ ...manifest, metadata: { ...manifest.metadata, version: "changed" } },
+			manifestCatalogs(manifest),
 			scripts,
 		),
 	).not.toBe(contentHash);
@@ -94,18 +104,24 @@ it("hashes client artifact identity and file contents into package identity", ()
 			},
 		],
 	};
-	const packageHash = pluginContentHash(manifest, [], artifact);
-	expect(pluginContentHash(manifest, [], { ...artifact, files: artifact.files.toReversed() })).toBe(
-		packageHash,
-	);
+	const packageHash = pluginContentHash(manifest, manifestCatalogs(manifest), [], artifact);
+	expect(
+		pluginContentHash(manifest, manifestCatalogs(manifest), [], {
+			...artifact,
+			files: artifact.files.toReversed(),
+		}),
+	).toBe(packageHash);
 
-	expect(pluginContentHash(manifest, [], { ...artifact, hash: "other-artifact" })).not.toBe(
-		packageHash,
-	);
+	expect(
+		pluginContentHash(manifest, manifestCatalogs(manifest), [], {
+			...artifact,
+			hash: "other-artifact",
+		}),
+	).not.toBe(packageHash);
 	const firstArtifactFile = artifact.files[0];
 	assert(firstArtifactFile);
 	expect(
-		pluginContentHash(manifest, [], {
+		pluginContentHash(manifest, manifestCatalogs(manifest), [], {
 			...artifact,
 			files: artifact.files.map((file) =>
 				file.name === firstArtifactFile.name
@@ -115,7 +131,7 @@ it("hashes client artifact identity and file contents into package identity", ()
 		}),
 	).not.toBe(packageHash);
 	expect(
-		pluginContentHash(manifest, [], {
+		pluginContentHash(manifest, manifestCatalogs(manifest), [], {
 			...artifact,
 			files: artifact.files.map((file) =>
 				Object.assign({}, file, { contentType: "application/octet-stream" }),
@@ -140,7 +156,9 @@ it.effect(
 				[compiled, compiled],
 				[compiled, { ...compiled, entry: "backend/extra.sandbox.ts" }],
 			]) {
-				const error = yield* Effect.flip(normalizePluginSource({ manifest, compiledScripts }));
+				const error = yield* Effect.flip(
+					normalizePluginSource(withCatalogs({ manifest, compiledScripts })),
+				);
 				expect(error.issues).toEqual([
 					"Plugin compiled scripts must exactly match manifest script entries",
 				]);
@@ -158,10 +176,12 @@ it.effect(
 			assert(script);
 			const entry = script.entry;
 			const manifest = { ...fixture, scripts: [{ ...script, runtimeImports: ["effect"] }] };
-			const normalized = yield* normalizePluginSource({
-				manifest,
-				compiledScripts: [{ entry, format: 1, javascript: 'import "effect"; export {};' }],
-			});
+			const normalized = yield* normalizePluginSource(
+				withCatalogs({
+					manifest,
+					compiledScripts: [{ entry, format: 1, javascript: 'import "effect"; export {};' }],
+				}),
+			);
 			expect(normalized.manifest.scripts[0]?.runtimeImports).toEqual(["effect"]);
 		}),
 	testTimeout,
@@ -179,10 +199,9 @@ it.effect(
 				{ format: 1, javascript: 'import "unknown"; export {};' },
 				{ format: 1, javascript: "await import(specifier); export {};" },
 			]) {
-				const error = yield* normalizePluginSource({
-					manifest,
-					compiledScripts: [{ entry: script.entry, ...archive }],
-				}).pipe(Effect.flip);
+				const error = yield* normalizePluginSource(
+					withCatalogs({ manifest, compiledScripts: [{ entry: script.entry, ...archive }] }),
+				).pipe(Effect.flip);
 				let expectedIssue = "non-literal dynamic import";
 				if (archive.format !== 1) {
 					expectedIssue = "Plugin compiled script is invalid";
@@ -202,22 +221,26 @@ it.effect(
 			const manifest = fixtureManifest();
 			const script = manifest.scripts[0];
 			assert(script);
-			const forged = yield* normalizePluginSource({
-				manifest,
-				compiledScripts: [
-					{ format: 1, entry: script.entry, javascript: 'import "effect"; export {};' },
-				],
-			}).pipe(Effect.flip);
+			const forged = yield* normalizePluginSource(
+				withCatalogs({
+					manifest,
+					compiledScripts: [
+						{ format: 1, entry: script.entry, javascript: 'import "effect"; export {};' },
+					],
+				}),
+			).pipe(Effect.flip);
 			expect(forged.issues).toEqual([
 				`Plugin compiled script runtime imports do not match its manifest: ${script.entry}`,
 			]);
 
 			const { runtimeImports, ...scriptWithoutRuntimeImports } = script;
 			expect(runtimeImports).toEqual([]);
-			const missing = yield* normalizePluginSource({
-				manifest: { ...manifest, scripts: [scriptWithoutRuntimeImports] },
-				compiledScripts: [{ format: 1, entry: script.entry, javascript: "export {};" }],
-			}).pipe(Effect.flip);
+			const missing = yield* normalizePluginSource(
+				withCatalogs({
+					manifest: { ...manifest, scripts: [scriptWithoutRuntimeImports] },
+					compiledScripts: [{ format: 1, entry: script.entry, javascript: "export {};" }],
+				}),
+			).pipe(Effect.flip);
 			expect(missing.issues.join("\n")).toContain("runtimeImports");
 		}),
 	testTimeout,
@@ -235,7 +258,7 @@ it.effect(
 				signalSchemas: [],
 				relationshipSchemas: [],
 			};
-			const error = yield* Effect.flip(normalizePluginSource({ manifest }));
+			const error = yield* Effect.flip(normalizePluginSource(withCatalogs({ manifest })));
 
 			expect(error.issues).toEqual(["Plugin compiled scripts are missing"]);
 		}),
@@ -249,16 +272,18 @@ it.effect(
 			const fixture = fixtureManifest();
 			const script = fixture.scripts[0];
 			assert(script);
-			const normalizeFixture = (manifest: unknown) =>
-				normalizePluginSource({
-					manifest,
-					compiledScripts: [{ format: 1, entry: script.entry, javascript: "export {};" }],
-				});
+			const normalizeFixture = (manifest: PluginManifest) =>
+				normalizePluginSource(
+					withCatalogs({
+						manifest,
+						compiledScripts: [{ format: 1, entry: script.entry, javascript: "export {};" }],
+					}),
+				);
 			const integrationProvider = {
 				slug: "fixture",
-				name: "Fixture",
 				lot: "push" as const,
-				description: "Fixture integration",
+				name: { key: "test.fixture" },
+				description: { key: "test.fixture-integration" },
 				settingsSchema: { fields: {}, unknownKeys: "strict" as const },
 			};
 			const emptySettings = yield* Effect.flip(
@@ -272,13 +297,17 @@ it.effect(
 					importSources: [
 						{
 							slug: "fixture",
-							name: "Fixture",
-							description: "Fixture import",
+							name: { key: "test.fixture" },
 							workflowSlug: "fixture-workflow",
+							description: { key: "test.fixture-import" },
 							inputSchema: {
 								unknownKeys: "strip",
 								fields: {
-									marker: { type: "string", label: "Marker", description: "Fixture marker" },
+									marker: {
+										type: "string",
+										label: { key: "test.marker" },
+										description: "Fixture marker",
+									},
 								},
 							},
 						},
@@ -297,7 +326,11 @@ it.effect(
 						settingsSchema: {
 							unknownKeys: "strict" as const,
 							fields: {
-								marker: { label: "Marker", type: "string" as const, description: "Fixture marker" },
+								marker: {
+									type: "string" as const,
+									label: { key: "test.marker" },
+									description: "Fixture marker",
+								},
 							},
 						},
 					},
@@ -320,6 +353,51 @@ it.effect(
 					Effect.flip,
 				),
 			).toEqual(new PluginRequestError({ reason: { code: "asset-forbidden" } }));
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"requires English catalogs that name every manifest text as a plain message",
+	() =>
+		Effect.gen(function* () {
+			const manifest = fixtureManifest();
+			const en = manifestCatalogs(manifest)["en"];
+			assert(en);
+			const compiledScripts = manifest.scripts.map(({ entry }) => ({
+				entry,
+				format: 1,
+				javascript: "export {};",
+			}));
+			const issues = (catalogs: Parameters<typeof pluginContentHash>[1]) =>
+				Effect.map(
+					Effect.flip(normalizePluginSource({ manifest, catalogs, compiledScripts })),
+					(error) => error.issues,
+				);
+			expect(yield* issues({ fr: en })).toEqual(["Plugin message catalog is missing: en"]);
+			expect(yield* issues({ en, "not a locale": en })).toEqual([
+				"Plugin message catalog is invalid: not a locale",
+			]);
+			expect(
+				yield* issues({
+					en: {
+						...en,
+						"test.fixture-plugin": [
+							{ type: 0, value: "Hello " },
+							{ type: 1, value: "name" },
+						],
+					},
+				}),
+			).toEqual([
+				"manifest: test.fixture-plugin: error argument-mismatch: metadata.description names a message with arguments",
+			]);
+			const { "test.changed": _changed, ...withoutEvent } = en;
+			expect(yield* issues({ en: withoutEvent })).toEqual([
+				"manifest: test.changed: error unknown-key: entitySchemas.fixture-entity.eventSchemas.changed.name names a key that has no source-locale message",
+			]);
+			expect(
+				(yield* normalizePluginSource(withCatalogs({ manifest, compiledScripts }))).catalogs,
+			).toEqual({ en });
 		}),
 	testTimeout,
 );

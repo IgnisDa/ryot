@@ -13,6 +13,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Message } from "@ryot-app/i18n/message";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -27,9 +28,9 @@ import type { pluginConfigContextFor } from "./runtime-resolver";
 
 export type RegisteredIntegrationProvider = {
 	readonly slug: string;
-	readonly name: string;
+	readonly name: Message;
 	readonly pluginId: string;
-	readonly description: string;
+	readonly description: Message;
 	readonly installationId: string;
 	readonly settingsSchema: AppSchema;
 	readonly scriptSlug: null | string;

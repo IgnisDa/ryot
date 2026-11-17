@@ -59,20 +59,20 @@ const configReadinessPackage = (slug: string) => {
 			importSources: [
 				{
 					slug,
-					name: "Import",
-					description: "Import",
+					name: { key: "test.import" },
 					workflowSlug: `${slug}-flow`,
+					description: { key: "test.import" },
 					inputSchema: { fields: {}, unknownKeys: "strict" as const },
 				},
 			],
 			integrationProviders: [
 				{
 					slug,
-					name: "Integration",
 					lot: "sink" as const,
-					description: "Integration",
 					scriptSlug: `${slug}.task`,
 					settingsSchema: { fields: {} },
+					name: { key: "test.integration" },
+					description: { key: "test.integration" },
 				},
 			],
 			configSchema: {
@@ -80,22 +80,22 @@ const configReadinessPackage = (slug: string) => {
 				fields: {
 					...fixture.manifest.configSchema.fields,
 					empty: {
-						label: "Empty",
 						defaultValue: "",
 						description: "Empty",
 						type: "string" as const,
+						label: { key: "test.empty" },
 					},
 					enabled: {
-						label: "Enabled",
 						defaultValue: false,
 						description: "Enabled",
 						type: "boolean" as const,
+						label: { key: "test.enabled" },
 					},
 					threshold: {
 						defaultValue: 0,
-						label: "Threshold",
 						type: "integer" as const,
 						description: "Threshold",
+						label: { key: "test.threshold" },
 					},
 				},
 			},
@@ -391,32 +391,6 @@ layer(services)((test) => {
 				const fixture = revisionPackage("planned-sync");
 				const manifest: PluginManifest = {
 					...fixture.manifest,
-					integrationProviders: [
-						{
-							lot: "sink",
-							slug: "planned-sync",
-							name: "Planned sync",
-							description: "Planned sync",
-							scriptSlug: "planned-sync.task",
-							plan: {
-								selections: {
-									collector: { field: "mode", cases: { api: "api", export: "export" } },
-								},
-							},
-							settingsSchema: {
-								unknownKeys: "strict",
-								fields: {
-									mode: {
-										type: "enum",
-										label: "Mode",
-										description: "Mode",
-										defaultValue: "export",
-										choices: { kind: "static", values: [{ value: "api" }, { value: "export" }] },
-									},
-								},
-							},
-						},
-					],
 					scripts: fixture.manifest.scripts.map((script) => {
 						if (script.slug.endsWith(".task")) {
 							return {
@@ -439,6 +413,32 @@ layer(services)((test) => {
 							? Object.assign({}, script, { requiredPluginConfigKeys: ["token"] })
 							: script;
 					}),
+					integrationProviders: [
+						{
+							lot: "sink",
+							slug: "planned-sync",
+							scriptSlug: "planned-sync.task",
+							name: { key: "test.planned-sync" },
+							description: { key: "test.planned-sync" },
+							plan: {
+								selections: {
+									collector: { field: "mode", cases: { api: "api", export: "export" } },
+								},
+							},
+							settingsSchema: {
+								unknownKeys: "strict",
+								fields: {
+									mode: {
+										type: "enum",
+										description: "Mode",
+										defaultValue: "export",
+										label: { key: "test.mode" },
+										choices: { kind: "static", values: [{ value: "api" }, { value: "export" }] },
+									},
+								},
+							},
+						},
+					],
 				};
 				const installed = yield* installRevisionPackage(
 					{
@@ -501,31 +501,6 @@ layer(services)((test) => {
 				const fixture = revisionPackage("planned-import");
 				const manifest: PluginManifest = {
 					...fixture.manifest,
-					importSources: [
-						{
-							slug: "planned-import",
-							name: "Planned import",
-							description: "Planned import",
-							workflowSlug: "planned-import-flow",
-							plan: {
-								selections: {
-									collector: { field: "mode", cases: { user: "api", export: "export" } },
-								},
-							},
-							inputSchema: {
-								unknownKeys: "strict",
-								fields: {
-									mode: {
-										type: "enum",
-										label: "Mode",
-										description: "Mode",
-										defaultValue: "export",
-										choices: { kind: "static", values: [{ value: "user" }, { value: "export" }] },
-									},
-								},
-							},
-						},
-					],
 					scripts: fixture.manifest.scripts.map((script) => {
 						if (script.slug.endsWith(".workflow")) {
 							return {
@@ -548,6 +523,31 @@ layer(services)((test) => {
 							? { ...script, requiredPluginConfigKeys: ["token"] }
 							: script;
 					}),
+					importSources: [
+						{
+							slug: "planned-import",
+							workflowSlug: "planned-import-flow",
+							name: { key: "test.planned-import" },
+							description: { key: "test.planned-import" },
+							plan: {
+								selections: {
+									collector: { field: "mode", cases: { user: "api", export: "export" } },
+								},
+							},
+							inputSchema: {
+								unknownKeys: "strict",
+								fields: {
+									mode: {
+										type: "enum",
+										description: "Mode",
+										defaultValue: "export",
+										label: { key: "test.mode" },
+										choices: { kind: "static", values: [{ value: "user" }, { value: "export" }] },
+									},
+								},
+							},
+						},
+					],
 				};
 				const installed = yield* installRevisionPackage(
 					{
@@ -654,16 +654,16 @@ layer(services)((test) => {
 							fields: {
 								...fixture.manifest.configSchema.fields,
 								enabled: {
-									label: "Enabled",
 									defaultValue: false,
 									description: "Enabled",
 									type: "boolean" as const,
+									label: { key: "test.enabled" },
 								},
 								threshold: {
 									defaultValue: 0,
-									label: "Threshold",
 									description: "Threshold",
 									type: "integer" as const,
+									label: { key: "test.threshold" },
 								},
 							},
 						},

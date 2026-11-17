@@ -24,9 +24,9 @@ import {
 const owner = UserId.make("owner");
 
 const generatedSections = [
-	[tables.pluginRevision.name, "manifest -> 'metadata' ->> 'name'"],
+	[tables.pluginRevision.name, "manifest -> 'metadata' -> 'name'"],
 	[tables.pluginRevision.icon, "manifest -> 'metadata' ->> 'icon'"],
-	[tables.pluginRevision.description, "manifest -> 'metadata' ->> 'description'"],
+	[tables.pluginRevision.description, "manifest -> 'metadata' -> 'description'"],
 	[tables.pluginRevision.version, "manifest -> 'metadata' ->> 'version'"],
 	[tables.pluginRevision.client, "manifest -> 'client'"],
 	[tables.pluginRevision.hooks, "manifest -> 'hooks'"],

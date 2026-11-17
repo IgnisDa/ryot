@@ -3,6 +3,7 @@ import {
 	PluginManifest,
 	PluginProviderOperation,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import { stampAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import {
 	type DeclarationReference,
 	definitionOwnerPluginId,
@@ -845,8 +846,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					return {
 						...script,
 						optionsSchema:
-							"searchOptionsSchema" in script.metadata
-								? (script.metadata.searchOptionsSchema ?? null)
+							"searchOptionsSchema" in script.metadata &&
+							script.metadata.searchOptionsSchema !== undefined
+								? stampAppSchema(provider.pluginId, script.metadata.searchOptionsSchema)
 								: null,
 					};
 				});
@@ -877,12 +879,16 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						? []
 						: yield* database.run((db) =>
 								db
-									.select({ configSchema: schema.pluginRevision.configSchema })
+									.select({
+										pluginId: schema.pluginRevision.pluginId,
+										configSchema: schema.pluginRevision.configSchema,
+									})
 									.from(schema.pluginRevision)
 									.where(eq(schema.pluginRevision.id, pluginRevisionId))
 									.limit(1),
 							);
-				return keys.map((key) => row?.configSchema.fields[key]?.label ?? key);
+				const labels = row && stampAppSchema(row.pluginId, row.configSchema).fields;
+				return keys.map((key) => labels?.[key]?.label ?? key);
 			});
 			const systemOperation = (operation: PluginProviderOperation) => (id: SandboxProviderId) =>
 				resolveProviderOperation(operation, null, id);

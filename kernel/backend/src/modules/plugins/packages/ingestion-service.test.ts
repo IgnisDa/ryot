@@ -29,7 +29,7 @@ import { databaseLayer, type MockOverrides } from "#testing/effect";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
-import { loadPluginSource } from "../source.test-support";
+import { loadPluginSource, withCatalogs } from "../source.test-support";
 import { fixturePackageRoot } from "../test-support";
 import { PluginIngestionRetirement } from "./ingestion-retirement";
 import { PluginIngestionService } from "./ingestion-service";
@@ -90,7 +90,7 @@ const definitionOwnerManifest = (): PluginManifest => {
 		scripts: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
-		metadata: { ...fixture.metadata, name: "Example" },
+		metadata: { ...fixture.metadata, name: { key: "test.example" } },
 		entitySchemas: [{ ...entitySchema, slug: "item", eventSchemas: [] }],
 	};
 };
@@ -101,7 +101,7 @@ const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
 		...fixture,
 		signalSchemas: [],
 		relationshipSchemas: [],
-		metadata: { ...fixture.metadata, name: "Dependent" },
+		metadata: { ...fixture.metadata, name: { key: "test.dependent" } },
 		entitySchemas: Array.from(fixture.entitySchemas, (entity) => ({
 			...entity,
 			slug: entitySchemaSlug,
@@ -130,8 +130,8 @@ const formatterOwnerManifest = (): PluginManifest => {
 		entitySchemas: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
-		metadata: { ...fixture.metadata, name: "Formatter owner" },
 		scripts: [{ ...script, slug: "formatter-owner.notification" }],
+		metadata: { ...fixture.metadata, name: { key: "test.formatter-owner" } },
 	};
 };
 
@@ -147,8 +147,8 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 		...fixture,
 		hooks: [],
 		signalSchemas: [],
-		metadata: { ...fixture.metadata, name: "Dependent" },
 		scripts: [{ ...script, slug: "dependent.automation" }],
+		metadata: { ...fixture.metadata, name: { key: "test.dependent" } },
 		entitySchemas: [
 			{ ...entitySchema, slug: "dependent-entity" },
 			{ ...entitySchema, slug: targetEntitySchemaSlug },
@@ -570,8 +570,8 @@ layer(makeLayer({}))((test) => {
 					unknownKeys: "strict" as const,
 					fields: {
 						passRawQuery: {
-							label: "Pass raw query",
 							type: "boolean" as const,
+							label: { key: "test.pass-raw-query" },
 							description: "Pass the query without modification",
 						},
 					},
@@ -580,9 +580,9 @@ layer(makeLayer({}))((test) => {
 					...fixture,
 					providers: [
 						{
-							name: "Fixture Provider",
 							slug: "fixture.provider",
 							information: { source: "Fixture" },
+							name: { key: "test.fixture-provider" },
 							rootEntitySchemaSlug: "fixture-entity",
 						},
 					],
@@ -1330,7 +1330,7 @@ layer(makeLayer())((test) => {
 				Effect.gen(function* () {
 					const ingestion = yield* PluginIngestionService;
 					const exit = yield* Effect.exit(
-						ingestion.ingestSystemPlugin({ manifest: testCase.manifest }),
+						ingestion.ingestSystemPlugin({ catalogs: {}, manifest: testCase.manifest }),
 					);
 					const failure = failureOf(exit);
 					expect(failure).toEqual<unknown>(
@@ -1398,12 +1398,14 @@ layer(makeLayer())((test) => {
 					const script = manifest.scripts[0];
 					assert(script);
 					const exit = yield* Effect.exit(
-						ingestion.ingestSystemPlugin({
-							manifest: { ...manifest, scripts: [{ ...script, entry: scriptEntry }] },
-							compiledScripts: source.compiledScripts.map((compiled) =>
-								Object.assign({}, compiled, { entry: scriptEntry }),
-							),
-						}),
+						ingestion.ingestSystemPlugin(
+							withCatalogs({
+								manifest: { ...manifest, scripts: [{ ...script, entry: scriptEntry }] },
+								compiledScripts: source.compiledScripts.map((compiled) =>
+									Object.assign({}, compiled, { entry: scriptEntry }),
+								),
+							}),
+						),
 					);
 					expect(failureOf(exit)).toMatchObject({
 						_tag: "PluginRequestError",

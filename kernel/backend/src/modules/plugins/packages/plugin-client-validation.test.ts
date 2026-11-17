@@ -14,7 +14,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
-import { loadPluginSource } from "../source.test-support";
+import { loadPluginSource, withCatalogs } from "../source.test-support";
 import { fixturePackageRoot } from "../test-support";
 import { normalizePluginSource } from "./pipeline";
 
@@ -53,9 +53,9 @@ layer(pluginBackendCompilerPlatformLayer)((test) => {
 						analyticsSections: {
 							activity: {
 								sortOrder: 0,
-								name: "Activity",
 								icon: "chart-column",
 								exportName: "activity",
+								name: { key: "test.activity" },
 							},
 						},
 					},
@@ -129,12 +129,10 @@ layer(pluginBackendCompilerPlatformLayer)((test) => {
 					});
 				});
 				const artifact = {
-					...clientArtifactMetadata(
-						pluginManifest.metadata.name,
-						pluginManifest.metadata.packageId,
-						files,
-						{ imports: [], clientDeclarationHash: clientDeclarationHash(clientEntry) },
-					),
+					...clientArtifactMetadata(pluginManifest.metadata.packageId, files, {
+						imports: [],
+						clientDeclarationHash: clientDeclarationHash(clientEntry),
+					}),
 					files,
 				};
 				const compiledScripts = source.compiledScripts.map((script) => ({
@@ -165,10 +163,9 @@ layer(pluginBackendCompilerPlatformLayer)((test) => {
 				} satisfies PluginManifest;
 				const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
 				const error = yield* Effect.flip(
-					normalizePluginSource({
-						manifest: source.manifest,
-						compiledScripts: source.compiledScripts,
-					}),
+					normalizePluginSource(
+						withCatalogs({ manifest: source.manifest, compiledScripts: source.compiledScripts }),
+					),
 				);
 
 				expect(error.issues).toEqual([
@@ -230,12 +227,10 @@ layer(pluginBackendCompilerPlatformLayer)((test) => {
 						: file,
 				);
 				const artifact = {
-					...clientArtifactMetadata(
-						pluginManifest.metadata.name,
-						pluginManifest.metadata.packageId,
-						files,
-						{ imports: [], clientDeclarationHash: clientDeclarationHash(clientEntry) },
-					),
+					...clientArtifactMetadata(pluginManifest.metadata.packageId, files, {
+						imports: [],
+						clientDeclarationHash: clientDeclarationHash(clientEntry),
+					}),
 					files,
 				};
 				const error = yield* normalizePluginSource({ ...source, compiledClient: artifact }).pipe(

@@ -114,7 +114,8 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					return yield* entitlementRequired(result.error.data.entitlement);
 				}
 				if (result.error?.data?.code === "operation-rejected") {
-					return yield* new PluginOperationRejected({ message: result.error.message });
+					yield* Effect.annotateCurrentSpan("plugin.rejection", result.error.message);
+					return yield* new PluginOperationRejected({ reason: result.error.data.reason });
 				}
 				if (result.error) {
 					return yield* new PluginInvocationError({

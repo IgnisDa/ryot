@@ -34,9 +34,9 @@ it("accepts new schemas, optional properties, and widened enums", () => {
 			signalSchemas: [
 				...previous.signalSchemas,
 				{
-					name: "Added",
 					slug: "fixture.added",
 					catalogState: "active",
+					name: { key: "test.added" },
 					propertiesSchema: { fields: {} },
 					audiencePolicy: { kind: "actor" },
 					notificationHookSlug: "fixture.created",
@@ -45,7 +45,11 @@ it("accepts new schemas, optional properties, and widened enums", () => {
 			entitySchemas: [
 				entityWithFields(previous, {
 					...entity.propertiesSchema.fields,
-					optional: { type: "string", label: "Optional", description: "Optional value" },
+					optional: {
+						type: "string",
+						description: "Optional value",
+						label: { key: "test.optional" },
+					},
 					kind: {
 						...kind,
 						choices: { kind: "static", values: [...kind.choices.values, { value: "three" }] },
@@ -64,7 +68,7 @@ it("accepts relabelled and redescribed properties, including nested ones", () =>
 		const fields = Object.fromEntries(
 			Object.entries(entity.propertiesSchema.fields).map(([key, field]) => [
 				key,
-				{ ...field, description: "Clearer wording", label: `${field.label} renamed` },
+				{ ...field, description: "Clearer wording", label: { key: "test.renamed" } },
 			]),
 		);
 		return { ...previous, entitySchemas: [entityWithFields(previous, fields)] };
@@ -115,7 +119,10 @@ it("rejects a changed dynamic choice source", () => {
 it("accepts metadata renames and same-version compatible content", () => {
 	expect(
 		Exit.isSuccess(
-			evolve((previous) => ({ ...previous, metadata: { ...previous.metadata, name: "Renamed" } })),
+			evolve((previous) => ({
+				...previous,
+				metadata: { ...previous.metadata, name: { key: "test.renamed" } },
+			})),
 		),
 	).toBe(true);
 });
@@ -210,7 +217,7 @@ test.each([
 				entitySchemas: [
 					entityWithFields(previous, {
 						...entity.propertiesSchema.fields,
-						name: { label: "Name", type: "number", description: "Fixture name" },
+						name: { type: "number", label: { key: "test.name" }, description: "Fixture name" },
 					}),
 				],
 			};
@@ -228,9 +235,9 @@ test.each([
 						...entity.propertiesSchema.fields,
 						required: {
 							type: "string",
-							label: "Required",
 							description: "Required value",
 							validation: { required: true },
+							label: { key: "test.required" },
 						},
 					}),
 				],

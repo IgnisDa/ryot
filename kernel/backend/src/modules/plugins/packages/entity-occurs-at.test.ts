@@ -26,7 +26,11 @@ const withDate = (
 		...schema.propertiesSchema,
 		fields: {
 			...schema.propertiesSchema.fields,
-			date: { label: "Date", type: "string" as const, description: "When it happens" },
+			date: {
+				type: "string" as const,
+				label: { key: "test.date" },
+				description: "When it happens",
+			},
 		},
 	},
 });

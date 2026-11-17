@@ -1,5 +1,5 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 
@@ -17,7 +17,7 @@ export const insertPluginRevision = (
 		readonly pluginId: string;
 		readonly contentHash: string;
 		readonly manifest: PluginManifest;
-		readonly clientConfigSchema?: AppSchema;
+		readonly clientConfigSchema?: AuthoredAppSchema;
 	},
 ) =>
 	db

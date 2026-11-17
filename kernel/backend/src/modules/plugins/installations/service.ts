@@ -1,5 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { manifestTexts, type PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	type PluginHomeViewSelection,
@@ -698,6 +698,9 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						);
 						yield* validateDependencies(normalized, input.userId);
 						const { metadata, operations, configSchema } = normalized.manifest;
+						const textKeys = new Set(
+							manifestTexts(normalized.manifest).map(({ text }) => text.key),
+						);
 						return {
 							metadata,
 							configSchema,
@@ -708,6 +711,12 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								title,
 								description,
 							})),
+							catalogs: Object.fromEntries(
+								Object.entries(normalized.catalogs).map(([locale, catalog]) => [
+									locale,
+									Object.fromEntries(Object.entries(catalog).filter(([key]) => textKeys.has(key))),
+								]),
+							),
 						};
 					}).pipe(structureOwnedPluginFailure),
 			);

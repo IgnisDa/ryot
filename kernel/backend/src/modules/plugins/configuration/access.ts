@@ -10,7 +10,7 @@ const requiredKeys = (metadata: unknown, name: string): ReadonlyArray<string> =>
 		: [];
 
 type PluginConfigContext = {
-	readonly configSchema: AppSchema;
+	readonly configSchema: AppSchema<unknown>;
 	readonly config: Readonly<Record<string, unknown>>;
 };
 

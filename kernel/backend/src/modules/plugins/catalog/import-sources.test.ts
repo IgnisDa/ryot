@@ -30,10 +30,10 @@ const packageWithSources = (slug: string, version = "v1", packageId = testPlugin
 		manifest: {
 			...plugin.manifest,
 			importSources: ["zeta", "alpha"].map((name) => ({
-				name,
 				slug: `${slug}-${name}`,
-				description: "Import source",
 				workflowSlug: `${slug}-flow`,
+				name: { key: `test.${name}` },
+				description: { key: "test.import-source" },
 				inputSchema: { fields: {}, unknownKeys: "strict" as const },
 			})),
 		},
@@ -47,7 +47,7 @@ const clashing = (slug: string) => {
 		manifest: {
 			...plugin.manifest,
 			importSources: plugin.manifest.importSources.map((source) =>
-				Object.assign({}, source, { slug: `shared-${source.name}` }),
+				Object.assign({}, source, { slug: source.slug.replace(`${slug}-`, "shared-") }),
 			),
 		},
 	};

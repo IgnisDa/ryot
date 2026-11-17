@@ -19,6 +19,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
 import { ConfigProvider, Context, Effect, Layer, Redacted, Ref, Result } from "effect";
 
+import { withCatalogs } from "#modules/plugins/source.test-support";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -111,17 +112,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 								const manifest: PluginManifest = {
 									...baseManifest,
 									workflows: [{ slug: "fixture-flow", scriptSlug: "fixture.workflow" }],
-									configSchema: {
-										unknownKeys: "strict" as const,
-										fields: {
-											token: {
-												secret: true,
-												label: "Token",
-												type: "string" as const,
-												description: "Private token",
-											},
-										},
-									},
 									scripts: [
 										...baseManifest.scripts,
 										{
@@ -132,20 +122,32 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 											entry: "backend/workflow.sandbox.ts",
 										},
 									],
+									configSchema: {
+										unknownKeys: "strict" as const,
+										fields: {
+											token: {
+												secret: true,
+												type: "string" as const,
+												label: { key: "test.token" },
+												description: "Private token",
+											},
+										},
+									},
 								};
-								const packageAt = (version: string): NormalizedPlugin => ({
-									contentHash: version,
-									manifest: { ...manifest, metadata: { ...manifest.metadata, version } },
-									scripts: manifest.scripts.map(({ entry, ...metadata }) => ({
-										entry,
-										metadata,
-										compiledFormat: 1,
-										slug: metadata.slug,
-										name: metadata.name,
+								const packageAt = (version: string): NormalizedPlugin =>
+									withCatalogs({
 										contentHash: version,
-										compiledCode: version,
-									})),
-								});
+										manifest: { ...manifest, metadata: { ...manifest.metadata, version } },
+										scripts: manifest.scripts.map(({ entry, ...metadata }) => ({
+											entry,
+											metadata,
+											compiledFormat: 1,
+											slug: metadata.slug,
+											name: metadata.name,
+											contentHash: version,
+											compiledCode: version,
+										})),
+									});
 								const pluginId = yield* session.transaction(
 									plugins.persist(packageAt("v1"), { scope: "user", ownerId: "owner" }),
 								);
@@ -467,9 +469,9 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 											unknownKeys: "strict" as const,
 											fields: {
 												token: {
-													label: "Token",
 													secret: true as const,
 													type: "string" as const,
+													label: { key: "test.token" },
 													description: "Environment token",
 													validation: { required: true as const },
 												},

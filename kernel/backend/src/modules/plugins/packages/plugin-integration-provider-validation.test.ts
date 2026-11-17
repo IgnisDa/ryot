@@ -24,10 +24,10 @@ it.effect(
 						{
 							lot: "yank",
 							slug: "lambda",
-							name: "Lambda",
-							description: "Lambda yank",
+							name: { key: "test.lambda" },
 							settingsSchema: { fields: {} },
 							scriptSlug: "fixture.automation",
+							description: { key: "test.lambda-yank" },
 						},
 					],
 				}),
@@ -52,12 +52,16 @@ it.effect(
 						{
 							lot: "yank",
 							slug: "lambda",
-							name: "Lambda",
-							description: "Lambda yank",
+							name: { key: "test.lambda" },
 							scriptSlug: "fixture.automation",
+							description: { key: "test.lambda-yank" },
 							settingsSchema: {
 								fields: {
-									isDisabled: { type: "boolean", label: "Disabled", description: "Disabled" },
+									isDisabled: {
+										type: "boolean",
+										description: "Disabled",
+										label: { key: "test.disabled" },
+									},
 								},
 							},
 						},
@@ -101,11 +105,17 @@ it.effect(
 					{
 						scriptSlug,
 						slug: "lambda_sink",
-						name: "Lambda sink",
 						lot: "sink" as const,
-						description: "Lambda sink",
+						name: { key: "test.lambda-sink" },
+						description: { key: "test.lambda-sink" },
 						settingsSchema: {
-							fields: { username: { label: "User", description: "User", type: "string" as const } },
+							fields: {
+								username: {
+									description: "User",
+									type: "string" as const,
+									label: { key: "test.user" },
+								},
+							},
 						},
 					},
 				],

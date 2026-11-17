@@ -2,7 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
+import { fixtureManifest, manifestCatalogs, testPluginPackageId } from "@ryot-app/contract/testing";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -27,7 +27,7 @@ import * as tables from "#schema/tables/combined";
 
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginInstallationRepository } from "../installations/repository";
-import { fixtureClientArtifact } from "../source.test-support";
+import { fixtureClientArtifact, withCatalogs } from "../source.test-support";
 import { pluginContentHash } from "./pipeline";
 import { PluginRepository } from "./repository";
 import {
@@ -113,7 +113,7 @@ describe("plugin repository revisions", () => {
 						contentHash: "renamed-content",
 						manifest: {
 							...first.manifest,
-							metadata: { ...first.manifest.metadata, name: "Renamed" },
+							metadata: { ...first.manifest.metadata, name: { key: "test.renamed" } },
 						},
 					};
 					expect(
@@ -123,10 +123,10 @@ describe("plugin repository revisions", () => {
 					).toBe(firstId);
 					expect(
 						(yield* repository.findActiveSystemPluginById(firstId))?.manifest.metadata.name,
-					).toBe("Renamed");
+					).toEqual({ key: "test.renamed" });
 					expect(
 						(yield* repository.findActiveSystemPluginById(secondId))?.manifest.metadata.name,
-					).toBe("Fixture");
+					).toEqual({ key: "test.fixture" });
 					const revisions = yield* session.run((db) =>
 						db
 							.select({
@@ -252,7 +252,6 @@ describe("plugin repository revisions", () => {
 						},
 					};
 					const compiledClient = fixtureClientArtifact(
-						manifest.metadata.name,
 						manifest.metadata.packageId,
 						manifest.client,
 					);
@@ -263,7 +262,12 @@ describe("plugin repository revisions", () => {
 					const plugin = {
 						manifest,
 						compiledClient,
-						contentHash: pluginContentHash(manifest, compiledScripts, compiledClient),
+						contentHash: pluginContentHash(
+							manifest,
+							manifestCatalogs(manifest),
+							compiledScripts,
+							compiledClient,
+						),
 						scripts: manifest.scripts.map((script) => {
 							const { entry: scriptEntry, ...metadata } = script;
 							return {
@@ -278,7 +282,7 @@ describe("plugin repository revisions", () => {
 						}),
 					};
 					const pluginId = yield* session.transaction(
-						repository.persist(plugin, { scope: "user", ownerId: owner }),
+						repository.persist(withCatalogs(plugin), { scope: "user", ownerId: owner }),
 					);
 					yield* session.run((db) =>
 						db
@@ -305,6 +309,7 @@ describe("plugin repository revisions", () => {
 					expect(yield* repository.listCompiledPackageArtifacts(pluginId)).toEqual({
 						compiledClient,
 						compiledScripts,
+						catalogs: manifestCatalogs(manifest),
 					});
 					const [revision] = yield* session.run((db) =>
 						db

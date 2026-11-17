@@ -12,25 +12,30 @@ it("includes valid false and zero defaults without exposing configuration values
 			...fixtureManifest(),
 			configSchema: {
 				fields: {
-					secret: { secret: true, type: "string", label: "Secret", description: "Secret" },
+					secret: {
+						secret: true,
+						type: "string",
+						description: "Secret",
+						label: { key: "test.secret" },
+					},
 					enabled: {
 						type: "boolean",
-						label: "Enabled",
 						defaultValue: false,
 						description: "Enabled",
+						label: { key: "test.enabled" },
 					},
 					threshold: {
 						type: "integer",
 						defaultValue: 0,
-						label: "Threshold",
 						description: "Threshold",
+						label: { key: "test.threshold" },
 					},
 					invalid: {
 						type: "integer",
-						label: "Invalid",
 						defaultValue: -1,
 						description: "Invalid",
 						validation: { minimum: 0 },
+						label: { key: "test.invalid" },
 					},
 				},
 			},

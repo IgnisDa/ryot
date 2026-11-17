@@ -1,10 +1,10 @@
 import { describe, expect } from "bun:test";
 
-import { DbError } from "@ryot-app/contract/errors";
+import { badRequest, DbError, validationFailed } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginRequestError } from "@ryot-app/contract/modules/plugins/schemas";
 import { type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -86,7 +86,11 @@ const writerLayer = PluginUserSettingsWriter.layer.pipe(
 	Layer.provideMerge(revisionDatabaseLayer),
 );
 
-const textField = (label: string) => ({ label, description: label, type: "string" as const });
+const textField = (label: string) => ({
+	description: label,
+	type: "string" as const,
+	label: { key: `test.${label.toLowerCase()}` },
+});
 
 const settingsPackage = (
 	slug: string,
@@ -260,10 +264,10 @@ describe("PluginUserSettingsWriter.patch", () => {
 						fields: {
 							theme: textField("Theme"),
 							limit: {
-								label: "Limit",
 								type: "integer",
 								description: "Limit",
 								validation: { maximum: 10 },
+								label: { key: "test.limit" },
 							},
 						},
 					});
@@ -349,25 +353,32 @@ describe("PluginUserSettingsWriter.patch", () => {
 					);
 					assertExitFails(
 						oversizedSave,
-						new PluginRequestError({
-							reason: {
-								code: "validation-failed",
-								diagnostics: [
-									{
-										phase: "validate",
-										severity: "error",
-										code: "invalid-user-settings",
-										message: `Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`,
-									},
-								],
-							},
-						}),
+						badRequest(
+							kernelMessage("error.plugins.user-settings-too-large", {
+								maxBytes: PLUGIN_USER_SETTINGS_MAX_BYTES,
+							}),
+						),
 					);
 					const locks = yield* RecordedIngestionLocks;
 					const before = (yield* locks.all).length;
 					yield* writer.save(owner, plugin.installation.id, { layout: "grid" }, false);
 					expect(yield* storedSettings(plugin.installation.id)).toEqual({ layout: "grid" });
 					expect((yield* locks.all).slice(before)).toEqual(["exclusive"]);
+				}),
+			testTimeout,
+		);
+
+		test.effect(
+			"rejects invalid whole-document saves with the invalid paths",
+			() =>
+				Effect.gen(function* () {
+					const writer = yield* PluginUserSettingsWriter;
+					const plugin = yield* installSettingsPlugin("settings-invalid", { theme: "Theme" });
+					assertExitFails(
+						yield* Effect.exit(writer.save(owner, plugin.installation.id, { theme: 5 }, false)),
+						validationFailed([{ path: ["theme"], issue: "invalid-value" }]),
+					);
+					expect(yield* storedSettings(plugin.installation.id)).toEqual({});
 				}),
 			testTimeout,
 		);
