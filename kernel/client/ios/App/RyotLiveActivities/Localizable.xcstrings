@@ -1,0 +1,39 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ %@" : {
+      "comment" : "A metric label followed by its value.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ %@"
+          }
+        }
+      }
+    },
+    "Open Ryot to refresh" : {
+      "comment" : "Status of a Live Activity whose data may be outdated.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ryot öffnen, um zu aktualisieren"
+          }
+        }
+      }
+    },
+    "Timer ended" : {
+      "comment" : "Replaces a countdown that has reached zero.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Timer beendet"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

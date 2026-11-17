@@ -18,6 +18,8 @@
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		E6A14D3B9C825F70A1D6384E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A712B63E4C8F9D1052E7A34C /* Assets.xcassets */; };
+		544ACDA50F2F9F81A5B16618 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 13A092D03B04F39BBD24F64F /* Localizable.xcstrings */; };
+		EED8B1E1A2CC0B24963C2286 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 34735B3207C6D2037A02B403 /* InfoPlist.xcstrings */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		5328392C1E5B6541DBF94165 /* RyotLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6190306B1B5E1E2D8C0EFC79 /* RyotLiveActivityAttributes.swift */; };
@@ -43,6 +45,8 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		6190306B1B5E1E2D8C0EFC79 /* RyotLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RyotLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		7342B529FA569B6458B8FB47 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		13A092D03B04F39BBD24F64F /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		34735B3207C6D2037A02B403 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		915562AAFF747DA88C6F26EE /* LiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
 		AA40E758A354B9E89853C47B /* RyotLiveActivitiesPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RyotLiveActivitiesPlugin.swift; sourceTree = "<group>"; };
 		CE84836C72541FCF1C61AD80 /* RyotBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RyotBridgeViewController.swift; sourceTree = "<group>"; };
@@ -148,6 +152,8 @@
 				915562AAFF747DA88C6F26EE /* LiveActivityWidget.swift */,
 				A712B63E4C8F9D1052E7A34C /* Assets.xcassets */,
 				7342B529FA569B6458B8FB47 /* Info.plist */,
+				13A092D03B04F39BBD24F64F /* Localizable.xcstrings */,
+				34735B3207C6D2037A02B403 /* InfoPlist.xcstrings */,
 			);
 			path = RyotLiveActivities;
 			sourceTree = "<group>";
@@ -220,6 +226,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				de,
 				Base,
 			);
 			mainGroup = 504EC2FB1FED79650016851F;
@@ -266,6 +273,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				E6A14D3B9C825F70A1D6384E /* Assets.xcassets in Resources */,
+				544ACDA50F2F9F81A5B16618 /* Localizable.xcstrings in Resources */,
+				EED8B1E1A2CC0B24963C2286 /* InfoPlist.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -375,6 +384,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -426,6 +436,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -502,6 +513,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = io.ryot.app.dev.liveactivities;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -526,6 +538,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = io.ryot.app.liveactivities;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

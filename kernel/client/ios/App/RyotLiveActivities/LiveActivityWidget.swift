@@ -56,7 +56,7 @@ private struct ActivityBrandMark: View {
             .scaledToFit()
             .frame(width: 24, height: 24)
             .foregroundStyle(toneColor(tone))
-            .accessibilityLabel("Ryot")
+            .accessibilityLabel(Text(verbatim: "Ryot"))
     }
 }
 
@@ -128,7 +128,7 @@ private struct ActivityPrimaryValue: View {
             if let value = context.state.secondary {
                 ActivityValue(value: value, end: activityEnd(context))
             } else {
-                Text("Timer ended")
+                Text("Timer ended", comment: "Replaces a countdown that has reached zero.")
             }
         } else {
             ActivityValue(value: context.state.primary, end: activityEnd(context))
@@ -163,7 +163,7 @@ private struct ActivityDetails: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(context.isStale ? (context.state.staleMessage ?? "Open Ryot to refresh") : context.state.status)
+            Text(context.isStale ? (context.state.staleMessage ?? String(localized: "Open Ryot to refresh", comment: "Status of a Live Activity whose data may be outdated.")) : context.state.status)
                 .font(.subheadline.weight(.medium)).foregroundStyle(toneColor(context.state.tone)).lineLimit(1)
             if let detail = context.state.detail, !detail.isEmpty {
                 Text(detail).font(.caption).lineLimit(1).privacySensitive()
@@ -183,7 +183,7 @@ private struct ActivityDetails: View {
                 }
                 ForEach(context.state.metrics.indices, id: \.self) { index in
                     let metric = context.state.metrics[index]
-                    Text("\(metric.label) \(metric.value)").lineLimit(1).privacySensitive()
+                    Text("\(metric.label) \(metric.value)", comment: "A metric label followed by its value.").lineLimit(1).privacySensitive()
                 }
             }
             .font(.caption2)
