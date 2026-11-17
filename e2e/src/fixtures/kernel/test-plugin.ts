@@ -24,6 +24,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Result, Schema } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { getSharedHarnessTarget, type HarnessTarget } from "~/support/harness-target";
 
@@ -37,8 +38,8 @@ import { pollUntil } from "./polling";
 import { executeAdminRyotQLRecipe } from "./ryotql";
 import {
 	authoredEntityBrowserSettings,
+	pluginRowsDataSources,
 	rowsDataSourceDependencies,
-	rowsDataSources,
 } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
@@ -153,6 +154,7 @@ export const installTestSupportSystemPlugin = (
 			c.testSupport.installSystemPlugin({
 				payload: {
 					manifest: pluginPackage.manifest,
+					catalogs: pluginPackage.catalogs,
 					compiledScripts: pluginPackage.compiledScripts,
 					...(compiledClient === undefined ? {} : { compiledClient }),
 				},
@@ -181,6 +183,7 @@ export const updateTestSupportSystemPlugin = (
 				payload: {
 					contentHash: input.contentHash,
 					manifest: pluginPackage.manifest,
+					catalogs: pluginPackage.catalogs,
 					compiledScripts: pluginPackage.compiledScripts,
 					...(compiledClient === undefined ? {} : { compiledClient }),
 				},
@@ -240,9 +243,9 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	metadata: {
 		version: "1.0.0",
 		icon: "flask-conical",
-		name: "E2E Test Plugin",
+		name: manifestText("E2E Test Plugin"),
 		packageId: input.packageId ?? testPluginPackageId(),
-		description: "Generic plugin fixture for end-to-end tests",
+		description: manifestText("Generic plugin fixture for end-to-end tests"),
 	},
 });
 
@@ -254,9 +257,15 @@ export const testPluginEntitySchema = (input: {
 	icon: "box",
 	slug: input.slug,
 	eventSchemas: [],
-	name: input.name ?? "E2E Entity",
+	name: manifestText(input.name ?? "E2E Entity"),
 	propertiesSchema: input.propertiesSchema ?? {
-		fields: { description: { type: "string", label: "Description", description: "Description" } },
+		fields: {
+			description: {
+				type: "string",
+				description: "Description",
+				label: manifestText("Description"),
+			},
+		},
 	},
 });
 
@@ -270,9 +279,9 @@ export const testPluginSavedViews = (input: {
 			icon: "star",
 			sortOrder: 0,
 			slug: input.slug,
-			dataSources: rowsDataSources,
-			name: input.name ?? "E2E Plugin View",
+			dataSources: pluginRowsDataSources,
 			settings: authoredEntityBrowserSettings,
+			name: manifestText(input.name ?? "E2E Plugin View"),
 			renderer: { kind: "kernel", name: "entity-browser" },
 		},
 	],

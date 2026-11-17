@@ -11,6 +11,8 @@ import {
 	pluginPackageSegments,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
+import { manifestCatalogs } from "@ryot-app/contract/testing";
+import { Message } from "@ryot-app/i18n/message";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import {
 	and,
@@ -26,6 +28,8 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { Effect, Result, Schema } from "effect";
+
+import { manifestEnglish, manifestText } from "~/fixtures/kernel/manifest-text";
 
 import type { Client } from "./auth";
 import type { PluginPackageInput } from "./compiled-package";
@@ -56,8 +60,8 @@ export const namespaceInstallationsRecipe = (() => {
 					join("inner", plugin, eq(column(plugin, "id"), column(installationTable, "pluginId"))),
 				],
 				selection: {
+					name: selectedField(column(plugin, "name"), Message),
 					pluginId: selectedField(column(plugin, "id"), PluginId),
-					name: selectedField(column(plugin, "name"), Schema.String),
 					version: selectedField(column(plugin, "version"), Schema.String),
 					id: selectedField(column(installationTable, "id"), Schema.String),
 					packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
@@ -431,12 +435,12 @@ export default defineAutomation({ manifest, run: ({ automation }, host) => Effec
 }) });
 `;
 
-const formatterSource = (label: string) => `
+const formatterSource = `
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "automation", automationType: "automation", name: "Whiskey formatter", slug: "formatter", inputProjection: { signal: { properties: ["label"] } } });
-export default defineAutomation({ manifest, run: ({ automation }, host) => automation.payload.resource === "signal" ? host.sendNotification(${JSON.stringify(`${label} tasting`)}) : Effect.succeed(null) });
+export default defineAutomation({ manifest, run: ({ automation }, host) => automation.payload.resource === "signal" ? host.sendNotification({ key: "e2e.tasting" }) : Effect.succeed(null) });
 `;
 
 const clientRecipeSource = `
@@ -517,61 +521,69 @@ const namespacePackage = (input: {
 				icon: "wine",
 				sortOrder: 0,
 				settings: {},
-				name: "All bottles",
 				slug: "all-bottles",
+				name: manifestText("All bottles"),
 				renderer: { kind: "plugin", exportName: "home" },
 				dataSources: namespaceBottlesRecipe({ reference: { kind: "self" } }).document,
 			},
 		],
 		providers: [
 			{
-				name: "Catalog",
 				slug: "catalog",
+				name: manifestText("Catalog"),
 				rootEntitySchemaSlug: "bottle",
 				information: { source: "offline" },
 			},
 			{
-				name: "Distillery",
 				slug: "distillery",
+				name: manifestText("Distillery"),
 				rootEntitySchemaSlug: "distillery",
 				information: { source: "offline" },
+			},
+		],
+		signalSchemas: [
+			{
+				slug: "tasted",
+				catalogState: "active",
+				name: manifestText("Tasted"),
+				audiencePolicy: { kind: "actor" },
+				notificationHookSlug: "formatter",
+				propertiesSchema: {
+					fields: {
+						label: { type: "string", label: manifestText("Label"), description: "Exact emitter" },
+					},
+				},
 			},
 		],
 		integrationProviders: [
 			{
 				lot: "push",
-				name: "Import",
 				slug: "import",
-				description: "Offline namespaced integration",
+				name: manifestText("Import"),
+				description: manifestText("Offline namespaced integration"),
 				settingsSchema: {
 					unknownKeys: "strict",
-					fields: { marker: { type: "string", label: "Marker", description: "Fixture marker" } },
-				},
-			},
-		],
-		signalSchemas: [
-			{
-				name: "Tasted",
-				slug: "tasted",
-				catalogState: "active",
-				audiencePolicy: { kind: "actor" },
-				notificationHookSlug: "formatter",
-				propertiesSchema: {
-					fields: { label: { type: "string", label: "Label", description: "Exact emitter" } },
+					fields: {
+						marker: {
+							type: "string",
+							label: manifestText("Marker"),
+							description: "Fixture marker",
+						},
+					},
 				},
 			},
 		],
 		relationshipSchemas: [
 			{
-				name: "Contains",
 				slug: "contains",
+				name: manifestText("Contains"),
 				sourceEntitySchemaSlug: "bottle",
 				propertiesSchema: { fields: {} },
 				targetEntitySchemaSlug: input.uniqueSchema,
 			},
 			{
-				name: "Bottled by",
 				slug: "bottled-by",
+				name: manifestText("Bottled by"),
 				sourceEntitySchemaSlug: "bottle",
 				propertiesSchema: { fields: {} },
 				targetEntitySchemaSlug: "distillery",
@@ -582,17 +594,17 @@ const namespacePackage = (input: {
 			fields: {
 				writerMarker: {
 					type: "string",
-					label: "Writer marker",
+					label: manifestText("Writer marker"),
 					description: "Exact retained configuration marker",
 				},
 				checkpointUrl: {
 					type: "string",
-					label: "Checkpoint",
+					label: manifestText("Checkpoint"),
 					description: "Hermetic kernel child admission checkpoint",
 				},
 				bootstrapGateUrl: {
 					type: "string",
-					label: "Bootstrap gate",
+					label: manifestText("Bootstrap gate"),
 					description: "Hermetic installation admission checkpoint",
 				},
 			},
@@ -618,38 +630,6 @@ const namespacePackage = (input: {
 				},
 			},
 		},
-		importSources: [
-			{
-				slug: "kernel-write",
-				name: "Kernel writes",
-				workflowSlug: "kernel-write",
-				description: "Restricted kernel import children",
-				inputSchema: {
-					unknownKeys: "strict",
-					fields: {
-						ownEntityId: {
-							type: "string",
-							label: "Own entity",
-							validation: { required: true },
-							description: "Own existing bottle",
-						},
-						foreignEntityId: {
-							type: "string",
-							label: "Foreign entity",
-							validation: { required: true },
-							description: "Foreign existing bottle",
-						},
-					},
-				},
-			},
-			{
-				name: "Import",
-				slug: "import",
-				workflowSlug: "import",
-				description: "Offline import",
-				inputSchema: { fields: {}, unknownKeys: "strict" },
-			},
-		],
 		hooks: [
 			{
 				position: 0,
@@ -690,53 +670,37 @@ const namespacePackage = (input: {
 				targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "tasted" }],
 			},
 		],
-		entitySchemas: [
+		importSources: [
 			{
-				icon: "wine",
-				name: "Bottle",
-				slug: "bottle",
-				eventSchemas: [
-					{
-						name: "Tasted",
-						slug: "tasted",
-						propertiesSchema: {
-							fields: { note: { label: "Note", type: "string", description: "Tasting note" } },
-						},
-					},
-				],
-				propertiesSchema: {
+				slug: "kernel-write",
+				workflowSlug: "kernel-write",
+				name: manifestText("Kernel writes"),
+				description: manifestText("Restricted kernel import children"),
+				inputSchema: {
 					unknownKeys: "strict",
 					fields: {
-						opaque: {
+						ownEntityId: {
 							type: "string",
-							label: "Opaque value",
-							description: "An uninterpreted string",
-						},
-						strength: {
-							label: "Strength",
 							validation: { required: true },
-							description: "Package-specific strength representation",
-							type: typeof input.strength === "string" ? "string" : "integer",
+							label: manifestText("Own entity"),
+							description: "Own existing bottle",
 						},
-						...(input.revision === 2
-							? {
-									finish: {
-										label: "Finish",
-										type: "string" as const,
-										description: "Optional additive property",
-									},
-								}
-							: {}),
+						foreignEntityId: {
+							type: "string",
+							validation: { required: true },
+							label: manifestText("Foreign entity"),
+							description: "Foreign existing bottle",
+						},
 					},
 				},
 			},
-			...["distillery", input.uniqueSchema].map((slug) => ({
-				slug,
-				name: slug,
-				icon: "wine",
-				eventSchemas: [],
-				propertiesSchema: { fields: {}, unknownKeys: "strict" as const },
-			})),
+			{
+				slug: "import",
+				workflowSlug: "import",
+				name: manifestText("Import"),
+				description: manifestText("Offline import"),
+				inputSchema: { fields: {}, unknownKeys: "strict" },
+			},
 		],
 		operations: [
 			{
@@ -782,6 +746,56 @@ const namespacePackage = (input: {
 					},
 				},
 			},
+		],
+		entitySchemas: [
+			{
+				icon: "wine",
+				slug: "bottle",
+				name: manifestText("Bottle"),
+				eventSchemas: [
+					{
+						slug: "tasted",
+						name: manifestText("Tasted"),
+						propertiesSchema: {
+							fields: {
+								note: { type: "string", label: manifestText("Note"), description: "Tasting note" },
+							},
+						},
+					},
+				],
+				propertiesSchema: {
+					unknownKeys: "strict",
+					fields: {
+						opaque: {
+							type: "string",
+							label: manifestText("Opaque value"),
+							description: "An uninterpreted string",
+						},
+						strength: {
+							validation: { required: true },
+							label: manifestText("Strength"),
+							description: "Package-specific strength representation",
+							type: typeof input.strength === "string" ? "string" : "integer",
+						},
+						...(input.revision === 2
+							? {
+									finish: {
+										type: "string" as const,
+										label: manifestText("Finish"),
+										description: "Optional additive property",
+									},
+								}
+							: {}),
+					},
+				},
+			},
+			...["distillery", input.uniqueSchema].map((slug) => ({
+				slug,
+				icon: "wine",
+				eventSchemas: [],
+				name: manifestText(slug),
+				propertiesSchema: { fields: {}, unknownKeys: "strict" as const },
+			})),
 		],
 		scripts: [
 			{
@@ -900,22 +914,29 @@ const namespacePackage = (input: {
 			},
 		],
 	});
+	const packageManifest = {
+		...manifest,
+		metadata: { ...manifest.metadata, version: "1.0.0", name: manifestText("Whiskey") },
+	};
 	return {
-		manifest: {
-			...manifest,
-			metadata: { ...manifest.metadata, name: "Whiskey", version: "1.0.0" },
+		manifest: packageManifest,
+		catalogs: {
+			en: {
+				...manifestCatalogs(packageManifest, manifestEnglish).en,
+				"e2e.tasting": [{ type: 0, value: `${input.label} tasting` }],
+			},
 		},
 		files: encodePluginSourceFiles({
 			[importEntry]: importSource,
 			[entry]: operationSource(input.label),
 			"shared/query-recipes.ts": clientRecipeSource,
 			"backend/scripts/checkpoint.sandbox.ts": checkpointSource,
+			"backend/automations/formatter.sandbox.ts": formatterSource,
 			"backend/automations/after.sandbox.ts": afterSource(input.label),
 			"client/home.tsx": 'export { Home as default } from "./catalog";',
 			"backend/scripts/retained.sandbox.ts": retainedSource(input.label),
 			"backend/automations/policy.sandbox.ts": policySource(input.label),
 			"backend/scripts/integration.sandbox.ts": integrationSource(input.label),
-			"backend/automations/formatter.sandbox.ts": formatterSource(input.label),
 			"backend/scripts/kernel-write-workflow.sandbox.ts": kernelWriteWorkflowSource,
 			"client/catalog.tsx": clientSource(
 				input.label,

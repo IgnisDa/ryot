@@ -3,6 +3,7 @@ import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { HarnessTarget } from "~/support/harness-target";
 
 import { type Client, createAuthenticatedClient } from "./auth";
@@ -29,7 +30,7 @@ export const createPluginEntitySchema = (
 		const pluginSlug = options.pluginSlug ?? createPluginScope();
 		const { slug, schemaId, pluginId, reference } = yield* createEntitySchema(client, {
 			pluginSlug,
-			name: options.schemaName,
+			name: manifestText(options.schemaName),
 			...(options.schemaSlug ? { slug: options.schemaSlug } : {}),
 			...(options.propertiesSchema ? { propertiesSchema: options.propertiesSchema } : {}),
 		});
@@ -139,7 +140,7 @@ export const createCourseLessonFilterFixture = Effect.gen(function* () {
 			fields: {
 				durationMinutes: {
 					type: "integer",
-					label: "Duration Minutes",
+					label: manifestText("Duration Minutes"),
 					description: "Lesson duration in minutes",
 				},
 			},
@@ -148,24 +149,24 @@ export const createCourseLessonFilterFixture = Effect.gen(function* () {
 	const completeSlug = `filter-complete-${yield* randomUuid}`;
 	const completeSchema = yield* createEventSchema(client, {
 		slug: completeSlug,
-		name: "Filter Complete",
 		entitySchema: lessonReference,
+		name: manifestText("Filter Complete"),
 	});
 	const courseModuleSlug = `filter-course-module-${yield* randomUuid}`;
 	const moduleLessonSlug = `filter-module-lesson-${yield* randomUuid}`;
 	const courseModuleSchema = yield* createRelationshipSchema(client, {
 		pluginSlug,
 		slug: courseModuleSlug,
-		name: "Filter Course Module",
 		targetEntitySchemaSlug: moduleSchemaId,
 		sourceEntitySchemaSlug: courseSchemaId,
+		name: manifestText("Filter Course Module"),
 	});
 	const moduleLessonSchema = yield* createRelationshipSchema(client, {
 		pluginSlug,
 		slug: moduleLessonSlug,
-		name: "Filter Module Lesson",
 		targetEntitySchemaSlug: lessonSchemaId,
 		sourceEntitySchemaSlug: moduleSchemaId,
+		name: manifestText("Filter Module Lesson"),
 	});
 
 	const createCourse = (

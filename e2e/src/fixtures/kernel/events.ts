@@ -26,6 +26,7 @@ import {
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requireObjectRecord } from "~/support/assertions";
 import { expect } from "~/support/effect-test";
 
@@ -76,10 +77,12 @@ export const ratedItemEntitySchema = {
 	...testPluginEntitySchema({ slug: "item", name: "Rated item" }),
 	eventSchemas: [
 		{
-			name: "Finished",
 			slug: "finished",
+			name: manifestText("Finished"),
 			propertiesSchema: {
-				fields: { rating: { label: "Rating", description: "Rating", type: "number" as const } },
+				fields: {
+					rating: { description: "Rating", type: "number" as const, label: manifestText("Rating") },
+				},
 			},
 		},
 	],
@@ -105,19 +108,19 @@ export const createRatedItem = (client: Client, pluginId: PluginId) =>
 export const createEventTestFixture = (client: Client) =>
 	Effect.gen(function* () {
 		const { reference, schemaId: entitySchemaSlug } = yield* createPluginSchema(client, {
-			name: "Test Item",
+			name: manifestText("Test Item"),
 			slug: `item-${yield* randomUuid}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
-			name: "Finished",
 			entitySchema: reference,
+			name: manifestText("Finished"),
 			slug: `finished-${yield* randomUuid}`,
 			propertiesSchema: {
 				fields: {
 					rating: {
-						label: "Rating",
 						type: "number" as const,
 						description: "Rating score",
+						label: manifestText("Rating"),
 						validation: { required: true as const },
 					},
 				},
@@ -140,12 +143,12 @@ export const createEventTestFixture = (client: Client) =>
 export const createRuleEventFixture = (client: Client) =>
 	Effect.gen(function* () {
 		const { reference } = yield* createPluginSchema(client, {
-			name: "Rule Test Item",
+			name: manifestText("Rule Test Item"),
 			slug: `rule-item-${yield* randomUuid}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
-			name: "Progress Log",
 			entitySchema: reference,
+			name: manifestText("Progress Log"),
 			slug: `progress-log-${yield* randomUuid}`,
 			propertiesSchema: {
 				rules: [
@@ -159,12 +162,12 @@ export const createRuleEventFixture = (client: Client) =>
 				fields: {
 					progressPercent: {
 						type: "number" as const,
-						label: "Progress Percent",
 						description: "Progress percentage",
+						label: manifestText("Progress Percent"),
 					},
 					status: {
-						label: "Status",
 						type: "string" as const,
+						label: manifestText("Status"),
 						description: "Workflow status",
 						validation: { required: true as const },
 					},

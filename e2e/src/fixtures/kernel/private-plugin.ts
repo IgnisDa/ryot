@@ -3,6 +3,8 @@ import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
+
 import type { Client } from "./auth";
 import type { PluginPackageInput } from "./compiled-package";
 import { listInstalledPlugins } from "./plugins";
@@ -48,13 +50,13 @@ export const privatePluginConfigSchema: PrivatePluginManifest["configSchema"] = 
 		[PRIVATE_PLUGIN_SECRET_KEY]: {
 			secret: true,
 			type: "string",
-			label: "API token",
+			label: manifestText("API token"),
 			description: "Secret value that must never leave the api",
 		},
 		[PRIVATE_PLUGIN_CONFIG_KEY]: {
 			type: "string",
-			label: "Greeting",
 			validation: { required: true },
+			label: manifestText("Greeting"),
 			description: "Value returned by the private plugin operation",
 		},
 	},
@@ -356,7 +358,11 @@ export const privateIntegrationSettingsSchema: PrivatePluginManifest["integratio
 	{
 		unknownKeys: "strict",
 		fields: {
-			endpoint: { type: "string", label: "Endpoint", description: "Private provider endpoint" },
+			endpoint: {
+				type: "string",
+				label: manifestText("Endpoint"),
+				description: "Private provider endpoint",
+			},
 		},
 	};
 
@@ -374,15 +380,6 @@ export const privateImportPluginPackage = (
 		pluginSlug,
 		packageId: input.packageId,
 		workflows: [{ scriptSlug, slug: workflowSlug }],
-		importSources: [
-			{
-				name,
-				workflowSlug,
-				slug: sourceSlug,
-				description: name,
-				inputSchema: { fields: {}, unknownKeys: "strict" },
-			},
-		],
 		scripts: [
 			{
 				entry,
@@ -391,6 +388,15 @@ export const privateImportPluginPackage = (
 				capabilities: [],
 				name: "E2E private import",
 				requiredPluginConfigKeys: [],
+			},
+		],
+		importSources: [
+			{
+				workflowSlug,
+				slug: sourceSlug,
+				name: manifestText(name),
+				description: manifestText(name),
+				inputSchema: { fields: {}, unknownKeys: "strict" },
 			},
 		],
 	});
@@ -415,15 +421,6 @@ export const privateIntegrationPluginPackage = (
 	const manifest = testPluginManifest({
 		pluginSlug,
 		packageId: input.packageId,
-		integrationProviders: [
-			{
-				name,
-				lot: "push",
-				description: name,
-				slug: providerSlug,
-				settingsSchema: privateIntegrationSettingsSchema,
-			},
-		],
 		scripts: [
 			{
 				entry,
@@ -432,6 +429,15 @@ export const privateIntegrationPluginPackage = (
 				kind: "operation",
 				requiredPluginConfigKeys: [],
 				name: "E2E private integration operation",
+			},
+		],
+		integrationProviders: [
+			{
+				lot: "push",
+				slug: providerSlug,
+				name: manifestText(name),
+				description: manifestText(name),
+				settingsSchema: privateIntegrationSettingsSchema,
 			},
 		],
 		operations: [

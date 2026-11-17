@@ -26,5 +26,5 @@ export const updateUserSettingsPreferences = (
 	payload: UpdateAccountPreferencesBody,
 ) => client.call((c) => c.account.updatePreferences({ payload }));
 
-export const setUserLanguage = (client: Client, language: string) =>
-	updateUserSettingsPreferences(client, { language });
+export const setUserContentLanguage = (client: Client, contentLanguage: string) =>
+	updateUserSettingsPreferences(client, { contentLanguage });

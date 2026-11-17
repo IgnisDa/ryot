@@ -22,6 +22,7 @@ import {
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { webRequest } from "~/support/web-request";
 
@@ -115,7 +116,7 @@ export const installTestImportPlugin = Effect.suspend(() => {
 			fields: {
 				fixtureToken: {
 					type: "string",
-					label: "Fixture token",
+					label: manifestText("Fixture token"),
 					description: "Intentionally absent E2E import configuration",
 				},
 			},
@@ -158,18 +159,18 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		},
 		importSources: [
 			{
-				name: "E2E archive",
 				workflowSlug: "import",
 				slug: FIXTURE_IMPORT_SOURCE,
-				description: "Import an E2E archive",
+				name: manifestText("E2E archive"),
+				description: manifestText("Import an E2E archive"),
 				plan: { selections: { "archive-validator": { value: "archive" } } },
 				inputSchema: {
 					unknownKeys: "strict",
 					fields: {
 						archiveUploadToken: {
 							type: "string",
-							label: "E2E archive",
 							description: "E2E archive CSV",
+							label: manifestText("E2E archive"),
 							validation: { minLength: 1, required: true },
 							format: { kind: "upload", allowedFileExtensions: ["csv"] },
 						},
@@ -178,11 +179,11 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 			},
 			{
 				workflowSlug: "import",
-				name: "E2E configured archive",
 				slug: FIXTURE_CONFIG_IMPORT_SOURCE,
+				name: manifestText("E2E configured archive"),
 				inputSchema: { fields: {}, unknownKeys: "strict" },
-				description: "Import an E2E archive with required configuration",
 				plan: { selections: { "archive-validator": { value: "configured" } } },
+				description: manifestText("Import an E2E archive with required configuration"),
 			},
 		],
 	});
@@ -290,9 +291,9 @@ export const installTestHarvestHandleImportPlugin = (
 				{
 					slug: sourceSlug,
 					workflowSlug: "import",
-					name: "E2E harvest handle import",
+					name: manifestText("E2E harvest handle import"),
 					inputSchema: { fields: {}, unknownKeys: "strict" },
-					description: "Import fixture for opaque harvest handles",
+					description: manifestText("Import fixture for opaque harvest handles"),
 				},
 			],
 			scripts: [
@@ -485,7 +486,7 @@ export const installTestPartialResultCancellationImportPlugin = Effect.flatMap(
 					slug: providerSlug,
 					information: { source: "e2e" },
 					rootEntitySchemaSlug: entitySchemaSlug,
-					name: "E2E partial-result cancellation provider",
+					name: manifestText("E2E partial-result cancellation provider"),
 				},
 			],
 			entitySchemas: [
@@ -493,17 +494,8 @@ export const installTestPartialResultCancellationImportPlugin = Effect.flatMap(
 					icon: "file",
 					eventSchemas: [],
 					slug: entitySchemaSlug,
-					name: "E2E partial-result cancellation record",
 					propertiesSchema: { fields: {}, unknownKeys: "strict" },
-				},
-			],
-			importSources: [
-				{
-					slug: source,
-					workflowSlug,
-					name: "E2E partial-result cancellation import",
-					inputSchema: { fields: {}, unknownKeys: "strict" },
-					description: "Block after a durable generic-import progress checkpoint",
+					name: manifestText("E2E partial-result cancellation record"),
 				},
 			],
 			files: {
@@ -515,6 +507,15 @@ export const installTestPartialResultCancellationImportPlugin = Effect.flatMap(
 					chunkScriptSlug,
 				),
 			},
+			importSources: [
+				{
+					slug: source,
+					workflowSlug,
+					inputSchema: { fields: {}, unknownKeys: "strict" },
+					name: manifestText("E2E partial-result cancellation import"),
+					description: manifestText("Block after a durable generic-import progress checkpoint"),
+				},
+			],
 			scripts: [
 				{
 					kind: "workflow",
@@ -620,9 +621,9 @@ export const installTestImportPinningPlugin = Effect.flatMap(randomUuid, (suffix
 			{
 				slug: source,
 				workflowSlug,
-				name: "E2E import pinning",
+				name: manifestText("E2E import pinning"),
 				inputSchema: { fields: {}, unknownKeys: "strict" },
-				description: "Hold an accepted import open for plugin pinning coverage",
+				description: manifestText("Hold an accepted import open for plugin pinning coverage"),
 			},
 		],
 		scripts: [

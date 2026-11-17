@@ -2,6 +2,7 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import type { Entitlement } from "@ryot-app/contract/schema/entitlement";
 import { Effect } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { HarnessTarget } from "~/support/harness-target";
 
 import { installTestPluginBundle } from "./test-plugin";
@@ -110,9 +111,9 @@ export default defineWorkflow({
 				settingsSchema,
 				slug: providerSlug,
 				scriptSlug: workflowScriptSlug,
-				name: "E2E integration provider",
-				description: "E2E dynamically installed integration provider",
+				name: manifestText("E2E integration provider"),
 				plan: { selections: { "integration-adapter": { value: scriptSlug } } },
+				description: manifestText("E2E dynamically installed integration provider"),
 				...(options.entitlement === undefined ? {} : { entitlement: options.entitlement }),
 			},
 		],

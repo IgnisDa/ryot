@@ -3,6 +3,8 @@ import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
+
 import type { Client } from "./auth";
 import { compilePluginPackage, type PluginPackageInput } from "./compiled-package";
 import { installPrivatePluginPackage, settledPrivateInstallation } from "./private-plugin";
@@ -49,10 +51,6 @@ export const analyticsContributionPackage = Effect.fn(function* (
 			clientDefinition: {
 				homeView: null,
 				apiVersion: CLIENT_API_VERSION,
-				analyticsSections: {
-					failure: { icon: "box", sortOrder: 1, exportName: "failure", name: "Fixture failure" },
-					activity: { icon: "box", sortOrder: 0, exportName: "activity", name: "Fixture activity" },
-				},
 				exports: {
 					failure: {
 						kind: "analytics-section",
@@ -63,6 +61,20 @@ export const analyticsContributionPackage = Effect.fn(function* (
 						kind: "analytics-section",
 						entry: "client/activity.tsx",
 						automaticEntityPresentations: false,
+					},
+				},
+				analyticsSections: {
+					failure: {
+						icon: "box",
+						sortOrder: 1,
+						exportName: "failure",
+						name: manifestText("Fixture failure"),
+					},
+					activity: {
+						icon: "box",
+						sortOrder: 0,
+						exportName: "activity",
+						name: manifestText("Fixture activity"),
 					},
 				},
 			},

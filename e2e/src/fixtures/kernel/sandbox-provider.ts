@@ -1,4 +1,5 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
@@ -8,7 +9,6 @@ import {
 	type SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
 import type {
 	ProviderDetailsResult,
@@ -29,6 +29,7 @@ import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
 import { listAdminSystemPlugins } from "./admin-system-plugins";
 import type { Client } from "./auth";
 import { compilePluginPackage } from "./compiled-package";
+import { manifestText } from "./manifest-text";
 import {
 	encodePluginSourceFiles,
 	type InstalledTestPlugin,
@@ -106,8 +107,8 @@ type TestProviderSpec = {
 	searchOptionsFailure?: string;
 	details: ProviderDetailsResult;
 	resolve?: ProviderResolveResult;
-	searchOptionsSchema?: AppSchema;
 	detailsFailure?: string | undefined;
+	searchOptionsSchema?: AuthoredAppSchema;
 	information?: PluginProviderInformation;
 	searchOptions?: ProviderSearchOptionsResult;
 	relatedPageHttpCalls?: Readonly<Record<string, HttpCalls>>;
@@ -219,8 +220,8 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 		}),
 	);
 	const provider = {
-		name,
 		slug: providerSlug,
+		name: manifestText(name),
 		rootEntitySchemaSlug: input.rootEntitySchemaSlug,
 		information: input.information ?? { source: "e2e" },
 	};
@@ -348,6 +349,7 @@ export const shippedPluginTestProviders = (
 				pluginId,
 				compiledScripts: [...shipped.compiledScripts, ...compiled.compiledScripts],
 				contentHash: requirePresent(current.contentHash, "Shipped plugin has no content hash"),
+				catalogs: { ...shipped.catalogs, en: { ...shipped.catalogs.en, ...compiled.catalogs.en } },
 				manifest: {
 					...shipped.manifest,
 					scripts: [...shipped.manifest.scripts, ...compiled.manifest.scripts],
@@ -479,7 +481,7 @@ export function providerSandboxSource(input: {
 	readonly executionFailure?: string;
 	readonly operation: ProviderOperation;
 	readonly result: ProviderOperationResult;
-	readonly searchOptionsSchema?: AppSchema;
+	readonly searchOptionsSchema?: AuthoredAppSchema;
 	readonly relatedPageHttpCalls?: Readonly<Record<string, HttpCalls>>;
 	readonly translationInputs?: Readonly<Record<string, readonly string[]>>;
 }) {

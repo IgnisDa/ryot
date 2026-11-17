@@ -6,6 +6,7 @@ import {
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option, Schema } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 
 import type { Client, createAuthenticatedClient } from "./auth";
@@ -33,8 +34,8 @@ export const createDataJsonSchemaGraph = (client: Client) =>
 				fields: {
 					relatedEntity: {
 						type: "string",
-						label: "Related entity",
 						reference: { kind: "entity-id" },
+						label: manifestText("Related entity"),
 						description: "An entity referenced by this record",
 					},
 				},
@@ -46,33 +47,33 @@ export const createDataJsonSchemaGraph = (client: Client) =>
 		});
 		const relationship = yield* createRelationshipSchema(client, {
 			pluginSlug,
-			name: `Data JSON relationship ${suffix}`,
 			slug: `data-json-relationship-${suffix}`,
 			sourceEntitySchemaSlug: entityA.schemaId,
 			targetEntitySchemaSlug: entityB.schemaId,
+			name: manifestText(`Data JSON relationship ${suffix}`),
 		});
 		const event = yield* createEventSchema(client, {
 			entitySchema: entityA.reference,
-			name: `Data JSON event ${suffix}`,
 			slug: `data-json-event-${suffix}`,
+			name: manifestText(`Data JSON event ${suffix}`),
 			propertiesSchema: {
 				fields: {
 					details: {
 						type: "object",
-						label: "Details",
+						label: manifestText("Details"),
 						description: "Nested data references",
 						properties: {
 							entityReference: {
 								type: "string",
-								label: "Entity reference",
 								description: "Referenced entity",
 								reference: { kind: "entity-id" },
+								label: manifestText("Entity reference"),
 							},
 							relationshipReference: {
 								type: "string",
-								label: "Relationship reference",
 								description: "Referenced relationship",
 								reference: { kind: "relationship-id" },
+								label: manifestText("Relationship reference"),
 							},
 						},
 					},

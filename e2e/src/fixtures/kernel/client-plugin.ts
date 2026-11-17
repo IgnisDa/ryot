@@ -1,6 +1,8 @@
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
+import { isPluginSourceFile } from "@ryot-app/plugin-client-contract";
+import { CATALOG_MESSAGES_MODULE } from "@ryot-app/plugin-kit/messages-module";
 import { Effect, Schema } from "effect";
 
 import type { Client } from "./auth";
@@ -15,10 +17,11 @@ import { testPluginPackageId } from "./test-plugin";
 
 const fixturePackageIds = new Map<string, PluginPackageId>();
 
-export const FIXTURE_CLIENT_REVISION_MARKERS = {
-	A: "Fixture plugin revision A",
-	B: "Fixture plugin revision B",
-} as const;
+const FIXTURE_CLIENT_REVISION_MARKERS = { A: "revision-a", B: "revision-b" } as const;
+
+/** Selects the fixture home's root element as rendered by one client revision. */
+export const fixtureClientRevisionSelector = (revision: FixtureClientPluginRevision) =>
+	`[data-fixture-revision="${FIXTURE_CLIENT_REVISION_MARKERS[revision]}"]`;
 
 const archiveUrl = new URL(
 	`../../../../plugins/fixture/dist/${fixturePlugin.metadata.packageId}.zip`,
@@ -26,6 +29,7 @@ const archiveUrl = new URL(
 );
 const authoringUrl = new URL("../../../../plugins/fixture/", import.meta.url);
 const homeEntry = "client/home.tsx";
+const homeRoot = '<div className="flex w-full flex-col items-center gap-4 text-text">';
 const pokemonPresentationEntry = "client/pokemon-presentation.tsx";
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
@@ -52,10 +56,12 @@ export const fixtureClientPluginPackage = (
 		}
 		const files = Object.fromEntries(
 			yield* Effect.forEach(
-				new Bun.Glob("{client,shared}/**/*").scanSync({
-					onlyFiles: true,
-					cwd: authoringUrl.pathname,
-				}),
+				[
+					...new Bun.Glob("{client,shared}/**/*").scanSync({
+						onlyFiles: true,
+						cwd: authoringUrl.pathname,
+					}),
+				].filter((path) => isPluginSourceFile(path) && path !== CATALOG_MESSAGES_MODULE),
 				(path) =>
 					Effect.promise(() => Bun.file(new URL(path, authoringUrl)).bytes()).pipe(
 						Effect.map((contents) => [path, contents] as const),
@@ -64,12 +70,15 @@ export const fixtureClientPluginPackage = (
 		);
 		const homeBytes = files[homeEntry];
 		const home = homeBytes ? decoder.decode(homeBytes) : undefined;
-		if (!home?.includes("Fixture plugin")) {
+		if (!home?.includes(homeRoot)) {
 			throw new Error(`Fixture client source '${homeEntry}' has no revision marker target`);
 		}
-		const revisedHome = home.replace(
-			"Fixture plugin",
+		const marker = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(
 			`${FIXTURE_CLIENT_REVISION_MARKERS[revision]}${variant}`,
+		);
+		const revisedHome = home.replace(
+			homeRoot,
+			homeRoot.replace("<div ", `<div data-fixture-revision={${marker}} `),
 		);
 		const revisionHome =
 			revision === "B"
@@ -85,6 +94,7 @@ export const fixtureClientPluginPackage = (
 			throw new Error(`Fixture client source '${pokemonPresentationEntry}' is missing`);
 		}
 		return yield* compilePluginPackage({
+			catalogs: pluginPackage.catalogs,
 			compiledScripts: pluginPackage.compiledScripts,
 			manifest: {
 				...pluginPackage.manifest,

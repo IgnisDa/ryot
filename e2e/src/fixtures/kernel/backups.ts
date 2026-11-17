@@ -5,6 +5,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option, Schema } from "effect";
 import { unzipSync } from "fflate";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { webRequest } from "~/support/web-request";
 
@@ -115,8 +116,8 @@ export const installBackupReferencePlugin = Effect.fn(function* (
 				{
 					slug: providerSlug,
 					information: { source: "e2e" },
-					name: "Backup reference provider",
 					rootEntitySchemaSlug: entitySchemaSlug,
+					name: manifestText("Backup reference provider"),
 				},
 			],
 			scripts: [
@@ -148,51 +149,59 @@ export const installBackupReferencePlugin = Effect.fn(function* (
 			entitySchemas: [
 				{
 					icon: "book",
-					name: "Backup record",
 					slug: entitySchemaSlug,
+					name: manifestText("Backup record"),
 					propertiesSchema: {
 						fields: {
-							quantity: { type: "number", label: "Quantity", description: "Current quantity" },
+							quantity: {
+								type: "number",
+								label: manifestText("Quantity"),
+								description: "Current quantity",
+							},
 						},
 					},
 					eventSchemas: [
 						{
 							slug: eventSchemaSlug,
-							name: "Snapshot captured",
+							name: manifestText("Snapshot captured"),
 							propertiesSchema: {
 								fields: {
 									snapshot: {
 										type: "object",
-										label: "Snapshot",
+										label: manifestText("Snapshot"),
 										description: "Retained quantities and references",
 										properties: {
-											count: { label: "Count", type: "integer", description: "Frozen count" },
+											count: {
+												type: "integer",
+												description: "Frozen count",
+												label: manifestText("Count"),
+											},
 											quantity: {
 												type: "number",
-												label: "Quantity",
 												description: "Frozen quantity",
+												label: manifestText("Quantity"),
 											},
 											groups: {
 												type: "array",
-												label: "Groups",
+												label: manifestText("Groups"),
 												description: "Ordered snapshot groups",
 												items: {
 													type: "object",
-													label: "Group",
+													label: manifestText("Group"),
 													description: "Frozen group snapshot",
 													properties: {
 														quantity: {
 															type: "number",
-															label: "Quantity",
+															label: manifestText("Quantity"),
 															description: "Frozen group quantity",
 														},
 														entityIds: {
 															type: "array",
-															label: "References",
+															label: manifestText("References"),
 															description: "Entities retained in the snapshot",
 															items: {
 																type: "string",
-																label: "Reference",
+																label: manifestText("Reference"),
 																description: "Retained entity identity",
 																reference: { required: true, kind: "entity-id" },
 															},

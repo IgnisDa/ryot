@@ -7,6 +7,7 @@ import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { Effect } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
@@ -39,7 +40,9 @@ export const createEventSchema = (client: Client, body: CreateEventSchemaOptions
 			name: body.name,
 			slug: body.slug,
 			propertiesSchema: body.propertiesSchema ?? {
-				fields: { note: { label: "Note", description: "Note", type: "string" as const } },
+				fields: {
+					note: { description: "Note", type: "string" as const, label: manifestText("Note") },
+				},
 			},
 		};
 		yield* installTestDefinitions({

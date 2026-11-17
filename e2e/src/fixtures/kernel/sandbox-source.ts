@@ -320,10 +320,10 @@ export function ryotqlSandboxSource(
 	return scriptModuleSource({
 		...input,
 		inputSchema: "Schema.Struct({})",
-		ryotqlImports: ["type RyotQLDocument"],
+		ryotqlImports: ["type PluginRyotQLDocument"],
 		outputSchema: "Schema.Array(Schema.Unknown)",
 		declarations: `const queryName = ${sourceLiteral(input.queryName)};
-const query: RyotQLDocument = ${JSON.stringify(input.query)};`,
+const query: PluginRyotQLDocument = ${JSON.stringify(input.query)};`,
 		run: `(_input, host) => Effect.gen(function* () {
     const result = yield* host.executeRyotql({ source: { kind: "inline", document: query } });
     const envelope = yield* Schema.decodeUnknownEffect(Schema.Struct({ data: Schema.Record(Schema.String, Schema.Struct({ type: Schema.Literal("rows"), items: Schema.Array(Schema.Unknown) })) }))(result);
@@ -404,10 +404,10 @@ export function systemRyotqlProbeSandboxSource(
 	return scriptModuleSource({
 		...input,
 		inputSchema: "Schema.Struct({})",
-		ryotqlImports: ["type RyotQLDocument"],
+		ryotqlImports: ["type PluginRyotQLDocument"],
 		outputSchema: "Schema.Struct({ count: Schema.Number })",
 		declarations: `const queryName = ${sourceLiteral(input.queryName)};
-const query: RyotQLDocument = ${JSON.stringify(input.query)};`,
+const query: PluginRyotQLDocument = ${JSON.stringify(input.query)};`,
 		run: `(_input, host) => Effect.gen(function* () {
     const result = yield* host.executeRyotql({ source: { kind: "inline", document: query } });
     const envelope = yield* Schema.decodeUnknownEffect(Schema.Struct({ data: Schema.Record(Schema.String, Schema.Struct({ type: Schema.Literal("rows"), items: Schema.Array(Schema.Unknown) })) }))(result);

@@ -289,7 +289,7 @@ const syncStatus = (status: string): "pending" | "ready" | "none" =>
   status === "pending" || status === "ready" ? status : "none";
 
 const collectionPageRecipe = (() => {
-  const input = parameters({ fields: { collectionId: { type: "string", label: "Collection", description: "Collection identity", validation: { required: true } } } });
+  const input = parameters({ fields: { collectionId: { type: "string", label: { key: "parameter.collection" }, description: "Collection identity", validation: { required: true } } } });
   const membership = table("relationship", "collectionMembership");
   const entity = table("entity", "collectionEntity");
   const ownerPlugin = table("plugin", "ownerPlugin");
@@ -323,7 +323,6 @@ const collectionPageRecipe = (() => {
         where,
         groupBy: {
           ownerPluginId: selectedField(column(entity, "entitySchemaPluginId"), Schema.NullOr(Schema.String)),
-          ownerPluginName: selectedField(column(ownerPlugin, "name"), Schema.NullOr(Schema.String)),
           ownerPackageId: selectedField(column(ownerPlugin, "packageId"), Schema.NullOr(Schema.String)),
           schemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
         },
@@ -362,7 +361,7 @@ const greetingMutation = createRyotMutation(({ client }) => client.operations.in
 const schemaLabel = (group: CollectionPageData["grouped"][number]) => {
   if (group.ownerPackageId === ${JSON.stringify(fixturePlugin.metadata.packageId)} && group.schemaSlug === "pokemon") return "Pokemon";
   if (group.ownerPluginId === null && group.schemaSlug === "collection") return "Collections";
-  return group.ownerPluginName === null ? group.schemaSlug : group.ownerPluginName + " / " + group.schemaSlug;
+  return group.ownerPackageId === null ? group.schemaSlug : group.ownerPackageId + " / " + group.schemaSlug;
 };
 
 const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {

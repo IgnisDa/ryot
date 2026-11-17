@@ -3,6 +3,7 @@ import { pluginUserSettingsRecipe } from "@ryot-app/ryotql-recipes/plugin-user-s
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
+import { manifestText } from "./manifest-text";
 import {
 	installPrivatePluginPackage,
 	privatePluginPackage,
@@ -21,14 +22,14 @@ export const preferencePluginUserSettingsSchema = {
 		enabled: {
 			type: "boolean",
 			defaultValue: false,
-			label: "Enable reminders",
 			description: "Enable reminders",
+			label: manifestText("Enable reminders"),
 		},
 		limit: {
 			type: "integer",
 			defaultValue: 5,
-			label: "Reminder limit",
 			description: "Maximum reminders",
+			label: manifestText("Reminder limit"),
 			validation: { minimum: 0, maximum: 10 },
 		},
 	},
@@ -79,7 +80,10 @@ export const preferencePrivatePluginPackage = (
 			...pluginPackage.manifest,
 			userSettingsSchema: preferencePluginUserSettingsSchema,
 			configSchema: { ...pluginPackage.manifest.configSchema, fields: {} },
-			metadata: { ...pluginPackage.manifest.metadata, name: "Preference test plugin" },
+			metadata: {
+				...pluginPackage.manifest.metadata,
+				name: manifestText("Preference test plugin"),
+			},
 			scripts: [
 				{
 					...script,

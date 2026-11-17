@@ -1,11 +1,15 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
+import type { ManifestText } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type {
 	PluginIdentityReference,
 	QueryOwnerReference,
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import type {
+	PluginRyotQLDocument,
+	RyotQLDocument,
+} from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	AuthoredEntityBrowserSavedViewSettings,
 	EntityBrowserSavedViewSettings,
@@ -45,6 +49,7 @@ import { Effect, Result, Schema } from "effect";
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
+import { manifestText } from "./manifest-text";
 import { findPluginInstallationByPackage } from "./plugins";
 import { executeRyotQLRecipe } from "./ryotql";
 
@@ -66,52 +71,65 @@ export const rowsFields = [
 	field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 ];
 
-const browserParameters = parameters({
-	fields: { search: { type: "string", label: "Search", description: "Entity name contains" } },
-});
+const savedViewDataSources = <const Label extends string | ManifestText>(
+	label: Label,
+	entitySchemaSlugs: readonly [string, ...string[]],
+	owner: QueryOwnerReference,
+) => {
+	const browserParameters = parameters({
+		fields: { search: { label, type: "string", description: "Entity name contains" } },
+	});
+	return {
+		...document({
+			savedView: rows(entity, {
+				limit: 2,
+				maxLimit: 1000,
+				fields: rowsFields,
+				orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
+				where: and(
+					filter(),
+					browserParameters.whenSet(
+						"search",
+						contains(column(entity, "name"), browserParameters.value("search")),
+					),
+					inArray(
+						column(entity, "entitySchemaSlug"),
+						entitySchemaSlugs.map((slug) => literal(slug)),
+					),
+					schemaOwnerPredicate(entity, "entitySchemaPluginId", owner),
+				),
+			}),
+		}),
+		parameters: browserParameters.schema,
+		controls: {
+			filter: {
+				alias: "entity",
+				kind: "browse" as const,
+				schemas: [
+					{ owner, slug: entitySchemaSlugs[0] },
+					...entitySchemaSlugs.slice(1).map((slug) => ({ slug, owner })),
+				] as const,
+			},
+		},
+	};
+};
 
 export const buildSavedViewDataSources = (
 	entitySchemaSlugs: readonly [string, ...string[]],
 	owner: QueryOwnerReference,
-): RyotQLDocument => ({
-	...document({
-		savedView: rows(entity, {
-			limit: 2,
-			maxLimit: 1000,
-			fields: rowsFields,
-			orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
-			where: and(
-				filter(),
-				browserParameters.whenSet(
-					"search",
-					contains(column(entity, "name"), browserParameters.value("search")),
-				),
-				inArray(
-					column(entity, "entitySchemaSlug"),
-					entitySchemaSlugs.map((slug) => literal(slug)),
-				),
-				schemaOwnerPredicate(entity, "entitySchemaPluginId", owner),
-			),
-		}),
-	}),
-	parameters: browserParameters.schema,
-	controls: {
-		filter: {
-			kind: "browse",
-			alias: "entity",
-			schemas: [
-				{ owner, slug: entitySchemaSlugs[0] },
-				...entitySchemaSlugs.slice(1).map((slug) => ({ slug, owner })),
-			],
-		},
-	},
-});
+): RyotQLDocument => savedViewDataSources("Search", entitySchemaSlugs, owner);
 
 const mediaPluginPackage = { scope: "system", packageId: mediaPlugin.metadata.packageId } as const;
 
 const mediaPluginOwner: PluginIdentityReference = { kind: "package", ...mediaPluginPackage };
 
 export const rowsDataSources = buildSavedViewDataSources(["book"], mediaPluginOwner);
+
+export const pluginRowsDataSources: PluginRyotQLDocument = savedViewDataSources(
+	manifestText("Search"),
+	["book"],
+	mediaPluginOwner,
+);
 
 export const rowsDataSourceDependencies = { media: mediaPluginPackage };
 
@@ -146,6 +164,10 @@ export const authoredEntityBrowserSettings = {
 		entityAlias: "entity",
 		schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("book") }],
 	},
+	tableColumns: [
+		{ field: "name", displayKind: "text", label: manifestText("Name") },
+		{ field: "year", displayKind: "number", label: manifestText("Year") },
+	],
 } satisfies AuthoredEntityBrowserSavedViewSettings;
 
 type CreatePayload = ContractPayload<"savedViews", "create">;

@@ -1,5 +1,5 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import type { EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
+import type { AuthoredEntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	type DefinitionOwner,
@@ -15,6 +15,7 @@ import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Brand, Effect } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertPresent, requirePresent } from "~/support/assertions";
 
 import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
@@ -43,10 +44,12 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 		const {
 			pluginSlug,
 			icon = "book",
-			name = "Test Schema",
+			name = manifestText("Test Schema"),
 			slug = `schema-${yield* randomUuid}`,
 			propertiesSchema = {
-				fields: { title: { label: "Title", description: "Title", type: "string" as const } },
+				fields: {
+					title: { description: "Title", type: "string" as const, label: manifestText("Title") },
+				},
 			},
 		} = options;
 		const schema = { icon, name, slug, propertiesSchema, eventSchemas: [] };
@@ -214,43 +217,19 @@ export const createPluginSchema = (
 		return { ...schema, pluginSlug };
 	});
 
-const authoredBrowseOwner = (
-	value: DefinitionOwner,
-): { readonly kind: "self" } | { readonly kind: "kernel" } =>
-	value.kind === "kernel" ? { kind: "kernel" } : { kind: "self" };
-
 export const setTestEntitySchemaBrowse = (
 	client: Client,
 	reference: Parameters<typeof findTestEntitySchema>[1],
-	browse: EntitySchemaBrowse,
+	browse: AuthoredEntitySchemaBrowse,
 ) =>
 	Effect.gen(function* () {
 		const existing = requirePresent(
 			findTestEntitySchema(client, reference),
 			"Fixture schema missing",
 		);
-
-		const fields = browse.fields.map((field) => {
-			if (field.kind === "relationship") {
-				return {
-					...field,
-					relationship: {
-						...field.relationship,
-						owner: authoredBrowseOwner(field.relationship.owner),
-					},
-				};
-			}
-			if (field.kind === "session-event") {
-				return {
-					...field,
-					event: { ...field.event, owner: authoredBrowseOwner(field.event.owner) },
-				};
-			}
-			return field;
-		});
 		yield* installTestDefinitions({
 			client,
 			pluginSlug: existing.pluginSlug,
-			entitySchemas: [{ ...existing.schema, browse: { fields } }],
+			entitySchemas: [{ ...existing.schema, browse }],
 		});
 	});

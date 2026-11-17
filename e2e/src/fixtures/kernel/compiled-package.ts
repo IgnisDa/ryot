@@ -1,5 +1,6 @@
 import { type PluginManifest, PluginScript } from "@ryot-app/contract/modules/plugins/manifest";
-import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
+import { manifestCatalogs } from "@ryot-app/contract/testing";
+import type { PluginArchiveCatalogs, PluginArchivePackage } from "@ryot-app/plugin-archive";
 import {
 	compilePluginManifestScripts,
 	derivePluginSandboxScripts,
@@ -11,9 +12,11 @@ import {
 import { clientDeclarationHash } from "@ryot-app/plugin-client-contract";
 import { Effect, Schema } from "effect";
 
+import { manifestEnglish } from "./manifest-text";
+
 export type PluginPackageInput = Pick<PluginArchivePackage, "manifest"> &
 	Pick<PluginClientCompilerPackageInput, "files"> &
-	Partial<Pick<PluginArchivePackage, "compiledClient" | "compiledScripts">>;
+	Partial<Pick<PluginArchivePackage, "catalogs" | "compiledClient" | "compiledScripts">>;
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
@@ -31,15 +34,19 @@ const clientSources = (files: PluginPackageInput["files"]) =>
 		),
 	);
 
-const compileClient = (manifest: PluginManifest, files: PluginPackageInput["files"]) => {
+const compileClient = (
+	manifest: PluginManifest,
+	files: PluginPackageInput["files"],
+	catalog: PluginArchiveCatalogs[string],
+) => {
 	const client = manifest.client;
 	if (!client) {
 		return Effect.void;
 	}
 	return compileClientPluginModule({
+		catalog,
 		kind: "plugin",
 		files: clientSources(files),
-		name: manifest.metadata.name,
 		apiVersion: client.apiVersion,
 		packageId: manifest.metadata.packageId,
 		pluginDependencies: manifest.dependencies ?? {},
@@ -55,9 +62,11 @@ const compileClient = (manifest: PluginManifest, files: PluginPackageInput["file
 
 export const compilePluginPackage = (input: PluginPackageInput) =>
 	Effect.gen(function* () {
+		const catalogs = input.catalogs ?? manifestCatalogs(input.manifest, manifestEnglish);
+		const catalog = catalogs.en;
 		const derived = input.compiledScripts
 			? undefined
-			: yield* derivePluginSandboxScripts(sandboxSources(input.files));
+			: yield* derivePluginSandboxScripts(sandboxSources(input.files), catalog);
 		const byEntry = new Map(derived?.map(({ script }) => [script.entry, script]));
 		const manifest = {
 			...input.manifest,
@@ -78,16 +87,18 @@ export const compilePluginPackage = (input: PluginPackageInput) =>
 		};
 		const compiledScripts =
 			input.compiledScripts ??
-			(yield* compilePluginManifestScripts(manifest, sandboxSources(input.files))).map(
+			(yield* compilePluginManifestScripts(manifest, sandboxSources(input.files), catalog)).map(
 				({ script, compiled }) => ({
 					entry: script.entry,
 					format: compiled.format,
 					javascript: compiled.javascript,
 				}),
 			);
-		const compiledClient = input.compiledClient ?? (yield* compileClient(manifest, input.files));
+		const compiledClient =
+			input.compiledClient ?? (yield* compileClient(manifest, input.files, catalog));
 		return {
 			manifest,
+			catalogs,
 			compiledScripts,
 			...(compiledClient ? { compiledClient } : {}),
 		} satisfies PluginArchivePackage;

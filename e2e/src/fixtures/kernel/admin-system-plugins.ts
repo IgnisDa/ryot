@@ -1,4 +1,5 @@
 import { PluginId, PluginPackageId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
+import { Message } from "@ryot-app/i18n/message";
 import {
 	and,
 	ascending,
@@ -31,8 +32,8 @@ export const adminSystemPluginsRecipe = (() => {
 				),
 				selection: {
 					id: selectedField(column(plugin, "id"), PluginId),
+					name: selectedField(column(plugin, "name"), Schema.NullOr(Message)),
 					packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
-					name: selectedField(column(plugin, "name"), Schema.NullOr(Schema.String)),
 					version: selectedField(column(plugin, "version"), Schema.NullOr(Schema.String)),
 					contentHash: selectedField(column(plugin, "contentHash"), Schema.NullOr(Schema.String)),
 					activeRevisionId: selectedField(

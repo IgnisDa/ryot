@@ -2,6 +2,8 @@ import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/import
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
+
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { providerSandboxSource } from "./sandbox-provider";
@@ -103,8 +105,8 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 				{
 					slug: providerSlug,
 					information: { source: "e2e" },
-					name: "Sidecar recovery provider",
 					rootEntitySchemaSlug: entitySchemaSlug,
+					name: manifestText("Sidecar recovery provider"),
 				},
 			],
 			entitySchemas: [
@@ -112,7 +114,7 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 					icon: "file",
 					eventSchemas: [],
 					slug: entitySchemaSlug,
-					name: "Sidecar recovery record",
+					name: manifestText("Sidecar recovery record"),
 					propertiesSchema: { fields: {}, unknownKeys: "strict" },
 				},
 			],
@@ -120,9 +122,9 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 				{
 					slug: source,
 					workflowSlug,
-					name: "Sidecar recovery import",
+					name: manifestText("Sidecar recovery import"),
 					inputSchema: { fields: {}, unknownKeys: "strict" },
-					description: "Import with a provider checkpoint after a committed batch",
+					description: manifestText("Import with a provider checkpoint after a committed batch"),
 				},
 			],
 			scripts: [

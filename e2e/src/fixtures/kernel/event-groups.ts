@@ -4,6 +4,8 @@ import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/bra
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
+
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { installTestDefinitions } from "./test-plugin";
@@ -17,12 +19,12 @@ const entitySchemas: EntitySchemas = [
 	{
 		icon: "box",
 		slug: "subject",
-		name: "Group subject",
 		propertiesSchema: { fields: {} },
+		name: manifestText("Group subject"),
 		eventSchemas: [
 			{
 				slug: "anchor",
-				name: "Group anchor",
+				name: manifestText("Group anchor"),
 				eventGroup: {
 					keyProperties: ["position"],
 					immutableProperties: ["kind", "evidence"],
@@ -31,20 +33,32 @@ const entitySchemas: EntitySchemas = [
 				propertiesSchema: {
 					unknownKeys: "strict",
 					fields: {
-						kind: { label: "Kind", type: "string", description: "Recorded kind" },
-						position: { type: "integer", label: "Position", description: "Group position" },
-						evidence: { type: "string", label: "Evidence", description: "Recorded evidence" },
+						kind: { type: "string", label: manifestText("Kind"), description: "Recorded kind" },
+						position: {
+							type: "integer",
+							description: "Group position",
+							label: manifestText("Position"),
+						},
+						evidence: {
+							type: "string",
+							label: manifestText("Evidence"),
+							description: "Recorded evidence",
+						},
 					},
 				},
 			},
 			{
 				slug: "member",
-				name: "Group member",
+				name: manifestText("Group member"),
 				propertiesSchema: {
 					unknownKeys: "strict",
 					fields: {
-						kind: { label: "Kind", type: "string", description: "Recorded kind" },
-						position: { type: "integer", label: "Position", description: "Group position" },
+						kind: { type: "string", label: manifestText("Kind"), description: "Recorded kind" },
+						position: {
+							type: "integer",
+							description: "Group position",
+							label: manifestText("Position"),
+						},
 					},
 				},
 			},
@@ -54,8 +68,8 @@ const entitySchemas: EntitySchemas = [
 		icon: "box",
 		slug: "session",
 		eventSchemas: [],
-		name: "Group session",
 		propertiesSchema: { fields: {} },
+		name: manifestText("Group session"),
 	},
 ];
 
