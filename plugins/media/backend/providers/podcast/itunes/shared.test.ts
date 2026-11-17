@@ -68,7 +68,7 @@ describe("podcast.itunes sandbox script", () => {
 					expect(result.name).toBe("Podcast");
 					expect(result.properties).toMatchObject({
 						description: "A show.",
-						unlinkedCreators: [{ role: "Artist", name: "Artist" }],
+						unlinkedCreators: [{ name: "Artist", roleCode: "artist" }],
 					});
 					expect(result.properties).not.toHaveProperty("totalEpisodes");
 					expect(result.relatedEntityGroups?.[0]?.relationshipSchemaSlug).toBe("podcast-to-genre");
@@ -366,7 +366,7 @@ describe("podcast.itunes sandbox script", () => {
 					expect(result.properties).toMatchObject({
 						totalEpisodes: 2,
 						publishYear: 2020,
-						unlinkedCreators: [{ role: "Artist", name: "Some Artist" }],
+						unlinkedCreators: [{ roleCode: "artist", name: "Some Artist" }],
 						sourceUrl: "https://podcasts.apple.com/us/podcast/the-podcast/idp1",
 					});
 					expect(result.relatedEntityGroups).toEqual([

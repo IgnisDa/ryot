@@ -140,7 +140,7 @@ describe("audiobook.audible sandbox script", () => {
 								name: "Jane Doe",
 								externalId: "person-1",
 								providerSlug: "person.audible",
-								relationshipProperties: { roles: ["Author", "Narrator"] },
+								relationshipProperties: { roles: [], roleCodes: ["author", "narrator"] },
 							},
 						],
 					});
@@ -160,7 +160,7 @@ describe("audiobook.audible sandbox script", () => {
 						publishDate: "2020-05-02",
 						description: "Line one\\\nLine two",
 						sourceUrl: "https://www.audible.com/pd/mixed-book",
-						unlinkedCreators: [{ role: "Author", name: "No Asin" }],
+						unlinkedCreators: [{ name: "No Asin", roleCode: "author" }],
 						images: [{ type: "remote", purpose: "cover", url: "https://img/big.jpg" }],
 					});
 					expect(result.relatedEntityGroups?.[3]).toEqual({

@@ -238,7 +238,7 @@ export const details = defineProvider({
 						name: title,
 						properties: {
 							publishDate: getIsoDate(podcast["releaseDate"]),
-							unlinkedCreators: artistName ? [{ role: "Artist", name: artistName }] : [],
+							unlinkedCreators: artistName ? [{ name: artistName, roleCode: "artist" }] : [],
 							...(totalEpisodes === null ? {} : { totalEpisodes }),
 							sourceUrl: buildSourceUrl(input.externalId, title),
 							publishYear: getPublishYear(podcast["releaseDate"]),

@@ -327,13 +327,13 @@ describe("comic-book.metron sandbox script", () => {
 							externalId: "7",
 							name: "Jane Doe",
 							providerSlug: "person.metron",
-							relationshipProperties: { roles: ["Contributor", "Writer"] },
+							relationshipProperties: { roles: ["Writer"] },
 						},
 						{
 							externalId: "8",
 							name: "Other Person",
 							providerSlug: "person.metron",
-							relationshipProperties: { roles: ["Contributor"] },
+							relationshipProperties: { roles: [] },
 						},
 					]);
 				}),

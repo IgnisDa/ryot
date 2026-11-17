@@ -92,7 +92,7 @@ describe("book.openlibrary sandbox script", () => {
 									externalId: "OL1A",
 									name: "Author Name",
 									providerSlug: "person.openlibrary",
-									relationshipProperties: { roles: ["Author"] },
+									relationshipProperties: { roles: [], roleCodes: ["author"] },
 								},
 							],
 						},

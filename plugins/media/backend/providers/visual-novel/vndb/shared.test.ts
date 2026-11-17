@@ -124,7 +124,7 @@ describe("visual-novel.vndb sandbox script", () => {
 									name: "KID",
 									externalId: "p1",
 									providerSlug: "person.vndb",
-									relationshipProperties: { roles: ["Developer"] },
+									relationshipProperties: { roles: [], roleCodes: ["developer"] },
 								},
 							],
 						},

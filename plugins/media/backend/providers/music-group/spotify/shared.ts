@@ -157,8 +157,8 @@ export const details = defineProvider({
 										{
 											externalId,
 											providerSlug: "person.spotify",
-											relationshipProperties: { roles: ["Artist"] },
 											name: stringValue(artist?.["name"]) ?? externalId,
+											relationshipProperties: { roles: [], roleCodes: ["artist"] },
 										},
 									]
 								: [];

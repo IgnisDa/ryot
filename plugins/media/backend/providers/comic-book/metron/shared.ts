@@ -65,15 +65,12 @@ const buildPeople = (credits: unknown): RoleRelatedEntity[] => {
 					return roleName ? [roleName] : [];
 				})
 			: [];
-		const roles = roleNames.length > 0 ? roleNames : ["Contributor"];
-		for (const role of roles) {
-			accumulator.add({
-				name,
-				externalId,
-				providerSlug: "person.metron",
-				relationshipProperties: { roles: [role] },
-			});
-		}
+		accumulator.add({
+			name,
+			externalId,
+			providerSlug: "person.metron",
+			relationshipProperties: { roles: roleNames },
+		});
 	}
 	return accumulator.entities;
 };

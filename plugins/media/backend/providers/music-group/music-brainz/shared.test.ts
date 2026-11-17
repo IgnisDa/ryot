@@ -94,7 +94,7 @@ describe("music-group.music-brainz sandbox script", () => {
 									name: "Artist",
 									externalId: "a1",
 									providerSlug: "person.music-brainz",
-									relationshipProperties: { roles: ["Artist"] },
+									relationshipProperties: { roles: [], roleCodes: ["artist"] },
 								},
 							],
 						},

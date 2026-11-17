@@ -101,7 +101,7 @@ const buildDetailsResult = (
 							synchronization: "authoritative" as const,
 							relationshipSchemaSlug: "company-to-movie",
 							entities: hasCompleteCompanies
-								? collectCompanies([[movieData["production_companies"], "Production Company"]])
+								? collectCompanies([[movieData["production_companies"], "production_company"]])
 								: [],
 							coverage: hasCompleteCompanies
 								? { status: "complete" as const }

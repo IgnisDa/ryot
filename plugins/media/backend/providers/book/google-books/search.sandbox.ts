@@ -12,7 +12,8 @@ export const manifest = defineManifest({
 		fields: {
 			passRawQuery: {
 				type: "boolean",
-				label: "Pass raw query",
+				label: { key: "property.pass-raw-query" },
+				hint: { key: "property.pass-raw-query-hint" },
 				description: "Pass the query to Google Books without adding a title qualifier",
 			},
 		},

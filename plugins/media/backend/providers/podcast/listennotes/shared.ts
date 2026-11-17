@@ -295,8 +295,8 @@ export const details = defineProvider({
 					isNsfw: typeof explicit === "boolean" ? explicit : null,
 					providerRating: numberValue(firstPage?.["listen_score"]),
 					publishDate: getIsoDateFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
-					unlinkedCreators: publisher ? [{ name: publisher, role: "Publisher" }] : [],
 					publishYear: getPublishYearFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
+					unlinkedCreators: publisher ? [{ name: publisher, roleCode: "publisher" }] : [],
 					images: image ? [{ url: image, type: "remote" as const, purpose: "cover" as const }] : [],
 					description: yield* normalizeRichDescription(
 						firstPage?.["description"],

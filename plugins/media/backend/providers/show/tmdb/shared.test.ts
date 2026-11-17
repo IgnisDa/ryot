@@ -806,7 +806,7 @@ describe("show.tmdb sandbox script", () => {
 						},
 					});
 					expect(group?.entities.find(({ externalId }) => externalId === "13")).toMatchObject({
-						relationshipProperties: { roles: ["Creator"], creditKinds: ["crew"] },
+						relationshipProperties: { roles: [], creditKinds: ["crew"], roleCodes: ["creator"] },
 					});
 					return undefined;
 				}),
@@ -909,10 +909,11 @@ describe("show.tmdb sandbox script", () => {
 								providerSlug: "person.tmdb",
 								relationshipProperties: {
 									order: 0,
+									roles: [],
 									isGuest: false,
-									roles: ["Acting"],
 									character: "Lead",
 									isUncredited: false,
+									roleCodes: ["actor"],
 									creditKinds: ["cast"],
 									departments: ["Acting"],
 								},
@@ -923,10 +924,11 @@ describe("show.tmdb sandbox script", () => {
 								providerSlug: "person.tmdb",
 								relationshipProperties: {
 									order: 2,
+									roles: [],
 									isGuest: true,
-									roles: ["Acting"],
 									character: "Doctor",
 									isUncredited: false,
+									roleCodes: ["actor"],
 									creditKinds: ["cast"],
 									departments: ["Acting"],
 								},
@@ -937,9 +939,10 @@ describe("show.tmdb sandbox script", () => {
 								providerSlug: "person.tmdb",
 								relationshipProperties: {
 									order: 1,
+									roles: [],
 									isGuest: true,
-									roles: ["Acting"],
 									isUncredited: true,
+									roleCodes: ["actor"],
 									creditKinds: ["cast"],
 									departments: ["Acting"],
 									character: "Self (uncredited)",

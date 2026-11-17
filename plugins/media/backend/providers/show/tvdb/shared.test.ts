@@ -369,7 +369,7 @@ describe("show.tvdb sandbox script", () => {
 									externalId: "8",
 									name: "Company Y",
 									providerSlug: "company.tvdb",
-									relationshipProperties: { roles: ["Company"] },
+									relationshipProperties: { roles: [] },
 								},
 							],
 						},

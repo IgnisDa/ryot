@@ -7,7 +7,11 @@ import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
-import { createRoleAccumulator, type RoleRelatedEntity } from "../../../lib/role-accumulator";
+import {
+	createRoleAccumulator,
+	creditRoleProperties,
+	type RoleRelatedEntity,
+} from "../../../lib/role-accumulator";
 import { toTitleCase } from "../../../lib/title-case";
 import {
 	firstGraphqlErrorMessage,
@@ -78,12 +82,14 @@ const collectPeople = (contributions: unknown): RoleRelatedEntity[] => {
 		if (!personIdentifier) {
 			continue;
 		}
-		const role = stringValue(contrib["contribution"]) ?? "Author";
+		const role = stringValue(contrib["contribution"]);
 		accumulator.add({
 			externalId: personIdentifier,
 			providerSlug: "person.hardcover",
-			relationshipProperties: { roles: [role] },
 			name: stringValue(asRecord(contrib["author"])?.["name"]) ?? "Loading...",
+			relationshipProperties: creditRoleProperties(
+				role === null ? { code: "author" } : { name: role },
+			),
 		});
 	}
 	return accumulator.entities;
@@ -180,8 +186,8 @@ const collectBookGroupsAndPublishers = (
 		accumulator.add({
 			externalId: publisherId,
 			providerSlug: "company.hardcover",
-			relationshipProperties: { roles: ["Publisher"] },
 			name: stringValue(publisherRecord["name"]) ?? "Loading...",
+			relationshipProperties: { roles: [], roleCodes: ["publisher"] },
 		});
 	}
 };

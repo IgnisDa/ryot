@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { isNamedTimeZone } from "@ryot-app/plugin-kit/schema";
 
@@ -111,8 +111,8 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 					accumulator.add({
 						externalId: artistId,
 						providerSlug: "person.youtube-music",
-						relationshipProperties: { roles: ["Artist"] },
 						name: stringValue(artistRecord["name"]) ?? "Loading...",
+						relationshipProperties: { roles: [], roleCodes: ["artist"] },
 					});
 				}
 				const artistCount = accumulator.entities.length;
@@ -205,21 +205,34 @@ export const YoutubeMusicSettings = Schema.Struct({
 	),
 });
 
+/** YouTube Music titles history sections with English dates such as "November 14, 2026". */
+const providerMonths = [
+	"january",
+	"february",
+	"march",
+	"april",
+	"may",
+	"june",
+	"july",
+	"august",
+	"september",
+	"october",
+	"november",
+	"december",
+] as const;
+
 export const buildHistory = (client: HistoryClient, timezone: string, startedAt: string) => {
 	const isTodayHeader = (title: string) => {
 		const lower = title.toLowerCase();
 		if (lower === "today") {
 			return true;
 		}
-		const localDate = new Intl.DateTimeFormat("en-US", {
-			month: "long",
-			day: "numeric",
-			year: "numeric",
-			timeZone: timezone,
-		})
-			.format(new Date(startedAt))
-			.toLowerCase();
-		return lower.includes(localDate);
+		const local = DateTime.makeZoned(startedAt, { timeZone: timezone });
+		if (Option.isNone(local)) {
+			return false;
+		}
+		const { day, year, month } = DateTime.toParts(local.value);
+		return lower.includes(`${providerMonths[month - 1]} ${day}, ${year}`);
 	};
 	return client.getHistory().pipe(
 		Effect.flatMap((history) => {

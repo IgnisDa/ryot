@@ -143,7 +143,7 @@ const collectStudios = (studios: unknown) => {
 			externalId: String(studioId),
 			providerSlug: "company.anilist",
 			name: stringValue(record["name"]) ?? "Loading...",
-			relationshipProperties: { roles: ["Animation Studio"] },
+			relationshipProperties: { roles: [], roleCodes: ["studio"] },
 		});
 	}
 	return entities;

@@ -583,7 +583,7 @@ describe("video-game.igdb sandbox script", () => {
 							externalId: "7",
 							name: "Publisher",
 							providerSlug: "company.igdb",
-							relationshipProperties: { roles: ["Publisher"] },
+							relationshipProperties: { roles: [], roleCodes: ["publisher"] },
 						},
 					]);
 				}),

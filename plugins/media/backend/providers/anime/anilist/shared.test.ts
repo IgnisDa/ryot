@@ -216,7 +216,7 @@ describe("anime.anilist sandbox script", () => {
 							externalId: "5",
 							name: "Studio A",
 							providerSlug: "company.anilist",
-							relationshipProperties: { roles: ["Animation Studio"] },
+							relationshipProperties: { roles: [], roleCodes: ["studio"] },
 						},
 					]);
 					expect(result.properties).toEqual({

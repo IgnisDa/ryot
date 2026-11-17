@@ -154,7 +154,7 @@ const collectAuthors = (host: OpenLibraryHost, workPayload: null | UnknownRecord
 				name: authorName,
 				externalId: personIdentifier,
 				providerSlug: "person.openlibrary",
-				relationshipProperties: { roles: ["Author"] },
+				relationshipProperties: { roles: [], roleCodes: ["author"] },
 			});
 		}
 		return accumulator.entities;

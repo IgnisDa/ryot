@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
+import type { CreditRoleCode } from "../../../../shared/credit-roles";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
@@ -103,21 +104,21 @@ const collectCompanies = (involvedCompanies: unknown) => {
 	const accumulator = createRoleAccumulator();
 	for (const { id, company, involvedCompany } of validCompanies) {
 		const name = stringValue(company["name"]) ?? "Loading...";
-		let role = "Developer";
+		let code: CreditRoleCode = "developer";
 		if (involvedCompany["developer"]) {
-			role = "Developer";
+			code = "developer";
 		} else if (involvedCompany["publisher"]) {
-			role = "Publisher";
+			code = "publisher";
 		} else if (involvedCompany["porting"]) {
-			role = "Porting";
+			code = "porting";
 		} else if (involvedCompany["supporting"]) {
-			role = "Supporting";
+			code = "supporting";
 		}
 		accumulator.add({
 			name,
 			providerSlug: "company.igdb",
 			externalId: String(Math.trunc(id)),
-			relationshipProperties: { roles: [role] },
+			relationshipProperties: { roles: [], roleCodes: [code] },
 		});
 	}
 	return accumulator.entities;

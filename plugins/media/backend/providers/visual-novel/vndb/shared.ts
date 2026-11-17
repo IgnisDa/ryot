@@ -165,7 +165,7 @@ export const details = defineProvider({
 				name: dev.name,
 				externalId: dev.id,
 				providerSlug: "person.vndb",
-				relationshipProperties: { roles: ["Developer"] },
+				relationshipProperties: { roles: [], roleCodes: ["developer"] },
 			}));
 
 			const lengthMinutesValue = numberValue(vn["length_minutes"]);

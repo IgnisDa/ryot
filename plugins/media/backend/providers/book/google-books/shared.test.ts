@@ -164,8 +164,8 @@ describe("book.google-books sandbox script", () => {
 						description: "Desc.",
 						sourceUrl: "https://www.google.co.in/books/edition/G Book/g1",
 						unlinkedCreators: [
-							{ role: "Author", name: "Author A" },
-							{ name: "Pub", role: "Publisher" },
+							{ name: "Author A", roleCode: "author" },
+							{ name: "Pub", roleCode: "publisher" },
 						],
 						images: [
 							{ type: "remote", purpose: "cover", url: "https://img/t.jpg" },

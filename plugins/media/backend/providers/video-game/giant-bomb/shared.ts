@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import type { CreditRoleCode } from "../../../../shared/credit-roles";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { stringValue } from "../../../lib/records";
@@ -126,7 +127,7 @@ export const details = defineProvider({
 			const genres = rawGenres === undefined || rawGenres === null ? null : collectNames(rawGenres);
 
 			const companyAccumulator = createRoleAccumulator();
-			const addCompanies = (items: unknown, role: string) => {
+			const addCompanies = (items: unknown, code: CreditRoleCode) => {
 				if (!Array.isArray(items)) {
 					return;
 				}
@@ -139,13 +140,13 @@ export const details = defineProvider({
 					companyAccumulator.add({
 						externalId: guid,
 						providerSlug: "company.giant-bomb",
-						relationshipProperties: { roles: [role] },
 						name: stringValue(record?.["name"]) ?? "Loading...",
+						relationshipProperties: { roles: [], roleCodes: [code] },
 					});
 				}
 			};
-			addCompanies(game["developers"], "Developer");
-			addCompanies(game["publishers"], "Publisher");
+			addCompanies(game["developers"], "developer");
+			addCompanies(game["publishers"], "publisher");
 
 			const groupAccumulator = createRoleAccumulator();
 			for (const franchise of asArray(game["franchises"])) {

@@ -241,8 +241,8 @@ export const details = defineProvider({
 										{
 											externalId,
 											providerSlug: "person.music-brainz",
-											relationshipProperties: { roles: ["Artist"] },
 											name: stringValue(artist?.["name"]) ?? externalId,
+											relationshipProperties: { roles: [], roleCodes: ["artist"] },
 										},
 									]
 								: [];

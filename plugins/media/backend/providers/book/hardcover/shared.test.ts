@@ -131,7 +131,7 @@ describe("book.hardcover sandbox script", () => {
 									name: "Pub House",
 									externalId: "200",
 									providerSlug: "company.hardcover",
-									relationshipProperties: { roles: ["Publisher"] },
+									relationshipProperties: { roles: [], roleCodes: ["publisher"] },
 								},
 							],
 						},

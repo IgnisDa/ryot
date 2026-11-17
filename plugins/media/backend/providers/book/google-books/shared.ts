@@ -9,6 +9,7 @@ import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { decodeJsonResponse } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
+import type { CodedUnlinkedCreator } from "../../../lib/role-accumulator";
 
 type GoogleBooksHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
@@ -100,26 +101,26 @@ const pickImage = (imageLinks: unknown) => {
 };
 
 const collectUnlinkedCreators = (authors: unknown, publisher: unknown) => {
-	const unlinkedCreators: Array<{ role: string; name: string }> = [];
+	const unlinkedCreators: CodedUnlinkedCreator[] = [];
 	const seen = new Set<string>();
 	for (const author of asArray(authors)) {
 		const name = stringValue(author);
 		if (!name) {
 			continue;
 		}
-		const key = `Author:${name}`;
+		const key = `author:${name}`;
 		if (seen.has(key)) {
 			continue;
 		}
 		seen.add(key);
-		unlinkedCreators.push({ name, role: "Author" });
+		unlinkedCreators.push({ name, roleCode: "author" });
 	}
 	const publisherName = stringValue(publisher);
 	if (publisherName) {
-		const key = `Publisher:${publisherName}`;
+		const key = `publisher:${publisherName}`;
 		if (!seen.has(key)) {
 			seen.add(key);
-			unlinkedCreators.push({ role: "Publisher", name: publisherName });
+			unlinkedCreators.push({ name: publisherName, roleCode: "publisher" });
 		}
 	}
 	return unlinkedCreators;

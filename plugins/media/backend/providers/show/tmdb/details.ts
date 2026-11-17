@@ -195,8 +195,8 @@ const buildDetailsResult = (
 		Array.isArray(showData["networks"]) && Array.isArray(showData["production_companies"]);
 	const companies = hasCompleteCompanies
 		? collectCompanies([
-				[showData["networks"], "Network"],
-				[showData["production_companies"], "Production Company"],
+				[showData["networks"], "network"],
+				[showData["production_companies"], "production_company"],
 			])
 		: [];
 	const genres = collectGenres(showData["genres"]);

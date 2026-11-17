@@ -3,12 +3,13 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import type { CreditRoleCode } from "../../../../shared/credit-roles";
 import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { numberValue, scaledRating, stringValue, trimmedString } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
-import { createRoleAccumulator } from "../../../lib/role-accumulator";
+import { type CodedUnlinkedCreator, createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
 	audibleFetchJson,
 	type AudibleHost,
@@ -165,9 +166,9 @@ const collectGenres = Effect.fnUntraced(function* (categoryLadders: unknown) {
 
 const collectContributors = (
 	accumulator: ReturnType<typeof createRoleAccumulator>,
-	unlinkedCreators: Array<{ role: string; name: string }>,
+	unlinkedCreators: CodedUnlinkedCreator[],
 	contributors: unknown,
-	role: string,
+	roleCode: CreditRoleCode,
 ) => {
 	for (const contributor of asArray(contributors)) {
 		const record = asRecord(contributor);
@@ -181,10 +182,10 @@ const collectContributors = (
 				externalId: asin,
 				name: relatedName,
 				providerSlug: "person.audible",
-				relationshipProperties: { roles: [role] },
+				relationshipProperties: { roles: [], roleCodes: [roleCode] },
 			});
 		} else {
-			unlinkedCreators.push({ role, name: relatedName });
+			unlinkedCreators.push({ roleCode, name: relatedName });
 		}
 	}
 };
@@ -240,9 +241,9 @@ export const details = defineProvider({
 			const genres = yield* collectGenres(product["category_ladders"]);
 
 			const accumulator = createRoleAccumulator();
-			const unlinkedCreators: Array<{ role: string; name: string }> = [];
-			collectContributors(accumulator, unlinkedCreators, product["authors"], "Author");
-			collectContributors(accumulator, unlinkedCreators, product["narrators"], "Narrator");
+			const unlinkedCreators: CodedUnlinkedCreator[] = [];
+			collectContributors(accumulator, unlinkedCreators, product["authors"], "author");
+			collectContributors(accumulator, unlinkedCreators, product["narrators"], "narrator");
 
 			for (const series of asArray(product["series"])) {
 				const record = asRecord(series);
