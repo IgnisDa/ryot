@@ -1,5 +1,6 @@
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { IosLiveActivityContent } from "@ryot-app/plugin-client-sdk/plugin";
+import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { WorkoutEditorControllerPorts } from "./controller-types";
@@ -12,7 +13,8 @@ import {
 const maximumActivityMillis = 8 * 60 * 60 * 1000;
 
 export const createWorkoutIosActivitySynchronizer = (
-	ports: Pick<WorkoutEditorControllerPorts, "now" | "pluginId" | "iosLiveActivities">,
+	formatters: Formatters,
+	ports: Pick<WorkoutEditorControllerPorts, "now" | "text" | "pluginId" | "iosLiveActivities">,
 ) => {
 	let lastPublished: string | undefined;
 	let lastKey: string | undefined;
@@ -30,7 +32,9 @@ export const createWorkoutIosActivitySynchronizer = (
 		const live = draft?.mode.kind === "live" ? draft : undefined;
 		const key = live === undefined ? undefined : workoutIosActivityKey(live);
 		const content =
-			live === undefined ? undefined : workoutIosActivityContent(live, names, imperial);
+			live === undefined
+				? undefined
+				: workoutIosActivityContent(formatters, ports.text, live, names, imperial);
 		const serialized =
 			content === undefined
 				? undefined
@@ -88,7 +92,9 @@ export const createWorkoutIosActivitySynchronizer = (
 			pluginId: ports.pluginId,
 			dismissalSeconds: saved ? 30 : 0,
 			key: workoutIosActivityKey(draft),
-			content: saved ? savedWorkoutIosActivityContent(draft, names, imperial) : undefined,
+			content: saved
+				? savedWorkoutIosActivityContent(formatters, ports.text, draft, names, imperial)
+				: undefined,
 		});
 	});
 	return {
@@ -99,9 +105,13 @@ export const createWorkoutIosActivitySynchronizer = (
 };
 
 export const createWorkoutIosActivityPublisher = (
-	ports: Pick<WorkoutEditorControllerPorts, "now" | "pluginId" | "schedule" | "iosLiveActivities">,
+	formatters: Formatters,
+	ports: Pick<
+		WorkoutEditorControllerPorts,
+		"now" | "text" | "pluginId" | "schedule" | "iosLiveActivities"
+	>,
 ) => {
-	const synchronizer = createWorkoutIosActivitySynchronizer(ports);
+	const synchronizer = createWorkoutIosActivitySynchronizer(formatters, ports);
 	const pending: { readonly coalesce: boolean; readonly effect: Effect.Effect<void> }[] = [];
 	let running = false;
 	const drain = Effect.fnUntraced(function* () {

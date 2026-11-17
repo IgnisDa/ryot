@@ -36,6 +36,7 @@ import {
 	encodeWorkoutEditorDraft,
 	WorkoutEditorDraftSchema,
 } from "../../shared/workout-editor-draft";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { WorkoutEditorScreen } from "./screen";
 
 const startedAt = "2026-10-16T10:00:00.000Z";
@@ -177,6 +178,7 @@ const openEditor = (
 	let respond: undefined | (() => void);
 	const page = mountPluginPage(() => <WorkoutEditorScreen target={target} {...screenProps} />, {
 		page: pageContext,
+		catalogs: fitnessCatalogs,
 		bootstrap: clock.bootstrap,
 		onClientMessage: () => respond?.(),
 		location: routeLocation(target.path),

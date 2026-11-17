@@ -1,3 +1,4 @@
+import { type DisplayText, type Text, useDisplayText } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Card, Field, MenuButton, MultiSelect, TextField } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
@@ -10,14 +11,13 @@ import {
 	exerciseLevels,
 	exerciseMechanics,
 } from "../../shared/exercise-kinds";
+import { useExerciseLabels, useFitnessMessages } from "../messages";
 import {
-	capitalize,
-	labelForKind,
 	maxPickerPresets,
 	type PickerFilters,
 	type PickerPreset,
 	type PickerSort,
-	sortLabels,
+	sortLabel,
 	sortOrder,
 } from "./picker-model";
 
@@ -28,11 +28,10 @@ const chevron = <AppIcon size={13} name="chevron-down" />;
 
 type FilterOption = { readonly id: string; readonly name: string };
 
-const optionChoices = (options: undefined | readonly FilterOption[]) =>
-	(options ?? []).map(({ id, name }) => ({ value: id, label: name }));
-
-const literalChoices = <Value extends string>(values: readonly Value[]) =>
-	values.map((value) => ({ value, label: capitalize(value) }));
+const optionChoices = (
+	displayText: (text: DisplayText) => Text,
+	options: undefined | readonly FilterOption[],
+) => (options ?? []).map(({ id, name }) => ({ value: id, label: displayText(name) }));
 
 export function PresetForm(props: {
 	readonly name: string;
@@ -43,12 +42,13 @@ export function PresetForm(props: {
 	readonly onCancel: () => void;
 	readonly onName: (name: string) => void;
 }) {
+	const text = useFitnessMessages();
 	return (
 		<Card className="grid gap-2.5 p-3">
 			<Field
-				label="Preset name"
-				error={props.nameError ? "Enter a name with 1 to 80 characters." : undefined}
-				hint={`Saves search, filters and sort on this device. ${props.used} of ${maxPickerPresets} used.`}
+				label={text("client.presets.name")}
+				error={props.nameError ? text("client.presets.name-error") : undefined}
+				hint={text("client.presets.hint", { used: props.used, max: maxPickerPresets })}
 			>
 				{(control) => (
 					<TextField
@@ -61,10 +61,10 @@ export function PresetForm(props: {
 			</Field>
 			<div className="flex justify-end gap-2">
 				<Button size="sm" variant="ghost" onClick={props.onCancel}>
-					Cancel
+					{text("common.action.cancel")}
 				</Button>
 				<Button size="sm" onClick={props.onSave} disabled={!props.canSave}>
-					Save preset
+					{text("client.presets.save")}
 				</Button>
 			</div>
 		</Card>
@@ -98,6 +98,9 @@ export function PickerToolbar({
 				readonly collections: readonly FilterOption[];
 		  };
 }) {
+	const displayText = useDisplayText();
+	const text = useFitnessMessages();
+	const labels = useExerciseLabels();
 	const { filters, options, onFilter } = props;
 	const appliedPreset = props.presets.find(({ id }) => id === props.activePresetId);
 	return (
@@ -116,94 +119,102 @@ export function PickerToolbar({
 					autoComplete="off"
 					value={props.search}
 					className="w-full pl-9"
-					aria-label="Search exercises"
-					placeholder="Search your library"
+					aria-label={text("client.picker.search")}
+					placeholder={text("client.picker.search-placeholder")}
 					onChange={(event) => props.onSearch(event.currentTarget.value)}
 				/>
 			</div>
 			<div
 				role="toolbar"
-				aria-label="Filters"
+				aria-label={text("client.picker.filters")}
 				className="-mx-5 flex gap-1.5 overflow-x-auto px-5 pb-0.5 [scrollbar-width:none]"
 			>
 				<MenuButton
-					label="Sort exercises"
+					label={text("client.picker.sort-label")}
 					items={sortOrder.map((value) => ({
 						key: value,
 						onSelect: () => props.onSort(value),
-						label: value === props.sort ? `${sortLabels[value]} ✓` : sortLabels[value],
+						label:
+							value === props.sort
+								? text("client.picker.checked", { label: sortLabel(text, value) })
+								: sortLabel(text, value),
 					}))}
 					renderTrigger={(trigger) => (
-						<button {...trigger} type="button" className={chip} aria-label="Sort exercises">
+						<button
+							{...trigger}
+							type="button"
+							className={chip}
+							aria-label={text("client.picker.sort-label")}
+						>
 							<AppIcon size={14} name="arrow-up-down" />
-							{sortLabels[props.sort]}
+							{sortLabel(text, props.sort)}
 							{chevron}
 						</button>
 					)}
 				/>
 				{props.replacementKind === undefined ? (
 					<MultiSelect
-						label="Kind"
 						variant="chip"
 						selected={filters.kinds}
+						label={text("property.kind")}
 						onChange={(kinds) => onFilter("kinds", kinds)}
-						choices={exerciseKinds.map((value) => ({ value, label: labelForKind(value) }))}
+						choices={exerciseKinds.map((value) => ({ value, label: labels.kind(value) }))}
 					/>
 				) : (
 					<span className={clsx(chip, "border-accent-border bg-accent-soft text-accent-text")}>
-						{labelForKind(props.replacementKind)}
+						{labels.kind(props.replacementKind)}
 					</span>
 				)}
 				<MultiSelect
-					label="Target"
 					variant="chip"
 					selected={filters.targetIds}
-					choices={optionChoices(options?.targets)}
+					label={text("property.target")}
+					choices={optionChoices(displayText, options?.targets)}
 					onChange={(targetIds) => onFilter("targetIds", targetIds)}
 				/>
 				<MultiSelect
 					variant="chip"
-					label="Equipment"
 					selected={filters.equipmentIds}
-					choices={optionChoices(options?.equipment)}
+					label={text("browse.field.equipment")}
+					choices={optionChoices(displayText, options?.equipment)}
 					onChange={(equipmentIds) => onFilter("equipmentIds", equipmentIds)}
 				/>
 				<MultiSelect
 					variant="chip"
-					label="Collection"
 					selected={filters.collectionIds}
-					choices={optionChoices(options?.collections)}
+					label={text("client.picker.collection")}
+					choices={optionChoices(displayText, options?.collections)}
 					onChange={(collectionIds) => onFilter("collectionIds", collectionIds)}
 				/>
 				<MultiSelect
-					label="Force"
 					variant="chip"
 					selected={filters.forces}
-					choices={literalChoices(exerciseForces)}
+					label={text("property.force")}
 					onChange={(forces) => onFilter("forces", forces)}
+					choices={exerciseForces.map((value) => ({ value, label: labels.force(value) }))}
 				/>
 				<MultiSelect
-					label="Level"
 					variant="chip"
 					selected={filters.levels}
-					choices={literalChoices(exerciseLevels)}
+					label={text("property.level")}
 					onChange={(levels) => onFilter("levels", levels)}
+					choices={exerciseLevels.map((value) => ({ value, label: labels.level(value) }))}
 				/>
 				<MultiSelect
 					variant="chip"
-					label="Mechanics"
 					selected={filters.mechanics}
-					choices={literalChoices(exerciseMechanics)}
+					label={text("client.picker.mechanics")}
 					onChange={(mechanics) => onFilter("mechanics", mechanics)}
+					choices={exerciseMechanics.map((value) => ({ value, label: labels.mechanic(value) }))}
 				/>
 				{props.replacementKind === undefined ? (
 					<MenuButton
-						label="Presets"
+						label={text("client.presets.title")}
 						renderTrigger={(trigger) => (
 							<button
 								{...trigger}
 								type="button"
-								aria-label="Presets"
+								aria-label={text("client.presets.title")}
 								className={clsx(
 									chip,
 									appliedPreset !== undefined &&
@@ -211,7 +222,7 @@ export function PickerToolbar({
 								)}
 							>
 								<AppIcon size={14} name="layers-3" />
-								{appliedPreset?.name ?? "Presets"}
+								{appliedPreset?.name ?? text("client.presets.title")}
 								{chevron}
 							</button>
 						)}
@@ -219,12 +230,15 @@ export function PickerToolbar({
 							...props.presets.map(({ id, name }) => ({
 								key: id,
 								onSelect: () => props.onApplyPreset(id),
-								label: id === props.activePresetId ? `${name} ✓` : name,
+								label:
+									id === props.activePresetId
+										? text("client.picker.checked", { label: name })
+										: displayText(name),
 							})),
 							{
 								key: "save",
 								onSelect: props.onSavePreset,
-								label: "Save current filters…",
+								label: text("client.presets.save-current"),
 								disabled: !props.canWritePresets || props.presetsFull,
 							},
 							...(appliedPreset === undefined
@@ -235,7 +249,7 @@ export function PickerToolbar({
 											destructive: true,
 											onSelect: props.onDeletePreset,
 											disabled: !props.canWritePresets,
-											label: `Delete ${appliedPreset.name}`,
+											label: text("client.supersets.delete-label", { name: appliedPreset.name }),
 										},
 									]),
 						]}

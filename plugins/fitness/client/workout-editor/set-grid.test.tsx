@@ -1,5 +1,8 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
+import { createTestRyotClock, TestI18nProvider } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { assert } from "@ryot-app/testing/assert";
 import { fireEvent, screen } from "@testing-library/dom";
@@ -12,6 +15,7 @@ import type {
 	WorkoutEditorOccurrence,
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { SetGrid } from "./set-grid";
 
 const roots: Root[] = [];
@@ -21,7 +25,17 @@ const mount = () => {
 	document.body.append(container);
 	const root = createRoot(container);
 	roots.push(root);
-	return (node: ReactNode) => act(() => root.render(node));
+	const { runtime } = createTestRyotClock({
+		pluginIdentity: () => ({ kind: "local", pluginId: PluginId.make("fitness") }),
+	});
+	return (node: ReactNode) =>
+		act(() =>
+			root.render(
+				<TestI18nProvider catalogs={fitnessCatalogs}>
+					<RyotProvider runtime={runtime}>{node}</RyotProvider>
+				</TestI18nProvider>,
+			),
+		);
 };
 
 afterEach(() => {

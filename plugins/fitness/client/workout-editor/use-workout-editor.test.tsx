@@ -1,8 +1,10 @@
 import { expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import { useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import {
@@ -30,6 +32,7 @@ import {
 } from "../../shared/workout-editor-draft";
 import type { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
 import { liveDraft, preferenceSettings, startTime } from "../../tests/client/draft-fixtures";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { useInitialDraft } from "./use-initial-draft";
 import { useWorkoutEditor } from "./use-workout-editor";
 
@@ -48,7 +51,7 @@ function Probe() {
 		packageId: PLUGIN_PACKAGE_ID,
 	});
 	return (
-		<PluginScreenFrame title="Editor probe">
+		<PluginScreenFrame title={testText("Editor probe")}>
 			<p>{snapshot.status === "ready" ? snapshot.draft.name : snapshot.status}</p>
 			<p>
 				Second:{" "}
@@ -99,6 +102,7 @@ it.live(
 			const page = mountPluginPage(Probe, {
 				page: context,
 				entitlements: [],
+				catalogs: fitnessCatalogs,
 				bootstrap: clock.bootstrap,
 				location: routeLocation("/editor"),
 			});
@@ -227,7 +231,7 @@ function SaveProbe() {
 	const [mounted, setMounted] = useState(true);
 	const [nextEdit, setNextEdit] = useState(false);
 	return (
-		<PluginScreenFrame title="Save probe">
+		<PluginScreenFrame title={testText("Save probe")}>
 			<button onClick={() => setMounted(!mounted)}>Toggle consumers</button>
 			<button onClick={() => setNextEdit(true)}>Open next edit</button>
 			{nextEdit ? <PrepareConsumer /> : null}
@@ -243,7 +247,7 @@ function SaveProbe() {
 
 function PrepareConsumer() {
 	const { saved, saving, snapshot, controller } = useWorkoutEditor(saveProbeTarget);
-	const [message, setMessage] = useState<string>();
+	const [message, setMessage] = useState<Text>();
 	const request = useInitialDraft({
 		saving,
 		message,
@@ -297,6 +301,7 @@ const saveProbeHarness = Effect.fnUntraced(function* (
 	const pluginId = PluginId.make("fitness");
 	const page = mountPluginPage(SaveProbe, {
 		entitlements: ["pro"],
+		catalogs: fitnessCatalogs,
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/editor"),
 		page: {

@@ -19,6 +19,7 @@ import { act, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { WorkoutExercisePickerResult } from "../../shared/workout-exercise-recipes";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { ExercisePicker } from "./exercise-picker";
 
 type PickerExercise = WorkoutExercisePickerResult["items"][number];
@@ -79,6 +80,7 @@ const createPage = (props: {
 }) =>
 	mountPluginPage(() => <PickerProbe {...props} />, {
 		page: pageContext(),
+		catalogs: fitnessCatalogs,
 		location: routeLocation("/workout-editor"),
 	});
 

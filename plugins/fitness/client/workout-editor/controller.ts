@@ -1,5 +1,6 @@
 import { isEntitlementRequired, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Semaphore } from "@ryot-app/plugin-client-sdk/effect";
+import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
 
 import {
 	decodeWorkoutEditorDraft,
@@ -85,6 +86,7 @@ const isRecoveryError = (
 	snapshot.status === "recovery-error";
 
 export const createWorkoutEditorController = (
+	formatters: Formatters,
 	ports: WorkoutEditorControllerPorts,
 ): WorkoutEditorController => {
 	const listeners = new Set<() => void>();
@@ -101,7 +103,7 @@ export const createWorkoutEditorController = (
 	let disposed = false;
 	const isDisposed = () => disposed;
 	let exerciseNames: ReadonlyMap<string, string> = new Map();
-	const iosActivity = createWorkoutIosActivityPublisher(ports);
+	const iosActivity = createWorkoutIosActivityPublisher(formatters, ports);
 
 	const publish = (next: WorkoutEditorControllerSnapshot) => {
 		snapshot = next;

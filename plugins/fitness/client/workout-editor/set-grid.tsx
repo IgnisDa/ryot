@@ -1,4 +1,5 @@
-import { CellInput, Collapse, MotionList } from "@ryot-app/plugin-ui-sdk";
+import { type Formatters, useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import { CellInput, Collapse, formatClock, MotionList } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
@@ -8,8 +9,9 @@ import type {
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
-import { setLabels, setLots } from "../set-lots";
-import { formatEditorSeconds } from "./clock";
+import { type FitnessText, useFitnessMessages } from "../messages";
+import { setLabels, setLotLabel, setLots } from "../set-lots";
+import { formatEnteredUnitValue, type MeasureUnit } from "../workout/format";
 import { CompletionToggle } from "./completion-toggle";
 import { occurrenceDisplay } from "./draft-ops";
 import { remainingSeconds } from "./timers";
@@ -33,19 +35,30 @@ const measurementUnit = (field: SetMeasurement, occurrence: WorkoutEditorOccurre
 	return undefined;
 };
 
-const columnLabel = (field: SetMeasurement, occurrence: WorkoutEditorOccurrence) => {
+const columnLabel = (
+	text: FitnessText,
+	field: SetMeasurement,
+	occurrence: WorkoutEditorOccurrence,
+) => {
 	const unit = measurementUnit(field, occurrence);
 	if (field === "duration") {
-		return unit === "seconds" ? "Sec" : "Min";
+		return unit === "seconds" ? text("client.grid.sec") : text("client.grid.min");
 	}
-	return unit ?? "Reps";
+	return unit ?? text("client.grid.reps");
 };
-
-const unitAbbreviations: Partial<Record<string, string>> = { seconds: "s", minutes: "min" };
 
 const has = (value: string | undefined) => value !== undefined && value.trim() !== "";
 
+const enteredMeasureUnit = (unit: NonNullable<ReturnType<typeof measurementUnit>>): MeasureUnit => {
+	if (unit === "seconds") {
+		return "sec";
+	}
+	return unit === "minutes" ? "min" : unit;
+};
+
 export const previousSummary = (
+	formatters: Formatters,
+	text: FitnessText,
 	previous: undefined | WorkoutEditorSet,
 	occurrence: WorkoutEditorOccurrence,
 ) => {
@@ -53,7 +66,14 @@ export const previousSummary = (
 		return undefined;
 	}
 	if (occurrence.exerciseKind === "reps_and_weight" && has(previous.weight) && has(previous.reps)) {
-		return `${previous.weight} ${measurementUnit("weight", occurrence)} × ${previous.reps}`;
+		return text("client.format.weight-reps", {
+			reps: previous.reps ?? "",
+			weight: formatEnteredUnitValue(
+				formatters,
+				previous.weight ?? "",
+				enteredMeasureUnit(occurrenceDisplay(occurrence).weightUnit),
+			),
+		});
 	}
 	const parts = requiredWorkoutMeasurementsByKind[occurrence.exerciseKind].flatMap((field) => {
 		const value = previous[field];
@@ -62,15 +82,12 @@ export const previousSummary = (
 		}
 		const unit = measurementUnit(field, occurrence);
 		if (unit === undefined) {
-			return [`${value} reps`];
+			return [text("client.grid.value-reps", { value: value ?? "" })];
 		}
-		return [`${value} ${unitAbbreviations[unit] ?? unit}`];
+		return [formatEnteredUnitValue(formatters, value ?? "", enteredMeasureUnit(unit))];
 	});
 	return parts.length === 0 ? undefined : parts.join(" · ");
 };
-
-const listFields = (fields: readonly string[]) =>
-	fields.length < 2 ? fields.join("") : `${fields.slice(0, -1).join(", ")} and ${fields.at(-1)}`;
 
 export function SetGrid(props: {
 	readonly now: number;
@@ -92,6 +109,8 @@ export function SetGrid(props: {
 		transform: (set: WorkoutEditorSet) => WorkoutEditorSet,
 	) => void;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { draft, compact, occurrence } = props;
 	const live = draft.mode.kind === "live";
 	const historical = draft.mode.kind === "historical";
@@ -120,27 +139,27 @@ export function SetGrid(props: {
 				style={{ gridTemplateColumns: columns }}
 				className="grid items-center gap-1.5 px-1 text-[11px] font-semibold tracking-wider text-text-subtle uppercase"
 			>
-				<span>Set</span>
-				<span>{showPrevious ? "Previous" : ""}</span>
+				<span>{text("client.workout.column-set")}</span>
+				<span>{showPrevious ? text("client.grid.previous") : ""}</span>
 				{fields.map((field) => (
 					<span key={field} className="text-center">
-						{columnLabel(field, occurrence)}
+						{columnLabel(text, field, occurrence)}
 					</span>
 				))}
-				{compact ? null : <span className="text-center">RPE</span>}
+				{compact ? null : <span className="text-center">{text("client.template.rpe-label")}</span>}
 				{live ? (
 					<span className="flex justify-end pr-2.5">
 						<AppIcon size={13} name="check" />
 					</span>
 				) : null}
-				{historical ? <span className="text-center">Incl.</span> : null}
+				{historical ? <span className="text-center">{text("client.grid.included")}</span> : null}
 			</div>
 			<MotionList className="grid gap-0.5">
 				{occurrence.sets.map((set, index) => {
 					const number = index + 1;
 					const lot = setLots[set.setLot];
 					const previous = props.previous.get(set.clientId);
-					const summary = previousSummary(previous, occurrence);
+					const summary = previousSummary(formatters, text, previous, occurrence);
 					const invalid = props.invalid?.setId === set.clientId ? props.invalid : undefined;
 					const execution =
 						draft.executionCountdown?.setId === set.clientId ? draft.executionCountdown : undefined;
@@ -153,13 +172,16 @@ export function SetGrid(props: {
 						fields.includes("duration") &&
 						!set.included &&
 						execution === undefined;
-					let restText = "Rest off";
+					let restText: string = text("client.grid.rest-off");
 					if (rest !== undefined) {
-						restText = `Resting ${formatEditorSeconds(remainingSeconds(rest, props.now))} / ${formatEditorSeconds(rest.durationSeconds)}`;
+						restText = text("client.grid.resting", {
+							total: formatClock(rest.durationSeconds),
+							remaining: formatClock(remainingSeconds(rest, props.now)),
+						});
 					} else if (restSeconds === undefined) {
-						restText = "Invalid rest";
+						restText = text("client.grid.rest-invalid");
 					} else if (restSeconds > 0) {
-						restText = formatEditorSeconds(restSeconds);
+						restText = formatClock(restSeconds);
 					}
 					return (
 						<div
@@ -167,8 +189,8 @@ export function SetGrid(props: {
 							tabIndex={-1}
 							key={set.clientId}
 							id={`set-${set.clientId}`}
-							aria-label={`Set ${number}`}
 							className="scroll-mt-6 outline-none"
+							aria-label={text("client.bulk.set", { index: number })}
 						>
 							<div
 								style={{ gridTemplateColumns: columns }}
@@ -183,7 +205,10 @@ export function SetGrid(props: {
 								<button
 									type="button"
 									onClick={() => props.onOpenSet(set)}
-									aria-label={`Set ${number}, ${lot.label}. Set options`}
+									aria-label={text("client.grid.set-options", {
+										index: number,
+										lot: setLotLabel(text, set.setLot),
+									})}
 									className={clsx(
 										"h-8 min-w-8 rounded-sm px-1.5 text-left text-[13px] font-semibold tabular-nums hover:bg-hover pointer-coarse:h-10",
 										lot.tone ?? "text-text",
@@ -196,12 +221,18 @@ export function SetGrid(props: {
 										type="button"
 										onClick={() => props.onCopyPrevious(set)}
 										disabled={props.disabled || summary === undefined}
-										aria-label={`Set ${number}: copy previous ${summary ?? "values"}`}
 										className="min-w-0 truncate rounded-sm px-0.5 py-1.5 text-left text-[13px] text-text-subtle tabular-nums enabled:hover:text-text enabled:hover:underline disabled:cursor-default"
+										aria-label={
+											summary === undefined
+												? text("client.grid.copy-previous-values", { index: number })
+												: text("client.grid.copy-previous", { summary, index: number })
+										}
 									>
 										{summary ?? "—"}
 										{!compact && previous?.rpe !== undefined ? (
-											<span className="ml-1.5 font-semibold text-text-muted">@{previous.rpe}</span>
+											<span className="ml-1.5 font-semibold text-text-muted">
+												{text("client.grid.rpe-value", { rpe: previous.rpe })}
+											</span>
 										) : null}
 									</button>
 								) : (
@@ -218,25 +249,31 @@ export function SetGrid(props: {
 											invalid={invalid?.fields.includes(field)}
 											onFocus={(event) => event.currentTarget.select()}
 											inputMode={field === "reps" ? "numeric" : "decimal"}
-											aria-label={`Set ${number} ${field}${unit === undefined ? "" : ` (${unit})`}`}
 											onChange={(event) => {
 												const value = event.currentTarget.value;
 												props.onChange(set.clientId, (item) => ({ ...item, [field]: value }));
 											}}
+											aria-label={
+												unit === undefined
+													? text("client.grid.field-label", { field, index: number })
+													: text("client.grid.field-label-unit", { unit, field, index: number })
+											}
 										/>
 									);
 								})}
 								{compact ? null : (
 									<button
 										type="button"
-										aria-label={`Set ${number} RPE`}
 										onClick={() => props.onOpenSet(set)}
+										aria-label={text("client.grid.rpe-label", { index: number })}
 										className={clsx(
 											"h-8 rounded-sm text-xs font-semibold tabular-nums hover:bg-hover",
 											set.rpe === undefined || set.rpe === "" ? "text-text-subtle" : "text-text",
 										)}
 									>
-										{set.rpe === undefined || set.rpe === "" ? "RPE" : `@${set.rpe}`}
+										{set.rpe === undefined || set.rpe === ""
+											? text("client.template.rpe-label")
+											: text("client.grid.rpe-value", { rpe: set.rpe })}
 									</button>
 								)}
 								{live && starts ? (
@@ -245,8 +282,8 @@ export function SetGrid(props: {
 										variant="start"
 										disabled={props.disabled}
 										onClick={() => props.onStart(set)}
-										label={`Start set ${number} timer`}
 										icon={<AppIcon size={15} name="play" />}
+										label={text("client.grid.start-timer", { index: number })}
 									/>
 								) : null}
 								{live && !starts ? (
@@ -258,8 +295,8 @@ export function SetGrid(props: {
 										icon={<AppIcon size={17} name="check" />}
 										label={
 											execution === undefined
-												? `Complete set ${number}`
-												: `Finish set ${number} now`
+												? text("client.grid.complete", { index: number })
+												: text("client.grid.finish", { index: number })
 										}
 									/>
 								) : null}
@@ -268,8 +305,8 @@ export function SetGrid(props: {
 										variant="include"
 										pressed={set.included}
 										disabled={props.disabled}
-										label={`Include set ${number}`}
 										icon={<AppIcon size={15} name="check" />}
+										label={text("client.grid.include", { index: number })}
 										onClick={() =>
 											props.onChange(set.clientId, (item) => ({
 												...item,
@@ -286,8 +323,14 @@ export function SetGrid(props: {
 										className="pt-0.5 pr-1.5 pb-1 pl-10 text-xs font-medium text-danger"
 									>
 										{invalid.fields.length === 0
-											? "Enter valid values to complete this set. Zero is allowed."
-											: `Enter ${listFields(invalid.fields)} to complete this set. Zero is allowed.`}
+											? text("client.grid.invalid-generic")
+											: text("client.grid.invalid", {
+													fields: formatters
+														.list({ style: "long", type: "conjunction" })
+														.format(
+															invalid.fields.map((field) => text("client.grid.field", { field })),
+														),
+												})}
 									</p>
 								)}
 							</Collapse>
@@ -303,8 +346,10 @@ export function SetGrid(props: {
 								{execution === undefined ? null : (
 									<p className="flex items-center gap-1.5 pt-0.5 pb-1 pl-10 text-xs font-semibold text-info">
 										<AppIcon size={12} name="timer" />
-										{execution.pausedRemainingSeconds === undefined ? "Running" : "Paused"} ·{" "}
-										{formatEditorSeconds(remainingSeconds(execution, props.now))} left
+										{text("client.grid.execution", {
+											time: formatClock(remainingSeconds(execution, props.now)),
+											state: execution.pausedRemainingSeconds === undefined ? "running" : "paused",
+										})}
 									</p>
 								)}
 							</Collapse>
@@ -312,7 +357,7 @@ export function SetGrid(props: {
 								<button
 									type="button"
 									onClick={() => props.onOpenSet(set)}
-									aria-label={`Rest after set ${number}: ${restText}. Change rest`}
+									aria-label={text("client.grid.rest-label", { index: number, rest: restText })}
 									className={clsx(
 										"flex h-5.5 w-full items-center gap-2 pr-1.5 pl-10 text-xs font-medium tabular-nums before:h-px before:flex-1 after:h-px after:flex-1",
 										rest === undefined

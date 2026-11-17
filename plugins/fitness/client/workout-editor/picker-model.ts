@@ -2,7 +2,6 @@ import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 
 import {
 	exerciseForceSchema,
-	type ExerciseKind,
 	exerciseKindSchema,
 	exerciseLevelSchema,
 	exerciseMechanicSchema,
@@ -11,6 +10,7 @@ import {
 	type WorkoutExercisePickerResult,
 	WorkoutExercisePickerSortSchema,
 } from "../../shared/workout-exercise-recipes";
+import type { FitnessText } from "../messages";
 
 export const PickerFiltersSchema = Schema.Struct({
 	targetIds: Schema.Array(Schema.String),
@@ -49,15 +49,13 @@ export const emptyFilters: PickerFilters = {
 	collectionIds: [],
 };
 
-export const sortLabels: Record<PickerSort, string> = {
-	name: "Name",
-	"recently-added": "Recently added",
-	"times-performed": "Times performed",
-};
+const sortCodes = {
+	name: "name",
+	"recently-added": "recently_added",
+	"times-performed": "times_performed",
+} as const satisfies Record<PickerSort, string>;
+
+export const sortLabel = (text: FitnessText, sort: PickerSort) =>
+	text("client.picker.sort", { sort: sortCodes[sort] });
 
 export const sortOrder: readonly PickerSort[] = ["times-performed", "name", "recently-added"];
-
-export const capitalize = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-
-export const labelForKind = (kind: null | ExerciseKind) =>
-	kind === null ? "Exercise" : capitalize(kind.replaceAll("_", " "));

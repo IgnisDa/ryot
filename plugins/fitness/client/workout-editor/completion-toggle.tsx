@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import clsx from "clsx";
 import type { ComponentProps, ReactNode } from "react";
 
@@ -5,7 +6,7 @@ type CompletionToggleProps = Omit<
 	ComponentProps<"button">,
 	"role" | "children" | "aria-label" | "aria-checked" | "aria-pressed"
 > & {
-	readonly label: string;
+	readonly label: Text;
 	readonly icon: ReactNode;
 	readonly pressed: boolean;
 	readonly variant: "start" | "include" | "complete";

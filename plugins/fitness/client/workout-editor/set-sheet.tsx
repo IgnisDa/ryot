@@ -1,8 +1,9 @@
+import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	clockFormat,
-	entitlementRequiredMessage,
 	Field,
+	formatClock,
 	MotionPresence,
 	RadioGroup,
 	SegmentedControl,
@@ -19,16 +20,13 @@ import type {
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
 import { workoutSetLots } from "../../shared/workout-set";
-import { setLots } from "../set-lots";
-import { formatEditorSeconds } from "./clock";
+import { useFitnessMessages } from "../messages";
+import { setLotLabel } from "../set-lots";
 import { EditorSheet } from "./editor-sheet";
 import { previousSummary } from "./set-grid";
 import { ConfirmDialog } from "./workout-sheets";
 
-const rpeOptions = Array.from({ length: 11 }, (_, value) => ({
-	value: String(value),
-	label: `RPE ${value}`,
-}));
+const rpeValues = Array.from({ length: 11 }, (_, value) => value);
 
 export function SetSheet(props: {
 	readonly pro: boolean;
@@ -44,11 +42,17 @@ export function SetSheet(props: {
 	readonly previous: undefined | WorkoutEditorSet;
 	readonly onChange: (transform: (set: WorkoutEditorSet) => WorkoutEditorSet) => void;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { set, onChange } = props;
+	const rpeOptions = rpeValues.map((value) => ({
+		value: String(value),
+		label: text("client.template.rpe", { rpe: value }),
+	}));
 	const [rpeHelp, setRpeHelp] = useState(false);
 	const [deleteConfirmationSetId, setDeleteConfirmationSetId] = useState<string>();
 	const index = props.occurrence.sets.findIndex(({ clientId }) => clientId === set.clientId);
-	const summary = previousSummary(props.previous, props.occurrence);
+	const summary = previousSummary(formatters, text, props.previous, props.occurrence);
 	const explicit = set.restChoice.kind === "explicit" ? set.restChoice.seconds : undefined;
 	const explicitSeconds =
 		explicit === undefined || !/^\d+$/.test(explicit.trim()) ? undefined : Number(explicit);
@@ -57,9 +61,9 @@ export function SetSheet(props: {
 	return (
 		<EditorSheet
 			onClose={props.onClose}
-			title={`Set ${index + 1}`}
-			closeLabel="Close set options"
 			description={props.exerciseName}
+			closeLabel={text("client.sheet.close")}
+			title={text("client.bulk.set", { index: index + 1 })}
 			footer={
 				<>
 					<Button
@@ -77,37 +81,39 @@ export function SetSheet(props: {
 						}}
 					>
 						<AppIcon size={15} name="trash-2" />
-						Delete set
+						{text("client.sheet.delete-set")}
 					</Button>
-					<Button onClick={props.onClose}>Done</Button>
+					<Button onClick={props.onClose}>{text("common.action.done")}</Button>
 				</>
 			}
 		>
 			<fieldset disabled={props.disabled} className="grid min-w-0 gap-5 border-0 p-0">
 				<div className="grid gap-1.5">
-					<span className="text-[13px] font-medium">Set type</span>
+					<span className="text-[13px] font-medium">{text("client.sheet.set-type")}</span>
 					<SegmentedControl
 						fill
-						label="Set type"
 						value={set.setLot}
 						optionClassName="px-2"
+						label={text("client.sheet.set-type")}
 						onChange={(setLot) => onChange((item) => ({ ...item, setLot }))}
 						options={workoutSetLots.map((lot) => ({
 							value: lot,
-							label: setLots[lot].label,
-							content: setLots[lot].label,
+							label: setLotLabel(text, lot),
+							content: setLotLabel(text, lot),
 						}))}
 					/>
 				</div>
 				{props.draft.mode.kind === "historical" ? null : (
 					<Field
-						label="Rest after this set"
+						label={text("client.sheet.rest-label")}
 						hint={
 							<>
 								{explicit === undefined
-									? `Using the ${setLots[set.setLot].label.toLowerCase()} default for this exercise (${formatEditorSeconds(props.inheritedRestSeconds)}). `
-									: "Custom for this set. "}
-								0:00 turns rest off.
+									? text("client.sheet.rest-default", {
+											lot: set.setLot,
+											time: formatClock(props.inheritedRestSeconds),
+										})
+									: text("client.sheet.rest-custom")}
 								{explicit === undefined ? null : (
 									<>
 										{" "}
@@ -118,7 +124,7 @@ export function SetSheet(props: {
 												onChange((item) => ({ ...item, restChoice: { kind: "inherited" } }))
 											}
 										>
-											Use default
+											{text("client.sheet.use-default")}
 										</button>
 									</>
 								)}
@@ -130,8 +136,8 @@ export function SetSheet(props: {
 								step={15}
 								id={control.id}
 								parse={clockFormat.parse}
-								label="Rest after this set"
 								format={clockFormat.format}
+								label={text("client.sheet.rest-label")}
 								aria-describedby={control["aria-describedby"]}
 								incrementIcon={<AppIcon size={16} name="plus" />}
 								decrementIcon={<AppIcon size={16} name="minus" />}
@@ -152,7 +158,8 @@ export function SetSheet(props: {
 				<div className="grid gap-1.5">
 					<div className="flex items-center gap-2">
 						<span className="text-[13px] font-medium">
-							RPE <span className="font-normal text-text-subtle">(optional)</span>
+							{text("client.template.rpe-label")}{" "}
+							<span className="font-normal text-text-subtle">{text("client.sheet.optional")}</span>
 						</span>
 						<span className="flex-1" />
 						{set.rpe === undefined || set.rpe === "" ? null : (
@@ -161,7 +168,7 @@ export function SetSheet(props: {
 								className="text-xs font-semibold text-text-muted"
 								onClick={() => onChange((item) => ({ ...item, rpe: undefined }))}
 							>
-								Clear RPE
+								{text("client.sheet.clear-rpe")}
 							</button>
 						)}
 						<button
@@ -170,14 +177,14 @@ export function SetSheet(props: {
 							onClick={() => setRpeHelp(!rpeHelp)}
 							className="text-xs font-semibold text-accent-text"
 						>
-							What is RPE?
+							{text("client.sheet.what-is-rpe")}
 						</button>
 					</div>
 					<RadioGroup
-						label="RPE"
 						value={set.rpe}
 						options={rpeOptions}
 						className="grid grid-cols-6 gap-1.5"
+						label={text("client.template.rpe-label")}
 						onChange={(rpe) => onChange((item) => ({ ...item, rpe }))}
 						renderOption={(option, selected) => ({
 							content: option.value,
@@ -190,15 +197,12 @@ export function SetSheet(props: {
 						})}
 					/>
 					{rpeHelp ? (
-						<p className="text-xs text-text-muted">
-							Rate of perceived exertion, a whole number from 0 (no effort) to 10 (no more
-							repetitions possible). 9 means about one repetition remained; 8 means about two.
-						</p>
+						<p className="text-xs text-text-muted">{text("client.sheet.rpe-help")}</p>
 					) : null}
 				</div>
 				<Field
-					label="Set note"
-					hint={props.pro ? undefined : entitlementRequiredMessage("pro", "Adding set notes")}
+					label={text("client.sheet.note")}
+					hint={props.pro ? undefined : text("client.sheet.note-pro")}
 				>
 					{(control) => (
 						<TextArea
@@ -216,13 +220,13 @@ export function SetSheet(props: {
 						className="justify-self-start"
 						onClick={() => onChange((item) => ({ ...item, note: undefined }))}
 					>
-						Remove existing note
+						{text("client.sheet.remove-note")}
 					</Button>
 				) : null}
 				{summary === undefined ? null : (
 					<Button variant="secondary" onClick={props.onCopyPrevious}>
 						<AppIcon size={15} name="history" />
-						Copy previous ({summary})
+						{text("client.sheet.copy-previous", { summary })}
 					</Button>
 				)}
 			</fieldset>
@@ -230,12 +234,12 @@ export function SetSheet(props: {
 				{deleteConfirmationSetId === undefined ? null : (
 					<ConfirmDialog
 						key="delete-set"
-						cancelLabel="Cancel"
-						confirmLabel="Delete set"
-						title="Delete completed set?"
 						disabled={confirmDeleteDisabled}
+						title={text("client.sheet.delete-title")}
+						cancelLabel={text("common.action.cancel")}
+						confirmLabel={text("client.sheet.delete-set")}
 						onClose={() => setDeleteConfirmationSetId(undefined)}
-						description="This completed set will be removed. This action cannot be undone."
+						description={text("client.sheet.delete-description")}
 						onConfirm={() => {
 							if (!confirmDeleteDisabled) {
 								props.onDelete();

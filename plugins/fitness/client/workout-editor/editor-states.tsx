@@ -1,12 +1,7 @@
-import {
-	Button,
-	Card,
-	EmptyState,
-	entitlementRequiredMessage,
-	Skeleton,
-} from "@ryot-app/plugin-ui-sdk";
+import { Button, Card, EmptyState, Skeleton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
+import { useFitnessMessages } from "../messages";
 import type { WorkoutEditorContext, WorkoutEditorControllerSnapshot } from "./controller-types";
 
 export function EditorSkeleton(props: { readonly label: string }) {
@@ -38,21 +33,24 @@ export function EditorStates(props: {
 	readonly snapshot: WorkoutEditorControllerSnapshot;
 	readonly context: undefined | WorkoutEditorContext;
 }) {
+	const text = useFitnessMessages();
 	const { context, snapshot } = props;
 	return (
 		<>
-			{snapshot.status === "loading" ? <EditorSkeleton label="Recovering your workout" /> : null}
-			{props.preparing ? <EditorSkeleton label="Preparing workout editor" /> : null}
+			{snapshot.status === "loading" ? (
+				<EditorSkeleton label={text("client.editor.recovering")} />
+			) : null}
+			{props.preparing ? <EditorSkeleton label={text("client.editor.preparing")} /> : null}
 			{context === undefined &&
 			snapshot.contextError === undefined &&
 			snapshot.status !== "loading" ? (
-				<EditorSkeleton label="Loading Fitness settings" />
+				<EditorSkeleton label={text("client.editor.loading-settings")} />
 			) : null}
 			{snapshot.status === "empty" && !props.saved && !props.requested ? (
 				<EmptyState
-					title="No workout in progress"
+					title={text("client.editor.empty-title")}
 					icon={<AppIcon size={20} name="dumbbell" />}
-					description="Start an empty workout and add exercises as you go, or plan a reusable template."
+					description={text("client.editor.empty-description")}
 					action={
 						<div className="grid w-72 max-w-full gap-2">
 							<Button
@@ -60,7 +58,7 @@ export function EditorStates(props: {
 								disabled={context === undefined}
 								onClick={() => props.onStart(false)}
 							>
-								Start empty workout
+								{text("client.home.start-empty")}
 							</Button>
 							<Button
 								variant="secondary"
@@ -68,12 +66,10 @@ export function EditorStates(props: {
 								onClick={() => props.onStart(true)}
 							>
 								<AppIcon size={15} name="layers-3" />
-								New template
+								{text("client.home.setup.template-action")}
 							</Button>
 							{context !== undefined && !context.pro ? (
-								<p className="text-xs text-text-muted">
-									{entitlementRequiredMessage("pro", "Creating templates")}
-								</p>
+								<p className="text-xs text-text-muted">{text("client.editor.templates-pro")}</p>
 							) : null}
 						</div>
 					}

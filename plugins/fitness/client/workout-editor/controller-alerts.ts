@@ -1,6 +1,7 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { PluginDeviceRequest, PluginDeviceResult } from "@ryot-app/plugin-client-sdk/plugin";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { ExpectedCountdowns } from "./actions";
 import type {
@@ -31,7 +32,7 @@ export const createAlertSynchronizer = (host: {
 	readonly reconcile: (expected: ExpectedCountdowns) => Effect.Effect<void, unknown>;
 	readonly ports: Pick<
 		WorkoutEditorControllerPorts,
-		"now" | "device" | "target" | "pluginId" | "schedule"
+		"now" | "text" | "device" | "target" | "pluginId" | "schedule"
 	>;
 }) => {
 	const { ports } = host;
@@ -68,7 +69,9 @@ export const createAlertSynchronizer = (host: {
 			runDevice({
 				pluginId: ports.pluginId,
 				action: "return-shortcut",
-				shortcut: shouldSet ? { target: ports.target, label: "Resume workout" } : null,
+				shortcut: shouldSet
+					? { target: ports.target, label: catalogMessage("client.home.draft-live-resume") }
+					: null,
 			}),
 			(result) =>
 				Effect.sync(() => {
@@ -231,9 +234,8 @@ export const createAlertSynchronizer = (host: {
 					audible: wanted.audible,
 					pluginId: ports.pluginId,
 					deadline: wanted.deadline,
-					title: timer === "rest" ? "Rest complete" : "Exercise complete",
-					body:
-						timer === "rest" ? "Your rest timer is complete." : "Your exercise timer is complete.",
+					body: ports.text("client.alerts.body", { timer }),
+					title: ports.text("client.alerts.title", { timer }),
 				});
 				if (result === undefined) {
 					continue;

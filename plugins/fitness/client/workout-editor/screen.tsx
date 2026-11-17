@@ -6,6 +6,8 @@ import {
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
+	type Text,
+	useDisplayText,
 	useRyotQuery,
 	useRyotSchedule,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -16,8 +18,10 @@ import { useEffect, useRef, useState } from "react";
 import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
 import { managedAssetBatch } from "../asset-urls";
 import { useMeasurementLogger } from "../measurements/measurement-logger";
+import { useFitnessMessageBuilder, useFitnessMessages } from "../messages";
 import {
 	cycleWorkoutSuperset,
+	defaultWorkoutName,
 	emptyWorkoutDraft,
 	removeWorkoutItems,
 	workoutProgressTarget,
@@ -48,6 +52,9 @@ export function WorkoutEditorScreen(props: {
 	readonly pendingAddExerciseId?: string | undefined;
 	readonly onSaved?: (entityId: SavedEntityId) => void;
 }) {
+	const displayText = useDisplayText();
+	const text = useFitnessMessages();
+	const stamped = useFitnessMessageBuilder();
 	const { prepareDraft } = props;
 	const schedule = useRyotSchedule();
 	const { compact, safeAreaBottom } = useRyotViewport();
@@ -148,21 +155,31 @@ export function WorkoutEditorScreen(props: {
 			? undefined
 			: {
 					setId: progressTarget.set.clientId,
-					name: names.get(progressTarget.occurrence.exerciseId) ?? "Exercise",
 					number: progressTarget.occurrence.sets.indexOf(progressTarget.set) + 1,
+					name: names.get(progressTarget.occurrence.exerciseId) ?? text("client.editor.exercise"),
 				};
 
-	let mediaLabel = template ? "template" : "workout";
+	let mediaLabel: Text = template
+		? text("client.editor.media-template")
+		: text("client.editor.media-workout");
 	if (mediaTarget?.kind === "occurrence") {
 		const mediaExerciseId = editorDraft?.occurrences.find(
 			({ clientId }) => clientId === mediaTarget.occurrenceId,
 		)?.exerciseId;
 		mediaLabel =
-			mediaExerciseId === undefined ? "exercise" : (names.get(mediaExerciseId) ?? "exercise");
+			mediaExerciseId === undefined
+				? text("client.overlays.exercise-fallback")
+				: displayText(names.get(mediaExerciseId) ?? text("client.overlays.exercise-fallback"));
 	}
 	const screenTitle = editorDraft?.name.trim();
-	const title = screenTitle === undefined || screenTitle === "" ? "Workout editor" : screenTitle;
-	const discardLabel = live ? "Discard workout" : "Discard changes";
+	const screenTitleText =
+		screenTitle === undefined || screenTitle === ""
+			? stamped("client.editor.screen-title")
+			: screenTitle;
+	const title = displayText(screenTitleText);
+	const discardLabel = live
+		? text("client.overlays.discard-workout")
+		: text("client.overlays.discard-changes");
 
 	const togglePause = () => change((draft) => toggleWorkoutPause(draft, schedule.now()).draft);
 	const toggleStopwatchRunning = () =>
@@ -177,6 +194,7 @@ export function WorkoutEditorScreen(props: {
 						id: crypto.randomUUID(),
 						settings: context.settings,
 						now: toIso(schedule.now()),
+						name: defaultWorkoutName(text, asTemplate),
 					}),
 				),
 			);
@@ -312,7 +330,7 @@ export function WorkoutEditorScreen(props: {
 				assets={managedAssetBatch((exercises.data ?? []).map((exercise) => exercise.images?.[0]))}
 			>
 				<MotionList className="grid gap-3">
-					{occurrenceSegments(editorDraft).map((segment) =>
+					{occurrenceSegments(text, editorDraft).map((segment) =>
 						segment.group === undefined ? (
 							segment.occurrences.map((occurrence) => exerciseCard(occurrence, false))
 						) : (
@@ -342,11 +360,11 @@ export function WorkoutEditorScreen(props: {
 		editorRoot,
 		onOverlay: setOverlay,
 	};
-	const finishLabel = live ? "Finish" : "Save";
+	const finishLabel = live ? text("client.editor.finish") : text("common.action.save");
 	return (
 		<PluginScreenFrame
-			title={title}
 			hideTitle={ready}
+			title={screenTitleText}
 			floatingAction={
 				ready && compact ? (
 					<CompactDock
@@ -376,6 +394,7 @@ export function WorkoutEditorScreen(props: {
 						finishLabel={finishLabel}
 						onTogglePause={togglePause}
 						menu={workoutMenuItems({
+							text,
 							live,
 							locked,
 							template,

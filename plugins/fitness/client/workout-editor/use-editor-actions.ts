@@ -1,9 +1,14 @@
 import { isEntitlementRequired } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
-import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
+import {
+	type Text,
+	useFormatters,
+	useRyot,
+	useRyotSchedule,
+} from "@ryot-app/plugin-client-sdk/react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
+import type { Catalog } from "../../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type {
 	WorkoutEditorDraft,
@@ -22,6 +27,7 @@ import { fitnessRoute } from "../../shared/workout-editor-routes";
 import {
 	buildWorkoutEditorSaveInput,
 	replaceWorkoutOccurrence,
+	type WorkoutEditorValidationIssue,
 } from "../../shared/workout-editor-transformations";
 import {
 	WorkoutExercisePickerFiltersSchema,
@@ -33,6 +39,7 @@ import {
 	type WorkoutHistorySetResult,
 } from "../../shared/workout-history-recipes";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
+import { type FitnessText, useFitnessMessages } from "../messages";
 import {
 	completeWorkoutSet,
 	finishWorkoutDraft,
@@ -62,11 +69,42 @@ type Editor = ReturnType<typeof useWorkoutEditor>;
 
 const saveLimitBytes = 64 * 1024;
 
-const saveFailureMessage = (result: Exclude<WorkoutEditorSaveOutput, { kind: "saved" }>) => {
-	let message: string | undefined;
+const saveInvalidMessages = {
+	"duplicate-id": "client.actions.save-invalid.duplicate-id",
+	"invalid-time": "client.actions.save-invalid.invalid-time",
+	"invalid-source": "client.actions.save-invalid.invalid-source",
+	"media-forbidden": "client.actions.save-invalid.media-forbidden",
+	"unrelated-event": "client.actions.save-invalid.unrelated-event",
+	"invalid-superset": "client.actions.save-invalid.invalid-superset",
+	"missing-exercise": "client.actions.save-invalid.missing-exercise",
+	"invalid-measurement": "client.actions.save-invalid.invalid-measurement",
+	"missing-measurement": "client.actions.save-invalid.missing-measurement",
+	"invalid-exercise-kind": "client.actions.save-invalid.invalid-exercise-kind",
+} as const satisfies Record<
+	Extract<WorkoutEditorSaveOutput, { readonly kind: "invalid" }>["code"],
+	keyof Catalog
+>;
+
+const checkIssueMessages = {
+	"invalid-rpe": "client.actions.check-issue.invalid-rpe",
+	"invalid-rest": "client.actions.check-issue.invalid-rest",
+	"missing-name": "client.actions.check-issue.missing-name",
+	"duplicate-id": "client.actions.check-issue.duplicate-id",
+	"unconfirmed-set": "client.actions.check-issue.unconfirmed-set",
+	"invalid-superset": "client.actions.check-issue.invalid-superset",
+	"missing-start-time": "client.actions.check-issue.missing-start-time",
+	"invalid-measurement": "client.actions.check-issue.invalid-measurement",
+	"missing-measurement": "client.actions.check-issue.missing-measurement",
+} as const satisfies Record<WorkoutEditorValidationIssue["code"], keyof Catalog>;
+
+const saveFailureMessage = (
+	text: FitnessText,
+	result: Exclude<WorkoutEditorSaveOutput, { kind: "saved" }>,
+) => {
+	let message: Text | undefined;
 	switch (result.kind) {
 		case "invalid":
-			message = `This workout could not be saved: ${result.code.replaceAll("-", " ")}.`;
+			message = text(saveInvalidMessages[result.code]);
 			break;
 		case "conflict":
 			break;
@@ -89,10 +127,12 @@ export function useEditorActions(input: {
 }) {
 	const { context, exercises, closeMedia, controller, closeOverlay, draft: editorDraft } = input;
 	const { saved, scrollTo } = input;
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const addedExerciseId = useRef<string | undefined>(undefined);
-	const [message, setMessage] = useState<string>();
+	const [message, setMessage] = useState<Text>();
 	const [invalid, setInvalid] = useState<InvalidSet>();
 	const [conflict, setConflict] = useState(false);
 	const local =
@@ -106,8 +146,7 @@ export function useEditorActions(input: {
 			effect.pipe(
 				Effect.match({
 					onSuccess: () => undefined,
-					onFailure: () =>
-						setMessage("This action could not be completed. Your draft is retained. Try again."),
+					onFailure: () => setMessage(text("client.actions.failed")),
 				}),
 			),
 			() => undefined,
@@ -123,8 +162,8 @@ export function useEditorActions(input: {
 	const exerciseOf = (occurrence: WorkoutEditorOccurrence) =>
 		exercises?.find(({ id }) => id === occurrence.exerciseId);
 
-	const blocked = (text: string) => {
-		setMessage(text);
+	const blocked = (reason: Text) => {
+		setMessage(reason);
 		closeOverlay();
 	};
 	const acknowledgeSave = useEffectEvent(() => {
@@ -137,10 +176,10 @@ export function useEditorActions(input: {
 		}
 	}, [saved]);
 
-	const rejectSave = (text: string | undefined, conflicted: boolean) => {
+	const rejectSave = (reason: Text | undefined, conflicted: boolean) => {
 		setConflict(conflicted);
 		closeOverlay();
-		setMessage(text);
+		setMessage(reason);
 		controller.change((rejected) =>
 			rejected.mode.kind === "live"
 				? { ...rejected, endedAt: undefined, activeDurationStartedAt: toIso(schedule.now()) }
@@ -151,7 +190,7 @@ export function useEditorActions(input: {
 	const save = () => {
 		const current = controller.getSnapshot();
 		if (current.status === "ready" && current.uploading) {
-			setMessage("Wait for the attachment upload to finish before saving.");
+			setMessage(text("client.actions.wait-upload"));
 			return;
 		}
 		run(
@@ -173,7 +212,13 @@ export function useEditorActions(input: {
 						);
 						if (built.input === undefined) {
 							blocked(
-								`Check the workout: ${[...new Set(built.issues.map(({ code }) => code.replaceAll("-", " ")))].join(", ")}.`,
+								text("client.actions.check-workout", {
+									issues: formatters
+										.list({ type: "unit", style: "long" })
+										.format([
+											...new Set(built.issues.map(({ code }) => text(checkIssueMessages[code]))),
+										]),
+								}),
 							);
 							return undefined;
 						}
@@ -181,9 +226,7 @@ export function useEditorActions(input: {
 							Schema.fromJsonString(WorkoutEditorSaveInputSchema),
 						)(built.input);
 						if (new TextEncoder().encode(encodedInput).byteLength > saveLimitBytes) {
-							blocked(
-								"This workout exceeds the 64 KiB save limit. Shorten notes or remove entries before saving. Nothing was truncated.",
-							);
+							blocked(text("client.actions.too-large"));
 							return undefined;
 						}
 						return { draft: candidate, input: built.input };
@@ -196,15 +239,10 @@ export function useEditorActions(input: {
 					input.onSaved?.(result.entityId);
 					return;
 				}
-				rejectSave(saveFailureMessage(result), result.kind === "conflict");
+				rejectSave(saveFailureMessage(text, result), result.kind === "conflict");
 			}).pipe(
 				Effect.catchIf(isEntitlementRequired, () =>
-					Effect.sync(() =>
-						rejectSave(
-							`${entitlementRequiredMessage("pro", "This change")} Your data has been retained.`,
-							false,
-						),
-					),
+					Effect.sync(() => rejectSave(text("client.actions.pro"), false)),
 				),
 			),
 		);
@@ -225,7 +263,7 @@ export function useEditorActions(input: {
 				currentIndex + (sourceOccurrence.sets[currentIndex]?.included ? 1 : 0)
 			];
 		if (destination === undefined) {
-			setMessage("There is no following set to fill. Add a set first.");
+			setMessage(text("client.actions.no-following-set"));
 			return;
 		}
 		const index = previousSetIndex(latest.draft.occurrences, occurrence.clientId, set.clientId);
@@ -241,7 +279,7 @@ export function useEditorActions(input: {
 				);
 				const row = rows[index];
 				if (row === undefined) {
-					setMessage("No previous value is available for this set.");
+					setMessage(text("client.actions.no-previous"));
 					return;
 				}
 				controller.change((draft) =>
@@ -372,7 +410,7 @@ export function useEditorActions(input: {
 				exercise.membershipProperties ?? {},
 			);
 			if (overrides._tag === "Failure") {
-				setMessage("Exercise defaults could not be read. Refresh the picker and retry.");
+				setMessage(text("client.actions.defaults-unreadable"));
 				return [];
 			}
 			const occurrence = newWorkoutOccurrence({
@@ -433,7 +471,7 @@ export function useEditorActions(input: {
 							);
 				const exercise = picked?.items.find(({ kind }) => kind !== null);
 				if (exercise === undefined) {
-					setMessage("This exercise is not in your library or has no kind, so it was not added.");
+					setMessage(text("client.actions.not-added"));
 					return;
 				}
 				applyExercises([exercise], undefined);
@@ -478,7 +516,7 @@ export function useEditorActions(input: {
 			const started = change((draft) => {
 				const rest = resolveSetRestTime(set, context.settings, overrides);
 				if (rest.kind !== "resolved") {
-					setMessage("Enter a valid rest duration.");
+					setMessage(text("client.actions.invalid-rest"));
 					return draft;
 				}
 				const next = startExecution(
@@ -555,9 +593,7 @@ export function useEditorActions(input: {
 					draftId: yield* SecureRandom.SecureRandom.use((random) => random.uuidV4()),
 				});
 				if (loaded.kind === "blocked") {
-					setMessage(
-						"The saved version has an unavailable exercise or invalid data. Your draft has been retained.",
-					);
+					setMessage(text("client.actions.reload-blocked"));
 					return;
 				}
 				if (yield* controller.discard()) {

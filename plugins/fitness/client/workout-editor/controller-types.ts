@@ -13,6 +13,7 @@ import type {
 	WorkoutEditorSaveInput,
 	WorkoutEditorSaveOutput,
 } from "../../shared/workout-editor-operations";
+import type { FitnessText } from "../messages";
 
 export type TimerName = "rest" | "execution";
 export type WorkoutEditorContext = {
@@ -60,6 +61,7 @@ export type WorkoutEditorControllerSnapshot =
 	  });
 
 export type WorkoutEditorControllerPorts = {
+	readonly text: FitnessText;
 	readonly pluginId: PluginId;
 	readonly foreground: () => boolean;
 	readonly target: PluginNavigationTarget;

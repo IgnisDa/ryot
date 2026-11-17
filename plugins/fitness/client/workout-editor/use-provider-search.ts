@@ -10,6 +10,7 @@ import type { ExerciseKind } from "../../shared/exercise-kinds";
 import { fitnessLibraryMembership } from "../../shared/library-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { workoutExercisePickerRecipe } from "../../shared/workout-exercise-recipes";
+import type { FitnessText } from "../messages";
 import type { PickerExercise } from "./picker-model";
 
 type PickerInput = ImportedRecipe.Arguments<ReturnType<typeof workoutExercisePickerRecipe>>;
@@ -24,6 +25,7 @@ const readLibraryExercises = (client: RyotClient, exerciseIds: PickerInput["exer
 
 export function useProviderSearch(input: {
 	readonly search: string;
+	readonly text: FitnessText;
 	readonly onCreateRequested: () => void;
 	readonly replacementKind: undefined | ExerciseKind;
 	readonly onFound: (exercises: readonly PickerExercise[]) => void;
@@ -68,9 +70,7 @@ export function useProviderSearch(input: {
 						(input.replacementKind === undefined || exercise.kind === input.replacementKind),
 				);
 				if (eligible.length < exercises.length) {
-					setNotice(
-						"The exercise was added to your library, but its kind is not eligible for this selection.",
-					);
+					setNotice(input.text("client.picker.ineligible"));
 				}
 				input.onFound(eligible);
 			}).pipe(Effect.catch(() => Effect.sync(() => setFailed(true)))),

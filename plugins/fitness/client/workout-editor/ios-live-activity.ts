@@ -2,18 +2,22 @@ import type {
 	IosLiveActivityContent,
 	IosLiveActivityValue,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
+import { formatClock } from "@ryot-app/plugin-ui-sdk";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { kilogramsToPounds, poundsToKilograms } from "../../shared/workout-units";
+import type { FitnessText } from "../messages";
+import { formatEnteredUnitValue, formatUnitValue } from "../workout/format";
 import { workoutProgressTarget } from "./actions";
-import { formatEditorSeconds, isoAt } from "./clock";
+import { isoAt } from "./clock";
 
 const bounded = (text: string, maximum = 96) => text.slice(0, maximum);
 
 export const workoutIosActivityKey = (draft: WorkoutEditorDraft) => `workout:${draft.draftId}`;
 
-const activeValue = (draft: WorkoutEditorDraft): IosLiveActivityValue => {
-	const label = "Active";
+const activeValue = (text: FitnessText, draft: WorkoutEditorDraft): IosLiveActivityValue => {
+	const label = text("client.timers.active");
 	if (draft.activeDurationStartedAt === undefined) {
 		return { label, kind: "duration", seconds: draft.activeDuration ?? 0 };
 	}
@@ -26,38 +30,57 @@ const activeValue = (draft: WorkoutEditorDraft): IosLiveActivityValue => {
 	return { label, startedAt, kind: "elapsed" };
 };
 
-const targetDescription = (draft: WorkoutEditorDraft, names: ReadonlyMap<string, string>) => {
+const targetDescription = (
+	formatters: Formatters,
+	text: FitnessText,
+	draft: WorkoutEditorDraft,
+	names: ReadonlyMap<string, string>,
+) => {
 	const target = workoutProgressTarget(draft);
 	if (target === undefined) {
-		return draft.occurrences.length === 0 ? "No exercises added" : "All sets completed";
+		return draft.occurrences.length === 0
+			? text("client.live.no-exercises")
+			: text("client.live.all-completed");
 	}
 	const { set, occurrence } = target;
 	const measurements = [
-		set.weight?.trim() ? `${set.weight} ${occurrence.display?.weightUnit ?? "kg"}` : undefined,
-		set.reps?.trim() ? `${set.reps} reps` : undefined,
+		set.weight?.trim()
+			? formatEnteredUnitValue(formatters, set.weight, occurrence.display?.weightUnit ?? "kg")
+			: undefined,
+		set.reps?.trim() ? text("client.grid.value-reps", { value: set.reps }) : undefined,
 		set.duration?.trim()
-			? `${set.duration} ${occurrence.display?.durationUnit === "seconds" ? "sec" : "min"}`
+			? formatEnteredUnitValue(
+					formatters,
+					set.duration,
+					occurrence.display?.durationUnit === "seconds" ? "sec" : "min",
+				)
 			: undefined,
 		set.distance?.trim()
-			? `${set.distance} ${occurrence.display?.distanceUnit ?? "km"}`
+			? formatEnteredUnitValue(formatters, set.distance, occurrence.display?.distanceUnit ?? "km")
 			: undefined,
 	]
 		.filter((value) => value !== undefined)
 		.join(" · ");
+	const exercise = names.get(occurrence.exerciseId) ?? text("client.editor.exercise");
+	const setNumber = occurrence.sets.indexOf(set) + 1;
 	return bounded(
-		`Next: ${names.get(occurrence.exerciseId) ?? "Exercise"} · Set ${occurrence.sets.indexOf(set) + 1}${measurements === "" ? "" : ` · ${measurements}`}`,
+		measurements === ""
+			? text("client.live.next", { exercise, set: setNumber })
+			: text("client.live.next-with", { exercise, measurements, set: setNumber }),
 		160,
 	);
 };
 
 export const workoutIosActivityContent = (
+	formatters: Formatters,
+	text: FitnessText,
 	draft: WorkoutEditorDraft,
 	names: ReadonlyMap<string, string>,
 	imperial = false,
 ): IosLiveActivityContent => {
 	const sets = draft.occurrences.flatMap((occurrence) => occurrence.sets);
 	const done = sets.filter(({ included }) => included).length;
-	const active = activeValue(draft);
+	const active = activeValue(text, draft);
 	const volumeKg = draft.occurrences.reduce(
 		(volume, occurrence) =>
 			volume +
@@ -79,23 +102,33 @@ export const workoutIosActivityContent = (
 	);
 	const finished = draft.endedAt !== undefined || draft.submission !== undefined;
 	const status =
-		draft.activeDurationStartedAt === undefined ? "Workout paused" : "Workout in progress";
+		draft.activeDurationStartedAt === undefined
+			? text("client.notices.paused-title")
+			: text("client.home.draft-live-title");
 	const base: IosLiveActivityContent = {
 		tone: "accent",
 		primary: active,
 		icon: "activity",
-		detail: targetDescription(draft, names),
-		title: bounded(draft.name.trim() || "Workout"),
-		status: finished ? "Workout not saved yet" : status,
+		status: finished ? text("client.live.unsaved") : status,
+		detail: targetDescription(formatters, text, draft, names),
 		progress: sets.length === 0 ? undefined : done / sets.length,
+		title: bounded(draft.name.trim() || text("client.workouts.column-workout")),
 		metrics: [
-			{ label: "Sets", value: `${done}/${sets.length}` },
+			{
+				label: text("property.sets"),
+				value: text("client.wsheets.fraction", { done, total: sets.length }),
+			},
 			...(volumeKg > 0 && Number.isFinite(volumeKg)
 				? [
 						{
-							label: "Volume",
+							label: text("property.volume"),
 							value: bounded(
-								`${(imperial ? kilogramsToPounds(volumeKg) : volumeKg).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${imperial ? "lb" : "kg"}`,
+								formatUnitValue(
+									formatters,
+									imperial ? kilogramsToPounds(volumeKg) : volumeKg,
+									imperial ? "lb" : "kg",
+									{ maximumFractionDigits: 1 },
+								),
 							),
 						},
 					]
@@ -109,8 +142,8 @@ export const workoutIosActivityContent = (
 	const execution = draft.executionCountdown !== undefined;
 	if (countdown !== undefined && (execution || draft.pendingRest === undefined)) {
 		const paused = countdown.pausedRemainingSeconds !== undefined;
-		const heading = execution ? "Working" : "Resting";
-		const exercise = names.get(countdown.exerciseId) ?? "Exercise";
+		const heading = execution ? text("client.live.working") : text("client.live.resting");
+		const exercise = names.get(countdown.exerciseId) ?? text("client.editor.exercise");
 		return {
 			...base,
 			icon: "timer",
@@ -118,9 +151,15 @@ export const workoutIosActivityContent = (
 			tone: paused ? "warning" : "accent",
 			staleAt: paused ? undefined : countdown.deadline,
 			detail: execution ? bounded(exercise, 160) : base.detail,
-			staleMessage: execution ? "Set timer complete" : "Rest complete",
+			staleMessage: execution
+				? text("client.live.set-timer-complete")
+				: text("client.alerts.title", { timer: "rest" }),
 			status: bounded(
-				`${heading}${paused ? " · timer paused" : ""}${draft.activeDurationStartedAt === undefined ? " · workout paused" : ""}`,
+				text("client.live.status", {
+					heading,
+					timer: paused ? "paused" : "running",
+					workout: draft.activeDurationStartedAt === undefined ? "paused" : "running",
+				}),
 			),
 			primary: paused
 				? { label: heading, kind: "duration", seconds: countdown.pausedRemainingSeconds ?? 0 }
@@ -138,7 +177,7 @@ export const workoutIosActivityContent = (
 		return {
 			...base,
 			status: bounded(
-				`Set completed · Rest for ${formatEditorSeconds(draft.pendingRest.seconds)}?`,
+				text("client.live.rest-prompt", { time: formatClock(draft.pendingRest.seconds) }),
 			),
 		};
 	}
@@ -148,10 +187,14 @@ export const workoutIosActivityContent = (
 			secondary: active,
 			primary:
 				draft.stopwatchStartedAt === undefined
-					? { kind: "duration", label: "Stopwatch", seconds: draft.pausedStopwatchSeconds ?? 0 }
+					? {
+							kind: "duration",
+							label: text("client.timers.stopwatch"),
+							seconds: draft.pausedStopwatchSeconds ?? 0,
+						}
 					: {
 							kind: "elapsed",
-							label: "Stopwatch",
+							label: text("client.timers.stopwatch"),
 							startedAt:
 								isoAt(
 									Date.parse(draft.stopwatchStartedAt) - (draft.pausedStopwatchSeconds ?? 0) * 1000,
@@ -163,14 +206,20 @@ export const workoutIosActivityContent = (
 };
 
 export const savedWorkoutIosActivityContent = (
+	formatters: Formatters,
+	text: FitnessText,
 	draft: WorkoutEditorDraft,
 	names: ReadonlyMap<string, string>,
 	imperial = false,
 ): IosLiveActivityContent => ({
-	...workoutIosActivityContent(draft, names, imperial),
+	...workoutIosActivityContent(formatters, text, draft, names, imperial),
 	tone: "success",
 	detail: undefined,
 	secondary: undefined,
-	status: "Workout saved",
-	primary: { label: "Active", kind: "duration", seconds: draft.activeDuration ?? 0 },
+	status: text("client.notices.workout-saved"),
+	primary: {
+		kind: "duration",
+		seconds: draft.activeDuration ?? 0,
+		label: text("client.timers.active"),
+	},
 });

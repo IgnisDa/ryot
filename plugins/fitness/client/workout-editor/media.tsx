@@ -1,4 +1,5 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import { ManagedAssetProvider, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { Button, EmptyState, IconButton, Notice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -8,11 +9,12 @@ import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { WorkoutSetAssetLocator } from "../../shared/workout-set";
 import { managedAssetBatch } from "../asset-urls";
 import { MediaPreview } from "../media-preview";
+import { useFitnessMessages } from "../messages";
 import { EditorSheet } from "./editor-sheet";
 import { targetMedia, type WorkoutMediaKind, type WorkoutMediaTarget } from "./media-state";
 
 export function WorkoutMediaOverlay(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly disabled: boolean;
 	readonly canUpload: boolean;
 	readonly uploading: boolean;
@@ -22,6 +24,7 @@ export function WorkoutMediaOverlay(props: {
 	readonly onRemove: (kind: WorkoutMediaKind, asset: WorkoutSetAssetLocator) => void;
 	readonly onUpload: (kind: WorkoutMediaKind, file: File) => Effect.Effect<void, unknown>;
 }) {
+	const text = useFitnessMessages();
 	const schedule = useRyotSchedule();
 	const imageInput = useRef<HTMLInputElement>(null);
 	const videoInput = useRef<HTMLInputElement>(null);
@@ -41,10 +44,7 @@ export function WorkoutMediaOverlay(props: {
 				.pipe(
 					Effect.match({
 						onSuccess: () => undefined,
-						onFailure: () =>
-							setError(
-								"The attachment could not be uploaded or stored. Check the file type, size, and connection, then retry. Completed uploads remain in your draft.",
-							),
+						onFailure: () => setError(text("client.editor-media.upload-failed")),
 					}),
 					Effect.asVoid,
 				),
@@ -59,8 +59,8 @@ export function WorkoutMediaOverlay(props: {
 	return (
 		<EditorSheet
 			onClose={props.onClose}
-			closeLabel="Close attachments"
-			title={`Attachments for ${props.label}`}
+			closeLabel={text("client.editor-media.close")}
+			title={text("client.editor-media.title", { label: props.label })}
 			footer={
 				props.canUpload ? (
 					<>
@@ -70,7 +70,7 @@ export function WorkoutMediaOverlay(props: {
 							onClick={() => imageInput.current?.click()}
 						>
 							<AppIcon size={15} name="image" />
-							Add photo
+							{text("client.editor-media.add-photo")}
 						</Button>
 						<Button
 							variant="secondary"
@@ -78,7 +78,7 @@ export function WorkoutMediaOverlay(props: {
 							onClick={() => videoInput.current?.click()}
 						>
 							<AppIcon size={15} name="play" />
-							Add video
+							{text("client.editor-media.add-video")}
 						</Button>
 					</>
 				) : undefined
@@ -88,10 +88,10 @@ export function WorkoutMediaOverlay(props: {
 				{props.uploading ? (
 					<Notice
 						tone="info"
-						title="Uploading attachment…"
+						title={text("client.notices.uploading-title")}
 						icon={<AppIcon size={16} name="refresh-cw" />}
 					>
-						Saving and leaving wait until the upload finishes.
+						{text("client.notices.uploading-body")}
 					</Notice>
 				) : null}
 				{error === undefined ? null : (
@@ -101,9 +101,9 @@ export function WorkoutMediaOverlay(props: {
 				)}
 				{assets.length === 0 ? (
 					<EmptyState
-						title="No attachments yet"
 						icon={<AppIcon size={20} name="image" />}
-						description="Add form-check videos or photos. They save with the workout."
+						title={text("client.editor-media.empty-title")}
+						description={text("client.editor-media.empty-description")}
 					/>
 				) : (
 					<ManagedAssetProvider assets={managedAssetBatch(assets.map(({ asset }) => asset))}>
@@ -116,7 +116,10 @@ export function WorkoutMediaOverlay(props: {
 									<MediaPreview
 										kind={kind}
 										asset={asset}
-										label={`${props.label} ${kind === "images" ? "image" : "video"} ${index + 1}`}
+										label={text(
+											kind === "images" ? "client.media.image-label" : "client.media.video-label",
+											{ index: index + 1, label: props.label },
+										)}
 									/>
 									<IconButton
 										size="sm"
@@ -124,7 +127,10 @@ export function WorkoutMediaOverlay(props: {
 										disabled={disabled}
 										className="absolute top-1 right-1"
 										onClick={() => props.onRemove(kind, asset)}
-										label={`Remove ${kind === "images" ? "image" : "video"} ${index + 1}`}
+										label={text("client.editor-media.remove", {
+											index: index + 1,
+											kind: kind === "images" ? "image" : "video",
+										})}
 									>
 										<AppIcon name="x" size={14} />
 									</IconButton>
@@ -137,15 +143,12 @@ export function WorkoutMediaOverlay(props: {
 					<Notice
 						tone="info"
 						icon={<AppIcon size={16} name="info" />}
-						title="Adding workout attachments requires Pro"
+						title={text("client.editor-media.pro-title")}
 					>
-						You can still view and remove existing ones.
+						{text("client.editor-media.pro-body")}
 					</Notice>
 				)}
-				<p className="text-xs text-text-muted">
-					Images or MP4, WebM and MOV videos up to 50 MiB each. Video playback depends on your
-					device.
-				</p>
+				<p className="text-xs text-text-muted">{text("client.editor-media.limits")}</p>
 				{props.canUpload ? (
 					<>
 						<input
@@ -153,7 +156,7 @@ export function WorkoutMediaOverlay(props: {
 							ref={imageInput}
 							className="sr-only"
 							disabled={disabled}
-							aria-label="Upload image"
+							aria-label={text("client.editor-media.upload-image")}
 							accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/svg+xml"
 							onChange={(event) => {
 								upload("images", event.target.files?.[0]);
@@ -165,8 +168,8 @@ export function WorkoutMediaOverlay(props: {
 							ref={videoInput}
 							className="sr-only"
 							disabled={disabled}
-							aria-label="Upload video"
 							accept="video/mp4,video/webm,video/quicktime"
+							aria-label={text("client.editor-media.upload-video")}
 							onChange={(event) => {
 								upload("videos", event.target.files?.[0]);
 								event.target.value = "";

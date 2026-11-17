@@ -1,7 +1,9 @@
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Dialog, MotionPresence } from "@ryot-app/plugin-ui-sdk";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { MeasurementDialogs, type useMeasurementLogger } from "../measurements/measurement-logger";
+import { useFitnessMessages } from "../messages";
 import { changeOccurrenceDisplay, removeWorkoutItems } from "./actions";
 import {
 	isWorkoutEditorSaving,
@@ -51,8 +53,8 @@ type OverlayKind =
 export function EditorOverlays(props: {
 	readonly now: number;
 	readonly locked: boolean;
+	readonly mediaLabel: Text;
 	readonly disabled: boolean;
-	readonly mediaLabel: string;
 	readonly onSave: () => void;
 	readonly onClose: () => void;
 	readonly existingGuard: boolean;
@@ -75,12 +77,13 @@ export function EditorOverlays(props: {
 	readonly measurement: ReturnType<typeof useMeasurementLogger>;
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
 }) {
+	const text = useFitnessMessages();
 	const { draft, actions, context, onClose, overlay, snapshot, exercises, controller } = props;
 	const kind = typeof overlay === "string" ? overlay : overlay?.kind;
 	const occurrenceId = typeof overlay === "object" ? overlay.occurrenceId : undefined;
 	const currentOccurrence = draft?.occurrences.find(({ clientId }) => clientId === occurrenceId);
 	const currentExercise = exercises?.find(({ id }) => id === currentOccurrence?.exerciseId);
-	const exerciseName = currentExercise?.name ?? "Unavailable exercise";
+	const exerciseName = currentExercise?.name ?? text("client.overlays.exercise-unavailable");
 	const pro = context?.pro === true;
 	const { mediaTarget } = props;
 	const live = draft === undefined || draft.mode.kind === "live";
@@ -98,13 +101,15 @@ export function EditorOverlays(props: {
 					size="sm"
 					closeIcon={null}
 					key="requires-pro"
-					title="Templates require Pro"
-					closeLabel="Return to editor"
 					onClose={props.onFinishRequest}
-					description="Your current draft hasn't changed."
+					title={text("client.overlays.pro-title")}
+					closeLabel={text("client.overlays.return")}
+					description={text("client.overlays.pro-description")}
 					footer={
 						<Button onClick={props.onFinishRequest}>
-							{draft === undefined ? "Return to editor" : "Resume draft"}
+							{draft === undefined
+								? text("client.overlays.return")
+								: text("client.overlays.resume-draft")}
 						</Button>
 					}
 				/>
@@ -131,8 +136,15 @@ export function EditorOverlays(props: {
 					closeIcon={null}
 					key="existing-draft"
 					onClose={props.onFinishRequest}
-					title="You have a workout in progress"
-					closeLabel="Resume workout in progress"
+					title={text("client.overlays.existing-title")}
+					closeLabel={text("client.overlays.existing-close")}
+					description={text("client.overlays.existing-description", {
+						name: draft.name,
+						pending: props.disabled ? "yes" : "no",
+						total: draft.occurrences.flatMap(({ sets }) => sets).length,
+						done: draft.occurrences.flatMap(({ sets }) => sets).filter(({ included }) => included)
+							.length,
+					})}
 					footer={
 						<>
 							<Button
@@ -140,21 +152,11 @@ export function EditorOverlays(props: {
 								disabled={props.disabled}
 								onClick={() => actions.run(controller.discard())}
 							>
-								Discard and start
+								{text("client.overlays.discard-start")}
 							</Button>
-							<Button onClick={props.onFinishRequest}>Resume workout</Button>
-						</>
-					}
-					description={
-						<>
-							{draft.name} ·{" "}
-							{
-								draft.occurrences.flatMap(({ sets }) => sets).filter(({ included }) => included)
-									.length
-							}{" "}
-							of {draft.occurrences.flatMap(({ sets }) => sets).length} sets done. Resume it, or
-							discard it to start the requested workout.
-							{props.disabled ? " Finish the pending save before starting another workout." : ""}
+							<Button onClick={props.onFinishRequest}>
+								{text("client.home.draft-live-resume")}
+							</Button>
 						</>
 					}
 				/>
@@ -169,7 +171,7 @@ export function EditorOverlays(props: {
 						: {
 								replacement: {
 									kind: replacing.exerciseKind,
-									name: currentExercise?.name ?? "exercise",
+									name: currentExercise?.name ?? text("client.overlays.exercise-fallback"),
 								},
 							})}
 				/>
@@ -282,11 +284,11 @@ export function EditorOverlays(props: {
 				<ConfirmDialog
 					key="reload"
 					onClose={onClose}
-					cancelLabel="Keep draft"
-					title="Reload the saved version?"
-					confirmLabel="Discard changes and reload"
+					title={text("client.overlays.reload-title")}
+					cancelLabel={text("client.overlays.keep-draft")}
+					confirmLabel={text("client.overlays.reload-confirm")}
 					onConfirm={() => actions.reloadSaved(props.onReloaded)}
-					description="Your unsaved changes will be discarded. The newer saved record will not be overwritten."
+					description={text("client.overlays.reload-description")}
 				/>
 			) : null}
 			{kind === "finish" && draft !== undefined ? (
@@ -304,11 +306,17 @@ export function EditorOverlays(props: {
 				<ConfirmDialog
 					key="discard"
 					onClose={onClose}
-					cancelLabel="Keep logging"
 					onConfirm={props.onDiscarded}
-					title={live ? "Discard workout?" : "Discard changes?"}
-					confirmLabel={live ? "Discard workout" : "Discard changes"}
-					description="Everything in this draft is lost. Saved workouts and measurements stay as they are."
+					cancelLabel={text("client.overlays.keep-logging")}
+					description={text("client.overlays.discard-description")}
+					confirmLabel={
+						live ? text("client.overlays.discard-workout") : text("client.overlays.discard-changes")
+					}
+					title={
+						live
+							? text("client.overlays.discard-workout-title")
+							: text("client.overlays.discard-changes-title")
+					}
 				/>
 			) : null}
 			{kind === "delete-exercise" && currentOccurrence !== undefined ? (
@@ -316,10 +324,10 @@ export function EditorOverlays(props: {
 					onClose={onClose}
 					key="delete-exercise"
 					disabled={props.locked}
-					cancelLabel="Keep exercise"
-					confirmLabel="Delete exercise"
-					title="Delete exercise with completed sets?"
-					description="This removes the exercise and all its sets from this draft. This cannot be undone."
+					cancelLabel={text("client.overlays.keep-exercise")}
+					title={text("client.overlays.delete-exercise-title")}
+					confirmLabel={text("client.overlays.delete-exercise")}
+					description={text("client.overlays.delete-exercise-description")}
 					onConfirm={() => {
 						if (!props.locked) {
 							actions.change((current) =>

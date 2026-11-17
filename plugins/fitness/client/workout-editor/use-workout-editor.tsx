@@ -5,7 +5,12 @@ import {
 	usePageRefresh,
 	usePluginScreenSurface,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import {
+	type Formatters,
+	useFormatters,
+	useRyot,
+	useRyotSchedule,
+} from "@ryot-app/plugin-client-sdk/react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -14,6 +19,7 @@ import {
 	WorkoutEditorSaveInputSchema,
 	WorkoutEditorSaveOutputSchema,
 } from "../../shared/workout-editor-operations";
+import { type FitnessText, useFitnessMessages } from "../messages";
 import { invokeWorkoutEditorContext } from "./context-query";
 import { createWorkoutEditorController } from "./controller";
 import { isWorkoutEditorSaving } from "./controller-types";
@@ -23,6 +29,8 @@ import { createWorkoutEditorSounds } from "./sounds";
 const noop = () => {};
 
 const createEditorSession = (
+	formatters: Formatters,
+	text: FitnessText,
 	client: RyotClient,
 	schedule: RyotSchedule,
 	target: PluginNavigationTarget,
@@ -51,7 +59,8 @@ const createEditorSession = (
 			yield* players.play("timer-completed", muted);
 			yield* client.device({ kind: "impact", action: "haptic" }).pipe(Effect.ignore);
 		});
-	const controller = createWorkoutEditorController({
+	const controller = createWorkoutEditorController(formatters, {
+		text,
 		target,
 		pluginId,
 		schedule,
@@ -185,6 +194,8 @@ const createEditorSession = (
 const sessions = new WeakMap<RyotClient, ReturnType<typeof createEditorSession>>();
 
 export const useWorkoutEditor = (target: PluginNavigationTarget) => {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const { isActive } = usePluginScreenSurface();
@@ -195,10 +206,10 @@ export const useWorkoutEditor = (target: PluginNavigationTarget) => {
 		if (existing !== undefined) {
 			return existing;
 		}
-		const created = createEditorSession(client, schedule, resumeTarget);
+		const created = createEditorSession(formatters, text, client, schedule, resumeTarget);
 		sessions.set(client, created);
 		return created;
-	}, [client, resumeTarget, schedule]);
+	}, [client, formatters, resumeTarget, schedule, text]);
 	const snapshot = useSyncExternalStore(
 		session.controller.subscribe,
 		session.controller.getSnapshot,

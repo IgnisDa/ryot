@@ -7,6 +7,7 @@ import type {
 	WorkoutEditorOccurrence,
 } from "../../shared/workout-editor-draft";
 import { supersetColorVariable, supersetName } from "../group-colors";
+import { type FitnessText, useFitnessMessages } from "../messages";
 import { supersetOf } from "./draft-ops";
 
 type Superset = WorkoutEditorDraft["supersets"][number];
@@ -16,19 +17,19 @@ type OccurrenceSegment = {
 	readonly group: undefined | (Superset & { readonly name: string });
 };
 
-export const supersetNames = (draft: WorkoutEditorDraft) => {
+export const supersetNames = (text: FitnessText, draft: WorkoutEditorDraft) => {
 	const names = new Map<string, string>();
 	for (const occurrence of draft.occurrences) {
 		const group = supersetOf(draft, occurrence.clientId);
 		if (group !== undefined && !names.has(group.clientId)) {
-			names.set(group.clientId, supersetName(names.size));
+			names.set(group.clientId, supersetName(text, names.size));
 		}
 	}
 	return names;
 };
 
-export const occurrenceSegments = (draft: WorkoutEditorDraft) => {
-	const names = supersetNames(draft);
+export const occurrenceSegments = (text: FitnessText, draft: WorkoutEditorDraft) => {
+	const names = supersetNames(text, draft);
 	const segments: OccurrenceSegment[] = [];
 	for (const occurrence of draft.occurrences) {
 		const group = supersetOf(draft, occurrence.clientId);
@@ -52,6 +53,7 @@ export function SupersetGroup(props: {
 	readonly count: number;
 	readonly children: ReactNode;
 }) {
+	const text = useFitnessMessages();
 	const color = supersetColorVariable(props.color);
 	return (
 		<section aria-label={props.name} className="relative grid gap-2 pl-3.5">
@@ -68,7 +70,9 @@ export function SupersetGroup(props: {
 					<AppIcon size={13} name="link" />
 					{props.name}
 				</span>
-				<span className="text-xs text-text-muted">Alternate · {props.count} exercises</span>
+				<span className="text-xs text-text-muted">
+					{text("client.superset.group-note", { count: props.count })}
+				</span>
 			</div>
 			<MotionList className="grid gap-2">{props.children}</MotionList>
 		</section>

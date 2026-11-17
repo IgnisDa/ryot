@@ -1,3 +1,5 @@
+import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import { formatClock } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
@@ -8,7 +10,8 @@ import {
 	milesToKilometers,
 	poundsToKilograms,
 } from "../../shared/workout-units";
-import { formatEditorSeconds } from "./clock";
+import { useFitnessMessages } from "../messages";
+import { formatUnitValue } from "../workout/format";
 import { isTemplateDraft } from "./draft-ops";
 import { activeDurationSeconds } from "./timers";
 
@@ -23,6 +26,8 @@ export function EditorStats(props: {
 	readonly imperial: boolean;
 	readonly draft: WorkoutEditorDraft;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { draft } = props;
 	const included = includedWorkoutOccurrences(draft);
 	let volumeKg = 0;
@@ -53,40 +58,43 @@ export function EditorStats(props: {
 	const template = isTemplateDraft(draft);
 	const total = draft.occurrences.reduce((count, { sets }) => count + sets.length, 0);
 	const done = included.reduce((count, { sets }) => count + sets.length, 0);
-	const stats: { readonly label: string; readonly value: string; readonly unit?: string }[] =
-		template
-			? [
-					{ label: "Exercises", value: String(draft.occurrences.length) },
-					{ value: String(total), label: "Planned sets" },
-				]
-			: [
-					{
-						label: draft.mode.kind === "historical" ? "Active" : "Duration",
-						value: active === undefined ? "Unknown" : formatEditorSeconds(active),
-					},
-					{ label: "Sets", unit: `/${total}`, value: String(done) },
-					{
-						label: "Volume",
-						unit: props.imperial ? " lb" : " kg",
-						value: (props.imperial ? kilogramsToPounds(volumeKg) : volumeKg).toLocaleString(
-							undefined,
-							{ maximumFractionDigits: 1 },
-						),
-					},
-					{ label: "Reps", value: reps.toLocaleString() },
-					...(distanceKm > 0
-						? [
-								{
-									label: "Distance",
-									unit: props.imperial ? " mi" : " km",
-									value: (props.imperial
-										? kilometersToMiles(distanceKm)
-										: distanceKm
-									).toLocaleString(undefined, { maximumFractionDigits: 2 }),
-								},
-							]
-						: []),
-				];
+	const stats: { readonly label: string; readonly value: string }[] = template
+		? [
+				{ label: text("property.exercises"), value: String(draft.occurrences.length) },
+				{ value: String(total), label: text("client.editor.stat.planned-sets") },
+			]
+		: [
+				{
+					value: active === undefined ? text("client.editor.stat.unknown") : formatClock(active),
+					label:
+						draft.mode.kind === "historical"
+							? text("client.editor.stat.active")
+							: text("property.duration"),
+				},
+				{ label: text("property.sets"), value: text("client.wsheets.fraction", { done, total }) },
+				{
+					label: text("property.volume"),
+					value: formatUnitValue(
+						formatters,
+						props.imperial ? kilogramsToPounds(volumeKg) : volumeKg,
+						props.imperial ? "lb" : "kg",
+						{ maximumFractionDigits: 1 },
+					),
+				},
+				{ label: text("property.reps"), value: formatters.number().format(reps) },
+				...(distanceKm > 0
+					? [
+							{
+								label: text("property.distance"),
+								value: formatUnitValue(
+									formatters,
+									props.imperial ? kilometersToMiles(distanceKm) : distanceKm,
+									props.imperial ? "mi" : "km",
+								),
+							},
+						]
+					: []),
+			];
 	return (
 		<dl
 			className={props.compact ? "grid gap-2.5" : "flex flex-wrap gap-x-8 gap-y-3"}
@@ -96,7 +104,7 @@ export function EditorStats(props: {
 					: undefined
 			}
 		>
-			{stats.map(({ unit, label, value }) => (
+			{stats.map(({ label, value }) => (
 				<div key={label} className="grid min-w-0 content-start gap-px">
 					<dt className="text-xs text-text-muted">{label}</dt>
 					<dd
@@ -106,9 +114,6 @@ export function EditorStats(props: {
 						)}
 					>
 						{value}
-						{unit === undefined ? null : (
-							<small className="text-xs font-medium text-text-subtle">{unit}</small>
-						)}
 					</dd>
 				</div>
 			))}

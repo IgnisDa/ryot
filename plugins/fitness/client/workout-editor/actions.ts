@@ -20,6 +20,7 @@ import {
 	milesToKilometers,
 	poundsToKilograms,
 } from "../../shared/workout-units";
+import type { FitnessText } from "../messages";
 import { toIso } from "./clock";
 import {
 	focusOccurrence,
@@ -39,9 +40,13 @@ import {
 	unconfirmSet,
 } from "./timers";
 
+export const defaultWorkoutName = (text: FitnessText, template: boolean) =>
+	text(template ? "client.editor.default-name-template" : "client.editor.default-name-workout");
+
 export const emptyWorkoutDraft = (input: {
 	readonly id: string;
 	readonly now: string;
+	readonly name: string;
 	readonly template?: boolean;
 	readonly settings: WorkoutPreferenceSettings;
 }): WorkoutEditorDraft => ({
@@ -49,10 +54,10 @@ export const emptyWorkoutDraft = (input: {
 	videos: [],
 	supersets: [],
 	occurrences: [],
+	name: input.name,
 	draftId: input.id,
 	kind: "fitness-workout-editor",
 	displayEnergyUnit: input.settings.energyUnit,
-	name: input.template ? "New template" : "New workout",
 	activeDurationIntent: input.template ? "preserve" : "set",
 	mode: { kind: input.template ? "template-create" : "live" },
 	...(input.template

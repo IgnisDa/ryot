@@ -6,6 +6,7 @@ import {
 	nextPageCursor,
 	PaginationError,
 	paginationItems,
+	type Text,
 	type useRyot,
 	useRyotInfiniteQuery,
 	useRyotQuery,
@@ -23,10 +24,11 @@ import {
 	workoutExercisePickerRecipe,
 } from "../../shared/workout-exercise-recipes";
 import { AssetArtWell, managedAssetBatch } from "../asset-urls";
+import { useExerciseLabels, useFitnessMessages } from "../messages";
 import { EditorSheet } from "./editor-sheet";
 import {
 	emptyFilters,
-	labelForKind,
+	maxPickerPresets,
 	type PickerExercise,
 	type PickerFilters,
 	type PickerSort,
@@ -41,10 +43,10 @@ type ExercisePickerProps = {
 	readonly onApply: (exercises: readonly PickerExercise[]) => void;
 	readonly replacement?: {
 		readonly name: string;
-		readonly title?: string;
+		readonly title?: Text;
 		readonly kind: ExerciseKind;
+		readonly description?: Text;
 		readonly applyLabel?: string;
-		readonly description?: string;
 		readonly excludeIds?: readonly string[];
 	};
 };
@@ -116,6 +118,8 @@ const metaForExercise = (exercise: PickerExercise) =>
 	].join(" · ");
 
 export function ExercisePicker(props: ExercisePickerProps) {
+	const text = useFitnessMessages();
+	const labels = useExerciseLabels();
 	const replacement = props.replacement;
 	const replacing = replacement !== undefined;
 	const options = useRyotQuery(pickerOptionsQuery);
@@ -154,6 +158,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 	);
 	const invalidCursor = exercises.error instanceof PaginationError;
 	const providerSearch = useProviderSearch({
+		text,
 		search,
 		onCreateRequested: props.onClose,
 		replacementKind: replacement?.kind,
@@ -231,12 +236,16 @@ export function ExercisePicker(props: ExercisePickerProps) {
 			onClose={props.onClose}
 			initialFocusRef={searchRef}
 			dismissible={!providerSearch.pending}
-			closeLabel="Cancel exercise selection"
-			title={replacing ? (replacement.title ?? `Replace ${replacement.name}`) : "Add exercises"}
+			closeLabel={text("client.picker.cancel")}
+			title={
+				replacing
+					? (replacement.title ?? text("client.picker.replace-title", { name: replacement.name }))
+					: text("client.editor.add-exercises")
+			}
 			description={
 				replacing
 					? (replacement.description ??
-						`Only ${labelForKind(replacement.kind)} exercises can replace it. Matching values are kept.`)
+						text("client.picker.replace-description", { kind: labels.kind(replacement.kind) }))
 					: undefined
 			}
 			footer={
@@ -291,7 +300,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 				) : null}
 				{presets.full && !replacing ? (
 					<Notice tone="info" icon={<AppIcon size={16} name="info" />}>
-						You can save up to 20 presets. Delete one to save another.
+						{text("client.presets.full", { max: maxPickerPresets })}
 					</Notice>
 				) : null}
 				{presets.status === "error" ? (
@@ -300,11 +309,11 @@ export function ExercisePicker(props: ExercisePickerProps) {
 						icon={<AppIcon size={16} name="circle-alert" />}
 						action={
 							<Button size="sm" variant="secondary" onClick={presets.reload}>
-								Retry loading presets
+								{text("client.presets.retry-load")}
 							</Button>
 						}
 					>
-						Saved presets could not be read or decoded. They were not changed.
+						{text("client.presets.read-failed")}
 					</Notice>
 				) : null}
 				{presets.writeError ? (
@@ -313,11 +322,11 @@ export function ExercisePicker(props: ExercisePickerProps) {
 						icon={<AppIcon size={16} name="circle-alert" />}
 						action={
 							<Button size="sm" variant="secondary" onClick={presets.retryWrite}>
-								Retry saving presets
+								{text("client.presets.retry-save")}
 							</Button>
 						}
 					>
-						Saved presets could not be written. Your change is ready to retry.
+						{text("client.presets.write-failed")}
 					</Notice>
 				) : null}
 				{options.isError ? (
@@ -326,11 +335,11 @@ export function ExercisePicker(props: ExercisePickerProps) {
 						icon={<AppIcon size={16} name="circle-alert" />}
 						action={
 							<Button size="sm" variant="secondary" onClick={options.refetch}>
-								Retry filters
+								{text("client.picker.retry-filters")}
 							</Button>
 						}
 					>
-						Filter options could not be loaded.
+						{text("client.picker.filters-failed")}
 					</Notice>
 				) : null}
 				{providerSearch.notice ? (
@@ -349,19 +358,19 @@ export function ExercisePicker(props: ExercisePickerProps) {
 								onClick={providerSearch.open}
 								disabled={providerSearch.pending}
 							>
-								Try again
+								{text("common.action.try-again")}
 							</Button>
 						}
 					>
-						The provider search could not be completed. Your selection is unchanged.
+						{text("client.picker.provider-failed")}
 					</Notice>
 				) : null}
 				<ManagedAssetProvider
 					assets={managedAssetBatch(visibleExercises.map(({ images }) => images?.[0]))}
 				>
-					<div role="region" className="grid" aria-label="Exercise library">
+					<div role="region" className="grid" aria-label={text("client.picker.library")}>
 						{exercises.isPending && exerciseItems.length === 0 ? (
-							<div role="status" className="grid gap-2" aria-label="Loading exercises">
+							<div role="status" className="grid gap-2" aria-label={text("client.picker.loading")}>
 								{[0, 1, 2].map((index) => (
 									<Skeleton key={index} className="h-14" />
 								))}
@@ -373,21 +382,21 @@ export function ExercisePicker(props: ExercisePickerProps) {
 								icon={<AppIcon size={16} name="circle-alert" />}
 								action={
 									<Button size="sm" variant="secondary" onClick={exercises.retry}>
-										Retry
+										{text("common.action.retry")}
 									</Button>
 								}
 							>
-								Exercises could not be loaded.
+								{text("client.picker.load-failed")}
 							</Notice>
 						) : null}
 						{noMatches ? (
 							<EmptyState
 								icon={<AppIcon size={20} name="search-x" />}
-								description="Try another name or clear filters, or add it from an exercise provider."
+								description={text("client.picker.no-match-hint")}
 								title={
 									search.trim() === ""
-										? "No exercises match these filters"
-										: `No exercises match “${search.trim()}”`
+										? text("client.picker.no-match-filters")
+										: text("client.picker.no-match-search", { search: search.trim() })
 								}
 							/>
 						) : null}
@@ -408,9 +417,9 @@ export function ExercisePicker(props: ExercisePickerProps) {
 							{exercises.hasNextPage && !invalidCursor && !exercises.isError ? (
 								<LoadMoreButton
 									variant="ghost"
-									label="Show more"
 									disabled={exercises.isFetching}
 									onClick={exercises.fetchNextPage}
+									label={text("client.picker.show-more")}
 									isFetchingNextPage={exercises.isFetchingNextPage}
 								/>
 							) : null}
@@ -422,11 +431,11 @@ export function ExercisePicker(props: ExercisePickerProps) {
 								}
 							>
 								{providerSearch.pending ? (
-									"Searching providers…"
+									text("client.picker.searching")
 								) : (
 									<>
 										<AppIcon size={15} name="external-link" />
-										Add from provider
+										{text("client.picker.add-from-provider")}
 									</>
 								)}
 							</Button>
@@ -445,6 +454,7 @@ function ExerciseOption(props: {
 	readonly onToggle: () => void;
 	readonly exercise: PickerExercise;
 }) {
+	const labels = useExerciseLabels();
 	const meta = metaForExercise(props.exercise);
 	return (
 		<button
@@ -469,7 +479,7 @@ function ExerciseOption(props: {
 					{props.exercise.name}
 				</span>
 				<span className="block text-xs text-text-muted">
-					{labelForKind(props.exercise.kind)}
+					{labels.kind(props.exercise.kind)}
 					{meta === "" ? "" : ` · ${meta}`}
 				</span>
 			</span>

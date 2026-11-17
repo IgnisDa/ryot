@@ -1,8 +1,10 @@
 import { useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
 	Collapse,
+	formatClock,
 	IconButton,
 	MenuButton,
 	MotionPresence,
@@ -20,8 +22,8 @@ import type {
 import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
 import type { WorkoutSetLot } from "../../shared/workout-set";
 import { AssetArtWell } from "../asset-urls";
+import { useFitnessMessages } from "../messages";
 import { editSet, newWorkoutSet } from "./actions";
-import { formatEditorSeconds } from "./clock";
 import {
 	type DraftChange,
 	isTemplateDraft,
@@ -60,6 +62,8 @@ export function ExerciseCard(props: {
 	readonly onChange: (transform: Parameters<DraftChange>[0]) => boolean;
 	readonly onManage: (kind: "reorder" | "supersets" | "bulk-delete") => void;
 }) {
+	const text = useFitnessMessages();
+	const list = useFormatters().list();
 	const { exercise, settings, onChange, occurrence, draft: editorDraft } = props;
 	const { compact } = useRyotViewport();
 	const disabled = props.disabled || exercise === undefined;
@@ -76,7 +80,7 @@ export function ExerciseCard(props: {
 	const inheritedRestFor = (setLot: WorkoutSetLot) =>
 		restFor({ setLot, restChoice: { kind: "inherited" } });
 	const normalRest = inheritedRestFor("normal");
-	const name = exercise?.name ?? "Unavailable exercise";
+	const name = exercise?.name ?? text("client.overlays.exercise-unavailable");
 	const attachments = occurrence.images.length + occurrence.videos.length;
 	const note = occurrence.notes.join("\n").trim();
 	const done = occurrence.sets.filter(({ included }) => included).length;
@@ -85,16 +89,14 @@ export function ExerciseCard(props: {
 		progressTone = done === occurrence.sets.length ? "text-success" : "text-info";
 	}
 	const progress = template
-		? `${occurrence.sets.length} planned`
-		: `${done}/${occurrence.sets.length} done`;
+		? text("client.card.planned", { count: occurrence.sets.length })
+		: text("client.card.done", { done, total: occurrence.sets.length });
 	const toggleCollapsed = () => change((item) => ({ ...item, isCollapsed: !item.isCollapsed }));
 	const meta = [
-		exercise?.equipment.map(({ name: equipment }) => equipment).join(", "),
-		exercise?.targets.map(({ name: target }) => target).join(", "),
+		exercise && list.format(exercise.equipment.map(({ name: equipment }) => equipment)),
+		exercise && list.format(exercise.targets.map(({ name: target }) => target)),
 		progress,
-		attachments > 0
-			? `${attachments} ${attachments === 1 ? "attachment" : "attachments"}`
-			: undefined,
+		attachments > 0 ? text("client.card.attachments", { count: attachments }) : undefined,
 	].filter((part) => part !== undefined && part !== "");
 	if (props.unavailable) {
 		return (
@@ -110,7 +112,7 @@ export function ExerciseCard(props: {
 					<AssetArtWell name="?" asset={undefined} className="size-10 shrink-0" />
 					<div className="min-w-0 flex-1">
 						<h2 className="text-[15px] font-semibold">{name}</h2>
-						<p className="text-xs text-text-muted">Removed from your library</p>
+						<p className="text-xs text-text-muted">{text("client.card.removed")}</p>
 					</div>
 				</div>
 				<Notice
@@ -123,12 +125,11 @@ export function ExerciseCard(props: {
 							onClick={props.onDelete}
 							disabled={props.disabled}
 						>
-							Remove from workout
+							{text("client.card.remove-from-workout")}
 						</Button>
 					}
 				>
-					Saving is blocked until it's removed or restored. Its {occurrence.sets.length} sets are
-					kept in the draft.
+					{text("client.card.blocked", { count: occurrence.sets.length })}
 				</Notice>
 			</Card>
 		);
@@ -166,7 +167,7 @@ export function ExerciseCard(props: {
 				{!compact && !template ? (
 					<Button size="sm" variant="ghost" onClick={() => props.onSheet("history")}>
 						<AppIcon size={15} name="history" />
-						History
+						{text("client.history.title")}
 					</Button>
 				) : null}
 				<IconButton
@@ -174,7 +175,10 @@ export function ExerciseCard(props: {
 					disabled={props.disabled}
 					onClick={toggleCollapsed}
 					aria-expanded={!occurrence.isCollapsed}
-					label={`${occurrence.isCollapsed ? "Expand" : "Collapse"} ${name}`}
+					label={text(
+						occurrence.isCollapsed ? "client.workouts.expand" : "client.workouts.collapse",
+						{ name },
+					)}
 				>
 					<AppIcon
 						size={18}
@@ -187,33 +191,39 @@ export function ExerciseCard(props: {
 					/>
 				</IconButton>
 				<MenuButton
-					label={`${name} actions`}
+					label={text("client.card.actions", { name })}
 					items={[
 						...(compact && !template
-							? [{ key: "history", label: "History", onSelect: () => props.onSheet("history") }]
+							? [
+									{
+										key: "history",
+										label: text("client.history.title"),
+										onSelect: () => props.onSheet("history"),
+									},
+								]
 							: []),
 						{
 							key: "notes",
-							label: "Instructions and notes",
+							label: text("client.card.notes"),
 							onSelect: () => props.onSheet("notes"),
 						},
 						{
 							key: "attachments",
-							label: `Attachments (${attachments})`,
 							onSelect: () => props.onSheet("attachments"),
+							label: text("client.editor.attachments-count", { count: attachments }),
 						},
 						{
 							disabled,
 							key: "defaults",
-							label: "Units and rest defaults",
+							label: text("client.card.defaults"),
 							onSelect: () => props.onSheet("defaults"),
 						},
 						...(props.grouped
-							? [{ key: "cycle", onSelect: props.onCycle, label: "Go to next in superset" }]
+							? [{ key: "cycle", onSelect: props.onCycle, label: text("client.card.cycle") }]
 							: []),
 						{
 							key: "replace",
-							label: "Replace exercise",
+							label: text("client.card.replace"),
 							disabled: props.disabled || !props.pro,
 							onSelect: () => props.onSheet("replace"),
 						},
@@ -221,32 +231,36 @@ export function ExerciseCard(props: {
 							key: "collapse",
 							disabled: props.disabled,
 							onSelect: toggleCollapsed,
-							label: occurrence.isCollapsed ? "Expand" : "Collapse",
+							label: occurrence.isCollapsed
+								? text("client.card.expand")
+								: text("client.card.collapse"),
 						},
 						{
 							key: "reorder",
 							disabled: props.disabled,
-							label: "Reorder this exercise",
+							label: text("client.card.reorder"),
 							onSelect: () => props.onManage("reorder"),
 						},
 						{
 							key: "superset",
 							disabled: props.disabled,
 							onSelect: () => props.onManage("supersets"),
-							label: props.grouped ? "Edit superset" : "Create superset",
+							label: props.grouped
+								? text("client.card.edit-superset")
+								: text("client.supersets.create"),
 						},
 						{
 							key: "bulk-delete",
 							disabled: props.disabled,
-							label: "Delete exercises or sets",
+							label: text("client.editor.delete-sets"),
 							onSelect: () => props.onManage("bulk-delete"),
 						},
 						{
 							key: "remove",
 							destructive: true,
 							disabled: props.disabled,
-							label: "Remove exercise",
 							onSelect: props.onDelete,
+							label: text("client.card.remove"),
 						},
 					]}
 				/>
@@ -316,18 +330,18 @@ export function ExerciseCard(props: {
 							}}
 						>
 							<AppIcon size={15} name="plus" />
-							Add set
+							{text("client.card.add-set")}
 						</Button>
 						<Collapse open={note === ""}>
 							<Button size="sm" variant="ghost" onClick={() => props.onSheet("notes")}>
 								<AppIcon size={14} name="pencil" />
-								Note
+								{text("property.note")}
 							</Button>
 						</Collapse>
 						<span className="flex-1" />
 						{normalRest.kind === "resolved" ? (
 							<span className="pr-2 text-xs text-text-subtle tabular-nums">
-								Rest {formatEditorSeconds(normalRest.seconds)}
+								{text("client.card.rest", { time: formatClock(normalRest.seconds) })}
 							</span>
 						) : null}
 					</div>

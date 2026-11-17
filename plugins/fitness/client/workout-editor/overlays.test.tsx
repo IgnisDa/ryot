@@ -45,8 +45,12 @@ const workout = () => {
 			[press.exerciseId, "Press"],
 		]),
 		draft: {
-			...emptyWorkoutDraft({ settings, id: "draft-1", now: "2026-10-16T10:00:00.000Z" }),
-			name: "Workout",
+			...emptyWorkoutDraft({
+				settings,
+				id: "draft-1",
+				name: "Workout",
+				now: "2026-10-16T10:00:00.000Z",
+			}),
 			occurrences: [squat, press],
 		} satisfies WorkoutEditorDraft,
 	};

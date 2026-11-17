@@ -1,5 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { fireEvent, screen } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { act, type ReactNode } from "react";
@@ -33,7 +34,7 @@ describe("CompletionToggle", () => {
 				pressed={false}
 				icon={<span />}
 				variant="complete"
-				label="Complete set 1"
+				label={testText("Complete set 1")}
 				onClick={() => presses.push("press")}
 			/>,
 		);
@@ -42,7 +43,14 @@ describe("CompletionToggle", () => {
 		fireEvent.click(toggle);
 		expect(presses).toEqual(["press"]);
 
-		render(<CompletionToggle pressed icon={<span />} variant="complete" label="Complete set 1" />);
+		render(
+			<CompletionToggle
+				pressed
+				icon={<span />}
+				variant="complete"
+				label={testText("Complete set 1")}
+			/>,
+		);
 		expect(screen.getByRole("button", { pressed: true, name: "Complete set 1" })).toBe(toggle);
 	});
 
@@ -52,7 +60,7 @@ describe("CompletionToggle", () => {
 				pressed={false}
 				variant="start"
 				icon={<span />}
-				label="Start set 1 timer"
+				label={testText("Start set 1 timer")}
 			/>,
 		);
 
@@ -62,7 +70,14 @@ describe("CompletionToggle", () => {
 	});
 
 	it("renders the include variant as a checkbox", () => {
-		mount()(<CompletionToggle pressed icon={<span />} variant="include" label="Include set 2" />);
+		mount()(
+			<CompletionToggle
+				pressed
+				icon={<span />}
+				variant="include"
+				label={testText("Include set 2")}
+			/>,
+		);
 
 		expect(screen.getByRole("checkbox", { checked: true, name: "Include set 2" })).toBeTruthy();
 	});

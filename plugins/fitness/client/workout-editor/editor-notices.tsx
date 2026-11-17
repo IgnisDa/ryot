@@ -1,7 +1,10 @@
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
+import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import { Button, MotionList, Notice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
+import { useFitnessMessages } from "../messages";
 import { clockTime } from "./clock";
 import { isWorkoutEditorSaving, type WorkoutEditorControllerSnapshot } from "./controller-types";
 import type { SavedEntityId } from "./use-editor-actions";
@@ -28,8 +31,8 @@ export function EditorNotices(props: {
 	readonly onRetryLoad: () => void;
 	readonly retryableRequest: boolean;
 	readonly measurementError: boolean;
+	readonly message: Text | undefined;
 	readonly onRetryRequest: () => void;
-	readonly message: string | undefined;
 	readonly onRetrySettings: () => void;
 	readonly onRetryMeasurements: () => void;
 	readonly saved: undefined | SavedEntityId;
@@ -37,6 +40,8 @@ export function EditorNotices(props: {
 	readonly snapshot: WorkoutEditorControllerSnapshot;
 	readonly exercises: { readonly isError: boolean; readonly refetch: () => void };
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { draft, saved, snapshot, exercises } = props;
 	const ready = snapshot.status === "ready" && draft !== undefined && props.hasContext;
 	return (
@@ -45,16 +50,16 @@ export function EditorNotices(props: {
 				<Notice
 					icon={alert}
 					tone="danger"
-					title="This workout changed elsewhere"
+					title={text("client.notices.conflict-title")}
 					action={
 						props.disabled ? undefined : (
 							<Button size="sm" variant="secondary" onClick={props.onReload}>
-								Reload saved version
+								{text("client.notices.reload")}
 							</Button>
 						)
 					}
 				>
-					Your draft is kept. Saving won't overwrite the newer version.
+					{text("client.notices.conflict-body")}
 				</Notice>
 			) : null}
 			{props.message === undefined ? null : (
@@ -64,7 +69,7 @@ export function EditorNotices(props: {
 					action={
 						snapshot.status === "empty" && props.retryableRequest ? (
 							<Button size="sm" variant="secondary" onClick={props.onRetryRequest}>
-								Retry requested draft
+								{text("client.notices.retry-requested")}
 							</Button>
 						) : undefined
 					}
@@ -75,144 +80,163 @@ export function EditorNotices(props: {
 			{snapshot.contextError === undefined ? null : (
 				<Notice
 					tone="warning"
-					title="Fitness settings couldn't refresh"
+					title={text("client.notices.settings-title")}
 					icon={<AppIcon size={16} name="refresh-cw" />}
 					action={
 						<Button size="sm" variant="secondary" onClick={props.onRetrySettings}>
-							Retry settings
+							{text("client.notices.retry-settings")}
 						</Button>
 					}
 				>
-					Your entries are unchanged.
+					{text("client.notices.settings-body")}
 				</Notice>
 			)}
 			{snapshot.status === "recovery-error" ? (
 				<Notice
 					icon={alert}
 					tone="danger"
-					title="Your saved draft couldn't be read"
+					title={text("client.notices.recovery-title")}
 					action={
 						<div className="flex flex-wrap gap-1.5">
 							<Button size="sm" onClick={props.onRetryLoad}>
-								Retry recovery
+								{text("client.notices.retry-recovery")}
 							</Button>
 							<Button size="sm" variant="dangerGhost" onClick={props.onDiscard}>
-								Discard unreadable draft
+								{text("client.notices.discard-unreadable")}
 							</Button>
 						</div>
 					}
 				>
-					Nothing has been deleted. Try again, or discard it to start fresh.
+					{text("client.notices.recovery-body")}
 				</Notice>
 			) : null}
 			{snapshot.status === "empty" && saved !== undefined ? (
 				<Notice tone="success" icon={<AppIcon size={16} name="circle-check" />}>
-					Saved. Personal-best processing may still be pending.
+					{text("client.notices.saved")}
 				</Notice>
 			) : null}
 			{ready && props.template ? (
 				<Notice
 					tone="info"
-					title="Planning a template"
 					icon={<AppIcon size={16} name="layers-3" />}
+					title={text("client.notices.template-title")}
 				>
-					Values are optional. Clocks and completion are off until you start a workout from it.
+					{text("client.notices.template-body")}
 				</Notice>
 			) : null}
 			{ready && props.historical ? (
 				<Notice
 					tone="info"
-					title="Editing a saved workout"
 					icon={<AppIcon size={16} name="calendar" />}
+					title={text("client.notices.historical-title")}
 				>
 					{draft.startedAt === undefined
-						? ""
-						: `${new Date(draft.startedAt).toLocaleDateString()}, ${clockTime(draft.startedAt)}${draft.endedAt === undefined ? "" : `–${clockTime(draft.endedAt)}`}. `}
-					Times and active duration stay as recorded. Use Adjust time on the workout page to change
-					them.
+						? null
+						: `${
+								draft.endedAt === undefined
+									? text("client.notices.historical-when", {
+											start: clockTime(formatters, draft.startedAt) ?? "",
+											date: formatters
+												.dateTime({ dateStyle: "short" })
+												.format(new Date(draft.startedAt)),
+										})
+									: text("client.notices.historical-when-range", {
+											end: clockTime(formatters, draft.endedAt) ?? "",
+											start: clockTime(formatters, draft.startedAt) ?? "",
+											date: formatters
+												.dateTime({ dateStyle: "short" })
+												.format(new Date(draft.startedAt)),
+										})
+							} `}
+					{text("client.notices.historical-body")}
 				</Notice>
 			) : null}
 			{ready && props.paused ? (
 				<Notice
 					tone="warning"
-					title="Workout paused"
 					icon={<AppIcon size={16} name="pause" />}
+					title={text("client.notices.paused-title")}
 					action={
 						<Button size="sm" disabled={props.locked} onClick={props.onResume}>
-							Resume workout
+							{text("client.home.draft-live-resume")}
 						</Button>
 					}
 				>
-					Active time is stopped. Timers keep their remaining time.
+					{text("client.notices.paused-body")}
 				</Notice>
 			) : null}
 			{ready && snapshot.uploading ? (
 				<Notice
 					tone="info"
-					title="Uploading attachment…"
+					title={text("client.notices.uploading-title")}
 					icon={<AppIcon size={16} name="refresh-cw" />}
 				>
-					Saving and leaving wait until the upload finishes.
+					{text("client.notices.uploading-body")}
 				</Notice>
 			) : null}
 			{ready && snapshot.uploadError !== undefined ? (
-				<Notice icon={alert} tone="danger" title="An attachment couldn't upload">
-					Completed uploads stay in your draft. Reopen attachments to retry, or retry draft storage
-					if needed.
+				<Notice icon={alert} tone="danger" title={text("client.notices.upload-failed-title")}>
+					{text("client.notices.upload-failed-body")}
 				</Notice>
 			) : null}
 			{ready && snapshot.persistenceError !== undefined ? (
 				<Notice
 					icon={alert}
 					tone="danger"
-					title="Changes aren't being saved on this device"
+					title={text("client.notices.storage-title")}
 					action={
 						<Button size="sm" onClick={props.onFlush}>
-							Retry draft storage
+							{text("client.notices.retry-storage")}
 						</Button>
 					}
 				>
-					Keep this page open and retry before leaving.
+					{text("client.notices.storage-body")}
 				</Notice>
 			) : null}
 			{ready && (snapshot.deviceError !== undefined || snapshot.timerError !== undefined) ? (
 				<Notice tone="warning" icon={timerIcon}>
-					Some device alerts are unavailable. The workout deadline is still retained.
+					{text("client.notices.alerts-unavailable")}
 				</Notice>
 			) : null}
 			{ready && Object.values(snapshot.alertStatus).includes("inexact") ? (
 				<Notice tone="warning" icon={timerIcon}>
-					Timer alerts may arrive late on this device. Rest still ends on time here.
+					{text("client.notices.alerts-inexact")}
 				</Notice>
 			) : null}
 			{ready && draft.submission !== undefined ? (
 				<Notice
 					tone={saved === undefined ? "info" : "success"}
-					title={saved === undefined ? "Saving didn't finish" : "Workout saved"}
 					icon={<AppIcon size={16} name={saved === undefined ? "refresh-cw" : "circle-check"} />}
+					title={
+						saved === undefined
+							? text("client.notices.save-unfinished")
+							: text("client.notices.workout-saved")
+					}
 					action={
 						<Button size="sm" onClick={props.onSave} disabled={isWorkoutEditorSaving(snapshot)}>
-							{saved === undefined ? "Retry save" : "Finish local cleanup"}
+							{saved === undefined
+								? text("client.notices.retry-save")
+								: text("client.notices.finish-cleanup")}
 						</Button>
 					}
 				>
 					{saved === undefined
-						? "This submission is fixed until saving completes. Retrying won't create a duplicate."
-						: "Clearing the draft on this device didn't finish."}
+						? text("client.notices.submission-fixed")
+						: text("client.notices.cleanup-unfinished")}
 				</Notice>
 			) : null}
 			{ready && exercises.isError ? (
 				<Notice
 					icon={alert}
 					tone="danger"
-					title="Exercise details couldn't load"
+					title={text("client.notices.exercises-title")}
 					action={
 						<Button size="sm" variant="secondary" onClick={exercises.refetch}>
-							Retry exercises
+							{text("client.notices.retry-exercises")}
 						</Button>
 					}
 				>
-					Saving is paused until they load.
+					{text("client.notices.exercises-body")}
 				</Notice>
 			) : null}
 			{ready && props.live && props.compact && props.measurementError ? (
@@ -221,11 +245,11 @@ export function EditorNotices(props: {
 					tone="warning"
 					action={
 						<Button size="sm" variant="secondary" onClick={props.onRetryMeasurements}>
-							Try again
+							{text("common.action.try-again")}
 						</Button>
 					}
 				>
-					Your measurements couldn't be loaded.
+					{text("client.measurements.load-failed")}
 				</Notice>
 			) : null}
 		</MotionList>

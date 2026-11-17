@@ -1,12 +1,14 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation, usePluginParams } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import { useCallback } from "react";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { fitnessRoute, workoutEditorResumeTarget } from "../../shared/workout-editor-routes";
 import { cloneWorkoutEditorSource } from "../../shared/workout-editor-transformations";
-import { emptyWorkoutDraft } from "./actions";
+import { useFitnessMessages } from "../messages";
+import { defaultWorkoutName, emptyWorkoutDraft } from "./actions";
 import { toIso } from "./clock";
 import type { WorkoutEditorContext } from "./controller-types";
 import { WorkoutEditorPrepareError } from "./prepare-error";
@@ -14,9 +16,11 @@ import { loadEditorSource } from "./queries";
 import { WorkoutEditorScreen } from "./screen";
 
 const idFor = () => crypto.randomUUID();
-const prepareFailure = (message: string) => Effect.fail(new WorkoutEditorPrepareError({ message }));
+const prepareFailure = (reason: LocalMessage) =>
+	Effect.fail(new WorkoutEditorPrepareError({ reason }));
 
 export default function WorkoutEditorPage() {
+	const text = useFitnessMessages();
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const location = usePluginLocation();
@@ -29,9 +33,7 @@ export default function WorkoutEditorPage() {
 	const prepare = (context: WorkoutEditorContext) =>
 		Effect.gen(function* () {
 			if (templateCreate && !context.pro) {
-				return yield* prepareFailure(
-					`${entitlementRequiredMessage("pro", "Creating templates")} No new draft was started.`,
-				);
+				return yield* prepareFailure(catalogMessage("client.prepare.pro"));
 			}
 			const draftId = idFor();
 			if (path === "/workouts/new" || path === "/templates/new") {
@@ -40,15 +42,18 @@ export default function WorkoutEditorPage() {
 					template: templateCreate,
 					now: toIso(schedule.now()),
 					settings: context.settings,
+					name: defaultWorkoutName(text, templateCreate),
 				});
 			}
 			if (entityId === undefined) {
-				return yield* prepareFailure("This editor action is invalid.");
+				return yield* prepareFailure(catalogMessage("client.prepare.invalid-action"));
 			}
 			const source = yield* loadEditorSource(client, { draftId, entityId, kind: sourceKind });
 			if (source.kind === "blocked") {
 				return yield* prepareFailure(
-					`This record contains unavailable exercises or invalid data (${[...new Set(source.blockers.map(({ exerciseId }) => exerciseId))].join(", ")}). Restore the missing exercise or correct the record, then retry.`,
+					catalogMessage("client.prepare.blocked", {
+						ids: [...new Set(source.blockers.map(({ exerciseId }) => exerciseId))].join(", "),
+					}),
 				);
 			}
 			if (path.endsWith("/edit")) {
@@ -64,7 +69,7 @@ export default function WorkoutEditorPage() {
 							name: source.draft.name,
 							sourceWorkoutId: mode.entityId,
 						})
-					: yield* prepareFailure("Invalid workout source.");
+					: yield* prepareFailure(catalogMessage("client.prepare.invalid-source"));
 			}
 			const startedAt = toIso(schedule.now());
 			if (mode.kind === "template-edit") {
@@ -78,7 +83,7 @@ export default function WorkoutEditorPage() {
 				});
 			}
 			if (mode.kind !== "historical") {
-				return yield* prepareFailure("Invalid workout source.");
+				return yield* prepareFailure(catalogMessage("client.prepare.invalid-source"));
 			}
 			return cloneWorkoutEditorSource(source.draft, {
 				idFor,

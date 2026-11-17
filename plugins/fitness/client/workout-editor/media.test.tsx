@@ -1,11 +1,11 @@
 import { afterEach, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
 	mountPluginPage,
 	routeLocation,
-	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
@@ -13,6 +13,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { WorkoutEditorDraftSchema } from "../../shared/workout-editor-draft";
+import { fitnessCatalogs, fitnessSavedViewPage } from "../../tests/client/test-text";
 import { WorkoutMediaOverlay } from "./media";
 import type { WorkoutMediaKind } from "./media-state";
 
@@ -53,9 +54,9 @@ it.live(
 						draft={draft}
 						disabled={false}
 						uploading={false}
-						label="first exercise"
 						onClose={() => undefined}
 						onRemove={() => undefined}
+						label={testText("first exercise")}
 						target={{ kind: "occurrence", occurrenceId: "first" }}
 						onUpload={(kind, file) =>
 							Effect.sync(() => {
@@ -69,8 +70,9 @@ it.live(
 					/>
 				),
 				{
+					catalogs: fitnessCatalogs,
 					location: routeLocation("/media"),
-					page: savedViewPageContext({
+					page: fitnessSavedViewPage({
 						settings: {},
 						savedViewId: "media-test",
 						rendererName: "media-test",

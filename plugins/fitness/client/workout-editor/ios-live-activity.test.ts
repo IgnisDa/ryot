@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { Effect, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId, type PluginIosLiveActivityRequest } from "@ryot-app/plugin-client-sdk/plugin";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -9,6 +10,7 @@ import { Deferred } from "effect";
 import { controllerHarness } from "../../tests/client/controller-harness";
 import { exerciseOccurrence, liveDraft, startTime } from "../../tests/client/draft-fixtures";
 import { iosLiveActivityHarness } from "../../tests/client/ios-live-activity-harness";
+import { testFitnessText } from "../../tests/client/test-text";
 import { completeWorkoutSet } from "./actions";
 import { workoutIosActivityContent, workoutIosActivityKey } from "./ios-live-activity";
 import { createWorkoutIosActivitySynchronizer } from "./ios-live-activity-sync";
@@ -45,7 +47,7 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 				}),
 			],
 		});
-		const content = workoutIosActivityContent(draft, names);
+		const content = workoutIosActivityContent(testFormatters, testFitnessText, draft, names);
 		expect(content.detail).toBe("Next: Bench Press · Set 1 · 80 kg · 8 reps");
 		expect(content.primary).toEqual({ kind: "elapsed", label: "Active", startedAt: startTime });
 		expect(content.metrics).toEqual([{ value: "0/1", label: "Sets" }]);
@@ -61,13 +63,15 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 				),
 			],
 		};
-		expect(workoutIosActivityContent(imperial, names).detail).toBe(
+		expect(workoutIosActivityContent(testFormatters, testFitnessText, imperial, names).detail).toBe(
 			"Next: Bench Press · Set 1 · 175 lb · 8 reps",
 		);
 	});
 
 	it("preserves independent workout and countdown pauses without per-second publications", () => {
 		const content = workoutIosActivityContent(
+			testFormatters,
+			testFitnessText,
 			liveDraft({
 				activeDuration: 90,
 				restCountdown: countdown,
@@ -86,6 +90,8 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 		expect(content.staleAt).toBe(countdown.deadline);
 		expect(content.staleMessage).toBe("Rest complete");
 		const paused = workoutIosActivityContent(
+			testFormatters,
+			testFitnessText,
 			liveDraft({ restCountdown: { ...countdown, pausedRemainingSeconds: 21 } }),
 			names,
 		);
@@ -116,7 +122,7 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 				},
 			],
 		});
-		const content = workoutIosActivityContent(draft, names);
+		const content = workoutIosActivityContent(testFormatters, testFitnessText, draft, names);
 		expect(content.metrics).toEqual([
 			{ value: "1/2", label: "Sets" },
 			{ label: "Volume", value: "640 kg" },
@@ -134,8 +140,15 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 			stopwatchStartedAt: startTime,
 			pendingRest: { ...countdown, seconds: 60 },
 		});
-		expect(workoutIosActivityContent(base, names).status).toBe("Set completed · Rest for 1:00?");
-		const working = workoutIosActivityContent({ ...base, executionCountdown: countdown }, names);
+		expect(workoutIosActivityContent(testFormatters, testFitnessText, base, names).status).toBe(
+			"Set completed · Rest for 1:00?",
+		);
+		const working = workoutIosActivityContent(
+			testFormatters,
+			testFitnessText,
+			{ ...base, executionCountdown: countdown },
+			names,
+		);
 		expect(working.status).toBe("Working");
 		expect(working.detail).toBe("Bench Press");
 		expect(working.staleAt).toBe(countdown.deadline);
@@ -166,9 +179,13 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 			occurrenceId: first.clientId,
 			settings: { normalRestTime: 0 },
 		});
-		expect(workoutIosActivityContent(advanced, names).detail).toContain("Set 1");
+		expect(
+			workoutIosActivityContent(testFormatters, testFitnessText, advanced, names).detail,
+		).toContain("Set 1");
 		expect(advanced.activeOccurrenceId).toBe(second.clientId);
 		const unsaved = workoutIosActivityContent(
+			testFormatters,
+			testFitnessText,
 			{ ...advanced, endedAt: countdown.deadline, activeDurationStartedAt: undefined },
 			names,
 		);
@@ -214,7 +231,8 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 				const key = workoutIosActivityKey(liveDraft());
 				for (const activityState of ["active", "stale", "dismissed", "ended"] as const) {
 					const native = iosLiveActivityHarness({ activities: [{ key, state: activityState }] });
-					const sync = createWorkoutIosActivitySynchronizer({
+					const sync = createWorkoutIosActivitySynchronizer(testFormatters, {
+						text: testFitnessText,
 						now: Effect.succeed(now),
 						iosLiveActivities: native.api,
 						pluginId: PluginId.make("fitness"),
@@ -226,7 +244,8 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 					);
 				}
 				const native = iosLiveActivityHarness();
-				const old = createWorkoutIosActivitySynchronizer({
+				const old = createWorkoutIosActivitySynchronizer(testFormatters, {
+					text: testFitnessText,
 					iosLiveActivities: native.api,
 					pluginId: PluginId.make("fitness"),
 					now: Effect.succeed(now + 8 * 60 * 60 * 1000),
@@ -265,7 +284,8 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 							{ state: "stale", key: "previous-session" },
 						],
 					});
-					const sync = createWorkoutIosActivitySynchronizer({
+					const sync = createWorkoutIosActivitySynchronizer(testFormatters, {
+						text: testFitnessText,
 						now: Effect.succeed(now),
 						iosLiveActivities: native.api,
 						pluginId: PluginId.make("fitness"),
@@ -298,7 +318,8 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 		() =>
 			Effect.gen(function* () {
 				const native = iosLiveActivityHarness();
-				const sync = createWorkoutIosActivitySynchronizer({
+				const sync = createWorkoutIosActivitySynchronizer(testFormatters, {
+					text: testFitnessText,
 					now: Effect.succeed(now),
 					iosLiveActivities: native.api,
 					pluginId: PluginId.make("fitness"),
@@ -308,7 +329,8 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 				const unsupported = iosLiveActivityHarness({
 					listResult: () => ({ status: "unsupported" }),
 				});
-				const unavailable = createWorkoutIosActivitySynchronizer({
+				const unavailable = createWorkoutIosActivitySynchronizer(testFormatters, {
+					text: testFitnessText,
 					now: Effect.succeed(now),
 					iosLiveActivities: unsupported.api,
 					pluginId: PluginId.make("fitness"),
@@ -347,7 +369,8 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 					key: workoutIosActivityKey(liveDraft()),
 					pluginId: PluginId.make("fitness-installation"),
 				});
-				const saved = createWorkoutIosActivitySynchronizer({
+				const saved = createWorkoutIosActivitySynchronizer(testFormatters, {
+					text: testFitnessText,
 					iosLiveActivities: native.api,
 					now: Effect.succeed(now + 90000),
 					pluginId: PluginId.make("fitness"),

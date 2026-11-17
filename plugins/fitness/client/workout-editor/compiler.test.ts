@@ -6,11 +6,13 @@ import {
 	pluginClientCompilerPlatformLayer,
 } from "@ryot-app/plugin-client-compiler";
 import { CLIENT_API_VERSION, clientDeclarationHash } from "@ryot-app/plugin-client-contract";
+import { CATALOG_MESSAGES_MODULE } from "@ryot-app/plugin-kit/messages-module";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem } from "effect";
 
 import { fitnessPlugin } from "../../manifest/plugin";
+import { englishCatalog } from "../../tests/english-catalog";
 
 layer(pluginClientCompilerPlatformLayer)((test) => {
 	test.effect(
@@ -20,13 +22,14 @@ layer(pluginClientCompilerPlatformLayer)((test) => {
 				const fs = yield* FileSystem.FileSystem;
 				const paths = [
 					...new Bun.Glob("{client,shared}/**/*.{ts,tsx,mp3}").scanSync({ cwd: "." }),
-				].filter((path) => !path.includes(".test."));
+				].filter((path) => !path.includes(".test.") && path !== CATALOG_MESSAGES_MODULE);
 				const sources = yield* Effect.forEach(paths, (path) =>
 					fs.readFile(path).pipe(Effect.map((bytes) => [path, bytes] as const)),
 				);
 				const input = {
 					name: "Fitness",
 					kind: "plugin" as const,
+					catalog: englishCatalog,
 					apiVersion: CLIENT_API_VERSION,
 					files: Object.fromEntries(sources),
 					publicExports: fitnessPlugin.client.exports,

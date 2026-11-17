@@ -1,8 +1,10 @@
 import {
 	createRyotQuery,
+	type Formatters,
 	nextPageCursor,
 	PaginationError,
 	paginationItems,
+	useFormatters,
 	useRyotInfiniteQuery,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -33,6 +35,7 @@ import type {
 	WorkoutHistorySetResult,
 } from "../../shared/workout-history-recipes";
 import { supersetColorVariable } from "../group-colors";
+import { type FitnessText, useFitnessMessages } from "../messages";
 import { formatMeasure } from "../workout/format";
 import { removeWorkoutItems } from "./actions";
 import { type DraftChange, pruneSupersets, supersetOf } from "./draft-ops";
@@ -46,14 +49,21 @@ const historySetsQuery = createRyotQuery<
 	WorkoutHistorySetResult["items"]
 >(({ input, client }) => readHistorySets(client, input.workoutId, input.exerciseId));
 
-const historySetText = (set: WorkoutHistorySetResult["items"][number], imperial: boolean) =>
+const historySetText = (
+	formatters: Formatters,
+	text: FitnessText,
+	set: WorkoutHistorySetResult["items"][number],
+	imperial: boolean,
+) =>
 	[
-		set.weight === null ? null : formatMeasure(set.weight, "weight", imperial),
-		set.reps === null ? null : formatMeasure(set.reps, "reps"),
-		set.duration === null ? null : formatMeasure(set.duration, "duration"),
-		set.distance === null ? null : formatMeasure(set.distance, "distance", imperial),
-		set.rpe === null ? null : `RPE ${set.rpe}`,
-		set.note ? `“${set.note}”` : null,
+		set.weight === null ? null : formatMeasure(formatters, text, set.weight, "weight", imperial),
+		set.reps === null ? null : formatMeasure(formatters, text, set.reps, "reps"),
+		set.duration === null ? null : formatMeasure(formatters, text, set.duration, "duration"),
+		set.distance === null
+			? null
+			: formatMeasure(formatters, text, set.distance, "distance", imperial),
+		set.rpe === null ? null : text("client.template.rpe", { rpe: set.rpe }),
+		set.note ? text("client.exercise.notes.quote", { note: set.note }) : null,
 	]
 		.filter(Boolean)
 		.join(" · ");
@@ -88,21 +98,21 @@ export function HistoryRequiresPro(props: {
 	readonly onClose: () => void;
 	readonly exerciseName: string;
 }) {
+	const text = useFitnessMessages();
 	return (
 		<EditorSheet
 			onClose={props.onClose}
-			title="Exercise history"
-			closeLabel="Close history"
 			description={props.exerciseName}
-			footer={<Button onClick={props.onClose}>Got it</Button>}
+			closeLabel={text("client.history.close")}
+			title={text("client.history.exercise-title")}
+			footer={<Button onClick={props.onClose}>{text("client.history.got-it")}</Button>}
 		>
 			<Notice
 				tone="info"
 				icon={<AppIcon size={16} name="info" />}
-				title="History in the logger requires Pro"
+				title={text("client.history.pro-title")}
 			>
-				Tap a value in the Previous column to copy last session's numbers. New exercises are still
-				prefilled automatically.
+				{text("client.history.pro-body")}
 			</Notice>
 		</EditorSheet>
 	);
@@ -117,6 +127,7 @@ export function HistoryOverlay(props: {
 	readonly excludeWorkoutId: string | undefined;
 	readonly onAppend: (sets: WorkoutHistorySetResult["items"]) => void;
 }) {
+	const text = useFitnessMessages();
 	const history = useRyotInfiniteQuery(
 		editorHistoryQuery,
 		{
@@ -140,17 +151,17 @@ export function HistoryOverlay(props: {
 	return (
 		<EditorSheet
 			wide="side"
-			title="History"
 			onClose={props.onClose}
-			closeLabel="Close history"
 			description={props.exerciseName}
+			title={text("client.history.title")}
+			closeLabel={text("client.history.close")}
 			footer={
 				hasMore ? (
 					<LoadMoreButton
 						className="w-full"
 						variant="secondary"
-						label="More sessions"
 						onClick={history.fetchNextPage}
+						label={text("client.history.more-sessions")}
 						isFetchingNextPage={history.isFetchingNextPage}
 						disabled={history.isFetching || history.isError || invalidCursor}
 					/>
@@ -171,13 +182,13 @@ export function HistoryOverlay(props: {
 				</MotionList>
 				{items.length === 0 && history.isSuccess ? (
 					<EmptyState
-						title="No earlier sessions"
+						title={text("client.history.empty-title")}
 						icon={<AppIcon size={20} name="history" />}
-						description="Sets you log for this exercise show up here next time."
+						description={text("client.history.empty-description")}
 					/>
 				) : null}
 				{history.isPending ? (
-					<div role="status" className="grid gap-3" aria-label="Loading history">
+					<div role="status" className="grid gap-3" aria-label={text("client.history.loading")}>
 						<Skeleton className="h-24" />
 						<Skeleton className="h-24" />
 					</div>
@@ -188,16 +199,16 @@ export function HistoryOverlay(props: {
 						icon={<AppIcon size={16} name="circle-alert" />}
 						action={
 							<Button size="sm" variant="secondary" onClick={history.retry}>
-								Retry history
+								{text("client.history.retry")}
 							</Button>
 						}
 					>
-						History could not be loaded.
+						{text("client.history.load-failed")}
 					</Notice>
 				) : null}
 				{invalidCursor ? (
 					<Notice tone="danger" icon={<AppIcon size={16} name="circle-alert" />}>
-						History pagination could not continue. Retry loading this page.
+						{text("client.history.pagination-failed")}
 					</Notice>
 				) : null}
 			</div>
@@ -211,6 +222,8 @@ function HistorySession(props: {
 	readonly session: WorkoutHistoryResult["items"][number];
 	readonly onAppend: (sets: WorkoutHistorySetResult["items"]) => void;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const [confirming, setConfirming] = useState(false);
 	const result = useRyotQuery(historySetsQuery, {
 		workoutId: props.session.id,
@@ -222,7 +235,9 @@ function HistorySession(props: {
 				<div className="min-w-0 flex-1">
 					<h3 className="font-semibold [overflow-wrap:anywhere]">{props.session.name}</h3>
 					<p className="text-xs text-text-muted">
-						{new Date(props.session.startedAt).toLocaleString()}
+						{formatters
+							.dateTime({ timeStyle: "short", dateStyle: "medium" })
+							.format(new Date(props.session.startedAt))}
 					</p>
 				</div>
 				<Button
@@ -232,14 +247,18 @@ function HistorySession(props: {
 					disabled={result.data === undefined}
 				>
 					<AppIcon size={14} name="plus" />
-					Add sets
+					{text("client.history.add-sets")}
 				</Button>
 			</div>
 			{props.session.comment ? (
 				<p className="text-sm text-text-muted">{props.session.comment}</p>
 			) : null}
 			{result.data === undefined && !result.isError ? (
-				<div role="status" className="grid gap-1.5" aria-label="Loading sets">
+				<div
+					role="status"
+					className="grid gap-1.5"
+					aria-label={text("client.history.loading-sets")}
+				>
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
 				</div>
@@ -247,7 +266,7 @@ function HistorySession(props: {
 			{result.data === undefined ? null : (
 				<ol className="grid list-decimal gap-0.5 pl-5 text-sm tabular-nums">
 					{result.data.map((set) => (
-						<li key={set.id}>{historySetText(set, props.imperial)}</li>
+						<li key={set.id}>{historySetText(formatters, text, set, props.imperial)}</li>
 					))}
 				</ol>
 			)}
@@ -257,23 +276,25 @@ function HistorySession(props: {
 					icon={<AppIcon size={16} name="circle-alert" />}
 					action={
 						<Button size="sm" variant="secondary" onClick={result.refetch}>
-							Retry history sets
+							{text("client.history.retry-sets")}
 						</Button>
 					}
 				>
-					History sets could not be loaded.
+					{text("client.history.sets-failed")}
 				</Notice>
 			) : null}
 			<MotionPresence>
 				{confirming ? (
 					<ConfirmDialog
 						key="append-history"
-						cancelLabel="Cancel"
-						confirmLabel="Add sets"
 						disabled={result.data === undefined}
 						onClose={() => setConfirming(false)}
-						title={`Add sets from ${props.session.name}?`}
-						description={`${result.data?.length ?? 0} ${result.data?.length === 1 ? "set" : "sets"} from this session will be added to the exercise.`}
+						cancelLabel={text("common.action.cancel")}
+						confirmLabel={text("client.history.add-sets")}
+						title={text("client.history.add-title", { name: props.session.name })}
+						description={text("client.history.add-description", {
+							count: result.data?.length ?? 0,
+						})}
 						onConfirm={() => {
 							if (result.data !== undefined) {
 								props.onAppend(result.data);
@@ -292,28 +313,31 @@ const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtl
 export function ReorderOverlay(
 	props: DraftOverlayProps & { readonly onDrop: () => void; readonly onPickUp: () => void },
 ) {
+	const text = useFitnessMessages();
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const initialOccurrenceRef = useRef<HTMLDivElement>(null);
 	useRevealInitial(initialOccurrenceRef, props.initialOccurrenceId);
-	const groups = supersetNames(props.draft);
+	const groups = supersetNames(text, props.draft);
 	return (
 		<EditorSheet
 			onClose={props.onClose}
-			title="Reorder exercises"
-			closeLabel="Close reorder"
-			footer={<Button onClick={props.onClose}>Done</Button>}
+			title={text("client.reorder.title")}
+			closeLabel={text("client.reorder.close")}
+			footer={<Button onClick={props.onClose}>{text("common.action.done")}</Button>}
 		>
 			<div ref={scrollRef} className="max-h-[60vh] overflow-y-auto">
 				<ReorderableList
 					itemHeight={56}
 					onDrop={props.onDrop}
 					scrollRef={scrollRef}
-					label="Exercise order"
 					onPickUp={props.onPickUp}
 					items={props.draft.occurrences}
 					itemKey={(item) => item.clientId}
+					label={text("property.exercise-order-2")}
 					handleIcon={<AppIcon size={18} name="grip-vertical" />}
-					itemLabel={(item) => props.names.get(item.exerciseId) ?? "Unavailable exercise"}
+					itemLabel={(item) =>
+						props.names.get(item.exerciseId) ?? text("client.overlays.exercise-unavailable")
+					}
 					onReorder={(from, to) => {
 						const item = props.draft.occurrences[from];
 						if (item === undefined) {
@@ -332,9 +356,12 @@ export function ReorderOverlay(
 					}}
 					renderItem={({ item, handle }) => {
 						const completedSets = item.sets.filter(({ included }) => included).length;
-						let progress = "Not started";
+						let progress = text("client.reorder.not-started");
 						if (completedSets > 0) {
-							progress = completedSets === item.sets.length ? "Complete" : "In progress";
+							progress =
+								completedSets === item.sets.length
+									? text("client.reorder.complete")
+									: text("client.reorder.in-progress");
 						}
 						const group = supersetOf(props.draft, item.clientId);
 						return (
@@ -348,7 +375,8 @@ export function ReorderOverlay(
 								{handle}
 								<div className="min-w-0 flex-1">
 									<p className="truncate text-sm font-semibold">
-										{props.names.get(item.exerciseId) ?? "Unavailable exercise"}
+										{props.names.get(item.exerciseId) ??
+											text("client.overlays.exercise-unavailable")}
 									</p>
 									<p className="text-xs text-text-muted">{progress}</p>
 								</div>
@@ -378,6 +406,7 @@ const toggleSelection = (values: readonly string[], id: string) =>
 export function BulkDeleteOverlay(
 	props: DraftOverlayProps & { readonly onDeletedSets: () => void },
 ) {
+	const text = useFitnessMessages();
 	const [occurrences, setOccurrences] = useState<readonly string[]>(() =>
 		props.initialOccurrenceId === undefined ? [] : [props.initialOccurrenceId],
 	);
@@ -396,22 +425,25 @@ export function BulkDeleteOverlay(
 	return (
 		<EditorSheet
 			onClose={props.onClose}
-			closeLabel="Cancel bulk delete"
-			title="Delete exercises or sets"
+			closeLabel={text("client.bulk.close")}
+			title={text("client.editor.delete-sets")}
 			footer={
 				<>
 					<Button variant="secondary" onClick={props.onClose}>
-						Cancel
+						{text("common.action.cancel")}
 					</Button>
 					<Button variant="danger" disabled={count === 0} onClick={() => setConfirming(true)}>
-						{count === 0 ? "Delete selected" : `Delete ${count} selected`}
+						{count === 0
+							? text("client.bulk.delete-selected")
+							: text("client.bulk.delete-count", { count })}
 					</Button>
 				</>
 			}
 		>
 			<div className="grid gap-3">
 				{props.draft.occurrences.map((occurrence) => {
-					const name = props.names.get(occurrence.exerciseId) ?? "Unavailable exercise";
+					const name =
+						props.names.get(occurrence.exerciseId) ?? text("client.overlays.exercise-unavailable");
 					const whole = occurrences.includes(occurrence.clientId);
 					return (
 						<fieldset
@@ -428,7 +460,7 @@ export function BulkDeleteOverlay(
 								label={
 									<span className="min-w-0">
 										<span className="font-semibold [overflow-wrap:anywhere]">{name}</span>
-										<span className="text-text-muted"> · whole exercise</span>
+										<span className="text-text-muted"> · {text("client.bulk.whole-exercise")}</span>
 									</span>
 								}
 							/>
@@ -438,8 +470,8 @@ export function BulkDeleteOverlay(
 										<Checkbox
 											disabled={whole}
 											key={set.clientId}
-											label={`Set ${setIndex + 1}`}
 											checked={whole || sets.includes(set.clientId)}
+											label={text("client.bulk.set", { index: setIndex + 1 })}
 											onChange={() => setSets(toggleSelection(sets, set.clientId))}
 										/>
 									))}
@@ -452,13 +484,16 @@ export function BulkDeleteOverlay(
 			<MotionPresence>
 				{confirming ? (
 					<ConfirmDialog
-						cancelLabel="Cancel"
 						disabled={count === 0}
 						key="bulk-delete-confirm"
-						title="Delete selected items?"
-						confirmLabel="Delete selected"
 						onClose={() => setConfirming(false)}
-						description={`Delete ${selectedExercises.length} ${selectedExercises.length === 1 ? "exercise" : "exercises"} and ${selectedSetCount} individual ${selectedSetCount === 1 ? "set" : "sets"}?`}
+						title={text("client.bulk.confirm-title")}
+						cancelLabel={text("common.action.cancel")}
+						confirmLabel={text("client.bulk.delete-selected")}
+						description={text("client.bulk.confirm-description", {
+							sets: selectedSetCount,
+							exercises: selectedExercises.length,
+						})}
 						onConfirm={() => {
 							props.onChange((draft) => removeWorkoutItems(draft, occurrences, sets));
 							if (selectedSetCount > 0) {
@@ -475,6 +510,7 @@ export function BulkDeleteOverlay(
 }
 
 export function SupersetOverlay(props: DraftOverlayProps) {
+	const text = useFitnessMessages();
 	const initialOccurrenceId = props.initialOccurrenceId;
 	const initialGroup =
 		initialOccurrenceId === undefined ? undefined : supersetOf(props.draft, initialOccurrenceId);
@@ -486,7 +522,7 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 		initialGroup === undefined ? "blue" : supersetColor(initialGroup.color),
 	);
 	const [deleting, setDeleting] = useState<string>();
-	const groups = supersetNames(props.draft);
+	const groups = supersetNames(text, props.draft);
 	const memberNames = (occurrenceIds: readonly string[]) =>
 		occurrenceIds
 			.map((id) => {
@@ -496,14 +532,14 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 			.join(" + ");
 	return (
 		<EditorSheet
-			title="Supersets"
 			onClose={props.onClose}
-			closeLabel="Close supersets"
-			description="Group exercises you alternate between."
+			title={text("property.supersets")}
+			closeLabel={text("client.supersets.close")}
+			description={text("client.supersets.description")}
 			footer={
 				<>
 					<Button variant="secondary" onClick={props.onClose}>
-						Done
+						{text("common.action.done")}
 					</Button>
 					<Button
 						disabled={selected.length < 2}
@@ -522,7 +558,9 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 							setSelected([]);
 						}}
 					>
-						{editing === undefined ? "Create superset" : "Save superset"}
+						{editing === undefined
+							? text("client.supersets.create")
+							: text("client.supersets.save")}
 					</Button>
 				</>
 			}
@@ -530,10 +568,10 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 			<div className="grid gap-5">
 				<Collapse open={props.draft.supersets.length > 0}>
 					<section className="grid gap-2">
-						<h3 className={sectionHeading}>Current</h3>
+						<h3 className={sectionHeading}>{text("client.supersets.current")}</h3>
 						<MotionList className="grid gap-2">
 							{props.draft.supersets.map((group) => {
-								const name = groups.get(group.clientId) ?? "Superset";
+								const name = groups.get(group.clientId) ?? text("client.superset.fallback");
 								return (
 									<Card
 										padding="none"
@@ -554,20 +592,20 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 										<Button
 											size="sm"
 											variant="ghost"
-											aria-label={`Edit ${name}`}
+											aria-label={text("client.supersets.edit-label", { name })}
 											onClick={() => {
 												setEditing(group.clientId);
 												setSelected(group.occurrenceIds);
 												setColor(supersetColor(group.color));
 											}}
 										>
-											Edit
+											{text("common.action.edit")}
 										</Button>
 										<IconButton
 											size="sm"
 											tone="danger"
-											label={`Delete ${name}`}
 											onClick={() => setDeleting(group.clientId)}
+											label={text("client.supersets.delete-label", { name })}
 										>
 											<AppIcon size={16} name="trash-2" />
 										</IconButton>
@@ -580,8 +618,10 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 				<section className="grid gap-2">
 					<h3 className={sectionHeading}>
 						{editing === undefined
-							? "New superset · pick two or more"
-							: `Editing ${groups.get(editing) ?? "superset"}`}
+							? text("client.supersets.new")
+							: text("client.supersets.editing", {
+									name: groups.get(editing) ?? text("client.superset.fallback"),
+								})}
 					</h3>
 					<div className="grid divide-y divide-border rounded-lg border border-border-card bg-surface px-3">
 						{props.draft.occurrences.map((occurrence) => {
@@ -597,9 +637,14 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 									onChange={() => setSelected(toggleSelection(selected, occurrence.clientId))}
 									label={
 										<span className="min-w-0 [overflow-wrap:anywhere]">
-											{props.names.get(occurrence.exerciseId) ?? "Unavailable exercise"}
+											{props.names.get(occurrence.exerciseId) ??
+												text("client.overlays.exercise-unavailable")}
 											{other === undefined ? null : (
-												<span className="text-text-subtle"> · in {groups.get(other.clientId)}</span>
+												<span className="text-text-subtle">
+													{" "}
+													·{" "}
+													{text("client.supersets.in", { name: groups.get(other.clientId) ?? "" })}
+												</span>
 											)}
 										</span>
 									}
@@ -608,15 +653,15 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 						})}
 					</div>
 					<div className="grid gap-1.5">
-						<span className="text-[13px] font-medium">Color</span>
+						<span className="text-[13px] font-medium">{text("property.color")}</span>
 						<RadioGroup
 							value={color}
 							onChange={setColor}
-							label="Superset color"
 							className="flex flex-wrap gap-2"
+							label={text("client.supersets.color-label")}
 							options={supersetColors.map((value) => ({
 								value,
-								label: `${value[0]?.toUpperCase()}${value.slice(1)}`,
+								label: text("client.supersets.color-name", { color: value }),
 							}))}
 							renderOption={(option, checked) => ({
 								className: clsx(
@@ -638,21 +683,20 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 							})}
 						/>
 					</div>
-					<p className="text-xs text-text-muted">
-						Moving an exercise here takes it out of its current superset. Supersets left with one
-						exercise are removed.
-					</p>
+					<p className="text-xs text-text-muted">{text("client.supersets.note")}</p>
 				</section>
 			</div>
 			<MotionPresence>
 				{deleting === undefined ? null : (
 					<ConfirmDialog
-						cancelLabel="Cancel"
 						key="superset-delete-confirm"
-						confirmLabel="Delete superset"
 						onClose={() => setDeleting(undefined)}
-						title={`Delete ${groups.get(deleting) ?? "superset"}?`}
-						description="The superset will be removed. Its exercises and sets will remain in the workout."
+						cancelLabel={text("common.action.cancel")}
+						confirmLabel={text("client.supersets.delete")}
+						description={text("client.supersets.delete-description")}
+						title={text("client.supersets.delete-title", {
+							name: groups.get(deleting) ?? text("client.superset.fallback"),
+						})}
 						onConfirm={() => {
 							const groupId = deleting;
 							props.onChange((draft) => ({

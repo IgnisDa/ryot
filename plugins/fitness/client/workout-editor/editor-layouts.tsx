@@ -1,3 +1,5 @@
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
+import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ActionDock,
 	Badge,
@@ -12,6 +14,7 @@ import type { ComponentProps, ReactNode, RefObject } from "react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { useMeasurementLogger } from "../measurements/measurement-logger";
+import { useFitnessMessages } from "../messages";
 import { clockTime } from "./clock";
 import type { WorkoutEditorContext } from "./controller-types";
 import type { EditorOverlay } from "./editor-overlays";
@@ -25,7 +28,7 @@ type TimerProps = Omit<
 
 type EditorLayoutProps = {
 	readonly now: number;
-	readonly title: string;
+	readonly title: Text;
 	readonly live: boolean;
 	readonly locked: boolean;
 	readonly cards: ReactNode;
@@ -48,18 +51,19 @@ export function CompactBarActions(props: {
 	readonly onTogglePause: () => void;
 	readonly onOverlay: (overlay: EditorOverlay) => void;
 }) {
+	const text = useFitnessMessages();
 	return (
 		<>
 			{props.live ? (
 				<ScreenBarButton
 					disabled={props.locked}
 					onClick={props.onTogglePause}
-					label={props.paused ? "Resume workout" : "Pause workout"}
+					label={props.paused ? text("client.home.draft-live-resume") : text("client.editor.pause")}
 				>
 					<AppIcon size={20} name={props.paused ? "play" : "pause"} />
 				</ScreenBarButton>
 			) : null}
-			<MenuButton trigger="bar" items={props.menu} label="Workout actions" />
+			<MenuButton trigger="bar" items={props.menu} label={text("client.editor.actions")} />
 			<Button
 				size="sm"
 				className="ml-1"
@@ -83,10 +87,11 @@ export function CompactDock(props: {
 	readonly onJumpToSet: (setId: string) => void;
 	readonly onOverlay: (overlay: EditorOverlay) => void;
 }) {
+	const text = useFitnessMessages();
 	return (
 		<ActionDock
 			safeAreaBottom={props.safeAreaBottom}
-			label={props.live ? "Timers" : "Editor actions"}
+			label={props.live ? text("client.editor.timers") : text("client.editor.editor-actions")}
 		>
 			{props.live ? (
 				<DockTimers
@@ -103,11 +108,13 @@ export function CompactDock(props: {
 						onClick={() => props.onOverlay("picker")}
 					>
 						<AppIcon size={16} name="plus" />
-						Exercise
+						{text("client.editor.exercise")}
 					</Button>
 					<span className="flex-1" />
 					<Button disabled={props.saveBlocked} onClick={() => props.onOverlay("finish")}>
-						{props.template ? "Save template" : "Save changes"}
+						{props.template
+							? text("client.editor.save-template")
+							: text("client.editor.save-changes")}
 					</Button>
 				</div>
 			)}
@@ -116,6 +123,8 @@ export function CompactDock(props: {
 }
 
 export function CompactEditor({ editorRoot, ...props }: EditorLayoutProps) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { draft, onOverlay } = props;
 	return (
 		<div ref={editorRoot} className="grid gap-4 pb-44 font-ui">
@@ -125,14 +134,21 @@ export function CompactEditor({ editorRoot, ...props }: EditorLayoutProps) {
 						type="button"
 						onClick={() => onOverlay("details")}
 						className="text-left [overflow-wrap:anywhere]"
-						aria-label={`Edit ${props.template ? "template" : "workout"} details, ${props.title}`}
+						aria-label={text("client.editor.edit-details", {
+							title: props.title,
+							kind: props.template ? "template" : "workout",
+						})}
 					>
 						{props.title}
 					</button>
 				</h1>
 				{props.live ? (
 					<p className="-mt-2.5 text-xs text-text-muted">
-						Started {clockTime(draft.startedAt) ?? "now"}
+						{clockTime(formatters, draft.startedAt) === undefined
+							? text("client.editor.started-now")
+							: text("client.home.draft-started", {
+									time: clockTime(formatters, draft.startedAt) ?? "",
+								})}
 					</p>
 				) : null}
 				<EditorStats
@@ -151,12 +167,12 @@ export function CompactEditor({ editorRoot, ...props }: EditorLayoutProps) {
 				onClick={() => onOverlay("picker")}
 			>
 				<AppIcon size={16} name="plus" />
-				Add exercises
+				{text("client.editor.add-exercises")}
 			</Button>
 			<p className="text-center text-xs text-text-subtle">
-				{props.live ? "Only completed sets are saved." : null}
-				{props.historical ? "Unchecked sets are removed when you save." : null}
-				{props.template ? "Empty set rows are dropped when you save." : null}
+				{props.live ? text("client.editor.footnote-live") : null}
+				{props.historical ? text("client.editor.footnote-historical") : null}
+				{props.template ? text("client.editor.footnote-template") : null}
 			</p>
 		</div>
 	);
@@ -175,13 +191,15 @@ export function WideEditor({
 	readonly onOpenWorkoutMedia: () => void;
 	readonly measurement: ReturnType<typeof useMeasurementLogger>;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { draft, locked, onOverlay } = props;
 	const { setTrigger, trigger: _trigger, ...measurement } = props.measurement;
-	let eyebrow = "Workout in progress";
+	let eyebrow = text("client.home.draft-live-title");
 	if (props.template) {
-		eyebrow = "Template";
+		eyebrow = text("browse.field.template");
 	} else if (props.historical) {
-		eyebrow = "Editing saved workout";
+		eyebrow = text("client.editor.eyebrow-historical");
 	}
 	const toolbarButton = (
 		overlay: EditorOverlay,
@@ -223,7 +241,7 @@ export function WideEditor({
 							onClick={() => onOverlay("details")}
 						>
 							<AppIcon size={14} name="pencil" />
-							Details
+							{text("client.editor.details")}
 						</Button>
 					</div>
 					<EditorStats
@@ -235,54 +253,62 @@ export function WideEditor({
 				</header>
 				{props.notices}
 				<div className="flex flex-wrap gap-1">
-					{toolbarButton("picker", "plus", "Add exercises", { primary: true })}
-					{toolbarButton("reorder", "arrow-up-down", "Reorder")}
-					{toolbarButton("supersets", "link", "Supersets")}
-					{toolbarButton("bulk-delete", "trash-2", "Delete…", {
-						ariaLabel: "Delete exercises or sets",
+					{toolbarButton("picker", "plus", text("client.editor.add-exercises"), { primary: true })}
+					{toolbarButton("reorder", "arrow-up-down", text("client.editor.reorder"))}
+					{toolbarButton("supersets", "link", text("property.supersets"))}
+					{toolbarButton("bulk-delete", "trash-2", text("client.editor.delete-ellipsis"), {
+						ariaLabel: text("client.editor.delete-sets"),
 					})}
 				</div>
 				{props.cards}
 			</div>
-			<aside aria-label="Session" className="sticky top-5 grid gap-3">
+			<aside className="sticky top-5 grid gap-3" aria-label={text("client.workout.session")}>
 				{props.live ? (
-					<RailTimers {...props.timerProps} draft={draft} startedAt={clockTime(draft.startedAt)} />
+					<RailTimers
+						{...props.timerProps}
+						draft={draft}
+						startedAt={clockTime(formatters, draft.startedAt)}
+					/>
 				) : null}
 				<RowGroup>
 					{props.live ? (
 						<RailButton
 							icon="ruler"
 							ref={setTrigger}
-							label="Log measurement"
 							onClick={measurement.log}
-							aria-label="Log measurement"
+							label={text("client.measurements.log")}
+							aria-label={text("client.measurements.log")}
 							disabled={locked || measurement.unavailable}
 							trailing={
 								<span className="text-xs text-text-muted">
-									{measurement.error ? "Couldn't load" : "Saves separately"}
+									{measurement.error
+										? text("client.editor.measurement-load-failed")
+										: text("client.editor.saves-separately")}
 								</span>
 							}
 						/>
 					) : null}
 					<RailButton
 						icon="image"
-						label="Attachments"
 						onClick={props.onOpenWorkoutMedia}
-						aria-label={`Attachments (${props.workoutAttachments})`}
+						label={text("client.media.attachments")}
 						trailing={<Badge variant="neutral">{props.workoutAttachments}</Badge>}
+						aria-label={text("client.editor.attachments-count", {
+							count: props.workoutAttachments,
+						})}
 					/>
 					{props.live ? (
 						<RailButton
 							icon="sliders-horizontal"
-							label="Workout preferences"
 							onClick={() => onOverlay("preferences")}
+							label={text("client.editor.preferences")}
 							trailing={<AppIcon size={15} name="chevron-right" className="text-text-subtle" />}
 						/>
 					) : null}
 				</RowGroup>
 				{props.live && measurement.error ? (
 					<Button size="sm" variant="secondary" onClick={measurement.retry}>
-						Retry measurements
+						{text("client.editor.retry-measurements")}
 					</Button>
 				) : null}
 				<Button
@@ -308,7 +334,7 @@ export function WideEditor({
 
 function RailButton(
 	props: Omit<ComponentProps<"button">, "children"> & {
-		readonly label: string;
+		readonly label: Text;
 		readonly trailing: ReactNode;
 		readonly icon: ComponentProps<typeof AppIcon>["name"];
 	},

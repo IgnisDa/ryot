@@ -21,16 +21,13 @@ import {
 	workoutRestFields,
 } from "../../shared/workout-editor-preferences";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
+import { type FitnessText, useFitnessMessages } from "../messages";
 import { occurrenceDisplay } from "./draft-ops";
 import { EditorSheet } from "./editor-sheet";
 import type { EditorExercise } from "./queries";
 
-const restLabels: Record<WorkoutRestField, string> = {
-	dropRestTime: "Drop set rest (seconds)",
-	normalRestTime: "Normal rest (seconds)",
-	warmUpRestTime: "Warm-up rest (seconds)",
-	failureRestTime: "Failure rest (seconds)",
-};
+const restLabel = (text: FitnessText, field: WorkoutRestField) =>
+	text("client.prefs.rest-label", { field });
 
 const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtle uppercase";
 
@@ -49,15 +46,16 @@ type ExerciseDefaultsProps = {
 };
 
 export function ExerciseDefaultsSheet(props: ExerciseDefaultsProps) {
+	const text = useFitnessMessages();
 	const defaults = useExerciseDefaults(props);
 	return (
 		<EditorSheet
 			wide="side"
 			onClose={props.onClose}
-			title="Exercise preferences"
 			dismissible={!defaults.pending}
 			description={props.exerciseName}
-			closeLabel="Close exercise preferences"
+			title={text("client.prefs.title")}
+			closeLabel={text("client.prefs.close")}
 			footer={<DefaultsActions defaults={defaults} onClose={props.onClose} />}
 		>
 			<div className="grid gap-6">
@@ -74,6 +72,7 @@ export function UnitsAndDefaultsSheet(props: {
 	readonly occurrence: WorkoutEditorOccurrence;
 	readonly onDisplay: (display: WorkoutEditorDisplay) => void;
 }) {
+	const text = useFitnessMessages();
 	const defaults = useExerciseDefaults({
 		onSaved: props.onSaved,
 		onClose: props.onClose,
@@ -87,56 +86,78 @@ export function UnitsAndDefaultsSheet(props: {
 			wide="side"
 			onClose={props.onClose}
 			dismissible={!defaults.pending}
-			title="Units and rest defaults"
 			description={props.exercise.name}
-			closeLabel="Close units and rest defaults"
+			title={text("client.card.defaults")}
+			closeLabel={text("client.prefs.units-close")}
 			footer={<DefaultsActions defaults={defaults} onClose={props.onClose} />}
 		>
 			<div className="grid gap-6">
 				<section className="grid gap-2.5">
-					<h3 className={sectionHeading}>Units in this workout</h3>
+					<h3 className={sectionHeading}>{text("client.prefs.units")}</h3>
 					{fields.includes("weight") ? (
 						<SegmentedControl
 							fill
-							label="Weight unit"
 							optionClassName="px-3"
 							value={display.weightUnit}
+							label={text("client.prefs.weight-unit")}
 							onChange={(weightUnit) => props.onDisplay({ ...display, weightUnit })}
 							options={[
-								{ value: "kg", label: "Kilograms", content: "Kilograms" },
-								{ value: "lb", label: "Pounds", content: "Pounds" },
+								{
+									value: "kg",
+									label: text("client.prefs.kilograms"),
+									content: text("client.prefs.kilograms"),
+								},
+								{
+									value: "lb",
+									label: text("client.prefs.pounds"),
+									content: text("client.prefs.pounds"),
+								},
 							]}
 						/>
 					) : null}
 					{fields.includes("distance") ? (
 						<SegmentedControl
 							fill
-							label="Distance unit"
 							optionClassName="px-3"
 							value={display.distanceUnit}
+							label={text("client.prefs.distance-unit")}
 							onChange={(distanceUnit) => props.onDisplay({ ...display, distanceUnit })}
 							options={[
-								{ value: "km", label: "Kilometres", content: "Kilometres" },
-								{ value: "mi", label: "Miles", content: "Miles" },
+								{
+									value: "km",
+									label: text("client.prefs.kilometres"),
+									content: text("client.prefs.kilometres"),
+								},
+								{
+									value: "mi",
+									label: text("client.prefs.miles"),
+									content: text("client.prefs.miles"),
+								},
 							]}
 						/>
 					) : null}
 					{fields.includes("duration") ? (
 						<SegmentedControl
 							fill
-							label="Duration unit"
 							optionClassName="px-3"
 							value={display.durationUnit}
+							label={text("property.duration-unit")}
 							onChange={(durationUnit) => props.onDisplay({ ...display, durationUnit })}
 							options={[
-								{ value: "minutes", label: "Minutes", content: "Minutes" },
-								{ value: "seconds", label: "Seconds", content: "Seconds" },
+								{
+									value: "minutes",
+									label: text("client.prefs.minutes"),
+									content: text("client.prefs.minutes"),
+								},
+								{
+									value: "seconds",
+									label: text("client.prefs.seconds"),
+									content: text("client.prefs.seconds"),
+								},
 							]}
 						/>
 					) : null}
-					<p className="text-xs text-text-muted">
-						Changes how values show here. Entered values are converted, not changed.
-					</p>
+					<p className="text-xs text-text-muted">{text("client.prefs.units-note")}</p>
 				</section>
 				<ExerciseDefaultsForm defaults={defaults} exerciseKind={props.occurrence.exerciseKind} />
 			</div>
@@ -148,13 +169,14 @@ function DefaultsActions(props: {
 	readonly onClose: () => void;
 	readonly defaults: ExerciseDefaults;
 }) {
+	const text = useFitnessMessages();
 	return (
 		<>
 			<Button variant="secondary" onClick={props.onClose} disabled={props.defaults.pending}>
-				Cancel
+				{text("common.action.cancel")}
 			</Button>
 			<Button onClick={props.defaults.save} loading={props.defaults.pending}>
-				Save defaults
+				{text("client.prefs.save")}
 			</Button>
 		</>
 	);
@@ -164,16 +186,15 @@ function ExerciseDefaultsForm(props: {
 	readonly defaults: ExerciseDefaults;
 	readonly exerciseKind: ExerciseKind;
 }) {
+	const text = useFitnessMessages();
 	const { error, values, pending, duration, setValues, setDuration } = props.defaults;
 	return (
 		<>
 			<fieldset disabled={pending} className="grid min-w-0 gap-3 border-0 p-0">
-				<legend className={sectionHeading}>Defaults for every workout</legend>
-				<p className="text-xs text-text-muted">
-					Blank uses your Fitness settings. 0 turns rest off. Sets with their own rest keep it.
-				</p>
+				<legend className={sectionHeading}>{text("client.prefs.defaults")}</legend>
+				<p className="text-xs text-text-muted">{text("client.prefs.defaults-note")}</p>
 				{workoutRestFields.map((field) => (
-					<Field key={field} label={restLabels[field]}>
+					<Field key={field} label={restLabel(text, field)}>
 						{(control) => (
 							<TextField
 								{...control}
@@ -189,17 +210,29 @@ function ExerciseDefaultsForm(props: {
 				))}
 				{requiredWorkoutMeasurementsByKind[props.exerciseKind].includes("duration") ? (
 					<div className="grid gap-1.5">
-						<span className="text-[13px] font-medium">Default duration unit</span>
+						<span className="text-[13px] font-medium">{text("client.prefs.default-duration")}</span>
 						<SegmentedControl
 							fill
 							value={duration}
 							onChange={setDuration}
 							optionClassName="px-2"
-							label="Default duration unit"
+							label={text("client.prefs.default-duration")}
 							options={[
-								{ value: "inherited", label: "Fitness setting", content: "Fitness setting" },
-								{ value: "seconds", label: "Seconds", content: "Seconds" },
-								{ value: "minutes", label: "Minutes", content: "Minutes" },
+								{
+									value: "inherited",
+									label: text("client.prefs.inherited"),
+									content: text("client.prefs.inherited"),
+								},
+								{
+									value: "seconds",
+									label: text("client.prefs.seconds"),
+									content: text("client.prefs.seconds"),
+								},
+								{
+									value: "minutes",
+									label: text("client.prefs.minutes"),
+									content: text("client.prefs.minutes"),
+								},
 							]}
 						/>
 					</div>
@@ -213,6 +246,7 @@ function ExerciseDefaultsForm(props: {
 function useExerciseDefaults(
 	props: Pick<ExerciseDefaultsProps, "onSaved" | "onClose" | "overrides" | "exerciseId">,
 ) {
+	const text = useFitnessMessages();
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const [values, setValues] = useState(() =>
@@ -237,9 +271,7 @@ function useExerciseDefaults(
 			defaultDurationUnit: duration === "inherited" ? null : duration,
 		});
 		if (overrides._tag === "Failure") {
-			setError(
-				"Enter whole seconds of 0 or more, or leave a field blank to use your Fitness settings.",
-			);
+			setError(text("client.prefs.invalid-rest"));
 			return;
 		}
 		const decoded = Schema.decodeResult(ExerciseOverrideUpdateInputSchema)({
@@ -247,7 +279,7 @@ function useExerciseDefaults(
 			exerciseId: props.exerciseId,
 		});
 		if (decoded._tag === "Failure") {
-			setError("These defaults are invalid.");
+			setError(text("client.prefs.invalid"));
 			return;
 		}
 		setPending(true);
@@ -262,13 +294,13 @@ function useExerciseDefaults(
 				})
 				.pipe(
 					Effect.match({
-						onFailure: () => setError("Defaults could not be saved. Try again."),
+						onFailure: () => setError(text("client.prefs.save-failed")),
 						onSuccess: (result) => {
 							if (result.kind === "saved") {
 								props.onSaved();
 								props.onClose();
 							} else {
-								setError("This exercise is unavailable.");
+								setError(text("client.prefs.unavailable"));
 							}
 						},
 					}),
