@@ -41,6 +41,11 @@ Person-to-media credits preserve legacy character names as a `character` string.
 collapse onto one credit, nonblank trimmed names are deduplicated, sorted, and joined with `/`.
 Company and group credits do not receive character fields.
 
+V1 credit roles and free-creator roles that name a role the Media plugin stores as a code
+(`plugins/media/shared/credit-roles.ts`), such as `Author`, `Publisher` or `Publishing`, become
+`roleCodes` on credits and `roleCode` on unlinked creators; `legacy-credit-roles.ts` lists the
+case-insensitive names. Other roles stay provider-named text in `roles` and `role`.
+
 Genres of custom and populated media become shared, populated `genre.media-catalog` entities and
 typed media-to-genre relationships. Custom media links retain the media owner's user scope;
 provider media links are global. Skeleton media still omit genres. Identity normalization and

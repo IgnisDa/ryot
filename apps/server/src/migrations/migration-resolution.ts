@@ -2,9 +2,9 @@ import type {
 	PluginIntegrationProvider,
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import * as fitnessPluginIdentity from "@ryot-app/fitness-plugin/shared/plugin-identity";
 import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definitions/repository";
@@ -24,12 +24,12 @@ export type LegacyPackageResolution = {
 	fitnessPluginId: string;
 	providers: Map<string, string>;
 	installations: Map<string, string>;
-	mediaUserSettingsSchema: AppSchema;
-	fitnessUserSettingsSchema: AppSchema;
 	scripts: Map<string, { slug: string }>;
 	savedViews: Map<string, QualifiedSchema>;
 	eventSchemas: Map<string, QualifiedSchema>;
+	mediaUserSettingsSchema: AuthoredAppSchema;
 	entitySchemas: Map<string, QualifiedSchema>;
+	fitnessUserSettingsSchema: AuthoredAppSchema;
 	relationshipSchemas: Map<string, QualifiedSchema>;
 	integrationProviders: Map<string, ResolvedIntegrationProvider>;
 };

@@ -1,6 +1,6 @@
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { resolvePluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import { sql } from "drizzle-orm";
@@ -130,8 +130,8 @@ const legacySettingsSql = sql`
 export const migrateLegacyUserSettings = Effect.fn("migrateLegacyUserSettings")(function* (input: {
 	mediaPluginId: string;
 	fitnessPluginId: string;
-	mediaSettingsSchema: AppSchema;
-	fitnessSettingsSchema: AppSchema;
+	mediaSettingsSchema: AuthoredAppSchema;
+	fitnessSettingsSchema: AuthoredAppSchema;
 	installations: ReadonlyArray<{
 		userId: string;
 		mediaInstallationId: string;

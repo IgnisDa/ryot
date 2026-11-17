@@ -56,15 +56,10 @@ export const assemble = Effect.gen(function* () {
 		const archive = yield* readPluginArchive(yield* fs.readFile(destination));
 		if (archive.compiledClient) {
 			if (
-				clientArtifactMetadata(
-					archive.manifest.metadata.name,
-					archive.manifest.metadata.packageId,
-					archive.compiledClient.files,
-					{
-						imports: archive.compiledClient.imports,
-						clientDeclarationHash: archive.compiledClient.clientDeclarationHash,
-					},
-				).hash !== archive.compiledClient.hash
+				clientArtifactMetadata(archive.manifest.metadata.packageId, archive.compiledClient.files, {
+					imports: archive.compiledClient.imports,
+					clientDeclarationHash: archive.compiledClient.clientDeclarationHash,
+				}).hash !== archive.compiledClient.hash
 			) {
 				return yield* Effect.die(
 					new Error(`Shipped plugin ${plugin.packageId} has an invalid client artifact hash`),

@@ -174,7 +174,9 @@ BEGIN
 				WHEN 'ThreePointSmiley' THEN 'three-point'
 				ELSE 'hundred'
 			END,
-			'language', NULL
+			'interfaceLocale', NULL,
+			'contentLanguage', NULL,
+			'weekStart', NULL
 		),
 		true,
 		legacy_users.created_on,
