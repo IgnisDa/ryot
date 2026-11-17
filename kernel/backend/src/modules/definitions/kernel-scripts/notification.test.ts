@@ -48,8 +48,8 @@ const inputFor = (executionUserId: null | string, reminder = false) =>
 				signalSchemaSlug: reminder ? "reminder.due" : "integration.disabled",
 				properties: reminder
 					? {
+							entityId: "target-id",
 							timezone: "Asia/Kolkata",
-							entityTitle: "Target_[1]",
 							message: "Read the notes_*",
 							dueAt: "2026-09-15T08:30:00.000Z",
 						}
@@ -93,7 +93,7 @@ it.effect(
 );
 
 it.effect(
-	"passes reminder text through unchanged and shows the due time in the reminder's zone",
+	"retains the entity reference, authored text, and zoned due time for delivery",
 	() =>
 		Effect.gen(function* () {
 			const { host, messages } = recordNotifications(manifest);
@@ -103,15 +103,12 @@ it.effect(
 					key: "notification.reminder-due",
 					params: {
 						timeZone: "Asia/Kolkata",
-						entityTitle: "Target_[1]",
 						message: "Read the notes_*",
+						entityTitle: { entityId: "target-id" },
 						dueAt: { timeZone: "Asia/Kolkata", date: "2026-09-15T08:30:00.000Z" },
 					},
 				},
 			]);
-			expect(renderInEnglish(messages).join("\n")).toMatch(
-				/^Target_\[1\]: Read the notes_\*\nScheduled for Sep 15, 2026 at 2:00\sPM \(Asia\/Kolkata\)$/,
-			);
 		}),
 	testTimeout,
 );

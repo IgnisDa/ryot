@@ -14,6 +14,7 @@ import { fallbackChain, SOURCE_LOCALE } from "./locale";
 import {
 	type DisplayText,
 	isCalendarDate,
+	isEntityReferenceParam,
 	isZonedDateTimeParam,
 	loadingMessage,
 	MAX_MESSAGE_NESTING_DEPTH,
@@ -261,6 +262,8 @@ const renderParts = <Rich>(
 			values[name] = value;
 		} else if ("date" in value) {
 			values[name] = new Date(value.date);
+		} else if (isEntityReferenceParam(value)) {
+			return undefined;
 		} else {
 			const nested = renderParts(registry, locale, value, depth + 1, {}, timeZone);
 			if (nested === undefined) {

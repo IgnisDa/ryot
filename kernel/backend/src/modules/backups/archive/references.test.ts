@@ -188,11 +188,11 @@ it.effect(
 			const name = {
 				namespace: "kernel",
 				key: "saved-views.copy-name",
-				params: { name: label("title") },
+				params: { name: label("title"), entity: { entityId: "entity-id" } },
 			};
 			expect(yield* restoredDisplayText(pluginIds, archiveDisplayText(pluginKeys, name))).toEqual({
 				...name,
-				params: { name: restoredLabel("title") },
+				params: { name: restoredLabel("title"), entity: { entityId: "entity-id" } },
 			});
 
 			const resultsTable = { kind: "kernel", name: "results-table" };

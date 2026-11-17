@@ -12,7 +12,7 @@ export const manifest = defineManifest({
 	automationType: "automation",
 	slug: "automation.notification",
 	inputProjection: {
-		signal: { properties: ["providerName", "message", "entityTitle", "dueAt", "timezone"] },
+		signal: { properties: ["providerName", "message", "entityId", "dueAt", "timezone"] },
 	},
 });
 
@@ -47,7 +47,7 @@ const notificationMessage = (
 		return catalogMessage("notification.reminder-due", {
 			timeZone,
 			message: stringProperty(properties, "message"),
-			entityTitle: stringProperty(properties, "entityTitle"),
+			entityTitle: { entityId: stringProperty(properties, "entityId") },
 			dueAt: { timeZone, date: new Date(stringProperty(properties, "dueAt")) },
 		});
 	}

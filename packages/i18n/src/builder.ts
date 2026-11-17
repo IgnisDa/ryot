@@ -1,4 +1,10 @@
-import type { CalendarDate, DateParam, LocalMessage, Message, ZonedDateTimeParam } from "./message";
+import type {
+	CalendarDate,
+	EntityReferenceParam,
+	LocalMessage,
+	Message,
+	MessageValueParam,
+} from "./message";
 import type { Text } from "./text";
 
 export interface TextArgument {
@@ -94,7 +100,7 @@ export type LocalBindingBuilder<Catalog extends CatalogShape> = <
 	params: ArgumentBindings<Catalog[Key]>,
 ) => { readonly text: { readonly key: Key }; readonly params: ArgumentBindings<Catalog[Key]> };
 
-type EncodedParam<Nested> = string | number | Nested | DateParam | ZonedDateTimeParam;
+type EncodedParam<Nested> = Nested | MessageValueParam;
 
 type BuildMessage<Catalog extends CatalogShape> = <const Key extends string & keyof Catalog>(
 	key: Key,
@@ -102,7 +108,7 @@ type BuildMessage<Catalog extends CatalogShape> = <const Key extends string & ke
 ) => Message;
 
 type ArgumentValue<Spec, Nested> = Spec extends TextArgument
-	? string | Nested
+	? string | Nested | EntityReferenceParam
 	: Spec extends NumberArgument
 		? number
 		: Spec extends DateArgument
@@ -119,7 +125,7 @@ const isZonedDateTime = (value: object): value is ZonedDateTime =>
 	"timeZone" in value && "date" in value && value.date instanceof Date;
 
 export const encodeParam = <Nested extends object>(
-	value: Date | string | number | Nested | ZonedDateTime,
+	value: Date | string | number | Nested | ZonedDateTime | EntityReferenceParam,
 ): EncodedParam<Nested> => {
 	if (value instanceof Date) {
 		return { date: value.toISOString() };
@@ -131,7 +137,9 @@ export const encodeParam = <Nested extends object>(
 };
 
 const encodeParams = <Nested extends object>(
-	params: ReadonlyArray<Readonly<Record<string, Date | string | number | Nested | ZonedDateTime>>>,
+	params: ReadonlyArray<
+		Readonly<Record<string, Date | string | number | Nested | ZonedDateTime | EntityReferenceParam>>
+	>,
 ) => {
 	const [values] = params;
 	if (values === undefined) {

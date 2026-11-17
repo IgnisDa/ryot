@@ -4,6 +4,7 @@ import type { NotificationChannelKind } from "@ryot-app/contract/modules/notific
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import {
 	defaultUserPreferences,
+	resolveContentLanguage,
 	resolveInterfaceLocale,
 } from "@ryot-app/contract/schema/user-preferences";
 import { textDirection } from "@ryot-app/i18n/locale";
@@ -13,6 +14,7 @@ import { generateId } from "better-auth";
 import { DateTime, Effect, Schedule } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
+import { resolveEntityMessage } from "#modules/entities/localization/message";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -43,11 +45,17 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 			(yield* (yield* AuthRepository).getUserPreferences(payload.accountUserId)) ??
 			defaultUserPreferences;
 		const locale = resolveInterfaceLocale(preferences);
+		const message =
+			notification.request.kind === "message"
+				? yield* resolveEntityMessage(
+						notification.request.message,
+						payload.accountUserId,
+						resolveContentLanguage(preferences),
+					)
+				: null;
 		const render = yield* (yield* MessageRegistry).renderer(
 			locale,
-			notification.request.kind === "message"
-				? messageNamespaces(notification.request.message)
-				: [],
+			message === null ? [] : messageNamespaces(message),
 			{ timeZone: preferences.reportingTimeZone },
 		);
 		const shared = {
@@ -60,8 +68,7 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 				subject: render(kernelMessage("notification.email.subject")),
 			},
 		};
-		const messageBody =
-			notification.request.kind === "message" ? render(notification.request.message) : null;
+		const messageBody = message === null ? null : render(message);
 		const notificationText = (channel: NotificationChannelKind): NotificationText => ({
 			...shared,
 			body: messageBody ?? render(kernelMessage("notification.test", { channel })),

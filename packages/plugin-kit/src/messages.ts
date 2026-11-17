@@ -5,6 +5,7 @@ export {
 	LocalMessage,
 	isCalendarDate,
 	type CalendarDate,
+	EntityReferenceParam,
 } from "@ryot-app/i18n/message";
 export {
 	type NoArguments,

@@ -73,3 +73,10 @@ remain retained, so a source is never replayed. The frequent cron clears expired
 admin queries cannot read them. Recipes in `@ryot-app/ryotql-recipes/notification-delivery` expose
 queue/settlement state and safe channel summaries, not credentials, source keys, account tokens,
 transport diagnostics or workflow payloads.
+
+Message arguments may reference entities with `{ entityId }`. Delivery resolves all references,
+including nested messages, through the recipient's RyotQL visibility and current content language.
+Only translations matching the entity's content generation apply; absent translations use the
+canonical name, while missing or inaccessible entities use `message.unavailable`. Entity titles
+are resolved before collecting catalog namespaces and rendering in the interface locale. Authored
+reminder text remains verbatim and the scheduled instant retains its selected time zone.

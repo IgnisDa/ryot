@@ -1,6 +1,7 @@
 import { Layer } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
+import { RyotQLService } from "#modules/ryotql/service";
 
 import { NotificationAdmissions } from "./admission";
 import { NotificationDeliveryService, NotificationMailer } from "./delivery";
@@ -27,6 +28,7 @@ export const NotificationDeliveryJobProvidedLive = NotificationDeliveryJobLive.p
 	Layer.provide(
 		Layer.mergeAll(
 			AuthRepository.layer,
+			RyotQLService.layer,
 			NotificationsRepository.layer,
 			NotificationDeliveryRepository.layer,
 		),

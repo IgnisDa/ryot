@@ -44,6 +44,7 @@ import { PluginRepository } from "#modules/plugins/packages/repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
+import { RyotQLService } from "#modules/ryotql/service";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
 import { kernelMessageRegistryLayer } from "#platform/messages.test-support";
@@ -118,6 +119,7 @@ const repositories = Layer.mergeAll(
 	NotificationDeliveryRepository.layer,
 	NotificationsRepository.layer,
 	AuthRepository.layer,
+	RyotQLService.layer,
 	kernelMessageRegistryLayer,
 	EntitiesRepository.layer,
 	EntityUserDataGraphRepository.layer,

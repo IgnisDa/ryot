@@ -8,7 +8,7 @@ import type {
 	SelectArgument,
 	TextArgument,
 } from "./builder";
-import type { LocalMessage, Message } from "./message";
+import type { EntityReferenceParam, LocalMessage, Message } from "./message";
 
 export type BuilderChecks = [
 	Assert<Equal<MessageParams<Catalog["item.plain"], Message>, []>>,
@@ -19,14 +19,17 @@ export type BuilderChecks = [
 				params: {
 					readonly at: Date;
 					readonly count: number;
-					readonly name: string | Message;
 					readonly status: "done" | "pending";
+					readonly name: string | Message | EntityReferenceParam;
 				},
 			]
 		>
 	>,
 	Assert<
-		Equal<MessageParams<Catalog["item.summary"], LocalMessage>[0]["name"], string | LocalMessage>
+		Equal<
+			MessageParams<Catalog["item.summary"], LocalMessage>[0]["name"],
+			string | LocalMessage | EntityReferenceParam
+		>
 	>,
 	Assert<Equal<Parameters<MessageBuilder<Catalog>>[0], "item.plain" | "item.summary">>,
 	Assert<Equal<ReturnType<LocalMessageBuilder<Catalog>>, LocalMessage>>,

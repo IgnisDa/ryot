@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 
 import type { NumberArgument, SelectArgument, TextArgument } from "./builder";
-import type { Message } from "./message";
+import type { EntityReferenceParam, Message } from "./message";
 import type { RichTextBuilder } from "./react";
 
 declare const richText: RichTextBuilder<Catalog>;
@@ -15,7 +15,7 @@ export type RichTextChecks = [
 				params: {
 					readonly count: number;
 					readonly status: "done" | "pending";
-					readonly name: string | Message | ReactElement;
+					readonly name: string | Message | ReactElement | EntityReferenceParam;
 				},
 			]
 		>

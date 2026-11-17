@@ -55,9 +55,15 @@ export const isCalendarDate = (value: string): value is CalendarDate =>
 	/^\d{4}-\d{2}-\d{2}$/.test(value) &&
 	new Date(`${value}T00:00:00.000Z`).toISOString().startsWith(value);
 
-export type MessageParam = Message | ValueParam;
+export const EntityReferenceParam = Schema.Struct({
+	entityId: Schema.String.check(Schema.isMinLength(1)),
+});
+export type EntityReferenceParam = typeof EntityReferenceParam.Type;
+export const isEntityReferenceParam = Schema.is(EntityReferenceParam);
 
-export type LocalMessageParam = ValueParam | LocalMessage;
+export type MessageParam = Message | MessageValueParam;
+
+export type LocalMessageParam = LocalMessage | MessageValueParam;
 
 export type LocalMessage = {
 	readonly key: string;
@@ -70,19 +76,20 @@ export type Message = {
 	readonly params?: { readonly [name: string]: MessageParam };
 };
 
-type ValueParam = string | number | DateParam | ZonedDateTimeParam;
+export const MessageValueParam = Schema.Union([
+	Schema.String,
+	Schema.Finite,
+	ZonedDateTimeParam,
+	DateParam,
+	EntityReferenceParam,
+]);
+export type MessageValueParam = typeof MessageValueParam.Type;
 
 const params = <Nested extends Schema.Top>(nested: Nested | undefined) =>
 	Schema.optionalKey(
 		Schema.Record(
 			Schema.String,
-			Schema.Union([
-				Schema.String,
-				Schema.Finite,
-				ZonedDateTimeParam,
-				DateParam,
-				...(nested === undefined ? [] : [nested]),
-			]),
+			Schema.Union([MessageValueParam, ...(nested === undefined ? [] : [nested])]),
 		).check(
 			keysMatch(ARGUMENT_NAME_PATTERN, "argument names"),
 			Schema.isMaxProperties(MAX_MESSAGE_ARGUMENTS),
@@ -106,7 +113,7 @@ const nestedLocalMessage = (depth: number): Schema.Codec<LocalMessage> =>
 /** A local message whose nested messages may already carry a namespace; see `stampTrustedNamespace`. */
 export type TrustedLocalMessage = {
 	readonly key: string;
-	readonly params?: { readonly [name: string]: Message | ValueParam | TrustedLocalMessage };
+	readonly params?: { readonly [name: string]: Message | MessageValueParam | TrustedLocalMessage };
 };
 
 const nestedTrustedLocalMessage = (depth: number): Schema.Codec<TrustedLocalMessage> =>
@@ -155,7 +162,7 @@ export const loadingMessage: Message = { key: "message.loading", namespace: KERN
 
 /** Whether a parameter value is a nested message rather than a string, number or date. */
 export const isNestedMessage = <Nested extends { readonly key: string }>(
-	value: Nested | ValueParam,
+	value: Nested | MessageValueParam,
 ): value is Nested => typeof value === "object" && "key" in value;
 
 /** The namespaces a message and its nested messages reference. */

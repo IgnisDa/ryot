@@ -246,6 +246,12 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
+					entityId: {
+						type: "string",
+						validation: { required: true },
+						description: "Target entity identity",
+						label: kernelMessage("definition.property.entity"),
+					},
 					timezone: {
 						type: "string",
 						validation: { required: true },
@@ -257,12 +263,6 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 						validation: { required: true },
 						description: "Fixed UTC due instant",
 						label: kernelMessage("definition.property.scheduled-time"),
-					},
-					entityTitle: {
-						type: "string",
-						validation: { required: true },
-						description: "Target title at scheduling",
-						label: kernelMessage("definition.property.entity"),
 					},
 					message: {
 						type: "string",

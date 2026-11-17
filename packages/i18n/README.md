@@ -16,8 +16,10 @@ User-facing text crosses boundaries as a `Message` (`/message`), never as a rend
   at most 128 characters). Argument names match `ARGUMENT_NAME_PATTERN`, so positional ICU
   arguments are rejected.
 - `params` values are strings, finite numbers, `{ date: ISO }` instants, `{ date: ISO, timeZone }`
-  zoned date-times (`ZonedDateTimeParam`, checked by `isZonedDateTimeParam`), or nested messages. A
-  calendar date (a day without a time of day) is a `YYYY-MM-DD` string. The
+  zoned date-times (`ZonedDateTimeParam`, checked by `isZonedDateTimeParam`), or nested messages.
+  Entity-aware delivery boundaries may also accept `{ entityId }` references: they resolve these to
+  visible, localized entity names before formatting. Unresolved references render
+  `message.unavailable`. A calendar date (a day without a time of day) is a `YYYY-MM-DD` string. The
   schemas are JSON-safe; select codes are plain strings. They admit at most `MAX_MESSAGE_ARGUMENTS`
   parameters per message and nest only to `MAX_MESSAGE_NESTING_DEPTH`: nested message schemas are
   built to that depth, so decoding untrusted input never recurses further.

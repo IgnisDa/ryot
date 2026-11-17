@@ -122,7 +122,7 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 								reminderId: row.id,
 								message: row.message,
 								timezone: row.timezone,
-								entityTitle: row.entityTitle,
+								entityId: row.entityId,
 								dueAt: row.dueAt.toISOString(),
 							},
 						});

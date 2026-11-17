@@ -40,7 +40,7 @@ import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { CompiledCatalog } from "@ryot-app/i18n/catalog";
-import { DateParam, MessageKey, ZonedDateTimeParam } from "@ryot-app/i18n/message";
+import { MessageKey, MessageValueParam } from "@ryot-app/i18n/message";
 import {
 	ClientRuntimeArtifactMetadata,
 	PageClientArtifactMetadata,
@@ -379,7 +379,7 @@ export const ArchiveEvent = strictStruct({
 });
 export type ArchiveEvent = typeof ArchiveEvent.Type;
 
-export type ArchiveMessageParam = string | number | DateParam | ArchiveMessage | ZonedDateTimeParam;
+export type ArchiveMessageParam = ArchiveMessage | MessageValueParam;
 
 export interface ArchiveMessage {
 	readonly key: string;
@@ -394,10 +394,7 @@ export const ArchiveMessage = strictStruct({
 		Schema.Record(
 			Schema.String,
 			Schema.Union([
-				Schema.String,
-				Schema.Finite,
-				ZonedDateTimeParam,
-				DateParam,
+				MessageValueParam,
 				Schema.suspend((): Schema.Codec<ArchiveMessage> => ArchiveMessage),
 			]),
 		),

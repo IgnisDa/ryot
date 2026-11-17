@@ -19,13 +19,16 @@ import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
+import { resolveEntityMessage } from "#modules/entities/localization/message";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
 import { MessageRegistry } from "#platform/messages";
 import { kernelMessageRegistryLayer } from "#platform/messages.test-support";
 import { user } from "#schema/tables/auth";
+import { entity, entityTranslation } from "#schema/tables/combined";
 import { job } from "#schema/tables/jobs";
 import { makeAppConfigLayer } from "#testing/effect";
 
@@ -99,6 +102,7 @@ const dependencies = Layer.mergeAll(
 	NotificationDeliveryRepository.layer,
 	NotificationsRepository.layer,
 	AuthRepository.layer,
+	RyotQLService.layer,
 	kernelMessageRegistryLayer,
 	JobQueue.layer,
 	Layer.succeed(NotificationSourcePolicy, { authorize: () => Effect.succeed(true) }),
@@ -110,6 +114,96 @@ const services = NotificationAdmissions.layer.pipe(
 );
 
 layer(services)((test) => {
+	test.effect(
+		"resolves nested entity arguments with recipient visibility and fresh content translations",
+		() =>
+			Effect.gen(function* () {
+				const recipient = yield* freshInput("entity-messages");
+				const other = yield* freshInput("foreign-entity-messages");
+				const session = yield* DatabaseSession;
+				const id = yield* randomUuid;
+				const privateId = yield* randomUuid;
+				yield* session.run((db) =>
+					db.insert(entity).values([
+						{
+							id,
+							name: "Canonical",
+							contentGeneration: 2,
+							userId: recipient.userId,
+							entitySchemaSlug: "collection",
+						},
+						{
+							id: privateId,
+							name: "Private",
+							userId: other.userId,
+							entitySchemaSlug: "collection",
+						},
+					]),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(entityTranslation)
+						.values({ entityId: id, language: "fr", name: "Traduit", sourceContentGeneration: 2 }),
+				);
+				const message = kernelMessage("notification.reminder-due", {
+					timeZone: "UTC",
+					message: "Authored",
+					entityTitle: { entityId: id },
+					dueAt: { timeZone: "UTC", date: yield* DateTime.nowAsDate },
+				});
+				expect(
+					(yield* resolveEntityMessage(message, recipient.userId, "fr")).params?.["entityTitle"],
+				).toBe("Traduit");
+				yield* (yield* NotificationsRepository).createForUser({
+					isDisabled: false,
+					userId: recipient.userId,
+					channelSpecifics: { kind: "ntfy", topic: "localized" },
+				});
+				const admitted = yield* (yield* NotificationAdmissions).admit({
+					...recipient,
+					request: { message, kind: "message" },
+				});
+				yield* session.run((db) =>
+					db
+						.update(user)
+						.set({ preferences: { ...defaultUserPreferences, contentLanguage: "fr" } })
+						.where(eq(user.id, recipient.userId)),
+				);
+				yield* deliverEnabledChannels({
+					notificationId: admitted.id,
+					accountUserId: recipient.userId,
+				});
+				expect((yield* (yield* DeliveryEvidence).texts).at(-1)?.body).toStartWith(
+					"Traduit: Authored",
+				);
+
+				expect(
+					(yield* resolveEntityMessage(message, recipient.userId, null)).params?.["entityTitle"],
+				).toBe("Canonical");
+				yield* session.run((db) =>
+					db.update(entity).set({ contentGeneration: 3 }).where(eq(entity.id, id)),
+				);
+				expect(
+					(yield* resolveEntityMessage(message, recipient.userId, "fr")).params?.["entityTitle"],
+				).toBe("Canonical");
+				const nested = kernelMessage("notification.integration-disabled", {
+					provider: {
+						...message,
+						params: { ...message.params, entityTitle: { entityId: privateId } },
+					},
+				});
+				expect(yield* resolveEntityMessage(nested, recipient.userId, "fr")).toEqual(
+					kernelMessage("notification.integration-disabled", {
+						provider: {
+							...message,
+							params: { ...message.params, entityTitle: kernelMessage("message.unavailable") },
+						},
+					}),
+				);
+			}),
+		testTimeout,
+	);
+
 	test.effect(
 		"queues one delivery job for an admission with channels and none without",
 		() =>

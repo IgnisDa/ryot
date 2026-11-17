@@ -20,7 +20,7 @@ import type { CatalogRegistry } from "./catalog";
 import { format, formatRich, type PendingNamespaces } from "./format";
 import { type Formatters, formattersFor } from "./formatters";
 import { type TextDirection, textDirection } from "./locale";
-import type { Message, MessageParam } from "./message";
+import type { EntityReferenceParam, Message, MessageParam } from "./message";
 import type { Text } from "./text";
 
 type RichPart = { readonly name: string; readonly element: ReactElement };
@@ -87,7 +87,12 @@ const renderRich = (
 	namespace: string,
 	key: string,
 	params: ReadonlyArray<
-		Readonly<Record<string, Date | string | number | Message | ReactElement | ZonedDateTime>>
+		Readonly<
+			Record<
+				string,
+				Date | string | number | Message | ReactElement | ZonedDateTime | EntityReferenceParam
+			>
+		>
 	>,
 ) => {
 	const values: Record<string, MessageParam> = {};
