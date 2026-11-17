@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { buildCaptureLegacyDescriptionsSql } from "./description-normalization";
+import { buildLegacyUnlinkedCreatorsSql } from "./legacy-credit-roles";
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
 import {
 	buildAbortOnRowsSql,
@@ -138,16 +139,16 @@ COALESCE(jsonb_strip_nulls(
 		)
 		WHEN metadata.lot = 'podcast' THEN jsonb_build_object(
 			'totalEpisodes',    (metadata.podcast_specifics ->> 'total_episodes')::int,
-			'unlinkedCreators', COALESCE(metadata.free_creators, '[]'::jsonb)
+			'unlinkedCreators', ${buildLegacyUnlinkedCreatorsSql("metadata.free_creators")}
 		)
 		WHEN metadata.lot = 'audio_book' THEN jsonb_build_object(
 			'runtime',          (metadata.audio_book_specifics ->> 'runtime')::int,
-			'unlinkedCreators', COALESCE(metadata.free_creators, '[]'::jsonb)
+			'unlinkedCreators', ${buildLegacyUnlinkedCreatorsSql("metadata.free_creators")}
 		)
 		WHEN metadata.lot = 'book' THEN jsonb_build_object(
 			'pages',            (metadata.book_specifics ->> 'pages')::int,
 			'isCompilation',    (metadata.book_specifics ->> 'is_compilation')::boolean,
-			'unlinkedCreators', COALESCE(metadata.free_creators, '[]'::jsonb)
+			'unlinkedCreators', ${buildLegacyUnlinkedCreatorsSql("metadata.free_creators")}
 		)
 		WHEN metadata.lot = 'movie' THEN jsonb_build_object(
 			'runtime', (metadata.movie_specifics ->> 'runtime')::int

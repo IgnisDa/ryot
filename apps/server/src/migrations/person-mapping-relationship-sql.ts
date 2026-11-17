@@ -1,3 +1,4 @@
+import { legacyCreditRoleKeySql, legacyCreditRoleValuesSql } from "./legacy-credit-roles";
 import { legacyPersonCompanyPredicateSql } from "./person-mapping-entity-sql";
 import {
 	buildAbortOnRowsSql,
@@ -62,6 +63,8 @@ BEGIN
 
 	WITH relationship_targets (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
 		VALUES ${buildRelationshipTargetValuesSql(targets)}
+	), legacy_roles (role, code) AS (
+		VALUES ${legacyCreditRoleValuesSql}
 	), legacy_people AS (
 		SELECT
 			legacy_person.id,
@@ -73,6 +76,7 @@ BEGIN
 			m2p.metadata_id,
 			m2p.person_id,
 			m2p.role,
+			legacy_role.code AS role_code,
 			m2p."character",
 			m2p."index" AS credit_index,
 			CASE
@@ -86,6 +90,7 @@ BEGIN
 		INNER JOIN legacy_people ON legacy_people.id = m2p.person_id
 		INNER JOIN "metadata" metadata ON metadata.id = m2p.metadata_id
 		INNER JOIN relationship_targets ON relationship_targets.lot = metadata.lot
+		LEFT JOIN legacy_roles legacy_role ON legacy_role.role = ${legacyCreditRoleKeySql("m2p.role")}
 		WHERE legacy_people.is_company = ${isCompanyFilter}
 			AND (
 				legacy_people.person_user_id IS NOT NULL
@@ -94,14 +99,21 @@ BEGIN
 			)
 	), role_groups AS (
 		SELECT
-			metadata_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id, role,
+			metadata_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id,
+			role_code, CASE WHEN role_code IS NULL THEN role END AS role,
 			MIN(COALESCE(credit_index, 2147483647)) AS role_order
 		FROM legacy_relationships
-		GROUP BY metadata_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id, role
+		GROUP BY metadata_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id,
+			role_code, CASE WHEN role_code IS NULL THEN role END
 	), roles_rollup AS (
 		SELECT
 			metadata_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id,
-			jsonb_agg(role ORDER BY role_order, role) AS roles
+			COALESCE(
+				jsonb_agg(role ORDER BY role_order, role) FILTER (WHERE role_code IS NULL),
+				'[]'::jsonb
+			) AS roles,
+			jsonb_agg(role_code ORDER BY role_order, role_code) FILTER (WHERE role_code IS NOT NULL)
+				AS role_codes
 		FROM role_groups
 		GROUP BY metadata_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id
 	), rollups AS (
@@ -134,7 +146,8 @@ BEGIN
 		jsonb_strip_nulls(
 			jsonb_build_object(
 				'order', rollups.relationship_order,
-				'roles', roles_rollup.roles${characterSql}
+				'roles', roles_rollup.roles,
+				'roleCodes', roles_rollup.role_codes${characterSql}
 			)
 		),
 		rollups.user_id,
@@ -190,11 +203,14 @@ BEGIN
 
 	WITH relationship_targets (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
 		VALUES ${buildRelationshipTargetValuesSql(targets)}
+	), legacy_roles (role, code) AS (
+		VALUES ${legacyCreditRoleValuesSql}
 	), legacy_relationships AS (
 		SELECT
 			mg2p.metadata_group_id,
 			mg2p.person_id,
 			mg2p.role,
+			legacy_role.code AS role_code,
 			mg2p."index" AS credit_index,
 			CASE
 				WHEN legacy_person.created_by_user_id IS NULL THEN mg.created_by_user_id
@@ -207,17 +223,25 @@ BEGIN
 		INNER JOIN "metadata_group" mg ON mg.id = mg2p.metadata_group_id
 		INNER JOIN relationship_targets ON relationship_targets.lot = mg.lot
 		INNER JOIN "person" legacy_person ON legacy_person.id = mg2p.person_id
+		LEFT JOIN legacy_roles legacy_role ON legacy_role.role = ${legacyCreditRoleKeySql("mg2p.role")}
 		WHERE legacy_person.created_by_user_id IS NOT NULL OR mg.created_by_user_id IS NOT NULL
 	), role_groups AS (
 		SELECT
-			metadata_group_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id, role,
+			metadata_group_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id,
+			role_code, CASE WHEN role_code IS NULL THEN role END AS role,
 			MIN(COALESCE(credit_index, 2147483647)) AS role_order
 		FROM legacy_relationships
-		GROUP BY metadata_group_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id, role
+		GROUP BY metadata_group_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id,
+			role_code, CASE WHEN role_code IS NULL THEN role END
 	), roles_rollup AS (
 		SELECT
 			metadata_group_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id,
-			jsonb_agg(role ORDER BY role_order, role) AS roles
+			COALESCE(
+				jsonb_agg(role ORDER BY role_order, role) FILTER (WHERE role_code IS NULL),
+				'[]'::jsonb
+			) AS roles,
+			jsonb_agg(role_code ORDER BY role_order, role_code) FILTER (WHERE role_code IS NOT NULL)
+				AS role_codes
 		FROM role_groups
 		GROUP BY metadata_group_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id
 	), rollups AS (
@@ -246,7 +270,8 @@ BEGIN
 		jsonb_strip_nulls(
 			jsonb_build_object(
 				'order', rollups.relationship_order,
-				'roles', roles_rollup.roles
+				'roles', roles_rollup.roles,
+				'roleCodes', roles_rollup.role_codes
 			)
 		),
 		rollups.user_id,
