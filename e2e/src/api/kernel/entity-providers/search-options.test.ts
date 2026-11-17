@@ -1,4 +1,7 @@
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import {
+	type AuthoredAppSchema,
+	stampAppSchema,
+} from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { ProviderSearchOptionsResult } from "@ryot-app/plugin-backend-sdk/provider";
 import { Effect } from "effect";
 
@@ -12,6 +15,7 @@ import {
 	searchProviderEntities,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertCondition, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -20,13 +24,13 @@ const DYNAMIC_SEARCH_OPTIONS_SCHEMA = {
 	unknownKeys: "strict",
 	fields: {
 		genres: {
-			label: "Genres",
 			type: "enum-array",
+			label: manifestText("Genres"),
 			description: "Genres to include",
 			choices: { kind: "dynamic", source: "genres" },
 		},
 	},
-} satisfies AppSchema;
+} satisfies AuthoredAppSchema;
 
 const SEARCH_OPTIONS_RESULT = {
 	sources: {
@@ -42,12 +46,12 @@ const STATIC_SEARCH_OPTIONS_SCHEMA = {
 	fields: {
 		language: {
 			type: "enum",
-			label: "Language",
 			description: "Language to use",
-			choices: { kind: "static", values: [{ value: "en", label: "English" }] },
+			label: manifestText("Language"),
+			choices: { kind: "static", values: [{ value: "en", label: manifestText("English") }] },
 		},
 	},
-} satisfies AppSchema;
+} satisfies AuthoredAppSchema;
 
 const DYNAMIC_PLUGIN_SLUG = `provider-search-options-${crypto.randomUUID()}`;
 const DYNAMIC_PROVIDER_SLUG = `dynamic-search-options-${crypto.randomUUID()}`;
@@ -139,7 +143,9 @@ describe("POST /entity-providers/search-options", () => {
 				c.entityProviders.searchOptions({ payload: { providerId: staticProvider.providerId } }),
 			);
 
-			expect(response.schema).toEqual(STATIC_SEARCH_OPTIONS_SCHEMA);
+			expect(response.schema).toEqual(
+				stampAppSchema(staticProvider.pluginId, STATIC_SEARCH_OPTIONS_SCHEMA),
+			);
 		}),
 	);
 

@@ -8,6 +8,7 @@ import {
 	searchProviderEntities,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("POST /entity-providers/search", () => {
@@ -31,9 +32,9 @@ describe("POST /entity-providers/search", () => {
 						{
 							icon: "file",
 							eventSchemas: [],
-							name: "Search Record",
 							slug: rootEntitySchemaSlug,
 							propertiesSchema: { fields: {} },
+							name: manifestText("Search Record"),
 						},
 					],
 				}),

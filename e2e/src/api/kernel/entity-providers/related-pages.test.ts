@@ -23,6 +23,7 @@ import {
 	testProviderEntitySchema,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -86,10 +87,10 @@ beforeAll(() =>
 				relationshipSchemas: [
 					{
 						slug: COMPANY_TO_MOVIE,
-						name: "Company to movie",
 						targetEntitySchemaSlug: "movie",
 						propertiesSchema: { fields: {} },
 						sourceEntitySchemaSlug: "company",
+						name: manifestText("Company to movie"),
 					},
 				],
 				providers: {

@@ -16,6 +16,7 @@ import {
 	searchProviderEntities,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertCompleted, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -51,13 +52,13 @@ beforeAll(() =>
 					{
 						icon: "file",
 						eventSchemas: [],
-						name: "Private Record",
 						slug: ENTITY_SCHEMA_SLUG,
+						name: manifestText("Private Record"),
 						propertiesSchema: {
 							fields: {
 								description: {
 									type: "string",
-									label: "Description",
+									label: manifestText("Description"),
 									description: "Private record description",
 								},
 							},

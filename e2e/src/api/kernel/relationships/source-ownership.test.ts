@@ -35,6 +35,7 @@ import {
 	populateRelatedInteractively,
 } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import {
 	fakeProviderDetailsResult,
@@ -108,10 +109,10 @@ beforeAll(() =>
 				pluginSlug: PLUGIN_SLUG,
 				relationshipSchemas: [
 					{
-						name: "Item to label",
 						slug: RELATIONSHIP_SCHEMA_SLUG,
 						userWritePolicy: "source-owner",
 						propertiesSchema: { fields: {} },
+						name: manifestText("Item to label"),
 						sourceEntitySchemaSlug: ITEM_SCHEMA_SLUG,
 						targetEntitySchemaSlug: LABEL_SCHEMA_SLUG,
 					},
@@ -120,16 +121,16 @@ beforeAll(() =>
 					{
 						icon: "box",
 						eventSchemas: [],
-						name: "Catalog item",
 						slug: ITEM_SCHEMA_SLUG,
 						propertiesSchema: { fields: {} },
+						name: manifestText("Catalog item"),
 					},
 					{
 						icon: "tag",
 						eventSchemas: [],
-						name: "Catalog label",
 						slug: LABEL_SCHEMA_SLUG,
 						propertiesSchema: { fields: {} },
+						name: manifestText("Catalog label"),
 					},
 				],
 				providers: {

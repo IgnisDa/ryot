@@ -4,6 +4,7 @@ import { Effect, Exit } from "effect";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventsForEntity } from "~/fixtures/kernel/events";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { installTestPlugin, testPluginEntitySchema } from "~/fixtures/kernel/test-plugin";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -24,7 +25,9 @@ describe("Interactive fold consistency", () => {
 					{
 						...testPluginEntitySchema({ slug: "item" }),
 						fold: { scriptSlug: "fold", eventSchemaSlugs: ["entry"] },
-						eventSchemas: [{ slug: "entry", name: "Entry", propertiesSchema: { fields: {} } }],
+						eventSchemas: [
+							{ slug: "entry", name: manifestText("Entry"), propertiesSchema: { fields: {} } },
+						],
 					},
 				],
 				source: `

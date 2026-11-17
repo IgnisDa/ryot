@@ -52,51 +52,51 @@ describe("GET /event-schemas", () => {
 			expect(workoutSetSchema.propertiesSchema).toMatchObject({
 				fields: {
 					note: {
-						label: "Note",
 						type: "string",
+						label: { key: "property.note" },
 						description: "Optional note specific to this set",
 					},
 					duration: {
 						type: "number",
-						label: "Duration",
+						label: { key: "property.duration" },
 						description: "Duration of this set in seconds",
 					},
 					weight: {
 						type: "number",
-						label: "Weight",
+						label: { key: "property.weight" },
 						description: "Weight used in this set in kilograms (kg)",
 					},
 					distance: {
 						type: "number",
-						label: "Distance",
+						label: { key: "property.distance" },
 						description: "Distance covered in this set in kilometers (km)",
 					},
 					reps: {
-						label: "Reps",
 						type: "integer",
+						label: { key: "property.reps" },
 						description: "Nonnegative whole number of repetitions performed in this set",
 					},
 					setOrder: {
 						type: "integer",
-						label: "Set Order",
 						validation: { minimum: 0 },
+						label: { key: "property.set-order" },
 						description: "Zero-based position of this set within the exercise",
 					},
 					exerciseOrder: {
 						type: "integer",
-						label: "Exercise Order",
 						validation: { minimum: 0 },
+						label: { key: "property.exercise-order" },
 						description: "Zero-based position of this exercise within the workout",
 					},
 					rpe: {
-						label: "Rpe",
 						type: "integer",
+						label: { key: "property.rpe" },
 						validation: { minimum: 0, maximum: 10 },
 						description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 					},
 					setLot: {
 						type: "enum",
-						label: "Set Lot",
+						label: { key: "property.set-lot" },
 						description: "Set type: normal, warm_up, drop, or failure",
 						choices: {
 							kind: "static",
@@ -116,14 +116,14 @@ describe("GET /event-schemas", () => {
 				unknownKeys: "strict",
 				fields: {
 					text: {
-						label: "Note",
 						type: "string",
+						label: { key: "property.note" },
 						description: "Your private note about this exercise",
 					},
 					rating: {
 						type: "number",
-						label: "Rating",
 						validation: { minimum: 0, maximum: 100 },
+						label: { key: "definition.property.review-rating" },
 						description: "Your personal rating from 0 (lowest) to 100 (highest)",
 					},
 				},
@@ -153,18 +153,18 @@ describe("GET /event-schemas", () => {
 				fields: {
 					text: {
 						type: "string",
-						label: "Review",
+						label: { key: "definition.property.review-text" },
 						description: "Your written thoughts or notes about this entity",
 					},
 					isSpoiler: {
 						type: "boolean",
-						label: "Contains spoilers",
 						description: "Whether this review contains spoilers",
+						label: { key: "definition.property.review-is-spoiler" },
 					},
 					rating: {
 						type: "number",
-						label: "Rating",
 						validation: { minimum: 0, maximum: 100 },
+						label: { key: "definition.property.review-rating" },
 						description: "Your personal rating from 0 (lowest) to 100 (highest)",
 					},
 				},
@@ -201,7 +201,7 @@ describe("GET /event-schemas", () => {
 					fields: {
 						progressPercent: {
 							type: "number",
-							label: "Progress percent",
+							label: { key: "property.progress-percent" },
 							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
@@ -217,16 +217,16 @@ describe("GET /event-schemas", () => {
 					),
 				).toMatchObject({
 					fields: {
-						dateUnknown: { type: "boolean", label: "Date unknown" },
+						dateUnknown: { type: "boolean", label: { key: "property.date-unknown" } },
 						startedOn: {
 							type: "datetime",
-							label: "Started on",
+							label: { key: "property.started-on" },
 							description: "Date and time you started consuming this media",
 						},
 						timeSpent: {
 							type: "number",
-							label: "Time spent",
 							validation: { minimum: 0 },
+							label: { key: "property.time-spent" },
 							description: "Time spent consuming this media in minutes",
 						},
 					},
@@ -251,18 +251,18 @@ describe("GET /event-schemas", () => {
 					fields: {
 						text: {
 							type: "string",
-							label: "Review",
+							label: { key: "definition.property.review-text" },
 							description: "Your written thoughts or notes about this media",
 						},
 						isSpoiler: {
 							type: "boolean",
-							label: "Contains spoilers",
 							description: "Whether this review contains spoilers",
+							label: { key: "definition.property.review-is-spoiler" },
 						},
 						rating: {
 							type: "number",
-							label: "Rating",
 							validation: { minimum: 0, maximum: 100 },
+							label: { key: "definition.property.review-rating" },
 							description: "Your personal rating from 0 (lowest) to 100 (highest)",
 						},
 					},
@@ -279,13 +279,13 @@ describe("GET /event-schemas", () => {
 					fields: {
 						timeSpent: {
 							type: "number",
-							label: "Time spent",
 							validation: { minimum: 0 },
+							label: { key: "property.time-spent" },
 							description: "Time spent consuming this media in minutes",
 						},
 						progressPercent: {
 							type: "number",
-							label: "Progress percent",
+							label: { key: "property.progress-percent" },
 							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
@@ -303,13 +303,13 @@ describe("GET /event-schemas", () => {
 					fields: {
 						timeSpent: {
 							type: "number",
-							label: "Time spent",
 							validation: { minimum: 0 },
+							label: { key: "property.time-spent" },
 							description: "Time spent consuming this media in minutes",
 						},
 						progressPercent: {
 							type: "number",
-							label: "Progress percent",
+							label: { key: "property.progress-percent" },
 							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
@@ -359,12 +359,12 @@ describe("GET /event-schemas", () => {
 				fields: {
 					progressPercent: {
 						type: "number",
-						label: "Progress percent",
+						label: { key: "property.progress-percent" },
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
 					position: {
 						type: "object",
-						label: "Position",
+						label: { key: "property.position" },
 						properties: {
 							position: { type: "integer" },
 							unit: { type: "enum", choices: { values: [{ value: "episodes" }] } },
@@ -378,12 +378,12 @@ describe("GET /event-schemas", () => {
 				fields: {
 					progressPercent: {
 						type: "number",
-						label: "Progress percent",
+						label: { key: "property.progress-percent" },
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
 					position: {
 						type: "object",
-						label: "Position",
+						label: { key: "property.position" },
 						properties: {
 							volume: { type: "number" },
 							position: { type: "number" },
@@ -401,7 +401,7 @@ describe("GET /event-schemas", () => {
 				fields: {
 					progressPercent: {
 						type: "number",
-						label: "Progress percent",
+						label: { key: "property.progress-percent" },
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
 				},
@@ -412,7 +412,7 @@ describe("GET /event-schemas", () => {
 				fields: {
 					progressPercent: {
 						type: "number",
-						label: "Progress percent",
+						label: { key: "property.progress-percent" },
 						validation: { maximum: 100, exclusiveMinimum: 0 },
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
@@ -444,9 +444,9 @@ describe("GET /event-schemas", () => {
 						...movieProgressSchema.fields,
 						progressPages: {
 							type: "number",
-							label: "Pages reached",
 							validation: { minimum: 0 },
 							description: "Exact cumulative pages in this run",
+							label: { key: "property.pages-reached", namespace: builtinPlugin.pluginId },
 						},
 					},
 				});
@@ -466,13 +466,13 @@ describe("GET /event-schemas", () => {
 			const sessionFields = {
 				startedOn: {
 					type: "datetime",
-					label: "Started on",
+					label: { key: "property.started-on" },
 					description: "Date and time you started consuming this media",
 				},
 				timeSpent: {
 					type: "number",
-					label: "Time spent",
 					validation: { minimum: 0 },
+					label: { key: "property.time-spent" },
 					description: "Time spent consuming this media in minutes",
 				},
 			};

@@ -14,6 +14,7 @@ import {
 	literalSandboxSource,
 	makeEntitySchemaSlug,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	createGlobalBookEntityFixture,
 	queryInMediaLibraryRelationship,
@@ -151,9 +152,11 @@ describe("POST /collections/memberships", () => {
 						icon: "book",
 						slug: schemaSlug,
 						eventSchemas: [],
-						name: "Global Fixture Schema",
+						name: manifestText("Global Fixture Schema"),
 						propertiesSchema: {
-							fields: { title: { type: "string", label: "Title", description: "Title" } },
+							fields: {
+								title: { type: "string", description: "Title", label: manifestText("Title") },
+							},
 						},
 					},
 				],

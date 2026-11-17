@@ -22,6 +22,7 @@ import {
 	testProviderEntitySchema,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
@@ -70,10 +71,10 @@ describe("related population progress", () => {
 					relationshipSchemas: [
 						{
 							slug: "record-to-related",
-							name: "Record to related record",
 							sourceEntitySchemaSlug: "record",
 							propertiesSchema: { fields: {} },
 							targetEntitySchemaSlug: "related-record",
+							name: manifestText("Record to related record"),
 						},
 					],
 					providers: {

@@ -21,6 +21,7 @@ import {
 	testProviderEntitySchema,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import {
 	assertCompleted,
@@ -56,7 +57,9 @@ beforeAll(() =>
 				entitySchemas: [
 					{
 						...testPluginEntitySchema({ slug: "book" }),
-						eventSchemas: [{ name: "Planned", slug: "planned", propertiesSchema: { fields: {} } }],
+						eventSchemas: [
+							{ slug: "planned", name: manifestText("Planned"), propertiesSchema: { fields: {} } },
+						],
 					},
 					testPluginEntitySchema({ slug: "anime" }),
 					testPluginEntitySchema({ slug: "company" }),
@@ -64,16 +67,16 @@ beforeAll(() =>
 				relationshipSchemas: [
 					{
 						slug: COMPANY_TO_ANIME,
-						name: "Company to anime",
 						targetEntitySchemaSlug: "anime",
 						sourceEntitySchemaSlug: "company",
+						name: manifestText("Company to anime"),
 						propertiesSchema: {
 							fields: {
 								roles: {
 									type: "array",
-									label: "Roles",
 									description: "Roles",
-									items: { label: "Role", type: "string", description: "Role" },
+									label: manifestText("Roles"),
+									items: { type: "string", description: "Role", label: manifestText("Role") },
 								},
 							},
 						},

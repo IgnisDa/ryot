@@ -23,10 +23,11 @@ import {
 	seedEntity,
 	seedEntityTranslation,
 	seedPopulatedEntity,
-	setUserLanguage,
+	setUserContentLanguage,
 	testProviderEntitySchema,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { testPluginEntitySchema } from "~/fixtures/kernel/test-plugin";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
@@ -112,7 +113,7 @@ describe("entity translation via client-declared interest", () => {
 			const { client } = auth;
 			const movie = yield* seedPopulatedMovie("Canonical Fight Club");
 
-			yield* setUserLanguage(client, "es");
+			yield* setUserContentLanguage(client, "es");
 
 			const beforeInterest = yield* getEntity(client, movie.id);
 			expect(beforeInterest.translationStatus.availability).toBe("missing");
@@ -132,7 +133,7 @@ describe("entity translation via client-declared interest", () => {
 			expect(localizedRead.name).toBe(TRANSLATED_ES_NAME);
 
 			const { client: clientB } = yield* createAuthenticatedClient();
-			yield* setUserLanguage(clientB, "es");
+			yield* setUserContentLanguage(clientB, "es");
 			const sharedRead = yield* getEntity(clientB, movie.id);
 			expect(sharedRead.translationStatus.availability).toBe("complete");
 			expect(sharedRead.name).toBe(TRANSLATED_ES_NAME);
@@ -146,7 +147,7 @@ describe("entity translation via client-declared interest", () => {
 			const { client } = auth;
 			const movie = yield* seedPopulatedMovie("Canonical The Godfather");
 
-			yield* setUserLanguage(client, "xx");
+			yield* setUserContentLanguage(client, "sv");
 
 			const firstRead = yield* getEntity(client, movie.id);
 			expect(firstRead.translationStatus.availability).toBe("missing");
@@ -171,7 +172,7 @@ describe("entity translation via client-declared interest", () => {
 			expect(settledRead.translationStatus.state).toBe("succeeded");
 			expect(settledRead.name).toBe("Canonical The Godfather");
 
-			const overlay = yield* getEntityTranslationRow({ language: "xx", entityId: movie.id });
+			const overlay = yield* getEntityTranslationRow({ language: "sv", entityId: movie.id });
 			expect(overlay?.name ?? null).toBeNull();
 			expect(overlay?.properties?.description ?? null).toBeNull();
 			expect(yield* countEntityTranslations(movie.id)).toBe(1);
@@ -198,13 +199,21 @@ describe("entity translation via client-declared interest", () => {
 								slug: "record-part",
 								propertiesSchema: {
 									fields: {
-										position: { type: "integer", label: "Position", description: "Position" },
-										parentExternalId: { type: "string", label: "Parent", description: "Parent ID" },
+										position: {
+											type: "integer",
+											description: "Position",
+											label: manifestText("Position"),
+										},
+										parentExternalId: {
+											type: "string",
+											description: "Parent ID",
+											label: manifestText("Parent"),
+										},
 										description: {
 											type: "string",
 											translatable: true,
-											label: "Description",
 											description: "Description",
+											label: manifestText("Description"),
 										},
 									},
 								},
@@ -231,7 +240,7 @@ describe("entity translation via client-declared interest", () => {
 						slug: EntitySchemaSlug.make("record-part"),
 					},
 				});
-				yield* setUserLanguage(auth.client, "es");
+				yield* setUserContentLanguage(auth.client, "es");
 				const { stream } = yield* askForEntities(auth, [child.id]);
 				yield* stream.waitForEntityUpdated(child.id, "translated", { timeoutMs: 30_000 });
 				const localized = yield* pollEntityUntilTranslationAvailability(
@@ -252,7 +261,7 @@ describe("entity translation via client-declared interest", () => {
 				const { client } = canonical;
 				const movie = yield* seedPopulatedMovie("Canonical The Shawshank Redemption");
 
-				yield* setUserLanguage(client, CANONICAL_LANGUAGE);
+				yield* setUserContentLanguage(client, CANONICAL_LANGUAGE);
 				const canonicalPreferenceRead = yield* getEntity(client, movie.id);
 				expect(canonicalPreferenceRead.translationStatus.availability).toBe("none");
 				expect(canonicalPreferenceRead.name).toBe("Canonical The Shawshank Redemption");
@@ -322,7 +331,7 @@ describe("entity translation via client-declared interest", () => {
 				externalId: `e2e-translate-unpopulated-${yield* randomUuid}`,
 			});
 
-			yield* setUserLanguage(client, "es");
+			yield* setUserContentLanguage(client, "es");
 
 			const { stream } = yield* askForEntities(auth, [seeded.id]);
 			const populatedEvent = yield* stream.waitForEntityUpdated(seeded.id, "populated", {

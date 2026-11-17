@@ -11,6 +11,7 @@ import {
 	createRelationshipSchema,
 	getApiClient,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -19,7 +20,7 @@ const makeRelationshipFixture = (client: Client) =>
 		const pluginSlug = createPluginScope();
 		const { reference } = yield* createEntitySchema(client, {
 			pluginSlug,
-			name: "Relationship Test Entity",
+			name: manifestText("Relationship Test Entity"),
 		});
 		const source = yield* createEntity(client, {
 			name: "Source Entity",
@@ -33,10 +34,12 @@ const makeRelationshipFixture = (client: Client) =>
 		});
 		const relSchema = yield* createRelationshipSchema(client, {
 			pluginSlug,
-			name: "Test Relationship",
 			slug: `test-rel-${yield* randomUuid}`,
+			name: manifestText("Test Relationship"),
 			propertiesSchema: {
-				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
+				fields: {
+					rating: { type: "integer", description: "Rating", label: manifestText("Rating") },
+				},
 			},
 		});
 		return { source, target, relSchema, pluginSlug };
@@ -122,14 +125,14 @@ describe("POST /relationships", () => {
 			const { source, target, pluginSlug } = yield* makeRelationshipFixture(client);
 			const strictSchema = yield* createRelationshipSchema(client, {
 				pluginSlug,
-				name: "Strict Relationship",
 				slug: `strict-rel-${yield* randomUuid}`,
+				name: manifestText("Strict Relationship"),
 				propertiesSchema: {
 					fields: {
 						status: {
 							type: "enum",
-							label: "Status",
 							description: "Status",
+							label: manifestText("Status"),
 							choices: { kind: "static", values: [{ value: "active" }, { value: "inactive" }] },
 						},
 					},

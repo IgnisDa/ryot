@@ -27,6 +27,7 @@ import {
 	requireRyotQLText,
 } from "~/fixtures/kernel";
 import { waitForEventProjections } from "~/fixtures/kernel/events";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	createGlobalBookEntityFixture,
 	findMediaEntitySchema,
@@ -244,7 +245,7 @@ describe("POST /entity-user-data/merge", () => {
 			const relatedSchema = yield* createRelationshipSchema(client, {
 				pluginSlug,
 				slug: "merge-related",
-				name: "Merge related",
+				name: manifestText("Merge related"),
 				sourceEntitySchemaSlug: entitySchemaSlug,
 				targetEntitySchemaSlug: entitySchemaSlug,
 			});
@@ -252,9 +253,9 @@ describe("POST /entity-user-data/merge", () => {
 				reference.owner.kind === "plugin" ? reference.owner.pluginId : undefined;
 			assertPresent(ownerPluginId, "User schema must have a plugin owner");
 			const eventSchema = yield* createEventSchema(client, {
-				name: "Merged Event",
 				slug: eventSchemaSlug,
 				entitySchema: reference,
+				name: manifestText("Merged Event"),
 			});
 			const source = yield* createEntity(client, {
 				name: "Source Entity",

@@ -15,6 +15,7 @@ import {
 	testProviderEntitySchema,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
 import {
 	createGlobalBookEntityFixture,
@@ -41,22 +42,22 @@ const createSchemaWithEnumFields = (client: Client) =>
 		const pluginSlug = createPluginScope();
 		const { reference } = yield* createEntitySchema(client, {
 			pluginSlug,
-			name: "Enum Schema",
+			name: manifestText("Enum Schema"),
 			propertiesSchema: {
 				fields: {
 					status: {
-						label: "Status",
 						type: "enum" as const,
 						description: "Status",
+						label: manifestText("Status"),
 						choices: {
 							kind: "static",
 							values: [{ value: "draft" }, { value: "published" }, { value: "archived" }],
 						},
 					},
 					genres: {
-						label: "Genres",
 						description: "Genres",
 						type: "enum-array" as const,
+						label: manifestText("Genres"),
 						choices: {
 							kind: "static",
 							values: [{ value: "fiction" }, { value: "non-fiction" }, { value: "mystery" }],
@@ -227,19 +228,19 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 			const pluginSlug = createPluginScope();
 			const { reference } = yield* createEntitySchema(client, {
 				pluginSlug,
-				name: "Round-trip Schema",
+				name: manifestText("Round-trip Schema"),
 				propertiesSchema: {
 					fields: {
 						status: {
-							label: "Status",
 							type: "enum" as const,
 							description: "Status",
+							label: manifestText("Status"),
 							choices: { kind: "static", values: [{ value: "draft" }, { value: "published" }] },
 						},
 						genres: {
-							label: "Genres",
 							description: "Genres",
 							type: "enum-array" as const,
+							label: manifestText("Genres"),
 							choices: { kind: "static", values: [{ value: "fiction" }, { value: "mystery" }] },
 						},
 					},
@@ -250,14 +251,14 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 
 			expect(schema.propertiesSchema.fields.status).toMatchObject({
 				type: "enum",
-				label: "Status",
 				description: "Status",
+				label: manifestText("Status"),
 				choices: { kind: "static", values: [{ value: "draft" }, { value: "published" }] },
 			});
 			expect(schema.propertiesSchema.fields.genres).toMatchObject({
-				label: "Genres",
 				type: "enum-array",
 				description: "Genres",
+				label: manifestText("Genres"),
 				choices: { kind: "static", values: [{ value: "fiction" }, { value: "mystery" }] },
 			});
 		}),

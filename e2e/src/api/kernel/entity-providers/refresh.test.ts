@@ -18,7 +18,7 @@ import {
 	seedEntity,
 	seedEntityTranslation,
 	setEntityPopulatedAt,
-	setUserLanguage,
+	setUserContentLanguage,
 	testProviderEntitySchema,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
@@ -205,7 +205,7 @@ it.live("refreshes the current-language overlay even when canonical content is u
 			entityId: seeded.id,
 			name: "Old translated name",
 		});
-		yield* setUserLanguage(auth.client, "es");
+		yield* setUserContentLanguage(auth.client, "es");
 		expect((yield* getEntity(auth.client, seeded.id)).name).toBe("Old translated name");
 		yield* auth.client.call((contract) =>
 			contract.entities.requestEnrichment({
