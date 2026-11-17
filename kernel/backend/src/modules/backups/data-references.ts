@@ -42,7 +42,7 @@ export const requiredReference = (
 };
 
 const collectPropertyReferenceIds = (
-	definition: AppPropertyDefinition,
+	definition: AppPropertyDefinition<unknown>,
 	value: unknown,
 	ids: Set<string>,
 	kind: "event-id" | "entity-id" | "relationship-id",
@@ -70,7 +70,7 @@ const collectPropertyReferenceIds = (
 
 export const collectEmbeddedReferenceIds = (
 	records: ReadonlyArray<{
-		readonly propertiesSchema: AppSchema;
+		readonly propertiesSchema: AppSchema<unknown>;
 		readonly properties: Readonly<Record<string, unknown>>;
 	}>,
 	kind: "event-id" | "entity-id" | "relationship-id",
@@ -89,7 +89,7 @@ export const collectEmbeddedEntityIds = (
 ) => collectEmbeddedReferenceIds(records, "entity-id");
 
 const rewritePropertyValueReferences = (
-	definition: AppPropertyDefinition,
+	definition: AppPropertyDefinition<unknown>,
 	value: JsonValue,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
@@ -157,7 +157,7 @@ const rewritePropertyValueReferences = (
 
 export const rewritePropertyReferences = Effect.fn(function* (
 	value: JsonObject,
-	schema: AppSchema,
+	schema: AppSchema<unknown>,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
 	eventId?: (id: string) => string | undefined,
@@ -199,7 +199,7 @@ const readAssetLocator = (value: JsonValue): null | AssetLocator => {
 };
 
 const rewritePropertyAssets = (
-	definition: AppPropertyDefinition,
+	definition: AppPropertyDefinition<unknown>,
 	value: JsonValue,
 	locators: ReadonlyMap<string, AssetLocator>,
 ): Effect.Effect<JsonValue, DataReferenceError> =>
@@ -250,7 +250,7 @@ const rewritePropertyAssets = (
 
 export const rewriteManagedAssetLocators = Effect.fn(function* (
 	value: JsonObject,
-	schema: AppSchema,
+	schema: AppSchema<unknown>,
 	locators: ReadonlyMap<string, AssetLocator>,
 ) {
 	const rewritten: JsonObject = { ...value };

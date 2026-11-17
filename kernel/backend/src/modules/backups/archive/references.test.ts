@@ -9,11 +9,13 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import {
+	archiveDisplayText,
 	exportQueryPluginReferences,
 	exportRendererSettings,
 	importQueryPluginReferences,
 	importRendererSettings,
 	redactSchemaSecrets,
+	restoredDisplayText,
 } from "./references";
 
 it.effect(
@@ -169,6 +171,85 @@ it.effect(
 			expect(exported["addAction"]).toEqual(addAction);
 			const restored = yield* importRendererSettings(renderer, exported, new Map());
 			expect(restored["addAction"]).toEqual(addAction);
+		}),
+	testTimeout,
+);
+
+const label = (name: string) => ({ key: `view.${name}`, namespace: "source-owner" });
+const restoredLabel = (name: string) => ({ key: `view.${name}`, namespace: "destination-owner" });
+
+it.effect(
+	"restores a cloned plugin view's name and column labels under the destination plugin ID",
+	() =>
+		Effect.gen(function* () {
+			const key = pluginPackageKey({ scope: "system", packageId: testPluginPackageId() });
+			const pluginKeys = new Map([["source-owner", key]]);
+			const pluginIds = new Map([[key, "destination-owner"]]);
+			const name = {
+				namespace: "kernel",
+				key: "saved-views.copy-name",
+				params: { name: label("title") },
+			};
+			expect(yield* restoredDisplayText(pluginIds, archiveDisplayText(pluginKeys, name))).toEqual({
+				...name,
+				params: { name: restoredLabel("title") },
+			});
+
+			const resultsTable = { kind: "kernel", name: "results-table" };
+			const tableSettings = {
+				pageSize: 20,
+				entityLink: null,
+				rowKeyFields: ["id"],
+				sourceName: "records",
+				columns: [
+					{ field: "title", displayKind: "text", label: label("title") },
+					{ field: "note", label: "Custom", displayKind: "text" },
+				],
+			};
+			const exportedTable = yield* exportRendererSettings(resultsTable, tableSettings, pluginKeys);
+			expect(exportedTable["columns"]).toEqual([
+				{ field: "title", displayKind: "text", label: { pluginKey: key, key: "view.title" } },
+				{ field: "note", label: "Custom", displayKind: "text" },
+			]);
+			expect(yield* importRendererSettings(resultsTable, exportedTable, pluginIds)).toEqual({
+				...tableSettings,
+				columns: [
+					{ field: "title", displayKind: "text", label: restoredLabel("title") },
+					{ field: "note", label: "Custom", displayKind: "text" },
+				],
+			});
+
+			const entityBrowser = { kind: "kernel", name: "entity-browser" };
+			const browserSettings = {
+				pageSize: 50,
+				addAction: null,
+				layouts: ["table"],
+				sourceName: "records",
+				defaultLayout: "table",
+				summary: { image: null, subtitle: null },
+				tableColumns: [{ field: "title", displayKind: "text", label: label("title") }],
+				subject: {
+					entityAlias: "entity",
+					schemas: [{ slug: "bottle", owner: { kind: "plugin", pluginId: "source-owner" } }],
+				},
+			};
+			const exportedBrowser = yield* exportRendererSettings(
+				entityBrowser,
+				browserSettings,
+				pluginKeys,
+			);
+			const restoredBrowser = yield* importRendererSettings(
+				entityBrowser,
+				exportedBrowser,
+				pluginIds,
+			);
+			expect(restoredBrowser["tableColumns"]).toEqual([
+				{ field: "title", displayKind: "text", label: restoredLabel("title") },
+			]);
+			const unmapped = yield* importRendererSettings(resultsTable, exportedTable, new Map()).pipe(
+				Effect.flip,
+			);
+			expect(unmapped.reason).toBe("missing_reference_mapping");
 		}),
 	testTimeout,
 );

@@ -72,7 +72,9 @@ const currentUser: CurrentUserValue = {
 	name: "Owner",
 	email: "owner@example.test",
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,

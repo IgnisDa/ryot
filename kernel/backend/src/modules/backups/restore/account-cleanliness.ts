@@ -21,6 +21,7 @@ import {
 	type StoredNotificationSubscription,
 } from "#modules/automations/repository";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { definitionText } from "#modules/definitions/text";
 import {
 	type PluginInstallationHydratedState,
 	PluginInstallationRepository,
@@ -145,7 +146,6 @@ export const classifyAccountCleanliness = (
 		const ownerPluginId = view.pluginId;
 		return {
 			slug: view.slug,
-			name: view.name,
 			isBuiltin: true,
 			icon: view.icon,
 			isHidden: false,
@@ -155,6 +155,7 @@ export const classifyAccountCleanliness = (
 			settings: view.settings,
 			sortOrder: view.sortOrder,
 			arguments: view.arguments ?? {},
+			name: definitionText(ownerPluginId, view.name),
 			reference: builtinSavedViewReference(ownerPluginId, view.slug),
 			pluginInstallationId:
 				ownerPluginId === null

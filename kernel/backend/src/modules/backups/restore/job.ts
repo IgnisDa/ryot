@@ -1,4 +1,4 @@
-import { BadRequest, DbError, internalError } from "@ryot-app/contract/errors";
+import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	BackupBadRequest,
@@ -7,6 +7,7 @@ import {
 	type BackupRunFailure as BackupRunFailureValue,
 } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { generateId } from "better-auth";
 import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
 
 import {
@@ -131,7 +132,7 @@ export const RestoreBackupOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					const run = yield* repository.getRunById(payload);
 					if (run?.kind !== "restore" || run.status === "failed") {
-						return yield* internalError("Backup restore run is unavailable");
+						return yield* Effect.die("Backup restore run is unavailable");
 					}
 					if (run.status === "completed") {
 						return false;
@@ -141,7 +142,7 @@ export const RestoreBackupOperationsLive = Layer.effect(
 					}
 					yield* cleanliness.assertAccountIsClean(payload.userId);
 					if (!(yield* repository.markRunRunning({ ...payload, progress: 5 }))) {
-						return yield* internalError("Backup restore run could not start");
+						return yield* Effect.die("Backup restore run could not start");
 					}
 					return true;
 				}),
@@ -162,7 +163,7 @@ export const RestoreBackupOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					const run = yield* repository.getRunById(payload);
 					if (!run) {
-						return yield* internalError("Backup restore run is unavailable");
+						return yield* Effect.die("Backup restore run is unavailable");
 					}
 					if (run.status === "completed") {
 						return yield* Effect.void;
@@ -193,7 +194,8 @@ export const RestoreBackupOperationsLive = Layer.effect(
 						const preparedPlugins = yield* pluginRestore.prepare(validated.records.privatePlugins);
 						const preflightPluginIds = new Map(systemPluginIds);
 						for (const plugin of preparedPlugins) {
-							preflightPluginIds.set(plugin.key, plugin.key);
+							// Private plugins get IDs when persisted; definitions stamp the placeholder as a catalog namespace.
+							preflightPluginIds.set(plugin.key, generateId());
 						}
 						const preflightDefinitions = yield* pluginRestore.buildDefinitions(
 							preparedPlugins,
@@ -284,7 +286,7 @@ export const RestoreBackupOperationsLive = Layer.effect(
 								);
 							}
 							if (!(yield* repository.completeRun(payload))) {
-								return yield* internalError("Backup restore could not be completed");
+								return yield* Effect.die("Backup restore could not be completed");
 							}
 							return yield* Effect.void;
 						});

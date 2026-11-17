@@ -212,7 +212,10 @@ revoked ones, make an account unclean.
 Expected archive, limit, and restore failures persist their module-owned kebab-case code and structured parameters on the run. They are not flattened to prose across job boundaries. Localized copy is client-owned and never persisted; unexpected causes and raw diagnostics remain in backend logs.
 
 Custom saved views carry authored parameterized documents, normalized saved arguments, filters and
-sort choices. Export discovers typed argument dependencies with set-based reads. Restore stages
+sort choices. A message name, and each message column label of kernel `results-table` and entity
+browser settings, is archived with each plugin namespace replaced by its portable plugin key, and
+restore maps the keys back to local plugin IDs; a message from a plugin the backup does not
+carry is archived as `message.unavailable`. Export discovers typed argument dependencies with set-based reads. Restore stages
 argument reference edges, remaps entity/event/relationship IDs and tagged collection/custom/plugin
 source references from schema metadata, then regenerates browser-derived queries and validates all
 stored branches and controls. Ordinary strings and opaque JSON remain unchanged. Source references

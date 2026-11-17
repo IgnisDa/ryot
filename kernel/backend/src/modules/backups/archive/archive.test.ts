@@ -4,7 +4,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import { fixtureManifest } from "@ryot-app/contract/testing";
+import { fixtureManifest, manifestCatalogs } from "@ryot-app/contract/testing";
 import {
 	CLIENT_API_VERSION,
 	clientArtifactMetadata,
@@ -19,7 +19,7 @@ import { Effect, FileSystem, Schema, Stream } from "effect";
 import { unzipSync, Zip, ZipPassThrough, zipSync } from "fflate";
 
 import { pluginContentHash } from "#modules/plugins/packages/pipeline";
-import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
+import { fixtureClientArtifact, withCatalogs } from "#modules/plugins/source.test-support";
 
 import { publicationFields } from "../publications.test-support";
 import {
@@ -71,8 +71,10 @@ const records: ArchiveRecords = {
 		image: null,
 		name: "Test User",
 		preferences: {
-			language: null,
+			weekStart: null,
 			ratingScale: "five",
+			interfaceLocale: null,
+			contentLanguage: null,
 			disableIntegrations: false,
 			reportingTimeZone: TimeZone.make("Asia/Tokyo"),
 		},
@@ -414,11 +416,7 @@ layer(BunFileSystem.layer)((test) => {
 					},
 				};
 				const files = [
-					...fixtureClientArtifact(
-						manifest.metadata.name,
-						manifest.metadata.packageId,
-						manifest.client,
-					).files,
+					...fixtureClientArtifact(manifest.metadata.packageId, manifest.client).files,
 					{
 						name: "asset.png",
 						contentType: "image/png",
@@ -426,7 +424,7 @@ layer(BunFileSystem.layer)((test) => {
 					},
 				];
 				const compiledClient = {
-					...clientArtifactMetadata(manifest.metadata.name, manifest.metadata.packageId, files, {
+					...clientArtifactMetadata(manifest.metadata.packageId, files, {
 						imports: [],
 						clientDeclarationHash: clientDeclarationHash(manifest.client),
 					}),
@@ -437,7 +435,12 @@ layer(BunFileSystem.layer)((test) => {
 					format: 1,
 					javascript: "export {};",
 				}));
-				const contentHash = pluginContentHash(manifest, compiledScripts, compiledClient);
+				const contentHash = pluginContentHash(
+					manifest,
+					manifestCatalogs(manifest),
+					compiledScripts,
+					compiledClient,
+				);
 				const privatePlugin = {
 					manifest,
 					contentHash,
@@ -448,7 +451,7 @@ layer(BunFileSystem.layer)((test) => {
 					key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
 				};
 				const archive = yield* archiveBytes(
-					input({ records: { ...records, privatePlugins: [privatePlugin] } }),
+					input({ records: { ...records, privatePlugins: [withCatalogs(privatePlugin)] } }),
 				);
 				const section = unzipSync(archive)["private-plugins.ndjson"];
 				assert(section);
@@ -461,7 +464,7 @@ layer(BunFileSystem.layer)((test) => {
 				expect(text).not.toContain('"source":');
 				expect(text).toContain('"contents":"AP+AQQ=="');
 				const validated = yield* validateArchive(asChunks(archive));
-				expect(validated.records.privatePlugins).toEqual([privatePlugin]);
+				expect(validated.records.privatePlugins).toEqual([withCatalogs(privatePlugin)]);
 			}).pipe(Effect.scoped),
 		testTimeout,
 	);
@@ -496,14 +499,14 @@ layer(BunFileSystem.layer)((test) => {
 						Object.assign(integration(key), { id: `integration-${index}` }),
 					),
 					privatePlugins: [
-						{
+						withCatalogs({
 							manifest,
 							packageId,
 							key: privateKey,
 							compiledScripts: [],
 							version: manifest.metadata.version,
-							contentHash: pluginContentHash(manifest, []),
-						},
+							contentHash: pluginContentHash(manifest, manifestCatalogs(manifest), []),
+						}),
 					],
 					savedViews: [
 						view,
@@ -632,14 +635,18 @@ layer(BunFileSystem.layer)((test) => {
 						...records,
 						installations: [incomplete],
 						privatePlugins: [
-							{
+							withCatalogs({
 								key,
 								manifest,
 								compiledScripts,
 								version: manifest.metadata.version,
 								packageId: manifest.metadata.packageId,
-								contentHash: pluginContentHash(manifest, compiledScripts),
-							},
+								contentHash: pluginContentHash(
+									manifest,
+									manifestCatalogs(manifest),
+									compiledScripts,
+								),
+							}),
 						],
 					},
 				});

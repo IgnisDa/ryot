@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { BunFileSystem, BunRuntime } from "@effect/platform-bun";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { manifestCatalogs } from "@ryot-app/contract/testing";
 import { reportProcessMemory } from "@ryot-app/testing/process-memory";
 import { sql } from "drizzle-orm";
 import { Effect, FileSystem, Layer, Schema, Stream } from "effect";
@@ -48,14 +49,18 @@ const memoryLimitBytes = 512 * 1024 * 1024;
 
 const entityPropertiesSchema = {
 	fields: {
-		payload: { type: "string", label: "Payload", description: "Large record payload" },
+		payload: {
+			type: "string",
+			label: { key: "test.payload" },
+			description: "Large record payload",
+		},
 		peerIds: {
 			type: "array",
-			label: "Peers",
+			label: { key: "test.peers" },
 			description: "Cyclic peer references",
 			items: {
-				label: "Peer",
 				type: "string",
+				label: { key: "test.peer" },
 				description: "Referenced record",
 				reference: { required: true, kind: "entity-id" },
 			},
@@ -66,17 +71,17 @@ const entityPropertiesSchema = {
 const eventPropertiesSchema = {
 	fields: {
 		peerIds: entityPropertiesSchema.fields.peerIds,
-		notes: { type: "string", label: "Notes", description: "Event notes" },
-		frozen: { type: "number", label: "Frozen", description: "Frozen numeric value" },
+		notes: { type: "string", description: "Event notes", label: { key: "test.notes" } },
+		frozen: { type: "number", label: { key: "test.frozen" }, description: "Frozen numeric value" },
 	},
 } as const;
 
 const relationshipPropertiesSchema = {
 	fields: {
-		note: { label: "Note", type: "string", description: "Relationship note" },
+		note: { type: "string", label: { key: "test.note" }, description: "Relationship note" },
 		nextRelationshipId: {
 			type: "string",
-			label: "Next relationship",
+			label: { key: "test.next-relationship" },
 			description: "Cyclic relationship reference",
 			reference: { required: true, kind: "relationship-id" },
 		},
@@ -97,8 +102,8 @@ const packageWithMemoryDefinitions = () => {
 		signalSchemas: [],
 		relationshipSchemas: [
 			{
-				name: "Linked",
 				slug: "linked",
+				name: { key: "test.linked" },
 				sourceEntitySchemaSlug: "record",
 				targetEntitySchemaSlug: "record",
 				propertiesSchema: relationshipPropertiesSchema,
@@ -107,16 +112,27 @@ const packageWithMemoryDefinitions = () => {
 		entitySchemas: [
 			{
 				icon: "box",
-				name: "Record",
 				slug: "record",
+				name: { key: "test.record" },
 				propertiesSchema: entityPropertiesSchema,
 				eventSchemas: [
-					{ name: "Observed", slug: "observed", propertiesSchema: eventPropertiesSchema },
+					{
+						slug: "observed",
+						name: { key: "test.observed" },
+						propertiesSchema: eventPropertiesSchema,
+					},
 				],
 			},
 		],
 	};
-	return { ...base, manifest, scripts: [], contentHash: pluginContentHash(manifest) };
+	const catalogs = manifestCatalogs(manifest);
+	return {
+		...base,
+		manifest,
+		catalogs,
+		scripts: [],
+		contentHash: pluginContentHash(manifest, catalogs),
+	};
 };
 
 const dependencies = Layer.mergeAll(

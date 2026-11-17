@@ -210,12 +210,10 @@ layer(services)((test) => {
 					bytes: new TextEncoder().encode('export const main = () => "old dependency";'),
 				});
 				const dependencyArtifact = {
-					...clientArtifactMetadata(
-						"dependency",
-						PluginPackageId.make("test/dependency"),
-						[dependencyFile],
-						{ imports: [], clientDeclarationHash: "d".repeat(64) },
-					),
+					...clientArtifactMetadata(PluginPackageId.make("test/dependency"), [dependencyFile], {
+						imports: [],
+						clientDeclarationHash: "d".repeat(64),
+					}),
 					files: [dependencyFile],
 				};
 				const currentDependencyFile = clientArtifactFile({
@@ -224,12 +222,10 @@ layer(services)((test) => {
 					bytes: new TextEncoder().encode('export const replacement = () => "current dependency";'),
 				});
 				const currentDependencyArtifact = {
-					...clientArtifactMetadata(
-						"dependency",
-						dependencyArtifact.packageId,
-						[currentDependencyFile],
-						{ imports: [], clientDeclarationHash: "e".repeat(64) },
-					),
+					...clientArtifactMetadata(dependencyArtifact.packageId, [currentDependencyFile], {
+						imports: [],
+						clientDeclarationHash: "e".repeat(64),
+					}),
 					files: [currentDependencyFile],
 				};
 

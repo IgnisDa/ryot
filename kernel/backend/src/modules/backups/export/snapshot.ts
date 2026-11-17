@@ -1,4 +1,3 @@
-import { badRequest } from "@ryot-app/contract/errors";
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -59,6 +58,7 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { ARCHIVE_LIMITS } from "../archive/archive";
 import { archiveEntryTooLarge, archiveError, BackupArchiveError } from "../archive/error";
 import {
+	archiveDisplayText,
 	collectReferencedPluginKeys,
 	escapePointer,
 	exportQueryPluginReferences,
@@ -141,15 +141,15 @@ const pluginRecordLimit = ARCHIVE_LIMITS.maxPluginRecords;
 const exportPageSize = 8;
 
 type BackupPropertyRecord = {
-	readonly propertiesSchema: AppSchema;
 	readonly properties: Record<string, unknown>;
+	readonly propertiesSchema: AppSchema<unknown>;
 };
 
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
 
 const propertyEntityReferencePaths = (
-	property: AppPropertyDefinition,
+	property: AppPropertyDefinition<unknown>,
 	path: string,
 ): Array<string> => {
 	if (property.secret === true) {
@@ -169,7 +169,7 @@ const propertyEntityReferencePaths = (
 	return [];
 };
 
-export const eventEntityReferencePaths = (propertiesSchema: AppSchema) =>
+export const eventEntityReferencePaths = (propertiesSchema: AppSchema<unknown>) =>
 	Object.entries(propertiesSchema.fields).flatMap(([field, property]) =>
 		propertyEntityReferencePaths(property, `lax $.${JSON.stringify(field)}`),
 	);
@@ -206,10 +206,11 @@ const installationLifecycleIntent = (health: string, isHidden: boolean) => {
 
 export const requireNotificationMetadataSchema = Effect.fn(function* (
 	subscription: ArchiveNotificationSubscription,
-	propertiesSchema: AppSchema | undefined,
+	propertiesSchema: undefined | AppSchema<unknown>,
 ) {
 	if (subscription.metadata !== null && !propertiesSchema) {
-		return yield* badRequest(
+		return yield* archiveError(
+			"invalid_entry",
 			`Backup references unavailable signal schema '${subscription.signalSchemaSlug}'`,
 		);
 	}
@@ -221,7 +222,10 @@ export const requirePluginKey = Effect.fn("BackupExportSnapshot.requirePluginKey
 	pluginId: string,
 ) {
 	const key = pluginKeyById.get(pluginId);
-	return key ?? (yield* badRequest(`Backup references unavailable plugin '${pluginId}'`));
+	return (
+		key ??
+		(yield* archiveError("invalid_entry", `Backup references unavailable plugin '${pluginId}'`))
+	);
 });
 
 const archiveSavedViewReference = Effect.fn("BackupExportSnapshot.archiveSavedViewReference")(
@@ -323,7 +327,10 @@ const toArchiveEntity = Effect.fn(function* (
 	pluginKeyById: ReadonlyMap<string, string>,
 ) {
 	if (entity.provider && entity.provider.pluginId !== entity.entitySchemaPluginId) {
-		return yield* badRequest("Backup entity provider has the wrong schema owner");
+		return yield* archiveError(
+			"invalid_entry",
+			"Backup entity provider has the wrong schema owner",
+		);
 	}
 	return {
 		id: entity.id,
@@ -470,7 +477,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 			) {
 				const profile = yield* auth.getPortableProfile(userId);
 				if (!profile) {
-					return yield* badRequest("Backup user does not exist");
+					return yield* archiveError("invalid_entry", "Backup user does not exist");
 				}
 				const allStoredInstallations = yield* installations.listHydratedForUser(
 					userId,
@@ -510,7 +517,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							entitySchemaPluginId !== null && privatePluginIds.has(entitySchemaPluginId),
 					)
 				) {
-					return yield* badRequest(
+					return yield* archiveError(
+						"invalid_entry",
 						"Backup private entity cannot be exported as a global dependency",
 					);
 				}
@@ -570,7 +578,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						dueAt: row.dueAt?.toISOString() ?? null,
 						settledAt: row.settledAt?.toISOString() ?? null,
 						processingAt: row.processingAt?.toISOString() ?? null,
-					}).pipe(Effect.mapError(() => badRequest("Backup reminder data is invalid"))),
+					}).pipe(
+						Effect.mapError(() => archiveError("invalid_entry", "Backup reminder data is invalid")),
+					),
 				);
 				const storedSubscriptions = yield* automations.listNotificationSubscriptionsForBackup(
 					userId,
@@ -659,7 +669,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						return Effect.succeed(null);
 					}
 					const installation = installationById.get(installationId);
-					return installation ? Effect.succeed(installation) : badRequest(message);
+					return installation
+						? Effect.succeed(installation)
+						: archiveError("invalid_entry", message);
 				};
 				const viewRecords: ArchiveSavedView[] = (yield* Effect.forEach(storedViews, (view) =>
 					Effect.gen(function* () {
@@ -696,6 +708,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							return [
 								{
 									...portableView,
+									name: archiveDisplayText(pluginKeyById, view.name),
 									arguments: yield* exportSavedArguments(
 										view.dataSources,
 										view.arguments ?? {},
@@ -739,7 +752,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				)).flat();
 				for (const override of storedOverrides) {
 					if (!context.savedView(override.slug, override.pluginId)) {
-						return yield* badRequest("Backup references an unavailable retained saved view");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup references an unavailable retained saved view",
+						);
 					}
 					viewRecords.push({
 						isBuiltin: true,
@@ -1039,7 +1055,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 										compiledArtifacts.compiledClient,
 									).pipe(
 										Effect.mapError(() =>
-											badRequest("Backup private client artifact package identity is invalid"),
+											archiveError(
+												"invalid_entry",
+												"Backup private client artifact package identity is invalid",
+											),
 										),
 									)
 								: undefined;
@@ -1047,13 +1066,15 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								compiledClient &&
 								compiledClient.packageId !== plugin.manifest.metadata.packageId
 							) {
-								return yield* badRequest(
+								return yield* archiveError(
+									"invalid_entry",
 									"Backup private client artifact package identity is invalid",
 								);
 							}
 							const record = {
 								manifest: plugin.manifest,
 								contentHash: plugin.contentHash,
+								catalogs: compiledArtifacts.catalogs,
 								version: plugin.manifest.metadata.version,
 								packageId: plugin.manifest.metadata.packageId,
 								compiledScripts: compiledArtifacts.compiledScripts,
@@ -1190,7 +1211,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				for (const state of data.installations) {
 					const plugin = pluginByKey.get(state.packageKey);
 					if (!plugin) {
-						return yield* badRequest("Backup references unavailable plugin installation");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup references unavailable plugin installation",
+						);
 					}
 					if (plugin.userSettingsSchema) {
 						additionalPropertyRecords.push({
@@ -1214,7 +1238,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 									),
 								}
 							: {}),
-					}).pipe(Effect.mapError((error) => badRequest(error.message)));
+					}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 					additionalPropertyRecords.push({
 						properties: state.config,
 						propertiesSchema: plugin.configSchema,
@@ -1228,13 +1252,16 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						plugin?.integrationProviders,
 					);
 					if (!settingsSchema) {
-						return yield* badRequest("Backup references unavailable integration provider");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup references unavailable integration provider",
+						);
 					}
 					yield* parseAppSchemaProperties({
 						kind: "Integration settings",
 						propertiesSchema: settingsSchema,
 						properties: integration.providerSpecifics,
-					}).pipe(Effect.mapError((error) => badRequest(error.message)));
+					}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 					additionalPropertyRecords.push({
 						propertiesSchema: settingsSchema,
 						properties: integration.providerSpecifics,
@@ -1279,7 +1306,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				let redactionBytes = 0;
 				const transformProperties = Effect.fn(function* (
 					properties: Record<string, unknown>,
-					propertiesSchema: AppSchema,
+					propertiesSchema: AppSchema<unknown>,
 					path: string,
 					locators: ReadonlyMap<string, AssetLocator> = archiveLocators,
 				) {
@@ -1310,7 +1337,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				for (const entity of data.entities) {
 					const propertiesSchema = getEntitySchema(entity)?.propertiesSchema;
 					if (!propertiesSchema) {
-						return yield* badRequest(
+						return yield* archiveError(
+							"invalid_entry",
 							`Backup references unavailable entity schema '${entity.entitySchemaSlug}'`,
 						);
 					}
@@ -1331,7 +1359,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					}
 					const propertiesSchema = getEntitySchema(dependency)?.propertiesSchema;
 					if (!propertiesSchema) {
-						return yield* badRequest(
+						return yield* archiveError(
+							"invalid_entry",
 							`Backup references unavailable entity schema '${dependency.entitySchemaSlug}'`,
 						);
 					}
@@ -1366,7 +1395,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						pluginIdForKey(relationship.relationshipSchemaPluginKey),
 					)?.propertiesSchema;
 					if (!propertiesSchema) {
-						return yield* badRequest(
+						return yield* archiveError(
+							"invalid_entry",
 							`Backup references unavailable relationship schema '${relationship.relationshipSchemaSlug}'`,
 						);
 					}
@@ -1425,7 +1455,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							for (const event of page.records) {
 								const propertiesSchema = eventPropertiesSchema(event, page);
 								if (!propertiesSchema) {
-									return yield* badRequest(
+									return yield* archiveError(
+										"invalid_entry",
 										`Backup references unavailable event schema '${event.eventSchemaSlug}'`,
 									);
 								}
@@ -1466,7 +1497,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				for (const state of data.installations) {
 					const plugin = pluginByKey.get(state.packageKey);
 					if (!plugin) {
-						return yield* badRequest("Backup references unavailable plugin installation");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup references unavailable plugin installation",
+						);
 					}
 					const userSettings = plugin.userSettingsSchema
 						? yield* transformProperties(
@@ -1504,7 +1538,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						plugin?.integrationProviders,
 					);
 					if (!settingsSchema) {
-						return yield* badRequest("Backup references unavailable integration provider");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup references unavailable integration provider",
+						);
 					}
 					restoredIntegrations.push({
 						...integration,
@@ -1652,7 +1689,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						kind: BackupPropertyReferenceDeclaration["kind"],
 						slug: string,
 						pluginId: null | string,
-						propertiesSchema: AppSchema,
+						propertiesSchema: AppSchema<unknown>,
 						entitySchemaSlug: null | string = null,
 						entitySchemaPluginId: null | string = null,
 					) => {
@@ -1902,7 +1939,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								previous &&
 								(previous.size !== asset.size || previous.contentType !== asset.contentType)
 							) {
-								return yield* badRequest("Backup asset metadata is inconsistent");
+								return yield* archiveError(
+									"invalid_entry",
+									"Backup asset metadata is inconsistent",
+								);
 							}
 							assetsBySha.set(asset.sha256, asset);
 							if (assetsBySha.size + ARCHIVE_SECTION_PATHS.length > ARCHIVE_LIMITS.maxEntryCount) {
@@ -2173,7 +2213,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						}
 					}
 					if (!metadata) {
-						return yield* badRequest("Backup metadata is unavailable");
+						return yield* archiveError("invalid_entry", "Backup metadata is unavailable");
 					}
 					const sections = Object.values(spools).map((section) => section.summary());
 					return {

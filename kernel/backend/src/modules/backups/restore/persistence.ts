@@ -1,4 +1,4 @@
-import { badRequest, DbError } from "@ryot-app/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationRuleMetadata } from "@ryot-app/contract/modules/automations/schemas";
 import type {
 	IntegrationExtraSettings,
@@ -38,6 +38,7 @@ import * as backupSchema from "#schema/tables/backups";
 import * as schema from "#schema/tables/combined";
 import { page } from "#schema/tables/pages";
 
+import { archiveError } from "../archive/error";
 import { type ArchiveAssistantRecord, assistantArchiveId } from "../assistant";
 
 type RestoreTranslationInput = Pick<
@@ -136,7 +137,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				const idFor = (kind: ArchiveAssistantRecord["kind"], id: string) => {
 					const mapped = ids.get(assistantArchiveId(kind, id));
 					return mapped === undefined
-						? badRequest("Backup assistant mapping is incomplete")
+						? archiveError("invalid_entry", "Backup assistant mapping is incomplete")
 						: Effect.succeed(mapped);
 				};
 				const restoredResult = Effect.fn(function* (result: AgentToolResult) {
@@ -260,7 +261,10 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 										}),
 								);
 								if (!conversation) {
-									return yield* badRequest("Restored assistant conversation is missing");
+									return yield* archiveError(
+										"invalid_entry",
+										"Restored assistant conversation is missing",
+									);
 								}
 								yield* session.run((db) =>
 									db
@@ -409,7 +413,10 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					),
 				);
 				if (rows.some(({ ambiguous }) => ambiguous)) {
-					return yield* badRequest("Backup bootstrap entity identity is ambiguous");
+					return yield* archiveError(
+						"invalid_entry",
+						"Backup bootstrap entity identity is ambiguous",
+					);
 				}
 				return yield* Effect.void;
 			});

@@ -2,7 +2,7 @@ import { expect } from "bun:test";
 import { tmpdir } from "node:os";
 
 import { BunCrypto, BunFileSystem } from "@effect/platform-bun";
-import { BadRequest, DbError } from "@ryot-app/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { anyOf } from "@ryot-app/testing/matchers";
@@ -19,12 +19,14 @@ import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { deleteFailed, missingObject } from "#platform/storage/errors";
 import { user } from "#schema/tables/auth";
 import { reminder } from "#schema/tables/reminders";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { createArchiveStream } from "../archive/archive";
 import { archiveFixtureInput } from "../archive/archive.test-support";
+import { archiveError } from "../archive/error";
 import { BackupsRepository } from "../runs/repository";
 import { BackupStaging } from "../staging";
 import { BackupAccountCleanliness } from "./account-cleanliness";
@@ -56,7 +58,9 @@ const profile = {
 	image: null,
 	name: "Restored profile",
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		disableIntegrations: true,
 		ratingScale: "ten" as const,
 		reportingTimeZone: TimeZone.make("America/New_York"),
@@ -167,7 +171,7 @@ const dependencies = Layer.unwrap(
 						});
 						const current = yield* Ref.get(scenario);
 						if (current === "write-failure") {
-							return yield* new BadRequest({ message: "invalid historical row" });
+							return yield* archiveError("invalid_entry", "invalid historical row");
 						}
 						if (current === "deadlock") {
 							yield* Ref.set(scenario, "success");
@@ -179,9 +183,7 @@ const dependencies = Layer.unwrap(
 			Layer.mock(ManagedAssetsService)({}),
 			Layer.mock(UploadIntentsService)({
 				deleteTemporaryUpload: () =>
-					record("delete").pipe(
-						Effect.andThen(Effect.fail(new BadRequest({ message: "upload storage unavailable" }))),
-					),
+					record("delete").pipe(Effect.andThen(Effect.fail(deleteFailed()))),
 			}),
 			Layer.mock(ObjectStorageService)({
 				permanentStorageProvider: Effect.succeed("local" as const),
@@ -218,7 +220,7 @@ const dependencies = Layer.unwrap(
 										notificationSubscriptions: [],
 									},
 								}),
-							).pipe(Stream.mapError(() => new BadRequest({ message: "archive stream failed" }))),
+							).pipe(Stream.mapError(() => missingObject())),
 						),
 					),
 			}),

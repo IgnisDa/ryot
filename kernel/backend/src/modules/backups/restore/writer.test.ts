@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { BunCrypto, BunFileSystem } from "@effect/platform-bun";
-import { badRequest, DbError } from "@ryot-app/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -22,7 +22,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
-import { fixtureManifest } from "@ryot-app/contract/testing";
+import { fixtureManifest, manifestCatalogs } from "@ryot-app/contract/testing";
 import { buildDefinitionSnapshot, type DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import {
@@ -67,6 +67,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin, StoredPlugin } from "#modules/plugins/packages/types";
+import { withCatalogs } from "#modules/plugins/source.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -78,6 +79,7 @@ import {
 	collectExportFixtureRecords,
 	collectFixtureRecords,
 } from "../archive/archive.test-support";
+import { archiveError } from "../archive/error";
 import {
 	type ArchiveEntitySnapshot,
 	ArchiveEvent,
@@ -127,8 +129,8 @@ it("keeps restored installations inactive when required secrets were redacted", 
 					token: {
 						secret: true,
 						type: "string",
-						label: "Token",
 						description: "Token",
+						label: { key: "test.token" },
 						validation: { required: true },
 					},
 				},
@@ -161,12 +163,12 @@ it.effect(
 			const invalid = yield* resolveRestoredPluginUserSettings({ enabled: true }, undefined).pipe(
 				Effect.flip,
 			);
-			expect(invalid._tag).toBe("BadRequest");
+			expect(invalid._tag).toBe("BackupArchiveError");
 			const invalidValue = yield* resolveRestoredPluginUserSettings(
 				{ enabled: "yes" },
 				settingsSchema,
 			).pipe(Effect.flip);
-			expect(invalidValue._tag).toBe("BadRequest");
+			expect(invalidValue._tag).toBe("BackupArchiveError");
 		}),
 	testTimeout,
 );
@@ -242,7 +244,7 @@ it.effect(
 						...schema.propertiesSchema,
 						fields: {
 							...schema.propertiesSchema.fields,
-							note: { label: "Note", description: "Note", type: "string" as const },
+							note: { description: "Note", type: "string" as const, label: { key: "test.note" } },
 						},
 					},
 				})),
@@ -458,16 +460,6 @@ const provenanceRecords = (
 		input.calendarSourceKey === undefined
 			? []
 			: [{ isHidden: true, slug: "owner-dates", pluginKey: input.calendarSourceKey }],
-	profile: {
-		image: null,
-		name: "User",
-		preferences: {
-			language: null,
-			reportingTimeZone: UTC,
-			ratingScale: "hundred",
-			disableIntegrations: false,
-		},
-	},
 	notificationSubscriptions: [
 		{
 			metadata: null,
@@ -477,6 +469,18 @@ const provenanceRecords = (
 				input.subscriptionKey === undefined ? "owner-key" : input.subscriptionKey,
 		},
 	],
+	profile: {
+		image: null,
+		name: "User",
+		preferences: {
+			weekStart: null,
+			interfaceLocale: null,
+			contentLanguage: null,
+			reportingTimeZone: UTC,
+			ratingScale: "hundred",
+			disableIntegrations: false,
+		},
+	},
 	publications:
 		input.publication === undefined
 			? []
@@ -574,16 +578,16 @@ const provenanceRecords = (
 
 const provenanceEntityDefinition: DefinitionSnapshot["entitySchemas"][string] = {
 	icon: "box",
-	name: "Owner entity",
 	slug: "owner-entity",
 	pluginId: "owner-id",
 	mergeIdentityProperties: [],
 	propertiesSchema: { fields: {} },
+	name: { key: "test.owner-entity" },
 	eventSchemas: {
 		changed: {
-			name: "Changed",
 			slug: "changed",
 			pluginId: "owner-id",
+			name: { key: "test.changed" },
 			propertiesSchema: { fields: {} },
 		},
 	},
@@ -596,9 +600,9 @@ const provenanceDefinitions: DefinitionSnapshot = {
 	},
 	relationshipSchemas: {
 		[definitionKey("relationship", definitionOwner("owner-id"), "owner-link")]: {
-			name: "Owner link",
 			slug: "owner-link",
 			pluginId: "owner-id",
+			name: { key: "test.owner-link" },
 			propertiesSchema: { fields: {} },
 			sourceEntitySchemaSlug: "owner-entity",
 			targetEntitySchemaSlug: "owner-entity",
@@ -610,20 +614,20 @@ const provenanceDefinitions: DefinitionSnapshot = {
 			sortOrder: 0,
 			settings: {},
 			slug: "owner-view",
-			name: "Owner view",
 			pluginId: "owner-id",
 			dataSources: provenanceQuery,
+			name: { key: "test.owner-view" },
 			renderer: { kind: "kernel", name: "entity-browser" },
 		},
 	},
 	signalSchemas: {
 		[definitionKey("signal", definitionOwner("owner-id"), "owner.signal")]: {
 			pluginId: "owner-id",
-			name: "Owner signal",
 			slug: "owner.signal",
 			catalogState: "active",
 			propertiesSchema: { fields: {} },
 			audiencePolicy: { kind: "actor" },
+			name: { key: "test.owner-signal" },
 			notificationHookSlug: "owner.notify",
 		},
 	},
@@ -635,9 +639,9 @@ const provenanceDefinitions: DefinitionSnapshot = {
 			icon: "calendar",
 			precision: "date",
 			startAt: "startAt",
-			name: "Owner dates",
 			slug: "owner-dates",
 			pluginId: "owner-id",
+			name: { key: "test.owner-dates" },
 			subject: {
 				entityAlias: "entity",
 				schemas: [
@@ -885,7 +889,10 @@ it.effect(
 					],
 				),
 			);
-			assertExitFails(exit, badRequest("Backup user entity cannot use a system provider"));
+			assertExitFails(
+				exit,
+				archiveError("invalid_entry", "Backup user entity cannot use a system provider"),
+			);
 		}),
 	testTimeout,
 );
@@ -909,14 +916,14 @@ it.effect(
 					{ ...dependency, entitySchemaSlug: "bottle", entitySchemaPluginKey: key },
 				],
 				privatePlugins: [
-					{
+					withCatalogs({
 						key,
 						packageId,
 						version: "v1",
 						compiledScripts: [],
 						contentHash: "a".repeat(64),
 						manifest: packageValue.manifest,
-					},
+					}),
 				],
 			};
 			const error = yield* preflightProvenance(
@@ -947,18 +954,18 @@ class FakeRestorePersistence extends Context.Service<
 
 const eventSchema = {
 	pluginId: null,
-	name: "Review",
 	slug: "review",
+	name: { key: "test.review" },
 	propertiesSchema: { fields: {} },
 };
 const bootstrapEntitySchema = {
 	pluginId: null,
 	icon: "record",
-	name: "Bootstrap entity",
 	slug: "bootstrap-entity",
 	mergeIdentityProperties: [],
 	propertiesSchema: { fields: {} },
 	eventSchemas: { review: eventSchema },
+	name: { key: "test.bootstrap-entity" },
 };
 
 const archivedEvent = (id: string): ArchiveEvent => ({
@@ -996,7 +1003,9 @@ const restoreArchivedEvents = (
 				image: null,
 				name: "User",
 				preferences: {
-					language: null,
+					weekStart: null,
+					interfaceLocale: null,
+					contentLanguage: null,
 					reportingTimeZone: UTC,
 					ratingScale: "hundred",
 					disableIntegrations: false,
@@ -1431,7 +1440,9 @@ describe("account backup restore in PostgreSQL", () => {
 										image: null,
 										name: "Archived",
 										preferences: {
-											language: null,
+											weekStart: null,
+											interfaceLocale: null,
+											contentLanguage: null,
 											reportingTimeZone: UTC,
 											ratingScale: "hundred",
 											disableIntegrations: false,
@@ -1515,14 +1526,18 @@ describe("account backup restore in PostgreSQL", () => {
 						...basePackage.manifest,
 						signalSchemas: [
 							primarySignal,
-							{ ...primarySignal, name: "Other signal", slug: "portable.other-signal" },
+							{
+								...primarySignal,
+								slug: "portable.other-signal",
+								name: { key: "test.other-signal" },
+							},
 						],
 						userSettingsSchema: {
 							unknownKeys: "strict",
 							fields: {
 								preference: {
 									type: "boolean",
-									label: "Preference",
+									label: { key: "test.preference" },
 									description: "Portable plugin preference",
 								},
 							},
@@ -1530,11 +1545,11 @@ describe("account backup restore in PostgreSQL", () => {
 						configSchema: {
 							unknownKeys: "strict",
 							fields: {
-								unit: { label: "Unit", type: "string", description: "Unit" },
+								unit: { type: "string", description: "Unit", label: { key: "test.unit" } },
 								token: {
 									secret: true,
 									type: "string",
-									label: "Token",
+									label: { key: "test.token" },
 									description: "Private token",
 									validation: { required: true },
 								},
@@ -1561,6 +1576,7 @@ describe("account backup restore in PostgreSQL", () => {
 						manifest,
 						contentHash: pluginContentHash(
 							manifest,
+							manifestCatalogs(manifest),
 							basePackage.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
 								entry,
 								format: compiledFormat,
@@ -1610,7 +1626,9 @@ describe("account backup restore in PostgreSQL", () => {
 							image: null,
 							name: "Restored",
 							preferences: {
-								language: null,
+								weekStart: null,
+								interfaceLocale: null,
+								contentLanguage: null,
 								reportingTimeZone: UTC,
 								ratingScale: "hundred",
 								disableIntegrations: false,
@@ -1760,14 +1778,16 @@ describe("account backup restore in PostgreSQL", () => {
 					const persistence = yield* BackupRestorePersistence;
 					const base = revisionPackage("shared", "v1", "bottle");
 					const normalized = normalizePluginPackage(
-						yield* normalizePluginSource({
-							manifest: base.manifest,
-							compiledScripts: base.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
-								entry,
-								format: compiledFormat,
-								javascript: compiledCode,
-							})),
-						}),
+						yield* normalizePluginSource(
+							withCatalogs({
+								manifest: base.manifest,
+								compiledScripts: base.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
+									entry,
+									format: compiledFormat,
+									javascript: compiledCode,
+								})),
+							}),
+						),
 					);
 					const packageId = normalized.manifest.metadata.packageId;
 					const id = yield* session.transaction(
@@ -1906,16 +1926,20 @@ describe("account backup restore in PostgreSQL", () => {
 							});
 							const manifest: PluginManifest = {
 								...base.manifest,
-								metadata: { ...base.manifest.metadata, name: "Whiskey" },
+								metadata: { ...base.manifest.metadata, name: { key: "test.whiskey" } },
 								integrationProviders: [
 									{
 										lot: "push",
 										slug: "import",
-										name: "Import",
-										description: "Owned integration",
+										name: { key: "test.import" },
+										description: { key: "test.owned-integration" },
 										settingsSchema: {
 											fields: {
-												note: { label: "Note", type: "string", description: "Opaque note" },
+												note: {
+													type: "string",
+													description: "Opaque note",
+													label: { key: "test.note" },
+												},
 											},
 										},
 									},
@@ -1926,15 +1950,17 @@ describe("account backup restore in PostgreSQL", () => {
 										sortOrder: 0,
 										arguments: {},
 										slug: "all-bottles",
-										name: "All bottles",
 										dataSources: authoredQuery,
+										name: { key: "test.all-bottles" },
 										renderer: { kind: "kernel", name: "results-table" },
 										settings: {
 											pageSize: 50,
 											entityLink: null,
 											rowKeyFields: ["id"],
 											sourceName: "records",
-											columns: [{ label: "Owner", field: "owner", displayKind: "text" }],
+											columns: [
+												{ field: "owner", displayKind: "text", label: { key: "test.owner" } },
+											],
 										},
 									},
 								],
@@ -1942,9 +1968,9 @@ describe("account backup restore in PostgreSQL", () => {
 									{
 										icon: "calendar",
 										startAt: "startAt",
-										name: "Bottle dates",
 										slug: "bottle-dates",
 										precision: "instant",
+										name: { key: "test.bottle-dates" },
 										subject: {
 											entityAlias: "owned",
 											schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("bottle") }],
@@ -1959,14 +1985,16 @@ describe("account backup restore in PostgreSQL", () => {
 									},
 								],
 							};
-							const source = yield* normalizePluginSource({
-								manifest,
-								compiledScripts: base.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
-									entry,
-									format: compiledFormat,
-									javascript: compiledCode,
-								})),
-							});
+							const source = yield* normalizePluginSource(
+								withCatalogs({
+									manifest,
+									compiledScripts: base.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
+										entry,
+										format: compiledFormat,
+										javascript: compiledCode,
+									})),
+								}),
+							);
 							const packageValue = normalizePluginPackage(source);
 							const sourceId = yield* session.transaction(
 								plugins
@@ -2184,7 +2212,7 @@ describe("account backup restore in PostgreSQL", () => {
 												entityLink: null,
 												rowKeyFields: ["id"],
 												sourceName: "records",
-												columns: [{ label: "Owner", field: "owner", displayKind: "text" }],
+												columns: [{ field: "owner", label: "Owner", displayKind: "text" }],
 											},
 											arguments:
 												firstViewId === undefined
@@ -2470,7 +2498,9 @@ describe("account backup restore in PostgreSQL", () => {
 						expect(restoredViews.filter((view) => !view.isBuiltin)).toHaveLength(6);
 						for (const view of restoredViews) {
 							if (!view.isBuiltin) {
-								const index = view.name === "A" ? 0 : 1;
+								const viewName = view.name;
+								assert(typeof viewName === "string");
+								const index = viewName === "A" ? 0 : 1;
 								const source = sources[index];
 								assert(source);
 								const destinationId = ids.get(
@@ -2480,10 +2510,10 @@ describe("account backup restore in PostgreSQL", () => {
 									}),
 								);
 
-								const selectedEntity = restoredEntities.find((entity) => entity.name === view.name);
+								const selectedEntity = restoredEntities.find((entity) => entity.name === viewName);
 								assert(selectedEntity && destinationId);
 								const firstView = restoredViews.find(
-									(candidate) => candidate.slug === `bottles-${view.name.toLowerCase()}`,
+									(candidate) => candidate.slug === `bottles-${viewName.toLowerCase()}`,
 								);
 								assert(firstView);
 								expect(view.arguments).toEqual({
@@ -2742,8 +2772,8 @@ const assetDefinitions: DefinitionSnapshot = {
 			eventSchemas: {},
 			slug: assetSchemaSlug,
 			pluginId: assetPluginId,
-			name: "Asset dependency",
 			mergeIdentityProperties: [],
+			name: { key: "test.asset-dependency" },
 			propertiesSchema: assetPropertiesSchema,
 		},
 	},
@@ -2816,7 +2846,9 @@ const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 		image: null,
 		name: "User",
 		preferences: {
-			language: null,
+			weekStart: null,
+			interfaceLocale: null,
+			contentLanguage: null,
 			reportingTimeZone: UTC,
 			ratingScale: "hundred",
 			disableIntegrations: false,
@@ -2932,7 +2964,7 @@ layer(assetRestoreLayer("user-id"))((test) => {
 							],
 						}),
 					),
-					badRequest("Backup saved view definition is invalid"),
+					archiveError("invalid_entry", "Backup saved view definition is invalid"),
 				);
 			}),
 		testTimeout,

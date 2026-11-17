@@ -1,8 +1,9 @@
-import { InternalError, internalError } from "@ryot-app/contract/errors";
+import { InternalError } from "@ryot-app/contract/errors";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, FileSystem, Layer, Result, Schema, Stream } from "effect";
 
+import { unexpected } from "#lib/domain/logged-rejection";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -39,15 +40,13 @@ export const ExportBackupJob = makeJobKind("backup-export", {
 
 const asExportError = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 	effect.pipe(
-		Effect.tapError((error) => Effect.logError("backup export operation failed", error)),
-		Effect.mapError((error) =>
-			error instanceof BackupArchiveError ? error : internalError(message),
+		Effect.tapError((error) =>
+			Effect.logError(`backup export operation failed: ${message}`, error),
 		),
+		Effect.mapError((error) => (error instanceof BackupArchiveError ? error : unexpected())),
 		Effect.catchDefect((defect) =>
-			Effect.logError("backup export operation defect", defect).pipe(
-				Effect.andThen(
-					Effect.fail(defect instanceof BackupArchiveError ? defect : internalError(message)),
-				),
+			Effect.logError(`backup export operation defect: ${message}`, defect).pipe(
+				Effect.andThen(Effect.fail(defect instanceof BackupArchiveError ? defect : unexpected())),
 			),
 		),
 	);
@@ -88,13 +87,13 @@ export const ExportBackupOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					const run = yield* repository.getRunById(payload);
 					if (run?.kind !== "export" || run.status === "failed") {
-						return yield* internalError("Backup export run is unavailable");
+						return yield* Effect.die("Backup export run is unavailable");
 					}
 					if (run.status === "completed") {
 						return false;
 					}
 					if (!(yield* repository.markRunRunning({ ...payload, progress: 5 }))) {
-						return yield* internalError("Backup export run could not start");
+						return yield* Effect.die("Backup export run could not start");
 					}
 					return true;
 				}),
@@ -110,7 +109,7 @@ export const ExportBackupOperationsLive = Layer.effect(
 							key: existing.artifactKey,
 							provider: existing.artifactProvider,
 							expiresAt:
-								existing.expiresAt ?? (yield* internalError("Backup artifact expiry is missing")),
+								existing.expiresAt ?? (yield* Effect.die("Backup artifact expiry is missing")),
 						};
 					}
 					yield* staging.recoverAbandoned();
@@ -151,7 +150,7 @@ export const ExportBackupOperationsLive = Layer.effect(
 							existingAsset &&
 							(existingAsset.size !== asset.size || existingAsset.contentType !== asset.contentType)
 						) {
-							return yield* internalError("Backup asset metadata is inconsistent");
+							return yield* Effect.die("Backup asset metadata is inconsistent");
 						}
 						assetsBySha.set(asset.sha256, asset);
 					}
@@ -174,7 +173,7 @@ export const ExportBackupOperationsLive = Layer.effect(
 					}
 					const run = yield* repository.getRunById(payload);
 					if (!run) {
-						return yield* internalError("Backup export run is unavailable");
+						return yield* Effect.die("Backup export run is unavailable");
 					}
 					const key = `temporary/${payload.runId}.zip`;
 					const locator = { key, type: "local" } as const;
@@ -240,7 +239,7 @@ export const ExportBackupOperationsLive = Layer.effect(
 						expiresAt: dateFromMillis(Date.parse(artifact.expiresAt)),
 					});
 					if (!completed && !(yield* repository.getArtifactById(payload))) {
-						return yield* internalError("Backup export could not be completed");
+						return yield* Effect.die("Backup export could not be completed");
 					}
 					return yield* Effect.void;
 				}),

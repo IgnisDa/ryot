@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import { BunFileSystem } from "@effect/platform-bun";
-import { badRequest } from "@ryot-app/contract/errors";
 import type { AssistantToolCall } from "@ryot-app/contract/modules/assistant/schemas";
 import type { PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
@@ -888,7 +887,7 @@ layer(services)((test) => {
 							snapshot,
 						),
 					),
-					badRequest("Backup assistant turn ownership is inconsistent"),
+					archiveError("invalid_entry", "Backup assistant turn ownership is inconsistent"),
 				);
 				yield* session.run((db) =>
 					db

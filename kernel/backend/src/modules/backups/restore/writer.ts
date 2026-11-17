@@ -1,4 +1,4 @@
-import { badRequest, DbError } from "@ryot-app/contract/errors";
+import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import {
@@ -71,6 +71,7 @@ import {
 	collectReferencedPluginKeys,
 	importQueryPluginReferences,
 	importRendererSettings,
+	restoredDisplayText,
 	rewriteEventReferences,
 	rewriteRelationshipReferences,
 } from "../archive/references";
@@ -158,7 +159,10 @@ const mappedPluginId = Effect.fn(function* (
 		return null;
 	}
 	const pluginId = pluginIdByKey.get(key);
-	return pluginId ?? (yield* badRequest(`Backup references unmapped plugin key '${key}'`));
+	return (
+		pluginId ??
+		(yield* archiveError("invalid_entry", `Backup references unmapped plugin key '${key}'`))
+	);
 });
 
 const mappedOwner = (pluginIdByKey: ReadonlyMap<string, string>, key: null | string) =>
@@ -214,9 +218,9 @@ const parseDate = (value: string) => new Date(value);
 
 const decodePointerSegment = (value: string) => value.replaceAll("~1", "/").replaceAll("~0", "~");
 
-const isRequiredSecretPath = (path: string, schema: AppSchema) => {
+const isRequiredSecretPath = (path: string, schema: AppSchema<unknown>) => {
 	const segments = path.startsWith("/") ? path.slice(1).split("/").map(decodePointerSegment) : [];
-	let definition: undefined | AppPropertyDefinition = segments[0]
+	let definition: undefined | AppPropertyDefinition<unknown> = segments[0]
 		? schema.fields[segments[0]]
 		: undefined;
 	for (const segment of segments.slice(1)) {
@@ -240,7 +244,7 @@ export const resolveRestoredInstallationLifecycle = (
 		| "configuredSecretPaths"
 		| "incompatibilityReason"
 	>,
-	schema: AppSchema,
+	schema: AppSchema<unknown>,
 	redactedConfigNeedsConfiguration: boolean,
 	systemIdentityConflict: boolean,
 ) => {
@@ -273,7 +277,7 @@ export const resolveRestoredIntegrationDisabled = (
 		readonly isDisabled: boolean;
 		readonly configuredSecretPaths: ReadonlyArray<string>;
 	},
-	schema: AppSchema,
+	schema: AppSchema<unknown>,
 ) =>
 	integration.isDisabled ||
 	Object.values(schema.fields).some(
@@ -281,12 +285,16 @@ export const resolveRestoredIntegrationDisabled = (
 	) ||
 	integration.configuredSecretPaths.some((path) => isRequiredSecretPath(path, schema));
 
-const validateProperties = (properties: unknown, propertiesSchema: AppSchema, kind: string) =>
+const validateProperties = (
+	properties: unknown,
+	propertiesSchema: AppSchema<unknown>,
+	kind: string,
+) =>
 	parseAppSchemaProperties({ kind, properties, propertiesSchema }).pipe(
-		Effect.mapError((error) => badRequest(error.message)),
+		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
 	);
 
-const emptyPluginUserSettingsSchema: AppSchema = { fields: {}, unknownKeys: "strict" };
+const emptyPluginUserSettingsSchema: AppSchema<unknown> = { fields: {}, unknownKeys: "strict" };
 
 type ArchivePropertyReference = {
 	readonly id: string;
@@ -294,9 +302,9 @@ type ArchivePropertyReference = {
 	readonly kind: "event-id" | "entity-id" | "relationship-id";
 };
 
-const collectPropertyReferences = (properties: unknown, schema: AppSchema) => {
+const collectPropertyReferences = (properties: unknown, schema: AppSchema<unknown>) => {
 	const references: ArchivePropertyReference[] = [];
-	const visit = (definition: AppPropertyDefinition, value: unknown) => {
+	const visit = (definition: AppPropertyDefinition<unknown>, value: unknown) => {
 		if (
 			definition.type === "string" &&
 			definition.reference &&
@@ -424,7 +432,7 @@ const foldValueTokens = (value: unknown, tokens = new Set<string>()) => {
 const validateIntegrationSettings = (
 	integration: ArchiveRecords["integrations"][number],
 	properties: Record<string, unknown>,
-	propertiesSchema: AppSchema,
+	propertiesSchema: AppSchema<unknown>,
 ) =>
 	parseAppSchemaProperties({
 		properties,
@@ -433,16 +441,16 @@ const validateIntegrationSettings = (
 		allowedMissingRequiredPaths: integration.configuredSecretPaths.map((path) =>
 			path.slice(1).split("/").map(decodePointerSegment),
 		),
-	}).pipe(Effect.mapError((error) => badRequest(error.message)));
+	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 
 export const resolveRestoredPluginUserSettings = Effect.fn(function* (
 	userSettings: Record<string, unknown>,
-	settingsSchema: AppSchema | undefined,
+	settingsSchema: undefined | AppSchema<unknown>,
 ) {
 	return yield* resolvePluginUserSettings(
 		settingsSchema ?? emptyPluginUserSettingsSchema,
 		userSettings,
-	).pipe(Effect.mapError((error) => badRequest(error.message)));
+	).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 });
 
 const bootstrapSchemaIdentity = (entitySchemaSlug: string, entitySchemaPluginId: null | string) =>
@@ -477,7 +485,8 @@ export const resolveBootstrapEntityMappings = Effect.fn(function* (
 		if (entitySchemaPluginKey !== null) {
 			const resolved = pluginIdByKey.get(entitySchemaPluginKey);
 			if (!resolved) {
-				return yield* badRequest(
+				return yield* archiveError(
+					"invalid_entry",
 					`Backup references unmapped plugin key '${entitySchemaPluginKey}'`,
 				);
 			}
@@ -513,10 +522,10 @@ export const resolveBootstrapEntityMappings = Effect.fn(function* (
 		const archivedEntity = archivedEntities[0];
 		const targetEntity = targetEntities[0];
 		if (archivedEntities.length !== 1 || targetEntities.length !== 1) {
-			return yield* badRequest("Backup bootstrap entity identity is ambiguous");
+			return yield* archiveError("invalid_entry", "Backup bootstrap entity identity is ambiguous");
 		}
 		if (!archivedEntity || !targetEntity) {
-			return yield* badRequest("Backup bootstrap entity mapping is unavailable");
+			return yield* archiveError("invalid_entry", "Backup bootstrap entity mapping is unavailable");
 		}
 		mappings.set(archivedEntity.id, EntityId.make(targetEntity.id));
 	}
@@ -531,7 +540,10 @@ export const assertDependencySchemaOwnership = Effect.fn(function* (
 		(dependency.identity.kind === "provider" || dependency.identity.kind === "bootstrap") &&
 		schemaPluginKey !== dependency.identity.pluginKey
 	) {
-		return yield* badRequest("Backup global dependency schema is not owned by its plugin");
+		return yield* archiveError(
+			"invalid_entry",
+			"Backup global dependency schema is not owned by its plugin",
+		);
 	}
 	if (
 		dependency.identity.kind === "provider" &&
@@ -539,7 +551,10 @@ export const assertDependencySchemaOwnership = Effect.fn(function* (
 			dependency.provider.pluginKey !== dependency.identity.pluginKey ||
 			dependency.provider.providerSlug !== dependency.identity.providerSlug)
 	) {
-		return yield* badRequest("Backup provider dependency provenance is inconsistent");
+		return yield* archiveError(
+			"invalid_entry",
+			"Backup provider dependency provenance is inconsistent",
+		);
 	}
 	if (
 		dependency.identity.kind === "bootstrap" &&
@@ -547,10 +562,16 @@ export const assertDependencySchemaOwnership = Effect.fn(function* (
 			dependency.externalId !== dependency.identity.externalId ||
 			dependency.entitySchemaSlug !== dependency.identity.entitySchemaSlug)
 	) {
-		return yield* badRequest("Backup bootstrap dependency identity is inconsistent");
+		return yield* archiveError(
+			"invalid_entry",
+			"Backup bootstrap dependency identity is inconsistent",
+		);
 	}
 	if (dependency.identity.kind === "unmanaged" && dependency.provider !== null) {
-		return yield* badRequest("Backup unmanaged dependency has provider provenance");
+		return yield* archiveError(
+			"invalid_entry",
+			"Backup unmanaged dependency has provider provenance",
+		);
 	}
 	return yield* Effect.void;
 });
@@ -586,10 +607,13 @@ export const preflightProvenance = Effect.fn(function* (
 		kind: string,
 	) {
 		if (!schemaDefinition) {
-			return yield* badRequest(`Backup references an unavailable ${kind}`);
+			return yield* archiveError("invalid_entry", `Backup references an unavailable ${kind}`);
 		}
 		if ((yield* mappedPluginId(pluginIdByKey, key)) !== (schemaDefinition.pluginId ?? null)) {
-			return yield* badRequest(`Backup ${kind} provenance has the wrong plugin owner`);
+			return yield* archiveError(
+				"invalid_entry",
+				`Backup ${kind} provenance has the wrong plugin owner`,
+			);
 		}
 		return yield* Effect.void;
 	});
@@ -622,7 +646,10 @@ export const preflightProvenance = Effect.fn(function* (
 			const key = pluginPackageKey(imported.reference);
 			yield* mappedPluginId(pluginIdByKey, key);
 			if (!contracts.get(key)?.client?.exports?.[imported.exportName]) {
-				return yield* badRequest("Backup client dependency references an unavailable export");
+				return yield* archiveError(
+					"invalid_entry",
+					"Backup client dependency references an unavailable export",
+				);
 			}
 		}
 	}
@@ -639,7 +666,8 @@ export const preflightProvenance = Effect.fn(function* (
 					.get(provider.pluginKey)
 					?.providers.some(({ slug }) => slug === provider.providerSlug)
 			) {
-				return yield* badRequest(
+				return yield* archiveError(
+					"invalid_entry",
 					`Backup provider provenance is not declared by the owner of '${schemaSlug}'`,
 				);
 			}
@@ -657,7 +685,7 @@ export const preflightProvenance = Effect.fn(function* (
 				installation.configuredSecretPaths,
 				installation.lifecycleIntent === "needs-configuration" ||
 					installation.lifecycleIntent === "incompatible",
-			).pipe(Effect.mapError((error) => badRequest(error.message)));
+			).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 		}
 		yield* resolveRestoredPluginUserSettings(
 			installation.userSettings,
@@ -678,7 +706,10 @@ export const preflightProvenance = Effect.fn(function* (
 				: contracts.get(integration.packageKey)?.integrationProviders,
 		);
 		if (!settingsSchema) {
-			return yield* badRequest("Backup integration provider is not declared by its owner");
+			return yield* archiveError(
+				"invalid_entry",
+				"Backup integration provider is not declared by its owner",
+			);
 		}
 		yield* parseAppSchemaProperties({
 			kind: "Integration settings",
@@ -687,7 +718,7 @@ export const preflightProvenance = Effect.fn(function* (
 			allowedMissingRequiredPaths: integration.configuredSecretPaths.map((path) =>
 				path.slice(1).split("/").map(decodePointerSegment),
 			),
-		}).pipe(Effect.mapError((error) => badRequest(error.message)));
+		}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	}
 	for (const entity of records.entities) {
 		const schema =
@@ -697,7 +728,10 @@ export const preflightProvenance = Effect.fn(function* (
 		yield* assertOwner(entity.entitySchemaPluginKey, schema, "entity schema");
 		yield* assertProvider(entity.provider, entity.entitySchemaPluginKey, entity.entitySchemaSlug);
 		if (entity.provider !== null && !privateKeys.has(entity.provider.pluginKey)) {
-			return yield* badRequest("Backup user entity cannot use a system provider");
+			return yield* archiveError(
+				"invalid_entry",
+				"Backup user entity cannot use a system provider",
+			);
 		}
 		if (schema) {
 			yield* validateProperties(entity.properties, schema.propertiesSchema, "Entity properties");
@@ -708,7 +742,10 @@ export const preflightProvenance = Effect.fn(function* (
 			dependency.entitySchemaPluginKey !== null &&
 			privateKeys.has(dependency.entitySchemaPluginKey)
 		) {
-			return yield* badRequest("Backup private entity cannot request global scope");
+			return yield* archiveError(
+				"invalid_entry",
+				"Backup private entity cannot request global scope",
+			);
 		}
 		const schema =
 			definitions.entitySchemas[
@@ -731,7 +768,10 @@ export const preflightProvenance = Effect.fn(function* (
 						provider.rootEntitySchemaSlug === dependency.entitySchemaSlug,
 				)
 		) {
-			return yield* badRequest("Backup provider reference does not match its declared root schema");
+			return yield* archiveError(
+				"invalid_entry",
+				"Backup provider reference does not match its declared root schema",
+			);
 		}
 		if (schema && dependency.kind === "snapshot") {
 			yield* validateProperties(
@@ -755,7 +795,10 @@ export const preflightProvenance = Effect.fn(function* (
 	}
 	for (const relationship of records.relationships) {
 		if (relationship.scope !== "user") {
-			return yield* badRequest("Backup relationship cannot request global scope");
+			return yield* archiveError(
+				"invalid_entry",
+				"Backup relationship cannot request global scope",
+			);
 		}
 		const schema =
 			definitions.relationshipSchemas[
@@ -778,16 +821,25 @@ export const preflightProvenance = Effect.fn(function* (
 			] as const) {
 				const endpoint = entitiesById.get(id) ?? endpointEntities.get(id);
 				if (!endpoint) {
-					return yield* badRequest("Backup relationship references an unknown entity");
+					return yield* archiveError(
+						"invalid_entry",
+						"Backup relationship references an unknown entity",
+					);
 				}
 				if (
 					(relationship.relationshipSchemaPluginKey !== null || slug !== null) &&
 					endpoint.entitySchemaPluginKey !== relationship.relationshipSchemaPluginKey
 				) {
-					return yield* badRequest("Backup relationship endpoint has the wrong schema owner");
+					return yield* archiveError(
+						"invalid_entry",
+						"Backup relationship endpoint has the wrong schema owner",
+					);
 				}
 				if (slug !== null && endpoint.entitySchemaSlug !== slug) {
-					return yield* badRequest("Backup relationship endpoint has the wrong entity schema");
+					return yield* archiveError(
+						"invalid_entry",
+						"Backup relationship endpoint has the wrong entity schema",
+					);
 				}
 			}
 		}
@@ -803,19 +855,29 @@ export const preflightProvenance = Effect.fn(function* (
 	}
 	for (const publication of records.publications) {
 		if ((publication.definition.mode === "snapshot") !== (publication.snapshot !== null)) {
-			return yield* badRequest("Backup publication snapshot mode is inconsistent");
+			return yield* archiveError(
+				"invalid_entry",
+				"Backup publication snapshot mode is inconsistent",
+			);
 		}
 		yield* importQueryPluginReferences(publication.document, pluginIdByKey);
 		yield* Effect.fromResult(
 			bindPublicationArguments(publication.document.parameters, publication.definition),
-		).pipe(Effect.mapError(() => badRequest("Backup publication arguments are invalid")));
+		).pipe(
+			Effect.mapError(() =>
+				archiveError("invalid_entry", "Backup publication arguments are invalid"),
+			),
+		);
 		if (publication.definition.page.kind === "kernel" && !publication.snapshot) {
 			const canonical = kernelPublicationDocument(definitions);
 			if (
 				!canonical ||
 				stableStringify(canonical.parameters) !== stableStringify(publication.document.parameters)
 			) {
-				return yield* badRequest("Backup kernel publication parameters are invalid");
+				return yield* archiveError(
+					"invalid_entry",
+					"Backup kernel publication parameters are invalid",
+				);
 			}
 		}
 		for (const values of yield* publicationArguments(publication)) {
@@ -828,7 +890,10 @@ export const preflightProvenance = Effect.fn(function* (
 						records.entities.find(({ id }) => id === source.collectionId) ??
 						endpointEntities.get(source.collectionId);
 					if (entity?.entitySchemaSlug !== "collection" || entity.entitySchemaPluginKey !== null) {
-						return yield* badRequest("Backup publication references an unavailable collection");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup publication references an unavailable collection",
+						);
 					}
 				}
 				if (source.kind === "saved-view" && source.reference.kind !== "custom") {
@@ -859,7 +924,7 @@ export const preflightProvenance = Effect.fn(function* (
 					view.filter !== undefined ||
 					view.sort !== undefined)
 			) {
-				return yield* badRequest("Backup page view configuration is invalid");
+				return yield* archiveError("invalid_entry", "Backup page view configuration is invalid");
 			}
 			if (view.pluginKey !== null) {
 				yield* mappedPluginId(pluginIdByKey, view.pluginKey);
@@ -881,7 +946,7 @@ export const preflightProvenance = Effect.fn(function* (
 			if (isEntityBrowserRenderer(view.renderer)) {
 				const decoded = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(
 					settings,
-				).pipe(Effect.mapError((error) => badRequest(error.message)));
+				).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 				const schemas = [
 					...decoded.subject.schemas,
 					...(decoded.addAction?.type === "provider-search" ? [decoded.addAction.schema] : []),
@@ -891,7 +956,10 @@ export const preflightProvenance = Effect.fn(function* (
 						({ slug, owner }) => !definitions.entitySchemas[definitionKey("entity", owner, slug)],
 					)
 				) {
-					return yield* badRequest("Backup renderer references an unavailable entity schema");
+					return yield* archiveError(
+						"invalid_entry",
+						"Backup renderer references an unavailable entity schema",
+					);
 				}
 			}
 			const renderer: SavedViewRenderer =
@@ -901,7 +969,7 @@ export const preflightProvenance = Effect.fn(function* (
 							exportName: view.renderer.exportName,
 							pluginId:
 								(yield* mappedPluginId(pluginIdByKey, view.renderer.pluginKey)) ??
-								(yield* badRequest("Backup renderer owner is unavailable")),
+								(yield* archiveError("invalid_entry", "Backup renderer owner is unavailable")),
 						}
 					: view.renderer;
 			const page =
@@ -911,7 +979,7 @@ export const preflightProvenance = Effect.fn(function* (
 			if (dataSources !== null) {
 				dataSources = yield* Effect.fromResult(
 					deriveSavedViewQueries(renderer, settings, dataSources, true),
-				).pipe(Effect.mapError((error) => badRequest(error.message)));
+				).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 			}
 
 			yield* Effect.fromResult(
@@ -930,7 +998,11 @@ export const preflightProvenance = Effect.fn(function* (
 						}),
 					),
 				}),
-			).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
+			).pipe(
+				Effect.mapError(() =>
+					archiveError("invalid_entry", "Backup saved view definition is invalid"),
+				),
+			);
 		}
 	}
 	for (const subscription of records.notificationSubscriptions) {
@@ -966,7 +1038,10 @@ export const preflightProvenance = Effect.fn(function* (
 					!endpointEntities.has(event.sessionEntityId)) ||
 				(!entitiesById.has(event.entityId) && !endpointEntities.has(event.entityId))
 			) {
-				return yield* badRequest("Backup event session references an unknown entity");
+				return yield* archiveError(
+					"invalid_entry",
+					"Backup event session references an unknown entity",
+				);
 			}
 			const schemaKey = entitySchemaById.get(event.entityId);
 			const eventDefinition = schemaKey
@@ -998,7 +1073,7 @@ const restoredSavedViewReference = Effect.fn(function* (
 		const savedViewId = customViewIds.get(reference.savedViewId);
 		return savedViewId
 			? ({ kind: reference.kind, savedViewId: SavedViewId.make(savedViewId) } as const)
-			: yield* badRequest(`Backup ${kind} mapping is incomplete`);
+			: yield* archiveError("invalid_entry", `Backup ${kind} mapping is incomplete`);
 	}
 	return builtinSavedViewReference(
 		yield* mappedPluginId(pluginIdByKey, reference.kind === "plugin" ? reference.pluginKey : null),
@@ -1079,7 +1154,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 				const source = definitionSourceFromSnapshot(definitions);
 				const archivedDefinitions = yield* Effect.try({
-					catch: (error) => badRequest(String(error)),
+					catch: (error) => archiveError("invalid_entry", unknownToMessage(error)),
 					try: () =>
 						buildDefinitionSnapshot(
 							mergeManifestDefinitions(
@@ -1096,7 +1171,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				});
 				for (const key of collectReferencedPluginKeys(records)) {
 					if (!pluginIdByKey.has(key)) {
-						return yield* badRequest(`Backup references undeclared plugin key '${key}'`);
+						return yield* archiveError(
+							"invalid_entry",
+							`Backup references undeclared plugin key '${key}'`,
+						);
 					}
 				}
 				yield* preflightProvenance(
@@ -1353,7 +1431,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						sourceNamespace: string,
 						sourceId: string,
 						properties: unknown,
-						propertiesSchema: AppSchema,
+						propertiesSchema: AppSchema<unknown>,
 					) => {
 						if (!isArchiveJsonObject(properties)) {
 							return;
@@ -1399,7 +1477,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 									add("assistant", row.id, ref.namespace, ref.id, ref.namespace !== "page");
 								}
 								if (value.kind === "call" && value.call.id !== value.id) {
-									return yield* badRequest("Backup assistant call identity is inconsistent");
+									return yield* archiveError(
+										"invalid_entry",
+										"Backup assistant call identity is inconsistent",
+									);
 								}
 								if (value.kind === "call" && value.call.kind === "capability") {
 									const [parentRow] = yield* staging.getRecords(runId, "assistant", [
@@ -1413,7 +1494,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 										parent.call.kind !== "tool" ||
 										parent.turnId !== value.turnId
 									) {
-										return yield* badRequest(
+										return yield* archiveError(
+											"invalid_entry",
 											"Backup assistant capability call parent is inconsistent",
 										);
 									}
@@ -1426,7 +1508,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 										? yield* Schema.decodeUnknownEffect(ArchiveAssistantRecord)(callRow.value)
 										: null;
 									if (call?.kind !== "call" || call.turnId !== value.turnId) {
-										return yield* badRequest("Backup assistant stored output is inconsistent");
+										return yield* archiveError(
+											"invalid_entry",
+											"Backup assistant stored output is inconsistent",
+										);
 									}
 								}
 								if (value.kind === "message" || value.kind === "call" || value.kind === "output") {
@@ -1438,7 +1523,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 											turnRow.value,
 										);
 										if (turn.kind !== "turn" || turn.conversationId !== value.conversationId) {
-											return yield* badRequest("Backup assistant turn ownership is inconsistent");
+											return yield* archiveError(
+												"invalid_entry",
+												"Backup assistant turn ownership is inconsistent",
+											);
 										}
 									}
 								}
@@ -1454,7 +1542,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 											conversation.kind !== "conversation" ||
 											conversation.nextSequence <= value.sequence
 										) {
-											return yield* badRequest("Backup assistant message sequence is inconsistent");
+											return yield* archiveError(
+												"invalid_entry",
+												"Backup assistant message sequence is inconsistent",
+											);
 										}
 									}
 									for (const part of value.parts) {
@@ -1480,7 +1571,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 													(part.kind === "tool-call" &&
 														stableStringify(part.call) !== stableStringify(call.call))
 												) {
-													return yield* badRequest("Backup assistant message call is inconsistent");
+													return yield* archiveError(
+														"invalid_entry",
+														"Backup assistant message call is inconsistent",
+													);
 												}
 											}
 										}
@@ -2015,7 +2109,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 												value.definition.page.pageId,
 											]);
 											if (!pageRow) {
-												return yield* badRequest("Backup publication page is unavailable");
+												return yield* archiveError(
+													"invalid_entry",
+													"Backup publication page is unavailable",
+												);
 											}
 											const page = yield* Schema.decodeUnknownEffect(ArchivePage)(pageRow.value);
 											if (
@@ -2024,7 +2121,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 													stableStringify(page.published.definition.queries) !==
 														stableStringify(value.document))
 											) {
-												return yield* badRequest(
+												return yield* archiveError(
+													"invalid_entry",
 													"Backup publication document does not match its page",
 												);
 											}
@@ -2038,7 +2136,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 													),
 												) > PUBLICATION_RESULT_BYTES
 											) {
-												return yield* badRequest("Backup publication snapshot is too large");
+												return yield* archiveError(
+													"invalid_entry",
+													"Backup publication snapshot is too large",
+												);
 											}
 											yield* readPublicationComposition(value.snapshot, blobs);
 											if (value.snapshot.page) {
@@ -2049,13 +2150,17 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 													stableStringify(page.definition.queries) !==
 														stableStringify(value.document)
 												) {
-													return yield* badRequest(
+													return yield* archiveError(
+														"invalid_entry",
 														"Backup publication snapshot page is inconsistent",
 													);
 												}
 												yield* importPageDefinition(page.definition, pluginIdByKey);
 											} else if (value.definition.page.kind !== "kernel") {
-												return yield* badRequest("Backup publication snapshot page is missing");
+												return yield* archiveError(
+													"invalid_entry",
+													"Backup publication snapshot page is missing",
+												);
 											}
 										}
 									}
@@ -2152,7 +2257,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				const resolved = pluginId
 					? yield* plugins.resolveProviderBySlugs({ pluginId, providerSlug: provider.providerSlug })
 					: null;
-				return resolved ?? (yield* badRequest("Backup requires an unavailable provider"));
+				return (
+					resolved ??
+					(yield* archiveError("invalid_entry", "Backup requires an unavailable provider"))
+				);
 			});
 
 			const buildBatchContext = Effect.fn("BackupRestoreWriter.buildBatchContext")(function* (
@@ -2169,7 +2277,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				const eventIds = new Set<string>();
 				const savedViewIds = new Set<string>();
 				const reminderIds = new Set<string>();
-				const addPropertyRefs = (properties: unknown, propertiesSchema: AppSchema | undefined) => {
+				const addPropertyRefs = (
+					properties: unknown,
+					propertiesSchema: undefined | AppSchema<unknown>,
+				) => {
 					if (!propertiesSchema) {
 						return;
 					}
@@ -2488,7 +2599,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				};
 				const rewriteProperties = (
 					properties: Record<string, unknown>,
-					propertiesSchema: AppSchema,
+					propertiesSchema: AppSchema<unknown>,
 				) =>
 					Effect.gen(function* () {
 						const references = yield* rewritePropertyReferences(
@@ -2504,14 +2615,17 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				for (const entity of records.entities) {
 					const id = context.entityIdMap.get(entity.id);
 					if (!id) {
-						return yield* badRequest("Backup entity mapping is incomplete");
+						return yield* archiveError("invalid_entry", "Backup entity mapping is incomplete");
 					}
 					if (context.bootstrapMappings.has(entity.id)) {
 						continue;
 					}
 					const schema = getEntitySchema(entity.entitySchemaSlug, entity.entitySchemaPluginKey);
 					if (!schema) {
-						return yield* badRequest("Backup references an unavailable entity schema");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup references an unavailable entity schema",
+						);
 					}
 					const provider = yield* resolveProvider(pluginIdByKey, entity.provider);
 					const properties = yield* rewriteProperties(entity.properties, schema.propertiesSchema);
@@ -2533,7 +2647,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								: (pluginIdByKey.get(entity.entitySchemaPluginKey) ?? null),
 					});
 					if (restoredId !== id) {
-						return yield* badRequest("Backup entity mapping changed during restore");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup entity mapping changed during restore",
+						);
 					}
 				}
 
@@ -2544,7 +2661,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					);
 					const target = context.dependencyTargets.get(dependency.id);
 					if (!schema || !target) {
-						return yield* badRequest("Backup dependency mapping is incomplete");
+						return yield* archiveError("invalid_entry", "Backup dependency mapping is incomplete");
 					}
 					if (target.inserted && dependency.kind === "snapshot") {
 						const properties = yield* rewriteProperties(
@@ -2607,7 +2724,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						relationship.relationshipSchemaPluginKey,
 					);
 					if (!schema || relationship.scope !== "user") {
-						return yield* badRequest("Backup relationship mapping is invalid");
+						return yield* archiveError("invalid_entry", "Backup relationship mapping is invalid");
 					}
 					const rewritten = yield* rewriteRelationshipReferences(relationship, context.entityIdMap);
 					const properties = yield* rewriteProperties(
@@ -2624,14 +2741,17 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
 						id:
 							context.relationshipIdMap.get(relationship.id) ??
-							(yield* badRequest("Backup relationship mapping is incomplete")),
+							(yield* archiveError("invalid_entry", "Backup relationship mapping is incomplete")),
 						relationshipSchemaPluginId:
 							relationship.relationshipSchemaPluginKey === null
 								? null
 								: (pluginIdByKey.get(relationship.relationshipSchemaPluginKey) ?? null),
 					});
 					if (restoredId !== context.relationshipIdMap.get(relationship.id)) {
-						return yield* badRequest("Backup relationship mapping changed during restore");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup relationship mapping changed during restore",
+						);
 					}
 				}
 
@@ -2643,7 +2763,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						const parentEntityId =
 							row.parentEntityId === null ? null : context.entityIdMap.get(row.parentEntityId);
 						if (entityId === undefined || parentEntityId === undefined) {
-							return yield* badRequest("Backup reminder entity mapping is incomplete");
+							return yield* archiveError(
+								"invalid_entry",
+								"Backup reminder entity mapping is incomplete",
+							);
 						}
 						yield* persistence.restoreReminder({
 							userId,
@@ -2664,7 +2787,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								row.replacementId === null ? null : context.reminderIds.get(row.replacementId),
 							id:
 								context.reminderIds.get(row.id) ??
-								(yield* badRequest("Backup reminder mapping is incomplete")),
+								(yield* archiveError("invalid_entry", "Backup reminder mapping is incomplete")),
 							originalSchedule: unfinished
 								? {
 										dueAt: row.dueAt,
@@ -2682,16 +2805,25 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				for (const event of events) {
 					const entityId = context.entityIdMap.get(event.entityId);
 					if (!entityId) {
-						return yield* badRequest("Backup event references an unknown entity");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup event references an unknown entity",
+						);
 					}
 					const entitySchemaSlug = context.entitySchemaById.get(entityId);
 					if (!entitySchemaSlug) {
-						return yield* badRequest("Backup event references an unknown entity schema");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup event references an unknown entity schema",
+						);
 					}
 					const propertiesSchema = getEntitySchema(entitySchemaSlug, event.eventSchemaPluginKey)
 						?.eventSchemas[event.eventSchemaSlug]?.propertiesSchema;
 					if (!propertiesSchema) {
-						return yield* badRequest("Backup references an unavailable event schema");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup references an unavailable event schema",
+						);
 					}
 					const rewritten = yield* rewriteEventReferences(
 						event,
@@ -2740,7 +2872,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								definitionKey("saved-view", definitionOwner(pluginId), view.slug)
 							]
 						) {
-							return yield* badRequest("Backup references an unavailable built-in saved view");
+							return yield* archiveError(
+								"invalid_entry",
+								"Backup references an unavailable built-in saved view",
+							);
 						}
 						yield* persistence.restoreBuiltinOverride({
 							userId,
@@ -2754,13 +2889,19 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const pluginInstallationId =
 						view.pluginKey === null ? null : context.installationIdByKey.get(view.pluginKey);
 					if (view.pluginKey !== null && !pluginInstallationId) {
-						return yield* badRequest("Backup saved view installation mapping is invalid");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup saved view installation mapping is invalid",
+						);
 					}
 					let renderer: SavedViewRenderer;
 					if (view.renderer.kind === "plugin") {
 						const pluginId = pluginIdByKey.get(view.renderer.pluginKey);
 						if (!pluginId) {
-							return yield* badRequest("Backup saved view renderer mapping is invalid");
+							return yield* archiveError(
+								"invalid_entry",
+								"Backup saved view renderer mapping is invalid",
+							);
 						}
 						renderer = { pluginId, kind: "plugin", exportName: view.renderer.exportName };
 					} else if (view.renderer.kind === "page") {
@@ -2768,7 +2909,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							kind: "page",
 							pageId:
 								context.pageIds.get(view.renderer.pageId) ??
-								(yield* badRequest("Backup page mapping is incomplete")),
+								(yield* archiveError("invalid_entry", "Backup page mapping is incomplete")),
 						};
 					} else {
 						renderer = view.renderer;
@@ -2795,7 +2936,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (dataSources !== null) {
 						dataSources = yield* Effect.fromResult(
 							deriveSavedViewQueries(renderer, settings, dataSources, true),
-						).pipe(Effect.mapError((error) => badRequest(error.message)));
+						).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 					}
 
 					yield* Effect.fromResult(
@@ -2814,7 +2955,11 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								}),
 							),
 						}),
-					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
+					).pipe(
+						Effect.mapError(() =>
+							archiveError("invalid_entry", "Backup saved view definition is invalid"),
+						),
+					);
 					if (pluginPage?.kind === "page") {
 						yield* assetReferences
 							.lock([
@@ -2832,7 +2977,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						settings,
 						dataSources,
 						slug: view.slug,
-						name: view.name,
 						icon: view.icon,
 						pluginInstallationId,
 						sort: view.sort ?? null,
@@ -2842,12 +2986,13 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						filter: view.filter ?? null,
 						createdAt: parseDate(view.createdAt),
 						updatedAt: parseDate(view.updatedAt),
+						name: yield* restoredDisplayText(pluginIdByKey, view.name),
 						id:
 							context.customViewIds.get(view.id) ??
-							(yield* badRequest("Backup custom view mapping is incomplete")),
+							(yield* archiveError("invalid_entry", "Backup custom view mapping is incomplete")),
 					});
 					if (!restored) {
-						return yield* badRequest("Backup saved view could not be restored");
+						return yield* archiveError("invalid_entry", "Backup saved view could not be restored");
 					}
 				}
 				for (const override of records.calendarSourceOverrides) {
@@ -2858,7 +3003,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							definitionKey("calendar-source", definitionOwner(pluginId), override.slug)
 						]
 					) {
-						return yield* badRequest("Backup references an unavailable calendar source");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup references an unavailable calendar source",
+						);
 					}
 					yield* persistence.restoreCalendarSourceOverride({
 						userId,
@@ -2870,7 +3018,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				for (const publication of records.publications) {
 					const document = yield* importQueryPluginReferences(publication.document, pluginIdByKey);
 					if (!document) {
-						return yield* badRequest("Backup publication document is missing");
+						return yield* archiveError("invalid_entry", "Backup publication document is missing");
 					}
 					const frozen = publication.snapshot !== null;
 					const rewriteArguments = Effect.fnUntraced(function* (
@@ -2914,7 +3062,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							? context.pageIds.get(publication.definition.page.pageId)
 							: null;
 					if (publication.definition.page.kind === "page" && !pageId) {
-						return yield* badRequest("Backup publication page mapping is incomplete");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup publication page mapping is incomplete",
+						);
 					}
 					const definition = {
 						...publication.definition,
@@ -2935,7 +3086,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							artifact =
 								capturedArtifacts.find(
 									(candidate) => candidate.hash === captured.page?.artifact.hash,
-								) ?? (yield* badRequest("Backup snapshot page artifact is missing"));
+								) ??
+								(yield* archiveError("invalid_entry", "Backup snapshot page artifact is missing"));
 							page = {
 								name: captured.page.name,
 								artifactHash: artifact.hash,
@@ -2943,7 +3095,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								revision: captured.page.revision,
 								definitionHash: prepared.definitionHash,
 								authorityRevision: captured.page.authorityRevision,
-								pageId: pageId ?? (yield* badRequest("Backup snapshot page mapping is incomplete")),
+								pageId:
+									pageId ??
+									(yield* archiveError(
+										"invalid_entry",
+										"Backup snapshot page mapping is incomplete",
+									)),
 							};
 						}
 						snapshot = {
@@ -2992,7 +3149,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						pluginInstallationId === undefined ||
 						(integration.packageKey !== null && !plugin)
 					) {
-						return yield* badRequest("Backup integration mapping is invalid");
+						return yield* archiveError("invalid_entry", "Backup integration mapping is invalid");
 					}
 					const providerSpecifics = yield* rewriteProperties(
 						integration.providerSpecifics,
@@ -3025,14 +3182,17 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							? null
 							: pluginIdByKey.get(subscription.signalSchemaPluginKey);
 					if (pluginId === undefined) {
-						return yield* badRequest("Backup subscription mapping is invalid");
+						return yield* archiveError("invalid_entry", "Backup subscription mapping is invalid");
 					}
 					const definition =
 						definitions.signalSchemas[
 							definitionKey("signal", definitionOwner(pluginId), subscription.signalSchemaSlug)
 						];
 					if (!definition) {
-						return yield* badRequest("Backup references an unavailable notification subscription");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup references an unavailable notification subscription",
+						);
 					}
 					const metadataValue =
 						subscription.metadata && isArchiveJsonObject(subscription.metadata)
@@ -3046,7 +3206,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						signalSchemaSlug: SignalSchemaSlug.make(subscription.signalSchemaSlug),
 					});
 					if (!restored) {
-						return yield* badRequest("Backup target is missing a notification subscription");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup target is missing a notification subscription",
+						);
 					}
 				}
 				return yield* Effect.void;
@@ -3102,7 +3265,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 													? null
 													: pluginIdByKey.get(entity.entitySchemaPluginKey);
 											if (pluginId === undefined) {
-												return yield* badRequest("Backup bootstrap schema owner is unavailable");
+												return yield* archiveError(
+													"invalid_entry",
+													"Backup bootstrap schema owner is unavailable",
+												);
 											}
 											const scope = {
 												entitySchemaPluginId: pluginId,
@@ -3188,7 +3354,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 												pluginId === undefined ||
 												(pluginId !== null && !systemIds.has(pluginId))
 											) {
-												return yield* badRequest(
+												return yield* archiveError(
+													"invalid_entry",
 													"Backup global dependency requires verified system ownership",
 												);
 											}
@@ -3272,7 +3439,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				);
 				const rewriteMetadataProperties = (
 					properties: Record<string, unknown>,
-					propertiesSchema: AppSchema,
+					propertiesSchema: AppSchema<unknown>,
 				) =>
 					Effect.gen(function* () {
 						const references = yield* rewritePropertyReferences(
@@ -3297,7 +3464,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const pluginId = pluginIdByKey.get(state.packageKey);
 					const installedPlugin = pluginId ? installedPlugins.get(pluginId) : undefined;
 					if (!pluginId || !installedPlugin || installationIdByKey.has(state.packageKey)) {
-						return yield* badRequest("Backup plugin installation mapping is invalid");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup plugin installation mapping is invalid",
+						);
 					}
 					const config = yield* rewriteMetadataProperties(
 						yield* decodeArchiveJsonObject(state.config).pipe(Effect.orDie),
@@ -3350,7 +3520,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							state.lifecycleIntent === "incompatible",
 					});
 					if (!restored) {
-						return yield* badRequest("Backup plugin installation could not be restored");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup plugin installation could not be restored",
+						);
 					}
 					installationIdByKey.set(state.packageKey, restored.id);
 					activations.push({
@@ -3365,7 +3538,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					[...installationIdByKey].map(([id, destinationId]) => ({ id, destinationId })),
 				);
 				if (!(yield* persistence.restorePortableProfile(userId, metadata.profile))) {
-					return yield* badRequest("Backup user does not exist");
+					return yield* archiveError("invalid_entry", "Backup user does not exist");
 				}
 				return { activations, privateKeys, installationIdByKey };
 			});
@@ -3437,12 +3610,18 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						!installationId ||
 						!(yield* persistence.restoreInstallationHome(userId, installationId, reference))
 					) {
-						return yield* badRequest("Backup installation home saved view could not be restored");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup installation home saved view could not be restored",
+						);
 					}
 				}
 				for (const activation of activations) {
 					if (!(yield* persistence.activateRestored(activation))) {
-						return yield* badRequest("Backup plugin installation could not be activated");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup plugin installation could not be activated",
+						);
 					}
 				}
 				return yield* Effect.void;
@@ -3467,7 +3646,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const eventIds = yield* staging.resolveMappings(runId, "event", tokens);
 					const entityId = entityIds.get(value.entityId);
 					if (entityId === undefined) {
-						return yield* badRequest("Backup fold value entity mapping is incomplete");
+						return yield* archiveError(
+							"invalid_entry",
+							"Backup fold value entity mapping is incomplete",
+						);
 					}
 					yield* persistence.restoreFoldValue({
 						userId,
@@ -3532,7 +3714,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 									publishedDefinitionHash: published?.definitionHash ?? null,
 									id:
 										pageIds.get(value.id) ??
-										(yield* badRequest("Backup page mapping is incomplete")),
+										(yield* archiveError("invalid_entry", "Backup page mapping is incomplete")),
 								},
 								artifact,
 							);
@@ -3704,9 +3886,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							error._tag === "EventBadRequest"
 								? archiveError(
 										"invalid_entry",
-										"message" in error.reason
-											? error.reason.message
-											: "Event group constraints are invalid",
+										"Event group constraints are invalid",
 										"events.ndjson",
 									)
 								: error,

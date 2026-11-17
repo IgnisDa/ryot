@@ -31,12 +31,16 @@ import {
 	EntityBrowserPluginRouteAddAction,
 	EntityBrowserSavedViewSettings,
 	KernelSavedViewRendererName,
+	ResultsTableSavedViewSettings,
+	SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
+import { CompiledCatalog } from "@ryot-app/i18n/catalog";
+import { DateParam, MessageKey, ZonedDateTimeParam } from "@ryot-app/i18n/message";
 import {
 	ClientRuntimeArtifactMetadata,
 	PageClientArtifactMetadata,
@@ -239,6 +243,7 @@ export const ArchivePrivatePlugin = strictStruct({
 	version: Schema.String,
 	manifest: PluginManifest,
 	packageId: PluginPackageId,
+	catalogs: Schema.Record(Schema.String, CompiledCatalog),
 	compiledScripts: Schema.Array(ArchivePluginCompiledScript),
 	compiledClient: Schema.optional(PluginClientArtifactFromBase64),
 });
@@ -374,11 +379,39 @@ export const ArchiveEvent = strictStruct({
 });
 export type ArchiveEvent = typeof ArchiveEvent.Type;
 
+export type ArchiveMessageParam = string | number | DateParam | ArchiveMessage | ZonedDateTimeParam;
+
+export interface ArchiveMessage {
+	readonly key: string;
+	readonly pluginKey: null | string;
+	readonly params?: { readonly [name: string]: ArchiveMessageParam };
+}
+
+export const ArchiveMessage = strictStruct({
+	key: MessageKey,
+	pluginKey: Schema.NullOr(Schema.String),
+	params: Schema.optionalKey(
+		Schema.Record(
+			Schema.String,
+			Schema.Union([
+				Schema.String,
+				Schema.Finite,
+				ZonedDateTimeParam,
+				DateParam,
+				Schema.suspend((): Schema.Codec<ArchiveMessage> => ArchiveMessage),
+			]),
+		),
+	),
+});
+
+export const ArchiveDisplayText = Schema.Union([ArchiveMessage, Schema.String]);
+export type ArchiveDisplayText = string | ArchiveMessage;
+
 const savedViewFields = {
 	id: Schema.String,
 	slug: Schema.String,
-	name: Schema.String,
 	icon: Schema.String,
+	name: ArchiveDisplayText,
 	sortOrder: Schema.Finite,
 	isHidden: Schema.Boolean,
 	createdAt: DataRecordTimestamp,
@@ -406,8 +439,19 @@ export const ArchiveEntitySchemaReference = strictStruct({
 });
 export type ArchiveEntitySchemaReference = typeof ArchiveEntitySchemaReference.Type;
 
+const ArchiveSavedViewTableColumn = strictStruct({
+	...SavedViewTableColumn.fields,
+	label: ArchiveDisplayText,
+});
+
+export const ArchiveResultsTableSavedViewSettings = strictStruct({
+	...ResultsTableSavedViewSettings.fields,
+	columns: Schema.NonEmptyArray(ArchiveSavedViewTableColumn),
+});
+
 export const ArchiveEntityBrowserSavedViewSettings = strictStruct({
 	...EntityBrowserSavedViewSettings.fields,
+	tableColumns: Schema.NullOr(Schema.NonEmptyArray(ArchiveSavedViewTableColumn)),
 	subject: strictStruct({
 		entityAlias: Schema.NonEmptyString,
 		schemas: Schema.NonEmptyArray(ArchiveEntitySchemaReference),

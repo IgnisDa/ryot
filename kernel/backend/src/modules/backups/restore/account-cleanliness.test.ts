@@ -29,6 +29,7 @@ import { CalendarSourcesService } from "#modules/calendar-sources/service";
 import { calendarSourcePackage } from "#modules/calendar-sources/test-support";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
+import { definitionText } from "#modules/definitions/text";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
 	installRevisionPackage,
@@ -109,8 +110,8 @@ const authoredView = (limit = 20) => ({
 	sortOrder: 0,
 	settings: {},
 	arguments: {},
-	name: "Catalog",
 	slug: "catalog",
+	name: { key: "test.catalog" },
 	dataSources: authoredQuery(limit),
 	renderer: { exportName: "catalog", kind: "plugin" as const },
 });
@@ -140,6 +141,7 @@ const builtinView = (
 	isBuiltin: true,
 	createdAt: null,
 	updatedAt: null,
+	name: definitionText(definition.pluginId, definition.name),
 	id: SavedViewId.make(`builtin-${definition.pluginId}-${definition.slug}`),
 	pluginInstallationId: definition.pluginId === null ? null : installationId,
 	reference:

@@ -15,11 +15,20 @@ import { decodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/e
 import {
 	EntityBrowserSavedViewSettings,
 	mapEntityBrowserAddActionSchema,
+	ResultsTableSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isEntityBrowserRenderer } from "@ryot-app/definitions/saved-views";
+import {
+	type DisplayText,
+	isNestedMessage,
+	KERNEL_NAMESPACE,
+	type Message,
+	type MessageParam,
+	unavailableMessage,
+} from "@ryot-app/i18n/message";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Array as Arr, Effect, Result, Schema } from "effect";
@@ -33,10 +42,14 @@ import {
 import { rewriteSavedArgumentSources } from "../saved-arguments";
 import { archiveError, type BackupArchiveError } from "./error";
 import {
+	type ArchiveDisplayText,
 	ArchiveEntityBrowserSavedViewSettings,
 	type ArchiveEvent,
+	type ArchiveMessage,
+	type ArchiveMessageParam,
 	type ArchiveRecords,
 	type ArchiveRelationship,
+	ArchiveResultsTableSavedViewSettings,
 	decodeArchiveJsonObject,
 	isArchiveJsonObject,
 } from "./schemas";
@@ -45,11 +58,99 @@ import { decodeArchiveJson } from "./streaming";
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
 
+/** A message from a plugin the backup does not carry is archived as `message.unavailable`. */
+export const archiveMessage = (pluginKeys: ReferenceMap, message: Message): ArchiveMessage => {
+	const pluginKey =
+		message.namespace === KERNEL_NAMESPACE ? null : pluginKeys.get(message.namespace);
+	if (pluginKey === undefined) {
+		return { pluginKey: null, key: unavailableMessage.key };
+	}
+	if (message.params === undefined) {
+		return { pluginKey, key: message.key };
+	}
+	const params: Record<string, ArchiveMessageParam> = {};
+	for (const [name, value] of Object.entries(message.params)) {
+		params[name] = isNestedMessage(value) ? archiveMessage(pluginKeys, value) : value;
+	}
+	return { params, pluginKey, key: message.key };
+};
+
+export const archiveDisplayText = (
+	pluginKeys: ReferenceMap,
+	text: DisplayText,
+): ArchiveDisplayText => (typeof text === "string" ? text : archiveMessage(pluginKeys, text));
+
+const restoredMessage = (
+	pluginIds: ReferenceMap,
+	message: ArchiveMessage,
+): Effect.Effect<Message, BackupArchiveError> =>
+	Effect.gen(function* () {
+		const namespace =
+			message.pluginKey === null ? KERNEL_NAMESPACE : pluginIds.get(message.pluginKey);
+		if (namespace === undefined) {
+			return yield* archiveError(
+				"missing_reference_mapping",
+				`Backup message references unmapped plugin key '${message.pluginKey}'`,
+			);
+		}
+		if (message.params === undefined) {
+			return { namespace, key: message.key };
+		}
+		const params: Record<string, MessageParam> = {};
+		for (const [name, value] of Object.entries(message.params)) {
+			params[name] = isNestedMessage(value) ? yield* restoredMessage(pluginIds, value) : value;
+		}
+		return { params, namespace, key: message.key };
+	});
+
+export const restoredDisplayText = (
+	pluginIds: ReferenceMap,
+	text: ArchiveDisplayText,
+): Effect.Effect<DisplayText, BackupArchiveError> =>
+	typeof text === "string" ? Effect.succeed(text) : restoredMessage(pluginIds, text);
+
+const archiveMessagePluginKeys = (text: ArchiveDisplayText, add: (key: null | string) => void) => {
+	if (typeof text === "string") {
+		return;
+	}
+	add(text.pluginKey);
+	for (const value of Object.values(text.params ?? {})) {
+		if (isNestedMessage(value)) {
+			archiveMessagePluginKeys(value, add);
+		}
+	}
+};
+
+const isResultsTableRenderer = (renderer: { readonly kind: string; readonly name?: string }) =>
+	renderer.kind === "kernel" && renderer.name === "results-table";
+
+const settingsObject = <E extends { readonly message: string }>(
+	encoded: Effect.Effect<unknown, E>,
+) =>
+	encoded.pipe(
+		Effect.flatMap(decodeArchiveJsonObject),
+		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
+	);
+
 export const exportRendererSettings = Effect.fn(function* (
 	renderer: { readonly kind: string; readonly name?: string },
 	settings: Readonly<Record<string, JsonValue>>,
 	pluginKeys: ReferenceMap,
 ) {
+	if (isResultsTableRenderer(renderer)) {
+		const decoded = yield* Schema.decodeUnknownEffect(ResultsTableSavedViewSettings)(settings).pipe(
+			Effect.mapError((error) => archiveError("invalid_entry", error.message)),
+		);
+		return yield* settingsObject(
+			Schema.encodeEffect(ArchiveResultsTableSavedViewSettings)({
+				...decoded,
+				columns: Arr.map(decoded.columns, (column) => ({
+					...column,
+					label: archiveDisplayText(pluginKeys, column.label),
+				})),
+			}),
+		);
+	}
 	if (!isEntityBrowserRenderer(renderer)) {
 		return settings;
 	}
@@ -77,21 +178,44 @@ export const exportRendererSettings = Effect.fn(function* (
 		slug,
 		pluginKey: (owner.kind === "plugin" ? pluginKeys.get(owner.pluginId) : null) ?? null,
 	});
-	const encoded = yield* Schema.encodeEffect(ArchiveEntityBrowserSavedViewSettings)({
-		...decoded,
-		addAction: mapEntityBrowserAddActionSchema(action, toArchive),
-		subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toArchive) },
-	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
-	return yield* decodeArchiveJsonObject(encoded).pipe(
-		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
+	return yield* settingsObject(
+		Schema.encodeEffect(ArchiveEntityBrowserSavedViewSettings)({
+			...decoded,
+			addAction: mapEntityBrowserAddActionSchema(action, toArchive),
+			subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toArchive) },
+			tableColumns:
+				decoded.tableColumns === null
+					? null
+					: Arr.map(decoded.tableColumns, (column) => ({
+							...column,
+							label: archiveDisplayText(pluginKeys, column.label),
+						})),
+		}),
 	);
 });
+
+const restoredColumns = <Column extends { readonly label: ArchiveDisplayText }>(
+	columns: Arr.NonEmptyReadonlyArray<Column>,
+	pluginIds: ReferenceMap,
+) =>
+	Effect.forEach(columns, (column) =>
+		Effect.map(restoredDisplayText(pluginIds, column.label), (label) => ({ ...column, label })),
+	);
 
 export const importRendererSettings = Effect.fn(function* (
 	renderer: { readonly kind: string; readonly name?: string },
 	settings: Readonly<Record<string, JsonValue>>,
 	pluginIds: ReferenceMap,
 ) {
+	if (isResultsTableRenderer(renderer)) {
+		const decoded = yield* Schema.decodeUnknownEffect(ArchiveResultsTableSavedViewSettings)(
+			settings,
+		).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
+		const columns = yield* restoredColumns(decoded.columns, pluginIds);
+		return yield* settingsObject(
+			Schema.encodeUnknownEffect(ResultsTableSavedViewSettings)({ ...decoded, columns }),
+		);
+	}
 	if (!isEntityBrowserRenderer(renderer)) {
 		return settings;
 	}
@@ -119,13 +243,15 @@ export const importRendererSettings = Effect.fn(function* (
 		slug,
 		owner: definitionOwner(pluginKey == null ? null : (pluginIds.get(pluginKey) ?? null)),
 	});
-	const encoded = yield* Schema.encodeUnknownEffect(EntityBrowserSavedViewSettings)({
-		...decoded,
-		addAction: mapEntityBrowserAddActionSchema(action, toLocal),
-		subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toLocal) },
-	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
-	return yield* decodeArchiveJsonObject(encoded).pipe(
-		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
+	const tableColumns =
+		decoded.tableColumns === null ? null : yield* restoredColumns(decoded.tableColumns, pluginIds);
+	return yield* settingsObject(
+		Schema.encodeUnknownEffect(EntityBrowserSavedViewSettings)({
+			...decoded,
+			tableColumns,
+			addAction: mapEntityBrowserAddActionSchema(action, toLocal),
+			subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toLocal) },
+		}),
 	);
 });
 
@@ -305,6 +431,7 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			add(view.renderer.pluginKey);
 		}
 		if (view.kind === "custom") {
+			archiveMessagePluginKeys(view.name, add);
 			addQueryPackages(view.dataSources);
 			for (const [name, property] of Object.entries(view.dataSources?.parameters?.fields ?? {})) {
 				if (property.type !== "string" || property.reference?.kind !== "entity-source") {
@@ -322,8 +449,18 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 				}
 			}
 		}
+		if (view.kind === "custom" && isResultsTableRenderer(view.renderer)) {
+			const { columns } = decodeArchiveJson(
+				ArchiveResultsTableSavedViewSettings,
+				view.settings,
+				"saved-views.ndjson",
+			);
+			for (const { label } of columns) {
+				archiveMessagePluginKeys(label, add);
+			}
+		}
 		if (view.kind === "custom" && isEntityBrowserRenderer(view.renderer)) {
-			const { subject, addAction } = decodeArchiveJson(
+			const { subject, addAction, tableColumns } = decodeArchiveJson(
 				ArchiveEntityBrowserSavedViewSettings,
 				view.settings,
 				"saved-views.ndjson",
@@ -333,6 +470,9 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			}
 			if (addAction?.type === "provider-search") {
 				add(addAction.schema.pluginKey);
+			}
+			for (const { label } of tableColumns ?? []) {
+				archiveMessagePluginKeys(label, add);
 			}
 		}
 	}
@@ -394,7 +534,7 @@ export const rewriteRelationshipReferences = Effect.fn(function* (
 
 export const rewriteEventReferences = Effect.fn(function* (
 	event: ArchiveEvent,
-	propertiesSchema: AppSchema,
+	propertiesSchema: AppSchema<unknown>,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
 	eventId: (id: string) => string | undefined,
@@ -422,7 +562,7 @@ export const rewriteAssetLocatorForArchive = (
 export const escapePointer = (value: string) => value.replaceAll("~", "~0").replaceAll("/", "~1");
 
 const redactProperty = (
-	definition: AppPropertyDefinition,
+	definition: AppPropertyDefinition<unknown>,
 	value: JsonValue,
 	path: string,
 	paths: string[],
@@ -445,7 +585,7 @@ const redactProperty = (
 };
 
 const redactFields = (
-	fields: AppSchema["fields"],
+	fields: AppSchema<unknown>["fields"],
 	value: JsonObject,
 	path: string,
 	paths: string[],
@@ -468,7 +608,11 @@ const redactFields = (
 	return redacted;
 };
 
-export const redactSchemaSecrets = (value: JsonObject, schema: AppSchema, basePath = "") => {
+export const redactSchemaSecrets = (
+	value: JsonObject,
+	schema: AppSchema<unknown>,
+	basePath = "",
+) => {
 	const redactions: string[] = [];
 	const redacted = redactFields(schema.fields, value, basePath, redactions);
 	return { redacted, redactions };

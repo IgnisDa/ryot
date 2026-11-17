@@ -2,13 +2,12 @@ import { expect } from "bun:test";
 import { tmpdir } from "node:os";
 
 import { BunFileSystem } from "@effect/platform-bun";
-import { BadRequest } from "@ryot-app/contract/errors";
 import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { decodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import type {
+	AuthoredResultsTableSavedViewSettings,
 	ListedSavedView,
-	ResultsTableSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	BackupRunId,
@@ -24,7 +23,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
-import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
+import { fixtureManifest, manifestCatalogs, testPluginPackageId } from "@ryot-app/contract/testing";
 import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import {
@@ -63,6 +62,7 @@ import { user } from "#schema/tables/auth";
 import * as tables from "#schema/tables/combined";
 
 import { collectExportFixtureRecords } from "../archive/archive.test-support";
+import { archiveError } from "../archive/error";
 import { ARCHIVE_CODECS } from "../archive/schemas";
 import { decodeNdjson, IncrementalSha256 } from "../archive/streaming";
 import { publicationDefinition } from "../publications.test-support";
@@ -196,7 +196,7 @@ it.effect(
 			expect(yield* requirePluginKey(keys, "persisted-plugin")).toBe(persistedKey);
 			assertExitFails(
 				yield* Effect.exit(requirePluginKey(keys, "unavailable-plugin")),
-				new BadRequest({ message: "Backup references unavailable plugin 'unavailable-plugin'" }),
+				archiveError("invalid_entry", "Backup references unavailable plugin 'unavailable-plugin'"),
 			);
 		}),
 	testTimeout,
@@ -324,8 +324,8 @@ const retainedCalendarSource: PluginCalendarSource = {
 	icon: "calendar",
 	startAt: "startAt",
 	precision: "instant",
-	name: "Retained dates",
 	slug: "retained-dates",
+	name: { key: "test.retained-dates" },
 	subject: {
 		entityAlias: "retained",
 		schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("private-record") }],
@@ -363,37 +363,12 @@ const privateManifest = {
 			},
 		},
 	},
-	entitySchemas: [
-		{
-			icon: "box",
-			eventSchemas: [],
-			name: "Private Record",
-			slug: "private-record",
-			propertiesSchema: {
-				fields: {
-					title: { label: "Title", description: "Title", type: "string" as const },
-					token: {
-						label: "Token",
-						description: "Token",
-						secret: true as const,
-						type: "string" as const,
-					},
-					relatedEntityId: {
-						label: "Related entity",
-						type: "string" as const,
-						description: "Related entity",
-						reference: { kind: "entity-id" as const },
-					},
-				},
-			},
-		},
-	],
 	savedViews: [
 		{
 			icon: "box",
 			sortOrder: 0,
 			slug: "retained-view",
-			name: "Retained view",
+			name: { key: "test.retained-view" },
 			renderer: { kind: "kernel" as const, name: "results-table" as const },
 			dataSources: document({
 				records: rows(table("entity", "retained"), {
@@ -405,27 +380,57 @@ const privateManifest = {
 				entityLink: null,
 				rowKeyFields: ["id"],
 				sourceName: "records",
-				columns: [{ field: "id", label: "Id", displayKind: "text" }],
-			} satisfies ResultsTableSavedViewSettings,
+				columns: [{ field: "id", displayKind: "text", label: { key: "test.id" } }],
+			} satisfies AuthoredResultsTableSavedViewSettings,
+		},
+	],
+	entitySchemas: [
+		{
+			icon: "box",
+			eventSchemas: [],
+			slug: "private-record",
+			name: { key: "test.private-record" },
+			propertiesSchema: {
+				fields: {
+					title: { description: "Title", type: "string" as const, label: { key: "test.title" } },
+					token: {
+						description: "Token",
+						secret: true as const,
+						type: "string" as const,
+						label: { key: "test.token" },
+					},
+					relatedEntityId: {
+						type: "string" as const,
+						description: "Related entity",
+						label: { key: "test.related-entity" },
+						reference: { kind: "entity-id" as const },
+					},
+				},
+			},
 		},
 	],
 	configSchema: {
 		unknownKeys: "strict" as const,
 		fields: {
-			region: { label: "Region", description: "Region", type: "string" as const },
-			unit: { label: "Unit", validation: {}, description: "Unit", type: "string" as const },
+			region: { description: "Region", type: "string" as const, label: { key: "test.region" } },
+			unit: {
+				validation: {},
+				description: "Unit",
+				type: "string" as const,
+				label: { key: "test.unit" },
+			},
 			token: {
-				label: "Token",
 				description: "Token",
 				secret: true as const,
 				type: "string" as const,
+				label: { key: "test.token" },
 				validation: { required: true as const },
 			},
 			accountToken: {
 				secret: true as const,
-				label: "Account token",
 				type: "string" as const,
 				description: "Account token",
+				label: { key: "test.account-token" },
 				validation: { required: true as const },
 			},
 		},
@@ -434,27 +439,27 @@ const privateManifest = {
 		{
 			lot: "push" as const,
 			slug: "private-push",
-			name: "Private Push",
-			description: "Private push integration",
+			name: { key: "test.private-push" },
+			description: { key: "test.private-push-integration" },
 			settingsSchema: {
 				unknownKeys: "strict" as const,
 				fields: {
 					endpoint: {
 						validation: {},
-						label: "Endpoint",
 						description: "Endpoint",
 						type: "string" as const,
+						label: { key: "test.endpoint" },
 					},
 					credentials: {
-						label: "Credentials",
 						type: "object" as const,
 						description: "Credentials",
+						label: { key: "test.credentials" },
 						properties: {
 							token: {
-								label: "Token",
 								description: "Token",
 								secret: true as const,
 								type: "string" as const,
+								label: { key: "test.token" },
 								validation: { required: true as const },
 							},
 						},
@@ -465,11 +470,7 @@ const privateManifest = {
 	],
 };
 const privateCompiledFiles = [
-	...fixtureClientArtifact(
-		privateManifest.metadata.name,
-		privateManifest.metadata.packageId,
-		privateManifest.client,
-	).files,
+	...fixtureClientArtifact(privateManifest.metadata.packageId, privateManifest.client).files,
 	{
 		name: "asset.png",
 		contentType: "image/png",
@@ -477,21 +478,26 @@ const privateCompiledFiles = [
 	},
 ];
 const privateCompiledClient = {
-	...clientArtifactMetadata(
-		privateManifest.metadata.name,
-		privateManifest.metadata.packageId,
-		privateCompiledFiles,
-		{ imports: [], clientDeclarationHash: clientDeclarationHash(privateManifest.client) },
-	),
+	...clientArtifactMetadata(privateManifest.metadata.packageId, privateCompiledFiles, {
+		imports: [],
+		clientDeclarationHash: clientDeclarationHash(privateManifest.client),
+	}),
 	files: privateCompiledFiles,
 };
-const privateSourceHash = pluginContentHash(privateManifest, [], privateCompiledClient);
+const privateSourceHash = pluginContentHash(
+	privateManifest,
+	manifestCatalogs(privateManifest),
+	[],
+	privateCompiledClient,
+);
 const differentOwnerManifest = {
 	...privateManifest,
 	entitySchemas: privateManifest.entitySchemas.map((definition) => ({
 		...definition,
 		propertiesSchema: {
-			fields: { title: { label: "Title", description: "Title", type: "string" as const } },
+			fields: {
+				title: { description: "Title", type: "string" as const, label: { key: "test.title" } },
+			},
 		},
 	})),
 };
@@ -505,20 +511,20 @@ const effectiveDefinitions = buildDefinitionSnapshot(
 			signalSchemas: [
 				{
 					pluginId: null,
-					name: "Default signal",
 					slug: "default.signal",
 					catalogState: "active",
 					propertiesSchema: { fields: {} },
 					audiencePolicy: { kind: "actor" },
+					name: { key: "test.default-signal" },
 					notificationHookSlug: "automation.notification",
 				},
 				{
 					pluginId: null,
-					name: "Changed signal",
 					slug: "changed.signal",
 					catalogState: "active",
 					propertiesSchema: { fields: {} },
 					audiencePolicy: { kind: "actor" },
+					name: { key: "test.changed-signal" },
 					notificationHookSlug: "automation.notification",
 				},
 			],
@@ -689,7 +695,9 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 								image: null,
 								name: "Owner",
 								preferences: {
-									language: null,
+									weekStart: null,
+									interfaceLocale: null,
+									contentLanguage: null,
 									reportingTimeZone: UTC,
 									ratingScale: "hundred",
 									disableIntegrations: false,
@@ -794,7 +802,11 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 					}),
 					Layer.mock(PluginRepository, {
 						listCompiledPackageArtifacts: () =>
-							Effect.succeed({ compiledScripts: [], compiledClient: privateCompiledClient }),
+							Effect.succeed({
+								compiledScripts: [],
+								compiledClient: privateCompiledClient,
+								catalogs: manifestCatalogs(privateManifest),
+							}),
 						listActiveSystemPlugins: () =>
 							Effect.succeed([
 								storedSystemPlugin("default-plugin-id", defaultPackageId, "b".repeat(64)),
@@ -981,9 +993,10 @@ layer(
 					yield* Effect.exit(
 						snapshot.prepareExportSnapshot(userId, privateRecordsEventsPath, privateRecordsRunId),
 					),
-					new BadRequest({
-						message: "Backup saved view references unavailable plugin installation",
-					}),
+					archiveError(
+						"invalid_entry",
+						"Backup saved view references unavailable plugin installation",
+					),
 				);
 			}),
 		testTimeout,
@@ -1011,27 +1024,27 @@ const eventPagesManifest = {
 	entitySchemas: [
 		{
 			icon: "box",
-			name: "Private Record",
 			slug: "private-record",
 			propertiesSchema: { fields: {} },
+			name: { key: "test.private-record" },
 			eventSchemas: [
 				{
-					name: "Watched",
 					slug: "watched",
+					name: { key: "test.watched" },
 					propertiesSchema: {
 						fields: {
-							note: { label: "Note", description: "Note", type: "string" as const },
+							note: { description: "Note", type: "string" as const, label: { key: "test.note" } },
 							token: {
-								label: "Token",
 								description: "Token",
 								secret: true as const,
 								type: "string" as const,
+								label: { key: "test.token" },
 							},
 							poster: {
 								properties: {},
-								label: "Poster",
 								description: "Poster",
 								type: "object" as const,
+								label: { key: "test.poster" },
 								validation: { asset: true as const },
 							},
 						},
@@ -1041,7 +1054,10 @@ const eventPagesManifest = {
 		},
 	],
 };
-const eventPagesSourceHash = pluginContentHash(eventPagesManifest);
+const eventPagesSourceHash = pluginContentHash(
+	eventPagesManifest,
+	manifestCatalogs(eventPagesManifest),
+);
 const eventRow = (id: string, note: string) => ({
 	id,
 	note,
@@ -1119,7 +1135,9 @@ const eventPagesExportLayer = withExportReads((reads) =>
 							image: null,
 							name: "Owner",
 							preferences: {
-								language: null,
+								weekStart: null,
+								interfaceLocale: null,
+								contentLanguage: null,
 								reportingTimeZone: UTC,
 								ratingScale: "hundred",
 								disableIntegrations: false,
@@ -1188,7 +1206,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 						),
 				}),
 				Layer.mock(PluginRepository, {
-					listCompiledPackageArtifacts: () => Effect.succeed({ compiledScripts: [] }),
+					listCompiledPackageArtifacts: () => Effect.succeed({ catalogs: {}, compiledScripts: [] }),
 					listActiveSystemPlugins: () =>
 						Ref.update(reads.portableReads, (count) => count + 1).pipe(Effect.as([])),
 					listPrivateForUser: () =>

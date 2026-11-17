@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
 import { BunFileSystem } from "@effect/platform-bun";
-import { BadRequest, DbError } from "@ryot-app/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
@@ -18,10 +18,12 @@ import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { DatabaseSession } from "#platform/db/session";
+import { deleteFailed, missingObject } from "#platform/storage/errors";
 import { databaseLayer, makeAppConfigLayer, type MockOverrides } from "#testing/effect";
 
 import { createArchiveStream } from "../archive/archive";
 import { archiveFixtureInput } from "../archive/archive.test-support";
+import { archiveError } from "../archive/error";
 import { archivePluginDefinitionContract } from "../archive/schemas";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
@@ -168,7 +170,9 @@ const emptyRecords = {
 		image: null,
 		name: "User",
 		preferences: {
-			language: null,
+			weekStart: null,
+			interfaceLocale: null,
+			contentLanguage: null,
 			reportingTimeZone: UTC,
 			disableIntegrations: false,
 			ratingScale: "hundred" as const,
@@ -203,9 +207,7 @@ const archiveWithAsset = (asset: Uint8Array) => {
 };
 
 const openArchive = (archive: ReturnType<typeof createArchiveStream>) => () =>
-	Effect.succeed(
-		archive.pipe(Stream.mapError(() => new BadRequest({ message: "archive stream failed" }))),
-	);
+	Effect.succeed(archive.pipe(Stream.mapError(() => missingObject())));
 
 layer(
 	makeLayer(({ record }) => ({
@@ -338,9 +340,7 @@ layer(
 		repository: { completeRun: () => Effect.die("cleanup must not complete the run") },
 		uploadIntents: {
 			deleteTemporaryUpload: () =>
-				record("delete").pipe(
-					Effect.andThen(Effect.fail(new BadRequest({ message: "storage unavailable" }))),
-				),
+				record("delete").pipe(Effect.andThen(Effect.fail(deleteFailed()))),
 		},
 	})),
 )((test) => {
@@ -516,7 +516,7 @@ layer(
 		},
 		pluginRestore: {
 			persist: () => record("persist").pipe(Effect.as(new Map())),
-			prepare: () => Effect.fail(new BadRequest({ message: "Plugin compilation failed" })),
+			prepare: () => Effect.fail(archiveError("invalid_entry", "Plugin compilation failed")),
 		},
 	})),
 )((test) => {
@@ -538,9 +538,7 @@ layer(
 	makeLayer(({ record }) => ({
 		uploadIntents: {
 			deleteTemporaryUpload: () =>
-				record("delete").pipe(
-					Effect.andThen(Effect.fail(new BadRequest({ message: "storage unavailable" }))),
-				),
+				record("delete").pipe(Effect.andThen(Effect.fail(deleteFailed()))),
 		},
 		repository: {
 			getRunById: () => Effect.succeed(runningRun),
@@ -602,7 +600,7 @@ layer(
 								sql`insert into ${sql.identifier(rollbackSchema)}.restore_row (id) values ('domain-row')`,
 							)
 							.pipe(Effect.orDie);
-						return yield* new BadRequest({ message: "Crafted restore row is invalid" });
+						return yield* archiveError("invalid_entry", "Crafted restore row is invalid");
 					}),
 				),
 		},
@@ -633,9 +631,7 @@ layer(
 				}),
 			stageContentAddressedPermanentAsset: (input) => {
 				const { stream, ...metadata } = input;
-				return Stream.runDrain(
-					stream.pipe(Stream.mapError(() => new BadRequest({ message: "asset stream failed" }))),
-				).pipe(
+				return Stream.runDrain(stream.pipe(Stream.mapError(() => missingObject()))).pipe(
 					Effect.as({
 						created: true,
 						metadata: { ...metadata, key: `permanent/${input.sha256}.bin` },
