@@ -1,5 +1,8 @@
-import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
+import type { Formatters, RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
+import { formatDuration } from "@ryot-app/plugin-ui-sdk";
+import { formatDateLabel } from "@ryot-app/plugin-ui-sdk/datetime";
 
 import type { MediaPosition } from "../../shared/consumption";
 import type {
@@ -7,9 +10,9 @@ import type {
 	mediaEventSnapshotSelection,
 	mediaReviewEventSelection,
 } from "../../shared/media-recipes";
+import type { MediaText } from "../messages";
 import {
 	formatLocalDateKey,
-	formatLocalDateLabel,
 	formatLocalMonthDayLabel,
 	formatLocalYearLabel,
 	localDayCount,
@@ -114,9 +117,9 @@ export type MediaActivityTimeline<Row extends ActivityAnchor> =
 export type MediaActivityReviewRow<Subject> = ActivityAnchor & {
 	readonly type: "review";
 	readonly subject: Subject;
-	readonly subjectLabel?: string;
 	readonly position?: MediaPosition;
 	readonly rating: number | undefined;
+	readonly subjectLabel?: LocalMessage;
 	readonly event: MediaActivityEventRef;
 	readonly events: readonly MediaActivityEventRef[];
 	readonly body: undefined | { readonly text: string; readonly isSpoiler: boolean };
@@ -393,10 +396,10 @@ export const activitySpan = <Row extends ActivityAnchor>(
 	return { latest, earliest, bound: "full", days: localDayCount(earliest, latest) };
 };
 
-export const mediaCollectionRowLabel = (row: MediaActivityCollectionRow) =>
+export const mediaCollectionRowLabel = (text: MediaText, row: MediaActivityCollectionRow) =>
 	row.change === "added"
-		? `Added to the ${row.name} collection`
-		: `Removed from the ${row.name} collection`;
+		? text("timeline.collection-added", { name: row.name })
+		: text("timeline.collection-removed", { name: row.name });
 
 /** Rows newest first as a timeline and its span, or `undefined` when nothing was recorded. */
 export const mediaActivityRowsView = <Row extends ActivityAnchor>(
@@ -431,75 +434,73 @@ export const mapMediaActivity = <Result, View>(
 	return mapped === undefined ? { status: "empty" } : { view: mapped, status: "ready" };
 };
 
-export const decimalLabel = (value: number) => String(Math.round(value * 100) / 100);
-
-export const mediaActivityDurationLabel = (minutes: number) => {
-	const total = Math.max(Math.round(minutes), 0);
-	const rest = total % 60;
-	const hours = Math.floor(total / 60);
-	if (hours === 0) {
-		return `${rest}m`;
-	}
-	return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
-};
-
-const paddedUnit = (value: number) => String(value).padStart(2, "0");
-
-export const mediaTrackLengthLabel = (seconds: number) => {
-	const total = Math.max(Math.round(seconds), 0);
-	const rest = total % 60;
-	const hours = Math.floor(total / 3600);
-	const minutes = Math.floor(total / 60) % 60;
-	return hours === 0
-		? `${minutes}:${paddedUnit(rest)}`
-		: `${hours}:${paddedUnit(minutes)}:${paddedUnit(rest)}`;
-};
-
-export const mediaActivityDateLabel = (row: ActivityAnchor & { readonly dateUnknown?: boolean }) =>
+export const mediaActivityDateLabel = (
+	text: MediaText,
+	formatters: Formatters,
+	row: ActivityAnchor & { readonly dateUnknown?: boolean },
+) =>
 	row.dateUnknown === true
-		? "Date unknown"
-		: (row.calendarDate ?? formatLocalDateLabel(row.occurredAt));
+		? text("property.date-unknown")
+		: (row.calendarDate ?? formatDateLabel(formatters, row.occurredAt));
 
-export const mediaActivityTimeLabel = (minutes: {
-	readonly total: number;
-	readonly missing: number;
-}) => {
-	const label = mediaActivityDurationLabel(minutes.total);
+export const mediaActivityTimeLabel = (
+	formatters: Formatters,
+	minutes: { readonly total: number; readonly missing: number },
+) => {
+	const label = formatDuration(formatters, minutes.total * 60, "minute");
 	return minutes.missing > 0 ? `${label}+` : label;
 };
 
-export const mediaActivityCountFigure = (amount: {
-	readonly total: number;
-	readonly missing: number;
-}) => `${Math.round(amount.total)}${amount.missing > 0 ? "+" : ""}`;
+export const mediaActivityCountFigure = (
+	formatters: Formatters,
+	amount: { readonly total: number; readonly missing: number },
+) => `${formatters.number().format(Math.round(amount.total))}${amount.missing > 0 ? "+" : ""}`;
 
-const spanRangeLabel = (earliest: string, latest: string) => {
+const spanRangeLabel = (
+	text: MediaText,
+	formatters: Formatters,
+	earliest: string,
+	latest: string,
+) => {
 	if (formatLocalDateKey(earliest) === formatLocalDateKey(latest)) {
-		return formatLocalDateLabel(latest);
+		return formatDateLabel(formatters, latest);
 	}
-	return formatLocalYearLabel(earliest) === formatLocalYearLabel(latest)
-		? `${formatLocalMonthDayLabel(earliest)} – ${formatLocalDateLabel(latest)}`
-		: `${formatLocalDateLabel(earliest)} – ${formatLocalDateLabel(latest)}`;
+	return text("timeline.span-range", {
+		end: formatDateLabel(formatters, latest),
+		start:
+			formatLocalYearLabel(formatters, earliest) === formatLocalYearLabel(formatters, latest)
+				? formatLocalMonthDayLabel(formatters, earliest)
+				: formatDateLabel(formatters, earliest),
+	});
 };
 
-export const mediaActivitySpanLabel = (span: MediaActivitySpan) => {
+export const mediaActivitySpanLabel = (
+	text: MediaText,
+	formatters: Formatters,
+	span: MediaActivitySpan,
+) => {
 	if (span.bound === "partial") {
-		return { label: "Latest", detail: undefined, value: formatLocalDateLabel(span.latest) };
+		return {
+			detail: undefined,
+			label: text("timeline.latest"),
+			value: formatDateLabel(formatters, span.latest),
+		};
 	}
 	const { days, latest, earliest } = span;
 	return {
-		label: "Span",
-		detail: spanRangeLabel(earliest, latest),
-		value: days === 1 ? "1 day" : `${days} days`,
+		label: text("timeline.span"),
+		value: text("timeline.span-days", { count: days }),
+		detail: spanRangeLabel(text, formatters, earliest, latest),
 	};
 };
 
-export const mediaActivityError = (state: {
-	readonly status: "malformed" | "transport-error";
-}) => ({
-	title: "Unable to load activity",
+export const mediaActivityError = (
+	text: MediaText,
+	state: { readonly status: "malformed" | "transport-error" },
+) => ({
+	title: text("timeline.error-title"),
 	detail:
 		state.status === "transport-error"
-			? "Your recorded activity could not be loaded. Check your connection and try again."
-			: "This activity came back in a form that could not be displayed. Try again later.",
+			? text("timeline.error-transport")
+			: text("timeline.error-malformed"),
 });

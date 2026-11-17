@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { getByRole, queryByRole, queryByText } from "@testing-library/dom";
 import { act } from "react";
-import { createRoot } from "react-dom/client";
 
 import {
 	decodeEpisodicActivity,
@@ -80,7 +79,7 @@ describe("activity timeline rendering", () => {
 			/>,
 		);
 
-		expect(container.textContent).toContain("Heard 5 episodes");
+		expect(container.textContent).toContain("Played 5 episodes");
 		expect(container.textContent).toContain("Ep 1 – Ep 4, Ep 6");
 		expect(container.textContent).not.toContain("Episode 3");
 		const toggle = getByRole(container, "button", { name: "Show 5 episodes" });
@@ -121,7 +120,7 @@ describe("activity timeline rendering", () => {
 			/>,
 		);
 
-		expect(container.textContent).toContain("98.99% through the item");
+		expect(container.textContent).toContain("98.99% through");
 		expect(container.textContent).toContain("3 updates since 10%");
 		expect(container.textContent).not.toContain("55% through the item");
 		expect(container.textContent).toContain("Progress98.99%");
@@ -141,7 +140,7 @@ const row = (day: string): Row => ({
 });
 
 const render: MediaActivityRowRender<Row> = {
-	segmentNoun: "Pass",
+	segment: "watch",
 	rowBody: () => null,
 	rowSource: () => undefined,
 	rowLabel: (entry) => entry.label,
@@ -151,15 +150,11 @@ const render: MediaActivityRowRender<Row> = {
 const julyDays = ["2026-07-26", "2026-07-20", "2026-07-11", "2026-07-02"];
 const juneDays = ["2026-06-28", "2026-06-21", "2026-06-14", "2026-06-07", "2026-06-01"];
 
-const mountRows = (rows: readonly Row[], monthly: undefined | { readonly openNewest: boolean }) => {
-	const container = document.createElement("div");
-	document.body.append(container);
-	const root = createRoot(container);
-	act(() =>
-		root.render(<MediaActivityRows compact rows={rows} render={render} monthly={monthly} />),
-	);
-	return container;
-};
+const mountRows = (rows: readonly Row[], monthly: undefined | { readonly openNewest: boolean }) =>
+	mountRyotClient(
+		adapter,
+		<MediaActivityRows compact rows={rows} render={render} monthly={monthly} />,
+	).container;
 
 afterEach(() => {
 	document.body.innerHTML = "";

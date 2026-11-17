@@ -142,7 +142,7 @@ describe("complete activity history", () => {
 				clickRyotElement(getByRole(dialog, "button", { name: "Try again" }));
 				yield* Effect.promise(() => flushRyotClient());
 				yield* Effect.promise(() =>
-					waitFor(() => expect(dialog.textContent).toContain("12% through the item")),
+					waitFor(() => expect(dialog.textContent).toContain("12% through")),
 				);
 				expect(dialog.textContent).toContain("The twist still lands.");
 				expect(dialog.textContent).toContain("Watchlist");

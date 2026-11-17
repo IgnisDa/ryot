@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 import { assert } from "@ryot-app/testing/assert";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import {
 	decodeEpisodicActivity,
 	episodicFirstWatchDayRow,
@@ -15,6 +16,7 @@ import {
 	flatReviewEventRow,
 } from "../../tests/client/flat-media/activity-fixture";
 import { fixtureSchema } from "../../tests/client/flat-media/schema-fixture";
+import { testMediaCopy, testMediaText } from "../../tests/client/test-text";
 import { mediaActivityExpandLabel, mediaActivityRunLabel } from "./activity-copy";
 import { mergeActivityRuns } from "./activity-timeline";
 import {
@@ -68,13 +70,21 @@ describe("merging activity runs", () => {
 
 describe("run and expand copy", () => {
 	it("states how many updates a run folded and where it started", () => {
-		expect(mediaActivityRunLabel({ updates: 12, fromPercent: 3.5 })).toBe("12 updates since 3.5%");
-		expect(mediaActivityRunLabel({ updates: 4, fromPercent: undefined })).toBe("4 updates");
+		expect<string>(mediaActivityRunLabel(testMediaCopy, { updates: 12, fromPercent: 3.5 })).toBe(
+			"12 updates since 3.5%",
+		);
+		expect<string>(
+			mediaActivityRunLabel(testMediaCopy, { updates: 4, fromPercent: undefined }),
+		).toBe("4 updates");
 	});
 
 	it("labels the control that reveals a long list of episodes", () => {
-		expect(mediaActivityExpandLabel({ count: 37, expanded: false })).toBe("Show 37 episodes");
-		expect(mediaActivityExpandLabel({ count: 37, expanded: true })).toBe("Hide episodes");
+		expect<string>(mediaActivityExpandLabel(testMediaText, { count: 37, expanded: false })).toBe(
+			"Show 37 episodes",
+		);
+		expect<string>(mediaActivityExpandLabel(testMediaText, { count: 37, expanded: true })).toBe(
+			"Hide episodes",
+		);
 	});
 });
 
@@ -88,7 +98,8 @@ type TestEpisode = {
 
 const vocabulary = {
 	order: (episode: TestEpisode) => [episode.season, episode.number],
-	origin: (episode: TestEpisode) => `S${episode.season} • E${episode.number}`,
+	origin: (episode: TestEpisode) =>
+		catalogMessage("show.episode-origin", { season: episode.season, episode: episode.number }),
 };
 
 const watched = (season: number, number: number): MediaEpisodicWatchedEpisode => {
@@ -159,7 +170,7 @@ describe("episodic activity runs", () => {
 
 		assert(row?.type === "watch");
 		expect(rows).toHaveLength(1);
-		expect(row.episodes.map(({ origin }) => origin)).toEqual([
+		expect<string[]>(row.episodes.map(({ origin }) => testMediaCopy.local(origin))).toEqual([
 			"S1 • E1",
 			"S1 • E2",
 			"S1 • E3",
@@ -286,10 +297,12 @@ describe("episodic range summary", () => {
 			...Array.from({ length: 14 }, (_, index) => watched(4, index + 1)),
 		];
 
-		expect(mediaEpisodicRangeSummary(episodes)).toBe("S3 • E1 – S3 • E23, S4 • E1 – S4 • E14");
-		expect(mediaEpisodicRangeSummary([watched(1, 1), watched(1, 2), watched(1, 5)])).toBe(
-			"S1 • E1 – S1 • E2, S1 • E5",
+		expect(mediaEpisodicRangeSummary(testMediaCopy, episodes)).toBe(
+			"S3 • E1 – S3 • E23, S4 • E1 – S4 • E14",
 		);
+		expect(
+			mediaEpisodicRangeSummary(testMediaCopy, [watched(1, 1), watched(1, 2), watched(1, 5)]),
+		).toBe("S1 • E1 – S1 • E2, S1 • E5");
 	});
 
 	it("lists inline up to four episodes and collapses beyond that", () => {
@@ -309,24 +322,24 @@ describe("episodic summary figures", () => {
 	const labels = { time: "Time", watches: "Watches", episodes: "Episodes", current: "This watch" };
 
 	it("hides the watches figure until a watch is completed", () => {
-		expect(mediaEpisodicActivityFigures(summary, labels).map(({ label }) => label)).toEqual([
-			"Episodes",
-			"Time",
-			"Latest",
-		]);
 		expect(
-			mediaEpisodicActivityFigures({ ...summary, watches: 2 }, labels).map(({ label }) => label),
+			mediaEpisodicActivityFigures(testMediaCopy, summary, labels).map(({ label }) => label),
+		).toEqual(["Episodes", "Time", "Latest"]);
+		expect(
+			mediaEpisodicActivityFigures(testMediaCopy, { ...summary, watches: 2 }, labels).map(
+				({ label }) => label,
+			),
 		).toContain("Watches");
 	});
 
 	it("labels episode coverage as this watch and time as lifetime", () => {
-		expect(mediaEpisodicActivityFigures(summary, labels).map(({ detail }) => detail)).toEqual([
-			undefined,
-			"Lifetime",
-			undefined,
-		]);
 		expect(
-			mediaEpisodicActivityFigures({ ...summary, watches: 1 }, labels).map(({ detail }) => detail),
+			mediaEpisodicActivityFigures(testMediaCopy, summary, labels).map(({ detail }) => detail),
+		).toEqual([undefined, "Lifetime", undefined]);
+		expect(
+			mediaEpisodicActivityFigures(testMediaCopy, { ...summary, watches: 1 }, labels).map(
+				({ detail }) => detail,
+			),
 		).toEqual(["This watch", undefined, "Lifetime", undefined]);
 	});
 });
@@ -386,9 +399,9 @@ describe("flat media activity runs and figures", () => {
 			collectionEvents: [],
 			events: [progressAt(1, 10), progressAt(2, 42.5)],
 		});
-		const figures = mediaFlatActivityFigures(view.summary, {
+		const figures = mediaFlatActivityFigures(testMediaCopy, view.summary, {
 			completions: "Reads",
-			measure: { label: "Pages", value: () => "0" },
+			measure: { value: () => "0", label: catalogMessage("property.pages") },
 		});
 
 		expect(figures[0]).toEqual({ value: "42.5%", label: "Progress", detail: undefined });
@@ -396,9 +409,12 @@ describe("flat media activity runs and figures", () => {
 	});
 
 	it("keeps the completions and amount figures once something was completed or consumed", () => {
-		const figures = mediaFlatActivityFigures(viewOf().summary, {
+		const figures = mediaFlatActivityFigures(testMediaCopy, viewOf().summary, {
 			completions: "Reads",
-			measure: { label: "Pages", value: ({ total }) => `${total}` },
+			measure: {
+				label: catalogMessage("property.pages"),
+				value: (_formatters, { total }) => `${total}`,
+			},
 		});
 
 		expect(figures.slice(0, 2)).toEqual([

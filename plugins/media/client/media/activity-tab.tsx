@@ -1,11 +1,13 @@
 import {
 	type RyotQuery,
 	type RyotQueryResult,
+	type Text,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import clsx from "clsx";
 import { type ReactNode, useState } from "react";
 
+import { type MediaCopy, useMediaCopy, useMediaMessages } from "../messages";
 import { MediaHistoryButton } from "./activity-history";
 import { MediaLogActivityButton } from "./activity-log/button";
 import type { MediaActivityLogger } from "./activity-log/state";
@@ -30,9 +32,9 @@ import { MediaReviewButton } from "./review";
 export type MediaActivityEmptyAction = "write-review" | MediaActivityLogger;
 
 export type MediaActivityCopy = {
+	readonly emptyDetail: Text;
 	readonly recordLabel: string;
-	readonly emptyDetail: string;
-	readonly loadingDetail: string;
+	readonly loadingDetail: Text;
 };
 
 export function MediaActivityRecord<Row extends MediaActivityRowBase>(props: {
@@ -88,6 +90,7 @@ export function MediaActivity<View>(props: {
 	}) => ReactNode;
 }) {
 	const { state } = props;
+	const copy = useMediaCopy();
 	const [logging, setLogging] = useState(false);
 	if (state.status === "empty" || logging) {
 		return (
@@ -101,10 +104,12 @@ export function MediaActivity<View>(props: {
 		);
 	}
 	if (state.status === "loading") {
-		return <MediaStatusMessage title="Loading activity..." detail={props.copy.loadingDetail} />;
+		return (
+			<MediaStatusMessage detail={props.copy.loadingDetail} title={copy.text("activity.loading")} />
+		);
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
-		return <MediaStatusMessage {...mediaActivityError(state)} onRetry={props.refresh} />;
+		return <MediaStatusMessage {...mediaActivityError(copy.text, state)} onRetry={props.refresh} />;
 	}
 	return (
 		<MediaActivityActionsContext
@@ -120,13 +125,14 @@ export function MediaActivity<View>(props: {
 }
 
 function MediaActivityFooter(props: { readonly partial: boolean; readonly history?: ReactNode }) {
+	const text = useMediaMessages();
 	if (!props.partial && !props.history) {
 		return null;
 	}
 	return (
 		<div className="flex flex-col items-start gap-2 border-t border-border pt-4">
 			{props.partial ? (
-				<p className="text-label text-text-subtle">Only your most recent activity is shown here.</p>
+				<p className="text-label text-text-subtle">{text("activity.partial")}</p>
 			) : null}
 			{props.history}
 		</div>
@@ -134,15 +140,18 @@ function MediaActivityFooter(props: { readonly partial: boolean; readonly histor
 }
 
 function MediaActivityEmpty(props: {
-	readonly detail: string;
+	readonly detail: Text;
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly action: MediaActivityEmptyAction;
 	readonly onOpenChange: (open: boolean) => void;
 }) {
+	const text = useMediaMessages();
 	return (
 		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
-			<p className="text-center font-ui font-medium text-base text-text">No activity yet</p>
+			<p className="text-center font-ui font-medium text-base text-text">
+				{text("activity.empty-title")}
+			</p>
 			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
 			{props.action === "write-review" ? (
 				<MediaReviewButton link entityId={props.entityId} />
@@ -161,9 +170,9 @@ function MediaActivityEmpty(props: {
 
 /** The activity state mapper, its screen, and the tab that loads it for one entity. */
 export const defineMediaActivityTab = <Result, View, Event>(input: {
-	readonly copy: MediaActivityCopy;
 	readonly emptyAction: MediaActivityEmptyAction;
 	readonly view: (result: Result) => View | undefined;
+	readonly copy: (copy: MediaCopy) => MediaActivityCopy;
 	readonly hasMoreActivities: (result: Result) => boolean;
 	readonly query: RyotQuery<{ readonly entityId: string }, Result>;
 	readonly renderHistory: (items: readonly Event[], compact: boolean) => ReactNode;
@@ -186,11 +195,12 @@ export const defineMediaActivityTab = <Result, View, Event>(input: {
 		readonly history?: ReactNode;
 		readonly state: MediaActivityState<View>;
 	}) {
+		const copy = useMediaCopy();
 		return (
 			<MediaActivity
-				copy={input.copy}
 				state={props.state}
 				Record={input.Record}
+				copy={input.copy(copy)}
 				history={props.history}
 				compact={props.compact}
 				refresh={props.refresh}

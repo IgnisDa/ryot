@@ -1,4 +1,4 @@
-import { useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
+import { type Text, useDisplayText, useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
 import {
 	RatingValue,
 	StatStrip,
@@ -11,6 +11,8 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type ReactNode, useState } from "react";
 
+import { type MediaCopy, type MediaText, useMediaCopy, useMediaMessages } from "../messages";
+import type { MediaActivitySegment } from "./activity-copy";
 import { MediaActivityRowMenu } from "./activity-row-menu";
 import {
 	type MediaActivityCompletedWatch,
@@ -29,7 +31,7 @@ import {
 } from "./review-links";
 
 export type MediaActivityRowRender<Row extends MediaActivityRowBase> = {
-	readonly segmentNoun: string;
+	readonly segment: MediaActivitySegment;
 	readonly rowLabel: (row: Row) => string;
 	readonly rowBody: (row: Row) => ReactNode;
 	readonly rowRun?: (row: Row) => string | undefined;
@@ -40,21 +42,22 @@ export type MediaActivityRowRender<Row extends MediaActivityRowBase> = {
 
 type MediaActivityRowExpand = {
 	readonly content: ReactNode;
-	readonly label: (expanded: boolean) => string;
+	readonly label: (expanded: boolean) => Text;
 };
 
 export function MediaActivitySummaryFigures(props: {
 	readonly compact: boolean;
 	readonly figures: readonly MediaActivityFigure[];
 }) {
+	const displayText = useDisplayText();
 	return (
 		<StatStrip
 			compact={props.compact}
 			stats={props.figures.map((figure) => ({
 				key: figure.label,
-				label: figure.label,
 				value: figure.value,
 				detail: figure.detail,
+				label: displayText(figure.label),
 			}))}
 		/>
 	);
@@ -90,16 +93,17 @@ export function MediaActivityReviewDetail<Subject>(props: {
 }
 
 function MediaActivityReviewBody(props: { readonly text: string; readonly isSpoiler: boolean }) {
+	const text = useMediaMessages();
 	const [isRevealed, setIsRevealed] = useState(false);
 	if (props.isSpoiler && !isRevealed) {
 		return (
 			<button
 				type="button"
-				aria-label="Show spoiler review"
 				onClick={() => setIsRevealed(true)}
+				aria-label={text("review.spoiler-show")}
 				className="self-start rounded-md border border-border bg-surface-2 px-2.5 py-1.5"
 			>
-				<span className="text-label text-text-muted">Spoiler — show review</span>
+				<span className="text-label text-text-muted">{text("review.spoiler-label")}</span>
 			</button>
 		);
 	}
@@ -188,11 +192,12 @@ function MediaActivityDays<Row extends MediaActivityRowBase>(props: {
 	readonly rows: readonly Row[];
 	readonly render: MediaActivityRowRender<Row>;
 }) {
+	const { text, formatters } = useMediaCopy();
 	return dateGroups(props.rows).map((group) => (
 		<TimelineGroup
 			key={group.first.key}
 			compact={props.compact}
-			label={mediaActivityDateLabel(group.first)}
+			label={mediaActivityDateLabel(text, formatters, group.first)}
 		>
 			{group.rows.map((row) => (
 				<MediaActivityEntry row={row} key={row.key} render={props.render} />
@@ -202,13 +207,15 @@ function MediaActivityDays<Row extends MediaActivityRowBase>(props: {
 }
 
 const monthDetail = <Row extends MediaActivityRowBase>(
+	text: MediaText,
 	rows: readonly Row[],
 	render: MediaActivityRowRender<Row>,
 ) => {
 	const days = new Set(rows.map(({ dateKey }) => dateKey)).size;
-	const summary =
-		render.monthSummary?.(rows) ?? (rows.length === 1 ? "1 entry" : `${rows.length} entries`);
-	return `${summary} · ${days === 1 ? "1 day" : `${days} days`}`;
+	return text("activity.month-detail", {
+		days,
+		summary: render.monthSummary?.(rows) ?? text("activity.entries", { count: rows.length }),
+	});
 };
 
 export function MediaActivityRows<Row extends MediaActivityRowBase>(props: {
@@ -218,7 +225,7 @@ export function MediaActivityRows<Row extends MediaActivityRowBase>(props: {
 	readonly monthly?: undefined | { readonly openNewest: boolean };
 }) {
 	return (
-		<MediaReviewLinksScope rows={props.rows} segmentNoun={props.render.segmentNoun}>
+		<MediaReviewLinksScope rows={props.rows} segment={props.render.segment}>
 			<MediaActivityRowGroups {...props} />
 		</MediaReviewLinksScope>
 	);
@@ -277,11 +284,12 @@ function MediaActivityMonth<Row extends MediaActivityRowBase>(props: {
 	readonly initiallyOpen: boolean;
 	readonly render: MediaActivityRowRender<Row>;
 }) {
+	const { text, formatters } = useMediaCopy();
 	const [open, setOpen] = useState(props.initiallyOpen);
 	const label =
 		props.first.dateKey === "date-unknown"
-			? "Date unknown"
-			: formatLocalMonthLabel(props.first.occurredAt);
+			? text("property.date-unknown")
+			: formatLocalMonthLabel(formatters, props.first.occurredAt);
 	return (
 		<section aria-label={label} className="grid gap-3">
 			<button
@@ -297,7 +305,7 @@ function MediaActivityMonth<Row extends MediaActivityRowBase>(props: {
 				/>
 				<span className="shrink-0 text-label font-semibold text-text">{label}</span>
 				<span className="min-w-0 flex-1 truncate text-right text-micro text-text-subtle">
-					{monthDetail(props.rows, props.render)}
+					{monthDetail(text, props.rows, props.render)}
 				</span>
 			</button>
 			{open ? (
@@ -310,12 +318,17 @@ function MediaActivityMonth<Row extends MediaActivityRowBase>(props: {
 }
 
 const segmentSeparatorLabel = <Row extends MediaActivityRowBase>(input: {
-	readonly noun: string;
 	readonly index: number;
 	readonly total: number;
+	readonly copy: MediaCopy;
+	readonly kind: MediaActivitySegment;
 	readonly segment: MediaActivityCompletedWatch<Row>;
 }) =>
-	`${input.noun} ${input.total - input.index} · ${mediaActivityDateLabel(input.segment.completion)}`;
+	input.copy.text("activity.segment-title", {
+		kind: input.kind,
+		number: input.total - input.index,
+		date: mediaActivityDateLabel(input.copy.text, input.copy.formatters, input.segment.completion),
+	});
 
 export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(props: {
 	readonly compact: boolean;
@@ -323,6 +336,7 @@ export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(prop
 	readonly timeline: MediaActivityTimeline<Row>;
 }) {
 	const { render, compact } = props;
+	const copy = useMediaCopy();
 	if (props.timeline.layout === "flat") {
 		return (
 			<MediaActivityRows
@@ -334,16 +348,16 @@ export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(prop
 		);
 	}
 	const { open, completed } = props.timeline;
-	const noun = render.segmentNoun;
+	const kind = render.segment;
 	return (
 		<MediaReviewLinksScope
-			segmentNoun={noun}
+			segment={kind}
 			rows={[...(open ?? []), ...completed.flatMap((segment) => segment.rows)]}
 		>
 			<div className="flex flex-col gap-5">
 				{open === undefined ? null : (
 					<div>
-						<MediaActivityWatchSeparator label={`Since the last ${noun.toLowerCase()}`} />
+						<MediaActivityWatchSeparator label={copy.text("activity.since-last", { kind })} />
 						<MediaActivityRows
 							rows={open}
 							render={render}
@@ -355,7 +369,7 @@ export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(prop
 				{completed.map((segment, index) => (
 					<div key={segment.key}>
 						<MediaActivityWatchSeparator
-							label={segmentSeparatorLabel({ noun, index, segment, total: completed.length })}
+							label={segmentSeparatorLabel({ copy, kind, index, segment, total: completed.length })}
 						/>
 						<MediaActivityRows
 							render={render}

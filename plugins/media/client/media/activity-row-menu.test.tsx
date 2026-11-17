@@ -130,8 +130,8 @@ describe("activity row menu", () => {
 				const [request] = background.requests;
 				expect(request).toMatchObject({
 					packageId: "ryot/media",
-					label: "Delete 3 records",
 					slug: "media-activity-delete",
+					label: { params: { count: 3 }, key: "record.delete-records" },
 					input: { eventIds: ["media-complete", "progress-late", "progress-early"] },
 				});
 				expect(request?.input).not.toHaveProperty("expected");
@@ -191,16 +191,16 @@ describe("activity row menu", () => {
 				expect(getByLabelText(dialog, "Hours")).toHaveProperty("value", "2");
 				expect(getByLabelText(dialog, "Minutes")).toHaveProperty("value", "49");
 				act(() => {
-					fireEvent.change(getByLabelText(dialog, /Where did you use it\?/), {
+					fireEvent.change(getByLabelText(dialog, /Where did you watch it\?/), {
 						target: { value: " Plex " },
 					});
-					fireEvent.keyDown(getByLabelText(dialog, /Where did you use it\?/), { key: "Enter" });
+					fireEvent.keyDown(getByLabelText(dialog, /Where did you watch it\?/), { key: "Enter" });
 				});
 				clickRyotElement(save);
 				yield* eventually(() => expect(background.requests).toHaveLength(1));
 				expect(background.requests[0]).toMatchObject({
-					label: "Edit activity",
 					slug: "media-activity-update",
+					label: { key: "log.edit.title" },
 					input: {
 						eventId: "media-complete",
 						patch: { consumedOn: ["Plex"] },
@@ -234,10 +234,10 @@ describe("activity row menu", () => {
 				);
 				const dialog = getByRole(document.body, "dialog", { name: "Edit activity" });
 				act(() => {
-					fireEvent.change(getByLabelText(dialog, /Where did you use it\?/), {
+					fireEvent.change(getByLabelText(dialog, /Where did you watch it\?/), {
 						target: { value: "Plex" },
 					});
-					fireEvent.keyDown(getByLabelText(dialog, /Where did you use it\?/), { key: "Enter" });
+					fireEvent.keyDown(getByLabelText(dialog, /Where did you watch it\?/), { key: "Enter" });
 				});
 				clickRyotElement(getByRole(dialog, "button", { name: "Save changes" }));
 				yield* eventually(() => expect(background.requests).toHaveLength(1));

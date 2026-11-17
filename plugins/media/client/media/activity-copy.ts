@@ -1,214 +1,197 @@
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
+import { formatDateLabel } from "@ryot-app/plugin-ui-sdk/datetime";
+
 import type { MediaPosition } from "../../shared/consumption";
 import type { ListStateProperties } from "../../shared/list-state";
 import type { MediaReviewOccurrence } from "../../shared/review-link-recipes";
-import { capitalized } from "./activity-log/state";
-import { decimalLabel, type MediaActivityProgressRun } from "./activity-timeline";
-import { formatDateOnlyLabel, formatLocalDateLabel } from "./date";
+import type { MediaCopy, MediaReviewKind, MediaText, MediaTitleKind } from "../messages";
+import type { ActivityVerb } from "./activity-log/state";
+import type { MediaActivityProgressRun } from "./activity-timeline";
+import { formatDateOnlyLabel } from "./date";
 
-type MediaActivityVerb = "read" | "play" | "watch" | "listen";
+export type MediaActivitySegment = "activity" | ActivityVerb;
 
-const MEDIA_LIST_STATE_LABELS: Record<ListStateProperties["state"], string> = {
-	backlog: "Backlog",
-	dropped: "Dropped",
-	on_hold: "On hold",
-	complete: "Complete",
-	in_progress: "In progress",
+export type MediaActivityCopyInput<Extra = unknown> = {
+	readonly verb: ActivityVerb;
+	readonly kind: MediaTitleKind;
+	readonly snapshot?: {
+		readonly source: "anilist";
+		readonly detail: (copy: MediaCopy, extra: Extra) => string | undefined;
+	};
 };
 
-const MEDIA_POSITION_LABELS: Record<MediaPosition["unit"], string> = {
-	episodes: "Ep",
-	chapters: "Ch",
-	volumes: "Vol",
-};
+type ActivityCopyTarget = { readonly verb: ActivityVerb; readonly kind: MediaTitleKind };
 
-export const mediaPositionLabel = (position: MediaPosition) =>
-	[
-		`${MEDIA_POSITION_LABELS[position.unit]} ${decimalLabel(position.position)}`,
-		...(position.volume === undefined ? [] : [`Vol ${decimalLabel(position.volume)}`]),
-	].join(" · ");
+export const mediaPositionLabel = (text: MediaText, position: MediaPosition) =>
+	position.volume === undefined
+		? text("activity.position", { unit: position.unit, position: position.position })
+		: text("activity.position-with-volume", {
+				unit: position.unit,
+				volume: position.volume,
+				position: position.position,
+			});
 
-export const mediaListStateDetail = ({
-	listState,
-}: {
-	readonly listState: null | ListStateProperties;
-}) =>
+export const mediaListStateDetail = (
+	{ text }: MediaCopy,
+	{ listState }: { readonly listState: null | ListStateProperties },
+) =>
 	listState === null
 		? undefined
 		: [
-				MEDIA_LIST_STATE_LABELS[listState.state],
-				...(listState.position === undefined ? [] : [mediaPositionLabel(listState.position)]),
-				`Repeat count ${listState.repeatCount}`,
+				text("activity.list-state", { state: listState.state }),
+				...(listState.position === undefined ? [] : [mediaPositionLabel(text, listState.position)]),
+				text("activity.repeat-count", { count: listState.repeatCount }),
 			].join(" · ");
 
-type MediaActivityVerbCopy = {
-	readonly object: string;
-	readonly gerund: string;
-	readonly participle: string;
-	readonly segmentNoun: string;
-	readonly recordLabel: string;
-	readonly completionsLabel: string;
-};
-
-const MEDIA_ACTIVITY_VERBS: Record<MediaActivityVerb, MediaActivityVerbCopy> = {
-	read: {
-		object: "read",
-		gerund: "reading",
-		participle: "read",
-		segmentNoun: "Read",
-		completionsLabel: "Reads",
-		recordLabel: "Reading record",
+const mediaActivityCopy = (text: MediaText, input: ActivityCopyTarget) => ({
+	segment: input.verb,
+	loadingDetail: text("activity.loading-detail"),
+	libraryLabel: text("event-schema.add-to-media-library.name"),
+	emptyDetail: text("activity.empty-detail", { verb: input.verb }),
+	recordLabel: text("activity.record-label", { segment: input.verb }),
+	rowLabels: {
+		review: text("activity.row-review", { kind: input.kind }),
+		completion: text("activity.row-completion", { kind: input.kind }),
 	},
-	play: {
-		object: "play",
-		gerund: "playing",
-		segmentNoun: "Play",
-		participle: "played",
-		recordLabel: "Play record",
-		completionsLabel: "Playthroughs",
-	},
-	watch: {
-		object: "watch",
-		gerund: "watching",
-		segmentNoun: "Watch",
-		participle: "watched",
-		recordLabel: "Watch record",
-		completionsLabel: "Watches",
-	},
-	listen: {
-		object: "listen to",
-		gerund: "listening",
-		segmentNoun: "Listen",
-		participle: "listened",
-		completionsLabel: "Listens",
-		recordLabel: "Listen record",
-	},
-};
-
-const mediaActivityCopy = (verb: MediaActivityVerbCopy, noun: string) => ({
-	segmentNoun: verb.segmentNoun,
-	recordLabel: verb.recordLabel,
-	libraryLabel: "Added to media library",
-	loadingDetail: `Fetching everything you have recorded for this ${noun}.`,
-	rowLabels: { review: `Reviewed the ${noun}`, completion: `Finished the ${noun}` },
-	emptyDetail: `Nothing has been recorded for this ${noun}. Whatever you ${verb.object} will appear here as your ${verb.recordLabel.toLowerCase()}.`,
 });
 
-const mediaActivityBeats = (verb: MediaActivityVerbCopy, noun: string) => ({
-	dropped: `Stopped ${verb.gerund}`,
-	on_hold: `Put this ${noun} on hold`,
+const mediaActivityBeats = (text: MediaText, input: ActivityCopyTarget) => ({
+	on_hold: text("activity.beat-on-hold"),
+	dropped: text("log.status.detail-dropped", { verb: input.verb }),
 });
 
-export const mediaFlatActivityCopy = <Extra = unknown>(input: {
-	readonly noun: string;
-	readonly verb: MediaActivityVerb;
-	readonly progress?: (percent: string | undefined, extra: Extra) => string;
-	readonly snapshot?: {
-		readonly label: string;
-		readonly detail: (extra: Extra) => string | undefined;
-	};
-}) => {
-	const verb = MEDIA_ACTIVITY_VERBS[input.verb];
-	const { rowLabels, ...copy } = mediaActivityCopy(verb, input.noun);
-	const progress: (percent: string | undefined, extra: Extra) => string =
-		input.progress ??
-		((percent) =>
-			percent === undefined
-				? `Part-way through the ${input.noun}`
-				: `${percent}% through the ${input.noun}`);
+export type MediaFlatActivityCopy<Extra = unknown> = ReturnType<
+	typeof mediaFlatActivityCopy<Extra>
+>;
+
+export const mediaFlatActivityCopy = <Extra = unknown>(
+	mediaCopy: MediaCopy,
+	input: MediaActivityCopyInput<Extra>,
+) => {
+	const { text } = mediaCopy;
+	const { rowLabels, ...copy } = mediaActivityCopy(text, input);
 	return {
 		...copy,
-		progressVerb: verb.participle,
-		rowLabels: { ...rowLabels, progress },
-		completionsLabel: verb.completionsLabel,
-		beats: mediaActivityBeats(verb, input.noun),
-		snapshot: input.snapshot ?? { label: "Synced", detail: () => undefined },
+		beats: mediaActivityBeats(text, input),
+		completionsLabel: text("activity.completions-label", { verb: input.verb }),
+		progressLabel: (percent: number) =>
+			text("activity.progress-verb", { verb: input.verb, percent: percent / 100 }),
 		itemLabel: (item: MediaPosition) =>
-			`${capitalized(verb.participle)} ${mediaPositionLabel(item)}`,
-	};
-};
-
-export const mediaEpisodicActivityCopy = (input: {
-	readonly noun: string;
-	readonly watchedLabel: string;
-	readonly verb: MediaActivityVerb;
-}) => {
-	const verb = MEDIA_ACTIVITY_VERBS[input.verb];
-	const { rowLabels, ...copy } = mediaActivityCopy(verb, input.noun);
-	return {
-		...copy,
-		rowLabels: { ...rowLabels, watched: input.watchedLabel },
-		beats: { ...mediaActivityBeats(verb, input.noun), backlog: "Added to backlog" },
-		figures: {
-			time: "Time",
-			episodes: "Episodes",
-			current: `This ${verb.segmentNoun.toLowerCase()}`,
-			watches: `Completed ${verb.completionsLabel.toLowerCase()}`,
+			text("activity.item-label", { verb: input.verb, position: mediaPositionLabel(text, item) }),
+		snapshot: {
+			detail: (extra: Extra) => input.snapshot?.detail(mediaCopy, extra),
+			label:
+				input.snapshot === undefined
+					? text("activity.synced")
+					: text("activity.synced-from-anilist"),
+		},
+		rowLabels: {
+			...rowLabels,
+			progress: (percent: number | undefined, _extra: Extra) =>
+				percent === undefined
+					? text("activity.progress-unknown")
+					: text("activity.progress-percent", { percent: percent / 100 }),
 		},
 	};
 };
 
-export const mediaReviewActivityCopy = (noun: string) => ({
-	segmentNoun: "Activity",
-	recordLabel: "Activity record",
-	libraryLabel: "Added to media library",
-	rowLabels: { review: `Reviewed this ${noun}` },
-	loadingDetail: `Fetching everything you have recorded for this ${noun}.`,
-	emptyDetail: `Nothing has been recorded for this ${noun}. Your reviews, media library changes and collection changes will appear here.`,
+export const mediaEpisodicActivityCopy = (
+	text: MediaText,
+	input: ActivityCopyTarget & { readonly watched: "played" | "watched" },
+) => {
+	const { rowLabels, ...copy } = mediaActivityCopy(text, input);
+	return {
+		...copy,
+		rowLabels: { ...rowLabels, watched: input.watched },
+		beats: { ...mediaActivityBeats(text, input), backlog: text("activity.beat-backlog") },
+		figures: {
+			time: text("activity.figure-time"),
+			episodes: text("property.episodes"),
+			current: text("activity.figure-current", { verb: input.verb }),
+			watches: text("activity.figure-completed", { verb: input.verb }),
+		},
+	};
+};
+
+export const mediaReviewActivityCopy = (text: MediaText, kind: MediaReviewKind) => ({
+	segment: "activity" as const,
+	loadingDetail: text("activity.loading-detail"),
+	emptyDetail: text("activity.empty-detail-review"),
+	libraryLabel: text("event-schema.add-to-media-library.name"),
+	rowLabels: { review: text("activity.row-review-this", { kind }) },
+	recordLabel: text("activity.record-label", { segment: "activity" }),
 });
 
-export const mediaActivityRunLabel = (run: MediaActivityProgressRun) =>
+export const mediaActivityRunLabel = ({ text }: MediaCopy, run: MediaActivityProgressRun) =>
 	run.fromPercent === undefined
-		? `${run.updates} updates`
-		: `${run.updates} updates since ${decimalLabel(run.fromPercent)}%`;
+		? text("activity.run", { count: run.updates })
+		: text("activity.run-since", { count: run.updates, percent: run.fromPercent / 100 });
 
-export const mediaActivityExpandLabel = (input: {
-	readonly count: number;
-	readonly expanded: boolean;
-}) => (input.expanded ? "Hide episodes" : `Show ${input.count} episodes`);
+export const mediaActivityExpandLabel = (
+	text: MediaText,
+	input: { readonly count: number; readonly expanded: boolean },
+) =>
+	input.expanded
+		? text("activity.expand-hide")
+		: text("activity.expand-show", { count: input.count });
 
-const occurrenceDateLabel = (occurrence: MediaReviewOccurrence) => {
+const occurrenceDateLabel = ({ formatters }: MediaCopy, occurrence: MediaReviewOccurrence) => {
 	if (occurrence.dateUnknown === true) {
 		return undefined;
 	}
 	return occurrence.calendarDate === null
-		? formatLocalDateLabel(occurrence.occurredAt)
-		: formatDateOnlyLabel(occurrence.calendarDate);
+		? formatDateLabel(formatters, occurrence.occurredAt)
+		: formatDateOnlyLabel(formatters, occurrence.calendarDate);
 };
 
-const datedLabel = (label: string, occurrence: MediaReviewOccurrence, separator: string) => {
-	const date = occurrenceDateLabel(occurrence);
-	return date === undefined ? label : `${label}${separator}${date}`;
+const reviewKind = (occurrence: MediaReviewOccurrence) => {
+	if (occurrence.eventSchemaSlug === "item-complete") {
+		return occurrence.position === null ? "item_complete" : "item_complete_at";
+	}
+	return occurrence.eventSchemaSlug;
 };
 
 /** What a linked review is about, in the schema's activity vocabulary: "About your watch on Nov 3, 2026". */
 export const mediaReviewOccurrenceLabel = (
-	segmentNoun: string,
+	copy: MediaCopy,
+	segment: MediaActivitySegment,
 	occurrence: MediaReviewOccurrence,
 ) => {
-	const noun = segmentNoun.toLowerCase();
-	const subjects: Record<MediaReviewOccurrence["eventSchemaSlug"], string> = {
-		dropped: "stopping",
-		complete: `your ${noun}`,
-		progress: "your progress",
-		on_hold: "putting it on hold",
-		"item-complete":
-			occurrence.position === null
-				? `your ${noun}`
-				: `your ${noun} of ${mediaPositionLabel(occurrence.position)}`,
-	};
-	return datedLabel(`About ${subjects[occurrence.eventSchemaSlug]}`, occurrence, " on ");
+	const { text } = copy;
+	const about = {
+		segment,
+		kind: reviewKind(occurrence),
+		position: occurrence.position === null ? "" : mediaPositionLabel(text, occurrence.position),
+	} as const;
+	const date = occurrenceDateLabel(copy, occurrence);
+	return date === undefined
+		? text("activity.review-about", about)
+		: text("activity.review-about-dated", { ...about, date });
 };
 
 /** A choice in the review composer's "About" select: "Finished · Nov 3, 2026". */
-export const mediaReviewOccurrenceChoiceLabel = (occurrence: MediaReviewOccurrence) => {
-	const position =
-		occurrence.position === null ? "" : ` ${mediaPositionLabel(occurrence.position)}`;
-	const kinds: Record<MediaReviewOccurrence["eventSchemaSlug"], string> = {
-		dropped: "Dropped",
-		on_hold: "On hold",
-		complete: "Finished",
-		progress: `Progress${position}`,
-		"item-complete": `Finished${position}`,
-	};
-	return datedLabel(kinds[occurrence.eventSchemaSlug], occurrence, " · ");
+export const mediaReviewOccurrenceChoiceLabel = (
+	copy: MediaCopy,
+	occurrence: MediaReviewOccurrence,
+) => {
+	const { text } = copy;
+	const { position, eventSchemaSlug: slug } = occurrence;
+	let choice: Text;
+	if (position !== null && slug === "progress") {
+		choice = text("activity.review-choice-positioned", {
+			kind: "progress",
+			position: mediaPositionLabel(text, position),
+		});
+	} else if (position !== null && slug === "item-complete") {
+		choice = text("activity.review-choice-positioned", {
+			kind: "item_complete",
+			position: mediaPositionLabel(text, position),
+		});
+	} else {
+		choice = text("activity.review-choice", {
+			kind: slug === "item-complete" ? "item_complete" : slug,
+		});
+	}
+	const date = occurrenceDateLabel(copy, occurrence);
+	return date === undefined ? choice : text("activity.review-choice-dated", { date, choice });
 };
