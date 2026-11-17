@@ -1,10 +1,17 @@
-import type { RyotClient, RyotSchedule } from "@ryot-app/plugin-client-sdk";
+import type { LocalMessage, RyotClient, RyotSchedule } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import {
+	type Text,
+	useLocalMessage,
+	useRyot,
+	useRyotSchedule,
+} from "@ryot-app/plugin-client-sdk/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { resolveWorkoutDisplay } from "../../shared/workout-editor-preferences";
+import { type FitnessText, useFitnessMessages } from "../messages";
 import { changeOccurrenceDisplay, changeWorkoutEnergyUnit } from "./actions";
 import type { WorkoutEditorContext } from "./controller-types";
 import { WorkoutEditorPrepareError } from "./prepare-error";
@@ -16,6 +23,7 @@ export type PrepareDraft = (
 ) => Effect.Effect<WorkoutEditorDraft, unknown>;
 
 const startInitialDraft = (input: {
+	readonly text: FitnessText;
 	readonly client: RyotClient;
 	readonly prepare: PrepareDraft;
 	readonly onStarted: () => void;
@@ -25,7 +33,8 @@ const startInitialDraft = (input: {
 	readonly isActive: () => boolean;
 	readonly context: WorkoutEditorContext;
 	readonly starting: { current: boolean };
-	readonly setMessage: (message: string) => void;
+	readonly setMessage: (message: Text) => void;
+	readonly local: (message: LocalMessage) => Text;
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
 }) => {
 	input.starting.current = true;
@@ -66,8 +75,8 @@ const startInitialDraft = (input: {
 				onFailure: (error) =>
 					input.setMessage(
 						error instanceof WorkoutEditorPrepareError
-							? error.message
-							: "The draft could not be loaded or stored. Retry before leaving this page.",
+							? input.local(error.reason)
+							: input.text("client.prepare.draft-failed"),
 					),
 			}),
 		),
@@ -81,10 +90,10 @@ const startInitialDraft = (input: {
 export function useInitialDraft(input: {
 	readonly saving: boolean;
 	readonly isActive: boolean;
-	readonly message: string | undefined;
+	readonly message: Text | undefined;
 	readonly requiresPro: boolean | undefined;
 	readonly onStarted: undefined | (() => void);
-	readonly setMessage: (message: string) => void;
+	readonly setMessage: (message: Text) => void;
 	readonly draft: undefined | WorkoutEditorDraft;
 	readonly prepareDraft: undefined | PrepareDraft;
 	readonly context: undefined | WorkoutEditorContext;
@@ -93,6 +102,8 @@ export function useInitialDraft(input: {
 }) {
 	const { saving, context, message, isActive, onStarted, controller, setMessage, prepareDraft } =
 		input;
+	const text = useFitnessMessages();
+	const local = useLocalMessage(PLUGIN_PACKAGE_ID);
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const starting = useRef(false);
@@ -128,6 +139,8 @@ export function useInitialDraft(input: {
 			return;
 		}
 		startInitialDraft({
+			text,
+			local,
 			client,
 			context,
 			schedule,
@@ -149,6 +162,7 @@ export function useInitialDraft(input: {
 		controller,
 		finishRequest,
 		isActive,
+		local,
 		message,
 		prepareDraft,
 		requestBlocked,
@@ -156,6 +170,7 @@ export function useInitialDraft(input: {
 		saving,
 		schedule,
 		setMessage,
+		text,
 		input.snapshotStatus,
 	]);
 
@@ -163,7 +178,6 @@ export function useInitialDraft(input: {
 		finishRequest,
 		requestBlocked,
 		requestHandled,
-		// The started draft is shown while it is stored, then its screen is replaced, losing any local state.
 		starting: startingDraft,
 		markStarted: () => setUseExisting(true),
 		existingGuard:

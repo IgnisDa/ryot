@@ -5,6 +5,7 @@ import { Effect, Match, Schema } from "effect";
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 
 import { historyEntry } from "#/modules/navigation/history-entry";
+import { useMainViewIdentity } from "#/modules/navigation/main-view";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import type { PluginBridgeNavigationState } from "#/modules/pages/bridge/session";
@@ -268,6 +269,11 @@ export function ClientPageDocumentHost() {
 
 	const displayedKey = rendersPluginSurface ? activeKey : null;
 	const activeDocument = displayedKey === null ? undefined : entries.get(displayedKey)?.document;
+	useMainViewIdentity(
+		activeDocument === undefined
+			? undefined
+			: `${displayedKey}\n${documentOwner(activeDocument.prepared)}`,
+	);
 	useLayoutEffect(() => {
 		if (displayedKey === null || activeDocument === undefined) {
 			return undefined;

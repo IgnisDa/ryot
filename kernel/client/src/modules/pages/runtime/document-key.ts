@@ -10,16 +10,15 @@ const digest = (value: unknown) =>
 export const documentOwner = ({ context, identity }: PreparedClientPage) => {
 	const documentId = "savedViewId" in identity ? identity.savedViewId : "";
 	const documentRevision = "viewRevision" in identity ? identity.viewRevision : 0;
+	// Plugin routes resolve their path, search, and parameters from the live location.
+	const pluginRoute = context.target.kind === "plugin-route";
 	const contextDigest = digest({
 		view: context.view,
-		route: context.route,
 		settings: context.settings,
 		renderer: context.renderer,
 		dataSources: context.dataSources,
-		target: {
-			...context.target,
-			...(context.target.kind === "plugin-route" ? { search: undefined } : {}),
-		},
+		route: pluginRoute ? undefined : context.route,
+		target: { ...context.target, ...(pluginRoute ? { path: undefined, search: undefined } : {}) },
 	});
 	return `${identity.kind}:${documentId}:${documentRevision}:${contextDigest}`;
 };

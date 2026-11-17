@@ -1,4 +1,6 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
+import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
 import type {
 	ChangeCollectionMembersOutcome,
 	ManageCollectionReviewsOutcome,
@@ -67,6 +69,7 @@ export function PageDocumentHost(props: {
 	readonly presentation: ClientPagePresentationController;
 	readonly operationTargets: PreparedClientPage["identity"]["operationTargets"];
 }) {
+	const t = useT();
 	const ryot = useRyot();
 	const router = useRouter();
 	const navigate = useNavigate();
@@ -171,7 +174,6 @@ export function PageDocumentHost(props: {
 			onKernelShortcut={props.chrome.onKernelShortcut}
 			icon={rendererPlugin?.icon ?? context.view?.icon}
 			documentKey={documentOwner(props.document.prepared)}
-			title={rendererPlugin?.name ?? props.document.title}
 			freshnessCheckRevision={props.freshnessCheckRevision}
 			compositionHash={props.document.prepared.composition.hash}
 			onFlushReady={(handler) => {
@@ -179,6 +181,7 @@ export function PageDocumentHost(props: {
 			}}
 			onScreenState={(state) => props.presentation.publishReadiness(props.owner, state)}
 			onExternalLink={(request) => props.runtime.runSync(ExternalLinks).outcome(request)}
+			title={rendererPlugin === undefined ? props.document.title : t(rendererPlugin.name)}
 			onUpload={(request) => props.runtime.runSync(Uploads).outcome(props.scope, request)}
 			onOverlayState={(count) => props.presentation.publishOverlayCount(props.owner, count)}
 			onHeader={(publication) => props.presentation.publishHeader(props.owner, publication)}
@@ -189,9 +192,6 @@ export function PageDocumentHost(props: {
 			}}
 			onAssets={(request) =>
 				props.runtime.runSync(ManagedAssetsService).outcome(props.scope, request.assets)
-			}
-			onQuery={(request) =>
-				props.runtime.runSync(PluginQueriesService).query({ request, scope: props.scope })
 			}
 			onReleaseResources={() => {
 				props.runtime.runFork(props.runtime.runSync(DeviceService).releaseFrame(frameKey));
@@ -243,6 +243,15 @@ export function PageDocumentHost(props: {
 					.document(props.scope, { payload: { identity } })
 					.pipe(Effect.map((document) => renderClientDocument(document, props.scope.serverUrl)))
 			}
+			onQuery={(request) =>
+				props.runtime
+					.runSync(PluginQueriesService)
+					.query({
+						request,
+						scope: props.scope,
+						namespace: renderer.kind === "plugin" ? renderer.pluginId : KERNEL_NAMESPACE,
+					})
+			}
 			onPageSearch={({ mode, update }) =>
 				!props.embedded &&
 				navigatePageSearch(navigate, {
@@ -289,7 +298,10 @@ export function PageDocumentHost(props: {
 					void navigate({
 						href: navigation.href,
 						replace: navigation.replace,
-						state: (current) => ({ ...current, ryotEntryKey: crypto.randomUUID() }),
+						state: (current) => ({
+							...current,
+							ryotEntryKey: navigation.replace ? props.navigation.key : crypto.randomUUID(),
+						}),
 					});
 				}
 			}}

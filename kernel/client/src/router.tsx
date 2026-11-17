@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-router";
 
 import { createKernelRyotClientStore } from "#/api/ryot-client";
+import { mainViewRouterOptions } from "#/modules/navigation/main-view";
 import type { RouterContext } from "#/routes/__root";
 import { routeTree } from "#/routeTree.gen";
 
@@ -17,7 +18,7 @@ export function getRouter(
 	const router = createTanStackRouter({
 		history,
 		routeTree,
-		scrollRestoration: true,
+		...mainViewRouterOptions,
 		defaultPreload: "intent",
 		defaultPreloadStaleTime: 30_000,
 		context: {

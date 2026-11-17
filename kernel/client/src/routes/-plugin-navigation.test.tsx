@@ -21,6 +21,7 @@ import {
 	SandboxProviderId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
 	CLIENT_API_VERSION,
@@ -28,11 +29,15 @@ import {
 	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	type PluginBridgeCatalog,
 	PluginBridgeInit,
+	PluginBridgeLocale,
 	PluginBridgeLocation,
 } from "@ryot-app/plugin-client-contract";
+import { testCatalog } from "@ryot-app/plugin-client-sdk/testing";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
+import { assert } from "@ryot-app/testing/assert";
 import { anyOf, anything, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
@@ -46,6 +51,7 @@ import { PagesApi } from "#/api/pages";
 import { KernelApiTestLayer, makeCollectionsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
 import { BackgroundSubmissionService } from "#/modules/background-submissions/service";
+import { testMessage, testMessageCatalog } from "#/modules/i18n/provider.test-support";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { NavigationService } from "#/modules/navigation/service";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
@@ -67,6 +73,7 @@ import {
 	clientCompositionDocument,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
+	i18n,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -78,6 +85,7 @@ import {
 	navigationData,
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
+	pluginMessages,
 	ProviderAddRouteStubs,
 	ServerStub,
 	theme,
@@ -202,6 +210,7 @@ function mount(options: {
 	readonly auth?: ReturnType<typeof makeAuthStub>;
 	readonly prepare?: PagesApi["Service"]["prepare"];
 	readonly ryotql?: RyotQLApi["Service"]["execute"];
+	readonly catalogs?: readonly PluginBridgeCatalog[];
 	readonly check?: ClientPageFreshness["Service"]["check"];
 	readonly collections?: Partial<CollectionsApi["Service"]>;
 	readonly providerAdd?: Partial<ProviderAddService["Service"]>;
@@ -272,6 +281,10 @@ function mount(options: {
 			ManagedAssetRouteStubs,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			pluginMessages(
+				testMessageCatalog("Provider 1", "Unit", "Other"),
+				...(options.catalogs ?? []),
+			),
 			events.layer,
 			Layer.succeed(PluginCatalogService, {
 				load: () =>
@@ -318,7 +331,7 @@ function mount(options: {
 		),
 	);
 	const router = getRouter(
-		{ theme, runtime, backInterceptors: createBackInterceptors() },
+		{ i18n, theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [options.entry] }),
 	);
 	if (options.pendingMs !== undefined) {
@@ -370,11 +383,15 @@ function connectFrame(frame: HTMLIFrameElement) {
 		throw new Error("Bridge did not connect");
 	}
 	const {
+		dir: _dir,
 		mode: _mode,
 		page: _page,
+		locale: _locale,
 		safeAreaTop: _top,
+		catalogs: _catalogs,
 		safeAreaBottom: _bottom,
 		documentKey: _documentKey,
+		pendingNamespaces: _pendingNamespaces,
 		...ready
 	} = init;
 	port.postMessage(ready);
@@ -383,6 +400,11 @@ function connectFrame(frame: HTMLIFrameElement) {
 
 const preparationFailure = (reason: ClientPagePreparationError["reason"]) =>
 	Effect.fail(new AuthenticatedApiError({ cause: new ClientPagePreparationError({ reason }) }));
+
+const numberedPluginCatalogs = (count: number) =>
+	Array.from({ length: count }, (_, index) =>
+		testCatalog(`plugin-${index + 1}`, { "plugin.name": `Plugin ${index + 1}` }),
+	);
 
 describe("client page routes", () => {
 	it.live.each([
@@ -1089,7 +1111,7 @@ describe("client page routes", () => {
 				} satisfies ImportEntityRunResult;
 				const providerResponse = {
 					providerId,
-					providerName: "Provider 1",
+					providerName: testMessage("Provider 1"),
 					rootEntitySchemaSlug: EntitySchemaSlug.make("unit"),
 					items: [{ title: "Sample", externalId: "external-1" }],
 				} satisfies SearchProviderEntitiesResponse;
@@ -1107,8 +1129,8 @@ describe("client page routes", () => {
 									{
 										providerId,
 										searchOptionsSchema: null,
-										providerName: "Provider 1",
 										providerSlug: "provider-1",
+										providerName: testMessage("Provider 1"),
 										rootEntitySchemaSlug: EntitySchemaSlug.make("unit"),
 									},
 								],
@@ -1177,7 +1199,11 @@ describe("client page routes", () => {
 					providerAdd: {
 						loadProviders: noProviders,
 						loadSchema: () =>
-							Effect.succeed({ name: "Unit", editor: null, propertiesSchema: { fields: {} } }),
+							Effect.succeed({
+								editor: null,
+								name: testMessage("Unit"),
+								propertiesSchema: { fields: {} },
+							}),
 						loadEntities: (_client, input) => {
 							queries.push(input.query ?? "");
 							return Effect.succeed({
@@ -1230,14 +1256,17 @@ describe("client page routes", () => {
 							}),
 						loadSchema: () =>
 							Effect.succeed({
-								name: "Unit",
+								name: testMessage("Unit"),
 								propertiesSchema: kindSchema,
 								editor: { relationships: [] },
 							}),
 						createEntity: (_scope, request) => {
 							requests.push(request);
 							return requests.length === 1
-								? Effect.succeed({ kind: "invalid" as const, message: "Try that again." })
+								? Effect.succeed({
+										kind: "invalid" as const,
+										reason: kernelMessage("client.provider-add.create.refused"),
+									})
 								: Effect.succeed({ entityId, kind: "saved" as const });
 						},
 					},
@@ -1260,7 +1289,7 @@ describe("client page routes", () => {
 					target: { value: "muscle" },
 				});
 				fireEvent.click(screen.getByRole("button", { name: "Create" }));
-				yield* Effect.promise(() => screen.findByText("Try that again."));
+				yield* Effect.promise(() => screen.findByText("This item could not be created here."));
 				fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
 				yield* Effect.promise(() =>
@@ -1306,7 +1335,7 @@ describe("client page routes", () => {
 							}),
 						loadSchema: () =>
 							Effect.succeed({
-								name: "Unit",
+								name: testMessage("Unit"),
 								propertiesSchema: kindSchema,
 								editor: { relationships: [] },
 							}),
@@ -1415,7 +1444,7 @@ describe("client page routes", () => {
 						{
 							...catalog[0],
 							sortOrder: 1,
-							name: "Other",
+							name: testMessage("Other"),
 							pluginId: PluginId.make("plugin-2"),
 							installationId: "installation-plugin-2",
 							packageId: PluginPackageId.make("test/plugin-2"),
@@ -1594,7 +1623,7 @@ describe("client page routes", () => {
 						packageId,
 						operationSlug: "log",
 						input: { episode: 1 },
-						label: "Logged episode 1",
+						label: { key: "episode.logged" },
 						idempotencyKey: `key-${requestId}`,
 						type: "background-operation-request",
 						submittedAt: "2026-10-19T00:00:00.000Z",
@@ -1825,7 +1854,12 @@ describe("client page routes", () => {
 				expect(frame.getAttribute("srcdoc")).toBe(firstSrcDoc);
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(bridge.messages).toContainEqual(objectContaining({ type: "document" })),
+						expect(bridge.messages).toContainEqual(
+							objectContaining({
+								type: "location",
+								location: objectContaining({ path: "/details/two" }),
+							}),
+						),
 					),
 				);
 
@@ -1858,14 +1892,15 @@ describe("client page routes", () => {
 				let userId = "user-1";
 				const entries = Array.from({ length: 2 }, (_, index) => ({
 					...catalog[0],
-					name: `Plugin ${index + 1}`,
 					installationId: `installation-${index + 1}`,
 					pluginId: PluginId.make(`plugin-${index + 1}`),
 					packageId: PluginPackageId.make(`test/plugin-${index + 1}`),
+					name: { key: "plugin.name", namespace: `plugin-${index + 1}` },
 				}));
 				const view = mount({
 					entries,
 					entry: "/p/test/plugin-1",
+					catalogs: numberedPluginCatalogs(entries.length),
 					auth: makeAuthStub({
 						settledSession: () =>
 							Effect.succeed({
@@ -1940,8 +1975,8 @@ describe("client page routes", () => {
 					waitFor(() =>
 						expect(bridge.messages).toContainEqual(
 							objectContaining({
-								type: "document",
-								page: objectContaining({ target: objectContaining({ path: "/details" }) }),
+								type: "location",
+								location: objectContaining({ path: "/details" }),
 							}),
 						),
 					),
@@ -1963,7 +1998,14 @@ describe("client page routes", () => {
 							return Effect.die("not used");
 						}
 						preparations++;
-						return Effect.succeed(preparedFor(target));
+						const prepared = preparedFor(target);
+						return Effect.succeed({
+							...prepared,
+							context: {
+								...prepared.context,
+								renderer: { kind: "plugin", pluginId: "plugin-1", exportName: target.path },
+							},
+						});
 					},
 				});
 				const frame = yield* Effect.promise(() =>
@@ -2047,12 +2089,16 @@ describe("client page routes", () => {
 			Effect.gen(function* () {
 				const entries = Array.from({ length: 4 }, (_, index) => ({
 					...catalog[0],
-					name: `Plugin ${index + 1}`,
 					installationId: `installation-${index + 1}`,
 					pluginId: PluginId.make(`plugin-${index + 1}`),
 					packageId: PluginPackageId.make(`test/plugin-${index + 1}`),
+					name: { key: "plugin.name", namespace: `plugin-${index + 1}` },
 				}));
-				const view = mount({ entries, entry: "/p/test/plugin-1" });
+				const view = mount({
+					entries,
+					entry: "/p/test/plugin-1",
+					catalogs: numberedPluginCatalogs(entries.length),
+				});
 				const first = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Plugin 1 plugin"),
 				);
@@ -2227,9 +2273,11 @@ describe("client page routes", () => {
 				const searchBridge = connectFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
-				yield* Effect.promise(() => waitFor(() => expect(searchBridge.messages).toHaveLength(1)));
+				const searchLocations = () =>
+					searchBridge.messages.filter((message) => !Schema.is(PluginBridgeLocale)(message));
+				yield* Effect.promise(() => waitFor(() => expect(searchLocations()).toHaveLength(1)));
 				const initialSearch = yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(
-					searchBridge.messages[0],
+					searchLocations()[0],
 				);
 				searchBridge.port.postMessage({
 					mode: "replace",
@@ -2241,14 +2289,44 @@ describe("client page routes", () => {
 						expect(searchView.router.state.location.searchStr).toBe("?keep=1&q=sample"),
 					),
 				);
-				yield* Effect.promise(() => waitFor(() => expect(searchBridge.messages).toHaveLength(2)));
+				yield* Effect.promise(() => waitFor(() => expect(searchLocations()).toHaveLength(2)));
 				const replacedSearch = yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(
-					searchBridge.messages[1],
+					searchLocations()[1],
 				);
 				expect(replacedSearch).toMatchObject({
 					key: initialSearch.key,
 					index: initialSearch.index,
 				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"updates a replaced route of the same plugin page in place",
+		() =>
+			Effect.gen(function* () {
+				const view = mount({ entry: "/p/test/plugin-1/items/new" });
+				const bridge = connectFrame(
+					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+				);
+				const locations = () => bridge.messages.filter(Schema.is(PluginBridgeLocation));
+				yield* Effect.promise(() => waitFor(() => expect(locations()).toHaveLength(1)));
+				const initial = locations()[0];
+				assert(initial);
+				bridge.port.postMessage({
+					mode: "replace",
+					type: "navigate",
+					target: { search: "", path: "/editor", kind: "plugin-route", packageId: "test/plugin-1" },
+				});
+				yield* Effect.promise(() => waitFor(() => expect(view.targets).toHaveLength(2)));
+				bridge.port.postMessage({ mode: "replace", update: { q: "x" }, type: "page-search" });
+				yield* Effect.promise(() => waitFor(() => expect(locations()).toHaveLength(3)));
+				expect(locations().slice(1)).toMatchObject([
+					{ key: initial.key, index: initial.index, location: { search: "", path: "/editor" } },
+					{ key: initial.key, index: initial.index, location: { search: "q=x", path: "/editor" } },
+				]);
+				expect(bridge.messages).not.toContainEqual(objectContaining({ type: "document" }));
+				expect(view.getDocumentLoads()).toBe(1);
 			}),
 		testTimeout,
 	);
