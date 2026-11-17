@@ -32,7 +32,7 @@ import { PluginInstallationService } from "#modules/plugins/installations/servic
 import { PluginIngestionService } from "#modules/plugins/packages/ingestion-service";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import type { PluginSource } from "#modules/plugins/packages/types";
-import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
+import { fixtureClientArtifact, withCatalogs } from "#modules/plugins/source.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -199,7 +199,6 @@ layer(systemPluginIngestion.layer)((test) => {
 		"returns persisted system plugin identity after real ingestion completes",
 		() => {
 			const compiledClient = fixtureClientArtifact(
-				systemPluginManifest.metadata.name,
 				systemPluginManifest.metadata.packageId,
 				systemPluginClient,
 			);
@@ -207,17 +206,23 @@ layer(systemPluginIngestion.layer)((test) => {
 				{ format: 1, javascript: "compiled", entry: "backend/automations/fixture.sandbox.ts" },
 			];
 			return Effect.gen(function* () {
-				const result = yield* (yield* TestSupportService).installSystemPlugin({
-					compiledScripts,
-					manifest: systemPluginManifest,
-					compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
-						compiledClient,
-					),
-				});
+				const result = yield* (yield* TestSupportService).installSystemPlugin(
+					withCatalogs({
+						compiledScripts,
+						manifest: systemPluginManifest,
+						compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
+							compiledClient,
+						),
+					}),
+				);
 				expect(yield* systemPluginIngestion.recorded).toEqual([
 					{
 						kind: "install",
-						input: { compiledClient, compiledScripts, manifest: systemPluginManifest },
+						input: withCatalogs({
+							compiledClient,
+							compiledScripts,
+							manifest: systemPluginManifest,
+						}),
 					},
 					{ kind: "result", identity: { pluginId: "plugin-id" } },
 				]);
@@ -237,7 +242,6 @@ layer(systemPluginIngestion.layer)((test) => {
 		"updates an exact system plugin with its source hash",
 		() => {
 			const compiledClient = fixtureClientArtifact(
-				systemPluginManifest.metadata.name,
 				systemPluginManifest.metadata.packageId,
 				systemPluginClient,
 			);
@@ -251,24 +255,27 @@ layer(systemPluginIngestion.layer)((test) => {
 			const pluginId = PluginId.make("plugin-id");
 			const contentHash = "current-source-hash";
 			return Effect.gen(function* () {
-				const result = yield* (yield* TestSupportService).updateSystemPlugin(pluginId, {
-					contentHash,
-					compiledScripts,
-					manifest: systemPluginManifest,
-					compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
-						compiledClient,
-					),
-				});
+				const result = yield* (yield* TestSupportService).updateSystemPlugin(
+					pluginId,
+					withCatalogs({
+						contentHash,
+						compiledScripts,
+						manifest: systemPluginManifest,
+						compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
+							compiledClient,
+						),
+					}),
+				);
 				expect((yield* systemPluginIngestion.recorded).slice(-2)).toEqual([
 					{
 						kind: "update",
-						input: {
+						input: withCatalogs({
 							pluginId,
 							contentHash,
 							compiledClient,
 							compiledScripts,
 							manifest: systemPluginManifest,
-						},
+						}),
 					},
 					{ kind: "result", identity: { pluginId } },
 				]);
@@ -536,7 +543,6 @@ const mutationCommands = recordingServiceLayer<{
 		findByReference: (reference, userId) =>
 			record({ userId, reference, kind: "relationship-schema" }).pipe(
 				Effect.as({
-					name: "Related",
 					isBuiltin: false,
 					id: relationshipSchemaSlug,
 					slug: relationshipSchemaSlug,
@@ -544,6 +550,7 @@ const mutationCommands = recordingServiceLayer<{
 					sourceEntitySchemaSlug: null,
 					propertiesSchema: { fields: {} },
 					pluginId: relationshipSchemaPluginId,
+					name: { namespace: "kernel", key: "test.related" },
 				}),
 			),
 	},

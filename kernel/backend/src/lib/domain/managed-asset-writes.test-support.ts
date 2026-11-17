@@ -1,6 +1,7 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition } from "@ryot-app/contract/schema/property-schema";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -10,9 +11,9 @@ import * as tables from "#schema/tables/combined";
 export const managedAssetProperty = {
 	type: "object",
 	properties: {},
-	label: "Image",
 	description: "Image",
 	validation: { asset: true },
+	label: kernelMessage("definition.property.images"),
 } as const satisfies AppPropertyDefinition;
 
 export const insertManagedAsset = Effect.fn(function* (ownerUserId: UserId, retired?: boolean) {

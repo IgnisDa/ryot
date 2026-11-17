@@ -9,12 +9,12 @@ export const managedAssetLocatorKey = (locator: ManagedAssetLocator) =>
 	`${locator.type}:${locator.key}`;
 
 export type ManagedAssetPropertyRecord = {
-	readonly propertiesSchema: AppSchema;
+	readonly propertiesSchema: AppSchema<unknown>;
 	readonly properties: Readonly<Record<string, unknown>>;
 };
 
 const collectPropertyAssets = (
-	property: AppPropertyDefinition,
+	property: AppPropertyDefinition<unknown>,
 	value: unknown,
 	assets: ManagedAssetLocator[],
 	includeSecrets: boolean,

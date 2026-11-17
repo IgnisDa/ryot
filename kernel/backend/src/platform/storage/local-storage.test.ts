@@ -1,8 +1,9 @@
 import { expect } from "bun:test";
 
 import { BunCrypto, BunServices } from "@effect/platform-bun";
-import { BadRequest } from "@ryot-app/contract/errors";
+import { badRequest } from "@ryot-app/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -10,6 +11,7 @@ import { Effect, FileSystem, Layer, Redacted, Stream } from "effect";
 
 import { makeAppConfigLayer } from "#testing/effect";
 
+import { writeFailed } from "./errors";
 import { HmacSigner } from "./hmac-signer";
 import { LocalStorageService } from "./local-storage";
 
@@ -47,18 +49,12 @@ layer(localStorageLayer)((test) => {
 						1_700_000_000,
 					),
 				);
-				assertExitFails(
-					tampered,
-					new BadRequest({ message: "Local upload target is invalid or expired" }),
-				);
+				assertExitFails(tampered, badRequest(kernelMessage("error.storage.target-invalid")));
 
 				const wrongMethod = yield* Effect.exit(
 					localStorage.verifyUploadTarget("POST", target.uploadUrl, 1_700_000_000),
 				);
-				assertExitFails(
-					wrongMethod,
-					new BadRequest({ message: "Local upload target is invalid or expired" }),
-				);
+				assertExitFails(wrongMethod, badRequest(kernelMessage("error.storage.target-invalid")));
 			}),
 		testTimeout,
 	);
@@ -92,10 +88,7 @@ layer(localStorageLayer)((test) => {
 				const exit = yield* Effect.exit(
 					localStorage.verifyDownloadTarget("GET", tampered.toString(), 1_700_000_000),
 				);
-				assertExitFails(
-					exit,
-					new BadRequest({ message: "Local download target is invalid or expired" }),
-				);
+				assertExitFails(exit, badRequest(kernelMessage("error.storage.target-invalid")));
 			}),
 		testTimeout,
 	);
@@ -155,16 +148,16 @@ layer(localStorageLayer)((test) => {
 				const localStorage = yield* LocalStorageService;
 				const fs = yield* FileSystem.FileSystem;
 				const traversal = yield* Effect.exit(localStorage.statObject("permanent/../outside.txt"));
-				assertExitFails(traversal, new BadRequest({ message: "Local object key is invalid" }));
+				assertExitFails(traversal, badRequest(kernelMessage("error.storage.object-key-invalid")));
 
 				const oversized = yield* Effect.exit(
 					localStorage.writeObject(key, Stream.empty, String(UPLOAD_MAX_FILE_BYTES + 1)),
 				);
 				assertExitFails(
 					oversized,
-					new BadRequest({
-						message: `Upload exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes`,
-					}),
+					badRequest(
+						kernelMessage("error.storage.upload-too-large", { maxBytes: UPLOAD_MAX_FILE_BYTES }),
+					),
 				);
 
 				const interrupted = yield* Effect.exit(
@@ -174,7 +167,7 @@ layer(localStorageLayer)((test) => {
 						undefined,
 					),
 				);
-				assertExitFails(interrupted, new BadRequest({ message: "Local upload failed" }));
+				assertExitFails(interrupted, writeFailed());
 				expect(yield* fs.exists(`${ROOT}/${key}`)).toBe(false);
 				expect(yield* fs.exists(`${ROOT}/${key}.part`)).toBe(false);
 
@@ -185,12 +178,7 @@ layer(localStorageLayer)((test) => {
 				const escaped = yield* Effect.exit(
 					localStorage.writeObject("permanent/escape.txt", Stream.make(new Uint8Array([1])), "1"),
 				);
-				assertExitFails(
-					escaped,
-					new BadRequest({
-						message: "Local object key resolves outside the configured storage directory",
-					}),
-				);
+				assertExitFails(escaped, badRequest(kernelMessage("error.storage.object-key-invalid")));
 				yield* fs.remove(`${ROOT}/permanent`, { force: true });
 				yield* fs.remove(outside, { force: true, recursive: true });
 			}),

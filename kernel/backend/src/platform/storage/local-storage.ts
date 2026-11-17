@@ -1,9 +1,11 @@
 import { BadRequest, badRequest } from "@ryot-app/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Context, Effect, FileSystem, Layer, Path, PlatformError, Stream } from "effect";
 import { SecureRandom } from "effect/crypto";
 
 import { AppConfig } from "../config/service";
+import { missingObject, writeFailed } from "./errors";
 import { HmacSigner } from "./hmac-signer";
 
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
@@ -31,6 +33,11 @@ const rootsOverlap = (paths: Path.Path, first: string, second: string) =>
 const isLocalObjectKind = (value: string): value is "permanent" | "temporary" =>
 	value === "permanent" || value === "temporary";
 
+const invalidKey = () => badRequest(kernelMessage("error.storage.object-key-invalid"));
+const invalidTarget = () => badRequest(kernelMessage("error.storage.target-invalid"));
+const tooLarge = (maxBytes: number) =>
+	badRequest(kernelMessage("error.storage.upload-too-large", { maxBytes }));
+
 export class LocalStorageService extends Context.Service<LocalStorageService>()(
 	"@ryot-app/kernel-backend/platform/storage/local-storage/LocalStorageService",
 	{
@@ -56,9 +63,9 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			const permanentRoot = yield* resolveRoot(localDir).pipe(Effect.orDie);
 			const temporaryRoot = yield* resolveRoot(localTempDir).pipe(Effect.orDie);
 			if (rootsOverlap(paths, permanentRoot, temporaryRoot)) {
-				return yield* Effect.fail(
-					badRequest("FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_TEMP_DIR must not overlap."),
-				).pipe(Effect.orDie);
+				return yield* Effect.die(
+					"FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_TEMP_DIR must not overlap.",
+				);
 			}
 
 			const resolveRootForKey = (key: string) => {
@@ -73,27 +80,21 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				Effect.gen(function* () {
 					const root = resolveRootForKey(key);
 					if (!root || !/^(?:permanent|temporary)\/[A-Za-z0-9_-]+\.[a-z0-9]+$/.test(key)) {
-						return yield* badRequest("Local object key is invalid");
+						return yield* invalidKey();
 					}
 					const target = paths.resolve(root, key);
 					if (!isContained(paths, root, target)) {
-						return yield* badRequest(
-							"Local object key is outside the configured storage directory",
-						);
+						return yield* invalidKey();
 					}
 					yield* fs.makeDirectory(paths.dirname(target), { recursive: true }).pipe(Effect.orDie);
 					const canonicalParent = yield* fs.realPath(paths.dirname(target)).pipe(Effect.orDie);
 					if (!isContained(paths, root, canonicalParent)) {
-						return yield* badRequest(
-							"Local object key resolves outside the configured storage directory",
-						);
+						return yield* invalidKey();
 					}
 					if (yield* fs.exists(target)) {
 						const canonicalTarget = yield* fs.realPath(target).pipe(Effect.orDie);
 						if (!isContained(paths, root, canonicalTarget)) {
-							return yield* badRequest(
-								"Local object key resolves outside the configured storage directory",
-							);
+							return yield* invalidKey();
 						}
 					}
 					return { root, target };
@@ -122,8 +123,8 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				now: number,
 			) {
 				const parsed = yield* Effect.try({
+					catch: invalidTarget,
 					try: () => new URL(url, "http://local.invalid"),
-					catch: () => badRequest("Local upload target is malformed"),
 				});
 				const expiresValue = parsed.searchParams.get("expires");
 				const expiresAt = Number(expiresValue);
@@ -137,14 +138,14 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					expiresAt <= now ||
 					!signature
 				) {
-					return yield* badRequest("Local upload target is invalid or expired");
+					return yield* invalidTarget();
 				}
 				const valid = yield* signer.verify(
 					`${method}\n${parsed.pathname}\n${expiresAt}`,
 					signature,
 				);
 				if (!valid) {
-					return yield* badRequest("Local upload target is invalid or expired");
+					return yield* invalidTarget();
 				}
 				return void 0;
 			});
@@ -155,7 +156,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				now: number,
 			) {
 				if (!key.startsWith("permanent/")) {
-					return yield* badRequest("Local object key is invalid");
+					return yield* invalidKey();
 				}
 				yield* resolvePath(key);
 				const expiresAt = now + UPLOAD_URL_EXPIRY_SECONDS;
@@ -179,8 +180,8 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				now: number,
 			) {
 				const parsed = yield* Effect.try({
+					catch: invalidTarget,
 					try: () => new URL(url, "http://local.invalid"),
-					catch: () => badRequest("Local download target is malformed"),
 				});
 				const contentType = parsed.searchParams.get("contentType");
 				const expiresValue = parsed.searchParams.get("expires");
@@ -198,14 +199,14 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					expiresAt <= now ||
 					!signature
 				) {
-					return yield* badRequest("Local download target is invalid or expired");
+					return yield* invalidTarget();
 				}
 				const valid = yield* signer.verify(
 					`GET,HEAD\n${parsed.pathname}\n${key}\n${contentType}\n${expiresAt}`,
 					signature,
 				);
 				if (!valid) {
-					return yield* badRequest("Local download target is invalid or expired");
+					return yield* invalidTarget();
 				}
 				return { key, contentType };
 			});
@@ -213,13 +214,9 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			const existingPath = (key: string) =>
 				Effect.gen(function* () {
 					const { root, target } = yield* resolvePath(key);
-					const canonicalTarget = yield* fs
-						.realPath(target)
-						.pipe(Effect.mapError(() => badRequest("Local upload object is missing or invalid")));
+					const canonicalTarget = yield* fs.realPath(target).pipe(Effect.mapError(missingObject));
 					if (!isContained(paths, root, canonicalTarget)) {
-						return yield* badRequest(
-							"Local object key resolves outside the configured storage directory",
-						);
+						return yield* invalidKey();
 					}
 					return canonicalTarget;
 				});
@@ -236,34 +233,31 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					declaredLength !== null &&
 					(!Number.isSafeInteger(declaredLength) || declaredLength < 0)
 				) {
-					return yield* badRequest("Content-Length is invalid");
+					return yield* badRequest(kernelMessage("error.storage.content-length-invalid"));
 				}
 				if (declaredLength !== null && declaredLength > maxBytes) {
-					return yield* badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`);
+					return yield* tooLarge(maxBytes);
 				}
 				const staged = `${target}.${yield* random.uuidV4()}.part`;
 				let size = 0;
 				const bounded = stream.pipe(
 					Stream.mapEffect((chunk) => {
 						size += chunk.byteLength;
-						return size > maxBytes
-							? Effect.fail(badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`))
-							: Effect.succeed(chunk);
+						return size > maxBytes ? Effect.fail(tooLarge(maxBytes)) : Effect.succeed(chunk);
 					}),
 				);
 				yield* Stream.run(bounded, fs.sink(staged)).pipe(
-					Effect.mapError((error) =>
-						error instanceof Error ? badRequest(error.message) : badRequest("Local upload failed"),
-					),
 					Effect.catch((error) =>
 						fs
 							.remove(staged, { force: true })
 							.pipe(
 								Effect.ignore,
 								Effect.andThen(
-									Effect.fail(
-										error instanceof BadRequest ? error : badRequest("Local upload failed"),
-									),
+									error instanceof BadRequest
+										? Effect.fail(error)
+										: Effect.logWarning("Local upload failed", error).pipe(
+												Effect.andThen(Effect.fail(writeFailed())),
+											),
 								),
 							),
 					),
@@ -279,23 +273,15 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			) {
 				const { staged, target } = yield* writeStagedObject(key, stream, contentLength, maxBytes);
 				yield* fs.remove(target, { force: true }).pipe(Effect.orDie);
-				yield* fs.rename(staged, target).pipe(
-					Effect.mapError(() => badRequest("Local upload could not be finalized")),
-					Effect.catch((error) =>
-						fs
-							.remove(staged, { force: true })
-							.pipe(
-								Effect.ignore,
-								Effect.andThen(
-									Effect.fail(
-										error instanceof BadRequest
-											? error
-											: badRequest("Local upload could not be finalized"),
-									),
-								),
-							),
-					),
-				);
+				yield* fs
+					.rename(staged, target)
+					.pipe(
+						Effect.catch(() =>
+							fs
+								.remove(staged, { force: true })
+								.pipe(Effect.ignore, Effect.andThen(Effect.fail(writeFailed()))),
+						),
+					);
 				return void 0;
 			});
 
@@ -312,25 +298,19 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 						(error) => hasSystemErrorReason(error, "AlreadyExists"),
 						() => Effect.succeed(false),
 					),
-					Effect.mapError(() => badRequest("Local upload could not be finalized")),
+					Effect.mapError(writeFailed),
 					Effect.ensuring(fs.remove(staged, { force: true }).pipe(Effect.ignore)),
 				);
 			});
 
 			const openObject = Effect.fn("LocalStorageService.openObject")(function* (key: string) {
-				const target = yield* existingPath(key).pipe(
-					Effect.mapError(() => badRequest("Local upload object is missing or invalid")),
-				);
-				return fs
-					.stream(target)
-					.pipe(Stream.mapError(() => badRequest("Local upload object is missing or invalid")));
+				const target = yield* existingPath(key).pipe(Effect.mapError(missingObject));
+				return fs.stream(target).pipe(Stream.mapError(missingObject));
 			});
 
 			const statObject = Effect.fn("LocalStorageService.statObject")(function* (key: string) {
 				const target = yield* existingPath(key);
-				return yield* fs
-					.stat(target)
-					.pipe(Effect.mapError(() => badRequest("Local upload object is missing or invalid")));
+				return yield* fs.stat(target).pipe(Effect.mapError(missingObject));
 			});
 
 			const resolveObjectPath = Effect.fn("LocalStorageService.resolveObjectPath")(function* (

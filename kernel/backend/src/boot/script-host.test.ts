@@ -5,7 +5,7 @@ import {
 	definitionKey,
 	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import type { PluginRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	SandboxExecutionSubject,
 	SandboxScriptMetadata,
@@ -99,7 +99,7 @@ const userSettingsSchema = {
 	fields: {
 		timezone: {
 			type: "string",
-			label: "Timezone",
+			label: { key: "test.timezone" },
 			description: "Timezone used by import normalization",
 		},
 	},
@@ -257,10 +257,10 @@ const ryotqlDocument = {
 			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10, maxLimit: 10 } },
 		},
 	},
-} as const satisfies RyotQLDocument;
+} as const satisfies PluginRyotQLDocument;
 
 const ryotqlResponse = {
-	execution: { now: 0, timeZone: UTC },
+	execution: { now: 0, timeZone: UTC, weekStart: 1 as const },
 	data: {
 		entities: {
 			items: [],
@@ -1382,7 +1382,11 @@ describe("getUserSettings", () => {
 const pluginConfigSchema = {
 	unknownKeys: "strict",
 	fields: {
-		apiToken: { type: "string", label: "API token", description: "Token used by the plugin" },
+		apiToken: {
+			type: "string",
+			label: { key: "test.api-token" },
+			description: "Token used by the plugin",
+		},
 	},
 } as const;
 
@@ -1608,7 +1612,7 @@ describe("getPluginConfig", () => {
 	});
 });
 
-const runExecuteRyotql = (input: ScriptRunInput, document: RyotQLDocument = ryotqlDocument) =>
+const runExecuteRyotql = (input: ScriptRunInput, document: PluginRyotQLDocument = ryotqlDocument) =>
 	makeAdditionalScriptHostFunctions.pipe(
 		Effect.flatMap((functions) =>
 			Effect.result(
@@ -1649,6 +1653,53 @@ describe("executeRyotql", () => {
 						},
 					]);
 					expect(yield* calls.ryotqlUserCalls).toEqual([]);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(hostFunctionsLayer())((test) => {
+		test.effect(
+			"stamps inline parameter text with the run's plugin namespace",
+			() =>
+				Effect.gen(function* () {
+					const label = { key: "query-parameter.name" };
+					const parameters = {
+						fields: { name: { label, type: "string", description: "Name" } },
+					} as const;
+					yield* runExecuteRyotql(
+						{
+							...runInput({ type: "system" }),
+							principal: {
+								...runInput({ type: "system" }).principal,
+								pluginRevision: systemPluginRevision,
+								metadata: { kind: "script", runtimeImports: [], capabilities: ["executeRyotql"] },
+							},
+						},
+						{ ...ryotqlDocument, parameters },
+					);
+
+					expect(yield* (yield* HostFunctionCalls).ryotqlPluginCalls).toMatchObject([
+						{
+							document: {
+								source: {
+									kind: "inline",
+									document: {
+										...ryotqlDocument,
+										parameters: {
+											fields: {
+												name: {
+													type: "string",
+													description: "Name",
+													label: { ...label, namespace: systemPluginRevision.id },
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					]);
 				}),
 			testTimeout,
 		);
@@ -1892,9 +1943,9 @@ const workspaceDefinitions = (schemaPluginId: string = systemPluginRevision.id) 
 			icon: "box",
 			eventSchemas: [],
 			slug: "workspace",
-			name: "Workspace",
 			pluginId: schemaPluginId,
 			mergeIdentityProperties: [],
+			name: { key: "test.workspace" },
 			propertiesSchema: { fields: {} },
 		},
 	],

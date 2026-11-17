@@ -139,7 +139,6 @@ const populationReferencesLayer = (
 						authorizes(providerId)
 							? {
 									id: providerId,
-									name: "Records",
 									pluginScope: scope,
 									slug: "record.catalog",
 									createdAt: new Date(0),
@@ -147,6 +146,7 @@ const populationReferencesLayer = (
 									pluginId: "provider-owner",
 									rootEntitySchemaSlug: "record",
 									information: { source: "catalog" },
+									name: { key: "test.records", namespace: "provider-owner" },
 								}
 							: null,
 					),
@@ -157,13 +157,13 @@ const populationReferencesLayer = (
 									entitySchemaSlug: EntitySchemaSlug.make("record"),
 									provider: {
 										id: providerId,
-										name: "Records",
 										slug: "record.catalog",
 										createdAt: new Date(0),
 										updatedAt: new Date(0),
 										pluginId: "provider-owner",
 										rootEntitySchemaSlug: "record",
 										information: { source: "catalog" },
+										name: { key: "test.records", namespace: "provider-owner" },
 									},
 								}
 							: null,
@@ -486,7 +486,6 @@ const slugResolvingReferencesLayer = Layer.provide(
 		Layer.mock(PluginRuntimeResolver)({
 			findProviderAvailableToUserByReference: () =>
 				Effect.succeed({
-					name: "Alpha",
 					slug: "group.alpha",
 					pluginScope: "system",
 					createdAt: new Date(0),
@@ -495,6 +494,7 @@ const slugResolvingReferencesLayer = Layer.provide(
 					information: { source: "alpha" },
 					pluginId: ingestionTestRevision.id,
 					id: SandboxProviderId.make("provider-group-alpha"),
+					name: { key: "test.alpha", namespace: "provider-owner" },
 				}),
 		}),
 	),

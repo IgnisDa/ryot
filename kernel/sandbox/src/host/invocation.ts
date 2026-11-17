@@ -1,4 +1,8 @@
-import { type SandboxFailureKind, unknownToMessage } from "@ryot-app/contract/errors";
+import {
+	messageReasonOf,
+	type SandboxFailureKind,
+	unknownToMessage,
+} from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { SandboxExecutionGrants } from "@ryot-app/contract/modules/scripts/schemas";
@@ -63,6 +67,10 @@ export const toSandboxHostError = (error: unknown): SandboxHostError => {
 			data: error["reason"],
 			message: typeof message === "string" ? message : error["reason"]["code"],
 		};
+	}
+	const reason = messageReasonOf(error);
+	if (reason !== undefined) {
+		return { message: reason.key, data: toSandboxJsonValue(reason) };
 	}
 	if (isObjectRecord(error) && typeof error["message"] === "string") {
 		return { ...error, message: error["message"] || errorIdentity(error) };

@@ -161,6 +161,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				const compiledClient = yield* decodeCompiledClient(input.compiledClient);
 				const installed = yield* pluginIngestion.installPlugin({
 					manifest: input.manifest,
+					catalogs: input.catalogs,
 					compiledScripts: input.compiledScripts,
 					...(compiledClient === undefined ? {} : { compiledClient }),
 				});
@@ -174,6 +175,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				const updated = yield* pluginIngestion.updatePlugin({
 					pluginId,
 					manifest: input.manifest,
+					catalogs: input.catalogs,
 					contentHash: input.contentHash,
 					compiledScripts: input.compiledScripts,
 					...(compiledClient === undefined ? {} : { compiledClient }),

@@ -1,6 +1,6 @@
 import { BunHttpServer } from "@effect/platform-bun";
 import { AppContract } from "@ryot-app/contract/contract";
-import { BadRequest, internalError, unknownToMessage } from "@ryot-app/contract/errors";
+import { schemaValidationFailed, ValidationFailed } from "@ryot-app/contract/errors";
 import { Cause, Effect, FileSystem, Layer, Result, Schema } from "effect";
 import {
 	HttpEffect,
@@ -13,6 +13,7 @@ import {
 } from "effect/http";
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/http-api";
 
+import { unexpected } from "#lib/domain/logged-rejection";
 import {
 	AdminMiddlewareLive,
 	AuthMiddlewareLive,
@@ -87,16 +88,26 @@ const mimeType = (path: string) => {
 	return mimeTypes[extension] ?? "text/html; charset=utf-8";
 };
 
-const mapRouterError = (error: unknown) =>
-	HttpServerRespondable.isRespondable(error) ? error : internalError(unknownToMessage(error));
+const mapRouterError = <A, E, R>(self: Effect.Effect<A, E, R>) =>
+	self.pipe(
+		Effect.catchIf(
+			(error) => !HttpServerRespondable.isRespondable(error),
+			(error) =>
+				Effect.logError("Unhandled router failure", error).pipe(
+					Effect.andThen(Effect.fail(unexpected())),
+				),
+		),
+	);
 
 const decodeErrorsAsBadRequest = <A, E, R>(self: Effect.Effect<A, E, R>) =>
 	Effect.catchCause(self, (cause) => {
 		const defect = Cause.findDefect(cause);
 		if (Result.isSuccess(defect) && HttpApiError.HttpApiSchemaError.is(defect.success)) {
-			return Schema.encodeUnknownEffect(BadRequest)(
-				new BadRequest({ message: String(defect.success.cause) }),
-			).pipe(
+			const { kind, cause: schemaError } = defect.success;
+			return Effect.logDebug("Request decoding failed", kind, schemaError.message).pipe(
+				Effect.andThen(
+					Schema.encodeUnknownEffect(ValidationFailed)(schemaValidationFailed(schemaError.issue)),
+				),
 				Effect.flatMap((body) => HttpServerResponse.json(body, { status: 400 })),
 				Effect.orDie,
 			);
@@ -229,9 +240,7 @@ const RootRoutesLive = HttpRouter.use((router) =>
 		const mcp = yield* McpService;
 		const config = yield* AppConfig;
 		const fs = yield* FileSystem.FileSystem;
-		const api = yield* HttpRouter.toHttpEffect(ApiWithScalarLive).pipe(
-			Effect.mapError(mapRouterError),
-		);
+		const api = yield* HttpRouter.toHttpEffect(ApiWithScalarLive).pipe(mapRouterError);
 
 		const serveStatic = Effect.fn("serveStatic")(function* (pathname: string) {
 			const path =
@@ -244,7 +253,7 @@ const RootRoutesLive = HttpRouter.use((router) =>
 			return HttpServerResponse.uint8Array(bytes, { contentType: mimeType(target) });
 		});
 
-		yield* router.add("*", "/api/mcp", mcp.handle.pipe(Effect.mapError(mapRouterError)));
+		yield* router.add("*", "/api/mcp", mcp.handle.pipe(mapRouterError));
 		yield* router.add(
 			"GET",
 			"/.well-known/oauth-protected-resource/api/mcp",
@@ -252,7 +261,7 @@ const RootRoutesLive = HttpRouter.use((router) =>
 		);
 		yield* registerRootRoutes(
 			router,
-			api.pipe(Effect.mapError(mapRouterError)),
+			api.pipe(mapRouterError),
 			auth.handler,
 			serveStatic,
 			config.frontendUrl,

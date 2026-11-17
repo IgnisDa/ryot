@@ -604,12 +604,8 @@ describe("bindSandboxHostFunctions", () => {
 		"preserves user-data conflicts for operation refusal handling",
 		() =>
 			Effect.gen(function* () {
-				const state = { code: "state-conflict", message: "Refresh and retry" };
-				const mapping = {
-					entityIds: ["child"],
-					code: "child-mapping-conflict",
-					message: "Match the child first",
-				};
+				const state = { code: "state-conflict" };
+				const mapping = { entityIds: ["child"], code: "child-mapping-conflict" };
 				const bound = bindSandboxHostFunctions(
 					makeImplementations({
 						clearUserEntityData: () => Effect.fail({ data: state, message: "state-conflict" }),
@@ -639,10 +635,7 @@ describe("bindSandboxHostFunctions", () => {
 					makeImplementations({
 						updateUserEntity: (runInput, item) => {
 							calls.push({ item, runInput });
-							return Effect.fail({
-								message: "changed",
-								data: { message: "changed", code: "mutation-conflict" },
-							});
+							return Effect.fail({ message: "changed", data: { code: "mutation-conflict" } });
 						},
 					}),
 					input,
@@ -656,7 +649,7 @@ describe("bindSandboxHostFunctions", () => {
 				expect(yield* bound.updateUserEntity([item])).toEqual({
 					success: false,
 					error: "changed",
-					data: { message: "changed", code: "mutation-conflict" },
+					data: { code: "mutation-conflict" },
 				});
 				expect(calls).toEqual([{ item, runInput: input }]);
 				expect(yield* bound.updateUserEntity([{ ...item, userId: "other" }])).toEqual({
@@ -676,7 +669,6 @@ describe("bindSandboxHostFunctions", () => {
 					{ entityId: "entity", code: "entity-stale" },
 					{ name: "Original", entityId: "entity", code: "entity-stale" },
 					{ privateMetadata: "secret", code: "global-scope-forbidden" },
-					{ message: "forbidden", code: "global-scope-forbidden" },
 				];
 				const bound = bindSandboxHostFunctions(
 					makeImplementations({
@@ -703,11 +695,6 @@ describe("bindSandboxHostFunctions", () => {
 					success: false,
 					error: "failed",
 					data: { code: "global-scope-forbidden" },
-				});
-				expect(yield* bound.updateUserEntity([item])).toEqual({
-					success: false,
-					error: "failed",
-					data: { message: "forbidden", code: "global-scope-forbidden" },
 				});
 			}),
 		testTimeout,
@@ -769,9 +756,9 @@ describe("bindSandboxHostFunctions", () => {
 						},
 					]),
 				).toEqual({ success: false, error: "0.recipientUserIds: Expected no excess property" });
-				expect(yield* bound.sendNotification(["   "])).toEqual({
+				expect(yield* bound.sendNotification(["Ready"])).toEqual({
 					success: false,
-					error: "0: Expected a value with a length of at least 1",
+					error: "0: Expected LocalMessage",
 				});
 				expect(calls).toBe(0);
 			}),

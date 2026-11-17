@@ -77,6 +77,7 @@ const runInput = (
 	},
 	principal: {
 		providerId: null,
+		kernelScript: true,
 		contentHash: "hash",
 		pluginRevision: null,
 		scriptSlug: "review-created",
@@ -258,24 +259,25 @@ layer(automationHostLayer)((test) => {
 
 layer(automationHostLayer)((test) => {
 	test.effect(
-		"uses one logical-run and host-index notification identity across attempts",
+		"stamps the run's namespace and uses one logical-run and host-index notification identity",
 		() =>
 			Effect.gen(function* () {
 				const host = yield* makeAutomationScriptHostFunctions;
-				expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
-				expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
+				const ready = { key: "notification.ready" };
+				expect(yield* host.sendNotification(runInput(), ready)).toBeNull();
+				expect(yield* host.sendNotification(runInput(), ready)).toBeNull();
 				expect(yield* (yield* AutomationHostCalls).notificationDeliveries).toEqual([
 					{
-						message: "Ready",
 						sourceRunId: runId,
 						accountUserId: userId,
 						sourceKey: "run-1-host-4-notification",
+						message: { namespace: "kernel", key: "notification.ready" },
 					},
 					{
-						message: "Ready",
 						sourceRunId: runId,
 						accountUserId: userId,
 						sourceKey: "run-1-host-4-notification",
+						message: { namespace: "kernel", key: "notification.ready" },
 					},
 				]);
 			}),
@@ -289,7 +291,9 @@ layer(automationHostLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const host = yield* makeAutomationScriptHostFunctions;
-				const error = yield* Effect.flip(host.sendNotification(runInput(null), "Ready"));
+				const error = yield* Effect.flip(
+					host.sendNotification(runInput(null), { key: "notification.ready" }),
+				);
 				expect(error.message).toBe("sendNotification is available only to user automation runs");
 			}),
 		testTimeout,

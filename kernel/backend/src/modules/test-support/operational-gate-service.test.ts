@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 
-import { NotFound } from "@ryot-app/contract/errors";
+import { notFound } from "@ryot-app/contract/errors";
 import {
 	EntitySchemaSlug,
 	ImportRunId,
@@ -9,6 +9,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { fixtureManifest } from "@ryot-app/contract/testing";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf } from "@ryot-app/testing/matchers";
@@ -152,9 +153,7 @@ const workflowLoadLayer = (options: { database?: Layer.Layer<DatabaseSession> } 
 						mockSandbox({
 							enqueuePluginWorkflow: (input) =>
 								Ref.update(enqueued, (all) => [...all, input]).pipe(
-									Effect.andThen(
-										Effect.fail(new NotFound({ message: "Sandbox script not found" })),
-									),
+									Effect.andThen(Effect.fail(notFound(kernelMessage("error.scripts.not-found")))),
 								),
 							getPluginWorkflowResult: (executionId) =>
 								Ref.update(polledExecutionIds, (all) => [...all, executionId]).pipe(
@@ -190,7 +189,7 @@ layer(workflowLoadLayer())((test) => {
 				const service = yield* OperationalGateService;
 				const exit = yield* Effect.exit(service.startWorkflowLoad(gateInput));
 
-				assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
+				assertExitFails(exit, notFound(kernelMessage("error.scripts.not-found")));
 				expect(yield* (yield* FakeWorkflowLoad).enqueued).toEqual([
 					{
 						executingUserId,

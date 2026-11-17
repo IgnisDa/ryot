@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { BadRequest } from "@ryot-app/contract/errors";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
@@ -153,5 +154,13 @@ it("reports a reason's message before its code", () => {
 	expect(toSandboxHostError(new ReasonedFailure({ reason: { code: "invalid" } }))).toEqual({
 		message: "invalid",
 		data: { code: "invalid" },
+	});
+});
+
+it("reports a message reason by its key and keeps the message as data", () => {
+	const reason = { namespace: "kernel", params: { limit: 3 }, key: "error.test.denied" };
+	expect(toSandboxHostError(new BadRequest({ reason }))).toEqual({
+		data: reason,
+		message: "error.test.denied",
 	});
 });

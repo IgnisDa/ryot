@@ -102,6 +102,10 @@ import { ClientArtifactStoreLive } from "#modules/pages/bundles/layer";
 import { PagesServiceLive } from "#modules/pages/preparation/layer";
 import { PluginCatalogHub, PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
+import {
+	PluginMessageCatalogs,
+	PluginMessageRegistryLive,
+} from "#modules/plugins/catalog/messages";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { PluginInstallationJobLive } from "#modules/plugins/installations/job";
@@ -179,7 +183,7 @@ const SignedUrlInfrastructureLive = Layer.provideMerge(
 );
 
 const BaseInfrastructureServicesLive = Layer.provideMerge(
-	ExecutionFileStore.layer,
+	Layer.merge(ExecutionFileStore.layer, PluginMessageRegistryLive),
 	Layer.provideMerge(
 		SandboxHostConfigLive,
 		Layer.provideMerge(
@@ -322,6 +326,7 @@ const ServicesLive = Layer.mergeAll(
 	LifecycleWriteGuard.layer,
 	ObjectStorageServiceLive,
 	PluginCatalogHub.layer,
+	PluginMessageCatalogs.layer,
 ).pipe(
 	Layer.provideMerge(StagedRuntimeSandboxExecutorLive),
 	Layer.provideMerge(PluginConfigEncryptionKey.layer),

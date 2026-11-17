@@ -1,6 +1,5 @@
 import { expect } from "bun:test";
 
-import { BadRequest } from "@ryot-app/contract/errors";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -8,6 +7,7 @@ import { Context, Effect, Layer, MutableRef, Option, Redacted, Ref, Stream } fro
 
 import { makeAppConfigLayer } from "#testing/effect";
 
+import { writeFailed } from "./errors";
 import { S3Service } from "./s3";
 
 const bucketName = "test-bucket";
@@ -110,7 +110,7 @@ layer(fakeS3Layer)((test) => {
 				const failure = yield* Effect.exit(
 					s3.writeObjectIfAbsent("failure.txt", Stream.make(body), "text/plain", body.byteLength),
 				);
-				assertExitFails(failure, new BadRequest({ message: "S3 object write failed" }));
+				assertExitFails(failure, writeFailed());
 			}),
 		testTimeout,
 	);
@@ -143,7 +143,7 @@ layer(fakeS3Layer)((test) => {
 				const failure = yield* Effect.exit(
 					s3.writeObjectIfAbsent("underflow.txt", stream, "text/plain", 3),
 				);
-				assertExitFails(failure, new BadRequest({ message: "S3 object write failed" }));
+				assertExitFails(failure, writeFailed());
 				expect(yield* Ref.get(released)).toBe(true);
 				expect(yield* server.requests).toBe(requestsBefore);
 			}),
@@ -169,7 +169,7 @@ layer(fakeS3Layer)((test) => {
 					const failure = yield* Effect.exit(
 						s3.writeObjectIfAbsent("overflow.txt", stream, "text/plain", contentLength),
 					);
-					assertExitFails(failure, new BadRequest({ message: "S3 object write failed" }));
+					assertExitFails(failure, writeFailed());
 					expect(yield* Ref.get(tailConsumed)).toBe(false);
 					expect(yield* Ref.get(released)).toBe(true);
 				}
@@ -193,7 +193,7 @@ layer(fakeS3Layer)((test) => {
 				const failure = yield* Effect.exit(
 					s3.writeObjectIfAbsent("upstream-failure.txt", stream, "text/plain", 2),
 				);
-				assertExitFails(failure, new BadRequest({ message: "S3 object write failed" }));
+				assertExitFails(failure, writeFailed());
 				expect(yield* Ref.get(released)).toBe(true);
 				expect(yield* server.requests).toBe(requestsBefore);
 			}),

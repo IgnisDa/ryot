@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { catalog } from "@ryot-app/kernel-messages/locales/en";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/plugin-backend-compiler/plugins";
 import { walkSourceFiles } from "@ryot-app/plugin-backend-compiler/runtime-build/source-tree";
@@ -14,15 +15,8 @@ const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const sandboxSource = (file: string) => file.endsWith(".sandbox.ts");
 
-const readKernelScripts = (kernelDirectory: string) =>
-	Effect.gen(function* () {
-		const path = yield* Path.Path;
-		return yield* walkSourceFiles(
-			path.join(kernelDirectory, "src/modules/definitions/kernel-scripts"),
-			kernelDirectory,
-			sandboxSource,
-		);
-	});
+const readKernelScripts = (scriptsDirectory: string) =>
+	walkSourceFiles(scriptsDirectory, scriptsDirectory, sandboxSource);
 
 const embedKernelScripts = (kernelDirectory: string, scripts: Readonly<Record<string, string>>) =>
 	Effect.gen(function* () {
@@ -37,7 +31,7 @@ const embedKernelScripts = (kernelDirectory: string, scripts: Readonly<Record<st
 			path.join(registryDirectory, "kernel-scripts.generated.ts"),
 			`export const kernelScriptSources = {\n${entries}\n} as const;\n`,
 		);
-		const compiled = yield* compilePluginSandboxSourceEntries(scripts, kernelScripts);
+		const compiled = yield* compilePluginSandboxSourceEntries(scripts, kernelScripts, catalog);
 		const outputs = kernelScripts.map((script) => {
 			const output = compiled.find(({ entry }) => entry === script.entry);
 			if (!output) {
@@ -65,7 +59,8 @@ const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
 	const kernelDirectory = path.resolve(path.dirname(scriptPath), "..");
-	const scripts = yield* readKernelScripts(kernelDirectory);
+	const scriptsDirectory = path.join(kernelDirectory, "src/modules/definitions/kernel-scripts");
+	const scripts = yield* readKernelScripts(scriptsDirectory);
 	if (!process.argv.includes("--skip-initial")) {
 		yield* embedKernelScripts(kernelDirectory, scripts);
 	}
@@ -75,7 +70,7 @@ const program = Effect.gen(function* () {
 	const currentFingerprint = yield* Ref.make(fingerprintOf(scripts));
 	return yield* Effect.gen(function* () {
 		yield* Effect.sleep("250 millis");
-		const nextScripts = yield* readKernelScripts(kernelDirectory);
+		const nextScripts = yield* readKernelScripts(scriptsDirectory);
 		const nextFingerprint = fingerprintOf(nextScripts);
 		if (nextFingerprint !== (yield* Ref.get(currentFingerprint))) {
 			const embedded = yield* Effect.result(embedKernelScripts(kernelDirectory, nextScripts));

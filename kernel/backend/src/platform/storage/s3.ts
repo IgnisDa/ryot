@@ -1,9 +1,11 @@
 import { BadRequest, badRequest } from "@ryot-app/contract/errors";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { S3Client } from "bun";
 import { Context, Effect, Layer, Option, Redacted, Schema, Stream } from "effect";
 import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from "effect/http";
 
 import { AppConfig } from "../config/service";
+import { deleteFailed, missingObject, writeFailed } from "./errors";
 
 class S3DeleteFailed extends Schema.TaggedError<
 	S3DeleteFailed,
@@ -51,9 +53,7 @@ export class S3Service extends Context.Service<S3Service>()(
 			const requireConfigured: Effect.Effect<S3Client, BadRequest> = Effect.suspend(() =>
 				client
 					? Effect.succeed(client)
-					: Effect.fail(
-							badRequest("S3 file storage is not configured. Set the FILE_STORAGE_S3_* settings."),
-						),
+					: Effect.fail(badRequest(kernelMessage("error.storage.not-configured"))),
 			);
 
 			const presignUpload = Effect.fn("S3Service.presignUpload")(function* (
@@ -88,15 +88,15 @@ export class S3Service extends Context.Service<S3Service>()(
 			const statObject = Effect.fn("S3Service.statObject")(function* (key: string) {
 				const configuredClient = yield* requireConfigured;
 				return yield* Effect.tryPromise({
+					catch: missingObject,
 					try: () => configuredClient.file(key).stat(),
-					catch: () => badRequest("S3 upload object is missing or invalid"),
 				});
 			});
 
 			const openObject = Effect.fn("S3Service.openObject")(function* (key: string) {
 				const configuredClient = yield* requireConfigured;
 				return Stream.fromReadableStream({
-					onError: () => badRequest("S3 object read failed"),
+					onError: missingObject,
 					evaluate: () => configuredClient.file(key).stream(),
 				});
 			});
@@ -110,18 +110,13 @@ export class S3Service extends Context.Service<S3Service>()(
 				const writer = configuredClient.file(key).writer({ type: contentType });
 				const upload = Stream.runForEach(stream, (chunk) =>
 					Effect.tryPromise({
+						catch: writeFailed,
 						try: () => Promise.resolve(writer.write(chunk)),
-						catch: () => badRequest("S3 object write failed"),
 					}),
 				).pipe(
-					Effect.mapError((error) =>
-						error instanceof BadRequest ? error : badRequest("S3 object write failed"),
-					),
+					Effect.mapError((error) => (error instanceof BadRequest ? error : writeFailed())),
 					Effect.andThen(
-						Effect.tryPromise({
-							try: () => Promise.resolve(writer.end()),
-							catch: () => badRequest("S3 object write failed"),
-						}),
+						Effect.tryPromise({ catch: writeFailed, try: () => Promise.resolve(writer.end()) }),
 					),
 				);
 				yield* upload.pipe(
@@ -145,15 +140,15 @@ export class S3Service extends Context.Service<S3Service>()(
 				yield* Stream.runForEach(stream, (chunk) =>
 					Effect.suspend(() => {
 						if (offset + chunk.byteLength > body.byteLength) {
-							return Effect.fail(badRequest("S3 object write failed"));
+							return Effect.fail(writeFailed());
 						}
 						body.set(chunk, offset);
 						offset += chunk.byteLength;
 						return Effect.void;
 					}),
-				).pipe(Effect.mapError(() => badRequest("S3 object write failed")));
+				).pipe(Effect.mapError(writeFailed));
 				if (offset !== body.byteLength) {
-					return yield* badRequest("S3 object write failed");
+					return yield* writeFailed();
 				}
 				const uploadUrl = configuredClient
 					.file(key)
@@ -162,14 +157,12 @@ export class S3Service extends Context.Service<S3Service>()(
 					HttpClientRequest.setHeaders({ "if-none-match": "*" }),
 					HttpClientRequest.setBody(HttpBody.uint8Array(body, contentType)),
 				);
-				const response = yield* httpClient
-					.execute(request)
-					.pipe(Effect.mapError(() => badRequest("S3 object write failed")));
+				const response = yield* httpClient.execute(request).pipe(Effect.mapError(writeFailed));
 				if (response.status === 412) {
 					return false;
 				}
 				if (response.status < 200 || response.status >= 300) {
-					return yield* badRequest("S3 object write failed");
+					return yield* writeFailed();
 				}
 				return true;
 			});
@@ -180,9 +173,7 @@ export class S3Service extends Context.Service<S3Service>()(
 					try: () => configuredClient.file(key).delete(),
 					catch: (cause) => new S3DeleteFailed({ missing: isMissingObjectError(cause) }),
 				}).pipe(
-					Effect.catch((error) =>
-						error.missing ? Effect.void : Effect.fail(badRequest("S3 object deletion failed")),
-					),
+					Effect.catch((error) => (error.missing ? Effect.void : Effect.fail(deleteFailed()))),
 				);
 			});
 
