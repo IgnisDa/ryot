@@ -10,6 +10,7 @@ import { castNumber, column, jsonPath, table } from "@ryot-app/ryotql";
 
 import { movePresentationSource, pokemonPresentationSource } from "../shared/entity-presentations";
 import { GreetInput, GreetOutput } from "../shared/greet";
+import { catalogMessage } from "../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { allFieldControlsSchema } from "./all-field-controls";
 import { fixtureCalendarSources } from "./calendar-sources";
@@ -30,23 +31,23 @@ export const fixturePlugin = definePlugin({
 	configSchema: { fields: {}, unknownKeys: "strict" },
 	metadata: {
 		icon: "puzzle",
-		name: "Fixture",
 		version: "1.0.0",
 		packageId: PLUGIN_PACKAGE_ID,
-		description: "A client plugin fixture used by the web client tracer.",
+		name: catalogMessage("plugin.name"),
+		description: catalogMessage("plugin.description"),
 	},
 	providers: [
 		{
-			name: "PokeAPI",
 			slug: "pokemon.pokeapi",
 			rootEntitySchemaSlug: "pokemon",
 			information: { source: "pokeapi" },
+			name: catalogMessage("provider.pokeapi.name"),
 		},
 		{
-			name: "PokeAPI",
 			slug: "move.pokeapi",
 			rootEntitySchemaSlug: "move",
 			information: { source: "pokeapi" },
+			name: catalogMessage("provider.pokeapi.name"),
 		},
 	],
 	operations: [
@@ -62,68 +63,6 @@ export const fixturePlugin = definePlugin({
 			description:
 				"Return a greeting for the supplied nonempty name without reading or changing stored data.",
 		},
-	],
-	entitySchemas: [
-		{
-			slug: "pokemon",
-			name: "Pokemon",
-			icon: "sparkles",
-			eventSchemas: [],
-			browse: {
-				fields: [
-					{
-						key: "height",
-						kind: "value",
-						type: "number",
-						label: "Height",
-						expression: castNumber(
-							jsonPath(column(table("entity", "subject"), "properties"), "height"),
-						),
-					},
-				],
-			},
-			propertiesSchema: {
-				fields: {
-					types: stringArrayField("Types", "Elemental types of this Pokémon"),
-					sourceUrl: stringField("Source Url", "Link to the PokeAPI resource"),
-					height: integerField("Height", "Height of this Pokémon in decimetres"),
-					weight: integerField("Weight", "Weight of this Pokémon in hectograms"),
-					pokedexNumber: integerField("Pokedex Number", "National Pokédex number"),
-					abilities: stringArrayField("Abilities", "Abilities this Pokémon can have"),
-					baseExperience: integerField(
-						"Base Experience",
-						"Base experience gained for defeating this Pokémon",
-					),
-					images: {
-						type: "array",
-						label: "Images",
-						items: managedAssetItemSchema,
-						description: "Official artwork for this Pokémon",
-					},
-				},
-			},
-		},
-		{
-			icon: "zap",
-			slug: "move",
-			name: "Move",
-			eventSchemas: [],
-			propertiesSchema: {
-				fields: {
-					power: integerField("Power", "Base power of this move"),
-					target: stringField("Target", "What this move targets"),
-					pp: integerField("PP", "Base power points of this move"),
-					type: stringField("Type", "Elemental type of this move"),
-					effect: stringField("Effect", "Short English effect description"),
-					sourceUrl: stringField("Source Url", "Link to the PokeAPI resource"),
-					accuracy: integerField("Accuracy", "Accuracy percentage of this move"),
-					priority: integerField("Priority", "Turn priority bracket of this move"),
-					generation: stringField("Generation", "Generation this move was introduced in"),
-					damageClass: stringField("Damage Class", "Physical, special, or status damage class"),
-				},
-			},
-		},
-		allFieldControlsSchema,
 	],
 	client: {
 		homeView: null,
@@ -224,6 +163,104 @@ export const fixturePlugin = definePlugin({
 			},
 		},
 	},
+	entitySchemas: [
+		{
+			slug: "pokemon",
+			icon: "sparkles",
+			eventSchemas: [],
+			name: catalogMessage("entity-schema.pokemon.name"),
+			browse: {
+				fields: [
+					{
+						key: "height",
+						kind: "value",
+						type: "number",
+						label: catalogMessage("property.height"),
+						expression: castNumber(
+							jsonPath(column(table("entity", "subject"), "properties"), "height"),
+						),
+					},
+				],
+			},
+			propertiesSchema: {
+				fields: {
+					types: stringArrayField(
+						catalogMessage("property.types"),
+						"Elemental types of this Pokémon",
+					),
+					sourceUrl: stringField(
+						catalogMessage("property.source-url"),
+						"Link to the PokeAPI resource",
+					),
+					height: integerField(
+						catalogMessage("property.height"),
+						"Height of this Pokémon in decimetres",
+					),
+					weight: integerField(
+						catalogMessage("property.weight"),
+						"Weight of this Pokémon in hectograms",
+					),
+					pokedexNumber: integerField(
+						catalogMessage("property.pokedex-number"),
+						"National Pokédex number",
+					),
+					abilities: stringArrayField(
+						catalogMessage("property.abilities"),
+						"Abilities this Pokémon can have",
+					),
+					baseExperience: integerField(
+						catalogMessage("property.base-experience"),
+						"Base experience gained for defeating this Pokémon",
+					),
+					images: {
+						type: "array",
+						items: managedAssetItemSchema,
+						label: catalogMessage("property.images"),
+						description: "Official artwork for this Pokémon",
+					},
+				},
+			},
+		},
+		{
+			icon: "zap",
+			slug: "move",
+			eventSchemas: [],
+			name: catalogMessage("entity-schema.move.name"),
+			propertiesSchema: {
+				fields: {
+					power: integerField(catalogMessage("property.power"), "Base power of this move"),
+					target: stringField(catalogMessage("property.target"), "What this move targets"),
+					pp: integerField(catalogMessage("property.pp"), "Base power points of this move"),
+					type: stringField(catalogMessage("property.type"), "Elemental type of this move"),
+					effect: stringField(
+						catalogMessage("property.effect"),
+						"Short English effect description",
+					),
+					sourceUrl: stringField(
+						catalogMessage("property.source-url"),
+						"Link to the PokeAPI resource",
+					),
+					accuracy: integerField(
+						catalogMessage("property.accuracy"),
+						"Accuracy percentage of this move",
+					),
+					priority: integerField(
+						catalogMessage("property.priority"),
+						"Turn priority bracket of this move",
+					),
+					generation: stringField(
+						catalogMessage("property.generation"),
+						"Generation this move was introduced in",
+					),
+					damageClass: stringField(
+						catalogMessage("property.damage-class"),
+						"Physical, special, or status damage class",
+					),
+				},
+			},
+		},
+		allFieldControlsSchema,
+	],
 });
 
 export default fixturePlugin;

@@ -2,7 +2,7 @@ import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authore
 import type {
 	AuthoredEntityBrowserAddAction,
 	AuthoredEntityBrowserSavedViewSettings,
-	SavedViewTableColumn,
+	AuthoredSavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
@@ -22,6 +22,8 @@ import {
 import { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
 import { filter, parameters, sort } from "@ryot-app/ryotql/authoring";
 import { Array as Arr } from "effect";
+
+import { catalogMessage } from "../shared/messages.generated";
 
 const entity = table("entity", "entity");
 const name = column(entity, "name");
@@ -43,7 +45,7 @@ const number = (key: string) => ({
 });
 
 type NonEmptyColumns = readonly [TableColumn, ...TableColumn[]];
-type TableColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
+type TableColumn = AuthoredSavedViewTableColumn & { readonly expression: ScalarExpression };
 
 const buildDefinition = (
 	entitySchemaSlug: string,
@@ -56,9 +58,9 @@ const buildDefinition = (
 		fields: {
 			search: {
 				type: "string",
-				label: "Search",
 				defaultValue: "",
 				description: "Search library entries",
+				label: catalogMessage("query-parameter.search"),
 			},
 		},
 	});
@@ -109,7 +111,11 @@ const buildDefinition = (
 		}),
 	};
 	const tableColumns = Arr.map(columns, ({ expression: _, ...tableColumn }) => tableColumn);
-	const imageColumn = { label: "Image", field: "image", displayKind: "managed-asset" as const };
+	const imageColumn = {
+		field: "image",
+		displayKind: "managed-asset" as const,
+		label: catalogMessage("table-column.image"),
+	};
 	return {
 		dataSources,
 		renderer: { kind: "kernel", name: "entity-browser" } as const,
@@ -140,55 +146,70 @@ const buildDefinition = (
 
 const pokemonImage = castJson(jsonPath(column(entity, "properties"), "images", 0));
 
-const nameColumn = { field: "name", label: "Name", expression: name, displayKind: "text" } as const;
+const nameColumn = {
+	field: "name",
+	expression: name,
+	displayKind: "text",
+	label: catalogMessage("table-column.name"),
+} as const;
 
 const pokemonColumns = [
 	nameColumn,
-	{ label: "Pokedex Number", ...number("pokedexNumber") },
-	{ label: "Types", ...json("types") },
-	{ label: "Abilities", ...json("abilities") },
-	{ label: "Height (dm)", ...number("height") },
-	{ label: "Weight (hg)", ...number("weight") },
-	{ label: "Base Experience", ...number("baseExperience") },
+	{ label: catalogMessage("property.pokedex-number"), ...number("pokedexNumber") },
+	{ label: catalogMessage("property.types"), ...json("types") },
+	{ label: catalogMessage("property.abilities"), ...json("abilities") },
+	{ label: catalogMessage("table-column.height"), ...number("height") },
+	{ label: catalogMessage("table-column.weight"), ...number("weight") },
+	{ label: catalogMessage("property.base-experience"), ...number("baseExperience") },
 ] satisfies NonEmptyColumns;
 
 const moveColumns = [
 	nameColumn,
-	{ label: "Type", ...text("type") },
-	{ label: "Damage Class", ...text("damageClass") },
-	{ label: "Power", ...number("power") },
-	{ label: "Accuracy", ...number("accuracy") },
-	{ label: "PP", ...number("pp") },
-	{ label: "Priority", ...number("priority") },
-	{ label: "Generation", ...text("generation") },
+	{ label: catalogMessage("property.type"), ...text("type") },
+	{ label: catalogMessage("property.damage-class"), ...text("damageClass") },
+	{ label: catalogMessage("property.power"), ...number("power") },
+	{ label: catalogMessage("property.accuracy"), ...number("accuracy") },
+	{ label: catalogMessage("property.pp"), ...number("pp") },
+	{ label: catalogMessage("property.priority"), ...number("priority") },
+	{ label: catalogMessage("property.generation"), ...text("generation") },
 ] satisfies NonEmptyColumns;
 
 const allFieldControlsColumns = [
 	nameColumn,
-	{ label: "Text", ...text("text") },
-	{ label: "Website", ...text("website") },
-	{ label: "Email", ...text("email") },
-	{ label: "Timezone", ...text("timezone") },
-	{ label: "Decimal", ...number("decimal") },
-	{ label: "Integer", ...number("integer") },
-	{ label: "Enabled", field: "enabled", displayKind: "boolean", expression: property("enabled") },
-	{ label: "Date", field: "date", displayKind: "date", expression: property("date") },
-	{ label: "Date and time", ...text("datetime") },
-	{ label: "Choice", ...text("choice") },
-	{ label: "Choices", ...json("choices") },
-	{ label: "Tags", ...json("tags") },
-	{ label: "Details", ...json("details") },
-	{ label: "Entries", ...json("entries") },
-	{ label: "Chip choice", ...text("chipChoice") },
-	{ label: "Assets", ...json("assets") },
+	{ label: catalogMessage("property.text"), ...text("text") },
+	{ label: catalogMessage("property.website"), ...text("website") },
+	{ label: catalogMessage("property.email"), ...text("email") },
+	{ label: catalogMessage("property.timezone"), ...text("timezone") },
+	{ label: catalogMessage("property.decimal"), ...number("decimal") },
+	{ label: catalogMessage("property.integer"), ...number("integer") },
+	{
+		field: "enabled",
+		displayKind: "boolean",
+		expression: property("enabled"),
+		label: catalogMessage("property.enabled"),
+	},
+	{
+		field: "date",
+		displayKind: "date",
+		expression: property("date"),
+		label: catalogMessage("property.date"),
+	},
+	{ label: catalogMessage("property.date-and-time"), ...text("datetime") },
+	{ label: catalogMessage("property.choice"), ...text("choice") },
+	{ label: catalogMessage("property.choices"), ...json("choices") },
+	{ label: catalogMessage("property.tags"), ...json("tags") },
+	{ label: catalogMessage("property.details"), ...json("details") },
+	{ label: catalogMessage("property.entries"), ...json("entries") },
+	{ label: catalogMessage("property.chip-choice"), ...text("chipChoice") },
+	{ label: catalogMessage("property.assets"), ...json("assets") },
 ] satisfies NonEmptyColumns;
 
 export const fixtureSavedViews = [
 	{
 		sortOrder: 0,
 		icon: "sparkles",
-		name: "All Pokemon",
 		slug: "all-pokemon",
+		name: catalogMessage("saved-view.all-pokemon.name"),
 		...buildDefinition(
 			"pokemon",
 			ascending(castNumber(property("pokedexNumber"))),
@@ -200,8 +221,8 @@ export const fixtureSavedViews = [
 	{
 		icon: "zap",
 		sortOrder: 1,
-		name: "All Moves",
 		slug: "all-moves",
+		name: catalogMessage("saved-view.all-moves.name"),
 		...buildDefinition("move", ascending(name), null, moveColumns, {
 			field: "type",
 			displayKind: "text",
@@ -210,8 +231,8 @@ export const fixtureSavedViews = [
 	{
 		icon: "list",
 		sortOrder: 2,
-		name: "All Field Controls",
 		slug: "all-field-controls",
+		name: catalogMessage("saved-view.all-field-controls.name"),
 		...buildDefinition(
 			"all-field-controls",
 			ascending(name),

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
@@ -12,6 +13,8 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { useState } from "react";
 
+import { fixtureCatalogs } from "../tests/client/catalog";
+import { fixturePageContext } from "../tests/client/page-context";
 import {
 	PokemonCard,
 	type PokemonPresentationViewData,
@@ -98,6 +101,7 @@ describe("Pokemon presentations", () => {
 		const prepared = Result.getOrThrow(
 			preparePokemonPresentations({
 				references,
+				formatters: testFormatters,
 				sources: new Map([
 					[
 						"pokemon-2",
@@ -151,6 +155,7 @@ describe("Pokemon presentations", () => {
 			Result.isFailure(
 				preparePokemonPresentations({
 					sources: new Map(),
+					formatters: testFormatters,
 					references: [reference("pokemon-1", "Bulbasaur")],
 				}),
 			),
@@ -162,13 +167,16 @@ describe("Pokemon presentations", () => {
 		() =>
 			Effect.gen(function* () {
 				const page = mountPluginPage(ExpansionPage, {
+					catalogs: fixtureCatalogs,
 					location: entityLocation("pokemon-1", "pokemon"),
-					page: entityPageContext({
-						pluginId: "fixture",
-						entityId: "pokemon-1",
-						exportName: "pokemon-card",
-						entitySchemaSlug: "pokemon",
-					}),
+					page: fixturePageContext(
+						entityPageContext({
+							pluginId: "fixture",
+							entityId: "pokemon-1",
+							exportName: "pokemon-card",
+							entitySchemaSlug: "pokemon",
+						}),
+					),
 				});
 
 				yield* Effect.promise(() =>
@@ -234,13 +242,16 @@ describe("Pokemon presentations", () => {
 		() =>
 			Effect.gen(function* () {
 				const page = mountPluginPage(ReplacementPage, {
+					catalogs: fixtureCatalogs,
 					location: entityLocation("pokemon-1", "pokemon"),
-					page: entityPageContext({
-						pluginId: "fixture",
-						entityId: "pokemon-1",
-						exportName: "pokemon-row",
-						entitySchemaSlug: "pokemon",
-					}),
+					page: fixturePageContext(
+						entityPageContext({
+							pluginId: "fixture",
+							entityId: "pokemon-1",
+							exportName: "pokemon-row",
+							entitySchemaSlug: "pokemon",
+						}),
+					),
 				});
 
 				yield* Effect.promise(() =>

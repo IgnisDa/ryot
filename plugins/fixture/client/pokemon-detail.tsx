@@ -1,8 +1,10 @@
 import { type EntityRendererProps, usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { useMessages, useRyotQuery, useStampedMessages } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 
+import { catalogMessage } from "../shared/messages.generated";
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { type PokemonDetailData, pokemonDetailQuery } from "./pokemon-detail-query";
 import { PokemonDetails } from "./pokemon-display";
 import PokemonTypes from "./pokemon-types";
@@ -13,15 +15,16 @@ export type PokemonDetailState =
 	| { readonly status: "ready"; readonly data: PokemonDetailData };
 
 export const PokemonDetailBody = ({ state }: { readonly state: PokemonDetailState }) => {
+	const text = useMessages(PLUGIN_PACKAGE_ID, catalogMessage);
 	if (state.status === "loading") {
-		return <StatusMessage tone="pending">Loading Pokemon...</StatusMessage>;
+		return <StatusMessage tone="pending">{text("pokemon.status.loading")}</StatusMessage>;
 	}
 	if (state.status === "error") {
 		return (
 			<StatusMessage tone="error">
-				Unable to load this Pokemon.
+				{text("pokemon-detail.load-failed")}
 				<Button variant="secondary" onClick={state.retry}>
-					Try again
+					{text("common.action.try-again")}
 				</Button>
 			</StatusMessage>
 		);
@@ -30,8 +33,8 @@ export const PokemonDetailBody = ({ state }: { readonly state: PokemonDetailStat
 		return (
 			<StatusMessage tone="error">
 				{state.data.entitySchemaSlug === null
-					? "This entity no longer exists."
-					: "This entity is not a Pokemon."}
+					? text("pokemon-detail.entity-missing")
+					: text("pokemon-detail.entity-not-pokemon")}
 			</StatusMessage>
 		);
 	}
@@ -41,8 +44,8 @@ export const PokemonDetailBody = ({ state }: { readonly state: PokemonDetailStat
 		<div className="flex w-full max-w-xl flex-col gap-4 text-text">
 			<PokemonTypes name={pokemon.name} types={pokemon.types ?? []} />
 			<dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface p-4">
-				<dt className="text-text-muted">Pokedex number</dt>
-				<dd>{pokemon.pokedexNumber ?? "Unknown"}</dd>
+				<dt className="text-text-muted">{text("pokemon-detail.pokedex-number")}</dt>
+				<dd>{pokemon.pokedexNumber ?? text("common.status.unknown")}</dd>
 			</dl>
 			<div className="rounded-lg border border-border bg-surface p-4">
 				<PokemonDetails
@@ -56,6 +59,7 @@ export const PokemonDetailBody = ({ state }: { readonly state: PokemonDetailStat
 };
 
 export const PokemonDetail = ({ entityId }: EntityRendererProps) => {
+	const message = useStampedMessages(PLUGIN_PACKAGE_ID, catalogMessage);
 	const result = useRyotQuery(pokemonDetailQuery, { entityId });
 	let state: PokemonDetailState = { status: "loading" };
 	if (result.status === "error") {
@@ -63,7 +67,10 @@ export const PokemonDetail = ({ entityId }: EntityRendererProps) => {
 	} else if (result.data !== undefined) {
 		state = { status: "ready", data: result.data };
 	}
-	const title = state.status === "ready" ? (state.data.pokemon?.name ?? "Pokemon") : "Pokemon";
+	const title =
+		state.status === "ready" && state.data.pokemon !== null
+			? state.data.pokemon.name
+			: message("entity-schema.pokemon.name");
 
 	return (
 		<PluginScreenFrame title={title}>

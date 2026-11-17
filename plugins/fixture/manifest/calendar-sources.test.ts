@@ -16,13 +16,16 @@ describe("fixture calendar sources", () => {
 				const manifest = yield* Schema.decodeEffect(AuthoredPluginManifest)(fixturePlugin);
 				expect(manifest.calendarSources).toEqual<unknown>([
 					objectContaining({
-						caption: "source",
 						startAt: "addedAt",
 						precision: "instant",
 						slug: "pokemon-added",
 						subject: {
 							entityAlias: "entity",
 							schemas: [{ slug: "pokemon", owner: { kind: "self" } }],
+						},
+						caption: {
+							params: { source: "source" },
+							text: { key: "calendar-source.pokemon-added.caption" },
 						},
 					}),
 				]);

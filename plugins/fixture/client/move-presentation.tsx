@@ -7,6 +7,7 @@ import {
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import { useMessages } from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Eyebrow } from "@ryot-app/plugin-ui-sdk";
 import { isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
@@ -15,6 +16,8 @@ import {
 	movePresentationSource,
 	type MovePresentationSourceData,
 } from "../shared/entity-presentations";
+import { catalogMessage } from "../shared/messages.generated";
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 
 export type MovePresentationData = {
 	readonly name: string;
@@ -81,6 +84,7 @@ function MovePresentation(props: {
 	readonly data: MovePresentationData;
 	readonly reference: EntityReference;
 }) {
+	const text = useMessages(PLUGIN_PACKAGE_ID, catalogMessage);
 	return (
 		<article
 			data-layout={props.layout}
@@ -94,7 +98,7 @@ function MovePresentation(props: {
 			)}
 		>
 			<div className="grid min-w-0 gap-1">
-				<Eyebrow>{props.data.type ?? "Move"}</Eyebrow>
+				<Eyebrow>{props.data.type ?? text("entity-schema.move.name")}</Eyebrow>
 				<span className="flex min-w-0 items-baseline gap-1.5">
 					<PluginLink
 						className="min-w-0"

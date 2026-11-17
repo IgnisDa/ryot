@@ -8,12 +8,17 @@ import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotMutation,
 	createRyotQuery,
+	formatError,
 	ManagedAssetProvider,
+	useFormatters,
 	useManagedAssetUrl,
+	useMessages,
 	useRyot,
 	useRyotMutation,
 	useRyotQuery,
 	useRyotTheme,
+	useStampedMessages,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
@@ -23,6 +28,7 @@ import { useState } from "react";
 // oxlint-disable-next-line import/no-unassigned-import
 import "./styles.css";
 
+import { catalogMessage } from "../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import importedLogo from "./imported-logo.png";
 import logo from "./logo.svg";
@@ -74,11 +80,16 @@ const permanentUploadMutation = createRyotMutation<File, ManagedAssetLocator>(({
 
 function PermanentUploadImage(props: { readonly asset: ManagedAssetLocator }) {
 	const url = useManagedAssetUrl(props.asset);
-	return url === undefined ? null : <img src={url} alt="Permanent fixture upload" />;
+	const text = useMessages(PLUGIN_PACKAGE_ID, catalogMessage);
+	return url === undefined ? null : <img src={url} alt={text("home.permanent-upload.image-alt")} />;
 }
 
 export const Home = () => {
 	const ryot = useRyot();
+	const t = useT();
+	const text = useMessages(PLUGIN_PACKAGE_ID, catalogMessage);
+	const message = useStampedMessages(PLUGIN_PACKAGE_ID, catalogMessage);
+	const formatters = useFormatters();
 	const theme = useRyotTheme();
 	const [greetings, setGreetings] = useState(0);
 	const greeting = useRyotMutation(greetingMutation);
@@ -94,39 +105,48 @@ export const Home = () => {
 		greeting.error instanceof RyotClientError &&
 		greeting.error.reason === "operation-failed";
 	const permanentAsset = permanentUpload.status === "success" ? permanentUpload.data : undefined;
-	const installedPackageIds = catalog.data?.map(({ packageId }) => packageId).join(", ") ?? "";
-	let catalogMessage = "Client plugin catalog is unavailable.";
+	const installedPackageIds = formatters
+		.list({ type: "unit", style: "short" })
+		.format(catalog.data?.map(({ packageId }) => packageId) ?? []);
+	let catalogStatusMessage = text("home.catalog.unavailable");
 	if (catalog.status === "pending") {
-		catalogMessage = "Fetching installed client plugins...";
+		catalogStatusMessage = text("home.catalog.loading");
 	} else if (catalog.status === "success") {
-		catalogMessage = `Installed client plugins: ${installedPackageIds}`;
+		catalogStatusMessage = text("home.catalog.installed", { packageIds: installedPackageIds });
 	}
 	let greetingMessage = "";
 	if (greeting.status === "pending") {
-		greetingMessage = "Requesting a greeting...";
+		greetingMessage = text("home.greeting.pending");
 	} else if (greeting.status === "error") {
-		greetingMessage = refused
-			? "The server refused this greeting."
-			: "Greetings are unavailable right now.";
+		greetingMessage = formatError(
+			t,
+			greeting.error,
+			refused ? text("home.greeting.refused") : text("home.greeting.unavailable"),
+		);
 	} else if (greeting.status === "success") {
 		greetingMessage = greeting.data?.greeting ?? "";
 	}
 
-	let uploadMessage = "Choose a file to upload.";
+	let uploadMessage = text("home.upload.prompt");
 	if (upload.status === "pending") {
-		uploadMessage = `Uploading ${uploadName}...`;
+		uploadMessage = text("home.upload.pending", { fileName: uploadName });
 	} else if (upload.status === "error") {
-		uploadMessage = "The upload failed.";
+		uploadMessage = text("home.upload.failed");
 	} else if (upload.status === "success") {
-		uploadMessage = `Uploaded ${uploadName} as token ${upload.data?.token ?? ""}`;
+		uploadMessage = text("home.upload.succeeded", {
+			fileName: uploadName,
+			token: upload.data?.token ?? "",
+		});
 	}
-	let permanentUploadMessage = "Choose a permanent file to upload.";
+	let permanentUploadMessage = text("home.permanent-upload.prompt");
 	if (permanentUpload.status === "pending") {
-		permanentUploadMessage = `Uploading ${permanentUploadName}...`;
+		permanentUploadMessage = text("home.upload.pending", { fileName: permanentUploadName });
 	} else if (permanentUpload.status === "error") {
-		permanentUploadMessage = "The permanent upload failed.";
+		permanentUploadMessage = text("home.permanent-upload.failed");
 	} else if (permanentUpload.status === "success") {
-		permanentUploadMessage = `Uploaded ${permanentUploadName} permanently.`;
+		permanentUploadMessage = text("home.permanent-upload.succeeded", {
+			fileName: permanentUploadName,
+		});
 	}
 
 	if (shouldCrash) {
@@ -139,7 +159,7 @@ export const Home = () => {
 	};
 
 	return (
-		<PluginScreenFrame title="Fixture plugin">
+		<PluginScreenFrame title={message("home.title")}>
 			<div className="flex w-full flex-col items-center gap-4 text-text">
 				<img alt="" src={logo} className="plugin-logo" />
 				<section
@@ -147,41 +167,48 @@ export const Home = () => {
 					aria-labelledby="fixture-binary-assets-title"
 				>
 					<h2 id="fixture-binary-assets-title" className="font-display text-lg">
-						Binary plugin assets
+						{text("home.binary-assets.title")}
 					</h2>
 					<div className="flex items-center gap-2">
 						<img
 							src={importedLogo}
 							className="plugin-logo"
-							alt="Fixture plugin binary TSX import logo"
+							alt={text("home.binary-assets.imported-logo-alt")}
 						/>
-						<span>Binary TSX import asset</span>
+						<span>{text("home.binary-assets.imported-logo-label")}</span>
 					</div>
 					<div className="flex items-center gap-2">
-						<div role="img" className="css-logo" aria-label="Fixture plugin binary CSS URL logo" />
-						<span>Binary CSS URL asset</span>
+						<div
+							role="img"
+							className="css-logo"
+							aria-label={text("home.binary-assets.css-logo-alt")}
+						/>
+						<span>{text("home.binary-assets.css-logo-label")}</span>
 					</div>
 				</section>
-				<p className="text-text-muted">Greeted {greetings} times.</p>
-				<Button onClick={() => setGreetings((count) => count + 1)}>Greet</Button>
+				<p className="text-text-muted">{text("home.greeted", { count: greetings })}</p>
+				<Button onClick={() => setGreetings((count) => count + 1)}>{text("home.greet")}</Button>
 				<Button variant="secondary" onClick={() => setShouldCrash(true)}>
-					Crash during render
+					{text("home.crash")}
 				</Button>
 				<section
 					aria-labelledby="fixture-theme-title"
 					className={clsx("w-full max-w-md", "rounded-lg border border-border bg-surface p-4")}
 				>
 					<h2 id="fixture-theme-title" className="font-display text-lg text-accent-text">
-						Theme snapshot
+						{text("home.theme.title")}
 					</h2>
 					<p role="status" aria-live="polite" className="text-sm text-text-muted">
-						Resolved mode: <strong className="text-accent-text">{theme.resolvedMode}</strong>
+						{text("home.theme.resolved-mode")}{" "}
+						<strong className="text-accent-text">
+							{text("home.theme.mode", { mode: theme.resolvedMode })}
+						</strong>
 					</p>
 					<StatusMessage tone="success" className="mt-2">
-						Semantic theme tokens synchronized.
+						{text("home.theme.synchronized")}
 					</StatusMessage>
 					<div className="mt-3 rounded-md border border-accent bg-accent-soft p-3 text-sm text-text">
-						Accent surface with semantic border and primary text
+						{text("home.theme.accent-sample")}
 					</div>
 				</section>
 				<section
@@ -189,17 +216,17 @@ export const Home = () => {
 					className="flex flex-col items-center gap-2"
 				>
 					<h2 id="fixture-catalog-title" className="font-display text-lg">
-						Client plugin catalog
+						{text("home.catalog.title")}
 					</h2>
 					<StatusMessage id="fixture-catalog-status" tone={catalogTones[catalog.status]}>
-						{catalogMessage}
+						{catalogStatusMessage}
 					</StatusMessage>
 					<Button
 						onClick={catalog.refetch}
 						disabled={catalog.isFetching}
 						aria-describedby="fixture-catalog-status"
 					>
-						Refresh catalog
+						{text("home.catalog.refresh")}
 					</Button>
 				</section>
 				<section
@@ -207,20 +234,20 @@ export const Home = () => {
 					className="flex flex-col items-center gap-2"
 				>
 					<h2 id="fixture-greeting-title" className="font-display text-lg">
-						Server greeting
+						{text("home.greeting.title")}
 					</h2>
 					<StatusMessage tone={greetingTones[greeting.status]}>{greetingMessage}</StatusMessage>
 					{greeting.status === "error" ? (
 						<Button variant="secondary" onClick={() => requestGreeting(requested)}>
-							Try again
+							{text("common.action.try-again")}
 						</Button>
 					) : null}
-					<Button onClick={() => requestGreeting("Ryot")}>Fetch greeting</Button>
+					<Button onClick={() => requestGreeting("Ryot")}>{text("home.greeting.fetch")}</Button>
 					<Button variant="ghost" onClick={() => requestGreeting("")}>
-						Fetch without a name
+						{text("home.greeting.fetch-unnamed")}
 					</Button>
 					<Button variant="ghost" onClick={() => greeting.mutate({ name: Number.NaN })}>
-						Fetch with invalid payload
+						{text("home.greeting.fetch-invalid")}
 					</Button>
 				</section>
 				<section
@@ -228,11 +255,11 @@ export const Home = () => {
 					className="flex flex-col items-center gap-3"
 				>
 					<h2 id="fixture-upload-title" className="font-display text-lg">
-						Temporary upload
+						{text("home.upload.title")}
 					</h2>
 					<StatusMessage tone={uploadTones[upload.status]}>{uploadMessage}</StatusMessage>
 					<label className="flex flex-col items-center gap-1">
-						<span>Choose a file to upload</span>
+						<span>{text("home.upload.choose")}</span>
 						<input
 							type="file"
 							accept="text/csv"
@@ -252,13 +279,13 @@ export const Home = () => {
 					aria-labelledby="fixture-permanent-upload-title"
 				>
 					<h2 className="font-display text-lg" id="fixture-permanent-upload-title">
-						Permanent upload
+						{text("home.permanent-upload.title")}
 					</h2>
 					<StatusMessage tone={uploadTones[permanentUpload.status]}>
 						{permanentUploadMessage}
 					</StatusMessage>
 					<label className="flex flex-col items-center gap-1">
-						<span>Choose a permanent file to upload</span>
+						<span>{text("home.permanent-upload.choose")}</span>
 						<input
 							type="file"
 							accept="image/png"
@@ -279,17 +306,17 @@ export const Home = () => {
 					)}
 				</section>
 				<PluginLink to={fixtureRoute("/details/item-1", { tab: "stats" })}>
-					Item 1 details
+					{text("home.link.item-1")}
 				</PluginLink>
 				<Button
 					variant="secondary"
 					onClick={() => ryot.navigation.push(fixtureRoute("/details/item-2"))}
 				>
-					Open item 2
+					{text("home.link.item-2")}
 				</Button>
-				<PluginLink to={fixtureRoute("/full-bleed")}>Full-bleed screen</PluginLink>
+				<PluginLink to={fixtureRoute("/full-bleed")}>{text("full-bleed.heading")}</PluginLink>
 				<PluginLink to={{ kind: "entity", entityId: "fixture-entity" }}>
-					Open fixture entity
+					{text("home.link.entity")}
 				</PluginLink>
 			</div>
 		</PluginScreenFrame>

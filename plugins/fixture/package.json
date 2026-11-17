@@ -10,6 +10,7 @@
 	},
 	"scripts": {
 		"build": "ryot plugin build",
+		"messages": "ryot plugin messages",
 		"test": "bun ../../packages/testing/src/run-client-tests.ts",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
@@ -23,6 +24,7 @@
 	"devDependencies": {
 		"bun-types": "1.4.4",
 		"@ryot-app/cli": "workspace:*",
+		"@ryot-app/kernel-messages": "workspace:*",
 		"@ryot-app/plugin-client-sdk": "workspace:*",
 		"@ryot-app/plugin-ui-sdk": "workspace:*",
 		"@ryot-app/testing": "workspace:*",

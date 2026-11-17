@@ -6,15 +6,16 @@ import {
 	entityLocation,
 	entityPageContext,
 	mountPluginPage,
+	routeLocation,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
-import { renderToStaticMarkup } from "react-dom/server";
 
-import { fixturePageContext } from "../tests/client/page-context";
+import { fixtureCatalogs } from "../tests/client/catalog";
+import { fixturePageContext, fixtureRoutePageContext } from "../tests/client/page-context";
 import PokemonDetailPage, { PokemonDetailBody } from "./pokemon-detail";
 import { pokemonDetailRecipe } from "./pokemon-detail-query";
 
@@ -32,6 +33,7 @@ describe("Pokemon detail page", () => {
 		() =>
 			Effect.gen(function* () {
 				const page = mountPluginPage(PokemonDetailPage, {
+					catalogs: fixtureCatalogs,
 					location: entityLocation("pokemon-1", "pokemon"),
 					page: fixturePageContext(
 						entityPageContext({
@@ -109,37 +111,65 @@ describe("Pokemon detail page", () => {
 		});
 	});
 
-	it("renders ready and unavailable branches without owning an application root", () => {
-		const ready = renderToStaticMarkup(
-			<PokemonDetailBody
-				state={{
-					status: "ready",
-					data: {
-						entitySchemaSlug: "pokemon",
-						pokemon: {
-							height: 7,
-							weight: 69,
-							images: null,
-							id: "pokemon-1",
-							sourceUrl: null,
-							pokedexNumber: 1,
-							name: "Bulbasaur",
-							baseExperience: 64,
-							abilities: ["Overgrow"],
-							types: ["Grass", "Poison"],
-						},
+	it.live(
+		"renders ready and unavailable branches without owning an application root",
+		() =>
+			Effect.gen(function* () {
+				const ready = mountPluginPage(
+					() => (
+						<PokemonDetailBody
+							state={{
+								status: "ready",
+								data: {
+									entitySchemaSlug: "pokemon",
+									pokemon: {
+										height: 7,
+										weight: 69,
+										images: null,
+										id: "pokemon-1",
+										sourceUrl: null,
+										pokedexNumber: 1,
+										name: "Bulbasaur",
+										baseExperience: 64,
+										abilities: ["Overgrow"],
+										types: ["Grass", "Poison"],
+									},
+								},
+							}}
+						/>
+					),
+					{
+						catalogs: fixtureCatalogs,
+						location: routeLocation("/"),
+						page: fixtureRoutePageContext(),
 					},
-				}}
-			/>,
-		);
-		const missing = renderToStaticMarkup(
-			<PokemonDetailBody
-				state={{ status: "ready", data: { pokemon: null, entitySchemaSlug: null } }}
-			/>,
-		);
-
-		expect(ready).toContain("Bulbasaur");
-		expect(ready).toContain("Overgrow");
-		expect(missing).toContain("This entity no longer exists.");
-	});
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(ready.container?.textContent).toContain("Bulbasaur");
+						expect(ready.container?.textContent).toContain("Overgrow");
+						expect(ready.container?.textContent).toContain("7 dm");
+					}),
+				);
+				disposePluginBridges();
+				const missing = mountPluginPage(
+					() => (
+						<PokemonDetailBody
+							state={{ status: "ready", data: { pokemon: null, entitySchemaSlug: null } }}
+						/>
+					),
+					{
+						catalogs: fixtureCatalogs,
+						location: routeLocation("/"),
+						page: fixtureRoutePageContext(),
+					},
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(missing.container?.textContent).toContain("This entity no longer exists."),
+					),
+				);
+			}),
+		testTimeout,
+	);
 });

@@ -11,6 +11,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { fixtureCatalogs } from "../tests/client/catalog";
 import { fixtureRoutePageContext } from "../tests/client/page-context";
 import { PokemonPicker } from "./pokemon-picker";
 
@@ -58,6 +59,7 @@ describe("PokemonPicker", () => {
 		() =>
 			Effect.gen(function* () {
 				const page = mountPluginPage(PokemonPicker, {
+					catalogs: fixtureCatalogs,
 					page: fixtureRoutePageContext(),
 					location: routeLocation("/", "keep=1"),
 				});
@@ -118,6 +120,7 @@ describe("PokemonPicker", () => {
 		() =>
 			Effect.gen(function* () {
 				const page = mountPluginPage(PokemonPicker, {
+					catalogs: fixtureCatalogs,
 					page: fixtureRoutePageContext(),
 					location: routeLocation("/", "keep=1&dialog=add-to-collection&entityId=pokemon-2"),
 				});

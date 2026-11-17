@@ -16,6 +16,7 @@ import {
 	table,
 } from "@ryot-app/plugin-client-sdk/ryotql";
 
+import { catalogMessage } from "../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import {
 	PokemonArtworkListSchema,
@@ -28,9 +29,9 @@ export const pokemonDetailRecipe = (input: { readonly reference: PluginIdentityR
 		fields: {
 			entityId: {
 				type: "string",
-				label: "Entity Id",
 				validation: { required: true },
 				description: "Entity Id for this selection",
+				label: catalogMessage("query-parameter.entity"),
 			},
 		},
 	});

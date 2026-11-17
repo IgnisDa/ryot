@@ -8,7 +8,7 @@ import {
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { ManagedAssetProvider, useMessages } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import { useState } from "react";
@@ -17,6 +17,8 @@ import {
 	pokemonPresentationSource,
 	type PokemonPresentationSourceData,
 } from "../shared/entity-presentations";
+import { catalogMessage } from "../shared/messages.generated";
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { PokemonArtwork, PokemonDetails } from "./pokemon-display";
 import PokemonTypes from "./pokemon-types";
 
@@ -94,6 +96,7 @@ const PokemonExpandedDetails = ({
 	readonly layout: "row" | "card";
 	readonly data: PokemonPresentationViewData;
 }) => {
+	const text = useMessages(PLUGIN_PACKAGE_ID, catalogMessage);
 	const [expanded, setExpanded] = useState(false);
 	const detailsId = `pokemon-${layout}-${entityId}-details`;
 	return (
@@ -106,7 +109,9 @@ const PokemonExpandedDetails = ({
 				onClick={() => setExpanded((value) => !value)}
 				className="justify-self-start px-3 py-1.5 text-sm"
 			>
-				{expanded ? "Hide details" : "Show details"}
+				{expanded
+					? text("pokemon-presentation.hide-details")
+					: text("pokemon-presentation.show-details")}
 			</Button>
 			{expanded && (
 				<div id={detailsId} className="rounded-lg bg-surface-2 p-3 text-text">

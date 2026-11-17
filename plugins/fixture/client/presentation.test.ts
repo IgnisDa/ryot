@@ -1,5 +1,6 @@
 import { expect, it } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
 
 import { prepareMovePresentations } from "./move-presentation";
@@ -17,6 +18,7 @@ const reference = (entityId: string, entitySchemaSlug: string) => ({
 it("prepares Pokemon artwork from captured data without a query client", () => {
 	const result = Result.getOrThrow(
 		preparePokemonPresentations({
+			formatters: testFormatters,
 			references: [reference("one", "pokemon")],
 			sources: new Map([
 				[
@@ -45,6 +47,7 @@ it("prepares moves and rejects incomplete captured data", () => {
 	const result = Result.getOrThrow(
 		prepareMovePresentations({
 			references,
+			formatters: testFormatters,
 			sources: new Map([
 				[
 					"one",
@@ -67,5 +70,9 @@ it("prepares moves and rejects incomplete captured data", () => {
 		damageClass: "physical",
 		generation: "generation-i",
 	});
-	expect(Result.isFailure(prepareMovePresentations({ references, sources: new Map() }))).toBe(true);
+	expect(
+		Result.isFailure(
+			prepareMovePresentations({ references, sources: new Map(), formatters: testFormatters }),
+		),
+	).toBe(true);
 });
