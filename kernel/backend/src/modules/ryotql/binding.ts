@@ -15,11 +15,11 @@ import { Effect } from "effect";
 
 import type { UserPlugin } from "#modules/definitions/catalog";
 
-import type { RyotQLExecutionScope } from "./catalog";
+import type { RyotQLAuthorityScope } from "./catalog";
 
 export type PluginBinding = Pick<UserPlugin, "scope" | "pluginId" | "packageId">;
 
-export const definitionReadContext = (scope: RyotQLExecutionScope) => {
+export const definitionReadContext = (scope: RyotQLAuthorityScope) => {
 	if (scope.type === "plugin") {
 		return scope;
 	}
@@ -42,7 +42,7 @@ export const bindRyotQLDocument = Effect.fn("bindRyotQLDocument")(function* <
 	Selection extends RowSelection,
 >(
 	document: RyotQLDocumentWithSelections<Selection>,
-	scope: RyotQLExecutionScope,
+	scope: RyotQLAuthorityScope,
 	catalog: ReadonlyArray<PluginBinding>,
 ) {
 	const localIds = new Set(catalog.map(({ pluginId }) => pluginId));

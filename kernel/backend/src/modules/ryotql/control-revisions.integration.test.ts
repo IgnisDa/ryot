@@ -27,7 +27,7 @@ import { makeAppConfigLayer } from "#testing/effect";
 import { RyotQLService } from "./service";
 
 const owner = UserId.make("owner");
-const selection = (definitionOwner: QueryOwnerReference): RyotQLDocument => ({
+const selection = (definitionOwner: QueryOwnerReference): Omit<RyotQLDocument, "parameters"> => ({
 	controls: {
 		sort: { alias: "item", kind: "browse", schemas: [{ slug: "item", owner: definitionOwner }] },
 		filter: { alias: "item", kind: "browse", schemas: [{ slug: "item", owner: definitionOwner }] },
@@ -77,15 +77,15 @@ const makePackage = (
 									fields: [
 										{
 											key: "value",
-											label: "Value",
 											type: "text" as const,
 											kind: "value" as const,
+											label: { key: "test.value" },
 											expression: { field, tableAlias: "subject", type: "column" as const },
 											sort: {
-												label: "Value",
-												ascending: "Ascending",
-												descending: "Descending",
+												label: { key: "test.value" },
 												defaultDirection: "asc" as const,
+												ascending: { key: "test.ascending" },
+												descending: { key: "test.descending" },
 											},
 										},
 									],
@@ -124,7 +124,9 @@ layer(
 						.update(tables.user)
 						.set({
 							preferences: {
-								language: null,
+								weekStart: null,
+								interfaceLocale: null,
+								contentLanguage: null,
 								ratingScale: "hundred",
 								disableIntegrations: false,
 								reportingTimeZone: TimeZone.make("Asia/Kolkata"),
@@ -192,6 +194,7 @@ layer(
 				expect(nextResponse.execution).toEqual({
 					timeZone: firstResponse.execution.timeZone,
 					now: firstResponse.execution.now + 86400000,
+					weekStart: firstResponse.execution.weekStart,
 				});
 				const empty = yield* service.executeForUser(owner, null, "plugin", {
 					...request,

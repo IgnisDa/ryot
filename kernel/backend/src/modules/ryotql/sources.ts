@@ -1,7 +1,7 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import { ownerIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
-import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/authored";
+import { resolvePluginDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { decodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
@@ -22,7 +22,7 @@ import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { pageQueryDocument } from "#modules/pages/query-document";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
-import type { RyotQLExecutionScope } from "./catalog";
+import type { RyotQLAuthorityScope } from "./catalog";
 
 export type ResolvedSource = {
 	readonly identity: string;
@@ -42,7 +42,7 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 			const catalogs = yield* DefinitionCatalog;
 			const collections = yield* CollectionsRepository;
 			const resolve = Effect.fn("RyotQLSources.resolve")(function* (
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 				source: ExecutionSource,
 			): Effect.fn.Return<ResolvedSource, DbError | RyotQLBadRequest> {
 				if (source.kind === "inline") {
@@ -69,9 +69,7 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 						return yield* unavailable("plugin");
 					}
 					const document = yield* Effect.fromResult(
-						mapPluginIdentityReferences(declaration.document, (owner) =>
-							owner.kind === "self" ? { kind: "local", pluginId: scope.pluginId } : owner,
-						),
+						resolvePluginDocument(scope.pluginId, declaration.document),
 					).pipe(Effect.mapError(() => unavailable("plugin")));
 					return {
 						document,
@@ -197,7 +195,7 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 				};
 			});
 			const entitySource = Effect.fn("RyotQLSources.entitySource")(function* (
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 				reference: string,
 			) {
 				if (scope.type !== "user") {
@@ -248,7 +246,7 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 			});
 
 			const membershipAuthority = Effect.fn("RyotQLSources.membershipAuthority")(function* (
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 				source: ResolvedSource,
 				argumentsValue?: ExecutionRequest["arguments"],
 				visited: readonly string[] = [],

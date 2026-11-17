@@ -38,7 +38,9 @@ const user = {
 	email: "user@example.com",
 	accountUserId: UserId.make("user-1"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		disableIntegrations: false,
 		ratingScale: "hundred" as const,

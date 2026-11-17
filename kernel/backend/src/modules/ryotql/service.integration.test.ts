@@ -21,6 +21,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
 import {
 	aggregate,
@@ -123,23 +124,9 @@ const manifest = (
 	metadata: {
 		...fixtureManifest().metadata,
 		packageId,
-		name: `${slug} name`,
-		description: `${slug} description`,
+		name: { key: `test.${slug}-name` },
+		description: { key: `test.${slug}-description` },
 	},
-	integrationProviders:
-		slug === systemPluginName
-			? [
-					{
-						lot: "yank",
-						name: "Yank",
-						description: "Yank",
-						slug: "provider-yank",
-						scriptSlug: "sys.yank",
-						settingsSchema: { fields: {} },
-						plan: { selections: { collector: { value: "remote" } } },
-					},
-				]
-			: [],
 	client: {
 		homeView,
 		apiVersion: CLIENT_API_VERSION,
@@ -157,6 +144,20 @@ const manifest = (
 			},
 		},
 	},
+	integrationProviders:
+		slug === systemPluginName
+			? [
+					{
+						lot: "yank",
+						slug: "provider-yank",
+						scriptSlug: "sys.yank",
+						name: { key: "test.yank" },
+						settingsSchema: { fields: {} },
+						description: { key: "test.yank" },
+						plan: { selections: { collector: { value: "remote" } } },
+					},
+				]
+			: [],
 	scripts: [
 		...fixtureManifest().scripts,
 		{
@@ -246,7 +247,7 @@ const definition = (id: string, pluginId: null | string, position = 0) => ({
 	position,
 	pluginId,
 	slug: id,
-	name: `${id} name`,
+	name: { key: `test.${id}`, namespace: pluginId ?? "kernel" },
 	pluginRevisionId: pluginId === null ? null : `${pluginId}-revision`,
 });
 
@@ -272,9 +273,9 @@ const importSourceDefinition = (
 ) => ({
 	...pluginDefinition(id, pluginId, position),
 	workflowScriptSlug,
-	description: "Import",
 	workflowSlug: "import",
 	requiredPluginConfigKeys,
+	description: { key: "test.import", namespace: pluginId },
 	inputSchema: { fields: {}, unknownKeys: "strict" as const },
 });
 
@@ -301,7 +302,12 @@ const seedCatalog = Effect.gen(function* () {
 		Effect.gen(function* () {
 			yield* db.insert(user).values([
 				{ id: "owner", name: "Owner", email: "owner@example.test" },
-				{ id: "other", name: "Other", email: "other@example.test" },
+				{
+					id: "other",
+					name: "Other",
+					email: "other@example.test",
+					preferences: { ...defaultUserPreferences, weekStart: 1 },
+				},
 				{ id: "mixed", name: "Mixed", email: "mixed@example.test" },
 				{ id: "plain", name: "Plain", email: "plain@example.test" },
 			]);
@@ -435,17 +441,17 @@ const seedCatalog = Effect.gen(function* () {
 					position: 0,
 					id: "kernel-event",
 					slug: "kernel-event",
-					name: "Kernel event",
 					entitySchemaId: "kernel-entity",
 					propertiesSchema: { fields: {} },
+					name: { namespace: "kernel", key: "test.kernel-event" },
 				},
 				{
 					position: 0,
 					id: "system-event",
 					slug: "system-event",
-					name: "System event",
 					entitySchemaId: "system-entity",
 					propertiesSchema: { fields: {} },
+					name: { key: "test.system-event", namespace: "system-plugin" },
 				},
 			]);
 			yield* db.insert(definitionRelationshipSchema).values([
@@ -481,25 +487,25 @@ const seedCatalog = Effect.gen(function* () {
 					lot: "push",
 					scriptSlug: null,
 					entitlement: null,
-					description: "Push",
 					settingsSchema: { fields: {} },
+					description: { key: "test.push", namespace: "system-plugin" },
 				},
 				{
 					...pluginDefinition("provider-yank", "system-plugin", 1),
 					lot: "yank",
 					entitlement: "pro",
-					description: "Yank",
 					scriptSlug: "sys.yank",
 					settingsSchema: { fields: {} },
 					plan: { selections: { collector: { value: "remote" } } },
+					description: { key: "test.yank", namespace: "system-plugin" },
 				},
 				{
 					...pluginDefinition("provider-missing", "system-plugin", 2),
 					lot: "yank",
 					entitlement: null,
-					description: "Missing",
 					scriptSlug: "absent.yank",
 					settingsSchema: { fields: {} },
+					description: { key: "test.missing", namespace: "system-plugin" },
 				},
 			]);
 			yield* db
@@ -669,6 +675,42 @@ layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 							year: "2023-01-01T05:00:00.000Z",
 						},
 					]);
+				}),
+			testTimeout,
+		);
+
+		test.effect(
+			"buckets weeks from each user's resolved week start",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* RyotQLService;
+					const weekOf = (userId: string) =>
+						Effect.map(
+							service.executeForUser(userId, null, "kernel", {
+								source: {
+									kind: "inline",
+									document: {
+										queries: {
+											rows: rows(table("user", "account"), {
+												limit: 1,
+												fields: [
+													field(
+														"week",
+														dateBucket(castDate(literal("2024-03-13T16:00:00Z")), {
+															bucket: "week",
+															timeZone: "America/New_York",
+														}),
+													),
+												],
+											}),
+										},
+									},
+								},
+							}),
+							(response) => rowsOf(response).items,
+						);
+					expect(yield* weekOf("owner")).toEqual([{ week: "2024-03-10T05:00:00.000Z" }]);
+					expect(yield* weekOf("other")).toEqual([{ week: "2024-03-11T04:00:00.000Z" }]);
 				}),
 			testTimeout,
 		);
@@ -890,10 +932,10 @@ layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 								projection,
 								position: 1,
 								slug: "projected",
-								name: "Projected",
 								id: "private-projected",
 								entitySchemaId: "private-entity",
 								propertiesSchema: { fields: {} },
+								name: { key: "test.projected", namespace: "private-plugin" },
 							}),
 					);
 					yield* session.run((db) =>
@@ -1712,7 +1754,9 @@ layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 							email: "owner@example.test",
 							twoFactorStatus: { enabled: false, available: true },
 							preferences: {
-								language: null,
+								weekStart: null,
+								interfaceLocale: null,
+								contentLanguage: null,
 								reportingTimeZone: UTC,
 								ratingScale: "hundred",
 								disableIntegrations: false,
@@ -1838,8 +1882,11 @@ layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					).toEqual({
 						id: "system-plugin",
 						activeRevisionId: "system-plugin-revision",
-						description: `${systemPluginName} description`,
 						configSchema: { fields: {}, unknownKeys: "strict" },
+						description: {
+							namespace: "system-plugin",
+							key: `test.${systemPluginName}-description`,
+						},
 					});
 					expect(
 						(yield* readRows("admin", "plugin", ["id", "environmentConfigRevisionId"])).find(
@@ -1884,9 +1931,9 @@ layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 								apiToken: {
 									secret: true,
 									type: "string",
-									label: "API token",
 									description: "API token",
 									defaultValue: secretDefault,
+									label: { key: "test.api-token" },
 								},
 							},
 						},
@@ -1929,8 +1976,8 @@ layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 									apiToken: {
 										secret: true,
 										type: "string",
-										label: "API token",
 										description: "API token",
+										label: { key: "test.api-token" },
 									},
 								},
 							},

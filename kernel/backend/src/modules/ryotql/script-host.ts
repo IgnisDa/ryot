@@ -1,4 +1,8 @@
-import { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import {
+	ExecutionRequest,
+	PluginExecutionRequest,
+	stampExecutionSource,
+} from "@ryot-app/contract/modules/ryotql/request";
 import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect, Schema } from "effect";
@@ -8,6 +12,10 @@ import {
 	requireSandboxCapabilityInput,
 } from "#modules/scripts/authorization/capabilities";
 import {
+	principalMessageNamespace,
+	type ScriptExecutionPrincipal,
+} from "#modules/scripts/authorization/principal";
+import {
 	sandboxDefinitionReadContext,
 	sandboxRunUserId,
 } from "#modules/scripts/host/execution-context";
@@ -15,7 +23,27 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { RyotQLService } from "./service";
 
-const decodeExecutionRequest = Schema.decodeUnknownEffect(Schema.toType(ExecutionRequest));
+const decodeUserRequest = Schema.decodeUnknownEffect(Schema.toType(ExecutionRequest));
+const decodePluginRequest = Schema.decodeUnknownEffect(Schema.toType(PluginExecutionRequest));
+
+/**
+ * Plugin and kernel scripts author inline parameter text in their own catalog, so it is stamped
+ * with the run's namespace; other scripts author user text.
+ */
+const decodeExecutionRequest = (
+	principal: Pick<ScriptExecutionPrincipal, "kernelScript" | "pluginRevision">,
+	query: unknown,
+) => {
+	const namespace = principalMessageNamespace(principal);
+	return namespace === null
+		? decodeUserRequest(query)
+		: decodePluginRequest(query).pipe(
+				Effect.map((request) => ({
+					...request,
+					source: stampExecutionSource(namespace, request.source),
+				})),
+			);
+};
 
 export const makeRyotQLScriptHost = Effect.gen(function* () {
 	const ryotqlService = yield* RyotQLService;
@@ -39,7 +67,7 @@ export const makeRyotQLScriptHost = Effect.gen(function* () {
 										{ operation: "executeRyotql", code: "unavailable-operation" },
 									);
 								}
-								const document = yield* decodeExecutionRequest(query);
+								const document = yield* decodeExecutionRequest(input.principal, query);
 								return yield* ryotqlService.executeForPlugin(
 									{
 										pluginId: revision.id,
@@ -55,7 +83,7 @@ export const makeRyotQLScriptHost = Effect.gen(function* () {
 					}
 					return sandboxHostEffect(
 						Effect.gen(function* () {
-							const document = yield* decodeExecutionRequest(query);
+							const document = yield* decodeExecutionRequest(input.principal, query);
 							const userId = sandboxRunUserId(input);
 							if (userId === null) {
 								return yield* sandboxHostFailure("executeRyotql requires a user execution", {

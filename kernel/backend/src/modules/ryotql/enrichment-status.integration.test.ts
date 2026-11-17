@@ -148,14 +148,14 @@ const catalogLayer = Layer.unwrap(
 				],
 				entitySchemas: [
 					recordSchema,
-					{ ...recordSchema, slug: "part", name: "part" },
-					{ ...recordSchema, slug: "note", name: "note" },
+					{ ...recordSchema, slug: "part", name: { key: "test.part" } },
+					{ ...recordSchema, slug: "note", name: { key: "test.note" } },
 				],
 				relationshipSchemas: [
 					...base.manifest.relationshipSchemas,
 					{
-						name: "Parts",
 						slug: "record-to-part",
+						name: { key: "test.parts" },
 						targetEntitySchemaSlug: "part",
 						propertiesSchema: { fields: {} },
 						sourceEntitySchemaSlug: "record",

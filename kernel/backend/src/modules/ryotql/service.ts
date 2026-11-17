@@ -12,6 +12,7 @@ import { documentTables, type RyotQLDocument } from "@ryot-app/contract/modules/
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import {
 	type PresentationSelection,
+	type QueryExecution,
 	RyotQLResponse,
 	type RyotQLResult,
 } from "@ryot-app/contract/modules/ryotql/language";
@@ -30,7 +31,12 @@ import {
 	type AuthorizationContext,
 	isFirstPartyCredential,
 } from "@ryot-app/contract/oauth";
-import { type TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
+import {
+	defaultUserPreferences,
+	resolveContentLanguage,
+	resolveWeekStart,
+} from "@ryot-app/contract/schema/user-preferences";
 import {
 	compileControlFilter,
 	compileControlSort,
@@ -67,7 +73,7 @@ import { user as userTable } from "#schema/tables/auth";
 import { plugin, pluginInstallation } from "#schema/tables/core";
 
 import { bindRyotQLDocument, type PluginBinding, pluginIdentityReferences } from "./binding";
-import type { RyotQLExecutionScope } from "./catalog";
+import type { RyotQLAuthorityScope, RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery, executeSubjectSet } from "./executor";
 import { collectionSubjectDocument } from "./source-queries";
 import { RyotQLSources } from "./sources";
@@ -188,7 +194,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 
 			const scopePlugins = Effect.fnUntraced(function* (
 				transaction: EffectPgDatabase,
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 			) {
 				if (scope.type === "user") {
 					return yield* readyUserPlugins(scope.userId);
@@ -222,7 +228,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 
 			const bindDocument = Effect.fnUntraced(function* <E, R>(
 				document: ExpandedRyotQLDocument,
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 				loadCatalog: Effect.Effect<ReadonlyArray<PluginBinding>, E, R>,
 			) {
 				const catalog = pluginIdentityReferences(document).length === 0 ? [] : yield* loadCatalog;
@@ -234,10 +240,10 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				scope: RyotQLExecutionScope,
 				document: ExpandedRyotQLDocument,
 				options: {
+					readonly execution: QueryExecution;
 					readonly relationsOwner: null | string;
 					readonly resultBytes: number | undefined;
 					readonly loadCatalog: Effect.Effect<ReadonlyArray<PluginBinding>, E, R>;
-					readonly execution: { readonly now: number; readonly timeZone: TimeZone };
 				},
 			) {
 				const bound = yield* bindDocument(document, scope, options.loadCatalog);
@@ -441,7 +447,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 			});
 
 			const controlSchemas = Effect.fn("RyotQLService.controlSchemas")(function* (
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 			): Effect.fn.Return<readonly ControlSchema[], DbError> {
 				if (scope.type === "user") {
 					const catalog = yield* catalogs.forUser(scope.userId);
@@ -475,7 +481,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 
 			const prepareRequest = Effect.fn("RyotQLService.prepareRequest")(function* (
 				transaction: EffectPgDatabase,
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 				request: ExecutionRequest,
 				path: readonly string[] = [],
 				budget: {
@@ -488,10 +494,10 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				executionNow?: Date,
 			): Effect.fn.Return<
 				{
+					readonly execution: QueryExecution;
 					readonly scope: RyotQLExecutionScope;
 					readonly document: ExpandedRyotQLDocument;
 					readonly membership: readonly MembershipSource[];
-					readonly execution: { readonly now: number; readonly timeZone: TimeZone };
 				},
 				DbError | RyotQLBadRequest | DemoOperationProtected | EffectDrizzleQueryError
 			> {
@@ -539,6 +545,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 								.from(userTable)
 								.where(eq(userTable.id, ownerId))
 								.limit(1);
+				const weekStart = resolveWeekStart(owner?.preferences ?? defaultUserPreferences);
 				const schemas = yield* controlSchemas(scope);
 				const membership: MembershipSource[] = [];
 				const sourceEntities: Record<
@@ -595,7 +602,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					}
 					let selection: ExpandedRyotQLDocument;
 					let subjectAlias: string;
-					let selectionScope = scope;
+					let selectionScope = { ...scope, weekStart };
 					if (source.kind === "collection") {
 						budget.identities.push(
 							stableStringify({ collectionId: source.id, membership: source.membership }),
@@ -709,6 +716,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				}
 				const executionScope = {
 					...scope,
+					weekStart,
 					sourceEntities,
 					sourceRevisions: { ...budget.revisions },
 					cursorIdentity: cursorBindingKey({
@@ -743,12 +751,16 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					membership,
 					scope: executionScope,
 					document: validated.value,
-					execution: { now: now.getTime(), timeZone: owner?.preferences.reportingTimeZone ?? UTC },
+					execution: {
+						now: now.getTime(),
+						weekStart: executionScope.weekStart,
+						timeZone: owner?.preferences.reportingTimeZone ?? UTC,
+					},
 				};
 			});
 
 			const executeWithScope = Effect.fn("RyotQLService.executeWithScope")(function* (
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 				request: ExecutionRequest,
 				resultBytes?: number,
 			) {
@@ -810,7 +822,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 			});
 
 			const describeSource = Effect.fn("RyotQLService.describeSource")(function* (
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 				source: ExecutionSource,
 				argumentsValue?: ExecutionRequest["arguments"],
 			) {
@@ -858,7 +870,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 			});
 
 			const describeWithScope = (
-				scope: RyotQLExecutionScope,
+				scope: RyotQLAuthorityScope,
 				source: ExecutionSource,
 				argumentsValue?: ExecutionRequest["arguments"],
 			) =>
@@ -963,7 +975,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 			};
 
 			const executeForPlugin = (
-				scope: Omit<Extract<RyotQLExecutionScope, { type: "plugin" }>, "type">,
+				scope: Omit<Extract<RyotQLAuthorityScope, { type: "plugin" }>, "type">,
 				request: ExecutionRequest,
 				resultBytes: number,
 			) =>
@@ -986,7 +998,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					Effect.andThen(
 						executeForUser(
 							user.id,
-							user.preferences.language,
+							resolveContentLanguage(user.preferences),
 							audience,
 							request,
 							authorization.accessClass,
@@ -1043,8 +1055,8 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 									audience,
 									type: "user",
 									userId: user.id,
-									language: user.preferences.language,
 									accessClass: authorization.accessClass,
+									language: resolveContentLanguage(user.preferences),
 								},
 								source,
 								argumentsValue,

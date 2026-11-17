@@ -5,7 +5,7 @@ import {
 	definitionKey,
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { AuthoredResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	PluginId,
 	PluginPackageId,
@@ -66,28 +66,28 @@ const namespacePackage = (version = "v1", packageId = testPluginPackageId()) => 
 			importSources: [
 				{
 					slug: "import",
-					name: "Import",
-					description: "Import",
+					name: { key: "test.import" },
 					workflowSlug: "whiskey-flow",
+					description: { key: "test.import" },
 					inputSchema: { fields: {}, unknownKeys: "strict" as const },
 				},
 			],
 			integrationProviders: [
 				{
 					slug: "catalog",
-					name: "Catalog",
 					lot: "yank" as const,
-					description: "Catalog",
+					name: { key: "test.catalog" },
 					scriptSlug: "whiskey.workflow",
 					settingsSchema: { fields: {} },
+					description: { key: "test.catalog" },
 				},
 			],
 			savedViews: [
 				{
 					icon: "box",
 					sortOrder: 0,
-					name: "All bottles",
 					slug: "all-bottles",
+					name: { key: "test.all-bottles" },
 					renderer: { kind: "kernel", name: "results-table" } as const,
 					dataSources: {
 						queries: { bottles: rows(entity, { fields: [field("id", column(entity, "id"))] }) },
@@ -97,8 +97,8 @@ const namespacePackage = (version = "v1", packageId = testPluginPackageId()) => 
 						entityLink: null,
 						rowKeyFields: ["id"],
 						sourceName: "bottles",
-						columns: [{ field: "id", label: "ID", displayKind: "text" }],
-					} satisfies ResultsTableSavedViewSettings,
+						columns: [{ field: "id", displayKind: "text", label: { key: "test.id" } }],
+					} satisfies AuthoredResultsTableSavedViewSettings,
 				},
 			],
 		},
@@ -148,13 +148,13 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 							icon: "box",
 							pluginId: null,
 							slug: "bottle",
-							name: "Kernel bottle",
 							propertiesSchema: { fields: {} },
+							name: { key: "test.kernel-bottle" },
 							eventSchemas: [
 								{
 									pluginId: null,
 									slug: "changed",
-									name: "Changed",
+									name: { key: "test.changed" },
 									propertiesSchema: { fields: {} },
 								},
 							],
@@ -665,19 +665,19 @@ const packageWithNames = (version: "old" | "current", packageId: PluginPackageId
 			...value.manifest,
 			signalSchemas: Array.from(value.manifest.signalSchemas, (signal) => ({
 				...signal,
-				name: `${version} signal`,
+				name: { key: `test.${version}-signal` },
 			})),
 			relationshipSchemas: Array.from(value.manifest.relationshipSchemas, (relationship) => ({
 				...relationship,
-				name: `${version} relationship`,
+				name: { key: `test.${version}-relationship` },
 				...(version === "old" ? { userWritePolicy: "source-owner" as const } : {}),
 			})),
 			entitySchemas: Array.from(value.manifest.entitySchemas, (entity) => ({
 				...entity,
-				name: `${version} entity`,
+				name: { key: `test.${version}-entity` },
 				eventSchemas: Array.from(entity.eventSchemas, (event) => ({
 					...event,
-					name: `${version} event`,
+					name: { key: `test.${version}-event` },
 				})),
 			})),
 		},
@@ -733,7 +733,10 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 					);
 					expect(user.data["nameOnly"]).toEqual<unknown>(
 						objectContaining({
-							items: arrayContaining([{ name: `old ${label}` }, { name: `current ${label}` }]),
+							items: arrayContaining([
+								{ name: { namespace: own.pluginId, key: `test.old-${label}` } },
+								{ name: { namespace: foreign.pluginId, key: `test.current-${label}` } },
+							]),
 						}),
 					);
 					const complete = user.data["complete"];
@@ -743,14 +746,14 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 						objectContaining({
 							items: arrayContaining([
 								objectContaining({
-									name: `old ${label}`,
 									pluginId: own.pluginId,
 									pluginRevisionId: own.revisionId,
+									name: { namespace: own.pluginId, key: `test.old-${label}` },
 								}),
 								objectContaining({
-									name: `current ${label}`,
 									pluginId: foreign.pluginId,
 									pluginRevisionId: currentForeign.revisionId,
+									name: { namespace: foreign.pluginId, key: `test.current-${label}` },
 								}),
 							]),
 						}),
@@ -767,10 +770,18 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 						{ source: { kind: "inline", document: query } },
 						1_048_576,
 					);
-					expect(plugin.data["nameOnly"]).toMatchObject({ items: [{ name: `old ${label}` }] });
+					expect(plugin.data["nameOnly"]).toEqual<unknown>(
+						objectContaining({
+							items: [{ name: { namespace: own.pluginId, key: `test.old-${label}` } }],
+						}),
+					);
 					expect(plugin.data["complete"]).toMatchObject({
 						items: [
-							{ name: `old ${label}`, pluginId: own.pluginId, pluginRevisionId: own.revisionId },
+							{
+								pluginId: own.pluginId,
+								pluginRevisionId: own.revisionId,
+								name: { namespace: own.pluginId, key: `test.old-${label}` },
+							},
 						],
 					});
 					if (kind === "relationshipSchema") {
@@ -790,18 +801,23 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 				const snapshot = yield* definitions.getSnapshotForContext(context, owner);
 				const entity =
 					snapshot.entitySchemas[definitionKey("entity", definitionOwner(own.pluginId), "bottle")];
-				expect(entity?.name).toBe("old entity");
-				expect(entity?.eventSchemas["changed"]?.name).toBe("old event");
+				expect(entity?.name).toEqual({ key: "test.old-entity" });
+				expect(entity?.eventSchemas["changed"]?.name).toEqual({ key: "test.old-event" });
 				expect(
 					snapshot.relationshipSchemas[
 						definitionKey("relationship", definitionOwner(own.pluginId), "whiskey-link")
 					],
-				).toMatchObject({ name: "old relationship", userWritePolicy: "source-owner" });
+				).toEqual<unknown>(
+					objectContaining({
+						userWritePolicy: "source-owner",
+						name: { key: "test.old-relationship" },
+					}),
+				);
 				expect(
 					snapshot.signalSchemas[
 						definitionKey("signal", definitionOwner(own.pluginId), "whiskey.signal")
 					]?.name,
-				).toBe("old signal");
+				).toEqual({ key: "test.old-signal" });
 			}),
 		testTimeout,
 	);
@@ -835,7 +851,7 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 										...next.manifest,
 										entitySchemas: Array.from(next.manifest.entitySchemas, (entity) => ({
 											...entity,
-											name: "Current bottle",
+											name: { key: "test.current-bottle" },
 										})),
 									},
 								},
@@ -862,12 +878,15 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 				})).data["definitions"];
 				assert(current?.type === "rows");
 				expect(current.items).toHaveLength(2);
+				expect(current.items).toEqual<unknown>(
+					arrayContaining([
+						objectContaining({ name: { namespace: a.pluginId, key: "test.current-bottle" } }),
+						objectContaining({ name: { namespace: b.pluginId, key: "test.current-bottle" } }),
+					]),
+				);
 				expect(
 					current.items.every(
-						(item) =>
-							item["name"] === "Current bottle" &&
-							item["revision"] !== a.revisionId &&
-							item["revision"] !== b.revisionId,
+						(item) => item["revision"] !== a.revisionId && item["revision"] !== b.revisionId,
 					),
 				).toBe(true);
 				const context = {
@@ -886,8 +905,16 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 				assert(pinned?.type === "rows");
 				expect(pinned.items).toEqual<unknown>(
 					arrayContaining([
-						{ name: "Fixture", owner: a.pluginId, revision: a.revisionId },
-						{ owner: b.pluginId, name: "Current bottle", revision: anyOf(String) },
+						{
+							owner: a.pluginId,
+							revision: a.revisionId,
+							name: { key: "test.fixture", namespace: a.pluginId },
+						},
+						{
+							owner: b.pluginId,
+							revision: anyOf(String),
+							name: { namespace: b.pluginId, key: "test.current-bottle" },
+						},
 					]),
 				);
 				expect(pinned.items).toHaveLength(2);
@@ -895,11 +922,11 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 				expect(
 					snapshot.entitySchemas[definitionKey("entity", definitionOwner(a.pluginId), "bottle")]
 						?.name,
-				).toBe("Fixture");
+				).toEqual({ key: "test.fixture" });
 				expect(
 					snapshot.entitySchemas[definitionKey("entity", definitionOwner(b.pluginId), "bottle")]
 						?.name,
-				).toBe("Current bottle");
+				).toEqual({ key: "test.current-bottle" });
 				yield* session.run((db) =>
 					db
 						.insert(tables.entity)
@@ -948,7 +975,7 @@ layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 					(yield* definitions.getSnapshotForContext(context, owner)).entitySchemas[
 						definitionKey("entity", definitionOwner(a.pluginId), "bottle")
 					]?.name,
-				).toBe("Fixture");
+				).toEqual({ key: "test.fixture" });
 				yield* session.run((db) =>
 					db
 						.update(tables.pluginInstallation)

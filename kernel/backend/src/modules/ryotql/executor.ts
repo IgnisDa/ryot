@@ -423,7 +423,13 @@ const compileExpression = (expr: ScalarExpression, ctx: Context): SqlFragment =>
 		return sql`(${value} + ${expr.amount * seconds}::double precision * interval '1 second')`;
 	}
 	if (expr.type === "dateBucket") {
-		return sql`date_trunc(${expr.bucket}, ${compileExpression(expr.expr, ctx)}, ${expr.timeZone})`;
+		const value = compileExpression(expr.expr, ctx);
+		const mondayShift = (8 - ctx.scope.execution.weekStart) % 7;
+		if (expr.bucket !== "week" || mondayShift === 0) {
+			return sql`date_trunc(${expr.bucket}, ${value}, ${expr.timeZone})`;
+		}
+		const shift = sql`make_interval(days => ${mondayShift}::integer)`;
+		return sql`((date_trunc('week', (${value} AT TIME ZONE ${expr.timeZone}) + ${shift}) - ${shift}) AT TIME ZONE ${expr.timeZone})`;
 	}
 	if (expr.type === "localDate") {
 		return sql`to_char(${compileExpression(expr.expr, ctx)} AT TIME ZONE ${expr.timeZone}, 'YYYY-MM-DD')`;

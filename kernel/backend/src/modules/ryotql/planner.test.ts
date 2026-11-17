@@ -30,6 +30,7 @@ import { planQuery, planScopes } from "./planner";
 
 const execution = {
 	type: "user",
+	weekStart: 1,
 	language: null,
 	userId: "owner",
 	audience: "plugin",

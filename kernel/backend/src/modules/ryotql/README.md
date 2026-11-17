@@ -22,13 +22,15 @@ A document has a non-empty `queries` record. Each named query has `from: { table
 }
 ```
 
-Requests are `{ source, arguments?, filter?, sort?, pages? }`. Sources are inline authored documents
-(with an optional named `query`), an owned saved-view reference and query name, or a declared plugin
+Requests are `{ source, arguments?, filter?, sort?, pages? }`. The `executeRyotql` sandbox host
+decodes a `PluginExecutionRequest` for plugin and kernel scripts and stamps inline parameter text
+with the run's catalog namespace (`principalMessageNamespace`); other scripts send an
+`ExecutionRequest`. Sources are inline authored documents (with an optional named `query`), an owned saved-view reference and query name, or a declared plugin
 query identified by scoped package ID and declaration name, or an owned page ID and named published
 query. A plugin declaration executes its whole named document. Page sources load the published
 definition through `PageAuthoringRepository`, never the authoring service, and run its effective
 document (`pages/query-document.ts`): the page's `queries` merged with each `pluginQueries` entry,
-the dependency's declared document resolved through `DefinitionCatalog.declaredQuery` and added as
+the dependency's declared document resolved (and stamped) through `DefinitionCatalog.declaredQuery` and added as
 `<local>.<query>` by `@ryot-app/ryotql/imports`. Cursor identity includes that document, the
 published revision and definition hash. Publications and page compilation use the same document. Draft-only pages and undeclared query names fail
 with `source-unavailable`. A `page-preview` source additionally carries `draftRevision`,

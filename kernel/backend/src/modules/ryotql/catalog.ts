@@ -1,5 +1,6 @@
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
+import type { WeekDay } from "@ryot-app/i18n/locale";
 import {
 	type CatalogField,
 	type CatalogTable,
@@ -23,6 +24,9 @@ import type {
 
 import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-projection";
 
+/** An authority scope resolved for execution with the owner's preferences. */
+export type RyotQLExecutionScope = RyotQLAuthorityScope & { readonly weekStart: WeekDay };
+
 export type CatalogSource = (context: {
 	readonly source: SqlFragment;
 	readonly userId: null | string;
@@ -30,7 +34,8 @@ export type CatalogSource = (context: {
 	readonly relation: (name: string) => SqlFragment;
 }) => { readonly from: SqlFragment; readonly ctes: Readonly<Record<string, SqlFragment>> };
 
-export type RyotQLExecutionScope = (
+/** The authority a query runs under, as callers supply it. */
+export type RyotQLAuthorityScope = (
 	UserExecutionScope | PluginExecutionScope | { readonly type: "admin" }
 ) & {
 	readonly cursorIdentity?: string;
@@ -181,8 +186,12 @@ const pluginActiveRevisionField = (expression: string): FieldBinding => ({
 		),
 });
 
-const pluginMetadataField = (key: "icon" | "name" | "description"): FieldBinding =>
-	pluginActiveRevisionField(`revision.${key}`);
+const pluginMessageField = (key: "name" | "description"): FieldBinding => ({
+	resolve: ({ sqlAlias }) =>
+		sql.raw(
+			`(SELECT jsonb_build_object('namespace', ${sqlAlias}.id, 'key', revision.${key} ->> 'key') FROM plugin_revision revision WHERE revision.id = ${sqlAlias}.active_revision_id)`,
+		),
+});
 
 const pluginClientApiVersion = pluginActiveRevisionField(`(revision.client ->> 'apiVersion')::int`);
 
@@ -472,12 +481,12 @@ const plugin: TableBinding<"plugin"> = {
 		id: column("id"),
 		status: column("status"),
 		packageId: column("package_id"),
-		icon: pluginMetadataField("icon"),
-		name: pluginMetadataField("name"),
+		name: pluginMessageField("name"),
 		activationId: column("activation_id"),
 		clientApiVersion: pluginClientApiVersion,
 		activeRevisionId: column("active_revision_id"),
-		description: pluginMetadataField("description"),
+		description: pluginMessageField("description"),
+		icon: pluginActiveRevisionField("revision.icon"),
 		version: pluginActiveRevisionField("revision.version"),
 		ingestedAt: pluginActiveRevisionField("revision.created_at"),
 		contentHash: pluginActiveRevisionField("revision.content_hash"),

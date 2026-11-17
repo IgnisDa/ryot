@@ -149,16 +149,16 @@ const seed = Effect.gen(function* () {
 					icon: "box",
 					position: 0,
 					slug: "unsafe",
-					name: "Unsafe",
 					mergeIdentityProperties: [],
 					propertiesSchema: { fields: {} },
+					name: { key: "test.unsafe", namespace: "kernel" },
 					browse: {
 						fields: [
 							{
 								key: "owner",
 								type: "text",
 								kind: "value",
-								label: "Owner",
+								label: { key: "test.owner", namespace: "kernel" },
 								expression: { type: "column", field: "userId", tableAlias: "subject" },
 							},
 						],
