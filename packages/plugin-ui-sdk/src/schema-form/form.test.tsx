@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test";
 
+import type { ValidationIssue } from "@ryot-app/contract/errors";
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { imagesField, managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -236,6 +237,7 @@ function SchemaFormHarness(props: {
 	mode?: SchemaFormMode;
 	stored?: SchemaFormValues;
 	onSubmit: (values: SchemaFormValues) => void;
+	validationIssues?: readonly ValidationIssue[];
 }) {
 	const selectedSchema = props.schema ?? schema;
 	const form = useSchemaForm({
@@ -253,6 +255,7 @@ function SchemaFormHarness(props: {
 			<SchemaForm
 				form={form}
 				icons={icons}
+				validationIssues={props.validationIssues ?? []}
 				{...(props.timeZone === undefined ? {} : { timeZone: props.timeZone })}
 				schema={selectedSchema}
 				uploadFile={uploadNothing}
@@ -955,4 +958,17 @@ describe("SchemaForm", () => {
 		expect(screen.getByRole("radio", { name: "reps" }).closest("fieldset")?.disabled).toBe(false);
 		expect(screen.queryByText("Can't be changed after creation")).toBeNull();
 	});
+});
+
+it("renders server issue copy beside the field selected by its path", () => {
+	render(
+		<SchemaFormHarness
+			onSubmit={() => {}}
+			validationIssues={[{ path: ["title"], issue: "invalid-value" }]}
+		/>,
+	);
+	const title = screen.getByRole("textbox", { name: "Title" });
+	const field = title.closest("[data-invalid]");
+	expect(field?.getAttribute("data-invalid")).toBe("true");
+	expect(field?.textContent).toContain("Enter a valid value.");
 });

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { BadRequest } from "@ryot-app/contract/errors";
+import { BadRequest, validationFailed } from "@ryot-app/contract/errors";
 import type { Message } from "@ryot-app/i18n/message";
 import { Text } from "@ryot-app/i18n/text";
 
 import { RyotClientError } from "../client/errors";
-import { formatError } from "./errors";
+import { formatError, validationIssuesOf } from "./errors";
 
 const t = (message: Message) => Text(`${message.namespace}:${message.key}`);
 const rejection = { namespace: "fixture", key: "operation.rejected" };
@@ -28,4 +28,10 @@ describe("formatError", () => {
 		);
 		expect<string>(formatError(t, undefined)).toBe("kernel:error.internal.unexpected");
 	});
+});
+
+it("retains server validation paths through transport error causes", () => {
+	const issues = [{ issue: "missing-key" as const, path: ["field.with.dots", 1, "name"] }];
+	expect(validationIssuesOf({ cause: { cause: validationFailed(issues) } })).toEqual(issues);
+	expect(validationIssuesOf(new Error("Network"))).toEqual([]);
 });

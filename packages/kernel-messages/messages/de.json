@@ -2257,5 +2257,11 @@
 	"ui.sync.populating-count": "{count, number} werden befüllt",
 	"ui.sync.translating": "Wird übersetzt…",
 	"ui.sync.translating-count": "{count, number} werden übersetzt",
-	"ui.tag-input.remove": "{value} entfernen"
+	"ui.tag-input.remove": "{value} entfernen",
+	"error.validation.forbidden": "Dieser Wert ist nicht erlaubt.",
+	"error.validation.invalid-type": "Gib einen Wert des erwarteten Typs ein.",
+	"error.validation.invalid-value": "Gib einen gültigen Wert ein.",
+	"error.validation.missing-key": "Dieses Feld ist erforderlich.",
+	"error.validation.one-of": "Wähle einen der erlaubten Werte.",
+	"error.validation.unexpected-key": "Dieses Feld ist nicht erlaubt."
 }

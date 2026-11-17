@@ -3526,5 +3526,11 @@
 	"ui.tag-input.remove": {
 		"message": "Remove {value}",
 		"description": "Label of the button that removes a tag; {value} is the tag."
-	}
+	},
+	"error.validation.forbidden": "This value is not allowed.",
+	"error.validation.invalid-type": "Enter a value of the expected type.",
+	"error.validation.invalid-value": "Enter a valid value.",
+	"error.validation.missing-key": "This field is required.",
+	"error.validation.one-of": "Choose one of the allowed values.",
+	"error.validation.unexpected-key": "This field is not allowed."
 }

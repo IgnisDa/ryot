@@ -6,6 +6,7 @@ import {
 	useRyotMutation,
 	useRyotQuery,
 	useSchemaAssetUpload,
+	validationIssuesOf,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
@@ -202,6 +203,7 @@ function PluginUserSettingsEditor(props: {
 							onChange={() => setStatus(undefined)}
 							onReorder={schemaFormReorderFeedback}
 							schema={props.setting.settingsSchema}
+							validationIssues={status === "save-failed" ? validationIssuesOf(save.error) : []}
 						/>
 					</fieldset>
 					<div className="flex flex-col items-end gap-2">

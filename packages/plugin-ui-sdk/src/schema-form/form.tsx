@@ -1,3 +1,4 @@
+import { type ValidationIssue, validationIssueMessage } from "@ryot-app/contract/errors";
 import { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import {
@@ -91,6 +92,7 @@ type SchemaFormProps = {
 	readonly uploadAsset?: SchemaAssetUpload;
 	readonly connectOAuth?: SchemaOAuthConnect;
 	readonly renderAsset?: SchemaAssetRenderer;
+	readonly validationIssues?: readonly ValidationIssue[];
 };
 
 export function useSchemaForm(props: {
@@ -232,10 +234,17 @@ export function SchemaForm(props: SchemaFormProps) {
 		>
 			{({ values, attempts }) => {
 				const input = schemaFormInput(props.schema, values);
-				const issues =
+				const localIssues =
 					attempts > 0
 						? schemaFormIssues(props.schema, values, t, mode, props.form.defaultValues.fields)
 						: [];
+				const issues = [
+					...localIssues,
+					...(props.validationIssues ?? []).map((issue) => ({
+						path: issue.path.map(String),
+						message: t(validationIssueMessage(issue.issue)),
+					})),
+				];
 				const description = describeSchemaFormFields(props.schema, t, values, mode);
 				return (
 					<div

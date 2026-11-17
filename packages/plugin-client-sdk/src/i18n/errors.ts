@@ -1,4 +1,4 @@
-import { messageReasonOf } from "@ryot-app/contract/errors";
+import { messageReasonOf, ValidationFailed, type ValidationIssue } from "@ryot-app/contract/errors";
 import type { Message } from "@ryot-app/i18n/message";
 import type { Text } from "@ryot-app/i18n/text";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
@@ -31,4 +31,11 @@ export const formatError = (
 		return t(message);
 	}
 	return typeof fallback === "string" ? fallback : t(fallback);
+};
+
+export const validationIssuesOf = (error: unknown): readonly ValidationIssue[] => {
+	if (error instanceof ValidationFailed) {
+		return error.issues;
+	}
+	return Predicate.hasProperty(error, "cause") ? validationIssuesOf(error.cause) : [];
 };

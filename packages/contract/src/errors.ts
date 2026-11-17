@@ -101,6 +101,16 @@ export const ValidationIssue = Schema.Struct({
 });
 export type ValidationIssue = typeof ValidationIssue.Type;
 
+export const validationIssueMessage = (code: ValidationIssueCode): Message =>
+	({
+		"one-of": kernelMessage("error.validation.one-of"),
+		forbidden: kernelMessage("error.validation.forbidden"),
+		"missing-key": kernelMessage("error.validation.missing-key"),
+		"invalid-type": kernelMessage("error.validation.invalid-type"),
+		"invalid-value": kernelMessage("error.validation.invalid-value"),
+		"unexpected-key": kernelMessage("error.validation.unexpected-key"),
+	})[code];
+
 export class ValidationFailed extends Schema.TaggedError<
 	ValidationFailed,
 	{ readonly brand: unique symbol }

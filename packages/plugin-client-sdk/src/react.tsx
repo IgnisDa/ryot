@@ -1,5 +1,4 @@
 export { localDay } from "./local-day";
-export { formatError } from "./i18n/errors";
 export type { Text } from "@ryot-app/i18n/text";
 export { ActiveScreenContext } from "./active-screen";
 export { useHostScreen } from "./queries/host-screen";
@@ -8,6 +7,7 @@ export type { RyotSubmission } from "./queries/submission";
 export type { Formatters } from "@ryot-app/i18n/formatters";
 export { PreferencesGate } from "./queries/preferences-gate";
 export { useRyotSubmission } from "./queries/submission-hook";
+export { formatError, validationIssuesOf } from "./i18n/errors";
 export { usePluginUserSettings } from "./queries/user-settings";
 export { useEntitySchemaName } from "./presentations/schema-names";
 export { useEntitlement, useUserPreferences } from "./queries/account";
