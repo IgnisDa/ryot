@@ -1,3 +1,8 @@
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import * as Effect from "effect/Effect";
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
@@ -21,19 +26,17 @@ export type SchemaFileIcons = {
 	readonly upload: ReactNode;
 };
 
-type SchemaFileState =
-	| { readonly status: "empty" }
-	| { readonly message: string; readonly status: "failed" }
-	| { readonly name: string; readonly size: number; readonly status: "uploaded" }
-	| { readonly name: string; readonly size: number; readonly status: "uploading" };
-
-const ATTACHED_FILE_FALLBACK_NAME = "Attached file";
-
 type AttachedFile = {
-	readonly name: string;
 	readonly uploading: boolean;
+	readonly name: null | string;
 	readonly size: number | undefined;
 };
+
+type SchemaFileState =
+	| { readonly status: "empty" }
+	| { readonly message: Text; readonly status: "failed" }
+	| { readonly name: string; readonly size: number; readonly status: "uploaded" }
+	| { readonly name: string; readonly size: number; readonly status: "uploading" };
 
 const attachedFile = (
 	state: SchemaFileState,
@@ -45,19 +48,28 @@ const attachedFile = (
 	if (value === undefined) {
 		return undefined;
 	}
-	return { size: undefined, uploading: false, name: ATTACHED_FILE_FALLBACK_NAME };
+	return { name: null, size: undefined, uploading: false };
 };
 
-const attachedFileDetail = (file: AttachedFile, readyLabel: string) => {
+const attachedFileDetail = (
+	t: (message: Message) => Text,
+	formatters: Formatters,
+	file: AttachedFile,
+	readyLabel: string,
+) => {
 	if (file.size === undefined) {
 		return readyLabel;
 	}
-	const size = formatFileSize(file.size);
-	return file.uploading ? `Uploading · ${size}` : `${size} · ${readyLabel}`;
+	const size = formatFileSize(formatters, file.size);
+	return t(
+		file.uploading
+			? kernelMessage("ui.file-field.uploading-size", { size })
+			: kernelMessage("ui.file-field.ready-size", { size, status: readyLabel }),
+	);
 };
 
 export function SchemaFileField(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly readyLabel?: string;
 	readonly icons: SchemaFileIcons;
 	readonly value: string | undefined;
@@ -66,10 +78,12 @@ export function SchemaFileField(props: {
 	readonly allowedFileExtensions: readonly string[];
 	readonly onChange: (token: string | undefined) => void;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	const attempt = useRef(0);
 	const mounted = useRef(true);
 	const [state, setState] = useState<SchemaFileState>({ status: "empty" });
-	const extensionsLabel = allowedFileExtensionsLabel(props.allowedFileExtensions);
+	const extensionsLabel = allowedFileExtensionsLabel(formatters, props.allowedFileExtensions);
 
 	useLayoutEffect(
 		() => () => {
@@ -81,7 +95,7 @@ export function SchemaFileField(props: {
 
 	const isCurrent = (token: number) => mounted.current && token === attempt.current;
 
-	const fail = (token: number, message: string) => {
+	const fail = (token: number, message: Text) => {
 		if (!isCurrent(token)) {
 			return;
 		}
@@ -92,12 +106,12 @@ export function SchemaFileField(props: {
 	const selectFile = (file: SchemaFileCandidate, token = ++attempt.current) =>
 		Effect.gen(function* () {
 			if (!isAllowedUploadFileName(file.name, props.allowedFileExtensions)) {
-				fail(token, unsupportedFileExtensionMessage(props.allowedFileExtensions));
+				fail(token, t(unsupportedFileExtensionMessage(formatters, props.allowedFileExtensions)));
 				return;
 			}
 			const contentType = normalizeUploadContentType(file.name, file.contentType);
 			if (contentType === undefined) {
-				fail(token, unsupportedFileExtensionMessage(props.allowedFileExtensions));
+				fail(token, t(unsupportedFileExtensionMessage(formatters, props.allowedFileExtensions)));
 				return;
 			}
 			if (!isCurrent(token)) {
@@ -147,8 +161,8 @@ export function SchemaFileField(props: {
 					<button
 						type="button"
 						onClick={() => void chooseFile()}
-						aria-label={`Choose a file for ${props.label}`}
-						title={`Accepts ${extensionsLabel} files. You can also drop a file here.`}
+						aria-label={t(kernelMessage("ui.file-field.choose-for", { label: props.label }))}
+						title={t(kernelMessage("ui.file-field.drop-hint", { extensions: extensionsLabel }))}
 						className={clsx(
 							"flex flex-col items-center gap-1 rounded-lg border border-dashed border-border-strong px-3 py-4",
 							state.status === "failed" && "border-danger",
@@ -157,28 +171,37 @@ export function SchemaFileField(props: {
 						<span aria-hidden="true" className="text-text-subtle">
 							{props.icons.upload}
 						</span>
-						<span className="text-sm font-medium text-text">Choose a file</span>
-						<span className="text-xs text-text-subtle">{`Accepts ${extensionsLabel}`}</span>
+						<span className="text-sm font-medium text-text">
+							{t(kernelMessage("ui.file-field.choose"))}
+						</span>
+						<span className="text-xs text-text-subtle">
+							{t(kernelMessage("ui.file-field.accepts", { extensions: extensionsLabel }))}
+						</span>
 					</button>
 				) : (
 					<SchemaFileRow
-						name={attached.name}
 						icon={props.icons.file}
-						detail={attachedFileDetail(attached, props.readyLabel ?? "Ready to import")}
+						name={attached.name ?? t(kernelMessage("ui.file-field.attached"))}
+						detail={attachedFileDetail(
+							t,
+							formatters,
+							attached,
+							props.readyLabel ?? t(kernelMessage("ui.file-field.ready-to-import")),
+						)}
 						trailing={
 							<div className="flex flex-row items-center">
 								{attached.uploading ? (
 									<span
 										role="status"
 										aria-busy="true"
-										aria-label={`Uploading ${props.label}`}
 										className="h-4 w-4 rounded-pill border-2 border-border-strong border-t-accent"
+										aria-label={t(kernelMessage("ui.file-field.uploading", { label: props.label }))}
 									/>
 								) : null}
 								<button
 									type="button"
 									onClick={removeFile}
-									aria-label={`Remove ${props.label} file`}
+									aria-label={t(kernelMessage("ui.file-field.remove", { label: props.label }))}
 									className="flex min-h-11 min-w-11 items-center justify-center text-text-muted"
 								>
 									{props.icons.remove}

@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { testKernelText as t } from "@ryot-app/kernel-messages/testing";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { initialSchemaFormValues, schemaFormIssues, toSchemaFormPayload } from "./state";
@@ -84,7 +85,7 @@ describe("recursive schema form state", () => {
 	});
 
 	it("routes required errors to the concrete array item", () => {
-		expect(schemaFormIssues(schema, { groups: [{ name: "A" }, {}] })).toEqual([
+		expect(schemaFormIssues(schema, { groups: [{ name: "A" }, {}] }, t)).toEqual([
 			{ message: "Name is required", path: ["groups", "1", "name"] },
 		]);
 	});
@@ -131,7 +132,7 @@ describe("recursive schema form state", () => {
 				},
 			},
 		};
-		expect(schemaFormIssues(assets, { image: { key: "a", type: "local" } })).toEqual([
+		expect(schemaFormIssues(assets, { image: { key: "a", type: "local" } }, t)).toEqual([
 			{ path: ["image", "purpose"], message: "Purpose is required" },
 		]);
 		expect(
@@ -166,11 +167,11 @@ describe("recursive schema form state", () => {
 			},
 		};
 		const original = { accounts: [{ name: "First" }, { name: "Second" }] };
-		expect(schemaFormIssues(secrets, original, "edit", original)).toEqual([]);
+		expect(schemaFormIssues(secrets, original, t, "edit", original)).toEqual([]);
 		expect(toSchemaFormPayload(secrets, original, "edit", original)).toEqual({});
-		expect(schemaFormIssues(secrets, { accounts: [{ name: "Second" }] }, "edit", original)).toEqual(
-			[{ message: "Token is required", path: ["accounts", "0", "token"] }],
-		);
+		expect(
+			schemaFormIssues(secrets, { accounts: [{ name: "Second" }] }, t, "edit", original),
+		).toEqual([{ message: "Token is required", path: ["accounts", "0", "token"] }]);
 		expect(
 			toSchemaFormPayload(
 				secrets,

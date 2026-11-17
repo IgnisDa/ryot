@@ -14,13 +14,21 @@ import {
 	decodeAppSchemaPropertyValues,
 	parseAppSchemaPropertiesSafe,
 } from "@ryot-app/contract/schema/property-values";
+import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Result } from "effect";
 
 export type SchemaFormMode = "edit" | "create";
 export type SchemaFormValue = JsonValue | undefined;
+export type SchemaFormTranslate = (message: Message) => Text;
 export type SchemaFormValues = Readonly<Record<string, unknown>>;
 export type SchemaFormTextFormat = "url" | "date" | "email" | "datetime";
+
 export type SchemaFormControl =
 	| "list"
 	| "text"
@@ -38,11 +46,11 @@ export type SchemaFormControl =
 
 export type SchemaFormField = {
 	readonly key: string;
-	readonly label: string;
+	readonly label: Text;
 	readonly secret: boolean;
 	readonly readOnly: boolean;
 	readonly required: boolean;
-	readonly description: string;
+	readonly hint: Text | undefined;
 	readonly control: SchemaFormControl;
 	readonly property: AppPropertyDefinition;
 	readonly oauthProvider: string | undefined;
@@ -54,7 +62,37 @@ export type SchemaFormField = {
 	readonly arrayValidation: undefined | AppArrayPropertyValidation;
 };
 
-export const schemaChoiceLabel = (choice: AppChoice) => choice.label ?? choice.value;
+export const schemaChoiceLabel = (
+	choice: AppChoice,
+	t: SchemaFormTranslate,
+	formatters: Formatters,
+) =>
+	formatDisplayText(
+		t,
+		choice.kind === "region"
+			? (formatters.displayNames({ type: "region" }).of(choice.value) ?? choice.value)
+			: (choice.label ?? choice.value),
+	);
+
+/** Region choices follow the other choices, sorted by name in the locale the names render in. */
+export const schemaChoiceOptions = (
+	choices: readonly AppChoice[],
+	t: SchemaFormTranslate,
+	formatters: Formatters,
+) => {
+	const option = (choice: AppChoice) => ({
+		value: choice.value,
+		label: schemaChoiceLabel(choice, t, formatters),
+	});
+	const { locale } = formatters.displayNames({ type: "region" }).resolvedOptions();
+	return [
+		...choices.filter((choice) => choice.kind !== "region").map(option),
+		...choices
+			.filter((choice) => choice.kind === "region")
+			.map(option)
+			.sort((left, right) => left.label.localeCompare(right.label, locale)),
+	];
+};
 
 export const isFixedEnumProperty = (property: AppPropertyDefinition) =>
 	property.type === "enum" &&
@@ -65,7 +103,10 @@ export const isFixedEnumProperty = (property: AppPropertyDefinition) =>
 export const isAssetProperty = (property: AppPropertyDefinition) =>
 	property.type === "object" && property.validation?.asset === true;
 
-const schemaFieldControl = (property: AppPropertyDefinition): SchemaFormControl => {
+const schemaFieldControl = (
+	property: AppPropertyDefinition,
+	t: SchemaFormTranslate,
+): SchemaFormControl => {
 	if (isAssetProperty(property)) {
 		return "asset";
 	}
@@ -101,7 +142,10 @@ const schemaFieldControl = (property: AppPropertyDefinition): SchemaFormControl 
 	}
 	return choices.length > 1 &&
 		choices.length <= 3 &&
-		choices.every((choice) => schemaChoiceLabel(choice).length <= 12)
+		choices.every(
+			(choice) =>
+				choice.kind !== "region" && formatDisplayText(t, choice.label ?? choice.value).length <= 12,
+		)
 		? "segmented"
 		: "chips";
 };
@@ -110,9 +154,10 @@ export const describeSchemaFormField = (
 	key: string,
 	property: AppPropertyDefinition,
 	mode: SchemaFormMode,
+	t: SchemaFormTranslate,
 	required = property.validation?.required === true,
 ): SchemaFormField => {
-	const control = schemaFieldControl(property);
+	const control = schemaFieldControl(property, t);
 	let format: undefined | SchemaFormTextFormat;
 	if (property.type === "date" || property.type === "datetime") {
 		format = property.type;
@@ -128,12 +173,12 @@ export const describeSchemaFormField = (
 		control,
 		property,
 		required,
-		label: property.label,
 		secret: property.secret === true,
-		description: property.description,
+		label: formatDisplayText(t, property.label),
 		type: control === "assets" ? "assets" : property.type,
 		readOnly: mode === "edit" && property.immutable === true,
 		arrayItem: property.type === "array" ? property.items : undefined,
+		hint: property.hint === undefined ? undefined : formatDisplayText(t, property.hint),
 		arrayValidation:
 			property.type === "array" || property.type === "enum-array" ? property.validation : undefined,
 		oauthProvider:
@@ -167,7 +212,7 @@ export const propertyFormDefault = (
 
 export const initialSchemaFormValues = (
 	schema: AppSchema,
-	timeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
+	timeZone: string = deviceTimeZone(),
 	stored: Readonly<Record<string, unknown>> = {},
 ): SchemaFormValues => ({
 	...(schema.unknownKeys === "passthrough"
@@ -210,7 +255,7 @@ const propertyPayload = (
 		return property.defaultValue;
 	}
 	if (value === undefined) {
-		return propertyFormDefault(property, Intl.DateTimeFormat().resolvedOptions().timeZone);
+		return propertyFormDefault(property, deviceTimeZone());
 	}
 	if (value === null) {
 		return null;
@@ -311,6 +356,7 @@ export const schemaFormInput = (schema: AppSchema, values: SchemaFormValues): Sc
 
 export const describeSchemaFormFields = (
 	schema: AppSchema,
+	t: SchemaFormTranslate,
 	values: SchemaFormValues = {},
 	mode: SchemaFormMode = "create",
 ) => {
@@ -324,6 +370,7 @@ export const describeSchemaFormFields = (
 							key,
 							property,
 							mode,
+							t,
 							isAppSchemaPathEffectivelyRequired(schema, [key], input),
 						),
 					],
@@ -383,6 +430,7 @@ const schemaFormSubmission = (
 export const schemaFormIssues = (
 	schema: AppSchema,
 	values: SchemaFormValues,
+	t: SchemaFormTranslate,
 	mode: SchemaFormMode = "create",
 	original: SchemaFormValues = {},
 ): readonly PropertyValidationIssue[] => {
@@ -401,7 +449,10 @@ export const schemaFormIssues = (
 					}
 				}
 				return issue.message === "is missing" && property !== undefined
-					? { path: issue.path, message: `${property.label} is required` }
+					? {
+							path: issue.path,
+							message: t(kernelMessage("ui.schema-form.required", { label: property.label })),
+						}
 					: issue;
 			});
 };
@@ -409,11 +460,12 @@ export const schemaFormIssues = (
 export const validateSchemaFormValues = (
 	schema: AppSchema,
 	values: SchemaFormValues,
+	t: SchemaFormTranslate,
 	mode: SchemaFormMode = "create",
 	original: SchemaFormValues = {},
 ): ReadonlyMap<string, string> => {
 	const errors = new Map<string, string>();
-	for (const issue of schemaFormIssues(schema, values, mode, original)) {
+	for (const issue of schemaFormIssues(schema, values, t, mode, original)) {
 		const key = issue.path[0] ?? "";
 		if (!errors.has(key)) {
 			errors.set(key, issue.message);

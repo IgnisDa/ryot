@@ -1,3 +1,7 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+
 import { resolveDateTimeInput } from "../datetime";
 import { Select } from "../select";
 import { FieldMessage, TextField } from "../text-field";
@@ -5,13 +9,14 @@ import type { SchemaFormIcons } from "./form";
 import type { SchemaFormValue } from "./state";
 
 export function DateTimeControl(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly value: string;
 	readonly timeZone: string;
 	readonly icons: SchemaFormIcons;
 	readonly original: string | undefined;
 	readonly onChange: (value: SchemaFormValue) => void;
 }) {
+	const t = useT();
 	const resolution = resolveDateTimeInput(props.value, props.original, undefined, props.timeZone);
 	return (
 		<div className="grid gap-2">
@@ -34,12 +39,12 @@ export function DateTimeControl(props: {
 			/>
 			{resolution.choices.length > 1 ? (
 				<Select
-					choices={resolution.choices}
 					value={resolution.occurrence}
 					checkIcon={props.icons.check}
 					chevronIcon={props.icons.chevron}
-					placeholder="Choose an occurrence"
-					label={`${props.label} occurrence`}
+					placeholder={t(kernelMessage("ui.datetime.choose-occurrence"))}
+					label={t(kernelMessage("ui.datetime.occurrence-field", { label: props.label }))}
+					choices={resolution.choices.map((choice) => ({ ...choice, label: t(choice.label) }))}
 					onChange={(occurrence) => {
 						const selected = resolveDateTimeInput(
 							props.value,
@@ -54,7 +59,7 @@ export function DateTimeControl(props: {
 				/>
 			) : null}
 			{props.value !== "" && resolution.error ? (
-				<FieldMessage>{resolution.error}</FieldMessage>
+				<FieldMessage>{t(resolution.error)}</FieldMessage>
 			) : null}
 		</div>
 	);

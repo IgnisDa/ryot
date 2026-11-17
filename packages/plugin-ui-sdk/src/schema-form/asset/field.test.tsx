@@ -1,12 +1,14 @@
 import { describe, expect } from "bun:test";
 
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { act, useState } from "react";
 
+import { render } from "../../i18n.test-support";
 import type { SchemaFilePickOutcome } from "../file/upload";
 import { SchemaAssetField } from "./field";
 import type { SchemaAssetUpload, SchemaAssetUploadOutcome } from "./upload";
@@ -37,7 +39,7 @@ function Harness(props: {
 			icons={icons}
 			value={value}
 			{...(props.replace === undefined ? {} : { replace: props.replace })}
-			label="Images"
+			label={testText("Images")}
 			uploadAsset={props.upload}
 			pickFile={() => Promise.resolve(props.pick)}
 			onChange={(next) => {
@@ -178,7 +180,7 @@ describe("SchemaAssetField", () => {
 					<Harness
 						pick={picked}
 						onChange={(next) => changes.push(next)}
-						upload={() => Promise.resolve({ kind: "failed", message: "Upload failed" })}
+						upload={() => Promise.resolve({ kind: "failed", message: testText("Upload failed") })}
 					/>,
 				);
 
@@ -203,7 +205,7 @@ describe("SchemaAssetField", () => {
 						pick={{ kind: "canceled" }}
 						upload={(request) => {
 							requests.push(request.fileName);
-							return Promise.resolve({ kind: "failed", message: "unused" });
+							return Promise.resolve({ kind: "failed", message: testText("unused") });
 						}}
 					/>,
 				);

@@ -1,11 +1,13 @@
 import { describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { useState } from "react";
 
+import { render } from "../../i18n.test-support";
 import { SchemaFileField, type SchemaFileIcons } from "./field";
 import type {
 	SchemaFileCandidate,
@@ -54,8 +56,8 @@ function FileFieldHarness(props: {
 		<SchemaFileField
 			value={value}
 			icons={icons}
-			label="Archive"
 			pickFile={props.pickFile}
+			label={testText("Archive")}
 			uploadFile={props.uploadFile}
 			allowedFileExtensions={["zip"]}
 			onChange={(token) => {
@@ -86,13 +88,13 @@ describe("SchemaFileField", () => {
 				const element = yield* Effect.promise(() => screen.findByLabelText("Uploading Archive"));
 				expect(element.getAttribute("aria-busy")).toBe("true");
 				expect(screen.getByText("export.zip")).toBeTruthy();
-				expect(screen.getByText("Uploading · 2.0 KB")).toBeTruthy();
+				expect(screen.getByText("Uploading · 2.0 kB")).toBeTruthy();
 				expect(upload.requests).toEqual([{ fileName: "export.zip" }]);
 
 				upload.resolve(0, { kind: "uploaded", token: "token-1" });
 
 				expect(
-					yield* Effect.promise(() => screen.findByText("2.0 KB · Ready to import")),
+					yield* Effect.promise(() => screen.findByText("2.0 kB · Ready to import")),
 				).toBeTruthy();
 				expect(screen.getByRole("button", { name: "Remove Archive file" })).toBeTruthy();
 				expect(tokens).toEqual([undefined, "token-1"]);
@@ -116,7 +118,10 @@ describe("SchemaFileField", () => {
 
 				fireEvent.click(screen.getByRole("button", { name: "Choose a file for Archive" }));
 				yield* Effect.promise(() => screen.findByLabelText("Uploading Archive"));
-				upload.resolve(0, { kind: "failed", message: "Could not upload this file. Try again." });
+				upload.resolve(0, {
+					kind: "failed",
+					message: testText("Could not upload this file. Try again."),
+				});
 
 				const element = yield* Effect.promise(() => screen.findByRole("alert"));
 				expect(element.textContent).toContain("Could not upload this file. Try again.");
@@ -165,7 +170,7 @@ describe("SchemaFileField", () => {
 				fireEvent.click(screen.getByRole("button", { name: "Choose a file for Archive" }));
 				yield* Effect.promise(() => screen.findByLabelText("Uploading Archive"));
 				upload.resolve(0, { kind: "uploaded", token: "token-1" });
-				yield* Effect.promise(() => screen.findByText("2.0 KB · Ready to import"));
+				yield* Effect.promise(() => screen.findByText("2.0 kB · Ready to import"));
 				fireEvent.click(screen.getByRole("button", { name: "Remove Archive file" }));
 
 				expect(screen.getByRole("button", { name: "Choose a file for Archive" })).toBeTruthy();
@@ -205,7 +210,7 @@ describe("SchemaFileField", () => {
 				upload.resolve(1, { kind: "uploaded", token: "current-token" });
 
 				expect(
-					yield* Effect.promise(() => screen.findByText("2.0 KB · Ready to import")),
+					yield* Effect.promise(() => screen.findByText("2.0 kB · Ready to import")),
 				).toBeTruthy();
 				expect(screen.getByText("second.zip")).toBeTruthy();
 				expect(tokens).toEqual([undefined, undefined, undefined, "current-token"]);

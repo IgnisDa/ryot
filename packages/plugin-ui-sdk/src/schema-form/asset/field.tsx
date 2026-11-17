@@ -1,4 +1,7 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import * as Effect from "effect/Effect";
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
@@ -10,14 +13,14 @@ import type { SchemaAssetUpload } from "./upload";
 type SchemaAssetState = { readonly valueKey: string } & (
 	| { readonly status: "idle" }
 	| { readonly status: "uploading" }
-	| { readonly message: string; readonly status: "failed" }
+	| { readonly message: Text; readonly status: "failed" }
 );
 
 const assetKey = (asset: AssetLocator, index: number) =>
 	`${asset.type === "remote" ? asset.url : asset.key}:${index}`;
 
 export function SchemaAssetField(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly replace?: boolean;
 	readonly icons: SchemaFileIcons;
 	readonly maximum?: number | undefined;
@@ -28,6 +31,7 @@ export function SchemaAssetField(props: {
 	readonly renderAsset: (asset: AssetLocator) => ReactNode;
 	readonly onChange: (value: readonly AssetLocator[]) => void;
 }) {
+	const t = useT();
 	const attempt = useRef(0);
 	const mounted = useRef(true);
 	const valueKey = JSON.stringify(
@@ -101,8 +105,10 @@ export function SchemaAssetField(props: {
 						{props.renderAsset(asset)}
 						<button
 							type="button"
-							aria-label={`Remove ${props.label} ${index + 1}`}
 							onClick={() => props.onChange(props.value.filter((_, current) => current !== index))}
+							aria-label={t(
+								kernelMessage("ui.asset-field.remove", { label: props.label, position: index + 1 }),
+							)}
 							className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-pill bg-surface text-text pointer-coarse:size-11"
 						>
 							{props.icons.remove}
@@ -110,8 +116,13 @@ export function SchemaAssetField(props: {
 						{index === 0 ? null : (
 							<button
 								type="button"
-								aria-label={`Move ${props.label} ${index + 1} up`}
 								className="absolute bottom-1 left-1 rounded-pill bg-surface px-2 py-1 text-xs text-text"
+								aria-label={t(
+									kernelMessage("ui.asset-field.move-up-item", {
+										label: props.label,
+										position: index + 1,
+									}),
+								)}
 								onClick={() => {
 									const next = [...props.value];
 									next.splice(index, 1);
@@ -120,7 +131,7 @@ export function SchemaAssetField(props: {
 									props.onReorder?.();
 								}}
 							>
-								Move up
+								{t(kernelMessage("ui.asset-field.move-up"))}
 							</button>
 						)}
 					</li>
@@ -129,24 +140,31 @@ export function SchemaAssetField(props: {
 					<button
 						type="button"
 						onClick={() => void add()}
-						aria-label={`${replacing ? "Replace" : "Add"} ${props.label}`}
 						disabled={
 							uploading ||
 							(!props.replace && props.maximum !== undefined && props.value.length >= props.maximum)
 						}
+						aria-label={t(
+							kernelMessage("ui.asset-field.add-item", {
+								label: props.label,
+								action: replacing ? "replace" : "add",
+							}),
+						)}
 						className="flex size-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border-strong text-text-subtle transition-colors duration-100 hover:border-text-subtle hover:bg-hover hover:text-text-muted disabled:opacity-50 motion-reduce:transition-none"
 					>
 						{uploading ? (
 							<span
 								role="status"
 								aria-busy="true"
-								aria-label={`Uploading ${props.label}`}
+								aria-label={t(kernelMessage("ui.file-field.uploading", { label: props.label }))}
 								className="size-4 rounded-pill border-2 border-border-strong border-t-accent motion-reduce:border-t-border-strong"
 							/>
 						) : (
 							<span aria-hidden="true">{props.icons.upload}</span>
 						)}
-						<span className="text-xs">{replacing ? "Replace" : "Add"}</span>
+						<span className="text-xs">
+							{t(kernelMessage(replacing ? "ui.asset-field.replace" : "common.action.add"))}
+						</span>
 					</button>
 				</li>
 			</ul>

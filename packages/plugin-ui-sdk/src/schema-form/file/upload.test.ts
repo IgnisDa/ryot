@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { testFormatters, testKernelText } from "@ryot-app/kernel-messages/testing";
+
 import {
 	allowedFileExtensionsLabel,
 	fileAcceptAttribute,
@@ -24,11 +26,15 @@ describe("upload file extensions", () => {
 	});
 
 	it("describes accepted extensions for copy and for the web accept attribute", () => {
-		expect(allowedFileExtensionsLabel(["zip"])).toBe(".zip");
-		expect(allowedFileExtensionsLabel(["gz", "xml"])).toBe(".gz or .xml");
-		expect(allowedFileExtensionsLabel(["csv", "gz", "xml"])).toBe(".csv, .gz or .xml");
+		expect(allowedFileExtensionsLabel(testFormatters, ["zip"])).toBe(".zip");
+		expect(allowedFileExtensionsLabel(testFormatters, ["gz", "xml"])).toBe(".gz or .xml");
+		expect(allowedFileExtensionsLabel(testFormatters, ["csv", "gz", "xml"])).toBe(
+			".csv, .gz, or .xml",
+		);
 		expect(fileAcceptAttribute(["csv", "gz"])).toBe(".csv,.gz");
-		expect(unsupportedFileExtensionMessage(["zip"])).toBe("Choose a .zip file.");
+		expect<string>(testKernelText(unsupportedFileExtensionMessage(testFormatters, ["zip"]))).toBe(
+			"Choose a .zip file.",
+		);
 	});
 });
 
@@ -54,10 +60,10 @@ describe("upload content types", () => {
 
 describe("formatFileSize", () => {
 	it("formats byte counts with a single scaled unit", () => {
-		expect(formatFileSize(0)).toBe("0 B");
-		expect(formatFileSize(940)).toBe("940 B");
-		expect(formatFileSize(2048)).toBe("2.0 KB");
-		expect(formatFileSize(1_572_864)).toBe("1.5 MB");
-		expect(formatFileSize(52_428_800)).toBe("50 MB");
+		expect(formatFileSize(testFormatters, 0)).toBe("0B");
+		expect(formatFileSize(testFormatters, 940)).toBe("940B");
+		expect(formatFileSize(testFormatters, 2048)).toBe("2.0 kB");
+		expect(formatFileSize(testFormatters, 1_572_864)).toBe("1.5 MB");
+		expect(formatFileSize(testFormatters, 52_428_800)).toBe("50 MB");
 	});
 });

@@ -1,15 +1,18 @@
 import { describe, expect } from "bun:test";
 
+import type { Text } from "@ryot-app/i18n/text";
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { useState } from "react";
 
+import { render } from "../../i18n.test-support";
 import type { SchemaOAuthConnect, SchemaOAuthConnectOutcome } from "./connect";
 import { SchemaOAuthField } from "./field";
 
-const DEMO_MESSAGE = "This operation is unavailable while using the shared demo account.";
+const DEMO_MESSAGE = testText("This operation is unavailable while using the shared demo account.");
 
 const deferredConnect = () => {
 	const signals: AbortSignal[] = [];
@@ -33,7 +36,7 @@ const deferredConnect = () => {
 
 function OAuthFieldHarness(props: {
 	readonly initial?: string;
-	readonly disabledReason?: string;
+	readonly disabledReason?: Text;
 	readonly connect: SchemaOAuthConnect;
 	readonly onChange: (connectionId: string) => void;
 }) {
@@ -42,9 +45,9 @@ function OAuthFieldHarness(props: {
 		<SchemaOAuthField
 			value={value}
 			field="account"
-			label="Account"
 			connect={props.connect}
 			provider="example-service"
+			label={testText("Account")}
 			disabledReason={props.disabledReason}
 			onChange={(connectionId) => {
 				setValue(connectionId);
@@ -95,7 +98,7 @@ describe("SchemaOAuthField", () => {
 				);
 
 				fireEvent.click(screen.getByRole("button", { name: "Connect again Account" }));
-				connect.resolve(0, { kind: "failed", message: "Allow pop-ups to connect" });
+				connect.resolve(0, { kind: "failed", message: testText("Allow pop-ups to connect") });
 
 				const alert = yield* Effect.promise(() => screen.findByRole("alert"));
 				expect(alert.textContent).toBe("Allow pop-ups to connect");

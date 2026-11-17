@@ -4,11 +4,12 @@ import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { imagesField, managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { useEffect } from "react";
 
+import { render } from "../i18n.test-support";
 import type { SchemaAssetUpload } from "./asset/upload";
 import type { SchemaFileUpload } from "./file/upload";
 import { SchemaForm, type SchemaFormIcons, useSchemaForm } from "./form";
@@ -448,13 +449,18 @@ describe("SchemaForm", () => {
 		expect(screen.getByRole("radio", { name: "us" }).getAttribute("aria-checked")).toBe("true");
 	});
 
-	it("shows a text field description as linked help text instead of a placeholder", () => {
+	it("shows a text field hint as linked help text and keeps the description out of the form", () => {
 		render(
 			<SchemaFormHarness
 				onSubmit={() => undefined}
 				schema={{
 					fields: {
-						link: { type: "string", label: "Source link", description: "Where this came from" },
+						link: {
+							type: "string",
+							label: "Source link",
+							hint: "Where this came from",
+							description: "URL of the item's source",
+						},
 					},
 				}}
 			/>,
@@ -464,6 +470,7 @@ describe("SchemaForm", () => {
 		const help = screen.getByText("Where this came from");
 		expect(input.getAttribute("placeholder")).toBeNull();
 		expect(input.closest("fieldset")?.getAttribute("aria-describedby")).toBe(help.id);
+		expect(screen.queryByText("URL of the item's source")).toBeNull();
 	});
 
 	it("sizes enum segments to their labels instead of using icon widths", () => {

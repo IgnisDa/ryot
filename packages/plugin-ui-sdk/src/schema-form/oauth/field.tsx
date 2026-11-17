@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -6,27 +9,26 @@ import { Button } from "../../index";
 import { FieldMessage } from "../../text-field";
 import type { SchemaOAuthConnect, SchemaOAuthConnectOutcome } from "./connect";
 
+type SchemaOAuthState =
+	| { readonly status: "idle" }
+	| { readonly status: "connecting" }
+	| { readonly message: Text; readonly status: "failed" };
+
 class OAuthConnectRejected extends Schema.TaggedError<
 	OAuthConnectRejected,
 	{ readonly brand: unique symbol }
 >()("OAuthConnectRejected", { cause: Schema.Unknown }) {}
 
-const CONNECT_FAILURE_MESSAGE = "Couldn't connect. Try again.";
-
-type SchemaOAuthState =
-	| { readonly status: "idle" }
-	| { readonly status: "connecting" }
-	| { readonly message: string; readonly status: "failed" };
-
 export function SchemaOAuthField(props: {
+	readonly label: Text;
 	readonly field: string;
-	readonly label: string;
 	readonly provider: string;
 	readonly value: string | undefined;
 	readonly connect: SchemaOAuthConnect;
-	readonly disabledReason?: string | undefined;
+	readonly disabledReason?: Text | undefined;
 	readonly onChange: (connectionId: string) => void;
 }) {
+	const t = useT();
 	const attempt = useRef(0);
 	const controller = useRef<undefined | AbortController>(undefined);
 	const [state, setState] = useState<SchemaOAuthState>({ status: "idle" });
@@ -81,7 +83,7 @@ export function SchemaOAuthField(props: {
 			}).pipe(
 				Effect.orElseSucceed((): SchemaOAuthConnectOutcome => ({
 					kind: "failed",
-					message: CONNECT_FAILURE_MESSAGE,
+					message: t(kernelMessage("ui.oauth-field.connect-failed")),
 				})),
 				Effect.map((outcome) => settle(token, outcome)),
 			),
@@ -102,18 +104,22 @@ export function SchemaOAuthField(props: {
 					<span
 						role="status"
 						aria-busy="true"
-						aria-label={`Connecting ${props.label}`}
+						aria-label={t(kernelMessage("ui.oauth-field.connecting", { label: props.label }))}
 						className="h-4 w-4 shrink-0 rounded-pill border-2 border-border-strong border-t-accent"
 					/>
-					<span className="min-w-0 flex-1 text-sm text-text-muted">Waiting for authorization…</span>
+					<span className="min-w-0 flex-1 text-sm text-text-muted">
+						{t(kernelMessage("ui.oauth-field.waiting"))}
+					</span>
 					<Button type="button" onClick={cancel} variant="secondary">
-						Cancel
+						{t(kernelMessage("common.action.cancel"))}
 					</Button>
 				</div>
 			) : (
 				<div className="flex flex-row items-center gap-2">
 					{isConnected ? (
-						<span className="min-w-0 flex-1 text-sm font-medium text-text">Connected</span>
+						<span className="min-w-0 flex-1 text-sm font-medium text-text">
+							{t(kernelMessage("ui.oauth-field.connected"))}
+						</span>
 					) : null}
 					<Button
 						type="button"
@@ -121,9 +127,14 @@ export function SchemaOAuthField(props: {
 						className="self-start"
 						disabled={props.disabledReason !== undefined}
 						variant={isConnected ? "secondary" : "primary"}
-						aria-label={`${isConnected ? "Connect again" : "Connect"} ${props.label}`}
+						aria-label={t(
+							kernelMessage("ui.oauth-field.connect-field", {
+								label: props.label,
+								state: isConnected ? "connected" : "disconnected",
+							}),
+						)}
 					>
-						{isConnected ? "Connect again" : "Connect"}
+						{t(kernelMessage(isConnected ? "ui.oauth-field.reconnect" : "ui.oauth-field.connect"))}
 					</Button>
 				</div>
 			)}

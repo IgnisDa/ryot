@@ -1,3 +1,7 @@
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+
 export type SchemaFilePicker = (options: {
 	readonly allowedFileExtensions: readonly string[];
 }) => Promise<SchemaFilePickOutcome>;
@@ -13,7 +17,7 @@ export type SchemaFileCandidate = {
 };
 
 export type SchemaFileUploadOutcome =
-	| { readonly kind: "failed"; readonly message: string }
+	| { readonly message: Text; readonly kind: "failed" }
 	| { readonly token: string; readonly kind: "uploaded" };
 
 export type SchemaFileUpload = (request: {
@@ -22,7 +26,7 @@ export type SchemaFileUpload = (request: {
 	readonly contentType: string;
 }) => Promise<SchemaFileUploadOutcome>;
 
-const FILE_SIZE_UNITS = ["B", "KB", "MB", "GB"] as const;
+const FILE_SIZE_UNITS = ["byte", "kilobyte", "megabyte", "gigabyte"] as const;
 const ZIP_CONTENT_TYPE = "application/zip";
 const GENERIC_CONTENT_TYPES = new Set([
 	"",
@@ -46,14 +50,16 @@ const dottedExtensions = (extensions: readonly string[]) =>
 export const fileAcceptAttribute = (extensions: readonly string[]) =>
 	dottedExtensions(extensions).join(",");
 
-export const allowedFileExtensionsLabel = (extensions: readonly string[]) => {
-	const labels = dottedExtensions(extensions);
-	const last = labels.at(-1) ?? "";
-	return labels.length < 2 ? last : `${labels.slice(0, -1).join(", ")} or ${last}`;
-};
+export const allowedFileExtensionsLabel = (formatters: Formatters, extensions: readonly string[]) =>
+	formatters.list({ type: "disjunction" }).format(dottedExtensions(extensions));
 
-export const unsupportedFileExtensionMessage = (extensions: readonly string[]) =>
-	`Choose a ${allowedFileExtensionsLabel(extensions)} file.`;
+export const unsupportedFileExtensionMessage = (
+	formatters: Formatters,
+	extensions: readonly string[],
+) =>
+	kernelMessage("ui.file-field.unsupported-extension", {
+		extensions: allowedFileExtensionsLabel(formatters, extensions),
+	});
 
 export const isAllowedUploadFileName = (fileName: string, extensions: readonly string[]) => {
 	const normalized = fileName.trim().toLowerCase();
@@ -76,13 +82,22 @@ export const normalizeUploadContentType = (fileName: string, contentType: string
 	return normalized === "" ? DEFAULT_UPLOAD_CONTENT_TYPE : normalized;
 };
 
-export const formatFileSize = (bytes: number) => {
+export const formatFileSize = (formatters: Formatters, bytes: number) => {
 	let size = Math.max(0, Math.round(bytes));
 	let unit = 0;
 	while (size >= 1024 && unit < FILE_SIZE_UNITS.length - 1) {
 		size = size / 1024;
 		unit = unit + 1;
 	}
-	const rounded = unit === 0 ? String(size) : size.toFixed(size < 10 ? 1 : 0);
-	return `${rounded} ${FILE_SIZE_UNITS[unit]}`;
+	const fractionDigits = unit > 0 && size < 10 ? 1 : 0;
+	return formatters
+		.number({
+			style: "unit",
+			unit: FILE_SIZE_UNITS[unit],
+			minimumFractionDigits: fractionDigits,
+			maximumFractionDigits: fractionDigits,
+			// CLDR's short byte is often a word ("byte", "Byte"); its narrow form is the symbol.
+			unitDisplay: unit === 0 ? "narrow" : "short",
+		})
+		.format(size);
 };

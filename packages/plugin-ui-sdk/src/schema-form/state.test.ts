@@ -2,11 +2,15 @@ import { describe, expect, it } from "bun:test";
 
 import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { formattersFor } from "@ryot-app/i18n/formatters";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { testKernelText as t } from "@ryot-app/kernel-messages/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
 
 import {
 	describeSchemaFormFields,
 	initialSchemaFormValues,
+	schemaChoiceOptions,
 	toSchemaFormPayload,
 	validateSchemaFormValues,
 } from "./state";
@@ -159,7 +163,7 @@ const oauthSchema = {
 
 describe("schema form state", () => {
 	it("describes an OAuth connection property as a connect control for its provider", () => {
-		const { fields } = describeSchemaFormFields(oauthSchema);
+		const { fields } = describeSchemaFormFields(oauthSchema, t);
 
 		expect(fields).toMatchObject([
 			{
@@ -173,17 +177,17 @@ describe("schema form state", () => {
 	});
 
 	it("requires an OAuth connection and sends the connection id in the payload", () => {
-		expect(validateSchemaFormValues(oauthSchema, {}, "edit").get("account")).toBe(
+		expect(validateSchemaFormValues(oauthSchema, {}, t, "edit").get("account")).toBe(
 			"Account is required",
 		);
-		expect(validateSchemaFormValues(oauthSchema, { account: "connection-1" }).size).toBe(0);
+		expect(validateSchemaFormValues(oauthSchema, { account: "connection-1" }, t).size).toBe(0);
 		expect(toSchemaFormPayload(oauthSchema, { account: "connection-1" })).toEqual({
 			account: "connection-1",
 		});
 	});
 
 	it("describes upload properties as required file controls with their extensions", () => {
-		const { fields } = describeSchemaFormFields(uploadSchema, { mode: "export" });
+		const { fields } = describeSchemaFormFields(uploadSchema, t, { mode: "export" });
 
 		expect(fields.map((field) => field.key)).toEqual(["collection", "mode", "exportUploadToken"]);
 		expect(fields.find((field) => field.key === "exportUploadToken")).toMatchObject({
@@ -202,7 +206,7 @@ describe("schema form state", () => {
 	it("carries an upload token into the payload as a string", () => {
 		const values = { mode: "export", collection: "Imported", exportUploadToken: "token-1" };
 
-		expect(validateSchemaFormValues(uploadSchema, values).size).toBe(0);
+		expect(validateSchemaFormValues(uploadSchema, values, t).size).toBe(0);
 		expect(toSchemaFormPayload(uploadSchema, values)).toEqual({
 			mode: "export",
 			collection: "Imported",
@@ -218,15 +222,15 @@ describe("schema form state", () => {
 			exportUploadToken: "token-1",
 		};
 
-		expect(describeSchemaFormFields(uploadSchema, values).fields.map((field) => field.key)).toEqual(
-			["collection", "username", "mode"],
-		);
-		expect(validateSchemaFormValues(uploadSchema, values).has("collection")).toBe(false);
+		expect(
+			describeSchemaFormFields(uploadSchema, t, values).fields.map((field) => field.key),
+		).toEqual(["collection", "username", "mode"]);
+		expect(validateSchemaFormValues(uploadSchema, values, t).has("collection")).toBe(false);
 		expect(toSchemaFormPayload(uploadSchema, values)).toEqual({ mode: "user", username: "ryot" });
 	});
 
 	it("describes object properties alongside supported field types", () => {
-		const { fields } = describeSchemaFormFields(schema);
+		const { fields } = describeSchemaFormFields(schema, t);
 
 		expect(fields.map((field) => field.key).sort()).toEqual([
 			"adult",
@@ -271,7 +275,7 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(describeSchemaFormFields(describedSchema).fields).toMatchObject([
+		expect(describeSchemaFormFields(describedSchema, t).fields).toMatchObject([
 			{ key: "region", control: "text" },
 		]);
 	});
@@ -287,7 +291,7 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(describeSchemaFormFields(positionedSchema).fields.map((field) => field.key)).toEqual([
+		expect(describeSchemaFormFields(positionedSchema, t).fields.map((field) => field.key)).toEqual([
 			"first",
 			"second",
 			"secondTie",
@@ -297,18 +301,18 @@ describe("schema form state", () => {
 	});
 
 	it("toggles visibility and suppresses requiredness for hidden fields", () => {
-		expect(describeSchemaFormFields(visibilitySchema, { advanced: false }).fields).toMatchObject([
-			{ key: "advanced", required: false },
-		]);
-		expect(describeSchemaFormFields(visibilitySchema, { advanced: true }).fields).toMatchObject([
+		expect(describeSchemaFormFields(visibilitySchema, t, { advanced: false }).fields).toMatchObject(
+			[{ key: "advanced", required: false }],
+		);
+		expect(describeSchemaFormFields(visibilitySchema, t, { advanced: true }).fields).toMatchObject([
 			{ key: "advanced", required: false },
 			{ key: "secret", required: true },
 		]);
-		expect(validateSchemaFormValues(visibilitySchema, { secret: "", advanced: false }).size).toBe(
-			0,
-		);
 		expect(
-			validateSchemaFormValues(visibilitySchema, { advanced: true, secret: undefined }).get(
+			validateSchemaFormValues(visibilitySchema, { secret: "", advanced: false }, t).size,
+		).toBe(0);
+		expect(
+			validateSchemaFormValues(visibilitySchema, { advanced: true, secret: undefined }, t).get(
 				"secret",
 			),
 		).toBe("Secret is required");
@@ -317,11 +321,11 @@ describe("schema form state", () => {
 	it("removes stale hidden values until cascading visibility stabilizes", () => {
 		const values = { note: undefined, advanced: false, detail: "enabled", dependent: "retained" };
 
-		expect(describeSchemaFormFields(cascadingVisibilitySchema, values).fields).toMatchObject([
+		expect(describeSchemaFormFields(cascadingVisibilitySchema, t, values).fields).toMatchObject([
 			{ key: "note", required: false },
 			{ key: "advanced" },
 		]);
-		expect(validateSchemaFormValues(cascadingVisibilitySchema, values).size).toBe(0);
+		expect(validateSchemaFormValues(cascadingVisibilitySchema, values, t).size).toBe(0);
 		expect(toSchemaFormPayload(cascadingVisibilitySchema, values)).toEqual({ advanced: false });
 	});
 
@@ -340,22 +344,24 @@ describe("schema form state", () => {
 	it("fires conditional required rules only when the condition holds", () => {
 		const base = { title: "Sample", note: undefined };
 
-		expect(validateSchemaFormValues(schema, { ...base, region: "us" }).get("note")).toBeUndefined();
-		expect(validateSchemaFormValues(schema, { ...base, region: "uk" }).get("note")).toBe(
+		expect(
+			validateSchemaFormValues(schema, { ...base, region: "us" }, t).get("note"),
+		).toBeUndefined();
+		expect(validateSchemaFormValues(schema, { ...base, region: "uk" }, t).get("note")).toBe(
 			"Note is required for the UK region",
 		);
 		expect(
-			validateSchemaFormValues(schema, { ...base, note: "  ", region: "uk" }).get("note"),
+			validateSchemaFormValues(schema, { ...base, note: "  ", region: "uk" }, t).get("note"),
 		).toBeUndefined();
 	});
 
 	it("accepts empty strings and selections but requires a missing declared field", () => {
-		const errors = validateSchemaFormValues(schema, { title: "", genres: [], region: "us" });
+		const errors = validateSchemaFormValues(schema, { title: "", genres: [], region: "us" }, t);
 
 		expect(errors.size).toBe(0);
-		expect(validateSchemaFormValues(schema, { region: "us", title: undefined }).has("title")).toBe(
-			true,
-		);
+		expect(
+			validateSchemaFormValues(schema, { region: "us", title: undefined }, t).has("title"),
+		).toBe(true);
 	});
 
 	it("uses blank defaults for exists conditions and conditional requiredness", () => {
@@ -388,10 +394,10 @@ describe("schema form state", () => {
 		} satisfies AppSchema;
 		const values = { text: "", selections: [], note: undefined };
 
-		expect(describeSchemaFormFields(defaultedSchema, values).fields).toContainEqual<unknown>(
+		expect(describeSchemaFormFields(defaultedSchema, t, values).fields).toContainEqual<unknown>(
 			objectContaining({ key: "note", required: true }),
 		);
-		expect(validateSchemaFormValues(defaultedSchema, values).get("note")).toBe(
+		expect(validateSchemaFormValues(defaultedSchema, values, t).get("note")).toBe(
 			"Defaults make note required",
 		);
 		expect(toSchemaFormPayload(defaultedSchema, values)).toEqual({ text: "", selections: [] });
@@ -418,8 +424,8 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(validateSchemaFormValues(defaultedSchema, { region: "uk" }).has("note")).toBe(false);
-		expect(validateSchemaFormValues(defaultedSchema, { region: null }).has("note")).toBe(false);
+		expect(validateSchemaFormValues(defaultedSchema, { region: "uk" }, t).has("note")).toBe(false);
+		expect(validateSchemaFormValues(defaultedSchema, { region: null }, t).has("note")).toBe(false);
 		expect(toSchemaFormPayload(defaultedSchema, { region: null })).toEqual({ region: null });
 	});
 
@@ -441,7 +447,7 @@ describe("schema form state", () => {
 		} satisfies AppSchema;
 
 		expect(
-			validateSchemaFormValues(requiredSchema, { region: "uk", title: undefined }).get("title"),
+			validateSchemaFormValues(requiredSchema, { region: "uk", title: undefined }, t).get("title"),
 		).toBe("A UK title is required");
 	});
 
@@ -457,12 +463,14 @@ describe("schema form state", () => {
 			validateSchemaFormValues(
 				withRules([{ ...noteRule, when: { path: ["region"], operator: "exists" } }]),
 				values,
+				t,
 			).get("note"),
 		).toBe("note is required");
 		expect(
 			validateSchemaFormValues(
 				withRules([{ ...noteRule, when: { path: ["region"], operator: "not_exists" } }]),
 				values,
+				t,
 			).get("note"),
 		).toBeUndefined();
 		expect(
@@ -471,12 +479,14 @@ describe("schema form state", () => {
 					{ ...noteRule, when: { operator: "in", path: ["region"], value: ["uk", "us"] } },
 				]),
 				values,
+				t,
 			).get("note"),
 		).toBe("note is required");
 		expect(
 			validateSchemaFormValues(
 				withRules([{ ...noteRule, when: { value: ["uk"], path: ["region"], operator: "not_in" } }]),
 				values,
+				t,
 			).get("note"),
 		).toBeUndefined();
 		expect(
@@ -494,6 +504,7 @@ describe("schema form state", () => {
 					},
 				]),
 				values,
+				t,
 			).get("note"),
 		).toBe("note is required");
 		expect(
@@ -508,6 +519,7 @@ describe("schema form state", () => {
 					},
 				]),
 				values,
+				t,
 			).get("note"),
 		).toBeUndefined();
 	});
@@ -539,10 +551,12 @@ describe("schema form state", () => {
 		};
 		const values = { trigger: blank, note: undefined };
 
-		expect(validateSchemaFormValues(conditional("exists"), values).get("note")).toBe(
+		expect(validateSchemaFormValues(conditional("exists"), values, t).get("note")).toBe(
 			"note is required",
 		);
-		expect(validateSchemaFormValues(conditional("not_exists"), values).get("note")).toBeUndefined();
+		expect(
+			validateSchemaFormValues(conditional("not_exists"), values, t).get("note"),
+		).toBeUndefined();
 	});
 
 	it("preserves empty strings and materialized defaults in the payload", () => {
@@ -585,7 +599,7 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(describeSchemaFormFields(fixed).fields).toEqual<unknown>([
+		expect(describeSchemaFormFields(fixed, t).fields).toEqual<unknown>([
 			objectContaining({ key: "baseUrl" }),
 		]);
 		expect(initialSchemaFormValues(fixed)).toEqual({ kind: "radarr", baseUrl: undefined });
@@ -619,11 +633,56 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(describeSchemaFormFields(annotatedSchema).fields).toMatchObject([
+		expect(describeSchemaFormFields(annotatedSchema, t).fields).toMatchObject([
 			{ key: "plain", secret: false, format: undefined },
 			{ key: "token", secret: true, format: undefined },
 			{ key: "link", secret: false, format: "url" },
 			{ secret: false, key: "contact", format: "email" },
+		]);
+	});
+
+	it("renders message labels and hints and omits the model-facing description", () => {
+		const labelled = {
+			fields: {
+				plain: { ...described("Plain"), type: "string" },
+				rating: {
+					type: "number",
+					description: "Rating from 0 to 100",
+					label: kernelMessage("definition.property.review-rating"),
+					hint: kernelMessage("definition.property.review-rating-hint"),
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(describeSchemaFormFields(labelled, t).fields).toMatchObject([
+			{ key: "plain", label: "Plain", hint: undefined },
+			{
+				key: "rating",
+				label: "Rating",
+				hint: "Your personal rating from 0 (lowest) to 100 (highest)",
+			},
+		]);
+	});
+
+	it("names region choices in the viewer's locale and sorts them after the other choices", () => {
+		const regions = [
+			{ value: "DE", kind: "region" },
+			{ value: "auto", label: "Automatic" },
+			{ value: "AT", kind: "region" },
+			{ value: "EG", kind: "region" },
+		] as const;
+
+		expect(schemaChoiceOptions(regions, t, formattersFor("en"))).toMatchObject([
+			{ value: "auto", label: "Automatic" },
+			{ value: "AT", label: "Austria" },
+			{ value: "EG", label: "Egypt" },
+			{ value: "DE", label: "Germany" },
+		]);
+		expect(schemaChoiceOptions(regions, t, formattersFor("de"))).toMatchObject([
+			{ value: "auto", label: "Automatic" },
+			{ value: "EG", label: "Ägypten" },
+			{ value: "DE", label: "Deutschland" },
+			{ value: "AT", label: "Österreich" },
 		]);
 	});
 
@@ -656,7 +715,7 @@ describe("schema form state", () => {
 		} satisfies AppSchema;
 
 		expect(
-			describeSchemaFormFields(controlSchema).fields.map((field) => [field.key, field.control]),
+			describeSchemaFormFields(controlSchema, t).fields.map((field) => [field.key, field.control]),
 		).toEqual([
 			["text", "text"],
 			["flag", "switch"],
@@ -701,8 +760,8 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(validateSchemaFormValues(listSchema, { sites: [] }).has("sites")).toBe(false);
-		expect(validateSchemaFormValues(listSchema, { sites: ["a.example"] }).size).toBe(0);
+		expect(validateSchemaFormValues(listSchema, { sites: [] }, t).has("sites")).toBe(false);
+		expect(validateSchemaFormValues(listSchema, { sites: ["a.example"] }, t).size).toBe(0);
 	});
 
 	it("enforces minItems once a list has been emptied", () => {
@@ -717,7 +776,7 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(validateSchemaFormValues(listSchema, { sites: [] }).has("sites")).toBe(true);
+		expect(validateSchemaFormValues(listSchema, { sites: [] }, t).has("sites")).toBe(true);
 	});
 
 	it("keeps a missing required secret valid when editing but not when creating", () => {
@@ -734,11 +793,11 @@ describe("schema form state", () => {
 		} satisfies AppSchema;
 		const values = { apiKey: undefined, baseUrl: "https://a.example" };
 
-		expect(validateSchemaFormValues(secretSchema, values, "edit").size).toBe(0);
-		expect(validateSchemaFormValues(secretSchema, values, "create").get("apiKey")).toBe(
+		expect(validateSchemaFormValues(secretSchema, values, t, "edit").size).toBe(0);
+		expect(validateSchemaFormValues(secretSchema, values, t, "create").get("apiKey")).toBe(
 			"API key is required",
 		);
-		expect(validateSchemaFormValues(secretSchema, { apiKey: "k" }, "edit").get("baseUrl")).toBe(
+		expect(validateSchemaFormValues(secretSchema, { apiKey: "k" }, t, "edit").get("baseUrl")).toBe(
 			"Base URL is required",
 		);
 	});
@@ -757,7 +816,7 @@ describe("timezone format", () => {
 	} satisfies AppSchema;
 
 	it("renders a timezone control", () => {
-		expect(describeSchemaFormFields(timezoneSchema).fields).toEqual<unknown>([
+		expect(describeSchemaFormFields(timezoneSchema, t).fields).toEqual<unknown>([
 			objectContaining({ key: "timezone", control: "timezone" }),
 		]);
 	});
@@ -773,10 +832,10 @@ describe("timezone format", () => {
 	});
 
 	it("accepts named zones and rejects other values", () => {
-		expect(validateSchemaFormValues(timezoneSchema, { timezone: "Asia/Calcutta" }).size).toBe(0);
-		expect(validateSchemaFormValues(timezoneSchema, { timezone: "UTC" }).size).toBe(0);
+		expect(validateSchemaFormValues(timezoneSchema, { timezone: "Asia/Calcutta" }, t).size).toBe(0);
+		expect(validateSchemaFormValues(timezoneSchema, { timezone: "UTC" }, t).size).toBe(0);
 		for (const timezone of ["Not/AZone", "+05:30"]) {
-			expect(validateSchemaFormValues(timezoneSchema, { timezone }).has("timezone")).toBe(true);
+			expect(validateSchemaFormValues(timezoneSchema, { timezone }, t).has("timezone")).toBe(true);
 		}
 	});
 });
@@ -791,7 +850,7 @@ describe("asset lists", () => {
 	] as const;
 
 	it("renders an asset array as an assets control", () => {
-		const { fields } = describeSchemaFormFields(assetSchema);
+		const { fields } = describeSchemaFormFields(assetSchema, t);
 
 		expect(fields).toEqual<unknown>([
 			objectContaining({ key: "images", type: "assets", control: "assets" }),
@@ -813,10 +872,10 @@ describe("asset lists", () => {
 		} satisfies AppSchema;
 
 		expect(initialSchemaFormValues(defaulted)).toEqual({ images: locators });
-		expect(validateSchemaFormValues(assetSchema, { images: locators }).size).toBe(0);
-		expect(validateSchemaFormValues(assetSchema, { images: ["not-a-locator"] }).has("images")).toBe(
-			true,
-		);
+		expect(validateSchemaFormValues(assetSchema, { images: locators }, t).size).toBe(0);
+		expect(
+			validateSchemaFormValues(assetSchema, { images: ["not-a-locator"] }, t).has("images"),
+		).toBe(true);
 	});
 });
 
@@ -830,7 +889,7 @@ describe("immutable properties", () => {
 
 	const readOnlyOf = (mode: "edit" | "create") =>
 		Object.fromEntries(
-			describeSchemaFormFields(immutableSchema, {}, mode).fields.map(
+			describeSchemaFormFields(immutableSchema, t, {}, mode).fields.map(
 				({ key, readOnly }) => [key, readOnly] as const,
 			),
 		);

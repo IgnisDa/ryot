@@ -9,6 +9,11 @@ import {
 	type PropertyValidationIssue,
 } from "@ryot-app/contract/schema/property-schema";
 import { hasPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
+import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useForm } from "@tanstack/react-form";
 import { Schema } from "effect";
 import { type ReactNode, type RefObject, useId, useLayoutEffect, useRef, useState } from "react";
@@ -37,7 +42,7 @@ import {
 	isFixedEnumProperty,
 	isJsonObjectValue,
 	propertyFormDefault,
-	schemaChoiceLabel,
+	schemaChoiceOptions,
 	type SchemaFormControl,
 	schemaFormInput,
 	schemaFormIssues,
@@ -73,7 +78,7 @@ type NodeProps = {
 };
 
 type SchemaFormProps = {
-	readonly title?: string;
+	readonly title?: Text;
 	readonly schema: AppSchema;
 	readonly timeZone?: string;
 	readonly form: SchemaFormApi;
@@ -81,8 +86,8 @@ type SchemaFormProps = {
 	readonly mode?: SchemaFormMode;
 	readonly icons: SchemaFormIcons;
 	readonly onReorder?: () => void;
+	readonly oauthDisabledReason?: Text;
 	readonly uploadFile: SchemaFileUpload;
-	readonly oauthDisabledReason?: string;
 	readonly uploadAsset?: SchemaAssetUpload;
 	readonly connectOAuth?: SchemaOAuthConnect;
 	readonly renderAsset?: SchemaAssetRenderer;
@@ -93,6 +98,7 @@ export function useSchemaForm(props: {
 	schemas: readonly (AppSchema | undefined)[];
 	onSubmit: (values: SchemaFormValues) => void;
 }) {
+	const t = useT();
 	return useForm({
 		defaultValues: emptyValues,
 		onSubmit: ({ value }) => props.onSubmit(value.fields),
@@ -108,6 +114,7 @@ export function useSchemaForm(props: {
 									...validateSchemaFormValues(
 										schema,
 										value.fields,
+										t,
 										props.mode ?? "create",
 										formApi?.defaultValues.fields,
 									),
@@ -176,10 +183,7 @@ function ObjectControl(props: NodeProps & { readonly excluded?: readonly string[
 						value={
 							Object.hasOwn(values, key)
 								? values[key]
-								: propertyFormDefault(
-										property,
-										props.context.timeZone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone,
-									)
+								: propertyFormDefault(property, props.context.timeZone ?? deviceTimeZone())
 						}
 						onChange={(value) => {
 							const next = { ...values, [key]: value };
@@ -219,6 +223,7 @@ const newArrayItem = (property: AppPropertyDefinition, timeZone: string): JsonVa
 };
 
 export function SchemaForm(props: SchemaFormProps) {
+	const t = useT();
 	const root = useRef<HTMLDivElement>(null);
 	const mode = props.mode ?? "create";
 	return (
@@ -229,9 +234,9 @@ export function SchemaForm(props: SchemaFormProps) {
 				const input = schemaFormInput(props.schema, values);
 				const issues =
 					attempts > 0
-						? schemaFormIssues(props.schema, values, mode, props.form.defaultValues.fields)
+						? schemaFormIssues(props.schema, values, t, mode, props.form.defaultValues.fields)
 						: [];
-				const description = describeSchemaFormFields(props.schema, values, mode);
+				const description = describeSchemaFormFields(props.schema, t, values, mode);
 				return (
 					<div
 						ref={root}
@@ -320,9 +325,14 @@ function FocusInvalid(props: {
 }
 
 function AssetControl(props: NodeProps) {
+	const t = useT();
 	const { icons, uploadAsset, renderAsset } = props.context;
 	if (uploadAsset === undefined || renderAsset === undefined) {
-		return <FieldMessage>{`Uploads are not available for ${props.property.label}.`}</FieldMessage>;
+		return (
+			<FieldMessage>
+				{t(kernelMessage("ui.schema-form.uploads-unavailable", { label: props.property.label }))}
+			</FieldMessage>
+		);
 	}
 	const multiple = props.property.type === "array";
 	const property = props.property.type === "array" ? props.property.items : props.property;
@@ -348,9 +358,9 @@ function AssetControl(props: NodeProps) {
 				replace={!multiple}
 				uploadAsset={uploadAsset}
 				renderAsset={renderAsset}
-				label={props.property.label}
 				pickFile={pickBrowserMediaFile}
 				onReorder={props.context.onReorder}
+				label={formatDisplayText(t, props.property.label)}
 				maximum={props.property.type === "array" ? props.property.validation?.maxItems : 1}
 				onChange={(next) => {
 					setValues(
@@ -395,6 +405,7 @@ function AssetControl(props: NodeProps) {
 }
 
 function ArrayControl(props: NodeProps) {
+	const t = useT();
 	const values = arrayValue(props.value);
 	const [rowState, setRowState] = useState<{
 		readonly next: number;
@@ -433,7 +444,7 @@ function ArrayControl(props: NodeProps) {
 		<div className="flex min-w-0 flex-col gap-2">
 			{props.mode === "edit" && hasPropertySecrets(props.property) ? (
 				<span className="text-xs text-text-subtle">
-					Changing this list replaces it. Re-enter hidden secrets in every item.
+					{t(kernelMessage("ui.schema-form.secret-list-hint"))}
 				</span>
 			) : null}
 			{values.map((value, index) => (
@@ -444,12 +455,20 @@ function ArrayControl(props: NodeProps) {
 					key={ids[index]}
 					addressable={false}
 					path={[...props.path, String(index)]}
-					property={{ ...item, label: `${props.property.label} item ${index + 1}` }}
 					onChange={(next) =>
 						props.onChange(
 							values.map((current, position) => (position === index ? (next ?? null) : current)),
 						)
 					}
+					property={{
+						...item,
+						label: t(
+							kernelMessage("ui.schema-form.list-item", {
+								position: index + 1,
+								label: props.property.label,
+							}),
+						),
+					}}
 					item={{
 						index,
 						actions: (
@@ -460,7 +479,12 @@ function ArrayControl(props: NodeProps) {
 											size="sm"
 											disabled={index === 0}
 											onClick={() => move(index, index - 1)}
-											label={`Move ${props.property.label} item ${index + 1} up`}
+											label={t(
+												kernelMessage("ui.schema-form.move-item-up", {
+													position: index + 1,
+													label: props.property.label,
+												}),
+											)}
 										>
 											<span aria-hidden="true" className="flex rotate-180">
 												{icons.chevron}
@@ -470,7 +494,12 @@ function ArrayControl(props: NodeProps) {
 											size="sm"
 											disabled={index === values.length - 1}
 											onClick={() => move(index, index + 1)}
-											label={`Move ${props.property.label} item ${index + 1} down`}
+											label={t(
+												kernelMessage("ui.schema-form.move-item-down", {
+													position: index + 1,
+													label: props.property.label,
+												}),
+											)}
 										>
 											<span className="flex" aria-hidden="true">
 												{icons.chevron}
@@ -481,7 +510,12 @@ function ArrayControl(props: NodeProps) {
 								<IconButton
 									size="sm"
 									tone="danger"
-									label={`Remove ${props.property.label} item ${index + 1}`}
+									label={t(
+										kernelMessage("ui.schema-form.remove-item", {
+											position: index + 1,
+											label: props.property.label,
+										}),
+									)}
 									onClick={() => {
 										setRowState({ ...rows, ids: ids.filter((_, position) => position !== index) });
 										props.onChange(values.filter((_, position) => position !== index));
@@ -498,7 +532,7 @@ function ArrayControl(props: NodeProps) {
 				size="sm"
 				variant="secondary"
 				className="self-start"
-				aria-label={`Add ${props.property.label} item`}
+				aria-label={t(kernelMessage("ui.schema-form.add-item-to", { label: props.property.label }))}
 				disabled={
 					props.property.validation?.maxItems !== undefined &&
 					values.length >= props.property.validation.maxItems
@@ -506,20 +540,18 @@ function ArrayControl(props: NodeProps) {
 				onClick={() => {
 					props.onChange([
 						...values,
-						newArrayItem(
-							item,
-							props.context.timeZone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone,
-						),
+						newArrayItem(item, props.context.timeZone ?? deviceTimeZone()),
 					]);
 				}}
 			>
-				Add item
+				{t(kernelMessage("ui.schema-form.add-item"))}
 			</Button>
 		</div>
 	);
 }
 
 function SchemaNode(props: NodeProps) {
+	const t = useT();
 	const id = useId();
 	const { value, property } = props;
 	if (
@@ -532,7 +564,7 @@ function SchemaNode(props: NodeProps) {
 		? isAppSchemaPathEffectivelyRequired(props.context.schema, props.path, props.input)
 		: property.validation?.required === true;
 	const readOnly = props.mode === "edit" && property.immutable === true;
-	const hasHelp = props.item === undefined && property.description !== property.label;
+	const hasHelp = props.item === undefined && property.hint !== undefined;
 	const absentObject =
 		property.type === "object" &&
 		!property.validation?.asset &&
@@ -550,8 +582,11 @@ function SchemaNode(props: NodeProps) {
 				!Object.hasOwn(property.properties, candidate.path[props.path.length] ?? ""))
 		);
 	});
-	const control = describeSchemaFormField(props.path.at(-1) ?? "", property, props.mode).control;
-	const label = `${property.label}${required ? " *" : ""}`;
+	const field = describeSchemaFormField(props.path.at(-1) ?? "", property, props.mode, t);
+	const control = field.control;
+	const label = required
+		? t(kernelMessage("ui.schema-form.required-label", { label: property.label }))
+		: field.label;
 	const clearable =
 		props.item === undefined &&
 		!required &&
@@ -582,7 +617,9 @@ function SchemaNode(props: NodeProps) {
 							),
 						);
 					}}
-				>{`Add ${property.label}`}</Button>
+				>
+					{t(kernelMessage("ui.schema-form.add-object", { label: property.label }))}
+				</Button>
 			) : (
 				<NodeControl {...props} />
 			)}
@@ -595,7 +632,7 @@ function SchemaNode(props: NodeProps) {
 			<div
 				role={card ? "group" : undefined}
 				className="flex min-w-0 flex-col gap-1.5"
-				aria-label={card ? property.label : undefined}
+				aria-label={card ? field.label : undefined}
 				data-invalid={issue !== undefined ? "true" : undefined}
 			>
 				{card ? (
@@ -613,9 +650,9 @@ function SchemaNode(props: NodeProps) {
 	const clear = clearable ? (
 		<IconButton
 			size="sm"
-			label={`Clear ${property.label}`}
 			onClick={() => props.onChange(null)}
 			className="-my-1.5 text-text-subtle"
+			label={t(kernelMessage("ui.multi-select.clear-field", { label: property.label }))}
 		>
 			{props.context.icons.close}
 		</IconButton>
@@ -624,17 +661,27 @@ function SchemaNode(props: NodeProps) {
 		<>
 			{hasHelp ? (
 				<span id={`${id}-help`} className="text-xs text-text-subtle">
-					{property.description}
+					{field.hint}
 				</span>
 			) : null}
 			{readOnly ? (
-				<span className="text-xs text-text-subtle">Can't be changed after creation</span>
+				<span className="text-xs text-text-subtle">
+					{t(kernelMessage("ui.schema-form.immutable"))}
+				</span>
 			) : null}
 			{props.mode === "edit" && property.secret ? (
-				<span className="text-xs text-text-subtle">Leave blank to keep the current value.</span>
+				<span className="text-xs text-text-subtle">
+					{t(kernelMessage("ui.schema-form.secret-keep"))}
+				</span>
 			) : null}
 			{property.type === "datetime" ? (
-				<span className="text-xs text-text-subtle">{`Time zone: ${props.context.timeZone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone}`}</span>
+				<span className="text-xs text-text-subtle">
+					{t(
+						kernelMessage("ui.schema-form.time-zone", {
+							zone: props.context.timeZone ?? deviceTimeZone(),
+						}),
+					)}
+				</span>
 			) : null}
 		</>
 	);
@@ -678,8 +725,10 @@ function SchemaNode(props: NodeProps) {
 }
 
 function NodeControl(props: NodeProps) {
+	const t = useT();
+	const formatters = useFormatters();
 	const { context, property } = props;
-	const field = describeSchemaFormField(props.path.at(-1) ?? "", property, props.mode);
+	const field = describeSchemaFormField(props.path.at(-1) ?? "", property, props.mode, t);
 	const value = textValue(props.value);
 	const choices = field.choices ?? [];
 	if (
@@ -687,7 +736,14 @@ function NodeControl(props: NodeProps) {
 		property.choices.kind === "dynamic"
 	) {
 		return (
-			<FieldMessage>{`Choices for ${property.label} have not been resolved (${property.choices.source}).`}</FieldMessage>
+			<FieldMessage>
+				{t(
+					kernelMessage("ui.schema-form.choices-unresolved", {
+						label: property.label,
+						source: property.choices.source,
+					}),
+				)}
+			</FieldMessage>
 		);
 	}
 	switch (field.control) {
@@ -696,8 +752,8 @@ function NodeControl(props: NodeProps) {
 		case "file":
 			return (
 				<SchemaFileField
+					label={field.label}
 					icons={context.icons}
-					label={property.label}
 					onChange={props.onChange}
 					uploadFile={context.uploadFile}
 					pickFile={pickBrowserUploadFile}
@@ -707,14 +763,14 @@ function NodeControl(props: NodeProps) {
 			);
 		case "text": {
 			const numeric = property.type === "number" || property.type === "integer";
-			const timeZone = context.timeZone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone;
+			const timeZone = context.timeZone ?? deviceTimeZone();
 			if (field.format === "datetime") {
 				const wallTime = objectValue(props.value).wallTime;
 				return (
 					<DateTimeControl
 						timeZone={timeZone}
+						label={field.label}
 						icons={context.icons}
-						label={property.label}
 						onChange={props.onChange}
 						original={value === "" ? undefined : value}
 						value={
@@ -736,7 +792,7 @@ function NodeControl(props: NodeProps) {
 					value={value}
 					type={inputType}
 					density="compact"
-					aria-label={property.label}
+					aria-label={field.label}
 					inputMode={numeric ? "decimal" : undefined}
 					autoComplete={property.secret ? "off" : undefined}
 					onChange={(event) => {
@@ -763,13 +819,10 @@ function NodeControl(props: NodeProps) {
 			return (
 				<RadioGroup
 					value={value}
-					label={property.label}
+					label={field.label}
 					onChange={props.onChange}
 					className="flex flex-wrap gap-1.5"
-					options={choices.map((choice) => ({
-						value: choice.value,
-						label: schemaChoiceLabel(choice),
-					}))}
+					options={schemaChoiceOptions(choices, t, formatters)}
 					renderOption={(option, selected) => ({
 						content: <Chip className="px-2.5" checked={selected} label={option.label} />,
 					})}
@@ -779,21 +832,18 @@ function NodeControl(props: NodeProps) {
 			return <ObjectControl {...props} />;
 		case "switch":
 			return (
-				<Switch label={property.label} onChange={props.onChange} checked={props.value === true} />
+				<Switch label={field.label} onChange={props.onChange} checked={props.value === true} />
 			);
 		case "select":
 			return (
 				<Select
 					value={value}
-					label={property.label}
+					label={field.label}
 					onChange={props.onChange}
 					checkIcon={context.icons.check}
 					searchIcon={context.icons.search}
 					chevronIcon={context.icons.chevron}
-					choices={choices.map((choice) => ({
-						value: choice.value,
-						label: schemaChoiceLabel(choice),
-					}))}
+					choices={schemaChoiceOptions(choices, t, formatters)}
 				/>
 			);
 		case "timezone": {
@@ -801,13 +851,13 @@ function NodeControl(props: NodeProps) {
 			return (
 				<Select
 					value={value}
-					label={property.label}
+					label={field.label}
 					onChange={props.onChange}
 					checkIcon={context.icons.check}
 					searchIcon={context.icons.search}
 					chevronIcon={context.icons.chevron}
 					choices={(value === "" || zones.includes(value) ? zones : [value, ...zones]).map(
-						(zone) => ({ value: zone, label: zone }),
+						(zone) => ({ value: zone, label: formatDisplayText(t, zone) }),
 					)}
 				/>
 			);
@@ -816,27 +866,25 @@ function NodeControl(props: NodeProps) {
 			return (
 				<SegmentedControl
 					value={value}
-					label={property.label}
+					label={field.label}
 					onChange={props.onChange}
 					className="max-w-full overflow-x-auto"
 					optionClassName="shrink-0 whitespace-nowrap px-3"
-					options={choices.map((choice) => ({
-						value: choice.value,
-						label: schemaChoiceLabel(choice),
-						content: schemaChoiceLabel(choice),
-					}))}
+					options={schemaChoiceOptions(choices, t, formatters).map((option) =>
+						Object.assign(option, { content: option.label }),
+					)}
 				/>
 			);
 		case "multi-select":
 			return (
 				<MultiSelect
-					choices={choices}
-					label={property.label}
+					label={field.label}
 					onChange={props.onChange}
 					checkIcon={context.icons.check}
 					closeIcon={context.icons.close}
 					searchIcon={context.icons.search}
 					chevronIcon={context.icons.chevron}
+					choices={schemaChoiceOptions(choices, t, formatters)}
 					selected={arrayValue(props.value).filter(
 						(item): item is string => typeof item === "string",
 					)}
@@ -844,10 +892,12 @@ function NodeControl(props: NodeProps) {
 			);
 		case "oauth-connection":
 			return context.connectOAuth === undefined || field.oauthProvider === undefined ? (
-				<FieldMessage>{`OAuth connections are not available for ${property.label}.`}</FieldMessage>
+				<FieldMessage>
+					{t(kernelMessage("ui.schema-form.oauth-unavailable", { label: property.label }))}
+				</FieldMessage>
 			) : (
 				<SchemaOAuthField
-					label={property.label}
+					label={field.label}
 					onChange={props.onChange}
 					field={props.path[0] ?? ""}
 					provider={field.oauthProvider}
