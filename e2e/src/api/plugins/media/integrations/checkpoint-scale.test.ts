@@ -29,7 +29,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("Media sync checkpoints at scale", () =>
 				const { client } = yield* createAuthenticatedClient();
 				const { schema, pluginId } = yield* findMediaEntitySchema(client, "audiobook");
 				const provider = requirePresent(
-					schema.providers.find((candidate) => candidate.name === "Audible"),
+					schema.providers.find((candidate) => candidate.providerSlug === "audiobook.audible"),
 					"Expected Audible provider",
 				);
 				const prefix = yield* randomUuid;

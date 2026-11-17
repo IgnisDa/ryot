@@ -2,10 +2,11 @@ import { mediaActivityLogContextRecipe } from "@ryot-app/media-plugin/shared/act
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
-import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
+import { createAuthenticatedClient } from "~/fixtures/kernel";
 import {
 	createBuiltinMediaLifecycleFixture,
 	logMediaActivity,
+	mediaRecipes,
 	mediaReferenceForEntity,
 	seedShow,
 	seedShowEpisode,
@@ -123,7 +124,7 @@ describe("Media history correction", () => {
 					),
 				).toHaveLength(1);
 				const reference = yield* mediaReferenceForEntity(client, movie.entityId);
-				const context = yield* executeRyotQLRecipe(
+				const context = yield* mediaRecipes.execute(
 					client,
 					mediaActivityLogContextRecipe({ reference }),
 					{ entityId: movie.entityId },

@@ -408,7 +408,9 @@ export const seedGlobalShowEpisodeTree = (
 ) =>
 	Effect.gen(function* () {
 		const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
-		const tmdbProvider = showSchema.providers.find((provider) => provider.name === "TMDB");
+		const tmdbProvider = showSchema.providers.find(
+			(provider) => provider.providerSlug === "show.tmdb",
+		);
 		assertPresent(tmdbProvider, "Missing TMDB provider for built-in show schema");
 
 		const [seasonSchemaId, episodeSchemaId, relationshipSchemas] = yield* Effect.all([
@@ -506,7 +508,9 @@ export const seedGlobalMovieWithCollection = (
 ) =>
 	Effect.gen(function* () {
 		const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
-		const tmdbProvider = movieSchema.providers.find((provider) => provider.name === "TMDB");
+		const tmdbProvider = movieSchema.providers.find(
+			(provider) => provider.providerSlug === "movie.tmdb",
+		);
 		assertPresent(tmdbProvider, "Missing TMDB provider for built-in movie schema");
 
 		const [groupSchemaId, personSchemaId, companySchemaId, relationshipSchemas] = yield* Effect.all(
@@ -662,7 +666,9 @@ export const seedGlobalMusicWithAlbum = (
 ) =>
 	Effect.gen(function* () {
 		const { schema: musicSchema } = yield* findMediaEntitySchema(client, "music");
-		const musicBrainz = musicSchema.providers.find((provider) => provider.name === "MusicBrainz");
+		const musicBrainz = musicSchema.providers.find(
+			(provider) => provider.providerSlug === "music.music-brainz",
+		);
 		assertPresent(musicBrainz, "Missing MusicBrainz provider for built-in music schema");
 
 		const [albumSchemaId, personSchemaId, companySchemaId, relationshipSchemas] = yield* Effect.all(
@@ -818,7 +824,9 @@ export const seedGlobalBookWithSeries = (
 ) =>
 	Effect.gen(function* () {
 		const { schema: bookSchema } = yield* findMediaEntitySchema(client, "book");
-		const hardcover = bookSchema.providers.find((provider) => provider.name === "Hardcover");
+		const hardcover = bookSchema.providers.find(
+			(provider) => provider.providerSlug === "book.hardcover",
+		);
 		assertPresent(hardcover, "Missing Hardcover provider for built-in book schema");
 
 		const [seriesSchemaId, personSchemaId, companySchemaId, relationshipSchemas] =

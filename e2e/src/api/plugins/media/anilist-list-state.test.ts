@@ -12,7 +12,6 @@ import {
 	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
-	executeRyotQLRecipe,
 	listEventSchemas,
 	listEventsForEntity,
 	requireEventSchemaBySlug,
@@ -20,6 +19,7 @@ import {
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
+	mediaRecipes,
 	seedMediaEntity,
 	waitForLibrarySummary,
 } from "~/fixtures/plugins/media";
@@ -68,7 +68,7 @@ const createListStateSnapshot = (
 
 const readAnimeSummary = (client: Client, reference: MediaReference, entityId: string) =>
 	Effect.gen(function* () {
-		const result = yield* executeRyotQLRecipe(client, animeRecipes.summaryRecipe({ reference }), {
+		const result = yield* mediaRecipes.execute(client, animeRecipes.summaryRecipe({ reference }), {
 			entityId,
 		});
 		assertPresent(result.summary, "Expected an anime summary row");
@@ -150,7 +150,7 @@ describe("AniList list-state media queries", () => {
 					waitForLibrarySummary(client, anime.id),
 					waitForLibrarySummary(client, manga.id),
 				]);
-				const initialFlat = yield* executeRyotQLRecipe(
+				const initialFlat = yield* mediaRecipes.execute(
 					client,
 					flatByLifecycleStateRecipe({ reference: animeReference }),
 					{ states: ["in_progress", "on_hold"] },
@@ -181,7 +181,7 @@ describe("AniList list-state media queries", () => {
 					progressPercent: null,
 				});
 				yield* waitForLibrarySummary(client, anime.id);
-				const heldFlat = yield* executeRyotQLRecipe(
+				const heldFlat = yield* mediaRecipes.execute(
 					client,
 					flatByLifecycleStateRecipe({ reference: animeReference }),
 					{ states: ["on_hold"] },
@@ -202,7 +202,7 @@ describe("AniList list-state media queries", () => {
 				const resumedSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(resumedSummary).toMatchObject({ progressPercent: 25, state: "in_progress" });
 				yield* waitForLibrarySummary(client, anime.id);
-				const resumedFlat = yield* executeRyotQLRecipe(
+				const resumedFlat = yield* mediaRecipes.execute(
 					client,
 					flatByLifecycleStateRecipe({ reference: animeReference }),
 					{ states: ["in_progress"] },
@@ -229,7 +229,7 @@ describe("AniList list-state media queries", () => {
 				const completedSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(completedSummary).toMatchObject({ state: "complete", progressPercent: null });
 				yield* waitForLibrarySummary(client, anime.id);
-				const completedFlat = yield* executeRyotQLRecipe(
+				const completedFlat = yield* mediaRecipes.execute(
 					client,
 					flatByLifecycleStateRecipe({ reference: animeReference }),
 					{ states: ["complete"] },
@@ -242,7 +242,7 @@ describe("AniList list-state media queries", () => {
 					position: { position: 1, unit: "episodes" },
 				});
 
-				const snapshots = yield* executeRyotQLRecipe(
+				const snapshots = yield* mediaRecipes.execute(
 					client,
 					listStateSnapshotsRecipe({ reference: animeReference }),
 					{ sourceAccountId: "acct", sourceEntryIds: ["entry", "manga-entry"] },
@@ -272,7 +272,7 @@ describe("AniList list-state media queries", () => {
 					position: { position: 0, unit: "episodes" },
 					sourceUpdatedAt: "2020-01-01T00:00:00.000Z",
 				});
-				const otherAccountSnapshots = yield* executeRyotQLRecipe(
+				const otherAccountSnapshots = yield* mediaRecipes.execute(
 					client,
 					listStateSnapshotsRecipe({ reference: animeReference }),
 					{ sourceAccountId: "other-account", sourceEntryIds: ["entry", "manga-entry"] },
@@ -281,13 +281,13 @@ describe("AniList list-state media queries", () => {
 				expect(otherAccountSnapshots.items).toEqual([]);
 
 				const [animeActivity, mangaActivity] = yield* Effect.all([
-					executeRyotQLRecipe(
+					mediaRecipes.execute(
 						client,
 						animeRecipes.activityRecipe({ reference: animeReference }),
 						{ entityId: anime.id },
 						{ pages: { events: { limit: 20 }, collectionEvents: { limit: 20 } } },
 					),
-					executeRyotQLRecipe(
+					mediaRecipes.execute(
 						client,
 						mangaRecipes.activityRecipe({ reference: mangaReference }),
 						{ entityId: manga.id },

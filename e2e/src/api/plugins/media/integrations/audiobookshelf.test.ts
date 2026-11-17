@@ -27,7 +27,7 @@ describe("Audiobookshelf integration", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findMediaEntitySchema(client, "audiobook");
 			const provider = requirePresent(
-				schema.providers.find((candidate) => candidate.name === "Audible"),
+				schema.providers.find((candidate) => candidate.providerSlug === "audiobook.audible"),
 				"Expected Audible audiobook provider",
 			);
 			const externalId = `abs-${yield* randomUuid}`;

@@ -61,9 +61,9 @@ const summary = (items: readonly CalendarOccurrence[]) =>
 	items.map(({ art, done, caption, startAt, subject }) => ({
 		art,
 		done,
-		caption,
 		startAt,
 		subject: subject.id,
+		caption: caption?.params ?? null,
 	}));
 
 const eventSlug = (client: Client, schemaSlug: string, eventSlugName: string) =>
@@ -88,13 +88,13 @@ const seedRelease = (schemaId: string, name: string, properties: Record<string, 
 const expectedAirings = (first: boolean, second: boolean) => [
 	{
 		done: first,
-		caption: "Episode 2",
+		caption: { episode: 2 },
 		art: remoteAsset("anime.jpg"),
 		startAt: "2026-09-13T14:30:00.000Z",
 	},
 	{
 		done: second,
-		caption: "Episode 3",
+		caption: { episode: 3 },
 		art: remoteAsset("anime.jpg"),
 		startAt: "2026-09-20T14:30:00.000Z",
 	},
@@ -146,22 +146,22 @@ describe("Media calendar sources", () => {
 				{
 					done: true,
 					subject: show.id,
-					caption: "S1 · E1",
 					art: remoteAsset("show.jpg"),
+					caption: { season: 1, episode: 1 },
 					startAt: "2026-09-05T00:00:00.000Z",
 				},
 				{
 					done: false,
 					subject: show.id,
-					caption: "S1 · E2",
 					art: remoteAsset("episode.jpg"),
+					caption: { season: 1, episode: 2 },
 					startAt: "2026-09-12T00:00:00.000Z",
 				},
 				{
 					done: false,
 					subject: show.id,
-					caption: "S0 · E1",
 					art: remoteAsset("show.jpg"),
+					caption: { season: 0, episode: 1 },
 					startAt: "2026-09-20T00:00:00.000Z",
 				},
 			]);
@@ -191,14 +191,14 @@ describe("Media calendar sources", () => {
 				{
 					done: true,
 					subject: podcast.id,
-					caption: "Episode 7",
+					caption: { episode: 7 },
 					art: remoteAsset("pod-ep.jpg"),
 					startAt: "2026-09-03T00:00:00.000Z",
 				},
 				{
 					done: false,
 					subject: podcast.id,
-					caption: "Episode 8",
+					caption: { episode: 8 },
 					art: remoteAsset("podcast.jpg"),
 					startAt: "2026-09-10T00:00:00.000Z",
 				},
@@ -232,7 +232,12 @@ describe("Media calendar sources", () => {
 			const airings = () =>
 				occurrences(client, "anime-airings").pipe(
 					Effect.map((items) =>
-						items.map(({ art, done, caption, startAt }) => ({ art, done, caption, startAt })),
+						items.map(({ art, done, caption, startAt }) => ({
+							art,
+							done,
+							startAt,
+							caption: caption?.params ?? null,
+						})),
 					),
 				);
 			expect(yield* airings()).toEqual(expectedAirings(false, false));
@@ -287,29 +292,18 @@ describe("Media calendar sources", () => {
 				insertLibraryMembership(client, { mediaEntityId: movie.id }),
 				insertLibraryMembership(client, { mediaEntityId: anime.id }),
 			]);
-			const releases = () =>
-				occurrences(client, "releases").pipe(
-					Effect.map((items) =>
-						items.map(({ art, done, caption, startAt, subject }) => ({
-							art,
-							done,
-							caption,
-							startAt,
-							subject: subject.id,
-						})),
-					),
-				);
+			const releases = () => occurrences(client, "releases").pipe(Effect.map(summary));
 			const animeRow = {
 				art: null,
 				done: false,
 				subject: anime.id,
-				caption: "Anime release",
+				caption: { kind: "anime" },
 				startAt: "2026-09-12T00:00:00.000Z",
 			};
 			const movieRow = (done: boolean) => ({
 				done,
 				subject: movie.id,
-				caption: "Movie release",
+				caption: { kind: "movie" },
 				art: remoteAsset("movie.jpg"),
 				startAt: "2026-09-15T00:00:00.000Z",
 			});

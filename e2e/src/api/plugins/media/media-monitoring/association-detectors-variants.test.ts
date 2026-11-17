@@ -95,7 +95,7 @@ describe("company and media-group association variants", () => {
 									name: companyName,
 									externalId: companyExternalId,
 									providerSlug: companyProvider.providerSlug,
-									relationshipProperties: { roles: ["Production Company"] },
+									relationshipProperties: { roles: [], roleCodes: ["production_company"] },
 								},
 							],
 						},
@@ -129,7 +129,7 @@ describe("company and media-group association variants", () => {
 
 			const delivered = yield* pollNotificationBody("company-monitor");
 			expect(requireObjectRecord(delivered[0]?.body, "Missing notification body").body).toBe(
-				`${companyName} has been associated with ${movieName} as Production Company`,
+				`${companyName} has been associated with ${movieName} as a production company`,
 			);
 		}),
 	);

@@ -10,7 +10,6 @@ import {
 	createEntity,
 	createRelationship,
 	executeRyotQL,
-	executeRyotQLRecipe,
 	getEntity,
 	pollUntil,
 	requireRows,
@@ -19,6 +18,7 @@ import type { Client } from "~/fixtures/kernel/auth";
 import {
 	findMediaEntitySchema,
 	logMediaActivity,
+	mediaRecipes,
 	mediaReferenceForEntity,
 	queryInMediaLibraryRelationship,
 	seedShow,
@@ -102,7 +102,7 @@ const customShowTree = Effect.fnUntraced(function* (client: Client) {
 const nextUpOf = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
 		const reference = yield* mediaReferenceForEntity(client, entityId);
-		const context = yield* executeRyotQLRecipe(
+		const context = yield* mediaRecipes.execute(
 			client,
 			mediaActivityLogContextRecipe({ reference }),
 			{ entityId },

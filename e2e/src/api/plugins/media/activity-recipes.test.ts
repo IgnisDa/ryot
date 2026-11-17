@@ -7,7 +7,6 @@ import {
 	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
-	executeRyotQLRecipe,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
@@ -15,7 +14,7 @@ import {
 	requireRelationshipSchemaBySlug,
 	waitForEventProjections,
 } from "~/fixtures/kernel";
-import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, mediaRecipes, seedMediaEntity } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 const WINDOW = {
@@ -98,7 +97,7 @@ describe("Media activity recipe", () => {
 			yield* book.log("complete", "2025-12-31T12:00:00.000Z", { ...COMPLETE, timeSpent: 999 });
 			yield* waitForEventProjections(client);
 
-			const activity = yield* executeRyotQLRecipe(
+			const activity = yield* mediaRecipes.execute(
 				client,
 				mediaActivityRecipe({ kind: "local", pluginId: movie.pluginId }),
 				WINDOW,
@@ -114,10 +113,14 @@ describe("Media activity recipe", () => {
 				{ events: 2, day: "2026-01-09" },
 				{ events: 2, day: "2026-01-12" },
 			]);
+			const typeName = (slug: string) => ({
+				namespace: movie.pluginId,
+				key: `entity-schema.${slug}.name`,
+			});
 			expect(activity.mediaTypes).toEqual([
-				{ events: 2, slug: "movie", label: "Movie" },
-				{ events: 1, slug: "book", label: "Book" },
-				{ events: 1, slug: "show", label: "Show" },
+				{ events: 2, slug: "movie", label: typeName("movie") },
+				{ events: 1, slug: "book", label: typeName("book") },
+				{ events: 1, slug: "show", label: typeName("show") },
 			]);
 		}),
 	);
@@ -132,7 +135,7 @@ describe("Media activity recipe", () => {
 			yield* book.log("complete", "2026-01-12T12:00:00.000Z", { timeSpent: 30, dateUnknown: true });
 			yield* waitForEventProjections(client);
 
-			const activity = yield* executeRyotQLRecipe(
+			const activity = yield* mediaRecipes.execute(
 				client,
 				mediaActivityRecipe({ kind: "local", pluginId: movie.pluginId }),
 				WINDOW,
@@ -145,7 +148,13 @@ describe("Media activity recipe", () => {
 				minutesMissing: 0,
 			});
 			expect(activity.days).toEqual([{ events: 1, day: "2026-01-09" }]);
-			expect(activity.mediaTypes).toEqual([{ events: 1, slug: "movie", label: "Movie" }]);
+			expect(activity.mediaTypes).toEqual([
+				{
+					events: 1,
+					slug: "movie",
+					label: { namespace: movie.pluginId, key: "entity-schema.movie.name" },
+				},
+			]);
 		}),
 	);
 });

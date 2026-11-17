@@ -128,7 +128,7 @@ describe("Webhook routes", () => {
 
 			const { schema } = yield* findMediaEntitySchema(client, "movie");
 			const provider = requirePresent(
-				schema.providers.find((candidate) => candidate.name === "TMDB"),
+				schema.providers.find((candidate) => candidate.providerSlug === "movie.tmdb"),
 				"Expected TMDB movie provider",
 			);
 			const tmdbId = yield* randomNumericExternalId;

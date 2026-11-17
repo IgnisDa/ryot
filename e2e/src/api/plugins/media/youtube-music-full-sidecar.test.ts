@@ -10,6 +10,7 @@ import {
 	requireCompletedSandboxValue,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
@@ -145,29 +146,29 @@ describe("YouTube Music on the full sidecar", () => {
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					scope: "system",
-					providers: [
-						{
-							slug: providerSlug,
-							name: "YouTube Music",
-							information: { source: "e2e" },
-							rootEntitySchemaSlug: schemaSlug,
-						},
-					],
-					entitySchemas: [
-						{
-							icon: "file",
-							name: "Track",
-							slug: schemaSlug,
-							eventSchemas: [],
-							propertiesSchema: { fields: {} },
-						},
-					],
 					httpRateLimits: [
 						{
 							requests: 10,
 							intervalMs: 1_000,
 							origins: [new URL(http.url).origin],
 							key: `e2e.youtube-music.${yield* randomUuid}`,
+						},
+					],
+					providers: [
+						{
+							slug: providerSlug,
+							information: { source: "e2e" },
+							rootEntitySchemaSlug: schemaSlug,
+							name: manifestText("YouTube Music"),
+						},
+					],
+					entitySchemas: [
+						{
+							icon: "file",
+							slug: schemaSlug,
+							eventSchemas: [],
+							name: manifestText("Track"),
+							propertiesSchema: { fields: {} },
 						},
 					],
 					files: {

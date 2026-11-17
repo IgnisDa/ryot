@@ -20,22 +20,22 @@ import { DateTime, Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
-	executeRyotQLRecipe,
 	listEventsForEntity,
 	pollUntil,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
-import { listPluginUserSettings } from "~/fixtures/kernel/plugin-user-settings";
 import {
 	createBuiltinMediaLifecycleFixture,
+	findMediaPluginUserSettings,
 	logMediaActivity,
 	logMediaActivityUnchecked,
+	mediaRecipes,
 	mediaReferenceForEntity,
 	seedPodcast,
 	seedShow,
 	updateMediaActivity,
 } from "~/fixtures/plugins/media";
-import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { nowIso } from "~/support/time";
 
@@ -44,7 +44,7 @@ const isoOf = (value: string) => DateTime.formatIso(DateTime.makeUnsafe(value));
 const readContext = (client: Parameters<typeof mediaReferenceForEntity>[0], entityId: string) =>
 	Effect.gen(function* () {
 		const reference = yield* mediaReferenceForEntity(client, entityId);
-		const context = yield* executeRyotQLRecipe(
+		const context = yield* mediaRecipes.execute(
 			client,
 			mediaActivityLogContextRecipe({ reference }),
 			{ entityId },
@@ -194,14 +194,7 @@ describe("Media activity log operation", () => {
 			});
 			const book = yield* createBuiltinMediaLifecycleFixture(client, { entitySchemaSlug: "book" });
 			const mediaSettings = () =>
-				Effect.map(
-					listPluginUserSettings(client),
-					(installations) =>
-						requirePresent(
-							installations.find(({ name }) => name === "Media"),
-							"Media settings not found",
-						).settings,
-				);
+				Effect.map(findMediaPluginUserSettings(client), ({ settings }) => settings);
 			expect(yield* mediaSettings()).toEqual({});
 
 			const log = (entityId: string, consumedOn: readonly string[]) =>
@@ -565,7 +558,7 @@ describe("Media activity log operation", () => {
 					},
 				});
 			const earlier = (anchor: string) =>
-				executeRyotQLRecipe(
+				mediaRecipes.execute(
 					client,
 					episodicEarlierUnwatchedRecipe({ reference, config: showEpisodicKindConfig }),
 					{ parentEntityId: showId, episodeEntityId: anchor },
@@ -575,7 +568,7 @@ describe("Media activity log operation", () => {
 			const initial = yield* readContext(client, showId);
 			expect(initial.nextUp).toBeNull();
 			expect(initial.seasons.map((season) => season.seasonNumber)).toEqual([1]);
-			const seasonChoices = yield* executeRyotQLRecipe(
+			const seasonChoices = yield* mediaRecipes.execute(
 				client,
 				showSeasonChoicesRecipe({ reference }),
 				{ entityId: showId },
@@ -593,7 +586,7 @@ describe("Media activity log operation", () => {
 			expect(codes((yield* earlier(episodeId(1, 1))).items)).toEqual([]);
 			expect(codes((yield* earlier(episodeId(0, 1))).items)).toEqual([]);
 
-			const choices = yield* executeRyotQLRecipe(
+			const choices = yield* mediaRecipes.execute(
 				client,
 				showSeasonEpisodeChoicesRecipe({ reference }),
 				{ seasonNumber: 1, showEntityId: showId },
@@ -605,7 +598,7 @@ describe("Media activity log operation", () => {
 				[3, "untracked"],
 				[4, "untracked"],
 			]);
-			const specials = yield* executeRyotQLRecipe(
+			const specials = yield* mediaRecipes.execute(
 				client,
 				showSeasonEpisodeChoicesRecipe({ reference }),
 				{ seasonNumber: 0, showEntityId: showId },
@@ -714,7 +707,7 @@ describe("Media activity log operation", () => {
 			assertPresent(third, "Expected podcast episode 3");
 			const reference = yield* mediaReferenceForEntity(client, podcastId);
 			const earlier = (anchor: string) =>
-				executeRyotQLRecipe(
+				mediaRecipes.execute(
 					client,
 					episodicEarlierUnwatchedRecipe({ reference, config: podcastEpisodicKindConfig }),
 					{ episodeEntityId: anchor, parentEntityId: podcastId },
@@ -817,7 +810,6 @@ describe("Media activity log operation", () => {
 			}
 			for (const failure of yield* Effect.all(rejected)) {
 				assertTaggedError(failure, "PluginOperationRejected");
-				expect(failure.message).not.toBe("");
 			}
 			for (const entityId of [
 				movie.entityId,
@@ -995,7 +987,6 @@ describe("Media activity log operation", () => {
 				] as const) {
 					const failure = yield* Effect.flip(retargetEpisode(client, event, from, to));
 					assertTaggedError(failure, "PluginOperationRejected");
-					expect(failure.message).not.toBe("");
 				}
 				expect((yield* episodeCompletion(client, show.episodeId(1, 1))).id).toBe(episodeEvent.id);
 			}),

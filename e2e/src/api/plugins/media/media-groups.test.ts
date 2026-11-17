@@ -140,7 +140,10 @@ describe("media group saved views", () => {
 
 			const movieGroupView = views.find((v) => v.slug === "all-movie-series");
 			expect(movieGroupView?.isBuiltin).toBe(true);
-			expect(movieGroupView?.name).toBe("All Movie Series");
+			expect(movieGroupView?.name).toEqual({
+				namespace: pluginId,
+				key: "saved-view.all-movie-series.name",
+			});
 		}),
 	);
 });

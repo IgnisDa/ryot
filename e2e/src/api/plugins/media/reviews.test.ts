@@ -15,13 +15,13 @@ import { Effect, Schema } from "effect";
 import {
 	createAuthenticatedClient,
 	createEventFixture,
-	executeRyotQLRecipe,
 	listEventsForEntity,
 } from "~/fixtures/kernel";
 import { invokeEncodedOperation, invokeOperation } from "~/fixtures/kernel/operations";
 import {
 	createBuiltinMediaLifecycleFixture,
 	logMediaActivity,
+	mediaRecipes,
 	mediaReferenceForEntity,
 } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
@@ -224,7 +224,7 @@ describe("Media rating-only reviews", () => {
 				),
 			).toEqual([{ count: 1 }, { count: 1 }]);
 			const reference = yield* mediaReferenceForEntity(client, entityId);
-			const activity = yield* executeRyotQLRecipe(
+			const activity = yield* mediaRecipes.execute(
 				client,
 				movieRecipes.activityRecipe({ reference }),
 				{ entityId },

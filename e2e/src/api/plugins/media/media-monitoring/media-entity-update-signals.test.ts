@@ -239,7 +239,7 @@ describe("hierarchical media entity-update signals", () => {
 					[
 						`Episode image changed for S1E1 in ${showName}`,
 						`Episode name changed from "Episode 1" to "Episode 1 Renamed" (S1E1) for ${showName}`,
-						`Episode release date changed from 2026-01-01 to 2026-02-01 (S1E1) for ${showName}`,
+						`Episode release date changed from Jan 1, 2026 to Feb 1, 2026 (S1E1) for ${showName}`,
 					].sort((left, right) => left.localeCompare(right)),
 				);
 			}),

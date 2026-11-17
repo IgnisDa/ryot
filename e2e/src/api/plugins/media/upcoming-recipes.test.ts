@@ -5,7 +5,6 @@ import {
 	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
-	executeRyotQLRecipe,
 	listEventSchemas,
 	requireEventSchemaBySlug,
 } from "~/fixtures/kernel";
@@ -13,6 +12,7 @@ import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
 	insertMediaMonitoring,
+	mediaRecipes,
 	seedMediaEntity,
 	seedPodcast,
 	seedShow,
@@ -94,7 +94,7 @@ const seedFlat = (
 	});
 
 const upcoming = (client: Client, schemas: Schemas, onePerTitle = true) =>
-	executeRyotQLRecipe(
+	mediaRecipes.execute(
 		client,
 		upcomingRecipe({ reference: { kind: "local", pluginId: schemas.pluginId } }),
 		{ onePerTitle, daysAhead: 14 },

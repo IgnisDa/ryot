@@ -10,7 +10,6 @@ import {
 	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
-	executeRyotQLRecipe,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
@@ -21,6 +20,7 @@ import { createCollection } from "~/fixtures/kernel/collections";
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
+	mediaRecipes,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
@@ -54,11 +54,11 @@ describe("Latest completion suggestions", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findMediaEntitySchema(client, "book");
 			const reference: MediaReference = { pluginId, kind: "local" };
-			const result = yield* executeRyotQLRecipe(
+			const result = yield* mediaRecipes.execute(
 				client,
 				latestCompletionSuggestionsRecipe({ reference }),
 				{},
-				{ pages: { source: { limit: 20 } } },
+				{ pages: { items: { limit: 20 } } },
 			);
 			expect(result).toEqual({ items: [], source: null });
 		}),
@@ -120,11 +120,11 @@ describe("Latest completion suggestions", () => {
 				});
 			}
 
-			const result = yield* executeRyotQLRecipe(
+			const result = yield* mediaRecipes.execute(
 				client,
 				latestCompletionSuggestionsRecipe({ reference }),
 				{},
-				{ pages: { source: { limit: 20 } } },
+				{ pages: { items: { limit: 20 } } },
 			);
 			expect(result.source?.id).toBe(older.id);
 			expect(result.items.map((item) => item.id)).toEqual([fresh.id, unknownRating.id]);
@@ -179,7 +179,7 @@ describe("Trending latest media", () => {
 				),
 			);
 
-			const result = yield* executeRyotQLRecipe(
+			const result = yield* mediaRecipes.execute(
 				client,
 				trendingLatestMediaRecipe({ reference: { pluginId, kind: "local" } }),
 				{ entitySchemaSlugs: ["movie", "show"] },
@@ -245,14 +245,14 @@ describe("Collection recommendations", () => {
 				readonly after?: string | undefined;
 				readonly searchText?: string | undefined;
 			}) =>
-				executeRyotQLRecipe(
+				mediaRecipes.execute(
 					client,
 					collectionRecommendationsRecipe({ reference }),
 					{ collectionId: collection.id, searchText: input.searchText },
 					{ pages: { recommendations: { after: input.after, limit: input.limit } } },
 				);
 
-			const sources = yield* executeRyotQLRecipe(
+			const sources = yield* mediaRecipes.execute(
 				client,
 				collectionRecommendationSourcesRecipe({ reference }),
 				{ collectionId: collection.id },
@@ -286,7 +286,7 @@ describe("Collection recommendations", () => {
 			]);
 			const { pluginId } = yield* findMediaEntitySchema(other, "book");
 			const collection = yield* createCollection(owner);
-			const sources = yield* executeRyotQLRecipe(
+			const sources = yield* mediaRecipes.execute(
 				other,
 				collectionRecommendationSourcesRecipe({ reference: { pluginId, kind: "local" } }),
 				{ collectionId: collection.id },

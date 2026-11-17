@@ -20,7 +20,6 @@ import {
 	createAuthenticatedClient,
 	createCollection,
 	createEventFixture,
-	executeRyotQLRecipe,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
@@ -34,6 +33,7 @@ import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
 	insertMediaMonitoring,
+	mediaRecipes,
 	seedMediaEntity,
 	seedPodcast,
 	seedShow,
@@ -314,7 +314,7 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: completeEventSchema.id,
 			});
 
-			const showRow = yield* executeRyotQLRecipe(
+			const showRow = yield* mediaRecipes.execute(
 				client,
 				showSeasonsRecipe({ reference }),
 				{ entityId: show.id },
@@ -328,13 +328,13 @@ describe("Media RyotQL query recipe results", () => {
 			const secondSeasonResult = seasons.items[1];
 			assertPresent(firstSeasonResult, "Expected first season");
 			assertPresent(secondSeasonResult, "Expected second season");
-			const firstSeason = yield* executeRyotQLRecipe(
+			const firstSeason = yield* mediaRecipes.execute(
 				client,
 				showSeasonEpisodesRecipe({ reference }),
 				{ containerId: firstSeasonResult.id },
 				{ pages: { episodes: { limit: 1 } } },
 			);
-			const secondSeason = yield* executeRyotQLRecipe(
+			const secondSeason = yield* mediaRecipes.execute(
 				client,
 				showSeasonEpisodesRecipe({ reference }),
 				{ containerId: secondSeasonResult.id },
@@ -418,9 +418,11 @@ describe("Media RyotQL query recipe results", () => {
 				}),
 			);
 
-			const summary = yield* executeRyotQLRecipe(client, showRecipes.summaryRecipe({ reference }), {
-				entityId: show.id,
-			});
+			const summary = yield* mediaRecipes.execute(
+				client,
+				showRecipes.summaryRecipe({ reference }),
+				{ entityId: show.id },
+			);
 			const summaryRow = summary.summary;
 			assertPresent(summaryRow, "Expected show summary row");
 
@@ -538,13 +540,13 @@ describe("Media RyotQL query recipe results", () => {
 					targetEntityId: show.id,
 					sourceEntityId: writer.id,
 					relationshipSchema: personToShow.reference,
-					properties: { order: 2, roles: ["Writer", "Creator"] },
+					properties: { order: 2, roles: ["Writer"], roleCodes: ["creator"] },
 				}),
 				insertGlobalRelationship({
 					targetEntityId: show.id,
 					sourceEntityId: studio.id,
 					relationshipSchema: companyToShow.reference,
-					properties: { order: 1, roles: ["Production Company"] },
+					properties: { order: 1, roles: [], roleCodes: ["production_company"] },
 				}),
 				insertGlobalRelationship({
 					targetEntityId: show.id,
@@ -578,7 +580,7 @@ describe("Media RyotQL query recipe results", () => {
 			]);
 
 			const overviewRecipe = showRecipes.overviewRecipe({ reference });
-			const overview = yield* executeRyotQLRecipe(client, overviewRecipe, { entityId: show.id });
+			const overview = yield* mediaRecipes.execute(client, overviewRecipe, { entityId: show.id });
 
 			expect(overview.people.items.map((person) => person.name)).toEqual([lead.name, writer.name]);
 			const leadCredit = overview.people.items[0];
@@ -594,14 +596,16 @@ describe("Media RyotQL query recipe results", () => {
 			assertPresent(writerCredit, "Expected the writer credit");
 			expect(writerCredit.character).toBeNull();
 			expect(writerCredit.isInMediaLibrary).toBe(false);
-			expect(writerCredit.roles).toEqual(["Writer", "Creator"]);
+			expect(writerCredit.roles).toEqual(["Writer"]);
+			expect(writerCredit.roleCodes).toEqual(["creator"]);
 			expect(overview.companies.items.map((company) => company.name)).toEqual([
 				studio.name,
 				network.name,
 			]);
 			const studioCredit = overview.companies.items[0];
 			assertPresent(studioCredit, "Expected the studio credit");
-			expect(studioCredit.roles).toEqual(["Production Company"]);
+			expect(studioCredit.roles).toEqual([]);
+			expect(studioCredit.roleCodes).toEqual(["production_company"]);
 			expect(overview.companies.items.map((item) => item.isInMediaLibrary)).toEqual([true, false]);
 			expect(studioCredit.images).toEqual([
 				{ type: "remote", purpose: "logo", url: "https://images.test/studio-logo.png" },
@@ -622,7 +626,7 @@ describe("Media RyotQL query recipe results", () => {
 				true,
 				false,
 			]);
-			const otherOverview = yield* executeRyotQLRecipe(otherClient, overviewRecipe, {
+			const otherOverview = yield* mediaRecipes.execute(otherClient, overviewRecipe, {
 				entityId: show.id,
 			});
 			expect(otherOverview.people.items.map((item) => item.isInMediaLibrary)).toEqual([
@@ -666,7 +670,7 @@ describe("Media RyotQL query recipe results", () => {
 				},
 			});
 
-			const overview = yield* executeRyotQLRecipe(
+			const overview = yield* mediaRecipes.execute(
 				client,
 				showRecipes.overviewRecipe({ reference }),
 				{ entityId: show.id },
@@ -756,11 +760,10 @@ describe("Media RyotQL query recipe results", () => {
 				}),
 			]);
 
-			const overview = yield* executeRyotQLRecipe(
+			const overview = yield* mediaRecipes.execute(
 				client,
 				personRecipes.overviewRecipe({ reference }),
 				{ entityId: person.id },
-				{ pages: { credits: { limit: 12 } } },
 			);
 
 			expect(overview.movie.items.map((item) => item.id)).toEqual([
@@ -788,9 +791,11 @@ describe("Media RyotQL query recipe results", () => {
 			});
 			const reference: MediaReference = { kind: "local", pluginId: book.pluginId };
 
-			const summary = yield* executeRyotQLRecipe(client, showRecipes.summaryRecipe({ reference }), {
-				entityId: book.entity.id,
-			});
+			const summary = yield* mediaRecipes.execute(
+				client,
+				showRecipes.summaryRecipe({ reference }),
+				{ entityId: book.entity.id },
+			);
 
 			expect(summary.summary).toBeNull();
 			expect(summary.entitySchemaSlug).toBe(EntitySchemaSlug.make("book"));
@@ -803,9 +808,11 @@ describe("Media RyotQL query recipe results", () => {
 			const { pluginId } = yield* findMediaEntitySchema(client, "show");
 			const reference: MediaReference = { pluginId, kind: "local" };
 
-			const summary = yield* executeRyotQLRecipe(client, showRecipes.summaryRecipe({ reference }), {
-				entityId: `missing-${yield* randomUuid}`,
-			});
+			const summary = yield* mediaRecipes.execute(
+				client,
+				showRecipes.summaryRecipe({ reference }),
+				{ entityId: `missing-${yield* randomUuid}` },
+			);
 
 			expect(summary.summary).toBeNull();
 			expect(summary.entitySchemaSlug).toBeNull();
@@ -831,7 +838,7 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
 
-			const episodes = yield* executeRyotQLRecipe(
+			const episodes = yield* mediaRecipes.execute(
 				client,
 				podcastEpisodesRecipe({ reference: seeded.reference }),
 				{ containerId: seeded.podcast.id },
@@ -842,7 +849,7 @@ describe("Media RyotQL query recipe results", () => {
 				[2, "complete"],
 			]);
 			expect(episodes.pageInfo.hasMore).toBe(true);
-			const summary = yield* executeRyotQLRecipe(
+			const summary = yield* mediaRecipes.execute(
 				client,
 				podcastRecipes.summaryRecipe({ reference: seeded.reference }),
 				{ entityId: seeded.podcast.id },
@@ -879,7 +886,7 @@ describe("Media RyotQL query recipe results", () => {
 					yield* waitForLibrarySummary(client, seeded.podcast.id);
 					const responses = yield* Effect.all(
 						lifecycleStates.map((state) =>
-							executeRyotQLRecipe(
+							mediaRecipes.execute(
 								client,
 								episodicByLifecycleStateRecipe({
 									reference: seeded.reference,
@@ -986,12 +993,14 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* pollUntil(
 				"show activity canonical consumption ready",
-				executeRyotQLRecipe(
-					client,
-					showRecipes.activityRecipe({ reference: seeded.reference }),
-					{ entityId: seeded.show.id },
-					{ pages: ACTIVITY_PAGES },
-				).pipe(Effect.map((result) => (result.consumptionProcessing === "ready" ? result : null))),
+				mediaRecipes
+					.execute(
+						client,
+						showRecipes.activityRecipe({ reference: seeded.reference }),
+						{ entityId: seeded.show.id },
+						{ pages: ACTIVITY_PAGES },
+					)
+					.pipe(Effect.map((result) => (result.consumptionProcessing === "ready" ? result : null))),
 			);
 			const identity = activity.events.map((event) => ({
 				kind: event.kind,
@@ -1107,7 +1116,7 @@ describe("Media RyotQL query recipe results", () => {
 			}
 
 			yield* waitForEventProjections(client);
-			const activity = yield* executeRyotQLRecipe(
+			const activity = yield* mediaRecipes.execute(
 				client,
 				showRecipes.activityRecipe({ reference: seeded.reference }),
 				{ entityId: seeded.show.id },
@@ -1142,7 +1151,7 @@ describe("Media RyotQL query recipe results", () => {
 			});
 
 			yield* waitForEventProjections(client);
-			const activity = yield* executeRyotQLRecipe(
+			const activity = yield* mediaRecipes.execute(
 				client,
 				showRecipes.activityRecipe({ reference: seeded.reference }),
 				{ entityId: seeded.show.id },
@@ -1180,7 +1189,7 @@ describe("Media RyotQL query recipe results", () => {
 			});
 
 			yield* waitForEventProjections(client);
-			const activity = yield* executeRyotQLRecipe(
+			const activity = yield* mediaRecipes.execute(
 				client,
 				showRecipes.activityRecipe({ reference: seeded.reference }),
 				{ entityId: seeded.show.id },
@@ -1211,7 +1220,7 @@ describe("Media RyotQL query recipe results", () => {
 			}
 
 			yield* waitForEventProjections(client);
-			const activity = yield* executeRyotQLRecipe(
+			const activity = yield* mediaRecipes.execute(
 				client,
 				showRecipes.activityRecipe({ reference: seeded.reference }),
 				{ entityId: seeded.show.id },

@@ -13,11 +13,12 @@ import { getEntity } from "~/fixtures/kernel/entities";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import {
 	executeRyotQL,
-	executeRyotQLRecipe,
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
 } from "~/fixtures/kernel/ryotql";
+
+import { mediaRecipes } from "./entity-schemas";
 
 /** Waits until the entity's stored library summary is current and equals live computation. */
 export const waitForLibrarySummary = (client: Client, entityId: string) =>
@@ -28,7 +29,7 @@ export const waitForLibrarySummary = (client: Client, entityId: string) =>
 		return yield* pollUntil(
 			`library summary for ${entityId}`,
 			Effect.gen(function* () {
-				const [live] = yield* executeRyotQLRecipe(client, librarySummarySourceRecipe({ kind }), {
+				const [live] = yield* mediaRecipes.execute(client, librarySummarySourceRecipe({ kind }), {
 					entityIds: [entityId],
 				});
 				const result = yield* executeRyotQL(client, {

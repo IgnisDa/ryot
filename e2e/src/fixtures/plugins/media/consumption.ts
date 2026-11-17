@@ -7,8 +7,9 @@ import { Effect, Schema } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { pollUntil } from "~/fixtures/kernel/polling";
-import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { requirePresent } from "~/support/assertions";
+
+import { mediaRecipes } from "./entity-schemas";
 
 export type MediaConsumptionReportInput = { readonly entityId?: string } & Omit<
 	Parameters<typeof mediaAnalyticsSummaryRecipe>[0],
@@ -27,11 +28,13 @@ type MediaConsumptionReport = Recipe.Success<ReturnType<typeof mediaAnalyticsSum
 export const waitForMediaConsumptionReport = (client: Client, input: MediaConsumptionReportInput) =>
 	pollUntil(
 		"canonical media consumption report ready",
-		executeRyotQLRecipe(
-			client,
-			mediaAnalyticsSummaryRecipe({ reference: input.reference }),
-			mediaAnalyticsInput(input),
-		).pipe(Effect.map((report) => (report.processing === "ready" ? report : null))),
+		mediaRecipes
+			.execute(
+				client,
+				mediaAnalyticsSummaryRecipe({ reference: input.reference }),
+				mediaAnalyticsInput(input),
+			)
+			.pipe(Effect.map((report) => (report.processing === "ready" ? report : null))),
 	);
 
 export const requireMediaConsumptionGroup = (report: MediaConsumptionReport, mediaType: string) =>

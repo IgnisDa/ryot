@@ -4,20 +4,12 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	executeRyotQLRecipe,
 	insertGlobalRelationship,
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel";
-import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, mediaRecipes, seedMediaEntity } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
-
-const OVERVIEW_INPUT = {
-	groupLimit: 20,
-	peopleLimit: 12,
-	companyLimit: 6,
-	recommendationLimit: 12,
-};
 
 const DLC_COUNT = 70;
 
@@ -73,15 +65,15 @@ describe("Video game relationships", () => {
 				{ concurrency: 10 },
 			);
 
-			const parentOverview = yield* executeRyotQLRecipe(
+			const parentOverview = yield* mediaRecipes.execute(
 				client,
 				videoGameRecipes.overviewRecipe({ reference }),
-				{ ...OVERVIEW_INPUT, entityId: parent.id },
+				{ entityId: parent.id },
 			);
-			const childOverview = yield* executeRyotQLRecipe(
+			const childOverview = yield* mediaRecipes.execute(
 				client,
 				videoGameRecipes.overviewRecipe({ reference }),
-				{ ...OVERVIEW_INPUT, entityId: port.id },
+				{ entityId: port.id },
 			);
 
 			expect(parentOverview.derivatives.items).toHaveLength(60);

@@ -10,7 +10,7 @@ import {
 	pollEntityUntilTranslationAvailability,
 	pollProviderEntityImportResult,
 	searchProviderEntities,
-	setUserLanguage,
+	setUserContentLanguage,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema, seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
 import { assertCompleted, assertCondition, assertPresent } from "~/support/assertions";
@@ -20,11 +20,11 @@ const RUN_LIVE =
 	process.env.RUN_LIVE_PROVIDER_TESTS === "1" || process.env.RUN_LIVE_PROVIDER_TESTS === "true";
 
 function schemaProvider(
-	schema: { providers: ReadonlyArray<{ name: string; providerId: SandboxProviderId }> },
-	providerName: string,
+	schema: { providers: ReadonlyArray<{ providerSlug: string; providerId: SandboxProviderId }> },
+	providerSlug: string,
 ) {
-	const provider = schema.providers.find((candidate) => candidate.name === providerName);
-	assertPresent(provider, `Expected a '${providerName}' provider on the builtin schema`);
+	const provider = schema.providers.find((candidate) => candidate.providerSlug === providerSlug);
+	assertPresent(provider, `Expected a '${providerSlug}' provider on the builtin schema`);
 	return provider;
 }
 
@@ -33,7 +33,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findMediaEntitySchema(client, "book");
-			const provider = schemaProvider(schema, "OpenLibrary");
+			const provider = schemaProvider(schema, "book.openlibrary");
 			const search = yield* searchProviderEntities(client, {
 				page: 1,
 				pageSize: 5,
@@ -62,7 +62,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
 			const { schema } = yield* findMediaEntitySchema(client, "movie");
-			const provider = schemaProvider(schema, "TMDB");
+			const provider = schemaProvider(schema, "movie.tmdb");
 
 			const movie = yield* seedPopulatedProviderEntity({
 				externalId: "550",
@@ -72,7 +72,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				properties: { description: "Canonical overview of Fight Club." },
 			});
 
-			yield* setUserLanguage(client, "es");
+			yield* setUserContentLanguage(client, "es");
 			const beforeInterest = yield* getEntity(client, movie.id);
 			expect(beforeInterest.translationStatus.availability).toBe("missing");
 
