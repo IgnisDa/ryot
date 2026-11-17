@@ -2,6 +2,7 @@ import type {
 	AuthoredBrowseField,
 	AuthoredEntitySchemaBrowse,
 } from "@ryot-app/contract/modules/filters/browse";
+import type { ManifestText } from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { TableReference } from "@ryot-app/contract/modules/ryotql/authored";
 import {
 	EntitySchemaSlug,
@@ -19,11 +20,22 @@ import {
 	maximum,
 	table,
 } from "@ryot-app/ryotql";
-import { propertyFilterFields } from "@ryot-app/ryotql-recipes/property-filter-fields";
-import { Result } from "effect";
+import { Array as Arr } from "effect";
 
+import {
+	exerciseForces,
+	exerciseKinds,
+	exerciseLevels,
+	exerciseMechanics,
+} from "../shared/exercise-kinds";
+import {
+	exerciseForceLabels,
+	exerciseKindLabels,
+	exerciseLevelLabels,
+	exerciseMechanicLabels,
+} from "../shared/exercise-labels";
+import { catalogMessage } from "../shared/messages.generated";
 import { startedAt, workoutTotals } from "../shared/workout-list-recipes";
-import { exercisePropertiesSchema } from "./schemas/property";
 
 const subject = table("entity", "subject");
 
@@ -44,29 +56,43 @@ export const timesPerformed = (entity: TableReference) => {
 	return countDistinct(workoutSet, column(workoutSet, "sessionEntityId"), { where });
 };
 
-const exerciseProperties = ["kind", "level", "force", "mechanic"] as const;
+const exercisePropertyField = <Value extends string>(
+	key: string,
+	label: ManifestText,
+	values: Arr.NonEmptyReadonlyArray<Value>,
+	labels: Readonly<Record<Value, ManifestText>>,
+): AuthoredBrowseField => ({
+	key,
+	label,
+	type: "enum",
+	kind: "value",
+	expression: castText(jsonPath(column(subject, "properties"), key)),
+	choices: Arr.map(values, (value) => ({ value, label: labels[value] })),
+});
 
-const exercisePropertyFields = (): readonly AuthoredBrowseField[] =>
-	Result.getOrThrow(
-		propertyFilterFields(
-			exercisePropertiesSchema,
-			exerciseProperties.map((property) => ({ property, field: property })),
-		),
-	).map((filterField) => {
-		if (!("choices" in filterField)) {
-			throw new Error(`Exercise property '${filterField.key}' must declare choices`);
-		}
-		return {
-			kind: "value",
-			key: filterField.key,
-			type: filterField.type,
-			label: filterField.label,
-			choices: filterField.choices,
-			expression: castText(jsonPath(column(subject, "properties"), filterField.key)),
-		};
-	});
+const exercisePropertyFields = (): readonly AuthoredBrowseField[] => [
+	exercisePropertyField("kind", catalogMessage("property.kind"), exerciseKinds, exerciseKindLabels),
+	exercisePropertyField(
+		"level",
+		catalogMessage("property.level"),
+		exerciseLevels,
+		exerciseLevelLabels,
+	),
+	exercisePropertyField(
+		"force",
+		catalogMessage("property.force"),
+		exerciseForces,
+		exerciseForceLabels,
+	),
+	exercisePropertyField(
+		"mechanic",
+		catalogMessage("property.mechanic"),
+		exerciseMechanics,
+		exerciseMechanicLabels,
+	),
+];
 
-const exerciseRelationshipField = (key: string, label: string, slug: string) =>
+const exerciseRelationshipField = (key: string, label: ManifestText, slug: string) =>
 	({
 		key,
 		label,
@@ -80,32 +106,40 @@ const exerciseBrowse = (): AuthoredEntitySchemaBrowse => {
 	return {
 		fields: [
 			...exercisePropertyFields(),
-			exerciseRelationshipField("muscles", "Muscles", "exercise-targets"),
-			exerciseRelationshipField("equipment", "Equipment", "exercise-uses-equipment"),
+			exerciseRelationshipField(
+				"muscles",
+				catalogMessage("browse.field.muscles"),
+				"exercise-targets",
+			),
+			exerciseRelationshipField(
+				"equipment",
+				catalogMessage("browse.field.equipment"),
+				"exercise-uses-equipment",
+			),
 			{
 				type: "date",
 				kind: "value",
 				key: "lastPerformed",
-				label: "Last performed",
+				label: catalogMessage("browse.field.last-performed"),
 				expression: maximum(workoutSet, column(workoutSet, "occurredAt"), { where }),
 				sort: {
-					label: "Last performed",
 					defaultDirection: "desc",
-					ascending: "Oldest first",
-					descending: "Newest first",
+					label: catalogMessage("browse.field.last-performed"),
+					ascending: catalogMessage("browse.sort.oldest-first"),
+					descending: catalogMessage("browse.sort.newest-first"),
 				},
 			},
 			{
 				kind: "value",
 				type: "number",
 				key: "timesPerformed",
-				label: "Times performed",
 				expression: timesPerformed(subject),
+				label: catalogMessage("browse.field.times-performed"),
 				sort: {
-					label: "Times performed",
 					defaultDirection: "desc",
-					descending: "Most first",
-					ascending: "Fewest first",
+					descending: catalogMessage("browse.sort.most-first"),
+					label: catalogMessage("browse.field.times-performed"),
+					ascending: catalogMessage("browse.sort.fewest-first"),
 				},
 			},
 		],
@@ -118,13 +152,13 @@ const workoutTemplateBrowse = (): AuthoredEntitySchemaBrowse => ({
 			type: "date",
 			kind: "value",
 			key: "created",
-			label: "Created",
 			expression: column(subject, "createdAt"),
+			label: catalogMessage("browse.field.created"),
 			sort: {
-				label: "Created",
 				defaultDirection: "desc",
-				ascending: "Oldest first",
-				descending: "Newest first",
+				label: catalogMessage("browse.field.created"),
+				ascending: catalogMessage("browse.sort.oldest-first"),
+				descending: catalogMessage("browse.sort.newest-first"),
 			},
 		},
 	],
@@ -137,35 +171,35 @@ const workoutBrowse = (): AuthoredEntitySchemaBrowse => {
 				type: "date",
 				kind: "value",
 				key: "startedAt",
-				label: "Started",
 				expression: startedAt(subject),
+				label: catalogMessage("browse.field.started"),
 			},
 			{
 				kind: "value",
 				type: "number",
 				key: "exerciseCount",
-				label: "Exercise count",
 				expression: totals.exerciseCount,
+				label: catalogMessage("browse.field.exercise-count"),
 			},
 			{
 				kind: "value",
-				label: "Sets",
 				type: "number",
 				key: "setCount",
 				expression: totals.setCount,
+				label: catalogMessage("property.sets"),
 			},
 			{
 				kind: "value",
 				type: "number",
 				key: "personalBests",
-				label: "Personal records",
 				expression: totals.personalBests,
+				label: catalogMessage("property.personal-bests"),
 			},
 			{
 				key: "template",
-				label: "Template",
 				kind: "relationship",
 				direction: "outgoing",
+				label: catalogMessage("browse.field.template"),
 				relationship: {
 					owner: { kind: "self" },
 					slug: RelationshipSchemaSlug.make("workout-to-workout-template"),
@@ -173,8 +207,8 @@ const workoutBrowse = (): AuthoredEntitySchemaBrowse => {
 			},
 			{
 				key: "exercises",
-				label: "Exercises",
 				kind: "session-event",
+				label: catalogMessage("property.exercises"),
 				event: {
 					owner: { kind: "self" },
 					slug: EventSchemaSlug.make("workout-set"),

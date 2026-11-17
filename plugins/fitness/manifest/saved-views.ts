@@ -1,3 +1,4 @@
+import type { ManifestText } from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { OrderBy } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	AuthoredEntityBrowserAddAction,
@@ -21,6 +22,7 @@ import { filter, parameters, sort } from "@ryot-app/ryotql/authoring";
 import { Array as Arr } from "effect";
 
 import { fitnessLibraryLinkExists, fitnessLibraryMembership } from "../shared/library-recipes";
+import { catalogMessage } from "../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { timesPerformed } from "./browse";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -46,25 +48,25 @@ export const fitnessSavedViews = () => {
 	};
 	const entity = table("entity", "entity");
 	const inputs: ReadonlyArray<{
-		readonly name: string;
 		readonly slug: string;
 		readonly sortOrder: number;
+		readonly name: ManifestText;
 		readonly orderBy?: undefined | readonly OrderBy[];
 		readonly entitySchemaSlug: "exercise" | "workout-template";
 	}> = [
 		{
 			sortOrder: 0,
-			name: "All Exercises",
 			slug: "all-exercises",
 			entitySchemaSlug: "exercise",
+			name: catalogMessage("saved-view.all-exercises.name"),
 			orderBy: [descending(timesPerformed(entity)), ascending(column(entity, "name"))],
 		},
 		{
 			sortOrder: 3,
 			slug: "all-workout-templates",
-			name: "All Workout Templates",
 			entitySchemaSlug: "workout-template",
 			orderBy: [descending(column(entity, "createdAt"))],
+			name: catalogMessage("saved-view.all-workout-templates.name"),
 		},
 	];
 	const entityBrowserViews = inputs.map((input) => {
@@ -88,9 +90,9 @@ export const fitnessSavedViews = () => {
 			fields: {
 				search: {
 					type: "string",
-					label: "Search",
 					defaultValue: "",
 					description: "Search library entries",
+					label: catalogMessage("query-parameter.search"),
 				},
 			},
 		});
@@ -165,9 +167,9 @@ export const fitnessSavedViews = () => {
 		};
 	});
 	const pageView = (input: {
-		readonly name: string;
 		readonly slug: string;
 		readonly sortOrder: number;
+		readonly name: ManifestText;
 		readonly exportName: string;
 		readonly entitySchemaSlug: "workout" | "measurement-metric";
 	}) => ({
@@ -183,17 +185,17 @@ export const fitnessSavedViews = () => {
 		...entityBrowserViews,
 		pageView({
 			sortOrder: 1,
-			name: "All Workouts",
 			slug: "all-workouts",
 			exportName: "workouts",
 			entitySchemaSlug: "workout",
+			name: catalogMessage("saved-view.all-workouts.name"),
 		}),
 		pageView({
 			sortOrder: 2,
-			name: "All Measurements",
 			slug: "all-measurements",
 			exportName: "measurements",
 			entitySchemaSlug: "measurement-metric",
+			name: catalogMessage("saved-view.all-measurements.name"),
 		}),
 	].sort((left, right) => left.sortOrder - right.sortOrder);
 };

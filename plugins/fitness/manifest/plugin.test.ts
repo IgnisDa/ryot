@@ -15,6 +15,7 @@ import { manifest as hevyManifest } from "../backend/imports/hevy.sandbox";
 import { manifest as openScaleManifest } from "../backend/imports/open-scale.sandbox";
 import { manifest as settingsManifest } from "../backend/imports/settings.sandbox";
 import { manifest as strongAppManifest } from "../backend/imports/strong-app.sandbox";
+import { catalogMessage } from "../shared/messages.generated";
 import { fitnessClientRoutes } from "../shared/workout-editor-routes";
 import { FitnessCreateImportRunBody } from "./import-sources";
 import { fitnessPlugin } from "./plugin";
@@ -22,21 +23,24 @@ import { fitnessPlugin } from "./plugin";
 const expectedImportSources = [
 	{
 		slug: "hevy",
-		label: "Hevy export",
+		label: catalogMessage("property.hevy-export"),
+		hint: catalogMessage("property.hevy-export-hint"),
 		docsUrl: "https://docs.ryot.io/importing/hevy.html",
-		description: "Import workouts from a Hevy CSV export",
+		description: catalogMessage("import-source.hevy.description"),
 	},
 	{
 		slug: "strong_app",
-		label: "Strong App export",
-		description: "Import workouts from a Strong CSV export",
+		label: catalogMessage("property.strong-app-export"),
+		hint: catalogMessage("property.strong-app-export-hint"),
 		docsUrl: "https://docs.ryot.io/importing/strong-app.html",
+		description: catalogMessage("import-source.strong-app.description"),
 	},
 	{
 		slug: "open_scale",
-		label: "OpenScale export",
+		label: catalogMessage("property.openscale-export"),
+		hint: catalogMessage("property.openscale-export-hint"),
 		docsUrl: "https://docs.ryot.io/importing/open-scale.html",
-		description: "Import measurements from an OpenScale CSV export",
+		description: catalogMessage("import-source.open-scale.description"),
 	},
 ] as const;
 
@@ -114,19 +118,19 @@ it.effect(
 				homeView: null,
 				routes: fitnessClientRoutes,
 				apiVersion: CLIENT_API_VERSION,
-				assistantStarters: [
-					"Summarize my workouts this week",
-					"How has my strongest lift progressed this year?",
-					"Log today's bodyweight",
-				],
 				analyticsSections: {
 					fitness: {
 						sortOrder: 20,
-						name: "Fitness",
 						icon: "dumbbell",
 						exportName: "fitness-analytics",
+						name: catalogMessage("analytics-section.fitness.name"),
 					},
 				},
+				assistantStarters: [
+					catalogMessage("assistant-starter.summarize-workouts"),
+					catalogMessage("assistant-starter.strongest-lift-progress"),
+					catalogMessage("assistant-starter.log-bodyweight"),
+				],
 				entities: {
 					"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 					workout: {
@@ -317,22 +321,22 @@ it.effect(
 			]);
 			expect(fitnessPlugin.providers).toEqual([
 				{
-					name: "Free Exercise DB",
 					rootEntitySchemaSlug: "exercise",
 					slug: "exercise.free-exercise-db",
 					information: { source: "free-exercise-db" },
+					name: catalogMessage("provider.exercise-free-exercise-db.name"),
 				},
 				{
-					name: "Exercise Target Fitness Catalog",
 					rootEntitySchemaSlug: "exercise-target",
 					slug: "exercise-target.fitness-catalog",
 					information: { source: "fitness-catalog" },
+					name: catalogMessage("provider.exercise-target-fitness-catalog.name"),
 				},
 				{
-					name: "Exercise Equipment Fitness Catalog",
 					rootEntitySchemaSlug: "exercise-equipment",
 					slug: "exercise-equipment.fitness-catalog",
 					information: { source: "fitness-catalog" },
+					name: catalogMessage("provider.exercise-equipment-fitness-catalog.name"),
 				},
 			]);
 			expect(fitnessPlugin.workflows).toEqual([
@@ -354,21 +358,23 @@ it.effect(
 				expect(source.inputSchema).toEqual<unknown>({
 					unknownKeys: "strict",
 					fields: {
-						timezone: {
-							position: 1,
-							type: "string",
-							label: "Timezone",
-							description: anyOf(String),
-							format: { kind: "timezone" },
-							validation: { required: true },
-						},
 						uploadToken: {
 							position: 0,
 							type: "string",
+							hint: expected.hint,
 							label: expected.label,
 							description: anyOf(String),
 							validation: { minLength: 1, required: true },
 							format: { kind: "upload", allowedFileExtensions: ["csv"] },
+						},
+						timezone: {
+							position: 1,
+							type: "string",
+							description: anyOf(String),
+							format: { kind: "timezone" },
+							validation: { required: true },
+							label: catalogMessage("property.timezone"),
+							hint: catalogMessage("property.timezone-hint"),
 						},
 					},
 				});
@@ -389,10 +395,22 @@ it.effect(
 				{ kind: "script", slug: "import.settings" },
 			]);
 			expect(fitnessPlugin.savedViews.map(({ name, renderer }) => ({ name, renderer }))).toEqual([
-				{ name: "All Exercises", renderer: { kind: "kernel", name: "entity-browser" } },
-				{ name: "All Workouts", renderer: { kind: "plugin", exportName: "workouts" } },
-				{ name: "All Measurements", renderer: { kind: "plugin", exportName: "measurements" } },
-				{ name: "All Workout Templates", renderer: { kind: "kernel", name: "entity-browser" } },
+				{
+					renderer: { kind: "kernel", name: "entity-browser" },
+					name: catalogMessage("saved-view.all-exercises.name"),
+				},
+				{
+					name: catalogMessage("saved-view.all-workouts.name"),
+					renderer: { kind: "plugin", exportName: "workouts" },
+				},
+				{
+					name: catalogMessage("saved-view.all-measurements.name"),
+					renderer: { kind: "plugin", exportName: "measurements" },
+				},
+				{
+					renderer: { kind: "kernel", name: "entity-browser" },
+					name: catalogMessage("saved-view.all-workout-templates.name"),
+				},
 			]);
 		}),
 	testTimeout,

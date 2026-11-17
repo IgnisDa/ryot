@@ -1,63 +1,71 @@
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { energyUnits, unitSystems } from "../../shared/workout-units";
 
-export const fitnessUserSettingsSchema: AppSchema = {
+export const fitnessUserSettingsSchema: AuthoredAppSchema = {
 	unknownKeys: "strict",
 	fields: {
 		muteSounds: {
 			position: 5,
 			type: "boolean",
 			defaultValue: false,
-			label: "Mute sounds",
 			validation: { required: true },
+			label: catalogMessage("property.mute-sounds"),
+			hint: catalogMessage("property.mute-sounds-hint"),
 			description: "Mute workout action and timer sounds",
-		},
-		weeklyWorkoutGoal: {
-			position: 9,
-			type: "integer",
-			label: "Weekly workout goal",
-			validation: { minimum: 1, maximum: 14 },
-			description: "Workouts you aim to complete each week; Home tracks progress",
 		},
 		dropRestTime: {
 			position: 3,
 			type: "integer",
 			defaultValue: 0,
-			label: "Drop set rest",
 			validation: { minimum: 0, required: true },
+			label: catalogMessage("property.drop-set-rest"),
+			hint: catalogMessage("property.drop-set-rest-hint"),
 			description: "Default drop set rest in seconds; zero disables rest",
+		},
+		weeklyWorkoutGoal: {
+			position: 9,
+			type: "integer",
+			validation: { minimum: 1, maximum: 14 },
+			label: catalogMessage("property.weekly-workout-goal"),
+			hint: catalogMessage("property.weekly-workout-goal-hint"),
+			description: "Workouts you aim to complete each week; Home tracks progress",
 		},
 		normalRestTime: {
 			position: 1,
 			type: "integer",
 			defaultValue: 60,
-			label: "Normal set rest",
 			validation: { minimum: 0, required: true },
+			label: catalogMessage("property.normal-set-rest"),
+			hint: catalogMessage("property.normal-set-rest-hint"),
 			description: "Default normal set rest in seconds; zero disables rest",
 		},
 		warmUpRestTime: {
 			position: 2,
 			type: "integer",
 			defaultValue: 0,
-			label: "Warm-up set rest",
 			validation: { minimum: 0, required: true },
+			label: catalogMessage("property.warm-up-set-rest"),
+			hint: catalogMessage("property.warm-up-set-rest-hint"),
 			description: "Default warm-up set rest in seconds; zero disables rest",
 		},
 		failureRestTime: {
 			position: 4,
 			type: "integer",
 			defaultValue: 0,
-			label: "Failure set rest",
 			validation: { minimum: 0, required: true },
+			label: catalogMessage("property.failure-set-rest"),
+			hint: catalogMessage("property.failure-set-rest-hint"),
 			description: "Default failure set rest in seconds; zero disables rest",
 		},
 		promptForRestTimer: {
 			position: 6,
 			type: "boolean",
 			defaultValue: false,
-			label: "Prompt for rest timer",
 			validation: { required: true },
+			label: catalogMessage("property.prompt-for-rest-timer"),
+			hint: catalogMessage("property.prompt-for-rest-timer-hint"),
 			description: "Ask before starting a rest timer when a set is confirmed",
 		},
 		startTimerForDurationExercises: {
@@ -65,27 +73,29 @@ export const fitnessUserSettingsSchema: AppSchema = {
 			type: "boolean",
 			defaultValue: true,
 			validation: { required: true },
-			label: "Use duration countdowns",
+			label: catalogMessage("property.use-duration-countdowns"),
+			hint: catalogMessage("property.use-duration-countdowns-hint"),
 			description: "Offer a countdown when a duration-based set has a planned duration",
-		},
-		energyUnit: {
-			position: 8,
-			type: "enum",
-			defaultValue: "kcal",
-			label: "Energy unit",
-			validation: { required: true },
-			description: "Display energy in kcal or kJ; recorded energy stays in kcal",
-			choices: { kind: "static", values: energyUnits.map((value) => ({ value })) },
 		},
 		unitSystem: {
 			position: 0,
 			type: "enum",
 			defaultValue: "metric",
-			label: "Display units",
 			validation: { required: true },
+			label: catalogMessage("property.display-units"),
 			choices: { kind: "static", values: unitSystems.map((value) => ({ value })) },
 			description:
 				"Display weights and distances in metric or imperial units; storage stays metric",
+		},
+		energyUnit: {
+			position: 8,
+			type: "enum",
+			defaultValue: "kcal",
+			validation: { required: true },
+			label: catalogMessage("property.energy-unit"),
+			hint: catalogMessage("property.energy-unit-hint"),
+			description: "Display energy in kcal or kJ; recorded energy stays in kcal",
+			choices: { kind: "static", values: energyUnits.map((value) => ({ value })) },
 		},
 	},
 };

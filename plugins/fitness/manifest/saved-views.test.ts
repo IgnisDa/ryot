@@ -19,16 +19,16 @@ describe("fitness saved-view presentations", () => {
 	});
 
 	it.each([
-		["all-workouts", "All Workouts", "workouts", 1],
-		["all-measurements", "All Measurements", "measurements", 2],
+		["all-workouts", "saved-view.all-workouts.name", "workouts", 1],
+		["all-measurements", "saved-view.all-measurements.name", "measurements", 2],
 	] as const)(
 		"renders %s with its plugin page and no data sources",
-		(slug, name, exportName, sortOrder) => {
+		(slug, nameKey, exportName, sortOrder) => {
 			expect(fitnessSavedViews().find((view) => view.slug === slug)).toMatchObject({
-				name,
 				sortOrder,
 				settings: {},
 				dataSources: null,
+				name: { key: nameKey },
 				renderer: { exportName, kind: "plugin" },
 			});
 		},

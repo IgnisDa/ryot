@@ -17,11 +17,11 @@ describe("buildViewExpressions", () => {
 	});
 
 	it.each([
-		["exercise", ["Name", "Level"]],
-		["workout-template", ["Name", "Created At", "Comment"]],
-	] as const)("builds the expected %s table columns", (slug, labels) => {
-		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual<unknown>(
-			labels,
+		["exercise", ["table-column.name", "property.level"]],
+		["workout-template", ["table-column.name", "table-column.created-at", "property.comment"]],
+	] as const)("builds the expected %s table columns", (slug, keys) => {
+		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label.key)).toEqual<unknown>(
+			keys,
 		);
 	});
 });

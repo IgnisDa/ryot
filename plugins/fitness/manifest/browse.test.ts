@@ -36,8 +36,13 @@ describe("fitness browse declarations", () => {
 		expect(browse("exercise")[1]).toEqual<unknown>(
 			objectContaining({
 				type: "enum",
-				label: "Level",
-				choices: arrayContaining([{ value: "beginner", label: "beginner" }]),
+				label: { key: "property.level", namespace: "fitness-plugin" },
+				choices: arrayContaining([
+					{
+						value: "beginner",
+						label: { namespace: "fitness-plugin", key: "browse.exercise-level.beginner" },
+					},
+				]),
 			}),
 		);
 		expect(browse("exercise")[4]).toMatchObject({

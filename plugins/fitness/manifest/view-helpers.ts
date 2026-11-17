@@ -1,11 +1,13 @@
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
+	AuthoredSavedViewTableColumn,
 	EntityBrowserSummary,
-	SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { castJson, column, jsonPath, table, titleCase } from "@ryot-app/ryotql";
 
-type ViewColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
+import { catalogMessage } from "../shared/messages.generated";
+
+type ViewColumn = AuthoredSavedViewTableColumn & { readonly expression: ScalarExpression };
 
 type ViewExpressions = {
 	readonly summary: EntityBrowserSummary;
@@ -23,14 +25,33 @@ const text = (expression: ScalarExpression) => ({ expression, displayKind: "text
 const date = (expression: ScalarExpression) => ({ expression, displayKind: "date" as const });
 
 const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
-	const name = { field: "name", label: "Name", ...text(entityColumn("name")) };
+	const name = {
+		field: "name",
+		label: catalogMessage("table-column.name"),
+		...text(entityColumn("name")),
+	};
 	if (slug === "exercise") {
-		return [name, { field: "level", label: "Level", ...text(titleCase(entityProperty("level"))) }];
+		return [
+			name,
+			{
+				field: "level",
+				label: catalogMessage("property.level"),
+				...text(titleCase(entityProperty("level"))),
+			},
+		];
 	}
 	return [
 		name,
-		{ field: "createdAt", label: "Created At", ...date(entityColumn("createdAt")) },
-		{ field: "comment", label: "Comment", ...text(entityProperty("comment")) },
+		{
+			field: "createdAt",
+			label: catalogMessage("table-column.created-at"),
+			...date(entityColumn("createdAt")),
+		},
+		{
+			field: "comment",
+			label: catalogMessage("property.comment"),
+			...text(entityProperty("comment")),
+		},
 	];
 };
 

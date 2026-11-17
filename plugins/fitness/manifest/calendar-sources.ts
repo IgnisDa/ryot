@@ -1,15 +1,8 @@
 import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import {
-	concat,
-	conditional,
-	entitySchemaPredicate,
-	eq,
-	field,
-	literal,
-	table,
-} from "@ryot-app/ryotql";
+import { entitySchemaPredicate, field, table } from "@ryot-app/ryotql";
 
+import { catalogMessage, catalogRowText } from "../shared/messages.generated";
 import { startedAt, workoutTotals } from "../shared/workout-list-recipes";
 
 const self = { kind: "self" } as const;
@@ -20,10 +13,10 @@ const workouts = () => {
 	return {
 		icon: "dumbbell",
 		slug: "workouts",
-		name: "Workouts",
 		startAt: "startAt",
-		caption: "caption",
 		precision: "instant",
+		name: catalogMessage("calendar-source.workouts.name"),
+		caption: catalogRowText("calendar-source.workouts.caption", { count: "exerciseCount" }),
 		subject: {
 			entityAlias: "workout",
 			schemas: [{ owner: self, slug: EntitySchemaSlug.make("workout") }],
@@ -33,17 +26,7 @@ const workouts = () => {
 			where: entitySchemaPredicate(workout, "workout", self),
 			output: {
 				type: "rows",
-				fields: [
-					field("startAt", startedAt(workout)),
-					field(
-						"caption",
-						conditional(
-							eq(exerciseCount, literal(1)),
-							concat(exerciseCount, literal(" exercise")),
-							concat(exerciseCount, literal(" exercises")),
-						),
-					),
-				],
+				fields: [field("startAt", startedAt(workout)), field("exerciseCount", exerciseCount)],
 			},
 		},
 	} satisfies PluginCalendarSource;

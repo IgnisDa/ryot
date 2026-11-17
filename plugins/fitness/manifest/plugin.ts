@@ -1,4 +1,5 @@
 import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
+import type { ManifestText } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { operationJsonSchema } from "@ryot-app/plugin-kit/operations";
 
 import {
@@ -35,6 +36,7 @@ import {
 	MeasurementReadingUpdateInput,
 	measurementReadingUpdateOperationSlug,
 } from "../shared/measurement-reading-operations";
+import { catalogMessage } from "../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import {
 	WorkoutDeleteInputSchema,
@@ -74,10 +76,11 @@ import { fitnessUserSettingsSchema } from "./schemas/user-settings";
 
 const importDocs = (page: string) => ({ docsUrl: `https://docs.ryot.io/importing/${page}.html` });
 
-const uploadInputSchema = (label: string, description: string) => ({
+const uploadInputSchema = (label: ManifestText, hint: ManifestText, description: string) => ({
 	unknownKeys: "strict" as const,
 	fields: {
 		uploadToken: {
+			hint,
 			label,
 			position: 0,
 			description,
@@ -90,10 +93,11 @@ const uploadInputSchema = (label: string, description: string) => ({
 
 const timezoneInputField = {
 	position: 1,
-	label: "Timezone",
 	type: "string" as const,
 	format: { kind: "timezone" as const },
 	validation: { required: true as const },
+	label: catalogMessage("property.timezone"),
+	hint: catalogMessage("property.timezone-hint"),
 	description: "Timezone the export's dates were recorded in",
 };
 
@@ -114,11 +118,11 @@ export const fitnessPlugin = definePlugin({
 	userSettingsSchema: fitnessUserSettingsSchema,
 	relationshipSchemas: fitnessRelationshipSchemas(),
 	metadata: {
-		name: "Fitness",
 		version: "1.0.0",
 		icon: "heart-pulse",
 		packageId: PLUGIN_PACKAGE_ID,
-		description: "Track workouts, measurements, and progress.",
+		name: catalogMessage("plugin.name"),
+		description: catalogMessage("plugin.description"),
 	},
 	entitySchemas: fitnessEntitySchemas.map((schema) => {
 		const browse = fitnessBrowse(schema.slug);
@@ -152,72 +156,24 @@ export const fitnessPlugin = definePlugin({
 	],
 	providers: [
 		{
-			name: "Free Exercise DB",
 			rootEntitySchemaSlug: "exercise",
 			slug: "exercise.free-exercise-db",
 			information: { source: "free-exercise-db" },
+			name: catalogMessage("provider.exercise-free-exercise-db.name"),
 		},
 		{
-			name: "Exercise Target Fitness Catalog",
 			rootEntitySchemaSlug: "exercise-target",
 			slug: "exercise-target.fitness-catalog",
 			information: { source: "fitness-catalog" },
+			name: catalogMessage("provider.exercise-target-fitness-catalog.name"),
 		},
 		{
-			name: "Exercise Equipment Fitness Catalog",
 			rootEntitySchemaSlug: "exercise-equipment",
 			slug: "exercise-equipment.fitness-catalog",
 			information: { source: "fitness-catalog" },
+			name: catalogMessage("provider.exercise-equipment-fitness-catalog.name"),
 		},
 	],
-	importSources: (
-		[
-			{
-				slug: "hevy",
-				name: "Hevy",
-				workflowSlug: "import",
-				exportHelp: importDocs("hevy"),
-				description: "Import workouts from a Hevy CSV export",
-				inputSchema: timezoneUploadInputSchema("Hevy export", "Hevy workout export CSV"),
-			},
-			{
-				slug: "strong_app",
-				name: "Strong App",
-				workflowSlug: "import",
-				exportHelp: importDocs("strong-app"),
-				description: "Import workouts from a Strong CSV export",
-				inputSchema: timezoneUploadInputSchema(
-					"Strong App export",
-					"Strong App workout export CSV",
-				),
-			},
-			{
-				name: "OpenScale",
-				slug: "open_scale",
-				workflowSlug: "import",
-				exportHelp: importDocs("open-scale"),
-				description: "Import measurements from an OpenScale CSV export",
-				inputSchema: timezoneUploadInputSchema(
-					"OpenScale export",
-					"OpenScale measurements export CSV",
-				),
-			},
-		] as const
-	).map((source) =>
-		Object.assign({}, source, {
-			plan: {
-				selections: {
-					"source-parser": {
-						value: {
-							hevy: "import.hevy",
-							strong_app: "import.strong-app",
-							open_scale: "import.open-scale",
-						}[source.slug],
-					},
-				},
-			},
-		}),
-	),
 	hooks: [
 		{
 			position: 110,
@@ -284,6 +240,60 @@ export const fitnessPlugin = definePlugin({
 			},
 		},
 	],
+	importSources: (
+		[
+			{
+				slug: "hevy",
+				workflowSlug: "import",
+				exportHelp: importDocs("hevy"),
+				name: catalogMessage("import-source.hevy.name"),
+				description: catalogMessage("import-source.hevy.description"),
+				inputSchema: timezoneUploadInputSchema(
+					catalogMessage("property.hevy-export"),
+					catalogMessage("property.hevy-export-hint"),
+					"Hevy workout export CSV",
+				),
+			},
+			{
+				slug: "strong_app",
+				workflowSlug: "import",
+				exportHelp: importDocs("strong-app"),
+				name: catalogMessage("import-source.strong-app.name"),
+				description: catalogMessage("import-source.strong-app.description"),
+				inputSchema: timezoneUploadInputSchema(
+					catalogMessage("property.strong-app-export"),
+					catalogMessage("property.strong-app-export-hint"),
+					"Strong App workout export CSV",
+				),
+			},
+			{
+				slug: "open_scale",
+				workflowSlug: "import",
+				exportHelp: importDocs("open-scale"),
+				name: catalogMessage("import-source.open-scale.name"),
+				description: catalogMessage("import-source.open-scale.description"),
+				inputSchema: timezoneUploadInputSchema(
+					catalogMessage("property.openscale-export"),
+					catalogMessage("property.openscale-export-hint"),
+					"OpenScale measurements export CSV",
+				),
+			},
+		] as const
+	).map((source) =>
+		Object.assign({}, source, {
+			plan: {
+				selections: {
+					"source-parser": {
+						value: {
+							hevy: "import.hevy",
+							strong_app: "import.strong-app",
+							open_scale: "import.open-scale",
+						}[source.slug],
+					},
+				},
+			},
+		}),
+	),
 	client: {
 		homeView: null,
 		routes: fitnessClientRoutes,
@@ -291,15 +301,15 @@ export const fitnessPlugin = definePlugin({
 		analyticsSections: {
 			fitness: {
 				sortOrder: 20,
-				name: "Fitness",
 				icon: "dumbbell",
 				exportName: "fitness-analytics",
+				name: catalogMessage("analytics-section.fitness.name"),
 			},
 		},
 		assistantStarters: [
-			"Summarize my workouts this week",
-			"How has my strongest lift progressed this year?",
-			"Log today's bodyweight",
+			catalogMessage("assistant-starter.summarize-workouts"),
+			catalogMessage("assistant-starter.strongest-lift-progress"),
+			catalogMessage("assistant-starter.log-bodyweight"),
 		],
 		entities: {
 			"measurement-metric": {

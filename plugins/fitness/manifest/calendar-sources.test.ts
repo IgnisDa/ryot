@@ -31,8 +31,11 @@ describe("fitness calendar sources", () => {
 						slug: "workouts",
 						subject: "workout",
 						startAt: "startAt",
-						caption: "caption",
 						precision: "instant",
+						caption: {
+							params: { count: "exerciseCount" },
+							text: { key: "calendar-source.workouts.caption" },
+						},
 					},
 				]);
 				const [source] = calendarSources;
@@ -40,7 +43,7 @@ describe("fitness calendar sources", () => {
 				const output = source?.query.output;
 				expect(
 					output?.type === "rows" ? output.fields.flatMap((f) => ("key" in f ? [f.key] : [])) : [],
-				).toEqual(["startAt", "caption"]);
+				).toEqual(["startAt", "exerciseCount"]);
 			}),
 		testTimeout,
 	);

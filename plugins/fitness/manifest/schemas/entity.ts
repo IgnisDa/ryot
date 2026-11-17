@@ -1,5 +1,6 @@
 import { reviewRatingField } from "@ryot-app/plugin-kit/schema";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { exerciseTargetKinds } from "../../shared/taxonomy";
 import {
 	exercisePropertiesSchema,
@@ -18,8 +19,8 @@ const exerciseReviewPropertiesSchema = {
 	fields: {
 		rating: reviewRatingField,
 		text: {
-			label: "Note",
 			type: "string" as const,
+			label: catalogMessage("property.note"),
 			description: "Your private note about this exercise",
 		},
 	},
@@ -30,16 +31,16 @@ export const fitnessEntitySchemas = [
 		icon: "library",
 		eventSchemas: [],
 		slug: "fitness-library",
-		name: "Fitness Library",
 		propertiesSchema: { fields: {} },
 		userState: { deniedOperations: ["clear", "merge"] },
+		name: catalogMessage("entity-schema.fitness-library.name"),
 	},
 	{
 		icon: "zap",
 		slug: "exercise",
-		name: "Exercise",
 		mergeIdentityProperties: ["kind"],
 		propertiesSchema: exercisePropertiesSchema,
+		name: catalogMessage("entity-schema.exercise.name"),
 		fold: { eventSchemaSlugs: ["workout-set"], scriptSlug: "fold.exercise-records" },
 		editor: {
 			relationships: [
@@ -50,8 +51,8 @@ export const fitnessEntitySchemas = [
 		eventSchemas: [
 			{
 				slug: "workout-exercise",
-				name: "Recorded exercise occurrence",
 				propertiesSchema: workoutExercisePropertiesSchema,
+				name: catalogMessage("event-schema.exercise.workout-exercise.name"),
 				eventGroup: {
 					keyProperties: ["exerciseOrder"],
 					immutableProperties: ["exerciseKind", "targets", "equipment"],
@@ -61,31 +62,35 @@ export const fitnessEntitySchemas = [
 				},
 			},
 			{
-				name: "Workout Set",
 				slug: "workout-set",
 				propertiesSchema: workoutSetPropertiesSchema,
+				name: catalogMessage("event-schema.exercise.workout-set.name"),
 				projection: { propertiesSchema: workoutRecordPropertiesSchema },
 			},
-			{ name: "Review", slug: "review", propertiesSchema: exerciseReviewPropertiesSchema },
+			{
+				slug: "review",
+				propertiesSchema: exerciseReviewPropertiesSchema,
+				name: catalogMessage("event-schema.exercise.review.name"),
+			},
 		],
 	},
 	{
 		icon: "target",
 		eventSchemas: [],
 		slug: "exercise-target",
-		name: "Exercise Target",
 		editor: { relationships: [] },
+		name: catalogMessage("entity-schema.exercise-target.name"),
 		propertiesSchema: {
 			fields: {
 				description: {
 					type: "string",
-					label: "Description",
+					label: catalogMessage("property.description"),
 					description: "Optional description of this exercise target",
 				},
 				kind: {
 					type: "enum",
-					label: "Kind",
 					validation: { required: true },
+					label: catalogMessage("property.kind"),
 					description: "Type of anatomical target",
 					choices: { kind: "static", values: exerciseTargetKinds.map((value) => ({ value })) },
 				},
@@ -96,13 +101,13 @@ export const fitnessEntitySchemas = [
 		icon: "dumbbell",
 		eventSchemas: [],
 		slug: "exercise-equipment",
-		name: "Exercise Equipment",
 		editor: { relationships: [] },
+		name: catalogMessage("entity-schema.exercise-equipment.name"),
 		propertiesSchema: {
 			fields: {
 				description: {
 					type: "string",
-					label: "Description",
+					label: catalogMessage("property.description"),
 					description: "Optional description of this exercise equipment",
 				},
 			},
@@ -110,21 +115,21 @@ export const fitnessEntitySchemas = [
 	},
 	{
 		slug: "workout",
-		name: "Workout",
 		icon: "dumbbell",
 		propertiesSchema: workoutPropertiesSchema,
+		name: catalogMessage("entity-schema.workout.name"),
 		eventSchemas: [
 			{
 				slug: "workout-completed",
-				name: "Workout completed",
+				name: catalogMessage("event-schema.workout.workout-completed.name"),
 				propertiesSchema: {
 					unknownKeys: "strict",
 					fields: {
 						workoutName: {
 							type: "string",
-							label: "Workout name",
 							description: "Workout name at completion",
 							validation: { minLength: 1, required: true },
+							label: catalogMessage("property.workout-name"),
 						},
 					},
 				},
@@ -135,27 +140,27 @@ export const fitnessEntitySchemas = [
 		eventSchemas: [],
 		icon: "clipboard-list",
 		slug: "workout-template",
-		name: "Workout Template",
 		propertiesSchema: workoutTemplatePropertiesSchema,
+		name: catalogMessage("entity-schema.workout-template.name"),
 	},
 	{
 		icon: "ruler",
 		eventSchemas: [],
 		slug: "measurement-entry",
-		name: "Measurement Entry",
 		userState: { deniedOperations: ["merge"] },
 		propertiesSchema: measurementEntryPropertiesSchema,
+		name: catalogMessage("entity-schema.measurement-entry.name"),
 	},
 	{
 		icon: "ruler",
 		slug: "measurement-metric",
-		name: "Measurement Metric",
 		propertiesSchema: measurementMetricPropertiesSchema,
+		name: catalogMessage("entity-schema.measurement-metric.name"),
 		eventSchemas: [
 			{
-				name: "Measurement Reading",
 				slug: "measurement-reading",
 				propertiesSchema: measurementReadingPropertiesSchema,
+				name: catalogMessage("event-schema.measurement-metric.measurement-reading.name"),
 			},
 		],
 	},
