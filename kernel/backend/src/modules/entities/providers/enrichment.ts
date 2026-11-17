@@ -6,7 +6,6 @@ import {
 	type RequestEntityEnrichmentResult,
 } from "@ryot-app/contract/modules/entities/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
-import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
@@ -72,7 +71,7 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 					) {
 						return yield* refused("provider-unavailable");
 					}
-					const language = resolveContentLanguage(user.preferences);
+					const language = user.preferences.contentLanguage;
 					const selection = {
 						requester: user.id,
 						entityId: entity.id,

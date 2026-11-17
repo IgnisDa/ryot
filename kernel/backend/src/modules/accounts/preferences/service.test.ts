@@ -113,6 +113,8 @@ layer(serviceLayer())((test) => {
 					disableIntegrations: false,
 				});
 				yield* service.updatePreferences(user, { contentLanguage: "fra" });
+				yield* service.updatePreferences(user, { contentLanguage: "pt-BR" });
+				yield* service.updatePreferences(user, { contentLanguage: "zh-Hans" });
 				yield* service.updatePreferences(user, { weekStart: 0, interfaceLocale: "en" });
 				yield* service.updatePreferences(user, {});
 
@@ -120,6 +122,8 @@ layer(serviceLayer())((test) => {
 					{ userId: user.id, preferences: { disableIntegrations: true } },
 					{ userId: user.id, preferences: { contentLanguage: null, disableIntegrations: false } },
 					{ userId: user.id, preferences: { contentLanguage: "fr" } },
+					{ userId: user.id, preferences: { contentLanguage: "pt-BR" } },
+					{ userId: user.id, preferences: { contentLanguage: "zh-Hans" } },
 					{ userId: user.id, preferences: { weekStart: 0, interfaceLocale: "en" } },
 				]);
 			}),

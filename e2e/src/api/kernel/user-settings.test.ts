@@ -239,8 +239,19 @@ describe("user settings", () => {
 			const warmBody: unknown = yield* Effect.promise(() => warm.json());
 			expect(warmBody).not.toHaveProperty("user.preferences");
 
-			yield* updateUserSettingsPreferences(client, { contentLanguage: "fra" });
+			yield* updateUserSettingsPreferences(client, { contentLanguage: "fr" });
 			expect((yield* getUserSettings(client)).preferences.contentLanguage).toBe("fr");
+			yield* updateUserSettingsPreferences(client, {
+				contentLanguage: "pt-BR",
+				interfaceLocale: "pt-PT",
+			});
+			expect((yield* getUserSettings(client)).preferences.contentLanguage).toBe("pt-BR");
+			yield* updateUserSettingsPreferences(client, {
+				contentLanguage: "zh-Hans",
+				interfaceLocale: "zh-Hans",
+			});
+			expect((yield* getUserSettings(client)).preferences.contentLanguage).toBe("zh-Hans");
+			yield* updateUserSettingsPreferences(client, { interfaceLocale: null });
 			yield* updateUserSettingsPreferences(client, { disableIntegrations: true });
 			yield* updateUserSettingsPreferences(client, { contentLanguage: null });
 			expect((yield* getUserSettings(client)).preferences).toEqual({
@@ -259,7 +270,7 @@ describe("user settings", () => {
 			for (const payload of [
 				{ contentLanguage: ["fr"] },
 				{ contentLanguage: "qqq" },
-				{ contentLanguage: "pt-BR" },
+				{ contentLanguage: "pt-br" },
 				{ interfaceLocale: "xx" },
 				{ weekStart: 7 },
 				{ language: "fr" },

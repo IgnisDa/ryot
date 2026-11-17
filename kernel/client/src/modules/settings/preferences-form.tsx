@@ -34,7 +34,22 @@ const CUSTOM_LANGUAGE = "custom";
 const DEFAULT_LANGUAGE = "default";
 const DEFAULT_CHOICE = "default";
 
-const LANGUAGE_CODES = ["en", "es", "fr", "de", "it", "pt", "ja", "ko", "zh", "ru"] as const;
+const LANGUAGE_CODES = [
+	"en",
+	"es",
+	"es-ES",
+	"fr",
+	"de",
+	"it",
+	"pt",
+	"pt-BR",
+	"pt-PT",
+	"ja",
+	"ko",
+	"zh",
+	"zh-Hans",
+	"ru",
+] as const;
 
 const RATING_SCALES = [
 	{ code: "hundred", value: "hundred" },
@@ -396,7 +411,7 @@ function LanguageField(props: {
 	const languageChoices: readonly SelectChoice[] = [
 		{
 			value: DEFAULT_LANGUAGE,
-			label: t(kernelMessage("settings.preferences.content-language.interface")),
+			label: t(kernelMessage("settings.preferences.content-language.provider")),
 		},
 		...languageOptions,
 		{

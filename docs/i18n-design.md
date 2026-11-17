@@ -113,7 +113,7 @@ reminder's own time zone; see [Rendering](../packages/i18n/README.md#rendering).
 ## Preferences
 
 Shipped. `packages/contract/src/schema/user-preferences.ts` defines `interfaceLocale`,
-`contentLanguage` and `weekStart` with `resolveWeekStart`, `resolveContentLanguage` and
+`contentLanguage` and `weekStart` with `resolveWeekStart` and
 `resolveInterfaceLocale` (backend rendering of an unset locale uses the source locale); see the
 [`packages/kernel-messages` README](../packages/kernel-messages/README.md) for the allowed
 interface locales.

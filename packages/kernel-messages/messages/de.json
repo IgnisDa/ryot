@@ -2105,7 +2105,7 @@
 	"sdk.selection.select-all": "Alle {count, number} auswählen",
 	"sdk.selection.select-matching": "Alle passenden auswählen",
 	"sdk.selection.selected-count": "{count, number} ausgewählt",
-	"settings.preferences.content-language.interface": "Wie die Oberflächensprache",
+	"settings.preferences.content-language.provider": "Anbieterstandard",
 	"settings.preferences.interface-locale.device": "Gerätesprache",
 	"settings.preferences.interface-locale.hint": "Legt die Sprache von Menüs, Nachrichten und Datumsangaben fest.",
 	"settings.preferences.interface-locale.label": "Oberflächensprache",

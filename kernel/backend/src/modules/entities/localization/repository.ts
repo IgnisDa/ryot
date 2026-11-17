@@ -1,6 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityId, type UserId } from "@ryot-app/contract/schema/brands";
-import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -93,7 +92,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				userId: UserId,
 			) {
 				const preferences = yield* auth.getUserPreferences(userId);
-				return preferences === null ? null : resolveContentLanguage(preferences);
+				return preferences === null ? null : preferences.contentLanguage;
 			});
 
 			return { upsertOverlay, findEntityById, findUserLanguage, findEntityForUser };

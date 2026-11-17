@@ -127,6 +127,33 @@ layer(testLayer)((test) => {
 	);
 
 	test.effect(
+		"keeps provider content language independent of the interface locale",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const translations = yield* TranslationsRepository.make;
+				const id = UserId.make("independent-languages");
+				yield* session.run((db) =>
+					db
+						.insert(user)
+						.values({ id, name: "Reader", email: "independent-languages@example.test" }),
+				);
+				yield* repository.patchUserPreferences(id, { interfaceLocale: "fr" });
+				expect(yield* translations.findUserLanguage(id)).toBeNull();
+				yield* repository.patchUserPreferences(id, { interfaceLocale: "zh-Hans" });
+				expect(yield* translations.findUserLanguage(id)).toBeNull();
+				yield* repository.patchUserPreferences(id, { contentLanguage: "pt-PT" });
+				expect(yield* translations.findUserLanguage(id)).toBe("pt-PT");
+				yield* repository.patchUserPreferences(id, { interfaceLocale: "de" });
+				expect(yield* translations.findUserLanguage(id)).toBe("pt-PT");
+				yield* repository.patchUserPreferences(id, { contentLanguage: null });
+				expect(yield* translations.findUserLanguage(id)).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"preference consumers preserve missing users and reject malformed storage",
 		() =>
 			Effect.gen(function* () {

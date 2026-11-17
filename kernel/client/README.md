@@ -210,6 +210,14 @@ keep the API error instead of mapping it to a bare `RyotClientError`. The langua
 each interface locale in its own language and hints its name in the current one; the `en-XA`
 pseudo-locale is listed only while it is the saved value.
 
+Interface and content language are independent. Content language overrides are canonical BCP 47
+tags, including regions and scripts. With no override, content keeps each provider's canonical
+language, regardless of the interface locale. Translation overlays and jobs retain the explicit
+content language tag. The content picker offers common languages and regional variants and
+accepts other tags through its custom field. Its choices are independent of the available UI
+translations. Providers decide which
+translations are available and own conversion to their API's language representation.
+
 ## Navigation And Screens
 
 `resolveEdge` separates visible leading intent (`back`, `drawer`, or `none`) from interactive edge
@@ -436,8 +444,9 @@ interface locale.
 - The Live Activities widget extension keeps SwiftUI text in
   `RyotLiveActivities/Localizable.xcstrings` and its display name in
   `RyotLiveActivities/InfoPlist.xcstrings`. SwiftUI `Text` literals are localization keys. Other
-  strings use `String(localized:)`, and the brand uses `Text(verbatim:)`. Both catalogs ship English
-  and German; the German entries are marked `needs_review` until a native speaker checks them.
+  strings use `String(localized:)`, and the brand uses `Text(verbatim:)`. Both catalogs cover the
+  authored interface locales; non-English entries are marked `needs_review` until native
+  speakers check them.
 - The App target has no localizable native text. Its display name is a per-configuration build
   setting, so it has no `InfoPlist.xcstrings`; a localized `CFBundleDisplayName` would override the
   Debug and Release names. `CFBundleLocalizations` in `App/Info.plist` lists the interface languages, so iOS can

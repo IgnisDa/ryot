@@ -9,7 +9,6 @@ import {
 	type RepublishPublicationBody,
 } from "@ryot-app/contract/modules/publications/schemas";
 import type { PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
-import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { sql } from "drizzle-orm";
 import { Clock, Context, DateTime, Effect, Layer } from "effect";
@@ -81,7 +80,7 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 					visitorParameters: body.visitorParameters,
 				};
 				const snapshot = yield* runtime.capture(
-					{ userId: user.id, language: resolveContentLanguage(user.preferences) },
+					{ userId: user.id, language: user.preferences.contentLanguage },
 					definition,
 				);
 				return {
@@ -217,7 +216,7 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 				return yield* Effect.gen(function* () {
 					if (owned.definition.mode === "live") {
 						yield* runtime.capture(
-							{ userId: user.id, language: resolveContentLanguage(user.preferences) },
+							{ userId: user.id, language: user.preferences.contentLanguage },
 							owned.definition,
 						);
 					} else {

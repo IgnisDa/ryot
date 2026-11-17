@@ -36,3 +36,10 @@ fragments.
 
 `kernelLocales` is the allowed list for the `interfaceLocale` preference. `en-XA` is accepted there
 for testing but is not offered by the language picker.
+
+The authored locales are English (`en`), German (`de`), French (`fr`), Spanish for Spain
+(`es-ES`), Brazilian Portuguese (`pt-BR`), European Portuguese (`pt-PT`), and Simplified Chinese
+(`zh-Hans`). Non-English translations are drafts awaiting native-speaker review. Add each locale's
+catalog here and in the plugins that ship translated UI; the shared compiler, preference schema,
+and language picker discover kernel locales from these files. Native resources follow the
+[client's localization instructions](../../kernel/client/README.md#native-text).

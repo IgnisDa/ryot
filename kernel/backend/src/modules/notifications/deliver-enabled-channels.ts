@@ -4,7 +4,6 @@ import type { NotificationChannelKind } from "@ryot-app/contract/modules/notific
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import {
 	defaultUserPreferences,
-	resolveContentLanguage,
 	resolveInterfaceLocale,
 } from "@ryot-app/contract/schema/user-preferences";
 import { textDirection } from "@ryot-app/i18n/locale";
@@ -50,7 +49,7 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 				? yield* resolveEntityMessage(
 						notification.request.message,
 						payload.accountUserId,
-						resolveContentLanguage(preferences),
+						preferences.contentLanguage,
 					)
 				: null;
 		const render = yield* (yield* MessageRegistry).renderer(

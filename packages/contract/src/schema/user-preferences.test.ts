@@ -4,7 +4,6 @@ import { Result, Schema } from "effect";
 
 import {
 	defaultUserPreferences,
-	resolveContentLanguage,
 	resolveInterfaceLocale,
 	resolveWeekStart,
 	UserPreferencesPatch,
@@ -24,23 +23,23 @@ describe("user preferences", () => {
 		expect(resolveInterfaceLocale({ interfaceLocale: "en-XA" })).toBe("en-XA");
 	});
 
-	it("resolves content language from the interface locale only when one is chosen", () => {
-		expect(resolveContentLanguage(defaultUserPreferences)).toBeNull();
-		expect(resolveContentLanguage({ contentLanguage: null, interfaceLocale: "en-XA" })).toBe("en");
-		expect(resolveContentLanguage({ contentLanguage: "sv", interfaceLocale: "en" })).toBe("sv");
-	});
-
-	it("accepts shipped interface locales, weekdays and language-code shapes only", () => {
+	it("accepts shipped interface locales, weekdays and canonical content locale tags only", () => {
 		expect(
 			Result.isSuccess(
 				decodePatch({ weekStart: 0, contentLanguage: "yue", interfaceLocale: "en-XA" }),
 			),
 		).toBe(true);
+		expect(
+			Result.isSuccess(decodePatch({ interfaceLocale: "fr", contentLanguage: "zh-Hans" })),
+		).toBe(true);
+		expect(
+			Result.isSuccess(decodePatch({ contentLanguage: "pt-BR", interfaceLocale: "pt-PT" })),
+		).toBe(true);
 		for (const patch of [
 			{ weekStart: 7 },
-			{ interfaceLocale: "fr" },
+			{ interfaceLocale: "ar" },
 			{ contentLanguage: "EN" },
-			{ contentLanguage: "en-US" },
+			{ contentLanguage: "pt-br" },
 			{ language: "en" },
 		]) {
 			expect(Result.isFailure(decodePatch(patch))).toBe(true);

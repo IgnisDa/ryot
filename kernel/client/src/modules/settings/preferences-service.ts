@@ -27,7 +27,7 @@ export const updatePreferencesMutation = createRyotHostMutation<
 			.updatePreferences(hostServices.scope, { payload: input })
 			.pipe(
 				Effect.tap(() =>
-					input.contentLanguage === undefined && input.interfaceLocale === undefined
+					input.contentLanguage === undefined
 						? Effect.void
 						: Effect.sync(() =>
 								hostServices.runtime.runSync(EntityWatchService).reconnect(hostServices.scope),

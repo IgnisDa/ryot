@@ -5,7 +5,7 @@ import {
 	type UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
-import { WeekDay } from "@ryot-app/i18n/locale";
+import { canonicalLocale, WeekDay } from "@ryot-app/i18n/locale";
 import { Option, Schema } from "effect";
 
 type PreferenceDraft = {
@@ -31,7 +31,11 @@ export const preferencePayload = (
 	initial: UserPreferences,
 	draft: PreferenceDraft,
 ): UserPreferencesPatch => {
-	const contentLanguage = draft.contentLanguage.trim().toLowerCase() || null;
+	const contentLanguageInput = draft.contentLanguage.trim();
+	const contentLanguage =
+		contentLanguageInput === ""
+			? null
+			: (canonicalLocale(contentLanguageInput) ?? contentLanguageInput);
 	const interfaceLocale =
 		draft.interfaceLocale === "" ? Option.some(null) : decodeInterfaceLocale(draft.interfaceLocale);
 	const weekStart =

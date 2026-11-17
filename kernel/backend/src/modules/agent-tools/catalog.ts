@@ -16,7 +16,6 @@ import {
 } from "@ryot-app/contract/schema/capability";
 import { type Entitlement, isEntitled } from "@ryot-app/contract/schema/entitlement";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -253,7 +252,7 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 						ryotql
 							.executeForUser(
 								user.id,
-								resolveContentLanguage(user.preferences),
+								user.preferences.contentLanguage,
 								"plugin",
 								cappedRequest(request, document),
 								authorization.accessClass,

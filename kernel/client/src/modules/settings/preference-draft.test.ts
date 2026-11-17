@@ -31,6 +31,22 @@ describe("user settings preference draft", () => {
 		).toEqual({ contentLanguage: null });
 	});
 
+	it("preserves canonical regional and script subtags", () => {
+		const draft = makePreferenceDraft(preferences);
+		expect(preferencePayload(preferences, { ...draft, contentLanguage: " PT-br " })).toEqual({
+			contentLanguage: "pt-BR",
+		});
+		expect(preferencePayload(preferences, { ...draft, contentLanguage: "zh-hans" })).toEqual({
+			contentLanguage: "zh-Hans",
+		});
+		expect(
+			preferencePayload(
+				{ ...preferences, contentLanguage: "pt-BR" },
+				{ ...draft, contentLanguage: "pt-br" },
+			),
+		).toEqual({});
+	});
+
 	it("includes interface locale and week start changes and their resets", () => {
 		const draft = makePreferenceDraft(preferences);
 

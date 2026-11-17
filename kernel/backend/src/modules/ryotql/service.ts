@@ -34,7 +34,6 @@ import {
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	defaultUserPreferences,
-	resolveContentLanguage,
 	resolveWeekStart,
 } from "@ryot-app/contract/schema/user-preferences";
 import {
@@ -998,7 +997,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					Effect.andThen(
 						executeForUser(
 							user.id,
-							resolveContentLanguage(user.preferences),
+							user.preferences.contentLanguage,
 							audience,
 							request,
 							authorization.accessClass,
@@ -1056,7 +1055,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 									type: "user",
 									userId: user.id,
 									accessClass: authorization.accessClass,
-									language: resolveContentLanguage(user.preferences),
+									language: user.preferences.contentLanguage,
 								},
 								source,
 								argumentsValue,

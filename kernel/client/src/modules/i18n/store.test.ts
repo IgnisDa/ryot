@@ -59,7 +59,7 @@ describe("kernel i18n store", () => {
 	});
 
 	it("prefers the saved interface locale and returns to the device locale when cleared", () => {
-		const { flush, loads, store } = harness(["fr-FR"]);
+		const { flush, loads, store } = harness(["ar-EG"]);
 		store.setInterfaceLocale("en-XA");
 		flush();
 		expect(store.getSnapshot().locale).toBe("en-XA");
@@ -68,6 +68,29 @@ describe("kernel i18n store", () => {
 		store.setInterfaceLocale("en-XA");
 		expect(store.getSnapshot().locale).toBe("en-XA");
 		expect(loads).toEqual(["en-XA"]);
+	});
+
+	it("negotiates new regional and script locales and loads their plugin fallback chains", () => {
+		for (const [device, locale, chain] of [
+			["fr-CA", "fr", ["fr", "en"]],
+			["pt-BR", "pt-BR", ["pt-BR", "pt", "en"]],
+			["pt-PT", "pt-PT", ["pt-PT", "pt", "en"]],
+			["es-ES", "es-ES", ["es-ES", "es", "en"]],
+			["zh-CN", "zh-Hans", ["zh-Hans", "zh", "en"]],
+			["zh-TW", "en", ["en"]],
+		] as const) {
+			const { flush, store } = harness([device]);
+			const requests: string[] = [];
+			store.setPluginCatalogLoader((candidate) =>
+				Effect.sync(() => {
+					requests.push(candidate);
+					return [];
+				}),
+			);
+			flush();
+			expect(store.getSnapshot().locale).toBe(locale);
+			expect(requests).toEqual([...chain]);
+		}
 	});
 
 	it("loads plugin catalogs for the locale chain, refreshes them on invalidation and drops them without a loader", () => {
@@ -144,7 +167,7 @@ describe("kernel i18n store", () => {
 	);
 
 	it("seeds the remembered preference and settles once its kernel catalog loads or fails", () => {
-		const seeded = harness(["fr"], { initialPreference: "en-XA" });
+		const seeded = harness(["ar"], { initialPreference: "en-XA" });
 		expect(seeded.store.getSnapshot()).toMatchObject({
 			locale: "en",
 			preference: "en-XA",
@@ -153,7 +176,7 @@ describe("kernel i18n store", () => {
 		seeded.flush();
 		expect(seeded.store.getSnapshot()).toMatchObject({ locale: "en-XA", localeSettled: true });
 
-		const failing = harness(["fr"], {
+		const failing = harness(["ar"], {
 			initialPreference: "en-XA",
 			load: () => Effect.die("offline"),
 		});

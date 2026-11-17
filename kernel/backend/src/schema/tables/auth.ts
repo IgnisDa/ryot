@@ -52,7 +52,7 @@ export const user = snakeCase.table(
 		and (
 			jsonb_typeof(${table.preferences}->'contentLanguage') = 'null'
 			or (jsonb_typeof(${table.preferences}->'contentLanguage') = 'string'
-				and ${table.preferences}->>'contentLanguage' ~ '^[a-z]{2,3}$')
+				and ${table.preferences}->>'contentLanguage' ~ '^[a-z]{2,3}(-[A-Za-z0-9]{1,8})*$')
 		)
 		and (
 			jsonb_typeof(${table.preferences}->'weekStart') = 'null'

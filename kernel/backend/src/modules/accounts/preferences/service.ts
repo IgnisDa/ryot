@@ -3,6 +3,7 @@ import { badRequest } from "@ryot-app/contract/errors";
 import type { CreateApiKeyBody } from "@ryot-app/contract/modules/account/schemas";
 import type { ApiKeyId, ConnectedAppId } from "@ryot-app/contract/schema/brands";
 import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
+import { canonicalLocale, languageOfLocale } from "@ryot-app/i18n/locale";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { canonicalLanguageCode } from "@ryot-app/languages";
 import { Context, Effect, Layer } from "effect";
@@ -24,9 +25,13 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 			) {
 				const contentLanguage =
 					typeof patch.contentLanguage === "string"
-						? canonicalLanguageCode(patch.contentLanguage)
+						? canonicalLocale(patch.contentLanguage)
 						: patch.contentLanguage;
-				if (contentLanguage === undefined && patch.contentLanguage !== undefined) {
+				if (
+					(contentLanguage === undefined && patch.contentLanguage !== undefined) ||
+					(typeof contentLanguage === "string" &&
+						canonicalLanguageCode(languageOfLocale(contentLanguage)) === undefined)
+				) {
 					return yield* badRequest(kernelMessage("error.accounts.unknown-content-language"));
 				}
 				return yield* Object.keys(patch).length === 0

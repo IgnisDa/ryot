@@ -22,7 +22,6 @@ import { appSchemaJsonSchema } from "@ryot-app/contract/schema/app-schema-json-s
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { type Capability, kernelCapabilityId } from "@ryot-app/contract/schema/capability";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
 import type { DisplayText } from "@ryot-app/i18n/message";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
@@ -228,7 +227,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					ryotql
 						.executeForUser(
 							context.user.id,
-							resolveContentLanguage(context.user.preferences),
+							context.user.preferences.contentLanguage,
 							audience,
 							cappedRequest(request, document),
 							context.accessClass,

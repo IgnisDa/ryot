@@ -1177,7 +1177,7 @@ describe("preferences settings", () => {
 				);
 				expect(
 					screen
-						.getByRole("button", { name: "Content language: Same as interface language" })
+						.getByRole("button", { name: "Content language: Provider default" })
 						.hasAttribute("disabled"),
 				).toBe(true);
 				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
@@ -1198,7 +1198,7 @@ describe("preferences settings", () => {
 			Effect.gen(function* () {
 				mountPreferences();
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Content language: Same as interface language" }),
+					screen.findByRole("button", { name: "Content language: Provider default" }),
 				);
 
 				expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
@@ -1209,7 +1209,7 @@ describe("preferences settings", () => {
 				).not.toBeNull();
 				expect(screen.queryByRole("switch")).toBeNull();
 				expect(
-					screen.getByRole("button", { name: "Content language: Same as interface language" }),
+					screen.getByRole("button", { name: "Content language: Provider default" }),
 				).not.toBeNull();
 			}),
 		testTimeout,
@@ -1244,9 +1244,7 @@ describe("preferences settings", () => {
 				);
 				expect(submit.hasAttribute("disabled")).toBe(true);
 
-				fireEvent.click(
-					screen.getByRole("button", { name: "Content language: Same as interface language" }),
-				);
+				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				expect(submit.hasAttribute("disabled")).toBe(false);
 				fireEvent.click(submit);
@@ -1303,7 +1301,7 @@ describe("preferences settings", () => {
 		() =>
 			Effect.gen(function* () {
 				const saved: UserPreferencesPatch[] = [];
-				mountPreferences(
+				const view = mountPreferences(
 					makeUserSettingsStub({
 						updatePreferences: (_scope, request) =>
 							Effect.sync(() => {
@@ -1326,6 +1324,7 @@ describe("preferences settings", () => {
 
 				yield* Effect.promise(() => screen.findByText("Preferences saved."));
 				expect(saved).toEqual([{ weekStart: 1, interfaceLocale: "en" }]);
+				expect(view.interestEvents).toEqual(["acquire"]);
 			}),
 		testTimeout,
 	);
@@ -1345,9 +1344,7 @@ describe("preferences settings", () => {
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-				fireEvent.click(
-					screen.getByRole("button", { name: "Content language: Same as interface language" }),
-				);
+				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
 				fireEvent.click(screen.getByRole("radio", { name: "Other language…" }));
 				fireEvent.change(screen.getByRole("textbox", { name: "Custom entity language code" }), {
 					target: { value: "sv" },
@@ -1368,9 +1365,7 @@ describe("preferences settings", () => {
 				const gate = Deferred.makeUnsafe<void>();
 				mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-				fireEvent.click(
-					screen.getByRole("button", { name: "Content language: Same as interface language" }),
-				);
+				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -1398,9 +1393,7 @@ describe("preferences settings", () => {
 					makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-				fireEvent.click(
-					screen.getByRole("button", { name: "Content language: Same as interface language" }),
-				);
+				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 				yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
@@ -1418,9 +1411,7 @@ describe("preferences settings", () => {
 				);
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-				fireEvent.click(
-					screen.getByRole("button", { name: "Content language: Same as interface language" }),
-				);
+				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -1454,12 +1445,10 @@ describe("preferences settings", () => {
 					}),
 				);
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Content language: Same as interface language" }),
+					screen.findByRole("button", { name: "Content language: Provider default" }),
 				);
 
-				fireEvent.click(
-					screen.getByRole("button", { name: "Content language: Same as interface language" }),
-				);
+				fireEvent.click(screen.getByRole("button", { name: "Content language: Provider default" }));
 				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 				const language = screen.getByRole("button", { name: "Content language: Spanish" });
 				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));

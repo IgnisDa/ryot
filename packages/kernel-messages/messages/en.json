@@ -3122,9 +3122,9 @@
 		"message": "{count, number} selected",
 		"description": "Number of selected results."
 	},
-	"settings.preferences.content-language.interface": {
-		"message": "Same as interface language",
-		"description": "Content language choice that follows the interface language."
+	"settings.preferences.content-language.provider": {
+		"message": "Provider default",
+		"description": "Keeps each provider's canonical content regardless of the interface language."
 	},
 	"settings.preferences.interface-locale.device": {
 		"message": "Device language",

@@ -1,9 +1,4 @@
-import {
-	languageOfLocale,
-	SOURCE_LOCALE,
-	WeekDay,
-	weekStartForLocale,
-} from "@ryot-app/i18n/locale";
+import { LocaleTag, SOURCE_LOCALE, WeekDay, weekStartForLocale } from "@ryot-app/i18n/locale";
 import { kernelLocales } from "@ryot-app/kernel-messages/catalog";
 import { Schema } from "effect";
 
@@ -14,16 +9,13 @@ import { strictStruct } from "./utils";
 export const InterfaceLocale = Schema.Literals(kernelLocales);
 export type InterfaceLocale = typeof InterfaceLocale.Type;
 
-/** The shape of a canonical ISO 639 code; the backend checks canonical identity on write. */
-export const ContentLanguage = Schema.String.check(Schema.isPattern(/^[a-z]{2,3}$/));
-
 export const userPreferenceFields = {
 	ratingScale: RatingScale,
 	reportingTimeZone: TimeZone,
 	weekStart: Schema.NullOr(WeekDay),
 	disableIntegrations: Schema.Boolean,
+	contentLanguage: Schema.NullOr(LocaleTag),
 	interfaceLocale: Schema.NullOr(InterfaceLocale),
-	contentLanguage: Schema.NullOr(ContentLanguage),
 };
 
 export const UserPreferences = strictStruct(userPreferenceFields);
@@ -61,10 +53,3 @@ export const resolveInterfaceLocale = (
  */
 export const resolveWeekStart = (preferences: LocalePreferences): WeekDay =>
 	preferences.weekStart ?? weekStartForLocale(resolveInterfaceLocale(preferences));
-
-/** Null renders canonical entity content: without an interface locale there is no language to follow. */
-export const resolveContentLanguage = (
-	preferences: Pick<UserPreferences, "interfaceLocale" | "contentLanguage">,
-): null | string =>
-	preferences.contentLanguage ??
-	(preferences.interfaceLocale === null ? null : languageOfLocale(preferences.interfaceLocale));
