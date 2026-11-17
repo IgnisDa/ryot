@@ -6,7 +6,6 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createEntity,
-	executeRyotQLRecipe,
 	getImportRun,
 	listManualImportRuns,
 	pollImportRunUntilTerminal,
@@ -15,6 +14,7 @@ import {
 import {
 	createFitnessImportRun,
 	findFitnessEntitySchema,
+	fitnessRecipes,
 	readMeasurementLogReadings,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
@@ -81,7 +81,7 @@ describe("OpenScale Import E2E", () => {
 			]);
 			expect(weightReadings.map(({ unit }) => unit)).toEqual(["kg", "kg", "kg"]);
 
-			const summary = yield* executeRyotQLRecipe(
+			const summary = yield* fitnessRecipes.execute(
 				client,
 				measurementSummaryRecipe({ reference: { pluginId, kind: "local" } }),
 				{ range: "all-time" },

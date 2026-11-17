@@ -2,16 +2,12 @@ import { exerciseDetailsRecipe } from "@ryot-app/fitness-plugin/exercise-details
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
-import {
-	createAuthenticatedClient,
-	executeRyotQLRecipe,
-	getEntity,
-	pollUntil,
-} from "~/fixtures/kernel";
+import { createAuthenticatedClient, getEntity, pollUntil } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import {
 	createExerciseEntityFixture,
 	createExerciseNote,
+	fitnessRecipes,
 	readWorkoutDetails,
 	seedExerciseWorkout,
 } from "~/fixtures/plugins/fitness";
@@ -28,7 +24,9 @@ const exerciseDetails = (client: Client, exerciseId: string) =>
 			"Expected a Fitness exercise owner",
 		);
 		const reference: FitnessReference = { pluginId, kind: "local" };
-		return yield* executeRyotQLRecipe(client, exerciseDetailsRecipe({ reference }), { exerciseId });
+		return yield* fitnessRecipes.execute(client, exerciseDetailsRecipe({ reference }), {
+			exerciseId,
+		});
 	});
 
 const waitForReadySets = (client: Client, workoutId: string) =>
@@ -108,8 +106,8 @@ describe("Exercise details recipe E2E", () => {
 				weightForReps30: null,
 			});
 			expect(details.months.map((month) => month.month)).toEqual([
-				"2026-05-31T12:00:00.000Z",
-				"2026-06-30T12:00:00.000Z",
+				"2026-05-01T00:00:00.000Z",
+				"2026-06-01T00:00:00.000Z",
 			]);
 			expect(details.months[0]).toMatchObject({ reps: 15, sessions: 1, maxWeight: 100 });
 			expect(details.months[1]).toMatchObject({ maxReps: 8, sessions: 1, maxWeight: 120 });

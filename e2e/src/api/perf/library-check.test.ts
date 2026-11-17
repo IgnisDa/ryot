@@ -1,7 +1,5 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	fitnessAnalyticsTotalsRecipe,
 	fitnessAnalyticsTrendRecipe,
@@ -31,7 +29,6 @@ import {
 	libraryMediaCountRecipe,
 } from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
 import { upcomingRecipe } from "@ryot-app/media-plugin/shared/upcoming-recipes";
-import type { Recipe } from "@ryot-app/ryotql";
 import {
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
@@ -47,10 +44,11 @@ import type { Client } from "~/fixtures/kernel/auth";
 import { createImpersonationSession } from "~/fixtures/kernel/auth-impersonation";
 import { listEventsForEntity } from "~/fixtures/kernel/events";
 import { executeRyotQL, executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
-import { workoutReference } from "~/fixtures/plugins/fitness";
+import { fitnessRecipes, workoutReference } from "~/fixtures/plugins/fitness";
 import {
 	createBuiltinMediaLifecycleFixture,
 	findMediaEntitySchema,
+	mediaRecipes,
 } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -70,13 +68,9 @@ type Reads = Readonly<Record<string, Read>>;
 type Read = (client: Client) => Effect.Effect<void, unknown, HttpClient.HttpClient>;
 
 const read =
-	<Success, const Parameters extends AppSchema>(
-		recipe: Recipe<Success, Parameters>,
-		arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-		options: Omit<ContractPayload<"ryotql", "execute">, "source" | "arguments"> = {},
-	): Read =>
+	(execute: (client: Client) => Effect.Effect<unknown, unknown, HttpClient.HttpClient>): Read =>
 	(client) =>
-		executeRyotQLRecipe(client, recipe, arguments_, options).pipe(Effect.asVoid);
+		execute(client).pipe(Effect.asVoid);
 
 const log = (row: unknown) =>
 	Effect.gen(function* () {
@@ -132,89 +126,138 @@ const mediaReads = Effect.fn("mediaReads")(function* (client: Client) {
 	const midnight = (days: number) => midnightAfter(now, days);
 
 	const home: Reads = {
-		count: read(libraryMediaCountRecipe(reference), {}),
-		suggestions: read(
-			latestCompletionSuggestionsRecipe({ reference }),
-			{},
-			{ pages: { source: { limit: 20 } } },
+		count: read((pageClient) =>
+			mediaRecipes.execute(pageClient, libraryMediaCountRecipe(reference), {}),
 		),
-		upcoming: read(
-			upcomingRecipe({ reference }),
-			{ daysAhead: 7, onePerTitle: true },
-			{ pages: { anime: { limit: 20 } } },
+		suggestions: read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				latestCompletionSuggestionsRecipe({ reference }),
+				{},
+				{ pages: { source: { limit: 20 } } },
+			),
 		),
-		"backlog-flat": read(
-			flatByLifecycleStateRecipe({ reference }),
-			{ states: ["backlog"] },
-			{ pages: { items: { limit: 20 } } },
+		upcoming: read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				upcomingRecipe({ reference }),
+				{ daysAhead: 7, onePerTitle: true },
+				{ pages: { anime: { limit: 20 } } },
+			),
 		),
-		"continue-flat": read(
-			flatByLifecycleStateRecipe({ reference }),
-			{ states: ["in_progress"] },
-			{ pages: { items: { limit: 20 } } },
+		"backlog-flat": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				flatByLifecycleStateRecipe({ reference }),
+				{ states: ["backlog"] },
+				{ pages: { items: { limit: 20 } } },
+			),
 		),
-		trending: read(
-			trendingLatestMediaRecipe({ reference }),
-			{ entitySchemaSlugs: ["movie", "show"] },
-			{ pages: { trending: { limit: 20 } } },
+		"continue-flat": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				flatByLifecycleStateRecipe({ reference }),
+				{ states: ["in_progress"] },
+				{ pages: { items: { limit: 20 } } },
+			),
 		),
-		activity: read(
-			mediaActivityRecipe(reference),
-			reportingArguments({
-				grouping: "auto",
-				comparison: "none",
-				range: { days: 365, kind: "rolling" },
-			}),
+		trending: read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				trendingLatestMediaRecipe({ reference }),
+				{ entitySchemaSlugs: ["movie", "show"] },
+				{ pages: { trending: { limit: 20 } } },
+			),
 		),
-		"backlog-show": read(
-			episodicByLifecycleStateRecipe({ reference, config: showEpisodicKindConfig }),
-			{ states: ["backlog"] },
-			{ pages: { items: { limit: 20 } } },
+		"backlog-show": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				episodicByLifecycleStateRecipe({ reference, config: showEpisodicKindConfig }),
+				{ states: ["backlog"] },
+				{ pages: { items: { limit: 20 } } },
+			),
 		),
-		"continue-show": read(
-			episodicByLifecycleStateRecipe({ reference, config: showEpisodicKindConfig }),
-			{ states: ["in_progress"] },
-			{ pages: { items: { limit: 20 } } },
+		activity: read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				mediaActivityRecipe(reference),
+				reportingArguments({
+					grouping: "auto",
+					comparison: "none",
+					range: { days: 365, kind: "rolling" },
+				}),
+			),
 		),
-		"backlog-podcast": read(
-			episodicByLifecycleStateRecipe({ reference, config: podcastEpisodicKindConfig }),
-			{ states: ["backlog"] },
-			{ pages: { items: { limit: 20 } } },
+		"continue-show": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				episodicByLifecycleStateRecipe({ reference, config: showEpisodicKindConfig }),
+				{ states: ["in_progress"] },
+				{ pages: { items: { limit: 20 } } },
+			),
 		),
-		"continue-podcast": read(
-			episodicByLifecycleStateRecipe({ reference, config: podcastEpisodicKindConfig }),
-			{ states: ["in_progress"] },
-			{ pages: { items: { limit: 20 } } },
+		"backlog-podcast": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				episodicByLifecycleStateRecipe({ reference, config: podcastEpisodicKindConfig }),
+				{ states: ["backlog"] },
+				{ pages: { items: { limit: 20 } } },
+			),
+		),
+		"continue-podcast": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				episodicByLifecycleStateRecipe({ reference, config: podcastEpisodicKindConfig }),
+				{ states: ["in_progress"] },
+				{ pages: { items: { limit: 20 } } },
+			),
 		),
 	};
 	const analytics: Reads = {
-		"analytics-trend-all": read(
-			mediaAnalyticsTrendRecipe({ reference }),
-			reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+		"analytics-trend-all": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				mediaAnalyticsTrendRecipe({ reference }),
+				reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+			),
 		),
-		"analytics-hours-all": read(
-			mediaAnalyticsHoursRecipe({ reference }),
-			reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+		"analytics-hours-all": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				mediaAnalyticsHoursRecipe({ reference }),
+				reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+			),
 		),
-		"analytics-summary-all": read(
-			mediaAnalyticsSummaryRecipe({ reference }),
-			reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+		"analytics-summary-all": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				mediaAnalyticsSummaryRecipe({ reference }),
+				reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+			),
 		),
-		"analytics-ranking-all": read(
-			mediaAnalyticsRankingRecipe({ reference }),
-			reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+		"analytics-ranking-all": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				mediaAnalyticsRankingRecipe({ reference }),
+				reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+			),
 		),
-		"analytics-records-all": read(
-			mediaAnalyticsRecordsRecipe({ reference }),
-			reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+		"analytics-records-all": read((pageClient) =>
+			mediaRecipes.execute(
+				pageClient,
+				mediaAnalyticsRecordsRecipe({ reference }),
+				reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+			),
 		),
-		"analytics-summary-year": read(mediaAnalyticsSummaryRecipe({ reference }), {
-			...reportingArguments({
-				grouping: "auto",
-				comparison: "previous-period",
-				range: { days: 365, kind: "rolling" },
+		"analytics-summary-year": read((pageClient) =>
+			mediaRecipes.execute(pageClient, mediaAnalyticsSummaryRecipe({ reference }), {
+				...reportingArguments({
+					grouping: "auto",
+					comparison: "previous-period",
+					range: { days: 365, kind: "rolling" },
+				}),
 			}),
-		}),
+		),
 	};
 	const month = today.slice(0, 7);
 	const window = { month, localEnd: midnight(32), localStart: `${month}-01T00:00:00.000Z` };
@@ -222,10 +265,16 @@ const mediaReads = Effect.fn("mediaReads")(function* (client: Client) {
 	const calendar: Reads = Object.fromEntries(
 		sources.map((source) => [
 			`calendar-${source.slug}`,
-			read(Result.getOrThrow(calendarOccurrencesPageRecipe({ source })), {
-				windowEnd: calendarWindowBounds(source.precision, window).end,
-				windowStart: calendarWindowBounds(source.precision, window).start,
-			}),
+			read((pageClient) =>
+				executeRyotQLRecipe(
+					pageClient,
+					Result.getOrThrow(calendarOccurrencesPageRecipe({ source })),
+					{
+						windowEnd: calendarWindowBounds(source.precision, window).end,
+						windowStart: calendarWindowBounds(source.precision, window).start,
+					},
+				),
+			),
 		]),
 	);
 	const views = yield* executeRyotQLRecipe(
@@ -237,11 +286,16 @@ const mediaReads = Effect.fn("mediaReads")(function* (client: Client) {
 	const browsing: Record<string, Read> = {};
 	for (const view of views.items) {
 		const decoded = Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(view.settings);
-		if (!view.name.startsWith("All ") || view.dataSources === null || Result.isFailure(decoded)) {
+		if (
+			view.reference.kind !== "plugin" ||
+			!view.reference.slug.startsWith("all-") ||
+			view.dataSources === null ||
+			Result.isFailure(decoded)
+		) {
 			continue;
 		}
 		const settings = decoded.success;
-		const name = `view-${view.name.toLowerCase().replaceAll(" ", "-")}`;
+		const name = `view-${view.reference.slug}`;
 		const source = {
 			reference: view.reference,
 			kind: "savedView" as const,
@@ -283,30 +337,57 @@ const fitnessReads = Effect.fn("fitnessReads")(function* (client: Client) {
 	const reference = yield* workoutReference(client);
 
 	const reads: Reads = {
-		"fitness-hours": read(
-			fitnessWorkoutStartsByHourRecipe({ reference }),
-			reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+		"fitness-hours": read((pageClient) =>
+			fitnessRecipes.execute(
+				pageClient,
+				fitnessWorkoutStartsByHourRecipe({ reference }),
+				reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+			),
 		),
-		"fitness-totals-all": read(
-			fitnessAnalyticsTotalsRecipe({ reference }),
-			reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+		"fitness-totals-all": read((pageClient) =>
+			fitnessRecipes.execute(
+				pageClient,
+				fitnessAnalyticsTotalsRecipe({ reference }),
+				reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+			),
 		),
-		"fitness-workouts": read(
-			fitnessAnalyticsWorkoutsRecipe({ reference }),
-			reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+		"fitness-workouts": read((pageClient) =>
+			fitnessRecipes.execute(
+				pageClient,
+				fitnessAnalyticsWorkoutsRecipe({ reference }),
+				reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
+			),
 		),
-		"fitness-trend": read(fitnessAnalyticsTrendRecipe({ reference }), {
-			...reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
-			metric: "workouts",
-		}),
-		"fitness-rank-targets": read(historicalFitnessRankingRecipe({ reference }), {
-			...reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
-			kind: "targets",
-		}),
-		"fitness-rank-exercises": read(historicalFitnessRankingRecipe({ reference }), {
-			...reportingArguments({ grouping: "auto", comparison: "none", range: { kind: "all-time" } }),
-			kind: "exercises",
-		}),
+		"fitness-trend": read((pageClient) =>
+			fitnessRecipes.execute(pageClient, fitnessAnalyticsTrendRecipe({ reference }), {
+				...reportingArguments({
+					grouping: "auto",
+					comparison: "none",
+					range: { kind: "all-time" },
+				}),
+				metric: "workouts",
+			}),
+		),
+		"fitness-rank-targets": read((pageClient) =>
+			fitnessRecipes.execute(pageClient, historicalFitnessRankingRecipe({ reference }), {
+				...reportingArguments({
+					grouping: "auto",
+					comparison: "none",
+					range: { kind: "all-time" },
+				}),
+				kind: "targets",
+			}),
+		),
+		"fitness-rank-exercises": read((pageClient) =>
+			fitnessRecipes.execute(pageClient, historicalFitnessRankingRecipe({ reference }), {
+				...reportingArguments({
+					grouping: "auto",
+					comparison: "none",
+					range: { kind: "all-time" },
+				}),
+				kind: "exercises",
+			}),
+		),
 	};
 	return reads;
 });

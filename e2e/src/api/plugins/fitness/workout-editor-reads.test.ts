@@ -7,10 +7,11 @@ import {
 } from "@ryot-app/fitness-plugin/workout-history-recipes";
 import { Effect } from "effect";
 
-import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
+import { createAuthenticatedClient } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
 	findFitnessEntitySchema,
+	fitnessRecipes,
 	operationInput,
 	saveWorkoutEditor,
 	updateExerciseOverrides,
@@ -36,7 +37,7 @@ it.live(
 			).toEqual({ kind: "saved" });
 			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const reference = { pluginId, kind: "local" as const };
-			const selected = yield* executeRyotQLRecipe(
+			const selected = yield* fitnessRecipes.execute(
 				client,
 				workoutExercisePickerRecipe({ reference }),
 				{ search: "EDITOR", sort: "recently-added", kinds: ["reps_and_weight"] },
@@ -50,7 +51,7 @@ it.live(
 				},
 			]);
 			expect(
-				(yield* executeRyotQLRecipe(
+				(yield* fitnessRecipes.execute(
 					client,
 					exerciseTargetsRecipe({ reference }),
 					{ exerciseId },
@@ -87,7 +88,7 @@ it.live(
 				);
 				assertCondition(saved.kind === "saved", "Expected a saved workout");
 			}
-			const history = yield* executeRyotQLRecipe(client, workoutHistoryRecipe({ reference }), {
+			const history = yield* fitnessRecipes.execute(client, workoutHistoryRecipe({ reference }), {
 				exerciseId,
 				beforeStartedAt: "2026-10-03T10:00:00.000Z",
 			});
@@ -97,7 +98,7 @@ it.live(
 			]);
 			const latest = history.items[0];
 			assertCondition(latest !== undefined, "Expected the latest session");
-			const sets = yield* executeRyotQLRecipe(client, workoutHistorySetsRecipe({ reference }), {
+			const sets = yield* fitnessRecipes.execute(client, workoutHistorySetsRecipe({ reference }), {
 				exerciseId,
 				workoutId: latest.id,
 			});
@@ -105,7 +106,7 @@ it.live(
 				{ weight: 30, exerciseOrder: 0 },
 				{ weight: 40, exerciseOrder: 1 },
 			]);
-			const previous = yield* executeRyotQLRecipe(
+			const previous = yield* fitnessRecipes.execute(
 				client,
 				workoutExercisePreviousValuesRecipe({ reference }),
 				{
@@ -116,7 +117,7 @@ it.live(
 				},
 			);
 			expect(previous.items.map(({ weight }) => weight)).toEqual([30, 40, 20]);
-			const excluded = yield* executeRyotQLRecipe(
+			const excluded = yield* fitnessRecipes.execute(
 				client,
 				workoutExercisePreviousValuesRecipe({ reference }),
 				{

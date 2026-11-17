@@ -7,9 +7,11 @@ import {
 import { workoutTaxonomyRecipe } from "@ryot-app/fitness-plugin/workout-taxonomy-recipes";
 import { Effect } from "effect";
 
-import { collectRyotQLRecipeItems, executeRyotQLRecipe, getEntity } from "~/fixtures/kernel";
+import { getEntity } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import { requirePresent } from "~/support/assertions";
+
+import { fitnessRecipes } from "./exercises";
 
 export const readWorkoutDetails = (client: Client, workoutId: string) =>
 	Effect.gen(function* () {
@@ -23,22 +25,22 @@ export const readWorkoutDetails = (client: Client, workoutId: string) =>
 			kind: "local",
 		};
 		const workout = requirePresent(
-			yield* executeRyotQLRecipe(client, workoutDetailsRecipe({ reference }), { workoutId }),
+			yield* fitnessRecipes.execute(client, workoutDetailsRecipe({ reference }), { workoutId }),
 			`Expected workout ${workoutId}`,
 		);
-		const exercises = yield* collectRyotQLRecipeItems(
+		const exercises = yield* fitnessRecipes.collect(
 			client,
 			workoutDetailsExercisesRecipe({ reference }),
 			{ workoutId },
 			"exercises",
 		);
-		const sets = yield* collectRyotQLRecipeItems(
+		const sets = yield* fitnessRecipes.collect(
 			client,
 			workoutDetailsSetsRecipe({ reference }),
 			{ workoutId },
 			"sets",
 		);
-		const taxonomy = yield* collectRyotQLRecipeItems(
+		const taxonomy = yield* fitnessRecipes.collect(
 			client,
 			workoutTaxonomyRecipe({ reference }),
 			{ workoutIds: [workoutId] },
@@ -50,7 +52,7 @@ export const readWorkoutDetails = (client: Client, workoutId: string) =>
 				const previousSets =
 					previousWorkoutId === null
 						? []
-						: yield* collectRyotQLRecipeItems(
+						: yield* fitnessRecipes.collect(
 								client,
 								workoutDetailsSetsRecipe({ reference }),
 								{ exerciseId: exercise.id, workoutId: previousWorkoutId },

@@ -12,7 +12,6 @@ import { DateTime, Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createEntity,
-	executeRyotQLRecipe,
 	getEntity,
 	listEventSchemas,
 	listEventsForEntity,
@@ -25,6 +24,7 @@ import {
 	createMeasurementReadingFixture,
 	deleteMeasurementReadings,
 	findFitnessEntitySchema,
+	fitnessRecipes,
 	logMeasurementReadings,
 	pinMeasurementMetric,
 	readMeasurementLogReadings,
@@ -157,7 +157,10 @@ describe("Measurements E2E", () => {
 				"measurement-metric",
 			);
 
-			expect(metricSchema.name).toBe("Measurement Metric");
+			expect(metricSchema.name).toEqual({
+				namespace: pluginId,
+				key: "entity-schema.measurement-metric.name",
+			});
 			expect(metricSchema.isBuiltin).toBe(true);
 			expect(metricSchema.pluginId).toBe(pluginId);
 		}),
@@ -166,23 +169,34 @@ describe("Measurements E2E", () => {
 	it.live("exposes the metric and reading schema properties", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: metricSchema } = yield* findFitnessEntitySchema(client, "measurement-metric");
+			const { pluginId, schema: metricSchema } = yield* findFitnessEntitySchema(
+				client,
+				"measurement-metric",
+			);
 			const readingSchema = requireEventSchemaBySlug(
 				yield* listEventSchemas(client, metricSchema.reference),
 				"measurement-reading",
 			);
 
 			expect(metricSchema.propertiesSchema.fields).toMatchObject({
-				unit: { label: "Unit", type: "string" },
-				key: { label: "Key", type: "string", validation: { required: true } },
+				unit: { type: "string", label: { namespace: pluginId, key: "property.unit" } },
+				key: {
+					type: "string",
+					validation: { required: true },
+					label: { namespace: pluginId, key: "property.key" },
+				},
 			});
 			expect(readingSchema.propertiesSchema.fields).toMatchObject({
-				value: { label: "Value", type: "number", validation: { required: true } },
+				value: {
+					type: "number",
+					validation: { required: true },
+					label: { namespace: pluginId, key: "property.value" },
+				},
 			});
 			const { schema: entrySchema } = yield* findFitnessEntitySchema(client, "measurement-entry");
 			expect(entrySchema.propertiesSchema.fields).toMatchObject({
-				comment: { type: "string", label: "Comment" },
 				occurredAt: { type: "datetime", validation: { required: true } },
+				comment: { type: "string", label: { namespace: pluginId, key: "property.comment" } },
 			});
 			expect(readingSchema.propertiesSchema.fields).not.toHaveProperty("comment");
 		}),
@@ -195,16 +209,16 @@ describe("Measurements E2E", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const { pluginId } = yield* findFitnessEntitySchema(client, "measurement-metric");
 				const views = yield* listSavedViews(client, { pluginId });
-				const allMeasurementsView = views.find((view) => view.name === "All Measurements");
+				const allMeasurementsView = views.find((view) => view.slug === "all-measurements");
 				assertPresent(allMeasurementsView, "Expected the built-in All Measurements saved view");
 
 				expect(allMeasurementsView).toMatchObject({
 					settings: {},
 					isBuiltin: true,
 					dataSources: null,
-					name: "All Measurements",
 					renderer: { kind: "plugin", exportName: "measurements" },
 					reference: builtinSavedViewReference(pluginId, "all-measurements"),
+					name: { namespace: pluginId, key: "saved-view.all-measurements.name" },
 				});
 			}),
 	);
@@ -375,9 +389,11 @@ describe("Measurements E2E", () => {
 				expect(yield* listEventsForEntity(client, metric.entityId, undefined, 100)).toEqual([]);
 			}
 
-			const summary = yield* executeRyotQLRecipe(client, measurementSummaryRecipe({ reference }), {
-				range: "all-time",
-			});
+			const summary = yield* fitnessRecipes.execute(
+				client,
+				measurementSummaryRecipe({ reference }),
+				{ range: "all-time" },
+			);
 			expect(summary.items).toEqual<unknown>(
 				arrayContaining([
 					objectContaining({
@@ -408,7 +424,7 @@ describe("Measurements E2E", () => {
 			);
 
 			const { client: otherClient } = yield* createAuthenticatedClient();
-			const otherSummary = yield* executeRyotQLRecipe(
+			const otherSummary = yield* fitnessRecipes.execute(
 				otherClient,
 				measurementSummaryRecipe({ reference }),
 				{ range: "all-time" },
@@ -427,16 +443,16 @@ describe("Measurements E2E", () => {
 			const hip = yield* createMeasurementMetric(client, { name: "Hip" });
 			const bmi = yield* createMeasurementMetric(client, { name: "BMI" });
 			const pinnedIds = () =>
-				executeRyotQLRecipe(client, measurementSummaryRecipe({ reference }), {
-					range: "all-time",
-				}).pipe(
-					Effect.map(({ items }) =>
-						items
-							.flatMap(({ id, pinnedAt }) => (pinnedAt === null ? [] : [{ id, pinnedAt }]))
-							.sort((left, right) => Date.parse(left.pinnedAt) - Date.parse(right.pinnedAt))
-							.map(({ id }) => id),
-					),
-				);
+				fitnessRecipes
+					.execute(client, measurementSummaryRecipe({ reference }), { range: "all-time" })
+					.pipe(
+						Effect.map(({ items }) =>
+							items
+								.flatMap(({ id, pinnedAt }) => (pinnedAt === null ? [] : [{ id, pinnedAt }]))
+								.sort((left, right) => Date.parse(left.pinnedAt) - Date.parse(right.pinnedAt))
+								.map(({ id }) => id),
+						),
+					);
 
 			expect(yield* pinnedIds()).toEqual([weight.entityId, waist.entityId]);
 
@@ -484,14 +500,14 @@ describe("Measurements E2E", () => {
 				{ concurrency: 4 },
 			);
 
-			const first = yield* executeRyotQLRecipe(client, measurementSummaryRecipe({ reference }), {
+			const first = yield* fitnessRecipes.execute(client, measurementSummaryRecipe({ reference }), {
 				range: "all-time",
 			});
 			expect(first.items).toHaveLength(100);
 			expect(first.pageInfo.hasMore).toBe(true);
 			const nextCursor = requirePresent(first.pageInfo.nextCursor, "Expected next metric cursor");
 
-			const second = yield* executeRyotQLRecipe(
+			const second = yield* fitnessRecipes.execute(
 				client,
 				measurementSummaryRecipe({ reference }),
 				{ range: "all-time" },

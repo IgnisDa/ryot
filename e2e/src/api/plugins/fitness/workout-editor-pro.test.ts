@@ -4,10 +4,11 @@ import { objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect, Exit, Scope } from "effect";
 
-import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
+import { createAuthenticatedClient } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
 	editTarget,
+	fitnessRecipes,
 	keepSet,
 	loadWorkoutBaseline,
 	operationInput,
@@ -220,7 +221,7 @@ describe("Workout editor with a valid Pro key", () => {
 			assertCondition(fromTemplate.kind === "saved", "Expected template-based workout save");
 
 			const reference = yield* workoutReference(client);
-			const repeatedLinks = yield* executeRyotQLRecipe(
+			const repeatedLinks = yield* fitnessRecipes.execute(
 				client,
 				workoutEditorLinksRecipe({ reference }),
 				{ workoutId: repeated.entityId },
@@ -228,7 +229,7 @@ describe("Workout editor with a valid Pro key", () => {
 			expect(repeatedLinks.items).toContainEqual<unknown>(
 				objectContaining({ slug: "workout-repeated-from", targetEntityId: sourceWorkout.entityId }),
 			);
-			const templateLinks = yield* executeRyotQLRecipe(
+			const templateLinks = yield* fitnessRecipes.execute(
 				client,
 				workoutEditorLinksRecipe({ reference }),
 				{ workoutId: fromTemplate.entityId },

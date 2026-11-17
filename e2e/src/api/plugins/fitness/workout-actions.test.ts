@@ -16,6 +16,7 @@ import {
 	createWorkoutEntityFixture,
 	createWorkoutTemplateEntityFixture,
 	deleteWorkout,
+	fitnessRecipes,
 	LARGE_WORKOUT_BUDGET,
 	readWorkoutDetails,
 	seedExerciseWorkout,
@@ -87,7 +88,7 @@ it.live(
 			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: olderWorkoutId });
 			expect(yield* deleteWorkout(client, submission)).toEqual({ entityId: olderWorkoutId });
 			expect(
-				yield* executeRyotQLRecipe(
+				yield* fitnessRecipes.execute(
 					client,
 					workoutEditorEntityRecipe({ reference: { pluginId, kind: "local" } }),
 					{ kind: "workout", entityId: olderWorkoutId },

@@ -16,6 +16,7 @@ import {
 	createExerciseEntityFixture,
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
+	fitnessRecipes,
 	saveWorkoutData,
 	workoutData,
 	workoutOccurrence,
@@ -150,7 +151,7 @@ describe("Home muscle activity recipe", () => {
 					},
 					{ name, id: shared.id, weeklySets: 1.5, lastTrainedAt: stabilizerAt },
 				]);
-				const later = yield* executeRyotQLRecipe(
+				const later = yield* fitnessRecipes.execute(
 					client,
 					muscleActivityRecipe({ reference: { pluginId, kind: "local" } }),
 					{

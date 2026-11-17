@@ -18,7 +18,6 @@ import {
 	createAuthenticatedClient,
 	createCollection,
 	createEntity,
-	executeRyotQLRecipe,
 	getEntity,
 	insertRelationshipRow,
 	listSavedViews,
@@ -30,6 +29,7 @@ import {
 	createWorkoutTemplateEntityFixture,
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
+	fitnessRecipes,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -98,7 +98,10 @@ describe("Workout Templates E2E", () => {
 				"workout-template",
 			);
 
-			expect(workoutTemplateSchema.name).toBe("Workout Template");
+			expect(workoutTemplateSchema.name).toEqual({
+				namespace: pluginId,
+				key: "entity-schema.workout-template.name",
+			});
 			expect(workoutTemplateSchema.pluginId).toBe(pluginId);
 			expect(workoutTemplateSchema.isBuiltin).toBe(true);
 		}),
@@ -107,35 +110,43 @@ describe("Workout Templates E2E", () => {
 	it.live("exposes the workout-template schema properties", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: workoutTemplateSchema } = yield* findFitnessEntitySchema(
+			const { pluginId, schema: workoutTemplateSchema } = yield* findFitnessEntitySchema(
 				client,
 				"workout-template",
 			);
 
 			expect(workoutTemplateSchema.propertiesSchema.fields).toMatchObject({
-				images: { type: "array", label: "Images", description: "Images attached to this template" },
-				videos: { type: "array", label: "Videos", description: "Videos attached to this template" },
+				images: {
+					type: "array",
+					label: { key: "definition.property.images" },
+					description: "Images attached to this template",
+				},
+				videos: {
+					type: "array",
+					label: { key: "definition.property.videos" },
+					description: "Videos attached to this template",
+				},
 				comment: {
 					type: "string",
-					label: "Comment",
+					label: { namespace: pluginId, key: "property.comment" },
 					description: "Optional notes about this workout template",
 				},
 				supersets: {
 					type: "array",
-					label: "Supersets",
 					description: "Supersets in this template",
+					label: { namespace: pluginId, key: "property.supersets" },
 					items: {
 						type: "object",
 						description: "Superset grouping within a workout or template",
 						properties: {
 							color: {
-								label: "Color",
 								type: "string",
 								description: "Display color for this superset",
+								label: { namespace: pluginId, key: "property.color" },
 							},
 							exercises: {
 								type: "array",
-								label: "Exercises",
+								label: { namespace: pluginId, key: "property.exercises" },
 								description: "Zero-based exercise positions in this superset",
 							},
 						},
@@ -143,48 +154,48 @@ describe("Workout Templates E2E", () => {
 				},
 				exercises: {
 					type: "array",
-					label: "Exercises",
 					description: "Exercises in this template",
+					label: { namespace: pluginId, key: "property.exercises" },
 					items: {
 						type: "object",
 						description: "Exercise in this template",
 						properties: {
 							exerciseId: {
 								type: "string",
-								label: "Exercise Id",
 								description: "Entity id of the exercise",
+								label: { namespace: pluginId, key: "property.exercise-id" },
 							},
 							images: {
 								type: "array",
-								label: "Images",
+								label: { key: "definition.property.images" },
 								description: "Images attached to this exercise in the template",
 							},
 							videos: {
 								type: "array",
-								label: "Videos",
+								label: { key: "definition.property.videos" },
 								description: "Videos attached to this exercise in the template",
 							},
 							exerciseOrder: {
 								type: "integer",
-								label: "Exercise Order",
+								label: { namespace: pluginId, key: "property.exercise-order" },
 								description: "Zero-based position of this exercise within the template",
 							},
 							sets: {
-								label: "Sets",
 								type: "array",
 								description: "Sets planned for this exercise",
+								label: { namespace: pluginId, key: "property.sets" },
 								items: {
 									type: "object",
 									description: "Set planned in this exercise",
 									properties: {
 										setOrder: {
 											type: "integer",
-											label: "Set Order",
+											label: { namespace: pluginId, key: "property.set-order" },
 											description: "Zero-based position of this set within the exercise",
 										},
 										setLot: {
 											type: "enum",
-											label: "Set Lot",
+											label: { namespace: pluginId, key: "property.set-lot" },
 											description: "Set type: normal, warm_up, drop, or failure",
 											choices: {
 												kind: "static",
@@ -213,7 +224,7 @@ describe("Workout Templates E2E", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const { pluginId } = yield* findFitnessEntitySchema(client, "workout-template");
 				const views = yield* listSavedViews(client, { pluginId });
-				const allWorkoutTemplatesView = views.find((view) => view.name === "All Workout Templates");
+				const allWorkoutTemplatesView = views.find((view) => view.slug === "all-workout-templates");
 				assertPresent(
 					allWorkoutTemplatesView,
 					"Expected the built-in All Workout Templates saved view",
@@ -231,9 +242,9 @@ describe("Workout Templates E2E", () => {
 
 				expect(allWorkoutTemplatesView).toMatchObject({
 					isBuiltin: true,
-					name: "All Workout Templates",
 					renderer: { kind: "kernel", name: "entity-browser" },
 					reference: builtinSavedViewReference(pluginId, "all-workout-templates"),
+					name: { namespace: pluginId, key: "saved-view.all-workout-templates.name" },
 					settings: {
 						defaultLayout: "grid",
 						sourceName: "savedView",
@@ -251,9 +262,21 @@ describe("Workout Templates E2E", () => {
 							packageId: PLUGIN_PACKAGE_ID,
 						},
 						tableColumns: [
-							{ label: "Name", field: "name", displayKind: "text" },
-							{ field: "createdAt", label: "Created At", displayKind: "date" },
-							{ label: "Comment", field: "comment", displayKind: "text" },
+							{
+								field: "name",
+								displayKind: "text",
+								label: { namespace: pluginId, key: "table-column.name" },
+							},
+							{
+								field: "createdAt",
+								displayKind: "date",
+								label: { namespace: pluginId, key: "table-column.created-at" },
+							},
+							{
+								field: "comment",
+								displayKind: "text",
+								label: { namespace: pluginId, key: "property.comment" },
+							},
 						],
 					},
 				});
@@ -276,12 +299,15 @@ describe("Workout Templates E2E", () => {
 				expect(savedViewSource).toEqual<unknown>(
 					objectContaining({
 						output: objectContaining({
-							orderBy: [
-								objectContaining({
-									direction: "desc",
-									expr: objectContaining({ type: "column", field: "createdAt" }),
-								}),
-							],
+							orderBy: {
+								type: "sort",
+								otherwise: [
+									{
+										direction: "desc",
+										expr: { type: "column", field: "createdAt", tableAlias: "entity" },
+									},
+								],
+							},
 						}),
 						where: objectContaining({
 							type: "and",
@@ -290,12 +316,30 @@ describe("Workout Templates E2E", () => {
 									type: "and",
 									predicates: arrayContaining([
 										objectContaining({
-											right: { type: "literal", value: "workout-template" },
-											left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-										}),
-										objectContaining({
-											right: { type: "pluginId", reference: { pluginId, kind: "local" } },
-											left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+											type: "and",
+											predicates: arrayContaining([
+												objectContaining({
+													type: "and",
+													predicates: arrayContaining([
+														objectContaining({
+															right: { type: "literal", value: "workout-template" },
+															left: {
+																type: "column",
+																tableAlias: "entity",
+																field: "entitySchemaSlug",
+															},
+														}),
+														objectContaining({
+															right: { type: "pluginId", reference: { pluginId, kind: "local" } },
+															left: {
+																type: "column",
+																tableAlias: "entity",
+																field: "entitySchemaPluginId",
+															},
+														}),
+													]),
+												}),
+											]),
 										}),
 									]),
 								}),
@@ -312,19 +356,17 @@ describe("Workout Templates E2E", () => {
 					"comment",
 					"ownerPluginId",
 					"entitySchemaSlug",
-					"presentationId",
-					"presentationName",
-					"presentationPrimary",
-					"presentationCallout",
-					"presentationSecondary",
-					"presentationImage",
-					"presentationLatestValue",
-					"presentationLatestAt",
+					"__entityBrowserId",
+					"__entityBrowserName",
+					"__entityBrowserOwnerPluginId",
+					"__entityBrowserSchemaSlug",
+					"__entityBrowserPopulationStatus",
+					"__entityBrowserTranslationStatus",
 				]);
 
 				const { workoutTemplate, workoutTemplateId } =
 					yield* createWorkoutTemplateEntityFixture(client);
-				const result = yield* executeRyotQLRecipe(
+				const result = yield* fitnessRecipes.execute(
 					client,
 					workoutTemplateListRecipe({ reference: { pluginId, kind: "local" } }),
 					{ entityId: workoutTemplateId },
@@ -475,7 +517,7 @@ describe("Workout Templates E2E", () => {
 				relationshipSchema: relationshipSchema.reference,
 			});
 
-			const result = yield* executeRyotQLRecipe(
+			const result = yield* fitnessRecipes.execute(
 				client,
 				workoutDetailRecipe({ reference: { pluginId, kind: "local" } }),
 				{ entityId: workoutId },
@@ -516,7 +558,7 @@ describe("Workout Templates E2E", () => {
 				relationshipSchema: relationshipSchema.reference,
 			});
 
-			const result = yield* executeRyotQLRecipe(
+			const result = yield* fitnessRecipes.execute(
 				client,
 				workoutTemplateDetailRecipe({ reference: { pluginId, kind: "local" } }),
 				{ entityId: workoutTemplateId },

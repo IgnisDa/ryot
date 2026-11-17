@@ -13,12 +13,11 @@ import {
 } from "@ryot-app/fitness-plugin/workout-editor-recipes";
 import { Effect } from "effect";
 
-import { collectRyotQLRecipeItems, executeRyotQLRecipe } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import { invokeOperation, type RecipeInput } from "~/fixtures/kernel/operations";
 import { requirePresent } from "~/support/assertions";
 
-import { findFitnessEntitySchema } from "./exercises";
+import { findFitnessEntitySchema, fitnessRecipes } from "./exercises";
 
 export const workoutEditorTimes = {
 	endedAt: "2026-10-01T11:00:00.000Z",
@@ -67,13 +66,13 @@ export const loadWorkoutBaseline = (
 	Effect.gen(function* () {
 		const reference = yield* workoutReference(client);
 		const entity = requirePresent(
-			yield* executeRyotQLRecipe(client, workoutEditorEntityRecipe({ reference }), {
+			yield* fitnessRecipes.execute(client, workoutEditorEntityRecipe({ reference }), {
 				kind,
 				entityId,
 			}),
 			`Expected workout editor entity ${entityId}`,
 		);
-		const sets = yield* collectRyotQLRecipeItems(
+		const sets = yield* fitnessRecipes.collect(
 			client,
 			workoutEditorSetsRecipe({ reference }),
 			{ workoutId: entityId },

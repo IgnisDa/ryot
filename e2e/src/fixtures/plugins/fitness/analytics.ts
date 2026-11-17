@@ -6,11 +6,10 @@ import { Effect } from "effect";
 import { analyticsFixtureSelection } from "~/fixtures/kernel/analytics-location";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { pollUntil } from "~/fixtures/kernel/polling";
-import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { assertCondition } from "~/support/assertions";
 
-import { createExerciseEntityFixture } from "./exercises";
+import { createExerciseEntityFixture, fitnessRecipes } from "./exercises";
 import { createMeasurementMetric, logMeasurementReadings } from "./measurements";
 import {
 	saveWorkoutData,
@@ -120,9 +119,11 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 
 		yield* pollUntil(
 			"Fitness analytics workout sets to be processed",
-			executeRyotQLRecipe(client, fitnessAnalyticsTotalsRecipe({ reference }), {
-				...reportingArguments(analyticsFixtureSelection),
-			}).pipe(Effect.map((report) => (report.processing === "ready" ? report : null))),
+			fitnessRecipes
+				.execute(client, fitnessAnalyticsTotalsRecipe({ reference }), {
+					...reportingArguments(analyticsFixtureSelection),
+				})
+				.pipe(Effect.map((report) => (report.processing === "ready" ? report : null))),
 		);
 
 		return {

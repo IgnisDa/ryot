@@ -8,6 +8,7 @@ import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 import { findPluginInstallationByPackage } from "~/fixtures/kernel/plugins";
+import { pluginRecipeExecutors } from "~/fixtures/kernel/ryotql";
 import { requirePresent } from "~/support/assertions";
 import { getSharedHarnessTarget } from "~/support/harness-target";
 
@@ -20,6 +21,10 @@ export const fitnessFixtureInstallation = (target = getSharedHarnessTarget()) =>
 			),
 		),
 	);
+
+export const fitnessRecipes = pluginRecipeExecutors((target) =>
+	fitnessFixtureInstallation(target).pipe(Effect.map(({ id }) => id)),
+);
 
 export const findFitnessEntitySchema = (client: Client, slug: string) =>
 	Effect.gen(function* () {

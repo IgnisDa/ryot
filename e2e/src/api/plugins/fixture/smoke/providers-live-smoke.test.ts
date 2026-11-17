@@ -65,7 +65,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			);
 			const provider = searchable.items.find((row) => row.providerSlug === PROVIDER_SLUG);
 			assertPresent(provider, "Expected the fixture PokeAPI provider on the pokemon schema");
-			expect(provider.providerName).toBe("PokeAPI");
+			expect(provider.providerName).toEqual({ namespace: pluginId, key: "provider.pokeapi.name" });
 			expect(provider.rootEntitySchemaSlug).toBe(schema.id);
 
 			assertPresent(provider.searchOptionsSchema, "Expected a PokeAPI search options schema");
@@ -131,7 +131,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			const source = dataSources.queries.savedView;
 			assertPresent(source, "Expected the fixture-owned 'all-pokemon' named source");
 			assertCondition(source.output.type === "rows", "Expected 'all-pokemon' rows output");
-			expect(view.name).toBe("All Pokemon");
+			expect(view.name).toEqual({ namespace: pluginId, key: "saved-view.all-pokemon.name" });
 			expect(view.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
 			expect(view.settings).toMatchObject({
 				defaultLayout: "grid",
@@ -174,14 +174,46 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				}),
 			);
 			expect(view.settings["tableColumns"]).toEqual([
-				{ field: "image", label: "Image", displayKind: "managed-asset" },
-				{ label: "Name", field: "name", displayKind: "text" },
-				{ displayKind: "number", field: "pokedexNumber", label: "Pokedex Number" },
-				{ label: "Types", field: "types", displayKind: "json" },
-				{ field: "abilities", label: "Abilities", displayKind: "json" },
-				{ field: "height", label: "Height (dm)", displayKind: "number" },
-				{ field: "weight", label: "Weight (hg)", displayKind: "number" },
-				{ displayKind: "number", field: "baseExperience", label: "Base Experience" },
+				{
+					field: "image",
+					displayKind: "managed-asset",
+					label: { namespace: pluginId, key: "table-column.image" },
+				},
+				{
+					field: "name",
+					displayKind: "text",
+					label: { namespace: pluginId, key: "table-column.name" },
+				},
+				{
+					displayKind: "number",
+					field: "pokedexNumber",
+					label: { namespace: pluginId, key: "property.pokedex-number" },
+				},
+				{
+					field: "types",
+					displayKind: "json",
+					label: { namespace: pluginId, key: "property.types" },
+				},
+				{
+					field: "abilities",
+					displayKind: "json",
+					label: { namespace: pluginId, key: "property.abilities" },
+				},
+				{
+					field: "height",
+					displayKind: "number",
+					label: { namespace: pluginId, key: "table-column.height" },
+				},
+				{
+					field: "weight",
+					displayKind: "number",
+					label: { namespace: pluginId, key: "table-column.weight" },
+				},
+				{
+					displayKind: "number",
+					field: "baseExperience",
+					label: { namespace: pluginId, key: "property.base-experience" },
+				},
 			]);
 			expect(
 				source.output.fields.map((selection) => "key" in selection && selection.key),
@@ -207,7 +239,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			);
 			const provider = searchable.items.find((row) => row.providerSlug === MOVE_PROVIDER_SLUG);
 			assertPresent(provider, "Expected the fixture PokeAPI provider on the move schema");
-			expect(provider.providerName).toBe("PokeAPI");
+			expect(provider.providerName).toEqual({ namespace: pluginId, key: "provider.pokeapi.name" });
 			expect(provider.rootEntitySchemaSlug).toBe(schema.id);
 
 			assertPresent(provider.searchOptionsSchema, "Expected a move search options schema");
@@ -303,7 +335,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			const source = dataSources.queries.savedView;
 			assertPresent(source, "Expected the fixture-owned 'all-moves' named source");
 			assertCondition(source.output.type === "rows", "Expected 'all-moves' rows output");
-			expect(view.name).toBe("All Moves");
+			expect(view.name).toEqual({ namespace: pluginId, key: "saved-view.all-moves.name" });
 			expect(view.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
 			expect(view.settings).toMatchObject({
 				defaultLayout: "grid",
@@ -346,14 +378,42 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				}),
 			);
 			expect(view.settings["tableColumns"]).toEqual([
-				{ field: "name", label: "Name", displayKind: "text" },
-				{ field: "type", label: "Type", displayKind: "text" },
-				{ displayKind: "text", field: "damageClass", label: "Damage Class" },
-				{ field: "power", label: "Power", displayKind: "number" },
-				{ field: "accuracy", label: "Accuracy", displayKind: "number" },
-				{ field: "pp", label: "PP", displayKind: "number" },
-				{ field: "priority", label: "Priority", displayKind: "number" },
-				{ field: "generation", label: "Generation", displayKind: "text" },
+				{
+					field: "name",
+					displayKind: "text",
+					label: { namespace: pluginId, key: "table-column.name" },
+				},
+				{
+					field: "type",
+					displayKind: "text",
+					label: { namespace: pluginId, key: "property.type" },
+				},
+				{
+					displayKind: "text",
+					field: "damageClass",
+					label: { namespace: pluginId, key: "property.damage-class" },
+				},
+				{
+					field: "power",
+					displayKind: "number",
+					label: { namespace: pluginId, key: "property.power" },
+				},
+				{
+					field: "accuracy",
+					displayKind: "number",
+					label: { namespace: pluginId, key: "property.accuracy" },
+				},
+				{ field: "pp", displayKind: "number", label: { key: "property.pp", namespace: pluginId } },
+				{
+					field: "priority",
+					displayKind: "number",
+					label: { namespace: pluginId, key: "property.priority" },
+				},
+				{
+					field: "generation",
+					displayKind: "text",
+					label: { namespace: pluginId, key: "property.generation" },
+				},
 			]);
 			expect(
 				source.output.fields.map((selection) => "key" in selection && selection.key),

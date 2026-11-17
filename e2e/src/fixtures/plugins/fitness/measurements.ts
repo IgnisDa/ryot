@@ -24,9 +24,8 @@ import {
 	type RecipeInput,
 } from "~/fixtures/kernel/operations";
 import type { RyotQLPayload } from "~/fixtures/kernel/ryotql";
-import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 
-import { findFitnessEntitySchema } from "./exercises";
+import { findFitnessEntitySchema, fitnessRecipes } from "./exercises";
 
 export const createMeasurementMetric = (
 	client: Client,
@@ -105,16 +104,16 @@ export const readMeasurementLogReadings = Effect.fn(function* (
 	input: Parameters<typeof measurementEntryListRecipe>[0],
 	requestPage: NonNullable<RyotQLPayload["pages"]>[string] = {},
 ) {
-	const entries = yield* executeRyotQLRecipe(
+	const entries = yield* fitnessRecipes.execute(
 		client,
 		measurementEntryListRecipe(input),
-		{},
+		{ range: "all-time" },
 		{ pages: { entries: requestPage } },
 	);
 	const metrics = new Map<string, MeasurementSummary>();
 	let after: string | undefined;
 	do {
-		const page = yield* executeRyotQLRecipe(
+		const page = yield* fitnessRecipes.execute(
 			client,
 			measurementSummaryRecipe({ reference: input.reference }),
 			{ range: "all-time" },
@@ -128,7 +127,7 @@ export const readMeasurementLogReadings = Effect.fn(function* (
 	const readings: MeasurementEntryReading[] = [];
 	let readingsAfter: string | undefined;
 	do {
-		const page = yield* executeRyotQLRecipe(
+		const page = yield* fitnessRecipes.execute(
 			client,
 			measurementPageReadingsRecipe({ reference: input.reference }),
 			{ entryIds: entries.items.map((entry) => entry.id) },

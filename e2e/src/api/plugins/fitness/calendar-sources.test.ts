@@ -91,13 +91,13 @@ describe("Fitness calendar sources", () => {
 
 			expect(
 				(yield* occurrences(client)).map(({ caption, startAt, subject }) => ({
-					caption,
 					startAt,
 					subject: subject.id,
+					caption: caption?.params ?? null,
 				})),
 			).toEqual([
-				{ subject: two, caption: "2 exercises", startAt: "2026-09-10T08:15:00.000Z" },
-				{ subject: one, caption: "1 exercise", startAt: "2026-09-12T18:30:00.000Z" },
+				{ subject: two, caption: { count: 2 }, startAt: "2026-09-10T08:15:00.000Z" },
+				{ subject: one, caption: { count: 1 }, startAt: "2026-09-12T18:30:00.000Z" },
 			]);
 		}),
 	);

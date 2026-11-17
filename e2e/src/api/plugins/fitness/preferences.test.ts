@@ -9,7 +9,7 @@ import {
 	requireRows,
 	requireRyotQLText,
 } from "~/fixtures/kernel";
-import { getUserSettings, setUserLanguage } from "~/fixtures/kernel/account";
+import { getUserSettings, setUserContentLanguage } from "~/fixtures/kernel/account";
 import type { Client } from "~/fixtures/kernel/auth";
 import {
 	listPluginUserSettings,
@@ -20,13 +20,17 @@ import {
 	createExerciseEntityFixture,
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
+	fitnessFixtureInstallation,
 } from "~/fixtures/plugins/fitness";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const fitnessSetting = Effect.fn(function* (client: Client) {
+	const { id: pluginId } = yield* fitnessFixtureInstallation();
 	return requirePresent(
-		(yield* listPluginUserSettings(client)).find(({ name }) => name === "Fitness"),
+		(yield* listPluginUserSettings(client)).find(
+			({ name }) => name.namespace === pluginId && name.key === "plugin.name",
+		),
 		"Fitness settings not found",
 	);
 });
@@ -38,7 +42,7 @@ describe("Fitness preferences", () => {
 			Effect.gen(function* () {
 				const owner = yield* createAuthenticatedClient();
 				const other = yield* createAuthenticatedClient();
-				yield* setUserLanguage(owner.client, "es");
+				yield* setUserContentLanguage(owner.client, "es");
 				const initial = yield* fitnessSetting(owner.client);
 				expect(initial.settings).toEqual({});
 				const choices = {
@@ -55,25 +59,25 @@ describe("Fitness preferences", () => {
 					savePluginUserSettings(other.client, initial.id, { normalRestTime: 30 }),
 				);
 				assertTaggedError(foreignWrite, "PluginNotFoundError");
-				const invalidChoices: Array<Parameters<typeof savePluginUserSettings>[2]> = [
-					{ normalRestTime: -1 },
-					{ normalRestTime: 1.5 },
-					{ normalRestTime: null },
-					{ muteSounds: null },
-					{ energyUnit: "cal" },
-					{ unknown: true, unitSystem: "imperial" },
+				const invalidChoices: Array<[Parameters<typeof savePluginUserSettings>[2], string]> = [
+					[{ normalRestTime: -1 }, "normalRestTime"],
+					[{ normalRestTime: 1.5 }, "normalRestTime"],
+					[{ normalRestTime: null }, "normalRestTime"],
+					[{ muteSounds: null }, "muteSounds"],
+					[{ energyUnit: "cal" }, "energyUnit"],
+					[{ unknown: true, unitSystem: "imperial" }, "unknown"],
 				];
-				for (const invalid of invalidChoices) {
+				for (const [invalid, key] of invalidChoices) {
 					const error = yield* Effect.flip(
 						savePluginUserSettings(owner.client, initial.id, invalid),
 					);
-					assertTaggedError(error, "PluginRequestError");
-					expect(error.reason.code).toBe("validation-failed");
+					assertTaggedError(error, "ValidationFailed");
+					expect(error.issues).toEqual([{ path: [key], issue: "invalid-value" }]);
 					expect((yield* fitnessSetting(owner.client)).settings).toEqual(choices);
 				}
 				yield* resetPluginUserSettings(owner.client, initial.id);
 				expect((yield* fitnessSetting(owner.client)).settings).toEqual({});
-				expect((yield* getUserSettings(owner.client)).preferences.language).toBe("es");
+				expect((yield* getUserSettings(owner.client)).preferences.contentLanguage).toBe("es");
 			}),
 	);
 

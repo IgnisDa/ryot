@@ -12,7 +12,7 @@ import { Effect, Result } from "effect";
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { getEntity } from "~/fixtures/kernel/entities";
 import { listEventsForEntity } from "~/fixtures/kernel/events";
-import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
+import { fitnessRecipes } from "~/fixtures/plugins/fitness";
 import { createExerciseEntityFixture } from "~/fixtures/plugins/fitness/exercises";
 import {
 	deleteWorkout,
@@ -82,7 +82,7 @@ const readRankings = (
 	kind: "targets" | "equipment" | "exercises",
 ) =>
 	Effect.gen(function* () {
-		const { items } = yield* executeRyotQLRecipe(
+		const { items } = yield* fitnessRecipes.execute(
 			client,
 			historicalFitnessRankingRecipe({ reference }),
 			{
@@ -278,7 +278,7 @@ it.live("records repeated exercise occurrences with exact taxonomy and ranking c
 		]);
 
 		const reference = yield* workoutReference(client);
-		const cards = yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+		const cards = yield* fitnessRecipes.execute(client, workoutCardsRecipe({ reference }), {
 			workoutIds: [saved.entityId],
 		});
 		const card = requirePresent(cards.items[0], "Expected workout card");
@@ -330,7 +330,7 @@ it.live("summarizes workout card muscles across more than one page of occurrence
 		);
 		assertCondition(saved.kind === "saved", "Expected large workout to save");
 		const reference = yield* workoutReference(client);
-		const cards = yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+		const cards = yield* fitnessRecipes.execute(client, workoutCardsRecipe({ reference }), {
 			workoutIds: [saved.entityId],
 		});
 		const card = requirePresent(cards.items[0], "Expected workout card");
@@ -665,13 +665,13 @@ it.live(
 			).toHaveLength(1);
 
 			const [targets, equipment] = yield* Effect.all([
-				executeRyotQLRecipe(
+				fitnessRecipes.execute(
 					client,
 					exerciseTargetsRecipe({ reference }),
 					{ exerciseId },
 					{ pages: { targets: { limit: 100 } } },
 				),
-				executeRyotQLRecipe(
+				fitnessRecipes.execute(
 					client,
 					exerciseEquipmentRecipe({ reference }),
 					{ exerciseId },

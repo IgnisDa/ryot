@@ -1,6 +1,7 @@
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, FileSystem, Path } from "effect";
 
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import type { shippedPluginTestProviders } from "~/fixtures/kernel/sandbox-provider";
 
 const detailsSource = (input: { slug: string; exerciseName: string }) => `
@@ -72,9 +73,9 @@ export const attachFitnessTaxonomyProvider = (
 			taxonomy: {
 				provider: {
 					slug: providerSlug,
-					name: "E2E Free Exercise DB",
 					information: { source: "e2e" },
 					rootEntitySchemaSlug: "exercise",
+					name: manifestText("E2E Free Exercise DB"),
 				},
 				files: {
 					"shared/taxonomy.ts": taxonomySource,

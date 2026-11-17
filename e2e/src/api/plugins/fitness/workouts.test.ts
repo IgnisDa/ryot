@@ -40,6 +40,7 @@ import {
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
 	findWorkoutSetEventSchema,
+	fitnessRecipes,
 	saveWorkoutData,
 	workoutData,
 	workoutOccurrence,
@@ -127,7 +128,10 @@ describe("Workouts E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId, schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 
-			expect(workoutSchema.name).toBe("Workout");
+			expect(workoutSchema.name).toEqual({
+				namespace: pluginId,
+				key: "entity-schema.workout.name",
+			});
 			expect(workoutSchema.pluginId).toBe(pluginId);
 			expect(workoutSchema.isBuiltin).toBe(true);
 		}),
@@ -136,31 +140,39 @@ describe("Workouts E2E", () => {
 	it.live("exposes the workout schema properties", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+			const { pluginId, schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 
 			expect(workoutSchema.propertiesSchema.fields).toMatchObject({
 				exerciseMedia: { type: "array" },
-				images: { type: "array", label: "Images", description: "Images attached to this workout" },
-				videos: { type: "array", label: "Videos", description: "Videos attached to this workout" },
+				images: {
+					type: "array",
+					label: { key: "definition.property.images" },
+					description: "Images attached to this workout",
+				},
+				videos: {
+					type: "array",
+					label: { key: "definition.property.videos" },
+					description: "Videos attached to this workout",
+				},
 				endedAt: {
 					type: "datetime",
-					label: "Ended At",
 					description: "Date and time this workout session ended",
+					label: { namespace: pluginId, key: "property.ended-at" },
 				},
 				comment: {
 					type: "string",
-					label: "Comment",
+					label: { namespace: pluginId, key: "property.comment" },
 					description: "Optional notes or comments about this workout",
 				},
 				startedAt: {
 					type: "datetime",
-					label: "Started At",
 					description: "Date and time this workout session began",
+					label: { namespace: pluginId, key: "property.started-at" },
 				},
 				caloriesBurnt: {
 					type: "number",
-					label: "Calories Burnt",
+					label: { namespace: pluginId, key: "property.calories-burnt" },
 					description: "Estimated energy burned during this workout in kilocalories (kcal)",
 				},
 			});
@@ -285,13 +297,13 @@ describe("Workouts E2E", () => {
 			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const views = yield* listSavedViews(client, { pluginId });
 
-			expect(views.find((view) => view.name === "All Workouts")).toMatchObject({
+			expect(views.find((view) => view.slug === "all-workouts")).toMatchObject({
 				settings: {},
 				isBuiltin: true,
 				dataSources: null,
-				name: "All Workouts",
 				renderer: { kind: "plugin", exportName: "workouts" },
 				reference: builtinSavedViewReference(pluginId, "all-workouts"),
+				name: { namespace: pluginId, key: "saved-view.all-workouts.name" },
 			});
 		}),
 	);
@@ -358,7 +370,7 @@ describe("Workouts E2E", () => {
 			}
 
 			const readReadyCards = Effect.gen(function* () {
-				const cards = yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+				const cards = yield* fitnessRecipes.execute(client, workoutCardsRecipe({ reference }), {
 					search: "",
 				});
 				assertCondition(
@@ -414,19 +426,19 @@ describe("Workouts E2E", () => {
 			expect(page.items[0]?.sets.map(({ weight }) => weight)).toEqual([110, 100]);
 			expect(page.items[1]?.template?.name).toBe("Pull B");
 			expect(
-				(yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+				(yield* fitnessRecipes.execute(client, workoutCardsRecipe({ reference }), {
 					search: "pul",
 					workoutIds: [secondPull, legs],
 				})).items.map(({ entityId }) => entityId),
 			).toEqual([secondPull]);
 			expect(
-				yield* executeRyotQLRecipe(client, workoutCountRecipe({ reference }), { search: "pul" }),
+				yield* fitnessRecipes.execute(client, workoutCountRecipe({ reference }), { search: "pul" }),
 			).toBe(2);
 			expect(page.items[0]?.comparisons.items).toEqual<unknown>([
 				{ id: legs, volume: 500, startedAt: anyOf(String) },
 			]);
 
-			const weeks = yield* executeRyotQLRecipe(client, workoutWeeksRecipe({ reference }), {
+			const weeks = yield* fitnessRecipes.execute(client, workoutWeeksRecipe({ reference }), {
 				search: "",
 				endAt: "2026-10-19T00:00:00Z",
 				startAt: "2026-09-28T00:00:00Z",
@@ -437,7 +449,7 @@ describe("Workouts E2E", () => {
 				{ workouts: 1, volume: 1050 },
 			]);
 
-			const summary = yield* executeRyotQLRecipe(client, workoutSummaryRecipe({ reference }), {
+			const summary = yield* fitnessRecipes.execute(client, workoutSummaryRecipe({ reference }), {
 				range: "custom",
 				customEndDate: "2026-10-15",
 				comparison: "previous-period",

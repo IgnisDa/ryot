@@ -12,7 +12,6 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	executeRyotQL,
-	executeRyotQLRecipe,
 	getSavedView,
 	listEventsForEntity,
 	listSavedViews,
@@ -24,6 +23,7 @@ import {
 import {
 	createExerciseEntityFixture,
 	findFitnessEntitySchema,
+	fitnessRecipes,
 	saveWorkoutData,
 	workoutData,
 	workoutOccurrence,
@@ -48,7 +48,10 @@ describe("Exercises E2E", () => {
 			);
 
 			assertPresent(exerciseSchema, "Fitness exercise schema missing");
-			expect(exerciseSchema.name).toBe("Exercise");
+			expect(exerciseSchema.name).toEqual({
+				namespace: pluginId,
+				key: "entity-schema.exercise.name",
+			});
 			expect(exerciseSchema.slug).toBe(EntitySchemaSlug.make("exercise"));
 			expect(exerciseSchema.icon).toBe("zap");
 			expect(exerciseSchema.isBuiltin).toBe(true);
@@ -57,14 +60,19 @@ describe("Exercises E2E", () => {
 				exerciseSchema.providers.find(
 					({ providerSlug }) => providerSlug === "exercise.free-exercise-db",
 				),
-			).toEqual<unknown>(objectContaining({ name: "Free Exercise DB", providerId: anyOf(String) }));
+			).toEqual<unknown>(
+				objectContaining({
+					providerId: anyOf(String),
+					name: { namespace: pluginId, key: "provider.exercise-free-exercise-db.name" },
+				}),
+			);
 			expect(exerciseSchema.propertiesSchema.fields.images).toMatchObject({
 				type: "array",
-				label: "Images",
+				label: { key: "definition.property.images" },
 			});
 			expect(exerciseSchema.propertiesSchema.fields.videos).toMatchObject({
 				type: "array",
-				label: "Videos",
+				label: { key: "definition.property.videos" },
 			});
 			expect(exerciseSchema.propertiesSchema.fields).not.toHaveProperty("source");
 		}),
@@ -75,7 +83,7 @@ describe("Exercises E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
 			const views = yield* listSavedViews(client, { pluginId });
-			const allExercisesView = views.find((view) => view.name === "All Exercises");
+			const allExercisesView = views.find((view) => view.slug === "all-exercises");
 			assertPresent(allExercisesView, "Expected the built-in All Exercises saved view");
 			const dataSources = requirePresent(
 				allExercisesView.dataSources,
@@ -90,9 +98,9 @@ describe("Exercises E2E", () => {
 
 			expect(allExercisesView).toMatchObject({
 				isBuiltin: true,
-				name: "All Exercises",
 				renderer: { kind: "kernel", name: "entity-browser" },
 				reference: builtinSavedViewReference(pluginId, "all-exercises"),
+				name: { namespace: pluginId, key: "saved-view.all-exercises.name" },
 				settings: {
 					pageSize: 20,
 					defaultLayout: "grid",
@@ -100,10 +108,6 @@ describe("Exercises E2E", () => {
 					controls: { search: "search" },
 					layouts: ["grid", "list", "table"],
 					summary: { image: "image", subtitle: { field: "level", displayKind: "text" } },
-					tableColumns: [
-						{ label: "Name", field: "name" },
-						{ label: "Level", field: "level" },
-					],
 					subject: {
 						entityAlias: "entity",
 						schemas: [{ slug: "exercise", owner: definitionOwner(pluginId) }],
@@ -112,6 +116,10 @@ describe("Exercises E2E", () => {
 						type: "provider-search",
 						schema: { slug: "exercise", owner: definitionOwner(pluginId) },
 					},
+					tableColumns: [
+						{ field: "name", label: { namespace: pluginId, key: "table-column.name" } },
+						{ field: "level", label: { namespace: pluginId, key: "property.level" } },
+					],
 				},
 			});
 			expect(savedViewSource.output.fields).toEqual<unknown>(
@@ -138,25 +146,43 @@ describe("Exercises E2E", () => {
 							type: "and",
 							predicates: arrayContaining([
 								objectContaining({
-									right: { type: "literal", value: "exercise" },
-									left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-								}),
-								objectContaining({
-									right: { type: "pluginId", reference: { pluginId, kind: "local" } },
-									left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
-								}),
-							]),
-						}),
-						objectContaining({
-							type: "exists",
-							query: objectContaining({
-								where: objectContaining({
+									type: "and",
 									predicates: arrayContaining([
-										objectContaining({ right: { type: "literal", value: "in-fitness-library" } }),
-										objectContaining({ right: { type: "literal", value: "fitness-library" } }),
+										objectContaining({
+											type: "and",
+											predicates: arrayContaining([
+												objectContaining({
+													right: { type: "literal", value: "exercise" },
+													left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+												}),
+												objectContaining({
+													right: { type: "pluginId", reference: { pluginId, kind: "local" } },
+													left: {
+														type: "column",
+														tableAlias: "entity",
+														field: "entitySchemaPluginId",
+													},
+												}),
+											]),
+										}),
+										objectContaining({
+											type: "exists",
+											query: objectContaining({
+												where: objectContaining({
+													predicates: arrayContaining([
+														objectContaining({
+															right: { type: "literal", value: "in-fitness-library" },
+														}),
+														objectContaining({
+															right: { type: "literal", value: "fitness-library" },
+														}),
+													]),
+												}),
+											}),
+										}),
 									]),
 								}),
-							}),
+							]),
 						}),
 					]),
 				}),
@@ -170,14 +196,12 @@ describe("Exercises E2E", () => {
 				"level",
 				"ownerPluginId",
 				"entitySchemaSlug",
-				"presentationId",
-				"presentationName",
-				"presentationPrimary",
-				"presentationCallout",
-				"presentationSecondary",
-				"presentationImage",
-				"presentationLatestValue",
-				"presentationLatestAt",
+				"__entityBrowserId",
+				"__entityBrowserName",
+				"__entityBrowserOwnerPluginId",
+				"__entityBrowserSchemaSlug",
+				"__entityBrowserPopulationStatus",
+				"__entityBrowserTranslationStatus",
 			]);
 		}),
 	);
@@ -191,7 +215,7 @@ describe("Exercises E2E", () => {
 				const exerciseName = `Listed Exercise ${yield* randomUuid}`;
 				yield* createExerciseEntityFixture(client, { name: exerciseName, kind: "reps_and_weight" });
 				const exercise = requirePresent(
-					(yield* executeRyotQLRecipe(
+					(yield* fitnessRecipes.execute(
 						client,
 						exerciseListRecipe({ reference: { pluginId, kind: "local" } }),
 						{ name: exerciseName },

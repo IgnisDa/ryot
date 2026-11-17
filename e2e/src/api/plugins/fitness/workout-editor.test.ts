@@ -13,7 +13,6 @@ import { DateTime, Effect, Struct } from "effect";
 
 import {
 	createAuthenticatedClient,
-	executeRyotQLRecipe,
 	listEventsForEntity,
 	listSignalTriggers,
 	pollSignalTrigger,
@@ -25,6 +24,7 @@ import {
 	createExerciseEntityFixture,
 	editTarget,
 	findFitnessEntitySchema,
+	fitnessRecipes,
 	keepSet,
 	LARGE_WORKOUT_BUDGET,
 	loadWorkoutBaseline,
@@ -179,7 +179,7 @@ describe("Workout editor E2E", () => {
 			});
 
 			const reference = yield* workoutReference(client);
-			const workouts = yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+			const workouts = yield* fitnessRecipes.execute(client, workoutCardsRecipe({ reference }), {
 				search: name,
 			});
 			expect(workouts.items.filter(({ name: itemName }) => itemName === name)).toHaveLength(1);
@@ -426,7 +426,7 @@ describe("Workout editor E2E", () => {
 			expect(
 				yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 45 } }),
 			).toEqual({ kind: "saved" });
-			const membership = yield* executeRyotQLRecipe(
+			const membership = yield* fitnessRecipes.execute(
 				client,
 				workoutEditorMembershipRecipe({ reference: yield* workoutReference(client) }),
 				{ exerciseId },
@@ -439,7 +439,7 @@ describe("Workout editor E2E", () => {
 				}),
 			).toEqual({ kind: "saved" });
 			expect(
-				(yield* executeRyotQLRecipe(
+				(yield* fitnessRecipes.execute(
 					client,
 					workoutEditorMembershipRecipe({ reference: yield* workoutReference(client) }),
 					{ exerciseId },
@@ -452,7 +452,7 @@ describe("Workout editor E2E", () => {
 				}),
 			).toEqual({ kind: "saved" });
 			expect(
-				(yield* executeRyotQLRecipe(
+				(yield* fitnessRecipes.execute(
 					client,
 					workoutEditorMembershipRecipe({ reference: yield* workoutReference(client) }),
 					{ exerciseId },
@@ -591,16 +591,18 @@ describe("Workout editor E2E", () => {
 			const otherReference = yield* workoutReference(other);
 
 			expect(
-				yield* executeRyotQLRecipe(
+				yield* fitnessRecipes.execute(
 					other,
 					workoutEditorEntityRecipe({ reference: otherReference }),
 					{ kind: "workout", entityId: created.entityId },
 				),
 			).toBeNull();
 			expect(
-				(yield* executeRyotQLRecipe(other, workoutEditorSetsRecipe({ reference: otherReference }), {
-					workoutId: created.entityId,
-				})).items,
+				(yield* fitnessRecipes.execute(
+					other,
+					workoutEditorSetsRecipe({ reference: otherReference }),
+					{ workoutId: created.entityId },
+				)).items,
 			).toEqual([]);
 
 			const originalSet = requirePresent(baseline.baseline.sets[0], "Expected owner's set");

@@ -44,6 +44,7 @@ import {
 	createBuiltinMediaLifecycleFixture,
 	findMediaEntitySchema,
 	logMediaActivity,
+	mediaRecipes,
 	seedShow,
 } from "~/fixtures/plugins/media";
 import { describe, it } from "~/support/effect-test";
@@ -447,7 +448,7 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				);
 				yield* repeat("read-media-list-x50", 3, () =>
 					Effect.forEach(Array.from({ length: 50 }), () =>
-						executeRyotQLRecipe(
+						mediaRecipes.execute(
 							client,
 							flatByLifecycleStateRecipe({
 								reference: { kind: "local", pluginId: movieSchema.pluginId },
