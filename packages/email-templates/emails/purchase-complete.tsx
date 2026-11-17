@@ -21,7 +21,7 @@ const subject = "Thank you for buying Ryot!";
 
 const PurchaseCompleteEmail = (props: PurchaseCompleteEmailProps) =>
 	props.details ? (
-		<Layout headingText={subject}>
+		<Layout lang="en" dir="ltr" headingText={subject} previewText="Message from Ryot">
 			<Text>
 				You have successfully purchased a {props.planType} plan for Ryot Pro ({props.details.kind}).{" "}
 				{props.renewOn ? `Your subscription will renew on ${props.renewOn}.` : null}

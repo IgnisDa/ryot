@@ -1,3 +1,4 @@
+import type { TextDirection } from "@ryot-app/i18n/locale";
 import type { ReactNode } from "react";
 import {
 	Body,
@@ -13,14 +14,20 @@ import {
 	Tailwind,
 } from "react-email";
 
-type LayoutProps = { headingText: string; children: ReactNode };
+export type LayoutProps = {
+	lang: string;
+	dir: TextDirection;
+	headingText: string;
+	previewText: string;
+	children: ReactNode;
+};
 
 const copyrightYear = new Date().getFullYear();
 
 const Layout = (props: LayoutProps) => (
-	<Html>
+	<Html dir={props.dir} lang={props.lang}>
 		<Head />
-		<Preview>Message from Ryot</Preview>
+		<Preview>{props.previewText}</Preview>
 		<Tailwind
 			config={{
 				theme: {

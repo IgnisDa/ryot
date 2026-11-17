@@ -7,7 +7,7 @@ type LoginCodeEmailProps = { code: string };
 const subject = "Login request for Ryot";
 
 const LoginCodeEmail = (props: LoginCodeEmailProps) => (
-	<Layout headingText={subject}>
+	<Layout lang="en" dir="ltr" headingText={subject} previewText="Message from Ryot">
 		<Text>
 			Your login code for Ryot is <strong>{props.code}</strong>. Please use this code to login to
 			your account.

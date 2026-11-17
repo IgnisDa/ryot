@@ -7,7 +7,7 @@ type ContactSubmissionEmailProps = { message: string; ticketNumber: number };
 const subject = "Query regarding Ryot";
 
 const ContactSubmissionEmail = (props: ContactSubmissionEmailProps) => (
-	<Layout headingText={subject}>
+	<Layout lang="en" dir="ltr" headingText={subject} previewText="Message from Ryot">
 		<Text>
 			Your contact submission has been received. Ticket number:{" "}
 			<strong>{props.ticketNumber}</strong>
