@@ -809,11 +809,12 @@ describe("lifecycle payload boundaries", () => {
 				expect(
 					yield* Schema.decodeEffect(AutomationPolicyOutput)({
 						action: "reject",
-						reason: "Invalid progress",
+						reason: { key: "rejection.progress.invalid" },
 					}),
-				).toEqual({ action: "reject", reason: "Invalid progress" });
+				).toEqual({ action: "reject", reason: { key: "rejection.progress.invalid" } });
 				for (const old of [
-					{ action: "skip", reason: "Invalid progress" },
+					{ action: "reject", reason: "Invalid progress" },
+					{ action: "skip", reason: { key: "rejection.progress.invalid" } },
 					{ action: "replace", body: { properties: {} } },
 					{ action: "transform" },
 					{ action: "transform", patch: { draft: {}, resource: "event" } },

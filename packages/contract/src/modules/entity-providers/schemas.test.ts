@@ -23,10 +23,10 @@ describe("provider entity boundary schemas", () => {
 					options: { passRawQuery: true },
 				};
 				const response = {
-					providerName: "Items",
 					providerId: "provider_1",
 					rootEntitySchemaSlug: "item",
 					details: { totalItems: 0, nextPage: null },
+					providerName: { namespace: "test-plugin", key: "provider.items.name" },
 					items: [
 						{
 							title: "The Work",
@@ -52,9 +52,9 @@ describe("provider entity boundary schemas", () => {
 				const body = { page: 1, pageSize: 20, query: "item", providerId: "provider_1" };
 				const response = {
 					items: [],
-					providerName: "Items",
 					providerId: "provider_1",
 					rootEntitySchemaSlug: "item",
+					providerName: { namespace: "test-plugin", key: "provider.items.name" },
 				};
 
 				yield* Effect.flip(

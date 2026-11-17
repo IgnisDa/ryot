@@ -1,3 +1,4 @@
+import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import { NotificationChannelId } from "../../schema/brands";
@@ -5,7 +6,7 @@ import { NotificationChannelKind } from "./types";
 
 export const NotificationRequest = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("test") }),
-	Schema.Struct({ message: Schema.String, kind: Schema.Literal("message") }),
+	Schema.Struct({ message: Message, kind: Schema.Literal("message") }),
 ]);
 export type NotificationRequest = typeof NotificationRequest.Type;
 

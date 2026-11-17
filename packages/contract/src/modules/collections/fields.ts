@@ -1,3 +1,4 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Result, Schema } from "effect";
 
 import type { AppPropertyDefinition, AppSchema } from "../../schema/property-schema";
@@ -53,7 +54,11 @@ export const reservedCollectionFieldKeys: ReadonlySet<string> = new Set([
 	"constructor",
 ]);
 
-const textListItem = { label: "Item", type: "string", description: "Item" } as const;
+const textListItem = {
+	type: "string",
+	description: "Item",
+	label: kernelMessage("definition.property.item"),
+} as const;
 
 const stringDefault = (value: CollectionField["defaultValue"]) =>
 	typeof value === "string" ? { defaultValue: value } : {};
@@ -70,6 +75,7 @@ const fieldBase = (field: KeyedCollectionField, position: number) => ({
 	position,
 	label: field.label,
 	description: field.description?.trim() ? field.description : field.label,
+	...(field.description?.trim() ? { hint: field.description } : {}),
 	...(field.required ? { validation: { required: true as const } } : {}),
 });
 

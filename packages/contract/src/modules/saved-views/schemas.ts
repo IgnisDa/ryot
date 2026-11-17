@@ -1,3 +1,4 @@
+import { DisplayText } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import { PluginPackageId, SavedViewId } from "../../schema/brands";
@@ -6,12 +7,13 @@ import { strictStruct } from "../../schema/utils";
 import { AssetLocator } from "../assets/schemas";
 import { ProviderLibraryMembership } from "../entity-providers/schemas";
 import { Filter } from "../filters/schemas";
+import { ManifestText } from "../plugins/manifest-text";
 import {
 	AuthoredEntitySchemaReference,
 	EntitySchemaReference,
 	SavedViewReference,
 } from "../plugins/references";
-import { RyotQLDocument as AuthoredRyotQLDocument } from "../ryotql/authored";
+import { PluginRyotQLDocument, RyotQLDocument as AuthoredRyotQLDocument } from "../ryotql/authored";
 import { OutputFieldKey } from "../ryotql/language";
 
 const SavedViewBadRequestReason = Schema.Union([
@@ -20,7 +22,7 @@ const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("renderer-not-found") }),
 	Schema.Struct({ code: Schema.Literal("renderer-kind-unavailable") }),
 	Schema.Struct({ installationId: Schema.String, code: Schema.Literal("plugin-not-found") }),
-	Schema.Struct({ message: Schema.String, code: Schema.Literal("settings-incompatible") }),
+	Schema.Struct({ code: Schema.Literal("settings-incompatible") }),
 	Schema.Struct({ reference: SavedViewReference, code: Schema.Literal("builtin-view-immutable") }),
 	Schema.Struct({
 		code: Schema.Literal("required-field"),
@@ -61,7 +63,10 @@ export type SavedViewDisplayKind = typeof SavedViewDisplayKind.Type;
 
 export const SavedViewDisplayValue = Schema.Union([
 	strictStruct({ value: JsonValue, displayKind: Schema.Literal("json") }),
-	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("text") }),
+	strictStruct({
+		displayKind: Schema.Literal("text"),
+		value: Schema.NullOr(Schema.Union([DisplayText, Schema.Array(DisplayText)])),
+	}),
 	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("date") }),
 	strictStruct({ value: Schema.NullOr(Schema.Finite), displayKind: Schema.Literal("number") }),
 	strictStruct({ value: Schema.NullOr(Schema.Finite), displayKind: Schema.Literal("year") }),
@@ -74,12 +79,20 @@ export const SavedViewDisplayValue = Schema.Union([
 ]);
 export type SavedViewDisplayValue = typeof SavedViewDisplayValue.Type;
 
-export const SavedViewTableColumn = strictStruct({
-	label: Schema.String,
-	field: OutputFieldKey,
-	displayKind: SavedViewDisplayKind,
-});
+/** Multi-valued text cells hold one display text per value, joined in the viewer's locale. */
+export const isDisplayTextList = (
+	value: DisplayText | readonly DisplayText[],
+): value is readonly DisplayText[] => Array.isArray(value);
+
+const savedViewTableColumn = <Text extends Schema.Top>(label: Text) =>
+	strictStruct({ label, field: OutputFieldKey, displayKind: SavedViewDisplayKind });
+
+export const SavedViewTableColumn = savedViewTableColumn(DisplayText);
 export type SavedViewTableColumn = typeof SavedViewTableColumn.Type;
+
+/** Plugin-authored column labels are manifest text from the plugin's catalog. */
+export const AuthoredSavedViewTableColumn = savedViewTableColumn(ManifestText);
+export type AuthoredSavedViewTableColumn = typeof AuthoredSavedViewTableColumn.Type;
 
 export const KernelSavedViewRendererName = Schema.Literals([
 	"analytics",
@@ -219,6 +232,7 @@ export const AuthoredEntityBrowserSavedViewSettings = strictStruct({
 	...EntityBrowserSavedViewSettings.fields,
 	subject: AuthoredSavedViewSubject,
 	addAction: Schema.NullOr(AuthoredEntityBrowserAddAction),
+	tableColumns: Schema.NullOr(Schema.NonEmptyArray(AuthoredSavedViewTableColumn)),
 });
 export type AuthoredEntityBrowserSavedViewSettings =
 	typeof AuthoredEntityBrowserSavedViewSettings.Type;
@@ -239,10 +253,39 @@ export const ResultsTableSavedViewSettings = strictStruct({
 });
 export type ResultsTableSavedViewSettings = typeof ResultsTableSavedViewSettings.Type;
 
+export const AuthoredResultsTableSavedViewSettings = strictStruct({
+	...ResultsTableSavedViewSettings.fields,
+	columns: Schema.NonEmptyArray(AuthoredSavedViewTableColumn),
+});
+export type AuthoredResultsTableSavedViewSettings =
+	typeof AuthoredResultsTableSavedViewSettings.Type;
+
+/** Column labels of an authored kernel-rendered saved view, with their paths in the view. */
+export const authoredSavedViewColumnTexts = (view: {
+	readonly settings: unknown;
+	readonly renderer: { readonly kind: string };
+}): ReadonlyArray<{ readonly path: string; readonly text: ManifestText }> => {
+	if (view.renderer.kind !== "kernel") {
+		return [];
+	}
+	if (Schema.is(AuthoredEntityBrowserSavedViewSettings)(view.settings)) {
+		return (view.settings.tableColumns ?? []).map(({ field, label }) => ({
+			text: label,
+			path: `settings.tableColumns.${field}.label`,
+		}));
+	}
+	return Schema.is(AuthoredResultsTableSavedViewSettings)(view.settings)
+		? view.settings.columns.map(({ field, label }) => ({
+				text: label,
+				path: `settings.columns.${field}.label`,
+			}))
+		: [];
+};
+
 const ListedSavedViewBase = {
 	id: SavedViewId,
+	name: DisplayText,
 	slug: Schema.String,
-	name: Schema.String,
 	icon: Schema.String,
 	sortOrder: Schema.Finite,
 	isHidden: Schema.Boolean,
@@ -304,7 +347,7 @@ const AuthoredPluginSavedViewRenderer = strictStruct({
 	kind: Schema.Literal("plugin"),
 });
 
-const AuthoredQueryDocument = Schema.toType(AuthoredRyotQLDocument);
+const AuthoredQueryDocument = Schema.toType(PluginRyotQLDocument);
 
 const savedViewConfigFields = [
 	{
@@ -333,7 +376,7 @@ const authoredSavedViewConfigFields = [
 	{
 		dataSources: AuthoredQueryDocument,
 		renderer: ResultsTableKernelRenderer,
-		settings: ResultsTableSavedViewSettings,
+		settings: AuthoredResultsTableSavedViewSettings,
 	},
 	{
 		renderer: AuthoredPluginSavedViewRenderer,

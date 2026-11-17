@@ -1,3 +1,4 @@
+import type { WeekDay } from "@ryot-app/i18n/locale";
 import { DateTime, Duration } from "effect";
 
 import type { TimeZone } from "../../schema/time-zone";
@@ -25,8 +26,8 @@ export const addCalendarDays = (date: string, days: number) =>
 export const calendarDaysBetween = (from: string, until: string) =>
 	Duration.toDays(DateTime.distance(calendarDateTime(from), calendarDateTime(until)));
 
-export const startOfCalendarUnit = (date: string, unit: CalendarUnit) =>
-	DateTime.formatIsoDate(DateTime.startOf(calendarDateTime(date), unit, { weekStartsOn: 1 }));
+export const startOfCalendarUnit = (date: string, unit: CalendarUnit, weekStartsOn: WeekDay) =>
+	DateTime.formatIsoDate(DateTime.startOf(calendarDateTime(date), unit, { weekStartsOn }));
 
 const unitParts = {
 	day: (days: number) => ({ days }),

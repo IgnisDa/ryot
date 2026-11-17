@@ -1,3 +1,4 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Schema } from "effect";
 
 import { IntegrationId } from "../../schema/brands";
@@ -57,18 +58,24 @@ const IntegrationExtraSettings = Schema.Struct({ disableOnContinuousErrors: Sche
 export type IntegrationExtraSettings = typeof IntegrationExtraSettings.Type;
 
 const baseCommonFields = {
-	name: { label: "Name", type: "string", description: "Optional name for this integration" },
 	isDisabled: {
 		type: "boolean",
-		label: "Disabled",
 		defaultValue: false,
 		description: "Disable this integration",
+		label: kernelMessage("definition.property.integration-disabled"),
+	},
+	name: {
+		type: "string",
+		description: "Optional name for this integration",
+		label: kernelMessage("definition.property.integration-name"),
+		hint: kernelMessage("definition.property.integration-name-hint"),
 	},
 	disableOnContinuousErrors: {
 		type: "boolean",
 		defaultValue: false,
-		label: "Disable on continuous errors",
 		description: "Disable this integration after continuous errors",
+		label: kernelMessage("definition.property.integration-disable-on-errors"),
+		hint: kernelMessage("definition.property.integration-disable-on-errors-hint"),
 	},
 } satisfies AppSchema["fields"];
 
@@ -76,16 +83,18 @@ const progressCommonFields = {
 	minimumProgress: {
 		type: "number",
 		defaultValue: 2,
-		label: "Minimum progress",
 		validation: { minimum: 0, maximum: 100 },
 		description: "Minimum progress percentage to synchronize",
+		label: kernelMessage("definition.property.integration-minimum-progress"),
+		hint: kernelMessage("definition.property.integration-minimum-progress-hint"),
 	},
 	maximumProgress: {
 		type: "number",
 		defaultValue: 95,
-		label: "Maximum progress",
 		validation: { minimum: 0, maximum: 100 },
 		description: "Maximum progress percentage to synchronize",
+		label: kernelMessage("definition.property.integration-maximum-progress"),
+		hint: kernelMessage("definition.property.integration-maximum-progress-hint"),
 	},
 } satisfies AppSchema["fields"];
 
@@ -101,9 +110,10 @@ export const integrationCommonSchema = (
 			? {
 					syncOwnership: {
 						defaultValue: false,
-						label: "Sync ownership",
 						type: "boolean" as const,
 						description: "Synchronize ownership from this integration",
+						label: kernelMessage("definition.property.integration-sync-ownership"),
+						hint: kernelMessage("definition.property.integration-sync-ownership-hint"),
 					},
 				}
 			: {}),

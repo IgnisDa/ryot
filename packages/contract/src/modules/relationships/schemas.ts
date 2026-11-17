@@ -1,3 +1,4 @@
+import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import {
@@ -21,9 +22,11 @@ const RelationshipBadRequestReason = Schema.Union([
 	Schema.Struct({ sourceEntityId: EntityId, code: Schema.Literal("source-not-owned") }),
 	Schema.Struct({ code: Schema.Literal("kernel-owned-schema") }),
 	Schema.Struct({
+		message: Message,
 		runId: AutomationRunId,
-		code: Schema.Literals(["policy-rejected", "policy-execution-failed"]),
+		code: Schema.Literal("policy-rejected"),
 	}),
+	Schema.Struct({ runId: AutomationRunId, code: Schema.Literal("policy-execution-failed") }),
 	Schema.Struct({
 		code: Schema.Literals([
 			"automation-limit-reached",

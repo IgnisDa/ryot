@@ -19,9 +19,12 @@ describe("calendar", () => {
 		expect(localDateOf("2026-10-11", auckland)).toBe("2026-10-11");
 	});
 
-	it("starts weeks on Monday", () => {
-		expect(startOfCalendarUnit("2026-10-11", "week")).toBe("2026-10-05");
-		expect(startOfCalendarUnit("2026-10-12", "week")).toBe("2026-10-12");
+	it("starts weeks on the supplied weekday", () => {
+		expect(startOfCalendarUnit("2026-10-11", "week", 1)).toBe("2026-10-05");
+		expect(startOfCalendarUnit("2026-10-12", "week", 1)).toBe("2026-10-12");
+		expect(startOfCalendarUnit("2026-10-11", "week", 0)).toBe("2026-10-11");
+		expect(startOfCalendarUnit("2026-10-10", "week", 6)).toBe("2026-10-10");
+		expect(startOfCalendarUnit("2026-10-09", "week", 6)).toBe("2026-10-03");
 	});
 
 	it("steps calendar units and counts days between dates", () => {

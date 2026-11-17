@@ -1,3 +1,4 @@
+import { DisplayText } from "@ryot-app/i18n/message";
 import { DateTime, Option, Schema } from "effect";
 
 import type {
@@ -41,10 +42,13 @@ export const filterOperators = {
 
 export const linkFilterOperators = ["anyOf", "allOf", "noneOf", "empty", "notEmpty"] as const;
 
-export const FilterChoice = strictStruct({ label: Schema.String, value: Schema.NonEmptyString });
+export const filterChoice = <Text extends Schema.Top>(label: Text) =>
+	strictStruct({ label, value: Schema.NonEmptyString });
+
+export const FilterChoice = filterChoice(DisplayText);
 
 const filterFieldBase = {
-	label: Schema.String,
+	label: DisplayText,
 	field: OutputFieldKey,
 	key: Schema.NonEmptyString,
 	kind: Schema.Literal("value"),
@@ -63,34 +67,39 @@ export const ValueFilterField = Schema.Union([
 ]);
 export type ValueFilterField = typeof ValueFilterField.Type;
 
-export const relationshipFilterField = <Reference extends Schema.Top>(relationship: Reference) =>
+export const relationshipFilterField = <Reference extends Schema.Top, Text extends Schema.Top>(
+	relationship: Reference,
+	label: Text,
+) =>
 	strictStruct({
+		label,
 		relationship,
-		label: Schema.String,
 		key: Schema.NonEmptyString,
 		kind: Schema.Literal("relationship"),
 		direction: Schema.Literals(["outgoing", "incoming"]),
 	});
 
-const RelationshipFilterField = relationshipFilterField(RelationshipSchemaReference);
+const RelationshipFilterField = relationshipFilterField(RelationshipSchemaReference, DisplayText);
 type RelationshipFilterField = typeof RelationshipFilterField.Type;
 
 const AuthoredRelationshipFilterField = relationshipFilterField(
 	AuthoredRelationshipSchemaReference,
+	DisplayText,
 );
 
-export const sessionEventFilterField = <Reference extends Schema.Top>(event: Reference) =>
-	strictStruct({
-		event,
-		label: Schema.String,
-		key: Schema.NonEmptyString,
-		kind: Schema.Literal("session-event"),
-	});
+export const sessionEventFilterField = <Reference extends Schema.Top, Text extends Schema.Top>(
+	event: Reference,
+	label: Text,
+) =>
+	strictStruct({ event, label, key: Schema.NonEmptyString, kind: Schema.Literal("session-event") });
 
-const SessionEventFilterField = sessionEventFilterField(EventSchemaReference);
+const SessionEventFilterField = sessionEventFilterField(EventSchemaReference, DisplayText);
 type SessionEventFilterField = typeof SessionEventFilterField.Type;
 
-const AuthoredSessionEventFilterField = sessionEventFilterField(AuthoredEventSchemaReference);
+const AuthoredSessionEventFilterField = sessionEventFilterField(
+	AuthoredEventSchemaReference,
+	DisplayText,
+);
 
 export const FilterField = Schema.Union([
 	ValueFilterField,

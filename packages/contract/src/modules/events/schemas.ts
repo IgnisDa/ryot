@@ -1,3 +1,4 @@
+import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import {
@@ -101,15 +102,14 @@ export class EventBadRequest extends Schema.TaggedError<
 >()("EventBadRequest", {
 	reason: Schema.Union([
 		strictStruct({ code: Schema.Literal("asset-forbidden") }),
+		strictStruct({ message: Message, code: Schema.Literal("policy-rejected") }),
 		strictStruct({
-			message: Schema.String,
 			code: Schema.Literals([
 				"automation-limit",
 				"invalid-policy-transform",
 				"invalid-properties",
 				"mutation-conflict",
 				"policy-execution-failed",
-				"policy-rejected",
 				"owner-mismatch",
 				"global-scope-forbidden",
 			]),
@@ -129,8 +129,8 @@ export const ListedEvent = Schema.Struct({
 	entityId: EntityId,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
+	eventSchemaName: Message,
 	occurredAt: Schema.String,
-	eventSchemaName: Schema.String,
 	eventSchemaSlug: EventSchemaSlug,
 	sessionEntityId: Schema.optional(EntityId),
 	eventSchemaPluginId: Schema.NullOr(PluginId),
@@ -190,8 +190,8 @@ export const EventCreateItemOutcome = Schema.Union([
 		reason: EventCreateFailureReason,
 	}),
 	strictStruct({
+		reason: Message,
 		index: Schema.Finite,
-		reason: Schema.String,
 		status: Schema.Literal("skipped_by_policy"),
 	}),
 ]);

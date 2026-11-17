@@ -1,3 +1,4 @@
+import { DisplayText, Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import { EntitySchemaSlug, SandboxProviderId } from "../../schema/brands";
@@ -113,7 +114,7 @@ export const ProviderSearchResultItem = strictStruct({
 export type ProviderSearchResultItem = typeof ProviderSearchResultItem.Type;
 
 export const SearchProviderEntitiesResponse = strictStruct({
-	providerName: Schema.String,
+	providerName: Message,
 	items: Schema.Array(ProviderSearchResultItem),
 	providerId: ProviderEntityReference.fields.providerId,
 	rootEntitySchemaSlug: ProviderEntityReference.fields.entitySchemaSlug,
@@ -127,10 +128,7 @@ export const SearchProviderEntitiesResponse = strictStruct({
 export type SearchProviderEntitiesResponse = typeof SearchProviderEntitiesResponse.Type;
 
 const ProviderSearchFailureCause = Schema.Union([
-	strictStruct({
-		code: Schema.Literal("missing-config"),
-		configNames: Schema.Array(Schema.String),
-	}),
+	strictStruct({ code: Schema.Literal("missing-config"), configNames: Schema.Array(DisplayText) }),
 	strictStruct({ code: Schema.Literal("provider-error") }),
 ]);
 

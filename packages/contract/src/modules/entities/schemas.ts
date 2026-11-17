@@ -1,3 +1,4 @@
+import { Message } from "@ryot-app/i18n/message";
 import { Schema, SchemaGetter } from "effect";
 
 import {
@@ -25,11 +26,10 @@ const EntityBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("duplicate-collection-name") }),
 	Schema.Struct({ code: Schema.Literal("entity-has-history") }),
 	Schema.Struct({ property: Schema.String, code: Schema.Literal("immutable-property") }),
+	Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
 	Schema.Struct({
-		message: Schema.String,
 		code: Schema.Literals([
 			"automation-limit",
-			"policy-rejected",
 			"invalid-policy-transform",
 			"mutation-conflict",
 			"enclosing-transaction",

@@ -1,7 +1,9 @@
+import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import { ImportRunId, IntegrationId, UserId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
+import { strictStruct } from "../../schema/utils";
 import { ImportRunFailureReason, ImportRunStatus, ingestionBlockReasonFields } from "./schemas";
 
 const Count = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
@@ -9,10 +11,20 @@ const Count = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 export const IngestionScope = Schema.Struct({ userId: UserId, runId: ImportRunId });
 export type IngestionScope = typeof IngestionScope.Type;
 
-export const IngestionReason = Schema.Struct({
+export const IngestionCodeReason = Schema.Struct({
 	code: Schema.NonEmptyString,
 	key: Schema.NullOr(Schema.String),
 });
+export type IngestionCodeReason = typeof IngestionCodeReason.Type;
+
+/** A policy skipped the record; `message` is the policy owner's stamped explanation. */
+export const IngestionPolicyReason = strictStruct({
+	message: Message,
+	code: Schema.Literal("policy-rejected"),
+});
+export type IngestionPolicyReason = typeof IngestionPolicyReason.Type;
+
+export const IngestionReason = Schema.Union([IngestionPolicyReason, IngestionCodeReason]);
 export type IngestionReason = typeof IngestionReason.Type;
 
 export const IngestionBlockReason = Schema.Struct(ingestionBlockReasonFields);
@@ -56,9 +68,9 @@ export const IngestionActivity = Schema.Struct({
 	unit: Schema.NonEmptyString,
 	lastAdvancedAt: Schema.String,
 	exactTotal: Schema.NullOr(Count),
-	wait: Schema.NullOr(IngestionReason),
 	batchId: Schema.NullOr(Schema.String),
 	parentId: Schema.NullOr(Schema.String),
+	wait: Schema.NullOr(IngestionCodeReason),
 	kind: Schema.Literals(["reading", "preparing", "resolving", "writing", "finishing"]),
 	state: Schema.Literals(["pending", "running", "waiting", "completed", "failed", "cancelled"]),
 });

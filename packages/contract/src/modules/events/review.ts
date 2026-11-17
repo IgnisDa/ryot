@@ -1,3 +1,4 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Schema } from "effect";
 
 export const ReviewRating = Schema.Finite.pipe(
@@ -42,18 +43,23 @@ export const reviewPropertiesPatch = (input: ReviewPropertiesInput) => {
 };
 
 export const reviewRatingField = {
-	label: "Rating",
 	type: "number" as const,
 	validation: { minimum: 0, maximum: 100 },
+	label: kernelMessage("definition.property.review-rating"),
+	hint: kernelMessage("definition.property.review-rating-hint"),
 	description: "Your personal rating from 0 (lowest) to 100 (highest)",
 };
 
 export const reviewPropertyFields = (textDescription: string) => ({
 	rating: reviewRatingField,
-	text: { label: "Review", type: "string" as const, description: textDescription },
+	text: {
+		type: "string" as const,
+		description: textDescription,
+		label: kernelMessage("definition.property.review-text"),
+	},
 	isSpoiler: {
 		type: "boolean" as const,
-		label: "Contains spoilers",
 		description: "Whether this review contains spoilers",
+		label: kernelMessage("definition.property.review-is-spoiler"),
 	},
 });

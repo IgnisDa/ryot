@@ -1,3 +1,4 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Result, Schema } from "effect";
 
 import { JsonValue } from "../../schema/json";
@@ -97,15 +98,17 @@ export const dataJsonImportInputSchema: AppSchema = {
 	fields: {
 		submissionKey: {
 			type: "string",
-			label: "Submission key",
+			label: kernelMessage("definition.property.data-json-submission-key"),
+			hint: kernelMessage("definition.property.data-json-submission-key-hint"),
 			description: "Optional key to reuse the same run when retrying this submission.",
 		},
 		uploadToken: {
 			type: "string",
-			label: "JSON file",
 			validation: { required: true },
 			description: "A Ryot data document using existing schemas.",
 			format: { kind: "upload", allowedFileExtensions: ["json"] },
+			label: kernelMessage("definition.property.data-json-upload"),
+			hint: kernelMessage("definition.property.data-json-upload-hint"),
 		},
 	},
 };

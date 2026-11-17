@@ -7,9 +7,8 @@ const EntityUserDataBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("same-entity-merge") }),
 	Schema.Struct({ code: Schema.Literal("entity-schema-mismatch") }),
 	Schema.Struct({ code: Schema.Literal("relationship-merge-failed") }),
-	Schema.Struct({ message: Schema.String, code: Schema.Literal("state-conflict") }),
+	Schema.Struct({ code: Schema.Literal("state-conflict") }),
 	Schema.Struct({
-		message: Schema.String,
 		entityIds: Schema.Array(EntityId),
 		code: Schema.Literal("child-mapping-conflict"),
 	}),

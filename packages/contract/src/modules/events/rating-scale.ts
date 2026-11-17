@@ -15,7 +15,7 @@ export const ratingScales = {
 	{ readonly max: number; readonly step: number; readonly input: "stars" | "number" | "choices" }
 >;
 
-export const threePointRatings = ["Sad", "Neutral", "Happy"] as const;
+export const threePointRatings = ["sad", "neutral", "happy"] as const;
 
 const threePointFloors = [0, 100 / 3, 200 / 3] as const;
 const threePointCeilings = [100 / 3, 200 / 3, 100] as const;
@@ -34,19 +34,6 @@ export const toScale = (rating: number, scale: RatingScale) =>
 
 export const fromScale = (value: number, scale: RatingScale) =>
 	roundHalfUp(value * storedPerPoint(scale), 6);
-
-const hundredFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
-const tenthsFormat = new Intl.NumberFormat("en-US", {
-	minimumFractionDigits: 1,
-	maximumFractionDigits: 1,
-});
-
-export const formatRating = (rating: number, scale: RatingScale) => {
-	if (scale === "three-point") {
-		return threePointRatings[threePointIndex(rating)];
-	}
-	return (scale === "hundred" ? hundredFormat : tenthsFormat).format(toScale(rating, scale));
-};
 
 /** The stored range a scaled value covers; three-point values cover their whole bucket. */
 export const ratingRange = (value: number, scale: RatingScale) => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { formatRating, fromScale, ratingRange, scaledRangeBound, toScale } from "./rating-scale";
+import { fromScale, ratingRange, scaledRangeBound, toScale } from "./rating-scale";
 
 describe("rating scales", () => {
 	it("converts stored ratings to and from each scale", () => {
@@ -18,18 +18,6 @@ describe("rating scales", () => {
 		expect(
 			[0, 33.33, 100 / 3, 50, 66.66, 200 / 3, 100].map((rating) => toScale(rating, "three-point")),
 		).toEqual([0, 0, 1, 1, 1, 2, 2]);
-	});
-
-	it("formats one canonical label per scale", () => {
-		expect(formatRating(72, "hundred")).toBe("72");
-		expect(formatRating(66.66, "hundred")).toBe("66.7");
-		expect(formatRating(70, "ten")).toBe("7.0");
-		expect(formatRating(73, "ten")).toBe("7.3");
-		expect(formatRating(70, "five")).toBe("3.5");
-		expect(formatRating(0, "five")).toBe("0.0");
-		expect(["0", "50", "100"].map((rating) => formatRating(Number(rating), "three-point"))).toEqual(
-			["Sad", "Neutral", "Happy"],
-		);
 	});
 
 	it("maps scaled filter bounds to stored ranges and back", () => {

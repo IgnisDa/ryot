@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import type { WeekDay } from "@ryot-app/i18n/locale";
+
 import { TimeZone } from "../../schema/time-zone";
 import {
 	calendarBuckets,
@@ -17,16 +19,17 @@ const resolve = (
 	range: ReportingRange,
 	now = "2024-03-15T12:00:00Z",
 	timeZone = TimeZone.make("America/New_York"),
+	weekStart: WeekDay = 1,
 ) =>
 	resolveReportingSelection(
 		{ ...defaultReportingSelection, range },
-		{ timeZone, now: Date.parse(now) },
+		{ timeZone, weekStart, now: Date.parse(now) },
 	);
 
 const grouped = (grouping: ReportingSelection["grouping"], range: ReportingRange) =>
 	resolveReportingSelection(
 		{ range, grouping, comparison: "none" },
-		{ timeZone: TimeZone.make("UTC"), now: Date.parse("2024-03-15T12:00:00Z") },
+		{ weekStart: 1, timeZone: TimeZone.make("UTC"), now: Date.parse("2024-03-15T12:00:00Z") },
 	).grouping;
 const searchOf = (params: Record<string, null | string>) =>
 	new URLSearchParams(
@@ -135,10 +138,10 @@ describe("reporting ranges", () => {
 			result.previous,
 		);
 	});
-	it("uses Monday weeks and whole calendar years", () => {
-		expect(resolve({ offset: 0, unit: "week", kind: "calendar" }).current?.startDate).toBe(
-			"2024-03-11",
-		);
+	it("uses the supplied week start and whole calendar years", () => {
+		const week = { offset: 0, unit: "week", kind: "calendar" } as const;
+		expect(resolve(week).current?.startDate).toBe("2024-03-11");
+		expect(resolve(week, undefined, undefined, 0).current?.startDate).toBe("2024-03-10");
 		const year = resolve({ offset: 0, unit: "year", kind: "calendar" });
 		expect(year.current?.startDate).toBe("2024-01-01");
 		expect(year.current?.endDate).toBe("2024-12-31");
@@ -146,6 +149,7 @@ describe("reporting ranges", () => {
 	});
 	it("resolves moving ranges from the supplied clock and pins the resolved period", () => {
 		const first = reportingExecution(defaultReportingSelection, {
+			weekStart: 1,
 			timeZone: TimeZone.make("UTC"),
 			now: Date.parse("2024-03-01T00:00:00Z"),
 		});
@@ -169,6 +173,7 @@ describe("reporting ranges", () => {
 			resolve({ kind: "custom", endDate: "2024-12-31", startDate: "2020-01-01" }).grouping,
 		).toBe("month");
 		expect(resolve({ kind: "all-time" })).toEqual({
+			weekStart: 1,
 			current: null,
 			previous: null,
 			grouping: "year",
@@ -227,9 +232,11 @@ describe("calendar buckets", () => {
 		startDate: string,
 		endDate: string,
 		at: ReadonlyArray<{ readonly at: string }> = [],
+		weekStart: WeekDay = 1,
 	) =>
 		calendarBuckets(at, {
 			grouping,
+			weekStart,
 			timeZone: newYork,
 			at: (point) => point.at,
 			period: resolve({ endDate, startDate, kind: "custom" }).current,
@@ -272,11 +279,16 @@ describe("calendar buckets", () => {
 			["2026-03-02", 0],
 			["2026-03-09", 0],
 		]);
+		expect(bucketDates("week", "2026-03-04", "2026-03-10", [], 0)).toEqual([
+			["2026-03-01", 0],
+			["2026-03-08", 0],
+		]);
 		expect(bucketDates("month", "2026-03-15", "2026-04-02").map(([date]) => date)).toEqual([
 			"2026-03-01",
 			"2026-04-01",
 		]);
 		const years = calendarBuckets([], {
+			weekStart: 1,
 			at: () => "",
 			grouping: "year",
 			timeZone: newYork,
@@ -292,6 +304,7 @@ describe("calendar buckets", () => {
 
 	it("spans all-time buckets over the points' extent and keeps date-only points unshifted", () => {
 		const buckets = calendarBuckets(points("2025-07-01", "2023-01-01T05:00:00.000Z"), {
+			weekStart: 1,
 			period: null,
 			grouping: "year",
 			timeZone: newYork,
@@ -303,7 +316,13 @@ describe("calendar buckets", () => {
 			["2025-01-01", 1],
 		]);
 		expect(
-			calendarBuckets([], { at: String, period: null, grouping: "year", timeZone: newYork }),
+			calendarBuckets([], {
+				at: String,
+				weekStart: 1,
+				period: null,
+				grouping: "year",
+				timeZone: newYork,
+			}),
 		).toEqual([]);
 	});
 });

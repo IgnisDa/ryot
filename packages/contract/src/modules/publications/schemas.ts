@@ -1,3 +1,4 @@
+import { DisplayText } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import { PublicationId, PublicationLinkId } from "../../schema/brands";
@@ -118,7 +119,7 @@ const PublicationPageContext = strictStruct({
 	settings: Schema.Record(Schema.String, JsonValue),
 	contributors: Schema.Array(ClientPageCodeContributor),
 	route: strictStruct({ params: Schema.Record(Schema.String, Schema.String) }),
-	view: Schema.NullOr(strictStruct({ icon: Schema.String, name: Schema.String })),
+	view: Schema.NullOr(strictStruct({ name: DisplayText, icon: Schema.String })),
 	target: strictStruct({ publicationId: PublicationId, kind: Schema.Literal("publication") }),
 	renderer: Schema.Union([
 		KernelPublicationPageReference,

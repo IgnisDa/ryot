@@ -1,3 +1,4 @@
+import type { WeekDay } from "@ryot-app/i18n/locale";
 import { Array, DateTime, Option, Order, Record, Result, Schema } from "effect";
 
 import { type Entitlement, type Entitlements, isEntitled } from "../../schema/entitlement";
@@ -75,7 +76,12 @@ const automaticGrouping = (days: number): CalendarUnit => {
 	return days <= 3653 ? "month" : "year";
 };
 
-const bucketCount = (startDate: string, endDate: string, unit: CalendarUnit) => {
+const bucketCount = (
+	startDate: string,
+	endDate: string,
+	unit: CalendarUnit,
+	weekStart: WeekDay,
+) => {
 	const start = DateTime.toParts(DateTime.makeUnsafe(startDate));
 	const end = DateTime.toParts(DateTime.makeUnsafe(endDate));
 	if (unit === "year") {
@@ -84,14 +90,20 @@ const bucketCount = (startDate: string, endDate: string, unit: CalendarUnit) => 
 	if (unit === "month") {
 		return (end.year - start.year) * 12 + end.month - start.month + 1;
 	}
-	const days = calendarDaysBetween(startOfCalendarUnit(startDate, unit), endDate) + 1;
+	const days = calendarDaysBetween(startOfCalendarUnit(startDate, unit, weekStart), endDate) + 1;
 	return unit === "week" ? Math.ceil(days / 7) : days;
 };
 
-const boundedGrouping = (requested: CalendarUnit, startDate: string, endDate: string) =>
+const boundedGrouping = (
+	requested: CalendarUnit,
+	startDate: string,
+	endDate: string,
+	weekStart: WeekDay,
+) =>
 	groupingOrder
 		.slice(groupingOrder.indexOf(requested))
-		.find((unit) => bucketCount(startDate, endDate, unit) <= REPORTING_BUCKET_LIMIT) ?? "year";
+		.find((unit) => bucketCount(startDate, endDate, unit, weekStart) <= REPORTING_BUCKET_LIMIT) ??
+	"year";
 
 const calendarStep = { week: { weeks: 1 }, year: { years: 1 }, month: { months: 1 } };
 
@@ -118,25 +130,26 @@ export const calendarPeriod = (startDate: string, endDate: string, timeZone: Tim
 const calendarDays = (start: DateTime.Utc, end: DateTime.Utc) =>
 	calendarDaysBetween(DateTime.formatIsoDate(start), DateTime.formatIsoDate(end));
 
+export type ReportingClock = ReportingCalendar & { readonly now: number };
+
+export type ReportingCalendar = { readonly timeZone: TimeZone; readonly weekStart: WeekDay };
+
 /** All-time reports group by year; bounded ranges coarsen until they fit `REPORTING_BUCKET_LIMIT`. */
-export const resolveReportingSelection = (
-	selection: ReportingSelection,
-	input: { readonly now: number; readonly timeZone: TimeZone },
-) => {
-	const timeZone = input.timeZone;
+export const resolveReportingSelection = (selection: ReportingSelection, input: ReportingClock) => {
+	const { timeZone, weekStart } = input;
 	const today = DateTime.makeUnsafe(
 		DateTime.formatIsoDate(DateTime.makeZonedUnsafe(input.now, { timeZone })),
 	);
 	const range = selection.range;
 	if (range.kind === "all-time") {
 		const grouping: CalendarUnit = "year";
-		return { timeZone, grouping, current: null, previous: null };
+		return { timeZone, grouping, weekStart, current: null, previous: null };
 	}
 	let start: DateTime.Utc;
 	let end: DateTime.Utc;
 	let previousStart: DateTime.Utc;
 	if (range.kind === "calendar") {
-		const anchor = DateTime.startOf(today, range.unit, { weekStartsOn: 1 });
+		const anchor = DateTime.startOf(today, range.unit, { weekStartsOn: weekStart });
 		const parts = calendarStep[range.unit];
 		start = range.offset === -1 ? DateTime.subtract(anchor, parts) : anchor;
 		end = DateTime.add(start, parts);
@@ -156,6 +169,7 @@ export const resolveReportingSelection = (
 	return {
 		current,
 		timeZone,
+		weekStart,
 		previous:
 			selection.comparison === "previous-period"
 				? periodBetween(previousStart, start, timeZone)
@@ -166,6 +180,7 @@ export const resolveReportingSelection = (
 				: selection.grouping,
 			current.startDate,
 			current.endDate,
+			weekStart,
 		),
 	};
 };
@@ -196,7 +211,7 @@ export type ReportingExecution = {
 
 export const reportingExecution = (
 	selection: ReportingSelection,
-	input: { readonly now: number; readonly timeZone: TimeZone },
+	input: ReportingClock,
 ): ReportingExecution => {
 	const resolved = resolveReportingSelection(selection, input);
 	return {
@@ -216,15 +231,18 @@ export type CalendarBucket<Point> = {
 
 export const calendarBuckets = <Point>(
 	points: ReadonlyArray<Point>,
-	input: {
-		readonly timeZone: TimeZone;
+	input: ReportingCalendar & {
 		readonly grouping: CalendarUnit;
 		readonly at: (point: Point) => string;
 		readonly period: null | ReportingPeriod;
 	},
 ): ReadonlyArray<CalendarBucket<Point>> => {
 	const grouped = Array.groupBy(points, (point) =>
-		startOfCalendarUnit(localDateOf(input.at(point), input.timeZone), input.grouping),
+		startOfCalendarUnit(
+			localDateOf(input.at(point), input.timeZone),
+			input.grouping,
+			input.weekStart,
+		),
 	);
 	const dates = Array.sort(Record.keys(grouped), Order.String);
 	const first = input.period?.startDate ?? dates[0];
@@ -239,7 +257,7 @@ export const calendarBuckets = <Point>(
 	}
 	const buckets: CalendarBucket<Point>[] = [];
 	for (
-		let date = startOfCalendarUnit(first, input.grouping);
+		let date = startOfCalendarUnit(first, input.grouping, input.weekStart);
 		date <= last;
 		date = addCalendarUnits(date, input.grouping, 1)
 	) {

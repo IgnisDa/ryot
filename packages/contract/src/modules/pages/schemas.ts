@@ -1,3 +1,4 @@
+import { DisplayText, Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import { CanonicalBase64 } from "../../schema/base64";
@@ -12,6 +13,7 @@ import { JsonValue } from "../../schema/json";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import { PluginDependencies } from "../plugins/manifest";
+import { AuthoredAppSchema } from "../plugins/manifest-text";
 import { PluginPackageReference, SavedViewReference } from "../plugins/references";
 import { RyotQLDocument } from "../ryotql/authored";
 import { PageDraftBuildIdentity } from "./identity";
@@ -144,8 +146,8 @@ export type ClientPageOperationTarget = typeof ClientPageOperationTarget.Type;
 const ClientPagePublicExportIdentity = strictStruct({
 	name: Schema.String,
 	entry: Schema.String,
-	settingsSchema: Schema.optional(AppSchema),
 	automaticEntityPresentations: Schema.Boolean,
+	settingsSchema: Schema.optional(AuthoredAppSchema),
 	kind: Schema.Literals(["component", "page", "presentation", "analytics-section"]),
 });
 
@@ -170,9 +172,9 @@ export const ClientCompositionModuleReference = strictStruct({
 export type ClientCompositionModuleReference = typeof ClientCompositionModuleReference.Type;
 
 const AnalyticsSectionMetadata = {
+	name: Message,
 	ownerPluginId: PluginId,
 	slug: Schema.NonEmptyString,
-	name: Schema.NonEmptyString,
 	icon: Schema.NonEmptyString,
 };
 
@@ -373,8 +375,8 @@ export const PreparedClientPageIdentity = Schema.Union([
 ]);
 
 export const PreparedClientPageViewIdentity = strictStruct({
+	name: DisplayText,
 	icon: Schema.String,
-	name: Schema.String,
 });
 
 export const PageFrameAuthority = strictStruct({

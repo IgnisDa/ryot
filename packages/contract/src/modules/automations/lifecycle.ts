@@ -1,3 +1,4 @@
+import { LocalMessage } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
 import {
@@ -790,7 +791,7 @@ export const AutomationPolicyPatch = Schema.Union([
 export type AutomationPolicyPatch = typeof AutomationPolicyPatch.Type;
 export const AutomationPolicyOutput = Schema.Union([
 	strictStruct({ action: Schema.Literal("allow") }),
-	strictStruct({ reason: nonEmpty, action: Schema.Literal("reject") }),
+	strictStruct({ reason: LocalMessage, action: Schema.Literal("reject") }),
 	strictStruct({ patch: AutomationPolicyPatch, action: Schema.Literal("transform") }),
 ]);
 export type AutomationPolicyOutput = typeof AutomationPolicyOutput.Type;

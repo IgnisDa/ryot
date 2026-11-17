@@ -3,6 +3,7 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
+import { BadRequest } from "../../errors";
 import { ApiKeyId, ConnectedAppId } from "../../schema/brands";
 import { UserPreferencesPatch } from "../../schema/user-preferences";
 import { AccountName, CreateApiKeyBody, CreatedApiKey } from "./schemas";
@@ -18,6 +19,7 @@ export const AccountGroup = HttpApiGroup.make("account")
 	.add(
 		AuthenticatedMutationEndpoint.patch("write")("updatePreferences", "/account/preferences", {
 			payload: UserPreferencesPatch,
+			error: BadRequest.pipe(HttpApiSchema.status(400)),
 			success: Schema.Void.pipe(HttpApiSchema.status(204)),
 		}).annotate(OpenApi.Description, "Update the current user's preferences."),
 	)

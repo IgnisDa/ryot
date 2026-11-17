@@ -25,6 +25,7 @@ import {
 	ExecutionLane,
 } from "../automations/lifecycle";
 import { PluginManifest } from "../plugins/manifest";
+import { PluginMessageCatalogs } from "../plugins/schemas";
 import { EnqueueSandboxBody } from "../scripts/schemas";
 
 const TestSupportDiagnosticReason = Schema.Union([
@@ -59,6 +60,7 @@ export const TestSupportPluginCompiledScript = strictStruct({
 
 export const TestSupportInstallSystemPluginBodyBase64 = Schema.Struct({
 	manifest: PluginManifest,
+	catalogs: PluginMessageCatalogs,
 	compiledScripts: Schema.Array(TestSupportPluginCompiledScript),
 	compiledClient: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 });

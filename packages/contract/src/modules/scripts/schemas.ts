@@ -10,7 +10,6 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "../../schema/brands";
-import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import {
 	AutomationAfterInputProjection,
@@ -19,6 +18,7 @@ import {
 } from "../automations/lifecycle";
 import { PageOperationAuthority } from "../pages/identity";
 import { SandboxExecutionMetadata } from "../plugins/execution-metadata";
+import { AuthoredAppSchema } from "../plugins/manifest-text";
 import { ProviderRelatedInputs, ProviderTranslationInputs } from "../plugins/provider-inputs";
 import { SandboxBoundaryReason } from "./boundary-reason";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "./wire";
@@ -46,7 +46,7 @@ export const SandboxScriptMetadata = Schema.Struct({
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	translationInputs: Schema.optional(ProviderTranslationInputs),
 	runtimeImports: SandboxExecutionMetadata.fields.runtimeImports,
-	searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
+	searchOptionsSchema: Schema.optional(Schema.toType(AuthoredAppSchema)),
 	requiredPluginConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	automationType: Schema.optional(Schema.Literals(["automation", "policy"])),
 	oauthConnectionFields: Schema.optional(SandboxExecutionMetadata.fields.oauthConnectionFields),
@@ -93,7 +93,7 @@ export const SandboxScriptManifest = Schema.Union([
 		kind: Schema.Literal("provider"),
 		relatedInputs: Schema.optional(ProviderRelatedInputs),
 		translationInputs: Schema.optional(ProviderTranslationInputs),
-		searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
+		searchOptionsSchema: Schema.optional(Schema.toType(AuthoredAppSchema)),
 	}),
 ]);
 

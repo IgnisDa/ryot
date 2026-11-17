@@ -1,5 +1,7 @@
+import { Message } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
+import { contractErrorFields } from "../../errors";
 import { EntityId } from "../../schema/brands";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
 import { AutomationWarning } from "../automations/lifecycle";
@@ -78,7 +80,7 @@ export const EntityEditorSaveOutput = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("saved") }),
 	strictStruct({ kind: Schema.Literal("deleted") }),
 	strictStruct({ kind: Schema.Literal("stale") }),
-	strictStruct({ message: Schema.String, kind: Schema.Literal("invalid") }),
+	strictStruct({ reason: Message, kind: Schema.Literal("invalid") }),
 ]);
 export type EntityEditorSaveOutput = typeof EntityEditorSaveOutput.Type;
 
@@ -91,4 +93,4 @@ export type EntityEditorSaveResult = typeof EntityEditorSaveResult.Type;
 export class EntityEditorRefused extends Schema.TaggedError<
 	EntityEditorRefused,
 	{ readonly brand: unique symbol }
->()("EntityEditorRefused", { message: Schema.String }) {}
+>()("EntityEditorRefused", contractErrorFields) {}
