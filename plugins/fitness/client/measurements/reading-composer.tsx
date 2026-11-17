@@ -1,3 +1,5 @@
+import { useDisplayText } from "@ryot-app/plugin-client-sdk/react";
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ActionForm,
 	Button,
@@ -15,7 +17,8 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type RefObject, useRef, useState } from "react";
 
 import type { MeasurementEntry } from "../../shared/measurement-reading-operations";
-import { unitSuffix } from "./model";
+import { useFitnessMessages } from "../messages";
+import { nameWithUnit } from "./model";
 
 type ComposerMetric = { readonly id: string; readonly name: string; readonly unit: null | string };
 
@@ -35,17 +38,20 @@ const parseValue = (text: string) => {
 };
 
 export function MeasurementDialog(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly pending: boolean;
+	readonly closeLabel: Text;
+	readonly pendingLabel: Text;
 	readonly submitLabel: string;
 	readonly onClose: () => void;
-	readonly pendingLabel: string;
 	readonly initial: MeasurementDraft;
-	readonly errorMessage: string | undefined;
+	readonly errorMessage: Text | undefined;
 	readonly metrics: readonly ComposerMetric[];
 	readonly onSubmit: (readings: MeasurementEntry) => void;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
+	const displayText = useDisplayText();
+	const text = useFitnessMessages();
 	const {
 		label,
 		initial,
@@ -54,6 +60,7 @@ export function MeasurementDialog(props: {
 		onClose,
 		onSubmit,
 		triggerRef,
+		closeLabel,
 		submitLabel,
 		errorMessage,
 		pendingLabel,
@@ -75,7 +82,7 @@ export function MeasurementDialog(props: {
 	);
 	let message: string | undefined;
 	if (submitted && values.length === 0 && parsed.every(({ value }) => value !== undefined)) {
-		message = "Enter at least one value.";
+		message = text("client.measurements.composer.value-required");
 	}
 	const save = () => {
 		setSubmitted(true);
@@ -95,12 +102,12 @@ export function MeasurementDialog(props: {
 			onClose={onClose}
 			dismissible={!pending}
 			triggerRef={triggerRef}
+			closeLabel={closeLabel}
 			initialFocusRef={occurredAtRef}
-			closeLabel={`Close ${label.toLowerCase()}`}
 			footer={
 				<>
 					<Button type="button" onClick={onClose} disabled={pending} variant="secondary">
-						Cancel
+						{text("common.action.cancel")}
 					</Button>
 					<Button type="button" onClick={save} disabled={pending}>
 						{actionLabel}
@@ -112,15 +119,18 @@ export function MeasurementDialog(props: {
 				<fieldset disabled={pending} className="flex flex-col gap-4">
 					<DateTimeField
 						{...timestamp}
-						label="Date and time"
 						showError={submitted}
 						inputRef={occurredAtRef}
 						checkIcon={<AppIcon size={14} name="check" />}
 						onChange={(value) => timestamp.onChange(value)}
+						label={text("client.measurements.composer.date-time")}
 						chevronIcon={<AppIcon size={14} name="chevron-down" />}
 						onOccurrenceChange={(value) => timestamp.onOccurrenceChange(value)}
 					/>
-					<ul aria-label="Values" className="flex flex-col gap-3">
+					<ul
+						className="flex flex-col gap-3"
+						aria-label={text("client.measurements.composer.values")}
+					>
 						{entries.flatMap((entry, index) => {
 							const metric = metrics.find(({ id }) => id === entry.metricId);
 							return metric === undefined
@@ -136,11 +146,11 @@ export function MeasurementDialog(props: {
 													current.filter(({ metricId }) => metricId !== entry.metricId),
 												)
 											}
-											onChange={(text) =>
+											onChange={(value) =>
 												setEntries((current) =>
 													current.map((candidate) =>
 														candidate.metricId === entry.metricId
-															? { ...candidate, text }
+															? { ...candidate, text: value }
 															: candidate,
 													),
 												)
@@ -152,18 +162,18 @@ export function MeasurementDialog(props: {
 					{metrics.length === shownIds.size ? null : (
 						<Select
 							value=""
-							label="Add metric value"
-							placeholder="Add metric value"
 							checkIcon={<AppIcon size={14} name="check" />}
 							searchIcon={<AppIcon size={14} name="search" />}
+							label={text("client.measurements.composer.add-value")}
 							chevronIcon={<AppIcon size={14} name="chevron-down" />}
+							placeholder={text("client.measurements.composer.add-value")}
 							onChange={(metricId) => setEntries((current) => [...current, { metricId, text: "" }])}
 							choices={metrics
 								.filter(({ id }) => !shownIds.has(id))
-								.map(({ id, name }) => ({ value: id, label: name }))}
+								.map(({ id, name }) => ({ value: id, label: displayText(name) }))}
 						/>
 					)}
-					<Field optional label="Comment">
+					<Field optional label={text("property.comment")}>
 						{(control) => (
 							<TextArea
 								{...control}
@@ -190,12 +200,13 @@ function MetricValueField(props: {
 	readonly metric: ComposerMetric;
 	readonly onChange: (text: string) => void;
 }) {
+	const messages = useFitnessMessages();
 	const { text, metric, invalid } = props;
 	return (
 		<li>
 			<Field
-				error={invalid ? "Enter a number." : undefined}
-				label={`${metric.name}${unitSuffix(metric.unit)}`}
+				label={nameWithUnit(messages, metric.name, metric.unit)}
+				error={invalid ? messages("client.measurements.composer.number-required") : undefined}
 			>
 				{(control) => (
 					<div className="flex items-center gap-2">
@@ -210,7 +221,7 @@ function MetricValueField(props: {
 							type="button"
 							variant="secondary"
 							onClick={props.onRemove}
-							aria-label={`Remove ${metric.name}`}
+							aria-label={messages("client.picker.remove", { name: metric.name })}
 						>
 							<AppIcon name="x" size={16} />
 						</Button>

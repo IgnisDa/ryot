@@ -1,4 +1,5 @@
 import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import { useDisplayText, useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import { Card, Select } from "@ryot-app/plugin-ui-sdk";
 import { Sparkline, TimeSeriesChart } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -8,14 +9,14 @@ import { useMemo } from "react";
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import type { MetricRow } from "../../shared/measurement-metrics";
 import { sectionHeadingClass } from "../exercise/styles";
+import { type FitnessText, useFitnessMessages } from "../messages";
 import {
 	formatChange,
 	formatDay,
 	formatValue,
 	isStale,
+	nameWithUnit,
 	type RangeKey,
-	rangePhrase,
-	unitSuffix,
 } from "./model";
 
 function LastLogged(props: {
@@ -23,6 +24,8 @@ function LastLogged(props: {
 	readonly timeZone: TimeZone;
 	readonly latestAt: null | string;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { now, latestAt, timeZone } = props;
 	if (latestAt === null) {
 		return null;
@@ -30,21 +33,23 @@ function LastLogged(props: {
 	if (isStale(latestAt, now)) {
 		return (
 			<span className="rounded-pill bg-surface-2 px-1.75 text-[11px] whitespace-nowrap text-text-subtle">
-				last {formatDay(latestAt, timeZone, true)}
+				{text("client.measurements.last-date", {
+					date: formatDay(formatters, latestAt, timeZone, true),
+				})}
 			</span>
 		);
 	}
-	return <span className="whitespace-nowrap">{formatDay(latestAt, timeZone)}</span>;
+	return <span className="whitespace-nowrap">{formatDay(formatters, latestAt, timeZone)}</span>;
 }
 
-const pinHint = (pinnedCount: number) => {
+const pinHint = (text: FitnessText, pinnedCount: number) => {
 	if (pinnedCount === 0) {
-		return `Star up to ${MEASUREMENT_PIN_LIMIT} metrics below to pin them here`;
+		return text("client.measurements.pin-hint-none", { limit: MEASUREMENT_PIN_LIMIT });
 	}
 	const remaining = MEASUREMENT_PIN_LIMIT - pinnedCount;
 	return remaining === 1
-		? "Star one more metric below to pin it here"
-		: `Star up to ${remaining} more metrics below to pin them here`;
+		? text("client.measurements.pin-hint-one")
+		: text("client.measurements.pin-hint-more", { remaining });
 };
 
 export function MetricTiles(props: {
@@ -55,19 +60,24 @@ export function MetricTiles(props: {
 	readonly rows: readonly MetricRow[];
 	readonly onSelect: (metricId: string) => void;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { now, rows, range, timeZone, onSelect, selectedId } = props;
 	return (
 		<div
 			role="group"
-			aria-label="Pinned metrics"
+			aria-label={text("client.measurements.pinned-metrics")}
 			className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 font-ui"
 		>
 			{rows.map(({ trend, change, summary }) => {
 				const { id, name, unit, latestAt, rangeCount, latestValue } = summary;
 				const delta =
 					change === null
-						? `${rangeCount} reading${rangeCount === 1 ? "" : "s"} in ${rangePhrase(range)}`
-						: `${formatChange(change, unit)} over ${rangePhrase(range)}`;
+						? text("client.measurements.range-readings", { range, count: rangeCount })
+						: text("client.measurements.range-change", {
+								range,
+								change: formatChange(formatters, text, change, unit),
+							});
 				return (
 					<button
 						key={id}
@@ -84,10 +94,14 @@ export function MetricTiles(props: {
 							<LastLogged now={now} latestAt={latestAt} timeZone={timeZone} />
 						</span>
 						<span className="text-[28px] leading-tight font-semibold text-text tabular-nums">
-							{latestValue === null ? "—" : formatValue(latestValue, unit)}
+							{latestValue === null ? "—" : formatValue(formatters, text, latestValue, unit)}
 						</span>
 						<span className="row-span-2 col-start-2 row-start-2">
-							<Sparkline tone="accent" points={trend} ariaLabel={`${name} trend`} />
+							<Sparkline
+								tone="accent"
+								points={trend}
+								ariaLabel={text("client.measurements.trend-label", { name })}
+							/>
 						</span>
 						<span className="text-[12.5px] text-text-muted tabular-nums">{delta}</span>
 					</button>
@@ -95,7 +109,7 @@ export function MetricTiles(props: {
 			})}
 			{rows.length >= MEASUREMENT_PIN_LIMIT ? null : (
 				<p className="flex min-h-27 items-center justify-center rounded-xl border border-dashed border-border px-4 py-3.5 text-center text-[13px] text-text-muted">
-					{pinHint(rows.length)}
+					{pinHint(text, rows.length)}
 				</p>
 			)}
 		</div>
@@ -113,16 +127,19 @@ export function ChartCard(props: {
 	readonly onCompareChange: (metricId: string) => void;
 	readonly window: { readonly endAt: string; readonly startAt: string };
 }) {
+	const displayText = useDisplayText();
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { range, others, window, compare, compact, selected, timeZone, onCompareChange } = props;
 	const { name, unit, latestAt } = selected.summary;
 	const primary = useMemo(
 		() => ({
 			trend: selected.trend,
 			readings: selected.averages,
-			label: `${name} grouped average`,
-			formatValue: (value: number) => formatValue(value, unit),
+			label: text("client.measurements.grouped-average", { name }),
+			formatValue: (value: number) => formatValue(formatters, text, value, unit),
 		}),
-		[name, unit, selected.trend, selected.averages],
+		[formatters, text, name, unit, selected.trend, selected.averages],
 	);
 	const compareSeries = useMemo(
 		() =>
@@ -131,55 +148,64 @@ export function ChartCard(props: {
 				: {
 						trend: compare.trend,
 						readings: compare.averages,
-						label: `${compare.summary.name} grouped average`,
-						formatValue: (value: number) => formatValue(value, compare.summary.unit),
+						label: text("client.measurements.grouped-average", { name: compare.summary.name }),
+						formatValue: (value: number) =>
+							formatValue(formatters, text, value, compare.summary.unit),
 					},
-		[compare],
+		[compare, formatters, text],
 	);
 	return (
-		<section aria-label="Metric chart">
+		<section aria-label={text("client.measurements.chart-label")}>
 			<Card padding="lg" className="flex min-w-0 flex-col gap-3 font-ui">
 				<header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
 					<h2 className={sectionHeadingClass}>
-						{name}
-						{unitSuffix(unit)}
+						{nameWithUnit(text, name, unit)}
 						{compare === null ? null : (
 							<span className="font-ui text-[15px] font-medium text-text-muted">
 								{" "}
-								vs {compare.summary.name}
-								{unitSuffix(compare.summary.unit)}
+								{text("client.measurements.versus", {
+									name: nameWithUnit(text, compare.summary.name, compare.summary.unit),
+								})}
 							</span>
 						)}
 					</h2>
 					<div className="flex items-center gap-2 text-[13px] text-text-muted">
-						<span>Compare with</span>
+						<span>{text("client.measurements.compare-with")}</span>
 						<Select
-							label="Compare with"
 							onChange={onCompareChange}
 							value={compare?.summary.id ?? ""}
 							checkIcon={<AppIcon size={14} name="check" />}
+							label={text("client.measurements.compare-with")}
 							chevronIcon={<AppIcon size={14} name="chevron-down" />}
 							choices={[
-								{ value: "", label: "Nothing" },
-								...others.map(({ summary }) => ({ value: summary.id, label: summary.name })),
+								{ value: "", label: text("client.measurements.compare-nothing") },
+								...others.map(({ summary }) => ({
+									value: summary.id,
+									label: displayText(summary.name),
+								})),
 							]}
 						/>
 					</div>
 				</header>
 				{selected.averages.length === 0 ? (
 					<p className="py-16 text-center text-[14px] text-text-muted">
-						No {name.toLowerCase()} readings in{" "}
-						{range === "All" ? "your history" : `the last ${rangePhrase(range)}`}.
-						{latestAt === null
-							? ""
-							: ` The last one was on ${formatDay(latestAt, timeZone, true)}.`}
+						{text("client.measurements.chart-empty", { name, range })}
+						{latestAt === null ? null : (
+							<>
+								{" "}
+								{text("client.measurements.chart-empty-last", {
+									date: formatDay(formatters, latestAt, timeZone, true),
+								})}
+							</>
+						)}
 					</p>
 				) : (
 					<>
 						<p className="text-[12.5px] text-text-muted">
-							Line uses 3- or 7-bucket smoothing within continuous runs. Dots and the shaded
-							low-to-high band show grouped averages. Smoothing restarts after missing buckets.
-							{compare === null ? "" : ` ${compare.summary.name} uses the right axis.`}
+							{text("client.measurements.chart-note")}
+							{compare === null ? null : (
+								<> {text("client.measurements.chart-right-axis", { name: compare.summary.name })}</>
+							)}
 						</p>
 						<TimeSeriesChart
 							range={window}
@@ -187,7 +213,7 @@ export function ChartCard(props: {
 							primary={primary}
 							{...(compareSeries === undefined ? {} : { compare: compareSeries })}
 							gapMs={Number.POSITIVE_INFINITY}
-							ariaLabel={`${name} over ${rangePhrase(range)}`}
+							ariaLabel={text("client.measurements.chart-over", { name, range })}
 						/>
 					</>
 				)}

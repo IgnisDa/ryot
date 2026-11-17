@@ -1,4 +1,6 @@
 import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import type { Text } from "@ryot-app/plugin-client-sdk/react";
+import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import { Card, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { Sparkline } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -7,18 +9,32 @@ import clsx from "clsx";
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import type { MetricRow, MetricSort } from "../../shared/measurement-metrics";
 import { sectionHeadingClass } from "../exercise/styles";
-import { formatChange, formatDay, formatValue, type RangeKey, rangePhrase } from "./model";
+import { type FitnessText, useFitnessMessages } from "../messages";
+import { formatChange, formatDay, formatValue, type RangeKey } from "./model";
 import { tableHeaderClass } from "./styles";
 
-const sortOptions = [
-	{ value: "recent", label: "Recent", content: "Recent" },
-	{ value: "changed", label: "Most changed", content: "Most changed" },
-	{ value: "az", label: "A–Z", content: "A–Z" },
-] as const satisfies readonly {
-	readonly label: string;
-	readonly content: string;
-	readonly value: MetricSort;
-}[];
+const sortOptions = (text: FitnessText) =>
+	[
+		{
+			value: "recent",
+			label: text("client.measurements.sort-recent"),
+			content: text("client.measurements.sort-recent"),
+		},
+		{
+			value: "changed",
+			label: text("client.measurements.sort-changed"),
+			content: text("client.measurements.sort-changed"),
+		},
+		{
+			value: "az",
+			label: text("client.measurements.sort-az"),
+			content: text("client.measurements.sort-az"),
+		},
+	] as const satisfies readonly {
+		readonly label: Text;
+		readonly content: string;
+		readonly value: MetricSort;
+	}[];
 
 export function MetricsTable(props: {
 	readonly range: RangeKey;
@@ -33,18 +49,23 @@ export function MetricsTable(props: {
 	readonly onSortChange: (sort: MetricSort) => void;
 	readonly onPinChange: (metricId: string, pinned: boolean) => void;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { rows, sort, range, timeZone, onSelect, selectedId, onSortChange } = props;
 	const pinLimitReached = props.pinnedIds.size >= MEASUREMENT_PIN_LIMIT;
 	return (
-		<section aria-label="All metrics" className="flex min-w-0 flex-col gap-2.5 font-ui">
+		<section
+			className="flex min-w-0 flex-col gap-2.5 font-ui"
+			aria-label={text("client.measurements.all-metrics")}
+		>
 			<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
-				<h2 className={sectionHeadingClass}>All metrics</h2>
+				<h2 className={sectionHeadingClass}>{text("client.measurements.all-metrics")}</h2>
 				<SegmentedControl
 					value={sort}
-					label="Sort metrics"
-					options={sortOptions}
 					optionClassName="px-3"
 					onChange={onSortChange}
+					options={sortOptions(text)}
+					label={text("client.measurements.sort-label")}
 				/>
 			</div>
 			{props.pinError === undefined ? null : (
@@ -55,22 +76,22 @@ export function MetricsTable(props: {
 					<thead>
 						<tr>
 							<th scope="col" className={clsx(tableHeaderClass, "w-9")}>
-								<span className="sr-only">Pin</span>
+								<span className="sr-only">{text("client.measurements.column-pin")}</span>
 							</th>
 							<th scope="col" className={tableHeaderClass}>
-								Metric
+								{text("client.measurements.column-metric")}
 							</th>
 							<th scope="col" className={clsx(tableHeaderClass, "text-right")}>
-								Latest
+								{text("client.measurements.column-latest")}
 							</th>
 							<th scope="col" className={clsx(tableHeaderClass, "text-right")}>
-								Change, {rangePhrase(range)}
+								{text("client.measurements.column-change", { range })}
 							</th>
 							<th scope="col" className={tableHeaderClass}>
-								Trend
+								{text("client.measurements.column-trend")}
 							</th>
 							<th scope="col" className={clsx(tableHeaderClass, "text-right")}>
-								Last logged
+								{text("client.measurements.column-last-logged")}
 							</th>
 						</tr>
 					</thead>
@@ -88,16 +109,16 @@ export function MetricsTable(props: {
 										<button
 											type="button"
 											aria-pressed={pinned}
-											aria-label={`Pin ${name}`}
 											disabled={props.pinPending || pinBlocked}
 											onClick={() => props.onPinChange(id, !pinned)}
+											aria-label={text("client.measurements.pin-label", { name })}
 											className={clsx(
 												"inline-flex rounded-md p-1 disabled:opacity-50",
 												pinned ? "text-accent" : "text-border-strong",
 											)}
 											title={
 												pinBlocked
-													? `Only ${MEASUREMENT_PIN_LIMIT} metrics can be pinned. Unpin one first.`
+													? text("client.measurements.pin-limit", { limit: MEASUREMENT_PIN_LIMIT })
 													: undefined
 											}
 										>
@@ -114,24 +135,24 @@ export function MetricsTable(props: {
 											{name}
 										</button>
 										<span className="block text-[12px] text-text-subtle tabular-nums">
-											{rangeCount} reading{rangeCount === 1 ? "" : "s"} in {rangePhrase(range)}
+											{text("client.measurements.range-readings", { range, count: rangeCount })}
 										</span>
 									</td>
 									<td className="px-3 py-2 text-right tabular-nums">
-										{latestValue === null ? "—" : formatValue(latestValue, unit)}
+										{latestValue === null ? "—" : formatValue(formatters, text, latestValue, unit)}
 									</td>
 									<td className="px-3 py-2 text-right text-text-muted tabular-nums">
-										{change === null ? "—" : formatChange(change, unit)}
+										{change === null ? "—" : formatChange(formatters, text, change, unit)}
 									</td>
 									<td className="px-3 py-2">
 										<Sparkline
 											points={trend}
-											ariaLabel={`${name} trend`}
 											tone={id === selectedId ? "accent" : "muted"}
+											ariaLabel={text("client.measurements.trend-label", { name })}
 										/>
 									</td>
 									<td className="px-3 py-2 text-right text-text-subtle tabular-nums">
-										{latestAt === null ? "—" : formatDay(latestAt, timeZone, true)}
+										{latestAt === null ? "—" : formatDay(formatters, latestAt, timeZone, true)}
 									</td>
 								</tr>
 							);

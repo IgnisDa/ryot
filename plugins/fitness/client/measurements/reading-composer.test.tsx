@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
 	mountPluginPage,
 	routeLocation,
-	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
@@ -13,6 +13,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import type { MeasurementEntry } from "../../shared/measurement-reading-operations";
+import { fitnessCatalogs, fitnessSavedViewPage } from "../../tests/client/test-text";
 import { MeasurementDialog } from "./reading-composer";
 
 let previousZone: string | undefined;
@@ -35,20 +36,22 @@ const open = (occurredAt: string) => {
 		() => (
 			<MeasurementDialog
 				pending={false}
-				label="Log measurement"
 				errorMessage={undefined}
 				onClose={() => undefined}
 				submitLabel="Save reading"
-				pendingLabel="Saving reading"
 				triggerRef={{ current: null }}
+				label={testText("Log measurement")}
+				pendingLabel={testText("Saving reading")}
 				onSubmit={(entry) => submitted.push(entry)}
+				closeLabel={testText("Close log measurement")}
 				metrics={[{ unit: "kg", id: "weight", name: "Weight" }]}
 				initial={{ occurredAt, comment: null, values: [{ value: 70, metricId: "weight" }] }}
 			/>
 		),
 		{
+			catalogs: fitnessCatalogs,
 			location: routeLocation("/v/all-measurements"),
-			page: savedViewPageContext({
+			page: fitnessSavedViewPage({
 				settings: {},
 				dataSources: { queries: {} },
 				rendererName: "measurements",

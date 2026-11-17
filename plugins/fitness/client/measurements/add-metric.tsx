@@ -18,6 +18,7 @@ import {
 import { measurementMetricKey, measurementMetricUnit } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { useFitnessMessages } from "../messages";
 
 const createMetricMutation = createRyotMutation<
 	MeasurementMetricCreateInput,
@@ -37,6 +38,7 @@ export function AddMetricDialog(props: {
 	readonly metrics: readonly MeasurementSummary[];
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
+	const text = useFitnessMessages();
 	const { onClose } = props;
 	const nameRef = useRef<HTMLInputElement>(null);
 	const [name, setName] = useState("");
@@ -53,9 +55,9 @@ export function AddMetricDialog(props: {
 	const duplicate = key.length > 0 && props.metrics.some((metric) => metric.key === key);
 	let nameError: string | undefined;
 	if (duplicate) {
-		nameError = "This metric already exists. Choose a different name.";
+		nameError = text("client.measurements.add.duplicate");
 	} else if (submitted && key.length === 0) {
-		nameError = "Enter a name with at least one letter from A–Z or a number.";
+		nameError = text("client.measurements.add.name-required");
 	}
 	const save = () => {
 		setSubmitted(true);
@@ -70,25 +72,31 @@ export function AddMetricDialog(props: {
 	return (
 		<Dialog
 			onClose={onClose}
-			title="Add metric"
 			initialFocusRef={nameRef}
 			triggerRef={props.triggerRef}
-			closeLabel="Close add metric"
 			dismissible={!create.isPending}
+			title={text("client.measurements.add-metric")}
+			closeLabel={text("client.measurements.add.close")}
 			footer={
 				<>
 					<Button onClick={onClose} variant="secondary" disabled={create.isPending}>
-						Cancel
+						{text("common.action.cancel")}
 					</Button>
 					<Button onClick={save} disabled={create.isPending || duplicate}>
-						{create.isPending ? "Adding…" : "Add metric"}
+						{create.isPending
+							? text("client.measurements.add.pending")
+							: text("client.measurements.add-metric")}
 					</Button>
 				</>
 			}
 		>
-			<ActionForm onSubmit={save} label="Add metric" className="flex flex-col gap-4">
+			<ActionForm
+				onSubmit={save}
+				className="flex flex-col gap-4"
+				label={text("client.measurements.add-metric")}
+			>
 				<fieldset disabled={create.isPending} className="flex flex-col gap-4">
-					<Field label="Name" error={nameError}>
+					<Field error={nameError} label={text("client.measurements.add.name")}>
 						{(control) => (
 							<TextField
 								{...control}
@@ -103,11 +111,11 @@ export function AddMetricDialog(props: {
 					</Field>
 					<Field
 						optional
-						label="Unit"
+						label={text("property.unit")}
 						hint={
 							canonicalUnit === undefined
 								? undefined
-								: `This metric uses ${canonicalUnit} to match OpenScale imports.`
+								: text("client.measurements.add.unit-hint", { unit: canonicalUnit })
 						}
 					>
 						{(control) => (
@@ -124,7 +132,7 @@ export function AddMetricDialog(props: {
 					</Field>
 				</fieldset>
 				{create.error === null ? null : (
-					<StatusMessage tone="error">The metric couldn't be added. Try again.</StatusMessage>
+					<StatusMessage tone="error">{text("client.measurements.add.failed")}</StatusMessage>
 				)}
 			</ActionForm>
 		</Dialog>

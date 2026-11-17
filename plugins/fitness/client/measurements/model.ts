@@ -1,12 +1,16 @@
 import { Array, DateTime, Duration } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	addCalendarDays,
+	calendarPeriod,
+	localDateOf,
 	REPORTING_BUCKET_LIMIT,
-	resolveReportingSelection,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
+import type { FitnessText } from "../messages";
 import { formatNumber } from "../workout/format";
 import type { MeasurementLogEntry } from "./queries";
 
@@ -15,20 +19,13 @@ export type RangeKey = "1M" | "3M" | "1Y" | "All";
 const STALE_AFTER = Duration.days(45);
 
 export const rangeOptions = [
-	{ days: 30, key: "1M", phrase: "30 days" },
-	{ days: 90, key: "3M", phrase: "3 months" },
-	{ key: "1Y", days: 365, phrase: "12 months" },
-	{ key: "All", days: null, phrase: "all time" },
-] as const satisfies readonly {
-	readonly key: RangeKey;
-	readonly phrase: string;
-	readonly days: null | number;
-}[];
+	{ days: 30, key: "1M" },
+	{ days: 90, key: "3M" },
+	{ key: "1Y", days: 365 },
+	{ key: "All", days: null },
+] as const satisfies readonly { readonly key: RangeKey; readonly days: null | number }[];
 
 const rangeDays = (range: RangeKey) => rangeOptions.find(({ key }) => key === range)?.days ?? null;
-
-export const rangePhrase = (range: RangeKey) =>
-	rangeOptions.find(({ key }) => key === range)?.phrase ?? "";
 
 export const measurementSelection = (range: RangeKey) => {
 	const days = rangeDays(range);
@@ -41,14 +38,11 @@ export const measurementSelection = (range: RangeKey) => {
 
 export const measurementPeriod = (range: RangeKey, now: Date, timeZone: TimeZone) => {
 	const days = rangeDays(range);
-	return resolveReportingSelection(
-		{
-			grouping: "day",
-			comparison: "none",
-			range: days === null ? { kind: "all-time" } : { days, kind: "rolling" },
-		},
-		{ timeZone, now: now.getTime() },
-	).current;
+	if (days === null) {
+		return null;
+	}
+	const today = localDateOf(now, timeZone);
+	return calendarPeriod(addCalendarDays(today, 1 - days), today, timeZone);
 };
 
 export const seriesWindow = (
@@ -96,45 +90,57 @@ export const isStale = (latestAt: string, now: Date) =>
 		DateTime.addDuration(DateTime.makeUnsafe(latestAt), STALE_AFTER),
 	);
 
-export const unitSuffix = (unit: null | string) =>
-	unit === null || unit === "" ? "" : ` (${unit})`;
+export const nameWithUnit = (text: FitnessText, name: string, unit: null | string) =>
+	unit === null || unit === "" ? name : text("client.measurements.name-with-unit", { name, unit });
 
-export const formatValue = (value: number, unit: null | string) => {
-	const text = formatNumber(value);
+export const formatValue = (
+	formatters: Formatters,
+	text: FitnessText,
+	value: number,
+	unit: null | string,
+) => {
 	if (unit === null || unit === "") {
-		return text;
+		return formatNumber(formatters, value);
 	}
-	return unit === "%" ? `${text}%` : `${text} ${unit}`;
+	return unit === "%"
+		? formatters.number({ style: "percent", maximumFractionDigits: 2 }).format(value / 100)
+		: text("common.unit.value", { unit, value: formatNumber(formatters, value) });
 };
 
-export const formatChange = (change: number, unit: null | string) => {
-	if (formatNumber(Math.abs(change)) === "0") {
-		return `±${formatValue(0, unit)}`;
+export const formatChange = (
+	formatters: Formatters,
+	text: FitnessText,
+	change: number,
+	unit: null | string,
+) => {
+	if (formatNumber(formatters, Math.abs(change)) === "0") {
+		return `±${formatValue(formatters, text, 0, unit)}`;
 	}
-	return `${change > 0 ? "+" : "−"}${formatValue(Math.abs(change), unit)}`;
+	return `${change > 0 ? "+" : "−"}${formatValue(formatters, text, Math.abs(change), unit)}`;
 };
 
-const dateFormat = (timeZone: TimeZone, withYear: boolean) =>
-	new Intl.DateTimeFormat("en-GB", {
+const dateFormat = (formatters: Formatters, timeZone: TimeZone, withYear: boolean) =>
+	formatters.dateTime({
 		timeZone,
 		day: "numeric",
 		month: "short",
 		...(withYear ? { year: "numeric" } : {}),
 	});
 
-export const formatDay = (iso: string, timeZone: TimeZone, withYear = false) =>
-	dateFormat(timeZone, withYear).format(Date.parse(iso));
+export const formatDay = (
+	formatters: Formatters,
+	iso: string,
+	timeZone: TimeZone,
+	withYear = false,
+) => dateFormat(formatters, timeZone, withYear).format(Date.parse(iso));
 
-export const formatTime = (iso: string, timeZone: TimeZone) =>
-	new Intl.DateTimeFormat("en-GB", {
-		timeZone,
-		hour12: false,
-		hour: "2-digit",
-		minute: "2-digit",
-	}).format(Date.parse(iso));
+export const formatTime = (formatters: Formatters, iso: string, timeZone: TimeZone) =>
+	formatters
+		.dateTime({ timeZone, hour12: false, hour: "2-digit", minute: "2-digit" })
+		.format(Date.parse(iso));
 
-const monthFormat = (timeZone: TimeZone) =>
-	new Intl.DateTimeFormat("en-GB", { timeZone, month: "long", year: "numeric" });
+const monthFormat = (formatters: Formatters, timeZone: TimeZone) =>
+	formatters.dateTime({ timeZone, month: "long", year: "numeric" });
 
 export type ReadingValue = {
 	readonly id: string;
@@ -181,10 +187,11 @@ export const groupReadings = (entries: readonly MeasurementLogEntry[]): readonly
 export type MonthSection = { readonly label: string; readonly groups: readonly ReadingGroup[] };
 
 export const groupByMonth = (
+	formatters: Formatters,
 	groups: readonly ReadingGroup[],
 	timeZone: TimeZone,
 ): readonly MonthSection[] => {
-	const format = monthFormat(timeZone);
+	const format = monthFormat(formatters, timeZone);
 	const sections: { label: string; groups: ReadingGroup[] }[] = [];
 	for (const group of groups) {
 		const label = format.format(Date.parse(group.occurredAt));

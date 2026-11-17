@@ -15,6 +15,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { buildMetricRows, type MetricSort, sortMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
+import { useFitnessMessageBuilder, useFitnessMessages } from "../messages";
 import { MeasurementDialogs, type MeasurementDialogState } from "./measurement-logger";
 import { MetricsTable } from "./metrics-table";
 import { type RangeKey, rangeOptions, selectPinnedMetrics, type seriesWindow } from "./model";
@@ -40,6 +41,7 @@ export function MeasurementsView(props: {
 	readonly window: ReturnType<typeof seriesWindow>;
 	readonly summaries: readonly MeasurementSummary[];
 }) {
+	const text = useFitnessMessages();
 	const { now, range, series, window, compact, timeZone, summaries } = props;
 	const [sort, setSort] = useState<MetricSort>("recent");
 	const [selectedChoice, setSelectedChoice] = useState<null | string>(null);
@@ -103,7 +105,7 @@ export function MeasurementsView(props: {
 				pinPending={pin.isPending}
 				selectedId={selected?.summary.id ?? null}
 				onPinChange={(metricId, pinned) => pin.mutate({ pinned, metricId })}
-				pinError={pin.error === null ? undefined : "The pin couldn't be changed. Try again."}
+				pinError={pin.error === null ? undefined : text("client.measurements.pin-failed")}
 			/>
 			<ReadingLog
 				key={range}
@@ -123,18 +125,19 @@ function MeasurementsBody(props: {
 	readonly timeZone: TimeZone;
 	readonly result: RyotQueryResult<readonly MeasurementSummary[]>;
 }) {
+	const text = useFitnessMessages();
 	const { result } = props;
 	if (result.data === undefined) {
 		return result.isError ? (
 			<div className="flex flex-col items-start gap-3 font-ui">
-				<StatusMessage tone="error">Your measurements couldn't be loaded.</StatusMessage>
+				<StatusMessage tone="error">{text("client.measurements.load-failed")}</StatusMessage>
 				<Button variant="secondary" onClick={result.refetch}>
-					Try again
+					{text("common.action.try-again")}
 				</Button>
 			</div>
 		) : (
 			<StatusMessage tone="pending" className="font-ui">
-				Loading measurements…
+				{text("client.measurements.loading")}
 			</StatusMessage>
 		);
 	}
@@ -142,8 +145,8 @@ function MeasurementsBody(props: {
 		return (
 			<EmptyState
 				className="font-ui"
-				title="No measurements yet"
-				description="Add a metric to track, or import your history from OpenScale, to get started."
+				title={text("client.measurements.empty-title")}
+				description={text("client.measurements.empty-description")}
 			/>
 		);
 	}
@@ -157,6 +160,7 @@ function MeasurementsContent(props: {
 	readonly timeZone: TimeZone;
 	readonly summaries: readonly MeasurementSummary[];
 }) {
+	const text = useFitnessMessages();
 	const { now, range, compact, timeZone, summaries } = props;
 	const metricIds = useMemo(() => summaries.map(({ id }) => id), [summaries]);
 	const result = useRyotQuery(seriesQuery, {
@@ -181,21 +185,23 @@ function MeasurementsContent(props: {
 	if (result.isError) {
 		return (
 			<div className="flex flex-col items-start gap-3 font-ui">
-				<StatusMessage tone="error">Your measurement trends couldn't be loaded.</StatusMessage>
+				<StatusMessage tone="error">{text("client.measurements.trends-failed")}</StatusMessage>
 				<Button variant="secondary" onClick={result.refetch}>
-					Try again
+					{text("common.action.try-again")}
 				</Button>
 			</div>
 		);
 	}
 	return (
 		<StatusMessage tone="pending" className="font-ui">
-			Loading trends…
+			{text("client.measurements.loading-trends")}
 		</StatusMessage>
 	);
 }
 
 function MeasurementsPageBody({ timeZone }: { readonly timeZone: TimeZone }) {
+	const text = useFitnessMessages();
+	const message = useFitnessMessageBuilder();
 	const { view } = usePageContext();
 	const { compact } = useRyotViewport();
 	const [now, setNow] = useState(() => new Date());
@@ -218,10 +224,14 @@ function MeasurementsPageBody({ timeZone }: { readonly timeZone: TimeZone }) {
 		<div className={clsx("flex flex-wrap items-center gap-2.5", compact && "pb-4")}>
 			<SegmentedControl
 				value={range}
-				label="Time range"
 				onChange={setRange}
 				optionClassName="px-3"
-				options={rangeOptions.map(({ key }) => ({ value: key, label: key, content: key }))}
+				label={text("client.measurements.time-range")}
+				options={rangeOptions.map(({ key }) => ({
+					value: key,
+					label: text("client.measurements.range", { range: key }),
+					content: text("client.measurements.range", { range: key }),
+				}))}
 			/>
 			<Button
 				ref={logTrigger}
@@ -229,7 +239,7 @@ function MeasurementsPageBody({ timeZone }: { readonly timeZone: TimeZone }) {
 				onClick={() => openDialog("log")}
 				disabled={result.data === undefined || result.data.length === 0}
 			>
-				Log measurement
+				{text("client.measurements.log")}
 			</Button>
 			<Button
 				variant="secondary"
@@ -239,14 +249,14 @@ function MeasurementsPageBody({ timeZone }: { readonly timeZone: TimeZone }) {
 				onClick={() => openDialog("add-metric")}
 				disabled={result.data === undefined || result.isError}
 			>
-				Add metric
+				{text("client.measurements.add-metric")}
 			</Button>
 		</div>
 	);
 	return (
 		<PluginScreenFrame
-			title={view?.name ?? "Measurements"}
 			actions={compact ? undefined : controls}
+			title={view ? view.name : message("client.measurements.title")}
 			titleIcon={
 				<AppIcon size={20} name={view?.icon ?? "ruler"} className="shrink-0 text-text-muted" />
 			}

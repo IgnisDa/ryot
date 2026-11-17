@@ -6,7 +6,6 @@ import {
 	disposePluginBridges,
 	mountPluginPage,
 	routeLocation,
-	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -15,6 +14,7 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { buildMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
+import { fitnessCatalogs, fitnessSavedViewPage } from "../../tests/client/test-text";
 import { ChartCard, MetricTiles } from "./overview";
 
 afterEach(disposePluginBridges);
@@ -71,8 +71,9 @@ describe("measurement overview source labels", () => {
 		() =>
 			Effect.gen(function* () {
 				mountPluginPage(Overview, {
+					catalogs: fitnessCatalogs,
 					location: routeLocation("/v/all-measurements"),
-					page: savedViewPageContext({
+					page: fitnessSavedViewPage({
 						settings: {},
 						dataSources: { queries: {} },
 						rendererName: "measurements",

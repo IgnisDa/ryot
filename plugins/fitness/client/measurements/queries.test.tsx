@@ -20,6 +20,7 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { measurementSeriesRecipe } from "../../shared/measurement-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { seriesQuery } from "./queries";
 
 afterEach(disposePluginBridges);
@@ -46,6 +47,7 @@ it.live(
 				);
 			}
 			const page = mountPluginPage(Probe, {
+				catalogs: fitnessCatalogs,
 				bootstrap: clock.bootstrap,
 				location: routeLocation("/v/measurements"),
 				page: {

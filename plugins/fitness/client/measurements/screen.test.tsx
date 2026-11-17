@@ -1,6 +1,7 @@
 import { afterEach, describe, expect } from "bun:test";
 
 import type { RowsResult, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -21,6 +22,7 @@ import { fireEvent, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { fitnessCatalogs } from "../../tests/client/test-text";
 import { MeasurementDialogs, useMeasurementLogger } from "./measurement-logger";
 import { formatDay, formatTime } from "./model";
 import { ReadingLog } from "./reading-log";
@@ -176,9 +178,10 @@ const openPage = (
 		pageComponent = MeasurementLoggerPage;
 	}
 	const page = mountPluginPage(pageComponent, {
+		catalogs: fitnessCatalogs,
 		bootstrap: options.bootstrap,
 		location: routeLocation("/v/all-measurements"),
-		userPreferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
+		userPreferences: { weekStart: 1, ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -470,7 +473,7 @@ describe("measurements page", () => {
 				fireEvent.click(within(metricList).getByRole("button", { name: "Sugar level" }));
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(text(chart)).toContain("No sugar level readings in the last 12 months."),
+						expect(text(chart)).toContain("No Sugar level readings in the last 12 months."),
 					),
 				);
 
@@ -726,7 +729,7 @@ describe("measurements page", () => {
 					readingsPage: () => storedReadings,
 				});
 				const body = within(document.body);
-				const rowLabel = `Delete measurement from ${formatDay(readingsAt, TimeZone.make("UTC"))} ${formatTime(readingsAt, TimeZone.make("UTC"))}`;
+				const rowLabel = `Delete measurement from ${formatDay(testFormatters, readingsAt, TimeZone.make("UTC"))} ${formatTime(testFormatters, readingsAt, TimeZone.make("UTC"))}`;
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						answerPending();
@@ -748,8 +751,8 @@ describe("measurements page", () => {
 				expect(failed).toMatchObject({
 					input: { entryId: "r1" },
 					packageId: PLUGIN_PACKAGE_ID,
-					label: "Deleted measurement",
 					operationSlug: "measurement-reading-delete",
+					label: { key: "client.measurements.deleted" },
 				});
 				page.send({
 					outcome: "failure",
@@ -1038,8 +1041,8 @@ describe("measurements page", () => {
 				assert(failed?.type === "background-operation-request");
 				expect(failed).toMatchObject({
 					packageId: PLUGIN_PACKAGE_ID,
-					label: "Logged Weight, Sugar level",
 					operationSlug: "measurement-reading-log",
+					label: { key: "client.measurements.logged", params: { names: "Weight, Sugar level" } },
 					input: {
 						comment: "Fasted",
 						occurredAt: loggedAt,
@@ -1132,7 +1135,10 @@ describe("measurements page", () => {
 				yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
 				const first = requests()[0];
 				assert(first?.type === "background-operation-request");
-				expect(first.label).toBe("Logged Weight, Waist");
+				expect(first.label).toEqual({
+					key: "client.measurements.logged",
+					params: { names: "Weight, Waist" },
+				});
 				expect(dialog.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(true);
 				page.send({
 					outcome: "success",

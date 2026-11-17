@@ -1,3 +1,4 @@
+import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotBackgroundSubmission,
 	createRyotMutation,
@@ -17,30 +18,34 @@ import {
 	MeasurementReadingUpdateInput,
 	measurementReadingUpdateOperationSlug,
 } from "../../shared/measurement-reading-operations";
+import { catalogMessage } from "../../shared/messages.generated";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import type { FitnessText } from "../messages";
 
 export const logReadingsSubmission = createRyotBackgroundSubmission({
 	packageId: PLUGIN_PACKAGE_ID,
 	inputSchema: MeasurementReadingLogInput,
 	slug: measurementReadingLogOperationSlug,
-	label: (input: { readonly label: string; readonly entry: MeasurementEntry }) => input.label,
 	input: ({ input, submittedAt, submissionId }) => ({ ...input.entry, submittedAt, submissionId }),
+	label: (input: { readonly label: LocalMessage; readonly entry: MeasurementEntry }) => input.label,
 });
 
 export const updateReadingsSubmission = createRyotBackgroundSubmission({
 	packageId: PLUGIN_PACKAGE_ID,
-	label: () => "Updated measurement",
+	input: ({ input }) => input.update,
 	inputSchema: MeasurementReadingUpdateInput,
 	slug: measurementReadingUpdateOperationSlug,
-	input: ({ input }: { readonly input: typeof MeasurementReadingUpdateInput.Type }) => input,
+	label: (_input: { readonly update: typeof MeasurementReadingUpdateInput.Type }) =>
+		catalogMessage("client.measurements.updated"),
 });
 
 export const deleteReadingsSubmission = createRyotBackgroundSubmission({
 	packageId: PLUGIN_PACKAGE_ID,
-	label: () => "Deleted measurement",
+	input: ({ input }) => input.remove,
 	inputSchema: MeasurementReadingDeleteInput,
 	slug: measurementReadingDeleteOperationSlug,
-	input: ({ input }: { readonly input: typeof MeasurementReadingDeleteInput.Type }) => input,
+	label: (_input: { readonly remove: typeof MeasurementReadingDeleteInput.Type }) =>
+		catalogMessage("client.measurements.deleted"),
 });
 
 export const pinMetricMutation = createRyotMutation<
@@ -56,7 +61,11 @@ export const pinMetricMutation = createRyotMutation<
 	}),
 );
 
-export const readingFailureMessage = (error: null | Error, action: "log" | "edit" | "delete") =>
+export const readingFailureMessage = (
+	text: FitnessText,
+	error: null | Error,
+	action: "log" | "edit" | "delete",
+) =>
 	error === null
 		? undefined
-		: `The measurement couldn't be ${action === "delete" ? "deleted" : "saved"}. Try again.`;
+		: text("client.measurements.failure", { action: action === "delete" ? "delete" : "save" });

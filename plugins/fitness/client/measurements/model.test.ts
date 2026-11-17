@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 
 import { buildMetricRows, smoothRuns, sortMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
+import { testFitnessText } from "../../tests/client/test-text";
 import { measurementTrendModel } from "../analytics/reporting-model";
 import {
 	formatChange,
@@ -145,6 +147,7 @@ describe("buildMetricRows", () => {
 				{ bucket, timeZone },
 			);
 			const analytics = measurementTrendModel(
+				testFitnessText,
 				{
 					period: null,
 					grouping: bucket,
@@ -152,7 +155,7 @@ describe("buildMetricRows", () => {
 					points: averages.map((point) => Object.assign({}, point, { unit: "kg", readings: 1 })),
 				},
 				null,
-				timeZone,
+				{ timeZone, weekStart: 1 },
 				true,
 			);
 			expect(
@@ -202,15 +205,15 @@ describe("sortMetricRows", () => {
 
 describe("formatting", () => {
 	it("attaches percent without a space and other units with one", () => {
-		expect(formatValue(73.6, "kg")).toBe("73.6 kg");
-		expect(formatValue(18.25, "%")).toBe("18.25%");
-		expect(formatValue(7, null)).toBe("7");
+		expect(formatValue(testFormatters, testFitnessText, 73.6, "kg")).toBe("73.6 kg");
+		expect(formatValue(testFormatters, testFitnessText, 18.25, "%")).toBe("18.25%");
+		expect(formatValue(testFormatters, testFitnessText, 7, null)).toBe("7");
 	});
 
 	it("signs changes and treats a rounded-away change as zero", () => {
-		expect(formatChange(1.5, "kg")).toBe("+1.5 kg");
-		expect(formatChange(-0.5, "%")).toBe("−0.5%");
-		expect(formatChange(0.001, "kg")).toBe("±0 kg");
+		expect(formatChange(testFormatters, testFitnessText, 1.5, "kg")).toBe("+1.5 kg");
+		expect(formatChange(testFormatters, testFitnessText, -0.5, "%")).toBe("−0.5%");
+		expect(formatChange(testFormatters, testFitnessText, 0.001, "kg")).toBe("±0 kg");
 	});
 });
 
@@ -252,13 +255,14 @@ describe("groupReadings", () => {
 	});
 
 	it("groups consecutive readings into month sections in the given time zone", () => {
-		const sections = groupByMonth(groupReadings(readings), TimeZone.make("UTC"));
+		const sections = groupByMonth(testFormatters, groupReadings(readings), TimeZone.make("UTC"));
 		expect(sections.map(({ label, groups }) => [label, groups.length])).toEqual([
 			["October 2026", 1],
 			["September 2026", 2],
 		]);
 		expect(
 			groupByMonth(
+				testFormatters,
 				groupReadings([reading("x", "weight", 1, "2026-09-30T20:00:00.000Z")]),
 				TimeZone.make("Asia/Kolkata"),
 			)[0]?.label,

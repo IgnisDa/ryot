@@ -1,7 +1,9 @@
-import { useBackgroundSubmission } from "@ryot-app/plugin-client-sdk/react";
+import { useBackgroundSubmission, useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import { type RefObject, useState } from "react";
 
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
+import { catalogMessage } from "../../shared/messages.generated";
+import { useFitnessMessages } from "../messages";
 import { selectPinnedMetrics } from "./model";
 import { logReadingsSubmission, readingFailureMessage } from "./mutations";
 import { MeasurementDialog } from "./reading-composer";
@@ -11,6 +13,8 @@ export function LogMeasurementDialog(props: {
 	readonly metrics: readonly MeasurementSummary[];
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
+	const text = useFitnessMessages();
+	const formatters = useFormatters();
 	const { metrics, onClose } = props;
 	const log = useBackgroundSubmission(logReadingsSubmission);
 	const [initial] = useState(() => {
@@ -29,21 +33,28 @@ export function LogMeasurementDialog(props: {
 			initial={initial}
 			metrics={metrics}
 			onClose={onClose}
-			submitLabel="Save"
-			pendingLabel="Saving…"
-			label="Log measurement"
 			pending={log.isSending}
 			triggerRef={props.triggerRef}
-			errorMessage={readingFailureMessage(log.error, "log")}
+			label={text("client.measurements.log")}
+			submitLabel={text("common.action.save")}
+			pendingLabel={text("common.status.saving")}
+			closeLabel={text("client.measurements.log-close")}
+			errorMessage={readingFailureMessage(text, log.error, "log")}
 			onSubmit={(entry) =>
 				log.submit(
 					{
 						entry,
-						label: `Logged ${entry.values
-							.map(
-								({ metricId }) => metrics.find(({ id }) => id === metricId)?.name ?? "measurement",
-							)
-							.join(", ")}`,
+						label: catalogMessage("client.measurements.logged", {
+							names: formatters
+								.list({ type: "unit", style: "long" })
+								.format(
+									entry.values.map(
+										({ metricId }) =>
+											metrics.find(({ id }) => id === metricId)?.name ??
+											text("client.measurements.logged-fallback"),
+									),
+								),
+						}),
 					},
 					{ onAccepted: onClose },
 				)
