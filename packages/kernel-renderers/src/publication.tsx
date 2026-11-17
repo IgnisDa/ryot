@@ -1,14 +1,21 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { DescribeResponse } from "@ryot-app/plugin-client-sdk";
 import {
 	BrowserInlineError,
 	type BrowserQueryInput,
-	countLabel,
 	EntityBrowserController,
 	EntityBrowserResults,
+	itemCountMessage,
 } from "@ryot-app/plugin-client-sdk/browser";
 import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageContext, usePluginSearch } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotQuery,
+	useDisplayText,
+	useRichText,
+	useRyotQuery,
+	useT,
+} from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { queryFilterFields } from "@ryot-app/ryotql-recipes/filters";
@@ -41,26 +48,36 @@ const controlsQuery = createRyotQuery<null, typeof DescribeResponse.Type>(({ cli
 	client.page.describe("items"),
 );
 
-const PublicationSummary = ({ settings }: { readonly settings: PublicationInput["settings"] }) => (
-	<header className="grid gap-2">
-		{settings.description === null ? null : (
-			<p className="max-w-prose text-sm text-text-muted">{settings.description}</p>
-		)}
-		<p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
-			{settings.ownerName === null ? null : (
-				<span>
-					Shared by <strong className="font-semibold text-text">{settings.ownerName}</strong>
-				</span>
+const PublicationSummary = ({ settings }: { readonly settings: PublicationInput["settings"] }) => {
+	const t = useT();
+	const richText = useRichText(kernelMessage);
+	return (
+		<header className="grid gap-2">
+			{settings.description === null ? null : (
+				<p className="max-w-prose text-sm text-text-muted">{settings.description}</p>
 			)}
-			{settings.ownerName !== null && settings.itemCount !== undefined ? (
-				<span aria-hidden>·</span>
-			) : null}
-			{settings.itemCount === undefined ? null : <span>{countLabel(settings.itemCount)}</span>}
-		</p>
-	</header>
-);
+			<p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
+				{settings.ownerName === null ? null : (
+					<span>
+						{richText("renderer.publication.shared-by", {
+							owner: <strong className="font-semibold text-text">{settings.ownerName}</strong>,
+						})}
+					</span>
+				)}
+				{settings.ownerName !== null && settings.itemCount !== undefined ? (
+					<span aria-hidden>·</span>
+				) : null}
+				{settings.itemCount === undefined ? null : (
+					<span>{t(itemCountMessage(settings.itemCount))}</span>
+				)}
+			</p>
+		</header>
+	);
+};
 
 const LiveBrowser = ({ input }: { readonly input: PublicationInput }) => {
+	const t = useT();
+	const displayText = useDisplayText();
 	const controls = useRyotQuery(controlsQuery, null);
 	const browser = input.settings.browser;
 	const [query] = useState(() =>
@@ -78,18 +95,22 @@ const LiveBrowser = ({ input }: { readonly input: PublicationInput }) => {
 			{ cancelOnUnmount: true },
 		),
 	);
-	const title = input.view?.name ?? "Publication";
+	const title = input.view
+		? displayText(input.view.name)
+		: t(kernelMessage("renderer.publication.title"));
 	if (controls.data === undefined || controls.isError) {
 		return (
 			<PluginScreenFrame title={title}>
 				{controls.isError ? (
 					<BrowserInlineError
 						onRetry={controls.refetch}
-						title="Publication unavailable"
-						message="The publication controls could not be loaded."
+						title={t(kernelMessage("renderer.publication.unavailable"))}
+						message={t(kernelMessage("renderer.publication.controls-failed"))}
 					/>
 				) : (
-					<StatusMessage tone="pending">Loading publication...</StatusMessage>
+					<StatusMessage tone="pending">
+						{t(kernelMessage("renderer.publication.loading"))}
+					</StatusMessage>
 				)}
 			</PluginScreenFrame>
 		);
@@ -101,12 +122,12 @@ const LiveBrowser = ({ input }: { readonly input: PublicationInput }) => {
 			layouts={browser.layouts}
 			sortChoices={controls.data.sort}
 			icon={input.view?.icon ?? "library"}
-			errorTitle="Publication unavailable"
 			defaultLayout={browser.defaultLayout}
 			identityKey={input.target.publicationId}
 			canSearch={browser.controls?.search !== undefined}
 			filterFields={queryFilterFields(controls.data.filter)}
-			errorMessage="The published items could not be loaded."
+			errorTitle={t(kernelMessage("renderer.publication.unavailable"))}
+			errorMessage={t(kernelMessage("renderer.publication.items-failed"))}
 			renderSummary={() => <PublicationSummary settings={input.settings} />}
 			count={(client, { filter, searchText }) =>
 				client.page.query("count", {
@@ -130,6 +151,7 @@ const LiveBrowser = ({ input }: { readonly input: PublicationInput }) => {
 };
 
 const SnapshotBrowser = ({ input }: { readonly input: PublicationInput }) => {
+	const t = useT();
 	const [query] = useState(() =>
 		createRyotQuery<null, EntityBrowserResult>(({ client }) =>
 			client.page.query("items", {
@@ -139,21 +161,25 @@ const SnapshotBrowser = ({ input }: { readonly input: PublicationInput }) => {
 	);
 	const result = useRyotQuery(query, null);
 	return (
-		<PluginScreenFrame title={input.view?.name ?? "Publication"}>
+		<PluginScreenFrame
+			title={input.view ? input.view.name : kernelMessage("renderer.publication.title")}
+		>
 			<div className="grid content-start gap-5">
 				<PublicationSummary settings={input.settings} />
 				<StatusMessage tone="pending">
-					This snapshot shows only the first page captured when it was published.
+					{t(kernelMessage("renderer.publication.snapshot-notice"))}
 				</StatusMessage>
 				{result.data === undefined && result.isError ? (
 					<BrowserInlineError
 						onRetry={result.refetch}
-						title="Publication unavailable"
-						message="The published items could not be loaded."
+						title={t(kernelMessage("renderer.publication.unavailable"))}
+						message={t(kernelMessage("renderer.publication.items-failed"))}
 					/>
 				) : null}
 				{result.data?.items.length === 0 ? (
-					<StatusMessage tone="success">Nothing is published here yet.</StatusMessage>
+					<StatusMessage tone="success">
+						{t(kernelMessage("renderer.publication.empty"))}
+					</StatusMessage>
 				) : null}
 				{result.data !== undefined && result.data.items.length > 0 ? (
 					<PublicationResults
@@ -187,10 +213,11 @@ const PublicationBrowser = ({ input }: { readonly input: PublicationInput }) => 
 };
 
 export default function PublicationPage() {
+	const t = useT();
 	const page = Schema.decodeUnknownResult(PublicationPageInput)(usePageContext());
 	return Result.isFailure(page) ? (
-		<PluginScreenFrame title="Publication">
-			<StatusMessage tone="error">This publication page is invalid.</StatusMessage>
+		<PluginScreenFrame title={kernelMessage("renderer.publication.title")}>
+			<StatusMessage tone="error">{t(kernelMessage("renderer.publication.invalid"))}</StatusMessage>
 		</PluginScreenFrame>
 	) : (
 		<PublicationBrowser input={page.success} />

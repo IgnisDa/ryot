@@ -1,3 +1,4 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { DescribeResponse } from "@ryot-app/plugin-client-sdk";
 import {
 	BrowserNoMatches,
@@ -17,13 +18,16 @@ import {
 	ManagedAssetProvider,
 	nextPageCursor,
 	paginationItems,
+	useDisplayText,
+	useFormatters,
 	useRyotInfiniteQuery,
 	useRyotQuery,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame, viewResultLabel } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { DataTable, type DataTableColumn, displayValueText } from "@ryot-app/plugin-ui-sdk/table";
+import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import { queryFilterFields } from "@ryot-app/ryotql-recipes/filters";
 import {
 	decodeResultsTableResult,
@@ -37,20 +41,28 @@ type TableItem = ResultsTableResult["items"][number];
 type QueryInput = { readonly after: null | string; readonly filter: null | ViewFilter };
 
 const rowLabel = (item: TableItem) => {
-	const text = item.cells.find(({ value }) => value.displayKind === "text");
-	return text === undefined ? "" : displayValueText(text.value);
+	for (const { value } of item.cells) {
+		if (value.displayKind === "text") {
+			const text = value.value;
+			return (text !== null && typeof text === "object" && "length" in text ? text[0] : text) ?? "";
+		}
+	}
+	return "";
 };
 
 const resultsTableColumns = (
+	displayText: ReturnType<typeof useDisplayText>,
 	declared: (typeof ResultsTablePageInput.Type)["settings"]["columns"],
 ): readonly DataTableColumn<TableItem>[] =>
 	declared.map((column, index) => ({
 		id: column.field,
-		header: column.label,
+		header: displayText(column.label),
 		cell: (item: TableItem) => {
 			const value = item.cells.find(({ key }) => key === column.field)?.value;
 			const content =
-				value === undefined ? null : <CellValue value={value} monogram={rowLabel(item)} />;
+				value === undefined ? null : (
+					<CellValue value={value} monogram={displayText(rowLabel(item))} />
+				);
 			return index === 0 && item.entityId !== undefined ? (
 				<PluginLink to={{ kind: "entity", entityId: item.entityId }}>{content}</PluginLink>
 			) : (
@@ -69,13 +81,19 @@ const controlsQuery = createRyotQuery<
 );
 
 const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.Type }) => {
+	const t = useT();
 	const controls = useRyotQuery(controlsQuery, input.target);
 	if (controls.data === undefined) {
 		return (
-			<PluginScreenFrame title={input.view?.name ?? "Results table"}>
+			<PluginScreenFrame
+				title={input.view ? input.view.name : kernelMessage("renderer.results-table.title")}
+			>
 				{controls.error ? (
-					<StatusMessage tone="error" action={{ label: "Retry", onClick: controls.refetch }}>
-						The table controls could not be loaded.
+					<StatusMessage
+						tone="error"
+						action={{ onClick: controls.refetch, label: t(kernelMessage("common.action.retry")) }}
+					>
+						{t(kernelMessage("renderer.results-table.controls-failed"))}
 					</StatusMessage>
 				) : null}
 			</PluginScreenFrame>
@@ -90,7 +108,11 @@ const ResultsTableContent = ({
 	readonly input: typeof ResultsTablePageInput.Type;
 	readonly fields: typeof DescribeResponse.Type.filter;
 }) => {
-	const viewName = input.view?.name ?? "Results table";
+	const t = useT();
+	const formatters = useFormatters();
+	const displayText = useDisplayText();
+	const viewTitle = input.view ? input.view.name : kernelMessage("renderer.results-table.title");
+	const viewName = displayText(viewTitle);
 	const viewIcon = input.view?.icon ?? "table";
 	const { compact } = useRyotViewport();
 	const [filtersOpen, setFiltersOpen] = useState(false);
@@ -144,13 +166,13 @@ const ResultsTableContent = ({
 	return (
 		<ManagedAssetProvider assets={assets}>
 			<PluginScreenFrame
-				title={viewName}
+				title={viewTitle}
 				titleIcon={<AppIcon size={20} name={viewIcon} className="shrink-0 text-text-muted" />}
 				viewOptions={{
 					activeCount,
 					open: filtersOpen,
-					compactTitle: "Filters",
 					onOpenChange: setFiltersOpen,
+					compactTitle: t(kernelMessage("sdk.filters.title")),
 					content: (
 						<FilterRules
 							filter={filter}
@@ -163,7 +185,7 @@ const ResultsTableContent = ({
 				meta={
 					<>
 						<p role="status" className="text-xs text-text-muted @2xl:text-sm">
-							{viewResultLabel({
+							{viewResultLabel(t, formatters, {
 								total: undefined,
 								loaded: state.items.length,
 								hasMore: state.pageInfo?.hasMore ?? false,
@@ -180,13 +202,15 @@ const ResultsTableContent = ({
 			>
 				<section aria-busy={result.isFetching} className="@container grid gap-5">
 					{initial && result.isPending && (
-						<StatusMessage tone="pending">Loading results...</StatusMessage>
+						<StatusMessage tone="pending">
+							{t(kernelMessage("renderer.results-table.loading"))}
+						</StatusMessage>
 					)}
 					{initial && result.isError && (
 						<StatusMessage tone="error">
-							Results unavailable.{" "}
+							{t(kernelMessage("renderer.results-table.unavailable"))}{" "}
 							<Button variant="ghost" onClick={result.refetch}>
-								Retry
+								{t(kernelMessage("common.action.retry"))}
 							</Button>
 						</StatusMessage>
 					)}
@@ -200,7 +224,9 @@ const ResultsTableContent = ({
 						/>
 					)}
 					{!initial && state.items.length === 0 && filter === undefined && (
-						<StatusMessage tone="success">No results found.</StatusMessage>
+						<StatusMessage tone="success">
+							{t(kernelMessage("renderer.results-table.empty"))}
+						</StatusMessage>
 					)}
 					{state.items.length > 0 && (
 						<div className="w-full max-w-6xl overflow-x-auto">
@@ -209,8 +235,8 @@ const ResultsTableContent = ({
 								getRowId={(item) => item.key}
 								rowClassName="h-15 border-b border-border"
 								className="w-full border-collapse text-left"
-								columns={resultsTableColumns(input.settings.columns)}
 								headerClassName="border-b border-border text-xs text-text-muted"
+								columns={resultsTableColumns(displayText, input.settings.columns)}
 							/>
 						</div>
 					)}
@@ -219,26 +245,36 @@ const ResultsTableContent = ({
 							role="alert"
 							className="flex items-center justify-center gap-3 text-sm text-danger"
 						>
-							<span>More results could not be loaded.</span>
+							<span>{t(kernelMessage("sdk.browser.more-failed"))}</span>
 							<Button variant="ghost" className="text-sm" onClick={result.retry}>
-								Retry
+								{t(kernelMessage("common.action.retry"))}
 							</Button>
 						</div>
 					)}
 					{state.pageInfo?.hasMore && !result.isError && (
 						<LoadMoreButton
-							label="Load more"
 							disabled={result.isFetching}
 							onClick={result.fetchNextPage}
 							isFetchingNextPage={result.isFetchingNextPage}
 							icon={<AppIcon size={16} name="chevron-down" className="text-text" />}
-							aria-label={result.isFetchingNextPage ? "Loading more results" : "Load more results"}
+							aria-label={t(
+								kernelMessage(
+									result.isFetchingNextPage
+										? "sdk.browser.loading-more-results"
+										: "sdk.browser.load-more-results",
+								),
+							)}
 							className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text disabled:opacity-60 @2xl:h-8.5 @2xl:w-auto @2xl:self-center @2xl:border @2xl:border-border @2xl:bg-surface @2xl:text-[13px]"
 						/>
 					)}
 					{state.pageInfo !== null && !state.pageInfo.hasMore && state.items.length > 0 && (
 						<p className="text-center text-xs text-text-subtle">
-							End of {viewName} · {state.items.length.toLocaleString()} items
+							{t(
+								kernelMessage("sdk.browser.end-of-results", {
+									name: viewName,
+									count: state.items.length,
+								}),
+							)}
 						</p>
 					)}
 				</section>
@@ -248,10 +284,13 @@ const ResultsTableContent = ({
 };
 
 export default function ResultsTablePage() {
+	const t = useT();
 	const page = Schema.decodeUnknownResult(ResultsTablePageInput)(usePageContext());
 	return Result.isFailure(page) ? (
-		<PluginScreenFrame title="Results table">
-			<StatusMessage tone="error">This results-table configuration is invalid.</StatusMessage>
+		<PluginScreenFrame title={kernelMessage("renderer.results-table.title")}>
+			<StatusMessage tone="error">
+				{t(kernelMessage("renderer.results-table.invalid"))}
+			</StatusMessage>
 		</PluginScreenFrame>
 	) : (
 		<ResultsTable input={page.success} />

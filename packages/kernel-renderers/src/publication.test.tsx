@@ -7,6 +7,7 @@ import {
 	disposePluginBridges,
 	mountPluginPage,
 	routeLocation,
+	testCatalog,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { castNumber, column, jsonPath, table } from "@ryot-app/ryotql";
 import { encodeFilterParam } from "@ryot-app/ryotql-recipes/filters";
@@ -36,12 +37,14 @@ const browse = {
 				key: "pages",
 				kind: "value",
 				type: "number",
-				label: "Pages",
+				label: { key: "browse.pages", namespace: "fixture" },
 				expression: castNumber(jsonPath(column(subject, "properties"), "pages")),
 			},
 		],
 	},
 } as const;
+
+const browseCatalog = testCatalog("fixture", { "browse.pages": "Pages" });
 
 const recipe = kernelPublicationPage({ schemas: [browse] });
 
@@ -57,6 +60,7 @@ const openPublication = (
 	} = {},
 ) => {
 	const page: ReturnType<typeof mountPluginPage> = mountPluginPage(PublicationPage, {
+		catalogs: [browseCatalog],
 		location: routeLocation("/", search),
 		page: ClientPageContext.make({
 			contributors: [],
@@ -153,7 +157,7 @@ describe("publication renderer", () => {
 							(message) => message.type === "ryotql-request" && message.action === "page-describe",
 						);
 				yield* Effect.promise(() => waitFor(() => expect(descriptions()).toHaveLength(1)));
-				expect(screen.getByText("Loading publication...")).toBeTruthy();
+				expect(screen.getByText("Loading publication…")).toBeTruthy();
 				expect(page.queryRequests("items")).toHaveLength(0);
 				expect(
 					page.clientMessages().filter((message) => message.type === "page-search"),
@@ -240,7 +244,7 @@ describe("publication renderer", () => {
 			Effect.gen(function* () {
 				const page = openPublication("item=entity-alpha", { manualControls: true });
 				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Alpha" }));
-				expect(screen.queryByText("Loading publication...")).toBeNull();
+				expect(screen.queryByText("Loading publication…")).toBeNull();
 				expect(page.queryRequests("count")).toHaveLength(0);
 			}),
 		testTimeout,
@@ -252,7 +256,9 @@ describe("publication renderer", () => {
 			Effect.gen(function* () {
 				openPublication();
 				yield* Effect.promise(() => screen.findByText("Books I loved"));
-				expect(screen.getByText("Ada")).toBeTruthy();
+				const owner = screen.getByText("Ada");
+				expect(owner.tagName).toBe("STRONG");
+				expect(owner.parentElement?.textContent).toBe("Shared by Ada");
 				expect(screen.getByText("2 items")).toBeTruthy();
 				yield* Effect.promise(() => screen.findByText("Beta"));
 				expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();

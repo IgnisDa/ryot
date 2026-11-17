@@ -14,6 +14,7 @@ import {
 	disposePluginBridges,
 	mountPluginPage,
 	routeLocation,
+	testCatalog,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
@@ -24,6 +25,14 @@ import AnalyticsPage from "./analytics";
 
 afterEach(() => {
 	disposePluginBridges();
+});
+
+const sectionCatalog = testCatalog("test-sections", {
+	"section.only": "Only",
+	"section.first": "First",
+	"section.range": "Range",
+	"section.second": "Second",
+	"section.activity": "Activity",
 });
 
 const context: ClientPageContext = {
@@ -78,7 +87,11 @@ const answerPreferences = (
 			requestId: request.requestId,
 			account: {
 				entitlements,
-				preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Asia/Kolkata") },
+				preferences: {
+					weekStart: 1,
+					ratingScale: "hundred",
+					timeZone: TimeZone.make("Asia/Kolkata"),
+				},
 			},
 		});
 	});
@@ -110,7 +123,7 @@ const answerUserPreferences = (
 	});
 
 const mountControls = (search: string) => {
-	const page = mountPluginPage(AnalyticsPage, { page: context });
+	const page = mountPluginPage(AnalyticsPage, { page: context, catalogs: [sectionCatalog] });
 	page.navigate(routeLocation("/v/k/analytics", search));
 	return page;
 };
@@ -125,6 +138,7 @@ it.effect(
 			search.set("section", analyticsSectionKey(section));
 			const page = mountPluginPage(AnalyticsPage, {
 				page: context,
+				catalogs: [sectionCatalog],
 				onClientMessage: (message) => {
 					if (message.type === "account-request") {
 						attempts += 1;
@@ -133,7 +147,7 @@ it.effect(
 				analyticsSections: [
 					{
 						icon: "box",
-						name: "Activity",
+						name: { key: "section.activity", namespace: "test-sections" },
 						...section,
 						load: () => Promise.resolve(FixtureSection),
 					},
@@ -143,7 +157,7 @@ it.effect(
 			yield* Effect.promise(() =>
 				answerUserPreferences(page, 1, {
 					outcome: "success",
-					preferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
+					preferences: { weekStart: 1, ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
 				}),
 			);
 			yield* Effect.promise(() =>
@@ -162,19 +176,21 @@ it.effect(
 				waitFor(() => {
 					expect(attempts).toBe(2);
 					const alert = screen.getByRole("alert");
-					expect(alert.textContent).toContain(
-						"Could not update reporting preferences. Showing the last loaded values.",
-					);
+					expect(alert.textContent).toContain("Could not refresh. Showing the last loaded values.");
 					expect(screen.getByText("· times in UTC")).toBeDefined();
 					expect(screen.getByText("first-local / rolling / UTC")).toBeDefined();
 				}),
 			);
 
-			fireEvent.click(screen.getByRole("button", { name: "Retry reporting preferences" }));
+			fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 			yield* Effect.promise(() =>
 				answerUserPreferences(page, 3, {
 					outcome: "success",
-					preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Asia/Kolkata") },
+					preferences: {
+						weekStart: 1,
+						ratingScale: "hundred",
+						timeZone: TimeZone.make("Asia/Kolkata"),
+					},
 				}),
 			);
 			yield* Effect.promise(() =>
@@ -208,12 +224,13 @@ it.effect(
 			let attempts = 0;
 			const page = mountPluginPage(AnalyticsPage, {
 				page: context,
+				catalogs: [sectionCatalog],
 				analyticsSections: [
 					{
 						icon: "box",
-						name: "First",
 						slug: "activity",
 						ownerPluginId: PluginId.make("first-local"),
+						name: { key: "section.first", namespace: "test-sections" },
 						load: () => {
 							loaded.push("first");
 							return Promise.resolve(FixtureSection);
@@ -221,9 +238,9 @@ it.effect(
 					},
 					{
 						icon: "box",
-						name: "Second",
 						slug: "activity",
 						ownerPluginId: PluginId.make("second-local"),
+						name: { key: "section.second", namespace: "test-sections" },
 						load: () => {
 							loaded.push("second");
 							attempts += 1;
@@ -258,7 +275,11 @@ it.effect(
 						requestId: request.requestId,
 						account: {
 							entitlements: ["pro"],
-							preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Europe/Paris") },
+							preferences: {
+								weekStart: 1,
+								ratingScale: "hundred",
+								timeZone: TimeZone.make("Europe/Paris"),
+							},
 						},
 					});
 				}),
@@ -300,13 +321,14 @@ it.effect(
 		Effect.gen(function* () {
 			const page = mountPluginPage(AnalyticsPage, {
 				page: context,
+				catalogs: [sectionCatalog],
 				analyticsSections: [
 					{
 						icon: "box",
-						name: "Only",
 						slug: "activity",
 						ownerPluginId: PluginId.make("only-local"),
 						load: () => Promise.resolve(FixtureSection),
+						name: { key: "section.only", namespace: "test-sections" },
 					},
 				],
 			});
@@ -322,7 +344,7 @@ it.effect(
 	"renders an empty state with effective preferences and zero plugin contributors",
 	() =>
 		Effect.gen(function* () {
-			const page = mountPluginPage(AnalyticsPage, { page: context });
+			const page = mountPluginPage(AnalyticsPage, { page: context, catalogs: [sectionCatalog] });
 			page.navigate(routeLocation("/v/k/analytics"));
 			yield* Effect.promise(() => answerPreferences(page));
 			yield* Effect.promise(() => screen.findByText("No analytics available"));
@@ -442,13 +464,14 @@ it.effect(
 			const sevenDaySearch = `?${reportingSearch(sevenDaySelection)}`;
 			const page = mountPluginPage(AnalyticsPage, {
 				page: context,
+				catalogs: [sectionCatalog],
 				analyticsSections: [
 					{
 						icon: "box",
-						name: "Range",
 						slug: "activity",
 						load: () => Promise.resolve(RangeSection),
 						ownerPluginId: PluginId.make("range-local"),
+						name: { key: "section.range", namespace: "test-sections" },
 					},
 				],
 			});
@@ -646,20 +669,21 @@ it.effect(
 			search.set("section", firstSection);
 			const page = mountPluginPage(AnalyticsPage, {
 				page: context,
+				catalogs: [sectionCatalog],
 				analyticsSections: [
 					{
 						load: null,
 						icon: "box",
-						name: "First",
 						slug: "activity",
 						ownerPluginId: PluginId.make("first-local"),
+						name: { key: "section.first", namespace: "test-sections" },
 					},
 					{
 						load: null,
 						icon: "box",
-						name: "Second",
 						slug: "activity",
 						ownerPluginId: PluginId.make("second-local"),
+						name: { key: "section.second", namespace: "test-sections" },
 					},
 				],
 			});

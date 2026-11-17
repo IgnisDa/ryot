@@ -9,6 +9,7 @@ import {
 	disposePluginBridges,
 	entityLocation,
 	kernelEntityPageContext,
+	testCatalog,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
@@ -21,6 +22,12 @@ import { Effect, Schema } from "effect";
 import CollectionDetailPage from "./collection-detail";
 import { mountBrowsingPage } from "./fixtures/saved-view";
 
+const pageCatalog = testCatalog("fixture", {
+	"pages.unused.label": "Unused",
+	"pages.related.label": "Related",
+	"entity-schema.item.name": "Item",
+});
+
 const openCollection = (
 	collectionId = "col-1",
 	search = "",
@@ -30,6 +37,7 @@ const openCollection = (
 		CollectionDetailPage,
 		{
 			entitlements,
+			catalogs: [pageCatalog],
 			location: entityLocation(collectionId, "collection", search),
 			page: kernelEntityPageContext({
 				entityId: collectionId,
@@ -211,7 +219,9 @@ const itemGroup = {
 	count: 2,
 	ownerPluginId: "fixture",
 	entitySchemaSlug: "item",
-	ownerPluginName: "Fixture",
+	typeLabelNamespace: "fixture",
+	ownerPackageId: "test/fixture",
+	typeLabelKey: "entity-schema.item.name",
 };
 
 const notesFields = [
@@ -258,17 +268,18 @@ const itemMember = {
 	name: "Sample",
 	properties: {},
 	entityId: "item-1",
+	typeLabelKey: null,
 	ownerPluginId: null,
-	ownerPluginName: null,
+	typeLabelNamespace: null,
 	entitySchemaSlug: "item",
 	populationStatus: { state: "succeeded", availability: "complete" },
 	translationStatus: { state: "succeeded", availability: "complete" },
 };
 
-const collectionPage = (label: string, entitySchemaSlugs: readonly string[]) => ({
-	label,
+const collectionPage = (slug: string, entitySchemaSlugs: readonly string[]) => ({
 	icon: "sparkles",
 	entitySchemaSlugs,
+	label: { key: `pages.${slug}.label` },
 	route: "/collections/$collectionId/related",
 });
 
@@ -288,6 +299,29 @@ describe("collection detail", () => {
 							objectContaining({ collectionId: "col-1", type: "manage-collection-reviews-screen" }),
 						),
 					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"adds the defining package to member type names that render alike",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection("col 1");
+				yield* answerCollection(page, {
+					name: "Shelf",
+					members: [itemMember],
+					groups: [
+						itemGroup,
+						{ ...itemGroup, count: 1, ownerPluginId: "other", ownerPackageId: "test/other" },
+					],
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(page.container?.textContent).toContain("2 Item (test/fixture)");
+						expect(page.container?.textContent).toContain("1 Item (test/other)");
+					}),
 				);
 			}),
 		testTimeout,
@@ -317,8 +351,8 @@ describe("collection detail", () => {
 										pluginId: "fixture",
 										packageId: "test/fixture",
 										pages: {
-											related: collectionPage("Related", ["item"]),
-											unused: collectionPage("Unused", ["other-type"]),
+											related: collectionPage("related", ["item"]),
+											unused: collectionPage("unused", ["other-type"]),
 										},
 									},
 								],
@@ -771,22 +805,27 @@ describe("collection detail", () => {
 							count: 1,
 							ownerPluginId: "fixture",
 							entitySchemaSlug: "item",
-							ownerPluginName: "Fixture",
+							typeLabelNamespace: "fixture",
+							ownerPackageId: "test/fixture",
+							typeLabelKey: "entity-schema.item.name",
 						},
 						{
 							count: 1,
 							ownerPluginId: null,
-							ownerPluginName: null,
+							ownerPackageId: null,
+							typeLabelNamespace: "kernel",
 							entitySchemaSlug: "collection",
+							typeLabelKey: "definition.entity-schema.collection",
 						},
 					],
 					members: [
 						{
 							name: "Sample",
 							entityId: "item-1",
+							typeLabelKey: null,
 							ownerPluginId: "fixture",
 							entitySchemaSlug: "item",
-							ownerPluginName: "Fixture",
+							typeLabelNamespace: null,
 							properties: { template: true },
 							populationStatus: { state: "succeeded", availability: "complete" },
 							translationStatus: { state: "succeeded", availability: "complete" },
@@ -794,8 +833,9 @@ describe("collection detail", () => {
 						{
 							name: "Favorites",
 							entityId: "col-2",
+							typeLabelKey: null,
 							ownerPluginId: null,
-							ownerPluginName: null,
+							typeLabelNamespace: null,
 							entitySchemaSlug: "collection",
 							properties: { template: false },
 							translationStatus: { state: "idle", availability: "none" },
@@ -812,8 +852,8 @@ describe("collection detail", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.container?.textContent).toContain("5 total")),
 				);
-				expect(page.container?.textContent).toContain("1 Fixture / item");
-				expect(page.container?.textContent).toContain("1 Collections");
+				expect(page.container?.textContent).toContain("1 Item");
+				expect(page.container?.textContent).toContain("1 Collection");
 				expect(page.container?.textContent).toContain("More types not shown");
 				expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
 
@@ -828,8 +868,8 @@ describe("collection detail", () => {
 						]),
 					),
 				);
-				expect(page.container?.textContent).toContain("Fixture / item");
-				expect(page.container?.textContent).toContain("Collections");
+				expect(page.container?.textContent).toContain("Item");
+				expect(page.container?.textContent).toContain("Collection");
 			}),
 		testTimeout,
 	);
@@ -868,9 +908,10 @@ describe("collection detail", () => {
 							name: "Sample",
 							properties: {},
 							entityId: "item-1",
+							typeLabelKey: null,
 							ownerPluginId: "fixture",
 							entitySchemaSlug: "item",
-							ownerPluginName: "Fixture",
+							typeLabelNamespace: null,
 							populationStatus: { state: "succeeded", availability: "complete" },
 							translationStatus: { state: "succeeded", availability: "complete" },
 						},
@@ -964,9 +1005,10 @@ describe("collection detail", () => {
 							name: "Sample",
 							properties: {},
 							entityId: "item-1",
+							typeLabelKey: null,
 							ownerPluginId: "fixture",
 							entitySchemaSlug: "item",
-							ownerPluginName: "Fixture",
+							typeLabelNamespace: null,
 							populationStatus: { state: "succeeded", availability: "complete" },
 							translationStatus: { state: "succeeded", availability: "complete" },
 						},
@@ -1238,7 +1280,7 @@ describe("collection detail", () => {
 				expect(document).toContain(`"path":["score"]`);
 				expect(document).toContain('"gte"');
 				answerPending();
-				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				fireEvent.click(screen.getByRole("button", { name: "Close" }));
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy(),

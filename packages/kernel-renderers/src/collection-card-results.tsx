@@ -1,14 +1,15 @@
-import { browserResultEntries, countLabel } from "@ryot-app/plugin-client-sdk/browser";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { browserResultEntries, itemCountMessage } from "@ryot-app/plugin-client-sdk/browser";
 import {
 	type EntityBrowserLayout,
 	type EntityReference,
 	PluginLink,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import { useDisplayText, useT } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Eyebrow,
 	type ItemSelection,
 	resultsLayoutClasses,
-	schemaSlugLabel,
 	SelectableItem,
 } from "@ryot-app/plugin-ui-sdk";
 import {
@@ -19,12 +20,10 @@ import {
 } from "@ryot-app/plugin-ui-sdk/sync";
 import type { EntityBrowserResultItem } from "@ryot-app/ryotql-recipes/saved-views";
 
-const countText = (count: number | undefined) => {
-	if (count !== undefined) {
-		return countLabel(count);
-	}
-	return "Count unavailable";
-};
+const countMessage = (count: number | undefined) =>
+	count === undefined
+		? kernelMessage("renderer.collections.count-unavailable")
+		: itemCountMessage(count);
 
 const CollectionCard = ({
 	count,
@@ -35,7 +34,8 @@ const CollectionCard = ({
 	readonly reference: EntityReference;
 	readonly layout: Exclude<EntityBrowserLayout, "table">;
 }) => {
-	const title = reference.name ?? "collection";
+	const t = useT();
+	const title = reference.name ?? t(kernelMessage("renderer.collections.untitled"));
 	return (
 		<article
 			data-layout={layout}
@@ -45,9 +45,9 @@ const CollectionCard = ({
 			}
 		>
 			<PluginLink
-				aria-label={`Open ${title}`}
 				to={{ kind: "entity", entityId: reference.entityId }}
 				className={layout === "grid" ? "block min-w-0" : "block shrink-0"}
+				aria-label={t(kernelMessage("sdk.entity-results.open-item", { name: title }))}
 			>
 				<EntityArtWell
 					url={undefined}
@@ -57,7 +57,7 @@ const CollectionCard = ({
 				/>
 			</PluginLink>
 			<div className="grid min-w-0 flex-1 gap-1">
-				<Eyebrow>{schemaSlugLabel(reference.entitySchemaSlug)}</Eyebrow>
+				<Eyebrow>{t(kernelMessage("definition.entity-schema.collection"))}</Eyebrow>
 				<span className="flex min-w-0 items-baseline gap-1.5">
 					<PluginLink className="min-w-0" to={{ kind: "entity", entityId: reference.entityId }}>
 						<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
@@ -66,7 +66,7 @@ const CollectionCard = ({
 					</PluginLink>
 					{isTitleProvisional(reference) && <SyncPip reason="translating" />}
 				</span>
-				<span className="text-xs text-text-muted">{countText(count)}</span>
+				<span className="text-xs text-text-muted">{t(countMessage(count))}</span>
 			</div>
 		</article>
 	);
@@ -81,6 +81,7 @@ export const CollectionCardResults = ({
 	readonly items: readonly EntityBrowserResultItem[];
 	readonly layout: Exclude<EntityBrowserLayout, "table">;
 }) => {
+	const displayText = useDisplayText();
 	const { references } = browserResultEntries(items);
 	const counts = new Map(
 		items.map(({ cells, entityId }) => {
@@ -94,9 +95,9 @@ export const CollectionCardResults = ({
 				{references.map((reference) => (
 					<SelectableItem
 						selection={selection}
-						label={reference.name}
 						id={reference.entityId}
 						key={reference.entityId}
+						label={displayText(reference.name)}
 					>
 						<CollectionCard
 							layout={layout}

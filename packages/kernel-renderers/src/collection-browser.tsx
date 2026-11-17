@@ -1,4 +1,5 @@
-import { useHostScreen, useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { useHostScreen, useRyot, useT } from "@ryot-app/plugin-client-sdk/react";
 
 import { CollectionCardResults } from "./collection-card-results";
 import EntityBrowserPage, { type EntityBrowserResultsRenderer } from "./entity-browser";
@@ -9,6 +10,7 @@ const renderCollectionResults: EntityBrowserResultsRenderer = ({ items, layout, 
 	);
 
 export default function CollectionBrowserPage() {
+	const t = useT();
 	const ryot = useRyot();
 	const openScreen = useHostScreen();
 	const newCollection = () =>
@@ -21,7 +23,11 @@ export default function CollectionBrowserPage() {
 		<EntityBrowserPage
 			shareable={false}
 			renderResults={renderCollectionResults}
-			add={{ open: newCollection, searchesOnline: false, label: "New collection" }}
+			add={{
+				open: newCollection,
+				searchesOnline: false,
+				label: t(kernelMessage("renderer.collections.new")),
+			}}
 		/>
 	);
 }

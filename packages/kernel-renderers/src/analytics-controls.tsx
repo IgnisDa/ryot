@@ -1,6 +1,7 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import type { PluginUserPreferences } from "@ryot-app/plugin-client-sdk";
 import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
-	periodCaption,
 	PluginLink,
 	ReportingGrouping,
 	reportingRangeOptions,
@@ -8,23 +9,18 @@ import {
 	ReportingSelection,
 	resolveReportingSelection,
 	type TimeZone,
+	usePeriodCaption,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { useEntitlement, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { useEntitlement, useRyotSchedule, useT } from "@ryot-app/plugin-client-sdk/react";
 import { Button, entitlementActionLabel, MenuSelect, TextField } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type ReactNode, useId, useState } from "react";
 
-const groupingChoices = [
-	{ value: "auto", label: "Auto" },
-	{ value: "day", label: "Day" },
-	{ value: "week", label: "Week" },
-	{ value: "month", label: "Month" },
-	{ value: "year", label: "Year" },
-] as const;
+const groupings = ["auto", "day", "week", "month", "year"] as const;
 
-const comparisonChoices = [
-	{ label: "Off", value: "none" },
-	{ value: "previous-period", label: "Previous period" },
+const comparisons = [
+	{ code: "none", value: "none" },
+	{ code: "previous", value: "previous-period" },
 ] as const;
 
 type CustomDateDraft = {
@@ -38,6 +34,7 @@ export function AnalyticsControls({
 	leading,
 	compact,
 	timeZone,
+	weekStart,
 	selection,
 	onSelectionChange,
 }: {
@@ -45,13 +42,20 @@ export function AnalyticsControls({
 	readonly timeZone: TimeZone;
 	readonly leading?: ReactNode;
 	readonly selection: ReportingSelection;
+	readonly weekStart: PluginUserPreferences["weekStart"];
 	readonly onSelectionChange: (selection: ReportingSelection) => void;
 }) {
+	const t = useT();
+	const periodCaption = usePeriodCaption();
 	const schedule = useRyotSchedule();
 	const pro = useEntitlement("pro");
 	const id = useId();
 	const [customDraft, setCustomDraft] = useState<null | CustomDateDraft>(null);
-	const resolved = resolveReportingSelection(selection, { timeZone, now: schedule.now() });
+	const resolved = resolveReportingSelection(selection, {
+		timeZone,
+		weekStart,
+		now: schedule.now(),
+	});
 	const allTime = selection.range.kind === "all-time";
 	const draft: CustomDateDraft = customDraft ?? {
 		dateError: false,
@@ -72,10 +76,18 @@ export function AnalyticsControls({
 			value: option.value,
 			label:
 				option.entitlement === undefined
-					? option.label
-					: entitlementActionLabel(option.label, option.entitlement, granted),
+					? t(option.label)
+					: entitlementActionLabel(t, t(option.label), option.entitlement, granted),
 		};
 	});
+	const groupingChoices = groupings.map((value) => ({
+		value,
+		label: t(kernelMessage("renderer.analytics.grouping", { grouping: value })),
+	}));
+	const comparisonChoices = comparisons.map(({ code, value }) => ({
+		value,
+		label: t(kernelMessage("renderer.analytics.comparison", { comparison: code })),
+	}));
 	const icons = {
 		checkIcon: <AppIcon size={14} name="check" />,
 		chevronIcon: <AppIcon size={14} name="chevron-down" />,
@@ -107,31 +119,34 @@ export function AnalyticsControls({
 	};
 
 	return (
-		<section aria-label="Analytics controls" className="flex min-w-0 flex-col gap-3">
+		<section
+			className="flex min-w-0 flex-col gap-3"
+			aria-label={t(kernelMessage("renderer.analytics.controls"))}
+		>
 			<div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
 				{leading}
 				<div className={`flex min-w-0 flex-wrap items-center gap-2 ${compact ? "" : "ml-auto"}`}>
 					<MenuSelect
 						{...icons}
-						label="Range"
 						value={selectedRange}
 						onChange={changeRange}
 						choices={rangeChoices}
+						label={t(kernelMessage("renderer.analytics.range"))}
 					/>
 					<MenuSelect
 						{...icons}
-						label="Compare"
 						disabled={allTime}
 						choices={comparisonChoices}
 						value={allTime ? "none" : selection.comparison}
+						label={t(kernelMessage("renderer.analytics.compare"))}
 						onChange={(value) => onSelectionChange({ ...selection, comparison: value })}
 					/>
 					<MenuSelect
 						{...icons}
-						label="Group by"
 						disabled={allTime}
 						choices={groupingChoices}
 						value={allTime ? "year" : selection.grouping}
+						label={t(kernelMessage("renderer.analytics.group-by"))}
 						onChange={(value) => {
 							if (Schema.is(ReportingGrouping)(value)) {
 								onSelectionChange({ ...selection, grouping: value });
@@ -144,7 +159,7 @@ export function AnalyticsControls({
 				<div className="flex min-w-0 flex-wrap items-end gap-3">
 					<div className="grid min-w-0 gap-1.5">
 						<label htmlFor={`${id}-start-date`} className="text-label font-medium text-text">
-							Start date
+							{t(kernelMessage("renderer.analytics.start-date"))}
 						</label>
 						<TextField
 							type="date"
@@ -159,7 +174,7 @@ export function AnalyticsControls({
 					</div>
 					<div className="grid min-w-0 gap-1.5">
 						<label htmlFor={`${id}-end-date`} className="text-label font-medium text-text">
-							End date
+							{t(kernelMessage("renderer.analytics.end-date"))}
 						</label>
 						<TextField
 							type="date"
@@ -171,7 +186,7 @@ export function AnalyticsControls({
 						/>
 					</div>
 					<Button type="button" variant="secondary" onClick={applyCustomDates}>
-						Apply dates
+						{t(kernelMessage("renderer.analytics.apply-dates"))}
 					</Button>
 					{draft.dateError && (
 						<p
@@ -179,7 +194,7 @@ export function AnalyticsControls({
 							id={`${id}-date-error`}
 							className="w-full text-xs font-medium text-danger"
 						>
-							Enter valid dates with the start date on or before the end date.
+							{t(kernelMessage("renderer.analytics.invalid-dates"))}
 						</p>
 					)}
 				</div>
@@ -187,17 +202,25 @@ export function AnalyticsControls({
 			<p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-label text-text-muted">
 				<span className="font-medium text-text">{periodCaption(resolved.current)}</span>
 				{resolved.previous === null ? null : (
-					<span>· compared with {periodCaption(resolved.previous)}</span>
+					<span>
+						{t(
+							kernelMessage("renderer.analytics.compared-with", {
+								period: periodCaption(resolved.previous),
+							}),
+						)}
+					</span>
 				)}
 				{selection.grouping !== "auto" && !allTime && selection.grouping !== resolved.grouping && (
-					<span>· grouped by {resolved.grouping} to stay within the chart limit</span>
+					<span>
+						{t(kernelMessage("renderer.analytics.coarsened", { grouping: resolved.grouping }))}
+					</span>
 				)}
-				<span>· times in {resolved.timeZone}</span>
+				<span>{t(kernelMessage("renderer.analytics.times-in", { zone: resolved.timeZone }))}</span>
 				<PluginLink
 					to={{ kind: "kernel-page", page: "preferences" }}
 					className="font-medium text-accent-text underline-offset-4 hover:underline"
 				>
-					Change
+					{t(kernelMessage("renderer.analytics.change-preferences"))}
 				</PluginLink>
 			</p>
 		</section>

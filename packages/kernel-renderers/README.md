@@ -11,7 +11,12 @@ archive path (`client/<file>`) to the exact source text. `src/index.ts` turns th
 compiler, so `sourceHash` covers precisely the bytes that get compiled. Regenerate sources after renderer changes with `bun run build`.
 
 Renderers obey the client plugin import allowlist, so they may only reach React, `clsx`, the client
-SDKs, and the matching `@ryot-app/ryotql-recipes` entrypoints. Tests mount them through `mountPluginPage` from
+SDKs, and the matching `@ryot-app/ryotql-recipes` entrypoints. They also reach
+`@ryot-app/kernel-messages/message` through the compiler's kernel-only policy. All copy is
+`renderer.*` and `common.*` kernel messages, and values format through `useFormatters()`.
+`react/jsx-no-literals` enforces this for non-test sources. Collection member types show the member
+schema's served name. When two names render alike, the renderer adds the defining package
+(`renderer.collection-detail.member-type`). Tests mount them through `mountPluginPage` from
 `@ryot-app/plugin-client-sdk/testing`, which boots a real bridge handshake, so a test asserts on the
 messages the renderer actually puts on the port.
 

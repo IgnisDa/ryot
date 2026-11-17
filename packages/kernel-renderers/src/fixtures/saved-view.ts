@@ -2,7 +2,8 @@ import { EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import { FilterField } from "@ryot-app/contract/modules/filters/schemas";
 import { controlTargets } from "@ryot-app/contract/modules/ryotql/authored";
 import type { DescribeResponse } from "@ryot-app/contract/modules/ryotql/request";
-import { mountPluginPage } from "@ryot-app/plugin-client-sdk/testing";
+import type { PluginBridgeCatalog } from "@ryot-app/plugin-client-contract";
+import { mountPluginPage, testCatalog } from "@ryot-app/plugin-client-sdk/testing";
 import { ascending, column, document, field, jsonPath, rows, table } from "@ryot-app/ryotql";
 import { collectionsFilterField } from "@ryot-app/ryotql-recipes/filters";
 import { requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
@@ -52,6 +53,32 @@ export const browserSettings = {
 
 const subject = table("entity", "subject");
 
+const browseMessages = {
+	"browse.read": "Read",
+	"browse.year": "Year",
+	"browse.status": "Status",
+	"browse.unread": "Unread",
+	"browse.authors": "Authors",
+	"browse.release-year": "Release year",
+	"browse.oldest-first": "Oldest first",
+	"browse.newest-first": "Newest first",
+} as const;
+
+const browseText = (key: string) => ({ namespace: "fixture", key: `browse.${key}` });
+
+/** The browse labels' English, merged into a caller's catalog of the same namespace. */
+const withBrowseCatalog = (catalogs: readonly PluginBridgeCatalog[]) => {
+	const { catalog: messages } = testCatalog("fixture", browseMessages);
+	const owner = catalogs.find(
+		({ locale, namespace }) => namespace === "fixture" && locale === "en",
+	);
+	return owner === undefined
+		? [...catalogs, testCatalog("fixture", browseMessages)]
+		: catalogs.map((catalog) =>
+				catalog === owner ? { ...catalog, catalog: { ...catalog.catalog, ...messages } } : catalog,
+			);
+};
+
 export const browserBrowse = {
 	slug: "item",
 	pluginId: "fixture",
@@ -61,31 +88,31 @@ export const browserBrowse = {
 				type: "enum",
 				key: "status",
 				kind: "value",
-				label: "Status",
+				label: browseText("status"),
 				expression: jsonPath(column(subject, "properties"), "status"),
 				choices: [
-					{ value: "read", label: "Read" },
-					{ value: "unread", label: "Unread" },
+					{ value: "read", label: browseText("read") },
+					{ value: "unread", label: browseText("unread") },
 				],
 			},
 			{
 				key: "year",
 				kind: "value",
-				label: "Year",
 				type: "number",
+				label: browseText("year"),
 				expression: jsonPath(column(subject, "properties"), "publishYear"),
 				sort: {
-					label: "Release year",
 					defaultDirection: "desc",
-					ascending: "Oldest first",
-					descending: "Newest first",
+					label: browseText("release-year"),
+					ascending: browseText("oldest-first"),
+					descending: browseText("newest-first"),
 				},
 			},
 			{
 				key: "authors",
-				label: "Authors",
 				kind: "relationship",
 				direction: "outgoing",
+				label: browseText("authors"),
 				relationship: { slug: "item-to-person", owner: { kind: "plugin", pluginId: "fixture" } },
 			},
 		],
@@ -111,6 +138,7 @@ export const mountBrowsingPage = (
 ) => {
 	const page: ReturnType<typeof mountPluginPage> = mountPluginPage(component, {
 		...options,
+		catalogs: withBrowseCatalog(options.catalogs ?? []),
 		onClientMessage: (message) => {
 			if (message.type === "ryotql-request" && message.action === "describe") {
 				const fields = browse.flatMap(
@@ -212,7 +240,7 @@ export const browserRow = (entityId: string, name: string) => ({
 		scope: "owner",
 		schemaSlug: "item",
 		pluginId: "fixture",
-		context: { now: 0, settings: null, timeZone: "UTC" },
+		context: { now: 0, weekStart: 1, settings: null, timeZone: "UTC" },
 	},
 });
 

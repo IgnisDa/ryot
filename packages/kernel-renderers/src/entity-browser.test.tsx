@@ -585,7 +585,7 @@ describe("entity browser", () => {
 				);
 				expect(sheet.textContent).toContain("Add filter");
 
-				fireEvent.click(screen.getByRole("button", { name: "Close view options" }));
+				fireEvent.click(screen.getByRole("button", { name: "Close" }));
 				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
 				fireEvent.click(screen.getByRole("button", { name: "Search this view" }));
 				yield* Effect.promise(() =>
@@ -1053,7 +1053,7 @@ describe("entity browser sorting", () => {
 					screen.findByText("The saved view results could not be loaded."),
 				);
 				expect(pageSearchUpdates(page)).toEqual([]);
-				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				fireEvent.click(screen.getByRole("button", { name: "Close" }));
 				fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 				const retried = yield* browserRequest(page, 2);
 				expect(retried.request).toEqual(sorted.request);
@@ -1082,7 +1082,7 @@ describe("entity browser sorting", () => {
 				replyBrowser(page, descending.requestId, [browserRow("two", "Sample Z")]);
 				page.navigate(routeLocation("/v/all-items", published));
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Sort direction: A–Z" }));
-				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				fireEvent.click(screen.getByRole("button", { name: "Close" }));
 				expect(screen.getByRole("radio", { name: "Table view" }).getAttribute("aria-checked")).toBe(
 					"true",
 				);
@@ -1228,14 +1228,14 @@ describe("entity browser filters", () => {
 				yield* waitForMessagePortMacrotask;
 				expect(page.queryRequests("savedView")).toHaveLength(1);
 				expect(page.queryRequests("count")).toHaveLength(1);
-				expect(screen.getByRole("button", { name: "Counting..." })).toBeTruthy();
+				expect(screen.getByRole("button", { name: "Counting…" })).toBeTruthy();
 
 				page.replyQuery(count.requestId, {
 					outcome: "success",
 					response: { data: { count: { type: "aggregate", items: [{ count: 9 }] } } },
 				});
 				yield* Effect.promise(() => screen.findByText("1 of 9 results"));
-				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				fireEvent.click(screen.getByRole("button", { name: "Close" }));
 				page.navigate(routeLocation("/v/all-items", search));
 				yield* openFilters();
 				yield* waitForMessagePortMacrotask;
@@ -1271,7 +1271,7 @@ describe("entity browser filters", () => {
 					waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(statusRule)),
 				);
 				expect(pageSearchUpdates(page).at(-1)?.mode).toBe("replace");
-				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				fireEvent.click(screen.getByRole("button", { name: "Close" }));
 				expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
 				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
 					"Status is any of Read",
@@ -1351,7 +1351,7 @@ describe("entity browser filters", () => {
 						}),
 					),
 				);
-				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				fireEvent.click(screen.getByRole("button", { name: "Close" }));
 				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
 					"Match any",
 				);

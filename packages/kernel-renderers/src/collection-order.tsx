@@ -1,3 +1,4 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginScreenSurface } from "@ryot-app/plugin-client-sdk/plugin";
@@ -7,10 +8,12 @@ import {
 	nextPageCursor,
 	paginationItems,
 	type RyotSubmission,
+	useEntitySchemaName,
 	useRyot,
 	useRyotInfiniteQuery,
 	useRyotSchedule,
 	useRyotSubmission,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import {
@@ -18,7 +21,6 @@ import {
 	Eyebrow,
 	IconButton,
 	ReorderableList,
-	schemaSlugLabel,
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -50,6 +52,8 @@ export const CollectionOrder = ({
 	readonly onClose: () => void;
 	readonly collectionId: string;
 }) => {
+	const t = useT();
+	const schemaName = useEntitySchemaName();
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const { scrollRootRef } = usePluginScreenSurface();
@@ -105,52 +109,62 @@ export const CollectionOrder = ({
 	};
 	return (
 		<PluginScreenFrame
-			title={`Reorder ${name}`}
 			titleIcon={<AppIcon size={20} name="library" />}
+			title={kernelMessage("renderer.collection-order.title", { name })}
 			actions={
 				<Button onClick={onClose} disabled={move.isPending}>
-					Done
+					{t(kernelMessage("common.action.done"))}
 				</Button>
 			}
 		>
 			<p className="text-sm text-text-muted">
-				Drag the handle or use the arrow keys. Changes save automatically.
+				{t(kernelMessage("renderer.collection-order.instructions"))}
 			</p>
 			{move.error !== null && (
 				<StatusMessage tone="error">
-					{move.error instanceof RyotClientError && move.error.reason === "collection-stale"
-						? "This collection changed. Reload before moving another item."
-						: "The move could not be confirmed. Retry the same move or reload."}
+					{t(
+						kernelMessage(
+							move.error instanceof RyotClientError && move.error.reason === "collection-stale"
+								? "renderer.collection-order.stale"
+								: "renderer.collection-order.unconfirmed",
+						),
+					)}
 					{move.error instanceof RyotClientError &&
 						(move.error.reason === "transport" || move.error.reason === "malformed-result") && (
-							<Button onClick={move.retry}>Retry move</Button>
+							<Button onClick={move.retry}>
+								{t(kernelMessage("renderer.collection-order.retry-move"))}
+							</Button>
 						)}
-					<Button onClick={reload}>Reload collection</Button>
+					<Button onClick={reload}>{t(kernelMessage("sdk.browser.reload-collection"))}</Button>
 				</StatusMessage>
 			)}
 			{result.isError && (
 				<StatusMessage tone="error">
-					The collection changed or could not be loaded.{" "}
-					<Button onClick={reload}>Reload collection</Button>
+					{t(kernelMessage("renderer.collection-order.load-failed"))}{" "}
+					<Button onClick={reload}>{t(kernelMessage("sdk.browser.reload-collection"))}</Button>
 				</StatusMessage>
 			)}
-			{result.isPending && <p role="status">Loading collection...</p>}
-			{move.isPending && <p role="status">Saving order...</p>}
+			{result.isPending && (
+				<p role="status">{t(kernelMessage("renderer.collection-order.loading"))}</p>
+			)}
+			{move.isPending && (
+				<p role="status">{t(kernelMessage("renderer.collection-order.saving"))}</p>
+			)}
 			<fieldset
 				disabled={busy}
 				className="m-0 min-w-0 overflow-hidden rounded-lg border border-border bg-raised p-0"
 			>
-				<legend className="sr-only">Collection order</legend>
+				<legend className="sr-only">{t(kernelMessage("renderer.collection-order.label"))}</legend>
 				<ReorderableList
 					items={items}
 					itemHeight={60}
-					label="Collection order"
 					scrollRef={scrollRootRef}
 					itemLabel={(item) => item.name}
 					itemKey={(item) => item.entityId}
 					onPickUp={() => feedback("impact")}
 					onDrop={() => feedback("selection")}
 					handleIcon={<AppIcon size={18} name="grip-vertical" />}
+					label={t(kernelMessage("renderer.collection-order.label"))}
 					onReorder={(from, to) => {
 						const reordered = [...items];
 						const [member] = reordered.splice(from, 1);
@@ -181,18 +195,20 @@ export const CollectionOrder = ({
 							</span>
 							<div className="grid min-w-0 flex-1 gap-0.5 pl-2">
 								<span className="truncate text-sm font-medium text-text">{item.name}</span>
-								<Eyebrow>{schemaSlugLabel(item.entitySchemaSlug)}</Eyebrow>
+								<Eyebrow>{schemaName(item)}</Eyebrow>
 							</div>
 							<div className="flex shrink-0 items-center gap-0.5 transition-opacity pointer-fine:opacity-0 pointer-fine:group-focus-within:opacity-100 pointer-fine:group-hover:opacity-100">
 								{jumps.map(({ kind, icon }) => (
 									<IconButton
 										size="sm"
 										key={kind}
-										label={`Move ${item.name} to ${kind}`}
 										onClick={() => {
 											feedback("selection");
 											submit(item.entityId, { kind });
 										}}
+										label={t(
+											kernelMessage("renderer.collection-order.jump", { kind, name: item.name }),
+										)}
 									>
 										<AppIcon size={16} name={icon} />
 									</IconButton>
@@ -204,11 +220,15 @@ export const CollectionOrder = ({
 			</fieldset>
 			{result.hasNextPage && (
 				<Button disabled={busy} onClick={result.fetchNextPage}>
-					{result.isFetchingNextPage ? "Loading more..." : "Load more"}
+					{t(
+						kernelMessage(
+							result.isFetchingNextPage ? "common.status.loading-more" : "common.action.load-more",
+						),
+					)}
 				</Button>
 			)}
 			{!result.isPending && items.length === 0 && !result.isError && (
-				<p>This collection is empty.</p>
+				<p>{t(kernelMessage("renderer.collection-detail.empty"))}</p>
 			)}
 		</PluginScreenFrame>
 	);

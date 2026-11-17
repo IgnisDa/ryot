@@ -1,3 +1,4 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	BrowserInlineError,
 	browserResultEntries,
@@ -7,7 +8,9 @@ import { EntityResults, usePluginChrome } from "@ryot-app/plugin-client-sdk/plug
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
+	useDisplayText,
 	useRyotQuery,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, Card, StatusMessage } from "@ryot-app/plugin-ui-sdk";
@@ -70,18 +73,20 @@ export const PublicationResults = ({
 	);
 };
 
-const ItemDetails = ({ details }: { readonly details: readonly PublicationItemDetail[] }) =>
-	details.length === 0 ? null : (
+const ItemDetails = ({ details }: { readonly details: readonly PublicationItemDetail[] }) => {
+	const t = useT();
+	const displayText = useDisplayText();
+	return details.length === 0 ? null : (
 		<section className="grid gap-3" aria-labelledby="publication-item-details">
 			<h2 id="publication-item-details" className="text-sm font-semibold text-text">
-				Details
+				{t(kernelMessage("renderer.publication.details"))}
 			</h2>
 			<Card>
 				<dl className="grid gap-x-6 gap-y-3 sm:grid-cols-[max-content_1fr]">
 					{details.map((detail) => (
 						<div key={detail.key} className="contents">
 							<dt className="text-xs font-medium tracking-wide text-text-muted uppercase sm:pt-0.5">
-								{detail.label}
+								{displayText(detail.label)}
 							</dt>
 							<dd className="text-sm text-text">
 								<CellValue value={detail.value} />
@@ -92,6 +97,7 @@ const ItemDetails = ({ details }: { readonly details: readonly PublicationItemDe
 			</Card>
 		</section>
 	);
+};
 
 const RelatedItems = ({
 	input,
@@ -100,13 +106,14 @@ const RelatedItems = ({
 	readonly input: ItemInput;
 	readonly publicationId: string;
 }) => {
+	const t = useT();
 	const result = useRyotQuery(linkedQuery, input);
 	if (result.isError) {
 		return (
 			<BrowserInlineError
 				onRetry={result.refetch}
-				title="Related items unavailable"
-				message="The related published items could not be loaded."
+				message={t(kernelMessage("renderer.publication.related-failed"))}
+				title={t(kernelMessage("renderer.publication.related-unavailable"))}
 			/>
 		);
 	}
@@ -116,7 +123,7 @@ const RelatedItems = ({
 	return (
 		<section className="grid gap-3" aria-labelledby="publication-item-related">
 			<h2 id="publication-item-related" className="text-sm font-semibold text-text">
-				Related
+				{t(kernelMessage("renderer.publication.related"))}
 			</h2>
 			<PublicationResults layout="grid" items={result.data.items} publicationId={publicationId} />
 		</section>
@@ -127,33 +134,37 @@ export const PublicationItem = ({
 	publicationId,
 	...input
 }: ItemInput & { readonly publicationId: string }) => {
+	const t = useT();
 	const chrome = usePluginChrome();
 	const item = useRyotQuery(itemQuery, input);
+	const backLabel = t(kernelMessage("renderer.publication.all-items"));
 	const found = item.data;
 	if (found === undefined) {
 		return (
-			<PluginScreenFrame title="Item" backLabel="All items">
+			<PluginScreenFrame backLabel={backLabel} title={kernelMessage("renderer.publication.item")}>
 				{item.isError ? (
 					<BrowserInlineError
 						onRetry={item.refetch}
-						title="Item unavailable"
-						message="This item could not be loaded."
+						message={t(kernelMessage("renderer.publication.item-failed"))}
+						title={t(kernelMessage("renderer.publication.item-unavailable"))}
 					/>
 				) : null}
 				{!item.isError && !item.isPending ? (
-					<StatusMessage tone="error">This item is not part of this page.</StatusMessage>
+					<StatusMessage tone="error">
+						{t(kernelMessage("renderer.publication.item-not-here"))}
+					</StatusMessage>
 				) : null}
 			</PluginScreenFrame>
 		);
 	}
 	return (
-		<PluginScreenFrame title={found.name} backLabel="All items">
+		<PluginScreenFrame title={found.name} backLabel={backLabel}>
 			<div className="grid content-start gap-8">
 				{chrome.compact ? null : (
 					<div>
 						<Button variant="ghost" onClick={chrome.back}>
 							<AppIcon size={16} name="chevron-left" />
-							All items
+							{backLabel}
 						</Button>
 					</div>
 				)}

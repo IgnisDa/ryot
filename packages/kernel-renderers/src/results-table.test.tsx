@@ -133,7 +133,11 @@ describe("results table", () => {
 			`renders rating cells in the ${scale} scale and leaves unrated rows empty`,
 			() =>
 				Effect.gen(function* () {
-					const page = mountRatings({ ratingScale: scale, timeZone: TimeZone.make("UTC") });
+					const page = mountRatings({
+						weekStart: 1,
+						ratingScale: scale,
+						timeZone: TimeZone.make("UTC"),
+					});
 					answerRatings(page, (yield* nextRequest(page, 1)).requestId);
 					yield* Effect.promise(() => screen.findByRole("img", { name: label }));
 					expect(screen.getAllByRole("img")).toHaveLength(1);
@@ -229,7 +233,7 @@ describe("results table", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => screen.getByRole("button", { name: "Filters, 1 active filter" })),
 				);
-				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				fireEvent.click(screen.getByRole("button", { name: "Close" }));
 				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
 					"Note contains Fin",
 				);

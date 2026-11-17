@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect } from "bun:test";
 
+import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
+import { deviceTimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -39,6 +41,18 @@ const calendarContext: ClientPageContext = {
 	target: { kind: "saved-view", reference: { kind: "kernel", slug: "calendar" } },
 };
 
+const sourceCatalog = {
+	locale: "en",
+	namespace: "plugin-1",
+	catalog: {
+		"plugin.name": [{ type: 0, value: "Workspace" }],
+		"calendar.caption": [{ type: 1, value: "caption" }],
+		"calendar.tasks.name": [{ type: 0, value: "tasks source" }],
+		"calendar.reminders.name": [{ type: 0, value: "reminders source" }],
+		"calendar.deadlines.name": [{ type: 0, value: "deadlines source" }],
+	},
+} as const;
+
 const source = (
 	alias: string,
 	overrides: Readonly<Record<string, unknown>> = {},
@@ -52,10 +66,13 @@ const source = (
 		startAt: "at",
 		isHidden: false,
 		precision: "date",
-		caption: "caption",
 		pluginId: "plugin-1",
-		pluginName: "Workspace",
-		name: `${alias} source`,
+		pluginName: { key: "plugin.name", namespace: "plugin-1" },
+		name: { namespace: "plugin-1", key: `calendar.${alias}.name` },
+		caption: {
+			params: { caption: "caption" },
+			text: { namespace: "plugin-1", key: "calendar.caption" },
+		},
 		subject: {
 			entityAlias: alias,
 			schemas: [{ slug: alias, owner: { kind: "plugin", pluginId: "plugin-1" } }],
@@ -115,6 +132,7 @@ const open = (options: {
 		yield* Effect.promise(() => clock.setTime(options.now));
 		const page = mountPluginPage(CalendarPage, {
 			page: calendarContext,
+			catalogs: [sourceCatalog],
 			bootstrap: clock.bootstrap,
 		});
 		pageClocks.set(page, clock);
@@ -231,15 +249,15 @@ const localMonthStart = (year: number, index: number) => new Date(year, index, 1
 
 const dayLabel = (day: string) => {
 	const [year = 1970, index = 1, date = 1] = day.split("-").map(Number);
-	return new Intl.DateTimeFormat(undefined, {
-		month: "long",
-		day: "numeric",
-		weekday: "long",
-	}).format(new Date(year, index - 1, date));
+	return testFormatters
+		.dateTime({ month: "long", day: "numeric", weekday: "long", timeZone: deviceTimeZone() })
+		.format(new Date(year, index - 1, date));
 };
 
 const firstWeekday = () =>
-	new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(new Date(2024, 0, 1));
+	testFormatters
+		.dateTime({ weekday: "short", timeZone: deviceTimeZone() })
+		.format(new Date(2024, 0, 1));
 
 const march14 = Date.UTC(2026, 2, 14, 12);
 
@@ -594,7 +612,7 @@ describe("calendar renderer", () => {
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						screen.getByText(
-							`Showing the first ${MAX_SOURCE_OCCURRENCES.toLocaleString()} items from tasks source.`,
+							`Showing the first ${testFormatters.number().format(MAX_SOURCE_OCCURRENCES)} items from tasks source.`,
 						),
 					),
 				);

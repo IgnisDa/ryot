@@ -1,6 +1,8 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ViewFiltersSheet } from "@ryot-app/plugin-client-sdk/filters";
 import {
+	deviceTimeZone,
 	PluginLink,
 	usePageContext,
 	usePluginLocation,
@@ -11,9 +13,11 @@ import {
 	localDay,
 	ManagedAssetProvider,
 	useAssetUrl,
+	useFormatters,
 	useRyot,
 	useRyotQuery,
 	useRyotSchedule,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import {
@@ -47,6 +51,8 @@ const MONTH_CELL_ITEMS = 3;
 
 type Layout = "month" | "agenda";
 
+type Source = CalendarSource & { readonly label: string; readonly pluginLabel: null | string };
+
 type SourceFeedData = {
 	readonly truncated: boolean;
 	readonly items: readonly CalendarOccurrence[];
@@ -55,8 +61,9 @@ type SourceFeedData = {
 type Entry = {
 	readonly key: string;
 	readonly day: string;
+	readonly source: Source;
 	readonly color: GroupColor;
-	readonly source: CalendarSource;
+	readonly caption: null | string;
 	readonly occurrence: CalendarOccurrence;
 };
 
@@ -105,49 +112,420 @@ const occurrenceDay = (occurrence: CalendarOccurrence) =>
 		? occurrence.startAt.slice(0, 10)
 		: localDay(new Date(occurrence.startAt));
 
-const monthLabel = (month: string) => {
-	const { year, index } = monthParts(month);
-	return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(
-		new Date(year, index - 1, 1),
-	);
+const useCalendarLabels = () => {
+	const formatters = useFormatters();
+	const timeZone = deviceTimeZone();
+	const date = (options: Intl.DateTimeFormatOptions) =>
+		formatters.dateTime({ ...options, timeZone });
+	return {
+		weekday: (value: Date, weekday: "long" | "short") => date({ weekday }).format(value),
+		day: (day: string) =>
+			date({ month: "long", day: "numeric", weekday: "long" }).format(dayDate(day)),
+		month: (month: string) => {
+			const { year, index } = monthParts(month);
+			return date({ month: "long", year: "numeric" }).format(new Date(year, index - 1, 1));
+		},
+		time: (occurrence: CalendarOccurrence) =>
+			occurrence.precision === "date"
+				? ""
+				: date({ hour: "2-digit", hourCycle: "h23", minute: "2-digit" }).format(
+						new Date(occurrence.startAt),
+					),
+	};
 };
-
-const timeLabel = (occurrence: CalendarOccurrence) =>
-	occurrence.precision === "date"
-		? ""
-		: new Intl.DateTimeFormat(undefined, {
-				hour: "2-digit",
-				hourCycle: "h23",
-				minute: "2-digit",
-			}).format(new Date(occurrence.startAt));
-
-const weekdayLabel = (date: Date, weekday: "long" | "short") =>
-	new Intl.DateTimeFormat(undefined, { weekday }).format(date);
-
-const dayLabel = (day: string) =>
-	new Intl.DateTimeFormat(undefined, { month: "long", day: "numeric", weekday: "long" }).format(
-		dayDate(day),
-	);
-
-const weekdayHeaders = Array.from({ length: 7 }, (_, offset) =>
-	weekdayLabel(new Date(2024, 0, 1 + offset), "short"),
-);
 
 const compareEntries = (left: Entry, right: Entry) =>
 	(left.occurrence.precision === "date" ? 0 : 1) -
 		(right.occurrence.precision === "date" ? 0 : 1) ||
 	left.occurrence.startAt.localeCompare(right.occurrence.startAt) ||
-	left.source.name.localeCompare(right.source.name) ||
+	left.source.label.localeCompare(right.source.label) ||
 	left.occurrence.subject.name.localeCompare(right.occurrence.subject.name) ||
-	(left.occurrence.caption ?? "").localeCompare(right.occurrence.caption ?? "");
+	(left.caption ?? "").localeCompare(right.caption ?? "");
 
 const sourcesQuery = createRyotQuery(({ client }) => client.data.query(calendarSourcesRecipe, {}), {
 	cancelOnUnmount: true,
 });
 
-function DoneMark() {
+export default function CalendarPage() {
+	const ryot = useRyot();
+	const page = usePageContext();
+	const schedule = useRyotSchedule();
+	const location = usePluginLocation();
+	const { compact, safeAreaBottom } = useRyotViewport();
+	const t = useT();
+	const labels = useCalendarLabels();
+	const name = page.view ? page.view.name : kernelMessage("definition.saved-view.calendar");
+	const icon = page.view?.icon ?? "calendar";
+	const now = new Date(schedule.now());
+	const today = localDay(now);
+	const params = new URLSearchParams(location.search);
+	const requested = {
+		month: parseMonth(params.get("month")) ?? localMonthKey(now),
+		layout: params.get("layout") === "month" ? ("month" as const) : ("agenda" as const),
+	};
+	const [view, setView] = useState(requested);
+	useValueChange(`${requested.month}|${requested.layout}`, () => setView(requested));
+	const [focusDay, setFocusDay] = useState<string>();
+	const clearFocusDay = useCallback(() => setFocusDay(undefined), []);
+	const [sheetOpen, setSheetOpen] = useState(false);
+	const sheetTrigger = useRef<HTMLButtonElement>(null);
+	const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+	const [toggleFailure, setToggleFailure] = useState<string>();
+	const [feeds, setFeeds] = useState<ReadonlyMap<string, FeedState>>(new Map());
+	const reportFeed = useCallback((sourceKey: string, state: FeedState | undefined) => {
+		setFeeds((current) => {
+			const next = new Map(current);
+			if (state === undefined) {
+				next.delete(sourceKey);
+			} else {
+				next.set(sourceKey, state);
+			}
+			return next;
+		});
+	}, []);
+	const sourcesResult = useRyotQuery(sourcesQuery);
+	const sources = (sourcesResult.data ?? [])
+		.map((source): Source =>
+			Object.assign({}, source, {
+				label: t(source.name),
+				pluginLabel: source.pluginName === null ? null : t(source.pluginName),
+			}),
+		)
+		.sort(
+			(left, right) =>
+				(left.pluginLabel ?? "").localeCompare(right.pluginLabel ?? "") ||
+				left.label.localeCompare(right.label) ||
+				left.sourceKey.localeCompare(right.sourceKey),
+		);
+	const colors = new Map(
+		sources.map((source, position) => [
+			source.sourceKey,
+			groupColors[position % groupColors.length] ?? "blue",
+		]),
+	);
+	const visible = sources.filter(({ isHidden }) => !isHidden);
+	const window = calendarWindow(view.month);
+	const windowKey = JSON.stringify(window);
+	const entries: Entry[] = visible.flatMap((source) => {
+		const feed = feeds.get(source.sourceKey);
+		if (feed?.windowKey !== windowKey) {
+			return [];
+		}
+		const seen = new Map<string, number>();
+		return feed.items.flatMap((occurrence) => {
+			const day = occurrenceDay(occurrence);
+			if (!day.startsWith(`${view.month}-`)) {
+				return [];
+			}
+			const repeat = seen.get(occurrence.key) ?? 0;
+			seen.set(occurrence.key, repeat + 1);
+			return [
+				{
+					day,
+					source,
+					occurrence,
+					color: colors.get(source.sourceKey) ?? "blue",
+					key: JSON.stringify([source.sourceKey, occurrence.key, repeat]),
+					caption: occurrence.caption === null ? null : t(occurrence.caption),
+				},
+			];
+		});
+	});
+	entries.sort((left, right) => left.day.localeCompare(right.day) || compareEntries(left, right));
+	const byDay = new Map<string, Entry[]>();
+	for (const entry of entries) {
+		byDay.set(entry.day, [...(byDay.get(entry.day) ?? []), entry]);
+	}
+	const counts = new Map<string, number>();
+	for (const entry of entries) {
+		counts.set(entry.source.sourceKey, (counts.get(entry.source.sourceKey) ?? 0) + 1);
+	}
+	const visibleFeeds = visible.map((source) => ({ source, feed: feeds.get(source.sourceKey) }));
+	const loading =
+		sourcesResult.isPending ||
+		visibleFeeds.some(
+			({ feed }) => feed === undefined || feed.windowKey !== windowKey || feed.pending,
+		);
+	const failed = visibleFeeds.filter(({ feed }) => feed?.windowKey === windowKey && feed.failed);
+	const truncated = visibleFeeds.filter(
+		({ feed }) => feed?.windowKey === windowKey && feed.truncated,
+	);
+	const hiddenCount = sources.length - visible.length;
+	const assets = entries.flatMap(({ occurrence }) =>
+		occurrence.art !== null && occurrence.art.type !== "remote" ? [occurrence.art] : [],
+	);
+
+	const navigate = (next: { readonly month?: string; readonly layout?: Layout }) => {
+		const target = { ...view, ...next };
+		if (target.month !== view.month) {
+			setFocusDay(undefined);
+		}
+		setView(target);
+		ryot.navigation.pageSearch.replace({
+			month: target.month,
+			layout: target.layout === "month" ? "month" : null,
+		});
+	};
+	const showDay = (day: string) => {
+		setFocusDay(day);
+		navigate({ layout: "agenda" });
+	};
+	const toggle = (source: Source) => {
+		setToggleFailure(undefined);
+		setPending((current) => new Set(current).add(source.sourceKey));
+		schedule.run(
+			ryot.calendarSources
+				.setVisibility({ slug: source.slug, pluginId: source.pluginId, isHidden: !source.isHidden })
+				.pipe(Effect.catch(() => Effect.sync(() => setToggleFailure(source.label)))),
+			() =>
+				setPending((current) => {
+					const next = new Set(current);
+					next.delete(source.sourceKey);
+					return next;
+				}),
+		);
+	};
+
+	const layoutSwitch = (
+		<SegmentedControl
+			value={view.layout}
+			optionClassName="px-3"
+			onChange={(layout) => navigate({ layout })}
+			label={t(kernelMessage("renderer.calendar.layout"))}
+			options={[
+				{
+					value: "agenda",
+					label: t(kernelMessage("renderer.calendar.agenda")),
+					content: t(kernelMessage("renderer.calendar.agenda")),
+				},
+				{
+					value: "month",
+					label: t(kernelMessage("renderer.calendar.month")),
+					content: t(kernelMessage("renderer.calendar.month")),
+				},
+			]}
+		/>
+	);
+	const monthNavigation = (
+		<div className={clsx("flex items-center gap-0.5", compact && "w-full")}>
+			<IconButton
+				tone="ghost"
+				label={t(kernelMessage("renderer.calendar.previous-month"))}
+				onClick={() => navigate({ month: shiftMonth(view.month, -1) })}
+			>
+				<AppIcon size={18} name="chevron-left" />
+			</IconButton>
+			<span
+				aria-live="polite"
+				className={clsx(
+					"text-center text-[15px] font-semibold text-text",
+					compact ? "flex-1" : "min-w-32",
+				)}
+			>
+				{labels.month(view.month)}
+			</span>
+			<IconButton
+				tone="ghost"
+				label={t(kernelMessage("renderer.calendar.next-month"))}
+				onClick={() => navigate({ month: shiftMonth(view.month, 1) })}
+			>
+				<AppIcon size={18} name="chevron-right" />
+			</IconButton>
+		</div>
+	);
+	const todayButton = (
+		<Button
+			size="sm"
+			variant="outline"
+			onClick={() => {
+				navigate({ month: localMonthKey(now) });
+				setFocusDay(today);
+			}}
+		>
+			{t(kernelMessage("renderer.calendar.today"))}
+		</Button>
+	);
+
+	let content: ReactNode;
+	if (sourcesResult.isPending) {
+		content = (
+			<StatusMessage tone="pending">{t(kernelMessage("renderer.calendar.loading"))}</StatusMessage>
+		);
+	} else if (sourcesResult.isError && sourcesResult.data === undefined) {
+		content = (
+			<StatusMessage tone="error">
+				{t(kernelMessage("renderer.calendar.sources-unavailable"))}{" "}
+				<Button variant="ghost" onClick={sourcesResult.refetch}>
+					{t(kernelMessage("common.action.retry"))}
+				</Button>
+			</StatusMessage>
+		);
+	} else if (sources.length === 0) {
+		content = (
+			<p className="rounded-lg border border-border bg-surface p-12 text-center text-sm text-text-muted">
+				{t(kernelMessage("renderer.calendar.no-sources"))}
+			</p>
+		);
+	} else if (view.layout === "month") {
+		content = (
+			<MonthGrid
+				today={today}
+				byDay={byDay}
+				compact={compact}
+				month={view.month}
+				onShowDay={showDay}
+			/>
+		);
+	} else {
+		content = (
+			<Agenda
+				today={today}
+				compact={compact}
+				days={[...byDay]}
+				focusDay={focusDay}
+				onFocused={clearFocusDay}
+				emptyLabel={
+					loading
+						? t(kernelMessage("common.status.loading"))
+						: t(kernelMessage("renderer.calendar.empty-month", { month: labels.month(view.month) }))
+				}
+			/>
+		);
+	}
+
 	return (
-		<span role="img" aria-label="Done" className="inline-flex shrink-0 text-success">
+		<ManagedAssetProvider assets={assets}>
+			{visible.map((source) => (
+				<SourceFeed
+					window={window}
+					source={source}
+					onState={reportFeed}
+					key={JSON.stringify([
+						source.sourceKey,
+						source.query,
+						source.subject,
+						source.startAt,
+						source.precision,
+						source.caption,
+						source.art,
+						source.done,
+					])}
+				/>
+			))}
+			<PluginScreenFrame
+				title={name}
+				titleIcon={<AppIcon size={22} name={icon} className="shrink-0 text-text-muted" />}
+				actions={
+					<>
+						{todayButton}
+						{monthNavigation}
+						{layoutSwitch}
+					</>
+				}
+				meta={
+					compact ? (
+						<div className="flex items-center justify-between gap-3">
+							{monthNavigation}
+							{layoutSwitch}
+						</div>
+					) : undefined
+				}
+				barActions={
+					<>
+						{todayButton}
+						<ScreenBarButton
+							ref={sheetTrigger}
+							className="relative"
+							onClick={() => setSheetOpen(true)}
+							label={t(kernelMessage("renderer.calendar.sources-hidden", { count: hiddenCount }))}
+						>
+							<AppIcon size={22} name="sliders-horizontal" />
+							{hiddenCount > 0 && (
+								<span
+									aria-hidden="true"
+									className="absolute top-0.5 right-0.5 grid h-4.5 min-w-4.5 place-items-center rounded-pill bg-accent px-1 text-[11px] font-semibold text-accent-ink"
+								>
+									{hiddenCount}
+								</span>
+							)}
+						</ScreenBarButton>
+					</>
+				}
+			>
+				<div
+					className="mx-auto grid w-full max-w-5xl"
+					style={{ paddingBottom: safeAreaBottom + 48 }}
+				>
+					{!compact && sources.length > 0 && (
+						<SourceChips
+							counts={counts}
+							colors={colors}
+							pending={pending}
+							sources={sources}
+							onToggle={toggle}
+						/>
+					)}
+					{(failed.length > 0 || truncated.length > 0 || toggleFailure !== undefined) && (
+						<Notices>
+							{toggleFailure !== undefined && (
+								<StatusMessage tone="error">
+									{t(kernelMessage("renderer.calendar.toggle-failed", { source: toggleFailure }))}
+								</StatusMessage>
+							)}
+							{failed.map(({ feed, source }) => (
+								<div
+									role="alert"
+									key={source.sourceKey}
+									className="flex flex-wrap items-center gap-2 text-sm text-danger"
+								>
+									<span>
+										{t(kernelMessage("renderer.calendar.source-failed", { source: source.label }))}
+									</span>
+									<Button size="sm" variant="ghost" onClick={feed?.retry}>
+										{t(kernelMessage("common.action.retry"))}
+									</Button>
+								</div>
+							))}
+							{truncated.map(({ source }) => (
+								<StatusMessage tone="pending" key={source.sourceKey}>
+									{t(
+										kernelMessage("renderer.calendar.truncated", {
+											source: source.label,
+											count: MAX_SOURCE_OCCURRENCES,
+										}),
+									)}
+								</StatusMessage>
+							))}
+						</Notices>
+					)}
+					{content}
+				</div>
+			</PluginScreenFrame>
+			{compact && sheetOpen && (
+				<SourcesSheet
+					sources={sources}
+					pending={pending}
+					onToggle={toggle}
+					triggerRef={sheetTrigger}
+					onClose={() => setSheetOpen(false)}
+				/>
+			)}
+		</ManagedAssetProvider>
+	);
+}
+
+function Notices({ children }: { readonly children: ReactNode }) {
+	return <div className="mb-4 grid gap-2">{children}</div>;
+}
+
+function DoneMark() {
+	const t = useT();
+	return (
+		<span
+			role="img"
+			className="inline-flex shrink-0 text-success"
+			aria-label={t(kernelMessage("common.action.done"))}
+		>
 			<AppIcon size={16} name="circle-check" />
 		</span>
 	);
@@ -205,6 +583,7 @@ function AgendaRow({
 	readonly past: boolean;
 	readonly compact: boolean;
 }) {
+	const labels = useCalendarLabels();
 	const { occurrence } = entry;
 	return (
 		<li className="border-t border-border first:border-t-0">
@@ -224,13 +603,13 @@ function AgendaRow({
 					</span>
 					<span className="flex min-w-0 items-center gap-1.5 text-[13px] text-text-muted">
 						{compact && <SourceDot color={entry.color} />}
-						<span className="truncate">{occurrence.caption ?? entry.source.name}</span>
+						<span className="truncate">{entry.caption ?? entry.source.label}</span>
 					</span>
 				</span>
 				{!compact && (
 					<span className="flex shrink-0 items-center gap-1.5 text-xs text-text-muted">
 						<SourceDot color={entry.color} />
-						{entry.source.name}
+						{entry.source.label}
 					</span>
 				)}
 				<time
@@ -238,10 +617,73 @@ function AgendaRow({
 					dateTime={occurrence.startAt}
 					className="w-16 shrink-0 text-right text-[13px] tabular-nums"
 				>
-					{timeLabel(occurrence)}
+					{labels.time(occurrence)}
 				</time>
 			</PluginLink>
 		</li>
+	);
+}
+
+function SourcesSheet({
+	sources,
+	pending,
+	onClose,
+	onToggle,
+	triggerRef,
+}: {
+	readonly onClose: () => void;
+	readonly sources: readonly Source[];
+	readonly pending: ReadonlySet<string>;
+	readonly onToggle: (source: Source) => void;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const t = useT();
+	const groups = new Map<string, Source[]>();
+	for (const source of sources) {
+		const group = source.pluginLabel ?? "";
+		groups.set(group, [...(groups.get(group) ?? []), source]);
+	}
+	return (
+		<ViewFiltersSheet
+			compact
+			onClose={onClose}
+			triggerRef={triggerRef}
+			title={t(kernelMessage("renderer.calendar.sources"))}
+		>
+			<p className="mt-2 text-label text-text-muted">
+				{t(kernelMessage("renderer.calendar.sources-hint"))}
+			</p>
+			{[...groups].map(([group, items]) => (
+				<div key={group} className="mt-4 grid gap-1">
+					<h3 className="px-0.5 text-xs font-medium text-text-muted">{group}</h3>
+					<ul className="overflow-hidden rounded-lg border border-border">
+						{items.map((source) => (
+							<li
+								key={source.sourceKey}
+								className="flex min-h-12 items-center gap-3 border-t border-border px-3.5 first:border-t-0"
+							>
+								<span
+									className={clsx(
+										"flex-1 font-medium",
+										source.isHidden ? "text-text-muted" : "text-text",
+									)}
+								>
+									{source.label}
+								</span>
+								<Switch
+									checked={!source.isHidden}
+									onChange={() => onToggle(source)}
+									disabled={pending.has(source.sourceKey)}
+									label={t(
+										kernelMessage("renderer.calendar.show-source", { source: source.label }),
+									)}
+								/>
+							</li>
+						))}
+					</ul>
+				</div>
+			))}
+		</ViewFiltersSheet>
 	);
 }
 
@@ -250,7 +692,7 @@ function SourceFeed({
 	window,
 	onState,
 }: {
-	readonly source: CalendarSource;
+	readonly source: Source;
 	readonly window: CalendarWindow;
 	readonly onState: (sourceKey: string, state: FeedState | undefined) => void;
 }) {
@@ -304,6 +746,64 @@ function SourceFeed({
 	return null;
 }
 
+function SourceChips({
+	counts,
+	colors,
+	sources,
+	pending,
+	onToggle,
+}: {
+	readonly sources: readonly Source[];
+	readonly pending: ReadonlySet<string>;
+	readonly onToggle: (source: Source) => void;
+	readonly counts: ReadonlyMap<string, number>;
+	readonly colors: ReadonlyMap<string, GroupColor>;
+}) {
+	const t = useT();
+	const hidden = sources.filter(({ isHidden }) => isHidden).length;
+	return (
+		<section className="mb-5 grid gap-2" aria-label={t(kernelMessage("renderer.calendar.sources"))}>
+			<div className="flex flex-wrap gap-2">
+				{sources.map((source) => {
+					const color = colors.get(source.sourceKey) ?? "blue";
+					return (
+						<button
+							type="button"
+							key={source.sourceKey}
+							aria-pressed={!source.isHidden}
+							onClick={() => onToggle(source)}
+							disabled={pending.has(source.sourceKey)}
+							className={clsx(
+								"flex h-8.5 items-center gap-2 rounded-pill border border-border pr-3 pl-2.5 text-[13px] hover:border-border-emphasis disabled:opacity-60",
+								source.isHidden ? "text-text-muted" : "bg-surface text-text",
+							)}
+						>
+							<span
+								aria-hidden="true"
+								className="size-2.5 rounded-pill border-2"
+								style={{
+									borderColor: groupColorVariable(color),
+									background: source.isHidden ? "transparent" : groupColorVariable(color),
+								}}
+							/>
+							<span className={clsx("font-medium", source.isHidden && "line-through")}>
+								{source.label}
+							</span>
+							<span className="text-xs text-text-muted">{source.pluginLabel ?? ""}</span>
+							<span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-2 px-1.5 text-xs text-text-muted tabular-nums">
+								{source.isHidden ? "–" : (counts.get(source.sourceKey) ?? 0)}
+							</span>
+						</button>
+					);
+				})}
+			</div>
+			<p className="text-xs text-text-muted">
+				{t(kernelMessage("renderer.calendar.sources-summary", { hidden }))}
+			</p>
+		</section>
+	);
+}
+
 function Agenda({
 	days,
 	today,
@@ -319,6 +819,8 @@ function Agenda({
 	readonly focusDay: string | undefined;
 	readonly days: readonly (readonly [string, readonly Entry[]])[];
 }) {
+	const t = useT();
+	const labels = useCalendarLabels();
 	const headings = useRef(new Map<string, HTMLElement>());
 	const focusReady = days.some(([day]) => day === focusDay);
 	useEffect(() => {
@@ -343,7 +845,7 @@ function Agenda({
 					<section
 						key={day}
 						data-day={day}
-						aria-label={dayLabel(day)}
+						aria-label={labels.day(day)}
 						className={clsx(
 							"grid gap-2 border-t border-border py-3.5",
 							!compact && "grid-cols-[96px_minmax(0,1fr)] gap-4",
@@ -371,11 +873,11 @@ function Agenda({
 							</span>
 							<span className="grid gap-1 pt-0.5">
 								<span className="text-xs text-text-muted">
-									{weekdayLabel(date, compact ? "long" : "short")}
+									{labels.weekday(date, compact ? "long" : "short")}
 								</span>
 								{day === today && (
 									<span className="rounded-pill bg-accent px-1.5 text-[11px] font-semibold text-accent-ink">
-										Today
+										{t(kernelMessage("renderer.calendar.today"))}
 									</span>
 								)}
 							</span>
@@ -392,459 +894,6 @@ function Agenda({
 	);
 }
 
-const cellLabel = (day: string, count: number) =>
-	`${dayLabel(day)}, ${count} ${count === 1 ? "item" : "items"}`;
-
-export default function CalendarPage() {
-	const ryot = useRyot();
-	const page = usePageContext();
-	const schedule = useRyotSchedule();
-	const location = usePluginLocation();
-	const { compact, safeAreaBottom } = useRyotViewport();
-	const name = page.view?.name ?? "Calendar";
-	const icon = page.view?.icon ?? "calendar";
-	const now = new Date(schedule.now());
-	const today = localDay(now);
-	const params = new URLSearchParams(location.search);
-	const requested = {
-		month: parseMonth(params.get("month")) ?? localMonthKey(now),
-		layout: params.get("layout") === "month" ? ("month" as const) : ("agenda" as const),
-	};
-	const [view, setView] = useState(requested);
-	useValueChange(`${requested.month}|${requested.layout}`, () => setView(requested));
-	const [focusDay, setFocusDay] = useState<string>();
-	const clearFocusDay = useCallback(() => setFocusDay(undefined), []);
-	const [sheetOpen, setSheetOpen] = useState(false);
-	const sheetTrigger = useRef<HTMLButtonElement>(null);
-	const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
-	const [toggleFailure, setToggleFailure] = useState<string>();
-	const [feeds, setFeeds] = useState<ReadonlyMap<string, FeedState>>(new Map());
-	const reportFeed = useCallback((sourceKey: string, state: FeedState | undefined) => {
-		setFeeds((current) => {
-			const next = new Map(current);
-			if (state === undefined) {
-				next.delete(sourceKey);
-			} else {
-				next.set(sourceKey, state);
-			}
-			return next;
-		});
-	}, []);
-	const sourcesResult = useRyotQuery(sourcesQuery);
-	const sources = sourcesResult.data ?? [];
-	const colors = new Map(
-		sources.map((source, position) => [
-			source.sourceKey,
-			groupColors[position % groupColors.length] ?? "blue",
-		]),
-	);
-	const visible = sources.filter(({ isHidden }) => !isHidden);
-	const window = calendarWindow(view.month);
-	const windowKey = JSON.stringify(window);
-	const entries: Entry[] = visible.flatMap((source) => {
-		const feed = feeds.get(source.sourceKey);
-		if (feed?.windowKey !== windowKey) {
-			return [];
-		}
-		const seen = new Map<string, number>();
-		return feed.items.flatMap((occurrence) => {
-			const day = occurrenceDay(occurrence);
-			if (!day.startsWith(`${view.month}-`)) {
-				return [];
-			}
-			const repeat = seen.get(occurrence.key) ?? 0;
-			seen.set(occurrence.key, repeat + 1);
-			return [
-				{
-					day,
-					source,
-					occurrence,
-					color: colors.get(source.sourceKey) ?? "blue",
-					key: JSON.stringify([source.sourceKey, occurrence.key, repeat]),
-				},
-			];
-		});
-	});
-	entries.sort((left, right) => left.day.localeCompare(right.day) || compareEntries(left, right));
-	const byDay = new Map<string, Entry[]>();
-	for (const entry of entries) {
-		byDay.set(entry.day, [...(byDay.get(entry.day) ?? []), entry]);
-	}
-	const counts = new Map<string, number>();
-	for (const entry of entries) {
-		counts.set(entry.source.sourceKey, (counts.get(entry.source.sourceKey) ?? 0) + 1);
-	}
-	const visibleFeeds = visible.map((source) => ({ source, feed: feeds.get(source.sourceKey) }));
-	const loading =
-		sourcesResult.isPending ||
-		visibleFeeds.some(
-			({ feed }) => feed === undefined || feed.windowKey !== windowKey || feed.pending,
-		);
-	const failed = visibleFeeds.filter(({ feed }) => feed?.windowKey === windowKey && feed.failed);
-	const truncated = visibleFeeds.filter(
-		({ feed }) => feed?.windowKey === windowKey && feed.truncated,
-	);
-	const hiddenCount = sources.length - visible.length;
-	const assets = entries.flatMap(({ occurrence }) =>
-		occurrence.art !== null && occurrence.art.type !== "remote" ? [occurrence.art] : [],
-	);
-
-	const navigate = (next: { readonly month?: string; readonly layout?: Layout }) => {
-		const target = { ...view, ...next };
-		if (target.month !== view.month) {
-			setFocusDay(undefined);
-		}
-		setView(target);
-		ryot.navigation.pageSearch.replace({
-			month: target.month,
-			layout: target.layout === "month" ? "month" : null,
-		});
-	};
-	const showDay = (day: string) => {
-		setFocusDay(day);
-		navigate({ layout: "agenda" });
-	};
-	const toggle = (source: CalendarSource) => {
-		setToggleFailure(undefined);
-		setPending((current) => new Set(current).add(source.sourceKey));
-		schedule.run(
-			ryot.calendarSources
-				.setVisibility({ slug: source.slug, pluginId: source.pluginId, isHidden: !source.isHidden })
-				.pipe(Effect.catch(() => Effect.sync(() => setToggleFailure(source.name)))),
-			() =>
-				setPending((current) => {
-					const next = new Set(current);
-					next.delete(source.sourceKey);
-					return next;
-				}),
-		);
-	};
-
-	const layoutSwitch = (
-		<SegmentedControl
-			value={view.layout}
-			optionClassName="px-3"
-			label="Calendar layout"
-			onChange={(layout) => navigate({ layout })}
-			options={[
-				{ value: "agenda", label: "Agenda", content: "Agenda" },
-				{ value: "month", label: "Month", content: "Month" },
-			]}
-		/>
-	);
-	const monthNavigation = (
-		<div className={clsx("flex items-center gap-0.5", compact && "w-full")}>
-			<IconButton
-				tone="ghost"
-				label="Previous month"
-				onClick={() => navigate({ month: shiftMonth(view.month, -1) })}
-			>
-				<AppIcon size={18} name="chevron-left" />
-			</IconButton>
-			<span
-				aria-live="polite"
-				className={clsx(
-					"text-center text-[15px] font-semibold text-text",
-					compact ? "flex-1" : "min-w-32",
-				)}
-			>
-				{monthLabel(view.month)}
-			</span>
-			<IconButton
-				tone="ghost"
-				label="Next month"
-				onClick={() => navigate({ month: shiftMonth(view.month, 1) })}
-			>
-				<AppIcon size={18} name="chevron-right" />
-			</IconButton>
-		</div>
-	);
-	const todayButton = (
-		<Button
-			size="sm"
-			variant="outline"
-			onClick={() => {
-				navigate({ month: localMonthKey(now) });
-				setFocusDay(today);
-			}}
-		>
-			Today
-		</Button>
-	);
-
-	let content: ReactNode;
-	if (sourcesResult.isPending) {
-		content = <StatusMessage tone="pending">Loading calendar...</StatusMessage>;
-	} else if (sourcesResult.isError && sourcesResult.data === undefined) {
-		content = (
-			<StatusMessage tone="error">
-				Calendar sources are unavailable.{" "}
-				<Button variant="ghost" onClick={sourcesResult.refetch}>
-					Retry
-				</Button>
-			</StatusMessage>
-		);
-	} else if (sources.length === 0) {
-		content = (
-			<p className="rounded-lg border border-border bg-surface p-12 text-center text-sm text-text-muted">
-				No installed plugin adds calendar sources yet.
-			</p>
-		);
-	} else if (view.layout === "month") {
-		content = (
-			<MonthGrid
-				today={today}
-				byDay={byDay}
-				compact={compact}
-				month={view.month}
-				onShowDay={showDay}
-			/>
-		);
-	} else {
-		content = (
-			<Agenda
-				today={today}
-				compact={compact}
-				days={[...byDay]}
-				focusDay={focusDay}
-				onFocused={clearFocusDay}
-				emptyLabel={
-					loading ? "Loading..." : `Nothing in ${monthLabel(view.month)} from the sources you show.`
-				}
-			/>
-		);
-	}
-
-	return (
-		<ManagedAssetProvider assets={assets}>
-			{visible.map((source) => (
-				<SourceFeed
-					window={window}
-					source={source}
-					onState={reportFeed}
-					key={JSON.stringify([
-						source.sourceKey,
-						source.query,
-						source.subject,
-						source.startAt,
-						source.precision,
-						source.caption,
-						source.art,
-						source.done,
-					])}
-				/>
-			))}
-			<PluginScreenFrame
-				title={name}
-				titleIcon={<AppIcon size={22} name={icon} className="shrink-0 text-text-muted" />}
-				actions={
-					<>
-						{todayButton}
-						{monthNavigation}
-						{layoutSwitch}
-					</>
-				}
-				meta={
-					compact ? (
-						<div className="flex items-center justify-between gap-3">
-							{monthNavigation}
-							{layoutSwitch}
-						</div>
-					) : undefined
-				}
-				barActions={
-					<>
-						{todayButton}
-						<ScreenBarButton
-							ref={sheetTrigger}
-							className="relative"
-							onClick={() => setSheetOpen(true)}
-							label={hiddenCount === 0 ? "Sources" : `Sources, ${hiddenCount} hidden`}
-						>
-							<AppIcon size={22} name="sliders-horizontal" />
-							{hiddenCount > 0 && (
-								<span
-									aria-hidden="true"
-									className="absolute top-0.5 right-0.5 grid h-4.5 min-w-4.5 place-items-center rounded-pill bg-accent px-1 text-[11px] font-semibold text-accent-ink"
-								>
-									{hiddenCount}
-								</span>
-							)}
-						</ScreenBarButton>
-					</>
-				}
-			>
-				<div
-					className="mx-auto grid w-full max-w-5xl"
-					style={{ paddingBottom: safeAreaBottom + 48 }}
-				>
-					{!compact && sources.length > 0 && (
-						<SourceChips
-							counts={counts}
-							colors={colors}
-							pending={pending}
-							sources={sources}
-							onToggle={toggle}
-						/>
-					)}
-					{(failed.length > 0 || truncated.length > 0 || toggleFailure !== undefined) && (
-						<Notices>
-							{toggleFailure !== undefined && (
-								<StatusMessage tone="error">{`Couldn't update ${toggleFailure}. Try again.`}</StatusMessage>
-							)}
-							{failed.map(({ feed, source }) => (
-								<div
-									role="alert"
-									key={source.sourceKey}
-									className="flex flex-wrap items-center gap-2 text-sm text-danger"
-								>
-									<span>{`${source.name} could not be loaded.`}</span>
-									<Button size="sm" variant="ghost" onClick={feed?.retry}>
-										Retry
-									</Button>
-								</div>
-							))}
-							{truncated.map(({ source }) => (
-								<StatusMessage tone="pending" key={source.sourceKey}>
-									{`Showing the first ${MAX_SOURCE_OCCURRENCES.toLocaleString()} items from ${source.name}.`}
-								</StatusMessage>
-							))}
-						</Notices>
-					)}
-					{content}
-				</div>
-			</PluginScreenFrame>
-			{compact && sheetOpen && (
-				<SourcesSheet
-					sources={sources}
-					pending={pending}
-					onToggle={toggle}
-					triggerRef={sheetTrigger}
-					onClose={() => setSheetOpen(false)}
-				/>
-			)}
-		</ManagedAssetProvider>
-	);
-}
-
-function Notices({ children }: { readonly children: ReactNode }) {
-	return <div className="mb-4 grid gap-2">{children}</div>;
-}
-
-function SourcesSheet({
-	sources,
-	pending,
-	onClose,
-	onToggle,
-	triggerRef,
-}: {
-	readonly onClose: () => void;
-	readonly pending: ReadonlySet<string>;
-	readonly sources: readonly CalendarSource[];
-	readonly onToggle: (source: CalendarSource) => void;
-	readonly triggerRef: RefObject<null | HTMLButtonElement>;
-}) {
-	const groups = new Map<string, CalendarSource[]>();
-	for (const source of sources) {
-		const group = source.pluginName ?? "";
-		groups.set(group, [...(groups.get(group) ?? []), source]);
-	}
-	return (
-		<ViewFiltersSheet compact title="Sources" onClose={onClose} triggerRef={triggerRef}>
-			<p className="mt-2 text-label text-text-muted">
-				Each installed plugin can add sources. What you hide is saved to your account.
-			</p>
-			{[...groups].map(([group, items]) => (
-				<div key={group} className="mt-4 grid gap-1">
-					<h3 className="px-0.5 text-xs font-medium text-text-muted">{group}</h3>
-					<ul className="overflow-hidden rounded-lg border border-border">
-						{items.map((source) => (
-							<li
-								key={source.sourceKey}
-								className="flex min-h-12 items-center gap-3 border-t border-border px-3.5 first:border-t-0"
-							>
-								<span
-									className={clsx(
-										"flex-1 font-medium",
-										source.isHidden ? "text-text-muted" : "text-text",
-									)}
-								>
-									{source.name}
-								</span>
-								<Switch
-									checked={!source.isHidden}
-									label={`Show ${source.name}`}
-									onChange={() => onToggle(source)}
-									disabled={pending.has(source.sourceKey)}
-								/>
-							</li>
-						))}
-					</ul>
-				</div>
-			))}
-		</ViewFiltersSheet>
-	);
-}
-
-function SourceChips({
-	counts,
-	colors,
-	sources,
-	pending,
-	onToggle,
-}: {
-	readonly pending: ReadonlySet<string>;
-	readonly sources: readonly CalendarSource[];
-	readonly counts: ReadonlyMap<string, number>;
-	readonly colors: ReadonlyMap<string, GroupColor>;
-	readonly onToggle: (source: CalendarSource) => void;
-}) {
-	const hidden = sources.filter(({ isHidden }) => isHidden).length;
-	return (
-		<section aria-label="Sources" className="mb-5 grid gap-2">
-			<div className="flex flex-wrap gap-2">
-				{sources.map((source) => {
-					const color = colors.get(source.sourceKey) ?? "blue";
-					return (
-						<button
-							type="button"
-							key={source.sourceKey}
-							aria-pressed={!source.isHidden}
-							onClick={() => onToggle(source)}
-							disabled={pending.has(source.sourceKey)}
-							className={clsx(
-								"flex h-8.5 items-center gap-2 rounded-pill border border-border pr-3 pl-2.5 text-[13px] hover:border-border-emphasis disabled:opacity-60",
-								source.isHidden ? "text-text-muted" : "bg-surface text-text",
-							)}
-						>
-							<span
-								aria-hidden="true"
-								className="size-2.5 rounded-pill border-2"
-								style={{
-									borderColor: groupColorVariable(color),
-									background: source.isHidden ? "transparent" : groupColorVariable(color),
-								}}
-							/>
-							<span className={clsx("font-medium", source.isHidden && "line-through")}>
-								{source.name}
-							</span>
-							<span className="text-xs text-text-muted">{source.pluginName ?? ""}</span>
-							<span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-2 px-1.5 text-xs text-text-muted tabular-nums">
-								{source.isHidden ? "–" : (counts.get(source.sourceKey) ?? 0)}
-							</span>
-						</button>
-					);
-				})}
-			</div>
-			<p className="text-xs text-text-muted">
-				{hidden === 0
-					? "Showing every source from your installed plugins."
-					: `${hidden} ${hidden === 1 ? "source" : "sources"} hidden · saved to your account, so it stays hidden on every device.`}
-			</p>
-		</section>
-	);
-}
-
 function MonthGrid({
 	month,
 	today,
@@ -858,6 +907,11 @@ function MonthGrid({
 	readonly onShowDay: (day: string) => void;
 	readonly byDay: ReadonlyMap<string, readonly Entry[]>;
 }) {
+	const t = useT();
+	const labels = useCalendarLabels();
+	const weekdayHeaders = Array.from({ length: 7 }, (_, offset) =>
+		labels.weekday(new Date(2024, 0, 1 + offset), "short"),
+	);
 	const { year, index } = monthParts(month);
 	const offset = (new Date(year, index - 1, 1).getDay() + 6) % 7;
 	const length = new Date(year, index, 0).getDate();
@@ -882,7 +936,7 @@ function MonthGrid({
 		<div className={clsx(!compact && "overflow-x-auto")}>
 			<div
 				role="grid"
-				aria-label={monthLabel(month)}
+				aria-label={labels.month(month)}
 				className={clsx(
 					"overflow-hidden rounded-lg border border-border bg-surface",
 					!compact && "min-w-[760px]",
@@ -929,10 +983,15 @@ function MonthGrid({
 											<button
 												type="button"
 												onClick={() => onShowDay(day)}
-												aria-label={cellLabel(day, entries.length)}
 												className={clsx(
 													"flex min-h-14 w-full flex-col items-center gap-1 py-1.5 hover:bg-hover",
 													day < today && "opacity-70",
+												)}
+												aria-label={t(
+													kernelMessage("renderer.calendar.day-items", {
+														day: labels.day(day),
+														count: entries.length,
+													}),
 												)}
 											>
 												{dayNumber(date, day, inMonth)}
@@ -946,7 +1005,7 @@ function MonthGrid({
 														aria-hidden="true"
 														className="text-[10px] leading-none text-text-muted"
 													>
-														+{hidden}
+														{t(kernelMessage("renderer.calendar.more-count", { count: hidden }))}
 													</span>
 												)}
 											</button>
@@ -981,13 +1040,13 @@ function MonthGrid({
 											<SourceDot size="size-1.5" color={entry.color} />
 											{entry.occurrence.precision === "instant" && (
 												<span className="shrink-0 text-text-muted tabular-nums">
-													{timeLabel(entry.occurrence)}
+													{labels.time(entry.occurrence)}
 												</span>
 											)}
 											<span className="truncate">
-												{entry.occurrence.caption === null
+												{entry.caption === null
 													? entry.occurrence.subject.name
-													: `${entry.occurrence.subject.name} · ${entry.occurrence.caption}`}
+													: `${entry.occurrence.subject.name} · ${entry.caption}`}
 											</span>
 										</PluginLink>
 									))}
@@ -998,7 +1057,7 @@ function MonthGrid({
 											className="self-start"
 											onClick={() => onShowDay(day)}
 										>
-											+{hidden} more
+											{t(kernelMessage("renderer.calendar.more", { count: hidden }))}
 										</Button>
 									)}
 								</div>

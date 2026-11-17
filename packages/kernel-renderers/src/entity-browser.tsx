@@ -1,4 +1,5 @@
-import type { DescribeResponse, ExecutionSource } from "@ryot-app/plugin-client-sdk";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import type { DescribeResponse, PluginExecutionSource } from "@ryot-app/plugin-client-sdk";
 import {
 	type AddAction,
 	addToCollectionAction,
@@ -12,10 +13,12 @@ import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
+	useDisplayText,
 	useHostScreen,
 	useRyot,
 	useRyotQuery,
 	useRyotSchedule,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
@@ -62,11 +65,11 @@ export const EntityBrowserView = ({
 	renderSummary,
 	renderResults,
 }: Omit<EntityBrowserPageProps, "shareable"> & {
-	readonly errorTitle: string;
 	readonly selectable: boolean;
-	readonly errorMessage: string;
 	readonly input: BrowserViewInput;
+	readonly errorTitle: ControllerProps["errorTitle"];
 	readonly menuActions?: ControllerProps["menuActions"];
+	readonly errorMessage: ControllerProps["errorMessage"];
 	readonly renderSummary?: ControllerProps["renderSummary"];
 	readonly viewContext: ComponentProps<typeof EntityBrowserResults>["viewContext"];
 	readonly controls: {
@@ -76,7 +79,7 @@ export const EntityBrowserView = ({
 }) => {
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
-	const source = (query: string): ExecutionSource => ({
+	const source = (query: string): PluginExecutionSource => ({
 		query,
 		kind: "savedView",
 		reference: input.target.reference,
@@ -107,7 +110,11 @@ export const EntityBrowserView = ({
 			{ cancelOnUnmount: true },
 		),
 	);
-	const viewName = input.view?.name ?? "Entity browser";
+	const t = useT();
+	const displayText = useDisplayText();
+	const viewName = input.view
+		? displayText(input.view.name)
+		: t(kernelMessage("renderer.entity-browser.title"));
 	const addAction = input.settings.addAction;
 	return (
 		<EntityBrowserController
@@ -172,8 +179,8 @@ export const EntityBrowserView = ({
 				(addAction === null
 					? undefined
 					: {
-							label: "Add",
 							searchesOnline: true,
+							label: t(kernelMessage("common.action.add")),
 							open: (initialQuery) => {
 								if (addAction.type === "plugin-route") {
 									ryot.navigation.push({
@@ -211,15 +218,19 @@ const BrowseDefinitions = ({
 }: EntityBrowserPageProps & { readonly input: typeof EntityBrowserPageInput.Type }) => {
 	const ryot = useRyot();
 	const openScreen = useHostScreen();
+	const t = useT();
 	const controls = useRyotQuery(controlsQuery, input.target);
+	const errorTitle = t(kernelMessage("renderer.entity-browser.unavailable"));
 	if (controls.data === undefined) {
 		return (
-			<PluginScreenFrame title={input.view?.name ?? "Entity browser"}>
+			<PluginScreenFrame
+				title={input.view ? input.view.name : kernelMessage("renderer.entity-browser.title")}
+			>
 				{controls.isError ? (
 					<BrowserInlineError
+						title={errorTitle}
 						onRetry={controls.refetch}
-						title="Saved view unavailable"
-						message="The saved view filters could not be loaded."
+						message={t(kernelMessage("renderer.entity-browser.filters-failed"))}
 					/>
 				) : null}
 			</PluginScreenFrame>
@@ -230,11 +241,11 @@ const BrowseDefinitions = ({
 			add={add}
 			selectable
 			input={input}
+			errorTitle={errorTitle}
 			renderResults={renderResults}
 			key={JSON.stringify(controls.data)}
-			errorTitle="Saved view unavailable"
 			viewContext={{ savedView: input.target.reference }}
-			errorMessage="The saved view results could not be loaded."
+			errorMessage={t(kernelMessage("renderer.entity-browser.results-failed"))}
 			controls={{
 				sortChoices: controls.data.sort,
 				filterFields: queryFilterFields(controls.data.filter),
@@ -246,7 +257,7 @@ const BrowseDefinitions = ({
 							{
 								key: "share",
 								icon: "share",
-								label: "Share",
+								label: t(kernelMessage("common.action.share")),
 								onSelect: () =>
 									openScreen(
 										ryot.screens.sharePublication({
@@ -265,10 +276,13 @@ export default function EntityBrowserPage({
 	shareable,
 	renderResults,
 }: EntityBrowserPageProps = {}) {
+	const t = useT();
 	const page = Schema.decodeUnknownResult(EntityBrowserPageInput)(usePageContext());
 	return Result.isFailure(page) ? (
-		<PluginScreenFrame title="Entity browser">
-			<StatusMessage tone="error">This entity browser configuration is invalid.</StatusMessage>
+		<PluginScreenFrame title={kernelMessage("renderer.entity-browser.title")}>
+			<StatusMessage tone="error">
+				{t(kernelMessage("renderer.entity-browser.invalid"))}
+			</StatusMessage>
 		</PluginScreenFrame>
 	) : (
 		<BrowseDefinitions

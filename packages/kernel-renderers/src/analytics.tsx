@@ -1,3 +1,4 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	AnalyticsReport,
 	AnalyticsSection,
@@ -16,6 +17,7 @@ import {
 	ActiveScreenContext,
 	useEntitlement,
 	useRyot,
+	useT,
 	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
@@ -30,6 +32,7 @@ export default function AnalyticsPage() {
 	const isActiveScreen = useContext(ActiveScreenContext);
 	const ryot = useRyot();
 	const location = usePluginLocation();
+	const t = useT();
 	const sections = useAnalyticsSections();
 	const preferences = useUserPreferences();
 	const pro = useEntitlement("pro");
@@ -49,16 +52,16 @@ export default function AnalyticsPage() {
 			<div className="max-w-full min-w-0 overflow-x-auto">
 				<SegmentedControl
 					optionClassName="px-3"
-					label="Analytics sections"
 					value={analyticsSectionKey(active)}
+					label={t(kernelMessage("renderer.analytics.sections"))}
 					onChange={(key) => ryot.navigation.pageSearch.push({ section: key })}
 					options={sections.map((section) => ({
-						label: section.name,
+						label: t(section.name),
 						value: analyticsSectionKey(section),
 						content: (
 							<>
 								<AppIcon size={16} name={section.icon} />
-								{section.name}
+								{t(section.name)}
 							</>
 						),
 					}))}
@@ -68,16 +71,16 @@ export default function AnalyticsPage() {
 	const content = (timeZone: TimeZone) =>
 		active === undefined ? (
 			<EmptyState
-				title="No analytics available"
 				icon={<AppIcon size={18} name="chart-column" />}
-				description="Installed plugins that report analytics appear here."
+				title={t(kernelMessage("renderer.analytics.empty-title"))}
+				description={t(kernelMessage("renderer.analytics.empty-description"))}
 			/>
 		) : (
-			<section className="min-w-0" aria-label={active.name}>
+			<section className="min-w-0" aria-label={t(active.name)}>
 				<AnalyticsReport
-					title={`${active.name} Analytics`}
-					subtitle={`Reporting timezone: ${timeZone}`}
 					key={JSON.stringify([analyticsSectionKey(active), selection, timeZone])}
+					subtitle={t(kernelMessage("renderer.analytics.report-subtitle", { zone: timeZone }))}
+					title={t(kernelMessage("renderer.analytics.report-title", { section: t(active.name) }))}
 				>
 					<AnalyticsSection
 						timeZone={timeZone}
@@ -90,23 +93,20 @@ export default function AnalyticsPage() {
 		);
 	return (
 		<PluginScreenFrame
-			title={page.view?.name ?? "Analytics"}
 			titleIcon={<AppIcon size={22} name={page.view?.icon ?? "chart-column"} />}
+			title={page.view ? page.view.name : kernelMessage("definition.saved-view.analytics")}
 		>
 			<div
 				style={{ paddingBottom: safeAreaBottom + 48 }}
 				className="mx-auto grid w-full max-w-5xl gap-5 p-4"
 			>
-				<QueryStatus
-					query={preferences}
-					label="reporting preferences"
-					onRetry={preferences.refetch}
-				>
-					{({ timeZone }) => (
+				<QueryStatus query={preferences} onRetry={preferences.refetch}>
+					{({ timeZone, weekStart }) => (
 						<AnalyticsControls
 							compact={compact}
 							timeZone={timeZone}
 							leading={sectionNav}
+							weekStart={weekStart}
 							selection={selection}
 							onSelectionChange={updateSelection}
 							key={Object.values(selectionParams).join("|")}

@@ -1,3 +1,4 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	addToCollectionAction,
 	BrowserInlineError,
@@ -10,10 +11,12 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
+	useDisplayText,
 	useEntitlement,
 	useHostScreen,
 	useRyot,
 	useRyotQuery,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { entitlementActionLabel, IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
@@ -34,6 +37,7 @@ import {
 	collectionMembersRecipe,
 	type CollectionMembersResult,
 	collectionMemberTableColumns,
+	collectionMemberTypeValue,
 	collectionPageLinks,
 	collectionPluginPagesRecipe,
 	type CollectionPluginPagesResult,
@@ -65,6 +69,34 @@ const pluginPagesQuery = createRyotQuery<readonly string[], CollectionPluginPage
 	},
 );
 
+/** Renders each member type's served name, adding the defining package where two names collide. */
+const useMemberTypeLabels = (groups: CollectionMembersAggregateResult) => {
+	const t = useT();
+	const displayText = useDisplayText();
+	const rendered = groups.items.map((group) => ({
+		group,
+		text: displayText(group.typeLabel),
+		value: collectionMemberTypeValue(group),
+	}));
+	const counts = new Map<string, number>();
+	for (const { text } of rendered) {
+		counts.set(text, (counts.get(text) ?? 0) + 1);
+	}
+	return new Map(
+		rendered.map(({ text, value, group }) => [
+			value,
+			(counts.get(text) ?? 0) > 1 && group.ownerPackageId !== null
+				? t(
+						kernelMessage("renderer.collection-detail.member-type", {
+							type: text,
+							plugin: group.ownerPackageId,
+						}),
+					)
+				: text,
+		]),
+	);
+};
+
 const CollectionBrowser = ({
 	total,
 	groups,
@@ -83,6 +115,7 @@ const CollectionBrowser = ({
 	readonly groups: CollectionMembersAggregateResult;
 }) => {
 	const ryot = useRyot();
+	const t = useT();
 	const openScreen = useHostScreen();
 	const reorder = useEntitlement("pro");
 	const pluginPages = useRyotQuery(pluginPagesQuery, [
@@ -91,7 +124,7 @@ const CollectionBrowser = ({
 	const pageActions = collectionPageLinks(collectionId, groups, pluginPages.data ?? []).map(
 		(link) => ({
 			icon: link.icon,
-			label: link.label,
+			label: t(link.label),
 			key: `${link.packageId}${link.path}`,
 			onSelect: () =>
 				ryot.navigation.push({
@@ -128,11 +161,22 @@ const CollectionBrowser = ({
 	);
 	const controls = useRyotQuery(controlQuery);
 	const sortChoices = controls.data?.sort ?? [];
-	const filterFields = queryFilterFields(controls.data?.filter ?? []).map((control) =>
-		control.key === "collections"
-			? Object.assign({}, control, { label: "Also in collection" })
-			: control,
-	);
+	const typeLabels = useMemberTypeLabels(groups);
+	const filterFields = queryFilterFields(controls.data?.filter ?? []).map((control) => {
+		if (control.key === "collections") {
+			return Object.assign({}, control, {
+				label: t(kernelMessage("renderer.collection-detail.also-in-collection")),
+			});
+		}
+		return control.key === "member-type" && "choices" in control
+			? Object.assign({}, control, {
+					choices: control.choices.map((choice) =>
+						Object.assign({}, choice, { label: typeLabels.get(choice.value) ?? choice.label }),
+					),
+				})
+			: control;
+	});
+	const typeColumn = collectionMemberTableColumns(membershipPropertiesSchema)[1]?.field;
 	const [query] = useState(() =>
 		createRyotQuery<BrowserQueryInput, CollectionMembersResult>(
 			({ client, input: { filter, cursor, searchText, sortChoice } }) =>
@@ -150,12 +194,14 @@ const CollectionBrowser = ({
 	);
 	if (controls.data === undefined) {
 		return (
-			<PluginScreenFrame title={header?.name ?? "Collection"}>
+			<PluginScreenFrame
+				title={header?.name ?? kernelMessage("definition.entity-schema.collection")}
+			>
 				{controls.error ? (
 					<BrowserInlineError
 						onRetry={controls.refetch}
-						title="Collection unavailable"
-						message="The collection controls could not be loaded."
+						title={t(kernelMessage("renderer.collection-detail.unavailable"))}
+						message={t(kernelMessage("renderer.collection-detail.controls-failed"))}
 					/>
 				) : null}
 			</PluginScreenFrame>
@@ -170,12 +216,12 @@ const CollectionBrowser = ({
 			identityKey={identityKey}
 			sortChoices={sortChoices}
 			filterFields={filterFields}
-			name={header?.name ?? "Collection"}
 			layouts={["grid", "list", "table"]}
-			defaultSortLabel="Collection order"
-			errorTitle="Collection unavailable"
-			emptyMessage="This collection is empty."
-			errorMessage="The collection could not be loaded."
+			emptyMessage={t(kernelMessage("renderer.collection-detail.empty"))}
+			defaultSortLabel={t(kernelMessage("renderer.collection-order.label"))}
+			errorTitle={t(kernelMessage("renderer.collection-detail.unavailable"))}
+			errorMessage={t(kernelMessage("renderer.collection-detail.load-failed"))}
+			name={header?.name ?? t(kernelMessage("definition.entity-schema.collection"))}
 			count={(client, { filter, searchText }) =>
 				client.data.query(
 					collectionMembersCountRecipe({ fields }),
@@ -200,7 +246,7 @@ const CollectionBrowser = ({
 				{
 					icon: "star",
 					key: "reviews",
-					label: "Reviews",
+					label: t(kernelMessage("renderer.collection-detail.reviews")),
 					onSelect: () => openScreen(ryot.screens.manageCollectionReviews({ collectionId })),
 				},
 				{
@@ -208,14 +254,28 @@ const CollectionBrowser = ({
 					onSelect: onReorder,
 					icon: "arrow-up-down",
 					disabled: !reorder.granted,
-					label: entitlementActionLabel("Reorder", "pro", reorder.granted),
+					label: entitlementActionLabel(
+						t,
+						t(kernelMessage("renderer.collection-detail.reorder")),
+						"pro",
+						reorder.granted,
+					),
 				},
-				{ key: "share", icon: "share", label: "Share", onSelect: share },
-				{ key: "edit", icon: "pencil", onSelect: editCollection, label: "Edit collection" },
+				{
+					key: "share",
+					icon: "share",
+					onSelect: share,
+					label: t(kernelMessage("common.action.share")),
+				},
+				{
+					key: "edit",
+					icon: "pencil",
+					onSelect: editCollection,
+					label: t(kernelMessage("renderer.collection-detail.edit")),
+				},
 			]}
 			renderResults={(results) => (
 				<EntityBrowserResults
-					items={results.items}
 					layout={results.layout}
 					settled={results.settled}
 					selection={results.selection}
@@ -225,10 +285,28 @@ const CollectionBrowser = ({
 						<IconButton
 							size="sm"
 							onClick={() => memberDetails(item.entityId)}
-							label={`Collection details for ${item.name ?? "item"}`}
+							label={t(
+								kernelMessage("renderer.collection-detail.member-details", {
+									name: item.name ?? "",
+								}),
+							)}
 						>
 							<AppIcon size={16} name="more-horizontal" />
 						</IconButton>
+					)}
+					items={results.items.map((item) =>
+						Object.assign({}, item, {
+							cells: item.cells.map((cell) =>
+								cell.key === typeColumn
+									? Object.assign({}, cell, {
+											value: {
+												displayKind: "text" as const,
+												value: typeLabels.get(collectionMemberTypeValue(item)) ?? cell.value.value,
+											},
+										})
+									: cell,
+							),
+						}),
 					)}
 				/>
 			)}
@@ -238,19 +316,28 @@ const CollectionBrowser = ({
 						<p className="text-sm text-text-muted">{header.description}</p>
 					) : null}
 					<section
-						aria-label="Collection summary"
+						aria-label={t(kernelMessage("renderer.collection-detail.summary"))}
 						className="flex flex-wrap items-center gap-1.5 text-xs text-text-muted"
 					>
-						<strong className="mr-1 font-semibold text-text">{total.toLocaleString()} total</strong>
+						<strong className="mr-1 font-semibold text-text">
+							{t(kernelMessage("renderer.collection-detail.total", { count: total }))}
+						</strong>
 						{groups.items.map((group) => (
 							<span
 								className="rounded-pill bg-surface-2 px-2 py-0.5"
 								key={JSON.stringify([group.ownerPluginId, group.entitySchemaSlug])}
 							>
-								{group.count.toLocaleString()} {group.typeLabel}
+								{t(
+									kernelMessage("renderer.collection-detail.type-count", {
+										count: group.count,
+										type: typeLabels.get(collectionMemberTypeValue(group)) ?? group.typeLabel,
+									}),
+								)}
 							</span>
 						))}
-						{groups.pageInfo.hasMore && <span>More types not shown</span>}
+						{groups.pageInfo.hasMore && (
+							<span>{t(kernelMessage("renderer.collection-detail.more-types"))}</span>
+						)}
 					</section>
 				</>
 			)}
@@ -259,6 +346,7 @@ const CollectionBrowser = ({
 };
 
 const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) => {
+	const t = useT();
 	const [reordering, setReordering] = useState(false);
 	const header = useRyotQuery(headerQuery, collectionId);
 	const groups = useRyotQuery(groupsQuery, collectionId);
@@ -278,12 +366,12 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 	) {
 		const failed = [header, groups, total, schemas].filter(({ isError }) => isError);
 		return (
-			<PluginScreenFrame title="Collection">
+			<PluginScreenFrame title={kernelMessage("definition.entity-schema.collection")}>
 				{failed.length === 0 ? null : (
 					<BrowserInlineError
-						title="Collection unavailable"
-						message="The collection could not be loaded."
 						onRetry={() => failed.forEach(({ refetch }) => refetch())}
+						title={t(kernelMessage("renderer.collection-detail.unavailable"))}
+						message={t(kernelMessage("renderer.collection-detail.load-failed"))}
 					/>
 				)}
 			</PluginScreenFrame>
@@ -300,7 +388,7 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 			<CollectionOrder
 				collectionId={collectionId}
 				onClose={() => setReordering(false)}
-				name={header.data?.name ?? "Collection"}
+				name={header.data?.name ?? t(kernelMessage("definition.entity-schema.collection"))}
 			/>
 		);
 	}
@@ -319,10 +407,13 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 };
 
 export default function CollectionDetailPage() {
+	const t = useT();
 	const location = usePluginLocation();
 	return location.kind !== "entity" ? (
-		<PluginScreenFrame title="Collection">
-			<StatusMessage tone="error">This collection page is invalid.</StatusMessage>
+		<PluginScreenFrame title={kernelMessage("definition.entity-schema.collection")}>
+			<StatusMessage tone="error">
+				{t(kernelMessage("renderer.collection-detail.invalid"))}
+			</StatusMessage>
 		</PluginScreenFrame>
 	) : (
 		<CollectionDetail collectionId={location.entityId} />
