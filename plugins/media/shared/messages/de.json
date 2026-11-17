@@ -539,6 +539,7 @@
 	"log.submit.finished": "Als {verb, select, read {gelesen} play {gespielt} watch {gesehen} listen {gehört} other {gelesen}} markieren",
 	"log.submit.save-progress": "Fortschritt speichern",
 	"log.submit.start": "{verb, select, read {Lesen} play {Spielen} watch {Ansehen} listen {Anhören} other {Lesen}} starten",
+	"library.add-to-backlog": "Zum Backlog hinzufügen",
 	"log.submit.status": "{status, select, on_hold {Pausieren} dropped {Als abgebrochen markieren} backlog {Zum Backlog hinzufügen} other {Zum Backlog hinzufügen}}",
 	"log.success.episode": "{code} als {verb, select, read {gelesen} play {gespielt} watch {gesehen} listen {gehört} other {gelesen}} markiert.",
 	"log.success.episodes": "{count, plural, one {# Folge als {verb, select, read {gelesen} play {gespielt} watch {gesehen} listen {gehört} other {gelesen}} markiert.} other {# Folgen als {verb, select, read {gelesen} play {gespielt} watch {gesehen} listen {gehört} other {gelesen}} markiert.}}",

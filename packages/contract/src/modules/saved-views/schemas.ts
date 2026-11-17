@@ -5,7 +5,10 @@ import { PluginPackageId, SavedViewId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { AssetLocator } from "../assets/schemas";
-import { ProviderLibraryMembership } from "../entity-providers/schemas";
+import {
+	AuthoredProviderLibraryMembership,
+	ProviderLibraryMembership,
+} from "../entity-providers/schemas";
 import { Filter } from "../filters/schemas";
 import { ManifestText } from "../plugins/manifest-text";
 import {
@@ -132,9 +135,9 @@ const EntityBrowserProviderSearchAddAction = strictStruct({
 });
 
 const AuthoredEntityBrowserProviderSearchAddAction = strictStruct({
-	library: ProviderLibraryMembership,
 	schema: AuthoredEntitySchemaReference,
 	type: Schema.Literal("provider-search"),
+	library: AuthoredProviderLibraryMembership,
 });
 
 export const EntityBrowserPluginRouteAddAction = strictStruct({
@@ -166,15 +169,11 @@ export const AuthoredEntityBrowserAddAction = Schema.Union([
 ]);
 export type AuthoredEntityBrowserAddAction = typeof AuthoredEntityBrowserAddAction.Type;
 
-export const mapEntityBrowserAddActionSchema = <Schema, Mapped>(
+export const mapEntityBrowserAddActionSchema = <Schema, Mapped, Library>(
 	action:
 		| null
 		| typeof EntityBrowserPluginRouteAddAction.Type
-		| {
-				readonly schema: Schema;
-				readonly type: "provider-search";
-				readonly library: ProviderLibraryMembership;
-		  },
+		| { readonly schema: Schema; readonly library: Library; readonly type: "provider-search" },
 	mapSchema: (schema: Schema) => Mapped,
 ) =>
 	action === null || action.type === "plugin-route"
@@ -260,8 +259,7 @@ export const AuthoredResultsTableSavedViewSettings = strictStruct({
 export type AuthoredResultsTableSavedViewSettings =
 	typeof AuthoredResultsTableSavedViewSettings.Type;
 
-/** Column labels of an authored kernel-rendered saved view, with their paths in the view. */
-export const authoredSavedViewColumnTexts = (view: {
+export const authoredSavedViewTexts = (view: {
 	readonly settings: unknown;
 	readonly renderer: { readonly kind: string };
 }): ReadonlyArray<{ readonly path: string; readonly text: ManifestText }> => {
@@ -269,10 +267,19 @@ export const authoredSavedViewColumnTexts = (view: {
 		return [];
 	}
 	if (Schema.is(AuthoredEntityBrowserSavedViewSettings)(view.settings)) {
-		return (view.settings.tableColumns ?? []).map(({ field, label }) => ({
-			text: label,
-			path: `settings.tableColumns.${field}.label`,
-		}));
+		const entryEvent =
+			view.settings.addAction?.type === "provider-search"
+				? view.settings.addAction.library.entryEvent
+				: null;
+		return [
+			...(entryEvent === null
+				? []
+				: [{ text: entryEvent.label, path: "settings.addAction.library.entryEvent.label" }]),
+			...(view.settings.tableColumns ?? []).map(({ field, label }) => ({
+				text: label,
+				path: `settings.tableColumns.${field}.label`,
+			})),
+		];
 	}
 	return Schema.is(AuthoredResultsTableSavedViewSettings)(view.settings)
 		? view.settings.columns.map(({ field, label }) => ({

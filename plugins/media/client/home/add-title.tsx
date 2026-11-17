@@ -9,7 +9,7 @@ import {
 	mediaBacklogLibraryMembership,
 } from "../../shared/media-schema-slugs";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { type MediaText, useMediaMessages } from "../messages";
+import { type MediaText, useMediaMessageBuilder, useMediaMessages } from "../messages";
 
 const schemaLabel = (text: MediaText, slug: (typeof builtinMediaEntitySchemaSlugs)[number]) => {
 	const names = {
@@ -33,6 +33,7 @@ export function AddTitleMenu(props: { readonly variant: "icon" | "button" }) {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const text = useMediaMessages();
+	const message = useMediaMessageBuilder();
 	return (
 		<MenuButton
 			label={text("home.add-title")}
@@ -54,10 +55,16 @@ export function AddTitleMenu(props: { readonly variant: "icon" | "button" }) {
 					schedule.run(
 						client.screens
 							.pickEntity({
-								library: mediaBacklogLibraryMembership,
 								schema: {
 									slug: EntitySchemaSlug.make(slug),
 									owner: { kind: "plugin", pluginId: identity.pluginId },
+								},
+								library: {
+									...mediaBacklogLibraryMembership,
+									entryEvent: {
+										...mediaBacklogLibraryMembership.entryEvent,
+										label: message(mediaBacklogLibraryMembership.entryEvent.label.key),
+									},
 								},
 							})
 							.pipe(Effect.ignore),

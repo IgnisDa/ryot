@@ -37,8 +37,8 @@ import {
 	RowSourceQuery,
 } from "../ryotql/row-source";
 import {
-	authoredSavedViewColumnTexts,
 	AuthoredSavedViewSubject,
+	authoredSavedViewTexts,
 	withAuthoredSavedViewConfig,
 } from "../saved-views/schemas";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
@@ -1779,7 +1779,7 @@ const manifestTextUses = (manifest: ManifestTextSource): ReadonlyArray<AuthoredT
 	),
 	...manifest.savedViews.flatMap((view) => [
 		{ text: view.name, path: `savedViews.${view.slug}.name` },
-		...authoredSavedViewColumnTexts(view).map(({ path, text }) => ({
+		...authoredSavedViewTexts(view).map(({ path, text }) => ({
 			text,
 			path: `savedViews.${view.slug}.${path}`,
 		})),

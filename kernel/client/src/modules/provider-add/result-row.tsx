@@ -1,4 +1,5 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
 import { useT } from "@ryot-app/i18n/react";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -17,7 +18,7 @@ export function ProviderSearchResultRow(props: {
 	readonly item: ProviderSearchResultItem;
 	readonly entry: ProviderEntityImportEntry;
 	readonly linkedEntityId: EntityId | undefined;
-	readonly entryEventLabel?: string | undefined;
+	readonly entryEventLabel?: Message | undefined;
 	readonly onAdd: (withEntryEvent: boolean) => void;
 }) {
 	const t = useT();
@@ -83,7 +84,7 @@ function ResultAction(props: {
 	readonly title: string;
 	readonly withEntryEvent: boolean;
 	readonly entry: ProviderEntityImportEntry;
-	readonly entryEventLabel: string | undefined;
+	readonly entryEventLabel: Message | undefined;
 	readonly linkedEntityId: EntityId | undefined;
 	readonly onAdd: (withEntryEvent: boolean) => void;
 }) {
@@ -148,7 +149,7 @@ function ResultAction(props: {
 							}),
 						)}
 					>
-						{props.entryEventLabel}
+						{t(props.entryEventLabel)}
 					</button>
 				)}
 				<button

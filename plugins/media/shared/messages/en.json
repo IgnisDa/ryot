@@ -1367,6 +1367,7 @@
 		"message": "Start {verb, select, read {reading} play {playing} watch {watching} listen {listening} other {reading}}",
 		"description": "{verb} is what the user does with the media: read, play, watch or listen."
 	},
+	"library.add-to-backlog": "Add to backlog",
 	"log.submit.status": {
 		"message": "{status, select, on_hold {Put on hold} dropped {Mark as dropped} backlog {Add to backlog} other {Add to backlog}}",
 		"description": "Button that sets a status. {status} is the status."

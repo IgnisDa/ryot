@@ -6,6 +6,7 @@ import { JsonValue } from "../../schema/json";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import { ListedEntity } from "../entities/schemas";
+import { ManifestText } from "../plugins/manifest-text";
 
 export const ProviderEntityReference = strictStruct({
 	externalId: Schema.String,
@@ -14,18 +15,20 @@ export const ProviderEntityReference = strictStruct({
 });
 export type ProviderEntityReference = typeof ProviderEntityReference.Type;
 
-export const ProviderLibraryEntryEvent = strictStruct({
-	label: Schema.NonEmptyString,
-	eventSchemaSlug: Schema.NonEmptyString,
-});
+const providerLibraryEntryEvent = <Text extends Schema.Top>(label: Text) =>
+	strictStruct({ label, eventSchemaSlug: Schema.NonEmptyString });
+export const ProviderLibraryEntryEvent = providerLibraryEntryEvent(Message);
 export type ProviderLibraryEntryEvent = typeof ProviderLibraryEntryEvent.Type;
 
-export const ProviderLibraryMembership = strictStruct({
-	relationshipSlug: Schema.NonEmptyString,
-	librarySchemaSlug: Schema.NonEmptyString,
-	entryEvent: Schema.NullOr(ProviderLibraryEntryEvent),
-});
+const providerLibraryMembership = <Text extends Schema.Top>(label: Text) =>
+	strictStruct({
+		relationshipSlug: Schema.NonEmptyString,
+		librarySchemaSlug: Schema.NonEmptyString,
+		entryEvent: Schema.NullOr(providerLibraryEntryEvent(label)),
+	});
+export const ProviderLibraryMembership = providerLibraryMembership(Message);
 export type ProviderLibraryMembership = typeof ProviderLibraryMembership.Type;
+export const AuthoredProviderLibraryMembership = providerLibraryMembership(ManifestText);
 
 export const ImportEntityBody = strictStruct({
 	externalId: Schema.String,

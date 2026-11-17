@@ -251,7 +251,7 @@ call it; other documents receive `invalid-request`.
 carries an exact `EntitySchemaReference` and returns an Effect with `{ kind: "selected", entityIds }`,
 `{ kind: "cancelled" }`, or `{ kind: "create-requested" }`. With a `library` membership the kernel
 shows provider search with in-library badges and imports. A membership's optional
-`entryEvent: { label, eventSchemaSlug }` adds a second, labelled action to each result not yet in the
+`entryEvent: { label, eventSchemaSlug }`, with a stamped `Message` label, adds a second, labelled action to each result not yet in the
 library; it imports the item and records that event on it, so the event must belong to the picked
 schema. Without a membership the picker lists visible entities of the
 schema, provider results that are not yet materialized, and a create action. Library picks navigate to

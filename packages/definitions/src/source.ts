@@ -86,9 +86,24 @@ export const materializeSavedView = (
 		const { subject, addAction, tableColumns } = decoded.success;
 		settings = {
 			...decoded.success,
-			addAction: mapEntityBrowserAddActionSchema(addAction, resolveSchema),
 			tableColumns: tableColumns === null ? null : stampColumns(tableColumns),
 			subject: { ...subject, schemas: Arr.map(subject.schemas, resolveSchema) },
+			addAction:
+				addAction?.type === "provider-search"
+					? {
+							...mapEntityBrowserAddActionSchema(addAction, resolveSchema),
+							library: {
+								...addAction.library,
+								entryEvent:
+									addAction.library.entryEvent === null
+										? null
+										: {
+												...addAction.library.entryEvent,
+												label: stampNamespace(pluginId, addAction.library.entryEvent.label),
+											},
+							},
+						}
+					: addAction,
 		};
 	} else {
 		const decoded = Schema.decodeUnknownResult(AuthoredResultsTableSavedViewSettings)(

@@ -6,7 +6,7 @@ export const mediaLibraryMembership = {
 
 export const mediaBacklogLibraryMembership = {
 	...mediaLibraryMembership,
-	entryEvent: { label: "Add to backlog", eventSchemaSlug: "backlog" },
+	entryEvent: { eventSchemaSlug: "backlog", label: { key: "library.add-to-backlog" } },
 } as const;
 
 export const builtinMediaEntitySchemaSlugs = [

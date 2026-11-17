@@ -499,7 +499,10 @@ describe("first run", () => {
 						library: {
 							librarySchemaSlug: "media-library",
 							relationshipSlug: "in-media-library",
-							entryEvent: { label: "Add to backlog", eventSchemaSlug: "backlog" },
+							entryEvent: {
+								eventSchemaSlug: "backlog",
+								label: { namespace: "media-owner", key: "library.add-to-backlog" },
+							},
 						},
 					},
 				]);

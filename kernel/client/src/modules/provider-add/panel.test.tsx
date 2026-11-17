@@ -25,7 +25,7 @@ import type { ProviderEntityImportEntry } from "#/modules/provider-add/import-co
 import { ProviderSearchPanel, SEARCH_DEBOUNCE_MS } from "#/modules/provider-add/panel";
 import { ProviderAddLoadError, type ProviderSearchSummary } from "#/modules/provider-add/service";
 
-const wrapper = testI18nWrapper([testMessageCatalog("Provider 1", "Provider 2")]);
+const wrapper = testI18nWrapper([testMessageCatalog("Provider 1", "Provider 2", "Plan it")]);
 
 const unitSlug = EntitySchemaSlug.make("unit");
 
@@ -565,8 +565,8 @@ describe("provider search panel", () => {
 				const linksLoaded: Array<() => void> = [];
 				renderPanel({
 					initialQuery: "Sample",
-					entryEvent: { label: "Plan it", eventSchemaSlug: "planned" },
 					search: (payload) => Effect.succeed(searchResponse(payload.page)),
+					entryEvent: { eventSchemaSlug: "planned", label: testMessage("Plan it") },
 					importEntity: (input) =>
 						Effect.sync(() => {
 							imports.push(input);
