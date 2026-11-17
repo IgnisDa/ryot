@@ -154,13 +154,22 @@ export const entitySchemaRecord = (
 ): EntitySchemaRecord => ({
 	providers: [],
 	icon: "circle",
-	name: "Entity",
 	slug: "entity",
 	isBuiltin: true,
 	propertiesSchema: {},
 	id: "entity-schema-1",
 	pluginId: PluginId.make("media-owner"),
+	name: { namespace: "media", key: "test.entity-schema" },
 	...overrides,
+});
+
+export const entitySchemaProvider = (
+	slug: string,
+	providerId: string,
+): EntitySchemaRecord["providers"][number] => ({
+	slug,
+	providerId,
+	name: { namespace: "media", key: "test.provider" },
 });
 
 export const eventRecord = (overrides: Partial<EventRecord> = {}): EventRecord => ({

@@ -25,6 +25,7 @@ export const flatPersonRow = {
 	order: 1,
 	isGuest: null,
 	id: "person-1",
+	roleCodes: null,
 	roles: ["Actor"],
 	creditKinds: null,
 	departments: null,
@@ -40,10 +41,11 @@ export const flatPersonRow = {
 
 export const flatCompanyRow = {
 	order: 1,
+	roles: [],
 	id: "company-1",
 	isInMediaLibrary: false,
 	name: "Fox 2000 Pictures",
-	roles: ["Production Company"],
+	roleCodes: ["production_company"],
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },

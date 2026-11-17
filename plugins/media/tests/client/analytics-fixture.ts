@@ -10,6 +10,7 @@ import type {
 	MediaAnalyticsSummary,
 } from "../../client/analytics/model";
 import { consumptionMeasures, mediaAnalyticsSummaryRecipe } from "../../shared/analytics-recipes";
+import { servedTypeName } from "./served-names";
 
 export const reportingSelectionResponse = (argumentsValue: Readonly<Record<string, unknown>>) => ({
 	type: "rows" as const,
@@ -34,28 +35,25 @@ export const zeroMeasures = Object.fromEntries(
 	Object.keys(consumptionMeasures(table("event", "fixture"))).map((key) => [key, 0]),
 );
 
-export const analyticsTypeRow = (mediaType: string, label: string, values: Row = {}): Row => ({
-	label,
+export const analyticsTypeRow = (mediaType: string, values: Row = {}): Row => ({
 	mediaType,
 	activeDays: 0,
 	distinctTitles: 0,
+	label: servedTypeName(mediaType),
 	...zeroMeasures,
 	...values,
 });
 
-export const analyticsReviewRow = (mediaType: string, label: string, values: Row = {}): Row => ({
-	label,
+export const analyticsReviewRow = (mediaType: string, values: Row = {}): Row => ({
 	rated: 0,
 	mediaType,
 	reviews: 0,
 	averageRating: null,
+	label: servedTypeName(mediaType),
 	...values,
 });
 
-const defaultTypes = [
-	analyticsTypeRow("book", "Book"),
-	analyticsTypeRow("show-episode", "Show episode"),
-];
+const defaultTypes = [analyticsTypeRow("book"), analyticsTypeRow("show-episode")];
 const aggregate = (items: readonly Row[]) => ({
 	items,
 	type: "aggregate",
@@ -78,7 +76,11 @@ export const analyticsSummary = (
 		[`${prefix}Types`]: aggregate(values.types ?? defaultTypes),
 		[`${prefix}ActiveDays`]: aggregate([{ activeDays: values.activeDays ?? 0 }]),
 	});
-	const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
+	const reporting = reportingExecution(input.selection, {
+		now,
+		weekStart: 1,
+		timeZone: input.timeZone,
+	});
 	const summary = Result.getOrThrow(
 		bindRecipe(
 			mediaAnalyticsSummaryRecipe({

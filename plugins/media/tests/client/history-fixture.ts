@@ -2,7 +2,7 @@ import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored"
 import type { RyotQLDocument as ExecutableDocument } from "@ryot-app/contract/modules/ryotql/language";
 
 export const historyRow = (
-	document: RyotQLDocument | ExecutableDocument,
+	document: Pick<RyotQLDocument | ExecutableDocument, "queries">,
 	category: number,
 	row: Readonly<Record<string, unknown>>,
 ) => {

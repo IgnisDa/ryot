@@ -1,8 +1,11 @@
+import { Text } from "@ryot-app/i18n/text";
+
 import {
 	type MediaEpisodicCoverage,
 	mediaEpisodicCoveragePercent,
 } from "../../../client/media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../../../client/media/episodic-schema";
+import { catalogMessage } from "../../../shared/messages.generated";
 import { type EpisodicFixtureActivityResult, episodicFixtureRecipes } from "./recipes";
 
 export const episodicFixtureCoverage = (
@@ -17,9 +20,9 @@ export const episodicFixtureCoverage = (
 		rows: [
 			{
 				key: episodes.id,
-				label: "Episodes",
 				total: episodes.episodeTotal,
 				watched: episodes.watchedTotal,
+				label: catalogMessage("property.episodes"),
 				percent: mediaEpisodicCoveragePercent(episodes.watchedTotal, episodes.episodeTotal),
 			},
 		],
@@ -34,27 +37,28 @@ export const episodicFixtureSchema = defineEpisodicMediaSchema({
 	recipes: episodicFixtureRecipes,
 	coverage: episodicFixtureCoverage,
 	presentationDetail: () => undefined,
-	overviewLoadingDetail: "Fetching the credits for this item.",
-	nouns: { plural: "items", title: "Fixture", singular: "item" },
-	creditCopy: { people: "People", notice: "Credits", companies: "Companies" },
+	overviewLoadingDetail: catalogMessage("overview.loading.show"),
+	logActivity: { family: "show", copy: { verb: "watch", kind: "movie" } },
 	episodeOrder: (episode: { readonly episodeNumber: number }) => [episode.episodeNumber],
-	episodeOrigin: (episode: { readonly episodeNumber: number }) => `Ep ${episode.episodeNumber}`,
-	logActivity: {
-		family: "show",
-		copy: { noun: "item", verb: "watch", gerund: "watching", participle: "watched" },
+	episodeOrigin: (episode: { readonly episodeNumber: number }) =>
+		catalogMessage("home.episode-position", { episode: episode.episodeNumber }),
+	creditCopy: {
+		people: catalogMessage("credits.people"),
+		notice: catalogMessage("credits.notice"),
+		companies: catalogMessage("credits.companies"),
 	},
-	activityCopy: {
-		segmentNoun: "Pass",
+	activityCopy: () => ({
+		segment: "watch" as const,
 		recordLabel: "Item record",
 		libraryLabel: "Added to media library",
-		loadingDetail: "Fetching the item record.",
-		emptyDetail: "Nothing has been recorded for this item.",
+		loadingDetail: Text("Fetching the item record."),
+		emptyDetail: Text("Nothing has been recorded for this item."),
 		figures: { time: "Time", watches: "Passes", current: "This pass", episodes: "Episodes" },
-		rowLabels: { watched: "Heard", review: "Reviewed the item", completion: "Finished the item" },
-		beats: {
-			backlog: "Added to backlog",
-			dropped: "Stopped the item",
-			on_hold: "Put this item on hold",
+		beats: { on_hold: "Put on hold", backlog: "Added to backlog", dropped: "Stopped the item" },
+		rowLabels: {
+			watched: "played" as const,
+			review: "Reviewed the item",
+			completion: "Finished the item",
 		},
-	},
+	}),
 });

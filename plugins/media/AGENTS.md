@@ -5,7 +5,7 @@
 - Keep title parsing/matching within the backend compiler's ES2022 support; do not use `toReversed`.
 - Read calendar parts in UTC (`DateTime.getPartUtc`, `Date#getUTC*`); never local-time `Date` getters, since the sandbox zone is not guaranteed.
 - Shared recipe factories and descriptor engines own reusable behavior. Schema files supply configuration, vocabulary, and declared fields; do not re-wrap overview recipes or duplicate shared schemas in `client/`.
-- `client/media/` stays schema-agnostic: no schema symbols, copy, or fixed poster geometry. Descriptors supply nouns, sections, facts, artwork purposes, and aspect through the canonical helpers documented in the README.
+- `client/media/` stays schema-agnostic: no schema symbols, copy, or fixed poster geometry. Descriptors supply kind codes, sections, facts, artwork purposes, and aspect through the canonical helpers documented in the README.
 - Select only fields declared by the target schema. Group creator credits cannot use `publishYear`; only person credits select `character`.
 - Episode lists use cursor-paged top-level row queries, not includes. Container totals come from aggregates, not loaded pages. Episode ordering is presentation-only; lifecycle uses default seasons.
 - Keep activity vocabulary and notification formatters plugin-owned. Track durations are seconds; time-total measures are minutes.

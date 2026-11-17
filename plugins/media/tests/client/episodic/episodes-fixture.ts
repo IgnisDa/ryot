@@ -16,6 +16,7 @@ import {
 	mediaEpisodeCreditsRecipe,
 	mediaPeopleRecipe,
 } from "../../../shared/media-recipes";
+import { catalogMessage } from "../../../shared/messages.generated";
 import { rowsResult } from "../query-result-fixture";
 import { type EpisodicFixtureEpisode, episodicFixtureEpisodesRecipe } from "./recipes";
 
@@ -83,8 +84,13 @@ export const EPISODIC_FIXTURE_RENDER: MediaEpisodeRender<EpisodicFixtureEpisode>
 	purpose: "cover",
 	entitySchemaSlug: "podcast-episode",
 	numberLabel: mediaEpisodeNumberLabel,
-	originLabel: (episode) => `Ep ${episode.episodeNumber}`,
-	stateLabels: { complete: "Played", untracked: undefined, in_progress: "In progress" },
+	originLabel: (episode) =>
+		catalogMessage("home.episode-position", { episode: episode.episodeNumber }),
+	stateLabels: {
+		untracked: undefined,
+		complete: catalogMessage("episodes.state-played"),
+		in_progress: catalogMessage("browse.status.in-progress"),
+	},
 	activityEpisode: (episode) => ({
 		id: episode.id,
 		seasonNumber: null,
@@ -96,7 +102,7 @@ export const EPISODIC_FIXTURE_RENDER: MediaEpisodeRender<EpisodicFixtureEpisode>
 
 const EPISODIC_FIXTURE_LOGGER: MediaActivityLogger = {
 	family: "podcast",
-	copy: { noun: "podcast", verb: "listen to", gerund: "listening", participle: "listened" },
+	copy: { verb: "listen", kind: "podcast" },
 };
 
 export const EPISODIC_FIXTURE_LOG: MediaEpisodeLog = {
@@ -105,19 +111,19 @@ export const EPISODIC_FIXTURE_LOG: MediaEpisodeLog = {
 };
 
 export const EPISODIC_FIXTURE_CREDITS = createMediaEpisodeCredits({
-	copy: {
-		crew: "Crew",
-		title: "Cast & crew",
-		guestStars: "Guest stars",
-		fullCredits: "Full cast & crew",
-		loading: "Fetching this episode's cast and crew.",
-	},
 	recipes: {
 		overviewRecipe: mediaEpisodeCreditsRecipe({ slug: "podcast-episode" }),
 		peopleRecipe: mediaPeopleRecipe({
 			slug: "podcast-episode",
 			personFields: creditCharacterSelection,
 		}),
+	},
+	copy: {
+		title: catalogMessage("credits.cast-crew"),
+		crew: catalogMessage("episode-credits.crew"),
+		loading: catalogMessage("episode-credits.loading"),
+		fullCredits: catalogMessage("episode-credits.full"),
+		guestStars: catalogMessage("episode-credits.guest-stars"),
 	},
 });
 

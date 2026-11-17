@@ -135,6 +135,11 @@ people and company lists, including unlinked contributors. Credit pages preserve
 roles, and declared character fields. All credits are included without filters. The credits and image
 gallery share the detail modal frame.
 
+Credit relationships keep roles a provider names in `roles`, shown as written, and roles a provider
+only implies (author, publisher, studio and the rest of `shared/credit-roles.ts`) as `roleCodes`,
+labelled through the catalog. Unlinked creators carry one `role` or `roleCode`; only the
+`publisher` code lists an unlinked creator among companies.
+
 Creators have no lifecycle, ownership toggle, or Log activity action. Activity combines reviews and
 collection changes. Person facts use provider birth/death data without inventing ages for partial or
 future dates. Person art is portrait; company logos are square and contain-fit. Only HTTP(S) links
@@ -194,8 +199,9 @@ library through the subject's `in-media-library` link:
 - `anime-airings` expands `airingSchedule` with a `jsonElements` join. The entry at UTC midnight of
   the anime's `publishDate` is the release row, not an airing. An episode is done when the anime is
   complete or the latest progress/list-state `position` reaches it.
-- `releases` lists flat media by `publishDate`, captioned with the schema name; an anime with timed
-  airings shows both its release and `Episode 1`.
+- `releases` lists flat media by `publishDate`, captioned by a `select` over the schema slug's code
+  (`video_game` for `video-game`); an anime with timed airings shows both its release and
+  `Episode 1`.
 
 ### Signal Schedules
 
@@ -868,7 +874,8 @@ the server clock and account reporting timezone to resolve windows and grouping 
   it with day grouping over at most the last 366 days of the period.
 - `mediaAnalyticsHoursRecipe` groups exact instants by local hour. Rankings are one grouped aggregate
   of period contributions per title, paged with a grouped cursor; records page source rows with
-  cursors. Media type labels come from the entity schema name.
+  cursors. Rows carry the media type slug; the client renders its label from the plugin catalog's
+  `entity-schema.<slug>.name` message.
 
 Values are always shown; a pending or failed state adds a processing note. Analytics queries refresh
 on the kernel's projection page refresh when consumption processing settles.

@@ -5,6 +5,7 @@ import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import type { MediaEntityRecipe as ImportedMediaEntityRecipe } from "../../../client/media/detail-queries";
 import { creatorActivityData } from "../creator/activity-fixture";
 import { rowsResult } from "../query-result-fixture";
+import { servedProviderName } from "../served-names";
 import { decodeMediaSummaryResult } from "../summary-fixture";
 import { creditGroupFixtureRecipes, groupFixtureRecipes } from "./recipes";
 
@@ -17,12 +18,12 @@ export const groupSummaryRow = {
 	memberCount: 5,
 	isCustom: false,
 	isMonitored: false,
-	providerName: "TMDB",
 	isInMediaLibrary: true,
 	providerCheckedAt: null,
 	completedMemberCount: 2,
 	schemaSlug: "movie-group",
 	name: "The Matrix Collection",
+	providerName: servedProviderName("tmdb"),
 	description: "Humanity against the machines.",
 	sourceUrl: "https://tmdb.test/collection/2344",
 	translationStatus: { state: "idle", availability: "none" },
@@ -87,9 +88,10 @@ const creditRows = (items: readonly Record<string, unknown>[]) =>
 
 export const groupArtistCreditRow = {
 	order: 1,
+	roles: [],
 	id: "person-1",
-	roles: ["Artist"],
 	name: "Nina Simone",
+	roleCodes: ["artist"],
 	isInMediaLibrary: false,
 	images: [{ type: "s3", key: "nina", purpose: "profile" }],
 	translationStatus: { state: "idle", availability: "none" },
@@ -101,6 +103,7 @@ export const groupLabelCreditRow = {
 	order: 1,
 	name: "Verve",
 	id: "company-1",
+	roleCodes: null,
 	roles: ["Label"],
 	isInMediaLibrary: false,
 	images: [{ type: "s3", key: "verve", purpose: "logo" }],

@@ -1,11 +1,11 @@
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import {
 	createTestBackgroundSubmissions,
 	createTestRyotClock,
+	TestI18nProvider,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { fireEvent } from "@testing-library/dom";
@@ -14,6 +14,8 @@ import { createRoot, type Root } from "react-dom/client";
 
 import { mediaDeclaredQueries } from "../../manifest/queries";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { englishCatalog } from "../english-catalog";
+import { MEDIA_OWNER_ID } from "./served-names";
 
 type LocalDateTimeParts = {
 	readonly day: number;
@@ -25,7 +27,7 @@ type LocalDateTimeParts = {
 	readonly millisecond?: number;
 };
 
-export const requestQueryNames = (request: ExecutionRequest) => {
+export const requestQueryNames = (request: PluginExecutionRequest) => {
 	const { source } = request;
 	if (source.kind !== "plugin") {
 		return Object.keys(bindTestRequest(request).queries);
@@ -40,26 +42,38 @@ export const requestQueryNames = (request: ExecutionRequest) => {
 export const localDateTime = (parts: LocalDateTimeParts) =>
 	DateTime.makeZonedUnsafe(parts, { adjustForTimeZone: true, timeZone: DateTime.zoneMakeLocal() });
 
+export const mediaMessages = (pluginId: string) => ({
+	namespace: pluginId,
+	locale: "en" as const,
+	catalog: englishCatalog,
+});
+
+const withMediaMessages = (children: ReactNode) => (
+	<TestI18nProvider catalogs={[mediaMessages(MEDIA_OWNER_ID)]}>{children}</TestI18nProvider>
+);
+
 export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
 	const { client, runtime, advance, setTime, dispose } = createTestRyotClock({
 		...createTestBackgroundSubmissions().adapter,
 		readAccount: () =>
 			Effect.succeed({
 				entitlements: ["pro"],
-				preferences: { timeZone: "UTC", ratingScale: "hundred" },
+				preferences: { weekStart: 1, timeZone: "UTC", ratingScale: "hundred" },
 			}),
 		pluginIdentity: (packageId) => {
 			if (packageId !== PLUGIN_PACKAGE_ID) {
 				throw new Error("Unexpected contributor package");
 			}
-			return { kind: "local", pluginId: PluginId.make("media-owner") };
+			return { kind: "local", pluginId: MEDIA_OWNER_ID };
 		},
 		...adapter,
 	});
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root: Root = createRoot(container);
-	act(() => root.render(<RyotProvider runtime={runtime}>{children}</RyotProvider>));
+	act(() =>
+		root.render(<RyotProvider runtime={runtime}>{withMediaMessages(children)}</RyotProvider>),
+	);
 	return {
 		client,
 		runtime,
@@ -72,7 +86,9 @@ export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: R
 			void dispose();
 		},
 		rerender: (next: ReactNode) =>
-			act(() => root.render(<RyotProvider runtime={runtime}>{next}</RyotProvider>)),
+			act(() =>
+				root.render(<RyotProvider runtime={runtime}>{withMediaMessages(next)}</RyotProvider>),
+			),
 	};
 };
 

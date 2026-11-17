@@ -12,6 +12,7 @@ export const showPersonRow = {
 	order: 1,
 	isGuest: null,
 	id: "person-1",
+	roleCodes: null,
 	creditKinds: null,
 	departments: null,
 	character: "Jamie",
@@ -27,10 +28,11 @@ export const showPersonRow = {
 
 export const showCompanyRow = {
 	order: 1,
+	roles: [],
 	id: "company-1",
 	name: "Warp Films",
 	isInMediaLibrary: false,
-	roles: ["Production Company"],
+	roleCodes: ["production_company"],
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },

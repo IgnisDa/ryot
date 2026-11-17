@@ -3,6 +3,7 @@ import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { podcastRecipes } from "../../../shared/podcast-recipes";
 import { rowsResult } from "../query-result-fixture";
+import { servedProviderName } from "../served-names";
 
 const rows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
@@ -38,8 +39,8 @@ export const podcastSummaryRow = {
 	providerCheckedAt: null,
 	productionStatus: "Ended",
 	publishDate: "2014-11-18",
-	providerName: "Listen Notes",
 	description: "A show about the internet.",
+	providerName: servedProviderName("listen-notes"),
 	translationStatus: { state: "idle", availability: "none" },
 	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	populationStatus: { state: "succeeded", availability: "complete" },
@@ -79,8 +80,8 @@ export const decodePodcastOverview = (
 				creators: rows([
 					{
 						unlinkedCreators: input.unlinkedCreators ?? [
-							{ role: "Artist", name: "PJ Vogt" },
-							{ role: "Publisher", name: "Gimlet Media" },
+							{ name: "PJ Vogt", roleCode: "artist" },
+							{ name: "Gimlet Media", roleCode: "publisher" },
 						],
 					},
 				]),

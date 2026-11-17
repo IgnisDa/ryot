@@ -19,6 +19,7 @@ export const creatorMovieCreditRow = {
 	order: 1,
 	id: "movie-1",
 	isGuest: null,
+	roleCodes: null,
 	roles: ["Actor"],
 	creditKinds: null,
 	departments: null,
@@ -33,10 +34,11 @@ export const creatorMovieCreditRow = {
 };
 
 export const creatorAlbumCreditRow = {
+	roles: [],
 	order: null,
 	id: "album-1",
-	roles: ["Artist"],
 	name: "Night Songs",
+	roleCodes: ["artist"],
 	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
 	images: [{ type: "s3", purpose: "cover", key: "night-songs" }],

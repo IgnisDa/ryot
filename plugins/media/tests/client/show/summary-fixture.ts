@@ -3,6 +3,7 @@ import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { showRecipes } from "../../../shared/show-recipes";
 import { rowsResult } from "../query-result-fixture";
+import { servedProviderName } from "../served-names";
 
 export const showSummaryFixtureRecipe = bindRecipe(
 	showRecipes.summaryRecipe({ reference: { kind: "self" } }),
@@ -23,7 +24,6 @@ export const showSummaryRow = {
 	schemaSlug: "show",
 	upcomingEpisodes: 0,
 	name: "Adolescence",
-	providerName: "TMDB",
 	inProgressEpisodes: 0,
 	providerRating: 78.25,
 	originalLanguage: null,
@@ -31,6 +31,7 @@ export const showSummaryRow = {
 	providerCheckedAt: null,
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
+	providerName: servedProviderName("tmdb"),
 	description: "A four-part limited series.",
 	translationStatus: { state: "idle", availability: "none" },
 	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },

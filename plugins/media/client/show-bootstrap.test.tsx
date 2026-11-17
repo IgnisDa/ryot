@@ -11,7 +11,11 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { bootstrapClientPage } from "@ryot-app/plugin-client-sdk/plugin";
-import { createTestRyotClock, pluginContributor } from "@ryot-app/plugin-client-sdk/testing";
+import {
+	createTestRyotClock,
+	pluginContributor,
+	testBridgeLocale,
+} from "@ryot-app/plugin-client-sdk/testing";
 import { bindTestRequest, requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor } from "@testing-library/dom";
@@ -19,6 +23,8 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import { servedProviderName } from "../tests/client/served-names";
+import { mediaMessages } from "../tests/client/test-support";
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import ShowDetailPage from "./show/screen";
 
@@ -31,6 +37,7 @@ const metadata = {
 };
 
 const init: PluginBridgeInit = {
+	...testBridgeLocale([mediaMessages("media-owner")]),
 	mode: "light",
 	safeAreaTop: 0,
 	safeAreaBottom: 0,
@@ -73,7 +80,6 @@ const readyResponse = {
 				schemaSlug: "show",
 				upcomingEpisodes: 0,
 				name: "Tracer Show",
-				providerName: "TMDB",
 				providerRating: null,
 				watchProviders: null,
 				inProgressEpisodes: 0,
@@ -81,6 +87,7 @@ const readyResponse = {
 				providerCheckedAt: null,
 				isInMediaLibrary: false,
 				productionStatus: "Returning Series",
+				providerName: servedProviderName("tmdb"),
 				description: "A deterministic show description.",
 				translationStatus: { state: "idle", availability: "none" },
 				nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
@@ -348,7 +355,7 @@ describe("ShowScreen", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1)),
 				);
-				expect(container?.textContent).toContain("Loading show...");
+				expect(container?.textContent).toContain("Loading details…");
 			}),
 		testTimeout,
 	);
@@ -366,7 +373,7 @@ describe("ShowScreen", () => {
 					reason: "query-failed",
 				});
 				yield* Effect.promise(() =>
-					waitFor(() => expect(container?.textContent).toContain("Unable to load this show")),
+					waitFor(() => expect(container?.textContent).toContain("Unable to load these details")),
 				);
 
 				const retry = Array.from(container?.querySelectorAll("button") ?? []).find(
@@ -427,7 +434,7 @@ describe("ShowScreen", () => {
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(wrongSchema.container?.textContent).toContain(
-							"This entity is not a show, and only shows can be opened here.",
+							"This entity is of a different type and cannot be opened here.",
 						),
 					),
 				);

@@ -6,6 +6,10 @@
 			"types": "./shared/analytics-recipes.ts",
 			"default": "./shared/analytics-recipes.ts"
 		},
+		"./shared/credit-roles": {
+			"types": "./shared/credit-roles.ts",
+			"default": "./shared/credit-roles.ts"
+		},
 		"./shared/consumed-on-settings": {
 			"types": "./shared/consumed-on-settings.ts",
 			"default": "./shared/consumed-on-settings.ts"
@@ -170,6 +174,7 @@
 	"scripts": {
 		"test": "bun ./test.ts",
 		"build": "ryot plugin build",
+		"messages": "ryot plugin messages",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
@@ -188,7 +193,9 @@
 		"@ryot-app/definitions": "workspace:*",
 		"@ryot-app/fitness-plugin": "workspace:*",
 		"@ryot-app/fixture-plugin": "workspace:*",
+		"@ryot-app/i18n": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/kernel-messages": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/plugin-client-sdk": "workspace:*",
 		"@ryot-app/plugin-ui-sdk": "workspace:*",

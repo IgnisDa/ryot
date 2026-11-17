@@ -2,6 +2,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
+import { servedProviderName } from "../served-names";
 import { decodeMediaSummaryResult } from "../summary-fixture";
 import { creatorFixtureRecipes } from "./recipes";
 
@@ -17,12 +18,12 @@ export const creatorSummaryRow = {
 	id: "creator-1",
 	isCustom: false,
 	isMonitored: false,
-	providerName: "TMDB",
 	name: "Edward Norton",
 	schemaSlug: "creator",
 	isInMediaLibrary: true,
 	providerCheckedAt: null,
 	description: "An American actor.",
+	providerName: servedProviderName("tmdb"),
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },

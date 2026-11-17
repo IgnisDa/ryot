@@ -2,6 +2,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
+import { servedProviderName } from "../served-names";
 import { decodeMediaSummaryResult } from "../summary-fixture";
 import { flatFixtureRecipes } from "./recipes";
 
@@ -19,7 +20,6 @@ export const flatSummaryRow = {
 	state: "complete",
 	isMonitored: false,
 	name: "Fight Club",
-	providerName: "TMDB",
 	providerRating: 86.5,
 	schemaSlug: "fixture",
 	progressPercent: null,
@@ -27,6 +27,7 @@ export const flatSummaryRow = {
 	providerCheckedAt: null,
 	publishDate: "1999-10-15",
 	productionStatus: "Released",
+	providerName: servedProviderName("tmdb"),
 	description: "An insomniac office worker.",
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
