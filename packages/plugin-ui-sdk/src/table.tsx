@@ -1,9 +1,21 @@
-import type { SavedViewDisplayValue } from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	isDisplayTextList,
+	type SavedViewDisplayValue,
+} from "@ryot-app/contract/modules/saved-views/schemas";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { type ComponentProps, Fragment, type ReactNode } from "react";
 
 import { reportText, useReportBlock } from "./report";
 
-export const displayValueText = (value: SavedViewDisplayValue): string => {
+export const displayValueText = (
+	t: (message: Message) => Text,
+	formatters: Formatters,
+	value: SavedViewDisplayValue,
+): string => {
 	if (
 		value.value === null ||
 		value.displayKind === "managed-asset" ||
@@ -13,17 +25,21 @@ export const displayValueText = (value: SavedViewDisplayValue): string => {
 	}
 	switch (value.displayKind) {
 		case "date":
-			return new Intl.DateTimeFormat(undefined, { timeZone: "UTC" }).format(new Date(value.value));
+			return formatters.dateTime({ timeZone: "UTC" }).format(new Date(value.value));
 		case "year":
 			return String(value.value);
 		case "json":
 			return JSON.stringify(value.value);
 		case "text":
-			return value.value;
+			return isDisplayTextList(value.value)
+				? formatters
+						.list({ type: "unit", style: "short" })
+						.format(value.value.map((item) => formatDisplayText(t, item)))
+				: formatDisplayText(t, value.value);
 		case "number":
-			return new Intl.NumberFormat().format(value.value);
+			return formatters.number().format(value.value);
 		case "boolean":
-			return value.value ? "Yes" : "No";
+			return t(kernelMessage(value.value ? "common.value.yes" : "common.value.no"));
 	}
 	return "";
 };

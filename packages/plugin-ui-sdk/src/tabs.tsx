@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
 
@@ -5,7 +6,7 @@ import { useReportBlock } from "./report";
 
 export type TabOption<T extends string> = {
 	readonly value: T;
-	readonly label: string;
+	readonly label: Text;
 	readonly trailing?: ReactNode;
 };
 
@@ -13,7 +14,7 @@ export const tabId = (panelId: string, value: string) => `${panelId}-tab-${value
 
 export function Tabs<T extends string>(props: {
 	readonly value: T;
-	readonly label: string;
+	readonly label: Text;
 	readonly panelId: string;
 	readonly className?: string;
 	readonly onChange: (value: T) => void;

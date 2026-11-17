@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import {
 	Children,
@@ -34,12 +37,13 @@ const moveFocus = (event: KeyboardEvent<HTMLUListElement>) => {
 };
 
 export function Shelf(props: {
-	readonly label: string;
+	readonly label: Text;
 	readonly compact: boolean;
 	readonly children: ReactNode;
 	readonly className?: string | undefined;
 	readonly icons: { readonly next: ReactNode; readonly previous: ReactNode };
 }) {
+	const t = useT();
 	const scroller = useRef<HTMLUListElement>(null);
 	const [edges, setEdges] = useState({ end: false, start: false });
 	const measure = useCallback(() => {
@@ -74,7 +78,9 @@ export function Shelf(props: {
 				tabIndex={-1}
 				aria-hidden="true"
 				onClick={() => page(direction)}
-				label={direction === 1 ? "Scroll forward" : "Scroll back"}
+				label={t(
+					kernelMessage(direction === 1 ? "ui.shelf.scroll-forward" : "ui.shelf.scroll-back"),
+				)}
 				className={clsx(
 					"absolute top-1/3 z-10 -translate-y-1/2 shadow-card transition-opacity duration-150 motion-reduce:transition-none",
 					direction === 1 ? "-right-3" : "-left-3",

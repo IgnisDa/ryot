@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
 import { Badge } from "./badge";
+import { render } from "./i18n.test-support";
 
 describe("Badge", () => {
 	it("forwards its attributes so it can be hidden from assistive technology", () => {

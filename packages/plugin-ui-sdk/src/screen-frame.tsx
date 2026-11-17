@@ -1,14 +1,15 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import { type ComponentProps, type ReactNode, type RefObject, useEffect, useState } from "react";
 
 export const SCREEN_BAR_HEIGHT = 54;
 
-type ScreenBarButtonProps = ComponentProps<"button"> & { readonly label: string };
+type ScreenBarButtonProps = ComponentProps<"button"> & { readonly label: Text };
 
 type ScreenFrameProps = {
-	readonly title: string;
 	readonly meta?: ReactNode;
 	readonly compact: boolean;
+	readonly title: null | Text;
 	readonly children: ReactNode;
 	readonly leading?: ReactNode;
 	readonly actions?: ReactNode;

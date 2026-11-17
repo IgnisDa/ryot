@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { MarkdownContent, MarkdownDocument, markdownPlainText } from "./markdown";
 
 describe("Markdown content", () => {

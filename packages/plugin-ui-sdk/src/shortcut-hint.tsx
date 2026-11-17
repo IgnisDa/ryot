@@ -1,3 +1,5 @@
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	detectPlatform,
 	type HotkeyChord,
@@ -28,6 +30,7 @@ export function ShortcutHint({
 }
 
 export function ShortcutKeys({ shortcut }: { readonly shortcut: HotkeyChord }) {
+	const t = useT();
 	const platform = useDefaultHotkeysOptions().hotkey?.platform ?? detectPlatform();
 
 	return shortcut.split("+").map((key) => {
@@ -35,12 +38,12 @@ export function ShortcutKeys({ shortcut }: { readonly shortcut: HotkeyChord }) {
 			return platform === "mac" ? (
 				<AppIcon key={key} size={12} name="command" />
 			) : (
-				<span key={key}>Ctrl</span>
+				<span key={key}>{t(kernelMessage("ui.shortcut.control-key"))}</span>
 			);
 		}
 		if (key === "Shift") {
 			return <AppIcon key={key} size={12} name="arrow-big-up" />;
 		}
-		return key;
+		return key === "Space" ? t(kernelMessage("ui.shortcut.space-key")) : key;
 	});
 }

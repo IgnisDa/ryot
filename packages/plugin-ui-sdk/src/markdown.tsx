@@ -1,4 +1,6 @@
 import { HttpUrl } from "@ryot-app/contract/schema/utils";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Schema } from "effect";
 import type { Nodes, Root } from "mdast";
 import { directiveFromMarkdown } from "mdast-util-directive";
@@ -88,7 +90,20 @@ export function markdownPlainText(text: string): string {
 	return previewMarkdown(tree).replaceAll(/\s+/g, " ").trim();
 }
 
+function SpoilerDetails(props: { readonly children: ReactNode }) {
+	const t = useT();
+	return (
+		<details className="mb-2 rounded border border-border p-2">
+			<summary className="cursor-pointer text-text-muted">
+				{t(kernelMessage("ui.markdown.show-spoiler"))}
+			</summary>
+			{props.children}
+		</details>
+	);
+}
+
 function InlineSpoiler(props: { readonly children: ReactNode }) {
+	const t = useT();
 	const [revealed, setRevealed] = useState(false);
 	return (
 		<span>
@@ -98,7 +113,7 @@ function InlineSpoiler(props: { readonly children: ReactNode }) {
 				onClick={() => setRevealed(!revealed)}
 				className="rounded border border-border bg-surface-2 px-1 text-text-muted"
 			>
-				{revealed ? "Hide spoiler" : "Show spoiler"}
+				{t(kernelMessage(revealed ? "ui.markdown.hide-spoiler" : "ui.markdown.show-spoiler"))}
 			</button>
 			<span hidden={!revealed}>{props.children}</span>
 		</span>
@@ -134,6 +149,7 @@ const markdownComponents: Components = {
 	a: MarkdownLink,
 	div: ({ children }) => <div>{children}</div>,
 	p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+	details: ({ children }) => <SpoilerDetails>{children}</SpoilerDetails>,
 	ul: ({ children }) => <ul className="mb-2 list-disc pl-5">{children}</ul>,
 	ol: ({ start, children }) => (
 		<ol start={start} className="mb-2 list-decimal pl-5">
@@ -151,12 +167,6 @@ const markdownComponents: Components = {
 		) : (
 			<span>{children}</span>
 		),
-	details: ({ children }) => (
-		<details className="mb-2 rounded border border-border p-2">
-			<summary className="cursor-pointer text-text-muted">Show spoiler</summary>
-			{children}
-		</details>
-	),
 };
 
 const basicElements = [

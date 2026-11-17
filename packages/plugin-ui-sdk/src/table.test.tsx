@@ -1,17 +1,26 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { testFormatters, testKernelText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { createRef } from "react";
 
+import { render } from "./i18n.test-support";
 import { DataTable, type DataTableColumn, displayValueText } from "./table";
 
 describe("displayValueText", () => {
 	it("formats years without grouping and numbers with grouping", () => {
-		expect(displayValueText({ value: 1995, displayKind: "year" })).toBe("1995");
-		expect(displayValueText({ value: 1995, displayKind: "number" })).toBe(
-			new Intl.NumberFormat().format(1995),
-		);
-		expect(displayValueText({ value: null, displayKind: "year" })).toBe("");
+		expect(
+			displayValueText(testKernelText, testFormatters, { value: 1995, displayKind: "year" }),
+		).toBe("1995");
+		expect(
+			displayValueText(testKernelText, testFormatters, { value: 1995, displayKind: "number" }),
+		).toBe("1,995");
+		expect(
+			displayValueText(testKernelText, testFormatters, { value: null, displayKind: "year" }),
+		).toBe("");
+		expect(
+			displayValueText(testKernelText, testFormatters, { value: true, displayKind: "boolean" }),
+		).toBe("Yes");
 	});
 });
 

@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import clsx from "clsx";
 import type { ComponentProps, ReactNode } from "react";
 
@@ -10,7 +11,7 @@ const chipClassName = (checked: boolean) =>
 	);
 
 type ChipProps = {
-	readonly label: string;
+	readonly label: Text;
 	readonly checked: boolean;
 	readonly className?: string | undefined;
 };

@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { act, render, screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
 import { type ReactNode, useRef } from "react";
 
+import { render } from "./i18n.test-support";
 import { SCREEN_BAR_HEIGHT, ScreenFrame } from "./screen-frame";
 
 type Observation = {
@@ -86,11 +88,11 @@ function Harness(props: {
 	return (
 		<div ref={scrollRootRef} data-testid="scroller">
 			<ScreenFrame
-				title="All Shows"
 				compact={props.compact}
 				meta={<p>12 results</p>}
 				hideTitle={props.hideTitle}
 				searchRow={props.searchRow}
+				title={testText("All Shows")}
 				scrollRootRef={scrollRootRef}
 				safeAreaTop={props.safeAreaTop ?? 0}
 				leading={<button type="button">Open navigation</button>}

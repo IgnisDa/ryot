@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
 import { createRef, type RefObject, useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { ReorderableList } from "./reorderable-list";
 
 type Row = { readonly slug: string; readonly name: string };
@@ -27,8 +29,8 @@ function Harness(props: {
 	const [items, setItems] = useState(rows);
 	return (
 		<ReorderableList
-			label="Views"
 			itemHeight={44}
+			label={testText("Views")}
 			items={props.items ?? items}
 			{...(props.scrollRef === undefined ? {} : { scrollRef: props.scrollRef })}
 			itemKey={(item) => item.slug}

@@ -1,12 +1,14 @@
 import { describe, expect } from "bun:test";
 
+import { testText } from "@ryot-app/kernel-messages/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { useState } from "react";
 
 import { Dialog } from "./dialog";
+import { render } from "./i18n.test-support";
 import { Collapse, MotionPresence, MotionSwap } from "./motion";
 
 function Example() {
@@ -19,9 +21,9 @@ function Example() {
 				{parent ? (
 					<Dialog
 						key="editor"
-						title="Editor"
-						closeLabel="Close editor"
+						title={testText("Editor")}
 						onClose={() => setParent(false)}
+						closeLabel={testText("Close editor")}
 					>
 						<button onClick={() => setChild(true)}>Delete item</button>
 					</Dialog>
@@ -29,9 +31,9 @@ function Example() {
 				{child ? (
 					<Dialog
 						key="confirm"
-						title="Confirm deletion"
-						closeLabel="Cancel deletion"
 						onClose={() => setChild(false)}
+						title={testText("Confirm deletion")}
+						closeLabel={testText("Cancel deletion")}
 					>
 						<button
 							onClick={() => {

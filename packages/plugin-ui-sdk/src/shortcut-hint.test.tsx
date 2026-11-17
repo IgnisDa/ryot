@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { ShortcutHint } from "./shortcut-hint";
 
 describe("ShortcutHint", () => {

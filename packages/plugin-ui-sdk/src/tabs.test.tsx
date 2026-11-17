@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
 
+import { render } from "./i18n.test-support";
 import { tabId, Tabs } from "./tabs";
 
 function Harness() {
@@ -12,12 +14,12 @@ function Harness() {
 			<Tabs
 				value={value}
 				panelId="panel"
-				label="Sections"
 				onChange={setValue}
+				label={testText("Sections")}
 				options={[
-					{ value: "overview", label: "Overview" },
-					{ value: "activity", label: "Activity" },
-					{ value: "reviews", label: "Reviews" },
+					{ value: "overview", label: testText("Overview") },
+					{ value: "activity", label: testText("Activity") },
+					{ value: "reviews", label: testText("Reviews") },
 				]}
 			/>
 			<div id="panel" role="tabpanel" aria-labelledby={tabId("panel", value)} />

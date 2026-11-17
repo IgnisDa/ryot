@@ -1,14 +1,16 @@
 import { describe, expect, it } from "bun:test";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { testText } from "@ryot-app/kernel-messages/testing";
+import { fireEvent, screen } from "@testing-library/react";
 
+import { render } from "./i18n.test-support";
 import { Shelf } from "./shelf";
 
 const icons = { next: "›", previous: "‹" };
 
 const renderShelf = (compact: boolean) =>
 	render(
-		<Shelf icons={icons} label="Continue" compact={compact}>
+		<Shelf icons={icons} compact={compact} label={testText("Continue")}>
 			<a href="#one">One</a>
 			<a href="#two">Two</a>
 			<a href="#three">Three</a>

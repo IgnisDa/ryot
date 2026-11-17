@@ -1,3 +1,6 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import clsx from "clsx";
 import {
 	type KeyboardEvent,
@@ -35,7 +38,7 @@ type Drag = {
 };
 
 type ReorderableListProps<T> = {
-	readonly label: string;
+	readonly label: Text;
 	readonly itemHeight: number;
 	readonly className?: string;
 	readonly onDrop: () => void;
@@ -63,6 +66,7 @@ const scrollWithin = (scroller: HTMLElement, delta: number) => {
 };
 
 export function ReorderableList<T>(props: ReorderableListProps<T>) {
+	const t = useT();
 	const pointerY = useRef(0);
 	const drag = useRef<Drag | null>(null);
 	const [offset, setOffset] = useState(0);
@@ -216,7 +220,15 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 			return;
 		}
 		focusKey.current = props.itemKey(item);
-		setAnnouncement(`${props.itemLabel(item)}, position ${toIndex + 1} of ${count}`);
+		setAnnouncement(
+			t(
+				kernelMessage("ui.reorderable-list.moved", {
+					count,
+					position: toIndex + 1,
+					name: props.itemLabel(item),
+				}),
+			),
+		);
 		props.onDrop();
 		props.onReorder(index, toIndex);
 	};
@@ -271,13 +283,17 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 										onPointerMove={move}
 										onPointerUp={finish}
 										onPointerCancel={finish}
-										aria-label={`Reorder ${props.itemLabel(item)}`}
 										onPointerDown={(event) => start(event, key, index)}
 										onKeyDown={(event) => reorderByKey(event, item, index)}
 										ref={(element) => {
 											handles.current.set(key, element);
 										}}
 										className="flex size-10 shrink-0 touch-none items-center justify-center rounded-md text-text-subtle"
+										aria-label={t(
+											kernelMessage("ui.reorderable-list.reorder-item", {
+												name: props.itemLabel(item),
+											}),
+										)}
 									>
 										{props.handleIcon}
 									</button>

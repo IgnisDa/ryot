@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { render } from "@testing-library/react";
-
 import { groupColorVariable } from "./group-colors";
+import { render } from "./i18n.test-support";
 import { Card } from "./surface";
 
 describe("group colors", () => {

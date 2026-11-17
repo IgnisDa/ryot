@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
 import { Button } from "./button";
+import { render } from "./i18n.test-support";
 
 describe("Button", () => {
 	it("renders a button and forwards its attributes", () => {

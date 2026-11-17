@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { render } from "@testing-library/react";
-
+import { render } from "./i18n.test-support";
 import { ImageTintOverlay } from "./tint";
 
 const STOPS = ["#3D668F52", "#3D668F1F", "#3D668F00"] as const;

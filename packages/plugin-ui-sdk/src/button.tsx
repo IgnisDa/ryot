@@ -1,3 +1,4 @@
+import type { Text } from "@ryot-app/i18n/text";
 import type { HotkeyChord } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
 import type { ComponentProps } from "react";
@@ -94,7 +95,7 @@ const iconSizeClasses = {
 } as const;
 
 type IconButtonProps = Omit<ComponentProps<"button">, "aria-label"> & {
-	readonly label: string;
+	readonly label: Text;
 	readonly tone?: keyof typeof iconToneClasses;
 	readonly size?: keyof typeof iconSizeClasses;
 };
