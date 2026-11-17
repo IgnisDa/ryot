@@ -11,19 +11,20 @@ import {
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { workoutSetProcessing } from "./fitness-metrics";
+import { catalogMessage } from "./messages.generated";
 
 export const workoutProcessingRecipe = (input: { readonly reference: PluginIdentityReference }) => {
 	const inputParameters = parameters({
 		fields: {
 			workoutId: {
 				type: "string",
-				label: "Workout Id",
 				description: "Workout Id for this selection",
+				label: catalogMessage("query-parameter.workout"),
 			},
 			exerciseId: {
 				type: "string",
-				label: "Exercise Id",
 				description: "Exercise Id for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 		},
 	});

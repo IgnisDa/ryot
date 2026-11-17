@@ -37,6 +37,7 @@ import {
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 import { workoutSetMetric, workoutSetVolume } from "./fitness-metrics";
+import { catalogMessage } from "./messages.generated";
 import { workoutSelection, workoutTemplateInclude } from "./query-recipes";
 import { PersonalBestSchema } from "./workout-records";
 import { WorkoutSetLotSchema } from "./workout-set";
@@ -132,9 +133,9 @@ export const workoutDetailsExercisesRecipe = (input: {
 		fields: {
 			workoutId: {
 				type: "string",
-				label: "Workout Id",
 				validation: { required: true },
 				description: "Workout Id for this selection",
+				label: catalogMessage("query-parameter.workout"),
 			},
 		},
 	});
@@ -214,14 +215,14 @@ export const workoutDetailsSetsRecipe = (input: {
 		fields: {
 			exerciseId: {
 				type: "string",
-				label: "Exercise Id",
 				description: "Exercise Id for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 			workoutId: {
 				type: "string",
-				label: "Workout Id",
 				validation: { required: true },
 				description: "Workout Id for this selection",
+				label: catalogMessage("query-parameter.workout"),
 			},
 		},
 	});
@@ -272,9 +273,9 @@ export const workoutDetailsRecipe = (input: { readonly reference: PluginIdentity
 		fields: {
 			workoutId: {
 				type: "string",
-				label: "Workout Id",
 				validation: { required: true },
 				description: "Workout Id for this selection",
+				label: catalogMessage("query-parameter.workout"),
 			},
 		},
 	});

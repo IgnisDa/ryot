@@ -4,11 +4,14 @@ import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { compileClientPluginModule } from "@ryot-app/plugin-client-compiler";
 import { CLIENT_API_VERSION, clientDeclarationHash } from "@ryot-app/plugin-client-contract";
+import { CATALOG_MESSAGES_MODULE } from "@ryot-app/plugin-kit/messages-module";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { TypeScriptSession } from "@ryot-app/typescript-compiler";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Layer } from "effect";
+
+import { englishCatalog } from "../tests/english-catalog";
 
 const bytes = (contents: string) => new TextEncoder().encode(contents);
 const compilerLayer = Layer.mergeAll(
@@ -47,7 +50,10 @@ layer(compilerLayer)((test) =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const sharedFiles = (yield* fs.readDirectory("shared")).filter(
-					(file) => file.endsWith(".ts") && !file.includes(".test."),
+					(file) =>
+						file.endsWith(".ts") &&
+						!file.includes(".test.") &&
+						`shared/${file}` !== CATALOG_MESSAGES_MODULE,
 				);
 				const sharedSources = yield* Effect.forEach(sharedFiles, (file) =>
 					fs
@@ -57,6 +63,7 @@ layer(compilerLayer)((test) =>
 				const input = {
 					name: "Fitness",
 					kind: "plugin" as const,
+					catalog: englishCatalog,
 					apiVersion: CLIENT_API_VERSION,
 					packageId: PluginPackageId.make("ryot/fitness"),
 					files: Object.fromEntries([...sharedSources, ["client/contracts.ts", bytes(entry)]]),

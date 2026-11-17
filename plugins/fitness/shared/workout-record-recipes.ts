@@ -19,6 +19,7 @@ import { EventId } from "@ryot-app/plugin-kit/schema";
 
 import { property, propertyDate, propertyNumber } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
+import { catalogMessage } from "./messages.generated";
 
 const workoutRecordPageSize = 100;
 const unorderedLast = 2147483647;
@@ -27,9 +28,9 @@ export const workoutRecordPageRecipe = (input: { readonly reference: PluginIdent
 		fields: {
 			exerciseId: {
 				type: "string",
-				label: "Exercise Id",
 				validation: { required: true },
 				description: "Exercise Id for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 		},
 	});

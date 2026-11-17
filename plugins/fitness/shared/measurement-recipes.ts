@@ -41,6 +41,7 @@ import {
 import { type PluginIdentityReference, REPORTING_BUCKET_LIMIT } from "@ryot-app/plugin-kit/schema";
 
 import { property, propertyNumber } from "./entity-selections";
+import { catalogMessage } from "./messages.generated";
 
 const MEASUREMENT_SERIES_RESULT_LIMIT = 1000;
 export const MEASUREMENT_SERIES_BATCH_SIZE = Math.floor(
@@ -123,16 +124,20 @@ const seriesParameters = parameters({
 		...reportingParameterFields,
 		firstAt: {
 			type: "datetime",
-			label: "First reading",
+			label: catalogMessage("query-parameter.first-reading"),
 			description:
 				"Earliest recorded reading in the selected metrics; omit when they have no readings",
 		},
 		metricIds: {
 			type: "array",
-			label: "Metrics",
+			label: catalogMessage("query-parameter.metrics"),
 			description: "Measurement metrics whose bucket averages to read",
 			validation: { required: true, maxItems: MEASUREMENT_SERIES_BATCH_SIZE },
-			items: { type: "string", label: "Metric", description: "Measurement metric ID" },
+			items: {
+				type: "string",
+				description: "Measurement metric ID",
+				label: catalogMessage("query-parameter.metric"),
+			},
 		},
 	},
 });
@@ -232,9 +237,9 @@ export const measurementEntryRecipe = (() => {
 		fields: {
 			entryId: {
 				type: "string",
-				label: "Entry Id",
 				validation: { required: true },
 				description: "Entry Id for this selection",
+				label: catalogMessage("query-parameter.entry"),
 			},
 		},
 	});
@@ -281,9 +286,9 @@ export const measurementEntryReadingsRecipe = (input: {
 		fields: {
 			entryId: {
 				type: "string",
-				label: "Entry Id",
 				validation: { required: true },
 				description: "Entry Id for this selection",
+				label: catalogMessage("query-parameter.entry"),
 			},
 		},
 	});
@@ -321,10 +326,14 @@ export const measurementMetricIdsRecipe = (() => {
 		fields: {
 			metricIds: {
 				type: "array",
-				label: "metricIds",
 				validation: { required: true },
 				description: "metricIds for this selection",
-				items: { label: "ID", type: "string", description: "Selected ID" },
+				label: catalogMessage("query-parameter.metrics"),
+				items: {
+					type: "string",
+					description: "Selected ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -352,10 +361,14 @@ export const measurementPageReadingsRecipe = (input: {
 		fields: {
 			entryIds: {
 				type: "array",
-				label: "Entry Ids",
 				validation: { required: true },
 				description: "Entry Ids for this selection",
-				items: { type: "string", label: "Value", description: "Selection value" },
+				label: catalogMessage("query-parameter.entries"),
+				items: {
+					type: "string",
+					description: "Selection value",
+					label: catalogMessage("query-parameter.value"),
+				},
 			},
 		},
 	});

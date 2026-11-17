@@ -65,6 +65,7 @@ import {
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 import { personalBestAwardCount, workoutSetVolume } from "./fitness-metrics";
+import { catalogMessage } from "./messages.generated";
 import { workoutTemplateInclude } from "./query-recipes";
 import { exerciseTargetInclude } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
@@ -290,15 +291,19 @@ export const workoutCardsRecipe = (structural: { readonly reference: Reference }
 		fields: {
 			search: {
 				type: "string",
-				label: "Search",
 				defaultValue: "",
 				description: "Workout name contains this text",
+				label: catalogMessage("query-parameter.search"),
 			},
 			workoutIds: {
 				type: "array",
-				label: "Workout IDs",
 				description: "IDs to include",
-				items: { label: "ID", type: "string", description: "Selected entity ID" },
+				label: catalogMessage("query-parameter.workouts"),
+				items: {
+					type: "string",
+					description: "Selected entity ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -340,15 +345,19 @@ export const workoutCountRecipe = (structural: { readonly reference: Reference }
 		fields: {
 			search: {
 				type: "string",
-				label: "Search",
 				defaultValue: "",
 				description: "Workout name contains this text",
+				label: catalogMessage("query-parameter.search"),
 			},
 			workoutIds: {
 				type: "array",
-				label: "Workout IDs",
 				description: "IDs to include",
-				items: { label: "ID", type: "string", description: "Selected entity ID" },
+				label: catalogMessage("query-parameter.workouts"),
+				items: {
+					type: "string",
+					description: "Selected entity ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -377,15 +386,19 @@ export const workoutIdsRecipe = (structural: { readonly reference: Reference }) 
 		fields: {
 			search: {
 				type: "string",
-				label: "Search",
 				defaultValue: "",
 				description: "Workout name contains this text",
+				label: catalogMessage("query-parameter.search"),
 			},
 			workoutIds: {
 				type: "array",
-				label: "Workout IDs",
 				description: "IDs to include",
-				items: { label: "ID", type: "string", description: "Selected entity ID" },
+				label: catalogMessage("query-parameter.workouts"),
+				items: {
+					type: "string",
+					description: "Selected entity ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -421,10 +434,14 @@ export const workoutExerciseTargetsRecipe = (structural: { readonly reference: R
 		fields: {
 			exerciseIds: {
 				type: "array",
-				label: "exerciseIds",
 				description: "IDs to include",
 				validation: { required: true },
-				items: { label: "ID", type: "string", description: "Selected entity ID" },
+				label: catalogMessage("query-parameter.exercises"),
+				items: {
+					type: "string",
+					description: "Selected entity ID",
+					label: catalogMessage("query-parameter.id"),
+				},
 			},
 		},
 	});
@@ -578,21 +595,21 @@ export const workoutWeeksRecipe = (structural: { readonly reference: Reference }
 		fields: {
 			search: {
 				type: "string",
-				label: "Search",
 				defaultValue: "",
 				description: "Workout name contains this text",
+				label: catalogMessage("query-parameter.search"),
 			},
 			startAt: {
-				label: "From",
 				type: "datetime",
 				validation: { required: true },
 				description: "Loaded span start",
+				label: catalogMessage("query-parameter.from"),
 			},
 			endAt: {
-				label: "Until",
 				type: "datetime",
 				validation: { required: true },
 				description: "Loaded span exclusive end",
+				label: catalogMessage("query-parameter.until"),
 			},
 		},
 	});

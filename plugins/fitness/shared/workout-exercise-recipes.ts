@@ -1,4 +1,5 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import type { LocalMessage } from "@ryot-app/plugin-kit/messages";
 import {
 	and,
 	ascending,
@@ -38,6 +39,7 @@ import {
 	exerciseMechanicSchema,
 } from "./exercise-kinds";
 import { fitnessLibraryLinkExists } from "./library-recipes";
+import { catalogMessage } from "./messages.generated";
 import {
 	effectiveTaxonomyLink,
 	exerciseEquipmentInclude,
@@ -96,53 +98,57 @@ const exerciseTaxonomyFilter = (
 		),
 	});
 };
-const pickerArray = (label: string) => ({
+const pickerArray = (label: LocalMessage, subject: string) => ({
 	label,
 	type: "array" as const,
-	description: `Only include exercises selected by ${label}`,
-	items: { label: "ID", type: "string" as const, description: "Selected entity ID" },
+	description: `Only include exercises selected by ${subject}`,
+	items: {
+		type: "string" as const,
+		description: "Selected entity ID",
+		label: catalogMessage("query-parameter.id"),
+	},
 });
 const pickerParameters = parameters({
 	fields: {
-		targetIds: pickerArray("Muscles"),
-		exerciseIds: pickerArray("Exercises"),
-		equipmentIds: pickerArray("Equipment"),
-		collectionIds: pickerArray("Collections"),
+		targetIds: pickerArray(catalogMessage("query-parameter.muscles"), "Muscles"),
+		exerciseIds: pickerArray(catalogMessage("query-parameter.exercises"), "Exercises"),
+		equipmentIds: pickerArray(catalogMessage("query-parameter.equipment"), "Equipment"),
+		collectionIds: pickerArray(catalogMessage("query-parameter.collections"), "Collections"),
 		search: {
 			type: "string",
-			label: "Search",
 			defaultValue: "",
+			label: catalogMessage("query-parameter.search"),
 			description: "Exercise name contains this text",
 		},
 		forces: {
-			label: "Forces",
 			type: "enum-array",
 			description: "Exercise forces",
+			label: catalogMessage("query-parameter.forces"),
 			choices: { kind: "static", values: exerciseForces.map((value) => ({ value })) },
 		},
 		kinds: {
-			label: "Kinds",
 			type: "enum-array",
 			description: "Exercise measurement kinds",
+			label: catalogMessage("query-parameter.kinds"),
 			choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
 		},
 		levels: {
-			label: "Levels",
 			type: "enum-array",
 			description: "Exercise experience levels",
+			label: catalogMessage("query-parameter.levels"),
 			choices: { kind: "static", values: exerciseLevels.map((value) => ({ value })) },
 		},
 		mechanics: {
 			type: "enum-array",
-			label: "Mechanics",
 			description: "Exercise mechanics",
+			label: catalogMessage("query-parameter.mechanics"),
 			choices: { kind: "static", values: exerciseMechanics.map((value) => ({ value })) },
 		},
 		sort: {
 			type: "enum",
-			label: "Order",
 			defaultValue: "times-performed",
 			description: "Exercise picker ordering",
+			label: catalogMessage("query-parameter.order"),
 			choices: {
 				kind: "static",
 				values: [{ value: "name" }, { value: "recently-added" }, { value: "times-performed" }],

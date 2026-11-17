@@ -140,7 +140,11 @@ const input = {
 	reference: { kind: "self" },
 	reporting: resolveReportingSelection(
 		{ grouping: "day", comparison: "previous-period", range: { days: 7, kind: "rolling" } },
-		{ timeZone: TimeZone.make("America/New_York"), now: Date.parse("2026-11-01T18:00:00.000Z") },
+		{
+			weekStart: 1,
+			timeZone: TimeZone.make("America/New_York"),
+			now: Date.parse("2026-11-01T18:00:00.000Z"),
+		},
 	),
 } as const;
 

@@ -18,6 +18,7 @@ import {
 import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { property } from "./entity-selections";
+import { catalogMessage } from "./messages.generated";
 import { WORKOUT_EDITOR_PAGE_SIZE, WorkoutEditorPropertiesSchema } from "./workout-editor-recipes";
 
 const exerciseMergeDetachedRelationshipSlugs = [
@@ -32,15 +33,15 @@ export const exerciseMergeSubjectsRecipe = (input: {
 		fields: {
 			mergeFrom: {
 				type: "string",
-				label: "mergeFrom",
 				validation: { required: true },
 				description: "mergeFrom for this selection",
+				label: catalogMessage("query-parameter.merge-from"),
 			},
 			mergeInto: {
 				type: "string",
-				label: "mergeInto",
 				validation: { required: true },
 				description: "mergeInto for this selection",
+				label: catalogMessage("query-parameter.merge-into"),
 			},
 		},
 	});
@@ -74,9 +75,9 @@ export const exerciseMergeLinksRecipe = (input: {
 		fields: {
 			mergeFrom: {
 				type: "string",
-				label: "Merge From",
 				validation: { required: true },
 				description: "Merge From for this selection",
+				label: catalogMessage("query-parameter.merge-from"),
 			},
 		},
 	});

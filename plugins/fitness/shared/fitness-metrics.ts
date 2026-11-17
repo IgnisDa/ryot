@@ -24,34 +24,34 @@ import type { WorkoutDetails } from "./workout-details-recipes";
 import { requiredWorkoutMeasurementsByKind } from "./workout-set";
 import type { ConvertedMeasure } from "./workout-units";
 
+export type FitnessCountNoun = "set" | "rep" | "entry" | "workout" | "reading" | "personal_best";
+
 type Table = Parameters<typeof column>[0];
 
-const count = (one: string, other = `${one}s`) => ({ one, other, kind: "count" as const });
+const count = (noun: FitnessCountNoun) => ({ noun, kind: "count" as const });
 const seconds = { from: "seconds", kind: "duration" } as const;
 
 export type FitnessMetricUnit =
 	| { readonly from: "seconds"; readonly kind: "duration" }
-	| { readonly one: string; readonly kind: "count"; readonly other: string };
+	| { readonly kind: "count"; readonly noun: FitnessCountNoun };
 
 export const fitnessMetricDefinitions = {
-	sets: { label: "Sets", unit: count("set") },
-	volume: { label: "Volume", measure: "volume" },
-	calories: { label: "Energy", measure: "energy" },
-	setDuration: { unit: seconds, label: "Set time" },
-	repetitions: { label: "Reps", unit: count("rep") },
-	distance: { label: "Distance", measure: "distance" },
-	plannedRest: { unit: seconds, label: "Planned rest" },
-	workouts: { label: "Workouts", unit: count("workout") },
-	activeDuration: { unit: seconds, label: "Active time" },
-	personalBests: { label: "Personal bests", unit: count("personal best") },
-	personalBestSets: { unit: count("set"), label: "Sets with personal bests" },
-	measurementReadings: { unit: count("reading"), label: "Measurement readings" },
-	measurementEntries: { label: "Measurement entries", unit: count("entry", "entries") },
+	sets: { unit: count("set") },
+	volume: { measure: "volume" },
+	setDuration: { unit: seconds },
+	plannedRest: { unit: seconds },
+	calories: { measure: "energy" },
+	distance: { measure: "distance" },
+	activeDuration: { unit: seconds },
+	repetitions: { unit: count("rep") },
+	workouts: { unit: count("workout") },
+	personalBestSets: { unit: count("set") },
+	measurementEntries: { unit: count("entry") },
+	personalBests: { unit: count("personal_best") },
+	measurementReadings: { unit: count("reading") },
 } as const satisfies Record<
 	string,
-	{ readonly label: string } & (
-		{ readonly unit: FitnessMetricUnit } | { readonly measure: ConvertedMeasure }
-	)
+	{ readonly unit: FitnessMetricUnit } | { readonly measure: ConvertedMeasure }
 >;
 
 export const workoutSetMetric = (set: Table, metric: "reps" | "distance" | "duration") =>

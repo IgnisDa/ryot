@@ -46,16 +46,20 @@ export const displayMeasure = (
 	const imperial = preferences.unitSystem === "imperial";
 	if (measure === "energy") {
 		return {
+			weightedVolume: false,
 			unit: preferences.energyUnit,
 			value: kilocaloriesToEnergy(value, preferences.energyUnit),
 		};
 	}
 	if (measure === "distance") {
-		return imperial ? { unit: "mi", value: kilometersToMiles(value) } : { value, unit: "km" };
+		return imperial
+			? { unit: "mi", weightedVolume: false, value: kilometersToMiles(value) }
+			: { value, unit: "km", weightedVolume: false };
 	}
 	const weightUnit = imperial ? "lb" : "kg";
 	return {
+		unit: weightUnit,
+		weightedVolume: measure === "volume",
 		value: imperial ? kilogramsToPounds(value) : value,
-		unit: measure === "volume" ? `${weightUnit} × reps` : weightUnit,
 	};
 };

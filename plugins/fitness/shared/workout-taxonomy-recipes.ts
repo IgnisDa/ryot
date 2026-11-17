@@ -28,6 +28,7 @@ import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugi
 
 import { property, propertyJson, propertyNumber } from "./entity-selections";
 import { muscleSetWeight } from "./fitness-metrics";
+import { catalogMessage } from "./messages.generated";
 import { exerciseTargetRoleSchema } from "./taxonomy";
 import { WorkoutExercisePropertiesSchema } from "./workout-taxonomy";
 
@@ -77,9 +78,9 @@ export const workoutEventScopeRevisionRecipe = (() => {
 		fields: {
 			workoutId: {
 				type: "string",
-				label: "Workout Id",
 				validation: { required: true },
 				description: "Workout Id for this selection",
+				label: catalogMessage("query-parameter.workout"),
 			},
 		},
 	});
@@ -106,9 +107,9 @@ export const workoutOccurrencesRecipe = (input: {
 		fields: {
 			workoutId: {
 				type: "string",
-				label: "Workout Id",
 				validation: { required: true },
 				description: "Workout Id for this selection",
+				label: catalogMessage("query-parameter.workout"),
 			},
 		},
 	});
@@ -144,10 +145,14 @@ export const workoutTaxonomyRecipe = (input: { readonly reference: PluginIdentit
 		fields: {
 			workoutIds: {
 				type: "array",
-				label: "Workout Ids",
 				validation: { required: true },
 				description: "Workout Ids for this selection",
-				items: { type: "string", label: "Value", description: "Selection value" },
+				label: catalogMessage("query-parameter.workouts"),
+				items: {
+					type: "string",
+					description: "Selection value",
+					label: catalogMessage("query-parameter.value"),
+				},
 			},
 		},
 	});

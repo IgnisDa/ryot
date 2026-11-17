@@ -45,6 +45,7 @@ import { type PluginIdentityReference, REPORTING_BUCKET_LIMIT } from "@ryot-app/
 
 import { property, propertyDate, propertyJson, propertyNumber } from "./entity-selections";
 import { personalBestAwardCount, workoutSetMetric, workoutSetVolume } from "./fitness-metrics";
+import { catalogMessage } from "./messages.generated";
 import {
 	setMeasures,
 	startedAt,
@@ -65,13 +66,13 @@ type Table = Parameters<typeof column>[0];
 export const fitnessFilterParameterFields = {
 	filterId: {
 		type: "string",
-		label: "Filter entity",
+		label: catalogMessage("query-parameter.filter-entity"),
 		description: "Restrict sets and workouts to one recorded exercise, muscle, or equipment item",
 	},
 	filterKind: {
 		type: "enum",
-		label: "Filter kind",
 		defaultValue: "exercises",
+		label: catalogMessage("query-parameter.filter-kind"),
 		description: "Kind of recorded entity selected by the filter",
 		choices: {
 			kind: "static",
@@ -255,8 +256,8 @@ const rankingParameters = parameters({
 		...fitnessFilterParameterFields,
 		kind: {
 			type: "enum",
-			label: "Ranking",
 			defaultValue: "targets",
+			label: catalogMessage("query-parameter.ranking"),
 			description: "Rank recorded muscles, equipment, or exercises by weighted sets",
 			choices: {
 				kind: "static",
@@ -342,8 +343,8 @@ const trendParameters = parameters({
 		...fitnessFilterParameterFields,
 		metric: {
 			type: "enum",
-			label: "Metric",
 			defaultValue: "workouts",
+			label: catalogMessage("query-parameter.metric"),
 			description: "Workout or set measurement to group over the selected period",
 			choices: { kind: "static", values: fitnessTrendMetrics.map((value) => ({ value })) },
 		},
@@ -553,9 +554,9 @@ export const fitnessMeasurementTrendRecipe = (structural: {
 			...reportingParameterFields,
 			metricId: {
 				type: "string",
-				label: "Metric",
 				validation: { required: true },
 				description: "Measurement metric to read",
+				label: catalogMessage("query-parameter.metric"),
 			},
 		},
 	});
@@ -617,9 +618,9 @@ export const fitnessMeasurementReadingsRecipe = (structural: {
 			...reportingParameterFields,
 			metricId: {
 				type: "string",
-				label: "Metric",
 				validation: { required: true },
 				description: "Measurement metric to read",
+				label: catalogMessage("query-parameter.metric"),
 			},
 		},
 	});

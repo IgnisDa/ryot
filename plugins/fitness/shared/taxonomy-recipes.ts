@@ -22,6 +22,7 @@ import {
 import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { property } from "./entity-selections";
+import { catalogMessage } from "./messages.generated";
 import { exerciseTargetKindSchema, exerciseTargetRoleSchema } from "./taxonomy";
 
 type Table = Parameters<typeof column>[0];
@@ -117,7 +118,13 @@ export const exerciseEquipmentInclude = (exercise: Table) => {
 };
 export const targetListRecipe = (input: { readonly reference: PluginIdentityReference }) => {
 	const inputParameters = parameters({
-		fields: { name: { label: "name", type: "string", description: "name for this selection" } },
+		fields: {
+			name: {
+				type: "string",
+				description: "name for this selection",
+				label: catalogMessage("query-parameter.name"),
+			},
+		},
 	});
 	const target = table("entity", "exerciseTarget");
 	return defineRecipe({
@@ -146,7 +153,13 @@ export const targetListRecipe = (input: { readonly reference: PluginIdentityRefe
 };
 export const equipmentListRecipe = (input: { readonly reference: PluginIdentityReference }) => {
 	const inputParameters = parameters({
-		fields: { name: { label: "name", type: "string", description: "name for this selection" } },
+		fields: {
+			name: {
+				type: "string",
+				description: "name for this selection",
+				label: catalogMessage("query-parameter.name"),
+			},
+		},
 	});
 	const equipmentTable = table("entity", "exerciseEquipment");
 	return defineRecipe({
@@ -177,9 +190,9 @@ export const exerciseTargetsRecipe = (input: { readonly reference: PluginIdentit
 		fields: {
 			exerciseId: {
 				type: "string",
-				label: "exerciseId",
 				validation: { required: true },
 				description: "exerciseId for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 		},
 	});
@@ -219,9 +232,9 @@ export const exerciseEquipmentRecipe = (input: { readonly reference: PluginIdent
 		fields: {
 			exerciseId: {
 				type: "string",
-				label: "exerciseId",
 				validation: { required: true },
 				description: "exerciseId for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 		},
 	});

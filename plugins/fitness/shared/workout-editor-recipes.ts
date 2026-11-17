@@ -22,6 +22,7 @@ import {
 import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { propertyJson } from "./entity-selections";
+import { catalogMessage } from "./messages.generated";
 import { decodeWorkoutEditorJson, encodeWorkoutEditorJson } from "./workout-editor-codec";
 import { WorkoutEditorMediaSchema, workoutSetEditableFields } from "./workout-set";
 
@@ -54,22 +55,16 @@ export const workoutEditorEntityRecipe = (input: {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "entityId",
 				validation: { required: true },
 				description: "entityId for this selection",
+				label: catalogMessage("query-parameter.entity"),
 			},
 			kind: {
 				type: "enum",
-				label: "kind",
 				validation: { required: true },
 				description: "kind for this selection",
-				choices: {
-					kind: "static",
-					values: [
-						{ value: "workout", label: "workout" },
-						{ value: "workout-template", label: "workout-template" },
-					],
-				},
+				label: catalogMessage("query-parameter.kind"),
+				choices: { kind: "static", values: [{ value: "workout" }, { value: "workout-template" }] },
 			},
 		},
 	});
@@ -102,9 +97,9 @@ export const workoutEditorSetsRecipe = (input: { readonly reference: PluginIdent
 		fields: {
 			workoutId: {
 				type: "string",
-				label: "Workout Id",
 				validation: { required: true },
 				description: "Workout Id for this selection",
+				label: catalogMessage("query-parameter.workout"),
 			},
 		},
 	});
@@ -139,10 +134,14 @@ export const workoutEditorExercisesRecipe = (input: {
 		fields: {
 			exerciseIds: {
 				type: "array",
-				label: "Exercise Ids",
 				validation: { required: true },
 				description: "Exercise Ids for this selection",
-				items: { type: "string", label: "Value", description: "Selection value" },
+				label: catalogMessage("query-parameter.exercises"),
+				items: {
+					type: "string",
+					description: "Selection value",
+					label: catalogMessage("query-parameter.value"),
+				},
 			},
 		},
 	});
@@ -182,10 +181,14 @@ export const workoutEditorEventIdentitiesRecipe = (input: {
 		fields: {
 			eventIds: {
 				type: "array",
-				label: "Event Ids",
 				validation: { required: true },
 				description: "Event Ids for this selection",
-				items: { type: "string", label: "Value", description: "Selection value" },
+				label: catalogMessage("query-parameter.events"),
+				items: {
+					type: "string",
+					description: "Selection value",
+					label: catalogMessage("query-parameter.value"),
+				},
 			},
 		},
 	});
@@ -218,9 +221,9 @@ export const workoutEditorMembershipRecipe = (input: {
 		fields: {
 			exerciseId: {
 				type: "string",
-				label: "Exercise Id",
 				validation: { required: true },
 				description: "Exercise Id for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 		},
 	});
@@ -252,9 +255,9 @@ export const workoutEditorLinksRecipe = (input: {
 		fields: {
 			workoutId: {
 				type: "string",
-				label: "Workout Id",
 				validation: { required: true },
 				description: "Workout Id for this selection",
+				label: catalogMessage("query-parameter.workout"),
 			},
 		},
 	});

@@ -52,6 +52,7 @@ import {
 	exerciseMechanicSchema,
 } from "./exercise-kinds";
 import { workoutSetMetric, workoutSetVolume } from "./fitness-metrics";
+import { catalogMessage } from "./messages.generated";
 import { exerciseEquipmentInclude, exerciseTargetInclude } from "./taxonomy-recipes";
 import { ExerciseNotesSchema, ImageLocatorsSchema } from "./workout-details-recipes";
 import { membershipField, membershipPropertiesSchema } from "./workout-exercise-recipes";
@@ -420,8 +421,8 @@ export const exerciseDetailsRecipe = (input: { readonly reference: PluginIdentit
 		fields: {
 			exerciseId: {
 				type: "string",
-				label: "Exercise",
 				validation: { required: true },
+				label: catalogMessage("query-parameter.exercise"),
 				description: "Exercise whose recorded history to read",
 			},
 		},

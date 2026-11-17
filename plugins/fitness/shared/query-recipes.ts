@@ -31,6 +31,7 @@ import {
 	propertyNumber,
 	workoutDatesSelection,
 } from "./entity-selections";
+import { catalogMessage } from "./messages.generated";
 import { exerciseEquipmentInclude } from "./taxonomy-recipes";
 
 type Table = Parameters<typeof column>[0];
@@ -98,8 +99,16 @@ const workoutInclude = (parent: Table, limit: number) => {
 export const exerciseListRecipe = (input: { readonly reference: PluginIdentityReference }) => {
 	const inputParameters = parameters({
 		fields: {
-			name: { label: "name", type: "string", description: "name for this selection" },
-			entityId: { type: "string", label: "entityId", description: "entityId for this selection" },
+			name: {
+				type: "string",
+				description: "name for this selection",
+				label: catalogMessage("query-parameter.name"),
+			},
+			entityId: {
+				type: "string",
+				description: "entityId for this selection",
+				label: catalogMessage("query-parameter.entity"),
+			},
 		},
 	});
 	const entity = table("entity", "entity");
@@ -173,7 +182,11 @@ export const workoutTemplateListRecipe = (input: {
 }) => {
 	const inputParameters = parameters({
 		fields: {
-			entityId: { type: "string", label: "entityId", description: "entityId for this selection" },
+			entityId: {
+				type: "string",
+				description: "entityId for this selection",
+				label: catalogMessage("query-parameter.entity"),
+			},
 		},
 	});
 	const entity = table("entity", "entity");
@@ -201,9 +214,9 @@ export const workoutDetailRecipe = (input: { readonly reference: PluginIdentityR
 		fields: {
 			entityId: {
 				type: "string",
-				label: "entityId",
 				validation: { required: true },
 				description: "entityId for this selection",
+				label: catalogMessage("query-parameter.entity"),
 			},
 		},
 	});
@@ -231,9 +244,9 @@ export const workoutTemplateDetailRecipe = (input: {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "entityId",
 				validation: { required: true },
 				description: "entityId for this selection",
+				label: catalogMessage("query-parameter.entity"),
 			},
 		},
 	});

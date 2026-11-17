@@ -25,6 +25,7 @@ import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugi
 
 import { projectionNumber, property, propertyDate, propertyNumber } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
+import { catalogMessage } from "./messages.generated";
 import { WorkoutSetLotSchema } from "./workout-set";
 
 type Table = Parameters<typeof column>[0];
@@ -62,19 +63,19 @@ export const workoutHistoryRecipe = (input: { readonly reference: PluginIdentity
 		fields: {
 			beforeStartedAt: {
 				type: "datetime",
-				label: "Before Started At",
 				description: "Before Started At for this selection",
+				label: catalogMessage("query-parameter.started-before"),
 			},
 			excludeWorkoutId: {
 				type: "string",
-				label: "Exclude Workout Id",
 				description: "Exclude Workout Id for this selection",
+				label: catalogMessage("query-parameter.excluded-workout"),
 			},
 			exerciseId: {
 				type: "string",
-				label: "Exercise Id",
 				validation: { required: true },
 				description: "Exercise Id for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 		},
 	});
@@ -123,15 +124,15 @@ export const workoutHistorySetsRecipe = (input: {
 		fields: {
 			workoutId: {
 				type: "string",
-				label: "Workout Id",
 				validation: { required: true },
 				description: "Workout Id for this selection",
+				label: catalogMessage("query-parameter.workout"),
 			},
 			exerciseId: {
 				type: "string",
-				label: "Exercise Id",
 				validation: { required: true },
 				description: "Exercise Id for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 		},
 	});
@@ -169,36 +170,36 @@ export const workoutExercisePreviousValuesRecipe = (input: {
 		fields: {
 			exerciseId: {
 				type: "string",
-				label: "exerciseId",
 				validation: { required: true },
 				description: "exerciseId for this selection",
+				label: catalogMessage("query-parameter.exercise"),
 			},
 			beforeStartedAt: {
 				type: "datetime",
-				label: "beforeStartedAt",
 				validation: { required: true },
 				description: "beforeStartedAt for this selection",
+				label: catalogMessage("query-parameter.started-before"),
 			},
 			excludeWorkoutId: {
 				type: "string",
-				label: "excludeWorkoutId",
 				validation: { required: true },
 				description: "excludeWorkoutId for this selection",
+				label: catalogMessage("query-parameter.excluded-workout"),
 			},
 			recordedKind: {
 				type: "enum",
-				label: "recordedKind",
 				validation: { required: true },
 				description: "recordedKind for this selection",
+				label: catalogMessage("query-parameter.recorded-kind"),
 				choices: {
 					kind: "static",
 					values: [
-						{ value: "reps_and_weight", label: "reps_and_weight" },
-						{ value: "reps", label: "reps" },
-						{ value: "duration", label: "duration" },
-						{ value: "distance_and_duration", label: "distance_and_duration" },
-						{ value: "reps_and_duration", label: "reps_and_duration" },
-						{ value: "reps_and_duration_and_distance", label: "reps_and_duration_and_distance" },
+						{ value: "reps_and_weight" },
+						{ value: "reps" },
+						{ value: "duration" },
+						{ value: "distance_and_duration" },
+						{ value: "reps_and_duration" },
+						{ value: "reps_and_duration_and_distance" },
 					],
 				},
 			},
