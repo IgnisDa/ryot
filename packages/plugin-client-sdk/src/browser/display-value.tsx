@@ -1,3 +1,5 @@
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { RatingValue } from "@ryot-app/plugin-ui-sdk";
 import { EntityArtWell, type FieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
@@ -13,8 +15,8 @@ type SavedViewCellAsset = Extract<
 	{ readonly displayKind: "managed-asset" }
 >["value"];
 
-export const countLabel = (count: number) =>
-	`${count.toLocaleString()} item${count === 1 ? "" : "s"}`;
+export const itemCountMessage = (count: number) =>
+	kernelMessage("sdk.browser.item-count", { count });
 
 export const isAssetCell = (
 	cell: SavedViewCell,
@@ -52,6 +54,8 @@ export function CellValue({
 	readonly state?: FieldSyncState;
 	readonly value: SavedViewCellValue;
 }) {
+	const t = useT();
+	const formatters = useFormatters();
 	if (value.value === null) {
 		return null;
 	}
@@ -68,7 +72,7 @@ export function CellValue({
 	if (value.displayKind === "rating") {
 		return <RatingCell rating={value.value} />;
 	}
-	const content = displayValueText(value);
+	const content = displayValueText(t, formatters, value);
 	return value.displayKind === "date" ? <time dateTime={value.value}>{content}</time> : content;
 }
 

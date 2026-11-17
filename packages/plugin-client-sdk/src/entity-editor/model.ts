@@ -5,6 +5,7 @@ import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/r
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
+import type { Message } from "@ryot-app/i18n/message";
 import {
 	initialSchemaFormValues,
 	type SchemaFormMode,
@@ -26,8 +27,8 @@ export type EditorRelationshipTarget = {
 };
 
 export type EditorRelationshipDefinition = {
-	readonly name: string;
 	readonly slug: string;
+	readonly name: Message;
 	readonly propertiesSchema: AppSchema;
 	readonly relatedEntitySchemaSlug: string;
 	readonly direction: PluginEntityEditorRelationship["direction"];

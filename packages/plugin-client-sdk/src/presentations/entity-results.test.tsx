@@ -15,7 +15,7 @@ import { createPluginRouteResolver, PluginLink, PluginRouter } from "../navigati
 import { createPluginNavigationStore } from "../navigation/store";
 import { RyotProvider } from "../queries/provider";
 import { usePageRefresh } from "../refresh/page-registry";
-import { createTestRyotClock } from "../testing";
+import { createTestRyotClock, TestI18nProvider } from "../testing";
 import {
 	defineEntityPresentation,
 	type EntityPresentationRegistration,
@@ -49,7 +49,7 @@ const presentationSources = (
 				scope: "owner",
 				pluginId: "owner",
 				schemaSlug: "item",
-				context: { now: 0, timeZone: UTC, settings: null },
+				context: { now: 0, weekStart: 1, timeZone: UTC, settings: null },
 			},
 		]),
 	);
@@ -96,6 +96,7 @@ const render = (
 		}),
 	);
 	const navigation = {
+		views: store.views,
 		back: () => undefined,
 		subscribe: store.subscribe,
 		openDrawer: () => undefined,
@@ -132,11 +133,13 @@ const render = (
 		});
 	act(() => {
 		root.render(
-			<RyotProvider runtime={clock.runtime}>
-				<EntityPresentationRegistryProvider registrations={registrations}>
-					<PluginRouter />
-				</EntityPresentationRegistryProvider>
-			</RyotProvider>,
+			<TestI18nProvider>
+				<RyotProvider runtime={clock.runtime}>
+					<EntityPresentationRegistryProvider registrations={registrations}>
+						<PluginRouter />
+					</EntityPresentationRegistryProvider>
+				</RyotProvider>
+			</TestI18nProvider>,
 		);
 	});
 	const navigate = (path: string, index: number, key: string) =>
@@ -777,7 +780,7 @@ describe("EntityResults", () => {
 				});
 				const { clock, container } = render([], gridFor([fallback]));
 				yield* flush(clock);
-				expect(container.textContent).toContain("item");
+				expect(container.textContent).toContain("Item");
 				expect(container.textContent).toContain("Fallback name");
 				expect(container.querySelector(".animate-sync-pulse")).not.toBeNull();
 				expect(container.querySelector("a")?.getAttribute("href")).toBe("/e/fallback");

@@ -2,6 +2,9 @@ import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/re
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { StatusMessage, useValueChange } from "@ryot-app/plugin-ui-sdk";
 import { Effect, Schema } from "effect";
 import {
@@ -32,8 +35,8 @@ export const useDrillRequest = <Request,>(scope: AnalyticsSectionProps) => {
 
 export type AnalyticsSectionRegistration = {
 	readonly slug: string;
-	readonly name: string;
 	readonly icon: string;
+	readonly name: Message;
 	readonly ownerPluginId: PluginId;
 	readonly load: null | (() => Promise<ComponentType<AnalyticsSectionProps>>);
 };
@@ -72,11 +75,18 @@ class SectionBoundary extends Component<
 	}
 }
 
-const SectionFailure = ({ retry }: { readonly retry: () => void }) => (
-	<StatusMessage blocked tone="error" action={{ label: "Retry", onClick: retry }}>
-		Could not load this section.
-	</StatusMessage>
-);
+const SectionFailure = ({ retry }: { readonly retry: () => void }) => {
+	const t = useT();
+	return (
+		<StatusMessage
+			blocked
+			tone="error"
+			action={{ onClick: retry, label: t(kernelMessage("common.action.retry")) }}
+		>
+			{t(kernelMessage("sdk.analytics.section-failed"))}
+		</StatusMessage>
+	);
+};
 
 type LoadedSection =
 	| { readonly state: "failed" }
@@ -94,6 +104,7 @@ const SectionContent = ({
 	readonly selection: ReportingSelection;
 	readonly registration: AnalyticsSectionRegistration;
 }) => {
+	const t = useT();
 	const schedule = useRyotSchedule();
 	const [loaded, setLoaded] = useState<LoadedSection>({ state: "loading" });
 	useEffect(() => {
@@ -117,14 +128,14 @@ const SectionContent = ({
 	if (registration.load === null) {
 		return (
 			<StatusMessage blocked tone="pending">
-				Section unavailable. Reload the page after the plugin is available.
+				{t(kernelMessage("sdk.analytics.section-unavailable"))}
 			</StatusMessage>
 		);
 	}
 	if (loaded.state === "loading") {
 		return (
 			<StatusMessage blocked tone="pending">
-				Loading section…
+				{t(kernelMessage("sdk.analytics.section-loading"))}
 			</StatusMessage>
 		);
 	}

@@ -1,12 +1,16 @@
 import type { EntityPresentationPayload } from "@ryot-app/contract/modules/entities/presentation";
 import type { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { Formatters } from "@ryot-app/i18n/formatters";
+import type { Message } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	Button,
 	Eyebrow,
 	type ItemSelection,
 	resultsLayoutClasses,
-	schemaSlugLabel,
 	SelectableItem,
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
@@ -42,6 +46,7 @@ import {
 } from "../navigation/routing";
 import { useEntityRefresh } from "../refresh/entity-hooks";
 import { usePageRefreshRequest } from "../refresh/page-registry";
+import { useEntitySchemaName } from "./schema-names";
 
 export type EntityResultsLayout = "grid" | "list";
 
@@ -67,6 +72,7 @@ export type EntityPresentationDefinition = {
 };
 
 export type EntityPresentationPrepare<Data = unknown> = (context: {
+	readonly formatters: Formatters;
 	readonly references: readonly EntityReference[];
 	readonly sources: ReadonlyMap<string, EntityPresentationSource>;
 	readonly context?: undefined | EntityPresentationPayload["context"];
@@ -199,11 +205,16 @@ export const EntityPresentationRegistryProvider = ({
 	);
 };
 
-const BasicEntityLink = ({ reference }: { readonly reference: EntityReference }) => (
-	<PluginLink to={{ kind: "entity", entityId: reference.entityId }}>
-		{reference.name ?? reference.entitySchemaSlug}
-	</PluginLink>
-);
+const untitled = kernelMessage("sdk.entity-results.untitled");
+
+const BasicEntityLink = ({ reference }: { readonly reference: EntityReference }) => {
+	const t = useT();
+	return (
+		<PluginLink to={{ kind: "entity", entityId: reference.entityId }}>
+			{reference.name ?? t(untitled)}
+		</PluginLink>
+	);
+};
 
 const GenericEntityCard = ({
 	layout,
@@ -212,7 +223,9 @@ const GenericEntityCard = ({
 	readonly reference: EntityReference;
 	readonly layout: EntityResultsLayout;
 }) => {
-	const title = reference.name ?? schemaSlugLabel(reference.entitySchemaSlug);
+	const t = useT();
+	const schemaName = useEntitySchemaName();
+	const title = reference.name ?? t(untitled);
 	return (
 		<article
 			data-layout={layout}
@@ -222,9 +235,9 @@ const GenericEntityCard = ({
 			}
 		>
 			<PluginLink
-				aria-label={`Open ${title}`}
 				to={{ kind: "entity", entityId: reference.entityId }}
 				className={layout === "grid" ? "block min-w-0" : "block shrink-0"}
+				aria-label={t(kernelMessage("sdk.entity-results.open-item", { name: title }))}
 			>
 				<EntityArtWell
 					url={undefined}
@@ -234,7 +247,7 @@ const GenericEntityCard = ({
 				/>
 			</PluginLink>
 			<div className="grid min-w-0 flex-1 gap-1">
-				<Eyebrow>{schemaSlugLabel(reference.entitySchemaSlug)}</Eyebrow>
+				<Eyebrow>{schemaName(reference)}</Eyebrow>
 				<span className="flex min-w-0 items-baseline gap-1.5">
 					<PluginLink className="min-w-0" to={{ kind: "entity", entityId: reference.entityId }}>
 						<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
@@ -253,20 +266,23 @@ const ItemFailure = ({
 	onRetry,
 	reference,
 }: {
-	readonly message: string;
+	readonly message: Message;
 	readonly onRetry?: () => void;
 	readonly reference: EntityReference;
-}) => (
-	<article>
-		<StatusMessage tone="error">{message}</StatusMessage>
-		<BasicEntityLink reference={reference} />
-		{onRetry && (
-			<Button type="button" variant="ghost" onClick={onRetry}>
-				Retry
-			</Button>
-		)}
-	</article>
-);
+}) => {
+	const t = useT();
+	return (
+		<article>
+			<StatusMessage tone="error">{t(message)}</StatusMessage>
+			<BasicEntityLink reference={reference} />
+			{onRetry && (
+				<Button type="button" variant="ghost" onClick={onRetry}>
+					{t(kernelMessage("common.action.retry"))}
+				</Button>
+			)}
+		</article>
+	);
+};
 
 class PresentationErrorBoundary extends Component<
 	{
@@ -287,7 +303,7 @@ class PresentationErrorBoundary extends Component<
 			return (
 				<ItemFailure
 					reference={this.props.reference}
-					message="This entity could not be displayed."
+					message={kernelMessage("sdk.presentation.display-failed")}
 					onRetry={() => {
 						this.setState({ failed: false });
 						this.props.onRetry();
@@ -354,7 +370,12 @@ const EntityResultItem = ({
 		return <PendingPresentation layout={layout} entry={item.entry} reference={item.reference} />;
 	}
 	if (item.kind === "failed") {
-		return <ItemFailure reference={item.reference} message="This entity could not be loaded." />;
+		return (
+			<ItemFailure
+				reference={item.reference}
+				message={kernelMessage("sdk.presentation.load-failed")}
+			/>
+		);
 	}
 
 	return (
@@ -393,10 +414,11 @@ const PendingPresentation = ({
 	readonly reference: EntityReference;
 	readonly layout: EntityResultsLayout;
 }) => {
+	const t = useT();
 	const state = useSyncExternalStore(entry.subscribe, entry.getSnapshot, entry.getSnapshot);
 	useEffect(() => entry.load(), [entry]);
 	return state === "failed" ? (
-		<ItemFailure reference={reference} message="This presentation is unavailable." />
+		<ItemFailure reference={reference} message={kernelMessage("sdk.presentation.unavailable")} />
 	) : (
 		<article
 			data-layout={layout}
@@ -411,7 +433,11 @@ const PendingPresentation = ({
 				}
 			/>
 			<StatusMessage tone="pending">
-				Loading {reference.name ?? "entity"} presentation...
+				{t(
+					reference.name === null
+						? kernelMessage("sdk.presentation.loading")
+						: kernelMessage("sdk.presentation.loading-named", { name: reference.name }),
+				)}
 			</StatusMessage>
 		</article>
 	);
@@ -434,6 +460,7 @@ export const EntityResults = ({
 	readonly presentations: ReadonlyMap<string, EntityPresentationPayload>;
 	readonly renderItemActions?: undefined | ((reference: EntityReference) => ReactNode);
 }) => {
+	const t = useT();
 	const registry = useContext(PresentationRegistryContext);
 	if (!registry) {
 		throw new Error("EntityResults must be used in a bootstrapped client application");
@@ -549,6 +576,7 @@ export const EntityResults = ({
 		identity: refreshIdentity,
 		onRefresh: () => Effect.sync(requestPageRefresh),
 	});
+	const formatters = useFormatters();
 	const items = useMemo(() => {
 		const grouped = new Map<PresentationRuntime, EntityReference[]>();
 		const entries = references.map((reference) => {
@@ -600,6 +628,7 @@ export const EntityResults = ({
 						try {
 							result = runtime.definition.prepare({
 								sources,
+								formatters,
 								references: batchReferences,
 								context: presentations.get(batchReferences[0]?.entityId ?? "")?.context,
 							});
@@ -651,7 +680,7 @@ export const EntityResults = ({
 			};
 		});
 		// oxlint-disable-next-line react-hooks/exhaustive-deps -- The registry's entries change state without changing map identity.
-	}, [layout, presentations, references, registry, presentationState]);
+	}, [layout, presentations, references, registry, presentationState, formatters]);
 	return (
 		<NavigationEnabledContext.Provider value={navigationEnabled}>
 			<div className="@container">
@@ -666,7 +695,11 @@ export const EntityResults = ({
 								<SelectableItem
 									selection={selection}
 									id={item.reference.entityId}
-									label={item.reference.name ?? schemaSlugLabel(item.reference.entitySchemaSlug)}
+									label={
+										item.reference.name === null
+											? t(untitled)
+											: formatDisplayText(t, item.reference.name)
+									}
 								>
 									{renderItemActions === undefined || selection !== undefined ? (
 										<EntityResultItem item={item} layout={layout} viewContext={viewContext} />

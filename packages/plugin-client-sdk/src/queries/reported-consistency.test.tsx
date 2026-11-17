@@ -1,7 +1,7 @@
 import { afterEach, expect } from "bun:test";
 
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { column, defineRecipe, selectedField, selectedRows, table } from "@ryot-app/ryotql";
 import {
@@ -83,7 +83,7 @@ it.live(
 				},
 				{ grouping: "year", range: { kind: "all-time" }, comparison: "previous-period" },
 			] as const) {
-				const requests: ExecutionRequest[] = [];
+				const requests: PluginExecutionRequest[] = [];
 				const recordedSelections: ReportingSelection[] = [];
 				for (const now of ["2026-03-15T12:00:00Z", "2026-11-02T18:00:00Z"]) {
 					const clock = createTestRyotClock({
@@ -93,6 +93,7 @@ it.live(
 								return {
 									...rowsResponse("entries", [], { limit: 20, hasMore: false, nextCursor: null }),
 									execution: {
+										weekStart: 1,
 										now: Date.parse("2026-11-03T12:00:00Z"),
 										timeZone: TimeZone.make("America/New_York"),
 									},

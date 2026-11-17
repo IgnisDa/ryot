@@ -1,3 +1,7 @@
+import type { DisplayText } from "@ryot-app/i18n/message";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { type ItemSelection, SelectableItem } from "@ryot-app/plugin-ui-sdk";
 import {
 	fieldSyncState,
@@ -12,6 +16,7 @@ import type {
 } from "@ryot-app/ryotql-recipes/saved-views";
 import type { ReactNode } from "react";
 
+import { useDisplayText } from "../i18n/messages";
 import { NavigationEnabledContext, PluginLink } from "../navigation/routing";
 import type { EntitySettle } from "../refresh/settle";
 import { CellThumbnail, CellValue, isAssetCell } from "./display-value";
@@ -36,6 +41,7 @@ const VALUE_COLUMN = {
 } as const;
 
 const browserColumns = (
+	displayText: (text: DisplayText) => Text,
 	declared: null | BrowserColumns,
 	settled: EntitySettle,
 	selection: undefined | ItemSelection,
@@ -44,7 +50,7 @@ const browserColumns = (
 		.filter(({ displayKind }) => displayKind !== "managed-asset")
 		.map((column, index) => ({
 			id: column.field,
-			header: column.label,
+			header: <HeaderText text={column.label} />,
 			cellClassName:
 				index === 0
 					? "min-w-0 px-0 py-1"
@@ -70,7 +76,7 @@ const browserColumns = (
 				const asset = rowThumbnail(item);
 				return (
 					<SettleHighlight className="rounded" reason={settled.get(item.entityId)}>
-						<SelectableItem label={item.name} id={item.entityId} selection={selection}>
+						<SelectableItem id={item.entityId} selection={selection} label={displayText(item.name)}>
 							<PluginLink
 								to={{ kind: "entity", entityId: item.entityId }}
 								className="flex h-13 min-w-0 items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus"
@@ -84,7 +90,7 @@ const browserColumns = (
 									/>
 								)}
 								<span className="truncate text-body text-text">
-									{value === undefined ? "" : displayValueText(value)}
+									{value === undefined ? "" : <CellText value={value} />}
 								</span>
 								{isTitleProvisional(item.sync) && <SyncPip reason="translating" />}
 							</PluginLink>
@@ -99,12 +105,23 @@ export type BrowserItemActions = (item: {
 	readonly name: null | string;
 }) => ReactNode;
 
-const actionsColumn = (itemActions: BrowserItemActions): DataTableColumn<BrowserItem> => ({
+function HeaderText(props: { readonly text: DisplayText }) {
+	return useDisplayText()(props.text);
+}
+
+function CellText(props: { readonly value: Parameters<typeof displayValueText>[2] }) {
+	return displayValueText(useT(), useFormatters(), props.value);
+}
+
+const actionsColumn = (
+	header: string,
+	itemActions: BrowserItemActions,
+): DataTableColumn<BrowserItem> => ({
 	id: "actions",
 	cell: itemActions,
 	headerClassName: "w-12 px-0 py-3",
 	cellClassName: "w-12 px-0 py-1 text-right",
-	header: <span className="sr-only">Actions</span>,
+	header: <span className="sr-only">{header}</span>,
 });
 
 export function BrowserTable({
@@ -122,7 +139,9 @@ export function BrowserTable({
 	readonly selection: undefined | ItemSelection;
 	readonly renderItemActions?: undefined | BrowserItemActions;
 }) {
-	const declared = browserColumns(columns, settled, selection);
+	const t = useT();
+	const displayText = useDisplayText();
+	const declared = browserColumns(displayText, columns, settled, selection);
 	return (
 		<NavigationEnabledContext.Provider value={navigationEnabled}>
 			<div className="w-full max-w-6xl overflow-x-auto">
@@ -135,7 +154,10 @@ export function BrowserTable({
 					columns={
 						renderItemActions === undefined || selection !== undefined
 							? declared
-							: [...declared, actionsColumn(renderItemActions)]
+							: [
+									...declared,
+									actionsColumn(t(kernelMessage("sdk.browser.actions")), renderItemActions),
+								]
 					}
 				/>
 			</div>

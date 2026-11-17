@@ -1,4 +1,5 @@
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { LocalMessage } from "@ryot-app/i18n/message";
 import type { BackgroundSubmissionOutcome } from "@ryot-app/plugin-client-contract";
 import * as Effect from "effect/Effect";
 import type * as Schema from "effect/Schema";
@@ -17,7 +18,7 @@ export type RyotBackgroundSubmission<
 	readonly slug: string;
 	readonly packageId: PluginPackageId;
 	readonly inputSchema: OperationInput;
-	readonly label: (input: Input) => string;
+	readonly label: (input: Input) => LocalMessage;
 	readonly input: (submission: RyotSubmission<Input>) => OperationInput["Type"];
 };
 

@@ -16,6 +16,8 @@ import {
 } from "./background-submission-hook";
 import { RyotProvider } from "./provider";
 
+const rejection = { namespace: "fixture", key: "operation.rejected" };
+
 const roots: Root[] = [];
 const clocks: Array<ReturnType<typeof createTestRyotClock>> = [];
 
@@ -33,7 +35,6 @@ afterEach(() => {
 const logReading = createRyotBackgroundSubmission({
 	slug: "log-reading",
 	packageId: PluginPackageId.make("test/fixture"),
-	label: (input: { readonly values: number[] }) => `Logged\n${input.values.join(", ")}`,
 	inputSchema: Schema.Struct({
 		at: Schema.String,
 		key: Schema.String,
@@ -43,6 +44,10 @@ const logReading = createRyotBackgroundSubmission({
 		at: submittedAt,
 		key: submissionId,
 		values: input.values,
+	}),
+	label: (input: { readonly values: number[] }) => ({
+		key: "reading.logged",
+		params: { count: input.values.length },
 	}),
 });
 
@@ -100,10 +105,10 @@ describe("useBackgroundSubmission", () => {
 				expect(background.requests).toEqual([
 					{
 						slug: "log-reading",
-						label: "Logged 72.5",
 						idempotencyKey: "key-1",
 						packageId: "test/fixture",
 						submittedAt: "2026-10-25T08:00:00.000Z",
+						label: { params: { count: 1 }, key: "reading.logged" },
 						input: { key: "key-1", values: [72.5], at: "2026-10-25T08:00:00.000Z" },
 					},
 				]);
@@ -164,12 +169,12 @@ describe("useBackgroundSubmission", () => {
 				expect(hook().error).toBeNull();
 				background.settle("submission-key-2", {
 					status: "failed",
-					message: "Unknown metric",
+					message: rejection,
 					reason: "operation-rejected",
 				});
 				expect(hook().last).toEqual({
 					status: "failed",
-					message: "Unknown metric",
+					message: rejection,
 					reason: "operation-rejected",
 				});
 			}),

@@ -4,8 +4,8 @@ import {
 	type ReportingSelection,
 	type ResolvedReportingSelection,
 } from "@ryot-app/contract/modules/analytics/reporting";
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import type { Recipe } from "@ryot-app/ryotql";
 import * as Effect from "effect/Effect";
@@ -31,10 +31,10 @@ type ReportedContext<Input> = {
 	readonly input: Input;
 	readonly selection: ReportingSelection;
 	readonly comparison: "current" | "previous";
-	readonly query: <Data, const Parameters extends AppSchema, Output>(
+	readonly query: <Data, const Parameters extends AuthoredAppSchema, Output>(
 		recipe: Recipe<Data, Parameters>,
 		arguments_: NoInfer<Recipe.Arguments<Recipe<Data, Parameters>>>,
-		options: undefined | Omit<ExecutionRequest, "source" | "arguments">,
+		options: undefined | Omit<PluginExecutionRequest, "source" | "arguments">,
 		project: (data: Data, reporting: ResolvedReportingSelection) => Output,
 	) => Effect.Effect<Reported<Output>, RyotClientError>;
 };
@@ -61,8 +61,10 @@ const reportedContext = <Input extends ReportingInput>(
 		client.data.queryWithExecution(recipe, arguments_, options).pipe(
 			Effect.map(({ data, execution }) => {
 				const resolvedSelection = consistency
-					? consistencySelection({ selection, timeZone: execution.timeZone }, execution.now)
-							.selection
+					? consistencySelection(
+							{ selection, timeZone: execution.timeZone, weekStart: execution.weekStart },
+							execution.now,
+						).selection
 					: selection;
 				const reporting = {
 					...reportingExecution(resolvedSelection, execution),
@@ -156,7 +158,11 @@ export const createConsistencyQuery = <
 				Effect.map((data) =>
 					Object.assign({}, data, {
 						clipped: consistencySelection(
-							{ selection: input.selection, timeZone: data.reporting.resolved.timeZone },
+							{
+								selection: input.selection,
+								timeZone: data.reporting.resolved.timeZone,
+								weekStart: data.reporting.resolved.weekStart,
+							},
 							data.reporting.now,
 						).clipped,
 					}),

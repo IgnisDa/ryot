@@ -5,6 +5,7 @@ import type {
 	EntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
 import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import type { PickEntityRequest } from "@ryot-app/plugin-client-contract";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -17,7 +18,7 @@ import { createRoot, type Root } from "react-dom/client";
 import type { RyotClientAdapter } from "../client/adapter";
 import { RyotClientError } from "../client/errors";
 import { RyotProvider } from "../queries/provider";
-import { createTestRyotClock } from "../testing";
+import { createTestRyotClock, testCatalog, TestI18nProvider } from "../testing";
 import { EntityEditor, type EntityEditorProps } from "./entity-editor";
 
 const packageId = PluginPackageId.make("test/editor");
@@ -74,8 +75,8 @@ const adapterFor = (
 			if (key === "definition") {
 				data[key] = rows([
 					{
-						name: "Part",
 						propertiesSchema,
+						name: { namespace: "plugin-1", key: "entity-schema.part.name" },
 						editor:
 							options.editor === undefined
 								? { relationships: [{ slug: "targets", direction: "outgoing" }] }
@@ -86,8 +87,8 @@ const adapterFor = (
 				data[key] = rows([
 					{
 						slug: "targets",
-						name: "Targets",
 						propertiesSchema: targetSchema,
+						name: { namespace: "plugin-1", key: "relationship-schema.targets.name" },
 						sourceEntitySchemaSlug: options.relatedSchemaSide === "source" ? "target" : "part",
 						targetEntitySchemaSlug: options.relatedSchemaSide === "source" ? "part" : "target",
 					},
@@ -121,6 +122,13 @@ const adapterFor = (
 	},
 });
 
+const catalogs = [
+	testCatalog("plugin-1", {
+		"entity-schema.part.name": "Part",
+		"relationship-schema.targets.name": "Targets",
+	}),
+];
+
 const roots: Root[] = [];
 const clocks: Array<ReturnType<typeof createTestRyotClock>> = [];
 
@@ -136,16 +144,18 @@ const mount = (
 	roots.push(root);
 	act(() =>
 		root.render(
-			<RyotProvider runtime={clock.runtime}>
-				<EntityEditor
-					packageId={packageId}
-					entitySchemaSlug="part"
-					onSaved={() => undefined}
-					onCancel={() => undefined}
-					onDeleted={() => undefined}
-					{...props}
-				/>
-			</RyotProvider>,
+			<TestI18nProvider catalogs={catalogs}>
+				<RyotProvider runtime={clock.runtime}>
+					<EntityEditor
+						packageId={packageId}
+						entitySchemaSlug="part"
+						onSaved={() => undefined}
+						onCancel={() => undefined}
+						onDeleted={() => undefined}
+						{...props}
+					/>
+				</RyotProvider>
+			</TestI18nProvider>,
 		),
 	);
 	return container;
@@ -488,7 +498,7 @@ describe("EntityEditor", () => {
 		() =>
 			Effect.gen(function* () {
 				const outputs: EntityEditorSaveOutput[] = [
-					{ kind: "invalid", message: "Remove this entity's history before deleting it" },
+					{ kind: "invalid", reason: kernelMessage("error.entity-editor.has-history") },
 					{ kind: "deleted" },
 				];
 				const requests: EntityEditorSaveRequest[] = [];
@@ -513,7 +523,7 @@ describe("EntityEditor", () => {
 				const dialog = yield* Effect.promise(() => within(document.body).findByRole("dialog"));
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 				yield* Effect.promise(() =>
-					within(dialog).findByText("Remove this entity's history before deleting it"),
+					within(dialog).findByText("Remove this item's history before deleting it."),
 				);
 				fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
 				yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["deleted"])));

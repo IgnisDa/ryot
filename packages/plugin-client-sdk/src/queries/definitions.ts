@@ -1,5 +1,8 @@
-import { type ExecutionRequest, RequestValues } from "@ryot-app/contract/modules/ryotql/request";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
+import {
+	type PluginExecutionRequest,
+	RequestValues,
+} from "@ryot-app/contract/modules/ryotql/request";
 import type { EntityWatch } from "@ryot-app/plugin-client-contract";
 import type { Recipe } from "@ryot-app/ryotql";
 import * as Context from "effect/Context";
@@ -228,11 +231,11 @@ const defineQuery = <Input, Data, Failure extends Error>(
 	);
 };
 
-export type RecipeQueryInput<Parameters extends AppSchema> = Omit<
-	ExecutionRequest,
+export type RecipeQueryInput<Parameters extends AuthoredAppSchema> = Omit<
+	PluginExecutionRequest,
 	"source" | "arguments"
 > & { readonly arguments: Recipe.Arguments<Recipe<unknown, Parameters>> };
-export function createRyotQuery<Data, const Parameters extends AppSchema>(
+export function createRyotQuery<Data, const Parameters extends AuthoredAppSchema>(
 	recipe: Recipe<Data, Parameters>,
 ): RyotQuery<RecipeQueryInput<Parameters>, Data>;
 export function createRyotQuery<Data, Failure extends Error = RyotClientError>(
@@ -244,11 +247,13 @@ export function createRyotQuery<Input, Data, Failure extends Error = RyotClientE
 	options?: RyotQueryOptions<Input, Data>,
 ): RyotQuery<Input, Data, Failure>;
 export function createRyotQuery<Input, Data, Failure extends Error = RyotClientError>(
-	query: Recipe<Data, AppSchema> | ((context: QueryContext<Input>) => Effect.Effect<Data, Failure>),
+	query:
+		| Recipe<Data, AuthoredAppSchema>
+		| ((context: QueryContext<Input>) => Effect.Effect<Data, Failure>),
 	options?: RyotQueryOptions<Input, Data>,
 ) {
 	if (typeof query !== "function") {
-		type Values = Omit<ExecutionRequest, "source">;
+		type Values = Omit<PluginExecutionRequest, "source">;
 		const decodeValues = Schema.decodeUnknownResult(
 			Schema.fromJsonString(Schema.Struct(RequestValues)),
 		);
@@ -272,7 +277,7 @@ export function createRyotQuery<Input, Data, Failure extends Error = RyotClientE
 			{ cancelOnUnmount: true },
 			{ query: query.query, documentHash: Hash.hash(query.document) },
 		);
-		return new QueryDefinition<RecipeQueryInput<AppSchema>, Data, RyotClientError>(
+		return new QueryDefinition<RecipeQueryInput<AuthoredAppSchema>, Data, RyotClientError>(
 			(registry, client, schedule, hostServices, input, cancelOnUnmount) => {
 				const values = Result.try(() => JSON.stringify(input)).pipe(
 					Result.flatMap(decodeValues),

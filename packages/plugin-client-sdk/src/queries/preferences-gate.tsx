@@ -9,7 +9,7 @@ export function PreferencesGate(props: {
 }) {
 	const preferences = useUserPreferences();
 	return (
-		<QueryStatus query={preferences} label="preferences" onRetry={preferences.refetch}>
+		<QueryStatus query={preferences} onRetry={preferences.refetch}>
 			{props.children}
 		</QueryStatus>
 	);

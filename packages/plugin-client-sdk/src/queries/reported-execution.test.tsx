@@ -4,7 +4,7 @@ import {
 	calendarBuckets,
 	type ReportingSelection,
 } from "@ryot-app/contract/modules/analytics/reporting";
-import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { PluginExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { column, defineRecipe, selectedField, selectedRows, table } from "@ryot-app/ryotql";
 import {
@@ -15,7 +15,7 @@ import { screen } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
-import { periodCaption } from "../analytics/reporting";
+import { usePeriodCaption } from "../analytics/reporting";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -69,12 +69,13 @@ it.live(
 				comparison: "none",
 				range: { days: 7, kind: "rolling" },
 			} as const;
-			const requests: ExecutionRequest[] = [];
+			const requests: PluginExecutionRequest[] = [];
 			for (const now of ["2026-03-07T01:00:00Z", "2026-03-08T23:00:00Z"]) {
 				const clock = createTestRyotClock();
 				clocks.push(clock);
 				yield* Effect.promise(() => clock.setTime(Date.parse(now)));
 				function Probe() {
+					const periodCaption = usePeriodCaption();
 					const result = useRyotQuery(query, {
 						selection,
 						timeZone: TimeZone.make("America/Los_Angeles"),
@@ -89,6 +90,7 @@ it.live(
 						period: resolved.current,
 						timeZone: resolved.timeZone,
 						grouping: resolved.grouping,
+						weekStart: resolved.weekStart,
 					});
 					return (
 						<>
@@ -109,6 +111,7 @@ it.live(
 							outcome: "success",
 							response: {
 								execution: {
+									weekStart: 1,
 									timeZone: TimeZone.make("Asia/Tokyo"),
 									now: Date.parse("2026-03-08T12:00:00Z"),
 								},

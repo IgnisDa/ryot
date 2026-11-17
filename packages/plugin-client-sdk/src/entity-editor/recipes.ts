@@ -3,6 +3,8 @@ import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	and,
 	ascending,
@@ -51,7 +53,7 @@ export const entityEditorEntityDefinitionRecipe = (input: {
 					eq(column(definition, "pluginId"), pluginId(input.reference)),
 				),
 				selection: {
-					name: selectedField(column(definition, "name"), Schema.String),
+					name: selectedField(column(definition, "name"), Message),
 					propertiesSchema: selectedField(column(definition, "propertiesSchema"), AppSchema),
 					editor: selectedField(column(definition, "editor"), Schema.NullOr(PluginEntityEditor)),
 				},
@@ -79,7 +81,7 @@ export const entityEditorRelationshipDefinitionsRecipe = (input: {
 					eq(column(definition, "pluginId"), pluginId(input.reference)),
 				),
 				selection: {
-					name: selectedField(column(definition, "name"), Schema.String),
+					name: selectedField(column(definition, "name"), Message),
 					slug: selectedField(column(definition, "slug"), Schema.String),
 					propertiesSchema: selectedField(column(definition, "propertiesSchema"), AppSchema),
 					sourceEntitySchemaSlug: selectedField(
@@ -104,9 +106,9 @@ export const entityEditorEntityRecipe = (input: {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "entityId",
 				description: "Query entityId",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.entity"),
 			},
 		},
 	});
@@ -149,9 +151,9 @@ export const entityEditorRelationshipsRecipe = (input: {
 		fields: {
 			entityId: {
 				type: "string",
-				label: "entityId",
 				description: "Query entityId",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.entity"),
 			},
 		},
 	});
@@ -196,14 +198,14 @@ export const entityEditorTargetsRecipe = (input: {
 		fields: {
 			entityIds: {
 				type: "array",
-				label: "Entities",
 				description: "Entity IDs",
 				validation: { required: true },
+				label: kernelMessage("recipe.parameter.entities"),
 				items: {
-					label: "ID",
 					type: "string",
 					description: "Entity ID",
 					validation: { required: true },
+					label: kernelMessage("recipe.parameter.id"),
 				},
 			},
 		},
@@ -215,8 +217,7 @@ export const entityEditorTargetsRecipe = (input: {
 		map: ({ targets }) => Result.succeed(targets.items),
 		queries: {
 			targets: selectedRows(entity, {
-				limit: 1000,
-				maxLimit: 1000,
+				limit: ENTITY_EDITOR_PAGE_SIZE,
 				orderBy: [ascending(column(entity, "id"))],
 				selection: {
 					id: selectedField(column(entity, "id"), EntityId),

@@ -1,6 +1,9 @@
 import type { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import type { RowsPageInfo } from "@ryot-app/contract/modules/ryotql/language";
 import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
+import { useFormatters, useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	Button,
 	type ItemSelection,
@@ -24,6 +27,7 @@ import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } 
 
 import type { RyotClient } from "../client/client";
 import { FilterChips, FilterRules, type ViewFilter, type ViewFilterField } from "../filters";
+import { useDisplayText } from "../i18n/messages";
 import { usePageShortcut, usePluginLocation, useRyotViewport } from "../navigation/routing";
 import {
 	normalizeViewSearch,
@@ -94,25 +98,25 @@ type BrowserPage = {
 type EntityBrowserControllerProps<Page extends BrowserPage, Failure extends Error> = {
 	readonly icon: string;
 	readonly name: string;
-	readonly errorTitle: string;
+	readonly errorTitle: Text;
+	readonly errorMessage: Text;
 	readonly identityKey: string;
-	readonly errorMessage: string;
 	readonly add?: AddAction | undefined;
 	readonly canSearch?: boolean | undefined;
 	readonly knownTotal?: number | undefined;
-	readonly emptyMessage?: string | undefined;
+	readonly emptyMessage?: Text | undefined;
 	readonly defaultLayout: EntityBrowserLayout;
-	readonly defaultSortLabel?: string | undefined;
+	readonly defaultSortLabel?: Text | undefined;
 	readonly count?: undefined | BrowserCountSource;
 	readonly layouts: readonly EntityBrowserLayout[];
 	readonly filterFields: readonly ViewFilterField[];
 	readonly sortChoices: readonly BrowseSortChoice[];
 	readonly selection?: undefined | BrowserSelectionSource;
+	readonly noun?: undefined | ((count: number) => string);
 	readonly menuActions?: undefined | ReadonlyArray<MenuItem>;
 	readonly query: RyotQuery<BrowserQueryInput, Page, Failure>;
 	readonly renderSummary?: undefined | ((loaded: number) => ReactNode);
 	readonly renderResults: (input: BrowserResultsInput<Page>) => ReactNode;
-	readonly noun?: undefined | { readonly one: string; readonly other: string };
 };
 
 const MAX_TABLE_INTEREST = 500;
@@ -158,9 +162,12 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 	renderSummary,
 	defaultLayout,
 	canSearch = true,
+	defaultSortLabel,
 	layouts: availableLayouts,
-	defaultSortLabel = "Default order",
 }: EntityBrowserControllerProps<Page, Failure>) {
+	const t = useT();
+	const displayText = useDisplayText();
+	const formatters = useFormatters();
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const location = usePluginLocation();
@@ -196,8 +203,11 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 		({ key }) => sortChoice === `${key}-asc` || sortChoice === `${key}-desc`,
 	);
 	const ascending = selectedSort !== undefined && sortChoice === `${selectedSort.key}-asc`;
+	const direction = ascending ? selectedSort.ascending : selectedSort?.descending;
 	const directionLabel =
-		(ascending ? selectedSort.ascending : selectedSort?.descending) ?? "Default";
+		direction === undefined
+			? t(kernelMessage("sdk.browser.sort-default-direction"))
+			: displayText(direction);
 	const directionIcon = ascending ? "arrow-up" : "arrow-down";
 	const filterCount = activeRuleCount(filter);
 	const [showCount, setShowCount] = useState(false);
@@ -301,7 +311,9 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 	const initial = current.pageInfo === null;
 	const hasMore = current.pageInfo?.hasMore ?? false;
 	const hasItems = current.items.length > 0;
-	const layouts = viewLayoutOptions.filter(({ value }) => availableLayouts.includes(value));
+	const layouts = viewLayoutOptions
+		.filter(({ value }) => availableLayouts.includes(value))
+		.map((option) => Object.assign({}, option, { label: t(option.label) }));
 	const summary = syncSummary(current.items);
 	const knownMatching = unfiltered ? knownTotal : total;
 	const tableIds =
@@ -382,7 +394,14 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 	const actions: ReadonlyArray<MenuItem> = [
 		...(menuActions ?? []),
 		...(selection !== undefined && hasItems && !selectionActive && !staleCollection
-			? [{ key: "select", label: "Select", icon: "circle-check", onSelect: selecting.start }]
+			? [
+					{
+						key: "select",
+						icon: "circle-check",
+						onSelect: selecting.start,
+						label: t(kernelMessage("sdk.browser.select")),
+					},
+				]
 			: []),
 	];
 
@@ -393,11 +412,11 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 			className={className}
 			autoFocus={autoFocus}
 			inputRef={searchInput}
-			label={`Search ${name}`}
 			onChange={setDraftSearch}
 			icon={<AppIcon size={15} name="search" />}
 			clearIcon={<AppIcon name="x" size={14} />}
 			onSubmit={() => commitSearch(draftSearch)}
+			label={t(kernelMessage("sdk.browser.search-view", { name }))}
 		/>
 	);
 	let content: ReactNode;
@@ -482,7 +501,7 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 						value={layout}
 						options={layouts}
 						onChange={setLayout}
-						label={`${name} layout`}
+						label={t(kernelMessage("sdk.browser.layout", { name }))}
 					/>
 				</>
 			}
@@ -490,8 +509,8 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 				canSearch && (
 					<ScreenBarButton
 						ref={searchTrigger}
-						label="Search this view"
 						onClick={() => setSearchOpen(true)}
+						label={t(kernelMessage("sdk.browser.search-this-view"))}
 					>
 						<AppIcon size={22} name="search" />
 					</ScreenBarButton>
@@ -500,7 +519,10 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 			searchRow={
 				searchOpen && canSearch ? (
 					<>
-						<ScreenBarButton label="Exit search" onClick={closeSearch}>
+						<ScreenBarButton
+							onClick={closeSearch}
+							label={t(kernelMessage("sdk.browser.exit-search"))}
+						>
 							<AppIcon size={22} name="chevron-left" />
 						</ScreenBarButton>
 						{searchField("h-9.5 flex-1", true)}
@@ -514,7 +536,7 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 						className="flex h-10 items-center gap-2 text-xs text-text-muted @2xl:text-sm"
 					>
 						<span>
-							{viewResultLabel({
+							{viewResultLabel(t, formatters, {
 								noun,
 								hasMore,
 								total: knownMatching,
@@ -523,7 +545,7 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 						</span>
 						{hasMore && !unfiltered && !showCount && count && (
 							<Button variant="link" onClick={() => setShowCount(true)}>
-								Count all
+								{t(kernelMessage("sdk.browser.count-all"))}
 							</Button>
 						)}
 						{hasMore && !unfiltered && showCount && count && (
@@ -535,7 +557,7 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 							/>
 						)}
 						<SyncCountLine populating={summary.populating} translating={summary.translating} />
-						{transitioning && <span>Updating...</span>}
+						{transitioning && <span>{t(kernelMessage("sdk.browser.updating"))}</span>}
 					</div>
 					<FilterChips
 						filter={filter}
@@ -548,17 +570,19 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 			viewOptions={{
 				open: optionsOpen,
 				activeCount: filterCount,
-				compactTitle: "View options",
 				onOpenChange: setOptionsOpen,
+				compactTitle: t(kernelMessage("sdk.browser.view-options")),
 				content: (
 					<>
 						{compact && (
 							<div className="mt-4 flex items-center justify-between gap-3">
-								<span className="text-[15px] text-text">View as</span>
+								<span className="text-[15px] text-text">
+									{t(kernelMessage("sdk.browser.view-as"))}
+								</span>
 								<SegmentedControl
 									value={layout}
 									options={layouts}
-									label={`${name} layout`}
+									label={t(kernelMessage("sdk.browser.layout", { name }))}
 									onChange={(next) => {
 										setLayout(next);
 										setOptionsOpen(false);
@@ -570,13 +594,19 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 							<div className="mt-4 flex flex-wrap items-center gap-2">
 								<div className="min-w-0 flex-1 basis-48">
 									<Select
-										label="Sort by"
 										value={selectedSort?.key ?? ""}
 										checkIcon={<AppIcon size={14} name="check" />}
+										label={t(kernelMessage("sdk.browser.sort-by"))}
 										chevronIcon={<AppIcon size={14} name="chevron-down" />}
 										choices={[
-											{ value: "", label: defaultSortLabel },
-											...sortChoices.map(({ key, label }) => ({ label, value: key })),
+											{
+												value: "",
+												label: defaultSortLabel ?? t(kernelMessage("sdk.browser.default-order")),
+											},
+											...sortChoices.map(({ key, label }) => ({
+												value: key,
+												label: displayText(label),
+											})),
 										]}
 										onChange={(key) => {
 											if (key === (selectedSort?.key ?? "")) {
@@ -593,7 +623,9 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 									type="button"
 									variant="outline"
 									disabled={selectedSort === undefined}
-									aria-label={`Sort direction: ${directionLabel}`}
+									aria-label={t(
+										kernelMessage("sdk.browser.sort-direction", { direction: directionLabel }),
+									)}
 									onClick={() => {
 										if (selectedSort) {
 											setQueryControls({
@@ -623,16 +655,22 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 				{!initial && result.isError && (
 					<div role="alert" className="flex items-center justify-center gap-3 text-sm text-danger">
 						<span>
-							{staleCollection
-								? "This collection changed. Reload to continue."
-								: "More results could not be loaded."}
+							{t(
+								kernelMessage(
+									staleCollection ? "sdk.browser.collection-changed" : "sdk.browser.more-failed",
+								),
+							)}
 						</span>
 						<Button
 							variant="ghost"
 							className="text-sm"
 							onClick={staleCollection ? result.refetch : result.retry}
 						>
-							{staleCollection ? "Reload collection" : "Retry"}
+							{t(
+								kernelMessage(
+									staleCollection ? "sdk.browser.reload-collection" : "common.action.retry",
+								),
+							)}
 						</Button>
 					</div>
 				)}
@@ -667,20 +705,21 @@ function BrowserCount({
 			count(client, selection),
 		),
 	);
+	const t = useT();
 	const result = useRyotQuery(query, input);
 	const report = useEffectEvent((total: number | undefined) => onTotal(total));
 	useEffect(() => report(result.data), [result.data]);
 	if (result.isPending) {
 		return (
 			<Button disabled variant="link">
-				Counting...
+				{t(kernelMessage("sdk.browser.counting"))}
 			</Button>
 		);
 	}
 	if (result.isError) {
 		return (
 			<Button variant="link" onClick={result.refetch}>
-				Retry count
+				{t(kernelMessage("sdk.browser.retry-count"))}
 			</Button>
 		);
 	}

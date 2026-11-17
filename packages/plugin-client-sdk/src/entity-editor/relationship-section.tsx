@@ -1,4 +1,6 @@
 import { EntitySchemaSlug, type PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	describeSchemaFormFields,
@@ -32,6 +34,8 @@ export function RelationshipSection(props: {
 	readonly onChange: (targets: readonly EditorRelationshipTarget[]) => void;
 }) {
 	const { targets, definition } = props;
+	const t = useT();
+	const definitionName = t(definition.name);
 	const fixed = definition.direction === "parent";
 	const client = useRyot();
 	const schedule = useRyotSchedule();
@@ -82,10 +86,12 @@ export function RelationshipSection(props: {
 	};
 
 	return (
-		<section aria-label={definition.name} className="flex flex-col gap-2">
-			<h3 className="text-sm font-semibold text-text">{definition.name}</h3>
+		<section aria-label={definitionName} className="flex flex-col gap-2">
+			<h3 className="text-sm font-semibold text-text">{definitionName}</h3>
 			{targets.length === 0 ? (
-				<p className="text-xs text-text-subtle">None added.</p>
+				<p className="text-xs text-text-subtle">
+					{t(kernelMessage("sdk.entity-editor.none-added"))}
+				</p>
 			) : (
 				<ul className="m-0 flex list-none flex-col gap-2 p-0">
 					{targets.map((target) => (
@@ -121,12 +127,16 @@ export function RelationshipSection(props: {
 					loading={picking}
 					variant="secondary"
 					className="self-start"
-					aria-label={`Add ${definition.name}`}
+					aria-label={t(
+						kernelMessage("sdk.entity-editor.add-related", { relationship: definitionName }),
+					)}
 				>
-					Add
+					{t(kernelMessage("common.action.add"))}
 				</Button>
 			)}
-			{failed ? <FieldMessage>Could not add. Try again.</FieldMessage> : null}
+			{failed ? (
+				<FieldMessage>{t(kernelMessage("sdk.entity-editor.add-failed"))}</FieldMessage>
+			) : null}
 		</section>
 	);
 }
@@ -143,13 +153,15 @@ function TargetRow(props: {
 	readonly onChange: (properties: EditorProperties) => void;
 }) {
 	const { target, definition } = props;
+	const t = useT();
+	const definitionName = t(definition.name);
 	const schema = definition.propertiesSchema;
 	const form = useSchemaForm({ schemas: [schema], onSubmit: () => undefined });
 	const [initialValues] = useState(() => entityFormValues(schema, target.properties));
 	useLayoutEffect(() => {
 		form.reset({ fields: initialValues });
 	}, [form, initialValues]);
-	const editable = describeSchemaFormFields(schema).fields.length > 0;
+	const editable = describeSchemaFormFields(schema, t).fields.length > 0;
 	return (
 		<li className="flex flex-col gap-2 rounded-lg border border-border-card bg-surface p-3">
 			<div className="flex flex-row items-center gap-2">
@@ -159,9 +171,14 @@ function TargetRow(props: {
 						size="sm"
 						variant="ghost"
 						onClick={props.onRemove}
-						aria-label={`Remove ${target.name} from ${definition.name}`}
+						aria-label={t(
+							kernelMessage("sdk.entity-editor.remove-related", {
+								name: target.name,
+								relationship: definitionName,
+							}),
+						)}
 					>
-						Remove
+						{t(kernelMessage("common.action.remove"))}
 					</Button>
 				)}
 			</div>
@@ -173,7 +190,7 @@ function TargetRow(props: {
 					onReorder={props.onReorder}
 					uploadAsset={props.uploadAsset}
 					renderAsset={props.renderAsset}
-					uploadFile={unsupportedFileUpload}
+					uploadFile={unsupportedFileUpload(t)}
 					onChange={() =>
 						props.onChange(
 							entityPropertiesPayload(

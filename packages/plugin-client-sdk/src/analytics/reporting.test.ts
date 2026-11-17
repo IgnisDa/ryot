@@ -1,22 +1,37 @@
 import { describe, expect, it } from "bun:test";
 
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { testFormatters, testKernelText } from "@ryot-app/kernel-messages/testing";
 
 import { consistencySelection, periodCaption } from "./reporting";
 
 describe("periodCaption", () => {
 	it("shortens ranges that share a month or year and names all time", () => {
-		expect(periodCaption({ endDate: "2026-10-31", startDate: "2026-10-02" })).toBe(
-			"Oct 2 – 31, 2026",
-		);
-		expect(periodCaption({ endDate: "2026-10-01", startDate: "2026-09-02" })).toBe(
-			"Sep 2 – Oct 1, 2026",
-		);
-		expect(periodCaption({ endDate: "2026-01-03", startDate: "2025-12-15" })).toBe(
-			"Dec 15, 2025 – Jan 3, 2026",
-		);
-		expect(periodCaption({ endDate: "2026-10-02", startDate: "2026-10-02" })).toBe("Oct 2, 2026");
-		expect(periodCaption(null)).toBe("All time");
+		expect<string>(
+			periodCaption(testKernelText, testFormatters, {
+				endDate: "2026-10-31",
+				startDate: "2026-10-02",
+			}),
+		).toBe("Oct 2 – 31, 2026");
+		expect<string>(
+			periodCaption(testKernelText, testFormatters, {
+				endDate: "2026-10-01",
+				startDate: "2026-09-02",
+			}),
+		).toBe("Sep 2 – Oct 1, 2026");
+		expect<string>(
+			periodCaption(testKernelText, testFormatters, {
+				endDate: "2026-01-03",
+				startDate: "2025-12-15",
+			}),
+		).toBe("Dec 15, 2025 – Jan 3, 2026");
+		expect<string>(
+			periodCaption(testKernelText, testFormatters, {
+				endDate: "2026-10-02",
+				startDate: "2026-10-02",
+			}),
+		).toBe("Oct 2, 2026");
+		expect<string>(periodCaption(testKernelText, testFormatters, null)).toBe("All time");
 	});
 });
 
@@ -29,6 +44,7 @@ describe("consistencySelection", () => {
 			consistencySelection(
 				{
 					timeZone,
+					weekStart: 1,
 					selection: { grouping: "week", comparison: "none", range: { days: 7, kind: "rolling" } },
 				},
 				now,
@@ -45,6 +61,7 @@ describe("consistencySelection", () => {
 			consistencySelection(
 				{
 					timeZone,
+					weekStart: 1,
 					selection: { grouping: "auto", comparison: "none", range: { kind: "all-time" } },
 				},
 				now,

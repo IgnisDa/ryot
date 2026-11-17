@@ -1,8 +1,12 @@
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	Button,
 	createReport,
 	entitlementActionLabel,
 	renderReportPng,
+	ReportExportError,
 	ReportProvider,
 	type ReportSnapshot,
 	StatusMessage,
@@ -17,11 +21,11 @@ import { useRyot, useRyotSchedule } from "../queries/provider";
 class AnalyticsImageExportError extends Schema.TaggedError<
 	AnalyticsImageExportError,
 	{ readonly brand: unique symbol }
->()("AnalyticsImageExportError", { message: Schema.String }) {}
+>()("AnalyticsImageExportError", {}) {}
 
 export function AnalyticsReport(props: {
-	readonly title: string;
-	readonly subtitle: string;
+	readonly title: Text;
+	readonly subtitle: Text;
 	readonly children: ReactNode;
 }) {
 	const report = useMemo(() => createReport(), []);
@@ -34,10 +38,11 @@ export function AnalyticsReport(props: {
 }
 
 function ReportExport(props: {
-	readonly title: string;
-	readonly subtitle: string;
+	readonly title: Text;
+	readonly subtitle: Text;
 	readonly report: ReturnType<typeof createReport>;
 }) {
+	const t = useT();
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const ready = useReportReady(props.report);
@@ -68,7 +73,7 @@ function ReportExport(props: {
 				const snapshot =
 					captured.current ??
 					(yield* Effect.try({
-						catch: exportError,
+						catch: () => new AnalyticsImageExportError(),
 						try: () => props.report.snapshot(props.title, props.subtitle),
 					}));
 				captured.current = snapshot;
@@ -80,7 +85,7 @@ function ReportExport(props: {
 					fileName: `ryot-${props.title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}.png`,
 				});
 				if (result.status !== "done") {
-					return yield* exportError(new Error("The image could not be saved"));
+					return yield* new AnalyticsImageExportError();
 				}
 				return yield* Effect.void;
 			}).pipe(
@@ -95,7 +100,11 @@ function ReportExport(props: {
 						saving.current = false;
 						setPending(false);
 						setError(
-							cause instanceof Error ? cause.message : "The image could not be saved. Try again.",
+							t(
+								cause instanceof ReportExportError && cause.reason === "too-large"
+									? kernelMessage("sdk.analytics-export.too-large")
+									: kernelMessage("sdk.analytics-export.failed"),
+							),
 						);
 					},
 				}),
@@ -104,18 +113,14 @@ function ReportExport(props: {
 		);
 	};
 	const label = pending
-		? "Saving image…"
-		: entitlementActionLabel("Save image", "pro", pro.granted);
+		? t(kernelMessage("sdk.analytics-export.saving"))
+		: entitlementActionLabel(t, t(kernelMessage("sdk.analytics-export.save")), "pro", pro.granted);
 	return (
 		<div className="flex flex-wrap items-center justify-end gap-3">
 			{error === undefined ? null : <StatusMessage tone="error">{error}</StatusMessage>}
 			<Button onClick={save} disabled={!ready || pending || !pro.granted}>
-				{error && !pending ? "Retry image export" : label}
+				{error && !pending ? t(kernelMessage("sdk.analytics-export.retry")) : label}
 			</Button>
 		</div>
 	);
 }
-const exportError = (cause: unknown) =>
-	new AnalyticsImageExportError({
-		message: cause instanceof Error ? cause.message : "The image could not be saved. Try again.",
-	});

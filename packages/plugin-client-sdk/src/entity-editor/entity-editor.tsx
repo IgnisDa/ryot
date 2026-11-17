@@ -6,6 +6,10 @@ import {
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { EntityId, EntitySchemaSlug, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	ActionForm,
 	Button,
@@ -71,12 +75,8 @@ type EntityEditorMode =
 			readonly parents?: Readonly<Record<string, string>>;
 	  };
 
-const editorTitle = (mode: EntityEditorMode, entityName: string) =>
-	`${mode.kind === "edit" ? "Edit" : "New"} ${entityName}`;
-
-const STALE_MESSAGE = "This changed elsewhere. Reload and try again.";
-const SAVE_FAILED_MESSAGE = "Could not save. Try again.";
-const DELETE_FAILED_MESSAGE = "Could not delete. Try again.";
+const editorTitle = (mode: EntityEditorMode, name: Message) =>
+	kernelMessage("sdk.entity-editor.title", { name, mode: mode.kind });
 
 type DefinitionsInput = { readonly entitySchemaSlug: string; readonly packageId: PluginPackageId };
 
@@ -204,19 +204,26 @@ const renderAsset = (asset: AssetLocator) => <AssetImage asset={asset} />;
 type SaveStatus =
 	| { readonly kind: "idle" }
 	| { readonly kind: "saving" }
-	| { readonly kind: "error"; readonly message: string };
+	| { readonly kind: "error"; readonly message: Text };
 
 export function EntityEditor(props: EntityEditorProps) {
+	const t = useT();
 	const { packageId, entitySchemaSlug } = props;
 	const definitions = useRyotQuery(definitionsQuery, { packageId, entitySchemaSlug });
 	if (definitions.isError) {
 		return <LoadFailure onRetry={() => definitions.refetch()} />;
 	}
 	if (definitions.data === undefined) {
-		return <StatusMessage tone="pending">Loading…</StatusMessage>;
+		return (
+			<StatusMessage tone="pending">{t(kernelMessage("common.status.loading"))}</StatusMessage>
+		);
 	}
 	if (definitions.data.entity.editor === null) {
-		return <StatusMessage tone="error">This item cannot be edited here.</StatusMessage>;
+		return (
+			<StatusMessage tone="error">
+				{t(kernelMessage("sdk.entity-editor.not-editable"))}
+			</StatusMessage>
+		);
 	}
 	return <EntityEditorSource {...props} definitions={definitions.data} />;
 }
@@ -249,11 +256,14 @@ export function EntityEditorScreen(
 }
 
 function LoadFailure(props: { readonly onRetry: () => void }) {
+	const t = useT();
 	return (
 		<div className="flex flex-col items-start gap-3">
-			<StatusMessage tone="error">The editor could not be loaded.</StatusMessage>
+			<StatusMessage tone="error">
+				{t(kernelMessage("sdk.entity-editor.load-failed"))}
+			</StatusMessage>
 			<Button variant="secondary" onClick={props.onRetry}>
-				Retry
+				{t(kernelMessage("common.action.retry"))}
 			</Button>
 		</div>
 	);
@@ -264,6 +274,7 @@ function EntityEditorSource(
 		readonly definitions: Parameters<typeof EntityEditorForm>[0]["definitions"];
 	},
 ) {
+	const t = useT();
 	const { mode, packageId, definitions, entitySchemaSlug } = props;
 	const forEdit = mode.kind === "edit";
 	const entityId = mode.kind === "edit" ? mode.entityId : (mode.seedEntityId ?? null);
@@ -289,13 +300,23 @@ function EntityEditorSource(
 		return <LoadFailure onRetry={() => source.refetch()} />;
 	}
 	if (source.data === undefined) {
-		return <StatusMessage tone="pending">Loading…</StatusMessage>;
+		return (
+			<StatusMessage tone="pending">{t(kernelMessage("common.status.loading"))}</StatusMessage>
+		);
 	}
 	if (entityId !== null && source.data.entity === null) {
-		return <StatusMessage tone="error">This item is unavailable.</StatusMessage>;
+		return (
+			<StatusMessage tone="error">
+				{t(kernelMessage("sdk.entity-editor.unavailable"))}
+			</StatusMessage>
+		);
 	}
 	if (forEdit && source.data.entity?.canEdit !== true) {
-		return <StatusMessage tone="error">This item cannot be edited here.</StatusMessage>;
+		return (
+			<StatusMessage tone="error">
+				{t(kernelMessage("sdk.entity-editor.not-editable"))}
+			</StatusMessage>
+		);
 	}
 	return <EntityEditorForm {...props} source={source.data} definitions={definitions} />;
 }
@@ -313,7 +334,7 @@ function EntityEditorForm(
 		readonly definitions: {
 			readonly relationships: readonly EditorRelationshipDefinition[];
 			readonly entity: {
-				readonly name: string;
+				readonly name: Message;
 				readonly propertiesSchema: AppSchema;
 				readonly editor: null | { readonly deletable?: boolean | undefined };
 			};
@@ -322,6 +343,7 @@ function EntityEditorForm(
 ) {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
+	const t = useT();
 	const reorderFeedback = () => {
 		schedule.run(
 			client.device({ action: "haptic", kind: "selection" }).pipe(Effect.ignore),
@@ -366,6 +388,7 @@ function EntityEditorForm(
 					...validateSchemaFormValues(
 						definition.propertiesSchema,
 						entityFormValues(definition.propertiesSchema, target.properties),
+						t,
 					).values(),
 				][0];
 				if (message !== undefined) {
@@ -375,7 +398,7 @@ function EntityEditorForm(
 		}
 		setRowErrors(errors);
 		if (name.trim() === "") {
-			setNameError("Enter a name");
+			setNameError(t(kernelMessage("sdk.entity-editor.name-required")));
 			nameInput.current?.focus();
 			return;
 		}
@@ -417,7 +440,12 @@ function EntityEditorForm(
 			client.entities.save(request).pipe(
 				Effect.matchEffect({
 					onFailure: () =>
-						Effect.sync(() => setStatus({ kind: "error", message: SAVE_FAILED_MESSAGE })),
+						Effect.sync(() =>
+							setStatus({
+								kind: "error",
+								message: t(kernelMessage("sdk.entity-editor.save-failed")),
+							}),
+						),
 					onSuccess: (output) => {
 						if (output.kind === "saved") {
 							return Effect.sync(() => props.onSaved(output.entityId, parentEntityId));
@@ -425,7 +453,10 @@ function EntityEditorForm(
 						return Effect.sync(() =>
 							setStatus({
 								kind: "error",
-								message: output.kind === "invalid" ? output.message : STALE_MESSAGE,
+								message:
+									output.kind === "invalid"
+										? t(output.reason)
+										: t(kernelMessage("sdk.entity-editor.stale")),
 							}),
 						);
 					},
@@ -460,7 +491,11 @@ function EntityEditorForm(
 		schedule.run(
 			client.entities.save(request).pipe(
 				Effect.match({
-					onFailure: () => setDeleting({ kind: "error", message: DELETE_FAILED_MESSAGE }),
+					onFailure: () =>
+						setDeleting({
+							kind: "error",
+							message: t(kernelMessage("sdk.entity-editor.delete-failed")),
+						}),
 					onSuccess: (output) => {
 						if (output.kind === "deleted") {
 							props.onDeleted();
@@ -468,7 +503,10 @@ function EntityEditorForm(
 						}
 						setDeleting({
 							kind: "error",
-							message: output.kind === "invalid" ? output.message : STALE_MESSAGE,
+							message:
+								output.kind === "invalid"
+									? t(output.reason)
+									: t(kernelMessage("sdk.entity-editor.stale")),
 						});
 					},
 				}),
@@ -493,10 +531,10 @@ function EntityEditorForm(
 	return (
 		<ActionForm
 			onSubmit={() => void form.handleSubmit()}
-			label={editorTitle(mode, definitions.entity.name)}
+			label={t(editorTitle(mode, definitions.entity.name))}
 			className="mx-auto flex w-full max-w-2xl flex-col gap-5"
 		>
-			<Field label="Name" error={nameError}>
+			<Field error={nameError} label={t(kernelMessage("sdk.entity-editor.name"))}>
 				{(control) => (
 					<TextField
 						{...control}
@@ -516,7 +554,10 @@ function EntityEditorForm(
 					renderAsset={renderAsset}
 					onReorder={reorderFeedback}
 					uploadFile={() =>
-						Promise.resolve({ kind: "failed", message: "File uploads are not supported here." })
+						Promise.resolve({
+							kind: "failed",
+							message: t(kernelMessage("sdk.entity-editor.uploads-unsupported")),
+						})
 					}
 					onChange={() =>
 						setManaged(
@@ -555,26 +596,26 @@ function EntityEditorForm(
 						disabled={status.kind === "saving"}
 						onClick={() => setDeleting({ kind: "idle" })}
 					>
-						Delete
+						{t(kernelMessage("common.action.delete"))}
 					</Button>
 				) : null}
 				<Button variant="ghost" onClick={props.onCancel} disabled={status.kind === "saving"}>
-					Cancel
+					{t(kernelMessage("common.action.cancel"))}
 				</Button>
 				<Button loading={status.kind === "saving"} onClick={() => void form.handleSubmit()}>
-					Save
+					{t(kernelMessage("common.action.save"))}
 				</Button>
 			</div>
 			{deleting === null ? null : (
 				<DestructiveConfirmation
-					actionLabel="Delete"
-					pendingLabel="Deleting…"
 					onConfirm={confirmDelete}
 					triggerRef={deleteTrigger}
 					onClose={() => setDeleting(null)}
 					pending={deleting.kind === "saving"}
-					detail="Items with history or linked items cannot be deleted."
-					title={`Delete this ${definitions.entity.name.toLowerCase()}?`}
+					actionLabel={t(kernelMessage("common.action.delete"))}
+					pendingLabel={t(kernelMessage("common.status.deleting"))}
+					title={t(kernelMessage("sdk.entity-editor.delete-title"))}
+					detail={t(kernelMessage("sdk.entity-editor.delete-detail"))}
 					errorMessage={deleting.kind === "error" ? deleting.message : undefined}
 				/>
 			)}

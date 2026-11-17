@@ -1,3 +1,7 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { SelectionBar } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { EntityIdsResult } from "@ryot-app/ryotql-recipes/browse";
@@ -22,7 +26,7 @@ export type BrowserSelectionInput = {
 
 export type BrowserBulkAction = {
 	readonly icon: string;
-	readonly label: string;
+	readonly label: Message;
 	readonly danger?: boolean | undefined;
 	readonly run: (
 		entityIds: readonly [string, ...string[]],
@@ -37,18 +41,21 @@ export type BrowserSelectionSource = {
 	) => Effect.Effect<EntityIdsResult, Error>;
 };
 
-const extendAction = (input: {
-	readonly hasMore: boolean;
-	readonly selection: EntitySelection;
-	readonly loadedIds: readonly string[];
-	readonly onSelectMatching: () => void;
-	readonly knownMatching: number | undefined;
-	readonly selecting: ReturnType<typeof useEntitySelection>;
-}) => {
+const extendAction = (
+	t: (message: Message) => Text,
+	input: {
+		readonly hasMore: boolean;
+		readonly selection: EntitySelection;
+		readonly loadedIds: readonly string[];
+		readonly onSelectMatching: () => void;
+		readonly knownMatching: number | undefined;
+		readonly selecting: ReturnType<typeof useEntitySelection>;
+	},
+) => {
 	const { hasMore, selecting, loadedIds, knownMatching } = input;
 	const allLoadedSelected = loadedIds.length > 0 && loadedIds.every(selecting.isSelected);
 	if (input.selection.kind === "matching" || (allLoadedSelected && !hasMore)) {
-		return { label: "Clear", run: selecting.clear };
+		return { run: selecting.clear, label: t(kernelMessage("sdk.selection.clear")) };
 	}
 	if (hasMore) {
 		return {
@@ -56,17 +63,18 @@ const extendAction = (input: {
 				input.onSelectMatching();
 				selecting.selectMatching();
 			},
-			label:
+			label: t(
 				knownMatching === undefined
-					? "Select all matching"
-					: `Select all ${knownMatching.toLocaleString()}`,
+					? kernelMessage("sdk.selection.select-matching")
+					: kernelMessage("sdk.selection.select-all", { count: knownMatching }),
+			),
 		};
 	}
 	return loadedIds.length === 0
 		? undefined
 		: {
 				run: () => selecting.selectIds(loadedIds),
-				label: `Select all ${loadedIds.length.toLocaleString()}`,
+				label: t(kernelMessage("sdk.selection.select-all", { count: loadedIds.length })),
 			};
 };
 
@@ -91,6 +99,7 @@ export function BrowserSelectionBar({
 	readonly knownMatching: number | undefined;
 	readonly selecting: ReturnType<typeof useEntitySelection>;
 }) {
+	const t = useT();
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const [status, setStatus] = useState<"failed" | "preparing">();
@@ -119,10 +128,13 @@ export function BrowserSelectionBar({
 		);
 	};
 	const chosen = selectedCount(selection, hasMore ? knownMatching : loadedIds.length);
-	let label =
-		chosen === undefined ? "All matching selected" : `${chosen.toLocaleString()} selected`;
+	let label = t(
+		chosen === undefined
+			? kernelMessage("sdk.selection.all-matching-selected")
+			: kernelMessage("sdk.selection.selected-count", { count: chosen }),
+	);
 	if (status === "failed") {
-		label = "The selection could not be prepared.";
+		label = t(kernelMessage("sdk.selection.prepare-failed"));
 	}
 	return (
 		<SelectionBar
@@ -130,8 +142,8 @@ export function BrowserSelectionBar({
 			disabled={chosen === 0}
 			onExit={selecting.exit}
 			safeAreaBottom={safeAreaBottom}
-			busy={status === "preparing" ? "Preparing selection..." : undefined}
-			extend={extendAction({
+			busy={status === "preparing" ? t(kernelMessage("sdk.selection.preparing")) : undefined}
+			extend={extendAction(t, {
 				hasMore,
 				selection,
 				selecting,
@@ -140,8 +152,8 @@ export function BrowserSelectionBar({
 				onSelectMatching,
 			})}
 			actions={source.actions.map((action) => ({
-				label: action.label,
 				danger: action.danger,
+				label: t(action.label),
 				run: () => run(action),
 				icon: <AppIcon size={15} name={action.icon} />,
 			}))}

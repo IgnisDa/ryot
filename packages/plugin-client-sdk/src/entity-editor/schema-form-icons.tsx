@@ -1,3 +1,6 @@
+import type { Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { SchemaFileUpload, SchemaFormIcons } from "@ryot-app/plugin-ui-sdk/schema-form";
 
@@ -11,5 +14,10 @@ export const schemaFormIcons: SchemaFormIcons = {
 	chevron: <AppIcon size={15} name="chevron-down" />,
 };
 
-export const unsupportedFileUpload: SchemaFileUpload = () =>
-	Promise.resolve({ kind: "failed", message: "File uploads are not supported here." });
+export const unsupportedFileUpload =
+	(t: (message: Message) => Text): SchemaFileUpload =>
+	() =>
+		Promise.resolve({
+			kind: "failed",
+			message: t(kernelMessage("sdk.entity-editor.uploads-unsupported")),
+		});

@@ -20,10 +20,10 @@ const entity = table("entity", "entity");
 const input = parameters({
 	fields: {
 		name: {
-			label: "Name",
 			type: "string",
 			description: "Selection name",
 			validation: { required: true },
+			label: { key: "parameter.name" },
 		},
 	},
 });
