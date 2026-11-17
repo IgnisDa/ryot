@@ -7,6 +7,8 @@ import {
 	PluginPackageId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
+import type { DisplayText } from "@ryot-app/i18n/message";
+import { testText } from "@ryot-app/kernel-messages/testing";
 import {
 	type EntityWatch,
 	type PluginBridgeNavigate,
@@ -27,7 +29,7 @@ import type { RyotNavigationTarget } from "../client/navigation-target";
 import { PluginScreenFrame } from "../plugin-screen";
 import { RyotProvider, useRyot } from "../queries/provider";
 import { useEntityRefresh } from "../refresh/entity-hooks";
-import { createTestRyotClock, waitForMessagePortMacrotask } from "../testing";
+import { createTestRyotClock, TestI18nProvider, waitForMessagePortMacrotask } from "../testing";
 import {
 	createPluginRouteResolver,
 	type EntityRendererProps,
@@ -53,7 +55,19 @@ const NewItemRoute = () => <p>New item</p>;
 
 const NotFound = () => <p>Fixture page not found.</p>;
 
-const FramedHome = () => <PluginScreenFrame title="Home">Content</PluginScreenFrame>;
+const Draft = () => {
+	const [open, setOpen] = useState(false);
+	return (
+		<div>
+			{open ? <p>Details open</p> : null}
+			<button type="button" onClick={() => setOpen(true)}>
+				Open details
+			</button>
+		</div>
+	);
+};
+
+const FramedHome = () => <PluginScreenFrame title={testText("Home")}>Content</PluginScreenFrame>;
 
 const EntityRenderer = ({ entityId, entitySchemaSlug }: EntityRendererProps) => {
 	const [count, setCount] = useState(0);
@@ -166,13 +180,14 @@ const openChannel = (
 	const messages: unknown[] = [];
 	const store = createPluginNavigationStore(resolve);
 	const navigation: PluginRouterNavigation = {
+		views: store.views,
 		subscribe: store.subscribe,
 		getSnapshot: store.getSnapshot,
 		registerShortcut: () => () => undefined,
 		completeTransition: store.completeTransition,
 		back: () => messages.push({ type: "navigate-back" }),
 		openDrawer: () => messages.push({ type: "open-drawer" }),
-		publishTitle: (title: null | string) => messages.push({ title, type: "header" }),
+		publishTitle: (title: null | DisplayText) => messages.push({ title, type: "header" }),
 	};
 	let compact = false;
 	let edgeBack = false;
@@ -270,6 +285,34 @@ const openChannel = (
 	};
 };
 
+const activeScreen = (container: HTMLElement) => {
+	const element = [...container.querySelectorAll<HTMLElement>('[tabindex="-1"]')].find(
+		(candidate) => !candidate.hasAttribute("aria-hidden"),
+	);
+	if (element === undefined) {
+		throw new Error("expected an active screen");
+	}
+	return element;
+};
+
+const activeScrollRoot = (container: HTMLElement) => {
+	const element = activeScreen(container).querySelector<HTMLElement>("[data-scroll-root]");
+	if (element === null) {
+		throw new Error("expected an active scroll root");
+	}
+	return element;
+};
+
+const requireButton = (container: HTMLElement, name: string) => {
+	const button = [...container.querySelectorAll("button")].find(
+		(candidate) => candidate.textContent === name,
+	);
+	if (button === undefined) {
+		throw new Error(`expected a ${name} button`);
+	}
+	return button;
+};
+
 const renderRouter = (channel: ReturnType<typeof openChannel>) => {
 	const container = document.createElement("div");
 	document.body.append(container);
@@ -278,9 +321,11 @@ const renderRouter = (channel: ReturnType<typeof openChannel>) => {
 
 	act(() => {
 		root.render(
-			<RyotProvider runtime={channel.clock.runtime}>
-				<PluginRouter />
-			</RyotProvider>,
+			<TestI18nProvider>
+				<RyotProvider runtime={channel.clock.runtime}>
+					<PluginRouter />
+				</RyotProvider>
+			</TestI18nProvider>,
 		);
 	});
 
@@ -725,9 +770,11 @@ describe("PluginRouter", () => {
 		roots.push(root);
 		act(() => {
 			root.render(
-				<RyotProvider runtime={channel.clock.runtime}>
-					<PluginLink to={{ kind: "entity", entityId: "entity/1" }}>Entity 1</PluginLink>
-				</RyotProvider>,
+				<TestI18nProvider>
+					<RyotProvider runtime={channel.clock.runtime}>
+						<PluginLink to={{ kind: "entity", entityId: "entity/1" }}>Entity 1</PluginLink>
+					</RyotProvider>
+				</TestI18nProvider>,
 			);
 		});
 
@@ -757,9 +804,11 @@ describe("PluginRouter", () => {
 		roots.push(root);
 		act(() => {
 			root.render(
-				<RyotProvider runtime={channel.clock.runtime}>
-					<PluginLink to={{ kind: "kernel-page", page: "import-data" }}>Import</PluginLink>
-				</RyotProvider>,
+				<TestI18nProvider>
+					<RyotProvider runtime={channel.clock.runtime}>
+						<PluginLink to={{ kind: "kernel-page", page: "import-data" }}>Import</PluginLink>
+					</RyotProvider>
+				</TestI18nProvider>,
 			);
 		});
 
@@ -789,9 +838,11 @@ describe("PluginRouter", () => {
 		roots.push(root);
 		act(() => {
 			root.render(
-				<RyotProvider runtime={channel.clock.runtime}>
-					<PluginLink to={{ packageId, kind: "plugin-preferences" }}>Preferences</PluginLink>
-				</RyotProvider>,
+				<TestI18nProvider>
+					<RyotProvider runtime={channel.clock.runtime}>
+						<PluginLink to={{ packageId, kind: "plugin-preferences" }}>Preferences</PluginLink>
+					</RyotProvider>
+				</TestI18nProvider>,
 			);
 		});
 		const link = container.querySelector("a");
@@ -824,17 +875,19 @@ describe("PluginRouter", () => {
 		let clicks = 0;
 		act(() => {
 			root.render(
-				<RyotProvider runtime={channel.clock.runtime}>
-					<PluginLink
-						to={{ packageId, kind: "plugin-route", path: "/items/item-1" }}
-						onClick={(event) => {
-							clicks += 1;
-							event.preventDefault();
-						}}
-					>
-						Item 1
-					</PluginLink>
-				</RyotProvider>,
+				<TestI18nProvider>
+					<RyotProvider runtime={channel.clock.runtime}>
+						<PluginLink
+							to={{ packageId, kind: "plugin-route", path: "/items/item-1" }}
+							onClick={(event) => {
+								clicks += 1;
+								event.preventDefault();
+							}}
+						>
+							Item 1
+						</PluginLink>
+					</RyotProvider>
+				</TestI18nProvider>,
 			);
 		});
 		const link = container.querySelector("a");
@@ -1021,6 +1074,154 @@ describe("PluginRouter", () => {
 						expect(document.activeElement).toBe<unknown>(activeRouteContainer);
 					}),
 				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"leaves focus alone when the first screen opens",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount();
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+
+				expect(document.activeElement).toBe(document.body);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"opens a replaced entry that resolves different content at the top with focus on it",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/", "", { index: 0, key: "k0" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+				const previous = activeScrollRoot(container);
+				previous.scrollTop = 400;
+				requireButton(container, "Greet").focus();
+
+				sendLocation("/items/item-1", "", { index: 0, key: "k0" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
+
+				expect(activeScrollRoot(container)).not.toBe(previous);
+				expect(activeScrollRoot(container).scrollTop).toBe(0);
+				expect(document.activeElement).toBe<unknown>(activeScreen(container));
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps a replaced route rendered by the same screen component mounted in place",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: Draft, path: "/drafts/new" },
+					{ path: "/editor", component: Draft },
+				]);
+				sendLocation("/drafts/new", "", { index: 0, key: "k0" });
+				const open = requireButton(container, "Open details");
+				void act(() => open.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Details open")),
+				);
+				const scrollRoot = activeScrollRoot(container);
+				scrollRoot.scrollTop = 400;
+				open.focus();
+
+				sendLocation("/editor", "", { index: 0, key: "k0" });
+
+				expect(container.textContent).toContain("Details open");
+				expect(activeScrollRoot(container)).toBe(scrollRoot);
+				expect(scrollRoot.scrollTop).toBe(400);
+				expect(document.activeElement).toBe(open);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps scroll and focus when the same screen changes its location in place",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount();
+				sendLocation("/", "", { index: 0, key: "k0" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+				const scrollRoot = activeScrollRoot(container);
+				scrollRoot.scrollTop = 400;
+				const greet = requireButton(container, "Greet");
+				greet.focus();
+
+				sendLocation("/", "tab=stats", { index: 0, key: "k0" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Tab stats")),
+				);
+
+				expect(activeScrollRoot(container)).toBe(scrollRoot);
+				expect(scrollRoot.scrollTop).toBe(400);
+				expect(document.activeElement).toBe(greet);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"restores the scroll and focus of the retained screen on back",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/", "", { index: 0, key: "k0" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+				activeScrollRoot(container).scrollTop = 400;
+				const greet = requireButton(container, "Greet");
+				greet.focus();
+
+				sendLocation("/items/item-1", "", { index: 1, key: "k1" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement).toBe<unknown>(activeScreen(container))),
+				);
+				expect(activeScrollRoot(container).scrollTop).toBe(0);
+
+				sendLocation("/", "", { index: 0, key: "k0" });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(greet)));
+				expect(activeScrollRoot(container).scrollTop).toBe(400);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"restores a remembered scroll position after the document is replaced",
+		() =>
+			Effect.gen(function* () {
+				const { store, container, sendLocation } = mount();
+				sendLocation("/", "", { index: 0, key: "k0" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+				const previous = activeScrollRoot(container);
+				previous.scrollTop = 400;
+
+				act(() => store.replaceDocument(createPluginRouteResolver({ home: { component: Home } })));
+				sendLocation("/", "", { index: 0, key: "k0" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+
+				expect(activeScrollRoot(container)).not.toBe(previous);
+				expect(activeScrollRoot(container).scrollTop).toBe(400);
 			}),
 		testTimeout,
 	);

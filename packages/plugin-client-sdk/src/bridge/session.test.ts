@@ -19,8 +19,10 @@ import { createElement, Fragment } from "react";
 
 import { RyotClientError } from "../client/errors";
 import { createPluginNavigationStore } from "../navigation/store";
-import { waitForMessagePortMacrotask } from "../testing";
+import { testBridgeLocale, waitForMessagePortMacrotask } from "../testing";
 import { createPluginRuntime } from "./session";
+
+const rejection = { namespace: "fixture", key: "operation.rejected" };
 
 const metadata: ClientCompositionMetadata = {
 	hash: "composition-hash",
@@ -30,6 +32,7 @@ const metadata: ClientCompositionMetadata = {
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 };
 const init: PluginBridgeInit = {
+	...testBridgeLocale(),
 	mode: "light",
 	safeAreaTop: 0,
 	safeAreaBottom: 0,
@@ -1122,7 +1125,7 @@ describe("plugin Effect request engine", () => {
 				]);
 				const account = {
 					entitlements: ["pro"],
-					preferences: { ratingScale: "ten", timeZone: "America/New_York" },
+					preferences: { weekStart: 1, ratingScale: "ten", timeZone: "America/New_York" },
 				};
 				channel.port1.postMessage({
 					account,
@@ -1354,16 +1357,13 @@ describe("plugin Effect request engine", () => {
 				yield* waitForMessagePortMacrotask;
 				channel.port1.postMessage({
 					outcome: "failure",
+					message: rejection,
 					type: "operation-result",
 					requestId: "operation-1",
 					reason: "operation-rejected",
-					message: "Every episode must belong to the selected parent",
 				});
 				expect(yield* Fiber.join(pending)).toMatchObject({
-					failure: new RyotClientError({
-						reason: "operation-rejected",
-						message: "Every episode must belong to the selected parent",
-					}),
+					failure: new RyotClientError({ rejection, reason: "operation-rejected" }),
 				});
 			}),
 		testTimeout,
@@ -1486,7 +1486,7 @@ describe("plugin Effect request engine", () => {
 	);
 
 	it.live(
-		"sends normalized background submissions and relays their settlement",
+		"sends background submissions with their local message label and relays their settlement",
 		() =>
 			Effect.gen(function* () {
 				const { channel, runtime, messages } = yield* openRuntime();
@@ -1496,8 +1496,8 @@ describe("plugin Effect request engine", () => {
 				const unsubscribe = runtime.client.operations.backgroundSettled((settlement) =>
 					settlements.push(settlement),
 				);
-				const longTitle = "Ep".repeat(80);
-				const submit = (idempotencyKey: string, label: string) =>
+				const label = { key: "episode.logged", params: { episode: 3 } };
+				const submit = (idempotencyKey: string) =>
 					Effect.forkChild(
 						Effect.result(
 							runtime.client.operations.submitBackground({
@@ -1512,29 +1512,25 @@ describe("plugin Effect request engine", () => {
 						),
 						{ startImmediately: true },
 					);
-				const accepted = yield* submit(
-					"key-1",
-					`  Logged\n${String.fromCodePoint(0x202e)}episode\t3  `,
-				);
-				const truncated = yield* submit("key-2", longTitle);
-				const oversized = yield* submit("k".repeat(129), "Logged");
+				const accepted = yield* submit("key-1");
+				const declined = yield* submit("key-2");
+				const oversized = yield* submit("k".repeat(129));
 				yield* waitForMessagePortMacrotask;
 
 				const requests = sent(messages, "background-operation-request");
 				expect(requests).toEqual([
 					{
+						label,
 						input: { n: 1 },
 						operationSlug: "log",
 						idempotencyKey: "key-1",
 						packageId: "test/fixture",
-						label: "Logged episode 3",
 						requestId: "background-operation-1",
 						type: "background-operation-request",
 						submittedAt: "2026-10-25T08:00:00.000Z",
 					},
 					objectContaining({ idempotencyKey: "key-2", requestId: "background-operation-2" }),
 				]);
-				expect(requests[1]).toMatchObject({ label: `${"Ep".repeat(59)}E…` });
 				expect(yield* Fiber.join(oversized)).toMatchObject({
 					failure: { reason: "invalid-input" },
 				});
@@ -1552,20 +1548,20 @@ describe("plugin Effect request engine", () => {
 					type: "background-operation-accepted",
 				});
 				expect(yield* Fiber.join(accepted)).toMatchObject({ success: "submission-1" });
-				expect(yield* Fiber.join(truncated)).toMatchObject({
+				expect(yield* Fiber.join(declined)).toMatchObject({
 					failure: { reason: "operation-failed" },
 				});
 
 				channel.port1.postMessage({
 					submissionId: "submission-1",
 					type: "background-operation-settled",
-					outcome: { status: "failed", message: "No such episode", reason: "operation-rejected" },
+					outcome: { status: "failed", message: rejection, reason: "operation-rejected" },
 				});
 				yield* waitForMessagePortMacrotask;
 				expect(settlements).toEqual([
 					{
 						submissionId: "submission-1",
-						outcome: { status: "failed", message: "No such episode", reason: "operation-rejected" },
+						outcome: { status: "failed", message: rejection, reason: "operation-rejected" },
 					},
 				]);
 				unsubscribe();

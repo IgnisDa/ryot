@@ -1,4 +1,5 @@
 import type { PluginLogicalLocation } from "@ryot-app/plugin-client-contract";
+import type { ViewEntry } from "@ryot-app/plugin-ui-sdk";
 import type { ReactElement } from "react";
 
 export const PLUGIN_SCREEN_STACK_LIMIT = 5;
@@ -25,14 +26,6 @@ export type ResolvePluginScreen = (location: PluginLogicalLocation) => {
 	readonly params: Record<string, string>;
 };
 
-export type PluginScreen = {
-	readonly key: string;
-	readonly index: number;
-	readonly element: ReactElement;
-	readonly params: Record<string, string>;
-	readonly location: PluginLogicalLocation;
-};
-
 export type Presentation =
 	| { readonly kind: "idle" }
 	| { readonly kind: "dragging" }
@@ -41,6 +34,34 @@ export type Presentation =
 			readonly leaving: PluginScreen;
 			readonly incoming: string | undefined;
 	  };
+
+export type PluginScreen = {
+	readonly key: string;
+	readonly index: number;
+	readonly identity: string;
+	readonly element: ReactElement;
+	readonly params: Record<string, string>;
+	readonly location: PluginLogicalLocation;
+};
+
+const screenIdentities = new Map<ReactElement["type"], string>();
+
+/** The screen definition a location renders: locations rendered by one component are one screen. */
+const screenIdentity = ({ type }: ReactElement) => {
+	const known = screenIdentities.get(type);
+	if (known !== undefined) {
+		return known;
+	}
+	const identity = `screen-${String(screenIdentities.size)}`;
+	screenIdentities.set(type, identity);
+	return identity;
+};
+
+/** A screen is one history entry showing one content identity; either changing is a new view. */
+export const screenView = (screen: PluginScreen): ViewEntry => ({
+	key: screen.key,
+	identity: `${screen.key}\n${screen.identity}`,
+});
 
 export function presentScreens(
 	screens: readonly PluginScreen[],
@@ -64,16 +85,17 @@ export function reconcileStack(
 	incoming: StackEntry,
 	resolve: ResolvePluginScreen,
 ): StackResult {
-	const screen = { ...incoming, ...resolve(incoming.location) };
+	const resolved = resolve(incoming.location);
+	const screen = { ...incoming, ...resolved, identity: screenIdentity(resolved.element) };
 	const top = stack.at(-1);
 	if (top === undefined) {
 		return { stack: [screen], transition: "reset" };
 	}
-	if (incoming.key === top.key) {
-		return { transition: "same", stack: [...stack.slice(0, -1), screen] };
-	}
-	if (incoming.index === top.index) {
-		return { transition: "replace", stack: [...stack.slice(0, -1), screen] };
+	if (incoming.key === top.key || incoming.index === top.index) {
+		return {
+			stack: [...stack.slice(0, -1), screen],
+			transition: incoming.key === top.key && screen.identity === top.identity ? "same" : "replace",
+		};
 	}
 	if (incoming.index === top.index + 1) {
 		const pushed = [...stack, screen];

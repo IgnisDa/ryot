@@ -15,13 +15,9 @@ const Detail = () => null;
 
 const resolve = (location: PluginLogicalLocation) => {
 	if (location.kind === "route") {
-		return {
-			params: {},
-			header: { title: location.path },
-			element: createElement(location.path === "/" ? Home : Detail),
-		};
+		return { params: {}, element: createElement(location.path === "/" ? Home : Detail) };
 	}
-	return { params: {}, element: createElement(Detail), header: { title: location.entityId } };
+	return { params: {}, element: createElement(Detail) };
 };
 
 const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
@@ -66,6 +62,21 @@ describe("reconcileStack", () => {
 			throw new Error("expected a route location");
 		}
 		expect(location.search).toBe("tab=stats");
+	});
+
+	it("replaces the top screen when a retained key resolves a different screen component", () => {
+		const result = reconcileStack(build(0, 1), entry(1, "/"), resolve);
+
+		expect(result.transition).toBe("replace");
+		expect(result.stack.at(-1)?.element.type).toBe(Home);
+	});
+
+	it("updates the top screen in place when a retained key resolves the same component", () => {
+		const stack = build(0, 1);
+		const result = reconcileStack(stack, entry(1, "/other"), resolve);
+
+		expect(result.transition).toBe("same");
+		expect(result.stack.at(-1)?.identity).toBe(stack.at(-1)?.identity);
 	});
 
 	it("replaces the top screen when the index holds but the key changes", () => {

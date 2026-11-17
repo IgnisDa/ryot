@@ -1,8 +1,10 @@
+import type { DisplayText } from "@ryot-app/i18n/message";
 import type {
 	PluginBridgeViewport,
 	PluginLeadingIntent,
 	PluginLogicalLocation,
 } from "@ryot-app/plugin-client-contract";
+import { createViewHistory, type ViewHistory } from "@ryot-app/plugin-ui-sdk";
 
 import { type PluginScreen, reconcileStack, type ResolvePluginScreen } from "./stack";
 
@@ -20,11 +22,6 @@ export type PluginNavigationTransition = {
 	readonly incoming: string | undefined;
 };
 
-export type PluginNavigationStore = {
-	readonly getSnapshot: () => PluginNavigationSnapshot;
-	readonly subscribe: (listener: () => void) => () => void;
-};
-
 export type PluginNavigationLocation = {
 	readonly compact: boolean;
 	readonly edgeBack: boolean;
@@ -32,11 +29,18 @@ export type PluginNavigationLocation = {
 	readonly entry: PluginNavigationEntry;
 };
 
+export type PluginNavigationStore = {
+	/** Scroll offsets by screen view, kept across document replacements in one frame session. */
+	readonly views: ViewHistory<number>;
+	readonly getSnapshot: () => PluginNavigationSnapshot;
+	readonly subscribe: (listener: () => void) => () => void;
+};
+
 export type PluginRouterNavigation = PluginNavigationStore & {
 	readonly back: () => void;
 	readonly openDrawer: () => void;
 	readonly completeTransition: (id: number) => void;
-	readonly publishTitle: (title: null | string) => void;
+	readonly publishTitle: (title: null | DisplayText) => void;
 	readonly registerShortcut: (shortcut: string, press: () => void) => () => void;
 };
 
@@ -75,6 +79,7 @@ export const createPluginNavigationStore = (
 	let nextTransitionId = 0;
 	let snapshot = initialSnapshot(initialInsets);
 	let resolver = resolve;
+	const views = createViewHistory<number>();
 
 	const emit = (next: PluginNavigationSnapshot) => {
 		snapshot = next;
@@ -84,6 +89,7 @@ export const createPluginNavigationStore = (
 	};
 
 	return {
+		views,
 		getSnapshot: () => snapshot,
 		subscribe: (listener) => {
 			listeners.add(listener);

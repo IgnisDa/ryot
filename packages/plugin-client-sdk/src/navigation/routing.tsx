@@ -2,6 +2,9 @@ import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/mani
 import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { DisplayText } from "@ryot-app/i18n/message";
+import { useT } from "@ryot-app/i18n/react";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	type ClientPageContext,
 	kernelPagePaths,
@@ -9,7 +12,12 @@ import {
 	type PluginLeadingIntent,
 	type PluginLogicalLocation,
 } from "@ryot-app/plugin-client-contract";
-import { type HotkeyChord, MotionScrollRoot, useShortcut } from "@ryot-app/plugin-ui-sdk";
+import {
+	type HotkeyChord,
+	MotionScrollRoot,
+	restoreScrollTop,
+	useShortcut,
+} from "@ryot-app/plugin-ui-sdk";
 import { Effect, Fiber, Match, Result, Schema } from "effect";
 import {
 	type AnchorHTMLAttributes,
@@ -42,6 +50,7 @@ import {
 	presentScreens,
 	type ResolvePluginScreen,
 	type ScreenRole,
+	screenView,
 } from "./stack";
 import type { PluginNavigationEntry } from "./store";
 
@@ -78,7 +87,7 @@ export type PluginChromeValue = {
 	readonly safeAreaBottom: number;
 	readonly leading: PluginLeadingIntent;
 	readonly entry: undefined | PluginNavigationEntry;
-	readonly publishTitle: (title: null | string) => void;
+	readonly publishTitle: (title: null | DisplayText) => void;
 };
 
 const PluginChromeContext = createContext<undefined | PluginChromeValue>(undefined);
@@ -110,15 +119,20 @@ export const useRyotViewport = () => {
 	);
 };
 
-export function usePluginTitle(title: null | string) {
+/** Publishes the active screen's title: a message the host renders, or user-authored text. */
+export function usePluginTitle(title: null | DisplayText) {
 	const { entry, publishTitle } = usePluginChrome();
 	const { isActive } = usePluginScreenSurface();
+	const [published, setPublished] = useState(title);
+	if (JSON.stringify(published) !== JSON.stringify(title)) {
+		setPublished(title);
+	}
 
 	useEffect(() => {
 		if (isActive && entry !== undefined) {
-			publishTitle(title);
+			publishTitle(published);
 		}
-	}, [entry, isActive, publishTitle, title]);
+	}, [entry, isActive, publishTitle, published]);
 }
 
 export function usePageShortcut(
@@ -242,17 +256,23 @@ export const PluginLink = ({
 	);
 };
 
-const DefaultNotFound = () => (
-	<main>
-		<h1>Page not found</h1>
-	</main>
-);
+const DefaultNotFound = () => {
+	const t = useT();
+	return (
+		<main>
+			<h1>{t(kernelMessage("sdk.routing.not-found"))}</h1>
+		</main>
+	);
+};
 
-const EntityRendererUnavailable: ComponentType<EntityRendererProps> = () => (
-	<main>
-		<h1>Entity renderer unavailable</h1>
-	</main>
-);
+const EntityRendererUnavailable: ComponentType<EntityRendererProps> = () => {
+	const t = useT();
+	return (
+		<main>
+			<h1>{t(kernelMessage("sdk.routing.entity-renderer-unavailable"))}</h1>
+		</main>
+	);
+};
 
 const decodeSegment = (segment: string) => {
 	try {
@@ -395,7 +415,7 @@ export const PluginRouter = () => {
 	const scrimRef = useRef<HTMLDivElement>(null);
 	const settling = useRef<undefined | Effect.Effect<void>>(undefined);
 	const screenRefs = useRef(new Map<string, HTMLDivElement>());
-	const isFirstEntry = useRef(true);
+	const focusTargets = useRef(new Map<string, HTMLElement>());
 	const drag = useRef({
 		dx: 0,
 		dy: 0,
@@ -434,7 +454,10 @@ export const PluginRouter = () => {
 	}
 	const presentation = popping ?? gesturePresentation;
 	const presented = useMemo(() => presentScreens(screens, presentation), [screens, presentation]);
-	const activeScreenKey = screens.at(-1)?.key;
+	const activeScreen = screens.at(-1);
+	const activeView = activeScreen === undefined ? undefined : screenView(activeScreen);
+	const activeKey = activeView?.key;
+	const activeIdentity = activeView?.identity;
 
 	useLayoutEffect(() => {
 		if (transition === undefined) {
@@ -484,17 +507,19 @@ export const PluginRouter = () => {
 	}, [presentation]);
 
 	useEffect(() => {
-		if (presentation.kind !== "idle" || activeScreenKey === undefined) {
+		if (presentation.kind !== "idle" || activeKey === undefined || activeIdentity === undefined) {
 			return;
 		}
-		if (isFirstEntry.current) {
-			isFirstEntry.current = false;
+		const change = navigation.views.enter({ key: activeKey, identity: activeIdentity });
+		if ((change !== "new" && change !== "restore") || !document.hasFocus()) {
 			return;
 		}
-		if (document.hasFocus()) {
-			screenRefs.current.get(activeScreenKey)?.focus({ preventScroll: true });
-		}
-	}, [activeScreenKey, presentation]);
+		const shell = screenRefs.current.get(activeKey);
+		const previous = change === "restore" ? focusTargets.current.get(activeIdentity) : undefined;
+		(previous?.isConnected && shell?.contains(previous) ? previous : shell)?.focus({
+			preventScroll: true,
+		});
+	}, [activeIdentity, activeKey, navigation, presentation]);
 
 	const beginDrag = (event: PointerEvent<HTMLDivElement>) => {
 		if (drag.current.active || settling.current !== undefined || screens.length < 2) {
@@ -576,8 +601,14 @@ export const PluginRouter = () => {
 		<PluginChromeContext.Provider value={chrome}>
 			<div ref={rootRef} style={rootStyle}>
 				{presented.map(({ role, screen }) => (
-					<Fragment key={screen.key}>
-						<Screen role={role} screen={screen} refs={screenRefs} safeAreaBottom={safeAreaBottom} />
+					<Fragment key={screenView(screen).identity}>
+						<Screen
+							role={role}
+							screen={screen}
+							refs={screenRefs}
+							focusTargets={focusTargets}
+							safeAreaBottom={safeAreaBottom}
+						/>
 						{role === scrimAfter && <div ref={scrimRef} aria-hidden="true" style={scrimStyle} />}
 					</Fragment>
 				))}
@@ -618,29 +649,56 @@ function Screen(props: {
 	readonly screen: PluginScreen;
 	readonly safeAreaBottom: number;
 	readonly refs: RefObject<Map<string, HTMLDivElement>>;
+	readonly focusTargets: RefObject<Map<string, HTMLElement>>;
 }) {
+	const navigation = usePluginNavigation();
 	const active = props.role === "active";
 	const scrollRoot = useRef<HTMLDivElement>(null);
 	const [floatingRoot, setFloatingRoot] = useState<null | HTMLDivElement>(null);
 	const { params, location } = props.screen;
+	const { key, identity } = screenView(props.screen);
 	const value = useMemo(() => ({ params, location }), [location, params]);
 	const surface = useMemo<PluginScreenSurface>(
 		() => ({ floatingRoot, isActive: active, scrollRootRef: scrollRoot }),
 		[active, floatingRoot],
 	);
+	const { focusTargets } = props;
+	useLayoutEffect(
+		() => () => {
+			focusTargets.current.delete(identity);
+		},
+		[focusTargets, identity],
+	);
+	useLayoutEffect(() => {
+		const top = navigation.views.saved({ key, identity });
+		return scrollRoot.current === null || top === undefined
+			? undefined
+			: restoreScrollTop(scrollRoot.current, top);
+	}, [identity, key, navigation]);
+	useLayoutEffect(() => {
+		if (!active) {
+			return undefined;
+		}
+		return navigation.subscribe(() => {
+			if (scrollRoot.current !== null) {
+				navigation.views.save({ key, identity }, scrollRoot.current.scrollTop);
+			}
+		});
+	}, [active, identity, key, navigation]);
 	return (
 		<div
 			tabIndex={-1}
 			inert={!active}
 			aria-hidden={active ? undefined : true}
+			onFocus={(event) => focusTargets.current.set(identity, event.target)}
 			style={props.role === "hidden" ? hiddenScreenStyle : visibleScreenStyle}
 			ref={(element) => {
 				if (element === null) {
 					return undefined;
 				}
-				props.refs.current.set(props.screen.key, element);
+				props.refs.current.set(key, element);
 				return () => {
-					props.refs.current.delete(props.screen.key);
+					props.refs.current.delete(key);
 				};
 			}}
 		>

@@ -6,12 +6,13 @@ import {
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type {
-	DescribeRequest,
-	ExecutionRequest,
+	PluginDescribeRequest,
+	PluginExecutionRequest,
 	VisitorDescribeRequest,
 	VisitorRequest,
 } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityId, type PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { DisplayText, Message } from "@ryot-app/i18n/message";
 import {
 	type AddToCollectionRequest,
 	type ChangeCollectionMembersRequest,
@@ -91,6 +92,7 @@ import type {
 import { createRyotClient } from "../client/client";
 import { RyotClientError } from "../client/errors";
 import type { RyotNavigationTarget } from "../client/navigation-target";
+import { createPluginLocaleStore } from "../i18n/locale-store";
 import type { PluginNavigationController, PluginNavigationSnapshot } from "../navigation/store";
 
 type PluginRuntimeState = "ready" | "active" | "failed" | "closing" | "disposed";
@@ -129,7 +131,10 @@ type RequestType =
 const decodeHostMessage = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 const noOverlayToDismiss = () => false;
 
-const normalizeHeaderTitle = (title: string) => {
+const normalizeHeaderTitle = (title: DisplayText) => {
+	if (typeof title !== "string") {
+		return title;
+	}
 	const trimmed = title.trim();
 	if (trimmed.length === 0) {
 		return null;
@@ -162,6 +167,7 @@ export const createPluginRuntime = (
 			(contributor): contributor is PluginCodeContributor => contributor.kind === "plugin",
 		);
 	let theme: PluginThemeSnapshot = { resolvedMode: init.mode };
+	const locale = createPluginLocaleStore(init, root);
 	let nextRequestId = 0;
 	let state: PluginRuntimeState = "ready";
 	let terminalReason: undefined | RyotClientErrorReason;
@@ -170,12 +176,13 @@ export const createPluginRuntime = (
 	const flushHandlers = new Set<() => Effect.Effect<void, RyotClientError>>();
 	const listeners = new AbortController();
 	const navigation = {
+		views: navigationStore.views,
 		subscribe: navigationStore.subscribe,
 		getSnapshot: navigationStore.getSnapshot,
 		completeTransition: navigationStore.completeTransition,
 		back: () => post({ type: "navigate-back" } satisfies PluginBridgeNavigateBack),
 		openDrawer: () => post({ type: "open-drawer" } satisfies PluginBridgeOpenDrawer),
-		publishTitle: (title: null | string) => {
+		publishTitle: (title: null | DisplayText) => {
 			const entry = navigationStore.getSnapshot().entry;
 			if (entry === undefined) {
 				return;
@@ -280,6 +287,7 @@ export const createPluginRuntime = (
 		flushHandlers.clear();
 		rejectPending(reason);
 		themeListeners.clear();
+		locale.clear();
 		backgroundListeners.clear();
 		interestOwners.clear();
 		hasLocation = false;
@@ -343,7 +351,7 @@ export const createPluginRuntime = (
 			});
 		});
 
-	const query = (request: ExecutionRequest) =>
+	const query = (request: PluginExecutionRequest) =>
 		sendRequest(
 			"ryotql",
 			(requestId) =>
@@ -356,7 +364,7 @@ export const createPluginRuntime = (
 			(requestId) => ({ requestId, type: "ryotql-cancel" }) satisfies PluginBridgeRyotQLCancel,
 		);
 
-	const describe = (request: typeof DescribeRequest.Type) =>
+	const describe = (request: typeof PluginDescribeRequest.Type) =>
 		sendRequest(
 			"ryotql",
 			(requestId) =>
@@ -513,7 +521,7 @@ export const createPluginRuntime = (
 		outcome:
 			| { readonly value: unknown; readonly outcome: "success" }
 			| {
-					readonly message?: string;
+					readonly message?: Message;
 					readonly outcome: "failure";
 					readonly reason: RyotClientErrorReason;
 			  },
@@ -527,7 +535,7 @@ export const createPluginRuntime = (
 				? Effect.fail(
 						new RyotClientError({
 							reason: outcome.reason,
-							...(outcome.message === undefined ? {} : { message: outcome.message }),
+							...(outcome.message === undefined ? {} : { rejection: outcome.message }),
 						}),
 					)
 				: Effect.succeed(outcome.value),
@@ -925,6 +933,9 @@ export const createPluginRuntime = (
 						listener();
 					}
 					return;
+				case "locale":
+					locale.update(message);
+					return;
 				case "document":
 					currentPage = message.page;
 					contributors = message.page?.contributors ?? [];
@@ -1161,6 +1172,7 @@ export const createPluginRuntime = (
 	return {
 		fatal,
 		client,
+		locale,
 		navigation,
 		page: init.page,
 		forwardKernelShortcut,
