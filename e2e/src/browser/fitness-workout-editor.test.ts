@@ -3,11 +3,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import {
-	createAuthenticatedClient,
-	executeRyotQLRecipe,
-	listEventsForEntity,
-} from "~/fixtures/kernel";
+import { createAuthenticatedClient, listEventsForEntity } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
 	createMeasurementMetric,
@@ -15,6 +11,7 @@ import {
 	discardDraft,
 	draftHeading,
 	findFitnessEntitySchema,
+	fitnessRecipes,
 	openFitnessPage,
 	overlay,
 	readWorkoutDetails,
@@ -188,7 +185,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		const recipeOptions = {},
 			recipeArguments = { search: name },
 			recipe = workoutCardsRecipe({ reference: { pluginId, kind: "local" } });
-		const committed = (yield* executeRyotQLRecipe(
+		const committed = (yield* fitnessRecipes.execute(
 			client,
 			recipe,
 			recipeArguments,
@@ -206,7 +203,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		const saved = yield* readWorkoutDetails(client, workoutId);
 		expect(committed[0]?.entityId).toBe(workoutId);
 		expect(
-			(yield* executeRyotQLRecipe(client, recipe, recipeArguments, recipeOptions)).items.filter(
+			(yield* fitnessRecipes.execute(client, recipe, recipeArguments, recipeOptions)).items.filter(
 				(item) => item.name === name,
 			),
 		).toHaveLength(1);
@@ -308,6 +305,7 @@ it.live("starts workouts from list Add and templates while guarding another draf
 		yield* page.goto(`${getFrontendUrl()}/e/${workoutTemplateId}`);
 		yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
 		yield* guard.getByRole("button", { exact: true, name: "Discard and start" }).click();
+		yield* page.waitForURL(`${getFrontendUrl()}/p/ryot/fitness/workout-editor`);
 		yield* draftHeading(frame, name).waitFor({ state: "visible" });
 		yield* discardDraft(frame);
 		yield* frame.getByText("No workout in progress", { exact: true }).waitFor({ state: "visible" });

@@ -20,6 +20,7 @@ import {
 	createPluginSavedView,
 	createResultsTableSavedView,
 	findSavedViewById,
+	fixtureClientRevisionSelector,
 	installFixtureClientPlugin,
 	listEntitySchemas,
 	listEventSchemas,
@@ -28,9 +29,10 @@ import {
 	savedViewRecordPath,
 	uploadPermanentAsset,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { createExerciseEntityFixture, seedExerciseWorkout } from "~/fixtures/plugins/fitness";
 import { findMediaEntitySchema, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
-import { assertCondition, requirePresent } from "~/support/assertions";
+import { assertCondition, requirePresent, requireString } from "~/support/assertions";
 import { signInThroughHostedOAuth, waitForSearchParam } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
@@ -155,7 +157,7 @@ it.live("renders a saved view from an installed client plugin page", () =>
 		expect(yield* page.locator("iframe").count).toBe(1);
 		yield* frame
 			.contentFrame()
-			.getByRole("heading", { level: 1, exact: true, name: "Fixture plugin revision A" })
+			.locator(fixtureClientRevisionSelector("A"))
 			.waitFor({ state: "visible" });
 		const privateModule = yield* clientImportUrl(
 			frame,
@@ -212,7 +214,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const schema = yield* createEntitySchema(client, {
-			name: "Browser controls",
+			name: manifestText("Browser controls"),
 			pluginSlug: `browser-controls-${yield* randomUuid}`,
 		});
 		const [alpha, zulu, excluded] = yield* Effect.all([
@@ -343,7 +345,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 		const { email, client, password } = yield* createAuthenticatedClient();
 		const installation = yield* installFixtureClientPlugin(client, "A", "", true);
 		const fallbackSchema = yield* createEntitySchema(client, {
-			name: "Lazy presentation fallback",
+			name: manifestText("Lazy presentation fallback"),
 			pluginSlug: `lazy-fallback-${yield* randomUuid}`,
 		});
 		const fallback = yield* Effect.forEach(["01 Fallback", "02 Fallback"], (name) =>
@@ -395,7 +397,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 		yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`);
 		const frame = activeClientFrame(page);
 		const runtime = frame.contentFrame();
-		yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
+		yield* runtime.getByRole("heading", { level: 1, name: "Private lazy presentation" }).waitFor();
 		yield* expectVisibleText(runtime.locator("body"), "01 Fallback");
 		yield* expectVisibleText(runtime.locator("body"), "02 Fallback");
 		expect(yield* runtime.locator("article").count).toBe(2);
@@ -459,12 +461,12 @@ it.live(
 		Effect.gen(function* () {
 			const { email, client, password } = yield* createAuthenticatedClient();
 			const schema = yield* createEntitySchema(client, {
-				name: "Results table entity",
+				name: manifestText("Results table entity"),
 				pluginSlug: `results-table-${yield* randomUuid}`,
 			});
 			const eventSchema = yield* createEventSchema(client, {
-				name: "Results table event",
 				entitySchema: schema.reference,
+				name: manifestText("Results table event"),
 				slug: `results-table-event-${yield* randomUuid}`,
 			});
 			const entity = yield* createEntity(client, {
@@ -488,13 +490,14 @@ it.live(
 				eventSchemaSlug: eventSchema.slug,
 			});
 			const viewRecord = yield* findSavedViewById(client, view.id);
+			const viewName = requireString(viewRecord.name, "Results table view name is user text");
 
 			const browser = yield* Playwright.Browser;
 			const page = yield* browser.newPage();
 			yield* signInThroughHostedOAuth(page, email, password);
 			yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`);
 			const runtime = activeClientFrame(page).contentFrame();
-			yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
+			yield* runtime.getByRole("heading", { level: 1, name: viewName }).waitFor();
 			const rows = runtime.locator("tbody tr");
 			yield* rows.nth(1).waitFor();
 			expect(yield* runtime.getByRole("columnheader").allInnerTexts()).toEqual([
@@ -519,7 +522,7 @@ it.live(
 				occurredAt: "2026-09-07T10:00:00.000Z",
 			});
 			yield* page.reload;
-			yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
+			yield* runtime.getByRole("heading", { level: 1, name: viewName }).waitFor();
 			yield* rows.getByText("Third row", { exact: true }).waitFor({ state: "visible" });
 			expect(yield* rows.count).toBe(3);
 
@@ -539,7 +542,7 @@ it.live(
 			expect(new URL(page.url()).searchParams.get("filters")).not.toBeNull();
 
 			yield* page.reload;
-			yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
+			yield* runtime.getByRole("heading", { level: 1, name: viewName }).waitFor();
 			yield* runtime
 				.getByRole("button", { exact: true, name: "Filters, 1 active filter" })
 				.waitFor();
@@ -561,7 +564,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 			body: '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><circle cx="40" cy="40" r="40" fill="#16a34a"/></svg>',
 		});
 		const fallbackSchema = yield* createEntitySchema(client, {
-			name: "Mixed fallback",
+			name: manifestText("Mixed fallback"),
 			pluginSlug: `mixed-fallback-${yield* randomUuid}`,
 		});
 		const fallbackEntities = yield* Effect.forEach(

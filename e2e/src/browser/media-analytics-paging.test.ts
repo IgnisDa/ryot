@@ -13,7 +13,7 @@ import {
 } from "~/fixtures/kernel/analytics-location";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForEventProjections } from "~/fixtures/kernel/events";
-import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
+import { mediaRecipes } from "~/fixtures/plugins/media";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
 	mediaAnalyticsInput,
@@ -133,7 +133,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 			mediaType: "anime",
 			entityId: entities.anime.id,
 		};
-		const first = yield* executeRyotQLRecipe(
+		const first = yield* mediaRecipes.execute(
 			client,
 			mediaAnalyticsRecordsRecipe({ reference: recordInput.reference }),
 			mediaAnalyticsInput(recordInput),
@@ -144,7 +144,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 			first.pageInfo.nextCursor,
 			"Expected the real next records cursor",
 		);
-		const second = yield* executeRyotQLRecipe(
+		const second = yield* mediaRecipes.execute(
 			client,
 			mediaAnalyticsRecordsRecipe({ reference: recordInput.reference }),
 			mediaAnalyticsInput(recordInput),
@@ -232,7 +232,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		yield* dialog.getByText("100+ records loaded", { exact: true }).waitFor();
 		expect(yield* dialog.count).toBe(1);
 		expect(yield* dialog.innerText()).toContain(
-			"Period: Sep 1 – 7, 2026 · Time zone: UTC · Type: anime · Active observations only",
+			"Period: Sep 1 – 7, 2026 · Time zone: UTC · Type: Anime · Active observations only",
 		);
 		const table = dialog.getByRole("table", { exact: true, name: "Media analytics records" });
 		expect(yield* table.locator("tbody tr").count).toBe(100);

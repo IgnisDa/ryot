@@ -6,6 +6,7 @@ import {
 	installPreferencePrivatePlugin,
 	listPluginUserSettings,
 } from "~/fixtures/kernel/plugin-user-settings";
+import { findMediaPluginUserSettings } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -32,9 +33,13 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		yield* signInThroughHostedOAuth(page, owner.email, owner.password);
 
 		yield* page.goto(`${getFrontendUrl()}/settings/preferences`);
-		yield* page.getByRole("button", { name: "Entity language: Provider default" }).waitFor();
+		yield* page
+			.getByRole("button", { name: "Entity language: Same as interface language" })
+			.waitFor();
 		expect(yield* page.getByRole("switch", { name: "Show NSFW content" }).count).toBe(0);
-		yield* page.getByRole("button", { name: "Entity language: Provider default" }).click();
+		yield* page
+			.getByRole("button", { name: "Entity language: Same as interface language" })
+			.click();
 		yield* page.getByRole("radio", { name: "Spanish" }).click();
 		yield* page.getByRole("button", { name: "Save changes" }).click();
 		yield* page.getByText("Preferences saved.").waitFor({ state: "visible" });
@@ -62,10 +67,7 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		yield* page.reload;
 		expect(yield* nsfw.getAttribute("aria-checked")).toBe("true");
 		yield* page.getByRole("button", { exact: true, name: "Viewing country: India" }).waitFor();
-		const mediaSetting = requirePresent(
-			(yield* listPluginUserSettings(owner.client)).find(({ name }) => name === "Media"),
-			"Media settings not found",
-		);
+		const mediaSetting = yield* findMediaPluginUserSettings(owner.client);
 		expect(mediaSetting.settings).toMatchObject({
 			allowNsfw: true,
 			viewingRegion: "IN",
@@ -79,9 +81,7 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		yield* page
 			.getByRole("button", { exact: true, name: "Viewing country: Automatic (browser region)" })
 			.waitFor();
-		expect(
-			(yield* listPluginUserSettings(owner.client)).find(({ name }) => name === "Media")?.settings,
-		).toEqual({});
+		expect((yield* findMediaPluginUserSettings(owner.client)).settings).toEqual({});
 
 		yield* openPluginPreferences(page);
 		yield* page.getByRole("link", { name: "Preference test plugin" }).click();

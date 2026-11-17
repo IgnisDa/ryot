@@ -12,7 +12,7 @@ import {
 	getEntity,
 	markEntityPopulated,
 	pollUntil,
-	setUserLanguage,
+	setUserContentLanguage,
 	shippedPluginTestProviders,
 } from "~/fixtures/kernel";
 import {
@@ -59,7 +59,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		const translatedName = `Serie traducida ${id}`;
 		const translatedDescription = `Resumen de la serie ${id}.`;
 		const { email, client, password } = yield* createAuthenticatedClient(target);
-		yield* setUserLanguage(client, "es");
+		yield* setUserContentLanguage(client, "es");
 		const { schema } = yield* findMediaEntitySchema(client, "show");
 		const provider = yield* mediaProviders.attachProvider({
 			rootEntitySchemaSlug: schema.id,

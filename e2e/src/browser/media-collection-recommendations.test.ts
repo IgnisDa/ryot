@@ -11,7 +11,7 @@ import {
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
-import { pluginFrame, signInThroughHostedOAuth } from "~/support/browser";
+import { chooseMenuItem, pluginFrame, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
@@ -67,7 +67,7 @@ it.live("opens a collection's recommendations and searches them", () =>
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/e/${collection.id}`);
 		const frame = pluginFrame(page);
-		yield* frame.getByRole("button", { exact: true, name: "Recommendations" }).click();
+		yield* chooseMenuItem(frame, "More actions", "Recommendations");
 		yield* page.waitForURL(`**/collections/${collection.id}/recommendations`);
 		const results = frame.getByRole("list", { name: "Recommendations" });
 		yield* results

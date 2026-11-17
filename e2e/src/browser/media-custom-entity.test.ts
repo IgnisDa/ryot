@@ -340,7 +340,7 @@ it.live("authors, tracks, and protects custom seasons and episodes from the Epis
 
 		const editForm = media().getByRole("form", { exact: true, name: "Edit Show Episode" });
 		yield* editForm.getByRole("button", { exact: true, name: "Delete" }).click();
-		const confirmation = media().getByRole("dialog", { name: "Delete this show episode?" });
+		const confirmation = media().getByRole("dialog", { name: "Delete this item?" });
 		yield* confirmation.getByRole("button", { exact: true, name: "Delete" }).click();
 		yield* confirmation.getByRole("alert").waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),

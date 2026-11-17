@@ -11,6 +11,7 @@ import {
 	installTestProvider,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 
@@ -82,8 +83,8 @@ beforeAll(() =>
 						icon: "file",
 						eventSchemas: [],
 						slug: ENTITY_SCHEMA_SLUG,
-						name: "Customize Sidebar Record",
 						propertiesSchema: { fields: {} },
+						name: manifestText("Customize Sidebar Record"),
 					},
 				],
 			});

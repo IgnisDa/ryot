@@ -13,11 +13,11 @@ import {
 	updateUserSettingsPreferences,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
-import { listPluginUserSettings } from "~/fixtures/kernel/plugin-user-settings";
 import { findPluginInstallationByPackage } from "~/fixtures/kernel/plugins";
 import {
 	createBuiltinMediaLifecycleFixture,
 	findMediaEntitySchema,
+	findMediaPluginUserSettings,
 	insertLibraryMembership,
 	seedGlobalMovieWithCollection,
 	waitForLibrarySummary,
@@ -520,10 +520,7 @@ it.live("suggests the user's Where you consume list in the Log activity sheet an
 			.getByText("Saved", { exact: true })
 			.waitFor({ state: "visible" });
 
-		const mediaSettings = requirePresent(
-			(yield* listPluginUserSettings(client)).find(({ name }) => name === "Media"),
-			"Media settings not found",
-		);
+		const mediaSettings = yield* findMediaPluginUserSettings(client);
 		expect(mediaSettings.settings.consumedOnMovie).toEqual([
 			"Netflix",
 			"Amazon Prime",

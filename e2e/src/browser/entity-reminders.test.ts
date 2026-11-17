@@ -23,6 +23,12 @@ import { getFrontendUrl } from "~/support/harness-target";
 
 const visible = (locator: Playwright.Locator) => locator.waitFor({ state: "visible" });
 
+/** A UTC wall time in whole minutes, the form a `datetime-local` input keeps as entered. */
+const scheduleAfter = (now: DateTime.Utc, offsetMillis: number) => {
+	const wallTime = DateTime.formatIso(DateTime.addDuration(now, offsetMillis)).slice(0, 16);
+	return { wallTime, dueAt: `${wallTime}:00.000Z` };
+};
+
 it.live("manages entity reminders from media and fitness pages", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
@@ -36,11 +42,7 @@ it.live("manages entity reminders from media and fitness pages", () =>
 		const { exerciseId } = yield* createExerciseEntityFixture(client, {
 			name: `Reminder exercise ${suffix}`,
 		});
-		const scheduledDateTime = DateTime.addDuration(yield* DateTime.now, 86_400_000);
-		const wallTime = `${DateTime.formatIso(scheduledDateTime).slice(0, 19)}.${String(
-			DateTime.toParts(scheduledDateTime).millisecond,
-		).padStart(3, "0")}`;
-		const dueAt = `${wallTime}Z`;
+		const { dueAt, wallTime } = scheduleAfter(yield* DateTime.now, 86_400_000);
 		const message = `Review this reminder ${suffix}`;
 		const editedMessage = `Updated reminder ${suffix}`;
 
@@ -246,11 +248,7 @@ it.live("restores an imported reminder as needs-scheduling until it is reschedul
 		const dateTimeField = editor.getByLabel("Date and time", { exact: true });
 		expect(yield* dateTimeField.inputValue()).toBe("");
 
-		const scheduledDateTime = DateTime.addDuration(yield* DateTime.now, 172_800_000);
-		const wallTime = `${DateTime.formatIso(scheduledDateTime).slice(0, 19)}.${String(
-			DateTime.toParts(scheduledDateTime).millisecond,
-		).padStart(3, "0")}`;
-		const dueAt = `${wallTime}Z`;
+		const { dueAt, wallTime } = scheduleAfter(yield* DateTime.now, 172_800_000);
 		yield* editor.getByRole("button", { name: /^Timezone:/ }).click();
 		const timezones = page.getByRole("dialog", { exact: true, name: "Timezone" });
 		yield* timezones.getByLabel("Search Timezone", { exact: true }).fill("UTC");

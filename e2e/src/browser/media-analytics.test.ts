@@ -13,7 +13,7 @@ import {
 	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
 import { waitForEventProjections } from "~/fixtures/kernel/events";
-import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
+import { mediaRecipes } from "~/fixtures/plugins/media";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
 	mediaAnalyticsInput,
@@ -259,7 +259,7 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		});
 		expect(yield* hourTable.getByRole("row").count).toBe(25);
 		for (let hour = 0; hour < 24; hour += 1) {
-			const label = `${String(hour).padStart(2, "0")}:00–${String(hour + 1).padStart(2, "0")}:00`;
+			const label = `${String(hour).padStart(2, "0")}:00–${String((hour + 1) % 24).padStart(2, "0")}:00`;
 			const expected = hour === 18 ? 2 : Number(hour === 19);
 			expect(
 				yield* hourTable.getByRole("row", { name: label }).getByRole("cell").nth(1).innerText(),
@@ -400,7 +400,7 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		expect(
 			yield* pagesTable
 				.getByRole("row")
-				.filter({ hasText: "Week of Aug 31, 2026" })
+				.filter({ hasText: "Week of Aug 30, 2026" })
 				.getByRole("cell")
 				.nth(1)
 				.innerText(),
@@ -432,7 +432,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			reference: fixture.reference,
 			selection: fixture.reportingSelection,
 		};
-		const ranking = yield* executeRyotQLRecipe(
+		const ranking = yield* mediaRecipes.execute(
 			fixture.account.client,
 			mediaAnalyticsRankingRecipe({ reference: input.reference }),
 			mediaAnalyticsInput(input),
@@ -445,7 +445,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			...tiedIds.map((id) => ({ entityId: id, activeObservations: 2 })),
 			{ activeObservations: 1, entityId: fixture.entities.anime.id },
 		]);
-		const records = yield* executeRyotQLRecipe(
+		const records = yield* mediaRecipes.execute(
 			fixture.account.client,
 			mediaAnalyticsRecordsRecipe({ reference: input.reference }),
 			mediaAnalyticsInput(input),
@@ -516,7 +516,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 				.count,
 		).toBe(1);
 		expect(yield* dialog.innerText()).toContain(
-			`Period: ${currentRange} · Time zone: UTC · Type: book · Active observations only`,
+			`Period: ${currentRange} · Time zone: UTC · Type: Book · Active observations only`,
 		);
 		const bookRecords = dialog.getByRole("table", { exact: true, name: "Media analytics records" });
 		expect(yield* bookRecords.locator("tbody tr").count).toBe(2);
@@ -652,7 +652,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		}
 		expect(corrected.previous).toEqual(fixture.report.previous);
 		expect(corrected.current.reviews).toEqual(fixture.report.current.reviews);
-		const correctedRecords = yield* executeRyotQLRecipe(
+		const correctedRecords = yield* mediaRecipes.execute(
 			fixture.account.client,
 			mediaAnalyticsRecordsRecipe({ reference: { ...input, now }.reference }),
 			mediaAnalyticsInput({ ...input, now }),

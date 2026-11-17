@@ -1,9 +1,12 @@
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import { createAuthenticatedClient, listSavedViews, savedViewRecordPath } from "~/fixtures/kernel";
-import { createMeasurementMetric } from "~/fixtures/plugins/fitness";
-import { requirePresent } from "~/support/assertions";
+import {
+	createAuthenticatedClient,
+	findBuiltinSavedView,
+	savedViewRecordPath,
+} from "~/fixtures/kernel";
+import { createMeasurementMetric, fitnessFixtureInstallation } from "~/fixtures/plugins/fitness";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
@@ -15,11 +18,11 @@ it.live(
 			const { email, client, password } = yield* createAuthenticatedClient();
 			yield* createMeasurementMetric(client, { name: "Weight" });
 			yield* createMeasurementMetric(client, { name: "Waist" });
-			const views = yield* listSavedViews(client);
-			const view = requirePresent(
-				views.find(({ name }) => name === "All Measurements"),
-				"Expected All Measurements",
-			);
+			const view = yield* findBuiltinSavedView(client, {
+				kind: "plugin",
+				slug: "all-measurements",
+				pluginId: (yield* fitnessFixtureInstallation(client.target)).id,
+			});
 			const browser = yield* Playwright.Browser;
 			const page = yield* browser.newPage();
 			yield* signInThroughHostedOAuth(page, email, password);

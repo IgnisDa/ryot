@@ -11,7 +11,7 @@ import {
 	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
 import { getEntity } from "~/fixtures/kernel/entities";
-import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
+import { fitnessRecipes } from "~/fixtures/plugins/fitness";
 import { createFitnessAnalyticsFixture } from "~/fixtures/plugins/fitness/analytics";
 import { updateMeasurementReadings } from "~/fixtures/plugins/fitness/measurements";
 import { requirePresent } from "~/support/assertions";
@@ -231,7 +231,7 @@ it.live(
 			yield* page.keyboard.press("Escape");
 			yield* dialog.waitFor({ state: "hidden" });
 
-			const readings = yield* executeRyotQLRecipe(
+			const readings = yield* fitnessRecipes.execute(
 				fixture.account.client,
 				fitnessMeasurementReadingsRecipe({ reference: fixture.reference }),
 				{

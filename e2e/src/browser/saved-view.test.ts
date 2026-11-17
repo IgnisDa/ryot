@@ -22,9 +22,10 @@ import {
 	pollUntil,
 	savedViewRecordPath,
 	seedEntity,
-	setUserLanguage,
+	setUserContentLanguage,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import {
 	createExerciseEntityFixture,
 	findFitnessEntitySchema,
@@ -139,12 +140,12 @@ beforeAll(() =>
 						icon: "file",
 						eventSchemas: [],
 						slug: ENTITY_SCHEMA_SLUG,
-						name: "Saved View Add Record",
+						name: manifestText("Saved View Add Record"),
 						propertiesSchema: {
 							fields: {
 								description: {
 									type: "string",
-									label: "Description",
+									label: manifestText("Description"),
 									description: "Saved view add record description",
 								},
 							},
@@ -231,10 +232,14 @@ it.live("automatically populates and translates entities rendered by a saved vie
 					icon: "file",
 					eventSchemas: [],
 					slug: schemaSlug,
-					name: "Browser Interest Record",
+					name: manifestText("Browser Interest Record"),
 					propertiesSchema: {
 						fields: {
-							publishYear: { label: "Year", type: "integer", description: "Publication year" },
+							publishYear: {
+								type: "integer",
+								label: manifestText("Year"),
+								description: "Publication year",
+							},
 						},
 					},
 				},
@@ -243,7 +248,7 @@ it.live("automatically populates and translates entities rendered by a saved vie
 		yield* Effect.addFinalizer(() => uninstallTestProvider(offlineProvider));
 		const user = yield* createAuthenticatedClient();
 		const client = user.client;
-		yield* setUserLanguage(client, "es");
+		yield* setUserContentLanguage(client, "es");
 		const entity = yield* seedEntity({
 			userId: null,
 			properties: {},
@@ -315,10 +320,14 @@ it.live("keeps source data visible when the provider has no translation", () =>
 					icon: "file",
 					eventSchemas: [],
 					slug: schemaSlug,
-					name: "Browser Translating Record",
+					name: manifestText("Browser Translating Record"),
 					propertiesSchema: {
 						fields: {
-							publishYear: { label: "Year", type: "integer", description: "Publication year" },
+							publishYear: {
+								type: "integer",
+								label: manifestText("Year"),
+								description: "Publication year",
+							},
 						},
 					},
 				},
@@ -327,7 +336,7 @@ it.live("keeps source data visible when the provider has no translation", () =>
 		yield* Effect.addFinalizer(() => uninstallTestProvider(untranslatedProvider));
 		const user = yield* createAuthenticatedClient();
 		const client = user.client;
-		yield* setUserLanguage(client, "es");
+		yield* setUserContentLanguage(client, "es");
 		const entity = yield* seedEntity({
 			userId: null,
 			properties: {},
@@ -488,7 +497,7 @@ it.live("swaps the desktop add button for the mobile add affordances", () =>
 		const sheet = runtime.getByRole("dialog", { name: "View options" });
 		yield* sheet.waitFor({ state: "visible" });
 		expect(yield* sheet.getByRole("button", { name: /^Add filter/ }).isVisible()).toBe(true);
-		yield* runtime.getByRole("button", { name: "Close view options" }).click();
+		yield* runtime.getByRole("button", { name: "Close" }).click();
 		yield* sheet.waitFor({ state: "hidden" });
 
 		yield* runtime.getByRole("button", { name: "Search this view" }).click();
@@ -546,7 +555,7 @@ it.live(
 			yield* runtime.getByRole("button", { name: /^Filters/ }).click();
 			yield* addRule("Level");
 			yield* filtersDialog.getByRole("button", { exact: true, name: "Level values" }).click();
-			yield* runtime.getByRole("checkbox", { exact: true, name: "beginner" }).click();
+			yield* runtime.getByRole("checkbox", { exact: true, name: "Beginner" }).click();
 			yield* runtime
 				.getByRole("dialog", { exact: true, name: "Level values" })
 				.getByRole("button", { exact: true, name: "Close options" })

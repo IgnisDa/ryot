@@ -11,6 +11,7 @@ import {
 	settledPrivateInstallation,
 	testPluginManifest,
 } from "~/fixtures/kernel";
+import { fixtureCatalogs, manifestText } from "~/fixtures/kernel/manifest-text";
 import { pluginFrame, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
@@ -39,11 +40,13 @@ it.live("flushes large device drafts before navigation and restores scoped retur
 				},
 			},
 		});
+		const resumeLabel = manifestText("Resume draft");
 		const { id } = yield* installPrivatePluginPackage({
 			client,
 			config: {},
 			pluginPackage: {
 				manifest,
+				catalogs: fixtureCatalogs(manifest, [resumeLabel]),
 				files: encodePluginSourceFiles({
 					"client/home.tsx": `
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
@@ -72,7 +75,7 @@ export default function Home() {
   useEffect(() => client.persistence.registerFlush(() => Effect.gen(function* () {
     if (blocked.current) { setStatus("quota"); return yield* new RyotClientError({ reason: "quota" }); }
     yield* client.storage.set(pluginId, "draft", input.current);
-    yield* client.device({ action: "return-shortcut", pluginId, shortcut: { label: "Resume draft", target: { kind: "plugin-route", packageId, path: "/", search: "" } } });
+    yield* client.device({ action: "return-shortcut", pluginId, shortcut: { label: { key: ${yield* encodeString(resumeLabel.key)} }, target: { kind: "plugin-route", packageId, path: "/", search: "" } } });
   })), [client, pluginId]);
   return <PluginScreenFrame title="Device draft">
     <label>Draft<textarea aria-label="Draft" value={text} onChange={(event) => { input.current = event.target.value; setText(input.current); }} /></label>

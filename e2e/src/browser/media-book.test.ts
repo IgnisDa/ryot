@@ -67,8 +67,8 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 				productionStatus: "Released",
 				images: [{ ...cover, purpose: "cover" }],
 				unlinkedCreators: [
-					{ role: "Author", name: unlinkedAuthor },
-					{ role: "Publisher", name: unlinkedPublisher },
+					{ roleCode: "author", name: unlinkedAuthor },
+					{ roleCode: "publisher", name: unlinkedPublisher },
 				],
 				description:
 					"A **deterministic** browser tracer book.\n\nAn *expanded* second paragraph.\n\n:::spoiler\nHidden browser story detail.\n:::",

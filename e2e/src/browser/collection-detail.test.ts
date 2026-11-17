@@ -276,7 +276,7 @@ it.live("browses collection members with membership properties", () =>
 		const summary = detail.getByRole("region", { name: "Collection summary" });
 		yield* summary.waitFor({ state: "visible" });
 		yield* summary.getByText("2 total", { exact: true }).waitFor({ state: "visible" });
-		yield* summary.getByText("2 Collections", { exact: true }).waitFor({ state: "visible" });
+		yield* summary.getByText("2 Collection", { exact: true }).waitFor({ state: "visible" });
 		expect(yield* detail.getByRole("button", { name: "Add", exact: true }).count).toBe(0);
 
 		yield* detail.getByRole("radio", { name: "Table view" }).click();
@@ -292,7 +292,7 @@ it.live("browses collection members with membership properties", () =>
 		]);
 		expect(yield* rows.nth(0).locator("td").allInnerTexts()).toEqual([
 			zuluName,
-			"Collections",
+			"Collection",
 			"3",
 			"Second member",
 			"No",
@@ -300,7 +300,7 @@ it.live("browses collection members with membership properties", () =>
 		]);
 		expect(yield* rows.nth(1).locator("td").allInnerTexts()).toEqual([
 			alphaName,
-			"Collections",
+			"Collection",
 			"5",
 			"First member",
 			"Yes",
@@ -375,7 +375,7 @@ it.live("filters collection members by type and keeps the filter across reload",
 		yield* filtersDialog.getByRole("button", { name: /^Add filter/ }).click();
 		yield* detail.getByRole("radio", { exact: true, name: "Type" }).click();
 		yield* filtersDialog.getByRole("button", { name: /^Type values/ }).click();
-		yield* detail.getByRole("checkbox", { exact: true, name: "Collections" }).click();
+		yield* detail.getByRole("checkbox", { exact: true, name: "Collection" }).click();
 		yield* detail
 			.getByRole("dialog", { exact: true, name: "Type values" })
 			.getByRole("button", { exact: true, name: "Close options" })

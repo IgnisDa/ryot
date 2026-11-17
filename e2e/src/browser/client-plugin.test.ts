@@ -9,7 +9,7 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	encodePluginSourceFiles,
-	FIXTURE_CLIENT_REVISION_MARKERS,
+	fixtureClientRevisionSelector,
 	installFixtureClientPlugin,
 	installPrivatePluginPackage,
 	listEntitySchemas,
@@ -263,7 +263,7 @@ it.live("shows the minimal interstitial while loading a plugin on desktop and mo
 			yield* frame.waitFor({ state: "visible" });
 			yield* frame
 				.contentFrame()
-				.getByRole("heading", { level: 1, exact: true, name: FIXTURE_CLIENT_REVISION_MARKERS.A })
+				.locator(fixtureClientRevisionSelector("A"))
 				.waitFor({ state: "visible" });
 			expect(yield* status.count).toBe(0);
 			yield* page.use((native) => native.unroute("**/api/pages/document"));
@@ -331,7 +331,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* frame.waitFor({ state: "visible" });
 
 		expect(yield* frame.getAttribute("title")).toBe("Fixture plugin");
-		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
+		yield* home.locator(fixtureClientRevisionSelector("A")).waitFor({ state: "visible" });
 		yield* expectIsolatedFrame(frame, apiUrl);
 		const initialSrcDoc = yield* readSrcDoc(frame);
 		observedSrcDocs.push(initialSrcDoc);
@@ -495,7 +495,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* reload.waitFor({ state: "visible" });
 		yield* reload.click();
 		yield* frame.waitFor({ state: "visible" });
-		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
+		yield* home.locator(fixtureClientRevisionSelector("A")).waitFor({ state: "visible" });
 		yield* expectVisibleText(home, "Greeted 0 times.");
 		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
 			false,
@@ -505,7 +505,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* waitForFreshBridgeSession(bridgeObservations, navigationBridgeSession);
 
 		yield* fixture.getByRole("button", { exact: true, name: "Greet" }).click();
-		yield* expectVisibleText(home, "Greeted 1 times.");
+		yield* expectVisibleText(home, "Greeted 1 time.");
 		const revisionASrcDoc = yield* readSrcDoc(frame);
 		const revisionABridgeSession = yield* waitForFreshBridgeSession(
 			bridgeObservations,
@@ -520,8 +520,8 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 			page.locator("body"),
 			"An update is available. Reloading will discard unsaved local state.",
 		);
-		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
-		yield* expectVisibleText(home, "Greeted 1 times.");
+		yield* home.locator(fixtureClientRevisionSelector("A")).waitFor({ state: "visible" });
+		yield* expectVisibleText(home, "Greeted 1 time.");
 		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
 			false,
 		);
@@ -534,7 +534,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(page.url()).toBe(outerUrl);
 
 		yield* page.getByRole("button", { name: "Reload updated page" }).click();
-		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.B);
+		yield* home.locator(fixtureClientRevisionSelector("B")).waitFor({ state: "visible" });
 		yield* expectVisibleText(home, "Revision B is active.");
 		expect(yield* frame.evaluate((current, initial) => current === initial, revisionAFrame)).toBe(
 			false,
