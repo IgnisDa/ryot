@@ -1,5 +1,5 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot-app/contract/errors";
+import { badRequest, notFound, schemaValidationFailed } from "@ryot-app/contract/errors";
 import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
 import type { AuthorizationContext, WriteAccess } from "@ryot-app/contract/oauth";
 import {
@@ -17,13 +17,14 @@ import {
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
-import { toSandboxHostError } from "@ryot-app/sandbox/host/invocation";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Context, Effect, Layer, Schema } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { PageAuthoringService } from "#modules/pages/authoring/service";
 import { AgentRunSuspended, AgentScriptService } from "#modules/scripts/agent/service";
+import { MessageRegistry } from "#platform/messages";
 import {
 	defaultResultByteBudget,
 	minimumResultByteBudget,
@@ -62,7 +63,7 @@ type AgentToolInvocation = AgentToolCall & {
 
 const decode = <A, I>(schema: Schema.Codec<A, I>, value: unknown) =>
 	Schema.decodeUnknownEffect(schema, { onExcessProperty: "error" })(value).pipe(
-		Effect.mapError((error) => new BadRequest({ message: error.message })),
+		Effect.mapError((error) => schemaValidationFailed(error.issue)),
 	);
 const decodeToolInput = (name: AgentToolName, value: JsonValue) => {
 	if (name === "search") {
@@ -134,12 +135,15 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 			const scripts = yield* AgentScriptService;
 			const pages = yield* PageAuthoringService;
 			const docs = yield* AgentDocs;
+			const messages = yield* MessageRegistry;
 			const validateForAccount = Effect.fn("AgentToolsService.validate")(function* (
 				account: AgentAccount,
 				call: AgentToolCall,
 			) {
 				const name = yield* decode(AgentToolName, call.name).pipe(
-					Effect.mapError(() => new NotFound({ message: `Unknown agent tool: ${call.name}` })),
+					Effect.mapError(() =>
+						notFound(kernelMessage("error.agent-tools.unknown-tool", { name: call.name })),
+					),
 				);
 				const tool = availableAgentTools(account.authorization).find(
 					(candidate) => candidate.name === name,
@@ -188,17 +192,23 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 							};
 							const decision = yield* gate.authorize(write);
 							if (!decision.approved) {
-								return yield* new BadRequest({ message: decision.reason });
+								return yield* badRequest(decision.reason);
 							}
 							return yield* catalog.invoke(account, entry, request.input, options).pipe(
 								Effect.tapError((error) =>
-									gate.settle(write, { state: "failure", message: error.message }),
+									Effect.flatMap(messages.errorForModel(error), (message) =>
+										gate.settle(write, { message, state: "failure" }),
+									),
 								),
 								Effect.tap((value) => gate.settle(write, { value, state: "success" })),
 							);
 						}).pipe(
-							Effect.mapError((error) =>
-								error instanceof AgentRunSuspended ? error : toSandboxHostError(error),
+							Effect.catchIf(
+								(error) => !(error instanceof AgentRunSuspended),
+								(error) =>
+									Effect.flatMap(messages.errorForModel(error), (message) =>
+										Effect.fail({ message }),
+									),
 							),
 						),
 				});
@@ -229,10 +239,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 						draftKey,
 					);
 				} else {
-					return yield* new BadRequest({
-						message:
-							"Supply name and slug to create a page, or pageId and expectedDraftRevision to replace a draft",
-					});
+					return yield* badRequest(kernelMessage("error.agent-tools.page-target-required"));
 				}
 				return yield* compileDraft(account, draft, idempotencyKey);
 			});
@@ -282,9 +289,11 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 			) {
 				const byteBudget = invocation.byteBudget ?? defaultResultByteBudget;
 				if (!Number.isSafeInteger(byteBudget) || byteBudget < minimumResultByteBudget) {
-					return yield* new BadRequest({
-						message: `Result byte budget must be an integer of at least ${minimumResultByteBudget}`,
-					});
+					return yield* badRequest(
+						kernelMessage("error.agent-tools.result-budget-too-small", {
+							minimum: minimumResultByteBudget,
+						}),
+					);
 				}
 				const { decoded } = yield* validateForAccount(account, invocation);
 				const completed = (value: unknown, preview?: PageDraftBuildIdentity) =>
@@ -321,7 +330,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 					const draft = yield* pages.readDraft(account.user.id, decoded.input.pageId);
 					return yield* completed(
 						yield* Effect.fromResult(readPageDraft(draft, decoded.input)).pipe(
-							Effect.mapError((message) => new BadRequest({ message })),
+							Effect.mapError(badRequest),
 						),
 					);
 				}

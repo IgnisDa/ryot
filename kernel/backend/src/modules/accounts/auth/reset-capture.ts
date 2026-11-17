@@ -1,8 +1,11 @@
 import { badRequest, type DbError, internalError } from "@ryot-app/contract/errors";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Deferred, Effect, Schema, type Scope } from "effect";
 import type { SecureRandom } from "effect/crypto";
 
 const captureHeader = "x-ryot-reset-capture-id";
+
+const captureFailed = () => internalError(kernelMessage("error.accounts.reset-link-failed"));
 
 export type ResetCaptureTransport = {
 	readonly reserve: (email: string, id: string) => Effect.Effect<boolean, DbError>;
@@ -74,11 +77,9 @@ export const captureResetLink = Effect.fn("AuthService.captureResetLink")(functi
 					const reservationId = yield* args.random.uuidV4();
 					const reserved = yield* args.transport
 						.reserve(args.email, reservationId)
-						.pipe(Effect.mapError(() => internalError("Reset link reservation failed")));
+						.pipe(Effect.mapError(captureFailed));
 					if (!reserved) {
-						return yield* badRequest(
-							"A password reset link is already being generated for this user. Please try again shortly.",
-						);
+						return yield* badRequest(kernelMessage("error.accounts.reset-link-in-progress"));
 					}
 					return reservationId;
 				}),
@@ -99,17 +100,15 @@ export const captureResetLink = Effect.fn("AuthService.captureResetLink")(functi
 				)({ email: args.email }).pipe(Effect.orDie),
 			});
 			return yield* Effect.tryPromise({
+				catch: captureFailed,
 				try: () => args.initiate(request),
-				catch: () => internalError("Reset link initiation failed"),
 			}).pipe(
-				Effect.flatMap((response) =>
-					response.ok ? Effect.void : Effect.fail(internalError("Reset link initiation failed")),
-				),
+				Effect.flatMap((response) => (response.ok ? Effect.void : Effect.fail(captureFailed()))),
 				Effect.andThen(Deferred.await(received)),
 				Effect.timeoutOrElse({
 					duration: args.timeoutMs,
 					orElse: () =>
-						Effect.fail(internalError("Reset link capture timed out - please try again")),
+						Effect.fail(internalError(kernelMessage("error.accounts.reset-link-timed-out"))),
 				}),
 			);
 		}),

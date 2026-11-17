@@ -142,14 +142,17 @@ layer(testLayer)((test) => {
 				yield* session.run((db) =>
 					db.insert(user).values({ id, name: "Reader", email: "read@example.test" }),
 				);
-				yield* repository.patchUserPreferences(id, { language: "fr", disableIntegrations: true });
+				yield* repository.patchUserPreferences(id, {
+					contentLanguage: "fr",
+					disableIntegrations: true,
+				});
 				yield* repository.patchUserPreferences(id, {
 					ratingScale: "three-point",
 					reportingTimeZone: TimeZone.make("America/New_York"),
 				});
 				expect(yield* repository.getUserPreferences(id)).toEqual({
 					...defaultUserPreferences,
-					language: "fr",
+					contentLanguage: "fr",
 					disableIntegrations: true,
 					ratingScale: "three-point",
 					reportingTimeZone: TimeZone.make("America/New_York"),
@@ -227,7 +230,7 @@ layer(testLayer)((test) => {
 					getUserPreferences: () =>
 						Effect.succeed({
 							...defaultUserPreferences,
-							language: "de",
+							contentLanguage: "de",
 							disableIntegrations: true,
 						}),
 				});
@@ -257,7 +260,7 @@ layer(testLayer)((test) => {
 				const secondStarted = yield* Deferred.make<void>();
 				const first = session.transaction(
 					Effect.gen(function* () {
-						yield* repository.patchUserPreferences(id, { language: "fr" });
+						yield* repository.patchUserPreferences(id, { contentLanguage: "fr" });
 						yield* Deferred.succeed(ready, undefined);
 						yield* Deferred.await(secondStarted);
 					}),
@@ -273,7 +276,7 @@ layer(testLayer)((test) => {
 				);
 				expect(stored?.preferences).toEqual({
 					...defaultUserPreferences,
-					language: "fr",
+					contentLanguage: "fr",
 					disableIntegrations: true,
 				});
 			}),
@@ -347,7 +350,7 @@ layer(testLayer)((test) => {
 				yield* session.run((db) =>
 					db.insert(user).values({ id, name: "User", email: "same@example.test" }),
 				);
-				yield* repository.patchUserPreferences(id, { language: "en" });
+				yield* repository.patchUserPreferences(id, { contentLanguage: "en" });
 				const locked = yield* Deferred.make<void>();
 				const secondStarted = yield* Deferred.make<void>();
 				yield* Effect.all(
@@ -370,7 +373,7 @@ layer(testLayer)((test) => {
 				const [stored] = yield* session.run((db) =>
 					db.select({ preferences: user.preferences }).from(user).where(eq(user.id, id)),
 				);
-				expect(stored?.preferences).toEqual({ ...defaultUserPreferences, language: "en" });
+				expect(stored?.preferences).toEqual({ ...defaultUserPreferences, contentLanguage: "en" });
 			}),
 		testTimeout,
 	);

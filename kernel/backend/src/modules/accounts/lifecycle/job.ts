@@ -1,14 +1,14 @@
 import type { InternalError } from "@ryot-app/contract/errors";
-import { internalError } from "@ryot-app/contract/errors";
 import type {
 	UserLifecycleOperationFailure,
 	UserLifecycleOperationKind,
 	UserResetResult,
 } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, DateTime, Effect, Layer, Option, Result } from "effect";
+import { Context, DateTime, Effect, Layer, Option, Result } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { asUnexpected } from "#lib/domain/logged-rejection";
 import { AuthService } from "#modules/accounts/auth/service";
 import { UserBootstrap } from "#modules/accounts/provisioning/bootstrap";
 import { bootstrapUser } from "#modules/accounts/provisioning/job";
@@ -47,15 +47,6 @@ export class UserLifecycleJobOperations extends Context.Service<
 	UserLifecycleJobOperationsValue
 >()("@ryot-app/kernel-backend/modules/accounts/lifecycle/job/UserLifecycleJobOperations") {}
 
-const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
-	effect.pipe(
-		Effect.catchCauseIf(
-			(cause) => !Cause.hasInterruptsOnly(cause),
-			(cause) => Effect.logError(message, cause).pipe(Effect.andThen(internalError(message))),
-		),
-		Effect.mapError(() => internalError(message)),
-	);
-
 export const UserLifecycleJobOperationsLive = Layer.effect(
 	UserLifecycleJobOperations,
 	Effect.gen(function* () {
@@ -75,12 +66,12 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			repository.getInternalById(operationId).pipe(
 				Effect.filterOrElse(
 					(operation): operation is NonNullable<typeof operation> => operation !== null,
-					() => internalError("User lifecycle operation was not found"),
+					() => Effect.die("User lifecycle operation was not found"),
 				),
 			);
 
 		const begin = (operationId: string) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const operation = yield* repository.markRunning(operationId);
 					if (
@@ -96,7 +87,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			);
 
 		const cleanupObjects = (operationId: string) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const operation = yield* requireOperation(operationId);
 					for (const identity of yield* accounts.listActive(operation.operation.userId)) {
@@ -116,7 +107,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			);
 
 		const deleteDatabaseUser = (operationId: string) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const operation = yield* requireOperation(operationId);
 					if (operation.databaseCleanupCompletedAt !== null) {
@@ -130,14 +121,14 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			);
 
 		const recreateResetUser = (operationId: string) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const operation = yield* requireOperation(operationId);
 					if (
 						operation.operation.kind !== "reset" ||
 						operation.databaseCleanupCompletedAt === null
 					) {
-						return yield* internalError("Reset recreation started before database cleanup");
+						return yield* Effect.die("Reset recreation started before database cleanup");
 					}
 					const { metadata } = operation;
 					const disabledAt = yield* DateTime.nowAsDate;
@@ -160,7 +151,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 						!identity ||
 						identity.user.email.toLowerCase() !== metadata.user.email.toLowerCase()
 					) {
-						return yield* internalError("Reset user identity could not be recreated");
+						return yield* Effect.die("Reset user identity could not be recreated");
 					}
 
 					const oidc = metadata.accounts.find((account) => account.providerId === "oidc");
@@ -184,7 +175,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			);
 
 		const bootstrapResetUser = (userId: UserId) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const accountUserId = yield* admission.currentAccount(userId);
 					yield* bootstrapUser(userId, accountUserId).pipe(
@@ -196,7 +187,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			);
 
 		const finishResetUser = (operationId: string) =>
-			asInternal(
+			asUnexpected(
 				Effect.gen(function* () {
 					const operation = yield* requireOperation(operationId);
 					const { metadata } = operation;
@@ -209,12 +200,12 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			);
 
 		const complete = (operationId: string, result: null | UserResetResult) =>
-			asInternal(
+			asUnexpected(
 				database.transaction(repository.markCompleted(operationId, result)),
 				"User lifecycle completion could not be recorded",
 			);
 		const fail = (operationId: string, failure: UserLifecycleOperationFailure) =>
-			asInternal(
+			asUnexpected(
 				repository.markFailed(operationId, failure),
 				"User lifecycle failure could not be recorded",
 			);

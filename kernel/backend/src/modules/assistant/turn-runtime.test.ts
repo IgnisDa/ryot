@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { BadRequest, DbError } from "@ryot-app/contract/errors";
+import { DbError, validationFailed } from "@ryot-app/contract/errors";
 import {
 	AssistantError,
 	type AssistantTurnFailure,
@@ -25,11 +25,13 @@ import { asc, eq } from "drizzle-orm";
 import { Effect, Exit, Layer, Option, Schedule, Stream } from "effect";
 
 import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
+import { changeDeclined } from "#modules/agent-tools/execute";
 import type { AgentToolOutcome } from "#modules/agent-tools/service";
 import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
 import { AgentRunSuspended } from "#modules/scripts/agent/service";
 import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer, provideEntitlements } from "#platform/entitlements.test-support";
+import { kernelMessageRegistryLayer } from "#platform/messages.test-support";
 import { truncateJsonResult } from "#platform/tool-result";
 import { PostgresWorkflowEngine } from "#platform/workflow/engine";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
@@ -99,6 +101,7 @@ const services = Layer.mergeAll(
 	UserLifecycleRepository.layer,
 	AssistantProviderRepository.layer,
 	entitlementsLayer(["pro"]),
+	kernelMessageRegistryLayer,
 ).pipe(Layer.provideMerge(database));
 const until = <E, R>(condition: Effect.Effect<boolean, E, R>) =>
 	condition.pipe(
@@ -265,7 +268,7 @@ const harness = Effect.fn(function* (
 			listTrusted: () => Effect.succeed([tool]),
 			validateTrusted: () =>
 				options.invalidArguments
-					? Effect.fail(new BadRequest({ message: 'Expected string at ["query"]' }))
+					? Effect.fail(validationFailed([{ path: ["query"], issue: "invalid-type" }]))
 					: Effect.succeed({
 							tool,
 							requiresApproval: changed ? !requiresApproval : requiresApproval,
@@ -308,7 +311,7 @@ const harness = Effect.fn(function* (
 						if (!decision.approved) {
 							return {
 								state: "completed",
-								result: truncateJsonResult({ refused: decision.reason }),
+								result: truncateJsonResult({ refused: decision.reason.key }),
 							} satisfies AgentToolOutcome;
 						}
 						writes.push(input.idempotencyKey);
@@ -702,10 +705,7 @@ layer(services, { excludeTestServices: true })((test) => {
 				});
 				expect(parent?.result).toEqual({
 					truncated: false,
-					value:
-						decision === "approve"
-							? { deleted: true }
-							: { refused: "The user declined this write" },
+					value: decision === "approve" ? { deleted: true } : { refused: changeDeclined.key },
 				});
 				expect(setup.writes).toHaveLength(decision === "approve" ? 1 : 0);
 				expect(setup.generated()).toBe(2);
@@ -930,7 +930,7 @@ layer(services, { excludeTestServices: true })((test) => {
 			assert(call.result && !call.result.truncated);
 			expect(call.result.value).toMatchObject({
 				error: "tool-failed",
-				message: 'Expected string at ["query"]',
+				message: 'The request is not valid. [{"issue":"invalid-type","path":["query"]}]',
 			});
 		}),
 	);

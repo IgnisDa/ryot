@@ -1,5 +1,5 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { BadRequest } from "@ryot-app/contract/errors";
+import { badRequest } from "@ryot-app/contract/errors";
 import {
 	ASSISTANT_DEFAULT_MODEL_LIMITS,
 	AssistantError,
@@ -8,6 +8,7 @@ import {
 	ConfigureAssistantProviderBody,
 } from "@ryot-app/contract/modules/assistant/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect";
 
 import { AccountAdmission } from "#modules/mutations/account-admission";
@@ -33,11 +34,7 @@ const validateAssistantProviderUrl = (baseUrl: string) => {
 	const parsed = parseHttpBaseUrl(baseUrl);
 	return Result.isSuccess(parsed)
 		? Effect.succeed(parsed.success)
-		: Effect.fail(
-				new BadRequest({
-					message: "Provider base URL must be HTTP or HTTPS without credentials, query or fragment",
-				}),
-			);
+		: Effect.fail(badRequest(kernelMessage("error.assistant.provider-base-url-invalid")));
 };
 
 export class AssistantProviderConfiguration extends Context.Service<AssistantProviderConfiguration>()(
@@ -128,9 +125,7 @@ export class AssistantProviderConfiguration extends Context.Service<AssistantPro
 						maxOutputTokens: maxOutputTokens ?? ASSISTANT_DEFAULT_MODEL_LIMITS.maxOutputTokens,
 					})
 				) {
-					return yield* new BadRequest({
-						message: "Maximum output tokens must be below the context window",
-					});
+					return yield* badRequest(kernelMessage("error.assistant.output-limit-too-high"));
 				}
 				yield* session.transaction(
 					Effect.gen(function* () {

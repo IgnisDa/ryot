@@ -1,7 +1,7 @@
-import { internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
+import { unexpected } from "#lib/domain/logged-rejection";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { JobQueue } from "#platform/jobs/queue";
 
@@ -15,13 +15,10 @@ export class UserBootstrapScheduling extends Context.Service<UserBootstrapSchedu
 			const bootstrap = yield* UserBootstrap;
 			const jobs = yield* JobQueue;
 			const admission = yield* AccountAdmission.make;
-			const schedule = Effect.fn("UserBootstrapScheduling.schedule")(
-				function* (userId: UserId) {
-					const accountUserId = yield* admission.currentAccount(userId);
-					yield* jobs.enqueue(UserBootstrapJob, { userId, accountUserId }, { userId, key: userId });
-				},
-				Effect.mapError(() => internalError("User bootstrap account is unavailable")),
-			);
+			const schedule = Effect.fn("UserBootstrapScheduling.schedule")(function* (userId: UserId) {
+				const accountUserId = yield* admission.currentAccount(userId);
+				yield* jobs.enqueue(UserBootstrapJob, { userId, accountUserId }, { userId, key: userId });
+			}, Effect.mapError(unexpected));
 			const reconcile = Effect.fn("UserBootstrapScheduling.reconcile")(function* (limit: number) {
 				const incomplete = yield* bootstrap.listIncomplete(limit);
 				yield* Effect.forEach(

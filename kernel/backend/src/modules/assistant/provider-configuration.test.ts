@@ -1,12 +1,13 @@
 import { expect } from "bun:test";
 
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { BadRequest } from "@ryot-app/contract/errors";
+import { badRequest } from "@ryot-app/contract/errors";
 import {
 	ASSISTANT_DEFAULT_MODEL_LIMITS,
 	AssistantError,
 } from "@ryot-app/contract/modules/assistant/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -96,7 +97,7 @@ layer(services)((test) => {
 							maxOutputTokens: 8_000,
 						}),
 					),
-					new BadRequest({ message: "Maximum output tokens must be below the context window" }),
+					badRequest(kernelMessage("error.assistant.output-limit-too-high")),
 				);
 				expect(yield* providers.metadata(other)).toEqual(instance);
 				yield* providers.configure(owner, "standard", { baseUrl, model: "changed" });

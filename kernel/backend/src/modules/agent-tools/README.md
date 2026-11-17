@@ -66,15 +66,16 @@ also carry the `dependency` package reference a page declares to import them.
 overload is typed by declarations for every capability ID the code names as a string literal. The
 sandbox compiler's semantic diagnostics therefore reject unknown IDs and invalid inputs before
 anything runs. The wrapper adapts the Effect host call to async/await and turns call failures into
-`Error`s whose messages the code can inspect, followed by the failure's JSON data, such as plugin
-diagnostics, when it has any.
+`Error`s whose messages the code can inspect. A capability failure reaches the script, the write
+gate's `settle` and the model as `MessageRegistry.errorForModel` text: message reasons render in
+English, coded reasons and diagnostics pass through as JSON.
 
 Each `ryot.call` is one `invokeCapability` host call. Read-only capabilities dispatch immediately.
 Every other capability passes through `credentialWriteGate`, chosen from the credential's write
 access: `none` declines, `unattended` approves, and `confirm` uses the transport's confirmation gate,
 declining when the transport has none. A `WriteGate`:
 
-- `authorize` approves, declines with a reason, or fails with `AgentRunSuspended`. A suspension
+- `authorize` approves, declines with a reason message, or fails with `AgentRunSuspended`. A suspension
   persists the agent script journal and returns `{ state: "suspended" }`; calling `execute` again
   with the same idempotency key replays settled calls and resumes at the pending write.
 - `settle` receives each authorized write's outcome.

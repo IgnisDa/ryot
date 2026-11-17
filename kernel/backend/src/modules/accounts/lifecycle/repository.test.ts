@@ -259,7 +259,10 @@ describe("user lifecycle persistence cleanup", () => {
 									id: ownerNotificationId,
 									sourceKey: "lifecycle-cleanup",
 									inputDigest: "lifecycle-cleanup-digest",
-									request: { kind: "message", message: "Notification message" },
+									request: {
+										kind: "message",
+										message: { namespace: "kernel", key: "notification.title" },
+									},
 								} satisfies typeof tables.notification.$inferInsert);
 							yield* db
 								.insert(tables.notificationDelivery)

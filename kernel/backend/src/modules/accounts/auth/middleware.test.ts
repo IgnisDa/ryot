@@ -46,7 +46,9 @@ const userRecord = {
 	createdAt: new Date("2026-08-30T00:00:00.000Z"),
 	bootstrapCompletedAt: new Date("2026-08-31T00:00:00.000Z"),
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		disableIntegrations: false,
 		ratingScale: "hundred" as const,

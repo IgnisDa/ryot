@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
-import { BadRequest, internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -11,6 +10,7 @@ import { Context, Duration, Effect, Layer, Ref } from "effect";
 import type { SecureRandom } from "effect/crypto";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { unexpected } from "#lib/domain/logged-rejection";
 import { AuthService } from "#modules/accounts/auth/service";
 import { UserBootstrap } from "#modules/accounts/provisioning/bootstrap";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
@@ -19,6 +19,7 @@ import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue
 import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { deleteFailed } from "#platform/storage/errors";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { testPgClientLayer } from "#testing/database";
 import { databaseLayer, workflowAccountsTestLayer } from "#testing/effect";
@@ -122,9 +123,7 @@ layer(
 				cleanupObjects: () =>
 					Ref.updateAndGet(cleanupAttempts, (count) => count + 1).pipe(
 						Effect.tap((attempt) => record(`objects-${attempt}`)),
-						Effect.flatMap((attempt) =>
-							attempt === 1 ? Effect.fail(internalError("s3 unavailable")) : Effect.void,
-						),
+						Effect.flatMap((attempt) => (attempt === 1 ? Effect.fail(unexpected()) : Effect.void)),
 					),
 			};
 		}),
@@ -152,13 +151,13 @@ layer(
 	scriptedOperationsLayer(({ recordFailure }) =>
 		Effect.succeed({
 			complete: () => Effect.die("unused"),
+			begin: () => Effect.fail(unexpected()),
 			cleanupObjects: () => Effect.die("unused"),
 			finishResetUser: () => Effect.die("unused"),
 			recreateResetUser: () => Effect.die("unused"),
 			bootstrapResetUser: () => Effect.die("unused"),
 			deleteDatabaseUser: () => Effect.die("unused"),
 			fail: (_operationId, failure) => recordFailure(failure),
-			begin: () => Effect.fail(internalError("database password leaked")),
 		}),
 	),
 )((test) => {
@@ -286,9 +285,7 @@ const flakyObjectStorageLayer = Layer.unwrap(
 					Effect.gen(function* () {
 						yield* Ref.update(deleted, (all) => [...all, locator.key]);
 						const shouldFail = locator.type === "s3" && !(yield* Ref.getAndSet(failed, true));
-						return yield* shouldFail
-							? Effect.fail(new BadRequest({ message: "temporary s3 failure" }))
-							: Effect.void;
+						return yield* shouldFail ? Effect.fail(deleteFailed()) : Effect.void;
 					}),
 			}),
 			Layer.succeed(RecordedObjectDeletions, { deleted: Ref.get(deleted) }),

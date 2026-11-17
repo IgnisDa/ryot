@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot-app/contract/errors";
+import { badRequest, notFound } from "@ryot-app/contract/errors";
 import { PageAuthoringError } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginManifest, PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
@@ -10,7 +10,12 @@ import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
-import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
+import {
+	emptySandboxExecutionMetadata,
+	fixtureManifest,
+	manifestCatalogs,
+} from "@ryot-app/contract/testing";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	column,
 	defineRecipe,
@@ -32,6 +37,7 @@ import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guar
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { AuthService, resolveTrustedAccount } from "#modules/accounts/auth/service";
 import { PageAuthoringService } from "#modules/pages/authoring/service";
+import { PluginMessageRegistryLive } from "#modules/plugins/catalog/messages";
 import { OperationsService } from "#modules/plugins/operations/service";
 import {
 	installRevisionPackage,
@@ -48,7 +54,7 @@ import { makeAppConfigLayer } from "#testing/effect";
 
 import { CapabilityCatalog } from "./catalog";
 import { AgentDocs } from "./docs";
-import { confirmationUnavailable, type WriteGate, type WriteRequest } from "./execute";
+import { changeDeclined, type WriteGate, type WriteRequest } from "./execute";
 import { KernelCapabilities } from "./kernel-capabilities";
 import { AgentToolsService } from "./service";
 
@@ -79,19 +85,6 @@ const authLayer = Layer.unwrap(
 				return userId === undefined
 					? Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } }))
 					: Effect.succeed({
-							user: {
-								id: userId,
-								image: null,
-								name: "User",
-								accountUserId: userId,
-								email: `${userId}@example.test`,
-								preferences: {
-									language: null,
-									reportingTimeZone: UTC,
-									ratingScale: "hundred",
-									disableIntegrations: false,
-								},
-							},
 							authorization: {
 								userId,
 								credential: { kind: "api-key", keyId: "registry-test" },
@@ -100,6 +93,21 @@ const authLayer = Layer.unwrap(
 									WriteAccess.literals.find(
 										(access) => access === requestHeaders.get("x-test-write-access"),
 									) ?? "confirm",
+							},
+							user: {
+								id: userId,
+								image: null,
+								name: "User",
+								accountUserId: userId,
+								email: `${userId}@example.test`,
+								preferences: {
+									weekStart: null,
+									interfaceLocale: null,
+									contentLanguage: null,
+									reportingTimeZone: UTC,
+									ratingScale: "hundred",
+									disableIntegrations: false,
+								},
 							},
 						});
 			},
@@ -245,7 +253,9 @@ const registryLayer = AgentToolsService.layer.pipe(
 	Layer.provideMerge(CapabilityCatalog.layer),
 	Layer.provideMerge(KernelCapabilities.layer),
 	Layer.provideMerge(RyotQLService.layer),
-	Layer.provideMerge(Layer.mergeAll(authLayer, servicesLayer, entitlementsLayer(["pro"]))),
+	Layer.provideMerge(
+		Layer.mergeAll(authLayer, servicesLayer, entitlementsLayer(["pro"]), PluginMessageRegistryLive),
+	),
 	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provide(makeAppConfigLayer()),
 );
@@ -269,7 +279,12 @@ const operation = (
 const item = table("entity", "item");
 const queryParameters = parameters({
 	fields: {
-		prefix: { type: "string", label: "Prefix", defaultValue: "Item", description: "Name prefix" },
+		prefix: {
+			type: "string",
+			defaultValue: "Item",
+			description: "Name prefix",
+			label: { key: "test.prefix" },
+		},
 	},
 });
 const searchDocument = defineRecipe({
@@ -315,6 +330,10 @@ const registryPackage = (name: string): NormalizedPlugin => {
 	return {
 		manifest,
 		contentHash: `${name}-content`,
+		catalogs: manifestCatalogs(manifest, {
+			"test.fixture": "Fixture",
+			"test.fixture-link": "Fixture Link",
+		}),
 		scripts: manifest.scripts.map(({ entry, ...metadata }) => ({
 			entry,
 			metadata,
@@ -336,7 +355,7 @@ const recordingGate = (
 		authorize: (request) =>
 			decide(request).pipe(
 				Effect.map((approved) =>
-					approved ? { approved: true } : { approved: false, reason: "Declined in test" },
+					approved ? { approved: true } : { approved: false, reason: changeDeclined },
 				),
 			),
 	}));
@@ -399,7 +418,7 @@ layer(registryLayer)("agent tools", (test) => {
 				);
 				assertExitFails(
 					yield* Effect.exit(call("describe_data", {}, gate)),
-					new NotFound({ message: "Unknown agent tool: describe_data" }),
+					notFound(kernelMessage("error.agent-tools.unknown-tool", { name: "describe_data" })),
 				);
 				assertExitFails(
 					yield* Effect.exit(
@@ -421,7 +440,7 @@ layer(registryLayer)("agent tools", (test) => {
 				});
 				assertExitFails(
 					yield* Effect.exit(call("read_docs", { topic: "missing" }, gate)),
-					new NotFound({ message: "Unknown documentation topic: missing" }),
+					notFound(kernelMessage("error.agent-tools.unknown-docs-topic", { topic: "missing" })),
 				);
 			}),
 		testTimeout,
@@ -629,7 +648,7 @@ layer(registryLayer)("agent tools", (test) => {
 				const declined = yield* Outcomes(
 					value((yield* call("execute", { code: calls }, gate)).result),
 				);
-				expect(declined[2]).toEqual({ error: "Declined in test" });
+				expect(declined[2]).toEqual({ error: "The user declined this change." });
 				const suspended = yield* (yield* AgentToolsService).call({
 					name: "execute",
 					headers: headers(),
@@ -662,9 +681,14 @@ layer(registryLayer)("agent tools", (test) => {
 						Effect.flatMap(({ result }) => Outcomes(value(result))),
 					);
 				expect(yield* outcome("none", confirm)).toEqual([
-					{ error: "This connection is read-only" },
+					{ error: "This connection is read-only." },
 				]);
-				expect(yield* outcome("confirm", null)).toEqual([{ error: confirmationUnavailable }]);
+				expect(yield* outcome("confirm", null)).toEqual([
+					{
+						error:
+							"This client cannot ask the user to approve changes. Reconnect it with “Allow changes without asking” to let it write.",
+					},
+				]);
 				expect(yield* outcome("unattended", confirm)).toEqual([
 					{ value: { accepted: { value: "write" } } },
 				]);
@@ -775,10 +799,7 @@ layer(registryLayer)("agent tools", (test) => {
 				});
 				assertExitFails(
 					yield* Effect.exit(call("page_write", { definition }, gate)),
-					new BadRequest({
-						message:
-							"Supply name and slug to create a page, or pageId and expectedDraftRevision to replace a draft",
-					}),
+					badRequest(kernelMessage("error.agent-tools.page-target-required")),
 				);
 			}),
 		testTimeout,

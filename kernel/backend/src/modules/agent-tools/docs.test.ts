@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
@@ -25,7 +26,9 @@ it.effect(
 				}
 				const pages = first.pages;
 				const beyond = yield* Effect.flip(readAgentDocs(agentDocsTopics, topic, pages + 1));
-				expect(beyond.message).toBe(`Documentation topic ${topic} has ${pages} pages`);
+				expect(beyond.reason).toEqual(
+					kernelMessage("error.agent-tools.docs-page-not-found", { topic, pages }),
+				);
 			}
 			expect(paginated).toBe(true);
 		}),

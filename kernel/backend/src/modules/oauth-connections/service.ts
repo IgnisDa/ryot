@@ -82,7 +82,7 @@ const plus = (date: Date, duration: Duration.Duration) =>
 
 const decodeOAuthProviders = Schema.decodeUnknownOption(Schema.Array(PluginOAuthProvider));
 
-const oauthConnectionFieldProvider = (schema: AppSchema, field: string) => {
+const oauthConnectionFieldProvider = (schema: AppSchema<unknown>, field: string) => {
 	const property = Object.hasOwn(schema.fields, field) ? schema.fields[field] : undefined;
 	return property?.type === "string" && property.format?.kind === "oauth-connection"
 		? property.format.provider
@@ -99,7 +99,7 @@ const cipherAttribution = (owner: CipherOwner, column: CipherColumn) => ({
 	kind: "oauth-connection",
 });
 
-const oauthConnectionFields = (schema: AppSchema) =>
+const oauthConnectionFields = (schema: AppSchema<unknown>) =>
 	Object.keys(schema.fields).filter(
 		(field) => oauthConnectionFieldProvider(schema, field) !== null,
 	);
@@ -466,10 +466,10 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 			const bindIntegrationSettings = Effect.fn("OAuthConnectionsService.bindIntegrationSettings")(
 				function* (input: {
 					readonly userId: UserId;
-					readonly settingsSchema: AppSchema;
 					readonly integrationProvider: string;
 					readonly integrationId: IntegrationId;
 					readonly pluginInstallationId: string;
+					readonly settingsSchema: AppSchema<unknown>;
 					readonly settings: Readonly<Record<string, unknown>>;
 				}) {
 					yield* database.requireTransaction.pipe(Effect.orDie);

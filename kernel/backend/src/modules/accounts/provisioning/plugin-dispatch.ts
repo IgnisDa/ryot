@@ -1,4 +1,4 @@
-import { SandboxRunError } from "@ryot-app/contract/errors";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
@@ -100,7 +100,7 @@ export const makePluginUserBootstrapDispatcher = (
 								(error) =>
 									new SandboxRunError({
 										kind: "script-failure",
-										message: `Plugin user bootstrap failed: ${entry.packageId} ${bootstrap.slug}: ${error.message}`,
+										message: `Plugin user bootstrap failed: ${entry.packageId} ${bootstrap.slug}: ${unknownToMessage(error)}`,
 									}),
 							),
 						);

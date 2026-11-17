@@ -1,4 +1,5 @@
-import { NotFound } from "@ryot-app/contract/errors";
+import { notFound } from "@ryot-app/contract/errors";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Context, Effect, Layer } from "effect";
 
 import { sdkReferenceTopics } from "./sdk-reference.generated";
@@ -57,13 +58,18 @@ export const listAgentDocs = (topics: AgentDocsTopics) => ({
 export const readAgentDocs = (topics: AgentDocsTopics, topic: string, page = 1) => {
 	const found = topics.find((entry) => entry.topic === topic);
 	if (!found) {
-		return Effect.fail(new NotFound({ message: `Unknown documentation topic: ${topic}` }));
+		return Effect.fail(notFound(kernelMessage("error.agent-tools.unknown-docs-topic", { topic })));
 	}
 	const pages = paginate(found.content);
 	const content = pages[page - 1];
 	return content === undefined
 		? Effect.fail(
-				new NotFound({ message: `Documentation topic ${found.topic} has ${pages.length} pages` }),
+				notFound(
+					kernelMessage("error.agent-tools.docs-page-not-found", {
+						topic: found.topic,
+						pages: pages.length,
+					}),
+				),
 			)
 		: Effect.succeed({ page, content, topic: found.topic, pages: pages.length });
 };

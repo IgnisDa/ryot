@@ -1,6 +1,8 @@
 import type { WriteAccess } from "@ryot-app/contract/oauth";
 import type { Capability } from "@ryot-app/contract/schema/capability";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Effect } from "effect";
 
 import type { AgentRunSuspended } from "#modules/scripts/agent/service";
@@ -16,7 +18,7 @@ export type WriteGate = {
 	readonly authorize: (
 		request: WriteRequest,
 	) => Effect.Effect<
-		{ readonly approved: true } | { readonly reason: string; readonly approved: false },
+		{ readonly approved: true } | { readonly reason: Message; readonly approved: false },
 		AgentRunSuspended
 	>;
 	readonly settle: (
@@ -27,11 +29,10 @@ export type WriteGate = {
 	) => Effect.Effect<void>;
 };
 
-export const changeDeclined = "The user declined this change";
-export const confirmationUnavailable =
-	"This client cannot ask the user to approve changes. Reconnect it with “Allow changes without asking” to let it write.";
+export const changeDeclined = kernelMessage("error.agent-tools.change-declined");
+export const confirmationUnavailable = kernelMessage("error.agent-tools.confirmation-unavailable");
 
-const declining = (reason: string): WriteGate => ({
+const declining = (reason: Message): WriteGate => ({
 	settle: () => Effect.void,
 	authorize: () => Effect.succeed({ reason, approved: false }),
 });
@@ -44,7 +45,7 @@ export const credentialWriteGate = (writeAccess: WriteAccess, confirm: null | Wr
 		} satisfies WriteGate;
 	}
 	if (writeAccess === "none") {
-		return declining("This connection is read-only");
+		return declining(kernelMessage("error.agent-tools.read-only-connection"));
 	}
 	return confirm ?? declining(confirmationUnavailable);
 };

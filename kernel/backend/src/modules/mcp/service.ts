@@ -1,5 +1,5 @@
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import { BadRequest } from "@ryot-app/contract/errors";
+import { badRequest } from "@ryot-app/contract/errors";
 import {
 	AuthorizationContext,
 	getMcpOAuthResource,
@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { approvalSubject, type ApprovalTarget } from "@ryot-app/contract/schema/approval";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import type { Message } from "@ryot-app/i18n/message";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
 import { Context, Deferred, Effect, Layer, Option, Schedule, Schema, ScopedCache } from "effect";
@@ -28,6 +29,7 @@ import { AgentRunSuspended } from "#modules/scripts/agent/service";
 import { RYOT_VERSION } from "#platform/build-info";
 import { AppConfig } from "#platform/config/service";
 import { EntitlementService } from "#platform/entitlements";
+import { MessageRegistry } from "#platform/messages";
 
 const RequestHeaders = Context.Reference<Headers.Headers>(
 	"@ryot-app/kernel-backend/modules/mcp/RequestHeaders",
@@ -56,7 +58,7 @@ const confirmationMessage = (target: ApprovalTarget, input: JsonValue) => {
 
 const writeDecision = (
 	approved: boolean,
-): { readonly approved: true } | { readonly reason: string; readonly approved: false } =>
+): { readonly approved: true } | { readonly reason: Message; readonly approved: false } =>
 	approved ? { approved: true } : { approved: false, reason: changeDeclined };
 
 const mcpConfirmation = Effect.gen(function* () {
@@ -106,6 +108,7 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 	origin: string,
 	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
 	entitlements: Pick<EntitlementService["Service"], "require">,
+	messages: Pick<MessageRegistry["Service"], "errorForModel">,
 ) {
 	const resource = getMcpOAuthResource(origin);
 	const middleware = McpServer.middleware(
@@ -178,10 +181,10 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 								const { confirm, pending, requestState } = yield* mcpConfirmation;
 								if (requiresCallConfirmation(tool, authorization.writeAccess)) {
 									if (confirm === null) {
-										return yield* new BadRequest({ message: confirmationUnavailable });
+										return yield* badRequest(confirmationUnavailable);
 									}
 									if (!(yield* confirm("call", { kind: "tool", tool: tool.name }, args))) {
-										return yield* new BadRequest({ message: changeDeclined });
+										return yield* badRequest(changeDeclined);
 									}
 								}
 								const outcome = yield* tools.call({
@@ -221,12 +224,18 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 									Effect.die("MCP confirmation suspended outside an input request"),
 								),
 								Effect.catch((error) =>
-									Effect.succeed(
-										new McpSchema.CallToolResult({
-											isError: true,
-											content: [{ type: "text", text: error.message }],
-										}),
-									),
+									messages
+										.errorForModel(error)
+										.pipe(
+											Effect.mapBoth({
+												onFailure: () => new McpSchema.InternalError({ message: "Internal error" }),
+												onSuccess: (text) =>
+													new McpSchema.CallToolResult({
+														isError: true,
+														content: [{ text, type: "text" }],
+													}),
+											}),
+										),
 								),
 							),
 					});
@@ -291,7 +300,15 @@ export class McpService extends Context.Service<McpService>()(
 			const config = yield* AppConfig;
 			const lifecycle = yield* LifecycleWriteGuard;
 			const entitlements = yield* EntitlementService;
-			return yield* makeMcpTransport(auth, tools, config.frontendUrl, lifecycle, entitlements);
+			const messages = yield* MessageRegistry;
+			return yield* makeMcpTransport(
+				auth,
+				tools,
+				config.frontendUrl,
+				lifecycle,
+				entitlements,
+				messages,
+			);
 		}),
 	},
 ) {

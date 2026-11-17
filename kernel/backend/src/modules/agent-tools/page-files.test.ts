@@ -1,6 +1,8 @@
 import { expect, it } from "bun:test";
 
 import type { PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
@@ -53,10 +55,12 @@ it("lists draft files and reads numbered line ranges", () => {
 		}),
 	);
 	expect(readPageDraft(draft, { pageId: "page", path: "client/image.bin" })).toEqual(
-		Result.fail("client/image.bin is not UTF-8 text"),
+		Result.fail(
+			kernelMessage("error.agent-tools.page-file-not-text", { path: "client/image.bin" }),
+		),
 	);
 	expect(readPageDraft(draft, { pageId: "page", path: "missing.tsx" })).toEqual(
-		Result.fail("The draft has no file missing.tsx"),
+		Result.fail(kernelMessage("error.agent-tools.page-file-not-found", { path: "missing.tsx" })),
 	);
 });
 
@@ -74,10 +78,17 @@ it("applies replacements, writes and deletes in order", () => {
 	});
 });
 
+const editFailed = (position: number, path: string, problem: Message) =>
+	Result.fail(
+		kernelMessage("error.agent-tools.page-edit-failed", { path, problem, edit: position }),
+	);
+
 it("names the first edit that cannot apply", () => {
 	expect(edit([{ oldText: "= 1;", newText: "= 2;", path: "client/page.tsx" }])).toEqual(
-		Result.fail(
-			"Edit 1 (client/page.tsx): oldText occurs 2 times; include more surrounding text or set replaceAll",
+		editFailed(
+			1,
+			"client/page.tsx",
+			kernelMessage("error.agent-tools.page-edit-text-ambiguous", { count: 2 }),
 		),
 	);
 	expect(
@@ -86,14 +97,20 @@ it("names the first edit that cannot apply", () => {
 			{ newText: "let a", oldText: "const a", path: "client/page.tsx" },
 		]),
 	).toEqual(
-		Result.fail(
-			"Edit 2 (client/page.tsx): oldText was not found; read the file again with page_read",
-		),
+		editFailed(2, "client/page.tsx", kernelMessage("error.agent-tools.page-edit-text-not-found")),
 	);
 	expect(edit([{ delete: true, path: "missing.tsx" }])).toEqual(
-		Result.fail("Edit 1 (missing.tsx): the draft has no such file"),
+		editFailed(
+			1,
+			"missing.tsx",
+			kernelMessage("error.agent-tools.page-file-not-found", { path: "missing.tsx" }),
+		),
 	);
 	expect(edit([{ oldText: "x", newText: "y", path: "client/image.bin" }])).toEqual(
-		Result.fail("Edit 1 (client/image.bin): the file is not UTF-8 text"),
+		editFailed(
+			1,
+			"client/image.bin",
+			kernelMessage("error.agent-tools.page-file-not-text", { path: "client/image.bin" }),
+		),
 	);
 });

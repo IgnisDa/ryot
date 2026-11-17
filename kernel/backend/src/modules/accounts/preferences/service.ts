@@ -1,7 +1,10 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { badRequest } from "@ryot-app/contract/errors";
 import type { CreateApiKeyBody } from "@ryot-app/contract/modules/account/schemas";
 import type { ApiKeyId, ConnectedAppId } from "@ryot-app/contract/schema/brands";
 import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { canonicalLanguageCode } from "@ryot-app/languages";
 import { Context, Effect, Layer } from "effect";
 import { SecureRandom } from "effect/crypto";
 
@@ -19,15 +22,19 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 				user: CurrentUserValue,
 				patch: UserPreferencesPatch,
 			) {
-				if (Object.keys(patch).length === 0) {
-					return;
+				const contentLanguage =
+					typeof patch.contentLanguage === "string"
+						? canonicalLanguageCode(patch.contentLanguage)
+						: patch.contentLanguage;
+				if (contentLanguage === undefined && patch.contentLanguage !== undefined) {
+					return yield* badRequest(kernelMessage("error.accounts.unknown-content-language"));
 				}
-				yield* auth.updateUserPreferences(user.id, {
-					...patch,
-					...(patch.language === undefined
-						? {}
-						: { language: patch.language === null ? null : patch.language.trim() || null }),
-				});
+				return yield* Object.keys(patch).length === 0
+					? Effect.void
+					: auth.updateUserPreferences(user.id, {
+							...patch,
+							...(contentLanguage === undefined ? {} : { contentLanguage }),
+						});
 			});
 			const rename = Effect.fn("UserSettingsService.rename")(function* (
 				user: CurrentUserValue,

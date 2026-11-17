@@ -1,6 +1,9 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot-app/contract/errors";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import { notFound, schemaValidationFailed } from "@ryot-app/contract/errors";
+import {
+	type RyotQLDocument,
+	stampRyotQLDocument,
+} from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { PluginId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
@@ -13,6 +16,8 @@ import {
 } from "@ryot-app/contract/schema/capability";
 import { type Entitlement, isEntitled } from "@ryot-app/contract/schema/entitlement";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
@@ -26,8 +31,10 @@ import { userOperationAccessFailure } from "#modules/plugins/operations/access";
 import { OperationsService } from "#modules/plugins/operations/service";
 import { RyotQLService } from "#modules/ryotql/service";
 import { EntitlementService } from "#platform/entitlements";
+import { MessageRegistry } from "#platform/messages";
 import { defaultResultByteBudget } from "#platform/tool-result";
 
+import { modelDisplayText } from "./data-catalog";
 import {
 	boundedQuery,
 	cappedRequest,
@@ -80,11 +87,16 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 			const catalogs = yield* DefinitionCatalog;
 			const ryotql = yield* RyotQLService;
 			const entitlements = yield* EntitlementService;
+			const messages = yield* MessageRegistry;
 			const declaredQueries = Effect.fn("CapabilityCatalog.declaredQueries")(function* (
 				account: AgentAccount,
 			) {
 				const catalog = yield* catalogs.forUser(account.user.id);
 				const active = yield* entitlements.current;
+				const render = yield* messages.modelRenderer(
+					catalog.plugins.map((plugin) => plugin.pluginId),
+				);
+				const title = modelDisplayText(render);
 				const entries: CatalogEntry[] = [];
 				for (const plugin of catalog.plugins) {
 					if (plugin.health !== "ready" || !plugin.isDefinitionEffective || !plugin.isExecutable) {
@@ -95,15 +107,16 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 						if (!isEntitled(active, declaration.entitlement)) {
 							continue;
 						}
+						const document = stampRyotQLDocument(plugin.pluginId, declaration.document);
 						entries.push({
-							document: declaration.document,
+							document,
 							entitlement: declaration.entitlement,
 							capability: {
 								hints: readHints,
 								output: ryotqlOutput,
 								title: declaration.title,
 								description: declaration.description,
-								input: declaredQueryInput(declaration.document),
+								input: declaredQueryInput(document, title),
 								id: pluginQueryCapabilityId(plugin.packageId, query),
 								source: {
 									query,
@@ -187,9 +200,7 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 			) {
 				const entry = (yield* entries(account)).find((candidate) => candidate.capability.id === id);
 				if (!entry) {
-					return yield* new NotFound({
-						message: `Unknown capability: ${id}. Use search to find capability IDs.`,
-					});
+					return yield* notFound(kernelMessage("error.agent-tools.unknown-capability", { id }));
 				}
 				return entry;
 			});
@@ -228,7 +239,7 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 					}
 					const value = yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, JsonValue))(
 						input,
-					).pipe(Effect.mapError((error) => new BadRequest({ message: error.message })));
+					).pipe(Effect.mapError((error) => schemaValidationFailed(error.issue)));
 					const request = yield* Schema.decodeEffect(ExecutionRequest)({
 						...value,
 						source: {
@@ -237,12 +248,12 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 							query: source.query,
 							packageId: source.packageId,
 						},
-					}).pipe(Effect.mapError((error) => new BadRequest({ message: error.message })));
+					}).pipe(Effect.mapError((error) => schemaValidationFailed(error.issue)));
 					return yield* boundedQuery(
 						ryotql
 							.executeForUser(
 								user.id,
-								user.preferences.language,
+								resolveContentLanguage(user.preferences),
 								"plugin",
 								cappedRequest(request, document),
 								authorization.accessClass,

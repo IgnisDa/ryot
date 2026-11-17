@@ -1,12 +1,17 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot-app/contract/errors";
+import {
+	badRequest,
+	notFound,
+	schemaValidationFailed,
+	validationFailed,
+} from "@ryot-app/contract/errors";
 import { PageIdBody } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginOperationJsonSchema } from "@ryot-app/contract/modules/plugins/manifest";
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
-import { argumentIssuesMessage, bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
+import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import { ExecutionRequest, RequestValues } from "@ryot-app/contract/modules/ryotql/request";
 import {
 	CreateSavedViewBody,
@@ -17,6 +22,9 @@ import { appSchemaJsonSchema } from "@ryot-app/contract/schema/app-schema-json-s
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { type Capability, kernelCapabilityId } from "@ryot-app/contract/schema/capability";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { resolveContentLanguage } from "@ryot-app/contract/schema/user-preferences";
+import type { DisplayText } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	allCollectionsRecipe,
 	collectionArguments,
@@ -35,9 +43,10 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { PageAuthoringService } from "#modules/pages/authoring/service";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SavedViewsService } from "#modules/saved-views/service";
+import { MessageRegistry } from "#platform/messages";
 import { defaultResultByteBudget } from "#platform/tool-result";
 
-import { dataItems, describeData } from "./data-catalog";
+import { dataItems, describeData, modelDisplayText } from "./data-catalog";
 
 type CapabilityFailure = { readonly message: string };
 type KernelCapabilityContext = {
@@ -95,12 +104,15 @@ const pagesInput = (document: RyotQLDocument): PluginOperationJsonSchema => ({
 	),
 });
 
-export const declaredQueryInput = (document: RyotQLDocument): PluginOperationJsonSchema => ({
+export const declaredQueryInput = (
+	document: RyotQLDocument,
+	title: (text: DisplayText) => string,
+): PluginOperationJsonSchema => ({
 	type: "object",
 	additionalProperties: false,
 	properties: requestInput({
 		pages: pagesInput(document),
-		arguments: appSchemaJsonSchema(document.parameters ?? { fields: {} }),
+		arguments: appSchemaJsonSchema(document.parameters ?? { fields: {} }, title),
 	}),
 });
 
@@ -144,9 +156,7 @@ export const boundedQuery = <A, R>(
 		Effect.catchTag("RyotQLBadRequest", (error) =>
 			Effect.fail(
 				error.reason.code === "result-too-large"
-					? new BadRequest({
-							message: "The query result is too large. Request fewer rows or fields, or paginate.",
-						})
+					? badRequest(kernelMessage("error.agent-tools.query-result-too-large"))
 					: error,
 			),
 		),
@@ -154,7 +164,7 @@ export const boundedQuery = <A, R>(
 
 const decodeRequest = (raw: unknown) =>
 	Schema.decodeUnknownEffect(ExecutionRequest)(raw).pipe(
-		Effect.mapError((error) => new BadRequest({ message: error.message })),
+		Effect.mapError((error) => schemaValidationFailed(error.issue)),
 	);
 
 type KernelCapabilityDefinition = {
@@ -189,7 +199,7 @@ const define = <S extends Schema.Codec<unknown, unknown>>(definition: {
 	},
 	handle: (context, raw) =>
 		Schema.decodeEffect(definition.input, { onExcessProperty: "error" })(raw).pipe(
-			Effect.mapError((error) => new BadRequest({ message: error.message })),
+			Effect.mapError((error) => schemaValidationFailed(error.issue)),
 			Effect.flatMap((input) => definition.handle(context, input)),
 			Effect.flatMap((value) => Schema.decodeUnknownEffect(JsonValue)(value).pipe(Effect.orDie)),
 		),
@@ -204,6 +214,9 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 			const ryotql = yield* RyotQLService;
 			const definitions = yield* DefinitionRepository;
 			const catalogs = yield* DefinitionCatalog;
+			const messages = yield* MessageRegistry;
+			const renderKernel = yield* messages.modelRenderer([]);
+			const kernelTitle = modelDisplayText(renderKernel);
 			const encodeResponse = Schema.encodeEffect(Schema.toCodecJson(RyotQLResponse));
 			const execute = (
 				context: KernelCapabilityContext,
@@ -215,7 +228,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					ryotql
 						.executeForUser(
 							context.user.id,
-							context.user.preferences.language,
+							resolveContentLanguage(context.user.preferences),
 							audience,
 							cappedRequest(request, document),
 							context.accessClass,
@@ -237,7 +250,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					slug: definition.slug,
 					title: definition.title,
 					description: definition.description,
-					inputJson: declaredQueryInput(definition.document),
+					inputJson: declaredQueryInput(definition.document, kernelTitle),
 					handle: (context, input) =>
 						decodeRequest({
 							...input,
@@ -254,10 +267,12 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 			) {
 				const snapshot = yield* definitions.getUserSnapshot(userId, { listed: false });
 				const { plugins } = yield* catalogs.forUser(userId);
+				const render = yield* messages.modelRenderer(plugins.map((plugin) => plugin.pluginId));
 				return describeData(
 					dataItems(
 						snapshot,
 						new Map(plugins.map((plugin) => [plugin.pluginId, plugin.packageId])),
+						render,
 					),
 					input,
 				);
@@ -283,7 +298,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 						Effect.gen(function* () {
 							const request = yield* decodeRequest(input);
 							if (request.source.kind !== "inline") {
-								return yield* new BadRequest({ message: "query requires an inline source" });
+								return yield* badRequest(kernelMessage("error.agent-tools.inline-source-required"));
 							}
 							return yield* execute(context, "plugin", request, request.source.document);
 						}),
@@ -332,18 +347,25 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 						additionalProperties: false,
 						properties: requestInput({
 							pages: pagesInput(membersRecipe.document),
-							arguments: appSchemaJsonSchema(memberParameters),
+							arguments: appSchemaJsonSchema(memberParameters, kernelTitle),
 						}),
 					},
 					handle: (context, input) =>
 						Effect.gen(function* () {
 							const bound = bindArguments(memberParameters, input.arguments);
 							if (Result.isFailure(bound)) {
-								return yield* new BadRequest({ message: argumentIssuesMessage(bound.failure) });
+								return yield* validationFailed(
+									bound.failure.map(({ path }) => ({
+										issue: "invalid-value",
+										path: ["arguments", ...path],
+									})),
+								);
 							}
 							const collectionId = bound.success["collectionId"];
 							if (typeof collectionId !== "string") {
-								return yield* new BadRequest({ message: "collectionId must be a string" });
+								return yield* validationFailed([
+									{ issue: "invalid-type", path: ["arguments", "collectionId"] },
+								]);
 							}
 							const request = yield* decodeRequest({
 								...input,
@@ -431,7 +453,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 				const definition = byId.get(id);
 				return definition
 					? definition.handle(context, input)
-					: Effect.fail(new NotFound({ message: `Unknown capability: ${id}` }));
+					: Effect.fail(notFound(kernelMessage("error.agent-tools.unknown-capability", { id })));
 			};
 			return { handle, capabilities: all.map((definition) => definition.capability) };
 		}),

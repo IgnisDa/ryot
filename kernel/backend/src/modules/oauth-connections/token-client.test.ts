@@ -11,8 +11,8 @@ import { OAUTH_TOKEN_RESPONSE_MAX_BYTES, OAuthTokenClient } from "./token-client
 const provider = {
 	scopes: [],
 	slug: "account",
-	name: "Account",
 	pkce: "S256" as const,
+	name: { key: "test.account" },
 	clientIdConfigKey: "clientId",
 	clientSecretConfigKey: "clientSecret",
 	tokenUrl: "https://accounts.example.test/token",

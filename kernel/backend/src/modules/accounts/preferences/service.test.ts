@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { badRequest } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
@@ -9,6 +10,8 @@ import {
 	type UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -97,22 +100,27 @@ layer(serviceLayer())((test) => {
 			Effect.gen(function* () {
 				const service = yield* UserSettingsService;
 				const user = makeUser({
-					language: "es",
+					weekStart: null,
+					interfaceLocale: null,
+					contentLanguage: "es",
 					ratingScale: "hundred",
 					disableIntegrations: false,
 					reportingTimeZone: TimeZone.make("America/New_York"),
 				});
 				yield* service.updatePreferences(user, { disableIntegrations: true });
-				yield* service.updatePreferences(user, { language: null, disableIntegrations: false });
-				yield* service.updatePreferences(user, { language: "  fr  " });
-				yield* service.updatePreferences(user, { language: " \t " });
+				yield* service.updatePreferences(user, {
+					contentLanguage: null,
+					disableIntegrations: false,
+				});
+				yield* service.updatePreferences(user, { contentLanguage: "fra" });
+				yield* service.updatePreferences(user, { weekStart: 0, interfaceLocale: "en" });
 				yield* service.updatePreferences(user, {});
 
 				expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
 					{ userId: user.id, preferences: { disableIntegrations: true } },
-					{ userId: user.id, preferences: { language: null, disableIntegrations: false } },
-					{ userId: user.id, preferences: { language: "fr" } },
-					{ userId: user.id, preferences: { language: null } },
+					{ userId: user.id, preferences: { contentLanguage: null, disableIntegrations: false } },
+					{ userId: user.id, preferences: { contentLanguage: "fr" } },
+					{ userId: user.id, preferences: { weekStart: 0, interfaceLocale: "en" } },
 				]);
 			}),
 		testTimeout,
@@ -126,11 +134,28 @@ layer(serviceLayer())((test) => {
 			Effect.gen(function* () {
 				const service = yield* UserSettingsService;
 				const user = makeUser(defaultUserPreferences);
-				yield* service.updatePreferences(user, { language: "es" });
+				yield* service.updatePreferences(user, { contentLanguage: "es" });
 
 				expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
-					{ userId: user.id, preferences: { language: "es" } },
+					{ userId: user.id, preferences: { contentLanguage: "es" } },
 				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(serviceLayer())((test) => {
+	test.effect(
+		"rejects content languages without a canonical ISO 639 identity",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserSettingsService;
+				const exit = yield* Effect.exit(
+					service.updatePreferences(makeUser(defaultUserPreferences), { contentLanguage: "qqq" }),
+				);
+
+				assertExitFails(exit, badRequest(kernelMessage("error.accounts.unknown-content-language")));
+				expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([]);
 			}),
 		testTimeout,
 	);

@@ -13,18 +13,20 @@ import {
 import { AssistantToolCallId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Option, Result, Schema, Stream } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { capabilityPin } from "#modules/agent-tools/catalog";
-import type { WriteGate, WriteRequest } from "#modules/agent-tools/execute";
+import { changeDeclined, type WriteGate, type WriteRequest } from "#modules/agent-tools/execute";
 import { AgentToolsService } from "#modules/agent-tools/service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { publishAssistantUpdated } from "#modules/live-updates/publish";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { AgentRunSuspended } from "#modules/scripts/agent/service";
 import { DatabaseSession } from "#platform/db/session";
+import { MessageRegistry } from "#platform/messages";
 import { truncateJsonResult } from "#platform/tool-result";
 
 import {
@@ -157,6 +159,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 }) {
 	const repository = yield* AssistantRepository;
 	const session = yield* DatabaseSession;
+	const messageRegistry = yield* MessageRegistry;
 	const admission = yield* AccountAdmission.make;
 	const transact = <A, E, R>(userId: UserId, effect: Effect.Effect<A, E, R>) =>
 		session.transaction(
@@ -264,7 +267,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 									.validateTrusted(payload.userId, { name, arguments: event.arguments })
 									.pipe(
 										Effect.map((validated) => validated.requiresApproval),
-										Effect.catchTag(["BadRequest", "DemoOperationProtected"], () =>
+										Effect.catchTag(["ValidationFailed", "DemoOperationProtected"], () =>
 											Effect.succeed(false),
 										),
 									);
@@ -590,7 +593,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 					if (child.result === null) {
 						yield* settle(request.index, { declined: true }).pipe(Effect.orDie);
 					}
-					return { approved: false, reason: "The user declined this write" } as const;
+					return { approved: false, reason: changeDeclined } as const;
 				}
 				if (capabilityPin(child.call.capability) !== capabilityPin(request.capability)) {
 					if (child.result === null) {
@@ -598,7 +601,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 					}
 					return {
 						approved: false,
-						reason: "The capability changed after approval; call it again to request approval",
+						reason: kernelMessage("error.agent-tools.capability-changed"),
 					} as const;
 				}
 				return { approved: true } as const;
@@ -687,7 +690,10 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 				return yield* tools.callTrusted(payload.userId, input);
 			}).pipe(
 				Effect.catch((error) =>
-					Effect.succeed({ result: toolFailure(error), state: "completed" as const }),
+					Effect.map(messageRegistry.errorForModel(error), (message) => ({
+						state: "completed" as const,
+						result: toolFailure({ message }),
+					})),
 				),
 			);
 			if (outcome.state === "suspended") {

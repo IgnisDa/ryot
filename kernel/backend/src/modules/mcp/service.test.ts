@@ -9,12 +9,14 @@ import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
-import { Deferred, Effect, Fiber, Schema } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, Schema } from "effect";
 import { HttpRouter } from "effect/http";
 import { TestClock } from "effect/testing";
 
 import type { AgentToolsService } from "#modules/agent-tools/service";
 import { entitlementServiceFrom } from "#platform/entitlements";
+import { MessageRegistry } from "#platform/messages";
+import { kernelMessageRegistryLayer } from "#platform/messages.test-support";
 
 import { makeMcpTransport, protectedResourceMetadata } from "./service";
 
@@ -93,7 +95,9 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 							id: UserId.make(key),
 							email: `${key}@example.com`,
 							preferences: {
-								language: null,
+								weekStart: null,
+								interfaceLocale: null,
+								contentLanguage: null,
 								reportingTimeZone: UTC,
 								ratingScale: "hundred",
 								disableIntegrations: false,
@@ -122,13 +126,17 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 						}
 						return {
 							state: "completed",
-							result: { truncated: false, value: { decision, name: input.name } },
+							result: {
+								truncated: false,
+								value: { name: input.name, approved: decision.approved },
+							},
 						} as const;
 					})),
 		},
 		origin,
 		{ isActive: () => Effect.succeed(state.retiring) },
 		entitlementServiceFrom(Effect.sync(() => state.entitlements)),
+		Context.get(yield* Layer.build(kernelMessageRegistryLayer), MessageRegistry),
 	);
 	const web = HttpRouter.toWebHandler(HttpRouter.add("*", "/api/mcp", transport.handle), {
 		disableLogger: true,

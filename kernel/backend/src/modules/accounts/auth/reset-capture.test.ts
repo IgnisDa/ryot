@@ -1,6 +1,8 @@
 import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
+import { badRequest, internalError } from "@ryot-app/contract/errors";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Exit, Fiber } from "effect";
@@ -130,7 +132,7 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 				const error = yield* Effect.flip(
 					capture(failedInitiate.transport, () => Promise.reject(new Error("no reset"))),
 				);
-				expect(error.message).toContain("initiation");
+				expect(error).toEqual(internalError(kernelMessage("error.accounts.reset-link-failed")));
 				expect(failedInitiate.pending.size).toBe(0);
 				expect(failedInitiate.listeners.size).toBe(0);
 				expect(failedInitiate.closed()).toBe(1);
@@ -169,7 +171,9 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 				const conflict = yield* Effect.flip(
 					capture(state.transport, () => Promise.resolve(new Response(null))),
 				);
-				expect(conflict.message).toContain("already");
+				expect(conflict).toEqual(
+					badRequest(kernelMessage("error.accounts.reset-link-in-progress")),
+				);
 				yield* TestClock.adjust("1 second");
 				expect(Exit.isFailure(yield* Fiber.await(first))).toBe(true);
 				const second = yield* capture(state.transport, (request) =>

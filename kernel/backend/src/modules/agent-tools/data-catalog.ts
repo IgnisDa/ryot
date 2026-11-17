@@ -1,6 +1,11 @@
+import type { ManifestText } from "@ryot-app/contract/modules/plugins/manifest-text";
 import type { DiscoveryInput } from "@ryot-app/contract/schema/agent-tool";
 import { capabilityOwner, KERNEL_CAPABILITY_OWNER } from "@ryot-app/contract/schema/capability";
+import { type AppSchema, mapAppSchemaText } from "@ryot-app/contract/schema/property-schema";
 import type { DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
+import { formatDisplayText } from "@ryot-app/i18n/format";
+import type { DisplayText, Message } from "@ryot-app/i18n/message";
+import type { Text } from "@ryot-app/i18n/text";
 import {
 	canAccessCatalogTable,
 	catalogTables,
@@ -10,7 +15,13 @@ import {
 import { savedViewDataSourceAccess } from "@ryot-app/ryotql/validator";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 
+import { definitionText } from "#modules/definitions/text";
+import { renderValueMessages } from "#platform/messages";
+
 import { discover, type Discoverable, discoveryInstruction } from "./discovery";
+
+export const modelDisplayText = (render: (message: Message) => Text) => (text: DisplayText) =>
+	formatDisplayText(render, text);
 
 type DataItem = Discoverable & {
 	readonly full: Readonly<Record<string, unknown>>;
@@ -49,47 +60,56 @@ const tableItems = (): DataItem[] =>
 export const dataItems = (
 	snapshot: DefinitionSnapshot,
 	packages: ReadonlyMap<string, string>,
+	render: (message: Message) => Text,
 ): readonly DataItem[] => {
 	const owner = (pluginId: null | string) =>
 		pluginId === null ? KERNEL_CAPABILITY_OWNER : (packages.get(pluginId) ?? pluginId);
+	const name = (definition: { readonly name: ManifestText; readonly pluginId: null | string }) =>
+		render(definitionText(definition.pluginId, definition.name));
+	const schema = (propertiesSchema: AppSchema) =>
+		mapAppSchemaText(propertiesSchema, modelDisplayText(render));
 	return [
 		...tableItems(),
 		...Object.values(snapshot.entitySchemas).map((entity): DataItem => {
 			const events = Object.values(entity.eventSchemas);
+			const entityName = name(entity);
 			const properties = Object.keys(entity.propertiesSchema.fields);
 			return {
 				id: `${owner(entity.pluginId)}:entities/${entity.slug}`,
 				fields: [...properties, ...events.map((event) => event.slug)].join(" "),
-				summary: { properties, name: entity.name, events: events.map((event) => event.slug) },
-				description: `${entity.name} entities: table entity rows whose entitySchemaSlug is '${entity.slug}', with events in table event`,
+				summary: { properties, name: entityName, events: events.map((event) => event.slug) },
+				description: `${entityName} entities: table entity rows whose entitySchemaSlug is '${entity.slug}', with events in table event`,
 				full: {
-					name: entity.name,
-					propertiesSchema: entity.propertiesSchema,
-					...(entity.browse ? { browse: entity.browse } : {}),
+					name: entityName,
+					propertiesSchema: schema(entity.propertiesSchema),
+					...(entity.browse ? { browse: renderValueMessages(entity.browse, render) } : {}),
 					events: events.map((event) => ({
 						slug: event.slug,
-						name: event.name,
-						propertiesSchema: event.propertiesSchema,
+						name: name(event),
+						propertiesSchema: schema(event.propertiesSchema),
 					})),
 				},
 			};
 		}),
-		...Object.values(snapshot.relationshipSchemas).map((relationship): DataItem => ({
-			fields: Object.keys(relationship.propertiesSchema.fields).join(" "),
-			id: `${owner(relationship.pluginId)}:relationships/${relationship.slug}`,
-			description: `${relationship.name} relationships: table relationship rows whose relationshipSchemaSlug is '${relationship.slug}'`,
-			summary: {
-				name: relationship.name,
-				source: relationship.sourceEntitySchemaSlug,
-				target: relationship.targetEntitySchemaSlug,
-			},
-			full: {
-				name: relationship.name,
-				source: relationship.sourceEntitySchemaSlug,
-				target: relationship.targetEntitySchemaSlug,
-				propertiesSchema: relationship.propertiesSchema,
-			},
-		})),
+		...Object.values(snapshot.relationshipSchemas).map((relationship): DataItem => {
+			const relationshipName = name(relationship);
+			return {
+				fields: Object.keys(relationship.propertiesSchema.fields).join(" "),
+				id: `${owner(relationship.pluginId)}:relationships/${relationship.slug}`,
+				description: `${relationshipName} relationships: table relationship rows whose relationshipSchemaSlug is '${relationship.slug}'`,
+				summary: {
+					name: relationshipName,
+					source: relationship.sourceEntitySchemaSlug,
+					target: relationship.targetEntitySchemaSlug,
+				},
+				full: {
+					name: relationshipName,
+					source: relationship.sourceEntitySchemaSlug,
+					target: relationship.targetEntitySchemaSlug,
+					propertiesSchema: schema(relationship.propertiesSchema),
+				},
+			};
+		}),
 	];
 };
 
