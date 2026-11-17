@@ -5,6 +5,7 @@ import {
 	type UpdateNotificationChannelBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
 import type { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
+import type { Message } from "@ryot-app/i18n/message";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 
@@ -69,7 +70,7 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 			});
 
 			const sendMessage = Effect.fn("NotificationsService.sendMessage")(function* (input: {
-				message: string;
+				message: Message;
 				sourceKey: string;
 				sourceRunId: string;
 				accountUserId: UserId;
@@ -80,7 +81,7 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 					userId: input.accountUserId,
 					sourceRunId: input.sourceRunId,
 					accountUserId: input.accountUserId,
-					request: { kind: "message", message: input.message.trim() },
+					request: { kind: "message", message: input.message },
 				});
 			});
 

@@ -1,11 +1,12 @@
 import type { AutomationSandboxHostImplementationMap } from "@ryot-app/plugin-backend-sdk/core";
 import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 
 import {
 	requireSandboxCapabilityInput,
 	type ScriptRunInput,
 } from "#modules/scripts/authorization/capabilities";
+import { runNotification } from "#modules/scripts/authorization/principal";
 
 import { NotificationsService } from "./service";
 
@@ -19,21 +20,12 @@ export const makeNotificationScriptHost = Effect.gen(function* () {
 					if (input.hostCallDiscriminator === undefined) {
 						return sandboxHostFailure("sendNotification requires a trusted durable host call");
 					}
-					const subject = input.principal.subject;
-					if (subject.accountUserId === null || subject.executionUserId !== subject.accountUserId) {
-						return sandboxHostFailure(
-							"sendNotification requires trusted recipient account authority",
-						);
+					const admission = runNotification(input.principal, input.hostCallDiscriminator, message);
+					if (Result.isFailure(admission)) {
+						return sandboxHostFailure(admission.failure);
 					}
 					return sandboxHostEffect(
-						notifications
-							.sendMessage({
-								message: message.trim(),
-								sourceRunId: subject.runId,
-								accountUserId: subject.accountUserId,
-								sourceKey: `${subject.runId}-host-${input.hostCallDiscriminator}-notification`,
-							})
-							.pipe(Effect.as(null)),
+						notifications.sendMessage(admission.success).pipe(Effect.as(null)),
 					);
 				}),
 			),

@@ -4,6 +4,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { ReminderInvalid } from "@ryot-app/contract/modules/reminders/schemas";
 import { AutomationExecutionId, EntityId, ReminderId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -14,6 +15,7 @@ import { Context, DateTime, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { AuthRepository } from "#modules/accounts/auth/repository";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import {
 	noLifecycleWorkLayer,
@@ -44,6 +46,7 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
+import { kernelMessageRegistryLayer } from "#platform/messages.test-support";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
@@ -97,10 +100,25 @@ const execution = Layer.effectContext(
 	}),
 );
 
+const reminderNotification = kernelMessage("notification.reminder-due", {
+	timeZone: "UTC",
+	entityTitle: "Target",
+	message: "A reminder",
+	dueAt: { timeZone: "UTC", date: new Date("2026-01-01T00:00:00.000Z") },
+});
+const lateNotification = kernelMessage("notification.reminder-due", {
+	message: "Late",
+	timeZone: "UTC",
+	entityTitle: "Target",
+	dueAt: { timeZone: "UTC", date: new Date("2026-01-01T00:00:00.000Z") },
+});
+
 const repositories = Layer.mergeAll(
 	RemindersRepository.layer,
 	NotificationDeliveryRepository.layer,
 	NotificationsRepository.layer,
+	AuthRepository.layer,
+	kernelMessageRegistryLayer,
 	EntitiesRepository.layer,
 	EntityUserDataGraphRepository.layer,
 	RelationshipsRepository.layer,
@@ -202,7 +220,7 @@ const processingInput = Effect.fnUntraced(function* () {
 			accountUserId: input.user.id,
 			sourceRunId: row.formatterRunId,
 			sourceKey: `${row.formatterRunId}-call`,
-			request: { kind: "message" as const, message: "Target: A reminder" },
+			request: { kind: "message" as const, message: reminderNotification },
 		},
 	};
 });
@@ -465,7 +483,7 @@ layer(services)((test) => {
 					sourceSubmittedAt: null,
 					sourceKey: "no-channels",
 					sourceRunId: processing.formatterRunId,
-					request: { kind: "message", message: "Reminder" },
+					request: { kind: "message", message: reminderNotification },
 				});
 				yield* TestClock.adjust("2 minutes");
 				yield* (yield* ReminderWorker).run();
@@ -537,7 +555,7 @@ layer(services)((test) => {
 								accountUserId: user.id,
 								sourceSubmittedAt: null,
 								sourceRunId: row.formatterRunId,
-								request: { kind: "message", message: "Late" },
+								request: { kind: "message", message: lateNotification },
 							})
 							.pipe(Effect.exit),
 						new DbError({ message: "Notification source has been cancelled or settled" }),
@@ -692,7 +710,7 @@ layer(services)((test) => {
 					sourceSubmittedAt: null,
 					sourceRunId: processing.formatterRunId,
 					sourceKey: `${processing.formatterRunId}-call`,
-					request: { kind: "message" as const, message: "Target: A reminder" },
+					request: { kind: "message" as const, message: reminderNotification },
 				};
 				const notification = yield* (yield* NotificationAdmissions).admit(input);
 				expect((yield* repository.findForUser(user.id, created.id))?.state).toBe("processing");
@@ -734,7 +752,7 @@ layer(services)((test) => {
 					sourceSubmittedAt: null,
 					sourceKey: "before-cancel",
 					sourceRunId: processing.formatterRunId,
-					request: { kind: "message" as const, message: "Target: A reminder" },
+					request: { kind: "message" as const, message: reminderNotification },
 				};
 				const notification = yield* (yield* NotificationAdmissions).admit(input);
 				const before = yield* (yield* WorkerEvidence).sends;
@@ -775,7 +793,7 @@ layer(services)((test) => {
 					sourceSubmittedAt: null,
 					sourceKey: "interrupted",
 					sourceRunId: processing.formatterRunId,
-					request: { kind: "message", message: "Target: A reminder" },
+					request: { kind: "message", message: reminderNotification },
 				});
 				const ledger = yield* NotificationDeliveryRepository;
 				const now = yield* DateTime.nowAsDate;

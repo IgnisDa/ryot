@@ -6,6 +6,10 @@ import {
 	NotificationAdmissionUnavailableError,
 } from "@ryot-app/contract/modules/notifications/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { unavailableMessage } from "@ryot-app/i18n/message";
+import { Text } from "@ryot-app/i18n/text";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -14,17 +18,24 @@ import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
+import { AuthRepository } from "#modules/accounts/auth/repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
+import { MessageRegistry } from "#platform/messages";
+import { kernelMessageRegistryLayer } from "#platform/messages.test-support";
 import { user } from "#schema/tables/auth";
 import { job } from "#schema/tables/jobs";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { NotificationAdmissions } from "./admission";
 import { deliverEnabledChannels } from "./deliver-enabled-channels";
-import { NotificationDeliveryError, NotificationDeliveryService } from "./delivery";
+import {
+	NotificationDeliveryError,
+	NotificationDeliveryService,
+	type NotificationText,
+} from "./delivery";
 import { NotificationDeliveryJob, runNotificationDelivery } from "./delivery-job";
 import { NotificationDeliveryRepository } from "./delivery-repository";
 import type { NotificationAdmission } from "./ledger";
@@ -40,7 +51,7 @@ const admissionInput = (sourceKey: string): NotificationAdmission => ({
 	accountUserId,
 	sourceRunId: "run-1",
 	sourceSubmittedAt: null,
-	request: { kind: "message", message: "A message" },
+	request: { kind: "message", message: kernelMessage("notification.title") },
 });
 
 const freshInput = Effect.fnUntraced(function* (sourceKey: string) {
@@ -54,7 +65,10 @@ const freshInput = Effect.fnUntraced(function* (sourceKey: string) {
 
 class DeliveryEvidence extends Context.Service<
 	DeliveryEvidence,
-	{ readonly sent: Effect.Effect<ReadonlyArray<string>> }
+	{
+		readonly sent: Effect.Effect<ReadonlyArray<string>>;
+		readonly texts: Effect.Effect<ReadonlyArray<NotificationText>>;
+	}
 >()(
 	"@ryot-app/kernel-backend/modules/notifications/deliver-enabled-channels.test/DeliveryEvidence",
 ) {}
@@ -62,11 +76,14 @@ class DeliveryEvidence extends Context.Service<
 const recordingTransports = Layer.effectContext(
 	Effect.gen(function* () {
 		const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+		const texts = yield* Ref.make<ReadonlyArray<NotificationText>>([]);
 		const send = ({
+			text,
 			channelSpecifics,
 		}: Parameters<NotificationDeliveryService["Service"]["prepare"]>[0]) =>
 			Effect.gen(function* () {
 				yield* Ref.update(sent, (all) => [...all, channelSpecifics.kind]);
+				yield* Ref.update(texts, (all) => [...all, text]);
 				if (channelSpecifics.kind === "telegram") {
 					return yield* new NotificationDeliveryError({ outcome: "failed", message: "Rejected" });
 				}
@@ -74,13 +91,15 @@ const recordingTransports = Layer.effectContext(
 			});
 		return Context.make(NotificationDeliveryService, {
 			prepare: (input) => Effect.succeed({ execute: send(input) }),
-		}).pipe(Context.add(DeliveryEvidence, { sent: Ref.get(sent) }));
+		}).pipe(Context.add(DeliveryEvidence, { sent: Ref.get(sent), texts: Ref.get(texts) }));
 	}),
 );
 
 const dependencies = Layer.mergeAll(
 	NotificationDeliveryRepository.layer,
 	NotificationsRepository.layer,
+	AuthRepository.layer,
+	kernelMessageRegistryLayer,
 	JobQueue.layer,
 	Layer.succeed(NotificationSourcePolicy, { authorize: () => Effect.succeed(true) }),
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
@@ -375,7 +394,10 @@ layer(services)((test) => {
 					first.id,
 				]);
 				const conflict = yield* admissions
-					.admit({ ...submission, request: { kind: "message", message: "Changed" } })
+					.admit({
+						...submission,
+						request: { kind: "message", message: kernelMessage("notification.email.heading") },
+					})
 					.pipe(Effect.exit);
 				assertExitFails(
 					conflict,
@@ -555,6 +577,74 @@ layer(services)((test) => {
 					attemptId: "retained",
 				});
 				expect((yield* (yield* NotificationAdmissions).admit(submission)).id).toBe(admitted.id);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"renders each notification in the recipient's interface locale",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const admissions = yield* NotificationAdmissions;
+				const messages = yield* MessageRegistry;
+				const deliver = Effect.fnUntraced(function* (
+					submission: NotificationAdmission,
+					interfaceLocale: "en" | null | "en-XA",
+				) {
+					yield* session.run((db) =>
+						db
+							.update(user)
+							.set({ preferences: { ...defaultUserPreferences, interfaceLocale } })
+							.where(eq(user.id, submission.userId)),
+					);
+					yield* (yield* NotificationsRepository).createForUser({
+						isDisabled: false,
+						userId: submission.userId,
+						channelSpecifics: { kind: "ntfy", topic: "topic" },
+					});
+					const admitted = yield* admissions.admit(submission);
+					yield* deliverEnabledChannels({
+						notificationId: admitted.id,
+						accountUserId: submission.accountUserId,
+					});
+					return (yield* (yield* DeliveryEvidence).texts).at(-1);
+				});
+				const disabled = kernelMessage("notification.integration-disabled", { provider: "kodi" });
+				const pseudo = yield* messages.renderer("en-XA", []);
+				expect(
+					yield* deliver(
+						{ ...(yield* freshInput("pseudo")), request: { kind: "message", message: disabled } },
+						"en-XA",
+					),
+				).toEqual({
+					locale: "en-XA",
+					direction: "ltr",
+					body: pseudo(disabled),
+					title: pseudo(kernelMessage("notification.title")),
+					email: {
+						heading: pseudo(kernelMessage("notification.email.heading")),
+						preview: pseudo(kernelMessage("notification.email.preview")),
+						subject: pseudo(kernelMessage("notification.email.subject")),
+					},
+				});
+				expect(pseudo(disabled)).not.toBe(
+					"Integration kodi has been disabled due to too many errors",
+				);
+				const english = yield* messages.renderer("en", []);
+				const uninstalled = { namespace: "uninstalled", key: "notification.removed" };
+				expect(
+					(yield* deliver(
+						{
+							...(yield* freshInput("unavailable")),
+							request: { kind: "message", message: uninstalled },
+						},
+						null,
+					))?.body,
+				).toBe(english(unavailableMessage));
+				expect(
+					(yield* deliver({ ...(yield* freshInput("test")), request: { kind: "test" } }, null))
+						?.body,
+				).toBe(Text("This is a test notification sent through ntfy."));
 			}),
 		testTimeout,
 	);

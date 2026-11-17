@@ -1,4 +1,6 @@
 import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/notifications/schemas";
+import type { TextDirection } from "@ryot-app/i18n/locale";
+import type { Text } from "@ryot-app/i18n/text";
 import { Context, Duration, Effect, Layer, Match, Option, Redacted, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 
@@ -11,6 +13,15 @@ const AVATAR_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
 
 const NotificationDeliveryOutcome = Schema.Literals(["failed", "unknown", "skipped"]);
+
+/** A notification rendered in the recipient's interface locale. */
+export type NotificationText = {
+	readonly body: Text;
+	readonly title: Text;
+	readonly locale: string;
+	readonly direction: TextDirection;
+	readonly email: { readonly heading: Text; readonly preview: Text; readonly subject: Text };
+};
 
 type NotificationMailerInput = {
 	credentials: { user: string; server: string; password: string };
@@ -193,8 +204,8 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 			});
 
 			const prepareEmail = Effect.fn("NotificationDeliveryService.prepareEmail")(function* (input: {
-				message: string;
 				recipient: string;
+				text: NotificationText;
 			}) {
 				const credentials = config.server.smtp;
 				if (Option.isNone(credentials)) {
@@ -218,7 +229,13 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 							message: "Email could not be rendered",
 						}),
 					try: () => {
-						const email = GenericEmail({ message: input.message });
+						const email = GenericEmail({
+							lang: input.text.locale,
+							message: input.text.body,
+							dir: input.text.direction,
+							heading: input.text.email.heading,
+							preview: input.text.email.preview,
+						});
 						return Promise.all([render(email), render(email, { plainText: true })]);
 					},
 				});
@@ -230,7 +247,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 						html,
 						from: mailbox,
 						to: input.recipient,
-						subject: `${PROJECT_NAME} notification`,
+						subject: input.text.email.subject,
 					},
 				};
 				return {
@@ -252,10 +269,11 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 			});
 
 			const prepare = Effect.fn("NotificationDeliveryService.prepare")(function* (input: {
-				message: string;
+				text: NotificationText;
 				channelSpecifics: NotificationChannelSpecifics;
 			}) {
-				const { message, channelSpecifics } = input;
+				const { text, channelSpecifics } = input;
+				const { title, body: message } = text;
 				if (config.server.disableNotifications) {
 					yield* Effect.logWarning("notification delivery disabled").pipe(
 						Effect.annotateLogs({ channel: channelSpecifics.kind }),
@@ -266,7 +284,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 					});
 				}
 				if (channelSpecifics.kind === "email") {
-					return yield* prepareEmail({ message, recipient: channelSpecifics.recipient });
+					return yield* prepareEmail({ text, recipient: channelSpecifics.recipient });
 				}
 				return {
 					execute: Match.value(channelSpecifics).pipe(
@@ -274,7 +292,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 							sendHttp({
 								provider: "Apprise",
 								request: jsonRequest({
-									body: { body: message, title: PROJECT_NAME },
+									body: { title, body: message },
 									url: `${originLessBaseUrl(specifics.baseUrl)}/notify/${encodePathSegment(specifics.key)}`,
 								}),
 							}),
@@ -295,8 +313,8 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 									headers: { "X-Gotify-Key": specifics.token },
 									url: `${originLessBaseUrl(specifics.baseUrl)}/message`,
 									body: {
+										title,
 										message,
-										title: PROJECT_NAME,
 										priority: specifics.priority ?? 5,
 										extras: { "client::notification": { bigImageUrl: AVATAR_URL } },
 									},
@@ -305,8 +323,8 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 						),
 						Match.when({ kind: "ntfy" }, (specifics) => {
 							const headers: Record<string, string> = {
+								Title: title,
 								Attach: AVATAR_URL,
-								Title: PROJECT_NAME,
 								Priority: String(specifics.priority ?? 3),
 							};
 							if (specifics.accessToken) {
@@ -326,15 +344,15 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 								provider: "PushBullet",
 								request: jsonRequest({
 									url: "https://api.pushbullet.com/v2/pushes",
+									body: { title, type: "note", body: message },
 									headers: { "Access-Token": specifics.accessToken },
-									body: { type: "note", body: message, title: PROJECT_NAME },
 								}),
 							}),
 						),
 						Match.when({ kind: "push_over" }, (specifics) => {
 							const url = new URL("https://api.pushover.net/1/messages.json");
 							url.searchParams.set("user", specifics.userKey);
-							url.searchParams.set("title", PROJECT_NAME);
+							url.searchParams.set("title", title);
 							url.searchParams.set("message", message);
 							url.searchParams.set("token", specifics.appToken ?? PUSHOVER_DEFAULT_APP_TOKEN);
 							if (specifics.device) {
@@ -350,7 +368,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 							const url = new URL("https://www.pushsafer.com/api");
 							url.searchParams.set("k", specifics.key);
 							url.searchParams.set("m", message);
-							url.searchParams.set("t", PROJECT_NAME);
+							url.searchParams.set("t", title);
 							return sendHttp({
 								provider: "PushSafer",
 								responseKind: "pushsafer",

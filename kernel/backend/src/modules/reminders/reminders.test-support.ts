@@ -19,7 +19,9 @@ export const reminderTestInput = Effect.fnUntraced(function* () {
 		name: "Owner",
 		email: `${id}@example.test`,
 		preferences: {
-			language: null,
+			weekStart: null,
+			interfaceLocale: null,
+			contentLanguage: null,
 			reportingTimeZone: UTC,
 			ratingScale: "hundred",
 			disableIntegrations: false,

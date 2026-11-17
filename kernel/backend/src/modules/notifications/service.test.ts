@@ -20,7 +20,9 @@ const user = {
 	id: UserId.make("owner"),
 	email: "user@example.com",
 	preferences: {
-		language: null,
+		weekStart: null,
+		interfaceLocale: null,
+		contentLanguage: null,
 		reportingTimeZone: UTC,
 		ratingScale: "hundred",
 		disableIntegrations: false,
@@ -74,7 +76,7 @@ layer(
 		testTimeout,
 	);
 	test.effect(
-		"forwards trusted run and call authority, normalizing message content",
+		"forwards trusted run and call authority with the stamped message",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* NotificationsService;
@@ -82,7 +84,7 @@ layer(
 					sourceRunId: "run-1",
 					accountUserId: user.id,
 					sourceKey: "run-1-host-3-notification",
-					message: "  Subscription run completed  ",
+					message: { namespace: "plugin1", key: "notification.run-completed" },
 				});
 				expect((yield* (yield* RecordedAdmissions).inputs).at(-1)).toEqual({
 					userId: user.id,
@@ -90,7 +92,10 @@ layer(
 					accountUserId: user.id,
 					sourceSubmittedAt: null,
 					sourceKey: "run-1-host-3-notification",
-					request: { kind: "message", message: "Subscription run completed" },
+					request: {
+						kind: "message",
+						message: { namespace: "plugin1", key: "notification.run-completed" },
+					},
 				});
 			}),
 		testTimeout,

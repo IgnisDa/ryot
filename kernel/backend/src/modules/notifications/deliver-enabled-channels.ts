@@ -1,14 +1,24 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { NotificationChannelOutcome } from "@ryot-app/contract/modules/notifications/delivery";
+import type { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
+import {
+	defaultUserPreferences,
+	resolveInterfaceLocale,
+} from "@ryot-app/contract/schema/user-preferences";
+import { textDirection } from "@ryot-app/i18n/locale";
+import { messageNamespaces } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { generateId } from "better-auth";
 import { DateTime, Effect, Schedule } from "effect";
 
+import { AuthRepository } from "#modules/accounts/auth/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
+import { MessageRegistry } from "#platform/messages";
 
-import { NotificationDeliveryService } from "./delivery";
+import { NotificationDeliveryService, type NotificationText } from "./delivery";
 import { NotificationDeliveryRepository } from "./delivery-repository";
 import { NOTIFICATION_ATTEMPT_TIMEOUT_MS, type NotificationDeliveryPayload } from "./ledger";
 import { NotificationsRepository } from "./repository";
@@ -29,6 +39,33 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 			return yield* new DbError({ message: "Notification does not match its admitted account" });
 		}
 		const selected = yield* repository.deliveries(notification.id);
+		const preferences =
+			(yield* (yield* AuthRepository).getUserPreferences(payload.accountUserId)) ??
+			defaultUserPreferences;
+		const locale = resolveInterfaceLocale(preferences);
+		const render = yield* (yield* MessageRegistry).renderer(
+			locale,
+			notification.request.kind === "message"
+				? messageNamespaces(notification.request.message)
+				: [],
+			{ timeZone: preferences.reportingTimeZone },
+		);
+		const shared = {
+			locale,
+			direction: textDirection(locale),
+			title: render(kernelMessage("notification.title")),
+			email: {
+				heading: render(kernelMessage("notification.email.heading")),
+				preview: render(kernelMessage("notification.email.preview")),
+				subject: render(kernelMessage("notification.email.subject")),
+			},
+		};
+		const messageBody =
+			notification.request.kind === "message" ? render(notification.request.message) : null;
+		const notificationText = (channel: NotificationChannelKind): NotificationText => ({
+			...shared,
+			body: messageBody ?? render(kernelMessage("notification.test", { channel })),
+		});
 		yield* Effect.forEach(
 			selected,
 			(selectedChannel) =>
@@ -40,14 +77,13 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 						userId: payload.accountUserId,
 						channelId: NotificationChannelId.make(selectedChannel.channelId),
 					});
-					const message =
-						notification.request.kind === "test"
-							? `This is a test notification for channel: ${selectedChannel.channel}`
-							: notification.request.message;
 					const prepared =
 						current && !config.server.disableNotifications
 							? yield* delivery
-									.prepare({ message, channelSpecifics: current.channelSpecifics })
+									.prepare({
+										channelSpecifics: current.channelSpecifics,
+										text: notificationText(selectedChannel.channel),
+									})
 									.pipe(Effect.timeout(NOTIFICATION_ATTEMPT_TIMEOUT_MS), Effect.result)
 							: null;
 					const attemptId = generateId();

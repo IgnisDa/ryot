@@ -5,6 +5,29 @@
 recipient account. Channel tests retain a submission key and return the admitted
 notification ID; an HTTP success acknowledges queueing, not provider delivery.
 
+## Messages
+
+`host.sendNotification(message)` takes a `LocalMessage`. Both entry paths stamp the run's catalog
+namespace (its plugin ID, or `kernel` for kernel scripts) and refuse runs with neither, so a script
+can only reference its own catalog. Kernel scripts build these messages from the kernel catalog with
+the generated `catalogMessage` builder; see [Build And Execution](../scripts/README.md#build-and-execution). Admission stores the stamped `Message` in the `request` column,
+never rendered text, and the input digest covers it, so deduplication does not depend on any
+locale. Erasing a run's content replaces the message with the kernel `message.unavailable` key.
+
+The delivery job renders once per notification, outside transactions, in the recipient's
+`interfaceLocale`, with date arguments in their `reportingTimeZone` (zoned date-time arguments,
+such as a reminder's due time, keep their own zone); an unset locale renders in the
+source locale (`resolveInterfaceLocale`), because the backend has no device language. Only a test
+notification's body renders per channel, naming that channel's service through a `select`.
+`MessageRegistry.renderer` loads the kernel and plugin catalogs along the locale's fallback chain; a
+message whose plugin or key no longer exists renders `message.unavailable`, and a catalog that fails
+to load fails the job so it retries. Kernel templates supply the push title (`notification.title`),
+the test body and the email subject, heading and preview. Email uses the `@ryot-app/email-templates`
+generic template, which receives only rendered text plus the locale's `lang` and `dir`; React
+escapes it for HTML, line breaks become `<br>`, and messages carry no markup.
+User-authored text, such as a reminder message, travels as a string parameter and is never
+translated.
+
 ## Admission and locking
 
 `NotificationsRepository` is the channel writer. `NotificationDeliveryRepository` is the sole runtime

@@ -1,5 +1,7 @@
 import { Layer } from "effect";
 
+import { AuthRepository } from "#modules/accounts/auth/repository";
+
 import { NotificationAdmissions } from "./admission";
 import { NotificationDeliveryService, NotificationMailer } from "./delivery";
 import { NotificationDeliveryJobLive } from "./delivery-job";
@@ -23,6 +25,10 @@ export const NotificationDeliveryServiceLive = NotificationDeliveryService.layer
 
 export const NotificationDeliveryJobProvidedLive = NotificationDeliveryJobLive.pipe(
 	Layer.provide(
-		Layer.mergeAll(NotificationDeliveryRepository.layer, NotificationsRepository.layer),
+		Layer.mergeAll(
+			AuthRepository.layer,
+			NotificationsRepository.layer,
+			NotificationDeliveryRepository.layer,
+		),
 	),
 );

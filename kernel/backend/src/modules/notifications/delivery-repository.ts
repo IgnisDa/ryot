@@ -7,6 +7,7 @@ import {
 	NotificationAdmissionConflictError,
 	NotificationAdmissionUnavailableError,
 } from "@ryot-app/contract/modules/notifications/schemas";
+import { unavailableMessage } from "@ryot-app/i18n/message";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, isNotNull, lt, sql } from "drizzle-orm";
@@ -329,7 +330,7 @@ export class NotificationDeliveryRepository extends Context.Service<Notification
 						yield* session.run((db) =>
 							db
 								.update(notification)
-								.set({ request: { message: "", kind: "message" } })
+								.set({ request: { kind: "message", message: unavailableMessage } })
 								.where(eq(notification.id, row.id)),
 						);
 					}

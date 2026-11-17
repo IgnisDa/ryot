@@ -121,8 +121,8 @@ const fixture = Effect.fnUntraced(function* (destinationPartNumbers: ReadonlyArr
 					...baseDefinitions.relationshipSchemas,
 					{
 						slug: "parts",
-						name: "Parts",
 						pluginId: null,
+						name: { key: "test.parts" },
 						targetEntitySchemaSlug: "part",
 						propertiesSchema: { fields: {} },
 						sourceEntitySchemaSlug: "collection",
@@ -141,9 +141,9 @@ const fixture = Effect.fnUntraced(function* (destinationPartNumbers: ReadonlyArr
 					{
 						icon: "box",
 						slug: "part",
-						name: "Part",
 						pluginId: null,
 						eventSchemas: [],
+						name: { key: "test.part" },
 						propertiesSchema: {
 							fields: { number: { type: "integer", label: "Number", description: "Part number" } },
 						},
@@ -378,12 +378,7 @@ layer(services)((test) => {
 					assertExitFails(
 						exit,
 						new EntityUserDataBadRequest({
-							reason: {
-								code: "child-mapping-conflict",
-								entityIds: [input.sourcePartId],
-								message:
-									"Cannot merge 1 child item(s) without a unique matching destination: Source part (number=7). Refresh source data or correct the custom child names and identity fields, then try again. No data was moved.",
-							},
+							reason: { code: "child-mapping-conflict", entityIds: [input.sourcePartId] },
 						}),
 					);
 					expect(yield* repository.findForUser(input.user.id, input.sourceReminder.id)).toEqual(
