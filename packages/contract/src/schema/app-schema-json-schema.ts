@@ -46,21 +46,27 @@ const conditionSchema = (condition: AppSchemaRuleCondition): JsonSchema => {
 		: matches;
 };
 
-const objectSchema = (
-	fields: AppSchemaFields,
-	unknownKeys: AppSchema["unknownKeys"],
+type Title<Text> = (text: Text) => string;
+
+const objectSchema = <Text>(
+	fields: AppSchemaFields<Text>,
+	unknownKeys: AppSchema<Text>["unknownKeys"],
+	title: Title<Text>,
 ): JsonSchema => ({
 	type: "object",
 	additionalProperties: unknownKeys !== "strict",
 	properties: Object.fromEntries(
-		Object.entries(fields).map(([key, property]) => [key, propertySchema(property)]),
+		Object.entries(fields).map(([key, property]) => [key, propertySchema(property, title)]),
 	),
 	required: Object.entries(fields).flatMap(([key, property]) =>
 		property.validation?.required === true && property.defaultValue === undefined ? [key] : [],
 	),
 });
 
-const propertySchema = (property: AppPropertyDefinition): JsonSchema => {
+const propertySchema = <Text>(
+	property: AppPropertyDefinition<Text>,
+	title: Title<Text>,
+): JsonSchema => {
 	const { required: _, ...constraints } = property.validation ?? {};
 	let value: JsonSchema;
 	switch (property.type) {
@@ -80,10 +86,10 @@ const propertySchema = (property: AppPropertyDefinition): JsonSchema => {
 			value = { type: "string", format: "date" };
 			break;
 		case "array":
-			value = { type: "array", items: propertySchema(property.items) };
+			value = { type: "array", items: propertySchema(property.items, title) };
 			break;
 		case "object":
-			value = objectSchema(property.properties, property.unknownKeys);
+			value = objectSchema(property.properties, property.unknownKeys, title);
 			break;
 		case "string":
 			value = {
@@ -102,7 +108,7 @@ const propertySchema = (property: AppPropertyDefinition): JsonSchema => {
 	}
 	const nonNull = { ...value, ...constraints };
 	return {
-		title: property.label,
+		title: title(property.label),
 		description: property.description,
 		...(property.secret ? { writeOnly: true } : {}),
 		...(property.defaultValue === undefined ? {} : { default: jsonDefault(property.defaultValue) }),
@@ -110,9 +116,13 @@ const propertySchema = (property: AppPropertyDefinition): JsonSchema => {
 	};
 };
 
-export const appSchemaJsonSchema = (schema: AppSchema): JsonSchema => ({
+/** `title` renders property labels for the JSON Schema reader, such as a model. */
+export const appSchemaJsonSchema = <Text>(
+	schema: AppSchema<Text>,
+	title: Title<Text>,
+): JsonSchema => ({
 	$schema: "https://json-schema.org/draft/2020-12/schema",
-	...objectSchema(schema.fields, schema.unknownKeys),
+	...objectSchema(schema.fields, schema.unknownKeys, title),
 	...((schema.rules?.length ?? 0) === 0
 		? {}
 		: {

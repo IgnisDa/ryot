@@ -19,7 +19,7 @@ type AppSchemaDefinitionValidationOptions = {
 };
 
 const isComparableType = (
-	type: AppPropertyDefinition["type"],
+	type: AppPropertyDefinition<unknown>["type"],
 ): undefined | AppPropertyPrimitiveType => {
 	if (type === "enum") {
 		return "string";
@@ -47,7 +47,7 @@ const isCompatibleRuleValue = (type: AppPropertyPrimitiveType, value: AppSchemaR
 };
 
 const collectConditionDefinitionIssues = (
-	fields: AppSchemaFields,
+	fields: AppSchemaFields<unknown>,
 	condition: AppSchemaRuleCondition,
 	path: ReadonlyArray<string>,
 ): PropertyValidationIssue[] => {
@@ -90,7 +90,7 @@ const collectConditionDefinitionIssues = (
 };
 
 const collectFormatDefinitionIssues = (
-	property: AppPropertyDefinition,
+	property: AppPropertyDefinition<unknown>,
 	path: ReadonlyArray<string>,
 	isTopLevel: boolean,
 	allowUpload: boolean,
@@ -127,7 +127,7 @@ const collectFormatDefinitionIssues = (
 };
 
 const collectEventReferenceIssues = (
-	property: AppPropertyDefinition,
+	property: AppPropertyDefinition<unknown>,
 	path: ReadonlyArray<string>,
 	allowed: boolean,
 ): ReadonlyArray<PropertyValidationIssue> => {
@@ -158,7 +158,7 @@ const collectEventReferenceIssues = (
 };
 
 export const validateAppSchemaDefinition = (
-	schema: AppSchema,
+	schema: AppSchema<unknown>,
 	options: AppSchemaDefinitionValidationOptions = {},
 ): ReadonlyArray<PropertyValidationIssue> => {
 	const formatIssues = Object.entries(schema.fields).flatMap(([key, property]) =>

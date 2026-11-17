@@ -442,7 +442,7 @@ describe("AppSchema rule semantics", () => {
 
 describe("AppSchema enum choices", () => {
 	it.effect(
-		"accepts labeled static and dynamic choices",
+		"accepts labeled static, region and dynamic choices",
 		() =>
 			Effect.gen(function* () {
 				expect(
@@ -453,6 +453,13 @@ describe("AppSchema enum choices", () => {
 								{ kind: "static", values: [{ value: "active", label: "Active" }] },
 								"active",
 							),
+							country: enumField({
+								kind: "static",
+								values: [
+									{ value: "DE", kind: "region" },
+									{ value: "419", kind: "region" },
+								],
+							}),
 						},
 					}),
 				).toMatchObject({ fields: { status: { defaultValue: "active" } } });
@@ -466,6 +473,14 @@ describe("AppSchema enum choices", () => {
 		{
 			name: "blank choice label",
 			field: enumField({ kind: "static", values: [{ label: " ", value: "active" }] }),
+		},
+		{
+			name: "labeled region choice",
+			field: enumField({ kind: "static", values: [{ value: "DE", label: "DE", kind: "region" }] }),
+		},
+		{
+			name: "region choice without a region code",
+			field: enumField({ kind: "static", values: [{ value: "de", kind: "region" }] }),
 		},
 		{
 			name: "duplicate choice values",

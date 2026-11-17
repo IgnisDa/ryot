@@ -1,16 +1,16 @@
 import type { AppPropertyDefinition, AppSchema, AppSchemaFields } from "./property-schema";
 
-export type AppSchemaInput<Definition extends AppSchema> = AppSchemaFieldValues<
+export type AppSchemaInput<Definition extends AppSchema<unknown>> = AppSchemaFieldValues<
 	Definition["fields"]
 >;
 
-export type AppSchemaValue<Definition extends AppSchema> = AppSchemaFieldValues<
+export type AppSchemaValue<Definition extends AppSchema<unknown>> = AppSchemaFieldValues<
 	Definition["fields"],
 	true
 >;
 
 export type AppSchemaFieldValues<
-	Fields extends AppSchemaFields,
+	Fields extends AppSchemaFields<unknown>,
 	Defaults extends boolean = false,
 > = { readonly [Key in RequiredKeys<Fields, Defaults>]: FieldValue<Fields[Key], Defaults> } & {
 	readonly [Key in Exclude<keyof Fields, RequiredKeys<Fields, Defaults>>]?:
@@ -18,7 +18,7 @@ export type AppSchemaFieldValues<
 };
 
 export type AppPropertyValue<
-	Property extends AppPropertyDefinition,
+	Property extends AppPropertyDefinition<unknown>,
 	Defaults extends boolean = false,
 > = Property extends { readonly type: "number" | "integer" }
 	? number
@@ -30,12 +30,12 @@ export type AppPropertyValue<
 				? readonly ChoiceValue<Property>[]
 				: Property extends {
 							readonly type: "array";
-							readonly items: infer Item extends AppPropertyDefinition;
+							readonly items: infer Item extends AppPropertyDefinition<unknown>;
 					  }
 					? readonly FieldValue<Item, Defaults>[]
 					: Property extends {
 								readonly type: "object";
-								readonly properties: infer Fields extends AppSchemaFields;
+								readonly properties: infer Fields extends AppSchemaFields<unknown>;
 						  }
 						? AppSchemaFieldValues<Fields, Defaults>
 						: string;
@@ -49,13 +49,13 @@ type ChoiceValue<Property> = Property extends {
 	? Value
 	: string;
 type FieldValue<
-	Property extends AppPropertyDefinition,
+	Property extends AppPropertyDefinition<unknown>,
 	Defaults extends boolean,
 > = Property extends { readonly validation: { readonly required: true } }
 	? AppPropertyValue<Property, Defaults>
 	: null | AppPropertyValue<Property, Defaults>;
 
-type RequiredKeys<Fields extends AppSchemaFields, Defaults extends boolean> = {
+type RequiredKeys<Fields extends AppSchemaFields<unknown>, Defaults extends boolean> = {
 	[Key in keyof Fields]: Defaults extends true
 		? Fields[Key] extends
 				{ readonly defaultValue: unknown } | { readonly validation: { readonly required: true } }

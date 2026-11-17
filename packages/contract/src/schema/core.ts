@@ -1,3 +1,5 @@
+import type { Message } from "@ryot-app/i18n/message";
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { Effect, Schema } from "effect";
 
 import { DbError } from "../errors";
@@ -15,40 +17,50 @@ export const decodeStoredSchema = <S extends Schema.Constraint>(
 export const decodeStoredAppSchema = (value: unknown, message: string) =>
 	decodeStoredSchema(value, AppSchema, message);
 
-export const stringField = (label: string, description: string) =>
+export const stringField = <Text>(label: Text, description: string) =>
 	({ label, description, type: "string" }) as const;
 
-export const translatableStringField = (label: string, description: string) =>
+export const translatableStringField = <Text>(label: Text, description: string) =>
 	({ label, description, type: "string", translatable: true }) as const;
 
-export const integerField = (label: string, description: string) =>
+export const integerField = <Text>(label: Text, description: string) =>
 	({ label, description, type: "integer" }) as const;
 
-export const numberField = (label: string, description: string) =>
+export const numberField = <Text>(label: Text, description: string) =>
 	({ label, description, type: "number" }) as const;
 
-export const stringArrayField = (label: string, description: string) =>
+const itemLabel = kernelMessage("definition.property.item");
+
+export const stringArrayField = <Text>(label: Text, description: string) =>
 	({
 		label,
 		description,
 		type: "array",
-		items: { label: "Item", type: "string", description: "Item" },
+		items: { type: "string", label: itemLabel, description: "Item" },
 	}) as const;
 
 export const managedAssetItemSchema = {
-	label: "Item",
 	type: "object",
+	label: itemLabel,
 	description: "Item",
 	unknownKeys: "strict",
 	validation: { asset: true },
 	properties: {
-		key: { label: "Key", type: "string", description: "Key" },
-		url: { label: "Url", type: "string", description: "Url" },
+		key: {
+			type: "string",
+			description: "Key",
+			label: kernelMessage("definition.property.asset-key"),
+		},
+		url: {
+			type: "string",
+			description: "Url",
+			label: kernelMessage("definition.property.asset-url"),
+		},
 		type: {
 			type: "enum",
-			label: "Type",
 			description: "Type",
 			validation: { required: true },
+			label: kernelMessage("definition.property.asset-type"),
 			choices: {
 				kind: "static",
 				values: [{ value: "local" }, { value: "s3" }, { value: "remote" }],
@@ -57,10 +69,14 @@ export const managedAssetItemSchema = {
 	},
 } satisfies AppPropertyDefinition;
 
-const assetArrayField = (label: string, description: string) =>
+const assetArrayField = (label: Message, description: string) =>
 	({ label, description, type: "array", items: managedAssetItemSchema }) as const;
 
 export const imagesField = (description: string) =>
-	({ ...assetArrayField("Images", description), translatable: true }) as const;
+	({
+		...assetArrayField(kernelMessage("definition.property.images"), description),
+		translatable: true,
+	}) as const;
 
-export const videosField = (description: string) => assetArrayField("Videos", description);
+export const videosField = (description: string) =>
+	assetArrayField(kernelMessage("definition.property.videos"), description);

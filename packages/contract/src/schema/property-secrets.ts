@@ -2,13 +2,13 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
 import type { AppPropertyDefinition, AppSchema } from "./property-schema";
 
-export const hasPropertySecrets = (property: AppPropertyDefinition): boolean =>
+export const hasPropertySecrets = (property: AppPropertyDefinition<unknown>): boolean =>
 	property.secret === true ||
 	(property.type === "array" && hasPropertySecrets(property.items)) ||
 	(property.type === "object" && Object.values(property.properties).some(hasPropertySecrets));
 
 const retainValue = (
-	property: AppPropertyDefinition,
+	property: AppPropertyDefinition<unknown>,
 	stored: unknown,
 	submitted: unknown,
 ): unknown => {
@@ -25,7 +25,7 @@ const retainValue = (
 };
 
 export const retainPropertySecrets = (
-	schema: AppSchema,
+	schema: AppSchema<unknown>,
 	stored: Readonly<Record<string, unknown>>,
 	submitted: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> => {

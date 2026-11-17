@@ -1,3 +1,4 @@
+import { systemTimeZone } from "@ryot-app/i18n/formatters";
 import { DateTime, Option, Result, Schema } from "effect";
 
 export const isNamedTimeZone = (value: string) =>
@@ -11,9 +12,7 @@ export type TimeZone = typeof TimeZone.Type;
 // Importing this module must not create Intl handles retained by sandbox snapshots.
 export const UTC = Schema.Literal("UTC").pipe(Schema.brand("TimeZone")).make("UTC");
 
-export const deviceTimeZone = (
-	read: () => string | undefined = () => Intl.DateTimeFormat().resolvedOptions().timeZone,
-): TimeZone => {
+export const deviceTimeZone = (read: () => string | undefined = systemTimeZone): TimeZone => {
 	const zone = Result.try(read);
 	return Result.isSuccess(zone) && zone.success !== undefined
 		? Option.getOrElse(Schema.decodeOption(TimeZone)(zone.success), () => UTC)

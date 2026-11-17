@@ -80,7 +80,7 @@ const applyUnknownKeysPolicy = <Fields extends Schema.Struct.Fields>(
 };
 
 const collectUnresolvedDynamicChoiceIssues = (
-	property: AppPropertyDefinition,
+	property: AppPropertyDefinition<unknown>,
 	path: ReadonlyArray<string>,
 ): ReadonlyArray<PropertyValidationIssue> => {
 	if (
@@ -107,7 +107,7 @@ const collectUnresolvedDynamicChoiceIssues = (
 };
 
 const canEvaluateRuleConditionFromRawInput = (
-	schema: AppSchema,
+	schema: AppSchema<unknown>,
 	condition: AppSchemaRuleCondition,
 	input: unknown,
 ): boolean => {
@@ -136,8 +136,8 @@ const canEvaluateRuleConditionFromRawInput = (
 };
 
 const collectRequiredPropertyIssues = (
-	schema: AppSchema,
-	property: AppPropertyDefinition,
+	schema: AppSchema<unknown>,
+	property: AppPropertyDefinition<unknown>,
 	value: unknown,
 	path: ReadonlyArray<string>,
 	input: PropertyValues,
@@ -197,7 +197,7 @@ const collectRequiredPropertyIssues = (
 };
 
 const collectRequiredIssues = (
-	schema: AppSchema,
+	schema: AppSchema<unknown>,
 	input: PropertyValues,
 	requiredRules: ReadonlyArray<AppSchemaRule>,
 ) => {
@@ -277,7 +277,9 @@ const applyStringValidation = (
 	return value;
 };
 
-const createStringValueSchema = (property: Extract<AppPropertyDefinition, { type: "string" }>) => {
+const createStringValueSchema = (
+	property: Extract<AppPropertyDefinition<unknown>, { type: "string" }>,
+) => {
 	if (property.format?.kind === "upload") {
 		return applyStringValidation(Schema.String, property.validation);
 	}
@@ -348,7 +350,7 @@ const withRoundNormalization = (
 	);
 };
 
-const toStructField = (property: AppPropertyDefinition): PropertyValueField => {
+const toStructField = (property: AppPropertyDefinition<unknown>): PropertyValueField => {
 	const valueSchema = createPropertyValueSchema(property);
 	if (property.defaultValue !== undefined) {
 		return Schema.withDecodingDefaultTypeKey<typeof valueSchema>(
@@ -359,7 +361,7 @@ const toStructField = (property: AppPropertyDefinition): PropertyValueField => {
 };
 
 const createObjectValueSchema = (
-	fields: AppSchemaFields,
+	fields: AppSchemaFields<unknown>,
 	unknownKeys?: AppSchemaUnknownKeysPolicy,
 ) => {
 	const shape = Object.fromEntries(
@@ -387,7 +389,9 @@ const isManagedAsset = (value: unknown) => {
 	);
 };
 
-const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyValueSchema => {
+const createPropertyValueSchema = (
+	property: AppPropertyDefinition<unknown>,
+): PropertyValueSchema => {
 	if (property.type === "string") {
 		return Schema.NullOr(createStringValueSchema(property));
 	}
@@ -463,16 +467,16 @@ const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyVal
 	return Schema.NullOr(value);
 };
 
-const createPropertiesValueSchema = (schema: AppSchema) =>
+const createPropertiesValueSchema = (schema: AppSchema<unknown>) =>
 	createObjectValueSchema(schema.fields, schema.unknownKeys);
 
-export const decodeAppSchemaPropertyValues = (schema: AppSchema, input: unknown) =>
+export const decodeAppSchemaPropertyValues = (schema: AppSchema<unknown>, input: unknown) =>
 	Schema.decodeUnknownResult(createPropertiesValueSchema(schema))(input);
 
 export const parseAppSchemaPropertiesSafe = (input: {
 	kind?: string;
 	properties: unknown;
-	propertiesSchema: AppSchema;
+	propertiesSchema: AppSchema<unknown>;
 	allowedMissingRequiredPaths?: ReadonlyArray<ReadonlyArray<string>>;
 }): ValidationResult => {
 	if (!isObjectRecord(input.properties)) {
