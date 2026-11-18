@@ -1,74 +1,40 @@
 import { describe, expect } from "bun:test";
 
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
-import { catalogMessage } from "../../shared/messages.generated";
+import {
+	type MediaUserDataAction,
+	MediaUserDataInput,
+} from "../../shared/media-user-data-operations";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-user-data.sandbox";
 
 const submittedAt = "2026-10-27T09:00:00.000Z";
 const submissionId = "submission-1";
 
-const recordingHost = (input?: {
-	readonly mergeUserEntityData?: () => Effect.Effect<
-		{ readonly movedEventsCount: number; readonly movedRelationshipsCount: number },
-		SandboxHostError
-	>;
-	readonly clearUserEntityData?: () => Effect.Effect<
-		{ readonly deletedEventsCount: number; readonly deletedRelationshipsCount: number },
-		SandboxHostError
-	>;
-}) => {
-	const clears: { readonly args: unknown }[] = [];
-	const merges: { readonly args: unknown }[] = [];
-	const host = defineSandboxTestHost(manifest, {
-		mergeUserEntityData: (args) =>
-			Effect.suspend(() => {
-				merges.push({ args });
-				return (
-					input?.mergeUserEntityData?.() ??
-					Effect.succeed({ movedEventsCount: 4, movedRelationshipsCount: 5 })
-				);
-			}),
-		clearUserEntityData: (args) =>
-			Effect.suspend(() => {
-				clears.push({ args });
-				return (
-					input?.clearUserEntityData?.() ??
-					Effect.succeed({ deletedEventsCount: 2, deletedRelationshipsCount: 3 })
-				);
-			}),
-	});
-	return { host, clears, merges };
-};
+const run = (input: MediaUserDataAction) =>
+	runSandboxTestScript(
+		definition,
+		{ ...input, submittedAt, submissionId },
+		defineSandboxTestHost(manifest, {}),
+		execution,
+	);
 
 describe("media user data operation", () => {
 	it.live(
-		"clears one media graph with its submission identity",
+		"clears one media graph",
 		() =>
 			Effect.gen(function* () {
-				const { host, clears, merges } = recordingHost();
 				expect(
-					yield* runSandboxTestScript(
-						definition,
-						{
-							submittedAt,
-							submissionId,
-							action: "remove",
-							entityId: "media-1",
-							entitySchemaSlug: "movie",
-						},
-						host,
-						execution,
-					),
-				).toEqual({ output: { count: 5, status: "saved" } });
-				expect(clears).toEqual([{ args: { entityId: "media-1", entitySchemaSlug: "movie" } }]);
-				expect(merges).toEqual([]);
+					yield* run({ action: "remove", entityId: "media-1", entitySchemaSlug: "movie" }),
+				).toEqual<unknown>({
+					output: {},
+					changes: { entities: { clears: [{ entityId: "media-1", entitySchemaSlug: "movie" }] } },
+				});
 			}),
 		testTimeout,
 	);
@@ -77,26 +43,21 @@ describe("media user data operation", () => {
 		"merges one media graph",
 		() =>
 			Effect.gen(function* () {
-				const { host, clears, merges } = recordingHost();
 				expect(
-					yield* runSandboxTestScript(
-						definition,
-						{
-							submittedAt,
-							submissionId,
-							action: "merge",
-							mergeFrom: "source-1",
-							mergeInto: "target-1",
-							entitySchemaSlug: "show",
+					yield* run({
+						action: "merge",
+						mergeFrom: "source-1",
+						mergeInto: "target-1",
+						entitySchemaSlug: "show",
+					}),
+				).toEqual<unknown>({
+					output: {},
+					changes: {
+						entities: {
+							merges: [{ mergeFrom: "source-1", mergeInto: "target-1", entitySchemaSlug: "show" }],
 						},
-						host,
-						execution,
-					),
-				).toEqual({ output: { count: 9, status: "saved" } });
-				expect(merges).toEqual([
-					{ args: { mergeFrom: "source-1", mergeInto: "target-1", entitySchemaSlug: "show" } },
-				]);
-				expect(clears).toEqual([]);
+					},
+				});
 			}),
 		testTimeout,
 	);
@@ -105,129 +66,28 @@ describe("media user data operation", () => {
 		"uses the shared library-member schema allow-list for both actions",
 		() =>
 			Effect.gen(function* () {
-				const { host } = recordingHost();
 				for (const entitySchemaSlug of mediaLibraryMemberEntitySchemaSlugs) {
 					expect(
-						yield* runSandboxTestScript(
-							definition,
-							{
-								submittedAt,
-								submissionId,
-								action: "remove",
-								entitySchemaSlug,
-								entityId: "media-1",
-							},
-							host,
-							execution,
-						),
-					).toMatchObject({ output: { status: "saved" } });
+						yield* run({ action: "remove", entitySchemaSlug, entityId: "media-1" }),
+					).toMatchObject({ changes: { entities: { clears: [{ entitySchemaSlug }] } } });
 					expect(
-						yield* runSandboxTestScript(
-							definition,
-							{
-								submittedAt,
-								submissionId,
-								action: "merge",
-								entitySchemaSlug,
-								mergeFrom: "source-1",
-								mergeInto: "target-1",
-							},
-							host,
-							execution,
-						),
-					).toMatchObject({ output: { status: "saved" } });
-				}
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"returns the actionable child mapping refusal from the host",
-		() =>
-			Effect.gen(function* () {
-				const { host } = recordingHost({
-					mergeUserEntityData: () =>
-						Effect.fail({
-							message: "child-mapping-conflict",
-							data: { code: "child-mapping-conflict" },
-						}),
-				});
-				expect(
-					yield* runSandboxTestScript(
-						definition,
-						{
-							submittedAt,
-							submissionId,
+						yield* run({
 							action: "merge",
+							entitySchemaSlug,
 							mergeFrom: "source-1",
 							mergeInto: "target-1",
-							entitySchemaSlug: "show",
-						},
-						host,
-						execution,
-					),
-				).toEqual({
-					output: {
-						status: "rejected",
-						reason: catalogMessage("rejection.user-data.child-mapping-conflict"),
-					},
-				});
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"returns state conflicts as an actionable message",
-		() =>
-			Effect.gen(function* () {
-				const { host } = recordingHost({
-					clearUserEntityData: () =>
-						Effect.fail({ message: "state-conflict", data: { code: "state-conflict" } }),
-				});
+						}),
+					).toMatchObject({ changes: { entities: { merges: [{ entitySchemaSlug }] } } });
+				}
 				expect(
-					yield* runSandboxTestScript(
-						definition,
-						{
-							submittedAt,
-							submissionId,
-							action: "remove",
-							entityId: "media-1",
-							entitySchemaSlug: "movie",
-						},
-						host,
-						execution,
-					),
-				).toEqual({
-					output: {
-						status: "rejected",
-						reason: catalogMessage("rejection.user-data.state-conflict"),
-					},
-				});
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"keeps infrastructure failures retryable",
-		() =>
-			Effect.gen(function* () {
-				const failure = { message: "database unavailable" };
-				const { host } = recordingHost({ clearUserEntityData: () => Effect.fail(failure) });
-				const result = yield* Effect.result(
-					runSandboxTestScript(
-						definition,
-						{
-							submittedAt,
-							submissionId,
-							action: "remove",
-							entityId: "media-1",
-							entitySchemaSlug: "movie",
-						},
-						host,
-						execution,
-					),
-				);
-				expect(result).toMatchObject({ failure, _tag: "Failure" });
+					Schema.decodeUnknownResult(MediaUserDataInput)({
+						submittedAt,
+						submissionId,
+						action: "remove",
+						entityId: "media-1",
+						entitySchemaSlug: "collection",
+					})._tag,
+				).toBe("Failure");
 			}),
 		testTimeout,
 	);

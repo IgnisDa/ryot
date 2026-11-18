@@ -428,7 +428,7 @@ credits refreshes only those credits. Existing monitoring-change detectors still
 optional `ownedOn` date into each `in-media-library` relationship, adding library membership when
 absent and preserving integration-reported ownership sources. Removing ownership clears `ownedOn`.
 Integrations only report ownership, so a later sync can mark manually unowned media as owned again.
-Its schemas live in `shared/media-ownership-operations.ts`. Switching ownership on asks for the date,
+It returns one `in-media-library` relationship upsert per visible entity as its change set. Its schemas live in `shared/media-ownership-operations.ts`. Switching ownership on asks for the date,
 defaulting to today and rejecting future days; switching it off writes immediately. Integration metadata lookup uses integration auth.
 
 Imports populate media at the `base` level, without credits or other relationship groups. Monitoring
@@ -448,12 +448,13 @@ history and reviews keep their IDs and dates; similar records are not deduplicat
 monitoring memberships combine, with destination property values and ranks winning conflicts and
 source-only values retained. Recorded show children match by season/episode number; podcast children
 also require a matching trimmed, case-insensitive title. Missing or ambiguous matches reject the
-whole operation with the affected identities and instructions to refresh or correct metadata before
-trying again. Automatic completions move with their history, and the fold's frozen inventories and
+whole operation; the failure names no affected identities, so the user refreshes or corrects metadata
+before trying again. Automatic completions move with their history, and the fold's frozen inventories and
 suppressed occurrences move with them, so an occurrence the user deleted on the source stays deleted on
-the destination. Both actions use the
-kernel's [entity user-data owner](../../kernel/backend/src/modules/entities/user-data/README.md),
-immutable submission identities, and atomic stale-state checks.
+the destination. The operation returns an
+`entities.clears` or `entities.merges` entry as its change set and an empty output; the kernel's
+[entity user-data owner](../../kernel/backend/src/modules/entities/user-data/README.md) runs it
+atomically under the operation's idempotency key with stale-state checks.
 
 `media-review-create` saves a review on a visible media, group, creator, season, or episode owned by
 this plugin. Create and update accept a rating, nonblank text, or both; an empty review is rejected.
@@ -515,15 +516,18 @@ the caller and to this plugin's event schemas but not to particular schemas, so 
 reads its targets through an explicit allow-list: `complete`, `item-complete`, `progress`, `dropped`, `on_hold`, and
 `backlog` on built-in media and episodes for activity, and `review` on library members for reviews.
 `list-state`, `add-to-media-library`, kernel collection events, and other plugins' events are
-refused. Inputs carry `submittedAt` and the background submission ID; edits use the
-`<submissionId>:write` key. `media-review-delete` reads only and returns the delete of a visible
-review as its change set, without a precondition; an ID that resolves to nothing returns no changes
-and a count of zero. Updates and single-record deletes send the row's full snapshot as a
+refused. Inputs carry `submittedAt` and the background submission ID. Each operation reads its
+targets and returns its writes as one change set that the kernel commits atomically. A review delete
+returns the delete of a visible review without a precondition; an ID that resolves to nothing returns
+no changes and a count of zero. Updates and single-record deletes send the row's full snapshot as a
 `fields` precondition (every current property and every absent editable one), so a concurrent
-change is reported as stale instead of merged. Edits never touch `sessionEntityId` and touch `entityId` only
+change fails the commit with `changes-conflict` instead of being merged; a single-record delete
+under a snapshot whose record no longer exists reports the same conflict. Edits never touch `sessionEntityId` and touch `entityId` only
 through `episodeEntityId`: a show or podcast episode `complete` or `progress` record can move to another
 episode of the same show (across seasons) or podcast, which must be visible to the caller; moving to the
-record's own episode changes nothing, and any other record or parent is refused. The session policy
+record's own episode changes nothing, and any other record or parent is refused. Reviews that name the moved
+record stop naming it in the same change set, guarded by the old entity's event-scope revision so a
+review linked in between conflicts. The session policy
 then recomputes the record's session, and the fold refolds the subjects it leaves and joins.
 The field matrix in `shared/media-activity-fields.ts` mirrors the declared event schemas; a field
 the schema does not declare, and a stored record carrying keys its schema no longer declares, are
@@ -531,11 +535,9 @@ refused. Progress follows the logging rules: a position on Anime/Manga, a percen
 a date sets `occurredAt` (and `startedOn` where declared); an unknown date keeps `occurredAt` so
 history is not reordered. The edit sheet opens a record without `calendarDate` with its local time
 and keeps the start of progress and completions. Manga progress edits can switch the position's
-unit; a chapter's volume context survives only while the unit stays chapters. Deletes accept up to 500 unique IDs, validate every 100-ID chunk before
-the first write, and delete chunks in input order with `<submissionId>:<chunk>` keys. IDs that
-resolve to nothing pass through as host no-ops, so a retry after a partial commit replays the same
-chunks. A failure after a committed chunk returns `incomplete` for Retry; an earlier failure is a
-rejection.
+unit; a chapter's volume context survives only while the unit stays chapters. Deletes accept up to 500 unique IDs, read them in 100-ID chunks, and return one change set that
+deletes every ID that resolves; IDs that resolve to nothing are skipped. A refusal or conflict leaves
+every record untouched.
 
 Activity and review rows in the Activity tab and complete history offer a row menu. Delete names
 the number of records a folded row stands for; Edit appears only when the row is one completion,

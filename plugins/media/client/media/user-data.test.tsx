@@ -71,7 +71,7 @@ it.live(
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							calls.push(request);
-							return { committed: { events: [] }, value: { count: 2, status: "saved" } };
+							return { value: {}, committed: { events: [] } };
 						}),
 				},
 				<MediaUserDataControl media={summary("movie", false)} />,
@@ -101,7 +101,7 @@ it.live(
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							requests.push(request);
-							return { committed: { events: [] }, value: { count: 4, status: "saved" } };
+							return { value: {}, committed: { events: [] } };
 						}),
 				},
 				<MediaUserDataControl media={summary("movie", false)} />,
@@ -149,7 +149,7 @@ it.live(
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							operations.push(request);
-							return { committed: { events: [] }, value: { count: 3, status: "saved" } };
+							return { value: {}, committed: { events: [] } };
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,
@@ -219,7 +219,7 @@ it.live.each([
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							operations.push(request);
-							return { committed: { events: [] }, value: { count: 0, status: "saved" } };
+							return { value: {}, committed: { events: [] } };
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,
@@ -241,22 +241,15 @@ it.live.each([
 );
 
 it.live(
-	"keeps an actionable merge conflict in the confirmation",
+	"keeps the confirmation open when the data changed while merging",
 	() =>
 		Effect.gen(function* () {
-			const message = "Some child data has no unique match. Refresh the media items and try again.";
+			const message = "Couldn't finish this change. Retry to confirm the result safely.";
 			const mounted = mountRyotClient(
 				{
 					query: () => entityQuery(),
 					pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
-					invokeOperation: () =>
-						Effect.succeed({
-							committed: { events: [] },
-							value: {
-								status: "rejected",
-								reason: { key: "rejection.user-data.child-mapping-conflict" },
-							},
-						}),
+					invokeOperation: () => Effect.fail(new RyotClientError({ reason: "changes-conflict" })),
 				},
 				<MediaUserDataControl media={summary()} />,
 			);
@@ -291,10 +284,7 @@ it.live(
 							requests.push(request);
 							return requests.length === 1
 								? Effect.fail(new RyotClientError({ reason: "transport" }))
-								: Effect.succeed({
-										committed: { events: [] },
-										value: { count: 1, status: "saved" },
-									});
+								: Effect.succeed({ value: {}, committed: { events: [] } });
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,

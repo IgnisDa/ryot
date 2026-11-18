@@ -14,13 +14,8 @@ import definition, { manifest } from "./media-ownership-set.sandbox";
 
 const pageInfo = { limit: 50, hasMore: false, nextCursor: null };
 
-const ownershipHost = (targetIds: readonly string[], changes: unknown[], documents: unknown[]) =>
+const ownershipHost = (targetIds: readonly string[], documents: unknown[]) =>
 	defineSandboxTestHost(manifest, {
-		changeUserRelationships: (batches) =>
-			Effect.sync(() => {
-				changes.push(batches);
-				return [{ deleted: 0, created: targetIds.length }];
-			}),
 		executeRyotql: (document) =>
 			Effect.gen(function* () {
 				documents.push(bindTestRequest(document));
@@ -61,17 +56,16 @@ describe("media ownership operation", () => {
 			`merges ${JSON.stringify(input)} into library membership and aligns misses`,
 			() =>
 				Effect.gen(function* () {
-					const changes: unknown[] = [];
 					const documents: unknown[] = [];
 
 					expect(
 						yield* runSandboxTestScript(
 							definition,
 							{ ...input, entityIds: ["entity-a", "missing", "entity-a"] },
-							ownershipHost(["entity-a"], changes, documents),
+							ownershipHost(["entity-a"], documents),
 							execution,
 						),
-					).toEqual({
+					).toEqual<unknown>({
 						output: {
 							results: [
 								{ ...properties, status: "found", entityId: "entity-a" },
@@ -79,23 +73,20 @@ describe("media ownership operation", () => {
 								{ ...properties, status: "found", entityId: "entity-a" },
 							],
 						},
-					});
-					expect(changes).toEqual([
-						[
-							{
-								deletes: [],
-								creates: [
+						changes: {
+							relationships: {
+								upserts: [
 									{
 										properties,
 										propertiesMode: "merge",
-										sourceEntityId: "entity-a",
-										targetEntityId: "library-1",
 										relationshipSchemaSlug: "in-media-library",
+										source: { kind: "existing", entityId: "entity-a" },
+										target: { kind: "existing", entityId: "library-1" },
 									},
 								],
 							},
-						],
-					]);
+						},
+					});
 					expect(documents).toHaveLength(2);
 				}),
 			testTimeout,
@@ -103,21 +94,19 @@ describe("media ownership operation", () => {
 	}
 
 	it.live(
-		"limits targets to media schemas and skips writes when none are visible",
+		"limits targets to media schemas and returns no changes when none are visible",
 		() =>
 			Effect.gen(function* () {
-				const changes: unknown[] = [];
 				const documents: unknown[] = [];
 
 				expect(
 					yield* runSandboxTestScript(
 						definition,
 						{ owned: false, entityIds: ["person-1"] },
-						ownershipHost([], changes, documents),
+						ownershipHost([], documents),
 						execution,
 					),
 				).toEqual({ output: { results: [{ status: "notFound", entityId: "person-1" }] } });
-				expect(changes).toEqual([]);
 				const targetDocument = documents.find(
 					(document) => !ryotqlDocumentNodes(document).includes("media-library"),
 				);

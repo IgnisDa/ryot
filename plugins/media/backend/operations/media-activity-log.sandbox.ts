@@ -1,4 +1,4 @@
-import type { ScriptHost, UserCommandInput } from "@ryot-app/plugin-backend-sdk/core";
+import type { ChangeSet, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -124,7 +124,7 @@ const episodeMembersRecipe = (input: { readonly config: EpisodicKindConfig }) =>
 		},
 	});
 };
-type ActivityEvent = NonNullable<UserCommandInput["events"]>["creates"][number];
+type ActivityEvent = NonNullable<ChangeSet["events"]>["creates"][number];
 
 const activityEvent = (
 	id: string,

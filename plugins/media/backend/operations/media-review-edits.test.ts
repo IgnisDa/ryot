@@ -1,11 +1,10 @@
 import { describe, expect } from "bun:test";
 
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
+import type { ChangeSet } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, type Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -37,10 +36,8 @@ const recordingHost = (input: {
 	readonly visible?: boolean;
 	readonly properties?: Record<string, Schema.Json>;
 	readonly consumption?: { readonly entityId: string; readonly eventSchemaSlug: string };
-	readonly updateEvents?: () => Effect.Effect<{ readonly count: number }, SandboxHostError>;
 }) => {
 	const documents: RyotQLDocument[] = [];
-	const updates: { readonly items: readonly UpdateEventItem[] }[] = [];
 	const row = {
 		id: "review-1",
 		eventSchemaSlug: "review",
@@ -48,11 +45,6 @@ const recordingHost = (input: {
 		properties: input.properties ?? expected.properties,
 	};
 	const host = defineSandboxTestHost(manifest, {
-		updateEvents: (items) =>
-			Effect.suspend(() => {
-				updates.push({ items });
-				return input.updateEvents?.() ?? Effect.succeed({ count: 1 });
-			}),
 		executeRyotql: (document) =>
 			Effect.sync(() => {
 				documents.push(bindTestRequest(document));
@@ -65,7 +57,7 @@ const recordingHost = (input: {
 				};
 			}),
 	});
-	return { host, updates, documents };
+	return { host, documents };
 };
 
 const update = (
@@ -95,6 +87,11 @@ const update = (
 		execution,
 	);
 
+const updatedProperties = (result: { readonly changes?: ChangeSet }) => {
+	const change = result.changes?.events?.changes[0];
+	return change?.kind === "update" ? change.item.patch.properties : undefined;
+};
+
 const failureOf = <A, E>(effect: Effect.Effect<A, E>) =>
 	Effect.gen(function* () {
 		const result = yield* Effect.result(effect);
@@ -109,14 +106,16 @@ describe("media review edits", () => {
 		"links, keeps and clears the occurrence a review is about",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates, documents } = recordingHost({
+				const { host, documents } = recordingHost({
 					allowed: true,
 					consumption: { entityId: "anime-1", eventSchemaSlug: "complete" },
 				});
-				yield* update({ rating: 85, consumptionEventId: "complete-1" }, host);
-				yield* update({ rating: 85 }, host);
-				yield* update({ rating: 85, consumptionEventId: null }, host);
-				expect(updates.map(({ items }) => items[0]?.patch.properties)).toEqual([
+				const results = [
+					yield* update({ rating: 85, consumptionEventId: "complete-1" }, host),
+					yield* update({ rating: 85 }, host),
+					yield* update({ rating: 85, consumptionEventId: null }, host),
+				];
+				expect(results.map(updatedProperties)).toEqual([
 					{
 						remove: [],
 						set: {
@@ -176,38 +175,44 @@ describe("media review edits", () => {
 						catalogMessage("rejection.review.consumption-other-entity"),
 					],
 				] as const) {
-					const { host, updates } = recordingHost({ consumption, allowed: true });
+					const { host } = recordingHost({ consumption, allowed: true });
 					expect(
 						yield* failureOf(update({ rating: 85, consumptionEventId: "event-1" }, host)),
 					).toEqual(reason);
-					expect(updates).toEqual([]);
 				}
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"rewrites text, rating, and spoiler state under the precondition and write key",
+		"rewrites text, rating, and spoiler state under the precondition",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({ allowed: true });
-				expect(yield* update({ rating: 85 }, host)).toEqual({ output: { count: 1 } });
-				expect(updates).toEqual<unknown>([
-					{
-						items: [
-							{
-								eventId: "review-1",
-								expected: { ...expected, kind: "fields" },
-								patch: {
-									properties: {
-										remove: [],
-										set: { rating: 85, isSpoiler: true, text: "Better on rewatch" },
+				const { host } = recordingHost({ allowed: true });
+				expect(yield* update({ rating: 85 }, host)).toEqual<unknown>({
+					output: { count: 1 },
+					changes: {
+						events: {
+							creates: [],
+							changes: [
+								{
+									kind: "update",
+									itemIdentity: "update:review-1",
+									item: {
+										eventId: "review-1",
+										expected: { ...expected, kind: "fields" },
+										patch: {
+											properties: {
+												remove: [],
+												set: { rating: 85, isSpoiler: true, text: "Better on rewatch" },
+											},
+										},
 									},
 								},
-							},
-						],
+							],
+						},
 					},
-				]);
+				});
 			}),
 		testTimeout,
 	);
@@ -216,9 +221,8 @@ describe("media review edits", () => {
 		"clears the rating",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({ allowed: true });
-				yield* update({ rating: null }, host);
-				expect(updates[0]?.items[0]?.patch.properties).toEqual({
+				const { host } = recordingHost({ allowed: true });
+				expect(updatedProperties(yield* update({ rating: null }, host))).toEqual({
 					remove: ["rating"],
 					set: { isSpoiler: true, text: "Better on rewatch" },
 				});
@@ -230,9 +234,8 @@ describe("media review edits", () => {
 		"clears text and its spoiler flag while keeping a zero rating",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({ allowed: true });
-				yield* update({ rating: 0, text: null }, host);
-				expect(updates[0]?.items[0]?.patch.properties).toEqual({
+				const { host } = recordingHost({ allowed: true });
+				expect(updatedProperties(yield* update({ rating: 0, text: null }, host))).toEqual({
 					set: { rating: 0 },
 					remove: ["text", "isSpoiler"],
 				});
@@ -244,9 +247,8 @@ describe("media review edits", () => {
 		"edits an imported rating-only record without inventing text",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({ allowed: true, properties: { rating: 60 } });
-				yield* update({ text: "  ", rating: 85 }, host);
-				expect(updates[0]?.items[0]?.patch.properties).toEqual({
+				const { host } = recordingHost({ allowed: true, properties: { rating: 60 } });
+				expect(updatedProperties(yield* update({ text: "  ", rating: 85 }, host))).toEqual({
 					set: { rating: 85 },
 					remove: ["text", "isSpoiler"],
 				});
@@ -258,10 +260,9 @@ describe("media review edits", () => {
 		"rejects clearing both rating and text before reaching the host",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({ allowed: true });
+				const { host } = recordingHost({ allowed: true });
 				const result = yield* Effect.result(update({ text: "   ", rating: null }, host));
 				expect(result).toMatchObject({ _tag: "Failure", failure: { _tag: "SchemaError" } });
-				expect(updates).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -293,7 +294,6 @@ describe("media review edits", () => {
 				expect(yield* failureOf(update({ rating: 85 }, edit.host))).toEqual(
 					catalogMessage("rejection.record.review-only-edit"),
 				);
-				expect(edit.updates).toEqual([]);
 				const removal = recordingHost({ allowed: false });
 				expect(
 					yield* failureOf(
@@ -313,32 +313,12 @@ describe("media review edits", () => {
 		"refuses a stored review carrying undeclared keys",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					allowed: true,
 					properties: { text: "Fine", mood: "happy" },
 				});
 				expect(yield* failureOf(update({ rating: 85 }, host))).toEqual(
 					catalogMessage("rejection.record.uneditable"),
-				);
-				expect(updates).toEqual([]);
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"reports a review changed elsewhere as stale",
-		() =>
-			Effect.gen(function* () {
-				const { host } = recordingHost({
-					allowed: true,
-					updateEvents: () =>
-						Effect.fail({
-							message: "event-stale",
-							data: { code: "event-stale", eventId: "review-1" },
-						}),
-				});
-				expect(yield* failureOf(update({ rating: 85 }, host))).toEqual(
-					catalogMessage("rejection.record.stale"),
 				);
 			}),
 		testTimeout,

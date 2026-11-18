@@ -5,7 +5,6 @@ import {
 	createRyotMutation,
 	formatError,
 	type RyotSubmission,
-	useLocalMessage,
 	usePluginIdentity,
 	useRyot,
 	useRyotSchedule,
@@ -71,7 +70,6 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 	const text = useMediaMessages();
 	const reminders = useMediaReminders({ entityId: media.id });
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
-	const localMessage = useLocalMessage(PLUGIN_PACKAGE_ID);
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const submission = useRyotSubmission(mediaUserDataMutation);
@@ -83,11 +81,7 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 
 	useEffect(() => {
 		const output = submission.data;
-		if (
-			output?.status !== "saved" ||
-			confirmation === undefined ||
-			handledOutput.current === output
-		) {
+		if (output === undefined || confirmation === undefined || handledOutput.current === output) {
 			return;
 		}
 		handledOutput.current = output;
@@ -193,14 +187,11 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 		submission.reset();
 		submission.submit(confirmation.intent);
 	};
-	const rejectedMessage =
-		submission.data?.status === "rejected" ? localMessage(submission.data.reason) : undefined;
 	const errorMessage =
-		rejectedMessage ??
-		(submission.error === null
+		submission.error === null
 			? undefined
-			: formatError(t, submission.error, submissionErrorFallback(text, submission.error)));
-	const activeConfirmation = submission.data?.status === "saved" ? undefined : confirmation;
+			: formatError(t, submission.error, submissionErrorFallback(text, submission.error));
+	const activeConfirmation = submission.data === undefined ? confirmation : undefined;
 	const retained = submission.status === "retained";
 
 	return (

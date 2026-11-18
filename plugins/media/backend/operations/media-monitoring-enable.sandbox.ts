@@ -1,7 +1,9 @@
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	MediaMonitoringEnableInput,
@@ -28,29 +30,28 @@ export default defineOperation({
 				queryMediaMonitoringTargets(input.entityIds, host.executeRyotql),
 				executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe({ kind: "self" }), {}),
 			]);
-			if (targets.length > 0) {
-				yield* host.changeUserRelationships([
-					{
-						deletes: [],
-						creates: targets.flatMap(({ entityId }) => [
-							{
-								properties: {},
-								propertiesMode: "merge",
-								sourceEntityId: entityId,
-								targetEntityId: mediaLibrary.entityId,
-								relationshipSchemaSlug: "in-media-library",
-							},
-							{
-								properties: {},
-								propertiesMode: "merge",
-								sourceEntityId: entityId,
-								targetEntityId: mediaLibrary.entityId,
-								relationshipSchemaSlug: "media-monitoring",
-							},
-						]),
-					},
-				]);
+			const library = existingEntity(EntityId.make(mediaLibrary.entityId));
+			const output = {
+				results: alignedMediaMonitoringResults(input.entityIds, targets, () => true),
+			};
+			if (targets.length === 0) {
+				return { output };
 			}
-			return { results: alignedMediaMonitoringResults(input.entityIds, targets, () => true) };
-		}).pipe(Effect.map((output) => ({ output }))),
+			return {
+				output,
+				changes: {
+					relationships: {
+						upserts: targets.flatMap(({ entityId }) =>
+							["in-media-library", "media-monitoring"].map((relationshipSchemaSlug) => ({
+								properties: {},
+								target: library,
+								relationshipSchemaSlug,
+								propertiesMode: "merge" as const,
+								source: existingEntity(EntityId.make(entityId)),
+							})),
+						),
+					},
+				},
+			};
+		}),
 });
