@@ -128,6 +128,15 @@ the two-run settle limit stays.
 A revision install queues a replay only when the fold's script hash or its declared event schemas
 change. Replays run in background batches of subjects.
 
+As built: the kernel records each event's image before the transaction first changes it and reads the
+image after at fold time, so a fold sees one `{ before, after }` per event. Relationship-only writes run
+the fold with an empty list; fold jobs, absorbed values, entity content changes and more than 500
+changed events replay. Media appends read only events at the instants they land on; past edits replay
+from the previous completion of the touched title or episode to the present (from the previous explicit
+completion on Anime and Manga), and a Show or Podcast replays in full for anything but an append,
+because coverage spans episodes. The fold contract and both plugins live in
+[derived values](../kernel/backend/src/modules/derived-values/README.md).
+
 ## After hooks
 
 `delivery` is removed; every after hook is a job queued by the commit. A hook returns changes, which
@@ -153,8 +162,8 @@ replaces in the same step, and the type checker finds the callers that still nee
 5. **One executor.** Policies, folds, operations and after hooks run on the plain host through one
    executor without automation persistence. `DirectScriptExecutor`, `DirectPolicyAttempts`,
    `DirectScriptDeferred`, fold busy fallbacks and required delivery are deleted.
-6. **Incremental folds.** Media and Fitness folds move to the change-list contract; replays run only
-   on fold changes.
+6. **Incremental folds** (done). Media and Fitness folds move to the change-list contract; replays run
+   only on fold changes.
 7. **Host-call overhead.** Authority once per run everywhere, including sidecar placement; catalog
    resolution once per run.
 8. **Measure** the first slice on the clone in its live configuration.

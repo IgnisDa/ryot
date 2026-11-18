@@ -379,10 +379,16 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   preserves the supplied event time. It preserves recorded exercise kind or fills it from the exercise.
   Writers use workout start for new untimed historical sets. Source schemas reject computed fields.
 - `exercise` declares `fold: { scriptSlug: "fold.exercise-records", eventSchemaSlugs: ["workout-set"] }`.
-  `backend/exercise-records.sandbox.ts` reads the exercise's sets in pages ordered by set order and
-  computes statistics and badges per recorded kind into separate projection rows, without changing
-  source events or replaying historical hooks. It runs in the write that changes a set, including a
-  workout time correction, which moves its sets. A value stays visible while its plugin revision is
+  `backend/exercise-records.sandbox.ts` computes statistics and badges per recorded kind into separate
+  projection rows, without changing source events or replaying historical hooks. It runs in the write
+  that changes a set, including a workout time correction, which moves its sets. Sets order by
+  occurrence, workout start, workout, exercise order, set order and ID. The fold's value holds every
+  personal best in that order, the running maximum of each kind and record type. A full replay reads
+  every set. `backend/exercise-records.ts` updates from a change list instead: the bests before the
+  earliest change stand, a later set's badge can only flip when its candidate lies between the
+  maximum there and the largest changed candidate, so only those later sets are read (none when no
+  changed set sets a best), and later bests above that range carry the maximum forward. Deleting the
+  earliest heavy set of a long history can still read most of it. A value stays visible while its plugin revision is
   active; pending or failed status is noted until processing finishes.
 
 Domain recipes author static documents with typed flat parameters. Factories configure plugin

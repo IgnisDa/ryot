@@ -734,6 +734,26 @@ inventory, because `media-entity-updated` and `media-relationship-sync` return a
 request for the library titles they touch. One request holds at most 100 entities, so relationship
 sync batches are capped at 100 items.
 
+A full replay (a new subject, a revision whose fold changed, a fold job) reads the whole history.
+`backend/fold/incremental.ts` handles a change list without it:
+
+- An append, every changed event created after every existing consumption event, continues each
+  touched title or episode from its stored unfinished run. The value keeps, per entity, its latest
+  run of unsourced events unless a completion ends it, plus the earlier events at the instant it
+  starts, which same-instant rules need. It reads only existing events at the appended instants, none
+  for the newest event, and an append to a source run reads that run. On a Show or Podcast, coverage
+  resumes from the value's coverage carry (covered episodes, basis and used occurrences) and visits only
+  the appended events and the completions they source; when the append completes the title, the fold
+  replays instead.
+- Any other change replays each touched entity from the latest unsourced completion before its earliest
+  change to the present, plus touched source runs in full. Runs that hold an earlier event contribute
+  nothing; their contributions stand. On an Anime or Manga, a changed completion decides whether every
+  earlier progress completes, so that replay starts at the previous explicit completion. A Show or
+  Podcast replays in full, because coverage spans every episode.
+
+Occurrences stay sorted by key. Changes to review, list-state and other non-consumption events need no
+history work; links refresh on every run.
+
 Completion time follows the closing coverage event; consumption sources are the ordered union of the
 supporting completions' sources, deduplicated ignoring case. Source corrections can change that time or invalidate the completion.
 A fold's writes commit with the write that caused them. If it cannot finish inline, the write still
@@ -879,7 +899,7 @@ reporting periods filter contributions after the complete run is allocated.
 
 `backend/fold/consumption.ts` allocates contributions for one title at a time from the history the fold
 already read, and treats frozen run boundaries as data. A write to any history schema refolds the
-title, so allocation always follows its own completions in the same run. Review, list-state, item,
+runs it touches, so allocation always follows its own completions in the same run. Review, list-state, item,
 and library-admission writes also fold. Episode contributions belong to the parent's fold, and specials
 to their own.
 

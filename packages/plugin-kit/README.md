@@ -509,14 +509,33 @@ the session's schema folds that slug, and otherwise to its own entity. Set
 `projection: { propertiesSchema }` on an event or relationship schema to receive a value per record.
 
 The fold is a read-only script of the same plugin using `FoldInput` and `FoldOutput` from
-`@ryot-app/plugin-backend-sdk/folds`. It receives `{ subjectEntityId, value, absorbed }` and returns its
-next `value`. `absorbed` lists the values of subjects merged or restored into this one, each with `ids`
-mapping the entity and event IDs it holds to their new ones; carry over whatever must survive. It also returns one `events` entry per subject event with a projection, one `relationships` entry per link from
-the subject with a projection, and `changes`, which the kernel applies before running it a second time.
+`@ryot-app/plugin-backend-sdk/folds`. It receives `{ subjectEntityId, value, absorbed, changes }` and
+returns its next `value`. `absorbed` lists the values of subjects merged or restored into this one, each
+with `ids` mapping the entity and event IDs it holds to their new ones; carry over whatever must survive.
+
+`changes` selects the mode:
+
+- `null` asks for a full replay: read the subject's history and return one `events` entry per subject
+  event with a projection and one `relationships` entry per projected link from the subject. The kernel
+  replaces all of the subject's outputs with them. New subjects, rebuilds and fold jobs replay.
+- Otherwise it lists `{ before, after }` for each changed event: `before` is its image while it belonged
+  to the subject (`null` for a create or an event that moved in) and `after` its image now (`null` once
+  deleted or moved away). Combine `value` with the changes and return only outputs that changed; read
+  only the bounded range of history the change can affect. The kernel deletes the outputs of events
+  without an `after` and keeps every output you do not return. An empty list means only the subject's
+  links changed.
+
+`foldChangeImages` splits a change list into retracted and added images, and `earliestFoldOccurrence`
+finds where a change begins. Incremental results must equal a full replay of the same history, so keep
+in `value` whatever an update needs to resume, and fall back to reading the history when it cannot be
+bounded.
+
+`changes` in the output are applied before the kernel runs the fold a second time with their images.
 That second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
 also runs later as a job, for example after a background-lane write, so it must compute the same result
-however late it runs.
-See [folds](../../kernel/backend/src/modules/events/README.md#folds).
+however late it runs. A revision whose fold script and folded event schemas are unchanged keeps every
+stored value; changing either replays every subject.
+See [folds](../../kernel/backend/src/modules/derived-values/README.md).
 
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md).

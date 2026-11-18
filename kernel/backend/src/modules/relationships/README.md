@@ -33,4 +33,4 @@ relationship properties.
 
 A write to a link of such a schema marks its source entity. RyotQL exposes `relationship.projection`
 and `relationship.projectionStatus` with the same rules as events; see
-[folds](../events/README.md#folds).
+[folds](../derived-values/README.md).
