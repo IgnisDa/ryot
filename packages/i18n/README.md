@@ -167,10 +167,12 @@ build.
 - `scanMessageReferences({ keys, builders, files })` (`/compiler/references`) treats any quoted
   literal equal to a key as a use and reports builder calls whose first literal argument is not a
   key. `referenceDiagnostics` turns the scan into `unknown-key` and `unused-key` errors.
-- `buildCatalogs({ root, directory, builders, references })` (`/compiler/build`) is the shared catalog
-  build: it reads and validates `<directory>/<locale>.json`, adds the reference diagnostics, logs
-  every diagnostic, fails with `CatalogBuildError` on errors, and returns the validated set with the
-  pseudo-locale catalog added.
+- `compileCatalogs({ root, directory })` (`/compiler/build`) reads and validates
+  `<directory>/<locale>.json`, logs diagnostics, fails with `CatalogBuildError` on errors, and adds
+  the pseudo-locale to the compiled catalogs.
+- `checkCatalogReferences({ catalogPath, keys, builders, references })` (`/compiler/build`) checks
+  caller-supplied source files against the source locale's keys. It logs diagnostics and fails with
+  `CatalogBuildError` on unknown or unused keys.
 - `pseudoLocalizeCatalog(catalog)` (`/compiler/pseudo`) accents and lengthens literal text and
   brackets each message, leaving arguments untouched, so untranslated text stands out.
 - `generateCatalogModules(...)` (`/compiler/codegen`) emits a TypeScript index with the catalog type

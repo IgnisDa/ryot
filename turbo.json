@@ -2,6 +2,21 @@
 	"$schema": "https://turbo.build/schema.json",
 	"globalDependencies": ["tsconfig.options.json", "bunfig.toml"],
 	"tasks": {
+		"transit": { "dependsOn": ["^transit"] },
+		"dev": { "cache": false, "persistent": true },
+		"check:references": { "outputLogs": "errors-only" },
+		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test", "messages"] },
+		"build": {
+			"env": ["RYOT_VERSION"],
+			"outputLogs": "errors-only",
+			"dependsOn": ["^build", "messages"],
+			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
+		},
+		"check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "messages"],
+			"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json", "$TURBO_ROOT$/ci/oxlint/**"]
+		},
 		"messages": {
 			"outputLogs": "errors-only",
 			"outputs": ["shared/messages.generated.ts"],
@@ -11,20 +26,6 @@
 				"$TURBO_ROOT$/packages/cli/src/**",
 				"$TURBO_ROOT$/packages/i18n/src/**"
 			]
-		},
-		"transit": { "dependsOn": ["^transit"] },
-		"dev": { "cache": false, "persistent": true },
-		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test", "messages"] },
-		"build": {
-			"dependsOn": ["^build", "messages"],
-			"outputLogs": "errors-only",
-			"env": ["RYOT_VERSION"],
-			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
-		},
-		"check": {
-			"outputLogs": "errors-only",
-			"dependsOn": ["^check", "^build", "messages"],
-			"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json", "$TURBO_ROOT$/ci/oxlint/**"]
 		}
 	},
 	"globalPassThroughEnv": [

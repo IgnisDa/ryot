@@ -20,8 +20,9 @@
 		}
 	},
 	"scripts": {
-		"test": "bun ../../packages/testing/src/run-client-tests.ts",
 		"build": "bun run tooling/build-catalogs.ts",
+		"check:references": "bun run tooling/check-references.ts",
+		"test": "bun ../../packages/testing/src/run-client-tests.ts",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {

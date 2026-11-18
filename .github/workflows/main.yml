@@ -162,8 +162,22 @@ jobs:
   validate-chart:
     uses: ./.github/workflows/helm-ci.yml
 
+  validate-catalog-references:
+    needs: pre-workflow-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.pre-workflow-checks.outputs.source-ref }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun turbo check:references --filter=@ryot-app/kernel-messages
+
   image-candidates:
-    needs: [pre-workflow-checks, validate-chart]
+    needs: [pre-workflow-checks, validate-chart, validate-catalog-references]
     concurrency:
       group: image-candidate-${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.id == github.event.repository.id) && needs.pre-workflow-checks.outputs.source-ref || github.run_id }}
       queue: max

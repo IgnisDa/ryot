@@ -4,13 +4,14 @@
 
 - `messages/<locale>.json` are the sources, in the `@ryot-app/i18n` catalog format. English
   (`en.json`) is the source locale and contains only keys that code references.
-- `bun run build` (`tooling/build-catalogs.ts`) runs `buildCatalogs` from `@ryot-app/i18n` over
-  the sources and the reference roots listed in the script, which validates the sources, scans for
-  `kernelMessage(...)` calls and key literals, and fails on any error diagnostic, including unknown
-  and unused keys. It writes `dist/catalog.ts` and the JavaScript data and TypeScript declarations
-  for each locale under `dist/locales/`, including `en-XA`. Turbo tracks `dist/` as the build output
-  and includes every scanned root in the build inputs. The production image ships `dist/`
-  alongside the compiler workspace sources.
+- `bun run build` validates locale JSON and ICU arguments, then generates `dist/catalog.ts` and
+  the data and declarations under `dist/locales/`, including `en-XA`. The build's inputs are the
+  catalog sources and compiler dependencies, so it also runs in pruned workspaces. The production
+  image ships `dist/` alongside the compiler workspace sources.
+- `bun turbo check:references --filter=@ryot-app/kernel-messages` checks the generated English
+  catalog against the kernel and shared package sources. It fails on unknown and unused keys.
+  The root check and Main CI workflow run this task from the full checkout. Turbo tracks scanned
+  sources as inputs to this task.
 - `/catalog` exports `KernelCatalog`, `kernelLocales`, `KernelLocale` and
   `loadKernelCatalog(locale)`, which imports a locale module lazily. `/locales/<locale>` exports
   that locale's compiled `catalog`.

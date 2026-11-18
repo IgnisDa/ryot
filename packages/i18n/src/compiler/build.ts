@@ -19,16 +19,9 @@ export class CatalogBuildError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("CatalogBuildError", { errors: Schema.Int }) {}
 
-/**
- * Validates `<directory>/<locale>.json` under `root`, logs every diagnostic and fails on errors,
- * including keys that `references` never use and builder calls naming unknown keys. The result adds
- * the pseudo-locale catalog. Diagnostic paths are relative to `root`.
- */
-export const buildCatalogs = Effect.fn("buildCatalogs")(function* (input: {
+export const compileCatalogs = Effect.fn("compileCatalogs")(function* (input: {
 	readonly root: string;
 	readonly directory: string;
-	readonly builders: ReadonlyArray<string>;
-	readonly references: ReadonlyArray<ReferenceSourceFile>;
 }) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -46,26 +39,34 @@ export const buildCatalogs = Effect.fn("buildCatalogs")(function* (input: {
 		),
 	);
 	const source = validated.catalogs.get(SOURCE_LOCALE);
-	const keys = Object.keys(source ?? {});
-	const diagnostics = [
-		...validated.diagnostics,
-		...referenceDiagnostics({
-			keys,
-			catalogPath: path.join(input.directory, `${SOURCE_LOCALE}.json`),
-			scan: scanMessageReferences({
-				keys: new Set(keys),
-				files: input.references,
-				builders: input.builders,
-			}),
-		}),
-	];
-	yield* logCatalogDiagnostics(diagnostics);
-	if (source === undefined || hasCatalogErrors(diagnostics)) {
-		return yield* new CatalogBuildError({ errors: catalogErrorCount(diagnostics) });
+	yield* logCatalogDiagnostics(validated.diagnostics);
+	if (source === undefined || hasCatalogErrors(validated.diagnostics)) {
+		return yield* new CatalogBuildError({ errors: catalogErrorCount(validated.diagnostics) });
 	}
 	return {
 		...validated,
 		source,
 		catalogs: new Map([...validated.catalogs, [PSEUDO_LOCALE, pseudoLocalizeCatalog(source)]]),
 	};
+});
+
+export const checkCatalogReferences = Effect.fn("checkCatalogReferences")(function* (input: {
+	readonly catalogPath: string;
+	readonly keys: ReadonlyArray<string>;
+	readonly builders: ReadonlyArray<string>;
+	readonly references: ReadonlyArray<ReferenceSourceFile>;
+}) {
+	const diagnostics = referenceDiagnostics({
+		keys: input.keys,
+		catalogPath: input.catalogPath,
+		scan: scanMessageReferences({
+			files: input.references,
+			builders: input.builders,
+			keys: new Set(input.keys),
+		}),
+	});
+	yield* logCatalogDiagnostics(diagnostics);
+	return yield* hasCatalogErrors(diagnostics)
+		? Effect.fail(new CatalogBuildError({ errors: catalogErrorCount(diagnostics) }))
+		: Effect.void;
 });

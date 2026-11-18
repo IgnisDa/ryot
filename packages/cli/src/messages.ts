@@ -1,7 +1,8 @@
 import { commonMessageKeyIssues } from "@ryot-app/contract/modules/plugins/common-messages";
 import type { CompiledCatalog } from "@ryot-app/i18n/catalog";
-import { buildCatalogs } from "@ryot-app/i18n/compiler/build";
+import { checkCatalogReferences, compileCatalogs } from "@ryot-app/i18n/compiler/build";
 import { isReferenceSource } from "@ryot-app/i18n/compiler/references";
+import { SOURCE_LOCALE } from "@ryot-app/i18n/locale";
 import {
 	CATALOG_MESSAGE_BUILDER,
 	CATALOG_MESSAGES_DIRECTORY,
@@ -49,11 +50,15 @@ export const buildPluginMessages = Effect.fn("buildPluginMessages")(function* (c
 	const referenceFiles = yield* Effect.forEach([...referencePaths].sort(), (file) =>
 		Effect.map(fs.readFileString(path.join(cwd, file)), (content) => ({ content, path: file })),
 	);
-	const { source, catalogs, descriptions } = yield* buildCatalogs({
+	const { source, catalogs, descriptions } = yield* compileCatalogs({
 		root: cwd,
-		references: referenceFiles,
 		directory: CATALOG_MESSAGES_DIRECTORY,
+	});
+	yield* checkCatalogReferences({
+		keys: Object.keys(source),
+		references: referenceFiles,
 		builders: [CATALOG_MESSAGE_BUILDER, CATALOG_ROW_TEXT_BUILDER],
+		catalogPath: path.join(CATALOG_MESSAGES_DIRECTORY, `${SOURCE_LOCALE}.json`),
 	});
 	const shadowed = commonMessageKeyIssues(source);
 	if (shadowed.length > 0) {
