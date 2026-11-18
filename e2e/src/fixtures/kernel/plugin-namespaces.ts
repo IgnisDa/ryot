@@ -265,24 +265,24 @@ export default defineOperation({
   output: jsonValueSchema,
   run: (input, host) => Effect.gen(function* () {
     if (input.action === "kernel-child" && input.kernelInput) {
-      return yield* (host.executeWorkflow?.(genericImportSealReference.workflowSlug, genericImportSealReference, input.kernelInput) ?? Effect.fail(new Error("Kernel workflow capability unavailable")));
+      return { output: yield* (host.executeWorkflow?.(genericImportSealReference.workflowSlug, genericImportSealReference, input.kernelInput) ?? Effect.fail(new Error("Kernel workflow capability unavailable"))) };
     }
     if (input.action === "global") {
-      return yield* host.upsertGlobalEntities([{ name: "Forbidden global bottle", entitySchemaSlug: "bottle", externalId: input.externalId ?? "forbidden", properties: {}, populatedAt: null }]);
+      return { output: yield* host.upsertGlobalEntities([{ name: "Forbidden global bottle", entitySchemaSlug: "bottle", externalId: input.externalId ?? "forbidden", properties: {}, populatedAt: null }]) };
     }
     if (input.action === "create-event" && input.entityId) {
-      return yield* host.createEvents([{ entityId: input.entityId, eventSchemaSlug: "tasted", properties: { note: ${JSON.stringify(label)} } }]);
+      return { output: yield* host.createEvents([{ entityId: input.entityId, eventSchemaSlug: "tasted", properties: { note: ${JSON.stringify(label)} } }]) };
     }
     if (input.action === "update-event" && input.eventId) {
-      return yield* host.updateEvents([{ eventId: input.eventId, patch: { properties: { remove: [], set: { note: ${JSON.stringify(label)} } } } }]);
+      return { output: yield* host.updateEvents([{ eventId: input.eventId, patch: { properties: { remove: [], set: { note: ${JSON.stringify(label)} } } } }]) };
     }
     if (input.action === "delete-event" && input.eventId) {
-      return yield* host.deleteEvents([input.eventId]);
+      return { output: yield* host.deleteEvents([input.eventId]) };
     }
     if (input.action === "relationship" && input.entityId && input.targetEntityId) {
-      return yield* host.changeUserRelationships([{ creates: [{ sourceEntityId: input.entityId, targetEntityId: input.targetEntityId, relationshipSchemaSlug: "bottled-by", properties: {}, propertiesMode: "replace" }], deletes: [] }]);
+      return { output: yield* host.changeUserRelationships([{ creates: [{ sourceEntityId: input.entityId, targetEntityId: input.targetEntityId, relationshipSchemaSlug: "bottled-by", properties: {}, propertiesMode: "replace" }], deletes: [] }]) };
     }
-    return { label: ${JSON.stringify(label)} };
+    return { output: { label: ${JSON.stringify(label)} } };
   }),
 });
 `;
@@ -342,7 +342,7 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "operation", name: "Whiskey integration", slug: "inspect-integration" });
-export default defineOperation({ manifest, input: Schema.Struct({ integrationId: Schema.String }), output: Schema.Struct({ integrationId: Schema.String, label: Schema.String }), run: (input) => Effect.succeed({ integrationId: input.integrationId, label: ${JSON.stringify(label)} }) });
+export default defineOperation({ manifest, input: Schema.Struct({ integrationId: Schema.String }), output: Schema.Struct({ integrationId: Schema.String, label: Schema.String }), run: (input) => Effect.succeed({ output: { integrationId: input.integrationId, label: ${JSON.stringify(label)} } }) });
 `;
 
 const kernelWriteChunksSource = (label: string, strength: string | number) => `
@@ -459,13 +459,13 @@ export const contributorBottlesRecipe = (reference: PluginIdentityReference) => 
 `;
 
 const clientSource = (label: string, packageId: PluginPackageId, contributor: boolean) => `
-import { Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotMutation, createRyotQuery, usePluginIdentity, usePluginStorage, useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
 import { contributorBottlesRecipe } from "../shared/query-recipes";
 ${contributor ? 'import Contributor from "@ryot-app/plugins/whiskey/catalog";' : ""}
-const invoke = createRyotMutation<{ packageId: typeof PluginPackageId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ packageId: input.packageId, slug: "inspect", input: {}, inputSchema: Schema.Struct({}), output: Schema.Struct({ label: Schema.String }) }));
+const invoke = createRyotMutation<{ packageId: typeof PluginPackageId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ packageId: input.packageId, slug: "inspect", input: {}, inputSchema: Schema.Struct({}), output: Schema.Struct({ label: Schema.String }) }).pipe(Effect.map(({ output }) => output)));
 const bottlesQuery = createRyotQuery<PluginIdentityReference, readonly string[]>(({ input, client }) => client.data.query(contributorBottlesRecipe(input), {}));
 export const Catalog = () => {
   const identity = usePluginIdentity(PluginPackageId.make(${JSON.stringify(packageId)}));

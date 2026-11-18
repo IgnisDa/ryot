@@ -58,7 +58,7 @@ export default defineOperation({
   run: (input, host) =>
     Effect.forEach(input.patches ?? [], (patch) => host.updateUserSettings(patch), {
       discard: true,
-    }).pipe(Effect.andThen(() => host.getUserSettings())),
+    }).pipe(Effect.andThen(() => host.getUserSettings()), Effect.map((output) => ({ output }))),
 });
 `;
 

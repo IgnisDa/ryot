@@ -329,7 +329,7 @@ export default defineOperation({
   manifest,
   input: Schema.Struct({ integrationId: Schema.String }),
   output: Schema.Struct({ integrationId: Schema.String }),
-  run: (input) => Effect.succeed({ integrationId: input.integrationId }),
+  run: (input) => Effect.succeed({ output: { integrationId: input.integrationId } }),
 });
 `;
 

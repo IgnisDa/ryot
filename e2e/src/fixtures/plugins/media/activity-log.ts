@@ -1,5 +1,6 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
+	MediaActivityEditOutput,
 	MediaActivityLogInput,
 	MediaActivityLogOutput,
 	MediaActivityUpdateInput,
@@ -22,7 +23,7 @@ const mediaActivityLogRecipe = defineOperationRecipe({
 
 const mediaActivityUpdateRecipe = defineOperationRecipe({
 	packageId: PLUGIN_PACKAGE_ID,
-	output: MediaActivityLogOutput,
+	output: MediaActivityEditOutput,
 	input: MediaActivityUpdateInput,
 	operationSlug: "media-activity-update",
 });

@@ -234,7 +234,7 @@ export default defineOperation({
       },
       { value: input.entityId },
     ) ?? Effect.fail(new Error("executeWorkflow is unavailable")));
-    return result;
+    return { output: result };
   }),
 });
 `;

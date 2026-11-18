@@ -82,7 +82,7 @@ describe("plugin operations", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const plugin = yield* installEchoOperationPlugin(client);
 
-			const { result } = yield* client.call((c) =>
+			const { result, committed } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { titles: ["dune", "arcane"] } },
 					params: { ...pluginPackageSegments(plugin.packageId), operationSlug: "echo" },
@@ -90,6 +90,7 @@ describe("plugin operations", () => {
 			);
 
 			expect(result).toEqual({ results: ["DUNE", "ARCANE"] });
+			expect(committed).toEqual({ events: [] });
 		}),
 	);
 

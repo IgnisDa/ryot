@@ -274,7 +274,7 @@ export default defineOperation({
   manifest,
   input: Schema.Struct({ titles: Schema.Array(Schema.String) }),
   output: Schema.Struct({ results: Schema.Array(Schema.String) }),
-  run: (input) => Effect.succeed({ results: input.titles.map((title) => title.toUpperCase()) }),
+  run: (input) => Effect.succeed({ output: { results: input.titles.map((title) => title.toUpperCase()) } }),
 });
 `;
 }
@@ -357,7 +357,7 @@ export default defineOperation({
   run: (input, host) => Effect.gen(function* () {
     const config = yield* host.getPluginConfig({ required: [${configKey}] });
     const value = String(config[${configKey}]);
-    return { label: input.prefix + ":" + (${input.transform ?? "value"}) };
+    return { output: { label: input.prefix + ":" + (${input.transform ?? "value"}) } };
   }),
 });
 `;
@@ -388,7 +388,7 @@ export default defineOperation({
   run: (_input, host) => Effect.gen(function* () {
     const current = yield* host.getCurrentIntegration();
     const enabled = yield* host.listIntegrations({ provider: ${sourceLiteral(input.providerSlug)}, isDisabled: false });
-    return { current, enabled };
+    return { output: { current, enabled } };
   }),
 });
 `;

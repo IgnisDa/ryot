@@ -75,15 +75,17 @@ export default defineOperation({
     ) ?? Effect.fail(new Error("executeWorkflow is unavailable")));
     yield* host.span([{ name: "durable.tracer.completed" }]);
     return {
-      rows,
-      http,
-      child,
-      claim,
-      events,
-      failure,
-      parallel,
-      preferences,
-      startedAt: execution.startedAt,
+      output: {
+        rows,
+        http,
+        child,
+        claim,
+        events,
+        failure,
+        parallel,
+        preferences,
+        startedAt: execution.startedAt,
+      },
     };
   }),
 });

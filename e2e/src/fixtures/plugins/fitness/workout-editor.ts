@@ -14,7 +14,11 @@ import {
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
-import { invokeOperation, type RecipeInput } from "~/fixtures/kernel/operations";
+import {
+	invokeCommittingOperation,
+	invokeOperation,
+	type RecipeInput,
+} from "~/fixtures/kernel/operations";
 import { requirePresent } from "~/support/assertions";
 
 import { findFitnessEntitySchema, fitnessRecipes } from "./exercises";
@@ -29,7 +33,30 @@ export const saveWorkoutEditor = (
 	client: Client,
 	input: RecipeInput<typeof workoutEditorSaveRecipe>,
 ) =>
-	invokeOperation(client, workoutEditorSaveRecipe, input, { idempotencyKey: input.submissionId });
+	invokeCommittingOperation(client, workoutEditorSaveRecipe, input, {
+		idempotencyKey: input.submissionId,
+	}).pipe(
+		Effect.map(({ output, committed }) => {
+			if (output.kind !== "saved") {
+				return output;
+			}
+			const created = new Map(
+				committed.events.map(({ eventId, itemIdentity }) => [itemIdentity, eventId]),
+			);
+			return {
+				kind: "saved" as const,
+				entityId: requirePresent(committed.entityId, "Expected the saved workout ID"),
+				sets: input.data.occurrences.flatMap(({ sets }) =>
+					sets.flatMap((set) => {
+						const { clientId } = set;
+						const saved =
+							created.get(`set:${clientId}`) ?? ("eventId" in set ? set.eventId : undefined);
+						return saved === undefined ? [] : [{ clientId, eventId: saved }];
+					}),
+				),
+			};
+		}),
+	);
 
 export const loadWorkoutEditorContext = (client: Client) =>
 	invokeOperation(client, workoutEditorContextRecipe, {});

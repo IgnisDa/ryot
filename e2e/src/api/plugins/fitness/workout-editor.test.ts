@@ -266,12 +266,15 @@ describe("Workout editor E2E", () => {
 
 				const replay = yield* saveWorkoutEditor(client, editInput);
 				expect(replay).toEqual(saved);
-				const stale = yield* saveWorkoutEditor(client, {
-					...editInput,
-					submissionId: yield* randomUuid,
-					submittedAt: DateTime.formatIso(yield* DateTime.now),
-				});
-				expect(stale).toEqual({ kind: "conflict" });
+				const stale = yield* Effect.flip(
+					saveWorkoutEditor(client, {
+						...editInput,
+						submissionId: yield* randomUuid,
+						submittedAt: DateTime.formatIso(yield* DateTime.now),
+					}),
+				);
+				assertTaggedError(stale, "PluginConflictError");
+				expect(stale.reason).toMatchObject({ code: "changes-conflict" });
 
 				const edited = yield* loadWorkoutBaseline(client, workoutId);
 				const editedSet = requirePresent(edited.baseline.sets[0], "Expected edited workout set");
@@ -617,7 +620,9 @@ describe("Workout editor E2E", () => {
 					),
 				],
 			});
-			expect(yield* saveWorkoutData(other, foreignEdit)).toEqual({ kind: "conflict" });
+			const foreign = yield* Effect.flip(saveWorkoutData(other, foreignEdit));
+			assertTaggedError(foreign, "PluginConflictError");
+			expect(foreign.reason).toMatchObject({ code: "changes-conflict" });
 		}),
 	);
 
