@@ -125,6 +125,7 @@ export const createMediaImportChunk = (
 				occurredAt: event.occurredAt,
 				operationId: event.operationId,
 				eventSchemaSlug: event.eventSchemaSlug,
+				...(event.coalescing ? { coalescing: event.coalescing } : {}),
 				outcome: { unit: "events", recordKind: event.eventSchemaSlug },
 				attribution: event.attribution ?? {
 					sourceLabel: group.entityRef.sourceLabel,

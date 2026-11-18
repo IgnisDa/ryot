@@ -44,6 +44,23 @@ export const MediaPosition = Schema.Struct({
 });
 export type MediaPosition = typeof MediaPosition.Type;
 
+export const progressReachesTotal = (
+	properties: Readonly<Record<string, unknown>>,
+	basis: undefined | ConsumptionBasis,
+	total = basis?.total ?? 0,
+) => {
+	const position = properties["position"];
+	const pages = properties["progressPages"];
+	return (
+		properties["progressPercent"] === 100 ||
+		(total > 0 &&
+			((typeof pages === "number" && Number.isFinite(pages) && pages >= total) ||
+				(Schema.is(MediaPosition)(position) &&
+					basis?.unit === position.unit &&
+					position.position >= total)))
+	);
+};
+
 export const SourceProgress = Schema.Struct({
 	...MediaPosition.fields,
 	percent: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),

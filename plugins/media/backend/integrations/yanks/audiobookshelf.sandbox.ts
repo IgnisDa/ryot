@@ -199,6 +199,7 @@ export default defineScript({
 									collectionMemberships: [],
 									events: [
 										{
+											continuousProgress: true,
 											eventSchemaSlug: "progress",
 											occurredAt: cursor.occurredAt,
 											properties: {

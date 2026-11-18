@@ -3,7 +3,7 @@ import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import { jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
 import { mergeConsumedOn } from "../../shared/consumed-on";
-import { ConsumptionBasis, MediaPosition } from "../../shared/consumption";
+import { ConsumptionBasis, progressReachesTotal } from "../../shared/consumption";
 import { isPositional } from "../../shared/media-schema-slugs";
 
 export type FoldEvent = {
@@ -173,9 +173,6 @@ const written = (event: FoldEvent): WrittenOutput => ({
 const optional = (key: string, value: JsonValue | undefined, keep: boolean) =>
 	keep && value !== undefined ? { [key]: value } : {};
 
-const positive = (value: JsonValue | undefined) =>
-	typeof value === "number" && value > 0 ? value : 0;
-
 const consumedOnOf = (event: FoldEvent) => {
 	const value = event.properties["consumedOn"];
 	return Array.isArray(value)
@@ -287,7 +284,6 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 		const key = `progress:${source.id}`;
 		const prior = previous.get(key);
 		const positional = isPositional(source.entitySchemaSlug);
-		const position = Schema.decodeUnknownOption(MediaPosition)(source.properties["position"]);
 		const basis = Schema.decodeUnknownOption(ConsumptionBasis)(
 			source.properties["consumptionBasis"],
 		);
@@ -310,13 +306,11 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 					time(other.occurredAt) === time(source.occurredAt),
 			);
 		const full =
-			(source.properties["progressPercent"] === 100 ||
-				(total > 0 && positive(source.properties["progressPages"]) >= total) ||
-				(position._tag === "Some" &&
-					basis._tag === "Some" &&
-					basis.value.unit === position.value.unit &&
-					total > 0 &&
-					position.value.position >= total)) &&
+			progressReachesTotal(
+				source.properties,
+				basis._tag === "Some" ? basis.value : undefined,
+				total,
+			) &&
 			!blocked &&
 			!sameTime;
 		if (!full) {

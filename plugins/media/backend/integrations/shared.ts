@@ -48,6 +48,7 @@ export const progressResult = (input: {
 			entityRef: input.entityRef,
 			events: [
 				{
+					continuousProgress: true,
 					eventSchemaSlug: "progress",
 					occurredAt: input.occurredAt,
 					...(input.unresolvedEpisode ? { unresolvedEpisode: input.unresolvedEpisode } : {}),

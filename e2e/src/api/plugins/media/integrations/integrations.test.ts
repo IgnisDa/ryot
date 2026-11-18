@@ -12,6 +12,7 @@ import {
 	listEventSlugs,
 	markEntityPopulated,
 	pollImportRunUntilTerminal,
+	pollUntil,
 	postIntegrationWebhookAndWait,
 	waitForEventSlugs,
 	waitForEventWithSchema,
@@ -226,6 +227,60 @@ describe("Webhook routes", () => {
 });
 
 describe("Progress normalization", () => {
+	it.live("flushes only the latest pending progress and records completion inside the window", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const integration = yield* createKodiIntegration(client);
+			const completed = yield* seedGlobalShowEpisodeTree(client, {
+				showName: "Completed Playback",
+			});
+			const partial = yield* seedGlobalShowEpisodeTree(client, { showName: "Quiet Playback" });
+			const postProgress = Effect.fnUntraced(function* (
+				tmdbId: string,
+				progress: number,
+				result: "created" | "unchanged",
+			) {
+				const { run } = yield* postIntegrationWebhookAndWait(client, integration, {
+					progress,
+					lot: "show",
+					identifier: tmdbId,
+					show_season_number: 1,
+					show_episode_number: 2,
+				});
+				expect(run.status).toBe("completed");
+				expect(run.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
+				expect(
+					run.summary.find(({ recordKind }) => recordKind === "progress")?.counts[result],
+				).toBe(1);
+			});
+			const progressEvents = (episodeId: typeof partial.episodeId) =>
+				listEventsForEntity(client, episodeId, undefined, 20, { eventSchemaSlug: "progress" }).pipe(
+					Effect.map((events) => events.map(({ properties }) => properties)),
+				);
+			yield* postProgress(completed.tmdbId, 31, "created");
+			yield* postProgress(completed.tmdbId, 51, "unchanged");
+			yield* postProgress(completed.tmdbId, 100, "created");
+			yield* waitForEventWithSchema(client, completed.episodeId, "complete");
+
+			yield* postProgress(partial.tmdbId, 35, "created");
+			expect(yield* progressEvents(partial.episodeId)).toMatchObject([{ progressPercent: 35 }]);
+			yield* postProgress(partial.tmdbId, 48, "unchanged");
+			yield* postProgress(partial.tmdbId, 62, "unchanged");
+			const flushed = yield* pollUntil(
+				"latest progress after quiet playback",
+				progressEvents(partial.episodeId).pipe(
+					Effect.map((events) => (events.length < 2 ? null : events)),
+				),
+				60_000,
+			);
+			expect(flushed).toMatchObject([{ progressPercent: 62 }, { progressPercent: 35 }]);
+			expect(yield* progressEvents(completed.episodeId)).toMatchObject([
+				{ progressPercent: 100 },
+				{ progressPercent: 31 },
+			]);
+		}),
+	);
+
 	it.live(
 		"clamps progress above the integration's maximum down to 100% and fills the completion timestamp",
 		() =>

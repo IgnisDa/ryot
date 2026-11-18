@@ -3,11 +3,14 @@ import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { eventReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { ConsumptionBasis, progressReachesTotal } from "../../shared/consumption";
 import { isPositional } from "../../shared/media-schema-slugs";
 import { MediaSandboxError } from "../lib/failures";
 import { eventTimestamp, jsonObject } from "../lib/records";
 import type { MediaProgressEvent } from "../lib/ryotql";
 import type { MediaImportWriteChunkInput } from "./schemas";
+
+const PROGRESS_INTERVAL_SECONDS = 30;
 
 type Properties = Readonly<Record<string, JsonValue>>;
 type ProgressEvent = Pick<MediaProgressEvent, "createdAt" | "properties" | "occurredAt">;
@@ -107,6 +110,33 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 						return { reason: "below_minimum_progress" };
 					}
 					const progressPercent = parsed !== null && parsed > maximum ? 100 : parsed;
+					const admitted =
+						parsed !== null && parsed > maximum
+							? { ...event, properties: { ...event.properties, progressPercent: 100 } }
+							: event;
+					const basis = admitted.properties["consumptionBasis"];
+					const completion =
+						progressPercent === 100 ||
+						progressReachesTotal(
+							admitted.properties,
+							Schema.is(ConsumptionBasis)(basis) ? basis : undefined,
+						);
+					if (event.continuousProgress && !completion) {
+						return {
+							reason: "sample",
+							event: {
+								...admitted,
+								coalescing: {
+									kind: "sample" as const,
+									intervalSeconds: PROGRESS_INTERVAL_SECONDS,
+									fingerprint: yield* encodeProgressIdentity([
+										String(position ?? progressPercent),
+										consumedOnValue(event.properties),
+									]),
+								},
+							},
+						};
+					}
 					const { items } = yield* executeRyotqlRecipe(
 						host.executeRyotql,
 						eventReadRecipe({
@@ -141,36 +171,34 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 						return { reason: "duplicate_progress" };
 					}
 					const now = yield* DateTime.nowAsDate;
-					if (progressPercent !== null && progressPercent >= 100) {
+					if (completion) {
 						const config = yield* host.getPluginConfig({
 							optional: ["progressUpdateThresholdHours"],
 						});
 						const hours = toFiniteNumber(config["progressUpdateThresholdHours"]);
 						const thresholdSeconds = hours !== null && hours > 0 ? Math.round(hours * 3600) : 7200;
-						const completion = matchingEvents.find((item) => {
+						const latestCompletion = matchingEvents.find((item) => {
 							const properties = jsonObject(item.properties);
 							return (
 								properties !== null && parseProgressPercent(properties["progressPercent"]) === 100
 							);
 						});
 						if (
-							completion &&
-							now.getTime() - eventTimestamp(completion.occurredAt) <= thresholdSeconds * 1000
+							latestCompletion &&
+							now.getTime() - eventTimestamp(latestCompletion.occurredAt) <= thresholdSeconds * 1000
 						) {
 							return { reason: "completed_recently" };
 						}
 					}
-					const admitted =
-						parsed !== null && parsed > maximum
-							? { ...event, properties: { ...event.properties, progressPercent: 100 } }
-							: event;
 					pending.set(fingerprint, [
 						...(pending.get(fingerprint) ?? []),
 						{ ...admitted, createdAt: now.toISOString() },
 					]);
 					return {
-						event: admitted,
 						reason: parsed !== null && parsed > maximum ? "normalized_completion" : "admitted",
+						event: event.continuousProgress
+							? { ...admitted, coalescing: { kind: "boundary" as const } }
+							: admitted,
 					};
 				});
 				const decision = yield* decideProgress();
