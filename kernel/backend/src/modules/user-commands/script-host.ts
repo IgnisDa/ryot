@@ -1,7 +1,8 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
+import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
+import { admittedImportRunId } from "#modules/imports/script-host";
 import {
 	type AdditionalScriptHostImplementationMap,
 	requireSandboxCapabilityInput,
@@ -21,6 +22,11 @@ export const makeUserCommandScriptHost = Effect.gen(function* () {
 			sandboxHostEffect(
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "commitUserChanges");
+					if (changes.settings !== undefined && admittedImportRunId(input) !== null) {
+						return yield* sandboxHostFailure(
+							"Plugin user settings cannot be written by import executions",
+						);
+					}
 					const command = yield* sandboxLifecycleCommand(
 						input,
 						userLifecycleSource(input),

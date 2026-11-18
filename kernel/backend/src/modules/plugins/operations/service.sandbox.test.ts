@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import {
+	PluginConflictError,
 	PluginInvocationError,
 	PluginOperationRejected,
 } from "@ryot-app/contract/modules/plugins/schemas";
@@ -12,18 +13,27 @@ import { fixtureManifest } from "@ryot-app/contract/testing";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
+import { count } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import {
 	realSandboxLayer,
 	RealSandboxScripts,
 	realSandboxUserId,
 } from "#modules/scripts/executions/real-sandbox.test-support";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
+import { UserCommands } from "#modules/user-commands/service";
+import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
+import { sandboxWorkflowReference } from "#schema/tables/core";
+import { sandboxJournalEntry } from "#schema/tables/sandbox-journal";
+import { workflowExecution } from "#schema/tables/workflow-executions";
 
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginRepository } from "../packages/repository";
@@ -37,7 +47,11 @@ const operationSource = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { EntitlementRequiredError } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import {
+  defineOperation,
+  OperationConflictError,
+  OperationRejectedError,
+} from "@ryot-app/plugin-backend-sdk/operation";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -47,15 +61,19 @@ export const manifest = defineManifest({
 
 export default defineOperation({
   manifest,
-  input: Schema.Struct({ mode: Schema.Literals(["reject", "entitlement", "crash"]) }),
+  input: Schema.Struct({ mode: Schema.Literals(["read", "reject", "conflict", "entitlement", "crash"]) }),
   output: Schema.String,
   run: (input) =>
-    input.mode === "reject"
+    input.mode === "read"
+      ? Effect.succeed({ output: "read" })
+      : input.mode === "reject"
       ? Effect.fail(
           new OperationRejectedError({
             reason: { key: "episode.parent-required", params: { parent: { key: "episode.parent" } } },
           }),
         )
+      : input.mode === "conflict"
+      ? Effect.fail(new OperationConflictError({ conflict: "entity-stale" }))
       : input.mode === "entitlement"
         ? Effect.fail(new EntitlementRequiredError({ entitlement: "pro" }))
         : Effect.fail(new Error("Unexpected failure")),
@@ -151,7 +169,7 @@ const fakeLayer = Layer.unwrap(
 	}),
 );
 
-const invoke = (mode: "crash" | "reject" | "entitlement") =>
+const invoke = (mode: "read" | "crash" | "reject" | "conflict" | "entitlement") =>
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			packageId,
@@ -165,6 +183,18 @@ layer(
 	Layer.provideMerge(
 		OperationsService.layer.pipe(
 			Layer.provide(IntegrationOperationScopeResolverLive),
+			Layer.provide(Layer.mock(UserCommands)({})),
+			Layer.provide(
+				Layer.mock(ScriptExecutionService)({
+					executeScript: () => Effect.die("Workflow execution is not expected"),
+				}),
+			),
+			Layer.provide(
+				Layer.mock(SandboxWorkflowReferenceRepository)({
+					registerInTransaction: () => Effect.die("Workflow references are not expected"),
+				}),
+			),
+			Layer.provideMerge(ScriptCalls.layer),
 			Layer.provide(entitlementsLayer(["pro"])),
 			Layer.provideMerge(fakeLayer.pipe(Layer.provideMerge(realSandboxLayer()))),
 		),
@@ -172,6 +202,21 @@ layer(
 	),
 	{ excludeTestServices: true },
 )((test) => {
+	test.effect(
+		"runs a read-only operation on the plain host and commits nothing",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* invoke("read")).toEqual({ output: "read", committed: { events: [] } });
+				const session = yield* DatabaseSession;
+				const rows = yield* Effect.forEach(
+					[workflowExecution, sandboxJournalEntry, sandboxWorkflowReference],
+					(table) => session.run((db) => db.select({ rows: count() }).from(table)),
+				).pipe(Effect.orDie);
+				expect(rows).toEqual([[{ rows: 0 }], [{ rows: 0 }], [{ rows: 0 }]]);
+			}),
+		30_000,
+	);
+
 	test.effect(
 		"maps an operation rejection thrown inside the sandbox to a 422 error with the plugin-stamped reason",
 		() =>
@@ -186,6 +231,19 @@ layer(
 					key: "episode.parent-required",
 					params: { parent: { namespace, key: "episode.parent" } },
 				});
+			}),
+		30_000,
+	);
+
+	test.effect(
+		"maps an operation conflict thrown inside the sandbox to a 409 changes conflict",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke("conflict"))).toEqual(
+					new PluginConflictError({
+						reason: { code: "changes-conflict", conflict: "entity-stale" },
+					}),
+				);
 			}),
 		30_000,
 	);

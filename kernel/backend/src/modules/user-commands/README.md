@@ -1,7 +1,9 @@
 # User commands
 
-A user command commits one user-owned entity create or update, its declared relationships, and its
-event creates, updates, and deletes as one database transaction. Event-backed completion records use
+A user command commits an optional user-owned root entity create or update, its declared
+relationships, its event creates, updates, and deletes, and an optional patch of the writing plugin's
+user settings as one database transaction. A `{ kind: "root" }` reference or an `expected` session
+set requires the root entity. Event-backed completion records use
 the same boundary. Lifecycle planning commits with those writes;
 after-hook dispatch starts after commit. A validation, policy, stale-baseline, or persistence failure
 does not leave partial entity, relationship, or event source writes.
@@ -13,6 +15,12 @@ event policies, all before the commit transaction, so no database transaction is
 execution. Durable callers run the whole command inside one activity. The commit rechecks references
 and schema fingerprints, persists the entity, relationships, and event changes, and plans dispatch
 atomically.
+
+A settings patch is applied first in the commit transaction, with the validation and locks of the
+`updateUserSettings` host call; integration, import, and bootstrap executions cannot write settings. A
+caller may pass a commit hook: its `start` runs in the transaction before any write and may abort with
+`UserCommandAlreadyCommitted`, and its `finish` runs after every write with the result, so an operation
+receipt commits with the writes it describes.
 
 The commit holds its entity reference locks until it ends, so commands that write events under the
 same entity serialize on its row. It does only the work its changes need: an unchanged entity update
@@ -31,7 +39,7 @@ carry one and otherwise use `entity` and `relationship:<index>`.
 Event policy items retain their unique `itemIdentity` through preparation and policy results. Event
 preparation is chunked at 50 items, while accepted changes are committed together with the rest of
 the command. The result pairs each written event ID with its item identity and returns the root entity
-ID. Repeated event identities or duplicate existing event IDs are rejected.
+ID when the command has one. Repeated event identities or duplicate existing event IDs are rejected.
 
 Declared event-group constraints are captured once for the complete prepared command and checked only
 after all event pages commit within its transaction. The generic import owner uses this same command,

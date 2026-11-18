@@ -6,7 +6,7 @@ import { PageAuthoringError } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginManifest, PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { WriteAccess } from "@ryot-app/contract/oauth";
-import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { EventId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
@@ -116,14 +116,17 @@ const authLayer = Layer.unwrap(
 	}),
 );
 
+const committed = { events: [{ itemIdentity: "change", eventId: EventId.make("event-change") }] };
+
 const servicesLayer = Layer.unwrap(
 	Effect.map(Recorded, (calls) => {
 		const recordIn = <A>(value: unknown, result: A) =>
 			Ref.update(calls, (all) => [...all, value]).pipe(Effect.as(result));
 		return Layer.mergeAll(
 			Layer.mock(OperationsService)({
-				invoke: (input) => recordIn(input, { accepted: input.payload }),
-				invokeTrusted: (input) => recordIn(input, { accepted: input.payload }),
+				invoke: (input) => recordIn(input, { committed, output: { accepted: input.payload } }),
+				invokeTrusted: (input) =>
+					recordIn(input, { committed, output: { accepted: input.payload } }),
 			}),
 			Layer.mock(SavedViewsService)({}),
 			Layer.mock(PageAuthoringService)({
@@ -473,6 +476,21 @@ layer(registryLayer)("agent tools", (test) => {
 						"testing/search-owner:queries/search",
 					],
 				});
+				expect(
+					value(
+						(yield* call("search", { limit: 1, detail: "full", query: "Perform write" }, gate))
+							.result,
+					),
+				).toMatchObject({
+					capabilities: [
+						{
+							id: "testing/search-owner:operations/write",
+							types: stringContaining(
+								'output: { readonly "result": { readonly [x: string]: Json }, readonly "committed": { readonly "entityId"?: string | null, readonly "events": ReadonlyArray<{ readonly "eventId": string, readonly "itemIdentity": string }',
+							),
+						},
+					],
+				});
 				const full = value(
 					(yield* call("search", { limit: 1, detail: "full", query: "item names" }, gate)).result,
 				);
@@ -601,7 +619,9 @@ layer(registryLayer)("agent tools", (test) => {
 				const approved = yield* Outcomes(
 					value((yield* call("execute", { code: calls }, gate)).result),
 				);
-				expect(approved[0]).toEqual({ value: { accepted: { value: "read" } } });
+				expect(approved[0]).toEqual({
+					value: { committed, result: { accepted: { value: "read" } } },
+				});
 				const query = approved[1];
 				assert(query !== undefined && "value" in query);
 				const response = yield* Schema.decodeUnknownEffect(RyotQLResponse)(query.value);
@@ -618,7 +638,9 @@ layer(registryLayer)("agent tools", (test) => {
 				const refused = approved[5];
 				assert(refused !== undefined && "error" in refused);
 				expect(refused.error).toContain("Invalid arguments: prefix: ");
-				expect(approved[2]).toEqual({ value: { accepted: { value: "write" } } });
+				expect(approved[2]).toEqual({
+					value: { committed, result: { accepted: { value: "write" } } },
+				});
 				expect(approved[3]).toEqual({
 					error:
 						"Unknown capability: testing/execute-owner:operations/missing. Use search to find capability IDs.",
@@ -630,7 +652,10 @@ layer(registryLayer)("agent tools", (test) => {
 				});
 				expect(recorded).toContainEqual({
 					settled: "testing/execute-owner:operations/write",
-					outcome: { state: "success", value: { accepted: { value: "write" } } },
+					outcome: {
+						state: "success",
+						value: { committed, result: { accepted: { value: "write" } } },
+					},
 				});
 				expect(recorded).toContainEqual(
 					objectContaining({
@@ -691,11 +716,11 @@ layer(registryLayer)("agent tools", (test) => {
 					},
 				]);
 				expect(yield* outcome("unattended", confirm)).toEqual([
-					{ value: { accepted: { value: "write" } } },
+					{ value: { committed, result: { accepted: { value: "write" } } } },
 				]);
 				expect(yield* Ref.get(asked)).toBe(0);
 				expect(yield* outcome("confirm", confirm)).toEqual([
-					{ value: { accepted: { value: "write" } } },
+					{ value: { committed, result: { accepted: { value: "write" } } } },
 				]);
 				expect(yield* Ref.get(asked)).toBe(1);
 			}),

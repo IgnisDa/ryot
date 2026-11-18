@@ -3,7 +3,11 @@ import { expect } from "bun:test";
 import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
-import { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
+import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
+import {
+	type CommandEntityReference,
+	UserCommand,
+} from "@ryot-app/contract/modules/mutations/user-command";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
@@ -21,12 +25,14 @@ import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
+import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/packages/types";
+import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
 import {
 	command,
 	relationshipDatabaseLayer,
@@ -100,6 +106,9 @@ const testLayer = (failAfterEvents: boolean) => {
 	).pipe(Layer.provideMerge(live));
 	return Layer.provideMerge(
 		UserCommands.layer.pipe(
+			Layer.provideMerge(
+				PluginUserSettingsWriter.layer.pipe(Layer.provide(PluginCatalogInvalidatorLive)),
+			),
 			Layer.provideMerge(mutations),
 			Layer.provideMerge(workflowEngineTestLayer),
 		),
@@ -114,6 +123,11 @@ const commitUserCommand = (payload: {
 }) =>
 	Effect.flatMap(UserCommands, (commands) =>
 		commands.commit(payload.input, payload.command, payload.userId),
+	).pipe(
+		Effect.map(({ events, entityId }) => {
+			assert(entityId);
+			return { events, entityId };
+		}),
 	);
 
 const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
@@ -146,7 +160,7 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 		},
 	]);
 	assert(target);
-	const input = yield* Schema.decodeEffect(UserCommand)({
+	const decoded = yield* Schema.decodeEffect(UserCommand)({
 		entity: {
 			name: "Atomic root",
 			entitySchemaSlug: "record",
@@ -174,6 +188,9 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 			},
 		],
 	});
+	const { entity, events, relationships } = decoded;
+	assert(entity && events && relationships);
+	const input = { ...decoded, entity, events, relationships };
 	return {
 		input,
 		session,
@@ -183,7 +200,47 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 	};
 });
 
+const eventCreate = (entity: typeof CommandEntityReference.Type) => ({
+	changes: [],
+	creates: [
+		{ entity, itemIdentity: "event", eventSchemaSlug: "changed", properties: { value: "Saved" } },
+	],
+});
+
 layer(testLayer(false))((test) => {
+	test.effect(
+		"commits events on existing entities without a root entity and rejects root references",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const [relation] = input.input.relationships;
+				assert(relation?.target.kind === "existing");
+				const target = relation.target.entityId;
+				const commands = yield* UserCommands;
+				const committed = yield* commands.commit(
+					{ events: eventCreate({ kind: "existing", entityId: target }) },
+					input.command,
+					userId,
+				);
+				expect(committed.entityId).toBeUndefined();
+				expect(committed.events.map(({ itemIdentity }) => itemIdentity)).toEqual(["event"]);
+				const rejected = yield* Effect.flip(
+					commands.commit(
+						{ events: eventCreate({ kind: "root" }) },
+						{
+							...input.command,
+							...command(yield* randomUuid),
+							writeContext: input.command.writeContext,
+							accountUserId: input.command.accountUserId,
+						},
+						userId,
+					),
+				);
+				expect(rejected).toEqual(new EventBadRequest({ reason: { code: "root-entity-required" } }));
+			}),
+		testTimeout,
+	);
+
 	test.effect(
 		"allows event preparation to overlap an atomic subject commit without inverted locks",
 		() =>
@@ -335,7 +392,7 @@ layer(testLayer(false))((test) => {
 						writeContext: input.command.writeContext,
 						accountUserId: input.command.accountUserId,
 					});
-					let changes: UserCommand["events"]["changes"] = [];
+					let changes: NonNullable<UserCommand["events"]>["changes"] = [];
 					if (mutation === "update") {
 						changes = [
 							{

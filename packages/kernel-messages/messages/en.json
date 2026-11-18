@@ -1428,6 +1428,7 @@
 	"client.plugins.error.already-installed": "This package is already installed.",
 	"client.plugins.error.archive-too-large": "This archive is larger than this server allows.",
 	"client.plugins.error.asset-forbidden": "A file in these settings is not available to you.",
+	"client.plugins.error.changes-conflict": "Your data changed while this was saving. Refresh and try again.",
 	"client.plugins.error.command-failed": "The plugin command failed.",
 	"client.plugins.error.compilation-failed": "The plugin archive failed to compile.",
 	"client.plugins.error.definition-referenced": "Your data still uses definitions this plugin would remove.",
@@ -2519,6 +2520,7 @@
 		"message": "{count, plural, =0 {Required plugin settings are missing.} one {# required plugin setting is missing.} other {# required plugin settings are missing.}}",
 		"description": "{count} is the number of missing settings."
 	},
+	"error.sandbox.operation-conflict": "Your data changed while this was saving. Refresh and try again.",
 	"error.sandbox.package-identity-conflict": "Another installation already uses this plugin package.",
 	"error.sandbox.page-write-access-required": "This page needs permission to make changes.",
 	"error.sandbox.unavailable-operation": "This operation is not available here.",

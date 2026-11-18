@@ -17,11 +17,13 @@ import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";
+import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
+import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
 import {
 	command,
 	relationshipDatabaseLayer,
@@ -64,6 +66,9 @@ export const eventGroupWorkflowLayer = Layer.mergeAll(
 ).pipe(
 	Layer.provideMerge(
 		EventMutations.layer.pipe(
+			Layer.provideMerge(
+				PluginUserSettingsWriter.layer.pipe(Layer.provide(PluginCatalogInvalidatorLive)),
+			),
 			Layer.provideMerge(EventSchemaReader.layer),
 			Layer.provideMerge(relationshipDatabaseLayer()),
 		),
@@ -77,6 +82,11 @@ export const commitUserCommand = (payload: {
 }) =>
 	Effect.flatMap(UserCommands, (commands) =>
 		commands.commit(payload.input, payload.command, payload.userId),
+	).pipe(
+		Effect.map(({ events, entityId }) => {
+			assert(entityId);
+			return { events, entityId };
+		}),
 	);
 
 export const createGroupEvents = (input: EventCreateInput) =>

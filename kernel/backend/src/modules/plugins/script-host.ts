@@ -1,7 +1,9 @@
 import { resolveStoredPluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
+import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect } from "effect";
 
 import {
@@ -35,6 +37,11 @@ const encodeConfigValues = (values: Readonly<Record<string, unknown>>) =>
 			? Effect.succeed([key, value] as const)
 			: Effect.fail(`Plugin config key "${key}" is not JSON-compatible`),
 	).pipe(Effect.map((entries): Record<string, JsonValue> => Object.fromEntries(entries)));
+
+const boundedUserSettings = <Settings>(settings: Settings) =>
+	(jsonByteLength(settings) ?? Infinity) > SANDBOX_LIMITS.userSettingsBytes
+		? Effect.fail(`Plugin user settings exceed ${SANDBOX_LIMITS.userSettingsBytes} UTF-8 bytes`)
+		: Effect.succeed(settings);
 
 export const makePluginScriptHost = Effect.gen(function* () {
 	const pluginRuntime = yield* PluginRuntimeResolver;
@@ -128,13 +135,15 @@ export const makePluginScriptHost = Effect.gen(function* () {
 						if (state.pluginInstallationId !== row.installationId) {
 							return yield* Effect.fail("Admitted ingestion execution settings are unavailable");
 						}
-						return state.executionSettings.userSettings;
+						return yield* boundedUserSettings(state.executionSettings.userSettings);
 					}
 					const settingsSchema = row.userSettingsSchema;
 					if (!settingsSchema) {
 						return {};
 					}
-					return yield* resolveStoredPluginUserSettings(settingsSchema, row.userSettings);
+					return yield* boundedUserSettings(
+						yield* resolveStoredPluginUserSettings(settingsSchema, row.userSettings),
+					);
 				}),
 			),
 	} satisfies Pick<

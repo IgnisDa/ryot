@@ -1,6 +1,7 @@
 import {
 	type AutomationSource,
 	type AutomationWarning,
+	type ExecutionLane,
 	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -24,6 +25,7 @@ import type {
 	ScriptRunInput,
 	UserSandboxRunInput,
 } from "#modules/scripts/authorization/capabilities";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 
 export const sandboxStartedAt = Effect.map(Clock.currentTimeMillis, (millis) =>
 	DateTime.formatIso(DateTime.makeUnsafe(millis)),
@@ -101,31 +103,70 @@ export const sandboxLifecycleCommand = (
 			);
 		}
 
-		const executionId = AutomationExecutionId.make(
-			`${input.workflowExecutionId}-host-${input.hostCallDiscriminator}`,
-		);
-		const integrationId = subject.type === "user" ? subject.integrationId : undefined;
-		const actor = lifecycleActor(subject.type === "user" ? subject : null);
-		return yield* Schema.decodeEffect(LifecycleCommand)({
+		return yield* rootLifecycleCommand({
+			source,
+			subject,
 			itemIdentity,
-			occurredAt: input.startedAt,
-			accountUserId: actor.accountUserId,
-			causation: rootLifecycleCausation({
-				source,
-				executionId,
-				lane: input.lane,
-				initiator: actor.initiator,
-				...(integrationId === undefined ? {} : { integrationId }),
-				...(source === "provider-refresh"
-					? { providerExecutionId: AutomationExecutionId.make(input.workflowExecutionId) }
-					: {}),
-			}),
-		}).pipe(
-			Effect.mapBoth({
-				onFailure: () => toSandboxHostError("Invalid root lifecycle command"),
-				onSuccess: (command) => ({ ...command, writeContext: input.principal }),
-			}),
-		);
+			lane: input.lane,
+			startedAt: input.startedAt,
+			principal: input.principal,
+			executionId: AutomationExecutionId.make(
+				`${input.workflowExecutionId}-host-${input.hostCallDiscriminator}`,
+			),
+			...(source === "provider-refresh"
+				? { providerExecutionId: AutomationExecutionId.make(input.workflowExecutionId) }
+				: {}),
+		}).pipe(Effect.mapError(() => toSandboxHostError("Invalid root lifecycle command")));
+	});
+
+const rootLifecycleCommand = (input: {
+	readonly startedAt: string;
+	readonly lane: ExecutionLane;
+	readonly itemIdentity: string;
+	readonly executionId: AutomationExecutionId;
+	readonly principal: ScriptRunInput["principal"];
+	readonly providerExecutionId?: AutomationExecutionId;
+	readonly source: Exclude<AutomationSource, "automation">;
+	readonly subject: Exclude<SandboxExecutionSubject, { readonly type: "automation-run" }>;
+}) => {
+	const integrationId = input.subject.type === "user" ? input.subject.integrationId : undefined;
+	const actor = lifecycleActor(input.subject.type === "user" ? input.subject : null);
+	return Schema.decodeEffect(LifecycleCommand)({
+		occurredAt: input.startedAt,
+		itemIdentity: input.itemIdentity,
+		accountUserId: actor.accountUserId,
+		causation: rootLifecycleCausation({
+			lane: input.lane,
+			source: input.source,
+			initiator: actor.initiator,
+			executionId: input.executionId,
+			...(integrationId === undefined ? {} : { integrationId }),
+			...(input.providerExecutionId === undefined
+				? {}
+				: { providerExecutionId: input.providerExecutionId }),
+		}),
+	}).pipe(
+		Effect.map((command): DomainLifecycleCommand => ({
+			...command,
+			writeContext: input.principal,
+		})),
+	);
+};
+
+/** The command an operation's returned changes commit under, attributed as its host writes would be. */
+export const operationLifecycleCommand = (input: {
+	readonly startedAt: string;
+	readonly lane: ExecutionLane;
+	readonly executionId: AutomationExecutionId;
+	readonly principal: ScriptExecutionPrincipal & {
+		readonly subject: Extract<SandboxExecutionSubject, { readonly type: "user" }>;
+	};
+}) =>
+	rootLifecycleCommand({
+		...input,
+		subject: input.principal.subject,
+		itemIdentity: "operation-changes",
+		source: input.principal.subject.integrationId ? "integration" : "api",
 	});
 
 export const reportSandboxLifecycleWarnings = (

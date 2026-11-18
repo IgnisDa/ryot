@@ -34,6 +34,7 @@ import { fixtureManifest } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { buildDefinitionSnapshot, type DefinitionSource } from "@ryot-app/definitions/snapshot";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -1312,6 +1313,39 @@ describe("getUserSettings", () => {
 
 					expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
 						"Plugin installation not found",
+					);
+				}),
+			testTimeout,
+		);
+	});
+	layer(
+		hostFunctionsLayer({
+			executionSettings: () => ({
+				userSettings: { timezone: "x".repeat(SANDBOX_LIMITS.userSettingsBytes) },
+			}),
+		}),
+	)((test) => {
+		test.effect(
+			"rejects settings larger than the sandbox bound",
+			() =>
+				Effect.gen(function* () {
+					const functions = yield* makeAdditionalScriptHostFunctions;
+					const result = yield* Effect.result(
+						functions.getUserSettings({
+							...runInput(
+								{
+									type: "user",
+									userId: UserId.make("user-1"),
+									importRunId: ImportRunId.make("run-1"),
+								},
+								["getUserSettings"],
+								{ pluginRevision: ingestionTestRevision },
+							),
+							executionId: "run-1-import-host-1",
+						}),
+					);
+					expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
+						`Plugin user settings exceed ${SANDBOX_LIMITS.userSettingsBytes} UTF-8 bytes`,
 					);
 				}),
 			testTimeout,

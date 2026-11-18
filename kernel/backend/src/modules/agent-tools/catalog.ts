@@ -1,11 +1,15 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { notFound, schemaValidationFailed } from "@ryot-app/contract/errors";
+import { UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
+import { PluginOperationJsonSchema } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginInvokeResult } from "@ryot-app/contract/modules/plugins/schemas";
 import {
 	type RyotQLDocument,
 	stampRyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import { toAgentJsonSchema } from "@ryot-app/contract/schema/agent-tool";
 import { PluginId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import {
 	type Capability,
@@ -55,6 +59,25 @@ type CatalogEntry = {
 	readonly capability: Capability;
 	readonly document?: RyotQLDocument;
 	readonly entitlement?: undefined | Entitlement;
+};
+
+const committedOutput = toAgentJsonSchema(Schema.toCodecJson(UserCommandResult));
+
+const isJsonSchemaObject = Schema.is(PluginOperationJsonSchema);
+
+const operationOutput = (result: PluginOperationJsonSchema): PluginOperationJsonSchema => {
+	const { $defs: resultDefinitions, ...resultSchema } = result;
+	const { $defs: committedDefinitions, ...committedSchema } = committedOutput;
+	const definitions = Object.fromEntries(
+		[committedDefinitions, resultDefinitions].filter(isJsonSchemaObject).flatMap(Object.entries),
+	);
+	return {
+		type: "object",
+		additionalProperties: false,
+		required: ["result", "committed"],
+		properties: { result: resultSchema, committed: committedSchema },
+		...(Object.keys(definitions).length > 0 ? { $defs: definitions } : {}),
+	};
 };
 
 export const capabilityPin = (capability: Capability) =>
@@ -158,8 +181,8 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 								input: operation.input,
 								hints: operation.hints,
 								title: operation.title,
-								output: operation.output,
 								description: operation.description,
+								output: operationOutput(operation.output),
 								id: pluginOperationCapabilityId(plugin.packageId, operation.slug),
 								source: {
 									kind: "operation",
@@ -287,9 +310,13 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 						? {}
 						: { idempotencyKey: invocation.idempotencyKey }),
 				};
-				return yield* invocation.headers === undefined
+				const { output, committed } = yield* invocation.headers === undefined
 					? operations.invokeTrusted({ ...operationInput, userId: user.id })
 					: operations.invoke({ ...operationInput, headers: invocation.headers });
+				return yield* Schema.encodeEffect(Schema.toCodecJson(PluginInvokeResult))({
+					committed,
+					result: output,
+				}).pipe(Effect.orDie);
 			});
 			return { list, invoke, resolve };
 		}),

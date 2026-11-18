@@ -2,9 +2,12 @@ import { Layer } from "effect";
 
 import { AuthServiceLive } from "#modules/accounts/auth/layer";
 import { IntegrationOperationScopeResolverProvidedLive } from "#modules/integrations/layer";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
+import { ExecutableArtifacts } from "#modules/scripts/registry/executable-artifacts";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
+import { UserCommandsLive } from "#modules/user-commands/layer";
 
 import { PluginCatalogInvalidatorLive } from "../catalog/events";
 import { PluginRuntimeResolverLive } from "../catalog/runtime-resolver";
@@ -23,6 +26,8 @@ export const OperationsServiceLive = OperationsService.layer.pipe(
 			SandboxRepository.layer,
 			SandboxWorkflowReferenceRepository.layer,
 			IntegrationOperationScopeResolverProvidedLive,
+			ScriptCalls.layer.pipe(Layer.provide(ExecutableArtifacts.layer)),
+			UserCommandsLive,
 		),
 	),
 );

@@ -41,7 +41,7 @@ import {
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
 import type { SandboxAdmission } from "./queues";
-import { SandboxExecutionResult } from "./result";
+import { sandboxExecutionFailure, SandboxExecutionResult } from "./result";
 import type { DirectScriptExecutor } from "./workflow";
 import {
 	executeScriptExecutionWorkflow,
@@ -52,18 +52,6 @@ import {
 const jobNotFound = () => notFound(kernelMessage("error.scripts.job-not-found"));
 const scriptNotFound = () => notFound(kernelMessage("error.scripts.not-found"));
 const contextInvalid = () => badRequest(kernelMessage("error.scripts.context-invalid"));
-
-const sandboxExecutionFailure = (error: SandboxRunError) => ({
-	logs: [],
-	value: null,
-	status: "completed" as const,
-	error: {
-		kind: error.kind,
-		message: error.message,
-		phase: "execute" as const,
-		...(error.data === undefined ? {} : { data: error.data }),
-	},
-});
 
 const toPluginWorkflowResult = (result: undefined | Workflow.Result<JsonValue, SandboxRunError>) =>
 	toWorkflowRunResult(result, { onFailure: String, onSuccess: (output) => ({ output }) });

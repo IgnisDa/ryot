@@ -21,9 +21,10 @@ Scripts build messages with its `catalogMessage`, and the kernel stamps the `ker
 them. The package `build` script runs both, and Turbo runs it after the kernel catalog build; the
 module is git-ignored.
 
-Every invocation reloads persisted authority and verifies compiled SHA-256 and package identity
-across manifest, plugin row, and authority projection. Historical pins preserve code/config/definitions,
-not expired authority: fresh host calls still enforce current account and installation access.
+Every run verifies compiled SHA-256 and package identity across manifest, plugin row, and authority
+projection, and resolves persisted authority for host calls once, on the first host call, reusing that outcome
+for the rest of the run; a revocation applies from the next run. Historical pins preserve code/config/definitions,
+not expired authority: fresh runs still enforce current account and installation access.
 A plugin pin carries the revision's identity and a digest of its script hashes, so a revision that
 lost scripts no longer matches; the revision's scripts and schema scope are read by revision ID.
 System authority requires verified kernel/system ownership; user plugins execute as their owner.
@@ -50,7 +51,9 @@ A failed envelope carries the escaped error's boundary reason as `data`, which r
 The `operation-rejected` reason marks a deliberate operation refusal: the guest runner keeps it,
 `OperationsService` answers it with HTTP 422 `PluginOperationRejected` carrying a message reason while every
 other operation failure stays HTTP 502 `PluginInvocationError`, an automation run records it as a
-`business-failure` under the code `operation-rejected`, and workflow classification is unchanged.
+`business-failure` under the code `operation-rejected`, and workflow classification is unchanged. The
+`operation-conflict` reason, carrying a `CommitConflictCode`, is preserved the same way and answered by
+`OperationsService` with HTTP 409 `PluginConflictError` and `changes-conflict`.
 
 Plugin workflow activations load their current checkpoint. A checkpoint commit stores the next
 revision and discards the completed scope's activities and deferreds atomically. In-memory caches and
@@ -71,6 +74,14 @@ the metric's duration is the run's own.
 Dispatch uses the original workflow owner so cancellation remains attached. Failure, interruption,
 suspension, and defects do not complete a slot. Delayed completions or concurrent misses may repeat
 idempotent dispatch: durable ownership is not a single-flight guarantee.
+
+### Direct calls
+
+`ScriptCalls` runs a pinned script once on the plain host: no workflow, journal, durable host, or
+workflow reference. Lifecycle writes require a durable host call, so such a run can only read. The
+plain host serves only capabilities with a declared result bound; reads without one, such as
+`getPluginConfig`, keep the workflow path. A full admission queue is retried every
+100 ms with jitter.
 
 ### Journal projection
 

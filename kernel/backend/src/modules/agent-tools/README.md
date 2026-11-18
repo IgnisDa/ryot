@@ -46,7 +46,9 @@ Capability IDs are `<owner>:<name>` and never rewritten: `kernel:<slug>`,
 `<publisher>/<package>:operations/<slug>` and `<publisher>/<package>:queries/<name>`. Capabilities
 carry the title declared by their owner, which approval screens show, and their source pins (revision, installation, configuration and content hash for operations;
 revision and scope for declared queries). Operation calls go through `OperationsService` with those
-pins. Declared queries and the recipe-backed kernel reads share one input derived from their document:
+pins and return `{ result, committed }` like the HTTP route: the operation's output and the IDs of
+the root entity and events its returned changes committed. Operation capabilities declare that
+wrapper around the operation's output schema. Declared queries and the recipe-backed kernel reads share one input derived from their document:
 typed `arguments` from its parameters and a `pages` entry for each query `@ryot-app/ryotql/paging`
 reports as pageable, bounded by its declared maximum and at most 100 rows. Requests are clamped to
 the same bound, and fail with an instructive error when the result exceeds the execution byte cap.

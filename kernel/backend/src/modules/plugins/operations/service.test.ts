@@ -1,16 +1,25 @@
 import { expect } from "bun:test";
 
 import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
+import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
+import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
+import type {
+	UserCommand,
+	UserCommandResult,
+} from "@ryot-app/contract/modules/mutations/user-command";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
+	PluginOperationRejected,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { AccessClass, WriteAccess } from "@ryot-app/contract/oauth";
 import {
+	EntityId,
+	EventId,
 	IntegrationId,
 	PluginConfigRevisionId,
 	PluginId,
@@ -34,16 +43,23 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { makeIntegration as integrationRecord } from "#modules/integrations/test-support";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
+import {
+	type UserCommandCommitHook,
+	type UserCommandFailure,
+	UserCommands,
+} from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
 import * as tables from "#schema/tables/combined";
@@ -100,12 +116,13 @@ type AvailableOperation = (
 	readonly installationId: string;
 	readonly scope: "user" | "system";
 	readonly packageId?: PluginPackageId;
+	readonly capabilities?: ReadonlyArray<string>;
 };
 
 const availablePackageId = (available: AvailableOperation) =>
 	available.packageId ?? (available.scope === "system" ? SYSTEM_PACKAGE_ID : PRIVATE_PACKAGE_ID);
 
-const makeActiveScript = (id: string) => ({
+const makeActiveScript = (id: string, capabilities: ReadonlyArray<string>) => ({
 	slug: DRIVER_REF,
 	providerId: null,
 	name: DRIVER_REF,
@@ -120,12 +137,16 @@ const makeActiveScript = (id: string) => ({
 		name: DRIVER_REF,
 		slug: DRIVER_REF,
 		...emptySandboxExecutionMetadata,
+		capabilities,
 		kind: "operation" as const,
 	},
 });
 
 const resolvedOperation = (available: AvailableOperation) => ({
-	script: makeActiveScript(available.scriptId ?? `${available.installationId}-script`),
+	script: makeActiveScript(
+		available.scriptId ?? `${available.installationId}-script`,
+		available.capabilities ?? ["createEvents"],
+	),
 	plugin: {
 		isHidden: false,
 		clientImports: [],
@@ -188,6 +209,7 @@ class OperationFakeState extends Context.Service<
 	{
 		readonly availableLookups: Ref.Ref<number>;
 		readonly events: Ref.Ref<ReadonlyArray<string>>;
+		readonly commits: Ref.Ref<ReadonlyArray<unknown>>;
 		readonly captured: Ref.Ref<ReadonlyArray<unknown>>;
 		readonly integration: Ref.Ref<null | IntegrationRecord>;
 		readonly packageLookups: Ref.Ref<ReadonlyArray<string>>;
@@ -202,6 +224,7 @@ class FakeOperationDependencies extends Context.Service<
 	{
 		readonly availableLookups: Effect.Effect<number>;
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
+		readonly commits: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly captured: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly packageLookups: Effect.Effect<ReadonlyArray<string>>;
 		readonly referenceRegistrations: Effect.Effect<ReadonlyArray<string>>;
@@ -220,10 +243,24 @@ const makeLayer = (input: {
 	entitlements?: Entitlements;
 	integration?: null | IntegrationRecord;
 	available?: ReadonlyArray<AvailableOperation>;
+	commitFailure?: typeof UserCommandFailure.Type;
 	database?: ReturnType<typeof isolatedDatabaseLayer>;
 	privateInstallation?: null | PluginInstallationHydratedState;
 	sandboxErrorData?: NonNullable<SandboxExecutionResult["error"]>["data"];
 }) => {
+	const sandboxResult = {
+		logs: [],
+		status: "completed" as const,
+		value: "sandboxValue" in input ? input.sandboxValue : { output: "ok" },
+		error: input.sandboxError
+			? {
+					phase: "execute" as const,
+					message: input.sandboxError,
+					...(input.sandboxErrorData === undefined ? {} : { data: input.sandboxErrorData }),
+					kind: "script-failure" as const,
+				}
+			: null,
+	};
 	const stateLayer = Layer.effect(
 		OperationFakeState,
 		Effect.gen(function* () {
@@ -231,6 +268,7 @@ const makeLayer = (input: {
 				availableLookups: yield* Ref.make(0),
 				available: yield* Ref.make(input.available ?? []),
 				events: yield* Ref.make<ReadonlyArray<string>>([]),
+				commits: yield* Ref.make<ReadonlyArray<unknown>>([]),
 				captured: yield* Ref.make<ReadonlyArray<unknown>>([]),
 				integration: yield* Ref.make(input.integration ?? null),
 				packageLookups: yield* Ref.make<ReadonlyArray<string>>([]),
@@ -245,6 +283,7 @@ const makeLayer = (input: {
 			return Layer.mergeAll(
 				Layer.succeed(FakeOperationDependencies, {
 					events: Ref.get(state.events),
+					commits: Ref.get(state.commits),
 					captured: Ref.get(state.captured),
 					packageLookups: Ref.get(state.packageLookups),
 					availableLookups: Ref.get(state.availableLookups),
@@ -410,23 +449,50 @@ const makeLayer = (input: {
 					executeScript: (runInput) =>
 						recordEvent("dispatch").pipe(
 							Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
-							Effect.as({
-								logs: [],
-								status: "completed" as const,
-								value: "sandboxValue" in input ? input.sandboxValue : "ok",
-								error: input.sandboxError
-									? {
-											phase: "execute" as const,
-											message: input.sandboxError,
-											...(input.sandboxErrorData === undefined
-												? {}
-												: { data: input.sandboxErrorData }),
-											kind: "script-failure" as const,
-										}
-									: null,
-							}),
+							Effect.as(sandboxResult),
 						),
 				}),
+				Layer.mock(ScriptCalls)({
+					run: (runInput) =>
+						recordEvent("direct").pipe(
+							Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
+							Effect.as(sandboxResult),
+						),
+				}),
+				Layer.effect(
+					UserCommands,
+					Effect.map(DatabaseSession, (database) => ({
+						commit: (
+							changes: UserCommand,
+							command: DomainLifecycleCommand,
+							userId: UserId,
+							hook?: UserCommandCommitHook,
+						) =>
+							Effect.gen(function* () {
+								yield* recordEvent("commit");
+								yield* Ref.update(state.commits, (all) => [
+									...all,
+									{ userId, changes, causation: command.causation },
+								]);
+								if (input.commitFailure) {
+									return yield* input.commitFailure;
+								}
+								const result: UserCommandResult = {
+									events: (changes.events?.creates ?? []).map((create) => ({
+										itemIdentity: create.itemIdentity,
+										eventId: EventId.make(`event-${create.itemIdentity}`),
+									})),
+								};
+								if (hook) {
+									const { start, finish } = hook;
+									yield* database
+										.transaction(Effect.andThen(start, finish(result)))
+										.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+								}
+								return result;
+							}),
+					})),
+				),
 			);
 		}),
 	);
@@ -493,7 +559,7 @@ const invoke = (input: {
 			...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
 			...(input.contentHash === undefined ? {} : { contentHash: input.contentHash }),
 		}),
-	);
+	).pipe(Effect.map(({ output }) => output));
 
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
 	test.effect(
@@ -1253,7 +1319,7 @@ layer(
 									phase: "output",
 									severity: "error",
 									code: "sandbox-runtime-error",
-									message: "Sandbox operation result must be JSON",
+									message: "Sandbox operation result is invalid",
 								},
 							],
 						},
@@ -1378,6 +1444,28 @@ layer(
 	);
 });
 
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		available: [systemUserOperation],
+		sandboxError: "The baseline changed",
+		sandboxErrorData: { code: "operation-conflict", conflict: "entity-not-found" },
+	}),
+)((test) => {
+	test.effect(
+		"maps an operation conflict raised before changes were built to a 409 changes conflict",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					new PluginConflictError({
+						reason: { code: "changes-conflict", conflict: "entity-not-found" },
+					}),
+				);
+			}),
+		testTimeout,
+	);
+});
+
 layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 	test.effect(
 		"dispatches trusted user commands through ordinary admission without bearer headers and rejects changed pins",
@@ -1392,8 +1480,9 @@ layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 					operationSlug: OPERATION_SLUG,
 					idempotencyKey: "trusted-operation",
 				};
-				expect(yield* service.invokeTrusted(request)).toBe("ok");
-				expect(yield* service.invokeTrusted(request)).toBe("ok");
+				const receipt = { output: "ok", committed: { events: [] } };
+				expect(yield* service.invokeTrusted(request)).toEqual(receipt);
+				expect(yield* service.invokeTrusted(request)).toEqual(receipt);
 				expect(yield* fake.referenceRegistrations).toHaveLength(1);
 				expect(yield* fake.captured).toHaveLength(1);
 				expect(
@@ -1411,6 +1500,160 @@ layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 				expect(
 					yield* Effect.flip(service.invoke({ ...request, headers: Headers.empty })),
 				).toMatchObject({ _tag: "AuthUnauthorized" });
+			}),
+		testTimeout,
+	);
+});
+
+const readOnlyOperation = {
+	...systemUserOperation,
+	capabilities: [
+		"executeRyotql",
+		"getEntitlements",
+		"getUserSettings",
+		"log",
+		"verifyManagedAssets",
+	],
+};
+const pluginRejection = { key: "rejection.blocked", namespace: "plugin-fixture" };
+const returnedChanges = {
+	output: "saved",
+	changes: {
+		events: {
+			changes: [],
+			creates: [
+				{
+					properties: {},
+					itemIdentity: "review",
+					eventSchemaSlug: "review",
+					entity: { kind: "existing", entityId: "entity-1" },
+				},
+			],
+		},
+	},
+};
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [readOnlyOperation],
+	}),
+)((test) => {
+	test.effect(
+		"runs a read-only operation directly and commits its returned changes once per key",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* OperationsService;
+				const fake = yield* FakeOperationDependencies;
+				const request = {
+					payload: {},
+					headers: Headers.empty,
+					packageId: SYSTEM_PACKAGE_ID,
+					operationSlug: OPERATION_SLUG,
+					idempotencyKey: "direct-operation",
+				};
+				const receipt = {
+					output: "saved",
+					committed: {
+						events: [{ itemIdentity: "review", eventId: EventId.make("event-review") }],
+					},
+				};
+				expect(yield* service.invoke(request)).toEqual(receipt);
+				expect(yield* service.invoke(request)).toEqual(receipt);
+				expect((yield* fake.events).filter((event) => event !== "lock")).toEqual([
+					"direct",
+					"commit",
+				]);
+				expect(yield* fake.referenceRegistrations).toEqual([]);
+				const [run] = yield* fake.captured;
+				expect(run).toMatchObject({
+					lane: "interactive",
+					principal: { subject: { type: "user", userId: USER_ONE } },
+				});
+				const commits = yield* fake.commits;
+				expect(commits).toHaveLength(1);
+				expect(commits[0]).toMatchObject({
+					userId: USER_ONE,
+					changes: returnedChanges.changes,
+					causation: { depth: 0, source: "api", initiator: { kind: "user", id: USER_ONE } },
+				});
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [readOnlyOperation],
+		commitFailure: new EventBadRequest({
+			reason: { code: "policy-rejected", message: pluginRejection },
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"maps a policy rejection of returned changes to a 422 with the policy's reason",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					new PluginOperationRejected({ reason: pluginRejection }),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [readOnlyOperation],
+		commitFailure: new EntityStale({
+			reason: { code: "entity-stale", entityId: EntityId.make("entity-1") },
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"maps a stale baseline of returned changes to a 409 changes conflict",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					new PluginConflictError({
+						reason: { code: "changes-conflict", conflict: "entity-stale" },
+					}),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [readOnlyOperation],
+		commitFailure: new EventBadRequest({ reason: { code: "root-entity-required" } }),
+	}),
+)((test) => {
+	test.effect(
+		"reports invalid returned changes as a plugin invocation failure",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toMatchObject({
+					_tag: "PluginInvocationError",
+					reason: {
+						code: "runtime-failed",
+						diagnostics: [
+							objectContaining({
+								phase: "output",
+								message:
+									"Operation changes were not committed (EventBadRequest: root-entity-required)",
+							}),
+						],
+					},
+				});
 			}),
 		testTimeout,
 	);

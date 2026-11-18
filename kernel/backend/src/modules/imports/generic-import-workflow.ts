@@ -11,7 +11,10 @@ import {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
-import { UserCommand, UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
+import {
+	UserCommandEntity,
+	UserCommandResult,
+} from "@ryot-app/contract/modules/mutations/user-command";
 import {
 	type DefinitionOwner,
 	definitionOwner,
@@ -743,7 +746,7 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 	);
 	const root = yield* makeActivity({
 		error: ImportRunError,
-		success: UserCommand.fields.entity,
+		success: UserCommandEntity,
 		name: `prepare-generic-import-record-${context.index}`,
 		execute: Effect.gen(function* () {
 			const entityId = yield* findImportEntity(subject, userId, {
@@ -752,7 +755,7 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 			});
 			const existing =
 				entityId === undefined ? null : yield* entityRows.getByIdForUser({ userId, entityId });
-			return yield* Schema.decodeUnknownEffect(UserCommand.fields.entity)(
+			return yield* Schema.decodeUnknownEffect(UserCommandEntity)(
 				existing
 					? {
 							name: existing.name,
@@ -790,6 +793,9 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 			userId,
 		),
 	});
+	if (written.entityId === undefined) {
+		return yield* new ImportRunError({ message: "Generic import record committed no entity" });
+	}
 	aliases.set(subject.alias, written.entityId);
 	return { aliases, events: [] };
 });
