@@ -15,8 +15,6 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 export type CoreSandboxHostCapability = (typeof CORE_SANDBOX_HOST_CAPABILITIES)[number];
 
 export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
-	"getEntitySchemas",
-	"listEventSchemas",
 	"listIntegrations",
 	"executeRyotql",
 	"invokeCapability",
@@ -48,8 +46,6 @@ export const POLICY_SAFE_SANDBOX_CAPABILITIES = [
 	"getPluginConfig",
 	"getUserPreferences",
 	"getUserSettings",
-	"getEntitySchemas",
-	"listEventSchemas",
 	"listIntegrations",
 	"executeRyotql",
 	"getCurrentIntegration",

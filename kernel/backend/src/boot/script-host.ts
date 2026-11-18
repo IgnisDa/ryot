@@ -7,7 +7,6 @@ import { ManagedAssetsServiceLive } from "#modules/assets/layer";
 import { makeAssetsScriptHost } from "#modules/assets/script-host";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { makeDefinitionScriptHost } from "#modules/definitions/script-host";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { makeIntegrationScriptHost } from "#modules/integrations/script-host";
@@ -40,7 +39,6 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 		invokeCapability: () => Effect.fail({ message: "Capability calls require an agent run" }),
 		...(yield* makeAuthScriptHost),
 		...(yield* makeAssetsScriptHost),
-		...(yield* makeDefinitionScriptHost),
 		...(yield* makeIntegrationScriptHost),
 		...(yield* makeOAuthConnectionScriptHost),
 		...(yield* makePluginScriptHost),

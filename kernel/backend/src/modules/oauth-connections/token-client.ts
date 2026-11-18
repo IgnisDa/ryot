@@ -1,12 +1,11 @@
 import type { PluginOAuthProvider } from "@ryot-app/contract/modules/plugins/manifest";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Context, Duration, Effect, Layer, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { readSandboxByteLimitedText } from "#modules/scripts/host/stream-utils";
 
 const OAUTH_TOKEN_REQUEST_TIMEOUT = Duration.seconds(10);
-
-export const OAUTH_TOKEN_RESPONSE_MAX_BYTES = 64 * 1024;
 
 type OAuthClientCredentials = { readonly clientId: string; readonly clientSecret: string };
 
@@ -89,7 +88,7 @@ export class OAuthTokenClient extends Context.Service<OAuthTokenClient>()(
 					Effect.flatMap((response) =>
 						readSandboxByteLimitedText(
 							response.stream,
-							OAUTH_TOKEN_RESPONSE_MAX_BYTES,
+							SANDBOX_LIMITS.oauthTokenResponseBytes,
 							"oversized" as const,
 						).pipe(Effect.map((text) => ({ text, status: response.status }))),
 					),

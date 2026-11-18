@@ -16,6 +16,10 @@ export const IntegrationRequestFailureReason = Schema.Union([
 	Schema.Struct({ integrationId: IntegrationId, code: Schema.Literal("integration-not-found") }),
 	Schema.Struct({ code: Schema.Literal("integration-webhook-not-found") }),
 	Schema.Struct({
+		maxBytes: Schema.Finite,
+		code: Schema.Literal("integration-settings-too-large"),
+	}),
+	Schema.Struct({
 		value: Schema.Finite,
 		code: Schema.Literal("progress-out-of-range"),
 		field: Schema.Literals(["minimumProgress", "maximumProgress"]),

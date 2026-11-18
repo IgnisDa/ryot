@@ -770,6 +770,7 @@
 	"client.integrations.save.failed": "无法保存此集成。请重试。",
 	"client.integrations.save.progress-bounds": "进度值必须介于 0 到 100 之间。",
 	"client.integrations.save.progress-range": "最低进度不得高于最高进度。",
+	"client.integrations.save.settings-too-large": "这些设置超出 {maxBytes, number} 字节的限制。",
 	"client.integrations.state": "{state, select, paused {已暂停} active {已启用} other {已启用}}",
 	"client.integrations.sync-title": "Ryot 如何同步",
 	"client.integrations.sync.never": "从未同步",

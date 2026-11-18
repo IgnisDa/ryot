@@ -1121,6 +1121,10 @@
 	"client.integrations.save.failed": "This integration could not be saved. Try again.",
 	"client.integrations.save.progress-bounds": "Progress values must be between 0 and 100.",
 	"client.integrations.save.progress-range": "The lowest progress must not be higher than the highest progress.",
+	"client.integrations.save.settings-too-large": {
+		"message": "These integration settings are larger than the limit of {maxBytes, number} bytes.",
+		"description": "Shown when saving an integration. {maxBytes} is the maximum size in bytes."
+	},
 	"client.integrations.state": {
 		"message": "{state, select, paused {Paused} active {Active} other {Active}}",
 		"description": "{state} is paused or active."

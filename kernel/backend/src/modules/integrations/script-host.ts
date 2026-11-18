@@ -4,6 +4,7 @@ import {
 	sandboxHostFailure,
 	toSandboxJsonValue,
 } from "@ryot-app/sandbox/host/invocation";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect } from "effect";
 
 import {
@@ -43,12 +44,19 @@ export const makeIntegrationScriptHost = Effect.gen(function* () {
 
 				return yield* sandboxHostEffect(
 					integrationsRepository
-						.listForUser({
+						.listPageForUser({
+							afterId: options.cursor,
+							provider: options.provider,
+							isDisabled: options.isDisabled,
+							limit: SANDBOX_LIMITS.integrations.pageSize,
 							userId: UserId.make(userSandboxRunUserId(input)),
-							...(options.provider !== undefined ? { provider: options.provider } : {}),
-							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
 						})
-						.pipe(Effect.map((rows) => rows.map(toSandboxIntegration))),
+						.pipe(
+							Effect.map(({ items, nextAfterId }) => ({
+								nextCursor: nextAfterId,
+								items: items.map(toSandboxIntegration),
+							})),
+						),
 				);
 			}),
 		getCurrentIntegration: (rawInput) =>

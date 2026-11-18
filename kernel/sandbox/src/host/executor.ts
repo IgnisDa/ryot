@@ -23,10 +23,7 @@ import { bindObservabilityHostFunctions } from "./bridge-adapter";
 import { ExecutionFiles } from "./file-access";
 import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
 import { SandboxHostCallGate } from "./host-call-gate";
-import {
-	sandboxDurableHostDispatchStrategy,
-	sandboxHostResultBytes,
-} from "./host-execution-policy";
+import { sandboxDurableHostDispatchStrategy } from "./host-execution-policy";
 import { SandboxHostFunctions } from "./host-functions";
 import {
 	type BoundHostFunction,
@@ -51,8 +48,8 @@ const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchem
 	onExcessProperty: "error",
 });
 
-// Service capabilities may wait for nested sandbox runs, and unbounded results cannot be
-// charged to transient memory, so live executions never bind them while holding a slot and memory.
+// Service capabilities may wait for nested sandbox runs, so live executions never bind them while
+// holding a slot and memory.
 const resourceFreeStrategies = new Set<ReturnType<typeof sandboxDurableHostDispatchStrategy>>([
 	"activity",
 	"diagnostic",
@@ -70,8 +67,7 @@ export const selectSandboxHostFunctions = (
 			!isSandboxHostCapability(name) ||
 			isSandboxFilesystemGrantCapability(name) ||
 			(workflow && name !== "log" && name !== "span") ||
-			!resourceFreeStrategies.has(sandboxDurableHostDispatchStrategy(name)) ||
-			sandboxHostResultBytes(name) === null
+			!resourceFreeStrategies.has(sandboxDurableHostDispatchStrategy(name))
 		) {
 			continue;
 		}

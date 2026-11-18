@@ -8,6 +8,8 @@ import {
 	parseAppSchemaProperties,
 	parseAppSchemaPropertiesSafe,
 } from "@ryot-app/contract/schema/property-values";
+import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
@@ -45,6 +47,11 @@ const attribution = (
 	pluginRevisionId: row.pluginRevisionId,
 	payloadFingerprint: row.payloadFingerprint,
 });
+
+export const pluginConfigTooLargeMessage = `Plugin config exceeds ${SANDBOX_LIMITS.pluginConfigBytes} UTF-8 bytes`;
+
+export const isPluginConfigTooLarge = (properties: Readonly<Record<string, unknown>>) =>
+	(jsonByteLength(properties) ?? Infinity) > SANDBOX_LIMITS.pluginConfigBytes;
 
 const encodePointerSegment = (value: string) => value.replaceAll("~", "~0").replaceAll("/", "~1");
 
@@ -408,6 +415,9 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 								allowMissingRequiredSecrets ?? false,
 							);
 				const properties = restored.properties;
+				if (isPluginConfigTooLarge(properties)) {
+					return yield* new DbError({ message: pluginConfigTooLargeMessage });
+				}
 				yield* assetReferences.lock([
 					{
 						properties,

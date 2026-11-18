@@ -78,9 +78,10 @@ idempotent dispatch: durable ownership is not a single-flight guarantee.
 ### Direct calls
 
 `ScriptCalls` runs a pinned script once on the plain host: no workflow, journal, durable host, or
-workflow reference. Every operation runs this way. The plain host serves only capabilities with a
-declared result bound; reads without one, such as `getPluginConfig`, are unavailable to it. A full
-admission queue is retried every 100 ms with jitter.
+workflow reference. Every operation runs this way. Every host read declares a result bound that its
+producer enforces (see the [sandbox limits](../../../../sandbox/README.md#limits)), so the plain host
+serves all of them; only service-dispatched capabilities are unavailable to it. A full admission
+queue is retried every 100 ms with jitter.
 
 ### Journal projection
 
@@ -161,12 +162,12 @@ resources, not host calls.
 | Subject              | Capability boundary                                                                                |
 | -------------------- | -------------------------------------------------------------------------------------------------- |
 | Valid subjects       | Diagnostics, HTTP, cache/persistent values, and pinned plugin configuration                        |
-| User/user automation | Schema/integration/preference/settings reads, entitlements, managed-asset verification, and RyotQL |
+| User/user automation | Integration/preference/settings reads, entitlements, managed-asset verification, and RyotQL        |
 | Pinned system plugin | RyotQL within owned definitions                                                                    |
 | Own integration run  | Access/invalidation of OAuth fields declared by its current settings schema                        |
 
 User-subject definition reads pin only the caller's own declarations; visible foreign definitions
-remain current. Entity/event reads use RyotQL, not schema metadata calls. Before policies receive
+remain current. Entity, event, and schema reads use RyotQL. Before policies receive
 only the [policy-safe surface](../../../../../packages/plugin-kit/README.md#lifecycle-hooks).
 
 Hidden unfinished installations may execute only their dispatched initializer under an exact current

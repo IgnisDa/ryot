@@ -725,6 +725,7 @@
 	"client.integrations.save.failed": "No se ha podido guardar esta integración. Vuelve a intentarlo.",
 	"client.integrations.save.progress-bounds": "Los valores de progreso deben estar entre 0 y 100.",
 	"client.integrations.save.progress-range": "El progreso mínimo no puede ser superior al máximo.",
+	"client.integrations.save.settings-too-large": "Estos ajustes superan el límite de {maxBytes, number} bytes.",
 	"client.integrations.state": "{state, select, paused {En pausa} active {Activa} other {Activa}}",
 	"client.integrations.sync-title": "Cómo lo sincroniza Ryot",
 	"client.integrations.sync.never": "Nunca sincronizada",

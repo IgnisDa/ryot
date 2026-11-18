@@ -1,12 +1,13 @@
 import { expect } from "bun:test";
 
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Fiber, Option, Ref } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
 
-import { OAUTH_TOKEN_RESPONSE_MAX_BYTES, OAuthTokenClient } from "./token-client";
+import { OAuthTokenClient } from "./token-client";
 
 const provider = {
 	scopes: [],
@@ -75,7 +76,7 @@ it.effect(
 
 			const oversized = yield* requestReason(() =>
 				Effect.succeed(
-					new Response("x".repeat(OAUTH_TOKEN_RESPONSE_MAX_BYTES + 1), { status: 200 }),
+					new Response("x".repeat(SANDBOX_LIMITS.oauthTokenResponseBytes + 1), { status: 200 }),
 				),
 			);
 			expect(oversized.result).toBe("failed");

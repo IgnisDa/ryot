@@ -6,26 +6,32 @@ import { KiB, MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 import type { SandboxPrincipal } from "./principal";
 
+const integrationRecordBytes = SANDBOX_LIMITS.integrations.settingsBytes + 2 * KiB;
+
 export const SANDBOX_HOST_EXECUTION_POLICY = {
 	invokeCapability: { resultBytes: MiB, dispatch: "service" },
 	getEntitlements: { resultBytes: KiB, dispatch: "activity" },
-	getPluginConfig: { resultBytes: null, dispatch: "activity" },
-	getEntitySchemas: { resultBytes: null, dispatch: "activity" },
-	listEventSchemas: { resultBytes: null, dispatch: "activity" },
-	listIntegrations: { resultBytes: null, dispatch: "activity" },
 	getUserPreferences: { resultBytes: KiB, dispatch: "activity" },
-	getOAuthAccessToken: { resultBytes: null, dispatch: "activity" },
 	log: { permit: "small", resultBytes: KiB, dispatch: "diagnostic" },
-	getCurrentIntegration: { resultBytes: null, dispatch: "activity" },
 	span: { permit: "small", resultBytes: KiB, dispatch: "diagnostic" },
 	invalidateOAuthAccessToken: { resultBytes: KiB, dispatch: "activity" },
 	setCachedValue: { permit: "small", resultBytes: KiB, dispatch: "activity" },
 	verifyManagedAssets: { wireBytes: KiB, resultBytes: KiB, dispatch: "activity" },
 	httpCall: { dispatch: "activity", resultBytes: 2 * SANDBOX_LIMITS.http.responseBytes },
+	getCurrentIntegration: {
+		dispatch: "activity",
+		wireBytes: integrationRecordBytes + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * integrationRecordBytes,
+	},
 	executeRyotql: {
 		dispatch: "activity",
 		wireBytes: SANDBOX_LIMITS.ryotqlResultBytes + KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.ryotqlResultBytes,
+	},
+	getPluginConfig: {
+		dispatch: "activity",
+		wireBytes: SANDBOX_LIMITS.pluginConfigBytes + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.pluginConfigBytes,
 	},
 	getUserSettings: {
 		dispatch: "activity",
@@ -42,11 +48,23 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 		wireBytes: SANDBOX_LIMITS.cache.valueBytes + 2 * KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * (SANDBOX_LIMITS.cache.valueBytes + KiB),
 	},
+	getOAuthAccessToken: {
+		dispatch: "activity",
+		wireBytes: SANDBOX_LIMITS.oauthTokenResponseBytes + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.oauthTokenResponseBytes,
+	},
 	getCachedValue: {
 		permit: "small",
 		dispatch: "activity",
 		wireBytes: SANDBOX_LIMITS.cache.valueBytes + KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.cache.valueBytes,
+	},
+	listIntegrations: {
+		dispatch: "activity",
+		wireBytes: SANDBOX_LIMITS.integrations.pageSize * integrationRecordBytes + 2 * KiB,
+		resultBytes:
+			SANDBOX_JSON_GRAPH_FACTOR *
+			(SANDBOX_LIMITS.integrations.pageSize * integrationRecordBytes + KiB),
 	},
 } as const satisfies Record<
 	keyof typeof sandboxHostContracts,
@@ -54,7 +72,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 		readonly dispatch: string;
 		readonly permit?: "small";
 		readonly wireBytes?: number;
-		readonly resultBytes: null | number;
+		readonly resultBytes: number;
 	}
 >;
 
@@ -88,6 +106,5 @@ export const sandboxInlineDurableCapabilities = (principal: SandboxPrincipal) =>
 	(principal.metadata.capabilities ?? []).filter(
 		(capability): capability is SandboxHostCapability =>
 			isSandboxHostCapability(capability) &&
-			inlineDispatches.has(sandboxDurableHostDispatchStrategy(capability)) &&
-			sandboxHostResultBytes(capability) !== null,
+			inlineDispatches.has(sandboxDurableHostDispatchStrategy(capability)),
 	);

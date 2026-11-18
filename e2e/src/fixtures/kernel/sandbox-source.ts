@@ -112,26 +112,6 @@ export function literalSandboxSource(
 	});
 }
 
-export function eventSchemasSandboxSource(input: SandboxSourceIdentity) {
-	return scriptModuleSource({
-		...input,
-		sdkImports: ["eventSchemaRecordSchema"],
-		outputSchema: "Schema.Array(eventSchemaRecordSchema)",
-		run: "(input, host) => host.listEventSchemas(input.slugs)",
-		inputSchema: "Schema.Struct({ slugs: Schema.Array(Schema.String) })",
-	});
-}
-
-export function entitySchemasSandboxSource(input: SandboxSourceIdentity) {
-	return scriptModuleSource({
-		...input,
-		sdkImports: ["entitySchemaRecordSchema"],
-		outputSchema: "Schema.Array(entitySchemaRecordSchema)",
-		run: "(input, host) => host.getEntitySchemas(input.slugs)",
-		inputSchema: "Schema.Struct({ slugs: Schema.Array(Schema.String) })",
-	});
-}
-
 export function processFailureSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
@@ -388,7 +368,7 @@ export default defineOperation({
   run: (_input, host) => Effect.gen(function* () {
     const current = yield* host.getCurrentIntegration();
     const enabled = yield* host.listIntegrations({ provider: ${sourceLiteral(input.providerSlug)}, isDisabled: false });
-    return { output: { current, enabled } };
+    return { output: { current, enabled: enabled.items } };
   }),
 });
 `;

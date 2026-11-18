@@ -35,8 +35,6 @@ const unusedSandboxHostFunctionMap = (
 	getUserSettings: unusedHostCall,
 	getEntitlements: unusedHostCall,
 	invokeCapability: unusedHostCall,
-	getEntitySchemas: unusedHostCall,
-	listEventSchemas: unusedHostCall,
 	listIntegrations: unusedHostCall,
 	getPersistentValue: unusedHostCall,
 	getUserPreferences: unusedHostCall,

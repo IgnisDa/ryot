@@ -144,7 +144,7 @@ const holdReplies = () => {
 };
 
 const inlineInput = (
-	capabilities: ReadonlyArray<"httpCall" | "listIntegrations">,
+	capabilities: ReadonlyArray<"httpCall">,
 	settle: (count: number) => ReadonlyArray<WorkflowDurableResult>,
 	settled: { count: number },
 ) =>
@@ -1134,7 +1134,7 @@ layer(gateLayer)((test) => {
 					const registration = yield* gate.register(
 						makeOptions(
 							inlineInput(
-								["httpCall", "listIntegrations"],
+								["httpCall"],
 								(count) => Array.from({ length: count }, () => ({ value: null, state: "success" })),
 								settled,
 							),
@@ -1152,22 +1152,10 @@ layer(gateLayer)((test) => {
 						SANDBOX_TRANSIENT_MEMORY.inlineValueBytes / (2 * SANDBOX_LIMITS.http.responseBytes);
 
 					expect(frameValue(yield* batch(0, httpRequests(allowance + 1)))).toEqual({ defer: true });
-					expect(
-						frameValue(
-							yield* batch(1, [
-								{
-									index: 0,
-									kind: "host",
-									name: "listIntegrations",
-									args: { args: [], capability: "listIntegrations" },
-								},
-							]),
-						),
-					).toEqual({ defer: true });
 					expect(settled.count).toBe(0);
-					expect(frameValue(yield* batch(2, httpRequests(allowance)))).toEqual({ defer: true });
+					expect(frameValue(yield* batch(1, httpRequests(allowance)))).toEqual({ defer: true });
 					expect(settled.count).toBe(0);
-					expect(frameValue(yield* batch(3, httpRequests(1)))).toMatchObject({
+					expect(frameValue(yield* batch(2, httpRequests(1)))).toMatchObject({
 						results: [{ value: null, state: "success" }],
 					});
 					expect(settled.count).toBe(1);

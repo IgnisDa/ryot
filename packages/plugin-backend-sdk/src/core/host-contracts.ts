@@ -10,17 +10,7 @@ import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, type JsonValue, jsonValueSchema, type SandboxHostError } from "../wire";
 import { verifyManagedAssetsArgsSchema, verifyManagedAssetsResultSchema } from "./assets";
-import {
-	entitySchemaRecordSchema,
-	getEntitySchemasArgsSchema,
-	getEntitySchemasResultSchema,
-} from "./entities";
 import { getEntitlementsArgsSchema, getEntitlementsResultSchema } from "./entitlements";
-import {
-	listEventSchemasArgsSchema,
-	listEventSchemasDataSchema,
-	listEventSchemasResultSchema,
-} from "./events";
 import { httpCallArgsSchema, httpCallResponseSchema, httpCallResultSchema } from "./http";
 import {
 	getCurrentIntegrationArgsSchema,
@@ -149,11 +139,6 @@ export const domainSandboxHostContracts = {
 		success: executeRyotqlDataSchema,
 		result: executeRyotqlResultSchema,
 	},
-	listEventSchemas: {
-		args: listEventSchemasArgsSchema,
-		success: listEventSchemasDataSchema,
-		result: listEventSchemasResultSchema,
-	},
 	listIntegrations: {
 		args: listIntegrationsArgsSchema,
 		success: listIntegrationsDataSchema,
@@ -168,11 +153,6 @@ export const domainSandboxHostContracts = {
 		success: integrationRecordSchema,
 		args: getCurrentIntegrationArgsSchema,
 		result: getCurrentIntegrationResultSchema,
-	},
-	getEntitySchemas: {
-		args: getEntitySchemasArgsSchema,
-		result: getEntitySchemasResultSchema,
-		success: Schema.Array(entitySchemaRecordSchema),
 	},
 	invalidateOAuthAccessToken: {
 		success: Schema.Null,

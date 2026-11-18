@@ -1,5 +1,4 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { Message } from "@ryot-app/i18n/message";
 import { defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
@@ -131,20 +130,11 @@ defineScript({
 			});
 			void token;
 			void invalidated;
-			const [entitySchema] = yield* host.getEntitySchemas(["schema-1"]);
-			if (!entitySchema) {
-				return false;
-			}
 			const lot: "push" | "sink" | "yank" = integration.lot;
 			const provider: string = integration.provider;
 			const setting: JsonValue | undefined = integration.providerSpecifics["customSetting"];
-			yield* host.listEventSchemas(["schema-1"]);
-			yield* host.listIntegrations({ provider: "plugin_defined_provider" });
-			const providers: ReadonlyArray<{
-				readonly slug: string;
-				readonly name: Message;
-				readonly providerId: string;
-			}> = entitySchema.providers;
+			const page = yield* host.listIntegrations({ provider: "plugin_defined_provider" });
+			const nextCursor: null | string = page.nextCursor;
 			void provider;
 			void setting;
 			const query = yield* host.executeRyotql({
@@ -155,14 +145,10 @@ defineScript({
 				entityIds: ["entity-1"],
 			});
 			const recipeResult: Expect<Equal<typeof entities, EntityReadResult>> = true;
-			const entitySchemasArg: Expect<
-				Equal<Parameters<typeof host.getEntitySchemas>[0], ReadonlyArray<string>>
-			> = true;
 			void lot;
-			void providers;
+			void nextCursor;
 			void queryResult;
 			void recipeResult;
-			void entitySchemasArg;
 			return true;
 		}),
 });

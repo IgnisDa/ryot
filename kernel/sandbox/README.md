@@ -50,8 +50,8 @@ On Linux, the launcher path is fixed at `/usr/local/libexec/ryot-sandbox-launche
 
 ## Capability Selection
 
-A run binds only declared capabilities that the backend supplied for it, then drops filesystem grants,
-workflow-dispatched and unbounded-result capabilities from live executions. Inline durable requests
+A run binds only declared capabilities that the backend supplied for it, then drops filesystem grants
+and workflow-dispatched capabilities from live executions. Inline durable requests
 are limited to the capabilities the backend lists for the run. A run resolves host-call authority once,
 on its first host call, and reuses that outcome for its remaining host calls; a run without host calls
 never resolves it.
@@ -96,8 +96,11 @@ Runtime and compiler limits are set by their owners, not environment settings.
 | Isolate heap / external memory / CPU                                |               64 MiB / 16 MiB / 30 seconds |
 | Sandbox `executeRyotql` result                                      |                                      1 MiB |
 | `getUserSettings` result                                            |                                     64 KiB |
+| `getPluginConfig` result (stored plugin configuration)              |                                     64 KiB |
+| `getOAuthAccessToken` result (OAuth token response)                 |                                     64 KiB |
+| Integration name, provider and settings / `listIntegrations` page   |                        16 KiB / 20 records |
 
-Compiler memory is sampled proportional set size in the Linux production image, not a cgroup hard ceiling. Non-Linux development keeps process, timeout, and concurrency bounds without claiming portable memory enforcement. Calls beyond per-session concurrency wait; cumulative budgets still apply. Each host call takes a FIFO transient-memory permit covering its decoded arguments and its result before decoding arguments, and holds it until the host work ends and the reply is written or purged. Capabilities whose results are unbounded before they materialize never bind live or settle inline; the workflow body dispatches them. Sandbox `executeRyotql` results are measured as JSON by PostgreSQL across the document's named queries and fail with `result-too-large` before any rows leave the database. Session registration and removal are identity-aware so replacement, expiry, interruption, or a late finalizer cannot evict a newer session.
+Compiler memory is sampled proportional set size in the Linux production image, not a cgroup hard ceiling. Non-Linux development keeps process, timeout, and concurrency bounds without claiming portable memory enforcement. Calls beyond per-session concurrency wait; cumulative budgets still apply. Each host call takes a FIFO transient-memory permit covering its decoded arguments and its result before decoding arguments, and holds it until the host work ends and the reply is written or purged. Every host capability declares its result bound, and the backend enforces it where the value is produced: user settings, plugin configuration, and integration settings are rejected over their caps when saved or restored, and OAuth token responses are capped when read from the provider. Sandbox `executeRyotql` results are measured as JSON by PostgreSQL across the document's named queries and fail with `result-too-large` before any rows leave the database. Session registration and removal are identity-aware so replacement, expiry, interruption, or a late finalizer cannot evict a newer session.
 
 ## Daemon
 

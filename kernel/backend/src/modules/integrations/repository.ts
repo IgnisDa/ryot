@@ -384,12 +384,17 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				return rows.map((row) => normalizeIntegration(row));
 			});
 
-			const listForUser = Effect.fn("IntegrationsRepository.listForUser")(function* (input: {
+			const listPageForUser = Effect.fn("IntegrationsRepository.listPageForUser")(function* (input: {
+				limit: number;
 				userId: UserId;
+				afterId?: string | undefined;
 				isDisabled?: boolean | undefined;
 				provider?: undefined | IntegrationProvider;
 			}) {
 				const conditions = [eq(schema.integration.userId, input.userId)];
+				if (input.afterId !== undefined) {
+					conditions.push(gt(schema.integration.id, input.afterId));
+				}
 				if (input.provider !== undefined) {
 					conditions.push(eq(schema.integration.provider, input.provider));
 				}
@@ -402,10 +407,11 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.select(integrationSelection)
 						.from(schema.integration)
 						.where(and(...conditions))
-						.orderBy(desc(schema.integration.createdAt)),
+						.orderBy(asc(schema.integration.id))
+						.limit(input.limit + 1),
 				);
-
-				return rows.map((row) => normalizeIntegration(row));
+				const items = rows.slice(0, input.limit).map((row) => normalizeIntegration(row));
+				return { items, nextAfterId: rows.length > input.limit ? (items.at(-1)?.id ?? null) : null };
 			});
 
 			const listForBackup = Effect.fn("IntegrationsRepository.listForBackup")(function* (
@@ -640,7 +646,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			return {
 				getForUser,
-				listForUser,
+				listPageForUser,
 				listForBackup,
 				createForUser,
 				hasAnyForUser,

@@ -18,6 +18,7 @@ import { userSandboxRunUserId } from "#modules/scripts/host/execution-context";
 
 import { PluginRuntimeResolver } from "./catalog/runtime-resolver";
 import { getPluginConfig } from "./configuration/access";
+import { isPluginConfigTooLarge, pluginConfigTooLargeMessage } from "./configuration/revisions";
 import { PluginInstallationRepository } from "./installations/repository";
 
 const normalizeConfigKeys = (
@@ -40,6 +41,9 @@ const boundedUserSettings = <Settings>(settings: Settings) =>
 	(jsonByteLength(settings) ?? Infinity) > SANDBOX_LIMITS.userSettingsBytes
 		? Effect.fail(`Plugin user settings exceed ${SANDBOX_LIMITS.userSettingsBytes} UTF-8 bytes`)
 		: Effect.succeed(settings);
+
+const boundedPluginConfig = (values: Record<string, JsonValue>) =>
+	isPluginConfigTooLarge(values) ? Effect.fail(pluginConfigTooLargeMessage) : Effect.succeed(values);
 
 export const makePluginScriptHost = Effect.gen(function* () {
 	const pluginRuntime = yield* PluginRuntimeResolver;
@@ -71,7 +75,7 @@ export const makePluginScriptHost = Effect.gen(function* () {
 						metadata: input.principal.metadata,
 						context: { config, configSchema: revision.configSchema },
 					});
-					return yield* encodeConfigValues(values);
+					return yield* boundedPluginConfig(yield* encodeConfigValues(values));
 				}),
 			),
 		getUserSettings: (rawInput) =>

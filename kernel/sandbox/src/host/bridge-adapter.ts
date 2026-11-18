@@ -178,16 +178,6 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.invokeCapability,
 			implementations.invokeCapability,
 		),
-		getEntitySchemas: bind(
-			"getEntitySchemas",
-			domainSandboxHostContracts.getEntitySchemas,
-			implementations.getEntitySchemas,
-		),
-		listEventSchemas: bind(
-			"listEventSchemas",
-			domainSandboxHostContracts.listEventSchemas,
-			implementations.listEventSchemas,
-		),
 		getUserPreferences: bind(
 			"getUserPreferences",
 			coreSandboxHostContracts.getUserPreferences,

@@ -21,6 +21,7 @@ import {
 } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { fixtureManifest } from "@ryot-app/contract/testing";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
@@ -466,6 +467,36 @@ describe("create", () => {
 					expect(result).toEqual({ id: makeIntegration().id });
 					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toEqual({
 						token: "create-secret",
+					});
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(
+		makeServiceLayer({
+			dependencies: () => ({
+				catalog: { findForUser: () => Effect.succeed(pushProvider) },
+				repository: { createForUser: () => Effect.die("create should not be reached") },
+			}),
+		}),
+	)((test) => {
+		test.effect(
+			"rejects settings over the integration settings cap",
+			() =>
+				Effect.gen(function* () {
+					const error = yield* Effect.flip(
+						(yield* IntegrationsService).create(user, {
+							provider: { ...pushProvider.reference, slug: pushProvider.slug },
+							providerSpecifics: { token: "x".repeat(SANDBOX_LIMITS.integrations.settingsBytes) },
+						}),
+					);
+					expect(error).toBeInstanceOf(IntegrationRequestError);
+					expect(error).toMatchObject({
+						reason: {
+							code: "integration-settings-too-large",
+							maxBytes: SANDBOX_LIMITS.integrations.settingsBytes,
+						},
 					});
 				}),
 			testTimeout,

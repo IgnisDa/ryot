@@ -581,7 +581,7 @@ alone never select kernel ownership.
 Before hooks use `defineAutomationPolicy` and `automationType: "policy"`. They apply to submitted
 mutations, never to provider population, whose data the provider's `details` script shapes. They execute sequentially
 by `(position, pluginId, hookSlug)`; omitted `position` means 1000. The compiler and runtime allow
-only the policy-safe host surface: `executeRyotql`, schema/integration/config/preference reads, cache
+only the policy-safe host surface: `executeRyotql`, integration/config/preference reads, cache
 reads, and diagnostic `log`/`span`. Each run receives shared automation metadata and optional
 immutable references with per-item projected request snapshots:
 
@@ -671,7 +671,12 @@ returned rather than treated as missing. Missing required values fail with `miss
 in SDK error `data`; unavailable optional values are omitted. Unrequested keys are not available to
 the script. The compiler records key metadata, not generated files for the full configuration schema;
 scripts do not author per-script key lists. Configuration is never copied into automation input or
-history.
+history. A stored configuration may be at most 64 KiB; larger saves and restores are rejected.
+
+`listIntegrations({ provider?, isDisabled?, cursor? })` returns one page of at most 20 of the
+execution user's integrations as `{ items, nextCursor }`; pass `nextCursor` back as `cursor` until
+it is `null`. An integration's name, provider, and settings may be at most 16 KiB together; larger
+saves and restores are rejected.
 Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
 state, logs, idempotency keys, and encryption keys are not account-backup data.
 

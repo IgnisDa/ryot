@@ -24,8 +24,6 @@ export const unusedSandboxHostImplementations = (
 		getEntitlements: unusedHostCall,
 		invokeCapability: unusedHostCall,
 		listIntegrations: unusedHostCall,
-		listEventSchemas: unusedHostCall,
-		getEntitySchemas: unusedHostCall,
 		getUserPreferences: unusedHostCall,
 		verifyManagedAssets: unusedHostCall,
 		getOAuthAccessToken: unusedHostCall,

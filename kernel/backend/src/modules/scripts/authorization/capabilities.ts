@@ -33,8 +33,6 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	getUserSettings: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
 	claimPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	listIntegrations: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
-	listEventSchemas: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
-	getEntitySchemas: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
 	getUserPreferences: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
 	getCurrentIntegration: {
 		bridge: true,
