@@ -178,6 +178,14 @@ export const lockEventReferences = (
 			);
 };
 
+const eventSourceSelection = {
+	userId: schema.event.userId,
+	entityId: schema.event.entityId,
+	sessionEntityId: schema.event.sessionEntityId,
+	eventSchemaSlug: schema.event.eventSchemaSlug,
+	eventSchemaPluginId: schema.event.eventSchemaPluginId,
+};
+
 export class EventsRepository extends Context.Service<EventsRepository>()(
 	"@ryot-app/kernel-backend/modules/events/repository/EventsRepository",
 	{
@@ -244,25 +252,18 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				}
 				const rows = yield* session.run((db) =>
 					db
-						.select({
-							userId: schema.event.userId,
-							entityId: schema.event.entityId,
-							sessionEntityId: schema.event.sessionEntityId,
-							eventSchemaSlug: schema.event.eventSchemaSlug,
-							eventSchemaPluginId: schema.event.eventSchemaPluginId,
-						})
+						.select(eventSourceSelection)
 						.from(schema.event)
-						.where(
-							or(
-								inArray(schema.event.id, ids),
-								inArray(
-									schema.event.id,
-									db
-										.select({ id: schema.eventReference.referencingEventId })
-										.from(schema.eventReference)
-										.where(inArray(schema.eventReference.referencedEventId, ids)),
-								),
-							),
+						.where(inArray(schema.event.id, ids))
+						.unionAll(
+							db
+								.select(eventSourceSelection)
+								.from(schema.eventReference)
+								.innerJoin(
+									schema.event,
+									eq(schema.event.id, schema.eventReference.referencingEventId),
+								)
+								.where(inArray(schema.eventReference.referencedEventId, ids)),
 						),
 				);
 				return [...sources, ...rows.map(eventSourceOf)];
