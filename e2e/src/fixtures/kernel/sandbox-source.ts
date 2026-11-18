@@ -258,6 +258,35 @@ export default defineOperation({
 `;
 }
 
+export function cronActivityWorkflowSandboxSource(
+	input: SandboxSourceIdentity & { readonly activitySlug: string },
+) {
+	return `
+import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+
+export const manifest = defineManifest({
+  kind: "workflow",
+  name: ${sourceLiteral(input.name)},
+  slug: ${sourceLiteral(input.slug)},
+});
+
+const activity = defineScriptReference({
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  scriptSlug: ${sourceLiteral(input.activitySlug)},
+});
+
+export default defineWorkflow({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: (_input, step) => Effect.gen(function* () {
+    return { output: yield* step.activity("run", activity, {}) };
+  }),
+});
+`;
+}
+
 export function observabilitySandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
@@ -380,29 +409,45 @@ export function systemRyotqlProbeSandboxSource(
 		readonly entitySchemaSlug: string;
 	},
 ) {
-	return scriptModuleSource({
-		...input,
-		inputSchema: "Schema.Struct({})",
-		ryotqlImports: ["type PluginRyotQLDocument"],
-		outputSchema: "Schema.Struct({ count: Schema.Number })",
-		declarations: `const queryName = ${sourceLiteral(input.queryName)};
-const query: PluginRyotQLDocument = ${JSON.stringify(input.query)};`,
-		run: `(_input, host) => Effect.gen(function* () {
+	return `
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { PluginRyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: ${sourceLiteral(input.name)},
+  slug: ${sourceLiteral(input.slug)},
+});
+
+const queryName = ${sourceLiteral(input.queryName)};
+const query: PluginRyotQLDocument = ${JSON.stringify(input.query)};
+
+export default defineActivity({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Struct({ count: Schema.Number }),
+  run: (_input, host) => Effect.gen(function* () {
     const result = yield* host.executeRyotql({ source: { kind: "inline", document: query } });
     const envelope = yield* Schema.decodeUnknownEffect(Schema.Struct({ data: Schema.Record(Schema.String, Schema.Struct({ type: Schema.Literal("rows"), items: Schema.Array(Schema.Unknown) })) }))(result);
     const rows = envelope.data[queryName];
     if (!rows) return yield* Effect.fail(new Error("Expected a rows result"));
-    const items = rows.items;
-    yield* host.upsertGlobalEntities([{
-      entitySchemaSlug: ${sourceLiteral(input.entitySchemaSlug)},
-      externalId: "system-ryotql-probe",
-      name: "RyotQL system probe",
-      populatedAt: null,
-      properties: { rowCount: items.length },
-    }]);
-    return { count: items.length };
-  })`,
-	});
+    const count = rows.items.length;
+    return {
+      output: { count },
+      changes: {
+        globalEntities: [{
+          entitySchemaSlug: ${sourceLiteral(input.entitySchemaSlug)},
+          externalId: "system-ryotql-probe",
+          name: "RyotQL system probe",
+          populatedAt: null,
+          properties: { rowCount: count },
+        }],
+      },
+    };
+  }),
+});
+`;
 }
 
 export function trendingSandboxSource(
@@ -411,8 +456,9 @@ export function trendingSandboxSource(
 	},
 ) {
 	return `
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { upsertedGlobalEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -427,32 +473,32 @@ const trendingResult = Schema.decodeSync(trendingResultSchema)(JSON.parse(${sour
 		JSON.stringify({ items: input.items }),
 	)}));
 
-export default defineScript({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Struct({ count: Schema.Number }),
-  run: (_input, host) => Effect.gen(function* () {
-    const entities = yield* host.upsertGlobalEntities(
-      trendingResult.items.map((item) => ({
-        properties: {},
-        name: item.name,
-        populatedAt: null,
-        entitySchemaSlug: "movie",
-        externalId: item.externalId,
-      })),
-    );
-    const upsertedEntities = entities.filter((entity) => entity.status === "upserted");
-    const fetchedAt = DateTime.formatIso(DateTime.nowUnsafe());
-    yield* host.upsertGlobalRelationships([{
-      selector: { type: "self" },
-      relationshipSchemaSlug: "media-trending",
-      relationships: upsertedEntities.map(({ entityId }, index) => ({
-        sourceEntityId: entityId,
-        targetEntityId: entityId,
-        properties: { rank: index + 1, fetchedAt },
-      })),
-    }]);
-    return { count: upsertedEntities.length };
+  run: () => Effect.gen(function* () {
+    const fetchedAt = DateTime.formatIso(yield* DateTime.now);
+    return {
+      output: { count: trendingResult.items.length },
+      changes: {
+        globalEntities: trendingResult.items.map((item) => ({
+          properties: {},
+          name: item.name,
+          populatedAt: null,
+          entitySchemaSlug: "movie",
+          externalId: item.externalId,
+        })),
+        globalRelationships: [{
+          selector: { type: "self" as const },
+          relationshipSchemaSlug: "media-trending",
+          relationships: trendingResult.items.map((item, index) => {
+            const entity = upsertedGlobalEntity("movie", item.externalId);
+            return { source: entity, target: entity, properties: { rank: index + 1, fetchedAt } };
+          }),
+        }],
+      },
+    };
   }),
 });
 `;

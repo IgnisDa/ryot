@@ -24,7 +24,7 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
   checkpoint: Schema.Int,
   run: (_input, step, checkpoint) => {
     const completed = checkpoint ?? 0;
-    return completed === ${input.steps} ? Effect.succeed({ completed }) : step.save(completed + 1);
+    return completed === ${input.steps} ? Effect.succeed({ output: { completed } }) : step.save(completed + 1);
   },
 });
 `;

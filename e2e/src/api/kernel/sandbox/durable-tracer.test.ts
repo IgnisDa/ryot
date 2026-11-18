@@ -1,4 +1,3 @@
-import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -14,7 +13,6 @@ import {
 	requireCompletedSandboxValue,
 	sampleOperationalPressure,
 	uninstallTestPlugin,
-	waitForEventCount,
 } from "~/fixtures/kernel";
 import { requireArray, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -39,7 +37,6 @@ export default defineOperation({
     entityId: Schema.String,
     successUrl: Schema.String,
     failureUrl: Schema.String,
-    eventSchemaSlug: Schema.String,
   }),
   run: (input, host, execution) => Effect.gen(function* () {
     yield* host.log([{ level: "info", message: "durable tracer started" }]);
@@ -50,11 +47,6 @@ export default defineOperation({
       { executionId: execution.sandboxScriptId },
       3600,
     );
-    const events = yield* host.createEvents([{
-      entityId: input.entityId,
-      eventSchemaSlug: input.eventSchemaSlug,
-      properties: { rating: 9 },
-    }]);
     const http = yield* host.httpCall("GET", input.successUrl);
     const failure = yield* host.httpCall("GET", input.failureUrl).pipe(
       Effect.catch((error) => Effect.succeed({ message: error.message, data: error.data })),
@@ -80,7 +72,6 @@ export default defineOperation({
         http,
         child,
         claim,
-        events,
         failure,
         parallel,
         preferences,
@@ -105,7 +96,7 @@ export default defineWorkflow({
   output: Schema.String,
   input: Schema.Struct({ value: Schema.String }),
   checkpoint: Schema.Boolean,
-  run: (input, step, checkpoint) => checkpoint === null ? step.save(true) : Effect.succeed("child:" + input.value),
+  run: (input, step, checkpoint) => checkpoint === null ? step.save(true) : Effect.succeed({ output: "child:" + input.value }),
 });
 `;
 
@@ -143,7 +134,6 @@ describe("universal durable sandbox tracer", () => {
 								"log",
 								"span",
 								"httpCall",
-								"createEvents",
 								"getCachedValue",
 								"getUserPreferences",
 								"executeRyotql",
@@ -172,12 +162,11 @@ describe("universal durable sandbox tracer", () => {
 							input: {
 								type: "object",
 								additionalProperties: false,
-								required: ["entityId", "successUrl", "failureUrl", "eventSchemaSlug"],
+								required: ["entityId", "successUrl", "failureUrl"],
 								properties: {
 									entityId: { type: "string" },
 									successUrl: { type: "string" },
 									failureUrl: { type: "string" },
-									eventSchemaSlug: { type: "string" },
 								},
 							},
 						},
@@ -197,29 +186,27 @@ describe("universal durable sandbox tracer", () => {
 					entityId: fixture.entityId,
 					successUrl: `${http.url}/success`,
 					failureUrl: `${http.url}/failure`,
-					eventSchemaSlug: fixture.eventSchemaSlug,
 				},
 			});
 			yield* pollUntil(
 				"durable tracer journal projection",
 				sampleOperationalPressure([executionId]).pipe(
 					Effect.map((pressure) =>
-						pressure.journal.maxJournalEntries >= 8 ? pressure.journal.maxJournalEntries : null,
+						pressure.journal.maxJournalEntries >= 7 ? pressure.journal.maxJournalEntries : null,
 					),
 				),
 			);
 			expect((yield* deleteSandboxReplayProjection(executionId)).deleted).toBe(true);
 			const value = requireObjectRecord(
-				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId), "durable tracer"),
+				requireObjectRecord(
+					requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId), "durable tracer"),
+					"Durable tracer result must be an object",
+				).output,
 				"Durable tracer output must be an object",
 			);
 
 			expect(requireArray(value.rows, "Durable tracer rows")).toHaveLength(1);
 			expect(value.claim).toEqual({ claimed: true });
-			expect(value.events).toEqual({
-				count: 1,
-				outcomes: [{ index: 0, status: "written", eventId: anyOf(String) }],
-			});
 			expect(value.child).toBe(`child:${fixture.entityId}`);
 			expect(value.parallel).toEqual([null, null]);
 			expect(value.preferences).toEqual({ disableIntegrations: false });
@@ -234,7 +221,6 @@ describe("universal durable sandbox tracer", () => {
 			});
 			expect(value.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 			expect(http.requests.map(({ path }) => path)).toEqual(["/success", "/failure"]);
-			expect(yield* waitForEventCount(client, fixture.entityId, 1)).toHaveLength(1);
 		}),
 	);
 });

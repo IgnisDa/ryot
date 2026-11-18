@@ -309,7 +309,7 @@ export default defineWorkflow({
        runId: input.runId,
        command: input.command,
      });
-     return { summary: sealed.summary, issues: [] };
+     return { output: { summary: sealed.summary, issues: [] } };
      }),
 });
 `;

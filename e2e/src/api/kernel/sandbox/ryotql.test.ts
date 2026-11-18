@@ -9,6 +9,7 @@ import {
 	createEntity,
 	createPluginSchema,
 	createRatedItem,
+	cronActivityWorkflowSandboxSource,
 	deleteUserAndWait,
 	enqueueSandboxScript,
 	entityRowsSandboxSource,
@@ -127,9 +128,11 @@ describe("sandbox RyotQL reads", () => {
 			const providerScriptSlug = `${providerSlug}.details`;
 			const entitySchemaSlug = `e2e-ryotql-system-entity-${suffix}`;
 			const scriptSlug = `e2e-ryotql-system-script-${suffix}`;
+			const workflowSlug = `workflow.e2e-ryotql-system-${suffix}`;
 			const cronSlug = `e2e-ryotql-system-cron-${suffix}`;
 			const entry = `backend/providers/${providerSlug}/ryotql-system.sandbox.ts`;
 			const providerEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
+			const workflowEntry = "backend/workflows/ryotql-system.sandbox.ts";
 			const entity = table("entity", "entity");
 			const query = document({
 				entities: rows(entity, {
@@ -150,8 +153,8 @@ describe("sandbox RyotQL reads", () => {
 					scope: "system",
 					crons: [
 						{
-							scriptSlug,
 							slug: cronSlug,
+							scriptSlug: workflowSlug,
 							schedule: { cron: "0 0 * * *" },
 							description: "Run the RyotQL system probe",
 						},
@@ -183,6 +186,11 @@ describe("sandbox RyotQL reads", () => {
 						},
 					],
 					files: {
+						[workflowEntry]: cronActivityWorkflowSandboxSource({
+							slug: workflowSlug,
+							activitySlug: scriptSlug,
+							name: "RyotQL system probe run",
+						}),
 						[entry]: systemRyotqlProbeSandboxSource({
 							query,
 							slug: scriptSlug,
@@ -215,7 +223,15 @@ describe("sandbox RyotQL reads", () => {
 							slug: scriptSlug,
 							name: "RyotQL system probe",
 							requiredPluginConfigKeys: [],
-							capabilities: ["executeRyotql", "upsertGlobalEntities"],
+							capabilities: ["executeRyotql"],
+						},
+						{
+							kind: "workflow",
+							capabilities: [],
+							slug: workflowSlug,
+							entry: workflowEntry,
+							requiredPluginConfigKeys: [],
+							name: "RyotQL system probe run",
 						},
 					],
 				}),

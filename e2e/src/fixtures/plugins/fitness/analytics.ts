@@ -111,10 +111,7 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 				occurredAt,
 				values: [{ value, metricId: metric.entityId }],
 			});
-			assertCondition(
-				logged.status === "saved" && logged.count === 1,
-				"Expected each analytics measurement reading to save",
-			);
+			assertCondition(logged.count === 1, "Expected each analytics measurement reading to save");
 		}
 
 		yield* pollUntil(

@@ -51,14 +51,12 @@ export const manifest = defineManifest({
 
 export default defineOperation({
   manifest,
-  input: Schema.Struct({
-    patches: Schema.optional(Schema.Array(Schema.Record(Schema.String, jsonValueSchema))),
-  }),
+  input: Schema.Struct({ patch: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)) }),
   output: Schema.Record(Schema.String, jsonValueSchema),
   run: (input, host) =>
-    Effect.forEach(input.patches ?? [], (patch) => host.updateUserSettings(patch), {
-      discard: true,
-    }).pipe(Effect.andThen(() => host.getUserSettings()), Effect.map((output) => ({ output }))),
+    host.getUserSettings().pipe(
+      Effect.map((output) => ({ output, ...(input.patch ? { changes: { settings: input.patch } } : {}) })),
+    ),
 });
 `;
 
@@ -85,11 +83,7 @@ export const preferencePrivatePluginPackage = (
 				name: manifestText("Preference test plugin"),
 			},
 			scripts: [
-				{
-					...script,
-					requiredPluginConfigKeys: [],
-					capabilities: ["getUserSettings", "updateUserSettings"] as const,
-				},
+				{ ...script, requiredPluginConfigKeys: [], capabilities: ["getUserSettings"] as const },
 			],
 		},
 	};

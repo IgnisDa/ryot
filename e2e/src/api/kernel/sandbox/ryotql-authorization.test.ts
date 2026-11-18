@@ -33,6 +33,7 @@ import {
 	createEntity,
 	createEventFixture,
 	createRelationship,
+	cronActivityWorkflowSandboxSource,
 	deleteUserAndWait,
 	executeRyotQL,
 	fakeProviderDetailsResult,
@@ -73,17 +74,17 @@ type AuthorizationProbe = {
 	readonly name: string;
 	readonly cronSlug: string;
 	readonly externalId: string;
+	readonly workflowSlug: string;
 	readonly query: RyotQLDocument;
 };
 
 const authorizationProbeSource = (
 	input: AuthorizationProbe & { readonly markerSchemaSlug: string },
 ) => `
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
-
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import type { PluginRyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -100,7 +101,7 @@ const errorReasonCode = (error: unknown) => {
   return typeof reason.code === "string" ? reason.code : null;
 };
 
-export default defineScript({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Struct({ ok: Schema.Boolean }),
@@ -110,14 +111,18 @@ export default defineScript({
       Effect.map((result) => ({ error: null, ok: true as const, result })),
       Effect.catch((error) => Effect.succeed({ error: errorReasonCode(error), ok: false as const, result: null })),
     );
-    yield* host.upsertGlobalEntities([{
-      populatedAt: null,
-      properties: outcome,
-      name: ${JSON.stringify(input.name)},
-      externalId: ${JSON.stringify(input.externalId)},
-      entitySchemaSlug: ${JSON.stringify(input.markerSchemaSlug)},
-    }]);
-    return { ok: outcome.ok };
+    return {
+      output: { ok: outcome.ok },
+      changes: {
+        globalEntities: [{
+          populatedAt: null,
+          properties: outcome,
+          name: ${JSON.stringify(input.name)},
+          externalId: ${JSON.stringify(input.externalId)},
+          entitySchemaSlug: ${JSON.stringify(input.markerSchemaSlug)},
+        }],
+      },
+    };
   }),
 });
 `;
@@ -513,6 +518,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					slug: `e2e-ryotql-auth-probe-${slug}-${suffix}`,
 					cronSlug: `e2e-ryotql-auth-cron-${slug}-${suffix}`,
 					externalId: `e2e-ryotql-auth-marker-${slug}-${suffix}`,
+					workflowSlug: `workflow.e2e-ryotql-auth-${slug}-${suffix}`,
 				});
 			}) satisfies readonly AuthorizationProbe[];
 
@@ -524,7 +530,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					relationshipSchemas,
 					crons: probes.map((probe) => ({
 						slug: probe.cronSlug,
-						scriptSlug: probe.slug,
+						scriptSlug: probe.workflowSlug,
 						schedule: { cron: "0 0 * * *" },
 						description: `Run ${probe.name}`,
 					})),
@@ -541,6 +547,16 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 							probes.map((probe) => [
 								`backend/providers/${providerSlug}/${probe.slug}.sandbox.ts`,
 								authorizationProbeSource({ ...probe, markerSchemaSlug: markerSlug }),
+							]),
+						),
+						...Object.fromEntries(
+							probes.map((probe) => [
+								`backend/workflows/${probe.slug}.sandbox.ts`,
+								cronActivityWorkflowSandboxSource({
+									name: probe.name,
+									slug: probe.workflowSlug,
+									activitySlug: probe.slug,
+								}),
 							]),
 						),
 						[providerEntry]: providerSandboxSource({
@@ -575,8 +591,22 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 									executableDependencies: [],
 									requiredPluginConfigKeys: [],
 									optionalPluginConfigKeys: [],
-									capabilities: ["executeRyotql", "upsertGlobalEntities"],
+									capabilities: ["executeRyotql"],
 									entry: `backend/providers/${providerSlug}/${probe.slug}.sandbox.ts`,
+								}) satisfies PluginScript,
+						),
+						...probes.map(
+							(probe) =>
+								({
+									kind: "workflow",
+									capabilities: [],
+									name: probe.name,
+									slug: probe.workflowSlug,
+									oauthConnectionFields: [],
+									executableDependencies: [],
+									requiredPluginConfigKeys: [],
+									optionalPluginConfigKeys: [],
+									entry: `backend/workflows/${probe.slug}.sandbox.ts`,
 								}) satisfies PluginScript,
 						),
 					],

@@ -6,9 +6,7 @@ import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	RelationshipSchemaSlug,
-	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Clock, Effect, Schema } from "effect";
 
 import {
@@ -18,22 +16,14 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createRelationship,
-	deleteSandboxReplayProjection,
-	enqueueSandboxScript,
 	type InstalledTestPlugin,
 	installTestPluginBundle,
-	listAutomationRunAttempts,
 	listAutomationRuns,
 	listAutomationTriggers,
 	listEventsForEntity,
-	pollAutomationRuns,
-	pollSandboxResult,
 	pollTerminalAutomationRunAttempts,
 	pollTerminalAutomationRuns,
-	pollUntil,
 	postApiJson,
-	requireCompletedSandboxValue,
-	sampleOperationalPressure,
 	startDataJsonImport,
 	type TestPluginScript,
 	uninstallTestPlugin,
@@ -57,10 +47,6 @@ type SourceRecord = Extract<
 	NonNullable<AutomationTriggerFilter["sourceRecord"]>,
 	{ readonly resource: "event" | "entity" | "relationship" }
 >;
-type EventCreateRequestPayload = Extract<
-	TriggerPayload,
-	{ readonly resource: "event"; readonly category: "request"; readonly operation: "create" }
->;
 
 const suffix = crypto.randomUUID();
 const slugs = {
@@ -68,24 +54,14 @@ const slugs = {
 	entity: `lifecycle-entity-${suffix}`,
 	asyncEvent: `lifecycle-async-${suffix}`,
 	policyEvent: `lifecycle-policy-${suffix}`,
-	fanoutEvent: `lifecycle-fanout-${suffix}`,
-	replayEvent: `lifecycle-replay-${suffix}`,
 	asyncHook: `lifecycle-async-hook-${suffix}`,
-	requiredEvent: `lifecycle-required-${suffix}`,
 	slowScript: `lifecycle-slow-script-${suffix}`,
 	policyHook: `lifecycle-policy-hook-${suffix}`,
 	entityHook: `lifecycle-entity-hook-${suffix}`,
-	replayHook: `lifecycle-replay-hook-${suffix}`,
-	replayPause: `lifecycle-replay-pause-${suffix}`,
 	relationship: `lifecycle-relationship-${suffix}`,
 	policyScript: `lifecycle-policy-script-${suffix}`,
-	requiredHook: `lifecycle-required-hook-${suffix}`,
 	successScript: `lifecycle-success-script-${suffix}`,
-	failureScript: `lifecycle-failure-script-${suffix}`,
 	policyAfterHook: `lifecycle-policy-after-${suffix}`,
-	replayOperation: `lifecycle-replay-operation-${suffix}`,
-	fanoutFailureHook: `lifecycle-fanout-failure-${suffix}`,
-	fanoutSuccessHook: `lifecycle-fanout-success-${suffix}`,
 	relationshipHook: `lifecycle-relationship-hook-${suffix}`,
 } as const;
 
@@ -93,9 +69,6 @@ const entries = {
 	slow: "backend/automations/lifecycle-slow.sandbox.ts",
 	policy: "backend/automations/lifecycle-policy.sandbox.ts",
 	success: "backend/automations/lifecycle-success.sandbox.ts",
-	failure: "backend/automations/lifecycle-failure.sandbox.ts",
-	replayOperation: "backend/operations/lifecycle-replay.sandbox.ts",
-	replayPause: "backend/workflows/lifecycle-replay-pause.sandbox.ts",
 } as const;
 
 type AutomationDeclaration =
@@ -202,61 +175,6 @@ export default defineAutomation({
 });
 `;
 
-const replayOperationSource = `
-import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-
-export const manifest = defineManifest({
-  kind: "operation",
-  slug: ${JSON.stringify(slugs.replayOperation)},
-  name: "E2E lifecycle replay operation",
-});
-
-export default defineOperation({
-  manifest,
-  output: Schema.Unknown,
-  input: Schema.Struct({ entityId: Schema.String, eventSchemaSlug: Schema.String }),
-  run: (input, host) => Effect.gen(function* () {
-    const result = yield* host.createEvents([{
-      entityId: input.entityId,
-      eventSchemaSlug: input.eventSchemaSlug,
-      properties: { marker: "replayed" },
-      occurredAt: "2026-09-16T06:00:00.000Z",
-    }]);
-    yield* (host.executeWorkflow?.(
-      ${JSON.stringify(slugs.replayPause)},
-      {
-        workflowSlug: ${JSON.stringify(slugs.replayPause)},
-        referenceKind: "workflow" as const,
-        input: Schema.Struct({ value: Schema.String }),
-        output: Schema.String,
-      },
-      { value: input.entityId },
-    ) ?? Effect.fail(new Error("executeWorkflow is unavailable")));
-    return { output: result };
-  }),
-});
-`;
-
-const replayPauseSource = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
-
-export const manifest = defineManifest({
-  kind: "workflow",
-  slug: ${JSON.stringify(slugs.replayPause)},
-  name: "E2E lifecycle replay pause",
-});
-
-export default defineWorkflow({
-  manifest,
-  input: Schema.Struct({ value: Schema.String }),
-  output: Schema.String,
-  checkpoint: Schema.Boolean,
-  run: (input, step, checkpoint) => checkpoint === null ? step.save(true) : Effect.succeed(input.value),
-});
-`;
-
 const markerSchema = {
 	unknownKeys: "strict" as const,
 	fields: {
@@ -294,36 +212,10 @@ const scripts = [
 		automationType: "automation",
 		inputProjection: afterInputProjection,
 	}),
-	automationScript(slugs.failureScript, entries.failure, "E2E lifecycle failure", {
-		automationType: "automation",
-		inputProjection: afterInputProjection,
-	}),
 	automationScript(slugs.slowScript, entries.slow, "E2E lifecycle slow hook", {
 		automationType: "automation",
 		inputProjection: afterInputProjection,
 	}),
-	{
-		kind: "operation",
-		oauthConnectionFields: [],
-		executableDependencies: [],
-		slug: slugs.replayOperation,
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
-		entry: entries.replayOperation,
-		capabilities: ["createEvents"],
-		name: "E2E lifecycle replay operation",
-	},
-	{
-		kind: "workflow",
-		capabilities: [],
-		slug: slugs.replayPause,
-		oauthConnectionFields: [],
-		entry: entries.replayPause,
-		executableDependencies: [],
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
-		name: "E2E lifecycle replay pause",
-	},
 ] satisfies ReadonlyArray<FixtureScript>;
 
 const installLifecyclePlugin = () =>
@@ -331,7 +223,6 @@ const installLifecyclePlugin = () =>
 		scripts,
 		scope: "system",
 		pluginSlug: slugs.plugin,
-		workflows: [{ slug: slugs.replayPause, scriptSlug: slugs.replayPause }],
 		relationshipSchemas: [
 			{
 				slug: slugs.relationship,
@@ -349,49 +240,21 @@ const installLifecyclePlugin = () =>
 				name: manifestText("E2E Lifecycle Entity"),
 				eventSchemas: [
 					eventSchema(slugs.policyEvent, "Policy event"),
-					eventSchema(slugs.requiredEvent, "Required event"),
-					eventSchema(slugs.fanoutEvent, "Fan-out event"),
 					eventSchema(slugs.asyncEvent, "Async event"),
-					eventSchema(slugs.replayEvent, "Replay event"),
 				],
-			},
-		],
-		operations: [
-			{
-				output: {},
-				auth: "user",
-				demoAccess: "allowed",
-				title: "Fixture operation",
-				slug: slugs.replayOperation,
-				scriptSlug: slugs.replayOperation,
-				description: "Replays one lifecycle event workflow",
-				hints: { readOnly: false, idempotent: false, destructive: false },
-				input: {
-					type: "object",
-					additionalProperties: false,
-					required: ["entityId", "eventSchemaSlug"],
-					properties: { entityId: { type: "string" }, eventSchemaSlug: { type: "string" } },
-				},
 			},
 		],
 		files: {
 			[entries.policy]: policySource,
-			[entries.replayPause]: replayPauseSource,
-			[entries.replayOperation]: replayOperationSource,
 			[entries.success]: afterSource({
 				slug: slugs.successScript,
-				body: "Effect.succeed(null)",
+				body: "Effect.succeed({})",
 				name: "E2E lifecycle success",
 			}),
 			[entries.slow]: afterSource({
 				slug: slugs.slowScript,
 				name: "E2E lifecycle slow hook",
-				body: "Effect.sleep(6000).pipe(Effect.as(null))",
-			}),
-			[entries.failure]: afterSource({
-				slug: slugs.failureScript,
-				name: "E2E lifecycle failure",
-				body: 'Effect.fail(new Error("fixture required hook failure"))',
+				body: "Effect.sleep(6000).pipe(Effect.as({}))",
 			}),
 		},
 		hooks: [
@@ -449,51 +312,6 @@ const installLifecyclePlugin = () =>
 			},
 			{
 				stage: "after",
-				delivery: "required",
-				slug: slugs.requiredHook,
-				scriptSlug: slugs.failureScript,
-				name: "E2E required failure hook",
-				targets: [
-					{
-						resource: "event",
-						operation: "create",
-						entitySchemaSlug: slugs.entity,
-						eventSchemaSlug: slugs.requiredEvent,
-					},
-				],
-			},
-			{
-				stage: "after",
-				delivery: "required",
-				name: "E2E fan-out failure",
-				slug: slugs.fanoutFailureHook,
-				scriptSlug: slugs.failureScript,
-				targets: [
-					{
-						resource: "event",
-						operation: "create",
-						entitySchemaSlug: slugs.entity,
-						eventSchemaSlug: slugs.fanoutEvent,
-					},
-				],
-			},
-			{
-				stage: "after",
-				delivery: "required",
-				name: "E2E fan-out success",
-				slug: slugs.fanoutSuccessHook,
-				scriptSlug: slugs.successScript,
-				targets: [
-					{
-						resource: "event",
-						operation: "create",
-						entitySchemaSlug: slugs.entity,
-						eventSchemaSlug: slugs.fanoutEvent,
-					},
-				],
-			},
-			{
-				stage: "after",
 				delivery: "async",
 				slug: slugs.asyncHook,
 				name: "E2E slow async hook",
@@ -504,21 +322,6 @@ const installLifecyclePlugin = () =>
 						operation: "create",
 						entitySchemaSlug: slugs.entity,
 						eventSchemaSlug: slugs.asyncEvent,
-					},
-				],
-			},
-			{
-				stage: "after",
-				delivery: "async",
-				slug: slugs.replayHook,
-				scriptSlug: slugs.successScript,
-				name: "E2E replay observation hook",
-				targets: [
-					{
-						resource: "event",
-						operation: "create",
-						entitySchemaSlug: slugs.entity,
-						eventSchemaSlug: slugs.replayEvent,
 					},
 				],
 			},
@@ -553,28 +356,6 @@ const eventInput = (
 		properties: { marker },
 		eventSchemaSlug: EventSchemaSlug.make(eventSchemaSlug),
 	}) satisfies EventInput;
-
-const eventRequestPayload = (input: EventInput): EventCreateRequestPayload => {
-	const marker = isObjectRecord(input.properties) ? input.properties["marker"] : undefined;
-	if (typeof marker !== "string") {
-		throw new Error("Fixture event requires a string marker");
-	}
-	return {
-		resource: "event",
-		category: "request",
-		operation: "create",
-		draft: {
-			sessionEntityId: null,
-			properties: { marker },
-			entityId: input.entityId,
-			eventSchemaSlug: input.eventSchemaSlug,
-			eventSchemaPluginId: lifecyclePluginId(),
-			entitySchemaPluginId: lifecyclePluginId(),
-			entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
-			occurredAt: requirePresent(input.occurredAt, "Fixture event requires occurredAt"),
-		},
-	};
-};
 
 const createEvents = (client: Client, payload: CreateEventsPayload) =>
 	client.call((c) => c.events.create({ payload }));
@@ -633,68 +414,6 @@ const inspectCommittedCreate = (sourceRecord: SourceRecord, hookSlug: string) =>
 		return { change, run: requirePresent(runs[0], "Expected an atomic matching run") };
 	});
 
-const inspectPolicyCreate = (sourceRecord: SourceRecord, hookSlug: string) =>
-	Effect.gen(function* () {
-		const inspection = yield* inspectCommittedCreate(sourceRecord, hookSlug);
-		const requestId = requirePresent(
-			inspection.change.causation.parentTriggerId,
-			"Policy-backed change trigger must link to its request trigger",
-		);
-		const requests = yield* listAutomationTriggers({ triggerId: requestId });
-		expect(requests).toHaveLength(1);
-		const request = requirePresent(requests[0], "Expected the linked policy request trigger");
-		if (sourceRecord.resource === "event") {
-			const payload = request.payload;
-			if (
-				payload?.category !== "request" ||
-				payload.resource !== "event" ||
-				payload.operation !== "batch" ||
-				payload.items.length === 0
-			) {
-				throw new Error(`Expected event batch request trigger '${request.id}'`);
-			}
-		} else {
-			requireCreatePayload(request, "request", sourceRecord.resource);
-		}
-		return { ...inspection, request };
-	});
-
-const listPolicyRequestTriggers = (userId: string) =>
-	Effect.gen(function* () {
-		const runs = yield* listAutomationRuns({
-			executionUserId: UserId.make(userId),
-			hookSlug: AutomationHookSlug.make(slugs.policyHook),
-		});
-		const triggerGroups = yield* Effect.forEach(runs, ({ triggerId }) =>
-			listAutomationTriggers({ triggerId }),
-		);
-		return triggerGroups.flat();
-	});
-
-const requireBatchRequestForEvent = (
-	triggers: ReadonlyArray<AutomationTrigger>,
-	input: EventInput,
-) => {
-	const expected = eventRequestPayload(input);
-	return requirePresent(
-		triggers.find(
-			({ payload }) =>
-				payload?.category === "request" &&
-				payload.resource === "event" &&
-				payload.operation === "batch" &&
-				payload.items.some(
-					(item) =>
-						item.resource === "event" &&
-						item.operation === "create" &&
-						item.draft.entityId === expected.draft.entityId &&
-						item.draft.eventSchemaSlug === expected.draft.eventSchemaSlug &&
-						item.draft.occurredAt === expected.draft.occurredAt,
-				),
-		),
-		"Expected matching event batch request trigger",
-	);
-};
-
 let installed: undefined | InstalledTestPlugin;
 
 beforeAll(() =>
@@ -750,11 +469,11 @@ describe("automation lifecycle triggers", () => {
 			expect(events).toHaveLength(1);
 			const event = requirePresent(events[0], "Expected the policy-transformed event");
 			expect(event.properties).toEqual({ marker: "transformed" });
-			const committed = yield* inspectPolicyCreate(
+			const committed = yield* inspectCommittedCreate(
 				{ id: event.id, resource: "event" },
 				slugs.policyAfterHook,
 			);
-			expect(committed.request.causation).toMatchObject({ source: "import", importRunId: runId });
+			expect(committed.change.causation).toMatchObject({ source: "import", importRunId: runId });
 			expect(requireCreatePayload(committed.change, "change", "event").after).toMatchObject({
 				id: event.id,
 				properties: { marker: "transformed" },
@@ -764,7 +483,7 @@ describe("automation lifecycle triggers", () => {
 
 	it.live("runs request policies and commits only accepted or transformed event drafts", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const entity = yield* createFixtureEntity(client, "policy-source");
 			const allowed = eventInput(entity.id, slugs.policyEvent, "allow", "2026-09-16T01:00:00.000Z");
 			const transformedInput = eventInput(
@@ -793,22 +512,11 @@ describe("automation lifecycle triggers", () => {
 
 			const acceptedId = requireWrittenEventId(acceptedResult, 0);
 			const transformedId = requireWrittenEventId(acceptedResult, 1);
-			const accepted = yield* inspectPolicyCreate(
-				{ id: acceptedId, resource: "event" },
-				slugs.policyAfterHook,
-			);
-			const transformed = yield* inspectPolicyCreate(
+			yield* inspectCommittedCreate({ id: acceptedId, resource: "event" }, slugs.policyAfterHook);
+			const transformed = yield* inspectCommittedCreate(
 				{ resource: "event", id: transformedId },
 				slugs.policyAfterHook,
 			);
-			expect(transformed.request.id).toBe(accepted.request.id);
-			expect(accepted.request.payload).toMatchObject({
-				resource: "event",
-				operation: "batch",
-				category: "request",
-				items: [eventRequestPayload(allowed), eventRequestPayload(transformedInput)],
-			});
-			expect(transformed.request.payload).toEqual(accepted.request.payload);
 			const transformedChange = requireCreatePayload(transformed.change, "change", "event");
 			expect(transformedChange.after).toMatchObject({
 				id: transformedId,
@@ -833,35 +541,6 @@ describe("automation lifecycle triggers", () => {
 					},
 				],
 			});
-			const rejectedRequest = requireBatchRequestForEvent(
-				yield* listPolicyRequestTriggers(userId),
-				rejected,
-			);
-			expect(rejectedRequest.payload).toMatchObject({
-				resource: "event",
-				operation: "batch",
-				category: "request",
-				items: [eventRequestPayload(rejected)],
-			});
-			const rejectedTree = yield* listAutomationTriggers({
-				rootExecutionId: rejectedRequest.causation.rootExecutionId,
-			});
-			expect(
-				rejectedTree.filter(
-					(trigger) =>
-						trigger.id === rejectedRequest.id ||
-						trigger.causation.parentTriggerId === rejectedRequest.id,
-				),
-			).toEqual([rejectedRequest]);
-			const rejectedRuns = yield* listAutomationRuns({ triggerId: rejectedRequest.id });
-			expect(rejectedRuns).toHaveLength(1);
-			expect(rejectedRuns[0]).toMatchObject({
-				stage: "before",
-				delivery: "policy",
-				status: "succeeded",
-				hookSlug: slugs.policyHook,
-			});
-
 			const failedResult = yield* createEvents(client, [failed]);
 			expect(failedResult).toMatchObject({
 				count: 0,
@@ -869,42 +548,6 @@ describe("automation lifecycle triggers", () => {
 				failure: { index: 0, reason: { code: "policy-execution-failed" } },
 				outcomes: [{ index: 0, status: "failed", reason: { code: "policy-execution-failed" } }],
 			});
-			const failedRequest = requireBatchRequestForEvent(
-				yield* listPolicyRequestTriggers(userId),
-				failed,
-			);
-			expect(failedRequest.payload).toMatchObject({
-				resource: "event",
-				operation: "batch",
-				category: "request",
-				items: [eventRequestPayload(failed)],
-			});
-			const failedTree = yield* listAutomationTriggers({
-				rootExecutionId: failedRequest.causation.rootExecutionId,
-			});
-			expect(
-				failedTree.filter(
-					(trigger) =>
-						trigger.id === failedRequest.id ||
-						trigger.causation.parentTriggerId === failedRequest.id,
-				),
-			).toEqual([failedRequest]);
-			const failedRuns = yield* pollTerminalAutomationRuns({ triggerId: failedRequest.id });
-			expect(failedRuns).toHaveLength(1);
-			expect(failedRuns[0]).toMatchObject({
-				stage: "before",
-				attemptCount: 1,
-				status: "failed",
-				retryPolicy: null,
-				delivery: "policy",
-			});
-			const failedRun = requirePresent(failedRuns[0], "Expected failed policy run");
-			const attempts = yield* pollTerminalAutomationRunAttempts({ runId: failedRun.id });
-			expect(attempts).toHaveLength(1);
-			expect(attempts[0]).toMatchObject({ status: "failed", attemptNumber: 1 });
-
-			yield* Effect.sleep(750);
-			expect(yield* listAutomationRunAttempts({ runId: failedRun.id })).toHaveLength(1);
 			const events = yield* listEventsForEntity(client, entity.id, undefined, 20, {
 				eventSchemaSlug: slugs.policyEvent,
 			});
@@ -956,16 +599,10 @@ describe("automation lifecycle triggers", () => {
 			);
 			const eventResult = yield* createEvents(client, [event]);
 			const eventId = requireWrittenEventId(eventResult);
-			const eventInspection = yield* inspectPolicyCreate(
+			const eventInspection = yield* inspectCommittedCreate(
 				{ id: eventId, resource: "event" },
 				slugs.policyAfterHook,
 			);
-			expect(eventInspection.request.payload).toMatchObject({
-				resource: "event",
-				operation: "batch",
-				category: "request",
-				items: [eventRequestPayload(event)],
-			});
 			const eventChange = requireCreatePayload(eventInspection.change, "change", "event");
 			const { createdAt, updatedAt, ...eventSnapshot } = eventChange.after;
 			expect(eventSnapshot).toEqual({
@@ -1039,98 +676,20 @@ describe("automation lifecycle triggers", () => {
 					outcomes: [{ index: 0, status: "written" }],
 				});
 			}
-			const contractInspection = yield* inspectPolicyCreate(
+			const contractInspection = yield* inspectCommittedCreate(
 				{ resource: "event", id: requireWrittenEventId(contractResult) },
 				slugs.policyAfterHook,
 			);
-			const rawInspection = yield* inspectPolicyCreate(
+			const rawInspection = yield* inspectCommittedCreate(
 				{ resource: "event", id: requireWrittenEventId(rawResult) },
 				slugs.policyAfterHook,
 			);
-			expect(contractInspection.request.payload).toMatchObject({
-				resource: "event",
-				operation: "batch",
-				category: "request",
-				items: [eventRequestPayload(item)],
-			});
-			expect(rawInspection.request.payload).toEqual(contractInspection.request.payload);
 			expect(rawInspection.run).toMatchObject({
 				stage: contractInspection.run.stage,
 				delivery: contractInspection.run.delivery,
 				hookSlug: contractInspection.run.hookSlug,
 			});
 		}),
-	);
-
-	it.live(
-		"returns required warnings while committing sources and runs independent post hooks",
-		() =>
-			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
-				const entity = yield* createFixtureEntity(client, "required-source");
-				const requiredResult = yield* createEvents(client, [
-					eventInput(entity.id, slugs.requiredEvent, "required", "2026-09-16T04:00:00.000Z"),
-				]);
-				const requiredId = requireWrittenEventId(requiredResult);
-				const requiredTriggers = yield* listAutomationTriggers({
-					sourceRecord: { id: requiredId, resource: "event" },
-				});
-				const requiredTrigger = requirePresent(
-					requiredTriggers[0],
-					"Expected required change trigger",
-				);
-				const requiredRuns = yield* pollTerminalAutomationRuns({ triggerId: requiredTrigger.id });
-				expect(requiredRuns).toHaveLength(1);
-				const requiredRun = requirePresent(requiredRuns[0], "Expected required run");
-				expect(requiredResult.warnings).toEqual([
-					{
-						runId: requiredRun.id,
-						code: "required-hook-failed",
-						hookSlug: AutomationHookSlug.make(slugs.requiredHook),
-					},
-				]);
-				expect(requiredRun).toMatchObject({ status: "failed", delivery: "required" });
-				expect(yield* pollTerminalAutomationRunAttempts({ runId: requiredRun.id })).toHaveLength(1);
-				expect(
-					(yield* listEventsForEntity(client, entity.id, undefined, 20, {
-						eventSchemaSlug: slugs.requiredEvent,
-					})).map(({ id }) => id),
-				).toEqual([requiredId]);
-
-				const fanoutResult = yield* createEvents(client, [
-					eventInput(entity.id, slugs.fanoutEvent, "fanout", "2026-09-16T04:01:00.000Z"),
-				]);
-				const fanoutId = requireWrittenEventId(fanoutResult);
-				const fanoutTrigger = requirePresent(
-					(yield* listAutomationTriggers({ sourceRecord: { id: fanoutId, resource: "event" } }))[0],
-					"Expected fan-out change trigger",
-				);
-				const fanoutRuns = yield* pollTerminalAutomationRuns({ triggerId: fanoutTrigger.id });
-				expect(fanoutRuns).toHaveLength(2);
-				expect(
-					fanoutRuns
-						.map(({ status, hookSlug }) => ({ status, hookSlug }))
-						.sort((left, right) => left.hookSlug.localeCompare(right.hookSlug)),
-				).toEqual<unknown>(
-					[
-						{ status: "failed", hookSlug: slugs.fanoutFailureHook },
-						{ status: "succeeded", hookSlug: slugs.fanoutSuccessHook },
-					].sort((left, right) => left.hookSlug.localeCompare(right.hookSlug)),
-				);
-				expect(fanoutResult.warnings).toEqual([
-					{
-						code: "required-hook-failed",
-						hookSlug: AutomationHookSlug.make(slugs.fanoutFailureHook),
-						runId: requirePresent(
-							fanoutRuns.find(({ hookSlug }) => hookSlug === slugs.fanoutFailureHook),
-							"Expected fan-out failure run",
-						).id,
-					},
-				]);
-				for (const run of fanoutRuns) {
-					expect(yield* pollTerminalAutomationRunAttempts({ runId: run.id })).toHaveLength(1);
-				}
-			}),
 	);
 
 	it.live("returns before an async hook finishes", () =>
@@ -1158,52 +717,6 @@ describe("automation lifecycle triggers", () => {
 			expect(terminalRuns).toMatchObject([{ delivery: "async", status: "succeeded" }]);
 			const run = requirePresent(terminalRuns[0], "Expected terminal async run");
 			expect(yield* pollTerminalAutomationRunAttempts({ runId: run.id })).toHaveLength(1);
-		}),
-	);
-
-	it.live("does not duplicate a trigger or run when the trusted event workflow replays", () =>
-		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
-			const entity = yield* createFixtureEntity(client, "replay-source");
-			const plugin = requirePresent(installed, "Lifecycle plugin was not installed");
-			const scriptId = requirePresent(
-				plugin.scriptIds[slugs.replayOperation],
-				"Replay operation script was not installed",
-			);
-			const { jobId, executionId } = yield* enqueueSandboxScript(userId, {
-				scriptId,
-				lane: "interactive",
-				context: { entityId: entity.id, eventSchemaSlug: EventSchemaSlug.make(slugs.replayEvent) },
-			});
-			const initialRuns = yield* pollAutomationRuns({
-				executionUserId: UserId.make(userId),
-				hookSlug: AutomationHookSlug.make(slugs.replayHook),
-			});
-			expect(initialRuns).toHaveLength(1);
-			yield* pollUntil(
-				"lifecycle replay journal projection",
-				sampleOperationalPressure([executionId]).pipe(
-					Effect.map((pressure) => (pressure.journal.maxJournalEntries >= 1 ? true : null)),
-				),
-			);
-			expect((yield* deleteSandboxReplayProjection(executionId)).deleted).toBe(true);
-			requireCompletedSandboxValue(
-				yield* pollSandboxResult(userId, jobId),
-				"lifecycle replay operation",
-			);
-
-			const replayRuns = yield* pollTerminalAutomationRuns({
-				executionUserId: UserId.make(userId),
-				hookSlug: AutomationHookSlug.make(slugs.replayHook),
-			});
-			expect(replayRuns).toHaveLength(1);
-			const replayRun = requirePresent(replayRuns[0], "Expected replay automation run");
-			expect(yield* listAutomationTriggers({ triggerId: replayRun.triggerId })).toHaveLength(1);
-			expect(yield* listAutomationRunAttempts({ runId: replayRun.id })).toHaveLength(1);
-			const events = yield* listEventsForEntity(client, entity.id, undefined, 20, {
-				eventSchemaSlug: slugs.replayEvent,
-			});
-			expect(events).toHaveLength(1);
 		}),
 	);
 });

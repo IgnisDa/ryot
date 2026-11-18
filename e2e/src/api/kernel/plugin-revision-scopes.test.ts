@@ -1,9 +1,6 @@
-import { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { entitySchemaRecordSchema } from "@ryot-app/plugin-backend-sdk/core";
-import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { Deferred, Effect, Schema } from "effect";
+import { Deferred, Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -32,20 +29,12 @@ runFileOnIsolatedServer("Plugin Revision Scopes");
 
 describe("plugin revision scopes", () => {
 	it.live(
-		"lets an admitted old writer finish after an additive update with its exact script and definitions",
+		"lets an admitted old script finish after an additive update with its exact script and configuration",
 		() =>
 			Effect.gen(function* () {
 				const { client, userId } = yield* createAuthenticatedClient();
 				const packages = pluginNamespacePackages();
 				const a = yield* installNamespacePackage(client, packages.a, { writerMarker: "before" });
-				const bottle = requirePresent(
-					(yield* executeRyotQLRecipe(
-						client,
-						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: a.pluginId } }),
-						{},
-					))[0],
-					"A bottle missing",
-				);
 				const entered = yield* Deferred.make<void>();
 				const release = yield* Deferred.make<void>();
 				const upstream = yield* startFakeHttpServerScoped(() =>
@@ -66,7 +55,7 @@ describe("plugin revision scopes", () => {
 				const admitted = yield* enqueueSandboxScript(userId, {
 					lane: "interactive",
 					scriptId: script.id,
-					context: { entityId: bottle.id, gateUrl: upstream.url },
+					context: { gateUrl: upstream.url },
 				});
 				yield* Deferred.await(entered);
 				yield* updateNamespacePackage(client, a, update, { writerMarker: "after" });
@@ -75,26 +64,11 @@ describe("plugin revision scopes", () => {
 					yield* pollSandboxResult(userId, admitted.jobId),
 					"admitted namespace writer",
 				);
-				expect(completed).toEqual<unknown>(
-					objectContaining({
-						label: "A1",
-						scriptId: script.id,
-						definitions: [objectContaining({ slug: "bottle" })],
-						config: objectContaining({ writerMarker: "before" }),
-					}),
-				);
-				const result = yield* Schema.decodeUnknownEffect(
-					Schema.Struct({
-						definitions: Schema.Array(entitySchemaRecordSchema),
-						config: Schema.Record(Schema.String, jsonValueSchema),
-					}),
-				)(completed);
-				const definition = requirePresent(
-					result.definitions.find(({ slug }) => slug === "bottle"),
-					"Retained bottle definition missing",
-				);
-				const properties = yield* Schema.decodeEffect(AppSchema)(definition.propertiesSchema);
-				expect(properties.fields.finish).toBeUndefined();
+				expect(completed).toEqual<unknown>({
+					label: "A1",
+					scriptId: script.id,
+					config: objectContaining({ writerMarker: "before" }),
+				});
 				expect((yield* invokeNamespaceOperation(client, a.installation.packageId)).result).toEqual({
 					label: "A2",
 				});

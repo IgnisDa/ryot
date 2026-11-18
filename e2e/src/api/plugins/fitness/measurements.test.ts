@@ -109,10 +109,7 @@ describe("Measurements E2E", () => {
 					[logMeasurementReadings(client, input), logMeasurementReadings(client, input)],
 					{ concurrency: "unbounded" },
 				);
-				expect(retries).toEqual([
-					{ count: 2, status: "saved" },
-					{ count: 2, status: "saved" },
-				]);
+				expect(retries).toEqual([{ count: 2 }, { count: 2 }]);
 				expect((yield* readMeasurementLogReadings(client, { reference })).items).toEqual(
 					original.items,
 				);
@@ -133,10 +130,7 @@ describe("Measurements E2E", () => {
 						],
 						{ concurrency: "unbounded" },
 					),
-				).toEqual([
-					{ count: 2, status: "saved" },
-					{ count: 2, status: "saved" },
-				]);
+				).toEqual([{ count: 2 }, { count: 2 }]);
 				expect((yield* readMeasurementLogReadings(client, { reference })).items).toHaveLength(4);
 				const { client: other } = yield* createAuthenticatedClient();
 				const otherMetric = yield* createMeasurementMetric(other, { name: "Weight" });
@@ -145,7 +139,7 @@ describe("Measurements E2E", () => {
 						...input,
 						values: [{ value: 0, metricId: otherMetric.entityId }],
 					}),
-				).toEqual({ count: 1, status: "saved" });
+				).toEqual({ count: 1 });
 			}),
 	);
 
@@ -313,7 +307,7 @@ describe("Measurements E2E", () => {
 					],
 				}),
 			);
-			expect(yield* logMeasurementReadings(client, logged)).toEqual({ count: 2, status: "saved" });
+			expect(yield* logMeasurementReadings(client, logged)).toEqual({ count: 2 });
 			expect(yield* listReadings()).toEqual([
 				{
 					value: 80,

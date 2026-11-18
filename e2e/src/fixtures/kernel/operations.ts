@@ -48,6 +48,28 @@ export const invokeOperation = <Input, InputEncoded extends JsonValue, Output, O
 	options?: Pick<ContractPayload<"plugins", "invoke">, "idempotencyKey">,
 ) => invokeOperationRecipe(recipe, input, operationTransport(client, options?.idempotencyKey));
 
+export const invokeEncodedCommittingOperation = <
+	Input,
+	InputEncoded extends JsonValue,
+	Output,
+	OutputEncoded,
+>(
+	client: Client,
+	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
+	payload: InputEncoded,
+	options?: Pick<ContractPayload<"plugins", "invoke">, "idempotencyKey">,
+) =>
+	operationResponse(
+		client,
+		options?.idempotencyKey,
+	)({ payload, packageId: recipe.packageId, operationSlug: recipe.operationSlug }).pipe(
+		Effect.flatMap(({ result, committed }) =>
+			Schema.decodeUnknownEffect(recipe.output)(result).pipe(
+				Effect.map((output) => ({ output, committed })),
+			),
+		),
+	);
+
 export const invokeCommittingOperation = <
 	Input,
 	InputEncoded extends JsonValue,
@@ -60,17 +82,7 @@ export const invokeCommittingOperation = <
 	options?: Pick<ContractPayload<"plugins", "invoke">, "idempotencyKey">,
 ) =>
 	Schema.encodeEffect(recipe.input)(input).pipe(
-		Effect.flatMap((payload) =>
-			operationResponse(
-				client,
-				options?.idempotencyKey,
-			)({ payload, packageId: recipe.packageId, operationSlug: recipe.operationSlug }),
-		),
-		Effect.flatMap(({ result, committed }) =>
-			Schema.decodeUnknownEffect(recipe.output)(result).pipe(
-				Effect.map((output) => ({ output, committed })),
-			),
-		),
+		Effect.flatMap((payload) => invokeEncodedCommittingOperation(client, recipe, payload, options)),
 	);
 
 export const invokeEncodedOperation = <
