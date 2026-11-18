@@ -1,9 +1,14 @@
-import type {
+import {
 	ChangeSet,
-	ChangeSetEntityReference,
-	ChangeSetGlobalEntityReference,
+	type ChangeSetEntityReference,
+	type ChangeSetGlobalEntityReference,
 } from "@ryot-app/contract/modules/changes/change-set";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+
+/** The result of a script that returns an output and the changes the kernel commits for it. */
+export const outputWithChanges = <Output extends Schema.Codec<unknown, unknown>>(output: Output) =>
+	Schema.Struct({ output, changes: Schema.optional(ChangeSet) });
 
 export const rootEntity = { kind: "root" } as const satisfies ChangeSetEntityReference;
 

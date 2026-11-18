@@ -45,7 +45,9 @@ const boundedUserSettings = <Settings>(settings: Settings) =>
 		: Effect.succeed(settings);
 
 const boundedPluginConfig = (values: Record<string, JsonValue>) =>
-	isPluginConfigTooLarge(values) ? Effect.fail(pluginConfigTooLargeMessage) : Effect.succeed(values);
+	isPluginConfigTooLarge(values)
+		? Effect.fail(pluginConfigTooLargeMessage)
+		: Effect.succeed(values);
 
 export const makePluginScriptHost = Effect.gen(function* () {
 	const pluginRuntime = yield* PluginRuntimeResolver;

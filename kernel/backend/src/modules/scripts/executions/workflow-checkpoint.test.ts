@@ -50,6 +50,7 @@ import { httpProgressPhases } from "../host/http-progress.test-support";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
+import { ScriptChanges, type ScriptChangesInput } from "./script-changes";
 import {
 	runScriptExecutionWorkflow,
 	runScriptExecutionWorkflowBody,
@@ -133,6 +134,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 	const childResults = new Map<string, unknown>();
 	const dispatches: number[] = [];
 	const mutations: number[] = [];
+	const committed: ScriptChangesInput[] = [];
 	const interrupted: string[] = [];
 	const reads: string[] = [];
 	const appends: string[] = [];
@@ -182,6 +184,17 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 	};
 	const dependencies = Layer.mergeAll(
 		Layer.mock(JobQueue)({ enqueue: () => Effect.die("Admission must precede queue access") }),
+		Layer.succeed(
+			ScriptChanges,
+			ScriptChanges.of({
+				commit: () => Effect.die("Workflows commit their changes keyed by execution"),
+				commitKeyed: (input) =>
+					Effect.sync(() => {
+						committed.push(input);
+						return { events: [] };
+					}),
+			}),
+		),
 		Layer.succeed(
 			SandboxExecutor,
 			stubRuntimeSandboxExecutor(() => Effect.die("Sandbox must not start")),
@@ -384,6 +397,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 		reads,
 		appends,
 		replays,
+		committed,
 		mutations,
 		activities,
 		dispatches,
@@ -1217,3 +1231,76 @@ it.layer(
 		).pipe(Effect.timeout("10 seconds")),
 	);
 });
+
+const stepChanges = {
+	signals: [{ properties: {}, discriminator: "done", schemaSlug: "checkpoint.done" }],
+};
+
+it.effect(
+	"commits a completed step's changes once across replays",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			const envelope: WorkflowReplayEnvelope = {
+				requests: [],
+				journalLength: 0,
+				output: "finished",
+				state: "completed",
+				changes: stepChanges,
+			};
+			for (let replay = 0; replay < 2; replay += 1) {
+				const result = yield* h.fresh(envelope).body;
+				assert(result._tag === "Complete");
+				expect(yield* result.exit).toBe("finished");
+			}
+			expect(h.committed).toHaveLength(1);
+			expect(h.committed[0]).toMatchObject({
+				lane: "interactive",
+				changes: stepChanges,
+				executionId: `${executionId}-checkpoint-0`,
+				principal: { scriptId, subject: { type: "system" } },
+			});
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"commits an activity's changes once and hands its workflow only the output",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			const envelope: WorkflowReplayEnvelope = {
+				requests: [],
+				journalLength: 0,
+				state: "completed",
+				output: { changes: stepChanges, output: "child-output" },
+			};
+			for (let replay = 0; replay < 2; replay += 1) {
+				const result = yield* h.fresh(envelope, { ...payload, activity: true }).body;
+				assert(result._tag === "Complete");
+				expect(yield* result.exit).toBe("child-output");
+			}
+			expect(h.committed.map(({ changes }) => changes)).toEqual([stepChanges]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"fails an activity whose result is not an output with changes",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			const result = yield* h.fresh(
+				{ requests: [], output: "bare", journalLength: 0, state: "completed" },
+				{ ...payload, activity: true },
+			).body;
+			assert(result._tag === "Complete");
+			const exit = yield* Effect.exit(result.exit);
+			assert(exit._tag === "Failure");
+			const error = Option.getOrUndefined(Cause.findErrorOption(exit.cause));
+			assert(error instanceof SandboxRunError);
+			expect(error.kind).toBe("invalid-output");
+			expect(h.committed).toEqual([]);
+		}),
+	testTimeout,
+);

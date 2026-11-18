@@ -28,7 +28,7 @@ const manifest = defineManifest({
 		},
 	},
 });
-const run = () => Effect.succeed(null);
+const run = () => Effect.succeed({});
 const policyRun = () => Effect.succeed({ items: [] });
 
 describe("automation definitions", () => {

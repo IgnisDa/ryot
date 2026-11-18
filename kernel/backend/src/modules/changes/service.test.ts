@@ -18,6 +18,8 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
+import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -27,6 +29,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
 
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import notificationDefinition from "#modules/definitions/kernel-scripts/notification.sandbox";
 import { Folds } from "#modules/derived-values/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -47,12 +50,14 @@ import {
 	userId,
 } from "#modules/relationships/lifecycle.test-support";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { ScriptChanges } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { workflowEngineTestLayer } from "#testing/effect";
 
 import { changeSetsLayerWithNotificationSources } from "./change-sets.test-support";
+import { ScriptChangesLayer } from "./script-changes";
 import { ChangeSets } from "./service";
 
 type StagedWrites = {
@@ -1281,6 +1286,109 @@ layer(testLayer(false, false))((test) => {
 							.where(eq(tables.automationTrigger.category, "signal")),
 					),
 				).toEqual([]);
+			}),
+		testTimeout,
+	);
+});
+
+const notificationInput = (executionUserId: UserId) =>
+	Schema.decodeEffect(automationInputSchema)({
+		automation: {
+			executionUserId,
+			runId: "run-notification",
+			triggerId: "trigger-notification",
+			hookSlug: "automation.notification",
+			occurredAt: "2026-09-15T00:00:00.000Z",
+			causation: {
+				depth: 0,
+				parentRunId: null,
+				lane: "background",
+				source: "integration",
+				parentTriggerId: null,
+				executionId: "execution-notification",
+				rootExecutionId: "execution-notification",
+				initiator: { kind: "user", id: executionUserId },
+			},
+			payload: {
+				operation: "emit",
+				category: "signal",
+				resource: "signal",
+				signalSchemaPluginId: null,
+				actorUserId: executionUserId,
+				signalSchemaSlug: "integration.disabled",
+				properties: {
+					providerName: {
+						namespace: KERNEL_NAMESPACE,
+						key: "definition.integration-provider.data-json.name",
+					},
+				},
+			},
+		},
+	});
+
+layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
+	test.effect(
+		"commits a keyed script execution's changes once and replays its result",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const commitKeyed = Effect.flatMap(ScriptChanges, (scripts) =>
+					scripts.commitKeyed({
+						lane: "background",
+						changes: input.input,
+						executionId: "workflow-step-1",
+						occurredAt: input.command.occurredAt,
+						principal: input.command.writeContext,
+					}),
+				);
+				const first = yield* commitKeyed;
+				expect(yield* commitKeyed).toEqual(first);
+				assert(first.entityId);
+				const events = yield* input.session.run((db) =>
+					db
+						.select({ id: tables.event.id })
+						.from(tables.event)
+						.where(eq(tables.event.entityId, first.entityId ?? "")),
+				);
+				expect(events).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"admits the kernel notification script's notifications in the kernel namespace",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const run = automationRun(input);
+				const kernelRun = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
+					...run,
+					kernelScript: true,
+					pluginRevision: null,
+					subject: {
+						...run.subject,
+						pluginId: null,
+						pluginRevisionId: null,
+						pluginConfigRevisionId: null,
+					},
+				});
+				const result = yield* notificationDefinition.run(yield* notificationInput(userId));
+				assert(result.changes);
+				yield* commit(result.changes, nextCommand(input, kernelRun));
+				const admitted = yield* input.session.run((db) =>
+					db
+						.select({ request: tables.notification.request })
+						.from(tables.notification)
+						.where(eq(tables.notification.userId, userId)),
+				);
+				expect(admitted).toMatchObject([
+					{
+						request: {
+							kind: "message",
+							message: { namespace: KERNEL_NAMESPACE, key: "notification.integration-disabled" },
+						},
+					},
+				]);
 			}),
 		testTimeout,
 	);

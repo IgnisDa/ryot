@@ -159,12 +159,12 @@ and host contracts have exhaustive durable dispatch coverage. New operations ext
 not a source-authored grant list. `scratch`/`artifact-read` are filesystem grants requiring trusted
 resources, not host calls.
 
-| Subject              | Capability boundary                                                                                |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| Valid subjects       | Diagnostics, HTTP, cache/persistent values, and pinned plugin configuration                        |
-| User/user automation | Integration/preference/settings reads, entitlements, managed-asset verification, and RyotQL        |
-| Pinned system plugin | RyotQL within owned definitions                                                                    |
-| Own integration run  | Access/invalidation of OAuth fields declared by its current settings schema                        |
+| Subject              | Capability boundary                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| Valid subjects       | Diagnostics, HTTP, cache/persistent values, and pinned plugin configuration                 |
+| User/user automation | Integration/preference/settings reads, entitlements, managed-asset verification, and RyotQL |
+| Pinned system plugin | RyotQL within owned definitions                                                             |
+| Own integration run  | Access/invalidation of OAuth fields declared by its current settings schema                 |
 
 User-subject definition reads pin only the caller's own declarations; visible foreign definitions
 remain current. Entity, event, and schema reads use RyotQL. Before policies receive
@@ -191,9 +191,25 @@ single host map shared by inline and durable dispatch.
 
 ## Script Writes
 
-Host capabilities only read. An operation writes by returning `{ output, changes? }`;
-`OperationsService` runs it through `ScriptCalls` and commits `changes` as one
-[change set](../changes/README.md).
+Host capabilities only read. Every writer returns a [change set](../changes/README.md) and the
+kernel commits it through the `ScriptChanges` port (`executions/script-changes.ts`), under the
+script's principal and the durable identity of its execution:
+
+- An operation returns `{ output, changes? }`; `OperationsService` runs it through `ScriptCalls`.
+- An after hook returns `{ changes? }`; its attempt's finalize commits them (see
+  [automations](../automations/README.md)).
+- A plugin workflow step returns `{ output, changes? }` or saves `(checkpoint, changes?)`; the
+  replay envelope carries `changes`. A script called with `step.activity` runs with `activity: true`
+  on its payload and returns `{ output, changes? }`; only `output` reaches the parent's journal. The
+  body commits a step's or activity's changes in the `commit-sandbox-workflow-changes` activity,
+  before saving the checkpoint or returning the output, with `commitKeyed` under the step's
+  execution ID (`<executionId>-checkpoint-<revision>` for checkpointed workflows). The journaled
+  activity result covers replays; the account's idempotency key covers a stop between the commit and
+  that result.
+- A user bootstrap script returns `{ changes? }`, usually `entities.ensures`. The bootstrap
+  dispatcher pins it, runs it through `ScriptCalls`, and commits with `commitKeyed` under
+  `<bootstrap execution ID>-<script content hash>`, so a rerun of the same script reuses the commit
+  and a new script version commits its own ensures.
 
 ## Global HTTP Admission
 

@@ -430,6 +430,9 @@ cannot write global domain data or declare deployment-owned `httpRateLimits` or 
 A `userBootstrap` entry either names a direct script or lists `entities`, each with a name, one of
 the plugin's own entity schemas, and properties valid for it. The kernel ensures declared entities
 itself, one per schema and user, without running a script. Use a script only when setup needs logic.
+A bootstrap script returns `{ changes? }` (`changesOutputSchema` from the SDK `core`) and writes
+ensures as `changes.entities.ensures`; the kernel commits them once per bootstrap execution and script
+content.
 
 A `memberships` rule links the plugin's member entities to a bootstrap-declared target through one of
 its relationship schemas, without a hook. `join` chooses what adds a member: creating one of the
@@ -624,7 +627,10 @@ subject key. Before hooks have no `delivery` or `retry` fields. Infrastructure f
 `policy-execution-failed` with the run ID and creates no mutation. Resubmission is a new command;
 delayed automatic and manual policy retry are not allowed.
 
-After hooks use `defineAutomation` and `automationType: "automation"`. They run concurrently and
+After hooks use `defineAutomation` and `automationType: "automation"`. An after hook returns
+`{ changes? }`; the kernel commits the change set in the same transaction that records the attempt's
+success, under the hook's causation and root budget, so a retried attempt never commits twice.
+Signals and notifications are `changes.signals` and `changes.notifications`. They run concurrently and
 independently. Dependent steps belong in one script or plugin workflow. `delivery: "async"` does not
 delay the response. `delivery: "required"` waits for one immediate attempt with bounded waiting;
 failure does not roll back committed source data. Responses can carry `required-hook-failed` or
@@ -688,8 +694,9 @@ executable SDK methods must be called directly; method aliases are unsupported.
 
 Long-running workflows declare a `checkpoint` schema. The kernel calls
 `run(input, step, checkpoint, execution)` with `null` on the first step and the last saved value on
-subsequent steps. Return the final output to finish, or `yield* step.save(nextState)` to commit the
-next checkpoint and end this step. Keep each step bounded; use cursors and artifact references rather
+subsequent steps. Return `{ output, changes? }` to finish, or `yield* step.save(nextState, changes?)`
+to commit the next checkpoint and end this step. A step's `changes` commit once at its boundary,
+before its checkpoint or output is recorded. Keep each step bounded; use cursors and artifact references rather
 than accumulating source records. A saved checkpoint survives process restarts without rerunning
 completed steps. Code, configuration, input, and start time stay pinned for the whole execution.
 
@@ -704,14 +711,16 @@ export default defineWorkflow({
       const nextPage = checkpoint?.nextPage ?? 0;
       const batch = yield* step.activity("read-page", readPage, { ...input, page: nextPage });
       yield* step.child("apply-page", applyPage, batch);
-      if (batch.done) return yield* step.child("summary", summary, input);
+      if (batch.done) return { output: yield* step.child("summary", summary, input) };
       return yield* step.save({ nextPage: nextPage + 1 });
     }),
 });
 ```
 
-`step.activity` and `step.child` invoke declared script and workflow references. Their names are local
-to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
+`step.activity` and `step.child` invoke declared script and workflow references. An activity script
+is defined with `defineActivity` and returns `{ output, changes? }`: the kernel commits its changes
+once when it completes and hands the workflow only `output`, which the reference's `output` schema
+describes. Their names are local to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
 complete interrupted calls without guessing whether an external write succeeded. Calls within that
 step must remain deterministic. There is no public replay journal or durable sleep API. A bounded
 workflow that finishes in one step can omit `checkpoint`.

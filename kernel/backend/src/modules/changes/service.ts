@@ -88,16 +88,11 @@ import {
 	principalOwner,
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
+import type { ChangeSetReceipt } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 
 import { authorizeChangeSet, ChangeSetRejected, undeclaredSchema } from "./authority";
-
-/** A commit hook found its change set already committed, so the commit rolled back. */
-export class ChangeSetAlreadyCommitted extends Schema.TaggedError<
-	ChangeSetAlreadyCommitted,
-	{ readonly brand: unique symbol }
->()("ChangeSetAlreadyCommitted", {}) {}
 
 export const ChangeSetFailure = Schema.Union([
 	DbError,
@@ -123,14 +118,7 @@ export const ChangeSetFailure = Schema.Union([
 	AutomationPolicyExecutionError,
 	PluginUserSettingsPatchError,
 	ChangeSetRejected,
-	ChangeSetAlreadyCommitted,
 ]);
-
-/** Work that joins the commit transaction: `start` runs before any write, `finish` after them all. */
-export type ChangeSetCommitHook = {
-	readonly start: Effect.Effect<void, DbError | ChangeSetAlreadyCommitted>;
-	readonly finish: (result: CommittedChanges) => Effect.Effect<void, DbError>;
-};
 
 const parts = (changes: ChangeSet) => [
 	changes.entity,
@@ -539,10 +527,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				});
 				return { write };
 			});
-			const commit = Effect.fn("ChangeSets.commit")(function* (
+			const apply = Effect.fnUntraced(function* <A>(
 				input: ChangeSet,
 				command: DomainLifecycleCommand,
-				hook?: ChangeSetCommitHook,
+				receipt: ChangeSetReceipt<A>,
 			) {
 				const principal = command.writeContext;
 				if (!principal) {
@@ -672,8 +660,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					.transaction(
 						reuseLockedWriteChecks(
 							Effect.gen(function* () {
-								if (hook) {
-									yield* hook.start;
+								const stored = yield* receipt.load;
+								if (stored !== null) {
+									return { dispatch: [], value: stored };
 								}
 								const written = user
 									? yield* user.write
@@ -705,10 +694,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 										userId: input.folds.scope === "user" ? userId : null,
 									});
 								}
-								if (hook) {
-									yield* hook.finish(written.result);
-								}
-								return { dispatch, result: written.result };
+								return { dispatch, value: yield* receipt.record(written.result) };
 							}),
 						),
 					)
@@ -721,9 +707,35 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				yield* lifecycle
 					.dispatch(committed.dispatch)
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-				return committed.result;
+				return committed.value;
 			});
-			return { commit };
+			const commit = Effect.fn("ChangeSets.commit")(function* (
+				input: ChangeSet,
+				command: DomainLifecycleCommand,
+			) {
+				return yield* apply(input, command, { record: Effect.succeed, load: Effect.succeed(null) });
+			});
+			const inTransaction = <A, E>(effect: Effect.Effect<A, E>) =>
+				session.transaction(effect).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+			/**
+			 * Commits at most once against the receipt's durable state. A recorded result ends the commit
+			 * before preparation runs policies, and again inside the transaction, where no write precedes it.
+			 */
+			const commitOnce = Effect.fn("ChangeSets.commitOnce")(function* <A>(
+				input: undefined | ChangeSet,
+				command: DomainLifecycleCommand,
+				receipt: ChangeSetReceipt<A>,
+			) {
+				if (input === undefined || isEmptyChangeSet(input)) {
+					return yield* inTransaction(
+						Effect.gen(function* () {
+							return (yield* receipt.load) ?? (yield* receipt.record({ events: [] }));
+						}),
+					);
+				}
+				return (yield* inTransaction(receipt.load)) ?? (yield* apply(input, command, receipt));
+			});
+			return { commit, commitOnce };
 		}),
 	},
 ) {

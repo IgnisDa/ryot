@@ -1,3 +1,4 @@
+import { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import type { Effect as RuntimeEffect } from "@ryot-app/plugin-backend-sdk/effect";
@@ -74,6 +75,7 @@ export const workflowReplayEnvelopeSchema = Schema.Union([
 	strictStruct({
 		checkpoint: jsonValueSchema,
 		state: Schema.Literal("checkpoint"),
+		changes: Schema.optionalKey(ChangeSet),
 		journalLength: durableCallFields.index,
 		requests: Schema.Array(workflowDurableCallRequestSchema),
 	}),
@@ -85,6 +87,7 @@ export const workflowReplayEnvelopeSchema = Schema.Union([
 	strictStruct({
 		output: jsonValueSchema,
 		state: Schema.Literal("completed"),
+		changes: Schema.optionalKey(ChangeSet),
 		journalLength: durableCallFields.index,
 		requests: Schema.Array(workflowDurableCallRequestSchema),
 	}),

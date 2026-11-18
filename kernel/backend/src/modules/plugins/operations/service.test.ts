@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
 import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
-import type { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
+import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
@@ -40,11 +40,8 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import {
-	type ChangeSetCommitHook,
-	type ChangeSetFailure,
-	ChangeSets,
-} from "#modules/changes/service";
+import { ScriptChangesLayer } from "#modules/changes/script-changes";
+import { type ChangeSetFailure, ChangeSets } from "#modules/changes/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
@@ -54,6 +51,7 @@ import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-su
 import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
+import type { ChangeSetReceipt } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
@@ -424,38 +422,56 @@ const makeLayer = (input: {
 							Effect.as(sandboxResult),
 						),
 				}),
-				Layer.effect(
-					ChangeSets,
-					Effect.map(DatabaseSession, (database) => ({
-						commit: (
-							changes: ChangeSet,
-							command: DomainLifecycleCommand,
-							hook?: ChangeSetCommitHook,
-						) =>
-							Effect.gen(function* () {
-								yield* recordEvent("commit");
-								yield* Ref.update(state.commits, (all) => [
-									...all,
-									{ changes, causation: command.causation, subject: command.writeContext?.subject },
-								]);
-								if (input.commitFailure) {
-									return yield* input.commitFailure;
-								}
-								const result: CommittedChanges = {
-									events: (changes.events?.creates ?? []).map((create) => ({
-										itemIdentity: create.itemIdentity,
-										eventId: EventId.make(`event-${create.itemIdentity}`),
-									})),
-								};
-								if (hook) {
-									const { start, finish } = hook;
-									yield* database
-										.transaction(Effect.andThen(start, finish(result)))
+				ScriptChangesLayer.pipe(
+					Layer.provide(
+						Layer.effect(
+							ChangeSets,
+							Effect.map(DatabaseSession, (database) => {
+								const inTransaction = <A, E>(effect: Effect.Effect<A, E>) =>
+									database
+										.transaction(effect)
 										.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-								}
-								return result;
+								const commitOnce = <A>(
+									changes: undefined | ChangeSet,
+									command: DomainLifecycleCommand,
+									receipt: ChangeSetReceipt<A>,
+								) =>
+									Effect.gen(function* () {
+										const stored = yield* inTransaction(receipt.load);
+										if (stored !== null) {
+											return stored;
+										}
+										if (changes === undefined) {
+											return yield* inTransaction(receipt.record({ events: [] }));
+										}
+										yield* recordEvent("commit");
+										yield* Ref.update(state.commits, (all) => [
+											...all,
+											{
+												changes,
+												causation: command.causation,
+												subject: command.writeContext?.subject,
+											},
+										]);
+										if (input.commitFailure) {
+											return yield* input.commitFailure;
+										}
+										return yield* inTransaction(
+											receipt.record({
+												events: (changes.events?.creates ?? []).map((create) => ({
+													itemIdentity: create.itemIdentity,
+													eventId: EventId.make(`event-${create.itemIdentity}`),
+												})),
+											}),
+										);
+									});
+								return {
+									commitOnce,
+									commit: () => Effect.die("Operations commit through ScriptChanges"),
+								};
 							}),
-					})),
+						),
+					),
 				),
 			);
 		}),

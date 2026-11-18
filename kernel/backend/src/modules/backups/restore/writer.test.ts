@@ -181,7 +181,7 @@ it.effect(
 		Effect.gen(function* () {
 			const settingsSchema: AppSchema = {
 				unknownKeys: "strict",
-				fields: { note: { type: "string", label: "Note", description: "A note" } },
+				fields: { note: { label: "Note", type: "string", description: "A note" } },
 			};
 			const oversized = yield* resolveRestoredPluginUserSettings(
 				{ note: "x".repeat(SANDBOX_LIMITS.userSettingsBytes) },

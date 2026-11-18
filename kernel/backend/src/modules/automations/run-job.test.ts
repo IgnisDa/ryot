@@ -8,6 +8,7 @@ import {
 	AutomationRunAttempt,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import {
 	AutomationHookSlug,
@@ -33,9 +34,11 @@ import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
 import { automationAttemptIdentity, type FinalizeAutomationAttempt } from "./attempt-repository";
 import { triggerFixture } from "./lifecycle.test-support";
 import {
+	type AutomationAttemptChanges,
 	AutomationRunOperations,
 	classifyAutomationSandboxError,
 	prepareAutomationInvocation,
+	type PreparedAutomationAttempt,
 	runAutomationAttempt,
 	runAutomationAttemptDirect,
 } from "./run-job-live";
@@ -85,6 +88,23 @@ const policyScript = {
 	automationType: "policy",
 	inputProjection: { entity: { properties: [] } },
 } as const;
+const hookChanges = {
+	signals: [{ properties: {}, discriminator: "first", schemaSlug: "hook-done" }],
+} satisfies ChangeSet;
+const withPrincipal = (
+	prepared: Effect.Success<ReturnType<typeof prepareAutomationInvocation>>,
+): PreparedAutomationAttempt => ({
+	...prepared,
+	principal: {
+		providerId: null,
+		pluginRevision: null,
+		metadata: afterScript,
+		subject: prepared.subject,
+		scriptSlug: run.scriptSlug,
+		scriptId: prepared.scriptId,
+		contentHash: run.scriptContentHash,
+	},
+});
 const identity = automationAttemptIdentity(run.id, 1);
 const initialAttempt = AutomationRunAttempt.make({
 	...identity,
@@ -262,12 +282,14 @@ type HarnessState = {
 	readonly options: HarnessOptions;
 	readonly attempt: AutomationRunAttempt;
 	readonly children: ReadonlyArray<string>;
+	readonly written: ReadonlyArray<AutomationAttemptChanges>;
 	readonly outcomes: ReadonlyArray<FinalizeAutomationAttempt>;
 };
 
 const initialState = (options: HarnessOptions): HarnessState => ({
 	options,
 	releases: 0,
+	written: [],
 	outcomes: [],
 	children: [],
 	finalizeCalls: 0,
@@ -280,6 +302,7 @@ class RunJobHarness extends Context.Service<
 		readonly releases: Effect.Effect<number>;
 		readonly children: Effect.Effect<ReadonlyArray<string>>;
 		readonly reset: (options: HarnessOptions) => Effect.Effect<void>;
+		readonly written: Effect.Effect<ReadonlyArray<AutomationAttemptChanges>>;
 		readonly outcomes: Effect.Effect<ReadonlyArray<FinalizeAutomationAttempt>>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/run-job.test/RunJobHarness") {}
@@ -320,7 +343,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 									chosen.run.stage === "before" ? policyScript : afterScript,
 									chosen.run.executionUserId,
 									{ pinned: true },
-								),
+								).pipe(Effect.map(withPrincipal)),
 					),
 				runSandbox: (input) =>
 					Effect.gen(function* () {
@@ -336,10 +359,10 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 							error: null,
 							logs: ["script log"],
 							status: "completed" as const,
-							value: { secretLookingResult: "not-in-completion" },
+							value: { changes: hookChanges },
 						};
 					}),
-				finalize: (input) =>
+				finalize: (input, written) =>
 					Effect.gen(function* () {
 						const { options, finalizeCalls } = yield* Ref.updateAndGet(state, (snapshot) => ({
 							...snapshot,
@@ -353,12 +376,14 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 							...snapshot,
 							attempt,
 							outcomes: [...snapshot.outcomes, input],
+							written: written === undefined ? snapshot.written : [...snapshot.written, written],
 						}));
 						return attempt;
 					}),
 			});
 			return Context.make(AutomationRunOperations, operations).pipe(
 				Context.add(RunJobHarness, {
+					written: Effect.map(current, ({ written }) => written),
 					outcomes: Effect.map(current, ({ outcomes }) => outcomes),
 					children: Effect.map(current, ({ children }) => children),
 					releases: Effect.map(current, ({ releases }) => releases),
@@ -762,7 +787,47 @@ layer(harnessLayer())((test) => {
 				expect(yield* harness.children).toEqual([`${identity.executionId}-sandbox`]);
 				const outcomes = yield* harness.outcomes;
 				expect(outcomes).toHaveLength(1);
-				expect(outcomes[0]?.returnedValue).toEqual({ secretLookingResult: "not-in-completion" });
+				expect(outcomes[0]?.returnedValue).toEqual({ changes: hookChanges });
+				const written = yield* harness.written;
+				expect(written).toHaveLength(1);
+				expect(written[0]).toMatchObject({
+					changes: hookChanges,
+					prepared: {
+						principal: {
+							scriptId: run.sandboxScriptId,
+							subject: { runId: run.id, stage: "after" },
+						},
+					},
+				});
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	harnessLayer({
+		overrides: {
+			runSandbox: () =>
+				Effect.succeed({
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: { written: "through a host call" },
+				}),
+		},
+	}),
+)((test) => {
+	test.effect(
+		"fails an after hook whose output is not a change set result without committing",
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* RunJobHarness;
+				yield* execute();
+				expect((yield* harness.outcomes)[0]).toMatchObject({
+					status: "failed",
+					failureKind: "invalid-output",
+				});
+				expect(yield* harness.written).toEqual([]);
 			}),
 		testTimeout,
 	);

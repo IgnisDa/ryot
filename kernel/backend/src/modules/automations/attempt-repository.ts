@@ -339,93 +339,102 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						}),
 					),
 				);
-			const finalizeAttempt = (input: FinalizeAutomationAttempt, now: Date) =>
-				atomic(
-					session,
-					session.run((db) =>
-						Effect.gen(function* () {
-							yield* validateTime(now);
-							const run = yield* lockRun(session, input.runId);
-							const attempt = yield* findAttempt(input.runId, input.attemptNumber);
-							if (!attempt) {
-								return yield* conflict("Automation attempt not found");
-							}
-							const outcome = {
-								...boundAutomationAttemptArtifacts(input),
-								timing: input.timing,
-								status: input.status,
-								failureKind: input.failureKind,
-								retryable:
-									input.status === "failed" &&
-									run.stage !== "before" &&
-									isRetryableAutomationFailure(input.failureKind, run.retryPolicy),
+			/** The attempt's recorded outcome, on the caller's transaction, which then holds the run's lock. */
+			const settledAttemptWithin = Effect.fn(function* (
+				runId: AutomationRunId,
+				attemptNumber: number,
+			) {
+				yield* lockRun(session, runId);
+				const attempt = yield* findAttempt(runId, attemptNumber);
+				return attempt === null || attempt.status === "running" ? null : attempt;
+			});
+			/** Records an attempt's outcome on the caller's transaction, so it commits with the attempt's changes. */
+			const finalizeAttemptWithin = (input: FinalizeAutomationAttempt, now: Date) =>
+				session.run((db) =>
+					Effect.gen(function* () {
+						yield* validateTime(now);
+						const run = yield* lockRun(session, input.runId);
+						const attempt = yield* findAttempt(input.runId, input.attemptNumber);
+						if (!attempt) {
+							return yield* conflict("Automation attempt not found");
+						}
+						const outcome = {
+							...boundAutomationAttemptArtifacts(input),
+							timing: input.timing,
+							status: input.status,
+							failureKind: input.failureKind,
+							retryable:
+								input.status === "failed" &&
+								run.stage !== "before" &&
+								isRetryableAutomationFailure(input.failureKind, run.retryPolicy),
+						};
+						if (attempt.status !== "running") {
+							const stored = {
+								logs: attempt.logs,
+								error: attempt.error,
+								timing: attempt.timing,
+								status: attempt.status,
+								retryable: attempt.retryable,
+								failureKind: attempt.failureKind,
+								returnedValue: attempt.returnedValue,
 							};
-							if (attempt.status !== "running") {
-								const stored = {
-									logs: attempt.logs,
-									error: attempt.error,
-									timing: attempt.timing,
-									status: attempt.status,
-									retryable: attempt.retryable,
-									failureKind: attempt.failureKind,
-									returnedValue: attempt.returnedValue,
-								};
-								if (
-									attempt.artifactsPrunedAt !== null ||
-									stableStringify(stored) !== stableStringify(outcome)
-								) {
-									return yield* conflict("Immutable automation attempt outcome conflict");
-								}
-								return attempt;
-							}
 							if (
-								run.status !== "running" ||
-								run.attemptCount !== input.attemptNumber ||
-								now.getTime() < Date.parse(attempt.startedAt)
+								attempt.artifactsPrunedAt !== null ||
+								stableStringify(stored) !== stableStringify(outcome)
 							) {
-								return yield* conflict("Automation attempt finalize conflict");
+								return yield* conflict("Immutable automation attempt outcome conflict");
 							}
-							const validated = yield* decodeStoredSchema(
-								{ ...attempt, ...outcome, finishedAt: now.toISOString() },
-								AutomationRunAttempt,
-								"Invalid automation attempt outcome",
-							);
-							const nextAttemptAt =
-								input.status === "failed"
-									? automaticRetryAt(
-											{ ...run, artifactsExpireAt: run.artifactsExpireAt.toISOString() },
-											input.failureKind,
-											now,
-										)
-									: null;
-							yield* db
-								.update(table)
-								.set({
-									...outcome,
-									...(yield* projectAutomationAttemptHistory(outcome)),
-									finishedAt: now,
-								})
-								.where(and(eq(table.id, attempt.id), eq(table.status, "running")));
-							const rejected =
-								run.stage === "before" &&
-								input.status === "succeeded" &&
-								input.returnedValue !== null &&
-								typeof input.returnedValue === "object" &&
-								"action" in input.returnedValue &&
-								input.returnedValue["action"] === "reject";
-							const terminalStatus = rejected ? "rejected" : input.status;
-							yield* db
-								.update(automationRun)
-								.set({
-									nextAttemptAt,
-									finishedAt: nextAttemptAt ? null : now,
-									status: nextAttemptAt ? "queued" : terminalStatus,
-								})
-								.where(eq(automationRun.id, run.id));
-							return validated;
-						}),
-					),
+							return attempt;
+						}
+						if (
+							run.status !== "running" ||
+							run.attemptCount !== input.attemptNumber ||
+							now.getTime() < Date.parse(attempt.startedAt)
+						) {
+							return yield* conflict("Automation attempt finalize conflict");
+						}
+						const validated = yield* decodeStoredSchema(
+							{ ...attempt, ...outcome, finishedAt: now.toISOString() },
+							AutomationRunAttempt,
+							"Invalid automation attempt outcome",
+						);
+						const nextAttemptAt =
+							input.status === "failed"
+								? automaticRetryAt(
+										{ ...run, artifactsExpireAt: run.artifactsExpireAt.toISOString() },
+										input.failureKind,
+										now,
+									)
+								: null;
+						yield* db
+							.update(table)
+							.set({
+								...outcome,
+								...(yield* projectAutomationAttemptHistory(outcome)),
+								finishedAt: now,
+							})
+							.where(and(eq(table.id, attempt.id), eq(table.status, "running")));
+						const rejected =
+							run.stage === "before" &&
+							input.status === "succeeded" &&
+							input.returnedValue !== null &&
+							typeof input.returnedValue === "object" &&
+							"action" in input.returnedValue &&
+							input.returnedValue["action"] === "reject";
+						const terminalStatus = rejected ? "rejected" : input.status;
+						yield* db
+							.update(automationRun)
+							.set({
+								nextAttemptAt,
+								finishedAt: nextAttemptAt ? null : now,
+								status: nextAttemptAt ? "queued" : terminalStatus,
+							})
+							.where(eq(automationRun.id, run.id));
+						return validated;
+					}),
 				);
+			const finalizeAttempt = (input: FinalizeAutomationAttempt, now: Date) =>
+				atomic(session, finalizeAttemptWithin(input, now));
 			const pruneArtifacts = Effect.fn(function* (input: {
 				before: Date;
 				limit: number;
@@ -462,7 +471,15 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						.returning({ id: table.id });
 				});
 			});
-			return { findAttempt, pruneArtifacts, finalizeAttempt, claimNextAttempt, releaseFirstClaim };
+			return {
+				findAttempt,
+				pruneArtifacts,
+				finalizeAttempt,
+				claimNextAttempt,
+				releaseFirstClaim,
+				settledAttemptWithin,
+				finalizeAttemptWithin,
+			};
 		}),
 	},
 ) {

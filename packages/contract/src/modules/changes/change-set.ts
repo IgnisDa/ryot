@@ -209,6 +209,10 @@ export const ChangeSet = strictStruct({
 });
 export type ChangeSet = typeof ChangeSet.Type;
 
+/** The result of a script whose only effect is its changes: after hooks and user bootstrap scripts. */
+export const ChangesOutput = strictStruct({ changes: Schema.optional(ChangeSet) });
+export type ChangesOutput = typeof ChangesOutput.Type;
+
 export const CommittedChanges = strictStruct({
 	entityId: Schema.optional(EntityId),
 	events: Schema.Array(strictStruct({ eventId: EventId, itemIdentity: Schema.NonEmptyString })),

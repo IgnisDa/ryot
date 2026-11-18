@@ -1,11 +1,7 @@
 import { WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { BadRequest, NotFound } from "@ryot-app/contract/errors";
 import { DbError } from "@ryot-app/contract/errors";
-import {
-	ChangeSet,
-	CommitConflictCode,
-	CommittedChanges,
-} from "@ryot-app/contract/modules/changes/change-set";
+import { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
 	PluginConflictError,
@@ -24,7 +20,6 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { Message } from "@ryot-app/i18n/message";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
@@ -32,9 +27,6 @@ import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import { ChangeSetRejected } from "#modules/changes/authority";
-import type { ChangeSetFailure } from "#modules/changes/service";
-import { ChangeSetAlreadyCommitted, ChangeSets, isEmptyChangeSet } from "#modules/changes/service";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import {
 	type IdempotencyIdentity,
@@ -45,10 +37,9 @@ import { requireOpenSubmission } from "#modules/mutations/submission-window";
 import { PageOperationAuthorization } from "#modules/pages/operation-authority";
 import { samePluginPin, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
-import {
-	operationLifecycleCommand,
-	sandboxStartedAt,
-} from "#modules/scripts/host/execution-context";
+import type { ScriptChangesRejected } from "#modules/scripts/executions/script-changes";
+import { ScriptChanges } from "#modules/scripts/executions/script-changes";
+import { sandboxStartedAt } from "#modules/scripts/host/execution-context";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
@@ -87,16 +78,6 @@ const OperationRunResult = Schema.Struct({
 const OperationReceipt = Schema.Struct({ output: JsonValue, committed: CommittedChanges });
 type OperationReceipt = typeof OperationReceipt.Type;
 
-const isCommitConflict = Schema.is(
-	Schema.Struct({ reason: Schema.Struct({ code: CommitConflictCode }) }),
-);
-const isPolicyRejection = Schema.is(
-	Schema.Struct({
-		_tag: Schema.Literals(["EventBadRequest", "RelationshipBadRequest"]),
-		reason: Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
-	}),
-);
-
 const invalidOutput = (message: string) =>
 	new PluginInvocationError({
 		reason: {
@@ -105,25 +86,20 @@ const invalidOutput = (message: string) =>
 		},
 	});
 
-const commitFailure = (error: typeof ChangeSetFailure.Type) => {
+const commitFailure = (error: DbError | ScriptChangesRejected) => {
 	if (error instanceof DbError) {
 		return error;
 	}
-	if (isPolicyRejection(error)) {
-		return new PluginOperationRejected({ reason: error.reason.message });
+	const { reason } = error;
+	if (reason.code === "policy-rejected") {
+		return new PluginOperationRejected({ reason: reason.message });
 	}
-	if (error instanceof ChangeSetRejected) {
-		return invalidOutput(`Operation changes were rejected: ${error.message}`);
-	}
-	if (isCommitConflict(error)) {
+	if (reason.code === "conflict") {
 		return new PluginConflictError({
-			reason: { code: "changes-conflict", conflict: error.reason.code },
+			reason: { code: "changes-conflict", conflict: reason.conflict },
 		});
 	}
-	const code = Schema.is(Schema.Struct({ reason: Schema.Struct({ code: Schema.String }) }))(error)
-		? `: ${error.reason.code}`
-		: "";
-	return invalidOutput(`Operation changes were not committed (${error._tag}${code})`);
+	return invalidOutput(`Operation changes were not committed (${reason.message})`);
 };
 
 export class IntegrationOperationScopeResolver extends Context.Service<
@@ -152,7 +128,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			const scripts = yield* SandboxRepository;
 			const entitlements = yield* EntitlementService;
 			const calls = yield* ScriptCalls;
-			const commands = yield* ChangeSets;
+			const changes = yield* ScriptChanges;
 
 			const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: AdmittedDispatch) {
 				const result = yield* calls.run({
@@ -206,53 +182,36 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				input: AdmittedDispatch,
 				run: typeof OperationRunResult.Type,
 			) {
-				const { principal, resultIdentity } = input;
-				if (run.changes === undefined || isEmptyChangeSet(run.changes)) {
-					const receipt: OperationReceipt = { output: run.output, committed: { events: [] } };
-					if (resultIdentity) {
-						yield* keys.record(resultIdentity, OperationReceipt, receipt);
-					}
-					return receipt;
-				}
-				const subject = principal.subject;
-				if (subject.type !== "user") {
-					return yield* Effect.die("Operation principal must have a user subject");
-				}
-				const command = yield* operationLifecycleCommand({
-					lane: "interactive",
-					startedAt: yield* sandboxStartedAt,
-					principal: { ...principal, subject },
-					executionId: AutomationExecutionId.make(input.executionId),
-				}).pipe(Effect.orDie);
-				const hook =
-					resultIdentity === null
-						? undefined
-						: {
-								finish: (committed: CommittedChanges) =>
-									keys.record(resultIdentity, OperationReceipt, { committed, output: run.output }),
-								start: keys.lockedRead(resultIdentity, OperationReceipt).pipe(
-									Effect.catchTag("IdempotencyConflict", Effect.die),
-									Effect.flatMap((stored) =>
-										stored ? new ChangeSetAlreadyCommitted() : Effect.void,
-									),
-								),
-							};
-				return yield* commands.commit(run.changes, command, hook).pipe(
-					Effect.map((committed): OperationReceipt => ({ committed, output: run.output })),
-					Effect.catchTag("ChangeSetAlreadyCommitted", () =>
-						resultIdentity === null
-							? Effect.die("A commit without a receipt cannot be a replay")
-							: keys.read(resultIdentity, OperationReceipt).pipe(
-									Effect.catchTag("IdempotencyConflict", Effect.die),
-									Effect.flatMap((stored) =>
-										stored
-											? Effect.succeed(stored.response)
-											: Effect.die("Replayed receipt vanished"),
-									),
-								),
-					),
-					Effect.mapError(commitFailure),
-				);
+				const { resultIdentity } = input;
+				const receipt = (committed: CommittedChanges): OperationReceipt => ({
+					committed,
+					output: run.output,
+				});
+				return yield* changes
+					.commit({
+						lane: "interactive",
+						changes: run.changes,
+						principal: input.principal,
+						executionId: input.executionId,
+						occurredAt: yield* sandboxStartedAt,
+						receipt:
+							resultIdentity === null
+								? {
+										load: Effect.succeed(null),
+										record: (committed) => Effect.succeed(receipt(committed)),
+									}
+								: {
+										record: (committed) =>
+											keys
+												.record(resultIdentity, OperationReceipt, receipt(committed))
+												.pipe(Effect.as(receipt(committed))),
+										load: keys.lockedRead(resultIdentity, OperationReceipt).pipe(
+											Effect.catchTag("IdempotencyConflict", Effect.die),
+											Effect.map((stored) => stored?.response ?? null),
+										),
+									},
+					})
+					.pipe(Effect.mapError(commitFailure));
 			});
 
 			const invokeInternal = Effect.fn("OperationsService.invokeInternal")(function* (input: {

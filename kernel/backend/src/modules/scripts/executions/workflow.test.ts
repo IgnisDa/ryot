@@ -76,6 +76,7 @@ import {
 	SandboxProjectionMissing,
 	type SandboxReplayResult,
 } from "./queues";
+import { ScriptChanges } from "./script-changes";
 import {
 	performSandboxWorkflowChild,
 	performSandboxWorkflowRequest,
@@ -154,8 +155,21 @@ const workflowTestCallsLayer = Layer.effect(
 	}),
 );
 
+const recordedChangesLayer = Layer.effect(
+	ScriptChanges,
+	Effect.map(WorkflowTestCalls, (calls) =>
+		ScriptChanges.of({
+			commit: () => Effect.die("Workflows commit their changes keyed by execution"),
+			commitKeyed: (input) => calls.record("changes", input).pipe(Effect.as({ events: [] })),
+		}),
+	),
+);
+
 const recordingLayer = <A, E, R, R2>(build: Effect.Effect<Layer.Layer<A, E, R>, never, R2>) =>
-	Layer.unwrap(build).pipe(Layer.provideMerge(workflowTestCallsLayer));
+	Layer.unwrap(build).pipe(
+		Layer.provideMerge(recordedChangesLayer),
+		Layer.provideMerge(workflowTestCallsLayer),
+	);
 
 const activityEngineLayer = (executionId: string, overrides?: WorkflowEngineOverrides) =>
 	Layer.unwrap(
@@ -1022,6 +1036,7 @@ layer(
 		Layer.mergeAll(
 			mutationAdmissionTestLayer,
 			controlledWorkflowDependencies,
+			Layer.mock(ScriptChanges)({}),
 			activityEngineLayer("inactive-plugin-workflow"),
 			Layer.mock(SandboxRepository)({
 				getScriptPin: () =>

@@ -1,7 +1,7 @@
 import { Layer } from "effect";
 
 import { AuthServiceLive } from "#modules/accounts/auth/layer";
-import { ChangeSetsLive } from "#modules/changes/layer";
+import { ScriptChangesLive } from "#modules/changes/layer";
 import { IntegrationOperationScopeResolverProvidedLive } from "#modules/integrations/layer";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
@@ -25,7 +25,7 @@ export const OperationsServiceLive = OperationsService.layer.pipe(
 			SandboxRepository.layer,
 			IntegrationOperationScopeResolverProvidedLive,
 			ScriptCalls.layer.pipe(Layer.provide(ExecutableArtifacts.layer)),
-			ChangeSetsLive,
+			ScriptChangesLive,
 		),
 	),
 );

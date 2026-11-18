@@ -8,11 +8,14 @@ import {
 	AuthUserBootstrapScheduler,
 } from "#modules/accounts/auth/service";
 import { NotificationSubscriptionsServiceLive } from "#modules/automations/layer";
+import { ScriptChangesLive } from "#modules/changes/layer";
 import { PluginBootstrapEntitiesRuntimeLive } from "#modules/entities/layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginInstallationRuntimeLive } from "#modules/plugins/layer";
-import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
+import { ExecutableArtifacts } from "#modules/scripts/registry/executable-artifacts";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { UserBootstrap } from "./bootstrap";
 import { UserBootstrapJobLive } from "./job";
@@ -22,7 +25,9 @@ import { UserBootstrapScheduling } from "./scheduling";
 export const PluginUserBootstrapDispatcherLive = PluginUserBootstrapDispatcher.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
-			ScriptExecutionServiceLive,
+			ScriptChangesLive,
+			SandboxRepository.layer,
+			ScriptCalls.layer.pipe(Layer.provide(ExecutableArtifacts.layer)),
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
 			PluginBootstrapEntitiesRuntimeLive,

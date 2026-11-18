@@ -51,11 +51,39 @@ validation in `PluginUserSettingsWriter`.
 `ChangeSets.commit` prepares every part before the commit transaction, so no database transaction
 is held over sandbox execution: the root entity, relationships, event items in pages with their
 event policies, ensures, entity deletes (grouped by schema), and data clears and merges. It then
-runs one events transaction that applies, in order: the commit hook's `start`, the settings patch,
+runs one events transaction that applies, in order: the receipt's `load`, the settings patch,
 source writes (root entity, relationships, events, baselines), ensures, deletes, clears and merges,
 global entity upserts and global relationship reconciliation, signal plans, notification
-admissions, fold requests, and the hook's `finish`. Lifecycle dispatch starts after commit; a
+admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts after commit; a
 failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
+
+## Script changes and exactly-once commits
+
+Scripts commit their returned changes through one port, `ScriptChanges`
+(`#modules/scripts/executions/script-changes`), implemented here by `ScriptChangesLayer`. It builds
+the command with `scriptChangesCommand`: an automation run's changes descend from its trigger
+(`automationLifecycleCausation`, so depth and the root budget carry over); every other script starts a
+root causation (`bootstrap`, `integration` or `api` for user subjects, `provider-refresh` for system
+ones). The caller passes the durable identity of the script's execution as `executionId`; every
+trigger, entity and event ID the commit derives comes from it. Failures are normalized to
+`ScriptChangesRejected` (`conflict`, `policy-rejected` or `invalid`) for each caller to map.
+
+`ChangeSets.commitOnce(changes, command, receipt)` makes a commit exactly-once against the caller's
+durable state. `receipt.load` returns a result an earlier commit recorded: it is read once before
+preparation (so a replay runs no policies) and again first in the commit transaction, where a stored
+result ends the commit before any write. `receipt.record` runs after every write, so the result
+commits with the changes it describes. An absent or empty change set only runs `load`/`record` in a
+transaction. Receipts per caller:
+
+| Caller                        | Receipt                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Operations                    | The operation's idempotency key (`plugin-operation:result`), when the caller passed one                 |
+| After hooks                   | The attempt row: `load` locks the run and returns a settled attempt; `record` finalizes it as succeeded |
+| Workflow steps and activities | `commitKeyed`: the account's idempotency key under the step's or activity's execution ID                |
+| User bootstrap scripts        | `commitKeyed` under the bootstrap execution ID and the script's content hash                            |
+
+A keyed commit for a system execution has no account and no receipt; system executions may write only
+global upserts, signals and all-user fold requests, whose deterministic IDs make a repeat a no-op.
 
 ## Source writes
 
@@ -63,10 +91,7 @@ The commit rechecks references and schema fingerprints, persists the entity, rel
 event changes, and plans dispatch atomically.
 
 A settings patch is applied first in the commit transaction through `PluginUserSettingsWriter`;
-integration, import, and bootstrap executions cannot write settings. A
-caller may pass a commit hook: its `start` runs in the transaction before any write and may abort with
-`ChangeSetAlreadyCommitted`, and its `finish` runs after every write with the result, so an operation
-receipt commits with the writes it describes.
+integration, import, and bootstrap executions cannot write settings.
 
 The commit holds its entity reference locks until it ends, so change sets that write events under the
 same entity serialize on its row. It does only the work its changes need: an unchanged entity update

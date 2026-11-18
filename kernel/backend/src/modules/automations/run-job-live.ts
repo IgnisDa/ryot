@@ -11,6 +11,7 @@ import {
 	type AutomationTrigger,
 	ExecutionLane,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import { type ChangeSet, ChangesOutput } from "@ryot-app/contract/modules/changes/change-set";
 import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionOwner,
@@ -34,11 +35,16 @@ import { automationRunLane } from "#modules/automations/lifecycle/command";
 import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
 import type {
 	SandboxExecutionResult,
 	StampedSandboxExecutionError,
 } from "#modules/scripts/executions/result";
+import {
+	ScriptChanges,
+	type ScriptChangesRejected,
+} from "#modules/scripts/executions/script-changes";
 import { executeScriptDirectly, ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -72,6 +78,17 @@ const PreparedAutomationRun = Schema.Struct({
 	policyItemIdentity: Schema.NullOr(Schema.String),
 	input: Schema.Union([AutomationInput, AutomationPolicyBatchInput]),
 });
+/** A prepared run with the exact principal its changes commit under. */
+export type PreparedAutomationAttempt = PreparedAutomationRun & {
+	readonly principal: ScriptExecutionPrincipal;
+};
+
+/** The changes a succeeded after hook returned, committed with its attempt's outcome. */
+export type AutomationAttemptChanges = {
+	readonly changes: ChangeSet;
+	readonly prepared: PreparedAutomationAttempt;
+};
+
 type PreparedAutomationRun = typeof PreparedAutomationRun.Type;
 
 class AutomationPreparationError extends Schema.TaggedError<
@@ -320,16 +337,19 @@ export class AutomationRunOperations extends Context.Service<
 	AutomationRunOperations,
 	{
 		releaseFirstClaim: (payload: AutomationRunPayload) => Effect.Effect<void, DbError>;
-		finalize: (input: FinalizeAutomationAttempt) => Effect.Effect<AutomationRunAttempt, DbError>;
 		claim: (
 			payload: AutomationRunPayload,
 		) => Effect.Effect<typeof ClaimedAutomationAttempt.Type, DbError>;
 		prepare: (
 			payload: AutomationRunPayload,
-		) => Effect.Effect<PreparedAutomationRun, DbError | AutomationPreparationError>;
+		) => Effect.Effect<PreparedAutomationAttempt, DbError | AutomationPreparationError>;
 		runSandbox: (
 			input: PreparedAutomationRun & { executionId: string },
 		) => Effect.Effect<SandboxExecutionResult, SandboxRunError>;
+		finalize: (
+			input: FinalizeAutomationAttempt,
+			changes?: AutomationAttemptChanges,
+		) => Effect.Effect<AutomationRunAttempt, DbError>;
 		runSandboxDirect: (
 			input: PreparedAutomationRun & { executionId: string },
 		) => Effect.Effect<SandboxExecutionResult, SandboxRunError | DirectScriptDeferred>;
@@ -354,17 +374,11 @@ export const AutomationRunOperationsLive = Layer.effect(
 		const direct = yield* DirectScriptExecutor;
 		const session = yield* DatabaseSession;
 		const admission = yield* AccountAdmission.make;
+		const changes = yield* ScriptChanges;
 		return AutomationRunOperations.of({
 			runSandbox: (input) => sandbox.executeScript(input),
 			releaseFirstClaim: (payload) => attempts.releaseFirstClaim(payload.runId),
 			runSandboxDirect: (input) => executeScriptDirectly(direct, input, "direct"),
-			finalize: (input) =>
-				Effect.gen(function* () {
-					return yield* attempts.finalizeAttempt(
-						input,
-						DateTime.toDate(DateTime.makeUnsafe(yield* Clock.currentTimeMillis)),
-					);
-				}),
 			claim: (payload) =>
 				Effect.gen(function* () {
 					const result = yield* attempts.claimNextAttempt({
@@ -376,6 +390,38 @@ export const AutomationRunOperationsLive = Layer.effect(
 						return yield* new DbError({ message: "Automation run is unavailable" });
 					}
 					return { stage: run.stage, attempt: result.attempt, claimed: result.claimed };
+				}),
+			finalize: (input, written) =>
+				Effect.gen(function* () {
+					const now = DateTime.toDate(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
+					if (written === undefined) {
+						return yield* attempts.finalizeAttempt(input, now);
+					}
+					const { prepared } = written;
+					if (!("payload" in prepared.input.automation)) {
+						return yield* Effect.die("Only after hooks return changes");
+					}
+					const { automation } = prepared.input;
+					return yield* changes
+						.commit({
+							lane: prepared.lane,
+							changes: written.changes,
+							principal: prepared.principal,
+							occurredAt: automation.occurredAt,
+							executionId: automationAttemptIdentity(input.runId, input.attemptNumber).executionId,
+							...("population" in automation.payload && automation.payload.population !== undefined
+								? { population: automation.payload.population }
+								: {}),
+							receipt: {
+								record: () => attempts.finalizeAttemptWithin(input, now),
+								load: attempts.settledAttemptWithin(input.runId, input.attemptNumber),
+							},
+						})
+						.pipe(
+							Effect.catchTag("ScriptChangesRejected", (error) =>
+								attempts.finalizeAttempt(rejectedChangesOutcome(input, error), now),
+							),
+						);
 				}),
 			prepare: (payload) =>
 				session
@@ -513,7 +559,7 @@ export const AutomationRunOperationsLive = Layer.effect(
 									Effect.mapError(() => new DbError({ message: "Invalid policy references" })),
 								);
 							}
-							return yield* prepareAutomationInvocation(
+							const prepared = yield* prepareAutomationInvocation(
 								run,
 								trigger,
 								payload,
@@ -524,6 +570,13 @@ export const AutomationRunOperationsLive = Layer.effect(
 								batchFrequency,
 								referenceDrafts,
 							);
+							const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
+								...pin,
+								subject: prepared.subject,
+							}).pipe(
+								Effect.mapError(() => projectionError(run, "does not produce a valid principal")),
+							);
+							return { ...prepared, principal };
 						}),
 					)
 					.pipe(
@@ -551,6 +604,35 @@ export const classifyAutomationSandboxError = (
 	error: StampedSandboxExecutionError,
 ): AutomationFailureKind => AUTOMATION_FAILURE_KINDS[error.kind];
 
+const rejectedChangesOutcome = (
+	input: FinalizeAutomationAttempt,
+	error: ScriptChangesRejected,
+): FinalizeAutomationAttempt => {
+	const { reason } = error;
+	if (reason.code === "conflict") {
+		return {
+			...input,
+			status: "failed",
+			failureKind: "resource-unavailable",
+			error: { code: reason.conflict, message: "Automation changes conflicted with a newer write" },
+		};
+	}
+	if (reason.code === "policy-rejected") {
+		return {
+			...input,
+			status: "failed",
+			failureKind: "business-failure",
+			error: { code: reason.code, message: "A policy rejected the automation's changes" },
+		};
+	}
+	return {
+		...input,
+		status: "failed",
+		failureKind: "invalid-output",
+		error: { message: reason.message, code: "changes-rejected" },
+	};
+};
+
 const completion = (
 	attempt: AutomationRunAttempt,
 	policyOutput: AutomationRunResult["policyOutput"],
@@ -562,6 +644,7 @@ const attemptOutcome = Effect.fnUntraced(function* <E>(
 	runSandbox: (prepared: PreparedAutomationRun) => Effect.Effect<SandboxExecutionResult, E>,
 ) {
 	let policyOutput: AutomationRunResult["policyOutput"] = null;
+	let changes: undefined | ChangeSet;
 	let outcome: FinalizeAutomationAttempt;
 	if (prepared instanceof AutomationPreparationError) {
 		outcome = {
@@ -627,6 +710,15 @@ const attemptOutcome = Effect.fnUntraced(function* <E>(
 			if (!policyOutput) {
 				failureKind = "invalid-output";
 			}
+		} else if (!failureKind) {
+			const decoded = yield* Schema.decodeUnknownEffect(ChangesOutput)(value).pipe(
+				Effect.orElseSucceed(() => null),
+			);
+			if (decoded) {
+				changes = decoded.changes;
+			} else {
+				failureKind = "invalid-output";
+			}
 		}
 		const returnedValue =
 			policyOutput === null
@@ -651,7 +743,7 @@ const attemptOutcome = Effect.fnUntraced(function* <E>(
 				: { failureKind: null, status: "succeeded" }),
 		};
 	}
-	return { outcome, policyOutput };
+	return { outcome, changes, policyOutput };
 });
 
 /**
@@ -670,10 +762,15 @@ export const runAutomationAttempt = Effect.fn("AutomationRunJob")(function* (
 	const prepared = yield* operations
 		.prepare(payload)
 		.pipe(Effect.catchTag("AutomationPreparationError", (error) => Effect.succeed(error)));
-	const { outcome } = yield* attemptOutcome(payload, prepared, (input) =>
+	const { outcome, changes } = yield* attemptOutcome(payload, prepared, (input) =>
 		operations.runSandbox({ ...input, executionId: `${identity.executionId}-sandbox` }),
 	);
-	yield* operations.finalize(outcome);
+	yield* operations.finalize(
+		outcome,
+		prepared instanceof AutomationPreparationError || changes === undefined
+			? undefined
+			: { changes, prepared },
+	);
 });
 
 /**

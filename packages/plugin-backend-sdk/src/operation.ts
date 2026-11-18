@@ -1,15 +1,13 @@
-import { ChangeSet, CommitConflictCode } from "@ryot-app/contract/modules/changes/change-set";
+import { CommitConflictCode } from "@ryot-app/contract/modules/changes/change-set";
 import { LocalMessage } from "@ryot-app/i18n/message";
 import { type Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
+import { outputWithChanges } from "./core/changes";
 import type { OperationManifest } from "./core/script-manifest";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 
-const operationResult = <Output extends Schema.Codec<unknown, unknown>>(output: Output) =>
-	Schema.Struct({ output, changes: Schema.optional(ChangeSet) });
-
 type OperationResult<Output extends Schema.Codec<unknown, unknown>> = ReturnType<
-	typeof operationResult<Output>
+	typeof outputWithChanges<Output>
 >;
 
 export const defineOperation = <
@@ -29,7 +27,7 @@ export const defineOperation = <
 > => ({
 	...definition,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
-	output: operationResult(definition.output),
+	output: outputWithChanges(definition.output),
 });
 
 /**

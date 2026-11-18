@@ -89,7 +89,9 @@ const validateRegisteredSettings = (
 			)
 		: new IntegrationRequestError({ reason: { provider, code: "provider-not-found" } });
 
-const requireSettingsWithinLimit = (integration: Parameters<typeof isIntegrationSettingsTooLarge>[0]) =>
+const requireSettingsWithinLimit = (
+	integration: Parameters<typeof isIntegrationSettingsTooLarge>[0],
+) =>
 	isIntegrationSettingsTooLarge(integration)
 		? Effect.fail(
 				new IntegrationRequestError({
@@ -350,7 +352,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 				yield* requireSettingsWithinLimit({
 					provider: existing.provider,
-					name: body.name === undefined ? existing.name : body.name,
+					name: body.name ?? existing.name,
 					providerSpecifics: providerSpecifics ?? existing.providerSpecifics,
 				});
 

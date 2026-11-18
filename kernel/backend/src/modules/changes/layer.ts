@@ -15,6 +15,7 @@ import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-sett
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 
+import { ScriptChangesLayer } from "./script-changes";
 import { ChangeSets } from "./service";
 
 export const ChangeSetsLive = ChangeSets.layer.pipe(
@@ -43,3 +44,5 @@ export const ChangeSetsLive = ChangeSets.layer.pipe(
 		),
 	),
 );
+
+export const ScriptChangesLive = ScriptChangesLayer.pipe(Layer.provide(ChangeSetsLive));

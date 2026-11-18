@@ -42,6 +42,7 @@ import {
 } from "#modules/automations/run-job-live";
 import { BackupJobsLive, BackupServicesLive } from "#modules/backups/layer";
 import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
+import { ScriptChangesLive } from "#modules/changes/layer";
 import { CollectionsServiceLive } from "#modules/collections/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { FoldJobsLive } from "#modules/derived-values/jobs";
@@ -255,7 +256,7 @@ const DirectScriptExecutorLive = DirectScriptExecutor.layer.pipe(
 
 const AutomationRunOperationsLive = Layer.provide(
 	AutomationRunOperationsServiceLive,
-	Layer.merge(ScriptExecutionServiceLive, DirectScriptExecutorLive),
+	Layer.mergeAll(ScriptExecutionServiceLive, DirectScriptExecutorLive, ScriptChangesLive),
 );
 
 const FoldExecutorProvidedLive = FoldExecutorInstalledLive.pipe(
@@ -355,7 +356,10 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 			IntegrationsRepository.layer,
 		),
 	),
-	Layer.provide(SandboxWorkflowDefinitionsLive, SandboxWorkflowDependenciesLive),
+	Layer.provide(
+		SandboxWorkflowDefinitionsLive,
+		Layer.merge(SandboxWorkflowDependenciesLive, ScriptChangesLive),
+	),
 ).pipe(Layer.provide(AdmittedWorkflowCatalogueLive));
 
 const RuntimeSchedulersLive = Layer.mergeAll(

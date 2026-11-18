@@ -738,8 +738,6 @@ export const AutomationPolicyBatchInput = strictStruct({
 	}),
 });
 export type AutomationPolicyBatchInput = typeof AutomationPolicyBatchInput.Type;
-export const AutomationOutput = JsonValue;
-export type AutomationOutput = typeof AutomationOutput.Type;
 const policyPropertiesPatch = strictStruct({
 	remove: uniqueProjectionNames,
 	set: Schema.Record(projectionName, JsonValue),

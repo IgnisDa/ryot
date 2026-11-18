@@ -1,0 +1,100 @@
+import { DbError } from "@ryot-app/contract/errors";
+import {
+	CommitConflictCode,
+	CommittedChanges,
+} from "@ryot-app/contract/modules/changes/change-set";
+import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
+import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
+import { Message } from "@ryot-app/i18n/message";
+import { Effect, Layer, Schema } from "effect";
+
+import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
+import {
+	type ChangeSetReceipt,
+	ScriptChanges,
+	type ScriptChangesInput,
+	ScriptChangesRejected,
+} from "#modules/scripts/executions/script-changes";
+import { scriptChangesCommand } from "#modules/scripts/host/execution-context";
+
+import { ChangeSetRejected } from "./authority";
+import { type ChangeSetFailure, ChangeSets } from "./service";
+
+const isCommitConflict = Schema.is(
+	Schema.Struct({ reason: Schema.Struct({ code: CommitConflictCode }) }),
+);
+const isPolicyRejection = Schema.is(
+	Schema.Struct({
+		_tag: Schema.Literals(["EventBadRequest", "RelationshipBadRequest"]),
+		reason: Schema.Struct({ message: Message, code: Schema.Literal("policy-rejected") }),
+	}),
+);
+const hasReasonCode = Schema.is(Schema.Struct({ reason: Schema.Struct({ code: Schema.String }) }));
+
+const rejection = (error: typeof ChangeSetFailure.Type) => {
+	if (error instanceof DbError) {
+		return error;
+	}
+	if (isPolicyRejection(error)) {
+		return new ScriptChangesRejected({
+			reason: { code: "policy-rejected", message: error.reason.message },
+		});
+	}
+	if (isCommitConflict(error)) {
+		return new ScriptChangesRejected({ reason: { code: "conflict", conflict: error.reason.code } });
+	}
+	const detail =
+		error instanceof ChangeSetRejected
+			? `${error.part}: ${error.message}`
+			: `${error._tag}${hasReasonCode(error) ? `: ${error.reason.code}` : ""}`;
+	return new ScriptChangesRejected({ reason: { code: "invalid", message: detail } });
+};
+
+/** `ScriptChanges` over the caller's `ChangeSets`. */
+export const ScriptChangesLayer = Layer.effect(
+	ScriptChanges,
+	Effect.gen(function* () {
+		const changeSets = yield* ChangeSets;
+		const keys = yield* IdempotencyKeys.make;
+		const commit = Effect.fnUntraced(function* <A>(
+			input: ScriptChangesInput & { readonly receipt: ChangeSetReceipt<A> },
+		) {
+			const command = yield* scriptChangesCommand({
+				...input,
+				executionId: AutomationExecutionId.make(input.executionId),
+			}).pipe(Effect.orDie);
+			return yield* changeSets
+				.commitOnce(input.changes, command, input.receipt)
+				.pipe(Effect.mapError(rejection));
+		});
+		const commitKeyed = (input: ScriptChangesInput) => {
+			const userId = sandboxSubjectUserId(input.principal.subject);
+			if (userId === null) {
+				return commit({
+					...input,
+					receipt: { record: Effect.succeed, load: Effect.succeed(null) },
+				});
+			}
+			const identity = idempotencyIdentity({
+				userId,
+				key: input.executionId,
+				kind: "script-changes",
+				request: input.changes ?? null,
+			});
+			return commit({
+				...input,
+				receipt: {
+					record: (committed) =>
+						keys.record(identity, CommittedChanges, committed).pipe(Effect.as(committed)),
+					load: keys.lockedRead(identity, CommittedChanges).pipe(
+						Effect.catchTag("IdempotencyConflict", () =>
+							Effect.die("A script execution returned different changes on replay"),
+						),
+						Effect.map((stored) => stored?.response ?? null),
+					),
+				},
+			});
+		};
+		return ScriptChanges.of({ commit, commitKeyed });
+	}),
+);

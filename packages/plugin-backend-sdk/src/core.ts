@@ -19,10 +19,6 @@ export {
 	executeRyotqlDataSchema,
 	executeRyotqlResultSchema,
 } from "./core/ryotql";
-export {
-	CHANGE_SET_LIMITS,
-	ChangeSet as changeSetSchema,
-} from "@ryot-app/contract/modules/changes/change-set";
 export type {
 	PolicyHost,
 	ScriptHost,
@@ -45,6 +41,11 @@ export type {
 	ChangeSet,
 	ChangeSetEntityReference,
 	ChangeSetGlobalEntityReference,
+} from "@ryot-app/contract/modules/changes/change-set";
+export {
+	CHANGE_SET_LIMITS,
+	ChangeSet as changeSetSchema,
+	ChangesOutput as changesOutputSchema,
 } from "@ryot-app/contract/modules/changes/change-set";
 export {
 	httpCallArgsSchema,

@@ -40,6 +40,7 @@ import {
 	unusedKernelWorkflowReferencesLayer,
 } from "./fixtures.test-support";
 import { SandboxReplayJobsLive } from "./queues";
+import { ScriptChanges } from "./script-changes";
 import { ScriptExecutionService } from "./service";
 import {
 	runScriptExecutionWorkflow,
@@ -191,6 +192,7 @@ export const realSandboxLayer = (
 					lockIngestionShared: () => Effect.void,
 					registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
 				}),
+				Layer.mock(ScriptChanges)({}),
 			);
 			const execution = implementWorkflow(ScriptExecutionWorkflow, runScriptExecutionWorkflow).pipe(
 				Layer.provideMerge(

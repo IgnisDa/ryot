@@ -26,7 +26,7 @@ import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recor
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Schema, type Tracer } from "effect";
+import { Context, DateTime, Effect, Layer, Ref, Schema, type Tracer } from "effect";
 
 import {
 	type LifecycleBatchInput,
@@ -42,12 +42,18 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
+import {
+	type ChangeSetReceipt,
+	ScriptChanges,
+	type ScriptChangesInput,
+} from "#modules/scripts/executions/script-changes";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
+import { automationAttemptIdentity } from "./attempt-repository";
 import { AutomationRunOperationsServiceLive, LifecyclePlannerServiceLive } from "./layer";
 import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
@@ -2072,17 +2078,100 @@ const preparationPackage = (version: string) => {
 	};
 };
 
+class RecordedScriptChanges extends Context.Service<
+	RecordedScriptChanges,
+	{ readonly commits: Effect.Effect<ReadonlyArray<ScriptChangesInput>> }
+>()("@ryot-app/kernel-backend/modules/automations/planner.test/RecordedScriptChanges") {}
+
+const recordedScriptChanges = Layer.effectContext(
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const commits = yield* Ref.make<ReadonlyArray<ScriptChangesInput>>([]);
+		const commit = Effect.fnUntraced(function* <A>(
+			input: ScriptChangesInput & { readonly receipt: ChangeSetReceipt<A> },
+		) {
+			return yield* session
+				.transaction(
+					Effect.gen(function* () {
+						const stored = yield* input.receipt.load;
+						if (stored !== null) {
+							return stored;
+						}
+						yield* Ref.update(commits, (all) => [...all, input]);
+						return yield* input.receipt.record({ events: [] });
+					}),
+				)
+				.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+		});
+		return Context.make(
+			ScriptChanges,
+			ScriptChanges.of({
+				commit,
+				commitKeyed: () => Effect.die("After hooks commit against their attempt"),
+			}),
+		).pipe(Context.add(RecordedScriptChanges, { commits: Ref.get(commits) }));
+	}),
+);
+
 describe("automation preparation", () => {
 	layer(
 		Layer.mergeAll(
 			plannerLayer(),
 			AutomationRunOperationsServiceLive.pipe(
+				Layer.provideMerge(recordedScriptChanges),
 				Layer.provide(
 					Layer.merge(Layer.mock(ScriptExecutionService)({}), Layer.mock(DirectScriptExecutor)({})),
 				),
 			),
 		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
 	)("planner harness", (test) => {
+		test.effect(
+			"commits an after hook's changes with its attempt's success exactly once",
+			() =>
+				Effect.gen(function* () {
+					const planner = yield* LifecyclePlanner;
+					const operations = yield* AutomationRunOperations;
+					const installed = yield* installRevisionPackage(preparationPackage("v1"));
+					const planned = yield* planner.plan({
+						trigger: yield* entityTrigger(installed.pluginId, "committed-changes"),
+					});
+					const run = planned.runs.find(({ hookSlug }) => hookSlug === "fixture.changed");
+					assert(run);
+					const payload = { runId: run.id, attemptNumber: 1, acceptedPatches: [] };
+					const { attempt } = yield* operations.claim(payload);
+					expect(attempt?.status).toBe("running");
+					const prepared = yield* operations.prepare(payload);
+					expect(prepared.principal.subject).toMatchObject({
+						runId: run.id,
+						stage: "after",
+						type: "automation-run",
+					});
+					const changes = {
+						signals: [{ properties: {}, discriminator: "done", schemaSlug: "fixture.signal" }],
+					};
+					const outcome = {
+						...payload,
+						logs: [],
+						error: null,
+						timing: null,
+						failureKind: null,
+						returnedValue: { changes },
+						status: "succeeded" as const,
+					};
+					const first = yield* operations.finalize(outcome, { changes, prepared });
+					const replayed = yield* operations.finalize(outcome, { changes, prepared });
+					expect(first.status).toBe("succeeded");
+					expect(replayed).toEqual(first);
+					const commits = yield* (yield* RecordedScriptChanges).commits;
+					expect(commits).toHaveLength(1);
+					expect(commits[0]).toMatchObject({
+						changes,
+						principal: prepared.principal,
+						executionId: automationAttemptIdentity(run.id, 1).executionId,
+					});
+				}),
+			testTimeout,
+		);
 		test.effect(
 			"prepares from the pinned hooks and scripts after a plugin update",
 			() =>

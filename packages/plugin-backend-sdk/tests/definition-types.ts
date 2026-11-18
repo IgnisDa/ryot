@@ -77,16 +77,18 @@ const workflow = defineWorkflow({
 	manifest: workflowManifest,
 	input: Schema.Struct({ value: Schema.Finite }),
 	run: (input, replay) =>
-		replay.activity(
-			"format",
-			{
-				output: Schema.String,
-				referenceKind: "script",
-				scriptSlug: "format-value",
-				input: Schema.Struct({ value: Schema.Finite }),
-			},
-			input,
-		),
+		replay
+			.activity(
+				"format",
+				{
+					output: Schema.String,
+					referenceKind: "script",
+					scriptSlug: "format-value",
+					input: Schema.Struct({ value: Schema.Finite }),
+				},
+				input,
+			)
+			.pipe(Effect.map((output) => ({ output }))),
 });
 
 const scriptInputType: Expect<Equal<Parameters<typeof script.run>[0], { readonly key: string }>> =
@@ -132,15 +134,17 @@ defineWorkflow({
 	input: Schema.Struct({}),
 	manifest: workflowManifest,
 	run: (_input, replay) =>
-		replay.activity(
-			"invalid",
-			{
-				output: Schema.String,
-				referenceKind: "script",
-				scriptSlug: "typed-activity",
-				input: Schema.Struct({ value: Schema.Finite }),
-			},
-			// @ts-expect-error activity inputs are inferred from the direct script reference.
-			{ value: "wrong" },
-		),
+		replay
+			.activity(
+				"invalid",
+				{
+					output: Schema.String,
+					referenceKind: "script",
+					scriptSlug: "typed-activity",
+					input: Schema.Struct({ value: Schema.Finite }),
+				},
+				// @ts-expect-error activity inputs are inferred from the direct script reference.
+				{ value: "wrong" },
+			)
+			.pipe(Effect.map((output) => ({ output }))),
 });

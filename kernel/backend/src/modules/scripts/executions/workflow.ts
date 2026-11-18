@@ -1,4 +1,10 @@
-import { SandboxFailureKind, SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import {
+	DbError,
+	SandboxFailureKind,
+	SandboxRunError,
+	unknownToMessage,
+} from "@ryot-app/contract/errors";
+import { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import {
@@ -78,6 +84,7 @@ import {
 	SandboxExecutionResult as SandboxExecutionResultSchema,
 	stampSandboxExecutionError,
 } from "./result";
+import { ScriptChanges, type ScriptChangesRejected } from "./script-changes";
 import {
 	type PinnedScriptExecutionWorkflowPayload,
 	ScriptExecutionWorkflowPayload,
@@ -99,8 +106,16 @@ const ObservedWorkflowReplay = Schema.Union([
 		state: Schema.Literal("failed"),
 		data: Schema.optionalKey(SandboxBoundaryReason),
 	}),
-	Schema.Struct({ output: jsonValueSchema, state: Schema.Literal("completed") }),
-	Schema.Struct({ checkpoint: jsonValueSchema, state: Schema.Literal("checkpoint") }),
+	Schema.Struct({
+		output: jsonValueSchema,
+		state: Schema.Literal("completed"),
+		changes: Schema.optionalKey(ChangeSet),
+	}),
+	Schema.Struct({
+		checkpoint: jsonValueSchema,
+		state: Schema.Literal("checkpoint"),
+		changes: Schema.optionalKey(ChangeSet),
+	}),
 	Schema.Struct({
 		state: Schema.Literal("pending"),
 		requests: Schema.Array(
@@ -466,10 +481,18 @@ export const validateWorkflowReplayEnvelope = (
 		);
 	}
 	if (envelope.state === "checkpoint") {
-		return Effect.succeed({ state: "checkpoint" as const, checkpoint: envelope.checkpoint });
+		return Effect.succeed({
+			state: "checkpoint" as const,
+			checkpoint: envelope.checkpoint,
+			...(envelope.changes === undefined ? {} : { changes: envelope.changes }),
+		});
 	}
 	if (envelope.state === "completed") {
-		return Effect.succeed({ output: envelope.output, state: "completed" as const });
+		return Effect.succeed({
+			output: envelope.output,
+			state: "completed" as const,
+			...(envelope.changes === undefined ? {} : { changes: envelope.changes }),
+		});
 	}
 	return Effect.succeed({
 		kind: envelope.kind,
@@ -588,7 +611,7 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 				args: { input: request.args.input, workflowSlug: request.args.scriptSlug },
 			},
 			targetScriptId,
-			childPayload,
+			{ ...childPayload, activity: true },
 			executionId,
 			principal,
 		);
@@ -672,6 +695,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 									subject: payload.subject,
 									input: request.args.input,
 									executionId: childExecutionId,
+									...(payload.activity ? { activity: true } : {}),
 									scriptId: SandboxScriptId.make(targetScriptId),
 									grants: { ...payload.grants, artifactOwnerExecutionId },
 									...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
@@ -820,6 +844,27 @@ const validatePendingInline = Effect.fnUntraced(function* (
 	return pending;
 });
 
+const ActivityResult = Schema.Struct({
+	output: jsonValueSchema,
+	changes: Schema.optional(ChangeSet),
+});
+
+const changesFailure = (error: DbError | ScriptChangesRejected) => {
+	if (error instanceof DbError) {
+		return rethrowSandboxFailure("infrastructure")(error);
+	}
+	const { reason } = error;
+	if (reason.code === "conflict") {
+		return sandboxFailure(
+			"resource-unavailable",
+			`Workflow changes conflicted with a newer write: ${reason.conflict}`,
+		);
+	}
+	return reason.code === "policy-rejected"
+		? sandboxFailure("script-failure", "A policy rejected the workflow's changes")
+		: sandboxFailure("invalid-output", `Workflow changes were rejected: ${reason.message}`);
+};
+
 export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow")(function* <R>(
 	payload: ScriptExecutionWorkflowPayloadValue,
 	executionId: string,
@@ -875,6 +920,25 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 	let revision = saved?.state === "active" ? saved.revision : 0;
 	let checkpoint = saved?.state === "active" ? saved.checkpoint : undefined;
 	const advanced = Symbol("checkpoint-advanced");
+
+	// A step's changes commit once per step: the activity's journaled result, and the account's
+	// idempotency key under the step's execution ID if the process stops before that result persists.
+	const commitStepChanges = (changes: undefined | ChangeSet, stepExecutionId: string) =>
+		changes === undefined
+			? Effect.void
+			: makeActivity({
+					error: SandboxRunError,
+					name: "commit-sandbox-workflow-changes",
+					execute: Effect.flatMap(ScriptChanges, (scripts) =>
+						scripts.commitKeyed({
+							changes,
+							lane: payload.lane,
+							principal: pin.principal,
+							occurredAt: pin.startedAt,
+							executionId: stepExecutionId,
+						}),
+					).pipe(Effect.asVoid, Effect.mapError(changesFailure)),
+				});
 
 	const clearCheckpointJournal = (index: number) =>
 		Effect.flatMap(DatabaseSession, (session) =>
@@ -1036,6 +1100,7 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 						"Workflow checkpoint exceeds its byte limit",
 					);
 				}
+				yield* commitStepChanges(observed.changes, currentExecutionId);
 				yield* checkpointStore.save(
 					{ state: "active", revision: revision + 1, checkpoint: observed.checkpoint },
 					`checkpoint-${revision}`,
@@ -1046,10 +1111,21 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				return advanced;
 			}
 			if (observed.state === "completed") {
+				const result = payload.activity
+					? yield* Schema.decodeUnknownEffect(ActivityResult)(observed.output).pipe(
+							Effect.mapError(() =>
+								sandboxFailure(
+									"invalid-output",
+									"A workflow activity must return { output, changes? }",
+								),
+							),
+						)
+					: { output: observed.output, changes: observed.changes };
+				yield* commitStepChanges(result.changes, currentExecutionId);
 				const output =
-					replay.harvest && isObjectRecord(observed.output)
-						? withHarvestedChunks(observed.output, replay.harvest.chunkHandles)
-						: observed.output;
+					replay.harvest && isObjectRecord(result.output)
+						? withHarvestedChunks(result.output, replay.harvest.chunkHandles)
+						: result.output;
 				return payload.resultMode === "execution"
 					? toSandboxExecutionResult(replay, output)
 					: output;

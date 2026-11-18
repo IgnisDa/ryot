@@ -19,7 +19,10 @@ import { DatabaseSession } from "#platform/db/session";
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
-import { isPluginUserSettingsTooLarge, pluginUserSettingsTooLargeMessage } from "./user-settings-size";
+import {
+	isPluginUserSettingsTooLarge,
+	pluginUserSettingsTooLargeMessage,
+} from "./user-settings-size";
 
 class PluginUserSettingsTooLarge extends Schema.TaggedError<
 	PluginUserSettingsTooLarge,
@@ -185,13 +188,11 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 						Effect.catchTags({
 							PluginRequestError: () =>
 								new PluginUserSettingsPatchError({ message: "Plugin user settings were rejected" }),
+							PluginUserSettingsTooLarge: () =>
+								new PluginUserSettingsPatchError({ message: pluginUserSettingsTooLargeMessage }),
 							PropertyValidationError: (error) =>
 								new PluginUserSettingsPatchError({
 									message: error.issues.map(({ message }) => message).join("; "),
-								}),
-							PluginUserSettingsTooLarge: () =>
-								new PluginUserSettingsPatchError({
-									message: pluginUserSettingsTooLargeMessage,
 								}),
 						}),
 					);
