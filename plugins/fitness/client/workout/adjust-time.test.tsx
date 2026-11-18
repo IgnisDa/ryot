@@ -156,6 +156,48 @@ it.live(
 	testTimeout,
 );
 
+it.live(
+	"reports a workout changed elsewhere as a conflict",
+	() =>
+		Effect.gen(function* () {
+			const page = yield* openWorkout(
+				{ endedAt: "2026-10-16T11:00:38.789Z", startedAt: "2026-10-16T10:00:37.456Z" },
+				() => undefined,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("button", { name: "Save time correction" })).toBeTruthy(),
+				),
+			);
+			act(() => {
+				fireEvent.click(screen.getByRole("button", { name: "Save time correction" }));
+			});
+			const request = yield* Effect.promise(() =>
+				waitFor(() => {
+					const operation = page.clientMessages().find(({ type }) => type === "operation-request");
+					assert(operation?.type === "operation-request");
+					return operation;
+				}),
+			);
+			page.send({
+				outcome: "failure",
+				type: "operation-result",
+				reason: "changes-conflict",
+				requestId: request.requestId,
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						screen.getByText(
+							"This workout changed. Close and reopen Adjust time to load the saved version.",
+						),
+					).toBeTruthy(),
+				),
+			);
+		}),
+	testTimeout,
+);
+
 describe("DST workout time corrections", () => {
 	let previousZone: string | undefined;
 

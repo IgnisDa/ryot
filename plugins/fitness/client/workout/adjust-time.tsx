@@ -37,25 +37,32 @@ import {
 } from "../../shared/workout-time-operations";
 import { useFitnessMessages } from "../messages";
 
+type CorrectionResult =
+	{ readonly kind: "conflict" } | typeof WorkoutTimeCorrectionOutputSchema.Type;
 type Correction = Omit<
 	typeof WorkoutTimeCorrectionInputSchema.Type,
 	"submittedAt" | "submissionId"
 >;
-const correctTime = createRyotMutation<
-	RyotSubmission<Correction>,
-	typeof WorkoutTimeCorrectionOutputSchema.Type
->(({ input, client }) =>
-	client.operations
-		.invoke({
-			packageId: PLUGIN_PACKAGE_ID,
-			submittedAt: input.submittedAt,
-			idempotencyKey: input.submissionId,
-			slug: workoutTimeCorrectionOperationSlug,
-			output: WorkoutTimeCorrectionOutputSchema,
-			inputSchema: WorkoutTimeCorrectionInputSchema,
-			input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
-		})
-		.pipe(Effect.map(({ output }) => output)),
+
+const correctTime = createRyotMutation<RyotSubmission<Correction>, CorrectionResult>(
+	({ input, client }) =>
+		client.operations
+			.invoke({
+				packageId: PLUGIN_PACKAGE_ID,
+				submittedAt: input.submittedAt,
+				idempotencyKey: input.submissionId,
+				slug: workoutTimeCorrectionOperationSlug,
+				output: WorkoutTimeCorrectionOutputSchema,
+				inputSchema: WorkoutTimeCorrectionInputSchema,
+				input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
+			})
+			.pipe(
+				Effect.map(({ output }): CorrectionResult => output),
+				Effect.catchIf(
+					(error) => error.reason === "changes-conflict",
+					() => Effect.succeed({ kind: "conflict" } as const),
+				),
+			),
 );
 const timeSourceQuery = () =>
 	createRyotQuery(({ input, client }: { readonly input: string; readonly client: RyotClient }) =>

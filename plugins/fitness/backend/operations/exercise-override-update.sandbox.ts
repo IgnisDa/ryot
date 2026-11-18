@@ -1,7 +1,9 @@
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { executeRyotqlRecipe, type JsonValue } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	ExerciseOverrideUpdateInputSchema,
@@ -36,27 +38,28 @@ export default defineOperation({
 				{ exerciseId },
 			);
 			if (exercises.items.length !== 1 || membership === null) {
-				return { kind: "missing-exercise" } as const;
+				return { output: { kind: "missing-exercise" } as const };
 			}
-			yield* host.changeUserRelationships([
-				{
-					deletes: [],
-					creates: [
-						{
-							propertiesMode: "merge",
-							sourceEntityId: exerciseId,
-							targetEntityId: membership.targetEntityId,
-							relationshipSchemaSlug: "in-fitness-library",
-							properties: Object.fromEntries(
-								Object.entries(overrides).flatMap(
-									([key, value]: [string, JsonValue | undefined]) =>
-										value === undefined ? [] : [[key, value]],
+			return {
+				output: { kind: "saved" } as const,
+				changes: {
+					relationships: {
+						upserts: [
+							{
+								propertiesMode: "merge" as const,
+								relationshipSchemaSlug: "in-fitness-library",
+								source: existingEntity(EntityId.make(exerciseId)),
+								target: existingEntity(EntityId.make(membership.targetEntityId)),
+								properties: Object.fromEntries(
+									Object.entries(overrides).flatMap(
+										([key, value]: [string, JsonValue | undefined]) =>
+											value === undefined ? [] : [[key, value]],
+									),
 								),
-							),
-						},
-					],
+							},
+						],
+					},
 				},
-			]);
-			return { kind: "saved" } as const;
-		}).pipe(Effect.map((output) => ({ output }))),
+			};
+		}),
 });

@@ -660,11 +660,11 @@ describe("measurements page", () => {
 					},
 				]);
 				page.send({
+					value: {},
 					outcome: "success",
 					type: "operation-result",
 					committed: { events: [] },
 					requestId: request.requestId,
-					value: { entityId: "new-metric" },
 				});
 				page.send({ type: "page-refresh" });
 				yield* waitForMessagePortMacrotask;

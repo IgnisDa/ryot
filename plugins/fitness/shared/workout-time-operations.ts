@@ -14,6 +14,5 @@ export const WorkoutTimeCorrectionInputSchema = Schema.Struct({
 });
 export const WorkoutTimeCorrectionOutputSchema = Schema.Union([
 	Schema.Struct({ entityId: EntityId, kind: Schema.Literal("saved") }),
-	Schema.Struct({ kind: Schema.Literal("conflict") }),
 	Schema.Struct({ kind: Schema.Literal("invalid") }),
 ]);

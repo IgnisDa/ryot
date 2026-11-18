@@ -20,7 +20,6 @@ import {
 	schemaOwnerPredicate,
 	selectedField,
 	selectedInclude,
-	selectedOptionalRow,
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -73,33 +72,6 @@ export const occurrenceSets = (set: Table, occurrence: Table) =>
 		eq(propertyNumber(set, "exerciseOrder"), propertyNumber(occurrence, "exerciseOrder")),
 		eq(property(set, "exerciseKind"), property(occurrence, "exerciseKind")),
 	);
-export const workoutEventScopeRevisionRecipe = (() => {
-	const inputParameters = parameters({
-		fields: {
-			workoutId: {
-				type: "string",
-				validation: { required: true },
-				description: "Workout Id for this selection",
-				label: catalogMessage("query-parameter.workout"),
-			},
-		},
-	});
-	const scope = table("eventScope", "workoutEventScope");
-	return defineRecipe({
-		parameters: inputParameters.schema,
-		map: ({ scope: revision }) => Result.succeed(revision?.revision ?? 0),
-		queries: {
-			scope: selectedOptionalRow(scope, {
-				orderBy: [ascending(column(scope, "id"))],
-				selection: { revision: selectedField(column(scope, "revision"), Schema.Int) },
-				where: and(
-					schemaOwnerPredicate(scope, "eventSchemaPluginId", { kind: "self" }),
-					eq(column(scope, "entityId"), inputParameters.value("workoutId")),
-				),
-			}),
-		},
-	});
-})();
 export const workoutOccurrencesRecipe = (input: {
 	readonly reference: PluginIdentityReference;
 }) => {

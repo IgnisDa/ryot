@@ -280,7 +280,7 @@ const openEditor = (
 						},
 					};
 				} else if (request.operationSlug === measurementReadingLogOperationSlug) {
-					value = { count: 2, status: "saved" };
+					value = { count: 2 };
 				}
 				page.send({
 					value,

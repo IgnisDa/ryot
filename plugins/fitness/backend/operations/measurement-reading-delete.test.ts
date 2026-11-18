@@ -16,36 +16,24 @@ describe("measurement reading delete operation", () => {
 		"deletes the entry so all session children are removed, without client reading IDs",
 		() =>
 			Effect.gen(function* () {
-				const deletes: unknown[] = [];
-				const host = defineSandboxTestHost(manifest, {
-					executeRyotql: executeMeasurementRyotql,
-					deleteUserEntity: (item) =>
-						Effect.sync(() => {
-							deletes.push(item);
-							return { entityId: item.entityId };
-						}),
-				});
+				const host = defineSandboxTestHost(manifest, { executeRyotql: executeMeasurementRyotql });
 				expect(
 					yield* runSandboxTestScript(deleteDefinition, { entryId: "entry-1" }, host, execution),
-				).toEqual({ output: { count: 2 } });
-				expect(deletes).toEqual([{ entityId: "entry-1", entitySchemaSlug: "measurement-entry" }]);
+				).toEqual<unknown>({
+					output: { count: 2 },
+					changes: {
+						entities: { deletes: [{ entityId: "entry-1", entitySchemaSlug: "measurement-entry" }] },
+					},
+				});
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"rejects missing, wrong-schema and non-owned entries before deleting",
+		"rejects missing, wrong-schema and non-owned entries",
 		() =>
 			Effect.gen(function* () {
-				const deletes: unknown[] = [];
-				const host = defineSandboxTestHost(manifest, {
-					executeRyotql: executeMeasurementRyotql,
-					deleteUserEntity: (item) =>
-						Effect.sync(() => {
-							deletes.push(item);
-							return { entityId: item.entityId };
-						}),
-				});
+				const host = defineSandboxTestHost(manifest, { executeRyotql: executeMeasurementRyotql });
 				for (const entryId of ["missing", "weight", "fake-reading"]) {
 					expect(
 						yield* Effect.flip(
@@ -56,7 +44,6 @@ describe("measurement reading delete operation", () => {
 				yield* Effect.flip(
 					runSandboxTestScript(deleteDefinition, { entryId: "" }, host, execution),
 				);
-				expect(deletes).toEqual([]);
 			}),
 		testTimeout,
 	);

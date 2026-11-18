@@ -1,6 +1,5 @@
 import { describe, expect } from "bun:test";
 
-import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -19,13 +18,14 @@ const pin = (metricId: string) => ({
 	relationshipSchemaSlug: "measurement-metric-pinned",
 });
 
-const recordingHost = (changes: ChangeUserRelationshipBatch[], pinnedIds: readonly string[]) =>
+const pinEdge = (metricId: string) => ({
+	source: { kind: "existing", entityId: metricId },
+	target: { kind: "existing", entityId: "library" },
+	relationshipSchemaSlug: "measurement-metric-pinned",
+});
+
+const recordingHost = (pinnedIds: readonly string[]) =>
 	defineSandboxTestHost(manifest, {
-		changeUserRelationships: (batches) =>
-			Effect.sync(() => {
-				changes.push(...batches);
-				return batches.map(() => ({ created: 0, deleted: 0 }));
-			}),
 		executeRyotql: inMemoryRyotql({
 			...measurementTables,
 			relationship: pinnedIds.map((metricId) => ({
@@ -51,37 +51,40 @@ const recordingHost = (changes: ChangeUserRelationshipBatch[], pinnedIds: readon
 
 describe("measurement metric pin operation", () => {
 	it.live(
-		"pins and unpins metrics, skipping writes when the state already matches",
+		"pins and unpins metrics, returning no changes when the state already matches",
 		() =>
 			Effect.gen(function* () {
-				const changes: ChangeUserRelationshipBatch[] = [];
-				const host = recordingHost(changes, ["weight"]);
+				const host = recordingHost(["weight"]);
+				const run = (input: { readonly pinned: boolean; readonly metricId: string }) =>
+					runSandboxTestScript(pinDefinition, input, host, execution);
 
-				for (const input of [
-					{ pinned: true, metricId: "waist" },
-					{ pinned: false, metricId: "weight" },
-					{ pinned: true, metricId: "weight" },
-					{ pinned: false, metricId: "waist" },
-				]) {
-					expect(yield* runSandboxTestScript(pinDefinition, input, host, execution)).toEqual({
-						output: { pinned: input.pinned },
-					});
-				}
-
-				expect(changes).toEqual([
-					{ deletes: [], creates: [{ ...pin("waist"), properties: {}, propertiesMode: "merge" }] },
-					{ creates: [], deletes: [pin("weight")] },
-				]);
+				expect(yield* run({ pinned: true, metricId: "waist" })).toEqual<unknown>({
+					output: { pinned: true },
+					changes: {
+						relationships: {
+							upserts: [{ ...pinEdge("waist"), properties: {}, propertiesMode: "merge" }],
+						},
+					},
+				});
+				expect(yield* run({ pinned: false, metricId: "weight" })).toEqual<unknown>({
+					output: { pinned: false },
+					changes: { relationships: { deletes: [pinEdge("weight")] } },
+				});
+				expect(yield* run({ pinned: true, metricId: "weight" })).toEqual({
+					output: { pinned: true },
+				});
+				expect(yield* run({ pinned: false, metricId: "waist" })).toEqual({
+					output: { pinned: false },
+				});
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"rejects a fourth pin and unknown metrics without writing",
+		"rejects a fourth pin and unknown metrics",
 		() =>
 			Effect.gen(function* () {
-				const changes: ChangeUserRelationshipBatch[] = [];
-				const host = recordingHost(changes, ["weight", "waist", "hip"]);
+				const host = recordingHost(["weight", "waist", "hip"]);
 
 				expect(
 					yield* Effect.flip(
@@ -95,8 +98,6 @@ describe("measurement metric pin operation", () => {
 						),
 					).toBeInstanceOf(MeasurementMetricNotFoundError);
 				}
-
-				expect(changes).toEqual([]);
 			}),
 		testTimeout,
 	);

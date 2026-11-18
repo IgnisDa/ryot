@@ -11,6 +11,9 @@ type Rows = Readonly<Record<string, StoredRow>>;
 type StoredRow = Readonly<Record<string, unknown>>;
 
 export const measurementTables: StoredTables = {
+	eventScope: [
+		{ revision: 4, id: "scope-1", entityId: "entry-1", eventSchemaPluginId: "fitness-owner" },
+	],
 	event: [
 		{
 			id: "reading-1",

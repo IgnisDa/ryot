@@ -17,8 +17,11 @@ export default defineOperation({
 	manifest,
 	input: WorkoutDeleteInputSchema,
 	output: WorkoutDeleteOutputSchema,
-	run: (input, host) =>
-		host
-			.deleteUserEntity({ entityId: input.entityId, entitySchemaSlug: "workout-template" })
-			.pipe(Effect.as({ output: { entityId: input.entityId } })),
+	run: (input) =>
+		Effect.succeed({
+			output: { entityId: input.entityId },
+			changes: {
+				entities: { deletes: [{ entityId: input.entityId, entitySchemaSlug: "workout-template" }] },
+			},
+		}),
 });

@@ -44,7 +44,4 @@ export const MeasurementReadingDeleteInput = Schema.Struct({ entryId: NonEmptySt
 
 export const MeasurementReadingOutput = Schema.Struct({ count: Schema.Int });
 
-export const MeasurementReadingLogOutput = Schema.Struct({
-	count: Schema.Int,
-	status: Schema.Literals(["saved", "incomplete"]),
-});
+export const MeasurementReadingLogOutput = Schema.Struct({ count: Schema.Int });
