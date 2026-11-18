@@ -299,6 +299,12 @@ Recommendations are curated selections, separate from exhaustive credits, group 
 catalogs. Metron arc suggestions select the first three arcs and twenty issues per arc; TMDB trending
 selects three pages. Execution limits are safety boundaries, not successful inventory truncation.
 
+`workflow.media-trending` runs `movie.tmdb.trending` and then `show.tmdb.trending` as activities.
+Each returns its fetched titles as global entity upserts and the whole `media-trending` group: its
+own batch ranked from 1 at the current time, plus every other trending schema's latest batch
+unchanged, because the group is replaced as a whole. A failed fetch returns no changes, so the
+previous ranks stay.
+
 Metron series issues follow validated source next-page links through durable continuations and keep
 global issue order across pages. IGDB reverse game lookups also use durable pages, without a fixed
 total child-game cap. Company and collection game lists use complete embedded source arrays; the
@@ -656,10 +662,13 @@ immutable trigger evidence; current-state RyotQL cannot reconstruct omitted hist
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Library membership              | Required user-scoped entity/provider-import and event-batch hooks merge `in-media-library` properties without clearing annotations. The library never links to itself. A required batch hook (`batchMaxItems` 80) records `add-to-media-library` once per newly created membership in one write; idempotent upserts do not. |
 | Association / relationship sync | Batch hooks filter projected changes; association resolves credits together, and sync uses the population batch leader. Item-count chunks remain subject to the separate invocation byte limit.                                                                                                                             |
-| Entity updated                  | Async population hook compares projected trigger-time fields, treating image order as irrelevant, and emits monitoring signals.                                                                                                                                                                                             |
+| Entity updated                  | Async population hook compares projected trigger-time fields, treating image order as irrelevant, and returns monitoring signals.                                                                                                                                                                                           |
 | Episodic session                | Before-event policy on episode creates and on episode updates that change `entityId` patches only `sessionEntityId` (a season-0 special stays sessionless); missing/ambiguous parents reject the event and caller session IDs are replaced.                                                                                 |
 | Completion reconciliation       | No hook. The `fold.media-history` fold runs on every history write and writes automatic completions; see [the fold](#the-fold).                                                                                                                                                                                             |
 | Review / collection pushes      | Review includes kernel collection reviews; Radarr/Sonarr observe collection additions. Notifications/pushes have one attempt and no automatic external retry.                                                                                                                                                               |
+
+After hooks return their signals, notifications, and fold requests as one change set, which the kernel
+commits with the attempt. The Jellyfin, Radarr, and Sonarr pushes return none.
 
 Membership batch hooks run after the written prefix, so later items in that request cannot depend on
 their effects. All membership hooks use user execution scope; global population plans none. Batch
@@ -714,8 +723,9 @@ each occurrence with its key, status, sources and frozen inventory, plus the cov
 counted and whether the title was terminal. A frozen occurrence keeps its inventory, so later provider
 changes do not rewrite past completions. Relationship changes still affect live coverage without
 creating history. The fold reads changes from outside its own events, such as a new status or
-inventory, because `media-entity-updated` and `media-relationship-sync` call
-`requestFoldsForAllUsers`.
+inventory, because `media-entity-updated` and `media-relationship-sync` return an all-users fold
+request for the library titles they touch. One request holds at most 100 entities, so relationship
+sync batches are capped at 100 items.
 
 Completion time follows the closing coverage event; consumption sources are the ordered union of the
 supporting completions' sources, deduplicated ignoring case. Source corrections can change that time or invalidate the completion.

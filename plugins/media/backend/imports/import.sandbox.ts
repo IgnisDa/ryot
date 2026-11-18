@@ -310,6 +310,6 @@ export default defineWorkflow({
 				...attribution,
 				operation: { action: "seal" },
 			});
-			return { summary: sealed.summary, issues: applied?.issues ?? [] };
+			return { output: { summary: sealed.summary, issues: applied?.issues ?? [] } };
 		}),
 });

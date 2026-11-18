@@ -3,11 +3,13 @@ import { expect, it } from "bun:test";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	automationContext,
 	entityRecord,
 	hostSuccess,
+	returnedChanges,
 	ryotqlRows,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-association.sandbox";
@@ -111,24 +113,18 @@ const credit = (sourceEntityId: string, role: string) => ({
 	},
 });
 
-const run = (value: ReturnType<typeof input>) => {
-	const calls: Array<Record<string, JsonValue | undefined>> = [];
-	return value.context.pipe(
+const run = (value: ReturnType<typeof input>) =>
+	value.context.pipe(
 		Effect.flatMap((context) =>
 			definition.run(
 				context,
 				defineSandboxTestHost(manifest, {
 					executeRyotql: () => hostSuccess(ryotqlRows("entities", value.entities)),
-					emitSignal: (request) => {
-						calls.push(request);
-						return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
-					},
 				}),
 			),
 		),
-		Effect.as(calls),
+		Effect.map((result) => returnedChanges(result).signals ?? []),
 	);
-};
 
 it.each([
 	["person", "movie", "person.media.associated"],
@@ -138,12 +134,12 @@ it.each([
 ] as const)("maps a %s credit to a %s signal", (subjectKind, targetKind, schemaSlug) =>
 	Effect.runPromise(
 		run(input({ targetKind, subjectKind })).pipe(
-			Effect.map((calls) => {
-				expect(calls).toEqual([
+			Effect.map((signals) => {
+				expect(signals).toEqual([
 					{
 						schemaSlug,
-						subjectEntityId: "subject-1",
 						discriminator: "subject-1:role:Director",
+						subjectEntityId: EntityId.make("subject-1"),
 						properties: { role: "Director", associatedName: "Barbie", subjectName: "Greta Gerwig" },
 					},
 				]);
@@ -203,11 +199,11 @@ it("emits newly added standard role codes apart from named roles", () =>
 				afterRoleCodes: ["creator", "author", "unknown"],
 			}),
 		).pipe(
-			Effect.map((calls) => {
-				expect(calls).toEqual([
+			Effect.map((signals) => {
+				expect(signals).toEqual([
 					{
-						subjectEntityId: "subject-1",
 						schemaSlug: "person.media.associated",
+						subjectEntityId: EntityId.make("subject-1"),
 						discriminator: "subject-1:role-code:author",
 						properties: {
 							roleCode: "author",
@@ -245,16 +241,14 @@ it("ignores relationships in the batch that are not media credits", () =>
 				entityRecord({ name: "Barbie", id: "associated-1", entitySchemaSlug: "workout" }),
 				entityRecord({ id: "subject-1", name: "Greta Gerwig", entitySchemaSlug: "person" }),
 			],
-		}).pipe(Effect.map((calls) => expect(calls).toEqual([]))),
+		}).pipe(Effect.map((signals) => expect(signals).toEqual([]))),
 	));
 
 it("reads every credited entity in the batch with one query", () => {
 	let reads = 0;
-	const calls: Array<Record<string, JsonValue | undefined>> = [];
-
 	return Effect.runPromise(
 		Effect.gen(function* () {
-			yield* definition.run(
+			const result = yield* definition.run(
 				yield* automationContext({
 					category: "change",
 					operation: "batch",
@@ -262,10 +256,6 @@ it("reads every credited entity in the batch with one query", () => {
 					items: [credit("subject-1", "Director"), credit("subject-2", "Writer")],
 				}),
 				defineSandboxTestHost(manifest, {
-					emitSignal: (request) => {
-						calls.push(request);
-						return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
-					},
 					executeRyotql: () => {
 						reads += 1;
 						return hostSuccess(
@@ -283,10 +273,51 @@ it("reads every credited entity in the batch with one query", () => {
 				}),
 			);
 			expect(reads).toBe(1);
-			expect(calls.map(({ discriminator }) => discriminator)).toEqual([
-				"subject-1:role:Director",
-				"subject-2:role:Writer",
-			]);
+			expect(
+				(returnedChanges(result).signals ?? []).map(({ discriminator }) => discriminator),
+			).toEqual(["subject-1:role:Director", "subject-2:role:Writer"]);
 		}),
 	);
 });
+
+it("returns one signal per subject role when the batch credits it more than once", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const result = yield* definition.run(
+				yield* automationContext({
+					category: "change",
+					operation: "batch",
+					resource: "relationship",
+					items: [
+						credit("subject-1", "Director"),
+						{
+							...credit("subject-1", "Director"),
+							after: {
+								...credit("subject-1", "Director").after,
+								id: "relationship-sequel",
+								targetEntityId: "associated-2",
+							},
+						},
+					],
+				}),
+				defineSandboxTestHost(manifest, {
+					executeRyotql: () =>
+						hostSuccess(
+							ryotqlRows("entities", [
+								entityRecord({ name: "Barbie", id: "associated-1", entitySchemaSlug: "movie" }),
+								entityRecord({ name: "Barbie 2", id: "associated-2", entitySchemaSlug: "movie" }),
+								entityRecord({ id: "subject-1", name: "Greta Gerwig", entitySchemaSlug: "person" }),
+							]),
+						),
+				}),
+			);
+			expect(returnedChanges(result).signals).toEqual([
+				{
+					schemaSlug: "person.media.associated",
+					discriminator: "subject-1:role:Director",
+					subjectEntityId: EntityId.make("subject-1"),
+					properties: { role: "Director", associatedName: "Barbie", subjectName: "Greta Gerwig" },
+				},
+			]);
+		}),
+	));

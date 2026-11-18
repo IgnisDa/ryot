@@ -1,22 +1,17 @@
 import type {
-	EntityRecord,
 	IntegrationRecord,
 	ListIntegrationsOptions,
 	ScriptHost,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { type EntityReadResult, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { providerSlugRecipe } from "../../shared/provider-recipes";
 
 export type IntegrationPushHost = Pick<
 	ScriptHost,
-	| "log"
-	| "httpCall"
-	| "executeRyotql"
-	| "listIntegrations"
-	| "getUserPreferences"
+	"log" | "httpCall" | "executeRyotql" | "listIntegrations" | "getUserPreferences"
 >;
 
 export const normalizeBaseUrl = (value: unknown) =>
@@ -75,7 +70,10 @@ export const listActiveIntegrations = Effect.fnUntraced(function* (
 	return integrations;
 });
 
-export const resolveEntityProviderSlug = (host: IntegrationPushHost, entity: EntityRecord) =>
+export const resolveEntityProviderSlug = (
+	host: IntegrationPushHost,
+	entity: EntityReadResult["items"][number],
+) =>
 	entity.providerId
 		? executeRyotqlRecipe(host.executeRyotql, providerSlugRecipe, { providerId: entity.providerId })
 		: Effect.succeed(null);

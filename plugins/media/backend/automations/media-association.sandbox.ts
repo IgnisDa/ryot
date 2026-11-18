@@ -47,14 +47,14 @@ export default defineAutomation({
 	run: ({ automation }, host) => {
 		const source = automation.payload;
 		if (source.resource !== "relationship" || source.operation !== "batch") {
-			return Effect.succeed(null);
+			return Effect.succeed({});
 		}
 		const changes = source.items.flatMap((item) => (item.operation === "delete" ? [] : [item]));
 		const [head, ...rest] = [
 			...new Set(changes.flatMap(({ after }) => [after.sourceEntityId, after.targetEntityId])),
 		];
 		if (head === undefined) {
-			return Effect.succeed(null);
+			return Effect.succeed({});
 		}
 		return executeRyotqlRecipe(
 			host.executeRyotql,
@@ -62,53 +62,54 @@ export default defineAutomation({
 			{ entityIds: [head, ...rest] },
 			{ pages: { entities: { after: undefined, limit: undefined } } },
 		).pipe(
-			Effect.flatMap(({ items }) =>
-				Effect.all(
-					changes.flatMap((change) => {
-						const subject = items.find(({ id }) => id === change.after.sourceEntityId);
-						const associated = items.find(({ id }) => id === change.after.targetEntityId);
-						if (!subject || !associated) {
-							return [];
-						}
-						if (
-							(subject.entitySchemaSlug !== "person" && subject.entitySchemaSlug !== "company") ||
-							!(
-								associated.entitySchemaSlug.endsWith("-group") ||
-								builtinMediaEntitySchemaSlugs.some((slug) => slug === associated.entitySchemaSlug)
-							)
-						) {
-							return [];
-						}
-						const population = change.population;
-						if (
-							population?.rootPreviouslyPopulated === false &&
-							population.scopeEntity.id === subject.id
-						) {
-							return [];
-						}
-						const previousRoles = new Set(
-							associatedRoles(
-								change.operation === "update" ? change.before.properties : undefined,
-							).map(roleKey),
-						);
-						const addedRoles = associatedRoles(change.after.properties).filter(
-							(role) => change.operation === "create" || !previousRoles.has(roleKey(role)),
-						);
-						const associationKind = associated.entitySchemaSlug.endsWith("-group")
-							? "media-group"
-							: "media";
-						return addedRoles.map((role) =>
-							host.emitSignal({
-								subjectEntityId: subject.id,
-								discriminator: `${subject.id}:${roleKey(role)}`,
-								schemaSlug: `${subject.entitySchemaSlug}.${associationKind}.associated`,
-								properties: { ...role, subjectName: subject.name, associatedName: associated.name },
-							}),
-						);
-					}),
-					{ concurrency: "unbounded" },
-				),
-			),
+			Effect.map(({ items }) => {
+				const signals = changes.flatMap((change) => {
+					const subject = items.find(({ id }) => id === change.after.sourceEntityId);
+					const associated = items.find(({ id }) => id === change.after.targetEntityId);
+					if (!subject || !associated) {
+						return [];
+					}
+					if (
+						(subject.entitySchemaSlug !== "person" && subject.entitySchemaSlug !== "company") ||
+						!(
+							associated.entitySchemaSlug.endsWith("-group") ||
+							builtinMediaEntitySchemaSlugs.some((slug) => slug === associated.entitySchemaSlug)
+						)
+					) {
+						return [];
+					}
+					const population = change.population;
+					if (
+						population?.rootPreviouslyPopulated === false &&
+						population.scopeEntity.id === subject.id
+					) {
+						return [];
+					}
+					const previousRoles = new Set(
+						associatedRoles(
+							change.operation === "update" ? change.before.properties : undefined,
+						).map(roleKey),
+					);
+					const addedRoles = associatedRoles(change.after.properties).filter(
+						(role) => change.operation === "create" || !previousRoles.has(roleKey(role)),
+					);
+					const associationKind = associated.entitySchemaSlug.endsWith("-group")
+						? "media-group"
+						: "media";
+					return addedRoles.map((role) => ({
+						subjectEntityId: subject.id,
+						discriminator: `${subject.id}:${roleKey(role)}`,
+						schemaSlug: `${subject.entitySchemaSlug}.${associationKind}.associated`,
+						properties: { ...role, subjectName: subject.name, associatedName: associated.name },
+					}));
+				});
+				const distinct = signals.filter(
+					(signal, index) =>
+						signals.findIndex(({ discriminator }) => discriminator === signal.discriminator) ===
+						index,
+				);
+				return distinct.length > 0 ? { changes: { signals: distinct } } : {};
+			}),
 		);
 	},
 });

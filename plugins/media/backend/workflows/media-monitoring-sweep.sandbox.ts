@@ -78,7 +78,7 @@ export default defineWorkflow({
 			}
 			pageIndex += 1;
 			if (result.nextCursor === null || result.nextCursor === "") {
-				return { targetCount, batchCount: batchIndex };
+				return { output: { targetCount, batchCount: batchIndex } };
 			}
 			return yield* step.save({ pageIndex, batchIndex, targetCount, after: result.nextCursor });
 		}),

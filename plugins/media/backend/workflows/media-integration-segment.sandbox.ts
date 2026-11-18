@@ -28,7 +28,9 @@ export default defineWorkflow({
 	output: Schema.Union([MediaApplicationOutput, MediaIntegrationCollectionOutput]),
 	run: (input, step) =>
 		"carry" in input
-			? Effect.gen(() => collectMediaIntegrationWindows(input, step))
+			? Effect.gen(function* () {
+					return { output: yield* collectMediaIntegrationWindows(input, step) };
+				})
 			: Effect.gen(function* () {
 					if (!input.integrationScriptSlug) {
 						throw new Error("Media integration application is missing its admitted adapter");
@@ -37,11 +39,14 @@ export default defineWorkflow({
 					const context = yield* Schema.decodeUnknownEffect(contextSchema)(
 						input.integrationContext,
 					);
-					return yield* applyMediaSegment(input, step, function* (ingestionConfirmation, batch) {
-						return yield* step.activity(`confirm:${batch}:${ingestionConfirmation.part}`, adapter, {
-							...context,
-							ingestionConfirmation,
-						});
-					});
+					return {
+						output: yield* applyMediaSegment(input, step, function* (ingestionConfirmation, batch) {
+							return yield* step.activity(
+								`confirm:${batch}:${ingestionConfirmation.part}`,
+								adapter,
+								{ ...context, ingestionConfirmation },
+							);
+						}),
+					};
 				}),
 });

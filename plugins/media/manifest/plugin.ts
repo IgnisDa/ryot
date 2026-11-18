@@ -1,3 +1,4 @@
+import { FOLD_LIMITS } from "@ryot-app/contract/modules/events/folds";
 import type { AuthoredEntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import {
 	CLIENT_API_VERSION,
@@ -950,6 +951,7 @@ export const mediaPlugin = definePlugin({
 			frequency: "batch",
 			slug: "media.relationship-sync",
 			name: "Media relationship sync",
+			batchMaxItems: FOLD_LIMITS.requestEntities,
 			scriptSlug: "automation.media-relationship-sync",
 			targets: [
 				"show-to-show-season",

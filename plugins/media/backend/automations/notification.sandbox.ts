@@ -230,10 +230,12 @@ const notificationMessage = (signal: AutomationSignalSnapshot) => {
 
 export default defineAutomation({
 	manifest,
-	run: ({ automation }, host) => {
+	run: ({ automation }) => {
 		if (automation.payload.resource !== "signal") {
 			throw new Error("Signal notification requires a signal source");
 		}
-		return host.sendNotification(notificationMessage(automation.payload)).pipe(Effect.as(null));
+		return Effect.succeed({
+			changes: { notifications: [notificationMessage(automation.payload)] },
+		});
 	},
 });

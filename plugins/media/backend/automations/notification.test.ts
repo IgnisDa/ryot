@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { englishRenderer, recordNotifications } from "@ryot-app/plugin-backend-sdk/testing";
+import { englishRenderer } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -131,7 +131,6 @@ it.effect.each(cases)(
 	"builds the %s message exclusively from the signal snapshot",
 	([slug, properties, expected]) =>
 		Effect.gen(function* () {
-			const { host, messages } = recordNotifications(manifest);
 			const result = yield* definition.run(
 				yield* automationContext({
 					properties,
@@ -142,10 +141,8 @@ it.effect.each(cases)(
 					signalSchemaSlug: slug,
 					signalSchemaPluginId: "media-plugin",
 				}),
-				host,
 			);
-			expect(result).toBeNull();
-			expect(messages.map(render)).toEqual([expected]);
+			expect(result.changes.notifications.map(render)).toEqual([expected]);
 		}),
 	testTimeout,
 );

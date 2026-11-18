@@ -1,6 +1,5 @@
-import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import type { ChangeSet, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { FOLD_LIMITS } from "@ryot-app/plugin-backend-sdk/folds";
 import {
 	and,
 	ascending,
@@ -91,16 +90,12 @@ export const libraryTitleIds = Effect.fn(function* (
 });
 
 /** Refolds the library titles of `entityIds` for every user, so their summaries follow provider changes. */
-export const refoldLibraryTitles = Effect.fn(function* (
-	host: Pick<ScriptHost, "executeRyotql" | "requestFoldsForAllUsers">,
+export const libraryTitleFolds = Effect.fn(function* (
+	host: Pick<ScriptHost, "executeRyotql">,
 	entityIds: ReadonlySet<string>,
 ) {
-	const titles = [...(yield* libraryTitleIds(host, entityIds))];
-	for (let index = 0; index < titles.length; index += FOLD_LIMITS.requestEntities) {
-		yield* host.requestFoldsForAllUsers({
-			entityIds: titles
-				.slice(index, index + FOLD_LIMITS.requestEntities)
-				.map((id) => EntityId.make(id)),
-		});
-	}
+	const titles = [...(yield* libraryTitleIds(host, entityIds))].map((id) => EntityId.make(id));
+	const changes: ChangeSet =
+		titles.length === 0 ? {} : { folds: { entityIds: titles, scope: "all-users" } };
+	return changes;
 });

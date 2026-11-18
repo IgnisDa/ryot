@@ -1,7 +1,10 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
-import { trendingLatestMediaRecipe } from "../../shared/discovery-recipes";
+import {
+	trendingEntitySchemaSlugs,
+	trendingLatestMediaRecipe,
+} from "../../shared/discovery-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { useMediaMessages } from "../messages";
 import { mediaAspectOf } from "../schema-aspects";
@@ -13,7 +16,7 @@ const trendingQuery = createHomeSectionQuery(
 		client.data
 			.query(
 				trendingLatestMediaRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
-				{ entitySchemaSlugs: ["movie", "show"] },
+				{ entitySchemaSlugs: trendingEntitySchemaSlugs },
 				{ pages: { trending: { limit: 20 } } },
 			)
 			.pipe(Effect.map((trending) => ({ trending }))),

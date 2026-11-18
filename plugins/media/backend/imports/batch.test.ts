@@ -27,13 +27,15 @@ const makeWorkflow = (integrationId?: string) =>
 		}),
 		run: (batch, replay) =>
 			Effect.gen(function* () {
-				return yield* runMediaImportBatch(replay, {
-					batch,
-					runId: "run",
-					batchIndex: 0,
-					...(integrationId === undefined ? {} : { integrationId }),
-					command: mediaImportTestCommand(),
-				});
+				return {
+					output: yield* runMediaImportBatch(replay, {
+						batch,
+						runId: "run",
+						batchIndex: 0,
+						...(integrationId === undefined ? {} : { integrationId }),
+						command: mediaImportTestCommand(),
+					}),
+				};
 			}),
 	});
 
