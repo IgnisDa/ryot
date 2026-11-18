@@ -1468,6 +1468,10 @@
 		"message": "{subjectName} has been associated with {associatedName} as {role}",
 		"description": "{subjectName} is a person or company, {associatedName} is a media title or group and {role} is a role as the provider names it, such as Director."
 	},
+	"notification.associated-more": {
+		"message": "{subjectName} has {count, plural, one {# more new credit} other {# more new credits}}",
+		"description": "{subjectName} is a person or company and {count} is how many further new roles on media titles or groups they have beyond the notifications already listed."
+	},
 	"notification.content-count-changed": {
 		"message": "Number of {contentType, select, chapters {chapters} episodes {episodes} other {items}} changed from {oldCount, number} to {newCount, number} for {entityName}",
 		"description": "{contentType} is what is counted, {oldCount} and {newCount} are the previous and current counts and {entityName} is the media title."
@@ -1626,6 +1630,8 @@
 	"property.anime-export-hint": "MyAnimeList anime export",
 	"property.api-key": "API key",
 	"property.associated-name": "Associated name",
+	"property.association": "Association",
+	"property.associations": "Associations",
 	"property.authentication-cookie": "Authentication cookie",
 	"property.automatic-completion-identity": "Automatic completion identity",
 	"property.base-url": "Base URL",

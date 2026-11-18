@@ -670,6 +670,13 @@ immutable trigger evidence; current-state RyotQL cannot reconstruct omitted hist
 After hooks return their signals, notifications, and fold requests as one change set, which the kernel
 commits with the attempt. The Jellyfin, Radarr, and Sonarr pushes return none.
 
+Association returns one `<person|company>.<media|media-group>.associated` signal per credited subject
+and run, carrying every role it newly holds as `associations` (associated entity ID and name, plus a
+named `role` or a standard `roleCode`). Each credit has one subject, so its batches are capped at the
+change-set signal limit (`batchMaxItems` 100). The notification hook sends one message per
+association, up to the change-set notification limit of 20; past that, the last message counts the
+remaining credits.
+
 Membership batch hooks run after the written prefix, so later items in that request cannot depend on
 their effects. All membership hooks use user execution scope; global population plans none. Batch
 hooks must filter items themselves and remain idempotent across chunks. The two batch limits above

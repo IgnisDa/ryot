@@ -1,3 +1,4 @@
+import { CHANGE_SET_LIMITS } from "@ryot-app/contract/modules/changes/change-set";
 import { FOLD_LIMITS } from "@ryot-app/contract/modules/events/folds";
 import type { AuthoredEntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import {
@@ -971,6 +972,7 @@ export const mediaPlugin = definePlugin({
 			frequency: "batch",
 			slug: "media.association",
 			name: "Media association",
+			batchMaxItems: CHANGE_SET_LIMITS.signals,
 			scriptSlug: "automation.media-association",
 			targets: creditRelationshipSlugs.flatMap((relationshipSchemaSlug) =>
 				(["create", "update", "delete"] as const).map((operation) => ({

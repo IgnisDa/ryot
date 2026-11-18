@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { CHANGE_SET_LIMITS } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { englishRenderer } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -22,13 +23,21 @@ const cases = [
 		(slug) =>
 			[
 				slug,
-				{ role: "Director", associatedName: "Barbie", subjectName: "Greta Gerwig" },
+				{
+					subjectName: "Greta Gerwig",
+					associations: [
+						{ role: "Director", associatedName: "Barbie", associatedEntityId: "barbie" },
+					],
+				},
 				"Greta Gerwig has been associated with Barbie as Director",
 			] as const,
 	),
 	[
 		"person.media.associated",
-		{ roleCode: "author", associatedName: "Dune", subjectName: "Frank Herbert" },
+		{
+			subjectName: "Frank Herbert",
+			associations: [{ roleCode: "author", associatedName: "Dune", associatedEntityId: "dune" }],
+		},
 		"Frank Herbert has been associated with Dune as an author",
 	],
 	[
@@ -127,22 +136,69 @@ it("projects every property the formatted signals read", () => {
 
 const render = englishRenderer(englishCatalog);
 
+const notify = (signalSchemaSlug: string, properties: object) =>
+	Effect.gen(function* () {
+		const result = yield* definition.run(
+			yield* automationContext({
+				properties,
+				signalSchemaSlug,
+				operation: "emit",
+				category: "signal",
+				resource: "signal",
+				actorUserId: "user-1",
+				signalSchemaPluginId: "media-plugin",
+			}),
+		);
+		return result.changes.notifications.map(render);
+	});
+
 it.effect.each(cases)(
 	"builds the %s message exclusively from the signal snapshot",
 	([slug, properties, expected]) =>
 		Effect.gen(function* () {
-			const result = yield* definition.run(
-				yield* automationContext({
-					properties,
-					operation: "emit",
-					category: "signal",
-					resource: "signal",
-					actorUserId: "user-1",
-					signalSchemaSlug: slug,
-					signalSchemaPluginId: "media-plugin",
+			expect(yield* notify(slug, properties)).toEqual([expected]);
+		}),
+	testTimeout,
+);
+
+const associations = (count: number) =>
+	Array.from({ length: count }, (_, index) => ({
+		role: "Director",
+		associatedName: `Title ${index + 1}`,
+		associatedEntityId: `title-${index + 1}`,
+	}));
+
+it.effect(
+	"notifies once per association a subject gained",
+	() =>
+		Effect.gen(function* () {
+			expect(
+				yield* notify("person.media.associated", {
+					subjectName: "Greta Gerwig",
+					associations: [
+						...associations(1),
+						{ roleCode: "author", associatedName: "Title 2", associatedEntityId: "title-2" },
+					],
 				}),
-			);
-			expect(result.changes.notifications.map(render)).toEqual([expected]);
+			).toEqual([
+				"Greta Gerwig has been associated with Title 1 as Director",
+				"Greta Gerwig has been associated with Title 2 as an author",
+			]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"counts the associations past the notification limit in its last message",
+	() =>
+		Effect.gen(function* () {
+			const messages = yield* notify("person.media.associated", {
+				subjectName: "Greta Gerwig",
+				associations: associations(25),
+			});
+			expect(messages).toHaveLength(CHANGE_SET_LIMITS.notifications);
+			expect(messages.at(-2)).toBe("Greta Gerwig has been associated with Title 19 as Director");
+			expect(messages.at(-1)).toBe("Greta Gerwig has 6 more new credits");
 		}),
 	testTimeout,
 );

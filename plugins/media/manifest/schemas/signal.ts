@@ -94,22 +94,40 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 						catalogMessage("property.subject-name"),
 						"Credited person or company name",
 					),
-					associatedName: requiredString(
-						catalogMessage("property.associated-name"),
-						"Associated media or group name",
-					),
-					role: {
-						type: "string" as const,
-						label: catalogMessage("property.role"),
-						description: "Role in the associated media or group, as the provider names it",
-					},
-					roleCode: {
-						type: "enum" as const,
-						label: catalogMessage("property.role-code"),
-						description: "Standard role in the associated media or group, when no named role",
-						choices: {
-							kind: "static" as const,
-							values: creditRoleCodes.map((value) => ({ value })),
+					associations: {
+						type: "array" as const,
+						label: catalogMessage("property.associations"),
+						validation: { minItems: 1, required: true as const },
+						description: "Roles newly held on media or groups, one item per role",
+						items: {
+							type: "object" as const,
+							unknownKeys: "strict" as const,
+							label: catalogMessage("property.association"),
+							description: "One role on one associated media or group",
+							properties: {
+								associatedEntityId: requiredString(
+									catalogMessage("property.entity-id"),
+									"Associated media or group ID",
+								),
+								associatedName: requiredString(
+									catalogMessage("property.associated-name"),
+									"Associated media or group name",
+								),
+								role: {
+									type: "string" as const,
+									label: catalogMessage("property.role"),
+									description: "Role in the associated media or group, as the provider names it",
+								},
+								roleCode: {
+									type: "enum" as const,
+									label: catalogMessage("property.role-code"),
+									description: "Standard role in the associated media or group, when no named role",
+									choices: {
+										kind: "static" as const,
+										values: creditRoleCodes.map((value) => ({ value })),
+									},
+								},
+							},
 						},
 					},
 				},

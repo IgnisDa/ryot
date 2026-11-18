@@ -1,10 +1,12 @@
 import { expect, it } from "bun:test";
 
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { CHANGE_SET_LIMITS } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
+import { mediaPlugin } from "../../manifest/plugin";
 import {
 	automationContext,
 	entityRecord,
@@ -126,6 +128,11 @@ const run = (value: ReturnType<typeof input>) =>
 		Effect.map((result) => returnedChanges(result).signals ?? []),
 	);
 
+const barbie = { associatedName: "Barbie", associatedEntityId: "associated-1" };
+
+const associationsOf = (signals: ReadonlyArray<{ readonly properties: object }>) =>
+	signals.map(({ properties }) => ("associations" in properties ? properties.associations : null));
+
 it.each([
 	["person", "movie", "person.media.associated"],
 	["company", "movie", "company.media.associated"],
@@ -138,9 +145,12 @@ it.each([
 				expect(signals).toEqual([
 					{
 						schemaSlug,
-						discriminator: "subject-1:role:Director",
+						discriminator: "subject-1:run-1",
 						subjectEntityId: EntityId.make("subject-1"),
-						properties: { role: "Director", associatedName: "Barbie", subjectName: "Greta Gerwig" },
+						properties: {
+							subjectName: "Greta Gerwig",
+							associations: [{ ...barbie, role: "Director" }],
+						},
 					},
 				]);
 				return undefined;
@@ -166,7 +176,7 @@ it("suppresses only the credited subject's own first population", () =>
 		),
 	));
 
-it("emits each newly added role once and ignores unchanged, removed, and deleted roles", () =>
+it("carries each newly added role once and ignores unchanged, removed, and deleted roles", () =>
 	Effect.runPromise(
 		Effect.all(
 			[
@@ -179,9 +189,7 @@ it("emits each newly added role once and ignores unchanged, removed, and deleted
 			{ concurrency: "unbounded" },
 		).pipe(
 			Effect.map(([added, removed, deleted]) => {
-				expect(added.map(({ discriminator }) => discriminator)).toEqual([
-					"subject-1:role:Director",
-				]);
+				expect(associationsOf(added)).toEqual([[{ ...barbie, role: "Director" }]]);
 				expect(removed).toEqual([]);
 				expect(deleted).toEqual([]);
 				return undefined;
@@ -189,7 +197,7 @@ it("emits each newly added role once and ignores unchanged, removed, and deleted
 		),
 	));
 
-it("emits newly added standard role codes apart from named roles", () =>
+it("carries newly added standard role codes apart from named roles", () =>
 	Effect.runPromise(
 		run(
 			input({
@@ -200,32 +208,23 @@ it("emits newly added standard role codes apart from named roles", () =>
 			}),
 		).pipe(
 			Effect.map((signals) => {
-				expect(signals).toEqual([
-					{
-						schemaSlug: "person.media.associated",
-						subjectEntityId: EntityId.make("subject-1"),
-						discriminator: "subject-1:role-code:author",
-						properties: {
-							roleCode: "author",
-							associatedName: "Barbie",
-							subjectName: "Greta Gerwig",
-						},
-					},
-				]);
+				expect(associationsOf(signals)).toEqual([[{ ...barbie, roleCode: "author" }]]);
 				return undefined;
 			}),
 		),
 	));
 
-it("uses stable per-role discriminators across replay", () => {
+it("returns the same signal on replay", () => {
 	const value = input({ afterRoles: ["Actor", "Director"] });
 	return Effect.runPromise(
 		Effect.all([run(value), run(value)], { concurrency: "unbounded" }).pipe(
 			Effect.map(([first, replay]) => {
 				expect(first).toEqual(replay);
-				expect(first.map(({ discriminator }) => discriminator)).toEqual([
-					"subject-1:role:Actor",
-					"subject-1:role:Director",
+				expect(associationsOf(first)).toEqual([
+					[
+						{ ...barbie, role: "Actor" },
+						{ ...barbie, role: "Director" },
+					],
 				]);
 				return undefined;
 			}),
@@ -244,7 +243,7 @@ it("ignores relationships in the batch that are not media credits", () =>
 		}).pipe(Effect.map((signals) => expect(signals).toEqual([]))),
 	));
 
-it("reads every credited entity in the batch with one query", () => {
+it("reads every credited entity in the batch with one query and returns one signal per subject", () => {
 	let reads = 0;
 	return Effect.runPromise(
 		Effect.gen(function* () {
@@ -275,14 +274,15 @@ it("reads every credited entity in the batch with one query", () => {
 			expect(reads).toBe(1);
 			expect(
 				(returnedChanges(result).signals ?? []).map(({ discriminator }) => discriminator),
-			).toEqual(["subject-1:role:Director", "subject-2:role:Writer"]);
+			).toEqual(["subject-1:run-1", "subject-2:run-1"]);
 		}),
 	);
 });
 
-it("returns one signal per subject role when the batch credits it more than once", () =>
+it("gathers a subject's credits on several titles into one signal", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
+			const sequel = credit("subject-1", "Director");
 			const result = yield* definition.run(
 				yield* automationContext({
 					category: "change",
@@ -291,12 +291,8 @@ it("returns one signal per subject role when the batch credits it more than once
 					items: [
 						credit("subject-1", "Director"),
 						{
-							...credit("subject-1", "Director"),
-							after: {
-								...credit("subject-1", "Director").after,
-								id: "relationship-sequel",
-								targetEntityId: "associated-2",
-							},
+							...sequel,
+							after: { ...sequel.after, id: "relationship-sequel", targetEntityId: "associated-2" },
 						},
 					],
 				}),
@@ -313,11 +309,23 @@ it("returns one signal per subject role when the batch credits it more than once
 			);
 			expect(returnedChanges(result).signals).toEqual([
 				{
+					discriminator: "subject-1:run-1",
 					schemaSlug: "person.media.associated",
-					discriminator: "subject-1:role:Director",
 					subjectEntityId: EntityId.make("subject-1"),
-					properties: { role: "Director", associatedName: "Barbie", subjectName: "Greta Gerwig" },
+					properties: {
+						subjectName: "Greta Gerwig",
+						associations: [
+							{ ...barbie, role: "Director" },
+							{ role: "Director", associatedName: "Barbie 2", associatedEntityId: "associated-2" },
+						],
+					},
 				},
 			]);
 		}),
 	));
+
+it("caps association batches so one signal per credit fits a change set", () => {
+	expect(mediaPlugin.hooks.find(({ slug }) => slug === "media.association")).toMatchObject({
+		batchMaxItems: CHANGE_SET_LIMITS.signals,
+	});
+});
