@@ -131,9 +131,14 @@ it.effect(
 			expect(yield* decodeBody({ payload: { values: [null, true, 1, "ok"] } })).toEqual({
 				payload: { values: [null, true, 1, "ok"] },
 			});
-			expect(yield* decodeResult({ result: ["ok"] })).toEqual({ result: ["ok"] });
+			expect(yield* decodeResult({ result: ["ok"], committed: { events: [] } })).toEqual({
+				result: ["ok"],
+				committed: { events: [] },
+			});
 			yield* Effect.flip(decodeBody({ payload: { invalid: undefined } }));
-			yield* Effect.flip(decodeResult({ result: Number.POSITIVE_INFINITY }));
+			yield* Effect.flip(
+				decodeResult({ committed: { events: [] }, result: Number.POSITIVE_INFINITY }),
+			);
 		}),
 	testTimeout,
 );

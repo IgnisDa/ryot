@@ -5,6 +5,7 @@ import { contractErrorFields } from "../../errors";
 import { PluginId, PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
+import { CommitConflictCode, UserCommandResult } from "../mutations/user-command";
 import { PageOperationAuthority } from "../pages/identity";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../scripts/schemas";
 import {
@@ -128,6 +129,7 @@ const PluginConflictReason = Schema.Union([
 	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("entity-referenced") }),
 	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("workflow-referenced") }),
 	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("source-revision-stale") }),
+	Schema.Struct({ conflict: CommitConflictCode, code: Schema.Literal("changes-conflict") }),
 	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("saved-view-referenced") }),
 	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("integration-referenced") }),
 	Schema.Struct({
@@ -306,6 +308,9 @@ export const PluginInvokeBody = Schema.Struct({
 
 export type PluginInvokeBody = Schema.Schema.Type<typeof PluginInvokeBody>;
 
-export const PluginInvokeResult = Schema.Struct({ result: JsonValue });
+export const PluginInvokeResult = Schema.Struct({
+	result: JsonValue,
+	committed: UserCommandResult,
+});
 
 export type PluginInvokeResult = Schema.Schema.Type<typeof PluginInvokeResult>;

@@ -11,65 +11,72 @@ export const CommandEntityReference = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("existing") }),
 ]);
 const properties = Schema.Record(Schema.String, JsonValue);
-export const UserCommand = strictStruct({
-	relationships: Schema.Array(
+export const UserCommandEntity = strictStruct({
+	properties,
+	name: Schema.NonEmptyString,
+	entitySchemaSlug: Schema.NonEmptyString,
+	itemIdentity: Schema.optional(Schema.NonEmptyString),
+	target: Schema.Union([
+		strictStruct({ kind: Schema.Literal("create") }),
 		strictStruct({
-			properties,
-			source: CommandEntityReference,
-			target: CommandEntityReference,
-			relationshipSchemaSlug: Schema.NonEmptyString,
-			itemIdentity: Schema.optional(Schema.NonEmptyString),
-			propertiesMode: Schema.Literals(["merge", "replace"]),
+			entityId: EntityId,
+			kind: Schema.Literal("update"),
+			expected: strictStruct({ properties, name: Schema.String, updatedAt: Schema.String }),
 		}),
-	),
-	entity: strictStruct({
-		properties,
-		name: Schema.NonEmptyString,
-		entitySchemaSlug: Schema.NonEmptyString,
-		itemIdentity: Schema.optional(Schema.NonEmptyString),
-		target: Schema.Union([
-			strictStruct({ kind: Schema.Literal("create") }),
-			strictStruct({
-				entityId: EntityId,
-				kind: Schema.Literal("update"),
-				expected: strictStruct({ properties, name: Schema.String, updatedAt: Schema.String }),
-			}),
-		]),
-	}),
-	events: strictStruct({
-		changes: Schema.Array(
-			Schema.Union([EventMutationChange.members[1], EventMutationChange.members[2]]),
-		),
-		expected: Schema.optional(
-			strictStruct({ eventIds: Schema.Array(EventId), eventSchemaSlug: Schema.NonEmptyString }),
-		),
-		baselines: Schema.optional(
-			Schema.Array(strictStruct({ entityId: EntityId, revision: Schema.Int }))
-				.check(Schema.isMinLength(1))
-				.check(Schema.isMaxLength(100))
-				.check(
-					Schema.makeFilter(
-						(baselines) =>
-							new Set(baselines.map((baseline) => baseline.entityId)).size === baselines.length,
-					),
-				),
-		),
-		creates: Schema.Array(
+	]),
+});
+export type UserCommandEntity = typeof UserCommandEntity.Type;
+export const UserCommand = strictStruct({
+	settings: Schema.optional(properties),
+	entity: Schema.optional(UserCommandEntity),
+	relationships: Schema.optional(
+		Schema.Array(
 			strictStruct({
 				properties,
-				entity: CommandEntityReference,
-				itemIdentity: Schema.NonEmptyString,
-				eventSchemaSlug: Schema.NonEmptyString,
-				occurredAt: Schema.optional(Schema.String),
-				orderAfter: Schema.optional(EventOrderAnchor),
-				session: Schema.optional(CommandEntityReference),
+				source: CommandEntityReference,
+				target: CommandEntityReference,
+				relationshipSchemaSlug: Schema.NonEmptyString,
+				itemIdentity: Schema.optional(Schema.NonEmptyString),
+				propertiesMode: Schema.Literals(["merge", "replace"]),
 			}),
 		),
-	}),
+	),
+	events: Schema.optional(
+		strictStruct({
+			changes: Schema.Array(
+				Schema.Union([EventMutationChange.members[1], EventMutationChange.members[2]]),
+			),
+			expected: Schema.optional(
+				strictStruct({ eventIds: Schema.Array(EventId), eventSchemaSlug: Schema.NonEmptyString }),
+			),
+			baselines: Schema.optional(
+				Schema.Array(strictStruct({ entityId: EntityId, revision: Schema.Int }))
+					.check(Schema.isMinLength(1))
+					.check(Schema.isMaxLength(100))
+					.check(
+						Schema.makeFilter(
+							(baselines) =>
+								new Set(baselines.map((baseline) => baseline.entityId)).size === baselines.length,
+						),
+					),
+			),
+			creates: Schema.Array(
+				strictStruct({
+					properties,
+					entity: CommandEntityReference,
+					itemIdentity: Schema.NonEmptyString,
+					eventSchemaSlug: Schema.NonEmptyString,
+					occurredAt: Schema.optional(Schema.String),
+					orderAfter: Schema.optional(EventOrderAnchor),
+					session: Schema.optional(CommandEntityReference),
+				}),
+			),
+		}),
+	),
 });
 export type UserCommand = typeof UserCommand.Type;
 export const UserCommandResult = strictStruct({
-	entityId: EntityId,
+	entityId: Schema.optional(EntityId),
 	events: Schema.Array(strictStruct({ eventId: EventId, itemIdentity: Schema.NonEmptyString })),
 });
 export type UserCommandResult = typeof UserCommandResult.Type;

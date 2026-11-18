@@ -835,7 +835,7 @@ export default defineOperation({
 	manifest,
 	output: Schema.String,
 	input: Schema.Struct({}),
-	run: () => Effect.succeed(rowSlug),
+	run: () => Effect.succeed({ output: rowSlug }),
 });
 `;
 
@@ -899,7 +899,7 @@ export default defineOperation({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.Boolean,
-	run: () => Effect.succeed(compressionAvailable),
+	run: () => Effect.succeed({ output: compressionAvailable }),
 });
 `,
 					},
@@ -945,7 +945,7 @@ export default defineOperation({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.Number,
-	run: () => Effect.succeed(normalizeRecordMeasurement("reps", 1.23456)),
+	run: () => Effect.succeed({ output: normalizeRecordMeasurement("reps", 1.23456) }),
 });
 `,
 					},

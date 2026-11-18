@@ -35,7 +35,7 @@ const operation = defineOperation({
 	output: Schema.String,
 	manifest: operationManifest,
 	input: Schema.Struct({ value: Schema.Finite }),
-	run: (input) => Effect.succeed(String(input.value)),
+	run: (input) => Effect.succeed({ output: String(input.value) }),
 });
 const failingOperation = defineOperation({
 	output: Schema.String,
@@ -44,7 +44,7 @@ const failingOperation = defineOperation({
 	run: (input) =>
 		input.value < 0
 			? Effect.fail({ _tag: "InvalidOperationInput" as const })
-			: Effect.succeed(String(input.value)),
+			: Effect.succeed({ output: String(input.value) }),
 });
 
 const automationManifest = defineManifest({
@@ -97,8 +97,9 @@ const scriptFailureType: Expect<
 		SandboxHostError | { _tag: "InvalidCachedValue" }
 	>
 > = true;
-const operationOutputType: Expect<Equal<Effect.Success<ReturnType<typeof operation.run>>, string>> =
-	true;
+const operationOutputType: Expect<
+	Equal<Effect.Success<ReturnType<typeof operation.run>>, { output: string }>
+> = true;
 const operationFailureType: Expect<Equal<Effect.Error<ReturnType<typeof operation.run>>, never>> =
 	true;
 const failingOperationFailureType: Expect<

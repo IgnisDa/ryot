@@ -856,8 +856,22 @@ non-destructive and idempotent. A writing operation may also be idempotent, incl
 write whose repetition has no additional effect. Descriptions should explain writes, deletes,
 conflicts, and per-item misses so people and tool clients can choose operations safely.
 
+An operation's `run` returns `{ output, changes? }`. `output` is what the caller receives and what the
+declared `output` schema describes. `changes` is a change set the kernel commits after the run ends:
+an optional root `entity` create or update, `events` creates, updates, and deletes with their
+baselines, `relationships` referencing the root or existing entities, and a `settings` patch of the
+plugin's user settings. A `{ kind: "root" }` reference requires `entity`. An operation that only reads
+returns its writes this way; the kernel commits them atomically, runs event policies over them, and
+answers `{ result, committed }`, where `committed` carries the root entity ID and each written event ID
+by item identity. A policy rejection of the changes reaches the caller as HTTP 422, a stale baseline
+as HTTP 409 `changes-conflict`, and any other invalid change set as HTTP 502. A client plugin's
+`client.operations.invoke` resolves `{ output, committed }` and fails a stale baseline with a
+`RyotClientError` whose reason is `changes-conflict`.
+
 Refuse a request that cannot succeed as submitted with `OperationRejectedError(message)`; the caller
-receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502). Import
+receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502). Fail with
+`OperationConflictError({ conflict })` when the operation itself finds a stale baseline before building
+changes; the caller receives the HTTP 409 `changes-conflict` of a stale commit. Import
 sources map strict input schemas to workflows. Uploads are top-level string fields with upload format;
 the kernel validates each file and exposes it by field name for `readNamedArtifact(key)`. Payload-only
 sources use ordinary fields.

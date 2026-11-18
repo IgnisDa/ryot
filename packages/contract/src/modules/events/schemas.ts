@@ -112,6 +112,7 @@ export class EventBadRequest extends Schema.TaggedError<
 				"policy-execution-failed",
 				"owner-mismatch",
 				"global-scope-forbidden",
+				"root-entity-required",
 			]),
 		}),
 	]),
