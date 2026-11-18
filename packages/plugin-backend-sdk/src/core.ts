@@ -1,18 +1,10 @@
+export type { EventChange } from "./core/changes";
 export type { LogEntry, SpanEntry } from "./core/logging";
 export { EntitlementRequiredError } from "./core/entitlements";
 export { sandboxHostCapabilitySchema } from "./core/capabilities";
 export { isEntitled } from "@ryot-app/contract/schema/entitlement";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export { sandboxManifestSchema, executionMetadataSchema } from "./core/script-manifest";
-export type { EventChange } from "./core/changes";
-export {
-	rootEntity,
-	existingEntity,
-	updateEventChange,
-	deleteEventChange,
-	combineChangeSets,
-	upsertedGlobalEntity,
-} from "./core/changes";
 export {
 	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,
 	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
@@ -45,6 +37,14 @@ export type {
 	ChangeSetEntityReference,
 	ChangeSetGlobalEntityReference,
 } from "@ryot-app/contract/modules/changes/change-set";
+export {
+	rootEntity,
+	existingEntity,
+	updateEventChange,
+	deleteEventChange,
+	combineChangeSets,
+	upsertedGlobalEntity,
+} from "./core/changes";
 export {
 	CHANGE_SET_LIMITS,
 	ChangeSet as changeSetSchema,

@@ -34,7 +34,7 @@ export const updateEventChange = (
 	({
 		kind: "update",
 		itemIdentity: `update:${eventId}`,
-		item: { eventId, patch, ...(expected === undefined ? {} : { expected }) },
+		item: { patch, eventId, ...(expected === undefined ? {} : { expected }) },
 	}) as const satisfies EventUpdateChange;
 
 export const deleteEventChange = (eventId: EventId, expected?: EventDeleteChange["expected"]) =>
