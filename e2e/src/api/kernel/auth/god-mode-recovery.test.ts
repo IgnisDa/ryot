@@ -16,9 +16,13 @@ import {
 	refreshOAuthTokens,
 	signInWithPassword,
 } from "~/fixtures/kernel";
+import { startProApiServer } from "~/fixtures/kernel/pro-server";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("God-mode account recovery", startProApiServer);
 
 const WRONG_TOKEN = "wrong-token";
 
