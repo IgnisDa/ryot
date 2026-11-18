@@ -155,8 +155,10 @@ export type HistoryChange =
 			readonly item: {
 				readonly eventId: string;
 				readonly patch: {
+					readonly entityId?: string;
 					readonly occurredAt?: string;
-					readonly orderAfter: null | { readonly suffix: string; readonly eventId: string };
+					readonly sessionEntityId?: null | string;
+					readonly orderAfter?: { readonly suffix: string; readonly eventId: string };
 					readonly properties: {
 						readonly remove: ReadonlyArray<string>;
 						readonly set: Readonly<Record<string, JsonValue>>;
@@ -236,9 +238,11 @@ const sourceRunOf = (event: FoldEvent) => {
  * Derives a subject's automatic completions from its history and its previous fold value. Progress
  * that reaches its total completes its item; complete coverage of an episodic subject's required
  * episodes completes the subject. A deleted automatic completion stays suppressed and an edited one
- * becomes explicit. Coverage completions keep the episode inventory they were frozen with. A new one
- * needs a completion this fold has not seen or a subject that just became terminal: an inventory change
- * alone completes nothing.
+ * becomes explicit, keeping its order. Coverage completions keep the episode inventory they were frozen
+ * with, and a stored one is restored where its sources exactly cover that inventory, or else at its
+ * closing event while the inventory is covered, so a replay of the fold's own output changes nothing.
+ * A new one needs a completion this fold has not seen or a subject that just became terminal: an
+ * inventory change alone completes nothing.
  */
 export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: {
 	readonly subject: HistorySubject;
@@ -283,10 +287,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 				itemIdentity: `override:${actual.id}`,
 				item: {
 					eventId: actual.id,
-					patch: {
-						orderAfter: null,
-						properties: { set: {}, remove: ["completionKey", "completionSilent"] },
-					},
+					patch: { properties: { set: {}, remove: ["completionKey", "completionSilent"] } },
 				},
 			});
 		}
@@ -493,23 +494,39 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 			if (basis !== undefined && !supported(basis)) {
 				basis = undefined;
 			}
-			const required = basis?.inventory ?? (live ??= [...(yield* input.inventory)].sort());
+			const unused = frozen.filter(
+				({ key, inventory = [] }) => !used.has(key) && inventory.length > 0,
+			);
+			const restored =
+				unused.find(
+					({ sources = [], inventory = [] }) =>
+						inventory.length === sources.length &&
+						inventory.every(
+							(episodeId, index) => coverage.get(episodeId)?.source === sources[index],
+						),
+				) ??
+				unused.find(
+					({ sourceEventId, inventory = [] }) =>
+						sourceEventId === source && inventory.every((episodeId) => coverage.has(episodeId)),
+				);
+			const required =
+				(restored ?? basis)?.inventory ?? (live ??= [...(yield* input.inventory)].sort());
 			const covered = required.flatMap((episodeId) => {
 				const value = coverage.get(episodeId);
 				return value === undefined ? [] : [value];
 			});
+			const key = (restored ?? basis)?.key ?? `coverage:${source}`;
 			if (
-				required.length === 0 ||
-				covered.length !== required.length ||
-				(!input.subject.terminal && basis === undefined)
+				restored === undefined &&
+				(required.length === 0 ||
+					covered.length !== required.length ||
+					(!input.subject.terminal && basis === undefined) ||
+					used.has(key) ||
+					(!unseen && !becameTerminal))
 			) {
 				continue;
 			}
-			const key = basis?.key ?? `coverage:${source}`;
 			const prior = previous.get(key);
-			if (basis === undefined && prior === undefined && !unseen && !becameTerminal) {
-				continue;
-			}
 			used.add(key);
 			const consumedOn = mergeConsumedOn(...covered.map((item) => item.consumedOn));
 			const dateUnknown = covered.every((item) => item.dateUnknown);
@@ -588,6 +605,12 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 					patch: {
 						orderAfter,
 						occurredAt: value.output.occurredAt,
+						...(actual.entityId === value.output.entityId
+							? {}
+							: { entityId: value.output.entityId }),
+						...(actual.sessionEntityId === value.output.sessionEntityId
+							? {}
+							: { sessionEntityId: value.output.sessionEntityId }),
 						properties: {
 							set: value.output.properties,
 							remove: Object.keys(actual.properties).filter(

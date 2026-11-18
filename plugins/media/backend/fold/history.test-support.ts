@@ -2,39 +2,52 @@ import { assert } from "@ryot-app/testing/assert";
 
 import type { FoldEvent, HistoryChange } from "./history";
 
-/** Applies a fold's history changes as the kernel would, naming created events by item identity. */
+const find = (list: ReadonlyArray<FoldEvent>, id: string) => {
+	const found = list.find((value) => value.id === id);
+	assert(found);
+	return found;
+};
+
+/**
+ * Applies a fold's history changes as the kernel would, naming created events by item identity and
+ * capturing each order anchor as it stood before the changes. An output off its anchor's entity is
+ * on the subject.
+ */
 export const applyHistoryChanges = (
 	events: ReadonlyArray<FoldEvent>,
 	changes: ReadonlyArray<HistoryChange>,
+	subjectSchemaSlug: string,
 ) => {
 	let next = [...events];
-	const byId = (id: string) => {
-		const found = next.find((value) => value.id === id);
-		assert(found);
-		return found;
+	const anchored = (
+		entityId: string,
+		orderAfter: { readonly suffix: string; readonly eventId: string },
+	) => {
+		const anchor = find(events, orderAfter.eventId);
+		return {
+			orderCreatedAt: anchor.orderCreatedAt,
+			orderKey: `${anchor.orderKey}~${orderAfter.suffix}`,
+			entitySchemaSlug: entityId === anchor.entityId ? anchor.entitySchemaSlug : subjectSchemaSlug,
+		};
 	};
 	for (const change of changes) {
 		if (change.kind === "delete") {
 			next = next.filter(({ id }) => id !== change.eventId);
 		} else if (change.kind === "create") {
-			const anchor = byId(change.item.orderAfter.eventId);
 			next.push({
+				...anchored(change.item.entityId, change.item.orderAfter),
 				revision: 0,
 				eventSchemaSlug: "complete",
 				entityId: change.item.entityId,
 				occurredAt: change.item.occurredAt,
 				properties: change.item.properties,
 				id: `derived-${change.itemIdentity}`,
-				orderCreatedAt: anchor.orderCreatedAt,
 				sessionEntityId: change.item.sessionEntityId ?? null,
-				orderKey: `${anchor.orderKey}~${change.item.orderAfter.suffix}`,
-				entitySchemaSlug:
-					change.item.entityId === anchor.entityId ? anchor.entitySchemaSlug : "show",
 			});
 		} else {
-			const current = byId(change.item.eventId);
+			const current = find(next, change.item.eventId);
 			const { patch } = change.item;
-			const anchor = patch.orderAfter === null ? null : byId(patch.orderAfter.eventId);
+			const entityId = patch.entityId ?? current.entityId;
 			const properties = Object.fromEntries(
 				Object.entries({ ...current.properties, ...patch.properties.set }).filter(
 					([key]) => !patch.properties.remove.includes(key),
@@ -44,12 +57,15 @@ export const applyHistoryChanges = (
 				value.id === current.id
 					? {
 							...current,
+							entityId,
 							properties,
 							revision: current.revision + 1,
 							occurredAt: patch.occurredAt ?? current.occurredAt,
-							orderCreatedAt: anchor?.orderCreatedAt ?? current.orderCreatedAt,
-							orderKey:
-								anchor === null ? current.id : `${anchor.orderKey}~${patch.orderAfter?.suffix}`,
+							sessionEntityId:
+								patch.sessionEntityId === undefined
+									? current.sessionEntityId
+									: patch.sessionEntityId,
+							...(patch.orderAfter === undefined ? {} : anchored(entityId, patch.orderAfter)),
 						}
 					: value,
 			);

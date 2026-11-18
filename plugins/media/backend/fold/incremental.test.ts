@@ -1,6 +1,6 @@
 import { describe, expect } from "bun:test";
 
-import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { FoldEventChange } from "@ryot-app/plugin-backend-sdk/folds";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -9,7 +9,12 @@ import type { FoldEvent, MediaFoldValue } from "./history";
 import { applyHistoryChanges } from "./history.test-support";
 import { foldMediaHistory, type MediaHistoryReads, normalizedEvent } from "./incremental";
 
-type Subject = { readonly id: string; readonly terminal: boolean; readonly episodic: boolean };
+type Subject = {
+	readonly id: string;
+	readonly terminal: boolean;
+	readonly episodic: boolean;
+	readonly entitySchemaSlug: string;
+};
 
 type Store = {
 	readonly value: MediaFoldValue;
@@ -121,7 +126,7 @@ const settle = Effect.fnUntraced(function* (
 		for (const { eventId, properties } of output.contributions) {
 			contributions.set(eventId, properties);
 		}
-		const next = applyHistoryChanges(current.history, output.changes);
+		const next = applyHistoryChanges(current.history, output.changes, subject.entitySchemaSlug);
 		changes = yield* imagesBetween(current.history, next);
 		current = { contributions, history: next, value: output.value };
 		if (output.changes.length === 0) {
@@ -194,32 +199,37 @@ const anime: Generator = (next, id, occurredAt) => {
 	};
 };
 
-const episodes = ["e1", "e2", "e3"];
-
-const show: Generator = (next, id, occurredAt) => {
-	const own = next(6) === 0;
-	const slug = own
-		? "complete"
-		: ((["complete", "complete", "progress"] as const)[next(3)] ?? "complete");
-	return {
-		...base(
-			id,
-			occurredAt,
-			own
-				? { entityId: "show", sessionEntityId: null, entitySchemaSlug: "show" }
-				: {
-						sessionEntityId: "show",
-						entitySchemaSlug: "show-episode",
-						entityId: episodes[next(3)] ?? "e1",
-					},
-		),
-		eventSchemaSlug: slug,
-		properties: {
-			consumptionBasis: { unit: "minutes", property: "runtime" },
-			...(slug === "progress" ? { progressPercent: [50, 100][next(2)] ?? 100 } : {}),
-		},
+const episodic =
+	(parent: string, episodes: ReadonlyArray<string>): Generator =>
+	(next, id, occurredAt) => {
+		const own = next(6) === 0;
+		const slug = own
+			? "complete"
+			: ((["complete", "complete", "progress"] as const)[next(3)] ?? "complete");
+		return {
+			...base(
+				id,
+				occurredAt,
+				own
+					? { entityId: parent, sessionEntityId: null, entitySchemaSlug: parent }
+					: {
+							sessionEntityId: parent,
+							entitySchemaSlug: `${parent}-episode`,
+							entityId: episodes[next(episodes.length)] ?? parent,
+						},
+			),
+			eventSchemaSlug: slug,
+			properties: {
+				consumptionBasis: { unit: "minutes", property: "runtime" },
+				...(slug === "progress" ? { progressPercent: [50, 100][next(2)] ?? 100 } : {}),
+				...(next(4) === 0 ? { consumedOn: [["Netflix"], ["Plex"]][next(2)] ?? [] } : {}),
+			},
+		};
 	};
-};
+
+const showEpisodes = ["e1", "e2", "e3"];
+
+const podcastEpisodes = ["p1", "p2", "p3", "p4"];
 
 const movieProgress = (id: string, hour: number, progressPercent: number) =>
 	normalizedEvent({
@@ -245,9 +255,8 @@ const compare = Effect.fnUntraced(function* (input: {
 }) {
 	const next = random(input.seed);
 	const inventory = input.inventory ?? [];
-	let full = empty;
-	let incremental = empty;
-	const counts = { unstable: 0, unsettled: 0, full: { rows: 0 }, incremental: { rows: 0 } };
+	let full = yield* settle("full", input.subject, inventory, empty, [], { rows: 0 });
+	let incremental = full;
 	for (let index = 0; index < input.steps; index += 1) {
 		const history = full.history;
 		const latest = history.reduce<null | string>(
@@ -257,7 +266,7 @@ const compare = Effect.fnUntraced(function* (input: {
 		);
 		const target = history[next(Math.max(history.length, 1))];
 		const operation = target === undefined ? 0 : next(6);
-		const id = `event-${input.seed}-${index}`;
+		const id = `event-${input.seed}-${String(index).padStart(3, "0")}`;
 		let changed: ReadonlyArray<FoldEvent>;
 		if (operation <= 1 || target === undefined) {
 			changed = [
@@ -284,96 +293,54 @@ const compare = Effect.fnUntraced(function* (input: {
 					: event,
 			);
 		}
-		const replayed = yield* Effect.result(
-			foldMediaHistory({
-				changes: null,
-				previous: full.value,
-				subject: input.subject,
-				reads: reads(full.history, inventory, { rows: 0 }),
-			}),
-		);
-		const fixed =
-			Result.isSuccess(replayed) &&
-			replayed.success.changes.length === 0 &&
-			Bun.deepEquals(replayed.success.value, full.value);
-		const fullResult = yield* Effect.result(
-			settle("full", input.subject, inventory, full, changed, counts.full),
-		);
-		const incrementalResult = yield* Effect.result(
-			settle("incremental", input.subject, inventory, incremental, changed, counts.incremental),
-		);
-		if (Result.isFailure(fullResult)) {
-			counts.unsettled += 1;
-			continue;
-		}
-		if (!fixed) {
-			counts.unstable += 1;
-			full = fullResult.success;
-			incremental = full;
-			continue;
-		}
-		expect(Result.isFailure(incrementalResult)).toBe(false);
-		if (Result.isFailure(incrementalResult)) {
-			continue;
-		}
-		full = fullResult.success;
-		incremental = incrementalResult.success;
+		const replayed = yield* foldMediaHistory({
+			changes: null,
+			previous: full.value,
+			subject: input.subject,
+			reads: reads(full.history, inventory, { rows: 0 }),
+		});
+		expect(replayed.changes).toEqual([]);
+		expect(replayed.value).toEqual(full.value);
+		full = yield* settle("full", input.subject, inventory, full, changed, { rows: 0 });
+		incremental = yield* settle("incremental", input.subject, inventory, incremental, changed, {
+			rows: 0,
+		});
 		expect(incremental.history).toEqual(full.history);
 		expect(incremental.value).toEqual(full.value);
 		expect(incremental.contributions).toEqual(full.contributions);
 	}
-	return counts;
 });
 
+const seeds = Array.from({ length: 40 }, (_, index) => index + 1);
+
 describe("incremental media history", () => {
-	it.effect(
-		"matches a full replay of a movie over random appends, past edits, deletes and overrides",
-		() =>
-			Effect.gen(function* () {
-				for (const seed of [1, 5, 17, 23, 42, 77, 101, 2026]) {
-					const counts = yield* compare({
-						seed,
-						steps: 60,
-						generate: movie,
-						subject: { id: "movie", terminal: false, episodic: false },
-					});
-					expect(counts.unstable + counts.unsettled).toBe(0);
-				}
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"matches a full replay of a positional title whose explicit completions block earlier progress",
-		() =>
-			Effect.gen(function* () {
-				for (const seed of [2, 8, 9, 31, 64, 128, 512]) {
-					const counts = yield* compare({
-						seed,
-						steps: 60,
-						generate: anime,
-						subject: { id: "anime", terminal: false, episodic: false },
-					});
-					expect(counts.unstable + counts.unsettled).toBe(0);
-				}
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"matches a full replay of an episodic title's episodes and coverage",
-		() =>
-			Effect.gen(function* () {
-				for (const seed of [3, 11, 28, 47, 89, 300, 4096]) {
-					yield* compare({
-						seed,
-						steps: 50,
-						generate: show,
-						inventory: episodes,
-						subject: { id: "show", terminal: true, episodic: true },
-					});
-				}
-			}),
+	it.effect.each([
+		{
+			kind: "a movie",
+			generate: movie,
+			subject: { id: "movie", terminal: false, episodic: false, entitySchemaSlug: "movie" },
+		},
+		{
+			generate: anime,
+			kind: "a positional title whose explicit completions block earlier progress",
+			subject: { id: "anime", terminal: false, episodic: false, entitySchemaSlug: "anime" },
+		},
+		{
+			inventory: showEpisodes,
+			kind: "a show's episodes and coverage",
+			generate: episodic("show", showEpisodes),
+			subject: { id: "show", terminal: true, episodic: true, entitySchemaSlug: "show" },
+		},
+		{
+			inventory: podcastEpisodes,
+			kind: "a podcast's episodes and coverage",
+			generate: episodic("podcast", podcastEpisodes),
+			subject: { id: "podcast", terminal: true, episodic: true, entitySchemaSlug: "podcast" },
+		},
+	])(
+		"settles and matches a full replay of $kind over random appends, past edits, deletes and overrides",
+		(input) =>
+			Effect.forEach(seeds, (seed) => compare({ ...input, seed, steps: 60 }), { discard: true }),
 		testTimeout,
 	);
 
@@ -381,7 +348,12 @@ describe("incremental media history", () => {
 		"continues an append from the stored run without reading history",
 		() =>
 			Effect.gen(function* () {
-				const subject = { id: "movie", terminal: false, episodic: false };
+				const subject = {
+					id: "movie",
+					terminal: false,
+					episodic: false,
+					entitySchemaSlug: "movie",
+				};
 				let store = empty;
 				for (const [id, hour, percent] of [
 					["first", 1, 20],

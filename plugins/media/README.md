@@ -556,7 +556,7 @@ daily watches in an episodic summary carry no record IDs and are edited from com
 Collection, library, and synced list-state rows have no menu.
 
 History creation, edits, and deletions reconcile automatic completions in the same write.
-Full-progress corrections can create or remove their derived completion; episode corrections reconcile
+Full-progress corrections can create, move or remove their derived completion; episode corrections reconcile
 the affected parent and subsequent consumption cycles. Explicit completions are never removed by
 inference. Editing an automatic completion makes it explicit; deleting one suppresses that occurrence
 without deleting its supporting history. A later independent repeat can complete again. Automatic
@@ -655,7 +655,8 @@ Integration and metadata requests share the declared GraphQL-origin budget.
 Support is declared by `manifest/schemas/entity.ts`. State comes from editable history ordered by
 `occurredAt`, source creation time, then source order, not a separately stored state. Automatic
 completions retain their source-order keys so their later insertion cannot move them past same-time
-activity. Explicit records use their own creation time and ID. Hooks use pinned projections of
+activity, and keep them when an edit makes them explicit. Other explicit records use their own
+creation time and ID. Hooks use pinned projections of
 immutable trigger evidence; current-state RyotQL cannot reconstruct omitted historical values.
 
 | Hook family                     | Responsibility                                                                                                                                                                                                                                                                                                              |
@@ -728,7 +729,10 @@ new Show or Podcast completion requires a terminal production status (`Ended`, `
 reaching that status, so unrelated edits to an old cycle cannot complete it. The fold's value holds
 each occurrence with its key, status, sources and frozen inventory, plus the coverage sources it has
 counted and whether the title was terminal. A frozen occurrence keeps its inventory, so later provider
-changes do not rewrite past completions. Relationship changes still affect live coverage without
+changes do not rewrite past completions. A replay restores an occurrence where its sources exactly
+cover its frozen inventory, or else at its recorded closing event while its inventory is covered, so
+replaying the fold's own completions changes nothing and a corrected source keeps the completion it
+supports. Otherwise the occurrence lapses unless the title completes anew. Relationship changes still affect live coverage without
 creating history. The fold reads changes from outside its own events, such as a new status or
 inventory, because `media-entity-updated` and `media-relationship-sync` return an all-users fold
 request for the library titles they touch. One request holds at most 100 entities, so relationship
