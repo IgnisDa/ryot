@@ -4,9 +4,12 @@ export { sandboxHostCapabilitySchema } from "./core/capabilities";
 export { isEntitled } from "@ryot-app/contract/schema/entitlement";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export { sandboxManifestSchema, executionMetadataSchema } from "./core/script-manifest";
+export type { EventChange } from "./core/changes";
 export {
 	rootEntity,
 	existingEntity,
+	updateEventChange,
+	deleteEventChange,
 	combineChangeSets,
 	upsertedGlobalEntity,
 } from "./core/changes";
