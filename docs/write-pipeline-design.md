@@ -92,6 +92,12 @@ holds a lease while another script runs, so shared admission (one permit) cannot
 inline-then-durable fallback has nothing left to do. A parked parent, such as a workflow step waiting
 on HTTP, keeps only its own lease.
 
+A workflow replay keeps its lease and its lane's transient pool while it settles an inline batch.
+The batch holds only host reads, and admission refuses any run started from host-call work, so no
+script waits on a lease its caller holds. A step's changes commit in the workflow body after the
+replay job has returned, so that commit's policies and folds take admission as their own phases.
+Agent runs follow the same shape: each round releases its lease before its capability calls run.
+
 ### Authority
 
 Authority, the catalog, and compiled recipes are resolved once per isolate activation, not on each

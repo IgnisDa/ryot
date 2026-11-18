@@ -100,11 +100,10 @@ export const sandboxHostPermit = (capability: SandboxHostCapability) => {
 	return policy !== null && "permit" in policy ? policy.permit : "ordinary";
 };
 
-const inlineDispatches = new Set<null | string>(["service", "activity"]);
-
+// An inline batch settles while its run keeps its lease, so it takes only activities, which run no script.
 export const sandboxInlineDurableCapabilities = (principal: SandboxPrincipal) =>
 	(principal.metadata.capabilities ?? []).filter(
 		(capability): capability is SandboxHostCapability =>
 			isSandboxHostCapability(capability) &&
-			inlineDispatches.has(sandboxDurableHostDispatchStrategy(capability)),
+			sandboxDurableHostDispatchStrategy(capability) === "activity",
 	);

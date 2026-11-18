@@ -6,7 +6,7 @@ import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { SandboxStateStore } from "@ryot-app/sandbox/host/state-store";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Context, Effect, FileSystem, Layer, Ref } from "effect";
+import { Context, Effect, FileSystem, Layer, Option, Ref } from "effect";
 import { Reactivity } from "effect/reactivity";
 
 import {
@@ -38,6 +38,7 @@ import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
+import { type ScriptCalls, ScriptCallsInstalledLive } from "./calls";
 import {
 	compiledArtifactsLayer,
 	unusedKernelWorkflowReferencesLayer,
@@ -72,7 +73,13 @@ export class RealSandboxScripts extends Context.Service<
 ) {}
 
 export const realSandboxLayer = (
-	options: { readonly perUserSidecars?: boolean; readonly hostResult?: WorkflowDurableResult } = {},
+	options: {
+		readonly memoryBudgetMiB?: number;
+		readonly perUserSidecars?: boolean;
+		readonly workerConcurrency?: number;
+		readonly hostResult?: WorkflowDurableResult;
+		readonly scriptChanges?: Layer.Layer<ScriptChanges, never, ScriptCalls | RealSandboxScripts>;
+	} = {},
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -90,7 +97,11 @@ export const realSandboxLayer = (
 			);
 			const appConfig = makeAppConfigLayer({
 				fileStorage: { localTempDir: root },
-				sandbox: { workerConcurrency: 2, perUserSidecars: options.perUserSidecars ?? false },
+				sandbox: {
+					workerConcurrency: options.workerConcurrency ?? 2,
+					perUserSidecars: options.perUserSidecars ?? false,
+					memoryBudgetMiB: Option.fromUndefinedOr(options.memoryBudgetMiB),
+				},
 			});
 			const infrastructure = Layer.mergeAll(
 				Layer.succeed(SandboxExecutionAuthority, {
@@ -186,40 +197,6 @@ export const realSandboxLayer = (
 				Layer.provideMerge(database),
 				Layer.provide(appConfig),
 			);
-			const workflowServices = Layer.mergeAll(
-				repository,
-				Layer.mock(SandboxPluginScriptResolver)({
-					findActiveScriptById: () => Effect.succeed(null),
-				}),
-				Layer.mock(SandboxWorkflowReferenceRepository)({
-					release: () => Effect.void,
-					lockIngestionShared: () => Effect.void,
-					registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
-				}),
-				Layer.mock(ScriptChanges)({}),
-			);
-			const execution = implementWorkflow(ScriptExecutionWorkflow, runScriptExecutionWorkflow).pipe(
-				Layer.provideMerge(
-					JobWorkerLive.pipe(
-						Layer.provideMerge(SandboxReplayJobsLive),
-						Layer.provideMerge(JobHandlers.layer),
-						Layer.provideMerge(compiledArtifactsLayer(repository)),
-					),
-				),
-				Layer.provideMerge(
-					Layer.mergeAll(
-						dispatcher,
-						unusedKernelWorkflowReferencesLayer,
-						SandboxWorkflowPinning.layer,
-					),
-				),
-				Layer.provideMerge(workflowEngineTestLayer),
-				Layer.provideMerge(workflowServices),
-				Layer.provideMerge(jobs),
-				Layer.provideMerge(fileStore),
-				Layer.provideMerge(sandboxRuntime),
-				Layer.provideMerge(infrastructure),
-			);
 			const scripts = Layer.effect(
 				RealSandboxScripts,
 				Effect.gen(function* () {
@@ -243,6 +220,49 @@ export const realSandboxLayer = (
 					};
 				}),
 			).pipe(Layer.provide(sandboxRuntime));
+			const artifacts = compiledArtifactsLayer(repository);
+			const scriptChanges = (options.scriptChanges ?? Layer.mock(ScriptChanges)({})).pipe(
+				Layer.provide(
+					Layer.merge(
+						ScriptCallsInstalledLive.pipe(Layer.provide(Layer.merge(artifacts, sandboxRuntime))),
+						scripts,
+					),
+				),
+			);
+			const workflowServices = Layer.mergeAll(
+				repository,
+				Layer.mock(SandboxPluginScriptResolver)({
+					findActiveScriptById: () => Effect.succeed(null),
+				}),
+				Layer.mock(SandboxWorkflowReferenceRepository)({
+					release: () => Effect.void,
+					lockIngestionShared: () => Effect.void,
+					registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
+				}),
+				scriptChanges,
+			);
+			const execution = implementWorkflow(ScriptExecutionWorkflow, runScriptExecutionWorkflow).pipe(
+				Layer.provideMerge(
+					JobWorkerLive.pipe(
+						Layer.provideMerge(SandboxReplayJobsLive),
+						Layer.provideMerge(JobHandlers.layer),
+						Layer.provideMerge(artifacts),
+					),
+				),
+				Layer.provideMerge(
+					Layer.mergeAll(
+						dispatcher,
+						unusedKernelWorkflowReferencesLayer,
+						SandboxWorkflowPinning.layer,
+					),
+				),
+				Layer.provideMerge(workflowEngineTestLayer),
+				Layer.provideMerge(workflowServices),
+				Layer.provideMerge(jobs),
+				Layer.provideMerge(fileStore),
+				Layer.provideMerge(sandboxRuntime),
+				Layer.provideMerge(infrastructure),
+			);
 			return Layer.mergeAll(ScriptExecutionService.layer, scripts).pipe(
 				Layer.provideMerge(execution),
 			);

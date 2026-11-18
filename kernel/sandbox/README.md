@@ -37,6 +37,9 @@ Memory planning is computed/logged once at startup by `memory-plan.ts` and `tran
   interactive headroom, accounting for already-held interactive reservations.
 - Shared mode requires two resident processes, one inline permit, and one headroom. It has one
   permit pool and no interactive reservation. Smaller budgets fail startup.
+- A run keeps its lease while its host calls settle, so admission refuses a run started from host-call
+  work (`InsideSandboxHostCall`) instead of letting it wait on that lease. Live runs bind and inline
+  batches settle only activity and diagnostic capabilities, which start no run.
 - Two core sidecars remain resident; data/full tiers are lazy. Each lazy process reserves 128 MiB
   until confirmed exit. Failed admission closes at most one least-recently-active idle lazy process,
   never one with runs, waiting attempts, recovery, or an admission lease.

@@ -46,8 +46,8 @@ const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchem
 	onExcessProperty: "error",
 });
 
-// Service capabilities may wait for nested sandbox runs, so live executions never bind them while
-// holding a slot and memory.
+// Service capabilities start nested sandbox runs, which admission refuses inside a host call, so live
+// executions never bind them.
 const resourceFreeStrategies = new Set<ReturnType<typeof sandboxDurableHostDispatchStrategy>>([
 	"activity",
 	"diagnostic",

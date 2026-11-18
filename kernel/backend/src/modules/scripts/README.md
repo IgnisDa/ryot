@@ -89,7 +89,8 @@ service-dispatched capabilities are unavailable to it.
 
 A call takes one sandbox lease and releases it before returning, and a full admission queue is retried
 every 100 ms with jitter. No caller holds a lease while waiting for another, so callers that nest
-phases (a policy, then the commit and its folds) never deadlock on admission. Migrations and the
+phases (a policy, then the commit and its folds) never deadlock on admission. A host call never starts
+a script: admission refuses a run while another run's host call settles, since that run keeps its lease. Migrations and the
 runtime share one layer graph, so the runtime installs the sandbox into `ScriptCalls` once it exists;
 until then every call fails as `resource-unavailable`.
 
@@ -136,10 +137,10 @@ Allowance is reserved before waiting and unused cancelled time is refunded by mo
 Longer/exhausted waits defer. A batch also defers when journal indexes diverge, bytes/results or
 continuations cannot fit, its lane cannot reserve the whole batch within 500 ms, or dispatch fails. Declared result
 bounds cannot exceed 80 MiB. Settled evidence stays charged at three times encoded size until run
-end; deferred calls may already have executed and must tolerate replay. A batch keeps its lane's pool
-until its host calls settle, so `ScriptCalls` runs a script called from one of those host calls on the
-other lane. Budgets too small for lane mode share one pool, where that call waits for admission like
-any other.
+end; deferred calls may already have executed and must tolerate replay. A batch keeps its run's lease and
+its lane's pool until its host calls settle, so it offers only activity capabilities, which run no
+script. A replay's changes commit in the workflow body after its job has released both, so the
+policies and folds of that commit take admission like any other phase, in every budget.
 
 Only validated inline waits pause the script timeout/extend session expiry. Settlement is bounded to
 30 seconds per wait and five minutes absolute; HTTP attempts remain eight seconds. The isolate must

@@ -37,13 +37,6 @@ const recordHostCall = <A extends null | WorkflowDurableResult, E, R>(
 		),
 	);
 
-const settlesInline = (
-	request: Parameters<SandboxDurableHostDispatcher["Service"]["settleInline"]>[0][number],
-) => {
-	const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
-	return strategy !== null && strategy !== "diagnostic";
-};
-
 export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
@@ -110,9 +103,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				checkpoint,
 			) =>
 				Effect.gen(function* () {
-					if (!requests.every(settlesInline)) {
-						return null;
-					}
 					const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
 						Effect.orDie,
 					);

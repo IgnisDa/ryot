@@ -29,7 +29,7 @@ import {
 	type SidecarHostCallFrame,
 	type SidecarHostResultFrame,
 } from "../protocol/messages";
-import { SandboxSidecarAdmission } from "./admission";
+import { InsideSandboxHostCall, SandboxSidecarAdmission } from "./admission";
 import { catchNonInterrupt } from "./catch-non-interrupt";
 import type { SandboxFileAccess } from "./file-access";
 import { sandboxHostResultBytes, sandboxHostResultWireBytes } from "./host-execution-policy";
@@ -954,7 +954,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 										}
 										return yield* action(state, options, frame, args.value, (retained) => {
 											retainedBytes = retained;
-										});
+										}).pipe(Effect.provideService(InsideSandboxHostCall, true));
 									});
 									const work = Effect.suspend(() => {
 										if (workState === "settled") {

@@ -29,7 +29,6 @@ import { isSandboxCapabilityAllowed } from "../authorization/capabilities";
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { ExecutableArtifacts } from "../registry/executable-artifacts";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
-import { HeldInlineBatch } from "./calls";
 import { SandboxExecutionResult, stampSandboxExecutionError } from "./result";
 import { infrastructureRunError } from "./run-error";
 import { sandboxReplayPriority } from "./scheduling-key";
@@ -225,6 +224,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 					...(grants ? { grants } : {}),
 					inlineDurableHost: {
 						capabilities: inlineCapabilities,
+						// Host calls run on the resident sidecar's fibers, which keep the job that started it.
 						settle: (requests, wait, checkpoint) =>
 							carry(
 								dispatcher.settleInline(
@@ -237,11 +237,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 									wait,
 									checkpoint,
 								),
-							).pipe(
-								Effect.provideService(HeldInlineBatch, lane),
-								// Host calls run on the resident sidecar's fibers, which keep the job that started it.
-								Effect.provideService(CurrentJobId, jobId),
-							),
+							).pipe(Effect.provideService(CurrentJobId, jobId)),
 					},
 				})
 				.pipe(Effect.provideService(SandboxAdmissionLease, lease), Effect.exit);

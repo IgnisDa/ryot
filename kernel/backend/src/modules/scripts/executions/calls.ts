@@ -34,16 +34,6 @@ const toRunError = (error: unknown) => {
 	return infrastructureRunError(error);
 };
 
-// An inline batch keeps its lane's transient pool, which fits one batch, until its host calls settle. A script
-// called from one of those host calls could never get that lane while its parent waits for it.
-export const HeldInlineBatch = Context.Reference<null | ExecutionLane>(
-	"@ryot-app/kernel-backend/modules/scripts/executions/calls/HeldInlineBatch",
-	{ defaultValue: () => null },
-);
-
-const otherLane = (lane: ExecutionLane): ExecutionLane =>
-	lane === "interactive" ? "background" : "interactive";
-
 export type ScriptCall = {
 	readonly input: unknown;
 	readonly lane: ExecutionLane;
@@ -94,12 +84,11 @@ export const ScriptCallsInstalledLive = Layer.effectDiscard(
 		yield* (yield* ScriptCalls).install(
 			Effect.fn("ScriptCalls.run")(function* (call: ScriptCall) {
 				const startedAt = yield* sandboxStartedAt;
-				const lane = (yield* HeldInlineBatch) === call.lane ? otherLane(call.lane) : call.lane;
 				return yield* Effect.gen(function* () {
 					const artifact = yield* artifacts.get(call.principal);
 					const result = yield* sandbox.run({
-						lane,
 						startedAt,
+						lane: call.lane,
 						context: call.input,
 						principal: call.principal,
 						executionId: call.executionId,
