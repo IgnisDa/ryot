@@ -17,9 +17,14 @@ const workoutRecord = (overrides: Readonly<Record<string, unknown>> = {}) => ({
 	reps: 10,
 	weight: 25,
 	id: "set-1",
+	setOrder: 1,
 	distance: null,
 	duration: null,
+	exerciseOrder: null,
+	startedAt: "2026-01-01",
+	sessionEntityId: "workout-1",
 	exerciseKind: "reps_and_weight",
+	occurredAt: "2026-01-01T00:00:00.000Z",
 	...overrides,
 });
 
@@ -84,6 +89,26 @@ describe("workout record recipes", () => {
 		]);
 		expect(recordsQuery.joins).toHaveLength(2);
 		expect(JSON.stringify(recordsQuery.where)).toContain('"value":"exercise-2"');
+	});
+
+	it("narrows a range read to later sets whose candidate may lie in a changed bound", () => {
+		const records = bindRecipe(
+			workoutRecordPageRecipe({
+				reference: { kind: "self" },
+				range: {
+					excluded: ["set-9"],
+					from: "2026-01-02T00:00:00.000Z",
+					bounds: [{ kind: "reps_and_weight", type: "one_rm", above: 50, atMost: 80 }],
+				},
+			}),
+			{ exerciseId: "exercise-1" },
+		);
+		const where = JSON.stringify(records.document.queries.records?.where);
+		expect(where).toContain('"value":"2026-01-02T00:00:00.000Z"');
+		expect(where).toContain('"value":"set-9"');
+		expect(where).toContain('"path":["oneRm"]');
+		expect(where).toContain('"value":49.999');
+		expect(where).toContain('"value":80.001');
 	});
 
 	it("decodes only nullable recorded measurements and supported kinds", () => {
