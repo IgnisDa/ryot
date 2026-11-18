@@ -2,13 +2,19 @@ import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	ascending,
+	castDate,
+	castText,
 	column,
 	defineRecipe,
 	eq,
+	gte,
 	inArray,
 	isNull,
 	join,
+	jsonPath,
 	literal,
+	lte,
+	not,
 	or,
 	parameters,
 	schemaOwnerPredicate,
@@ -53,8 +59,23 @@ export const mediaFoldSubjectRecipe = (() => {
 		},
 	});
 })();
+/** Narrows the subject's fold events; each field adds one condition. */
+export type MediaFoldEventFilter = {
+	readonly entityId?: string;
+	readonly from?: string;
+	readonly until?: string;
+	readonly slugs?: ReadonlyArray<string>;
+	readonly unsourced?: boolean;
+	readonly runs?: ReadonlyArray<string>;
+	readonly excluded?: ReadonlyArray<string>;
+	readonly limit?: number;
+};
+
+const sourceRun = (event: ReturnType<typeof table>) =>
+	castText(jsonPath(column(event, "properties"), "sourceRun"));
+
 /** Matches the kernel's fold subject: the subject's sessionless events and every event in its session. */
-export const mediaFoldEventsRecipe = (() => {
+export const mediaFoldEventsRecipe = (filter: MediaFoldEventFilter = {}) => {
 	const inputParameters = parameters({
 		fields: {
 			subjectEntityId: {
@@ -67,17 +88,21 @@ export const mediaFoldEventsRecipe = (() => {
 	});
 	const event = table("event", "foldEvent");
 	const entity = table("entity", "foldEventEntity");
+	const at = (value: string) => castDate(literal(value));
 	return defineRecipe({
 		parameters: inputParameters.schema,
 		map: ({ events }) => Result.succeed(events),
 		queries: {
 			events: selectedRows(event, {
-				limit: pageSize,
+				limit: filter.limit ?? pageSize,
 				orderBy: [ascending(column(event, "id"))],
 				joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
 				where: and(
 					schemaOwnerPredicate(event, "eventSchemaPluginId", { kind: "self" }),
-					inArray(column(event, "eventSchemaSlug"), mediaFoldEventSchemaSlugs.map(literal)),
+					inArray(
+						column(event, "eventSchemaSlug"),
+						(filter.slugs ?? mediaFoldEventSchemaSlugs).map(literal),
+					),
 					or(
 						eq(column(event, "sessionEntityId"), inputParameters.value("subjectEntityId")),
 						and(
@@ -85,6 +110,16 @@ export const mediaFoldEventsRecipe = (() => {
 							isNull(column(event, "sessionEntityId")),
 						),
 					),
+					...(filter.entityId === undefined
+						? []
+						: [eq(column(event, "entityId"), literal(filter.entityId))]),
+					...(filter.from === undefined ? [] : [gte(column(event, "occurredAt"), at(filter.from))]),
+					...(filter.until === undefined ? [] : [lte(column(event, "occurredAt"), at(filter.until))]),
+					...(filter.unsourced === true ? [isNull(sourceRun(event))] : []),
+					...(filter.runs === undefined ? [] : [inArray(sourceRun(event), filter.runs.map(literal))]),
+					...(filter.excluded === undefined || filter.excluded.length === 0
+						? []
+						: [not(inArray(column(event, "id"), filter.excluded.map(literal)))]),
 				),
 				selection: {
 					id: selectedField(column(event, "id"), Schema.String),
@@ -107,7 +142,7 @@ export const mediaFoldEventsRecipe = (() => {
 			}),
 		},
 	});
-})();
+};
 export const mediaFoldInventoryRecipe = (input: { readonly config: EpisodicKindConfig }) => {
 	const inputParameters = parameters({
 		fields: {

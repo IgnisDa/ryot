@@ -9,9 +9,11 @@ import {
 	librarySummarySourceRecipe,
 } from "../shared/library-summary";
 import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "../shared/lifecycle-expressions";
-import { consumptionContributions } from "./fold/consumption";
-import { absorbFoldValues, deriveHistory, MediaFoldValue } from "./fold/history";
+import { consumptionEventSlugs } from "../shared/consumption-projection";
+import { absorbFoldValues, MediaFoldValue } from "./fold/history";
+import { foldMediaHistory } from "./fold/incremental";
 import {
+	type MediaFoldEventFilter,
 	mediaFoldEventsRecipe,
 	mediaFoldInventoryRecipe,
 	mediaFoldLibraryLinksRecipe,
@@ -40,14 +42,16 @@ export default defineScript({
 			if (!subject) {
 				return yield* new MediaSandboxError({ message: "Fold subject is unavailable" });
 			}
-			const events = yield* readAllRyotqlPages((after) =>
-				executeRyotqlRecipe(
-					host.executeRyotql,
-					mediaFoldEventsRecipe,
-					{ subjectEntityId },
-					{ pages: { events: { after: after } } },
-				),
-			);
+			const events = (filter?: MediaFoldEventFilter) =>
+				readAllRyotqlPages((after) =>
+					executeRyotqlRecipe(
+						host.executeRyotql,
+						mediaFoldEventsRecipe(filter),
+						{ subjectEntityId },
+						{ pages: { events: { after: after } } },
+					),
+				);
+			const consumption = { slugs: consumptionEventSlugs };
 			const config = [showEpisodicKindConfig, podcastEpisodicKindConfig].find(
 				({ parentSchemaSlug }) => parentSchemaSlug === subject.entitySchemaSlug,
 			);
@@ -62,10 +66,10 @@ export default defineScript({
 					),
 				),
 			);
-			const derived = yield* deriveHistory({
-				events,
+			const derived = yield* foldMediaHistory({
 				previous,
 				renamedKeys,
+				changes: input.changes,
 				subject: {
 					id: subjectEntityId,
 					episodic: config !== undefined,
@@ -73,19 +77,32 @@ export default defineScript({
 						typeof productionStatus === "string" &&
 						terminalStatuses.has(productionStatus.trim().toLowerCase()),
 				},
-				inventory:
-					config === undefined
-						? Effect.succeed([])
-						: readAllRyotqlPages((after) =>
-								executeRyotqlRecipe(
-									host.executeRyotql,
-									mediaFoldInventoryRecipe({ config: config }),
-									{ subjectEntityId },
-									{ pages: { episodes: { after: after } } },
-								),
-							).pipe(Effect.map((episodes) => episodes.map(({ id }) => id))),
+				reads: {
+					history: events(),
+					entity: ({ entityId, from }) =>
+						events({ ...consumption, entityId, ...(from === null ? {} : { from }) }),
+					runs: ({ entityId, runs }) => events({ ...consumption, entityId, runs }),
+					completions: ({ entityId, until }) =>
+						events({ entityId, until, unsourced: true, slugs: ["complete"] }),
+					since: ({ from, limit, excluded }) =>
+						executeRyotqlRecipe(
+							host.executeRyotql,
+							mediaFoldEventsRecipe({ ...consumption, from, excluded, limit }),
+							{ subjectEntityId },
+						).pipe(Effect.map(({ items }) => items)),
+					inventory:
+						config === undefined
+							? Effect.succeed([])
+							: readAllRyotqlPages((after) =>
+									executeRyotqlRecipe(
+										host.executeRyotql,
+										mediaFoldInventoryRecipe({ config: config }),
+										{ subjectEntityId },
+										{ pages: { episodes: { after: after } } },
+									),
+								).pipe(Effect.map((episodes) => episodes.map(({ id }) => id))),
+				},
 			});
-			const contributions = yield* consumptionContributions(derived);
 			const links = yield* executeRyotqlRecipe(host.executeRyotql, mediaFoldLibraryLinksRecipe, {
 				subjectEntityId,
 			});
@@ -101,7 +118,7 @@ export default defineScript({
 				? librarySummaryProperties(summary)
 				: { lifecycleState: "untracked" };
 			return yield* Schema.decodeUnknownEffect(FoldOutput)({
-				events: contributions,
+				events: derived.contributions,
 				changes: derived.changes,
 				relationships: links.map((relationshipId) => ({ properties, relationshipId })),
 				value: yield* Schema.encodeEffect(Schema.toCodecJson(MediaFoldValue))(derived.value),

@@ -9,9 +9,9 @@ import {
 	absorbFoldValues,
 	deriveHistory,
 	type FoldEvent,
-	type HistoryChange,
 	type MediaFoldValue,
 } from "./history";
+import { applyHistoryChanges } from "./history.test-support";
 
 const basis = { total: 120, unit: "minutes", property: "runtime" };
 
@@ -30,58 +30,6 @@ const event = (
 	orderCreatedAt: "2026-01-01T12:00:00.000Z",
 	...overrides,
 });
-
-const apply = (events: ReadonlyArray<FoldEvent>, changes: ReadonlyArray<HistoryChange>) => {
-	let next = [...events];
-	const byId = (id: string) => {
-		const found = next.find((value) => value.id === id);
-		assert(found);
-		return found;
-	};
-	for (const change of changes) {
-		if (change.kind === "delete") {
-			next = next.filter(({ id }) => id !== change.eventId);
-		} else if (change.kind === "create") {
-			const anchor = byId(change.item.orderAfter.eventId);
-			next.push({
-				revision: 0,
-				eventSchemaSlug: "complete",
-				id: `derived-${next.length}`,
-				entityId: change.item.entityId,
-				occurredAt: change.item.occurredAt,
-				properties: change.item.properties,
-				orderCreatedAt: anchor.orderCreatedAt,
-				sessionEntityId: change.item.sessionEntityId ?? null,
-				orderKey: `${anchor.orderKey}~${change.item.orderAfter.suffix}`,
-				entitySchemaSlug:
-					change.item.entityId === anchor.entityId ? anchor.entitySchemaSlug : "show",
-			});
-		} else {
-			const current = byId(change.item.eventId);
-			const { patch } = change.item;
-			const anchor = patch.orderAfter === null ? null : byId(patch.orderAfter.eventId);
-			const properties = Object.fromEntries(
-				Object.entries({ ...current.properties, ...patch.properties.set }).filter(
-					([key]) => !patch.properties.remove.includes(key),
-				),
-			);
-			next = next.map((value) =>
-				value.id === current.id
-					? {
-							...current,
-							properties,
-							revision: current.revision + 1,
-							occurredAt: patch.occurredAt ?? current.occurredAt,
-							orderCreatedAt: anchor?.orderCreatedAt ?? current.orderCreatedAt,
-							orderKey:
-								anchor === null ? current.id : `${anchor.orderKey}~${patch.orderAfter?.suffix}`,
-						}
-					: value,
-			);
-		}
-	}
-	return next;
-};
 
 type Subject = { readonly id: string; readonly terminal: boolean; readonly episodic: boolean };
 
@@ -102,7 +50,7 @@ const fold = (
 			previous,
 			...(renamedKeys ? { renamedKeys } : {}),
 		});
-		const settled = apply(events, first.changes);
+		const settled = applyHistoryChanges(events, first.changes);
 		const second = yield* deriveHistory({ ...input, events: settled, previous: first.value });
 		expect(second.changes).toEqual([]);
 		return { events: settled, value: second.value, changes: first.changes };
