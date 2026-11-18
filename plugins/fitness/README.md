@@ -371,8 +371,9 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
 - Required user-scoped exercise creation/provider-import hooks upsert Fitness Library membership;
   workout imports include the same link. All Exercises lists members only.
 - `fitness.workout-created` handles API-created completion events, excluding import causation, and
-  emits `workout.created` from immutable event evidence. The notification formatter reads inline
-  signal data, has one attempt, and never retries uncertain external delivery automatically.
+  returns a `workout.created` signal built from immutable event evidence. The notification formatter
+  reads inline signal data and returns its message as a change-set notification; it has one attempt
+  and never retries uncertain external delivery automatically.
 - `policy.workout-set` validates a batch against captured exercise/workout references, requires a
   valid workout `startedAt`, and uses `confirmedAt` for occurrence time when present. Otherwise it
   preserves the supplied event time. It preserves recorded exercise kind or fills it from the exercise.

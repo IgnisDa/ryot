@@ -107,6 +107,6 @@ export default defineWorkflow({
 				advancedAt,
 				rightOffset,
 			};
-			return done ? result : yield* step.save(result);
+			return done ? { output: result } : yield* step.save(result);
 		}),
 });

@@ -21,7 +21,7 @@ class FitnessNotificationError extends Schema.TaggedError<
 
 export default defineAutomation({
 	manifest,
-	run: ({ automation }, host) =>
+	run: ({ automation }) =>
 		Effect.gen(function* () {
 			const signal = automation.payload;
 			if (signal.resource !== "signal") {
@@ -44,8 +44,12 @@ export default defineAutomation({
 						}),
 				),
 			);
-			return yield* host.sendNotification(
-				catalogMessage("notification.workout-created", { workoutName: properties.workoutName }),
-			);
+			return {
+				changes: {
+					notifications: [
+						catalogMessage("notification.workout-created", { workoutName: properties.workoutName }),
+					],
+				},
+			};
 		}),
 });
