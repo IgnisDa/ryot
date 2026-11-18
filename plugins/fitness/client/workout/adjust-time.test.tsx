@@ -182,8 +182,8 @@ it.live(
 			page.send({
 				outcome: "failure",
 				type: "operation-result",
-				reason: "changes-conflict",
 				conflict: "entity-stale",
+				reason: "changes-conflict",
 				requestId: request.requestId,
 			});
 			yield* Effect.promise(() =>

@@ -102,8 +102,8 @@ it("detaches the source, merges its data, and swaps template references in one c
 							["exercise-uses-equipment", "barbell"],
 						].map(([relationshipSchemaSlug, entityId]) => ({
 							relationshipSchemaSlug,
-							source: { kind: "existing", entityId: mergeFrom },
 							target: { entityId, kind: "existing" },
+							source: { kind: "existing", entityId: mergeFrom },
 						})),
 					},
 					entities: {
@@ -159,11 +159,7 @@ it("rejects a merge whose templates exceed one change set's entity updates", () 
 				_tag: "OperationRejectedError",
 				reason: { key: "rejection.exercise-merge.too-many-templates" },
 			});
-			const allowed = yield* run({
-				links: [],
-				exercises: subjects,
-				templates: templates.slice(1),
-			});
-			expect(allowed.changes?.entities?.updates).toHaveLength(CHANGE_SET_LIMITS.entityUpdates);
+			const allowed = yield* run({ links: [], exercises: subjects, templates: templates.slice(1) });
+			expect(allowed.changes?.entities.updates).toHaveLength(CHANGE_SET_LIMITS.entityUpdates);
 		}),
 	));

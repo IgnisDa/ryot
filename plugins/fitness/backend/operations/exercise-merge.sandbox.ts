@@ -114,16 +114,13 @@ export default defineOperation({
 			return {
 				output: { mergeInto, kind: "merged" } as const,
 				changes: {
+					entities: { updates, merges: [{ mergeFrom, mergeInto, entitySchemaSlug: "exercise" }] },
 					relationships: {
 						deletes: links.map((link) => ({
 							source: existingEntity(mergeFrom),
 							relationshipSchemaSlug: link.slug,
 							target: existingEntity(link.targetEntityId),
 						})),
-					},
-					entities: {
-						updates,
-						merges: [{ mergeFrom, mergeInto, entitySchemaSlug: "exercise" }],
 					},
 				},
 			};
