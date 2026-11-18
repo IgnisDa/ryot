@@ -77,13 +77,21 @@ Dispatch uses the original workflow owner so cancellation remains attached. Fail
 suspension, and defects do not complete a slot. Delayed completions or concurrent misses may repeat
 idempotent dispatch: durable ownership is not a single-flight guarantee.
 
-### Direct calls
+### Script calls
 
-`ScriptCalls` runs a pinned script once on the plain host: no workflow, journal, durable host, or
-workflow reference. Every operation runs this way. Every host read declares a result bound that its
-producer enforces (see the [sandbox limits](../../../../sandbox/README.md#limits)), so the plain host
-serves all of them; only service-dispatched capabilities are unavailable to it. A full admission
-queue is retried every 100 ms with jitter.
+`ScriptCalls` is the one executor for scripts that run once: operations, policies, folds, after-hook
+attempts, and bootstrap scripts. It runs a pinned script on the plain host, with no workflow, journal,
+durable host, or workflow reference, and host calls run in the caller's database transaction.
+`ScriptExecutionWorkflow` remains only for plugin workflows with steps, HTTP parking, and workflow
+children. Every host read declares a result bound that its producer enforces (see the
+[sandbox limits](../../../../sandbox/README.md#limits)), so the plain host serves all of them; only
+service-dispatched capabilities are unavailable to it.
+
+A call takes one sandbox lease and releases it before returning, and a full admission queue is retried
+every 100 ms with jitter. No caller holds a lease while waiting for another, so callers that nest
+phases (a policy, then the commit and its folds) never deadlock on admission. Migrations and the
+runtime share one layer graph, so the runtime installs the sandbox into `ScriptCalls` once it exists;
+until then every call fails as `resource-unavailable`.
 
 ### Journal projection
 

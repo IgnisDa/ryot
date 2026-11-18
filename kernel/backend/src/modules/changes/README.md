@@ -52,14 +52,15 @@ validation in `PluginUserSettingsWriter`.
 `ChangeSets.commit` prepares every part before the commit transaction, so no database transaction
 is held over sandbox execution: the root entity, relationships, event items in pages with their
 event policies, ensures, entity deletes (grouped by schema), data clears and merges, and entity
-updates. The root entity and each entity update share one path: `EntitiesService.prepareUserSave`
-checks the expected baseline and runs entity policies, and `persistPreparedUserSave` rechecks it
-under the entity lock. It then runs one events transaction that applies, in order: the receipt's
-`load`, the settings patch, source writes (root entity, relationships, events, baselines), ensures,
-deletes, clears, merges, entity updates in entity ID order, global entity upserts and global
-relationship reconciliation, signal plans, notification admissions, fold requests, and the receipt's
-`record`. Lifecycle dispatch starts after commit; a failure in any part rolls back every part.
-Durable callers run the whole commit inside one activity.
+updates. Each matched policy is called once through `LifecyclePolicies` with every item it targets,
+and nothing about the call is persisted. The root entity and each entity update share one path:
+`EntitiesService.prepareUserSave` checks the expected baseline and runs entity policies, and
+`persistPreparedUserSave` rechecks it under the entity lock. It then runs one events transaction that
+applies, in order: the receipt's `load`, the settings patch, source writes (root entity,
+relationships, events, baselines), ensures, deletes, clears, merges, entity updates in entity ID
+order, global entity upserts and global relationship reconciliation, signal plans, notification
+admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts after commit; a
+failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
 
 ## Script changes and exactly-once commits
 

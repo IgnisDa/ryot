@@ -514,7 +514,8 @@ next `value`. `absorbed` lists the values of subjects merged or restored into th
 mapping the entity and event IDs it holds to their new ones; carry over whatever must survive. It also returns one `events` entry per subject event with a projection, one `relationships` entry per link from
 the subject with a projection, and `changes`, which the kernel applies before running it a second time.
 That second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
-can defer to a job when the sandbox is busy, so it must compute the same result however late it runs.
+also runs later as a job, for example after a background-lane write, so it must compute the same result
+however late it runs.
 See [folds](../../kernel/backend/src/modules/events/README.md#folds).
 
 Exact host-function and filesystem limits are in the
@@ -543,7 +544,6 @@ hooks: [
     name: "Ensure library membership",
     scriptSlug: "ensure-membership",
     stage: "after",
-    delivery: "required",
     targets: [
       { resource: "entity", operation: "create", entitySchemaSlug: "item" },
       { resource: "provider-entity-import", operation: "complete", entitySchemaSlug: "item" },
@@ -623,19 +623,18 @@ share those scales with the property definitions instead of repeating literals.
 
 Only before-event hooks may set `batchFrequency: "item" | "once-per-subject"`; omission means `item`.
 For event-create batches, `once-per-subject` runs on the first eligible item for each deterministic
-subject key. Before hooks have no `delivery` or `retry` fields. Infrastructure failure returns
-`policy-execution-failed` with the run ID and creates no mutation. Resubmission is a new command;
+subject key. Before hooks have no `retry` field. A policy is called once per command with every item it
+targets and leaves no automation history. Infrastructure failure returns
+`policy-execution-failed` with the call's run ID and creates no mutation. Resubmission is a new command;
 delayed automatic and manual policy retry are not allowed.
 
 After hooks use `defineAutomation` and `automationType: "automation"`. An after hook returns
 `{ changes? }`; the kernel commits the change set in the same transaction that records the attempt's
 success, under the hook's causation and root budget, so a retried attempt never commits twice.
 Signals and notifications are `changes.signals` and `changes.notifications`. They run concurrently and
-independently. Dependent steps belong in one script or plugin workflow. `delivery: "async"` does not
-delay the response. `delivery: "required"` waits for one immediate attempt with bounded waiting;
-failure does not roll back committed source data. Responses can carry `required-hook-failed` or
-`required-hook-pending` with `hookSlug` and `runId`, or `automation-limit-reached` with `triggerId`
-and at most 100 omitted `{ pluginId, hookSlug }` identities. Warnings never contain sandbox logs.
+independently. Dependent steps belong in one script or plugin workflow. The write that triggers an after
+hook queues it as a job when it commits; the response never waits for it, and a failure does not roll
+back committed source data.
 
 An after hook may declare `executionScope: "user" | "global"`; omission matches both. The kernel
 compares it against the run's `executionUserId`, so a `user` hook is never planned for a global write

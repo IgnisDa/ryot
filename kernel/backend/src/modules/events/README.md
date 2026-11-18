@@ -148,15 +148,14 @@ Installing a new plugin revision or restoring a backup queues one `fold-rebuild`
 refolds subjects discovered from that plugin's events and projected relationships. Relationships
 without listened-to events still need their projections rebuilt.
 
-An inline fold runs in the sandbox's direct path. A script reads through a savepoint marked read-only
-inside the writing transaction, so it sees that write's own changes, and the savepoint is rolled back
-so the mark cannot outlive the read. Reads run at the transaction's READ COMMITTED isolation. On the
-interactive lane, a run that finds no sandbox capacity rolls back the writing transaction before
-retrying. Retries are bounded; a fold that cannot finish rolls back the source write, so a successful save includes its
-required derived state.
-Fold jobs reserve sandbox admission before opening the writing transaction; they execute from current
-transactional reads rather than applying a speculative result. When the subject row is locked, the
-job releases its reservation and retries outside the transaction without spending an attempt. Fold jobs
+A fold runs inline in the writing transaction through `ScriptCalls`, after the transaction locks the
+subject's entity row. A script reads through a savepoint marked read-only inside the writing
+transaction, so it sees that write's own changes, and the savepoint is rolled back so the mark cannot
+outlive the read. Reads run at the transaction's READ COMMITTED isolation. A full sandbox queue is
+waited out inside the transaction; a fold that fails rolls back the source write, so a successful save
+includes its required derived state.
+A fold job runs the same transaction for its subject, waiting for the subject's row lock, and folds
+from current transactional reads rather than applying a speculative result. Fold jobs
 are coalesced per user and subject, run four at a time, and retry up to eight times, one second apart.
 The last failed attempt marks the subject failed. Each settled job publishes the user-scoped
 derived-data-updated hint (see [entity interest](../../../../client/src/modules/entity-watches/README.md)).
