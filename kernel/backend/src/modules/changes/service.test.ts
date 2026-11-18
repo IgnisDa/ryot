@@ -257,6 +257,69 @@ layer(testLayer(false))((test) => {
 	);
 
 	test.effect(
+		"runs before policies without persisting automation triggers, runs or attempts",
+		() =>
+			Effect.gen(function* () {
+				const source = revisionPackage("atomic", "fixture", "record");
+				const automation = source.scripts.find(({ metadata }) => metadata.kind === "automation");
+				assert(automation?.metadata.kind === "automation");
+				const policy = {
+					...automation,
+					slug: "atomic.guard",
+					contentHash: "atomic-guard",
+					entry: "backend/policy.sandbox.ts",
+					metadata: {
+						...automation.metadata,
+						capabilities: [],
+						slug: "atomic.guard",
+						automationType: "policy" as const,
+						inputProjection: { event: { properties: ["value"] } },
+					},
+				};
+				const input = yield* fixture({
+					...source,
+					scripts: [...source.scripts, policy],
+					manifest: {
+						...source.manifest,
+						scripts: [...source.manifest.scripts, { ...policy.metadata, entry: policy.entry }],
+						hooks: [
+							...source.manifest.hooks,
+							{
+								name: "Guard",
+								stage: "before",
+								slug: "atomic.guard",
+								scriptSlug: policy.slug,
+								targets: [
+									{
+										resource: "event",
+										operation: "create",
+										eventSchemaSlug: "changed",
+										entitySchemaSlug: "record",
+									},
+								],
+							},
+						],
+					},
+				});
+				const automationRows = input.session.run((db) =>
+					Effect.all([
+						db.select({ id: tables.automationTrigger.id }).from(tables.automationTrigger),
+						db.select({ id: tables.automationRun.id }).from(tables.automationRun),
+						db.select({ id: tables.automationRunAttempt.id }).from(tables.automationRunAttempt),
+					]),
+				);
+				const before = yield* automationRows;
+				const spans: Tracer.Span[] = [];
+				yield* commitUserCommand({ input: input.input, command: input.command }).pipe(
+					Effect.withTracer(makeRecordingTracer(spans)),
+				);
+				expect(spans.filter(({ name }) => name === "LifecyclePolicies.run")).toHaveLength(1);
+				expect(yield* automationRows).toEqual(before);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"commits events on existing entities without a root entity and rejects root references",
 		() =>
 			Effect.gen(function* () {
