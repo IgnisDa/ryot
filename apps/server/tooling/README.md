@@ -18,6 +18,11 @@ reports unconfined development. Run `bun turbo --filter=@ryot-app/server dev` fr
 root. Turbo builds or restores dependency artifacts before server dev; `apps/server/dev.ts` assembles
 artifacts, watches local changes, and restarts the server.
 
+[Image CI](../../../.github/workflows/main.yml) archives each smoke-tested architecture image by
+commit and build version. Publishing promotes those images by digest. The website's Pro-key
+verifier needs a runtime `UNKEY_PRO_VERIFICATION_KEY` scoped to verification in the Pro keyspace.
+Deploy the verifier before publishing server images that use it.
+
 `assistant-eval.ts` measures Ryo against a running server with real provider calls, so it is
 kept out of CI. Create an API key for a dedicated account and run
 `RYOT_EVAL_API_URL=http://localhost:<port>/api RYOT_EVAL_API_KEY=<key> bun run tooling/assistant-eval.ts`

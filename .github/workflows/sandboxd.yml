@@ -6,31 +6,22 @@ on:
       source-ref:
         required: true
         type: string
-      image-repositories:
+      candidate-artifact:
         required: true
         type: string
-      publish:
+      candidate-run:
         required: true
-        type: boolean
+        type: string
       run-tests:
         required: true
         type: boolean
       run-kubernetes:
         required: true
         type: boolean
-    secrets:
-      DOCKER_TOKEN:
-        required: false
-      UNKEY_ROOT_KEY:
-        required: false
 
 permissions:
+  actions: read
   contents: read
-  packages: write
-
-env:
-  GHCR_REGISTRY: ghcr.io
-  DOCKER_USERNAME: ignisda
 
 jobs:
   linux:
@@ -67,9 +58,11 @@ jobs:
           persist-credentials: false
           ref: ${{ inputs.source-ref }}
       - name: Describe version
+        if: inputs.run-tests
         id: version
         run: echo "value=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
+        if: inputs.run-tests
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - name: Build the sandbox test image
         if: inputs.run-tests
@@ -80,28 +73,11 @@ jobs:
           load: true
           tags: ryot-sandbox-test
           platforms: linux/${{ matrix.arch }}
-          build-args: &build-args |
-            UNKEY_ROOT_KEY=${{ inputs.publish && secrets.UNKEY_ROOT_KEY || '' }}
-            RYOT_VERSION=${{ steps.version.outputs.value }}
-          cache-from: &cache-from |
+          build-args: RYOT_VERSION=${{ steps.version.outputs.value }}
+          cache-from: |
             type=gha,scope=sandbox-test-linux-${{ matrix.arch }}
             type=gha,scope=runner-linux-${{ matrix.arch }}
           cache-to: type=gha,mode=max,ignore-error=true,scope=sandbox-test-linux-${{ matrix.arch }}
-      - name: Build the release image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          target: runner
-          load: true
-          tags: ryot-image
-          platforms: linux/${{ matrix.arch }}
-          build-args: *build-args
-          labels: &labels |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ inputs.source-ref }}
-            org.opencontainers.image.version=${{ steps.version.outputs.value }}
-          cache-from: *cache-from
-          cache-to: type=gha,mode=max,ignore-error=true,scope=runner-linux-${{ matrix.arch }}
       - name: Check the sidecar, launcher, and protocol fixtures
         if: inputs.run-tests && matrix.arch == 'amd64'
         run: docker run --rm --user 1001 --workdir /app/kernel/sandbox ryot-sandbox-test bun run check
@@ -146,8 +122,21 @@ jobs:
           docker run --rm --user 1001 --network host
           --workdir /app/packages/plugin-backend-sdk
           ryot-sandbox-test bun test --isolate tests/workflow.test.ts
-      - name: Run all six confined sandbox keys in the release image
-        run: docker run --rm --network none ryot-image bun run dist/prepare-sandbox-runtime.js
+      - name: Download the tested amd64 image
+        if: inputs.run-kubernetes && matrix.arch == 'amd64'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.candidate-artifact }}
+          path: ${{ runner.temp }}/candidate
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate-run }}
+      - name: Load the tested image
+        if: inputs.run-kubernetes && matrix.arch == 'amd64'
+        working-directory: ${{ runner.temp }}/candidate
+        run: |
+          skopeo copy oci-archive:image.tar docker-archive:docker.tar:ryot-image:latest
+          docker load --input docker.tar
+          rm docker.tar
       - name: Set up Helm
         if: inputs.run-kubernetes && matrix.arch == 'amd64'
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
@@ -170,54 +159,3 @@ jobs:
       - name: Remove the acceptance cluster
         if: always() && inputs.run-kubernetes && matrix.arch == 'amd64'
         run: kind delete cluster --name ryot-ci
-      - name: Log in to the ghcr container registry
-        if: inputs.publish
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ${{ env.GHCR_REGISTRY }}
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Log in to the docker hub container registry
-        if: inputs.publish
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          username: ${{ env.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Publish the validated build by digest
-        if: inputs.publish
-        id: publish
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          target: runner
-          platforms: linux/${{ matrix.arch }}
-          build-args: *build-args
-          labels: *labels
-          tags: ${{ inputs.image-repositories }}
-          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
-      - name: Verify the published image matches the tested image
-        if: inputs.publish
-        env:
-          IMAGE_REPOSITORIES: ${{ inputs.image-repositories }}
-          DIGEST: ${{ steps.publish.outputs.digest }}
-        run: |
-          image="${IMAGE_REPOSITORIES%%,*}@${DIGEST}"
-          docker image inspect ryot-image | jq -S '.[0] | {Architecture, Os, Config, RootFS}' > "$RUNNER_TEMP/tested-image.json"
-          docker pull "$image"
-          docker image inspect "$image" | jq -S '.[0] | {Architecture, Os, Config, RootFS}' > "$RUNNER_TEMP/published-image.json"
-          diff -u "$RUNNER_TEMP/tested-image.json" "$RUNNER_TEMP/published-image.json"
-      - name: Export digest
-        if: inputs.publish
-        env:
-          DIGEST: ${{ steps.publish.outputs.digest }}
-        run: |
-          mkdir -p "${RUNNER_TEMP}/digests"
-          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
-      - name: Upload digest
-        if: inputs.publish
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: digests-${{ matrix.arch }}
-          path: ${{ runner.temp }}/digests/*
-          if-no-files-found: error
-          retention-days: 1

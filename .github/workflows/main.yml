@@ -24,6 +24,7 @@ on:
       - "turbo.json"
       - ".github/workflows/main.yml"
       - ".github/workflows/sandboxd.yml"
+      - ".github/workflows/image-candidate.yml"
       - ".github/workflows/helm-release.yml"
   pull_request:
     paths: *paths
@@ -57,6 +58,7 @@ jobs:
       pull-requests: read
     outputs:
       source-ref: ${{ steps.set_outputs.outputs.source-ref }}
+      short-sha: ${{ steps.set_outputs.outputs.short-sha }}
       pr-number: ${{ steps.set_outputs.outputs.pr-number }}
       publish: ${{ steps.set_outputs.outputs.publish }}
       image-names: ${{ steps.set_outputs.outputs.image-names }}
@@ -85,7 +87,7 @@ jobs:
               `${ghcrRegistry}/${owner}/${repositoryName}-pro`,
             ].map((repository) => repository.toLowerCase());
 
-            let sourceRef = context.sha;
+            let sourceRef = context.payload.pull_request?.head.sha ?? context.sha;
             let prNumber = context.payload.pull_request?.number ?? '';
             if (context.eventName === 'workflow_dispatch') {
               const requestedPr = process.env.PR_NUMBER.trim();
@@ -107,6 +109,7 @@ jobs:
               }
             }
             core.setOutput('source-ref', sourceRef);
+            core.setOutput('short-sha', sourceRef.slice(0, 7));
             core.setOutput('pr-number', prNumber);
             core.setOutput('publish', context.eventName !== 'pull_request');
 
@@ -142,7 +145,7 @@ jobs:
                   if (!files || files.length >= 300) throw new Error('Incomplete push file list');
                 }
                 const paths = files.flatMap(({ filename, previous_filename }) => [filename, previous_filename].filter(Boolean));
-                const buildChanged = paths.some((path) => /^(Dockerfile|\.dockerignore|bun\.lock|bunfig\.toml|package\.json|tsconfig[^/]*\.json|turbo\.json)$|^patches\/|^\.github\/workflows\/(main|sandboxd)\.yml$/.test(path));
+                const buildChanged = paths.some((path) => /^(Dockerfile|\.dockerignore|bun\.lock|bunfig\.toml|package\.json|tsconfig[^/]*\.json|turbo\.json)$|^patches\/|^\.github\/workflows\/(main|sandboxd|image-candidate)\.yml$/.test(path));
                 runTests = buildChanged || paths.some((path) => /^(kernel\/(backend|sandbox)|apps\/server|packages|plugins|ci\/oxlint)\/|^\.oxlintrc\.json$/.test(path));
                 runKubernetes = buildChanged || paths.some((path) => /^ci\/helm\/|^\.github\/workflows\/helm-(ci|release)\.yml$/.test(path));
               } catch (error) {
@@ -159,40 +162,66 @@ jobs:
   validate-chart:
     uses: ./.github/workflows/helm-ci.yml
 
-  validate-images:
+  image-candidates:
     needs: [pre-workflow-checks, validate-chart]
+    concurrency:
+      group: image-candidate-${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.id == github.event.repository.id) && needs.pre-workflow-checks.outputs.source-ref || github.run_id }}
+      queue: max
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/image-candidate.yml
+    with:
+      source-ref: ${{ needs.pre-workflow-checks.outputs.source-ref }}
+
+  validate-images:
+    needs: [pre-workflow-checks, image-candidates]
+    if: needs.pre-workflow-checks.outputs.run-tests == 'true' || needs.pre-workflow-checks.outputs.run-kubernetes == 'true'
     concurrency:
       group: image-validation-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     permissions:
+      actions: read
       contents: read
-      packages: write
     uses: ./.github/workflows/sandboxd.yml
     with:
       source-ref: ${{ needs.pre-workflow-checks.outputs.source-ref }}
-      image-repositories: ${{ needs.pre-workflow-checks.outputs.image-repositories }}
-      publish: ${{ needs.pre-workflow-checks.outputs.publish == 'true' }}
+      candidate-run: ${{ needs.image-candidates.outputs.amd64-run }}
+      candidate-artifact: ${{ needs.image-candidates.outputs.artifact-prefix }}-amd64
       run-tests: ${{ needs.pre-workflow-checks.outputs.run-tests == 'true' }}
       run-kubernetes: ${{ needs.pre-workflow-checks.outputs.run-kubernetes == 'true' }}
-    secrets:
-      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
-      UNKEY_ROOT_KEY: ${{ secrets.UNKEY_ROOT_KEY }}
 
   build-docker:
     needs:
       - pre-workflow-checks
+      - image-candidates
       - validate-images
-    if: needs.pre-workflow-checks.outputs.publish == 'true'
-    runs-on: ubuntu-latest
+    if: >-
+      !cancelled() &&
+      needs.pre-workflow-checks.outputs.publish == 'true' &&
+      needs.image-candidates.result == 'success' &&
+      (needs.validate-images.result == 'success' ||
+        (needs.pre-workflow-checks.outputs.run-tests == 'false' &&
+         needs.pre-workflow-checks.outputs.run-kubernetes == 'false'))
+    runs-on: ubuntu-24.04
     permissions:
+      actions: read
       packages: write
     steps:
-      - name: Download digests
+      - name: Download the tested amd64 image
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          path: ${{ runner.temp }}/digests
-          pattern: digests-*
-          merge-multiple: true
+          name: ${{ needs.image-candidates.outputs.artifact-prefix }}-amd64
+          path: ${{ runner.temp }}/amd64
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.image-candidates.outputs.amd64-run }}
+      - name: Download the tested arm64 image
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.image-candidates.outputs.artifact-prefix }}-arm64
+          path: ${{ runner.temp }}/arm64
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.image-candidates.outputs.arm64-run }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
       - name: Log in to the ghcr container registry
@@ -218,9 +247,8 @@ jobs:
             type=semver,pattern=v{{major}}.{{minor}},enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
             type=semver,pattern=v{{major}},enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
             type=raw,value=latest,enable=${{ needs.pre-workflow-checks.outputs.should-release == 'true' }}
-            type=sha,value=${{ needs.pre-workflow-checks.outputs.source-ref }}
-      - name: Create manifest lists and push
-        working-directory: ${{ runner.temp }}/digests
+            type=raw,value=sha-${{ needs.pre-workflow-checks.outputs.short-sha }},priority=100
+      - name: Publish the tested images by digest
         env:
           IMAGE_REPOSITORIES: ${{ needs.pre-workflow-checks.outputs.image-repositories }}
         run: |
@@ -228,8 +256,12 @@ jobs:
           for repository in "${repositories[@]}"; do
             mapfile -t tags < <(jq -r --arg repository "${repository}" '.tags[] | select(startswith($repository + ":")) | "--tag=" + .' <<< "${DOCKER_METADATA_OUTPUT_JSON}")
             sources=()
-            for digest in *; do
-              sources+=("${repository}@sha256:${digest}")
+            for arch in amd64 arm64; do
+              archive="oci-archive:$RUNNER_TEMP/$arch/image.tar"
+              digest="$(skopeo inspect --raw "$archive" | skopeo manifest-digest /dev/stdin)"
+              destination="${repository}@${digest}"
+              skopeo copy --preserve-digests "$archive" "docker://$destination"
+              sources+=("$destination")
             done
             docker buildx imagetools create "${tags[@]}" "${sources[@]}"
           done
