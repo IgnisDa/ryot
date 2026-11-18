@@ -77,7 +77,7 @@ export default defineWorkflow({
     const childValue = yield* replay.child("double-count", child, { count: activityValue });
     const startedAt = execution.startedAt;
     if (startedAt === undefined) return yield* Effect.fail("Missing pinned workflow start");
-    return { activity: activityValue, child: childValue, startedAt };
+    return { output: { activity: activityValue, child: childValue, startedAt } };
   }),
 });`);
 				const client = yield* SandboxSidecarClient;
@@ -208,7 +208,7 @@ export default defineWorkflow({
 		() =>
 			Effect.gen(function* () {
 				const root = yield* compileTestScript(
-					defineNativeScript("() => Effect.succeed(null)", { kind: "workflow" }),
+					defineNativeScript("() => Effect.succeed({ output: null })", { kind: "workflow" }),
 				);
 				const unavailable = yield* runNative(root, {});
 				expect(unavailable.response).toEqual<unknown>(
@@ -541,7 +541,7 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin
 export const manifest = defineManifest({ kind: "workflow", name: "Checkpoint", slug: "checkpoint" });
 export default defineWorkflow({ manifest, input: Schema.Null, output: Schema.Int,
   checkpoint: Schema.Struct({ next: Schema.Int }),
-  run: (_input, step, checkpoint) => checkpoint === null ? step.save({ next: 4 }) : Effect.succeed(checkpoint.next)
+  run: (_input, step, checkpoint) => checkpoint === null ? step.save({ next: 4 }) : Effect.succeed({ output: checkpoint.next })
 });`);
 				const first = yield* runNative(compiled, null, { workflowExecutionId: "checkpoint" });
 				expect(first.response).toMatchObject({
@@ -568,9 +568,12 @@ export default defineWorkflow({ manifest, input: Schema.Null, output: Schema.Int
 					for (const kind of ["script", "operation", "workflow", "automation"] as const) {
 						const compiled = yield* compileTestScript(
 							defineNativeScript(
-								kind === "operation"
-									? "() => Effect.succeed({ output: 42 })"
-									: "() => Effect.succeed(42)",
+								{
+									script: "() => Effect.succeed(42)",
+									automation: "() => Effect.succeed({})",
+									workflow: "() => Effect.succeed({ output: 42 })",
+									operation: "() => Effect.succeed({ output: 42 })",
+								}[kind],
 								{ kind },
 							),
 						);
@@ -614,7 +617,7 @@ export default defineWorkflow({ manifest, input: Schema.Null, output: Schema.Int
 							success: true,
 							value: {
 								script: 42,
-								automation: 42,
+								automation: {},
 								operation: { output: 42 },
 								workflow: { output: 42, state: "completed" },
 							}[kind],
