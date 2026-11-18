@@ -76,11 +76,9 @@ export const generateLocalBuilderModule = (input: {
 		"",
 	].join("\n");
 
-export const generateCatalogDataModule = (catalog: CompiledCatalog) =>
-	`import type { CompiledCatalog } from "@ryot-app/i18n/catalog";\n\nexport const catalog: CompiledCatalog = ${stableStringify(catalog)};\n`;
-
 export type GeneratedCatalogModules = {
 	readonly index: string;
+	readonly localeDeclaration: string;
 	readonly locales: ReadonlyArray<{ readonly locale: string; readonly content: string }>;
 };
 
@@ -130,9 +128,11 @@ export const generateCatalogModules = (input: {
 	].join("\n");
 	return {
 		index,
-		locales: locales.flatMap((locale) => {
-			const catalog = input.catalogs.get(locale);
-			return catalog === undefined ? [] : [{ locale, content: generateCatalogDataModule(catalog) }];
-		}),
+		localeDeclaration:
+			'import type { CompiledCatalog } from "@ryot-app/i18n/catalog";\n\nexport declare const catalog: CompiledCatalog;\n',
+		locales: [...input.catalogs].map(([locale, catalog]) => ({
+			locale,
+			content: `export const catalog = ${stableStringify(catalog)};\n`,
+		})),
 	};
 };

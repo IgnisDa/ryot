@@ -7,10 +7,10 @@
 - `bun run build` (`tooling/build-catalogs.ts`) runs `buildCatalogs` from `@ryot-app/i18n` over
   the sources and the reference roots listed in the script, which validates the sources, scans for
   `kernelMessage(...)` calls and key literals, and fails on any error diagnostic, including unknown
-  and unused keys. It
-  then generates `src/catalog.generated.ts` and `src/locales/<locale>.generated.ts`, adding the
-  `en-XA` pseudo-locale. Generated files are git-ignored; Turbo runs `build` before `check` and
-  `test` here and before dependents, and its inputs include every scanned root.
+  and unused keys. It writes `dist/catalog.ts` and the JavaScript data and TypeScript declarations
+  for each locale under `dist/locales/`, including `en-XA`. Turbo tracks `dist/` as the build output
+  and includes every scanned root in the build inputs. The production image ships `dist/`
+  alongside the compiler workspace sources.
 - `/catalog` exports `KernelCatalog`, `kernelLocales`, `KernelLocale` and
   `loadKernelCatalog(locale)`, which imports a locale module lazily. `/locales/<locale>` exports
   that locale's compiled `catalog`.

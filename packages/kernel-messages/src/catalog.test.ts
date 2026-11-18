@@ -6,7 +6,7 @@ import { KERNEL_NAMESPACE, unavailableMessage } from "@ryot-app/i18n/message";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
-import { kernelLocales, loadKernelCatalog } from "./catalog.generated";
+import { kernelLocales, loadKernelCatalog } from "../dist/catalog";
 import { kernelMessage } from "./message";
 
 const loadRegistry = Effect.map(

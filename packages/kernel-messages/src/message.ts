@@ -1,7 +1,7 @@
 import { localMessageBuilder, messageBuilder } from "@ryot-app/i18n/builder";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 
-import type { KernelCatalog } from "./catalog.generated";
+import type { KernelCatalog } from "../dist/catalog";
 
 export const kernelMessage = messageBuilder<KernelCatalog>(KERNEL_NAMESPACE);
 

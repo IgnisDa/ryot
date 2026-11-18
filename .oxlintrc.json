@@ -16,7 +16,6 @@
 		"kernel/sandbox/native/**",
 		"apps/frontend/app/styles/*.css",
 		"kernel/sandbox/protocol-fixtures/**",
-		"packages/kernel-messages/src/**/*.generated.ts",
 		"kernel/sandbox/src/host/test-fixtures/*.sandbox.ts"
 	],
 	"rules": {

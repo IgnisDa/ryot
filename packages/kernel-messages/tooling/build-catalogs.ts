@@ -27,7 +27,7 @@ const program = Effect.gen(function* () {
 		"..",
 	);
 	const repositoryRoot = path.resolve(packageRoot, "../..");
-	const sourceRoot = path.join(packageRoot, "src");
+	const outputRoot = path.join(packageRoot, "dist");
 	const references = yield* Effect.forEach(REFERENCE_ROOTS, (root) =>
 		Effect.flatMap(
 			fs.readDirectory(path.join(repositoryRoot, root), { recursive: true }),
@@ -57,12 +57,18 @@ const program = Effect.gen(function* () {
 		descriptions: built.descriptions,
 		localeModule: (locale) => `@ryot-app/kernel-messages/locales/${locale}`,
 	});
-	const localesRoot = path.join(sourceRoot, "locales");
+	const localesRoot = path.join(outputRoot, "locales");
 	yield* fs.remove(localesRoot, { force: true, recursive: true });
 	yield* fs.makeDirectory(localesRoot, { recursive: true });
-	yield* fs.writeFileString(path.join(sourceRoot, "catalog.generated.ts"), modules.index);
+	yield* fs.writeFileString(path.join(outputRoot, "catalog.ts"), modules.index);
 	yield* Effect.forEach(modules.locales, (module) =>
-		fs.writeFileString(path.join(localesRoot, `${module.locale}.generated.ts`), module.content),
+		Effect.all([
+			fs.writeFileString(path.join(localesRoot, `${module.locale}.mjs`), module.content),
+			fs.writeFileString(
+				path.join(localesRoot, `${module.locale}.d.mts`),
+				modules.localeDeclaration,
+			),
+		]),
 	);
 	return yield* Effect.logInfo(`Generated kernel catalogs for ${modules.locales.length} locales`);
 });

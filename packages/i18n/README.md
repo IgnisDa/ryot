@@ -175,7 +175,8 @@ build.
   brackets each message, leaving arguments untouched, so untranslated text stands out.
 - `generateCatalogModules(...)` (`/compiler/codegen`) emits a TypeScript index with the catalog type
   (JSDoc from descriptions), the locale tuple and type, and an Effect loader that imports each locale
-  module lazily, plus one data module per locale. `generateLocalBuilderModule(...)` emits only the
+  module lazily, plus JavaScript data modules and a shared declaration for their exports.
+  `generateLocalBuilderModule(...)` emits only the
   catalog type and typed local message and binding builders, for catalogs that ship as data, such as
   plugin catalogs (`ryot plugin messages`).
 - `formatCatalogDiagnostic` prints `file: key: severity code: detail`.

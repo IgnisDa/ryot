@@ -1,5 +1,5 @@
 {
-	"exclude": ["dist"],
+	"include": ["src", "tooling", "dist"],
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
 		"strict": true,

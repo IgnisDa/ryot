@@ -66,6 +66,7 @@ COPY --from=prepare /app/out/compilers/json/ .
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --linker hoisted --filter @ryot-app/plugin-client-compiler --filter @ryot-app/plugin-backend-compiler --production --frozen-lockfile
 COPY --from=prepare /app/out/compilers/full/packages ./packages
+COPY --from=backend-builder /app/packages/kernel-messages/dist ./packages/kernel-messages/dist
 
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \

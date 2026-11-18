@@ -3,12 +3,12 @@
 	"private": true,
 	"exports": {
 		"./catalog": {
-			"types": "./src/catalog.generated.ts",
-			"default": "./src/catalog.generated.ts"
+			"types": "./dist/catalog.ts",
+			"default": "./dist/catalog.ts"
 		},
 		"./locales/*": {
-			"types": "./src/locales/*.generated.ts",
-			"default": "./src/locales/*.generated.ts"
+			"types": "./dist/locales/*.d.mts",
+			"default": "./dist/locales/*.mjs"
 		},
 		"./message": {
 			"types": "./src/message.ts",

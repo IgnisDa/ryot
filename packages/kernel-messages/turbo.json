@@ -4,10 +4,9 @@
 		"test": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
 		"check": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
 		"build": {
-			"outputs": ["src/catalog.generated.ts", "src/locales/*.generated.ts"],
+			"outputs": ["dist/**"],
 			"inputs": [
 				"$TURBO_DEFAULT$",
-				"!src/**/*.generated.ts",
 				"$TURBO_ROOT$/packages/i18n/src/**",
 				"$TURBO_ROOT$/packages/contract/src/**",
 				"$TURBO_ROOT$/packages/definitions/src/**",

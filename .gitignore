@@ -73,8 +73,6 @@ kernel/backend/src/modules/definitions/kernel-scripts.compiled.generated.ts
 kernel/backend/src/modules/definitions/kernel-scripts/shared/messages.generated.ts
 kernel/backend/src/modules/agent-tools/sdk-reference.generated.ts
 packages/kernel-renderers/src/sources.generated.ts
-packages/kernel-messages/src/catalog.generated.ts
-packages/kernel-messages/src/locales/*.generated.ts
 plugins/*/shared/messages.generated.ts
 .env*.local
 *.tsbuildinfo

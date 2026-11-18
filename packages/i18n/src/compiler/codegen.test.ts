@@ -34,8 +34,9 @@ describe("catalog code generation", () => {
 		expect(modules.index).toContain('\t"en-XA": () => import("./locales/en-XA.generated"),');
 		expect(modules.locales.map(({ locale }) => locale)).toEqual(["en", "en-XA"]);
 		expect(modules.locales[0]?.content).toContain(
-			'export const catalog: CompiledCatalog = {"item.plain":[{"type":0,"value":"Plain"}]};',
+			'export const catalog = {"item.plain":[{"type":0,"value":"Plain"}]};',
 		);
+		expect(modules.localeDeclaration).toContain("export declare const catalog: CompiledCatalog;");
 	});
 
 	it("emits a local builder module typed by the catalog", () => {

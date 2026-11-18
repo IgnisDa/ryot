@@ -5,7 +5,7 @@ import { SOURCE_LOCALE } from "@ryot-app/i18n/locale";
 import { KERNEL_NAMESPACE, type Message } from "@ryot-app/i18n/message";
 import { Text } from "@ryot-app/i18n/text";
 
-import { catalog } from "./locales/en.generated";
+import { catalog } from "../dist/locales/en.mjs";
 
 /** A registry holding only the English kernel catalog, for tests that render kernel copy. */
 export const testKernelRegistry = registerCatalog(
