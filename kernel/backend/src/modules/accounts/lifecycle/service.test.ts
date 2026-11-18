@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
-import { InstanceAdminInternalFailure } from "@ryot-app/contract/modules/instance-admin/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { InstanceAdminInternalFailure } from "@ryot-app/instance-contract/account-admin";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
