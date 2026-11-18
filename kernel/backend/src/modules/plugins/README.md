@@ -77,7 +77,11 @@ Listed plugins include hidden and installing installations, but exclude incompat
 Catalog operations resolve one `listPluginsAvailableToUser` snapshot and thread it through multi-row
 work rather than rereading different catalog states. `listOperationsAvailableToUser` combines one
 executable snapshot with a batched operation-script metadata read at its pinned revision IDs for the
-agent tool registry. Catalog changes publish a transactional
+agent tool registry. `PluginRuntimeResolver` combines that snapshot with each active revision's
+decoded manifest sections, which it keeps per process by revision ID in bounded caches (256 revisions
+each) because revision rows and their scripts never change. Executable lookups load only workflows,
+operations, dependencies, name, and script hashes; listings additionally load the client section and
+artifact imports. Catalog changes publish a transactional
 `pg_notify` that clients use to refetch.
 
 ## Plugin artifacts and revision identity
