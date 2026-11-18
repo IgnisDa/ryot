@@ -65,7 +65,9 @@ lists. `activity`, `child`, and `executeWorkflow` calls must use direct typed re
 alternatives for their executable targets. Configuration, OAuth, and executable-reference method
 aliases are unsupported. Non-finite host indexing, reflection or type-erasure of host objects, and
 host escape to unresolved or external functions are rejected rather than guessed. Finite dependency
-targets and OAuth fields are checked from their call arguments.
+targets and OAuth fields are checked from their call arguments. Plugin script derivation rejects an
+`activity` target in the same plugin whose default export is not a `defineActivity` call
+(`RYOT_DEPENDENCY`), because the kernel requires activities to return `{ output, changes? }`.
 
 Analysis is project-bounded; exhausting its 100,000-step limit fails with `RYOT_ANALYSIS_LIMIT`,
 never partial metadata.

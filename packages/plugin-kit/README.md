@@ -720,7 +720,8 @@ export default defineWorkflow({
 `step.activity` and `step.child` invoke declared script and workflow references. An activity script
 is defined with `defineActivity` and returns `{ output, changes? }`: the kernel commits its changes
 once when it completes and hands the workflow only `output`, which the reference's `output` schema
-describes. Their names are local to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
+describes. The backend compiler rejects a `step.activity` target that is not
+defined with `defineActivity`. Their names are local to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
 complete interrupted calls without guessing whether an external write succeeded. Calls within that
 step must remain deterministic. There is no public replay journal or durable sleep API. A bounded
 workflow that finishes in one step can omit `checkpoint`.

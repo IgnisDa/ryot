@@ -1105,3 +1105,65 @@ it.layer(pluginBackendCompilerPlatformLayer)("generated plugin message builder",
 		testTimeout,
 	);
 });
+
+const activityWorkflow = `
+import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+
+export const manifest = defineManifest({ kind: "workflow", name: "Parent", slug: "workflow.parent" });
+const child = defineScriptReference({ scriptSlug: "child", input: Schema.Struct({}), output: Schema.Unknown });
+export default defineWorkflow({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: (_input, step) =>
+    Effect.gen(function* () {
+      return { output: yield* step.activity("child", child, {}) };
+    }),
+});
+`;
+
+const activityChild = `
+import { defineActivity, defineManifest, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+
+export const manifest = defineManifest({ kind: "script", name: "Child", slug: "child" });
+export default defineActivity({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: () => Effect.succeed({ output: null }),
+});
+`;
+
+it.layer(pluginBackendCompilerPlatformLayer)("workflow activity targets", (test) => {
+	test.effect(
+		"accepts activity scripts and rejects step.activity targets defined without defineActivity",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* derivePluginSandboxScripts(
+					{ "child.sandbox.ts": activityChild, "parent.sandbox.ts": activityWorkflow },
+					messageCatalog,
+				);
+				expect(compiled.map((output) => output.script.slug)).toEqual(["child", "workflow.parent"]);
+
+				const failure = yield* derivePluginSandboxScripts(
+					{
+						"parent.sandbox.ts": activityWorkflow,
+						"child.sandbox.ts": script("child", "", "Effect.succeed(null)"),
+					},
+					messageCatalog,
+				).pipe(Effect.flip);
+				expect(failure).toEqual<unknown>(
+					objectContaining({
+						diagnostics: [
+							objectContaining({
+								code: "RYOT_DEPENDENCY",
+								file: "parent.sandbox.ts",
+								message: stringContaining('"child" must be defined with defineActivity'),
+							}),
+						],
+					}),
+				);
+			}),
+		testTimeout,
+	);
+});
