@@ -239,3 +239,14 @@ advances only after its captures, committed application receipts, and required c
 recorded. A restart loads the saved phase rather than replaying earlier phases. The current unfinished
 step retains private call outcomes for interruption and delivery safety. The execution owner keeps
 code/configuration pins, artifact retention, and cancellation attached across checkpoints.
+
+### Continuous integration events
+
+A plugin's generic import event intent can declare a sample interval and comparison fingerprint,
+or mark an event as a boundary for the same stream. Streams are scoped to the admitted integration,
+resolved subject, and event schema. Acceptance time orders source deliveries. A sample within the
+interval replaces the pending intent and queues a durable flush. The persisted event keeps its
+source occurrence time. The event writer commits its next eligibility time with the event, and a
+successful boundary clears pending work in that same transaction. Buffered observations settle
+their ingestion receipt as unchanged. A later flush uses the captured write authority and normal
+event validation and lifecycle dispatch.

@@ -84,6 +84,7 @@ import {
 	reconcileGenericIngestionBatch,
 } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";
+import { IntegrationEventWrites } from "./integration-event-writes";
 import {
 	genericImportOperationCommand,
 	genericImportOperationIdentity,
@@ -529,6 +530,9 @@ const validateGenericItem = (
 					relationship.properties,
 				);
 			}
+			if (grouped && item.events.some((event) => event.coalescing !== undefined)) {
+				return yield* new ImportRunError({ message: "Event-group imports cannot coalesce events" });
+			}
 			if (!grouped) {
 				return "standalone" as const;
 			}
@@ -677,7 +681,7 @@ const writeStandaloneRecord = Effect.fnUntraced(function* (context: GenericImpor
 		});
 		context.warnings.push(...written.warnings);
 	}
-	const events: CreateEventItem[] = [];
+	const events: { event: CreateEventItem; intent: GenericImportWriteItem["events"][number] }[] = [];
 	for (const intent of item.events) {
 		const unknown = "Import event references an unknown entity alias";
 		const entityId =
@@ -688,11 +692,14 @@ const writeStandaloneRecord = Effect.fnUntraced(function* (context: GenericImpor
 			? yield* aliasedEntity(aliases, intent.sessionEntityAlias, unknown)
 			: undefined;
 		events.push({
-			entityId,
-			properties: intent.properties,
-			occurredAt: intent.occurredAt,
-			eventSchemaSlug: EventSchemaSlug.make(intent.eventSchemaSlug),
-			...(sessionEntityId ? { sessionEntityId } : {}),
+			intent,
+			event: {
+				entityId,
+				properties: intent.properties,
+				occurredAt: intent.occurredAt,
+				eventSchemaSlug: EventSchemaSlug.make(intent.eventSchemaSlug),
+				...(sessionEntityId ? { sessionEntityId } : {}),
+			},
 		});
 	}
 	return { events, aliases };
@@ -812,6 +819,14 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 		pluginRevision,
 	};
 	const writeItem = Effect.fnUntraced(function* () {
+		if (
+			command.causation.integrationId === undefined &&
+			item.events.some((event) => event.coalescing)
+		) {
+			return yield* new ImportRunError({
+				message: "Only admitted integrations can coalesce import events",
+			});
+		}
 		const mode = yield* validateGenericItem(item, userId, index, definitions, pluginRevision);
 		const subject = item.entities.find((intent) => intent.alias === item.subjectEntityAlias);
 		const { events, aliases } =
@@ -1046,38 +1061,64 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 						warnings.push(...collectionResult.success.warnings);
 					}
 				}
-				if (outcome.events.length > 0) {
-					const events = yield* EventsService;
-					const eventResult = yield* makeActivity({
+				const eventGroups = [
+					outcome.events.filter(({ intent }) => intent.coalescing === undefined),
+					...outcome.events.flatMap((entry) => (entry.intent.coalescing ? [[entry]] : [])),
+				];
+				for (const [groupIndex, entries] of eventGroups.entries()) {
+					const first = entries[0];
+					if (!first) {
+						continue;
+					}
+					const ids = entries.map(({ intent }) => intent.operationId);
+					const identities = ids.map((id) => genericImportOperationIdentity(scope.runId, item, id));
+					const command = {
+						...payload.command,
+						itemIdentity: stableStringify(["ingestion-event-group", ids]),
+					};
+					const coalescing = first.intent.coalescing;
+					const integrationId = payload.integrationId;
+					if (coalescing && !integrationId) {
+						return yield* new ImportRunError({ message: "Missing event stream integration" });
+					}
+					const execute =
+						coalescing && integrationId
+							? (yield* IntegrationEventWrites).apply({
+									command,
+									coalescing,
+									event: first.event,
+									identity: genericImportOperationIdentity(
+										scope.runId,
+										item,
+										first.intent.operationId,
+									),
+									key: {
+										integrationId,
+										userId: payload.userId,
+										entityId: first.event.entityId,
+										eventSchemaSlug: first.event.eventSchemaSlug,
+									},
+								})
+							: (yield* EventsService).create({
+									command,
+									userId: payload.userId,
+									itemIdentities: identities,
+									payload: entries.map(({ event }) => event),
+								});
+					const result = yield* makeActivity({
 						error: ImportRunError,
 						success: CreateEventsResponse,
-						name: `create-import-events-${item.itemIndex}`,
-						execute: events
-							.create({
-								userId: payload.userId,
-								payload: outcome.events,
-								itemIdentities: item.events.map((intent) =>
-									genericImportOperationIdentity(scope.runId, item, intent.operationId),
-								),
-								command: {
-									...payload.command,
-									itemIdentity: stableStringify([
-										"ingestion-event-group",
-										item.events.map((intent) => intent.operationId),
-									]),
-								},
-							})
-							.pipe(Effect.mapError(toWorkflowError)),
+						execute: execute.pipe(Effect.mapError(toWorkflowError)),
+						name:
+							groupIndex === 0
+								? `create-import-events-${item.itemIndex}`
+								: `create-import-events-${item.itemIndex}-${groupIndex}`,
 					});
-					warnings.push(...eventResult.warnings);
-					message ??= eventResult.failure?.reason.code ?? null;
-					if (eventResult.failure) {
-						failureCode = eventResult.failure.reason.code;
-					}
-					for (const event of eventResult.outcomes) {
-						const intent = item.events[event.index];
-						const operation =
-							intent && operations.find((value) => value.operationId === intent.operationId);
+					warnings.push(...result.warnings);
+					message ??= result.failure?.reason.code ?? null;
+					failureCode ??= result.failure?.reason.code ?? null;
+					for (const event of result.outcomes) {
+						const operation = operations.find((value) => value.operationId === ids[event.index]);
 						if (operation && event.status === "skipped_by_policy") {
 							yield* record(operation, "skipped", {
 								message: event.reason,
