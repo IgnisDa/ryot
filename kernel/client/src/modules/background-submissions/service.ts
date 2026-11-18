@@ -115,9 +115,13 @@ const settledState = (outcome: PluginOperationDispatchOutcome): BackgroundSubmis
 		return { status: "failed", reason: "app-updated" };
 	}
 	if (outcome.outcome === "failure") {
-		return outcome.reason === "operation-rejected"
-			? { status: "failed", message: outcome.message, reason: "operation-rejected" }
-			: { status: "failed", reason: outcome.reason };
+		if (outcome.reason === "operation-rejected") {
+			return { status: "failed", message: outcome.message, reason: "operation-rejected" };
+		}
+		return {
+			status: "failed",
+			reason: outcome.reason === "changes-conflict" ? "operation-failed" : outcome.reason,
+		};
 	}
 	if (isRecord(outcome.value) && outcome.value.status === "incomplete") {
 		const { count } = outcome.value;

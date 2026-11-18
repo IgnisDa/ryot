@@ -1043,7 +1043,12 @@ export const createPluginRuntime = (
 					settle(
 						"operation",
 						message.requestId,
-						message.outcome === "failure" ? message : { outcome: "success", value: message.value },
+						message.outcome === "failure"
+							? message
+							: {
+									outcome: "success",
+									value: { value: message.value, committed: message.committed },
+								},
 					);
 					return;
 				case "enrichment-result":

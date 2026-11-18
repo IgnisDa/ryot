@@ -207,7 +207,7 @@ function mount(
 			operations.push(request);
 			return (
 				options.onInvokeOperation?.(request) ??
-				Effect.succeed({ value: null, outcome: "success" as const })
+				Effect.succeed({ value: null, committed: { events: [] }, outcome: "success" as const })
 			);
 		},
 		page: {

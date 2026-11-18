@@ -555,7 +555,9 @@ describe("Effect-native React definitions", () => {
 		() =>
 			Effect.gen(function* () {
 				let calls = 0;
-				const clock = makeClock({ invokeOperation: () => Effect.succeed("saved") });
+				const clock = makeClock({
+					invokeOperation: () => Effect.succeed({ value: "saved", committed: { events: [] } }),
+				});
 				const query = createRyotQuery(() => Effect.sync(() => ++calls));
 				const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
 				const { container } = render(<View />, clock);
@@ -582,7 +584,10 @@ describe("Effect-native React definitions", () => {
 			Effect.gen(function* () {
 				let hints = 0;
 				let latest: undefined | RyotMutationResult<string, string>;
-				const clock = makeClock({ invokeOperation: ({ input }) => Effect.succeed(input) });
+				const clock = makeClock({
+					invokeOperation: ({ input }) =>
+						Effect.succeed({ value: input, committed: { events: [] } }),
+				});
 				clock.client.mutationCompleted.subscribe(() => hints++);
 				const mutation = createRyotMutation<string, string>(({ input, client }) =>
 					Effect.gen(function* () {
@@ -593,13 +598,14 @@ describe("Effect-native React definitions", () => {
 							packageId: "test/fixture",
 							inputSchema: Schema.String,
 						});
-						return yield* client.operations.invoke({
-							input: first,
+						const second = yield* client.operations.invoke({
 							slug: "second",
+							input: first.output,
 							output: Schema.String,
 							packageId: "test/fixture",
 							inputSchema: Schema.String,
 						});
+						return second.output;
 					}),
 				);
 				const View = () => {

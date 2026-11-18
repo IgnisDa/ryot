@@ -259,7 +259,10 @@ function mount(options: {
 	const operationsLayer = Layer.succeed(PluginOperationsService, {
 		invoke: (input) => {
 			operations.push(input);
-			return options.invoke?.(input) ?? Effect.succeed({ value: null, outcome: "success" });
+			return (
+				options.invoke?.(input) ??
+				Effect.succeed({ value: null, outcome: "success", committed: { events: [] } })
+			);
 		},
 	});
 	const runtime = ManagedRuntime.make(
@@ -1661,7 +1664,11 @@ describe("client page routes", () => {
 
 				yield* Effect.promise(() => view.router.navigate({ href: "/settings/preferences" }));
 				yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
-				yield* Deferred.succeed(reply, { value: null, outcome: "success" });
+				yield* Deferred.succeed(reply, {
+					value: null,
+					outcome: "success",
+					committed: { events: [] },
+				});
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(

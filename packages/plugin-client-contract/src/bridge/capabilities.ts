@@ -26,6 +26,7 @@ import {
 	EntityUpdatedFrame,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/live-updates/messages";
+import { UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	DescribeResponse,
@@ -54,6 +55,7 @@ export const PluginOperationBridgeErrorReason = Schema.Literals([
 	"entitlement-required",
 	"page-write-access-required",
 	"operation-rejected",
+	"changes-conflict",
 	"malformed-result",
 ]);
 
@@ -96,6 +98,7 @@ export const RyotClientErrorReason = Schema.Literals([
 	"entitlement-required",
 	"page-write-access-required",
 	"operation-rejected",
+	"changes-conflict",
 	"malformed-result",
 	"unsupported-capability",
 	"invalid-request",
@@ -347,7 +350,11 @@ export const PluginBridgeOperationRequest = strictStruct({
 
 export type PluginBridgeOperationRequest = Schema.Schema.Type<typeof PluginBridgeOperationRequest>;
 
-const pluginOperationSuccessFields = { value: JsonValue, outcome: Schema.Literal("success") };
+const pluginOperationSuccessFields = {
+	value: JsonValue,
+	committed: UserCommandResult,
+	outcome: Schema.Literal("success"),
+};
 
 const pluginOperationFailureVariants = [
 	{
@@ -357,6 +364,7 @@ const pluginOperationFailureVariants = [
 			"operation-failed",
 			"entitlement-required",
 			"page-write-access-required",
+			"changes-conflict",
 			"malformed-result",
 		]),
 	},

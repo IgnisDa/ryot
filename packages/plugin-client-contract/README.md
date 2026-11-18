@@ -59,10 +59,13 @@ declaration schema is uncapped; runtimes own aggregation and bounded selection.
 
 The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `transport`,
 `asset-failed`, `collection-failed`, `entity-save-failed`, `query-failed`, `invalid-input`,
-`operation-failed`, `operation-rejected`, `malformed-result`, `unsupported-capability`,
-`invalid-request`, and `quota`.
+`operation-failed`, `operation-rejected`, `changes-conflict`, `malformed-result`,
+`unsupported-capability`, `invalid-request`, and `quota`.
 
-`operation-result` failures carry `transport`, `operation-failed`, or `malformed-result`, or
+A successful `operation-result` carries the operation's `value` and `committed`, the kernel's
+`UserCommandResult` for the changes the operation returned (empty `events` when nothing was
+committed). `operation-result` failures carry `transport`, `operation-failed`, `changes-conflict`
+(the kernel's commit of the operation's changes found a stale baseline), or `malformed-result`, or
 `operation-rejected` with the operation's `message`. `operation-failed` is a declared platform
 failure with no user-facing text; `operation-rejected` is a deterministic refusal whose message may
 be shown to the user, and retrying the same input cannot succeed. The kernel reports a write refused

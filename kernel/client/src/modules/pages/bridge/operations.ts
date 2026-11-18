@@ -39,6 +39,9 @@ const isOperationRejected = Schema.is(PluginOperationRejected);
 const isStaleRevision = (cause: unknown) =>
 	Schema.is(PluginConflictError)(cause) && cause.reason.code === "source-revision-stale";
 
+const isChangesConflict = (cause: unknown) =>
+	Schema.is(PluginConflictError)(cause) && cause.reason.code === "changes-conflict";
+
 export type PluginOperationDispatchOutcome =
 	PluginOperationOutcome | { readonly outcome: "stale-session" };
 
@@ -75,7 +78,12 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 					})
 					.pipe(
 						Effect.match({
-							onSuccess: (response) => ({ outcome: "success", value: response.result }) as const,
+							onSuccess: (response) =>
+								({
+									outcome: "success",
+									value: response.result,
+									committed: response.committed,
+								}) as const,
 							onFailure: (error) => {
 								if (
 									Schema.is(PluginRequestError)(error.cause) &&
@@ -88,6 +96,9 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 								}
 								if (isStaleRevision(error.cause)) {
 									return { outcome: "stale-session" } as const;
+								}
+								if (isChangesConflict(error.cause)) {
+									return { outcome: "failure", reason: "changes-conflict" } as const;
 								}
 								if (isOperationRejected(error.cause) || isDemoOperationProtectedError(error)) {
 									return {
