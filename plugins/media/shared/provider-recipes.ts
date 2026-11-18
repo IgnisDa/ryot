@@ -18,21 +18,21 @@ export const providerSlugRecipe = (() => {
 		fields: {
 			providerId: {
 				type: "string",
-				description: "Provider to read",
 				validation: { required: true },
+				description: "Provider to read",
 				label: catalogMessage("query-parameter.id"),
 			},
 		},
 	});
-	const provider = table("sandboxProvider", "provider");
+	const providerTable = table("sandboxProvider", "provider");
 	return defineRecipe({
 		parameters: args.schema,
 		map: ({ provider }) => Result.succeed(provider?.slug ?? null),
 		queries: {
-			provider: selectedOptionalRow(provider, {
-				orderBy: [ascending(column(provider, "id"))],
-				where: eq(column(provider, "id"), args.value("providerId")),
-				selection: { slug: selectedField(column(provider, "slug"), Schema.String) },
+			provider: selectedOptionalRow(providerTable, {
+				orderBy: [ascending(column(providerTable, "id"))],
+				where: eq(column(providerTable, "id"), args.value("providerId")),
+				selection: { slug: selectedField(column(providerTable, "slug"), Schema.String) },
 			}),
 		},
 	});

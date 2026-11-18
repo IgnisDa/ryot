@@ -67,15 +67,21 @@ const submissionErrorFallback = (text: MediaText, error: Error) => {
 		return text("user-data.error-transport");
 	}
 	switch (error.conflict) {
+		case undefined:
+		case "event-stale":
+		case "entity-stale":
+		case "event-not-found":
+		case "mutation-conflict":
+		case "concurrent-relationship-change":
+			break;
 		case "state-conflict":
 			return text("user-data.error-state-conflict");
 		case "entity-not-found":
 			return text("user-data.error-entity-not-found");
 		case "child-mapping-conflict":
 			return text("user-data.error-child-mapping-conflict");
-		default:
-			return text("user-data.error-retry");
 	}
+	return text("user-data.error-retry");
 };
 
 export function MediaUserDataControl(props: { readonly media: MediaEntitySummaryValue }) {
