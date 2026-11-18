@@ -80,6 +80,7 @@ export const combineChangeSets = (...sets: ReadonlyArray<ChangeSet>): ChangeSet 
 	const deletes = all(sets.map((set) => set.entities?.deletes));
 	const clears = all(sets.map((set) => set.entities?.clears));
 	const merges = all(sets.map((set) => set.entities?.merges));
+	const updates = all(sets.map((set) => set.entities?.updates));
 	const ensures = all(sets.map((set) => set.entities?.ensures));
 	const upserts = all(sets.map((set) => set.relationships?.upserts));
 	const relationshipDeletes = all(sets.map((set) => set.relationships?.deletes));
@@ -97,12 +98,13 @@ export const combineChangeSets = (...sets: ReadonlyArray<ChangeSet>): ChangeSet 
 		...(settingsPatches.length > 0
 			? { settings: Object.fromEntries(settingsPatches.flatMap((patch) => Object.entries(patch))) }
 			: {}),
-		...(deletes || clears || merges || ensures
+		...(deletes || clears || merges || updates || ensures
 			? {
 					entities: {
 						...(deletes ? { deletes } : {}),
 						...(clears ? { clears } : {}),
 						...(merges ? { merges } : {}),
+						...(updates ? { updates } : {}),
 						...(ensures ? { ensures } : {}),
 					},
 				}

@@ -138,9 +138,12 @@ cross-command cardinality. See [atomic event groups](../../kernel/backend/src/mo
 
 `exercise-merge` accepts custom and provider-backed sources and requires distinct same-kind
 entities. Only the caller's data moves; shared metadata, provider taxonomy and other users' data
-remain unchanged. It detaches the caller's source membership/taxonomy links, moves events/notes/collection membership through `mergeUserEntityData`,
-then replaces template references. These steps are not atomic: retry-to-complete works after partial
-detachment. The client blocks merging an exercise used by the active workout/template draft.
+remain unchanged. It returns one change set: `relationships.deletes` detach the caller's source
+membership/taxonomy links, an `entities.merges` entry moves events/notes/collection membership, and
+`entities.updates` replace the source in every workout template that references it, each against the
+template as read. The kernel commits them atomically, so a template edited meanwhile fails the merge
+as a `changes-conflict`. A merge touching more templates than `CHANGE_SET_LIMITS.entityUpdates`
+is rejected. The client blocks merging an exercise used by the active workout/template draft.
 
 Exercise note operations require a visible exercise and a `review` event on that schema, not merely
 the shared review slug. Notes are reviews without a spoiler flag: text is required, the rating is the

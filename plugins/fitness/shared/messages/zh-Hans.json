@@ -1074,6 +1074,7 @@
 	"query-parameter.started-before": "开始时间早于",
 	"query-parameter.until": "截至",
 	"query-parameter.workout": "训练",
+	"rejection.exercise-merge.too-many-templates": "此动作所在的训练模板过多，无法合并。请从部分模板中移除后重试。",
 	"rejection.workout-exercise.context-missing": "此动作不属于训练。",
 	"rejection.workout-exercise.taxonomy-capacity": "此动作列出的肌群或器械超过训练可记录的数量。",
 	"rejection.workout-set.confirmed-at-invalid": "此组的完成时间无效。",

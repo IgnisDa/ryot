@@ -6,7 +6,8 @@ change set may carry:
 
 - `entity`: a user-owned root entity create or update, with the expected baseline for updates.
 - `entities`: user entity `deletes`, data `clears` and `merges` (both through
-  `EntityUserDataService`), and bootstrap `ensures`.
+  `EntityUserDataService`), `updates` of existing user entities (each shaped and checked like a root
+  entity update, at most once per entity), and bootstrap `ensures`.
 - `relationships`: user relationship `upserts` (`merge` or `replace` properties) and `deletes`;
   endpoints are the root or existing entities.
 - `events`: event creates, updates and deletes, optional `expected` session event IDs and scope
@@ -29,16 +30,16 @@ writes nothing.
 preparation, and `undeclaredSchema` rejects a schema the pinned plugin revision does not declare.
 A violation fails with `ChangeSetRejected`, naming the part:
 
-| Part                                                       | Writer                                                                                                              |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `events`, `relationships`, `folds` (user)                  | Pinned plugin, with an execution user (user execution or user automation run)                                       |
-| `entity`, `entities.deletes`/`clears`/`merges`, `settings` | Pinned plugin, direct user execution                                                                                |
-| `entities.ensures`                                         | Also the plugin's designated user bootstrap script                                                                  |
-| `settings`                                                 | Not integration, import, initialization or bootstrap executions                                                     |
-| `signals`                                                  | Automation runs and system executions; system ones need a pinned system plugin automation                           |
-| `notifications`                                            | User automation runs; plugin messages are stamped with the plugin namespace, kernel ones may carry trusted messages |
-| `globalEntities`, `globalRelationships`                    | System executions of a pinned system plugin; entity upserts also need its provider                                  |
-| `folds` (all users)                                        | Pinned plugin; a system execution needs a system plugin                                                             |
+| Part                                                                 | Writer                                                                                                              |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `events`, `relationships`, `folds` (user)                            | Pinned plugin, with an execution user (user execution or user automation run)                                       |
+| `entity`, `entities.deletes`/`clears`/`merges`/`updates`, `settings` | Pinned plugin, direct user execution                                                                                |
+| `entities.ensures`                                                   | Also the plugin's designated user bootstrap script                                                                  |
+| `settings`                                                           | Not integration, import, initialization or bootstrap executions                                                     |
+| `signals`                                                            | Automation runs and system executions; system ones need a pinned system plugin automation                           |
+| `notifications`                                                      | User automation runs; plugin messages are stamped with the plugin namespace, kernel ones may carry trusted messages |
+| `globalEntities`, `globalRelationships`                              | System executions of a pinned system plugin; entity upserts also need its provider                                  |
+| `folds` (all users)                                                  | Pinned plugin; a system execution needs a system plugin                                                             |
 
 Agent and projection executions and before-stage automation runs write nothing. Ownership,
 provenance, global scope and `populatedAt` are not expressible for user writes. Services keep their
@@ -50,12 +51,15 @@ validation in `PluginUserSettingsWriter`.
 
 `ChangeSets.commit` prepares every part before the commit transaction, so no database transaction
 is held over sandbox execution: the root entity, relationships, event items in pages with their
-event policies, ensures, entity deletes (grouped by schema), and data clears and merges. It then
-runs one events transaction that applies, in order: the receipt's `load`, the settings patch,
-source writes (root entity, relationships, events, baselines), ensures, deletes, clears and merges,
-global entity upserts and global relationship reconciliation, signal plans, notification
-admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts after commit; a
-failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
+event policies, ensures, entity deletes (grouped by schema), data clears and merges, and entity
+updates. The root entity and each entity update share one path: `EntitiesService.prepareUserSave`
+checks the expected baseline and runs entity policies, and `persistPreparedUserSave` rechecks it
+under the entity lock. It then runs one events transaction that applies, in order: the receipt's
+`load`, the settings patch, source writes (root entity, relationships, events, baselines), ensures,
+deletes, clears, merges, entity updates in entity ID order, global entity upserts and global
+relationship reconciliation, signal plans, notification admissions, fold requests, and the receipt's
+`record`. Lifecycle dispatch starts after commit; a failure in any part rolls back every part.
+Durable callers run the whole commit inside one activity.
 
 ## Script changes and exactly-once commits
 
@@ -66,7 +70,12 @@ the command with `scriptChangesCommand`: an automation run's changes descend fro
 root causation (`bootstrap`, `integration` or `api` for user subjects, `provider-refresh` for system
 ones). The caller passes the durable identity of the script's execution as `executionId`; every
 trigger, entity and event ID the commit derives comes from it. Failures are normalized to
-`ScriptChangesRejected` (`conflict`, `policy-rejected` or `invalid`) for each caller to map.
+`ScriptChangesRejected` (`conflict`, `policy-rejected` or `invalid`) for each caller to map. A
+failure whose reason code is a `CommitConflictCode` is a `conflict`: stale baselines, and the
+`EntityUserDataService` refusals a user causes by acting on changed data (`state-conflict` when the
+captured user data changed, `child-mapping-conflict` when merged child data has no unique match).
+Refusals the writing plugin can rule out from its own reads (same-entity merges, schema or identity
+property mismatches, denied operations) stay `invalid`.
 
 `ChangeSets.commitOnce(changes, command, receipt)` makes a commit exactly-once against the caller's
 durable state. `receipt.load` returns a result an earlier commit recorded: it is read once before
@@ -105,8 +114,9 @@ assets; the write boundary validates and locks those references while committing
 
 Every change set item derives its identity as `<change set itemIdentity>:<item itemIdentity>`.
 Event creates and changes carry a required `itemIdentity`; the entity and each relationship may
-carry one and otherwise use `entity`, `relationship:<index>` and `relationship-delete:<index>`. Other
-parts derive theirs from their position or identity (`entity-deletes:<schema>`, `entity-clear:<index>`,
+carry one and otherwise use `entity`, `relationship:<index>` and `relationship-delete:<index>`, and
+each entity update may carry one and otherwise uses `entity-update:<entityId>`. Other parts derive
+theirs from their position or identity (`entity-deletes:<schema>`, `entity-clear:<index>`,
 `signal:<discriminator>`, `global-entity:<schema, externalId>`); notifications use
 `<runId>-changes-<index>-notification` as their source key.
 
@@ -126,7 +136,8 @@ input when retrying. The operation's key returns the original execution result; 
 different input conflicts. Without a key, a retried change set derives the same entity and event IDs. Bridge `requestId` values correlate individual transport attempts
 and are not write identities.
 
-Entity updates carry an expected name, properties, and `updatedAt`. Event updates and deletes may
+Entity updates, the root one and `entities.updates`, carry an expected name, properties, and
+`updatedAt`; a stale or vanished entity fails with `entity-stale` or `entity-not-found`. Event updates and deletes may
 carry expected entity/session references, occurrence time, present property values, and absent
 property names. Change sets can also declare the expected set of session event IDs. These baselines
 detect stale writes; a changed baseline fails the atomic change set rather than merging silently.

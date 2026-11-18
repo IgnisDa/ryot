@@ -1433,9 +1433,10 @@ describe("plugin Effect request engine", () => {
 					type: "operation-result",
 					requestId: "operation-1",
 					reason: "changes-conflict",
+					conflict: "state-conflict",
 				});
 				expect(yield* Fiber.join(pending)).toMatchObject({
-					failure: new RyotClientError({ reason: "changes-conflict" }),
+					failure: new RyotClientError({ reason: "changes-conflict", conflict: "state-conflict" }),
 				});
 			}),
 		testTimeout,

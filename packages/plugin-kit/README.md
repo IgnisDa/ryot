@@ -872,7 +872,8 @@ over them, and answers `{ result, committed }`, where `committed` carries the ro
 written event ID by item identity. A policy rejection of the changes reaches the caller as HTTP 422, a
 stale baseline as HTTP 409 `changes-conflict`, and any other invalid or unauthorized change set as
 HTTP 502. A client plugin's `client.operations.invoke` resolves `{ output, committed }` and fails a
-stale baseline with a `RyotClientError` whose reason is `changes-conflict`.
+stale baseline with a `RyotClientError` whose reason is `changes-conflict` and whose `conflict` is the
+commit's conflict code.
 
 ### Change sets
 

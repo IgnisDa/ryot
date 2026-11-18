@@ -95,7 +95,8 @@ integration boundary.
 `{ output, committed }`, where `committed` is the kernel's `CommittedChanges` for the changes the
 operation returned: the root `entityId` when one was written and each written event's `eventId` by
 `itemIdentity`, with an empty `events` array when nothing was committed. An operation whose changes
-hit a stale baseline fails with `changes-conflict`; reload the data and let the person resubmit.
+hit a stale baseline fails with `changes-conflict`, and the error's `conflict` names the
+`CommitConflictCode`; reload the data and let the person resubmit.
 A successful operation notifies
 mutation listeners by default. `refreshOnSuccess: false` suppresses that notification for read-only
 context operations, so a page-refresh handler does not trigger itself again, and for writes whose

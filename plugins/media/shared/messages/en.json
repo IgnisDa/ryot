@@ -2567,7 +2567,10 @@
 		"message": "{start} – {end}",
 		"description": "A range of dates. {start} is the first date and {end} is the last date."
 	},
+	"user-data.error-child-mapping-conflict": "Some child data has no unique match. Refresh the media items and try again.",
+	"user-data.error-entity-not-found": "One of these media items no longer exists. Refresh and try again.",
 	"user-data.error-retry": "Couldn't finish this change. Retry to confirm the result safely.",
+	"user-data.error-state-conflict": "Your data changed. Refresh this page and try again.",
 	"user-data.error-transport": "Couldn't reach the server. Retry to finish this change safely.",
 	"user-data.menu": {
 		"message": "Your data",

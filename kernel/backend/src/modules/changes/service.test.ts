@@ -856,6 +856,38 @@ const targetOf = (input: Fixture) => {
 
 const rejection = (part: string) => ({ part, _tag: "ChangeSetRejected" });
 
+const entityBaseline = (input: Fixture, entityId: EntityId) =>
+	Effect.gen(function* () {
+		const [row] = yield* input.session.run((db) =>
+			db
+				.select({
+					name: tables.entity.name,
+					updatedAt: tables.entity.updatedAt,
+					properties: tables.entity.properties,
+				})
+				.from(tables.entity)
+				.where(eq(tables.entity.id, entityId)),
+		);
+		assert(row);
+		return { name: row.name, properties: row.properties, updatedAt: row.updatedAt.toISOString() };
+	});
+
+const entityUpdates = (
+	items: ReadonlyArray<
+		readonly [EntityId, Effect.Success<ReturnType<typeof entityBaseline>>, string]
+	>,
+) =>
+	Schema.decodeUnknownEffect(ChangeSet)({
+		entities: {
+			updates: items.map(([entityId, expected, name]) => ({
+				name,
+				properties: { name },
+				entitySchemaSlug: "record",
+				target: { expected, entityId, kind: "update" },
+			})),
+		},
+	});
+
 layer(testLayer(false))((test) => {
 	test.effect(
 		"commits relationship deletes, entity data clears and entity deletes",
@@ -931,6 +963,62 @@ layer(testLayer(false))((test) => {
 					},
 					nextCommand(input),
 				);
+				const moved = yield* input.session.run((db) =>
+					db
+						.select({ entityId: tables.event.entityId })
+						.from(tables.event)
+						.where(
+							inArray(
+								tables.event.id,
+								root.events.map(({ eventId }) => eventId),
+							),
+						),
+				);
+				expect(moved).toEqual([{ entityId: target }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"updates existing entities against their baselines and fails a stale one as a conflict",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const target = targetOf(input);
+				const read = entityBaseline(input, target);
+				const original = yield* read;
+				yield* commit(yield* entityUpdates([[target, original, "Renamed"]]), nextCommand(input));
+				expect(yield* read).toMatchObject({ name: "Renamed", properties: { name: "Renamed" } });
+				assertExitFails(
+					yield* Effect.exit(
+						commit(yield* entityUpdates([[target, original, "Stale"]]), nextCommand(input)),
+					),
+					new EntityStale({ reason: { entityId: target, code: "entity-stale" } }),
+				);
+				expect(yield* read).toMatchObject({ name: "Renamed" });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"applies entity merges before entity updates",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const root = yield* commitUserCommand(input);
+				const target = targetOf(input);
+				const read = entityBaseline(input, target);
+				const updates = yield* entityUpdates([[target, yield* read, "Merged"]]);
+				yield* commit(
+					{
+						entities: {
+							...updates.entities,
+							merges: [{ mergeInto: target, mergeFrom: root.entityId, entitySchemaSlug: "record" }],
+						},
+					},
+					nextCommand(input),
+				);
+				expect(yield* read).toMatchObject({ name: "Merged", properties: { name: "Merged" } });
 				const moved = yield* input.session.run((db) =>
 					db
 						.select({ entityId: tables.event.entityId })
@@ -1083,6 +1171,11 @@ layer(testLayer(false))((test) => {
 						{ entities: { deletes: [{ entityId: target, entitySchemaSlug: "record" }] } },
 						run,
 						"entities.deletes",
+					],
+					[
+						yield* entityUpdates([[target, yield* entityBaseline(input, target), "Denied"]]),
+						run,
+						"entities.updates",
 					],
 					[
 						{ settings: { theme: "dark" } },

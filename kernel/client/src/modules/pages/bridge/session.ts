@@ -605,6 +605,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					...("message" in outcome && "reason" in outcome && outcome.reason === "operation-rejected"
 						? { message: outcome.message }
 						: {}),
+					...("conflict" in outcome && "reason" in outcome && outcome.reason === "changes-conflict"
+						? { conflict: outcome.conflict }
+						: {}),
 				}
 			: { ...outcome, requestId, type: resultType };
 		let decoded = decodeHostMessage(message);

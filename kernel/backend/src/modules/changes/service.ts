@@ -1,7 +1,9 @@
 import { BadRequest, DbError, NotFound, ValidationFailed } from "@ryot-app/contract/errors";
 import type {
 	ChangeSet,
+	ChangeSetEntity,
 	ChangeSetEntityReference,
+	ChangeSetEntityUpdate,
 	ChangeSetGlobalEntityReference,
 	CommittedChanges,
 } from "@ryot-app/contract/modules/changes/change-set";
@@ -39,6 +41,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
@@ -132,6 +135,7 @@ const parts = (changes: ChangeSet) => [
 	changes.entities?.deletes,
 	changes.entities?.clears,
 	changes.entities?.merges,
+	changes.entities?.updates,
 	changes.entities?.ensures,
 	changes.relationships?.upserts,
 	changes.relationships?.deletes,
@@ -200,17 +204,20 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				if (input.entity === undefined && events.expected !== undefined) {
 					return yield* rootRequired();
 				}
+				const prepareEntitySave = (
+					item: ChangeSetEntity | ChangeSetEntityUpdate,
+					itemIdentity: string,
+				) =>
+					entities.prepareUserSave({
+						userId,
+						name: item.name,
+						target: item.target,
+						properties: item.properties,
+						lifecycle: itemCommand(command, item.itemIdentity ?? itemIdentity),
+						entitySchema: { owner, slug: EntitySchemaSlug.make(item.entitySchemaSlug) },
+					});
 				const entity =
-					input.entity === undefined
-						? undefined
-						: yield* entities.prepareUserSave({
-								userId,
-								name: input.entity.name,
-								target: input.entity.target,
-								properties: input.entity.properties,
-								lifecycle: itemCommand(command, input.entity.itemIdentity ?? "entity"),
-								entitySchema: { owner, slug: EntitySchemaSlug.make(input.entity.entitySchemaSlug) },
-							});
+					input.entity === undefined ? undefined : yield* prepareEntitySave(input.entity, "entity");
 				const rootId = entity?.entityId;
 				const creates = yield* Effect.forEach(events.creates, (item) =>
 					Effect.gen(function* () {
@@ -386,6 +393,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							kernelCollectionLifecycleCommand(itemCommand(command, `entity-merge:${index}`)),
 						),
 				);
+				const updates = yield* Effect.forEach(
+					sortBy(input.entities?.updates ?? [], (item) => item.target.entityId),
+					(item) => prepareEntitySave(item, `entity-update:${item.target.entityId}`),
+				);
 				const sourceWrites = Effect.gen(function* () {
 					const baselines = events.baselines ?? [];
 					for (const baseline of baselines) {
@@ -522,6 +533,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					}
 					for (const prepared of merges) {
 						dispatch.push(...(yield* userData.persistPreparedMerge(prepared)).dispatch);
+					}
+					for (const prepared of updates) {
+						dispatch.push(...(yield* entities.persistPreparedUserSave(prepared)).dispatch);
 					}
 					return { dispatch, result: written.result };
 				});

@@ -65,7 +65,8 @@ The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `tran
 A successful `operation-result` carries the operation's `value` and `committed`, the kernel's
 `CommittedChanges` for the changes the operation returned (empty `events` when nothing was
 committed). `operation-result` failures carry `transport`, `operation-failed`, `changes-conflict`
-(the kernel's commit of the operation's changes found a stale baseline), or `malformed-result`, or
+with its `CommitConflictCode` as `conflict` (the kernel's commit of the operation's changes found a
+stale baseline or refused changed user data), or `malformed-result`, or
 `operation-rejected` with the operation's `message`. `operation-failed` is a declared platform
 failure with no user-facing text; `operation-rejected` is a deterministic refusal whose message may
 be shown to the user, and retrying the same input cannot succeed. The kernel reports a write refused

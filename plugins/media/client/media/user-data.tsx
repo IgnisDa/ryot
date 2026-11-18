@@ -59,10 +59,24 @@ const mediaUserDataMutation = createRyotMutation<
 const isMediaLibraryMemberSchemaSlug = (slug: string): slug is MediaLibraryMemberEntitySchemaSlug =>
 	mediaLibraryMemberEntitySchemaSlugs.some((candidate) => candidate === slug);
 
-const submissionErrorFallback = (text: MediaText, error: Error) =>
-	error instanceof RyotClientError && error.reason === "transport"
-		? text("user-data.error-transport")
-		: text("user-data.error-retry");
+const submissionErrorFallback = (text: MediaText, error: Error) => {
+	if (!(error instanceof RyotClientError)) {
+		return text("user-data.error-retry");
+	}
+	if (error.reason === "transport") {
+		return text("user-data.error-transport");
+	}
+	switch (error.conflict) {
+		case "state-conflict":
+			return text("user-data.error-state-conflict");
+		case "entity-not-found":
+			return text("user-data.error-entity-not-found");
+		case "child-mapping-conflict":
+			return text("user-data.error-child-mapping-conflict");
+		default:
+			return text("user-data.error-retry");
+	}
+};
 
 export function MediaUserDataControl(props: { readonly media: MediaEntitySummaryValue }) {
 	const { media } = props;

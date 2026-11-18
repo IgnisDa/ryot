@@ -240,37 +240,47 @@ it.live.each([
 	testTimeout,
 );
 
-it.live(
-	"keeps the confirmation open when the data changed while merging",
-	() =>
-		Effect.gen(function* () {
-			const message = "Couldn't finish this change. Retry to confirm the result safely.";
-			const mounted = mountRyotClient(
-				{
-					query: () => entityQuery(),
-					pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
-					invokeOperation: () => Effect.fail(new RyotClientError({ reason: "changes-conflict" })),
-				},
-				<MediaUserDataControl media={summary()} />,
-			);
-			try {
-				clickRyotElement(
-					yield* Effect.promise(() => chooseMenuItem(mounted.container, "Merge my data into…")),
+for (const [conflict, message] of [
+	["state-conflict", "Your data changed. Refresh this page and try again."],
+	[
+		"child-mapping-conflict",
+		"Some child data has no unique match. Refresh the media items and try again.",
+	],
+	["entity-not-found", "One of these media items no longer exists. Refresh and try again."],
+	["entity-stale", "Couldn't finish this change. Retry to confirm the result safely."],
+] as const) {
+	it.live(
+		`keeps the confirmation open and explains a ${conflict} conflict while merging`,
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountRyotClient(
+					{
+						query: () => entityQuery(),
+						pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
+						invokeOperation: () =>
+							Effect.fail(new RyotClientError({ conflict, reason: "changes-conflict" })),
+					},
+					<MediaUserDataControl media={summary()} />,
 				);
-				yield* Effect.promise(() =>
-					waitFor(() => expect(queryByRole(document.body, "dialog")).not.toBeNull()),
-				);
-				clickRyotElement(getByRole(document.body, "button", { name: "Merge data" }));
-				yield* Effect.promise(() =>
-					waitFor(() => expect(getByRole(document.body, "alert").textContent).toBe(message)),
-				);
-				expect(queryByRole(document.body, "dialog")).not.toBeNull();
-			} finally {
-				mounted.unmount();
-			}
-		}),
-	testTimeout,
-);
+				try {
+					clickRyotElement(
+						yield* Effect.promise(() => chooseMenuItem(mounted.container, "Merge my data into…")),
+					);
+					yield* Effect.promise(() =>
+						waitFor(() => expect(queryByRole(document.body, "dialog")).not.toBeNull()),
+					);
+					clickRyotElement(getByRole(document.body, "button", { name: "Merge data" }));
+					yield* Effect.promise(() =>
+						waitFor(() => expect(getByRole(document.body, "alert").textContent).toBe(message)),
+					);
+					expect(queryByRole(document.body, "dialog")).not.toBeNull();
+				} finally {
+					mounted.unmount();
+				}
+			}),
+		testTimeout,
+	);
+}
 
 it.live(
 	"retries the same immutable operation after a transport failure",

@@ -1,4 +1,5 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import type { CommitConflictCode } from "@ryot-app/contract/modules/changes/change-set";
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/live-updates/messages";
 import {
@@ -524,6 +525,7 @@ export const createPluginRuntime = (
 					readonly message?: Message;
 					readonly outcome: "failure";
 					readonly reason: RyotClientErrorReason;
+					readonly conflict?: CommitConflictCode;
 			  },
 	) => {
 		const call = pending.get(requestId);
@@ -536,6 +538,7 @@ export const createPluginRuntime = (
 						new RyotClientError({
 							reason: outcome.reason,
 							...(outcome.message === undefined ? {} : { rejection: outcome.message }),
+							...(outcome.conflict === undefined ? {} : { conflict: outcome.conflict }),
 						}),
 					)
 				: Effect.succeed(outcome.value),

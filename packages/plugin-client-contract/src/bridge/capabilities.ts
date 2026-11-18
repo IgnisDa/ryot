@@ -4,7 +4,10 @@ import {
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/assets/schemas";
 import { SetCalendarSourceVisibilityBody } from "@ryot-app/contract/modules/calendar-sources/schemas";
-import { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
+import {
+	CommitConflictCode,
+	CommittedChanges,
+} from "@ryot-app/contract/modules/changes/change-set";
 import {
 	CollectionResponse,
 	CreateCollectionBody,
@@ -364,9 +367,13 @@ const pluginOperationFailureVariants = [
 			"operation-failed",
 			"entitlement-required",
 			"page-write-access-required",
-			"changes-conflict",
 			"malformed-result",
 		]),
+	},
+	{
+		conflict: CommitConflictCode,
+		outcome: Schema.Literal("failure"),
+		reason: Schema.Literal("changes-conflict"),
 	},
 	{
 		message: Message,

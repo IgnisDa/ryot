@@ -167,7 +167,11 @@ describe("plugin operations service", () => {
 						},
 					});
 
-					expect(outcome).toEqual({ outcome: "failure", reason: "changes-conflict" });
+					expect(outcome).toEqual({
+						outcome: "failure",
+						conflict: "entity-stale",
+						reason: "changes-conflict",
+					});
 				}),
 			testTimeout,
 		);

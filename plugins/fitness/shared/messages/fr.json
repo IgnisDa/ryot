@@ -1073,6 +1073,7 @@
 	"query-parameter.value": "Valeur",
 	"query-parameter.workout": "Entraînement",
 	"query-parameter.workouts": "Entraînements",
+	"rejection.exercise-merge.too-many-templates": "Cet exercice figure dans trop de modèles d’entraînement pour être fusionné. Retirez-le de certains modèles et réessayez.",
 	"rejection.workout-exercise.context-missing": "Cet exercice ne fait pas partie d’un entraînement.",
 	"rejection.workout-exercise.taxonomy-capacity": "Cet exercice répertorie plus de muscles ou d’équipements qu’un entraînement ne peut en enregistrer.",
 	"rejection.workout-set.confirmed-at-invalid": "L’heure de fin de cette série est invalide.",

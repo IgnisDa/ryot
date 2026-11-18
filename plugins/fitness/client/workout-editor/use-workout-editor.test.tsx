@@ -363,6 +363,7 @@ const saveProbeHarness = Effect.fnUntraced(function* (
 						page.send({
 							outcome: "failure",
 							reason: saveFailure,
+							conflict: "entity-stale",
 							type: "operation-result",
 							requestId: request.requestId,
 						});

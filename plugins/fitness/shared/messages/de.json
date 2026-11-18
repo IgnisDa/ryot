@@ -1073,6 +1073,7 @@
 	"query-parameter.value": "Wert",
 	"query-parameter.workout": "Training",
 	"query-parameter.workouts": "Trainings",
+	"rejection.exercise-merge.too-many-templates": "Diese Übung ist in zu vielen Trainingsvorlagen enthalten, um sie zusammenzuführen. Entferne sie aus einigen Vorlagen und versuche es erneut.",
 	"rejection.workout-exercise.context-missing": "Diese Übung gehört zu keinem Training.",
 	"rejection.workout-exercise.taxonomy-capacity": "Diese Übung führt mehr Muskeln oder Ausrüstung auf, als ein Training erfassen kann.",
 	"rejection.workout-set.confirmed-at-invalid": "Die Abschlusszeit dieses Satzes ist ungültig.",

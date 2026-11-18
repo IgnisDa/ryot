@@ -454,7 +454,9 @@ suppressed occurrences move with them, so an occurrence the user deleted on the 
 the destination. The operation returns an
 `entities.clears` or `entities.merges` entry as its change set and an empty output; the kernel's
 [entity user-data owner](../../kernel/backend/src/modules/entities/user-data/README.md) runs it
-atomically under the operation's idempotency key with stale-state checks.
+atomically under the operation's idempotency key with stale-state checks. The menu explains the
+`changes-conflict` codes `state-conflict` (the data changed), `child-mapping-conflict` (missing or
+ambiguous child matches) and `entity-not-found`; any other failure offers a safe retry.
 
 `media-review-create` saves a review on a visible media, group, creator, season, or episode owned by
 this plugin. Create and update accept a rating, nonblank text, or both; an empty review is rejected.

@@ -3,6 +3,7 @@ import { expect } from "bun:test";
 import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
+import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
@@ -1589,6 +1590,61 @@ layer(
 						reason: { code: "changes-conflict", conflict: "entity-stale" },
 					}),
 				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+		commitFailure: new EntityUserDataBadRequest({
+			reason: { code: "child-mapping-conflict", entityIds: [EntityId.make("child-1")] },
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"maps an entity user-data refusal of returned changes to a 409 with its conflict code",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
+					new PluginConflictError({
+						reason: { code: "changes-conflict", conflict: "child-mapping-conflict" },
+					}),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+		commitFailure: new EntityUserDataBadRequest({
+			reason: { operation: "merge", code: "operation-denied" },
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"reports an entity user-data refusal the plugin could rule out as invalid changes",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toMatchObject({
+					_tag: "PluginInvocationError",
+					reason: {
+						code: "runtime-failed",
+						diagnostics: [
+							objectContaining({
+								message:
+									"Operation changes were not committed (EntityUserDataBadRequest: operation-denied)",
+							}),
+						],
+					},
+				});
 			}),
 		testTimeout,
 	);

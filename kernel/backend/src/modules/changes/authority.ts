@@ -85,7 +85,7 @@ const stampedNotification = (
 
 /**
  * Resolves what a principal may write. User writes need a pinned plugin and an execution user;
- * the root entity, entity deletes, clears, merges and settings need a direct user execution;
+ * the root entity, entity deletes, clears, merges, updates and settings need a direct user execution;
  * ensures need the plugin's user bootstrap; global upserts need a pinned system plugin execution,
  * and entity upserts also its provider; notifications need a user automation run.
  */
@@ -114,6 +114,7 @@ export const authorizeChangeSet = (
 		["entities.deletes", has(entities?.deletes)],
 		["entities.clears", has(entities?.clears)],
 		["entities.merges", has(entities?.merges)],
+		["entities.updates", has(entities?.updates)],
 		["entities.ensures", has(entities?.ensures)],
 	];
 	for (const [part, present] of [...userParts, ...directUserParts]) {
@@ -220,6 +221,7 @@ export const undeclaredSchema = (changes: ChangeSet, scope: PluginSchemaScope) =
 		...(changes.entities?.deletes ?? []).map((item) => item.entitySchemaSlug),
 		...(changes.entities?.clears ?? []).map((item) => item.entitySchemaSlug),
 		...(changes.entities?.merges ?? []).map((item) => item.entitySchemaSlug),
+		...(changes.entities?.updates ?? []).map((item) => item.entitySchemaSlug),
 		...(changes.entities?.ensures ?? []).map((item) => item.entitySchemaSlug),
 		...(changes.globalEntities ?? []).map((item) => item.entitySchemaSlug),
 	];

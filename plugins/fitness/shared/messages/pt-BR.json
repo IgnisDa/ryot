@@ -1073,6 +1073,7 @@
 	"query-parameter.started-before": "Iniciado antes de",
 	"query-parameter.until": "Até",
 	"query-parameter.workout": "Treino",
+	"rejection.exercise-merge.too-many-templates": "Este exercício está em modelos de treino demais para ser mesclado. Remova-o de alguns modelos e tente novamente.",
 	"rejection.workout-exercise.context-missing": "Este exercício não faz parte de um treino.",
 	"rejection.workout-exercise.taxonomy-capacity": "Este exercício lista mais músculos ou equipamentos do que um treino pode registrar.",
 	"rejection.workout-set.confirmed-at-invalid": "O horário de conclusão desta série não é válido.",

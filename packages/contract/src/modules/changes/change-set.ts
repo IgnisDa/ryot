@@ -13,6 +13,7 @@ export const CHANGE_SET_LIMITS = {
 	baselines: 100,
 	notifications: 20,
 	entityDeletes: 100,
+	entityUpdates: 100,
 	entityEnsures: 500,
 	globalEntities: 500,
 	entityDataChanges: 20,
@@ -46,21 +47,28 @@ export const ChangeSetGlobalEntityReference = Schema.Union([
 ]);
 export type ChangeSetGlobalEntityReference = typeof ChangeSetGlobalEntityReference.Type;
 
-export const ChangeSetEntity = strictStruct({
+const entityFields = {
 	properties,
 	itemIdentity,
 	entitySchemaSlug: slug,
 	name: Schema.NonEmptyString,
-	target: Schema.Union([
-		strictStruct({ kind: Schema.Literal("create") }),
-		strictStruct({
-			entityId: EntityId,
-			kind: Schema.Literal("update"),
-			expected: strictStruct({ properties, name: Schema.String, updatedAt: Schema.String }),
-		}),
-	]),
+};
+
+const entityUpdateTarget = strictStruct({
+	entityId: EntityId,
+	kind: Schema.Literal("update"),
+	expected: strictStruct({ properties, name: Schema.String, updatedAt: Schema.String }),
+});
+
+export const ChangeSetEntity = strictStruct({
+	...entityFields,
+	target: Schema.Union([strictStruct({ kind: Schema.Literal("create") }), entityUpdateTarget]),
 });
 export type ChangeSetEntity = typeof ChangeSetEntity.Type;
+
+/** An update of an existing user entity, checked against the entity as the writer read it. */
+export const ChangeSetEntityUpdate = strictStruct({ ...entityFields, target: entityUpdateTarget });
+export type ChangeSetEntityUpdate = typeof ChangeSetEntityUpdate.Type;
 
 const entityOfSchema = strictStruct({ entityId: EntityId, entitySchemaSlug: slug });
 
@@ -131,24 +139,6 @@ export const ChangeSet = strictStruct({
 			),
 		),
 	),
-	entities: Schema.optional(
-		strictStruct({
-			deletes: Schema.optional(atMost(entityOfSchema, CHANGE_SET_LIMITS.entityDeletes)),
-			clears: Schema.optional(atMost(entityOfSchema, CHANGE_SET_LIMITS.entityDataChanges)),
-			ensures: Schema.optional(
-				atMost(
-					strictStruct({ properties, entitySchemaSlug: slug, name: Schema.NonEmptyString }),
-					CHANGE_SET_LIMITS.entityEnsures,
-				),
-			),
-			merges: Schema.optional(
-				atMost(
-					strictStruct({ mergeFrom: EntityId, mergeInto: EntityId, entitySchemaSlug: slug }),
-					CHANGE_SET_LIMITS.entityDataChanges,
-				),
-			),
-		}),
-	),
 	globalRelationships: Schema.optional(
 		atMost(
 			strictStruct({
@@ -178,6 +168,32 @@ export const ChangeSet = strictStruct({
 					CHANGE_SET_LIMITS.globalRelationshipsTotal,
 			),
 		),
+	),
+	entities: Schema.optional(
+		strictStruct({
+			deletes: Schema.optional(atMost(entityOfSchema, CHANGE_SET_LIMITS.entityDeletes)),
+			clears: Schema.optional(atMost(entityOfSchema, CHANGE_SET_LIMITS.entityDataChanges)),
+			ensures: Schema.optional(
+				atMost(
+					strictStruct({ properties, entitySchemaSlug: slug, name: Schema.NonEmptyString }),
+					CHANGE_SET_LIMITS.entityEnsures,
+				),
+			),
+			merges: Schema.optional(
+				atMost(
+					strictStruct({ mergeFrom: EntityId, mergeInto: EntityId, entitySchemaSlug: slug }),
+					CHANGE_SET_LIMITS.entityDataChanges,
+				),
+			),
+			updates: Schema.optional(
+				atMost(ChangeSetEntityUpdate, CHANGE_SET_LIMITS.entityUpdates).check(
+					Schema.makeFilter(
+						(updates) =>
+							new Set(updates.map((update) => update.target.entityId)).size === updates.length,
+					),
+				),
+			),
+		}),
 	),
 	events: Schema.optional(
 		strictStruct({
@@ -219,13 +235,18 @@ export const CommittedChanges = strictStruct({
 });
 export type CommittedChanges = typeof CommittedChanges.Type;
 
-/** Failure codes meaning the change set's baseline changed or vanished concurrently. */
+/**
+ * Failure codes meaning the change set's baseline changed or vanished concurrently, or that the user
+ * data it clears or merges no longer allows the change.
+ */
 export const CommitConflictCode = Schema.Literals([
 	"event-stale",
 	"entity-stale",
+	"state-conflict",
 	"event-not-found",
 	"entity-not-found",
 	"mutation-conflict",
+	"child-mapping-conflict",
 	"concurrent-relationship-change",
 ]);
 export type CommitConflictCode = typeof CommitConflictCode.Type;

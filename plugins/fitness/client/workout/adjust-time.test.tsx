@@ -183,6 +183,7 @@ it.live(
 				outcome: "failure",
 				type: "operation-result",
 				reason: "changes-conflict",
+				conflict: "entity-stale",
 				requestId: request.requestId,
 			});
 			yield* Effect.promise(() =>

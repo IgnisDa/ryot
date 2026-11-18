@@ -39,9 +39,6 @@ const isOperationRejected = Schema.is(PluginOperationRejected);
 const isStaleRevision = (cause: unknown) =>
 	Schema.is(PluginConflictError)(cause) && cause.reason.code === "source-revision-stale";
 
-const isChangesConflict = (cause: unknown) =>
-	Schema.is(PluginConflictError)(cause) && cause.reason.code === "changes-conflict";
-
 export type PluginOperationDispatchOutcome =
 	PluginOperationOutcome | { readonly outcome: "stale-session" };
 
@@ -97,8 +94,15 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 								if (isStaleRevision(error.cause)) {
 									return { outcome: "stale-session" } as const;
 								}
-								if (isChangesConflict(error.cause)) {
-									return { outcome: "failure", reason: "changes-conflict" } as const;
+								if (
+									Schema.is(PluginConflictError)(error.cause) &&
+									error.cause.reason.code === "changes-conflict"
+								) {
+									return {
+										outcome: "failure",
+										reason: "changes-conflict",
+										conflict: error.cause.reason.conflict,
+									} as const;
 								}
 								if (isOperationRejected(error.cause) || isDemoOperationProtectedError(error)) {
 									return {

@@ -394,7 +394,10 @@ describe("background submission tray", () => {
 				const tray = yield* openTray(test);
 				tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
 				yield* drain;
-				yield* reply(test, 0)({ outcome: "failure", reason: "changes-conflict" });
+				yield* reply(
+					test,
+					0,
+				)({ outcome: "failure", conflict: "entity-stale", reason: "changes-conflict" });
 				const [conflicted] = tray.getSnapshot().entries;
 				expect(settled).toEqual([{ status: "failed", reason: "operation-failed" }]);
 				expect(tray.retry(conflicted.id, catalog)).toBe(false);
