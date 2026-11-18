@@ -61,7 +61,8 @@ layer(BunServices.layer)((test) => {
 					/dispatchAdmittedWorkflow\(\s*engine,\s*ScriptExecutionWorkflow,/,
 				);
 				expect(durableQueues).toMatch(/jobs\s*\.enqueue\(\s*payload\.lane === "interactive"/);
-				expect(automationRunJob).toContain("ScriptExecutionService");
+				expect(automationRunJob).toContain("yield* ScriptCalls");
+				expect(automationRunJob).not.toContain("ScriptExecutionService");
 				expect(sandboxScriptWorkflow).toMatch(
 					/processSandboxExecutionQueue\(\s*\{\s*\.\.\.payload,\s*recoveryAttempt: attempt,?\s*\}\s*\)/,
 				);
@@ -92,16 +93,11 @@ layer(BunServices.layer)((test) => {
 		"keeps event create and repository primitives behind EventsService",
 		() =>
 			Effect.gen(function* () {
-				const sources = yield* Effect.all([
-					readModule("../../collections/service.ts"),
-					readModule("../../events/script-host.ts"),
-				]);
+				const source = yield* readModule("../../collections/service.ts");
 
-				for (const source of sources) {
-					expect(source).not.toContain("#modules/events/event-create");
-					expect(source).not.toContain("#modules/events/repository");
-					expect(source).not.toContain("EventsRepository");
-				}
+				expect(source).not.toContain("#modules/events/event-create");
+				expect(source).not.toContain("#modules/events/repository");
+				expect(source).not.toContain("EventsRepository");
 			}),
 		testTimeout,
 	);

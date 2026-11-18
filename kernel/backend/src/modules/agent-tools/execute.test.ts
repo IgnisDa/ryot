@@ -2,11 +2,12 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import { type Capability, CapabilityId } from "@ryot-app/contract/schema/capability";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { AgentScriptRepository } from "#modules/scripts/agent/repository";
 import {
@@ -15,8 +16,10 @@ import {
 	type AgentScriptRun,
 	AgentScriptService,
 } from "#modules/scripts/agent/service";
+import { ScriptCalls, ScriptCallsInstalledLive } from "#modules/scripts/executions/calls";
 import {
 	realSandboxLayer,
+	RealSandboxScripts,
 	realSandboxUserId,
 } from "#modules/scripts/executions/real-sandbox.test-support";
 
@@ -148,6 +151,80 @@ try {
 						diagnostics: arrayContaining([objectContaining({ line: 1, severity: "error" })]),
 					});
 				}
+			}),
+		testTimeout,
+	);
+});
+
+const operationSource = `
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+
+export const manifest = defineManifest({ kind: "operation", name: "Write", slug: "fixture.write" });
+
+export default defineOperation({
+  manifest,
+  input: Schema.Struct({ value: Schema.String }),
+  output: Schema.Struct({ items: Schema.Array(Schema.String) }),
+  run: ({ value }) => Effect.succeed({ output: { items: ["wrote " + value] } }),
+});
+`;
+
+const decodeOperationResult = Schema.decodeUnknownEffect(Schema.Struct({ output: JsonValue }));
+
+const sharedPermitAgentLayer = AgentScriptService.layer.pipe(
+	Layer.provideMerge(AgentScriptRepository.layer),
+	Layer.provideMerge(ScriptCallsInstalledLive),
+	Layer.provideMerge(
+		realSandboxLayer({ workerConcurrency: 1, perUserSidecars: true, memoryBudgetMiB: 1094 }),
+	),
+	Layer.provide(BunCrypto.layerSecureRandom),
+);
+
+layer(sharedPermitAgentLayer)((test) => {
+	test.effect(
+		"runs an operation script from ryot.call under one shared sandbox permit",
+		() =>
+			Effect.gen(function* () {
+				const calls = yield* ScriptCalls;
+				const operation = yield* (yield* RealSandboxScripts).install(operationSource);
+				// Mirrors OperationsService.dispatch: the capability call runs the operation through ScriptCalls.
+				const invoke: AgentCapabilityCall = (request, call) =>
+					calls
+						.run({
+							lane: "interactive",
+							input: request.input,
+							executionId: `agent-operation-${call.index}`,
+							principal: {
+								providerId: null,
+								scriptId: operation.scriptId,
+								contentHash: operation.contentHash,
+								metadata: operation.compiled.manifest,
+								pluginRevision: operation.pluginRevision,
+								scriptSlug: operation.compiled.manifest.slug,
+								subject: { type: "user", userId: realSandboxUserId },
+							},
+						})
+						.pipe(
+							Effect.flatMap((result) =>
+								result.error === null
+									? decodeOperationResult(result.value).pipe(
+											Effect.map(({ output }) => output),
+											Effect.orDie,
+										)
+									: Effect.fail({ message: result.error.message }),
+							),
+						);
+				const code = `
+const first = await ryot.call("testing/fixture:operations/write", { value: "a" });
+const second = await ryot.call("testing/fixture:operations/write", { value: "b" });
+return [...first.items, ...second.items];
+`;
+				expect(completed(yield* run(code, invoke))).toMatchObject({
+					error: null,
+					value: ["wrote a", "wrote b"],
+				});
 			}),
 		testTimeout,
 	);
