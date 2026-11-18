@@ -44,6 +44,7 @@ const SandboxExecutionQueuePayload = Schema.Struct({
 	workflowExecutionId: Schema.String,
 	principal: ScriptExecutionPrincipal,
 	checkpoint: Schema.optional(jsonValueSchema),
+	activity: Schema.optional(Schema.Literal(true)),
 	grants: Schema.optional(SandboxExecutionGrants),
 	recoveryAttempt: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
 });
@@ -220,6 +221,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 					compiledCode: artifact.compiledCode,
 					compiledFormat: artifact.compiledFormat,
 					workflowExecutionId: payload.workflowExecutionId,
+					...(payload.activity ? { activity: true } : {}),
 					...(grants ? { grants } : {}),
 					inlineDurableHost: {
 						capabilities: inlineCapabilities,

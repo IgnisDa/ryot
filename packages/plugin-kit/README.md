@@ -430,9 +430,9 @@ cannot write global domain data or declare deployment-owned `httpRateLimits` or 
 A `userBootstrap` entry either names a direct script or lists `entities`, each with a name, one of
 the plugin's own entity schemas, and properties valid for it. The kernel ensures declared entities
 itself, one per schema and user, without running a script. Use a script only when setup needs logic.
-A bootstrap script returns `{ changes? }` (`changesOutputSchema` from the SDK `core`) and writes
-ensures as `changes.entities.ensures`; the kernel commits them once per bootstrap execution and script
-content.
+A bootstrap script receives `{ userId }`, the ID of the user being bootstrapped. It returns
+`{ changes? }` (`changesOutputSchema` from the SDK `core`) and writes ensures as
+`changes.entities.ensures`; the kernel commits them once per bootstrap execution and script content.
 
 A `memberships` rule links the plugin's member entities to a bootstrap-declared target through one of
 its relationship schemas, without a hook. `join` chooses what adds a member: creating one of the

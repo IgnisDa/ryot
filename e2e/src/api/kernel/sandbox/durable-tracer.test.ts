@@ -18,19 +18,18 @@ import { requireArray, requireObjectRecord, requirePresent } from "~/support/ass
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
-const operationSource = (input: { readonly name: string; readonly slug: string }) => `
-import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+const scriptSource = (input: { readonly name: string; readonly slug: string }) => `
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 export const manifest = defineManifest({
-  kind: "operation",
+  kind: "script",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
 
-export default defineOperation({
+export default defineScript({
   manifest,
   output: Schema.Unknown,
   input: Schema.Struct({
@@ -67,16 +66,14 @@ export default defineOperation({
     ) ?? Effect.fail(new Error("executeWorkflow is unavailable")));
     yield* host.span([{ name: "durable.tracer.completed" }]);
     return {
-      output: {
-        rows,
-        http,
-        child,
-        claim,
-        failure,
-        parallel,
-        preferences,
-        startedAt: execution.startedAt,
-      },
+      rows,
+      http,
+      child,
+      claim,
+      failure,
+      parallel,
+      preferences,
+      startedAt: execution.startedAt,
     };
   }),
 });
@@ -101,7 +98,7 @@ export default defineWorkflow({
 `;
 
 describe("universal durable sandbox tracer", () => {
-	it.live("replays a role-specific operation without duplicating durable effects", () =>
+	it.live("replays a script without duplicating durable effects", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const http = yield* startFakeHttpServerScoped((url) =>
@@ -109,9 +106,9 @@ describe("universal durable sandbox tracer", () => {
 					? new Response("try later", { status: 503 })
 					: Response.json({ tracer: true }),
 			);
-			const operationSlug = `durable-tracer-${yield* randomUuid}`;
+			const scriptSlug = `durable-tracer-${yield* randomUuid}`;
 			const childSlug = `durable-tracer-child-${yield* randomUuid}`;
-			const operationEntry = "backend/scripts/durable-tracer.sandbox.ts";
+			const scriptEntry = "backend/scripts/durable-tracer.sandbox.ts";
 			const childEntry = "backend/scripts/durable-tracer-child.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
@@ -120,14 +117,14 @@ describe("universal durable sandbox tracer", () => {
 					pluginSlug: `e2e-durable-tracer-${yield* randomUuid}`,
 					workflows: [{ slug: "tracer-child", scriptSlug: childSlug }],
 					files: {
+						[scriptEntry]: scriptSource({ slug: scriptSlug, name: "Durable tracer" }),
 						[childEntry]: childSource({ slug: childSlug, name: "Durable tracer child" }),
-						[operationEntry]: operationSource({ slug: operationSlug, name: "Durable tracer" }),
 					},
 					scripts: [
 						{
-							kind: "operation",
-							slug: operationSlug,
-							entry: operationEntry,
+							kind: "script",
+							slug: scriptSlug,
+							entry: scriptEntry,
 							name: "Durable tracer",
 							requiredPluginConfigKeys: [],
 							capabilities: [
@@ -149,35 +146,13 @@ describe("universal durable sandbox tracer", () => {
 							requiredPluginConfigKeys: [],
 						},
 					],
-					operations: [
-						{
-							output: {},
-							auth: "user",
-							demoAccess: "allowed",
-							slug: "durable-tracer",
-							scriptSlug: operationSlug,
-							title: "Fixture operation",
-							description: "Exercises the universal durable host protocol",
-							hints: { readOnly: false, idempotent: false, destructive: false },
-							input: {
-								type: "object",
-								additionalProperties: false,
-								required: ["entityId", "successUrl", "failureUrl"],
-								properties: {
-									entityId: { type: "string" },
-									successUrl: { type: "string" },
-									failureUrl: { type: "string" },
-								},
-							},
-						},
-					],
 				}),
 				uninstallTestPlugin,
 			);
 			const fixture = yield* createRatedItem(client, plugin.pluginId);
 			const scriptId = requirePresent(
-				plugin.scriptIds[operationSlug],
-				"Durable tracer operation was not installed",
+				plugin.scriptIds[scriptSlug],
+				"Durable tracer script was not installed",
 			);
 			const { jobId, executionId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
@@ -198,11 +173,8 @@ describe("universal durable sandbox tracer", () => {
 			);
 			expect((yield* deleteSandboxReplayProjection(executionId)).deleted).toBe(true);
 			const value = requireObjectRecord(
-				requireObjectRecord(
-					requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId), "durable tracer"),
-					"Durable tracer result must be an object",
-				).output,
-				"Durable tracer output must be an object",
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId), "durable tracer"),
+				"Durable tracer result must be an object",
 			);
 
 			expect(requireArray(value.rows, "Durable tracer rows")).toHaveLength(1);

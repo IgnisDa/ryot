@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
@@ -23,6 +22,10 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { isUserBootstrapPrincipal } from "#modules/scripts/authorization/principal";
+import {
+	runUserBootstrapScript,
+	type UserBootstrapRun,
+} from "#modules/scripts/executions/bootstrap";
 import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { ScriptChanges, type ScriptChangesInput } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -30,11 +33,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { databaseLayer } from "#testing/effect";
 
-import {
-	makePluginUserBootstrapDispatcher,
-	runUserBootstrapScript,
-	userBootstrapExecutionId,
-} from "./plugin-dispatch";
+import { makePluginUserBootstrapDispatcher, userBootstrapExecutionId } from "./plugin-dispatch";
 
 type BootstrapEntry = PluginManifest["userBootstrap"][number];
 
@@ -234,7 +233,7 @@ layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((
 	test.effect(
 		"dispatches sorted installed entries with bound user subject and deterministic ids",
 		() => {
-			const payloads: SandboxExecutionPayload[] = [];
+			const payloads: UserBootstrapRun[] = [];
 			return Effect.gen(function* () {
 				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
 					Effect.sync(() => {
@@ -246,21 +245,18 @@ layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((
 
 				expect(payloads).toEqual<unknown>([
 					{
-						context: {},
+						userId: "user-1",
 						scriptId: "bootstrap.first-id",
-						subject: { type: "user", userId: "user-1" },
 						executionId: userBootstrapExecutionId("user-1", "example-id", "first"),
 					},
 					{
-						context: {},
+						userId: "user-1",
 						scriptId: "bootstrap.second-id",
-						subject: { type: "user", userId: "user-1" },
 						executionId: userBootstrapExecutionId("user-1", "example-id", "second"),
 					},
 					{
-						context: {},
+						userId: "user-1",
 						scriptId: "bootstrap.only-id",
-						subject: { type: "user", userId: "user-1" },
 						executionId: userBootstrapExecutionId("user-1", "sample-id", "only"),
 					},
 				]);
@@ -351,7 +347,7 @@ layer(layerFor([]))((test) => {
 	test.effect(
 		"dispatches nothing for a user with no system installations",
 		() => {
-			const payloads: SandboxExecutionPayload[] = [];
+			const payloads: UserBootstrapRun[] = [];
 			return Effect.gen(function* () {
 				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
 					Effect.sync(() => {
@@ -613,9 +609,12 @@ const bootstrapScriptLayer = (value: unknown) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const committed = yield* Ref.make<ReadonlyArray<ScriptChangesInput>>([]);
+			const inputs = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			return Layer.mergeAll(
-				Layer.succeed(BootstrapCommits, { committed: Ref.get(committed) }),
-				scriptCallsLayer(() => Effect.succeed(scriptCallResult(value))),
+				Layer.succeed(BootstrapCommits, { inputs: Ref.get(inputs), committed: Ref.get(committed) }),
+				scriptCallsLayer(({ input }) =>
+					Ref.update(inputs, (all) => [...all, input]).pipe(Effect.as(scriptCallResult(value))),
+				),
 				Layer.succeed(
 					ScriptChanges,
 					ScriptChanges.of({
@@ -630,7 +629,10 @@ const bootstrapScriptLayer = (value: unknown) =>
 
 class BootstrapCommits extends Context.Service<
 	BootstrapCommits,
-	{ readonly committed: Effect.Effect<ReadonlyArray<ScriptChangesInput>> }
+	{
+		readonly inputs: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly committed: Effect.Effect<ReadonlyArray<ScriptChangesInput>>;
+	}
 >()(
 	"@ryot-app/kernel-backend/modules/accounts/provisioning/plugin-dispatch.test/BootstrapCommits",
 ) {}
@@ -649,10 +651,9 @@ const installedBootstrap = Effect.gen(function* () {
 	return {
 		script,
 		executionId: userBootstrapExecutionId(userId, pluginId, "seed"),
-		payload: {
-			context: {},
+		run: {
+			userId,
 			scriptId: SandboxScriptId.make(script.id),
-			subject: { userId, type: "user" as const },
 			executionId: userBootstrapExecutionId(userId, pluginId, "seed"),
 		},
 	};
@@ -667,8 +668,9 @@ layer(
 		"commits a bootstrap script's ensures under its bootstrap principal, keyed by its execution",
 		() =>
 			Effect.gen(function* () {
-				const { script, payload, executionId } = yield* installedBootstrap;
-				expect(yield* runUserBootstrapScript(payload)).toEqual({ error: null });
+				const { run, script, executionId } = yield* installedBootstrap;
+				expect(yield* runUserBootstrapScript(run)).toEqual({ error: null });
+				expect(yield* (yield* BootstrapCommits).inputs).toEqual([{ userId: run.userId }]);
 				const committed = yield* (yield* BootstrapCommits).committed;
 				expect(committed).toHaveLength(1);
 				const [input] = committed;
@@ -693,8 +695,8 @@ layer(
 		"fails a bootstrap script whose output is not a change set result",
 		() =>
 			Effect.gen(function* () {
-				const { payload } = yield* installedBootstrap;
-				expect(yield* runUserBootstrapScript(payload)).toEqual({
+				const { run } = yield* installedBootstrap;
+				expect(yield* runUserBootstrapScript(run)).toEqual({
 					error: { message: "A user bootstrap script must return { changes? }" },
 				});
 				expect(yield* (yield* BootstrapCommits).committed).toEqual([]);

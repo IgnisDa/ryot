@@ -900,8 +900,8 @@ describe("Media entity user data HTTP operations", () => {
 				);
 				const originalTargetEvents = yield* eventsForTree(client, target);
 				const operationSubmissionId = yield* randomUuid;
-				expect(
-					yield* client.call((contract) =>
+				const refused = yield* Effect.flip(
+					client.call((contract) =>
 						contract.plugins.invoke({
 							params: {
 								...pluginPackageSegments(mediaPlugin.metadata.packageId),
@@ -921,7 +921,12 @@ describe("Media entity user data HTTP operations", () => {
 							},
 						}),
 					),
-				).toMatchObject({ result: { status: "rejected" } });
+				);
+				assertTaggedError(refused, "PluginConflictError");
+				expect(refused.reason).toMatchObject({
+					code: "changes-conflict",
+					conflict: "child-mapping-conflict",
+				});
 				const failed = yield* Effect.flip(
 					mergeEntityUserData(client, {
 						mergeFrom: EntityId.make(source.show.id),

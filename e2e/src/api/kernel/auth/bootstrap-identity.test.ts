@@ -29,6 +29,7 @@ it.live("joins creation and reset bootstrap for each recreated account", () =>
 	Effect.gen(function* () {
 		const requests = yield* Queue.unbounded<string>();
 		let held: undefined | Deferred.Deferred<void>;
+		let targetUserId = "";
 		const { target } = yield* Effect.acquireRelease(
 			startIsolatedHarness("Bootstrap Identity"),
 			(harness) => harness.stop,
@@ -36,8 +37,9 @@ it.live("joins creation and reset bootstrap for each recreated account", () =>
 		const upstream = yield* startFakeHttpServerScoped((url) =>
 			Effect.gen(function* () {
 				yield* Queue.offer(requests, url.pathname);
-				if (held) {
-					yield* Deferred.await(held);
+				const gate = held;
+				if (gate && url.pathname === `/${encodeURIComponent(targetUserId)}`) {
+					yield* Deferred.await(gate);
 				}
 				return Response.json({ ok: true });
 			}),
@@ -77,8 +79,8 @@ import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/drive
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "script", slug: "${scriptSlug}", name: "Record bootstrap identity" });
 export default defineScript({
- manifest, input: Schema.Struct({}), output: changesOutputSchema,
- run: (_input, host) => host.httpCall("POST", ${upstreamUrl} + "/bootstrap").pipe(
+ manifest, input: Schema.Struct({ userId: Schema.String }), output: changesOutputSchema,
+ run: (input, host) => host.httpCall("POST", ${upstreamUrl} + "/" + encodeURIComponent(input.userId)).pipe(
   Effect.as({ changes: { entities: { ensures: [{ entitySchemaSlug: "bootstrap-marker", name: "Bootstrap marker", properties: {} }] } } }),
  ),
 });
@@ -93,15 +95,24 @@ export default defineScript({
 					.pipe(Effect.orDie),
 		);
 		const { email, userId } = yield* createAuthenticatedClient(target);
+		targetUserId = userId;
+		const userPath = `/${encodeURIComponent(userId)}`;
+		const nextBootstrap = Effect.fnUntraced(function* () {
+			for (;;) {
+				if ((yield* Queue.take(requests)) === userPath) {
+					return;
+				}
+			}
+		});
 		yield* Effect.addFinalizer(() => deleteUserAndWait(userId, target).pipe(Effect.orDie));
 		yield* Effect.addFinalizer(() =>
 			held ? Deferred.succeed(held, undefined).pipe(Effect.asVoid) : Effect.void,
 		);
-		yield* Queue.take(requests);
+		yield* nextBootstrap();
 		for (let reset = 0; reset < 2; reset++) {
 			held = yield* Deferred.make<void>();
 			const accepted = yield* requestUserReset(userId, target);
-			yield* Queue.take(requests);
+			yield* nextBootstrap();
 			const pending = Option.getOrThrow(
 				yield* executeAdminRyotQLRecipe(
 					userLifecycleOperationRecipe,
@@ -134,6 +145,6 @@ export default defineScript({
 			).toBeNull();
 			held = undefined;
 		}
-		expect(upstream.requests).toHaveLength(3);
+		expect(upstream.requests.filter(({ path }) => path === userPath)).toHaveLength(3);
 	}),
 );

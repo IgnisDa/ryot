@@ -1,9 +1,6 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import { ChangesOutput } from "@ryot-app/contract/modules/changes/change-set";
-import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
-import { JsonValue } from "@ryot-app/contract/schema/json";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -11,15 +8,10 @@ import {
 	PluginBootstrapEntities,
 } from "#modules/plugins/installations/bootstrap-entities";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
-import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
-import { infrastructureRunError } from "#modules/scripts/executions/run-error";
 import {
-	ScriptChanges,
-	type ScriptChangesRejected,
-} from "#modules/scripts/executions/script-changes";
-import { sandboxStartedAt } from "#modules/scripts/host/execution-context";
-import { SandboxRepository } from "#modules/scripts/registry/repository";
+	runUserBootstrapScript,
+	type UserBootstrapRun,
+} from "#modules/scripts/executions/bootstrap";
 import { DatabaseSession } from "#platform/db/session";
 
 export const userBootstrapExecutionId = (userId: string, pluginId: string, bootstrapSlug: string) =>
@@ -27,7 +19,7 @@ export const userBootstrapExecutionId = (userId: string, pluginId: string, boots
 
 export const makePluginUserBootstrapDispatcher = (
 	execute: (
-		payload: SandboxExecutionPayload,
+		run: UserBootstrapRun,
 	) => Effect.Effect<{ readonly error: null | { readonly message: string } }, SandboxRunError>,
 ) =>
 	Effect.gen(function* () {
@@ -130,12 +122,7 @@ export const makePluginUserBootstrapDispatcher = (
 						message: `Plugin user bootstrap script not found: ${entry.packageId} ${bootstrap.slug}`,
 					});
 				}
-				const result = yield* execute({
-					context: {},
-					executionId,
-					scriptId: resolved.script.id,
-					subject: { userId, type: "user" },
-				}).pipe(
+				const result = yield* execute({ userId, executionId, scriptId: resolved.script.id }).pipe(
 					Effect.mapError(
 						(error) =>
 							new SandboxRunError({
@@ -169,82 +156,14 @@ export const makePluginUserBootstrapDispatcher = (
 		return { dispatchAll };
 	});
 
-const changesRejection = (error: ScriptChangesRejected) => {
-	const { reason } = error;
-	if (reason.code === "conflict") {
-		return `its changes conflicted with a newer write (${reason.conflict})`;
-	}
-	return reason.code === "policy-rejected"
-		? "a policy rejected its changes"
-		: `its changes were rejected: ${reason.message}`;
-};
-
-/**
- * Runs a user bootstrap script under its pinned principal and commits the changes it returns, once
- * per bootstrap execution and script content.
- */
-export const runUserBootstrapScript = Effect.fn("runUserBootstrapScript")(function* (
-	payload: SandboxExecutionPayload,
-) {
-	const scripts = yield* SandboxRepository;
-	const calls = yield* ScriptCalls;
-	const changes = yield* ScriptChanges;
-	const pin = yield* scripts
-		.getScriptPin(payload.scriptId, undefined, payload.subject)
-		.pipe(Effect.catchTag("DbError", (error) => Effect.fail(infrastructureRunError(error))));
-	if (!pin) {
-		return yield* new SandboxRunError({
-			kind: "missing-artifact",
-			message: "User bootstrap script is unavailable",
-		});
-	}
-	const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
-		...pin,
-		subject: payload.subject,
-	}).pipe(Effect.mapError(infrastructureRunError));
-	const result = yield* calls.run({
-		principal,
-		lane: "background",
-		executionId: payload.executionId,
-		input: yield* Schema.decodeUnknownEffect(JsonValue)(payload.context).pipe(
-			Effect.mapError(infrastructureRunError),
-		),
-	});
-	if (result.error) {
-		return { error: result.error };
-	}
-	const output = yield* Schema.decodeUnknownEffect(ChangesOutput)(result.value).pipe(
-		Effect.orElseSucceed(() => null),
-	);
-	if (output === null) {
-		return { error: { message: "A user bootstrap script must return { changes? }" } };
-	}
-	return yield* changes
-		.commitKeyed({
-			principal,
-			lane: "background",
-			changes: output.changes,
-			occurredAt: yield* sandboxStartedAt,
-			executionId: `${payload.executionId}-${pin.contentHash}`,
-		})
-		.pipe(
-			Effect.as({ error: null }),
-			Effect.catchTags({
-				DbError: (error) => Effect.fail(infrastructureRunError(error)),
-				ScriptChangesRejected: (error) =>
-					Effect.succeed({ error: { message: changesRejection(error) } }),
-			}),
-		);
-});
-
 export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBootstrapDispatcher>()(
 	"@ryot-app/kernel-backend/modules/accounts/provisioning/plugin-dispatch/PluginUserBootstrapDispatcher",
 	{
 		make: Effect.gen(function* () {
 			const context =
 				yield* Effect.context<Effect.Services<ReturnType<typeof runUserBootstrapScript>>>();
-			return yield* makePluginUserBootstrapDispatcher((payload) =>
-				runUserBootstrapScript(payload).pipe(Effect.provideContext(context)),
+			return yield* makePluginUserBootstrapDispatcher((run) =>
+				runUserBootstrapScript(run).pipe(Effect.provideContext(context)),
 			);
 		}),
 	},

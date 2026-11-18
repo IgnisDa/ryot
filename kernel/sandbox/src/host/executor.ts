@@ -248,7 +248,11 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 												isObjectRecord(response.value) && response.value["state"] === "completed"
 													? response.value["output"]
 													: response.value;
-											return { response, harvest: yield* access.harvest(completed) };
+											const output =
+												input.activity && isObjectRecord(completed)
+													? completed["output"]
+													: completed;
+											return { response, harvest: yield* access.harvest(output) };
 										}),
 									};
 								}),

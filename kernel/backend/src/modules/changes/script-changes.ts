@@ -9,6 +9,7 @@ import { Message } from "@ryot-app/i18n/message";
 import { Effect, Layer, Schema } from "effect";
 
 import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
+import { PluginUserSettingsPatchError } from "#modules/plugins/preferences/user-settings-writer";
 import {
 	type ChangeSetReceipt,
 	ScriptChanges,
@@ -31,6 +32,9 @@ const isPolicyRejection = Schema.is(
 );
 const hasReasonCode = Schema.is(Schema.Struct({ reason: Schema.Struct({ code: Schema.String }) }));
 
+const invalid = (message: string) =>
+	new ScriptChangesRejected({ reason: { message, code: "invalid" } });
+
 const rejection = (error: typeof ChangeSetFailure.Type) => {
 	if (error instanceof DbError) {
 		return error;
@@ -43,11 +47,13 @@ const rejection = (error: typeof ChangeSetFailure.Type) => {
 	if (isCommitConflict(error)) {
 		return new ScriptChangesRejected({ reason: { code: "conflict", conflict: error.reason.code } });
 	}
-	const detail =
-		error instanceof ChangeSetRejected
-			? `${error.part}: ${error.message}`
-			: `${error._tag}${hasReasonCode(error) ? `: ${error.reason.code}` : ""}`;
-	return new ScriptChangesRejected({ reason: { code: "invalid", message: detail } });
+	if (error instanceof ChangeSetRejected) {
+		return invalid(`${error.part}: ${error.message}`);
+	}
+	if (error instanceof PluginUserSettingsPatchError) {
+		return invalid(`settings: ${error.message}`);
+	}
+	return invalid(`${error._tag}${hasReasonCode(error) ? `: ${error.reason.code}` : ""}`);
 };
 
 /** `ScriptChanges` over the caller's `ChangeSets`. */

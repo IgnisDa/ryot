@@ -266,6 +266,31 @@ layer(
 
 layer(
 	makeServiceLayer({
+		repository: mockRepository({
+			isPluginScript: () => Effect.succeed(false),
+			getScript: () =>
+				Effect.succeed({ ...storedScript, metadata: { kind: "operation", runtimeImports: [] } }),
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"rejects operation scripts, which commit only through the operations service",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ScriptExecutionService;
+				const exit = yield* Effect.exit(
+					service.enqueue(executingUserId, { scriptId, context: {} }, "interactive"),
+				);
+
+				assertExitFails(exit, notFound(kernelMessage("error.scripts.not-found")));
+				expect(yield* (yield* SandboxExecutorCalls).executions).toHaveLength(0);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeServiceLayer({
 		repository: installedScriptRepository,
 		workflow: engineLayer(() => Effect.succeedNone),
 	}),

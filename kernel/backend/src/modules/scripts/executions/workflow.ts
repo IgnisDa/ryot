@@ -1016,6 +1016,7 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				startedAt: pin.startedAt,
 				principal: pin.principal,
 				workflowExecutionId: currentExecutionId,
+				...(payload.activity ? { activity: true } : {}),
 				...(checkpoint === undefined ? {} : { checkpoint }),
 				journalLength: journal.entries.length,
 				executionId: `${currentExecutionId}-replay-${step}`,

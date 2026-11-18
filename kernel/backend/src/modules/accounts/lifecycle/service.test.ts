@@ -3,7 +3,8 @@ import { expect } from "bun:test";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Fiber, Layer, Ref } from "effect";
+import { TestClock } from "effect/testing";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { JobQueue } from "#platform/jobs/queue";
@@ -186,6 +187,34 @@ layer(
 					"record",
 				]);
 				expect(revokedOperation.metadata.apiKeys).toEqual([]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	lifecycleServiceLayer({
+		repository: () =>
+			Effect.gen(function* () {
+				const claims = yield* Ref.make(0);
+				return {
+					claimAccessRevocation: () =>
+						Ref.update(claims, (count) => count + 1).pipe(Effect.as(null)),
+					getInternalById: () =>
+						Effect.map(Ref.get(claims), (count) => (count > 1 ? revokedOperation : unrevoked)),
+				};
+			}),
+	}),
+)((test) => {
+	test.effect(
+		"waits for a concurrent access revocation instead of reporting a conflict",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserLifecycleService;
+				const waiting = yield* Effect.forkChild(service.ensureAccessRevoked(operation.id));
+				yield* TestClock.adjust("250 millis");
+				expect(yield* Fiber.join(waiting)).toEqual(revokedOperation);
+				expect(yield* (yield* FakeLifecycleDependencies).calls).toEqual([]);
 			}),
 		testTimeout,
 	);

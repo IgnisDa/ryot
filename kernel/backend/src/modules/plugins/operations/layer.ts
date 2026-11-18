@@ -4,7 +4,6 @@ import { AuthServiceLive } from "#modules/accounts/auth/layer";
 import { ScriptChangesLive } from "#modules/changes/layer";
 import { IntegrationOperationScopeResolverProvidedLive } from "#modules/integrations/layer";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
-import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 
@@ -33,7 +32,8 @@ export const PluginInstallationJobOperationsProvidedLive = PluginInstallationJob
 	Layer.provide(
 		Layer.mergeAll(
 			PluginRuntimeResolverLive,
-			ScriptExecutionServiceLive,
+			ScriptCalls.layer,
+			ScriptChangesLive,
 			SandboxRepository.layer,
 			SandboxWorkflowReferenceRepository.layer,
 			PluginCatalogInvalidatorLive,

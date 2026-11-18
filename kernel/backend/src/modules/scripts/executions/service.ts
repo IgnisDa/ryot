@@ -154,7 +154,7 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 					Effect.mapError(contextInvalid),
 				);
 				const script = yield* repository.getScript(payload.scriptId);
-				if (!script) {
+				if (!script || script.metadata.kind === "operation") {
 					return yield* scriptNotFound();
 				}
 				const executionId = generateId();

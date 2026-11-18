@@ -50,6 +50,7 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { makeIntegration as integrationRecord } from "#modules/integrations/test-support";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
+import { PluginUserSettingsPatchError } from "#modules/plugins/preferences/user-settings-writer";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import type { ChangeSetReceipt } from "#modules/scripts/executions/script-changes";
@@ -1641,6 +1642,37 @@ layer(
 							objectContaining({
 								message:
 									"Operation changes were not committed (EntityUserDataBadRequest: operation-denied)",
+							}),
+						],
+					},
+				});
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		sandboxValue: returnedChanges,
+		available: [systemUserOperation],
+		commitFailure: new PluginUserSettingsPatchError({
+			message: "Unknown plugin user settings: unknown",
+		}),
+	}),
+)((test) => {
+	test.effect(
+		"reports a rejected settings patch with its validation message",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toMatchObject({
+					_tag: "PluginInvocationError",
+					reason: {
+						code: "runtime-failed",
+						diagnostics: [
+							objectContaining({
+								message:
+									"Operation changes were not committed (settings: Unknown plugin user settings: unknown)",
 							}),
 						],
 					},

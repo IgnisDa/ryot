@@ -5,7 +5,7 @@ import {
 	InstanceAdminNotFound,
 	InstanceAdminRequestFailure,
 } from "@ryot-app/instance-contract/account-admin";
-import { Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Cause, Context, DateTime, Duration, Effect, Layer, Schedule, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -21,6 +21,13 @@ const ACCESS_REVOCATION_CLAIM_TIMEOUT_MS = 60_000;
 
 const accessRevocationStaleBefore = (now: Date) =>
 	new Date(now.getTime() - ACCESS_REVOCATION_CLAIM_TIMEOUT_MS);
+
+const ACCESS_REVOCATION_POLL_MS = 250;
+
+class AccessRevocationInProgress extends Schema.TaggedError<
+	AccessRevocationInProgress,
+	{ readonly brand: unique symbol }
+>()("AccessRevocationInProgress", {}) {}
 
 export const UserLifecycleJob = makeJobKind("user-lifecycle", {
 	concurrency: 2,
@@ -62,6 +69,29 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 				);
 			});
 
+			// The request and its job both revoke access; whichever loses the claim waits for the other,
+			// or claims it once the other's claim goes stale.
+			const claimAccessRevocation = Effect.fnUntraced(function* (operationId: string) {
+				const now = yield* DateTime.nowAsDate;
+				const claimed = yield* repository.claimAccessRevocation(
+					operationId,
+					accessRevocationStaleBefore(now),
+				);
+				if (claimed) {
+					return { claimed } as const;
+				}
+				const refreshed = yield* repository.getInternalById(operationId);
+				if (refreshed?.accessRevokedAt) {
+					return { revoked: refreshed } as const;
+				}
+				if (refreshed?.operation.status === "pending") {
+					return yield* new AccessRevocationInProgress();
+				}
+				return yield* new InstanceAdminInternalFailure({
+					reason: { code: "lifecycle-state-conflict" },
+				});
+			});
+
 			const ensureAccessRevoked = Effect.fn("UserLifecycleService.ensureAccessRevoked")(function* (
 				operationId: string,
 			) {
@@ -75,20 +105,22 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					return current;
 				}
 
-				const now = yield* DateTime.nowAsDate;
-				const claimed = yield* repository.claimAccessRevocation(
-					operationId,
-					accessRevocationStaleBefore(now),
+				const outcome = yield* claimAccessRevocation(operationId).pipe(
+					Effect.retry({
+						while: (error) => error instanceof AccessRevocationInProgress,
+						schedule: Schedule.spaced(Duration.millis(ACCESS_REVOCATION_POLL_MS)),
+						times: ACCESS_REVOCATION_CLAIM_TIMEOUT_MS / ACCESS_REVOCATION_POLL_MS + 1,
+					}),
+					Effect.catchTag(
+						"AccessRevocationInProgress",
+						() =>
+							new InstanceAdminInternalFailure({ reason: { code: "lifecycle-state-conflict" } }),
+					),
 				);
-				if (!claimed) {
-					const refreshed = yield* repository.getInternalById(operationId);
-					if (refreshed?.accessRevokedAt) {
-						return refreshed;
-					}
-					return yield* new InstanceAdminInternalFailure({
-						reason: { code: "lifecycle-state-conflict" },
-					});
+				if ("revoked" in outcome) {
+					return outcome.revoked;
 				}
+				const { claimed } = outcome;
 
 				return yield* revokeClaimedAccess(operationId, claimed).pipe(
 					Effect.catchCause((cause) =>

@@ -7,7 +7,7 @@ import { asUnexpected, unexpected } from "#lib/domain/logged-rejection";
 import { FoldRebuildJob } from "#modules/derived-values/marks";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
-import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { runUserBootstrapScript } from "#modules/scripts/executions/bootstrap";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
@@ -104,7 +104,6 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 	PluginInstallationJobOperations,
 	Effect.gen(function* () {
 		const runtime = yield* PluginRuntimeResolver;
-		const sandbox = yield* ScriptExecutionService;
 		const sandboxRepository = yield* SandboxRepository;
 		const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 		const invalidator = yield* PluginCatalogInvalidator;
@@ -113,6 +112,8 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 		const bootstrapEntities = yield* PluginBootstrapEntities;
 		const admission = yield* AccountAdmission.make;
 		const jobs = yield* JobQueue;
+		const bootstrapContext =
+			yield* Effect.context<Effect.Services<ReturnType<typeof runUserBootstrapScript>>>();
 
 		const begin = (installationId: string, activationId: string) =>
 			asUnexpected(
@@ -244,29 +245,32 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 
 		const runBootstrapEntry = (
 			input: Parameters<PluginInstallationJobOperationsValue["runBootstrapEntry"]>[0],
-		) =>
-			asUnexpected(
-				Effect.gen(function* () {
-					const result = yield* sandbox.executeScript({
-						input: {},
-						lane: "background",
-						scriptId: input.scriptId,
-						pluginRevision: input.pluginRevision,
-						subject: { type: "user", userId: input.userId },
-						initialization: {
-							activationId: input.activationId,
-							installationId: input.installationId,
-						},
-						executionId: pluginInstallationBootstrapExecutionId(
-							input.installationId,
-							input.activationId,
-							input.entrySlug,
-						),
-					});
-					return result.error ? yield* Effect.die(result.error.message) : yield* Effect.void;
-				}),
+		) => {
+			const executionId = pluginInstallationBootstrapExecutionId(
+				input.installationId,
+				input.activationId,
+				input.entrySlug,
+			);
+			return asUnexpected(
+				runUserBootstrapScript({
+					executionId,
+					userId: input.userId,
+					scriptId: input.scriptId,
+					pluginRevision: input.pluginRevision,
+					initialization: {
+						activationId: input.activationId,
+						installationId: input.installationId,
+					},
+				}).pipe(
+					Effect.flatMap((result) =>
+						result.error ? Effect.die(result.error.message) : Effect.void,
+					),
+					Effect.ensuring(workflowReferences.release(executionId).pipe(Effect.orDie)),
+					Effect.provideContext(bootstrapContext),
+				),
 				`Plugin installation bootstrap entry failed: ${input.entrySlug}`,
 			);
+		};
 
 		const ensureBootstrapEntities = (
 			input: Parameters<PluginInstallationJobOperationsValue["ensureBootstrapEntities"]>[0],
@@ -304,7 +308,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 			dispatchBootstrapEntities: bootstrapEntities.dispatch,
 			releaseBootstrapEntry: (installationId, activationId, entrySlug) =>
 				asUnexpected(
-					sandbox.releaseWorkflowRegistration(
+					workflowReferences.release(
 						pluginInstallationBootstrapExecutionId(installationId, activationId, entrySlug),
 					),
 					"Plugin installation bootstrap pin could not be released",

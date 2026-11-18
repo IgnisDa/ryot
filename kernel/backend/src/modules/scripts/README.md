@@ -217,10 +217,11 @@ script's principal and the durable identity of its execution:
   execution ID (`<executionId>-checkpoint-<revision>` for checkpointed workflows). The journaled
   activity result covers replays; the account's idempotency key covers a stop between the commit and
   that result.
-- A user bootstrap script returns `{ changes? }`, usually `entities.ensures`. The bootstrap
-  dispatcher pins it, runs it through `ScriptCalls`, and commits with `commitKeyed` under
-  `<bootstrap execution ID>-<script content hash>`, so a rerun of the same script reuses the commit
-  and a new script version commits its own ensures.
+- A user bootstrap script receives `{ userId }`, the bootstrapped user's ID, and returns
+  `{ changes? }`, usually `entities.ensures`. `runUserBootstrapScript` serves both the system user
+  bootstrap and the private installation job: it pins the script, runs it through `ScriptCalls`, and
+  commits with `commitKeyed` under `<bootstrap execution ID>-<script content hash>`, so a rerun of the
+  same script reuses the commit and a new script version commits its own ensures.
 
 ## Global HTTP Admission
 

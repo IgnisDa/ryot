@@ -316,6 +316,27 @@ export default {
 };
 `;
 
+const activityScratchSource = `
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Native service activity scratch",
+  slug: "native-service-activity-scratch",
+});
+
+export default defineScript({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Struct({ output: Schema.Struct({ chunkFiles: Schema.Array(Schema.String) }) }),
+  run: () => writeScratchChunks([{ name: "chunk.json", contents: "[]" }]).pipe(
+    Effect.map((output) => ({ output })),
+  ),
+});
+`;
+
 const makeRunInput = (
 	compiled: Effect.Success<ReturnType<typeof compileTestScript>>,
 	executionId: string,
@@ -805,6 +826,36 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 						success: true,
 						value: ["global:fetch", "global:Request", "global:Response"],
 					});
+				}),
+			);
+		},
+		testTimeout,
+	);
+	test.effect(
+		"harvests an activity's scratch chunks from its output",
+		() => {
+			const ownerId = UserId.make(testExecutionId("native-service-owner"));
+			const activityExecutionId = testExecutionId("native-service-activity-scratch");
+			const scriptExecutionId = testExecutionId("native-service-script-scratch");
+			return withRecoveryCleanup(
+				[activityExecutionId, scriptExecutionId],
+				Effect.gen(function* () {
+					const service = yield* SandboxExecutor;
+					const compiled = yield* compileTestScript(activityScratchSource);
+					const grants = { artifactOwnerExecutionId: testExecutionId("native-service-owner-run") };
+					const activity = yield* service.run({
+						...makeRunInput(compiled, activityExecutionId, {}, ownerId, grants),
+						activity: true,
+					});
+					const script = yield* service.run(
+						makeRunInput(compiled, scriptExecutionId, {}, ownerId, grants),
+					);
+					expect(activity).toMatchObject({
+						success: true,
+						harvest: { chunkHandles: [anyOf(String)] },
+						value: { output: { chunkFiles: ["chunk.json"] } },
+					});
+					expect(script).toMatchObject({ success: true, harvest: null });
 				}),
 			);
 		},
