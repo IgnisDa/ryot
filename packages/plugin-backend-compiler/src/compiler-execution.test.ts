@@ -23,7 +23,7 @@ const workflowFilesystemSource = `
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "workflow", slug: "workflow", name: "Workflow" });
-export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.Null, run: () => readArtifact.pipe(Effect.as(null)) });
+export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.Null, run: () => readArtifact.pipe(Effect.as({ output: null })) });
 `;
 
 it.layer(pluginBackendCompilerPlatformLayer)("execution dependency analysis", (test) => {
@@ -41,7 +41,7 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/${unrestricted ? "e
 export const manifest = defineManifest({ kind: "workflow", slug: "parity", name: "Parity" });
 export default defineWorkflow({
   manifest, input: Schema.Struct({}), output: Schema.Null,
-  run: () => { ${statement} return Effect.succeed(null); },
+  run: () => { ${statement} return Effect.succeed({ output: null }); },
 });
 `;
 				const standalone = yield* compileSandboxSource(entry).pipe(Effect.flip);
@@ -70,7 +70,7 @@ import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin
 export const manifest = defineManifest({ kind: "workflow", slug: "parity", name: "Parity" });
 export default defineWorkflow({
   manifest, input: Schema.Struct({ timestamp: Schema.String }), output: Schema.String,
-  run: ({ timestamp }) => Effect.succeed(new Date(Date.parse(timestamp)).toISOString()),
+  run: ({ timestamp }) => Effect.succeed({ output: new Date(Date.parse(timestamp)).toISOString() }),
 });
 `;
 				const standalone = yield* compileSandboxSource(entry);
@@ -131,7 +131,7 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
     executable: (replay: WorkflowStep) => replay.activity("unused", reference, {}).pipe(Effect.as(null)),
   };
   const { nested } = helpers;
-  return nested.pure();
+  return nested.pure().pipe(Effect.as({ output: null }));
 } });
 `;
 				const packageEntry =
@@ -157,7 +157,7 @@ import { helpers } from "./helpers";
 export const manifest = defineManifest({ kind: "workflow", slug: "pure-workflow", name: "Pure workflow" });
 export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.Null, run: () => {
   const { nested } = helpers;
-  return nested.pure();
+  return nested.pure().pipe(Effect.as({ output: null }));
 } });
 `;
 				const packageHelper =
@@ -302,9 +302,11 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				const failure = yield* compilePluginSandboxSourceEntries(
 					{
 						"backend/root.sandbox.ts": `
-import { defineManifest, defineScriptReference, defineWorkflow, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
-export default defineWorkflow({ manifest, input: Schema.Struct({ target: Schema.String }), output: Schema.String, run: (input, replay) => replay.activity("collect", defineScriptReference({ scriptSlug: input.target, input: Schema.Unknown, output: Schema.String }), {}) });
+export default defineWorkflow({ manifest, input: Schema.Struct({ target: Schema.String }), output: Schema.String, run: (input, replay) => Effect.gen(function* () {
+  return { output: yield* replay.activity("collect", defineScriptReference({ scriptSlug: input.target, input: Schema.Unknown, output: Schema.String }), {}) };
+}) });
 `,
 					},
 					[{ kind: "workflow", entry: "backend/root.sandbox.ts" }],
@@ -355,7 +357,9 @@ const alternatives = defineExecutableAlternatives({ id: "collector", stage: "set
   file: defineScriptReference({ scriptSlug: "file", input: Schema.Unknown, output: Schema.String }),
 } });
 export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
-export default defineWorkflow({ manifest, input: Schema.Struct({ mode: Schema.String }), output: Schema.String, run: (input, replay) => replay.activity("collect", selectExecutable(alternatives, input.mode), {}) });
+export default defineWorkflow({ manifest, input: Schema.Struct({ mode: Schema.String }), output: Schema.String, run: (input, replay) => Effect.gen(function* () {
+  return { output: yield* replay.activity("collect", selectExecutable(alternatives, input.mode), {}) };
+}) });
 `,
 					},
 					[{ kind: "workflow", entry: "backend/root.sandbox.ts" }],
@@ -390,7 +394,7 @@ export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "
 export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.String, run: (_input, replay) => Effect.gen(function* () {
   const { value } = yield* replay.activity("collect", collect, {});
   const unused = yield* replay.child("notify", notify, {});
-  return value;
+  return { output: value };
 }) });
 `,
 					},

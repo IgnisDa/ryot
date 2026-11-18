@@ -213,7 +213,7 @@ export default defineWorkflow({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.String,
-	run: () => Effect.succeed("unused"),
+	run: () => Effect.succeed({ output: "unused" }),
 });
 `;
 				const compiled = yield* compilePluginSandboxSourceEntries(
@@ -291,7 +291,7 @@ export default defineWorkflow({
 		void crypto.getRandomValues(new Uint8Array(1));
 		void performance.now();
 		nondeterministic();
-		return Effect.succeed(null);
+		return Effect.succeed({ output: null });
 	},
 });
 `;
@@ -340,9 +340,11 @@ export default defineWorkflow({
 		const text = "crypto.randomUUID()";
 		void text;
 		return Effect.succeed({
-			iso: new Date(input.timestamp).toISOString(),
-			parsed: Date.parse(input.timestamp),
-			utc: Date.UTC(2024, 0, 1),
+			output: {
+				iso: new Date(input.timestamp).toISOString(),
+				parsed: Date.parse(input.timestamp),
+				utc: Date.UTC(2024, 0, 1),
+			},
 		});
 	},
 });
@@ -375,7 +377,7 @@ export default defineWorkflow({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.String,
-	run: () => Effect.succeed(nondeterministic),
+	run: () => Effect.succeed({ output: nondeterministic }),
 });
 `;
 				const shared = `
@@ -433,7 +435,7 @@ export default defineWorkflow({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.String,
-	run: () => Effect.succeed(nondeterministic),
+	run: () => Effect.succeed({ output: nondeterministic }),
 });
 `;
 				const failure = yield* compilePluginSandboxSourceEntries(
