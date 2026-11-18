@@ -323,9 +323,9 @@ const server = group(
 		proKeyVerificationUrl: stringField({
 			hidden: true,
 			label: "Pro key verification URL",
-			defaultValue: "https://api.unkey.com",
 			envKey: "SERVER_PRO_KEY_VERIFICATION_URL",
-			description: "Base URL used to verify the Pro key",
+			description: "URL used to verify the Pro key",
+			defaultValue: "https://ryot.io/api/pro-key/verify",
 		}),
 		pluginsSystemDir: stringField({
 			hidden: true,

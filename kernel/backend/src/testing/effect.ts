@@ -166,8 +166,8 @@ export const makeAppConfigLayer = (
 			disablePublications: false,
 			disableNotifications: false,
 			pluginsSystemDir: "./plugins",
-			proKeyVerificationUrl: "https://api.unkey.com",
 			adminAccessToken: Redacted.make("test-admin-token"),
+			proKeyVerificationUrl: "https://ryot.io/api/pro-key/verify",
 			assistant: {
 				model: Option.none(),
 				apiKey: Option.none(),

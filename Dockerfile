@@ -41,7 +41,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
     rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder-base /app/ ./
-ARG UNKEY_ROOT_KEY=""
 ARG RYOT_VERSION="unknown"
 RUN bun turbo --filter=@ryot-app/server build
 RUN bun run --cwd apps/server assemble

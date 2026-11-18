@@ -1,7 +1,7 @@
 # Server Tooling
 
 `build.ts` writes the native smoke fixtures to `dist/`, bundles `src/main.ts` and `prepare-sandbox-runtime.ts` there, and inlines
-`RYOT_VERSION` and `UNKEY_ROOT_KEY`. `version.ts` resolves the version from `RYOT_VERSION`, falling
+`RYOT_VERSION`. `version.ts` resolves the version from `RYOT_VERSION`, falling
 back to `git describe --tags --always --dirty`; `apps/server/dev.ts` passes the same value to the
 unbundled server.
 

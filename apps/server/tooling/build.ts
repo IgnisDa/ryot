@@ -2,7 +2,7 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
-import { Config, Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { buildSandboxSmokeFixtures } from "./build-sandbox-smoke-fixtures";
 import { resolveVersion } from "./version";
@@ -14,9 +14,6 @@ const encodeStringLiteral = Schema.encodeEffect(Schema.fromJsonString(Schema.Str
 const build = Effect.gen(function* () {
 	yield* buildSandboxSmokeFixtures;
 	const version = yield* encodeStringLiteral(yield* resolveVersion);
-	const unkeyRootKey = yield* encodeStringLiteral(
-		yield* Config.String("UNKEY_ROOT_KEY").pipe(Config.withDefault("")),
-	);
 	yield* Effect.promise(() =>
 		Bun.build({
 			target: "bun",
@@ -24,8 +21,8 @@ const build = Effect.gen(function* () {
 			sourcemap: "linked",
 			jsx: { development: false },
 			outdir: `${serverRoot}/dist`,
+			define: { "process.env.RYOT_VERSION": version },
 			naming: { entry: "[name].[ext]", chunk: "[name]-[hash].[ext]" },
-			define: { "process.env.RYOT_VERSION": version, "process.env.UNKEY_ROOT_KEY": unkeyRootKey },
 			external: [
 				"@ryot-app/plugin-client-compiler/worker",
 				"@ryot-app/plugin-backend-compiler/worker",

@@ -3,83 +3,85 @@ import { expect } from "bun:test";
 import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { HTTPClient } from "@unkey/api";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Duration, Effect, Layer, MutableRef, Option, Redacted, Ref } from "effect";
+import { Context, Duration, Effect, Layer, Option, Redacted, Ref } from "effect";
+import type { HttpClientRequest } from "effect/http";
+import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
 
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { EntitlementService } from "./entitlements";
 
-const verifyKeyResponse = (data: { valid: boolean; meta?: Record<string, unknown> }) =>
-	Promise.resolve(
-		new Response(
-			JSON.stringify({
-				meta: { requestId: "req_test" },
-				data: { code: data.valid ? "VALID" : "DISABLED", ...data },
-			}),
-			{ status: 200, headers: { "content-type": "application/json" } },
-		),
-	);
+const verificationResponse = (data: { valid: boolean; expiry?: string }) =>
+	Promise.resolve(Response.json(data));
 
-class FakeUnkey extends Context.Service<
-	FakeUnkey,
-	{ readonly requests: Effect.Effect<ReadonlyArray<Request>> }
->()("@ryot-app/kernel-backend/platform/entitlements.test/FakeUnkey") {}
+class FakeVerifier extends Context.Service<
+	FakeVerifier,
+	{ readonly requests: Effect.Effect<ReadonlyArray<HttpClientRequest.HttpClientRequest>> }
+>()("@ryot-app/kernel-backend/platform/entitlements.test/FakeVerifier") {}
 
-const fakeUnkeyLayer = (
+const fakeVerifierLayer = (
 	respond: () => Promise<Response>,
 	proKey: Option.Option<Redacted.Redacted> = Option.some(Redacted.make("pro-key-value")),
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
-			const requests = yield* Ref.make<ReadonlyArray<Request>>([]);
-			const fetcher = (input: URL | string | Request, init?: RequestInit) => {
-				let request: Request;
-				if (input instanceof Request) {
-					request = init == null ? input : new Request(input, init);
-				} else {
-					request = new Request(input.toString(), init);
-				}
-				MutableRef.update(requests.ref, (all) => [...all, request]);
-				return respond();
-			};
+			const requests = yield* Ref.make<ReadonlyArray<HttpClientRequest.HttpClientRequest>>([]);
+			const client = HttpClient.make((request) =>
+				Effect.gen(function* () {
+					yield* Ref.update(requests, (all) => [...all, request]);
+					const response = yield* Effect.tryPromise({
+						try: respond,
+						catch: (cause) =>
+							new HttpClientError.HttpClientError({
+								reason: new HttpClientError.TransportError({ cause, request }),
+							}),
+					});
+					return HttpClientResponse.fromWeb(request, response);
+				}),
+			);
 			return Layer.merge(
-				Layer.succeed(FakeUnkey, { requests: Ref.get(requests) }),
-				EntitlementService.layerWithHttpClient(new HTTPClient({ fetcher })).pipe(
+				Layer.succeed(FakeVerifier, { requests: Ref.get(requests) }),
+				Layer.effect(EntitlementService, EntitlementService.make).pipe(
+					Layer.provide(Layer.succeed(HttpClient.HttpClient, client)),
 					Layer.provide(makeAppConfigLayer({ server: { proKey } })),
 				),
 			);
 		}),
 	);
 
-layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true }), Option.none()))((test) => {
+layer(fakeVerifierLayer(() => verificationResponse({ valid: true }), Option.none()))((test) => {
 	test.effect(
 		"makes no request when the Pro Key is empty",
 		() =>
 			Effect.gen(function* () {
 				const entitlements = yield* EntitlementService;
 				expect(yield* entitlements.has("pro")).toBe(false);
-				expect(yield* (yield* FakeUnkey).requests).toHaveLength(0);
+				expect(yield* (yield* FakeVerifier).requests).toHaveLength(0);
 			}),
 		testTimeout,
 	);
 });
 
-layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true })))((test) => {
+layer(fakeVerifierLayer(() => verificationResponse({ valid: true })))((test) => {
 	test.effect(
 		"returns true for a valid key",
 		() =>
 			Effect.gen(function* () {
 				const entitlements = yield* EntitlementService;
 				expect(yield* entitlements.has("pro")).toBe(true);
+				const requests = yield* (yield* FakeVerifier).requests;
+				expect(requests.map((request) => request.method)).toEqual(["POST"]);
+				expect(requests.map((request) => request.headers["authorization"])).toEqual([
+					"Bearer pro-key-value",
+				]);
 			}),
 		testTimeout,
 	);
 });
 
-layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: false })))((test) => {
+layer(fakeVerifierLayer(() => verificationResponse({ valid: false })))((test) => {
 	test.effect(
 		"returns false when the key is no longer valid",
 		() =>
@@ -106,10 +108,10 @@ layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: false })))((test) => {
 	);
 });
 
-layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true, meta: { expiry: "2999-01-01" } })))(
+layer(fakeVerifierLayer(() => verificationResponse({ valid: true, expiry: "2999-01-01" })))(
 	(test) => {
 		test.effect(
-			"returns true when meta.expiry is in the future",
+			"returns true when expiry is in the future",
 			() =>
 				Effect.gen(function* () {
 					const entitlements = yield* EntitlementService;
@@ -120,10 +122,10 @@ layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true, meta: { expiry: "299
 	},
 );
 
-layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true, meta: { expiry: "1969-01-01" } })))(
+layer(fakeVerifierLayer(() => verificationResponse({ valid: true, expiry: "1969-01-01" })))(
 	(test) => {
 		test.effect(
-			"returns false when meta.expiry precedes the verification time",
+			"returns false when expiry precedes the verification time",
 			() =>
 				Effect.gen(function* () {
 					const entitlements = yield* EntitlementService;
@@ -134,10 +136,10 @@ layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true, meta: { expiry: "196
 	},
 );
 
-layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true, meta: { expiry: "whenever" } })))(
+layer(fakeVerifierLayer(() => verificationResponse({ valid: true, expiry: "whenever" })))(
 	(test) => {
 		test.effect(
-			"returns false when meta.expiry is not a date",
+			"returns false when expiry is not a date",
 			() =>
 				Effect.gen(function* () {
 					const entitlements = yield* EntitlementService;
@@ -148,7 +150,7 @@ layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true, meta: { expiry: "whe
 	},
 );
 
-layer(fakeUnkeyLayer(() => Promise.reject(new Error("connection refused"))))((test) => {
+layer(fakeVerifierLayer(() => Promise.reject(new Error("connection refused"))))((test) => {
 	test.effect(
 		"returns false when the transport rejects",
 		() =>
@@ -160,7 +162,7 @@ layer(fakeUnkeyLayer(() => Promise.reject(new Error("connection refused"))))((te
 	);
 });
 
-layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true })))((test) => {
+layer(fakeVerifierLayer(() => verificationResponse({ valid: true })))((test) => {
 	test.effect(
 		"caches verification so two calls issue exactly one request",
 		() =>
@@ -168,16 +170,14 @@ layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true })))((test) => {
 				const entitlements = yield* EntitlementService;
 				expect(yield* entitlements.has("pro")).toBe(true);
 				expect(yield* entitlements.has("pro")).toBe(true);
-				expect(yield* (yield* FakeUnkey).requests).toHaveLength(1);
+				expect(yield* (yield* FakeVerifier).requests).toHaveLength(1);
 			}),
 		testTimeout,
 	);
 });
 
 layer(
-	fakeUnkeyLayer(() =>
-		verifyKeyResponse({ valid: true, meta: { expiry: "1970-01-01T00:30:00Z" } }),
-	),
+	fakeVerifierLayer(() => verificationResponse({ valid: true, expiry: "1970-01-01T00:30:00Z" })),
 )((test) => {
 	test.effect(
 		"re-compares an unchanged expiry against the clock once the cache lapses",
@@ -187,7 +187,7 @@ layer(
 				expect(yield* entitlements.has("pro")).toBe(true);
 				yield* TestClock.adjust(Duration.hours(1));
 				expect(yield* entitlements.has("pro")).toBe(false);
-				expect(yield* (yield* FakeUnkey).requests).toHaveLength(2);
+				expect(yield* (yield* FakeVerifier).requests).toHaveLength(2);
 			}),
 		testTimeout,
 	);

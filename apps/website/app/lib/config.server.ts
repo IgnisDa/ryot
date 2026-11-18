@@ -46,6 +46,7 @@ const serverVariablesSchema = z.object({
 	POLAR_SANDBOX: zodBoolAsString.optional(),
 	PADDLE_SANDBOX: zodBoolAsString.optional(),
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
+	UNKEY_PRO_VERIFICATION_KEY: z.string().optional(),
 });
 
 export const getServerVariables = memoize(() => serverVariablesSchema.parse(process.env));
@@ -92,6 +93,13 @@ export const getDb = memoize(() =>
 
 export const getUnkeyClient = memoize(() => {
 	return new Unkey({ rootKey: getServerVariables().UNKEY_ROOT_KEY });
+});
+
+export const getProKeyVerifier = memoize(() => {
+	const rootKey = getServerVariables().UNKEY_PRO_VERIFICATION_KEY;
+	return rootKey
+		? new Unkey({ rootKey, timeoutMs: 4000, retryConfig: { strategy: "none" } })
+		: undefined;
 });
 
 export const getPolarClient = memoize(() => {

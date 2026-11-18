@@ -1,94 +1,69 @@
+import { ProKeyVerification } from "@ryot-app/contract/modules/system/pro-key";
 import {
 	type Entitlement,
 	entitlementRequired,
 	type Entitlements,
 	isEntitled,
 } from "@ryot-app/contract/schema/entitlement";
-import type { HTTPClient } from "@unkey/api";
-import { Unkey } from "@unkey/api";
-import {
-	Context,
-	DateTime,
-	Duration,
-	Effect,
-	Layer,
-	Option,
-	Redacted,
-	Result,
-	Schema,
-} from "effect";
+import { Context, DateTime, Duration, Effect, Layer, Option, Redacted } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 
 import { AppConfig } from "./config/service";
-import { UNKEY_ROOT_KEY } from "./unkey";
 
-const PRO_KEY_VERIFICATION_TIMEOUT_MS = 5_000;
+const PRO_KEY_VERIFICATION_TIMEOUT = Duration.seconds(5);
+const decodeVerification = HttpClientResponse.schemaBodyJson(ProKeyVerification);
 
-const ProKeyMeta = Schema.Struct({ expiry: Schema.optional(Schema.DateTimeUtcFromString) });
+const makeEntitlementService = Effect.gen(function* () {
+	const config = yield* AppConfig;
+	const client = yield* HttpClient.HttpClient;
 
-class ProKeyVerificationError extends Schema.TaggedError<
-	ProKeyVerificationError,
-	{ readonly brand: unique symbol }
->()("ProKeyVerificationError", { cause: Schema.Unknown }) {}
+	const verify = Effect.gen(function* () {
+		if (Option.isNone(config.server.proKey)) {
+			return false;
+		}
+		const key = Redacted.value(config.server.proKey.value);
+		if (key.length === 0) {
+			return false;
+		}
 
-const makeEntitlementService = (options: { readonly httpClient?: HTTPClient } = {}) =>
-	Effect.gen(function* () {
-		const config = yield* AppConfig;
-
-		const client = new Unkey({
-			rootKey: UNKEY_ROOT_KEY,
-			retryConfig: { strategy: "none" },
-			timeoutMs: PRO_KEY_VERIFICATION_TIMEOUT_MS,
-			serverURL: config.server.proKeyVerificationUrl,
-			...(options.httpClient ? { httpClient: options.httpClient } : {}),
-		});
-
-		const verify = Effect.gen(function* () {
-			if (Option.isNone(config.server.proKey)) {
-				return false;
-			}
-			const key = Redacted.value(config.server.proKey.value);
-			if (key.length === 0) {
-				return false;
-			}
-
-			const response = yield* Effect.tryPromise({
-				try: () => client.keys.verifyKey({ key }),
-				catch: (cause) => new ProKeyVerificationError({ cause }),
-			}).pipe(
+		const response = yield* client
+			.execute(
+				HttpClientRequest.post(config.server.proKeyVerificationUrl).pipe(
+					HttpClientRequest.bearerToken(config.server.proKey.value),
+				),
+			)
+			.pipe(
+				Effect.provideService(FetchHttpClient.RequestInit, { redirect: "error" }),
+				Effect.flatMap(HttpClientResponse.filterStatusOk),
+				Effect.flatMap(decodeVerification),
+				Effect.timeout(PRO_KEY_VERIFICATION_TIMEOUT),
 				Effect.tapError(() => Effect.logWarning("Failed to verify Pro Key.")),
 				Effect.option,
 			);
-			if (Option.isNone(response)) {
-				return false;
-			}
+		if (Option.isNone(response)) {
+			return false;
+		}
 
-			const { meta, valid } = response.value.data;
-			if (!valid) {
-				yield* Effect.logDebug("Pro Key is no longer valid.");
-				return false;
-			}
+		const { valid, expiry } = response.value;
+		if (!valid) {
+			yield* Effect.logDebug("Pro Key is no longer valid.");
+			return false;
+		}
 
-			const decoded = Schema.decodeResult(ProKeyMeta)(meta ?? {});
-			if (Result.isFailure(decoded)) {
-				yield* Effect.logWarning("Failed to parse Pro Key verification response.");
-				return false;
-			}
+		if (expiry !== undefined && DateTime.isLessThan(expiry, yield* DateTime.now)) {
+			yield* Effect.logWarning("Pro Key has expired. Please renew your subscription.");
+			return false;
+		}
 
-			const { expiry } = decoded.success;
-			if (expiry !== undefined && DateTime.isLessThan(expiry, yield* DateTime.now)) {
-				yield* Effect.logWarning("Pro Key has expired. Please renew your subscription.");
-				return false;
-			}
-
-			yield* Effect.logDebug("Pro Key verified successfully");
-			return true;
-		});
-
-		const proValidated = yield* verify.pipe(Effect.cachedWithTTL(Duration.hours(1)));
-		return entitlementServiceFrom(
-			Effect.map(proValidated, (validated): Entitlements => (validated ? ["pro"] : [])),
-		);
+		yield* Effect.logDebug("Pro Key verified successfully");
+		return true;
 	});
+
+	const proValidated = yield* verify.pipe(Effect.cachedWithTTL(Duration.hours(1)));
+	return entitlementServiceFrom(
+		Effect.map(proValidated, (validated): Entitlements => (validated ? ["pro"] : [])),
+	);
+});
 
 export const entitlementServiceFrom = (current: Effect.Effect<Entitlements>) => {
 	const has = (entitlement: null | undefined | Entitlement) =>
@@ -106,9 +81,7 @@ export const entitlementServiceFrom = (current: Effect.Effect<Entitlements>) => 
 
 export class EntitlementService extends Context.Service<EntitlementService>()(
 	"@ryot-app/kernel-backend/platform/entitlements/EntitlementService",
-	{ make: makeEntitlementService() },
+	{ make: makeEntitlementService },
 ) {
-	static readonly layer = Layer.effect(this, this.make);
-	static readonly layerWithHttpClient = (httpClient: HTTPClient) =>
-		Layer.effect(this, makeEntitlementService({ httpClient }));
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(FetchHttpClient.layer));
 }

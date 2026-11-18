@@ -18,7 +18,7 @@
 		"build": {
 			"dependsOn": ["^build", "messages"],
 			"outputLogs": "errors-only",
-			"env": ["UNKEY_ROOT_KEY", "RYOT_VERSION"],
+			"env": ["RYOT_VERSION"],
 			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
 		},
 		"check": {

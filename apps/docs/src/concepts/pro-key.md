@@ -1,10 +1,10 @@
 # Pro Key Verification
 
-Ryot uses [Unkey](https://unkey.com) to verify `SERVER_PRO_KEY`.
+Ryot verifies `SERVER_PRO_KEY` through its hosted verification service.
 
 ## Verification
 
-Ryot sends the key to `https://api.unkey.com`. It checks the result and any expiry date, then
+Ryot sends the key to `https://ryot.io/api/pro-key/verify`. It checks the result and any expiry date, then
 caches the result in the server process.
 
 The cache lasts one hour and is cleared at server restart. [Pro features](https://ryot.io/features)
@@ -19,7 +19,7 @@ can remain active for up to one hour after a subscription expires.
 | Expired subscription              | Community version (with warning log)          |
 | Unreadable expiry date            | Community version (with warning log)          |
 | Network error during verification | Community version (verification fails safely) |
-| Unkey API unavailable             | Community version (verification fails safely) |
+| Verification service unavailable  | Community version (verification fails safely) |
 
 Pro and community data are compatible. Update the key and restart the server to switch versions.
 
@@ -32,4 +32,4 @@ Pro and community data are compatible. Update the key and restart the server to 
 
 ## Privacy
 
-Verification sends only the license key to Unkey. It does not send instance or usage data.
+The instance sends only its license key to Ryot’s verifier, which checks it with Unkey.

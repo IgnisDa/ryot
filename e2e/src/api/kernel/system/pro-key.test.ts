@@ -11,11 +11,7 @@ import { makeTestResourceScope } from "~/support/resource-scope";
 const S3_BUCKET_NAME = "ryot-pro-key-test";
 const VALID_KEY_ENV_VALUE = "e2e-pro-key";
 
-const unkeyEnvelope = (data: { code: string; valid: boolean; meta?: Record<string, unknown> }) =>
-	Response.json({ data, meta: { requestId: crypto.randomUUID() } });
-
-const validKeyRespond = () =>
-	unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2030-01-01" } });
+const validKeyRespond = () => Response.json({ valid: true, expiry: "2030-01-01" });
 
 type ScenarioName =
 	| "noKey"
@@ -41,21 +37,21 @@ const scenarioConfigs: Record<ScenarioName, ScenarioConfig> = {
 		respond: () => validKeyRespond(),
 		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
 	},
+	validFalse: {
+		respond: () => Response.json({ valid: false }),
+		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
+	},
 	serverError: {
 		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
 		respond: () => new Response(null, { status: 500 }),
 	},
-	validFalse: {
-		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
-		respond: () => unkeyEnvelope({ valid: false, code: "NOT_FOUND" }),
-	},
 	expiredMeta: {
 		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
-		respond: () => unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2020-01-01" } }),
+		respond: () => Response.json({ valid: true, expiry: "2020-01-01" }),
 	},
 	malformedMeta: {
 		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
-		respond: () => unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "whenever" } }),
+		respond: () => Response.json({ valid: true, expiry: "whenever" }),
 	},
 };
 
@@ -70,7 +66,7 @@ let infrastructure: undefined | Infrastructure;
 const resources = makeTestResourceScope();
 
 function requireFake(instance: ScenarioInstance) {
-	return requirePresent(instance.fake, "Fake Unkey server is not initialised for this scenario");
+	return requirePresent(instance.fake, "Fake Verifier server is not initialised for this scenario");
 }
 
 beforeAll(() =>
@@ -95,7 +91,7 @@ const withScenario = <A, E, R>(
 		const fake = config.unreachable ? undefined : yield* startFakeHttpServerScoped(config.respond);
 		const verificationUrl = config.unreachable
 			? `http://127.0.0.1:${yield* Effect.promise(() => getPort())}`
-			: requirePresent(fake, `Fake Unkey server missing for scenario '${name}'`).url;
+			: requirePresent(fake, `Fake Verifier server missing for scenario '${name}'`).url;
 		const apiOrigin = `http://127.0.0.1:${port}`;
 		const process = yield* startApiProcess(
 			buildApiEnv({
@@ -115,7 +111,7 @@ const withScenario = <A, E, R>(
 afterAll(() => runPromise(resources.close));
 
 describe("GET /system/config without SERVER_PRO_KEY", () => {
-	it.live("reports no entitlements and makes no Unkey request", () =>
+	it.live("reports no entitlements and makes no Verifier request", () =>
 		withScenario("noKey", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
@@ -140,7 +136,7 @@ describe("GET /system/config with a valid Pro Key", () => {
 });
 
 describe("GET /system/config with an invalid Pro Key", () => {
-	it.live("reports no entitlements when Unkey reports valid: false", () =>
+	it.live("reports no entitlements when Verifier reports valid: false", () =>
 		withScenario("validFalse", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
@@ -171,8 +167,8 @@ describe("GET /system/config with an invalid Pro Key", () => {
 	);
 });
 
-describe("GET /system/config when Unkey is unavailable", () => {
-	it.live("fails safe to false and keeps the server healthy when Unkey returns 500", () =>
+describe("GET /system/config when Verifier is unavailable", () => {
+	it.live("fails safe to false and keeps the server healthy when Verifier returns 500", () =>
 		withScenario("serverError", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
@@ -184,7 +180,7 @@ describe("GET /system/config when Unkey is unavailable", () => {
 		),
 	);
 
-	it.live("fails safe to false and keeps the server healthy when Unkey is unreachable", () =>
+	it.live("fails safe to false and keeps the server healthy when Verifier is unreachable", () =>
 		withScenario("unreachable", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);
@@ -198,7 +194,7 @@ describe("GET /system/config when Unkey is unavailable", () => {
 });
 
 describe("Pro Key verification cache", () => {
-	it.live("issues exactly one Unkey request across repeated /system/config hits", () =>
+	it.live("issues exactly one Verifier request across repeated /system/config hits", () =>
 		withScenario("cache", (instance) =>
 			Effect.gen(function* () {
 				const client = makeSession(instance.target);

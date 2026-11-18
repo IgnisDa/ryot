@@ -42,15 +42,12 @@ const providerSpecifics = { endpoint: "https://pro-gated.example.com" };
 const listProviders = (client: Client) =>
 	collectRyotQLRecipeItems(client, integrationProvidersRecipe, {}, "providers");
 
-const unkeyEnvelope = (data: { code: string; valid: boolean; meta?: Record<string, unknown> }) =>
-	Response.json({ data, meta: { requestId: crypto.randomUUID() } });
-
 type ApiTarget = Effect.Success<ReturnType<typeof startApiProcess>>["target"];
 type Infrastructure = Effect.Success<ReturnType<typeof startCoreTestInfrastructure>>;
 
 let apiPort: number;
-let validUnkeyUrl: string;
-let invalidUnkeyUrl: string;
+let validVerifierUrl: string;
+let invalidVerifierUrl: string;
 let infrastructure: undefined | Infrastructure;
 
 let ownerToken: string;
@@ -63,7 +60,7 @@ const resources = makeTestResourceScope();
 
 const keyedEnv = () => ({
 	SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
-	SERVER_PRO_KEY_VERIFICATION_URL: validUnkeyUrl,
+	SERVER_PRO_KEY_VERIFICATION_URL: validVerifierUrl,
 });
 
 // One backend may own a database at a time, so each API process reuses one origin and runs alone.
@@ -109,17 +106,15 @@ beforeAll(() =>
 		resources.run(
 			Effect.gen(function* () {
 				infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-				const [validUnkey, invalidUnkey] = yield* Effect.all(
+				const [validVerifier, invalidVerifier] = yield* Effect.all(
 					[
-						startFakeHttpServerScoped(() =>
-							unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2030-01-01" } }),
-						),
-						startFakeHttpServerScoped(() => unkeyEnvelope({ valid: false, code: "NOT_FOUND" })),
+						startFakeHttpServerScoped(() => Response.json({ valid: true, expiry: "2030-01-01" })),
+						startFakeHttpServerScoped(() => Response.json({ valid: false })),
 					],
 					{ concurrency: "unbounded" },
 				);
-				validUnkeyUrl = requirePresent(validUnkey, "Valid fake Unkey missing").url;
-				invalidUnkeyUrl = requirePresent(invalidUnkey, "Invalid fake Unkey missing").url;
+				validVerifierUrl = requirePresent(validVerifier, "Valid fake Verifier missing").url;
+				invalidVerifierUrl = requirePresent(invalidVerifier, "Invalid fake Verifier missing").url;
 				apiPort = yield* Effect.promise(() => getPort());
 
 				// The plugin catalog is a per-process, boot-time snapshot, so the provider is installed and
@@ -180,7 +175,7 @@ describe("Without a Pro Key", () => {
 describe("With a lapsed Pro Key", () => {
 	const target = useApi("lapsed", () => ({
 		SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
-		SERVER_PRO_KEY_VERIFICATION_URL: invalidUnkeyUrl,
+		SERVER_PRO_KEY_VERIFICATION_URL: invalidVerifierUrl,
 	}));
 
 	it.live("fails an existing integration's webhook run with entitlement-required", () =>

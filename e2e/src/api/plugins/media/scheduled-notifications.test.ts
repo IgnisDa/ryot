@@ -32,7 +32,7 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 type Harness = Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 
 let fakeApprise: FakeHttpServer;
-let fakeUnkey: FakeHttpServer;
+let fakeVerifier: FakeHttpServer;
 let keyless: Harness | undefined;
 let pro: Harness | undefined;
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
@@ -41,17 +41,14 @@ beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			fakeApprise = yield* startFakeAppriseServer;
-			fakeUnkey = yield* startFakeHttpServer(() =>
-				Response.json({
-					meta: { requestId: crypto.randomUUID() },
-					data: { valid: true, code: "VALID", meta: { expiry: "2030-01-01" } },
-				}),
+			fakeVerifier = yield* startFakeHttpServer(() =>
+				Response.json({ valid: true, expiry: "2030-01-01" }),
 			);
 			const [keylessHarness, proHarness] = yield* Effect.all(
 				[
 					startIsolatedHarness("Media Scheduled Notifications", { SERVER_PRO_KEY: "" }),
 					startIsolatedHarness("Media Scheduled Notifications Pro", {
-						SERVER_PRO_KEY_VERIFICATION_URL: fakeUnkey.url,
+						SERVER_PRO_KEY_VERIFICATION_URL: fakeVerifier.url,
 						SERVER_PRO_KEY: "e2e-scheduled-notifications-key",
 					}),
 				],
@@ -68,7 +65,7 @@ afterAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			yield* Effect.promise(() => fakeApprise.stop());
-			yield* Effect.promise(() => fakeUnkey.stop());
+			yield* Effect.promise(() => fakeVerifier.stop());
 			yield* keyless?.stop ?? Effect.void;
 			yield* pro?.stop ?? Effect.void;
 		}),

@@ -218,7 +218,6 @@
         "@ryot-app/sandbox": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "@ryot-app/vite-compiler": "workspace:*",
-        "@unkey/api": "2.5.6",
         "better-auth": "1.7.21",
         "drizzle-orm": "1.0.0-rc.5",
         "effect": "4.1.2",
