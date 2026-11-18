@@ -26,13 +26,7 @@ const StepWorkflow = Workflow.make("LifecycleWriteStepTestWorkflow", {
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-const execution = Layer.succeed(LifecycleExecution, {
-	dispatch: () => Effect.succeed([]),
-	after: () => Effect.die("unexpected after"),
-	executePolicy: () => Effect.die("unexpected policy"),
-	skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
-	executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
-});
+const execution = Layer.succeed(LifecycleExecution, { dispatch: () => Effect.void });
 
 layer(execution)((test) => {
 	test.effect(

@@ -89,7 +89,6 @@ const subject = {
 	causation,
 	triggerId,
 	stage: "after" as const,
-	delivery: "required" as const,
 	type: "automation-run" as const,
 	pluginId: PluginId.make("plugin-id"),
 	accountUserId: UserId.make("user-1"),

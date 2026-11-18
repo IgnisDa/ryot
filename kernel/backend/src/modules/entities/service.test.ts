@@ -3,11 +3,7 @@ import { describe, expect } from "bun:test";
 import { BunCrypto } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
-import type {
-	AutomationBlockedReason,
-	AutomationPolicyOutput,
-	AutomationWarning,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationPolicyOutput } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntityBadRequest,
 	EntityNotFound,
@@ -19,13 +15,10 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
-	AutomationHookSlug,
-	AutomationRunId,
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
 	EventSchemaSlug,
-	PluginId,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -36,7 +29,6 @@ import type { DefinitionSource } from "@ryot-app/definitions/snapshot";
 import { revisionDefinitions } from "@ryot-app/definitions/source";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -51,15 +43,17 @@ import {
 } from "#lib/domain/managed-asset-writes.test-support";
 import {
 	noHooksFixture,
+	policyFixture,
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import {
 	AutomationPolicyExecutionError,
-	LifecycleExecution,
-} from "#modules/automations/lifecycle/execution";
-import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+	LifecyclePolicies,
+} from "#modules/automations/lifecycle/policies";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
@@ -145,32 +139,21 @@ const createEvent = (id: EventId, userId: UserId, entityId: EntityId, sessionEnt
 			}),
 		);
 	});
-const warning: AutomationWarning = {
-	code: "required-hook-failed",
-	runId: AutomationRunId.make("after-run"),
-	hookSlug: AutomationHookSlug.make("fixture.after"),
-};
 type TestOptions = {
 	noHooks?: boolean;
-	blocked?: boolean;
 	deadlockOnce?: boolean;
 	extraEntitySchemas?: number;
 	lateEventOnDelete?: boolean;
 	activateSchemaOnLock?: number;
 	failChange?: number | boolean;
-	blockedRequiredChange?: boolean;
 	recordStatements?: { holdLocks?: RegExp };
-	warnings?: ReadonlyArray<AutomationWarning>;
 	policies?: ReadonlyArray<"fail" | AutomationPolicyOutput>;
 	policyEntityProvenance?: { entityId: EntityId; providerId: SandboxProviderId };
 };
 
 class FakeEntityLifecycle extends Context.Service<
 	FakeEntityLifecycle,
-	{
-		readonly policyCalls: Effect.Effect<ReadonlyArray<string>>;
-		readonly skippedPolicyTriggers: Effect.Effect<ReadonlyArray<string>>;
-	}
+	{ readonly policyCalls: Effect.Effect<ReadonlyArray<string>> }
 >()("@ryot-app/kernel-backend/modules/entities/service.test/FakeEntityLifecycle") {}
 
 const entitiesLayer = (options: TestOptions = {}) =>
@@ -182,7 +165,6 @@ const entitiesLayer = (options: TestOptions = {}) =>
 				const changePlans = yield* Ref.make(0);
 				const catalogLocks = yield* Ref.make(0);
 				const policyCalls = yield* Ref.make<ReadonlyArray<string>>([]);
-				const skippedPolicyTriggers = yield* Ref.make<ReadonlyArray<string>>([]);
 				const recordSchema: DefinitionSource["entitySchemas"][number] = {
 					slug,
 					pluginId: null,
@@ -312,7 +294,6 @@ const entitiesLayer = (options: TestOptions = {}) =>
 					Effect.gen(function* () {
 						const triggers = yield* AutomationTriggerRepository;
 						const session = yield* DatabaseSession;
-						const eventRepository = yield* EventsRepository;
 						return LifecyclePlanner.of(
 							withLifecycleBatchPlanning(
 								{
@@ -322,49 +303,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 											if (options.noHooks) {
 												return noHooksFixture();
 											}
-											let blockedReason: null | AutomationBlockedReason = null;
-											if (trigger.kind.category === "request" && options.blocked) {
-												blockedReason = {
-													omittedHooks: [],
-													hasRequiredHooks: false,
-													code: "automation-limit-reached",
-												};
-											} else if (
-												trigger.kind.category === "change" &&
-												options.blockedRequiredChange
-											) {
-												blockedReason = {
-													omittedHooks: [],
-													hasRequiredHooks: true,
-													code: "automation-limit-reached",
-												};
-											}
-											const persisted = yield* triggers.insert({ ...trigger, blockedReason });
-											if (
-												options.lateEventOnDelete &&
-												trigger.scopeUserId !== null &&
-												trigger.payload?.resource === "event" &&
-												trigger.payload.category === "request" &&
-												trigger.payload.operation === "delete"
-											) {
-												const before = trigger.payload.draft;
-												yield* eventRepository
-													.createEvent({
-														entityId: before.entityId,
-														eventSchemaPluginId: null,
-														userId: trigger.scopeUserId,
-														properties: before.properties,
-														propertiesSchema: { fields: {} },
-														id: EventId.make("late-cascade-event"),
-														eventSchemaSlug: before.eventSchemaSlug,
-														eventSchemaName: { namespace: "kernel", key: "test.progress" },
-														occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.occurredAt)),
-														...(before.sessionEntityId === null
-															? {}
-															: { sessionEntityId: before.sessionEntityId }),
-													})
-													.pipe(Effect.orDie);
-											}
+											const persisted = yield* triggers.insert({ ...trigger, blockedReason: null });
 											const changePlanCount =
 												trigger.kind.category === "change"
 													? yield* Ref.updateAndGet(changePlans, (count) => count + 1)
@@ -387,19 +326,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 													message: "Injected planning failure after insert",
 												});
 											}
-											return {
-												runs: [],
-												wasCreated: true,
-												trigger: persisted,
-												policies:
-													trigger.kind.category === "request"
-														? (options.policies ?? []).map((_, index) => ({
-																position: index,
-																pluginId: PluginId.make("policy-plugin"),
-																runId: AutomationRunId.make(`policy-${index}`),
-															}))
-														: [],
-											};
+											return { runs: [], wasCreated: true, trigger: persisted };
 										}),
 								},
 								200,
@@ -414,8 +341,6 @@ const entitiesLayer = (options: TestOptions = {}) =>
 						const session = yield* DatabaseSession;
 						return withLifecycleDispatch(
 							{
-								skipQueuedPolicies: ({ triggerId }) =>
-									Ref.update(skippedPolicyTriggers, (all) => [...all, triggerId]),
 								after: ({ triggerId }) =>
 									Effect.gen(function* () {
 										expect(yield* session.isTransactionActive).toBe(false);
@@ -427,59 +352,90 @@ const entitiesLayer = (options: TestOptions = {}) =>
 										);
 										assert(trigger);
 										expect(trigger.category).toBe("change");
-										return options.warnings ?? [];
-									}).pipe(Effect.mapError((error) => new DbError({ message: String(error) }))),
-								executePolicy: ({ runId, acceptedPatches }) =>
-									Effect.gen(function* () {
-										yield* Ref.update(policyCalls, (all) => [...all, runId]);
-										expect(yield* session.isTransactionActive).toBe(false);
-										const requests = yield* session
-											.run((db) =>
-												db
-													.select()
-													.from(tables.automationTrigger)
-													.where(eq(tables.automationTrigger.category, "request")),
-											)
-											.pipe(Effect.orDie);
-										expect(requests.length).toBeGreaterThan(0);
-										const index = Number(runId.split("-")[1]);
-										if (index === 1) {
-											expect(acceptedPatches).toEqual([
-												{
-													resource: "entity",
-													draft: {
-														name: "First",
-														properties: { remove: [], set: { title: "first" } },
-													},
-												},
-											]);
-										}
-										const output = options.policies?.[index];
-										assert(output);
-										if (options.policyEntityProvenance) {
-											const provenance = options.policyEntityProvenance;
-											yield* session
-												.run((db) =>
-													db
-														.update(tables.entity)
-														.set({ externalId: "policy-source", providerId: provenance.providerId })
-														.where(eq(tables.entity.id, provenance.entityId)),
-												)
-												.pipe(Effect.orDie);
-										}
-										if (output === "fail") {
-											return yield* new AutomationPolicyExecutionError({
-												runId,
-												code: "policy-execution-failed",
-											});
-										}
-										return output;
-									}),
+									}).pipe(Effect.orDie),
 							},
 							session,
 						);
 					}),
 				);
+				const policies = Layer.effect(
+					LifecyclePolicies,
+					Effect.gen(function* () {
+						const session = yield* DatabaseSession;
+						const eventRepository = yield* EventsRepository;
+						return LifecyclePolicies.of({
+							run: ({ items, policy }) =>
+								Effect.gen(function* () {
+									yield* Ref.update(policyCalls, (all) => [...all, policy.runId]);
+									expect(yield* session.isTransactionActive).toBe(false);
+									const index = policy.position;
+									if (index === 1) {
+										expect(items.map(({ request }) => request.draft)).toMatchObject([
+											{ name: "First", properties: { title: "first" } },
+										]);
+									}
+									const output = options.policies?.[index];
+									assert(output);
+									if (options.policyEntityProvenance) {
+										const provenance = options.policyEntityProvenance;
+										yield* session
+											.run((db) =>
+												db
+													.update(tables.entity)
+													.set({ externalId: "policy-source", providerId: provenance.providerId })
+													.where(eq(tables.entity.id, provenance.entityId)),
+											)
+											.pipe(Effect.orDie);
+									}
+									if (output === "fail") {
+										return yield* new AutomationPolicyExecutionError({
+											runId: policy.runId,
+											code: "policy-execution-failed",
+										});
+									}
+									return {
+										items: items.map(({ itemIdentity }) => ({ itemIdentity, decision: output })),
+									};
+								}),
+							match: (trigger) =>
+								Effect.gen(function* () {
+									if (
+										options.lateEventOnDelete &&
+										trigger.scopeUserId !== null &&
+										trigger.payload?.resource === "event" &&
+										trigger.payload.category === "request" &&
+										trigger.payload.operation === "delete"
+									) {
+										const before = trigger.payload.draft;
+										yield* eventRepository
+											.createEvent({
+												entityId: before.entityId,
+												eventSchemaPluginId: null,
+												userId: trigger.scopeUserId,
+												properties: before.properties,
+												propertiesSchema: { fields: {} },
+												id: EventId.make("late-cascade-event"),
+												eventSchemaSlug: before.eventSchemaSlug,
+												eventSchemaName: { namespace: "kernel", key: "test.progress" },
+												occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.occurredAt)),
+												...(before.sessionEntityId === null
+													? {}
+													: { sessionEntityId: before.sessionEntityId }),
+											})
+											.pipe(Effect.orDie);
+									}
+									return trigger.payload?.category === "request" &&
+										trigger.payload.resource === "entity"
+										? (options.policies ?? []).map((_, index) =>
+												policyFixture(index, [
+													{ resource: "entity", operation: "create", entitySchemaSlug: slug },
+												]),
+											)
+										: [];
+								}),
+						});
+					}),
+				).pipe(Layer.provide(repositories));
 				const eventsService = EventsService.layer.pipe(
 					Layer.provide(
 						Layer.mergeAll(
@@ -487,6 +443,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 							repositories,
 							ports,
 							execution,
+							policies,
 							Layer.succeed(
 								WorkflowEngine,
 								makeWorkflowEngine({
@@ -508,6 +465,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 								repositories,
 								ports,
 								execution,
+								policies,
 								eventsService,
 								emptyEntityUserDataAttachments,
 							),
@@ -558,10 +516,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 				);
 				return Layer.mergeAll(
 					schema,
-					Layer.succeed(FakeEntityLifecycle, {
-						policyCalls: Ref.get(policyCalls),
-						skippedPolicyTriggers: Ref.get(skippedPolicyTriggers),
-					}),
+					Layer.succeed(FakeEntityLifecycle, { policyCalls: Ref.get(policyCalls) }),
 				).pipe(Layer.provideMerge(services), Layer.provideMerge(makeConfigProviderLayer()));
 			}),
 		),
@@ -771,38 +726,6 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ blockedRequiredChange: true }))("entities service harness", (test) => {
-		test.effect(
-			"returns blocked required-hook warnings for normal create, update, and delete",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* EntitiesService;
-					const blocked = objectContaining({
-						hasRequiredHooks: true,
-						code: "automation-limit-reached",
-					});
-					const created = yield* service.create(createInput("limited-create"));
-					expect(created.warnings).toEqual<unknown>([blocked, blocked]);
-					const updated = yield* service.update({
-						userId: owner,
-						scope: "user",
-						name: "Updated",
-						populatedAt: null,
-						entityId: created.entity.id,
-						properties: { title: "updated" },
-						lifecycle: command("limited-update"),
-					});
-					expect(updated.warnings).toEqual<unknown>([blocked, blocked]);
-					const deleted = yield* service.deleteByIds(
-						[created.entity.id],
-						command("limited-delete"),
-					);
-					expect(deleted.warnings).toEqual<unknown>([blocked, blocked]);
-				}),
-			testTimeout,
-		);
-	});
-
 	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"commits in prepare without policies and after policies with the same rows",
@@ -848,7 +771,7 @@ describe("EntitiesService committed lifecycle", () => {
 						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
 							({ category }) => category,
 						),
-					).toEqual(["request", "change", "change"]);
+					).toEqual(["change", "change"]);
 					expect(committed.dispatch).toHaveLength(2);
 				}),
 			testTimeout,
@@ -1677,7 +1600,6 @@ describe("EntitiesService committed lifecycle", () => {
 							({ category, operation }) => ({ category, operation }),
 						),
 					).toEqual([
-						{ category: "request", operation: "create" },
 						{ category: "change", operation: "create" },
 						{ category: "change", operation: "batch" },
 					]);
@@ -1686,15 +1608,15 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ warnings: [warning] }))("entities service harness", (test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
-			"returns warnings after commit",
+			"persists the change trigger after commit",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const first = yield* service.create(createInput("replay"));
-					expect(first.warnings).toEqual([warning, warning]);
+					expect(first.warnings).toEqual([]);
 					expect(first.entity.name).toBe("Original");
 					const [entities, triggers] = yield* session.run((db) =>
 						Effect.all([
@@ -1703,19 +1625,18 @@ describe("EntitiesService committed lifecycle", () => {
 						]),
 					);
 					expect(entities).toHaveLength(1);
-					expect(triggers.length).toBe(3);
+					expect(triggers.map(({ category }) => category)).toEqual(["change", "change"]);
 					const change = triggers.find(
 						(row) => row.category === "change" && row.operation === "create",
 					);
-					const request = triggers.find((row) => row.category === "request");
-					assert(change && request);
+					assert(change);
 					expect(change.payload).toEqual<unknown>({
 						category: "change",
 						resource: "entity",
 						operation: "create",
 						after: first.entity,
 					});
-					expect(change.parentTriggerId).toBe(request.id);
+					expect(change.parentTriggerId).toBeNull();
 				}),
 			testTimeout,
 		);
@@ -1777,7 +1698,6 @@ describe("EntitiesService committed lifecycle", () => {
 			},
 			"policy-rejected",
 		],
-		["blocked", { blocked: true }, "automation-limit"],
 		[
 			"failed",
 			{ policies: ["fail", { action: "reject", reason: { key: "rejection.not-executed" } }] },
@@ -1786,7 +1706,7 @@ describe("EntitiesService committed lifecycle", () => {
 	] as const) {
 		layer(entitiesLayer(options))("entities service harness", (test) => {
 			test.effect(
-				`retains ${name} request without a source mutation`,
+				`writes nothing for a ${name} request`,
 				() =>
 					Effect.gen(function* () {
 						const service = yield* EntitiesService;
@@ -1802,18 +1722,10 @@ describe("EntitiesService committed lifecycle", () => {
 							});
 						}
 						expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-						const [request] = yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.automationTrigger)
-								.where(eq(tables.automationTrigger.category, "request")),
+						expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+							[],
 						);
-						assert(request);
-						const lifecycle = yield* FakeEntityLifecycle;
-						expect(yield* lifecycle.policyCalls).toEqual(name === "blocked" ? [] : ["policy-0"]);
-						expect(yield* lifecycle.skippedPolicyTriggers).toEqual(
-							name === "blocked" ? [] : [request.id],
-						);
+						expect(yield* (yield* FakeEntityLifecycle).policyCalls).toEqual(["policy-0"]);
 					}),
 				testTimeout,
 			);
@@ -2093,7 +2005,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ warnings: [warning] }))("entities service harness", (test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"ensures bootstrap entities without duplicate changes",
 			() =>
@@ -2137,7 +2049,7 @@ describe("EntitiesService committed lifecycle", () => {
 						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
 							(row) => row.category,
 						),
-					).toEqual(["request"]);
+					).toEqual([]);
 				}),
 			testTimeout,
 		);

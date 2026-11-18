@@ -15,6 +15,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import {
 	noLifecycleWorkLayer,
+	noPoliciesLayer,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -49,14 +50,7 @@ const execution = Layer.effectContext(
 		const session = yield* DatabaseSession;
 		return Context.make(
 			LifecycleExecution,
-			withLifecycleDispatch(
-				{
-					after: () => Effect.succeed([]),
-					executePolicy: () => Effect.die("Unexpected policy"),
-					skipQueuedPolicies: () => Effect.die("Unexpected policy"),
-				},
-				session,
-			),
+			withLifecycleDispatch({ after: () => Effect.void }, session),
 		);
 	}),
 );
@@ -72,7 +66,12 @@ const repositories = Layer.mergeAll(
 	EventsRepository.layer,
 );
 const dependencies = SignalEmissionService.layer.pipe(
-	Layer.provideMerge(LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer))),
+	Layer.provideMerge(
+		Layer.merge(
+			LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer)),
+			noPoliciesLayer,
+		),
+	),
 	Layer.provideMerge(execution),
 	Layer.provideMerge(repositories),
 	Layer.provideMerge(revisionDatabaseLayer),

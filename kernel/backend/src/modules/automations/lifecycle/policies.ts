@@ -2,15 +2,27 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEntityDraft,
 	AutomationHookIdentity,
+	type AutomationPolicyBatchOutput,
+	type AutomationPolicyOutput,
 	AutomationPolicyPatch,
 	AutomationRequestPayload,
-	AutomationTrigger,
+	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	AutomationHookSlug,
+	AutomationRunId,
+	EntityId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { Message } from "@ryot-app/i18n/message";
-import { Cause, Effect, Schema } from "effect";
+import { Context, Effect, Schema } from "effect";
 
 import { definitionText } from "#modules/definitions/text";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -18,9 +30,71 @@ import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DatabaseSession } from "#platform/db/session";
 
 import { lifecycleTrigger } from "./command";
-import { LifecycleExecution } from "./execution";
-import { LifecyclePlanner } from "./planning";
 import { applyLifecyclePolicyPatch, canonicalLifecyclePolicyPatch } from "./policy-patch";
+
+export class AutomationPolicyExecutionError extends Schema.TaggedError<
+	AutomationPolicyExecutionError,
+	{ readonly brand: unique symbol }
+>()("AutomationPolicyExecutionError", {
+	runId: AutomationRunId,
+	code: Schema.Literal("policy-execution-failed"),
+}) {}
+
+/** A policy matched to one request trigger. `runId` is the deterministic identity of that call. */
+export const LifecyclePolicy = Schema.Struct({
+	pluginId: PluginId,
+	runId: AutomationRunId,
+	hook: PluginBeforeHook,
+	position: Schema.Finite,
+	executionUserId: Schema.NullOr(UserId),
+	script: Schema.Struct({ slug: Schema.String, id: SandboxScriptId, contentHash: Schema.String }),
+	plugin: Schema.Struct({ revisionId: PluginRevisionId, configRevisionId: PluginConfigRevisionId }),
+});
+export type LifecyclePolicy = typeof LifecyclePolicy.Type;
+
+export type LifecyclePolicyItem = {
+	readonly itemIdentity: string;
+	readonly request: AutomationRequestPayload;
+};
+
+export class LifecyclePolicies extends Context.Service<
+	LifecyclePolicies,
+	{
+		/** The request's matching policies in call order, read on the caller's transaction. */
+		match: (trigger: AutomationTrigger) => Effect.Effect<ReadonlyArray<LifecyclePolicy>, DbError>;
+		/** Calls the policy once with every item it targets; untargeted items get no decision. */
+		run: (input: {
+			readonly policy: LifecyclePolicy;
+			readonly trigger: AutomationTrigger;
+			readonly items: ReadonlyArray<LifecyclePolicyItem>;
+			readonly references: Readonly<Record<string, AutomationEntityDraft>>;
+		}) => Effect.Effect<AutomationPolicyBatchOutput, AutomationPolicyExecutionError>;
+	}
+>()("@ryot-app/kernel-backend/modules/automations/lifecycle/policies/LifecyclePolicies") {}
+
+/** Calls a policy for a single-item request, whose item identity is its trigger ID. */
+export const runItemPolicy = Effect.fnUntraced(function* (
+	policies: LifecyclePolicies["Service"],
+	input: {
+		readonly policy: LifecyclePolicy;
+		readonly trigger: AutomationTrigger;
+		readonly request: AutomationRequestPayload;
+	},
+): Effect.fn.Return<AutomationPolicyOutput, AutomationPolicyExecutionError> {
+	const output = yield* policies.run({
+		references: {},
+		policy: input.policy,
+		trigger: input.trigger,
+		items: [{ request: input.request, itemIdentity: input.trigger.id }],
+	});
+	return (
+		output.items.find((item) => item.itemIdentity === input.trigger.id)?.decision ??
+		(yield* new AutomationPolicyExecutionError({
+			runId: input.policy.runId,
+			code: "policy-execution-failed",
+		}))
+	);
+});
 
 export const PolicyBatchItem = Schema.Struct({
 	schemaKey: Schema.String,
@@ -45,15 +119,9 @@ const State = Schema.Struct({
 });
 export const PolicyBatchResult = Schema.Struct({
 	items: Schema.Array(State),
-	triggerId: Schema.NullOr(AutomationTrigger.fields.id),
 	references: Schema.Record(EntityId, AutomationEntityDraft),
 });
 export type PolicyBatchResult = typeof PolicyBatchResult.Type;
-
-export class PolicyBatchBlocked extends Schema.TaggedError<
-	PolicyBatchBlocked,
-	{ readonly brand: unique symbol }
->()("PolicyBatchBlocked", { triggerId: AutomationTrigger.fields.id }) {}
 
 const PolicyBatchPayload = Schema.Struct({
 	userId: UserId,
@@ -63,31 +131,33 @@ const PolicyBatchPayload = Schema.Struct({
 	propertiesSchemas: Schema.Record(Schema.String, AppSchema),
 	resource: Schema.Literals(["entity", "event", "relationship"]),
 });
-/** Plans a batch's policies on the caller's transaction; a null trigger means none matched. */
-export const planPolicyBatch = Effect.fn("planPolicyBatch")(function* (
-	input: typeof PolicyBatchPayload.Type,
-) {
+export type MatchedPolicyBatch = {
+	readonly trigger: AutomationTrigger;
+	readonly policies: ReadonlyArray<LifecyclePolicy>;
+};
+
+type PolicyBatchPayload = typeof PolicyBatchPayload.Type;
+
+/** Matches a batch's policies on the caller's transaction; null means none matched. */
+export const matchPolicyBatch = Effect.fn("matchPolicyBatch")(function* (
+	input: PolicyBatchPayload,
+): Effect.fn.Return<null | MatchedPolicyBatch, DbError, LifecyclePolicies> {
 	if (input.items.length === 0) {
-		return { runs: [], policies: [], trigger: null };
+		return null;
 	}
-	const planned = yield* (yield* LifecyclePlanner).plan({
-		trigger: yield* lifecycleTrigger(input.command, input.userId, {
-			operation: "batch",
-			category: "request",
-			resource: input.resource,
-			references: input.references,
-			items: input.items.map((item) => item.request),
-			itemIdentities: input.items.map((item) => item.itemIdentity),
-		}),
+	const trigger = yield* lifecycleTrigger(input.command, input.userId, {
+		operation: "batch",
+		category: "request",
+		resource: input.resource,
+		references: input.references,
+		items: input.items.map((item) => item.request),
+		itemIdentities: input.items.map((item) => item.itemIdentity),
 	});
-	return { runs: planned.runs, trigger: planned.trigger, policies: planned.policies };
+	const policies = yield* (yield* LifecyclePolicies).match(trigger);
+	return policies.length === 0 ? null : { trigger, policies };
 });
 
-export const unchangedPolicyBatch = (
-	input: typeof PolicyBatchPayload.Type,
-	triggerId: null | AutomationTrigger["id"],
-): PolicyBatchResult => ({
-	triggerId,
+export const unchangedPolicyBatch = (input: PolicyBatchPayload): PolicyBatchResult => ({
 	references: input.references,
 	items: input.items.map((item) => ({
 		...item,
@@ -98,46 +168,36 @@ export const unchangedPolicyBatch = (
 	})),
 });
 
-type PolicyBatchPlan = Effect.Success<ReturnType<typeof planPolicyBatch>>;
-
-const applyPolicies = Effect.fnUntraced(function* (
-	input: typeof PolicyBatchPayload.Type,
-	plan: PolicyBatchPlan,
+/** Calls each matched policy in order with the items earlier policies left active. */
+export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
+	input: PolicyBatchPayload,
+	matched: null | MatchedPolicyBatch,
 ) {
-	const execution = yield* LifecycleExecution;
+	const policies = yield* LifecyclePolicies;
 	const entities = yield* EntitiesRepository;
-	let result: PolicyBatchResult = unchangedPolicyBatch(input, plan.trigger?.id ?? null);
+	let result = unchangedPolicyBatch(input);
 	const propertiesSchemaOf = (item: typeof PolicyBatchItem.Type) => {
 		const schema = input.propertiesSchemas[item.schemaKey];
 		return schema === undefined
 			? Effect.fail(new DbError({ message: "Policy batch item schema is unavailable" }))
 			: Effect.succeed(schema);
 	};
-	const ordered = [...plan.policies].sort((left, right) => {
-		const a = plan.runs.find((run) => run.id === left.runId);
-		const b = plan.runs.find((run) => run.id === right.runId);
-		return (
-			left.position - right.position ||
-			(a?.pluginId ?? "").localeCompare(b?.pluginId ?? "") ||
-			(a?.hookSlug ?? "").localeCompare(b?.hookSlug ?? "")
-		);
-	});
-	for (const policy of ordered) {
-		const output = yield* execution.executeBatchPolicy({
-			runId: policy.runId,
-			acceptedReferences: result.references,
-			acceptedBatchPatches: Object.fromEntries(
-				result.items.map((item) => [item.itemIdentity, item.patches]),
+	const calls =
+		matched === null
+			? []
+			: matched.policies.map((policy) => ({ policy, trigger: matched.trigger }));
+	for (const { policy, trigger } of calls) {
+		const output = yield* policies.run({
+			policy,
+			trigger,
+			references: result.references,
+			items: result.items.flatMap((item) =>
+				item.rejected === null && item.error === null
+					? [{ request: item.request, itemIdentity: item.itemIdentity }]
+					: [],
 			),
-			activeItemIdentities: result.items
-				.filter((item) => item.rejected === null && item.error === null)
-				.map((item) => item.itemIdentity),
 		});
 		const previous = result;
-		const run = plan.runs.find((candidate) => candidate.id === policy.runId);
-		if (!run) {
-			return yield* new DbError({ message: "Policy batch run is unavailable" });
-		}
 		const references = { ...previous.references };
 		const items = yield* Effect.forEach(previous.items, (item) =>
 			Effect.gen(function* () {
@@ -148,11 +208,14 @@ const applyPolicies = Effect.fnUntraced(function* (
 					return item;
 				}
 				const processed =
-					policy.batchFrequency === "once-per-subject"
-						? [...item.processed, { hookSlug: run.hookSlug, pluginId: run.pluginId }]
+					policy.hook.batchFrequency === "once-per-subject"
+						? [
+								...item.processed,
+								{ pluginId: policy.pluginId, hookSlug: AutomationHookSlug.make(policy.hook.slug) },
+							]
 						: item.processed;
 				if (decision.action === "reject") {
-					return { ...item, processed, rejected: definitionText(run.pluginId, decision.reason) };
+					return { ...item, processed, rejected: definitionText(policy.pluginId, decision.reason) };
 				}
 				if (decision.action === "allow") {
 					return { ...item, processed };
@@ -229,10 +292,9 @@ const applyPolicies = Effect.fnUntraced(function* (
 				};
 			}),
 		);
-		result = { ...previous, items, references };
+		result = { items, references };
 	}
-	const previous = result;
-	const items = yield* Effect.forEach(previous.items, (item) =>
+	const items = yield* Effect.forEach(result.items, (item) =>
 		Effect.gen(function* () {
 			if (item.rejected !== null || item.error !== null || item.request.operation === "delete") {
 				return item;
@@ -247,42 +309,13 @@ const applyPolicies = Effect.fnUntraced(function* (
 				: item;
 		}),
 	);
-	return { ...previous, items };
+	return { ...result, items };
 });
 
-/**
- * Runs a planned batch's policies outside a workflow, for a command whose source write has not begun; a failure
- * leaves the remaining queued policies skipped. An interruption keeps them queued so a retry runs them.
- */
-export const runPolicyBatchDirect = Effect.fn("PolicyBatchDirect")(function* (
-	input: typeof PolicyBatchPayload.Type,
-	plan: PolicyBatchPlan,
-) {
-	const execution = yield* LifecycleExecution;
-	return yield* applyPolicies(input, plan).pipe(
-		Effect.onError((cause) =>
-			plan.trigger === null || Cause.hasInterruptsOnly(cause)
-				? Effect.void
-				: execution
-						.skipQueuedPolicies({ triggerId: plan.trigger.id })
-						.pipe(
-							Effect.catchCause((skipCause) =>
-								Effect.logError("Policy batch skip failed", skipCause),
-							),
-						),
-		),
-	);
-});
-
-/** Plans a batch's policies in their own transaction and runs them, for a caller holding no transaction. */
-export const runPolicyBatch = Effect.fn("PolicyBatch")(function* (
-	input: typeof PolicyBatchPayload.Type,
-) {
-	const plan = yield* (yield* DatabaseSession)
-		.transaction(planPolicyBatch(input))
+/** Matches a batch's policies in their own transaction and calls them, for a caller holding none. */
+export const runPolicyBatch = Effect.fn("runPolicyBatch")(function* (input: PolicyBatchPayload) {
+	const matched = yield* (yield* DatabaseSession)
+		.transaction(matchPolicyBatch(input))
 		.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-	if (plan.trigger?.blockedReason) {
-		return yield* new PolicyBatchBlocked({ triggerId: plan.trigger.id });
-	}
-	return yield* runPolicyBatchDirect(input, plan);
+	return yield* applyPolicyBatch(input, matched);
 });

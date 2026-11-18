@@ -23,7 +23,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { isUserBootstrapPrincipal } from "#modules/scripts/authorization/principal";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
+import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { ScriptChanges, type ScriptChangesInput } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -615,12 +615,7 @@ const bootstrapScriptLayer = (value: unknown) =>
 			const committed = yield* Ref.make<ReadonlyArray<ScriptChangesInput>>([]);
 			return Layer.mergeAll(
 				Layer.succeed(BootstrapCommits, { committed: Ref.get(committed) }),
-				Layer.succeed(
-					ScriptCalls,
-					ScriptCalls.of({
-						run: () => Effect.succeed({ value, logs: [], error: null, status: "completed" }),
-					}),
-				),
+				scriptCallsLayer(() => Effect.succeed(scriptCallResult(value))),
 				Layer.succeed(
 					ScriptChanges,
 					ScriptChanges.of({

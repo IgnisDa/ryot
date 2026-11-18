@@ -118,10 +118,9 @@ export const automationRun = snakeCase.table(
 		queuedAt: timestamptz().defaultNow().notNull(),
 		stage: text().$type<AutomationRun["stage"]>().notNull(),
 		skipReason: jsonb().$type<AutomationRun["skipReason"]>(),
-		retryPolicy: jsonb().$type<AutomationRun["retryPolicy"]>(),
 		sandboxScriptId: text().references(() => sandboxScript.id),
 		historyPayloadTruncated: boolean().notNull().default(false),
-		delivery: text().$type<AutomationRun["delivery"]>().notNull(),
+		retryPolicy: jsonb().$type<AutomationRun["retryPolicy"]>().notNull(),
 		pluginId: text().references(() => plugin.id, { onDelete: "cascade" }),
 		executionUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		status: text().$type<AutomationRun["status"]>().notNull().default("queued"),
@@ -174,10 +173,7 @@ export const automationRun = snakeCase.table(
 			"automation_run_owner_check",
 			sql`(${table.pluginId} is null and ${table.pluginRevisionId} is null and ${table.pluginConfigRevisionId} is null) or (${table.pluginId} is not null and ${table.pluginRevisionId} is not null and ${table.pluginConfigRevisionId} is not null)`,
 		),
-		check(
-			"automation_run_stage_check",
-			sql`(${table.stage} = 'before' and ${table.delivery} = 'policy' and ${table.retryPolicy} is null and ${table.nextAttemptAt} is null and ${table.attemptCount} <= 1) or (${table.stage} = 'after' and ${table.delivery} in ('required', 'async') and ${table.retryPolicy} is not null)`,
-		),
+		check("automation_run_stage_check", sql`${table.stage} = 'after'`),
 		check(
 			"automation_run_status_check",
 			sql`${table.status} in ('queued', 'running', 'succeeded', 'failed', 'rejected', 'skipped') and ${table.attemptCount} >= 0`,

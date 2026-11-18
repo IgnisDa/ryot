@@ -84,7 +84,6 @@ const entityId = EntityId.make("entity-id");
 const relationshipId = RelationshipId.make("relationship-id");
 const warning = {
 	omittedHooks: [],
-	hasRequiredHooks: false,
 	code: "automation-limit-reached",
 	triggerId: AutomationTriggerId.make("trigger-id"),
 } as const satisfies AutomationWarning;
@@ -228,7 +227,6 @@ const makeServiceLayer = (
 		readonly workflow?: {
 			readonly eventFailure?: unknown;
 			readonly eventResult?: CreateEventsResponse;
-			readonly warnings?: ReadonlyArray<AutomationWarning>;
 		};
 	} = {},
 ) =>
@@ -262,14 +260,11 @@ const makeServiceLayer = (
 			const dependencies = Layer.mergeAll(
 				Layer.mock(LifecyclePlanner)({ plan: () => Effect.die("unused") }),
 				Layer.mock(LifecycleExecution)({
-					after: () => Effect.die("unused"),
-					executePolicy: () => Effect.die("unused"),
-					skipQueuedPolicies: () => Effect.die("unused"),
 					dispatch: (plans) =>
 						Ref.update(dispatchedTriggers, (all) => [
 							...all,
 							plans.map(({ triggerId }) => triggerId),
-						]).pipe(Effect.as(plans.length > 0 ? (workflow.warnings ?? []) : [])),
+						]),
 				}),
 				Layer.mock(EntitiesRepository)({}),
 				mockEntities({
@@ -1007,10 +1002,7 @@ layer(
 
 layer(
 	makeServiceLayer({
-		workflow: {
-			warnings: [warning],
-			eventResult: { count: 1, outcomes: [], failure: null, warnings: [eventWarning] },
-		},
+		workflow: { eventResult: { count: 1, outcomes: [], failure: null, warnings: [eventWarning] } },
 	}),
 )((test) => {
 	test.effect(
@@ -1021,7 +1013,7 @@ layer(
 				const result = yield* runMembershipWorkflow();
 				const membershipCommand = (yield* calls.lifecycleCommands)["relationships.prepareCreate"];
 				const [relationshipInput] = yield* calls.relationshipInputs;
-				expect(result.warnings).toEqual([warning, eventWarning]);
+				expect(result.warnings).toEqual([eventWarning]);
 				expect(yield* calls.dispatchedTriggers).toEqual([[membershipPlan.triggerId]]);
 				expect(relationshipInput?.relationshipSchema).toEqual({
 					owner: { kind: "kernel" },
@@ -1073,10 +1065,7 @@ layer(makeServiceLayer({ workflow: { eventFailure: new Error("failed") } }))((te
 layer(
 	makeServiceLayer({
 		collections: { findMembership: () => Effect.succeed({ properties: {}, id: relationshipId }) },
-		workflow: {
-			warnings: [warning],
-			eventResult: { count: 1, outcomes: [], failure: null, warnings: [eventWarning] },
-		},
+		workflow: { eventResult: { count: 1, outcomes: [], failure: null, warnings: [eventWarning] } },
 	}),
 )((test) => {
 	test.effect(
@@ -1090,7 +1079,7 @@ layer(
 				const relationshipCommand = commands["relationships.prepareDeleteUserRelationshipById"];
 				expect(result).toEqual<unknown>({
 					operation: "delete",
-					warnings: [warning, eventWarning],
+					warnings: [eventWarning],
 					memberOf: {
 						createdAt: now,
 						updatedAt: now,

@@ -1,10 +1,10 @@
 import { describe, expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationRun,
 	AutomationSignalPayload,
-	AutomationTrigger,
 	AutomationTriggerPayload,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -23,7 +23,6 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Duration, Effect, Layer, Schema, type Tracer } from "effect";
-import { TestClock } from "effect/testing";
 
 import { lifecycleRunId, lifecycleTriggerId } from "#modules/automations/lifecycle/planning";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
@@ -35,10 +34,9 @@ import {
 import { bindParameterLimit, insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
-import { automationRun, automationRunAttempt } from "#schema/tables/automations";
+import { automationRun } from "#schema/tables/automations";
 import { sandboxScript } from "#schema/tables/core";
 
-import { AutomationAttemptRepository } from "./attempt-repository";
 import { triggerFixture } from "./lifecycle.test-support";
 import { AutomationRunRepository, redactAutomationHistoryPayload } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
@@ -295,7 +293,6 @@ describe("AutomationRunRepository", () => {
 						status: "queued",
 						finishedAt: null,
 						skipReason: null,
-						delivery: "async",
 						hookName: hook.name,
 						nextAttemptAt: null,
 						hookSlug: hook.slug,
@@ -412,197 +409,12 @@ describe("AutomationRunRepository", () => {
 		);
 	});
 	layer(
-		Layer.mergeAll(
-			AutomationRunRepository.layer,
-			AutomationAttemptRepository.layer,
-			AutomationTriggerRepository.layer,
-		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
-	)((test) => {
-		test.effect(
-			"closes only unstarted policies in the abandoned trigger without changing attempts or replay timestamps",
-			() =>
-				Effect.gen(function* () {
-					const repo = yield* AutomationRunRepository;
-					const attempts = yield* AutomationAttemptRepository;
-					const triggers = yield* AutomationTriggerRepository;
-					yield* (yield* DatabaseSession).run((db) =>
-						Effect.gen(function* () {
-							const request = yield* Schema.decodeEffect(AutomationTrigger)({
-								...triggerFixture("abandoned"),
-								createdAt: "1970-01-01T00:00:00.000Z",
-								occurredAt: "1970-01-01T00:00:00.000Z",
-								kind: { resource: "entity", operation: "create", category: "request" },
-								payload: {
-									resource: "entity",
-									category: "request",
-									operation: "create",
-									draft: {
-										name: "Draft",
-										properties: {},
-										providerId: null,
-										externalId: null,
-										populatedAt: null,
-										entitySchemaSlug: "record",
-										entitySchemaPluginId: null,
-									},
-								},
-							});
-							const trigger = yield* triggers.insert(request);
-							const payload = trigger.payload;
-							assert(payload);
-							const other = yield* triggers.insert({ ...request, id: triggerFixture("other").id });
-							yield* db
-								.insert(sandboxScript)
-								.values({
-									name: "Policy",
-									slug: "policy",
-									source: "source",
-									id: "policy-script",
-									contentHash: "hash",
-									compiledCode: "code",
-									metadata: { kind: "automation", runtimeImports: [] },
-								});
-							const base = yield* Schema.decodeEffect(AutomationRun)({
-								pluginId: null,
-								stage: "before",
-								startedAt: null,
-								attemptCount: 0,
-								finishedAt: null,
-								skipReason: null,
-								status: "queued",
-								retryPolicy: null,
-								id: "unstarted-a",
-								delivery: "policy",
-								hookSlug: "policy",
-								hookName: "Policy",
-								nextAttemptAt: null,
-								scriptSlug: "policy",
-								triggerId: trigger.id,
-								executionUserId: null,
-								pluginRevisionId: null,
-								scriptContentHash: "hash",
-								queuedAt: trigger.createdAt,
-								pluginConfigRevisionId: null,
-								sandboxScriptId: "policy-script",
-								artifactsExpireAt: "2026-10-15T00:00:00.000Z",
-							});
-							const pending = yield* queueRun(repo, base, payload);
-							const second = yield* queueRun(
-								repo,
-								yield* Schema.decodeEffect(AutomationRun)({
-									...base,
-									id: "unstarted-b",
-									hookSlug: "second",
-								}),
-								payload,
-							);
-							const active = yield* queueRun(
-								repo,
-								yield* Schema.decodeEffect(AutomationRun)({
-									...base,
-									id: "active",
-									hookSlug: "active",
-								}),
-								payload,
-							);
-							const terminal = yield* queueRun(
-								repo,
-								yield* Schema.decodeEffect(AutomationRun)({
-									...base,
-									id: "terminal",
-									hookSlug: "terminal",
-								}),
-								payload,
-							);
-							const after = yield* queueRun(
-								repo,
-								yield* Schema.decodeEffect(AutomationRun)({
-									...base,
-									id: "after",
-									stage: "after",
-									hookSlug: "after",
-									delivery: "required",
-									retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
-								}),
-								payload,
-							);
-							const unrelated = yield* queueRun(
-								repo,
-								{
-									...base,
-									triggerId: other.id,
-									id: lifecycleRunId({ ...base, triggerId: other.id }),
-								},
-								payload,
-							);
-							const now = DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt));
-							yield* attempts.claimNextAttempt({ now, attemptNumber: 1, runId: active.id });
-							yield* attempts.claimNextAttempt({ now, attemptNumber: 1, runId: terminal.id });
-							yield* attempts.finalizeAttempt(
-								{
-									logs: [],
-									error: null,
-									timing: null,
-									attemptNumber: 1,
-									failureKind: null,
-									runId: terminal.id,
-									status: "succeeded",
-									returnedValue: { action: "reject", reason: "Stopped" },
-								},
-								now,
-							);
-							const activeBefore = yield* repo.findById(active.id);
-							const terminalBefore = yield* repo.findById(terminal.id);
-							const attemptsBefore = yield* db
-								.select()
-								.from(automationRunAttempt)
-								.orderBy(automationRunAttempt.id);
-							const finishedAt = "1970-01-01T00:00:01.000Z";
-							yield* TestClock.adjust("1 second");
-							yield* repo.skipQueuedPolicies({ triggerId: trigger.id });
-							expect(yield* repo.findById(pending.id)).toEqual({
-								...pending,
-								finishedAt,
-								status: "skipped",
-								skipReason: { code: "policy-chain-stopped" },
-							});
-							expect(yield* repo.findById(second.id)).toEqual({
-								...second,
-								finishedAt,
-								status: "skipped",
-								skipReason: { code: "policy-chain-stopped" },
-							});
-							expect(yield* repo.findById(active.id)).toEqual(activeBefore);
-							expect(yield* repo.findById(terminal.id)).toEqual(terminalBefore);
-							expect(yield* repo.findById(after.id)).toEqual(after);
-							expect(yield* repo.findById(unrelated.id)).toEqual(unrelated);
-							expect(
-								yield* db.select().from(automationRunAttempt).orderBy(automationRunAttempt.id),
-							).toEqual(attemptsBefore);
-							yield* TestClock.adjust("1 minute");
-							yield* repo.skipQueuedPolicies({ triggerId: trigger.id });
-							expect(yield* repo.findById(pending.id)).toEqual({
-								...pending,
-								finishedAt,
-								status: "skipped",
-								skipReason: { code: "policy-chain-stopped" },
-							});
-							expect(
-								yield* db.select().from(automationRunAttempt).orderBy(automationRunAttempt.id),
-							).toEqual(attemptsBefore);
-						}),
-					);
-				}),
-			testTimeout,
-		);
-	});
-	layer(
 		Layer.mergeAll(AutomationRunRepository.layer, AutomationTriggerRepository.layer).pipe(
 			Layer.provideMerge(revisionDatabaseLayer),
 		),
 	)((test) => {
 		test.effect(
-			"pins kernel runs, verifies immutable replay after completion and selects only due queued after runs",
+			"pins kernel runs, verifies immutable replay after completion and selects only due queued runs",
 			() =>
 				Effect.gen(function* () {
 					const repo = yield* AutomationRunRepository;
@@ -638,7 +450,6 @@ describe("AutomationRunRepository", () => {
 								status: "queued",
 								finishedAt: null,
 								skipReason: null,
-								delivery: "async",
 								hookName: "Notify",
 								nextAttemptAt: null,
 								triggerId: trigger.id,
@@ -855,15 +666,6 @@ describe("AutomationRunRepository", () => {
 								),
 							).toMatchObject({ _tag: "DbError" });
 							yield* db.update(user).set({ disabledAt: now }).where(eq(user.id, "owner"));
-							const policy = yield* Schema.decodeUnknownEffect(AutomationRun)({
-								...run,
-								stage: "before",
-								id: "policy-run",
-								retryPolicy: null,
-								hookSlug: "policy",
-								delivery: "policy",
-							});
-							yield* queueRun(repo, policy, payload);
 							expect(
 								yield* repo.listQueuedCandidates({ now, limit: 10, initialQueuedBefore: now }),
 							).toEqual(

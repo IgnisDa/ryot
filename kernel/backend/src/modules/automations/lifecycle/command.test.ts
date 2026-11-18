@@ -34,16 +34,16 @@ const writes = (lane: "background" | "interactive") => {
 		initiator: { id: null, kind: "system" },
 		executionId: AutomationExecutionId.make("root"),
 	});
-	return (["policy", "required", "async"] as const).map(
-		(delivery) =>
+	return (["before", "after"] as const).map(
+		(stage) =>
 			automationLifecycleCausation(
 				{
-					delivery,
+					stage,
 					causation,
-					runId: AutomationRunId.make(`${delivery}-run`),
+					runId: AutomationRunId.make(`${stage}-run`),
 					triggerId: AutomationTriggerId.make("trigger"),
 				},
-				AutomationExecutionId.make(`${delivery}-write`),
+				AutomationExecutionId.make(`${stage}-write`),
 			).lane,
 	);
 };
@@ -77,8 +77,8 @@ describe("lifecycle commands", () => {
 		expect(provider.population).toBe(population);
 	});
 	it("scheduling_lane_survives_durable_boundaries: automation writes run in their run's lane", () => {
-		expect(writes("interactive")).toEqual(["interactive", "interactive", "background"]);
-		expect(writes("background")).toEqual(["background", "background", "background"]);
+		expect(writes("interactive")).toEqual(["interactive", "background"]);
+		expect(writes("background")).toEqual(["background", "background"]);
 	});
 	it.effect(
 		"preserves causal metadata and changes trigger identity by resource or item",

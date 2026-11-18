@@ -22,8 +22,9 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
 import { DateTime, Effect, Layer, Schema } from "effect";
 
+import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { Folds } from "#modules/derived-values/service";
@@ -991,13 +992,12 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					},
 					firstUser,
 				);
-				const execution = yield* LifecycleExecution;
 				const repository = yield* EntitiesRepository;
 				const session = yield* DatabaseSession;
 				const oldWriter = yield* EntitiesService.make.pipe(
-					Effect.provideService(LifecycleExecution, {
-						...execution,
-						executePolicy: () =>
+					Effect.provideService(
+						LifecyclePolicies,
+						decidingPolicies((yield* LifecyclePolicies).match, () =>
 							session
 								.transaction(
 									repository.updateEntity({
@@ -1008,7 +1008,8 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 									}),
 								)
 								.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
-					}),
+						),
+					),
 				);
 				expect(
 					yield* Effect.flip(

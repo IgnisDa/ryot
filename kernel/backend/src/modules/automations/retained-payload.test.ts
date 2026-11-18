@@ -122,7 +122,6 @@ const seedRun = (
 					finishedAt: null,
 					skipReason: null,
 					status: "queued",
-					delivery: "async",
 					nextAttemptAt: null,
 					triggerId: "trigger",
 					executionUserId: null,

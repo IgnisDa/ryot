@@ -213,29 +213,9 @@ const providerEntityIdFor = (
 		)}`,
 	);
 
-const dispatchPopulationPlans = (
-	dispatch: ReadonlyArray<LifecycleDispatchPlan>,
-	message: string,
-	annotations: Readonly<Record<string, unknown>>,
-) =>
-	Effect.gen(function* () {
-		const execution = yield* LifecycleExecution;
-		const warnings = yield* execution.dispatch(dispatch).pipe(mapDbErrorToSandbox);
-		if (warnings.length > 0) {
-			yield* Effect.logWarning(message).pipe(
-				Effect.annotateLogs({ ...annotations, warnings, warningCount: warnings.length }),
-			);
-		}
-	});
-
-const logEntityWarnings = (
-	dispatch: ReadonlyArray<LifecycleDispatchPlan>,
-	phase: "root-stamp" | "root-upsert",
-) =>
-	dispatchPopulationPlans(
-		dispatch,
-		"provider entity population completed with automation warnings",
-		{ phase },
+const dispatchPopulationPlans = (dispatch: ReadonlyArray<LifecycleDispatchPlan>) =>
+	Effect.flatMap(LifecycleExecution, (execution) =>
+		execution.dispatch(dispatch).pipe(mapDbErrorToSandbox),
 	);
 
 const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function* (
@@ -313,11 +293,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 	if (!synchronized.superseded) {
 		yield* publishPrimaryEntity(payload, entityId, "enrichment-updated");
 	}
-	yield* dispatchPopulationPlans(
-		synchronized.dispatch,
-		"provider related population completed with automation warnings",
-		{ relationshipSchemaSlug: group.relationshipSchemaSlug },
-	);
+	yield* dispatchPopulationPlans(synchronized.dispatch);
 	return synchronized;
 });
 
@@ -352,11 +328,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 			},
 		},
 	}).pipe(mapDbErrorToSandbox);
-	yield* dispatchPopulationPlans(
-		written.dispatch,
-		"provider child population completed with automation warnings",
-		{ parentEntityId: scope.parentEntityId },
-	);
+	yield* dispatchPopulationPlans(written.dispatch);
 	return written;
 });
 
@@ -557,11 +529,7 @@ const sweepRelatedGroup = Effect.fn("sweepRelatedGroup")(function* (
 		return "superseded" as const;
 	}
 	yield* publishPrimaryEntity(payload, run.entityId, "enrichment-updated");
-	yield* dispatchPopulationPlans(
-		swept.dispatch,
-		"provider related sweep completed with automation warnings",
-		{ relationshipSchemaSlug: run.group.relationshipSchemaSlug },
-	);
+	yield* dispatchPopulationPlans(swept.dispatch);
 	return "complete" as const;
 });
 
@@ -722,7 +690,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	const entity = rootSave.result.entity;
 	const requests = yield* EnrichmentRequests;
 	yield* requests.attachEntity(requestId, entity.id);
-	yield* logEntityWarnings(rootSave.dispatch, "root-upsert");
+	yield* dispatchPopulationPlans(rootSave.dispatch);
 	yield* writeChildEntityScopes(payload, definitions, options, rootPreviouslyPopulated, {
 		scopeEntity,
 		parentName: entity.name,
@@ -737,7 +705,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 			: {}),
 	});
 	const stamped = yield* stampRootPopulatedAt(payload, details, population, options, executionId);
-	yield* logEntityWarnings(stamped.dispatch, "root-stamp");
+	yield* dispatchPopulationPlans(stamped.dispatch);
 	yield* publishPrimaryEntity(payload, stamped.result.entity.id);
 	if (options.level === "base") {
 		return stamped.result.entity;

@@ -19,6 +19,7 @@ import { AuthRepository } from "#modules/accounts/auth/repository";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import {
 	noLifecycleWorkLayer,
+	noPoliciesLayer,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -78,8 +79,6 @@ const execution = Layer.effectContext(
 			LifecycleExecution,
 			withLifecycleDispatch(
 				{
-					executePolicy: () => Effect.die("Unexpected policy"),
-					skipQueuedPolicies: () => Effect.die("Unexpected policy"),
 					after: ({ runs }) =>
 						Effect.gen(function* () {
 							const inTransaction = yield* session.isTransactionActive;
@@ -129,7 +128,12 @@ const repositories = Layer.mergeAll(
 	EventsRepository.layer,
 );
 const dependencies = SignalEmissionService.layer.pipe(
-	Layer.provideMerge(LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer))),
+	Layer.provideMerge(
+		Layer.merge(
+			LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer)),
+			noPoliciesLayer,
+		),
+	),
 	Layer.provideMerge(execution),
 	Layer.provideMerge(repositories),
 	Layer.provideMerge(revisionDatabaseLayer),

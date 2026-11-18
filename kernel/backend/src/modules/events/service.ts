@@ -3,7 +3,6 @@ import {
 	type AutomationEventChangePayload,
 	AutomationEventDraft,
 	type AutomationEventSnapshot,
-	type AutomationPolicyPatch,
 	type AutomationRequestPayload,
 	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -16,16 +15,11 @@ import {
 	type UpdateEventItem,
 } from "@ryot-app/contract/modules/events/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import type {
-	AutomationTriggerId,
-	EntityId,
-	EventId,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import type { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Array as Arr, Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Array as Arr, Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -36,10 +30,8 @@ import {
 	LifecyclePersistenceError,
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
-import {
-	applyLifecyclePolicyPatch,
-	canonicalLifecyclePolicyPatch,
-} from "#modules/automations/lifecycle/policy-patch";
+import { LifecyclePolicies, runItemPolicy } from "#modules/automations/lifecycle/policies";
+import { applyLifecyclePolicyPatch } from "#modules/automations/lifecycle/policy-patch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { definitionText } from "#modules/definitions/text";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -84,7 +76,6 @@ type PreparedEventMutationData = {
 	readonly input: EventIdentityInput;
 	readonly before: AutomationEventSnapshot;
 	readonly command: DomainLifecycleCommand;
-	readonly requestId: null | AutomationTriggerId;
 } & (
 	| { readonly operation: "delete"; readonly cascadeEntityIds?: ReadonlyArray<EntityId> }
 	| {
@@ -384,6 +375,7 @@ export class EventsService extends Context.Service<EventsService>()(
 			const planner = yield* LifecyclePlanner;
 			const admission = yield* AccountAdmission.make;
 			const execution = yield* LifecycleExecution;
+			const policies = yield* LifecyclePolicies;
 			const create = yield* makeEventCreate;
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userIds: ReadonlyArray<UserId>) =>
 				mutations
@@ -601,16 +593,16 @@ export class EventsService extends Context.Service<EventsService>()(
 									]),
 								)
 							: yield* lifecycleTrigger(command, userId, request);
-						const plan = yield* planner.plan({ trigger });
 						return {
-							plan,
 							input,
 							before,
+							trigger,
 							command,
 							request,
 							expectedRevision,
 							draft: initial.draft,
 							_tag: "Planned" as const,
+							policies: yield* policies.match(trigger),
 							propertiesSchema: initial.propertiesSchema,
 							capturedReferences: initial.capturedReferences,
 							eventSchemaFingerprint: initial.eventSchemaFingerprint,
@@ -618,9 +610,6 @@ export class EventsService extends Context.Service<EventsService>()(
 					}),
 					[userId],
 				);
-				if (prepared.plan.trigger?.blockedReason) {
-					return yield* eventBadRequest("automation-limit");
-				}
 				let request = prepared.request;
 				let draft = prepared.draft;
 				let capturedReferences = prepared.capturedReferences;
@@ -628,64 +617,38 @@ export class EventsService extends Context.Service<EventsService>()(
 					propertiesSchema: prepared.propertiesSchema,
 					eventSchemaFingerprint: prepared.eventSchemaFingerprint,
 				};
-				const acceptedPatches: AutomationPolicyPatch[] = [];
-				const orderedPolicies = [...prepared.plan.policies].sort((left, right) => {
-					const leftRun = prepared.plan.runs.find((run) => run.id === left.runId);
-					const rightRun = prepared.plan.runs.find((run) => run.id === right.runId);
-					return (
-						left.position - right.position ||
-						(leftRun?.pluginId ?? "").localeCompare(rightRun?.pluginId ?? "") ||
-						(leftRun?.hookSlug ?? "").localeCompare(rightRun?.hookSlug ?? "")
-					);
-				});
-				yield* Effect.gen(function* () {
-					for (const policy of orderedPolicies) {
-						const output = yield* execution
-							.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
-							.pipe(Effect.mapError(() => eventBadRequest("policy-execution-failed")));
-						if (output.action === "reject") {
-							return yield* new EventBadRequest({
-								reason: {
-									code: "policy-rejected",
-									message: definitionText(policy.pluginId, output.reason),
-								},
-							});
-						}
-						if (output.action === "transform") {
-							const patched = applyLifecyclePolicyPatch(request, output.patch);
-							if (!patched.ok) {
-								return yield* rejected("invalid-policy-transform", patched.reason);
-							}
-							const validated = yield* resolveEditContext(
-								userId,
-								prepared.before,
-								patched.request.draft,
-								command,
-								capturedReferences,
-								pinnedSchema,
-							);
-							const successor = { ...patched.request, draft: validated.draft };
-							const accepted = canonicalLifecyclePolicyPatch(request, successor);
-							request = successor;
-							draft = validated.draft;
-							capturedReferences = validated.capturedReferences;
-							if (accepted) {
-								acceptedPatches.push(accepted);
-							}
-						}
+				for (const policy of prepared.policies) {
+					const output = yield* runItemPolicy(policies, {
+						policy,
+						request,
+						trigger: prepared.trigger,
+					}).pipe(Effect.mapError(() => eventBadRequest("policy-execution-failed")));
+					if (output.action === "reject") {
+						return yield* new EventBadRequest({
+							reason: {
+								code: "policy-rejected",
+								message: definitionText(policy.pluginId, output.reason),
+							},
+						});
 					}
-					return undefined;
-				}).pipe(
-					Effect.catchCauseIf(
-						(cause) => !Cause.hasInterruptsOnly(cause),
-						(cause) =>
-							prepared.plan.trigger === null
-								? Effect.failCause(cause)
-								: execution
-										.skipQueuedPolicies({ triggerId: prepared.plan.trigger.id })
-										.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
-					),
-				);
+					if (output.action === "transform") {
+						const patched = applyLifecyclePolicyPatch(request, output.patch);
+						if (!patched.ok) {
+							return yield* rejected("invalid-policy-transform", patched.reason);
+						}
+						const validated = yield* resolveEditContext(
+							userId,
+							prepared.before,
+							patched.request.draft,
+							command,
+							capturedReferences,
+							pinnedSchema,
+						);
+						request = { ...patched.request, draft: validated.draft };
+						draft = validated.draft;
+						capturedReferences = validated.capturedReferences;
+					}
+				}
 				const context = yield* resolveEditContext(
 					userId,
 					prepared.before,
@@ -704,7 +667,6 @@ export class EventsService extends Context.Service<EventsService>()(
 						operation: "edit" as const,
 						propertiesSchema: context.propertiesSchema,
 						expectedRevision: prepared.expectedRevision,
-						requestId: prepared.plan.trigger?.id ?? null,
 						capturedReferences: context.capturedReferences,
 						eventSchemaFingerprint: context.eventSchemaFingerprint,
 						referenceContextFingerprint: context.referenceContextFingerprint,
@@ -828,18 +790,12 @@ export class EventsService extends Context.Service<EventsService>()(
 									referenceContextFingerprint ?? stableStringify(before),
 								])
 							: undefined;
-						const plan = yield* planner.plan({
-							trigger:
-								discriminator === undefined
-									? yield* lifecycleTrigger(command, input.userId, request)
-									: yield* lifecycleTrigger(command, input.userId, request, discriminator),
-						});
-						if (plan.trigger?.blockedReason) {
-							return yield* eventBadRequest("automation-limit");
-						}
-						const makePrepared = (
-							parentTriggerId: null | AutomationTriggerId,
-						): null | PreparedEventMutationData => {
+						const trigger =
+							discriminator === undefined
+								? yield* lifecycleTrigger(command, input.userId, request)
+								: yield* lifecycleTrigger(command, input.userId, request, discriminator);
+						const matched = yield* policies.match(trigger);
+						const makePrepared = (): null | PreparedEventMutationData => {
 							if (!move) {
 								return {
 									input,
@@ -848,7 +804,6 @@ export class EventsService extends Context.Service<EventsService>()(
 									expectedRevision,
 									operation: "delete",
 									...(cascadeEntityIds ? { cascadeEntityIds } : {}),
-									requestId: parentTriggerId,
 								};
 							}
 							if (
@@ -871,12 +826,11 @@ export class EventsService extends Context.Service<EventsService>()(
 								operation: "move",
 								capturedReferences,
 								eventSchemaFingerprint,
-								requestId: parentTriggerId,
 								referenceContextFingerprint,
 							};
 						};
-						if (inline && plan.policies.length === 0) {
-							const prepared = makePrepared(plan.trigger?.id ?? null);
+						if (inline && matched.length === 0) {
+							const prepared = makePrepared();
 							if (!prepared) {
 								return yield* new DbError({ message: "Missing validated event move context" });
 							}
@@ -886,14 +840,15 @@ export class EventsService extends Context.Service<EventsService>()(
 							};
 						}
 						return {
-							plan,
 							input,
 							draft,
 							before,
+							trigger,
 							command,
 							request,
 							expectedRevision,
 							propertiesSchema,
+							policies: matched,
 							capturedReferences,
 							eventSchemaFingerprint,
 							_tag: "Planned" as const,
@@ -912,77 +867,59 @@ export class EventsService extends Context.Service<EventsService>()(
 				let draft = planned.draft;
 				let referenceContextFingerprint = planned.referenceContextFingerprint;
 				let capturedReferences = planned.capturedReferences;
-				const acceptedPatches: AutomationPolicyPatch[] = [];
-				yield* Effect.gen(function* () {
-					for (const policy of planned.plan.policies) {
-						const output = yield* execution
-							.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
-							.pipe(
-								Effect.catchTag("AutomationPolicyExecutionError", () =>
-									Effect.fail(eventBadRequest("policy-execution-failed")),
-								),
-							);
-						if (output.action === "reject") {
-							return yield* new EventBadRequest({
-								reason: {
-									code: "policy-rejected",
-									message: definitionText(policy.pluginId, output.reason),
-								},
-							});
-						}
-						if (output.action === "transform") {
-							if (!move || request.operation !== "update") {
-								return yield* rejected(
-									"invalid-policy-transform",
-									"Event policy cannot transform this mutation",
-								);
-							}
-							const patched = applyLifecyclePolicyPatch(request, output.patch);
-							if (!patched.ok) {
-								return yield* rejected("invalid-policy-transform", patched.reason);
-							}
-							if (
-								planned.eventSchemaFingerprint === undefined ||
-								planned.propertiesSchema === undefined ||
-								capturedReferences === undefined
-							) {
-								return yield* new DbError({ message: "Missing validated event move context" });
-							}
-							const context = yield* resolveEditContext(
-								input.userId,
-								planned.before,
-								patched.request.draft,
-								command,
-								capturedReferences,
-								{
-									propertiesSchema: planned.propertiesSchema,
-									eventSchemaFingerprint: planned.eventSchemaFingerprint,
-								},
-							).pipe(Effect.mapError(moveContextFailure));
-							const successor = { ...patched.request, draft: context.draft };
-							const accepted = canonicalLifecyclePolicyPatch(request, successor);
-							request = successor;
-							draft = context.draft;
-							referenceContextFingerprint = context.referenceContextFingerprint;
-							capturedReferences = context.capturedReferences;
-							if (accepted) {
-								acceptedPatches.push(accepted);
-							}
-						}
+				for (const policy of planned.policies) {
+					const output = yield* runItemPolicy(policies, {
+						policy,
+						request,
+						trigger: planned.trigger,
+					}).pipe(
+						Effect.catchTag("AutomationPolicyExecutionError", () =>
+							Effect.fail(eventBadRequest("policy-execution-failed")),
+						),
+					);
+					if (output.action === "reject") {
+						return yield* new EventBadRequest({
+							reason: {
+								code: "policy-rejected",
+								message: definitionText(policy.pluginId, output.reason),
+							},
+						});
 					}
-					return undefined;
-				}).pipe(
-					Effect.catchCauseIf(
-						(cause) => !Cause.hasInterruptsOnly(cause),
-						(cause) =>
-							planned.plan.trigger === null
-								? Effect.failCause(cause)
-								: execution
-										.skipQueuedPolicies({ triggerId: planned.plan.trigger.id })
-										.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
-					),
-				);
-				const requestId = planned.plan.trigger?.id ?? null;
+					if (output.action === "transform") {
+						if (!move || request.operation !== "update") {
+							return yield* rejected(
+								"invalid-policy-transform",
+								"Event policy cannot transform this mutation",
+							);
+						}
+						const patched = applyLifecyclePolicyPatch(request, output.patch);
+						if (!patched.ok) {
+							return yield* rejected("invalid-policy-transform", patched.reason);
+						}
+						if (
+							planned.eventSchemaFingerprint === undefined ||
+							planned.propertiesSchema === undefined ||
+							capturedReferences === undefined
+						) {
+							return yield* new DbError({ message: "Missing validated event move context" });
+						}
+						const context = yield* resolveEditContext(
+							input.userId,
+							planned.before,
+							patched.request.draft,
+							command,
+							capturedReferences,
+							{
+								propertiesSchema: planned.propertiesSchema,
+								eventSchemaFingerprint: planned.eventSchemaFingerprint,
+							},
+						).pipe(Effect.mapError(moveContextFailure));
+						request = { ...patched.request, draft: context.draft };
+						draft = context.draft;
+						referenceContextFingerprint = context.referenceContextFingerprint;
+						capturedReferences = context.capturedReferences;
+					}
+				}
 				if (move) {
 					if (
 						!draft ||
@@ -996,7 +933,6 @@ export class EventsService extends Context.Service<EventsService>()(
 					return {
 						move,
 						draft,
-						requestId,
 						capturedReferences,
 						input: planned.input,
 						before: planned.before,
@@ -1009,7 +945,6 @@ export class EventsService extends Context.Service<EventsService>()(
 					};
 				}
 				return {
-					requestId,
 					input: planned.input,
 					before: planned.before,
 					command: planned.command,
@@ -1227,17 +1162,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					};
 				}
 				const dispatch = yield* planner.planChange({
-					trigger: yield* lifecycleTrigger(
-						{
-							...prepared.command,
-							causation: {
-								...prepared.command.causation,
-								parentTriggerId: prepared.requestId ?? prepared.command.causation.parentTriggerId,
-							},
-						},
-						prepared.input.userId,
-						change,
-					),
+					trigger: yield* lifecycleTrigger(prepared.command, prepared.input.userId, change),
 				});
 				yield* planner.recordBatchChange(batch.id, {
 					payload: change,
@@ -1299,7 +1224,8 @@ export class EventsService extends Context.Service<EventsService>()(
 								withBatch(command, persist(prepared[preparedEventUpdate])),
 								[userId],
 							);
-							return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
+							yield* execution.dispatch(work.dispatch);
+							return { warnings: [], eventId: work.result };
 						}),
 						userId,
 						(eventId) => (eventId === submitted.eventId ? submitted.expected : undefined),
@@ -1322,7 +1248,8 @@ export class EventsService extends Context.Service<EventsService>()(
 								"_tag" in prepared
 									? prepared.work
 									: yield* transaction(withBatch(command, persist(prepared)), [input.userId]);
-							return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
+							yield* execution.dispatch(work.dispatch);
+							return { warnings: [], eventId: work.result };
 						}),
 						input.userId,
 						(eventId) => (eventId === input.eventId ? input.expected : undefined),
@@ -1400,10 +1327,8 @@ export class EventsService extends Context.Service<EventsService>()(
 							}),
 							[userId],
 						);
-						return {
-							count: work.eventIds.length,
-							warnings: yield* execution.dispatch(work.dispatch),
-						};
+						yield* execution.dispatch(work.dispatch);
+						return { warnings: [], count: work.eventIds.length };
 					}),
 					userId,
 					(eventId) => items.find((item) => item.eventId === eventId)?.expected,
@@ -1500,8 +1425,9 @@ export class EventsService extends Context.Service<EventsService>()(
 							}),
 							[userId],
 						);
+						yield* execution.dispatch(work.dispatch);
 						return {
-							warnings: yield* execution.dispatch(work.dispatch),
+							warnings: [],
 							count: work.eventIds.filter((eventId) => eventId !== null).length,
 						};
 					}),
@@ -1521,7 +1447,8 @@ export class EventsService extends Context.Service<EventsService>()(
 					"_tag" in prepared
 						? prepared.work
 						: yield* transaction(withBatch(command, persist(prepared)), [input.userId]);
-				return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
+				yield* execution.dispatch(work.dispatch);
+				return { warnings: [], eventId: work.result };
 			});
 
 			return {

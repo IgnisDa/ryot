@@ -53,12 +53,7 @@ export const PluginBootstrapEntitiesLive = Layer.effect(
 		const dispatch = Effect.fn("PluginBootstrapEntities.dispatch")(
 			function* (encoded: PluginBootstrapDispatch) {
 				const plans = yield* Schema.decodeUnknownEffect(plansSchema)(encoded);
-				const warnings = yield* execution.dispatch(plans);
-				if (warnings.length > 0) {
-					yield* Effect.logWarning(
-						"User bootstrap entities completed with automation warnings",
-					).pipe(Effect.annotateLogs({ warnings }));
-				}
+				yield* execution.dispatch(plans);
 			},
 			Effect.tapError((error) => Effect.logError("Plugin user bootstrap dispatch failed", error)),
 			Effect.mapError(unexpected),

@@ -244,8 +244,7 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 								input.attemptNumber !== run.attemptCount + 1 ||
 								run.status !== "queued" ||
 								run.queuedAt > input.now ||
-								(run.nextAttemptAt !== null && run.nextAttemptAt > input.now) ||
-								(run.stage === "before" && input.attemptNumber !== 1)
+								(run.nextAttemptAt !== null && run.nextAttemptAt > input.now)
 							) {
 								return yield* conflict("Automation attempt claim conflict or not due");
 							}
@@ -309,36 +308,6 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						}),
 					),
 				);
-			// Undoes a first-attempt claim that never ran to completion, so the run is queued again for its workflow.
-			const releaseFirstClaim = (runId: AutomationRunId) =>
-				atomic(
-					session,
-					session.run((db) =>
-						Effect.gen(function* () {
-							const run = yield* lockRun(session, runId);
-							if (run.status !== "running" || run.attemptCount !== 1) {
-								return;
-							}
-							const released = yield* db
-								.delete(table)
-								.where(
-									and(
-										eq(table.runId, runId),
-										eq(table.attemptNumber, 1),
-										eq(table.status, "running"),
-									),
-								)
-								.returning({ id: table.id });
-							if (released.length === 0) {
-								return;
-							}
-							yield* db
-								.update(automationRun)
-								.set({ attemptCount: 0, startedAt: null, status: "queued" })
-								.where(eq(automationRun.id, runId));
-						}),
-					),
-				);
 			/** The attempt's recorded outcome, on the caller's transaction, which then holds the run's lock. */
 			const settledAttemptWithin = Effect.fn(function* (
 				runId: AutomationRunId,
@@ -365,7 +334,6 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 							failureKind: input.failureKind,
 							retryable:
 								input.status === "failed" &&
-								run.stage !== "before" &&
 								isRetryableAutomationFailure(input.failureKind, run.retryPolicy),
 						};
 						if (attempt.status !== "running") {
@@ -414,20 +382,12 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 								finishedAt: now,
 							})
 							.where(and(eq(table.id, attempt.id), eq(table.status, "running")));
-						const rejected =
-							run.stage === "before" &&
-							input.status === "succeeded" &&
-							input.returnedValue !== null &&
-							typeof input.returnedValue === "object" &&
-							"action" in input.returnedValue &&
-							input.returnedValue["action"] === "reject";
-						const terminalStatus = rejected ? "rejected" : input.status;
 						yield* db
 							.update(automationRun)
 							.set({
 								nextAttemptAt,
 								finishedAt: nextAttemptAt ? null : now,
-								status: nextAttemptAt ? "queued" : terminalStatus,
+								status: nextAttemptAt ? "queued" : input.status,
 							})
 							.where(eq(automationRun.id, run.id));
 						return validated;
@@ -476,7 +436,6 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 				pruneArtifacts,
 				finalizeAttempt,
 				claimNextAttempt,
-				releaseFirstClaim,
 				settledAttemptWithin,
 				finalizeAttemptWithin,
 			};

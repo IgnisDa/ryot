@@ -2,7 +2,6 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	type AutomationPopulationContext,
 	AutomationRun,
-	type AutomationRunSkipReason,
 	type AutomationTriggerPayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -34,8 +33,6 @@ import { automationRun as table } from "#schema/tables/automations";
 import { pluginRevision } from "#schema/tables/core";
 
 import { AUTOMATION_HISTORY_LIMITS } from "./history-limits";
-
-const policyChainStopped: AutomationRunSkipReason = { code: "policy-chain-stopped" };
 
 const decodeRow = ({
 	historyPayload: _historyPayload,
@@ -149,7 +146,6 @@ const immutableFields = (run: AutomationRun) => ({
 	pluginId: run.pluginId,
 	hookSlug: run.hookSlug,
 	hookName: run.hookName,
-	delivery: run.delivery,
 	queuedAt: run.queuedAt,
 	triggerId: run.triggerId,
 	scriptSlug: run.scriptSlug,
@@ -343,50 +339,6 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				);
 				return yield* Effect.forEach(rows, decodeRow);
 			});
-			const skipQueuedPolicies = Effect.fn(function* (input: { triggerId: AutomationTriggerId }) {
-				const queuedPolicy = and(
-					eq(table.triggerId, input.triggerId),
-					eq(table.stage, "before"),
-					eq(table.status, "queued"),
-					eq(table.attemptCount, 0),
-				);
-				return yield* session
-					.transaction(
-						session.run((transaction) =>
-							Effect.gen(function* () {
-								const rows = yield* transaction
-									.select({ id: table.id })
-									.from(table)
-									.where(queuedPolicy)
-									.orderBy(asc(table.id))
-									.for("update");
-								if (rows.length === 0) {
-									return;
-								}
-								const finishedAt = DateTime.toDate(yield* DateTime.now);
-								yield* transaction
-									.update(table)
-									.set({ finishedAt, status: "skipped", skipReason: policyChainStopped })
-									.where(
-										and(
-											queuedPolicy,
-											inArray(
-												table.id,
-												rows.map(({ id }) => id),
-											),
-										),
-									);
-							}),
-						),
-					)
-					.pipe(
-						Effect.mapError((error) =>
-							error._tag === "DatabaseSessionStateError"
-								? new DbError({ message: "Automation run transaction already active" })
-								: error,
-						),
-					);
-			});
 			const clearExpiredScriptPins = Effect.fn(function* (input: { now: Date; limit: number }) {
 				return yield* session.run((db) => {
 					const expiredTerminal = and(
@@ -449,7 +401,6 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				deleteExpired,
 				listByTrigger,
 				listDispatchStates,
-				skipQueuedPolicies,
 				clearHistoryPayloads,
 				listQueuedCandidates,
 				clearExpiredScriptPins,

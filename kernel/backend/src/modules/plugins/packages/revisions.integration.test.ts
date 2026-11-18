@@ -270,7 +270,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									.values({
 										pluginId,
 										stage: "after",
-										delivery: "async",
 										id: "retained-run",
 										hookName: "Fixture",
 										scriptSlug: script.slug,
@@ -386,7 +385,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									hookName: "Kernel",
 									stage: "after" as const,
 									hookSlug: "kernel.notify",
-									delivery: "async" as const,
 									triggerId: "shared-trigger",
 									scriptSlug: "kernel.notify",
 									scriptContentHash: "kernel",

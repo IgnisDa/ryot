@@ -4,6 +4,8 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEntityChangePayload,
 	AutomationEventChangePayload,
+	AutomationPolicyBatchInput,
+	AutomationRequestPayload,
 	AutomationTrigger,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -28,11 +30,14 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref, Schema, type Tracer } from "effect";
 
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type LifecycleBatchInput,
 	LifecyclePlanner,
 	lifecycleRunId,
+	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
+import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
@@ -42,23 +47,29 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
+import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import {
 	type ChangeSetReceipt,
 	ScriptChanges,
 	type ScriptChangesInput,
 } from "#modules/scripts/executions/script-changes";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { automationAttemptIdentity } from "./attempt-repository";
-import { AutomationRunOperationsServiceLive, LifecyclePlannerServiceLive } from "./layer";
+import { AutomationExecutionOperationsLive, LifecycleExecutionLive } from "./execution";
+import {
+	AutomationRunOperationsServiceLive,
+	LifecyclePlannerServiceLive,
+	LifecyclePoliciesServiceLive,
+} from "./layer";
 import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationPlannerResolver } from "./planner-resolver";
 import { AutomationRunOperations } from "./run-job-live";
+import { recordingRunJobQueueLayer, RunJobSubmissions } from "./run-job-queue.test-support";
 import { AutomationRunRepository } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
@@ -185,11 +196,6 @@ const entityBatchTrigger = (id: string, items: ReadonlyArray<ReturnType<typeof e
 		payload: { items, category: "change", operation: "batch", resource: "entity" },
 	}).pipe(Effect.orDie);
 
-type HookDeclaration = PluginManifest["hooks"][number];
-
-const asAsyncDelivery = (entry: HookDeclaration): HookDeclaration =>
-	entry.stage === "after" ? { ...entry, delivery: "async" } : entry;
-
 const hookPackage = (
 	version = "v1",
 	packageId: PluginPackageId = fixtureManifest().metadata.packageId,
@@ -251,7 +257,6 @@ const hookPackage = (
 					name: "Changed",
 					slug: "fixture.changed",
 					stage: "after" as const,
-					delivery: "required" as const,
 					scriptSlug: "fixture.automation",
 					causationSources: ["api" as const],
 				},
@@ -501,6 +506,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						expect(accepted.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>([
 							"fixture.changed",
 						]);
+						yield* session.run((db) =>
+							Effect.gen(function* () {
+								yield* db.delete(tables.automationRun);
+								yield* db
+									.delete(tables.sandboxScript)
+									.where(eq(tables.sandboxScript.slug, "fixture.automation"));
+							}),
+						);
 						const failed = yield* nested(
 							Effect.gen(function* () {
 								yield* session.run((db) =>
@@ -510,14 +523,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 										.where(eq(tables.user.id, owner)),
 								);
 								return yield* planner.plan({
-									trigger: yield* entityTrigger(installed.pluginId, "selected-missing", "request"),
+									trigger: yield* entityTrigger(installed.pluginId, "selected-missing"),
 								});
 							}),
 						).pipe(Effect.exit);
 						assertExitFails(
 							failed,
 							new DbError({
-								message: `Missing automation script ${installed.pluginId}/fixture.z-first`,
+								message: `Missing automation script ${installed.pluginId}/fixture.changed`,
 							}),
 						);
 						expect(
@@ -614,7 +627,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 		"planner harness",
 		(test) => {
 			test.effect(
-				"pins explicit kernel collection observers without admitting foreign before policies or same-name plugin events",
+				"pins explicit kernel collection observers without admitting same-name plugin events",
 				() =>
 					Effect.gen(function* () {
 						const source = hookPackage();
@@ -652,7 +665,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 										targets: [target],
 										name: "Kernel observer",
 										stage: "after" as const,
-										delivery: "async" as const,
 										frequency: "batch" as const,
 										executionScope: "user" as const,
 										scriptSlug: "fixture.automation",
@@ -683,27 +695,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							return { ...change, after: { ...change.after, entitySchemaSlug: "collection" } };
 						});
 						const kernelPayload = yield* makePayload(null);
-						const request = yield* Schema.decodeEffect(AutomationTrigger)({
-							...triggerFixture("kernel-request"),
-							scopeUserId: owner,
-							kind: { resource: "event", category: "request", operation: "create" },
-							payload: {
-								resource: "event",
-								category: "request",
-								operation: "create",
-								draft: {
-									properties: {},
-									sessionEntityId: null,
-									entityId: "collection",
-									eventSchemaPluginId: null,
-									entitySchemaPluginId: null,
-									entitySchemaSlug: "collection",
-									eventSchemaSlug: target.eventSchemaSlug,
-									occurredAt: kernelPayload.after.occurredAt,
-								},
-							},
-						});
-						expect((yield* planner.plan({ trigger: request })).runs).toEqual([]);
 						const batch = yield* Schema.decodeEffect(AutomationTrigger)({
 							...triggerFixture("kernel-batch"),
 							scopeUserId: owner,
@@ -788,13 +779,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						trigger: yield* entityTrigger(installed.pluginId, "injected-resolver"),
 					});
 					expect(planned.runs).toEqual([]);
-					expect(planned).toEqual({
-						runs: [],
-						policies: [],
-						trigger: null,
-						_tag: "NoHooks",
-						wasCreated: false,
-					});
+					expect(planned).toEqual({ runs: [], trigger: null, _tag: "NoHooks", wasCreated: false });
 					const session = yield* DatabaseSession;
 					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
 						[],
@@ -804,194 +789,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			testTimeout,
 		);
 	});
-
-	layer(plannerLayer(1).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
-		"planner harness",
-		(test) => {
-			test.effect(
-				"omits all-excluded requests without spending automation budget",
-				() =>
-					Effect.gen(function* () {
-						const planner = yield* LifecyclePlanner;
-						const session = yield* DatabaseSession;
-						const installed = yield* installRevisionPackage(
-							eventPolicyPackage("v1", 7, "once-per-subject"),
-						);
-						const exclusions = ["fixture.a-second", "fixture.z-first"].map((hookSlug) => ({
-							pluginId: PluginId.make(installed.pluginId),
-							hookSlug: AutomationHookSlug.make(hookSlug),
-						}));
-						const [a, z] = exclusions;
-						assert(a && z);
-						const trigger = yield* eventPolicyTrigger(installed.pluginId, "all-excluded");
-						const result = yield* planner.plan({
-							trigger,
-							excludedOncePerSubjectPolicies: [z, a, z],
-						});
-						expect(result).toEqual({
-							runs: [],
-							policies: [],
-							trigger: null,
-							_tag: "NoHooks",
-							wasCreated: false,
-						});
-						const [stored] = yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.automationTrigger)
-								.where(eq(tables.automationTrigger.id, trigger.id)),
-						);
-						expect(stored).toBeUndefined();
-						expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
-						expect(
-							yield* planner.plan({ trigger, excludedOncePerSubjectPolicies: [a, z, a] }),
-						).toEqual(result);
-						yield* installRevisionPackage(eventPolicyPackage("v2", 99, "item"));
-						expect(
-							(yield* nested(planner.plan({ trigger, excludedOncePerSubjectPolicies: exclusions })))
-								.runs,
-						).toHaveLength(2);
-						const accepted = yield* planner.plan({
-							trigger: yield* entityTrigger(installed.pluginId, "remaining-budget"),
-						});
-						expect(accepted.runs).toHaveLength(1);
-						assert(accepted.trigger);
-						expect(accepted.trigger.blockedReason).toBeNull();
-						expect(
-							(yield* session.run((db) => db.select().from(tables.automationRun)))
-								.map(({ triggerId }) => triggerId)
-								.sort(),
-						).toEqual(["all-excluded", "all-excluded", "remaining-budget"]);
-					}),
-				testTimeout,
-			);
-		},
-	);
-
-	layer(plannerLayer(3).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
-		"planner harness",
-		(test) => {
-			test.effect(
-				"excludes only matching once-per-subject policies before budget counting and keeps item policies queued",
-				() =>
-					Effect.gen(function* () {
-						const planner = yield* LifecyclePlanner;
-						const session = yield* DatabaseSession;
-						const value = eventPolicyPackage("v1", 7, "item");
-						const mixed = {
-							...value,
-							manifest: {
-								...value.manifest,
-								hooks: value.manifest.hooks.map((hook) =>
-									hook.stage === "before" && hook.slug === "fixture.z-first"
-										? Object.assign(hook, { batchFrequency: "once-per-subject" as const })
-										: hook,
-								),
-							},
-						};
-						const installed = yield* installRevisionPackage(mixed);
-						const first = yield* planner.plan({
-							trigger: yield* eventPolicyTrigger(installed.pluginId, "first-subject-event"),
-						});
-						expect(first.runs).toHaveLength(2);
-						const exclusions = first.runs.map(({ pluginId, hookSlug }) => ({ pluginId, hookSlug }));
-						const trigger = yield* eventPolicyTrigger(installed.pluginId, "second-subject-event");
-						const second = yield* planner.plan({
-							trigger,
-							excludedOncePerSubjectPolicies: exclusions,
-						});
-						assert(second.trigger);
-						expect(second.trigger.blockedReason).toBeNull();
-						expect(
-							second.runs.map(({ status, hookSlug }) => ({ status, hookSlug })),
-						).toEqual<unknown>([{ status: "queued", hookSlug: "fixture.a-second" }]);
-						expect(second.policies).toEqual<unknown>([
-							{
-								position: 7,
-								batchFrequency: "item",
-								runId: second.runs[0]?.id,
-								pluginId: installed.pluginId,
-							},
-						]);
-						const persisted = yield* session.run((db) => db.select().from(tables.automationRun));
-						expect(persisted).toHaveLength(3);
-						expect(
-							persisted
-								.filter(({ triggerId }) => triggerId === trigger.id)
-								.map(({ hookSlug }) => hookSlug),
-						).toEqual(["fixture.a-second"]);
-						yield* installRevisionPackage(eventPolicyPackage("v2", 99, "once-per-subject"));
-						expect(
-							yield* planner.plan({
-								trigger,
-								excludedOncePerSubjectPolicies: [...exclusions].toReversed(),
-							}),
-						).toEqual({ ...second, wasCreated: false });
-					}),
-				testTimeout,
-			);
-		},
-	);
-
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
-		"planner harness",
-		(test) => {
-			test.effect(
-				"ignores exclusions for non-event policies, after hooks, and policies with omitted frequency",
-				() =>
-					Effect.gen(function* () {
-						const planner = yield* LifecyclePlanner;
-						const installed = yield* installRevisionPackage(hookPackage());
-						const exclusions = ["fixture.a-second", "fixture.z-first", "fixture.changed"].map(
-							(hookSlug) => ({
-								pluginId: PluginId.make(installed.pluginId),
-								hookSlug: AutomationHookSlug.make(hookSlug),
-							}),
-						);
-						const entity = yield* entityTrigger(installed.pluginId, "entity-request", "request");
-						const before = yield* planner.plan({
-							trigger: entity,
-							excludedOncePerSubjectPolicies: exclusions,
-						});
-						expect(before.runs).toHaveLength(2);
-						expect(before.trigger).toEqual(entity);
-						const after = yield* planner.plan({
-							excludedOncePerSubjectPolicies: exclusions,
-							trigger: yield* entityTrigger(installed.pluginId, "entity-change"),
-						});
-						expect(after.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>([
-							"fixture.changed",
-						]);
-						const value = eventPolicyPackage("v2", 7, "item");
-						yield* installRevisionPackage({
-							...value,
-							manifest: {
-								...value.manifest,
-								hooks: value.manifest.hooks.map((hook) => {
-									if (hook.stage !== "before") {
-										return hook;
-									}
-									const { batchFrequency: _frequency, ...withoutFrequency } = hook;
-									return withoutFrequency;
-								}),
-							},
-						});
-						const defaultItems = yield* nested(
-							planner.plan({
-								excludedOncePerSubjectPolicies: exclusions,
-								trigger: yield* eventPolicyTrigger(installed.pluginId, "default-items"),
-							}),
-						);
-						expect(defaultItems.runs).toHaveLength(2);
-						expect(defaultItems.policies).toEqual<unknown>([
-							{ position: 7, pluginId: installed.pluginId, runId: defaultItems.runs[0]?.id },
-							{ position: 7, pluginId: installed.pluginId, runId: defaultItems.runs[1]?.id },
-						]);
-					}),
-				testTimeout,
-			);
-		},
-	);
 
 	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
 		"planner harness",
@@ -1017,7 +814,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 									{
 										name: "Facts",
 										stage: "after",
-										delivery: "async",
 										slug: "fixture.facts",
 										scriptSlug: "fixture.automation",
 										retry: { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts: 3 },
@@ -1099,9 +895,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							const planned = yield* planner.plan({ trigger });
 							expect(planned.runs).toHaveLength(1);
 							expect(planned.trigger).toEqual(trigger);
-							expect(planned.policies).toEqual([]);
 							expect(planned.runs[0]).toMatchObject({
-								delivery: "async",
 								hookSlug: "fixture.facts",
 								retryPolicy: { maxAttempts: 3 },
 							});
@@ -1116,7 +910,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								});
 								expect(yield* planner.plan({ trigger: mismatch })).toEqual({
 									runs: [],
-									policies: [],
 									trigger: null,
 									_tag: "NoHooks",
 									wasCreated: false,
@@ -1148,13 +941,11 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						manifest: {
 							...value.manifest,
 							hooks: [
-								...value.manifest.hooks.map(asAsyncDelivery),
+								...value.manifest.hooks,
 								...Array.from({ length: 101 }, (_, index) => ({
 									...hook,
-									delivery: "async" as const,
 									slug: `fixture.extra-${index}`,
 								})),
-								{ ...hook, slug: "fixture.zz-required" },
 							],
 						},
 					});
@@ -1164,8 +955,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					assert(blocked.trigger);
 					expect(blocked).toMatchObject({
 						runs: [],
-						policies: [],
-						trigger: { blockedReason: { hasRequiredHooks: true } },
+						trigger: { blockedReason: { code: "automation-limit-reached" } },
 					});
 					const [trigger] = yield* session.run((db) =>
 						db
@@ -1175,19 +965,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					);
 					expect(trigger?.blockedReason?.omittedHooks).toHaveLength(100);
 					expect(blocked.trigger.blockedReason).toEqual<unknown>(trigger?.blockedReason);
-					expect(
-						blocked.trigger.blockedReason?.omittedHooks.some(
-							({ hookSlug }) => hookSlug === "fixture.zz-required",
-						),
-					).toBe(false);
-					const asyncVersion = hookPackage("v2");
-					yield* installRevisionPackage({
-						...asyncVersion,
-						manifest: {
-							...asyncVersion.manifest,
-							hooks: asyncVersion.manifest.hooks.map(asAsyncDelivery),
-						},
-					});
+					yield* installRevisionPackage(hookPackage("v2"));
 					expect(yield* planner.plan({ trigger: boundedDescendant })).toEqual({
 						...blocked,
 						wasCreated: false,
@@ -1206,100 +984,18 @@ describe("LifecyclePlanner PostgreSQL", () => {
 		"planner harness",
 		(test) => {
 			test.effect(
-				"returns pinned event policy batch declarations without requiring domain manifest reads",
-				() =>
-					Effect.gen(function* () {
-						const planner = yield* LifecyclePlanner;
-						const installed = yield* installRevisionPackage(
-							eventPolicyPackage("v1", 7, "once-per-subject"),
-						);
-						const trigger = yield* eventPolicyTrigger(installed.pluginId);
-						const first = yield* planner.plan({ trigger });
-						expect(first.trigger).toEqual<unknown>({
-							...trigger,
-							payload: { ...trigger.payload, excludedOncePerSubjectPolicies: [] },
-						});
-						expect(first.policies).toEqual<unknown>([
-							{
-								position: 7,
-								runId: first.runs[0]?.id,
-								pluginId: installed.pluginId,
-								batchFrequency: "once-per-subject",
-							},
-							{
-								position: 7,
-								runId: first.runs[1]?.id,
-								pluginId: installed.pluginId,
-								batchFrequency: "once-per-subject",
-							},
-						]);
-						expect(first.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>([
-							"fixture.a-second",
-							"fixture.z-first",
-						]);
-						const second = yield* planner.plan({
-							trigger: { ...trigger, id: AutomationTriggerId.make("second-event-policy") },
-						});
-						expect(second.policies.map(({ batchFrequency }) => batchFrequency)).toEqual([
-							"once-per-subject",
-							"once-per-subject",
-						]);
-						expect(second.runs.map(({ pluginId, hookSlug }) => ({ pluginId, hookSlug }))).toEqual(
-							first.runs.map(({ pluginId, hookSlug }) => ({ pluginId, hookSlug })),
-						);
-						yield* installRevisionPackage(eventPolicyPackage("v2", 99, "item"));
-						expect(yield* planner.plan({ trigger })).toEqual({ ...first, wasCreated: false });
-						const fresh = yield* nested(
-							planner.plan({
-								trigger: { ...trigger, id: AutomationTriggerId.make("new-event-policy") },
-							}),
-						);
-						expect(
-							fresh.policies.map(({ position, batchFrequency }) => ({ position, batchFrequency })),
-						).toEqual<unknown>([
-							{ position: 99, batchFrequency: "item" },
-							{ position: 99, batchFrequency: "item" },
-						]);
-					}),
-				testTimeout,
-			);
-		},
-	);
-
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
-		"planner harness",
-		(test) => {
-			test.effect(
-				"matches snapshots and stages, orders policies, snapshots delivery/retry and preserves pins on replay after upgrade",
+				"matches snapshots, snapshots retry and preserves pins on replay after upgrade",
 				() =>
 					Effect.gen(function* () {
 						const planner = yield* LifecyclePlanner;
 						const session = yield* DatabaseSession;
 						const installed = yield* installRevisionPackage(hookPackage());
-						const policies = yield* planner.plan({
-							trigger: yield* entityTrigger(installed.pluginId, "request", "request"),
-						});
-						expect(
-							policies.runs.map(({ hookSlug, delivery, retryPolicy }) => ({
-								hookSlug,
-								delivery,
-								retryPolicy,
-							})),
-						).toEqual<unknown>([
-							{ retryPolicy: null, delivery: "policy", hookSlug: "fixture.z-first" },
-							{ retryPolicy: null, delivery: "policy", hookSlug: "fixture.a-second" },
-						]);
-						expect(policies.policies).toEqual<unknown>([
-							{ position: -1, runId: policies.runs[0]?.id, pluginId: installed.pluginId },
-							{ position: 1000, runId: policies.runs[1]?.id, pluginId: installed.pluginId },
-						]);
 						for (const operation of ["create", "update", "delete"] as const) {
 							const planned = yield* planner.plan({
 								trigger: yield* entityTrigger(installed.pluginId, operation, "change", operation),
 							});
 							expect(planned.runs).toHaveLength(1);
 							expect(planned.runs[0]).toMatchObject({
-								delivery: "required",
 								executionUserId: owner,
 								pluginId: installed.pluginId,
 								pluginRevisionId: installed.revisionId,
@@ -1329,13 +1025,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							yield* planner.plan({
 								trigger: { ...filtered, causation: { ...filtered.causation, source: "bootstrap" } },
 							}),
-						).toEqual({
-							runs: [],
-							policies: [],
-							trigger: null,
-							_tag: "NoHooks",
-							wasCreated: false,
-						});
+						).toEqual({ runs: [], trigger: null, _tag: "NoHooks", wasCreated: false });
 						expect(
 							yield* session.run((db) =>
 								db
@@ -1373,7 +1063,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 									scopeUserId: recipient,
 								},
 							}),
-						).toMatchObject({ runs: [], policies: [] });
+						).toMatchObject({ runs: [] });
 						expect(
 							yield* planner.plan({
 								trigger: {
@@ -1381,7 +1071,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 									scopeUserId: null,
 								},
 							}),
-						).toMatchObject({ runs: [], policies: [] });
+						).toMatchObject({ runs: [] });
 						for (const [id, state] of [
 							["hidden", { isHidden: true }],
 							["unready", { isHidden: false, health: "needs-configuration" as const }],
@@ -1404,7 +1094,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								yield* nested(
 									planner.plan({ trigger: yield* entityTrigger(installed.pluginId, id) }),
 								),
-							).toMatchObject({ runs: [], policies: [] });
+							).toMatchObject({ runs: [] });
 						}
 						const configs = yield* session.run((db) =>
 							db.select().from(tables.pluginConfigRevision),
@@ -1428,7 +1118,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							yield* nested(
 								planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "mismatch") }),
 							),
-						).toMatchObject({ runs: [], policies: [] });
+						).toMatchObject({ runs: [] });
 						expect(
 							yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "ready") }),
 						).toEqual({ ...ready, wasCreated: false });
@@ -1491,7 +1181,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								recipients: [recipient],
 								trigger: triggerFixture("inactive", PluginId.make(installed.pluginId)),
 							}),
-						).toMatchObject({ runs: [], policies: [] });
+						).toMatchObject({ runs: [] });
 						expect(yield* planner.plan({ trigger, recipients: [] })).toEqual({
 							...planned,
 							wasCreated: false,
@@ -1603,31 +1293,13 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						...first,
 						wasCreated: false,
 					});
-					const request = asDescendant(
-						yield* entityTrigger(installed.pluginId, "blocked", "request"),
-					);
-					const blocked = yield* planner.plan({ trigger: request });
-					assert(blocked.trigger);
-					expect(blocked).toMatchObject({ runs: [], policies: [] });
-					expect(blocked.trigger.blockedReason).toMatchObject({
-						hasRequiredHooks: false,
-						code: "automation-limit-reached",
-						omittedHooks: [{ hookSlug: "fixture.z-first" }, { hookSlug: "fixture.a-second" }],
-					});
-					expect(yield* planner.plan({ trigger: request })).toEqual({
-						...blocked,
-						wasCreated: false,
-					});
 					const deep = yield* entityTrigger(installed.pluginId, "deep");
 					const deepPlan = yield* planner.plan({
 						trigger: { ...deep, causation: { ...deep.causation, depth: 3 } },
 					});
 					expect(deepPlan).toMatchObject({
 						runs: [],
-						policies: [],
-						trigger: {
-							blockedReason: { hasRequiredHooks: true, code: "automation-limit-reached" },
-						},
+						trigger: { blockedReason: { code: "automation-limit-reached" } },
 					});
 					const failed = yield* (yield* DatabaseSession)
 						.transaction(
@@ -1989,7 +1661,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 										{
 											stage: "after",
 											frequency: "batch",
-											delivery: "required",
 											name: "Fixture batch",
 											slug: "fixture.fixture-batch",
 											scriptSlug: "fixture.automation",
@@ -2000,7 +1671,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 											batchMaxItems: 50,
 											frequency: "batch",
 											name: "Record logs",
-											delivery: "required",
 											slug: "fixture.record-logs",
 											scriptSlug: "fixture.automation",
 											targets: [eventTarget("record-set")],
@@ -2119,9 +1789,7 @@ describe("automation preparation", () => {
 			plannerLayer(),
 			AutomationRunOperationsServiceLive.pipe(
 				Layer.provideMerge(recordedScriptChanges),
-				Layer.provide(
-					Layer.merge(Layer.mock(ScriptExecutionService)({}), Layer.mock(DirectScriptExecutor)({})),
-				),
+				Layer.provide(Layer.mock(ScriptExecutionService)({})),
 			),
 		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
 	)("planner harness", (test) => {
@@ -2137,7 +1805,7 @@ describe("automation preparation", () => {
 					});
 					const run = planned.runs.find(({ hookSlug }) => hookSlug === "fixture.changed");
 					assert(run);
-					const payload = { runId: run.id, attemptNumber: 1, acceptedPatches: [] };
+					const payload = { runId: run.id, attemptNumber: 1 };
 					const { attempt } = yield* operations.claim(payload);
 					expect(attempt?.status).toBe("running");
 					const prepared = yield* operations.prepare(payload);
@@ -2185,11 +1853,7 @@ describe("automation preparation", () => {
 					const run = planned.runs.find(({ hookSlug }) => hookSlug === "fixture.changed");
 					assert(run);
 					yield* installRevisionPackage(preparationPackage("v2"));
-					const prepared = yield* operations.prepare({
-						runId: run.id,
-						attemptNumber: 1,
-						acceptedPatches: [],
-					});
+					const prepared = yield* operations.prepare({ runId: run.id, attemptNumber: 1 });
 					assert("automation" in prepared.input);
 					expect(prepared.input.automation.hookMetadata).toEqual({ version: "v1" });
 					expect(prepared.subject).toMatchObject({ pluginRevisionId: installed.revisionId });
@@ -2197,4 +1861,179 @@ describe("automation preparation", () => {
 			testTimeout,
 		);
 	});
+});
+
+describe("after hook dispatch", () => {
+	layer(
+		Layer.mergeAll(
+			plannerLayer(),
+			LifecycleExecutionLive.pipe(
+				Layer.provide(AutomationExecutionOperationsLive),
+				Layer.provide(AutomationRunRepository.layer),
+				Layer.provideMerge(recordingRunJobQueueLayer),
+			),
+		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
+	)("planner harness", (test) => {
+		test.effect(
+			"queues each after hook of a committed write as an automation run job",
+			() =>
+				Effect.gen(function* () {
+					const installed = yield* installRevisionPackage(hookPackage());
+					const planned = yield* nested(
+						(yield* LifecyclePlanner).plan({
+							trigger: yield* entityTrigger(installed.pluginId, "committed-write"),
+						}),
+					);
+					const [run] = planned.runs;
+					assert(planned.trigger && run && planned.runs.length === 1);
+					expect(yield* yield* RunJobSubmissions).toEqual([]);
+					yield* (yield* LifecycleExecution).dispatch([
+						toLifecycleDispatchPlan({ ...planned, trigger: planned.trigger }),
+					]);
+					expect(yield* yield* RunJobSubmissions).toEqual<unknown>([
+						{
+							kind: "automation-run",
+							payload: { runId: run.id, attemptNumber: 1 },
+							key: automationAttemptIdentity(run.id, 1).executionId,
+						},
+					]);
+				}),
+			testTimeout,
+		);
+	});
+});
+
+class RecordedPolicyCalls extends Context.Service<
+	RecordedPolicyCalls,
+	{ readonly calls: Effect.Effect<ReadonlyArray<AutomationPolicyBatchInput>> }
+>()("@ryot-app/kernel-backend/modules/automations/planner.test/RecordedPolicyCalls") {}
+
+const recordedPolicies = Layer.unwrap(
+	Effect.gen(function* () {
+		const calls = yield* Ref.make<ReadonlyArray<AutomationPolicyBatchInput>>([]);
+		return LifecyclePoliciesServiceLive.pipe(
+			Layer.provide(
+				scriptCallsLayer((call) =>
+					Effect.gen(function* () {
+						const input = yield* Schema.decodeUnknownEffect(AutomationPolicyBatchInput)(
+							call.input,
+						).pipe(Effect.orDie);
+						yield* Ref.update(calls, (all) => [...all, input]);
+						return scriptCallResult({
+							items: input.items.map(({ itemIdentity }) => ({
+								itemIdentity,
+								decision: { action: "allow" },
+							})),
+						});
+					}),
+				),
+			),
+			Layer.provideMerge(Layer.succeed(RecordedPolicyCalls, { calls: Ref.get(calls) })),
+		);
+	}),
+);
+
+describe("LifecyclePolicies PostgreSQL", () => {
+	layer(recordedPolicies.pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"policies harness",
+		(test) => {
+			test.effect(
+				"calls each matched policy once with all of its items in position order and writes no automation rows",
+				() =>
+					Effect.gen(function* () {
+						const policies = yield* LifecyclePolicies;
+						const session = yield* DatabaseSession;
+						const installed = yield* installRevisionPackage(hookPackage());
+						const trigger = yield* entityTrigger(installed.pluginId, "request", "request");
+						const request = trigger.payload;
+						assert(request?.category === "request" && request.operation !== "batch");
+						const matched = yield* policies.match(trigger);
+						expect(matched.map(({ hook }) => hook.slug)).toEqual([
+							"fixture.z-first",
+							"fixture.a-second",
+						]);
+						const requests = ["first", "second", "third"].map((itemIdentity) => ({
+							request,
+							itemIdentity,
+						}));
+						for (const policy of matched) {
+							expect(
+								(yield* policies.run({
+									policy,
+									trigger,
+									references: {},
+									items: requests,
+								})).items.map(({ itemIdentity }) => itemIdentity),
+							).toEqual(["first", "second", "third"]);
+						}
+						expect(
+							(yield* (yield* RecordedPolicyCalls).calls).map(({ items, automation }) => ({
+								hookSlug: automation.hookSlug,
+								items: items.map(({ itemIdentity }) => itemIdentity),
+							})),
+						).toEqual<unknown>([
+							{ hookSlug: "fixture.z-first", items: ["first", "second", "third"] },
+							{ hookSlug: "fixture.a-second", items: ["first", "second", "third"] },
+						]);
+						expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+							[],
+						);
+						expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
+					}),
+				testTimeout,
+			);
+		},
+	);
+
+	layer(recordedPolicies.pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"policies harness",
+		(test) => {
+			test.effect(
+				"gives a once-per-subject policy one item per subject and skips excluded subjects",
+				() =>
+					Effect.gen(function* () {
+						const policies = yield* LifecyclePolicies;
+						const installed = yield* installRevisionPackage(
+							eventPolicyPackage("v1", 7, "once-per-subject"),
+						);
+						const trigger = yield* eventPolicyTrigger(installed.pluginId);
+						const request = trigger.payload;
+						assert(
+							request?.category === "request" &&
+								request.operation !== "batch" &&
+								request.resource === "event",
+						);
+						const [policy] = yield* policies.match(trigger);
+						assert(policy);
+						const other = yield* Schema.decodeUnknownEffect(AutomationRequestPayload)({
+							...request,
+							draft: { ...request.draft, entityId: "other" },
+						});
+						const excluded = yield* Schema.decodeUnknownEffect(AutomationRequestPayload)({
+							...request,
+							draft: { ...request.draft, entityId: "excluded" },
+							excludedOncePerSubjectPolicies: [
+								{ pluginId: policy.pluginId, hookSlug: policy.hook.slug },
+							],
+						});
+						const output = yield* policies.run({
+							policy,
+							trigger,
+							references: {},
+							items: [
+								{ request, itemIdentity: "first" },
+								{ request, itemIdentity: "repeat" },
+								{ request: other, itemIdentity: "other" },
+								{ request: excluded, itemIdentity: "excluded" },
+							],
+						});
+						expect(output.items.map(({ itemIdentity }) => itemIdentity)).toEqual([
+							"first",
+							"other",
+						]);
+					}),
+				testTimeout,
+			);
+		},
+	);
 });

@@ -121,7 +121,6 @@ const seed = Effect.gen(function* () {
 					stage: "after" as const,
 					hookSlug: "fixture.hook",
 					scriptContentHash: "hash",
-					delivery: "async" as const,
 					scriptSlug: "fixture.script",
 					executionUserId: input.executionUserId,
 					retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,

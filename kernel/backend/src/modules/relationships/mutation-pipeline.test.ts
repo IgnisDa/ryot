@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test";
 
+import type { AutomationPolicyOutput } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	definitionKey,
 	definitionOwner,
@@ -9,24 +10,15 @@ import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
-import {
-	AutomationRunId,
-	EntityId,
-	RelationshipSchemaSlug,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 
-import {
-	withLifecycleBatchPlanning,
-	withLifecycleDispatch,
-} from "#modules/automations/lifecycle.test-support";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
+import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import {
 	countStatementClasses,
@@ -155,42 +147,14 @@ const reconciliationGroup = (
 });
 
 const policyLifecycle = Effect.fnUntraced(function* (
-	policy: ReturnType<LifecycleExecution["Service"]["executePolicy"]> = Effect.succeed({
-		action: "allow" as const,
-	}),
+	policy: Effect.Effect<AutomationPolicyOutput> = Effect.succeed({ action: "allow" as const }),
 ) {
-	const planner = yield* LifecyclePlanner;
-	const execution = yield* LifecycleExecution;
-	return {
-		execution: withLifecycleDispatch({
-			...execution,
-			executePolicy: () => policy,
-			after: () => Effect.succeed([]),
-		}),
-		planner: withLifecycleBatchPlanning({
-			plan: (input) =>
-				planner
-					.plan(input)
-					.pipe(
-						Effect.map((plan) =>
-							plan.trigger === null || input.trigger.kind.category !== "request"
-								? plan
-								: {
-										...plan,
-										policies: [
-											{ position: 1, pluginId: null, runId: AutomationRunId.make("test-policy") },
-										],
-									},
-						),
-					),
-		}),
-	};
+	return { policies: decidingPolicies((yield* LifecyclePolicies).match, () => policy) };
 });
 
 const pipelineWith = (lifecycle: Effect.Success<ReturnType<typeof policyLifecycle>>) =>
 	RelationshipMutationPipeline.make.pipe(
-		Effect.provideService(LifecyclePlanner, lifecycle.planner),
-		Effect.provideService(LifecycleExecution, lifecycle.execution),
+		Effect.provideService(LifecyclePolicies, lifecycle.policies),
 	);
 
 const lastTransactionChecks = Effect.gen(function* () {

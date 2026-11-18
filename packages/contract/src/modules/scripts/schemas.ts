@@ -135,7 +135,6 @@ const automationRunSubjectFields = {
 	stage: Schema.Literals(["before", "after"]),
 	triggerId: AutomationInvocationFields.triggerId,
 	causation: AutomationInvocationFields.causation,
-	delivery: Schema.Literals(["policy", "required", "async"]),
 	executionUserId: AutomationInvocationFields.executionUserId,
 };
 

@@ -66,9 +66,4 @@ describe("automation retries", () => {
 			),
 		).toBeNull();
 	});
-	it("never retries before policies automatically", () => {
-		expect(
-			automaticRetryAt({ ...run, stage: "before", retryPolicy: null }, "sandbox-timeout", now),
-		).toBeNull();
-	});
 });

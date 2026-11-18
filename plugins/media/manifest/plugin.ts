@@ -934,7 +934,6 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			stage: "after",
-			delivery: "async",
 			slug: "media.entity-updated",
 			name: "Media entity updated",
 			scriptSlug: "automation.media-entity-updated",
@@ -948,7 +947,6 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			stage: "after",
-			delivery: "async",
 			frequency: "batch",
 			slug: "media.relationship-sync",
 			name: "Media relationship sync",
@@ -968,7 +966,6 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			stage: "after",
-			delivery: "async",
 			frequency: "batch",
 			slug: "media.association",
 			name: "Media association",
@@ -984,7 +981,6 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			stage: "after",
-			delivery: "async",
 			name: "Review created",
 			executionScope: "user",
 			causationSources: ["api"],
@@ -1049,7 +1045,6 @@ export const mediaPlugin = definePlugin({
 			(prov) =>
 				({
 					stage: "after",
-					delivery: "async",
 					name: `${prov} push`,
 					executionScope: "user",
 					slug: `media.${prov}-push`,
@@ -1068,7 +1063,6 @@ export const mediaPlugin = definePlugin({
 		),
 		{
 			stage: "after",
-			delivery: "async",
 			slug: "media.notification",
 			name: "Media notification",
 			scriptSlug: "automation.media-notification",

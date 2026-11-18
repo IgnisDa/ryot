@@ -56,7 +56,7 @@ const automationCommand = (id: string) => {
 		...parent,
 		causation: automationLifecycleCausation(
 			{
-				delivery: "required",
+				stage: "before",
 				causation: parent.causation,
 				runId: AutomationRunId.make("automation-run"),
 				triggerId: AutomationTriggerId.make("automation-trigger"),
@@ -142,7 +142,6 @@ const installGlobalHooks = Effect.fn(function* () {
 						frequency,
 						stage: "after" as const,
 						scriptSlug: script.slug,
-						delivery: "async" as const,
 						name: `Ownership ${frequency}`,
 						executionScope: "global" as const,
 						slug: `executor-ownership.${frequency}`,

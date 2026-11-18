@@ -1,10 +1,9 @@
 import { SandboxRunError, TimeoutError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { isAdmissionQueueFull } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
-import { Context, Duration, Effect, Layer, Schedule } from "effect";
+import { Context, Duration, Effect, Layer, Option, Ref, Schedule, type Scope } from "effect";
 
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { sandboxStartedAt } from "#modules/scripts/host/execution-context";
@@ -35,31 +34,64 @@ const toRunError = (error: unknown) => {
 	return infrastructureRunError(error);
 };
 
+export type ScriptCall = {
+	readonly input: unknown;
+	readonly lane: ExecutionLane;
+	readonly executionId: string;
+	readonly principal: ScriptExecutionPrincipal;
+};
+
+type Run = (call: ScriptCall) => Effect.Effect<SandboxExecutionResult>;
+
+const unavailable = sandboxExecutionFailure(
+	new SandboxRunError({ kind: "resource-unavailable", message: "The sandbox is not running" }),
+);
+
 /**
- * Runs a pinned script once on the plain host, with no workflow, journal, or durable host. Host
- * writes need a durable host call, so a script run this way can only read.
+ * Runs a pinned script once on the plain host, with no workflow, journal, or durable host. A run
+ * holds one sandbox lease and releases it before returning, so no caller holds a lease while
+ * another script waits for one. Host calls run in the caller's database transaction.
+ *
+ * Migrations and the runtime share one layer graph, so the runtime installs the sandbox once it
+ * exists; until then every run fails as `resource-unavailable`.
  */
-export class ScriptCalls extends Context.Service<ScriptCalls>()(
-	"@ryot-app/kernel-backend/modules/scripts/executions/calls/ScriptCalls",
-	{
-		make: Effect.gen(function* () {
-			const artifacts = yield* ExecutableArtifacts;
-			const sandbox = yield* SandboxExecutor;
-			const run = Effect.fn("ScriptCalls.run")(function* (input: {
-				readonly input: JsonValue;
-				readonly lane: ExecutionLane;
-				readonly executionId: string;
-				readonly principal: ScriptExecutionPrincipal;
-			}): Effect.fn.Return<SandboxExecutionResult> {
+export class ScriptCalls extends Context.Service<
+	ScriptCalls,
+	{ readonly run: Run; readonly install: (run: Run) => Effect.Effect<void, never, Scope.Scope> }
+>()("@ryot-app/kernel-backend/modules/scripts/executions/calls/ScriptCalls") {
+	static readonly layer = Layer.effect(
+		this,
+		Effect.gen(function* () {
+			const installed = yield* Ref.make(Option.none<Run>());
+			return {
+				install: (run: Run) =>
+					Effect.acquireRelease(Ref.set(installed, Option.some(run)), () =>
+						Ref.set(installed, Option.none()),
+					),
+				run: (call: ScriptCall) =>
+					Effect.flatMap(Ref.get(installed), (run) =>
+						Option.isNone(run) ? Effect.succeed(unavailable) : run.value(call),
+					),
+			};
+		}),
+	);
+}
+
+export const ScriptCallsInstalledLive = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const artifacts = yield* ExecutableArtifacts;
+		const sandbox = yield* SandboxExecutor;
+		yield* (yield* ScriptCalls).install(
+			Effect.fn("ScriptCalls.run")(function* (call: ScriptCall) {
 				const startedAt = yield* sandboxStartedAt;
 				return yield* Effect.gen(function* () {
-					const artifact = yield* artifacts.get(input.principal);
+					const artifact = yield* artifacts.get(call.principal);
 					const result = yield* sandbox.run({
 						startedAt,
-						lane: input.lane,
-						context: input.input,
-						principal: input.principal,
-						executionId: input.executionId,
+						lane: call.lane,
+						context: call.input,
+						principal: call.principal,
+						executionId: call.executionId,
 						compiledCode: artifact.compiledCode,
 						compiledFormat: artifact.compiledFormat,
 					});
@@ -74,16 +106,13 @@ export class ScriptCalls extends Context.Service<ScriptCalls>()(
 						error:
 							result.error === null
 								? null
-								: stampSandboxExecutionError(input.principal, result.error),
+								: stampSandboxExecutionError(call.principal, result.error),
 					};
 				}).pipe(
 					Effect.retry({ schedule: ADMISSION_RETRY, while: isAdmissionQueueFull }),
 					Effect.catch((error) => Effect.succeed(sandboxExecutionFailure(toRunError(error)))),
 				);
-			});
-			return { run };
-		}),
-	},
-) {
-	static readonly layer = Layer.effect(this, this.make);
-}
+			}),
+		);
+	}),
+).pipe(Layer.provideMerge(ScriptCalls.layer));

@@ -1,7 +1,8 @@
 import {
+	AutomationPolicyBatchInput,
+	type AutomationPolicyOutput,
 	AutomationRun,
 	AutomationTrigger,
-	type AutomationWarning,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -11,17 +12,20 @@ import {
 	AutomationTriggerId,
 	ImportRunId,
 	IntegrationId,
-	type PluginId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
 	SandboxScriptId,
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
+	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
 	type LifecyclePlan,
 	type LifecyclePlanner,
@@ -29,7 +33,16 @@ import {
 	LifecycleWork,
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
+import {
+	AutomationPolicyExecutionError,
+	LifecyclePolicies,
+	type LifecyclePolicy,
+	type LifecyclePolicyItem,
+} from "#modules/automations/lifecycle/policies";
+import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import type { DatabaseSession } from "#platform/db/session";
+
+import { LifecyclePoliciesServiceLive } from "./layer";
 
 export const noLifecycleWorkLayer = Layer.succeed(LifecycleWork, {
 	derive: () => Effect.succeed([]),
@@ -37,7 +50,6 @@ export const noLifecycleWorkLayer = Layer.succeed(LifecycleWork, {
 
 export const noHooksFixture = (): Extract<LifecyclePlanningResult, { _tag: "NoHooks" }> => ({
 	runs: [],
-	policies: [],
 	trigger: null,
 	_tag: "NoHooks",
 	wasCreated: false,
@@ -125,42 +137,110 @@ export const withLifecycleBatchPlanning = (
 };
 
 export const withLifecycleDispatch = (
-	execution: Omit<LifecycleExecution["Service"], "dispatch" | "executeBatchPolicy">,
+	observer: {
+		readonly after: (plan: {
+			readonly runs: LifecycleDispatchPlan["runs"];
+			readonly triggerId: LifecycleDispatchPlan["triggerId"];
+		}) => Effect.Effect<unknown>;
+	},
 	session?: DatabaseSession["Service"],
 ): LifecycleExecution["Service"] =>
 	LifecycleExecution.of({
-		...execution,
-		executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
 		dispatch: (plans) =>
-			Effect.forEach(plans, (plan) =>
-				execution
-					.after({ runs: plan.runs, triggerId: plan.triggerId })
-					.pipe(
-						Effect.map((warnings): ReadonlyArray<AutomationWarning> => [
-							...(plan.blockedReason?.hasRequiredHooks
-								? [{ ...plan.blockedReason, triggerId: plan.triggerId }]
-								: []),
-							...warnings,
-						]),
-					),
+			Effect.gen(function* () {
+				if (session !== undefined) {
+					yield* session.requireRoot.pipe(
+						Effect.mapError(
+							() => new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
+						),
+					);
+				}
+				yield* Effect.forEach(
+					plans,
+					(plan) => observer.after({ runs: plan.runs, triggerId: plan.triggerId }),
+					{ discard: true },
+				);
+			}),
+	});
+
+export const noPoliciesLayer = Layer.succeed(LifecyclePolicies, {
+	match: () => Effect.succeed([]),
+	run: () => Effect.die("Unexpected policy"),
+});
+
+export const policyFixture = (
+	index: number,
+	targets: LifecyclePolicy["hook"]["targets"],
+	executionUserId: null | UserId = null,
+): LifecyclePolicy => ({
+	position: index,
+	executionUserId,
+	pluginId: PluginId.make("policy-plugin"),
+	runId: AutomationRunId.make(`policy-${index}`),
+	hook: { targets, name: "Policy", stage: "before", scriptSlug: "policy", slug: `policy-${index}` },
+	script: { slug: "policy", contentHash: "policy-hash", id: SandboxScriptId.make("policy-script") },
+	plugin: {
+		revisionId: PluginRevisionId.make("policy-revision"),
+		configRevisionId: PluginConfigRevisionId.make("policy-config"),
+	},
+});
+
+/** Matches policies with `match` and decides each item with `decide`, without a sandbox. */
+export const decidingPolicies = <E>(
+	match: LifecyclePolicies["Service"]["match"],
+	decide: (
+		item: LifecyclePolicyItem,
+		policy: LifecyclePolicy,
+	) => Effect.Effect<AutomationPolicyOutput, E>,
+): LifecyclePolicies["Service"] =>
+	LifecyclePolicies.of({
+		match,
+		run: ({ items, policy }) =>
+			Effect.forEach(items, (item) =>
+				Effect.map(decide(item, policy), (decision) => ({
+					decision,
+					itemIdentity: item.itemIdentity,
+				})),
 			).pipe(
-				Effect.map((groups) => groups.flat()),
-				Effect.andThen((warnings) =>
-					session === undefined
-						? Effect.succeed(warnings)
-						: session.requireRoot.pipe(
-								Effect.mapError(
-									() => new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
-								),
-								Effect.as(warnings),
-							),
-				),
+				Effect.mapBoth({
+					onSuccess: (decided) => ({ items: decided }),
+					onFailure: () =>
+						new AutomationPolicyExecutionError({
+							runId: policy.runId,
+							code: "policy-execution-failed",
+						}),
+				}),
 			),
 	});
 
+/** Real policy matching and preparation, with each policy call decided by `decide`. */
+export const decidedPoliciesLayer = (
+	decide: (
+		item: AutomationPolicyBatchInput["items"][number],
+		input: AutomationPolicyBatchInput,
+	) => Effect.Effect<AutomationPolicyOutput> = () => Effect.succeed({ action: "allow" }),
+) =>
+	LifecyclePoliciesServiceLive.pipe(
+		Layer.provide(
+			scriptCallsLayer((call) =>
+				Effect.gen(function* () {
+					const input = yield* Schema.decodeUnknownEffect(AutomationPolicyBatchInput)(
+						call.input,
+					).pipe(Effect.orDie);
+					const items = yield* Effect.forEach(input.items, (item) =>
+						Effect.map(decide(item, input), (decision) => ({
+							decision,
+							itemIdentity: item.itemIdentity,
+						})),
+					);
+					return scriptCallResult({ items });
+				}),
+			),
+		),
+	);
+
 export const planFixture = (id: string): LifecyclePlan => ({
 	runs: [],
-	policies: [],
 	wasCreated: true,
 	trigger: triggerFixture(id),
 });
@@ -174,7 +254,6 @@ export const queuedRunFixture = (id: string) =>
 		status: "queued",
 		finishedAt: null,
 		skipReason: null,
-		delivery: "async",
 		hookName: "Fixture",
 		nextAttemptAt: null,
 		executionUserId: null,

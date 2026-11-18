@@ -412,7 +412,6 @@ describe("plugin repository revisions", () => {
 								stage: "after",
 								id: "kernel-run",
 								status: "failed",
-								delivery: "async",
 								scriptSlug: newer.slug,
 								artifactsExpireAt: expired,
 								triggerId: "kernel-trigger",

@@ -7,36 +7,16 @@ import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brand
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
-import { isAdmissionQueueFull } from "@ryot-app/sandbox/host/admission";
-import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sql } from "drizzle-orm";
-import {
-	Context,
-	DateTime,
-	Duration,
-	Effect,
-	Layer,
-	Option,
-	Ref,
-	Schedule,
-	Schema,
-	type Scope,
-} from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
 import { lifecycleActor, rootLifecycleCausation } from "#modules/automations/lifecycle/command";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { FoldScripts, FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";
-import { DirectScriptDeferred, type SandboxAdmission } from "#modules/scripts/executions/queues";
-import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
-import {
-	executeScriptDirectly,
-	type ScriptExecutionInput,
-} from "#modules/scripts/executions/service";
-import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { DatabaseSession } from "#platform/db/session";
 
 import {
@@ -74,79 +54,11 @@ class FoldFailed extends Schema.TaggedError<FoldFailed, { readonly brand: unique
 	{ message: Schema.String },
 ) {}
 
-export const FoldReservation = Context.Reference<null | {
-	readonly subject: string;
-	readonly admission: SandboxAdmission;
-}>("@ryot-app/kernel-backend/modules/derived-values/service/FoldReservation", {
-	defaultValue: () => null,
-});
-
 const MAX_RUNS = 2;
-
-export const isFoldBusy = (error: unknown) =>
-	error instanceof DbError && error.code === "RYOT_FOLD_BUSY";
 
 const REBUILD_PAGE = 500;
 
 const failure = (message: string) => new FoldFailed({ message });
-
-type FoldRun = (
-	input: ScriptExecutionInput,
-	admission: SandboxAdmission,
-) => Effect.Effect<SandboxExecutionResult, unknown>;
-
-type FoldExecution = {
-	readonly run: FoldRun;
-	readonly reserve: (
-		principal: ScriptExecutionPrincipal,
-	) => Effect.Effect<SandboxAdmission, unknown, Scope.Scope>;
-};
-
-class FoldExecutor extends Context.Service<
-	FoldExecutor,
-	FoldExecution & {
-		readonly install: (executor: FoldExecution) => Effect.Effect<void, never, Scope.Scope>;
-	}
->()("@ryot-app/kernel-backend/modules/derived-values/service/FoldExecutor") {
-	static readonly layer = Layer.effect(
-		this,
-		Effect.gen(function* () {
-			const installed = yield* Ref.make(Option.none<FoldExecution>());
-			const current = Ref.get(installed).pipe(
-				Effect.flatMap(Effect.fromOption),
-				Effect.mapError(() => failure("Fold executor is not installed")),
-			);
-			return {
-				reserve: (principal: ScriptExecutionPrincipal) =>
-					Effect.flatMap(current, (executor) => executor.reserve(principal)),
-				run: (input: ScriptExecutionInput, admission: SandboxAdmission) =>
-					Effect.flatMap(current, (executor) => executor.run(input, admission)),
-				install: (executor) =>
-					Effect.acquireRelease(Ref.set(installed, Option.some(executor)), () =>
-						Ref.set(installed, Option.none()),
-					),
-			};
-		}),
-	);
-}
-
-export const FoldExecutorInstalledLive = Layer.effectDiscard(
-	Effect.gen(function* () {
-		const direct = yield* DirectScriptExecutor;
-		const sandbox = yield* SandboxExecutor;
-		yield* (yield* FoldExecutor).install({
-			run: (input, admission) => executeScriptDirectly(direct, input, admission),
-			reserve: (principal) =>
-				sandbox.reserve(principal, "background").pipe(
-					Effect.retry({
-						while: isAdmissionQueueFull,
-						schedule: Schedule.spaced(Duration.millis(100)),
-					}),
-					Effect.map((lease) => ({ lease, lane: "background" as const })),
-				),
-		});
-	}),
-).pipe(Layer.provide(FoldExecutor.layer));
 
 export class Folds extends Context.Service<Folds>()(
 	"@ryot-app/kernel-backend/modules/derived-values/service/Folds",
@@ -156,7 +68,7 @@ export class Folds extends Context.Service<Folds>()(
 			const definitions = yield* DefinitionCatalog;
 			const marks = yield* FoldMarks.make;
 			const scripts = yield* FoldScripts;
-			const executor = yield* FoldExecutor;
+			const calls = yield* ScriptCalls;
 			const random = yield* SecureRandom.SecureRandom;
 
 			const { resolve, declarations, queueResolved } = marks;
@@ -284,13 +196,8 @@ export class Folds extends Context.Service<Folds>()(
 				if (!binding) {
 					return yield* failure("Fold script is unavailable");
 				}
-				const reservation = yield* FoldReservation;
-				// A reserved job must not wait on a writer that needs sandbox capacity to finish.
-				const lock = reservation?.subject === foldJobKey(subject) ? sql`nowait` : sql``;
 				yield* session.run((db) =>
-					db.execute(
-						sql`select 1 from entity where id = ${subject.entityId} for no key update ${lock}`,
-					),
+					db.execute(sql`select 1 from entity where id = ${subject.entityId} for no key update`),
 				);
 				const stored = yield* session.run((db) =>
 					db.execute<StoredRow>(
@@ -311,67 +218,18 @@ export class Folds extends Context.Service<Folds>()(
 				return { input, stored, binding };
 			});
 
-			const execute = (
-				{ input, binding }: Effect.Success<ReturnType<typeof inputs>>,
-				lane: ExecutionLane,
-				admission: SandboxAdmission,
-			) =>
-				Effect.flatMap(random.uuidV4(), (id) =>
-					executor.run(
-						{
-							lane,
-							input,
-							executionId: `fold-${id}`,
-							pluginRevision: binding.pluginPin,
-							subject: binding.principal.subject,
-							scriptId: binding.principal.scriptId,
-						},
-						admission,
-					),
-				);
-
-			const reserve = Effect.fn("Folds.reserve")(function* (subject: FoldSubject) {
-				yield* session.requireRoot;
-				const [entry] = yield* resolve({ sources: [], subjects: [subject] });
-				if (!entry) {
-					return null;
-				}
-				const binding = yield* scripts.resolve({
-					userId: subject.userId,
-					pluginId: entry.declaration.pluginId,
-					scriptSlug: entry.declaration.scriptSlug,
-				});
-				if (!binding) {
-					return yield* failure("Fold script is unavailable");
-				}
-				return {
-					subject: foldJobKey(subject),
-					admission: yield* executor.reserve(binding.principal),
-				};
-			});
-
 			const run = Effect.fn("Folds.run")(function* (
 				subject: FoldSubject,
 				declaration: FoldDeclaration,
 				lane: ExecutionLane,
 			) {
-				const read = yield* inputs(subject, declaration);
-				const { stored, binding } = read;
-				const reservation = yield* FoldReservation;
-				const result = yield* execute(
-					read,
+				const { input, stored, binding } = yield* inputs(subject, declaration);
+				const result = yield* calls.run({
 					lane,
-					reservation?.subject === foldJobKey(subject) ? reservation.admission : "direct",
-				).pipe(
-					Effect.mapError((error) =>
-						error instanceof DirectScriptDeferred
-							? new DbError({
-									code: "RYOT_FOLD_BUSY",
-									message: "Script capacity is busy; retry the save",
-								})
-							: failure(`Fold could not run in the sandbox: ${String(error)}`),
-					),
-				);
+					input,
+					principal: binding.principal,
+					executionId: `fold-${yield* random.uuidV4()}`,
+				});
 				if (result.error) {
 					return yield* failure(
 						`Fold failed with ${result.error.kind} during ${result.error.phase}: ${result.error.message}`,
@@ -619,11 +477,11 @@ export class Folds extends Context.Service<Folds>()(
 				} while (after !== null);
 			});
 
-			return { within, failed, rebuild, reserve };
+			return { within, failed, rebuild };
 		}),
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(Layer.mergeAll(FoldScriptsLive, FoldExecutor.layer, DefinitionCatalog.layer)),
+		Layer.provide(Layer.mergeAll(FoldScriptsLive, ScriptCalls.layer, DefinitionCatalog.layer)),
 	);
 }

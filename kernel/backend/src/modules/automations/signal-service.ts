@@ -194,10 +194,10 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 				input: EmitSignalInput,
 			) {
 				const plan = yield* session.transaction(planSignal(input));
-				const warnings = yield* execution
+				yield* execution
 					.dispatch([toLifecycleDispatchPlan(plan)])
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-				return { warnings, triggerId: plan.trigger.id, wasCreated: plan.wasCreated };
+				return { warnings: [], triggerId: plan.trigger.id, wasCreated: plan.wasCreated };
 			});
 			return { planSignal, emitSignal };
 		}),

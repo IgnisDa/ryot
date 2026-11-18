@@ -7,5 +7,4 @@ export const unfoldedFolds = Folds.of({
 	within: (work) => work,
 	failed: () => Effect.void,
 	rebuild: () => Effect.void,
-	reserve: () => Effect.succeed(null),
 });

@@ -137,6 +137,7 @@ export const SandboxHostFunctionsLive = Layer.effect(
 	SandboxHostFunctions,
 	Effect.gen(function* () {
 		const { runtime, additional } = yield* ScriptHostImplementations;
+		const session = yield* DatabaseSession;
 		const implementations = { ...runtime, ...additional };
 		const bind = Effect.fn("SandboxHostFunctions.bind")(function* (input: SandboxRunInput) {
 			const principal = yield* decodeScriptExecutionPrincipal(input.principal);
@@ -144,6 +145,7 @@ export const SandboxHostFunctionsLive = Layer.effect(
 			const jobId = yield* CurrentJobId;
 			const userId = sandboxSubjectUserId(principal.subject);
 			const plugins = userId === null ? null : runUserPlugins(userId);
+			const carry = yield* session.carry;
 			return Object.fromEntries(
 				Object.entries(bindSandboxHostFunctions(implementations, scriptInput))
 					.filter(
@@ -153,11 +155,13 @@ export const SandboxHostFunctionsLive = Layer.effect(
 					)
 					.map(([capability, bound]): [string, BoundHostFunction] => [
 						capability,
-						// Host calls run on the resident sidecar's fibers, which keep the job that started it.
+						// Host calls run on the resident sidecar's fibers, which keep the caller's job, transaction and run catalog.
 						(args) =>
-							bound(args).pipe(
-								Effect.provideService(CurrentJobId, jobId),
-								Effect.provideService(RunUserPlugins, plugins),
+							carry(
+								bound(args).pipe(
+									Effect.provideService(CurrentJobId, jobId),
+									Effect.provideService(RunUserPlugins, plugins),
+								),
 							),
 					]),
 			);

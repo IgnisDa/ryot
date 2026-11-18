@@ -493,7 +493,6 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 							slug,
 							stage: "after",
 							scriptSlug: slug,
-							delivery: "async",
 							name: kernelSignal.slug,
 							targets: [
 								{

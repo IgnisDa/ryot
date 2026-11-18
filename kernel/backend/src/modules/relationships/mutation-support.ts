@@ -29,6 +29,7 @@ import {
 	LifecyclePersistenceError,
 	type LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
+import type { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import type { DefinitionRepository } from "#modules/definitions/repository";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import {
@@ -376,6 +377,7 @@ export type RelationshipMutationDependencies = {
 	readonly writes: DomainWriteChecks["Service"];
 	readonly planner: LifecyclePlanner["Service"];
 	readonly admission: AccountAdmission["Service"];
+	readonly policies: LifecyclePolicies["Service"];
 	readonly entities: EntitiesRepository["Service"];
 	readonly execution: LifecycleExecution["Service"];
 	readonly runtime: PluginRuntimeResolver["Service"];

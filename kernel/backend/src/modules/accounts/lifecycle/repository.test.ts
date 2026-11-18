@@ -177,7 +177,6 @@ describe("user lifecycle persistence cleanup", () => {
 									triggerId,
 									stage: "after",
 									executionUserId,
-									delivery: "async",
 									hookName: "Notify",
 									status: "succeeded",
 									artifactsExpireAt: now,

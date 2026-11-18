@@ -40,9 +40,7 @@ import {
 } from "../registry/plugin-script-resolver";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
-import type { SandboxAdmission } from "./queues";
 import { sandboxExecutionFailure, SandboxExecutionResult } from "./result";
-import type { DirectScriptExecutor } from "./workflow";
 import {
 	executeScriptExecutionWorkflow,
 	SandboxWorkflowPinning,
@@ -115,17 +113,6 @@ const scriptExecutionPayload = Effect.fnUntraced(function* (input: ScriptExecuti
 		...(input.initialization ? { initialization: input.initialization } : {}),
 	};
 });
-
-/** Runs a script once without a workflow; see `DirectScriptExecutor` for which scripts may. */
-export const executeScriptDirectly = (
-	executor: DirectScriptExecutor["Service"],
-	input: ScriptExecutionInput,
-	admission: SandboxAdmission,
-) =>
-	scriptExecutionPayload(input).pipe(
-		Effect.flatMap((payload) => executor.execute(payload, input.executionId, admission)),
-		Effect.catchTag("SandboxRunError", (error) => Effect.succeed(sandboxExecutionFailure(error))),
-	);
 
 export class ScriptExecutionService extends Context.Service<ScriptExecutionService>()(
 	"@ryot-app/kernel-backend/modules/scripts/executions/service/ScriptExecutionService",

@@ -20,7 +20,7 @@ import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, DateTime, Duration, Effect, Layer, Schedule, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -33,14 +33,9 @@ import {
 import {
 	type PolicyBatchResult,
 	unchangedPolicyBatch,
-} from "#modules/automations/lifecycle/policy-batch";
+} from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
-import {
-	type ApplyFoldChanges,
-	type FoldMode,
-	Folds,
-	isFoldBusy,
-} from "#modules/derived-values/service";
+import { type ApplyFoldChanges, type FoldMode, Folds } from "#modules/derived-values/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { assertStableUnder, DomainWriteChecks } from "#modules/entities/write-context";
@@ -50,16 +45,11 @@ import {
 	CatalogDefinitionFingerprint,
 	catalogDefinitionFingerprint,
 } from "#modules/plugins/catalog/runtime-resolver";
-import { HeldInlineBatch } from "#modules/scripts/executions/queues";
 import { DatabaseSession } from "#platform/db/session";
 
 import { readEventCreateChunkScopes } from "./event-creation";
 import { EventGroupConstraints } from "./event-group-constraints";
-import {
-	type ClearedEventReference,
-	eventReferenceBadRequest,
-	PendingEventReferenceClears,
-} from "./event-references";
+import { eventReferenceBadRequest, PendingEventReferenceClears } from "./event-references";
 import { EventsRepository } from "./repository";
 
 const EventWriteIdentity = Schema.Struct({
@@ -617,14 +607,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							});
 						}
 					}
-					const command = {
-						...input.command,
-						itemIdentity: row.identity.itemIdentity,
-						causation: {
-							...input.command.causation,
-							parentTriggerId: input.validated.triggerId ?? input.command.causation.parentTriggerId,
-						},
-					};
+					const command = { ...input.command, itemIdentity: row.identity.itemIdentity };
 					if (!checkedOwners.has(draft.eventSchemaPluginId)) {
 						yield* writes
 							.check(command, definitionOwner(draft.eventSchemaPluginId), input.userId, true)
@@ -767,17 +750,14 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			// Fold-owned writes skip before-policies and after-hooks: they derive from changes those already saw.
 			const applyDerived: ApplyFoldChanges = Effect.fnUntraced(function* (input) {
 				const prepared = yield* prepare(input);
-				const validated = unchangedPolicyBatch(
-					{
-						resource: "event",
-						userId: input.userId,
-						command: input.command,
-						references: prepared.references,
-						items: yield* eventPolicyItems(prepared),
-						propertiesSchemas: prepared.propertiesSchemas,
-					},
-					null,
-				);
+				const validated = unchangedPolicyBatch({
+					resource: "event",
+					userId: input.userId,
+					command: input.command,
+					references: prepared.references,
+					items: yield* eventPolicyItems(prepared),
+					propertiesSchemas: prepared.propertiesSchemas,
+				});
 				yield* persist({ ...input, prepared, validated, derived: true }).pipe(
 					Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest),
 				);
@@ -789,28 +769,17 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				}
 			});
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, mode?: FoldMode) =>
-				Effect.gen(function* () {
-					const held = yield* HeldInlineBatch;
-					const clearing = Effect.gen(function* () {
-						const pending: Array<ClearedEventReference> = [];
-						return yield* folds
+				groups.transaction(
+					Effect.suspend(() =>
+						folds
 							.within(
 								Effect.tap(work, () => clearPendingReferences),
 								(input) => Effect.tap(applyDerived(input), () => clearPendingReferences),
 								mode,
 							)
-							.pipe(Effect.provideService(PendingEventReferenceClears, pending));
-					});
-					return yield* groups
-						.transaction(clearing)
-						.pipe(
-							Effect.retry({
-								while: isFoldBusy,
-								times: held === null ? 10 : 0,
-								schedule: Schedule.spaced(Duration.millis(100)),
-							}),
-						);
-				});
+							.pipe(Effect.provideService(PendingEventReferenceClears, [])),
+					),
+				);
 			return { prepare, persist, transaction, captureGroups, lockPreparedChanges };
 		}),
 	},

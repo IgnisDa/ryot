@@ -12,14 +12,12 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Exit, Layer, Schema } from "effect";
-import { TestClock } from "effect/testing";
 
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { command } from "#modules/relationships/lifecycle.test-support";
-import { HeldInlineBatch } from "#modules/scripts/executions/queues";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
@@ -68,56 +66,41 @@ const compound = Effect.fnUntraced(function* (memberCount?: number) {
 
 layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect(
-		"retries busy folds after rolling back, but releases parked callers immediately",
+		"runs folds inline in the writing transaction and fails the write without retrying",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* eventGroupFixture();
 				const session = yield* DatabaseSession;
-				let attempts = 0;
-				const busy = new DbError({ message: "Busy", code: "RYOT_FOLD_BUSY" });
+				const folded: Array<boolean> = [];
+				const failure = new DbError({ message: "Fold failed" });
 				const mutations = yield* EventMutations.make.pipe(
 					Effect.provideService(Folds, {
 						...unfoldedFolds,
 						within: (work) =>
 							Effect.gen(function* () {
 								const result = yield* work;
-								attempts += 1;
-								if (attempts !== 2) {
-									return yield* busy;
-								}
-								return result;
+								folded.push(yield* session.isTransactionActive);
+								return folded.length === 1 ? result : yield* failure;
 							}),
 					}),
 				);
-				const rename = mutations.transaction(
-					Effect.gen(function* () {
-						const before = yield* session.run((db) =>
-							db
-								.select({ name: tables.entity.name })
-								.from(tables.entity)
-								.where(eq(tables.entity.id, fixture.subjectId)),
-						);
-						expect(before).toEqual([{ name: "Subject" }]);
-						yield* session.run((db) =>
-							db.execute(sql`update entity set name = 'Changed' where id = ${fixture.subjectId}`),
-						);
-					}),
+				const rename = (name: string) =>
+					mutations.transaction(
+						session.run((db) =>
+							db.execute(sql`update entity set name = ${name} where id = ${fixture.subjectId}`),
+						),
+					);
+				const subjectName = session.run((db) =>
+					db
+						.select({ name: tables.entity.name })
+						.from(tables.entity)
+						.where(eq(tables.entity.id, fixture.subjectId)),
 				);
-				yield* TestClock.withLive(rename);
-				expect(attempts).toBe(2);
-				expect(
-					yield* session.run((db) =>
-						db
-							.select({ name: tables.entity.name })
-							.from(tables.entity)
-							.where(eq(tables.entity.id, fixture.subjectId)),
-					),
-				).toEqual([{ name: "Changed" }]);
-				const exit = yield* mutations
-					.transaction(Effect.void)
-					.pipe(Effect.provideService(HeldInlineBatch, "interactive"), Effect.exit);
-				assertExitFails(exit, busy);
-				expect(attempts).toBe(3);
+				yield* rename("Changed");
+				expect(yield* subjectName).toEqual([{ name: "Changed" }]);
+				assertExitFails(yield* Effect.exit(rename("Rolled back")), failure);
+				expect(folded).toEqual([true, true]);
+				expect(yield* subjectName).toEqual([{ name: "Changed" }]);
 			}),
 		testTimeout,
 	);

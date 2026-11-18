@@ -835,7 +835,6 @@ const automationRun = (input: Fixture, overrides: { readonly stage?: "after" | "
 		subject: {
 			accountUserId: userId,
 			executionUserId: userId,
-			delivery: "async" as const,
 			pluginId: pluginRevision.id,
 			type: "automation-run" as const,
 			stage: overrides.stage ?? "after",

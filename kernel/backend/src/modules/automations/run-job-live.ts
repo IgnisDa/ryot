@@ -1,11 +1,8 @@
-import { DbError, type SandboxFailureKind, SandboxRunError } from "@ryot-app/contract/errors";
+import { DbError, type SandboxFailureKind } from "@ryot-app/contract/errors";
 import {
 	AutomationAfterPayload,
-	AutomationEntityDraft,
 	type AutomationFailureKind,
 	AutomationInput,
-	AutomationPolicyBatchInput,
-	type AutomationPolicyReference,
 	type AutomationRun,
 	AutomationRunAttempt,
 	type AutomationTrigger,
@@ -23,20 +20,18 @@ import {
 	SandboxScriptManifest,
 	type SandboxScriptManifest as SandboxScriptManifestType,
 } from "@ryot-app/contract/modules/scripts/schemas";
-import { EntityId, SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
+import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
-import { Clock, Context, DateTime, Duration, Effect, Layer, Schema } from "effect";
+import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { automationRunLane } from "#modules/automations/lifecycle/command";
-import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import type {
 	SandboxExecutionResult,
 	StampedSandboxExecutionError,
@@ -45,8 +40,6 @@ import {
 	ScriptChanges,
 	type ScriptChangesRejected,
 } from "#modules/scripts/executions/script-changes";
-import { executeScriptDirectly, ScriptExecutionService } from "#modules/scripts/executions/service";
-import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { registerJobHandler } from "#platform/jobs/worker";
@@ -57,26 +50,17 @@ import {
 	AutomationAttemptRepository,
 	type FinalizeAutomationAttempt,
 } from "./attempt-repository";
-import { AUTOMATION_IMMEDIATE_TIMEOUT_MS, DirectPolicyAttempts } from "./execution";
-import { projectAutomationAfterInput, projectAutomationPolicyInput } from "./input-projection";
-import { automationPayloadPluginId, matchesTarget } from "./planner-resolver";
-import {
-	automationAttemptResult,
-	AutomationPolicyRunOutput,
-	AutomationRunJob,
-	type AutomationRunPayload,
-	type AutomationRunResult,
-	settledAutomationRunResult,
-} from "./run-job";
+import { projectAutomationAfterInput } from "./input-projection";
+import { automationPayloadPluginId } from "./planner-resolver";
+import { AutomationRunJob, type AutomationRunPayload } from "./run-job";
 import { AutomationRunRepository } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 const PreparedAutomationRun = Schema.Struct({
 	lane: ExecutionLane,
+	input: AutomationInput,
 	scriptId: SandboxScriptId,
 	subject: SandboxExecutionSubject,
-	policyItemIdentity: Schema.NullOr(Schema.String),
-	input: Schema.Union([AutomationInput, AutomationPolicyBatchInput]),
 });
 /** A prepared run with the exact principal its changes commit under. */
 export type PreparedAutomationAttempt = PreparedAutomationRun & {
@@ -126,8 +110,6 @@ export const prepareAutomationInvocation = (
 	accountUserId: null | UserId,
 	hookMetadata?: JsonValue,
 	hookTargets: PluginHook["targets"] = [],
-	batchFrequency: "item" | "once-per-subject" = "item",
-	referenceDrafts: Readonly<Record<string, AutomationEntityDraft>> = {},
 ) =>
 	Effect.gen(function* () {
 		if (!trigger.payload) {
@@ -142,164 +124,54 @@ export const prepareAutomationInvocation = (
 				message: "Pinned automation script or hook declaration is unavailable",
 			});
 		}
-		if (run.id !== payload.runId || run.triggerId !== trigger.id) {
+		if (
+			run.id !== payload.runId ||
+			run.triggerId !== trigger.id ||
+			trigger.payload.category === "request"
+		) {
 			return yield* inputMismatch();
 		}
-		let projected;
-		let policyItemIdentity: null | string = null;
-		if (run.stage === "before") {
-			if (payload.attemptNumber !== 1 || trigger.payload.category !== "request") {
-				return yield* inputMismatch();
-			}
-			if (script.automationType !== "policy") {
-				return yield* projectionError(run, "has an incompatible policy declaration");
-			}
-			const source = trigger.payload;
-			const requests =
-				source.operation === "batch"
-					? source.items.map((request, index) => ({
-							request,
-							itemIdentity: source.itemIdentities[index],
-							patches: payload.acceptedBatchPatches?.[source.itemIdentities[index] ?? ""] ?? [],
-						}))
-					: [{ request: source, itemIdentity: trigger.id, patches: payload.acceptedPatches }];
-			const items: Array<AutomationPolicyBatchInput["items"][number]> = [];
-			const references: Record<string, typeof AutomationPolicyReference.Type> = {};
-			const subjects = new Set<string>();
-			for (const item of requests) {
-				if (!item.itemIdentity) {
-					return yield* inputMismatch();
-				}
-				if (
-					payload.activeItemIdentities &&
-					!payload.activeItemIdentities.includes(item.itemIdentity)
-				) {
-					continue;
-				}
-				if (
-					hookTargets.length > 0 &&
-					!hookTargets.some((target) =>
-						matchesTarget(definitionOwner(run.pluginId), target, {
-							...trigger,
-							payload: item.request,
-						}),
-					)
-				) {
-					continue;
-				}
-				if (item.request.resource === "event" && batchFrequency === "once-per-subject") {
-					const subject = item.request.draft.entityId;
-					if (
-						subjects.has(subject) ||
-						item.request.excludedOncePerSubjectPolicies?.some(
-							(identity) =>
-								identity.pluginId === run.pluginId && identity.hookSlug === run.hookSlug,
-						)
-					) {
-						continue;
-					}
-					subjects.add(subject);
-				}
-				const patched = applyLifecyclePolicyPatches(item.request, item.patches);
-				if (!patched.ok) {
-					return yield* inputMismatch();
-				}
-				const request = projectAutomationPolicyInput(patched.request, script.inputProjection);
-				if (!request) {
-					return yield* projectionError(run, "does not declare the retained request resource");
-				}
-				const referenceProjection = script.inputProjection[request.resource];
-				if (request.resource === "event" && referenceProjection) {
-					const sourceReferences =
-						payload.acceptedReferences ??
-						(source.operation === "batch" ? source.references : referenceDrafts);
-					for (const [id, names] of [
-						[request.draft.entityId, referenceProjection.entityProperties ?? []],
-						[request.draft.sessionEntityId, referenceProjection.sessionEntityProperties ?? []],
-					] as const) {
-						const reference = id === null ? undefined : sourceReferences[id];
-						if (reference && id !== null) {
-							references[id] = {
-								entitySchemaSlug: reference.entitySchemaSlug,
-								entitySchemaPluginId: reference.entitySchemaPluginId,
-								properties: {
-									...references[id]?.properties,
-									...Object.fromEntries(
-										names.flatMap((name) => {
-											const value = reference.properties[name];
-											return value === undefined ? [] : [[name, value]];
-										}),
-									),
-								},
-							};
-						}
-					}
-				}
-				items.push({ payload: request, itemIdentity: item.itemIdentity });
-			}
-			projected = {
-				items,
-				automation: {
-					references,
-					runId: run.id,
-					triggerId: trigger.id,
-					hookSlug: run.hookSlug,
-					causation: trigger.causation,
-					occurredAt: trigger.occurredAt,
-					executionUserId: run.executionUserId,
-					...(hookMetadata === undefined ? {} : { hookMetadata }),
-				},
-			};
-			policyItemIdentity = source.operation === "batch" ? null : trigger.id;
-		} else {
-			if (payload.acceptedPatches.length !== 0 || trigger.payload.category === "request") {
-				return yield* inputMismatch();
-			}
-			if (script.automationType !== "automation") {
-				return yield* projectionError(run, "has an incompatible automation declaration");
-			}
-			const owners = new Set(
-				hookTargets.length === 0
-					? [run.pluginId]
-					: hookTargets.map((target) => {
-							const owner = "owner" in target ? target.owner : definitionOwner(run.pluginId);
-							return definitionOwnerPluginId(owner);
-						}),
-			);
-			const payloadForOwner =
-				trigger.payload.operation === "batch"
-					? yield* Schema.decodeUnknownEffect(AutomationAfterPayload)({
-							...trigger.payload,
-							items: trigger.payload.items.filter((item) => {
-								const pluginId = automationPayloadPluginId(item);
-								return pluginId !== undefined && owners.has(pluginId);
-							}),
-						}).pipe(
-							Effect.mapError(() =>
-								projectionError(run, "has no retained batch evidence for its declared owners"),
-							),
-						)
-					: trigger.payload;
-			projected = projectAutomationAfterInput(payloadForOwner, script.inputProjection);
+		if (script.automationType !== "automation") {
+			return yield* projectionError(run, "has an incompatible automation declaration");
 		}
+		const owners = new Set(
+			hookTargets.length === 0
+				? [run.pluginId]
+				: hookTargets.map((target) => {
+						const owner = "owner" in target ? target.owner : definitionOwner(run.pluginId);
+						return definitionOwnerPluginId(owner);
+					}),
+		);
+		const payloadForOwner =
+			trigger.payload.operation === "batch"
+				? yield* Schema.decodeUnknownEffect(AutomationAfterPayload)({
+						...trigger.payload,
+						items: trigger.payload.items.filter((item) => {
+							const pluginId = automationPayloadPluginId(item);
+							return pluginId !== undefined && owners.has(pluginId);
+						}),
+					}).pipe(
+						Effect.mapError(() =>
+							projectionError(run, "has no retained batch evidence for its declared owners"),
+						),
+					)
+				: trigger.payload;
+		const projected = projectAutomationAfterInput(payloadForOwner, script.inputProjection);
 		if (!projected) {
 			return yield* projectionError(run, "does not declare the retained trigger resource");
 		}
-		const input =
-			run.stage === "before"
-				? projected
-				: {
-						automation: {
-							runId: run.id,
-							payload: projected,
-							triggerId: trigger.id,
-							hookSlug: run.hookSlug,
-							causation: trigger.causation,
-							occurredAt: trigger.occurredAt,
-							executionUserId: run.executionUserId,
-							...(hookMetadata === undefined ? {} : { hookMetadata }),
-						},
-					};
+		const input = {
+			automation: {
+				runId: run.id,
+				payload: projected,
+				triggerId: trigger.id,
+				hookSlug: run.hookSlug,
+				causation: trigger.causation,
+				occurredAt: trigger.occurredAt,
+				executionUserId: run.executionUserId,
+				...(hookMetadata === undefined ? {} : { hookMetadata }),
+			},
+		};
 		const inputBytes = jsonByteLength(input);
 		if (inputBytes === null) {
 			return yield* projectionError(run, "produced a non-JSON invocation");
@@ -312,15 +184,13 @@ export const prepareAutomationInvocation = (
 		}
 		return yield* Schema.decodeUnknownEffect(PreparedAutomationRun)({
 			input,
-			policyItemIdentity,
 			scriptId: run.sandboxScriptId,
-			lane: automationRunLane({ delivery: run.delivery, causation: trigger.causation }),
+			lane: automationRunLane({ stage: run.stage, causation: trigger.causation }),
 			subject: {
 				runId: run.id,
 				accountUserId,
 				stage: run.stage,
 				triggerId: trigger.id,
-				delivery: run.delivery,
 				type: "automation-run",
 				pluginId: run.pluginId,
 				causation: trigger.causation,
@@ -336,23 +206,19 @@ export const prepareAutomationInvocation = (
 export class AutomationRunOperations extends Context.Service<
 	AutomationRunOperations,
 	{
-		releaseFirstClaim: (payload: AutomationRunPayload) => Effect.Effect<void, DbError>;
 		claim: (
 			payload: AutomationRunPayload,
 		) => Effect.Effect<typeof ClaimedAutomationAttempt.Type, DbError>;
+		runSandbox: (
+			input: { executionId: string } & PreparedAutomationAttempt,
+		) => Effect.Effect<SandboxExecutionResult>;
 		prepare: (
 			payload: AutomationRunPayload,
 		) => Effect.Effect<PreparedAutomationAttempt, DbError | AutomationPreparationError>;
-		runSandbox: (
-			input: PreparedAutomationRun & { executionId: string },
-		) => Effect.Effect<SandboxExecutionResult, SandboxRunError>;
 		finalize: (
 			input: FinalizeAutomationAttempt,
 			changes?: AutomationAttemptChanges,
 		) => Effect.Effect<AutomationRunAttempt, DbError>;
-		runSandboxDirect: (
-			input: PreparedAutomationRun & { executionId: string },
-		) => Effect.Effect<SandboxExecutionResult, SandboxRunError | DirectScriptDeferred>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/run-job-live/AutomationRunOperations") {}
 
@@ -366,19 +232,16 @@ export const AutomationRunOperationsLive = Layer.effect(
 	AutomationRunOperations,
 	Effect.gen(function* () {
 		const attempts = yield* AutomationAttemptRepository;
-		const entities = yield* EntitiesRepository;
 		const runs = yield* AutomationRunRepository;
 		const triggers = yield* AutomationTriggerRepository;
 		const scripts = yield* SandboxRepository;
-		const sandbox = yield* ScriptExecutionService;
-		const direct = yield* DirectScriptExecutor;
+		const calls = yield* ScriptCalls;
 		const session = yield* DatabaseSession;
 		const admission = yield* AccountAdmission.make;
 		const changes = yield* ScriptChanges;
 		return AutomationRunOperations.of({
-			runSandbox: (input) => sandbox.executeScript(input),
-			releaseFirstClaim: (payload) => attempts.releaseFirstClaim(payload.runId),
-			runSandboxDirect: (input) => executeScriptDirectly(direct, input, "direct"),
+			runSandbox: ({ lane, input, principal, executionId }) =>
+				calls.run({ lane, input, principal, executionId }),
 			claim: (payload) =>
 				Effect.gen(function* () {
 					const result = yield* attempts.claimNextAttempt({
@@ -398,9 +261,6 @@ export const AutomationRunOperationsLive = Layer.effect(
 						return yield* attempts.finalizeAttempt(input, now);
 					}
 					const { prepared } = written;
-					if (!("payload" in prepared.input.automation)) {
-						return yield* Effect.die("Only after hooks return changes");
-					}
 					const { automation } = prepared.input;
 					return yield* changes
 						.commit({
@@ -487,7 +347,6 @@ export const AutomationRunOperationsLive = Layer.effect(
 							}
 							let hookMetadata: JsonValue | undefined;
 							let hookTargets: PluginHook["targets"] = [];
-							let batchFrequency: "item" | "once-per-subject" = "item";
 							if (run.pluginId !== null) {
 								const [revision] = yield* session.run((database) =>
 									database
@@ -514,50 +373,6 @@ export const AutomationRunOperationsLive = Layer.effect(
 								}
 								hookMetadata = hook.metadata;
 								hookTargets = hook.targets;
-								batchFrequency = hook.stage === "before" ? (hook.batchFrequency ?? "item") : "item";
-							}
-							let referenceDrafts: Readonly<Record<string, AutomationEntityDraft>> = {};
-							if (
-								trigger.payload.category === "request" &&
-								trigger.payload.operation !== "batch" &&
-								trigger.payload.resource === "event" &&
-								run.executionUserId !== null
-							) {
-								const patched = applyLifecyclePolicyPatches(
-									trigger.payload,
-									payload.acceptedPatches,
-								);
-								if (!patched.ok || patched.request.resource !== "event") {
-									return yield* inputMismatch();
-								}
-								const draft = patched.request.draft;
-								const references = yield* entities.getByIdsForUser({
-									userId: run.executionUserId,
-									entityIds: [
-										draft.entityId,
-										...(draft.sessionEntityId === null ? [] : [draft.sessionEntityId]),
-									],
-								});
-								referenceDrafts = yield* Schema.decodeUnknownEffect(
-									Schema.Record(EntityId, AutomationEntityDraft),
-								)(
-									Object.fromEntries(
-										[...references].map(([id, reference]) => [
-											id,
-											{
-												name: reference.name,
-												properties: reference.properties,
-												providerId: reference.providerId,
-												externalId: reference.externalId,
-												populatedAt: reference.populatedAt,
-												entitySchemaSlug: reference.entitySchemaSlug,
-												entitySchemaPluginId: reference.entitySchemaPluginId,
-											},
-										]),
-									),
-								).pipe(
-									Effect.mapError(() => new DbError({ message: "Invalid policy references" })),
-								);
 							}
 							const prepared = yield* prepareAutomationInvocation(
 								run,
@@ -567,8 +382,6 @@ export const AutomationRunOperationsLive = Layer.effect(
 								accountUserId,
 								hookMetadata,
 								hookTargets,
-								batchFrequency,
-								referenceDrafts,
 							);
 							const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
 								...pin,
@@ -633,122 +446,66 @@ const rejectedChangesOutcome = (
 	};
 };
 
-const completion = (
-	attempt: AutomationRunAttempt,
-	policyOutput: AutomationRunResult["policyOutput"],
-): AutomationRunResult => ({ policyOutput, attempt: automationAttemptResult(attempt) });
-
-const attemptOutcome = Effect.fnUntraced(function* <E>(
+const attemptOutcome = Effect.fnUntraced(function* (
 	payload: AutomationRunPayload,
-	prepared: PreparedAutomationRun | AutomationPreparationError,
-	runSandbox: (prepared: PreparedAutomationRun) => Effect.Effect<SandboxExecutionResult, E>,
+	prepared: PreparedAutomationAttempt | AutomationPreparationError,
+	runSandbox: (prepared: PreparedAutomationAttempt) => Effect.Effect<SandboxExecutionResult>,
 ) {
-	let policyOutput: AutomationRunResult["policyOutput"] = null;
-	let changes: undefined | ChangeSet;
-	let outcome: FinalizeAutomationAttempt;
 	if (prepared instanceof AutomationPreparationError) {
-		outcome = {
-			...payload,
-			logs: [],
-			timing: null,
-			status: "failed",
-			returnedValue: null,
-			failureKind: prepared.kind,
-			error: { message: prepared.message, code: prepared.data?.code ?? prepared.kind },
-		};
-	} else {
-		const result =
-			"items" in prepared.input && prepared.input.items.length === 0
-				? { logs: [], error: null, value: { items: [] }, status: "completed" as const }
-				: yield* runSandbox(prepared).pipe(
-						Effect.catchIf(
-							(error): error is Extract<E, SandboxRunError> => error instanceof SandboxRunError,
-							(error) =>
-								Effect.succeed({
-									logs: [],
-									value: null,
-									status: "completed" as const,
-									error: {
-										kind: error.kind,
-										message: error.message,
-										phase: "execute" as const,
-										...(error.data === undefined ? {} : { data: error.data }),
-									},
-								}),
-						),
-					);
-		let failureKind = result.error ? classifyAutomationSandboxError(result.error) : null;
-		const value = yield* Schema.decodeUnknownEffect(JsonValue)(result.value).pipe(
-			Effect.orElseSucceed(() => null),
-		);
-		if (!failureKind && !Schema.is(JsonValue)(result.value)) {
-			failureKind = "invalid-output";
-		}
-		if (
-			!failureKind &&
-			prepared.subject.type === "automation-run" &&
-			prepared.subject.stage === "before"
-		) {
-			const decoded = yield* Schema.decodeUnknownEffect(AutomationPolicyRunOutput)(value).pipe(
-				Effect.orElseSucceed(() => null),
-			);
-			if (decoded && "items" in decoded && "items" in prepared.input) {
-				const expected = prepared.input.items.map((item) => item.itemIdentity);
-				const actual = decoded.items.map((item) => item.itemIdentity);
-				if (
-					actual.length === expected.length &&
-					new Set(actual).size === actual.length &&
-					actual.every((key) => expected.includes(key))
-				) {
-					policyOutput =
-						prepared.policyItemIdentity === null
-							? decoded
-							: (decoded.items.find((item) => item.itemIdentity === prepared.policyItemIdentity)
-									?.decision ?? null);
-				}
-			}
-			if (!policyOutput) {
-				failureKind = "invalid-output";
-			}
-		} else if (!failureKind) {
-			const decoded = yield* Schema.decodeUnknownEffect(ChangesOutput)(value).pipe(
-				Effect.orElseSucceed(() => null),
-			);
-			if (decoded) {
-				changes = decoded.changes;
-			} else {
-				failureKind = "invalid-output";
-			}
-		}
-		const returnedValue =
-			policyOutput === null
-				? value
-				: yield* Schema.encodeEffect(Schema.toCodecJson(AutomationPolicyRunOutput))(
-						policyOutput,
-					).pipe(Effect.mapError(() => new DbError({ message: "Invalid policy result" })));
-		outcome = {
-			returnedValue,
-			runId: payload.runId,
-			attemptNumber: payload.attemptNumber,
-			timing: "timing" in result ? (result.timing ?? null) : null,
-			logs: result.logs.map((message) => ({ message, level: "info" as const })),
-			error: failureKind
-				? {
-						code: result.error?.data?.code ?? failureKind,
-						message: result.error?.message ?? "Invalid automation output",
-					}
-				: null,
-			...(failureKind
-				? { failureKind, status: "failed" }
-				: { failureKind: null, status: "succeeded" }),
+		return {
+			changes: undefined,
+			outcome: {
+				...payload,
+				logs: [],
+				timing: null,
+				status: "failed",
+				returnedValue: null,
+				failureKind: prepared.kind,
+				error: { message: prepared.message, code: prepared.data?.code ?? prepared.kind },
+			} satisfies FinalizeAutomationAttempt,
 		};
 	}
-	return { outcome, changes, policyOutput };
+	const result = yield* runSandbox(prepared);
+	let failureKind = result.error ? classifyAutomationSandboxError(result.error) : null;
+	const value = yield* Schema.decodeUnknownEffect(JsonValue)(result.value).pipe(
+		Effect.orElseSucceed(() => null),
+	);
+	if (!failureKind && !Schema.is(JsonValue)(result.value)) {
+		failureKind = "invalid-output";
+	}
+	let changes: undefined | ChangeSet;
+	if (!failureKind) {
+		const decoded = yield* Schema.decodeUnknownEffect(ChangesOutput)(value).pipe(
+			Effect.orElseSucceed(() => null),
+		);
+		if (decoded) {
+			changes = decoded.changes;
+		} else {
+			failureKind = "invalid-output";
+		}
+	}
+	const outcome: FinalizeAutomationAttempt = {
+		returnedValue: value,
+		runId: payload.runId,
+		timing: result.timing ?? null,
+		attemptNumber: payload.attemptNumber,
+		logs: result.logs.map((message) => ({ message, level: "info" as const })),
+		error: failureKind
+			? {
+					code: result.error?.data?.code ?? failureKind,
+					message: result.error?.message ?? "Invalid automation output",
+				}
+			: null,
+		...(failureKind
+			? { failureKind, status: "failed" }
+			: { failureKind: null, status: "succeeded" }),
+	};
+	return { outcome, changes };
 });
 
 /**
  * Runs one attempt from its claim to its finalization. A retry resumes the same attempt: its claim stays
- * running, and its sandbox execution keeps its identity, so a retry joins the first run's result.
+ * running, and its finalization commits its changes at most once.
  */
 export const runAutomationAttempt = Effect.fn("AutomationRunJob")(function* (
 	payload: AutomationRunPayload,
@@ -772,67 +529,5 @@ export const runAutomationAttempt = Effect.fn("AutomationRunJob")(function* (
 			: { changes, prepared },
 	);
 });
-
-/**
- * Runs a first policy attempt in the caller's fiber, without `AutomationRunJob` or `ScriptExecutionWorkflow`.
- * Fails with `DirectScriptDeferred` when the attempt needs the workflow: another owner holds the claim, or the script
- * reached a host call that only the replay loop settles. Every failure releases this call's claim, so the workflow
- * can take the attempt over under the same identity.
- */
-export const runAutomationAttemptDirect = Effect.fn("AutomationRunDirect")(function* (
-	payload: AutomationRunPayload,
-) {
-	const identity = automationAttemptIdentity(payload.runId, payload.attemptNumber);
-	const operations = yield* AutomationRunOperations;
-	const { stage, attempt, claimed } = yield* operations.claim(payload);
-	if (attempt === null) {
-		return { attempt: null, policyOutput: null };
-	}
-	if (attempt.status !== "running") {
-		return yield* settledAutomationRunResult(stage, attempt);
-	}
-	if (!claimed) {
-		return yield* new DirectScriptDeferred();
-	}
-	return yield* Effect.gen(function* () {
-		const prepared = yield* operations
-			.prepare(payload)
-			.pipe(Effect.catchTag("AutomationPreparationError", (error) => Effect.succeed(error)));
-		const { outcome, policyOutput } = yield* attemptOutcome(payload, prepared, (input) =>
-			operations
-				.runSandboxDirect({ ...input, executionId: `${identity.executionId}-direct` })
-				.pipe(
-					Effect.timeoutOrElse({
-						duration: Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS),
-						orElse: () =>
-							Effect.fail(
-								new SandboxRunError({
-									kind: "timeout",
-									message: `Sandbox timed out after ${AUTOMATION_IMMEDIATE_TIMEOUT_MS}ms`,
-								}),
-							),
-					}),
-				),
-		);
-		return completion(yield* operations.finalize(outcome), policyOutput);
-	}).pipe(
-		Effect.onError(() =>
-			operations
-				.releaseFirstClaim(payload)
-				.pipe(
-					Effect.catchCause((cause) => Effect.logWarning("Direct attempt release failed", cause)),
-				),
-		),
-	);
-});
-
-export const DirectPolicyAttemptsInstalledLive = Layer.effectDiscard(
-	Effect.gen(function* () {
-		const context = yield* Effect.context<AutomationRunOperations>();
-		yield* (yield* DirectPolicyAttempts).install((payload) =>
-			runAutomationAttemptDirect(payload).pipe(Effect.provideContext(context)),
-		);
-	}),
-);
 
 export const AutomationRunJobLive = registerJobHandler(AutomationRunJob, runAutomationAttempt);

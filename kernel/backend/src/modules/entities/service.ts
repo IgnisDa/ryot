@@ -2,7 +2,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEntityDraft,
 	AutomationEntityRequestPayload,
-	type AutomationPolicyPatch,
+	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntityBadRequest,
@@ -31,13 +31,14 @@ import {
 	type LifecycleBatchInput,
 	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
-	LifecyclePlannedPolicy,
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
 import {
-	applyLifecyclePolicyPatch,
-	canonicalLifecyclePolicyPatch,
-} from "#modules/automations/lifecycle/policy-patch";
+	LifecyclePolicies,
+	LifecyclePolicy,
+	runItemPolicy,
+} from "#modules/automations/lifecycle/policies";
+import { applyLifecyclePolicyPatch } from "#modules/automations/lifecycle/policy-patch";
 import {
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
@@ -168,15 +169,14 @@ type PrepareUserEntitySaveInput = {
 };
 export const PendingEntityMutation = Schema.Struct({
 	...PreparedEntityMutation.fields,
+	trigger: AutomationTrigger,
 	request: AutomationEntityRequestPayload,
-	policies: Schema.Array(LifecyclePlannedPolicy),
+	policies: Schema.Array(LifecyclePolicy),
 });
 export type PendingEntityMutation = typeof PendingEntityMutation.Type;
 export const EntityMutationError = Schema.Union([EntityBadRequest, EntityNotFound, DbError]);
-const bad = (
-	code:
-		"automation-limit" | "mutation-conflict" | "enclosing-transaction" | "invalid-policy-transform",
-) => new EntityBadRequest({ reason: { code } });
+const bad = (code: "mutation-conflict" | "enclosing-transaction" | "invalid-policy-transform") =>
+	new EntityBadRequest({ reason: { code } });
 const enclosingTransaction = () => bad("enclosing-transaction");
 const writeFailure = (error: DbError | DomainWriteConflict) =>
 	error instanceof DomainWriteConflict
@@ -247,6 +247,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			const attachments = yield* EntityUserDataAttachments;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const execution = yield* LifecycleExecution;
+			const policies = yield* LifecyclePolicies;
 			const assertOwner = session.requireRoot.pipe(Effect.mapError(enclosingTransaction));
 			const assertActiveTransaction = session.requireTransaction.pipe(
 				Effect.mapError(
@@ -455,9 +456,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				}
 				return yield* Effect.void;
 			});
-			const planMutationInTransaction = Effect.fnUntraced(function* (
-				input: Omit<PreparedMutation, "requestId">,
-			) {
+			const planMutationInTransaction = Effect.fnUntraced(function* (input: PreparedMutation) {
 				yield* writeChecks
 					.check(
 						input.lifecycle,
@@ -498,91 +497,64 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						};
 					}
 				}
-				const planned = yield* planner.plan({
-					trigger: yield* lifecycleTrigger(lifecycle, input.scopeUserId, request),
-				});
-				if (planned.trigger?.blockedReason) {
-					return { _tag: "Blocked" as const };
-				}
-				const pending: PendingEntityMutation = {
+				const trigger = yield* lifecycleTrigger(lifecycle, input.scopeUserId, request);
+				return {
 					...input,
 					request,
+					trigger,
 					lifecycle,
-					policies: planned.policies,
-					requestId: planned.trigger?.id ?? null,
-				};
-				return pending;
+					policies: yield* policies.match(trigger),
+				} satisfies PendingEntityMutation;
 			});
 			const planMutation = (input: Parameters<typeof planMutationInTransaction>[0]) =>
 				transaction(
 					planMutationInTransaction(input),
 					mutationUserIds(input.lifecycle, input.scopeUserId),
-				).pipe(
-					Effect.filterOrFail(
-						(planned): planned is PendingEntityMutation => "request" in planned,
-						() => bad("automation-limit"),
-					),
 				);
 			const applyMutationPolicies = Effect.fn("EntitiesService.applyMutationPolicies")(function* (
 				pending: PendingEntityMutation,
 			) {
-				let payload = pending.request;
-				const acceptedPatches: AutomationPolicyPatch[] = [];
-				const executePolicies = Effect.fnUntraced(function* () {
-					for (const policy of pending.policies) {
-						const output = yield* execution
-							.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
-							.pipe(
-								Effect.catchTag("AutomationPolicyExecutionError", (error) =>
-									Effect.fail(
-										new EntityBadRequest({
-											reason: { runId: error.runId, code: "policy-execution-failed" },
-										}),
-									),
-								),
-							);
-						if (output.action === "reject") {
-							return yield* new EntityBadRequest({
-								reason: {
-									code: "policy-rejected",
-									message: definitionText(policy.pluginId, output.reason),
-								},
-							});
-						}
-						if (output.action === "transform") {
-							const patched = applyLifecyclePolicyPatch(payload, output.patch);
-							if (!patched.ok || patched.request.operation === "delete") {
-								yield* Effect.logDebug(
-									`Invalid entity policy transform: ${patched.ok ? "Entity delete policies cannot transform requests" : patched.reason}`,
-								);
-								return yield* bad("invalid-policy-transform");
-							}
-							const validated = yield* validateDraft(
-								patched.request.draft,
-								pending.scopeUserId,
-								definitionOwner(pending.entitySchemaPluginId),
-								pending.lifecycle,
-							);
-							const successor = { ...patched.request, draft: validated.draft };
-							const acceptedPatch = canonicalLifecyclePolicyPatch(payload, successor);
-							payload = successor;
-							if (acceptedPatch) {
-								acceptedPatches.push(acceptedPatch);
-							}
-						}
+				let request = pending.request;
+				for (const policy of pending.policies) {
+					const output = yield* runItemPolicy(policies, {
+						policy,
+						request,
+						trigger: pending.trigger,
+					}).pipe(
+						Effect.catchTag("AutomationPolicyExecutionError", (error) =>
+							Effect.fail(
+								new EntityBadRequest({
+									reason: { runId: error.runId, code: "policy-execution-failed" },
+								}),
+							),
+						),
+					);
+					if (output.action === "reject") {
+						return yield* new EntityBadRequest({
+							reason: {
+								code: "policy-rejected",
+								message: definitionText(policy.pluginId, output.reason),
+							},
+						});
 					}
-					return undefined;
-				});
-				yield* executePolicies().pipe(
-					Effect.catchCause((cause) =>
-						pending.requestId === null
-							? Effect.failCause(cause)
-							: execution
-									.skipQueuedPolicies({ triggerId: pending.requestId })
-									.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
-					),
-				);
-				return { ...pending, request: payload } satisfies PendingEntityMutation;
+					if (output.action === "transform") {
+						const patched = applyLifecyclePolicyPatch(request, output.patch);
+						if (!patched.ok || patched.request.operation === "delete") {
+							yield* Effect.logDebug(
+								`Invalid entity policy transform: ${patched.ok ? "Entity delete policies cannot transform requests" : patched.reason}`,
+							);
+							return yield* bad("invalid-policy-transform");
+						}
+						const validated = yield* validateDraft(
+							patched.request.draft,
+							pending.scopeUserId,
+							definitionOwner(pending.entitySchemaPluginId),
+							pending.lifecycle,
+						);
+						request = { ...patched.request, draft: validated.draft };
+					}
+				}
+				return { ...pending, request } satisfies PendingEntityMutation;
 			});
 			const acceptedMutation = Effect.fnUntraced(function* (pending: PendingEntityMutation) {
 				const final = yield* validateDraft(
@@ -599,7 +571,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				) {
 					return yield* conflict("Entity schema ownership changed while policies ran");
 				}
-				const { request: _request, policies: _policies, ...prepared } = pending;
+				const { request: _request, trigger: _trigger, policies: _policies, ...prepared } = pending;
 				return { ...prepared, draft: final.draft } satisfies PreparedMutation;
 			});
 			const persistence = {
@@ -849,19 +821,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				return yield* transaction(
 					Effect.gen(function* () {
 						const pending = yield* planMutationInTransaction(planned.preparedInput);
-						if (!("request" in pending)) {
-							return pending;
-						}
 						return pending.policies.length > 0
 							? { pending, _tag: "PoliciesRequired" as const }
 							: yield* persistAndBatch(pending);
 					}),
 					mutationUserIds(input.lifecycle, input.scope === "user" ? input.userId : null),
-				).pipe(
-					Effect.filterOrFail(
-						(step) => step._tag !== "Blocked",
-						() => bad("automation-limit"),
-					),
 				);
 			});
 			const saveCreate = (input: CreateEntityInput, updateExisting?: boolean) =>
@@ -987,7 +951,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					const before = existing && !replay ? yield* snapshot(existing) : null;
 					const prepared: PreparedMutation = {
 						before,
-						requestId: null,
 						lifecycle: entry.lifecycle,
 						draft: entry.validated.draft,
 						scopeUserId: entry.scopeUserId,
@@ -1117,19 +1080,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					transaction(
 						Effect.gen(function* () {
 							const pending = yield* planMutationInTransaction(pendingInput);
-							if (!("request" in pending)) {
-								return pending;
-							}
 							return pending.policies.length > 0
 								? { pending, _tag: "PoliciesRequired" as const }
 								: yield* persistCheckedUpdate(pending, input.requireUserOwned === true);
 						}),
 						mutationUserIds(input.lifecycle, current.userId),
-					).pipe(
-						Effect.filterOrFail(
-							(step) => step._tag !== "Blocked",
-							() => bad("automation-limit"),
-						),
 					),
 					(pending) =>
 						transaction(
@@ -1481,10 +1436,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							DatabaseSessionStateError: () => Effect.fail(enclosingTransaction()),
 						}),
 					);
-				const warnings = yield* execution
+				yield* execution
 					.dispatch(committed.dispatch)
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-				return { warnings, deletedCount: committed.deletedCount };
+				return { warnings: [], deletedCount: committed.deletedCount };
 			});
 			const prepareEnsures = Effect.fn("EntitiesService.prepareEnsures")(function* (
 				userId: UserId,

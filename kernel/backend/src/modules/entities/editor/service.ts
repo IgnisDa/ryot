@@ -541,8 +541,9 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				if (committed.kind === "refused") {
 					return { warnings: noWarnings, output: invalid(committed.reason) };
 				}
+				yield* execution.dispatch(committed.dispatch);
 				return {
-					warnings: yield* execution.dispatch(committed.dispatch),
+					warnings: noWarnings,
 					output: { kind: "saved", entityId: committed.entityId } satisfies EntityEditorSaveOutput,
 				};
 			});

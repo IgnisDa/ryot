@@ -20,7 +20,7 @@ import { Headers } from "effect/http";
 import { AuthService } from "#modules/accounts/auth/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
+import { ScriptCallsInstalledLive } from "#modules/scripts/executions/calls";
 import {
 	realSandboxLayer,
 	RealSandboxScripts,
@@ -193,7 +193,7 @@ layer(
 					}),
 				),
 			),
-			Layer.provideMerge(ScriptCalls.layer),
+			Layer.provideMerge(ScriptCallsInstalledLive),
 			Layer.provide(entitlementsLayer(["pro"])),
 			Layer.provideMerge(fakeLayer.pipe(Layer.provideMerge(realSandboxLayer()))),
 		),

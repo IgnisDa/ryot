@@ -1,3 +1,4 @@
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Effect, Schema } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -33,14 +34,18 @@ export const mapCommittedResult = <Result, Mapped, Pending>(
 ): LifecyclePreparedStep<Mapped, Pending> =>
 	step._tag === "Committed" ? { ...step, result: map(step.result) } : step;
 
+const noWarnings: ReadonlyArray<AutomationWarning> = [];
+
 const dispatchCommitted = <Result>(
 	execution: LifecycleExecution["Service"],
 	committed: LifecycleCommittedStep<Result>,
 ) =>
-	execution.dispatch(committed.dispatch).pipe(
-		Effect.catchTag("LifecyclePersistenceError", Effect.die),
-		Effect.map((warnings) => ({ warnings, result: committed.result })),
-	);
+	execution
+		.dispatch(committed.dispatch)
+		.pipe(
+			Effect.catchTag("LifecyclePersistenceError", Effect.die),
+			Effect.as({ warnings: noWarnings, result: committed.result }),
+		);
 
 export type LifecycleWriteStep<
 	Result,

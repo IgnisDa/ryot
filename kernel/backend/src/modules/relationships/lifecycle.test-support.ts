@@ -18,13 +18,14 @@ import { Client } from "pg";
 import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import {
+	decidedPoliciesLayer,
 	noLifecycleWorkLayer,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
-import { AutomationRunRepository } from "#modules/automations/run-repository";
+import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -166,7 +167,6 @@ export const installPolicyFixture = Effect.fn(function* (
 								frequency,
 								stage: "after" as const,
 								scriptSlug: script.slug,
-								delivery: "async" as const,
 								slug: `after-${frequency}`,
 								name: `After ${frequency}`,
 								executionScope: owner === null ? ("global" as const) : ("user" as const),
@@ -223,14 +223,17 @@ export class RelationshipFixture extends Context.Service<
 
 export const relationshipsServiceWith = Effect.fnUntraced(function* (lifecycle: {
 	readonly planner?: LifecyclePlanner["Service"];
+	readonly policies?: LifecyclePolicies["Service"];
 	readonly execution?: LifecycleExecution["Service"];
 }) {
 	const planner = lifecycle.planner ?? (yield* LifecyclePlanner);
 	const execution = lifecycle.execution ?? (yield* LifecycleExecution);
+	const policies = lifecycle.policies ?? (yield* LifecyclePolicies);
 	const provideLifecycle = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		effect.pipe(
 			Effect.provideService(LifecyclePlanner, planner),
 			Effect.provideService(LifecycleExecution, execution),
+			Effect.provideService(LifecyclePolicies, policies),
 		);
 	const mutations = yield* provideLifecycle(RelationshipMutationPipeline.make);
 	return yield* provideLifecycle(
@@ -244,6 +247,7 @@ export const relationshipDatabaseLayer = (
 		readonly activateSchemaOnWrite?: boolean;
 		readonly omitSchemaBeforeWrite?: boolean;
 		readonly mutableRelationshipSchema?: boolean;
+		readonly decidePolicy?: Parameters<typeof decidedPoliciesLayer>[0];
 		readonly userWritePolicy?: DefinitionSource["relationshipSchemas"][number]["userWritePolicy"];
 	} = {},
 ) =>
@@ -367,23 +371,15 @@ export const relationshipDatabaseLayer = (
 				EntitiesRepository.layer,
 				DomainWriteChecksLive,
 				LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer)),
+				decidedPoliciesLayer(options.decidePolicy),
 			).pipe(
 				Layer.provideMerge(runtime),
 				Layer.provideMerge(
 					Layer.effect(
 						LifecycleExecution,
-						Effect.gen(function* () {
-							const session = yield* DatabaseSession;
-							const runs = yield* AutomationRunRepository.make;
-							return withLifecycleDispatch(
-								{
-									after: () => Effect.succeed([]),
-									skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
-									executePolicy: () => Effect.die("Unexpected policy in relationship fixture"),
-								},
-								session,
-							);
-						}),
+						Effect.map(DatabaseSession, (session) =>
+							withLifecycleDispatch({ after: () => Effect.void }, session),
+						),
 					),
 				),
 			);

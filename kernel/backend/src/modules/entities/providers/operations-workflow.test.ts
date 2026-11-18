@@ -43,7 +43,6 @@ import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
-import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
 import {
 	EntityImportWorkflowOperations,
 	EntityImportWorkflowOperationsLive,
@@ -76,7 +75,6 @@ const makeRun = (trigger: AutomationTrigger) =>
 		skipReason: null,
 		status: "queued",
 		nextAttemptAt: null,
-		delivery: "required",
 		triggerId: trigger.id,
 		artifactsExpireAt: now,
 		executionUserId: userId,
@@ -124,22 +122,15 @@ const planner = LifecyclePlanner.of(
 			Effect.sync(() => {
 				expect(inTransaction).toBe(true);
 				planned.push(trigger);
-				return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
+				return { trigger, wasCreated: true, runs: [makeRun(trigger)] };
 			}),
 	}),
 );
 const execution = withLifecycleDispatch({
-	executePolicy: () => Effect.die("provider completion cannot execute before policies"),
-	skipQueuedPolicies: () => Effect.die("provider completion cannot stop a policy chain"),
 	after: ({ runs, triggerId }) =>
 		Effect.sync(() => {
 			expect(inTransaction).toBe(false);
 			executed.push({ triggerId, runIds: runs.map(({ id }) => id) });
-			return runs.map(({ id, hookSlug }) => ({
-				hookSlug,
-				runId: id,
-				code: "required-hook-failed" as const,
-			}));
 		}),
 });
 const databaseLayer = Layer.succeed(DatabaseSession, database);
@@ -156,12 +147,7 @@ const operationsLayer = EntityImportWorkflowOperationsLive.pipe(
 	),
 );
 
-layer(
-	Layer.merge(
-		recordLogAnnotationsLayer("provider import completed with automation warnings"),
-		operationsLayer,
-	),
-)((test) => {
+layer(operationsLayer)((test) => {
 	test.effect(
 		"plans provider completion in a short transaction and invokes common execution",
 		() => {
@@ -244,18 +230,6 @@ layer(
 					planned.map((trigger) => ({
 						triggerId: trigger.id,
 						runIds: [`run-${trigger.causation.source}`],
-					})),
-				);
-				expect(yield* (yield* RecordedLogAnnotations).annotations).toEqual(
-					planned.map((trigger) => ({
-						warningCount: 1,
-						warnings: [
-							{
-								code: "required-hook-failed",
-								hookSlug: "fixture.after-import",
-								runId: `run-${trigger.causation.source}`,
-							},
-						],
 					})),
 				);
 			}).pipe(

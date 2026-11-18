@@ -12,12 +12,13 @@ import {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { RelationshipId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
-import { Cause, Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecyclePlannedPolicy, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { LifecyclePolicies, LifecyclePolicy } from "#modules/automations/lifecycle/policies";
 import type { LifecycleCommittedStep } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -53,8 +54,8 @@ import {
 
 const PlannedRelationshipMutation = Schema.Struct({
 	mutation: RelationshipMutation,
-	policies: Schema.Array(LifecyclePlannedPolicy),
-	requestId: Schema.NullOr(AutomationTrigger.fields.id),
+	policies: Schema.Array(LifecyclePolicy),
+	trigger: Schema.NullOr(AutomationTrigger),
 	before: Schema.NullOr(AutomationRelationshipSnapshot),
 	request: Schema.NullOr(AutomationRelationshipRequestPayload),
 });
@@ -99,6 +100,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			const writes = yield* DomainWriteChecks;
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
+			const policies = yield* LifecyclePolicies;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const keys = yield* IdempotencyKeys.make;
 			const admission = yield* AccountAdmission.make;
@@ -109,6 +111,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				planner,
 				runtime,
 				entities,
+				policies,
 				admission,
 				execution,
 				repository,
@@ -138,14 +141,6 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					return undefined;
 				});
 
-			const skipPlannedPolicies = (pending: PendingRelationshipMutations) =>
-				Effect.forEach(
-					pending.items,
-					({ requestId }) =>
-						requestId ? execution.skipQueuedPolicies({ triggerId: requestId }) : Effect.void,
-					{ discard: true },
-				);
-
 			const planMutationsInTransaction = Effect.fn("RelationshipsService.planMutations")(function* (
 				mutations: ReadonlyArray<Mutation>,
 				selector: null | GlobalRelationshipListInput = null,
@@ -169,13 +164,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				const planned = yield* Effect.forEach(ordered, (mutation) =>
 					Effect.gen(function* () {
 						const { input, command } = mutation;
-						const unplanned = {
-							mutation,
-							policies: [],
-							request: null,
-							blocked: false,
-							requestId: null,
-						};
+						const unplanned = { mutation, policies: [], request: null, trigger: null };
 						const row = rows.get(relationshipMutationLockKey(input));
 						const before = row ? yield* snapshot(row) : null;
 						const validated = yield* primitives.validateMutation(mutation, reads, pinOf(mutation));
@@ -183,31 +172,27 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						if (!request) {
 							return { ...unplanned, before, validated };
 						}
-						const plan = yield* planner.plan({
-							trigger: yield* lifecycleTrigger(
-								command,
-								input.scope === "user" ? input.userId : null,
-								request,
-							),
-						});
+						const trigger = yield* lifecycleTrigger(
+							command,
+							input.scope === "user" ? input.userId : null,
+							request,
+						);
 						return {
 							before,
 							request,
+							trigger,
 							mutation,
 							validated,
-							policies: plan.policies,
-							requestId: plan.trigger?.id ?? null,
-							blocked: plan.trigger?.blockedReason !== null && plan.trigger !== null,
+							policies: yield* policies.match(trigger),
 						};
 					}),
 				);
 				const pending = {
 					...scope,
-					items: planned.map(({ blocked: _blocked, validated: _validated, ...item }) => item),
+					items: planned.map(({ validated: _validated, ...item }) => item),
 				} satisfies PendingRelationshipMutations;
 				return {
 					pending,
-					blocked: planned.some(({ blocked }) => blocked),
 					planned: { pinOf, validated: planned.map(({ validated }) => validated) },
 				};
 			});
@@ -217,25 +202,16 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			) {
 				const items = yield* Effect.forEach(pending.items, (item) =>
 					Effect.gen(function* () {
-						if (!item.request) {
+						if (!item.request || !item.trigger) {
 							return item;
 						}
 						const request = yield* primitives.applyPolicies(
 							item.request,
-							item.policies,
+							{ trigger: item.trigger, policies: item.policies },
 							item.mutation,
 						);
 						return { ...item, request };
 					}),
-				).pipe(
-					Effect.catchCauseIf(
-						(cause) => !Cause.hasInterruptsOnly(cause),
-						(cause) =>
-							skipPlannedPolicies(pending).pipe(
-								Effect.andThen(Effect.failCause(cause)),
-								Effect.uninterruptible,
-							),
-					),
 				);
 				return { ...pending, items } satisfies PendingRelationshipMutations;
 			});
@@ -364,13 +340,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					}
 					results.push({
 						...result,
-						pending: {
-							index,
-							payload,
-							command,
-							mutation: item.mutation,
-							requestId: item.requestId,
-						},
+						pending: { index, payload, command, mutation: item.mutation },
 					});
 				}
 				const counts = {
@@ -387,7 +357,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						if (!("pending" in result)) {
 							return result;
 						}
-						const { index, payload, command, mutation, requestId } = result.pending;
+						const { index, payload, command, mutation } = result.pending;
 						const population = relationshipPopulation(
 							command,
 							counts,
@@ -398,7 +368,6 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						const { change, dispatch } = yield* primitives.planChange({
 							payload,
 							mutation,
-							requestId,
 							population,
 						});
 						if (decision) {
@@ -437,31 +406,19 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				expectedSelection?: ReadonlyArray<{ id: RelationshipId }>,
 			) {
 				yield* assertRootTransaction;
-				const step = yield* transaction(
+				return yield* transaction(
 					Effect.gen(function* () {
-						const { pending, planned, blocked } = yield* planMutationsInTransaction(
+						const { pending, planned } = yield* planMutationsInTransaction(
 							mutations,
 							selector ?? null,
 							expectedSelection ?? null,
 						);
-						if (blocked) {
-							return { pending, _tag: "Blocked" as const };
-						}
-						if (pending.items.some(({ policies }) => policies.length > 0)) {
+						if (pending.items.some((item) => item.policies.length > 0)) {
 							return { pending, _tag: "PoliciesRequired" as const };
 						}
 						return yield* commitMutationsInTransaction(shape, pending, planned);
 					}),
 				);
-				if (step._tag === "Blocked") {
-					return yield* skipPlannedPolicies(step.pending).pipe(
-						Effect.andThen(
-							new RelationshipBadRequest({ reason: { code: "automation-limit-reached" } }),
-						),
-						Effect.uninterruptible,
-					);
-				}
-				return step;
 			});
 
 			const commitSingle = (pending: PendingRelationshipMutations) =>

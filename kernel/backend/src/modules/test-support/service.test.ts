@@ -82,11 +82,7 @@ const makeServiceLayer = (
 				databaseLayer,
 				Layer.succeed(PgClient.PgClient, partialFake<PgClient.PgClient>({})),
 				Layer.mock(LifecyclePlanner)({ plan: () => Effect.die("unused") }),
-				Layer.mock(LifecycleExecution)({
-					after: () => Effect.die("unused"),
-					executePolicy: () => Effect.die("unused"),
-					skipQueuedPolicies: () => Effect.die("unused"),
-				}),
+				Layer.mock(LifecycleExecution)({}),
 				mockEntitiesRepository({ ...overrides.entitiesRepository }),
 				mockAuth({ handler: () => Promise.reject(new Error("unused")) }),
 				mockEntities({ ...overrides.entities }),

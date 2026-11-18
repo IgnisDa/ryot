@@ -78,7 +78,6 @@ export const automationRunSubject = (
 	accountUserId: executionUserId,
 	runId: AutomationRunId.make("run_1"),
 	triggerId: AutomationTriggerId.make("trigger_1"),
-	delivery: stage === "before" ? "policy" : "required",
 	causation: {
 		depth: 0,
 		source: "api",

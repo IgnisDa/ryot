@@ -45,19 +45,18 @@ import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
-import {
-	AutomationPolicyExecutionError,
-	LifecycleExecution,
-} from "#modules/automations/lifecycle/execution";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type LifecycleDispatchPlan,
 	LifecyclePlanner,
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
+	AutomationPolicyExecutionError,
+	type LifecyclePolicies,
 	type PolicyBatchResult,
 	runPolicyBatch,
-} from "#modules/automations/lifecycle/policy-batch";
+} from "#modules/automations/lifecycle/policies";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { DefinitionReadUnavailable } from "#modules/definitions/read-context";
 import { FoldMarks } from "#modules/derived-values/marks";
@@ -187,7 +186,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 			const folds = yield* FoldMarks;
 			const scripts = yield* SandboxRepository;
 			const policyContext = yield* Effect.context<
-				DatabaseSession | LifecyclePlanner | EntitiesRepository | LifecycleExecution
+				DatabaseSession | LifecyclePolicies | EntitiesRepository
 			>();
 			const prepareUserChanges = Effect.fn("ChangeSets.prepareUserChanges")(function* (
 				input: ChangeSet,
@@ -317,13 +316,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						references: prepared.references,
 						items: yield* eventPolicyItems(prepared),
 						propertiesSchemas: prepared.propertiesSchemas,
-					}).pipe(
-						Effect.provideContext(policyContext),
-						Effect.catchTag(
-							"PolicyBatchBlocked",
-							() => new EventBadRequest({ reason: { code: "automation-limit" } }),
-						),
-					);
+					}).pipe(Effect.provideContext(policyContext));
 					const rejection = validated.items.find((item) => item.rejected !== null)?.rejected;
 					if (rejection) {
 						return yield* new EventBadRequest({

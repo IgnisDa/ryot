@@ -47,7 +47,6 @@ const run = (input: {
 	historyPayload: payload,
 	stage: "after" as const,
 	scriptContentHash: "hash",
-	delivery: "async" as const,
 	scriptSlug: "kernel.fixture",
 	sandboxScriptId: "kernel-script",
 	retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,

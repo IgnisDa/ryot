@@ -148,7 +148,6 @@ const insertRun = Effect.fn(function* (input: {
 				hookSlug: id,
 				hookName: id,
 				stage: "after",
-				delivery: "async",
 				status: "succeeded",
 				scriptContentHash: "hash",
 				scriptSlug: "kernel.fixture",

@@ -25,8 +25,10 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Layer, Ref } from "effect";
 
+import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -230,6 +232,7 @@ const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean 
 
 const makeEditor = Effect.fnUntraced(function* (
 	overrides: {
+		readonly policies?: LifecyclePolicies["Service"];
 		readonly keys?: Partial<IdempotencyKeys["Service"]>;
 		readonly entities?: Partial<EntitiesService["Service"]>;
 		readonly execution?: Partial<LifecycleExecution["Service"]>;
@@ -238,8 +241,12 @@ const makeEditor = Effect.fnUntraced(function* (
 	} = {},
 ) {
 	const execution = { ...(yield* LifecycleExecution), ...overrides.execution };
+	const policies = overrides.policies ?? (yield* LifecyclePolicies);
 	const entities = {
-		...(yield* EntitiesService.make.pipe(Effect.provideService(LifecycleExecution, execution))),
+		...(yield* EntitiesService.make.pipe(
+			Effect.provideService(LifecycleExecution, execution),
+			Effect.provideService(LifecyclePolicies, policies),
+		)),
 		...overrides.entities,
 	};
 	const relationships = { ...(yield* RelationshipsService), ...overrides.relationships };
@@ -1083,16 +1090,15 @@ describe("EntityEditorService", () => {
 			const entity = yield* insert("policy-item", item, userId, "Policy");
 			assert(entity);
 			const editor = yield* makeEditor({
-				execution: {
-					executePolicy: () =>
-						Effect.succeed({
-							action: "transform" as const,
-							patch: {
-								resource: "entity" as const,
-								draft: { properties: { set: {}, remove: ["code"] } },
-							},
-						}),
-				},
+				policies: decidingPolicies((yield* LifecyclePolicies).match, () =>
+					Effect.succeed({
+						action: "transform" as const,
+						patch: {
+							resource: "entity" as const,
+							draft: { properties: { set: {}, remove: ["code"] } },
+						},
+					}),
+				),
 			});
 			const before = yield* tablesState;
 			const result = yield* submitEdit(
