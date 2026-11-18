@@ -2,6 +2,7 @@ import { unknownToMessage } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
+import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import {
 	AuthBootstrapScheduleError,
@@ -46,7 +47,7 @@ export const UserBootstrapLive = UserBootstrap.layer.pipe(
 );
 
 export const UserBootstrapJobProvidedLive = UserBootstrapJobLive.pipe(
-	Layer.provide(UserBootstrapLive),
+	Layer.provide(Layer.mergeAll(UserBootstrapLive, LifecycleWriteGuard.layer)),
 );
 
 export const UserBootstrapSchedulingLive = UserBootstrapScheduling.layer.pipe(

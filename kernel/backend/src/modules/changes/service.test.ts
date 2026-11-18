@@ -5,6 +5,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	ChangeSet,
 	type ChangeSetEntityReference,
+	ChangeSetEntityUpdate,
 } from "@ryot-app/contract/modules/changes/change-set";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
@@ -147,8 +148,10 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 	const installed = yield* installRevisionPackage(source, userId);
 	const session = yield* DatabaseSession;
 	const runtime = yield* PluginRuntimeResolver;
+	const providerSlug = source.manifest.providers[0]?.slug;
+	assert(providerSlug);
 	const provider = yield* runtime.findProviderAvailableToUserByReference(userId, {
-		slug: "atomic-provider",
+		slug: providerSlug,
 		owner: definitionOwner(installed.pluginId),
 	});
 	assert(provider);
@@ -1481,6 +1484,236 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 						},
 					},
 				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
+	test.effect(
+		"rejects references to another plugin's or user's entities and events as invalid changes",
+		() =>
+			Effect.gen(function* () {
+				const own = yield* fixture();
+				const foreign = yield* fixture(revisionPackage("foreign", "fixture", "record"));
+				const ownEntity = targetOf(own);
+				const foreignEntity = targetOf(foreign);
+				const [foreignEvent] = (yield* commit(
+					{ events: eventCreate({ kind: "existing", entityId: foreignEntity }) },
+					nextCommand(foreign),
+				)).events;
+				assert(foreignEvent);
+				const update = yield* Schema.decodeUnknownEffect(ChangeSetEntityUpdate.fields.target)({
+					kind: "update",
+					entityId: foreignEntity,
+					expected: yield* entityBaseline(foreign, foreignEntity),
+				});
+				const otherUser = UserId.make(`other-${yield* randomUuid}`);
+				yield* own.session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: otherUser, name: "Other", email: `${otherUser}@example.test` }),
+				);
+				const [otherUserRow] = yield* (yield* EntitiesRepository).insertEntities([
+					{
+						scope: "user",
+						properties: {},
+						populatedAt: null,
+						userId: otherUser,
+						name: "Other user's record",
+						entitySchemaPluginId: own.pluginId,
+						id: EntityId.make(yield* randomUuid),
+						entitySchemaSlug: EntitySchemaSlug.make("record"),
+					},
+				]);
+				assert(otherUserRow);
+				const otherUserEntity = otherUserRow.id;
+				const attacks: Record<string, readonly [string, string, typeof ChangeSet.Encoded]> = {
+					"event entity": [
+						"events",
+						foreignEntity,
+						{ events: eventCreate({ kind: "existing", entityId: foreignEntity }) },
+					],
+					"another user's entity": [
+						"events",
+						otherUserEntity,
+						{ events: eventCreate({ kind: "existing", entityId: otherUserEntity }) },
+					],
+					"entity clear": [
+						"entities.clears",
+						foreignEntity,
+						{ entities: { clears: [{ entityId: foreignEntity, entitySchemaSlug: "record" }] } },
+					],
+					"entity delete": [
+						"entities.deletes",
+						foreignEntity,
+						{ entities: { deletes: [{ entityId: foreignEntity, entitySchemaSlug: "record" }] } },
+					],
+					"root entity update": [
+						"entity",
+						foreignEntity,
+						{
+							entity: {
+								name: "Taken",
+								target: update,
+								entitySchemaSlug: "record",
+								properties: { name: "Taken" },
+							},
+						},
+					],
+					"entity merge from": [
+						"entities.merges",
+						foreignEntity,
+						{
+							entities: {
+								merges: [
+									{ mergeInto: ownEntity, mergeFrom: foreignEntity, entitySchemaSlug: "record" },
+								],
+							},
+						},
+					],
+					"entity merge into": [
+						"entities.merges",
+						foreignEntity,
+						{
+							entities: {
+								merges: [
+									{ mergeFrom: ownEntity, mergeInto: foreignEntity, entitySchemaSlug: "record" },
+								],
+							},
+						},
+					],
+					"event delete": [
+						"events",
+						foreignEvent.eventId,
+						{
+							events: {
+								creates: [],
+								changes: [
+									{ kind: "delete", itemIdentity: "event-delete", eventId: foreignEvent.eventId },
+								],
+							},
+						},
+					],
+					"entity update": [
+						"entities.updates",
+						foreignEntity,
+						{
+							entities: {
+								updates: [
+									{
+										name: "Taken",
+										target: update,
+										entitySchemaSlug: "record",
+										properties: { name: "Taken" },
+									},
+								],
+							},
+						},
+					],
+					"relationship delete": [
+						"relationships",
+						foreignEntity,
+						{
+							relationships: {
+								deletes: [
+									{
+										relationshipSchemaSlug: "atomic-link",
+										source: { kind: "existing", entityId: ownEntity },
+										target: { kind: "existing", entityId: foreignEntity },
+									},
+								],
+							},
+						},
+					],
+					"event update": [
+						"events",
+						foreignEvent.eventId,
+						{
+							events: {
+								creates: [],
+								changes: [
+									{
+										kind: "update",
+										itemIdentity: "event-update",
+										item: {
+											eventId: foreignEvent.eventId,
+											patch: { properties: { remove: [], set: { value: "Taken" } } },
+										},
+									},
+								],
+							},
+						},
+					],
+					"relationship upsert": [
+						"relationships",
+						foreignEntity,
+						{
+							relationships: {
+								upserts: [
+									{
+										properties: {},
+										propertiesMode: "merge",
+										relationshipSchemaSlug: "atomic-link",
+										source: { kind: "existing", entityId: ownEntity },
+										target: { kind: "existing", entityId: foreignEntity },
+									},
+								],
+							},
+						},
+					],
+					"event session": [
+						"events",
+						foreignEntity,
+						{
+							events: {
+								changes: [],
+								creates: [
+									{
+										itemIdentity: "event",
+										eventSchemaSlug: "changed",
+										properties: { value: "Saved" },
+										entity: { kind: "existing", entityId: ownEntity },
+										session: { kind: "existing", entityId: foreignEntity },
+									},
+								],
+							},
+						},
+					],
+				};
+				const outcomes: Record<string, unknown> = {};
+				const expected: Record<string, unknown> = {
+					"missing entity": { code: "conflict", conflict: "entity-not-found" },
+				};
+				const missing = EntityId.make(yield* randomUuid);
+				for (const [name, [part, id, attack]] of Object.entries({
+					...attacks,
+					"missing entity": [
+						"events",
+						missing,
+						{ events: eventCreate({ kind: "existing", entityId: missing }) },
+					] as const,
+				})) {
+					const error = yield* Effect.flip(
+						Effect.flatMap(ScriptChanges, (scripts) =>
+							Effect.flatMap(Schema.decodeEffect(ChangeSet)(attack), (changes) =>
+								scripts.commitKeyed({
+									changes,
+									lane: "interactive",
+									executionId: `foreign-${name}`,
+									occurredAt: own.command.occurredAt,
+									principal: own.command.writeContext,
+								}),
+							),
+						),
+					);
+					outcomes[name] = error._tag === "ScriptChangesRejected" ? error.reason : error;
+					expected[name] ??= {
+						code: "invalid",
+						message: `${part}: ${id} belongs to another plugin or user`,
+					};
+				}
+				expect(outcomes).toEqual(expected);
 			}),
 		testTimeout,
 	);

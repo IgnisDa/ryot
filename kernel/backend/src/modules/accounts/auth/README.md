@@ -50,7 +50,9 @@ Disable, deletion, and password reset revoke browser sessions and OAuth token re
 
 Creation and the frequent cron's reconciliation of incomplete users queue one `user-bootstrap` job
 keyed by the user, so they coalesce while it is queued; creation does not wait for it.
-Reset runs the same bootstrap inside its own job, before enabling the recreated user.
+Reset runs the same bootstrap inside its own job, before enabling the recreated user. A
+`user-bootstrap` job for a user with an active lifecycle operation does nothing, so recreating the
+user does not bootstrap it a second time.
 
 Instance Admin re-enablement locks the user row and queues one rebuild per effective plugin that
 declares entity folds in the same transaction as clearing `disabled_at`. Repeating enablement on an
@@ -60,7 +62,9 @@ participates in that transaction; session revocation on disable still uses the a
 Reset and deletion lock the user row, mark it retiring, and delete the account's jobs and workflow
 executions in the transaction that holds the lock. Account writes take a shared lock on the same row,
 so a write either commits before retirement starts or fails once it has begun; a job whose row is gone
-cannot commit work for the account.
+cannot commit work for the account. The request revokes access before it queues the lifecycle job,
+so access is revoked when it returns; the job does not revoke. A concurrent request for the same
+operation fails with `lifecycle-state-conflict` while the revocation claim is fresh.
 
 ## Impersonation
 

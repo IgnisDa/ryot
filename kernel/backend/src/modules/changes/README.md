@@ -41,6 +41,11 @@ A violation fails with `ChangeSetRejected`, naming the part:
 | `globalEntities`, `globalRelationships`                              | System executions of a pinned system plugin; entity upserts also need its provider                                  |
 | `folds` (all users)                                                  | Pinned plugin; a system execution needs a system plugin                                                             |
 
+Every existing entity and event a user change set names (`changeSetReferences`) must belong to the
+writing plugin, and a user entity or event to the execution user. Preparation resolves their owners
+in one lookup each and rejects a foreign reference with `ChangeSetRejected`; a reference that does
+not exist is left to preparation, which fails it as a conflict.
+
 Agent and projection executions and before-stage automation runs write nothing. Ownership,
 provenance, global scope and `populatedAt` are not expressible for user writes. Services keep their
 own checks: exact schema/plugin ownership through `DomainWriteChecks`, merge and clear rules in

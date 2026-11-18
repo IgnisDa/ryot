@@ -1,5 +1,8 @@
-import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+import type {
+	ChangeSet,
+	ChangeSetEntityReference,
+} from "@ryot-app/contract/modules/changes/change-set";
+import type { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	LocalMessage,
 	type Message,
@@ -240,4 +243,61 @@ export const undeclaredSchema = (changes: ChangeSet, scope: PluginSchemaScope) =
 		) ??
 		signalSlugs.find((slug) => !scope.signalSchemaSlugs.includes(slug))
 	);
+};
+
+type NamedReference<Id> = readonly [part: string, id: Id];
+
+const existing = (part: string, references: ReadonlyArray<undefined | ChangeSetEntityReference>) =>
+	references.flatMap((reference): ReadonlyArray<NamedReference<EntityId>> =>
+		reference?.kind === "existing" ? [[part, reference.entityId]] : [],
+	);
+
+/** Every existing entity and event a change set names, with the part that names it. */
+export const changeSetReferences = (changes: ChangeSet) => {
+	const { entities } = changes;
+	const creates = changes.events?.creates ?? [];
+	const eventChanges = changes.events?.changes ?? [];
+	const updates = eventChanges.flatMap((change) => (change.kind === "update" ? [change.item] : []));
+	const relationships = [
+		...(changes.relationships?.upserts ?? []),
+		...(changes.relationships?.deletes ?? []),
+	];
+	const entityReferences: ReadonlyArray<NamedReference<EntityId>> = [
+		...(changes.entity?.target.kind === "update"
+			? [["entity", changes.entity.target.entityId] as const]
+			: []),
+		...(entities?.updates ?? []).map(
+			({ target }) => ["entities.updates", target.entityId] as const,
+		),
+		...(entities?.deletes ?? []).map(({ entityId }) => ["entities.deletes", entityId] as const),
+		...(entities?.clears ?? []).map(({ entityId }) => ["entities.clears", entityId] as const),
+		...(entities?.merges ?? []).flatMap(({ mergeFrom, mergeInto }) => [
+			["entities.merges", mergeFrom] as const,
+			["entities.merges", mergeInto] as const,
+		]),
+		...existing(
+			"relationships",
+			relationships.flatMap(({ source, target }) => [source, target]),
+		),
+		...existing(
+			"events",
+			creates.flatMap(({ entity, session }) => [entity, session]),
+		),
+		...updates.flatMap(({ patch }) =>
+			[patch.entityId, patch.sessionEntityId].flatMap((entityId) =>
+				entityId ? [["events", entityId] as const] : [],
+			),
+		),
+		...(changes.events?.baselines ?? []).map(({ entityId }) => ["events", entityId] as const),
+	];
+	const eventReferences: ReadonlyArray<NamedReference<EventId>> = [
+		...eventChanges.map(
+			(change) =>
+				["events", change.kind === "update" ? change.item.eventId : change.eventId] as const,
+		),
+		...[...creates, ...updates.map(({ patch }) => patch)].flatMap(({ orderAfter }) =>
+			orderAfter ? [["events", orderAfter.eventId] as const] : [],
+		),
+	];
+	return { events: eventReferences, entities: entityReferences };
 };

@@ -23,7 +23,7 @@ import { WorkflowExecutionNotifications } from "#platform/workflow/execution-not
 import { interruptExecutionAndWait } from "#platform/workflow/interruption";
 
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleJob, UserLifecycleService } from "./service";
+import { UserLifecycleJob } from "./service";
 
 type UserLifecycleJobOperationsValue = {
 	bootstrapResetUser: (userId: UserId) => Effect.Effect<void, InternalError>;
@@ -230,7 +230,6 @@ export const runUserLifecycleJob = Effect.fn("UserLifecycleJob")(function* (
 ) {
 	yield* Effect.annotateCurrentSpan({ jobId: job.id, operationId: payload.operationId });
 	const operations = yield* UserLifecycleJobOperations;
-	const service = yield* UserLifecycleService;
 	const step = Effect.fnUntraced(function* <A, E>(
 		effect: Effect.Effect<A, E>,
 		code: UserLifecycleOperationFailure["code"],
@@ -246,13 +245,6 @@ export const runUserLifecycleJob = Effect.fn("UserLifecycleJob")(function* (
 		return Option.none<A>();
 	});
 
-	const revoked = yield* step(
-		service.ensureAccessRevoked(payload.operationId),
-		"operation-start-failed",
-	);
-	if (Option.isNone(revoked)) {
-		return;
-	}
 	const started = yield* step(operations.begin(payload.operationId), "operation-start-failed");
 	if (Option.isNone(started) || started.value === null) {
 		return;

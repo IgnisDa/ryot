@@ -605,17 +605,24 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return scope ?? null;
 				},
 			);
+			const entityScopesByIds = Effect.fnUntraced(function* (
+				entityIds: ReadonlyArray<EntityId>,
+				visibility?: SQL,
+			) {
+				const scopes = yield* Effect.forEach(
+					chunksOf([...new Set(entityIds)], STATEMENT_CHUNK_SIZE),
+					(ids) => listEntityScopes(and(inArray(schema.entity.id, ids), visibility)),
+				);
+				return new Map(scopes.flat().map((scope) => [scope.entityId, scope]));
+			});
+
 			const getEntityScopesForUser = Effect.fn("EntitiesRepository.getEntityScopesForUser")(
-				function* (entityIds: ReadonlyArray<EntityId>, userId: UserId) {
-					const scopes = yield* Effect.forEach(
-						chunksOf([...new Set(entityIds)], STATEMENT_CHUNK_SIZE),
-						(ids) =>
-							listEntityScopes(
-								and(inArray(schema.entity.id, ids), entityVisibleToUserClause(userId)),
-							),
-					);
-					return new Map(scopes.flat().map((scope) => [scope.entityId, scope]));
-				},
+				(entityIds: ReadonlyArray<EntityId>, userId: UserId) =>
+					entityScopesByIds(entityIds, entityVisibleToUserClause(userId)),
+			);
+
+			const getEntityScopes = Effect.fn("EntitiesRepository.getEntityScopes")(
+				(entityIds: ReadonlyArray<EntityId>) => entityScopesByIds(entityIds),
 			);
 
 			const getEntityMergeScopeForUser = Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
@@ -1025,6 +1032,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getByIdForUser,
 				getByIdsForUser,
 				findImportMatch,
+				getEntityScopes,
 				lockMutationKeys,
 				getMutationEntity,
 				lockSchemaCatalog,

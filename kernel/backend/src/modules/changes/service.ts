@@ -94,7 +94,12 @@ import type { ChangeSetReceipt } from "#modules/scripts/executions/script-change
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 
-import { authorizeChangeSet, ChangeSetRejected, undeclaredSchema } from "./authority";
+import {
+	authorizeChangeSet,
+	changeSetReferences,
+	ChangeSetRejected,
+	undeclaredSchema,
+} from "./authority";
 
 export const ChangeSetFailure = Schema.Union([
 	DbError,
@@ -196,6 +201,36 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 			) {
 				const pluginId = pluginRevision.id;
 				const owner = definitionOwner(pluginId);
+				const referenced = changeSetReferences(input);
+				const entityOwners = yield* entityRows.getEntityScopes(
+					referenced.entities.map(([, entityId]) => entityId),
+				);
+				const eventOwners = yield* eventRows.getEventOwners(
+					referenced.events.map(([, eventId]) => eventId),
+				);
+				const foreign =
+					referenced.entities.find(([, entityId]) => {
+						const found = entityOwners.get(entityId);
+						return (
+							found !== undefined &&
+							(found.entitySchemaPluginId !== pluginId ||
+								(found.entityUserId !== null && found.entityUserId !== userId))
+						);
+					}) ??
+					referenced.events.find(([, eventId]) => {
+						const found = eventOwners.get(eventId);
+						return (
+							found !== undefined &&
+							(found.eventSchemaPluginId !== pluginId || found.userId !== userId)
+						);
+					});
+				if (foreign) {
+					const [part, id] = foreign;
+					return yield* new ChangeSetRejected({
+						part,
+						message: `${id} belongs to another plugin or user`,
+					});
+				}
 				const events: NonNullable<ChangeSet["events"]> = input.events ?? {
 					creates: [],
 					changes: [],

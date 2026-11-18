@@ -6,6 +6,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
+import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 
 import { UserBootstrap } from "./bootstrap";
@@ -16,9 +17,17 @@ const payload = { userId, accountUserId: userId };
 const job = { attempt: 1, id: "user-bootstrap-job" };
 
 const provideBootstrap =
-	(perform: UserBootstrap["Service"]["perform"], dispatched: Array<ReadonlyArray<unknown>>) =>
+	(
+		perform: UserBootstrap["Service"]["perform"],
+		dispatched: Array<ReadonlyArray<unknown>>,
+		lifecycleActive = false,
+	) =>
 	(effect: ReturnType<typeof runUserBootstrapJob>) =>
 		effect.pipe(
+			Effect.provideService(
+				LifecycleWriteGuard,
+				LifecycleWriteGuard.of({ isActive: () => Effect.succeed(lifecycleActive) }),
+			),
 			Effect.provideService(
 				UserBootstrap,
 				UserBootstrap.of({ perform, listIncomplete: () => Effect.succeed([]) }),
@@ -58,6 +67,23 @@ it.effect(
 				Effect.exit,
 			);
 			expect(exit._tag).toBe("Failure");
+			expect(dispatched).toEqual([]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"leaves the bootstrap of a user under a lifecycle operation to that operation",
+	() =>
+		Effect.gen(function* () {
+			const dispatched: Array<ReadonlyArray<unknown>> = [];
+			yield* runUserBootstrapJob(payload, job).pipe(
+				provideBootstrap(
+					() => Effect.die("bootstrap ran under a lifecycle operation"),
+					dispatched,
+					true,
+				),
+			);
 			expect(dispatched).toEqual([]);
 		}),
 	testTimeout,

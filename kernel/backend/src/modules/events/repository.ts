@@ -985,6 +985,25 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				}
 				return snapshots;
 			});
+			const getEventOwners = Effect.fn("EventsRepository.getEventOwners")(function* (
+				eventIds: ReadonlyArray<EventId>,
+			) {
+				const rows = yield* Effect.forEach(
+					chunksOf([...new Set(eventIds)], STATEMENT_CHUNK_SIZE),
+					(ids) =>
+						session.run((db) =>
+							db
+								.select({
+									id: schema.event.id,
+									userId: schema.event.userId,
+									eventSchemaPluginId: schema.event.eventSchemaPluginId,
+								})
+								.from(schema.event)
+								.where(inArray(schema.event.id, ids)),
+						),
+				);
+				return new Map(rows.flat().map(({ id, ...owner }) => [id, owner]));
+			});
 			return {
 				deleteEvent,
 				createEvent,
@@ -992,6 +1011,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				hasUserEvents,
 				lockEventRows,
 				getEventOrder,
+				getEventOwners,
 				clearReferences,
 				getEventSnapshot,
 				getScopeRevision,
