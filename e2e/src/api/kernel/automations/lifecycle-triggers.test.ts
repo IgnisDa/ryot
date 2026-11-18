@@ -275,7 +275,6 @@ const installLifecyclePlugin = () =>
 			},
 			{
 				stage: "after",
-				delivery: "async",
 				slug: slugs.entityHook,
 				scriptSlug: slugs.successScript,
 				name: "E2E entity snapshot hook",
@@ -283,7 +282,6 @@ const installLifecyclePlugin = () =>
 			},
 			{
 				stage: "after",
-				delivery: "async",
 				slug: slugs.policyAfterHook,
 				scriptSlug: slugs.successScript,
 				name: "E2E event snapshot hook",
@@ -298,7 +296,6 @@ const installLifecyclePlugin = () =>
 			},
 			{
 				stage: "after",
-				delivery: "async",
 				slug: slugs.relationshipHook,
 				scriptSlug: slugs.successScript,
 				name: "E2E relationship snapshot hook",
@@ -312,7 +309,6 @@ const installLifecyclePlugin = () =>
 			},
 			{
 				stage: "after",
-				delivery: "async",
 				slug: slugs.asyncHook,
 				name: "E2E slow async hook",
 				scriptSlug: slugs.slowScript,
@@ -502,7 +498,6 @@ describe("automation lifecycle triggers", () => {
 			const acceptedResult = yield* createEvents(client, [allowed, transformedInput]);
 			expect(acceptedResult).toMatchObject({
 				count: 2,
-				warnings: [],
 				failure: null,
 				outcomes: [
 					{ index: 0, status: "written" },
@@ -531,7 +526,6 @@ describe("automation lifecycle triggers", () => {
 			const rejectedResult = yield* createEvents(client, [rejected]);
 			expect(rejectedResult).toMatchObject({
 				count: 0,
-				warnings: [],
 				failure: null,
 				outcomes: [
 					{
@@ -544,7 +538,6 @@ describe("automation lifecycle triggers", () => {
 			const failedResult = yield* createEvents(client, [failed]);
 			expect(failedResult).toMatchObject({
 				count: 0,
-				warnings: [],
 				failure: { index: 0, reason: { code: "policy-execution-failed" } },
 				outcomes: [{ index: 0, status: "failed", reason: { code: "policy-execution-failed" } }],
 			});
@@ -671,7 +664,6 @@ describe("automation lifecycle triggers", () => {
 			for (const result of [contractResult, rawResult]) {
 				expect(result).toMatchObject({
 					count: 1,
-					warnings: [],
 					failure: null,
 					outcomes: [{ index: 0, status: "written" }],
 				});
@@ -684,11 +676,7 @@ describe("automation lifecycle triggers", () => {
 				{ resource: "event", id: requireWrittenEventId(rawResult) },
 				slugs.policyAfterHook,
 			);
-			expect(rawInspection.run).toMatchObject({
-				stage: contractInspection.run.stage,
-				delivery: contractInspection.run.delivery,
-				hookSlug: contractInspection.run.hookSlug,
-			});
+			expect(rawInspection.run).toMatchObject({ hookSlug: contractInspection.run.hookSlug });
 		}),
 	);
 
@@ -714,7 +702,7 @@ describe("automation lifecycle triggers", () => {
 			expect(["queued", "running"]).toContain<unknown>(immediateRuns[0]?.status);
 			expect(elapsedMs).toBeLessThan(5_000);
 			const terminalRuns = yield* pollTerminalAutomationRuns({ triggerId: trigger.id });
-			expect(terminalRuns).toMatchObject([{ delivery: "async", status: "succeeded" }]);
+			expect(terminalRuns).toMatchObject([{ status: "succeeded" }]);
 			const run = requirePresent(terminalRuns[0], "Expected terminal async run");
 			expect(yield* pollTerminalAutomationRunAttempts({ runId: run.id })).toHaveLength(1);
 		}),

@@ -168,7 +168,6 @@ const installRetryFixture = (
 				scriptSlug,
 				stage: "after",
 				slug: hookSlug,
-				delivery: "async",
 				retry: input.retry,
 				name: "E2E retry hook",
 				causationSources: ["api"],
@@ -352,7 +351,6 @@ describe("automation retries", () => {
 						{
 							scriptSlug,
 							stage: "after",
-							delivery: "async",
 							name: "Unsafe HTTP retry",
 							slug: `unsafe-http-retry-${yield* randomUuid}`,
 							targets: [

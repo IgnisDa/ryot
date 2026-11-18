@@ -236,7 +236,7 @@ export const pollAutomationRuns = (
 		),
 	);
 
-const terminalRunStatuses = new Set(["failed", "skipped", "rejected", "succeeded"]);
+const terminalRunStatuses = new Set(["failed", "skipped", "succeeded"]);
 
 export const pollTerminalAutomationRuns = (payload: AutomationRunFilter, target?: HarnessTarget) =>
 	pollUntil(

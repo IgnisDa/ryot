@@ -240,7 +240,6 @@ export default defineAutomation({
 					hooks: [
 						{
 							stage: "after",
-							delivery: "async",
 							slug: automationSlug,
 							causationSources: ["api"],
 							scriptSlug: automationSlug,

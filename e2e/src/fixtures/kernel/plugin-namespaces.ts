@@ -655,7 +655,6 @@ const namespacePackage = (input: {
 				slug: "after",
 				stage: "after",
 				scriptSlug: "after",
-				delivery: "required",
 				name: "Whiskey after hook",
 				targets: [
 					{
@@ -669,7 +668,6 @@ const namespacePackage = (input: {
 			{
 				stage: "after",
 				slug: "formatter",
-				delivery: "async",
 				scriptSlug: "formatter",
 				name: "Whiskey formatter",
 				targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "tasted" }],

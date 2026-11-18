@@ -277,7 +277,6 @@ describe("automation recursion budgets", () => {
 					hooks: [
 						{
 							stage: "after",
-							delivery: "async",
 							slug: rootHookSlug,
 							causationSources: ["api"],
 							scriptSlug: rootScript.slug,
@@ -293,7 +292,6 @@ describe("automation recursion budgets", () => {
 						},
 						{
 							stage: "after",
-							delivery: "async",
 							slug: recursiveHookSlug,
 							scriptSlug: recursiveScript.slug,
 							causationSources: ["automation"],
@@ -302,7 +300,6 @@ describe("automation recursion budgets", () => {
 						},
 						{
 							stage: "after",
-							delivery: "async",
 							slug: formatterHookSlug,
 							name: "E2E recursion formatter",
 							scriptSlug: formatterScript.slug,
@@ -523,7 +520,6 @@ describe("automation recursion budgets", () => {
 			const hooks: PluginManifest["hooks"] = [
 				{
 					stage: "after",
-					delivery: "async",
 					slug: rootHookSlug,
 					causationSources: ["api"],
 					scriptSlug: rootScript.slug,
@@ -540,7 +536,6 @@ describe("automation recursion budgets", () => {
 				...fanoutHookSlugs.map((hookSlug) => ({
 					slug: hookSlug,
 					stage: "after" as const,
-					delivery: "async" as const,
 					scriptSlug: noOpScript.slug,
 					name: `E2E fanout child hook ${hookSlug}`,
 					causationSources: ["automation" as const],
