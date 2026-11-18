@@ -1,3 +1,4 @@
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import { Context, Effect, Layer } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
@@ -11,7 +12,7 @@ export type InstanceAdminSessionServiceShape = {
 };
 
 export const makeInstanceAdminSessionService = (
-	randomSessionId: () => string = () => crypto.randomUUID(),
+	randomSessionId: () => string = createUuid,
 ): InstanceAdminSessionServiceShape => {
 	const sessions = new Map<string, InstanceAdminSession>();
 

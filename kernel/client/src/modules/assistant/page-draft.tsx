@@ -10,6 +10,7 @@ import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button, Dialog, Notice, tabId, Tabs } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import { useNavigate } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useId, useRef, useState } from "react";
@@ -45,7 +46,7 @@ export function AssistantPageSave(
 	const t = useT();
 	const save = useRyotMutation(savePageMutation);
 	const identity = usePageIdentity(props.name);
-	const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+	const [requestId, setRequestId] = useState(createUuid);
 	const [submission, setSubmission] = useState<null | SaveAssistantPageBody>(null);
 	const [saved, setSaved] = useState<null | SaveAssistantPageResult>(null);
 	const [sharing, setSharing] = useState(false);
@@ -110,7 +111,7 @@ export function AssistantPageSave(
 						variant="ghost"
 						onClick={() => {
 							setSubmission(null);
-							setRequestId(crypto.randomUUID());
+							setRequestId(createUuid());
 							save.reset();
 						}}
 					>

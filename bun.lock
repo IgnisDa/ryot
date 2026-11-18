@@ -611,6 +611,7 @@
         "@ryot-app/plugin-ui-sdk": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "@types/react": "19.3.0",
         "@types/react-dom": "19.3.0",
         "effect": "4.1.2",

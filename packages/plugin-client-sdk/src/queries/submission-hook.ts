@@ -1,3 +1,4 @@
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import { Effect } from "effect";
 import { useState, useSyncExternalStore } from "react";
 
@@ -12,7 +13,7 @@ export const useRyotSubmission = <Input, Data, Failure extends Error>(
 ) => {
 	const schedule = useRyotSchedule();
 	const [controller] = useState(() =>
-		createRyotSubmission<Input>(options?.createId ?? (() => crypto.randomUUID()), schedule.now),
+		createRyotSubmission<Input>(options?.createId ?? createUuid, schedule.now),
 	);
 	const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
 	const mutation = useRyotMutation(definition);

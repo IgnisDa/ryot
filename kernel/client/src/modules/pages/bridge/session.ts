@@ -93,6 +93,7 @@ import {
 	type SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import { Cause, Effect, Fiber, Match, Option, Result, Schema } from "effect";
 
 import type {
@@ -338,7 +339,7 @@ const isExpectedReady = (ready: PluginBridgeReady, init: PluginBridgeInit) =>
 
 export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSession {
 	const init: PluginBridgeInit = {
-		sessionId: crypto.randomUUID(),
+		sessionId: createUuid(),
 		apiVersion: CLIENT_API_VERSION,
 		format: CLIENT_ARTIFACT_FORMAT,
 		...options.locale,

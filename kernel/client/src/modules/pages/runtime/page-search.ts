@@ -1,4 +1,5 @@
 import type { PluginPageSearchUpdate } from "@ryot-app/plugin-client-contract";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import type { UseNavigateResult } from "@tanstack/react-router";
 
 const searchString = (value: string) => (value.startsWith("?") ? value.slice(1) : value);
@@ -17,7 +18,7 @@ export function navigatePageSearch(
 		href: `${input.location.pathname}${next === "" ? "" : `?${next}`}`,
 		state: (current) => ({
 			...current,
-			ryotEntryKey: input.replace ? input.entryKey : crypto.randomUUID(),
+			ryotEntryKey: input.replace ? input.entryKey : createUuid(),
 		}),
 	});
 }

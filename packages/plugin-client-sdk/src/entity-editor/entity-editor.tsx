@@ -1,8 +1,5 @@
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-import {
-	type EntityEditorSaveRequest,
-	retryableEntityEditorSaveRequest,
-} from "@ryot-app/contract/modules/entities/editor";
+import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { EntityId, EntitySchemaSlug, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -54,6 +51,7 @@ import {
 	entityEditorTargetsRecipe,
 } from "./recipes";
 import { RelationshipSection } from "./relationship-section";
+import { retryableEntityEditorSaveRequest } from "./request";
 import { schemaFormIcons } from "./schema-form-icons";
 
 export type EntityEditorProps = {

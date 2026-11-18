@@ -14,6 +14,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { entitlementRequiredMessage } from "@ryot-app/plugin-ui-sdk";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import { Cause, Clock, Context, Effect, Exit, type Fiber, Layer } from "effect";
 
 import type { ApiScope } from "#/api/scope";
@@ -424,9 +425,9 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 							target,
 							reserved: true,
 							fiber: undefined,
+							id: createUuid(),
 							transportSeen: false,
 							settle: binding.settle,
-							id: crypto.randomUUID(),
 							session: binding.session,
 							state: { status: "pending" },
 							label: stampNamespace(target.pluginId, request.label),

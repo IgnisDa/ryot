@@ -23,6 +23,7 @@ import {
 import { resolveDateTimeInput, toDateTimeInput } from "@ryot-app/plugin-ui-sdk/datetime";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { RemindersResult } from "@ryot-app/ryotql-recipes/reminders";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import { Effect, Schema } from "effect";
 import { useRef, useState } from "react";
 
@@ -98,7 +99,7 @@ export function ReminderEditor(props: {
 				timezone,
 				dueAt: resolution.iso,
 				message: message.trim(),
-				idempotencyKey: crypto.randomUUID(),
+				idempotencyKey: createUuid(),
 				submittedAt: new Date(schedule.now()).toISOString(),
 			};
 			pending.current = editing

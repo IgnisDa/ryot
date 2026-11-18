@@ -1,6 +1,7 @@
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { LocalMessage } from "@ryot-app/i18n/message";
 import type { BackgroundSubmissionOutcome } from "@ryot-app/plugin-client-contract";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import * as Effect from "effect/Effect";
 import type * as Schema from "effect/Schema";
 import { useEffect, useRef, useState } from "react";
@@ -90,7 +91,7 @@ export const useBackgroundSubmission = <
 	) => {
 		const submission = snapshotRyotSubmission(
 			input,
-			(options?.createId ?? (() => crypto.randomUUID()))(),
+			(options?.createId ?? createUuid)(),
 			schedule.now(),
 		);
 		const attempt: { submissionId: string | undefined } = { submissionId: undefined };

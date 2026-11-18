@@ -1,8 +1,7 @@
-import {
-	type EntityEditorSaveOutput,
-	type EntityEditorSaveRequest,
-	type EntityEditorSaveSubmission,
-	retryableEntityEditorSaveRequest,
+import type {
+	EntityEditorSaveOutput,
+	EntityEditorSaveRequest,
+	EntityEditorSaveSubmission,
 } from "@ryot-app/contract/modules/entities/editor";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
@@ -11,6 +10,7 @@ import type { Message } from "@ryot-app/i18n/message";
 import { useT } from "@ryot-app/i18n/react";
 import type { Text } from "@ryot-app/i18n/text";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { retryableEntityEditorSaveRequest } from "@ryot-app/plugin-client-sdk/entity-editor/request";
 import { ActionForm, Button, Field, StatusMessage, TextField } from "@ryot-app/plugin-ui-sdk";
 import {
 	initialSchemaFormValues,

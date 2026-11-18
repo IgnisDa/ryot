@@ -8,6 +8,7 @@ import type {
 } from "@ryot-app/plugin-client-contract";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import { useBlocker, useNavigate, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
@@ -300,7 +301,7 @@ export function PageDocumentHost(props: {
 						replace: navigation.replace,
 						state: (current) => ({
 							...current,
-							ryotEntryKey: navigation.replace ? props.navigation.key : crypto.randomUUID(),
+							ryotEntryKey: navigation.replace ? props.navigation.key : createUuid(),
 						}),
 					});
 				}

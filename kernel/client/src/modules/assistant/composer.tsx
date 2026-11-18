@@ -5,6 +5,7 @@ import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { EntitlementNotice, IconButton, Notice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import { Effect } from "effect";
 import { type ReactNode, useId, useState } from "react";
 
@@ -24,7 +25,7 @@ export const useAssistantSubmit = (options: {
 		readonly requestId: string;
 	}>(null);
 	const send = (value: string) => {
-		const captured = pending ?? { text: value.trim(), requestId: crypto.randomUUID() };
+		const captured = pending ?? { text: value.trim(), requestId: createUuid() };
 		if (captured.text === "") {
 			return;
 		}

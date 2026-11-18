@@ -67,15 +67,6 @@ export const EntityEditorSaveRequest = strictStruct({
 });
 export type EntityEditorSaveRequest = typeof EntityEditorSaveRequest.Type;
 
-export const retryableEntityEditorSaveRequest = (
-	previous: undefined | EntityEditorSaveRequest,
-	submission: EntityEditorSubmission,
-	now: Date,
-): EntityEditorSaveRequest =>
-	previous !== undefined && JSON.stringify(previous.submission) === JSON.stringify(submission)
-		? previous
-		: { submission, submittedAt: now.toISOString(), idempotencyKey: crypto.randomUUID() };
-
 export const EntityEditorSaveOutput = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("saved") }),
 	strictStruct({ kind: Schema.Literal("deleted") }),

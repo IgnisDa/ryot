@@ -5,6 +5,7 @@ import type { Text } from "@ryot-app/i18n/text";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { createRyotHostQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Notice } from "@ryot-app/plugin-ui-sdk";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import { useRouteContext, useRouterState } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 
@@ -45,7 +46,7 @@ export function EmbeddedPagePreview(props: {
 	const triggerRef = useRef<null | HTMLElement>(null);
 	const presentation = useMemo(() => createClientPagePresentationController(() => undefined), []);
 	const entry = historyEntry(location.state);
-	const [owner] = useState(() => crypto.randomUUID());
+	const [owner] = useState(createUuid);
 	const [generation, setGeneration] = useState(0);
 	const retry = () => {
 		preview.refetch();
