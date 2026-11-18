@@ -369,7 +369,10 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 							and r.referenced_event_id = c."referencedEventId"`),
 				);
 				const matches = referenceMatches(cleared);
-				const referrers = yield* readFoldEvents(session, sql`v.id in (select id from (${matches}) m)`);
+				const referrers = yield* readFoldEvents(
+					session,
+					sql`v.id in (select id from (${matches}) m)`,
+				);
 				if (referrers.length === 0) {
 					return;
 				}

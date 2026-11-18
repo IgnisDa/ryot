@@ -1,17 +1,17 @@
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
+	foldChangeImages,
 	type FoldEventImage,
 	FoldInput,
 	FoldOutput,
-	foldChangeImages,
 } from "@ryot-app/plugin-backend-sdk/folds";
 import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema } from "../shared/exercise-kinds";
 import {
-	type WorkoutRecordRange,
 	workoutRecordPageRecipe,
+	type WorkoutRecordRange,
 	workoutStartsRecipe,
 } from "../shared/workout-record-recipes";
 import {
@@ -39,10 +39,7 @@ const SetProperties = Schema.Struct({
 	exerciseOrder: Schema.optional(Schema.Finite),
 });
 
-const recordSetOf = Effect.fnUntraced(function* (
-	image: FoldEventImage,
-	startedAt: null | string,
-) {
+const recordSetOf = Effect.fnUntraced(function* (image: FoldEventImage, startedAt: null | string) {
 	const properties = yield* Schema.decodeUnknownEffect(SetProperties)(image.properties);
 	return {
 		startedAt,
@@ -69,7 +66,7 @@ export default defineScript({
 				readAllRyotqlPages((after) =>
 					executeRyotqlRecipe(
 						host.executeRyotql,
-						workoutRecordPageRecipe(range === undefined ? { reference } : { reference, range }),
+						workoutRecordPageRecipe(range === undefined ? { reference } : { range, reference }),
 						{ exerciseId: input.subjectEntityId },
 						{ pages: { records: { after: after } } },
 					),
@@ -87,7 +84,9 @@ export default defineScript({
 			}
 			const { added, retracted } = foldChangeImages(input.changes);
 			const workoutIds = [
-				...new Set(added.flatMap(({ sessionEntityId }) => (sessionEntityId ? [sessionEntityId] : []))),
+				...new Set(
+					added.flatMap(({ sessionEntityId }) => (sessionEntityId ? [sessionEntityId] : [])),
+				),
 			];
 			const starts = new Map(
 				workoutIds.length === 0
@@ -101,7 +100,9 @@ export default defineScript({
 				later: (range) => sets(range),
 				retracted: yield* Effect.forEach(retracted, (image) => recordSetOf(image, null)),
 				added: yield* Effect.forEach(
-					added.filter(({ sessionEntityId }) => sessionEntityId !== null && starts.has(sessionEntityId)),
+					added.filter(
+						({ sessionEntityId }) => sessionEntityId !== null && starts.has(sessionEntityId),
+					),
 					(image) => recordSetOf(image, starts.get(image.sessionEntityId ?? "") ?? null),
 				),
 			});

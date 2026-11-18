@@ -3,13 +3,13 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { FoldInput, FoldOutput } from "@ryot-app/plugin-backend-sdk/folds";
 import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
 
+import { consumptionEventSlugs } from "../shared/consumption-projection";
 import {
 	librarySummaryKind,
 	librarySummaryProperties,
 	librarySummarySourceRecipe,
 } from "../shared/library-summary";
 import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "../shared/lifecycle-expressions";
-import { consumptionEventSlugs } from "../shared/consumption-projection";
 import { absorbFoldValues, MediaFoldValue } from "./fold/history";
 import { foldMediaHistory } from "./fold/incremental";
 import {
@@ -79,15 +79,15 @@ export default defineScript({
 				},
 				reads: {
 					history: events(),
-					entity: ({ entityId, from }) =>
+					runs: ({ runs, entityId }) => events({ ...consumption, runs, entityId }),
+					completions: ({ until, entityId }) =>
+						events({ until, entityId, unsourced: true, slugs: ["complete"] }),
+					entity: ({ from, entityId }) =>
 						events({ ...consumption, entityId, ...(from === null ? {} : { from }) }),
-					runs: ({ entityId, runs }) => events({ ...consumption, entityId, runs }),
-					completions: ({ entityId, until }) =>
-						events({ entityId, until, unsourced: true, slugs: ["complete"] }),
 					since: ({ from, limit, excluded }) =>
 						executeRyotqlRecipe(
 							host.executeRyotql,
-							mediaFoldEventsRecipe({ ...consumption, from, excluded, limit }),
+							mediaFoldEventsRecipe({ ...consumption, from, limit, excluded }),
 							{ subjectEntityId },
 						).pipe(Effect.map(({ items }) => items)),
 					inventory:
@@ -118,8 +118,8 @@ export default defineScript({
 				? librarySummaryProperties(summary)
 				: { lifecycleState: "untracked" };
 			return yield* Schema.decodeUnknownEffect(FoldOutput)({
-				events: derived.contributions,
 				changes: derived.changes,
+				events: derived.contributions,
 				relationships: links.map((relationshipId) => ({ properties, relationshipId })),
 				value: yield* Schema.encodeEffect(Schema.toCodecJson(MediaFoldValue))(derived.value),
 			});

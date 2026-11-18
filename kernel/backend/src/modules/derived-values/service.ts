@@ -79,7 +79,7 @@ export class Folds extends Context.Service<Folds>()(
 			const { route, collect, declarations, queueResolved } = marks;
 
 			/** Validates the outputs a run returned against its subject's current events and links. */
-			const targets = Effect.fn("Folds.targets")(function* (
+			const outputTargets = Effect.fn("Folds.outputTargets")(function* (
 				subject: FoldSubject,
 				declaration: FoldDeclaration,
 				output: typeof FoldOutput.Type,
@@ -106,10 +106,7 @@ export class Folds extends Context.Service<Folds>()(
 							schema.pluginId === declaration.pluginId &&
 							schema.entitySchemaSlug === row.entitySchemaSlug,
 					)?.projection?.propertiesSchema;
-					if (
-						propertiesSchema &&
-						foldSubjectOf(row, owners)?.entityId === subject.entityId
-					) {
+					if (propertiesSchema && foldSubjectOf(row, owners)?.entityId === subject.entityId) {
 						eventTargets.set(row.id, { id: row.id, propertiesSchema });
 					}
 				}
@@ -197,11 +194,10 @@ export class Folds extends Context.Service<Folds>()(
 						),
 				);
 				const own = stored.find((row) => row.kind === "subject");
-				const changes =
-					own?.status === "ready" && absorbed.length === 0 ? entry.changes : null;
+				const changes = own?.status === "ready" && absorbed.length === 0 ? entry.changes : null;
 				const input = {
-					absorbed,
 					changes,
+					absorbed,
 					value: own?.value ?? null,
 					subjectEntityId: subject.entityId,
 				};
@@ -212,7 +208,7 @@ export class Folds extends Context.Service<Folds>()(
 				subject: FoldSubject,
 				declaration: FoldDeclaration,
 				revision: string,
-				rows: ReadonlyArray<{ kind: StoredRow["kind"]; targetId: string; value: JsonValue }>,
+				rows: ReadonlyArray<{ targetId: string; value: JsonValue; kind: StoredRow["kind"] }>,
 				changes: (typeof FoldInput.Type)["changes"],
 			) {
 				const scope = sql`user_id = ${subject.userId} and subject_entity_id = ${subject.entityId}`;
@@ -278,7 +274,7 @@ export class Folds extends Context.Service<Folds>()(
 				) {
 					return yield* failure("Fold value exceeds its size limit");
 				}
-				const found = yield* targets(subject, declaration, output);
+				const found = yield* outputTargets(subject, declaration, output);
 				const rows = [
 					{ value: output.value, kind: "subject" as const, targetId: subject.entityId as string },
 					...(yield* validated(

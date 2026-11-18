@@ -21,10 +21,10 @@ export const applyHistoryChanges = (
 			next.push({
 				revision: 0,
 				eventSchemaSlug: "complete",
-				id: `derived-${change.itemIdentity}`,
 				entityId: change.item.entityId,
 				occurredAt: change.item.occurredAt,
 				properties: change.item.properties,
+				id: `derived-${change.itemIdentity}`,
 				orderCreatedAt: anchor.orderCreatedAt,
 				sessionEntityId: change.item.sessionEntityId ?? null,
 				orderKey: `${anchor.orderKey}~${change.item.orderAfter.suffix}`,
@@ -57,4 +57,3 @@ export const applyHistoryChanges = (
 	}
 	return next;
 };
-

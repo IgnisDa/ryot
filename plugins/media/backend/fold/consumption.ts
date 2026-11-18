@@ -18,7 +18,10 @@ import {
 import { MediaSandboxError } from "../lib/failures";
 import { compareHistory, compareText, type FoldEvent } from "./history";
 
-export type FoldTail = { readonly lead: ReadonlyArray<FoldEvent>; readonly run: ReadonlyArray<FoldEvent> };
+export type FoldTail = {
+	readonly run: ReadonlyArray<FoldEvent>;
+	readonly lead: ReadonlyArray<FoldEvent>;
+};
 
 const isConsumption = (slug: string) => consumptionEventSlugs.some((value) => value === slug);
 
@@ -41,9 +44,9 @@ const allocationFailure = (cause: unknown) =>
  * occurred at the instant it starts.
  */
 export const consumptionContributions = Effect.fn("consumptionContributions")(function* (input: {
+	readonly context?: ReadonlySet<string>;
 	readonly boundaries: ReadonlySet<string>;
 	readonly history: ReadonlyArray<FoldEvent>;
-	readonly context?: ReadonlySet<string>;
 	readonly automatic: ReadonlyMap<
 		string,
 		{ readonly sourceEventId: string; readonly rule: "progress" | "coverage" }
@@ -66,8 +69,8 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 				compareText(left.group, right.group) || compareHistory(left.event, right.event),
 		);
 		const runs: Array<{
-			runKey: string;
 			group: string;
+			runKey: string;
 			events: Array<FoldEvent>;
 			observations: Array<ConsumptionObservation>;
 		}> = [];
@@ -94,13 +97,17 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 				last.observations.push(observation);
 				last.events.push(event);
 			} else {
-				runs.push({ group, runKey: next.runKey, events: [event], observations: [observation] });
+				runs.push({ group, events: [event], runKey: next.runKey, observations: [observation] });
 			}
 		}
 		const unsourced = runs.filter(({ group }) => group === "");
 		const tail = unsourced.at(-1);
 		const start = tail?.events[0];
-		if (tail !== undefined && start !== undefined && tail.events.at(-1)?.eventSchemaSlug !== "complete") {
+		if (
+			tail !== undefined &&
+			start !== undefined &&
+			tail.events.at(-1)?.eventSchemaSlug !== "complete"
+		) {
 			tails.set(entityId, {
 				run: tail.events,
 				lead: unsourced
@@ -132,5 +139,5 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 			}
 		}
 	}
-	return { contributions, tails };
+	return { tails, contributions };
 });

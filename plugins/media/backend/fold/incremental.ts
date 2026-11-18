@@ -1,5 +1,5 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { type FoldEventChange, foldChangeImages } from "@ryot-app/plugin-backend-sdk/folds";
+import { foldChangeImages, type FoldEventChange } from "@ryot-app/plugin-backend-sdk/folds";
 
 import { consumptionEventSlugs } from "../../shared/consumption-projection";
 import { isPositional } from "../../shared/media-schema-slugs";
@@ -12,22 +12,10 @@ import {
 	sortedOccurrences,
 } from "./history";
 
-type HistorySubject = {
-	readonly id: string;
-	readonly terminal: boolean;
-	readonly episodic: boolean;
-};
-
 /** The subject history reads an incremental run may make; each returns only the subject's own events. */
 export type MediaHistoryReads<E, R> = {
-	readonly history: Effect.Effect<ReadonlyArray<FoldEvent>, E, R>;
 	readonly inventory: Effect.Effect<ReadonlyArray<string>, E, R>;
-	/** At most `limit` consumption events other than `excluded` that occurred at or after `from`. */
-	readonly since: (input: {
-		readonly from: string;
-		readonly limit: number;
-		readonly excluded: ReadonlyArray<string>;
-	}) => Effect.Effect<ReadonlyArray<FoldEvent>, E, R>;
+	readonly history: Effect.Effect<ReadonlyArray<FoldEvent>, E, R>;
 	/** An entity's unsourced completions that occurred at or before `until`. */
 	readonly completions: (input: {
 		readonly until: string;
@@ -43,6 +31,18 @@ export type MediaHistoryReads<E, R> = {
 		readonly entityId: string;
 		readonly runs: ReadonlyArray<string>;
 	}) => Effect.Effect<ReadonlyArray<FoldEvent>, E, R>;
+	/** At most `limit` consumption events other than `excluded` that occurred at or after `from`. */
+	readonly since: (input: {
+		readonly from: string;
+		readonly limit: number;
+		readonly excluded: ReadonlyArray<string>;
+	}) => Effect.Effect<ReadonlyArray<FoldEvent>, E, R>;
+};
+
+type HistorySubject = {
+	readonly id: string;
+	readonly terminal: boolean;
+	readonly episodic: boolean;
 };
 
 const sinceLimit = 20;
@@ -89,9 +89,9 @@ const earliest = (events: ReadonlyArray<FoldEvent>) =>
 export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(input: {
 	readonly subject: HistorySubject;
 	readonly previous: MediaFoldValue;
+	readonly reads: MediaHistoryReads<E, R>;
 	readonly renamedKeys?: ReadonlyMap<string, string>;
 	readonly changes: null | ReadonlyArray<FoldEventChange>;
-	readonly reads: MediaHistoryReads<E, R>;
 }) {
 	const replay = Effect.gen(function* () {
 		const derived = yield* deriveHistory({
@@ -101,12 +101,8 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 			events: (yield* input.reads.history).map(normalizedEvent),
 			...(input.renamedKeys === undefined ? {} : { renamedKeys: input.renamedKeys }),
 		});
-		const { contributions, tails } = yield* consumptionContributions(derived);
-		return {
-			changes: derived.changes,
-			contributions,
-			value: withTails(derived.value, tails),
-		};
+		const { tails, contributions } = yield* consumptionContributions(derived);
+		return { contributions, changes: derived.changes, value: withTails(derived.value, tails) };
 	});
 	if (input.changes === null) {
 		return yield* replay;
@@ -148,14 +144,16 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 	for (const entityId of entities) {
 		const touched = [...added, ...retracted].filter((event) => event.entityId === entityId);
 		const runs = [
-			...new Set(touched.flatMap((event) => (sourceRunOf(event) === null ? [] : [sourceRunOf(event) ?? ""]))),
+			...new Set(
+				touched.flatMap((event) => (sourceRunOf(event) === null ? [] : [sourceRunOf(event) ?? ""])),
+			),
 		];
-		const sourced = runs.length === 0 ? [] : yield* input.reads.runs({ entityId, runs });
+		const sourced = runs.length === 0 ? [] : yield* input.reads.runs({ runs, entityId });
 		const items = added.filter(
 			(event) => event.entityId === entityId && event.eventSchemaSlug === "item-complete",
 		);
 		if (append) {
-			const tail = input.previous.tails?.[entityId] ?? { lead: [], run: [] };
+			const tail = input.previous.tails?.[entityId] ?? { run: [], lead: [] };
 			for (const event of [...simultaneous, ...tail.lead]) {
 				if (event.entityId === entityId && !tail.run.some(({ id }) => id === event.id)) {
 					window.set(event.id, event);
@@ -185,7 +183,8 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 								(!positional || isExplicitCompletion(event)),
 						)
 						.reduce<undefined | FoldEvent>(
-							(last, event) => (last === undefined || compareHistory(event, last) > 0 ? event : last),
+							(last, event) =>
+								last === undefined || compareHistory(event, last) > 0 ? event : last,
 							undefined,
 						);
 		const touchedRuns = new Set(runs);
@@ -196,7 +195,10 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 			window.set(event.id, event);
 			const run = sourceRunOf(event);
 			if (
-				(run === null && isUnsourced(event) && start !== undefined && compareHistory(event, start) <= 0) ||
+				(run === null &&
+					isUnsourced(event) &&
+					start !== undefined &&
+					compareHistory(event, start) <= 0) ||
 				(run !== null && !touchedRuns.has(run))
 			) {
 				context.add(event.id);
@@ -224,7 +226,7 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 			? {
 					coverage: {
 						fresh: new Set(added.map(({ id }) => id)),
-						carry: input.previous.coverage ?? { basis: null, used: [], covered: [] },
+						carry: input.previous.coverage ?? { used: [], basis: null, covered: [] },
 					},
 				}
 			: {}),
@@ -232,7 +234,7 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 	if (derived.coverageOccurrences.length > 0) {
 		return yield* replay;
 	}
-	const { contributions, tails } = yield* consumptionContributions({ ...derived, context });
+	const { tails, contributions } = yield* consumptionContributions({ ...derived, context });
 	const occurrences = sortedOccurrences([
 		...input.previous.occurrences.filter(
 			(value) => !(value.rule === "progress" && scope.has(value.sourceEventId)),
@@ -247,7 +249,7 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 		...(input.subject.episodic
 			? {
 					terminal: input.subject.terminal,
-					coverage: derived.value.coverage ?? { basis: null, used: [], covered: [] },
+					coverage: derived.value.coverage ?? { used: [], basis: null, covered: [] },
 					coverageSources: [
 						...new Set([...(input.previous.coverageSources ?? []), ...derived.coverageSources]),
 					].sort(),
@@ -261,30 +263,31 @@ export const foldMediaHistory = Effect.fn("foldMediaHistory")(function* <E, R>(i
 	};
 });
 
+const storedEvents = (events: ReadonlyArray<FoldEvent>) =>
+	events.map((event) => ({
+		id: event.id,
+		revision: event.revision,
+		entityId: event.entityId,
+		orderKey: event.orderKey,
+		properties: event.properties,
+		occurredAt: iso(event.occurredAt),
+		eventSchemaSlug: event.eventSchemaSlug,
+		sessionEntityId: event.sessionEntityId,
+		entitySchemaSlug: event.entitySchemaSlug,
+		orderCreatedAt: iso(event.orderCreatedAt),
+	}));
+
 const withTails = (value: MediaFoldValue, tails: ReadonlyMap<string, FoldTail>): MediaFoldValue => {
 	const { tails: _previous, ...rest } = value;
 	const entries = [...tails].sort(([left], [right]) => (left < right ? -1 : 1));
-	const stored = (events: ReadonlyArray<FoldEvent>) =>
-		events.map((event) => ({
-							id: event.id,
-							revision: event.revision,
-							entityId: event.entityId,
-							orderKey: event.orderKey,
-							properties: event.properties,
-							eventSchemaSlug: event.eventSchemaSlug,
-							entitySchemaSlug: event.entitySchemaSlug,
-							sessionEntityId: event.sessionEntityId,
-			occurredAt: iso(event.occurredAt),
-			orderCreatedAt: iso(event.orderCreatedAt),
-		}));
 	return entries.length === 0
 		? rest
 		: {
 				...rest,
 				tails: Object.fromEntries(
-					entries.map(([entityId, { lead, run }]) => [
+					entries.map(([entityId, { run, lead }]) => [
 						entityId,
-						{ lead: stored(lead), run: stored(run) },
+						{ run: storedEvents(run), lead: storedEvents(lead) },
 					]),
 				),
 			};

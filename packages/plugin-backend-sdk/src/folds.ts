@@ -6,7 +6,7 @@ import {
 	FoldOutput,
 } from "@ryot-app/contract/modules/events/folds";
 
-export { FoldEventChange, FoldEventImage, FoldInput, FoldOutput, FOLD_LIMITS };
+export { FoldInput, FoldOutput, FOLD_LIMITS, FoldEventImage, FoldEventChange };
 
 /**
  * Splits an incremental fold's change list: `retracted` holds what left the subject's history (deleted

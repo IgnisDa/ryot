@@ -61,18 +61,20 @@ export const mediaFoldSubjectRecipe = (() => {
 })();
 /** Narrows the subject's fold events; each field adds one condition. */
 export type MediaFoldEventFilter = {
-	readonly entityId?: string;
 	readonly from?: string;
 	readonly until?: string;
-	readonly slugs?: ReadonlyArray<string>;
+	readonly limit?: number;
+	readonly entityId?: string;
 	readonly unsourced?: boolean;
 	readonly runs?: ReadonlyArray<string>;
+	readonly slugs?: ReadonlyArray<string>;
 	readonly excluded?: ReadonlyArray<string>;
-	readonly limit?: number;
 };
 
 const sourceRun = (event: ReturnType<typeof table>) =>
 	castText(jsonPath(column(event, "properties"), "sourceRun"));
+
+const at = (value: string) => castDate(literal(value));
 
 /** Matches the kernel's fold subject: the subject's sessionless events and every event in its session. */
 export const mediaFoldEventsRecipe = (filter: MediaFoldEventFilter = {}) => {
@@ -88,7 +90,6 @@ export const mediaFoldEventsRecipe = (filter: MediaFoldEventFilter = {}) => {
 	});
 	const event = table("event", "foldEvent");
 	const entity = table("entity", "foldEventEntity");
-	const at = (value: string) => castDate(literal(value));
 	return defineRecipe({
 		parameters: inputParameters.schema,
 		map: ({ events }) => Result.succeed(events),
@@ -97,30 +98,6 @@ export const mediaFoldEventsRecipe = (filter: MediaFoldEventFilter = {}) => {
 				limit: filter.limit ?? pageSize,
 				orderBy: [ascending(column(event, "id"))],
 				joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
-				where: and(
-					schemaOwnerPredicate(event, "eventSchemaPluginId", { kind: "self" }),
-					inArray(
-						column(event, "eventSchemaSlug"),
-						(filter.slugs ?? mediaFoldEventSchemaSlugs).map(literal),
-					),
-					or(
-						eq(column(event, "sessionEntityId"), inputParameters.value("subjectEntityId")),
-						and(
-							eq(column(event, "entityId"), inputParameters.value("subjectEntityId")),
-							isNull(column(event, "sessionEntityId")),
-						),
-					),
-					...(filter.entityId === undefined
-						? []
-						: [eq(column(event, "entityId"), literal(filter.entityId))]),
-					...(filter.from === undefined ? [] : [gte(column(event, "occurredAt"), at(filter.from))]),
-					...(filter.until === undefined ? [] : [lte(column(event, "occurredAt"), at(filter.until))]),
-					...(filter.unsourced === true ? [isNull(sourceRun(event))] : []),
-					...(filter.runs === undefined ? [] : [inArray(sourceRun(event), filter.runs.map(literal))]),
-					...(filter.excluded === undefined || filter.excluded.length === 0
-						? []
-						: [not(inArray(column(event, "id"), filter.excluded.map(literal)))]),
-				),
 				selection: {
 					id: selectedField(column(event, "id"), Schema.String),
 					revision: selectedField(column(event, "revision"), Schema.Int),
@@ -139,6 +116,34 @@ export const mediaFoldEventsRecipe = (filter: MediaFoldEventFilter = {}) => {
 						Schema.Record(Schema.String, Schema.Json),
 					),
 				},
+				where: and(
+					schemaOwnerPredicate(event, "eventSchemaPluginId", { kind: "self" }),
+					inArray(
+						column(event, "eventSchemaSlug"),
+						(filter.slugs ?? mediaFoldEventSchemaSlugs).map(literal),
+					),
+					or(
+						eq(column(event, "sessionEntityId"), inputParameters.value("subjectEntityId")),
+						and(
+							eq(column(event, "entityId"), inputParameters.value("subjectEntityId")),
+							isNull(column(event, "sessionEntityId")),
+						),
+					),
+					...(filter.entityId === undefined
+						? []
+						: [eq(column(event, "entityId"), literal(filter.entityId))]),
+					...(filter.from === undefined ? [] : [gte(column(event, "occurredAt"), at(filter.from))]),
+					...(filter.until === undefined
+						? []
+						: [lte(column(event, "occurredAt"), at(filter.until))]),
+					...(filter.unsourced === true ? [isNull(sourceRun(event))] : []),
+					...(filter.runs === undefined
+						? []
+						: [inArray(sourceRun(event), filter.runs.map(literal))]),
+					...(filter.excluded === undefined || filter.excluded.length === 0
+						? []
+						: [not(inArray(column(event, "id"), filter.excluded.map(literal)))]),
+				),
 			}),
 		},
 	});

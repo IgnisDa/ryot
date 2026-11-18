@@ -5,12 +5,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import {
-	absorbFoldValues,
-	deriveHistory,
-	type FoldEvent,
-	type MediaFoldValue,
-} from "./history";
+import { absorbFoldValues, deriveHistory, type FoldEvent, type MediaFoldValue } from "./history";
 import { applyHistoryChanges } from "./history.test-support";
 
 const basis = { total: 120, unit: "minutes", property: "runtime" };

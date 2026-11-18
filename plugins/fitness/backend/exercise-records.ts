@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { EventId } from "@ryot-app/plugin-kit/schema";
 
 import { type ExerciseKind, exerciseKindSchema } from "../shared/exercise-kinds";
@@ -20,9 +20,9 @@ export type RecordSet = {
 	readonly weight: null | number;
 	readonly duration: null | number;
 	readonly distance: null | number;
-	readonly startedAt: null | string;
 	readonly setOrder: null | number;
 	readonly sessionEntityId: string;
+	readonly startedAt: null | string;
 	readonly exerciseKind: ExerciseKind;
 	readonly exerciseOrder: null | number;
 };
@@ -39,8 +39,8 @@ type SetPosition = typeof SetPosition.Type;
 
 const PersonalRecord = Schema.Struct({
 	value: Schema.Finite,
-	type: PersonalBestSchema,
 	position: SetPosition,
+	type: PersonalBestSchema,
 	kind: exerciseKindSchema,
 });
 type PersonalRecord = typeof PersonalRecord.Type;
@@ -54,10 +54,10 @@ export type LaterSetsRequest = {
 	readonly from: string;
 	readonly excluded: ReadonlyArray<string>;
 	readonly bounds: ReadonlyArray<{
-		readonly kind: ExerciseKind;
-		readonly type: PersonalBest;
 		readonly above: number;
 		readonly atMost: number;
+		readonly kind: ExerciseKind;
+		readonly type: PersonalBest;
 	}>;
 };
 
@@ -87,7 +87,9 @@ const comparePositions = (left: SetPosition, right: SetPosition) =>
 	left[4] - right[4] ||
 	compareText(left[5], right[5]);
 
-const candidatesOf = (set: Pick<RecordSet, "distance" | "duration" | "exerciseKind" | "reps" | "weight">) =>
+const candidatesOf = (
+	set: Pick<RecordSet, "reps" | "weight" | "distance" | "duration" | "exerciseKind">,
+) =>
 	recordCandidates(set.exerciseKind, {
 		reps: set.reps ?? undefined,
 		weight: set.weight ?? undefined,
@@ -144,8 +146,13 @@ type Walked = { readonly set: RecordSet; readonly position: SetPosition };
 export const updateExerciseRecords = Effect.fn("updateExerciseRecords")(function* <E, R>(input: {
 	readonly value: ExerciseRecordsValue;
 	readonly added: ReadonlyArray<RecordSet>;
-	readonly retracted: ReadonlyArray<Pick<RecordSet, "distance" | "duration" | "exerciseKind" | "id" | "occurredAt" | "reps" | "weight">>;
 	readonly later: (request: LaterSetsRequest) => Effect.Effect<ReadonlyArray<RecordSet>, E, R>;
+	readonly retracted: ReadonlyArray<
+		Pick<
+			RecordSet,
+			"id" | "reps" | "weight" | "distance" | "duration" | "occurredAt" | "exerciseKind"
+		>
+	>;
 }) {
 	const changed = [...input.added, ...input.retracted];
 	const first = changed.reduce<null | number>(
@@ -163,11 +170,16 @@ export const updateExerciseRecords = Effect.fn("updateExerciseRecords")(function
 	for (const record of standing) {
 		maximumBefore.set(recordKey(record.kind, record.type), record.value);
 	}
-	const changedMaximum = new Map<string, { kind: ExerciseKind; type: PersonalBest; value: number }>();
+	const changedMaximum = new Map<
+		string,
+		{ value: number; kind: ExerciseKind; type: PersonalBest }
+	>();
 	for (const set of changed) {
-		for (const [type, value] of Object.entries(candidatesOf(set)) as ReadonlyArray<[PersonalBest, number]>) {
+		const candidates = candidatesOf(set);
+		for (const type of personalBestTypes) {
+			const value = candidates[type];
 			const key = recordKey(set.exerciseKind, type);
-			if (value > (changedMaximum.get(key)?.value ?? 0)) {
+			if (value !== undefined && value > (changedMaximum.get(key)?.value ?? 0)) {
 				changedMaximum.set(key, { type, value, kind: set.exerciseKind });
 			}
 		}
@@ -181,7 +193,12 @@ export const updateExerciseRecords = Effect.fn("updateExerciseRecords")(function
 		const candidates = candidatesOf(set);
 		return bounds.some(({ kind, type, above, atMost }) => {
 			const candidate = candidates[type];
-			return kind === set.exerciseKind && candidate !== undefined && candidate > above && candidate <= atMost;
+			return (
+				kind === set.exerciseKind &&
+				candidate !== undefined &&
+				candidate > above &&
+				candidate <= atMost
+			);
 		});
 	};
 	const read =
@@ -190,7 +207,7 @@ export const updateExerciseRecords = Effect.fn("updateExerciseRecords")(function
 			: (yield* input.later({
 					bounds,
 					excluded: [...changedIds],
-					from: new Date(first).toISOString(),
+					from: DateTime.formatIso(DateTime.makeUnsafe(first)),
 				})).filter((set) => !changedIds.has(set.id) && inBounds(set));
 	const walked: ReadonlyArray<Walked> = [...input.added, ...read]
 		.map((set) => ({ set, position: positionOf(set) }))
@@ -215,7 +232,7 @@ export const updateExerciseRecords = Effect.fn("updateExerciseRecords")(function
 				.map(({ set, position }) => ({ set, position, value: candidatesOf(set)[type] })),
 			...carriers
 				.filter((record) => record.kind === kind && record.type === type)
-				.map((record) => ({ set: null, position: record.position, value: record.value })),
+				.map((record) => ({ set: null, value: record.value, position: record.position })),
 		].sort((left, right) => comparePositions(left.position, right.position));
 		let running = maximumBefore.get(key) ?? 0;
 		for (const step of steps) {

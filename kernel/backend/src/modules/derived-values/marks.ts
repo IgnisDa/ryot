@@ -15,31 +15,35 @@ import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 
-export type FoldSubject = { readonly userId: UserId; readonly entityId: EntityId };
+/** An event as it was before the transaction first changed it, with the fields that route it to a subject. */
+export type FoldEventRow = FoldSource & FoldEventImage;
 
-export type ResolvedFold = { readonly subject: FoldSubject; readonly declaration: FoldDeclaration };
+export type FoldSubject = { readonly userId: UserId; readonly entityId: EntityId };
 
 /** A subject to fold: `changes` is null for a full replay and otherwise lists its changed events. */
 export type FoldRun = ResolvedFold & { readonly changes: null | ReadonlyArray<FoldEventChange> };
 
-/** An event as it was before the transaction first changed it, with the fields that route it to a subject. */
-export type FoldEventRow = FoldSource & FoldEventImage;
+export type ResolvedFold = { readonly subject: FoldSubject; readonly declaration: FoldDeclaration };
+
+export type PendingFolds = {
+	readonly links: Array<FoldSubject>;
+	readonly replays: Array<FoldSubject>;
+	readonly events: Map<string, FoldMark>;
+};
 
 /** One changed event: its image before the change, null for a create, and where it is now, null once deleted. */
 export type FoldMark = {
 	readonly userId: string;
 	readonly eventId: string;
-	readonly before: null | FoldEventRow;
 	readonly after: null | FoldSource;
+	readonly before: null | FoldEventRow;
 };
 
-export type PendingFolds = {
-	readonly events: Map<string, FoldMark>;
-	readonly links: Array<FoldSubject>;
-	readonly replays: Array<FoldSubject>;
-};
-
-export const emptyPendingFolds = (): PendingFolds => ({ events: new Map(), links: [], replays: [] });
+export const emptyPendingFolds = (): PendingFolds => ({
+	links: [],
+	replays: [],
+	events: new Map(),
+});
 
 export type FoldDeclaration = PluginEntityFold & {
 	readonly entityId: EntityId;
@@ -116,14 +120,12 @@ export const readFoldEvents = (session: DatabaseSession["Service"], where: SQL) 
 		)
 		.pipe(
 			Effect.map((rows) =>
-				rows.map(
-					(row): FoldEventRow => ({
-						...row,
-						id: EventId.make(row.id),
-						entityId: EntityId.make(row.entityId),
-						sessionEntityId: row.sessionEntityId === null ? null : EntityId.make(row.sessionEntityId),
-					}),
-				),
+				rows.map((row): FoldEventRow => ({
+					...row,
+					id: EventId.make(row.id),
+					entityId: EntityId.make(row.entityId),
+					sessionEntityId: row.sessionEntityId === null ? null : EntityId.make(row.sessionEntityId),
+				})),
 			),
 		);
 
@@ -266,7 +268,11 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				const links = pending.links.splice(0);
 				const runs = new Map<
 					string,
-					{ subject: FoldSubject; declaration: FoldDeclaration; changes: null | Array<FoldEventChange> }
+					{
+						subject: FoldSubject;
+						declaration: FoldDeclaration;
+						changes: null | Array<FoldEventChange>;
+					}
 				>();
 				const users = new Set([
 					...marks.map((mark) => mark.userId),
@@ -316,7 +322,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 							continue;
 						}
 						if (from && mark.before) {
-							run(from).changes?.push({ before: foldImage(mark.before), after: null });
+							run(from).changes?.push({ after: null, before: foldImage(mark.before) });
 						}
 						if (to && after) {
 							run(to).changes?.push({ before: null, after: foldImage(after) });
@@ -337,14 +343,10 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				}
 				return [...runs.entries()]
 					.sort(([left], [right]) => left.localeCompare(right))
-					.map(
-						([, value]): FoldRun => ({
-							...value,
-							changes:
-								value.changes !== null && value.changes.length > FOLD_LIMITS.inputChanges
-									? null
-									: value.changes,
-						}),
+					.map(([, value]): FoldRun =>
+						value.changes !== null && value.changes.length > FOLD_LIMITS.inputChanges
+							? Object.assign(value, { changes: null })
+							: value,
 					);
 			});
 
@@ -382,7 +384,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 			});
 
 			const queue = Effect.fn("FoldMarks.queue")(function* (subjects: ReadonlyArray<FoldSubject>) {
-				return yield* queueResolved(yield* route({ sources: [], subjects }));
+				return yield* queueResolved(yield* route({ subjects, sources: [] }));
 			});
 
 			/** Queues the plugin's folds of the entities for one user, or for every user with their events. */
@@ -551,11 +553,10 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 					return;
 				}
 				if (row.replay) {
-					yield* jobs.enqueue(
-						FoldRebuildJob,
-						input,
-						{ userId: input.userId, key: `${input.userId}:${input.pluginId}` },
-					);
+					yield* jobs.enqueue(FoldRebuildJob, input, {
+						userId: input.userId,
+						key: `${input.userId}:${input.pluginId}`,
+					});
 					return;
 				}
 				yield* session.run((db) =>

@@ -98,7 +98,7 @@ describe("workout record recipes", () => {
 				range: {
 					excluded: ["set-9"],
 					from: "2026-01-02T00:00:00.000Z",
-					bounds: [{ kind: "reps_and_weight", type: "one_rm", above: 50, atMost: 80 }],
+					bounds: [{ above: 50, atMost: 80, type: "one_rm", kind: "reps_and_weight" }],
 				},
 			}),
 			{ exerciseId: "exercise-1" },

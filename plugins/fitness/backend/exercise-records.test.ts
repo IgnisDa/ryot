@@ -29,9 +29,9 @@ const workoutRecord = (id: string, weight: number, occurredAt: string) => ({
 	duration: null,
 	distance: null,
 	exerciseOrder: 0,
-	sessionEntityId: `workout-${id}`,
-	exerciseKind: "reps_and_weight",
 	startedAt: occurredAt,
+	exerciseKind: "reps_and_weight",
+	sessionEntityId: `workout-${id}`,
 });
 
 const page = (
@@ -97,7 +97,7 @@ it.effect(
 );
 
 type Stored = { value: ExerciseRecordsValue; outputs: Map<string, unknown> };
-type HistorySet = RecordSet & { readonly exerciseId: string };
+type HistorySet = RecordSet & { readonly exerciseId: (typeof exercises)[number] };
 
 const exercises = ["bench", "run"] as const;
 const kindOf: Record<(typeof exercises)[number], ExerciseKind> = {
@@ -106,7 +106,11 @@ const kindOf: Record<(typeof exercises)[number], ExerciseKind> = {
 };
 
 /** Mirrors the later-sets query: the SQL range is widened by a tolerance and rechecked exactly. */
-const laterSets = (history: ReadonlyArray<HistorySet>, exerciseId: string, request: LaterSetsRequest) =>
+const laterSets = (
+	history: ReadonlyArray<HistorySet>,
+	exerciseId: string,
+	request: LaterSetsRequest,
+) =>
 	Effect.succeed(
 		history.filter((set) => {
 			if (
@@ -150,7 +154,11 @@ const random = (seed: number) => {
 	};
 };
 
-const setOf = (next: (limit: number) => number, id: string, exerciseId: (typeof exercises)[number]) => {
+const setOf = (
+	next: (limit: number) => number,
+	id: string,
+	exerciseId: (typeof exercises)[number],
+) => {
 	const day = next(40);
 	const occurredAt = new Date(Date.UTC(2026, 0, 1 + day, next(2) * 6)).toISOString();
 	const run = exerciseId === "run";
@@ -158,15 +166,15 @@ const setOf = (next: (limit: number) => number, id: string, exerciseId: (typeof 
 		exerciseId,
 		occurredAt,
 		id: EventId.make(id),
+		reps: run ? null : 1 + next(12),
+		exerciseKind: kindOf[exerciseId],
+		distance: run ? 1 + next(6) : null,
+		weight: run ? null : 20 + 5 * next(8),
+		duration: run ? 10 + 5 * next(6) : null,
+		setOrder: next(4) === 0 ? null : next(3),
 		startedAt: next(5) === 0 ? null : occurredAt,
 		sessionEntityId: `workout-${day}-${next(2)}`,
-		exerciseKind: kindOf[exerciseId],
-		setOrder: next(4) === 0 ? null : next(3),
 		exerciseOrder: next(4) === 0 ? null : next(2),
-		reps: run ? null : 1 + next(12),
-		weight: run ? null : 20 + 5 * next(8),
-		distance: run ? 1 + next(6) : null,
-		duration: run ? 10 + 5 * next(6) : null,
 	} satisfies HistorySet;
 };
 
@@ -174,7 +182,7 @@ const setOf = (next: (limit: number) => number, id: string, exerciseId: (typeof 
 const step = Effect.fnUntraced(function* (
 	history: Array<HistorySet>,
 	stores: Map<string, Stored>,
-	change: { readonly before: null | HistorySet; readonly after: null | HistorySet },
+	change: { readonly after: null | HistorySet; readonly before: null | HistorySet },
 ) {
 	const index = history.findIndex(({ id }) => id === (change.before ?? change.after)?.id);
 	if (change.before && index >= 0) {
@@ -209,6 +217,17 @@ const step = Effect.fnUntraced(function* (
 	}
 });
 
+const benchSet = (id: string, day: number, weight: number) => ({
+	...setOf(() => 1, id, "bench"),
+	weight,
+	reps: 5,
+	setOrder: 0,
+	exerciseOrder: 0,
+	sessionEntityId: `workout-${day}`,
+	startedAt: new Date(Date.UTC(2026, 0, day)).toISOString(),
+	occurredAt: new Date(Date.UTC(2026, 0, day)).toISOString(),
+});
+
 describe("incremental exercise records", () => {
 	it.effect(
 		"replaces a deleted historical best with the later set that now beats every earlier one",
@@ -216,25 +235,15 @@ describe("incremental exercise records", () => {
 			Effect.gen(function* () {
 				const history: Array<HistorySet> = [];
 				const stores = new Map<string, Stored>();
-				const set = (id: string, day: number, weight: number) => ({
-					...setOf(() => 1, id, "bench"),
-					weight,
-					reps: 5,
-					setOrder: 0,
-					exerciseOrder: 0,
-					sessionEntityId: `workout-${day}`,
-					occurredAt: new Date(Date.UTC(2026, 0, day)).toISOString(),
-					startedAt: new Date(Date.UTC(2026, 0, day)).toISOString(),
-				});
 				for (const [id, day, weight] of [
 					["first", 1, 60],
 					["peak", 2, 100],
 					["middle", 3, 80],
 					["later", 4, 90],
 				] as const) {
-					yield* step(history, stores, { before: null, after: set(id, day, weight) });
+					yield* step(history, stores, { before: null, after: benchSet(id, day, weight) });
 				}
-				yield* step(history, stores, { before: set("peak", 2, 100), after: null });
+				yield* step(history, stores, { after: null, before: benchSet("peak", 2, 100) });
 				expect(stores.get("bench")?.outputs.get("later")).toMatchObject({
 					personalBests: ["one_rm", "volume", "weight"],
 				});
@@ -279,11 +288,11 @@ describe("incremental exercise records", () => {
 								after: setOf(next, `set-${seed}-${index}`, exerciseId),
 							});
 						} else if (operation === 2) {
-							yield* step(history, stores, { before: existing, after: null });
+							yield* step(history, stores, { after: null, before: existing });
 						} else if (operation === 3) {
 							yield* step(history, stores, {
 								before: existing,
-								after: { ...setOf(next, existing.id, existing.exerciseId as (typeof exercises)[number]) },
+								after: { ...setOf(next, existing.id, existing.exerciseId) },
 							});
 						} else {
 							yield* step(history, stores, {

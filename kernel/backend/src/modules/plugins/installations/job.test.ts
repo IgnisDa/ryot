@@ -181,9 +181,7 @@ const workflowLayer = (input: {
 				scriptPinLookups,
 			}) =>
 				Layer.mergeAll(
-					Layer.mock(FoldMarks)({
-						queueRevisionReplay: () => pushOrder("replay:folds"),
-					}),
+					Layer.mock(FoldMarks)({ queueRevisionReplay: () => pushOrder("replay:folds") }),
 					Layer.succeed(PluginBootstrapEntities)({
 						dispatch: (plans) => pushOrder(`dispatch:${plans.join(",")}`),
 						ensure: (ensured) =>

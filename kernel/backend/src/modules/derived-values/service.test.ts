@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 
-import type { FoldEventChange } from "@ryot-app/contract/modules/events/folds";
+import { type FoldEventChange, FoldInput } from "@ryot-app/contract/modules/events/folds";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -10,15 +10,15 @@ import {
 	type PluginPackageId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
-import { Effect, Layer } from "effect";
+import { DateTime, Effect, Layer, Option, Schema } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
@@ -39,14 +39,16 @@ import { Folds } from "./service";
 const userId = UserId.make("owner");
 
 const authoredSchema = {
-	fields: { value: { type: "string" as const, label: { key: "test.value" }, description: "Value" } },
+	fields: {
+		value: { description: "Value", type: "string" as const, label: { key: "test.value" } },
+	},
 };
 
 const propertiesSchema = {
 	fields: {
 		value: {
-			type: "string" as const,
 			description: "Value",
+			type: "string" as const,
 			label: { key: "test.value", namespace: KERNEL_NAMESPACE },
 		},
 	},
@@ -81,12 +83,19 @@ const foldedPackage = (packageId: PluginPackageId, version: string, scriptHash =
 		manifest,
 		contentHash: `folded-${version}`,
 		scripts: plugin.scripts.map((script) =>
-			script.slug === "folded.task" ? { ...script, contentHash: scriptHash } : script,
+			script.slug === "folded.task"
+				? Object.assign({}, script, { contentHash: scriptHash })
+				: script,
 		),
 	};
 };
 
-type Recorded = { readonly subjectEntityId: string; readonly changes: null | ReadonlyArray<FoldEventChange> };
+const FoldCount = Schema.Struct({ runs: Schema.Int });
+
+type Recorded = {
+	readonly subjectEntityId: string;
+	readonly changes: null | ReadonlyArray<FoldEventChange>;
+};
 
 const testLayer = Layer.mergeAll(
 	FoldScriptsLive,
@@ -103,8 +112,9 @@ const setup = Effect.fn(function* () {
 	const installed = yield* installRevisionPackage(foldedPackage(packageId, "v1"), userId);
 	const recorded: Array<Recorded> = [];
 	yield* (yield* ScriptCalls).install((call) =>
-		Effect.sync(() => {
-			const input = call.input as Recorded & { readonly value: null | { readonly runs: number } };
+		Effect.gen(function* () {
+			const input = yield* Schema.decodeUnknownEffect(FoldInput)(call.input).pipe(Effect.orDie);
+			const previous = Schema.decodeUnknownOption(FoldCount)(input.value);
 			recorded.push({ changes: input.changes, subjectEntityId: input.subjectEntityId });
 			return {
 				logs: [],
@@ -113,7 +123,9 @@ const setup = Effect.fn(function* () {
 				value: {
 					changes: [],
 					relationships: [],
-					value: { runs: (input.value?.runs ?? 0) + 1 },
+					value: {
+						runs: Option.match(previous, { onNone: () => 0, onSome: ({ runs }) => runs }) + 1,
+					},
 					events: (input.changes ?? []).flatMap(({ after }) =>
 						after ? [{ eventId: after.id, properties: { value: after.properties["value"] } }] : [],
 					),
@@ -130,9 +142,9 @@ const setup = Effect.fn(function* () {
 				id,
 				userId,
 				name: id,
-				scope: "user" as const,
 				properties: {},
 				populatedAt: null,
+				scope: "user" as const,
 				entitySchemaPluginId: installed.pluginId,
 				entitySchemaSlug: EntitySchemaSlug.make("folded-entity"),
 			})),
@@ -154,9 +166,18 @@ const derived = (subject: string) =>
 	Effect.flatMap(DatabaseSession, (session) =>
 		session.run((db) =>
 			db
-				.select({ kind: tables.derivedValue.kind, targetId: tables.derivedValue.targetId, value: tables.derivedValue.value })
+				.select({
+					kind: tables.derivedValue.kind,
+					value: tables.derivedValue.value,
+					targetId: tables.derivedValue.targetId,
+				})
 				.from(tables.derivedValue)
-				.where(and(eq(tables.derivedValue.userId, userId), eq(tables.derivedValue.subjectEntityId, subject)))
+				.where(
+					and(
+						eq(tables.derivedValue.userId, userId),
+						eq(tables.derivedValue.subjectEntityId, subject),
+					),
+				)
 				.orderBy(tables.derivedValue.kind, tables.derivedValue.targetId),
 		),
 	);
@@ -175,19 +196,19 @@ layer(testLayer)((test) => {
 							{
 								userId,
 								entityId,
-								propertiesSchema,
 								id: eventId,
-								properties: { value },
 								eventSchemaName,
+								propertiesSchema,
+								properties: { value },
 								eventSchemaPluginId: installed.pluginId,
-								occurredAt: new Date("2026-01-01T00:00:00.000Z"),
 								eventSchemaSlug: EventSchemaSlug.make("changed"),
+								occurredAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
 							},
 						]);
 					const kept = EventId.make(yield* randomUuid);
 					const moved = EventId.make(yield* randomUuid);
 					yield* write(create(kept, first, "kept"));
-					expect(recorded.at(-1)).toEqual({ subjectEntityId: first, changes: null });
+					expect(recorded.at(-1)).toEqual({ changes: null, subjectEntityId: first });
 					yield* write(create(moved, first, "moved"));
 					expect(recorded.at(-1)?.changes).toMatchObject([
 						{ before: null, after: { id: moved, entityId: first, properties: { value: "moved" } } },
@@ -199,10 +220,10 @@ layer(testLayer)((test) => {
 					yield* write(
 						events.updatePreparedEvent({
 							userId,
-							propertiesSchema,
 							eventId: moved,
+							propertiesSchema,
 							expectedRevision: 0,
-							updatedAt: new Date(),
+							updatedAt: yield* DateTime.nowAsDate,
 							draft: {
 								entityId: second,
 								sessionEntityId: null,
@@ -216,10 +237,12 @@ layer(testLayer)((test) => {
 						}),
 					);
 					const runs = recorded.slice(-2);
-					expect(runs.find(({ subjectEntityId }) => subjectEntityId === second)?.changes).toBeNull();
-					expect(runs.find(({ subjectEntityId }) => subjectEntityId === first)?.changes).toMatchObject([
-						{ after: null, before: { id: moved, properties: { value: "moved" } } },
-					]);
+					expect(
+						runs.find(({ subjectEntityId }) => subjectEntityId === second)?.changes,
+					).toBeNull();
+					expect(
+						runs.find(({ subjectEntityId }) => subjectEntityId === first)?.changes,
+					).toMatchObject([{ after: null, before: { id: moved, properties: { value: "moved" } } }]);
 					expect(yield* derived(first)).toEqual([
 						{ kind: "subject", targetId: first, value: { runs: 3 } },
 					]);
@@ -243,21 +266,24 @@ layer(testLayer)((test) => {
 						events.createEvents([
 							{
 								userId,
+								eventSchemaName,
 								propertiesSchema,
 								entityId: ids[0],
 								properties: { value: "one" },
 								id: EventId.make(yield* randomUuid),
-								eventSchemaName,
 								eventSchemaPluginId: installed.pluginId,
-								occurredAt: new Date("2026-01-01T00:00:00.000Z"),
 								eventSchemaSlug: EventSchemaSlug.make("changed"),
+								occurredAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
 							},
 						]),
 					);
 					const session = yield* DatabaseSession;
 					const marks = yield* FoldMarks;
 					const replays = session.run((db) =>
-						db.select({ id: tables.job.id }).from(tables.job).where(eq(tables.job.kind, "fold-rebuild")),
+						db
+							.select({ id: tables.job.id })
+							.from(tables.job)
+							.where(eq(tables.job.kind, "fold-rebuild")),
 					);
 					const revisionOf = session.run((db) =>
 						db

@@ -25,7 +25,7 @@ import {
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import { EventId } from "@ryot-app/plugin-kit/schema";
 
-import { property, propertyDate, propertyNumber, projectionNumber } from "./entity-selections";
+import { projectionNumber, property, propertyDate, propertyNumber } from "./entity-selections";
 import { type ExerciseKind, exerciseKindSchema } from "./exercise-kinds";
 import { catalogMessage } from "./messages.generated";
 import type { PersonalBest } from "./workout-records";
@@ -39,28 +39,29 @@ export type WorkoutRecordRange = {
 	readonly from: string;
 	readonly excluded: ReadonlyArray<string>;
 	readonly bounds: ReadonlyArray<{
-		readonly kind: ExerciseKind;
-		readonly type: PersonalBest;
 		readonly above: number;
 		readonly atMost: number;
+		readonly kind: ExerciseKind;
+		readonly type: PersonalBest;
 	}>;
 };
 
 type Table = Parameters<typeof column>[0];
 
-const candidateExpression = (event: Table, type: PersonalBest) => {
-	switch (type) {
-		case "time":
-			return propertyNumber(event, "duration");
-		case "one_rm":
-			return projectionNumber(event, "oneRm");
-		case "pace":
-		case "volume":
-			return projectionNumber(event, type);
-		default:
-			return propertyNumber(event, type);
-	}
+const candidateExpressions: Record<
+	PersonalBest,
+	(event: Table) => ReturnType<typeof propertyNumber>
+> = {
+	reps: (event) => propertyNumber(event, "reps"),
+	pace: (event) => projectionNumber(event, "pace"),
+	time: (event) => propertyNumber(event, "duration"),
+	weight: (event) => propertyNumber(event, "weight"),
+	one_rm: (event) => projectionNumber(event, "oneRm"),
+	volume: (event) => projectionNumber(event, "volume"),
+	distance: (event) => propertyNumber(event, "distance"),
 };
+
+const candidateExpression = (event: Table, type: PersonalBest) => candidateExpressions[type](event);
 
 const rangePredicate = (event: Table, range: WorkoutRecordRange): Predicate =>
 	and(
@@ -78,8 +79,8 @@ const rangePredicate = (event: Table, range: WorkoutRecordRange): Predicate =>
 	);
 
 export const workoutRecordPageRecipe = (input: {
-	readonly reference: PluginIdentityReference;
 	readonly range?: WorkoutRecordRange;
+	readonly reference: PluginIdentityReference;
 }) => {
 	const inputParameters = parameters({
 		fields: {
@@ -125,18 +126,21 @@ export const workoutRecordPageRecipe = (input: {
 				selection: {
 					id: selectedField(column(event, "id"), EventId),
 					occurredAt: selectedField(column(event, "occurredAt"), Schema.String),
-					startedAt: selectedField(propertyDate(workout, "startedAt"), Schema.NullOr(Schema.String)),
 					sessionEntityId: selectedField(column(event, "sessionEntityId"), Schema.String),
+					exerciseKind: selectedField(property(event, "exerciseKind"), exerciseKindSchema),
+					reps: selectedField(propertyNumber(event, "reps"), Schema.NullOr(Schema.Finite)),
+					weight: selectedField(propertyNumber(event, "weight"), Schema.NullOr(Schema.Finite)),
 					setOrder: selectedField(propertyNumber(event, "setOrder"), Schema.NullOr(Schema.Finite)),
+					duration: selectedField(propertyNumber(event, "duration"), Schema.NullOr(Schema.Finite)),
+					distance: selectedField(propertyNumber(event, "distance"), Schema.NullOr(Schema.Finite)),
+					startedAt: selectedField(
+						propertyDate(workout, "startedAt"),
+						Schema.NullOr(Schema.String),
+					),
 					exerciseOrder: selectedField(
 						propertyNumber(event, "exerciseOrder"),
 						Schema.NullOr(Schema.Finite),
 					),
-					exerciseKind: selectedField(property(event, "exerciseKind"), exerciseKindSchema),
-					reps: selectedField(propertyNumber(event, "reps"), Schema.NullOr(Schema.Finite)),
-					weight: selectedField(propertyNumber(event, "weight"), Schema.NullOr(Schema.Finite)),
-					duration: selectedField(propertyNumber(event, "duration"), Schema.NullOr(Schema.Finite)),
-					distance: selectedField(propertyNumber(event, "distance"), Schema.NullOr(Schema.Finite)),
 				},
 			}),
 		},
@@ -168,15 +172,18 @@ export const workoutStartsRecipe = (input: { readonly reference: PluginIdentityR
 			workouts: selectedRows(workout, {
 				limit: workoutRecordPageSize,
 				orderBy: [ascending(column(workout, "id"))],
+				selection: {
+					id: selectedField(column(workout, "id"), Schema.String),
+					startedAt: selectedField(
+						propertyDate(workout, "startedAt"),
+						Schema.NullOr(Schema.String),
+					),
+				},
 				where: and(
 					schemaOwnerPredicate(workout, "entitySchemaPluginId", input.reference),
 					eq(column(workout, "entitySchemaSlug"), literal("workout")),
 					inArray(column(workout, "id"), inputParameters.list("workoutIds")),
 				),
-				selection: {
-					id: selectedField(column(workout, "id"), Schema.String),
-					startedAt: selectedField(propertyDate(workout, "startedAt"), Schema.NullOr(Schema.String)),
-				},
 			}),
 		},
 	});

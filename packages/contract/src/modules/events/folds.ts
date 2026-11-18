@@ -7,8 +7,8 @@ import { EventMutationChange } from "./mutations";
 
 export const FOLD_LIMITS = {
 	changes: 500,
-	valueBytes: 262_144,
 	inputChanges: 500,
+	valueBytes: 262_144,
 	requestEntities: 100,
 };
 
@@ -21,8 +21,8 @@ export const FoldAbsorbed = strictStruct({
 /** An event as the fold sees it: `orderKey` and `orderCreatedAt` fall back to its ID and creation time. */
 export const FoldEventImage = strictStruct({
 	id: EventId,
-	revision: Schema.Int,
 	entityId: EntityId,
+	revision: Schema.Int,
 	orderKey: Schema.String,
 	occurredAt: Schema.String,
 	orderCreatedAt: Schema.String,
@@ -35,8 +35,8 @@ export type FoldEventImage = typeof FoldEventImage.Type;
 
 /** `before` is the event while it belonged to the subject and `after` is it now; null outside the subject. */
 export const FoldEventChange = strictStruct({
-	before: Schema.NullOr(FoldEventImage),
 	after: Schema.NullOr(FoldEventImage),
+	before: Schema.NullOr(FoldEventImage),
 });
 export type FoldEventChange = typeof FoldEventChange.Type;
 
