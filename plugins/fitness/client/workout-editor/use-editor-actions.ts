@@ -1,5 +1,6 @@
 import { isEntitlementRequired } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
+import { createUuid } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	type Text,
 	useFormatters,
@@ -323,7 +324,7 @@ export function useEditorActions(input: {
 					return current;
 				}
 				const sets = rows.flatMap((row) => {
-					const set = historySetForOccurrence(row, current, crypto.randomUUID());
+					const set = historySetForOccurrence(row, current, createUuid());
 					return set === undefined ? [] : [{ ...set, included: draft.mode.kind === "historical" }];
 				});
 				appendedSets.firstId = sets[0]?.clientId;
@@ -362,7 +363,7 @@ export function useEditorActions(input: {
 					const copied = rows
 						.filter((row) => first !== undefined && row.exerciseOrder === first.exerciseOrder)
 						.flatMap((row) => {
-							const set = historySetForOccurrence(row, current, crypto.randomUUID());
+							const set = historySetForOccurrence(row, current, createUuid());
 							return set === undefined ? [] : [set];
 						});
 					return copied.length === 0
@@ -414,10 +415,10 @@ export function useEditorActions(input: {
 				return [];
 			}
 			const occurrence = newWorkoutOccurrence({
+				id: createUuid(),
 				kind: exercise.kind,
-				id: crypto.randomUUID(),
+				setId: createUuid(),
 				exerciseId: exercise.id,
-				setId: crypto.randomUUID(),
 				settings: context.settings,
 				overrides: overrides.success,
 			});
@@ -527,7 +528,7 @@ export function useEditorActions(input: {
 					occurrence.clientId,
 					set.clientId,
 					time,
-					crypto.randomUUID(),
+					createUuid(),
 				);
 				if (!next.changed) {
 					setInvalid({ setId: set.clientId, fields: missingMeasurements(set) });
@@ -545,8 +546,8 @@ export function useEditorActions(input: {
 				overrides,
 				now: time,
 				setId: set.clientId,
+				timerId: createUuid(),
 				settings: context.settings,
-				timerId: crypto.randomUUID(),
 				prompt: local.promptForRestTimer,
 				occurrenceId: occurrence.clientId,
 			});
@@ -571,11 +572,11 @@ export function useEditorActions(input: {
 		}
 	};
 	const startRest = () => {
-		change((draft) => resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), false));
+		change((draft) => resolvePendingRest(draft, schedule.now(), createUuid(), false));
 		feedback("timer-started");
 	};
 	const skipRest = () =>
-		change((draft) => resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), true));
+		change((draft) => resolvePendingRest(draft, schedule.now(), createUuid(), true));
 
 	const reloadSaved = (onReloaded: () => void) =>
 		run(

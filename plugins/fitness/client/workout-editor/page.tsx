@@ -1,6 +1,6 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { usePluginLocation, usePluginParams } from "@ryot-app/plugin-client-sdk/plugin";
+import { createUuid, usePluginLocation, usePluginParams } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useCallback } from "react";
 
@@ -15,7 +15,6 @@ import { WorkoutEditorPrepareError } from "./prepare-error";
 import { loadEditorSource } from "./queries";
 import { WorkoutEditorScreen } from "./screen";
 
-const idFor = () => crypto.randomUUID();
 const prepareFailure = (reason: LocalMessage) =>
 	Effect.fail(new WorkoutEditorPrepareError({ reason }));
 
@@ -35,7 +34,7 @@ export default function WorkoutEditorPage() {
 			if (templateCreate && !context.pro) {
 				return yield* prepareFailure(catalogMessage("client.prepare.pro"));
 			}
-			const draftId = idFor();
+			const draftId = createUuid();
 			if (path === "/workouts/new" || path === "/templates/new") {
 				return emptyWorkoutDraft({
 					id: draftId,
@@ -63,8 +62,8 @@ export default function WorkoutEditorPage() {
 			if (templateCreate) {
 				return mode.kind === "historical"
 					? cloneWorkoutEditorSource(source.draft, {
-							idFor,
 							draftId,
+							idFor: createUuid,
 							kind: "template-create",
 							name: source.draft.name,
 							sourceWorkoutId: mode.entityId,
@@ -74,10 +73,10 @@ export default function WorkoutEditorPage() {
 			const startedAt = toIso(schedule.now());
 			if (mode.kind === "template-edit") {
 				return cloneWorkoutEditorSource(source.draft, {
-					idFor,
 					draftId,
 					startedAt,
 					kind: "live",
+					idFor: createUuid,
 					name: source.draft.name,
 					templateId: mode.entityId,
 				});
@@ -86,10 +85,10 @@ export default function WorkoutEditorPage() {
 				return yield* prepareFailure(catalogMessage("client.prepare.invalid-source"));
 			}
 			return cloneWorkoutEditorSource(source.draft, {
-				idFor,
 				draftId,
 				startedAt,
 				kind: "repeat",
+				idFor: createUuid,
 				name: source.draft.name,
 				sourceWorkoutId: mode.entityId,
 			});

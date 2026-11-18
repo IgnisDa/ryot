@@ -1,3 +1,4 @@
+import { createUuid } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
 	type Formatters,
@@ -551,7 +552,7 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 										draft.supersets.filter(({ clientId }) => clientId !== editing),
 										(id) => !selected.includes(id),
 									),
-									{ color, occurrenceIds: selected, clientId: editing ?? crypto.randomUUID() },
+									{ color, occurrenceIds: selected, clientId: editing ?? createUuid() },
 								],
 							}));
 							setEditing(undefined);

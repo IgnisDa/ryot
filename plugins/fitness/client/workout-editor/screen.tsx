@@ -1,5 +1,6 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	createUuid,
 	type PluginNavigationTarget,
 	usePluginScreenSurface,
 	useRyotViewport,
@@ -190,8 +191,8 @@ export function WorkoutEditorScreen(props: {
 			actions.run(
 				controller.start(
 					emptyWorkoutDraft({
+						id: createUuid(),
 						template: asTemplate,
-						id: crypto.randomUUID(),
 						settings: context.settings,
 						now: toIso(schedule.now()),
 						name: defaultWorkoutName(text, asTemplate),

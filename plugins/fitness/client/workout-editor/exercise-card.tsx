@@ -1,4 +1,4 @@
-import { useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { createUuid, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -308,7 +308,7 @@ export function ExerciseCard(props: {
 							variant="ghost"
 							disabled={disabled}
 							onClick={() => {
-								const setId = crypto.randomUUID();
+								const setId = createUuid();
 								const added = change((item) => {
 									const last = item.sets.at(-1);
 									return {

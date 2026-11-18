@@ -1,5 +1,6 @@
 import { readCursorPages } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { createUuid } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
@@ -204,7 +205,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 			setPresetNameError(true);
 			return;
 		}
-		const id = crypto.randomUUID();
+		const id = createUuid();
 		if (presets.add({ id, name, sort, filters, search: search.trim() })) {
 			setPresetNameError(false);
 			setActivePresetId(id);
