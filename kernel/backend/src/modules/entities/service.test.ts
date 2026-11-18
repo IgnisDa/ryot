@@ -1533,7 +1533,7 @@ describe("EntitiesService committed lifecycle", () => {
 							name: "Ignored",
 							lifecycle: command("global-noop"),
 						}),
-					).toEqual({ warnings: [], entity: created.entity });
+					).toEqual({ entity: created.entity });
 					const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T01:00:00.000Z"));
 					const updated = yield* service.upsert({
 						...input,
@@ -1616,7 +1616,6 @@ describe("EntitiesService committed lifecycle", () => {
 					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const first = yield* service.create(createInput("replay"));
-					expect(first.warnings).toEqual([]);
 					expect(first.entity.name).toBe("Original");
 					const [entities, triggers] = yield* session.run((db) =>
 						Effect.all([
@@ -1663,7 +1662,7 @@ describe("EntitiesService committed lifecycle", () => {
 					const noop = yield* service.update({ ...input, lifecycle: command("noop") });
 					expect(noop.entity).toEqual(updated.entity);
 					const deleted = yield* service.deleteByIds([created.entity.id], command("delete"));
-					expect(deleted).toEqual({ warnings: [], deletedCount: 1 });
+					expect(deleted).toEqual({ deletedCount: 1 });
 					const changes = (yield* session.run((db) =>
 						db.select().from(tables.automationTrigger),
 					)).filter((row) => row.category === "change");

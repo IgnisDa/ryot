@@ -68,17 +68,11 @@ const routesLayer = Layer.unwrap(
 		const serviceLayer = Layer.mock(EntityUserDataService)({
 			clearEntityUserData: (_user, entityId, command) =>
 				recordCommand("clear", command).pipe(
-					Effect.as({
-						entityId,
-						warnings: [],
-						deletedEventsCount: 0,
-						deletedRelationshipsCount: 0,
-					}),
+					Effect.as({ entityId, deletedEventsCount: 0, deletedRelationshipsCount: 0 }),
 				),
 			mergeEntityUserData: (_user, payload, command) =>
 				recordCommand("merge", command).pipe(
 					Effect.as({
-						warnings: [],
 						movedEventsCount: 0,
 						movedRelationshipsCount: 0,
 						mergeFrom: payload.mergeFrom,

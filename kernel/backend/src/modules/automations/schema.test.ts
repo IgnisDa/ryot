@@ -151,16 +151,6 @@ it("references the source automation trigger and pins package revisions", () => 
 	);
 });
 
-it("constrains automation run stage and status", () => {
-	const config = getTableConfig(automationRun);
-	const checks = new Map(
-		config.checks.map((entry) => [entry.name, dialect.sqlToQuery(entry.value).sql]),
-	);
-	expect(checks.get("automation_run_stage_check")).toContain("policy");
-	expect(checks.get("automation_run_status_check")).toContain("queued");
-	expect(checks.get("automation_run_status_check")).toContain("rejected");
-});
-
 it("defines automation run attempts with unique execution identities", () => {
 	const config = getTableConfig(automationRunAttempt);
 	expect(config.columns.find((column) => column.name === "id")).toMatchObject({

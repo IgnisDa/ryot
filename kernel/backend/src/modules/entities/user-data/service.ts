@@ -290,7 +290,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			) {
 				const committed = yield* transaction(persistPrepared(input));
 				yield* lifecycleExecution.dispatch(committed.dispatch);
-				return { ...committed.result, warnings: [] };
+				return committed.result;
 			});
 
 			const prepareRelationshipMove = Effect.fnUntraced(function* (input: {

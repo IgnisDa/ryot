@@ -68,7 +68,6 @@ const entity = {
 const makeRun = (trigger: AutomationTrigger) =>
 	AutomationPluginAfterRun.make({
 		queuedAt: now,
-		stage: "after",
 		startedAt: null,
 		attemptCount: 0,
 		finishedAt: null,

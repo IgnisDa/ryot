@@ -106,7 +106,6 @@ const portuguese = testCatalog("plugin-1", { "plugin.name": "Português" });
 const brazilian = testCatalog("plugin-1", { "plugin.name": "Brasileiro" });
 const darkTheme: PluginThemeSnapshot = { resolvedMode: "dark" };
 const membership = MembershipResponse.make({
-	warnings: [],
 	memberOf: {
 		properties: {},
 		relationshipSchemaPluginId: null,

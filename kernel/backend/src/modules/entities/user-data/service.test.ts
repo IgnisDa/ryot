@@ -564,7 +564,6 @@ layer(deletedEvents.layer)((test) => {
 				const result = yield* service.clearEntityUserData(user, EntityId.make("entity-1"), command);
 
 				expect(result).toEqual<unknown>({
-					warnings: [],
 					deletedEventsCount: 2,
 					deletedRelationshipsCount: 0,
 					entityId: EntityId.make("entity-1"),
@@ -727,14 +726,13 @@ layer(clearPhases.layer)((test) => {
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const service = yield* EntityUserDataService;
-				const result = yield* service.clearEntityUserData(user, EntityId.make("entity-1"), command);
+				yield* service.clearEntityUserData(user, EntityId.make("entity-1"), command);
 				expect(yield* session.isTransactionActive).toBe(false);
 
 				const observations = yield* clearPhases.recorded;
 				const batches = observations.flatMap((observation) =>
 					observation.kind === "batch" ? [observation.trigger] : [],
 				);
-				expect(result.warnings).toEqual([]);
 				expect(
 					batches.map(({ payload }) =>
 						payload?.operation === "batch" ? [payload.resource, payload.items.length] : null,
@@ -1006,7 +1004,6 @@ layer(
 				);
 
 				expect(result).toEqual<unknown>({
-					warnings: [],
 					mergeFrom: "from",
 					mergeInto: "into",
 					movedEventsCount: 0,
@@ -1141,7 +1138,6 @@ layer(mergeMoves.layer)((test) => {
 				);
 
 				expect(result).toEqual<unknown>({
-					warnings: [],
 					mergeFrom: "from",
 					mergeInto: "into",
 					movedEventsCount: 2,

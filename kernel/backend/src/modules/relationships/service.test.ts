@@ -241,13 +241,11 @@ describe("Relationships lifecycle owner", () => {
 						const input = { ...baseInput, properties: { rank: 1, labels: ["a"] } };
 						const created = yield* service.mergeUserProperties(input, command("merge-create"));
 						assert(created.relationship);
-						expect(created.warnings).toEqual([]);
 						const merged = yield* service.mergeUserProperties(
 							{ ...input, properties: { labels: ["a", "b"] } },
 							command("merge-update"),
 						);
 						expect(merged).toMatchObject({
-							warnings: [],
 							relationship: {
 								wasInserted: false,
 								id: created.relationship.id,
@@ -260,11 +258,10 @@ describe("Relationships lifecycle owner", () => {
 								command("merge-update"),
 							),
 						).toEqual(merged);
-						const noop = yield* service.mergeUserProperties(
+						yield* service.mergeUserProperties(
 							{ ...input, properties: { labels: ["a", "b"] } },
 							command("merge-noop"),
 						);
-						expect(noop.warnings).toEqual([]);
 						expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
 							[],
 						);
@@ -272,7 +269,6 @@ describe("Relationships lifecycle owner", () => {
 							{ ...input, properties: { rank: 3, labels: ["b"] } },
 							command("explicit-update"),
 						);
-						expect(updated.warnings).toEqual([]);
 						yield* session.run((db) =>
 							db
 								.insert(tables.user)
@@ -288,7 +284,7 @@ describe("Relationships lifecycle owner", () => {
 								created.relationship.id,
 								command("foreign-delete", UserId.make("other-owner")),
 							),
-						).toEqual({ warnings: [], relationship: null });
+						).toEqual({ relationship: null });
 						const deleted = yield* service.deleteUserRelationshipById(
 							userId,
 							created.relationship.id,
@@ -478,7 +474,6 @@ describe("Relationships lifecycle owner", () => {
 						)).find(({ blockedReason }) => blockedReason !== null);
 						assert(blocked);
 						expect(limited.relationship?.wasInserted).toBe(true);
-						expect(limited.warnings).toEqual([]);
 						expect(blocked.blockedReason).toEqual<unknown>({
 							code: "automation-limit-reached",
 							omittedHooks: [

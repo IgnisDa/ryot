@@ -45,7 +45,6 @@ const run = (input: {
 	hookSlug: input.id,
 	hookName: input.id,
 	historyPayload: payload,
-	stage: "after" as const,
 	scriptContentHash: "hash",
 	scriptSlug: "kernel.fixture",
 	sandboxScriptId: "kernel-script",

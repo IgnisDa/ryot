@@ -142,7 +142,6 @@ export const redactAutomationHistoryPayload = Effect.fnUntraced(function* (
 
 const immutableFields = (run: AutomationRun) => ({
 	id: run.id,
-	stage: run.stage,
 	pluginId: run.pluginId,
 	hookSlug: run.hookSlug,
 	hookName: run.hookName,
@@ -328,7 +327,6 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 						.where(
 							and(
 								eq(table.status, "queued"),
-								eq(table.stage, "after"),
 								lte(table.queuedAt, input.now),
 								or(isNull(table.nextAttemptAt), lte(table.nextAttemptAt, input.now)),
 								or(gt(table.attemptCount, 0), lte(table.queuedAt, input.initialQueuedBefore)),

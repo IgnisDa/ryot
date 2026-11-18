@@ -17,7 +17,6 @@ import {
 	AutomationRunAttempt,
 	AutomationTrigger,
 	AutomationTriggerPayload,
-	AutomationWarning,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "./lifecycle";
 
@@ -717,38 +716,6 @@ describe("lifecycle payload boundaries", () => {
 				]) {
 					yield* Effect.flip(Schema.decodeEffect(AutomationRetryPolicy)(retry));
 				}
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"limits warning disclosure to stable identities",
-		() =>
-			Effect.gen(function* () {
-				const blocked = {
-					triggerId: "trigger-1",
-					code: "automation-limit-reached",
-					omittedHooks: [
-						{ pluginId: null, hookSlug: "automation.notification" },
-						{ pluginId: "plugin-1", hookSlug: "automation.notification" },
-					],
-				};
-				expect(yield* Schema.decodeUnknownEffect(AutomationWarning)(blocked)).toEqual<unknown>(
-					blocked,
-				);
-				yield* Effect.flip(
-					Schema.decodeUnknownEffect(AutomationWarning)({ ...blocked, error: "secret" }),
-				);
-				yield* Effect.flip(
-					Schema.decodeEffect(AutomationWarning)({
-						triggerId: "trigger-1",
-						code: "automation-limit-reached",
-						omittedHooks: Array.from({ length: 101 }, () => ({
-							pluginId: "plugin-1",
-							hookSlug: "item.notify",
-						})),
-					}),
-				);
 			}),
 		testTimeout,
 	);

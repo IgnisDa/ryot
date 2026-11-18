@@ -409,7 +409,6 @@ describe("plugin repository revisions", () => {
 						db
 							.insert(tables.automationRun)
 							.values({
-								stage: "after",
 								id: "kernel-run",
 								status: "failed",
 								scriptSlug: newer.slug,

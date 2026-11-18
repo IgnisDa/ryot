@@ -197,7 +197,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 				yield* execution
 					.dispatch([toLifecycleDispatchPlan(plan)])
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-				return { warnings: [], triggerId: plan.trigger.id, wasCreated: plan.wasCreated };
+				return { triggerId: plan.trigger.id, wasCreated: plan.wasCreated };
 			});
 			return { planSignal, emitSignal };
 		}),

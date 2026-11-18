@@ -153,7 +153,6 @@ const createResult = (outcomes: ReadonlyArray<EventCreateItemOutcome>): CreateEv
 	const sorted = [...outcomes].sort((left, right) => left.index - right.index);
 	const failed = sorted.find((outcome) => outcome.status === "failed");
 	return {
-		warnings: [],
 		outcomes: sorted,
 		count: sorted.filter((outcome) => outcome.status === "written").length,
 		failure: failed ? { index: failed.index, reason: failed.reason } : null,
@@ -189,7 +188,7 @@ export const makeEventCreate = Effect.gen(function* () {
 	return Effect.fn("EventCreate")(
 		function* (input: EventCreateInput) {
 			if (input.payload.length === 0) {
-				return { count: 0, outcomes: [], warnings: [], failure: null };
+				return { count: 0, outcomes: [], failure: null };
 			}
 			const batch = eventCreateBatchInput(input);
 			const changes = changesOf(input);

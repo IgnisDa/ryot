@@ -353,9 +353,7 @@ const entityUpdates = recordingServiceLayer<unknown>((record) => ({
 	entities: {
 		getByIdAnyScope: () => Effect.succeed(unpopulatedEntity),
 		update: (input) =>
-			record(input).pipe(
-				Effect.as({ warnings: [], entity: { ...unpopulatedEntity, populatedAt } }),
-			),
+			record(input).pipe(Effect.as({ entity: { ...unpopulatedEntity, populatedAt } })),
 	},
 }));
 
@@ -413,10 +411,7 @@ const providerEntity = {
 };
 
 const globalEntityCreates = recordingServiceLayer<unknown>((record) => ({
-	entities: {
-		createGlobal: (input) =>
-			record(input).pipe(Effect.as({ warnings: [], entity: providerEntity })),
-	},
+	entities: { createGlobal: (input) => record(input).pipe(Effect.as({ entity: providerEntity })) },
 }));
 
 layer(globalEntityCreates.layer)((test) => {
@@ -470,10 +465,7 @@ const populatedCreates = recordingServiceLayer<unknown>((record) => ({
 	entities: {
 		createGlobal: (input) =>
 			record(input).pipe(
-				Effect.as({
-					warnings: [],
-					entity: { ...rootFactEntity, populatedAt: "2026-07-21T00:00:00.000Z" },
-				}),
+				Effect.as({ entity: { ...rootFactEntity, populatedAt: "2026-07-21T00:00:00.000Z" } }),
 			),
 	},
 }));
@@ -527,13 +519,11 @@ const mutationCommands = recordingServiceLayer<{
 }>((record) => ({
 	entities: {
 		deleteByIds: (_ids, command) =>
-			record({ command, kind: "delete" }).pipe(Effect.as({ warnings: [], deletedCount: 1 })),
+			record({ command, kind: "delete" }).pipe(Effect.as({ deletedCount: 1 })),
 	},
 	relationships: {
 		create: (input, command) =>
-			record({ input, command, kind: "relationship" }).pipe(
-				Effect.as({ relationship, warnings: [] }),
-			),
+			record({ input, command, kind: "relationship" }).pipe(Effect.as({ relationship })),
 	},
 	relationshipSchemas: {
 		findByReference: (reference, userId) =>

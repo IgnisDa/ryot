@@ -43,7 +43,6 @@ import {
 const trigger = triggerFixture();
 const accountUserId = UserId.make("owner");
 const run = AutomationPluginAfterRun.make({
-	stage: "after",
 	attemptCount: 0,
 	startedAt: null,
 	hookName: "Hook",
@@ -301,7 +300,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 					Effect.flatMap(current, ({ options, attempt }) =>
 						options.overrides?.claim
 							? options.overrides.claim(input)
-							: Effect.succeed({ attempt, claimed: true, stage: (options.run ?? run).stage }),
+							: Effect.succeed({ attempt, claimed: true }),
 					),
 				prepare: (input) =>
 					Effect.flatMap(selected, (chosen) =>

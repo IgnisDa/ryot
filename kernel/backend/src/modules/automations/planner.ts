@@ -196,7 +196,6 @@ export const LifecyclePlannerLive = Layer.effect(
 							status: "queued",
 							finishedAt: null,
 							skipReason: null,
-							stage: hook.stage,
 							hookName: hook.name,
 							nextAttemptAt: null,
 							scriptSlug: script.slug,

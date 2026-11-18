@@ -79,7 +79,6 @@ const mountMembers = (
 					return Effect.fail(new RyotClientError({ reason: "transport" }));
 				}
 				return Effect.succeed({
-					warnings: [],
 					memberOf: {
 						properties: {},
 						sourceEntityId: entityId,

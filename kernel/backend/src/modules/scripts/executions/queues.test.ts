@@ -29,6 +29,7 @@ import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
+import { HeldInlineBatch, ScriptCalls, ScriptCallsInstalledLive } from "./calls";
 import {
 	compiledArtifactsLayer,
 	hotSwapScript,
@@ -37,7 +38,6 @@ import {
 } from "./fixtures.test-support";
 import {
 	executeSandboxExecution,
-	HeldInlineBatch,
 	SandboxProjectionMissing,
 	SandboxRecoverySuspended,
 } from "./queues";
@@ -281,41 +281,46 @@ const queuedRepositoryLayer = scriptRepositoryLayer((scriptId) => ({
 }));
 const queuedArtifactsLayer = compiledArtifactsLayer(queuedRepositoryLayer);
 
-const nestedRun = (lane: ExecutionLane, held: ExecutionLane) =>
-	executeSandboxExecution({
-		lane,
-		...queuedReplay,
-		context: {},
-		executionId: `nested-${lane}-${held}`,
-		principal: {
-			providerId: null,
-			scriptSlug: "kernel",
-			pluginRevision: null,
-			scriptId: kernelScriptId,
-			subject: { type: "system" },
-			contentHash: kernelContentHash,
-			metadata: { runtimeImports: [] },
-		},
-	}).pipe(Effect.provideService(HeldInlineBatch, held));
+const nestedCall = (lane: ExecutionLane, held: ExecutionLane) =>
+	Effect.flatMap(ScriptCalls, (calls) =>
+		calls.run({
+			lane,
+			input: {},
+			executionId: `nested-${lane}-${held}`,
+			principal: {
+				providerId: null,
+				scriptSlug: "kernel",
+				pluginRevision: null,
+				scriptId: kernelScriptId,
+				subject: { type: "system" },
+				contentHash: kernelContentHash,
+				metadata: { runtimeImports: [] },
+			},
+		}),
+	).pipe(Effect.provideService(HeldInlineBatch, held));
 
 layer(
-	Layer.mergeAll(
-		isolatedDatabaseLayer("sandbox_queues"),
-		dispatcherLayer,
-		unusedKernelWorkflowReferencesLayer,
-		queuedArtifactsLayer,
-		runtimeSandboxLayer((input) =>
-			Effect.succeed({
-				logs: [],
-				inline: [],
-				error: null,
-				success: true,
-				harvest: null,
-				pendingInline: [],
-				value: "queued-result",
-				executionId: input.executionId,
-				timing: { totalMs: 1, executionMs: 1 },
-			}),
+	ScriptCallsInstalledLive.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				isolatedDatabaseLayer("sandbox_queues"),
+				dispatcherLayer,
+				unusedKernelWorkflowReferencesLayer,
+				queuedArtifactsLayer,
+				runtimeSandboxLayer((input) =>
+					Effect.succeed({
+						logs: [],
+						inline: [],
+						error: null,
+						success: true,
+						harvest: null,
+						pendingInline: [],
+						value: "queued-result",
+						executionId: input.executionId,
+						timing: { totalMs: 1, executionMs: 1 },
+					}),
+				),
+			),
 		),
 	),
 )((test) => {
@@ -371,20 +376,14 @@ layer(
 	);
 
 	test.effect(
-		"runs a script nested in an inline batch on the lane that batch does not hold",
+		"calls a script from an inline batch on the lane that batch does not hold",
 		() =>
 			Effect.gen(function* () {
 				const recorded = yield* RecordedRuns;
-				const before = (yield* recorded.reserved).length;
 				const runsBefore = (yield* recorded.runs).length;
-				yield* nestedRun("interactive", "interactive");
-				yield* nestedRun("background", "background");
-				yield* nestedRun("background", "interactive");
-				expect((yield* recorded.reserved).slice(before)).toEqual([
-					"background",
-					"interactive",
-					"background",
-				]);
+				yield* nestedCall("interactive", "interactive");
+				yield* nestedCall("background", "background");
+				yield* nestedCall("background", "interactive");
 				expect((yield* recorded.runs).slice(runsBefore).map(({ lane }) => lane)).toEqual([
 					"background",
 					"interactive",
@@ -698,7 +697,23 @@ layer(
 		"waits out a full admission queue instead of failing a queued execution",
 		() =>
 			Effect.gen(function* () {
-				const execution = yield* Effect.forkChild(nestedRun("background", "interactive"));
+				const execution = yield* Effect.forkChild(
+					executeSandboxExecution({
+						...queuedReplay,
+						context: {},
+						lane: "background",
+						executionId: "queued-full-admission",
+						principal: {
+							providerId: null,
+							scriptSlug: "kernel",
+							pluginRevision: null,
+							scriptId: kernelScriptId,
+							subject: { type: "system" },
+							contentHash: kernelContentHash,
+							metadata: { runtimeImports: [] },
+						},
+					}),
+				);
 				yield* TestClock.adjust("1 second");
 				expect((yield* Fiber.join(execution)).value).toBe("queued-result");
 			}),

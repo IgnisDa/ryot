@@ -1,12 +1,7 @@
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { CollectionResponse } from "@ryot-app/contract/modules/collections/schemas";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 
-export const toCollectionResponse = (
-	entity: ListedEntity,
-	warnings: ReadonlyArray<AutomationWarning>,
-): CollectionResponse => ({
-	warnings,
+export const toCollectionResponse = (entity: ListedEntity): CollectionResponse => ({
 	id: entity.id,
 	name: entity.name,
 	entitySchemaPluginId: null,

@@ -64,7 +64,7 @@ export type LifecyclePlanningResult =
 	  };
 
 const LifecycleDispatchRun = Schema.Struct(
-	Struct.pick(AutomationPluginAfterRun.fields, ["id", "stage", "status", "hookSlug", "triggerId"]),
+	Struct.pick(AutomationPluginAfterRun.fields, ["id", "status", "hookSlug", "triggerId"]),
 );
 
 export const LifecycleDispatchPlan = Schema.Struct({
@@ -82,7 +82,6 @@ export const toLifecycleDispatchPlan = ({
 	blockedReason: trigger.blockedReason,
 	runs: runs.map((run) => ({
 		id: run.id,
-		stage: run.stage,
 		status: run.status,
 		hookSlug: run.hookSlug,
 		triggerId: run.triggerId,

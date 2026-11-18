@@ -254,7 +254,6 @@ const planner = (
 									db
 										.insert(tables.automationRun)
 										.values({
-											stage: "after",
 											hookSlug: "fixture",
 											hookName: "Fixture",
 											triggerId: trigger.id,
@@ -884,11 +883,8 @@ describe("Event lifecycle PostgreSQL", () => {
 								writeContext: null,
 							},
 						),
-					).toEqual({ warnings: [], eventId: null });
-					expect(yield* service.moveReferences(move, command("move"))).toEqual({
-						eventId,
-						warnings: [],
-					});
+					).toEqual({ eventId: null });
+					expect(yield* service.moveReferences(move, command("move"))).toEqual({ eventId });
 					const current = yield* repository.getEventSnapshot({ userId, eventId });
 					assert(current);
 					const { snapshot } = current;
@@ -903,10 +899,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							occurredAt: beforeTime.toISOString(),
 						},
 					});
-					expect(yield* service.moveReferences(move, command("noop"))).toEqual({
-						warnings: [],
-						eventId: null,
-					});
+					expect(yield* service.moveReferences(move, command("noop"))).toEqual({ eventId: null });
 					assertExitFails(
 						yield* Effect.exit(
 							failingService.delete({ userId, eventId }, command("failed-delete")),
@@ -916,10 +909,8 @@ describe("Event lifecycle PostgreSQL", () => {
 					expect(yield* repository.getEventSnapshot({ userId, eventId })).toEqual(current);
 					expect(yield* service.delete({ userId, eventId }, command("delete"))).toEqual({
 						eventId,
-						warnings: [],
 					});
 					expect(yield* service.delete({ userId, eventId }, command("already-deleted"))).toEqual({
-						warnings: [],
 						eventId: null,
 					});
 					const result = yield* Effect.promise(
@@ -1381,12 +1372,12 @@ describe("Event lifecycle PostgreSQL", () => {
 						);
 						const move = { userId, eventId, mergeInto: movedId, mergeFrom: entityId };
 						const updated = yield* service.moveReferences(move, command("no-hook-update"));
-						expect(updated).toEqual({ eventId, warnings: [] });
+						expect(updated).toEqual({ eventId });
 						expect(
 							(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.entityId,
 						).toBe(movedId);
 						const noop = yield* service.moveReferences(move, command("no-hook-noop"));
-						expect(noop).toEqual({ warnings: [], eventId: null });
+						expect(noop).toEqual({ eventId: null });
 						yield* session.transaction(
 							repository.updateEventEntityReferences({
 								...move,
@@ -1399,11 +1390,10 @@ describe("Event lifecycle PostgreSQL", () => {
 							(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.entityId,
 						).toBe(entityId);
 						const deleted = yield* service.delete({ userId, eventId }, command("no-hook-delete"));
-						expect(deleted).toEqual({ eventId, warnings: [] });
+						expect(deleted).toEqual({ eventId });
 						const missingId = EventId.make("no-hook-missing-delete");
 						const missingCommand = command("no-hook-missing-delete");
 						expect(yield* service.delete({ userId, eventId: missingId }, missingCommand)).toEqual({
-							warnings: [],
 							eventId: null,
 						});
 						expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(0);
@@ -1472,10 +1462,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						properties: { remove: [], set: { rating: 2 } },
 					});
 					const lifecycle = command("policy-edit");
-					expect(yield* service.edit(submitted, userId, lifecycle)).toEqual({
-						eventId,
-						warnings: [],
-					});
+					expect(yield* service.edit(submitted, userId, lifecycle)).toEqual({ eventId });
 					expect(policyInputs).toHaveLength(2);
 					expect(policyInputs[1]?.request).toMatchObject({
 						draft: { properties: { rating: 10 }, occurredAt: "2026-09-16T00:00:00.000Z" },
@@ -1501,7 +1488,6 @@ describe("Event lifecycle PostgreSQL", () => {
 					const move = { userId, mergeInto: movedId, mergeFrom: entityId, eventId: moveEventId };
 					const moveCommand = command("policy-move");
 					expect(yield* service.moveReferences(move, moveCommand)).toEqual({
-						warnings: [],
 						eventId: moveEventId,
 					});
 					expect(policyInputs[1]?.request).toMatchObject({
@@ -1820,7 +1806,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							userId,
 							command("field-precondition-retry"),
 						),
-					).toEqual({ warnings: [], eventId: retryEventId });
+					).toEqual({ eventId: retryEventId });
 					expect(retryPolicyInputs).toHaveLength(2);
 					const retryResult = yield* repository.getEventSnapshot({ userId, eventId: retryEventId });
 					assert(retryResult);

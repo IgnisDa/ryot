@@ -247,7 +247,6 @@ export const planFixture = (id: string): LifecyclePlan => ({
 
 export const queuedRunFixture = (id: string) =>
 	AutomationRun.make({
-		stage: "after",
 		pluginId: null,
 		attemptCount: 0,
 		startedAt: null,

@@ -19,7 +19,6 @@ import { CollectionEditor } from "#/modules/collections/collection-editor";
 
 const collectionId = EntityId.make("collection-1");
 const response: CollectionResponse = {
-	warnings: [],
 	properties: {},
 	id: collectionId,
 	externalId: null,
@@ -65,7 +64,7 @@ const mountEditor = (
 				delete: (_scope, request) =>
 					Effect.sync(() => {
 						requests.push(request.payload);
-						return { warnings: [], id: collectionId };
+						return { id: collectionId };
 					}),
 				...options.api,
 			}),

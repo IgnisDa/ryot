@@ -705,7 +705,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					commit,
 					prepare: step,
 					applyPolicies: applyMutationPolicies,
-				}).pipe(Effect.map(({ result, warnings }) => ({ ...result, warnings })));
+				});
 			const planCreate = Effect.fnUntraced(function* (
 				input: CreateEntityInput,
 				updateExisting?: boolean,
@@ -831,8 +831,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			const saveCreate = (input: CreateEntityInput, updateExisting?: boolean) =>
 				saveInline(prepareCreateStep(input, updateExisting));
 			const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
-				const { entity, warnings } = yield* saveCreate(input);
-				return { entity, warnings };
+				const { entity } = yield* saveCreate(input);
+				return { entity };
 			});
 			const createFromApi = Effect.fn("EntitiesService.createFromApi")(function* (
 				input: CreateEntityInput,
@@ -851,8 +851,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				return yield* create({ ...input, scope: "global" });
 			});
 			const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
-				const { entity, warnings } = yield* saveCreate(input, input.updateExisting);
-				return { entity, warnings };
+				const { entity } = yield* saveCreate(input, input.updateExisting);
+				return { entity };
 			});
 			const persistPlannedProviderUpserts = Effect.fn(
 				"EntitiesService.persistPlannedProviderUpserts",
@@ -1076,7 +1076,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					scopeUserId: current.userId,
 					operation: "update" as const,
 				};
-				const { entity, warnings } = yield* saveInline(
+				const { entity } = yield* saveInline(
 					transaction(
 						Effect.gen(function* () {
 							const pending = yield* planMutationInTransaction(pendingInput);
@@ -1092,7 +1092,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							mutationUserIds(pending.lifecycle, pending.scopeUserId),
 						),
 				);
-				return { entity, warnings };
+				return { entity };
 			});
 			const prepareUserSave = Effect.fn("EntitiesService.prepareUserSave")(function* (
 				input: PrepareUserEntitySaveInput,
@@ -1439,7 +1439,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				yield* execution
 					.dispatch(committed.dispatch)
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-				return { warnings: [], deletedCount: committed.deletedCount };
+				return { deletedCount: committed.deletedCount };
 			});
 			const prepareEnsures = Effect.fn("EntitiesService.prepareEnsures")(function* (
 				userId: UserId,

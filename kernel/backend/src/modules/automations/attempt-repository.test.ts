@@ -94,7 +94,6 @@ const seed = (maxAttempts = 2) =>
 					.values({
 						id: runId,
 						queuedAt: now,
-						stage: "after",
 						hookName: "Notify",
 						triggerId: "trigger",
 						hookSlug: "kernel.notify",

@@ -102,7 +102,7 @@ layer(execution)((test) => {
 			);
 
 			return Effect.gen(function* () {
-				expect(yield* step).toEqual({ warnings: [], result: { committed: "first-transformed" } });
+				expect(yield* step).toEqual({ committed: "first-transformed" });
 				expect(activityRuns).toEqual([
 					"write-record:prepare",
 					"write-record:policy-outcome",

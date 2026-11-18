@@ -149,8 +149,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					commit: commitSingle,
 					applyPolicies: mutations.applyPolicies,
 				}).pipe(
-					Effect.map(({ result, warnings }): RelationshipMutationResult => ({
-						warnings,
+					Effect.map((result): RelationshipMutationResult => ({
 						relationship: result.relationship,
 					})),
 				);

@@ -118,7 +118,6 @@ const seed = Effect.gen(function* () {
 					attemptCount: 1,
 					hookName: "Hook",
 					status: input.status,
-					stage: "after" as const,
 					hookSlug: "fixture.hook",
 					scriptContentHash: "hash",
 					scriptSlug: "fixture.script",

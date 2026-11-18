@@ -46,7 +46,6 @@ const mountManager = (
 					properties = undefined;
 				}
 				return Effect.succeed({
-					warnings: [],
 					memberOf: {
 						id: "membership-1",
 						sourceEntityId: "entity-1",

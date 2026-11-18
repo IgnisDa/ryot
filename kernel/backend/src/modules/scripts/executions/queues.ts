@@ -12,7 +12,7 @@ import { sandboxInlineDurableCapabilities } from "@ryot-app/sandbox/host/host-ex
 import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Context, Duration, Effect, Exit, Layer, Option, Schedule, Schema } from "effect";
+import { Duration, Effect, Exit, Layer, Option, Schedule, Schema } from "effect";
 import { Activity, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -29,6 +29,7 @@ import { isSandboxCapabilityAllowed } from "../authorization/capabilities";
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { ExecutableArtifacts } from "../registry/executable-artifacts";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
+import { HeldInlineBatch } from "./calls";
 import { SandboxExecutionResult, stampSandboxExecutionError } from "./result";
 import { infrastructureRunError } from "./run-error";
 import { sandboxReplayPriority } from "./scheduling-key";
@@ -161,21 +162,10 @@ export type SandboxExecutionResolutionMode = "exact" | "active";
 
 const QUEUED_ADMISSION_RETRY = Schedule.spaced(Duration.millis(100)).pipe(Schedule.jittered);
 
-// An inline batch keeps its lane's transient pool, which fits one batch, until its host calls settle. A script
-// nested in one of those calls could never get a batch on that lane while its parent waits for it.
-export const HeldInlineBatch = Context.Reference<null | ExecutionLane>(
-	"@ryot-app/kernel-backend/modules/scripts/executions/queues/HeldInlineBatch",
-	{ defaultValue: () => null },
-);
-
-const otherLane = (lane: ExecutionLane): ExecutionLane =>
-	lane === "interactive" ? "background" : "interactive";
-
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionQueuePayload,
 ) {
-	const held = yield* HeldInlineBatch;
-	const lane = held === payload.lane ? otherLane(held) : payload.lane;
+	const { lane } = payload;
 	yield* Effect.annotateCurrentSpan({
 		executionId: payload.executionId,
 		scriptId: payload.principal.scriptId,

@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	type EntityEditorDeleteSubmission,
 	EntityEditorRefused,
@@ -87,7 +86,6 @@ const commandIdentityReused = () =>
 	new EntityEditorRefused({ reason: kernelMessage("error.entities.command-identity-reused") });
 const invalid = (reason: Message): EntityEditorSaveOutput => ({ reason, kind: "invalid" });
 const stale: EntityEditorSaveOutput = { kind: "stale" };
-const noWarnings: ReadonlyArray<AutomationWarning> = [];
 
 const relationshipBasis = (
 	rows: ReadonlyArray<{
@@ -256,7 +254,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				const { key, userId, submission, lifecycle: command } = input;
 				const schemaOwner = submission.entitySchema.owner;
 				if (schemaOwner.kind !== "plugin") {
-					return { warnings: noWarnings, output: invalid(notEditable) };
+					return { output: invalid(notEditable) };
 				}
 				const { pluginId } = schemaOwner;
 				const entitySchemaSlug = EntitySchemaSlug.make(submission.entitySchema.slug);
@@ -278,10 +276,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 								new Set(targets.map(({ entityId }) => entityId)).size !== targets.length,
 						)
 					) {
-						return {
-							warnings: noWarnings,
-							output: invalid(kernelMessage("error.entity-editor.baseline-mismatch")),
-						};
+						return { output: invalid(kernelMessage("error.entity-editor.baseline-mismatch")) };
 					}
 				}
 				if (
@@ -291,14 +286,10 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 							new Set(targets.map(({ entityId }) => entityId)).size !== targets.length,
 					)
 				) {
-					return {
-						warnings: noWarnings,
-						output: invalid(kernelMessage("error.entity-editor.duplicate-relationships")),
-					};
+					return { output: invalid(kernelMessage("error.entity-editor.duplicate-relationships")) };
 				}
 				if (targetCount > limits.relationshipTargets) {
 					return {
-						warnings: noWarnings,
 						output: invalid(
 							kernelMessage("error.entity-editor.too-many-targets", {
 								limit: limits.relationshipTargets,
@@ -318,7 +309,6 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					.pipe(Effect.catchTag("IdempotencyConflict", () => Effect.fail(commandIdentityReused())));
 				if (replay) {
 					return {
-						warnings: noWarnings,
 						output: {
 							kind: "saved",
 							entityId: replay.response.entityId,
@@ -328,7 +318,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 
 				const authorization = yield* authorize(userId, submission.entitySchema, slugs);
 				if (authorization.kind === "refused") {
-					return { warnings: noWarnings, output: invalid(authorization.reason) };
+					return { output: invalid(authorization.reason) };
 				}
 				const { directions } = authorization;
 				const parentRefusal = [...directions].find(([slug, direction]) => {
@@ -351,7 +341,6 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				});
 				if (parentRefusal !== undefined) {
 					return {
-						warnings: noWarnings,
 						output: invalid(
 							kernelMessage("error.entity-editor.parent-required", {
 								relationship: parentRefusal[0],
@@ -397,7 +386,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					submission.target.kind === "update" &&
 					basis !== relationshipBasis(relationshipRows(submission.target.expected.relationships))
 				) {
-					return { output: stale, warnings: noWarnings };
+					return { output: stale };
 				}
 
 				const changes: Array<
@@ -439,7 +428,6 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				}
 				if (changes.length > limits.relationshipChanges) {
 					return {
-						warnings: noWarnings,
 						output: invalid(
 							kernelMessage("error.entity-editor.too-many-changes", {
 								limit: limits.relationshipChanges,
@@ -536,14 +524,13 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					userId,
 				);
 				if (committed.kind === "stale") {
-					return { output: stale, warnings: noWarnings };
+					return { output: stale };
 				}
 				if (committed.kind === "refused") {
-					return { warnings: noWarnings, output: invalid(committed.reason) };
+					return { output: invalid(committed.reason) };
 				}
 				yield* execution.dispatch(committed.dispatch);
 				return {
-					warnings: noWarnings,
 					output: { kind: "saved", entityId: committed.entityId } satisfies EntityEditorSaveOutput,
 				};
 			});
@@ -565,18 +552,15 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					.read(identity, DeleteResult)
 					.pipe(Effect.catchTag("IdempotencyConflict", () => Effect.fail(commandIdentityReused())));
 				if (replay) {
-					return { warnings: noWarnings, output: { kind: "deleted" as const } };
+					return { output: { kind: "deleted" as const } };
 				}
 				const entityId = EntityId.make(submission.entityId);
 				const authorization = yield* authorize(userId, submission.entitySchema, []);
 				if (authorization.kind === "refused") {
-					return { warnings: noWarnings, output: invalid(authorization.reason) };
+					return { output: invalid(authorization.reason) };
 				}
 				if (!authorization.deletable) {
-					return {
-						warnings: noWarnings,
-						output: invalid(kernelMessage("error.entity-editor.not-deletable")),
-					};
+					return { output: invalid(kernelMessage("error.entity-editor.not-deletable")) };
 				}
 				const entitySchema = {
 					owner: submission.entitySchema.owner,
@@ -588,7 +572,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 					}
 					if (current.entity.updatedAt !== submission.expectedUpdatedAt) {
-						return { output: stale, warnings: noWarnings };
+						return { output: stale };
 					}
 					const links = yield* relationshipsRepository.listUserRelationshipsForEntity({
 						userId,
@@ -602,22 +586,19 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						);
 					});
 					if (unmanaged) {
-						return {
-							warnings: noWarnings,
-							output: invalid(kernelMessage("error.entity-editor.has-links")),
-						};
+						return { output: invalid(kernelMessage("error.entity-editor.has-links")) };
 					}
 				}
-				const { warnings, deletedCount } = yield* entities.deleteByIds(
-					[entityId],
-					input.lifecycle,
-					{ userId, entitySchema, preserveHistory: true },
-				);
+				const { deletedCount } = yield* entities.deleteByIds([entityId], input.lifecycle, {
+					userId,
+					entitySchema,
+					preserveHistory: true,
+				});
 				if (deletedCount === 0) {
 					return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 				}
 				yield* keys.record(identity, DeleteResult, { deleted: true });
-				return { warnings, output: { kind: "deleted" } satisfies EntityEditorSaveOutput };
+				return { output: { kind: "deleted" } satisfies EntityEditorSaveOutput };
 			});
 
 			const handled = (
@@ -631,7 +612,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						: remove({ ...input, submission: input.submission }),
 				).pipe(
 					Effect.catchTags({
-						EntityStale: () => Effect.succeed({ output: stale, warnings: noWarnings }),
+						EntityStale: () => Effect.succeed({ output: stale }),
 						LifecyclePersistenceError: (error: LifecyclePersistenceError) =>
 							Effect.fail(
 								new DbError({
@@ -641,26 +622,25 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						RelationshipNotFound: (error: RelationshipNotFound) =>
 							error.reason.code === "entity-not-found"
 								? Effect.succeed({
-										warnings: [] as ReadonlyArray<AutomationWarning>,
 										output: invalid(kernelMessage("error.entity-editor.target-not-found")),
 									})
 								: Effect.fail(error),
 						EntityBadRequest: (error: EntityBadRequest) => {
 							const reason = invalidEntityReason(error);
 							if (reason !== null) {
-								return Effect.succeed({ warnings: noWarnings, output: invalid(reason) });
+								return Effect.succeed({ output: invalid(reason) });
 							}
 							return error.reason.code === "mutation-conflict"
-								? Effect.succeed({ output: stale, warnings: noWarnings })
+								? Effect.succeed({ output: stale })
 								: Effect.fail(error);
 						},
 						RelationshipBadRequest: (error: RelationshipBadRequest) => {
 							const reason = invalidRelationshipReason(error);
 							if (reason !== null) {
-								return Effect.succeed({ warnings: noWarnings, output: invalid(reason) });
+								return Effect.succeed({ output: invalid(reason) });
 							}
 							return error.reason.code === "concurrent-relationship-change"
-								? Effect.succeed({ output: stale, warnings: noWarnings })
+								? Effect.succeed({ output: stale })
 								: Effect.fail(error);
 						},
 					}),

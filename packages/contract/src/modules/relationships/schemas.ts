@@ -8,7 +8,6 @@ import {
 	RelationshipId,
 	RelationshipSchemaSlug,
 } from "../../schema/brands";
-import { AutomationWarning } from "../automations/lifecycle";
 import { DefinitionOwner, RelationshipSchemaReference } from "../plugins/references";
 
 const RelationshipBadRequestReason = Schema.Union([
@@ -83,7 +82,6 @@ export const RelationshipScope = Schema.Struct({
 export type RelationshipScope = typeof RelationshipScope.Type;
 
 export const RelationshipMutationResult = Schema.Struct({
-	warnings: Schema.Array(AutomationWarning),
 	relationship: Schema.NullOr(RelationshipScope),
 });
 export type RelationshipMutationResult = typeof RelationshipMutationResult.Type;

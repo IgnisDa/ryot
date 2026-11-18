@@ -286,7 +286,6 @@ describe("AutomationRunRepository", () => {
 					const script = scripts.find(({ slug }) => slug === hook.scriptSlug);
 					assert(script);
 					const base = yield* Schema.decodeEffect(AutomationRun)({
-						stage: "after",
 						id: "bulk-base",
 						attemptCount: 0,
 						startedAt: null,
@@ -444,7 +443,6 @@ describe("AutomationRunRepository", () => {
 							const run = yield* Schema.decodeEffect(AutomationRun)({
 								id: "run",
 								pluginId: null,
-								stage: "after",
 								attemptCount: 0,
 								startedAt: null,
 								status: "queued",

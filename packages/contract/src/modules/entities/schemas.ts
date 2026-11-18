@@ -9,7 +9,6 @@ import {
 	SandboxProviderId,
 } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
-import { AutomationWarning } from "../automations/lifecycle";
 import { DefinitionOwner, EntitySchemaReference } from "../plugins/references";
 
 const EntityBadRequestReason = Schema.Union([
@@ -114,10 +113,7 @@ export const ListedEntity = Schema.Struct({
 
 export type ListedEntity = typeof ListedEntity.Type;
 
-export const EntityMutationResult = Schema.Struct({
-	entity: ListedEntity,
-	warnings: Schema.Array(AutomationWarning),
-});
+export const EntityMutationResult = Schema.Struct({ entity: ListedEntity });
 export type EntityMutationResult = typeof EntityMutationResult.Type;
 
 export const EnrichmentState = Schema.Struct({

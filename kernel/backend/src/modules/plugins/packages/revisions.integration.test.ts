@@ -269,7 +269,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									.insert(tables.automationRun)
 									.values({
 										pluginId,
-										stage: "after",
 										id: "retained-run",
 										hookName: "Fixture",
 										scriptSlug: script.slug,
@@ -383,7 +382,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 								const kernelRun = {
 									id: "kernel-run",
 									hookName: "Kernel",
-									stage: "after" as const,
 									hookSlug: "kernel.notify",
 									triggerId: "shared-trigger",
 									scriptSlug: "kernel.notify",

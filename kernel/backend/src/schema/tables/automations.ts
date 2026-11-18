@@ -116,7 +116,6 @@ export const automationRun = snakeCase.table(
 		artifactsExpireAt: timestamptz().notNull(),
 		attemptCount: integer().notNull().default(0),
 		queuedAt: timestamptz().defaultNow().notNull(),
-		stage: text().$type<AutomationRun["stage"]>().notNull(),
 		skipReason: jsonb().$type<AutomationRun["skipReason"]>(),
 		sandboxScriptId: text().references(() => sandboxScript.id),
 		historyPayloadTruncated: boolean().notNull().default(false),
@@ -173,10 +172,9 @@ export const automationRun = snakeCase.table(
 			"automation_run_owner_check",
 			sql`(${table.pluginId} is null and ${table.pluginRevisionId} is null and ${table.pluginConfigRevisionId} is null) or (${table.pluginId} is not null and ${table.pluginRevisionId} is not null and ${table.pluginConfigRevisionId} is not null)`,
 		),
-		check("automation_run_stage_check", sql`${table.stage} = 'after'`),
 		check(
 			"automation_run_status_check",
-			sql`${table.status} in ('queued', 'running', 'succeeded', 'failed', 'rejected', 'skipped') and ${table.attemptCount} >= 0`,
+			sql`${table.status} in ('queued', 'running', 'succeeded', 'failed', 'skipped') and ${table.attemptCount} >= 0`,
 		),
 		check(
 			"automation_run_live_script_check",

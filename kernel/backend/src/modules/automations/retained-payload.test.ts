@@ -116,7 +116,6 @@ const seedRun = (
 					id,
 					hookName: id,
 					hookSlug: id,
-					stage: "after",
 					startedAt: null,
 					attemptCount: 0,
 					finishedAt: null,

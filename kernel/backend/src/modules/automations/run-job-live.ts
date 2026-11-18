@@ -86,7 +86,6 @@ class AutomationPreparationError extends Schema.TaggedError<
 
 const ClaimedAutomationAttempt = Schema.Struct({
 	claimed: Schema.Boolean,
-	stage: Schema.Literals(["before", "after"]),
 	attempt: Schema.NullOr(AutomationRunAttempt),
 });
 
@@ -185,11 +184,11 @@ export const prepareAutomationInvocation = (
 		return yield* Schema.decodeUnknownEffect(PreparedAutomationRun)({
 			input,
 			scriptId: run.sandboxScriptId,
-			lane: automationRunLane({ stage: run.stage, causation: trigger.causation }),
+			lane: automationRunLane({ stage: "after", causation: trigger.causation }),
 			subject: {
 				runId: run.id,
 				accountUserId,
-				stage: run.stage,
+				stage: "after",
 				triggerId: trigger.id,
 				type: "automation-run",
 				pluginId: run.pluginId,
@@ -244,15 +243,11 @@ export const AutomationRunOperationsLive = Layer.effect(
 				calls.run({ lane, input, principal, executionId }),
 			claim: (payload) =>
 				Effect.gen(function* () {
-					const result = yield* attempts.claimNextAttempt({
+					const { attempt, claimed } = yield* attempts.claimNextAttempt({
 						...payload,
 						now: DateTime.toDate(DateTime.makeUnsafe(yield* Clock.currentTimeMillis)),
 					});
-					const run = yield* runs.findById(payload.runId);
-					if (!run) {
-						return yield* new DbError({ message: "Automation run is unavailable" });
-					}
-					return { stage: run.stage, attempt: result.attempt, claimed: result.claimed };
+					return { attempt, claimed };
 				}),
 			finalize: (input, written) =>
 				Effect.gen(function* () {
@@ -358,7 +353,7 @@ export const AutomationRunOperationsLive = Layer.effect(
 								const declaration = revision?.scripts.find(
 									(candidate) => candidate.slug === run.scriptSlug,
 								);
-								if (!hook || hook.scriptSlug !== run.scriptSlug || hook.stage !== run.stage) {
+								if (!hook || hook.scriptSlug !== run.scriptSlug || hook.stage !== "after") {
 									return yield* missing();
 								}
 								if (!declaration) {

@@ -1,5 +1,4 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
-import type { AutomationWarning as AutomationWarningValue } from "@ryot-app/contract/modules/automations/lifecycle";
 import { ChangeSetEntity, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import {
 	type CreateEventItem,
@@ -568,7 +567,6 @@ type GenericImportContext = {
 	readonly userId: UserId;
 	readonly item: GenericImportWriteItem;
 	readonly command: DomainLifecycleCommand;
-	readonly warnings: AutomationWarningValue[];
 	readonly pluginRevision: ScriptPluginRevision;
 };
 
@@ -638,8 +636,7 @@ const writeEntityAliases = Effect.fnUntraced(function* (
 						})),
 					),
 		});
-		context.warnings.push(...written.warnings);
-		aliases.set(intent.alias, written.result.entityId);
+		aliases.set(intent.alias, written.entityId);
 	}
 	return aliases;
 });
@@ -664,7 +661,7 @@ const writeStandaloneRecord = Effect.fnUntraced(function* (context: GenericImpor
 			},
 		} as const;
 		const relationshipCommand = operationCommand(context, intent.operationId);
-		const written = yield* runImportWriteStep({
+		yield* runImportWriteStep({
 			result: RelationshipSingleResult,
 			commit: relationships.commitSingle,
 			pending: PendingRelationshipMutations,
@@ -675,7 +672,6 @@ const writeStandaloneRecord = Effect.fnUntraced(function* (context: GenericImpor
 					? relationships.prepareMergeUserProperties(input, relationshipCommand)
 					: relationships.prepareCreate(input, relationshipCommand),
 		});
-		context.warnings.push(...written.warnings);
 	}
 	const events: CreateEventItem[] = [];
 	for (const intent of item.events) {
@@ -805,14 +801,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	pluginRevision: ScriptPluginRevision,
 ) {
 	const collections = yield* CollectionsService;
-	const context: GenericImportContext = {
-		item,
-		index,
-		userId,
-		command,
-		warnings: [],
-		pluginRevision,
-	};
+	const context: GenericImportContext = { item, index, userId, command, pluginRevision };
 	const writeItem = Effect.fnUntraced(function* () {
 		const mode = yield* validateGenericItem(item, userId, index, definitions, pluginRevision);
 		const subject = item.entities.find((intent) => intent.alias === item.subjectEntityAlias);
@@ -843,20 +832,18 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 					operationCommand(context, `${membership.operationId}:collection`),
 				),
 			});
-			context.warnings.push(...collection.warnings);
 			collectionMemberships.push({
 				entityId,
-				collectionId: collection.result.id,
+				collectionId: collection.id,
 				operationId: membership.operationId,
 			});
 		}
-		return { events, collectionMemberships, _tag: "ready" as const, warnings: context.warnings };
+		return { events, collectionMemberships, _tag: "ready" as const };
 	});
 	return yield* writeItem().pipe(
 		Effect.catch((error) =>
 			Effect.succeed({
 				_tag: "failed" as const,
-				warnings: context.warnings,
 				message: unknownToMessage(error),
 				stage:
 					error instanceof GenericImportProviderError ? error.stage : ("database_commit" as const),
@@ -1009,7 +996,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 			let message = outcome._tag === "failed" ? outcome.message : null;
 			let failureCode: null | string =
 				outcome._tag === "failed" ? failureReasonByStage[outcome.stage].code : null;
-			const warnings = [...outcome.warnings];
 			if (outcome._tag === "ready") {
 				const collections = yield* CollectionsService;
 				for (const membership of outcome.collectionMemberships) {
@@ -1044,8 +1030,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 								code: "membership-event-failed",
 							});
 						}
-					} else if (collectionResult._tag === "Success") {
-						warnings.push(...collectionResult.success.warnings);
 					}
 				}
 				if (outcome.events.length > 0) {
@@ -1071,7 +1055,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 							})
 							.pipe(Effect.mapError(toWorkflowError)),
 					});
-					warnings.push(...eventResult.warnings);
 					message ??= eventResult.failure?.reason.code ?? null;
 					if (eventResult.failure) {
 						failureCode = eventResult.failure.reason.code;
@@ -1088,11 +1071,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 						}
 					}
 				}
-			}
-			if (warnings.length > 0) {
-				yield* Effect.logWarning("generic import item completed with automation warnings").pipe(
-					Effect.annotateLogs({ warnings, runId: scope.runId, itemIndex: item.itemIndex }),
-				);
 			}
 			if (
 				failureCode !== null &&

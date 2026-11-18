@@ -49,7 +49,6 @@ const seedRun = Effect.fn(function* () {
 			yield* db.insert(tables.automationTrigger).values(trigger);
 			return {
 				id: "run",
-				stage: "after",
 				hookName: "Notify",
 				triggerId: trigger.id,
 				scriptSlug: script.slug,

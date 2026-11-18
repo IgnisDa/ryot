@@ -245,7 +245,6 @@ const hookRun = (trigger: AutomationTrigger, slug: string) => {
 		pluginId,
 		hookSlug,
 		queuedAt: now,
-		stage: "after",
 		hookName: slug,
 		attemptCount: 0,
 		startedAt: null,
@@ -733,7 +732,7 @@ layer(harnessLayer({ afterHookRatings: [1], policies: [{ position: 1, slug: "pol
 				Effect.gen(function* () {
 					const h = yield* EventCreateHarness;
 					const result = yield* run();
-					expect(result).toMatchObject({ count: 1, warnings: [], failure: null });
+					expect(result).toMatchObject({ count: 1, failure: null });
 					const calls = yield* h.calls;
 					const policyIndex = calls.indexOf("batch-policy");
 					const firstWriteIndex = calls.indexOf("write");
@@ -847,7 +846,6 @@ layer(
 				const h = yield* EventCreateHarness;
 				expect(yield* run()).toEqual({
 					count: 0,
-					warnings: [],
 					failure: null,
 					outcomes: [
 						{

@@ -4,7 +4,6 @@ import {
 	AutomationEventDraft,
 	type AutomationEventSnapshot,
 	type AutomationRequestPayload,
-	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EventBadRequest,
@@ -19,7 +18,7 @@ import type { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Array as Arr, Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { rejectWithLoggedCause } from "#lib/domain/logged-rejection";
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -1225,7 +1224,7 @@ export class EventsService extends Context.Service<EventsService>()(
 								[userId],
 							);
 							yield* execution.dispatch(work.dispatch);
-							return { warnings: [], eventId: work.result };
+							return { eventId: work.result };
 						}),
 						userId,
 						(eventId) => (eventId === submitted.eventId ? submitted.expected : undefined),
@@ -1249,7 +1248,7 @@ export class EventsService extends Context.Service<EventsService>()(
 									? prepared.work
 									: yield* transaction(withBatch(command, persist(prepared)), [input.userId]);
 							yield* execution.dispatch(work.dispatch);
-							return { warnings: [], eventId: work.result };
+							return { eventId: work.result };
 						}),
 						input.userId,
 						(eventId) => (eventId === input.eventId ? input.expected : undefined),
@@ -1272,7 +1271,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					);
 				}
 				if (items.length === 0) {
-					return { count: 0, warnings: Arr.empty<AutomationWarning>() };
+					return { count: 0 };
 				}
 				yield* assertRootTransaction;
 				return yield* retryFieldPreconditionStale(
@@ -1328,7 +1327,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							[userId],
 						);
 						yield* execution.dispatch(work.dispatch);
-						return { warnings: [], count: work.eventIds.length };
+						return { count: work.eventIds.length };
 					}),
 					userId,
 					(eventId) => items.find((item) => item.eventId === eventId)?.expected,
@@ -1350,7 +1349,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					);
 				}
 				if (eventIds.length === 0) {
-					return { count: 0, warnings: Arr.empty<AutomationWarning>() };
+					return { count: 0 };
 				}
 				yield* assertRootTransaction;
 				const items = eventIds.map((eventId) => ({
@@ -1426,10 +1425,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							[userId],
 						);
 						yield* execution.dispatch(work.dispatch);
-						return {
-							warnings: [],
-							count: work.eventIds.filter((eventId) => eventId !== null).length,
-						};
+						return { count: work.eventIds.filter((eventId) => eventId !== null).length };
 					}),
 					userId,
 					(eventId) => expected?.[eventId],
@@ -1441,14 +1437,14 @@ export class EventsService extends Context.Service<EventsService>()(
 			) {
 				const prepared = yield* prepareMoveOrDelete(input, command, input, true);
 				if (!prepared) {
-					return { eventId: null, warnings: Arr.empty<AutomationWarning>() };
+					return { eventId: null };
 				}
 				const work =
 					"_tag" in prepared
 						? prepared.work
 						: yield* transaction(withBatch(command, persist(prepared)), [input.userId]);
 				yield* execution.dispatch(work.dispatch);
-				return { warnings: [], eventId: work.result };
+				return { eventId: work.result };
 			});
 
 			return {
