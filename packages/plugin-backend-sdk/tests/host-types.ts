@@ -65,7 +65,6 @@ defineScript({
 			const disableIntegrations: boolean = preferences.disableIntegrations;
 			const settings: Readonly<Record<string, JsonValue>> = yield* host.getUserSettings();
 			const allowNsfw: JsonValue | undefined = settings["allowNsfw"];
-			const saved: { readonly saved: true } = yield* host.updateUserSettings({ allowNsfw: true });
 			void cached;
 			void stored;
 			void pluginConfig;
@@ -73,7 +72,6 @@ defineScript({
 			void optionalLanguage;
 			void disableIntegrations;
 			void allowNsfw;
-			void saved;
 			void settings;
 
 			const errorType: Expect<
@@ -147,50 +145,8 @@ defineScript({
 				readonly name: Message;
 				readonly providerId: string;
 			}> = entitySchema.providers;
-			const created = yield* host.createEvents([
-				{ entityId: "entity-1", properties: { watched: true }, eventSchemaSlug: "event-schema-1" },
-			]);
-			const [changed] = yield* host.changeUserRelationships([
-				{
-					deletes: [],
-					creates: [
-						{
-							properties: {},
-							propertiesMode: "replace",
-							sourceEntityId: "entity-1",
-							targetEntityId: "library-1",
-							relationshipSchemaSlug: "in-media-library",
-						},
-					],
-				},
-			]);
-			const changedCount: number | undefined = changed?.created;
-			const [ensuredEntity] = yield* host.ensureUserEntities([
-				{ properties: {}, name: "Library", entitySchemaSlug: "media-library" },
-			]);
-			const ensuredEntityId: string | undefined = ensuredEntity?.entityId;
-			const ensuredWasInserted: boolean | undefined = ensuredEntity?.wasInserted;
-			const total: number = created.count;
 			void provider;
 			void setting;
-			const [savedEntity] = yield* host.upsertGlobalEntities(
-				[
-					{
-						name: "Cooper",
-						populatedAt: null,
-						externalId: "person-1",
-						entitySchemaSlug: "person",
-						properties: { role: "actor" },
-					},
-				],
-				{ maximumTotal: 100 },
-			);
-			const inserted: boolean | undefined =
-				savedEntity?.status === "upserted" ? savedEntity.wasInserted : undefined;
-			const [reconciled] = yield* host.upsertGlobalRelationships([
-				{ relationships: [], selector: { type: "self" }, relationshipSchemaSlug: "same-as" },
-			]);
-			const deleted: number | undefined = reconciled?.deleted;
 			const query = yield* host.executeRyotql({
 				source: { kind: "inline", document: { queries: {} } },
 			});
@@ -203,16 +159,10 @@ defineScript({
 				Equal<Parameters<typeof host.getEntitySchemas>[0], ReadonlyArray<string>>
 			> = true;
 			void lot;
-			void total;
-			void deleted;
-			void inserted;
 			void providers;
 			void queryResult;
 			void recipeResult;
-			void changedCount;
-			void ensuredEntityId;
 			void entitySchemasArg;
-			void ensuredWasInserted;
 			return true;
 		}),
 });

@@ -74,15 +74,7 @@ describe("selectSandboxHostFunctions", () => {
 		const functions = Object.fromEntries(
 			SANDBOX_HOST_CAPABILITIES.map((capability) => [capability, () => Effect.void]),
 		);
-		for (const capability of [
-			"createEvents",
-			"updateEvents",
-			"deleteEvents",
-			"listIntegrations",
-			"sendNotification",
-			"getEntitySchemas",
-			"changeUserRelationships",
-		] as const) {
+		for (const capability of ["listIntegrations", "getEntitySchemas"] as const) {
 			expect(selectSandboxHostFunctions(functions, input)).not.toHaveProperty(capability);
 		}
 		expect(selectSandboxHostFunctions(functions, input)).toHaveProperty("httpCall");

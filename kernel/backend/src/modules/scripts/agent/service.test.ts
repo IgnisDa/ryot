@@ -104,13 +104,12 @@ layer(agentLayer)((test) => {
 	);
 
 	test.effect(
-		"rejects HTTP, raw writes and direct queries before dispatch",
+		"rejects HTTP and direct queries before dispatch",
 		() =>
 			Effect.gen(function* () {
 				const scripts = yield* AgentScriptService;
 				for (const body of [
 					'yield* host.httpCall("GET", "https://example.com"); return null;',
-					"yield* host.createEvents([]); return null;",
 					"yield* host.executeRyotql(undefined as never); return null;",
 				]) {
 					const result = completed(yield* scripts.run(options(source(body, "driver"), unexpected)));

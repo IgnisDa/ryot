@@ -26,8 +26,6 @@ import {
 	RealSandboxScripts,
 	realSandboxUserId,
 } from "#modules/scripts/executions/real-sandbox.test-support";
-import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
@@ -184,16 +182,6 @@ layer(
 		OperationsService.layer.pipe(
 			Layer.provide(IntegrationOperationScopeResolverLive),
 			Layer.provide(Layer.mock(UserCommands)({})),
-			Layer.provide(
-				Layer.mock(ScriptExecutionService)({
-					executeScript: () => Effect.die("Workflow execution is not expected"),
-				}),
-			),
-			Layer.provide(
-				Layer.mock(SandboxWorkflowReferenceRepository)({
-					registerInTransaction: () => Effect.die("Workflow references are not expected"),
-				}),
-			),
 			Layer.provideMerge(ScriptCalls.layer),
 			Layer.provide(entitlementsLayer(["pro"])),
 			Layer.provideMerge(fakeLayer.pipe(Layer.provideMerge(realSandboxLayer()))),
@@ -203,7 +191,7 @@ layer(
 	{ excludeTestServices: true },
 )((test) => {
 	test.effect(
-		"runs a read-only operation on the plain host and commits nothing",
+		"runs an operation on the plain host and commits nothing",
 		() =>
 			Effect.gen(function* () {
 				expect(yield* invoke("read")).toEqual({ output: "read", committed: { events: [] } });

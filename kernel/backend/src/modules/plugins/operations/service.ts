@@ -14,19 +14,16 @@ import {
 	PluginOperationRejected,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import {
+	type SandboxScriptId,
 	AutomationExecutionId,
 	type IntegrationId,
 	PluginId,
 	type PluginPackageId,
-	SandboxScriptId,
-	type UserId,
-} from "@ryot-app/contract/schema/brands";
+	type UserId} from "@ryot-app/contract/schema/brands";
 import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { Message } from "@ryot-app/i18n/message";
-import { sandboxHostResultBytes } from "@ryot-app/sandbox/host/host-execution-policy";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
@@ -42,19 +39,13 @@ import {
 } from "#modules/mutations/idempotency";
 import { requireOpenSubmission } from "#modules/mutations/submission-window";
 import { PageOperationAuthorization } from "#modules/pages/operation-authority";
-import {
-	samePluginPin,
-	ScriptExecutionPrincipal,
-	ScriptPluginRevision,
-} from "#modules/scripts/authorization/principal";
+import { samePluginPin, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
-import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import {
 	operationLifecycleCommand,
 	sandboxStartedAt,
 } from "#modules/scripts/host/execution-context";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import type { UserCommandFailure } from "#modules/user-commands/service";
 import { UserCommandAlreadyCommitted, UserCommands } from "#modules/user-commands/service";
 import { mapDatabaseErrors } from "#platform/db/errors";
@@ -85,21 +76,7 @@ type DispatchInput = {
 	readonly accountUserId: UserId;
 	readonly scriptId: SandboxScriptId;
 	readonly integrationId?: IntegrationId;
-	readonly pluginRevision: ScriptPluginRevision;
 };
-const READ_ONLY_CAPABILITIES: ReadonlySet<string> = new Set([
-	...POLICY_SAFE_SANDBOX_CAPABILITIES.filter(
-		(capability) => sandboxHostResultBytes(capability) !== null,
-	),
-	"getEntitlements",
-	"verifyManagedAssets",
-]);
-
-const isReadOnlyOperation = (principal: ScriptExecutionPrincipal) =>
-	(principal.metadata.capabilities ?? []).every((capability) =>
-		READ_ONLY_CAPABILITIES.has(capability),
-	);
-
 const OperationRunResult = Schema.Struct({
 	output: JsonValue,
 	changes: Schema.optional(UserCommand),
@@ -170,32 +147,21 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			const pageAuthorization = yield* PageOperationAuthorization.make;
 			const repository = yield* PluginRepository;
 			const runtime = yield* PluginRuntimeResolver;
-			const sandbox = yield* ScriptExecutionService;
 			const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
 			const keys = yield* IdempotencyKeys.make;
 			const admission = yield* AccountAdmission.make;
 			const scripts = yield* SandboxRepository;
 			const entitlements = yield* EntitlementService;
-			const references = yield* SandboxWorkflowReferenceRepository;
 			const calls = yield* ScriptCalls;
 			const commands = yield* UserCommands;
 
 			const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: AdmittedDispatch) {
-				const result = isReadOnlyOperation(input.principal)
-					? yield* calls.run({
-							lane: "interactive",
-							input: input.payload,
-							principal: input.principal,
-							executionId: input.executionId,
-						})
-					: yield* sandbox.executeScript({
-							lane: "interactive",
-							input: input.payload,
-							scriptId: input.scriptId,
-							executionId: input.executionId,
-							subject: input.principal.subject,
-							pluginRevision: input.pluginRevision,
-						});
+				const result = yield* calls.run({
+					lane: "interactive",
+					input: input.payload,
+					principal: input.principal,
+					executionId: input.executionId,
+				});
 				if (result.error?.data?.code === "page-write-access-required") {
 					return yield* new PluginRequestError({ reason: { code: "page-write-access-required" } });
 				}
@@ -382,7 +348,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
 				);
 				const pinDispatch = Effect.fn("OperationsService.pinDispatch")(function* (
-					dispatchInput: Omit<DispatchInput, "executionId" | "pluginRevision">,
+					dispatchInput: Omit<DispatchInput, "executionId">,
 					resolved: NonNullable<Effect.Success<ReturnType<typeof resolveOperation>>>,
 				) {
 					if (
@@ -427,10 +393,8 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						kind: "plugin-operation:result",
 					});
 					const admissionSchema = Schema.Struct({
-						scriptId: SandboxScriptId,
 						executionId: Schema.String,
 						principal: ScriptExecutionPrincipal,
-						pluginRevision: ScriptPluginRevision,
 					});
 					const existing =
 						input.idempotencyKey === undefined
@@ -461,10 +425,8 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						return {
 							...dispatchInput,
 							resultIdentity,
-							scriptId: existing.response.scriptId,
 							principal: existing.response.principal,
 							executionId: existing.response.executionId,
-							pluginRevision: existing.response.pluginRevision,
 						} satisfies AdmittedDispatch;
 					}
 					const subject = {
@@ -508,35 +470,13 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						},
 					}).pipe(Effect.orDie);
 					yield* admission.admitAccount(dispatchInput.accountUserId);
-					if (!isReadOnlyOperation(principal)) {
-						yield* references
-							.registerInTransaction({
-								executionId,
-								userId: dispatchInput.userId,
-								contentHash: pin.contentHash,
-								pluginId: pin.pluginRevision.id,
-								scriptId: dispatchInput.scriptId,
-							})
-							.pipe(
-								Effect.catchTag(
-									"SandboxWorkflowReferenceRegistrationError",
-									() => operationNotFound,
-								),
-							);
-					}
 					if (input.idempotencyKey !== undefined) {
-						yield* keys.record(admissionIdentity, admissionSchema, {
-							principal,
-							executionId,
-							scriptId: dispatchInput.scriptId,
-							pluginRevision: pin.pluginRevision,
-						});
+						yield* keys.record(admissionIdentity, admissionSchema, { principal, executionId });
 					}
 					return {
 						...dispatchInput,
 						principal,
 						executionId,
-						pluginRevision: pin.pluginRevision,
 						resultIdentity: input.idempotencyKey === undefined ? null : resultIdentity,
 					} satisfies AdmittedDispatch;
 				});

@@ -383,9 +383,9 @@ const makeRunState = Effect.fnUntraced(function* (
 		pendingEncodedEntries: new Map(),
 		shortWait: makeSandboxShortWait(),
 		gateFunctions: options.apiFunctions,
+		hostCallBudget: { http: 0, total: 0 },
 		pinnedCount: journalSource?.entries.length ?? 0,
 		totalJournalJsonBytes: journalSource?.bytes ?? 2,
-		hostCallBudget: { http: 0, total: 0, userSettingsWrites: 0 },
 		expiresAt: (yield* Clock.currentTimeMillis) + initialExpiryMs,
 	};
 	return state;

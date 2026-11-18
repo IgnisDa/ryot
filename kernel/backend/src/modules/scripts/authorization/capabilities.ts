@@ -14,9 +14,7 @@ type SandboxCapabilitySystemKind = "script" | "automation";
 type SandboxCapabilitySubject = "user" | "agent" | "system" | "projection" | "automation-run";
 type SandboxCapabilityRequirement = {
 	readonly bridge: boolean;
-	readonly requiresProvider?: boolean;
 	readonly requiresSystemPlugin?: boolean;
-	readonly requiresUserBootstrap?: boolean;
 	readonly subjects: readonly SandboxCapabilitySubject[];
 	readonly systemKinds?: readonly SandboxCapabilitySystemKind[];
 };
@@ -24,28 +22,14 @@ type SandboxCapabilityRequirement = {
 const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	scratch: { subjects: [], bridge: false },
 	"artifact-read": { subjects: [], bridge: false },
-	createUserEntity: { bridge: true, subjects: ["user"] as const },
-	deleteUserEntity: { bridge: true, subjects: ["user"] as const },
-	updateUserEntity: { bridge: true, subjects: ["user"] as const },
 	invokeCapability: { bridge: true, subjects: ["agent"] as const },
-	commitUserChanges: { bridge: true, subjects: ["user"] as const },
-	updateUserSettings: { bridge: true, subjects: ["user"] as const },
-	clearUserEntityData: { bridge: true, subjects: ["user"] as const },
-	mergeUserEntityData: { bridge: true, subjects: ["user"] as const },
 	getOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
 	invalidateOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
-	sendNotification: { bridge: true, subjects: ["automation-run"] as const },
-	createEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
-	updateEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
-	deleteEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
-	requestFolds: { bridge: true, subjects: ["user", "automation-run"] as const },
 	getEntitlements: { bridge: true, subjects: ["user", "automation-run"] as const },
 	httpCall: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	verifyManagedAssets: { bridge: true, subjects: ["user", "automation-run"] as const },
-	changeUserRelationships: { bridge: true, subjects: ["user", "automation-run"] as const },
 	setCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	getPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	ensureUserEntities: { bridge: true, subjects: ["user"] as const, requiresUserBootstrap: true },
 	getUserSettings: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
 	claimPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	listIntegrations: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
@@ -72,30 +56,6 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		bridge: true,
 		subjects: ["user", "automation-run", "system", "projection"] as const,
 	},
-	requestFoldsForAllUsers: {
-		bridge: true,
-		requiresSystemPlugin: true,
-		subjects: ["user", "automation-run", "system"] as const,
-	},
-	upsertGlobalRelationships: {
-		bridge: true,
-		requiresSystemPlugin: true,
-		subjects: ["system"] as const,
-		systemKinds: ["script"] as const,
-	},
-	emitSignal: {
-		bridge: true,
-		requiresSystemPlugin: true,
-		systemKinds: ["automation"] as const,
-		subjects: ["automation-run", "system"] as const,
-	},
-	upsertGlobalEntities: {
-		bridge: true,
-		requiresProvider: true,
-		requiresSystemPlugin: true,
-		subjects: ["system"] as const,
-		systemKinds: ["script"] as const,
-	},
 	executeRyotql: {
 		bridge: true,
 		requiresSystemPlugin: true,
@@ -119,10 +79,8 @@ export type AdditionalScriptHostImplementationMap = Omit<
 	| "log"
 	| "span"
 	| "httpCall"
-	| "emitSignal"
 	| "setCachedValue"
 	| "getCachedValue"
-	| "sendNotification"
 	| "getPersistentValue"
 	| "claimPersistentValue"
 >;
@@ -148,13 +106,6 @@ type DirectUserSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> = 
 	};
 };
 
-type SystemProviderSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> =
-	SystemSandboxRunInput<Input> & {
-		readonly principal: Input["principal"] & {
-			readonly providerId: NonNullable<ScriptExecutionPrincipal["providerId"]>;
-		};
-	};
-
 type AutomationRunSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> = Input & {
 	readonly principal: Input["principal"] & {
 		readonly subject: Extract<
@@ -178,9 +129,8 @@ type SystemSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> = Inpu
 type SandboxRunInputForCapability<
 	Capability extends SandboxHostCapability,
 	Input extends ScriptRunInput = ScriptRunInput,
-> = (typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability] extends { readonly requiresProvider: true }
-	? SystemProviderSandboxRunInput<Input>
-	: "agent" extends CapabilitySubject<Capability>
+> =
+	"agent" extends CapabilitySubject<Capability>
 		? SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>
 		: "system" extends CapabilitySubject<Capability>
 			? SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>
@@ -240,9 +190,6 @@ const sandboxCapabilityError = (
 		(subject.type === "automation-run" && subject.executionUserId === null);
 	if (system) {
 		if (!requirement.subjects.includes("system")) {
-			if (capability === "sendNotification") {
-				return `${capability} is available only to user automation runs`;
-			}
 			return `${capability} is not available for system executions`;
 		}
 		if (
@@ -252,16 +199,10 @@ const sandboxCapabilityError = (
 			return `${capability} is not available to this system execution`;
 		}
 	} else if (!requirement.subjects.includes(input.principal.subject.type)) {
-		if (requirement.subjects.length === 1 && requirement.subjects[0] === "automation-run") {
-			return `${capability} is available only to user automation runs`;
-		}
 		if (requirement.subjects.length === 1 && requirement.subjects[0] === "user") {
 			return `${capability} is available only to user executions`;
 		}
 		return `${capability} is not available to this execution`;
-	}
-	if (requirement.requiresProvider && input.principal.providerId === null) {
-		return `${capability} is available only to provider-associated scripts`;
 	}
 	if (
 		system &&
@@ -269,12 +210,6 @@ const sandboxCapabilityError = (
 		input.principal.pluginRevision?.scope !== "system"
 	) {
 		return `${capability} system access requires a pinned system plugin script`;
-	}
-	if (
-		requirement.requiresUserBootstrap &&
-		!input.principal.pluginRevision?.userBootstrapScriptSlugs.includes(input.principal.scriptSlug)
-	) {
-		return `${capability} is available only to pinned user bootstrap scripts`;
 	}
 	return undefined;
 };

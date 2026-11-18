@@ -16,8 +16,8 @@ execution. Durable callers run the whole command inside one activity. The commit
 and schema fingerprints, persists the entity, relationships, and event changes, and plans dispatch
 atomically.
 
-A settings patch is applied first in the commit transaction, with the validation and locks of the
-`updateUserSettings` host call; integration, import, and bootstrap executions cannot write settings. A
+A settings patch is applied first in the commit transaction through `PluginUserSettingsWriter`;
+integration, import, and bootstrap executions cannot write settings. A
 caller may pass a commit hook: its `start` runs in the transaction before any write and may abort with
 `UserCommandAlreadyCommitted`, and its `finish` runs after every write with the result, so an operation
 receipt commits with the writes it describes.

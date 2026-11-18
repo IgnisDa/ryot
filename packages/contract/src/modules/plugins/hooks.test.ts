@@ -430,8 +430,8 @@ describe("lifecycle hook declarations", () => {
 						scripts: [
 							{
 								...script,
+								capabilities: [],
 								automationType: "automation",
-								capabilities: ["sendNotification"],
 								inputProjection: { signal: { properties: [] } },
 							},
 						],
@@ -488,10 +488,10 @@ describe("lifecycle hook declarations", () => {
 	);
 
 	it.effect(
-		"requires external idempotency opt-in for automatic HTTP and notification retries",
+		"requires external idempotency opt-in for automatic HTTP retries",
 		() =>
 			Effect.gen(function* () {
-				for (const capability of ["httpCall", "sendNotification"]) {
+				for (const capability of ["httpCall"]) {
 					const after = {
 						...manifest,
 						hooks: [{ ...hook, stage: "after", delivery: "required" }],
@@ -540,7 +540,7 @@ describe("lifecycle hook declarations", () => {
 		"requires idempotency for external effects in any registered child alternative",
 		() =>
 			Effect.gen(function* () {
-				for (const capability of ["httpCall", "sendNotification"] as const) {
+				for (const capability of ["httpCall"] as const) {
 					const retry = { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts: 3 };
 					const candidate = {
 						...manifest,
@@ -649,8 +649,8 @@ describe("lifecycle hook declarations", () => {
 					scripts: [
 						{
 							...script,
+							capabilities: [],
 							automationType: "automation",
-							capabilities: ["sendNotification"],
 							inputProjection: { signal: { properties: [] } },
 						},
 					],

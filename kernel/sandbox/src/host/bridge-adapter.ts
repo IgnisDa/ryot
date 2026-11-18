@@ -1,26 +1,7 @@
 import { UploadFailureReason } from "@ryot-app/contract/modules/assets/schemas";
-import {
-	EntityBadRequest,
-	EntityNotFound,
-	EntityStale,
-} from "@ryot-app/contract/modules/entities/schemas";
-import {
-	EntityUserDataBadRequest,
-	EntityUserDataNotFound,
-} from "@ryot-app/contract/modules/entity-user-data/schemas";
-import {
-	EventBadRequest,
-	EventNotFound,
-	EventStale,
-} from "@ryot-app/contract/modules/events/schemas";
-import {
-	RelationshipBadRequest,
-	RelationshipNotFound,
-} from "@ryot-app/contract/modules/relationships/schemas";
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
-	automationSandboxHostContracts,
 	coreSandboxHostContracts,
 	domainSandboxHostContracts,
 	type SandboxHostImplementationMap,
@@ -117,22 +98,6 @@ const preserveSandboxBoundaryFailure = preserveFailure(SandboxBoundaryReason);
 const preserveHttpFailureDetails = (error: SandboxHostError) =>
 	hostFailure(error.message, error.data);
 
-const preserveWriteFailure = preserveFailure(
-	Schema.Union([
-		SandboxBoundaryReason,
-		EventBadRequest.fields.reason,
-		EventNotFound.fields.reason,
-		EventStale.fields.reason,
-		EntityStale.fields.reason,
-		EntityBadRequest.fields.reason,
-		EntityNotFound.fields.reason,
-		EntityUserDataBadRequest.fields.reason,
-		EntityUserDataNotFound.fields.reason,
-		RelationshipBadRequest.fields.reason,
-		RelationshipNotFound.fields.reason,
-	]),
-);
-
 const preserveAssetFailure = preserveFailure(
 	Schema.Union([SandboxBoundaryReason, UploadFailureReason]),
 );
@@ -183,21 +148,6 @@ export const bindSandboxHostFunctions = <Input>(
 	) =>
 		bindHostFunction(fnName, contract, (...args: Args) => implementation(input, ...args), options);
 	return {
-		emitSignal: bind(
-			"emitSignal",
-			automationSandboxHostContracts.emitSignal,
-			implementations.emitSignal,
-		),
-		createEvents: bind(
-			"createEvents",
-			domainSandboxHostContracts.createEvents,
-			implementations.createEvents,
-		),
-		requestFolds: bind(
-			"requestFolds",
-			domainSandboxHostContracts.requestFolds,
-			implementations.requestFolds,
-		),
 		getCachedValue: bind(
 			"getCachedValue",
 			coreSandboxHostContracts.getCachedValue,
@@ -238,16 +188,6 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.listEventSchemas,
 			implementations.listEventSchemas,
 		),
-		sendNotification: bind(
-			"sendNotification",
-			automationSandboxHostContracts.sendNotification,
-			implementations.sendNotification,
-		),
-		updateUserSettings: bind(
-			"updateUserSettings",
-			coreSandboxHostContracts.updateUserSettings,
-			implementations.updateUserSettings,
-		),
 		getUserPreferences: bind(
 			"getUserPreferences",
 			coreSandboxHostContracts.getUserPreferences,
@@ -257,11 +197,6 @@ export const bindSandboxHostFunctions = <Input>(
 			"getPersistentValue",
 			coreSandboxHostContracts.getPersistentValue,
 			implementations.getPersistentValue,
-		),
-		ensureUserEntities: bind(
-			"ensureUserEntities",
-			domainSandboxHostContracts.ensureUserEntities,
-			implementations.ensureUserEntities,
 		),
 		getOAuthAccessToken: bind(
 			"getOAuthAccessToken",
@@ -273,32 +208,10 @@ export const bindSandboxHostFunctions = <Input>(
 			coreSandboxHostContracts.claimPersistentValue,
 			implementations.claimPersistentValue,
 		),
-		upsertGlobalEntities: bind(
-			"upsertGlobalEntities",
-			domainSandboxHostContracts.upsertGlobalEntities,
-			implementations.upsertGlobalEntities,
-		),
 		getCurrentIntegration: bind(
 			"getCurrentIntegration",
 			domainSandboxHostContracts.getCurrentIntegration,
 			implementations.getCurrentIntegration,
-		),
-		updateEvents: bind(
-			"updateEvents",
-			domainSandboxHostContracts.updateEvents,
-			implementations.updateEvents,
-			{ failure: preserveWriteFailure },
-		),
-		deleteEvents: bind(
-			"deleteEvents",
-			domainSandboxHostContracts.deleteEvents,
-			implementations.deleteEvents,
-			{ failure: preserveWriteFailure },
-		),
-		requestFoldsForAllUsers: bind(
-			"requestFoldsForAllUsers",
-			domainSandboxHostContracts.requestFoldsForAllUsers,
-			implementations.requestFoldsForAllUsers,
 		),
 		executeRyotql: bind(
 			"executeRyotql",
@@ -306,57 +219,16 @@ export const bindSandboxHostFunctions = <Input>(
 			implementations.executeRyotql,
 			{ failure: preserveHttpFailureDetails },
 		),
-		upsertGlobalRelationships: bind(
-			"upsertGlobalRelationships",
-			domainSandboxHostContracts.upsertGlobalRelationships,
-			implementations.upsertGlobalRelationships,
-		),
-		createUserEntity: bind(
-			"createUserEntity",
-			domainSandboxHostContracts.createUserEntity,
-			implementations.createUserEntity,
-			{ failure: preserveWriteFailure },
-		),
-		deleteUserEntity: bind(
-			"deleteUserEntity",
-			domainSandboxHostContracts.deleteUserEntity,
-			implementations.deleteUserEntity,
-			{ failure: preserveWriteFailure },
-		),
-		updateUserEntity: bind(
-			"updateUserEntity",
-			domainSandboxHostContracts.updateUserEntity,
-			implementations.updateUserEntity,
-			{ failure: preserveWriteFailure },
-		),
 		invalidateOAuthAccessToken: bind(
 			"invalidateOAuthAccessToken",
 			domainSandboxHostContracts.invalidateOAuthAccessToken,
 			implementations.invalidateOAuthAccessToken,
-		),
-		commitUserChanges: bind(
-			"commitUserChanges",
-			domainSandboxHostContracts.commitUserChanges,
-			implementations.commitUserChanges,
-			{ failure: preserveWriteFailure },
 		),
 		verifyManagedAssets: bind(
 			"verifyManagedAssets",
 			coreSandboxHostContracts.verifyManagedAssets,
 			implementations.verifyManagedAssets,
 			{ failure: preserveAssetFailure },
-		),
-		mergeUserEntityData: bind(
-			"mergeUserEntityData",
-			domainSandboxHostContracts.mergeUserEntityData,
-			implementations.mergeUserEntityData,
-			{ failure: preserveWriteFailure },
-		),
-		clearUserEntityData: bind(
-			"clearUserEntityData",
-			domainSandboxHostContracts.clearUserEntityData,
-			implementations.clearUserEntityData,
-			{ failure: preserveWriteFailure },
 		),
 		httpCall: bind("httpCall", coreSandboxHostContracts.httpCall, implementations.httpCall, {
 			failure: preserveHttpFailureDetails,
@@ -367,12 +239,6 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.listIntegrations,
 			implementations.listIntegrations,
 			{ normalize: (args) => normalizeOptionalNull(args, 0) },
-		),
-		changeUserRelationships: bind(
-			"changeUserRelationships",
-			domainSandboxHostContracts.changeUserRelationships,
-			implementations.changeUserRelationships,
-			{ failure: preserveWriteFailure },
 		),
 	};
 };

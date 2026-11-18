@@ -30,11 +30,6 @@ const makeImplementations = (
 	log: () => Effect.fail({ message: "unused" }),
 	span: () => Effect.fail({ message: "unused" }),
 	httpCall: () => Effect.fail({ message: "unused" }),
-	emitSignal: () => Effect.fail({ message: "unused" }),
-	createEvents: () => Effect.fail({ message: "unused" }),
-	updateEvents: () => Effect.fail({ message: "unused" }),
-	deleteEvents: () => Effect.fail({ message: "unused" }),
-	requestFolds: () => Effect.fail({ message: "unused" }),
 	executeRyotql: () => Effect.fail({ message: "unused" }),
 	getCachedValue: () => Effect.fail({ message: "unused" }),
 	setCachedValue: () => Effect.fail({ message: "unused" }),
@@ -45,25 +40,12 @@ const makeImplementations = (
 	getEntitySchemas: () => Effect.fail({ message: "unused" }),
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
 	listIntegrations: () => Effect.fail({ message: "unused" }),
-	sendNotification: () => Effect.fail({ message: "unused" }),
-	createUserEntity: () => Effect.fail({ message: "unused" }),
-	deleteUserEntity: () => Effect.fail({ message: "unused" }),
-	updateUserEntity: () => Effect.fail({ message: "unused" }),
-	commitUserChanges: () => Effect.fail({ message: "unused" }),
-	updateUserSettings: () => Effect.fail({ message: "unused" }),
 	getPersistentValue: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
-	ensureUserEntities: () => Effect.fail({ message: "unused" }),
-	mergeUserEntityData: () => Effect.fail({ message: "unused" }),
-	clearUserEntityData: () => Effect.fail({ message: "unused" }),
 	verifyManagedAssets: () => Effect.fail({ message: "unused" }),
 	getOAuthAccessToken: () => Effect.fail({ message: "unused" }),
 	claimPersistentValue: () => Effect.fail({ message: "unused" }),
-	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
 	getCurrentIntegration: () => Effect.fail({ message: "unused" }),
-	requestFoldsForAllUsers: () => Effect.fail({ message: "unused" }),
-	changeUserRelationships: () => Effect.fail({ message: "unused" }),
-	upsertGlobalRelationships: () => Effect.fail({ message: "unused" }),
 	invalidateOAuthAccessToken: () => Effect.fail({ message: "unused" }),
 	...overrides,
 });
@@ -104,33 +86,6 @@ describe("bindSandboxHostFunctions", () => {
 						data: objectContaining({ keys: ["apiToken"], code: "missing-required-config" }),
 					}),
 				);
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"preserves an asset-forbidden signal rejection for the guest",
-		() =>
-			Effect.gen(function* () {
-				const bound = bindSandboxHostFunctions(
-					makeImplementations({
-						emitSignal: () =>
-							Effect.fail({
-								data: { code: "asset-forbidden" },
-								message: "Signal properties reference a forbidden managed asset",
-							}),
-					}),
-					input,
-				);
-				expect(
-					yield* bound.emitSignal([
-						{ properties: {}, discriminator: "review-1", schemaSlug: "review.created" },
-					]),
-				).toEqual({
-					success: false,
-					data: { code: "asset-forbidden" },
-					error: "Signal properties reference a forbidden managed asset",
-				});
 			}),
 		testTimeout,
 	);
@@ -299,35 +254,6 @@ describe("bindSandboxHostFunctions", () => {
 	);
 
 	it.effect(
-		"binds a user settings patch to the run input and acknowledges it",
-		() =>
-			Effect.gen(function* () {
-				const calls: unknown[] = [];
-				const bound = bindSandboxHostFunctions(
-					makeImplementations({
-						updateUserSettings: (runInput, patch) => {
-							calls.push({ patch, runInput });
-							return Effect.succeed({ saved: true as const });
-						},
-					}),
-					input,
-				);
-
-				expect(yield* bound.updateUserSettings([{ allowNsfw: true }])).toEqual({
-					success: true,
-					data: { saved: true },
-				});
-				expect(yield* bound.updateUserSettings([])).toEqual({
-					success: false,
-					error: "updateUserSettings received an invalid number of arguments",
-				});
-				expect(yield* bound.updateUserSettings(["allowNsfw"])).toMatchObject({ success: false });
-				expect(calls).toEqual([{ runInput: input, patch: { allowNsfw: true } }]);
-			}),
-		testTimeout,
-	);
-
-	it.effect(
 		"rejects invalid observability batches before dispatch",
 		() =>
 			Effect.gen(function* () {
@@ -390,48 +316,12 @@ describe("bindSandboxHostFunctions", () => {
 			Effect.gen(function* () {
 				const calls: Array<{ fnName: string; value: unknown }> = [];
 				const implementations = makeImplementations({
-					createEvents: (_runInput, items) => {
-						calls.push({ value: items, fnName: "createEvents" });
-						return Effect.fail({ message: "reached" });
-					},
 					listIntegrations: (_runInput, options) => {
 						calls.push({ value: options, fnName: "listIntegrations" });
 						return Effect.fail({ message: "reached" });
 					},
-					upsertGlobalEntities: (_runInput, items, options) => {
-						calls.push({ value: { items, options }, fnName: "upsertGlobalEntities" });
-						return Effect.succeed([{ status: "skipped" as const }]);
-					},
 				});
 				const bound = bindSandboxHostFunctions(implementations, input);
-
-				expect(
-					yield* bound.createEvents([
-						[{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],
-					]),
-				).toEqual({ success: false, error: "reached" });
-				expect(yield* bound.createEvents(["nope"])).toEqual({
-					success: false,
-					error: "0: Expected array",
-				});
-				expect(
-					yield* bound.upsertGlobalEntities([
-						[
-							{
-								name: "Entity",
-								properties: {},
-								populatedAt: null,
-								externalId: "external-1",
-								entitySchemaSlug: "person",
-							},
-						],
-						{ maximumTotal: 0 },
-					]),
-				).toEqual({ success: true, data: [{ status: "skipped" }] });
-				expect(yield* bound.upsertGlobalEntities([[], { maximumTotal: -1 }])).toEqual({
-					success: false,
-					error: "1.maximumTotal: Expected a value greater than or equal to 0",
-				});
 
 				expect(yield* bound.listIntegrations([{ provider: "plugin_defined_provider" }])).toEqual({
 					success: false,
@@ -443,259 +333,8 @@ describe("bindSandboxHostFunctions", () => {
 				});
 
 				expect(calls).toEqual([
-					{
-						fnName: "createEvents",
-						value: [{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],
-					},
-					{
-						fnName: "upsertGlobalEntities",
-						value: {
-							options: { maximumTotal: 0 },
-							items: [
-								{
-									name: "Entity",
-									properties: {},
-									populatedAt: null,
-									externalId: "external-1",
-									entitySchemaSlug: "person",
-								},
-							],
-						},
-					},
 					{ fnName: "listIntegrations", value: { provider: "plugin_defined_provider" } },
 				]);
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"validates user relationship batches without accepting a user id",
-		() =>
-			Effect.gen(function* () {
-				const calls: unknown[] = [];
-				const implementations = makeImplementations({
-					changeUserRelationships: (runInput, batches) => {
-						calls.push({ batches, runInput });
-						return Effect.succeed([{ created: 2, deleted: 0 }]);
-					},
-				});
-				const bound = bindSandboxHostFunctions(implementations, input);
-				const batch = {
-					deletes: [],
-					creates: [
-						{
-							properties: {},
-							propertiesMode: "replace",
-							sourceEntityId: "example-1",
-							targetEntityId: "library-1",
-							relationshipSchemaSlug: "in-media-library",
-						},
-					],
-				};
-
-				expect(yield* bound.changeUserRelationships([[batch]])).toEqual({
-					success: true,
-					data: [{ created: 2, deleted: 0 }],
-				});
-				expect(calls).toEqual([{ runInput: input, batches: [batch] }]);
-				expect(
-					yield* bound.changeUserRelationships([[{ ...batch, userId: "caller-selected" }]]),
-				).toEqual({ success: false, error: "0.0.userId: Expected no excess property" });
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"validates user entity ensure batches without accepting caller-owned subject",
-		() =>
-			Effect.gen(function* () {
-				const calls: unknown[] = [];
-				const implementations = makeImplementations({
-					ensureUserEntities: (runInput, items) => {
-						calls.push({ items, runInput });
-						return Effect.succeed([{ wasInserted: true, entityId: "entity-1" }]);
-					},
-				});
-				const bound = bindSandboxHostFunctions(implementations, input);
-				const item = { properties: {}, name: "Library", entitySchemaSlug: "media-library" };
-
-				expect(yield* bound.ensureUserEntities([[item]])).toEqual({
-					success: true,
-					data: [{ wasInserted: true, entityId: "entity-1" }],
-				});
-				expect(calls).toEqual([{ items: [item], runInput: input }]);
-				expect(yield* bound.ensureUserEntities([[{ ...item, userId: "caller-selected" }]])).toEqual(
-					{ success: false, error: "0.0.userId: Expected no excess property" },
-				);
-				expect(
-					yield* bound.ensureUserEntities([[{ ...item, pluginSlug: "caller-selected" }]]),
-				).toEqual({ success: false, error: "0.0.pluginSlug: Expected no excess property" });
-				expect(calls).toHaveLength(1);
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"validates single user entity creates without accepting a caller-owned subject",
-		() =>
-			Effect.gen(function* () {
-				const calls: unknown[] = [];
-				const implementations = makeImplementations({
-					createUserEntity: (runInput, item) => {
-						calls.push({ item, runInput });
-						return Effect.succeed({ entityId: "created-id" });
-					},
-				});
-				const bound = bindSandboxHostFunctions(implementations, input);
-				const item = {
-					name: "Library",
-					properties: { color: "blue" },
-					entitySchemaSlug: "media-library",
-				};
-
-				expect(yield* bound.createUserEntity([item])).toEqual({
-					success: true,
-					data: { entityId: "created-id" },
-				});
-				expect(calls).toEqual([{ item, runInput: input }]);
-				expect(yield* bound.createUserEntity([{ ...item, userId: "caller-selected" }])).toEqual({
-					success: false,
-					error: "0.userId: Expected no excess property",
-				});
-				expect(yield* bound.createUserEntity([{ ...item, scope: "caller-selected" }])).toEqual({
-					success: false,
-					error: "0.scope: Expected no excess property",
-				});
-				expect(calls).toHaveLength(1);
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"validates user entity deletions",
-		() =>
-			Effect.gen(function* () {
-				const calls: unknown[] = [];
-				const bound = bindSandboxHostFunctions(
-					makeImplementations({
-						deleteUserEntity: (runInput, item) => {
-							calls.push({ item, runInput });
-							return Effect.succeed({ entityId: item.entityId });
-						},
-					}),
-					input,
-				);
-				const item = { entityId: "entity", entitySchemaSlug: "media-library" };
-				expect(yield* bound.deleteUserEntity([item])).toEqual({
-					success: true,
-					data: { entityId: "entity" },
-				});
-				expect(calls).toEqual([{ item, runInput: input }]);
-				expect(yield* bound.deleteUserEntity([{ ...item, userId: "other" }])).toEqual({
-					success: false,
-					error: "0.userId: Expected no excess property",
-				});
-				expect(calls).toHaveLength(1);
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"preserves user-data conflicts for operation refusal handling",
-		() =>
-			Effect.gen(function* () {
-				const state = { code: "state-conflict" };
-				const mapping = { entityIds: ["child"], code: "child-mapping-conflict" };
-				const bound = bindSandboxHostFunctions(
-					makeImplementations({
-						clearUserEntityData: () => Effect.fail({ data: state, message: "state-conflict" }),
-						mergeUserEntityData: () =>
-							Effect.fail({ data: mapping, message: "child-mapping-conflict" }),
-					}),
-					input,
-				);
-				expect(
-					yield* bound.clearUserEntityData([{ entityId: "entity", entitySchemaSlug: "record" }]),
-				).toEqual({ data: state, success: false, error: "state-conflict" });
-				expect(
-					yield* bound.mergeUserEntityData([
-						{ mergeFrom: "source", mergeInto: "target", entitySchemaSlug: "record" },
-					]),
-				).toEqual({ data: mapping, success: false, error: "child-mapping-conflict" });
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"preserves typed write conflicts and rejects caller-selected update authority",
-		() =>
-			Effect.gen(function* () {
-				const calls: unknown[] = [];
-				const bound = bindSandboxHostFunctions(
-					makeImplementations({
-						updateUserEntity: (runInput, item) => {
-							calls.push({ item, runInput });
-							return Effect.fail({ message: "changed", data: { code: "mutation-conflict" } });
-						},
-					}),
-					input,
-				);
-				const item = {
-					properties: {},
-					name: "Changed",
-					entityId: "entity",
-					expected: { properties: {}, name: "Original", updatedAt: "2026-10-15T00:00:00Z" },
-				};
-				expect(yield* bound.updateUserEntity([item])).toEqual({
-					success: false,
-					error: "changed",
-					data: { code: "mutation-conflict" },
-				});
-				expect(calls).toEqual([{ item, runInput: input }]);
-				expect(yield* bound.updateUserEntity([{ ...item, userId: "other" }])).toEqual({
-					success: false,
-					error: "0.userId: Expected no excess property",
-				});
-				expect(calls).toHaveLength(1);
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"preserves typed entity staleness and drops write failure data outside the allowlist",
-		() =>
-			Effect.gen(function* () {
-				const failures = [
-					{ entityId: "entity", code: "entity-stale" },
-					{ name: "Original", entityId: "entity", code: "entity-stale" },
-					{ privateMetadata: "secret", code: "global-scope-forbidden" },
-				];
-				const bound = bindSandboxHostFunctions(
-					makeImplementations({
-						updateUserEntity: () => {
-							const data = failures.shift();
-							return Effect.fail({ data, message: "failed" });
-						},
-					}),
-					input,
-				);
-				const item = {
-					properties: {},
-					name: "Changed",
-					entityId: "entity",
-					expected: { properties: {}, name: "Original", updatedAt: "2026-10-15T00:00:00Z" },
-				};
-				expect(yield* bound.updateUserEntity([item])).toEqual({
-					success: false,
-					error: "failed",
-					data: { entityId: "entity", code: "entity-stale" },
-				});
-				expect(yield* bound.updateUserEntity([item])).toEqual({ success: false, error: "failed" });
-				expect(yield* bound.updateUserEntity([item])).toEqual({
-					success: false,
-					error: "failed",
-					data: { code: "global-scope-forbidden" },
-				});
 			}),
 		testTimeout,
 	);
@@ -725,42 +364,6 @@ describe("bindSandboxHostFunctions", () => {
 				});
 				expect(calls).toBe(1);
 				expect(receivedUserId).toBe("user-1");
-			}),
-		testTimeout,
-	);
-
-	it.effect(
-		"rejects caller-selected signal recipients and invalid notification messages",
-		() =>
-			Effect.gen(function* () {
-				let calls = 0;
-				const implementations = makeImplementations({
-					emitSignal: () => {
-						calls += 1;
-						return Effect.fail({ message: "unexpected" });
-					},
-					sendNotification: () => {
-						calls += 1;
-						return Effect.fail({ message: "unexpected" });
-					},
-				});
-				const bound = bindSandboxHostFunctions(implementations, input);
-
-				expect(
-					yield* bound.emitSignal([
-						{
-							discriminator: "review-1",
-							schemaSlug: "review.created",
-							recipientUserIds: ["user-2"],
-							properties: { message: "trace" },
-						},
-					]),
-				).toEqual({ success: false, error: "0.recipientUserIds: Expected no excess property" });
-				expect(yield* bound.sendNotification(["Ready"])).toEqual({
-					success: false,
-					error: "0: Expected LocalMessage",
-				});
-				expect(calls).toBe(0);
 			}),
 		testTimeout,
 	);

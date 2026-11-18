@@ -134,8 +134,8 @@ export const SandboxStateStoreLive = Layer.effect(
 export const SandboxHostFunctionsLive = Layer.effect(
 	SandboxHostFunctions,
 	Effect.gen(function* () {
-		const { runtime, additional, automation } = yield* ScriptHostImplementations;
-		const implementations = { ...runtime, ...additional, ...automation };
+		const { runtime, additional } = yield* ScriptHostImplementations;
+		const implementations = { ...runtime, ...additional };
 		const bind = Effect.fn("SandboxHostFunctions.bind")(function* (input: SandboxRunInput) {
 			const principal = yield* decodeScriptExecutionPrincipal(input.principal);
 			const scriptInput = { ...input, principal };

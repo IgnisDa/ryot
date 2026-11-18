@@ -169,7 +169,6 @@ import { FrequentCronJobLive } from "./frequent-cron-job";
 import { ImportRunExecutionControllerLive } from "./import-run-execution-controller";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import {
-	DirectScriptDispatcherLive,
 	RuntimeSandboxExecutorLive,
 	SandboxDurableHostDispatcherProvidedLive,
 } from "./script-host";
@@ -249,7 +248,7 @@ const DirectScriptExecutorLive = DirectScriptExecutor.layer.pipe(
 		Layer.mergeAll(
 			SandboxWorkflowDependenciesLive,
 			ExecutableArtifacts.layer,
-			DirectScriptDispatcherLive,
+			SandboxDurableHostDispatcherProvidedLive,
 		),
 	),
 );

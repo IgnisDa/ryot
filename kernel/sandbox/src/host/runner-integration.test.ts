@@ -612,9 +612,12 @@ export default defineWorkflow({ manifest, input: Schema.Null, output: Schema.Int
 						);
 						expect(response, yield* encodeJson(response)).toMatchObject({
 							success: true,
-							value:
-								{ operation: { output: 42 }, workflow: { output: 42, state: "completed" } }[kind] ??
-								42,
+							value: {
+								script: 42,
+								automation: 42,
+								operation: { output: 42 },
+								workflow: { output: 42, state: "completed" },
+							}[kind],
 						});
 					}
 					const provider = yield* compileTestScript(`

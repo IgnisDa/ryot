@@ -143,8 +143,7 @@ changed event, and the transaction folds them after its work and before the even
 relationship write marks its source entity when the schema declares a projection. Outside an events
 transaction, marking queues a `fold` job instead. An event create on the background lane, such as an
 import, integration or async hook, also queues one `fold` job per subject, so bulk writes hold no locks
-while scripts run. `requestFolds` and the owning plugin's
-`requestFoldsForAllUsers` queue jobs for changes that come from outside the subject's events.
+while scripts run.
 Installing a new plugin revision or restoring a backup queues one `fold-rebuild` job per user, which
 refolds subjects discovered from that plugin's events and projected relationships. Relationships
 without listened-to events still need their projections rebuilt.
@@ -153,8 +152,7 @@ An inline fold runs in the sandbox's direct path. A script reads through a savep
 inside the writing transaction, so it sees that write's own changes, and the savepoint is rolled back
 so the mark cannot outlive the read. Reads run at the transaction's READ COMMITTED isolation. On the
 interactive lane, a run that finds no sandbox capacity rolls back the writing transaction before
-retrying. A parked plugin caller defers the host call to release its capacity first. Retries are
-bounded; a fold that cannot finish rolls back the source write, so a successful save includes its
+retrying. Retries are bounded; a fold that cannot finish rolls back the source write, so a successful save includes its
 required derived state.
 Fold jobs reserve sandbox admission before opening the writing transaction; they execute from current
 transactional reads rather than applying a speculative result. When the subject row is locked, the

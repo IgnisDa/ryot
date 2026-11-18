@@ -8,7 +8,6 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getEntitlements",
 	"getUserPreferences",
 	"getUserSettings",
-	"updateUserSettings",
 	"verifyManagedAssets",
 	"claimPersistentValue",
 	"getPersistentValue",
@@ -16,34 +15,16 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 export type CoreSandboxHostCapability = (typeof CORE_SANDBOX_HOST_CAPABILITIES)[number];
 
 export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
-	"createEvents",
-	"requestFolds",
-	"requestFoldsForAllUsers",
-	"updateEvents",
-	"deleteEvents",
 	"getEntitySchemas",
 	"listEventSchemas",
 	"listIntegrations",
 	"executeRyotql",
 	"invokeCapability",
-	"ensureUserEntities",
-	"createUserEntity",
-	"commitUserChanges",
-	"deleteUserEntity",
-	"updateUserEntity",
-	"clearUserEntityData",
-	"mergeUserEntityData",
-	"upsertGlobalEntities",
 	"getCurrentIntegration",
 	"getOAuthAccessToken",
 	"invalidateOAuthAccessToken",
-	"changeUserRelationships",
-	"upsertGlobalRelationships",
 ] as const;
 export type DomainSandboxHostCapability = (typeof DOMAIN_SANDBOX_HOST_CAPABILITIES)[number];
-
-export const AUTOMATION_SANDBOX_HOST_CAPABILITIES = ["emitSignal", "sendNotification"] as const;
-export type AutomationSandboxHostCapability = (typeof AUTOMATION_SANDBOX_HOST_CAPABILITIES)[number];
 
 export const FILESYSTEM_GRANT_SANDBOX_CAPABILITIES = ["scratch", "artifact-read"] as const;
 export type FilesystemGrantSandboxCapability =
@@ -52,7 +33,6 @@ export type FilesystemGrantSandboxCapability =
 export const SANDBOX_HOST_CAPABILITIES = [
 	...CORE_SANDBOX_HOST_CAPABILITIES,
 	...DOMAIN_SANDBOX_HOST_CAPABILITIES,
-	...AUTOMATION_SANDBOX_HOST_CAPABILITIES,
 	...FILESYSTEM_GRANT_SANDBOX_CAPABILITIES,
 ] as const;
 

@@ -33,7 +33,7 @@ const requireUniqueNonEmptyStrings = (values: ReadonlyArray<string>, message: st
 		Effect.map((strings) => [...new Set(strings)]),
 	);
 
-export const readScriptEntitySchemas = (
+const readScriptEntitySchemas = (
 	definitions: DefinitionRepository["Service"],
 	input: UserSandboxRunInput,
 	slugs: ReadonlyArray<string>,

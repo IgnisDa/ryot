@@ -52,9 +52,7 @@ import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-su
 import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
-import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import {
 	type UserCommandCommitHook,
 	type UserCommandFailure,
@@ -116,7 +114,6 @@ type AvailableOperation = (
 	readonly installationId: string;
 	readonly scope: "user" | "system";
 	readonly packageId?: PluginPackageId;
-	readonly capabilities?: ReadonlyArray<string>;
 };
 
 const availablePackageId = (available: AvailableOperation) =>
@@ -143,10 +140,7 @@ const makeActiveScript = (id: string, capabilities: ReadonlyArray<string>) => ({
 });
 
 const resolvedOperation = (available: AvailableOperation) => ({
-	script: makeActiveScript(
-		available.scriptId ?? `${available.installationId}-script`,
-		available.capabilities ?? ["createEvents"],
-	),
+	script: makeActiveScript(available.scriptId ?? `${available.installationId}-script`, []),
 	plugin: {
 		isHidden: false,
 		clientImports: [],
@@ -214,7 +208,6 @@ class OperationFakeState extends Context.Service<
 		readonly integration: Ref.Ref<null | IntegrationRecord>;
 		readonly packageLookups: Ref.Ref<ReadonlyArray<string>>;
 		readonly available: Ref.Ref<ReadonlyArray<AvailableOperation>>;
-		readonly referenceRegistrations: Ref.Ref<ReadonlyArray<string>>;
 		readonly privateInstallation: Ref.Ref<null | PluginInstallationHydratedState>;
 	}
 >()("@ryot-app/kernel-backend/modules/plugins/operations/service.test/OperationFakeState") {}
@@ -227,7 +220,6 @@ class FakeOperationDependencies extends Context.Service<
 		readonly commits: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly captured: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly packageLookups: Effect.Effect<ReadonlyArray<string>>;
-		readonly referenceRegistrations: Effect.Effect<ReadonlyArray<string>>;
 		readonly useIntegration: (integration: null | IntegrationRecord) => Effect.Effect<void>;
 		readonly offerOperations: (available: ReadonlyArray<AvailableOperation>) => Effect.Effect<void>;
 	}
@@ -272,7 +264,6 @@ const makeLayer = (input: {
 				captured: yield* Ref.make<ReadonlyArray<unknown>>([]),
 				integration: yield* Ref.make(input.integration ?? null),
 				packageLookups: yield* Ref.make<ReadonlyArray<string>>([]),
-				referenceRegistrations: yield* Ref.make<ReadonlyArray<string>>([]),
 				privateInstallation: yield* Ref.make(input.privateInstallation ?? null),
 			};
 		}),
@@ -287,7 +278,6 @@ const makeLayer = (input: {
 					captured: Ref.get(state.captured),
 					packageLookups: Ref.get(state.packageLookups),
 					availableLookups: Ref.get(state.availableLookups),
-					referenceRegistrations: Ref.get(state.referenceRegistrations),
 					offerOperations: (available) => Ref.set(state.available, available),
 					useIntegration: (integration) => Ref.set(state.integration, integration),
 				}),
@@ -430,31 +420,9 @@ const makeLayer = (input: {
 							}),
 					}),
 				),
-				Layer.succeed(
-					SandboxWorkflowReferenceRepository,
-					SandboxWorkflowReferenceRepository.of({
-						release: () => Effect.void,
-						lockIngestionShared: () => Effect.void,
-						listReferences: () => Effect.succeed([]),
-						hasReferences: () => Effect.succeed(false),
-						hasInstallationReferences: () => Effect.succeed(false),
-						registerInTransaction: (registration) =>
-							Ref.update(state.referenceRegistrations, (all) => [
-								...all,
-								registration.executionId,
-							]).pipe(Effect.as({ status: "registered" as const })),
-					}),
-				),
-				Layer.mock(ScriptExecutionService)({
-					executeScript: (runInput) =>
-						recordEvent("dispatch").pipe(
-							Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
-							Effect.as(sandboxResult),
-						),
-				}),
 				Layer.mock(ScriptCalls)({
 					run: (runInput) =>
-						recordEvent("direct").pipe(
+						recordEvent("dispatch").pipe(
 							Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),
 							Effect.as(sandboxResult),
 						),
@@ -579,11 +547,7 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 					_tag: "PluginConflictError",
 					reason: { code: "source-revision-stale" },
 				});
-				const registrations = yield* fake.referenceRegistrations;
-				const captured = yield* fake.captured;
-				expect(registrations).toHaveLength(1);
-				expect(captured).toHaveLength(1);
-				expect(captured).toMatchObject([{ executionId: registrations[0] }]);
+				expect(yield* fake.captured).toHaveLength(1);
 			}),
 		testTimeout,
 	);
@@ -598,15 +562,9 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 				const request = { payload: { value: "same" }, packageId: SYSTEM_PACKAGE_ID };
 				expect(yield* invoke({ ...request, idempotencyKey: "operation-request-1" })).toBe("ok");
 				expect(yield* invoke({ ...request, idempotencyKey: "operation-request-2" })).toBe("ok");
-				const registrations = yield* fake.referenceRegistrations;
 				const captured = yield* fake.captured;
-				expect(registrations).toHaveLength(2);
-				expect(registrations[0]).not.toBe(registrations[1]);
 				expect(captured).toHaveLength(2);
-				expect(captured).toMatchObject([
-					{ executionId: registrations[0] },
-					{ executionId: registrations[1] },
-				]);
+				expect(captured[0]).not.toEqual(captured[1]);
 			}),
 		testTimeout,
 	);
@@ -645,7 +603,6 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 					}),
 				);
 				expect(yield* fake.captured).toHaveLength(1);
-				expect(yield* fake.referenceRegistrations).toHaveLength(1);
 			}),
 		testTimeout,
 	);
@@ -676,21 +633,25 @@ layer(
 				expect(yield* fake.events).toEqual(["lock", "dispatch", "lock", "dispatch"]);
 				expect(yield* fake.captured).toMatchObject([
 					{
-						scriptId: "same-name-private-script",
-						pluginRevision: {
-							scope: "user",
-							id: PRIVATE_ID,
-							revisionId: "fixture-revision",
-							configRevisionId: "fixture-config",
+						principal: {
+							scriptId: "same-name-private-script",
+							pluginRevision: {
+								scope: "user",
+								id: PRIVATE_ID,
+								revisionId: "fixture-revision",
+								configRevisionId: "fixture-config",
+							},
 						},
 					},
 					{
-						scriptId: "install-fixture-user-1-script",
-						pluginRevision: {
-							id: SYSTEM_ID,
-							scope: "system",
-							revisionId: "fixture-revision",
-							configRevisionId: "fixture-config",
+						principal: {
+							scriptId: "install-fixture-user-1-script",
+							pluginRevision: {
+								id: SYSTEM_ID,
+								scope: "system",
+								revisionId: "fixture-revision",
+								configRevisionId: "fixture-config",
+							},
 						},
 					},
 				]);
@@ -834,12 +795,14 @@ layer(
 			Effect.gen(function* () {
 				const fake = yield* FakeOperationDependencies;
 				expect(yield* invoke({ packageId: PRIVATE_PACKAGE_ID })).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({
+				expect(yield* fake.captured).toMatchObject([
+					{
 						lane: "interactive",
-						scriptId: "install-private-user-1-script",
-						subject: { type: "user", userId: USER_ONE },
-					}),
+						principal: {
+							scriptId: "install-private-user-1-script",
+							subject: { type: "user", userId: USER_ONE },
+						},
+					},
 				]);
 			}),
 		testTimeout,
@@ -853,8 +816,8 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 			Effect.gen(function* () {
 				const fake = yield* FakeOperationDependencies;
 				expect(yield* invoke({ packageId: SYSTEM_PACKAGE_ID })).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({ subject: { type: "user", userId: USER_ONE } }),
+				expect(yield* fake.captured).toMatchObject([
+					{ principal: { subject: { type: "user", userId: USER_ONE } } },
 				]);
 				expect(yield* fake.events).toEqual(["lock", "dispatch"]);
 			}),
@@ -1018,8 +981,8 @@ layer(
 				expect(
 					yield* invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
 				).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({ subject: { type: "user", userId: USER_ONE, integrationId: "int-1" } }),
+				expect(yield* fake.captured).toMatchObject([
+					{ principal: { subject: { type: "user", userId: USER_ONE, integrationId: "int-1" } } },
 				]);
 			}),
 		testTimeout,
@@ -1159,11 +1122,13 @@ layer(
 				expect(
 					yield* invoke({ packageId: PRIVATE_PACKAGE_ID, payload: { integrationId: "int-1" } }),
 				).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({
-						scriptId: "install-private-user-1-script",
-						subject: { type: "user", userId: USER_ONE, integrationId: "int-1" },
-					}),
+				expect(yield* fake.captured).toMatchObject([
+					{
+						principal: {
+							scriptId: "install-private-user-1-script",
+							subject: { type: "user", userId: USER_ONE, integrationId: "int-1" },
+						},
+					},
 				]);
 				expect(yield* fake.packageLookups).toEqual([`${USER_ONE}:${PRIVATE_PACKAGE_ID}`]);
 			}),
@@ -1399,8 +1364,8 @@ layer(
 						packageId: SYSTEM_PACKAGE_ID,
 					}),
 				).toBe("ok");
-				expect(yield* fake.captured).toEqual([
-					objectContaining({ subject: { type: "user", pageAuthority, userId: USER_ONE } }),
+				expect(yield* fake.captured).toMatchObject([
+					{ principal: { subject: { type: "user", pageAuthority, userId: USER_ONE } } },
 				]);
 				const repository = yield* PageAuthoringRepository.make;
 				yield* repository.setWriteAccess(USER_ONE, pageAuthority.pageId, false);
@@ -1483,7 +1448,6 @@ layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 				const receipt = { output: "ok", committed: { events: [] } };
 				expect(yield* service.invokeTrusted(request)).toEqual(receipt);
 				expect(yield* service.invokeTrusted(request)).toEqual(receipt);
-				expect(yield* fake.referenceRegistrations).toHaveLength(1);
 				expect(yield* fake.captured).toHaveLength(1);
 				expect(
 					yield* Effect.flip(
@@ -1505,16 +1469,6 @@ layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 	);
 });
 
-const readOnlyOperation = {
-	...systemUserOperation,
-	capabilities: [
-		"executeRyotql",
-		"getEntitlements",
-		"getUserSettings",
-		"log",
-		"verifyManagedAssets",
-	],
-};
 const pluginRejection = { key: "rejection.blocked", namespace: "plugin-fixture" };
 const returnedChanges = {
 	output: "saved",
@@ -1537,11 +1491,11 @@ layer(
 	makeLayer({
 		currentUserId: USER_ONE,
 		sandboxValue: returnedChanges,
-		available: [readOnlyOperation],
+		available: [systemUserOperation],
 	}),
 )((test) => {
 	test.effect(
-		"runs a read-only operation directly and commits its returned changes once per key",
+		"runs an operation and commits its returned changes once per key",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* OperationsService;
@@ -1562,10 +1516,9 @@ layer(
 				expect(yield* service.invoke(request)).toEqual(receipt);
 				expect(yield* service.invoke(request)).toEqual(receipt);
 				expect((yield* fake.events).filter((event) => event !== "lock")).toEqual([
-					"direct",
+					"dispatch",
 					"commit",
 				]);
-				expect(yield* fake.referenceRegistrations).toEqual([]);
 				const [run] = yield* fake.captured;
 				expect(run).toMatchObject({
 					lane: "interactive",
@@ -1587,7 +1540,7 @@ layer(
 	makeLayer({
 		currentUserId: USER_ONE,
 		sandboxValue: returnedChanges,
-		available: [readOnlyOperation],
+		available: [systemUserOperation],
 		commitFailure: new EventBadRequest({
 			reason: { code: "policy-rejected", message: pluginRejection },
 		}),
@@ -1609,7 +1562,7 @@ layer(
 	makeLayer({
 		currentUserId: USER_ONE,
 		sandboxValue: returnedChanges,
-		available: [readOnlyOperation],
+		available: [systemUserOperation],
 		commitFailure: new EntityStale({
 			reason: { code: "entity-stale", entityId: EntityId.make("entity-1") },
 		}),
@@ -1633,7 +1586,7 @@ layer(
 	makeLayer({
 		currentUserId: USER_ONE,
 		sandboxValue: returnedChanges,
-		available: [readOnlyOperation],
+		available: [systemUserOperation],
 		commitFailure: new EventBadRequest({ reason: { code: "root-entity-required" } }),
 	}),
 )((test) => {

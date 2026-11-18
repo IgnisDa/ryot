@@ -198,6 +198,7 @@ const scripts = [
 	{
 		kind: "automation",
 		runtimeImports: [],
+		capabilities: ["log"],
 		name: "Test automation",
 		slug: "automation.test",
 		oauthConnectionFields: [],
@@ -205,7 +206,6 @@ const scripts = [
 		automationType: "automation",
 		requiredPluginConfigKeys: [],
 		optionalPluginConfigKeys: [],
-		capabilities: ["emitSignal"],
 		entry: "scripts/test.sandbox.ts",
 		inputProjection: {
 			signal: { properties: [] },

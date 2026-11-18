@@ -726,7 +726,7 @@ const createHost = (
 	journal: undefined | WorkflowReplayJournal,
 ) => {
 	const host = objectCreate(null);
-	const budget: SandboxHostCallBudget = { http: 0, total: 0, userSettingsWrites: 0 };
+	const budget: SandboxHostCallBudget = { http: 0, total: 0 };
 	const callHost = (name: string, args: ReadonlyArray<unknown>) => {
 		const budgetError = chargeHostCall(budget, name);
 		if (budgetError) {
@@ -800,7 +800,7 @@ const createDurableHost = (
 	const calls: DurableCall[] = [];
 	const inlineValues: Array<JsonValue | undefined> = [];
 	const inlineCapabilities = invocation.inlineDurableCapabilities ?? [];
-	const budget: SandboxHostCallBudget = { http: 0, total: 0, userSettingsWrites: 0 };
+	const budget: SandboxHostCallBudget = { http: 0, total: 0 };
 	let pendingObserved = false;
 	let settledJournalLength = journal.length;
 

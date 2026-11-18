@@ -270,7 +270,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 
 Set `userWritePolicy: "source-owner"` on structural relationship schemas when user-scoped writes
 must require ownership of the source entity. The target may be global and visible. The rule covers
-creates, updates, and deletes through HTTP, editors, and sandbox writers; authorized global provider
+creates, updates, and deletes through HTTP, editors, and returned changes; authorized global provider
 writes retain their existing authority. Leave it omitted for personal annotations that may reference
 global sources. Enforcement uses both the pinned and active schema, so an older execution cannot
 bypass an active ownership restriction.
@@ -369,14 +369,11 @@ retains the recorded read. System execution without a user cannot read user sett
 content language, and week start remain kernel preferences. Client code reads the same resolved
 settings with the client SDK's `usePluginUserSettings(pluginId)`.
 
-Direct user executions, such as operations, declare `updateUserSettings` and call
-`host.updateUserSettings(patch)` to change the execution user's settings for their own plugin. The
-kernel selects the installation from the executing plugin and user, never from the patch. Each
-top-level key replaces the stored value; keys must exist in the pinned manifest schema, and the merged
-document must validate against the active schema and stay within 64 KiB. The call returns
-`{ saved: true }`; re-read with `getUserSettings` when needed. Integration, import, bootstrap,
-automation, projection, and system executions cannot write settings, and one execution may make
-at most four calls.
+An operation changes the execution user's settings for its own plugin by returning a `settings`
+patch in its `changes`. The kernel selects the installation from the executing plugin and user, never
+from the patch. Each top-level key replaces the stored value; keys must exist in the pinned manifest
+schema, and the merged document must validate against the active schema and stay within 64 KiB.
+Integration, import, and bootstrap executions cannot write settings.
 
 There is no compare-and-set. Saves from the settings page replace the whole document, a durable run's
 recorded `getUserSettings` read may be stale, and at-least-once re-execution can reapply a patch over an
@@ -447,8 +444,8 @@ closures, and forwarding methods. Executable dependencies do not merge authority
 own metadata and workflow replay has no local host capabilities.
 
 Ordinary scripts receive `ScriptHost`; policies receive `PolicyHost`. Narrowing a helper's host type
-does not grant authority. Runtime checks combine pinned metadata, script kind, subject, plugin scope,
-provider association, and bootstrap designation; domain services still enforce ownership. Filesystem
+does not grant authority. Runtime checks combine pinned metadata, script kind, subject, and plugin
+scope; domain services still enforce ownership. Filesystem
 use derives capability requirements, but trusted paths are separately kernel-supplied.
 
 Subject follows the dispatch path: cron uses system; user bootstrap uses the initialized user;
@@ -495,10 +492,10 @@ array order and multiplicity. `unordered-array` compares arrays as sets of canon
 ignoring order and duplicate multiplicity; non-arrays use JSON equality. Missing and present values,
 including `null`, remain distinct. Compared properties need not also be selected into snapshots.
 
-RyotQL reads current state, not omitted trigger-time evidence. Plugins write through kernel host
-functions, never direct persistence. Relationship writes must choose merge or replace; membership
-upserts use merge to preserve annotations. Event updates/deletes are atomic per host batch, not across
-calls. Exact patch shapes, limits, and replay identities are in
+RyotQL reads current state, not omitted trigger-time evidence. Host functions only read; an
+operation writes by returning changes, which the kernel commits atomically after the run.
+Relationship changes must choose merge or replace; membership upserts use merge to preserve
+annotations. See
 [Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
 ### Folds
@@ -515,9 +512,7 @@ mapping the entity and event IDs it holds to their new ones; carry over whatever
 the subject with a projection, and `changes`, which the kernel applies before running it a second time.
 That second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
 can defer to a job when the sandbox is busy, so it must compute the same result however late it runs.
-For changes that do not come from the subject's events, call `host.requestFolds({ entityIds })` from a
-user execution; the owning plugin may call `host.requestFoldsForAllUsers` when shared data changes. See
-[folds](../../kernel/backend/src/modules/events/README.md#folds).
+See [folds](../../kernel/backend/src/modules/events/README.md#folds).
 
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md).
@@ -655,8 +650,8 @@ Exponential delays double from `initialDelayMs` (1–3,600,000) to `maxDelayMs` 
 must be at least the initial delay. Only kernel-classified infrastructure failures are retryable;
 schema failures, missing retained artifacts, and business failures are terminal. HTTP uncertain
 outcomes are terminal unless the hook declares `externalIdempotency: "run-id"`. Automatic retries
-require this declaration when the hook's reachable executable dependencies use `httpCall` or
-`sendNotification`, including delegated effects. Declare it only if the external operation supports
+require this declaration when the hook's reachable executable dependencies use `httpCall`,
+including delegated effects. Declare it only if the external operation supports
 deduplication and receives `automation.runId` as its idempotency key. All attempts share that logical
 run ID; external exactly-once delivery is not guaranteed.
 
@@ -676,7 +671,7 @@ returned rather than treated as missing. Missing required values fail with `miss
 in SDK error `data`; unavailable optional values are omitted. Unrequested keys are not available to
 the script. The compiler records key metadata, not generated files for the full configuration schema;
 scripts do not author per-script key lists. Configuration is never copied into automation input or
-history. `emitSignal` returns `{ triggerId, wasCreated }`.
+history.
 Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
 state, logs, idempotency keys, and encryption keys are not account-backup data.
 
@@ -860,8 +855,8 @@ An operation's `run` returns `{ output, changes? }`. `output` is what the caller
 declared `output` schema describes. `changes` is a change set the kernel commits after the run ends:
 an optional root `entity` create or update, `events` creates, updates, and deletes with their
 baselines, `relationships` referencing the root or existing entities, and a `settings` patch of the
-plugin's user settings. A `{ kind: "root" }` reference requires `entity`. An operation that only reads
-returns its writes this way; the kernel commits them atomically, runs event policies over them, and
+plugin's user settings. A `{ kind: "root" }` reference requires `entity`. Every operation returns its
+writes this way; the kernel commits them atomically, runs event policies over them, and
 answers `{ result, committed }`, where `committed` carries the root entity ID and each written event ID
 by item identity. A policy rejection of the changes reaches the caller as HTTP 422, a stale baseline
 as HTTP 409 `changes-conflict`, and any other invalid change set as HTTP 502. A client plugin's
@@ -967,8 +962,7 @@ return (
 ```
 
 The same applies to every other text a plugin's backend hands to the kernel: a before-stage policy
-rejects with `{ action: "reject", reason: catalogMessage("…") }`, and `host.sendNotification`
-takes a message, which the kernel renders in each recipient's interface locale. Enumerated values
+rejects with `{ action: "reject", reason: catalogMessage("…") }`. Enumerated values
 that shape the sentence, such as a status or a content kind, are `select` codes; names and
 provider-supplied values are string parameters. Operation outputs that the plugin's own client
 renders also carry `LocalMessage`s.
@@ -999,9 +993,8 @@ for details. The archive carries the compiled catalogs and the generated `en-XA`
 installation re-checks their limits before the kernel serves them.
 
 Plugin tests compile the package's own English catalog with `compilePluginCatalog(packageRoot)`
-from `@ryot-app/plugin-kit/testing`. Backend tests render notification messages with
-`englishRenderer(catalog)` and capture them with `recordNotifications(manifest)`, both from
-`@ryot-app/plugin-backend-sdk/testing`; client tests use `testPluginText` from the client SDK.
+from `@ryot-app/plugin-kit/testing`. Backend tests render messages with `englishRenderer(catalog)`
+from `@ryot-app/plugin-backend-sdk/testing`; client tests use `testPluginText` from the client SDK.
 
 ## Languages
 

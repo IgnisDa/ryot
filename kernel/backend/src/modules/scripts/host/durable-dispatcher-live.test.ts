@@ -1,7 +1,6 @@
 import { describe, expect } from "bun:test";
 
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
 	AutomationRunId,
@@ -10,7 +9,6 @@ import {
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
-	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -44,15 +42,11 @@ import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { EventsService } from "#modules/events/service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { NotificationsService } from "#modules/notifications/service";
 import {
 	type HttpRateLimitAuthorityResolution,
 	PluginHttpRateLimitAuthority,
 } from "#modules/plugins/catalog/http-rate-limit-authority";
-import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeline";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
@@ -63,10 +57,6 @@ import {
 	ProviderHttpAdmissionService,
 	ProviderHttpAdmissionUnavailable,
 } from "#modules/scripts/host/http-admission";
-import {
-	lifecycleHostFailure,
-	SandboxLifecycleHostFailure,
-} from "#modules/scripts/host/lifecycle-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { type EgressPolicy, withEgressPolicy } from "#platform/egress/http-client";
 import { makeWorkflowActivityEngine } from "#testing/effect";
@@ -79,18 +69,7 @@ const publicEgressPolicy: EgressPolicy = {
 	resolver: { resolve: () => Effect.succeed(["93.184.215.14"]) },
 };
 
-const emptyValue = () => [];
-const defaults = unusedSandboxHostImplementations().lifecycle;
-const unusedLifecycle: ScriptHostImplementations["Service"]["lifecycle"] = {
-	...defaults,
-	upsertGlobalEntities: { ...defaults.upsertGlobalEntities, value: emptyValue },
-	changeUserRelationships: { ...defaults.changeUserRelationships, value: emptyValue },
-	upsertGlobalRelationships: { ...defaults.upsertGlobalRelationships, value: emptyValue },
-};
-const unusedLifecycleExecution = Layer.mock(LifecycleExecution)({
-	dispatch: () => Effect.die("unused"),
-});
-const implementations = unusedSandboxHostImplementations({}, unusedLifecycle);
+const implementations = unusedSandboxHostImplementations();
 
 const scriptId = SandboxScriptId.make("script-1");
 const runId = AutomationRunId.make("automation-run-1");
@@ -138,7 +117,7 @@ const script = {
 		kind: "automation" as const,
 		requiredPluginConfigKeys: [],
 		optionalPluginConfigKeys: [],
-		capabilities: ["emitSignal", "httpCall", "sendNotification"],
+		capabilities: ["getUserSettings", "httpCall"],
 	},
 };
 const principal = {
@@ -177,9 +156,7 @@ const dispatcherLayer = (options: {
 	readonly httpClient?: HttpClient.HttpClient;
 	readonly instance: WorkflowInstance["Service"];
 	readonly authority?: SandboxExecutionAuthority["Service"];
-	readonly lifecycleExecution?: Layer.Layer<LifecycleExecution>;
 	readonly implementations?: ScriptHostImplementations["Service"];
-	readonly sendMessage?: NotificationsService["Service"]["sendMessage"];
 	readonly resolve?: PluginHttpRateLimitAuthority["Service"]["resolve"];
 	readonly admission?: Partial<ProviderHttpAdmissionService["Service"]>;
 }) =>
@@ -200,15 +177,6 @@ const dispatcherLayer = (options: {
 				),
 				Layer.succeed(WorkflowEngine, options.engine),
 				Layer.succeed(WorkflowInstance, options.instance),
-				Layer.mock(EventsService)({}),
-				Layer.succeed(NotificationsService, {
-					test: () => Effect.die("unused"),
-					create: () => Effect.die("unused"),
-					update: () => Effect.die("unused"),
-					delete: () => Effect.die("unused"),
-					sendMessage: options.sendMessage ?? (() => Effect.die("unused")),
-				}),
-				options.lifecycleExecution ?? unusedLifecycleExecution,
 				Layer.succeed(ScriptHostImplementations, options.implementations ?? implementations),
 				Layer.mock(SandboxRepository)({ getScript: () => Effect.succeed(options.script) }),
 				Layer.mock(PluginHttpRateLimitAuthority)({
@@ -219,39 +187,30 @@ const dispatcherLayer = (options: {
 		),
 	);
 
-type NotificationSendMessage = Parameters<NotificationsService["Service"]["sendMessage"]>[0];
+const settingsRead = { state: "success" as const, value: { timezone: "UTC" } };
 
-const signalCreated = {
-	state: "success" as const,
-	value: { wasCreated: true, triggerId: "signal-trigger-1" },
-};
-
-const signalArgs = [{ properties: {}, discriminator: "dispatcher", schemaSlug: "fixture.signal" }];
-
-const signalRequest = (index: number) => ({
+const settingsRequest = (index: number) => ({
 	index,
-	name: "emitSignal",
 	kind: "host" as const,
-	args: { args: signalArgs, capability: "emitSignal" as const },
+	name: "getUserSettings",
+	args: { args: [], capability: "getUserSettings" as const },
 });
 
-class RecordedHostWrites extends Context.Service<
-	RecordedHostWrites,
+class RecordedHostCalls extends Context.Service<
+	RecordedHostCalls,
 	{
-		readonly signals: Effect.Effect<number>;
+		readonly calls: Effect.Effect<number>;
 		readonly activities: Effect.Effect<ReadonlyArray<string>>;
-		readonly messages: Effect.Effect<ReadonlyArray<NotificationSendMessage>>;
 	}
 >()(
-	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedHostWrites",
+	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedHostCalls",
 ) {}
 
-const hostWriteLayer = (options: { readonly authority?: SandboxExecutionAuthority["Service"] }) =>
+const hostCallLayer = (options: { readonly authority?: SandboxExecutionAuthority["Service"] }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const activities = yield* Ref.make<ReadonlyArray<string>>([]);
-			const messages = yield* Ref.make<ReadonlyArray<NotificationSendMessage>>([]);
-			const signals = yield* Ref.make(0);
+			const calls = yield* Ref.make(0);
 			const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, "sandbox-parent");
 			const engine = makeWorkflowActivityEngine(instance, {
 				activityExecute: (activity) =>
@@ -266,99 +225,60 @@ const hostWriteLayer = (options: { readonly authority?: SandboxExecutionAuthorit
 					script,
 					instance,
 					...options,
-					sendMessage: (input) =>
-						append(messages, input).pipe(Effect.as({ id: "admitted-notification" })),
 					implementations: {
 						...implementations,
-						automation: {
-							...implementations.automation,
-							emitSignal: () =>
-								Ref.update(signals, (count) => count + 1).pipe(Effect.as(signalCreated.value)),
+						additional: {
+							...implementations.additional,
+							getUserSettings: () =>
+								Ref.update(calls, (count) => count + 1).pipe(Effect.as(settingsRead.value)),
 						},
 					},
 				}),
-				Layer.succeed(RecordedHostWrites, {
-					signals: Ref.get(signals),
-					messages: Ref.get(messages),
+				Layer.succeed(RecordedHostCalls, {
+					calls: Ref.get(calls),
 					activities: Ref.get(activities),
 				}),
 			);
 		}),
 	);
 
-layer(hostWriteLayer({}))((test) => {
+layer(hostCallLayer({}))((test) => {
 	test.effect(
-		"journals each durable host write as one activity of the script's workflow",
+		"journals each durable host call as one activity of the script's workflow",
 		() =>
 			Effect.gen(function* () {
 				const executionId = "sandbox-parent";
 				const payload = {
 					subject,
 					scriptId,
+					input: {},
 					executionId,
 					lane: "background" as const,
 					resolutionMode: "exact" as const,
 					startedAt: "2026-08-06T00:00:00.000Z",
-					input: {
-						automation: {
-							runId,
-							causation,
-							triggerId,
-							hookSlug: "dispatcher",
-							occurredAt: "2026-08-06T00:00:00.000Z",
-							executionUserId: subject.executionUserId,
-							payload: {
-								properties: {},
-								operation: "emit",
-								resource: "signal",
-								category: "signal",
-								signalSchemaPluginId: null,
-								signalSchemaSlug: "fixture.signal",
-								actorUserId: subject.executionUserId,
-							},
-						},
-					},
 				};
 				const dispatcher = yield* SandboxDurableHostDispatcher;
-				expect(
-					yield* dispatcher.dispatch(signalRequest(0), payload, principal, executionId),
-				).toEqual(signalCreated);
-				expect(
-					yield* dispatcher.dispatch(
-						{
-							index: 1,
-							kind: "host",
-							name: "sendNotification",
-							args: { capability: "sendNotification", args: [{ key: "notification.ready" }] },
-						},
-						payload,
-						principal,
-						executionId,
-					),
-				).toEqual({ value: null, state: "success" });
-				const recorded = yield* RecordedHostWrites;
+				for (const index of [0, 1]) {
+					expect(
+						yield* dispatcher.dispatch(settingsRequest(index), payload, principal, executionId),
+					).toEqual(settingsRead);
+				}
+				const recorded = yield* RecordedHostCalls;
+				expect(yield* recorded.calls).toBe(2);
 				expect(yield* recorded.activities).toEqual([
-					"sandbox-host-0-emitSignal",
-					"sandbox-host-1-sendNotification",
-				]);
-				expect(yield* recorded.messages).toEqual([
-					{
-						sourceRunId: runId,
-						accountUserId: subject.accountUserId,
-						sourceKey: `${runId}-host-1-notification`,
-						message: { key: "notification.ready", namespace: subject.pluginId },
-					},
+					"sandbox-host-0-getUserSettings",
+					"sandbox-host-1-getUserSettings",
 				]);
 			}),
 		testTimeout,
 	);
 });
 
-const runInlineWrite = Effect.gen(function* () {
+const runInlineHostCall = Effect.gen(function* () {
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 	const pending = yield* Ref.make<ReadonlyArray<SandboxInlineProgress>>([]);
 	const result = yield* dispatcher.settleInline(
-		[signalRequest(2)],
+		[settingsRequest(2)],
 		{},
 		principal,
 		"background",
@@ -370,31 +290,31 @@ const runInlineWrite = Effect.gen(function* () {
 	return { result, pending: yield* Ref.get(pending) };
 });
 
-layer(hostWriteLayer({}))((test) => {
-	test.effect("settles a write inline and checkpoints its result without an activity", () =>
+layer(hostCallLayer({}))((test) => {
+	test.effect("settles a host call inline and checkpoints its result without an activity", () =>
 		Effect.gen(function* () {
-			const settled = yield* runInlineWrite;
-			expect(settled.result).toEqual([signalCreated]);
-			expect(settled.pending).toMatchObject([{ _tag: "Completed", value: signalCreated }]);
-			const recorded = yield* RecordedHostWrites;
-			expect(yield* recorded.signals).toBe(1);
+			const settled = yield* runInlineHostCall;
+			expect(settled.result).toEqual([settingsRead]);
+			expect(settled.pending).toMatchObject([{ _tag: "Completed", value: settingsRead }]);
+			const recorded = yield* RecordedHostCalls;
+			expect(yield* recorded.calls).toBe(1);
 			expect(yield* recorded.activities).toEqual([]);
 		}),
 	);
 });
 
 layer(
-	hostWriteLayer({
+	hostCallLayer({
 		authority: {
 			resolve: () =>
 				Effect.fail(new SandboxRunError({ kind: "script-failure", message: "Unavailable" })),
 		},
 	}),
 )((test) => {
-	test.effect("defers the run when a write cannot settle inline", () =>
+	test.effect("defers the run when a host call cannot settle inline", () =>
 		Effect.gen(function* () {
-			expect(yield* runInlineWrite).toEqual({ pending: [], result: null });
-			expect(yield* (yield* RecordedHostWrites).signals).toBe(0);
+			expect(yield* runInlineHostCall).toEqual({ pending: [], result: null });
+			expect(yield* (yield* RecordedHostCalls).calls).toBe(0);
 		}),
 	);
 });
@@ -1478,365 +1398,6 @@ layer(interruptedDispatchLayer)((test) => {
 					),
 				);
 				expect(Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)).toBe(true);
-			}),
-		testTimeout,
-	);
-});
-
-const lifecycleCapabilities = [
-	"changeUserRelationships",
-	"upsertGlobalEntities",
-	"updateEvents",
-] as const;
-const lifecycleScript = {
-	...script,
-	metadata: { ...script.metadata, capabilities: [...lifecycleCapabilities] },
-};
-const lifecyclePrincipal = { ...principal, metadata: lifecycleScript.metadata };
-const lifecyclePayload = {
-	subject,
-	scriptId,
-	input: {},
-	lane: "background" as const,
-	resolutionMode: "exact" as const,
-	executionId: "sandbox-lifecycle",
-	startedAt: "2026-09-17T00:00:00.000Z",
-};
-
-type LifecycleSteps = ScriptHostImplementations["Service"]["lifecycle"];
-
-class LifecycleDispatchHarness extends Context.Service<
-	LifecycleDispatchHarness,
-	{
-		readonly logs: Effect.Effect<ReadonlyArray<string>>;
-		readonly recorded: Effect.Effect<ReadonlyArray<string>>;
-		readonly useLifecycle: (lifecycle: LifecycleSteps) => Effect.Effect<void>;
-	}
->()(
-	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/LifecycleDispatchHarness",
-) {}
-
-const lifecycleDispatchLayer = (options: {
-	readonly warnings?: ReadonlyArray<AutomationWarning>;
-	readonly lifecycle: (record: (entry: string) => Effect.Effect<void>) => LifecycleSteps;
-}) =>
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const logs = yield* Ref.make<ReadonlyArray<string>>([]);
-			const recorded = yield* Ref.make<ReadonlyArray<string>>([]);
-			const record = (entry: string) => append(recorded, entry);
-			const lifecycle = yield* Ref.make(options.lifecycle(record));
-			const instance = WorkflowInstance.initial(
-				ScriptExecutionWorkflow,
-				lifecyclePayload.executionId,
-			);
-			let engine: WorkflowEngine["Service"];
-			engine = makeWorkflowActivityEngine(instance, {
-				activityExecute: (activity) =>
-					Effect.gen(function* () {
-						yield* record(activity.name);
-						const exit = yield* Effect.exit(
-							activity.execute.pipe(
-								Effect.provideService(WorkflowEngine, engine),
-								Effect.provideService(WorkflowInstance, instance),
-							),
-						);
-						return new Workflow.Complete({ exit });
-					}),
-			});
-			const logger = Logger.make<unknown, void>((entry) =>
-				MutableRef.update(logs.ref, (all) => [...all, String(entry.message)]),
-			);
-			return Layer.mergeAll(
-				dispatcherLayer({
-					engine,
-					instance,
-					script: lifecycleScript,
-					implementations: {
-						...implementations,
-						get lifecycle() {
-							return MutableRef.get(lifecycle.ref);
-						},
-					},
-					lifecycleExecution: Layer.mock(LifecycleExecution)({
-						dispatch: (plans) =>
-							record(`dispatch:${plans.length}`).pipe(Effect.as(options.warnings ?? [])),
-					}),
-				}),
-				Layer.succeed(LifecycleDispatchHarness, {
-					logs: Ref.get(logs),
-					recorded: Ref.get(recorded),
-					useLifecycle: (next) => Ref.set(lifecycle, next),
-				}),
-				Logger.layer([logger]),
-			);
-		}),
-	);
-
-const runLifecycleWrite = (options: {
-	readonly args: ReadonlyArray<JsonValue>;
-	readonly principal?: ScriptExecutionPrincipal;
-	readonly capability: (typeof lifecycleCapabilities)[number];
-}) =>
-	Effect.flatMap(SandboxDurableHostDispatcher, (dispatcher) =>
-		dispatcher.dispatch(
-			{
-				index: 4,
-				kind: "host",
-				name: options.capability,
-				args: { args: options.args, capability: options.capability },
-			},
-			lifecyclePayload,
-			options.principal ?? lifecyclePrincipal,
-			lifecyclePayload.executionId,
-		),
-	);
-
-const lifecycleSteps = (overrides: Record<string, unknown>) => ({
-	...unusedLifecycle,
-	...overrides,
-});
-
-const batch = { creates: [], deletes: [] };
-
-layer(
-	lifecycleDispatchLayer({
-		lifecycle: () =>
-			lifecycleSteps({
-				updateEvents: {
-					commit: () =>
-						Effect.fail(
-							lifecycleHostFailure(new DbError({ message: "Busy", code: "RYOT_FOLD_BUSY" })),
-						),
-					validate: () =>
-						Effect.succeed({
-							items: [],
-							_tag: "UpdateEvents",
-							userId: subject.executionUserId,
-							command: {
-								causation,
-								itemIdentity: "updateEvents",
-								occurredAt: lifecyclePayload.startedAt,
-							},
-						}),
-				},
-			}),
-	}),
-)((test) => {
-	test.effect("defers a rolled-back lifecycle write without checkpointing a capacity failure", () =>
-		Effect.gen(function* () {
-			const dispatcher = yield* SandboxDurableHostDispatcher;
-			const pending = yield* Ref.make<ReadonlyArray<SandboxInlineProgress>>([]);
-			const result = yield* dispatcher.settleInline(
-				[
-					{
-						index: 0,
-						kind: "host",
-						name: "updateEvents",
-						args: { args: [[]], capability: "updateEvents" },
-					},
-				],
-				{},
-				lifecyclePrincipal,
-				"interactive",
-				"busy-parent",
-				lifecyclePayload.startedAt,
-				makeSandboxShortWait(),
-				(entry) => append(pending, entry),
-			);
-			expect(result).toBeNull();
-			expect(yield* Ref.get(pending)).toEqual([]);
-			expect(yield* (yield* LifecycleDispatchHarness).recorded).toEqual([]);
-		}),
-	);
-});
-
-const batchWarning = {
-	omittedHooks: [],
-	hasRequiredHooks: true,
-	code: "automation-limit-reached" as const,
-	triggerId: AutomationTriggerId.make("batch-trigger"),
-};
-
-layer(
-	lifecycleDispatchLayer({
-		warnings: [batchWarning],
-		lifecycle: () =>
-			lifecycleSteps({
-				changeUserRelationships: {
-					value: (results: ReadonlyArray<{ created: number; deleted: number }>) =>
-						results.map(({ created, deleted }) => ({ created, deleted })),
-					validate: () =>
-						Effect.succeed({
-							batches: [batch, batch],
-							userId: UserId.make("user-1"),
-							_tag: "ChangeUserRelationships",
-							command: {
-								causation,
-								occurredAt: "2026-09-17T00:00:00.000Z",
-								itemIdentity: "changeUserRelationships",
-							},
-						}),
-					itemWrite: (input: { readonly batches: ReadonlyArray<unknown> }) => ({
-						items: input.batches,
-						result: RelationshipBatchSummary,
-						commit: () => () => Effect.die("no commit"),
-						applyPolicies: () => Effect.die("no policies"),
-						prepare: (_batch: unknown, index: number) =>
-							Effect.succeed({
-								_tag: "Committed",
-								result: { updated: 0, deleted: 0, created: index },
-								dispatch: [{ runs: [], blockedReason: null, triggerId: `batch-${index}` }],
-							}),
-					}),
-				},
-			}),
-	}),
-)((test) => {
-	test.effect(
-		"writes each relationship batch in turn and dispatches between them",
-		() =>
-			Effect.gen(function* () {
-				const harness = yield* LifecycleDispatchHarness;
-				const result = yield* runLifecycleWrite({
-					args: [[batch, batch]],
-					capability: "changeUserRelationships",
-				});
-				expect(result).toEqual({
-					state: "success",
-					value: [
-						{ created: 0, deleted: 0 },
-						{ created: 1, deleted: 0 },
-					],
-				});
-				expect(yield* harness.recorded).toEqual([
-					"sandbox-host-4-changeUserRelationships",
-					"dispatch:1",
-					"dispatch:1",
-				]);
-				expect(
-					(yield* harness.logs).filter((message) => message.includes("automation warnings")),
-				).toHaveLength(1);
-			}),
-		testTimeout,
-	);
-});
-
-const policyPending = { planned: [], pending: { policies: [] } };
-
-layer(
-	lifecycleDispatchLayer({
-		lifecycle: (record) =>
-			lifecycleSteps({
-				upsertGlobalEntities: {
-					value: (results: ReadonlyArray<{ status: string }>) => results,
-					applyPolicies: (value: unknown) => record("policies").pipe(Effect.as(value)),
-					prepare: () => Effect.succeed({ pending: policyPending, _tag: "PoliciesRequired" }),
-					commit: () =>
-						Effect.succeed({
-							_tag: "Committed",
-							result: [{ status: "skipped" }],
-							dispatch: [{ runs: [], blockedReason: null, triggerId: "upsert-trigger" }],
-						}),
-					validate: () =>
-						Effect.succeed({
-							items: [],
-							options: null,
-							_tag: "UpsertGlobalEntities",
-							providerId: SandboxProviderId.make("provider-1"),
-							command: {
-								causation,
-								itemIdentity: "upsertGlobalEntities",
-								occurredAt: "2026-09-17T00:00:00.000Z",
-							},
-						}),
-				},
-			}),
-	}),
-)((test) => {
-	test.effect(
-		"runs a global entity upsert's policies before dispatching its after hooks",
-		() =>
-			Effect.gen(function* () {
-				const providerPrincipal = {
-					...lifecyclePrincipal,
-					subject: { type: "system" as const },
-					providerId: SandboxProviderId.make("provider-1"),
-					metadata: { ...lifecycleScript.metadata, kind: "script" as const },
-				};
-				const result = yield* runLifecycleWrite({
-					args: [[]],
-					principal: providerPrincipal,
-					capability: "upsertGlobalEntities",
-				});
-				expect(result).toEqual({ state: "success", value: [{ status: "skipped" }] });
-				expect(yield* (yield* LifecycleDispatchHarness).recorded).toEqual([
-					"sandbox-host-4-upsertGlobalEntities",
-					"policies",
-					"dispatch:1",
-				]);
-			}),
-		testTimeout,
-	);
-});
-
-layer(lifecycleDispatchLayer({ lifecycle: () => lifecycleSteps({}) }))((test) => {
-	test.effect(
-		"reports invalid arguments, denied limits, and policy rejections as host failures",
-		() =>
-			Effect.gen(function* () {
-				const harness = yield* LifecycleDispatchHarness;
-				const validated = {
-					batches: [batch],
-					userId: UserId.make("user-1"),
-					_tag: "ChangeUserRelationships",
-					command: {
-						causation,
-						occurredAt: "2026-09-17T00:00:00.000Z",
-						itemIdentity: "changeUserRelationships",
-					},
-				};
-
-				expect(
-					yield* runLifecycleWrite({ args: [], capability: "changeUserRelationships" }),
-				).toEqual({
-					state: "failure",
-					error: { message: "changeUserRelationships received an invalid number of arguments" },
-				});
-				yield* harness.useLifecycle(
-					lifecycleSteps({
-						changeUserRelationships: {
-							...unusedLifecycle.changeUserRelationships,
-							validate: () =>
-								Effect.fail({ message: "changeUserRelationships exceeds 500 changes" }),
-						},
-					}),
-				);
-				expect(
-					yield* runLifecycleWrite({ args: [[batch]], capability: "changeUserRelationships" }),
-				).toEqual({
-					state: "failure",
-					error: { message: "changeUserRelationships exceeds 500 changes" },
-				});
-				yield* harness.useLifecycle(
-					lifecycleSteps({
-						changeUserRelationships: {
-							value: () => [],
-							validate: () => Effect.succeed(validated),
-							itemWrite: () => ({
-								items: [batch],
-								result: RelationshipBatchSummary,
-								commit: () => () => Effect.die("no commit"),
-								prepare: () => Effect.succeed({ pending: { items: [] }, _tag: "PoliciesRequired" }),
-								applyPolicies: () =>
-									Effect.fail(new SandboxLifecycleHostFailure({ message: "policy-rejected" })),
-							}),
-						},
-					}),
-				);
-				expect(
-					yield* runLifecycleWrite({ args: [[batch]], capability: "changeUserRelationships" }),
-				).toEqual({ state: "failure", error: { message: "policy-rejected" } });
 			}),
 		testTimeout,
 	);

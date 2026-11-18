@@ -78,10 +78,9 @@ idempotent dispatch: durable ownership is not a single-flight guarantee.
 ### Direct calls
 
 `ScriptCalls` runs a pinned script once on the plain host: no workflow, journal, durable host, or
-workflow reference. Lifecycle writes require a durable host call, so such a run can only read. The
-plain host serves only capabilities with a declared result bound; reads without one, such as
-`getPluginConfig`, keep the workflow path. A full admission queue is retried every
-100 ms with jitter.
+workflow reference. Every operation runs this way. The plain host serves only capabilities with a
+declared result bound; reads without one, such as `getPluginConfig`, are unavailable to it. A full
+admission queue is retried every 100 ms with jitter.
 
 ### Journal projection
 
@@ -127,9 +126,8 @@ Longer/exhausted waits defer. A batch also defers when journal indexes diverge, 
 continuations cannot fit, its lane cannot reserve the whole batch within 500 ms, or dispatch fails. Declared result
 bounds cannot exceed 80 MiB. Settled evidence stays charged at three times encoded size until run
 end; deferred calls may already have executed and must tolerate replay. A batch keeps its lane's pool
-until its host calls settle, so a script nested in one of those calls, such as a fold or a before-policy
-inside a write, runs on the other lane. Budgets too small for lane mode share one pool, so a nested script
-there defers.
+until its host calls settle, so a script nested in one of those calls runs on the other lane. Budgets
+too small for lane mode share one pool, so a nested script there defers.
 
 Only validated inline waits pause the script timeout/extend session expiry. Settlement is bounded to
 30 seconds per wait and five minutes absolute; HTTP attempts remain eight seconds. The isolate must
@@ -148,33 +146,24 @@ be disposed within two seconds before its reservation is refunded.
   TTL is leak cleanup, not normal ownership. Logs/spans/console output are diagnostics, not journal.
 - Trusted subjects override input user IDs; relayed ingestion/automation attribution is owner-validated.
 
-### Folds
-
-`requestFolds({ entityIds })` queues a `fold` job for each of at most 100 subjects of the execution
-user. The owning plugin's `requestFoldsForAllUsers` does the same for every user with events on those
-subjects. See [folds](../events/README.md#folds).
-
 ## Capabilities
 
 Compiler-derived local metadata constrains every runner, host, durable dispatch, and filesystem grant.
 Replay never analyzes current source or borrows child capabilities. Authored identity/kind/projection
 fields are validated separately and grant no privileges. Runtime policy combines script kind,
-subject, scope, provider association, and bootstrap designation; services enforce domain ownership.
+subject, and scope; services enforce domain ownership.
 
 `authorization/` owns principal policy, `SANDBOX_CAPABILITY_REQUIREMENTS` is the exhaustive vocabulary,
 and host contracts have exhaustive durable dispatch coverage. New operations extend these owners,
 not a source-authored grant list. `scratch`/`artifact-read` are filesystem grants requiring trusted
 resources, not host calls.
 
-| Subject                   | Capability boundary                                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Valid subjects            | Diagnostics, HTTP, cache/persistent values, and pinned plugin configuration                                              |
-| User/user automation      | Events, schema/integration/preference reads, managed-asset verification, relationships, and RyotQL                       |
-| Designated user bootstrap | `ensureUserEntities` within its plugin schemas, in either plugin scope                                                   |
-| User-subject plugin       | User-owned entity create/update/delete/save/clear/merge within pinned plugin ownership                                   |
-| Pinned system plugin      | Global entity/relationship upserts and RyotQL within owned definitions; entity upsert also requires provider association |
-| User/system automation    | Signals; notification delivery requires a user automation run                                                            |
-| Own integration run       | Access/invalidation of OAuth fields declared by its current settings schema                                              |
+| Subject              | Capability boundary                                                                                |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| Valid subjects       | Diagnostics, HTTP, cache/persistent values, and pinned plugin configuration                        |
+| User/user automation | Schema/integration/preference/settings reads, entitlements, managed-asset verification, and RyotQL |
+| Pinned system plugin | RyotQL within owned definitions                                                                    |
+| Own integration run  | Access/invalidation of OAuth fields declared by its current settings schema                        |
 
 User-subject definition reads pin only the caller's own declarations; visible foreign definitions
 remain current. Entity/event reads use RyotQL, not schema metadata calls. Before policies receive
@@ -201,32 +190,9 @@ single host map shared by inline and durable dispatch.
 
 ## Script Writes
 
-Entity capabilities enforce exact schema, plugin, scope, and user ownership through normal services,
-and policies. Scripts cannot set global scope, provider provenance, ownership, or
-`populatedAt`; policies/system subjects cannot use user-entity creation.
-
-| Operation                               | Contract                                                                                                                                        |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createUserEntity` / `updateUserEntity` | Create one owned entity or update against expected name, time, and properties                                                                   |
-| `deleteUserEntity`                      | Delete the owned schema-matching entity through lifecycle handling, including referencing events                                                |
-| `clearUserEntityData`                   | Delete the user's events and relationships for an entity in a pinned plugin schema and return deleted counts                                    |
-| `mergeUserEntityData`                   | Move the user's events/relationships into a same-schema entity using merge policy and return moved counts                                       |
-| `updateEvents` / `deleteEvents`         | Atomic batches of at most 100; updates use `{ eventId, patch }` with properties `{ remove, set }`, occurrence time, entity, or nullable session |
-| `changeUserRelationships`               | Each create chooses merge (preserve unspecified fields/union arrays) or replace (full property record); membership writes use merge             |
-
-Merge requires a user-owned source and same-plugin/schema endpoints. It retains the sandbox principal
-but marks the command as a kernel collection command, allowing owned domain events and kernel
-review/collection/member-of state to move. Other plugins' events/relationships fail `owner-mismatch`.
-All source user relationships move; scripts detach those they do not want first.
-
-Entity, event, and relationship writes accept optional `{ submittedAt, idempotencyKey }`, scoped by
-account, installation, script, and capability. Retries preserve ordered input/time/key;
-changed committed input conflicts. Without options, execution-scoped identities apply. Event update
-items may also include an expected entity/time/properties/session snapshot.
-
-Event creation returns count and one indexed outcome per input: written event ID or policy skip.
-Partial failures retain count/outcomes/code/partial. Later failures do not roll back earlier committed
-operations or weaken their owning services' transaction/lifecycle boundaries.
+Host capabilities only read. An operation writes by returning `{ output, changes? }`;
+`OperationsService` runs it through `ScriptCalls` and commits `changes` as one
+[user command](../user-commands/README.md).
 
 ## Global HTTP Admission
 
@@ -293,8 +259,8 @@ the sandbox continues to own only isolation and its generic host boundary.
 `agent/` compiles submitted TypeScript with `SandboxCompiler` and executes it as an `agent` subject.
 The principal carries the authenticated user and access class; it has no plugin revision, provider
 or kernel identity. Only `log`, `span` and `invokeCapability` are available. Compiler-derived
-metadata requesting HTTP, raw writes, queries, files, configuration, cache or other host
-capabilities is rejected before execution.
+metadata requesting HTTP, queries, files, configuration, cache or other host capabilities is
+rejected before execution.
 
 The caller supplies the `invokeCapability` port, bound to its authenticated credential; the
 [agent tools](../agent-tools/README.md) registry resolves capabilities, owns write authorization and

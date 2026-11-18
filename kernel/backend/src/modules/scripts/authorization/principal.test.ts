@@ -4,9 +4,9 @@ import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
-import { Effect, Result, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
-import { isUserBootstrapPrincipal, runNotification, ScriptExecutionPrincipal } from "./principal";
+import { isUserBootstrapPrincipal, ScriptExecutionPrincipal } from "./principal";
 
 const encodeJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -138,30 +138,6 @@ it.effect(
 			expect(yield* bootstrap({ kind: "script" }, ["script"])).toBe(true);
 			expect(yield* bootstrap({ kind: "script" }, ["other"])).toBe(false);
 			expect(yield* bootstrap({ kind: "automation" }, ["script"])).toBe(false);
-		}),
-	testTimeout,
-);
-
-it.effect(
-	"keeps stamped nested notification messages only for kernel scripts",
-	() =>
-		Effect.gen(function* () {
-			const decoded = yield* Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(principal);
-			const message = {
-				key: "notification.integration-disabled",
-				params: { provider: { key: "provider.name", namespace: "other-plugin" } },
-			};
-			const stampedProvider = (input: Parameters<typeof runNotification>[0]) =>
-				Result.map(
-					runNotification(input, 0, message),
-					(admission) => admission.message.params?.["provider"],
-				);
-			expect(stampedProvider({ ...decoded, kernelScript: true, pluginRevision: null })).toEqual(
-				Result.succeed({ key: "provider.name", namespace: "other-plugin" }),
-			);
-			expect(stampedProvider(decoded)).toEqual(
-				Result.succeed({ key: "provider.name", namespace: "plugin-1" }),
-			);
 		}),
 	testTimeout,
 );

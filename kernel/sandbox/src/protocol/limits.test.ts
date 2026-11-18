@@ -60,7 +60,7 @@ describe("sandbox limits", () => {
 	});
 
 	it("counts every host and HTTP call attempt against both budgets", () => {
-		const totalBudget = { http: 0, total: 0, userSettingsWrites: 0 };
+		const totalBudget = { http: 0, total: 0 };
 		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.total; index += 1) {
 			expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toBeNull();
 		}
@@ -71,7 +71,7 @@ describe("sandbox limits", () => {
 			}),
 		);
 
-		const httpBudget = { http: 0, total: 0, userSettingsWrites: 0 };
+		const httpBudget = { http: 0, total: 0 };
 		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.http; index += 1) {
 			expect(consumeSandboxHostCall(httpBudget, "httpCall")).toBeNull();
 		}
@@ -81,27 +81,17 @@ describe("sandbox limits", () => {
 				reason: objectContaining({ operation: "httpCall", code: "execution-limit" }),
 			}),
 		);
-
-		const settingsBudget = { http: 0, total: 0, userSettingsWrites: 0 };
-		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.userSettingsWrites; index += 1) {
-			expect(consumeSandboxHostCall(settingsBudget, "updateUserSettings")).toBeNull();
-		}
-		expect(consumeSandboxHostCall(settingsBudget, "getUserSettings")).toBeNull();
-		expect(consumeSandboxHostCall(settingsBudget, "updateUserSettings")).toEqual({
-			message: "Sandbox execution exceeds 4 updateUserSettings calls",
-			reason: { code: "execution-limit", operation: "updateUserSettings" },
-		});
 	});
 
 	it("charges the isolate's budget by arithmetic alone and leaves the capability lookup to the host", () => {
-		const budget = { http: 0, userSettingsWrites: 0, total: SANDBOX_LIMITS.hostCalls.total };
+		const budget = { http: 0, total: SANDBOX_LIMITS.hostCalls.total };
 
 		expect(chargeSandboxHostCall(budget, "not-a-capability")).toBe(
 			"Sandbox execution exceeds 1000 host calls",
 		);
 		expect(
 			consumeSandboxHostCall(
-				{ http: 0, userSettingsWrites: 0, total: SANDBOX_LIMITS.hostCalls.total },
+				{ http: 0, total: SANDBOX_LIMITS.hostCalls.total },
 				"not-a-capability",
 			),
 		).toEqual({

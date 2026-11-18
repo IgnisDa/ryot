@@ -107,7 +107,7 @@ it("terminates executable cycles and reports effects found within them", () => {
 	expect(hasReachableExternalEffects({ workflows: [], scripts: cycle }, "root")).toBe(false);
 	expect(
 		hasReachableExternalEffects(
-			{ workflows: [], scripts: [root, { ...child, capabilities: ["sendNotification"] }] },
+			{ workflows: [], scripts: [root, { ...child, capabilities: ["httpCall"] }] },
 			"root",
 		),
 	).toBe(true);

@@ -52,10 +52,10 @@ layer(hostFunctionsLayer)("SandboxHostFunctionsLive", (it) => {
 						),
 					),
 				);
-				expect(after).toHaveProperty("createEvents");
-				expect(after).toHaveProperty("sendNotification");
-				expect(after).not.toHaveProperty("ensureUserEntities");
-				expect(after).not.toHaveProperty("upsertGlobalEntities");
+				expect(after).toHaveProperty("httpCall");
+				expect(after).toHaveProperty("getEntitlements");
+				expect(after).not.toHaveProperty("getOAuthAccessToken");
+				expect(after).not.toHaveProperty("invokeCapability");
 			}),
 		testTimeout,
 	);

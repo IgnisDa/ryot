@@ -533,7 +533,7 @@ layer(
 					workflowExecutionId: inlineWorkflowId,
 					startedAt: "2026-01-01T00:00:00.000Z",
 					executionId: `${inlineWorkflowId}-replay-2`,
-					principal: inlinePrincipal(["createEvents", "getCachedValue", "log"]),
+					principal: inlinePrincipal(["invokeCapability", "getCachedValue", "log"]),
 				});
 				yield* executeSandboxExecution({
 					context: {},
@@ -542,7 +542,7 @@ layer(
 					workflowExecutionId: "other-id",
 					executionId: "other-id-replay-0",
 					startedAt: "2026-01-01T00:00:00.000Z",
-					principal: inlinePrincipal(["createEvents", "emitSignal"]),
+					principal: inlinePrincipal(["invokeCapability"]),
 				});
 				const runs = (yield* (yield* RecordedRuns).runs).slice(before);
 				const offered = runs.map(({ inlineDurableHost: inline }) =>

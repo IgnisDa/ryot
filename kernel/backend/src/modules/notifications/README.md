@@ -1,16 +1,13 @@
 # Notifications
 
 `NotificationsService` owns channel commands and routes test and automation messages through
-`NotificationAdmissions`. Both sandbox entry paths supply the trusted run, host-call identity and
-recipient account. Channel tests retain a submission key and return the admitted
-notification ID; an HTTP success acknowledges queueing, not provider delivery.
+`NotificationAdmissions`. An automation message carries its trusted run, source key, and recipient
+account. Channel tests retain a submission key and return the admitted notification ID; an HTTP
+success acknowledges queueing, not provider delivery.
 
 ## Messages
 
-`host.sendNotification(message)` takes a `LocalMessage`. Both entry paths stamp the run's catalog
-namespace (its plugin ID, or `kernel` for kernel scripts) and refuse runs with neither, so a script
-can only reference its own catalog. Kernel scripts build these messages from the kernel catalog with
-the generated `catalogMessage` builder; see [Build And Execution](../scripts/README.md#build-and-execution). Admission stores the stamped `Message` in the `request` column,
+An automation message is a namespace-stamped `Message`. Admission stores it in the `request` column,
 never rendered text, and the input digest covers it, so deduplication does not depend on any
 locale. Erasing a run's content replaces the message with the kernel `message.unavailable` key.
 
