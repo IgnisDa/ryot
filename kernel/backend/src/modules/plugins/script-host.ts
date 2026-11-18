@@ -1,9 +1,7 @@
 import { resolveStoredPluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect } from "effect";
 
 import {
@@ -20,6 +18,10 @@ import { PluginRuntimeResolver } from "./catalog/runtime-resolver";
 import { getPluginConfig } from "./configuration/access";
 import { isPluginConfigTooLarge, pluginConfigTooLargeMessage } from "./configuration/revisions";
 import { PluginInstallationRepository } from "./installations/repository";
+import {
+	isPluginUserSettingsTooLarge,
+	pluginUserSettingsTooLargeMessage,
+} from "./preferences/user-settings-size";
 
 const normalizeConfigKeys = (
 	rawKeys: ReadonlyArray<string>,
@@ -38,8 +40,8 @@ const encodeConfigValues = (values: Readonly<Record<string, unknown>>) =>
 	).pipe(Effect.map((entries): Record<string, JsonValue> => Object.fromEntries(entries)));
 
 const boundedUserSettings = <Settings>(settings: Settings) =>
-	(jsonByteLength(settings) ?? Infinity) > SANDBOX_LIMITS.userSettingsBytes
-		? Effect.fail(`Plugin user settings exceed ${SANDBOX_LIMITS.userSettingsBytes} UTF-8 bytes`)
+	isPluginUserSettingsTooLarge(settings)
+		? Effect.fail(pluginUserSettingsTooLargeMessage)
 		: Effect.succeed(settings);
 
 const boundedPluginConfig = (values: Record<string, JsonValue>) =>

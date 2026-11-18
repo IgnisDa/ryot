@@ -662,24 +662,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							left.provider.slug.localeCompare(right.provider.slug),
 					);
 			});
-			const listSchemaProviders = Effect.fn(function* (input: {
-				userId: UserId;
-				entitySchemas?: ReadonlyArray<EntitySchemaReference>;
-			}) {
-				if (input.entitySchemas?.length === 0) {
-					return [];
-				}
-				const references = input.entitySchemas;
-				return yield* querySchemaProviders(input.userId, (provider) =>
-					references
-						? references.some(
-								(reference) =>
-									provider.rootEntitySchemaSlug === reference.slug &&
-									provider.pluginId === definitionOwnerPluginId(reference.owner),
-							)
-						: true,
-				);
-			});
 			const findProviderAvailableToUser = Effect.fn(function* (
 				userId: UserId,
 				id: SandboxProviderId,
@@ -898,7 +880,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			return {
 				lockCatalog,
 				resolveUserPackage,
-				listSchemaProviders,
 				findActiveScriptById,
 				populatesEntitySchema,
 				findActiveProviderById,

@@ -1,7 +1,3 @@
-export type { EventRecord } from "./core/events";
-export { eventRecordSchema } from "./core/events";
-export type { EntityRecord } from "./core/entities";
-export { entityRecordSchema } from "./core/entities";
 export type { LogEntry, SpanEntry } from "./core/logging";
 export { EntitlementRequiredError } from "./core/entitlements";
 export { sandboxHostCapabilitySchema } from "./core/capabilities";

@@ -171,8 +171,7 @@ export function pluginConfigSandboxSource(
 export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		sdkImports: ["entityRecordSchema"],
-		outputSchema: "Schema.Array(entityRecordSchema)",
+		outputSchema: "Schema.Array(Schema.Unknown)",
 		ryotqlImports: ["entityReadRecipe", "executeRyotqlRecipe"],
 		inputSchema: "Schema.Struct({ ids: Schema.Array(Schema.String) })",
 		run: `(input, host) => input.ids.length === 0

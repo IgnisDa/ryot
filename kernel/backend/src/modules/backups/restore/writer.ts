@@ -66,6 +66,10 @@ import { validateRestoredProperties } from "#modules/plugins/configuration/revis
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { validateAdditiveSchemaEvolution } from "#modules/plugins/packages/schema-evolution";
 import type { StoredPlugin } from "#modules/plugins/packages/types";
+import {
+	isPluginUserSettingsTooLarge,
+	pluginUserSettingsTooLargeMessage,
+} from "#modules/plugins/preferences/user-settings-size";
 import { PUBLICATION_RESULT_BYTES } from "#modules/publications/model";
 import { DatabaseSession } from "#platform/db/session";
 
@@ -451,6 +455,9 @@ export const resolveRestoredPluginUserSettings = Effect.fn(function* (
 	userSettings: Record<string, unknown>,
 	settingsSchema: undefined | AppSchema<unknown>,
 ) {
+	if (isPluginUserSettingsTooLarge(userSettings)) {
+		return yield* archiveError("invalid_entry", pluginUserSettingsTooLargeMessage);
+	}
 	return yield* resolvePluginUserSettings(
 		settingsSchema ?? emptyPluginUserSettingsSchema,
 		userSettings,

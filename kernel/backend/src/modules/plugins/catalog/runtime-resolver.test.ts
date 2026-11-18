@@ -255,17 +255,6 @@ describe("revision-backed runtime resolution", () => {
 						}),
 					).toBeNull();
 					expect(
-						(yield* runtime.listSchemaProviders({
-							userId: owner,
-							entitySchemas: [
-								{
-									slug: EntitySchemaSlug.make("whiskey-entity"),
-									owner: definitionOwner(privatePlugin.pluginId),
-								},
-							],
-						})).map(({ provider }) => provider.pluginId),
-					).toEqual([privatePlugin.pluginId]);
-					expect(
 						yield* runtime.findAuthorizedSchemaProviderById({
 							providerId: ownProvider.id,
 							entitySchema: {
@@ -330,12 +319,16 @@ describe("revision-backed runtime resolution", () => {
 						(yield* runtime.resolveUserDetailsScript(owner, fixtureProvider.provider.id))
 							.pluginRevisionId,
 					).toBe(installed.revisionId);
+					const fixtureReference = {
+						slug: "fixture-provider",
+						owner: definitionOwner(installed.pluginId),
+					};
 					expect(
-						(yield* runtime.listSchemaProviders({ userId: owner })).map(
-							({ provider }) => provider.id,
-						),
-					).toEqual([fixtureProvider.provider.id]);
-					expect(yield* runtime.listSchemaProviders({ userId: other })).toEqual([]);
+						(yield* runtime.findProviderAvailableToUserByReference(owner, fixtureReference))?.id,
+					).toBe(fixtureProvider.provider.id);
+					expect(
+						yield* runtime.findProviderAvailableToUserByReference(other, fixtureReference),
+					).toBeNull();
 					expect(
 						yield* runtime.findAuthorizedSchemaProviderById({
 							providerId: fixtureProvider.provider.id,
@@ -433,7 +426,12 @@ describe("revision-backed runtime resolution", () => {
 						id: installed.installation.id,
 						health: "needs-configuration",
 					});
-					expect(yield* runtime.listSchemaProviders({ userId: owner })).toEqual([]);
+					expect(
+						yield* runtime.findProviderAvailableToUserByReference(owner, {
+							slug: "fixture-provider",
+							owner: definitionOwner(installed.pluginId),
+						}),
+					).toBeNull();
 					yield* installations.remove(installed.installation.id);
 					expect(yield* runtime.listPluginsAvailableToUser(owner, true)).toEqual([]);
 				}),

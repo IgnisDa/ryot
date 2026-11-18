@@ -9,7 +9,6 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -20,6 +19,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
+import { isPluginUserSettingsTooLarge, pluginUserSettingsTooLargeMessage } from "./user-settings-size";
 
 class PluginUserSettingsTooLarge extends Schema.TaggedError<
 	PluginUserSettingsTooLarge,
@@ -56,7 +56,7 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 					input.settingsSchema,
 					input.validated,
 				).pipe(Effect.catchTag("SchemaError", Effect.die));
-				if ((jsonByteLength(input.stored) ?? Infinity) > SANDBOX_LIMITS.userSettingsBytes) {
+				if (isPluginUserSettingsTooLarge(input.stored)) {
 					return yield* new PluginUserSettingsTooLarge();
 				}
 				yield* assetReferences
@@ -191,7 +191,7 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 								}),
 							PluginUserSettingsTooLarge: () =>
 								new PluginUserSettingsPatchError({
-									message: `Plugin user settings exceed ${SANDBOX_LIMITS.userSettingsBytes} UTF-8 bytes`,
+									message: pluginUserSettingsTooLargeMessage,
 								}),
 						}),
 					);
