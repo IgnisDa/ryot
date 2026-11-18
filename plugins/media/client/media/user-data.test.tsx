@@ -71,7 +71,7 @@ it.live(
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							calls.push(request);
-							return { count: 2, status: "saved" };
+							return { committed: { events: [] }, value: { count: 2, status: "saved" } };
 						}),
 				},
 				<MediaUserDataControl media={summary("movie", false)} />,
@@ -101,7 +101,7 @@ it.live(
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							requests.push(request);
-							return { count: 4, status: "saved" };
+							return { committed: { events: [] }, value: { count: 4, status: "saved" } };
 						}),
 				},
 				<MediaUserDataControl media={summary("movie", false)} />,
@@ -141,15 +141,15 @@ it.live(
 				{
 					query: () => entityQuery(),
 					navigate: (mode, target) => navigation.push({ mode, target }),
-					invokeOperation: (request) =>
-						Effect.sync(() => {
-							operations.push(request);
-							return { count: 3, status: "saved" };
-						}),
 					pickEntity: (request) =>
 						Effect.sync(() => {
 							picks.push(request);
 							return { kind: "selected", entityIds: ["target-1"] };
+						}),
+					invokeOperation: (request) =>
+						Effect.sync(() => {
+							operations.push(request);
+							return { committed: { events: [] }, value: { count: 3, status: "saved" } };
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,
@@ -219,7 +219,7 @@ it.live.each([
 					invokeOperation: (request) =>
 						Effect.sync(() => {
 							operations.push(request);
-							return { count: 0, status: "saved" };
+							return { committed: { events: [] }, value: { count: 0, status: "saved" } };
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,
@@ -251,8 +251,11 @@ it.live(
 					pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
 					invokeOperation: () =>
 						Effect.succeed({
-							status: "rejected",
-							reason: { key: "rejection.user-data.child-mapping-conflict" },
+							committed: { events: [] },
+							value: {
+								status: "rejected",
+								reason: { key: "rejection.user-data.child-mapping-conflict" },
+							},
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,
@@ -288,7 +291,10 @@ it.live(
 							requests.push(request);
 							return requests.length === 1
 								? Effect.fail(new RyotClientError({ reason: "transport" }))
-								: Effect.succeed({ count: 1, status: "saved" });
+								: Effect.succeed({
+										committed: { events: [] },
+										value: { count: 1, status: "saved" },
+									});
 						}),
 				},
 				<MediaUserDataControl media={summary()} />,

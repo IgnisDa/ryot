@@ -121,12 +121,14 @@ export const MediaActivityLogInput = Schema.Struct({
 
 export type MediaActivityLogInput = typeof MediaActivityLogInput.Type;
 
-export const MediaActivityLogOutput = Schema.Struct({
+export const MediaActivityLogOutput = Schema.Struct({ count: Schema.Int });
+
+export type MediaActivityLogOutput = typeof MediaActivityLogOutput.Type;
+
+export const MediaActivityEditOutput = Schema.Struct({
 	count: Schema.Int,
 	status: Schema.Literals(["saved", "incomplete"]),
 });
-
-export type MediaActivityLogOutput = typeof MediaActivityLogOutput.Type;
 
 const MediaActivityEditWhen = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("unknown") }),

@@ -72,11 +72,13 @@ describe("media ownership operation", () => {
 							execution,
 						),
 					).toEqual({
-						results: [
-							{ ...properties, status: "found", entityId: "entity-a" },
-							{ status: "notFound", entityId: "missing" },
-							{ ...properties, status: "found", entityId: "entity-a" },
-						],
+						output: {
+							results: [
+								{ ...properties, status: "found", entityId: "entity-a" },
+								{ status: "notFound", entityId: "missing" },
+								{ ...properties, status: "found", entityId: "entity-a" },
+							],
+						},
 					});
 					expect(changes).toEqual([
 						[
@@ -114,7 +116,7 @@ describe("media ownership operation", () => {
 						ownershipHost([], changes, documents),
 						execution,
 					),
-				).toEqual({ results: [{ status: "notFound", entityId: "person-1" }] });
+				).toEqual({ output: { results: [{ status: "notFound", entityId: "person-1" }] } });
 				expect(changes).toEqual([]);
 				const targetDocument = documents.find(
 					(document) => !ryotqlDocumentNodes(document).includes("media-library"),

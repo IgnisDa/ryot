@@ -43,16 +43,18 @@ const mediaUserDataMutation = createRyotMutation<
 	RyotSubmission<MediaUserDataAction>,
 	MediaUserDataOutput
 >(({ input, client }) =>
-	client.operations.invoke({
-		slug: "media-user-data",
-		refreshOnSuccess: false,
-		output: MediaUserDataOutput,
-		packageId: PLUGIN_PACKAGE_ID,
-		submittedAt: input.submittedAt,
-		inputSchema: MediaUserDataInput,
-		idempotencyKey: input.submissionId,
-		input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
-	}),
+	client.operations
+		.invoke({
+			slug: "media-user-data",
+			refreshOnSuccess: false,
+			output: MediaUserDataOutput,
+			packageId: PLUGIN_PACKAGE_ID,
+			submittedAt: input.submittedAt,
+			inputSchema: MediaUserDataInput,
+			idempotencyKey: input.submissionId,
+			input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
+		})
+		.pipe(Effect.map(({ output }) => output)),
 );
 
 const isMediaLibraryMemberSchemaSlug = (slug: string): slug is MediaLibraryMemberEntitySchemaSlug =>

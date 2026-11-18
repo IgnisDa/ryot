@@ -22,6 +22,7 @@ import {
 } from "../shared/integration-operations";
 import {
 	MediaActivityDeleteInput,
+	MediaActivityEditOutput,
 	MediaActivityLogInput,
 	MediaActivityLogOutput,
 	MediaActivityUpdateInput,
@@ -1115,7 +1116,7 @@ export const mediaPlugin = definePlugin({
 			output: operationJsonSchema(MediaActivityLogOutput),
 			hints: { readOnly: false, idempotent: false, destructive: false },
 			description:
-				"Record completion, progress, lifecycle state, or episode activity for a title. Returns a saved count and completion status; repeated calls can create additional events.",
+				"Record completion, progress, lifecycle state, or episode activity for a title. Returns the saved count; repeated calls can create additional events.",
 		},
 		{
 			auth: "user",
@@ -1123,7 +1124,7 @@ export const mediaPlugin = definePlugin({
 			slug: "media-activity-update",
 			title: "Update media activity",
 			scriptSlug: "operation.media-activity-update",
-			output: operationJsonSchema(MediaActivityLogOutput),
+			output: operationJsonSchema(MediaActivityEditOutput),
 			input: operationJsonSchema(MediaActivityUpdateInput),
 			hints: { readOnly: false, destructive: true, idempotent: false },
 			description:
@@ -1135,7 +1136,7 @@ export const mediaPlugin = definePlugin({
 			slug: "media-activity-delete",
 			title: "Delete media activity",
 			scriptSlug: "operation.media-activity-delete",
-			output: operationJsonSchema(MediaActivityLogOutput),
+			output: operationJsonSchema(MediaActivityEditOutput),
 			input: operationJsonSchema(MediaActivityDeleteInput),
 			hints: { readOnly: false, destructive: true, idempotent: false },
 			description:

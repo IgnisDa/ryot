@@ -80,5 +80,5 @@ export default defineOperation({
 				count += (yield* host.deleteEvents(batch)).count;
 			}
 			return { count };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

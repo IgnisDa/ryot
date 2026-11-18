@@ -39,16 +39,18 @@ const deleteEntity = createRyotMutation<
 	}).pipe(
 		Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })),
 		Effect.flatMap((payload) =>
-			client.operations.invoke({
-				input: payload,
-				refreshOnSuccess: false,
-				packageId: PLUGIN_PACKAGE_ID,
-				submittedAt: input.submittedAt,
-				output: WorkoutDeleteOutputSchema,
-				idempotencyKey: input.submissionId,
-				inputSchema: WorkoutDeleteInputSchema,
-				slug: entityKinds[input.input.kind].operationSlug,
-			}),
+			client.operations
+				.invoke({
+					input: payload,
+					refreshOnSuccess: false,
+					packageId: PLUGIN_PACKAGE_ID,
+					submittedAt: input.submittedAt,
+					output: WorkoutDeleteOutputSchema,
+					idempotencyKey: input.submissionId,
+					inputSchema: WorkoutDeleteInputSchema,
+					slug: entityKinds[input.input.kind].operationSlug,
+				})
+				.pipe(Effect.map(({ output }) => output)),
 		),
 	),
 );

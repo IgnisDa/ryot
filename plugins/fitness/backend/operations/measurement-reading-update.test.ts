@@ -124,7 +124,7 @@ describe("measurement reading update operation", () => {
 						host,
 						execution,
 					),
-				).toEqual({ count: 206 });
+				).toEqual({ output: { count: 206 } });
 				expect(writes.updates.map((batch) => batch.length)).toEqual([100, 100, 4]);
 				expect(writes.deletes).toEqual([["child-204"]]);
 				expect(writes.creates).toEqual([
@@ -172,7 +172,7 @@ describe("measurement reading update operation", () => {
 						recordingHost(writes),
 						execution,
 					),
-				).toEqual({ count: 2 });
+				).toEqual({ output: { count: 2 } });
 				expect(writes).toEqual({
 					creates: [],
 					deletes: [["reading-2"]],
@@ -201,7 +201,7 @@ describe("measurement reading update operation", () => {
 						recordingHost(added),
 						execution,
 					),
-				).toEqual({ count: 2 });
+				).toEqual({ output: { count: 2 } });
 				expect(added).toEqual({
 					deletes: [],
 					updates: [

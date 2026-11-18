@@ -219,6 +219,7 @@ const openHome = (scenario: Scenario, clock?: ReturnType<typeof createTestRyotCl
 				page.send({
 					outcome: "success",
 					type: "operation-result",
+					committed: { events: [] },
 					requestId: message.requestId,
 					value: {
 						settings:

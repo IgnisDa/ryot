@@ -14,14 +14,16 @@ export const invokeWorkoutEditorContext = (client: RyotClient) =>
 	Effect.all(
 		{
 			account: client.account,
-			operation: client.operations.invoke({
-				input: {},
-				refreshOnSuccess: false,
-				packageId: PLUGIN_PACKAGE_ID,
-				slug: workoutEditorContextOperationSlug,
-				output: WorkoutEditorContextOutputSchema,
-				inputSchema: WorkoutEditorContextInputSchema,
-			}),
+			operation: client.operations
+				.invoke({
+					input: {},
+					refreshOnSuccess: false,
+					packageId: PLUGIN_PACKAGE_ID,
+					slug: workoutEditorContextOperationSlug,
+					output: WorkoutEditorContextOutputSchema,
+					inputSchema: WorkoutEditorContextInputSchema,
+				})
+				.pipe(Effect.map(({ output }) => output)),
 		},
 		{ concurrency: "unbounded" },
 	).pipe(

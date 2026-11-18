@@ -122,5 +122,5 @@ export default defineOperation({
 				});
 			}
 			return { mergeInto, kind: "merged" } as const;
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

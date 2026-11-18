@@ -207,8 +207,7 @@ describe("media activity update", () => {
 					episodeParents: { "episode-1": "show-1", "episode-2": "show-1" },
 				});
 				expect(yield* update({ episodeEntityId: "episode-2" }, host, episodeSnapshot)).toEqual({
-					count: 1,
-					status: "saved",
+					output: { count: 1, status: "saved" },
 				});
 				expect(updates).toHaveLength(1);
 				expect(updates[0]?.items.slice(1)).toEqual([
@@ -367,7 +366,7 @@ describe("media activity update", () => {
 						},
 						host,
 					),
-				).toEqual({ count: 1, status: "saved" });
+				).toEqual({ output: { count: 1, status: "saved" } });
 				expect(updates).toEqual<unknown>([
 					{
 						items: [
@@ -674,7 +673,9 @@ describe("media activity delete", () => {
 			Effect.gen(function* () {
 				const ids = eventIds(250);
 				const { host, calls, deletes } = recordingHost({ events: movieCompletions(ids) });
-				expect(yield* remove({ eventIds: ids }, host)).toEqual({ count: 250, status: "saved" });
+				expect(yield* remove({ eventIds: ids }, host)).toEqual({
+					output: { count: 250, status: "saved" },
+				});
 				expect(calls).toEqual(["validate", "validate", "validate", "delete", "delete", "delete"]);
 				expect(deletes).toEqual([
 					{ options: {}, ids: ids.slice(0, 100) },
@@ -711,8 +712,7 @@ describe("media activity delete", () => {
 					deleteEvents: () => Effect.succeed({ count: 1 }),
 				});
 				expect(yield* remove({ eventIds: ["event-1", "gone"] }, host)).toEqual({
-					count: 1,
-					status: "saved",
+					output: { count: 1, status: "saved" },
 				});
 				expect(deletes[0]?.ids).toEqual(["event-1", "gone"]);
 			}),

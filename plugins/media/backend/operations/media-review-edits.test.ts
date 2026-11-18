@@ -1,10 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import type {
-	DomainSandboxHostMethodMap,
-	UpdateEventItem,
-} from "@ryot-app/plugin-backend-sdk/core";
+import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, type Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
@@ -18,8 +15,6 @@ import { execution } from "../../tests/backend/automations/automation-test-utils
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import deleteDefinition from "./media-review-delete.sandbox";
 import updateDefinition, { manifest } from "./media-review-update.sandbox";
-
-type DeleteOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["deleteEvents"]>[1]>;
 
 const submittedAt = "2026-03-10T09:00:00.000Z";
 
@@ -39,16 +34,13 @@ const page = (items: readonly unknown[]) => ({
 
 const recordingHost = (input: {
 	readonly allowed: boolean;
+	readonly visible?: boolean;
 	readonly properties?: Record<string, Schema.Json>;
 	readonly consumption?: { readonly entityId: string; readonly eventSchemaSlug: string };
 	readonly updateEvents?: () => Effect.Effect<{ readonly count: number }, SandboxHostError>;
 }) => {
 	const documents: RyotQLDocument[] = [];
 	const updates: { readonly items: readonly UpdateEventItem[] }[] = [];
-	const deletes: {
-		readonly ids: readonly string[];
-		readonly options: undefined | DeleteOptions;
-	}[] = [];
 	const row = {
 		id: "review-1",
 		eventSchemaSlug: "review",
@@ -56,11 +48,6 @@ const recordingHost = (input: {
 		properties: input.properties ?? expected.properties,
 	};
 	const host = defineSandboxTestHost(manifest, {
-		deleteEvents: (ids, options) =>
-			Effect.sync(() => {
-				deletes.push({ ids, options });
-				return { count: 1 };
-			}),
 		updateEvents: (items) =>
 			Effect.suspend(() => {
 				updates.push({ items });
@@ -71,14 +58,14 @@ const recordingHost = (input: {
 				documents.push(bindTestRequest(document));
 				return {
 					data: {
-						visible: page([{ id: row.id }]),
 						allowed: page(input.allowed ? [row] : []),
+						visible: page(input.visible === false ? [] : [{ id: row.id }]),
 						consumption: page(input.consumption ? [input.consumption] : []),
 					},
 				};
 			}),
 	});
-	return { host, updates, deletes, documents };
+	return { host, updates, documents };
 };
 
 const update = (
@@ -204,7 +191,7 @@ describe("media review edits", () => {
 		() =>
 			Effect.gen(function* () {
 				const { host, updates } = recordingHost({ allowed: true });
-				expect(yield* update({ rating: 85 }, host)).toEqual({ count: 1 });
+				expect(yield* update({ rating: 85 }, host)).toEqual({ output: { count: 1 } });
 				expect(updates).toEqual<unknown>([
 					{
 						items: [
@@ -318,7 +305,6 @@ describe("media review edits", () => {
 						),
 					),
 				).toEqual(catalogMessage("rejection.record.review-only-delete"));
-				expect(removal.deletes).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -359,19 +345,28 @@ describe("media review edits", () => {
 	);
 
 	it.live(
-		"deletes one review with its write key",
+		"returns the delete of one visible review and nothing for an unseen one",
 		() =>
 			Effect.gen(function* () {
-				const { host, deletes } = recordingHost({ allowed: true });
-				expect(
-					yield* runSandboxTestScript(
+				const remove = (host: ReturnType<typeof recordingHost>["host"]) =>
+					runSandboxTestScript(
 						deleteDefinition,
 						{ submittedAt, eventId: "review-1", submissionId: "submission" },
 						host,
 						execution,
-					),
-				).toEqual({ count: 1 });
-				expect(deletes).toEqual([{ ids: ["review-1"], options: undefined }]);
+					);
+				expect(yield* remove(recordingHost({ allowed: true }).host)).toEqual<unknown>({
+					output: { count: 1 },
+					changes: {
+						events: {
+							creates: [],
+							changes: [{ kind: "delete", eventId: "review-1", itemIdentity: "delete:review-1" }],
+						},
+					},
+				});
+				expect(yield* remove(recordingHost({ allowed: false, visible: false }).host)).toEqual({
+					output: { count: 0 },
+				});
 			}),
 		testTimeout,
 	);

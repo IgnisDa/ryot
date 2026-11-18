@@ -54,7 +54,7 @@ describe("measurement reading log operation", () => {
 						host,
 						execution,
 					),
-				).toEqual({ count: 0, status: "incomplete" });
+				).toEqual({ output: { count: 0, status: "incomplete" } });
 			}),
 		testTimeout,
 	);
@@ -106,12 +106,10 @@ describe("measurement reading log operation", () => {
 					],
 				};
 				expect(yield* runSandboxTestScript(logDefinition, input, host, execution)).toEqual({
-					count: 1,
-					status: "incomplete",
+					output: { count: 1, status: "incomplete" },
 				});
 				expect(yield* runSandboxTestScript(logDefinition, input, host, execution)).toEqual({
-					count: 2,
-					status: "saved",
+					output: { count: 2, status: "saved" },
 				});
 				expect(entries).toEqual(
 					Array.from({ length: 2 }, () => ({
@@ -146,7 +144,7 @@ describe("measurement reading log operation", () => {
 						recordingHost(creates),
 						execution,
 					),
-				).toEqual({ count: 2, status: "saved" });
+				).toEqual({ output: { count: 2, status: "saved" } });
 				expect(creates).toEqual([
 					[
 						{

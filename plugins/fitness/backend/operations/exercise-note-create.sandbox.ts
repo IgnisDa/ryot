@@ -26,5 +26,5 @@ export default defineOperation({
 					properties: reviewProperties({ text: input.text, rating: input.rating ?? null }),
 				},
 			]);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

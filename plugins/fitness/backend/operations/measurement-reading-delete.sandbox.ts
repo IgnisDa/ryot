@@ -23,5 +23,5 @@ export default defineOperation({
 			const entry = yield* requireMeasurementEntry(input.entryId, host.executeRyotql);
 			yield* host.deleteUserEntity({ entityId: entry.id, entitySchemaSlug: "measurement-entry" });
 			return { count: entry.readingCount };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

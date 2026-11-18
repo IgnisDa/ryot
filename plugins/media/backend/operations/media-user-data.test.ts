@@ -66,7 +66,7 @@ describe("media user data operation", () => {
 						host,
 						execution,
 					),
-				).toEqual({ count: 5, status: "saved" });
+				).toEqual({ output: { count: 5, status: "saved" } });
 				expect(clears).toEqual([{ args: { entityId: "media-1", entitySchemaSlug: "movie" } }]);
 				expect(merges).toEqual([]);
 			}),
@@ -92,7 +92,7 @@ describe("media user data operation", () => {
 						host,
 						execution,
 					),
-				).toEqual({ count: 9, status: "saved" });
+				).toEqual({ output: { count: 9, status: "saved" } });
 				expect(merges).toEqual([
 					{ args: { mergeFrom: "source-1", mergeInto: "target-1", entitySchemaSlug: "show" } },
 				]);
@@ -120,7 +120,7 @@ describe("media user data operation", () => {
 							host,
 							execution,
 						),
-					).toMatchObject({ status: "saved" });
+					).toMatchObject({ output: { status: "saved" } });
 					expect(
 						yield* runSandboxTestScript(
 							definition,
@@ -135,7 +135,7 @@ describe("media user data operation", () => {
 							host,
 							execution,
 						),
-					).toMatchObject({ status: "saved" });
+					).toMatchObject({ output: { status: "saved" } });
 				}
 			}),
 		testTimeout,
@@ -167,8 +167,10 @@ describe("media user data operation", () => {
 						execution,
 					),
 				).toEqual({
-					status: "rejected",
-					reason: catalogMessage("rejection.user-data.child-mapping-conflict"),
+					output: {
+						status: "rejected",
+						reason: catalogMessage("rejection.user-data.child-mapping-conflict"),
+					},
 				});
 			}),
 		testTimeout,
@@ -196,8 +198,10 @@ describe("media user data operation", () => {
 						execution,
 					),
 				).toEqual({
-					status: "rejected",
-					reason: catalogMessage("rejection.user-data.state-conflict"),
+					output: {
+						status: "rejected",
+						reason: catalogMessage("rejection.user-data.state-conflict"),
+					},
 				});
 			}),
 		testTimeout,

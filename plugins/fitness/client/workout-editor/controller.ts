@@ -7,10 +7,7 @@ import {
 	encodeWorkoutEditorDraft,
 	type WorkoutEditorDraft,
 } from "../../shared/workout-editor-draft";
-import type {
-	WorkoutEditorSaveInput,
-	WorkoutEditorSaveOutput,
-} from "../../shared/workout-editor-operations";
+import type { WorkoutEditorSaveInput } from "../../shared/workout-editor-operations";
 import { type ExpectedCountdowns, reconcileWorkoutTimers } from "./actions";
 import { createAlertSynchronizer } from "./controller-alerts";
 import {
@@ -19,6 +16,7 @@ import {
 	type WorkoutEditorContext,
 	type WorkoutEditorControllerPorts,
 	type WorkoutEditorControllerSnapshot,
+	type WorkoutEditorSaveResult,
 } from "./controller-types";
 import { createWorkoutIosActivityPublisher } from "./ios-live-activity-sync";
 import {
@@ -55,7 +53,7 @@ type WorkoutEditorController = {
 			undefined | { readonly draft: WorkoutEditorDraft; readonly input: WorkoutEditorSaveInput },
 			unknown
 		>,
-	) => Effect.Effect<undefined | WorkoutEditorSaveOutput, unknown>;
+	) => Effect.Effect<undefined | WorkoutEditorSaveResult, unknown>;
 };
 
 const initialSnapshot: WorkoutEditorControllerSnapshot = {

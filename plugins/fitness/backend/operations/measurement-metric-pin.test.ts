@@ -64,7 +64,7 @@ describe("measurement metric pin operation", () => {
 					{ pinned: false, metricId: "waist" },
 				]) {
 					expect(yield* runSandboxTestScript(pinDefinition, input, host, execution)).toEqual({
-						pinned: input.pinned,
+						output: { pinned: input.pinned },
 					});
 				}
 

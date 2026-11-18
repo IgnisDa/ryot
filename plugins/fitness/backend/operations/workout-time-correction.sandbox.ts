@@ -111,5 +111,5 @@ export default defineOperation({
 			return saved
 				? ({ kind: "saved", entityId: input.entityId } as const)
 				: ({ kind: "conflict" } as const);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

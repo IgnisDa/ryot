@@ -45,15 +45,17 @@ const correctTime = createRyotMutation<
 	RyotSubmission<Correction>,
 	typeof WorkoutTimeCorrectionOutputSchema.Type
 >(({ input, client }) =>
-	client.operations.invoke({
-		packageId: PLUGIN_PACKAGE_ID,
-		submittedAt: input.submittedAt,
-		idempotencyKey: input.submissionId,
-		slug: workoutTimeCorrectionOperationSlug,
-		output: WorkoutTimeCorrectionOutputSchema,
-		inputSchema: WorkoutTimeCorrectionInputSchema,
-		input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
-	}),
+	client.operations
+		.invoke({
+			packageId: PLUGIN_PACKAGE_ID,
+			submittedAt: input.submittedAt,
+			idempotencyKey: input.submissionId,
+			slug: workoutTimeCorrectionOperationSlug,
+			output: WorkoutTimeCorrectionOutputSchema,
+			inputSchema: WorkoutTimeCorrectionInputSchema,
+			input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
+		})
+		.pipe(Effect.map(({ output }) => output)),
 );
 const timeSourceQuery = () =>
 	createRyotQuery(({ input, client }: { readonly input: string; readonly client: RyotClient }) =>

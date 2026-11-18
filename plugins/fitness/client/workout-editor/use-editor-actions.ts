@@ -48,7 +48,7 @@ import {
 	resolvePendingRest,
 } from "./actions";
 import { toIso } from "./clock";
-import type { WorkoutEditorContext } from "./controller-types";
+import type { WorkoutEditorContext, WorkoutEditorSaveResult } from "./controller-types";
 import { resolveSetRestTime, updateOccurrence, updateSet } from "./draft-ops";
 import { historySetForOccurrence, previousSetIndex } from "./history-model";
 import { previousSetsInput } from "./previous-sets";
@@ -63,7 +63,7 @@ import { missingMeasurements, startExecution, unconfirmSet } from "./timers";
 import type { useWorkoutEditor } from "./use-workout-editor";
 
 export type SavedEntityId = Extract<
-	WorkoutEditorSaveOutput,
+	WorkoutEditorSaveResult,
 	{ readonly kind: "saved" }
 >["entityId"];
 type Editor = ReturnType<typeof useWorkoutEditor>;
@@ -100,7 +100,7 @@ const checkIssueMessages = {
 
 const saveFailureMessage = (
 	text: FitnessText,
-	result: Exclude<WorkoutEditorSaveOutput, { kind: "saved" }>,
+	result: Exclude<WorkoutEditorSaveResult, { kind: "saved" }>,
 ) => {
 	let message: Text | undefined;
 	switch (result.kind) {

@@ -22,5 +22,5 @@ export default defineOperation({
 			return yield* host.updateEvents([
 				{ eventId, patch: { properties: reviewPropertiesPatch(input) } },
 			]);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

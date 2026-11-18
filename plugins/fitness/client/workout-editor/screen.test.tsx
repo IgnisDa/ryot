@@ -12,6 +12,7 @@ import {
 	routeLocation,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
@@ -263,7 +264,7 @@ const openEditor = (
 				if (request.operationSlug === workoutEditorSaveOperationSlug) {
 					saveInputs.push(request.input);
 				}
-				let value: JsonValue = { sets: [], kind: "saved", entityId: "saved-workout" };
+				let value: JsonValue = { kind: "saved" };
 				if (request.operationSlug === workoutEditorContextOperationSlug) {
 					value = {
 						settings: {
@@ -286,6 +287,10 @@ const openEditor = (
 					outcome: "success",
 					type: "operation-result",
 					requestId: request.requestId,
+					committed:
+						request.operationSlug === workoutEditorSaveOperationSlug
+							? { events: [], entityId: EntityId.make("saved-workout") }
+							: { events: [] },
 				});
 				if (request.operationSlug === workoutEditorSaveOperationSlug) {
 					saveListeners.forEach((listener) => listener(request.input));

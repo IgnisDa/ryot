@@ -15,7 +15,7 @@ import {
 	mediaProgressRuleError,
 } from "../../shared/media-activity-fields";
 import {
-	MediaActivityLogOutput,
+	MediaActivityEditOutput,
 	type MediaActivityPatch,
 	MediaActivityUpdateInput,
 } from "../../shared/media-activity-operations";
@@ -214,7 +214,7 @@ export const manifest = defineManifest({
 
 export default defineOperation({
 	manifest,
-	output: MediaActivityLogOutput,
+	output: MediaActivityEditOutput,
 	input: MediaActivityUpdateInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
@@ -247,5 +247,5 @@ export default defineOperation({
 				])
 				.pipe(Effect.catch(rejectHostFailure));
 			return { status: "saved" as const, count: count - unlinked.length };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

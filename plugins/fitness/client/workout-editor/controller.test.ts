@@ -21,13 +21,10 @@ import {
 	decodeWorkoutEditorDraft,
 	type WorkoutEditorDraft,
 } from "../../shared/workout-editor-draft";
-import {
-	WorkoutEditorSaveInputSchema,
-	type WorkoutEditorSaveOutput,
-} from "../../shared/workout-editor-operations";
+import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
 import { controllerHarness } from "../../tests/client/controller-harness";
 import { exerciseOccurrence, liveDraft, startTime } from "../../tests/client/draft-fixtures";
-import { isWorkoutEditorSaving } from "./controller-types";
+import { isWorkoutEditorSaving, type WorkoutEditorSaveResult } from "./controller-types";
 
 const draft = (name = "Session") => liveDraft({ name });
 
@@ -172,11 +169,7 @@ describe("workout editor controller", () => {
 				const releaseCleanup = yield* Deferred.make<void>();
 				const secondStarted = yield* Deferred.make<void>();
 				const submitted = yield* saveInput();
-				const result = {
-					sets: [],
-					kind: "saved" as const,
-					entityId: EntityId.make("saved-workout"),
-				};
+				const result = { kind: "saved" as const, entityId: EntityId.make("saved-workout") };
 				let preparations = 0;
 				const harness = createController({
 					remove: Deferred.succeed(cleaning, undefined).pipe(
@@ -258,11 +251,7 @@ describe("workout editor controller", () => {
 		() =>
 			Effect.gen(function* () {
 				let failRemoval = true;
-				const result = {
-					sets: [],
-					kind: "saved" as const,
-					entityId: EntityId.make("saved-workout"),
-				};
+				const result = { kind: "saved" as const, entityId: EntityId.make("saved-workout") };
 				const states: boolean[] = [];
 				const harness = createController({
 					save: () => Effect.succeed(result),
@@ -391,7 +380,7 @@ describe("workout editor controller", () => {
 		"unlocks and persists only definite business rejections",
 		() =>
 			Effect.gen(function* () {
-				const outcomes: ReadonlyArray<Effect.Effect<WorkoutEditorSaveOutput, RyotClientError>> = [
+				const outcomes: ReadonlyArray<Effect.Effect<WorkoutEditorSaveResult, RyotClientError>> = [
 					Effect.succeed({ kind: "invalid", code: "missing-measurement" }),
 					Effect.succeed({ kind: "conflict" }),
 					Effect.fail(new RyotClientError({ reason: "entitlement-required" })),

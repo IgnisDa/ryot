@@ -1,6 +1,5 @@
 import {
 	EntitlementRequiredError,
-	isCommitConflict,
 	isEntitled,
 	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,
 	type ScriptHost,
@@ -9,6 +8,7 @@ import {
 	userCommandInputSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { OperationConflictError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	continuationCursor,
 	executeRyotqlRecipe,
@@ -65,7 +65,6 @@ type TemplateData = Extract<Data, { kind: "template" }>;
 type SourceSet = WorkoutEditorEvent & { readonly set: WorkoutSetProperties };
 type InvalidCode = Extract<WorkoutEditorSaveOutput, { kind: "invalid" }>["code"];
 
-type SavedSet = Extract<WorkoutEditorSaveOutput, { kind: "saved" }>["sets"][number];
 type Baseline = {
 	readonly startedAt: string | undefined;
 	readonly sets: ReadonlyArray<SourceSet>;
@@ -87,9 +86,9 @@ class WorkoutCommandInputError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("WorkoutCommandInputError", { message: Schema.String }) {}
 
-const halt = (output: WorkoutEditorSaveOutput) => Effect.fail(new WorkoutSaveHalt({ output }));
-const invalid = (code: InvalidCode) => halt({ code, kind: "invalid" });
-const conflict = () => halt({ kind: "conflict" });
+const invalid = (code: InvalidCode) =>
+	Effect.fail(new WorkoutSaveHalt({ output: { code, kind: "invalid" } }));
+
 const proRequired = () => Effect.fail(new EntitlementRequiredError({ entitlement: "pro" }));
 
 const chunked = <Item>(items: ReadonlyArray<Item>, size: number) =>
@@ -258,7 +257,7 @@ const loadBaseline = Effect.fn("loadBaseline")(function* (data: Data, host: Scri
 		},
 	);
 	if (!current) {
-		return yield* conflict();
+		return yield* new OperationConflictError({ conflict: "entity-not-found" });
 	}
 	const properties = decodeBaselineProperties(data.kind, entity);
 	const sets = decoded.success.sets.map((event) => ({
@@ -391,7 +390,7 @@ const verifyBaselineEvents = Effect.fn("verifyBaselineEvents")(function* (
 		if (
 			items.some(({ id }) => retainedIds.has(id) && !identities.some((event) => event.id === id))
 		) {
-			return yield* conflict();
+			return yield* new OperationConflictError({ conflict: "entity-stale" });
 		}
 	}
 	return undefined;
@@ -623,7 +622,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 	for (const { items } of chunked(managed, MANAGED_ASSET_VERIFY_SANDBOX_LIMITS.locators)) {
 		yield* host.verifyManagedAssets(items);
 	}
-	const relationships: Array<UserCommandInput["relationships"][number]> = [];
+	const relationships: Array<NonNullable<UserCommandInput["relationships"]>[number]> = [];
 	if (data.kind === "workout" && exerciseIds.length > 0) {
 		const library = yield* executeRyotqlRecipe(
 			host.executeRyotql,
@@ -650,8 +649,8 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 		});
 	}
 	const updates: UpdateEventItem[] = [];
-	const creates: Array<UserCommandInput["events"]["creates"][number]> = [];
-	const occurrenceChanges: Array<UserCommandInput["events"]["changes"][number]> = [];
+	const creates: Array<NonNullable<UserCommandInput["events"]>["creates"][number]> = [];
+	const occurrenceChanges: Array<NonNullable<UserCommandInput["events"]>["changes"][number]> = [];
 	let scopeRevision: number | undefined;
 	if (data.kind === "workout") {
 		const recorded: Array<
@@ -761,7 +760,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 			}
 		}
 	}
-	const savedSets: SavedSet[] = [];
+	const retained = new Set<string>();
 	for (const [exerciseOrder, occurrence] of (data.kind === "workout"
 		? data.occurrences
 		: []
@@ -797,11 +796,10 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 						},
 					});
 				}
-				savedSets.push({ eventId: original.id, clientId: set.clientId });
+				retained.add(original.id);
 			}
 		}
 	}
-	const retained = new Set(savedSets.map(({ eventId }) => eventId));
 	const removed = baseline?.sets.filter(({ id }) => !retained.has(id)) ?? [];
 	if (data.kind === "workout" && data.target.kind === "create") {
 		creates.push({
@@ -812,7 +810,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 			properties: { workoutName: data.name },
 		});
 	}
-	const command = yield* Schema.decodeUnknownEffect(userCommandInputSchema)({
+	const changes = yield* Schema.decodeUnknownEffect(userCommandInputSchema)({
 		relationships,
 		entity: {
 			properties,
@@ -860,28 +858,21 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 				: {}),
 		},
 	}).pipe(Effect.mapError((error) => new WorkoutCommandInputError({ message: String(error) })));
-	const committed = yield* host
-		.commitUserChanges(command)
-		.pipe(Effect.catchIf(isCommitConflict, conflict));
-	for (const result of committed.events) {
-		if (result.itemIdentity.startsWith("set:")) {
-			savedSets.push({ eventId: result.eventId, clientId: result.itemIdentity.slice(4) });
-		}
-	}
-	return {
-		kind: "saved",
-		sets: savedSets,
-		entityId: committed.entityId,
-	} satisfies WorkoutEditorSaveOutput;
+	return { changes, output: { kind: "saved" } } satisfies WorkoutEditorSaveResult;
 });
 
+export type WorkoutEditorSaveResult = {
+	readonly changes?: UserCommandInput;
+	readonly output: WorkoutEditorSaveOutput;
+};
+
 export type WorkoutEditorSaveError =
-	SandboxHostError | RyotqlRecipeDecodeError | WorkoutCommandInputError;
+	SandboxHostError | OperationConflictError | RyotqlRecipeDecodeError | WorkoutCommandInputError;
 
 export const saveWorkoutEditor = (
 	input: WorkoutEditorSaveInput,
 	host: ScriptHost,
-): Effect.Effect<WorkoutEditorSaveOutput, WorkoutEditorSaveError> =>
+): Effect.Effect<WorkoutEditorSaveResult, WorkoutEditorSaveError> =>
 	persistWorkoutEditor(input, host).pipe(
-		Effect.catchTag("WorkoutSaveHalt", ({ output }) => Effect.succeed(output)),
+		Effect.catchTag("WorkoutSaveHalt", ({ output }) => Effect.succeed({ output })),
 	);

@@ -130,7 +130,7 @@ describe("exercise note operations", () => {
 						hosts.create,
 						execution,
 					),
-				).toEqual({ count: 1 });
+				).toEqual({ output: { count: 1 } });
 				yield* runSandboxTestScript(
 					createDefinition,
 					{ text: "No rating", exerciseId: "exercise-1" },
@@ -262,7 +262,7 @@ describe("exercise note operations", () => {
 						hosts.delete,
 						execution,
 					),
-				).toEqual({ count: 1 });
+				).toEqual({ output: { count: 1 } });
 				expect(hosts.deletes).toEqual([["note-1"]]);
 			}),
 		testTimeout,

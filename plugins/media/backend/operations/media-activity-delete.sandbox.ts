@@ -4,7 +4,7 @@ import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 import {
 	MediaActivityDeleteInput,
-	MediaActivityLogOutput,
+	MediaActivityEditOutput,
 } from "../../shared/media-activity-operations";
 import { catalogMessage } from "../../shared/messages.generated";
 import {
@@ -28,7 +28,7 @@ export const manifest = defineManifest({
 
 export default defineOperation({
 	manifest,
-	output: MediaActivityLogOutput,
+	output: MediaActivityEditOutput,
 	input: MediaActivityDeleteInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
@@ -60,5 +60,5 @@ export default defineOperation({
 				count += written.count;
 			}
 			return { count, status: "saved" as const };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

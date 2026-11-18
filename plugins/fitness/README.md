@@ -312,14 +312,18 @@ restores inheritance, while omitted fields stay unchanged.
 preserve occurrence/event identity across reorder. Draft encoding and baseline decoding bound
 decompression to 128 KiB; encoded drafts and uncompressed complete save inputs have separate 64 KiB
 budgets. The draft's retained submission freezes data, baseline, ID, and timestamp, including across
-settings changes. The save command commits the entity, sets, relationships, and any new-workout
-completion event atomically; asset uploads are separate.
+settings changes. The operation reads only and returns the entity, sets, relationships, and any
+new-workout completion event as one change set, which the kernel commits atomically; asset uploads
+are separate. The client takes the saved workout's ID from the commit's root entity. A baseline found
+gone or missing a kept set before the change set is built returns only its preconditions, so the
+commit reports the conflict.
 
 New sets need not be confirmed: creates and historical edits save unconfirmed sets at their supplied
 time, while the live editor requires confirmation before finishing. Templates store plans without
-execution events. Results distinguish completion, conflicts, validation,
-and Pro gates. A known business rejection from the atomic command unlocks edits; uncertain transport
-results retain the immutable retry.
+execution events. Results distinguish completion and validation; Pro gates fail as entitlement
+errors and a stale baseline as the client's `changes-conflict` error, which the editor reports as a
+conflict. A known business rejection unlocks edits; uncertain transport results retain the immutable
+retry.
 
 Historical edits preserve timestamps. `workout-time-correction` separately changes start/end in
 one atomic command that also moves every occurrence of the workout to the new start, and only

@@ -55,7 +55,7 @@ describe("create media review", () => {
 						host,
 						execution,
 					),
-				).toEqual({ count: 1 });
+				).toEqual({ output: { count: 1 } });
 				expect(creates).toEqual([
 					[
 						{
@@ -307,7 +307,7 @@ describe("create media review", () => {
 							host,
 							execution,
 						),
-					).toEqual({ count: 1 });
+					).toEqual({ output: { count: 1 } });
 					expect(creates).toEqual([
 						[{ entityId: "media-1", properties: { rating }, eventSchemaSlug: "review" }],
 					]);

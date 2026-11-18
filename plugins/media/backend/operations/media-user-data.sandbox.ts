@@ -70,6 +70,7 @@ export default defineOperation({
 							count: deletedEventsCount + deletedRelationshipsCount,
 						})),
 						Effect.catch(catchHostRefusal),
+						Effect.map((output) => ({ output })),
 					)
 			: host
 					.mergeUserEntityData({
@@ -83,5 +84,6 @@ export default defineOperation({
 							count: movedEventsCount + movedRelationshipsCount,
 						})),
 						Effect.catch(catchHostRefusal),
+						Effect.map((output) => ({ output })),
 					),
 });

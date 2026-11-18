@@ -1,10 +1,11 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { EventId } from "@ryot-app/plugin-kit/schema";
 
 import { MediaReviewDeleteInput, MediaReviewOutput } from "../../shared/media-review-operations";
 import { catalogMessage } from "../../shared/messages.generated";
-import { loadEditTargets, rejectHostFailure, reviewCombinations } from "./media-activity-edits";
+import { loadEditTargets, reviewCombinations } from "./media-activity-edits";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -18,12 +19,28 @@ export default defineOperation({
 	input: MediaReviewDeleteInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			yield* loadEditTargets(
+			const targets = yield* loadEditTargets(
 				host,
 				[input.eventId],
 				reviewCombinations,
 				catalogMessage("rejection.record.review-only-delete"),
 			);
-			return yield* host.deleteEvents([input.eventId]).pipe(Effect.catch(rejectHostFailure));
+			const output = { count: targets.length };
+			if (targets.length === 0) {
+				return { output };
+			}
+			return {
+				output,
+				changes: {
+					events: {
+						creates: [],
+						changes: targets.map(({ id }) => ({
+							kind: "delete" as const,
+							eventId: EventId.make(id),
+							itemIdentity: `delete:${id}`,
+						})),
+					},
+				},
+			};
 		}),
 });

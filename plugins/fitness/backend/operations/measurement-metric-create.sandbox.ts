@@ -36,5 +36,5 @@ export default defineOperation({
 				yield* changeMeasurementMetricPin({ pinned: true, metricId: created.entityId }, host);
 			}
 			return created;
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

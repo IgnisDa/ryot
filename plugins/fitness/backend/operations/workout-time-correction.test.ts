@@ -77,11 +77,10 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 					conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)),
 				});
 				expect(yield* definition.run(input, host)).toEqual<unknown>({
-					kind: "saved",
-					entityId: "workout-1",
+					output: { kind: "saved", entityId: "workout-1" },
 				});
 			}
-			expect(commands.map(({ entity }) => entity.properties)).toEqual([
+			expect(commands.map(({ entity }) => entity?.properties)).toEqual([
 				{
 					endedAt: time,
 					activeDuration: 1200,
@@ -110,6 +109,6 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 					},
 				],
 			});
-			expect(commands[0]?.events.changes).toHaveLength(1);
+			expect(commands[0]?.events?.changes).toHaveLength(1);
 		}),
 	));

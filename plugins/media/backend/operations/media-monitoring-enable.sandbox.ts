@@ -52,5 +52,5 @@ export default defineOperation({
 				]);
 			}
 			return { results: alignedMediaMonitoringResults(input.entityIds, targets, () => true) };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

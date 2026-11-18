@@ -69,20 +69,22 @@ describe("metadata lookup operation", () => {
 				]);
 
 				expect(yield* result).toEqual({
-					results: [
-						{
-							status: "found",
-							title: "Breaking Bad",
-							showInformation: { season: 2, episode: 3 },
-							data: { lot: "show", source: "tmdb", identifier: "1396" },
-						},
-						{
-							status: "found",
-							title: "The Matrix",
-							data: { lot: "movie", source: "tmdb", identifier: "603" },
-						},
-						{ notFound: true, status: "notFound" },
-					],
+					output: {
+						results: [
+							{
+								status: "found",
+								title: "Breaking Bad",
+								showInformation: { season: 2, episode: 3 },
+								data: { lot: "show", source: "tmdb", identifier: "1396" },
+							},
+							{
+								status: "found",
+								title: "The Matrix",
+								data: { lot: "movie", source: "tmdb", identifier: "603" },
+							},
+							{ notFound: true, status: "notFound" },
+						],
+					},
 				});
 				expect([...queries].sort()).toEqual([
 					"/3/search/movie?Breaking Bad",

@@ -27,7 +27,7 @@ describe("measurement reading delete operation", () => {
 				});
 				expect(
 					yield* runSandboxTestScript(deleteDefinition, { entryId: "entry-1" }, host, execution),
-				).toEqual({ count: 2 });
+				).toEqual({ output: { count: 2 } });
 				expect(deletes).toEqual([{ entityId: "entry-1", entitySchemaSlug: "measurement-entry" }]);
 			}),
 		testTimeout,

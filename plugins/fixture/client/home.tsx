@@ -3,7 +3,7 @@ import {
 	RyotClientError,
 	type TemporaryUploadToken,
 } from "@ryot-app/plugin-client-sdk";
-import { Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotMutation,
@@ -54,13 +54,15 @@ const fixtureClientPluginCatalogQuery = createRyotQuery(({ client }) =>
 
 const greetingMutation = createRyotMutation<typeof GreetingInput.Type, typeof Greeting.Type>(
 	({ input, client }) =>
-		client.operations.invoke({
-			input,
-			slug: "greet",
-			output: Greeting,
-			inputSchema: GreetingInput,
-			packageId: PLUGIN_PACKAGE_ID,
-		}),
+		client.operations
+			.invoke({
+				input,
+				slug: "greet",
+				output: Greeting,
+				inputSchema: GreetingInput,
+				packageId: PLUGIN_PACKAGE_ID,
+			})
+			.pipe(Effect.map(({ output }) => output)),
 );
 
 const uploadTones = {

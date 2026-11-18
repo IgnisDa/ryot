@@ -101,5 +101,5 @@ export default defineOperation({
 			}
 
 			return { results };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

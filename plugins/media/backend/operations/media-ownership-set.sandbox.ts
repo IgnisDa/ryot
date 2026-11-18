@@ -102,5 +102,5 @@ export default defineOperation({
 						: { entityId, status: "notFound" as const },
 				),
 			};
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

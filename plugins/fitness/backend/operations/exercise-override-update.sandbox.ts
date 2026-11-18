@@ -58,5 +58,5 @@ export default defineOperation({
 				},
 			]);
 			return { kind: "saved" } as const;
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

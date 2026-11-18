@@ -19,5 +19,5 @@ export default defineOperation({
 		Effect.gen(function* () {
 			const eventId = yield* requireExerciseNote(input.noteId, host.executeRyotql);
 			return yield* host.deleteEvents([eventId]);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

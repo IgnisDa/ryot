@@ -50,7 +50,7 @@ describe("measurement metric create operation", () => {
 						recordingHost(writes),
 						execution,
 					),
-				).toEqual({ entityId: "metric-1" });
+				).toEqual({ output: { entityId: "metric-1" } });
 				expect(writes).toEqual([
 					{
 						name: "Weight",

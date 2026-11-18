@@ -147,6 +147,7 @@ it.live(
 			page.send({
 				outcome: "success",
 				type: "operation-result",
+				committed: { events: [] },
 				requestId: retry.requestId,
 				value: { kind: "saved", entityId: "workout" },
 			});

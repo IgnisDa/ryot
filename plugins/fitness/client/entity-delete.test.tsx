@@ -138,6 +138,7 @@ for (const { kind, operationSlug, savedViewSlug } of [
 				page.send({
 					outcome: "success",
 					type: "operation-result",
+					committed: { events: [] },
 					requestId: retry.requestId,
 					value: { entityId: "entity" },
 				});

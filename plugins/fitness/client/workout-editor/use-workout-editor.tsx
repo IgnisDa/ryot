@@ -22,7 +22,7 @@ import {
 import { type FitnessText, useFitnessMessages } from "../messages";
 import { invokeWorkoutEditorContext } from "./context-query";
 import { createWorkoutEditorController } from "./controller";
-import { isWorkoutEditorSaving } from "./controller-types";
+import { isWorkoutEditorSaving, type WorkoutEditorSaveResult } from "./controller-types";
 import { DRAFT_STORAGE_KEY } from "./draft-storage";
 import { createWorkoutEditorSounds } from "./sounds";
 
@@ -89,6 +89,20 @@ const createEditorSession = (
 					inputSchema: WorkoutEditorSaveInputSchema,
 				})
 				.pipe(
+					Effect.flatMap(
+						({ output, committed }): Effect.Effect<WorkoutEditorSaveResult, RyotClientError> => {
+							if (output.kind === "invalid") {
+								return Effect.succeed(output);
+							}
+							return committed.entityId === undefined
+								? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
+								: Effect.succeed({ kind: "saved", entityId: committed.entityId });
+						},
+					),
+					Effect.catchIf(
+						(error) => error.reason === "changes-conflict",
+						() => Effect.succeed({ kind: "conflict" } as const),
+					),
 					Effect.tap((result) =>
 						Effect.sync(() => {
 							if (result.kind === "saved") {

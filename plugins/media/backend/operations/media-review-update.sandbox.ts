@@ -82,5 +82,5 @@ export default defineOperation({
 					},
 				])
 				.pipe(Effect.catch(rejectHostFailure));
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

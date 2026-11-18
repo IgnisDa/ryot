@@ -495,12 +495,14 @@ an optional `startedOn`; episode batches carry no start or time spent. Dates mus
 `startedOn ≤ finishedOn ≤ submittedAt`; "now" and unknown dates use `submittedAt`. Picked dates are
 day-only by default and keep their `calendarDate`; **Add time** switches the sheet to local date and
 time inputs in the user's time zone, and a timed entry writes an exact instant without
-`calendarDate`. Time spent is entered as hours and minutes with the UI SDK `DurationField`. Writes are chunked
-by the event batch limit with `<submissionId>:<chunk>` idempotency keys, so a retried submission
-writes nothing twice. After a `saved` write of an entry with sources, it appends each trimmed source
-to the settings list of the item's type (a show or podcast for episodes) unless a case-insensitive
-match exists, stopping when the list holds 30; status entries never do. A settings read or write failure is
-logged and never changes the result. It is protected in demo sessions. The header and the empty activity tab open
+`calendarDate`. Time spent is entered as hours and minutes with the UI SDK `DurationField`. The operation reads
+only and returns one change set: every event create, keyed by `<eventSchemaSlug>:<entityId>`, and a
+settings patch that appends each trimmed source of an entry to the settings list of the item's type
+(a show or podcast for episodes) unless a case-insensitive match exists, stopping when the list holds
+30; status entries never patch settings. The kernel commits the change set atomically under the
+submission's idempotency key, so a retried submission writes nothing twice and a policy rejection of
+any event rejects the whole log with the policy's message. A settings read that fails or returns a
+malformed list is logged and leaves settings unpatched. It is protected in demo sessions. The header and the empty activity tab open
 the same Log activity sheet. The sheet, quick log button, episode quick mark, review composer, and
 ownership and monitoring toggles hand their writes to the kernel's background submissions: dialogs
 close once the kernel accepts, a finished completion opens the review composer instead, and the
@@ -514,7 +516,9 @@ reads its targets through an explicit allow-list: `complete`, `item-complete`, `
 `backlog` on built-in media and episodes for activity, and `review` on library members for reviews.
 `list-state`, `add-to-media-library`, kernel collection events, and other plugins' events are
 refused. Inputs carry `submittedAt` and the background submission ID; edits use the
-`<submissionId>:write` key. Updates and single-record deletes send the row's full snapshot as a
+`<submissionId>:write` key. `media-review-delete` reads only and returns the delete of a visible
+review as its change set, without a precondition; an ID that resolves to nothing returns no changes
+and a count of zero. Updates and single-record deletes send the row's full snapshot as a
 `fields` precondition (every current property and every absent editable one), so a concurrent
 change is reported as stale instead of merged. Edits never touch `sessionEntityId` and touch `entityId` only
 through `episodeEntityId`: a show or podcast episode `complete` or `progress` record can move to another

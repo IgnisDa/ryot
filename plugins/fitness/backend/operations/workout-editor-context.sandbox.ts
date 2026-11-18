@@ -24,5 +24,5 @@ export default defineOperation({
 				yield* host.getUserSettings(),
 			);
 			return { settings };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

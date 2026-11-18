@@ -53,5 +53,5 @@ export default defineOperation({
 						),
 					),
 				);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

@@ -39,5 +39,5 @@ export default defineOperation({
 				yield* host.changeUserRelationships([{ deletes, creates: [] }]);
 			}
 			return { results: alignedMediaMonitoringResults(input.entityIds, targets, () => false) };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

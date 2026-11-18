@@ -59,7 +59,7 @@ const run = (
 	input: { mergeFrom: EntityId; mergeInto: EntityId } = { mergeFrom, mergeInto },
 ) => {
 	const { host, writes } = recordingHost(tables);
-	return definition.run(input, host).pipe(Effect.map((output) => ({ output, writes })));
+	return definition.run(input, host).pipe(Effect.map(({ output }) => ({ output, writes })));
 };
 
 const occurrence = (exerciseId: string, order: number) => ({

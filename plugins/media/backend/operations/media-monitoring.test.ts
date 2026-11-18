@@ -62,11 +62,13 @@ describe("media monitoring operations", () => {
 						execution,
 					),
 				).toEqual({
-					results: [
-						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-						{ status: "notFound", entityId: "missing" },
-						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-					],
+					output: {
+						results: [
+							{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+							{ status: "notFound", entityId: "missing" },
+							{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+						],
+					},
 				});
 				expect(documents).toHaveLength(1);
 				expect(Schema.is(RyotQLDocument)(documents[0])).toBe(true);
@@ -149,10 +151,12 @@ describe("media monitoring operations", () => {
 						execution,
 					),
 				).toEqual({
-					results: [
-						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-						{ status: "notFound", entityId: "missing" },
-					],
+					output: {
+						results: [
+							{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+							{ status: "notFound", entityId: "missing" },
+						],
+					},
 				});
 				expect(changes).toEqual([
 					[
@@ -208,11 +212,13 @@ describe("media monitoring operations", () => {
 						execution,
 					),
 				).toEqual({
-					results: [
-						{ status: "found", entityId: "entity-a", isMediaMonitored: false },
-						{ status: "found", entityId: "entity-b", isMediaMonitored: false },
-						{ status: "notFound", entityId: "missing" },
-					],
+					output: {
+						results: [
+							{ status: "found", entityId: "entity-a", isMediaMonitored: false },
+							{ status: "found", entityId: "entity-b", isMediaMonitored: false },
+							{ status: "notFound", entityId: "missing" },
+						],
+					},
 				});
 				expect(changes).toEqual([
 					[
