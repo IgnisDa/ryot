@@ -24,6 +24,7 @@ module is git-ignored.
 Every run verifies compiled SHA-256 and package identity across manifest, plugin row, and authority
 projection, and resolves persisted authority once, when it reserves admission; that outcome covers every host call
 of the run, inline durable settlement included. Durable host calls dispatched outside the run resolve it again.
+`ScriptCalls` admission resolves it even inside a change set's shared preparation authority.
 The run's host calls also share one `RunUserPlugins` snapshot of its user's installed plugins, read on first use.
 A revocation or installation change applies from the next run. Historical pins preserve code/config/definitions,
 not expired authority: fresh runs still enforce current account and installation access.

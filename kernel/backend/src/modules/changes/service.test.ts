@@ -24,10 +24,11 @@ import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
-import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema, type Tracer } from "effect";
 
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import notificationDefinition from "#modules/definitions/kernel-scripts/notification.sandbox";
@@ -225,6 +226,36 @@ const eventCreate = (entity: ChangeSetEntityReference) => ({
 });
 
 layer(testLayer(false))((test) => {
+	test.effect(
+		"resolves the writer's execution authority once to prepare and once to commit",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const spans: Tracer.Span[] = [];
+				yield* commitUserCommand({ input: input.input, command: input.command }).pipe(
+					Effect.withTracer(makeRecordingTracer(spans)),
+				);
+				const within = (span: Tracer.AnySpan, name: string): boolean =>
+					span._tag === "Span" &&
+					(span.name === name || (span.parent._tag === "Some" && within(span.parent.value, name)));
+				const resolves = spans.filter(({ name }) => name === "SandboxExecutionAuthority.resolve");
+				expect(resolves).toHaveLength(2);
+				expect(
+					resolves.map((span) => [
+						within(span, "ChangeSets.prepareUserChanges"),
+						within(span, "EntitiesService.persistPreparedUserSave"),
+					]),
+				).toEqual([
+					[true, false],
+					[false, true],
+				]);
+				expect(spans.filter(({ name }) => name === "SandboxRepository.getScriptPin")).toHaveLength(
+					2,
+				);
+			}),
+		testTimeout,
+	);
+
 	test.effect(
 		"commits events on existing entities without a root entity and rejects root references",
 		() =>

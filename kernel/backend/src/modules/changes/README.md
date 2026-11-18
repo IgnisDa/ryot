@@ -114,6 +114,9 @@ still rechecks the stored entity, but plans no entity lifecycle batch, and a cha
 relationships plans no relationship batch. The commit changes no plugin, installation, or account
 rows, so it runs each locked domain write check once per writer, owner, and scope
 (`reuseLockedWriteChecks`); the check's shared locks keep its result valid until commit.
+Preparation reads and plans without writing, so its checks share one resolution of the writer's
+execution authority (`shareExecutionAuthority`); the commit transaction's locked checks resolve it
+again, so a revocation committed during preparation still rejects the commit.
 
 Asset uploads and storage are separate from the change set transaction. A change set may refer to managed
 assets; the write boundary validates and locks those references while committing metadata.

@@ -86,6 +86,7 @@ import type {
 	PreparedUserRelationshipDelete,
 } from "#modules/relationships/prepared-mutations";
 import { RelationshipsService } from "#modules/relationships/service";
+import { shareExecutionAuthority } from "#modules/scripts/authorization/authority";
 import {
 	principalOwner,
 	type ScriptPluginRevision,
@@ -755,7 +756,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				input: ChangeSet,
 				command: DomainLifecycleCommand,
 			) {
-				return yield* apply(input, command, { record: Effect.succeed, load: Effect.succeed(null) });
+				return yield* shareExecutionAuthority(
+					apply(input, command, { record: Effect.succeed, load: Effect.succeed(null) }),
+				);
 			});
 			const inTransaction = <A, E>(effect: Effect.Effect<A, E>) =>
 				session.transaction(effect).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
@@ -775,7 +778,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						}),
 					);
 				}
-				return (yield* inTransaction(receipt.load)) ?? (yield* apply(input, command, receipt));
+				return (
+					(yield* inTransaction(receipt.load)) ??
+					(yield* shareExecutionAuthority(apply(input, command, receipt)))
+				);
 			});
 			return { commit, commitOnce };
 		}),
