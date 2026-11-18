@@ -1292,13 +1292,8 @@ layer(commandRecordings.layer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const service = yield* EntityUserDataService;
-				const result = yield* service.mergeEntityUserDataForCommand(
-					user.id,
-					pluginPayload,
-					pluginCommand,
-				);
+				yield* service.prepareMergeForCommand(user.id, pluginPayload, pluginCommand);
 
-				expect(result).toMatchObject({ movedEventsCount: 1, movedRelationshipsCount: 0 });
 				const recorded = (yield* commandRecordings.recorded).at(-1);
 				expect(recorded?.writeContext).toBe(pluginPrincipal);
 				expect(recorded?.kernelCollection).toBe(true);
@@ -1337,7 +1332,7 @@ layer(scriptMergeRefusals.layer)((test) => {
 			Effect.gen(function* () {
 				const service = yield* EntityUserDataService;
 				const exit = yield* Effect.exit(
-					service.mergeEntityUserDataForCommand(user.id, pluginPayload, pluginCommand),
+					service.prepareMergeForCommand(user.id, pluginPayload, pluginCommand),
 				);
 
 				assertExitFails(

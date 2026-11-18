@@ -29,11 +29,9 @@ import {
 	type RelationshipSingleResult,
 } from "./mutation-pipeline";
 import {
-	type ChangeUserRelationshipBatch,
 	type CreateRelationshipInput,
 	type DeleteRelationshipInput,
 	type Mutation,
-	type ReconcileGlobalRelationshipGroup,
 	relationshipIdentity,
 	relationshipSchemaReference,
 	relationshipWriteFailure,
@@ -180,20 +178,6 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				persistPlannedReconciliation: mutations.persistPlannedReconciliation,
 				delete: (input: DeleteRelationshipInput, command: DomainLifecycleCommand) =>
 					single(prepareSingle(relationshipIdentity(input), command, "delete")),
-				reconcileGlobal: (
-					groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
-					command: DomainLifecycleCommand,
-				) => mutations.reconcileGlobal(groups, command),
-				changeUser: (
-					userId: UserId,
-					batches: ReadonlyArray<ChangeUserRelationshipBatch>,
-					command: DomainLifecycleCommand,
-				) => mutations.changeUser(userId, batches, command),
-				prepareReconcileGlobalGroup: (
-					group: ReconcileGlobalRelationshipGroup,
-					index: number,
-					command: DomainLifecycleCommand,
-				) => mutations.prepareReconcileGlobalGroup(group, index, command),
 				prepareDeleteUserRelationshipById: (
 					userId: UserId,
 					relationshipId: RelationshipId,
@@ -204,12 +188,6 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					relationshipId: RelationshipId,
 					command: DomainLifecycleCommand,
 				) => single(prepareDeleteUserRelationshipById(userId, relationshipId, command)),
-				prepareChangeUserBatch: (
-					userId: UserId,
-					batch: ChangeUserRelationshipBatch,
-					index: number,
-					command: DomainLifecycleCommand,
-				) => mutations.prepareChangeUserBatch(userId, batch, index, command),
 				prepareMergeUserProperties: (
 					input: { userId: UserId } & CreateRelationshipInput,
 					command: DomainLifecycleCommand,

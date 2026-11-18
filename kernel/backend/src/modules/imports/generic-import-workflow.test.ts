@@ -19,6 +19,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { ChangeSets } from "#modules/changes/service";
 import { CollectionsService } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
@@ -31,7 +32,6 @@ import type { ScriptPluginRevision } from "#modules/scripts/authorization/princi
 import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { UserCommands } from "#modules/user-commands/service";
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
@@ -90,7 +90,7 @@ const applyCase = (
 			Layer.mock(TransientValues)({}),
 			Layer.mock(LifecycleExecution)({}),
 			Layer.mock(EventsService)({}),
-			Layer.mock(UserCommands)({}),
+			Layer.mock(ChangeSets)({}),
 			Layer.mock(PluginRuntimeResolver)({
 				findPluginAvailableToUser: () =>
 					Effect.succeed({

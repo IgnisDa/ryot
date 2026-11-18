@@ -132,7 +132,7 @@ transaction. It returns:
 - `events`: one `{ eventId, properties }` for each subject event whose schema declares a projection.
 - `relationships`: one `{ relationshipId, properties }` for each of the user's links from the subject
   whose schema declares a projection.
-- `changes`: at most 500 event creates, updates and deletes in the user-command format. These
+- `changes`: at most 500 event creates, updates and deletes in the change-set format. These
   fold-owned events skip before-policies and after-hooks.
 
 When `changes` is not empty, the kernel applies them and runs the fold again. The second run must

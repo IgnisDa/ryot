@@ -63,7 +63,7 @@ The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `tran
 `unsupported-capability`, `invalid-request`, and `quota`.
 
 A successful `operation-result` carries the operation's `value` and `committed`, the kernel's
-`UserCommandResult` for the changes the operation returned (empty `events` when nothing was
+`CommittedChanges` for the changes the operation returned (empty `events` when nothing was
 committed). `operation-result` failures carry `transport`, `operation-failed`, `changes-conflict`
 (the kernel's commit of the operation's changes found a stale baseline), or `malformed-result`, or
 `operation-rejected` with the operation's `message`. `operation-failed` is a declared platform

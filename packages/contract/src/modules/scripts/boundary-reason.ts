@@ -4,7 +4,7 @@ import { Option, Schema } from "effect";
 
 import { PluginId } from "../../schema/brands";
 import { EntitlementRequiredReason } from "../../schema/entitlement";
-import { CommitConflictCode } from "../mutations/user-command";
+import { CommitConflictCode } from "../changes/change-set";
 
 export const PluginInstallationUnavailableReason = Schema.Struct({
 	pluginId: PluginId,

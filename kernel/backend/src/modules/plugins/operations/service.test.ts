@@ -1,12 +1,9 @@
 import { expect } from "bun:test";
 
 import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
+import type { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
-import type {
-	UserCommand,
-	UserCommandResult,
-} from "@ryot-app/contract/modules/mutations/user-command";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -43,6 +40,11 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import {
+	type ChangeSetCommitHook,
+	type ChangeSetFailure,
+	ChangeSets,
+} from "#modules/changes/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
@@ -53,11 +55,6 @@ import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import {
-	type UserCommandCommitHook,
-	type UserCommandFailure,
-	UserCommands,
-} from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
 import * as tables from "#schema/tables/combined";
@@ -234,8 +231,8 @@ const makeLayer = (input: {
 	activeSourceHash?: string;
 	entitlements?: Entitlements;
 	integration?: null | IntegrationRecord;
+	commitFailure?: typeof ChangeSetFailure.Type;
 	available?: ReadonlyArray<AvailableOperation>;
-	commitFailure?: typeof UserCommandFailure.Type;
 	database?: ReturnType<typeof isolatedDatabaseLayer>;
 	privateInstallation?: null | PluginInstallationHydratedState;
 	sandboxErrorData?: NonNullable<SandboxExecutionResult["error"]>["data"];
@@ -428,24 +425,23 @@ const makeLayer = (input: {
 						),
 				}),
 				Layer.effect(
-					UserCommands,
+					ChangeSets,
 					Effect.map(DatabaseSession, (database) => ({
 						commit: (
-							changes: UserCommand,
+							changes: ChangeSet,
 							command: DomainLifecycleCommand,
-							userId: UserId,
-							hook?: UserCommandCommitHook,
+							hook?: ChangeSetCommitHook,
 						) =>
 							Effect.gen(function* () {
 								yield* recordEvent("commit");
 								yield* Ref.update(state.commits, (all) => [
 									...all,
-									{ userId, changes, causation: command.causation },
+									{ changes, causation: command.causation, subject: command.writeContext?.subject },
 								]);
 								if (input.commitFailure) {
 									return yield* input.commitFailure;
 								}
-								const result: UserCommandResult = {
+								const result: CommittedChanges = {
 									events: (changes.events?.creates ?? []).map((create) => ({
 										itemIdentity: create.itemIdentity,
 										eventId: EventId.make(`event-${create.itemIdentity}`),
@@ -1527,8 +1523,8 @@ layer(
 				const commits = yield* fake.commits;
 				expect(commits).toHaveLength(1);
 				expect(commits[0]).toMatchObject({
-					userId: USER_ONE,
 					changes: returnedChanges.changes,
+					subject: { type: "user", userId: USER_ONE },
 					causation: { depth: 0, source: "api", initiator: { kind: "user", id: USER_ONE } },
 				});
 			}),

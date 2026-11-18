@@ -2,10 +2,10 @@ import { WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { BadRequest, NotFound } from "@ryot-app/contract/errors";
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	ChangeSet,
 	CommitConflictCode,
-	UserCommand,
-	UserCommandResult,
-} from "@ryot-app/contract/modules/mutations/user-command";
+	CommittedChanges,
+} from "@ryot-app/contract/modules/changes/change-set";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
 	PluginConflictError,
@@ -15,12 +15,13 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import {
-	type SandboxScriptId,
 	AutomationExecutionId,
 	type IntegrationId,
 	PluginId,
 	type PluginPackageId,
-	type UserId} from "@ryot-app/contract/schema/brands";
+	type SandboxScriptId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { Message } from "@ryot-app/i18n/message";
@@ -31,6 +32,9 @@ import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import { ChangeSetRejected } from "#modules/changes/authority";
+import type { ChangeSetFailure } from "#modules/changes/service";
+import { ChangeSetAlreadyCommitted, ChangeSets, isEmptyChangeSet } from "#modules/changes/service";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import {
 	type IdempotencyIdentity,
@@ -46,8 +50,6 @@ import {
 	sandboxStartedAt,
 } from "#modules/scripts/host/execution-context";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import type { UserCommandFailure } from "#modules/user-commands/service";
-import { UserCommandAlreadyCommitted, UserCommands } from "#modules/user-commands/service";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import { EntitlementService } from "#platform/entitlements";
@@ -79,17 +81,11 @@ type DispatchInput = {
 };
 const OperationRunResult = Schema.Struct({
 	output: JsonValue,
-	changes: Schema.optional(UserCommand),
+	changes: Schema.optional(ChangeSet),
 });
 
-const OperationReceipt = Schema.Struct({ output: JsonValue, committed: UserCommandResult });
+const OperationReceipt = Schema.Struct({ output: JsonValue, committed: CommittedChanges });
 type OperationReceipt = typeof OperationReceipt.Type;
-
-const hasChanges = (changes: UserCommand) =>
-	changes.entity !== undefined ||
-	Object.keys(changes.settings ?? {}).length > 0 ||
-	(changes.relationships?.length ?? 0) > 0 ||
-	(changes.events?.creates.length ?? 0) + (changes.events?.changes.length ?? 0) > 0;
 
 const isCommitConflict = Schema.is(
 	Schema.Struct({ reason: Schema.Struct({ code: CommitConflictCode }) }),
@@ -109,12 +105,15 @@ const invalidOutput = (message: string) =>
 		},
 	});
 
-const commitFailure = (error: typeof UserCommandFailure.Type) => {
+const commitFailure = (error: typeof ChangeSetFailure.Type) => {
 	if (error instanceof DbError) {
 		return error;
 	}
 	if (isPolicyRejection(error)) {
 		return new PluginOperationRejected({ reason: error.reason.message });
+	}
+	if (error instanceof ChangeSetRejected) {
+		return invalidOutput(`Operation changes were rejected: ${error.message}`);
 	}
 	if (isCommitConflict(error)) {
 		return new PluginConflictError({
@@ -153,7 +152,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			const scripts = yield* SandboxRepository;
 			const entitlements = yield* EntitlementService;
 			const calls = yield* ScriptCalls;
-			const commands = yield* UserCommands;
+			const commands = yield* ChangeSets;
 
 			const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: AdmittedDispatch) {
 				const result = yield* calls.run({
@@ -208,7 +207,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				run: typeof OperationRunResult.Type,
 			) {
 				const { principal, resultIdentity } = input;
-				if (run.changes === undefined || !hasChanges(run.changes)) {
+				if (run.changes === undefined || isEmptyChangeSet(run.changes)) {
 					const receipt: OperationReceipt = { output: run.output, committed: { events: [] } };
 					if (resultIdentity) {
 						yield* keys.record(resultIdentity, OperationReceipt, receipt);
@@ -229,18 +228,18 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					resultIdentity === null
 						? undefined
 						: {
-								finish: (committed: UserCommandResult) =>
+								finish: (committed: CommittedChanges) =>
 									keys.record(resultIdentity, OperationReceipt, { committed, output: run.output }),
 								start: keys.lockedRead(resultIdentity, OperationReceipt).pipe(
 									Effect.catchTag("IdempotencyConflict", Effect.die),
 									Effect.flatMap((stored) =>
-										stored ? new UserCommandAlreadyCommitted() : Effect.void,
+										stored ? new ChangeSetAlreadyCommitted() : Effect.void,
 									),
 								),
 							};
-				return yield* commands.commit(run.changes, command, subject.userId, hook).pipe(
+				return yield* commands.commit(run.changes, command, hook).pipe(
 					Effect.map((committed): OperationReceipt => ({ committed, output: run.output })),
-					Effect.catchTag("UserCommandAlreadyCommitted", () =>
+					Effect.catchTag("ChangeSetAlreadyCommitted", () =>
 						resultIdentity === null
 							? Effect.die("A commit without a receipt cannot be a replay")
 							: keys.read(resultIdentity, OperationReceipt).pipe(

@@ -54,7 +54,7 @@ runs policies and hooks as request work rather than journaling them.
 
 Detailed behavior belongs to [automations](src/modules/automations/README.md),
 [mutation admission](src/modules/mutations/README.md), [events and folds](src/modules/events/README.md),
-[user commands](src/modules/user-commands/README.md), [imports](src/modules/imports/README.md),
+[change sets](src/modules/changes/README.md), [imports](src/modules/imports/README.md),
 [script execution](src/modules/scripts/README.md), and [sandbox isolation](../sandbox/README.md).
 
 ## Storage And Transport

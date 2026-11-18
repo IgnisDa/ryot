@@ -1,4 +1,4 @@
-import { CommitConflictCode, UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
+import { ChangeSet, CommitConflictCode } from "@ryot-app/contract/modules/changes/change-set";
 import { LocalMessage } from "@ryot-app/i18n/message";
 import { type Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -6,7 +6,7 @@ import type { OperationManifest } from "./core/script-manifest";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 
 const operationResult = <Output extends Schema.Codec<unknown, unknown>>(output: Output) =>
-	Schema.Struct({ output, changes: Schema.optional(UserCommand) });
+	Schema.Struct({ output, changes: Schema.optional(ChangeSet) });
 
 type OperationResult<Output extends Schema.Codec<unknown, unknown>> = ReturnType<
 	typeof operationResult<Output>

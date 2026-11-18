@@ -852,16 +852,41 @@ write whose repetition has no additional effect. Descriptions should explain wri
 conflicts, and per-item misses so people and tool clients can choose operations safely.
 
 An operation's `run` returns `{ output, changes? }`. `output` is what the caller receives and what the
-declared `output` schema describes. `changes` is a change set the kernel commits after the run ends:
-an optional root `entity` create or update, `events` creates, updates, and deletes with their
-baselines, `relationships` referencing the root or existing entities, and a `settings` patch of the
-plugin's user settings. A `{ kind: "root" }` reference requires `entity`. Every operation returns its
-writes this way; the kernel commits them atomically, runs event policies over them, and
-answers `{ result, committed }`, where `committed` carries the root entity ID and each written event ID
-by item identity. A policy rejection of the changes reaches the caller as HTTP 422, a stale baseline
-as HTTP 409 `changes-conflict`, and any other invalid change set as HTTP 502. A client plugin's
-`client.operations.invoke` resolves `{ output, committed }` and fails a stale baseline with a
-`RyotClientError` whose reason is `changes-conflict`.
+declared `output` schema describes. `changes` is a change set the kernel commits after the run ends;
+every operation returns its writes this way. The kernel commits them atomically, runs event policies
+over them, and answers `{ result, committed }`, where `committed` carries the root entity ID and each
+written event ID by item identity. A policy rejection of the changes reaches the caller as HTTP 422, a
+stale baseline as HTTP 409 `changes-conflict`, and any other invalid or unauthorized change set as
+HTTP 502. A client plugin's `client.operations.invoke` resolves `{ output, committed }` and fails a
+stale baseline with a `RyotClientError` whose reason is `changes-conflict`.
+
+### Change sets
+
+`ChangeSet`, `changeSetSchema` and `CHANGE_SET_LIMITS` come from `@ryot-app/plugin-backend-sdk/core`,
+with `rootEntity`, `existingEntity(id)` and `upsertedGlobalEntity(entitySchemaSlug, externalId)`
+references and `combineChangeSets(...)`, which concatenates parts that helpers built separately (only
+one input may set the root entity, the fold request or `events.expected`). Every part names schemas of
+the writing plugin by slug, and every slug must be declared by its revision.
+
+| Part                  | Writes                                                                                                       | Writer                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `entity`              | A root user entity create, or an update with its expected name, properties and `updatedAt`                   | User executions                                                            |
+| `entities.deletes`    | User entities, cascading their events                                                                        | User executions                                                            |
+| `entities.clears`     | An entity's user data: its events and relationships                                                          | User executions                                                            |
+| `entities.merges`     | One entity's user data into another of the same plugin schema                                                | User executions                                                            |
+| `entities.ensures`    | One user entity per schema, created only when absent                                                         | The plugin's user bootstrap script                                         |
+| `relationships`       | `upserts` (`merge` or `replace` properties) and `deletes` between the root or existing entities              | User executions and user automation runs                                   |
+| `events`              | Creates, updates and deletes, with `expected` session events and scope `baselines`                           | User executions and user automation runs                                   |
+| `settings`            | A patch of the plugin's settings for the execution user                                                      | User executions, except integrations, imports and bootstraps               |
+| `signals`             | Signal emissions with a discriminator and optional subject entity                                            | Automation runs; system ones need a system plugin automation               |
+| `notifications`       | Messages from the plugin catalog for the run's account                                                       | User automation runs                                                       |
+| `globalEntities`      | Provider-owned global entities by external ID                                                                | System executions of a system plugin's provider                            |
+| `globalRelationships` | Global relationship groups with a `self` or `anchored` selector; endpoints are existing or upserted entities | System executions of a system plugin                                       |
+| `folds`               | Fold requests for the execution user (`user`) or every user with events (`all-users`)                        | User executions; `all-users` from a system execution needs a system plugin |
+
+A `{ kind: "root" }` reference requires `entity`. User entities never carry provenance, global scope,
+ownership or `populatedAt`. Global writes run no policies. Notifications are queued for delivery after
+the commit. A part the writer may not write fails the whole change set.
 
 Refuse a request that cannot succeed as submitted with `OperationRejectedError(message)`; the caller
 receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502). Fail with

@@ -92,7 +92,7 @@ integration boundary.
 
 `operations.invoke` encodes `input` through the required `inputSchema` and decodes the operation's
 `output`; an input that does not encode fails with `invalid-input`. It resolves
-`{ output, committed }`, where `committed` is the kernel's `UserCommandResult` for the changes the
+`{ output, committed }`, where `committed` is the kernel's `CommittedChanges` for the changes the
 operation returned: the root `entityId` when one was written and each written event's `eventId` by
 `itemIdentity`, with an empty `events` array when nothing was committed. An operation whose changes
 hit a stale baseline fails with `changes-conflict`; reload the data and let the person resubmit.

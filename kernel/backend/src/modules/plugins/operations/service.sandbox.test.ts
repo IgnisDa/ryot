@@ -18,6 +18,7 @@ import { Effect, Layer } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import { ChangeSets } from "#modules/changes/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
@@ -26,7 +27,6 @@ import {
 	RealSandboxScripts,
 	realSandboxUserId,
 } from "#modules/scripts/executions/real-sandbox.test-support";
-import { UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { sandboxWorkflowReference } from "#schema/tables/core";
@@ -181,7 +181,7 @@ layer(
 	Layer.provideMerge(
 		OperationsService.layer.pipe(
 			Layer.provide(IntegrationOperationScopeResolverLive),
-			Layer.provide(Layer.mock(UserCommands)({})),
+			Layer.provide(Layer.mock(ChangeSets)({})),
 			Layer.provideMerge(ScriptCalls.layer),
 			Layer.provide(entitlementsLayer(["pro"])),
 			Layer.provideMerge(fakeLayer.pipe(Layer.provideMerge(realSandboxLayer()))),

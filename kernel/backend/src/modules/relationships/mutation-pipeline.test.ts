@@ -203,181 +203,11 @@ const entityNotFound = (targetEntityId: EntityId, source: EntityId = sourceEntit
 		reason: { code: "entity-not-found", entityIds: [source, targetEntityId] },
 	});
 
-const overlappingBatch = (order: ReadonlyArray<EntityId>, rank: number) => [
-	{
-		deletes: [],
-		creates: order.map((targetEntityId) => ({
-			...baseInput,
-			targetEntityId,
-			properties: { rank },
-			propertiesMode: "replace" as const,
-		})),
-	},
-];
-
 const concurrentChange = new RelationshipBadRequest({
 	reason: { code: "concurrent-relationship-change" },
 });
 
-const mutationState = Effect.gen(function* () {
-	const session = yield* DatabaseSession;
-	return yield* session.run((db) =>
-		Effect.all({
-			runs: db.select().from(tables.automationRun).orderBy(tables.automationRun.id),
-			relationships: db.select().from(tables.relationship).orderBy(tables.relationship.id),
-			triggers: db.select().from(tables.automationTrigger).orderBy(tables.automationTrigger.id),
-		}),
-	);
-});
-
 describe("Relationship set-based mutation pipeline", () => {
-	for (const scope of ["user", "global"] as const) {
-		layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
-			test.effect(
-				`replays an already prepared ${scope} aggregate without changing item results or evidence`,
-				() =>
-					Effect.gen(function* () {
-						const session = yield* DatabaseSession;
-						const repository = yield* RelationshipsRepository;
-						if (scope === "global") {
-							yield* session.run((db) =>
-								db
-									.insert(tables.user)
-									.values({ id: "owner", name: "Owner", email: "owner@example.test" }),
-							);
-						}
-						const input = yield* installPolicyFixture(scope === "user" ? userId : null, true);
-						const pipeline = yield* pipelineWith(yield* policyLifecycle());
-						const [createdTarget, updatedTarget, deletedTarget, unchangedTarget] =
-							yield* insertEntities(
-								[
-									"aggregate-created",
-									"aggregate-updated",
-									"aggregate-deleted",
-									"aggregate-unchanged",
-								],
-								scope === "user" ? userId : null,
-								input.relationshipSchemaPluginId,
-							);
-						assert(createdTarget && updatedTarget && deletedTarget && unchangedTarget);
-						const identity = { ...input, scope };
-						const updated = yield* repository.createRelationship({
-							...identity,
-							properties: { rank: 0 },
-							targetEntityId: updatedTarget,
-						});
-						const deleted = yield* repository.createRelationship({
-							...identity,
-							properties: { rank: 0 },
-							targetEntityId: deletedTarget,
-						});
-						const unchanged = yield* repository.createRelationship({
-							...identity,
-							properties: { rank: 1 },
-							targetEntityId: unchangedTarget,
-						});
-						const targets = [createdTarget, input.targetEntityId, updatedTarget, unchangedTarget];
-						const initial = yield* mutationState;
-						const lifecycle = command(`aggregate-${scope}`);
-						const prepared =
-							scope === "user"
-								? yield* pipeline.prepareChangeUserBatch(
-										userId,
-										{
-											deletes: [{ ...input, targetEntityId: deletedTarget }],
-											creates: targets.map((targetEntityId) => ({
-												...input,
-												targetEntityId,
-												propertiesMode: "replace" as const,
-											})),
-										},
-										0,
-										lifecycle,
-									)
-								: yield* pipeline.prepareReconcileGlobalGroup(
-										reconciliationGroup(input, targets, 1),
-										0,
-										lifecycle,
-									);
-						assert(prepared._tag === "PoliciesRequired");
-						const pending = yield* pipeline.applyPolicies(prepared.pending);
-						const committed =
-							scope === "user"
-								? yield* pipeline.commitBatch(pending)
-								: yield* pipeline.commitReconciliation(pending);
-						expect(committed.result).toEqual<unknown>(
-							scope === "user"
-								? { created: 2, updated: 1, deleted: 1 }
-								: { created: 2, updated: 1, deleted: 1, upserted: 4 },
-						);
-						expect(committed.dispatch.length).toBeGreaterThan(0);
-						const before = yield* mutationState;
-						expect(before.relationships).toHaveLength(4);
-						expect(before.relationships.find(({ id }) => id === updated.id)?.properties).toEqual({
-							rank: 1,
-						});
-						expect(before.relationships.find(({ id }) => id === unchanged.id)).toEqual(
-							initial.relationships.find(({ id }) => id === unchanged.id),
-						);
-						expect(before.relationships.some(({ id }) => id === deleted.id)).toBe(false);
-						const created = before.relationships.find(
-							({ targetEntityId }) => targetEntityId === createdTarget,
-						);
-						assert(created);
-						expect(
-							before.triggers
-								.filter(({ category }) => category === "change")
-								.map(({ operation }) => operation)
-								.sort(),
-						).toEqual(["batch", "create", "create", "delete", "update"]);
-					}),
-				testTimeout,
-			);
-		});
-	}
-
-	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
-		test.effect(
-			"commits and replays empty and no-op aggregates without hook history",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* RelationshipsService;
-					yield* service.create(baseInput, command("zero-seed"));
-					for (const [id, batches] of [
-						["zero-empty", [{ creates: [], deletes: [] }]],
-						[
-							"zero-noop",
-							[
-								{
-									deletes: [{ ...baseInput, targetEntityId: sourceEntityId }],
-									creates: [{ ...baseInput, propertiesMode: "replace" as const }],
-								},
-							],
-						],
-					] as const) {
-						const first = yield* service.changeUser(userId, batches, command(id));
-						expect(first).toEqual([{ created: 0, updated: 0, deleted: 0, warnings: [] }]);
-						const before = yield* mutationState;
-						expect(yield* service.changeUser(userId, batches, command(id))).toEqual(first);
-						expect(yield* mutationState).toEqual(before);
-					}
-					expect(yield* service.changeUser(userId, [], command("zero-batches"))).toEqual([]);
-					expect(yield* service.reconcileGlobal([], command("zero-groups"))).toEqual([]);
-					const group = reconciliationGroup(baseInput, [], 1);
-					expect(yield* service.reconcileGlobal([group], command("zero-group"))).toEqual([
-						{ created: 0, updated: 0, deleted: 0, upserted: 0, warnings: [] },
-					]);
-					const before = yield* mutationState;
-					expect(yield* service.reconcileGlobal([group], command("zero-group"))).toEqual([
-						{ created: 0, updated: 0, deleted: 0, upserted: 0, warnings: [] },
-					]);
-					expect(yield* mutationState).toEqual(before);
-					expect(before.triggers).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-
 	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"keeps a concurrent ensure from overwriting existing relationship metadata",
@@ -419,45 +249,10 @@ describe("Relationship set-based mutation pipeline", () => {
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const service = yield* RelationshipsService;
-					const policyInput = yield* installPolicyFixture();
-					const policyPipeline = yield* pipelineWith(yield* policyLifecycle());
-					const counts = {
-						policy: [] as number[],
-						ordinary: [] as number[],
-						reconciliation: [] as number[],
-					};
+					const counts = { reconciliation: [] as number[] };
 					for (const size of [2, 20]) {
 						const names = Array.from({ length: size }, (_, index) => `invariance-${size}-${index}`);
 						const targets = yield* insertEntities(names);
-						yield* service.changeUser(
-							userId,
-							overlappingBatch(targets, 1),
-							command(`ordinary-${size}`),
-						);
-						counts.ordinary.push(yield* lastTransactionChecks);
-						const policyTargets = yield* insertEntities(
-							names.map((name) => `policy-${name}`),
-							userId,
-							policyInput.relationshipSchemaPluginId,
-						);
-						const step = yield* policyPipeline.prepareChangeUserBatch(
-							userId,
-							{
-								deletes: [],
-								creates: policyTargets.map((targetEntityId) => ({
-									targetEntityId,
-									properties: policyInput.properties,
-									propertiesMode: "replace" as const,
-									sourceEntityId: policyInput.sourceEntityId,
-									relationshipSchema: policyInput.relationshipSchema,
-								})),
-							},
-							0,
-							command(`policy-${size}`),
-						);
-						assert(step._tag === "PoliciesRequired");
-						yield* policyPipeline.commitBatch(yield* policyPipeline.applyPolicies(step.pending));
-						counts.policy.push(yield* lastTransactionChecks);
 						yield* session.transaction(
 							service.persistPlannedReconciliation(
 								[reconciliationGroup(baseInput, targets, 3)],
@@ -641,51 +436,6 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
-		test.effect(
-			"detects a selector match committed between plan and commit",
-			() =>
-				Effect.gen(function* () {
-					const repository = yield* RelationshipsRepository;
-					const session = yield* DatabaseSession;
-					yield* session.run((db) =>
-						db
-							.insert(tables.user)
-							.values({ id: "owner", name: "Plugin owner", email: "owner@example.test" }),
-					);
-					const globalInput = yield* installPolicyFixture(null);
-					const service = yield* relationshipsServiceWith(
-						yield* policyLifecycle(
-							repository
-								.createRelationship({
-									scope: "global",
-									properties: { rank: 2 },
-									sourceEntityId: globalInput.sourceEntityId,
-									targetEntityId: globalInput.sourceEntityId,
-									relationshipSchemaSlug: globalInput.relationshipSchemaSlug,
-									relationshipSchemaPluginId: globalInput.relationshipSchemaPluginId,
-								})
-								.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
-						),
-					);
-					expect(
-						yield* service
-							.reconcileGlobal(
-								[reconciliationGroup(globalInput, [globalInput.targetEntityId], 1)],
-								command("selector-race"),
-							)
-							.pipe(Effect.flip),
-					).toEqual(concurrentChange);
-					expect(
-						(yield* session.run((db) => db.select().from(tables.relationship))).map(
-							({ targetEntityId }) => targetEntityId,
-						),
-					).toEqual([globalInput.sourceEntityId]);
-				}),
-			testTimeout,
-		);
-	});
-
 	layer(relationshipDatabaseLayer({ mutableRelationshipSchema: true }))(
 		"relationship pipeline harness",
 		(test) => {
@@ -790,47 +540,4 @@ describe("Relationship set-based mutation pipeline", () => {
 			testTimeout,
 		);
 	});
-
-	layer(relationshipDatabaseLayer({ holdLocks: /hashtextextended/ }))(
-		"relationship pipeline harness",
-		(test) => {
-			test.effect(
-				"serializes overlapping relationship batches without deadlocks",
-				() =>
-					Effect.gen(function* () {
-						const session = yield* DatabaseSession;
-						const service = yield* RelationshipsService;
-						const log = yield* StatementLog;
-						const targets = yield* insertEntities([
-							"overlap-1",
-							"overlap-2",
-							"overlap-3",
-							"overlap-4",
-						]);
-						yield* Effect.all(
-							[
-								service.changeUser(
-									userId,
-									overlappingBatch(targets, 1),
-									command("overlap-forward"),
-								),
-								service.changeUser(
-									userId,
-									overlappingBatch(targets.toReversed(), 2),
-									command("overlap-reverse"),
-								),
-							],
-							{ concurrency: "unbounded" },
-						);
-						expect(yield* log.errorCodes).not.toContain("40P01");
-						const rows = yield* session.run((db) => db.select().from(tables.relationship));
-						expect(rows.map(({ targetEntityId }) => targetEntityId).sort()).toEqual(
-							[...targets].sort(),
-						);
-						expect(new Set(rows.map(({ properties }) => JSON.stringify(properties))).size).toBe(1);
-					}),
-				testTimeout,
-			);
-		},
-	);
 });

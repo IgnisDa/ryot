@@ -200,6 +200,35 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				return yield* queueResolved(yield* resolve({ sources: [], subjects: [...subjects] }));
 			});
 
+			/** Queues the plugin's folds of the entities for one user, or for every user with their events. */
+			const request = Effect.fn("FoldMarks.request")(function* (input: {
+				readonly pluginId: PluginId;
+				readonly userId: null | UserId;
+				readonly entityIds: ReadonlyArray<EntityId>;
+			}) {
+				yield* requireTransaction;
+				const users =
+					input.userId === null
+						? (yield* session.run((db) =>
+								db.execute<{ userId: string }>(
+									sql`select distinct user_id as "userId" from event
+									where entity_id in (${foldValuesSql(input.entityIds)})
+										or session_entity_id in (${foldValuesSql(input.entityIds)})`,
+									"objects",
+								),
+							)).map((row) => UserId.make(row.userId))
+						: [input.userId];
+				const resolved = yield* resolve({
+					sources: [],
+					subjects: users.flatMap((userId) =>
+						input.entityIds.map((entityId) => ({ userId, entityId })),
+					),
+				});
+				return yield* queueResolved(
+					resolved.filter(({ declaration }) => declaration.pluginId === input.pluginId),
+				);
+			});
+
 			/** Marks the subjects of changed events; outside a fold scope they are queued instead. */
 			const mark = Effect.fn("FoldMarks.mark")(function* (sources: ReadonlyArray<FoldSource>) {
 				if (sources.length === 0) {
@@ -299,6 +328,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 			return {
 				mark,
 				absorb,
+				request,
 				resolve,
 				declarations,
 				markSubjects,

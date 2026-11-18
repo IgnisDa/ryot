@@ -1,4 +1,4 @@
-import type { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
+import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-groups";
 import type { PluginEntityUserStatePolicy } from "@ryot-app/contract/modules/plugins/manifest";
 import type {
@@ -6,15 +6,15 @@ import type {
 	ManifestText,
 } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId, EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Layer, Schema } from "effect";
 
+import { changeSetsTestLayer } from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
-import { EntityUserDataService } from "#modules/entities/user-data/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
@@ -31,7 +31,6 @@ import {
 } from "#modules/relationships/lifecycle.test-support";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { UserCommands } from "#modules/user-commands/service";
 import { workflowEngineTestLayer } from "#testing/effect";
 
 import { type EventCreateInput, makeEventCreate } from "./event-create";
@@ -60,10 +59,7 @@ const propertiesSchema: AuthoredAppSchema = {
 		},
 	},
 };
-export const eventGroupWorkflowLayer = Layer.mergeAll(
-	UserCommands.layer,
-	EntityUserDataService.layer.pipe(Layer.provideMerge(EntityUserDataGraphRepository.layer)),
-).pipe(
+export const eventGroupWorkflowLayer = changeSetsTestLayer.pipe(
 	Layer.provideMerge(
 		EventMutations.layer.pipe(
 			Layer.provideMerge(
@@ -75,14 +71,16 @@ export const eventGroupWorkflowLayer = Layer.mergeAll(
 	),
 	Layer.provideMerge(workflowEngineTestLayer),
 );
+export const commitChanges = (payload: {
+	readonly input: ChangeSet;
+	readonly command: DomainLifecycleCommand;
+}) => Effect.flatMap(ChangeSets, (changes) => changes.commit(payload.input, payload.command));
+
 export const commitUserCommand = (payload: {
-	readonly userId: UserId;
-	readonly input: UserCommand;
+	readonly input: ChangeSet;
 	readonly command: DomainLifecycleCommand;
 }) =>
-	Effect.flatMap(UserCommands, (commands) =>
-		commands.commit(payload.input, payload.command, payload.userId),
-	).pipe(
+	commitChanges(payload).pipe(
 		Effect.map(({ events, entityId }) => {
 			assert(entityId);
 			return { events, entityId };

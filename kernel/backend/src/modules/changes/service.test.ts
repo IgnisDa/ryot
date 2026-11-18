@@ -2,14 +2,22 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
+import {
+	ChangeSet,
+	type ChangeSetEntityReference,
+} from "@ryot-app/contract/modules/changes/change-set";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
-import {
-	type CommandEntityReference,
-	UserCommand,
-} from "@ryot-app/contract/modules/mutations/user-command";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId, EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationRunId,
+	AutomationTriggerId,
+	EntityId,
+	EntitySchemaSlug,
+	IntegrationId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -44,7 +52,8 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { workflowEngineTestLayer } from "#testing/effect";
 
-import { UserCommands } from "./service";
+import { changeSetsLayerWithNotificationSources } from "./change-sets.test-support";
+import { ChangeSets } from "./service";
 
 type StagedWrites = {
 	readonly events: number;
@@ -54,9 +63,9 @@ type StagedWrites = {
 class AtomicWriteObservation extends Context.Service<
 	AtomicWriteObservation,
 	{ readonly staged: Effect.Effect<null | StagedWrites> }
->()("@ryot-app/kernel-backend/modules/user-commands/service.test/AtomicWriteObservation") {}
+>()("@ryot-app/kernel-backend/modules/changes/service.test/AtomicWriteObservation") {}
 
-const testLayer = (failAfterEvents: boolean) => {
+const testLayer = (failAfterEvents: boolean, notificationSourcesOpen = true) => {
 	const live = EventSchemaReader.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer()));
 	const mutations = Layer.unwrap(
 		Effect.gen(function* () {
@@ -105,7 +114,7 @@ const testLayer = (failAfterEvents: boolean) => {
 		}),
 	).pipe(Layer.provideMerge(live));
 	return Layer.provideMerge(
-		UserCommands.layer.pipe(
+		changeSetsLayerWithNotificationSources(notificationSourcesOpen).pipe(
 			Layer.provideMerge(
 				PluginUserSettingsWriter.layer.pipe(Layer.provide(PluginCatalogInvalidatorLive)),
 			),
@@ -117,13 +126,10 @@ const testLayer = (failAfterEvents: boolean) => {
 };
 
 const commitUserCommand = (payload: {
-	readonly userId: UserId;
-	readonly input: UserCommand;
+	readonly input: ChangeSet;
 	readonly command: DomainLifecycleCommand;
 }) =>
-	Effect.flatMap(UserCommands, (commands) =>
-		commands.commit(payload.input, payload.command, payload.userId),
-	).pipe(
+	Effect.flatMap(ChangeSets, (changes) => changes.commit(payload.input, payload.command)).pipe(
 		Effect.map(({ events, entityId }) => {
 			assert(entityId);
 			return { events, entityId };
@@ -160,7 +166,7 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 		},
 	]);
 	assert(target);
-	const decoded = yield* Schema.decodeEffect(UserCommand)({
+	const decoded = yield* Schema.decodeEffect(ChangeSet)({
 		entity: {
 			name: "Atomic root",
 			entitySchemaSlug: "record",
@@ -178,19 +184,22 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 				},
 			],
 		},
-		relationships: [
-			{
-				properties: {},
-				propertiesMode: "merge",
-				source: { kind: "root" },
-				relationshipSchemaSlug: "atomic-link",
-				target: { kind: "existing", entityId: target.id },
-			},
-		],
+		relationships: {
+			upserts: [
+				{
+					properties: {},
+					propertiesMode: "merge",
+					source: { kind: "root" },
+					relationshipSchemaSlug: "atomic-link",
+					target: { kind: "existing", entityId: target.id },
+				},
+			],
+		},
 	});
-	const { entity, events, relationships } = decoded;
-	assert(entity && events && relationships);
-	const input = { ...decoded, entity, events, relationships };
+	const { entity, events } = decoded;
+	const upserts = decoded.relationships?.upserts;
+	assert(entity && events && upserts);
+	const input = { ...decoded, entity, events, relationships: { upserts } };
 	return {
 		input,
 		session,
@@ -200,7 +209,7 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 	};
 });
 
-const eventCreate = (entity: typeof CommandEntityReference.Type) => ({
+const eventCreate = (entity: ChangeSetEntityReference) => ({
 	changes: [],
 	creates: [
 		{ entity, itemIdentity: "event", eventSchemaSlug: "changed", properties: { value: "Saved" } },
@@ -213,14 +222,13 @@ layer(testLayer(false))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
-				const [relation] = input.input.relationships;
+				const [relation] = input.input.relationships.upserts;
 				assert(relation?.target.kind === "existing");
 				const target = relation.target.entityId;
-				const commands = yield* UserCommands;
+				const commands = yield* ChangeSets;
 				const committed = yield* commands.commit(
 					{ events: eventCreate({ kind: "existing", entityId: target }) },
 					input.command,
-					userId,
 				);
 				expect(committed.entityId).toBeUndefined();
 				expect(committed.events.map(({ itemIdentity }) => itemIdentity)).toEqual(["event"]);
@@ -233,7 +241,6 @@ layer(testLayer(false))((test) => {
 							writeContext: input.command.writeContext,
 							accountUserId: input.command.accountUserId,
 						},
-						userId,
 					),
 				);
 				expect(rejected).toEqual(new EventBadRequest({ reason: { code: "root-entity-required" } }));
@@ -246,11 +253,7 @@ layer(testLayer(false))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
-				const initial = yield* commitUserCommand({
-					userId,
-					input: input.input,
-					command: input.command,
-				});
+				const initial = yield* commitUserCommand({ input: input.input, command: input.command });
 				const source = initial.events[0];
 				assert(source);
 				const entities = yield* EntitiesRepository;
@@ -291,16 +294,14 @@ layer(testLayer(false))((test) => {
 			Effect.gen(function* () {
 				const fixtureInput = yield* fixture();
 				const initial = yield* commitUserCommand({
-					userId,
 					input: fixtureInput.input,
 					command: fixtureInput.command,
 				});
 				const source = initial.events[0];
 				assert(source);
-				const execute = (events: UserCommand["events"]) =>
+				const execute = (events: ChangeSet["events"]) =>
 					commitUserCommand({
-						userId,
-						input: { ...fixtureInput.input, events, relationships: [] },
+						input: { ...fixtureInput.input, events, relationships: {} },
 						command: {
 							...fixtureInput.command,
 							...command(crypto.randomUUID()),
@@ -379,11 +380,7 @@ layer(testLayer(false))((test) => {
 			() =>
 				Effect.gen(function* () {
 					const input = yield* fixture();
-					const original = yield* commitUserCommand({
-						userId,
-						input: input.input,
-						command: input.command,
-					});
+					const original = yield* commitUserCommand({ input: input.input, command: input.command });
 					const source = original.events[0];
 					assert(source);
 					const nextCommand = () => ({
@@ -392,7 +389,7 @@ layer(testLayer(false))((test) => {
 						writeContext: input.command.writeContext,
 						accountUserId: input.command.accountUserId,
 					});
-					let changes: NonNullable<UserCommand["events"]>["changes"] = [];
+					let changes: NonNullable<ChangeSet["events"]>["changes"] = [];
 					if (mutation === "update") {
 						changes = [
 							{
@@ -408,9 +405,9 @@ layer(testLayer(false))((test) => {
 					if (mutation === "delete") {
 						changes = [{ kind: "delete", itemIdentity: "removed", eventId: source.eventId }];
 					}
-					const racingInput = yield* Schema.decodeEffect(UserCommand)({
+					const racingInput = yield* Schema.decodeEffect(ChangeSet)({
 						...input.input,
-						relationships: [],
+						relationships: {},
 						events: {
 							changes,
 							creates:
@@ -426,10 +423,10 @@ layer(testLayer(false))((test) => {
 									: [],
 						},
 					});
-					yield* commitUserCommand({ userId, input: racingInput, command: nextCommand() });
-					const staleInput = yield* Schema.decodeEffect(UserCommand)({
+					yield* commitUserCommand({ input: racingInput, command: nextCommand() });
+					const staleInput = yield* Schema.decodeEffect(ChangeSet)({
 						...input.input,
-						relationships: [],
+						relationships: {},
 						entity: { ...input.input.entity, name: "Must not commit" },
 						events: {
 							creates: [],
@@ -438,9 +435,7 @@ layer(testLayer(false))((test) => {
 						},
 					});
 					assertExitFails(
-						yield* Effect.exit(
-							commitUserCommand({ userId, input: staleInput, command: nextCommand() }),
-						),
+						yield* Effect.exit(commitUserCommand({ input: staleInput, command: nextCommand() })),
 						new EntityStale({ reason: { code: "entity-stale", entityId: original.entityId } }),
 					);
 					const partial = yield* input.session.run((db) =>
@@ -466,11 +461,10 @@ layer(testLayer(false))((test) => {
 			Effect.gen(function* () {
 				const matching = yield* fixture();
 				const original = yield* commitUserCommand({
-					userId,
 					input: matching.input,
 					command: matching.command,
 				});
-				const matchingRelationship = matching.input.relationships[0];
+				const matchingRelationship = matching.input.relationships.upserts[0];
 				assert(matchingRelationship);
 				assert(matchingRelationship.target.kind === "existing");
 				const matchingEvidenceId = matchingRelationship.target.entityId;
@@ -494,13 +488,12 @@ layer(testLayer(false))((test) => {
 					},
 				];
 				expect(matchingBaselines[1]?.revision).toBe(0);
-				const matchingInput = yield* Schema.decodeEffect(UserCommand)({
+				const matchingInput = yield* Schema.decodeEffect(ChangeSet)({
 					...matching.input,
-					relationships: [],
+					relationships: {},
 					events: { ...matching.input.events, baselines: matchingBaselines },
 				});
 				const matchingResult = yield* commitUserCommand({
-					userId,
 					input: matchingInput,
 					command: {
 						...matching.command,
@@ -513,12 +506,8 @@ layer(testLayer(false))((test) => {
 
 				for (const mutatedScope of ["source", "evidence"] as const) {
 					const input = yield* fixture();
-					const source = yield* commitUserCommand({
-						userId,
-						input: input.input,
-						command: input.command,
-					});
-					const relationship = input.input.relationships[0];
+					const source = yield* commitUserCommand({ input: input.input, command: input.command });
+					const relationship = input.input.relationships.upserts[0];
 					assert(relationship);
 					assert(relationship.target.kind === "existing");
 					const evidenceId = relationship.target.entityId;
@@ -542,9 +531,9 @@ layer(testLayer(false))((test) => {
 					];
 					expect(baselines[1]?.revision).toBe(0);
 					const changedEntityId = mutatedScope === "source" ? source.entityId : evidenceId;
-					const racingInput = yield* Schema.decodeEffect(UserCommand)({
+					const racingInput = yield* Schema.decodeEffect(ChangeSet)({
 						...input.input,
-						relationships: [],
+						relationships: {},
 						events: {
 							changes: [],
 							creates: [
@@ -558,7 +547,6 @@ layer(testLayer(false))((test) => {
 						},
 					});
 					yield* commitUserCommand({
-						userId,
 						input: racingInput,
 						command: {
 							...input.command,
@@ -598,7 +586,7 @@ layer(testLayer(false))((test) => {
 								.orderBy(tables.relationship.id),
 						),
 					};
-					const staleInput = yield* Schema.decodeEffect(UserCommand)({
+					const staleInput = yield* Schema.decodeEffect(ChangeSet)({
 						...input.input,
 						events: { ...input.input.events, baselines },
 						entity: { ...input.input.entity, name: "Must not commit" },
@@ -606,7 +594,6 @@ layer(testLayer(false))((test) => {
 					assertExitFails(
 						yield* Effect.exit(
 							commitUserCommand({
-								userId,
 								input: staleInput,
 								command: {
 									...input.command,
@@ -660,11 +647,7 @@ layer(testLayer(false))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
-				const original = yield* commitUserCommand({
-					userId,
-					input: input.input,
-					command: input.command,
-				});
+				const original = yield* commitUserCommand({ input: input.input, command: input.command });
 				const [rootBefore] = yield* input.session.run((db) =>
 					db
 						.select({
@@ -686,9 +669,9 @@ layer(testLayer(false))((test) => {
 				});
 				const executeEventOnly = (itemIdentity: string) =>
 					Effect.gen(function* () {
-						const commandInput = yield* Schema.decodeEffect(UserCommand)({
+						const commandInput = yield* Schema.decodeEffect(ChangeSet)({
 							...input.input,
-							relationships: [],
+							relationships: {},
 							events: {
 								changes: [],
 								creates: [
@@ -714,7 +697,6 @@ layer(testLayer(false))((test) => {
 							},
 						});
 						return yield* commitUserCommand({
-							userId,
 							input: commandInput,
 							command: {
 								...input.command,
@@ -760,15 +742,11 @@ layer(testLayer(false))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
-				const result = yield* commitUserCommand({
-					userId,
-					input: input.input,
-					command: input.command,
-				});
+				const result = yield* commitUserCommand({ input: input.input, command: input.command });
 				expect(result.events).toHaveLength(1);
-				expect(
-					yield* commitUserCommand({ userId, input: input.input, command: input.command }),
-				).toEqual(result);
+				expect(yield* commitUserCommand({ input: input.input, command: input.command })).toEqual(
+					result,
+				);
 				const entities = yield* input.session.run((db) =>
 					db.select().from(tables.entity).where(eq(tables.entity.id, result.entityId)),
 				);
@@ -798,9 +776,7 @@ layer(testLayer(true))((test) => {
 			Effect.gen(function* () {
 				const input = yield* fixture();
 				assertExitFails(
-					yield* Effect.exit(
-						commitUserCommand({ userId, input: input.input, command: input.command }),
-					),
+					yield* Effect.exit(commitUserCommand({ input: input.input, command: input.command })),
 					new DbError({ message: "Injected atomic commit failure" }),
 				);
 				expect(yield* (yield* AtomicWriteObservation).staged).toEqual({
@@ -829,6 +805,482 @@ layer(testLayer(true))((test) => {
 				expect(entities).toMatchObject([{ name: "Existing target" }]);
 				expect(relationships).toEqual([]);
 				expect(events).toEqual([]);
+			}),
+		testTimeout,
+	);
+});
+
+type Fixture = Effect.Success<ReturnType<typeof fixture>>;
+
+const nextCommand = (input: Fixture, principal = input.command.writeContext) => ({
+	...input.command,
+	...command(crypto.randomUUID()),
+	writeContext: principal,
+	accountUserId: input.command.accountUserId,
+});
+
+const commit = (input: ChangeSet, lifecycle: DomainLifecycleCommand) =>
+	Effect.flatMap(ChangeSets, (changes) => changes.commit(input, lifecycle));
+
+const automationRun = (input: Fixture, overrides: { readonly stage?: "after" | "before" } = {}) => {
+	const { pluginRevision } = input.command.writeContext;
+	assert(pluginRevision);
+	return {
+		...input.command.writeContext,
+		subject: {
+			accountUserId: userId,
+			executionUserId: userId,
+			delivery: "async" as const,
+			pluginId: pluginRevision.id,
+			type: "automation-run" as const,
+			stage: overrides.stage ?? "after",
+			causation: input.command.causation,
+			pluginRevisionId: pluginRevision.revisionId,
+			pluginConfigRevisionId: pluginRevision.configRevisionId,
+			runId: AutomationRunId.make(`run-${crypto.randomUUID()}`),
+			triggerId: AutomationTriggerId.make(`trigger-${crypto.randomUUID()}`),
+		},
+	} satisfies ScriptExecutionPrincipal;
+};
+
+const targetOf = (input: Fixture) => {
+	const [relation] = input.input.relationships.upserts;
+	assert(relation?.target.kind === "existing");
+	return relation.target.entityId;
+};
+
+const rejection = (part: string) => ({ part, _tag: "ChangeSetRejected" });
+
+layer(testLayer(false))((test) => {
+	test.effect(
+		"commits relationship deletes, entity data clears and entity deletes",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const root = yield* commitUserCommand(input);
+				const target = targetOf(input);
+				const rowsOf = Effect.gen(function* () {
+					return {
+						entities: yield* input.session.run((db) =>
+							db
+								.select({ id: tables.entity.id })
+								.from(tables.entity)
+								.where(eq(tables.entity.id, root.entityId)),
+						),
+						events: yield* input.session.run((db) =>
+							db
+								.select({ id: tables.event.id })
+								.from(tables.event)
+								.where(eq(tables.event.entityId, root.entityId)),
+						),
+						relationships: yield* input.session.run((db) =>
+							db
+								.select({ id: tables.relationship.id })
+								.from(tables.relationship)
+								.where(eq(tables.relationship.sourceEntityId, root.entityId)),
+						),
+					};
+				});
+				expect(yield* rowsOf).toMatchObject({ events: [{}], entities: [{}], relationships: [{}] });
+				yield* commit(
+					{
+						relationships: {
+							deletes: [
+								{
+									relationshipSchemaSlug: "atomic-link",
+									target: { kind: "existing", entityId: target },
+									source: { kind: "existing", entityId: root.entityId },
+								},
+							],
+						},
+					},
+					nextCommand(input),
+				);
+				expect((yield* rowsOf).relationships).toEqual([]);
+				yield* commit(
+					{ entities: { clears: [{ entityId: root.entityId, entitySchemaSlug: "record" }] } },
+					nextCommand(input),
+				);
+				expect((yield* rowsOf).events).toEqual([]);
+				yield* commit(
+					{ entities: { deletes: [{ entityId: root.entityId, entitySchemaSlug: "record" }] } },
+					nextCommand(input),
+				);
+				expect(yield* rowsOf).toEqual({ events: [], entities: [], relationships: [] });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"merges one entity's data into another",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const root = yield* commitUserCommand(input);
+				const target = targetOf(input);
+				yield* commit(
+					{
+						entities: {
+							merges: [{ mergeInto: target, mergeFrom: root.entityId, entitySchemaSlug: "record" }],
+						},
+					},
+					nextCommand(input),
+				);
+				const moved = yield* input.session.run((db) =>
+					db
+						.select({ entityId: tables.event.entityId })
+						.from(tables.event)
+						.where(
+							inArray(
+								tables.event.id,
+								root.events.map(({ eventId }) => eventId),
+							),
+						),
+				);
+				expect(moved).toEqual([{ entityId: target }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"ensures the bootstrap's entity once and refuses ensures from other scripts",
+		() =>
+			Effect.gen(function* () {
+				const source = revisionPackage("atomic", "fixture", "record");
+				const input = yield* fixture({
+					...source,
+					manifest: {
+						...source.manifest,
+						userBootstrap: [
+							{ slug: "bootstrap", description: "Bootstrap", scriptSlug: "atomic.task" },
+						],
+					},
+				});
+				const [task] = yield* input.session.run((db) =>
+					db
+						.select({ id: tables.sandboxScript.id })
+						.from(tables.sandboxScript)
+						.where(
+							and(
+								eq(tables.sandboxScript.slug, "atomic.task"),
+								eq(tables.sandboxScript.pluginRevisionId, input.revisionId),
+							),
+						),
+				);
+				assert(task);
+				const subject = { userId, type: "user" as const };
+				const pin = yield* (yield* SandboxRepository.make).getScriptPin(
+					SandboxScriptId.make(task.id),
+					undefined,
+					subject,
+				);
+				assert(pin?.pluginRevision);
+				expect(pin.pluginRevision.userBootstrapScriptSlugs).toEqual(["atomic.task"]);
+				const bootstrap = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
+				const ensure = {
+					entities: {
+						ensures: [{ name: "Ensured", properties: { name: "E" }, entitySchemaSlug: "record" }],
+					},
+				} satisfies ChangeSet;
+				expect(yield* Effect.flip(commit(ensure, nextCommand(input)))).toMatchObject(
+					rejection("entities.ensures"),
+				);
+				yield* commit(
+					{ entities: { deletes: [{ entityId: targetOf(input), entitySchemaSlug: "record" }] } },
+					nextCommand(input),
+				);
+				yield* commit(ensure, nextCommand(input, bootstrap));
+				yield* commit(ensure, nextCommand(input, bootstrap));
+				const ensured = yield* input.session.run((db) =>
+					db
+						.select({ name: tables.entity.name })
+						.from(tables.entity)
+						.where(eq(tables.entity.entitySchemaPluginId, input.pluginId)),
+				);
+				expect(ensured).toEqual([{ name: "Ensured" }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"emits signals and admits notifications from a user automation run",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const run = automationRun(input);
+				yield* commit(
+					{
+						notifications: [{ key: "notification.done" }],
+						signals: [{ properties: {}, discriminator: "first", schemaSlug: "atomic.signal" }],
+					},
+					nextCommand(input, run),
+				);
+				const signals = yield* input.session.run((db) =>
+					db
+						.select({ id: tables.automationTrigger.id })
+						.from(tables.automationTrigger)
+						.where(eq(tables.automationTrigger.category, "signal")),
+				);
+				expect(signals).toHaveLength(1);
+				const notifications = yield* input.session.run((db) =>
+					db
+						.select({ sourceKey: tables.notification.sourceKey })
+						.from(tables.notification)
+						.where(eq(tables.notification.userId, userId)),
+				);
+				expect(notifications).toEqual([
+					{ sourceKey: `${run.subject.runId}-changes-0-notification` },
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"accepts a user fold request for the writer's own entities",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const root = yield* commitUserCommand(input);
+				expect(
+					yield* commit(
+						{ folds: { scope: "user", entityIds: [root.entityId] } },
+						nextCommand(input),
+					),
+				).toEqual({ events: [] });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects every part its writer's principal may not write",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const user = input.command.writeContext;
+				assert(user.subject.type === "user" && user.pluginRevision);
+				const run = automationRun(input);
+				const target = targetOf(input);
+				const events = {
+					changes: [],
+					creates: [
+						{
+							itemIdentity: "denied",
+							eventSchemaSlug: "changed",
+							properties: { value: "Denied" },
+							entity: { entityId: target, kind: "existing" as const },
+						},
+					],
+				};
+				const cases: ReadonlyArray<readonly [ChangeSet, ScriptExecutionPrincipal, string]> = [
+					[{ entity: input.input.entity }, run, "entity"],
+					[{ settings: { theme: "dark" } }, run, "settings"],
+					[
+						{ entities: { deletes: [{ entityId: target, entitySchemaSlug: "record" }] } },
+						run,
+						"entities.deletes",
+					],
+					[
+						{ settings: { theme: "dark" } },
+						{
+							...user,
+							subject: { ...user.subject, integrationId: IntegrationId.make("integration") },
+						},
+						"settings",
+					],
+					[
+						{ signals: [{ properties: {}, discriminator: "d", schemaSlug: "atomic.signal" }] },
+						user,
+						"signals",
+					],
+					[{ notifications: [{ key: "notification.done" }] }, user, "notifications"],
+					[
+						{
+							globalEntities: [
+								{
+									name: "G",
+									properties: {},
+									externalId: "g",
+									populatedAt: null,
+									entitySchemaSlug: "record",
+								},
+							],
+						},
+						user,
+						"globalEntities",
+					],
+					[
+						{
+							globalRelationships: [
+								{
+									relationships: [],
+									selector: { type: "self" },
+									relationshipSchemaSlug: "atomic-link",
+								},
+							],
+						},
+						user,
+						"globalRelationships",
+					],
+					[{ events }, { ...user, subject: { userId, type: "projection" } }, "changes"],
+					[{ events }, automationRun(input, { stage: "before" }), "changes"],
+					[{ events }, { ...user, subject: { type: "system" } }, "events"],
+					[
+						{ folds: { scope: "all-users", entityIds: [target] } },
+						{ ...user, subject: { type: "system" } },
+						"folds",
+					],
+					[
+						{ entities: { deletes: [{ entityId: target, entitySchemaSlug: "undeclared" }] } },
+						user,
+						"schemas",
+					],
+				];
+				for (const [changes, principal, part] of cases) {
+					expect(yield* Effect.flip(commit(changes, nextCommand(input, principal)))).toMatchObject(
+						rejection(part),
+					);
+				}
+				const writtenEvents = yield* input.session.run((db) =>
+					db
+						.select({ id: tables.event.id })
+						.from(tables.event)
+						.where(eq(tables.event.entityId, target)),
+				);
+				expect(writtenEvents).toEqual([]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(testLayer(false))((test) => {
+	test.effect(
+		"upserts global entities and the relationships that name them from a system provider script",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const owner = UserId.make("owner");
+				yield* session.run((db) =>
+					db.insert(tables.user).values({ id: owner, name: "Owner", email: "owner@example.test" }),
+				);
+				const installed = yield* installRevisionPackage(
+					revisionPackage("global", "fixture", "record"),
+				);
+				const runtime = yield* PluginRuntimeResolver;
+				const provider = yield* runtime.findProviderAvailableToUserByReference(owner, {
+					slug: "global-provider",
+					owner: definitionOwner(installed.pluginId),
+				});
+				assert(provider);
+				const script = yield* runtime.resolveUserDetailsScript(owner, provider.id);
+				const subject = { type: "system" as const };
+				const pin = yield* (yield* SandboxRepository.make).getScriptPin(
+					script.id,
+					undefined,
+					subject,
+				);
+				assert(pin?.pluginRevision?.scope === "system" && pin.providerId !== null);
+				const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
+				const upserted = {
+					externalId: "g1",
+					kind: "upserted" as const,
+					entitySchemaSlug: "record",
+				};
+				yield* commit(
+					{
+						globalEntities: [
+							{
+								name: "Global",
+								externalId: "g1",
+								populatedAt: null,
+								entitySchemaSlug: "record",
+								properties: { name: "Global" },
+							},
+						],
+						globalRelationships: [
+							{
+								selector: { type: "self" },
+								relationshipSchemaSlug: "global-link",
+								relationships: [{ properties: {}, source: upserted, target: upserted }],
+							},
+						],
+					},
+					{ ...command(yield* randomUuid, owner), writeContext: principal },
+				);
+				const [entity] = yield* session.run((db) =>
+					db
+						.select()
+						.from(tables.entity)
+						.where(eq(tables.entity.entitySchemaPluginId, installed.pluginId)),
+				);
+				expect(entity).toMatchObject({
+					userId: null,
+					externalId: "g1",
+					providerId: pin.providerId,
+				});
+				assert(entity);
+				expect(
+					yield* session.run((db) =>
+						db
+							.select({
+								userId: tables.relationship.userId,
+								sourceEntityId: tables.relationship.sourceEntityId,
+								targetEntityId: tables.relationship.targetEntityId,
+							})
+							.from(tables.relationship)
+							.where(eq(tables.relationship.relationshipSchemaPluginId, installed.pluginId)),
+					),
+				).toEqual([{ userId: null, sourceEntityId: entity.id, targetEntityId: entity.id }]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(testLayer(false, false))((test) => {
+	test.effect(
+		"writes no event or signal when a later notification admission fails",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const target = targetOf(input);
+				assertExitFails(
+					yield* Effect.exit(
+						commit(
+							{
+								notifications: [{ key: "notification.done" }],
+								signals: [{ properties: {}, discriminator: "late", schemaSlug: "atomic.signal" }],
+								events: {
+									changes: [],
+									creates: [
+										{
+											itemIdentity: "late",
+											eventSchemaSlug: "changed",
+											properties: { value: "Late" },
+											entity: { kind: "existing", entityId: target },
+										},
+									],
+								},
+							},
+							nextCommand(input, automationRun(input)),
+						),
+					),
+					new DbError({ message: "Notification source has been cancelled or settled" }),
+				);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ id: tables.event.id })
+							.from(tables.event)
+							.where(eq(tables.event.entityId, target)),
+					),
+				).toEqual([]);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ id: tables.automationTrigger.id })
+							.from(tables.automationTrigger)
+							.where(eq(tables.automationTrigger.category, "signal")),
+					),
+				).toEqual([]);
 			}),
 		testTimeout,
 	);

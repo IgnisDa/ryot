@@ -59,11 +59,12 @@ manifest.
 helpers to capabilities by canonical module/export, not import alias. Contract wire schemas own the
 capability vocabulary; kernel requirements/execution-policy records must exhaustively cover changes.
 
-Host calls only read. An operation returns `{ output, changes? }`; `changes` is a `UserCommandInput`
-(`userCommandInputSchema` from `core`) that the kernel commits after the run in one database
-transaction: a root user entity create or update, relationships, event creates, updates, and deletes,
-and a patch of the plugin's user settings. References can target the root entity before it exists.
-Any validation or commit failure leaves the entire command unchanged. File uploads are separate.
+Host calls only read. An operation returns `{ output, changes? }`; `changes` is a `ChangeSet`
+(`changeSetSchema` from `core`, built with `rootEntity`, `existingEntity`, `upsertedGlobalEntity` and
+`combineChangeSets`) that the kernel commits after the run in one database transaction. Its parts and
+per-writer authority are listed in the [plugin authoring guide](../plugin-kit/README.md#change-sets);
+`CHANGE_SET_LIMITS` holds their bounds. Any validation, authority, or commit failure leaves the entire
+change set unchanged. File uploads are separate.
 `events.baselines` accepts up to 100 distinct entity IDs and their `eventScope` revisions. These
 scalar guards do not grow with the history or inventory. Event creates/updates may retain logical
 source order with `orderAfter`; an update with `orderAfter: null` restores physical creation order.

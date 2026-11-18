@@ -1,5 +1,6 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import type { AutomationWarning as AutomationWarningValue } from "@ryot-app/contract/modules/automations/lifecycle";
+import { ChangeSetEntity, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import {
 	type CreateEventItem,
 	CreateEventsResponse,
@@ -11,10 +12,6 @@ import {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
-import {
-	UserCommandEntity,
-	UserCommandResult,
-} from "@ryot-app/contract/modules/mutations/user-command";
 import {
 	type DefinitionOwner,
 	definitionOwner,
@@ -49,6 +46,7 @@ import {
 	mapCommittedResult,
 	runLifecycleWriteStep,
 } from "#modules/automations/lifecycle/write-step";
+import { ChangeSetFailure, ChangeSets } from "#modules/changes/service";
 import {
 	CollectionEntityResult,
 	CollectionMembershipWritten,
@@ -73,7 +71,6 @@ import {
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { UserCommandFailure, UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { slugify } from "#platform/slug";
 import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
@@ -746,7 +743,7 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 	);
 	const root = yield* makeActivity({
 		error: ImportRunError,
-		success: UserCommandEntity,
+		success: ChangeSetEntity,
 		name: `prepare-generic-import-record-${context.index}`,
 		execute: Effect.gen(function* () {
 			const entityId = yield* findImportEntity(subject, userId, {
@@ -755,7 +752,7 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 			});
 			const existing =
 				entityId === undefined ? null : yield* entityRows.getByIdForUser({ userId, entityId });
-			return yield* Schema.decodeUnknownEffect(UserCommandEntity)(
+			return yield* Schema.decodeUnknownEffect(ChangeSetEntity)(
 				existing
 					? {
 							name: existing.name,
@@ -782,15 +779,14 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 			);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
-	const commands = yield* UserCommands;
+	const commands = yield* ChangeSets;
 	const written = yield* makeActivity({
-		error: UserCommandFailure,
-		success: UserCommandResult,
+		error: ChangeSetFailure,
+		success: CommittedChanges,
 		name: `commit-generic-import-record-${context.index}`,
 		execute: commands.commit(
-			{ entity: root, relationships, events: { creates, changes: [] } },
+			{ entity: root, events: { creates, changes: [] }, relationships: { upserts: relationships } },
 			genericImportRecordCommand(context.command, item),
-			userId,
 		),
 	});
 	if (written.entityId === undefined) {

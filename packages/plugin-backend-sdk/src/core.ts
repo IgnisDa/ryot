@@ -3,17 +3,24 @@ export { EntitlementRequiredError } from "./core/entitlements";
 export { sandboxHostCapabilitySchema } from "./core/capabilities";
 export { isEntitled } from "@ryot-app/contract/schema/entitlement";
 export type { EventRecord, EventSchemaRecord } from "./core/events";
-export { createUserRelationshipSchema } from "./core/relationships";
 export type { EntityRecord, EntitySchemaRecord } from "./core/entities";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export { sandboxManifestSchema, executionMetadataSchema } from "./core/script-manifest";
-export type { UserCommand as UserCommandInput } from "@ryot-app/contract/modules/mutations/user-command";
-export { UserCommand as userCommandInputSchema } from "@ryot-app/contract/modules/mutations/user-command";
+export {
+	rootEntity,
+	existingEntity,
+	combineChangeSets,
+	upsertedGlobalEntity,
+} from "./core/changes";
 export {
 	executeRyotqlArgsSchema,
 	executeRyotqlDataSchema,
 	executeRyotqlResultSchema,
 } from "./core/ryotql";
+export {
+	CHANGE_SET_LIMITS,
+	ChangeSet as changeSetSchema,
+} from "@ryot-app/contract/modules/changes/change-set";
 export type {
 	PolicyHost,
 	ScriptHost,
@@ -32,6 +39,11 @@ export type {
 	ExecutionMetadata,
 	OperationManifest,
 } from "./core/script-manifest";
+export type {
+	ChangeSet,
+	ChangeSetEntityReference,
+	ChangeSetGlobalEntityReference,
+} from "@ryot-app/contract/modules/changes/change-set";
 export {
 	USER_ENTITY_READ_SANDBOX_LIMITS,
 	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,

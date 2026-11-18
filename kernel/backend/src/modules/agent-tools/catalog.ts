@@ -1,6 +1,6 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { notFound, schemaValidationFailed } from "@ryot-app/contract/errors";
-import { UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
+import { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { PluginOperationJsonSchema } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginInvokeResult } from "@ryot-app/contract/modules/plugins/schemas";
 import {
@@ -61,7 +61,7 @@ type CatalogEntry = {
 	readonly entitlement?: undefined | Entitlement;
 };
 
-const committedOutput = toAgentJsonSchema(Schema.toCodecJson(UserCommandResult));
+const committedOutput = toAgentJsonSchema(Schema.toCodecJson(CommittedChanges));
 
 const isJsonSchemaObject = Schema.is(PluginOperationJsonSchema);
 

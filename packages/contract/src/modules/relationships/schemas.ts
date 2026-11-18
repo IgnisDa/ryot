@@ -88,20 +88,6 @@ export const RelationshipMutationResult = Schema.Struct({
 });
 export type RelationshipMutationResult = typeof RelationshipMutationResult.Type;
 
-export const RelationshipBatchResult = Schema.Struct({
-	created: Schema.Finite,
-	updated: Schema.Finite,
-	deleted: Schema.Finite,
-	warnings: Schema.Array(AutomationWarning),
-});
-export type RelationshipBatchResult = typeof RelationshipBatchResult.Type;
-
-export const RelationshipReconciliationResult = Schema.Struct({
-	...RelationshipBatchResult.fields,
-	upserted: Schema.Finite,
-});
-export type RelationshipReconciliationResult = typeof RelationshipReconciliationResult.Type;
-
 export const CreateRelationshipBody = Schema.Struct({
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,

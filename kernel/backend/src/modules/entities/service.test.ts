@@ -36,7 +36,7 @@ import type { DefinitionSource } from "@ryot-app/definitions/snapshot";
 import { revisionDefinitions } from "@ryot-app/definitions/source";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -873,7 +873,7 @@ describe("EntitiesService committed lifecycle", () => {
 
 	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
-			"rejects invalid names, missing schemas, incomplete provenance and invalid bulk limits before planning",
+			"rejects invalid names, missing schemas and incomplete provenance before planning",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
@@ -894,44 +894,9 @@ describe("EntitiesService committed lifecycle", () => {
 							.create({ ...createInput("provenance"), externalId: "incomplete" })
 							.pipe(Effect.flip),
 					).toMatchObject({ reason: { code: "incomplete-provenance" } });
-					expect(
-						yield* service
-							.upsertGlobalEntities([], providerId, command("limit"), { maximumTotal: -1 })
-							.pipe(Effect.flip),
-					).toMatchObject({ reason: { code: "invalid-maximum-total" } });
 					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
 						[],
 					);
-				}),
-			testTimeout,
-		);
-	});
-	layer(entitiesLayer({ failChange: 2 }))("entities service harness", (test) => {
-		test.effect(
-			"rolls all bulk rows and change plans back when the second plan fails",
-			() =>
-				Effect.gen(function* () {
-					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const items = ["one", "two"].map((externalId) => ({
-						externalId,
-						name: externalId,
-						populatedAt: null,
-						properties: { title: externalId },
-						entitySchema: providerEntitySchema,
-					}));
-					expect(
-						yield* service
-							.upsertGlobalEntities(items, providerId, command("bulk-rollback"))
-							.pipe(Effect.flip),
-					).toMatchObject({ _tag: "DbError" });
-					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-					expect(
-						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
-							(row) => row.category,
-						),
-					).toEqual(["request", "request"]);
 				}),
 			testTimeout,
 		);
@@ -1672,40 +1637,6 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ warnings: [warning] }))("entities service harness", (test) => {
-		test.effect(
-			"caps global bulk writes under lock and returns dispatched warnings",
-			() =>
-				Effect.gen(function* () {
-					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const items = ["one", "two", "three"].map((externalId) => ({
-						externalId,
-						name: externalId,
-						populatedAt: null,
-						properties: { title: externalId },
-						entitySchema: providerEntitySchema,
-					}));
-					const result = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
-						maximumTotal: 2,
-					});
-					expect(result.results.map((item) => item.status)).toEqual([
-						"upserted",
-						"upserted",
-						"skipped",
-					]);
-					expect(result.warnings).toEqual([warning, warning, warning]);
-					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(2);
-					expect(
-						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
-							(row) => row.category === "change",
-						).length,
-					).toBe(3);
-				}),
-			testTimeout,
-		);
-	});
 	layer(entitiesLayer({ failChange: true }))("entities service harness", (test) => {
 		test.effect(
 			"atomically rolls a no-policy source and change plan back on planning failure",
@@ -2164,23 +2095,23 @@ describe("EntitiesService committed lifecycle", () => {
 
 	layer(entitiesLayer({ warnings: [warning] }))("entities service harness", (test) => {
 		test.effect(
-			"ensures bootstrap entities with warnings and no duplicate changes",
+			"ensures bootstrap entities without duplicate changes",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const items = [{ entitySchema, name: "Routine", properties: { title: "routine" } }];
-					const first = yield* service.ensureUserEntities(owner, items, command("ensure"));
-					expect(first).toMatchObject([{ wasInserted: true, warnings: [warning, warning] }]);
+					const first = yield* service.commitUserEntities(owner, items, command("ensure"));
+					expect(first).toMatchObject([{ wasInserted: true }]);
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(1);
 					expect(
 						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
 							(row) => row.category === "change",
 						).length,
 					).toBe(2);
-					const noop = yield* service.ensureUserEntities(owner, items, command("ensure-noop"));
+					const noop = yield* service.commitUserEntities(owner, items, command("ensure-noop"));
 					expect(noop).toEqual(
-						first.map(({ entityId }) => ({ entityId, warnings: [], wasInserted: false })),
+						first.map(({ entityId }) => ({ entityId, dispatch: [], wasInserted: false })),
 					);
 				}),
 			testTimeout,
@@ -2195,7 +2126,7 @@ describe("EntitiesService committed lifecycle", () => {
 					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					yield* service
-						.ensureUserEntities(
+						.commitUserEntities(
 							owner,
 							[{ entitySchema, name: "Routine", properties: { title: "routine" } }],
 							command("ensure-rollback"),
@@ -2225,13 +2156,6 @@ describe("EntitiesService committed lifecycle", () => {
 		properties: { title: externalId },
 		entitySchema: providerEntitySchema,
 		lifecycle: { ...lifecycle, itemIdentity: `${lifecycle.itemIdentity}:${externalId}` },
-	});
-	const globalItem = (externalId: string, entitySchemaReference = providerEntitySchema) => ({
-		externalId,
-		name: externalId,
-		populatedAt: null,
-		properties: { title: externalId },
-		entitySchema: entitySchemaReference,
 	});
 
 	layer(entitiesLayer({ recordStatements: {}, extraEntitySchemas: 20 }))(
@@ -2273,17 +2197,7 @@ describe("EntitiesService committed lifecycle", () => {
 						);
 						expectInvariant(
 							yield* commitCounts((size) =>
-								service.upsertGlobalEntities(
-									Array.from({ length: size }, (_, index) => globalItem(`global-${size}-${index}`)),
-									providerId,
-									command(`global-${size}`),
-									{ maximumTotal: 100 },
-								),
-							),
-						);
-						expectInvariant(
-							yield* commitCounts((size) =>
-								service.ensureUserEntities(
+								service.commitUserEntities(
 									owner,
 									Array.from({ length: size }, (_, index) => ({
 										name: `ensure-${index}`,
@@ -2379,34 +2293,6 @@ describe("EntitiesService committed lifecycle", () => {
 		},
 	);
 
-	layer(entitiesLayer({ activateSchemaOnLock: 3 }))("entities service harness", (test) => {
-		test.effect(
-			"rejects a global create whose entity schema changes between planning and commit",
-			() =>
-				Effect.gen(function* () {
-					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					expect(
-						yield* service
-							.upsertGlobalEntities(
-								[
-									{
-										...globalItem("schema-change"),
-										properties: { score: 25.555, title: "changed" },
-									},
-								],
-								providerId,
-								command("schema-change"),
-							)
-							.pipe(Effect.flip),
-					).toMatchObject({ reason: { code: "mutation-conflict" } });
-					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-
 	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"deduplicates identical batch items and rejects conflicting duplicates before writing",
@@ -2452,33 +2338,21 @@ describe("EntitiesService committed lifecycle", () => {
 								.pipe(Effect.flip),
 						).toMatchObject({ reason: { code: "mutation-conflict" } });
 					}
-					const globals = yield* service.upsertGlobalEntities(
-						[globalItem("global-same"), globalItem("global-same")],
-						providerId,
-						command("global-duplicates"),
-					);
-					const [left, right] = globals.results;
-					assert(left?.status === "upserted");
-					expect(right).toEqual(left);
-					expect(
-						yield* service
-							.upsertGlobalEntities(
-								[globalItem("global-other"), { ...globalItem("global-other"), name: "Different" }],
-								providerId,
-								command("global-conflict"),
-							)
-							.pipe(Effect.flip),
-					).toMatchObject({ reason: { code: "mutation-conflict" } });
 					const ensureItem = { entitySchema, name: "Ensured", properties: { title: "ensured" } };
-					const ensured = yield* service.ensureUserEntities(
+					const ensured = yield* service.commitUserEntities(
 						owner,
 						[ensureItem, ensureItem],
 						command("ensure-duplicates"),
 					);
-					expect(ensured[1]).toEqual<unknown>({ ...ensured[0], warnings: [] });
+					const [ensuredEntity] = ensured;
+					assert(ensuredEntity);
+					expect(ensured.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }))).toEqual([
+						{ wasInserted: true, entityId: ensuredEntity.entityId },
+						{ wasInserted: true, entityId: ensuredEntity.entityId },
+					]);
 					expect(
 						yield* service
-							.ensureUserEntities(
+							.commitUserEntities(
 								owner,
 								[ensureItem, { ...ensureItem, name: "Different" }],
 								command("ensure-conflict"),
@@ -2489,48 +2363,7 @@ describe("EntitiesService committed lifecycle", () => {
 						(yield* session.run((db) => db.select().from(tables.entity)))
 							.map(({ name, externalId }) => externalId ?? name)
 							.sort(),
-					).toEqual(["Ensured", "global-same", "same"]);
-				}),
-			testTimeout,
-		);
-	});
-	layer(entitiesLayer())("entities service harness", (test) => {
-		test.effect(
-			"assigns maximumTotal ordinals per provenance scope after existing rows",
-			() =>
-				Effect.gen(function* () {
-					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const statuses = (
-						items: ReadonlyArray<ReturnType<typeof globalItem>>,
-						id: string,
-						maximumTotal: number,
-					) =>
-						service
-							.upsertGlobalEntities(items, providerId, command(id), { maximumTotal })
-							.pipe(Effect.map(({ results }) => results));
-					const inserted = { wasInserted: true, status: "upserted" };
-					const skipped = { status: "skipped" };
-					expect(
-						yield* statuses(
-							[
-								globalItem("a-1"),
-								globalItem("b-1", otherProviderEntitySchema),
-								globalItem("a-2"),
-								globalItem("b-2", otherProviderEntitySchema),
-							],
-							"per-scope",
-							1,
-						),
-					).toMatchObject([inserted, inserted, skipped, skipped]);
-					expect(
-						yield* statuses(
-							[globalItem("a-1"), globalItem("a-3"), globalItem("a-4")],
-							"boundary",
-							2,
-						),
-					).toMatchObject([{ status: "upserted", wasInserted: false }, inserted, skipped]);
-					expect(yield* statuses([globalItem("a-5")], "at-limit", 2)).toEqual<unknown>([skipped]);
+					).toEqual(["Ensured", "same"]);
 				}),
 			testTimeout,
 		);
@@ -2657,24 +2490,13 @@ describe("EntitiesService committed lifecycle", () => {
 						}),
 					);
 					expect(scoped.results.map(({ entity }) => entity.id)).toEqual<unknown>(["global-plugin"]);
-					const global = yield* service.upsertGlobalEntities(
-						[globalItem("shared"), globalItem("fresh"), globalItem("over-limit")],
-						providerId,
-						command("scoped-global"),
-						{ maximumTotal: 2 },
-					);
-					expect(global.results).toEqual<unknown>([
-						{ status: "upserted", wasInserted: false, entityId: "global-plugin" },
-						{ wasInserted: true, status: "upserted", entityId: anyOf(String) },
-						{ status: "skipped" },
-					]);
-					const ensured = yield* service.ensureUserEntities(
+					const ensured = yield* service.commitUserEntities(
 						owner,
 						[{ entitySchema, name: "Ensured", properties: { title: "ensured" } }],
 						command("scoped-ensure"),
 					);
 					expect(ensured).toEqual<unknown>([
-						{ warnings: [], wasInserted: false, entityId: "owner-plain-older" },
+						{ dispatch: [], wasInserted: false, entityId: "owner-plain-older" },
 					]);
 				}),
 			testTimeout,

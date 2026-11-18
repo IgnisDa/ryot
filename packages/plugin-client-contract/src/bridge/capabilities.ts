@@ -4,6 +4,7 @@ import {
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/assets/schemas";
 import { SetCalendarSourceVisibilityBody } from "@ryot-app/contract/modules/calendar-sources/schemas";
+import { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import {
 	CollectionResponse,
 	CreateCollectionBody,
@@ -26,7 +27,6 @@ import {
 	EntityUpdatedFrame,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/live-updates/messages";
-import { UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	DescribeResponse,
@@ -352,7 +352,7 @@ export type PluginBridgeOperationRequest = Schema.Schema.Type<typeof PluginBridg
 
 const pluginOperationSuccessFields = {
 	value: JsonValue,
-	committed: UserCommandResult,
+	committed: CommittedChanges,
 	outcome: Schema.Literal("success"),
 };
 

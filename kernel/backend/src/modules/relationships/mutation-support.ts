@@ -19,7 +19,6 @@ import { type EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
-import type { createUserRelationshipSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
@@ -80,13 +79,6 @@ export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
 	readonly deleted: number;
 	readonly upserted: number;
 }>;
-export type ChangeUserRelationshipBatch = {
-	deletes: ReadonlyArray<UserRelationshipIdentity>;
-	creates: ReadonlyArray<
-		{ properties: unknown } & UserRelationshipIdentity &
-			Pick<Schema.Schema.Type<typeof createUserRelationshipSchema>, "propertiesMode">
-	>;
-};
 export type ReconcileGlobalRelationshipGroup = {
 	relationshipSchema: RelationshipSchemaReference;
 	relationships: ReadonlyArray<{

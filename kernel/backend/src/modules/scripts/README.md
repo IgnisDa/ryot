@@ -192,7 +192,7 @@ single host map shared by inline and durable dispatch.
 
 Host capabilities only read. An operation writes by returning `{ output, changes? }`;
 `OperationsService` runs it through `ScriptCalls` and commits `changes` as one
-[user command](../user-commands/README.md).
+[change set](../changes/README.md).
 
 ## Global HTTP Admission
 

@@ -1,5 +1,6 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { ManagedAssetResolutionBatch } from "@ryot-app/contract/modules/assets/schemas";
+import { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import {
 	CollectionResponse,
 	type CreateCollectionBody,
@@ -18,7 +19,6 @@ import {
 	RequestEntityEnrichmentResult,
 } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/live-updates/messages";
-import { UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
 import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { QueryExecution } from "@ryot-app/contract/modules/ryotql/language";
 import {
@@ -103,7 +103,7 @@ const BackgroundSettlementMessage = Schema.Struct({
 	outcome: BackgroundSubmissionOutcome,
 });
 
-const OperationAdapterResult = Schema.Struct({ value: JsonValue, committed: UserCommandResult });
+const OperationAdapterResult = Schema.Struct({ value: JsonValue, committed: CommittedChanges });
 
 const decodeCapability = <A>(
 	schema: Schema.Codec<A, unknown>,
@@ -824,7 +824,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			>(
 				request: OperationInvocation<Input, Output>,
 			): Effect.Effect<
-				{ readonly output: Output["Type"]; readonly committed: UserCommandResult },
+				{ readonly output: Output["Type"]; readonly committed: CommittedChanges },
 				RyotClientError
 			> =>
 				Effect.gen(function* () {

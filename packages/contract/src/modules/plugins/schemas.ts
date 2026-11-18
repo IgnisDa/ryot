@@ -5,7 +5,7 @@ import { contractErrorFields } from "../../errors";
 import { PluginId, PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
-import { CommitConflictCode, UserCommandResult } from "../mutations/user-command";
+import { CommitConflictCode, CommittedChanges } from "../changes/change-set";
 import { PageOperationAuthority } from "../pages/identity";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../scripts/schemas";
 import {
@@ -308,9 +308,6 @@ export const PluginInvokeBody = Schema.Struct({
 
 export type PluginInvokeBody = Schema.Schema.Type<typeof PluginInvokeBody>;
 
-export const PluginInvokeResult = Schema.Struct({
-	result: JsonValue,
-	committed: UserCommandResult,
-});
+export const PluginInvokeResult = Schema.Struct({ result: JsonValue, committed: CommittedChanges });
 
 export type PluginInvokeResult = Schema.Schema.Type<typeof PluginInvokeResult>;

@@ -21,12 +21,12 @@ import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { EntityUserDataService } from "#modules/entities/user-data/service";
 import { command } from "#modules/relationships/lifecycle.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
 import {
+	commitChanges,
 	createGroupEvents,
 	eventGroupFixture,
 	eventGroupWorkflowLayer,
@@ -275,11 +275,12 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 
 				const cleared = yield* createOn({ amount: 1 });
 				const clearedNote = yield* fixture.createId("note", { about: cleared });
-				yield* (yield* EntityUserDataService).clearEntityUserDataForCommand(
-					fixture.userId,
-					{ entityId: other, entitySchemaSlug: subjectSchemaSlug },
-					yield* fixture.nextCommand,
-				);
+				yield* commitChanges({
+					command: yield* fixture.nextCommand,
+					input: {
+						entities: { clears: [{ entityId: other, entitySchemaSlug: subjectSchemaSlug }] },
+					},
+				});
 				expect((yield* fixture.stored(clearedNote))?.properties).toEqual({});
 
 				const cascaded = yield* createOn({ amount: 2 });
@@ -386,16 +387,20 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const [trace] = traced.outcomes;
 				assert(trace?.status === "written");
 				const note = yield* fixture.createId("note", { text: "Moved", about: trace.eventId });
-				const merged = yield* (yield* EntityUserDataService).mergeEntityUserDataForCommand(
-					fixture.userId,
-					{
-						mergeInto: destination,
-						mergeFrom: fixture.subjectId,
-						entitySchemaSlug: subjectSchemaSlug,
+				yield* commitChanges({
+					command: yield* fixture.nextCommand,
+					input: {
+						entities: {
+							merges: [
+								{
+									mergeInto: destination,
+									mergeFrom: fixture.subjectId,
+									entitySchemaSlug: subjectSchemaSlug,
+								},
+							],
+						},
 					},
-					yield* fixture.nextCommand,
-				);
-				expect(merged.movedEventsCount).toBe(1);
+				});
 				expect(yield* fixture.stored(trace.eventId)).toBeUndefined();
 				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Moved" });
 				expect(yield* fixture.references([note])).toEqual([]);
