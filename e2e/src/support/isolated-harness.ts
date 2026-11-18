@@ -13,6 +13,7 @@ import { acquireInChildScope, makeTestResourceScope } from "./resource-scope";
 
 export const startIsolatedApiServer = Effect.fn("startIsolatedApiServer")(function* (input: {
 	readonly label: string;
+	readonly frontendHost?: string;
 	readonly extraEnv?: Record<string, string | undefined>;
 }) {
 	const bucketName = `ryot-${input.label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}`;
@@ -26,8 +27,8 @@ export const startIsolatedApiServer = Effect.fn("startIsolatedApiServer")(functi
 		s3BucketName: bucketName,
 		dbUrl: infrastructure.dbUrl,
 		s3Endpoint: infrastructure.s3Endpoint,
-		frontendUrl: `http://127.0.0.1:${port}`,
 		extraEnv: { ...harnessApiEnv, ...input.extraEnv },
+		frontendUrl: `http://${input.frontendHost ?? "127.0.0.1"}:${port}`,
 	});
 	const apiProcess = yield* startApiProcess(env, input.label);
 	return { target: apiProcess.target };
