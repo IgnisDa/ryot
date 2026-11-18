@@ -1,6 +1,11 @@
 import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import { FOLD_LIMITS, FoldAbsorbed, FoldOutput } from "@ryot-app/contract/modules/events/folds";
+import {
+	FOLD_LIMITS,
+	FoldAbsorbed,
+	type FoldInput,
+	FoldOutput,
+} from "@ryot-app/contract/modules/events/folds";
 import type { EventMutationChange } from "@ryot-app/contract/modules/events/mutations";
 import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brands";
@@ -20,15 +25,17 @@ import { FoldScripts, FoldScriptsLive } from "#modules/scripts/executions/fold-s
 import { DatabaseSession } from "#platform/db/session";
 
 import {
+	emptyPendingFolds,
 	type FoldDeclaration,
 	foldJobKey,
 	FoldMarks,
+	type FoldRun,
 	type FoldSubject,
 	foldSubjectOf,
 	foldValuesSql,
 	PendingFoldMarks,
 	type PendingFolds,
-	type ResolvedFold,
+	readFoldEvents,
 } from "./marks";
 
 export type FoldMode = "job" | "queue" | "inline";
@@ -42,9 +49,7 @@ export type ApplyFoldChanges = (input: {
 type Target = { readonly id: string; readonly propertiesSchema: AppSchema<unknown> };
 
 type StoredRow = {
-	readonly targetId: string;
 	readonly value: JsonValue;
-	readonly pluginRevisionId: string;
 	readonly status: "ready" | "failed" | "pending";
 	readonly kind: "event" | "subject" | "absorbed" | "relationship";
 };
@@ -71,89 +76,69 @@ export class Folds extends Context.Service<Folds>()(
 			const calls = yield* ScriptCalls;
 			const random = yield* SecureRandom.SecureRandom;
 
-			const { resolve, declarations, queueResolved } = marks;
+			const { route, collect, declarations, queueResolved } = marks;
 
-			const projections = Effect.fn("Folds.projections")(function* (
+			/** Validates the outputs a run returned against its subject's current events and links. */
+			const targets = Effect.fn("Folds.targets")(function* (
 				subject: FoldSubject,
 				declaration: FoldDeclaration,
+				output: typeof FoldOutput.Type,
 			) {
 				const catalog = yield* definitions.forUser(subject.userId);
-				const rows = yield* session.run((db) =>
-					db.execute<{
-						id: string;
-						entityId: string;
-						eventSchemaSlug: string;
-						entitySchemaSlug: string;
-						sessionEntityId: null | string;
-					}>(
-						sql`select v.id, v.entity_id as "entityId", v.session_entity_id as "sessionEntityId",
-							v.event_schema_slug as "eventSchemaSlug", e.entity_schema_slug as "entitySchemaSlug"
-						from event v
-						join entity e on e.id = v.entity_id
-						where v.user_id = ${subject.userId} and v.event_schema_plugin_id = ${declaration.pluginId}
-							and v.event_schema_slug in (${foldValuesSql(declaration.eventSchemaSlugs)})
-							and (v.entity_id = ${subject.entityId} or v.session_entity_id = ${subject.entityId})`,
-						"objects",
-					),
-				);
-				const events = rows.map(({ entitySchemaSlug, ...row }) =>
-					Object.assign(row, {
-						propertiesSchema:
-							catalog.eventSchemas.find(
-								(schema) =>
-									schema.isEffective &&
-									schema.slug === row.eventSchemaSlug &&
-									schema.pluginId === declaration.pluginId &&
-									schema.entitySchemaSlug === entitySchemaSlug,
-							)?.projection?.propertiesSchema ?? null,
-					}),
-				);
+				const eventIds = output.events.map(({ eventId }) => eventId);
+				const events =
+					eventIds.length === 0
+						? []
+						: yield* readFoldEvents(
+								session,
+								sql`v.user_id = ${subject.userId} and v.id in (${foldValuesSql(eventIds)})`,
+							);
 				const sessions = yield* declarations(subject.userId, [
-					...new Set(
-						events.flatMap((row) =>
-							row.entityId === subject.entityId && row.sessionEntityId !== null
-								? [row.sessionEntityId]
-								: [],
-						),
-					),
+					...new Set(events.flatMap((row) => (row.sessionEntityId ? [row.sessionEntityId] : []))),
 				]);
+				const owners = new Map([...sessions, [subject.entityId as string, declaration] as const]);
 				const eventTargets = new Map<string, Target>();
 				for (const row of events) {
-					const source = {
-						...row,
-						userId: subject.userId,
-						eventSchemaPluginId: declaration.pluginId,
-					};
-					const owner = foldSubjectOf(
-						source,
-						new Map([...sessions, [subject.entityId, declaration] as const]),
-					);
-					if (owner?.entityId === subject.entityId && row.propertiesSchema !== null) {
-						eventTargets.set(row.id, { id: row.id, propertiesSchema: row.propertiesSchema });
-					}
-				}
-				const relationshipRows = yield* session.run((db) =>
-					db.execute<{ id: string; slug: string }>(
-						sql`select r.id, r.relationship_schema_slug as slug
-						from relationship r
-						where r.user_id = ${subject.userId} and r.source_entity_id = ${subject.entityId}
-							and r.relationship_schema_plugin_id = ${declaration.pluginId}`,
-						"objects",
-					),
-				);
-				const relationships = relationshipRows.flatMap(({ id, slug }) => {
-					const projection = catalog.relationshipSchemas.find(
+					const propertiesSchema = catalog.eventSchemas.find(
 						(schema) =>
 							schema.isEffective &&
-							schema.slug === slug &&
-							schema.pluginId === declaration.pluginId,
-					)?.projection;
-					return projection ? [{ id, propertiesSchema: projection.propertiesSchema }] : [];
-				});
-				return {
-					events: eventTargets,
-					relationships: new Map(relationships.map((row) => [row.id, row])),
-				};
+							schema.slug === row.eventSchemaSlug &&
+							schema.pluginId === declaration.pluginId &&
+							schema.entitySchemaSlug === row.entitySchemaSlug,
+					)?.projection?.propertiesSchema;
+					if (
+						propertiesSchema &&
+						foldSubjectOf(row, owners)?.entityId === subject.entityId
+					) {
+						eventTargets.set(row.id, { id: row.id, propertiesSchema });
+					}
+				}
+				const relationshipIds = output.relationships.map(({ relationshipId }) => relationshipId);
+				const relationshipRows =
+					relationshipIds.length === 0
+						? []
+						: yield* session.run((db) =>
+								db.execute<{ id: string; slug: string }>(
+									sql`select r.id, r.relationship_schema_slug as slug
+									from relationship r
+									where r.user_id = ${subject.userId} and r.source_entity_id = ${subject.entityId}
+										and r.relationship_schema_plugin_id = ${declaration.pluginId}
+										and r.id in (${foldValuesSql(relationshipIds)})`,
+									"objects",
+								),
+							);
+				const relationshipTargets = new Map(
+					relationshipRows.flatMap(({ id, slug }) => {
+						const projection = catalog.relationshipSchemas.find(
+							(schema) =>
+								schema.isEffective &&
+								schema.slug === slug &&
+								schema.pluginId === declaration.pluginId,
+						)?.projection;
+						return projection ? [[id, { id, propertiesSchema: projection.propertiesSchema }]] : [];
+					}),
+				);
+				return { events: eventTargets, relationships: relationshipTargets };
 			});
 
 			const validated = Effect.fnUntraced(function* (
@@ -161,9 +146,8 @@ export class Folds extends Context.Service<Folds>()(
 				targets: ReadonlyMap<string, Target>,
 				outputs: ReadonlyArray<{ readonly id: string; readonly properties: unknown }>,
 			) {
-				const ids = new Set(outputs.map(({ id }) => id));
-				if (ids.size !== outputs.length || ids.size !== targets.size) {
-					return yield* failure(`Fold must return one value for each projected ${kind}`);
+				if (new Set(outputs.map(({ id }) => id)).size !== outputs.length) {
+					return yield* failure(`Fold returned more than one value for a ${kind}`);
 				}
 				return yield* Effect.forEach(outputs, (output) =>
 					Effect.gen(function* () {
@@ -184,10 +168,8 @@ export class Folds extends Context.Service<Folds>()(
 				);
 			});
 
-			const inputs = Effect.fnUntraced(function* (
-				subject: FoldSubject,
-				declaration: FoldDeclaration,
-			) {
+			const inputs = Effect.fnUntraced(function* (entry: FoldRun) {
+				const { subject, declaration } = entry;
 				const binding = yield* scripts.resolve({
 					userId: subject.userId,
 					pluginId: declaration.pluginId,
@@ -201,8 +183,9 @@ export class Folds extends Context.Service<Folds>()(
 				);
 				const stored = yield* session.run((db) =>
 					db.execute<StoredRow>(
-						sql`select kind, target_id as "targetId", value, status, plugin_revision_id as "pluginRevisionId"
-						from derived_value where user_id = ${subject.userId} and subject_entity_id = ${subject.entityId}`,
+						sql`select kind, value, status from derived_value
+						where user_id = ${subject.userId} and subject_entity_id = ${subject.entityId}
+							and kind in ('subject', 'absorbed')`,
 						"objects",
 					),
 				);
@@ -213,17 +196,69 @@ export class Folds extends Context.Service<Folds>()(
 							Effect.mapError(() => failure("Absorbed fold value is invalid")),
 						),
 				);
-				const value = stored.find((row) => row.kind === "subject")?.value ?? null;
-				const input = { value, absorbed, subjectEntityId: subject.entityId };
-				return { input, stored, binding };
+				const own = stored.find((row) => row.kind === "subject");
+				const changes =
+					own?.status === "ready" && absorbed.length === 0 ? entry.changes : null;
+				const input = {
+					absorbed,
+					changes,
+					value: own?.value ?? null,
+					subjectEntityId: subject.entityId,
+				};
+				return { input, binding };
 			});
 
-			const run = Effect.fn("Folds.run")(function* (
+			const write = Effect.fnUntraced(function* (
 				subject: FoldSubject,
 				declaration: FoldDeclaration,
-				lane: ExecutionLane,
+				revision: string,
+				rows: ReadonlyArray<{ kind: StoredRow["kind"]; targetId: string; value: JsonValue }>,
+				changes: (typeof FoldInput.Type)["changes"],
 			) {
-				const { input, stored, binding } = yield* inputs(subject, declaration);
+				const scope = sql`user_id = ${subject.userId} and subject_entity_id = ${subject.entityId}`;
+				if (changes === null) {
+					yield* session.run((db) =>
+						db.execute(sql`delete from derived_value where ${scope} and kind <> 'subject'
+							and (kind, target_id) not in (select * from jsonb_to_recordset(${JSON.stringify(
+								rows.map((row) => ({ kind: row.kind, targetId: row.targetId })),
+							)}::jsonb) as r(kind text, "targetId" text))`),
+					);
+				} else {
+					const removed = changes.flatMap((change) =>
+						change.before && !change.after ? [change.before.id] : [],
+					);
+					if (removed.length > 0) {
+						yield* session.run((db) =>
+							db.execute(sql`delete from derived_value where ${scope} and kind = 'event'
+								and target_id in (${foldValuesSql(removed)})`),
+						);
+					}
+					yield* session.run((db) =>
+						db.execute(sql`delete from derived_value v where ${scope} and v.kind = 'relationship'
+							and not exists (select 1 from relationship r where r.id = v.target_id
+								and r.source_entity_id = ${subject.entityId})`),
+					);
+				}
+				yield* session.run((db) =>
+					db.execute(sql`
+						insert into derived_value as v
+							(user_id, kind, target_id, subject_entity_id, plugin_id, plugin_revision_id, value, status, updated_at)
+						select ${subject.userId}, r.kind, r."targetId", ${subject.entityId}, ${declaration.pluginId}, ${revision}, coalesce(r.value, 'null'::jsonb), 'ready', now()
+						from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) as r(kind text, "targetId" text, value jsonb)
+						order by 2, 3
+						on conflict (user_id, kind, target_id) do update set value = excluded.value,
+							status = 'ready', subject_entity_id = excluded.subject_entity_id,
+							plugin_revision_id = excluded.plugin_revision_id, updated_at = now()
+						where v.value is distinct from excluded.value or v.status <> 'ready'
+							or v.subject_entity_id <> excluded.subject_entity_id
+							or v.plugin_revision_id <> excluded.plugin_revision_id
+					`),
+				);
+			});
+
+			const run = Effect.fn("Folds.run")(function* (entry: FoldRun, lane: ExecutionLane) {
+				const { subject, declaration } = entry;
+				const { input, binding } = yield* inputs(entry);
 				const result = yield* calls.run({
 					lane,
 					input,
@@ -243,57 +278,24 @@ export class Folds extends Context.Service<Folds>()(
 				) {
 					return yield* failure("Fold value exceeds its size limit");
 				}
-				const targets = yield* projections(subject, declaration);
+				const found = yield* targets(subject, declaration, output);
 				const rows = [
 					{ value: output.value, kind: "subject" as const, targetId: subject.entityId as string },
 					...(yield* validated(
 						"event",
-						targets.events,
+						found.events,
 						output.events.map((item) => ({ id: item.eventId, properties: item.properties })),
 					)),
 					...(yield* validated(
 						"relationship",
-						targets.relationships,
+						found.relationships,
 						output.relationships.map((item) => ({
 							id: item.relationshipId,
 							properties: item.properties,
 						})),
 					)),
 				];
-				const revision = binding.pluginPin.revisionId;
-				const current = new Map(stored.map((row) => [`${row.kind}:${row.targetId}`, row]));
-				const changed = rows.filter((row) => {
-					const existing = current.get(`${row.kind}:${row.targetId}`);
-					return (
-						existing?.status !== "ready" ||
-						existing.pluginRevisionId !== revision ||
-						stableStringify(existing.value) !== stableStringify(row.value)
-					);
-				});
-				const kept = new Set(rows.map((row) => `${row.kind}:${row.targetId}`));
-				const removed = stored.filter((row) => !kept.has(`${row.kind}:${row.targetId}`));
-				if (removed.length > 0) {
-					yield* session.run((db) =>
-						db.execute(sql`delete from derived_value where user_id = ${subject.userId}
-							and (kind, target_id) in (select * from jsonb_to_recordset(${JSON.stringify(
-								removed.map((row) => ({ kind: row.kind, targetId: row.targetId })),
-							)}::jsonb) as r(kind text, "targetId" text))`),
-					);
-				}
-				if (changed.length > 0) {
-					yield* session.run((db) =>
-						db.execute(sql`
-							insert into derived_value as v
-								(user_id, kind, target_id, subject_entity_id, plugin_id, plugin_revision_id, value, status, updated_at)
-							select ${subject.userId}, r.kind, r."targetId", ${subject.entityId}, ${declaration.pluginId}, ${revision}, coalesce(r.value, 'null'::jsonb), 'ready', now()
-							from jsonb_to_recordset(${JSON.stringify(changed)}::jsonb) as r(kind text, "targetId" text, value jsonb)
-							order by 2, 3
-							on conflict (user_id, kind, target_id) do update set value = excluded.value,
-								status = 'ready', subject_entity_id = excluded.subject_entity_id,
-								plugin_revision_id = excluded.plugin_revision_id, updated_at = now()
-						`),
-					);
-				}
+				yield* write(subject, declaration, binding.pluginPin.revisionId, rows, input.changes);
 				if (output.changes.length === 0) {
 					return null;
 				}
@@ -314,7 +316,7 @@ export class Folds extends Context.Service<Folds>()(
 			});
 
 			const settleOne = Effect.fnUntraced(function* (
-				entry: ResolvedFold,
+				entry: FoldRun,
 				apply: ApplyFoldChanges,
 				lane: ExecutionLane,
 				runs: Map<string, number>,
@@ -322,7 +324,7 @@ export class Folds extends Context.Service<Folds>()(
 				const key = foldJobKey(entry.subject);
 				const count = (runs.get(key) ?? 0) + 1;
 				runs.set(key, count);
-				const result = yield* run(entry.subject, entry.declaration, lane);
+				const result = yield* run(entry, lane);
 				if (result !== null) {
 					yield* count >= MAX_RUNS
 						? failure("Fold kept changing its own events")
@@ -341,10 +343,7 @@ export class Folds extends Context.Service<Folds>()(
 			) {
 				const runs = new Map<string, number>();
 				for (;;) {
-					const resolved = yield* resolve({
-						sources: pending.sources.splice(0),
-						subjects: pending.subjects.splice(0),
-					});
+					const resolved = yield* collect(pending);
 					if (resolved.length === 0) {
 						return;
 					}
@@ -369,10 +368,17 @@ export class Folds extends Context.Service<Folds>()(
 				mode: FoldMode = "inline",
 			) =>
 				Effect.gen(function* () {
-					const pending: PendingFolds = { sources: [], subjects: [] };
+					const pending = emptyPendingFolds();
 					const result = yield* work.pipe(Effect.provideService(PendingFoldMarks, pending));
 					if (mode === "queue") {
-						yield* queueResolved(yield* resolve(pending));
+						yield* queueResolved(
+							yield* route({
+								subjects: [...pending.replays, ...pending.links],
+								sources: [...pending.events.values()].flatMap((mark) =>
+									[mark.before, mark.after].flatMap((source) => (source ? [source] : [])),
+								),
+							}),
+						);
 					} else {
 						yield* settle(pending, apply, mode).pipe(
 							Effect.provideService(PendingFoldMarks, pending),
@@ -423,7 +429,7 @@ export class Folds extends Context.Service<Folds>()(
 						"objects",
 					),
 				);
-				const resolved = yield* resolve({
+				const resolved = yield* route({
 					subjects: rows
 						.filter((row) => row.hasProjectedRelationship)
 						.map((row) => ({ userId: input.userId, entityId: EntityId.make(row.entityId) })),

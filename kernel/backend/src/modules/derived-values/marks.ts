@@ -1,7 +1,14 @@
 import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
+import {
+	FOLD_LIMITS,
+	type FoldEventChange,
+	type FoldEventImage,
+} from "@ryot-app/contract/modules/events/folds";
 import type { PluginEntityFold } from "@ryot-app/contract/modules/plugins/manifest";
-import { EntityId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
-import { sql } from "drizzle-orm";
+import { EntityId, EventId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { type SQL, sql } from "drizzle-orm";
 import { Context, Duration, Effect, Layer, Schema } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
@@ -12,10 +19,27 @@ export type FoldSubject = { readonly userId: UserId; readonly entityId: EntityId
 
 export type ResolvedFold = { readonly subject: FoldSubject; readonly declaration: FoldDeclaration };
 
-export type PendingFolds = {
-	readonly sources: Array<FoldSource>;
-	readonly subjects: Array<FoldSubject>;
+/** A subject to fold: `changes` is null for a full replay and otherwise lists its changed events. */
+export type FoldRun = ResolvedFold & { readonly changes: null | ReadonlyArray<FoldEventChange> };
+
+/** An event as it was before the transaction first changed it, with the fields that route it to a subject. */
+export type FoldEventRow = FoldSource & FoldEventImage;
+
+/** One changed event: its image before the change, null for a create, and where it is now, null once deleted. */
+export type FoldMark = {
+	readonly userId: string;
+	readonly eventId: string;
+	readonly before: null | FoldEventRow;
+	readonly after: null | FoldSource;
 };
+
+export type PendingFolds = {
+	readonly events: Map<string, FoldMark>;
+	readonly links: Array<FoldSubject>;
+	readonly replays: Array<FoldSubject>;
+};
+
+export const emptyPendingFolds = (): PendingFolds => ({ events: new Map(), links: [], replays: [] });
 
 export type FoldDeclaration = PluginEntityFold & {
 	readonly entityId: EntityId;
@@ -57,10 +81,82 @@ export const foldValuesSql = (values: ReadonlyArray<string>) =>
 
 const valuesSql = foldValuesSql;
 
+const isoSql = (column: string) =>
+	sql.raw(`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`);
+
+/** Reads fold images of the events `where` selects, with `v` the event and `e` its entity. */
+export const readFoldEvents = (session: DatabaseSession["Service"], where: SQL) =>
+	session
+		.run((db) =>
+			db.execute<{
+				id: string;
+				userId: string;
+				revision: number;
+				entityId: string;
+				orderKey: string;
+				occurredAt: string;
+				orderCreatedAt: string;
+				eventSchemaSlug: string;
+				entitySchemaSlug: string;
+				sessionEntityId: null | string;
+				eventSchemaPluginId: null | string;
+				properties: Record<string, JsonValue>;
+			}>(
+				sql`select v.id, v.user_id as "userId", v.revision, v.entity_id as "entityId",
+					coalesce(v.order_key, v.id) as "orderKey", ${isoSql("v.occurred_at")} as "occurredAt",
+					${isoSql("coalesce(v.order_created_at, v.created_at)")} as "orderCreatedAt",
+					v.event_schema_slug as "eventSchemaSlug", e.entity_schema_slug as "entitySchemaSlug",
+					v.session_entity_id as "sessionEntityId", v.event_schema_plugin_id as "eventSchemaPluginId",
+					v.properties
+				from event v join entity e on e.id = v.entity_id
+				where ${where}
+				order by v.id`,
+				"objects",
+			),
+		)
+		.pipe(
+			Effect.map((rows) =>
+				rows.map(
+					(row): FoldEventRow => ({
+						...row,
+						id: EventId.make(row.id),
+						entityId: EntityId.make(row.entityId),
+						sessionEntityId: row.sessionEntityId === null ? null : EntityId.make(row.sessionEntityId),
+					}),
+				),
+			),
+		);
+
+const foldImage = ({
+	userId: _userId,
+	eventSchemaPluginId: _pluginId,
+	...image
+}: FoldEventRow): FoldEventImage => image;
+
 const folds = (declaration: undefined | FoldDeclaration, source: FoldSource) =>
 	declaration !== undefined &&
 	declaration.pluginId === source.eventSchemaPluginId &&
 	declaration.eventSchemaSlugs.includes(source.eventSchemaSlug);
+
+const sourceEntities = (source: FoldSource) =>
+	source.sessionEntityId ? [source.entityId, source.sessionEntityId] : [source.entityId];
+
+/** What decides a revision's fold outputs: each fold's script hash and folded event schemas, and projected links. */
+const foldSignatureSql = (revisionId: string) => {
+	const revision = sql.raw(revisionId);
+	return sql`(select jsonb_build_array(
+		coalesce((select jsonb_agg(jsonb_build_array(es.slug, es.fold, s.content_hash,
+			coalesce((select jsonb_agg(jsonb_build_array(ev.slug, ev.properties_schema, ev.projection) order by ev.slug)
+				from definition_event_schema ev where ev.entity_schema_id = es.id
+					and ev.slug in (select jsonb_array_elements_text(es.fold -> 'eventSchemaSlugs'))), '[]'::jsonb))
+			order by es.slug)
+			from definition_entity_schema es
+			left join sandbox_script s on s.plugin_revision_id = es.plugin_revision_id and s.slug = es.fold ->> 'scriptSlug'
+			where es.plugin_revision_id = ${revision} and es.fold is not null), '[]'::jsonb),
+		coalesce((select jsonb_agg(jsonb_build_array(r.slug, r.properties_schema, r.projection) order by r.slug)
+			from definition_relationship_schema r
+			where r.plugin_revision_id = ${revision} and r.projection is not null), '[]'::jsonb)))`;
+};
 
 /** An event belongs to its session when the session's schema folds it, and otherwise to its entity. */
 export const foldSubjectOf = (source: FoldSource, known: ReadonlyMap<string, FoldDeclaration>) => {
@@ -127,22 +223,21 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				);
 			});
 
-			const resolve = Effect.fn("FoldMarks.resolve")(function* (pending: PendingFolds) {
+			const route = Effect.fn("FoldMarks.route")(function* (input: {
+				readonly sources: ReadonlyArray<FoldSource>;
+				readonly subjects: ReadonlyArray<FoldSubject>;
+			}) {
 				const subjects = new Map<string, ResolvedFold>();
 				const users = new Set([
-					...pending.sources.map((source) => source.userId),
-					...pending.subjects.map((subject) => subject.userId),
+					...input.sources.map((source) => source.userId),
+					...input.subjects.map((subject) => subject.userId),
 				]);
 				for (const user of [...users].sort()) {
 					const userId = UserId.make(user);
-					const sources = pending.sources.filter((source) => source.userId === user);
-					const explicit = pending.subjects.filter((subject) => subject.userId === user);
+					const sources = input.sources.filter((source) => source.userId === user);
+					const explicit = input.subjects.filter((subject) => subject.userId === user);
 					const known = yield* declarations(userId, [
-						...sources.flatMap((source) =>
-							source.sessionEntityId
-								? [source.entityId, source.sessionEntityId]
-								: [source.entityId],
-						),
+						...sources.flatMap(sourceEntities),
 						...explicit.map((subject) => subject.entityId),
 					]);
 					const add = (declaration: undefined | FoldDeclaration) => {
@@ -161,6 +256,96 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				return [...subjects.entries()]
 					.sort(([left], [right]) => left.localeCompare(right))
 					.map(([, value]) => value);
+			});
+
+			/** Drains `pending` into one run per subject, pairing each changed event's images by subject. */
+			const collect = Effect.fn("FoldMarks.collect")(function* (pending: PendingFolds) {
+				const marks = [...pending.events.values()];
+				pending.events.clear();
+				const replays = pending.replays.splice(0);
+				const links = pending.links.splice(0);
+				const runs = new Map<
+					string,
+					{ subject: FoldSubject; declaration: FoldDeclaration; changes: null | Array<FoldEventChange> }
+				>();
+				const users = new Set([
+					...marks.map((mark) => mark.userId),
+					...replays.map((subject) => subject.userId),
+					...links.map((subject) => subject.userId),
+				]);
+				for (const user of [...users].sort()) {
+					const userId = UserId.make(user);
+					const changed = marks.filter((mark) => mark.userId === user);
+					const current =
+						changed.length === 0
+							? []
+							: yield* readFoldEvents(
+									session,
+									sql`v.user_id = ${user} and v.id in (${valuesSql(changed.map((mark) => mark.eventId))})`,
+								);
+					const now = new Map(current.map((row) => [row.id as string, row]));
+					const replayed = replays.filter((subject) => subject.userId === user);
+					const linked = links.filter((subject) => subject.userId === user);
+					const known = yield* declarations(userId, [
+						...changed.flatMap((mark) => (mark.before ? sourceEntities(mark.before) : [])),
+						...current.flatMap(sourceEntities),
+						...replayed.map((subject) => subject.entityId),
+						...linked.map((subject) => subject.entityId),
+					]);
+					const run = (declaration: FoldDeclaration) => {
+						const subject = { userId, entityId: declaration.entityId };
+						const key = foldJobKey(subject);
+						const existing = runs.get(key);
+						if (existing) {
+							return existing;
+						}
+						const created = { subject, declaration, changes: [] as null | Array<FoldEventChange> };
+						runs.set(key, created);
+						return created;
+					};
+					for (const mark of changed) {
+						const after = now.get(mark.eventId) ?? null;
+						const from = mark.before ? foldSubjectOf(mark.before, known) : undefined;
+						const to = after ? foldSubjectOf(after, known) : undefined;
+						if (from && to && from.entityId === to.entityId && mark.before && after) {
+							const before = foldImage(mark.before);
+							const image = foldImage(after);
+							if (stableStringify(before) !== stableStringify(image)) {
+								run(from).changes?.push({ before, after: image });
+							}
+							continue;
+						}
+						if (from && mark.before) {
+							run(from).changes?.push({ before: foldImage(mark.before), after: null });
+						}
+						if (to && after) {
+							run(to).changes?.push({ before: null, after: foldImage(after) });
+						}
+					}
+					for (const subject of replayed) {
+						const declaration = known.get(subject.entityId);
+						if (declaration) {
+							run(declaration).changes = null;
+						}
+					}
+					for (const subject of linked) {
+						const declaration = known.get(subject.entityId);
+						if (declaration) {
+							run(declaration);
+						}
+					}
+				}
+				return [...runs.entries()]
+					.sort(([left], [right]) => left.localeCompare(right))
+					.map(
+						([, value]): FoldRun => ({
+							...value,
+							changes:
+								value.changes !== null && value.changes.length > FOLD_LIMITS.inputChanges
+									? null
+									: value.changes,
+						}),
+					);
 			});
 
 			const queueResolved = Effect.fn("FoldMarks.queueResolved")(function* (
@@ -197,7 +382,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 			});
 
 			const queue = Effect.fn("FoldMarks.queue")(function* (subjects: ReadonlyArray<FoldSubject>) {
-				return yield* queueResolved(yield* resolve({ sources: [], subjects: [...subjects] }));
+				return yield* queueResolved(yield* route({ sources: [], subjects }));
 			});
 
 			/** Queues the plugin's folds of the entities for one user, or for every user with their events. */
@@ -218,7 +403,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 								),
 							)).map((row) => UserId.make(row.userId))
 						: [input.userId];
-				const resolved = yield* resolve({
+				const resolved = yield* route({
 					sources: [],
 					subjects: users.flatMap((userId) =>
 						input.entityIds.map((entityId) => ({ userId, entityId })),
@@ -229,33 +414,49 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				);
 			});
 
-			/** Marks the subjects of changed events; outside a fold scope they are queued instead. */
-			const mark = Effect.fn("FoldMarks.mark")(function* (sources: ReadonlyArray<FoldSource>) {
-				if (sources.length === 0) {
+			/** Records changed events for the fold scope; outside one their subjects are queued instead. */
+			const mark = Effect.fn("FoldMarks.mark")(function* (marks: ReadonlyArray<FoldMark>) {
+				if (marks.length === 0) {
 					return;
 				}
 				yield* requireTransaction;
 				const pending = yield* PendingFoldMarks;
 				if (pending) {
-					pending.sources.push(...sources);
+					for (const value of marks) {
+						if (!pending.events.has(value.eventId)) {
+							pending.events.set(value.eventId, value);
+						}
+					}
 					return;
 				}
-				yield* queueResolved(yield* resolve({ subjects: [], sources: [...sources] }));
+				yield* queueResolved(
+					yield* route({
+						subjects: [],
+						sources: marks.flatMap((value) =>
+							[value.before, value.after].flatMap((source) => (source ? [source] : [])),
+						),
+					}),
+				);
 			});
 
-			const markSubjects = Effect.fn("FoldMarks.markSubjects")(function* (
-				subjects: ReadonlyArray<FoldSubject>,
-			) {
-				if (subjects.length === 0) {
-					return;
-				}
-				const pending = yield* PendingFoldMarks;
-				if (pending) {
-					pending.subjects.push(...subjects);
-					return;
-				}
-				yield* queue(subjects);
-			});
+			const pend = (target: "links" | "replays") =>
+				Effect.fnUntraced(function* (subjects: ReadonlyArray<FoldSubject>) {
+					if (subjects.length === 0) {
+						return;
+					}
+					const pending = yield* PendingFoldMarks;
+					if (pending) {
+						pending[target].push(...subjects);
+						return;
+					}
+					yield* queue(subjects);
+				});
+
+			/** Marks subjects for a full replay. */
+			const markSubjects = pend("replays");
+
+			/** Marks the source subjects of changed relationships, which refold without event changes. */
+			const markLinks = pend("links");
 
 			/** Refolds the subjects whose values an entity's content feeds: its own and those of its events. */
 			const entityChanged = Effect.fn("FoldMarks.entityChanged")(function* (entityId: EntityId) {
@@ -325,16 +526,58 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				}
 			});
 
+			/**
+			 * After a revision install, replays the plugin's folds for the user only when the active revision's
+			 * fold signature differs from that of a revision the user's values were folded under; otherwise the
+			 * values move to the active revision as they are.
+			 */
+			const queueRevisionReplay = Effect.fn("FoldMarks.queueRevisionReplay")(function* (input: {
+				readonly userId: UserId;
+				readonly pluginId: PluginId;
+			}) {
+				yield* requireTransaction;
+				const [row] = yield* session.run((db) =>
+					db.execute<{ replay: boolean; revisionId: null | string }>(
+						sql`with active as (select active_revision_id as id from plugin where id = ${input.pluginId}),
+						folded as (select distinct plugin_revision_id as id from derived_value
+							where user_id = ${input.userId} and plugin_id = ${input.pluginId} and kind = 'subject')
+						select (select id from active) as "revisionId",
+							not exists (select 1 from folded) or exists (select 1 from folded, active
+								where ${foldSignatureSql("folded.id")} is distinct from ${foldSignatureSql("active.id")}) as replay`,
+						"objects",
+					),
+				);
+				if (!row?.revisionId) {
+					return;
+				}
+				if (row.replay) {
+					yield* jobs.enqueue(
+						FoldRebuildJob,
+						input,
+						{ userId: input.userId, key: `${input.userId}:${input.pluginId}` },
+					);
+					return;
+				}
+				yield* session.run((db) =>
+					db.execute(sql`update derived_value set plugin_revision_id = ${row.revisionId}
+						where user_id = ${input.userId} and plugin_id = ${input.pluginId}
+							and plugin_revision_id <> ${row.revisionId}`),
+				);
+			});
+
 			return {
 				mark,
+				route,
 				absorb,
+				collect,
 				request,
-				resolve,
+				markLinks,
 				declarations,
 				markSubjects,
 				entityChanged,
 				queueResolved,
 				queueUserRebuilds,
+				queueRevisionReplay,
 			};
 		}),
 	},

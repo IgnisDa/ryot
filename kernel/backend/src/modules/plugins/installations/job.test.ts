@@ -6,6 +6,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
+import { FoldMarks } from "#modules/derived-values/marks";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
 import type { ScriptCall } from "#modules/scripts/executions/calls";
@@ -13,7 +14,6 @@ import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/
 import { ScriptChanges } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
-import { JobQueue } from "#platform/jobs/queue";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
@@ -181,8 +181,8 @@ const workflowLayer = (input: {
 				scriptPinLookups,
 			}) =>
 				Layer.mergeAll(
-					Layer.mock(JobQueue)({
-						enqueue: (kind) => pushOrder(`enqueue:${kind.name}`).pipe(Effect.as(true)),
+					Layer.mock(FoldMarks)({
+						queueRevisionReplay: () => pushOrder("replay:folds"),
 					}),
 					Layer.succeed(PluginBootstrapEntities)({
 						dispatch: (plans) => pushOrder(`dispatch:${plans.join(",")}`),
@@ -346,7 +346,7 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 					`commit:${pluginInstallationBootstrapExecutionId(installationId, activationId, "second")}-second-id-hash`,
 					"health:ready",
 					"invalidate",
-					"enqueue:fold-rebuild",
+					"replay:folds",
 				]);
 				expect(yield* fake.executions).toEqual<unknown>([
 					{
@@ -458,7 +458,7 @@ layer(
 					`commit:${pluginInstallationBootstrapExecutionId(installationId, activationId, "first")}-first-id-hash`,
 					"health:ready",
 					"invalidate",
-					"enqueue:fold-rebuild",
+					"replay:folds",
 				]);
 				expect(ensuredEntities).toEqual<unknown>([
 					{

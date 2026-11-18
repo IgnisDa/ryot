@@ -4,7 +4,7 @@ import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/bra
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import { asUnexpected, unexpected } from "#lib/domain/logged-rejection";
-import { FoldRebuildJob } from "#modules/derived-values/marks";
+import { FoldMarks } from "#modules/derived-values/marks";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { runUserBootstrapScript } from "#modules/scripts/executions/bootstrap";
@@ -111,9 +111,9 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 		const installations = yield* PluginInstallationRepository;
 		const bootstrapEntities = yield* PluginBootstrapEntities;
 		const admission = yield* AccountAdmission.make;
-		const jobs = yield* JobQueue;
 		const bootstrapContext =
 			yield* Effect.context<Effect.Services<ReturnType<typeof runUserBootstrapScript>>>();
+		const folds = yield* FoldMarks;
 
 		const begin = (installationId: string, activationId: string) =>
 			asUnexpected(
@@ -229,12 +229,10 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 							});
 							if (updated) {
 								yield* invalidator.user(userId);
-								const pluginId = PluginId.make(installation.pluginId);
-								yield* jobs.enqueue(
-									FoldRebuildJob,
-									{ userId, pluginId },
-									{ userId, key: `${userId}:${pluginId}` },
-								);
+								yield* folds.queueRevisionReplay({
+									userId,
+									pluginId: PluginId.make(installation.pluginId),
+								});
 							}
 							return updated;
 						}),

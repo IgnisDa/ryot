@@ -2,6 +2,7 @@ import { Layer } from "effect";
 
 import { AuthServiceLive } from "#modules/accounts/auth/layer";
 import { ScriptChangesLive } from "#modules/changes/layer";
+import { FoldMarks } from "#modules/derived-values/marks";
 import { IntegrationOperationScopeResolverProvidedLive } from "#modules/integrations/layer";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -38,6 +39,7 @@ export const PluginInstallationJobOperationsProvidedLive = PluginInstallationJob
 			SandboxWorkflowReferenceRepository.layer,
 			PluginCatalogInvalidatorLive,
 			PluginInstallationRepository.layer,
+			FoldMarks.layer,
 		),
 	),
 );
