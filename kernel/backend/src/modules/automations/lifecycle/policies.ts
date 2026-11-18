@@ -131,12 +131,12 @@ const PolicyBatchPayload = Schema.Struct({
 	propertiesSchemas: Schema.Record(Schema.String, AppSchema),
 	resource: Schema.Literals(["entity", "event", "relationship"]),
 });
-export type MatchedPolicyBatch = {
+type PolicyBatchPayload = typeof PolicyBatchPayload.Type;
+
+type MatchedPolicyBatch = {
 	readonly trigger: AutomationTrigger;
 	readonly policies: ReadonlyArray<LifecyclePolicy>;
 };
-
-type PolicyBatchPayload = typeof PolicyBatchPayload.Type;
 
 /** Matches a batch's policies on the caller's transaction; null means none matched. */
 export const matchPolicyBatch = Effect.fn("matchPolicyBatch")(function* (

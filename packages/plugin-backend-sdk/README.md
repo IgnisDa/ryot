@@ -60,11 +60,11 @@ helpers to capabilities by canonical module/export, not import alias. Contract w
 capability vocabulary; kernel requirements/execution-policy records must exhaustively cover changes.
 
 Host calls only read. An operation returns `{ output, changes? }`; `changes` is a `ChangeSet`
-(`changeSetSchema` from `core`, built with `rootEntity`, `existingEntity`, `upsertedGlobalEntity` and
-`combineChangeSets`) that the kernel commits after the run in one database transaction. Its parts and
-per-writer authority are listed in the [plugin authoring guide](../plugin-kit/README.md#change-sets);
-`CHANGE_SET_LIMITS` holds their bounds. Any validation, authority, or commit failure leaves the entire
-change set unchanged. File uploads are separate.
+(`changeSetSchema` from `core`, built with `rootEntity`, `existingEntity` and `upsertedGlobalEntity`)
+that the kernel commits after the run in one database transaction. Its parts and per-writer authority
+are listed in the [plugin authoring guide](../plugin-kit/README.md#change-sets); `CHANGE_SET_LIMITS`
+holds their bounds. Any validation, authority, or commit failure leaves the entire change set
+unchanged. File uploads are separate.
 `events.baselines` accepts up to 100 distinct entity IDs and their `eventScope` revisions. These
 scalar guards do not grow with the history or inventory. Event creates/updates may retain logical
 source order with `orderAfter`; an update with `orderAfter: null` restores physical creation order.
@@ -75,8 +75,7 @@ A retry of a whole operation is covered by the key its caller passes to `operati
 the original result.
 
 Fold scripts use `FoldInput`, `FoldOutput`, `FoldEventChange`, `FoldEventImage` and `FOLD_LIMITS` from
-`@ryot-app/plugin-backend-sdk/folds`, with `foldChangeImages` and `earliestFoldOccurrence` for change
-lists. See
+`@ryot-app/plugin-backend-sdk/folds`, with `foldChangeImages` for change lists. See
 [folds](../../kernel/backend/src/modules/derived-values/README.md).
 
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and

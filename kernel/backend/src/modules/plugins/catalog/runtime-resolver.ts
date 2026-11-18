@@ -68,7 +68,7 @@ export type AvailablePlugin = Omit<ExecutablePlugin, "manifest"> & {
 	readonly manifest: ExecutablePlugin["manifest"] & typeof ClientPluginSection.Type;
 };
 
-export type ExecutablePlugin = {
+type ExecutablePlugin = {
 	readonly id: string;
 	readonly isHidden: boolean;
 	readonly contentHash: string;

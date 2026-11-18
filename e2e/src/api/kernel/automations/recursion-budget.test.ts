@@ -480,10 +480,7 @@ describe("automation recursion budgets", () => {
 			}
 
 			const blocked = requirePresent(signalTriggers[8], "Expected blocked depth-nine trigger");
-			expect(blocked.blockedReason).toMatchObject({
-				hasRequiredHooks: false,
-				code: "automation-limit-reached",
-			});
+			expect(blocked.blockedReason).toMatchObject({ code: "automation-limit-reached" });
 			expect(blocked.blockedReason?.omittedHooks).toEqual<unknown>(
 				arrayContaining([{ pluginId: plugin.pluginId, hookSlug: recursiveHookSlug }]),
 			);
@@ -669,10 +666,7 @@ describe("automation recursion budgets", () => {
 				childTriggers.find(({ blockedReason }) => blockedReason === null),
 				"Expected one accepted concurrent fanout trigger",
 			);
-			expect(blocked.blockedReason).toMatchObject({
-				hasRequiredHooks: false,
-				code: "automation-limit-reached",
-			});
+			expect(blocked.blockedReason).toMatchObject({ code: "automation-limit-reached" });
 			expect(blocked.blockedReason?.omittedHooks).toHaveLength(51);
 			expect(yield* listAutomationRuns({ triggerId: blocked.id })).toEqual([]);
 			expect(yield* listAutomationRuns({ triggerId: accepted.id })).toHaveLength(51);

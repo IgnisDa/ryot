@@ -21,11 +21,3 @@ export const foldChangeImages = (changes: ReadonlyArray<FoldEventChange>) => ({
 		),
 	),
 });
-
-/** The earliest occurrence among `images`, which bounds the history an incremental fold must revisit. */
-export const earliestFoldOccurrence = (images: ReadonlyArray<FoldEventImage>) =>
-	images.reduce<null | string>(
-		(earliest, { occurredAt }) =>
-			earliest === null || Date.parse(occurredAt) < Date.parse(earliest) ? occurredAt : earliest,
-		null,
-	);

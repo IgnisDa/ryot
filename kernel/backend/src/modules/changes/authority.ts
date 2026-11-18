@@ -20,7 +20,9 @@ import {
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 
-export type ChangeSetNotification = {
+type Subject = ScriptExecutionPrincipal["subject"];
+
+type ChangeSetNotification = {
 	readonly message: Message;
 	readonly sourceKey: string;
 	readonly sourceRunId: string;
@@ -28,14 +30,12 @@ export type ChangeSetNotification = {
 };
 
 /** What a change set may write, resolved once from its writer's principal. */
-export type ChangeSetAuthority = {
+type ChangeSetAuthority = {
 	readonly userId: null | UserId;
 	readonly pluginRevision: null | ScriptPluginRevision;
 	readonly notifications: ReadonlyArray<ChangeSetNotification>;
 	readonly signalActor: { readonly kind: "system" } | { userId: UserId; readonly kind: "user" };
 };
-
-type Subject = ScriptExecutionPrincipal["subject"];
 
 /** A change set part its writer may not write, or that does not resolve. */
 export class ChangeSetRejected extends Schema.TaggedError<

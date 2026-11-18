@@ -525,10 +525,9 @@ with `ids` mapping the entity and event IDs it holds to their new ones; carry ov
   without an `after` and keeps every output you do not return. An empty list means only the subject's
   links changed.
 
-`foldChangeImages` splits a change list into retracted and added images, and `earliestFoldOccurrence`
-finds where a change begins. Incremental results must equal a full replay of the same history, so keep
-in `value` whatever an update needs to resume, and fall back to reading the history when it cannot be
-bounded.
+`foldChangeImages` splits a change list into retracted and added images. Incremental results must
+equal a full replay of the same history, so keep in `value` whatever an update needs to resume, and
+fall back to reading the history when it cannot be bounded.
 
 `changes` in the output are applied before the kernel runs the fold a second time with their images.
 That second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
@@ -898,9 +897,8 @@ commit's conflict code.
 
 `ChangeSet`, `changeSetSchema` and `CHANGE_SET_LIMITS` come from `@ryot-app/plugin-backend-sdk/core`,
 with `rootEntity`, `existingEntity(id)` and `upsertedGlobalEntity(entitySchemaSlug, externalId)`
-references and `combineChangeSets(...)`, which concatenates parts that helpers built separately (only
-one input may set the root entity, the fold request or `events.expected`). Every part names schemas of
-the writing plugin by slug, and every slug must be declared by its revision.
+references. Every part names schemas of the writing plugin by slug, and every slug must be declared
+by its revision.
 
 | Part                  | Writes                                                                                                       | Writer                                                                     |
 | --------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |

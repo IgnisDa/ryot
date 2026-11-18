@@ -25,6 +25,13 @@ export {
 	coreSandboxHostContracts,
 	domainSandboxHostContracts,
 } from "./core/host-contracts";
+export {
+	rootEntity,
+	existingEntity,
+	updateEventChange,
+	deleteEventChange,
+	upsertedGlobalEntity,
+} from "./core/changes";
 export type {
 	ScriptManifest,
 	SandboxManifest,
@@ -37,14 +44,6 @@ export type {
 	ChangeSetEntityReference,
 	ChangeSetGlobalEntityReference,
 } from "@ryot-app/contract/modules/changes/change-set";
-export {
-	rootEntity,
-	existingEntity,
-	updateEventChange,
-	deleteEventChange,
-	combineChangeSets,
-	upsertedGlobalEntity,
-} from "./core/changes";
 export {
 	CHANGE_SET_LIMITS,
 	ChangeSet as changeSetSchema,

@@ -148,7 +148,7 @@ const parts = (changes: ChangeSet) => [
 ];
 
 /** Whether committing the change set would write nothing. */
-export const isEmptyChangeSet = (changes: ChangeSet) =>
+const isEmptyChangeSet = (changes: ChangeSet) =>
 	parts(changes).every((part) => part === undefined || (Array.isArray(part) && part.length === 0));
 
 const itemCommand = (command: DomainLifecycleCommand, itemIdentity: string) => ({

@@ -32,7 +32,7 @@ export type PendingFolds = {
 };
 
 /** One changed event: its image before the change, null for a create, and where it is now, null once deleted. */
-export type FoldMark = {
+type FoldMark = {
 	readonly userId: string;
 	readonly eventId: string;
 	readonly after: null | FoldSource;

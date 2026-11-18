@@ -42,7 +42,7 @@ export const Occurrence = Schema.Struct({
 });
 export type Occurrence = typeof Occurrence.Type;
 
-export const FoldEventValue = Schema.Struct({
+const FoldEventValue = Schema.Struct({
 	id: Schema.String,
 	revision: Schema.Int,
 	entityId: Schema.String,
@@ -56,7 +56,7 @@ export const FoldEventValue = Schema.Struct({
 });
 
 /** Where an episodic subject's coverage stood after its latest event, so an append resumes from it. */
-export const CoverageCarry = Schema.Struct({
+const CoverageCarry = Schema.Struct({
 	used: Schema.Array(Schema.String),
 	basis: Schema.NullOr(Schema.String),
 	covered: Schema.Array(
@@ -68,9 +68,9 @@ export const CoverageCarry = Schema.Struct({
 		}),
 	),
 });
-export type CoverageCarry = typeof CoverageCarry.Type;
+type CoverageCarry = typeof CoverageCarry.Type;
 
-export const emptyCoverageCarry: CoverageCarry = { used: [], basis: null, covered: [] };
+const emptyCoverageCarry: CoverageCarry = { used: [], basis: null, covered: [] };
 
 /**
  * `tails` holds each entity's latest unfinished run of unsourced events, which an append continues, with

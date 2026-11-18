@@ -121,7 +121,7 @@ type PreparedUserEntitySave = {
 	readonly [preparedUserEntitySave]: PreparedMutation;
 };
 const preparedEntityEnsures = Symbol("PreparedEntityEnsures");
-export type PreparedEntityEnsures = {
+type PreparedEntityEnsures = {
 	readonly [preparedEntityEnsures]: {
 		readonly userId: UserId;
 		readonly lifecycle: DomainLifecycleCommand;
@@ -135,7 +135,7 @@ export type PreparedEntityEnsures = {
 	};
 };
 const preparedEntityDeletes = Symbol("PreparedEntityDeletes");
-export type PreparedEntityDeletes = {
+type PreparedEntityDeletes = {
 	readonly [preparedEntityDeletes]: {
 		readonly accounts: ReadonlyArray<UserId>;
 		readonly lifecycle: DomainLifecycleCommand;
