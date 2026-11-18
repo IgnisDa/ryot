@@ -96,7 +96,10 @@ export class Folds extends Context.Service<Folds>()(
 				const sessions = yield* declarations(subject.userId, [
 					...new Set(events.flatMap((row) => (row.sessionEntityId ? [row.sessionEntityId] : []))),
 				]);
-				const owners = new Map([...sessions, [subject.entityId as string, declaration] as const]);
+				const owners = new Map<string, FoldDeclaration>([
+					...sessions,
+					[subject.entityId, declaration],
+				]);
 				const eventTargets = new Map<string, Target>();
 				for (const row of events) {
 					const propertiesSchema = catalog.eventSchemas.find(
@@ -276,7 +279,7 @@ export class Folds extends Context.Service<Folds>()(
 				}
 				const found = yield* outputTargets(subject, declaration, output);
 				const rows = [
-					{ value: output.value, kind: "subject" as const, targetId: subject.entityId as string },
+					{ value: output.value, kind: "subject" as const, targetId: String(subject.entityId) },
 					...(yield* validated(
 						"event",
 						found.events,

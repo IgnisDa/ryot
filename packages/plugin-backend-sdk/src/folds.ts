@@ -15,9 +15,9 @@ export { FoldInput, FoldOutput, FOLD_LIMITS, FoldEventImage, FoldEventChange };
 export const foldChangeImages = (changes: ReadonlyArray<FoldEventChange>) => ({
 	added: changes.flatMap(({ after }) => (after ? [after] : [])),
 	retracted: changes.flatMap(({ before }) => (before ? [before] : [])),
-	ids: new Set(
+	ids: new Set<string>(
 		changes.flatMap(({ after, before }) =>
-			[before?.id, after?.id].flatMap((id) => (id === undefined ? [] : [id as string])),
+			[before?.id, after?.id].flatMap((id) => (id === undefined ? [] : [id])),
 		),
 	),
 });

@@ -289,7 +289,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 									session,
 									sql`v.user_id = ${user} and v.id in (${valuesSql(changed.map((mark) => mark.eventId))})`,
 								);
-					const now = new Map(current.map((row) => [row.id as string, row]));
+					const now = new Map<string, FoldEventRow>(current.map((row) => [row.id, row]));
 					const replayed = replays.filter((subject) => subject.userId === user);
 					const linked = links.filter((subject) => subject.userId === user);
 					const known = yield* declarations(userId, [
@@ -305,7 +305,11 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 						if (existing) {
 							return existing;
 						}
-						const created = { subject, declaration, changes: [] as null | Array<FoldEventChange> };
+						const created: {
+							subject: FoldSubject;
+							declaration: FoldDeclaration;
+							changes: null | Array<FoldEventChange>;
+						} = { subject, declaration, changes: [] };
 						runs.set(key, created);
 						return created;
 					};
