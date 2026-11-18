@@ -23,7 +23,7 @@ it("reads the admitted OpenScale export timezone without a host timezone default
 	return Effect.runPromise(
 		settingsScript.run({ artifactHandle: "admitted-settings" }).pipe(
 			Effect.map((settings) => {
-				expect(settings).toEqual({ timezone: "Asia/Kolkata" });
+				expect(settings).toEqual({ output: { timezone: "Asia/Kolkata" } });
 			}),
 		),
 	);
