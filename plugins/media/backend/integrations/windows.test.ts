@@ -149,7 +149,7 @@ it.live(
 			let total = 0;
 			let windows = 0;
 			for (;;) {
-				const output = yield* runSandboxTestScript(
+				const { output } = yield* runSandboxTestScript(
 					plex,
 					windows
 						? { ingestionArtifacts: { runId: "run", captures: { carry: "durable-carry" } } }
@@ -229,7 +229,7 @@ it.live(
 			const indexes: number[] = [];
 			const operations: string[] = [];
 			for (let window = 0; ; window++) {
-				const output = yield* runSandboxTestScript(
+				const { output } = yield* runSandboxTestScript(
 					plex,
 					window
 						? { ingestionArtifacts: { runId: "run", captures: { carry: "durable-carry" } } }

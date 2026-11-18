@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	collectMediaJson,
@@ -24,7 +24,7 @@ const ListMetadata = Schema.Struct({
 	name: Schema.String,
 	ids: Schema.Struct({ trakt: Schema.optional(Schema.Finite) }),
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
@@ -133,5 +133,5 @@ export default defineScript({
 				itemIndex,
 				carryFile: "metadata.json",
 			});
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

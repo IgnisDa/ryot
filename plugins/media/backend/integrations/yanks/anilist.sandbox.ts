@@ -1,8 +1,8 @@
 import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { type ListStateProperties, ListStatePropertiesSchema } from "../../../shared/list-state";
 import { listStateSnapshotsRecipe } from "../../../shared/list-state-recipes";
@@ -388,9 +388,10 @@ const runAniListYank = Effect.fn("AniList.collect")(function* (
 	);
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: YankInput,
 	output: IntegrationWindowOutput,
-	run: (input, host, execution) => runAniListYank(input, host, execution),
+	run: (input, host, execution) =>
+		runAniListYank(input, host, execution).pipe(Effect.map((output) => ({ output }))),
 });

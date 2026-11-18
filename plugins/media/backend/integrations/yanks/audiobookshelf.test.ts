@@ -523,7 +523,7 @@ describe("Audiobookshelf yank", () => {
 		() =>
 			Effect.gen(function* () {
 				const state = setup([]);
-				const output = yield* runSandboxTestScript(
+				const { output } = yield* runSandboxTestScript(
 					definition,
 					{
 						ingestionConfirmation: {

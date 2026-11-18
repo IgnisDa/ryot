@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	MediaImportResolutionActivityInput,
@@ -14,7 +14,7 @@ export const manifest = defineManifest({
 	slug: "media-import-resolve.show.tmdb",
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaImportResolutionActivityInput,
 	output: MediaImportResolutionActivityResult,
@@ -24,5 +24,6 @@ export default defineScript({
 			Effect.catch((error) =>
 				Effect.succeed({ status: "failed" as const, message: mediaFailureMessage(error) }),
 			),
+			Effect.map((output) => ({ output })),
 		),
 });

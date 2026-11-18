@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	chooseBestMetadataLookupTitleMatch,
@@ -15,7 +15,7 @@ export const manifest = defineManifest({
 	name: "Resolve Netflix titles",
 	slug: "import.netflix-resolution",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: NetflixResolutionInput,
 	output: NetflixResolutionOutput,
@@ -82,5 +82,5 @@ export default defineScript({
 				}
 			}
 			return { results };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

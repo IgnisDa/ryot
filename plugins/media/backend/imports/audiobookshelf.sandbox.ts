@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { recoverMediaApiTask } from "./api-collection";
 import { collectAudiobookshelf } from "./audiobookshelf-collection";
@@ -10,12 +10,13 @@ export const manifest = defineManifest({
 	slug: "import.audiobookshelf",
 	name: "Collect Audiobookshelf history",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
 	run: (input, host) =>
 		collectAudiobookshelf(input, host).pipe(
 			Effect.catch((error) => recoverMediaApiTask(input, error, "Audiobookshelf")),
+			Effect.map((output) => ({ output })),
 		),
 });

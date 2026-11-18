@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
 import { mediaFailureMessage } from "../../lib/error-message";
@@ -70,7 +70,7 @@ export const parseKodi = (rawBody: string, occurredAt: string) =>
 		},
 	}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Kodi webhook payload")));
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: SinkInput,
 	output: IntegrationArtifactOutput,
@@ -82,5 +82,8 @@ export default defineScript({
 			const occurredAt = yield* executionStartedAt(execution);
 			yield* host.getCurrentIntegration();
 			return yield* parseKodi(input.rawBody, occurredAt);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

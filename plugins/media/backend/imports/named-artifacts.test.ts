@@ -21,7 +21,9 @@ it.live(
 				historyUploadToken: encoder.encode("title,tmdb_id,watched_at\nArrival,42,2026-01-03"),
 			});
 			for (const fileIndex of [0, 1, 2]) {
-				const result = yield* movary.run(mediaStageInput({ fileIndex, itemIndex: fileIndex }));
+				const { output: result } = yield* movary.run(
+					mediaStageInput({ fileIndex, itemIndex: fileIndex }),
+				);
 				expect(result.done).toBe(true);
 				expect((yield* fs.records()).map((record) => record.itemIndex)).toEqual([fileIndex]);
 			}
@@ -44,7 +46,7 @@ it.live(
 					),
 				),
 			});
-			const result = yield* myanimelist.run(mediaStageInput({ fileIndex: 1 }));
+			const { output: result } = yield* myanimelist.run(mediaStageInput({ fileIndex: 1 }));
 			expect(result.done).toBe(true);
 			expect((yield* fs.records())[0]?.group).toMatchObject({
 				entityRef: { externalId: "202", providerSlug: "manga.myanimelist" },

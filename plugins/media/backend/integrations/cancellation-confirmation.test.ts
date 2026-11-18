@@ -145,7 +145,7 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 				});
 			const invoke = Effect.fnUntraced(function* (input: typeof YankInput.Type) {
 				if (provider === "spotify") {
-					return yield* runSandboxTestScript(spotify, input, spotifyHost, execution);
+					return (yield* runSandboxTestScript(spotify, input, spotifyHost, execution)).output;
 				}
 				return yield* runYoutubeMusicYank(input, youtubeHost, execution, factory);
 			});

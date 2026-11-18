@@ -49,15 +49,17 @@ describe("media monitoring targets", () => {
 						execution,
 					),
 				).toEqual({
-					nextCursor: "next-targets",
-					items: [
-						{
-							entityId: "entity-a",
-							externalId: "external-a",
-							providerId: "provider-a",
-							entitySchemaSlug: "movie",
-						},
-					],
+					output: {
+						nextCursor: "next-targets",
+						items: [
+							{
+								entityId: "entity-a",
+								externalId: "external-a",
+								providerId: "provider-a",
+								entitySchemaSlug: "movie",
+							},
+						],
+					},
 				});
 				expect(Schema.is(RyotQLDocument)(documents[0])).toBe(true);
 				expect(documents[0]).toMatchObject({

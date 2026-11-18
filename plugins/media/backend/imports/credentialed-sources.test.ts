@@ -198,7 +198,8 @@ it.live(
 			});
 			const host = defineSandboxTestHost(plexManifest, { httpCall: httpHost.httpCall });
 			const records = yield* runSource(
-				plex.run,
+				(input, requestHost) =>
+					plex.run(input, requestHost).pipe(Effect.map(({ output }) => output)),
 				{ apiKey: "key", apiUrl: "https://plex.example" },
 				host,
 			);
@@ -260,7 +261,8 @@ it.live(
 			});
 			const host = defineSandboxTestHost(jellyfinManifest, { httpCall: httpHost.httpCall });
 			const records = yield* runSource(
-				jellyfin.run,
+				(input, requestHost) =>
+					jellyfin.run(input, requestHost).pipe(Effect.map(({ output }) => output)),
 				{ username: "user", allowInsecureConnections: true, apiUrl: "https://jellyfin.example" },
 				host,
 			);
@@ -307,7 +309,8 @@ it.live(
 			);
 			const host = defineSandboxTestHost(audiobookshelfManifest, { httpCall: httpHost.httpCall });
 			const records = yield* runSource(
-				audiobookshelf.run,
+				(input, requestHost) =>
+					audiobookshelf.run(input, requestHost).pipe(Effect.map(({ output }) => output)),
 				{ apiKey: "key", apiUrl: "https://abs.example" },
 				host,
 			);
