@@ -76,7 +76,6 @@ describe("lifecycle payload boundaries", () => {
 			Effect.gen(function* () {
 				const run = {
 					id: "run-1",
-					stage: "after",
 					attemptCount: 1,
 					status: "failed",
 					skipReason: null,
@@ -140,7 +139,6 @@ describe("lifecycle payload boundaries", () => {
 					{ status: "queued", sandboxScriptId: null },
 					{ status: "running", sandboxScriptId: null },
 					{ retryPolicy: null },
-					{ stage: "before" },
 					{ pluginRevisionId: null },
 					{ pluginConfigRevisionId: null },
 				]) {
