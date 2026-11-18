@@ -1,14 +1,7 @@
 import { commonMessageKeyIssues } from "@ryot-app/contract/modules/plugins/common-messages";
-import type { ManifestTextSource } from "@ryot-app/contract/modules/plugins/manifest";
-import { manifestTextIssues } from "@ryot-app/contract/modules/plugins/manifest-text-issues";
 import type { CompiledCatalog } from "@ryot-app/i18n/catalog";
 import { buildCatalogs } from "@ryot-app/i18n/compiler/build";
 import { isReferenceSource } from "@ryot-app/i18n/compiler/references";
-import {
-	catalogErrorCount,
-	hasCatalogErrors,
-	logCatalogDiagnostics,
-} from "@ryot-app/i18n/compiler/validate";
 import {
 	CATALOG_MESSAGE_BUILDER,
 	CATALOG_MESSAGES_DIRECTORY,
@@ -77,19 +70,4 @@ export const buildPluginMessages = Effect.fn("buildPluginMessages")(function* (c
 		yield* fs.writeFileString(modulePath, module);
 	}
 	return { source, catalogs: Object.fromEntries(catalogs) } satisfies PluginMessages;
-});
-
-/** Fails the build on manifest text that does not resolve; see `manifestTextIssues`. */
-export const validateManifestTexts = Effect.fnUntraced(function* (
-	manifest: ManifestTextSource,
-	messages: PluginMessages,
-) {
-	const diagnostics = manifestTextIssues(manifest, messages.source);
-	yield* logCatalogDiagnostics(diagnostics);
-	if (hasCatalogErrors(diagnostics)) {
-		return yield* new PluginMessagesError({
-			message: `Plugin messages have ${catalogErrorCount(diagnostics)} errors`,
-		});
-	}
-	return yield* Effect.void;
 });

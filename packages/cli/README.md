@@ -22,6 +22,7 @@ package root. Any quoted literal equal to a key counts as a use; a `catalogMessa
 `catalogMessage` builder, and `catalogRowText` for row text, to `shared/messages.generated.ts`,
 rewriting it only when its contents change.
 Generated modules are not committed; run this step before type-checking plugin sources.
+This command works from a clean checkout before kernel catalog generation.
 `ryot plugin build` leaves the module out of the compiler sources and passes the compiled English
 catalog to both compilers, which generate the builder themselves (see
 [Messages](../plugin-kit/README.md#messages)).
