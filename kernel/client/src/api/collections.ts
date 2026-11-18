@@ -1,10 +1,11 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthRateLimited } from "@ryot-app/contract/auth-middleware";
 import type { ContractRequest } from "@ryot-app/contract/client";
 import {
 	CollectionBadRequest,
 	CollectionConflict,
 	CollectionNotFound,
 } from "@ryot-app/contract/modules/collections/schemas";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";

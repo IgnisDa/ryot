@@ -1,9 +1,4 @@
 import {
-	InstanceAdminInternalFailure,
-	InstanceAdminNotFound,
-	InstanceAdminRequestFailure,
-} from "@ryot-app/contract/modules/instance-admin/contract";
-import {
 	buildOAuthAuthorizationUrl,
 	getNativeOAuthCallbackUri,
 	getWebOAuthCallbackUri,
@@ -13,6 +8,11 @@ import {
 	OAUTH_NATIVE_APPLICATION_IDS,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import {
+	InstanceAdminInternalFailure,
+	InstanceAdminNotFound,
+	InstanceAdminRequestFailure,
+} from "@ryot-app/instance-contract/account-admin";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AppConfig } from "#platform/config/service";

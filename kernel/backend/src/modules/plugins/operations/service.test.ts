@@ -1,10 +1,6 @@
 import { expect } from "bun:test";
 
-import {
-	AuthUnauthorized,
-	DemoOperationProtected,
-	WriteAccessDenied,
-} from "@ryot-app/contract/auth-middleware";
+import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -27,6 +23,7 @@ import { entitlementRequired, type Entitlements } from "@ryot-app/contract/schem
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";

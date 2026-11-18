@@ -1,6 +1,6 @@
 import { describe, expect } from "bun:test";
 
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";

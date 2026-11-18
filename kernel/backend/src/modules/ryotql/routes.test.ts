@@ -1,16 +1,13 @@
 import { expect } from "bun:test";
 
-import {
-	AuthMiddleware,
-	AuthUnauthorized,
-	DemoOperationProtected,
-} from "@ryot-app/contract/auth-middleware";
+import { AuthMiddleware, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { entitlementRequired, type Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { column, field, rows, table } from "@ryot-app/ryotql";
 import { reportingParameterFields } from "@ryot-app/ryotql-recipes/reporting-parameters";
 import { testTimeout } from "@ryot-app/testing/test-timeout";

@@ -1,8 +1,8 @@
 import { expect } from "bun:test";
 
 import { oauthProvider } from "@better-auth/oauth-provider";
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { getMcpOAuthResource, getOAuthResource } from "@ryot-app/contract/oauth";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";

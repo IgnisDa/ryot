@@ -1,10 +1,11 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthRateLimited } from "@ryot-app/contract/auth-middleware";
 import {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 	UploadBadRequest,
 	UploadInternalError,
 } from "@ryot-app/contract/modules/assets/schemas";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import {
 	PluginUploadBridgeErrorReason,
 	type PluginUploadOutcome,

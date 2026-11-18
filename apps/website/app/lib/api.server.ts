@@ -1,30 +1,27 @@
+import type { ProvisionUserBody } from "@ryot-app/instance-contract/account-admin";
 import {
-	type ContractPayload,
-	type ContractProgram,
-	makeContractClient,
-} from "@ryot-app/contract/client";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+	type InstanceAdminClient,
+	makeInstanceAdminClient,
+} from "@ryot-app/instance-contract/client";
+import type { UserId } from "@ryot-app/instance-contract/user";
 import { Effect } from "effect";
 
 import { getServerVariables } from "./config.server";
 import { WebsiteFailure } from "./effect.server";
 
-const runAdmin = <A, E>(program: ContractProgram<A, E>) => {
+const runAdmin = <A, E>(program: (client: InstanceAdminClient) => Effect.Effect<A, E>) => {
 	const serverVariables = getServerVariables();
-	return makeContractClient(`${serverVariables.RYOT_BASE_URL}/api`, {
-		"Admin-Access-Token": serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-	}).pipe(
+	return makeInstanceAdminClient(
+		`${serverVariables.RYOT_BASE_URL}/api`,
+		serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
+	).pipe(
 		Effect.flatMap(program),
 		Effect.mapError((cause) => new WebsiteFailure({ cause })),
 	);
 };
 
-export const provisionUser = (payload: ContractPayload<"instanceAdmin", "provisionUser">) =>
-	runAdmin((client) =>
-		payload.provider === "oidc"
-			? client.instanceAdmin.provisionUser({ payload })
-			: client.instanceAdmin.provisionUser({ payload }),
-	);
+export const provisionUser = (payload: ProvisionUserBody) =>
+	runAdmin((client) => client.instanceAdmin.provisionUser({ payload }));
 
 export const resetUserPassword = (userId: UserId) =>
 	runAdmin((client) => client.instanceAdmin.resetUserPassword({ params: { userId } }));

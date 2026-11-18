@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 
-import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
+import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { DbError, validationFailed } from "@ryot-app/contract/errors";
 import {
 	AssistantError,
@@ -17,6 +17,7 @@ import { CapabilityId } from "@ryot-app/contract/schema/capability";
 import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";

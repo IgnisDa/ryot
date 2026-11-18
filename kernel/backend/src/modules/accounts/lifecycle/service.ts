@@ -1,10 +1,10 @@
+import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	InstanceAdminInternalFailure,
 	InstanceAdminNotFound,
 	InstanceAdminRequestFailure,
-} from "@ryot-app/contract/modules/instance-admin/contract";
-import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+} from "@ryot-app/instance-contract/account-admin";
 import { Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 

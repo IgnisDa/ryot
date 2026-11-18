@@ -1,6 +1,7 @@
-import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
+import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { type ContractProgram, makeContractClient } from "@ryot-app/contract/client";
 import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { Context, Effect, Layer, Schema } from "effect";
 import { HttpClient } from "effect/http";
 

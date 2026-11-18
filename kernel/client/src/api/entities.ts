@@ -1,4 +1,4 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthRateLimited } from "@ryot-app/contract/auth-middleware";
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { EntityEditorRefused } from "@ryot-app/contract/modules/entities/editor";
 import {
@@ -10,6 +10,7 @@ import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";

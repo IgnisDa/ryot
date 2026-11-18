@@ -1,7 +1,8 @@
+import { Email } from "@ryot-app/instance-contract/user";
 import { Schema } from "effect";
 
 import { NotificationChannelId } from "../../schema/brands";
-import { Email, HttpUrl } from "../../schema/utils";
+import { HttpUrl } from "../../schema/utils";
 
 const AppriseSpecifics = Schema.Struct({
 	baseUrl: HttpUrl,

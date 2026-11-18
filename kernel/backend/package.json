@@ -79,6 +79,7 @@
 		"@ryot-app/definitions": "workspace:*",
 		"@ryot-app/email-templates": "workspace:*",
 		"@ryot-app/i18n": "workspace:*",
+		"@ryot-app/instance-contract": "workspace:*",
 		"@ryot-app/kernel-messages": "workspace:*",
 		"@ryot-app/kernel-renderers": "workspace:*",
 		"@ryot-app/languages": "workspace:*",

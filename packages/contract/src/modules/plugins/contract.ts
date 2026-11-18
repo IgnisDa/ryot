@@ -1,11 +1,11 @@
 import { LocaleTag } from "@ryot-app/i18n/locale";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import {
 	AuthMiddleware,
 	AuthRateLimited,
-	AuthUnauthorized,
 	DemoOperationProtected,
 	UserInitializing,
 	WriteAccessDenied,

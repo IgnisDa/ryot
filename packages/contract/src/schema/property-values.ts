@@ -1,3 +1,4 @@
+import { Email } from "@ryot-app/instance-contract/user";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Result, Schema, SchemaGetter } from "effect";
 
@@ -27,7 +28,7 @@ import {
 } from "./property-schema";
 import { parseErrorToIssues, toValidationError } from "./property-validation";
 import { TimeZone } from "./time-zone";
-import { Email, HttpUrl } from "./utils";
+import { HttpUrl } from "./utils";
 
 type NumberValueSchema = Schema.Codec<number>;
 type PropertyValueField = PropertyValueSchema;

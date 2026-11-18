@@ -1,6 +1,6 @@
 import { CheckoutEventNames, type Paddle } from "@paddle/paddle-js";
-import { UserId } from "@ryot-app/contract/schema/brands";
 import PurchaseCompleteEmail from "@ryot-app/email-templates/emails/purchase-complete";
+import { UserId } from "@ryot-app/instance-contract/user";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { Effect, Stream } from "effect";

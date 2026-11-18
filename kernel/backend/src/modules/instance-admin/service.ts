@@ -1,10 +1,10 @@
+import { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	InstanceAdminInternalFailure,
 	InstanceAdminNotFound,
 	InstanceAdminRequestFailure,
 	type ProvisionUserBody,
-} from "@ryot-app/contract/modules/instance-admin/contract";
-import { UserId } from "@ryot-app/contract/schema/brands";
+} from "@ryot-app/instance-contract/account-admin";
 import { Context, DateTime, Effect, Layer } from "effect";
 import { SecureRandom } from "effect/crypto";
 

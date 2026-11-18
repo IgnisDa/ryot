@@ -2,11 +2,11 @@ import { describe, expect, it } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	InstanceAdminNotFound,
 	InstanceAdminRequestFailure,
-} from "@ryot-app/contract/modules/instance-admin/contract";
-import { UserId } from "@ryot-app/contract/schema/brands";
+} from "@ryot-app/instance-contract/account-admin";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";

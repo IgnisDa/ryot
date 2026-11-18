@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 
-import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
+import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot-app/contract/errors";
 import { PageAuthoringError } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginManifest, PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
@@ -15,6 +15,7 @@ import {
 	fixtureManifest,
 	manifestCatalogs,
 } from "@ryot-app/contract/testing";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import {
 	column,

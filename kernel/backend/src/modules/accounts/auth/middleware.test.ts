@@ -3,7 +3,6 @@ import { expect } from "bun:test";
 import {
 	AuthorizationContext,
 	AuthRateLimited,
-	AuthUnauthorized,
 	CurrentUser,
 	DemoOperationProtected,
 	UserInitializing,
@@ -21,6 +20,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Redacted } from "effect";

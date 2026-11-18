@@ -1,6 +1,6 @@
-import { AdminMiddleware, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { PublicationMiddleware } from "@ryot-app/contract/modules/publications/contract";
 import { PublicationUnavailable } from "@ryot-app/contract/modules/publications/schemas";
+import { AdminMiddleware, AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { Effect, Layer } from "effect";
 
 export const rejectingAdminAndPublicationMiddleware = Layer.merge(

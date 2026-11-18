@@ -1,7 +1,7 @@
+import { AdminMiddleware } from "@ryot-app/instance-contract/admin-auth";
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
-import { AdminMiddleware } from "../../auth-middleware";
 import { DownloadUrlResponse } from "../../schema/downloads";
 
 const ServerLogFile = Schema.Struct({

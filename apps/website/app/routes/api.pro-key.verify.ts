@@ -1,4 +1,4 @@
-import { ProKeyVerification } from "@ryot-app/contract/modules/system/pro-key";
+import { ProKeyVerification } from "@ryot-app/instance-contract/pro-key";
 import { Effect, Schema } from "effect";
 
 import { getProKeyVerifier } from "~/lib/config.server";

@@ -1,10 +1,10 @@
-import { ProKeyVerification } from "@ryot-app/contract/modules/system/pro-key";
 import {
 	type Entitlement,
 	entitlementRequired,
 	type Entitlements,
 	isEntitled,
 } from "@ryot-app/contract/schema/entitlement";
+import { ProKeyVerification } from "@ryot-app/instance-contract/pro-key";
 import { Context, DateTime, Duration, Effect, Layer, Option, Redacted } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 

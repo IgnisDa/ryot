@@ -101,8 +101,8 @@
         "@react-router/fs-routes": "8.5.1",
         "@react-router/node": "8.5.1",
         "@react-router/serve": "8.5.1",
-        "@ryot-app/contract": "workspace:*",
         "@ryot-app/email-templates": "workspace:*",
+        "@ryot-app/instance-contract": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.3.4",
         "@tanstack/react-query": "5.105.3",
@@ -204,6 +204,7 @@
         "@ryot-app/definitions": "workspace:*",
         "@ryot-app/email-templates": "workspace:*",
         "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/instance-contract": "workspace:*",
         "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/kernel-renderers": "workspace:*",
         "@ryot-app/languages": "workspace:*",
@@ -260,6 +261,7 @@
         "@noble/hashes": "2.4.0",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/instance-contract": "workspace:*",
         "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",
@@ -375,6 +377,7 @@
       "name": "@ryot-app/contract",
       "dependencies": {
         "@ryot-app/i18n": "workspace:*",
+        "@ryot-app/instance-contract": "workspace:*",
         "@ryot-app/kernel-messages": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.1.2",
@@ -430,6 +433,17 @@
         "bun-types": "1.4.4",
         "jsdom": "30.1.3",
         "react-dom": "19.3.1",
+      },
+    },
+    "packages/instance-contract": {
+      "name": "@ryot-app/instance-contract",
+      "dependencies": {
+        "effect": "4.1.2",
+      },
+      "devDependencies": {
+        "@ryot-app/testing": "workspace:*",
+        "@voila.dev/effect-bun-test": "4.0.4",
+        "bun-types": "1.4.4",
       },
     },
     "packages/kernel-messages": {
@@ -1562,6 +1576,8 @@
     "@ryot-app/fixture-plugin": ["@ryot-app/fixture-plugin@workspace:plugins/fixture"],
 
     "@ryot-app/i18n": ["@ryot-app/i18n@workspace:packages/i18n"],
+
+    "@ryot-app/instance-contract": ["@ryot-app/instance-contract@workspace:packages/instance-contract"],
 
     "@ryot-app/kernel-backend": ["@ryot-app/kernel-backend@workspace:kernel/backend"],
 

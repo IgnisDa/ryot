@@ -1,8 +1,9 @@
 import { describe, expect } from "bun:test";
 
-import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthRateLimited } from "@ryot-app/contract/auth-middleware";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";

@@ -1,5 +1,8 @@
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { type ContractProgram, makeContractClient } from "@ryot-app/contract/client";
+import {
+	ADMIN_ACCESS_TOKEN_HEADER,
+	AuthUnauthorized,
+} from "@ryot-app/instance-contract/admin-auth";
 import { Context, Effect, Layer, Schema } from "effect";
 import { HttpClient } from "effect/http";
 
@@ -39,7 +42,7 @@ export const makeAdminApi = (
 				),
 			),
 	run: <A, E>(origin: ServerOrigin, token: string, program: ContractProgram<A, E>) =>
-		makeContractClient(serverApiUrl(origin), { "Admin-Access-Token": token }).pipe(
+		makeContractClient(serverApiUrl(origin), { [ADMIN_ACCESS_TOKEN_HEADER]: token }).pipe(
 			Effect.flatMap(program),
 			Effect.provideService(HttpClient.HttpClient, http),
 			Effect.mapError((cause) => new AdminApiError({ cause })),

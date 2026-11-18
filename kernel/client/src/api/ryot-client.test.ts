@@ -1,6 +1,6 @@
 import { describe, expect } from "bun:test";
 
-import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthRateLimited } from "@ryot-app/contract/auth-middleware";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import {
 	UploadBadRequest,
@@ -21,6 +21,7 @@ import {
 	RelationshipId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import type { Recipe } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";

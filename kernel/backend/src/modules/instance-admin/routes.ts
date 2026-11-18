@@ -1,6 +1,6 @@
 import { AppContract } from "@ryot-app/contract/contract";
 import { DbError } from "@ryot-app/contract/errors";
-import { InstanceAdminInternalFailure } from "@ryot-app/contract/modules/instance-admin/contract";
+import { InstanceAdminInternalFailure } from "@ryot-app/instance-contract/account-admin";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 

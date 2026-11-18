@@ -18,6 +18,7 @@
 		{ "path": "packages/testing" },
 		{ "path": "packages/ts-utils" },
 		{ "path": "packages/contract" },
+		{ "path": "packages/instance-contract" },
 		{ "path": "packages/languages" },
 		{ "path": "packages/plugin-kit" },
 		{ "path": "packages/plugin-ui-sdk" },

@@ -2,9 +2,7 @@ import { Schema } from "effect";
 
 import { HttpUrl } from "./utils";
 
-export const UserId = Schema.String.pipe(Schema.brand("UserId"));
-
-export type UserId = typeof UserId.Type;
+export { UserId } from "@ryot-app/instance-contract/user";
 
 export const EventId = Schema.String.pipe(Schema.brand("EventId"));
 

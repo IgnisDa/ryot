@@ -1,10 +1,6 @@
 import { describe, expect } from "bun:test";
 
-import {
-	AuthRateLimited,
-	AuthUnauthorized,
-	DemoOperationProtected,
-} from "@ryot-app/contract/auth-middleware";
+import { AuthRateLimited, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type {
 	ContractPathParams,
 	ContractPayload,
@@ -18,6 +14,7 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";

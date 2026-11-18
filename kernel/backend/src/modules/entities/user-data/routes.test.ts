@@ -1,15 +1,12 @@
 import { expect } from "bun:test";
 
-import {
-	AuthMiddleware,
-	AuthUnauthorized,
-	DemoOperationProtected,
-} from "@ryot-app/contract/auth-middleware";
+import { AuthMiddleware, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";

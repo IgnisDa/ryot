@@ -1,6 +1,5 @@
 import {
 	AuthorizationContext,
-	AuthUnauthorized,
 	CurrentUser,
 	DemoOperationProtected,
 	UserInitializing,
@@ -8,6 +7,7 @@ import {
 import { AppContract } from "@ryot-app/contract/contract";
 import { DbError } from "@ryot-app/contract/errors";
 import { AssistantError } from "@ryot-app/contract/modules/assistant/schemas";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 

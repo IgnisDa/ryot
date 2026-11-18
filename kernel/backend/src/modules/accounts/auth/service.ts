@@ -1,12 +1,9 @@
 import { apiKey } from "@better-auth/api-key";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import {
-	AdminAccess,
-	AdminMiddleware,
 	AuthMiddleware,
 	AuthorizationContext,
 	AuthRateLimited,
-	AuthUnauthorized,
 	CurrentUser,
 	DemoOperationProtected,
 	UserInitializing,
@@ -35,6 +32,11 @@ import {
 	UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
+import {
+	AdminAccess,
+	AdminMiddleware,
+	AuthUnauthorized,
+} from "@ryot-app/instance-contract/admin-auth";
 import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, getOAuthState, getSessionFromCtx } from "better-auth/api";

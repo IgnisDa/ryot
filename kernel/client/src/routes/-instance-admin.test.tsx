@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { Capacitor } from "@capacitor/core";
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";

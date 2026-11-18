@@ -1,4 +1,4 @@
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { Cause, Effect, Option } from "effect";
 
 import { AdminApiError } from "#/api/admin";

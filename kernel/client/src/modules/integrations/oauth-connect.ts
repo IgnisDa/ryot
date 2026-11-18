@@ -1,5 +1,4 @@
 import { Browser } from "@capacitor/browser";
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import {
 	OAUTH_CONNECTION_RETURN_PATH,
 	OAuthConnectionNotFoundError,
@@ -12,6 +11,7 @@ import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { Message } from "@ryot-app/i18n/message";
 import { useT } from "@ryot-app/i18n/react";
 import type { Text } from "@ryot-app/i18n/text";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import type {

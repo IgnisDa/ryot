@@ -1,7 +1,8 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthRateLimited } from "@ryot-app/contract/auth-middleware";
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";

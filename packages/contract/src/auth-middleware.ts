@@ -1,3 +1,4 @@
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { Context, Schema } from "effect";
 import { HttpApiMiddleware, HttpApiSchema, HttpApiSecurity } from "effect/http-api";
 
@@ -5,17 +6,6 @@ import { type AuthorizationContext as AuthorizationContextValue, WriteAccess } f
 import type { UserId } from "./schema/brands";
 import { EntitlementRequired } from "./schema/entitlement";
 import type { UserPreferences } from "./schema/user-preferences";
-
-const AuthUnauthorizedReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("write-blocked") }),
-	Schema.Struct({ code: Schema.Literal("admin-access-required") }),
-	Schema.Struct({ code: Schema.Literal("authentication-required") }),
-]);
-
-export class AuthUnauthorized extends Schema.TaggedError<
-	AuthUnauthorized,
-	{ readonly brand: unique symbol }
->()("AuthUnauthorized", { reason: AuthUnauthorizedReason }) {}
 
 const AuthRateLimitReason = Schema.Struct({
 	code: Schema.Literal("api-key-rate-limited"),
@@ -32,10 +22,6 @@ export type CurrentUserValue = {
 
 export class CurrentUser extends Context.Service<CurrentUser, CurrentUserValue>()(
 	"@ryot-app/contract/auth-middleware/CurrentUser",
-) {}
-
-export class AdminAccess extends Context.Service<AdminAccess, { readonly authorized: true }>()(
-	"@ryot-app/contract/auth-middleware/AdminAccess",
 ) {}
 
 export class AuthRateLimited extends Schema.TaggedError<
@@ -65,14 +51,6 @@ export class WriteAccessDenied extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("WriteAccessDenied", {
 	reason: Schema.Struct({ writeAccess: WriteAccess, code: Schema.Literal("write-access-denied") }),
-}) {}
-
-export class AdminMiddleware extends HttpApiMiddleware.Service<
-	AdminMiddleware,
-	{ provides: AdminAccess }
->()("AdminMiddleware", {
-	error: AuthUnauthorized.pipe(HttpApiSchema.status(401)),
-	security: { adminToken: HttpApiSecurity.apiKey({ in: "header", key: "Admin-Access-Token" }) },
 }) {}
 
 /**

@@ -1,10 +1,6 @@
 import { expect } from "bun:test";
 
 import {
-	InstanceAdminNotFound,
-	InstanceAdminRequestFailure,
-} from "@ryot-app/contract/modules/instance-admin/contract";
-import {
 	getNativeOAuthCallbackUri,
 	IMPERSONATION_HANDOFF_TTL_SECONDS,
 	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
@@ -13,6 +9,10 @@ import {
 import type { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import {
+	InstanceAdminNotFound,
+	InstanceAdminRequestFailure,
+} from "@ryot-app/instance-contract/account-admin";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";

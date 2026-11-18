@@ -1,4 +1,3 @@
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { badRequest } from "@ryot-app/contract/errors";
 import {
 	AuthorizationContext,
@@ -9,6 +8,7 @@ import {
 import { approvalSubject, type ApprovalTarget } from "@ryot-app/contract/schema/approval";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { Message } from "@ryot-app/i18n/message";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
 import { Context, Deferred, Effect, Layer, Option, Schedule, Schema, ScopedCache } from "effect";

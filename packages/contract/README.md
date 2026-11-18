@@ -3,6 +3,8 @@
 `@ryot-app/contract` is the client-safe HTTP boundary: Effect Schema payloads, operations, generic wire schemas, plugin manifests, authentication middleware, wire-safe primitives, and failure data. The backend implements it; clients consume it without backend or runtime dependencies.
 
 The iframe bridge, client artifact format, client source policy, and shared client-plugin capabilities belong to `@ryot-app/plugin-client-contract`.
+The [instance contract](../instance-contract/README.md) owns the account admin API and Pro-key
+verification schemas shared with the website.
 
 ## Client Pages And Manifests
 

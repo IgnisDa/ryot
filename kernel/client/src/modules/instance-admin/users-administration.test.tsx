@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

@@ -1,4 +1,4 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthRateLimited } from "@ryot-app/contract/auth-middleware";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
 	PluginConflictError,
@@ -10,6 +10,7 @@ import {
 import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { EntitlementRequired } from "@ryot-app/contract/schema/entitlement";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import type {
 	PluginOperationBridgeErrorReason,
 	PluginOperationOutcome,

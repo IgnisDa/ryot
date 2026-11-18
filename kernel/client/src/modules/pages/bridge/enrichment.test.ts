@@ -1,12 +1,12 @@
 import { describe, expect } from "bun:test";
 
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import {
 	EntityEnrichmentRefused,
 	EntityNotFound,
 } from "@ryot-app/contract/modules/entities/schemas";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import type { PluginEnrichmentRequest } from "@ryot-app/plugin-client-contract";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";

@@ -1,11 +1,11 @@
 import { expect } from "bun:test";
 
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { getMcpOAuthResource, type WriteAccess } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { CapabilityId } from "@ryot-app/contract/schema/capability";
 import type { Entitlements } from "@ryot-app/contract/schema/entitlement";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";

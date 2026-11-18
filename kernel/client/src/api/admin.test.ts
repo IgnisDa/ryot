@@ -1,6 +1,6 @@
 import { describe, expect } from "bun:test";
 
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthUnauthorized } from "@ryot-app/instance-contract/admin-auth";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";

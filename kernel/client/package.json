@@ -36,6 +36,7 @@
 		"@noble/hashes": "2.4.0",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/i18n": "workspace:*",
+		"@ryot-app/instance-contract": "workspace:*",
 		"@ryot-app/kernel-messages": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/plugin-client-sdk": "workspace:*",

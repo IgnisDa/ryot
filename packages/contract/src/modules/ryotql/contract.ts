@@ -1,7 +1,8 @@
+import { AdminMiddleware } from "@ryot-app/instance-contract/admin-auth";
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
-import { AdminMiddleware, AuthMiddleware } from "../../auth-middleware";
+import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { PluginIdentityReference } from "../plugins/references";
 import { RyotQLResponse } from "./language";
