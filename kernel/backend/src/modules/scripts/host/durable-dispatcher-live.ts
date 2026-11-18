@@ -128,27 +128,24 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								const scope = { lane, context, principal, startedAt, executionId };
 								const value = yield* recordHostCall(
 									request,
-									Effect.andThen(
-										authority.resolve(principal),
-										request.args.capability === "httpCall"
-											? httpDispatcher.inline(
-													request,
-													{
-														lane,
-														input,
-														executionId,
-														resolutionMode: "exact",
-														subject: principal.subject,
-														scriptId: principal.scriptId,
-													},
-													principal,
+									request.args.capability === "httpCall"
+										? httpDispatcher.inline(
+												request,
+												{
+													lane,
+													input,
 													executionId,
-													startedAt,
-													wait,
-													(progress) => checkpoint({ request, progress, _tag: "Http" }),
-												)
-											: dispatchSandboxHostActivity(implementations, request, scope),
-									),
+													resolutionMode: "exact",
+													subject: principal.subject,
+													scriptId: principal.scriptId,
+												},
+												principal,
+												executionId,
+												startedAt,
+												wait,
+												(progress) => checkpoint({ request, progress, _tag: "Http" }),
+											)
+										: dispatchSandboxHostActivity(implementations, request, scope),
 								);
 								if (value === null) {
 									return { value, settled: false };

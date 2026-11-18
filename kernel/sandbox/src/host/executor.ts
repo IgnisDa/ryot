@@ -18,7 +18,6 @@ import {
 	type SidecarDoneFrame,
 } from "../protocol/messages";
 import { SandboxAdmissionLease } from "./admission";
-import { SandboxExecutionAuthority } from "./authority";
 import { bindObservabilityHostFunctions } from "./bridge-adapter";
 import { ExecutionFiles } from "./file-access";
 import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
@@ -29,7 +28,6 @@ import {
 	type BoundHostFunction,
 	sandboxPlatformFailureKind,
 	type SandboxRunInput,
-	toSandboxHostError,
 } from "./invocation";
 import { encodedJsonBytes } from "./json-bytes";
 import { recordSandboxExecution, type SandboxExecutionOutcome, sandboxMetricKind } from "./metrics";
@@ -87,7 +85,6 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 			const gate = yield* SandboxHostCallGate;
 			const files = yield* ExecutionFiles;
 			const hostFunctions = yield* SandboxHostFunctions;
-			const authority = yield* SandboxExecutionAuthority;
 			const run = Effect.fn("SandboxExecutor.run")(function* (input: SandboxRunInput) {
 				const executionStartedAt = yield* Clock.currentTimeMillis;
 				const kind = sandboxMetricKind(input.principal.metadata);
@@ -131,9 +128,6 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 							},
 							input,
 						);
-						const resolveAuthority = yield* Effect.cached(
-							authority.resolve(input.principal).pipe(Effect.mapError(toSandboxHostError)),
-						);
 						const result = yield* supervisor.run({
 							lease,
 							lane: input.lane,
@@ -157,13 +151,7 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 											input,
 											parentSpan,
 											files: access,
-											apiFunctions: Object.fromEntries(
-												Object.entries(selected).map(([name, host]) => [
-													name,
-													(args: ReadonlyArray<unknown>) =>
-														Effect.andThen(resolveAuthority, host(args)),
-												]),
-											),
+											apiFunctions: selected,
 										})
 										.pipe(
 											Effect.mapError(

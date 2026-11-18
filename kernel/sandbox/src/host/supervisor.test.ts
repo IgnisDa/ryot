@@ -679,6 +679,29 @@ supervisorTest("returns no recovery identity from a run that recorded no failure
 	),
 );
 
+supervisorTest("resolves authority once to reserve and run an execution", () => {
+	let resolutions = 0;
+	return withSupervisor(({ harness, supervisor }) =>
+		Effect.gen(function* () {
+			const fiber = yield* startRun(supervisor, harness).pipe(
+				Effect.forkScoped({ startImmediately: true }),
+			);
+			const core = yield* awaitConnection(harness, "user/core");
+			yield* harness.complete(core, yield* Queue.take(core.nextRun));
+			yield* Fiber.join(fiber);
+			expect(resolutions).toBe(1);
+		}),
+	).pipe(
+		Effect.provideService(SandboxExecutionAuthority, {
+			resolve: () =>
+				Effect.sync(() => {
+					resolutions++;
+					return "user" as const;
+				}),
+		}),
+	);
+});
+
 supervisorTest("starts lazy tiers once and stops them only when idle", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {

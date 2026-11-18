@@ -520,6 +520,25 @@ const resolveGlobalCatalog = (
 
 const revisionCacheLimit = 256;
 
+type RunUserPluginsSlot = {
+	readonly userId: string;
+	plugins: undefined | ReadonlyArray<UserPlugin>;
+};
+
+/**
+ * One sandbox run's snapshot of its user's installed plugins. Its host calls read this snapshot, so
+ * an installation change applies from the next run.
+ */
+export const RunUserPlugins = Context.Reference<null | RunUserPluginsSlot>(
+	"@ryot-app/kernel-backend/modules/definitions/catalog/RunUserPlugins",
+	{ defaultValue: () => null },
+);
+
+export const runUserPlugins = (userId: string): RunUserPluginsSlot => ({
+	userId,
+	plugins: undefined,
+});
+
 /**
  * Resolves the definitions each user sees from their installations and the definitions of the revisions those
  * installations run. Revisions never change, so their definitions are kept by revision ID; the kernel's are kept
@@ -775,7 +794,20 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 				return rows.flatMap(resolveUserPlugin);
 			});
 
-			const userPlugins = (userId: string) => listUserPlugins(sql`i.user_id = ${userId}`);
+			const userPlugins = (userId: string) =>
+				Effect.flatMap(RunUserPlugins, (run) => {
+					const load = listUserPlugins(sql`i.user_id = ${userId}`);
+					if (run?.userId !== userId) {
+						return load;
+					}
+					return run.plugins === undefined
+						? Effect.tap(load, (plugins) =>
+								Effect.sync(() => {
+									run.plugins = plugins;
+								}),
+							)
+						: Effect.succeed(run.plugins);
+				});
 
 			const forUser = Effect.fn("DefinitionCatalog.forUser")(function* (userId: string) {
 				const plugins = yield* userPlugins(userId);

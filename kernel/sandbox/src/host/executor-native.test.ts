@@ -647,13 +647,12 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 	);
 
 	test.effect(
-		"resolves authority once per run and reuses its outcome for every host call",
+		"resolves authority once per run for placement and every host call",
 		() => {
 			const ownerId = UserId.make(testExecutionId("native-service-owner"));
 			const executionIds = [
 				testExecutionId("native-service-authority-granted"),
-				testExecutionId("native-service-authority-denied"),
-				testExecutionId("native-service-authority-idle"),
+				testExecutionId("native-service-authority-revoked"),
 			];
 			return withRecoveryCleanup(
 				executionIds,
@@ -661,41 +660,30 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 					const service = yield* SandboxExecutor;
 					const control = yield* NativeServiceControl;
 					const repeated = yield* compileTestScript(repeatedHostCallsDefinitionSource);
-					const idle = yield* compileTestScript(neighbourDefinitionSource);
-					const [grantedId = "", deniedId = "", idleId = ""] = executionIds;
-
-					// The supervisor resolves authority to place a run, before any host call.
-					control.authority.resolutions = 0;
-					yield* service.run(makeRunInput(idle, idleId, {}, ownerId));
-					const placement = control.authority.resolutions;
+					const [grantedId = "", revokedId = ""] = executionIds;
 
 					control.calls.length = 0;
 					control.authority.resolutions = 0;
 					const granted = yield* service.run(makeRunInput(repeated, grantedId, {}, ownerId));
 					expect(granted).toMatchObject({ success: true, value: ["ok", "ok", "ok"] });
 					expect(control.calls).toHaveLength(3);
-					expect(control.authority.resolutions).toBe(placement + 1);
+					expect(control.authority.resolutions).toBe(1);
 
 					control.calls.length = 0;
 					control.authority.resolutions = 0;
-					control.authority.failAfter = placement;
-					const denied = yield* service
-						.run(makeRunInput(repeated, deniedId, {}, ownerId))
-						.pipe(
-							Effect.ensuring(
-								Effect.sync(() => (control.authority.failAfter = Number.POSITIVE_INFINITY)),
+					control.authority.failAfter = 0;
+					const revoked = yield* Effect.flip(
+						service
+							.run(makeRunInput(repeated, revokedId, {}, ownerId))
+							.pipe(
+								Effect.ensuring(
+									Effect.sync(() => (control.authority.failAfter = Number.POSITIVE_INFINITY)),
+								),
 							),
-						);
-					expect(denied).toMatchObject({
-						success: true,
-						value: [
-							stringContaining("failed:"),
-							stringContaining("failed:"),
-							stringContaining("failed:"),
-						],
-					});
+					);
+					expect(revoked).toMatchObject({ kind: "invalid-input", message: "authority revoked" });
 					expect(control.calls).toEqual([]);
-					expect(control.authority.resolutions).toBe(placement + 1);
+					expect(control.authority.resolutions).toBe(1);
 				}),
 			);
 		},

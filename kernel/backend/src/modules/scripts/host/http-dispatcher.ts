@@ -405,7 +405,9 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				success: HttpNetworkAttempt,
 				name: `sandbox-http-${request.index}-network-${attempt}`,
 				execute: Effect.gen(function* () {
-					yield* executionAuthority.resolve(principal);
+					if (!inline) {
+						yield* executionAuthority.resolve(principal);
+					}
 					if (policy) {
 						yield* admission
 							.sending(admissionDeclaration(policy))

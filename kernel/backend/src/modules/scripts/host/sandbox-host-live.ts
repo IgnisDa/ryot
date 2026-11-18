@@ -1,4 +1,5 @@
 import { PgClient } from "@effect/sql-pg";
+import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import { bindSandboxHostFunctions } from "@ryot-app/sandbox/host/bridge-adapter";
 import { SandboxHostCallScope, SandboxHostConfig } from "@ryot-app/sandbox/host/config";
@@ -12,6 +13,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { Clock, Effect, Layer, Pool } from "effect";
 import { Reactivity } from "effect/reactivity";
 
+import { RunUserPlugins, runUserPlugins } from "#modules/definitions/catalog";
 import { AppConfig, databaseConnectionBudget } from "#platform/config/service";
 import { DatabaseConnectionLimit, DatabaseSession } from "#platform/db/session";
 import { CurrentJobId } from "#platform/jobs/worker";
@@ -140,6 +142,8 @@ export const SandboxHostFunctionsLive = Layer.effect(
 			const principal = yield* decodeScriptExecutionPrincipal(input.principal);
 			const scriptInput = { ...input, principal };
 			const jobId = yield* CurrentJobId;
+			const userId = sandboxSubjectUserId(principal.subject);
+			const plugins = userId === null ? null : runUserPlugins(userId);
 			return Object.fromEntries(
 				Object.entries(bindSandboxHostFunctions(implementations, scriptInput))
 					.filter(
@@ -150,7 +154,11 @@ export const SandboxHostFunctionsLive = Layer.effect(
 					.map(([capability, bound]): [string, BoundHostFunction] => [
 						capability,
 						// Host calls run on the resident sidecar's fibers, which keep the job that started it.
-						(args) => bound(args).pipe(Effect.provideService(CurrentJobId, jobId)),
+						(args) =>
+							bound(args).pipe(
+								Effect.provideService(CurrentJobId, jobId),
+								Effect.provideService(RunUserPlugins, plugins),
+							),
 					]),
 			);
 		});

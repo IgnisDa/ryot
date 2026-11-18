@@ -206,7 +206,7 @@ class RecordedHostCalls extends Context.Service<
 	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedHostCalls",
 ) {}
 
-const hostCallLayer = (options: { readonly authority?: SandboxExecutionAuthority["Service"] }) =>
+const hostCallLayer = (authority?: SandboxExecutionAuthority["Service"]) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const activities = yield* Ref.make<ReadonlyArray<string>>([]);
@@ -224,7 +224,7 @@ const hostCallLayer = (options: { readonly authority?: SandboxExecutionAuthority
 					engine,
 					script,
 					instance,
-					...options,
+					...(authority === undefined ? {} : { authority }),
 					implementations: {
 						...implementations,
 						additional: {
@@ -242,7 +242,7 @@ const hostCallLayer = (options: { readonly authority?: SandboxExecutionAuthority
 		}),
 	);
 
-layer(hostCallLayer({}))((test) => {
+layer(hostCallLayer())((test) => {
 	test.effect(
 		"journals each durable host call as one activity of the script's workflow",
 		() =>
@@ -274,11 +274,13 @@ layer(hostCallLayer({}))((test) => {
 	);
 });
 
-const runInlineHostCall = Effect.gen(function* () {
+const runInlineHostCall = Effect.fnUntraced(function* (
+	request: ReturnType<typeof settingsRequest> = settingsRequest(2),
+) {
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 	const pending = yield* Ref.make<ReadonlyArray<SandboxInlineProgress>>([]);
 	const result = yield* dispatcher.settleInline(
-		[settingsRequest(2)],
+		[request],
 		{},
 		principal,
 		"background",
@@ -290,10 +292,10 @@ const runInlineHostCall = Effect.gen(function* () {
 	return { result, pending: yield* Ref.get(pending) };
 });
 
-layer(hostCallLayer({}))((test) => {
+layer(hostCallLayer())((test) => {
 	test.effect("settles a host call inline and checkpoints its result without an activity", () =>
 		Effect.gen(function* () {
-			const settled = yield* runInlineHostCall;
+			const settled = yield* runInlineHostCall();
 			expect(settled.result).toEqual([settingsRead]);
 			expect(settled.pending).toMatchObject([{ _tag: "Completed", value: settingsRead }]);
 			const recorded = yield* RecordedHostCalls;
@@ -303,18 +305,26 @@ layer(hostCallLayer({}))((test) => {
 	);
 });
 
-layer(
-	hostCallLayer({
-		authority: {
-			resolve: () =>
-				Effect.fail(new SandboxRunError({ kind: "script-failure", message: "Unavailable" })),
-		},
-	}),
-)((test) => {
+layer(hostCallLayer())((test) => {
 	test.effect("defers the run when a host call cannot settle inline", () =>
 		Effect.gen(function* () {
-			expect(yield* runInlineHostCall).toEqual({ pending: [], result: null });
+			expect(
+				yield* runInlineHostCall({ ...settingsRequest(2), name: "getUserPreferences" }),
+			).toEqual({ pending: [], result: null });
 			expect(yield* (yield* RecordedHostCalls).calls).toBe(0);
+		}),
+	);
+});
+
+layer(
+	hostCallLayer({
+		resolve: () => Effect.fail(new SandboxRunError({ message: "Revoked", kind: "script-failure" })),
+	}),
+)((test) => {
+	test.effect("settles inline host calls on the run's authority without resolving it again", () =>
+		Effect.gen(function* () {
+			expect((yield* runInlineHostCall()).result).toEqual([settingsRead]);
+			expect(yield* (yield* RecordedHostCalls).calls).toBe(1);
 		}),
 	);
 });
