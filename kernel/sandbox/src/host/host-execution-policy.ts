@@ -18,7 +18,6 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	updateUserEntity: { resultBytes: MiB, dispatch: "service" },
 	getEntitlements: { resultBytes: KiB, dispatch: "activity" },
 	getPluginConfig: { resultBytes: null, dispatch: "activity" },
-	getUserSettings: { resultBytes: null, dispatch: "activity" },
 	commitUserChanges: { resultBytes: MiB, dispatch: "service" },
 	getEntitySchemas: { resultBytes: null, dispatch: "activity" },
 	listEventSchemas: { resultBytes: null, dispatch: "activity" },
@@ -45,6 +44,11 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 		dispatch: "activity",
 		wireBytes: SANDBOX_LIMITS.ryotqlResultBytes + KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.ryotqlResultBytes,
+	},
+	getUserSettings: {
+		dispatch: "activity",
+		wireBytes: SANDBOX_LIMITS.userSettingsBytes + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.userSettingsBytes,
 	},
 	getPersistentValue: {
 		dispatch: "activity",

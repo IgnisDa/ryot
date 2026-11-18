@@ -18,6 +18,7 @@ const CONCURRENT_HOST_CALLS = 4;
 export const SANDBOX_LIMITS = {
 	ryotqlResultBytes: MiB,
 	journalBytes: 100 * MiB,
+	userSettingsBytes: 64 * KiB,
 	replay: { shortWaitMs: 1_000 },
 	compiler: SANDBOX_COMPILER_LIMITS,
 	diagnostics: { messageBytes: 64 * KiB },

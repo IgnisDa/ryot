@@ -135,6 +135,9 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 							},
 							input,
 						);
+						const resolveAuthority = yield* Effect.cached(
+							authority.resolve(input.principal).pipe(Effect.mapError(toSandboxHostError)),
+						);
 						const result = yield* supervisor.run({
 							lease,
 							lane: input.lane,
@@ -162,12 +165,7 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 												Object.entries(selected).map(([name, host]) => [
 													name,
 													(args: ReadonlyArray<unknown>) =>
-														authority
-															.resolve(input.principal)
-															.pipe(
-																Effect.mapError(toSandboxHostError),
-																Effect.andThen(host(args)),
-															),
+														Effect.andThen(resolveAuthority, host(args)),
 												]),
 											),
 										})
