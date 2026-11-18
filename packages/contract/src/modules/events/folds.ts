@@ -10,6 +10,7 @@ export const FOLD_LIMITS = {
 	inputChanges: 500,
 	valueBytes: 262_144,
 	requestEntities: 100,
+	inputBytes: 1_048_576,
 };
 
 /** The value of a subject that merged or restored into this one, with the IDs it holds and what they became. */

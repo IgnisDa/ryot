@@ -1,4 +1,6 @@
+import { FOLD_LIMITS } from "@ryot-app/contract/modules/events/folds";
 import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import {
 	jsonByteLength,
@@ -39,6 +41,7 @@ export const SANDBOX_LIMITS = {
 		resultBytes: 4 * MiB,
 		requestBytes: 2 * MiB,
 		contextBytes: 64 * KiB,
+		projectionContextBytes: FOLD_LIMITS.inputBytes,
 	},
 	bridge: {
 		requestBytes: MiB,
@@ -149,9 +152,16 @@ export const sandboxWorkflowJournalByteError = (
 		: null;
 };
 
-export const sandboxContextError = (context: unknown) => {
+export const sandboxContextBytes = (subject: SandboxExecutionSubject) =>
+	subject.type === "projection"
+		? SANDBOX_LIMITS.execution.projectionContextBytes
+		: SANDBOX_LIMITS.execution.contextBytes;
+
+export const sandboxContextError = (
+	context: unknown,
+	limit: number = SANDBOX_LIMITS.execution.contextBytes,
+) => {
 	const bytes = jsonByteLength(context);
-	const limit = SANDBOX_LIMITS.execution.contextBytes;
 	if (bytes === null) {
 		return "Sandbox definition context must be JSON";
 	}

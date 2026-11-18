@@ -13,6 +13,11 @@ import {
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
+import {
+	SANDBOX_LIMITS,
+	sandboxContextBytes,
+	sandboxContextError,
+} from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -106,30 +111,48 @@ const testLayer = Layer.mergeAll(
 	JobQueue.layer,
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
-/** Installs a fold that projects each changed event's value and counts its runs, recording every input. */
-const setup = Effect.fn(function* () {
+type Projected = { readonly eventId: string; readonly properties: { readonly value: unknown } };
+
+/** Projects each changed event's value and counts its runs. */
+const countingFold = (input: typeof FoldInput.Type) =>
+	Effect.succeed({
+		value: {
+			runs:
+				Option.match(Schema.decodeUnknownOption(FoldCount)(input.value), {
+					onNone: () => 0,
+					onSome: ({ runs }) => runs,
+				}) + 1,
+		},
+		events: (input.changes ?? []).flatMap(({ after }): Array<Projected> =>
+			after ? [{ eventId: after.id, properties: { value: after.properties["value"] } }] : [],
+		),
+	});
+
+/** Installs a fold, recording every input after checking that it fits the sandbox's bound for its principal. */
+const setup = Effect.fn(function* (
+	fold: (
+		input: typeof FoldInput.Type,
+	) => Effect.Effect<{
+		readonly value: unknown;
+		readonly events: ReadonlyArray<Projected>;
+	}> = countingFold,
+) {
 	const packageId = testPluginPackageId();
 	const installed = yield* installRevisionPackage(foldedPackage(packageId, "v1"), userId);
 	const recorded: Array<Recorded> = [];
 	yield* (yield* ScriptCalls).install((call) =>
 		Effect.gen(function* () {
+			expect(
+				sandboxContextError(call.input, sandboxContextBytes(call.principal.subject)),
+			).toBeNull();
 			const input = yield* Schema.decodeUnknownEffect(FoldInput)(call.input).pipe(Effect.orDie);
-			const previous = Schema.decodeUnknownOption(FoldCount)(input.value);
 			recorded.push({ changes: input.changes, subjectEntityId: input.subjectEntityId });
+			const output = yield* fold(input);
 			return {
 				logs: [],
 				error: null,
 				status: "completed" as const,
-				value: {
-					changes: [],
-					relationships: [],
-					value: {
-						runs: Option.match(previous, { onNone: () => 0, onSome: ({ runs }) => runs }) + 1,
-					},
-					events: (input.changes ?? []).flatMap(({ after }) =>
-						after ? [{ eventId: after.id, properties: { value: after.properties["value"] } }] : [],
-					),
-				},
+				value: { ...output, changes: [], relationships: [] },
 			};
 		}),
 	);
@@ -161,6 +184,33 @@ const write = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 			.transaction(folds.within(work, () => Effect.void))
 			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 	});
+
+const createChanged = Effect.fn(function* (
+	pluginId: Effect.Success<ReturnType<typeof setup>>["installed"]["pluginId"],
+	entityId: EntityId,
+	values: ReadonlyArray<string>,
+) {
+	const events = yield* EventsRepository;
+	const created = yield* Effect.forEach(values, (value) =>
+		Effect.map(randomUuid, (id) => ({ value, id: EventId.make(id) })),
+	);
+	yield* write(
+		events.createEvents(
+			created.map(({ id, value }) => ({
+				id,
+				userId,
+				entityId,
+				eventSchemaName,
+				propertiesSchema,
+				properties: { value },
+				eventSchemaPluginId: pluginId,
+				eventSchemaSlug: EventSchemaSlug.make("changed"),
+				occurredAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+			})),
+		),
+	);
+	return created;
+});
 
 const derived = (subject: string) =>
 	Effect.flatMap(DatabaseSession, (session) =>
@@ -309,6 +359,84 @@ layer(testLayer)((test) => {
 					expect(yield* revisionOf).toEqual([{ id: same.revisionId }]);
 					yield* reinstall("v3", "changed-fold");
 					expect(yield* replays).toHaveLength(1);
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
+		"passes back a stored value larger than the general script context, incrementally and on replay",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const pad = "x".repeat(SANDBOX_LIMITS.execution.contextBytes);
+					const { ids, recorded, installed } = yield* setup((input) =>
+						Effect.map(countingFold(input), (output) => ({
+							...output,
+							value: { ...output.value, pad },
+						})),
+					);
+					const [first] = ids;
+					yield* createChanged(installed.pluginId, first, ["one"]);
+					yield* createChanged(installed.pluginId, first, ["two"]);
+					yield* (yield* Folds.make).failed({ userId, entityId: first });
+					yield* createChanged(installed.pluginId, first, ["three"]);
+					expect(recorded.map(({ changes }) => changes?.length ?? null)).toEqual([null, 1, null]);
+					expect((yield* derived(first)).find(({ kind }) => kind === "subject")?.value).toEqual({
+						pad,
+						runs: 3,
+					});
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
+		"degrades a change list that does not fit the fold input to a full replay with the same outputs",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const { ids, recorded, installed } = yield* setup((input) =>
+						Effect.gen(function* () {
+							const output = yield* countingFold(input);
+							if (input.changes !== null) {
+								return output;
+							}
+							const rows = yield* session
+								.run((db) =>
+									db
+										.select({ id: tables.event.id, properties: tables.event.properties })
+										.from(tables.event)
+										.where(eq(tables.event.entityId, input.subjectEntityId)),
+								)
+								.pipe(Effect.orDie);
+							return {
+								...output,
+								events: rows.map((row) => ({
+									eventId: row.id,
+									properties: { value: row.properties["value"] },
+								})),
+							};
+						}),
+					);
+					const [first] = ids;
+					const kept = yield* createChanged(installed.pluginId, first, ["kept"]);
+					const bulk = yield* createChanged(
+						installed.pluginId,
+						first,
+						Array.from({ length: 300 }, (_, index) => `${index}`.padEnd(4 * 1024, "x")),
+					);
+					expect(recorded.at(-1)?.changes).toBeNull();
+					expect(
+						Object.fromEntries(
+							(yield* derived(first)).flatMap((row) =>
+								row.kind === "event" ? [[row.targetId, row.value]] : [],
+							),
+						),
+					).toEqual(Object.fromEntries([...kept, ...bulk].map(({ id, value }) => [id, { value }])));
+					yield* createChanged(installed.pluginId, first, ["after"]);
+					expect(recorded.at(-1)?.changes).toHaveLength(1);
 				}),
 			),
 		testTimeout,

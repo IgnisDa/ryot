@@ -12,6 +12,7 @@ import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brand
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
@@ -64,6 +65,11 @@ const MAX_RUNS = 2;
 const REBUILD_PAGE = 500;
 
 const failure = (message: string) => new FoldFailed({ message });
+
+const fits = (input: typeof FoldInput.Type) => {
+	const bytes = jsonByteLength(input);
+	return bytes !== null && bytes <= FOLD_LIMITS.inputBytes;
+};
 
 export class Folds extends Context.Service<Folds>()(
 	"@ryot-app/kernel-backend/modules/derived-values/service/Folds",
@@ -197,14 +203,20 @@ export class Folds extends Context.Service<Folds>()(
 						),
 				);
 				const own = stored.find((row) => row.kind === "subject");
-				const changes = own?.status === "ready" && absorbed.length === 0 ? entry.changes : null;
-				const input = {
-					changes,
+				const replay = {
 					absorbed,
+					changes: null,
 					value: own?.value ?? null,
 					subjectEntityId: subject.entityId,
 				};
-				return { input, binding };
+				if (!fits(replay)) {
+					return yield* failure(`Fold input exceeds ${FOLD_LIMITS.inputBytes} UTF-8 bytes`);
+				}
+				const incremental =
+					own?.status === "ready" && absorbed.length === 0 && entry.changes !== null
+						? { ...replay, changes: entry.changes }
+						: null;
+				return { binding, input: incremental && fits(incremental) ? incremental : replay };
 			});
 
 			const write = Effect.fnUntraced(function* (

@@ -637,6 +637,49 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 	);
 
 	test.effect(
+		"accepts a projection context up to the fold input bound and no other subject's past the script bound",
+		() => {
+			const ownerId = UserId.make(testExecutionId("native-service-owner"));
+			const executionIds: string[] = [];
+			return withRecoveryCleanup(
+				executionIds,
+				Effect.gen(function* () {
+					const service = yield* SandboxExecutor;
+					const compiled = yield* compileTestScript(capsDefinitionSource);
+					const run = (context: unknown, subject: SandboxPrincipal["subject"]) => {
+						const executionId = testExecutionId("native-service-projection");
+						executionIds.push(executionId);
+						const input = makeRunInput(compiled, executionId, context, ownerId);
+						return service.run({ ...input, principal: { ...input.principal, subject } });
+					};
+					const base = { tail: 0, pad: "", count: 0, unit: "a" };
+					const pad = "a".repeat(
+						SANDBOX_LIMITS.execution.projectionContextBytes -
+							encodedBytes(yield* encodeContext(base)),
+					);
+					const projection = { userId: ownerId, type: "projection" as const };
+					expect(yield* run({ ...base, pad }, projection)).toMatchObject({
+						value: "",
+						success: true,
+					});
+					expect(yield* Effect.flip(run({ ...base, pad: `${pad}a` }, projection))).toMatchObject({
+						kind: "invalid-input",
+					});
+					expect(
+						yield* Effect.flip(
+							run(
+								{ ...base, pad: "a".repeat(SANDBOX_LIMITS.execution.contextBytes) },
+								makeUserSubject(ownerId),
+							),
+						),
+					).toMatchObject({ kind: "invalid-input" });
+				}),
+			);
+		},
+		testTimeout,
+	);
+
+	test.effect(
 		"rejects an invocation over the request byte limit before dispatch",
 		() => {
 			const ownerId = UserId.make(testExecutionId("native-service-owner"));

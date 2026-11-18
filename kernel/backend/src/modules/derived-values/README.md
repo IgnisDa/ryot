@@ -19,6 +19,10 @@ The script receives `FoldInput`:
   session, schema slugs, occurrence, order key and order creation time (falling back to its ID and
   creation time), and properties, so a deleted event's data is still available.
 
+The whole input is at most 1 MiB, enough for a stored value and several absorbed values. A change list
+that would not fit is dropped, so the subject replays in full; a value and absorbed values that do not
+fit fail the fold.
+
 It returns `FoldOutput`:
 
 - `value`: its own state, at most 256 KiB.
@@ -45,7 +49,8 @@ check, the kernel reads the current image of each changed event, routes both ima
 and folds each subject with its change list. A relationship write folds its source subject with an empty
 change list, which refreshes link outputs. A subject gets a full replay when it has no ready subject
 row (new, pending or failed), holds absorbed values, was marked whole (an entity content change, a merge,
-a fold request or a fold job), or has more than 500 changed events.
+a fold request or a fold job), has more than 500 changed events, or has a change list too large for
+the input bound.
 
 Outside an events transaction, marking queues a `fold` job instead. An event create on the background
 lane, such as an import, integration or async hook, also queues one `fold` job per subject, so bulk

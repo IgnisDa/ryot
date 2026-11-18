@@ -87,6 +87,7 @@ Runtime and compiler limits are set by their owners, not environment settings.
 | Compiler concurrency / CPU time / sampled Linux process-tree memory |                    2 / 5 seconds / 768 MiB |
 | Compiler diagnostics                                                |                      100 entries / 256 KiB |
 | Local replay timeout / context / final result                       |                30 seconds / 64 KiB / 4 MiB |
+| Projection-subject context                                          |                                      1 MiB |
 | Runner request                                                      |                                      2 MiB |
 | Host calls / HTTP subset / in-flight calls                          |                             1,000 / 50 / 4 |
 | Journal / entry / chunk / maximum reads / fetched data              | 100 MiB / 12 MiB / 1 MiB / 2,048 / 200 MiB |

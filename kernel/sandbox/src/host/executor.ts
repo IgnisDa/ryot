@@ -10,6 +10,7 @@ import { Cause, Clock, Context, Effect, Layer, Option, Schema } from "effect";
 import {
 	SANDBOX_LIMITS,
 	SANDBOX_LOG_TRUNCATION_MARKER,
+	sandboxContextBytes,
 	sandboxContextError,
 } from "../protocol/limits";
 import {
@@ -102,7 +103,10 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 							? existingLease.value
 							: yield* supervisor.reserve(input.principal, input.lane);
 						const context = input.context ?? {};
-						const contextError = sandboxContextError(context);
+						const contextError = sandboxContextError(
+							context,
+							sandboxContextBytes(input.principal.subject),
+						);
 						if (contextError !== null) {
 							return yield* new SandboxRunError({ kind: "invalid-input", message: contextError });
 						}
