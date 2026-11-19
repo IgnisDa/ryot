@@ -8,7 +8,7 @@ atomically under the writer's principal (`command.writeContext`) after translati
 
 - `entity`: a user-owned root entity create or update, with the expected baseline for updates.
 - `entities`: user entity `deletes`, data `clears` and `merges` (both through
-  `EntityUserDataService`), `updates` of existing user entities (each shaped and checked like a root
+  `EntityUserDataService`; a kernel writer's `null` schema accepts the entity's own), `updates` of existing user entities (each shaped and checked like a root
   entity update, at most once per entity), and bootstrap `ensures`.
 - `relationships`: user relationship `upserts` (`merge` or `replace` properties) and `deletes`;
   endpoints are the root or existing entities.
@@ -54,7 +54,8 @@ own checks: exact schema/plugin ownership through `DomainWriteChecks`, merge and
 `EntityUserDataService` (same plugin and schema, owned events and relationships), and settings
 validation in `PluginUserSettingsWriter`.
 
-Kernel writers (HTTP routes, imports, integrations, collections and the provider entry event) skip
+Kernel writers (HTTP routes, including the user-data clear and merge, imports, integrations,
+collections and the provider entry event) skip
 script authority and rely on these service checks, under whatever `writeContext` their command
 carries. Scripts reach `ChangeSets` only through `ScriptChanges`, which always calls `commitScript`.
 Parts only a script principal resolves (`settings`, `folds`, `signals`, global upserts, event
@@ -64,7 +65,11 @@ Parts only a script principal resolves (`settings`, `folds`, `signals`, global u
 
 Preparation holds no database transaction over sandbox execution. The root entity, relationships,
 ensures, entity deletes (grouped by schema), data clears and merges, and entity updates are prepared
-first, each running its own policies. The root entity and each entity update share one path:
+first, each running its own entity and relationship policies. Entity deletes, clears and merges also
+plan event changes, which join the change set's event changes (see [events](../events/README.md)):
+an entity delete cascades a delete to every event referencing its entities, a clear deletes the
+captured state's events, and a merge deletes transient evidence and moves every other event. Their
+event policies run with the rest of the batch. The root entity and each entity update share one path:
 `EntitiesService.prepareUserSave` checks the expected baseline and runs entity policies, and
 `persistPreparedUserSave` rechecks it under the entity lock.
 
@@ -76,8 +81,10 @@ policy is called once per chunk through `LifecyclePolicies` with every item it t
 the call is persisted), and a second events transaction commits.
 
 The commit transaction applies, in order: the receipt's `load`, the precondition's `check`, the
-settings patch, source writes (root entity, relationships, events, baselines), the precondition's
-`written` when an event was written, ensures, deletes, clears, merges, entity updates in entity ID
+settings patch, source writes (event group capture, then each clear's and merge's account admission,
+locks and state recheck, then root entity, relationships, events, baselines), the precondition's
+`written` when an event was written, ensures, entity deletes (which fail when an event still
+references a deleted entity), the rest of each clear and merge, entity updates in entity ID
 order, global entity upserts and global relationship reconciliation, signal plans, notification
 admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts after commit; a
 failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
@@ -123,6 +130,9 @@ the `CreateEventsResponse` in the account's idempotency key. Callers and keys:
 | Data import event          | The record's operation identity                                 | verbatim   |
 | Provider entry event       | The entity import job's ID                                      | prefixed   |
 
+A commit's result also lists each clear's and merge's response (`cleared`, `merged`), which the
+user-data HTTP routes return.
+
 HTTP event creation and collection membership events commit independently without a receipt; a
 deferred integration flush commits with the stream precondition alone. HTTP event updates and deletes
 commit one event change without a receipt, its policies matched and called like any event batch.
@@ -139,7 +149,8 @@ trigger, entity and event ID the commit derives comes from it. Failures are norm
 `ScriptChangesRejected` (`conflict`, `policy-rejected` or `invalid`) for each caller to map. A
 failure whose reason code is a `CommitConflictCode` is a `conflict`: stale baselines, and the
 `EntityUserDataService` refusals a user causes by acting on changed data (`state-conflict` when the
-captured user data changed, `child-mapping-conflict` when merged child data has no unique match).
+captured user data changed, `child-mapping-conflict` when merged child data has no unique match). A
+clear's or merge's event changes fail like any event change (`event-stale`, `policy-rejected`).
 Refusals the writing plugin can rule out from its own reads (same-entity merges, schema or identity
 property mismatches, denied operations) stay `invalid`.
 

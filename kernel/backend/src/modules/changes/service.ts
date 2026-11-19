@@ -13,7 +13,6 @@ import {
 	EntityUserDataBadRequest,
 	EntityUserDataNotFound,
 } from "@ryot-app/contract/modules/entity-user-data/schemas";
-import type { EventMutationChange } from "@ryot-app/contract/modules/events/mutations";
 import {
 	CreateEventsResponse,
 	EventBadRequest,
@@ -49,17 +48,19 @@ import {
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
-	applyPolicyBatch,
 	AutomationPolicyExecutionError,
 	type LifecyclePolicies,
-	matchPolicyBatch,
 	type PolicyBatchResult,
 } from "#modules/automations/lifecycle/policies";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { DefinitionReadUnavailable } from "#modules/definitions/read-context";
 import { FoldMarks } from "#modules/derived-values/marks";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService, userEntitySaveDraft } from "#modules/entities/service";
+import {
+	EntitiesService,
+	entityDeleteEvents,
+	userEntitySaveDraft,
+} from "#modules/entities/service";
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import {
 	type DomainLifecycleCommand,
@@ -69,9 +70,12 @@ import {
 } from "#modules/entities/write-context";
 import { eventReferenceBadRequest } from "#modules/events/event-references";
 import {
+	acceptedEventBatches,
+	applyEventPolicies,
+	type EventMutation,
 	EventMutations,
-	eventPolicyItems,
 	matchesExpectedFields,
+	matchEventPolicies,
 	type PreparedEventChanges,
 } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
@@ -204,6 +208,13 @@ const itemCommand = (command: DomainLifecycleCommand, itemIdentity: string) => (
 	itemIdentity: `${command.itemIdentity}:${itemIdentity}`,
 });
 
+const prefixed =
+	(prefix: string) =>
+	(change: EventMutation): EventMutation => ({
+		...change,
+		itemIdentity: `${prefix}:${change.itemIdentity}`,
+	});
+
 const rootRequired = () => new EventBadRequest({ reason: { code: "root-entity-required" } });
 
 const referencedEntity = (reference: ChangeSetEntityReference, rootId?: EntityId) => {
@@ -221,8 +232,6 @@ const globalReferences = (group: NonNullable<Changes["globalRelationships"]>[num
 	...group.relationships.flatMap(({ source, target }) => [source, target]),
 ];
 
-const policyChunkSize = 50;
-
 type PreparedEventChange = PreparedEventChanges["items"][number];
 
 type ValidatedEvents = {
@@ -231,21 +240,6 @@ type ValidatedEvents = {
 		readonly validated: PolicyBatchResult;
 		readonly items: ReadonlyArray<PreparedEventChange>;
 	}>;
-};
-
-// One policy invocation must fit the sandbox context limit. A subject's items share a chunk, so a
-// once-per-subject policy still runs once for it.
-const subjectChunks = (items: ReadonlyArray<PreparedEventChange>) => {
-	const chunks: Array<PreparedEventChange[]> = [];
-	for (const subject of Map.groupBy(items, (item) => item.draft.entityId).values()) {
-		const last = chunks.at(-1);
-		if (last && last.length + subject.length <= policyChunkSize) {
-			last.push(...subject);
-		} else {
-			chunks.push([...subject]);
-		}
-	}
-	return chunks;
 };
 
 const expectedFields = (input: Changes, eventId: EventId) => {
@@ -260,7 +254,12 @@ const expectedFields = (input: Changes, eventId: EventId) => {
 	return undefined;
 };
 
-const emptyResult: CommitResult = { outcomes: [], committed: { events: [] } };
+const emptyResult: CommitResult = {
+	merged: [],
+	cleared: [],
+	outcomes: [],
+	committed: { events: [] },
+};
 
 const unrecorded: CommitReceipt<CommitResult> = {
 	record: Effect.succeed,
@@ -371,18 +370,6 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						};
 					}),
 				);
-				const changes: EventMutationChange[] = [...creates, ...events.changes];
-				if (new Set(changes.map((item) => item.itemIdentity)).size !== changes.length) {
-					return yield* new EventBadRequest({ reason: { code: "mutation-conflict" } });
-				}
-				const changedIds = changes.flatMap((item) =>
-					item.kind === "create" ? [] : [item.kind === "delete" ? item.eventId : item.item.eventId],
-				);
-				if (new Set(changedIds).size !== changedIds.length) {
-					return yield* new EventBadRequest({ reason: { code: "mutation-conflict" } });
-				}
-				const createIndexes = new Map(creates.map((item, index) => [item.itemIdentity, index]));
-				const indexOf = (itemIdentity: string) => createIndexes.get(itemIdentity) ?? -1;
 				const preparedRelations: Array<
 					| { readonly kind: "upsert"; readonly prepared: PreparedUserRelationshipCreate }
 					| { readonly kind: "delete"; readonly prepared: PreparedUserRelationshipDelete }
@@ -455,29 +442,57 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const clears = yield* Effect.forEach(
 					(input.entities?.clears ?? []).entries(),
 					([index, item]) =>
-						userData.prepareClearForCommand(
+						userData.prepareClear(
 							userId,
-							{ entityId: item.entityId, entitySchemaSlug: item.entitySchema.slug },
+							item,
 							kernelCollectionLifecycleCommand(itemCommand(command, `entity-clear:${index}`)),
 						),
 				);
 				const merges = yield* Effect.forEach(
 					(input.entities?.merges ?? []).entries(),
 					([index, item]) =>
-						userData.prepareMergeForCommand(
+						userData.prepareMerge(
 							userId,
-							{
-								mergeFrom: item.mergeFrom,
-								mergeInto: item.mergeInto,
-								entitySchemaSlug: item.entitySchema.slug,
-							},
+							item,
 							kernelCollectionLifecycleCommand(itemCommand(command, `entity-merge:${index}`)),
 						),
 				);
+				const userDataWrites = [...clears, ...merges];
 				const updates = yield* Effect.forEach(
 					sortBy(input.entities?.updates ?? [], (item) => item.target.entityId),
 					(item) => prepareEntitySave(item, `entity-update:${item.target.entityId}`),
 				);
+				const cascades = deletes.flatMap(entityDeleteEvents);
+				if (cascades.some((cascade) => cascade.userId !== userId)) {
+					return yield* new DbError({
+						message: "An entity delete cascades to another user's events",
+					});
+				}
+				const changes: EventMutation[] = [
+					...creates,
+					...events.changes,
+					...cascades.flatMap((cascade) => cascade.changes.map(prefixed("entity-delete"))),
+					...clears.flatMap((prepared, index) =>
+						prepared.events.map(prefixed(`entity-clear:${index}`)),
+					),
+					...merges.flatMap((prepared, index) =>
+						prepared.events.map(prefixed(`entity-merge:${index}`)),
+					),
+				];
+				if (new Set(changes.map((item) => item.itemIdentity)).size !== changes.length) {
+					return yield* new EventBadRequest({ reason: { code: "mutation-conflict" } });
+				}
+				const changedIds = changes.flatMap((item) => {
+					if (item.kind === "create") {
+						return [];
+					}
+					return [item.kind === "update" ? item.item.eventId : item.eventId];
+				});
+				if (new Set(changedIds).size !== changedIds.length) {
+					return yield* new EventBadRequest({ reason: { code: "mutation-conflict" } });
+				}
+				const createIndexes = new Map(creates.map((item, index) => [item.itemIdentity, index]));
+				const indexOf = (itemIdentity: string) => createIndexes.get(itemIdentity) ?? -1;
 				let kept: ReadonlyArray<EventCreateItemOutcome> = [];
 				const planEvents = Effect.gen(function* () {
 					if (changes.length === 0) {
@@ -511,50 +526,38 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						status: "failed" as const,
 						index: indexOf(itemIdentity),
 					}));
-					const chunks = yield* Effect.forEach(subjectChunks(prepared.items), (items, index) =>
-						Effect.gen(function* () {
-							const policyBatch = {
-								userId,
-								resource: "event" as const,
-								references: prepared.references,
-								propertiesSchemas: prepared.propertiesSchemas,
-								command: itemCommand(command, `policies:${index}`),
-								items: yield* eventPolicyItems({ ...prepared, items }),
-							};
-							const matched = yield* matchPolicyBatch(policyBatch).pipe(
-								Effect.provideContext(policyContext),
-							);
-							return { items, matched, policyBatch };
-						}),
+					const chunks = yield* matchEventPolicies({ userId, command, prepared }).pipe(
+						Effect.provideContext(policyContext),
 					);
 					return { chunks, prepared };
 				});
 				type PlannedEvents = Effect.Success<typeof planEvents>;
 				const validateEvents = (planned: PlannedEvents) =>
-					Effect.forEach(planned.chunks, ({ items, matched, policyBatch }) =>
-						applyPolicyBatch(policyBatch, matched).pipe(
-							Effect.provideContext(policyContext),
-							Effect.map((validated) => ({ items, validated })),
-							Effect.catchTag(
-								"AutomationPolicyExecutionError",
-								(
-									error,
-								): Effect.Effect<never, EventCreateRejected | AutomationPolicyExecutionError> =>
-									independent
-										? Effect.fail(
-												new EventCreateRejected({
-													kept,
-													reason: { runId: error.runId, code: "policy-execution-failed" },
-												}),
-											)
-										: Effect.fail(error),
-							),
+					applyEventPolicies(planned.chunks).pipe(
+						Effect.provideContext(policyContext),
+						Effect.catchTag(
+							"AutomationPolicyExecutionError",
+							(
+								error,
+							): Effect.Effect<never, EventCreateRejected | AutomationPolicyExecutionError> =>
+								independent
+									? Effect.fail(
+											new EventCreateRejected({
+												kept,
+												reason: { runId: error.runId, code: "policy-execution-failed" },
+											}),
+										)
+									: Effect.fail(error),
 						),
-					).pipe(Effect.map((chunks): ValidatedEvents => ({ chunks, prepared: planned.prepared })));
+						Effect.map((chunks): ValidatedEvents => ({ chunks, prepared: planned.prepared })),
+					);
 				const eventBatches = Effect.fnUntraced(function* (validated: ValidatedEvents) {
 					const prepared = validated.prepared;
 					if (prepared === null) {
 						return [];
+					}
+					if (!independent) {
+						return yield* acceptedEventBatches({ command, prepared, chunks: validated.chunks });
 					}
 					const batches: Array<{
 						validated: PolicyBatchResult;
@@ -562,45 +565,18 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						command: DomainLifecycleCommand;
 					}> = [];
 					for (const chunk of validated.chunks) {
-						if (independent) {
-							const policies = policyOutcomes(chunk.validated, indexOf);
-							kept = [...kept, ...policies.outcomes];
-							const accepted = chunk.items.filter((item) =>
-								policies.accepted.has(item.change.itemIdentity),
-							);
-							if (accepted.length > 0) {
-								batches.push({
-									command,
-									validated: chunk.validated,
-									prepared: { ...prepared, items: accepted },
-								});
-							}
-							continue;
-						}
-						const rejection = chunk.validated.items.find(
-							(item) => item.rejected !== null,
-						)?.rejected;
-						if (rejection) {
-							return yield* new EventBadRequest({
-								reason: { message: rejection, code: "policy-rejected" },
+						const policies = policyOutcomes(chunk.validated, indexOf);
+						kept = [...kept, ...policies.outcomes];
+						const accepted = chunk.items.filter((item) =>
+							policies.accepted.has(item.change.itemIdentity),
+						);
+						if (accepted.length > 0) {
+							batches.push({
+								command,
+								validated: chunk.validated,
+								prepared: { ...prepared, items: accepted },
 							});
 						}
-						const invalid = chunk.validated.items.find((item) => item.error !== null);
-						if (invalid?.error) {
-							return yield* new EventBadRequest({
-								reason: {
-									code:
-										invalid.error.code === "reference-not-found"
-											? "invalid-policy-transform"
-											: invalid.error.code,
-								},
-							});
-						}
-						batches.push({
-							command,
-							validated: chunk.validated,
-							prepared: { ...prepared, items: chunk.items },
-						});
 					}
 					return batches;
 				});
@@ -626,6 +602,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								Object.keys(batch.validated.references).map((id) => EntityId.make(id)),
 							),
 							...relationEndpoints,
+							...userDataWrites.flatMap((prepared) => prepared.entityIds),
 						]),
 					].sort();
 					const lockedEntityIds = yield* eventMutations.captureGroups({
@@ -634,6 +611,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						batches: preparedBatches,
 					});
 					const lockedReferences = yield* entityRows.getMutationEntities(lockedEntityIds, true);
+					for (const prepared of userDataWrites) {
+						yield* prepared.lock;
+					}
 					if (scope) {
 						for (const baseline of baselines) {
 							if (!lockedReferences.has(baseline.entityId)) {
@@ -691,36 +671,28 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						}
 						dispatch.push(...(yield* planner.planBatch(batch)));
 					}
-					const written = [];
 					const eventBatch = { command, identity: ["events"], resource: "event" as const };
 					yield* planner.prepareBatch({ ...eventBatch, scopes: [userId] });
-					let eventOffset = 0;
-					for (const prepared of preparedBatches) {
-						const persisted = eventMutations.persist({
-							userId,
-							...prepared,
-							sealBatch: false,
-							batch: eventBatch,
-							batchIndexOffset: eventOffset,
-						});
-						const work = yield* independent
-							? persisted.pipe(
-									Effect.mapError((error) =>
-										error._tag === "DbError"
-											? error
-											: new EventCreateRejected({ kept, reason: commitRejection(error) }),
-									),
-								)
-							: persisted.pipe(
-									Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest),
-								);
-						eventOffset += prepared.prepared.items.length;
-						written.push(...work.results);
-						dispatch.push(...work.dispatch);
-					}
+					const persisted = eventMutations.persistBatches({
+						userId,
+						batch: eventBatch,
+						batches: preparedBatches,
+					});
+					const written = yield* independent
+						? persisted.pipe(
+								Effect.mapError((error) =>
+									error._tag === "DbError"
+										? error
+										: new EventCreateRejected({ kept, reason: commitRejection(error) }),
+								),
+							)
+						: persisted.pipe(
+								Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest),
+							);
+					dispatch.push(...written.dispatch);
 					dispatch.push(...(yield* planner.planBatch(eventBatch)));
 					const committed: CommittedChanges = {
-						events: written,
+						events: written.results,
 						...(saved === undefined ? {} : { entityId: saved.entity.id }),
 					};
 					return { dispatch, committed };
@@ -737,7 +709,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						});
 					}
 					const written =
-						entity !== undefined || preparedRelations.length > 0 || preparedBatches.length > 0
+						entity !== undefined ||
+						preparedRelations.length > 0 ||
+						preparedBatches.length > 0 ||
+						userDataWrites.length > 0
 							? yield* sourceWrites(preparedBatches)
 							: { dispatch: [], committed: { events: [] } satisfies CommittedChanges };
 					const dispatch = [...written.dispatch];
@@ -749,11 +724,17 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					for (const prepared of deletes) {
 						dispatch.push(...(yield* entities.persistPreparedDeletes(prepared)).dispatch);
 					}
+					const cleared = [];
 					for (const prepared of clears) {
-						dispatch.push(...(yield* userData.persistPreparedClear(prepared)).dispatch);
+						const work = yield* prepared.write;
+						cleared.push(work.result);
+						dispatch.push(...work.dispatch);
 					}
+					const merged = [];
 					for (const prepared of merges) {
-						dispatch.push(...(yield* userData.persistPreparedMerge(prepared)).dispatch);
+						const work = yield* prepared.write;
+						merged.push(work.result);
+						dispatch.push(...work.dispatch);
 					}
 					for (const prepared of updates) {
 						dispatch.push(...(yield* entities.persistPreparedUserSave(prepared)).dispatch);
@@ -768,7 +749,15 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								})),
 							])
 						: [];
-					return { dispatch, result: { outcomes, committed: written.committed } };
+					return {
+						dispatch,
+						result: {
+							merged,
+							cleared,
+							outcomes,
+							committed: written.committed,
+						} satisfies CommitResult,
+					};
 				});
 				return { write, planEvents, validateEvents, kept: () => kept, createCount: creates.length };
 			});
@@ -996,7 +985,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								return settled(
 									stored ??
 										(yield* receipt.record({
-											committed: { events: [] },
+											...emptyResult,
 											outcomes: rejectedOutcomes(rejection, user?.createCount ?? 0),
 										})),
 								);

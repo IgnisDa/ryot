@@ -23,6 +23,12 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
+import {
+	clearUserData,
+	mergeUserData,
+	userDataChangeSets,
+} from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -30,7 +36,6 @@ import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
-import { EventsService } from "#modules/events/service";
 import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -77,24 +82,22 @@ const dependencies = SignalEmissionService.layer.pipe(
 	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(makeAppConfigLayer()),
 );
-const services = Layer.mergeAll(RemindersService.layer, EntityUserDataService.layer).pipe(
-	Layer.provideMerge(ReminderEntityLifecycleLive),
-	Layer.provide(
-		Layer.mergeAll(
-			EventsService.layer.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						EventSchemaReader.layer,
-						DomainWriteChecksLive,
-						WorkflowExecutionNotifications.layer,
-					),
+const services = Layer.effect(ChangeSets, userDataChangeSets()).pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(RemindersService.layer, EntityUserDataService.layer).pipe(
+			Layer.provideMerge(ReminderEntityLifecycleLive),
+			Layer.provide(Layer.mock(RelationshipsService)({})),
+			Layer.provideMerge(
+				Layer.mergeAll(
+					EventSchemaReader.layer,
+					DomainWriteChecksLive,
+					WorkflowExecutionNotifications.layer,
 				),
 			),
-			Layer.mock(RelationshipsService)({}),
+			Layer.provideMerge(dependencies),
+			Layer.provideMerge(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 		),
 	),
-	Layer.provideMerge(dependencies),
-	Layer.provideMerge(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 );
 
 const fixture = Effect.fnUntraced(function* (destinationPartNumbers: ReadonlyArray<number>) {
@@ -276,11 +279,7 @@ layer(services)((test) => {
 				assert(sourceBefore);
 				assert(destinationBefore);
 
-				yield* (yield* EntityUserDataService).clearEntityUserData(
-					input.user,
-					input.sourceRootId,
-					lifecycleCommand(input),
-				);
+				yield* clearUserData(input.user.id, input.sourceRootId, lifecycleCommand(input));
 
 				const sourceAfter = yield* repository.findForUser(input.user.id, input.sourceReminder.id);
 				expect(sourceAfter).toMatchObject({
@@ -315,8 +314,8 @@ layer(services)((test) => {
 				const [destinationPart] = input.destinationParts;
 				assert(destinationPart);
 
-				yield* (yield* EntityUserDataService).mergeEntityUserData(
-					input.user,
+				yield* mergeUserData(
+					input.user.id,
 					{ mergeFrom: input.sourceRootId, mergeInto: input.destinationRootId },
 					lifecycleCommand(input),
 				);
@@ -367,13 +366,11 @@ layer(services)((test) => {
 					);
 					assert(sourceBefore);
 					assert(destinationBefore);
-					const exit = yield* (yield* EntityUserDataService)
-						.mergeEntityUserData(
-							input.user,
-							{ mergeFrom: input.sourceRootId, mergeInto: input.destinationRootId },
-							lifecycleCommand(input),
-						)
-						.pipe(Effect.exit);
+					const exit = yield* mergeUserData(
+						input.user.id,
+						{ mergeFrom: input.sourceRootId, mergeInto: input.destinationRootId },
+						lifecycleCommand(input),
+					).pipe(Effect.exit);
 					assertExitFails(
 						exit,
 						new EntityUserDataBadRequest({

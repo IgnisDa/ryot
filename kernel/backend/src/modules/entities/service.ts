@@ -46,8 +46,14 @@ import {
 } from "#modules/automations/lifecycle/write-step";
 import { definitionText } from "#modules/definitions/text";
 import { EntityUserDataAttachments } from "#modules/entities/user-data/attachments";
+import {
+	acceptedEventBatches,
+	applyEventPolicies,
+	type EventMutation,
+	EventMutations,
+	matchEventPolicies,
+} from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
-import { EventsService, type PreparedEventDelete } from "#modules/events/service";
 import { AccountAdmission, mutationUserIds } from "#modules/mutations/account-admission";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
@@ -140,18 +146,22 @@ type PreparedEntityDeletes = {
 		readonly accounts: ReadonlyArray<UserId>;
 		readonly lifecycle: DomainLifecycleCommand;
 		readonly orderedIds: ReadonlyArray<EntityId>;
-		readonly preparedEvents: ReadonlyArray<PreparedEventDelete>;
-		readonly eventIdentities: Effect.Success<
-			ReturnType<EventsRepository["Service"]["listEventIdentitiesForEntities"]>
-		>;
 		readonly prepared: ReadonlyArray<null | {
 			readonly scopeUserId: null | UserId;
 			readonly prepared: PreparedMutation;
+		}>;
+		readonly events: ReadonlyArray<{
+			readonly userId: UserId;
+			readonly command: DomainLifecycleCommand;
+			readonly changes: ReadonlyArray<EventMutation>;
 		}>;
 	};
 };
 export const userEntitySaveDraft = (saved: PreparedUserEntitySave) =>
 	saved[preparedUserEntitySave].draft;
+/** The deletes of the events referencing the deleted entities, by the user who owns them. */
+export const entityDeleteEvents = (deletes: PreparedEntityDeletes) =>
+	deletes[preparedEntityDeletes].events;
 
 type PrepareUserEntitySaveInput = {
 	name: string;
@@ -236,7 +246,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 	"@ryot-app/kernel-backend/modules/entities/service/EntitiesService",
 	{
 		make: Effect.gen(function* () {
-			const events = yield* EventsService;
+			const eventMutations = yield* EventMutations;
 			const session = yield* DatabaseSession;
 			const planner = yield* LifecyclePlanner;
 			const repository = yield* EntitiesRepository;
@@ -1205,144 +1215,123 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					return { entity: persisted.result.entity, dispatch: [...persisted.dispatch, ...batch] };
 				},
 			);
-			const prepareDeletes = Effect.fn("EntitiesService.prepareDeletes")(
-				function* (
-					ids: readonly [EntityId, ...EntityId[]],
-					lifecycle: DomainLifecycleCommand,
-					target?: {
-						readonly userId: UserId;
-						readonly preserveHistory?: boolean;
-						readonly entitySchema: EntitySchemaReference;
-					},
-				) {
-					yield* assertOwner;
-					const orderedIds = [...new Set(ids)].sort();
-					const matchesTarget = (
-						current: NonNullable<Effect.Success<ReturnType<typeof repository.getMutationEntity>>>,
-					) =>
-						!target ||
-						(current.userId === target.userId &&
-							current.entity.entitySchemaSlug === target.entitySchema.slug &&
-							current.entity.entitySchemaPluginId ===
-								definitionOwnerPluginId(target.entitySchema.owner));
-					for (const entityId of orderedIds) {
-						const current = yield* repository.getMutationEntity(entityId);
-						if (current) {
-							if (!matchesTarget(current)) {
-								return yield* new EntityNotFound({
-									reason: { entityId, code: "entity-not-found" },
-								});
-							}
-							yield* writeChecks
-								.check(
-									lifecycle,
-									definitionOwner(current.entity.entitySchemaPluginId),
-									current.userId,
-								)
-								.pipe(Effect.catch(writeFailure));
-						}
-					}
-					const eventIdentities =
-						yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
-					if (target?.preserveHistory === true && eventIdentities.length > 0) {
-						return yield* new EntityBadRequest({ reason: { code: "entity-has-history" } });
-					}
-					const preparedEvents: PreparedEventDelete[] = [];
-					const accounts = new Map<
-						UserId,
-						Effect.Success<ReturnType<typeof admission.currentAccount>>
-					>();
-					if (lifecycle.accountUserId !== null) {
-						accounts.set(lifecycle.accountUserId, lifecycle.accountUserId);
-					}
-					for (const identity of eventIdentities) {
-						let account = accounts.get(identity.userId);
-						if (account === undefined) {
-							account = yield* admission.currentAccount(identity.userId);
-							accounts.set(identity.userId, account);
-						}
-						const eventCommand = itemCommand(
-							{ ...lifecycle, accountUserId: account },
-							`${identity.userId}:${identity.eventId}:cascade-delete`,
-						);
-						const preparedEvent = yield* events.prepareEntityCascadeDelete(
-							identity,
-							orderedIds,
-							eventCommand,
-						);
-						if (!preparedEvent) {
-							return yield* cascadeEventChanged();
-						}
-						preparedEvents.push(preparedEvent);
-					}
-					const prepared = yield* Effect.forEach(orderedIds, (entityId) =>
-						Effect.gen(function* () {
-							const command = itemCommand(lifecycle, entityId);
-							const current = yield* repository.getMutationEntity(entityId);
-							if (!current) {
-								return null;
-							}
-							if (!matchesTarget(current)) {
-								return yield* new EntityNotFound({
-									reason: { entityId, code: "entity-not-found" },
-								});
-							}
-							const before = yield* snapshot(current.entity);
-							yield* validateExistingEntity(current.entity, current.userId, command);
-							const validated = yield* validateDraft(
-								draftOf(before),
-								current.userId,
-								definitionOwner(current.entity.entitySchemaPluginId),
-								command,
-							);
-							yield* writeChecks
-								.check(
-									command,
-									definitionOwner(current.entity.entitySchemaPluginId),
-									current.userId,
-								)
-								.pipe(Effect.catch(writeFailure));
-							const pending = yield* planMutation({
-								before,
-								entityId,
-								lifecycle: command,
-								operation: "delete",
-								draft: validated.draft,
-								scopeUserId: current.userId,
-								entitySchemaPluginId: validated.entitySchemaPluginId,
-								entitySchemaFingerprint: validated.entitySchemaFingerprint,
-							});
-							return {
-								scopeUserId: current.userId,
-								prepared: yield* acceptedMutation(yield* applyMutationPolicies(pending)),
-							};
-						}),
-					);
-					return Object.freeze({
-						[preparedEntityDeletes]: {
-							prepared,
-							lifecycle,
-							orderedIds,
-							preparedEvents,
-							eventIdentities,
-							accounts: [...accounts.values()],
-						},
-					});
+			const prepareDeletes = Effect.fn("EntitiesService.prepareDeletes")(function* (
+				ids: readonly [EntityId, ...EntityId[]],
+				lifecycle: DomainLifecycleCommand,
+				target?: {
+					readonly userId: UserId;
+					readonly preserveHistory?: boolean;
+					readonly entitySchema: EntitySchemaReference;
 				},
-				(effect) =>
-					effect.pipe(
-						Effect.catchTags({
-							EventBadRequest: Effect.die,
-							LifecyclePersistenceError: Effect.die,
-							EventStale: () => Effect.fail(cascadeEventChanged()),
-						}),
-					),
-			);
+			) {
+				yield* assertOwner;
+				const orderedIds = [...new Set(ids)].sort();
+				const matchesTarget = (
+					current: NonNullable<Effect.Success<ReturnType<typeof repository.getMutationEntity>>>,
+				) =>
+					!target ||
+					(current.userId === target.userId &&
+						current.entity.entitySchemaSlug === target.entitySchema.slug &&
+						current.entity.entitySchemaPluginId ===
+							definitionOwnerPluginId(target.entitySchema.owner));
+				for (const entityId of orderedIds) {
+					const current = yield* repository.getMutationEntity(entityId);
+					if (current) {
+						if (!matchesTarget(current)) {
+							return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
+						}
+						yield* writeChecks
+							.check(
+								lifecycle,
+								definitionOwner(current.entity.entitySchemaPluginId),
+								current.userId,
+							)
+							.pipe(Effect.catch(writeFailure));
+					}
+				}
+				const eventIdentities = yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
+				if (target?.preserveHistory === true && eventIdentities.length > 0) {
+					return yield* new EntityBadRequest({ reason: { code: "entity-has-history" } });
+				}
+				const accounts = new Map<
+					UserId,
+					Effect.Success<ReturnType<typeof admission.currentAccount>>
+				>();
+				if (lifecycle.accountUserId !== null) {
+					accounts.set(lifecycle.accountUserId, lifecycle.accountUserId);
+				}
+				const cascades = new Map<UserId, EventMutation[]>();
+				for (const identity of eventIdentities) {
+					if (!accounts.has(identity.userId)) {
+						accounts.set(identity.userId, yield* admission.currentAccount(identity.userId));
+					}
+					cascades.set(identity.userId, [
+						...(cascades.get(identity.userId) ?? []),
+						{
+							kind: "delete",
+							kernelCollection: true,
+							eventId: identity.eventId,
+							cascadeEntityIds: orderedIds,
+							itemIdentity: `cascade:${identity.eventId}`,
+						},
+					]);
+				}
+				const events = [...cascades].map(([userId, changes]) => ({
+					userId,
+					changes,
+					command: { ...lifecycle, accountUserId: accounts.get(userId) ?? null },
+				}));
+				const prepared = yield* Effect.forEach(orderedIds, (entityId) =>
+					Effect.gen(function* () {
+						const command = itemCommand(lifecycle, entityId);
+						const current = yield* repository.getMutationEntity(entityId);
+						if (!current) {
+							return null;
+						}
+						if (!matchesTarget(current)) {
+							return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
+						}
+						const before = yield* snapshot(current.entity);
+						yield* validateExistingEntity(current.entity, current.userId, command);
+						const validated = yield* validateDraft(
+							draftOf(before),
+							current.userId,
+							definitionOwner(current.entity.entitySchemaPluginId),
+							command,
+						);
+						yield* writeChecks
+							.check(command, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
+							.pipe(Effect.catch(writeFailure));
+						const pending = yield* planMutation({
+							before,
+							entityId,
+							lifecycle: command,
+							operation: "delete",
+							draft: validated.draft,
+							scopeUserId: current.userId,
+							entitySchemaPluginId: validated.entitySchemaPluginId,
+							entitySchemaFingerprint: validated.entitySchemaFingerprint,
+						});
+						return {
+							scopeUserId: current.userId,
+							prepared: yield* acceptedMutation(yield* applyMutationPolicies(pending)),
+						};
+					}),
+				);
+				return Object.freeze({
+					[preparedEntityDeletes]: {
+						events,
+						prepared,
+						lifecycle,
+						orderedIds,
+						accounts: [...accounts.values()],
+					},
+				});
+			});
 			const persistPreparedDeletes = Effect.fn("EntitiesService.persistPreparedDeletes")(
 				function* (deletes: PreparedEntityDeletes) {
 					yield* assertActiveTransaction;
-					const { prepared, accounts, lifecycle, orderedIds, preparedEvents, eventIdentities } =
-						deletes[preparedEntityDeletes];
+					const { prepared, accounts, lifecycle, orderedIds } = deletes[preparedEntityDeletes];
 					return yield* admitted(
 						Effect.gen(function* () {
 							const writeContext = lifecycle.writeContext;
@@ -1356,39 +1345,18 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								{ scopeUserId, command: lifecycle, owner: principalOwner(lifecycle.writeContext) },
 								...pending.map(({ input }) => preparedWriteCheck(input)),
 							]);
-							yield* events.captureEventGroups({ items: preparedEvents, entityIds: orderedIds });
 							yield* repository.lockMutationKeys(orderedIds);
 							const rows = yield* repository.getMutationEntities(orderedIds, true);
-							const currentEventIdentities =
-								yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
-							if (!same(eventIdentities, currentEventIdentities)) {
+							if ((yield* eventsRepository.listEventIdentitiesForEntities(orderedIds)).length > 0) {
 								return yield* new DbError({
 									message: "Entity event references changed while deletion policies ran",
 								});
 							}
-							const eventBatchScope = { command: lifecycle, identity: ["cascade-events"] };
-							const eventDecision = yield* planner.prepareBatch({
-								...eventBatchScope,
-								resource: "event",
-								scopes: [...new Set(eventIdentities.map(({ userId }) => userId))],
-							});
 							const batchScope = { command: lifecycle, identity: ["deletes"] };
 							const decision = yield* planner.prepareBatch({
 								...batchScope,
 								resource: "entity",
 								scopes: settled.map((item) => item.scopeUserId),
-							});
-							const eventSaved = yield* Effect.forEach(preparedEvents.entries(), ([index, item]) =>
-								events.persistPreparedDelete(item, {
-									...eventDecision,
-									index,
-									command: lifecycle,
-									identity: eventBatchScope.identity,
-								}),
-							);
-							const eventBatch = yield* planner.planBatch({
-								...eventBatchScope,
-								resource: "event",
 							});
 							const persisted = pending.map(({ index, input }) => ({
 								input,
@@ -1398,12 +1366,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							yield* attachments.removeEntities(persisted.map(({ input }) => input.entityId));
 							const written = yield* persistDeletes.persistMany(persisted, decision, rows);
 							const batch = yield* entityBatchPlans(batchScope);
-							const dispatch = [
-								...eventSaved.flatMap((item) => item.dispatch),
-								...eventBatch,
-								...written.results.flatMap((item) => item.dispatch),
-								...batch,
-							];
+							const dispatch = [...written.results.flatMap((item) => item.dispatch), ...batch];
 							return { dispatch, deletedCount: written.results.length };
 						}),
 						[
@@ -1415,24 +1378,99 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						accounts,
 					);
 				},
-				(effect) =>
-					effect.pipe(
-						Effect.catchTags({
-							EventBadRequest: Effect.die,
-							LifecyclePersistenceError: Effect.die,
-							EventStale: () => Effect.fail(cascadeEventChanged()),
-						}),
-					),
+				(effect) => effect.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die)),
 			);
+			const policyContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+				effect.pipe(
+					Effect.provideService(LifecyclePolicies, policies),
+					Effect.provideService(EntitiesRepository, repository),
+				);
 			const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
 				...input: Parameters<typeof prepareDeletes>
 			) {
+				const [, lifecycle] = input;
 				const prepared = yield* prepareDeletes(...input);
-				const committed = yield* events
-					.transaction(persistPreparedDeletes(prepared))
+				const cascades = entityDeleteEvents(prepared);
+				const planned =
+					cascades.length === 0
+						? []
+						: yield* eventMutations
+								.transaction(
+									Effect.forEach(cascades, (cascade) =>
+										Effect.gen(function* () {
+											const changes = yield* eventMutations.prepare(cascade);
+											const chunks = yield* matchEventPolicies({ ...cascade, prepared: changes });
+											return { chunks, cascade, changes };
+										}),
+									),
+								)
+								.pipe(
+									policyContext,
+									Effect.catchTags({
+										EventBadRequest: Effect.die,
+										EventCreateItemError: Effect.die,
+										EventStale: () => Effect.fail(cascadeEventChanged()),
+										EventNotFound: () => Effect.fail(cascadeEventChanged()),
+										DatabaseSessionStateError: () => Effect.fail(enclosingTransaction()),
+									}),
+								);
+				const validated = yield* Effect.forEach(planned, ({ chunks, cascade, changes }) =>
+					applyEventPolicies(chunks).pipe(
+						Effect.flatMap((applied) =>
+							acceptedEventBatches({
+								chunks: applied,
+								prepared: changes,
+								command: cascade.command,
+							}),
+						),
+						Effect.map((batches) => ({ batches, userId: cascade.userId })),
+					),
+				).pipe(
+					policyContext,
+					Effect.catchTags({
+						EventBadRequest: Effect.die,
+						AutomationPolicyExecutionError: Effect.die,
+					}),
+				);
+				const committed = yield* eventMutations
+					.transaction(
+						Effect.gen(function* () {
+							const dispatch: LifecycleDispatchPlan[] = [];
+							if (validated.length > 0) {
+								const batch = {
+									command: lifecycle,
+									resource: "event" as const,
+									identity: ["cascade-events"],
+								};
+								yield* planner.prepareBatch({
+									...batch,
+									scopes: validated.map(({ userId }) => userId),
+								});
+								let batchIndexOffset = 0;
+								for (const { userId, batches } of validated) {
+									const written = yield* eventMutations.persistBatches({
+										batch,
+										userId,
+										batches,
+										batchIndexOffset,
+									});
+									batchIndexOffset = written.batchIndexOffset;
+									dispatch.push(...written.dispatch);
+								}
+								dispatch.push(...(yield* planner.planBatch(batch)));
+							}
+							const deleted = yield* persistPreparedDeletes(prepared);
+							return {
+								deletedCount: deleted.deletedCount,
+								dispatch: [...dispatch, ...deleted.dispatch],
+							};
+						}),
+					)
 					.pipe(
 						Effect.catchTags({
 							EventBadRequest: Effect.die,
+							EventReferenceUnavailable: Effect.die,
+							EventStale: () => Effect.fail(cascadeEventChanged()),
 							DatabaseSessionStateError: () => Effect.fail(enclosingTransaction()),
 						}),
 					);

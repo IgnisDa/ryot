@@ -447,7 +447,12 @@ const makeLayer = (input: {
 										}
 										if (changes === undefined) {
 											return yield* inTransaction(
-												receipt.record({ outcomes: [], committed: { events: [] } }),
+												receipt.record({
+													merged: [],
+													cleared: [],
+													outcomes: [],
+													committed: { events: [] },
+												}),
 											);
 										}
 										yield* recordEvent("commit");
@@ -464,6 +469,8 @@ const makeLayer = (input: {
 										}
 										return yield* inTransaction(
 											receipt.record({
+												merged: [],
+												cleared: [],
 												outcomes: [],
 												committed: {
 													events: (changes.events?.creates ?? []).map((create) => ({

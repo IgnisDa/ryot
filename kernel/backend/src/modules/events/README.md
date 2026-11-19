@@ -45,6 +45,16 @@ create fails as a conflict. HTTP event updates and deletes commit one event chan
 `ChangeSets.commit`, which retries a stale one whose field `expected` still holds (see
 [change sets](../changes/README.md)).
 
+`EventMutations.prepare` takes `EventMutation` changes: the contract's creates, updates and deletes,
+plus two kernel-writer forms. A `move` remaps an event's entity and session references
+(`mergeFrom` to `mergeInto`, then each `references` pair) and may replace its properties; a move that
+changes nothing is skipped, and policies see it as an update. A delete with `cascadeEntityIds` is
+authorized by the cascaded entity instead: the event must reference one of those entities, which must
+be visible to the event's user and share the event's plugin owner (or the event is a kernel
+collection event), and the writer must be allowed to write that entity's owner. `kernelCollection`
+lets a plugin writer change the kernel collection events its own entity data carries, as entity
+cascades and user-data clears and merges do.
+
 ### Mutation lock order
 
 `EventsRepository.lockMutationReferences({ eventIds, sources? })` is the batch pre-lock entrypoint.
@@ -71,11 +81,10 @@ anchor per user, exact plugin owner, and session, independently of the anchor's 
 dependent schemas belong to the same entity schema. Each dependent must match one anchor's entity
 and declared properties, and each anchor must retain at least one dependent of each declared schema.
 
-Event writes run inside the events-owned transaction (`EventsService.transaction` or
-`EventMutations.transaction`), which validates every touched group once as its last statement and
+Event writes run inside the events-owned transaction (`EventMutations.transaction`), which validates every touched group once as its last statement and
 fails with the typed error. Persisting a source mutation captures its user, entity, session, and
 prior anchor bindings into that transaction's collector; persisting outside it fails. Multi-write
-owners call `captureEventGroups`/`captureGroups` first for the whole batch, which prelocks the old and
+owners call `captureGroups` first for the whole batch, which prelocks the old and
 proposed source references through `EventsRepository.lockMutationReferences` and the affected
 entity/session rows in canonical order before stream and event rows. Later persists of already
 captured items skip capture. Capture keeps only changed source rows and their first-seen anchor

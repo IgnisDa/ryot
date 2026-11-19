@@ -15,6 +15,7 @@ import {
 	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
+	EventId,
 	EventSchemaSlug,
 	IntegrationId,
 	SandboxScriptId,
@@ -60,8 +61,8 @@ import * as tables from "#schema/tables/combined";
 import { workflowEngineTestLayer } from "#testing/effect";
 
 import { ChangeSetRejected } from "./authority";
-import { changeSetsLayerWithNotificationSources } from "./change-sets.test-support";
-import { eventCreateChanges, fromScriptChangeSet } from "./changes";
+import { changeSetsLayerWithNotificationSources, eventMove } from "./change-sets.test-support";
+import { eventChanges, eventCreateChanges, fromScriptChangeSet } from "./changes";
 import { unrecordedChanges } from "./receipts";
 import { ScriptChangesLayer } from "./script-changes";
 import { ChangeSets } from "./service";
@@ -89,14 +90,14 @@ const testLayer = (failAfterEvents: boolean, notificationSourcesOpen = true) => 
 						const session = yield* DatabaseSession;
 						return EventMutations.of({
 							...original,
-							persist: Effect.fn("AtomicCommandTest.persist")(function* (
-								input: Parameters<EventMutations["Service"]["persist"]>[0],
+							persistBatches: Effect.fn("AtomicCommandTest.persistBatches")(function* (
+								input: Parameters<EventMutations["Service"]["persistBatches"]>[0],
 							) {
-								const result = yield* original.persist(input);
-								if (!failAfterEvents) {
+								const result = yield* original.persistBatches(input);
+								if (!failAfterEvents || input.batches.length === 0) {
 									return result;
 								}
-								const rootId = input.prepared.items[0]?.draft.entityId;
+								const rootId = input.batches[0]?.prepared.items[0]?.draft.entityId;
 								assert(rootId);
 								const entities = yield* session.run((db) =>
 									db.select().from(tables.entity).where(eq(tables.entity.id, rootId)),
@@ -231,7 +232,10 @@ const eventCreate = (entity: ChangeSetEntityReference) => ({
 	],
 });
 
-const guardedPackage = (batchFrequency?: "once-per-subject") => {
+const guardedPackage = (
+	batchFrequency?: "once-per-subject",
+	operations: ReadonlyArray<"create" | "update" | "delete"> = ["create"],
+) => {
 	const source = revisionPackage("atomic", "fixture", "record");
 	const automation = source.scripts.find(({ metadata }) => metadata.kind === "automation");
 	assert(automation?.metadata.kind === "automation");
@@ -262,14 +266,12 @@ const guardedPackage = (batchFrequency?: "once-per-subject") => {
 					scriptSlug: policy.slug,
 					stage: "before" as const,
 					...(batchFrequency ? { batchFrequency } : {}),
-					targets: [
-						{
-							resource: "event" as const,
-							eventSchemaSlug: "changed",
-							entitySchemaSlug: "record",
-							operation: "create" as const,
-						},
-					],
+					targets: operations.map((operation) => ({
+						operation,
+						resource: "event" as const,
+						eventSchemaSlug: "changed",
+						entitySchemaSlug: "record",
+					})),
 				},
 			],
 		},
@@ -911,6 +913,47 @@ layer(testLayer(false))((test) => {
 
 layer(testLayer(true))((test) => {
 	test.effect(
+		"rolls an entity data merge back with its event moves after a late commit failure",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const root = yield* commit(
+					{ entity: input.input.entity, relationships: input.input.relationships },
+					input.command,
+				);
+				assert(root.entityId);
+				const target = targetOf(input);
+				yield* seedEvent(input, root.entityId, undefined, "merged-event");
+				assertExitFails(
+					yield* Effect.exit(
+						commit(
+							{
+								entities: {
+									merges: [
+										{ mergeInto: target, mergeFrom: root.entityId, entitySchemaSlug: "record" },
+									],
+								},
+							},
+							nextCommand(input),
+						),
+					),
+					new DbError({ message: "Injected atomic commit failure" }),
+				);
+				expect((yield* (yield* AtomicWriteObservation).staged)?.events).toBe(1);
+				expect(yield* eventRow(input, "merged-event")).toMatchObject({ entityId: root.entityId });
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ source: tables.relationship.sourceEntityId })
+							.from(tables.relationship)
+							.where(eq(tables.relationship.relationshipSchemaPluginId, input.pluginId)),
+					),
+				).toEqual([{ source: root.entityId }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"rolls back every source component and import item after a late commit failure",
 		() =>
 			Effect.gen(function* () {
@@ -992,6 +1035,74 @@ const targetOf = (input: Fixture) => {
 
 const rejection = (part: string) => ({ part, _tag: "ChangeSetRejected" });
 
+const kernelWriterCommand = (input: Fixture): DomainLifecycleCommand => ({
+	...command(crypto.randomUUID()),
+	writeContext: null,
+	accountUserId: input.command.accountUserId,
+});
+
+const policyRunsOf = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.gen(function* () {
+		const spans: Tracer.Span[] = [];
+		yield* effect.pipe(Effect.withTracer(makeRecordingTracer(spans)));
+		return spans.filter(({ name }) => name === "LifecyclePolicies.run").length;
+	});
+
+const seedEvent = (
+	input: Fixture,
+	entityId: EntityId,
+	sessionEntityId: EntityId | undefined,
+	id: string,
+) =>
+	input.session.transaction(
+		Effect.flatMap(EventsRepository, (events) =>
+			events.createEvent({
+				userId,
+				entityId,
+				id: EventId.make(id),
+				properties: { value: "Saved" },
+				propertiesSchema: { fields: {} },
+				eventSchemaPluginId: input.pluginId,
+				eventSchemaSlug: EventSchemaSlug.make("changed"),
+				occurredAt: new Date("2026-10-13T00:00:00.000Z"),
+				eventSchemaName: { key: "test.changed", namespace: input.pluginId },
+				...(sessionEntityId === undefined ? {} : { sessionEntityId }),
+			}),
+		),
+	);
+
+const eventRow = (input: Fixture, id: string) =>
+	input.session
+		.run((db) =>
+			db
+				.select({
+					entityId: tables.event.entityId,
+					properties: tables.event.properties,
+					sessionEntityId: tables.event.sessionEntityId,
+				})
+				.from(tables.event)
+				.where(eq(tables.event.id, EventId.make(id))),
+		)
+		.pipe(Effect.map(([row]) => row ?? null));
+
+const kernelEntity = (input: Fixture) =>
+	Effect.gen(function* () {
+		const [entity] = yield* (yield* EntitiesRepository).insertEntities([
+			{
+				userId,
+				scope: "user",
+				properties: {},
+				populatedAt: null,
+				name: "Kernel entity",
+				entitySchemaPluginId: null,
+				id: EntityId.make(yield* randomUuid),
+				entitySchemaSlug: EntitySchemaSlug.make("collection"),
+			},
+		]);
+		assert(entity);
+		return { ...input, kernelEntityId: entity.id };
+	});
+
 const entityBaseline = (input: Fixture, entityId: EntityId) =>
 	Effect.gen(function* () {
 		const [row] = yield* input.session.run((db) =>
@@ -1025,6 +1136,199 @@ const entityUpdates = (
 	});
 
 layer(testLayer(false))((test) => {
+	test.effect(
+		"moves an event's entity references and rewrites its properties for a kernel writer",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const root = yield* commit(
+					{ entity: input.input.entity, relationships: input.input.relationships },
+					input.command,
+				);
+				assert(root.entityId);
+				const target = targetOf(input);
+				yield* seedEvent(input, root.entityId, target, "moved-event");
+				const sets = yield* ChangeSets;
+				const moved = yield* sets.commit(
+					eventChanges(userId, [
+						eventMove({
+							mergeInto: target,
+							mergeFrom: root.entityId,
+							properties: { value: "Moved" },
+							eventId: EventId.make("moved-event"),
+							references: [{ from: target, into: root.entityId }],
+						}),
+					]),
+					kernelWriterCommand(input),
+				);
+				expect(moved.committed.events.map(({ eventId }) => eventId)).toEqual([
+					EventId.make("moved-event"),
+				]);
+				expect(yield* eventRow(input, "moved-event")).toEqual({
+					entityId: target,
+					properties: { value: "Moved" },
+					sessionEntityId: root.entityId,
+				});
+				const unchanged = yield* sets.commit(
+					eventChanges(userId, [
+						eventMove({
+							mergeFrom: target,
+							mergeInto: target,
+							eventId: EventId.make("moved-event"),
+						}),
+					]),
+					kernelWriterCommand(input),
+				);
+				expect(unchanged.committed.events).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"refuses a cascade delete whose event does not belong to the cascaded entity's owner",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* kernelEntity(yield* fixture());
+				const root = yield* commit(
+					{ entity: input.input.entity, relationships: input.input.relationships },
+					input.command,
+				);
+				const rootId = root.entityId;
+				assert(rootId);
+				yield* seedEvent(input, rootId, input.kernelEntityId, "cascaded-event");
+				const refused = new DbError({
+					message: "Event cascade does not match the authorized entity graph",
+				});
+				for (const cascadeEntityIds of [[input.kernelEntityId], [targetOf(input)]]) {
+					assertExitFails(
+						yield* Effect.exit(
+							Effect.flatMap(ChangeSets, (sets) =>
+								sets.commit(
+									eventChanges(userId, [
+										{
+											kind: "delete",
+											cascadeEntityIds,
+											itemIdentity: "cascade",
+											eventId: EventId.make("cascaded-event"),
+										},
+									]),
+									kernelWriterCommand(input),
+								),
+							),
+						),
+						refused,
+					);
+				}
+				expect(yield* eventRow(input, "cascaded-event")).not.toBeNull();
+				yield* Effect.flatMap(ChangeSets, (sets) =>
+					sets.commit(
+						eventChanges(userId, [
+							{
+								kind: "delete",
+								itemIdentity: "cascade",
+								cascadeEntityIds: [rootId],
+								eventId: EventId.make("cascaded-event"),
+							},
+						]),
+						kernelWriterCommand(input),
+					),
+				);
+				expect(yield* eventRow(input, "cascaded-event")).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"clears and merges entity data for a kernel writer of any schema and answers their results",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const root = yield* commitUserCommand(input);
+				const target = targetOf(input);
+				const sets = yield* ChangeSets;
+				const merged = yield* sets.commit(
+					{
+						userId,
+						entities: {
+							merges: [{ mergeInto: target, entitySchema: null, mergeFrom: root.entityId }],
+						},
+					},
+					kernelWriterCommand(input),
+				);
+				expect(merged.merged).toEqual([
+					{
+						mergeInto: target,
+						movedEventsCount: 1,
+						mergeFrom: root.entityId,
+						movedRelationshipsCount: 1,
+					},
+				]);
+				expect(merged.committed.events).toHaveLength(1);
+				const cleared = yield* sets.commit(
+					{ userId, entities: { clears: [{ entityId: target, entitySchema: null }] } },
+					kernelWriterCommand(input),
+				);
+				expect(cleared.cleared).toEqual([
+					{ entityId: target, deletedEventsCount: 1, deletedRelationshipsCount: 0 },
+				]);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ id: tables.event.id })
+							.from(tables.event)
+							.where(
+								inArray(
+									tables.event.id,
+									root.events.map(({ eventId }) => eventId),
+								),
+							),
+					),
+				).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"runs the event policies of an entity data clear and merge once per batch",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture(guardedPackage(undefined, ["update", "delete"]));
+				const root = yield* commit(
+					{ entity: input.input.entity, relationships: input.input.relationships },
+					input.command,
+				);
+				assert(root.entityId);
+				const target = targetOf(input);
+				for (const index of [0, 1, 2]) {
+					yield* seedEvent(input, root.entityId, undefined, `policy-event-${index}`);
+				}
+				expect(
+					yield* policyRunsOf(
+						commit(
+							{
+								entities: {
+									merges: [
+										{ mergeInto: target, mergeFrom: root.entityId, entitySchemaSlug: "record" },
+									],
+								},
+							},
+							nextCommand(input),
+						),
+					),
+				).toBe(1);
+				expect(
+					yield* policyRunsOf(
+						commit(
+							{ entities: { clears: [{ entityId: target, entitySchemaSlug: "record" }] } },
+							nextCommand(input),
+						),
+					),
+				).toBe(1);
+				expect(yield* eventRow(input, "policy-event-0")).toBeNull();
+			}),
+		testTimeout,
+	);
+
 	test.effect(
 		"commits relationship deletes, entity data clears and entity deletes",
 		() =>

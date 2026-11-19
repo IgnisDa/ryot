@@ -27,6 +27,12 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
+import {
+	clearUserData,
+	mergeUserData,
+	userDataChangeSets,
+} from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { manifest as notificationManifest } from "#modules/definitions/kernel-scripts/notification.sandbox";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -35,7 +41,6 @@ import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
-import { EventsService } from "#modules/events/service";
 import { NotificationAdmissions } from "#modules/notifications/admission";
 import { deliverEnabledChannels } from "#modules/notifications/deliver-enabled-channels";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
@@ -139,30 +144,28 @@ const dependencies = SignalEmissionService.layer.pipe(
 	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(makeAppConfigLayer()),
 );
-const services = Layer.mergeAll(
-	RemindersService.layer,
-	ReminderWorker.layer,
-	NotificationAdmissions.layer.pipe(Layer.provide(JobQueue.layer)),
-	EntityUserDataService.layer,
-).pipe(
-	Layer.provideMerge(ReminderEntityLifecycleLive),
-	Layer.provide(
+const services = Layer.effect(ChangeSets, userDataChangeSets()).pipe(
+	Layer.provideMerge(
 		Layer.mergeAll(
-			EventsService.layer.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						EventSchemaReader.layer,
-						DomainWriteChecksLive,
-						WorkflowExecutionNotifications.layer,
-					),
+			RemindersService.layer,
+			ReminderWorker.layer,
+			NotificationAdmissions.layer.pipe(Layer.provide(JobQueue.layer)),
+			EntityUserDataService.layer,
+		).pipe(
+			Layer.provideMerge(ReminderEntityLifecycleLive),
+			Layer.provide(Layer.mock(RelationshipsService)({})),
+			Layer.provideMerge(
+				Layer.mergeAll(
+					EventSchemaReader.layer,
+					DomainWriteChecksLive,
+					WorkflowExecutionNotifications.layer,
 				),
 			),
-			Layer.mock(RelationshipsService)({}),
+			Layer.provideMerge(ReminderNotificationSourcePolicyLive),
+			Layer.provideMerge(dependencies),
+			Layer.provideMerge(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 		),
 	),
-	Layer.provideMerge(ReminderNotificationSourcePolicyLive),
-	Layer.provideMerge(dependencies),
-	Layer.provideMerge(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 );
 
 const enabledInput = Effect.fnUntraced(function* () {
@@ -273,11 +276,7 @@ layer(services)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const input = yield* processingInput();
-				yield* (yield* EntityUserDataService).clearEntityUserData(
-					input.user,
-					input.body.entityId,
-					lifecycleCommand(input),
-				);
+				yield* clearUserData(input.user.id, input.body.entityId, lifecycleCommand(input));
 				const stored = yield* (yield* RemindersRepository).findForUser(input.user.id, input.row.id);
 				expect(stored).toMatchObject({
 					message: null,
@@ -318,11 +317,7 @@ layer(services)((test) => {
 					Effect.forkChild,
 				);
 				yield* Deferred.await(preparing);
-				yield* (yield* EntityUserDataService).clearEntityUserData(
-					input.user,
-					input.body.entityId,
-					lifecycleCommand(input),
-				);
+				yield* clearUserData(input.user.id, input.body.entityId, lifecycleCommand(input));
 				yield* Deferred.succeed(resume, undefined);
 				yield* Fiber.join(send);
 				expect(yield* Ref.get(sends)).toBe(0);
@@ -357,11 +352,7 @@ layer(services)((test) => {
 					Effect.forkChild,
 				);
 				yield* Deferred.await(sending);
-				yield* (yield* EntityUserDataService).clearEntityUserData(
-					input.user,
-					input.body.entityId,
-					lifecycleCommand(input),
-				);
+				yield* clearUserData(input.user.id, input.body.entityId, lifecycleCommand(input));
 				yield* Deferred.succeed(accepted, undefined);
 				yield* Fiber.join(send);
 				yield* deliverEnabledChannels(payload).pipe(
@@ -403,8 +394,8 @@ layer(services)((test) => {
 					submittedAt: (yield* DateTime.nowAsDate).toISOString(),
 				});
 				const notification = yield* (yield* NotificationAdmissions).admit(input.admission);
-				yield* (yield* EntityUserDataService).mergeEntityUserData(
-					input.user,
+				yield* mergeUserData(
+					input.user.id,
 					{ mergeInto: destination, mergeFrom: input.body.entityId },
 					lifecycleCommand(input),
 				);

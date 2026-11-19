@@ -1,8 +1,5 @@
 import type { DbError } from "@ryot-app/contract/errors";
-import {
-	AutomationEntityDraft,
-	type AutomationEventDraft,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import { AutomationEntityDraft } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	type CreateEventItem,
 	EventCreateItemError,
@@ -33,66 +30,6 @@ import {
 } from "#modules/entities/write-context";
 
 import { EventsRepository } from "./repository";
-
-export const CapturedEventReferences = Schema.Record(EntityId, Schema.String);
-
-export type CapturedEventReferences = typeof CapturedEventReferences.Type;
-
-const eventReferences = (
-	draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
-): ReadonlyArray<readonly [EntityId, "entity-not-found" | "session-entity-not-found"]> => [
-	[draft.entityId, "entity-not-found"],
-	...(draft.sessionEntityId === null
-		? []
-		: [[draft.sessionEntityId, "session-entity-not-found"] as const]),
-];
-
-const capturedEventReference = (entity: {
-	readonly properties: unknown;
-	readonly entitySchemaSlug: string;
-	readonly entitySchemaPluginId: null | string;
-}) =>
-	stableStringify({
-		properties: entity.properties,
-		entitySchemaSlug: entity.entitySchemaSlug,
-		entitySchemaPluginId: entity.entitySchemaPluginId,
-	});
-
-export const capturedEventReferences = Effect.fn("capturedEventReferences")(function* (
-	userId: UserId,
-	draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
-	previous: CapturedEventReferences = {},
-) {
-	const entitiesRepository = yield* EntitiesRepository;
-	const captured: CapturedEventReferences = { ...previous };
-	for (const [entityId, code] of new Map(eventReferences(draft))) {
-		if (Object.hasOwn(captured, entityId)) {
-			continue;
-		}
-		const entity = yield* entitiesRepository.getByIdForUser({ userId, entityId });
-		if (!entity) {
-			return yield* new EventCreateItemError({ reason: { code, entityId } });
-		}
-		Object.assign(captured, { [entityId]: capturedEventReference(entity) });
-	}
-	return captured;
-});
-
-export const validateCapturedEventReferences = Effect.fn("validateCapturedEventReferences")(
-	function* (
-		userId: UserId,
-		draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
-		captured: CapturedEventReferences,
-	) {
-		const current = yield* capturedEventReferences(userId, draft);
-		for (const [entityId, code] of eventReferences(draft)) {
-			if (captured[entityId] !== current[entityId]) {
-				return yield* new EventCreateItemError({ reason: { code, entityId } });
-			}
-		}
-		return undefined;
-	},
-);
 
 const resolveOccurredAt = (occurredAt?: string) => {
 	if (!occurredAt) {
@@ -239,27 +176,6 @@ const resolveScopes = Effect.fnUntraced(function* (
 	};
 });
 
-export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemScopes")(
-	function* (input: {
-		readonly userId: UserId;
-		readonly commit?: boolean;
-		readonly item: CreateEventItem;
-		readonly command: DomainLifecycleCommand;
-	}) {
-		const eventSchemasRepository = yield* EventSchemaReader;
-		const entitiesRepository = yield* EntitiesRepository;
-		const checks = yield* DomainWriteChecks;
-		return yield* resolveScopes(input.item, {
-			pinnedDeclaration: (pinId, slugs) => checks.findPinnedDeclaration("event", pinId, slugs),
-			check: (owner) => checks.check(input.command, owner, input.userId, input.commit ?? false),
-			entityScope: (entityId) =>
-				entitiesRepository.getEntityScopeForUser({ entityId, userId: input.userId }),
-			eventSchemaScope: (scope) =>
-				eventSchemasRepository.getScopeForUser({ ...scope, userId: input.userId }),
-		});
-	},
-);
-
 const schemaInputKey = (input: EventCreateSchemaInput) =>
 	stableStringify([input.eventSchemaSlug, input.entitySchemaPluginId, input.entitySchemaSlug]);
 
@@ -384,22 +300,8 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 			},
 		});
 		return {
-			check,
 			resolve: (item: CreateEventItem, command: DomainLifecycleCommand) =>
 				resolveScopes(item, reads(command)),
-			capture: Effect.fnUntraced(function* (
-				draft: Pick<AutomationEventDraft, "entityId" | "sessionEntityId">,
-			) {
-				const captured: CapturedEventReferences = {};
-				for (const [entityId, code] of new Map(eventReferences(draft))) {
-					const entity = referenceOf(entityId);
-					if (!entity) {
-						return yield* new EventCreateItemError({ reason: { code, entityId } });
-					}
-					Object.assign(captured, { [entityId]: capturedEventReference(entity) });
-				}
-				return captured;
-			}),
 			references: yield* Schema.decodeUnknownEffect(Schema.Record(EntityId, AutomationEntityDraft))(
 				Object.fromEntries(
 					[...new Set(entityIds)].flatMap((id) => {

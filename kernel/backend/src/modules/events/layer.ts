@@ -7,19 +7,6 @@ import { DomainWriteChecksLive } from "#modules/entities/write-context";
 
 import { EventMutations } from "./mutations";
 import { EventsRepository } from "./repository";
-import { EventsService } from "./service";
-
-export const EventsServiceLive = EventsService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			EventsRepository.layer,
-			EntitiesRepositoryLive,
-			DomainWriteChecksLive,
-			EventSchemaReaderLive,
-			LifecycleServicesLive,
-		),
-	),
-);
 
 export const EventMutationsLive = EventMutations.layer.pipe(
 	Layer.provide(

@@ -2,9 +2,9 @@ import { Layer } from "effect";
 
 import { LifecycleServicesLive, MigrationLifecycleServicesLive } from "#modules/automations/layer";
 import { EventSchemaReaderLive } from "#modules/definitions/layer";
-import { EventsServiceLive } from "#modules/events/layer";
+import { EventMutationsLive } from "#modules/events/layer";
+import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
-import { EventsService } from "#modules/events/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
 import { DeclaredLifecycleWorkLive } from "./lifecycle-work";
@@ -16,7 +16,7 @@ import { EntityRetentionRepository } from "./retention/repository";
 import { EntitiesService } from "./service";
 import { DomainWriteChecksLive } from "./write-context";
 
-const EventsServiceMigrationLive = EventsService.layer.pipe(
+const EventMutationsMigrationLive = EventMutations.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			EventsRepository.layer,
@@ -34,7 +34,7 @@ export const EntitiesServiceRuntimeLive = EntitiesService.layerRuntime.pipe(
 			EntitiesRepositoryLive,
 			DomainWriteChecksLive,
 			EventsRepository.layer,
-			EventsServiceLive,
+			EventMutationsLive,
 			LifecycleServicesLive,
 		),
 	),
@@ -50,7 +50,7 @@ export const EntitiesServiceMigrationLive = EntitiesService.layerMigration.pipe(
 			EntitiesRepositoryLive,
 			DomainWriteChecksLive,
 			EventsRepository.layer,
-			EventsServiceMigrationLive,
+			EventMutationsMigrationLive,
 			MigrationLifecycleServicesLive,
 		),
 	),

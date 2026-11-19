@@ -64,8 +64,7 @@ import {
 	ProviderEntitySearchServiceLive,
 } from "#modules/entities/providers/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
-import { EventMutationsLive, EventsServiceLive } from "#modules/events/layer";
+import { EventMutationsLive } from "#modules/events/layer";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
 import { IngestionCaptures } from "#modules/imports/capture-service";
@@ -259,7 +258,6 @@ const ServicesLive = Layer.mergeAll(
 	EntityImportServiceLive,
 	EntityEnrichmentServiceLive,
 	EntityPopulationLive,
-	EventsServiceLive,
 	InstanceAdminServiceLive,
 	ImportsServiceLive,
 	ImportRunCancellationService.layer.pipe(
@@ -294,7 +292,6 @@ const ServicesLive = Layer.mergeAll(
 	EntityGraphCollectorLive,
 	UserLifecycleServiceLive,
 	UserSettingsServiceLive,
-	EntityUserDataServiceLive,
 	UserBootstrapSchedulingLive,
 	PagesServiceLive,
 	PageAuthoringServiceLive,

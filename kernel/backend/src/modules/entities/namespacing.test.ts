@@ -32,6 +32,7 @@ import {
 	eventChangeSets,
 	eventDelete,
 	eventUpdate,
+	userDataChangeSets,
 } from "#modules/changes/change-sets.test-support";
 import type { EventChange } from "#modules/changes/changes";
 import { ChangeSets } from "#modules/changes/service";
@@ -40,8 +41,8 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { runPopulationAttempt } from "#modules/entities/providers/population-job";
+import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
-import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
@@ -49,7 +50,7 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { relationshipDatabaseLayer } from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
-import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { principalOwner, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -162,21 +163,6 @@ const admittedCommand = Effect.fnUntraced(function* (
 	return { command, providerId: provider.id };
 });
 
-const userDataService = EntityUserDataService.make.pipe(
-	Effect.provideServiceEffect(EntityUserDataGraphRepository, EntityUserDataGraphRepository.make),
-	Effect.map((service) => ({
-		...service,
-		mergeForCommand: (...input: Parameters<typeof service.prepareMergeForCommand>) =>
-			Effect.gen(function* () {
-				const prepared = yield* service.prepareMergeForCommand(...input);
-				const committed = yield* (yield* EventsService)
-					.transaction(service.persistPreparedMerge(prepared))
-					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-				return committed.result;
-			}),
-	})),
-);
-
 const ensureKernelCollections = Effect.gen(function* () {
 	const definitions = yield* DefinitionRepository;
 	const current = yield* definitions.readKernelSource;
@@ -217,6 +203,46 @@ const withEventChangeSets = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		);
 	});
 
+/** Merges user data of the writer's own schema `slug` through `ChangeSets`, answering its result. */
+const mergeUserData = (
+	userId: UserId,
+	merge: { readonly slug: string; readonly mergeFrom: EntityId; readonly mergeInto: EntityId },
+	command: DomainLifecycleCommand,
+) =>
+	Effect.gen(function* () {
+		const repository = yield* EventsRepository.make;
+		const schemas = yield* EventSchemaReader.make;
+		const userData = yield* EntityUserDataService.make.pipe(
+			Effect.provideServiceEffect(
+				EntityUserDataGraphRepository,
+				EntityUserDataGraphRepository.make,
+			),
+		);
+		const sets = yield* userDataChangeSets().pipe(
+			Effect.provideService(EventsRepository, repository),
+			Effect.provideService(EventSchemaReader, schemas),
+			Effect.provideService(EntityUserDataService, userData),
+		);
+		const committed = yield* sets.commit(
+			{
+				userId,
+				entities: {
+					merges: [
+						{
+							mergeFrom: merge.mergeFrom,
+							mergeInto: merge.mergeInto,
+							entitySchema: {
+								slug: EntitySchemaSlug.make(merge.slug),
+								owner: principalOwner(command.writeContext),
+							},
+						},
+					],
+				},
+			},
+			command,
+		);
+		return committed.merged[0];
+	});
 const createUserEvents = (
 	command: DomainLifecycleCommand,
 	userId: UserId,
@@ -353,7 +379,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
 				expect(
 					yield* Effect.flip(
-						(yield* EventsService)
+						(yield* EventMutations)
 							.transaction(
 								entities.persistPlannedProviderUpserts({
 									batch: { command, identity: ["global-batch"] },
@@ -611,7 +637,6 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				const { command } = yield* admittedCommand(installed, firstUser, "merge-plugin");
 				const entities = yield* EntitiesService;
 				const relationships = yield* RelationshipsService;
-				const merges = yield* userDataService;
 				const session = yield* DatabaseSession;
 				const schema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
 				const collectionSchema = {
@@ -677,25 +702,10 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					],
 				);
 				expect([tasted.count, added.count]).toEqual([1, 1]);
-				const payload = { mergeFrom: from.id, mergeInto: into.id, entitySchemaSlug: bottle };
-
-				expect(
-					yield* Effect.flip(
-						merges.mergeForCommand(
-							firstUser,
-							payload,
-							kernelCollectionLifecycleCommand({
-								...nextCommand(command, "no-plugin"),
-								writeContext: null,
-							}),
-						),
-					),
-				).toMatchObject({ message: "Entity merge requires a pinned plugin" });
-
-				const merged = yield* merges.mergeForCommand(
+				const merged = yield* mergeUserData(
 					firstUser,
-					payload,
-					kernelCollectionLifecycleCommand(nextCommand(command, "merge")),
+					{ slug: bottle, mergeFrom: from.id, mergeInto: into.id },
+					nextCommand(command, "merge"),
 				);
 				expect(merged).toMatchObject({ movedEventsCount: 2, movedRelationshipsCount: 1 });
 				expect(
@@ -741,7 +751,6 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				const first = yield* admittedCommand(a, firstUser, "merge-refusals-a");
 				const second = yield* admittedCommand(b, firstUser, "merge-refusals-b");
 				const entities = yield* EntitiesService;
-				const merges = yield* userDataService;
 				const session = yield* DatabaseSession;
 				const eventRows = yield* EventsRepository;
 				const createBottle = (name: string, installed: typeof a, base: DomainLifecycleCommand) =>
@@ -772,14 +781,14 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					command: DomainLifecycleCommand,
 				) =>
 					Effect.flip(
-						merges.mergeForCommand(
+						mergeUserData(
 							firstUser,
 							{
-								entitySchemaSlug,
+								slug: entitySchemaSlug,
 								mergeFrom: EntityId.make(mergeFrom),
 								mergeInto: EntityId.make(mergeInto),
 							},
-							kernelCollectionLifecycleCommand(command),
+							command,
 						),
 					);
 				const from = (yield* createBottle("From", a, first.command)).entity;
@@ -814,10 +823,10 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					yield* merge(foreignFrom.id, foreignInto.id, bottle, nextCommand(first.command, "m2")),
 				).toMatchObject({ reason: { code: "owner-mismatch" } });
 				expect(
-					yield* merges.mergeForCommand(
+					yield* mergeUserData(
 						firstUser,
-						{ mergeInto: into.id, mergeFrom: globalSource, entitySchemaSlug: bottle },
-						kernelCollectionLifecycleCommand(nextCommand(first.command, "m3")),
+						{ slug: bottle, mergeInto: into.id, mergeFrom: globalSource },
+						nextCommand(first.command, "m3"),
 					),
 				).toMatchObject({ movedEventsCount: 0, movedRelationshipsCount: 0 });
 				expect(
@@ -845,7 +854,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				);
 				expect(
 					yield* merge(from.id, into.id, bottle, nextCommand(first.command, "m5")),
-				).toMatchObject({ reason: { code: "owner-mismatch" } });
+				).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
 				expect(
 					yield* session.run((db) =>
 						db

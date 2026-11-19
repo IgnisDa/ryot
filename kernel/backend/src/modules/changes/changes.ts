@@ -17,7 +17,9 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 
-export type EventChange = Part<"events">["changes"][number];
+import type { EventMutation } from "#modules/events/mutations";
+
+export type EventChange = Exclude<EventMutation, { readonly kind: "create" }>;
 export type GlobalEntityReference =
 	| Extract<ChangeSetGlobalEntityReference, { readonly kind: "existing" }>
 	| OwnedEntity<Extract<ChangeSetGlobalEntityReference, { readonly kind: "upserted" }>>;
@@ -34,7 +36,8 @@ export type Changes = {
 	readonly entity?: OwnedEntity<ChangeSetEntity>;
 	readonly globalRelationships?: ReadonlyArray<OwnedGlobalRelationshipGroup>;
 	readonly globalEntities?: ReadonlyArray<OwnedEntity<Part<"globalEntities">[number]>>;
-	readonly events?: Omit<Part<"events">, "creates"> & {
+	readonly events?: Omit<Part<"events">, "creates" | "changes"> & {
+		readonly changes: ReadonlyArray<EventChange>;
 		readonly creates: ReadonlyArray<
 			Omit<EventCreate, "properties"> & { readonly properties: unknown }
 		>;
@@ -49,10 +52,10 @@ export type Changes = {
 	};
 	readonly entities?: {
 		readonly updates?: ReadonlyArray<OwnedEntity<ChangeSetEntityUpdate>>;
-		readonly clears?: ReadonlyArray<OwnedEntity<NonNullable<EntityParts["clears"]>[number]>>;
-		readonly merges?: ReadonlyArray<OwnedEntity<NonNullable<EntityParts["merges"]>[number]>>;
 		readonly deletes?: ReadonlyArray<OwnedEntity<NonNullable<EntityParts["deletes"]>[number]>>;
 		readonly ensures?: ReadonlyArray<OwnedEntity<NonNullable<EntityParts["ensures"]>[number]>>;
+		readonly clears?: ReadonlyArray<UserDataEntity<NonNullable<EntityParts["clears"]>[number]>>;
+		readonly merges?: ReadonlyArray<UserDataEntity<NonNullable<EntityParts["merges"]>[number]>>;
 	};
 };
 type EntityParts = Part<"entities">;
@@ -64,6 +67,12 @@ type GlobalRelationshipGroup = Part<"globalRelationships">[number];
 type OwnedEntity<T extends { readonly entitySchemaSlug: string }> = Omit<T, "entitySchemaSlug"> & {
 	readonly entitySchema: EntitySchemaReference;
 };
+
+/** A clear or merge of user data; a kernel writer's `null` schema accepts the entity's own. */
+type UserDataEntity<T extends { readonly entitySchemaSlug: string }> = Omit<
+	OwnedEntity<T>,
+	"entitySchema"
+> & { readonly entitySchema: null | EntitySchemaReference };
 
 type OwnedRelationship<T extends { readonly relationshipSchemaSlug: string }> = Omit<
 	T,

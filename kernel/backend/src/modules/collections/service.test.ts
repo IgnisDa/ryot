@@ -318,7 +318,12 @@ const makeServiceLayer = (
 							Effect.andThen(
 								workflow.eventFailure
 									? Effect.fail(new DbError({ message: "event creation failed" }))
-									: Effect.succeed({ outcomes: [], committed: { events: [] } }),
+									: Effect.succeed({
+											merged: [],
+											cleared: [],
+											outcomes: [],
+											committed: { events: [] },
+										}),
 							),
 						),
 				}),

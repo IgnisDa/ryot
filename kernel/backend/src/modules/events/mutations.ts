@@ -32,14 +32,22 @@ import {
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
 import {
+	applyPolicyBatch,
+	matchPolicyBatch,
 	type PolicyBatchResult,
 	unchangedPolicyBatch,
 } from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { type ApplyFoldChanges, type FoldMode, Folds } from "#modules/derived-values/service";
 import { EntitiesRepository } from "#modules/entities/repository";
-import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { assertStableUnder, DomainWriteChecks } from "#modules/entities/write-context";
+import {
+	assertStableUnder,
+	type DomainLifecycleCommand,
+	domainWriteCheckKey,
+	DomainWriteChecks,
+	type DomainWriteConflict,
+	kernelCollectionLifecycleCommand,
+} from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import {
@@ -65,9 +73,37 @@ const eventWriteIdentity = (command: LifecycleCommand) => ({
 	executionId: command.causation.executionId,
 });
 
+const [eventCreate, eventUpdate, eventDelete] = EventMutationChange.members;
+
+/**
+ * An event change a kernel writer prepares: the contract's changes, a delete authorized by the
+ * entities it cascades from, and a move of an event's entity references. `kernelCollection` lets a
+ * plugin writer change the kernel collection events the user data it owns carries.
+ */
+export const EventMutation = Schema.Union([
+	eventCreate,
+	eventUpdate,
+	Schema.Struct({
+		...eventDelete.fields,
+		kernelCollection: Schema.optionalKey(Schema.Literal(true)),
+		cascadeEntityIds: Schema.optionalKey(Schema.Array(EntityId)),
+	}),
+	Schema.Struct({
+		eventId: EventId,
+		mergeFrom: EntityId,
+		mergeInto: EntityId,
+		kind: Schema.Literal("move"),
+		itemIdentity: Schema.NonEmptyString,
+		kernelCollection: Schema.optionalKey(Schema.Literal(true)),
+		properties: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+		references: Schema.optionalKey(Schema.Array(Schema.Struct({ from: EntityId, into: EntityId }))),
+	}),
+]);
+export type EventMutation = typeof EventMutation.Type;
+
 export const PreparedEventChange = Schema.Struct({
 	position: Schema.Int,
-	change: EventMutationChange,
+	change: EventMutation,
 	draft: AutomationEventDraft,
 	identity: EventWriteIdentity,
 	schemaFingerprint: CatalogDefinitionFingerprint,
@@ -177,6 +213,92 @@ export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedE
 	);
 });
 
+const policyChunkSize = 50;
+
+// One policy invocation must fit the sandbox context limit. A subject's items share a chunk, so a
+// once-per-subject policy still runs once for it.
+const subjectChunks = (items: ReadonlyArray<typeof PreparedEventChange.Type>) => {
+	const chunks: Array<Array<typeof PreparedEventChange.Type>> = [];
+	for (const subject of Map.groupBy(items, (item) => item.draft.entityId).values()) {
+		const last = chunks.at(-1);
+		if (last && last.length + subject.length <= policyChunkSize) {
+			last.push(...subject);
+		} else {
+			chunks.push([...subject]);
+		}
+	}
+	return chunks;
+};
+
+/** Matches each subject chunk's event policies, in the transaction that prepared the changes. */
+export const matchEventPolicies = Effect.fnUntraced(function* (input: {
+	readonly userId: UserId;
+	readonly prepared: PreparedEventChanges;
+	readonly command: DomainLifecycleCommand;
+}) {
+	return yield* Effect.forEach(subjectChunks(input.prepared.items), (items, index) =>
+		Effect.gen(function* () {
+			const policyBatch = {
+				userId: input.userId,
+				resource: "event" as const,
+				references: input.prepared.references,
+				propertiesSchemas: input.prepared.propertiesSchemas,
+				command: commandFor(input.command, `policies:${index}`),
+				items: yield* eventPolicyItems({ ...input.prepared, items }),
+			};
+			return { items, policyBatch, matched: yield* matchPolicyBatch(policyBatch) };
+		}),
+	);
+});
+export type MatchedEventPolicies = Effect.Success<ReturnType<typeof matchEventPolicies>>;
+
+/** Runs each chunk's matched policies, outside any transaction. */
+export const applyEventPolicies = (chunks: MatchedEventPolicies) =>
+	Effect.forEach(chunks, ({ items, matched, policyBatch }) =>
+		applyPolicyBatch(policyBatch, matched).pipe(Effect.map((validated) => ({ items, validated }))),
+	);
+
+/** Each chunk's items as one persistable batch; a rejected or invalid item fails them all. */
+export const acceptedEventBatches = Effect.fnUntraced(function* (input: {
+	readonly prepared: PreparedEventChanges;
+	readonly command: DomainLifecycleCommand;
+	readonly chunks: ReadonlyArray<{
+		readonly validated: PolicyBatchResult;
+		readonly items: ReadonlyArray<typeof PreparedEventChange.Type>;
+	}>;
+}) {
+	const batches: Array<{
+		validated: PolicyBatchResult;
+		prepared: PreparedEventChanges;
+		command: DomainLifecycleCommand;
+	}> = [];
+	for (const chunk of input.chunks) {
+		const rejection = chunk.validated.items.find((item) => item.rejected !== null)?.rejected;
+		if (rejection) {
+			return yield* new EventBadRequest({
+				reason: { message: rejection, code: "policy-rejected" },
+			});
+		}
+		const invalid = chunk.validated.items.find((item) => item.error !== null);
+		if (invalid?.error) {
+			return yield* new EventBadRequest({
+				reason: {
+					code:
+						invalid.error.code === "reference-not-found"
+							? "invalid-policy-transform"
+							: invalid.error.code,
+				},
+			});
+		}
+		batches.push({
+			command: input.command,
+			validated: chunk.validated,
+			prepared: { ...input.prepared, items: chunk.items },
+		});
+	}
+	return batches;
+});
+
 const bad = (code: "mutation-conflict" | "invalid-properties" | "invalid-policy-transform") =>
 	new EventBadRequest({ reason: { code } });
 const conflict = (cause: string) => rejectWithLoggedCause(bad("mutation-conflict"), cause);
@@ -187,6 +309,14 @@ const commandFor = (
 	...command,
 	itemIdentity: `${command.itemIdentity}:${itemIdentity}`,
 });
+const writeFailure = (error: DbError | DomainWriteConflict) =>
+	error._tag === "DomainWriteConflict"
+		? Effect.fail(new EventBadRequest({ reason: { code: error.reason.code } }))
+		: conflict(error.message);
+const checkCommand = (command: DomainLifecycleCommand, change: EventMutation) =>
+	change.kind !== "create" && change.kind !== "update" && change.kernelCollection === true
+		? kernelCollectionLifecycleCommand(command)
+		: command;
 const scopeKey = (
 	draft: Pick<
 		AutomationEventDraft,
@@ -262,6 +392,31 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					createdEventIds: createdEventIds(input.batches),
 				});
 			});
+			const authorizeCascade = Effect.fnUntraced(function* (
+				command: DomainLifecycleCommand,
+				userId: UserId,
+				cascadeEntityIds: ReadonlyArray<EntityId>,
+				before: AutomationEventSnapshot,
+			) {
+				const entityId = cascadeEntityIds.find(
+					(id) => id === before.entityId || id === before.sessionEntityId,
+				);
+				const source = entityId === undefined ? null : yield* entities.getMutationEntity(entityId);
+				if (
+					!source ||
+					(source.userId !== null && source.userId !== userId) ||
+					(before.eventSchemaPluginId !== source.entity.entitySchemaPluginId &&
+						!(before.eventSchemaPluginId === null && before.entitySchemaSlug === "collection"))
+				) {
+					return yield* new DbError({
+						message: "Event cascade does not match the authorized entity graph",
+					});
+				}
+				yield* writes
+					.check(command, definitionOwner(source.entity.entitySchemaPluginId), source.userId, true)
+					.pipe(Effect.catch(writeFailure));
+				return yield* Effect.void;
+			});
 			const lockPreparedChanges = Effect.fn("EventMutations.lockPreparedChanges")(function* (
 				input: Parameters<typeof preparedMutationReferences>[0],
 			) {
@@ -276,7 +431,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				independent?: boolean;
 				verbatimIdentities?: boolean;
 				command: DomainLifecycleCommand;
-				changes: ReadonlyArray<EventMutationChange>;
+				changes: ReadonlyArray<EventMutation>;
 				proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
 			}) {
 				const writer = input.command.writeContext?.pluginRevision;
@@ -295,15 +450,53 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						if (change.kind === "create") {
 							return { change, source: null, item: change.item };
 						}
-						const eventId = change.kind === "delete" ? change.eventId : change.item.eventId;
+						const eventId = change.kind === "update" ? change.item.eventId : change.eventId;
 						const source = yield* repository.getEventSnapshot({ eventId, userId: input.userId });
 						if (!source) {
 							return yield* new EventNotFound({ reason: { eventId, code: "event-not-found" } });
 						}
 						const { snapshot: before } = source;
-						const expected = change.kind === "delete" ? change.expected : change.item.expected;
+						let expected: undefined | EventWritePrecondition;
+						if (change.kind === "update") {
+							expected = change.item.expected;
+						} else if (change.kind === "delete") {
+							expected = change.expected;
+						}
 						if (expected && !matchesExpectedFields(before, expected)) {
 							return yield* new EventStale({ reason: { eventId, code: "event-stale" } });
+						}
+						if (change.kind === "delete" && change.cascadeEntityIds) {
+							yield* authorizeCascade(input.command, input.userId, change.cascadeEntityIds, before);
+						}
+						if (change.kind === "move") {
+							const references = new Map<EntityId, EntityId>([
+								[change.mergeFrom, change.mergeInto],
+								...(change.references ?? []).map(({ from, into }) => [from, into] as const),
+							]);
+							const entityId = references.get(before.entityId) ?? before.entityId;
+							const sessionEntityId =
+								before.sessionEntityId === null
+									? null
+									: (references.get(before.sessionEntityId) ?? before.sessionEntityId);
+							if (
+								change.mergeFrom === change.mergeInto ||
+								(entityId === before.entityId &&
+									sessionEntityId === before.sessionEntityId &&
+									change.properties === undefined)
+							) {
+								return null;
+							}
+							return {
+								change,
+								source,
+								item: {
+									entityId,
+									occurredAt: before.occurredAt,
+									eventSchemaSlug: before.eventSchemaSlug,
+									sessionEntityId: sessionEntityId ?? undefined,
+									properties: change.properties ?? before.properties,
+								},
+							};
 						}
 						const patch = change.kind === "update" ? change.item.patch : {};
 						const properties = { ...before.properties };
@@ -327,23 +520,26 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						};
 					}),
 				);
+				const pending = changes.flatMap((item, position) =>
+					item === null ? [] : [{ ...item, position }],
+				);
 				const scopes = yield* readEventCreateChunkScopes({
 					...input,
 					commands: [input.command],
 					writeCommand: input.command,
-					items: changes.map((item) => item.item),
+					items: pending.map((item) => item.item),
 				}).pipe(
 					Effect.provideService(EventSchemaReader, schemas),
 					Effect.provideService(EntitiesRepository, entities),
 					Effect.provideService(DomainWriteChecks, writes),
 					Effect.provideService(EventsRepository, repository),
 				);
-				const prepared = yield* Effect.forEach(changes, (item, index) =>
+				const prepared = yield* Effect.forEach(pending, (item) =>
 					Effect.gen(function* () {
 						const command = commandFor(input.command, item.change.itemIdentity);
 						const scope = yield* scopes.resolve(
 							{ ...item.item, occurredAt: item.item.occurredAt ?? input.command.occurredAt },
-							command,
+							checkCommand(command, item.change),
 						);
 						const before = item.source?.snapshot;
 						if (
@@ -406,9 +602,9 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						return {
 							...(order === undefined ? {} : { order }),
 							draft,
-							position: index,
 							change: item.change,
 							source: item.source,
+							position: item.position,
 							propertiesSchema: scope.eventSchemaScope.propertiesSchema,
 							schemaFingerprint: catalogDefinitionFingerprint(scope.eventSchemaScope),
 							identity: eventWriteIdentity(
@@ -433,7 +629,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					if (!input.independent || error._tag === "DbError") {
 						return yield* error;
 					}
-					const change = changes[index];
+					const change = pending[index];
 					if (!change) {
 						return yield* Effect.die("Prepared change index is unavailable");
 					}
@@ -576,7 +772,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				const results = [];
 				const dispatch: Array<LifecycleDispatchPlan> = [];
 				const triggers: Array<AutomationTrigger> = [];
-				const checkedOwners = new Set<null | string>();
+				const checkedOwners = new Set<string>();
 				const assetOwners: Array<Parameters<typeof assets.lock>[0][number]> = [];
 				const validatedRows: Array<{
 					index: number;
@@ -628,11 +824,18 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						}
 					}
 					const command = { ...input.command, itemIdentity: row.identity.itemIdentity };
-					if (!checkedOwners.has(draft.eventSchemaPluginId)) {
+					const owner = definitionOwner(draft.eventSchemaPluginId);
+					const check = checkCommand(command, row.change);
+					const checkKey = domainWriteCheckKey({
+						owner,
+						command: check,
+						scopeUserId: input.userId,
+					});
+					if (!checkedOwners.has(checkKey)) {
 						yield* writes
-							.check(command, definitionOwner(draft.eventSchemaPluginId), input.userId, true)
+							.check(check, owner, input.userId, true)
 							.pipe(Effect.catch((error) => conflict(error.message)));
-						checkedOwners.add(draft.eventSchemaPluginId);
+						checkedOwners.add(checkKey);
 					}
 					const schema = schemasByScope.get(scopeKey(draft));
 					if (
@@ -767,6 +970,33 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				}
 				return { results, dispatch };
 			});
+			const persistBatches = Effect.fn("EventMutations.persistBatches")(function* (input: {
+				userId: UserId;
+				batchIndexOffset?: number;
+				batch: LifecycleBatchInput;
+				batches: ReadonlyArray<{
+					validated: PolicyBatchResult;
+					prepared: PreparedEventChanges;
+					command: DomainLifecycleCommand;
+				}>;
+			}) {
+				const results = [];
+				const dispatch: Array<LifecycleDispatchPlan> = [];
+				let offset = input.batchIndexOffset ?? 0;
+				for (const prepared of input.batches) {
+					const work = yield* persist({
+						...prepared,
+						sealBatch: false,
+						batch: input.batch,
+						userId: input.userId,
+						batchIndexOffset: offset,
+					});
+					offset += prepared.prepared.items.length;
+					results.push(...work.results);
+					dispatch.push(...work.dispatch);
+				}
+				return { results, dispatch, batchIndexOffset: offset };
+			});
 			// Fold-owned writes skip before-policies and after-hooks: they derive from changes those already saw.
 			const applyDerived: ApplyFoldChanges = Effect.fnUntraced(function* (input) {
 				const prepared = yield* prepare(input);
@@ -800,7 +1030,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							.pipe(Effect.provideService(PendingEventReferenceClears, [])),
 					),
 				);
-			return { prepare, persist, transaction, captureGroups, lockPreparedChanges };
+			return { prepare, persist, transaction, captureGroups, persistBatches, lockPreparedChanges };
 		}),
 	},
 ) {

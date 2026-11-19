@@ -3,7 +3,7 @@ import type {
 	EventWritePrecondition,
 	UpdateEventItem,
 } from "@ryot-app/contract/modules/events/schemas";
-import type { EventId, UserId } from "@ryot-app/contract/schema/brands";
+import type { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { SignalEmissionService } from "#modules/automations/signal-service";
@@ -58,12 +58,11 @@ export const changeSetsLayerWithNotificationSources = (authorized: boolean) =>
 
 export const changeSetsTestLayer = changeSetsLayerWithNotificationSources(true);
 
-/** `ChangeSets` that writes only events over the caller's event services; other parts are absent. */
-export const eventChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
+const partialChangeSets = (userData: Layer.Layer<EntityUserDataService>, folds: Folds["Service"]) =>
 	Layer.build(
 		Layer.mergeAll(
+			userData,
 			Layer.mock(EntitiesService)({}),
-			Layer.mock(EntityUserDataService)({}),
 			Layer.mock(RelationshipsService)({}),
 			Layer.mock(PluginUserSettingsWriter)({}),
 			Layer.mock(SignalEmissionService)({}),
@@ -82,6 +81,19 @@ export const eventChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
 			),
 		),
 		Effect.scoped,
+	);
+
+/** `ChangeSets` that writes only events over the caller's event services; other parts are absent. */
+export const eventChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
+	partialChangeSets(Layer.mock(EntityUserDataService)({}), folds);
+
+/**
+ * `ChangeSets` that writes events and entity data clears and merges over the caller's event and
+ * `EntityUserDataService` services; other parts are absent.
+ */
+export const userDataChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
+	Effect.flatMap(EntityUserDataService, (userData) =>
+		partialChangeSets(Layer.succeed(EntityUserDataService, userData), folds),
 	);
 
 /**
@@ -129,3 +141,37 @@ export const commitEventChanges = (
 	Effect.flatMap(ChangeSets, (sets) => sets.commit(eventChanges(userId, changes), command)).pipe(
 		Effect.map((result) => result.committed.events.map((event) => event.eventId)),
 	);
+
+export const eventMove = (input: {
+	readonly eventId: EventId;
+	readonly mergeFrom: EntityId;
+	readonly mergeInto: EntityId;
+	readonly properties?: Readonly<Record<string, unknown>>;
+	readonly references?: ReadonlyArray<{ readonly from: EntityId; readonly into: EntityId }>;
+}): EventChange => ({ ...input, kind: "move", itemIdentity: `event:${input.eventId}` });
+
+/** Clears the user's data for an entity of any schema as a kernel writer, answering its result. */
+export const clearUserData = (
+	userId: UserId,
+	entityId: EntityId,
+	command: Omit<DomainLifecycleCommand, "writeContext">,
+) =>
+	Effect.flatMap(ChangeSets, (sets) =>
+		sets.commit(
+			{ userId, entities: { clears: [{ entityId, entitySchema: null }] } },
+			{ ...command, writeContext: null },
+		),
+	).pipe(Effect.map((result) => result.cleared[0]));
+
+/** Merges one entity's user data into another of any schema as a kernel writer, answering its result. */
+export const mergeUserData = (
+	userId: UserId,
+	merge: { readonly mergeFrom: EntityId; readonly mergeInto: EntityId },
+	command: Omit<DomainLifecycleCommand, "writeContext">,
+) =>
+	Effect.flatMap(ChangeSets, (sets) =>
+		sets.commit(
+			{ userId, entities: { merges: [{ ...merge, entitySchema: null }] } },
+			{ ...command, writeContext: null },
+		),
+	).pipe(Effect.map((result) => result.merged[0]));

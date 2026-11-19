@@ -58,8 +58,8 @@ import { AutomationTriggerRepository } from "#modules/automations/trigger-reposi
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
-import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
@@ -404,9 +404,11 @@ const entitiesLayer = (options: TestOptions = {}) =>
 										trigger.scopeUserId !== null &&
 										trigger.payload?.resource === "event" &&
 										trigger.payload.category === "request" &&
-										trigger.payload.operation === "delete"
+										trigger.payload.operation === "batch" &&
+										trigger.payload.items[0]?.resource === "event" &&
+										trigger.payload.items[0].operation === "delete"
 									) {
-										const before = trigger.payload.draft;
+										const before = trigger.payload.items[0].draft;
 										yield* eventRepository
 											.createEvent({
 												entityId: before.entityId,
@@ -436,7 +438,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 						});
 					}),
 				).pipe(Layer.provide(repositories));
-				const eventsService = EventsService.layer.pipe(
+				const eventMutations = EventMutations.layer.pipe(
 					Layer.provide(
 						Layer.mergeAll(
 							WorkflowExecutionNotifications.layer,
@@ -466,7 +468,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 								ports,
 								execution,
 								policies,
-								eventsService,
+								eventMutations,
 								emptyEntityUserDataAttachments,
 							),
 						),

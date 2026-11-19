@@ -34,8 +34,8 @@ import { EntitiesService } from "#modules/entities/service";
 import { recordingDatabaseLayer } from "#modules/entities/statement-recording.test-support";
 import { emptyEntityUserDataAttachments } from "#modules/entities/user-data/attachments.test-support";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
-import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
@@ -392,7 +392,7 @@ export const relationshipDatabaseLayer = (
 						Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
 				}),
 			);
-			const eventsService = EventsService.layer.pipe(
+			const eventMutations = EventMutations.layer.pipe(
 				Layer.provide(
 					Layer.mergeAll(
 						ownerDependencies,
@@ -406,7 +406,7 @@ export const relationshipDatabaseLayer = (
 			const services = Layer.mergeAll(RelationshipsService.layer, EntitiesService.layer).pipe(
 				Layer.provideMerge(emptyEntityUserDataAttachments),
 				Layer.provideMerge(RelationshipMutationPipeline.layer),
-				Layer.provideMerge(Layer.mergeAll(ownerDependencies, eventsRepository, eventsService)),
+				Layer.provideMerge(Layer.mergeAll(ownerDependencies, eventsRepository, eventMutations)),
 				Layer.provideMerge(
 					recordingDatabaseLayer(options.holdLocks ? { holdLocks: options.holdLocks } : {}).pipe(
 						Layer.provide(PgClientLive),
