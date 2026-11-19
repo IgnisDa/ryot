@@ -11,6 +11,12 @@ Prepared policy inputs still retain the source snapshot needed to detect concurr
 Provider root-write activities retain the entity snapshot and dispatch references.
 Collection preparation projects the entity result to its identifier before journaling it.
 
+`EntitiesService` prepares and persists entity writes; every caller commits them through
+`ChangeSets` (see [change sets](../changes/README.md)). Each prepared token lists its policy items
+(`entityPolicyItems`); `matchEntityPolicies` and `applyEntityPolicies` run a change set's entity
+policies in batches, and `acceptEntityPolicies` turns their decisions into the acceptance each
+persist step applies before it validates the final draft again under the catalog lock.
+
 # Provider ownership
 
 Provider-backed entity ownership follows the provider's plugin: system-plugin providers write global
@@ -22,7 +28,7 @@ created through the user API.
 # Immutable properties
 
 A top-level entity property marked `immutable` keeps its stored value on user-scope updates:
-`EntitiesService.update` and the entity editor save fail with `immutable-property` when the final,
+a kernel entity update and the entity editor save fail with `immutable-property` when the final,
 post-policy properties change or omit a stored value. The flag comes from the union of the pinned and
 active schema. Provider upserts, including user-scope `updateExisting`, and global writes are unaffected
 because the provider owns that data.
@@ -67,6 +73,13 @@ A delete carries the loaded `updatedAt`; a newer entity returns `stale`. It retu
 entity has any history or any user relationship other than its declared editor links, so children
 must be removed first. Entity deletion re-checks history in its commit transaction and never cascades
 events. A delete carries its own key; an identical retry returns the stored result.
+
+Both actions commit through `ChangeSets.commitOnce` with the editor's idempotency key as the receipt:
+a save sends the entity and its relationship diff (`replace` upserts and deletes) as one change set,
+and a delete sends an entity delete with `preserveHistory`. The key is recorded in the commit
+transaction, so a retry that races the first commit replays once. The precondition rechecks
+availability and the relationship basis under lock; when it fails nothing is recorded, and a second
+availability check tells `invalid` from `stale`.
 
 # Graph retention
 

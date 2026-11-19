@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
 import { FoldMarks } from "#modules/derived-values/marks";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
+import { PluginBootstrapEntitiesLive } from "#modules/entities/plugin-bootstrap-entities";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
 import { EventMutationsLive } from "#modules/events/layer";
@@ -46,3 +47,7 @@ export const ChangeSetsLive = ChangeSets.layer.pipe(
 );
 
 export const ScriptChangesLive = ScriptChangesLayer.pipe(Layer.provide(ChangeSetsLive));
+
+export const PluginBootstrapEntitiesRuntimeLive = PluginBootstrapEntitiesLive.pipe(
+	Layer.provide(ChangeSetsLive),
+);

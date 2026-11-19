@@ -22,7 +22,7 @@ import { eventCreateChanges } from "#modules/changes/changes";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
+import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DatabaseSession } from "#platform/db/session";
 import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
@@ -42,9 +42,8 @@ import {
 	failureReasonByStage,
 	GenericImportEntity,
 	GenericImportProviderError,
-	prepareGenericImportEntity,
 	resolveProviderEntity,
-	runImportWriteStep,
+	writeGenericImportEntity,
 } from "./generic-import-workflow";
 import { ingestionItemIdentity, ingestionOperationCommand } from "./outcomes";
 import { ImportsRepository } from "./repository";
@@ -603,32 +602,22 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 					});
 				}
 				if (!entityId) {
-					const written = yield* runImportWriteStep({
-						result: GenericImportEntity,
-						pending: PendingEntityMutation,
+					const written = yield* makeActivity({
+						error: ImportRunError,
+						success: GenericImportEntity,
 						name: `create-data-entity-${index}`,
-						applyPolicies: entities.applyMutationPolicies,
-						prepare: prepareGenericImportEntity(
+						execute: writeGenericImportEntity(
 							intent,
 							input.userId,
 							command,
 							record.entitySchema.owner,
-						),
-						commit: (pending) =>
-							entities
-								.commitMutation(pending)
-								.pipe(
-									Effect.map((step) => ({
-										...step,
-										result: { result: "created" as const, entityId: step.result.entity.id },
-									})),
-								),
+						).pipe(Effect.mapError(toWorkflowError)),
 					});
 					entityId = written.entityId;
 				}
 				if (record.kind !== "custom") {
 					if (record.kind === "provider") {
-						yield* entities.prepareReferenceStep({
+						yield* entities.recordImportReference({
 							entityId,
 							lifecycle: command,
 							userId: input.userId,

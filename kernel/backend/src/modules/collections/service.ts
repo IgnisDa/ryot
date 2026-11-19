@@ -14,7 +14,12 @@ import {
 	MembershipResponse,
 	type UpdateCollectionBody,
 } from "@ryot-app/contract/modules/collections/schemas";
-import { type EntityBadRequest, ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import {
+	type EntityBadRequest,
+	type EntityNotFound,
+	type EntityStale,
+	ListedEntity,
+} from "@ryot-app/contract/modules/entities/schemas";
 import type { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	EntityId,
@@ -27,16 +32,10 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer, Schema, Struct } from "effect";
 
-import type {
-	LifecycleCommittedStep,
-	LifecyclePreparedStep,
-} from "#modules/automations/lifecycle/write-step";
 import { type Changes, eventCreateChanges } from "#modules/changes/changes";
 import { toCreateEventsResponse } from "#modules/changes/outcomes";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
-import type { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
-import { EntitiesService, type PendingEntityMutation } from "#modules/entities/service";
 import {
 	type DomainLifecycleCommand,
 	kernelCollectionLifecycleCommand,
@@ -117,13 +116,6 @@ const nameTaken = () => new CollectionBadRequest({ reason: { field: "name", code
 const collectionNotFound = (collectionId: EntityId) =>
 	new CollectionNotFound({ reason: { collectionId, code: "collection-not-found" } });
 
-const collectionStep = (
-	prepared: LifecyclePreparedStep<EntitySnapshotResult, PendingEntityMutation>,
-): LifecyclePreparedStep<CollectionEntityResult, PendingEntityMutation> =>
-	prepared._tag === "Committed"
-		? { ...prepared, result: { id: prepared.result.entity.id } }
-		: prepared;
-
 const compensationFailed = () =>
 	new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
 
@@ -150,11 +142,19 @@ const collectionProperties = (
 const storedMembershipFields = (properties: unknown) =>
 	isObjectRecord(properties) ? properties["membershipFields"] : undefined;
 
+const collectionRejected = (error: EntityStale | EntityNotFound | EntityBadRequest) => {
+	if (error._tag !== "EntityBadRequest") {
+		return Effect.die(error);
+	}
+	return error.reason.code === "duplicate-collection-name"
+		? Effect.fail(nameTaken())
+		: Effect.fail(invalidCollection(error));
+};
+
 export class CollectionsService extends Context.Service<CollectionsService>()(
 	"@ryot-app/kernel-backend/modules/collections/service/CollectionsService",
 	{
 		make: Effect.gen(function* () {
-			const entities = yield* EntitiesService;
 			const changes = yield* ChangeSets;
 			const repository = yield* CollectionsRepository;
 			const relationshipSchemasRepository = yield* RelationshipSchemaReader;
@@ -214,6 +214,33 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				return undefined;
 			});
 
+			/** Commits one collection entity create or update, answering the saved entity. */
+			const saveCollection = Effect.fnUntraced(function* <E>(
+				userId: UserId,
+				entity: NonNullable<Changes["entity"]>,
+				command: DomainLifecycleCommand,
+				rejected: (
+					error: EntityStale | EntityNotFound | EntityBadRequest,
+				) => Effect.Effect<never, E>,
+			) {
+				const committed = yield* changes
+					.commit({ entity, userId }, command, { entities: { verbatimIdentities: true } })
+					.pipe(
+						Effect.catch((error): Effect.Effect<never, E | DbError> => {
+							if (
+								error._tag === "EntityBadRequest" ||
+								error._tag === "EntityNotFound" ||
+								error._tag === "EntityStale"
+							) {
+								return rejected(error);
+							}
+							return error._tag === "DbError" ? Effect.fail(error) : Effect.die(error);
+						}),
+					);
+				const [saved] = committed.entities;
+				return saved?.entity ?? (yield* Effect.die("A collection commit saved no entity"));
+			});
+
 			const create = Effect.fn("CollectionsService.create")(function* (
 				user: CurrentUserValue,
 				payload: CreateCollectionBody,
@@ -225,25 +252,20 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				);
 				yield* assertNameAvailable(user.id, name);
 				const entitySchema = yield* collectionEntitySchema;
-				const created = yield* entities
-					.create({
+				const lifecycle = kernelCollectionLifecycleCommand(command);
+				const created = yield* saveCollection(
+					user.id,
+					{
 						name,
-						scope: "user",
-						userId: user.id,
+						target: { kind: "create" },
+						itemIdentity: lifecycle.itemIdentity,
 						entitySchema: entitySchema.entitySchema,
-						lifecycle: kernelCollectionLifecycleCommand(command),
 						properties: collectionProperties(payload.description, fields),
-					})
-					.pipe(
-						Effect.catchTags({
-							EntityNotFound: (error) => Effect.die(error),
-							EntityBadRequest: (error) =>
-								error.reason.code === "duplicate-collection-name"
-									? nameTaken()
-									: invalidCollection(error),
-						}),
-					);
-				return toCollectionResponse(created.entity);
+					},
+					lifecycle,
+					collectionRejected,
+				);
+				return toCollectionResponse(created);
 			});
 
 			const update = Effect.fn("CollectionsService.update")(function* (
@@ -267,35 +289,40 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					prepareCollectionFields(payload.fields, new Set(stored.map(({ key }) => key))),
 				);
 				yield* assertNameAvailable(user.id, name, current.id);
-				const updated = yield* entities
-					.update({
+				const entitySchema = yield* collectionEntitySchema;
+				const lifecycle = kernelCollectionLifecycleCommand(command);
+				const updated = yield* saveCollection(
+					user.id,
+					{
 						name,
-						scope: "user",
-						userId: user.id,
-						entityId: current.id,
-						requireUserOwned: true,
-						lifecycle: kernelCollectionLifecycleCommand(command),
+						itemIdentity: lifecycle.itemIdentity,
+						entitySchema: entitySchema.entitySchema,
 						properties: collectionProperties(payload.description, fields),
-						expected: {
-							name: current.name,
-							updatedAt: current.updatedAt,
-							properties: current.properties,
+						target: {
+							kind: "update",
+							entityId: current.id,
+							expected: {
+								name: current.name,
+								updatedAt: current.updatedAt,
+								properties: current.properties,
+							},
 						},
-					})
-					.pipe(
-						Effect.catchTags({
-							EntityNotFound: () => collectionNotFound(current.id),
-							EntityStale: () =>
-								new CollectionBadRequest({
-									reason: { code: "collection-stale", collectionId: current.id },
-								}),
-							EntityBadRequest: (error) =>
-								error.reason.code === "duplicate-collection-name"
-									? nameTaken()
-									: invalidCollection(error),
-						}),
-					);
-				return toCollectionResponse(updated.entity);
+					},
+					lifecycle,
+					(error): Effect.Effect<never, CollectionNotFound | CollectionBadRequest> => {
+						if (error._tag === "EntityNotFound") {
+							return Effect.fail(collectionNotFound(current.id));
+						}
+						return error._tag === "EntityStale"
+							? Effect.fail(
+									new CollectionBadRequest({
+										reason: { code: "collection-stale", collectionId: current.id },
+									}),
+								)
+							: collectionRejected(error);
+					},
+				);
+				return toCollectionResponse(updated);
 			});
 
 			const deleteCollection = Effect.fn("CollectionsService.delete")(function* (
@@ -304,72 +331,89 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				command: DomainLifecycleCommand,
 			) {
 				const entitySchema = yield* collectionEntitySchema;
-				const deleted = yield* entities
-					.deleteByIds([payload.collectionId], kernelCollectionLifecycleCommand(command), {
-						userId: user.id,
-						entitySchema: entitySchema.entitySchema,
-					})
+				const deleted = yield* changes
+					.commit(
+						{
+							userId: user.id,
+							entities: {
+								deletes: [
+									{ entityId: payload.collectionId, entitySchema: entitySchema.entitySchema },
+								],
+							},
+						},
+						kernelCollectionLifecycleCommand(command),
+					)
 					.pipe(
-						Effect.catchTags({
-							EntityBadRequest: invalidCollection,
-							EntityNotFound: () => collectionNotFound(payload.collectionId),
-						}),
+						Effect.catch(
+							(
+								error,
+							): Effect.Effect<never, DbError | CollectionNotFound | CollectionBadRequest> => {
+								if (error._tag === "EntityBadRequest") {
+									return Effect.fail(invalidCollection(error));
+								}
+								if (error._tag === "EntityNotFound") {
+									return Effect.fail(collectionNotFound(payload.collectionId));
+								}
+								return error._tag === "DbError" ? Effect.fail(error) : Effect.die(error);
+							},
+						),
 					);
-				if (deleted.deletedCount === 0) {
+				if (deleted.deleted.length === 0) {
 					return yield* collectionNotFound(payload.collectionId);
 				}
 				return { id: payload.collectionId };
 			});
 
-			const findExistingCollection = Effect.fnUntraced(function* (userId: UserId, name: string) {
-				const existing = yield* repository.findCollectionByNameForUser({ name, userId });
-				if (!existing) {
-					return yield* Effect.die("duplicate collection name conflict has no surviving row");
-				}
-				return {
-					dispatch: [],
-					_tag: "Committed",
-					result: { id: existing.id },
-				} satisfies LifecycleCommittedStep<CollectionEntityResult>;
-			});
-
-			const prepareGetOrCreateCollection = Effect.fn(
-				"CollectionsService.prepareGetOrCreateCollection",
-			)(function* (userId: UserId, rawName: string, command: DomainLifecycleCommand) {
-				const name = rawName.trim();
-				const entitySchema = yield* collectionEntitySchema;
-				const existing = yield* repository.findCollectionByNameForUser({ name, userId });
-				if (existing) {
-					return {
-						dispatch: [],
-						_tag: "Committed",
-						result: { id: existing.id },
-					} satisfies LifecycleCommittedStep<CollectionEntityResult>;
-				}
-				const lifecycle = childCollectionLifecycleCommand(
-					kernelCollectionLifecycleCommand(command),
-					stableStringify(["collection:get-or-create", name]),
-				);
-				return yield* entities
-					.prepareCreateStep({
-						name,
+			/** The user's collection with the trimmed name, created when absent. */
+			const getOrCreateCollection = Effect.fn("CollectionsService.getOrCreateCollection")(
+				function* (userId: UserId, rawName: string, command: DomainLifecycleCommand) {
+					const name = rawName.trim();
+					const entitySchema = yield* collectionEntitySchema;
+					const existing = yield* repository.findCollectionByNameForUser({ name, userId });
+					if (existing) {
+						return { id: existing.id } satisfies CollectionEntityResult;
+					}
+					const lifecycle = childCollectionLifecycleCommand(
+						kernelCollectionLifecycleCommand(command),
+						stableStringify(["collection:get-or-create", name]),
+					);
+					const created = yield* saveCollection(
 						userId,
+						{
+							name,
+							target: { kind: "create" },
+							itemIdentity: lifecycle.itemIdentity,
+							entitySchema: entitySchema.entitySchema,
+							properties: collectionProperties(undefined, []),
+						},
 						lifecycle,
-						scope: "user",
-						entitySchema: entitySchema.entitySchema,
-						properties: collectionProperties(undefined, []),
-					})
-					.pipe(
-						Effect.map(collectionStep),
-						Effect.catchTags({
-							EntityNotFound: (error) => Effect.die(error),
-							EntityBadRequest: (error) =>
-								error.reason.code === "duplicate-collection-name"
-									? findExistingCollection(userId, name)
-									: Effect.die(error),
+						(error) => Effect.fail(error),
+					).pipe(
+						Effect.map((entity): CollectionEntityResult => ({ id: entity.id })),
+						Effect.catch((error) => {
+							if (error._tag === "DbError") {
+								return Effect.fail(error);
+							}
+							if (
+								error._tag !== "EntityBadRequest" ||
+								error.reason.code !== "duplicate-collection-name"
+							) {
+								return Effect.die(error);
+							}
+							return repository
+								.findCollectionByNameForUser({ name, userId })
+								.pipe(
+									Effect.flatMap((found) =>
+										found
+											? Effect.succeed({ id: found.id })
+											: Effect.die("duplicate collection name conflict has no surviving row"),
+									),
+								);
 						}),
 					);
-			});
+					return created;
+				},
+			);
 
 			/** Commits the membership's relationship change under the membership command's own identity. */
 			const commitRelationship = Effect.fnUntraced(function* <E>(
@@ -638,25 +682,8 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				writeMembership,
 				addToCollection,
 				removeFromCollection,
+				getOrCreateCollection,
 				delete: deleteCollection,
-				prepareGetOrCreateCollection,
-				applyCollectionPolicies: (pending: PendingEntityMutation) =>
-					entities
-						.applyMutationPolicies(pending)
-						.pipe(Effect.catchTag("EntityBadRequest", (error) => Effect.die(error))),
-				commitCollection: (pending: PendingEntityMutation) =>
-					entities
-						.commitMutation(pending)
-						.pipe(
-							Effect.map(collectionStep),
-							Effect.catchTags({
-								EntityNotFound: (error) => Effect.die(error),
-								EntityBadRequest: (error) =>
-									error.reason.code === "duplicate-collection-name" && pending.scopeUserId !== null
-										? findExistingCollection(pending.scopeUserId, pending.draft.name)
-										: Effect.die(error),
-							}),
-						),
 			};
 		}),
 	},

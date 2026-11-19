@@ -1,4 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/change-set";
 import {
 	type EntityEditorDeleteSubmission,
 	EntityEditorRefused,
@@ -6,8 +7,7 @@ import {
 	type EntityEditorSaveRequest,
 	type EntityEditorSaveSubmission,
 } from "@ryot-app/contract/modules/entities/editor";
-import type { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
-import { EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
+import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
 import type { PluginEntityEditorRelationship } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
@@ -18,7 +18,7 @@ import {
 	orientRelationship,
 	relationshipEnds,
 } from "@ryot-app/contract/modules/relationships/orientation";
-import type {
+import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
@@ -37,29 +37,19 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import {
-	type LifecycleDispatchPlan,
-	type LifecyclePersistenceError,
-	LifecyclePlanner,
-} from "#modules/automations/lifecycle/planning";
-import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import type { Changes } from "#modules/changes/changes";
+import type { CommitReceipt, CommitResult } from "#modules/changes/receipts";
+import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { AccountAdmission } from "#modules/mutations/account-admission";
-import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
-import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
-	acceptRelationshipPolicies,
-	applyRelationshipPolicies,
-	matchRelationshipPolicies,
-	type PreparedUserRelationship,
-} from "#modules/relationships/prepared-mutations";
+	type IdempotencyIdentity,
+	idempotencyIdentity,
+	IdempotencyKeys,
+} from "#modules/mutations/idempotency";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-import { RelationshipsService } from "#modules/relationships/service";
-import { DatabaseSession } from "#platform/db/session";
 
 const limits = {
 	relationshipTargets: 200,
@@ -112,10 +102,45 @@ const relationshipRows = (groups: EntityEditorSaveSubmission["relationships"]) =
 		})),
 	);
 
-const itemCommand = (
-	command: DomainLifecycleCommand,
-	identity: string,
-): DomainLifecycleCommand => ({ ...command, itemIdentity: `${command.itemIdentity}:${identity}` });
+type Unrecorded = { readonly kind: "stale" | "reused" | "missing" };
+
+/**
+ * A commit held by the editor's idempotency key: a stored response replays, and a commit that wrote
+ * nothing records no response, ending as `unwritten`.
+ */
+const editorReceipt = <A>(
+	keys: IdempotencyKeys["Service"],
+	identity: IdempotencyIdentity,
+	response: Schema.Codec<A, unknown>,
+	written: (result: CommitResult) => A | null,
+	unwritten: Unrecorded["kind"],
+): CommitReceipt<Unrecorded | { readonly response: A; readonly kind: "recorded" }> => ({
+	record: (result) => {
+		const value = written(result);
+		return value === null
+			? Effect.succeed({ kind: unwritten })
+			: keys
+					.record(identity, response, value)
+					.pipe(Effect.as({ response: value, kind: "recorded" as const }));
+	},
+	load: keys.lockedRead(identity, response).pipe(
+		Effect.map((stored) =>
+			stored ? { kind: "recorded" as const, response: stored.response } : null,
+		),
+		Effect.catchTag("IdempotencyConflict", () => Effect.succeed({ kind: "reused" as const })),
+	),
+});
+
+const isEditorFailure = Schema.is(
+	Schema.Union([
+		DbError,
+		EntityBadRequest,
+		EntityNotFound,
+		EntityEditorRefused,
+		RelationshipBadRequest,
+		RelationshipNotFound,
+	]),
+);
 
 const invalidEntityReason = ({ reason }: EntityBadRequest) => {
 	if (reason.code === "name-required") {
@@ -153,27 +178,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 	"@ryot-app/kernel-backend/modules/entities/editor/service/EntityEditorService",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* DatabaseSession;
-			const planner = yield* LifecyclePlanner;
 			const keys = yield* IdempotencyKeys;
-			const admission = yield* AccountAdmission.make;
-			const entities = yield* EntitiesService;
+			const changeSets = yield* ChangeSets;
 			const definitions = yield* DefinitionRepository;
-			const execution = yield* LifecycleExecution;
-			const relationships = yield* RelationshipsService;
 			const entitiesRepository = yield* EntitiesRepository;
-			const policies = yield* LifecyclePolicies;
-			const policyContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-				effect.pipe(
-					Effect.provideService(LifecyclePolicies, policies),
-					Effect.provideService(EntitiesRepository, entitiesRepository),
-				);
 			const relationshipsRepository = yield* RelationshipsRepository;
 			const runtime = yield* PluginRuntimeResolver;
-			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userId: UserId) =>
-				database
-					.transaction(entitiesRepository.lockSchemaCatalog([userId]).pipe(Effect.andThen(work)))
-					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const authorize = Effect.fn("EntityEditorService.authorize")(function* (
 				userId: UserId,
 				reference: EntitySchemaReference,
@@ -358,37 +368,13 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					};
 				}
 				const owner = definitionOwner(pluginId);
-				const entityCommand = itemCommand(command, "entity");
-				const prepared = yield* entities.prepareUserSave({
-					userId,
-					name: submission.name,
-					lifecycle: entityCommand,
-					properties: submission.properties,
-					entitySchema: { owner, slug: entitySchemaSlug },
-					target:
-						submission.target.kind === "create"
-							? { kind: "create" }
-							: {
-									kind: "update",
-									entityId: EntityId.make(submission.target.entityId),
-									expected: {
-										name: submission.target.expected.name,
-										updatedAt: submission.target.expected.updatedAt,
-										properties: submission.target.expected.properties,
-									},
-								},
-				});
+				const entitySchema = { owner, slug: entitySchemaSlug };
+				const entityId =
+					submission.target.kind === "create" ? null : EntityId.make(submission.target.entityId);
 				const currentRelationships = (lock: boolean) =>
-					submission.target.kind === "create"
+					entityId === null
 						? Effect.succeed([])
-						: editorRelationships({
-								lock,
-								slugs,
-								userId,
-								pluginId,
-								directions,
-								entityId: prepared.entityId,
-							});
+						: editorRelationships({ lock, slugs, userId, entityId, pluginId, directions });
 				const current = yield* currentRelationships(false);
 				const basis = relationshipBasis(current);
 				if (
@@ -398,26 +384,36 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					return { output: stale };
 				}
 
-				const changes: Array<
-					| { kind: "delete"; targetEntityId: EntityId; slug: RelationshipSchemaSlug }
-					| {
-							kind: "create";
-							properties: unknown;
-							targetEntityId: EntityId;
-							slug: RelationshipSchemaSlug;
-					  }
+				const anchor: ChangeSetEntityReference =
+					entityId === null ? { kind: "root" } : { entityId, kind: "existing" };
+				const upserts: Array<
+					NonNullable<NonNullable<Changes["relationships"]>["upserts"]>[number]
+				> = [];
+				const deletes: Array<
+					NonNullable<NonNullable<Changes["relationships"]>["deletes"]>[number]
 				> = [];
 				for (const group of submission.relationships) {
 					const slug = RelationshipSchemaSlug.make(group.relationshipSchemaSlug);
+					const endpoints = (targetEntityId: EntityId) => {
+						const { sourceEntityId: source, targetEntityId: target } =
+							orientRelationship<ChangeSetEntityReference>(directionOf(directions, slug), anchor, {
+								kind: "existing",
+								entityId: targetEntityId,
+							});
+						return { source, target, relationshipSchema: { slug, owner } };
+					};
 					const stored = new Map(
 						current
 							.filter((row) => row.relationshipSchemaSlug === slug)
 							.map((row) => [row.targetEntityId, row.properties]),
 					);
-					const submitted = new Set(group.targets.map(({ entityId }) => entityId));
+					const submitted = new Set(group.targets.map(({ entityId: target }) => target));
 					for (const targetEntityId of stored.keys()) {
 						if (!submitted.has(targetEntityId)) {
-							changes.push({ slug, targetEntityId, kind: "delete" });
+							deletes.push({
+								...endpoints(targetEntityId),
+								itemIdentity: `relationship:${slug}:${targetEntityId}:delete`,
+							});
 						}
 					}
 					for (const target of group.targets) {
@@ -426,16 +422,16 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 							storedProperties === undefined ||
 							stableStringify(storedProperties) !== stableStringify(target.properties)
 						) {
-							changes.push({
-								slug,
-								kind: "create",
+							upserts.push({
+								...endpoints(target.entityId),
+								propertiesMode: "replace",
 								properties: target.properties,
-								targetEntityId: target.entityId,
+								itemIdentity: `relationship:${slug}:${target.entityId}:create`,
 							});
 						}
 					}
 				}
-				if (changes.length > limits.relationshipChanges) {
+				if (deletes.length + upserts.length > limits.relationshipChanges) {
 					return {
 						output: invalid(
 							kernelMessage("error.entity-editor.too-many-changes", {
@@ -445,107 +441,64 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					};
 				}
 
-				const preparedRelationships: PreparedUserRelationship[] = [];
-				for (const change of changes) {
-					const base = {
+				const committed = yield* changeSets.commitOnce(
+					{
 						userId,
-						scope: "user" as const,
-						relationshipSchema: { owner, slug: change.slug },
-						...orientRelationship(
-							directionOf(directions, change.slug),
-							prepared.entityId,
-							change.targetEntityId,
-						),
-					};
-					const relationshipCommand = itemCommand(
-						command,
-						`relationship:${change.slug}:${change.targetEntityId}:${change.kind}`,
-					);
-					preparedRelationships.push(
-						change.kind === "create"
-							? yield* relationships.prepareUserWrite(
-									{ ...base, properties: change.properties },
-									relationshipCommand,
-									"upsert",
-									prepared.created ?? undefined,
-								)
-							: yield* relationships.prepareUserDelete(base, relationshipCommand),
-					);
-				}
-				const accept = acceptRelationshipPolicies(
-					yield* applyRelationshipPolicies(
-						yield* database
-							.transaction(
-								matchRelationshipPolicies({
-									userId,
-									command,
-									prepared: preparedRelationships,
-								}).pipe(policyContext),
-							)
-							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
-					).pipe(policyContext),
+						relationships: { deletes, upserts },
+						entity: {
+							entitySchema,
+							name: submission.name,
+							properties: submission.properties,
+							target:
+								entityId === null || submission.target.kind === "create"
+									? { kind: "create" }
+									: {
+											entityId,
+											kind: "update",
+											expected: {
+												name: submission.target.expected.name,
+												updatedAt: submission.target.expected.updatedAt,
+												properties: submission.target.expected.properties,
+											},
+										},
+						},
+					},
+					command,
+					editorReceipt(
+						keys,
+						identity,
+						SaveResult,
+						(result) =>
+							result.committed.entityId === undefined
+								? null
+								: { entityId: result.committed.entityId },
+						"stale",
+					),
+					{
+						precondition: {
+							written: Effect.void,
+							check: Effect.gen(function* () {
+								const authorized = yield* authorize(userId, submission.entitySchema, slugs);
+								return (
+									authorized.kind === "authorized" &&
+									relationshipBasis(yield* currentRelationships(true)) === basis
+								);
+							}),
+						},
+					},
 				);
-
-				const committed = yield* transaction(
-					Effect.gen(function* () {
-						if (command.accountUserId) {
-							yield* admission.admitAccount(command.accountUserId);
-						}
-						const prior = yield* keys
-							.lockedRead(identity, SaveResult)
-							.pipe(
-								Effect.catchTag("IdempotencyConflict", () => Effect.fail(commandIdentityReused())),
-							);
-						if (prior) {
-							return { dispatch: [], kind: "saved" as const, entityId: prior.response.entityId };
-						}
-						const committedAuthorization = yield* authorize(userId, submission.entitySchema, slugs);
-						if (committedAuthorization.kind === "refused") {
-							return { kind: "refused" as const, reason: committedAuthorization.reason };
-						}
-						if (relationshipBasis(yield* currentRelationships(true)) !== basis) {
-							return { kind: "stale" as const };
-						}
-						const saved = yield* entities.persistPreparedUserSave(prepared);
-						const relationshipDispatch: LifecycleDispatchPlan[] = [];
-						if (preparedRelationships.length > 0) {
-							yield* planner.prepareBatch({
-								command,
-								scopes: [userId],
-								resource: "relationship",
-								identity: ["relationships"],
-							});
-							for (const [index, item] of preparedRelationships.entries()) {
-								const work = yield* relationships.persistPrepared(yield* accept(item), {
-									index,
-									command,
-									identity: ["relationships"],
-								});
-								relationshipDispatch.push(...work.dispatch);
-							}
-							relationshipDispatch.push(
-								...(yield* planner.planBatch({
-									command,
-									resource: "relationship",
-									identity: ["relationships"],
-								})),
-							);
-						}
-						const dispatch = [...saved.dispatch, ...relationshipDispatch];
-						yield* keys.record(identity, SaveResult, { entityId: saved.entity.id });
-						return { dispatch, kind: "saved" as const, entityId: saved.entity.id };
-					}),
-					userId,
-				);
-				if (committed.kind === "stale") {
-					return { output: stale };
+				if (committed.kind === "reused") {
+					return yield* commandIdentityReused();
 				}
-				if (committed.kind === "refused") {
-					return { output: invalid(committed.reason) };
+				if (committed.kind !== "recorded") {
+					const now = yield* authorize(userId, submission.entitySchema, slugs);
+					return { output: now.kind === "refused" ? invalid(now.reason) : stale };
 				}
-				yield* execution.dispatch(committed.dispatch);
 				return {
-					output: { kind: "saved", entityId: committed.entityId } satisfies EntityEditorSaveOutput,
+					output: {
+						kind: "saved",
+						entityId: committed.response.entityId,
+					} satisfies EntityEditorSaveOutput,
 				};
 			});
 
@@ -603,15 +556,23 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						return { output: invalid(kernelMessage("error.entity-editor.has-links")) };
 					}
 				}
-				const { deletedCount } = yield* entities.deleteByIds([entityId], input.lifecycle, {
-					userId,
-					entitySchema,
-					preserveHistory: true,
-				});
-				if (deletedCount === 0) {
+				const committed = yield* changeSets.commitOnce(
+					{ userId, entities: { deletes: [{ entityId, entitySchema, preserveHistory: true }] } },
+					input.lifecycle,
+					editorReceipt(
+						keys,
+						identity,
+						DeleteResult,
+						(result) => (result.deleted.length === 0 ? null : { deleted: true as const }),
+						"missing",
+					),
+				);
+				if (committed.kind === "reused") {
+					return yield* commandIdentityReused();
+				}
+				if (committed.kind !== "recorded") {
 					return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 				}
-				yield* keys.record(identity, DeleteResult, { deleted: true });
 				return { output: { kind: "deleted" } satisfies EntityEditorSaveOutput };
 			});
 
@@ -627,12 +588,6 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				).pipe(
 					Effect.catchTags({
 						EntityStale: () => Effect.succeed({ output: stale }),
-						LifecyclePersistenceError: (error: LifecyclePersistenceError) =>
-							Effect.fail(
-								new DbError({
-									message: `Entity editor lifecycle persistence failed: ${error.code}`,
-								}),
-							),
 						RelationshipNotFound: (error: RelationshipNotFound) =>
 							error.reason.code === "entity-not-found"
 								? Effect.succeed({
@@ -658,6 +613,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 								: Effect.fail(error);
 						},
 					}),
+					Effect.catchIf((error) => !isEditorFailure(error), Effect.die),
 				);
 
 			const submit = Effect.fn("EntityEditorService.submit")(function* (input: {

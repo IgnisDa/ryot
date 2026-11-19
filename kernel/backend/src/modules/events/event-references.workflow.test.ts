@@ -3,6 +3,7 @@ import { expect } from "bun:test";
 import { BunCrypto } from "@effect/platform-bun";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -23,10 +24,10 @@ import {
 	eventDelete,
 	eventUpdate,
 } from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import { command } from "#modules/relationships/lifecycle.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -283,10 +284,24 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 
 				const cascaded = yield* createOn({ amount: 2 });
 				const cascadedNote = yield* fixture.createId("note", { about: cascaded });
-				expect(
-					(yield* (yield* EntitiesService).deleteByIds([other], yield* fixture.nextCommand))
-						.deletedCount,
-				).toBe(1);
+				const deleted = yield* (yield* ChangeSets).commit(
+					{
+						userId: fixture.userId,
+						entities: {
+							deletes: [
+								{
+									entityId: other,
+									entitySchema: {
+										slug: subjectSchemaSlug,
+										owner: definitionOwner(fixture.installed.pluginId),
+									},
+								},
+							],
+						},
+					},
+					yield* fixture.nextCommand,
+				);
+				expect(deleted.deleted).toEqual([other]);
 				expect((yield* fixture.stored(cascadedNote))?.properties).toEqual({});
 				expect(yield* fixture.references([clearedNote, cascadedNote])).toEqual([]);
 			}),

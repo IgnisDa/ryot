@@ -228,18 +228,19 @@ lifecycle). The HTTP `entities.create`, `relationships.create` and user-data rou
 Each slice is one subagent, in order, deleting what it replaces. Each runs the kernel-backend check
 and its named tests, then its e2e files.
 
-1. **Core plus event creates.** Kernel writers, independent items, subject chunks, the precondition,
+1. **Core plus event creates** (done). Kernel writers, independent items, subject chunks, the precondition,
    lane fold mode; port every create caller. Deletes `event-create.ts`, `EventsService.create`,
    `kernel:event-create` and the entry-event transient key. Adds `changes/independent-events.test.ts`
    (ported from `events/event-create.test.ts`) and `imports/integration-event-writes.test.ts`.
-2. **Event changes.** HTTP update and delete through `commit` with the stale retry.
-3. **Moves, cascades and user data.** The `move` change; cascade authorization inside
+2. **Event changes** (done). HTTP update and delete through `commit` with the stale retry.
+3. **Moves, cascades and user data** (done). The `move` change; cascade authorization inside
    `EventMutations`; user-data HTTP through `commit`. Deletes `events/service.ts`.
-4. **Relationships.** Modes and batch policies. Deletes `relationships/mutation-pipeline.ts`.
-5. **Entities, editor, bootstrap and test support.** Entity creates and upserts, batch entity
-   policies.
+4. **Relationships** (done). Modes and batch policies. Deletes `relationships/mutation-pipeline.ts`.
+5. **Entities, editor, bootstrap and test support** (done). Entity creates and upserts, batch entity
+   policies. `write-step.ts` went here, its last callers having moved; the plugin bootstrap port lost
+   its dispatch plans because bootstrap entities now commit with their own dispatch.
 6. **Imports and collections.** One change set per import item; atomic collection membership.
-   Deletes `write-step.ts` and the collection compensation.
+   Deletes the collection compensation and `EntitiesService.recordImportReference`.
 7. **Population, completion trigger, reminders and signal schedules.**
 8. **Docs and audit.** These return nothing outside `changes/` and `events/mutations.ts`:
    `EventsService`, `makeEventCreate`, `runLifecycleWrite`, `runItemPolicy`, `planner.planChange`.

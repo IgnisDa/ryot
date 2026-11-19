@@ -4,7 +4,6 @@ import { AuthServiceLive } from "#modules/accounts/auth/layer";
 import { ChangeSetsLive } from "#modules/changes/layer";
 import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ImportsServiceLive, IngestionExecutionLive } from "#modules/imports/layer";
@@ -31,7 +30,6 @@ export const TestSupportServicesLive = Layer.mergeAll(
 			Layer.mergeAll(
 				AutomationInspectionRepository.layer,
 				AuthServiceLive,
-				EntitiesServiceRuntimeLive,
 				EntitiesRepositoryLive,
 				PluginCronServiceLive,
 				ScriptExecutionServiceLive,

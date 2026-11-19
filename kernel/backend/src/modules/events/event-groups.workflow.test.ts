@@ -4,6 +4,7 @@ import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
 import { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -18,10 +19,10 @@ import {
 	createEvents,
 	eventDelete,
 } from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import { command } from "#modules/relationships/lifecycle.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -195,14 +196,28 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* compound();
-				const entities = yield* EntitiesService;
-				expect(
-					(yield* entities.deleteByIds([fixture.result.entityId], {
+				const deleted = yield* (yield* ChangeSets).commit(
+					{
+						userId: fixture.userId,
+						entities: {
+							deletes: [
+								{
+									entityId: fixture.result.entityId,
+									entitySchema: {
+										slug: EntitySchemaSlug.make("session"),
+										owner: definitionOwner(fixture.installed.pluginId),
+									},
+								},
+							],
+						},
+					},
+					{
 						...fixture.command,
 						...command(yield* randomUuid),
 						writeContext: fixture.command.writeContext,
-					})).deletedCount,
-				).toBe(1);
+					},
+				);
+				expect(deleted.deleted).toHaveLength(1);
 				const database = yield* DatabaseSession;
 				expect(
 					yield* database.run((db) =>

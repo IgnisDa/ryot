@@ -183,11 +183,9 @@ const workflowLayer = (input: {
 				Layer.mergeAll(
 					Layer.mock(FoldMarks)({ queueRevisionReplay: () => pushOrder("replay:folds") }),
 					Layer.succeed(PluginBootstrapEntities)({
-						dispatch: (plans) => pushOrder(`dispatch:${plans.join(",")}`),
 						ensure: (ensured) =>
 							Effect.sync(() => void ensuredEntities.push(ensured)).pipe(
 								Effect.andThen(pushOrder(`ensure:${ensured.entrySlug}`)),
-								Effect.as([`plan:${ensured.entrySlug}`]),
 							),
 					}),
 					Layer.mock(PluginRuntimeResolver)({
@@ -452,7 +450,6 @@ layer(
 				yield* runWorkflow;
 				expect(yield* fake.order).toEqual([
 					"ensure:library",
-					"dispatch:plan:library",
 					`commit:${pluginInstallationBootstrapExecutionId(installationId, activationId, "first")}-first-id-hash`,
 					"health:ready",
 					"invalidate",

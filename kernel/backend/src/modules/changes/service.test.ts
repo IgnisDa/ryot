@@ -295,7 +295,7 @@ layer(testLayer(false))((test) => {
 				expect(resolves).toHaveLength(2);
 				expect(
 					resolves.map((span) => [
-						within(span, "ChangeSets.prepareUserChanges"),
+						within(span, "ChangeSets.prepareChanges"),
 						within(span, "EventMutations.prepare"),
 					]),
 				).toEqual([

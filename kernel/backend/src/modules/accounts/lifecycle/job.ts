@@ -15,7 +15,6 @@ import { bootstrapUser } from "#modules/accounts/provisioning/job";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { AccountAdmission } from "#modules/mutations/account-admission";
-import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { DatabaseSession } from "#platform/db/session";
 import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 import { WorkflowAccounts } from "#platform/workflow/account";
@@ -58,7 +57,6 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 		const notifications = yield* WorkflowExecutionNotifications;
 		const admission = yield* AccountAdmission.make;
 		const bootstrap = yield* UserBootstrap;
-		const bootstrapEntities = yield* PluginBootstrapEntities;
 		const accounts = yield* WorkflowAccounts;
 		const ingestion = yield* IngestionExecution;
 
@@ -180,7 +178,6 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 					const accountUserId = yield* admission.currentAccount(userId);
 					yield* bootstrapUser(userId, accountUserId).pipe(
 						Effect.provideService(UserBootstrap, bootstrap),
-						Effect.provideService(PluginBootstrapEntities, bootstrapEntities),
 					);
 				}),
 				"Reset user bootstrap failed",

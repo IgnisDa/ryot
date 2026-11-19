@@ -1,10 +1,12 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import type { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
+import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type {
 	ClearEntityUserDataResponse,
 	MergeEntityUserDataResponse,
 } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import type { EventCreateItemOutcome } from "@ryot-app/contract/modules/events/schemas";
+import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect, type Schema } from "effect";
 
 import type { IdempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
@@ -22,17 +24,23 @@ export type CommitReceipt<A> = {
 
 /**
  * What a commit wrote; `outcomes` lists every event create by position in independent-items mode,
- * `cleared` and `merged` each entity data clear and merge in order, and `relationships` each user
- * relationship change under its item identity.
+ * `cleared` and `merged` each entity data clear and merge in order, `relationships` each user
+ * relationship change and `entities` each saved root entity, entity create and update under its item
+ * identity, and `deleted` every deleted entity.
  */
 export type CommitResult = {
 	readonly committed: CommittedChanges;
+	readonly deleted: ReadonlyArray<EntityId>;
 	readonly outcomes: ReadonlyArray<EventCreateItemOutcome>;
 	readonly merged: ReadonlyArray<MergeEntityUserDataResponse>;
 	readonly cleared: ReadonlyArray<ClearEntityUserDataResponse>;
 	readonly relationships: ReadonlyArray<
 		RelationshipWriteResult & { readonly itemIdentity: string }
 	>;
+	readonly entities: ReadonlyArray<{
+		readonly itemIdentity: string;
+		readonly entity: ListedEntity;
+	}>;
 };
 
 /** A receipt held by the account's idempotency key. */

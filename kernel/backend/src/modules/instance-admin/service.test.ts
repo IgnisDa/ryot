@@ -20,7 +20,6 @@ import { PluginUserBootstrapDispatcher } from "#modules/accounts/provisioning/pl
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { FoldMarks } from "#modules/derived-values/marks";
-import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { fakeDatabaseSession, makeAppConfigLayer } from "#testing/effect";
 
@@ -126,15 +125,9 @@ const instanceAdminLayer = (options: {
 					makeAppConfigLayer({ users: { disableLocalAuth: options.disableLocalAuth ?? false } }),
 					fakeAuthLayer(options.errors ?? {}),
 					Layer.mock(DefinitionRepository)({}),
-					Layer.mock(EntitiesService)({
-						create: () =>
-							Effect.succeed(
-								partialFake<Effect.Success<ReturnType<EntitiesService["Service"]["create"]>>>({}),
-							),
-					}),
 					Layer.mock(NotificationSubscriptionsService)({ ensureDefaultRules: () => Effect.void }),
 					Layer.mock(SavedViewsService)({}),
-					Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.succeed([]) }),
+					Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.void }),
 					options.lifecycle ?? defaultUserLifecycleServiceLayer,
 				).pipe(Layer.provideMerge(selectingDatabaseLayer(options.rows))),
 			),

@@ -38,7 +38,11 @@ import {
 import { AutomationRunJobLive } from "#modules/automations/run-job-live";
 import { BackupJobsLive, BackupServicesLive } from "#modules/backups/layer";
 import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
-import { ChangeSetsLive, ScriptChangesLive } from "#modules/changes/layer";
+import {
+	ChangeSetsLive,
+	PluginBootstrapEntitiesRuntimeLive,
+	ScriptChangesLive,
+} from "#modules/changes/layer";
 import { CollectionsServiceLive } from "#modules/collections/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { FoldJobsLive } from "#modules/derived-values/jobs";
@@ -50,7 +54,6 @@ import {
 	EntitiesServiceMigrationLive,
 	EntitiesServiceRuntimeLive,
 	EntityGraphCollectorLive,
-	PluginBootstrapEntitiesRuntimeLive,
 } from "#modules/entities/layer";
 import { TranslationsServiceLive } from "#modules/entities/localization/layer";
 import { EntityTranslationJobLive } from "#modules/entities/localization/translation-job";

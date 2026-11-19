@@ -58,11 +58,17 @@ export const changeSetsLayerWithNotificationSources = (authorized: boolean) =>
 
 export const changeSetsTestLayer = changeSetsLayerWithNotificationSources(true);
 
-const partialChangeSets = (userData: Layer.Layer<EntityUserDataService>, folds: Folds["Service"]) =>
+const partialChangeSets = (
+	present: {
+		readonly entities?: Layer.Layer<EntitiesService>;
+		readonly userData?: Layer.Layer<EntityUserDataService>;
+	},
+	folds: Folds["Service"],
+) =>
 	Layer.build(
 		Layer.mergeAll(
-			userData,
-			Layer.mock(EntitiesService)({}),
+			present.userData ?? Layer.mock(EntityUserDataService)({}),
+			present.entities ?? Layer.mock(EntitiesService)({}),
 			Layer.mock(RelationshipsService)({}),
 			Layer.mock(PluginUserSettingsWriter)({}),
 			Layer.mock(SignalEmissionService)({}),
@@ -85,7 +91,13 @@ const partialChangeSets = (userData: Layer.Layer<EntityUserDataService>, folds: 
 
 /** `ChangeSets` that writes only events over the caller's event services; other parts are absent. */
 export const eventChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
-	partialChangeSets(Layer.mock(EntityUserDataService)({}), folds);
+	partialChangeSets({}, folds);
+
+/** `ChangeSets` that writes entities and events over the caller's entity and event services. */
+export const entityChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
+	Effect.flatMap(EntitiesService, (entities) =>
+		partialChangeSets({ entities: Layer.succeed(EntitiesService, entities) }, folds),
+	);
 
 /**
  * `ChangeSets` that writes events and entity data clears and merges over the caller's event and
@@ -93,7 +105,7 @@ export const eventChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
  */
 export const userDataChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
 	Effect.flatMap(EntityUserDataService, (userData) =>
-		partialChangeSets(Layer.succeed(EntityUserDataService, userData), folds),
+		partialChangeSets({ userData: Layer.succeed(EntityUserDataService, userData) }, folds),
 	);
 
 /**

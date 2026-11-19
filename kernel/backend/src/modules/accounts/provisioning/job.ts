@@ -2,7 +2,6 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
-import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { makeJobKind } from "#platform/jobs/queue";
 import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 
@@ -21,14 +20,7 @@ export const bootstrapUser = Effect.fn("bootstrapUser")(function* (
 	userId: UserId,
 	accountUserId: UserId,
 ) {
-	const bootstrap = yield* UserBootstrap;
-	const bootstrapEntities = yield* PluginBootstrapEntities;
-	const plans = yield* bootstrap.perform(userId, accountUserId);
-	yield* bootstrapEntities
-		.dispatch(plans)
-		.pipe(
-			Effect.catchCause((cause) => Effect.logError("user bootstrap hook dispatch failed", cause)),
-		);
+	yield* (yield* UserBootstrap).perform(userId, accountUserId);
 });
 
 export const runUserBootstrapJob = Effect.fn("UserBootstrapJob")(function* (

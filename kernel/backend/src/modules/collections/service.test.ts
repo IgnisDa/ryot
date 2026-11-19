@@ -15,6 +15,7 @@ import {
 	EntityBadRequest,
 	EntityNotFound,
 	EntityStale,
+	type ListedEntity,
 } from "@ryot-app/contract/modules/entities/schemas";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -47,7 +48,6 @@ import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import {
 	type DomainLifecycleCommand,
 	kernelCollectionLifecycleCommand,
@@ -172,20 +172,26 @@ const committedDeletion: RelationshipWriteResult = {
 const emptyCommit: CommitResult = {
 	merged: [],
 	cleared: [],
+	deleted: [],
+	entities: [],
 	outcomes: [],
 	relationships: [],
 	committed: { events: [] },
 };
 
 const mockCollections = Layer.mock(CollectionsRepository);
-const mockEntities = Layer.mock(EntitiesService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 
 type EventCreateCall = Parameters<ChangeSets["Service"]["commit"]>;
-type EntityCreateInput = Parameters<EntitiesService["Service"]["create"]>[0];
-type EntityUpdateInput = Parameters<EntitiesService["Service"]["update"]>[0];
-
-type EntityDeleteCall = Parameters<EntitiesService["Service"]["deleteByIds"]>;
+type EntityDeleteCall = readonly [
+	NonNullable<NonNullable<Changes["entities"]>["deletes"]>,
+	DomainLifecycleCommand,
+];
+/** A committed collection entity create or update, with the user and command it was committed under. */
+type EntityWrite = NonNullable<Changes["entity"]> & {
+	readonly userId: Changes["userId"];
+	readonly lifecycle: DomainLifecycleCommand;
+};
 
 type RelationshipWrite = NonNullable<NonNullable<Changes["relationships"]>["ensures"]>[number] & {
 	readonly userId: Changes["userId"];
@@ -195,10 +201,10 @@ type RelationshipWrite = NonNullable<NonNullable<Changes["relationships"]>["ensu
 class CollectionCalls extends Context.Service<
 	CollectionCalls,
 	{
+		readonly createdEntities: Effect.Effect<ReadonlyArray<EntityWrite>>;
+		readonly updatedEntities: Effect.Effect<ReadonlyArray<EntityWrite>>;
 		readonly eventCreates: Effect.Effect<ReadonlyArray<EventCreateCall>>;
 		readonly deletedEntities: Effect.Effect<ReadonlyArray<EntityDeleteCall>>;
-		readonly createdEntities: Effect.Effect<ReadonlyArray<EntityCreateInput>>;
-		readonly updatedEntities: Effect.Effect<ReadonlyArray<EntityUpdateInput>>;
 		readonly relationshipInputs: Effect.Effect<ReadonlyArray<RelationshipWrite>>;
 		readonly lifecycleCommands: Effect.Effect<Readonly<Record<string, DomainLifecycleCommand>>>;
 	}
@@ -213,19 +219,25 @@ const membershipEvent = (item: Record<string, unknown>) => ({
 
 const makeServiceLayer = (
 	options: {
-		readonly entities?: MockOverrides<typeof mockEntities>;
 		readonly workflow?: { readonly eventFailure?: unknown };
 		readonly collections?: MockOverrides<typeof mockCollections>;
 		readonly relationships?: {
 			readonly write?: Effect.Effect<RelationshipWriteResult>;
 			readonly deleteById?: Effect.Effect<RelationshipWriteResult>;
 		};
+		readonly entities?: {
+			readonly deleteByIds?: () => Effect.Effect<ReadonlyArray<EntityId>, EntityNotFound>;
+			readonly create?: (input: EntityWrite) => Effect.Effect<ListedEntity, EntityBadRequest>;
+			readonly update?: (
+				input: EntityWrite,
+			) => Effect.Effect<ListedEntity, EntityStale | EntityBadRequest>;
+		};
 	} = {},
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
-			const createdEntities = yield* Ref.make<ReadonlyArray<EntityCreateInput>>([]);
-			const updatedEntities = yield* Ref.make<ReadonlyArray<EntityUpdateInput>>([]);
+			const createdEntities = yield* Ref.make<ReadonlyArray<EntityWrite>>([]);
+			const updatedEntities = yield* Ref.make<ReadonlyArray<EntityWrite>>([]);
 			const deletedEntities = yield* Ref.make<ReadonlyArray<EntityDeleteCall>>([]);
 			const relationshipInputs = yield* Ref.make<ReadonlyArray<RelationshipWrite>>([]);
 			const eventCreates = yield* Ref.make<ReadonlyArray<EventCreateCall>>([]);
@@ -235,10 +247,34 @@ const makeServiceLayer = (
 			const recordCommand = (operation: string, command: DomainLifecycleCommand) =>
 				Ref.update(lifecycleCommands, (all) => ({ ...all, [operation]: command }));
 			const entities = {
-				deleteByIds: () => Effect.succeed({ deletedCount: 1 }),
-				create: () => Effect.succeed({ entity: collectionEntity }),
-				update: () => Effect.succeed({ entity: collectionEntity }),
+				deleteByIds: () => Effect.succeed([collectionId]),
+				create: (_input: EntityWrite) => Effect.succeed<ListedEntity>(collectionEntity),
+				update: (_input: EntityWrite) => Effect.succeed<ListedEntity>(collectionEntity),
 				...options.entities,
+			};
+			const commitEntity = (changes: Changes, lifecycle: DomainLifecycleCommand) => {
+				if (changes.entity) {
+					const write = { ...changes.entity, lifecycle, userId: changes.userId };
+					const created = changes.entity.target.kind === "create";
+					return Ref.update(created ? createdEntities : updatedEntities, (all) => [
+						...all,
+						write,
+					]).pipe(
+						Effect.andThen(created ? entities.create(write) : entities.update(write)),
+						Effect.map((entity): CommitResult => ({
+							...emptyCommit,
+							entities: [{ entity, itemIdentity: lifecycle.itemIdentity }],
+						})),
+					);
+				}
+				const deletes = changes.entities?.deletes ?? [];
+				return Ref.update(deletedEntities, (all): ReadonlyArray<EntityDeleteCall> => [
+					...all,
+					[deletes, lifecycle],
+				]).pipe(
+					Effect.andThen(entities.deleteByIds()),
+					Effect.map((deleted): CommitResult => ({ ...emptyCommit, deleted })),
+				);
 			};
 			const relationships = {
 				write: Effect.succeed(committedRelationship),
@@ -275,22 +311,6 @@ const makeServiceLayer = (
 			const workflow = options.workflow ?? {};
 			const dependencies = Layer.mergeAll(
 				Layer.mock(EntitiesRepository)({}),
-				mockEntities({
-					...entities,
-					create: (input) =>
-						Ref.update(createdEntities, (all) => [...all, input]).pipe(
-							Effect.andThen(entities.create(input)),
-						),
-					update: (input) =>
-						Ref.update(updatedEntities, (all) => [...all, input]).pipe(
-							Effect.andThen(entities.update(input)),
-						),
-					deleteByIds: (ids, lifecycle, target) =>
-						Ref.update(deletedEntities, (all): ReadonlyArray<EntityDeleteCall> => [
-							...all,
-							[ids, lifecycle, target],
-						]).pipe(Effect.andThen(entities.deleteByIds(ids, lifecycle, target))),
-				}),
 				mockCollections({
 					findMembership: () => Effect.succeed(null),
 					findCollectionByNameForUser: () => Effect.succeed(null),
@@ -311,19 +331,24 @@ const makeServiceLayer = (
 				}),
 				mockRelationshipSchemas({ findKernelBySlug: () => Effect.succeed(memberOfSchema) }),
 				Layer.mock(ChangeSets)({
-					commit: (...call) =>
-						call[0].relationships
-							? commitRelationships(call[0], call[0].relationships, call[1])
-							: Ref.update(eventCreates, (all): ReadonlyArray<EventCreateCall> => [
-									...all,
-									call,
-								]).pipe(
-									Effect.andThen(
-										workflow.eventFailure
-											? Effect.fail(new DbError({ message: "event creation failed" }))
-											: Effect.succeed(emptyCommit),
-									),
-								),
+					commit: (...call) => {
+						if (call[0].relationships) {
+							return commitRelationships(call[0], call[0].relationships, call[1]);
+						}
+						if (call[0].entity || call[0].entities) {
+							return commitEntity(call[0], call[1]);
+						}
+						return Ref.update(eventCreates, (all): ReadonlyArray<EventCreateCall> => [
+							...all,
+							call,
+						]).pipe(
+							Effect.andThen(
+								workflow.eventFailure
+									? Effect.fail(new DbError({ message: "event creation failed" }))
+									: Effect.succeed(emptyCommit),
+							),
+						);
+					},
 				}),
 				Layer.succeed(CollectionCalls, {
 					eventCreates: Ref.get(eventCreates),
@@ -436,11 +461,11 @@ layer(
 				entities: {
 					create: (input) =>
 						Ref.set(properties, propertyRecord(input.properties)).pipe(
-							Effect.as({ entity: collectionEntity }),
+							Effect.as<ListedEntity>(collectionEntity),
 						),
 					update: (input) =>
 						Ref.set(properties, propertyRecord(input.properties)).pipe(
-							Effect.as({ entity: collectionEntity }),
+							Effect.as<ListedEntity>(collectionEntity),
 						),
 				},
 			});
@@ -844,12 +869,14 @@ layer(
 				const calls = yield* CollectionCalls;
 				const [input] = yield* calls.updatedEntities;
 				expect(input).toMatchObject({
-					scope: "user",
 					userId: user.id,
-					entityId: collectionId,
-					requireUserOwned: true,
 					lifecycle: { kernelCollection: true },
-					expected: { updatedAt: now, name: "Favorites", properties: noteCollection.properties },
+					entitySchema: collectionEntitySchema.entitySchema,
+					target: {
+						kind: "update",
+						entityId: collectionId,
+						expected: { updatedAt: now, name: "Favorites", properties: noteCollection.properties },
+					},
 					properties: {
 						membershipFields: [
 							{ key: "note", type: "text", required: true, label: "Comment" },
@@ -898,38 +925,34 @@ layer(makeServiceLayer())((test) => {
 					deleteCommand,
 				);
 				expect(result).toEqual({ id: collectionId });
-				const [[ids, lifecycle, target] = []] = yield* (yield* CollectionCalls).deletedEntities;
-				expect(ids).toEqual([collectionId]);
+				const [[deletes, lifecycle] = []] = yield* (yield* CollectionCalls).deletedEntities;
+				expect(deletes).toEqual([
+					{ entityId: collectionId, entitySchema: collectionEntitySchema.entitySchema },
+				]);
 				expect(lifecycle).toMatchObject({
 					kernelCollection: true,
 					itemIdentity: "collection:delete",
-				});
-				expect(target).toEqual({
-					userId: user.id,
-					entitySchema: collectionEntitySchema.entitySchema,
 				});
 			}),
 		testTimeout,
 	);
 });
 
-layer(makeServiceLayer({ entities: { deleteByIds: () => Effect.succeed({ deletedCount: 0 }) } }))(
-	(test) => {
-		test.effect(
-			"reports a missing collection when nothing was deleted",
-			() =>
-				Effect.gen(function* () {
-					assertExitFails(
-						yield* Effect.exit(
-							(yield* CollectionsService).delete(user, { collectionId }, deleteCommand),
-						),
-						new CollectionNotFound({ reason: { collectionId, code: "collection-not-found" } }),
-					);
-				}),
-			testTimeout,
-		);
-	},
-);
+layer(makeServiceLayer({ entities: { deleteByIds: () => Effect.succeed([]) } }))((test) => {
+	test.effect(
+		"reports a missing collection when nothing was deleted",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* Effect.exit(
+						(yield* CollectionsService).delete(user, { collectionId }, deleteCommand),
+					),
+					new CollectionNotFound({ reason: { collectionId, code: "collection-not-found" } }),
+				);
+			}),
+		testTimeout,
+	);
+});
 
 layer(
 	makeServiceLayer({

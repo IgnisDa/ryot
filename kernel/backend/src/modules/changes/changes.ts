@@ -15,6 +15,7 @@ import {
 	EntitySchemaSlug,
 	type RelationshipId,
 	RelationshipSchemaSlug,
+	type SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 
@@ -28,14 +29,15 @@ export type GlobalEntityReference =
 /**
  * What one writer commits, with owner-qualified schema references. Kernel writers build it directly;
  * script change sets reach it only through `fromScriptChangeSet`, which qualifies every schema with the
- * writing plugin.
+ * writing plugin. Entity creates, updates and deletes write in the user's scope or, without a user,
+ * the global scope.
  */
 export type Changes = {
 	readonly userId: null | UserId;
 	readonly folds?: ChangeSet["folds"];
 	readonly signals?: ChangeSet["signals"];
 	readonly settings?: ChangeSet["settings"];
-	readonly entity?: OwnedEntity<ChangeSetEntity>;
+	readonly entity?: EntityWrite<ChangeSetEntity>;
 	readonly globalRelationships?: ReadonlyArray<OwnedGlobalRelationshipGroup>;
 	readonly globalEntities?: ReadonlyArray<OwnedEntity<Part<"globalEntities">[number]>>;
 	readonly events?: Omit<Part<"events">, "creates" | "changes"> & {
@@ -55,11 +57,16 @@ export type Changes = {
 		}>;
 	};
 	readonly entities?: {
-		readonly updates?: ReadonlyArray<OwnedEntity<ChangeSetEntityUpdate>>;
-		readonly deletes?: ReadonlyArray<OwnedEntity<NonNullable<EntityParts["deletes"]>[number]>>;
+		readonly creates?: ReadonlyArray<EntityCreate>;
 		readonly ensures?: ReadonlyArray<OwnedEntity<NonNullable<EntityParts["ensures"]>[number]>>;
 		readonly clears?: ReadonlyArray<UserDataEntity<NonNullable<EntityParts["clears"]>[number]>>;
 		readonly merges?: ReadonlyArray<UserDataEntity<NonNullable<EntityParts["merges"]>[number]>>;
+		readonly updates?: ReadonlyArray<
+			EntityWrite<ChangeSetEntityUpdate> & { readonly populatedAt?: null | string }
+		>;
+		readonly deletes?: ReadonlyArray<
+			{ readonly preserveHistory?: true } & OwnedEntity<NonNullable<EntityParts["deletes"]>[number]>
+		>;
 	};
 };
 type EntityParts = Part<"entities">;
@@ -73,7 +80,6 @@ type RelationshipDelete = NonNullable<RelationshipParts["deletes"]>[number];
 /** Kernel writers pass properties that the write validates against the relationship schema. */
 type UnknownProperties<T> = Omit<T, "properties"> & { readonly properties: unknown };
 type RelationshipUpsert = UnknownProperties<NonNullable<RelationshipParts["upserts"]>[number]>;
-
 type OwnedEntity<T extends { readonly entitySchemaSlug: string }> = Omit<T, "entitySchemaSlug"> & {
 	readonly entitySchema: EntitySchemaReference;
 };
@@ -83,11 +89,31 @@ type UserDataEntity<T extends { readonly entitySchemaSlug: string }> = Omit<
 	OwnedEntity<T>,
 	"entitySchema"
 > & { readonly entitySchema: null | EntitySchemaReference };
-
 type OwnedRelationship<T extends { readonly relationshipSchemaSlug: string }> = Omit<
 	T,
 	"relationshipSchemaSlug"
 > & { readonly relationshipSchema: RelationshipSchemaReference };
+
+type UnknownExpected<T> = T extends {
+	readonly expected: infer E extends { readonly properties: unknown };
+}
+	? Omit<T, "expected"> & { readonly expected: UnknownProperties<E> }
+	: T;
+
+/** Kernel writers pass properties and update baselines that the write validates. */
+type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = Omit<UnknownProperties<OwnedEntity<T>>, "target"> & {
+	readonly target: UnknownExpected<T["target"]>;
+};
+
+/**
+ * A kernel writer's entity create. With a provider it keeps the entity its external ID already names
+ * unless `updateExisting`.
+ */
+type EntityCreate = UnknownProperties<OwnedEntity<Omit<ChangeSetEntity, "target">>> & {
+	readonly externalId?: string;
+	readonly populatedAt?: null | string;
+	readonly provider?: { readonly updateExisting: boolean; readonly providerId: SandboxProviderId };
+};
 
 type OwnedGlobalRelationshipGroup = OwnedRelationship<
 	Omit<GlobalRelationshipGroup, "selector" | "relationships">

@@ -7,9 +7,17 @@ atomically under the writer's principal (`command.writeContext`) after translati
 `fromScriptChangeSet`, which qualifies every schema with the writing plugin. A change set may carry:
 
 - `entity`: a user-owned root entity create or update, with the expected baseline for updates.
-- `entities`: user entity `deletes`, data `clears` and `merges` (both through
-  `EntityUserDataService`; a kernel writer's `null` schema accepts the entity's own), `updates` of existing user entities (each shaped and checked like a root
-  entity update, at most once per entity), and bootstrap `ensures`.
+- `entities`: entity `creates` (kernel writers only: an `externalId`, a `provider` identity whose
+  `updateExisting` decides whether an existing provider entity is updated or kept, and
+  `populatedAt`), entity `deletes` (`preserveHistory` refuses an entity with events instead of
+  cascading), data `clears` and `merges` (both through `EntityUserDataService`; a kernel writer's
+  `null` schema accepts the entity's own), `updates` of existing entities (each shaped and checked
+  like a root entity update, at most once per entity), and bootstrap `ensures`.
+
+Entity parts write in the change set user's scope. A kernel writer may send `userId: null` to write
+global entity `creates`, `updates` and `deletes`; every other part needs a user and fails a global
+commit with `ChangeSetRejected`.
+
 - `relationships`: user relationship `upserts` (`merge` or `replace` properties) and `deletes`;
   endpoints are the root or existing entities. Kernel writers may also send `updates` (the
   relationship must exist), `ensures` (written only when absent) and `deletesById`; see
@@ -54,13 +62,14 @@ names under another schema, with `ChangeSetRejected`; a reference that does not 
 preparation, which fails it as a conflict.
 
 Agent and projection executions and before-stage automation runs write nothing. Ownership,
-provenance, global scope and `populatedAt` are not expressible for user writes. Services keep their
+provenance, global scope and `populatedAt` are not expressible in a script change set. Services keep their
 own checks: exact schema/plugin ownership through `DomainWriteChecks`, merge and clear rules in
 `EntityUserDataService` (same plugin and schema, owned events and relationships), and settings
 validation in `PluginUserSettingsWriter`.
 
-Kernel writers (HTTP routes, including the relationship create and the user-data clear and merge,
-imports, integrations, collections, test support and the provider entry event) skip
+Kernel writers (HTTP routes, including the entity and relationship creates and the user-data clear
+and merge, the entity editor, plugin bootstrap entities, imports, integrations, collections, test
+support and the provider entry event) skip
 script authority and rely on these service checks, under whatever `writeContext` their command
 carries. Scripts reach `ChangeSets` only through `ScriptChanges`, which always calls `commitScript`.
 Parts only a script principal resolves (`settings`, `folds`, `signals`, global entity upserts, event
@@ -70,23 +79,27 @@ Parts only a script principal resolves (`settings`, `folds`, `signals`, global e
 
 Preparation holds no database transaction over sandbox execution. The root entity, relationships,
 ensures, entity deletes (grouped by schema), data clears and merges, and entity updates are prepared
-first; the root entity and entity updates run their own entity policies. Entity deletes, clears and merges also
+first. Entity deletes, clears and merges also
 plan event changes, which join the change set's event changes (see [events](../events/README.md)):
 an entity delete cascades a delete to every event referencing its entities, a clear deletes the
 captured state's events, and a merge deletes transient evidence and moves every other event. Their
-event policies run with the rest of the batch. The root entity and each entity update share one path:
-`EntitiesService.prepareUserSave` checks the expected baseline and runs entity policies, and
-`persistPreparedUserSave` rechecks it under the entity lock.
+event policies run with the rest of the batch. The root entity, entity creates and entity updates
+share one path: `EntitiesService.prepareSave` validates the draft, resolves a create's provider
+identity and checks an update's expected baseline, and `persistPreparedSave` rechecks it under the
+entity lock. Every prepared entity write (saves, ensures and deletes) lists its policy items, which
+form one entity policy batch chunked by entity.
 
 Event changes are then prepared in one events transaction, with positions matching the change list,
 and grouped into policy chunks of at most 50 items in which a subject's items share a chunk, so a
 once-per-subject policy runs once per subject. The relationship writes of the `relationships` part and
 of every clear and merge form one relationship policy batch, chunked the same way by source entity.
-Event and relationship policies are matched inside that transaction. When none matches, the commit
+Event, relationship and entity policies are matched inside that transaction. When none matches, the commit
 continues in the same transaction. Otherwise the transaction ends, each matched policy is called once
 per chunk through `LifecyclePolicies` with every item it targets (nothing about the call is
-persisted), and a second events transaction commits. A relationship policy rejection or invalid
-transform fails the whole change set.
+persisted), and a second events transaction commits. A relationship or entity policy rejection or
+invalid transform fails the whole change set; an accepted entity transform replaces the draft, and
+each entity write validates its final draft again under the catalog lock. A policy batch stops calling
+policies once none of its items is still active.
 
 The commit transaction applies, in order: the receipt's `load`, the precondition's `check`, the
 settings patch, source writes (event group capture, then each clear's and merge's account admission,
@@ -102,8 +115,9 @@ A background-lane commit queues its folds; an interactive commit folds inline.
 ### Preconditions
 
 `CommitOptions.precondition` holds `{ check, written }` for writers whose durable state decides
-whether to write. `check` runs in the events transaction before preparation; false commits the
-check's own writes and records an empty result without running policies. When policies ran, `check`
+whether to write. `commitOnce` runs `check` after the receipt's first `load`, before preparation;
+`check` also runs in the events transaction before policies are matched. False commits the check's
+own writes and records an empty result without running policies. When policies ran, `check`
 runs again in the commit transaction after the receipt's `load`, before any source write, so a write a
 concurrent writer superseded records an empty result instead. `written` runs after source writes that
 wrote an event. Locks taken by `check` (account admission first) precede the commit's stream and
@@ -143,6 +157,14 @@ user-data HTTP routes return, and each user relationship change's operation and 
 identity (`relationships`), which the relationship route, collections and data imports read.
 `relationships.verbatimIdentities` keeps each relationship change's `itemIdentity` as its write
 identity, so imports record their item keys and collections their membership commands unchanged.
+The result's `entities` lists each saved root entity, entity create and update under its item
+identity, and `deleted` every deleted entity ID. `entities.verbatimIdentities` keeps the root
+entity's, creates' and updates' identities verbatim, so import entity IDs and item keys and
+collection commands follow the caller's identity.
+
+The entity editor commits through `commitOnce` with its idempotency key as the receipt (see
+[entities](../entities/README.md)); plugin bootstrap entities commit `ensures` under the bootstrap
+entry's root command.
 
 HTTP event creation and collection membership events commit independently without a receipt; a
 deferred integration flush commits with the stream precondition alone. HTTP event updates and deletes
@@ -207,8 +229,9 @@ Every change set item derives its identity as `<change set itemIdentity>:<item i
 Event creates and changes carry a required `itemIdentity`; the entity and each relationship may
 carry one and otherwise use `entity`, `relationship:<index>`, `relationship-update:<index>`,
 `relationship-ensure:<index>`, `relationship-delete:<index>` and `relationship-delete-by-id:<index>`, and
-each entity update may carry one and otherwise uses `entity-update:<entityId>`. Other parts derive
-theirs from their position or identity (`entity-deletes:<schema>`, `entity-clear:<index>`,
+each entity create and update may carry one and otherwise uses `entity-create:<index>` or
+`entity-update:<entityId>`. Other parts derive theirs from their position or identity
+(`ensures`, `entity-deletes:<schema, preserveHistory>`, `entity-clear:<index>`,
 `signal:<discriminator>`, `global-entity:<schema, externalId>`); notifications use
 `<runId>-changes-<index>-notification` as their source key.
 

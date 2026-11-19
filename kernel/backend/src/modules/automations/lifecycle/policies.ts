@@ -3,7 +3,6 @@ import {
 	AutomationEntityDraft,
 	AutomationHookIdentity,
 	type AutomationPolicyBatchOutput,
-	type AutomationPolicyOutput,
 	AutomationPolicyPatch,
 	AutomationRequestPayload,
 	type AutomationTrigger,
@@ -71,30 +70,6 @@ export class LifecyclePolicies extends Context.Service<
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/policies/LifecyclePolicies") {}
 
-/** Calls a policy for a single-item request, whose item identity is its trigger ID. */
-export const runItemPolicy = Effect.fnUntraced(function* (
-	policies: LifecyclePolicies["Service"],
-	input: {
-		readonly policy: LifecyclePolicy;
-		readonly trigger: AutomationTrigger;
-		readonly request: AutomationRequestPayload;
-	},
-): Effect.fn.Return<AutomationPolicyOutput, AutomationPolicyExecutionError> {
-	const output = yield* policies.run({
-		references: {},
-		policy: input.policy,
-		trigger: input.trigger,
-		items: [{ request: input.request, itemIdentity: input.trigger.id }],
-	});
-	return (
-		output.items.find((item) => item.itemIdentity === input.trigger.id)?.decision ??
-		(yield* new AutomationPolicyExecutionError({
-			runId: input.policy.runId,
-			code: "policy-execution-failed",
-		}))
-	);
-});
-
 export const PolicyBatchItem = Schema.Struct({
 	schemaKey: Schema.String,
 	request: AutomationRequestPayload,
@@ -123,7 +98,7 @@ export const PolicyBatchResult = Schema.Struct({
 export type PolicyBatchResult = typeof PolicyBatchResult.Type;
 
 const PolicyBatchPayload = Schema.Struct({
-	userId: UserId,
+	userId: Schema.NullOr(UserId),
 	command: DomainLifecycleCommand,
 	items: Schema.Array(PolicyBatchItem),
 	references: Schema.Record(EntityId, AutomationEntityDraft),
@@ -204,7 +179,7 @@ export const unchangedPolicyBatch = (input: PolicyBatchPayload): PolicyBatchResu
 	})),
 });
 
-/** Calls each matched policy in order with the items earlier policies left active. */
+/** Calls each matched policy in order with the items earlier policies left active, stopping once none are. */
 export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 	input: PolicyBatchPayload,
 	matched: null | MatchedPolicyBatch,
@@ -223,15 +198,19 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 			? []
 			: matched.policies.map((policy) => ({ policy, trigger: matched.trigger }));
 	for (const { policy, trigger } of calls) {
+		const active = result.items.flatMap((item) =>
+			item.rejected === null && item.error === null
+				? [{ request: item.request, itemIdentity: item.itemIdentity }]
+				: [],
+		);
+		if (active.length === 0) {
+			break;
+		}
 		const output = yield* policies.run({
 			policy,
 			trigger,
+			items: active,
 			references: result.references,
-			items: result.items.flatMap((item) =>
-				item.rejected === null && item.error === null
-					? [{ request: item.request, itemIdentity: item.itemIdentity }]
-					: [],
-			),
 		});
 		const previous = result;
 		const references = { ...previous.references };
@@ -293,10 +272,13 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 					request.draft.sessionEntityId !== null &&
 					!references[request.draft.sessionEntityId]
 				) {
-					const reference = yield* entities.getByIdForUser({
-						userId: input.userId,
-						entityId: request.draft.sessionEntityId,
-					});
+					const reference =
+						input.userId === null
+							? null
+							: yield* entities.getByIdForUser({
+									userId: input.userId,
+									entityId: request.draft.sessionEntityId,
+								});
 					if (!reference) {
 						return {
 							...item,

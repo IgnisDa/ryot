@@ -16,7 +16,6 @@ import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
-import type { PluginBootstrapDispatch } from "./bootstrap-entities";
 import { PluginBootstrapEntities } from "./bootstrap-entities";
 import { PluginInstallationRepository } from "./repository";
 
@@ -56,7 +55,6 @@ export const pluginInstallationBootstrapExecutionId = (
 	`plugin-installation-bootstrap-${installationId.length}-${installationId}-${activationId.length}-${activationId}-${entrySlug.length}-${entrySlug}`;
 
 type PluginInstallationJobOperationsValue = {
-	dispatchBootstrapEntities: (plans: PluginBootstrapDispatch) => Effect.Effect<void, InternalError>;
 	complete: (
 		installationId: string,
 		activationId: string,
@@ -76,6 +74,14 @@ type PluginInstallationJobOperationsValue = {
 		activationId: string,
 		entrySlug: string,
 	) => Effect.Effect<void, InternalError>;
+	ensureBootstrapEntities: (input: {
+		readonly userId: UserId;
+		readonly entrySlug: string;
+		readonly activationId: string;
+		readonly accountUserId: UserId;
+		readonly installationId: string;
+		readonly entities: ReadonlyArray<PluginUserBootstrapEntity>;
+	}) => Effect.Effect<void, InternalError>;
 	runBootstrapEntry: (input: {
 		readonly userId: UserId;
 		readonly entrySlug: string;
@@ -85,14 +91,6 @@ type PluginInstallationJobOperationsValue = {
 		readonly scriptId: SandboxScriptId;
 		readonly pluginRevision: ScriptPluginRevision;
 	}) => Effect.Effect<void, InternalError>;
-	ensureBootstrapEntities: (input: {
-		readonly userId: UserId;
-		readonly entrySlug: string;
-		readonly activationId: string;
-		readonly accountUserId: UserId;
-		readonly installationId: string;
-		readonly entities: ReadonlyArray<PluginUserBootstrapEntity>;
-	}) => Effect.Effect<PluginBootstrapDispatch, InternalError>;
 };
 
 export class PluginInstallationJobOperations extends Context.Service<
@@ -303,7 +301,6 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 			complete,
 			runBootstrapEntry,
 			ensureBootstrapEntities,
-			dispatchBootstrapEntities: bootstrapEntities.dispatch,
 			releaseBootstrapEntry: (installationId, activationId, entrySlug) =>
 				asUnexpected(
 					workflowReferences.release(
@@ -348,21 +345,7 @@ export const runPluginInstallationJob = Effect.fn("PluginInstallationJob")(
 								activationId: payload.activationId,
 								installationId: payload.installationId,
 							})
-							.pipe(
-								Effect.retry({ times: 3 }),
-								Effect.flatMap((plans) =>
-									operations
-										.dispatchBootstrapEntities(plans)
-										.pipe(
-											Effect.catchCause((cause) =>
-												Effect.logError(
-													"plugin installation bootstrap hook dispatch failed",
-													cause,
-												),
-											),
-										),
-								),
-							)
+							.pipe(Effect.retry({ times: 3 }))
 					: operations.runBootstrapEntry({
 							userId,
 							accountUserId,

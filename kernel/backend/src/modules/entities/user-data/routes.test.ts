@@ -87,6 +87,8 @@ const routesLayer = Layer.unwrap(
 				}
 				return Ref.update(commands, (all) => [...all, { changes, command }]).pipe(
 					Effect.as({
+						deleted: [],
+						entities: [],
 						outcomes: [],
 						relationships: [],
 						committed: { events: [] },

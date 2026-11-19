@@ -40,11 +40,6 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer, Option, Ref, Schema, type Scope } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import {
-	type LifecyclePreparedStep,
-	mapCommittedResult,
-	runLifecycleWriteStep,
-} from "#modules/automations/lifecycle/write-step";
 import { eventCreateChanges } from "#modules/changes/changes";
 import { unrecordedChanges } from "#modules/changes/receipts";
 import { ChangeSetFailure, ChangeSets } from "#modules/changes/service";
@@ -57,7 +52,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { awaitEntityImport } from "#modules/entities/providers/entity-import-job";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
+import { EntitiesService } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
@@ -212,41 +207,41 @@ const findImportEntity = Effect.fn("imports.findImportEntity")(function* (
 	return entityId;
 });
 
-export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImportEntity")(
-	function* (
-		intent: GenericImportWriteItem["entities"][number],
-		userId: UserId,
-		lifecycle: DomainLifecycleCommand,
-		owner: DefinitionOwner,
-	) {
-		const reference = { owner, slug: EntitySchemaSlug.make(intent.entitySchemaSlug) };
-		const entities = yield* EntitiesService;
-		const entityId = yield* findImportEntity(intent, userId, reference);
-		if (entityId) {
-			const preparedReference = yield* entities.prepareReferenceStep({
-				userId,
-				entityId,
-				lifecycle,
-			});
-			return {
-				...preparedReference,
-				result: { result: "unchanged" as const, entityId: preparedReference.result.entity.id },
-			};
-		}
-		const prepared = yield* entities.prepareCreateStep({
+/** Records an import entity that already exists as unchanged, or creates it. */
+export const writeGenericImportEntity = Effect.fn("imports.writeGenericImportEntity")(function* (
+	intent: GenericImportWriteItem["entities"][number],
+	userId: UserId,
+	lifecycle: DomainLifecycleCommand,
+	owner: DefinitionOwner,
+) {
+	const reference = { owner, slug: EntitySchemaSlug.make(intent.entitySchemaSlug) };
+	const entityId = yield* findImportEntity(intent, userId, reference);
+	if (entityId) {
+		const { entity } = yield* (yield* EntitiesService).recordImportReference({
 			userId,
+			entityId,
 			lifecycle,
-			scope: "user",
-			name: intent.name,
-			entitySchema: reference,
-			properties: intent.properties,
 		});
-		return mapCommittedResult(prepared, ({ entity }) => ({
-			entityId: entity.id,
-			result: "created" as const,
-		}));
-	},
-);
+		return { entityId: entity.id, result: "unchanged" as const };
+	}
+	const committed = yield* (yield* ChangeSets).commit(
+		{
+			userId,
+			entity: {
+				name: intent.name,
+				entitySchema: reference,
+				target: { kind: "create" },
+				properties: intent.properties,
+				itemIdentity: lifecycle.itemIdentity,
+			},
+		},
+		lifecycle,
+		{ entities: { verbatimIdentities: true } },
+	);
+	return committed.committed.entityId === undefined
+		? yield* new ImportRunError({ message: "Import entity create committed no entity" })
+		: { result: "created" as const, entityId: committed.committed.entityId };
+});
 
 const resolveGenericImportProvider = (
 	intent: GenericImportWriteItem["entities"][number],
@@ -541,27 +536,6 @@ const validateGenericItem = (
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-export const runImportWriteStep = <Result, Pending, E1, E2, E3, R1, R2, R3>(options: {
-	readonly name: string;
-	readonly result: Schema.Codec<Result, unknown>;
-	readonly pending: Schema.Codec<Pending, unknown>;
-	readonly applyPolicies: (pending: Pending) => Effect.Effect<Pending, E2, R2>;
-	readonly prepare: Effect.Effect<LifecyclePreparedStep<Result, Pending>, E1, R1>;
-	readonly commit: (
-		pending: Pending,
-	) => Effect.Effect<LifecyclePreparedStep<Result, Pending>, E3, R3>;
-}) =>
-	runLifecycleWriteStep({
-		name: options.name,
-		error: ImportRunError,
-		result: options.result,
-		pending: options.pending,
-		prepare: options.prepare.pipe(Effect.mapError(toWorkflowError)),
-		commit: (pending) => options.commit(pending).pipe(Effect.mapError(toWorkflowError)),
-		applyPolicies: (pending) =>
-			options.applyPolicies(pending).pipe(Effect.mapError(toWorkflowError)),
-	});
-
 type GenericImportContext = {
 	readonly index: number;
 	readonly userId: UserId;
@@ -611,7 +585,7 @@ const writeEntityAliases = Effect.fnUntraced(function* (
 		);
 		if (providerEntityId) {
 			if (intent.outcome) {
-				yield* entities.prepareReferenceStep({
+				yield* entities.recordImportReference({
 					lifecycle,
 					userId: context.userId,
 					entityId: providerEntityId,
@@ -620,21 +594,13 @@ const writeEntityAliases = Effect.fnUntraced(function* (
 			aliases.set(intent.alias, providerEntityId);
 			continue;
 		}
-		const written = yield* runImportWriteStep({
-			result: GenericImportEntity,
-			pending: PendingEntityMutation,
-			applyPolicies: entities.applyMutationPolicies,
+		const written = yield* makeActivity({
+			error: ImportRunError,
+			success: GenericImportEntity,
 			name: `generic-import-item-${context.index}-entity-${intentIndex}`,
-			prepare: prepareGenericImportEntity(intent, context.userId, lifecycle, owner),
-			commit: (pending) =>
-				entities
-					.commitMutation(pending)
-					.pipe(
-						Effect.map((step) => ({
-							...step,
-							result: { result: "created" as const, entityId: step.result.entity.id },
-						})),
-					),
+			execute: writeGenericImportEntity(intent, context.userId, lifecycle, owner).pipe(
+				Effect.mapError(toWorkflowError),
+			),
 		});
 		aliases.set(intent.alias, written.entityId);
 	}
@@ -838,17 +804,17 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				membership.entityAlias,
 				"Import collection membership references an unknown entity alias",
 			);
-			const collection = yield* runImportWriteStep({
-				result: CollectionEntityResult,
-				pending: PendingEntityMutation,
-				commit: collections.commitCollection,
-				applyPolicies: collections.applyCollectionPolicies,
+			const collection = yield* makeActivity({
+				error: ImportRunError,
+				success: CollectionEntityResult,
 				name: `generic-import-item-${index}-collection-${membershipIndex}`,
-				prepare: collections.prepareGetOrCreateCollection(
-					userId,
-					membership.collectionName,
-					operationCommand(context, `${membership.operationId}:collection`),
-				),
+				execute: collections
+					.getOrCreateCollection(
+						userId,
+						membership.collectionName,
+						operationCommand(context, `${membership.operationId}:collection`),
+					)
+					.pipe(Effect.mapError(toWorkflowError)),
 			});
 			collectionMemberships.push({
 				entityId,

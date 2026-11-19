@@ -3,10 +3,7 @@ import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import {
-	type PluginBootstrapDispatch,
-	PluginBootstrapEntities,
-} from "#modules/plugins/installations/bootstrap-entities";
+import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
 	runUserBootstrapScript,
@@ -58,7 +55,6 @@ export const makePluginUserBootstrapDispatcher = (
 					)
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			}
-			const plans: Array<PluginBootstrapDispatch[number]> = [];
 			const entries = (yield* runtime.listSystemUserBootstraps()).filter(({ pluginId }) =>
 				initialization.has(pluginId),
 			);
@@ -86,7 +82,7 @@ export const makePluginUserBootstrapDispatcher = (
 					if (!captured) {
 						continue;
 					}
-					const ensured = yield* bootstrapEntities
+					yield* bootstrapEntities
 						.ensure({
 							userId,
 							executionId,
@@ -106,7 +102,6 @@ export const makePluginUserBootstrapDispatcher = (
 									}),
 							),
 						);
-					plans.push(...ensured);
 					if (captured.entries.some(({ slug }) => slug === bootstrap.slug)) {
 						yield* markCompleted(entry.pluginId, bootstrap.slug);
 					}
@@ -150,7 +145,7 @@ export const makePluginUserBootstrapDispatcher = (
 					yield* markCompleted(entry.pluginId, bootstrap.slug);
 				}
 			}
-			return plans;
+			return yield* Effect.void;
 		});
 
 		return { dispatchAll };

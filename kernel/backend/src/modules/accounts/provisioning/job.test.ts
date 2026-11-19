@@ -7,7 +7,6 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
-import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 
 import { UserBootstrap } from "./bootstrap";
 import { runUserBootstrapJob } from "./job";
@@ -17,11 +16,7 @@ const payload = { userId, accountUserId: userId };
 const job = { attempt: 1, id: "user-bootstrap-job" };
 
 const provideBootstrap =
-	(
-		perform: UserBootstrap["Service"]["perform"],
-		dispatched: Array<ReadonlyArray<unknown>>,
-		lifecycleActive = false,
-	) =>
+	(perform: UserBootstrap["Service"]["perform"], lifecycleActive = false) =>
 	(effect: ReturnType<typeof runUserBootstrapJob>) =>
 		effect.pipe(
 			Effect.provideService(
@@ -32,42 +27,32 @@ const provideBootstrap =
 				UserBootstrap,
 				UserBootstrap.of({ perform, listIncomplete: () => Effect.succeed([]) }),
 			),
-			Effect.provideService(
-				PluginBootstrapEntities,
-				PluginBootstrapEntities.of({
-					ensure: () => Effect.succeed([]),
-					dispatch: (plans) => Effect.sync(() => void dispatched.push(plans)),
-				}),
-			),
 		);
 
 it.effect(
-	"dispatches the plans of a completed bootstrap",
+	"bootstraps the payload's user",
 	() =>
 		Effect.gen(function* () {
-			const dispatched: Array<ReadonlyArray<unknown>> = [];
+			const performed: Array<string> = [];
 			yield* runUserBootstrapJob(payload, job).pipe(
-				provideBootstrap(() => Effect.succeed(["plan"]), dispatched),
+				provideBootstrap((user) => Effect.sync(() => void performed.push(user))),
 			);
-			expect(dispatched).toEqual([["plan"]]);
+			expect(performed).toEqual([userId]);
 		}),
 	testTimeout,
 );
 
 it.effect(
-	"fails the attempt without dispatching when bootstrap fails",
+	"fails the attempt when bootstrap fails",
 	() =>
 		Effect.gen(function* () {
-			const dispatched: Array<ReadonlyArray<unknown>> = [];
 			const exit = yield* runUserBootstrapJob(payload, job).pipe(
-				provideBootstrap(
-					() => Effect.fail(new DbError({ message: "temporary bootstrap failure" })),
-					dispatched,
+				provideBootstrap(() =>
+					Effect.fail(new DbError({ message: "temporary bootstrap failure" })),
 				),
 				Effect.exit,
 			);
 			expect(exit._tag).toBe("Failure");
-			expect(dispatched).toEqual([]);
 		}),
 	testTimeout,
 );
@@ -75,16 +60,8 @@ it.effect(
 it.effect(
 	"leaves the bootstrap of a user under a lifecycle operation to that operation",
 	() =>
-		Effect.gen(function* () {
-			const dispatched: Array<ReadonlyArray<unknown>> = [];
-			yield* runUserBootstrapJob(payload, job).pipe(
-				provideBootstrap(
-					() => Effect.die("bootstrap ran under a lifecycle operation"),
-					dispatched,
-					true,
-				),
-			);
-			expect(dispatched).toEqual([]);
-		}),
+		runUserBootstrapJob(payload, job).pipe(
+			provideBootstrap(() => Effect.die("bootstrap ran under a lifecycle operation"), true),
+		),
 	testTimeout,
 );

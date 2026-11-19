@@ -9,8 +9,7 @@ import {
 	AuthUserBootstrapScheduler,
 } from "#modules/accounts/auth/service";
 import { NotificationSubscriptionsServiceLive } from "#modules/automations/layer";
-import { ScriptChangesLive } from "#modules/changes/layer";
-import { PluginBootstrapEntitiesRuntimeLive } from "#modules/entities/layer";
+import { PluginBootstrapEntitiesRuntimeLive, ScriptChangesLive } from "#modules/changes/layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginInstallationRuntimeLive } from "#modules/plugins/layer";

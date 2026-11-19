@@ -450,6 +450,8 @@ const makeLayer = (input: {
 												receipt.record({
 													merged: [],
 													cleared: [],
+													deleted: [],
+													entities: [],
 													outcomes: [],
 													relationships: [],
 													committed: { events: [] },
@@ -472,6 +474,8 @@ const makeLayer = (input: {
 											receipt.record({
 												merged: [],
 												cleared: [],
+												deleted: [],
+												entities: [],
 												outcomes: [],
 												relationships: [],
 												committed: {

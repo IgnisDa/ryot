@@ -29,6 +29,7 @@ import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import { ChangeSets } from "#modules/changes/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -243,22 +244,19 @@ const makeEditor = Effect.fnUntraced(function* (
 ) {
 	const execution = { ...(yield* LifecycleExecution), ...overrides.execution };
 	const policies = overrides.policies ?? (yield* LifecyclePolicies);
-	const entities = {
-		...(yield* EntitiesService.make.pipe(
-			Effect.provideService(LifecycleExecution, execution),
-			Effect.provideService(LifecyclePolicies, policies),
-		)),
-		...overrides.entities,
-	};
+	const entities = { ...(yield* EntitiesService), ...overrides.entities };
 	const relationships = { ...(yield* RelationshipsService), ...overrides.relationships };
 	const repository = { ...(yield* RelationshipsRepository), ...overrides.relationshipsRepository };
 	const keys = { ...(yield* IdempotencyKeys), ...overrides.keys };
-	return yield* EntityEditorService.make.pipe(
+	const changeSets = yield* ChangeSets.make.pipe(
 		Effect.provideService(LifecyclePolicies, policies),
-		Effect.provideService(IdempotencyKeys, keys),
 		Effect.provideService(LifecycleExecution, execution),
 		Effect.provideService(EntitiesService, entities),
 		Effect.provideService(RelationshipsService, relationships),
+	);
+	return yield* EntityEditorService.make.pipe(
+		Effect.provideService(ChangeSets, changeSets),
+		Effect.provideService(IdempotencyKeys, keys),
 		Effect.provideService(RelationshipsRepository, repository),
 	);
 });
@@ -439,6 +437,46 @@ describe("EntityEditorService", () => {
 				name: "Different",
 			}).pipe(Effect.flip);
 			expect(conflict).toBeInstanceOf(EntityEditorRefused);
+		}),
+	);
+
+	editorCase(
+		"replays a save and a remove exactly once when the key is recorded after the early read",
+		Effect.gen(function* () {
+			const { owner, insert } = yield* setup();
+			yield* insert("once-parent", item, userId);
+			const log = yield* dispatched;
+			const editor = yield* makeEditor({
+				execution: { dispatch: log.dispatch },
+				keys: { read: () => Effect.succeed(null) },
+			});
+			const input = partSubmission(owner, {
+				target: { kind: "create" },
+				relationships: [childGroup("once-parent")],
+			});
+			const first = yield* submitEdit(editor, "once-save", input);
+			assert(first.output.kind === "saved");
+			const saved = yield* tablesState;
+			expect(yield* submitEdit(editor, "once-save", input)).toEqual(first);
+			const replayed = yield* tablesState;
+			expect(replayed.entityRows).toEqual(saved.entityRows);
+			expect(replayed.relationshipRows).toEqual(saved.relationshipRows);
+			expect(yield* log.calls).toHaveLength(1);
+
+			const { entityId } = first.output;
+			const removal = {
+				owner,
+				entityId,
+				expectedUpdatedAt: (yield* storedExpected(entityId)).updatedAt,
+			};
+			expect((yield* submitDelete(editor, "once-delete", removal)).output).toEqual({
+				kind: "deleted",
+			});
+			expect((yield* submitDelete(editor, "once-delete", removal)).output).toEqual({
+				kind: "deleted",
+			});
+			expect(yield* log.calls).toHaveLength(2);
+			expect((yield* tablesState).entityRows.some(({ id }) => id === entityId)).toBe(false);
 		}),
 	);
 
@@ -1003,9 +1041,9 @@ describe("EntityEditorService", () => {
 			const seen = yield* Ref.make<ReadonlyArray<DomainLifecycleCommand>>([]);
 			const editor = yield* makeEditor({
 				entities: {
-					prepareUserSave: (input) =>
+					prepareSave: (input) =>
 						Ref.update(seen, (all) => [...all, input.lifecycle]).pipe(
-							Effect.andThen(entities.prepareUserSave(input)),
+							Effect.andThen(entities.prepareSave(input)),
 						),
 				},
 				relationships: {
@@ -1207,9 +1245,9 @@ describe("EntityEditorService", () => {
 			const seen = yield* Ref.make<ReadonlyArray<DomainLifecycleCommand>>([]);
 			const editor = yield* makeEditor({
 				entities: {
-					prepareUserSave: (input) =>
+					prepareSave: (input) =>
 						Ref.update(seen, (all) => [...all, input.lifecycle]).pipe(
-							Effect.andThen(entities.prepareUserSave(input)),
+							Effect.andThen(entities.prepareSave(input)),
 						),
 				},
 			});

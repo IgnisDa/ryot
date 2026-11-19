@@ -1,27 +1,46 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
-import { dieOnDbError } from "@ryot-app/contract/errors";
+import { DbError, dieOnDbError } from "@ryot-app/contract/errors";
+import {
+	EntityBadRequest,
+	EntityNotFound,
+	EntityStale,
+} from "@ryot-app/contract/modules/entities/schemas";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { generateId } from "better-auth";
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { ChangeSets } from "#modules/changes/service";
 import { requireOpenSubmission } from "#modules/mutations/submission-window";
 
 import { EntityEditorService } from "./editor/service";
 import { EntityPopulation } from "./populate";
 import { EntityEnrichmentService } from "./providers/enrichment";
-import { EntitiesService } from "./service";
+
+const isRouteFailure = Schema.is(
+	Schema.Union([DbError, EntityBadRequest, EntityNotFound, EntityStale]),
+);
 
 export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", (handlers) =>
 	handlers
 		.handle("create", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const service = yield* EntitiesService;
-				const lifecycle = {
+				if (payload.providerId !== undefined) {
+					return yield* new EntityBadRequest({ reason: { code: "provider-owned" } });
+				}
+				if (payload.entitySchema.owner.kind === "kernel") {
+					return yield* new EntityBadRequest({ reason: { code: "kernel-owned-schema" } });
+				}
+				if (payload.externalId !== undefined) {
+					return yield* new EntityBadRequest({
+						reason: { code: "incomplete-provenance", fields: ["externalId", "providerId"] },
+					});
+				}
+				const command = {
 					...rootLifecycleCommand({
 						source: "api",
 						lane: "interactive",
@@ -33,20 +52,26 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 					}),
 					writeContext: null,
 				};
-
-				return yield* service
-					.createFromApi({
-						lifecycle,
-						scope: "user",
+				const result = yield* (yield* ChangeSets).commit(
+					{
 						userId: user.id,
-						name: payload.name,
-						externalId: payload.externalId,
-						properties: payload.properties,
-						providerId: payload.providerId,
-						entitySchema: payload.entitySchema,
-					})
-					.pipe(dieOnDbError);
-			}),
+						entity: {
+							name: payload.name,
+							target: { kind: "create" },
+							properties: payload.properties,
+							entitySchema: payload.entitySchema,
+						},
+					},
+					command,
+				);
+				const [saved] = result.entities;
+				return saved
+					? { entity: saved.entity }
+					: yield* Effect.die("An entity create saved nothing");
+			}).pipe(
+				Effect.catchIf((error) => !isRouteFailure(error), Effect.die),
+				dieOnDbError,
+			),
 		)
 		.handle("saveEditor", ({ payload }) =>
 			Effect.gen(function* () {
