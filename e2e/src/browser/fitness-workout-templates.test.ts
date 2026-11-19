@@ -4,7 +4,6 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, getEntity } from "~/fixtures/kernel";
-import { startProApiServer } from "~/fixtures/kernel/pro-server";
 import {
 	createExerciseEntityFixture,
 	openFitnessPage,
@@ -15,14 +14,14 @@ import {
 } from "~/fixtures/plugins/fitness";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
+import { getFrontendUrl } from "~/support/harness-target";
 
 it.live(
 	"creates, edits and starts templates with media and preserves confirmed sets on replacement",
 	() =>
 		Effect.gen(function* () {
-			const { target } = yield* startProApiServer("Workout editor Pro");
-			const { frontendUrl } = target;
-			const { email, client, password } = yield* createAuthenticatedClient(target);
+			const frontendUrl = getFrontendUrl();
+			const { email, client, password } = yield* createAuthenticatedClient();
 			const name = `Template acceptance ${yield* randomUuid}`;
 			const exerciseName = `Bench ${name}`;
 			const replacementName = `Press ${name}`;
