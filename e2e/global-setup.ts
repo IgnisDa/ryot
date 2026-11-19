@@ -4,6 +4,7 @@ import { Effect, FileSystem, Path } from "effect";
 import getPort from "get-port";
 
 import { provideE2eServices } from "./src/support/e2e-runtime";
+import { startFakeHttpServerScoped } from "./src/support/fake-http-server";
 import { verifyNativeSandboxProvisioning } from "./src/support/native-sandbox-provisioning";
 import {
 	buildApiEnv,
@@ -78,6 +79,13 @@ export default Effect.gen(function* () {
 					{ concurrency: "unbounded" },
 				);
 				const frontendUrl = `http://127.0.0.1:${apiPort}`;
+				const verifier = yield* startFakeHttpServerScoped(() =>
+					Response.json({ valid: true, expiry: "2030-01-01" }),
+				);
+				const proKeyEnv = {
+					SERVER_PRO_KEY: "e2e-pro-key",
+					SERVER_PRO_KEY_VERIFICATION_URL: verifier.url,
+				};
 
 				const fs = yield* FileSystem.FileSystem;
 				const path = yield* Path.Path;
@@ -89,7 +97,11 @@ export default Effect.gen(function* () {
 					s3BucketName: S3_BUCKET_NAME,
 					dbUrl: coreInfrastructure.dbUrl,
 					s3Endpoint: coreInfrastructure.s3Endpoint,
-					extraEnv: { ...harnessApiEnv, SERVER_LOG_FILE: path.join(logDirectory, "ryot.log") },
+					extraEnv: {
+						...harnessApiEnv,
+						...proKeyEnv,
+						SERVER_LOG_FILE: path.join(logDirectory, "ryot.log"),
+					},
 				});
 				const apiProcess = yield* startApiProcess(apiEnv, "E2E Setup", {
 					shared: true,
@@ -98,6 +110,7 @@ export default Effect.gen(function* () {
 				yield* waitForFrontend(apiProcess, frontendUrl);
 
 				return {
+					proKeyEnv,
 					frontendUrl,
 					apiPid: apiProcess.pid,
 					dbUrl: coreInfrastructure.dbUrl,
@@ -111,6 +124,7 @@ export default Effect.gen(function* () {
 	);
 	yield* Effect.logInfo(`PostgreSQL logs: ${setup.pgLogPath}`);
 	return {
+		...setup.proKeyEnv,
 		E2E_API_URL: setup.apiUrl,
 		E2E_DATABASE_URL: setup.dbUrl,
 		E2E_SERVER_LOG_FILE: setup.logFile,
