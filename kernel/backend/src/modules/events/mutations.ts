@@ -476,12 +476,12 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					});
 				}
 				const rows = input.prepared.items;
-				const referencedIds = new Set(
-					rows.flatMap((row) => {
-						const accepted = input.validated.items.find(
-							(item) => item.itemIdentity === row.change.itemIdentity,
-						);
-						return accepted?.request.resource === "event"
+				const referencingRows = rows.map((row) => {
+					const accepted = input.validated.items.find(
+						(item) => item.itemIdentity === row.change.itemIdentity,
+					);
+					const ids =
+						accepted?.request.resource === "event"
 							? [
 									row.draft.entityId,
 									row.draft.sessionEntityId,
@@ -489,8 +489,9 @@ export class EventMutations extends Context.Service<EventMutations>()(
 									accepted.request.draft.sessionEntityId,
 								].filter((id) => id !== null)
 							: [];
-					}),
-				);
+					return { ids, eventId: row.source?.snapshot.id ?? null };
+				});
+				const referencedIds = new Set(referencingRows.flatMap((row) => row.ids));
 				const references = Object.fromEntries(
 					Object.entries(input.validated.references).filter(([id]) =>
 						referencedIds.has(EntityId.make(id)),
@@ -533,6 +534,12 @@ export class EventMutations extends Context.Service<EventMutations>()(
 								entitySchemaPluginId: expected.entitySchemaPluginId,
 							})
 					) {
+						const changed = referencingRows.find(
+							(row) => row.eventId !== null && row.ids.includes(EntityId.make(id)),
+						)?.eventId;
+						if (changed) {
+							return yield* new EventStale({ reason: { eventId: changed, code: "event-stale" } });
+						}
 						return yield* conflict("Event reference changed during validation");
 					}
 				}

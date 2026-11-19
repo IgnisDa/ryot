@@ -40,9 +40,10 @@ can use that scalar revision as their atomic baseline instead of carrying every 
 
 Snapshot reads do not lock event rows. Preparation can therefore read history while a commit holds
 entity locks. Persistence locks entity references before event rows and rechecks captured revisions;
-an edit or deletion that changed after preparation fails as stale. HTTP event updates and deletes
-commit one event change through `ChangeSets.commit`, which retries a stale one whose field
-`expected` still holds (see [change sets](../changes/README.md)).
+an edit or deletion whose event or referenced entity changed after preparation fails as stale, and a
+create fails as a conflict. HTTP event updates and deletes commit one event change through
+`ChangeSets.commit`, which retries a stale one whose field `expected` still holds (see
+[change sets](../changes/README.md)).
 
 ### Mutation lock order
 

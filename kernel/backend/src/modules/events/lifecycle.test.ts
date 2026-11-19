@@ -384,7 +384,7 @@ const lifecycleDatabaseLayer = (
 	noHooks = false,
 	options: {
 		policyCount?: number;
-		changeEntityPropertiesDuringPolicy?: boolean;
+		changeEntityPropertiesDuringPolicy?: (call: number) => boolean;
 		decidePolicy?: (
 			input: PolicyCall,
 			dependencies: {
@@ -399,6 +399,7 @@ const lifecycleDatabaseLayer = (
 			const database = yield* isolatedDatabase;
 			const failChange = yield* Ref.make(false);
 			const entityProperties = yield* Ref.make({ context: "stable" });
+			const policyCalls = yield* Ref.make(0);
 			const planTransactions = yield* Ref.make<ReadonlyArray<string>>([]);
 			const config = makeAppConfigLayer({ database: { url: Redacted.make(database.url) } });
 			const databaseSession = DatabaseSession.layer;
@@ -441,9 +442,13 @@ const lifecycleDatabaseLayer = (
 								{ session, repository },
 							).pipe(
 								Effect.tap(() =>
-									options.changeEntityPropertiesDuringPolicy
-										? Ref.set(entityProperties, { context: "changed" })
-										: Effect.void,
+									Ref.updateAndGet(policyCalls, (calls) => calls + 1).pipe(
+										Effect.flatMap((call) =>
+											options.changeEntityPropertiesDuringPolicy?.(call)
+												? Ref.set(entityProperties, { context: `changed-${call}` })
+												: Effect.void,
+										),
+									),
 								),
 							),
 					);
@@ -1222,53 +1227,80 @@ describe("Event lifecycle PostgreSQL", () => {
 		);
 	});
 
+	const referenceRaceInputs: Array<PolicyCall> = [];
 	layer(
 		lifecycleDatabaseLayer(false, {
 			policyCount: 1,
-			changeEntityPropertiesDuringPolicy: true,
-			decidePolicy: () =>
-				Effect.succeed({
+			changeEntityPropertiesDuringPolicy: (call) => call !== 2,
+			decidePolicy: (input) => {
+				referenceRaceInputs.push(input);
+				return Effect.succeed({
 					action: "transform",
 					patch: { resource: "event", draft: { occurredAt: "2026-09-17T00:00:00.000Z" } },
-				}),
+				});
+			},
 		}),
 	)("event lifecycle harness", (test) => {
 		test.effect(
-			"rejects an event edit when reference metadata changes during policy execution",
+			"retries a field-scoped event edit after its reference changes during policies",
 			() =>
 				Effect.gen(function* () {
+					referenceRaceInputs.length = 0;
 					const repository = yield* EventsRepository;
 					const session = yield* DatabaseSession;
-					const eventId = EventId.make("metadata-race-edit-event");
-					yield* session.transaction(
-						repository.createEvent({
-							userId,
-							entityId,
-							id: eventId,
-							eventSchemaSlug,
-							properties: { rating: 1 },
-							eventSchemaPluginId: null,
-							propertiesSchema: { fields: {} },
-							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
-							eventSchemaName: { key: "test.rating", namespace: "kernel" },
-						}),
-					);
+					const retriedId = EventId.make("reference-race-retried");
+					const protectedId = EventId.make("reference-race-protected");
+					for (const eventId of [retriedId, protectedId]) {
+						yield* session.transaction(
+							repository.createEvent({
+								userId,
+								entityId,
+								id: eventId,
+								eventSchemaSlug,
+								properties: { rating: 1 },
+								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
+								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+								eventSchemaName: { key: "test.rating", namespace: "kernel" },
+							}),
+						);
+					}
+					const rating = { properties: { remove: [], set: { rating: 2 } } };
+					expect(
+						yield* runChanges(
+							[
+								eventUpdate({
+									...updateItem(retriedId, rating),
+									expected: {
+										entityId,
+										occurredAt: now,
+										absentProperties: [],
+										sessionEntityId: null,
+										kind: "fields" as const,
+										properties: { rating: 1 },
+									},
+								}),
+							],
+							command("reference-race-retried"),
+						),
+					).toEqual([retriedId]);
+					expect(referenceRaceInputs).toHaveLength(2);
+					expect(
+						(yield* repository.getEventSnapshot({ userId, eventId: retriedId }))?.snapshot,
+					).toMatchObject({ properties: { rating: 2 }, occurredAt: "2026-09-17T00:00:00.000Z" });
 					assertExitFails(
 						yield* Effect.exit(
 							runChanges(
-								[
-									eventUpdate(
-										updateItem("metadata-race-edit-event", { properties: { set: {}, remove: [] } }),
-									),
-								],
-								command("metadata-race-edit"),
+								[eventUpdate(updateItem(protectedId, rating))],
+								command("reference-race-protected"),
 							),
 						),
-						new EventBadRequest({ reason: { code: "mutation-conflict" } }),
+						new EventStale({ reason: { code: "event-stale", eventId: protectedId } }),
 					);
+					expect(referenceRaceInputs).toHaveLength(3);
 					expect(
-						(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.occurredAt,
-					).toBe(now);
+						(yield* repository.getEventSnapshot({ userId, eventId: protectedId }))?.snapshot,
+					).toMatchObject({ occurredAt: now, properties: { rating: 1 } });
 				}),
 			testTimeout,
 		);
