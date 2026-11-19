@@ -3,9 +3,11 @@ import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
 	createRyotQuery,
+	formatError,
 	type RyotSubmission,
 	useRyotQuery,
 	useRyotSubmission,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -122,6 +124,7 @@ function TimeForm(props: {
 	readonly properties: WorkoutProperties;
 	readonly entity: WorkoutEditorBaseline["entity"];
 }) {
+	const t = useT();
 	const text = useFitnessMessages();
 	const { entity, onClose, properties } = props;
 	const start = useDateTimeInput(properties.startedAt);
@@ -260,7 +263,11 @@ function TimeForm(props: {
 				{message ? <Notice tone="danger">{message}</Notice> : null}
 				{conflicted ? <Notice tone="danger">{text("client.adjust.conflict")}</Notice> : null}
 				{save.error && !conflicted ? (
-					<Notice tone="danger">{text("client.adjust.unconfirmed")}</Notice>
+					<Notice tone="danger">
+						{save.status === "retained"
+							? text("client.adjust.unconfirmed")
+							: formatError(t, save.error, text("client.adjust.not-saved"))}
+					</Notice>
 				) : null}
 				{save.data?.kind === "invalid" ? (
 					<Notice tone="danger">{text("client.adjust.rejected")}</Notice>

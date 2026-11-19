@@ -2,9 +2,11 @@ import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
+	formatError,
 	type RyotSubmission,
 	useRyot,
 	useRyotSubmission,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Dialog, Notice } from "@ryot-app/plugin-ui-sdk";
 import { useEffect } from "react";
@@ -58,6 +60,7 @@ const deleteEntity = createRyotMutation<
 export function DeleteFitnessEntity(
 	props: DeleteInput & { readonly name: string; readonly onClose: () => void },
 ) {
+	const t = useT();
 	const text = useFitnessMessages();
 	const client = useRyot();
 	const deletion = useRyotSubmission(deleteEntity);
@@ -104,7 +107,13 @@ export function DeleteFitnessEntity(
 			}
 		>
 			<p>{text("client.delete.description", { kind: props.kind, name: props.name })}</p>
-			{deletion.error ? <Notice tone="danger">{text("client.delete.unconfirmed")}</Notice> : null}
+			{deletion.error ? (
+				<Notice tone="danger">
+					{deletion.status === "retained"
+						? text("client.delete.unconfirmed")
+						: formatError(t, deletion.error, text("client.delete.not-deleted"))}
+				</Notice>
+			) : null}
 		</Dialog>
 	);
 }
