@@ -1,0 +1,82 @@
+import { describe, expect, it } from "bun:test";
+
+import { render, screen } from "@testing-library/react";
+
+import type { AuthSessionSnapshot, AuthSessionStore } from "#/modules/auth/service";
+import { testI18nWrapper } from "#/modules/i18n/provider.test-support";
+import { AccountSummary } from "#/modules/shell/account-summary";
+
+const session = (initial: AuthSessionSnapshot): AuthSessionStore => {
+	const listeners = new Set<() => void>();
+	return {
+		getSnapshot: () => initial,
+		subscribe: (listener) => {
+			listeners.add(listener);
+			return () => listeners.delete(listener);
+		},
+	};
+};
+
+const authenticated: AuthSessionSnapshot = {
+	status: "authenticated",
+	accessClass: "standard",
+	user: { image: null, id: "user-1", name: "Ada Lovelace", email: "ada@ryot.example" },
+};
+
+describe("account summary", () => {
+	it("shows the current session name, email, and avatar", () => {
+		render(
+			<AccountSummary
+				isPro={false}
+				active={false}
+				onNavigate={() => undefined}
+				session={session({
+					status: "authenticated",
+					accessClass: "standard",
+					user: {
+						id: "user-1",
+						name: "Ada Lovelace",
+						email: "ada@ryot.example",
+						image: "https://example.test/ada.png",
+					},
+				})}
+			/>,
+			{ wrapper: testI18nWrapper() },
+		);
+		const settings = screen.getByRole("link", { name: "Open settings" });
+
+		expect(settings.textContent).toContain("Ada Lovelace");
+		expect(settings.textContent).toContain("ada@ryot.example");
+		expect(screen.getByRole("img", { name: "Ada Lovelace's avatar" }).getAttribute("src")).toBe(
+			"https://example.test/ada.png",
+		);
+	});
+
+	it("crowns the account avatar for a Pro instance", () => {
+		render(
+			<AccountSummary
+				isPro
+				active={false}
+				onNavigate={() => undefined}
+				session={session(authenticated)}
+			/>,
+			{ wrapper: testI18nWrapper() },
+		);
+
+		expect(screen.getByRole("img", { name: "Ryot Pro" })).not.toBeNull();
+	});
+
+	it("leaves the account avatar plain on a community instance", () => {
+		render(
+			<AccountSummary
+				isPro={false}
+				active={false}
+				onNavigate={() => undefined}
+				session={session(authenticated)}
+			/>,
+			{ wrapper: testI18nWrapper() },
+		);
+
+		expect(screen.queryByRole("img", { name: "Ryot Pro" })).toBeNull();
+	});
+});

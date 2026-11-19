@@ -1,8 +1,10 @@
 # Open Scale
 
-You can import your measurements from [Open Scale](https://github.com/oliexdev/openScale)
-app.
+1. In [openScale](https://github.com/oliexdev/openScale), open the top-right menu and select
+   **Export**.
+2. Upload the saved CSV file under **Settings > Import data**.
+3. Select the timezone used when the measurements were recorded. Timestamps with an explicit UTC
+   offset keep that offset instead.
 
-This can be done by clicking on the three dots on the top right corner of the app, and then
-clicking on "Export". This will save a CSV file to your file system. Upload this file in
-the input.
+Times skipped by a daylight-saving change are reported as invalid. If a local time occurs twice,
+the earlier occurrence is used; include a UTC offset in the CSV to select the other one.

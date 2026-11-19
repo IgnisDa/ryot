@@ -1,0 +1,14 @@
+{
+	"extends": "../../tsconfig.options.json",
+	"compilerOptions": {
+		"strict": true,
+		"outDir": "dist",
+		"module": "nodenext",
+		"types": ["bun-types"],
+		"lib": ["ESNext", "DOM"],
+		"verbatimModuleSyntax": false,
+		"moduleResolution": "nodenext",
+		"noUncheckedIndexedAccess": true,
+		"allowSyntheticDefaultImports": true
+	}
+}

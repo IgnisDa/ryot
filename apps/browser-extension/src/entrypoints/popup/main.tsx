@@ -1,10 +1,15 @@
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
+
 import App from "./app.tsx";
+
+// oxlint-disable-next-line import/no-unassigned-import
 import "./style.css";
 
 const root = document.getElementById("root");
-if (!root) throw new Error("Root element not found");
+if (!root) {
+	throw new Error("Root element not found");
+}
 
 ReactDOM.createRoot(root).render(
 	<StrictMode>

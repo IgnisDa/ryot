@@ -1,0 +1,99 @@
+import { describe, expect, it } from "bun:test";
+
+import { Result } from "effect";
+
+import { navigationRecipe } from "./navigation";
+import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
+
+const rows = (items: readonly unknown[], limit = 100) =>
+	rowsResult(items, { limit, hasMore: false, nextCursor: null });
+const response = {
+	data: {
+		collections: rows([{ id: "collection-1", name: "Sci-Fi Essentials" }]),
+		savedViews: rows([
+			{
+				icon: "film",
+				sortOrder: 1,
+				name: "Records",
+				slug: "records",
+				isHidden: false,
+				packageId: "ryot/fixture",
+				pluginInstallationId: "fixture-workspace",
+				reference: { kind: "plugin", slug: "records", pluginId: "fixture-owner" },
+			},
+		]),
+	},
+};
+
+describe("navigation recipe", () => {
+	it("prepares one document with all navigation queries", () => {
+		const document = bindRecipe(navigationRecipe, {}).document;
+
+		expect(Object.keys(document.queries)).toEqual(["collections", "savedViews"]);
+		expect(requireRowsQuery(document.queries.savedViews).output.orderBy).toEqual([
+			{ direction: "asc", expr: { type: "column", field: "packageId", tableAlias: "savedView" } },
+			{ direction: "asc", expr: { type: "column", field: "sortOrder", tableAlias: "savedView" } },
+			{ direction: "asc", expr: { field: "slug", type: "column", tableAlias: "savedView" } },
+		]);
+		expect(document.queries.collections).toMatchObject({
+			output: { pagination: { limit: 100 } },
+			from: { table: "entity", alias: "collection" },
+			where: {
+				predicates: [
+					{ right: { value: "collection" } },
+					{ type: "isNull", expr: { field: "entitySchemaPluginId" } },
+				],
+			},
+		});
+	});
+
+	it("decodes plain values and applies navigation defaults", () => {
+		expect(Result.getOrThrow(bindRecipe(navigationRecipe, {}).decode(response))).toEqual<unknown>({
+			collections: [
+				{
+					sortOrder: 0,
+					reference: null,
+					isHidden: false,
+					packageId: null,
+					icon: "layers-3",
+					slug: "collection-1",
+					name: "Sci-Fi Essentials",
+					pluginInstallationId: null,
+				},
+			],
+			savedViews: [
+				{
+					icon: "film",
+					sortOrder: 1,
+					name: "Records",
+					slug: "records",
+					isHidden: false,
+					packageId: "ryot/fixture",
+					pluginInstallationId: "fixture-workspace",
+					reference: { kind: "plugin", slug: "records", pluginId: "fixture-owner" },
+				},
+			],
+		});
+	});
+
+	it("decodes empty sections", () => {
+		expect(
+			Result.getOrThrow(
+				bindRecipe(navigationRecipe, {}).decode({
+					data: { savedViews: rows([]), collections: rows([]) },
+				}),
+			),
+		).toEqual({ savedViews: [], collections: [] });
+	});
+
+	it("rejects malformed selected fields", () => {
+		expect(
+			Result.isFailure(
+				bindRecipe(navigationRecipe, {}).decode({
+					...response,
+					data: { ...response.data, collections: rows([{ id: 2, name: "Malformed" }]) },
+				}),
+			),
+		).toBe(true);
+	});
+});

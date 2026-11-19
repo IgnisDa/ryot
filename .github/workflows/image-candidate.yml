@@ -1,0 +1,144 @@
+name: Docker Image Candidate
+
+on:
+  workflow_call:
+    inputs:
+      source-ref:
+        required: true
+        type: string
+    outputs:
+      artifact-prefix:
+        value: ${{ jobs.resolve.outputs.artifact-prefix }}
+      amd64-run:
+        value: ${{ jobs.resolve.outputs.amd64-run }}
+      arm64-run:
+        value: ${{ jobs.resolve.outputs.arm64-run }}
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact-prefix: ${{ steps.identity.outputs.prefix }}
+      version: ${{ steps.identity.outputs.version }}
+      amd64-run: ${{ steps.candidates.outputs.amd64-run }}
+      arm64-run: ${{ steps.candidates.outputs.arm64-run }}
+      missing: ${{ steps.candidates.outputs.missing }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+          ref: ${{ inputs.source-ref }}
+      - name: Identify the candidate
+        id: identity
+        run: |
+          version="$(git describe --tags --always)"
+          version_hash="$(printf '%s' "$version" | sha256sum | cut -c1-16)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prefix=ryot-image-$(git rev-parse HEAD)-$version_hash" >> "$GITHUB_OUTPUT"
+      - name: Find tested candidates for the exact source commit
+        id: candidates
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          SOURCE_REF: ${{ inputs.source-ref }}
+          ARTIFACT_PREFIX: ${{ steps.identity.outputs.prefix }}
+        with:
+          script: |
+            const source = process.env.SOURCE_REF;
+            if (!/^[a-f0-9]{40}$/.test(source)) throw new Error('Expected a commit SHA');
+            const repositoryId = context.payload.repository.id;
+            const fork = context.eventName === 'pull_request' &&
+              context.payload.pull_request.head.repo?.id !== repositoryId;
+            const targets = [
+              { arch: 'amd64', runner: 'ubuntu-24.04' },
+              { arch: 'arm64', runner: 'ubuntu-24.04-arm' },
+            ];
+            const missing = [];
+            for (const target of targets) {
+              let runId;
+              if (!fork) {
+                const name = `${process.env.ARTIFACT_PREFIX}-${target.arch}`;
+                for await (const { data } of github.paginate.iterator(
+                  github.rest.actions.listArtifactsForRepo, { ...context.repo, name, per_page: 100 },
+                )) {
+                  for (const artifact of data) {
+                    const candidate = artifact.workflow_run;
+                    if (artifact.expired || candidate?.head_repository_id !== repositoryId) continue;
+                    const { data: run } = await github.rest.actions.getWorkflowRun({
+                      ...context.repo, run_id: candidate.id,
+                    });
+                    if (run.path !== '.github/workflows/main.yml') continue;
+                    if (run.event !== 'workflow_dispatch' &&
+                        (!['push', 'pull_request'].includes(run.event) || run.head_sha !== source)) continue;
+                    runId = run.id;
+                    break;
+                  }
+                  if (runId) break;
+                }
+              }
+              if (!runId) missing.push(target);
+              core.setOutput(`${target.arch}-run`, runId ?? context.runId);
+            }
+            core.setOutput('missing', JSON.stringify(missing));
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.missing != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.resolve.outputs.missing) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+          ref: ${{ inputs.source-ref }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Create the candidate directory
+        run: mkdir -p "$RUNNER_TEMP/candidate"
+      - name: Build the candidate image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          target: runner
+          platforms: linux/${{ matrix.arch }}
+          provenance: false
+          sbom: false
+          outputs: type=oci,dest=${{ runner.temp }}/candidate/image.tar
+          build-args: RYOT_VERSION=${{ needs.resolve.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ inputs.source-ref }}
+            org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
+          cache-from: |
+            type=gha,scope=sandbox-test-linux-${{ matrix.arch }}
+            type=gha,scope=runner-linux-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,ignore-error=true,scope=runner-linux-${{ matrix.arch }}
+      - name: Smoke-test the exported image under Docker confinement
+        working-directory: ${{ runner.temp }}/candidate
+        run: |
+          skopeo copy oci-archive:image.tar docker-archive:docker.tar:ryot-image:latest
+          expected_config="$(skopeo inspect --raw oci-archive:image.tar | jq -er '.config.digest')"
+          config_path="$(tar -xOf docker.tar manifest.json | jq -er '.[0].Config')"
+          actual_config="sha256:$(tar -xOf docker.tar "$config_path" | sha256sum | cut -d' ' -f1)"
+          test "$actual_config" = "$expected_config"
+          docker load --input docker.tar
+          rm docker.tar
+          docker run --rm --network none ryot-image bun run dist/prepare-sandbox-runtime.js
+      - name: Upload the tested candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ needs.resolve.outputs.artifact-prefix }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/candidate/image.tar
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3

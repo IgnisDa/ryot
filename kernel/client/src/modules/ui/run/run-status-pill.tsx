@@ -1,0 +1,39 @@
+import { useT } from "@ryot-app/i18n/react";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import clsx from "clsx";
+
+import {
+	type PresentedRunStatus,
+	runStatusPill,
+	type RunStatusTone,
+} from "#/modules/ui/run/run-status";
+
+const toneClassName: Record<RunStatusTone, string> = {
+	info: "text-info",
+	danger: "text-danger",
+	success: "text-success",
+	muted: "text-text-muted",
+};
+
+export function RunStatusGlyph(props: { readonly status: PresentedRunStatus }) {
+	const t = useT();
+	const pill = runStatusPill(props.status);
+	return (
+		<span role="img" className="shrink-0" aria-label={t(pill.label)}>
+			<AppIcon size={16} name={pill.icon} className={toneClassName[pill.tone]} />
+		</span>
+	);
+}
+
+export function RunStatusPill(props: { readonly status: PresentedRunStatus }) {
+	const t = useT();
+	const pill = runStatusPill(props.status);
+	return (
+		<span className="flex h-6 items-center gap-1.5 rounded-full border border-border px-2">
+			<AppIcon size={12} name={pill.icon} className={toneClassName[pill.tone]} />
+			<span className={clsx("text-[11px] font-medium", toneClassName[pill.tone])}>
+				{t(pill.label)}
+			</span>
+		</span>
+	);
+}

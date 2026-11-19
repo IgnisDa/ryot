@@ -1,0 +1,25 @@
+{
+	"name": "@ryot-app/contract",
+	"exports": {
+		"./*": {
+			"types": "./src/*.ts",
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun ../../packages/testing/src/run-tests.ts",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"@ryot-app/i18n": "workspace:*",
+		"@ryot-app/instance-contract": "workspace:*",
+		"@ryot-app/kernel-messages": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"effect": "4.1.2"
+	},
+	"devDependencies": {
+		"@ryot-app/testing": "workspace:*",
+		"@voila.dev/effect-bun-test": "4.0.4",
+		"bun-types": "1.4.4"
+	}
+}

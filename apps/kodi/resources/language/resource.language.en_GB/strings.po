@@ -17,5 +17,5 @@ msgid "General"
 msgstr "General"
 
 msgctxt "#32011"
-msgid "Ryot webhook url"
-msgstr "Ryot webhook url"
+msgid "Ryot webhook URL"
+msgstr "Ryot webhook URL"

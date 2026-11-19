@@ -1,4 +1,5 @@
 import { ShieldCheck } from "lucide-react";
+
 import { SectionHeader } from "~/lib/components/SectionHeader";
 import { Card } from "~/lib/components/ui/card";
 
@@ -22,25 +23,23 @@ export default function Page() {
 				<Card>
 					<div className="p-6 sm:p-10 space-y-6 text-lg text-muted-foreground leading-relaxed">
 						<p>
-							Subscribe today and you keep the rate you signed up at, for as
-							long as your subscription stays active. That applies to every
-							future price change. We don't move existing customers onto new
-							pricing.
+							Subscribe today and you keep the rate you signed up at, for as long as your
+							subscription stays active. That applies to every future price change. We don't move
+							existing customers onto new pricing.
 						</p>
 						<p>
-							Buy a lifetime license and it's yours permanently. No renewal, no
-							expiry, no reconsidering.
+							Buy a lifetime license and it's yours permanently. No renewal, no expiry, no
+							reconsidering.
 						</p>
 						<p>
-							One boundary, stated now so it isn't a surprise later: if your
-							subscription lapses and you resubscribe, you return at the current
-							price. Your old rate goes with the old subscription. If a payment
-							fails, email us - we'll fix it and keep your rate. That's not a
-							loophole we're looking to use.
+							One boundary, stated now so it isn't a surprise later: if your subscription lapses and
+							you resubscribe, you return at the current price. Your old rate goes with the old
+							subscription. If a payment fails, email us - we'll fix it and keep your rate. That's
+							not a loophole we're looking to use.
 						</p>
 						<p>
-							We'd rather charge new customers more than break a deal with the
-							people who backed us first.
+							We'd rather charge new customers more than break a deal with the people who backed us
+							first.
 						</p>
 					</div>
 				</Card>

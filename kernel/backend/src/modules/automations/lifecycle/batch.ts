@@ -1,0 +1,74 @@
+import {
+	AutomationBatchChangePayload,
+	type AutomationTrigger,
+} from "@ryot-app/contract/modules/automations/lifecycle";
+import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Effect, Schema } from "effect";
+
+import { lifecycleTrigger } from "./command";
+import type { LifecycleBatchChange, LifecycleBatchInput } from "./planning";
+
+const decodeBatchPayload = Schema.decodeUnknownEffect(AutomationBatchChangePayload);
+
+// Half the sandbox context limit leaves room for the invocation envelope and hook metadata.
+const BATCH_PAYLOAD_BYTES = SANDBOX_LIMITS.execution.contextBytes / 2;
+
+const chunkItems = <Item>(
+	items: ReadonlyArray<Item>,
+	maxItems: number,
+	baseBytes: number,
+): ReadonlyArray<ReadonlyArray<Item>> => {
+	const chunks: Item[][] = [];
+	let chunk: Item[] = [];
+	let bytes = baseBytes;
+	for (const item of items) {
+		const size = (jsonByteLength(item) ?? 0) + 1;
+		if (chunk.length > 0 && (chunk.length >= maxItems || bytes + size > BATCH_PAYLOAD_BYTES)) {
+			chunks.push(chunk);
+			chunk = [];
+			bytes = baseBytes;
+		}
+		chunk.push(item);
+		bytes += size;
+	}
+	return chunk.length > 0 ? [...chunks, chunk] : chunks;
+};
+
+/**
+ * Builds one batch trigger per scope and chunk covering committed changes. Chunks
+ * respect both the item cap and the sandbox input budget; boundaries follow the caller's plan
+ * order, so a replayed command reuses the same trigger ids.
+ */
+export const lifecycleBatchTriggers = Effect.fnUntraced(function* (
+	input: LifecycleBatchInput,
+	maxItems: number,
+	changes: ReadonlyArray<LifecycleBatchChange>,
+): Effect.fn.Return<ReadonlyArray<AutomationTrigger>> {
+	const triggers: AutomationTrigger[] = [];
+	const scopes = [...new Set(changes.map(({ scopeUserId }) => scopeUserId))].sort((left, right) =>
+		(left ?? "").localeCompare(right ?? ""),
+	);
+	for (const scopeUserId of scopes) {
+		const command = {
+			...input.command,
+			itemIdentity: stableStringify([
+				input.command.itemIdentity,
+				...input.identity,
+				scopeUserId ?? "global",
+			]),
+		};
+		const base = { category: "change", operation: "batch", resource: input.resource } as const;
+		const items = changes
+			.filter((change) => change.scopeUserId === scopeUserId)
+			.map((change) => change.payload)
+			.filter(({ resource }) => resource === input.resource);
+		const chunks = chunkItems(items, maxItems, jsonByteLength({ ...base, items: [] }) ?? 0);
+		for (const [chunkIndex, chunk] of chunks.entries()) {
+			const payload = yield* decodeBatchPayload({ ...base, items: chunk }).pipe(Effect.orDie);
+			triggers.push(yield* lifecycleTrigger(command, scopeUserId, payload, `batch:${chunkIndex}`));
+		}
+	}
+	return triggers;
+});

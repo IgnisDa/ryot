@@ -1,0 +1,23 @@
+{
+	"extends": ["//"],
+	"tasks": {
+		"test": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
+		"check": { "dependsOn": ["$TURBO_EXTENDS$", "build"] },
+		"build": {
+			"outputs": ["dist/**"],
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"!tooling/check-references.ts",
+				"$TURBO_ROOT$/packages/i18n/src/**"
+			]
+		},
+		"check:references": {
+			"dependsOn": ["build"],
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"$TURBO_ROOT$/kernel/*/src/**",
+				"$TURBO_ROOT$/packages/*/src/**"
+			]
+		}
+	}
+}

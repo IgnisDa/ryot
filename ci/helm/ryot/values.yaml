@@ -1,9 +1,16 @@
-# Default values for the Ryot chart.
-# This is a YAML-formatted file. Declare variables to be passed into the templates.
-
-# -- Number of Ryot replicas. Ryot is stateless (state lives in Postgres), but
-# leave at 1 unless you know your setup supports multiple replicas.
+# -- Ryot supports exactly one backend per database.
 replicaCount: 1
+
+persistence:
+  # -- Store permanent uploads on a PVC. Disable only when S3 is configured.
+  enabled: true
+  # -- Use an existing claim instead of creating one.
+  existingClaim: ""
+  size: 8Gi
+  # -- Empty uses the cluster default; "-" requests no storage class.
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
 
 image:
   repository: ghcr.io/ignisda/ryot
@@ -41,7 +48,7 @@ config:
 
 # =====================================================================
 # Sensitive application configuration (rendered into a Secret unless an
-# existing secret is referenced). 
+# existing secret is referenced).
 # =====================================================================
 secret:
   # SERVER_ADMIN_ACCESS_TOKEN - REQUIRED. Long random string.
@@ -189,7 +196,7 @@ externalDatabase:
 
 service:
   type: ClusterIP
-  # -- Service port. Ryot's internal Caddy proxy listens on 8000.
+  # -- Service port. The TypeScript backend listens on port 8000 by default.
   port: 8000
 
 ingress:
@@ -206,20 +213,28 @@ ingress:
   #    hosts:
   #      - ryot.your-domain.com
 
-# -- Liveness probe. Ryot exposes /health on the service port.
+# -- Liveness checks the HTTP listener without depending on PostgreSQL.
 livenessProbe:
-  httpGet:
-    path: /health
+  tcpSocket:
     port: http
   initialDelaySeconds: 30
   periodSeconds: 30
   timeoutSeconds: 10
   failureThreshold: 6
 
-# -- Readiness probe.
+# -- Allow up to 30 minutes for migration before applying normal probes.
+startupProbe:
+  httpGet:
+    path: /api/system/health
+    port: http
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 180
+
+# -- Readiness probe using /api/system/health.
 readinessProbe:
   httpGet:
-    path: /health
+    path: /api/system/health
     port: http
   initialDelaySeconds: 15
   periodSeconds: 15
@@ -227,21 +242,27 @@ readinessProbe:
   failureThreshold: 6
 
 # -- Pod-level security context for the Ryot pod.
-podSecurityContext: {}
+podSecurityContext:
+  fsGroup: 1001
+  fsGroupChangePolicy: OnRootMismatch
 
-# -- Container security context. The image already runs as the unprivileged
-# user 1001 (ryot).
+# -- Container security context. The UID 1001 backend needs the root-owned
+# setuid launcher to drop sidecars to UID 1002, so privilege escalation must
+# remain enabled.
 securityContext:
   runAsNonRoot: true
   runAsUser: 1001
+  runAsGroup: 1001
+  allowPrivilegeEscalation: true
+  readOnlyRootFilesystem: false
+  seccompProfile:
+    type: RuntimeDefault
 
-resources: {}
-#  limits:
-#    cpu: 1
-#    memory: 1Gi
-#  requests:
-#    cpu: 250m
-#    memory: 512Mi
+# -- Ryot scheduling requests. No default CPU or memory limits are set.
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
 
 podAnnotations: {}
 podLabels: {}

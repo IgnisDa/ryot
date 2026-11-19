@@ -1,0 +1,1 @@
+{ "extends": ["//"], "tasks": { "test": { "dependsOn": ["^transit"] } } }

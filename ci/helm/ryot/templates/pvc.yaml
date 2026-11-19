@@ -1,0 +1,21 @@
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ryot.fullname" . }}-storage
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "ryot.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  {{- if eq .Values.persistence.storageClass "-" }}
+  storageClassName: ""
+  {{- else if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ required "persistence.size is required" .Values.persistence.size }}
+{{- end }}

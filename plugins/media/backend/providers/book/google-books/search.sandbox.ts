@@ -1,0 +1,23 @@
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+
+import { search } from "./shared";
+
+export const manifest = defineManifest({
+	kind: "provider",
+	name: "Google Books Search",
+	slug: "book.google-books.search",
+	searchOptionsSchema: {
+		unknownKeys: "strict",
+		fields: {
+			passRawQuery: {
+				type: "boolean",
+				label: { key: "property.pass-raw-query" },
+				hint: { key: "property.pass-raw-query-hint" },
+				description: "Pass the query to Google Books without adding a title qualifier",
+			},
+		},
+	},
+});
+
+export default defineProvider({ manifest, run: search.run, operation: "search" });

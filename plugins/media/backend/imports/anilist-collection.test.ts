@@ -1,0 +1,111 @@
+import { afterEach, expect } from "bun:test";
+
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
+
+import anilist from "./anilist.sandbox";
+import { compareMediaRecords, serializeMediaRecords } from "./collection";
+import type { MediaSourceRecord } from "./collection-schemas";
+import { mediaFilesystem, mediaStageInput, resetMediaFilesystem } from "./ingestion.test-support";
+
+afterEach(resetMediaFilesystem);
+const encoder = new TextEncoder();
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+
+for (const { volumes, chapters } of [
+	{ volumes: 3, chapters: 0 },
+	{ volumes: 2, chapters: 3 },
+	{ volumes: 0, chapters: 0 },
+	{ chapters: 0, volumes: 257 },
+	{ volumes: 257, chapters: 129 },
+	{ volumes: 0, chapters: 800 },
+]) {
+	it.live(
+		`imports ${chapters} chapters and ${volumes} volumes as one cumulative progress event`,
+		() =>
+			Effect.gen(function* () {
+				const fs = mediaFilesystem({
+					uploadToken: encoder.encode(
+						yield* encodeJson({
+							user: { custom_lists: { manga: ["Reading Club"] } },
+							lists: [
+								{
+									id: 1,
+									score: 4,
+									series_id: 200,
+									series_type: 1,
+									progress: chapters,
+									status: "COMPLETED",
+									custom_lists: "[0]",
+									progress_volume: volumes,
+								},
+							],
+						}),
+					),
+				});
+				const collected = yield* anilist.run(mediaStageInput());
+				expect(collected.done).toBe(true);
+				fs.files.set(
+					"records",
+					encoder.encode(
+						yield* serializeMediaRecords((yield* fs.records()).sort(compareMediaRecords)),
+					),
+				);
+				const input = mediaStageInput({
+					action: "normalize",
+					settings: { timezone: "Etc/GMT" },
+					ingestionArtifacts: { runId: "run", captures: { records: "records" } },
+				});
+				const records: MediaSourceRecord[] = [];
+				for (;;) {
+					const result = yield* anilist.run(input);
+					records.push(...(yield* fs.records()));
+					if (result.done) {
+						break;
+					}
+					Object.assign(input, {
+						offset: result.offset,
+						header: result.header,
+						itemIndex: result.itemIndex,
+					});
+				}
+				const events = records.flatMap((record) => record.group?.events ?? []);
+				expect(records.flatMap((record) => (record.failure ? [record.failure] : []))).toEqual([]);
+				expect(
+					events
+						.filter((event) => event.eventSchemaSlug === "progress")
+						.map((event) => event.properties),
+				).toEqual(
+					chapters === 0 && volumes === 0
+						? []
+						: [
+								{
+									dateUnknown: true,
+									sourceRun: '[0,"baseline"]',
+									position:
+										chapters === 0
+											? { unit: "volumes", position: volumes }
+											: {
+													unit: "chapters",
+													position: chapters,
+													...(volumes > 0 ? { volume: volumes } : {}),
+												},
+								},
+							],
+				);
+				expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
+				expect(
+					events
+						.filter((event) => event.eventSchemaSlug === "review")
+						.map((event) => event.properties),
+				).toEqual([{ rating: 4 }]);
+				expect(events).toHaveLength(chapters > 0 || volumes > 0 ? 3 : 2);
+				expect(new Set(events.map((event) => event.operationId)).size).toBe(events.length);
+				expect(records.flatMap((record) => record.group?.collectionMemberships ?? [])).toEqual([
+					{ collectionName: "Reading Club" },
+				]);
+			}),
+		testTimeout,
+	);
+}

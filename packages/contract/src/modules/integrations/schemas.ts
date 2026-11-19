@@ -1,0 +1,186 @@
+import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { Schema } from "effect";
+
+import { IntegrationId } from "../../schema/brands";
+import type { AppSchema } from "../../schema/property-schema";
+import { DeclarationReference } from "../plugins/references";
+import { integrationLots } from "./types";
+
+const IntegrationLot = Schema.Literals([...integrationLots]);
+
+export const IntegrationRequestFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
+	Schema.Struct({ provider: Schema.String, code: Schema.Literal("provider-not-found") }),
+	Schema.Struct({ operation: Schema.String, code: Schema.Literal("queue-unavailable") }),
+	Schema.Struct({ provider: Schema.String, code: Schema.Literal("invalid-provider-settings") }),
+	Schema.Struct({ integrationId: IntegrationId, code: Schema.Literal("integration-not-found") }),
+	Schema.Struct({ code: Schema.Literal("integration-webhook-not-found") }),
+	Schema.Struct({
+		value: Schema.Finite,
+		code: Schema.Literal("progress-out-of-range"),
+		field: Schema.Literals(["minimumProgress", "maximumProgress"]),
+	}),
+	Schema.Struct({
+		minimumProgress: Schema.Finite,
+		maximumProgress: Schema.Finite,
+		code: Schema.Literal("invalid-progress-range"),
+	}),
+	Schema.Struct({
+		actual: IntegrationLot,
+		expected: IntegrationLot,
+		integrationId: IntegrationId,
+		code: Schema.Literal("wrong-integration-lot"),
+	}),
+]);
+
+export type IntegrationRequestFailureReason = typeof IntegrationRequestFailureReason.Type;
+
+export class IntegrationRequestError extends Schema.TaggedError<
+	IntegrationRequestError,
+	{ readonly brand: unique symbol }
+>()("IntegrationRequestError", { reason: IntegrationRequestFailureReason }) {}
+
+export class IntegrationNotFoundError extends Schema.TaggedError<
+	IntegrationNotFoundError,
+	{ readonly brand: unique symbol }
+>()("IntegrationNotFoundError", { reason: IntegrationRequestFailureReason }) {}
+
+export const IntegrationProvider = Schema.String;
+
+export type IntegrationProvider = typeof IntegrationProvider.Type;
+
+export const IntegrationProviderSettings = Schema.Record(Schema.String, Schema.Unknown);
+
+export type IntegrationProviderSettings = typeof IntegrationProviderSettings.Type;
+
+const IntegrationExtraSettings = Schema.Struct({ disableOnContinuousErrors: Schema.Boolean });
+
+export type IntegrationExtraSettings = typeof IntegrationExtraSettings.Type;
+
+const baseCommonFields = {
+	isDisabled: {
+		type: "boolean",
+		defaultValue: false,
+		description: "Disable this integration",
+		label: kernelMessage("definition.property.integration-disabled"),
+	},
+	name: {
+		type: "string",
+		description: "Optional name for this integration",
+		label: kernelMessage("definition.property.integration-name"),
+		hint: kernelMessage("definition.property.integration-name-hint"),
+	},
+	disableOnContinuousErrors: {
+		type: "boolean",
+		defaultValue: false,
+		description: "Disable this integration after continuous errors",
+		label: kernelMessage("definition.property.integration-disable-on-errors"),
+		hint: kernelMessage("definition.property.integration-disable-on-errors-hint"),
+	},
+} satisfies AppSchema["fields"];
+
+const progressCommonFields = {
+	minimumProgress: {
+		type: "number",
+		defaultValue: 2,
+		validation: { minimum: 0, maximum: 100 },
+		description: "Minimum progress percentage to synchronize",
+		label: kernelMessage("definition.property.integration-minimum-progress"),
+		hint: kernelMessage("definition.property.integration-minimum-progress-hint"),
+	},
+	maximumProgress: {
+		type: "number",
+		defaultValue: 95,
+		validation: { minimum: 0, maximum: 100 },
+		description: "Maximum progress percentage to synchronize",
+		label: kernelMessage("definition.property.integration-maximum-progress"),
+		hint: kernelMessage("definition.property.integration-maximum-progress-hint"),
+	},
+} satisfies AppSchema["fields"];
+
+export const integrationCommonSchema = (
+	lot: (typeof integrationLots)[number],
+	supportsOwnershipSync: boolean,
+	supportsProgress = true,
+): AppSchema => ({
+	fields: {
+		...baseCommonFields,
+		...(lot === "push" || !supportsProgress ? {} : progressCommonFields),
+		...(lot === "yank" && supportsOwnershipSync
+			? {
+					syncOwnership: {
+						defaultValue: false,
+						type: "boolean" as const,
+						description: "Synchronize ownership from this integration",
+						label: kernelMessage("definition.property.integration-sync-ownership"),
+						hint: kernelMessage("definition.property.integration-sync-ownership-hint"),
+					},
+				}
+			: {}),
+	},
+});
+
+/**
+ * A provider form renders `commonSchema` and `settingsSchema` against one flat value record, so a
+ * `settingsSchema` field sharing a name with a common one would silently collide. Plugin manifest
+ * validation rejects those names.
+ */
+export const integrationCommonPropertyNames: ReadonlySet<string> = new Set(
+	Object.keys(integrationCommonSchema("yank", true).fields),
+);
+
+export const IntegrationSnapshot = Schema.Struct({
+	id: IntegrationId,
+	lot: IntegrationLot,
+	createdAt: Schema.String,
+	updatedAt: Schema.String,
+	isDisabled: Schema.Boolean,
+	provider: IntegrationProvider,
+	syncOwnership: Schema.Boolean,
+	minimumProgress: Schema.Finite,
+	maximumProgress: Schema.Finite,
+	name: Schema.NullOr(Schema.String),
+	extraSettings: IntegrationExtraSettings,
+	lastFinishedAt: Schema.NullOr(Schema.String),
+	providerSpecifics: IntegrationProviderSettings,
+});
+
+export type IntegrationSnapshot = typeof IntegrationSnapshot.Type;
+
+export const CreateIntegrationBody = Schema.Struct({
+	provider: DeclarationReference,
+	name: Schema.optional(Schema.String),
+	isDisabled: Schema.optional(Schema.Boolean),
+	providerSpecifics: IntegrationProviderSettings,
+	syncOwnership: Schema.optional(Schema.Boolean),
+	minimumProgress: Schema.optional(Schema.Finite),
+	maximumProgress: Schema.optional(Schema.Finite),
+	extraSettings: Schema.optional(IntegrationExtraSettings),
+});
+
+export type CreateIntegrationBody = typeof CreateIntegrationBody.Type;
+
+export const UpdateIntegrationBody = Schema.Struct({
+	name: Schema.optional(Schema.String),
+	isDisabled: Schema.optional(Schema.Boolean),
+	syncOwnership: Schema.optional(Schema.Boolean),
+	minimumProgress: Schema.optional(Schema.Finite),
+	maximumProgress: Schema.optional(Schema.Finite),
+	extraSettings: Schema.optional(IntegrationExtraSettings),
+	providerSpecifics: Schema.optional(IntegrationProviderSettings),
+});
+
+export type UpdateIntegrationBody = typeof UpdateIntegrationBody.Type;
+
+export const integrationWebhookUrl = (frontendOrigin: string, token: string): string =>
+	`${frontendOrigin.replace(/\/$/, "")}/_i/${token}`;
+
+export const integrationWebhookContentTypes = ["application/json", "multipart/form-data"] as const;
+
+export const IntegrationWebhookBody = Schema.String.annotate({
+	title: "Integration Webhook Body",
+	identifier: "IntegrationWebhookBody",
+	description: "Unparsed webhook request body, forwarded to the integration script verbatim.",
+});
+
+export type IntegrationWebhookBody = typeof IntegrationWebhookBody.Type;

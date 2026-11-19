@@ -5,7 +5,10 @@ on:
     branches:
       - main
     paths:
-      - "ci/helm/**"
+      - "ci/helm/**/values.yaml"
+      - "ci/helm/**/Chart.yaml"
+      - "ci/helm/**/*.gotmpl"
+      - "ci/helm/**/.helmdocsignore"
       - ".github/workflows/helm-docs.yml"
   workflow_dispatch:
 
@@ -13,7 +16,6 @@ permissions:
   contents: read
 
 concurrency:
-  # Avoid overlapping auto-commits on rapid merges to main.
   group: helm-docs-${{ github.ref }}
   cancel-in-progress: false
 
@@ -21,10 +23,11 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     permissions:
-      # This job pushes the regenerated VALUES.md back to main.
       contents: write
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
 
       - name: Install helm-docs
         env:
@@ -37,8 +40,6 @@ jobs:
           helm-docs --version
 
       - name: Generate VALUES.md
-        # Writes ci/helm/ryot/VALUES.md from the annotations in values.yaml and
-        # leaves the hand-written README.md untouched.
         run: helm-docs --chart-search-root ci/helm --output-file VALUES.md
 
       - name: Commit regenerated docs

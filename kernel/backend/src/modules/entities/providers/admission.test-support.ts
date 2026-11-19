@@ -1,0 +1,56 @@
+import { BunCrypto } from "@effect/platform-bun";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
+import { sql } from "drizzle-orm";
+import { Effect, Layer, Redacted } from "effect";
+
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
+import { testDatabaseUrl } from "#testing/database";
+import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
+
+export const alice = UserId.make("alice");
+export const bob = UserId.make("bob");
+
+/** The connection's search path points at a private schema, so code under test owns its transactions. */
+export const admissionDatabaseLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const name = `admission_test_${(yield* randomUuid).replaceAll("-", "")}`;
+		const databaseUrl = new URL(yield* testDatabaseUrl);
+		const options = databaseUrl.searchParams.get("options");
+		databaseUrl.searchParams.set(
+			"options",
+			`${options ? `${options} ` : ""}-c search_path=${name},public`,
+		);
+		const config = makeAppConfigLayer({ database: { url: Redacted.make(databaseUrl.href) } });
+		const schema = Layer.effectDiscard(
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const statements = yield* baselineMigrationStatements();
+				yield* session.run((db) =>
+					Effect.acquireRelease(db.execute(sql`create schema ${sql.identifier(name)}`), () =>
+						db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
+					),
+				);
+				yield* session.transaction(
+					session.run((transaction) =>
+						Effect.gen(function* () {
+							yield* applyBaselineMigration(statements, (statement) =>
+								transaction.execute(sql.raw(statement)),
+							);
+							yield* transaction.insert(tables.user).values([
+								{ id: alice, name: "Alice", email: "alice@example.test" },
+								{ id: bob, name: "Bob", email: "bob@example.test" },
+							]);
+						}),
+					),
+				);
+			}),
+		);
+		return Layer.mergeAll(schema, makeConfigProviderLayer()).pipe(
+			Layer.provideMerge(DatabaseSession.layer),
+			Layer.provide(config),
+		);
+	}),
+).pipe(Layer.provideMerge(BunCrypto.layerSecureRandom));

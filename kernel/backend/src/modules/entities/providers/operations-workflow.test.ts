@@ -1,0 +1,268 @@
+import { expect } from "bun:test";
+
+import {
+	AutomationPluginAfterRun,
+	type AutomationTrigger,
+	type LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	AutomationExecutionId,
+	AutomationHookSlug,
+	AutomationRunId,
+	EntityId,
+	EntitySchemaSlug,
+	ImportRunId,
+	IntegrationId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxProviderId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
+import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
+import { Effect, Layer } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+
+import {
+	withLifecycleBatchPlanning,
+	withLifecycleDispatch,
+} from "#modules/automations/lifecycle.test-support";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
+import { mapDatabaseErrors } from "#platform/db/errors";
+import { DatabaseSession } from "#platform/db/session";
+import { makeWorkflowActivityEngine } from "#testing/effect";
+
+import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
+import {
+	EntityImportWorkflowOperations,
+	EntityImportWorkflowOperationsLive,
+} from "./operations-workflow";
+
+const now = IsoUtcString.make("2026-09-16T00:00:00.000Z");
+const userId = UserId.make("user-1");
+const providerId = SandboxProviderId.make("provider-1");
+const entitySchemaSlug = EntitySchemaSlug.make("record");
+const entity = {
+	providerId,
+	name: "Record",
+	properties: {},
+	createdAt: now,
+	updatedAt: now,
+	populatedAt: now,
+	entitySchemaSlug,
+	externalId: "external-1",
+	id: EntityId.make("entity-1"),
+	entitySchemaPluginId: PluginId.make("plugin-1"),
+};
+
+const makeRun = (trigger: AutomationTrigger) =>
+	AutomationPluginAfterRun.make({
+		queuedAt: now,
+		stage: "after",
+		startedAt: null,
+		attemptCount: 0,
+		finishedAt: null,
+		skipReason: null,
+		status: "queued",
+		nextAttemptAt: null,
+		delivery: "required",
+		triggerId: trigger.id,
+		artifactsExpireAt: now,
+		executionUserId: userId,
+		hookName: "After import",
+		scriptSlug: "after-import",
+		scriptContentHash: "content-hash",
+		pluginId: PluginId.make("plugin-1"),
+		sandboxScriptId: SandboxScriptId.make("script-1"),
+		pluginRevisionId: PluginRevisionId.make("revision-1"),
+		hookSlug: AutomationHookSlug.make("fixture.after-import"),
+		id: AutomationRunId.make(`run-${trigger.causation.source}`),
+		pluginConfigRevisionId: PluginConfigRevisionId.make("config-1"),
+		retryPolicy: {
+			maxAttempts: 1,
+			maxDelayMs: 1_000,
+			initialDelayMs: 1_000,
+			externalIdempotency: "none",
+		},
+	});
+
+const planned: AutomationTrigger[] = [];
+const executed: Array<{ runIds: string[]; triggerId: string }> = [];
+let inTransaction = false;
+const database = DatabaseSession.of({
+	requireRoot: Effect.void,
+	detached: (work) => work,
+	requireTransaction: Effect.void,
+	carry: Effect.succeed((work) => work),
+	acquireUserWriteLock: () => Effect.void,
+	savepoint: (work) => mapDatabaseErrors(work),
+	isTransactionActive: Effect.sync(() => inTransaction),
+	run: (statement) =>
+		mapDatabaseErrors(statement(partialFake<EffectPgDatabase>({ execute: () => Effect.void }))),
+	transaction: (work) =>
+		Effect.suspend(() => {
+			inTransaction = true;
+			return mapDatabaseErrors(work).pipe(
+				Effect.ensuring(Effect.sync(() => (inTransaction = false))),
+			);
+		}),
+});
+const planner = LifecyclePlanner.of(
+	withLifecycleBatchPlanning({
+		plan: ({ trigger }) =>
+			Effect.sync(() => {
+				expect(inTransaction).toBe(true);
+				planned.push(trigger);
+				return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
+			}),
+	}),
+);
+const execution = withLifecycleDispatch({
+	executePolicy: () => Effect.die("provider completion cannot execute before policies"),
+	skipQueuedPolicies: () => Effect.die("provider completion cannot stop a policy chain"),
+	after: ({ runs, triggerId }) =>
+		Effect.sync(() => {
+			expect(inTransaction).toBe(false);
+			executed.push({ triggerId, runIds: runs.map(({ id }) => id) });
+			return runs.map(({ id, hookSlug }) => ({
+				hookSlug,
+				runId: id,
+				code: "required-hook-failed" as const,
+			}));
+		}),
+});
+const databaseLayer = Layer.succeed(DatabaseSession, database);
+const operationsLayer = EntityImportWorkflowOperationsLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			databaseLayer,
+			Layer.succeed(LifecyclePlanner, planner),
+			Layer.succeed(LifecycleExecution, execution),
+			Layer.mock(ScriptExecutionService)({}),
+			Layer.mock(PluginRuntimeResolver)({}),
+			DomainWriteChecksLive.pipe(Layer.provide(databaseLayer)),
+		),
+	),
+);
+
+layer(
+	Layer.merge(
+		recordLogAnnotationsLayer("provider import completed with automation warnings"),
+		operationsLayer,
+	),
+)((test) => {
+	test.effect(
+		"plans provider completion in a short transaction and invokes common execution",
+		() => {
+			const commands: LifecycleCommand[] = [
+				rootLifecycleCommand({
+					occurredAt: now,
+					lane: "background",
+					accountUserId: userId,
+					source: "provider-refresh",
+					itemIdentity: "provider-refresh-item",
+					initiator: { id: userId, kind: "user" },
+					executionId: AutomationExecutionId.make("provider-refresh-command"),
+					providerExecutionId: AutomationExecutionId.make("provider-refresh-execution"),
+				}),
+				rootLifecycleCommand({
+					occurredAt: now,
+					source: "import",
+					lane: "background",
+					accountUserId: userId,
+					itemIdentity: "import-item",
+					initiator: { id: userId, kind: "user" },
+					importRunId: ImportRunId.make("import-1"),
+					executionId: AutomationExecutionId.make("import-command"),
+				}),
+				rootLifecycleCommand({
+					occurredAt: now,
+					lane: "background",
+					source: "integration",
+					accountUserId: userId,
+					itemIdentity: "integration-item",
+					importRunId: ImportRunId.make("import-2"),
+					integrationId: IntegrationId.make("integration-1"),
+					executionId: AutomationExecutionId.make("integration-command"),
+					initiator: { kind: "integration", id: IntegrationId.make("integration-1") },
+				}),
+			];
+			const instance = WorkflowInstance.initial(
+				ScriptExecutionWorkflow,
+				"provider-completion-test",
+			);
+
+			return Effect.gen(function* () {
+				const operations = yield* EntityImportWorkflowOperations;
+				for (const [index, command] of commands.entries()) {
+					yield* operations.completeProviderEntityImport(
+						{
+							providerId,
+							entitySchemaSlug,
+							externalId: entity.externalId,
+							pluginId: PluginId.make("plugin-1"),
+							entityScope: { userId, type: "global" },
+							command: { ...command, writeContext: null },
+							executionId: `provider-completion-${index}`,
+						},
+						entity,
+					);
+				}
+
+				expect(planned).toHaveLength(3);
+				expect(planned.map(({ causation }) => causation)).toEqual(
+					commands.map(({ causation }) => causation),
+				);
+				expect(planned.map(({ payload, scopeUserId }) => ({ payload, scopeUserId }))).toEqual(
+					commands.map(() => ({
+						scopeUserId: userId,
+						payload: {
+							userId,
+							providerId,
+							entitySchemaSlug,
+							category: "change",
+							entityId: entity.id,
+							operation: "complete",
+							externalId: entity.externalId,
+							resource: "provider-entity-import",
+							entitySchemaPluginId: entity.entitySchemaPluginId,
+						},
+					})),
+				);
+				expect(executed).toEqual(
+					planned.map((trigger) => ({
+						triggerId: trigger.id,
+						runIds: [`run-${trigger.causation.source}`],
+					})),
+				);
+				expect(yield* (yield* RecordedLogAnnotations).annotations).toEqual(
+					planned.map((trigger) => ({
+						warningCount: 1,
+						warnings: [
+							{
+								code: "required-hook-failed",
+								hookSlug: "fixture.after-import",
+								runId: `run-${trigger.causation.source}`,
+							},
+						],
+					})),
+				);
+			}).pipe(
+				Effect.provideService(WorkflowInstance, instance),
+				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			);
+		},
+		testTimeout,
+	);
+});

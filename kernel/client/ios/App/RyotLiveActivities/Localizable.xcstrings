@@ -1,0 +1,129 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ %@" : {
+      "comment" : "A metric label followed by its value.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ %@"
+          }
+        },
+        "es-ES" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ %@"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ %@"
+          }
+        }
+      }
+    },
+    "Open Ryot to refresh" : {
+      "comment" : "Status of a Live Activity whose data may be outdated.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ryot öffnen, um zu aktualisieren"
+          }
+        },
+        "es-ES" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abre Ryot para actualizar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ouvrez Ryot pour actualiser"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abra o Ryot para atualizar"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abra o Ryot para atualizar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "打开 Ryot 以刷新"
+          }
+        }
+      }
+    },
+    "Timer ended" : {
+      "comment" : "Replaces a countdown that has reached zero.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Timer beendet"
+          }
+        },
+        "es-ES" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Temporizador finalizado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Minuteur terminé"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Temporizador encerrado"
+          }
+        },
+        "pt-PT" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Temporizador terminado"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "计时结束"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

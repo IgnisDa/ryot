@@ -1,0 +1,19 @@
+{
+	"hostCalls": 1000,
+	"partBytes": 65536,
+	"nameLength": 128,
+	"frameBytes": 262144,
+	"consoleEntryBytes": 8192,
+	"consoleTotalBytes": 262144,
+	"hostArgsBytes": 1048576,
+	"messageBytes": {
+		"run": 4194304,
+		"done": 6291456,
+		"hostCall": 2097152,
+		"hostResult": 12582912
+	},
+	"assemblyBytes": 67108864,
+	"consoleEntries": 500,
+	"heapHeadroomBytes": 67108864,
+	"concurrentHostCalls": 4
+}

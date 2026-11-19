@@ -1,0 +1,2663 @@
+{
+	"activity.beat-backlog": "Added to backlog",
+	"activity.beat-on-hold": "Put on hold",
+	"activity.completions-label": {
+		"message": "{verb, select, read {Reads} play {Playthroughs} watch {Watches} listen {Listens} other {Reads}}",
+		"description": "Label of the number of times the user finished the media. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"activity.empty-detail": {
+		"message": "Nothing has been recorded yet. Whatever you {verb, select, read {read} play {play} watch {watch} listen {listen to} other {read}} will appear here as your {verb, select, read {reading record} play {play record} watch {watch record} listen {listen record} other {reading record}}.",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"activity.empty-detail-review": "Nothing has been recorded yet. Your reviews, media library changes and collection changes will appear here.",
+	"activity.empty-title": "No activity yet",
+	"activity.entries": {
+		"message": "{count, plural, one {# entry} other {# entries}}",
+		"description": "{count} is the number of activity entries."
+	},
+	"activity.episode-name": {
+		"message": "{origin} · {name}",
+		"description": "An episode. {origin} is its short code such as S1 • E2 and {name} is the episode title."
+	},
+	"activity.episode-progress": {
+		"message": "{percent, number, ::percent .##} through {episode}",
+		"description": "{percent} is how far through the episode the user is, formatted as a percentage, and {episode} names the episode."
+	},
+	"activity.episode-progress-unknown": {
+		"message": "Part-way through {episode}",
+		"description": "{episode} names the episode."
+	},
+	"activity.episodes-of": {
+		"message": "{watched, number} / {total, number}",
+		"description": "Episodes watched out of the total. {watched} is the count watched and {total} is the total."
+	},
+	"activity.expand-hide": "Hide episodes",
+	"activity.expand-show": {
+		"message": "{count, plural, one {Show # episode} other {Show # episodes}}",
+		"description": "{count} is the number of episodes."
+	},
+	"activity.figure-completed": {
+		"message": "{verb, select, read {Completed reads} play {Completed playthroughs} watch {Completed watches} listen {Completed listens} other {Completed reads}}",
+		"description": "Label of the number of finished runs. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"activity.figure-consumption": {
+		"message": "Consumption",
+		"description": "Label of the figure that shows whether consumption totals are up to date."
+	},
+	"activity.figure-current": {
+		"message": "{verb, select, read {This read} play {This play} watch {This watch} listen {This listen} other {This read}}",
+		"description": "Label of the figures for the run in progress. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"activity.figure-lifetime": {
+		"message": "Lifetime",
+		"description": "Note under a total that covers all time."
+	},
+	"activity.figure-percent": {
+		"message": "{percent, number, ::percent .##}",
+		"description": "A percentage. {percent} is the share completed, formatted as a percentage."
+	},
+	"activity.figure-repair-failed": "Repair failed",
+	"activity.figure-reviews": {
+		"message": "Reviews",
+		"description": "Label of the number of reviews written."
+	},
+	"activity.figure-time": { "message": "Time", "description": "Label of the total time spent." },
+	"activity.figure-updating": "Updating",
+	"activity.item-label": {
+		"message": "{verb, select, read {Read} play {Played} watch {Watched} listen {Listened} other {Read}} {position}",
+		"description": "Label of a consumed item. {position} is a short position such as Ch 3. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"activity.list-state": {
+		"message": "{state, select, backlog {Backlog} dropped {Dropped} on_hold {On hold} complete {Complete} in_progress {In progress} other {Backlog}}",
+		"description": "Status of a media item in the user's list. {state} is the status."
+	},
+	"activity.loading": "Loading activity…",
+	"activity.loading-detail": "Fetching everything you have recorded.",
+	"activity.month-detail": {
+		"message": "{summary} · {days, plural, one {# day} other {# days}}",
+		"description": "{summary} describes the entries of one month and {days} is the number of days with activity."
+	},
+	"activity.month-summary": {
+		"message": "{span} · {count, plural, one {# episode} other {# episodes}}",
+		"description": "{span} is a range of episodes and {count} is how many were watched."
+	},
+	"activity.partial": "Only your most recent activity is shown here.",
+	"activity.position": {
+		"message": "{unit, select, episodes {Ep} chapters {Ch} volumes {Vol} other {Ep}} {position, number}",
+		"description": "Short position in media. Abbreviations: Ep is episode, Ch is chapter and Vol is volume. {unit} is the unit and {position} is its number."
+	},
+	"activity.position-with-volume": {
+		"message": "{unit, select, episodes {Ep} chapters {Ch} volumes {Vol} other {Ep}} {position, number} · Vol {volume, number}",
+		"description": "Short position in media with its volume. Abbreviations: Ep is episode, Ch is chapter and Vol is volume."
+	},
+	"activity.progress-percent": {
+		"message": "{percent, number, ::percent .##} through",
+		"description": "{percent} is the share completed, formatted as a percentage."
+	},
+	"activity.progress-unknown": "Part-way through",
+	"activity.progress-verb": {
+		"message": "{percent, number, ::percent .##} {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}",
+		"description": "{percent} is the share completed, formatted as a percentage. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"activity.record-label": {
+		"message": "{segment, select, read {Reading record} play {Play record} watch {Watch record} listen {Listen record} activity {Activity record} other {Activity record}}",
+		"description": "Accessible label of the list of activity records. {segment} is the kind of activity."
+	},
+	"activity.repeat-count": {
+		"message": "Repeat count {count, number}",
+		"description": "{count} is how many times the user repeated the media."
+	},
+	"activity.review-about": {
+		"message": "About {kind, select, dropped {stopping} complete {your {segment, select, read {read} play {play} watch {watch} listen {listen} activity {activity} other {activity}}} progress {your progress} on_hold {putting it on hold} item_complete {your {segment, select, read {read} play {play} watch {watch} listen {listen} activity {activity} other {activity}}} item_complete_at {your {segment, select, read {read} play {play} watch {watch} listen {listen} activity {activity} other {activity}} of {position}} other {your {segment, select, read {read} play {play} watch {watch} listen {listen} activity {activity} other {activity}}}}",
+		"description": "What a review is about. {kind} is the kind of record, {segment} is the activity word of the media, such as watch, and {position} is a short position such as Ch 3."
+	},
+	"activity.review-about-dated": {
+		"message": "About {kind, select, dropped {stopping} complete {your {segment, select, read {read} play {play} watch {watch} listen {listen} activity {activity} other {activity}}} progress {your progress} on_hold {putting it on hold} item_complete {your {segment, select, read {read} play {play} watch {watch} listen {listen} activity {activity} other {activity}}} item_complete_at {your {segment, select, read {read} play {play} watch {watch} listen {listen} activity {activity} other {activity}} of {position}} other {your {segment, select, read {read} play {play} watch {watch} listen {listen} activity {activity} other {activity}}}} on {date}",
+		"description": "What a review is about. {kind} is the kind of record, {segment} is the activity word of the media, such as watch, {position} is a short position such as Ch 3 and {date} is the date of the record."
+	},
+	"activity.review-choice": {
+		"message": "{kind, select, dropped {Dropped} on_hold {On hold} complete {Finished} progress {Progress} item_complete {Finished} other {Finished}}",
+		"description": "Choice of the record a review is about. {kind} is the kind of record."
+	},
+	"activity.review-choice-dated": {
+		"message": "{choice} · {date}",
+		"description": "{choice} is the kind of record and {date} is its date."
+	},
+	"activity.review-choice-positioned": {
+		"message": "{kind, select, progress {Progress {position}} item_complete {Finished {position}} other {Finished {position}}}",
+		"description": "Choice of the record a review is about. {kind} is the kind of record and {position} is a short position such as Ch 3."
+	},
+	"activity.row-completion": {
+		"message": "Finished the {kind, select, book {book} show {show} anime {anime} movie {movie} manga {manga} music {track} podcast {podcast} audiobook {audiobook} comic_book {comic book} video_game {game} visual_novel {visual novel} other {title}}",
+		"description": "{kind} is the kind of media."
+	},
+	"activity.row-review": {
+		"message": "Reviewed the {kind, select, book {book} show {show} anime {anime} movie {movie} manga {manga} music {track} podcast {podcast} audiobook {audiobook} comic_book {comic book} video_game {game} visual_novel {visual novel} other {title}}",
+		"description": "{kind} is the kind of media."
+	},
+	"activity.row-review-named": {
+		"message": "Reviewed {name}",
+		"description": "{name} is what was reviewed, such as a season or an episode."
+	},
+	"activity.row-review-this": {
+		"message": "Reviewed this {kind, select, person {person} company {company} book_group {series} music_group {album} movie_group {collection} audiobook_group {series} comic_book_group {series} video_game_group {collection} other {item}}",
+		"description": "{kind} is the kind of item, such as a person or a book series."
+	},
+	"activity.row-watched-episode": {
+		"message": "{kind, select, played {Played} watched {Watched} other {Watched}} {episode}",
+		"description": "Row about one episode. {kind} is whether it was watched or played and {episode} names the episode."
+	},
+	"activity.row-watched-episodes": {
+		"message": "{kind, select, played {Played} watched {Watched} other {Watched}} {count, plural, one {# episode} other {# episodes}}",
+		"description": "Row about several episodes. {kind} is whether they were watched or played and {count} is how many."
+	},
+	"activity.row-with-position": {
+		"message": "{label} · {position}",
+		"description": "{label} is the row label and {position} is a short position such as Ch 3."
+	},
+	"activity.run": {
+		"message": "{count, plural, one {# update} other {# updates}}",
+		"description": "{count} is the number of progress updates folded into one row."
+	},
+	"activity.run-since": {
+		"message": "{count, plural, one {# update since {percent, number, ::percent .##}} other {# updates since {percent, number, ::percent .##}}}",
+		"description": "{count} is the number of progress updates and {percent} is the progress before the first, formatted as a percentage."
+	},
+	"activity.segment-title": {
+		"message": "{kind, select, read {Read} play {Play} watch {Watch} listen {Listen} activity {Activity} other {Activity}} {number, number} · {date}",
+		"description": "Heading of one finished run. {kind} is the kind of activity, {number} counts the run and {date} is the date it finished."
+	},
+	"activity.since-last": {
+		"message": "Since the last {kind, select, read {read} play {play} watch {watch} listen {listen} activity {activity} other {activity}}",
+		"description": "Heading of the part of the timeline after the most recent finished run. {kind} is the kind of activity."
+	},
+	"activity.synced": "Synced",
+	"activity.synced-from-anilist": "Synced from AniList",
+	"analytics-section.media.name": {
+		"message": "Media",
+		"description": "Title of the analytics section about media consumption."
+	},
+	"analytics.charts.all-media-types": "All media types",
+	"analytics.charts.all-types": {
+		"message": "All",
+		"description": "Choice that selects every media type."
+	},
+	"analytics.charts.aria-label": "Media analytics charts",
+	"analytics.charts.consistency-aria-label": {
+		"message": "Daily activity entries · {period}",
+		"description": "{period} is the reporting period."
+	},
+	"analytics.charts.consistency-clipped": {
+		"message": "All media types · {period} · last {count, plural, one {# day} other {# days}}",
+		"description": "{period} is the reporting period and {count} is how many of its most recent days are shown."
+	},
+	"analytics.charts.consistency-period": {
+		"message": "All media types · {period}",
+		"description": "{period} is the reporting period."
+	},
+	"analytics.charts.consistency-title": "Consistency",
+	"analytics.charts.detail-both": {
+		"message": "{estimated} · {missing}",
+		"description": "Two chart notes shown together; {estimated} is the estimated-amount note and {missing} is the missing-amount note."
+	},
+	"analytics.charts.detail-estimated": {
+		"message": "{amount} estimated",
+		"description": "{amount} is a formatted amount with its unit that was estimated rather than recorded."
+	},
+	"analytics.charts.hour-title": {
+		"message": "{metric} at {hour}",
+		"description": "Heading of a records view for one hour of the day. {metric} is the measure name and {hour} is a time of day, such as 7 AM."
+	},
+	"analytics.charts.hourly-aria-label": {
+		"message": "{metric} by local hour",
+		"description": "{metric} is the name of the selected measure."
+	},
+	"analytics.charts.hourly-description": {
+		"message": "{metric} with an exact time",
+		"description": "{metric} is the name of the selected measure."
+	},
+	"analytics.charts.hourly-description-zone": {
+		"message": "{metric} with an exact time, in {timeZone}",
+		"description": "{metric} is the name of the selected measure and {timeZone} is an IANA time zone identifier."
+	},
+	"analytics.charts.hourly-title": "Time of day",
+	"analytics.charts.metric-select": {
+		"message": "Show",
+		"description": "Label of the control that selects which measure a chart shows."
+	},
+	"analytics.charts.title-with-period": {
+		"message": "{label} · {period}",
+		"description": "Heading of a records view. {label} is what the records are, {period} is the reporting period."
+	},
+	"analytics.charts.trend-aria-label": {
+		"message": "{metric} by reporting period",
+		"description": "{metric} is the name of the selected measure."
+	},
+	"analytics.charts.trend-title": "Activity over time",
+	"analytics.measure-label": {
+		"message": "{unit, select, pages {Pages} volumes {Volumes} chapters {Chapters} episodes {Episodes} minutes {Time spent} other {Time spent}}",
+		"description": "Name of an amount of media consumed. {unit} is the kind of amount; minutes is shown as time spent."
+	},
+	"analytics.metric.activity-entries": "Activity entries",
+	"analytics.metric.episodes-finished": "Episodes finished",
+	"analytics.metric.titles-completed": "Titles completed",
+	"analytics.processing.failed": "Consumption processing failed. Values shown may be incomplete.",
+	"analytics.processing.pending": "Consumption is still processing. Values shown may change.",
+	"analytics.rankings.actions": {
+		"message": "Actions",
+		"description": "Screen reader header of the column holding row actions."
+	},
+	"analytics.rankings.all-records": "All records",
+	"analytics.rankings.aria-label": "Media rankings",
+	"analytics.rankings.description": "Ranked by active observations in the selected period.",
+	"analytics.rankings.empty": "No ranked entities",
+	"analytics.rankings.load-failed": "The rankings couldn't be loaded.",
+	"analytics.rankings.load-more-failed": "More rankings couldn't be loaded.",
+	"analytics.rankings.loaded": {
+		"message": "{more, select, more {{count, plural, one {#+ entity loaded} other {#+ entities loaded}}} all {{count, plural, one {# entity loaded} other {# entities loaded}}} other {{count, plural, one {# entity loaded} other {# entities loaded}}}}",
+		"description": "{count} is the number of ranked entities loaded. {more} is more when further pages exist and all otherwise."
+	},
+	"analytics.rankings.loading": "Loading rankings…",
+	"analytics.rankings.ranked-entities": "Ranked entities",
+	"analytics.rankings.refresh-failed": "The rankings couldn't be refreshed.",
+	"analytics.rankings.refreshing": "Refreshing rankings…",
+	"analytics.rankings.show-more": "Show more rankings",
+	"analytics.rankings.table-label": "Media entity rankings",
+	"analytics.rankings.title": "Rankings",
+	"analytics.rankings.top-caption": "First 10 loaded rows",
+	"analytics.rankings.top-title": "Top active observations",
+	"analytics.rankings.type-label": "Ranking media type",
+	"analytics.rankings.view-records": "View records",
+	"analytics.rankings.view-records-label": {
+		"message": "View records contributing to {name}",
+		"description": "{name} is the title of a media item."
+	},
+	"analytics.record.source-progress": {
+		"message": "Original source progress: {position}, {percent, number, ::percent .##} (not an allocated amount)",
+		"description": "{position} is a position such as Ch 4 and {percent} is the source progress, formatted as a percentage."
+	},
+	"analytics.record.unknown-date": "Unknown date",
+	"analytics.records.basis-property": {
+		"message": "source property {property}",
+		"description": "{property} is the name of the property a consumption basis was read from."
+	},
+	"analytics.records.basis-total": {
+		"message": "total {total}",
+		"description": "{total} is the total amount of a consumption basis."
+	},
+	"analytics.records.close-label": "Close media analytics records",
+	"analytics.records.column-contribution": "Canonical contribution",
+	"analytics.records.column-date": "Reading date",
+	"analytics.records.column-event-type": "Source event type",
+	"analytics.records.column-facts": "Source facts",
+	"analytics.records.context": {
+		"message": "Period: {period} · Time zone: {timeZone}",
+		"description": "{period} is the reporting period and {timeZone} is an IANA time zone identifier."
+	},
+	"analytics.records.context-filtered": {
+		"message": "Period: {period} · Time zone: {timeZone} · {filters}",
+		"description": "{period} is the reporting period, {timeZone} is an IANA time zone identifier and {filters} lists the active filters."
+	},
+	"analytics.records.date-unknown": "Marked unknown",
+	"analytics.records.empty": "No records in this period",
+	"analytics.records.fact-basis": "Frozen consumption basis",
+	"analytics.records.fact-calendar-date": "Source calendar date",
+	"analytics.records.fact-completion-key": "Source completion key",
+	"analytics.records.fact-consumed-on": "Original consumed-on values",
+	"analytics.records.fact-date": "Source date",
+	"analytics.records.fact-item-position": "Consumed item position",
+	"analytics.records.fact-manual-time": "Manually recorded time",
+	"analytics.records.fact-progress": "Source progress",
+	"analytics.records.fact-progress-pages": "Source progress pages",
+	"analytics.records.fact-progress-percent": "Source progress percent",
+	"analytics.records.filter-active": "Active observations only",
+	"analytics.records.filter-hour": {
+		"message": "Hour: {hour}",
+		"description": "{hour} is a time of day, such as 7 AM."
+	},
+	"analytics.records.filter-type": {
+		"message": "Type: {type}",
+		"description": "{type} is the name of a media type, such as Book."
+	},
+	"analytics.records.load-failed": "The records couldn't be loaded.",
+	"analytics.records.load-more-failed": "More records couldn't be loaded.",
+	"analytics.records.loaded": {
+		"message": "{more, select, more {{count, plural, one {#+ record loaded} other {#+ records loaded}}} all {{count, plural, one {# record loaded} other {# records loaded}}} other {{count, plural, one {# record loaded} other {# records loaded}}}}",
+		"description": "{count} is the number of records loaded. {more} is more when further pages exist and all otherwise."
+	},
+	"analytics.records.loading": "Loading records…",
+	"analytics.records.measure": {
+		"message": "{unit, select, pages {Pages} minutes {Minutes} volumes {Volumes} episodes {Episodes} chapters {Chapters} other {Minutes}}",
+		"description": "Name of an amount contributed by a record. {unit} is the kind of amount."
+	},
+	"analytics.records.measure-detail": {
+		"message": "{recorded} recorded · {estimated} estimated · missing: {missing, select, yes {yes} no {no} other {no}} · superseded estimate: {superseded, select, yes {yes} no {no} other {no}}",
+		"description": "{recorded} and {estimated} are formatted amounts. {missing} and {superseded} are yes or no."
+	},
+	"analytics.records.none": "None recorded",
+	"analytics.records.refresh": "Refresh records",
+	"analytics.records.refresh-failed": "The records couldn't be refreshed.",
+	"analytics.records.refreshing": "Refreshing records…",
+	"analytics.records.section-label": {
+		"message": "Records for {title}",
+		"description": "{title} is the heading of the records view."
+	},
+	"analytics.records.show-more": "Show more records",
+	"analytics.records.table-label": "Media analytics records",
+	"analytics.records.term": {
+		"message": "{label}:",
+		"description": "Label of a field in a list of facts. {label} is the field name."
+	},
+	"analytics.records.unknown": {
+		"message": "Unknown",
+		"description": "Shown when a number is not known."
+	},
+	"analytics.section.all-records-title": "All contributing records",
+	"analytics.section.tab-charts": "Charts",
+	"analytics.section.tabs-label": "Media analytics",
+	"analytics.section.view-records": "View contributing records",
+	"analytics.summary.active-days": "Active days",
+	"analytics.summary.amounts-description": "Recorded amounts plus estimates from title lengths. Each unit is counted separately.",
+	"analytics.summary.amounts-title": "Amounts",
+	"analytics.summary.aria-label": "Media analytics summary",
+	"analytics.summary.average-rating": "Average rating",
+	"analytics.summary.column-completed": {
+		"message": "Completed",
+		"description": "Column header for the number of completed titles."
+	},
+	"analytics.summary.column-other-amounts": "Other amounts",
+	"analytics.summary.compares-with": {
+		"message": "Changes compare with {period}.",
+		"description": "{period} is the previous reporting period."
+	},
+	"analytics.summary.comparison": "vs previous period",
+	"analytics.summary.episodes-hint": "Shows and podcasts",
+	"analytics.summary.estimated": {
+		"message": "Estimated",
+		"description": "Legend entry for amounts estimated from title lengths."
+	},
+	"analytics.summary.missing-amount": {
+		"message": "{amount} without an amount",
+		"description": "{amount} is a formatted count of entries."
+	},
+	"analytics.summary.rated": {
+		"message": "Rated",
+		"description": "Label for the number of items that received a rating."
+	},
+	"analytics.summary.recorded": {
+		"message": "Recorded",
+		"description": "Legend entry for amounts that were recorded directly."
+	},
+	"analytics.summary.reviews-table-label": "Review count and rating by media category",
+	"analytics.summary.sources-label": {
+		"message": "{unit} sources",
+		"description": "{unit} is the name of a measure, such as Pages."
+	},
+	"analytics.summary.types-description": "Episodes and seasons are counted separately from their shows.",
+	"analytics.summary.types-table-label": "Completions, activity, and amounts by media type",
+	"analytics.summary.types-title": "By media type",
+	"analytics.summary.undated": {
+		"message": "Not counted in any period: {amount}.",
+		"description": "{amount} is a formatted count of undated entries."
+	},
+	"analytics.table.category": {
+		"message": "Category",
+		"description": "Column header for the media type of a row."
+	},
+	"analytics.unit.chapter": {
+		"message": "{count, plural, one {chapter} other {chapters}}",
+		"description": "Unit label shown after a count of chapters. {count} is the number of chapters."
+	},
+	"analytics.unit.day": {
+		"message": "{count, plural, one {day} other {days}}",
+		"description": "Unit label shown after a count of days. {count} is the number of days."
+	},
+	"analytics.unit.entry": {
+		"message": "{count, plural, one {entry} other {entries}}",
+		"description": "Unit label shown after a count of activity entries. {count} is the number of entries."
+	},
+	"analytics.unit.episode": {
+		"message": "{count, plural, one {episode} other {episodes}}",
+		"description": "Unit label shown after a count of episodes. {count} is the number of episodes."
+	},
+	"analytics.unit.page": {
+		"message": "{count, plural, one {page} other {pages}}",
+		"description": "Unit label shown after a count of pages. {count} is the number of pages."
+	},
+	"analytics.unit.rating": {
+		"message": "{count, plural, one {rating} other {ratings}}",
+		"description": "Unit label shown after a count of ratings. {count} is the number of ratings."
+	},
+	"analytics.unit.review": {
+		"message": "{count, plural, one {review} other {reviews}}",
+		"description": "Unit label shown after a count of reviews. {count} is the number of reviews."
+	},
+	"analytics.unit.title": {
+		"message": "{count, plural, one {title} other {titles}}",
+		"description": "Unit label shown after a count of titles. {count} is the number of titles."
+	},
+	"analytics.unit.undated-entry": {
+		"message": "{count, plural, one {undated entry} other {undated entries}}",
+		"description": "Unit label shown after a count of activity entries without a date. {count} is the number of entries."
+	},
+	"analytics.unit.unique-title": {
+		"message": "{count, plural, one {unique title} other {unique titles}}",
+		"description": "Unit label shown after a count of distinct titles. {count} is the number of titles."
+	},
+	"analytics.unit.volume": {
+		"message": "{count, plural, one {volume} other {volumes}}",
+		"description": "Unit label shown after a count of volumes. {count} is the number of volumes."
+	},
+	"assistant-starter.finished-this-month": "Which titles did I finish this month?",
+	"assistant-starter.releasing-this-week": "What's releasing for titles I follow this week?",
+	"assistant-starter.watch-next": "What should I watch next from my watchlist?",
+	"browse.field.activity": {
+		"message": "Activity",
+		"description": "Sort option that orders media by the time of the latest activity."
+	},
+	"browse.field.added-at": "Date added to library",
+	"browse.field.credits": {
+		"message": "Credits",
+		"description": "Sort option that orders people and companies by how many titles credit them."
+	},
+	"browse.field.genres": "Genres",
+	"browse.field.last-completed": "Last completed",
+	"browse.field.monitored": "Monitored",
+	"browse.field.times-completed": "Times completed",
+	"browse.field.user-rating": "Your rating",
+	"browse.sort.fewest-first": "Fewest first",
+	"browse.sort.highest-first": "Highest first",
+	"browse.sort.lowest-first": "Lowest first",
+	"browse.sort.most-first": "Most first",
+	"browse.sort.newest-first": "Newest first",
+	"browse.sort.oldest-first": "Oldest first",
+	"browse.source.custom": {
+		"message": "Custom",
+		"description": "Source of titles the user created instead of importing from a provider."
+	},
+	"browse.status.backlog": "Planned",
+	"browse.status.caught-up": {
+		"message": "Caught up",
+		"description": "Tracking status of a show or podcast whose released episodes are all consumed."
+	},
+	"browse.status.complete": "Completed",
+	"browse.status.in-progress": "In progress",
+	"browse.status.on-hold": "On hold",
+	"browse.status.untracked": "Not tracked",
+	"calendar-source.anime-airings.caption": {
+		"message": "Episode {episode}",
+		"description": "Calendar caption of an anime episode airing. {episode} is the episode number."
+	},
+	"calendar-source.anime-airings.name": {
+		"message": "Anime airings",
+		"description": "Name of a calendar source listing air dates of anime episodes."
+	},
+	"calendar-source.podcast-episodes.caption": {
+		"message": "Episode {episode}",
+		"description": "Calendar caption of a podcast episode release. {episode} is the episode number."
+	},
+	"calendar-source.podcast-episodes.name": {
+		"message": "Podcast episodes",
+		"description": "Name of a calendar source listing release dates of podcast episodes."
+	},
+	"calendar-source.releases.caption": {
+		"message": "{kind, select, book {Book release} anime {Anime release} manga {Manga release} music {Music release} movie {Movie release} audiobook {Audiobook release} video_game {Video game release} comic_book {Comic book release} visual_novel {Visual novel release} other {Release}}",
+		"description": "Calendar caption of a title's release. {kind} is the kind of media."
+	},
+	"calendar-source.releases.name": {
+		"message": "Releases",
+		"description": "Name of a calendar source listing release dates of media such as movies, books and games."
+	},
+	"calendar-source.show-episodes.caption": {
+		"message": "S{season} · E{episode}",
+		"description": "Calendar caption of a show episode airing, abbreviating season and episode. {season} is the season number and {episode} the episode number."
+	},
+	"calendar-source.show-episodes.name": {
+		"message": "Show episodes",
+		"description": "Name of a calendar source listing air dates of show episodes."
+	},
+	"choice.anilist": "AniList",
+	"choice.automatic-browser-region": "Automatic (browser region)",
+	"choice.list": "List",
+	"collection-page.recommendations.label": {
+		"message": "Recommendations",
+		"description": "Label of a collection page listing recommended media; plural noun."
+	},
+	"collections.add": "Add to collection",
+	"collections.count": {
+		"message": "{count, plural, one {# collection} other {# collections}}",
+		"description": "{count} is the number of collections an item is in."
+	},
+	"collections.more": {
+		"message": "{count, number}+ collections",
+		"description": "{count} is the number of collections shown when more exist."
+	},
+	"collections.open-failed": "Unable to open collections. Try again.",
+	"common.open-named": {
+		"message": "Open {name}",
+		"description": "Accessible label of a link. {name} is the title of what it opens."
+	},
+	"common.percent-sign": {
+		"message": "%",
+		"description": "The percent sign shown next to a percentage."
+	},
+	"company.founded": {
+		"message": "Founded",
+		"description": "Label of the year a company was founded."
+	},
+	"count.fact-label": {
+		"message": "{kind, select, page {{count, plural, one {Page} other {Pages}}} chapter {{count, plural, one {Chapter} other {Chapters}}} volume {{count, plural, one {Volume} other {Volumes}}} season {{count, plural, one {Season} other {Seasons}}} episode {{count, plural, one {Episode} other {Episodes}}} aired_episode {{count, plural, one {Aired episode} other {Aired episodes}}} stored_season {{count, plural, one {Stored season} other {Stored seasons}}} track {{count, plural, one {Track} other {Tracks}}} movie {{count, plural, one {Movie} other {Movies}}} audiobook {{count, plural, one {Audiobook} other {Audiobooks}}} game {{count, plural, one {Game} other {Games}}} book {{count, plural, one {Book} other {Books}}} issue {{count, plural, one {Issue} other {Issues}}} other {{count, plural, one {Item} other {Items}}}}",
+		"description": "Label of a figure that counts something. {kind} is what is counted and {count} is the number."
+	},
+	"count.in-progress": {
+		"message": "{count, plural, one {# episode} other {# episodes}} in progress",
+		"description": "{count} is the number of episodes the user is partway through."
+	},
+	"count.value": {
+		"message": "{kind, select, page {{count, plural, one {# page} other {# pages}}} chapter {{count, plural, one {# chapter} other {# chapters}}} volume {{count, plural, one {# volume} other {# volumes}}} season {{count, plural, one {# season} other {# seasons}}} episode {{count, plural, one {# episode} other {# episodes}}} aired_episode {{count, plural, one {# aired episode} other {# aired episodes}}} stored_season {{count, plural, one {# stored season} other {# stored seasons}}} track {{count, plural, one {# track} other {# tracks}}} movie {{count, plural, one {# movie} other {# movies}}} audiobook {{count, plural, one {# audiobook} other {# audiobooks}}} game {{count, plural, one {# game} other {# games}}} book {{count, plural, one {# book} other {# books}}} issue {{count, plural, one {# issue} other {# issues}}} other {{count, plural, one {# item} other {# items}}}}",
+		"description": "A count with the name of what is counted. {kind} is what is counted and {count} is the number."
+	},
+	"coverage.ratio": {
+		"message": "{watched, number}/{total, number}",
+		"description": "Episodes watched out of the total. {watched} is the count watched and {total} is the total."
+	},
+	"coverage.title": {
+		"message": "Coverage",
+		"description": "Heading of the bars showing how many episodes were watched per season."
+	},
+	"credits.artists": { "message": "Artists", "description": "Heading of a group of credits." },
+	"credits.artists-credits": {
+		"message": "Artists & credits",
+		"description": "Heading of a group of credits."
+	},
+	"credits.authors-artists": {
+		"message": "Authors & artists",
+		"description": "Heading of a group of credits."
+	},
+	"credits.authors-contributors": {
+		"message": "Authors & contributors",
+		"description": "Heading of a group of credits."
+	},
+	"credits.authors-narrators": {
+		"message": "Authors & narrators",
+		"description": "Heading of a group of credits."
+	},
+	"credits.cast-credits": {
+		"message": "Cast & credits",
+		"description": "Heading of a group of credits."
+	},
+	"credits.cast-crew": {
+		"message": "Cast & crew",
+		"description": "Heading of a group of credits."
+	},
+	"credits.character": {
+		"message": "as {character}",
+		"description": "Role played in a credit. {character} is the name of the character."
+	},
+	"credits.close": "Close credits",
+	"credits.companies": { "message": "Companies", "description": "Heading of a group of credits." },
+	"credits.developers": {
+		"message": "Developers",
+		"description": "Heading of a group of credits."
+	},
+	"credits.developers-publishers": {
+		"message": "Developers & publishers",
+		"description": "Heading of a group of credits."
+	},
+	"credits.empty": "No linked credits found.",
+	"credits.hosts-guests": {
+		"message": "Hosts & guests",
+		"description": "Heading of a group of credits."
+	},
+	"credits.labels": { "message": "Labels", "description": "Heading of a group of credits." },
+	"credits.loading": "Loading credits…",
+	"credits.loading-detail": "Fetching the complete credit list.",
+	"credits.networks-publishers": {
+		"message": "Networks & publishers",
+		"description": "Heading of a group of credits."
+	},
+	"credits.notice": "Credits",
+	"credits.notice.anime": {
+		"message": "Studios and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.audiobook": {
+		"message": "Authors, narrators and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.book": {
+		"message": "Authors, publishers and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.comic-book": {
+		"message": "Credits, series and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.manga": {
+		"message": "Credits and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.movie": {
+		"message": "Cast, companies and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.music": {
+		"message": "Artists, labels and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.music-group": {
+		"message": "Artists and labels",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.podcast": {
+		"message": "Hosts, networks and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.video-game": {
+		"message": "Credits, companies and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.notice.visual-novel": {
+		"message": "Developers and recommendations",
+		"description": "Heading of the credits and recommendations section of a media page."
+	},
+	"credits.people": { "message": "People", "description": "Heading of a group of credits." },
+	"credits.production-companies": {
+		"message": "Production companies",
+		"description": "Heading of a group of credits."
+	},
+	"credits.publishers": {
+		"message": "Publishers",
+		"description": "Heading of a group of credits."
+	},
+	"credits.role": {
+		"message": "{role, select, actor {Actor} voice_actor {Voice actor} creator {Creator} author {Author} narrator {Narrator} artist {Artist} developer {Developer} publisher {Publisher} porting {Porting} supporting {Support} production_company {Production company} network {Network} studio {Studio} distributor {Distributor} special_effects {Special effects} other {Contributor}}",
+		"description": "A standard credit role, such as Author. {role} is the role."
+	},
+	"credits.section.audiobook": {
+		"message": "Audiobooks",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.book": {
+		"message": "Books",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.comic-book": {
+		"message": "Comic books",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.movie": {
+		"message": "Movies",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.music": {
+		"message": "Tracks",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.music-group": {
+		"message": "Albums",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.podcast": {
+		"message": "Podcasts",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.show": {
+		"message": "Shows",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.video-game": {
+		"message": "Video games",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.video-game-group": {
+		"message": "Game collections",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.section.visual-novel": {
+		"message": "Visual novels",
+		"description": "Heading of the list of titles a person or company is credited on."
+	},
+	"credits.studios": { "message": "Studios", "description": "Heading of a group of credits." },
+	"credits.view-all": {
+		"message": "{kind, select, people {View all people} companies {View all companies} all {View all} other {View all}}",
+		"description": "Button that opens the full list of credits. {kind} is which credits are listed."
+	},
+	"credits.writers-artists": {
+		"message": "Writers & artists",
+		"description": "Heading of a group of credits."
+	},
+	"cursor.error-malformed": {
+		"message": "These {kind, select, episodes {episodes} activities {activities} credits {credits} track {tracks} movie {movies} audiobook {audiobooks} game {games} book {books} issue {issues} other {items}} came back in a form that could not be displayed. Try again later.",
+		"description": "{kind} is what failed to load."
+	},
+	"cursor.error-title": {
+		"message": "Unable to load these {kind, select, episodes {episodes} activities {activities} credits {credits} track {tracks} movie {movies} audiobook {audiobooks} game {games} book {books} issue {issues} other {items}}",
+		"description": "{kind} is what failed to load."
+	},
+	"cursor.error-transport": {
+		"message": "These {kind, select, episodes {episodes} activities {activities} credits {credits} track {tracks} movie {movies} audiobook {audiobooks} game {games} book {books} issue {issues} other {items}} could not be loaded. Check your connection and try again.",
+		"description": "{kind} is what failed to load."
+	},
+	"detail.sections-label": {
+		"message": "Media sections",
+		"description": "Accessible label of the tabs on a media page."
+	},
+	"enrichment.population-failed": "Couldn't load details from the provider.",
+	"enrichment.population-failed-from": {
+		"message": "Couldn't load details from {provider}.",
+		"description": "{provider} is the name of the data provider."
+	},
+	"enrichment.retry-translation": "Retry translation",
+	"enrichment.translation-failed": "Translation failed. Showing available text.",
+	"entity-schema.anime.name": "Anime",
+	"entity-schema.audiobook-group.name": "Audiobook Series",
+	"entity-schema.audiobook.name": "Audiobook",
+	"entity-schema.book-group.name": "Book Series",
+	"entity-schema.book.name": "Book",
+	"entity-schema.comic-book-group.name": "Comic Book Series",
+	"entity-schema.comic-book.name": "Comic Book",
+	"entity-schema.company.name": "Company",
+	"entity-schema.genre.name": {
+		"message": "Genre",
+		"description": "A classification of media, such as comedy or drama."
+	},
+	"entity-schema.manga.name": "Manga",
+	"entity-schema.media-library.name": {
+		"message": "Media Library",
+		"description": "A user's personal library of tracked media."
+	},
+	"entity-schema.movie-group.name": {
+		"message": "Movie Collection",
+		"description": "A group of related movies, such as a franchise."
+	},
+	"entity-schema.movie.name": "Movie",
+	"entity-schema.music-group.name": {
+		"message": "Music Album",
+		"description": "A music album: a group of tracks."
+	},
+	"entity-schema.music.name": {
+		"message": "Music",
+		"description": "A single piece of music, such as a track."
+	},
+	"entity-schema.person.name": {
+		"message": "Person",
+		"description": "A person credited on media, such as an actor, author or director."
+	},
+	"entity-schema.podcast-episode.name": "Podcast Episode",
+	"entity-schema.podcast.name": "Podcast",
+	"entity-schema.show-episode.name": "Show Episode",
+	"entity-schema.show-season.name": {
+		"message": "Show Season",
+		"description": "One season of a television or streaming series."
+	},
+	"entity-schema.show.name": {
+		"message": "Show",
+		"description": "A television or streaming series, as a noun."
+	},
+	"entity-schema.video-game-group.name": "Video Game Collection",
+	"entity-schema.video-game.name": "Video Game",
+	"entity-schema.visual-novel.name": "Visual Novel",
+	"episode-credits.crew": "Crew",
+	"episode-credits.full": "Full cast & crew",
+	"episode-credits.guest-stars": "Guest stars",
+	"episode-credits.loading": "Fetching this episode's cast and crew.",
+	"episode.close": "Close episode details",
+	"episode.edit": "Edit episode",
+	"episode.log-with-details": "Log with details…",
+	"episode.mark": {
+		"message": "Mark {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}",
+		"description": "Button that marks an episode. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"episode.marked": {
+		"message": "Marked {name} {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}.",
+		"description": "{name} is the episode title. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"episode.more-actions": "More episode actions",
+	"episode.number": {
+		"message": "E{episode, number}",
+		"description": "Short episode number. {episode} is the episode number."
+	},
+	"episode.runtime": {
+		"message": "{minutes, number} min",
+		"description": "Runtime of an episode. {minutes} is the length in minutes."
+	},
+	"episodes.choice-with-state": {
+		"message": "{code} · {state}",
+		"description": "Choice of an episode. {code} is its short code and {state} is its status."
+	},
+	"episodes.load-failed": "Unable to load episodes.",
+	"episodes.loading": "Loading episodes…",
+	"episodes.loading-title": "Loading episodes…",
+	"episodes.name-suffix": {
+		"message": " · {name}",
+		"description": "Episode title shown after its code. {name} is the episode title."
+	},
+	"episodes.next-up": "Next up",
+	"episodes.season": {
+		"message": "Season",
+		"description": "Label of the control that selects a season."
+	},
+	"episodes.seasons-failed": "Unable to load seasons.",
+	"episodes.seasons-load-more": "Load more seasons",
+	"episodes.seasons-loading": "Loading seasons…",
+	"episodes.state-played": {
+		"message": "Played",
+		"description": "Status of an episode the user played."
+	},
+	"episodes.state-watched": {
+		"message": "Watched",
+		"description": "Status of an episode the user watched."
+	},
+	"event-schema.add-to-media-library.name": {
+		"message": "Added to media library",
+		"description": "Name of the record created when an item is added to the user's media library."
+	},
+	"event-schema.backlog.name": {
+		"message": "Backlog",
+		"description": "Status of a media item the user plans to consume later."
+	},
+	"event-schema.complete.name": {
+		"message": "Complete",
+		"description": "Name of a record that the user finished a media item; adjective used as a label."
+	},
+	"event-schema.dropped.name": {
+		"message": "Dropped",
+		"description": "Status of a media item the user stopped consuming and does not plan to continue."
+	},
+	"event-schema.item-complete.name": {
+		"message": "Item consumed",
+		"description": "Name of a record that the user consumed one numbered item, such as an episode or chapter."
+	},
+	"event-schema.list-state.name": {
+		"message": "List State",
+		"description": "Name of a snapshot of an anime or manga list entry reported by an external list service."
+	},
+	"event-schema.on-hold.name": {
+		"message": "On Hold",
+		"description": "Status of a media item the user paused and may continue later."
+	},
+	"event-schema.progress.name": {
+		"message": "Progress",
+		"description": "Name of a record of partial progress through a media item; noun."
+	},
+	"event-schema.review.name": {
+		"message": "Review",
+		"description": "Name of a user's written review of a media item; noun."
+	},
+	"fact.compilation": {
+		"message": "Compilation",
+		"description": "Label of whether a book collects several works."
+	},
+	"fact.length": { "message": "Length", "description": "Label of how long a title is." },
+	"fact.next-episode": {
+		"message": "Next episode",
+		"description": "Label of the date the next episode airs."
+	},
+	"fact.time-to-beat": {
+		"message": "Time to beat",
+		"description": "Label of how long a game takes to finish."
+	},
+	"gallery.close": "Close images",
+	"gallery.close-image": "Close image",
+	"gallery.count": {
+		"message": "{count, plural, one {# image} other {# images}}",
+		"description": "{count} is the number of images shown."
+	},
+	"gallery.counter": {
+		"message": "{index, number} / {total, number}",
+		"description": "Position in the image viewer. {index} is the current image and {total} is how many there are."
+	},
+	"gallery.filter-label": "Filter images",
+	"gallery.filter-option": {
+		"message": "{filter, select, all {All} logo {Logos} still {Stills} cover {Covers} artwork {Artwork} profile {Profiles} backdrop {Backdrops} screenshot {Screenshots} other {All}} {count, number}",
+		"description": "Choice that filters images by kind. {filter} is the kind and {count} is how many images it has."
+	},
+	"gallery.go-to-image": {
+		"message": "Go to image {index, number}",
+		"description": "{index} is the number of the image."
+	},
+	"gallery.label": {
+		"message": "{name} images",
+		"description": "Accessible label of the image gallery. {name} is the media title."
+	},
+	"gallery.next": "Next image",
+	"gallery.position": {
+		"message": "Image {index, number} of {total, number}",
+		"description": "{index} is the current image and {total} is how many there are."
+	},
+	"gallery.previous": "Previous image",
+	"gallery.purpose": {
+		"message": "{purpose, select, logo {logo} still {still} cover {cover} artwork {artwork} profile {profile} backdrop {backdrop} screenshot {screenshot} other {image}}",
+		"description": "Lowercase kind of the image on show. {purpose} is the kind."
+	},
+	"gallery.view-image": {
+		"message": "View image {index, number}",
+		"description": "{index} is the number of the image."
+	},
+	"group.members-empty": {
+		"message": "No {unit, select, track {tracks} movie {movies} audiobook {audiobooks} game {games} book {books} issue {issues} other {items}} have been linked yet.",
+		"description": "{unit} is the kind of member, such as track."
+	},
+	"group.members-loading": {
+		"message": "Loading {unit, select, track {tracks} movie {movies} audiobook {audiobooks} game {games} book {books} issue {issues} other {items}}…",
+		"description": "{unit} is the kind of member, such as track."
+	},
+	"group.members-loading-detail": {
+		"message": "Fetching the linked {unit, select, track {tracks} movie {movies} audiobook {audiobooks} game {games} book {books} issue {issues} other {items}}.",
+		"description": "{unit} is the kind of member, such as track."
+	},
+	"group.overview-empty-detail": "No images or credits yet.",
+	"group.overview-empty-title": "Nothing more to show",
+	"group.overview-loading": "Fetching the credits.",
+	"group.part-of": {
+		"message": "Part of {name}",
+		"description": "{name} is the title of the group an item belongs to."
+	},
+	"group.progress": {
+		"message": "{completed, number} of {total, number} {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}",
+		"description": "How many members of a group the user finished. {completed} is how many are done, {total} is how many there are and {verb} is what the user does with the media."
+	},
+	"group.tab": {
+		"message": "{unit, select, track {Tracks} movie {Movies} audiobook {Audiobooks} game {Games} book {Books} issue {Issues} other {Items}}",
+		"description": "Name of the tab that lists the members of a group. {unit} is the kind of member."
+	},
+	"group.view-album": "View album",
+	"group.view-collection": "View collection",
+	"group.view-series": "View series",
+	"history.close": "Close activity history",
+	"history.empty": "No activity found.",
+	"history.loading-detail": "Fetching the complete activity history.",
+	"history.title": "Complete activity history",
+	"history.view": "View complete history",
+	"home.activity.analytics-link": {
+		"message": "Analytics",
+		"description": "Link to the analytics page."
+	},
+	"home.activity.day-streak": {
+		"message": "Day streak",
+		"description": "Label for the number of consecutive days with activity."
+	},
+	"home.activity.everything-else": {
+		"message": "Everything else",
+		"description": "Name of the group that combines all remaining media types in a share chart."
+	},
+	"home.activity.heatmap-label": "Activity over the last 52 weeks",
+	"home.activity.hours": {
+		"message": "Hours",
+		"description": "Label for the number of hours spent."
+	},
+	"home.activity.hours-at-least": {
+		"message": "≥{hours, number}",
+		"description": "A number of hours that is a lower bound. {hours} is the number of hours."
+	},
+	"home.activity.preferences-failed": "Reporting preferences could not be refreshed. The last loaded time zone is being used.",
+	"home.activity.refresh-failed": "Your activity could not be refreshed. The last loaded activity is being shown.",
+	"home.activity.retry-preferences": {
+		"message": "Retry preferences",
+		"description": "Button that reloads the reporting preferences."
+	},
+	"home.activity.share-under-one": {
+		"message": "<{percent, number, ::percent .##}",
+		"description": "Share of a media type that is below one percent. {percent} is one percent, formatted as a percentage."
+	},
+	"home.activity.title": "Your activity",
+	"home.activity.unit-update": {
+		"message": "{count, plural, one {update} other {updates}}",
+		"description": "Unit label shown after a count of updates. {count} is the number of updates."
+	},
+	"home.add-title": "Add a title",
+	"home.backlog.title": "From your backlog",
+	"home.continue.title": {
+		"message": "Continue",
+		"description": "Title of the list of titles the user is partway through."
+	},
+	"home.episode-position": {
+		"message": "Ep {episode, number}",
+		"description": "Short episode label. {episode} is the episode number."
+	},
+	"home.episode-position-seasonal": {
+		"message": "S{season, number} E{episode, number}",
+		"description": "Short season and episode label. {season} is the season number and {episode} is the episode number."
+	},
+	"home.first-run.description": "Bring in what you have watched, read, and played, or add your first title.",
+	"home.first-run.import": "Import your history",
+	"home.first-run.title": "Start your media library",
+	"home.loading": "Loading your media",
+	"home.more-caption": {
+		"message": "{caption} · +{count, number} more",
+		"description": "{caption} is a date label and {count} is the number of further releases of the same title."
+	},
+	"home.resume": { "message": "Resume", "description": "Verb; prompt to continue a title." },
+	"home.resume-since": {
+		"message": "Resume · {when}",
+		"description": "Prompt to continue a title. {when} is how long ago the user last had activity, such as 2 days ago."
+	},
+	"home.suggestions.title": "Because you finished",
+	"home.suggestions.title-from": {
+		"message": "Because you finished {name}",
+		"description": "Title of a list of recommendations. {name} is the title the user finished."
+	},
+	"home.today": "Today",
+	"home.tomorrow": "Tomorrow",
+	"home.trending.title": "Trending in films & shows",
+	"home.upcoming.title": {
+		"message": "Upcoming",
+		"description": "Title of the list of titles releasing soon."
+	},
+	"import-source.anilist.description": "Import anime, manga, progress, reviews, favorites, and custom lists from AniList",
+	"import-source.audiobookshelf.description": "Import finished audiobooks, ebooks, podcasts, and library collections",
+	"import-source.audiobookshelf.name": {
+		"message": "Audiobookshelf",
+		"description": "Name of the Audiobookshelf service; usually not translated."
+	},
+	"import-source.goodreads.description": "Import books, reading history, reviews, and shelves from Goodreads",
+	"import-source.goodreads.name": {
+		"message": "Goodreads",
+		"description": "Name of the Goodreads service; usually not translated."
+	},
+	"import-source.grouvee.description": "Import video games, play history, reviews, ratings, and shelves from Grouvee",
+	"import-source.grouvee.name": {
+		"message": "Grouvee",
+		"description": "Name of the Grouvee service; usually not translated."
+	},
+	"import-source.hardcover.description": "Import books, reading history, reviews, lists, and ownership from Hardcover",
+	"import-source.igdb.description": "Import video games into a selected collection from IGDB",
+	"import-source.imdb.description": "Import movie and show watchlist entries, watched history, and ratings from IMDb",
+	"import-source.imdb.name": {
+		"message": "IMDb",
+		"description": "Name of the IMDb service; usually not translated."
+	},
+	"import-source.jellyfin.description": "Import watched movies, episodes, and favorites from Jellyfin",
+	"import-source.jellyfin.name": {
+		"message": "Jellyfin",
+		"description": "Name of the Jellyfin service; usually not translated."
+	},
+	"import-source.media-tracker.description": "Import media history, reviews, lifecycle states, and collections from MediaTracker",
+	"import-source.media-tracker.name": {
+		"message": "MediaTracker",
+		"description": "Name of the MediaTracker service; usually not translated."
+	},
+	"import-source.movary.description": "Import movie history, ratings, and watchlist entries from Movary",
+	"import-source.movary.name": {
+		"message": "Movary",
+		"description": "Name of the Movary service; usually not translated."
+	},
+	"import-source.myanimelist.description": "Import anime and manga history, progress, ratings, and status from MyAnimeList",
+	"import-source.netflix.description": "Import viewing activity, ratings, and watchlist entries from Netflix",
+	"import-source.netflix.name": {
+		"message": "Netflix",
+		"description": "Name of the Netflix service; usually not translated."
+	},
+	"import-source.plex.description": "Import watched movies and episodes from Plex",
+	"import-source.plex.name": {
+		"message": "Plex",
+		"description": "Name of the Plex service; usually not translated."
+	},
+	"import-source.spotify.description": "Import listening history from a Spotify extended streaming history export",
+	"import-source.storygraph.description": "Import books, reading history, reviews, and tags from StoryGraph",
+	"import-source.storygraph.name": {
+		"message": "StoryGraph",
+		"description": "Name of the StoryGraph service; usually not translated."
+	},
+	"import-source.trakt.description": "Import movies, shows, history, ratings, watchlist, lists, and ownership from Trakt",
+	"import-source.trakt.name": {
+		"message": "Trakt",
+		"description": "Name of the Trakt service; usually not translated."
+	},
+	"import-source.watcharr.description": "Import movies, shows, episode history, reviews, and collections from Watcharr",
+	"import-source.watcharr.name": {
+		"message": "Watcharr",
+		"description": "Name of the Watcharr service; usually not translated."
+	},
+	"integration-provider.anilist.description": "Import anime and manga list state from AniList",
+	"integration-provider.audiobookshelf.description": "Sync in-progress media and ownership from Audiobookshelf",
+	"integration-provider.emby.description": "Receive Emby playback webhooks",
+	"integration-provider.emby.name": {
+		"message": "Emby",
+		"description": "Name of the Emby service; usually not translated."
+	},
+	"integration-provider.jellyfin-push.description": "Update watched state in Jellyfin",
+	"integration-provider.jellyfin-push.name": {
+		"message": "Jellyfin push",
+		"description": "Name of an integration that pushes watched state to a Jellyfin server."
+	},
+	"integration-provider.jellyfin-sink.description": "Receive Jellyfin playback webhooks",
+	"integration-provider.jellyfin-sink.name": {
+		"message": "Jellyfin sink",
+		"description": "Name of an integration that receives playback events sent by a Jellyfin server; \"sink\" means it receives data pushed from Jellyfin."
+	},
+	"integration-provider.kodi.description": "Receive Kodi playback webhooks",
+	"integration-provider.kodi.name": {
+		"message": "Kodi",
+		"description": "Name of the Kodi service; usually not translated."
+	},
+	"integration-provider.komga.description": "Import progress and ownership from Komga",
+	"integration-provider.komga.name": {
+		"message": "Komga",
+		"description": "Name of the Komga service; usually not translated."
+	},
+	"integration-provider.plex-sink.description": "Receive Plex playback webhooks",
+	"integration-provider.plex-sink.name": {
+		"message": "Plex sink",
+		"description": "Name of an integration that receives playback events sent by a Plex server; \"sink\" means it receives data pushed from Plex."
+	},
+	"integration-provider.plex-yank.description": "Import watched media and ownership from Plex",
+	"integration-provider.plex-yank.name": {
+		"message": "Plex yank",
+		"description": "Name of an integration that pulls watched media from a Plex server; \"yank\" means it fetches data from Plex."
+	},
+	"integration-provider.radarr.description": "Push collection movies to Radarr",
+	"integration-provider.radarr.name": {
+		"message": "Radarr",
+		"description": "Name of the Radarr service; usually not translated."
+	},
+	"integration-provider.ryot-browser-extension.description": "Receive playback from the Ryot browser extension",
+	"integration-provider.ryot-browser-extension.name": {
+		"message": "Ryot browser extension",
+		"description": "Name of the Ryot browser extension; Ryot is the product name."
+	},
+	"integration-provider.sonarr.description": "Push collection shows to Sonarr",
+	"integration-provider.sonarr.name": {
+		"message": "Sonarr",
+		"description": "Name of the Sonarr service; usually not translated."
+	},
+	"integration-provider.spotify.description": "Import listening history from Spotify",
+	"integration-provider.youtube-music.description": "Import listening history from YouTube Music",
+	"library.group-label": "Your library",
+	"library.in-library": "In your library",
+	"library.not-in-library": "Not in your library",
+	"library.status": {
+		"message": "Status: {status}",
+		"description": "Status read by screen readers. {status} is the status, such as In progress."
+	},
+	"log.backfill-detail": {
+		"message": "{codes} · specials never included",
+		"description": "{codes} lists the earlier episodes."
+	},
+	"log.backfill-detail-more": {
+		"message": "{codes} and {count, number} more · specials never included",
+		"description": "{codes} lists the first earlier episodes and {count} is how many more there are."
+	},
+	"log.backfill-label": {
+		"message": "{count, plural, one {Also mark # earlier {verb, select, read {unread} play {unplayed} watch {unwatched} listen {unlistened} other {unread}} episode} other {Also mark # earlier {verb, select, read {unread} play {unplayed} watch {unwatched} listen {unlistened} other {unread}} episodes}}",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen. {count} is the number of earlier episodes."
+	},
+	"log.backfill.switch": "Mark earlier episodes",
+	"log.backfill.title": "Also mark earlier episodes",
+	"log.backfill.too-many": {
+		"message": "More than {count, number} earlier episodes are {verb, select, read {unread} play {unplayed} watch {unwatched} listen {unlistened} other {unread}}, so none can be marked together. Mark them in smaller steps.",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen. {count} is the most earlier episodes that can be marked together."
+	},
+	"log.close": "Close log activity",
+	"log.details-hide": "Hide details",
+	"log.details-show": "More details",
+	"log.edit.close": "Close edit activity",
+	"log.edit.episode-loading": "Loading episode…",
+	"log.edit.episodes-none": "There are no episodes to move this to.",
+	"log.edit.item-number": "Item number",
+	"log.edit.item-unit": "Item unit",
+	"log.edit.not-editable": "This activity can't be edited.",
+	"log.edit.save": "Save changes",
+	"log.edit.title": "Edit activity",
+	"log.episode-code": {
+		"message": "Episode {episode, number}",
+		"description": "Short code of an episode. {episode} is the episode number."
+	},
+	"log.episode-code-seasonal": {
+		"message": "S{season, number}·E{episode, number}",
+		"description": "Short code of an episode. {season} is the season number and {episode} is the episode number."
+	},
+	"log.episode-fallback": "episode",
+	"log.episode-state-done": {
+		"message": "{verb, select, read {Read} play {Played} watch {Watched} listen {Listened} other {Read}}",
+		"description": "Label of an episode that was completed. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.episodes.earlier-failed": "Unable to check earlier episodes.",
+	"log.episodes.earlier-loading": "Checking earlier episodes…",
+	"log.episodes.none": "There are no episodes to log yet.",
+	"log.episodes.none-show": "This show has no episodes to log yet.",
+	"log.episodes.rewatch": {
+		"message": "You've already {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}} this one. It will be logged as a rewatch.",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.error.amount-range": {
+		"message": "Enter {field, select, pages {pages} runtime {minutes} other {pages}} above 0 and up to {total, number}.",
+		"description": "{total} is the largest allowed amount and {field} says what is counted."
+	},
+	"log.error.duration": "Enter whole hours and nonnegative minutes.",
+	"log.error.future": "That day is in the future.",
+	"log.error.item-number": "Enter a valid item number.",
+	"log.error.pages": "Enter a nonnegative page amount.",
+	"log.error.percent-range": "Enter a percent above 0 and up to 100.",
+	"log.error.pick-day": "Pick a day.",
+	"log.error.pick-finish-day": "Pick the day you finished.",
+	"log.error.position": {
+		"message": "Enter a {unit, select, episodes {episode} chapters {chapter} volumes {volume} other {episode}} number.",
+		"description": "{unit} is the unit of position."
+	},
+	"log.error.position-range": {
+		"message": "Enter a {unit, select, episodes {episode} chapters {chapter} volumes {volume} other {episode}} number from 1 to {total, number}.",
+		"description": "{unit} is the unit of position and {total} is the largest allowed number."
+	},
+	"log.error.same-status": "It already has this status.",
+	"log.error.start-after-finish": "The start can't be after the finish.",
+	"log.error.start-day-after-finish": "The start day can't be after the finish day.",
+	"log.error.start-day-invalid": "Pick a valid start day.",
+	"log.flat.add-amount": "Add an amount",
+	"log.flat.hint-of": {
+		"message": "of {total, number} {field, select, pages {pages} runtime {minutes} other {pages}}",
+		"description": "Hint under the amount field. {total} is the total and {field} says what is counted."
+	},
+	"log.flat.hint-provider-total": {
+		"message": "Current provider total: {total, number} {field, select, pages {pages} runtime {minutes} other {pages}}",
+		"description": "Hint under the amount field. {total} is the total reported by the data provider and {field} says what is counted."
+	},
+	"log.flat.hint-total": {
+		"message": "{total, number} {field, select, pages {pages} runtime {minutes} other {pages}} in total",
+		"description": "Hint under the amount field. {total} is the total and {field} says what is counted."
+	},
+	"log.flat.label": "How far along?",
+	"log.flat.percent": {
+		"message": "Percent",
+		"description": "Label of the choice that enters the amount as a percentage."
+	},
+	"log.flat.skip-amount": "Just started? Skip the amount",
+	"log.flat.started-note": "Marks it as in progress without an amount. You can set one later.",
+	"log.flat.unit-label": {
+		"message": "{field, select, pages {Pages} runtime {Minutes} other {Pages}}",
+		"description": "Label of the choice that enters the amount in its own unit. {field} says what is counted."
+	},
+	"log.flat.unit-plural": {
+		"message": "{field, select, pages {pages} runtime {minutes} other {pages}}",
+		"description": "Plural unit name next to the amount field. {field} says what is counted."
+	},
+	"log.intent": {
+		"message": "{intent, select, status {Status} episode {Episode} progress {Progress} finished {Finished} other {Status}}",
+		"description": "Label of one kind of activity to log. {intent} is the kind."
+	},
+	"log.intent-label": {
+		"message": "What happened",
+		"description": "Label of the control that selects what kind of activity to log."
+	},
+	"log.load.failed": "Unable to load this item.",
+	"log.load.not-loggable": "This item can't be logged.",
+	"log.more-options": "More logging options",
+	"log.position.hint": {
+		"message": "earlier {unit, select, episodes {episodes} chapters {chapters} volumes {volumes} other {episodes}} count as {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}",
+		"description": "Hint under the position field. {verb} is what the user does with the media: read, play, watch or listen. {unit} is the unit of position."
+	},
+	"log.position.hint-percent": {
+		"message": "{percent, number, ::percent .##} complete · earlier {unit, select, episodes {episodes} chapters {chapters} volumes {volumes} other {episodes}} count as {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}",
+		"description": "Hint under the position field. {percent} is how far through the media the position is, formatted as a percentage. {unit} is the unit of position. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.position.label": {
+		"message": "{verb, select, read {Read} play {Played} watch {Watched} listen {Listened} other {Read}} through {unit, select, episodes {episode} chapters {chapter} volumes {volume} other {episode}}",
+		"description": "Label of the field for the user's position. {verb} is what the user does with the media: read, play, watch or listen. {unit} is the unit of position."
+	},
+	"log.position.of-total": {
+		"message": "of {total, number}",
+		"description": "Shown after the position field. {total} is the total number of units."
+	},
+	"log.quick.episode-text": {
+		"message": "{code} {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}.",
+		"description": "Confirmation after marking an episode. {code} is the episode code. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.quick.position-label": {
+		"message": "Mark {unit, select, episodes {episode} chapters {chapter} volumes {volume} other {episode}} {position, number} {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}",
+		"description": "Button that marks a chapter, volume or episode. {unit} is the unit and {position} is its number. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.quick.position-text": {
+		"message": "{unit, select, episodes {Episode} chapters {Chapter} volumes {Volume} other {Episode}} {position, number} {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}.",
+		"description": "Confirmation after marking a chapter, volume or episode. {unit} is the unit and {position} is its number. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.runtime-hint": {
+		"message": "Leave empty to use the runtime ({runtime}).",
+		"description": "{runtime} is the formatted runtime of the title."
+	},
+	"log.runtime-hint-empty": "Leave empty if you don't know.",
+	"log.save-failed": "Couldn't start saving. Try again.",
+	"log.season": "Season {season, number}",
+	"log.season-specials": {
+		"message": "Specials",
+		"description": "Name of the group of special episodes of a show."
+	},
+	"log.source.label": {
+		"message": "Where did you {verb, select, read {read} play {play} watch {watch} listen {listen to} other {read}} it?",
+		"description": "Label of a field for the service, app or format used. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.source.placeholder": "Service, app or format",
+	"log.status.current": "Current status",
+	"log.status.detail-backlog": {
+		"message": "Want to {verb, select, read {read} play {play} watch {watch} listen {listen to} other {read}} it later",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.status.detail-dropped": {
+		"message": "Stopped {verb, select, read {reading} play {playing} watch {watching} listen {listening} other {reading}}",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.status.detail-on-hold": "Paused for now",
+	"log.status.label": {
+		"message": "{status, select, backlog {Backlog} on_hold {On hold} dropped {Dropped} other {Backlog}}",
+		"description": "Name of a status. {status} is the status."
+	},
+	"log.status.note-episodes": "Episodes you have already marked stay as they are.",
+	"log.status.note-position": {
+		"message": "Keeps your place at {unit, select, episodes {episode} chapters {chapter} volumes {volume} other {episode}} {position, number}.",
+		"description": "{unit} is the unit of position and {position} is the current position."
+	},
+	"log.status.note-progress": {
+		"message": "Keeps your progress at {percent, number, ::percent .##}.",
+		"description": "{percent} is the current progress, formatted as a percentage."
+	},
+	"log.submit.episode": {
+		"message": "Mark {code} {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}",
+		"description": "{code} is the episode code. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.submit.episodes": {
+		"message": "{count, plural, one {Mark # episode {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}} other {Mark # episodes {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}}}",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen. {count} is the number of episodes."
+	},
+	"log.submit.finished": {
+		"message": "Mark as {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.submit.save-progress": "Save progress",
+	"log.submit.start": {
+		"message": "Start {verb, select, read {reading} play {playing} watch {watching} listen {listening} other {reading}}",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"library.add-to-backlog": "Add to backlog",
+	"log.submit.status": {
+		"message": "{status, select, on_hold {Put on hold} dropped {Mark as dropped} backlog {Add to backlog} other {Add to backlog}}",
+		"description": "Button that sets a status. {status} is the status."
+	},
+	"log.success.episode": {
+		"message": "{code} marked {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}.",
+		"description": "{code} is the episode code. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.success.episodes": {
+		"message": "{count, plural, one {# episode marked {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}.} other {# episodes marked {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}.}}",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen. {count} is the number of episodes."
+	},
+	"log.success.finished": {
+		"message": "{name} marked as {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}}.",
+		"description": "{name} is the media title. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.success.finished-unknown": {
+		"message": "{name} marked as {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}} (date unknown).",
+		"description": "{name} is the media title. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.success.pages": {
+		"message": "Progress saved at {amount} pages.",
+		"description": "{amount} is the number of pages the user entered."
+	},
+	"log.success.percent": {
+		"message": "Progress saved at {percent, number, ::percent .##}.",
+		"description": "{percent} is the saved progress, formatted as a percentage."
+	},
+	"log.success.position": {
+		"message": "Now {verb, select, read {read} play {played} watch {watched} listen {listened} other {read}} through {unit, select, episodes {episode} chapters {chapter} volumes {volume} other {episode}} {position, number}.",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen. {unit} is the unit of position and {position} is the position."
+	},
+	"log.success.started": {
+		"message": "Marked as {verb, select, read {reading} play {playing} watch {watching} listen {listening} other {reading}}.",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.success.status": {
+		"message": "{status, select, on_hold {Put on hold.} dropped {Marked as dropped.} backlog {Added to your backlog.} other {Added to your backlog.}}",
+		"description": "Confirmation after setting a status. {status} is the status."
+	},
+	"log.time-cumulative": "Cumulative time spent",
+	"log.time-cumulative-hint": "Total time in this consumption run, not time since the last update.",
+	"log.time-played": "Time played",
+	"log.title": "Log activity",
+	"log.unit.label": {
+		"message": "{unit, select, episodes {Episode} chapters {Chapter} volumes {Volume} other {Episode}}",
+		"description": "Name of a unit of position. {unit} is the unit."
+	},
+	"log.when.add-time": "Add time",
+	"log.when.episode": {
+		"message": "When did you {verb, select, read {read} play {play} watch {watch} listen {listen to} other {read}} it?",
+		"description": "{verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.when.episode-on": {
+		"message": "{verb, select, read {Read} play {Played} watch {Watched} listen {Listened} other {Read}} on",
+		"description": "Label of the date field for an episode. {verb} is what the user does with the media: read, play, watch or listen."
+	},
+	"log.when.finish": "When did you finish it?",
+	"log.when.finished": {
+		"message": "Finished",
+		"description": "Label of the date field for the day the user finished."
+	},
+	"log.when.label": {
+		"message": "When",
+		"description": "Label of the control that selects when the activity happened."
+	},
+	"log.when.now": "Just now",
+	"log.when.pick-date": { "message": "Pick date", "description": "Choice to enter a single date." },
+	"log.when.pick-dates": {
+		"message": "Pick dates",
+		"description": "Choice to enter a start and a finish date."
+	},
+	"log.when.progress": "When did you reach this progress?",
+	"log.when.remove-time": "Remove time",
+	"log.when.started": {
+		"message": "Started",
+		"description": "Label of the date field for the day the user started."
+	},
+	"log.when.unknown": "I don’t remember",
+	"log.when.unknown-note": "Recorded with no date. It counts toward your totals but stays off the activity calendar.",
+	"monitoring.failed": "Unable to change monitoring. Try again.",
+	"monitoring.off": {
+		"message": "Monitor",
+		"description": "Button that starts monitoring a title."
+	},
+	"monitoring.on": {
+		"message": "Monitoring",
+		"description": "Button label while a title is monitored."
+	},
+	"monitoring.started": "Started monitoring",
+	"monitoring.stopped": "Stopped monitoring",
+	"monitoring.title": "Keep provider details up to date",
+	"notification.associated": {
+		"message": "{subjectName} has been associated with {associatedName} {role, select, actor {as an actor} voice_actor {as a voice actor} creator {as the creator} author {as an author} narrator {as a narrator} artist {as an artist} developer {as a developer} publisher {as a publisher} porting {for porting} supporting {in a supporting role} production_company {as a production company} network {as the network} studio {as a studio} distributor {as a distributor} special_effects {for special effects} other {as a contributor}}",
+		"description": "{subjectName} is a person or company, {associatedName} is a media title or group and {role} is a standard role they filled."
+	},
+	"notification.associated-named-role": {
+		"message": "{subjectName} has been associated with {associatedName} as {role}",
+		"description": "{subjectName} is a person or company, {associatedName} is a media title or group and {role} is a role as the provider names it, such as Director."
+	},
+	"notification.content-count-changed": {
+		"message": "Number of {contentType, select, chapters {chapters} episodes {episodes} other {items}} changed from {oldCount, number} to {newCount, number} for {entityName}",
+		"description": "{contentType} is what is counted, {oldCount} and {newCount} are the previous and current counts and {entityName} is the media title."
+	},
+	"notification.episode-image-changed": {
+		"message": "Episode image changed for {episode} in {entityName}",
+		"description": "{episode} is a short episode label such as S2E5 and {entityName} is the show or podcast title."
+	},
+	"notification.episode-label.numbered": {
+		"message": "EP{episode, number, ::group-off}",
+		"description": "Short label of an episode without a season. {episode} is the episode number."
+	},
+	"notification.episode-label.seasonal": {
+		"message": "S{season, number, ::group-off}E{episode, number, ::group-off}",
+		"description": "Short label of an episode in a season. {season} is the season number and {episode} is the episode number."
+	},
+	"notification.episode-name-changed": {
+		"message": "Episode name changed from {oldNaming, select, named {\"{oldName}\"} missing {no name} other {no name}} to {newNaming, select, named {\"{newName}\"} missing {no name} other {no name}} ({episode}) for {entityName}",
+		"description": "{oldName} and {newName} are episode names; {oldNaming} and {newNaming} say whether each name is missing. {episode} is a short episode label such as S2E5 and {entityName} is the show or podcast title."
+	},
+	"notification.episode-release-date-changed": {
+		"message": "Episode release date changed from {oldDate, date, calendar-medium} to {newDate, date, calendar-medium} ({episode}) for {entityName}",
+		"description": "{oldDate} and {newDate} are calendar dates, {episode} is a short episode label such as S2E5 and {entityName} is the show title."
+	},
+	"notification.episode-released": {
+		"message": "{episode} of {entityName} has been released today",
+		"description": "{episode} is a short episode label such as S2E5 and {entityName} is the show, anime or podcast title."
+	},
+	"notification.episodes-available": {
+		"message": "New episodes of {entityName} are available",
+		"description": "{entityName} is the show title."
+	},
+	"notification.episodes-discovered": {
+		"message": "{count, plural, one {# new episode} other {# new episodes}} discovered for {entityName}",
+		"description": "{count} is the number of newly found episodes and {entityName} is the show or podcast title."
+	},
+	"notification.episodes-discovered-in-season": {
+		"message": "{count, plural, one {# new episode} other {# new episodes}} discovered in season {season, number} for {entityName}",
+		"description": "{count} is the number of newly found episodes, {season} is the season number and {entityName} is the show title."
+	},
+	"notification.progress-stale": {
+		"message": "{entityName} has been {state, select, on_hold {on hold} in_progress {in progress} other {in progress}} for {days, plural, one {# day} other {# days}} without activity",
+		"description": "{entityName} is the media title, {state} is whether it is on hold or in progress and {days} is how many days passed without activity."
+	},
+	"notification.publish-year-changed": {
+		"message": "Publish year changed from {oldYear, number, ::group-off} to {newYear, number, ::group-off} for {entityName}",
+		"description": "{oldYear} and {newYear} are the previous and current publication years and {entityName} is the media title."
+	},
+	"notification.released": {
+		"message": "{entityName} has been released today",
+		"description": "{entityName} is the media title."
+	},
+	"notification.review-created": {
+		"message": "Review posted for {entityName}",
+		"description": "{entityName} is the title of the reviewed media."
+	},
+	"notification.season-count-changed": {
+		"message": "Number of seasons changed from {oldCount, number} to {newCount, number} for {entityName}",
+		"description": "{oldCount} and {newCount} are the previous and current season counts and {entityName} is the show title."
+	},
+	"notification.status-changed": {
+		"message": "Status of {entityName} changed from {oldStatus} to {newStatus}",
+		"description": "{entityName} is the media title. {oldStatus} and {newStatus} are production statuses as the data provider reports them, such as Ended."
+	},
+	"overview.availability": {
+		"message": "Availability in {region}, from JustWatch.",
+		"description": "{region} is the name of a country or region. JustWatch is a brand name."
+	},
+	"overview.error-malformed": "These details came back in a form that could not be displayed. Try again later.",
+	"overview.error-transport": {
+		"message": "{subject} could not be loaded. Check your connection and try again.",
+		"description": "{subject} names the section that failed to load."
+	},
+	"overview.loading.anime": "Fetching the studios and recommendations for this anime.",
+	"overview.loading.audiobook": "Fetching the authors, narrators and recommendations for this audiobook.",
+	"overview.loading.book": "Fetching the authors, publishers and recommendations for this book.",
+	"overview.loading.comic-book": "Fetching the credits, series and recommendations for this comic book.",
+	"overview.loading.manga": "Fetching the credits and recommendations for this manga.",
+	"overview.loading.movie": "Fetching the cast, companies and recommendations for this movie.",
+	"overview.loading.music": "Fetching the artists, labels and recommendations for this track.",
+	"overview.loading.podcast": "Fetching the hosts, networks and recommendations for this podcast.",
+	"overview.loading.show": "Fetching the cast, companies and recommendations for this show.",
+	"overview.loading.video-game": "Fetching the credits, companies and recommendations for this game.",
+	"overview.loading.visual-novel": "Fetching the developers and recommendations for this visual novel.",
+	"overview.more-like-this": "More like this",
+	"overview.not-loaded": "Details not loaded",
+	"overview.population-failed": "Couldn't load",
+	"overview.population-failed-detail": {
+		"message": "{subject} could not be loaded from the provider.",
+		"description": "{subject} names the section that failed to load."
+	},
+	"overview.view-all-images": "View all images",
+	"overview.view-all-options": "View all options",
+	"overview.where-to-watch": "Where to watch",
+	"ownership.close": "Close ownership",
+	"ownership.failed": "Unable to change ownership. Try again.",
+	"ownership.future": "Pick a date that is not in the future.",
+	"ownership.mark": "Mark owned",
+	"ownership.marked-not-owned": "Marked as not owned",
+	"ownership.marked-owned": "Marked as owned",
+	"ownership.owned-since": {
+		"message": "Owned since {date}",
+		"description": "{date} is the formatted date the user got the item."
+	},
+	"ownership.save-failed": "Couldn't start saving ownership. Try again.",
+	"ownership.title": "Mark as owned",
+	"person.age": {
+		"message": " (age {years, number})",
+		"description": "Age of a living person shown after their birth date. {years} is the age in years."
+	},
+	"person.aged": {
+		"message": " (aged {years, number})",
+		"description": "Age at death shown after the death date. {years} is the age in years."
+	},
+	"person.birthplace": "Birthplace",
+	"person.born": { "message": "Born", "description": "Label of a person's birth date." },
+	"person.died": { "message": "Died", "description": "Label of a person's death date." },
+	"plugin.description": "Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
+	"plugin.name": {
+		"message": "Media",
+		"description": "Name of the media tracking plugin: movies, shows, books, games, music and similar items."
+	},
+	"podcast.add-episode": "Add episode",
+	"podcast.episode-count": {
+		"message": "{count, plural, one {# episode} other {# episodes}}",
+		"description": "{count} is the number of episodes."
+	},
+	"podcast.episodes-empty": "No episodes have been recorded for this podcast yet.",
+	"podcast.episodes-loading": "Fetching this podcast's episodes.",
+	"podcast.played": {
+		"message": "{count, number} played",
+		"description": "{count} is the number of episodes played."
+	},
+	"primitives.link-failed": "Unable to open link. Try again.",
+	"primitives.progress": { "message": "Progress", "description": "Label of a progress bar." },
+	"primitives.refresh-failed": "Refresh failed. Showing last loaded content.",
+	"property.about": "About",
+	"property.active-observation": "Active observation",
+	"property.adult-content": "Adult content",
+	"property.airing-at": "Airing at",
+	"property.airing-schedule": "Airing schedule",
+	"property.allow-games-with-a-parent": "Allow games with a parent",
+	"property.allow-games-with-a-parent-hint": "Include game versions that have a parent game",
+	"property.allow-insecure-connections": "Allow insecure connections",
+	"property.allow-insecure-connections-hint": "Allow connections with invalid TLS certificates",
+	"property.alternate-names": "Alternate names",
+	"property.anilist-account": "AniList account",
+	"property.anilist-account-hint": "AniList account to read anime and manga list state from",
+	"property.anilist-client-id": "AniList client ID",
+	"property.anilist-client-id-hint": "Client ID for AniList accounts",
+	"property.anilist-client-secret": "AniList client secret",
+	"property.anilist-client-secret-hint": "Client secret for AniList accounts",
+	"property.anilist-export": "AniList export",
+	"property.anilist-export-hint": "AniList JSON export",
+	"property.anime-export": "Anime export",
+	"property.anime-export-hint": "MyAnimeList anime export",
+	"property.api-key": "API key",
+	"property.associated-name": "Associated name",
+	"property.authentication-cookie": "Authentication cookie",
+	"property.automatic-completion-identity": "Automatic completion identity",
+	"property.base-url": "Base URL",
+	"property.birth-date": "Birth date",
+	"property.birth-place": "Birth place",
+	"property.calendar-date": "Calendar date",
+	"property.change-kind": "Change kind",
+	"property.chapters": "Chapters",
+	"property.character": "Character",
+	"property.collection": "Collection",
+	"property.collection-hint": "Ryot collection for imported list items",
+	"property.collection-hint-2": "Ryot collection for imported games",
+	"property.collection-id": "Collection ID",
+	"property.collections": "Collections",
+	"property.collections-hint": "Collection IDs synchronized to Radarr",
+	"property.collections-hint-2": "Collection IDs synchronized to Sonarr",
+	"property.compilation": "Compilation",
+	"property.completed-date": "Completed Date",
+	"property.completionist-minutes": "Completionist (minutes)",
+	"property.consumed-item": "Consumed item",
+	"property.consumed-on": "Consumed on",
+	"property.consumption-contribution": "Consumption contribution",
+	"property.content-type": "Content type",
+	"property.country": "Country",
+	"property.credit-kinds": "Credit kinds",
+	"property.date": "Date",
+	"property.date-attribution": "Date attribution",
+	"property.date-unknown": "Date unknown",
+	"property.day": "Day",
+	"property.days": "Days",
+	"property.death-date": "Death date",
+	"property.department": "Department",
+	"property.departments": "Departments",
+	"property.description": "Description",
+	"property.disabled-sites": "Disabled sites",
+	"property.disabled-sites-hint": "Sites ignored by the browser extension",
+	"property.discovered-count": "Discovered count",
+	"property.duration": "Duration",
+	"property.entity-id": "Entity ID",
+	"property.entity-name": "Entity name",
+	"property.entity-schema-slug": "Entity schema slug",
+	"property.episode": "Episode",
+	"property.episode-completions": "Episode completions",
+	"property.episode-external-ids": "Episode external IDs",
+	"property.episode-number": "Episode number",
+	"property.episode-orders": "Episode orders",
+	"property.episodes": "Episodes",
+	"property.estimated-amount": "Estimated amount",
+	"property.export-file": "Export file",
+	"property.export-file-hint": "Trakt data export ZIP",
+	"property.external-id": "External ID",
+	"property.fetched-at": "Fetched at",
+	"property.founded-year": "Founded year",
+	"property.game-mode-ids": "Game mode IDs",
+	"property.game-mode-ids-hint": "IGDB game mode IDs",
+	"property.game-type": "Game type",
+	"property.game-type-ids": "Game type IDs",
+	"property.game-type-ids-hint": "IGDB game type IDs",
+	"property.gender": "Gender",
+	"property.genre-ids": "Genre IDs",
+	"property.genre-ids-hint": "IGDB genre IDs",
+	"property.giant-bomb-api-key": "Giant Bomb API key",
+	"property.giant-bomb-api-key-hint": "API key used to access Giant Bomb metadata",
+	"property.goodreads-export": "Goodreads export",
+	"property.goodreads-export-hint": "Goodreads library export CSV",
+	"property.google-books-api-key": "Google Books API key",
+	"property.google-books-api-key-hint": "API key used to access Google Books metadata",
+	"property.groups": "Groups",
+	"property.grouvee-export": "Grouvee export",
+	"property.grouvee-export-hint": "Grouvee game export CSV",
+	"property.guest-appearance": "Guest appearance",
+	"property.hardcover-api-key": "Hardcover API key",
+	"property.hardcover-api-key-hint": "API key used to access Hardcover metadata",
+	"property.hardcover-export": "Hardcover export",
+	"property.hardcover-export-hint": "Hardcover library export CSV",
+	"property.headquarters": "Headquarters",
+	"property.history-export": "History export",
+	"property.history-export-hint": "Movary history.csv export",
+	"property.igdb-export": "IGDB export",
+	"property.igdb-export-hint": "IGDB game export CSV",
+	"property.image": "Image",
+	"property.images": "Images",
+	"property.imdb-export": "IMDb export",
+	"property.imdb-export-hint": "IMDb watchlist or ratings export CSV",
+	"property.import-method": "Import method",
+	"property.import-method-hint": "How to import Trakt data",
+	"property.item": "Item",
+	"property.jellyfin-username-hint": "Only process playback for this Jellyfin user",
+	"property.kind": "Kind",
+	"property.length-minutes": "Length (minutes)",
+	"property.lifecycle-state": "Lifecycle state",
+	"property.link": "Link",
+	"property.list-state": "List state",
+	"property.list-url": "List URL",
+	"property.list-url-hint": "Public Trakt list URL",
+	"property.listen-notes-api-key": "Listen Notes API key",
+	"property.listen-notes-api-key-hint": "API key used to access Listen Notes metadata",
+	"property.main-story-minutes": "Main story (minutes)",
+	"property.manga-export": "Manga export",
+	"property.manga-export-hint": "MyAnimeList manga export",
+	"property.metadata-property": "Metadata property",
+	"property.metadata-provider": "Metadata provider",
+	"property.metadata-provider-hint": "Provider used to identify Jellyfin media",
+	"property.metron-password": "Metron password",
+	"property.metron-password-hint": "Password used to access Metron metadata",
+	"property.metron-username": "Metron username",
+	"property.metron-username-hint": "Username used to access Metron metadata",
+	"property.minutes": "Minutes",
+	"property.missing-quantity": "Missing quantity",
+	"property.month": "Month",
+	"property.myanimelist-client-id": "MyAnimeList client ID",
+	"property.myanimelist-client-id-hint": "Client ID used to access MyAnimeList metadata",
+	"property.name": "Name",
+	"property.netflix-export": "Netflix export",
+	"property.netflix-export-hint": "Netflix data export ZIP",
+	"property.new-count": "New count",
+	"property.new-date": "New date",
+	"property.new-name": "New name",
+	"property.new-status": "New status",
+	"property.new-year": "New year",
+	"property.next-airing": "Next airing",
+	"property.number": "Number",
+	"property.offers": "Offers",
+	"property.old-count": "Old count",
+	"property.old-date": "Old date",
+	"property.old-name": "Old name",
+	"property.old-status": "Old status",
+	"property.old-year": "Old year",
+	"property.one-upcoming-entry-per-title": "One upcoming entry per title",
+	"property.one-upcoming-entry-per-title-hint": "Show only the next episode or release of each title in Upcoming.",
+	"property.order": "Order",
+	"property.original-language": "Original language",
+	"property.original-source-progress": "Original source progress",
+	"property.owned": "Owned",
+	"property.owned-on": "Owned on",
+	"property.ownership-sources": "Ownership sources",
+	"property.ownership-synced-at": "Ownership synced at",
+	"property.pages": "Pages",
+	"property.pages-reached": "Pages reached",
+	"property.parent-podcast-external-id": "Parent podcast external ID",
+	"property.parent-show-external-id": "Parent show external ID",
+	"property.parts": "Parts",
+	"property.pass-raw-query": "Pass raw query",
+	"property.pass-raw-query-hint": "Pass the query to Google Books without adding a title qualifier",
+	"property.password": "Password",
+	"property.password-hint": "Jellyfin password",
+	"property.platform-ids": "Platform IDs",
+	"property.platform-ids-hint": "IGDB platform IDs",
+	"property.platform-releases": "Platform releases",
+	"property.plex-username-hint": "Only process playback for this Plex user",
+	"property.position": "Position",
+	"property.precision": "Precision",
+	"property.production-status": "Production status",
+	"property.profile-id": "Profile ID",
+	"property.profile-name": "Profile name",
+	"property.profile-name-hint": "Only import viewing activity for this Netflix profile",
+	"property.progress-percent": "Progress percent",
+	"property.progress-update-threshold": "Progress update threshold",
+	"property.progress-update-threshold-hint": "Hours used to debounce repeated completion updates",
+	"property.provider-kind": "Provider kind",
+	"property.provider-kind-hint": "Integration provider discriminator",
+	"property.provider-rating": "Provider rating",
+	"property.providers": "Providers",
+	"property.publish-date": "Publish date",
+	"property.publish-year": "Publish year",
+	"property.purpose": "Purpose",
+	"property.rank": "Rank",
+	"property.ratings-export": "Ratings export",
+	"property.ratings-export-hint": "Movary ratings.csv export",
+	"property.recent-activity": "Recent activity",
+	"property.recorded-amount": "Recorded amount",
+	"property.recorded-estimation-basis": "Recorded estimation basis",
+	"property.release-date": "Release date",
+	"property.release-date-region-ids": "Release date region IDs",
+	"property.release-date-region-ids-hint": "IGDB release date region IDs",
+	"property.release-region": "Release region",
+	"property.repeat-count": "Repeat count",
+	"property.review-event-id": "Review event ID",
+	"property.reviewed-item": "Reviewed item",
+	"property.role": "Role",
+	"property.role-code": "Standard role",
+	"property.role-codes": "Standard roles",
+	"property.roles": "Roles",
+	"property.root-folder-path": "Root folder path",
+	"property.runtime": "Runtime",
+	"property.rushed-minutes": "Rushed (minutes)",
+	"property.season-number": "Season number",
+	"property.server-url": "Server URL",
+	"property.server-url-hint": "Jellyfin server URL",
+	"property.show-nsfw-content": "Show NSFW content",
+	"property.show-nsfw-content-hint": "Allow providers to include adult metadata and results.",
+	"property.silent-history-correction": "Silent history correction",
+	"property.site": "Site",
+	"property.source": "Source",
+	"property.source-account-id": "Source account ID",
+	"property.source-entry-id": "Source entry ID",
+	"property.source-hint": "Where you consume it.",
+	"property.source-link": "Source link",
+	"property.source-percent": "Source percent",
+	"property.source-position": "Source position",
+	"property.source-run": "Source run",
+	"property.source-unit": "Source unit",
+	"property.source-updated-at": "Source updated at",
+	"property.source-volume-context": "Source volume context",
+	"property.spotify-account": "Spotify account",
+	"property.spotify-account-hint": "Spotify account to read listening history from",
+	"property.spotify-client-id": "Spotify client ID",
+	"property.spotify-client-id-hint": "Client ID for Spotify metadata & accounts",
+	"property.spotify-client-secret": "Spotify client secret",
+	"property.spotify-client-secret-hint": "Client secret for Spotify metadata & accounts",
+	"property.spotify-export": "Spotify export",
+	"property.spotify-export-hint": "Spotify extended streaming history ZIP",
+	"property.started-date": "Started Date",
+	"property.started-on": "Started on",
+	"property.status": "Status",
+	"property.storygraph-export": "StoryGraph export",
+	"property.storygraph-export-hint": "StoryGraph library export CSV",
+	"property.subject-name": "Subject name",
+	"property.superseded-estimate": "Superseded estimate",
+	"property.sync-anime": "Sync anime",
+	"property.sync-anime-hint": "Read anime list state from AniList",
+	"property.sync-manga": "Sync manga",
+	"property.sync-manga-hint": "Read manga list state from AniList",
+	"property.tag-id": "Tag ID",
+	"property.tag-id-hint": "Radarr tag ID",
+	"property.tag-id-hint-2": "Sonarr tag ID",
+	"property.tag-ids": "Tag IDs",
+	"property.tag-ids-hint": "Radarr tag IDs",
+	"property.tag-ids-hint-2": "Sonarr tag IDs",
+	"property.theme-ids": "Theme IDs",
+	"property.theme-ids-hint": "IGDB theme IDs",
+	"property.time-spent": "Time spent",
+	"property.time-to-beat": "Time to beat",
+	"property.timezone": "Timezone",
+	"property.timezone-hint": "Timezone the export's dates were recorded in",
+	"property.title-completions": "Title completions",
+	"property.tmdb-access-token": "TMDB access token",
+	"property.tmdb-access-token-hint": "Access token used to access TMDB metadata",
+	"property.token": "Token",
+	"property.total": "Total",
+	"property.total-episodes": "Total episodes",
+	"property.total-seasons": "Total seasons",
+	"property.trakt-client-id": "Trakt client ID",
+	"property.trakt-client-id-hint": "Client ID used to import data from Trakt",
+	"property.tvdb-api-key": "TVDB API key",
+	"property.tvdb-api-key-hint": "API key used to access TVDB metadata",
+	"property.twitch-client-id": "Twitch client ID",
+	"property.twitch-client-id-hint": "Client ID used to access IGDB metadata",
+	"property.twitch-client-secret": "Twitch client secret",
+	"property.twitch-client-secret-hint": "Client secret used to access IGDB metadata",
+	"property.type": "Type",
+	"property.uncredited-appearance": "Uncredited appearance",
+	"property.unit": "Unit",
+	"property.unlinked-creators": "Unlinked creators",
+	"property.upcoming-days-ahead": "Upcoming days ahead",
+	"property.upcoming-days-ahead-hint": "How many days ahead the home Upcoming rail looks.",
+	"property.username": "Username",
+	"property.username-hint": "Public Trakt profile slug",
+	"property.username-hint-2": "Jellyfin username",
+	"property.various-artists": "Various artists",
+	"property.viewing-country": "Viewing country",
+	"property.viewing-country-hint": "Filter Where to watch for movies and shows by this country.",
+	"property.volume-context": "Volume context",
+	"property.volumes": "Volumes",
+	"property.watch-providers": "Watch providers",
+	"property.watcharr-export": "Watcharr export",
+	"property.watcharr-export-hint": "Watcharr JSON export",
+	"property.watchlist-export": "Watchlist export",
+	"property.watchlist-export-hint": "Movary watchlist.csv export",
+	"property.website": "Website",
+	"property.year": "Year",
+	"provider.anilist.name": {
+		"message": "AniList",
+		"description": "Name of the AniList service; usually not translated."
+	},
+	"provider.audible.name": {
+		"message": "Audible",
+		"description": "Name of the Audible service; usually not translated."
+	},
+	"provider.giant-bomb.name": {
+		"message": "GiantBomb",
+		"description": "Name of the GiantBomb service; usually not translated."
+	},
+	"provider.google-books.name": {
+		"message": "Google Books",
+		"description": "Name of the Google Books service; usually not translated."
+	},
+	"provider.hardcover.name": {
+		"message": "Hardcover",
+		"description": "Name of the Hardcover service; usually not translated."
+	},
+	"provider.igdb.name": {
+		"message": "IGDB",
+		"description": "Name of the IGDB service; usually not translated."
+	},
+	"provider.itunes.name": {
+		"message": "iTunes",
+		"description": "Name of the iTunes service; usually not translated."
+	},
+	"provider.listen-notes.name": {
+		"message": "Listen Notes",
+		"description": "Name of the Listen Notes service; usually not translated."
+	},
+	"provider.manga-updates.name": {
+		"message": "MangaUpdates",
+		"description": "Name of the MangaUpdates service; usually not translated."
+	},
+	"provider.media-catalog.name": {
+		"message": "Media Catalog",
+		"description": "Name of the built-in catalog that supplies media genres."
+	},
+	"provider.metron.name": {
+		"message": "Metron",
+		"description": "Name of the Metron service; usually not translated."
+	},
+	"provider.music-brainz.name": {
+		"message": "MusicBrainz",
+		"description": "Name of the MusicBrainz service; usually not translated."
+	},
+	"provider.myanimelist.name": {
+		"message": "MyAnimeList",
+		"description": "Name of the MyAnimeList service; usually not translated."
+	},
+	"provider.openlibrary.name": {
+		"message": "OpenLibrary",
+		"description": "Name of the OpenLibrary service; usually not translated."
+	},
+	"provider.spotify.name": {
+		"message": "Spotify",
+		"description": "Name of the Spotify service; usually not translated."
+	},
+	"provider.tmdb.name": {
+		"message": "TMDB",
+		"description": "Name of the TMDB service; usually not translated."
+	},
+	"provider.tvdb.name": {
+		"message": "TVDB",
+		"description": "Name of the TVDB service; usually not translated."
+	},
+	"provider.vndb.name": {
+		"message": "VNDB",
+		"description": "Name of the VNDB service; usually not translated."
+	},
+	"provider.youtube-music.name": {
+		"message": "YouTube Music",
+		"description": "Name of the YouTube Music service; usually not translated."
+	},
+	"query-parameter.active-only": {
+		"message": "Active only",
+		"description": "Label of a query parameter that keeps only active activity entries."
+	},
+	"query-parameter.collection": {
+		"message": "Collection",
+		"description": "Label of a query parameter that selects one collection."
+	},
+	"query-parameter.credit-type": {
+		"message": "Credit type",
+		"description": "Label of a query parameter that selects how a person is credited."
+	},
+	"query-parameter.days-ahead": {
+		"message": "Days ahead",
+		"description": "Label of a query parameter holding how many days ahead to look."
+	},
+	"query-parameter.entities": {
+		"message": "Entities",
+		"description": "Label of a query parameter that selects entries."
+	},
+	"query-parameter.entity": {
+		"message": "Entity",
+		"description": "Label of a query parameter that selects one entry."
+	},
+	"query-parameter.episode": {
+		"message": "Episode",
+		"description": "Label of a query parameter that selects one episode."
+	},
+	"query-parameter.episode-title": {
+		"message": "Episode title",
+		"description": "Label of a query parameter holding an episode title."
+	},
+	"query-parameter.episodes": {
+		"message": "Episodes",
+		"description": "Label of a query parameter that selects episodes."
+	},
+	"query-parameter.event": {
+		"message": "Event",
+		"description": "Label of a query parameter that selects one event."
+	},
+	"query-parameter.events": {
+		"message": "Events",
+		"description": "Label of a query parameter that selects events."
+	},
+	"query-parameter.group": {
+		"message": "Group",
+		"description": "Label of a query parameter that selects one media group."
+	},
+	"query-parameter.hour": {
+		"message": "Hour",
+		"description": "Label of a query parameter holding an hour of the day."
+	},
+	"query-parameter.id": {
+		"message": "ID",
+		"description": "Label of a query parameter holding one identifier."
+	},
+	"query-parameter.ids": {
+		"message": "IDs",
+		"description": "Label of a query parameter holding identifiers."
+	},
+	"query-parameter.media-type": {
+		"message": "Media type",
+		"description": "Label of a query parameter that selects one kind of media."
+	},
+	"query-parameter.media-types": {
+		"message": "Media types",
+		"description": "Label of a query parameter that selects kinds of media."
+	},
+	"query-parameter.one-per-title": {
+		"message": "One per title",
+		"description": "Label of a query parameter that keeps only the next release of each title."
+	},
+	"query-parameter.parent": {
+		"message": "Parent",
+		"description": "Label of a query parameter that selects the show, podcast or other entry containing an item."
+	},
+	"query-parameter.rank-by": {
+		"message": "Rank by",
+		"description": "Label of a query parameter choosing how titles are ranked."
+	},
+	"query-parameter.reference": {
+		"message": "Reference",
+		"description": "Label of a query parameter choosing the kind of season or episode reference."
+	},
+	"query-parameter.search": {
+		"message": "Search",
+		"description": "Label of a query parameter holding search text."
+	},
+	"query-parameter.season": {
+		"message": "Season",
+		"description": "Label of a query parameter holding a season number."
+	},
+	"query-parameter.show": {
+		"message": "Show",
+		"description": "Label of a query parameter that selects one show."
+	},
+	"query-parameter.source-account": {
+		"message": "Source account",
+		"description": "Label of a query parameter that selects an account at an external service."
+	},
+	"query-parameter.source-entries": {
+		"message": "Source entries",
+		"description": "Label of a query parameter that selects entries at an external service."
+	},
+	"query-parameter.states": {
+		"message": "States",
+		"description": "Label of a query parameter that selects library states."
+	},
+	"query-parameter.title": {
+		"message": "Title",
+		"description": "Label of a query parameter that selects one media title."
+	},
+	"query-parameter.titles": {
+		"message": "Titles",
+		"description": "Label of a query parameter that selects media titles."
+	},
+	"recommendations.clear-search": "Clear search",
+	"recommendations.error-account": "Your account could not be loaded. Check your connection and try again.",
+	"recommendations.error-collection": "This collection could not be loaded. Check your connection and try again.",
+	"recommendations.error-list": "These recommendations could not be loaded. Check your connection and try again.",
+	"recommendations.error-more": "The next recommendations could not be loaded. Check your connection and try again.",
+	"recommendations.error-more-title": "Unable to load more recommendations",
+	"recommendations.error-title": "Unable to load recommendations",
+	"recommendations.from": {
+		"message": "From {name}",
+		"description": "{name} is the name of the collection the recommendations are for."
+	},
+	"recommendations.loading": "Loading recommendations",
+	"recommendations.no-match": {
+		"message": "No recommendations match “{search}”",
+		"description": "{search} is the text the user searched for."
+	},
+	"recommendations.none-description": "None of the titles in this collection have provider suggestions. Add titles from a provider, or refresh a title to fetch its suggestions.",
+	"recommendations.none-title": "No suggestions yet",
+	"recommendations.nothing-description": "Every title suggested by this collection is already in it.",
+	"recommendations.nothing-title": "Nothing new to recommend",
+	"recommendations.pro-required": {
+		"message": "Recommending titles for this collection requires Ryot Pro.",
+		"description": "Ryot Pro is a product name and is not translated."
+	},
+	"recommendations.search": "Search recommendations",
+	"recommendations.sources": {
+		"message": "Suggested by {count, plural, one {# title} other {# titles}} in this collection",
+		"description": "{count} is the number of titles in the collection that suggested recommendations."
+	},
+	"recommendations.suggested-by": {
+		"message": " · Suggested by {count, number}",
+		"description": "Shown after a recommendation. {count} is how many titles in the collection suggested it."
+	},
+	"recommendations.unavailable-detail": "This collection was deleted or you no longer have access to it.",
+	"recommendations.unavailable-title": "Collection unavailable",
+	"record.actions": "Record actions",
+	"record.delete-failed": "Couldn't start deleting. Try again.",
+	"record.delete-records": {
+		"message": "{count, plural, one {Delete record} other {Delete # records}}",
+		"description": "{count} is the number of records."
+	},
+	"record.delete-records-detail": {
+		"message": "{count, plural, one {This record will be removed from your history permanently.} other {This row stands for # records. All of them will be removed from your history permanently.}}",
+		"description": "{count} is the number of records."
+	},
+	"record.delete-records-title": {
+		"message": "{count, plural, one {Delete this record?} other {Delete # records?}}",
+		"description": "{count} is the number of records."
+	},
+	"record.delete-review": "Delete review",
+	"record.delete-review-detail": "This review will be removed permanently.",
+	"record.delete-review-title": "Delete this review?",
+	"record.edit": "Edit",
+	"refresh.failed": "Could not request a provider refresh. Try again.",
+	"refresh.idle-label": "Refresh provider data",
+	"refresh.last-checked": {
+		"message": "Last checked: {time}",
+		"description": "{time} is the formatted date and time of the last check."
+	},
+	"refresh.queued": "Queued",
+	"refresh.queued-label": "Refresh queued",
+	"refresh.retrying": "Retrying",
+	"refresh.retrying-label": "Retrying provider refresh",
+	"refresh.running": "Refreshing",
+	"refresh.running-label": "Refreshing provider data",
+	"rejection.activity.cannot-complete-directly": "This media type cannot be completed directly.",
+	"rejection.activity.entity-not-found": "This media item no longer exists.",
+	"rejection.activity.episode-move-other-parent": {
+		"message": "Records can only move to another episode of the same {parent, select, show {show} podcast {podcast} other {podcast}}.",
+		"description": "Shown when a record is moved to an episode of a different series. {parent} is the kind of series the record belongs to: show or podcast."
+	},
+	"rejection.activity.episode-move-unsupported": "Only watch and listen records can move to another episode.",
+	"rejection.activity.episode-parent-mismatch": "Every episode must belong to the selected show or podcast.",
+	"rejection.activity.episode-unavailable": "That episode isn't available.",
+	"rejection.activity.episodes-unsupported": "Episodes can only be logged on shows and podcasts.",
+	"rejection.activity.field-locked": {
+		"message": "{field, select, timeSpent {Time spent} startedOn {A start date} dateUnknown {An unknown date} consumedOn {Where it was consumed} progress {Progress} other {Progress}} can't be changed on this record.",
+		"description": "Shown when an edit changes a field this kind of record does not allow changing. {field} names the field: time spent, a start date, an unknown date, the place the item was consumed, or progress. Each choice begins the sentence."
+	},
+	"rejection.activity.no-progress": "This media type has no progress.",
+	"rejection.activity.nothing-to-change": "Nothing to change on this record.",
+	"rejection.activity.pages-and-percent": "Supply pages or percent, not both.",
+	"rejection.activity.pages-conflict": "Pages require a book or comic book and cannot be combined with another progress amount.",
+	"rejection.consumption.basis-invalid": "How this record's progress is estimated doesn't fit this media type.",
+	"rejection.consumption.basis-missing": "This record is missing how its progress is estimated.",
+	"rejection.consumption.basis-required-for-completion": "Automatic completions need to say how progress is estimated.",
+	"rejection.consumption.basis-required-for-import": "Imported records need to say how progress is estimated.",
+	"rejection.consumption.date-out-of-range": "The calendar date must be within one day of when this happened.",
+	"rejection.consumption.date-unknown-conflict": "A record can't have a calendar date and an unknown date at the same time.",
+	"rejection.consumption.item-progress": "A single item record can't include progress.",
+	"rejection.consumption.multiple-progress": "Supply only one progress amount.",
+	"rejection.consumption.pages-unsupported": "Pages can only be recorded for books and comic books.",
+	"rejection.consumption.source-progress-immutable": "The progress this record was imported with can't be changed.",
+	"rejection.consumption.source-run-immutable": "The import this record came from can't be changed.",
+	"rejection.episode.parent-not-found": "The show or podcast this episode belongs to couldn't be found.",
+	"rejection.position.episode-not-whole": "Episode numbers are whole numbers.",
+	"rejection.position.unsupported": "This media type does not track this position.",
+	"rejection.position.volume-without-chapter": "Volume context belongs to a chapter position.",
+	"rejection.progress.percent-only": "This media type tracks progress as a percent.",
+	"rejection.progress.position-only": "This media type tracks progress as a position.",
+	"rejection.record.activity-only-delete": "Only activity records can be deleted here.",
+	"rejection.record.activity-only-edit": "Only activity records can be edited here.",
+	"rejection.record.change-refused": "This change could not be saved.",
+	"rejection.record.not-found": "This record no longer exists.",
+	"rejection.record.review-only-delete": "Only reviews can be deleted here.",
+	"rejection.record.review-only-edit": "Only reviews can be edited here.",
+	"rejection.record.stale": "This record changed elsewhere. Reload and try again.",
+	"rejection.record.uneditable": "This record can't be edited.",
+	"rejection.review.consumption-not-found": "The record this review is about no longer exists.",
+	"rejection.review.consumption-not-reviewable": "A review can only be about a completion, progress or status record.",
+	"rejection.review.consumption-other-entity": "A review can only be about a record of what it reviews.",
+	"rejection.review.not-found": "This review no longer exists.",
+	"rejection.review.target-not-found": "This review target no longer exists.",
+	"rejection.review.too-many-linked": "Too many reviews are about this record to move it.",
+	"rejection.user-data.child-mapping-conflict": "Some child data has no unique match. Refresh the media items and try again.",
+	"rejection.user-data.command-identity-conflict": "This request was already used for different data. Start a new request.",
+	"rejection.user-data.entity-not-found": "One of these media items no longer exists. Refresh and try again.",
+	"rejection.user-data.identity-mismatch": "These items do not match. Choose a destination with the same identity.",
+	"rejection.user-data.media-type-mismatch": "Choose two items with the same media type.",
+	"rejection.user-data.operation-denied": "Your data cannot be changed for this media item.",
+	"rejection.user-data.relationship-merge-failed": "Some related data could not be changed. Refresh and try again.",
+	"rejection.user-data.required-field": "Required media item details are missing. Refresh and try again.",
+	"rejection.user-data.same-entity-merge": "Choose a different item as the merge destination.",
+	"rejection.user-data.state-conflict": "Your data changed. Refresh this page and try again.",
+	"relationship-schema.anime-credits.name": {
+		"message": "Anime credits",
+		"description": "Name of the links between Anime and the people or companies credited on it."
+	},
+	"relationship-schema.audiobook-credits.name": {
+		"message": "Audiobook credits",
+		"description": "Name of the links between a audiobook and the people or companies credited on it."
+	},
+	"relationship-schema.audiobook-group-to-audiobook.name": {
+		"message": "Audiobooks",
+		"description": "Name of the links between an audiobook series and the items it contains; plural noun."
+	},
+	"relationship-schema.book-credits.name": {
+		"message": "Book credits",
+		"description": "Name of the links between a book and the people or companies credited on it."
+	},
+	"relationship-schema.book-group-to-book.name": {
+		"message": "Books",
+		"description": "Name of the links between a book series and the items it contains; plural noun."
+	},
+	"relationship-schema.comic-book-credits.name": {
+		"message": "Comic book credits",
+		"description": "Name of the links between a comic book and the people or companies credited on it."
+	},
+	"relationship-schema.comic-book-group-to-comic-book.name": {
+		"message": "Comic books",
+		"description": "Name of the links between a comic book series and the items it contains; plural noun."
+	},
+	"relationship-schema.genres.name": {
+		"message": "Genres",
+		"description": "Name of the links between a media item and its genres; plural noun."
+	},
+	"relationship-schema.in-media-library.name": {
+		"message": "In Media Library",
+		"description": "Name of the link between a media item and the user's media library."
+	},
+	"relationship-schema.manga-credits.name": {
+		"message": "Manga credits",
+		"description": "Name of the links between Manga and the people or companies credited on it."
+	},
+	"relationship-schema.media-monitoring.name": {
+		"message": "Media Monitoring",
+		"description": "Name of the link recording that the user follows changes to a media item."
+	},
+	"relationship-schema.media-suggestion.name": {
+		"message": "Media Suggestion",
+		"description": "Name of the link recording a suggested media item."
+	},
+	"relationship-schema.media-trending.name": {
+		"message": "Media Trending",
+		"description": "Name of the link recording a media item that is currently trending."
+	},
+	"relationship-schema.movie-credits.name": {
+		"message": "Movie credits",
+		"description": "Name of the links between a movie and the people or companies credited on it."
+	},
+	"relationship-schema.movie-group-to-movie.name": {
+		"message": "Movies",
+		"description": "Name of the links between a movie collection and the items it contains; plural noun."
+	},
+	"relationship-schema.music-credits.name": {
+		"message": "Music credits",
+		"description": "Name of the links between a music and the people or companies credited on it."
+	},
+	"relationship-schema.music-group-credits.name": {
+		"message": "Music group credits",
+		"description": "Name of the links between a music group and the people or companies credited on it."
+	},
+	"relationship-schema.music-group-to-music.name": {
+		"message": "Music",
+		"description": "Name of the links between a music album and the items it contains; plural noun."
+	},
+	"relationship-schema.podcast-credits.name": {
+		"message": "Podcast credits",
+		"description": "Name of the links between a podcast and the people or companies credited on it."
+	},
+	"relationship-schema.podcast-to-podcast-episode.name": {
+		"message": "Podcast to Podcast Episode",
+		"description": "Name of the link between a podcast and one of its episodes."
+	},
+	"relationship-schema.show-credits.name": {
+		"message": "Show credits",
+		"description": "Name of the links between a show and the people or companies credited on it."
+	},
+	"relationship-schema.show-episode-credits.name": {
+		"message": "Show episode credits",
+		"description": "Name of the links between a show episode and the people or companies credited on it."
+	},
+	"relationship-schema.show-season-to-show-episode.name": {
+		"message": "Show Season to Show Episode",
+		"description": "Name of the link between a show season and one of its episodes."
+	},
+	"relationship-schema.show-to-show-season.name": {
+		"message": "Show to Show Season",
+		"description": "Name of the link between a show and one of its seasons."
+	},
+	"relationship-schema.video-game-credits.name": {
+		"message": "Video game credits",
+		"description": "Name of the links between a video game and the people or companies credited on it."
+	},
+	"relationship-schema.video-game-group-credits.name": {
+		"message": "Video game group credits",
+		"description": "Name of the links between a video game group and the people or companies credited on it."
+	},
+	"relationship-schema.video-game-group-to-video-game.name": {
+		"message": "Video games",
+		"description": "Name of the links between a video game collection and the items it contains; plural noun."
+	},
+	"relationship-schema.video-game-to-video-game.name": {
+		"message": "Related games",
+		"description": "Name of the links between a video game and related games, such as ports, remakes or editions."
+	},
+	"relationship-schema.visual-novel-credits.name": {
+		"message": "Visual novel credits",
+		"description": "Name of the links between a visual novel and the people or companies credited on it."
+	},
+	"reminders.failed": "Unable to open reminders. Try again.",
+	"reminders.menu": "Reminders",
+	"review.about": {
+		"message": "About",
+		"description": "Label of the control that selects which record a review is about."
+	},
+	"review.about-none": "Not a specific time",
+	"review.about-pending": "Saving your activity…",
+	"review.button": { "message": "Review", "description": "Button that opens the review form." },
+	"review.edit": "Edit review",
+	"review.episodes-none": "There are no episodes to review yet.",
+	"review.label": {
+		"message": "Review",
+		"description": "Short name of a review, shown while it is saved."
+	},
+	"review.mode": {
+		"message": "{mode, select, season {Season} episode {Episode} position {Specific part} other {Whole title}}",
+		"description": "Choice of what a review is about. {mode} is the choice."
+	},
+	"review.mode-whole": {
+		"message": "{kind, select, book {Whole book} show {Whole show} anime {Whole anime} movie {Whole movie} manga {Whole manga} music {Whole track} podcast {Whole podcast} audiobook {Whole audiobook} comic_book {Whole comic book} video_game {Whole game} visual_novel {Whole visual novel} other {Whole title}}",
+		"description": "Choice to review the whole title. {kind} is the kind of media."
+	},
+	"review.of": {
+		"message": "Review of {subject}",
+		"description": "{subject} names what is reviewed."
+	},
+	"review.of-label": {
+		"message": "Review of",
+		"description": "Label of the control that selects what a review is about."
+	},
+	"review.rate-or-review": "Rate or review",
+	"review.reviewed": {
+		"message": "Reviewed",
+		"description": "Badge on a record that has a review."
+	},
+	"review.save-failed": "Couldn't start saving your review. Try again.",
+	"review.spoiler-label": "Spoiler — show review",
+	"review.spoiler-show": "Show spoiler review",
+	"saved-view.all-anime.name": "All Anime",
+	"saved-view.all-audiobook-series.name": "All Audiobook Series",
+	"saved-view.all-audiobooks.name": "All Audiobooks",
+	"saved-view.all-book-series.name": "All Book Series",
+	"saved-view.all-books.name": "All Books",
+	"saved-view.all-comic-book-series.name": "All Comic Book Series",
+	"saved-view.all-comic-books.name": "All Comic Books",
+	"saved-view.all-companies.name": {
+		"message": "All Companies",
+		"description": "Name of a saved list showing every item of this kind in the user's library."
+	},
+	"saved-view.all-manga.name": "All Manga",
+	"saved-view.all-movie-series.name": "All Movie Series",
+	"saved-view.all-movies.name": "All Movies",
+	"saved-view.all-music-albums.name": "All Music Albums",
+	"saved-view.all-music.name": "All Music",
+	"saved-view.all-people.name": {
+		"message": "All People",
+		"description": "Name of a saved list showing every item of this kind in the user's library."
+	},
+	"saved-view.all-podcasts.name": "All Podcasts",
+	"saved-view.all-shows.name": "All Shows",
+	"saved-view.all-video-game-franchises.name": "All Video Game Franchises",
+	"saved-view.all-video-games.name": "All Video Games",
+	"saved-view.all-visual-novels.name": "All Visual Novels",
+	"section.load-failed": "Unable to load this section.",
+	"section.loading": {
+		"message": "Loading {title}",
+		"description": "{title} is the name of the section."
+	},
+	"show.add-season": "Add season",
+	"show.aired-watched": {
+		"message": "{watched, number} of {aired, plural, one {# aired episode} other {# aired episodes}} watched",
+		"description": "{watched} is the number of aired episodes watched and {aired} is the number of aired episodes."
+	},
+	"show.edit-season": "Edit season",
+	"show.empty-detail": "This show has no seasons or episodes recorded yet.",
+	"show.empty-title": "No episodes yet",
+	"show.episode-origin": {
+		"message": "S{season, number} • E{episode, number}",
+		"description": "Short code of a show episode. {season} is the season number and {episode} is the episode number."
+	},
+	"show.episode-origin-specials": {
+		"message": "Specials • E{episode, number}",
+		"description": "Short code of an episode in the special episodes of a show. {episode} is the episode number."
+	},
+	"show.group-empty": "No episodes have been recorded for this group yet.",
+	"show.group-label": "Episode group",
+	"show.group-loading-detail": "Fetching this group's episodes.",
+	"show.meta": {
+		"message": "{first} • {second}",
+		"description": "Two facts about a season shown side by side. {first} is the release date and {second} is the episode progress."
+	},
+	"show.order-aired": "Aired order",
+	"show.order-empty-detail": "This episode order has no groups recorded yet.",
+	"show.order-label": "Episode order",
+	"show.order-restoring": "Restoring your episode order.",
+	"show.progress-complete": {
+		"message": "{watched, plural, one {# episode} other {# episodes}} watched, complete",
+		"description": "{watched} is the number of episodes watched."
+	},
+	"show.progress-label": {
+		"message": "{name} viewing progress",
+		"description": "{name} is the show title."
+	},
+	"show.progress-remaining": {
+		"message": "{watched, plural, one {# episode} other {# episodes}} watched, {remaining, plural, one {# episode} other {# episodes}} remaining",
+		"description": "{watched} and {remaining} are numbers of episodes."
+	},
+	"show.released": {
+		"message": "Released {date}",
+		"description": "{date} is the formatted release date."
+	},
+	"show.season-count": {
+		"message": "{count, plural, one {# season} other {# seasons}}",
+		"description": "{count} is the number of seasons."
+	},
+	"show.season-empty": "No episodes have been recorded for this season yet.",
+	"show.season-failed": "Unable to load this season",
+	"show.season-loading": "Loading season…",
+	"show.season-loading-detail": "Fetching this season's episodes.",
+	"show.seasons-error-malformed": "These seasons came back in a form that could not be displayed. Try again later.",
+	"show.seasons-error-title": "Unable to load episodes",
+	"show.seasons-error-transport": "The seasons could not be loaded. Check your connection and try again.",
+	"show.seasons-loading-detail": "Fetching the seasons for this show.",
+	"signal-schema.company-media-associated.name": {
+		"message": "Company Media Associated",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.company-media-group-associated.name": {
+		"message": "Company Media Group Associated",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-content-count-changed.name": {
+		"message": "Media Content Count Changed",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-episode-discovered.name": {
+		"message": "Media Episode Discovered",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-episode-images-changed.name": {
+		"message": "Media Episode Images Changed",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-episode-name-changed.name": {
+		"message": "Media Episode Name Changed",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-episodes-available.name": {
+		"message": "Media Episodes Available",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-progress-stale.name": {
+		"message": "Media Progress Stale",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-release-date-changed.name": {
+		"message": "Media Release Date Changed",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-released.name": {
+		"message": "Media Released",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-season-count-changed.name": {
+		"message": "Media Season Count Changed",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.media-status-changed.name": {
+		"message": "Media Status Changed",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.person-media-associated.name": {
+		"message": "Person Media Associated",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.person-media-group-associated.name": {
+		"message": "Person Media Group Associated",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"signal-schema.review-created.name": {
+		"message": "Review Created",
+		"description": "Name of a notification type; describes what happened."
+	},
+	"source.page": "Source page",
+	"source.provider-page": {
+		"message": "{provider} page",
+		"description": "Link to a title's page at its data provider. {provider} is the provider name."
+	},
+	"summary.aired-complete": {
+		"message": "{watched, number} of {aired, number} complete",
+		"description": "Episode progress. {watched} is episodes watched and {aired} is episodes aired."
+	},
+	"summary.error-display-detail": "The server returned details that could not be displayed. Try again later.",
+	"summary.error-display-title": "Unable to display these details",
+	"summary.error-load-detail": "The server could not load these details. Check your connection and try again.",
+	"summary.error-load-title": "Unable to load these details",
+	"summary.less": { "message": "Less", "description": "Button that collapses a long description." },
+	"summary.lifecycle": {
+		"message": "{state, select, on_hold {On hold} dropped {Dropped} complete {Complete} backlog {In backlog} untracked {Not tracked} in_progress {In progress} caught_up {Caught up} other {Not tracked}}",
+		"description": "Status of a title in the user's library. {state} is the status."
+	},
+	"summary.loading-detail": "Fetching the latest details.",
+	"summary.loading-title": "Loading details…",
+	"summary.more": { "message": "More", "description": "Button that expands a long description." },
+	"summary.more-genres": "More genres",
+	"summary.rating-from": {
+		"message": "{provider} rating",
+		"description": "{provider} is the data provider that supplied the rating."
+	},
+	"summary.unavailable-missing": "This entity no longer exists.",
+	"summary.unavailable-title": "Unavailable",
+	"summary.unavailable-unsupported": "This entity is of a different type and cannot be opened here.",
+	"summary.upcoming": {
+		"message": "{count, number} upcoming",
+		"description": "{count} is the number of episodes not yet aired."
+	},
+	"table-column.production-status": {
+		"message": "Status",
+		"description": "Column with the production status of a show, such as ended or returning."
+	},
+	"table-column.user-rating": "Your rating",
+	"table-column.year": "Year",
+	"tabs.overview": "Overview",
+	"timeline.collection-added": {
+		"message": "Added to the {name} collection",
+		"description": "{name} is the name of a collection."
+	},
+	"timeline.collection-removed": {
+		"message": "Removed from the {name} collection",
+		"description": "{name} is the name of a collection."
+	},
+	"timeline.error-malformed": "This activity came back in a form that could not be displayed. Try again later.",
+	"timeline.error-title": "Unable to load activity",
+	"timeline.error-transport": "Your recorded activity could not be loaded. Check your connection and try again.",
+	"timeline.latest": {
+		"message": "Latest",
+		"description": "Label of the date of the most recent activity."
+	},
+	"timeline.span": {
+		"message": "Span",
+		"description": "Label of the length of time activity covers."
+	},
+	"timeline.span-days": {
+		"message": "{count, plural, one {# day} other {# days}}",
+		"description": "{count} is the number of days."
+	},
+	"timeline.span-range": {
+		"message": "{start} – {end}",
+		"description": "A range of dates. {start} is the first date and {end} is the last date."
+	},
+	"user-data.error-retry": "Couldn't finish this change. Retry to confirm the result safely.",
+	"user-data.error-transport": "Couldn't reach the server. Retry to finish this change safely.",
+	"user-data.menu": {
+		"message": "Your data",
+		"description": "Label of the menu with actions on the user's data for one title."
+	},
+	"user-data.merge": "Merge my data into…",
+	"user-data.merge-action": "Merge data",
+	"user-data.merge-detail": {
+		"message": "Merge your data from “{name}” into “{target}”? Your history, reviews, ownership, monitoring, collection memberships, and child data move. Media metadata remains on both items. Integrations may restore data.",
+		"description": "{name} is the title being merged and {target} is the destination title."
+	},
+	"user-data.merge-title": "Merge your media data?",
+	"user-data.merging": "Merging…",
+	"user-data.pick-different": "Choose a different media item as the merge destination.",
+	"user-data.pick-one": "Select exactly one merge destination.",
+	"user-data.pick-same-type": "Choose an existing item of the same media type.",
+	"user-data.picker-failed": "Couldn't open the entity picker. Try again.",
+	"user-data.remove": "Remove from library",
+	"user-data.remove-action": "Remove data",
+	"user-data.remove-detail": {
+		"message": "Remove all your data for “{name}”? This removes your history, reviews, ownership, monitoring, collection memberships, and child data. Media metadata remains. Integrations may restore data.",
+		"description": "{name} is the title whose data is removed."
+	},
+	"user-data.remove-title": "Remove your media data?",
+	"user-data.removing": "Removing…",
+	"user-data.retry-merge": "Retry merge",
+	"user-data.retry-removal": "Retry removal",
+	"user-setting.consumed-on.anime": "Where you consume: Anime",
+	"user-setting.consumed-on.anime-hint": "Sources suggested when you log anime activity.",
+	"user-setting.consumed-on.audiobook": "Where you consume: Audiobook",
+	"user-setting.consumed-on.audiobook-hint": "Sources suggested when you log audiobook activity.",
+	"user-setting.consumed-on.book": "Where you consume: Book",
+	"user-setting.consumed-on.book-hint": "Sources suggested when you log book activity.",
+	"user-setting.consumed-on.comic-book": "Where you consume: Comic book",
+	"user-setting.consumed-on.comic-book-hint": "Sources suggested when you log comic book activity.",
+	"user-setting.consumed-on.manga": "Where you consume: Manga",
+	"user-setting.consumed-on.manga-hint": "Sources suggested when you log manga activity.",
+	"user-setting.consumed-on.movie": "Where you consume: Movie",
+	"user-setting.consumed-on.movie-hint": "Sources suggested when you log movie activity.",
+	"user-setting.consumed-on.music": "Where you consume: Music",
+	"user-setting.consumed-on.music-hint": "Sources suggested when you log music activity.",
+	"user-setting.consumed-on.podcast": "Where you consume: Podcast",
+	"user-setting.consumed-on.podcast-hint": "Sources suggested when you log podcast activity.",
+	"user-setting.consumed-on.show": "Where you consume: Show",
+	"user-setting.consumed-on.show-hint": "Sources suggested when you log show activity.",
+	"user-setting.consumed-on.video-game": "Where you consume: Video game",
+	"user-setting.consumed-on.video-game-hint": "Sources suggested when you log video game activity.",
+	"user-setting.consumed-on.visual-novel": "Where you consume: Visual novel",
+	"user-setting.consumed-on.visual-novel-hint": "Sources suggested when you log visual novel activity.",
+	"video-game.original-of": {
+		"message": "{kind, select, DLC {DLC for {name}} Mod {Mod of {name}} Port {Port of {name}} Remake {Remake of {name}} Edition {Edition of {name}} Remaster {Remaster of {name}} Expansion {Expansion of {name}} Expanded_Game {Expanded game of {name}} Standalone_Expansion {Standalone expansion of {name}} related {Related to {name}} other {Related to {name}}}",
+		"description": "Heading of the game a video game derives from. {kind} is how it derives, with spaces in its name replaced by underscores, and {name} is the title of the original."
+	},
+	"video-game.original-of-custom": {
+		"message": "{kind} of {name}",
+		"description": "Heading of the game a video game derives from, for a kind of relation only the provider names. {kind} is that kind as the provider wrote it and {name} is the title of the original."
+	},
+	"video-game.pace": {
+		"message": "{pace, select, hastily {Rushed} normally {Main story} completely {Completionist} other {Main story}}",
+		"description": "Label of how long a game takes at one pace of play. {pace} is the pace."
+	},
+	"video-game.platforms": "Platforms",
+	"video-game.related": {
+		"message": "Related",
+		"description": "Name of a relation between two video games when the provider gives no more specific kind."
+	},
+	"video-game.relation-plural": {
+		"message": "{kind, select, DLC {DLC} Mod {Mods} Port {Ports} Remake {Remakes} Edition {Editions} Remaster {Remasters} Expansion {Expansions} Expanded_Game {Expanded games} Standalone_Expansion {Standalone expansions} other {Related}}",
+		"description": "Heading of the video games related to one by a kind of relation. {kind} is the kind, with spaces in its name replaced by underscores."
+	},
+	"video-game.release-date-region": {
+		"message": "{date} · {region}",
+		"description": "When and where a platform release happened. {date} is the formatted release date and {region} is the release region."
+	},
+	"video-game.time-to-beat": "How long to beat",
+	"watch.offer": {
+		"message": "{offer, select, buy {Buy} rent {Rent} free {Free} stream {Stream} ads {Free with ads} other {Stream}}",
+		"description": "Way a streaming title can be obtained. {offer} is the way."
+	}
+}

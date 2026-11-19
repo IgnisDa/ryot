@@ -1,0 +1,356 @@
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	type ChangeReminderBody,
+	type CreateReminderBody,
+	type EditReminderBody,
+	REMINDER_MESSAGE_MAX_LENGTH,
+	ReminderCommandResult,
+	ReminderConflict,
+	ReminderInvalid,
+	ReminderNotFound,
+} from "@ryot-app/contract/modules/reminders/schemas";
+import { AutomationTriggerId, EntityId, ReminderId } from "@ryot-app/contract/schema/brands";
+import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Context, DateTime, Effect, Layer, Option } from "effect";
+
+import { AutomationRunRepository } from "#modules/automations/run-repository";
+import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
+import { AccountAdmission } from "#modules/mutations/account-admission";
+import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
+import { requireOpenSubmission } from "#modules/mutations/submission-window";
+import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+
+import { RemindersRepository } from "./repository";
+
+export class RemindersService extends Context.Service<RemindersService>()(
+	"@ryot-app/kernel-backend/modules/reminders/service/RemindersService",
+	{
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const config = yield* AppConfig;
+			const repository = yield* RemindersRepository;
+			const keys = yield* IdempotencyKeys.make;
+			const admission = yield* AccountAdmission.make;
+			const plugins = yield* PluginRepository;
+			const definitions = yield* DefinitionRepository;
+			const entities = yield* EntitiesRepository;
+			const graph = yield* EntityUserDataGraphRepository;
+			const notifications = yield* NotificationDeliveryRepository;
+			const triggers = yield* AutomationTriggerRepository;
+			const runs = yield* AutomationRunRepository;
+			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+				session.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+			const validateSchedule = Effect.fnUntraced(function* (input: {
+				dueAt: string;
+				message: string;
+				timezone: string;
+			}) {
+				if (input.message.length === 0 || input.message.length > REMINDER_MESSAGE_MAX_LENGTH) {
+					return yield* new ReminderInvalid({ reason: "invalid-message" });
+				}
+				if (!isNamedTimeZone(input.timezone)) {
+					return yield* new ReminderInvalid({ reason: "invalid-timezone" });
+				}
+				const dueAt = DateTime.make(input.dueAt);
+				const now = yield* DateTime.now;
+				if (
+					Option.isNone(dueAt) ||
+					DateTime.toEpochMillis(dueAt.value) <= DateTime.toEpochMillis(now)
+				) {
+					return yield* new ReminderInvalid({ reason: "schedule-not-future" });
+				}
+				return DateTime.toDate(dueAt.value);
+			});
+			const validateScope = Effect.fnUntraced(function* (
+				user: CurrentUserValue,
+				input: Pick<CreateReminderBody, "entityId" | "parentEntityId">,
+			) {
+				yield* entities.lockUserDataReferences([
+					input.entityId,
+					...(input.parentEntityId === null ? [] : [input.parentEntityId]),
+				]);
+				const target = yield* entities.getByIdForUser({
+					userId: user.id,
+					entityId: input.entityId,
+				});
+				if (!target) {
+					return yield* new ReminderInvalid({ reason: "invalid-scope" });
+				}
+				const parents = yield* definitions.listUserStateParents(user.id, {
+					slug: target.entitySchemaSlug,
+					owner: definitionOwner(target.entitySchemaPluginId),
+				});
+				if (input.parentEntityId === null) {
+					if (parents.length > 0) {
+						return yield* new ReminderInvalid({ reason: "invalid-scope" });
+					}
+				} else {
+					const parent = yield* entities.getByIdForUser({
+						userId: user.id,
+						entityId: input.parentEntityId,
+					});
+					const declaration =
+						parent &&
+						parents.find(
+							(schema) =>
+								schema.pluginId === parent.entitySchemaPluginId &&
+								schema.slug === parent.entitySchemaSlug,
+						);
+					if (!parent || !declaration) {
+						return yield* new ReminderInvalid({ reason: "invalid-scope" });
+					}
+					let found = false;
+					for (const child of declaration.userState?.children ?? []) {
+						if (
+							child.entitySchemaSlug === target.entitySchemaSlug &&
+							(yield* graph.listChildren({
+								child,
+								userId: user.id,
+								entityId: parent.id,
+								pluginId: parent.entitySchemaPluginId,
+							})).some(({ id }) => id === target.id)
+						) {
+							found = true;
+						}
+					}
+					if (!found) {
+						return yield* new ReminderInvalid({ reason: "invalid-scope" });
+					}
+				}
+				return target;
+			});
+			const lockCurrent = Effect.fnUntraced(function* (
+				user: CurrentUserValue,
+				id: ReminderId,
+				revision: number,
+			) {
+				const captured = yield* repository.findForUser(user.id, id);
+				if (captured?.removedAt !== null) {
+					return yield* new ReminderNotFound({ id });
+				}
+				if (captured.revision !== revision) {
+					return yield* new ReminderConflict({ reason: "stale-revision" });
+				}
+				yield* entities.lockUserDataReferences(
+					[captured.entityId, captured.parentEntityId]
+						.filter((entityId) => entityId !== null)
+						.map((entityId) => EntityId.make(entityId)),
+				);
+				const current = yield* repository.lockForUser(user.id, id);
+				if (current?.removedAt !== null) {
+					return yield* new ReminderNotFound({ id });
+				}
+				if (current.revision !== revision) {
+					return yield* new ReminderConflict({ reason: "stale-revision" });
+				}
+				return current;
+			});
+			const create = Effect.fn("RemindersService.create")(function* (
+				user: CurrentUserValue,
+				body: CreateReminderBody,
+			) {
+				yield* requireOpenSubmission(body.submittedAt);
+				const { idempotencyKey, submittedAt: _submittedAt, ...request } = body;
+				const input = { ...request, message: body.message.trim() };
+				const identity = idempotencyIdentity({
+					request: input,
+					userId: user.id,
+					key: idempotencyKey,
+					kind: "reminder:create",
+				});
+				return yield* transaction(
+					keys
+						.once(
+							identity,
+							ReminderCommandResult,
+							Effect.gen(function* () {
+								yield* admission.admitAccount(user.id);
+								yield* plugins.lockIngestionShared([user.id]);
+								const dueAt = yield* validateSchedule(input);
+								if (input.replaces !== null) {
+									const prior = yield* repository.findForUser(user.id, input.replaces.id);
+									if (
+										!prior ||
+										prior.entityId !== input.entityId ||
+										prior.parentEntityId !== input.parentEntityId
+									) {
+										return yield* new ReminderInvalid({ reason: "invalid-scope" });
+									}
+								}
+								const target = yield* validateScope(user, input);
+								const now = yield* DateTime.nowAsDate;
+								const id = ReminderId.make(
+									`reminder_${sha256Base64Url(stableStringify([identity.userId, identity.key]))}`,
+								);
+								if (input.replaces !== null) {
+									const prior = yield* lockCurrent(
+										user,
+										input.replaces.id,
+										input.replaces.revision,
+									);
+									if (
+										prior.state === "processing" ||
+										prior.state === "scheduled" ||
+										prior.replacementId !== null ||
+										prior.entityId !== input.entityId ||
+										prior.parentEntityId !== input.parentEntityId
+									) {
+										return yield* new ReminderInvalid({ reason: "invalid-state" });
+									}
+									if (prior.state === "needs-scheduling") {
+										yield* repository.update(prior.id, {
+											updatedAt: now,
+											settledAt: now,
+											replacementId: id,
+											state: "cancelled",
+											reason: "cancelled",
+											revision: prior.revision + 1,
+										});
+									}
+								}
+								yield* repository.insert({
+									id,
+									dueAt,
+									createdAt: now,
+									updatedAt: now,
+									userId: user.id,
+									reconcileAt: dueAt,
+									state: "scheduled",
+									message: input.message,
+									entityId: input.entityId,
+									entityTitle: target.name,
+									timezone: input.timezone,
+									parentEntityId: input.parentEntityId,
+								});
+								return { id, revision: 1, sendStarted: false };
+							}),
+						)
+						.pipe(
+							Effect.catchTag(
+								"IdempotencyConflict",
+								() => new ReminderConflict({ reason: "submission-content-conflict" }),
+							),
+						),
+				);
+			});
+			const edit = Effect.fn("RemindersService.edit")(function* (
+				user: CurrentUserValue,
+				id: ReminderId,
+				body: EditReminderBody,
+			) {
+				const input = { ...body, message: body.message.trim() };
+				return yield* transaction(
+					Effect.gen(function* () {
+						yield* admission.admitAccount(user.id);
+						yield* plugins.lockIngestionShared([user.id]);
+						const existing = yield* repository.findForUser(user.id, id);
+						if (
+							existing?.removedAt === null &&
+							existing.revision > body.revision &&
+							existing.message === input.message &&
+							existing.timezone === input.timezone &&
+							existing.dueAt?.getTime() === Date.parse(input.dueAt)
+						) {
+							return { id, sendStarted: false, revision: existing.revision };
+						}
+						const current = yield* lockCurrent(user, id, body.revision);
+						if (current.state !== "scheduled") {
+							return yield* new ReminderInvalid({ reason: "invalid-state" });
+						}
+						const dueAt = yield* validateSchedule(input);
+						yield* repository.update(id, {
+							dueAt,
+							reconcileAt: dueAt,
+							message: input.message,
+							timezone: input.timezone,
+							revision: current.revision + 1,
+							updatedAt: yield* DateTime.nowAsDate,
+						});
+						return { id, sendStarted: false, revision: current.revision + 1 };
+					}),
+				);
+			});
+			const change = Effect.fnUntraced(function* (
+				user: CurrentUserValue,
+				id: ReminderId,
+				body: ChangeReminderBody,
+				remove: boolean,
+			) {
+				return yield* transaction(
+					Effect.gen(function* () {
+						yield* admission.admitAccount(user.id);
+						yield* plugins.lockIngestionShared([user.id]);
+						const existing = yield* repository.findForUser(user.id, id);
+						if (
+							existing !== null &&
+							existing.revision > body.revision &&
+							(remove ? existing.removedAt !== null : existing.state === "cancelled")
+						) {
+							return { id, sendStarted: false, revision: existing.revision };
+						}
+						const current = yield* lockCurrent(user, id, body.revision);
+						if (
+							remove
+								? current.state !== "settled" && current.state !== "cancelled"
+								: current.state === "settled" || current.state === "cancelled"
+						) {
+							return yield* new ReminderInvalid({ reason: "invalid-state" });
+						}
+						const now = yield* DateTime.nowAsDate;
+						yield* repository.update(id, {
+							updatedAt: now,
+							revision: current.revision + 1,
+							...(remove
+								? {
+										dueAt: null,
+										message: null,
+										removedAt: now,
+										dispatch: null,
+										entityId: null,
+										timezone: null,
+										entityTitle: null,
+										parentEntityId: null,
+										originalSchedule: null,
+									}
+								: { settledAt: now, dispatch: null, state: "cancelled", reason: "cancelled" }),
+						});
+						if (remove && current.triggerId !== null) {
+							const triggerId = AutomationTriggerId.make(current.triggerId);
+							yield* triggers.erasePayload(triggerId, now);
+							yield* runs.clearHistoryPayloads([triggerId]);
+						}
+						const sendStarted =
+							current.formatterRunId === null
+								? false
+								: yield* notifications.revokeRun(current.formatterRunId, now, remove);
+						return { id, sendStarted, revision: current.revision + 1 };
+					}),
+				);
+			});
+			return {
+				edit,
+				create,
+				remove: (user: CurrentUserValue, id: ReminderId, body: ChangeReminderBody) =>
+					change(user, id, body, true),
+				cancel: (user: CurrentUserValue, id: ReminderId, body: ChangeReminderBody) =>
+					change(user, id, body, false),
+				deliveryConfiguration: Effect.succeed({
+					deliveryEnabled: !config.server.disableNotifications,
+					scanSchedule: config.scheduler.frequentCronJobsSchedule,
+					dispatchersEnabled: !config.scheduler.disableDispatchers,
+				}),
+			};
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

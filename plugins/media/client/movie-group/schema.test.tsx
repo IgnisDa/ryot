@@ -1,0 +1,29 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+
+import { movieGroupRecipes } from "../../shared/movie-group-recipes";
+import { decodeGroupPresentation } from "../../tests/client/group/fixtures";
+import { mountRyotClient } from "../../tests/client/test-support";
+import { movieGroupSchema } from "./schema";
+
+const noopAdapter = { query: () => Effect.succeed({}) };
+
+afterEach(() => {
+	document.body.innerHTML = "";
+});
+
+describe("movie group schema", () => {
+	it("counts movies and how many were watched on rows", () => {
+		const data = decodeGroupPresentation(movieGroupRecipes, {});
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<movieGroupSchema.RowContent compact data={data} entityId="group-1" />,
+		);
+
+		expect(container.textContent).toContain("5 movies");
+		expect(container.textContent).toContain("2 of 5 watched");
+		expect(container.querySelector("article > a > *")?.className).toContain("h-16 w-11");
+		unmount();
+	});
+});

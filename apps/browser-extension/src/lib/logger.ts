@@ -1,7 +1,11 @@
-import { storage } from "#imports";
-import { STORAGE_KEYS } from "./constants";
+import { Effect } from "effect";
 
-type LogLevel = "debug" | "info" | "warn" | "error";
+import { storage } from "#imports";
+
+import { STORAGE_KEYS } from "./constants";
+import { fromPlatform, run } from "./platform";
+
+type LogLevel = "info" | "warn" | "debug" | "error";
 
 class Logger {
 	private debugMode = false;
@@ -12,10 +16,24 @@ class Logger {
 		this.loadDebugMode();
 	}
 
-	private setupStorageListener() {
-		this.unwatchStorage = storage.watch(STORAGE_KEYS.DEBUG_MODE, () => {
-			this.loadDebugMode();
-		});
+	invalidateCache(): void {
+		this.loadDebugMode();
+	}
+
+	info(message: string, data?: object): void {
+		this.log("info", message, data);
+	}
+
+	warn(message: string, data?: object): void {
+		this.log("warn", message, data);
+	}
+
+	debug(message: string, data?: object): void {
+		this.log("debug", message, data);
+	}
+
+	error(message: string, data?: object): void {
+		this.log("error", message, data);
 	}
 
 	public cleanup(): void {
@@ -25,15 +43,14 @@ class Logger {
 		}
 	}
 
-	private loadDebugMode() {
-		storage
-			.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)
-			.then((enabled) => {
-				this.debugMode = enabled ?? false;
-			})
-			.catch(() => {
-				this.debugMode = false;
-			});
+	private formatMessage(level: LogLevel, message: string): string {
+		return `[RYOT] [${level.toUpperCase()}] ${message}`;
+	}
+
+	private setupStorageListener() {
+		this.unwatchStorage = storage.watch(STORAGE_KEYS.DEBUG_MODE, () => {
+			this.loadDebugMode();
+		});
 	}
 
 	private shouldLog(level: LogLevel): boolean {
@@ -43,8 +60,19 @@ class Logger {
 		return this.debugMode;
 	}
 
-	private formatMessage(level: LogLevel, message: string): string {
-		return `[RYOT] [${level.toUpperCase()}] ${message}`;
+	private loadDebugMode() {
+		run(
+			fromPlatform(() => storage.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)).pipe(
+				Effect.match({
+					onFailure: () => {
+						this.debugMode = false;
+					},
+					onSuccess: (enabled) => {
+						this.debugMode = enabled ?? false;
+					},
+				}),
+			),
+		);
 	}
 
 	private log(level: LogLevel, message: string, data?: object): void {
@@ -55,8 +83,8 @@ class Logger {
 		const formattedMessage = this.formatMessage(level, message);
 
 		switch (level) {
-			case "debug":
 			case "info":
+			case "debug":
 				if (data) {
 					console.log(formattedMessage, data);
 				} else {
@@ -78,26 +106,6 @@ class Logger {
 				}
 				break;
 		}
-	}
-
-	debug(message: string, data?: object): void {
-		this.log("debug", message, data);
-	}
-
-	info(message: string, data?: object): void {
-		this.log("info", message, data);
-	}
-
-	warn(message: string, data?: object): void {
-		this.log("warn", message, data);
-	}
-
-	error(message: string, data?: object): void {
-		this.log("error", message, data);
-	}
-
-	invalidateCache(): void {
-		this.loadDebugMode();
 	}
 }
 

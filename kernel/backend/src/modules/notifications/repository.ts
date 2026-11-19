@@ -1,0 +1,193 @@
+import type {
+	NotificationChannelSpecifics,
+	UpdateNotificationChannelBody,
+} from "@ryot-app/contract/modules/notifications/schemas";
+import { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
+import { and, desc, eq } from "drizzle-orm";
+import { Context, Effect, Layer, Match, Option } from "effect";
+
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
+
+type NotificationChannelRow = typeof schema.notificationChannel.$inferSelect;
+
+const urlOrigin = Option.liftThrowable((value: string) => new URL(value).origin);
+
+const safeUrlOrigin = (value: string) =>
+	urlOrigin(value).pipe(Option.getOrElse(() => "configured endpoint"));
+
+const maskEmail = (value: string) => {
+	const [local, domain] = value.split("@");
+	if (!local || !domain) {
+		return "configured recipient";
+	}
+	return `${local[0]}***@${domain}`;
+};
+
+const maskChatId = (value: string) => `chat ending in ${value.slice(-4)}`;
+
+export const describeNotificationChannel = (specifics: NotificationChannelSpecifics) =>
+	Match.value(specifics).pipe(
+		Match.when({ kind: "apprise" }, ({ baseUrl }) => `Apprise at ${safeUrlOrigin(baseUrl)}`),
+		Match.when(
+			{ kind: "discord" },
+			({ webhookUrl }) => `Discord webhook at ${safeUrlOrigin(webhookUrl)}`,
+		),
+		Match.when({ kind: "email" }, ({ recipient }) => `Email to ${maskEmail(recipient)}`),
+		Match.when({ kind: "gotify" }, ({ baseUrl }) => `Gotify at ${safeUrlOrigin(baseUrl)}`),
+		Match.when(
+			{ kind: "ntfy" },
+			({ baseUrl }) => `ntfy at ${safeUrlOrigin(baseUrl ?? "https://ntfy.sh")}`,
+		),
+		Match.when({ kind: "push_bullet" }, () => "PushBullet configured"),
+		Match.when({ kind: "push_over" }, () => "PushOver configured"),
+		Match.when({ kind: "push_safer" }, () => "PushSafer configured"),
+		Match.when({ kind: "telegram" }, ({ chatId }) => `Telegram ${maskChatId(chatId)}`),
+		Match.exhaustive,
+	);
+
+const toRecord = (row: NotificationChannelRow) => {
+	const channelSpecifics = row.channelSpecifics;
+	return {
+		channelSpecifics,
+		channel: row.channel,
+		isDisabled: row.isDisabled,
+		description: row.description,
+		userId: UserId.make(row.userId),
+		createdAt: row.createdAt.toISOString(),
+		updatedAt: row.updatedAt.toISOString(),
+		id: NotificationChannelId.make(row.id),
+	};
+};
+
+export type NotificationChannelRecord = ReturnType<typeof toRecord>;
+
+const ownedChannelWhere = (input: { userId: UserId; channelId: NotificationChannelId }) =>
+	and(
+		eq(schema.notificationChannel.id, input.channelId),
+		eq(schema.notificationChannel.userId, input.userId),
+	);
+
+export class NotificationsRepository extends Context.Service<NotificationsRepository>()(
+	"@ryot-app/kernel-backend/modules/notifications/repository/NotificationsRepository",
+	{
+		make: Effect.gen(function* () {
+			const database = yield* DatabaseSession;
+			const hasAnyForUser = Effect.fn("NotificationsRepository.hasAnyForUser")(function* (
+				userId: UserId,
+			) {
+				const [row] = yield* database.run((db) =>
+					db
+						.select({ id: schema.notificationChannel.id })
+						.from(schema.notificationChannel)
+						.where(eq(schema.notificationChannel.userId, userId))
+						.limit(1),
+				);
+				return row !== undefined;
+			});
+			const findForUser = Effect.fn("NotificationsRepository.findForUser")(function* (input: {
+				userId: UserId;
+				channelId: NotificationChannelId;
+			}) {
+				const [row] = yield* database.run((db) =>
+					db.select().from(schema.notificationChannel).where(ownedChannelWhere(input)),
+				);
+				return row ? toRecord(row) : null;
+			});
+			const createForUser = Effect.fn("NotificationsRepository.createForUser")(function* (input: {
+				userId: UserId;
+				isDisabled: boolean;
+				channelSpecifics: NotificationChannelSpecifics;
+			}) {
+				const [row] = yield* database.run((db) =>
+					db
+						.insert(schema.notificationChannel)
+						.values({
+							userId: input.userId,
+							isDisabled: input.isDisabled,
+							channelSpecifics: input.channelSpecifics,
+							description: describeNotificationChannel(input.channelSpecifics),
+						})
+						.returning(),
+				);
+				return row
+					? toRecord(row)
+					: yield* Effect.die("Notification channel insert returned no row");
+			});
+
+			const updateForUser = Effect.fn("NotificationsRepository.updateForUser")(function* (input: {
+				userId: UserId;
+				channelId: NotificationChannelId;
+				body: UpdateNotificationChannelBody;
+			}) {
+				const updates: Partial<typeof schema.notificationChannel.$inferInsert> = {};
+				if (input.body.isDisabled !== undefined) {
+					updates.isDisabled = input.body.isDisabled;
+				}
+
+				if (Object.keys(updates).length === 0) {
+					const [row] = yield* database.run((db) =>
+						db
+							.select({ id: schema.notificationChannel.id })
+							.from(schema.notificationChannel)
+							.where(ownedChannelWhere(input))
+							.limit(1),
+					);
+					return row ? { id: NotificationChannelId.make(row.id) } : null;
+				}
+
+				const [row] = yield* database.run((db) =>
+					db
+						.update(schema.notificationChannel)
+						.set(updates)
+						.where(ownedChannelWhere(input))
+						.returning({ id: schema.notificationChannel.id }),
+				);
+				return row ? { id: NotificationChannelId.make(row.id) } : null;
+			});
+
+			const deleteForUser = Effect.fn("NotificationsRepository.deleteForUser")(function* (input: {
+				userId: UserId;
+				channelId: NotificationChannelId;
+			}) {
+				const rows = yield* database.run((db) =>
+					db
+						.delete(schema.notificationChannel)
+						.where(ownedChannelWhere(input))
+						.returning({ id: schema.notificationChannel.id }),
+				);
+				return rows.length > 0;
+			});
+
+			const listEnabledForUser = Effect.fn("NotificationsRepository.listEnabledForUser")(
+				function* (input: { userId: UserId; limit?: number }) {
+					const rows = yield* database.run((db) => {
+						const query = db
+							.select()
+							.from(schema.notificationChannel)
+							.where(
+								and(
+									eq(schema.notificationChannel.userId, input.userId),
+									eq(schema.notificationChannel.isDisabled, false),
+								),
+							)
+							.orderBy(desc(schema.notificationChannel.createdAt));
+						return input.limit === undefined ? query : query.limit(input.limit);
+					});
+					return rows.map(toRecord);
+				},
+			);
+
+			return {
+				findForUser,
+				hasAnyForUser,
+				createForUser,
+				deleteForUser,
+				updateForUser,
+				listEnabledForUser,
+			};
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

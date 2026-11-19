@@ -9,8 +9,5 @@
 		"baseColor": "zinc",
 		"cssVariables": true
 	},
-	"aliases": {
-		"components": "app/lib/components",
-		"utils": "app/lib/utils"
-	}
+	"aliases": { "components": "app/lib/components", "utils": "app/lib/utils" }
 }
