@@ -13,7 +13,11 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Exit, Layer, Schema } from "effect";
 
-import { createEvents } from "#modules/changes/change-sets.test-support";
+import {
+	commitEventChanges,
+	createEvents,
+	eventDelete,
+} from "#modules/changes/change-sets.test-support";
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -29,7 +33,6 @@ import {
 	eventGroupWorkflowLayer,
 } from "./event-groups.test-support";
 import { EventMutations } from "./mutations";
-import { EventsService } from "./service";
 
 const compound = Effect.fnUntraced(function* (memberCount?: number) {
 	const fixture = yield* eventGroupFixture();
@@ -157,10 +160,9 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const fixture = yield* compound();
 				const member = fixture.result.events.find((item) => item.itemIdentity === "member-0");
 				assert(member);
-				const events = yield* EventsService;
 				assertExitFails(
 					yield* Effect.exit(
-						events.delete({ userId: fixture.userId, eventId: member.eventId }, fixture.command),
+						commitEventChanges(fixture.userId, fixture.command, [eventDelete(member.eventId)]),
 					),
 					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
@@ -174,16 +176,16 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					),
 				).toHaveLength(2);
 				expect(
-					(yield* events.deleteBatch(
-						fixture.result.events.map((item) => item.eventId),
+					yield* commitEventChanges(
 						fixture.userId,
 						{
 							...fixture.command,
 							...command(yield* randomUuid),
 							writeContext: fixture.command.writeContext,
 						},
-					)).count,
-				).toBe(2);
+						fixture.result.events.map((item) => eventDelete(item.eventId)),
+					),
+				).toHaveLength(2);
 			}),
 		testTimeout,
 	);

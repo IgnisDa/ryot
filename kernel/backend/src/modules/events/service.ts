@@ -8,10 +8,7 @@ import {
 import {
 	EventBadRequest,
 	type EventCreateItemError,
-	EventNotFound,
 	EventStale,
-	type EventUpdatePatch,
-	type UpdateEventItem,
 } from "@ryot-app/contract/modules/events/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
@@ -58,7 +55,7 @@ import {
 import type { CapturedEventReferences } from "./event-creation";
 import { EventGroupConstraints } from "./event-group-constraints";
 import { eventReferenceBadRequest } from "./event-references";
-import { EventMutations } from "./mutations";
+import { EventMutations, matchesExpectedFields } from "./mutations";
 import {
 	type EventIdentityInput,
 	EventsRepository,
@@ -77,15 +74,6 @@ type PreparedEventMutationData = {
 } & (
 	| { readonly operation: "delete"; readonly cascadeEntityIds?: ReadonlyArray<EntityId> }
 	| {
-			readonly operation: "edit";
-			readonly submitted: UpdateEventItem;
-			readonly draft: AutomationEventDraft;
-			readonly propertiesSchema: AppSchema;
-			readonly referenceContextFingerprint: string;
-			readonly capturedReferences: CapturedEventReferences;
-			readonly eventSchemaFingerprint: CatalogDefinitionFingerprint;
-	  }
-	| {
 			readonly operation: "move";
 			readonly draft: AutomationEventDraft;
 			readonly propertiesSchema: AppSchema;
@@ -95,12 +83,8 @@ type PreparedEventMutationData = {
 			readonly eventSchemaFingerprint: CatalogDefinitionFingerprint;
 	  }
 );
-const preparedEventUpdate = Symbol("PreparedEventUpdate");
 const preparedEventMoveReferences = Symbol("PreparedEventMoveReferences");
 const preparedEventDelete = Symbol("PreparedEventDelete");
-export type PreparedEventUpdate = {
-	readonly [preparedEventUpdate]: Extract<PreparedEventMutationData, { operation: "edit" }>;
-};
 export type PreparedEventDelete = {
 	readonly [preparedEventDelete]: Extract<PreparedEventMutationData, { operation: "delete" }>;
 };
@@ -141,47 +125,8 @@ const eventWriteFailure = (error: DbError | DomainWriteConflict) =>
 		? Effect.fail(eventBadRequest(error.reason.code))
 		: rejected("mutation-conflict", error.message);
 
-const matchesEventPrecondition = (
-	before: AutomationEventSnapshot,
-	expected: NonNullable<UpdateEventItem["expected"]>,
-) =>
-	expected.entityId === before.entityId &&
-	expected.occurredAt === before.occurredAt &&
-	expected.sessionEntityId === before.sessionEntityId &&
-	Object.entries(expected.properties).every(
-		([key, value]) =>
-			Object.hasOwn(before.properties, key) &&
-			stableStringify(before.properties[key]) === stableStringify(value),
-	) &&
-	expected.absentProperties.every((key) => !Object.hasOwn(before.properties, key));
-
-const applyUpdatePatch = (before: AutomationEventSnapshot, patch: EventUpdatePatch) => {
-	const properties = { ...before.properties };
-	if (patch.properties) {
-		for (const key of patch.properties.remove) {
-			delete properties[key];
-		}
-		Object.assign(properties, patch.properties.set);
-	}
-	return {
-		...eventDraft(before),
-		properties,
-		...(patch.entityId === undefined ? {} : { entityId: patch.entityId }),
-		...(patch.occurredAt === undefined ? {} : { occurredAt: patch.occurredAt }),
-		...(patch.sessionEntityId === undefined ? {} : { sessionEntityId: patch.sessionEntityId }),
-	};
-};
-
 const mutationSources = (item: PreparedEventMutationData) =>
 	item.operation === "delete" ? [item.before] : [item.before, item.draft];
-
-const indexedCommand = (
-	command: DomainLifecycleCommand,
-	index: number,
-): DomainLifecycleCommand => ({
-	...command,
-	itemIdentity: `${command.itemIdentity}:event:${index}`,
-});
 
 export class EventsService extends Context.Service<EventsService>()(
 	"@ryot-app/kernel-backend/modules/events/service/EventsService",
@@ -244,48 +189,18 @@ export class EventsService extends Context.Service<EventsService>()(
 			});
 			const captureEventGroups = Effect.fn("EventsService.captureEventGroups")(function* (input: {
 				readonly entityIds?: ReadonlyArray<EntityId>;
-				readonly items: ReadonlyArray<
-					PreparedEventDelete | PreparedEventUpdate | PreparedEventMoveReferences
-				>;
+				readonly items: ReadonlyArray<PreparedEventDelete | PreparedEventMoveReferences>;
 			}) {
 				yield* captureGroupMutations(
 					input.items.map((item) => {
 						if (preparedEventDelete in item) {
 							return item[preparedEventDelete];
 						}
-						if (preparedEventUpdate in item) {
-							return item[preparedEventUpdate];
-						}
 						return item[preparedEventMoveReferences];
 					}),
 					input.entityIds ?? [],
 				);
 			});
-			const retryFieldPreconditionStale = <A, E, R>(
-				work: Effect.Effect<A, E, R>,
-				userId: UserId,
-				expectedForEvent: (eventId: EventId) => UpdateEventItem["expected"],
-			) =>
-				Effect.retry(work, {
-					times: 2,
-					while: (error) => {
-						if (!(error instanceof EventStale)) {
-							return Effect.succeed(false);
-						}
-						const expected = expectedForEvent(error.reason.eventId);
-						if (!expected) {
-							return Effect.succeed(false);
-						}
-						return repository
-							.getEventSnapshot({ userId, eventId: error.reason.eventId })
-							.pipe(
-								Effect.map(
-									(current) =>
-										current !== null && matchesEventPrecondition(current.snapshot, expected),
-								),
-							);
-					},
-				});
 			const authorizeEventDelete = Effect.fnUntraced(function* (
 				command: DomainLifecycleCommand,
 				input: EventIdentityInput,
@@ -535,142 +450,6 @@ export class EventsService extends Context.Service<EventsService>()(
 					}),
 				};
 			});
-			const prepareUpdate = Effect.fn("EventsService.prepareUpdate")(function* (
-				submitted: UpdateEventItem,
-				userId: UserId,
-				commandInput: DomainLifecycleCommand,
-			) {
-				yield* assertRootTransaction;
-				const input = { userId, eventId: submitted.eventId };
-				const command = yield* Schema.decodeEffect(DomainLifecycleCommand)(commandInput).pipe(
-					Effect.mapError(() => new DbError({ message: "Invalid event lifecycle command" })),
-				);
-				const prepared = yield* transaction(
-					Effect.gen(function* () {
-						yield* writeChecks
-							.check(command, principalOwner(command.writeContext), userId, true)
-							.pipe(Effect.catch(eventWriteFailure));
-						const current = yield* repository.getEventSnapshot(input);
-						if (!current) {
-							return yield* new EventNotFound({
-								reason: { code: "event-not-found", eventId: submitted.eventId },
-							});
-						}
-						const { snapshot: before, revision: expectedRevision } = current;
-						if (submitted.expected && !matchesEventPrecondition(before, submitted.expected)) {
-							return yield* new EventStale({
-								reason: { code: "event-stale", eventId: submitted.eventId },
-							});
-						}
-						yield* writeChecks
-							.check(command, definitionOwner(before.eventSchemaPluginId), userId)
-							.pipe(Effect.catch(eventWriteFailure));
-						const initial = yield* resolveEditContext(
-							userId,
-							before,
-							{ ...eventDraft(before), ...applyUpdatePatch(before, submitted.patch) },
-							command,
-						);
-						const request: EventRequest = {
-							before,
-							resource: "event",
-							category: "request",
-							operation: "update",
-							draft: initial.draft,
-						};
-						const trigger = submitted.expected
-							? yield* lifecycleTrigger(
-									command,
-									userId,
-									request,
-									stableStringify([
-										"event-update",
-										expectedRevision,
-										initial.referenceContextFingerprint,
-									]),
-								)
-							: yield* lifecycleTrigger(command, userId, request);
-						return {
-							input,
-							before,
-							trigger,
-							command,
-							request,
-							expectedRevision,
-							draft: initial.draft,
-							_tag: "Planned" as const,
-							policies: yield* policies.match(trigger),
-							propertiesSchema: initial.propertiesSchema,
-							capturedReferences: initial.capturedReferences,
-							eventSchemaFingerprint: initial.eventSchemaFingerprint,
-						};
-					}),
-					[userId],
-				);
-				let request = prepared.request;
-				let draft = prepared.draft;
-				let capturedReferences = prepared.capturedReferences;
-				const pinnedSchema = {
-					propertiesSchema: prepared.propertiesSchema,
-					eventSchemaFingerprint: prepared.eventSchemaFingerprint,
-				};
-				for (const policy of prepared.policies) {
-					const output = yield* runItemPolicy(policies, {
-						policy,
-						request,
-						trigger: prepared.trigger,
-					}).pipe(Effect.mapError(() => eventBadRequest("policy-execution-failed")));
-					if (output.action === "reject") {
-						return yield* new EventBadRequest({
-							reason: {
-								code: "policy-rejected",
-								message: definitionText(policy.pluginId, output.reason),
-							},
-						});
-					}
-					if (output.action === "transform") {
-						const patched = applyLifecyclePolicyPatch(request, output.patch);
-						if (!patched.ok) {
-							return yield* rejected("invalid-policy-transform", patched.reason);
-						}
-						const validated = yield* resolveEditContext(
-							userId,
-							prepared.before,
-							patched.request.draft,
-							command,
-							capturedReferences,
-							pinnedSchema,
-						);
-						request = { ...patched.request, draft: validated.draft };
-						draft = validated.draft;
-						capturedReferences = validated.capturedReferences;
-					}
-				}
-				const context = yield* resolveEditContext(
-					userId,
-					prepared.before,
-					draft,
-					command,
-					capturedReferences,
-					pinnedSchema,
-				);
-				return Object.freeze({
-					[preparedEventUpdate]: {
-						submitted,
-						draft: context.draft,
-						input: prepared.input,
-						before: prepared.before,
-						command: prepared.command,
-						operation: "edit" as const,
-						propertiesSchema: context.propertiesSchema,
-						expectedRevision: prepared.expectedRevision,
-						capturedReferences: context.capturedReferences,
-						eventSchemaFingerprint: context.eventSchemaFingerprint,
-						referenceContextFingerprint: context.referenceContextFingerprint,
-					},
-				});
-			});
-
 			const prepareMoveOrDelete = Effect.fnUntraced(function* (
 				input: EventIdentityInput,
 				commandInput: DomainLifecycleCommand,
@@ -713,7 +492,7 @@ export class EventsService extends Context.Service<EventsService>()(
 								: null;
 						}
 						const { snapshot: before, revision: expectedRevision } = current;
-						if (input.expected && !matchesEventPrecondition(before, input.expected)) {
+						if (input.expected && !matchesExpectedFields(before, input.expected)) {
 							return yield* new EventStale({
 								reason: { code: "event-stale", eventId: input.eventId },
 							});
@@ -983,7 +762,7 @@ export class EventsService extends Context.Service<EventsService>()(
 			);
 
 			const verifyPreparedEditContext = Effect.fnUntraced(function* (
-				prepared: Extract<PreparedEventMutationData, { operation: "edit" | "move" }>,
+				prepared: Extract<PreparedEventMutationData, { operation: "move" }>,
 			) {
 				yield* entities.lockEntityReferencesByIds([
 					prepared.before.entityId,
@@ -1098,7 +877,7 @@ export class EventsService extends Context.Service<EventsService>()(
 				});
 				let eventId: EventId;
 				let change: AutomationEventChangePayload;
-				if (prepared.operation === "edit" || prepared.operation === "move") {
+				if (prepared.operation === "move") {
 					yield* verifyPreparedEditContext(prepared);
 					yield* assetReferences
 						.lock([
@@ -1169,17 +948,6 @@ export class EventsService extends Context.Service<EventsService>()(
 				return { dispatch, result: eventId } satisfies CommittedLifecycleWork<null | EventId>;
 			});
 
-			const persistPreparedUpdate = Effect.fn("EventsService.persistPreparedUpdate")(function* (
-				prepared: PreparedEventUpdate,
-				batch?: {
-					index: number;
-					commandInput?: unknown;
-					command: DomainLifecycleCommand;
-					identity: ReadonlyArray<string>;
-				},
-			) {
-				return yield* persist(prepared[preparedEventUpdate], batch);
-			});
 			const persistPreparedMoveReferences = Effect.fn(
 				"EventsService.persistPreparedMoveReferences",
 			)(function* (
@@ -1211,224 +979,6 @@ export class EventsService extends Context.Service<EventsService>()(
 				});
 				return { ...work, dispatch: [...work.dispatch, ...batch] };
 			});
-			const edit = Effect.fn("EventsService.edit")(
-				function* (submitted: UpdateEventItem, userId: UserId, command: DomainLifecycleCommand) {
-					yield* assertRootTransaction;
-					return yield* retryFieldPreconditionStale(
-						Effect.gen(function* () {
-							const prepared = yield* prepareUpdate(submitted, userId, command);
-							const work = yield* transaction(
-								withBatch(command, persist(prepared[preparedEventUpdate])),
-								[userId],
-							);
-							yield* execution.dispatch(work.dispatch);
-							return { eventId: work.result };
-						}),
-						userId,
-						(eventId) => (eventId === submitted.eventId ? submitted.expected : undefined),
-					);
-				},
-				(effect) => effect.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die)),
-			);
-			const deleteOne = Effect.fn("EventsService.delete")(
-				function* (input: EventIdentityInput, command: DomainLifecycleCommand) {
-					yield* assertRootTransaction;
-					return yield* retryFieldPreconditionStale(
-						Effect.gen(function* () {
-							const prepared = yield* prepareMoveOrDelete(input, command, undefined, true);
-							if (!prepared) {
-								return yield* new EventNotFound({
-									reason: { eventId: input.eventId, code: "event-not-found" },
-								});
-							}
-							const work =
-								"_tag" in prepared
-									? prepared.work
-									: yield* transaction(withBatch(command, persist(prepared)), [input.userId]);
-							yield* execution.dispatch(work.dispatch);
-							return { eventId: work.result };
-						}),
-						input.userId,
-						(eventId) => (eventId === input.eventId ? input.expected : undefined),
-					);
-				},
-				(effect) => effect.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die)),
-			);
-			const updateBatch = Effect.fn("EventsService.updateBatch")(function* (
-				items: ReadonlyArray<UpdateEventItem>,
-				userId: UserId,
-				command: DomainLifecycleCommand,
-			) {
-				if (items.length > 100) {
-					return yield* rejected("mutation-conflict", "Event update batch exceeds 100 items");
-				}
-				if (new Set(items.map((item) => item.eventId)).size !== items.length) {
-					return yield* rejected(
-						"mutation-conflict",
-						"Event update batch contains duplicate event IDs",
-					);
-				}
-				if (items.length === 0) {
-					return { count: 0 };
-				}
-				yield* assertRootTransaction;
-				return yield* retryFieldPreconditionStale(
-					Effect.gen(function* () {
-						const prepared: PreparedEventUpdate[] = [];
-						for (const [index, item] of items.entries()) {
-							prepared.push(yield* prepareUpdate(item, userId, indexedCommand(command, index)));
-						}
-						const work = yield* transaction(
-							Effect.gen(function* () {
-								yield* writeChecks
-									.check(command, principalOwner(command.writeContext), userId, true)
-									.pipe(Effect.catch(eventWriteFailure));
-								yield* captureEventGroups({ items: prepared });
-								yield* entities.lockEntityReferencesByIds(
-									prepared.flatMap(({ [preparedEventUpdate]: item }) => [
-										item.before.entityId,
-										...(item.before.sessionEntityId === null ? [] : [item.before.sessionEntityId]),
-										item.draft.entityId,
-										...(item.draft.sessionEntityId === null ? [] : [item.draft.sessionEntityId]),
-									]),
-								);
-								yield* eventSchemas.lockCatalog([userId]);
-								yield* repository.lockEventRows({
-									userId,
-									eventIds: items.map((item) => item.eventId),
-									sources: prepared.map(({ [preparedEventUpdate]: item }) => ({
-										...item.draft,
-										userId,
-									})),
-								});
-								const mutationBatch = { command, identity: ["events"] };
-								yield* planner.prepareBatch({
-									command,
-									scopes: [userId],
-									resource: "event",
-									identity: ["events"],
-								});
-								const writes = [];
-								for (const [index, item] of prepared.entries()) {
-									writes.push(
-										yield* persist(item[preparedEventUpdate], { ...mutationBatch, index }),
-									);
-								}
-								const batchDispatch = yield* planner.planBatch({
-									command,
-									resource: "event",
-									identity: ["events"],
-								});
-								const dispatch = [...writes.flatMap((item) => item.dispatch), ...batchDispatch];
-								return { dispatch, eventIds: writes.map((item) => item.result) };
-							}),
-							[userId],
-						);
-						yield* execution.dispatch(work.dispatch);
-						return { count: work.eventIds.length };
-					}),
-					userId,
-					(eventId) => items.find((item) => item.eventId === eventId)?.expected,
-				);
-			});
-			const deleteBatch = Effect.fn("EventsService.deleteBatch")(function* (
-				eventIds: ReadonlyArray<EventId>,
-				userId: UserId,
-				command: DomainLifecycleCommand,
-				expected?: Readonly<Record<string, NonNullable<EventIdentityInput["expected"]>>>,
-			) {
-				if (eventIds.length > 100) {
-					return yield* rejected("mutation-conflict", "Event delete batch exceeds 100 items");
-				}
-				if (new Set(eventIds).size !== eventIds.length) {
-					return yield* rejected(
-						"mutation-conflict",
-						"Event delete batch contains duplicate event IDs",
-					);
-				}
-				if (eventIds.length === 0) {
-					return { count: 0 };
-				}
-				yield* assertRootTransaction;
-				const items = eventIds.map((eventId) => ({
-					userId,
-					eventId,
-					expected: expected?.[eventId],
-				}));
-				if (
-					expected &&
-					(Object.keys(expected).length !== eventIds.length ||
-						eventIds.some((id) => !Object.hasOwn(expected, id)))
-				) {
-					return yield* rejected(
-						"mutation-conflict",
-						"Event delete preconditions must match event IDs",
-					);
-				}
-				return yield* retryFieldPreconditionStale(
-					Effect.gen(function* () {
-						const prepared: Array<null | PreparedEventDelete> = [];
-						for (const [index, input] of items.entries()) {
-							const value = yield* prepareDelete(input, indexedCommand(command, index));
-							if (!value) {
-								prepared.push(null);
-								continue;
-							}
-							prepared.push(value);
-						}
-						const work = yield* transaction(
-							Effect.gen(function* () {
-								yield* writeChecks
-									.check(command, principalOwner(command.writeContext), userId, true)
-									.pipe(Effect.catch(eventWriteFailure));
-								yield* captureEventGroups({ items: prepared.filter((item) => item !== null) });
-								yield* entities.lockEntityReferencesByIds(
-									prepared.flatMap((item) =>
-										item
-											? [
-													item[preparedEventDelete].before.entityId,
-													...(item[preparedEventDelete].before.sessionEntityId === null
-														? []
-														: [item[preparedEventDelete].before.sessionEntityId]),
-												]
-											: [],
-									),
-								);
-								yield* repository.lockEventRows({ userId, eventIds });
-								const mutationBatch = { command, identity: ["events"] };
-								const batch = prepared.some((item) => item !== null)
-									? yield* planner.prepareBatch({
-											command,
-											scopes: [userId],
-											resource: "event",
-											identity: ["events"],
-										})
-									: null;
-								const writes: Array<CommittedLifecycleWork<null | EventId>> = [];
-								for (const [index, item] of prepared.entries()) {
-									if (item) {
-										writes.push(
-											yield* persist(item[preparedEventDelete], { ...mutationBatch, index }),
-										);
-										continue;
-									}
-									writes.push({ dispatch: [], result: null });
-								}
-								const batchDispatch = batch
-									? yield* planner.planBatch({ command, resource: "event", identity: ["events"] })
-									: [];
-								const dispatch = [...writes.flatMap((item) => item.dispatch), ...batchDispatch];
-								return { dispatch, eventIds: writes.map((item) => item.result) };
-							}),
-							[userId],
-						);
-						yield* execution.dispatch(work.dispatch);
-						return { count: work.eventIds.filter((eventId) => eventId !== null).length };
-					}),
-					userId,
-					(eventId) => expected?.[eventId],
-				);
-			});
 			const moveReferences = Effect.fn("EventsService.moveReferences")(function* (
 				input: UpdateEventEntityReferencesInput,
 				command: DomainLifecycleCommand,
@@ -1446,17 +996,11 @@ export class EventsService extends Context.Service<EventsService>()(
 			});
 
 			return {
-				edit,
-				updateBatch,
-				deleteBatch,
 				prepareDelete,
-				prepareUpdate,
 				moveReferences,
-				delete: deleteOne,
 				captureEventGroups,
 				prepareMoveReferences,
 				persistPreparedDelete,
-				persistPreparedUpdate,
 				prepareEntityCascadeDelete,
 				persistPreparedMoveReferences,
 				transaction: mutations.transaction,

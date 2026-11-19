@@ -32,6 +32,7 @@ import {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	EntityId,
+	type EventId,
 	EventSchemaSlug,
 	SignalSchemaSlug,
 	type UserId,
@@ -70,6 +71,7 @@ import { eventReferenceBadRequest } from "#modules/events/event-references";
 import {
 	EventMutations,
 	eventPolicyItems,
+	matchesExpectedFields,
 	type PreparedEventChanges,
 } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
@@ -244,6 +246,18 @@ const subjectChunks = (items: ReadonlyArray<PreparedEventChange>) => {
 		}
 	}
 	return chunks;
+};
+
+const expectedFields = (input: Changes, eventId: EventId) => {
+	for (const change of input.events?.changes ?? []) {
+		if (change.kind === "delete" && change.eventId === eventId) {
+			return change.expected;
+		}
+		if (change.kind === "update" && change.item.eventId === eventId) {
+			return change.item.expected;
+		}
+	}
+	return undefined;
 };
 
 const emptyResult: CommitResult = { outcomes: [], committed: { events: [] } };
@@ -995,6 +1009,34 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
 				return committed.value;
 			});
+			// A field `expected` covers part of an event; a concurrent change outside it leaves the caller's intent valid.
+			const retryWhileExpectedHolds = <A, E, R>(input: Changes, work: Effect.Effect<A, E, R>) => {
+				const { userId } = input;
+				if (userId === null) {
+					return work;
+				}
+				return Effect.retry(work, {
+					times: 2,
+					while: (error) => {
+						if (!(error instanceof EventStale)) {
+							return Effect.succeed(false);
+						}
+						const { eventId } = error.reason;
+						const expected = expectedFields(input, eventId);
+						if (!expected) {
+							return Effect.succeed(false);
+						}
+						return eventRows
+							.getEventSnapshot({ userId, eventId })
+							.pipe(
+								Effect.map(
+									(current) =>
+										current !== null && matchesExpectedFields(current.snapshot, expected),
+								),
+							);
+					},
+				});
+			};
 			const commitKernel = <A>(
 				input: Changes,
 				command: DomainLifecycleCommand,
@@ -1009,8 +1051,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							message: `${part} requires a script writer`,
 						});
 					}
-					return yield* shareExecutionAuthority(
-						apply(input, command, { kind: "kernel" }, receipt, options),
+					return yield* retryWhileExpectedHolds(
+						input,
+						shareExecutionAuthority(apply(input, command, { kind: "kernel" }, receipt, options)),
 					);
 				});
 			/** Commits a kernel writer's changes; script authority checks do not apply. */

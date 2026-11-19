@@ -17,6 +17,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 
+export type EventChange = Part<"events">["changes"][number];
 export type GlobalEntityReference =
 	| Extract<ChangeSetGlobalEntityReference, { readonly kind: "existing" }>
 	| OwnedEntity<Extract<ChangeSetGlobalEntityReference, { readonly kind: "upserted" }>>;
@@ -188,3 +189,9 @@ export const eventCreateChanges = (
 		})),
 	},
 });
+
+/** Updates and deletes of the user's existing events, committed together. */
+export const eventChanges = (
+	userId: UserId,
+	changes: ReadonlyArray<EventChange>,
+): Changes & { readonly userId: UserId } => ({ userId, events: { changes, creates: [] } });

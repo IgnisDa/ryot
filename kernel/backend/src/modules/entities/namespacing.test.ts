@@ -26,7 +26,14 @@ import { DateTime, Effect, Layer, Schema } from "effect";
 import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
-import { createEvents, eventChangeSets } from "#modules/changes/change-sets.test-support";
+import {
+	commitEventChanges,
+	createEvents,
+	eventChangeSets,
+	eventDelete,
+	eventUpdate,
+} from "#modules/changes/change-sets.test-support";
+import type { EventChange } from "#modules/changes/changes";
 import { ChangeSets } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -195,15 +202,11 @@ const nextCommand = (
 	itemIdentity: string,
 ): DomainLifecycleCommand => ({ ...command, itemIdentity });
 
-const createUserEvents = (
-	command: DomainLifecycleCommand,
-	userId: UserId,
-	payload: ReadonlyArray<CreateEventItem>,
-) =>
+const withEventChangeSets = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.gen(function* () {
 		const repository = yield* EventsRepository.make;
 		const schemas = yield* EventSchemaReader.make;
-		return yield* createEvents({ userId, command, payload }).pipe(
+		return yield* effect.pipe(
 			Effect.provideServiceEffect(
 				ChangeSets,
 				eventChangeSets().pipe(
@@ -213,6 +216,18 @@ const createUserEvents = (
 			),
 		);
 	});
+
+const createUserEvents = (
+	command: DomainLifecycleCommand,
+	userId: UserId,
+	payload: ReadonlyArray<CreateEventItem>,
+) => withEventChangeSets(createEvents({ userId, command, payload }));
+
+const changeUserEvents = (
+	command: DomainLifecycleCommand,
+	userId: UserId,
+	changes: ReadonlyArray<EventChange>,
+) => withEventChangeSets(commitEventChanges(userId, command, changes));
 
 layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer())))((test) => {
 	test.effect(
@@ -396,7 +411,6 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				const a = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const b = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const entities = yield* EntitiesService;
-				const events = yield* EventsService;
 				const session = yield* DatabaseSession;
 				const first = yield* admittedCommand(a, firstUser, "event-a");
 				const second = yield* admittedCommand(b, firstUser, "event-b");
@@ -455,21 +469,21 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				const eventId = EventId.make(row.id);
 				expect(
 					yield* Effect.flip(
-						events.edit(
-							{ eventId, patch: { properties: { remove: [], set: { title: "Wrong" } } } },
-							firstUser,
-							nextCommand(first.command, "wrong-edit"),
-						),
+						changeUserEvents(nextCommand(first.command, "wrong-edit"), firstUser, [
+							eventUpdate({
+								eventId,
+								patch: { properties: { remove: [], set: { title: "Wrong" } } },
+							}),
+						]),
 					),
-				).toMatchObject({ reason: { code: "owner-mismatch" } });
+				).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
 				expect(
 					yield* Effect.flip(
-						events.delete(
-							{ eventId, userId: firstUser },
-							nextCommand(first.command, "wrong-delete"),
-						),
+						changeUserEvents(nextCommand(first.command, "wrong-delete"), firstUser, [
+							eventDelete(eventId),
+						]),
 					),
-				).toMatchObject({ reason: { code: "owner-mismatch" } });
+				).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
 				expect(
 					(yield* session.run((db) =>
 						db.select().from(tables.event).where(eq(tables.event.id, eventId)),
@@ -1861,7 +1875,6 @@ layer(relationshipDatabaseLayer())((test) => {
 				const b = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const c = yield* installRevisionPackage(namespacePackage(), otherUser);
 				const entities = yield* EntitiesService;
-				const events = yield* EventsService;
 				const writer = yield* admittedCommand(a, firstUser, "batch-event-a");
 				const foreignWriter = yield* admittedCommand(b, firstUser, "batch-event-b");
 				const otherWriter = yield* admittedCommand(c, otherUser, "batch-event-c");
@@ -1936,44 +1949,39 @@ layer(relationshipDatabaseLayer())((test) => {
 				for (const eventId of [foreignEvent, collectionReview]) {
 					expect(
 						yield* Effect.flip(
-							events.updateBatch(
-								[{ eventId, patch: { properties: { remove: [], set: { text: "Wrong" } } } }],
-								firstUser,
-								nextCommand(writer.command, `update-${eventId}`),
-							),
+							changeUserEvents(nextCommand(writer.command, `update-${eventId}`), firstUser, [
+								eventUpdate({
+									eventId,
+									patch: { properties: { remove: [], set: { text: "Wrong" } } },
+								}),
+							]),
 						),
-					).toMatchObject({ reason: { code: "owner-mismatch" } });
+					).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
 					expect(
 						yield* Effect.flip(
-							events.deleteBatch(
-								[eventId],
-								firstUser,
-								nextCommand(writer.command, `delete-${eventId}`),
-							),
+							changeUserEvents(nextCommand(writer.command, `delete-${eventId}`), firstUser, [
+								eventDelete(eventId),
+							]),
 						),
-					).toMatchObject({ reason: { code: "owner-mismatch" } });
+					).toMatchObject({ _tag: "EventCreateItemError", reason: { code: "entity-not-found" } });
 				}
 				expect(
 					yield* Effect.flip(
-						events.updateBatch(
-							[
-								{
-									eventId: otherUsersEvent,
-									patch: { properties: { remove: [], set: { text: "Wrong" } } },
-								},
-							],
-							firstUser,
-							nextCommand(writer.command, "update-other-user"),
-						),
+						changeUserEvents(nextCommand(writer.command, "update-other-user"), firstUser, [
+							eventUpdate({
+								eventId: otherUsersEvent,
+								patch: { properties: { remove: [], set: { text: "Wrong" } } },
+							}),
+						]),
 					),
 				).toMatchObject({ reason: { code: "event-not-found" } });
 				expect(
-					yield* events.deleteBatch(
-						[otherUsersEvent],
-						firstUser,
-						nextCommand(writer.command, "delete-other-user"),
+					yield* Effect.flip(
+						changeUserEvents(nextCommand(writer.command, "delete-other-user"), firstUser, [
+							eventDelete(otherUsersEvent),
+						]),
 					),
-				).toMatchObject({ count: 0 });
+				).toMatchObject({ reason: { code: "event-not-found" } });
 				expect(yield* storedProperties).toEqual(before);
 			}),
 		testTimeout,

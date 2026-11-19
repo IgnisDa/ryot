@@ -12,6 +12,7 @@ import {
 	EventCreateFailureReason,
 	EventNotFound,
 	EventStale,
+	type EventWritePrecondition,
 } from "@ryot-app/contract/modules/events/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
@@ -192,9 +193,9 @@ const scopeKey = (
 		"eventSchemaSlug" | "entitySchemaSlug" | "entitySchemaPluginId"
 	>,
 ) => stableStringify([draft.entitySchemaPluginId, draft.entitySchemaSlug, draft.eventSchemaSlug]);
-const sameExpected = (
+export const matchesExpectedFields = (
 	before: AutomationEventSnapshot,
-	expected: NonNullable<Extract<EventMutationChange, { kind: "delete" }>["expected"]>,
+	expected: EventWritePrecondition,
 ) =>
 	before.entityId === expected.entityId &&
 	before.sessionEntityId === expected.sessionEntityId &&
@@ -301,7 +302,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						}
 						const { snapshot: before } = source;
 						const expected = change.kind === "delete" ? change.expected : change.item.expected;
-						if (expected && !sameExpected(before, expected)) {
+						if (expected && !matchesExpectedFields(before, expected)) {
 							return yield* new EventStale({ reason: { eventId, code: "event-stale" } });
 						}
 						const patch = change.kind === "update" ? change.item.patch : {};
@@ -344,6 +345,14 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							{ ...item.item, occurredAt: item.item.occurredAt ?? input.command.occurredAt },
 							command,
 						);
+						const before = item.source?.snapshot;
+						if (
+							before &&
+							(scope.entityScope.entitySchemaSlug !== before.entitySchemaSlug ||
+								scope.entityScope.entitySchemaPluginId !== before.entitySchemaPluginId)
+						) {
+							return yield* conflict("Event entity schema does not match its event schema");
+						}
 						const properties = yield* parseAppSchemaProperties({
 							kind: "Event",
 							properties: item.item.properties,

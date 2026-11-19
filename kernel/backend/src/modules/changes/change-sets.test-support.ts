@@ -1,5 +1,9 @@
-import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+import type {
+	CreateEventItem,
+	EventWritePrecondition,
+	UpdateEventItem,
+} from "@ryot-app/contract/modules/events/schemas";
+import type { EventId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { SignalEmissionService } from "#modules/automations/signal-service";
@@ -22,7 +26,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { JobQueue } from "#platform/jobs/queue";
 
-import { eventCreateChanges } from "./changes";
+import { type EventChange, eventChanges, eventCreateChanges } from "./changes";
 import { toCreateEventsResponse } from "./outcomes";
 import { ChangeSets } from "./service";
 
@@ -102,3 +106,26 @@ export const createEvents = (input: {
 			},
 		),
 	).pipe(Effect.map((result) => toCreateEventsResponse(result.outcomes)));
+
+export const eventUpdate = (item: UpdateEventItem): EventChange => ({
+	item,
+	kind: "update",
+	itemIdentity: `event:${item.eventId}`,
+});
+
+export const eventDelete = (eventId: EventId, expected?: EventWritePrecondition): EventChange => ({
+	eventId,
+	kind: "delete",
+	itemIdentity: `event:${eventId}`,
+	...(expected === undefined ? {} : { expected }),
+});
+
+/** Event updates and deletes committed together by a kernel writer, answering the written event IDs. */
+export const commitEventChanges = (
+	userId: UserId,
+	command: DomainLifecycleCommand,
+	changes: ReadonlyArray<EventChange>,
+) =>
+	Effect.flatMap(ChangeSets, (sets) => sets.commit(eventChanges(userId, changes), command)).pipe(
+		Effect.map((result) => result.committed.events.map((event) => event.eventId)),
+	);

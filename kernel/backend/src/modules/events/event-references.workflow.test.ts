@@ -17,7 +17,12 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, inArray, sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
-import { createEvents } from "#modules/changes/change-sets.test-support";
+import {
+	commitEventChanges,
+	createEvents,
+	eventDelete,
+	eventUpdate,
+} from "#modules/changes/change-sets.test-support";
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -32,7 +37,6 @@ import {
 	eventGroupWorkflowLayer,
 } from "./event-groups.test-support";
 import { EventMutations } from "./mutations";
-import { EventsService } from "./service";
 
 const noteSchema: AuthoredAppSchema = {
 	fields: {
@@ -169,14 +173,11 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const rejected = yield* fixture.create("note", { about: foreign });
 				expect(rejected.failure?.reason).toEqual({ code: "invalid-properties" });
 
-				const events = yield* EventsService;
 				const update = (set: Record<string, string>, remove: ReadonlyArray<string>) =>
 					Effect.flatMap(fixture.nextCommand, (writeCommand) =>
-						events.edit(
-							{ eventId: note, patch: { properties: { set, remove: [...remove] } } },
-							fixture.userId,
-							writeCommand,
-						),
+						commitEventChanges(fixture.userId, writeCommand, [
+							eventUpdate({ eventId: note, patch: { properties: { set, remove: [...remove] } } }),
+						]),
 					);
 				yield* update({ about: second }, []);
 				expect(yield* fixture.references([note])).toEqual([
@@ -190,7 +191,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				expect(yield* fixture.references([note])).toEqual([]);
 				yield* update({ about: second }, []);
 				yield* Effect.flatMap(fixture.nextCommand, (writeCommand) =>
-					events.delete({ eventId: note, userId: fixture.userId }, writeCommand),
+					commitEventChanges(fixture.userId, writeCommand, [eventDelete(note)]),
 				);
 				expect(yield* fixture.references([note])).toEqual([]);
 			}),
@@ -206,11 +207,9 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const note = yield* fixture.createId("note", { text: "Kept", about: occurrence });
 				const before = yield* fixture.stored(note);
 				assert(before);
-				const events = yield* EventsService;
-				yield* events.delete(
-					{ eventId: occurrence, userId: fixture.userId },
-					yield* fixture.nextCommand,
-				);
+				yield* commitEventChanges(fixture.userId, yield* fixture.nextCommand, [
+					eventDelete(occurrence),
+				]);
 				expect(yield* fixture.stored(note)).toEqual({
 					properties: { text: "Kept" },
 					revision: before.revision + 1,
@@ -220,12 +219,11 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const batched = yield* fixture.createId("occurrence", { amount: 2 });
 				const batchedNote = yield* fixture.createId("note", { text: "Gone", about: batched });
 				expect(
-					(yield* events.deleteBatch(
-						[batched, batchedNote],
-						fixture.userId,
-						yield* fixture.nextCommand,
-					)).count,
-				).toBe(2);
+					yield* commitEventChanges(fixture.userId, yield* fixture.nextCommand, [
+						eventDelete(batched),
+						eventDelete(batchedNote),
+					]),
+				).toHaveLength(2);
 				expect(yield* fixture.stored(batchedNote)).toBeUndefined();
 			}),
 		testTimeout,
@@ -437,9 +435,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				yield* Deferred.await(locked);
 				const deletion = yield* Effect.forkScoped(
 					Effect.flatMap(fixture.nextCommand, (deleteCommand) =>
-						Effect.flatMap(EventsService, (events) =>
-							events.delete({ eventId: occurrence, userId: fixture.userId }, deleteCommand),
-						),
+						commitEventChanges(fixture.userId, deleteCommand, [eventDelete(occurrence)]),
 					),
 				);
 				yield* database

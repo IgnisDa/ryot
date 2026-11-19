@@ -124,7 +124,8 @@ the `CreateEventsResponse` in the account's idempotency key. Callers and keys:
 | Provider entry event       | The entity import job's ID                                      | prefixed   |
 
 HTTP event creation and collection membership events commit independently without a receipt; a
-deferred integration flush commits with the stream precondition alone.
+deferred integration flush commits with the stream precondition alone. HTTP event updates and deletes
+commit one event change without a receipt, its policies matched and called like any event batch.
 
 ## Script changes and exactly-once commits
 
@@ -210,6 +211,12 @@ Entity updates, the root one and `entities.updates`, carry an expected name, pro
 carry expected entity/session references, occurrence time, present property values, and absent
 property names. Change sets can also declare the expected set of session event IDs. These baselines
 detect stale writes; a changed baseline fails the atomic change set rather than merging silently.
+
+A kernel commit that fails with `EventStale` for an event it updates or deletes with a field
+`expected` is prepared and committed again, at most twice, while the event's current snapshot still
+matches that `expected`: the concurrent change touched only fields the caller did not depend on. A
+stale event without `expected`, or one whose fields no longer match, fails the commit. Script commits
+are not retried.
 
 Optional event `baselines` protect read-dependent change sets. Each names a visible entity owned by
 the change set's plugin and the revision of that user's plugin event scope. Each insert, edit, deletion,
