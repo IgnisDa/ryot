@@ -274,6 +274,7 @@ for (const [conflict, message] of [
 						waitFor(() => expect(getByRole(document.body, "alert").textContent).toBe(message)),
 					);
 					expect(queryByRole(document.body, "dialog")).not.toBeNull();
+					expect(getByRole(document.body, "button", { name: "Merge data" })).toBeTruthy();
 				} finally {
 					mounted.unmount();
 				}

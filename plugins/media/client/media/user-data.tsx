@@ -30,6 +30,9 @@ type MergeAction = Extract<MediaUserDataAction, { readonly action: "merge" }>;
 type RemoveAction = Extract<MediaUserDataAction, { readonly action: "remove" }>;
 type MediaLibraryMemberEntitySchemaSlug = (typeof mediaLibraryMemberEntitySchemaSlugs)[number];
 
+type MediaUserDataResult =
+	{ readonly kind: "saved" } | { readonly kind: "conflict"; readonly error: RyotClientError };
+
 type UserDataConfirmation =
 	| { readonly action: "remove"; readonly intent: RemoveAction }
 	| {
@@ -40,7 +43,7 @@ type UserDataConfirmation =
 
 const mediaUserDataMutation = createRyotMutation<
 	RyotSubmission<MediaUserDataAction>,
-	MediaUserDataOutput
+	MediaUserDataResult
 >(({ input, client }) =>
 	client.operations
 		.invoke({
@@ -53,7 +56,13 @@ const mediaUserDataMutation = createRyotMutation<
 			idempotencyKey: input.submissionId,
 			input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
 		})
-		.pipe(Effect.map(({ output }) => output)),
+		.pipe(
+			Effect.as({ kind: "saved" } as const),
+			Effect.catchIf(
+				(error) => error.reason === "changes-conflict",
+				(error) => Effect.succeed({ error, kind: "conflict" } as const),
+			),
+		),
 );
 
 const isMediaLibraryMemberSchemaSlug = (slug: string): slug is MediaLibraryMemberEntitySchemaSlug =>
@@ -97,11 +106,15 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 	const [confirmation, setConfirmation] = useState<UserDataConfirmation>();
 	const [pickerError, setPickerError] = useState<string | undefined>();
 	const [isPicking, setIsPicking] = useState(false);
-	const handledOutput = useRef<undefined | MediaUserDataOutput>(undefined);
+	const handledOutput = useRef<undefined | MediaUserDataResult>(undefined);
 
 	useEffect(() => {
 		const output = submission.data;
-		if (output === undefined || confirmation === undefined || handledOutput.current === output) {
+		if (
+			output?.kind !== "saved" ||
+			confirmation === undefined ||
+			handledOutput.current === output
+		) {
 			return;
 		}
 		handledOutput.current = output;
@@ -207,11 +220,10 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 		submission.reset();
 		submission.submit(confirmation.intent);
 	};
+	const failure = submission.data?.kind === "conflict" ? submission.data.error : submission.error;
 	const errorMessage =
-		submission.error === null
-			? undefined
-			: formatError(t, submission.error, submissionErrorFallback(text, submission.error));
-	const activeConfirmation = submission.data === undefined ? confirmation : undefined;
+		failure === null ? undefined : formatError(t, failure, submissionErrorFallback(text, failure));
+	const activeConfirmation = submission.data?.kind === "saved" ? undefined : confirmation;
 	const retained = submission.status === "retained";
 
 	return (
