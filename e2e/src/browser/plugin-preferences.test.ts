@@ -6,11 +6,11 @@ import {
 	installPreferencePrivatePlugin,
 	listPluginUserSettings,
 } from "~/fixtures/kernel/plugin-user-settings";
-import { startProApiServer } from "~/fixtures/kernel/pro-server";
 import { findMediaPluginUserSettings } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
+import { getSharedHarnessTarget } from "~/support/harness-target";
 
 const settingsSidebar = (page: Playwright.Page) => page.getByTestId("settings-sidebar");
 
@@ -25,7 +25,7 @@ const openPluginPreferences = (page: Playwright.Page, frontendUrl: string) =>
 
 it.live("saves plugin preferences, validates drafts, and guards unsaved navigation", () =>
 	Effect.gen(function* () {
-		const { target } = yield* startProApiServer("Plugin preferences Pro");
+		const target = getSharedHarnessTarget();
 		const owner = yield* createAuthenticatedClient(target);
 		const privatePlugin = yield* installPreferencePrivatePlugin({ client: owner.client });
 		const outsider = yield* createAuthenticatedClient(target);

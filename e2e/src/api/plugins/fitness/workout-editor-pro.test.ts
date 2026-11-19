@@ -2,10 +2,9 @@ import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { workoutEditorLinksRecipe } from "@ryot-app/fitness-plugin/workout-editor-recipes";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
-import { DateTime, Effect, Exit, Scope } from "effect";
+import { DateTime, Effect } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
-import { startProApiServer } from "~/fixtures/kernel/pro-server";
 import {
 	createExerciseEntityFixture,
 	editTarget,
@@ -23,33 +22,16 @@ import {
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, requirePresent } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
+import { describe, expect, it } from "~/support/effect-test";
 
 const { setOccurredAt: occurredAt } = workoutEditorTimes;
-
-const scope = Scope.makeUnsafe();
-let target: Effect.Success<ReturnType<typeof startProApiServer>>["target"];
-
-beforeAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			const server = yield* startProApiServer("Workout editor Pro");
-			target = server.target;
-		}).pipe(
-			Effect.provideService(Scope.Scope, scope),
-			Effect.onError(() => Scope.close(scope, Exit.void)),
-		),
-	),
-);
-
-afterAll(() => runPromise(Scope.close(scope, Exit.void)));
 
 describe("Workout editor with a valid Pro key", () => {
 	it.live(
 		"creates and edits templates with partial rows, zero rest, and exercise-only entries",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient(target);
+				const { client } = yield* createAuthenticatedClient();
 				expect((yield* client.call((contract) => contract.system.config())).entitlements).toEqual([
 					"pro",
 				]);
@@ -173,7 +155,7 @@ describe("Workout editor with a valid Pro key", () => {
 
 	it.live("creates repeat and template source links", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(target);
+			const { client } = yield* createAuthenticatedClient();
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
 			const sourceWorkout = yield* saveWorkoutEditor(
 				client,
@@ -245,7 +227,7 @@ describe("Workout editor with a valid Pro key", () => {
 
 	it.live("replaces a set between compatible exercises and rejects incompatible kinds", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(target);
+			const { client } = yield* createAuthenticatedClient();
 			const { exerciseId: originalExerciseId } = yield* createExerciseEntityFixture(client);
 			const { exerciseId: replacementExerciseId } = yield* createExerciseEntityFixture(client);
 			const { exerciseId: incompatibleExerciseId } = yield* createExerciseEntityFixture(client, {
@@ -326,7 +308,7 @@ describe("Workout editor with a valid Pro key", () => {
 
 	it.live("saves Pro set notes but rejects unowned managed media", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(target);
+			const { client } = yield* createAuthenticatedClient();
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
 			const noted = yield* saveWorkoutEditor(
 				client,
