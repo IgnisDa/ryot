@@ -48,9 +48,10 @@ occurrence.
 
 Activities and workflows use `makeActivity` and `implementWorkflow` from
 `src/platform/workflow/scope.ts` and run on the kernel's
-[PostgreSQL workflow engine](src/platform/workflow/README.md). Event creates run synchronously
-through `EventsService.create`; durable callers run them inside an activity, where `LifecycleExecution`
-runs policies and hooks as request work rather than journaling them.
+[PostgreSQL workflow engine](src/platform/workflow/README.md). Kernel and script writes commit
+synchronously through [`ChangeSets`](src/modules/changes/README.md); durable callers run the commit
+inside an activity, where `LifecycleExecution` runs policies and hooks as request work rather than
+journaling them.
 
 Detailed behavior belongs to [automations](src/modules/automations/README.md),
 [mutation admission](src/modules/mutations/README.md), [events and folds](src/modules/events/README.md),

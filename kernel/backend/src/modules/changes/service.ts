@@ -1,10 +1,7 @@
 import { BadRequest, DbError, NotFound, ValidationFailed } from "@ryot-app/contract/errors";
 import type {
 	ChangeSet,
-	ChangeSetEntity,
 	ChangeSetEntityReference,
-	ChangeSetEntityUpdate,
-	ChangeSetGlobalEntityReference,
 	CommittedChanges,
 } from "@ryot-app/contract/modules/changes/change-set";
 import {
@@ -18,8 +15,10 @@ import {
 } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import type { EventMutationChange } from "@ryot-app/contract/modules/events/mutations";
 import {
+	CreateEventsResponse,
 	EventBadRequest,
 	EventCreateItemError,
+	type EventCreateItemOutcome,
 	EventNotFound,
 	EventStale,
 } from "@ryot-app/contract/modules/events/schemas";
@@ -27,16 +26,13 @@ import {
 	NotificationAdmissionConflictError,
 	NotificationAdmissionUnavailableError,
 } from "@ryot-app/contract/modules/notifications/schemas";
-import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	EntityId,
-	EntitySchemaSlug,
 	EventSchemaSlug,
-	RelationshipSchemaSlug,
 	SignalSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -52,10 +48,11 @@ import {
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
+	applyPolicyBatch,
 	AutomationPolicyExecutionError,
 	type LifecyclePolicies,
+	matchPolicyBatch,
 	type PolicyBatchResult,
-	runPolicyBatch,
 } from "#modules/automations/lifecycle/policies";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { DefinitionReadUnavailable } from "#modules/definitions/read-context";
@@ -76,6 +73,7 @@ import {
 	type PreparedEventChanges,
 } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
+import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
 import { NotificationsService } from "#modules/notifications/service";
 import {
 	PluginUserSettingsPatchError,
@@ -89,18 +87,29 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { shareExecutionAuthority } from "#modules/scripts/authorization/authority";
 import {
 	principalOwner,
+	type ScriptExecutionPrincipal,
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
-import type { ChangeSetReceipt } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 
 import {
 	authorizeChangeSet,
+	type ChangeSetAuthority,
 	changeSetReferences,
 	ChangeSetRejected,
 	undeclaredSchema,
 } from "./authority";
+import { type Changes, fromScriptChangeSet, type GlobalEntityReference } from "./changes";
+import {
+	commitRejection,
+	EventCreateRejected,
+	policyOutcomes,
+	rejectedOutcomes,
+	sortedOutcomes,
+	toCreateEventsResponse,
+} from "./outcomes";
+import { type CommitReceipt, type CommitResult, keyedReceipt } from "./receipts";
 
 export const ChangeSetFailure = Schema.Union([
 	DbError,
@@ -128,6 +137,29 @@ export const ChangeSetFailure = Schema.Union([
 	ChangeSetRejected,
 ]);
 
+/**
+ * Durable state the commit consults: `check` runs before preparation and again in the commit
+ * transaction, where false records an empty result; `written` runs after source writes that wrote an
+ * event.
+ */
+export type CommitPrecondition = {
+	readonly written: Effect.Effect<void, DbError>;
+	readonly check: Effect.Effect<boolean, DbError>;
+};
+
+export type CommitOptions = {
+	readonly precondition?: CommitPrecondition;
+	readonly events?: { readonly independent: true; readonly verbatimIdentities?: true };
+};
+
+type Writer =
+	| { readonly kind: "kernel" }
+	| {
+			readonly kind: "script";
+			readonly authority: ChangeSetAuthority;
+			readonly principal: ScriptExecutionPrincipal;
+	  };
+
 const parts = (changes: ChangeSet) => [
 	changes.entity,
 	changes.folds,
@@ -151,6 +183,20 @@ const parts = (changes: ChangeSet) => [
 const isEmptyChangeSet = (changes: ChangeSet) =>
 	parts(changes).every((part) => part === undefined || (Array.isArray(part) && part.length === 0));
 
+/** A part only a script writer's principal resolves. */
+const scriptOnlyPart = (changes: Changes) =>
+	(
+		[
+			["settings", changes.settings !== undefined],
+			["folds", changes.folds !== undefined],
+			["signals", changes.signals !== undefined],
+			["globalEntities", changes.globalEntities !== undefined],
+			["globalRelationships", changes.globalRelationships !== undefined],
+			["events.expected", changes.events?.expected !== undefined],
+			["events.baselines", changes.events?.baselines !== undefined],
+		] as const
+	).find(([, present]) => present)?.[0];
+
 const itemCommand = (command: DomainLifecycleCommand, itemIdentity: string) => ({
 	...command,
 	itemIdentity: `${command.itemIdentity}:${itemIdentity}`,
@@ -168,10 +214,44 @@ const referencedEntity = (reference: ChangeSetEntityReference, rootId?: EntityId
 const upsertKey = (entitySchemaSlug: string, externalId: string) =>
 	stableStringify([entitySchemaSlug, externalId]);
 
-const globalReferences = (group: NonNullable<ChangeSet["globalRelationships"]>[number]) => [
+const globalReferences = (group: NonNullable<Changes["globalRelationships"]>[number]) => [
 	...(group.selector.type === "anchored" ? [group.selector.anchor] : []),
 	...group.relationships.flatMap(({ source, target }) => [source, target]),
 ];
+
+const policyChunkSize = 50;
+
+type PreparedEventChange = PreparedEventChanges["items"][number];
+
+type ValidatedEvents = {
+	readonly prepared: null | PreparedEventChanges;
+	readonly chunks: ReadonlyArray<{
+		readonly validated: PolicyBatchResult;
+		readonly items: ReadonlyArray<PreparedEventChange>;
+	}>;
+};
+
+// One policy invocation must fit the sandbox context limit. A subject's items share a chunk, so a
+// once-per-subject policy still runs once for it.
+const subjectChunks = (items: ReadonlyArray<PreparedEventChange>) => {
+	const chunks: Array<PreparedEventChange[]> = [];
+	for (const subject of Map.groupBy(items, (item) => item.draft.entityId).values()) {
+		const last = chunks.at(-1);
+		if (last && last.length + subject.length <= policyChunkSize) {
+			last.push(...subject);
+		} else {
+			chunks.push([...subject]);
+		}
+	}
+	return chunks;
+};
+
+const emptyResult: CommitResult = { outcomes: [], committed: { events: [] } };
+
+const unrecorded: CommitReceipt<CommitResult> = {
+	record: Effect.succeed,
+	load: Effect.succeed(null),
+};
 
 export class ChangeSets extends Context.Service<ChangeSets>()(
 	"@ryot-app/kernel-backend/modules/changes/service/ChangeSets",
@@ -191,17 +271,17 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 			const notifications = yield* NotificationsService;
 			const folds = yield* FoldMarks;
 			const scripts = yield* SandboxRepository;
+			const keys = yield* IdempotencyKeys.make;
 			const policyContext = yield* Effect.context<
 				DatabaseSession | LifecyclePolicies | EntitiesRepository
 			>();
-			const prepareUserChanges = Effect.fn("ChangeSets.prepareUserChanges")(function* (
+			const inTransaction = <A, E>(effect: Effect.Effect<A, E>) =>
+				session.transaction(effect).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+			const rejectForeignReferences = Effect.fnUntraced(function* (
 				input: ChangeSet,
-				command: DomainLifecycleCommand,
 				userId: UserId,
-				pluginRevision: ScriptPluginRevision,
+				pluginId: string,
 			) {
-				const pluginId = pluginRevision.id;
-				const owner = definitionOwner(pluginId);
 				const referenced = changeSetReferences(input);
 				const entityOwners = yield* entityRows.getEntityScopes(
 					referenced.entities.map(([, entityId]) => entityId),
@@ -232,24 +312,29 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						message: `${id} belongs to another plugin or user`,
 					});
 				}
-				const events: NonNullable<ChangeSet["events"]> = input.events ?? {
-					creates: [],
-					changes: [],
-				};
+				return yield* Effect.void;
+			});
+			const prepareUserChanges = Effect.fn("ChangeSets.prepareUserChanges")(function* (
+				input: Changes,
+				command: DomainLifecycleCommand,
+				userId: UserId,
+				pluginRevision: null | ScriptPluginRevision,
+				options: CommitOptions,
+			) {
+				const pluginId = pluginRevision?.id ?? null;
+				const independent = options.events?.independent === true;
+				const events: NonNullable<Changes["events"]> = input.events ?? { creates: [], changes: [] };
 				if (input.entity === undefined && events.expected !== undefined) {
 					return yield* rootRequired();
 				}
-				const prepareEntitySave = (
-					item: ChangeSetEntity | ChangeSetEntityUpdate,
-					itemIdentity: string,
-				) =>
+				const prepareEntitySave = (item: NonNullable<Changes["entity"]>, itemIdentity: string) =>
 					entities.prepareUserSave({
 						userId,
 						name: item.name,
 						target: item.target,
 						properties: item.properties,
+						entitySchema: item.entitySchema,
 						lifecycle: itemCommand(command, item.itemIdentity ?? itemIdentity),
-						entitySchema: { owner, slug: EntitySchemaSlug.make(item.entitySchemaSlug) },
 					});
 				const entity =
 					input.entity === undefined ? undefined : yield* prepareEntitySave(input.entity, "entity");
@@ -282,16 +367,16 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				if (new Set(changedIds).size !== changedIds.length) {
 					return yield* new EventBadRequest({ reason: { code: "mutation-conflict" } });
 				}
+				const createIndexes = new Map(creates.map((item, index) => [item.itemIdentity, index]));
+				const indexOf = (itemIdentity: string) => createIndexes.get(itemIdentity) ?? -1;
 				const preparedRelations: Array<
 					| { readonly kind: "upsert"; readonly prepared: PreparedUserRelationshipCreate }
 					| { readonly kind: "delete"; readonly prepared: PreparedUserRelationshipDelete }
 				> = [];
 				const relationEndpoints: EntityId[] = [];
-				const relationshipEndpoints = Effect.fnUntraced(function* (relation: {
-					readonly relationshipSchemaSlug: string;
-					readonly source: ChangeSetEntityReference;
-					readonly target: ChangeSetEntityReference;
-				}) {
+				const relationshipEndpoints = Effect.fnUntraced(function* (
+					relation: NonNullable<NonNullable<Changes["relationships"]>["deletes"]>[number],
+				) {
 					const sourceEntityId = yield* referencedEntity(relation.source, rootId);
 					const targetEntityId = yield* referencedEntity(relation.target, rootId);
 					relationEndpoints.push(sourceEntityId, targetEntityId);
@@ -300,10 +385,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						sourceEntityId,
 						targetEntityId,
 						scope: "user" as const,
-						relationshipSchema: {
-							owner,
-							slug: RelationshipSchemaSlug.make(relation.relationshipSchemaSlug),
-						},
+						relationshipSchema: relation.relationshipSchema,
 					};
 				});
 				for (const [index, relation] of (input.relationships?.upserts ?? []).entries()) {
@@ -326,86 +408,42 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						preparedRelations.push({ prepared, kind: "delete" });
 					}
 				}
-				const preparedBatches: Array<{
-					validated: PolicyBatchResult;
-					prepared: PreparedEventChanges;
-					command: DomainLifecycleCommand;
-				}> = [];
-				for (let offset = 0; offset < changes.length; offset += 50) {
-					const batchCommand = itemCommand(command, `events:${offset}`);
-					const prepared = yield* session
-						.transaction(
-							eventMutations.prepare({
-								userId,
-								command,
-								positionOffset: offset,
-								changes: changes.slice(offset, offset + 50),
-								proposedEntities:
-									entity === undefined ? {} : { [entity.entityId]: userEntitySaveDraft(entity) },
-							}),
-						)
-						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-					const validated = yield* runPolicyBatch({
-						userId,
-						resource: "event",
-						command: batchCommand,
-						references: prepared.references,
-						items: yield* eventPolicyItems(prepared),
-						propertiesSchemas: prepared.propertiesSchemas,
-					}).pipe(Effect.provideContext(policyContext));
-					const rejection = validated.items.find((item) => item.rejected !== null)?.rejected;
-					if (rejection) {
-						return yield* new EventBadRequest({
-							reason: { message: rejection, code: "policy-rejected" },
-						});
-					}
-					const invalid = validated.items.find((item) => item.error !== null);
-					if (invalid?.error) {
-						return yield* new EventBadRequest({
-							reason: {
-								code:
-									invalid.error.code === "reference-not-found"
-										? "invalid-policy-transform"
-										: invalid.error.code,
-							},
-						});
-					}
-					preparedBatches.push({ prepared, validated, command: batchCommand });
-				}
 				const ensures = input.entities?.ensures?.length
 					? yield* entities.prepareEnsures(
 							userId,
-							input.entities.ensures.map(({ entitySchemaSlug, ...item }) => ({
-								...item,
-								entitySchema: { owner, slug: EntitySchemaSlug.make(entitySchemaSlug) },
-							})),
+							input.entities.ensures,
 							itemCommand(command, "ensures"),
 						)
 					: undefined;
-				const deletesBySchema = new Map<string, [EntityId, ...EntityId[]]>();
-				for (const { entityId, entitySchemaSlug } of input.entities?.deletes ?? []) {
-					const ids = deletesBySchema.get(entitySchemaSlug);
-					if (ids) {
-						ids.push(entityId);
+				const deletesBySchema = new Map<
+					string,
+					{
+						readonly ids: [EntityId, ...EntityId[]];
+						readonly entitySchema: NonNullable<Changes["entity"]>["entitySchema"];
+					}
+				>();
+				for (const { entityId, entitySchema } of input.entities?.deletes ?? []) {
+					const key = stableStringify(entitySchema);
+					const group = deletesBySchema.get(key);
+					if (group) {
+						group.ids.push(entityId);
 					} else {
-						deletesBySchema.set(entitySchemaSlug, [entityId]);
+						deletesBySchema.set(key, { entitySchema, ids: [entityId] });
 					}
 				}
-				const deletes = yield* Effect.forEach(deletesBySchema, ([entitySchemaSlug, ids]) =>
-					entities.prepareDeletes(ids, itemCommand(command, `entity-deletes:${entitySchemaSlug}`), {
-						userId,
-						entitySchema: { owner, slug: EntitySchemaSlug.make(entitySchemaSlug) },
-					}),
+				const deletes = yield* Effect.forEach(deletesBySchema.values(), ({ ids, entitySchema }) =>
+					entities.prepareDeletes(
+						ids,
+						itemCommand(command, `entity-deletes:${entitySchema.slug}`),
+						{ userId, entitySchema },
+					),
 				);
 				const clears = yield* Effect.forEach(
 					(input.entities?.clears ?? []).entries(),
 					([index, item]) =>
 						userData.prepareClearForCommand(
 							userId,
-							{
-								entityId: item.entityId,
-								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
-							},
+							{ entityId: item.entityId, entitySchemaSlug: item.entitySchema.slug },
 							kernelCollectionLifecycleCommand(itemCommand(command, `entity-clear:${index}`)),
 						),
 				);
@@ -417,7 +455,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							{
 								mergeFrom: item.mergeFrom,
 								mergeInto: item.mergeInto,
-								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+								entitySchemaSlug: item.entitySchema.slug,
 							},
 							kernelCollectionLifecycleCommand(itemCommand(command, `entity-merge:${index}`)),
 						),
@@ -426,8 +464,137 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					sortBy(input.entities?.updates ?? [], (item) => item.target.entityId),
 					(item) => prepareEntitySave(item, `entity-update:${item.target.entityId}`),
 				);
-				const sourceWrites = Effect.gen(function* () {
-					const baselines = events.baselines ?? [];
+				let kept: ReadonlyArray<EventCreateItemOutcome> = [];
+				const planEvents = Effect.gen(function* () {
+					if (changes.length === 0) {
+						return { chunks: [], prepared: null };
+					}
+					const prepared = yield* eventMutations
+						.prepare({
+							userId,
+							command,
+							changes,
+							independent,
+							verbatimIdentities: options.events?.verbatimIdentities === true,
+							proposedEntities:
+								entity === undefined ? {} : { [entity.entityId]: userEntitySaveDraft(entity) },
+						})
+						.pipe(
+							Effect.mapError((error) =>
+								independent && error._tag !== "DbError"
+									? new EventCreateRejected({
+											kept: [],
+											reason:
+												error._tag === "EventCreateItemError"
+													? error.reason
+													: { code: "invalid-properties" },
+										})
+									: error,
+							),
+						);
+					kept = prepared.failures.map(({ reason, itemIdentity }) => ({
+						reason,
+						status: "failed" as const,
+						index: indexOf(itemIdentity),
+					}));
+					const chunks = yield* Effect.forEach(subjectChunks(prepared.items), (items, index) =>
+						Effect.gen(function* () {
+							const policyBatch = {
+								userId,
+								resource: "event" as const,
+								references: prepared.references,
+								propertiesSchemas: prepared.propertiesSchemas,
+								command: itemCommand(command, `policies:${index}`),
+								items: yield* eventPolicyItems({ ...prepared, items }),
+							};
+							const matched = yield* matchPolicyBatch(policyBatch).pipe(
+								Effect.provideContext(policyContext),
+							);
+							return { items, matched, policyBatch };
+						}),
+					);
+					return { chunks, prepared };
+				});
+				type PlannedEvents = Effect.Success<typeof planEvents>;
+				const validateEvents = (planned: PlannedEvents) =>
+					Effect.forEach(planned.chunks, ({ items, matched, policyBatch }) =>
+						applyPolicyBatch(policyBatch, matched).pipe(
+							Effect.provideContext(policyContext),
+							Effect.map((validated) => ({ items, validated })),
+							Effect.catchTag(
+								"AutomationPolicyExecutionError",
+								(
+									error,
+								): Effect.Effect<never, EventCreateRejected | AutomationPolicyExecutionError> =>
+									independent
+										? Effect.fail(
+												new EventCreateRejected({
+													kept,
+													reason: { runId: error.runId, code: "policy-execution-failed" },
+												}),
+											)
+										: Effect.fail(error),
+							),
+						),
+					).pipe(Effect.map((chunks): ValidatedEvents => ({ chunks, prepared: planned.prepared })));
+				const eventBatches = Effect.fnUntraced(function* (validated: ValidatedEvents) {
+					const prepared = validated.prepared;
+					if (prepared === null) {
+						return [];
+					}
+					const batches: Array<{
+						validated: PolicyBatchResult;
+						prepared: PreparedEventChanges;
+						command: DomainLifecycleCommand;
+					}> = [];
+					for (const chunk of validated.chunks) {
+						if (independent) {
+							const policies = policyOutcomes(chunk.validated, indexOf);
+							kept = [...kept, ...policies.outcomes];
+							const accepted = chunk.items.filter((item) =>
+								policies.accepted.has(item.change.itemIdentity),
+							);
+							if (accepted.length > 0) {
+								batches.push({
+									command,
+									validated: chunk.validated,
+									prepared: { ...prepared, items: accepted },
+								});
+							}
+							continue;
+						}
+						const rejection = chunk.validated.items.find(
+							(item) => item.rejected !== null,
+						)?.rejected;
+						if (rejection) {
+							return yield* new EventBadRequest({
+								reason: { message: rejection, code: "policy-rejected" },
+							});
+						}
+						const invalid = chunk.validated.items.find((item) => item.error !== null);
+						if (invalid?.error) {
+							return yield* new EventBadRequest({
+								reason: {
+									code:
+										invalid.error.code === "reference-not-found"
+											? "invalid-policy-transform"
+											: invalid.error.code,
+								},
+							});
+						}
+						batches.push({
+							command,
+							validated: chunk.validated,
+							prepared: { ...prepared, items: chunk.items },
+						});
+					}
+					return batches;
+				});
+				const sourceWrites = Effect.fnUntraced(function* (
+					preparedBatches: Effect.Success<ReturnType<typeof eventBatches>>,
+				) {
+					const scope = pluginId === null ? null : { pluginId, baselines: events.baselines ?? [] };
+					const baselines = scope?.baselines ?? [];
 					for (const baseline of baselines) {
 						const visible = yield* entityRows.getByIdForUser({
 							userId,
@@ -453,25 +620,27 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						batches: preparedBatches,
 					});
 					const lockedReferences = yield* entityRows.getMutationEntities(lockedEntityIds, true);
-					for (const baseline of baselines) {
-						if (!lockedReferences.has(baseline.entityId)) {
-							return yield* new EntityStale({
-								reason: { code: "entity-stale", entityId: baseline.entityId },
+					if (scope) {
+						for (const baseline of baselines) {
+							if (!lockedReferences.has(baseline.entityId)) {
+								return yield* new EntityStale({
+									reason: { code: "entity-stale", entityId: baseline.entityId },
+								});
+							}
+							const current = yield* eventRows.getScopeRevision({
+								userId,
+								entityId: baseline.entityId,
+								eventSchemaPluginId: scope.pluginId,
 							});
-						}
-						const current = yield* eventRows.getScopeRevision({
-							userId,
-							entityId: baseline.entityId,
-							eventSchemaPluginId: pluginId,
-						});
-						if (baseline.revision !== current) {
-							return yield* new EntityStale({
-								reason: { code: "entity-stale", entityId: baseline.entityId },
-							});
+							if (baseline.revision !== current) {
+								return yield* new EntityStale({
+									reason: { code: "entity-stale", entityId: baseline.entityId },
+								});
+							}
 						}
 					}
 					const expected = events.expected;
-					if (expected && rootId !== undefined) {
+					if (expected && rootId !== undefined && pluginId !== null) {
 						const current = yield* eventRows.listSessionEventIds({
 							userId,
 							sessionEntityId: rootId,
@@ -513,41 +682,50 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					yield* planner.prepareBatch({ ...eventBatch, scopes: [userId] });
 					let eventOffset = 0;
 					for (const prepared of preparedBatches) {
-						const work = yield* eventMutations
-							.persist({
-								userId,
-								...prepared,
-								sealBatch: false,
-								batch: eventBatch,
-								batchIndexOffset: eventOffset,
-							})
-							.pipe(Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest));
+						const persisted = eventMutations.persist({
+							userId,
+							...prepared,
+							sealBatch: false,
+							batch: eventBatch,
+							batchIndexOffset: eventOffset,
+						});
+						const work = yield* independent
+							? persisted.pipe(
+									Effect.mapError((error) =>
+										error._tag === "DbError"
+											? error
+											: new EventCreateRejected({ kept, reason: commitRejection(error) }),
+									),
+								)
+							: persisted.pipe(
+									Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest),
+								);
 						eventOffset += prepared.prepared.items.length;
 						written.push(...work.results);
 						dispatch.push(...work.dispatch);
 					}
 					dispatch.push(...(yield* planner.planBatch(eventBatch)));
-					const result: CommittedChanges = {
+					const committed: CommittedChanges = {
 						events: written,
 						...(saved === undefined ? {} : { entityId: saved.entity.id }),
 					};
-					return { result, dispatch };
+					return { dispatch, committed };
 				});
-				const hasSourceWrites =
-					entity !== undefined || preparedRelations.length > 0 || preparedBatches.length > 0;
-				const write = Effect.gen(function* () {
-					if (input.settings !== undefined) {
+				const write = Effect.fnUntraced(function* (validated: ValidatedEvents) {
+					const preparedBatches = yield* eventBatches(validated);
+					if (input.settings !== undefined && pluginRevision !== null) {
 						yield* settingsWriter.patchWithin({
 							userId,
-							pluginId,
 							accountUserId: userId,
 							values: input.settings,
+							pluginId: pluginRevision.id,
 							pluginRevisionId: pluginRevision.revisionId,
 						});
 					}
-					const written = hasSourceWrites
-						? yield* sourceWrites
-						: { dispatch: [], result: { events: [] } satisfies CommittedChanges };
+					const written =
+						entity !== undefined || preparedRelations.length > 0 || preparedBatches.length > 0
+							? yield* sourceWrites(preparedBatches)
+							: { dispatch: [], committed: { events: [] } satisfies CommittedChanges };
 					const dispatch = [...written.dispatch];
 					if (ensures) {
 						for (const ensured of yield* entities.persistPreparedEnsures(ensures)) {
@@ -566,42 +744,34 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					for (const prepared of updates) {
 						dispatch.push(...(yield* entities.persistPreparedUserSave(prepared)).dispatch);
 					}
-					return { dispatch, result: written.result };
+					const outcomes = independent
+						? sortedOutcomes([
+								...kept,
+								...written.committed.events.map(({ eventId, itemIdentity }) => ({
+									eventId,
+									status: "written" as const,
+									index: indexOf(itemIdentity),
+								})),
+							])
+						: [];
+					return { dispatch, result: { outcomes, committed: written.committed } };
 				});
-				return { write };
+				return { write, planEvents, validateEvents, kept: () => kept, createCount: creates.length };
 			});
 			const apply = Effect.fnUntraced(function* <A>(
-				input: ChangeSet,
+				input: Changes,
 				command: DomainLifecycleCommand,
-				receipt: ChangeSetReceipt<A>,
+				writer: Writer,
+				receipt: CommitReceipt<A>,
+				options: CommitOptions,
 			) {
-				const principal = command.writeContext;
-				if (!principal) {
-					return yield* new DbError({ message: "A change set requires its writer's principal" });
-				}
-				const authorized = authorizeChangeSet(input, principal);
-				if (Result.isFailure(authorized)) {
-					return yield* authorized.failure;
-				}
-				const { signalActor, pluginRevision, notifications: notices } = authorized.success;
-				if (pluginRevision) {
-					const undeclared = undeclaredSchema(
-						input,
-						yield* scripts.getSchemaScope(pluginRevision.revisionId),
-					);
-					if (undeclared !== undefined) {
-						return yield* new ChangeSetRejected({
-							part: "schemas",
-							message: `Schema ${undeclared} is not declared by the writing plugin revision`,
-						});
-					}
-				}
-				const { userId } = authorized.success;
+				const script = writer.kind === "script" ? writer : null;
+				const pluginRevision = script?.authority.pluginRevision ?? null;
 				const pluginId = pluginRevision?.id ?? null;
-				const owner = definitionOwner(pluginId);
+				const { precondition } = options;
 				const upserted = new Set(
 					(input.globalEntities ?? []).map((item) =>
-						upsertKey(item.entitySchemaSlug, item.externalId),
+						upsertKey(item.entitySchema.slug, item.externalId),
 					),
 				);
 				const unresolved = (input.globalRelationships ?? [])
@@ -609,7 +779,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					.find(
 						(reference) =>
 							reference.kind === "upserted" &&
-							!upserted.has(upsertKey(reference.entitySchemaSlug, reference.externalId)),
+							!upserted.has(upsertKey(reference.entitySchema.slug, reference.externalId)),
 					);
 				if (unresolved) {
 					return yield* new ChangeSetRejected({
@@ -617,11 +787,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						message: "A global relationship names an entity the change set does not upsert",
 					});
 				}
-				const providerId = principal.providerId;
+				const providerId = script?.principal.providerId ?? null;
 				const user =
-					userId === null || pluginRevision === null
+					input.userId === null
 						? null
-						: yield* prepareUserChanges(input, command, userId, pluginRevision);
+						: yield* prepareUserChanges(input, command, input.userId, pluginRevision, options);
 				const globalWrites = Effect.gen(function* () {
 					const dispatch: LifecycleDispatchPlan[] = [];
 					const upsertedIds = new Map<string, EntityId>();
@@ -636,11 +806,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								scope: "global" as const,
 								externalId: item.externalId,
 								properties: item.properties,
+								entitySchema: item.entitySchema,
 								populatedAt: item.populatedAt === null ? null : new Date(item.populatedAt),
-								entitySchema: { owner, slug: EntitySchemaSlug.make(item.entitySchemaSlug) },
 								lifecycle: itemCommand(
 									command,
-									`global-entity:${upsertKey(item.entitySchemaSlug, item.externalId)}`,
+									`global-entity:${upsertKey(item.entitySchema.slug, item.externalId)}`,
 								),
 							})),
 						});
@@ -648,18 +818,20 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							const result = work.results[index];
 							if (result) {
 								upsertedIds.set(
-									upsertKey(item.entitySchemaSlug, item.externalId),
+									upsertKey(item.entitySchema.slug, item.externalId),
 									result.entity.id,
 								);
 							}
 						}
 						dispatch.push(...work.dispatch);
 					}
-					const resolve = (reference: ChangeSetGlobalEntityReference) => {
+					const resolve = (reference: GlobalEntityReference) => {
 						if (reference.kind === "existing") {
 							return Effect.succeed(reference.entityId);
 						}
-						const id = upsertedIds.get(upsertKey(reference.entitySchemaSlug, reference.externalId));
+						const id = upsertedIds.get(
+							upsertKey(reference.entitySchema.slug, reference.externalId),
+						);
 						return id === undefined
 							? Effect.die("A resolved global relationship endpoint has no upserted entity")
 							: Effect.succeed(id);
@@ -667,10 +839,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					const groups = yield* Effect.forEach(input.globalRelationships ?? [], (group) =>
 						Effect.gen(function* () {
 							return {
-								relationshipSchema: {
-									owner,
-									slug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
-								},
+								relationshipSchema: group.relationshipSchema,
 								selector:
 									group.selector.type === "self"
 										? group.selector
@@ -699,91 +868,258 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					}
 					return dispatch;
 				});
-				const committed = yield* eventMutations
-					.transaction(
-						reuseLockedWriteChecks(
-							Effect.gen(function* () {
-								const stored = yield* receipt.load;
-								if (stored !== null) {
-									return { dispatch: [], value: stored };
-								}
-								const written = user
-									? yield* user.write
-									: { dispatch: [], result: { events: [] } satisfies CommittedChanges };
-								const dispatch = [...written.dispatch];
-								dispatch.push(...(yield* globalWrites));
-								for (const signal of input.signals ?? []) {
-									const plan = yield* signals.planSignal({
-										principal: signalActor,
-										properties: signal.properties,
-										command: itemCommand(command, `signal:${signal.discriminator}`),
-										reference: {
-											owner: principalOwner(principal),
-											slug: SignalSchemaSlug.make(signal.schemaSlug),
-										},
-										...(signal.subjectEntityId === undefined
-											? {}
-											: { subjectEntityId: signal.subjectEntityId }),
-									});
-									dispatch.push(toLifecycleDispatchPlan(plan));
-								}
-								for (const notice of notices) {
-									yield* notifications.admitMessageWithin(notice);
-								}
-								if (input.folds && pluginId !== null) {
-									yield* folds.request({
-										pluginId,
-										entityIds: input.folds.entityIds,
-										userId: input.folds.scope === "user" ? userId : null,
-									});
-								}
-								return { dispatch, value: yield* receipt.record(written.result) };
-							}),
-						),
-					)
-					.pipe(
+				const writeAll = Effect.fnUntraced(function* (validated: null | ValidatedEvents) {
+					const written =
+						user && validated
+							? yield* user.write(validated)
+							: { dispatch: [], result: emptyResult };
+					if (precondition && written.result.committed.events.length > 0) {
+						yield* precondition.written;
+					}
+					const dispatch = [...written.dispatch];
+					dispatch.push(...(yield* globalWrites));
+					if (script) {
+						for (const signal of input.signals ?? []) {
+							const plan = yield* signals.planSignal({
+								properties: signal.properties,
+								principal: script.authority.signalActor,
+								command: itemCommand(command, `signal:${signal.discriminator}`),
+								reference: {
+									owner: principalOwner(script.principal),
+									slug: SignalSchemaSlug.make(signal.schemaSlug),
+								},
+								...(signal.subjectEntityId === undefined
+									? {}
+									: { subjectEntityId: signal.subjectEntityId }),
+							});
+							dispatch.push(toLifecycleDispatchPlan(plan));
+						}
+						for (const notice of script.authority.notifications) {
+							yield* notifications.admitMessageWithin(notice);
+						}
+					}
+					if (input.folds && pluginId !== null) {
+						yield* folds.request({
+							pluginId,
+							entityIds: input.folds.entityIds,
+							userId: input.folds.scope === "user" ? input.userId : null,
+						});
+					}
+					return { dispatch, value: yield* receipt.record(written.result) };
+				});
+				const settled = (
+					value: A,
+				): { readonly value: A; readonly dispatch: ReadonlyArray<LifecycleDispatchPlan> } => ({
+					value,
+					dispatch: [],
+				});
+				const unchecked = Effect.gen(function* () {
+					const stored = yield* receipt.load;
+					if (stored !== null) {
+						return settled(stored);
+					}
+					return precondition && !(yield* precondition.check)
+						? settled(yield* receipt.record(emptyResult))
+						: null;
+				});
+				const transaction = <X, E, R>(work: Effect.Effect<X, E, R>) =>
+					eventMutations.transaction(
+						reuseLockedWriteChecks(work),
+						command.causation.lane === "background" ? "queue" : "inline",
+					);
+				const commitInTransactions = Effect.gen(function* () {
+					const started = yield* transaction(
+						Effect.gen(function* () {
+							const stopped = yield* unchecked;
+							if (stopped !== null) {
+								return { committed: stopped, kind: "committed" as const };
+							}
+							if (user === null) {
+								return { kind: "committed" as const, committed: yield* writeAll(null) };
+							}
+							const planned = yield* user.planEvents;
+							if (planned.chunks.every(({ matched }) => matched === null)) {
+								return {
+									kind: "committed" as const,
+									committed: yield* writeAll(yield* user.validateEvents(planned)),
+								};
+							}
+							return { user, planned, kind: "policies" as const };
+						}),
+					).pipe(
 						Effect.catchTags({
 							DatabaseSessionStateError: Effect.die,
 							LifecyclePersistenceError: Effect.die,
 						}),
 					);
+					if (started.kind === "committed") {
+						return started.committed;
+					}
+					const validated = yield* started.user.validateEvents(started.planned);
+					return yield* transaction(
+						Effect.gen(function* () {
+							return (yield* unchecked) ?? (yield* writeAll(validated));
+						}),
+					).pipe(
+						Effect.catchTags({
+							DatabaseSessionStateError: Effect.die,
+							LifecyclePersistenceError: Effect.die,
+						}),
+					);
+				});
+				const committed = yield* commitInTransactions.pipe(
+					Effect.catchTag("EventBadRequest", (error) =>
+						Effect.fail(
+							options.events?.independent && user
+								? new EventCreateRejected({ kept: user.kept(), reason: commitRejection(error) })
+								: error,
+						),
+					),
+					Effect.catchTag("EventCreateRejected", (rejection) =>
+						inTransaction(
+							Effect.gen(function* () {
+								const stored = yield* receipt.load;
+								return settled(
+									stored ??
+										(yield* receipt.record({
+											committed: { events: [] },
+											outcomes: rejectedOutcomes(rejection, user?.createCount ?? 0),
+										})),
+								);
+							}),
+						),
+					),
+				);
 				yield* lifecycle
 					.dispatch(committed.dispatch)
 					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
 				return committed.value;
 			});
-			const commit = Effect.fn("ChangeSets.commit")(function* (
-				input: ChangeSet,
+			const commitKernel = <A>(
+				input: Changes,
 				command: DomainLifecycleCommand,
+				receipt: CommitReceipt<A>,
+				options: CommitOptions,
+			) =>
+				Effect.gen(function* () {
+					const part = scriptOnlyPart(input);
+					if (part !== undefined) {
+						return yield* new ChangeSetRejected({
+							part,
+							message: `${part} requires a script writer`,
+						});
+					}
+					return yield* shareExecutionAuthority(
+						apply(input, command, { kind: "kernel" }, receipt, options),
+					);
+				});
+			/** Commits a kernel writer's changes; script authority checks do not apply. */
+			const commit = Effect.fn("ChangeSets.commit")(function* (
+				input: Changes,
+				command: DomainLifecycleCommand,
+				options: CommitOptions = {},
 			) {
-				return yield* shareExecutionAuthority(
-					apply(input, command, { record: Effect.succeed, load: Effect.succeed(null) }),
-				);
+				return yield* commitKernel(input, command, unrecorded, options);
 			});
-			const inTransaction = <A, E>(effect: Effect.Effect<A, E>) =>
-				session.transaction(effect).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			/**
-			 * Commits at most once against the receipt's durable state. A recorded result ends the commit
-			 * before preparation runs policies, and again inside the transaction, where no write precedes it.
+			 * Commits a kernel writer's changes at most once against the receipt's durable state. A recorded
+			 * result ends the commit before preparation runs policies, and again inside the transaction,
+			 * where no write precedes it.
 			 */
 			const commitOnce = Effect.fn("ChangeSets.commitOnce")(function* <A>(
+				input: Changes,
+				command: DomainLifecycleCommand,
+				receipt: CommitReceipt<A>,
+				options: CommitOptions = {},
+			) {
+				return (
+					(yield* inTransaction(receipt.load)) ??
+					(yield* commitKernel(input, command, receipt, options))
+				);
+			});
+			/** Commits independent event creates once per key, held by the account's idempotency key. */
+			const commitEventsKeyed = Effect.fn("ChangeSets.commitEventsKeyed")(function* (
+				input: Changes & { readonly userId: UserId },
+				command: DomainLifecycleCommand,
+				key: string,
+				options: CommitOptions & { readonly events: NonNullable<CommitOptions["events"]> },
+			) {
+				const identity = idempotencyIdentity({
+					key,
+					request: input,
+					userId: input.userId,
+					kind: "event-creates",
+				});
+				return yield* commitOnce(
+					input,
+					command,
+					keyedReceipt(keys, identity, CreateEventsResponse, (result) =>
+						toCreateEventsResponse(result.outcomes),
+					),
+					options,
+				);
+			});
+			/**
+			 * Commits a script's change set under its writer's principal (`command.writeContext`), once
+			 * against the receipt's durable state. Authority, declared schemas and foreign references are
+			 * checked before the change set becomes `Changes` owned by the writing plugin.
+			 */
+			const commitScript = Effect.fn("ChangeSets.commitScript")(function* <A>(
 				input: undefined | ChangeSet,
 				command: DomainLifecycleCommand,
-				receipt: ChangeSetReceipt<A>,
+				receipt: CommitReceipt<A>,
 			) {
 				if (input === undefined || isEmptyChangeSet(input)) {
 					return yield* inTransaction(
 						Effect.gen(function* () {
-							return (yield* receipt.load) ?? (yield* receipt.record({ events: [] }));
+							return (yield* receipt.load) ?? (yield* receipt.record(emptyResult));
 						}),
 					);
 				}
-				return (
-					(yield* inTransaction(receipt.load)) ??
-					(yield* shareExecutionAuthority(apply(input, command, receipt)))
+				const stored = yield* inTransaction(receipt.load);
+				if (stored !== null) {
+					return stored;
+				}
+				return yield* shareExecutionAuthority(
+					Effect.gen(function* () {
+						const principal = command.writeContext;
+						if (!principal) {
+							return yield* new DbError({
+								message: "A change set requires its writer's principal",
+							});
+						}
+						const authorized = authorizeChangeSet(input, principal);
+						if (Result.isFailure(authorized)) {
+							return yield* authorized.failure;
+						}
+						const authority = authorized.success;
+						const { userId, pluginRevision } = authority;
+						if (pluginRevision) {
+							const undeclared = undeclaredSchema(
+								input,
+								yield* scripts.getSchemaScope(pluginRevision.revisionId),
+							);
+							if (undeclared !== undefined) {
+								return yield* new ChangeSetRejected({
+									part: "schemas",
+									message: `Schema ${undeclared} is not declared by the writing plugin revision`,
+								});
+							}
+							if (userId !== null) {
+								yield* rejectForeignReferences(input, userId, pluginRevision.id);
+							}
+						}
+						return yield* apply(
+							fromScriptChangeSet(input, userId, pluginRevision?.id ?? null),
+							command,
+							{ principal, authority, kind: "script" },
+							receipt,
+							{},
+						);
+					}),
 				);
 			});
-			return { commit, commitOnce };
+			return { commit, commitOnce, commitScript, commitEventsKeyed };
 		}),
 	},
 ) {

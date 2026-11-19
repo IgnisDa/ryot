@@ -50,7 +50,6 @@ import {
 import { principalOwner } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 
-import { makeEventCreate } from "./event-create";
 import {
 	capturedEventReferences,
 	resolveEventCreateItemScopes,
@@ -375,7 +374,6 @@ export class EventsService extends Context.Service<EventsService>()(
 			const admission = yield* AccountAdmission.make;
 			const execution = yield* LifecycleExecution;
 			const policies = yield* LifecyclePolicies;
-			const create = yield* makeEventCreate;
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userIds: ReadonlyArray<UserId>) =>
 				mutations
 					.transaction(eventSchemas.lockCatalog(userIds).pipe(Effect.andThen(work)))
@@ -1449,7 +1447,6 @@ export class EventsService extends Context.Service<EventsService>()(
 
 			return {
 				edit,
-				create,
 				updateBatch,
 				deleteBatch,
 				prepareDelete,

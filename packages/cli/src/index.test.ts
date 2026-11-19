@@ -273,7 +273,7 @@ export default defineScript({ manifest, input: Schema.Unknown, output: Schema.St
 					path.join(plugin, "backend/root.sandbox.ts"),
 					`
 import { defineManifest, defineWorkflow, defineWorkflowReference, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
-const target = defineWorkflowReference({ workflowSlug: "kernel:event-create", input: Schema.Unknown, output: Schema.String });
+const target = defineWorkflowReference({ workflowSlug: "kernel:process-import-chunks", input: Schema.Unknown, output: Schema.String });
 export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
 export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.String, run: (input, replay) => Effect.gen(function* () { return { output: yield* replay.child("write", target, input) }; }) });
 `,
@@ -295,7 +295,7 @@ export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.
 					oauthConnectionFields: [],
 					requiredPluginConfigKeys: [],
 					optionalPluginConfigKeys: [],
-					executableDependencies: [{ kind: "workflow", slug: "kernel:event-create" }],
+					executableDependencies: [{ kind: "workflow", slug: "kernel:process-import-chunks" }],
 				});
 			}),
 		testTimeout,

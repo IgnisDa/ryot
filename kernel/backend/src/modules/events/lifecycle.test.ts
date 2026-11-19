@@ -50,6 +50,8 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import { createEvents, eventChangeSets } from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { Folds } from "#modules/derived-values/service";
@@ -69,7 +71,6 @@ import {
 } from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { type EventCreateInput, makeEventCreate } from "./event-create";
 import { EventMutations } from "./mutations";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
@@ -330,7 +331,7 @@ const engine = makeWorkflowEngine({
 		Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
 });
 const runCreate = (
-	input: EventCreateInput,
+	input: Parameters<typeof createEvents>[0],
 	dependencies: {
 		schemas?: EventSchemaReader["Service"];
 		repository?: EventsRepository["Service"];
@@ -339,15 +340,15 @@ const runCreate = (
 	Effect.gen(function* () {
 		const repository = dependencies.repository ?? (yield* EventsRepository);
 		const schemas = dependencies.schemas ?? (yield* EventSchemaReader);
-		const create = yield* makeEventCreate.pipe(
+		return yield* createEvents(input).pipe(
 			Effect.provideServiceEffect(
-				EventMutations,
-				EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
+				ChangeSets,
+				eventChangeSets().pipe(
+					Effect.provideService(EventsRepository, repository),
+					Effect.provideService(EventSchemaReader, schemas),
+				),
 			),
-			Effect.provideService(EventsRepository, repository),
-			Effect.provideService(EventSchemaReader, schemas),
 		);
-		return yield* create(input);
 	});
 const lifecycleDatabaseLayer = (
 	noHooks = false,
@@ -1292,14 +1293,12 @@ describe("Event lifecycle PostgreSQL", () => {
 				"creates a no-policy event in one transaction",
 				() =>
 					Effect.gen(function* () {
-						const service = yield* EventsService;
 						const session = yield* DatabaseSession;
-						const lifecycle = command("direct-http-create");
-						const input = {
+						const created = yield* runCreate({
 							userId,
+							command: command("direct-http-create"),
 							payload: [{ entityId, eventSchemaSlug, properties: { rating: 4 } }],
-						};
-						const created = yield* service.create({ ...input, command: lifecycle });
+						});
 						expect(created).toMatchObject({ count: 1, failure: null });
 						expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(1);
 					}),

@@ -1,6 +1,5 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
-import { DbError } from "@ryot-app/contract/errors";
 import { EventNotFound, EventsInternalError } from "@ryot-app/contract/modules/events/schemas";
 import { AutomationExecutionId, EventId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
@@ -9,6 +8,9 @@ import { DateTime, Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { eventCreateChanges } from "#modules/changes/changes";
+import { toCreateEventsResponse } from "#modules/changes/outcomes";
+import { ChangeSets } from "#modules/changes/service";
 
 import { EventsService } from "./service";
 
@@ -17,7 +19,7 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 		.handle("create", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const service = yield* EventsService;
+				const changes = yield* ChangeSets;
 				const command = {
 					...rootLifecycleCommand({
 						source: "api",
@@ -30,15 +32,16 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 					}),
 					writeContext: null,
 				};
-				return yield* service.create({ payload, command, userId: user.id }).pipe(
-					Effect.catchIf(
-						(error): error is DbError => error instanceof DbError,
-						(error) =>
+				return yield* changes
+					.commit(eventCreateChanges(user.id, payload), command, { events: { independent: true } })
+					.pipe(
+						Effect.map((result) => toCreateEventsResponse(result.outcomes)),
+						Effect.catch((error) =>
 							Effect.logError("event creation failed", error).pipe(
 								Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
 							),
-					),
-				);
+						),
+					);
 			}),
 		)
 		.handle("update", ({ params, payload }) =>

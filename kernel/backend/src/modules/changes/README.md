@@ -1,8 +1,10 @@
 # Change sets
 
-Every plugin writer returns one `ChangeSet` (`@ryot-app/contract/modules/changes/change-set`), and
-`ChangeSets.commit` commits it atomically under the writer's principal (`change set.writeContext`). A
-change set may carry:
+Every kernel write commits through `ChangeSets`. Kernel writers build `Changes` (`changes.ts`), whose
+schema references are owner-qualified, and call `commit` or `commitOnce`. Every plugin writer returns
+one `ChangeSet` (`@ryot-app/contract/modules/changes/change-set`), and `commitScript` commits it
+atomically under the writer's principal (`command.writeContext`) after translating it with
+`fromScriptChangeSet`, which qualifies every schema with the writing plugin. A change set may carry:
 
 - `entity`: a user-owned root entity create or update, with the expected baseline for updates.
 - `entities`: user entity `deletes`, data `clears` and `merges` (both through
@@ -26,9 +28,9 @@ writes nothing.
 
 ## Authority
 
-`authorizeChangeSet` (`authority.ts`) resolves what the principal may write once, before any
-preparation, and `undeclaredSchema` rejects a schema the pinned plugin revision does not declare.
-A violation fails with `ChangeSetRejected`, naming the part:
+Script authority applies only to `commitScript`. `authorizeChangeSet` (`authority.ts`) resolves what
+the principal may write once, before any preparation, and `undeclaredSchema` rejects a schema the
+pinned plugin revision does not declare. A violation fails with `ChangeSetRejected`, naming the part:
 
 | Part                                                                 | Writer                                                                                                              |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -52,20 +54,77 @@ own checks: exact schema/plugin ownership through `DomainWriteChecks`, merge and
 `EntityUserDataService` (same plugin and schema, owned events and relationships), and settings
 validation in `PluginUserSettingsWriter`.
 
+Kernel writers (HTTP routes, imports, integrations, collections and the provider entry event) skip
+script authority and rely on these service checks, under whatever `writeContext` their command
+carries. Scripts reach `ChangeSets` only through `ScriptChanges`, which always calls `commitScript`.
+Parts only a script principal resolves (`settings`, `folds`, `signals`, global upserts, event
+`expected` and `baselines`) fail a kernel commit with `ChangeSetRejected`.
+
 ## Preparation and commit
 
-`ChangeSets.commit` prepares every part before the commit transaction, so no database transaction
-is held over sandbox execution: the root entity, relationships, event items in pages with their
-event policies, ensures, entity deletes (grouped by schema), data clears and merges, and entity
-updates. Each matched policy is called once through `LifecyclePolicies` with every item it targets,
-and nothing about the call is persisted. The root entity and each entity update share one path:
+Preparation holds no database transaction over sandbox execution. The root entity, relationships,
+ensures, entity deletes (grouped by schema), data clears and merges, and entity updates are prepared
+first, each running its own policies. The root entity and each entity update share one path:
 `EntitiesService.prepareUserSave` checks the expected baseline and runs entity policies, and
-`persistPreparedUserSave` rechecks it under the entity lock. It then runs one events transaction that
-applies, in order: the receipt's `load`, the settings patch, source writes (root entity,
-relationships, events, baselines), ensures, deletes, clears, merges, entity updates in entity ID
+`persistPreparedUserSave` rechecks it under the entity lock.
+
+Event changes are then prepared in one events transaction, with positions matching the change list,
+and grouped into policy chunks of at most 50 items in which a subject's items share a chunk, so a
+once-per-subject policy runs once per subject. Policies are matched inside that transaction. When none
+matches, the commit continues in the same transaction. Otherwise the transaction ends, each matched
+policy is called once per chunk through `LifecyclePolicies` with every item it targets (nothing about
+the call is persisted), and a second events transaction commits.
+
+The commit transaction applies, in order: the receipt's `load`, the precondition's `check`, the
+settings patch, source writes (root entity, relationships, events, baselines), the precondition's
+`written` when an event was written, ensures, deletes, clears, merges, entity updates in entity ID
 order, global entity upserts and global relationship reconciliation, signal plans, notification
 admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts after commit; a
 failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
+
+A background-lane commit queues its folds; an interactive commit folds inline.
+
+### Preconditions
+
+`CommitOptions.precondition` holds `{ check, written }` for writers whose durable state decides
+whether to write. `check` runs in the events transaction before preparation; false commits the
+check's own writes and records an empty result without running policies. When policies ran, `check`
+runs again in the commit transaction after the receipt's `load`, before any source write, so a write a
+concurrent writer superseded records an empty result instead. `written` runs after source writes that
+wrote an event. Locks taken by `check` (account admission first) precede the commit's stream and
+entity reference locks.
+
+### Independent event creates
+
+`CommitOptions.events.independent` gives each event create its own outcome; every other part stays
+all-or-nothing. The result's `outcomes` list every create by position, and `toCreateEventsResponse`
+(`outcomes.ts`) builds the HTTP `CreateEventsResponse` from them:
+
+- a preparation failure fails only its item;
+- a policy rejection is `skipped_by_policy`, and a policy item error fails the item
+  (`session-entity-not-found` or `invalid-properties`);
+- a policy execution failure writes nothing, keeps preparation failures, and fails every other item
+  with `policy-execution-failed` and the run ID;
+- a commit conflict writes nothing, keeps preparation and policy outcomes, and fails every other item
+  with `mutation-conflict` or `asset-forbidden`.
+
+A result that wrote nothing because of such a failure is recorded through the receipt in its own
+transaction. `events.verbatimIdentities` keeps each create's `itemIdentity` as its write identity
+instead of prefixing the command's, so event IDs, import item keys and coalescing lookups follow the
+caller's operation identity.
+
+`commitEventsKeyed(changes, command, key, options)` commits independent creates once per key, holding
+the `CreateEventsResponse` in the account's idempotency key. Callers and keys:
+
+| Caller                     | Key                                                             | Identities |
+| -------------------------- | --------------------------------------------------------------- | ---------- |
+| Generic import event group | The group's operation identities                                | verbatim   |
+| Integration sample         | The sample's operation identity; the stream is the precondition | verbatim   |
+| Data import event          | The record's operation identity                                 | verbatim   |
+| Provider entry event       | The entity import job's ID                                      | prefixed   |
+
+HTTP event creation and collection membership events commit independently without a receipt; a
+deferred integration flush commits with the stream precondition alone.
 
 ## Script changes and exactly-once commits
 
@@ -83,12 +142,12 @@ captured user data changed, `child-mapping-conflict` when merged child data has 
 Refusals the writing plugin can rule out from its own reads (same-entity merges, schema or identity
 property mismatches, denied operations) stay `invalid`.
 
-`ChangeSets.commitOnce(changes, command, receipt)` makes a commit exactly-once against the caller's
-durable state. `receipt.load` returns a result an earlier commit recorded: it is read once before
-preparation (so a replay runs no policies) and again first in the commit transaction, where a stored
-result ends the commit before any write. `receipt.record` runs after every write, so the result
-commits with the changes it describes. An absent or empty change set only runs `load`/`record` in a
-transaction. Receipts per caller:
+`commitOnce` and `commitScript` make a commit exactly-once against the caller's durable state through
+a `CommitReceipt` (`receipts.ts`). `receipt.load` returns a result an earlier commit recorded: it is
+read once before preparation (so a replay runs no policies) and again first in the commit transaction,
+where a stored result ends the commit before any write. `receipt.record` runs after every write, so
+the result commits with the changes it describes. An absent or empty script change set only runs
+`load`/`record` in a transaction. Script receipts per caller:
 
 | Caller                        | Receipt                                                                                                 |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -129,14 +188,15 @@ theirs from their position or identity (`entity-deletes:<schema>`, `entity-clear
 `signal:<discriminator>`, `global-entity:<schema, externalId>`); notifications use
 `<runId>-changes-<index>-notification` as their source key.
 
-Event policy items retain their unique `itemIdentity` through preparation and policy results. Event
-preparation is chunked at 50 items, while accepted changes are committed together with the rest of
-the change set. The result pairs each written event ID with its item identity and returns the root entity
-ID when the change set has one. Repeated event identities or duplicate existing event IDs are rejected.
+Event policy items retain their unique `itemIdentity` through preparation and policy results.
+Accepted changes are committed together with the rest of the change set. The result pairs each
+written event ID with its item identity and returns the root entity ID when the change set has one.
+Repeated event identities or duplicate existing event IDs are rejected.
 
 Declared event-group constraints are captured once for the complete prepared change set and checked only
-after all event pages commit within its transaction. The generic import owner uses this same change set,
-setting item identities to its operation IDs; it does not create a parallel event writer.
+after all event chunks commit within its transaction. The generic import commits each record's
+grouped entity, relationships and events as one script change set, and its remaining event groups as
+independent creates under their operation identities.
 
 ## Replay and optimistic baselines
 
@@ -163,10 +223,3 @@ Event creates can name an `orderAfter` anchor and suffix. The anchor must be an 
 the same user's plugin scope, sharing an entity or session with the output. Preparation captures its
 revision and commit rechecks it under an event lock. An update can replace the anchor or set it to
 null to return to the record's own creation order. Logical ordering does not rewrite audit timestamps.
-
-## Standalone event creation
-
-`EventsService.create` is intentionally different: it prepares items independently, commits the
-accepted ones in one transaction, and returns per-item written, skipped, or failed outcomes. A policy
-rejection or commit conflict commits none of them. It is not the atomic
-entity-plus-relationships-plus-events change set described above.

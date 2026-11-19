@@ -15,6 +15,7 @@ import {
 	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	IntegrationId,
 	SandboxScriptId,
 	UserId,
@@ -58,7 +59,10 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { workflowEngineTestLayer } from "#testing/effect";
 
+import { ChangeSetRejected } from "./authority";
 import { changeSetsLayerWithNotificationSources } from "./change-sets.test-support";
+import { eventCreateChanges, fromScriptChangeSet } from "./changes";
+import { unrecordedChanges } from "./receipts";
 import { ScriptChangesLayer } from "./script-changes";
 import { ChangeSets } from "./service";
 
@@ -136,7 +140,9 @@ const commitUserCommand = (payload: {
 	readonly input: ChangeSet;
 	readonly command: DomainLifecycleCommand;
 }) =>
-	Effect.flatMap(ChangeSets, (changes) => changes.commit(payload.input, payload.command)).pipe(
+	Effect.flatMap(ChangeSets, (changes) =>
+		changes.commitScript(payload.input, payload.command, unrecordedChanges),
+	).pipe(
 		Effect.map(({ events, entityId }) => {
 			assert(entityId);
 			return { events, entityId };
@@ -225,9 +231,54 @@ const eventCreate = (entity: ChangeSetEntityReference) => ({
 	],
 });
 
+const guardedPackage = (batchFrequency?: "once-per-subject") => {
+	const source = revisionPackage("atomic", "fixture", "record");
+	const automation = source.scripts.find(({ metadata }) => metadata.kind === "automation");
+	assert(automation?.metadata.kind === "automation");
+	const policy = {
+		...automation,
+		slug: "atomic.guard",
+		contentHash: "atomic-guard",
+		entry: "backend/policy.sandbox.ts",
+		metadata: {
+			...automation.metadata,
+			capabilities: [],
+			slug: "atomic.guard",
+			automationType: "policy" as const,
+			inputProjection: { event: { properties: ["value"] } },
+		},
+	};
+	return {
+		...source,
+		scripts: [...source.scripts, policy],
+		manifest: {
+			...source.manifest,
+			scripts: [...source.manifest.scripts, { ...policy.metadata, entry: policy.entry }],
+			hooks: [
+				...source.manifest.hooks,
+				{
+					name: "Guard",
+					slug: "atomic.guard",
+					scriptSlug: policy.slug,
+					stage: "before" as const,
+					...(batchFrequency ? { batchFrequency } : {}),
+					targets: [
+						{
+							resource: "event" as const,
+							eventSchemaSlug: "changed",
+							entitySchemaSlug: "record",
+							operation: "create" as const,
+						},
+					],
+				},
+			],
+		},
+	};
+};
+
 layer(testLayer(false))((test) => {
 	test.effect(
-		"resolves the writer's execution authority once to prepare and once to commit",
+		"resolves the writer's execution authority once to prepare and once in the commit transaction",
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
@@ -243,7 +294,7 @@ layer(testLayer(false))((test) => {
 				expect(
 					resolves.map((span) => [
 						within(span, "ChangeSets.prepareUserChanges"),
-						within(span, "EntitiesService.persistPreparedUserSave"),
+						within(span, "EventMutations.prepare"),
 					]),
 				).toEqual([
 					[true, false],
@@ -260,47 +311,7 @@ layer(testLayer(false))((test) => {
 		"runs before policies without persisting automation triggers, runs or attempts",
 		() =>
 			Effect.gen(function* () {
-				const source = revisionPackage("atomic", "fixture", "record");
-				const automation = source.scripts.find(({ metadata }) => metadata.kind === "automation");
-				assert(automation?.metadata.kind === "automation");
-				const policy = {
-					...automation,
-					slug: "atomic.guard",
-					contentHash: "atomic-guard",
-					entry: "backend/policy.sandbox.ts",
-					metadata: {
-						...automation.metadata,
-						capabilities: [],
-						slug: "atomic.guard",
-						automationType: "policy" as const,
-						inputProjection: { event: { properties: ["value"] } },
-					},
-				};
-				const input = yield* fixture({
-					...source,
-					scripts: [...source.scripts, policy],
-					manifest: {
-						...source.manifest,
-						scripts: [...source.manifest.scripts, { ...policy.metadata, entry: policy.entry }],
-						hooks: [
-							...source.manifest.hooks,
-							{
-								name: "Guard",
-								stage: "before",
-								slug: "atomic.guard",
-								scriptSlug: policy.slug,
-								targets: [
-									{
-										resource: "event",
-										operation: "create",
-										eventSchemaSlug: "changed",
-										entitySchemaSlug: "record",
-									},
-								],
-							},
-						],
-					},
-				});
+				const input = yield* fixture(guardedPackage());
 				const automationRows = input.session.run((db) =>
 					Effect.all([
 						db.select({ id: tables.automationTrigger.id }).from(tables.automationTrigger),
@@ -320,6 +331,31 @@ layer(testLayer(false))((test) => {
 	);
 
 	test.effect(
+		"runs a once-per-subject policy once per subject across a change set of more than 50 events",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture(guardedPackage("once-per-subject"));
+				const [relation] = input.input.relationships.upserts;
+				assert(relation?.target.kind === "existing");
+				const target = relation.target;
+				const creates = Array.from({ length: 101 }, (_, index) => ({
+					eventSchemaSlug: "changed",
+					itemIdentity: `event-${index}`,
+					properties: { value: `Saved ${index}` },
+					entity: index % 2 === 0 ? { kind: "root" as const } : target,
+				}));
+				const spans: Tracer.Span[] = [];
+				const committed = yield* commitUserCommand({
+					command: input.command,
+					input: { ...input.input, events: { creates, changes: [] } },
+				}).pipe(Effect.withTracer(makeRecordingTracer(spans)));
+				expect(committed.events).toHaveLength(101);
+				expect(spans.filter(({ name }) => name === "LifecyclePolicies.run")).toHaveLength(2);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"commits events on existing entities without a root entity and rejects root references",
 		() =>
 			Effect.gen(function* () {
@@ -328,14 +364,15 @@ layer(testLayer(false))((test) => {
 				assert(relation?.target.kind === "existing");
 				const target = relation.target.entityId;
 				const commands = yield* ChangeSets;
-				const committed = yield* commands.commit(
+				const committed = yield* commands.commitScript(
 					{ events: eventCreate({ kind: "existing", entityId: target }) },
 					input.command,
+					unrecordedChanges,
 				);
 				expect(committed.entityId).toBeUndefined();
 				expect(committed.events.map(({ itemIdentity }) => itemIdentity)).toEqual(["event"]);
 				const rejected = yield* Effect.flip(
-					commands.commit(
+					commands.commitScript(
 						{ events: eventCreate({ kind: "root" }) },
 						{
 							...input.command,
@@ -343,6 +380,7 @@ layer(testLayer(false))((test) => {
 							writeContext: input.command.writeContext,
 							accountUserId: input.command.accountUserId,
 						},
+						unrecordedChanges,
 					),
 				);
 				expect(rejected).toEqual(new EventBadRequest({ reason: { code: "root-entity-required" } }));
@@ -922,7 +960,9 @@ const nextCommand = (input: Fixture, principal = input.command.writeContext) => 
 });
 
 const commit = (input: ChangeSet, lifecycle: DomainLifecycleCommand) =>
-	Effect.flatMap(ChangeSets, (changes) => changes.commit(input, lifecycle));
+	Effect.flatMap(ChangeSets, (changes) =>
+		changes.commitScript(input, lifecycle, unrecordedChanges),
+	);
 
 const automationRun = (input: Fixture, overrides: { readonly stage?: "after" | "before" } = {}) => {
 	const { pluginRevision } = input.command.writeContext;
@@ -1808,6 +1848,47 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 					};
 				}
 				expect(outcomes).toEqual(expected);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"keeps script authority to script writers and script-only parts away from kernel writers",
+		() =>
+			Effect.gen(function* () {
+				const own = yield* fixture();
+				const foreign = yield* fixture(revisionPackage("foreign", "fixture", "record"));
+				const foreignEntity = targetOf(foreign);
+				const changeSets = yield* ChangeSets;
+				const kernelCommand = { ...nextCommand(own), writeContext: null };
+				const written = yield* changeSets.commit(
+					eventCreateChanges(userId, [
+						{
+							entityId: foreignEntity,
+							properties: { value: "Kernel" },
+							eventSchemaSlug: EventSchemaSlug.make("changed"),
+						},
+					]),
+					kernelCommand,
+					{ events: { independent: true } },
+				);
+				expect(written.outcomes).toMatchObject([{ index: 0, status: "written" }]);
+				expect(
+					yield* Effect.flip(
+						changeSets.commit({ userId, settings: { theme: "dark" } }, kernelCommand),
+					),
+				).toEqual(
+					new ChangeSetRejected({ part: "settings", message: "settings requires a script writer" }),
+				);
+				const scripted = fromScriptChangeSet(
+					{ entities: { deletes: [{ entityId: foreignEntity, entitySchemaSlug: "record" }] } },
+					userId,
+					own.pluginId,
+				);
+				expect(scripted.entities?.deletes?.[0]?.entitySchema).toEqual({
+					owner: definitionOwner(own.pluginId),
+					slug: EntitySchemaSlug.make("record"),
+				});
 			}),
 		testTimeout,
 	);

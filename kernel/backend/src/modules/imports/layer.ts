@@ -133,8 +133,10 @@ export const ImportsServiceLive = ImportsService.layer.pipe(
 	),
 );
 
+const IntegrationEventWritesLive = IntegrationEventWrites.layer.pipe(Layer.provide(ChangeSetsLive));
+
 export const IntegrationEventFlushJobProvidedLive = IntegrationEventFlushJobLive.pipe(
-	Layer.provide(IntegrationEventWrites.layer),
+	Layer.provide(IntegrationEventWritesLive),
 );
 
 export const GenericImportChunksProvidedLive = GenericImportChunksInstalledLive.pipe(
@@ -148,7 +150,7 @@ export const GenericImportChunksProvidedLive = GenericImportChunksInstalledLive.
 			SandboxRepository.layer,
 			ImportSourceStateStore.layer,
 			ChangeSetsLive,
-			IntegrationEventWrites.layer,
+			IntegrationEventWritesLive,
 		),
 	),
 );

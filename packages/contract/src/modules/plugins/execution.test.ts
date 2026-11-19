@@ -3,7 +3,7 @@ import { expect, it } from "bun:test";
 import {
 	hasReachableExternalEffects,
 	hasValidExecutableDependencies,
-	KERNEL_EVENT_CREATE_WORKFLOW,
+	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	selectSourcePlan,
 	sourcePlanConfigKeys,
 } from "./execution";
@@ -129,7 +129,9 @@ it("treats unresolved dependency targets as invalid and skips only known kernel 
 		hasReachableExternalEffects(
 			{
 				workflows: [],
-				scripts: [script("root", [], [{ kind: "workflow", slug: KERNEL_EVENT_CREATE_WORKFLOW }])],
+				scripts: [
+					script("root", [], [{ kind: "workflow", slug: KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW }]),
+				],
 			},
 			"root",
 		),

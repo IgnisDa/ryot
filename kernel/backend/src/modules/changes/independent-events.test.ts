@@ -16,7 +16,9 @@ import {
 	AutomationHookSlug,
 	EntityId,
 	EntitySchemaSlug,
+	EventId,
 	EventSchemaSlug,
+	ImportRunId,
 	PluginId,
 	PluginPackageId,
 	UserId,
@@ -27,6 +29,9 @@ import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
@@ -62,14 +67,17 @@ import {
 	DomainWriteChecksLive,
 	DomainWriteConflict,
 } from "#modules/entities/write-context";
+import { EventsRepository } from "#modules/events/repository";
+import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
+import { importRun } from "#schema/tables/imports";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { type EventCreateInput, makeEventCreate } from "./event-create";
-import { EventMutations } from "./mutations";
-import { EventsRepository } from "./repository";
+import { createEvents, eventChangeSets } from "./change-sets.test-support";
+import { eventCreateChanges } from "./changes";
+import { ChangeSets } from "./service";
 
 const now = IsoUtcString.make("2026-01-01T00:00:00.000Z");
 const userId = UserId.make("user");
@@ -88,7 +96,7 @@ const command = {
 	}),
 	writeContext: null,
 };
-const payload: EventCreateInput = {
+const payload: Parameters<typeof createEvents>[0] = {
 	userId,
 	command,
 	payload: [{ entityId, eventSchemaSlug, properties: { rating: 1 } }],
@@ -305,8 +313,8 @@ const initialState = (options: HarnessOptions): HarnessState => ({
 	changedEntityMetadata: new Set(),
 });
 
-class EventCreateHarness extends Context.Service<
-	EventCreateHarness,
+class IndependentEventsHarness extends Context.Service<
+	IndependentEventsHarness,
 	{
 		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly executed: Effect.Effect<ReadonlyArray<string>>;
@@ -317,7 +325,7 @@ class EventCreateHarness extends Context.Service<
 		readonly inputs: Effect.Effect<ReadonlyArray<AutomationRequestPayload>>;
 		readonly lockedEntityIds: Effect.Effect<ReadonlyArray<ReadonlyArray<EntityId>>>;
 	}
->()("@ryot-app/kernel-backend/modules/events/event-create.test/EventCreateHarness") {}
+>()("@ryot-app/kernel-backend/modules/changes/independent-events.test/IndependentEventsHarness") {}
 
 const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 	Layer.unwrap(
@@ -426,7 +434,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 							}),
 					});
 				}),
-			).pipe(Layer.provide(isolatedDatabaseLayer("event_create_workflow")));
+			).pipe(Layer.provide(isolatedDatabaseLayer("independent_events")));
 			const planner = Layer.effect(
 				LifecyclePlanner,
 				Effect.map(DatabaseSession, (session) =>
@@ -701,7 +709,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 						});
 					}),
 				).pipe(Layer.provide(database)),
-				Layer.succeed(EventCreateHarness, {
+				Layer.succeed(IndependentEventsHarness, {
 					calls: read(({ calls }) => calls),
 					inputs: read(({ inputs }) => inputs),
 					created: read(({ created }) => created),
@@ -716,21 +724,16 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 	);
 
 const run = (input = payload, folds = unfoldedFolds) =>
-	Effect.flatMap(makeEventCreate, (create) => create(input)).pipe(
-		Effect.provideServiceEffect(
-			EventMutations,
-			EventMutations.make.pipe(Effect.provideService(Folds, folds)),
-		),
-	);
+	createEvents(input).pipe(Effect.provideServiceEffect(ChangeSets, eventChangeSets(folds)));
 
 layer(harnessLayer({ afterHookRatings: [1], policies: [{ position: 1, slug: "policy" }] }))(
-	"event create",
+	"independent events",
 	(test) => {
 		test.effect(
 			"plans an event batch before source writes and dispatches after hooks after commit",
 			() =>
 				Effect.gen(function* () {
-					const h = yield* EventCreateHarness;
+					const h = yield* IndependentEventsHarness;
 					const result = yield* run();
 					expect(result).toMatchObject({ count: 1, failure: null });
 					const calls = yield* h.calls;
@@ -801,12 +804,12 @@ layer(
 			});
 		},
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"chains transforms in matched order and preserves trusted draft fields",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				yield* run();
 				expect(yield* h.executed).toEqual(["b/z", "a/z", "a/a", "plugin/last"]);
 				const created = yield* h.created;
@@ -838,12 +841,12 @@ layer(
 		],
 		execute: () => Effect.succeed({ action: "reject", reason: { key: "rejection.declined" } }),
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"rejection closes remaining policies and creates no domain row or change trigger",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				expect(yield* run()).toEqual({
 					count: 0,
 					failure: null,
@@ -872,12 +875,12 @@ layer(
 		execute: ({ runId }) =>
 			new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"fails the selected batch with its stable policy run identity",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const result = yield* run();
 				const requestTrigger = (yield* h.triggers).find(({ kind }) => kind.category === "request");
 				assert(requestTrigger);
@@ -912,12 +915,12 @@ layer(
 				: Effect.succeed({ action: "allow" as const });
 		},
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"keeps valid events when one transformed draft fails validation",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const result = yield* run({ ...payload, payload: ratedItems([1, 2, 3]) });
 				expect(result).toMatchObject({
 					count: 2,
@@ -939,34 +942,37 @@ layer(
 
 const hiddenSession = EntityId.make("hidden-session");
 
-layer(harnessLayer({ noHooks: true, unreadableEntity: hiddenSession }))("event create", (test) => {
-	test.effect(
-		"reports an initially unreadable session reference at its item index",
-		() =>
-			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
-				const item = payload.payload[0];
-				assert(item);
-				const result = yield* run({
-					...payload,
-					payload: [{ ...item, sessionEntityId: hiddenSession }],
-				});
-				expect(result.failure).toEqual({
-					index: 0,
-					reason: { entityId: hiddenSession, code: "session-entity-not-found" },
-				});
-				expect(result.outcomes).toEqual([
-					{
+layer(harnessLayer({ noHooks: true, unreadableEntity: hiddenSession }))(
+	"independent events",
+	(test) => {
+		test.effect(
+			"reports an initially unreadable session reference at its item index",
+			() =>
+				Effect.gen(function* () {
+					const h = yield* IndependentEventsHarness;
+					const item = payload.payload[0];
+					assert(item);
+					const result = yield* run({
+						...payload,
+						payload: [{ ...item, sessionEntityId: hiddenSession }],
+					});
+					expect(result.failure).toEqual({
 						index: 0,
-						status: "failed",
 						reason: { entityId: hiddenSession, code: "session-entity-not-found" },
-					},
-				]);
-				expect(yield* h.created).toEqual([]);
-			}),
-		testTimeout,
-	);
-});
+					});
+					expect(result.outcomes).toEqual([
+						{
+							index: 0,
+							status: "failed",
+							reason: { entityId: hiddenSession, code: "session-entity-not-found" },
+						},
+					]);
+					expect(yield* h.created).toEqual([]);
+				}),
+			testTimeout,
+		);
+	},
+);
 
 layer(
 	harnessLayer({
@@ -980,12 +986,12 @@ layer(
 			});
 		},
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"revalidates a transformed session reference before writing",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				expect((yield* run()).failure).toEqual({
 					index: 0,
 					reason: { entityId: hiddenSession, code: "session-entity-not-found" },
@@ -1008,15 +1014,16 @@ layer(
 			});
 		},
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"normalizes an empty transformed session reference before writing",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				expect(yield* run()).toMatchObject({ count: 1, failure: null });
 				expect((yield* h.created)[0]?.sessionEntityId).toBeUndefined();
 				expect(yield* h.lockedEntityIds).toEqual([
+					[entityId],
 					[entityId],
 					[entityId],
 					[entityId],
@@ -1042,16 +1049,17 @@ layer(
 			});
 		},
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"locks and revalidates the transformed session reference in the write transaction",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				expect((yield* run()).failure).toEqual({ index: 0, reason: { code: "mutation-conflict" } });
 				expect(yield* h.lockedEntityIds).toEqual([
 					[entityId],
 					[entityId],
+					[racingSession, entityId],
 					[racingSession, entityId],
 					[racingSession, entityId],
 					[racingSession, entityId],
@@ -1067,15 +1075,16 @@ layer(
 		changeEntityMetadataDuringPolicy: entityId,
 		policies: [{ position: 1, slug: "metadata" }],
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"reports a mutation conflict when an original reference changes during policy",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				expect((yield* run()).failure).toEqual({ index: 0, reason: { code: "mutation-conflict" } });
 				expect(yield* h.executed).toEqual(["plugin/metadata"]);
 				expect(yield* h.lockedEntityIds).toEqual([
+					[entityId],
 					[entityId],
 					[entityId],
 					[entityId],
@@ -1096,12 +1105,12 @@ layer(
 				? new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" })
 				: Effect.succeed({ action: "allow" as const }),
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"fails the entire selected batch when a policy run fails",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const result = yield* run({ ...payload, payload: ratedItems([1, 2, 3]) });
 				const requestTrigger = (yield* h.triggers).find(({ kind }) => kind.category === "request");
 				assert(requestTrigger);
@@ -1147,12 +1156,12 @@ layer(
 			});
 		},
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"rejects an invalid intermediate patch before running the next policy",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				expect((yield* run()).failure).toEqual({
 					index: 0,
 					reason: { code: "invalid-properties" },
@@ -1177,12 +1186,12 @@ layer(
 					: { action: "allow" as const },
 			),
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"consumes a rejecting subject policy on the first eligible item, but keeps later unstarted policies eligible",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const result = yield* run({
 					...payload,
 					payload: [...payload.payload, ...payload.payload, ...payload.payload],
@@ -1208,12 +1217,12 @@ layer(
 			{ position: 2, slug: "item" },
 		],
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"batches once-per-subject policies by subject and regular policies by item",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const [item] = payload.payload;
 				assert(item);
 				const result = yield* run({
@@ -1240,12 +1249,12 @@ layer(
 	);
 });
 
-layer(harnessLayer({ failChange: true }))("event create", (test) => {
+layer(harnessLayer({ failChange: true }))("independent events", (test) => {
 	test.effect(
 		"writes nothing and dispatches no hooks when change planning fails",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				assertExitFails(yield* Effect.exit(run()), new DbError({ message: "planning failed" }));
 				expect(yield* h.created).toEqual([]);
 				expect(yield* h.triggers).toEqual([]);
@@ -1255,12 +1264,12 @@ layer(harnessLayer({ failChange: true }))("event create", (test) => {
 	);
 });
 
-layer(harnessLayer({ activateSchemaBeforeWrite: true }))("event create", (test) => {
+layer(harnessLayer({ activateSchemaBeforeWrite: true }))("independent events", (test) => {
 	test.effect(
 		"reports a mutation conflict when the event schema changes after preparation",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const result = yield* run();
 				expect(result.failure).toEqual({ index: 0, reason: { code: "mutation-conflict" } });
 				expect(yield* h.created).toEqual([]);
@@ -1278,42 +1287,45 @@ const ratedItems = (ratings: ReadonlyArray<number>, entities: Record<number, Ent
 	}));
 const hiddenSubject = EntityId.make("hidden-subject");
 
-layer(harnessLayer({ noHooks: true, unreadableEntity: hiddenSubject }))("event create", (test) => {
-	test.effect(
-		"writes valid items and records an invalid item at its index",
-		() =>
-			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
-				const result = yield* run({
-					...payload,
-					payload: ratedItems(
+layer(harnessLayer({ noHooks: true, unreadableEntity: hiddenSubject }))(
+	"independent events",
+	(test) => {
+		test.effect(
+			"writes valid items and records an invalid item at its index",
+			() =>
+				Effect.gen(function* () {
+					const h = yield* IndependentEventsHarness;
+					const result = yield* run({
+						...payload,
+						payload: ratedItems(
+							Array.from({ length: 52 }, (_, index) => index),
+							{ 51: hiddenSubject },
+						),
+					});
+					expect(result).toMatchObject({
+						count: 51,
+						failure: { index: 51, reason: { entityId: hiddenSubject, code: "entity-not-found" } },
+					});
+					expect(result.outcomes.map(({ index }) => index)).toEqual(
 						Array.from({ length: 52 }, (_, index) => index),
-						{ 51: hiddenSubject },
-					),
-				});
-				expect(result).toMatchObject({
-					count: 51,
-					failure: { index: 51, reason: { entityId: hiddenSubject, code: "entity-not-found" } },
-				});
-				expect(result.outcomes.map(({ index }) => index)).toEqual(
-					Array.from({ length: 52 }, (_, index) => index),
-				);
-				expect(
-					result.outcomes.filter(({ status }) => status === "failed").map(({ index }) => index),
-				).toEqual([51]);
-				expect(yield* h.created).toHaveLength(51);
-				expect(yield* h.calls).not.toContain("rollback");
-			}),
-		testTimeout,
-	);
-});
+					);
+					expect(
+						result.outcomes.filter(({ status }) => status === "failed").map(({ index }) => index),
+					).toEqual([51]);
+					expect(yield* h.created).toHaveLength(51);
+					expect(yield* h.calls).not.toContain("rollback");
+				}),
+			testTimeout,
+		);
+	},
+);
 
-layer(harnessLayer({ noHooks: true, afterHookRatings: [2] }))("event create", (test) => {
+layer(harnessLayer({ noHooks: true, afterHookRatings: [2] }))("independent events", (test) => {
 	test.effect(
 		"commits all items in one chunk before dispatching after hooks",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const result = yield* run({ ...payload, payload: ratedItems([1, 2, 3]) });
 				expect(result).toMatchObject({ count: 3, failure: null });
 				const calls = yield* h.calls;
@@ -1340,12 +1352,12 @@ layer(
 		unreadableEntity: hiddenSubject,
 		policies: [{ position: 1, slug: "policy" }],
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"writes valid items around an unreadable item in the same chunk",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const result = yield* run({
 					...payload,
 					payload: ratedItems([1, 2, 3], { 2: hiddenSubject }),
@@ -1373,12 +1385,12 @@ layer(
 		policyRatings: [1, 3],
 		policies: [{ position: 1, slug: "subject", frequency: "once-per-subject" }],
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"deduplicates once-per-subject policy execution within a batch",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const result = yield* run({ ...payload, payload: ratedItems([1, 2, 3]) });
 				expect(result.count).toBe(3);
 				expect(result.outcomes.map(({ status }) => status)).toEqual([
@@ -1399,12 +1411,12 @@ layer(
 		noHooks: true,
 		policies: [{ position: 1, slug: "subject", frequency: "once-per-subject" }],
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"runs a once-per-subject policy once per subject across policy chunks",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const subjects = Array.from({ length: 50 }, (_, index) =>
 					EntityId.make(`chunk-subject-${index}`),
 				);
@@ -1436,12 +1448,12 @@ layer(
 			{ position: 2, slug: "second" },
 		],
 	}),
-)("event create", (test) => {
+)("independent events", (test) => {
 	test.effect(
 		"calls each policy once per commit with every item of the batch",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				const result = yield* run({ ...payload, payload: ratedItems([1, 2, 3]) });
 				expect(result).toMatchObject({ count: 3, failure: null });
 				expect((yield* h.calls).filter((call) => call === "batch-policy")).toHaveLength(2);
@@ -1462,13 +1474,13 @@ layer(
 const otherUsersSubject = EntityId.make("other-users-subject");
 
 layer(harnessLayer({ noHooks: true, unreadableEntity: otherUsersSubject }))(
-	"event create",
+	"independent events",
 	(test) => {
 		test.effect(
 			"reports another user's entity and writes valid items from the chunk",
 			() =>
 				Effect.gen(function* () {
-					const h = yield* EventCreateHarness;
+					const h = yield* IndependentEventsHarness;
 					const result = yield* run({
 						...payload,
 						payload: ratedItems([1, 2], { 1: otherUsersSubject }),
@@ -1493,33 +1505,36 @@ layer(harnessLayer({ noHooks: true, unreadableEntity: otherUsersSubject }))(
 
 const foreignSubject = EntityId.make("foreign-subject");
 
-layer(harnessLayer({ noHooks: true, foreignEntity: foreignSubject }))("event create", (test) => {
-	test.effect(
-		"writes valid items and reports each foreign entity at its index",
-		() =>
-			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
-				const result = yield* run({
-					...payload,
-					payload: ratedItems([1, 2, 3], { 1: foreignSubject, 2: foreignSubject }),
-				});
-				expect(result).toMatchObject({
-					count: 1,
-					failure: { index: 1, reason: { entityId: foreignSubject, code: "entity-not-found" } },
-				});
-				expect(result.outcomes.map(({ index, status }) => [index, status])).toEqual([
-					[0, "written"],
-					[1, "failed"],
-					[2, "failed"],
-				]);
-				expect((yield* h.checkedOwners).filter((owner) => owner === foreignPluginId)).toHaveLength(
-					1,
-				);
-				expect(yield* h.created).toHaveLength(1);
-			}),
-		testTimeout,
-	);
-});
+layer(harnessLayer({ noHooks: true, foreignEntity: foreignSubject }))(
+	"independent events",
+	(test) => {
+		test.effect(
+			"writes valid items and reports each foreign entity at its index",
+			() =>
+				Effect.gen(function* () {
+					const h = yield* IndependentEventsHarness;
+					const result = yield* run({
+						...payload,
+						payload: ratedItems([1, 2, 3], { 1: foreignSubject, 2: foreignSubject }),
+					});
+					expect(result).toMatchObject({
+						count: 1,
+						failure: { index: 1, reason: { entityId: foreignSubject, code: "entity-not-found" } },
+					});
+					expect(result.outcomes.map(({ index, status }) => [index, status])).toEqual([
+						[0, "written"],
+						[1, "failed"],
+						[2, "failed"],
+					]);
+					expect(
+						(yield* h.checkedOwners).filter((owner) => owner === foreignPluginId),
+					).toHaveLength(1);
+					expect(yield* h.created).toHaveLength(1);
+				}),
+			testTimeout,
+		);
+	},
+);
 
 const revokedPrincipal = Schema.decodeEffect(ScriptExecutionPrincipal)({
 	providerId: null,
@@ -1562,7 +1577,7 @@ const revokedPrincipal = Schema.decodeEffect(ScriptExecutionPrincipal)({
 	},
 }).pipe(Effect.orDie);
 
-layer(harnessLayer({ noHooks: true }))("event create folds", (test) => {
+layer(harnessLayer({ noHooks: true }))("independent event folds", (test) => {
 	test.effect("queues a background write's folds and folds an interactive write inline", () =>
 		Effect.gen(function* () {
 			const modes: Array<FoldMode | undefined> = [];
@@ -1586,12 +1601,12 @@ layer(harnessLayer({ noHooks: true }))("event create folds", (test) => {
 	);
 });
 
-layer(harnessLayer({ noHooks: true }))("event create", (test) => {
+layer(harnessLayer({ noHooks: true }))("independent events", (test) => {
 	test.effect(
 		"fails the batch with the principal-owner check error of a revoked plugin",
 		() =>
 			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
+				const h = yield* IndependentEventsHarness;
 				assertExitFails(
 					yield* Effect.exit(
 						run({
@@ -1609,13 +1624,13 @@ layer(harnessLayer({ noHooks: true }))("event create", (test) => {
 });
 
 layer(Layer.provideMerge(harnessLayer({ noHooks: true }), BunCrypto.layerSecureRandom))(
-	"event create",
+	"independent events",
 	(test) => {
 		test.effect(
 			"fails an event-create item that references another user's managed asset",
 			() =>
 				Effect.gen(function* () {
-					const h = yield* EventCreateHarness;
+					const h = yield* IndependentEventsHarness;
 					const foreign = yield* insertManagedAsset(UserId.make("event-create-asset-foreign"));
 					const result = yield* run({
 						...payload,
@@ -1628,6 +1643,139 @@ layer(Layer.provideMerge(harnessLayer({ noHooks: true }), BunCrypto.layerSecureR
 					expect(yield* h.created).toEqual([]);
 				}),
 			testTimeout,
+		);
+	},
+);
+
+const eventIdOf = (position: number, itemIdentity: string) =>
+	EventId.make(
+		`event_${position.toString(36).padStart(4, "0")}_${sha256Base64Url(stableStringify(["batch", itemIdentity]))}`,
+	);
+
+const keyed = (key: string, input = payload) =>
+	Effect.flatMap(ChangeSets, (changes) =>
+		changes.commitEventsKeyed(eventCreateChanges(input.userId, input.payload), input.command, key, {
+			events: { independent: true },
+		}),
+	).pipe(Effect.provideServiceEffect(ChangeSets, eventChangeSets()));
+
+layer(harnessLayer({ noHooks: true }))("independent event identities", (test) => {
+	test.effect(
+		"derives each event ID and import item key from its operation identity",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* IndependentEventsHarness;
+				const importRunId = ImportRunId.make("identity-run");
+				yield* (yield* DatabaseSession).run((db) =>
+					db.insert(importRun).values({ userId, id: importRunId, source: "fixture" }),
+				);
+				const identities = ["import:first", "import:second"];
+				yield* run({
+					...payload,
+					itemIdentities: identities,
+					payload: ratedItems([1, 2]),
+					command: { ...command, causation: { ...command.causation, importRunId } },
+				});
+				yield* run({ ...payload, payload: ratedItems([3]) });
+				expect((yield* h.created).map(({ id }) => id)).toEqual([
+					eventIdOf(0, "import:first"),
+					eventIdOf(1, "import:second"),
+					eventIdOf(0, "events:event:0"),
+				]);
+				const items = yield* (yield* IdempotencyKeys.make).importItems({
+					userId,
+					runId: importRunId,
+					itemIdentities: identities,
+				});
+				expect(sortBy(items, ({ itemIdentity }) => itemIdentity)).toEqual([
+					{ result: "created", itemIdentity: "import:first" },
+					{ result: "created", itemIdentity: "import:second" },
+				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(harnessLayer({ noHooks: true }))("independent event receipts", (test) => {
+	test.effect(
+		"replays a keyed commit's result without writing again, even under a new execution",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* IndependentEventsHarness;
+				const first = yield* keyed("entry-event-job");
+				const replay = yield* keyed("entry-event-job", {
+					...payload,
+					command: {
+						...command,
+						causation: { ...command.causation, executionId: AutomationExecutionId.make("retry") },
+					},
+				});
+				expect(first).toMatchObject({ count: 1, failure: null });
+				expect(replay).toEqual(first);
+				expect(yield* h.created).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	harnessLayer({
+		policies: [{ position: 1, slug: "fail" }],
+		execute: ({ runId }) =>
+			new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
+	}),
+)("independent event receipts", (test) => {
+	test.effect(
+		"records a rejected keyed commit and replays it without running policies again",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* IndependentEventsHarness;
+				const first = yield* keyed("rejected-item");
+				const replay = yield* keyed("rejected-item");
+				expect(first).toMatchObject({
+					count: 0,
+					failure: { index: 0, reason: { code: "policy-execution-failed" } },
+				});
+				expect(replay).toEqual(first);
+				expect(yield* h.executed).toEqual(["plugin/fail"]);
+				expect(yield* h.created).toEqual([]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(harnessLayer({ policies: [{ position: 1, slug: "policy" }] }))(
+	"independent event folds",
+	(test) => {
+		test.effect("folds both transactions of a policy-matched commit by its lane", () =>
+			Effect.gen(function* () {
+				const modes: Array<FoldMode | undefined> = [];
+				const folds = Folds.of({
+					...unfoldedFolds,
+					within: (work, _apply, mode) => {
+						modes.push(mode);
+						return work;
+					},
+				});
+				yield* run(
+					{
+						...payload,
+						command: {
+							...command,
+							causation: {
+								...command.causation,
+								lane: "background",
+								executionId: AutomationExecutionId.make("background"),
+							},
+						},
+					},
+					folds,
+				);
+				expect(modes).toEqual(["queue", "queue"]);
+				modes.length = 0;
+				yield* run(payload, folds);
+				expect(modes).toEqual(["inline", "inline"]);
+			}),
 		);
 	},
 );

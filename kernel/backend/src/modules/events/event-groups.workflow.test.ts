@@ -13,6 +13,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Exit, Layer, Schema } from "effect";
 
+import { createEvents } from "#modules/changes/change-sets.test-support";
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -24,7 +25,6 @@ import * as tables from "#schema/tables/combined";
 import {
 	commitChanges,
 	commitUserCommand,
-	createGroupEvents,
 	eventGroupFixture,
 	eventGroupWorkflowLayer,
 } from "./event-groups.test-support";
@@ -124,7 +124,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 			Effect.gen(function* () {
 				const fixture = yield* compound();
 				const create = (slug: "anchor" | "member") =>
-					createGroupEvents({
+					createEvents({
 						userId: fixture.userId,
 						command: {
 							...fixture.command,
@@ -301,7 +301,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* compound();
-				const second = yield* createGroupEvents({
+				const second = yield* createEvents({
 					userId: fixture.userId,
 					command: {
 						...fixture.command,
@@ -383,7 +383,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 			Effect.gen(function* () {
 				const fixture = yield* compound();
 				const other = yield* eventGroupFixture();
-				const result = yield* createGroupEvents({
+				const result = yield* createEvents({
 					userId: other.userId,
 					command: other.command,
 					payload: [

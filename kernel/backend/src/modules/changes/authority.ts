@@ -20,6 +20,14 @@ import {
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 
+/** What a change set may write, resolved once from its writer's principal. */
+export type ChangeSetAuthority = {
+	readonly userId: null | UserId;
+	readonly pluginRevision: null | ScriptPluginRevision;
+	readonly notifications: ReadonlyArray<ChangeSetNotification>;
+	readonly signalActor: { readonly kind: "system" } | { userId: UserId; readonly kind: "user" };
+};
+
 type Subject = ScriptExecutionPrincipal["subject"];
 
 type ChangeSetNotification = {
@@ -27,14 +35,6 @@ type ChangeSetNotification = {
 	readonly sourceKey: string;
 	readonly sourceRunId: string;
 	readonly accountUserId: UserId;
-};
-
-/** What a change set may write, resolved once from its writer's principal. */
-type ChangeSetAuthority = {
-	readonly userId: null | UserId;
-	readonly pluginRevision: null | ScriptPluginRevision;
-	readonly notifications: ReadonlyArray<ChangeSetNotification>;
-	readonly signalActor: { readonly kind: "system" } | { userId: UserId; readonly kind: "user" };
 };
 
 /** A change set part its writer may not write, or that does not resolve. */

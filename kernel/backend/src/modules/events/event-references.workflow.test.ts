@@ -17,6 +17,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, inArray, sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
+import { createEvents } from "#modules/changes/change-sets.test-support";
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -27,7 +28,6 @@ import * as tables from "#schema/tables/combined";
 
 import {
 	commitChanges,
-	createGroupEvents,
 	eventGroupFixture,
 	eventGroupWorkflowLayer,
 } from "./event-groups.test-support";
@@ -77,7 +77,7 @@ const referenceFixture = Effect.fnUntraced(function* (
 		properties: Record<string, unknown>,
 		entityId: EntityId = fixture.subjectId,
 	) {
-		return yield* createGroupEvents({
+		return yield* createEvents({
 			userId: fixture.userId,
 			command: yield* nextCommand,
 			payload: [{ entityId, properties, eventSchemaSlug: EventSchemaSlug.make(slug) }],
@@ -373,7 +373,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				});
 				const holder = yield* fixture.insertSubject("session");
 				const destination = yield* fixture.insertSubject("subject");
-				const traced = yield* createGroupEvents({
+				const traced = yield* createEvents({
 					userId: fixture.userId,
 					command: yield* fixture.nextCommand,
 					payload: [

@@ -33,6 +33,9 @@ import type {
 	LifecyclePreparedStep,
 } from "#modules/automations/lifecycle/write-step";
 import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
+import { eventCreateChanges } from "#modules/changes/changes";
+import { toCreateEventsResponse } from "#modules/changes/outcomes";
+import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import type { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesService, type PendingEntityMutation } from "#modules/entities/service";
@@ -40,7 +43,6 @@ import {
 	type DomainLifecycleCommand,
 	kernelCollectionLifecycleCommand,
 } from "#modules/entities/write-context";
-import { EventsService } from "#modules/events/service";
 import {
 	PendingRelationshipMutations,
 	RelationshipSingleResult,
@@ -166,7 +168,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 	{
 		make: Effect.gen(function* () {
 			const entities = yield* EntitiesService;
-			const events = yield* EventsService;
+			const changes = yield* ChangeSets;
 			const execution = yield* LifecycleExecution;
 			const repository = yield* CollectionsRepository;
 			const relationships = yield* RelationshipsService;
@@ -580,11 +582,9 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				if (!result.eventSchemaSlug) {
 					return { memberOf: result.memberOf, operation: result.operation };
 				}
-				const created = yield* events
-					.create({
-						userId: input.userId,
-						command: childCollectionLifecycleCommand(command, `event:${result.memberOf.id}`),
-						payload: [
+				const created = yield* changes
+					.commit(
+						eventCreateChanges(input.userId, [
 							{
 								entityId: input.collectionId,
 								occurredAt: result.occurredAt,
@@ -596,9 +596,14 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 									relationshipProperties: result.memberOf.properties,
 								},
 							},
-						],
-					})
-					.pipe(Effect.result);
+						]),
+						childCollectionLifecycleCommand(command, `event:${result.memberOf.id}`),
+						{ events: { independent: true } },
+					)
+					.pipe(
+						Effect.map((written) => toCreateEventsResponse(written.outcomes)),
+						Effect.result,
+					);
 				const failure =
 					created._tag === "Failure" ? created.failure : created.success.failure?.reason;
 				if (failure === undefined) {

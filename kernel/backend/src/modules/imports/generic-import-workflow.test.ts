@@ -25,7 +25,6 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
@@ -90,7 +89,6 @@ const applyCase = (
 			Layer.mock(JobQueue)({}),
 			Layer.mock(TransientValues)({}),
 			Layer.mock(LifecycleExecution)({}),
-			Layer.mock(EventsService)({}),
 			Layer.mock(ChangeSets)({}),
 			Layer.mock(PluginRuntimeResolver)({
 				findPluginAvailableToUser: () =>

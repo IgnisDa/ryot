@@ -23,7 +23,7 @@ An operation returns `{ output, changes? }`. It runs once through `ScriptCalls`,
 journal, or workflow reference. Admission pins the decoded principal in the operation's idempotency
 record.
 
-When `changes` is non-empty, `OperationsService` commits it through `ChangeSets.commit` under the
+When `changes` is non-empty, `OperationsService` commits it through `ChangeSets.commitScript` under the
 operation's execution ID, with `api` or `integration` causation, initiator, and integration
 attribution, so retries derive the same entity and event IDs. A keyed invocation records its `{ output, committed }` receipt inside the
 commit transaction, after taking the key's lock, so a retry after commit returns the receipt and a

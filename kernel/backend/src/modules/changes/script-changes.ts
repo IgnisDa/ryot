@@ -19,6 +19,7 @@ import {
 import { scriptChangesCommand } from "#modules/scripts/host/execution-context";
 
 import { ChangeSetRejected } from "./authority";
+import { type CommitReceipt, keyedReceipt, unrecordedChanges } from "./receipts";
 import { type ChangeSetFailure, ChangeSets } from "./service";
 
 const isCommitConflict = Schema.is(
@@ -62,43 +63,43 @@ export const ScriptChangesLayer = Layer.effect(
 	Effect.gen(function* () {
 		const changeSets = yield* ChangeSets;
 		const keys = yield* IdempotencyKeys.make;
-		const commit = Effect.fnUntraced(function* <A>(
-			input: ScriptChangesInput & { readonly receipt: ChangeSetReceipt<A> },
+		const commitOnce = Effect.fnUntraced(function* <A>(
+			input: ScriptChangesInput & { readonly receipt: CommitReceipt<A> },
 		) {
 			const command = yield* scriptChangesCommand({
 				...input,
 				executionId: AutomationExecutionId.make(input.executionId),
 			}).pipe(Effect.orDie);
 			return yield* changeSets
-				.commitOnce(input.changes, command, input.receipt)
+				.commitScript(input.changes, command, input.receipt)
 				.pipe(Effect.mapError(rejection));
 		});
-		const commitKeyed = (input: ScriptChangesInput) => {
-			const userId = sandboxSubjectUserId(input.principal.subject);
-			if (userId === null) {
-				return commit({
-					...input,
-					receipt: { record: Effect.succeed, load: Effect.succeed(null) },
-				});
-			}
-			const identity = idempotencyIdentity({
-				userId,
-				key: input.executionId,
-				kind: "script-changes",
-				request: input.changes ?? null,
-			});
-			return commit({
+		const commit = <A>(input: ScriptChangesInput & { readonly receipt: ChangeSetReceipt<A> }) =>
+			commitOnce({
 				...input,
 				receipt: {
-					record: (committed) =>
-						keys.record(identity, CommittedChanges, committed).pipe(Effect.as(committed)),
-					load: keys.lockedRead(identity, CommittedChanges).pipe(
-						Effect.catchTag("IdempotencyConflict", () =>
-							Effect.die("A script execution returned different changes on replay"),
-						),
-						Effect.map((stored) => stored?.response ?? null),
-					),
+					load: input.receipt.load,
+					record: (result) => input.receipt.record(result.committed),
 				},
+			});
+		const commitKeyed = (input: ScriptChangesInput) => {
+			const userId = sandboxSubjectUserId(input.principal.subject);
+			return commitOnce({
+				...input,
+				receipt:
+					userId === null
+						? unrecordedChanges
+						: keyedReceipt(
+								keys,
+								idempotencyIdentity({
+									userId,
+									key: input.executionId,
+									kind: "script-changes",
+									request: input.changes ?? null,
+								}),
+								CommittedChanges,
+								(result) => result.committed,
+							),
 			});
 		};
 		return ScriptChanges.of({ commit, commitKeyed });

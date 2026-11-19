@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
+import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
@@ -25,15 +26,13 @@ import { DateTime, Effect, Layer, Schema } from "effect";
 import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import { createEvents, eventChangeSets } from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { Folds } from "#modules/derived-values/service";
-import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { runPopulationAttempt } from "#modules/entities/providers/population-job";
-import { type EventCreateInput, makeEventCreate } from "#modules/events/event-create";
-import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
@@ -196,23 +195,23 @@ const nextCommand = (
 	itemIdentity: string,
 ): DomainLifecycleCommand => ({ ...command, itemIdentity });
 
-const createEvents = (
+const createUserEvents = (
 	command: DomainLifecycleCommand,
 	userId: UserId,
-	payload: EventCreateInput["payload"],
+	payload: ReadonlyArray<CreateEventItem>,
 ) =>
 	Effect.gen(function* () {
 		const repository = yield* EventsRepository.make;
 		const schemas = yield* EventSchemaReader.make;
-		const create = yield* makeEventCreate.pipe(
+		return yield* createEvents({ userId, command, payload }).pipe(
 			Effect.provideServiceEffect(
-				EventMutations,
-				EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
+				ChangeSets,
+				eventChangeSets().pipe(
+					Effect.provideService(EventsRepository, repository),
+					Effect.provideService(EventSchemaReader, schemas),
+				),
 			),
-			Effect.provideService(EventsRepository, repository),
-			Effect.provideService(EventSchemaReader, schemas),
 		);
-		return yield* create({ userId, command, payload });
 	});
 
 layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer())))((test) => {
@@ -419,7 +418,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				});
 				const localEvent = EventSchemaSlug.make("tasted");
 				expect(
-					(yield* createEvents(nextCommand(first.command, "own-event"), firstUser, [
+					(yield* createUserEvents(nextCommand(first.command, "own-event"), firstUser, [
 						{
 							entityId: own.entity.id,
 							eventSchemaSlug: localEvent,
@@ -428,7 +427,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					])).count,
 				).toBe(1);
 				expect(
-					(yield* createEvents(nextCommand(second.command, "foreign-event"), firstUser, [
+					(yield* createUserEvents(nextCommand(second.command, "foreign-event"), firstUser, [
 						{
 							entityId: foreign.entity.id,
 							eventSchemaSlug: localEvent,
@@ -436,13 +435,17 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 						},
 					])).count,
 				).toBe(1);
-				const denied = yield* createEvents(nextCommand(first.command, "wrong-event"), firstUser, [
-					{
-						entityId: foreign.entity.id,
-						eventSchemaSlug: localEvent,
-						properties: { title: "Wrong" },
-					},
-				]);
+				const denied = yield* createUserEvents(
+					nextCommand(first.command, "wrong-event"),
+					firstUser,
+					[
+						{
+							entityId: foreign.entity.id,
+							eventSchemaSlug: localEvent,
+							properties: { title: "Wrong" },
+						},
+					],
+				);
 				expect(denied.count).toBe(0);
 				const [row] = yield* session.run((db) =>
 					db.select().from(tables.event).where(eq(tables.event.entityId, foreign.entity.id)),
@@ -544,7 +547,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				const membershipRow = link.relationship;
 				assert(membershipRow);
 				expect(membershipRow.relationshipSchemaPluginId).toBeNull();
-				yield* createEvents(
+				yield* createUserEvents(
 					kernelCollectionLifecycleCommand(nextCommand(command, "collection-event")),
 					firstUser,
 					[
@@ -635,14 +638,14 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					kernelCollectionLifecycleCommand(nextCommand(command, "membership")),
 				);
 				assert(link.relationship);
-				const tasted = yield* createEvents(nextCommand(command, "tasted-event"), firstUser, [
+				const tasted = yield* createUserEvents(nextCommand(command, "tasted-event"), firstUser, [
 					{
 						entityId: from.id,
 						properties: { title: "Tasted" },
 						eventSchemaSlug: EventSchemaSlug.make("tasted"),
 					},
 				]);
-				const added = yield* createEvents(
+				const added = yield* createUserEvents(
 					kernelCollectionLifecycleCommand(nextCommand(command, "collection-event")),
 					firstUser,
 					[
@@ -1351,7 +1354,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					lifecycle: nextCommand(command, "own-entity"),
 				});
 				const eventSchemaSlug = EventSchemaSlug.make("opened");
-				const denied = yield* createEvents(nextCommand(command, "added-event"), firstUser, [
+				const denied = yield* createUserEvents(nextCommand(command, "added-event"), firstUser, [
 					{ eventSchemaSlug, entityId: own.entity.id, properties: { title: "Opened" } },
 				]);
 				expect(denied.count).toBe(0);
@@ -1438,7 +1441,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					properties: { title: "Foreign" },
 					entitySchema: { slug: bottle, owner: definitionOwner(foreignPlugin.pluginId) },
 				});
-				const denied = yield* createEvents(
+				const denied = yield* createUserEvents(
 					nextCommand(command, "foreign-session-event"),
 					firstUser,
 					[
@@ -1885,7 +1888,7 @@ layer(relationshipDatabaseLayer())((test) => {
 								: nextCommand(command, `${identity}-entity`),
 					});
 					const eventCommand = nextCommand(command, `${identity}-event`);
-					yield* createEvents(
+					yield* createUserEvents(
 						entity === "collection" ? kernelCollectionLifecycleCommand(eventCommand) : eventCommand,
 						userId,
 						[{ eventSchemaSlug, entityId: created.entity.id, properties: { text: identity } }],

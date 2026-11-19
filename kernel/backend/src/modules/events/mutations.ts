@@ -58,7 +58,7 @@ const EventWriteIdentity = Schema.Struct({
 	executionId: LifecycleCommand.fields.causation.fields.executionId,
 });
 
-export const eventWriteIdentity = (command: LifecycleCommand) => ({
+const eventWriteIdentity = (command: LifecycleCommand) => ({
 	itemIdentity: command.itemIdentity,
 	accountUserId: command.accountUserId,
 	executionId: command.causation.executionId,
@@ -273,7 +273,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			const prepare = Effect.fn("EventMutations.prepare")(function* (input: {
 				userId: UserId;
 				independent?: boolean;
-				positionOffset?: number;
+				verbatimIdentities?: boolean;
 				command: DomainLifecycleCommand;
 				changes: ReadonlyArray<EventMutationChange>;
 				proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
@@ -397,12 +397,16 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						return {
 							...(order === undefined ? {} : { order }),
 							draft,
+							position: index,
 							change: item.change,
 							source: item.source,
-							identity: eventWriteIdentity(command),
-							position: (input.positionOffset ?? 0) + index,
 							propertiesSchema: scope.eventSchemaScope.propertiesSchema,
 							schemaFingerprint: catalogDefinitionFingerprint(scope.eventSchemaScope),
+							identity: eventWriteIdentity(
+								input.verbatimIdentities
+									? { ...input.command, itemIdentity: item.change.itemIdentity }
+									: command,
+							),
 						};
 					}).pipe(Effect.result),
 				);

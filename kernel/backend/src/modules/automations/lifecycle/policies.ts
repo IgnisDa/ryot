@@ -27,7 +27,6 @@ import { Context, Effect, Schema } from "effect";
 import { definitionText } from "#modules/definitions/text";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { DatabaseSession } from "#platform/db/session";
 
 import { lifecycleTrigger } from "./command";
 import { applyLifecyclePolicyPatch, canonicalLifecyclePolicyPatch } from "./policy-patch";
@@ -310,12 +309,4 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 		}),
 	);
 	return { ...result, items };
-});
-
-/** Matches a batch's policies in their own transaction and calls them, for a caller holding none. */
-export const runPolicyBatch = Effect.fn("runPolicyBatch")(function* (input: PolicyBatchPayload) {
-	const matched = yield* (yield* DatabaseSession)
-		.transaction(matchPolicyBatch(input))
-		.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-	return yield* applyPolicyBatch(input, matched);
 });

@@ -12,6 +12,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Layer, Schema } from "effect";
 
 import { changeSetsTestLayer } from "#modules/changes/change-sets.test-support";
+import { unrecordedChanges } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -33,7 +34,6 @@ import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/princip
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { workflowEngineTestLayer } from "#testing/effect";
 
-import { type EventCreateInput, makeEventCreate } from "./event-create";
 import { EventMutations } from "./mutations";
 
 export const eventGroupDeclaration: PluginEventGroup = {
@@ -74,7 +74,10 @@ export const eventGroupWorkflowLayer = changeSetsTestLayer.pipe(
 export const commitChanges = (payload: {
 	readonly input: ChangeSet;
 	readonly command: DomainLifecycleCommand;
-}) => Effect.flatMap(ChangeSets, (changes) => changes.commit(payload.input, payload.command));
+}) =>
+	Effect.flatMap(ChangeSets, (changes) =>
+		changes.commitScript(payload.input, payload.command, unrecordedChanges),
+	);
 
 export const commitUserCommand = (payload: {
 	readonly input: ChangeSet;
@@ -86,9 +89,6 @@ export const commitUserCommand = (payload: {
 			return { events, entityId };
 		}),
 	);
-
-export const createGroupEvents = (input: EventCreateInput) =>
-	Effect.flatMap(makeEventCreate, (create) => create(input));
 
 const groupEventSchemas = [
 	{

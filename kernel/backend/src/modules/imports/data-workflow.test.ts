@@ -24,11 +24,11 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { EventsService } from "#modules/events/service";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -117,7 +117,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 	const issues: IngestionIssue[] = [];
 	const projections: IngestionBatch[] = [];
 	const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
-	const submitted: Parameters<EventsService["Service"]["create"]>[0][] = [];
+	const submitted: Parameters<ChangeSets["Service"]["commitEventsKeyed"]>[0][] = [];
 	const records = [
 		event("written"),
 		event("skipped"),
@@ -158,10 +158,9 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(RelationshipsService)({}),
 		Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
-		Layer.mock(EventsService)({
-			create: (input) =>
+		Layer.mock(ChangeSets)({
+			commitEventsKeyed: (input, lifecycle) =>
 				Effect.sync(() => {
-					const lifecycle = input.command;
 					submitted.push(input);
 					const key =
 						["skipped", "independent"].find((value) => lifecycle.itemIdentity.includes(value)) ??
@@ -282,7 +281,7 @@ it.effect(
 					"created",
 				),
 			]);
-			expect(test.submitted[0]?.payload[0]?.properties).toEqual({
+			expect(test.submitted[0]?.events?.creates[0]?.properties).toEqual({
 				related: { entity: "related-id" },
 			});
 			const rejection = {
@@ -339,7 +338,7 @@ it.effect(
 			const entityKeys = Array.from({ length: 50 }, (_, index) => `entity-${index}`);
 			const captured = new Map<string, Parameters<IngestionCaptures["Service"]["publish"]>[0]>();
 			const registered: string[] = [];
-			const submitted: Parameters<EventsService["Service"]["create"]>[0][] = [];
+			const submitted: Parameters<ChangeSets["Service"]["commitEventsKeyed"]>[0][] = [];
 			const outcomes = new Map<string, IngestionOutcome>();
 			let sealed = false;
 			const integrationId = IntegrationId.make("integration");
@@ -406,8 +405,8 @@ it.effect(
 				Layer.mock(EntitiesRepository)({}),
 				Layer.mock(RelationshipsService)({}),
 				Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
-				Layer.mock(EventsService)({
-					create: (input) =>
+				Layer.mock(ChangeSets)({
+					commitEventsKeyed: (input) =>
 						Effect.sync(() => {
 							submitted.push(input);
 							return { count: 1, outcomes: [], failure: null };
@@ -491,9 +490,9 @@ it.effect(
 			);
 			expect(registered).toEqual(["data-plan:0", "data-segment:1"]);
 			expect(submitted).toHaveLength(1);
-			expect(submitted[0]?.payload[0]).toMatchObject({
-				entityId: "id:entity-49",
+			expect(submitted[0]?.events?.creates[0]).toMatchObject({
 				properties: { related: { entity: "id:entity-0" } },
+				entity: { kind: "existing", entityId: "id:entity-49" },
 			});
 			expect(sealed).toBe(true);
 			expect(outcomes.get("data-plan:0:unknown")?.result).toBe("unsuccessful");

@@ -22,7 +22,6 @@ import {
 	eventGroupFixture,
 	eventGroupWorkflowLayer,
 } from "#modules/events/event-groups.test-support";
-import { EventsService } from "#modules/events/service";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
@@ -135,7 +134,6 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 	const issues = new Map<string, IngestionIssue>();
 	const scope = { runId, userId: fixture.userId };
 	const importLayer = Layer.mergeAll(
-		Layer.mock(EventsService)({}),
 		Layer.mock(ImportSourceStateStore)({
 			load: () =>
 				Effect.succeed({

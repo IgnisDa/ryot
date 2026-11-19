@@ -45,6 +45,8 @@ import {
 	mapCommittedResult,
 	runLifecycleWriteStep,
 } from "#modules/automations/lifecycle/write-step";
+import { eventCreateChanges } from "#modules/changes/changes";
+import { unrecordedChanges } from "#modules/changes/receipts";
 import { ChangeSetFailure, ChangeSets } from "#modules/changes/service";
 import {
 	CollectionEntityResult,
@@ -57,7 +59,6 @@ import { EntityImportWorkflowOperations } from "#modules/entities/providers/oper
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { EventsService } from "#modules/events/service";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -787,9 +788,10 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 		error: ChangeSetFailure,
 		success: CommittedChanges,
 		name: `commit-generic-import-record-${context.index}`,
-		execute: commands.commit(
+		execute: commands.commitScript(
 			{ entity: root, events: { creates, changes: [] }, relationships: { upserts: relationships } },
 			genericImportRecordCommand(context.command, item),
+			unrecordedChanges,
 		),
 	});
 	if (written.entityId === undefined) {
@@ -1085,12 +1087,16 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 										eventSchemaSlug: first.event.eventSchemaSlug,
 									},
 								})
-							: (yield* EventsService).create({
+							: (yield* ChangeSets).commitEventsKeyed(
+									eventCreateChanges(
+										payload.userId,
+										entries.map(({ event }) => event),
+										identities,
+									),
 									command,
-									userId: payload.userId,
-									itemIdentities: identities,
-									payload: entries.map(({ event }) => event),
-								});
+									stableStringify(identities),
+									{ events: { independent: true, verbatimIdentities: true } },
+								);
 					const result = yield* makeActivity({
 						error: ImportRunError,
 						success: CreateEventsResponse,

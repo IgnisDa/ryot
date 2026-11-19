@@ -485,7 +485,7 @@ const hotSwapRequest = {
 	index: 0,
 	name: "kernel-step",
 	kind: "child" as const,
-	args: { input: { value: 1 }, workflowSlug: "kernel:event-create" },
+	args: { input: { value: 1 }, workflowSlug: "kernel:process-import-chunks" },
 };
 const historicalContent = `
 if [ "$JOURNAL" = "[]" ]; then

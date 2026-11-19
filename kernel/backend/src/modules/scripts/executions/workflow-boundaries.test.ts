@@ -90,12 +90,11 @@ layer(BunServices.layer)((test) => {
 	);
 
 	test.effect(
-		"keeps event create and repository primitives behind EventsService",
+		"keeps event repository primitives behind ChangeSets",
 		() =>
 			Effect.gen(function* () {
 				const source = yield* readModule("../../collections/service.ts");
 
-				expect(source).not.toContain("#modules/events/event-create");
 				expect(source).not.toContain("#modules/events/repository");
 				expect(source).not.toContain("EventsRepository");
 			}),

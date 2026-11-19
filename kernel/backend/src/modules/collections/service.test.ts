@@ -16,7 +16,6 @@ import {
 	EntityNotFound,
 	EntityStale,
 } from "@ryot-app/contract/modules/entities/schemas";
-import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
@@ -46,6 +45,7 @@ import { Context, Effect, Layer, Ref, Result } from "effect";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -53,8 +53,6 @@ import {
 	type DomainLifecycleCommand,
 	kernelCollectionLifecycleCommand,
 } from "#modules/entities/write-context";
-import type { EventCreateInput } from "#modules/events/event-create";
-import { EventsService } from "#modules/events/service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -192,8 +190,10 @@ const mockEntities = Layer.mock(EntitiesService);
 const mockRelationships = Layer.mock(RelationshipsService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 
+type EventCreateCall = Parameters<ChangeSets["Service"]["commit"]>;
 type EntityCreateInput = Parameters<EntitiesService["Service"]["create"]>[0];
 type EntityUpdateInput = Parameters<EntitiesService["Service"]["update"]>[0];
+
 type EntityDeleteCall = Parameters<EntitiesService["Service"]["deleteByIds"]>;
 
 type RelationshipCreateInput = Parameters<RelationshipsService["Service"]["prepareCreate"]>[0];
@@ -201,7 +201,7 @@ type RelationshipCreateInput = Parameters<RelationshipsService["Service"]["prepa
 class CollectionCalls extends Context.Service<
 	CollectionCalls,
 	{
-		readonly eventCreates: Effect.Effect<ReadonlyArray<EventCreateInput>>;
+		readonly eventCreates: Effect.Effect<ReadonlyArray<EventCreateCall>>;
 		readonly deletedEntities: Effect.Effect<ReadonlyArray<EntityDeleteCall>>;
 		readonly createdEntities: Effect.Effect<ReadonlyArray<EntityCreateInput>>;
 		readonly updatedEntities: Effect.Effect<ReadonlyArray<EntityUpdateInput>>;
@@ -213,15 +213,17 @@ class CollectionCalls extends Context.Service<
 
 const membershipExecutionId = "membership-execution-id";
 
+const membershipEvent = (item: Record<string, unknown>) => ({
+	userId: user.id,
+	events: { creates: [{ ...item, entity: { kind: "existing", entityId: collectionId } }] },
+});
+
 const makeServiceLayer = (
 	options: {
 		readonly entities?: MockOverrides<typeof mockEntities>;
+		readonly workflow?: { readonly eventFailure?: unknown };
 		readonly collections?: MockOverrides<typeof mockCollections>;
 		readonly relationships?: MockOverrides<typeof mockRelationships>;
-		readonly workflow?: {
-			readonly eventFailure?: unknown;
-			readonly eventResult?: CreateEventsResponse;
-		};
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -230,7 +232,7 @@ const makeServiceLayer = (
 			const updatedEntities = yield* Ref.make<ReadonlyArray<EntityUpdateInput>>([]);
 			const deletedEntities = yield* Ref.make<ReadonlyArray<EntityDeleteCall>>([]);
 			const relationshipInputs = yield* Ref.make<ReadonlyArray<RelationshipCreateInput>>([]);
-			const eventCreates = yield* Ref.make<ReadonlyArray<EventCreateInput>>([]);
+			const eventCreates = yield* Ref.make<ReadonlyArray<EventCreateCall>>([]);
 			const lifecycleCommands = yield* Ref.make<Readonly<Record<string, DomainLifecycleCommand>>>(
 				{},
 			);
@@ -310,15 +312,13 @@ const makeServiceLayer = (
 					...options.collections,
 				}),
 				mockRelationshipSchemas({ findKernelBySlug: () => Effect.succeed(memberOfSchema) }),
-				Layer.mock(EventsService)({
-					create: (input) =>
-						Ref.update(eventCreates, (all) => [...all, input]).pipe(
+				Layer.mock(ChangeSets)({
+					commit: (...call) =>
+						Ref.update(eventCreates, (all): ReadonlyArray<EventCreateCall> => [...all, call]).pipe(
 							Effect.andThen(
 								workflow.eventFailure
 									? Effect.fail(new DbError({ message: "event creation failed" }))
-									: Effect.succeed(
-											workflow.eventResult ?? { count: 1, outcomes: [], failure: null },
-										),
+									: Effect.succeed({ outcomes: [], committed: { events: [] } }),
 							),
 						),
 				}),
@@ -623,10 +623,11 @@ layer(makeServiceLayer())((test) => {
 					command("membership-execution", "collection:add-membership"),
 				);
 				const [add] = yield* (yield* CollectionCalls).eventCreates;
-				expect(add).toMatchObject({
-					payload: [{ entityId: collectionId, eventSchemaSlug: addEventSchema.id }],
-					command: { writeContext: null, causation: { executionId: "membership-execution" } },
-				});
+				expect(add).toMatchObject([
+					membershipEvent({ eventSchemaSlug: addEventSchema.id }),
+					{ writeContext: null, causation: { executionId: "membership-execution" } },
+					{ events: { independent: true } },
+				]);
 			}),
 		testTimeout,
 	);
@@ -981,37 +982,36 @@ layer(
 	);
 });
 
-layer(makeServiceLayer({ workflow: { eventResult: { count: 1, outcomes: [], failure: null } } }))(
-	(test) => {
-		test.effect(
-			"accepts cross-plugin collection members with the kernel membership schema",
-			() =>
-				Effect.gen(function* () {
-					const calls = yield* CollectionCalls;
-					yield* runMembershipWorkflow();
-					const membershipCommand = (yield* calls.lifecycleCommands)["relationships.prepareCreate"];
-					const [relationshipInput] = yield* calls.relationshipInputs;
-					expect(yield* calls.dispatchedTriggers).toEqual([[membershipPlan.triggerId]]);
-					expect(relationshipInput?.relationshipSchema).toEqual({
-						owner: { kind: "kernel" },
-						slug: RelationshipSchemaSlug.make("member-of"),
-					});
-					const [created] = yield* calls.eventCreates;
-					expect(created).toMatchObject({
-						payload: [{ properties: { entitySchemaSlug: "record" } }],
-						command: {
-							writeContext: null,
-							kernelCollection: true,
-							causation: membershipCommand?.causation,
-							occurredAt: membershipCommand?.occurredAt,
-							itemIdentity: stableStringify(["collection:add-membership", "event:relationship-id"]),
-						},
-					});
-				}),
-			testTimeout,
-		);
-	},
-);
+layer(makeServiceLayer())((test) => {
+	test.effect(
+		"accepts cross-plugin collection members with the kernel membership schema",
+		() =>
+			Effect.gen(function* () {
+				const calls = yield* CollectionCalls;
+				yield* runMembershipWorkflow();
+				const membershipCommand = (yield* calls.lifecycleCommands)["relationships.prepareCreate"];
+				const [relationshipInput] = yield* calls.relationshipInputs;
+				expect(yield* calls.dispatchedTriggers).toEqual([[membershipPlan.triggerId]]);
+				expect(relationshipInput?.relationshipSchema).toEqual({
+					owner: { kind: "kernel" },
+					slug: RelationshipSchemaSlug.make("member-of"),
+				});
+				const [created] = yield* calls.eventCreates;
+				expect(created).toMatchObject([
+					membershipEvent({ properties: { entitySchemaSlug: "record" } }),
+					{
+						writeContext: null,
+						kernelCollection: true,
+						causation: membershipCommand?.causation,
+						occurredAt: membershipCommand?.occurredAt,
+						itemIdentity: stableStringify(["collection:add-membership", "event:relationship-id"]),
+					},
+					{ events: { independent: true } },
+				]);
+			}),
+		testTimeout,
+	);
+});
 
 layer(makeServiceLayer({ workflow: { eventFailure: new Error("failed") } }))((test) => {
 	test.effect(
@@ -1042,7 +1042,6 @@ layer(makeServiceLayer({ workflow: { eventFailure: new Error("failed") } }))((te
 
 layer(
 	makeServiceLayer({
-		workflow: { eventResult: { count: 1, outcomes: [], failure: null } },
 		collections: { findMembership: () => Effect.succeed({ properties: {}, id: relationshipId }) },
 	}),
 )((test) => {
@@ -1070,15 +1069,12 @@ layer(
 				});
 				expect(relationshipCommand).toMatchObject({ writeContext: null, kernelCollection: true });
 				const [created] = yield* calls.eventCreates;
-				expect(created).toMatchObject({
-					payload: [
-						{
-							entityId: collectionId,
-							eventSchemaSlug: removeEventSchema.id,
-							properties: { relationshipProperties: { rank: 3, note: "kept" } },
-						},
-					],
-					command: {
+				expect(created).toMatchObject([
+					membershipEvent({
+						eventSchemaSlug: removeEventSchema.id,
+						properties: { relationshipProperties: { rank: 3, note: "kept" } },
+					}),
+					{
 						kernelCollection: true,
 						causation: relationshipCommand?.causation,
 						occurredAt: relationshipCommand?.occurredAt,
@@ -1087,7 +1083,8 @@ layer(
 							"event:relationship-id",
 						]),
 					},
-				});
+					{ events: { independent: true } },
+				]);
 			}),
 		testTimeout,
 	);
@@ -1103,10 +1100,11 @@ layer(
 					command("removal-execution", "collection:remove-membership"),
 				);
 				const remove = (yield* (yield* CollectionCalls).eventCreates).at(-1);
-				expect(remove).toMatchObject({
-					command: { causation: { executionId: "removal-execution" } },
-					payload: [{ entityId: collectionId, eventSchemaSlug: removeEventSchema.id }],
-				});
+				expect(remove).toMatchObject([
+					membershipEvent({ eventSchemaSlug: removeEventSchema.id }),
+					{ causation: { executionId: "removal-execution" } },
+					{ events: { independent: true } },
+				]);
 			}),
 		testTimeout,
 	);

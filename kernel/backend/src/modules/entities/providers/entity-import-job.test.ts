@@ -22,9 +22,9 @@ import { Effect, Fiber, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { ChangeSets } from "#modules/changes/service";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EventsService } from "#modules/events/service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { JobQueue } from "#platform/jobs/queue";
@@ -111,10 +111,10 @@ const makeHarness = (options: Harness = {}) => {
 					return absent;
 				}),
 		}),
-		Layer.mock(EventsService)({
-			create: (input) =>
+		Layer.mock(ChangeSets)({
+			commitEventsKeyed: (changes, command, key, commitOptions) =>
 				Effect.sync(() => {
-					calls.push({ options: input, name: "entry-event" });
+					calls.push({ name: "entry-event", options: { key, changes, command, commitOptions } });
 					return { count: 1, outcomes: [], ...(options.eventResult ?? { failure: null }) };
 				}),
 		}),
@@ -233,12 +233,24 @@ layer(mutationAdmissionTestLayer)((it) => {
 					"entry-event",
 				]);
 				expect(harness.calls[2]?.options).toMatchObject({
-					userId,
-					payload: [{ properties: {}, entityId: entity.id, eventSchemaSlug: "planned" }],
+					key: "entry-event-import",
+					commitOptions: { events: { independent: true } },
 					command: {
 						writeContext: null,
 						causation: { executionId: "entry-event-import" },
 						itemIdentity: stableStringify(["provider-import:entry-event-import", "entry-event"]),
+					},
+					changes: {
+						userId,
+						events: {
+							creates: [
+								{
+									properties: {},
+									eventSchemaSlug: "planned",
+									entity: { kind: "existing", entityId: entity.id },
+								},
+							],
+						},
 					},
 				});
 			}),
@@ -246,14 +258,16 @@ layer(mutationAdmissionTestLayer)((it) => {
 	);
 
 	it.effect(
-		"does not repeat the entry event on a retried attempt",
+		"keys a retried attempt's entry event by the job, so its commit replays",
 		() =>
 			Effect.gen(function* () {
 				const harness = makeHarness();
 				yield* harness.run("retried-import", 1, true);
 				yield* harness.run("retried-import", 2, true);
 
-				expect(harness.calls.filter(({ name }) => name === "entry-event")).toHaveLength(1);
+				expect(
+					harness.calls.flatMap(({ name, options }) => (name === "entry-event" ? [options] : [])),
+				).toMatchObject([{ key: "retried-import" }, { key: "retried-import" }]);
 			}),
 		testTimeout,
 	);

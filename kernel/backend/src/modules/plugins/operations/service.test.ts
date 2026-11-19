@@ -41,6 +41,7 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import type { CommitReceipt } from "#modules/changes/receipts";
 import { ScriptChangesLayer } from "#modules/changes/script-changes";
 import { type ChangeSetFailure, ChangeSets } from "#modules/changes/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -53,7 +54,6 @@ import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { PluginUserSettingsPatchError } from "#modules/plugins/preferences/user-settings-writer";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
-import type { ChangeSetReceipt } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
@@ -64,6 +64,8 @@ import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import type { PluginInstallationHydratedState } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
 import { OperationsService } from "./service";
+
+const kernelWriter = () => Effect.die("Operations commit through ScriptChanges");
 
 const SYSTEM_ID = PluginId.make("fixture-plugin-id");
 const PRIVATE_ID = PluginId.make("private-plugin-id");
@@ -433,10 +435,10 @@ const makeLayer = (input: {
 									database
 										.transaction(effect)
 										.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-								const commitOnce = <A>(
+								const commitScript = <A>(
 									changes: undefined | ChangeSet,
 									command: DomainLifecycleCommand,
-									receipt: ChangeSetReceipt<A>,
+									receipt: CommitReceipt<A>,
 								) =>
 									Effect.gen(function* () {
 										const stored = yield* inTransaction(receipt.load);
@@ -444,7 +446,9 @@ const makeLayer = (input: {
 											return stored;
 										}
 										if (changes === undefined) {
-											return yield* inTransaction(receipt.record({ events: [] }));
+											return yield* inTransaction(
+												receipt.record({ outcomes: [], committed: { events: [] } }),
+											);
 										}
 										yield* recordEvent("commit");
 										yield* Ref.update(state.commits, (all) => [
@@ -460,16 +464,21 @@ const makeLayer = (input: {
 										}
 										return yield* inTransaction(
 											receipt.record({
-												events: (changes.events?.creates ?? []).map((create) => ({
-													itemIdentity: create.itemIdentity,
-													eventId: EventId.make(`event-${create.itemIdentity}`),
-												})),
+												outcomes: [],
+												committed: {
+													events: (changes.events?.creates ?? []).map((create) => ({
+														itemIdentity: create.itemIdentity,
+														eventId: EventId.make(`event-${create.itemIdentity}`),
+													})),
+												},
 											}),
 										);
 									});
 								return {
-									commitOnce,
-									commit: () => Effect.die("Operations commit through ScriptChanges"),
+									commitScript,
+									commit: kernelWriter,
+									commitOnce: kernelWriter,
+									commitEventsKeyed: kernelWriter,
 								};
 							}),
 						),

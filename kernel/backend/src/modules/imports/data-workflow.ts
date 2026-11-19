@@ -17,11 +17,12 @@ import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { requiredReference, rewritePropertyReferences } from "#modules/backups/data-references";
+import { eventCreateChanges } from "#modules/changes/changes";
+import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { EventsService } from "#modules/events/service";
 import {
 	PendingRelationshipMutations,
 	RelationshipSingleResult,
@@ -469,7 +470,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 		});
 		const entities = yield* EntitiesService;
 		const entityRepository = yield* EntitiesRepository;
-		const events = yield* EventsService;
+		const changes = yield* ChangeSets;
 		const relationships = yield* RelationshipsService;
 		const assets = yield* ManagedAssetsService;
 		const definitions = definitionLookup(input.snapshot);
@@ -706,21 +707,25 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 					error: ImportRunError,
 					success: CreateEventsResponse,
 					name: `create-data-event-${index}`,
-					execute: events
-						.create({
+					execute: changes
+						.commitEventsKeyed(
+							eventCreateChanges(
+								input.userId,
+								[
+									{
+										entityId,
+										properties,
+										sessionEntityId,
+										occurredAt: item.record.occurredAt,
+										eventSchemaSlug: EventSchemaSlug.make(item.record.eventSchemaSlug),
+									},
+								],
+								[command.itemIdentity],
+							),
 							command,
-							userId: input.userId,
-							itemIdentities: [command.itemIdentity],
-							payload: [
-								{
-									entityId,
-									properties,
-									sessionEntityId,
-									occurredAt: item.record.occurredAt,
-									eventSchemaSlug: EventSchemaSlug.make(item.record.eventSchemaSlug),
-								},
-							],
-						})
+							command.itemIdentity,
+							{ events: { independent: true, verbatimIdentities: true } },
+						)
 						.pipe(Effect.mapError(toWorkflowError)),
 				});
 				if (result.failure) {
