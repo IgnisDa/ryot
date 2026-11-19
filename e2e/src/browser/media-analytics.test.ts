@@ -13,7 +13,7 @@ import {
 	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
 import { waitForEventProjections } from "~/fixtures/kernel/events";
-import { mediaRecipes } from "~/fixtures/plugins/media";
+import { mediaRecipes, renderMediaMessage } from "~/fixtures/plugins/media";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
 	mediaAnalyticsInput,
@@ -565,7 +565,9 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			expect(yield* row.getByRole("link").getAttribute("href")).toBe(
 				`/e/${encodeURIComponent(record.entityId)}`,
 			);
-			expect(yield* row.getByRole("cell").nth(2).innerText()).toBe(record.eventType);
+			expect(yield* row.getByRole("cell").nth(2).innerText()).toBe(
+				yield* renderMediaMessage(record.eventLabel),
+			);
 			expect(yield* row.locator("time").getAttribute("datetime")).toBe(
 				record.contribution.attribution.kind === "unknown"
 					? null
@@ -573,11 +575,21 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			);
 		}
 		expect(yield* allRecordsTable.getByText("Unknown date", { exact: true }).count).toBe(0);
-		expect(yield* allRecordsTable.getByText("review", { exact: true }).count).toBe(0);
+		const reviewLabel = yield* renderMediaMessage({
+			...requirePresent(records.items[0], "Expected a records item").eventLabel,
+			key: "event-schema.review.name",
+		});
+		expect(yield* allRecordsTable.getByText(reviewLabel, { exact: true }).count).toBe(0);
+		const itemCompleteLabel = yield* renderMediaMessage(
+			requirePresent(
+				records.items.find(({ eventType }) => eventType === "item-complete"),
+				"Expected an item-complete record",
+			).eventLabel,
+		);
 		const animeRow = allRecordsTable
 			.getByRole("row", { name: fixture.entities.anime.name })
-			.filter({ hasText: "item-complete" });
-		expect(yield* animeRow.getByRole("cell").nth(2).innerText()).toBe("item-complete");
+			.filter({ hasText: itemCompleteLabel });
+		expect(yield* animeRow.getByRole("cell").nth(2).innerText()).toBe(itemCompleteLabel);
 		expect(yield* animeRow.getByRole("cell").nth(4).innerText()).toContain(
 			"Consumed item position: Ep 7",
 		);

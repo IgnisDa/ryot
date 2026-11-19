@@ -13,7 +13,7 @@ import {
 } from "~/fixtures/kernel/analytics-location";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForEventProjections } from "~/fixtures/kernel/events";
-import { mediaRecipes } from "~/fixtures/plugins/media";
+import { mediaRecipes, renderMediaMessage } from "~/fixtures/plugins/media";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
 	mediaAnalyticsInput,
@@ -35,7 +35,11 @@ const displayedRows = (table: Playwright.Locator) =>
 		})),
 	);
 
-const expectedDisplayedRows = (records: readonly MediaRecord[], dateLabels: readonly string[]) =>
+const expectedDisplayedRows = (
+	records: readonly MediaRecord[],
+	eventLabel: string,
+	dateLabels: readonly string[],
+) =>
 	records.map((record, index) => {
 		const item = requirePresent(record.facts.position, "Expected consumed item facts");
 		const basis = requirePresent(record.facts.consumptionBasis, "Expected frozen basis facts");
@@ -48,7 +52,7 @@ const expectedDisplayedRows = (records: readonly MediaRecord[], dateLabels: read
 			cells: [
 				record.name,
 				"Anime",
-				record.eventType,
+				eventLabel,
 				requirePresent(dateLabels[index], "Expected browser-formatted UTC date"),
 				[
 					`Consumed item position: Ep ${item.position}`,
@@ -237,8 +241,11 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		const table = dialog.getByRole("table", { exact: true, name: "Media analytics records" });
 		expect(yield* table.locator("tbody tr").count).toBe(100);
 		const initialRows = yield* displayedRows(table);
+		const eventLabel = yield* renderMediaMessage(
+			requirePresent(first.items[0], "Expected a first-page record").eventLabel,
+		);
 		expect(initialRows).toEqual(
-			expectedDisplayedRows(first.items, expectedDateLabels.slice(0, 100)),
+			expectedDisplayedRows(first.items, eventLabel, expectedDateLabels.slice(0, 100)),
 		);
 		const showMore = dialog.getByRole("button", { exact: true, name: "Show more records" });
 		yield* showMore.waitFor({ state: "visible" });
@@ -248,10 +255,10 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		expect(yield* table.locator("tbody tr").count).toBe(102);
 		expect(yield* showMore.count).toBe(0);
 		const allRows = yield* displayedRows(table);
-		expect(allRows).toEqual(expectedDisplayedRows(records, expectedDateLabels));
+		expect(allRows).toEqual(expectedDisplayedRows(records, eventLabel, expectedDateLabels));
 		expect(allRows.slice(0, 100)).toEqual(initialRows);
 		expect(allRows.slice(100)).toEqual(
-			expectedDisplayedRows(second.items, expectedDateLabels.slice(100)),
+			expectedDisplayedRows(second.items, eventLabel, expectedDateLabels.slice(100)),
 		);
 		expect(new Set(allRows.map(({ dateTime }) => dateTime)).size).toBe(102);
 		expect(allRows.map(({ dateTime }) => dateTime)).toEqual(

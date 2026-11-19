@@ -1,5 +1,6 @@
 export * from "./media";
 export * from "./events";
+export * from "./messages";
 export * from "./activity-log";
 export * from "./translations";
 export * from "./entity-schemas";
