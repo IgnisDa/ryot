@@ -72,6 +72,16 @@ type CacheSandboxSourceInput = SandboxSourceIdentity &
 		  }
 	);
 
+export function noChangesSandboxSource(input: SandboxSourceIdentity) {
+	return scriptModuleSource({
+		...input,
+		run: "() => Effect.succeed({})",
+		inputSchema: "Schema.Struct({})",
+		outputSchema: "changesOutputSchema",
+		sdkImports: ["changesOutputSchema"],
+	});
+}
+
 export function userPreferencesSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,

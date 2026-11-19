@@ -10,7 +10,7 @@ import type { PluginPackageInput } from "./compiled-package";
 import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
 import {
-	literalSandboxSource,
+	noChangesSandboxSource,
 	operationSandboxSource,
 	pluginConfigOperationSandboxSource,
 } from "./sandbox-source";
@@ -187,7 +187,7 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 	const bootstrapScriptSlug = `e2e-private-bootstrap-${suffix}`;
 	const operationScriptSlug = `e2e-private-bootstrap-operation-${suffix}`;
 	const pluginSlug = `e2e-private-bootstrap-plugin-${suffix}`;
-	const bootstrapSource = literalSandboxSource({ name, value: true, slug: bootstrapScriptSlug });
+	const bootstrapSource = noChangesSandboxSource({ name, slug: bootstrapScriptSlug });
 	const manifest = testPluginManifest({
 		pluginSlug,
 		userBootstrap: [{ description: name, slug: bootstrapSlug, scriptSlug: bootstrapScriptSlug }],
