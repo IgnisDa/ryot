@@ -42,7 +42,6 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Result } from "effect";
 
 import { nameSortTarget, reservedBrowseFieldKeys } from "./browse";
-import { browseIssue } from "./browse-validation";
 import { collectionsFilterTarget } from "./filters";
 import { propertyFilterFields } from "./property-filter-fields";
 
@@ -191,12 +190,6 @@ const resolveBrowse = (
 		});
 		if (!schema || selected.includes(schema)) {
 			return fail(`Browse schema '${requested.slug}' is unavailable or duplicated`);
-		}
-		if (schema.browse !== null) {
-			const issue = browseIssue(schema.browse);
-			if (issue !== undefined) {
-				return fail(issue);
-			}
 		}
 		selected.push(schema);
 	}

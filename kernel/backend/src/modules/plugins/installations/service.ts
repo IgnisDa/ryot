@@ -119,6 +119,7 @@ const structureOwnedPluginFailure = <A, R>(
 const buildEffectiveDefinitions = (
 	systemDefinitions: Parameters<typeof definitionSourceFromSnapshot>[0],
 	plugins: ReadonlyArray<{ readonly id: string; readonly manifest: PluginManifest }>,
+	candidate: { readonly id: string; readonly manifest: PluginManifest },
 	systemPlugins: ReadonlyArray<{ readonly id: string; readonly manifest: PluginManifest }>,
 ) =>
 	Effect.try({
@@ -127,14 +128,19 @@ const buildEffectiveDefinitions = (
 				issues: [error instanceof Error ? error.message : String(error)],
 			}),
 		try: () => {
-			const source = mergeManifestDefinitions(
-				definitionSourceFromSnapshot(systemDefinitions),
-				plugins,
-			);
-			return buildValidatedDefinitionSnapshot(source, [
-				...systemPlugins.map((plugin) => ({ ...plugin, scope: "system" as const })),
-				...plugins.map((plugin) => ({ ...plugin, scope: "user" as const })),
+			const source = mergeManifestDefinitions(definitionSourceFromSnapshot(systemDefinitions), [
+				...plugins,
+				candidate,
 			]);
+			return buildValidatedDefinitionSnapshot(
+				source,
+				[
+					...systemPlugins.map((plugin) => ({ ...plugin, scope: "system" as const })),
+					...plugins.map((plugin) => ({ ...plugin, scope: "user" as const })),
+					{ ...candidate, scope: "user" },
+				],
+				{ scope: "user", pluginIds: new Set([candidate.id]) },
+			);
 		},
 	});
 
@@ -387,12 +393,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				}
 				yield* buildEffectiveDefinitions(
 					yield* definitions.getGlobalSnapshot,
-					[
-						...(yield* repository.listPrivateForUser(userId)).filter(
-							(candidate) => candidate.id !== target?.id,
-						),
-						{ manifest, id: target?.id ?? "private-plugin-candidate" },
-					],
+					(yield* repository.listPrivateForUser(userId)).filter(
+						(candidate) => candidate.id !== target?.id,
+					),
+					{ manifest, id: target?.id ?? "private-plugin-candidate" },
 					yield* repository.listActiveSystemPlugins(),
 				);
 				yield* validatePluginManifestReferences(manifest);

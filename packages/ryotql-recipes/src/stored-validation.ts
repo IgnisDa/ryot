@@ -39,6 +39,20 @@ const decodePredicate = Schema.decodeUnknownResult(Predicate);
 const decodeOrderBy = Schema.decodeUnknownResult(Schema.Array(OrderBy));
 const decodeRowsOutput = Schema.decodeUnknownResult(RowsOutput);
 
+const memoizeByJson = <A>(decode: (input: unknown) => A) => {
+	const results = new Map<string, A>();
+	return (input: unknown) => {
+		const key = JSON.stringify(input);
+		const known = results.get(key);
+		if (known !== undefined) {
+			return known;
+		}
+		const result = decode(input);
+		results.set(key, result);
+		return result;
+	};
+};
+
 const accessIssue = (document: ExecutableDocument, access: RyotQLAccess): Error | undefined => {
 	const { error } = validateRyotQLDocument(document, access);
 	return error === null ? undefined : new Error(error);
@@ -63,6 +77,9 @@ export const storedValidationBranches = (
 		return Result.fail(projections.failure);
 	}
 	const controlTargets = Object.entries(document.controls ?? {});
+	const decodeSamplePredicate = memoizeByJson(decodePredicate);
+	const decodeSampleOrderBy = memoizeByJson(decodeOrderBy);
+	const decodeSampleRowsOutput = memoizeByJson(decodeRowsOutput);
 	for (const branch of projections.success) {
 		const issue = accessIssue(branch, access);
 		if (issue) {
@@ -100,7 +117,7 @@ export const storedValidationBranches = (
 							if (query.output.type !== "rows") {
 								continue;
 							}
-							const orderBy = decodeOrderBy(order.success);
+							const orderBy = decodeSampleOrderBy(order.success);
 							if (Result.isFailure(orderBy)) {
 								return Result.fail(executableIssue(orderBy.failure));
 							}
@@ -126,7 +143,7 @@ export const storedValidationBranches = (
 						if (Result.isFailure(predicate)) {
 							return Result.fail(predicate.failure);
 						}
-						const where = decodePredicate(predicate.success);
+						const where = decodeSamplePredicate(predicate.success);
 						if (Result.isFailure(where)) {
 							return Result.fail(executableIssue(where.failure));
 						}
@@ -143,7 +160,7 @@ export const storedValidationBranches = (
 						if (targetBranch.value === undefined) {
 							continue;
 						}
-						const output = decodeRowsOutput({
+						const output = decodeSampleRowsOutput({
 							orderBy: [],
 							type: "rows",
 							pagination: { limit: 1 },

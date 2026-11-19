@@ -256,8 +256,12 @@ const validateDefinitionSource = (
 	source: DefinitionSource,
 	entitySchemas: Record<string, unknown>,
 	relationshipSchemas: Record<string, unknown>,
+	validates: (pluginId: null | string) => boolean,
 ) => {
 	for (const savedView of source.savedViews) {
+		if (!validates(savedView.pluginId)) {
+			continue;
+		}
 		const branches =
 			savedView.dataSources === null
 				? [null]
@@ -274,6 +278,9 @@ const validateDefinitionSource = (
 		}
 	}
 	for (const calendarSource of source.calendarSources) {
+		if (!validates(calendarSource.pluginId)) {
+			continue;
+		}
 		const issue = calendarSourceIssue(calendarSource);
 		if (issue) {
 			throw new Error(`Invalid calendar source ${calendarSource.slug}: ${issue}`);
@@ -285,6 +292,9 @@ const validateDefinitionSource = (
 		throw new Error(browseConsistency);
 	}
 	for (const entitySchema of source.entitySchemas) {
+		if (!validates(entitySchema.pluginId)) {
+			continue;
+		}
 		assertSchemaDefinition("entity", entitySchema.slug, entitySchema.propertiesSchema);
 		const browse = entitySchema.browse && browseIssue(entitySchema.browse);
 		if (browse) {
@@ -405,6 +415,9 @@ const validateDefinitionSource = (
 	}
 
 	for (const relationshipSchema of source.relationshipSchemas) {
+		if (!validates(relationshipSchema.pluginId)) {
+			continue;
+		}
 		assertSchemaDefinition(
 			"relationship",
 			relationshipSchema.slug,
@@ -436,6 +449,9 @@ const validateDefinitionSource = (
 	}
 
 	for (const signalSchema of source.signalSchemas) {
+		if (!validates(signalSchema.pluginId)) {
+			continue;
+		}
 		assertSchemaDefinition("signal", signalSchema.slug, signalSchema.propertiesSchema);
 		if (
 			signalSchema.audiencePolicy.kind === "related_users" &&
@@ -455,14 +471,17 @@ const validateDefinitionSource = (
 	}
 };
 
-export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSnapshot => {
+export const buildDefinitionSnapshot = (
+	source: DefinitionSource,
+	validates: (pluginId: null | string) => boolean = () => true,
+): DefinitionSnapshot => {
 	const cloned = structuredClone(source);
 	const savedViews = definitionRecord("saved-view", cloned.savedViews);
 	const calendarSources = definitionRecord("calendar-source", cloned.calendarSources);
 	const signalSchemas = definitionRecord("signal", cloned.signalSchemas);
 	const entitySchemas = definitionRecord("entity", cloned.entitySchemas);
 	const relationshipSchemas = definitionRecord("relationship", cloned.relationshipSchemas);
-	validateDefinitionSource(cloned, entitySchemas, relationshipSchemas);
+	validateDefinitionSource(cloned, entitySchemas, relationshipSchemas, validates);
 	return deepFreeze({
 		savedViews,
 		signalSchemas,
