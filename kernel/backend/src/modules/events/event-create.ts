@@ -43,6 +43,11 @@ export const EventCreateInput = Schema.Struct({
 );
 export type EventCreateInput = typeof EventCreateInput.Type;
 
+type EventCommitGuard = {
+	readonly written: Effect.Effect<void, DbError>;
+	readonly select: Effect.Effect<boolean, DbError>;
+};
+
 type Written = {
 	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
 	readonly results: ReadonlyArray<{ readonly eventId: EventId; readonly itemIdentity: string }>;
@@ -186,7 +191,10 @@ export const makeEventCreate = Effect.gen(function* () {
 	const planner = yield* LifecyclePlanner;
 	const policyContext = yield* Effect.context<LifecyclePolicies | EntitiesRepository>();
 	return Effect.fn("EventCreate")(
-		function* (input: EventCreateInput) {
+		function* (input: EventCreateInput, guard?: EventCommitGuard) {
+			if (guard && input.payload.length !== 1) {
+				return yield* Effect.die("An event commit guard requires a single event");
+			}
 			if (input.payload.length === 0) {
 				return { count: 0, outcomes: [], failure: null };
 			}
@@ -244,6 +252,7 @@ export const makeEventCreate = Effect.gen(function* () {
 					readonly chunk: PreparedEventChanges;
 					readonly validated: PolicyBatchResult;
 				}>,
+				recheckGuard = false,
 			) {
 				const policies = chunks.map(({ validated }) => policyOutcomes(validated, indexOf));
 				const kept = [
@@ -256,7 +265,7 @@ export const makeEventCreate = Effect.gen(function* () {
 					const accepted = chunk.items.filter((item) =>
 						policies[index]?.accepted.has(item.change.itemIdentity),
 					);
-					if (accepted.length === 0) {
+					if (accepted.length === 0 || (recheckGuard && guard && !(yield* guard.select))) {
 						continue;
 					}
 					const written = yield* mutations
@@ -276,6 +285,9 @@ export const makeEventCreate = Effect.gen(function* () {
 									: new EventCreateRejected({ kept, reason: commitRejection(error) }),
 							),
 						);
+					if (guard && written.results.length > 0) {
+						yield* guard.written;
+					}
 					results.push(...written.results);
 					dispatch.push(...written.dispatch);
 				}
@@ -327,6 +339,9 @@ export const makeEventCreate = Effect.gen(function* () {
 				.transaction(
 					Effect.gen(function* () {
 						yield* admitBatch;
+						if (guard && !(yield* guard.select)) {
+							return { kind: "written" as const, ...(yield* record([], nothingWritten)) };
+						}
 						const prepared = yield* mutations
 							.prepare({ changes, command, independent: true, userId: input.userId })
 							.pipe(
@@ -386,7 +401,7 @@ export const makeEventCreate = Effect.gen(function* () {
 							Effect.flatMap((chunks) =>
 								mutations
 									.transaction(
-										Effect.andThen(admitBatch, commit(started.prepared, chunks)),
+										Effect.andThen(admitBatch, commit(started.prepared, chunks, true)),
 										foldMode,
 									)
 									.pipe(

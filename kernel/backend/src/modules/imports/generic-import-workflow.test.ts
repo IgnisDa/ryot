@@ -45,6 +45,7 @@ import {
 	ingestionTestScope,
 	ingestionTestSource,
 } from "./ingestion.test-support";
+import { IntegrationEventWrites } from "./integration-event-writes";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 
@@ -200,10 +201,14 @@ const applyCase = (
 			},
 		};
 		const first = yield* runGenericImportChunk(payload).pipe(
-			Effect.provideContext(yield* Layer.build(dependencies)),
+			Effect.provideContext(
+				yield* Layer.build(IntegrationEventWrites.layer.pipe(Layer.provideMerge(dependencies))),
+			),
 		);
 		const replay = yield* runGenericImportChunk(payload).pipe(
-			Effect.provideContext(yield* Layer.build(dependencies)),
+			Effect.provideContext(
+				yield* Layer.build(IntegrationEventWrites.layer.pipe(Layer.provideMerge(dependencies))),
+			),
 		);
 		return { first, replay, issues, starts, batches, outcomes, registrations, definitionReads };
 	});

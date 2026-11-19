@@ -76,6 +76,7 @@ import {
 	ImportsServiceLive,
 	IngestionArtifactStagingProvidedLive,
 	IngestionRetirementLive,
+	IntegrationEventFlushJobProvidedLive,
 } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { InstanceAdminServiceLive } from "#modules/instance-admin/layer";
@@ -359,6 +360,7 @@ const RuntimeJobsLive = JobWorkerLive.pipe(
 			UserLifecycleJobProvidedLive.pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive)),
 			BackupJobsLive,
 			IntegrationSyncJobProvidedLive,
+			IntegrationEventFlushJobProvidedLive,
 			UserBootstrapJobProvidedLive.pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive)),
 			PluginInstallationJobLive,
 			FoldJobsLive.pipe(Layer.provide(Layer.merge(EventMutationsLive, Folds.layer))),

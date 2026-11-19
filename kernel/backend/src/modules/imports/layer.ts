@@ -21,6 +21,7 @@ import { IngestionCaptures } from "./capture-service";
 import { DataImportAdmission } from "./data-admission";
 import { IngestionExecution } from "./execution-service";
 import { GenericImportChunksInstalledLive } from "./generic-import-workflow";
+import { IntegrationEventFlushJobLive, IntegrationEventWrites } from "./integration-event-writes";
 import { ImportsRepository } from "./repository";
 import { IngestionRetirement } from "./retirement-service";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
@@ -132,6 +133,10 @@ export const ImportsServiceLive = ImportsService.layer.pipe(
 	),
 );
 
+export const IntegrationEventFlushJobProvidedLive = IntegrationEventFlushJobLive.pipe(
+	Layer.provide(IntegrationEventWrites.layer),
+);
+
 export const GenericImportChunksProvidedLive = GenericImportChunksInstalledLive.pipe(
 	Layer.provide(
 		Layer.mergeAll(
@@ -143,6 +148,7 @@ export const GenericImportChunksProvidedLive = GenericImportChunksInstalledLive.
 			SandboxRepository.layer,
 			ImportSourceStateStore.layer,
 			ChangeSetsLive,
+			IntegrationEventWrites.layer,
 		),
 	),
 );

@@ -333,6 +333,7 @@ export default defineActivity({
 					events: [
 						{
 							occurredAt,
+							continuousProgress: true,
 							eventSchemaSlug: "progress",
 							properties: { consumedOn: ["Komga"], ...progressProperties },
 							attribution: {

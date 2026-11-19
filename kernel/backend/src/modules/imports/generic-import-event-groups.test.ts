@@ -36,6 +36,7 @@ import { importRun } from "#schema/tables/imports";
 import { IngestionCaptures } from "./capture-service";
 import { runGenericImportChunk } from "./generic-import-workflow";
 import { ingestionTestRun, ingestionTestSource } from "./ingestion.test-support";
+import { IntegrationEventWrites } from "./integration-event-writes";
 import { genericImportOperationIdentity } from "./outcomes";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
@@ -199,7 +200,11 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 		captureId: "capture",
 		inputFingerprint: "fingerprint",
 		artifactOwnerExecutionId: "import-owner",
-	}).pipe(Effect.provideContext(yield* Layer.build(importLayer)));
+	}).pipe(
+		Effect.provideContext(
+			yield* Layer.build(IntegrationEventWrites.layer.pipe(Layer.provideMerge(importLayer))),
+		),
+	);
 	const operationIdentities = [
 		"session",
 		"anchor",

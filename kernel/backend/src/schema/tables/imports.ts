@@ -39,6 +39,7 @@ import type { PreparedIngestionReleaseCiphertext } from "#modules/imports/runtim
 
 import { user } from "./auth";
 import { pluginInstallation } from "./core";
+import { entity } from "./entities";
 import { timestamptz, updatedAtColumn } from "./timestamps";
 
 export const integration = snakeCase.table(
@@ -94,6 +95,27 @@ export const integration = snakeCase.table(
 			columns: [table.pluginInstallationId, table.userId],
 			foreignColumns: [pluginInstallation.id, pluginInstallation.userId],
 		}).onDelete("cascade"),
+	],
+);
+
+export const integrationEventStream = snakeCase.table(
+	"integration_event_stream",
+	{
+		pending: jsonb(),
+		fingerprint: text(),
+		eligibleAt: timestamptz(),
+		eventSchemaSlug: text().notNull(),
+		observedAt: timestamptz().notNull(),
+		entityId: text()
+			.notNull()
+			.references(() => entity.id, { onDelete: "cascade" }),
+		integrationId: text()
+			.notNull()
+			.references(() => integration.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		primaryKey({ columns: [table.integrationId, table.entityId, table.eventSchemaSlug] }),
+		index("integration_event_stream_entity_idx").on(table.entityId),
 	],
 );
 

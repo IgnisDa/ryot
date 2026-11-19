@@ -68,6 +68,7 @@ const mediaEventFields = {
 	eventSchemaSlug: Schema.String,
 	sourceItemIndex: Schema.optional(Schema.Finite),
 	operationId: Schema.optional(Schema.NonEmptyString),
+	continuousProgress: Schema.optional(Schema.Literal(true)),
 	properties: Schema.Record(Schema.String, jsonValueSchema),
 	attribution: genericImportEventIntentSchema.fields.attribution,
 };
@@ -168,6 +169,7 @@ const MediaImportFinalizedEvent = Schema.Struct({
 	...mediaEventFields,
 	operationId: Schema.NonEmptyString,
 	subjectEntityId: Schema.optional(Schema.NonEmptyString),
+	coalescing: genericImportEventIntentSchema.fields.coalescing,
 	subjectEntitySchemaSlug: Schema.optional(Schema.NonEmptyString),
 });
 

@@ -22,8 +22,12 @@ import {
 	signInWithPassword,
 	updatePluginState,
 } from "~/fixtures/kernel";
+import { startProApiServer } from "~/fixtures/kernel/pro-server";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("God-mode account reset", startProApiServer);
 
 const WRONG_TOKEN = "wrong-token";
 

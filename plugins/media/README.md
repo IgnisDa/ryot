@@ -784,10 +784,13 @@ Audiobookshelf, YouTube Music, and Spotify, written as one-item arrays; the brow
 
 Integration progress admission runs after population/episode resolution in `import.write-chunks`.
 It accepts a percent or, for Anime/Manga, a position; an event with neither is rejected. Minimum
-filtering, maximum clamping, and configured 100% debounce apply to percent only. Duplicate
-suppression compares the latest committed or pending event of the same consumption source by unit and
-position for positional events, otherwise by percent. The run guard serializes competing deliveries; failed writes
-leave no completion claim. Missing sink timestamps are supplied and auto-completion retains the
+filtering, maximum clamping, and configured 100% debounce apply to percent only. Continuous progress from push integrations, Audiobookshelf, and Komga uses a rolling 30-second
+interval per integration and resolved item. The first changed observation writes immediately. During
+the interval, the newest observation replaces the pending value, which flushes at the deadline
+even if the source goes quiet. Unchanged values append nothing. Completions bypass the sampling
+window and clear older pending progress. Source-owned historical plays and list changes use their
+own admission rules. For unsampled progress and completions, duplicate suppression compares the
+latest matching observation of the same consumption source by position or percent. Missing sink timestamps are supplied and auto-completion retains the
 trigger's time. Numeric normalization stays schema-owned. Source/event indexes and deterministic
 population/write identities preserve attribution when admission filters records.
 

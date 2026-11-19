@@ -141,12 +141,22 @@ export const genericImportEntityIntentSchema = strictStruct({
 	),
 });
 
+const eventCoalescing = Schema.Union([
+	strictStruct({
+		kind: Schema.Literal("sample"),
+		fingerprint: Schema.NonEmptyString.check(Schema.isMaxLength(512)),
+		intervalSeconds: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 3600 })),
+	}),
+	strictStruct({ kind: Schema.Literal("boundary") }),
+]);
+
 export const genericImportEventIntentSchema = strictStruct({
 	...ingestionIntentFields,
 	occurredAt: Schema.String,
 	entityAlias: Schema.String,
 	properties: importRecordSchema,
 	eventSchemaSlug: Schema.String,
+	coalescing: Schema.optional(eventCoalescing),
 	sessionEntityAlias: Schema.optional(Schema.String),
 	subjectEntityId: Schema.optional(Schema.NonEmptyString),
 });

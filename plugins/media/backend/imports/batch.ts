@@ -336,6 +336,9 @@ export function* runMediaImportBatch(
 				operationId: event.operationId,
 				sourceItemIndex: event.sourceItemIndex,
 				eventSchemaSlug: event.eventSchemaSlug,
+				...(event.continuousProgress === undefined
+					? {}
+					: { continuousProgress: event.continuousProgress }),
 				properties: manualConsumption ? { ...event.properties, sourceRun } : event.properties,
 			};
 			if (!event.unresolvedEpisode) {
