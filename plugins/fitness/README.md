@@ -229,8 +229,8 @@ offers Retry, which resends the same input and idempotency key so the operation 
 result without duplicating the entry or its readings. The change set commits atomically, so a log is saved
 completely or not at all. Exercise note create, edit, and delete use background submissions too.
 Workout deletion stays a foreground write because the page navigates away only after it succeeds, and
-workout time correction stays foreground because its conflict (a `changes-conflict` failure the client maps) and
-invalid results must reach the form.
+workout time correction stays foreground because its `changes-conflict` failure and invalid
+results must reach the form.
 
 Update/delete resolve the caller-owned entry by ID. Update reads the entry's event-scope revision, loads all
 children (including imported entries larger than 100 values), validates event and metric schemas/visibility, and

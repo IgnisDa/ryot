@@ -1,11 +1,24 @@
 import { createUuid } from "@ryot-app/ts-utils/uuid";
-import { Effect } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import { useState, useSyncExternalStore } from "react";
 
+import { RyotClientError } from "../client/errors";
 import type { RyotMutation } from "./definitions";
 import { useRyotMutation } from "./hooks";
 import { useRyotSchedule } from "./provider";
 import { createRyotSubmission, type RyotSubmission } from "./submission";
+
+const unknownOutcomeReasons: ReadonlySet<RyotClientError["reason"]> = new Set([
+	"protocol",
+	"disposed",
+	"transport",
+	"malformed-result",
+]);
+
+const isOutcomeUnknown = (cause: Cause.Cause<unknown>) => {
+	const error = Cause.squash(cause);
+	return !(error instanceof RyotClientError) || unknownOutcomeReasons.has(error.reason);
+};
 
 export const useRyotSubmission = <Input, Data, Failure extends Error>(
 	definition: RyotMutation<RyotSubmission<Input>, Data, Failure>,
@@ -26,7 +39,9 @@ export const useRyotSubmission = <Input, Data, Failure extends Error>(
 				Effect.onExit((exit) =>
 					Effect.sync(() =>
 						controller.settle(
-							exit._tag === "Success" && (options?.isComplete?.(exit.value) ?? true),
+							Exit.isSuccess(exit)
+								? (options?.isComplete?.(exit.value) ?? true)
+								: !isOutcomeUnknown(exit.cause),
 						),
 					),
 				),

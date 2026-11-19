@@ -195,6 +195,10 @@ it.live(
 					).toBeTruthy(),
 				),
 			);
+			const save = screen.getByRole("button", { name: "Save time correction" });
+			expect(save).toHaveProperty("disabled", true);
+			expect(screen.queryByRole("button", { name: "Retry correction" })).toBeNull();
+			expect(screen.getByLabelText("Start time").closest("fieldset")?.disabled).toBe(true);
 		}),
 	testTimeout,
 );
