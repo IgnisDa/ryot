@@ -1,9 +1,8 @@
-import { Effect, type Scope } from "effect";
+import { Effect } from "effect";
 import getPort from "get-port";
 
-import type { E2eServices } from "./e2e-runtime";
 import { afterAll, beforeAll, runPromise } from "./effect-test";
-import { type HarnessTarget, setFileHarnessTarget } from "./harness-target";
+import { setFileHarnessTarget } from "./harness-target";
 import {
 	buildApiEnv,
 	harnessApiEnv,
@@ -49,19 +48,12 @@ export const startIsolatedHarness = (
  * Runs the calling file against its own server. Files that change instance-wide state, such as
  * system plugins, use it so pages open in other files never see those changes.
  */
-export const runFileOnIsolatedServer = (
-	label: string,
-	start: (
-		label: string,
-	) => Effect.Effect<{ target: HarnessTarget }, unknown, E2eServices | Scope.Scope> = (
-		serverLabel,
-	) => startIsolatedApiServer({ label: serverLabel }),
-) => {
+export const runFileOnIsolatedServer = (label: string) => {
 	const resources = makeTestResourceScope();
 	beforeAll(() =>
 		runPromise(
 			resources.run(
-				start(label).pipe(
+				startIsolatedApiServer({ label }).pipe(
 					Effect.tap((server) => Effect.sync(() => setFileHarnessTarget(server.target))),
 				),
 			),
