@@ -18,6 +18,20 @@ export class SandboxStateStoreUnavailable extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("SandboxStateStoreUnavailable", {}) {}
 
+export const boundedStateAccess =
+	<E>(unavailable: () => E) =>
+	<A>(effect: Effect.Effect<A, SandboxStateStoreUnavailable>) =>
+		effect.pipe(
+			Effect.timeoutOrElse({
+				duration: "2 seconds",
+				orElse: () =>
+					Effect.logWarning("Sandbox state store timed out").pipe(
+						Effect.andThen(Effect.fail(new SandboxStateStoreUnavailable())),
+					),
+			}),
+			Effect.mapError(unavailable),
+		);
+
 /** Small values shared by every process on this deployment, which outlive any one of them. */
 export class SandboxStateStore extends Context.Service<
 	SandboxStateStore,

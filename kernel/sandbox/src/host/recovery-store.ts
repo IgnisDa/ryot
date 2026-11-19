@@ -1,7 +1,7 @@
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
-import { SandboxStateStore, type SandboxStateUpdate } from "./state-store";
+import { boundedStateAccess, SandboxStateStore, type SandboxStateUpdate } from "./state-store";
 
 export class SandboxRecoveryStoreError extends Schema.TaggedError<
 	SandboxRecoveryStoreError,
@@ -69,14 +69,7 @@ const apply = (
 		: { ...row, suspended: true, latestSuspendedEvent: argument };
 };
 
-const bounded = <A>(effect: Effect.Effect<A, unknown>) =>
-	effect.pipe(
-		Effect.timeoutOrElse({
-			duration: "2 seconds",
-			orElse: () => Effect.fail(recoveryStoreUnavailable()),
-		}),
-		Effect.mapError(recoveryStoreUnavailable),
-	);
+const bounded = boundedStateAccess(recoveryStoreUnavailable);
 
 const inspect = (
 	stored: string | undefined,
