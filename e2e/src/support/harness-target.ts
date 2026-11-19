@@ -12,6 +12,7 @@ export type HarnessTarget = Readonly<{
 	apiUrl: string;
 	frontendUrl: string;
 	adminAccessToken: string;
+	serverPid?: number | undefined;
 	serverLogFile?: string | undefined;
 }>;
 
@@ -35,6 +36,7 @@ export const getSharedHarnessTarget = () => {
 		apiUrl: requireHarnessEnv("E2E_API_URL"),
 		serverLogFile: process.env.E2E_SERVER_LOG_FILE,
 		frontendUrl: requireHarnessEnv("E2E_FRONTEND_URL"),
+		serverPid: Number(process.env.E2E_SERVER_PID) || undefined,
 		adminAccessToken: requireHarnessEnv("E2E_ADMIN_ACCESS_TOKEN"),
 	};
 	return sharedTarget;
