@@ -148,7 +148,11 @@ const spawnApiProcess = (env: NodeJS.ProcessEnv, cwd: string) =>
 			});
 		}),
 		stopApiProcess,
-	).pipe(Effect.map((process) => Object.assign(process, { target: apiProcessTarget(env) })));
+	).pipe(
+		Effect.map((process) =>
+			Object.assign(process, { target: { ...apiProcessTarget(env), serverPid: process.pid } }),
+		),
+	);
 
 const waitForHealthCheck = (
 	url: string,

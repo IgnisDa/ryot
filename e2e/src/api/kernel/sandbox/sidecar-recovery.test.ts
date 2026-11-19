@@ -1,5 +1,5 @@
 import { randomUuid } from "@ryot-app/testing/random";
-import { Config, Effect, FileSystem, Schema } from "effect";
+import { Effect, FileSystem, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -17,6 +17,10 @@ import { installSidecarRecoveryImport } from "~/fixtures/kernel/sidecar-recovery
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
+import { getSharedHarnessTarget } from "~/support/harness-target";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("Sidecar Recovery");
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -71,11 +75,12 @@ export default defineScript({ manifest, input: Schema.Unknown, output: Schema.Un
 });`,
 			});
 			const fs = yield* FileSystem.FileSystem;
-			const logFile = yield* Config.String("E2E_SERVER_LOG_FILE");
+			const target = getSharedHarnessTarget();
+			const logFile = requirePresent(target.serverLogFile, "server log file");
 			const checkpoints = fs
 				.readFileString(logFile)
 				.pipe(Effect.map((contents) => contents.split(fixture.checkpoint).length - 1));
-			const pid = yield* Config.Int("E2E_SERVER_PID");
+			const pid = requirePresent(target.serverPid, "server pid");
 			const before = requirePresent(
 				yield* userCoreProcess(pid),
 				"User/core sidecar must be resident",
