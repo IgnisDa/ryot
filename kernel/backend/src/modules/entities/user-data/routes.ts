@@ -15,6 +15,9 @@ import { ChangeSets } from "#modules/changes/service";
 const stateConflict = () =>
 	Effect.fail(new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }));
 
+const relationshipMergeFailed = () =>
+	Effect.fail(new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }));
+
 const unexpected = <E extends { readonly _tag: string }>(
 	error: E,
 ): error is Exclude<E, EntityUserDataNotFound | EntityUserDataBadRequest> =>
@@ -44,6 +47,7 @@ const commitUserData = <A>(
 			EventBadRequest: stateConflict,
 			EventCreateItemError: stateConflict,
 			AutomationPolicyExecutionError: stateConflict,
+			RelationshipBadRequest: relationshipMergeFailed,
 		}),
 		Effect.catchIf(unexpected, Effect.die),
 	);

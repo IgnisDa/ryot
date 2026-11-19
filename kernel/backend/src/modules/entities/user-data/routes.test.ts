@@ -4,6 +4,7 @@ import { AuthMiddleware, DemoOperationProtected } from "@ryot-app/contract/auth-
 import { AppContract } from "@ryot-app/contract/contract";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { EventStale } from "@ryot-app/contract/modules/events/schemas";
+import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
@@ -67,29 +68,42 @@ const routesLayer = Layer.unwrap(
 		});
 		const commands = yield* Ref.make<ReadonlyArray<RecordedCommand>>([]);
 		const serviceLayer = Layer.mock(ChangeSets)({
-			commit: (changes, command) =>
-				changes.entities?.clears?.[0]?.entityId === "edited"
-					? Effect.fail(
-							new EventStale({ reason: { code: "event-stale", eventId: EventId.make("edited") } }),
-						)
-					: Ref.update(commands, (all) => [...all, { changes, command }]).pipe(
-							Effect.as({
-								outcomes: [],
-								relationships: [],
-								committed: { events: [] },
-								cleared: (changes.entities?.clears ?? []).map(({ entityId }) => ({
-									entityId,
-									deletedEventsCount: 0,
-									deletedRelationshipsCount: 0,
-								})),
-								merged: (changes.entities?.merges ?? []).map(({ mergeFrom, mergeInto }) => ({
-									mergeFrom,
-									mergeInto,
-									movedEventsCount: 0,
-									movedRelationshipsCount: 0,
-								})),
-							}),
-						),
+			commit: (changes, command) => {
+				const clearedId = changes.entities?.clears?.[0]?.entityId;
+				if (clearedId === "edited") {
+					return Effect.fail(
+						new EventStale({ reason: { code: "event-stale", eventId: EventId.make("edited") } }),
+					);
+				}
+				if (clearedId === "related") {
+					return Effect.fail(
+						new RelationshipBadRequest({
+							reason: {
+								code: "policy-rejected",
+								message: { namespace: "kernel", key: "policy.rejected" },
+							},
+						}),
+					);
+				}
+				return Ref.update(commands, (all) => [...all, { changes, command }]).pipe(
+					Effect.as({
+						outcomes: [],
+						relationships: [],
+						committed: { events: [] },
+						cleared: (changes.entities?.clears ?? []).map(({ entityId }) => ({
+							entityId,
+							deletedEventsCount: 0,
+							deletedRelationshipsCount: 0,
+						})),
+						merged: (changes.entities?.merges ?? []).map(({ mergeFrom, mergeInto }) => ({
+							mergeFrom,
+							mergeInto,
+							movedEventsCount: 0,
+							movedRelationshipsCount: 0,
+						})),
+					}),
+				);
+			},
 		});
 		const auth = makeAuthMiddleware(
 			{
@@ -207,6 +221,23 @@ layer(routesLayer)((test) => {
 						}),
 					),
 				).toEqual(new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }));
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports a rejected relationship change as a failed relationship merge",
+		() =>
+			Effect.gen(function* () {
+				const api = yield* client;
+				yield* (yield* RouteCaller).sendAs(owner, "standard");
+				expect(
+					yield* Effect.flip(
+						api.entityUserData.clearEntityUserData({
+							params: { entityId: EntityId.make("related") },
+						}),
+					),
+				).toEqual(new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }));
 			}),
 		testTimeout,
 	);
