@@ -1,5 +1,5 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
-import type { AutomationWarning as AutomationWarningValue } from "@ryot-app/contract/modules/automations/lifecycle";
+import { ChangeSetEntity, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import {
 	type CreateEventItem,
 	CreateEventsResponse,
@@ -11,7 +11,6 @@ import {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
-import { UserCommand, UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
 import {
 	type DefinitionOwner,
 	definitionOwner,
@@ -46,6 +45,7 @@ import {
 	mapCommittedResult,
 	runLifecycleWriteStep,
 } from "#modules/automations/lifecycle/write-step";
+import { ChangeSetFailure, ChangeSets } from "#modules/changes/service";
 import {
 	CollectionEntityResult,
 	CollectionMembershipWritten,
@@ -70,7 +70,6 @@ import {
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { UserCommandFailure, UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { slugify } from "#platform/slug";
 import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
@@ -572,7 +571,6 @@ type GenericImportContext = {
 	readonly userId: UserId;
 	readonly item: GenericImportWriteItem;
 	readonly command: DomainLifecycleCommand;
-	readonly warnings: AutomationWarningValue[];
 	readonly pluginRevision: ScriptPluginRevision;
 };
 
@@ -642,8 +640,7 @@ const writeEntityAliases = Effect.fnUntraced(function* (
 						})),
 					),
 		});
-		context.warnings.push(...written.warnings);
-		aliases.set(intent.alias, written.result.entityId);
+		aliases.set(intent.alias, written.entityId);
 	}
 	return aliases;
 });
@@ -668,7 +665,7 @@ const writeStandaloneRecord = Effect.fnUntraced(function* (context: GenericImpor
 			},
 		} as const;
 		const relationshipCommand = operationCommand(context, intent.operationId);
-		const written = yield* runImportWriteStep({
+		yield* runImportWriteStep({
 			result: RelationshipSingleResult,
 			commit: relationships.commitSingle,
 			pending: PendingRelationshipMutations,
@@ -679,7 +676,6 @@ const writeStandaloneRecord = Effect.fnUntraced(function* (context: GenericImpor
 					? relationships.prepareMergeUserProperties(input, relationshipCommand)
 					: relationships.prepareCreate(input, relationshipCommand),
 		});
-		context.warnings.push(...written.warnings);
 	}
 	const events: { event: CreateEventItem; intent: GenericImportWriteItem["events"][number] }[] = [];
 	for (const intent of item.events) {
@@ -750,7 +746,7 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 	);
 	const root = yield* makeActivity({
 		error: ImportRunError,
-		success: UserCommand.fields.entity,
+		success: ChangeSetEntity,
 		name: `prepare-generic-import-record-${context.index}`,
 		execute: Effect.gen(function* () {
 			const entityId = yield* findImportEntity(subject, userId, {
@@ -759,7 +755,7 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 			});
 			const existing =
 				entityId === undefined ? null : yield* entityRows.getByIdForUser({ userId, entityId });
-			return yield* Schema.decodeUnknownEffect(UserCommand.fields.entity)(
+			return yield* Schema.decodeUnknownEffect(ChangeSetEntity)(
 				existing
 					? {
 							name: existing.name,
@@ -786,17 +782,19 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 			);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
-	const commands = yield* UserCommands;
+	const commands = yield* ChangeSets;
 	const written = yield* makeActivity({
-		error: UserCommandFailure,
-		success: UserCommandResult,
+		error: ChangeSetFailure,
+		success: CommittedChanges,
 		name: `commit-generic-import-record-${context.index}`,
 		execute: commands.commit(
-			{ entity: root, relationships, events: { creates, changes: [] } },
+			{ entity: root, events: { creates, changes: [] }, relationships: { upserts: relationships } },
 			genericImportRecordCommand(context.command, item),
-			userId,
 		),
 	});
+	if (written.entityId === undefined) {
+		return yield* new ImportRunError({ message: "Generic import record committed no entity" });
+	}
 	aliases.set(subject.alias, written.entityId);
 	return { aliases, events: [] };
 });
@@ -810,14 +808,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	pluginRevision: ScriptPluginRevision,
 ) {
 	const collections = yield* CollectionsService;
-	const context: GenericImportContext = {
-		item,
-		index,
-		userId,
-		command,
-		warnings: [],
-		pluginRevision,
-	};
+	const context: GenericImportContext = { item, index, userId, command, pluginRevision };
 	const writeItem = Effect.fnUntraced(function* () {
 		if (
 			command.causation.integrationId === undefined &&
@@ -856,20 +847,18 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 					operationCommand(context, `${membership.operationId}:collection`),
 				),
 			});
-			context.warnings.push(...collection.warnings);
 			collectionMemberships.push({
 				entityId,
-				collectionId: collection.result.id,
+				collectionId: collection.id,
 				operationId: membership.operationId,
 			});
 		}
-		return { events, collectionMemberships, _tag: "ready" as const, warnings: context.warnings };
+		return { events, collectionMemberships, _tag: "ready" as const };
 	});
 	return yield* writeItem().pipe(
 		Effect.catch((error) =>
 			Effect.succeed({
 				_tag: "failed" as const,
-				warnings: context.warnings,
 				message: unknownToMessage(error),
 				stage:
 					error instanceof GenericImportProviderError ? error.stage : ("database_commit" as const),
@@ -1022,7 +1011,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 			let message = outcome._tag === "failed" ? outcome.message : null;
 			let failureCode: null | string =
 				outcome._tag === "failed" ? failureReasonByStage[outcome.stage].code : null;
-			const warnings = [...outcome.warnings];
 			if (outcome._tag === "ready") {
 				const collections = yield* CollectionsService;
 				for (const membership of outcome.collectionMemberships) {
@@ -1057,8 +1045,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 								code: "membership-event-failed",
 							});
 						}
-					} else if (collectionResult._tag === "Success") {
-						warnings.push(...collectionResult.success.warnings);
 					}
 				}
 				const eventGroups = [
@@ -1114,7 +1100,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 								? `create-import-events-${item.itemIndex}`
 								: `create-import-events-${item.itemIndex}-${groupIndex}`,
 					});
-					warnings.push(...result.warnings);
 					message ??= result.failure?.reason.code ?? null;
 					failureCode ??= result.failure?.reason.code ?? null;
 					for (const event of result.outcomes) {
@@ -1127,11 +1112,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 						}
 					}
 				}
-			}
-			if (warnings.length > 0) {
-				yield* Effect.logWarning("generic import item completed with automation warnings").pipe(
-					Effect.annotateLogs({ warnings, runId: scope.runId, itemIndex: item.itemIndex }),
-				);
 			}
 			if (
 				failureCode !== null &&

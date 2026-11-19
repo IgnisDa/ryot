@@ -1,10 +1,10 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	type AutomationPolicyPatch,
 	type AutomationPopulationContext,
 	AutomationRelationshipDraft,
 	type AutomationRelationshipRequestPayload,
 	type AutomationRelationshipSnapshot,
+	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -16,11 +16,8 @@ import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapsho
 import { Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import type { LifecyclePlannedPolicy } from "#modules/automations/lifecycle/planning";
-import {
-	applyLifecyclePolicyPatch,
-	canonicalLifecyclePolicyPatch,
-} from "#modules/automations/lifecycle/policy-patch";
+import { type LifecyclePolicy, runItemPolicy } from "#modules/automations/lifecycle/policies";
+import { applyLifecyclePolicyPatch } from "#modules/automations/lifecycle/policy-patch";
 import { definitionText } from "#modules/definitions/text";
 import type { MutationEntity } from "#modules/entities/repository";
 import {
@@ -102,7 +99,7 @@ export const makeRelationshipMutationPrimitives = ({
 	session,
 	planner,
 	entities,
-	execution,
+	policies,
 	admission,
 	repository,
 	definitions,
@@ -292,23 +289,27 @@ export const makeRelationshipMutationPrimitives = ({
 	});
 	const applyPolicies = Effect.fnUntraced(function* (
 		initial: AutomationRelationshipRequestPayload,
-		policies: ReadonlyArray<LifecyclePlannedPolicy>,
+		matched: {
+			readonly trigger: AutomationTrigger;
+			readonly policies: ReadonlyArray<LifecyclePolicy>;
+		},
 		mutation: Mutation,
 	) {
 		let request = initial;
-		const acceptedPatches: AutomationPolicyPatch[] = [];
-		for (const policy of policies) {
-			const output = yield* execution
-				.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
-				.pipe(
-					Effect.catchTag("AutomationPolicyExecutionError", (error) =>
-						Effect.fail(
-							new RelationshipBadRequest({
-								reason: { runId: error.runId, code: "policy-execution-failed" },
-							}),
-						),
+		for (const policy of matched.policies) {
+			const output = yield* runItemPolicy(policies, {
+				policy,
+				request,
+				trigger: matched.trigger,
+			}).pipe(
+				Effect.catchTag("AutomationPolicyExecutionError", (error) =>
+					Effect.fail(
+						new RelationshipBadRequest({
+							reason: { runId: error.runId, code: "policy-execution-failed" },
+						}),
 					),
-				);
+				),
+			);
 			if (output.action === "reject") {
 				return yield* new RelationshipBadRequest({
 					reason: {
@@ -335,12 +336,7 @@ export const makeRelationshipMutationPrimitives = ({
 					patched.request.draft.properties,
 					mutation.propertiesSchema,
 				);
-				const successor = { ...patched.request, draft: yield* draft(patched.request, properties) };
-				const accepted = canonicalLifecyclePolicyPatch(request, successor);
-				request = successor;
-				if (accepted) {
-					acceptedPatches.push(accepted);
-				}
+				request = { ...patched.request, draft: yield* draft(patched.request, properties) };
 			}
 		}
 		if (request.operation !== "delete") {
@@ -574,7 +570,6 @@ export const makeRelationshipMutationPrimitives = ({
 		mutation: Mutation;
 		payload: ReturnType<typeof relationshipChange>;
 		population?: DomainLifecycleCommand["population"];
-		requestId: DomainLifecycleCommand["causation"]["parentTriggerId"];
 	}) {
 		yield* assertActiveTransaction;
 		const { command } = input.mutation;
@@ -584,13 +579,7 @@ export const makeRelationshipMutationPrimitives = ({
 		};
 		const dispatch = yield* planner.planChange({
 			trigger: yield* lifecycleTrigger(
-				{
-					...command,
-					causation: {
-						...command.causation,
-						parentTriggerId: input.requestId ?? command.causation.parentTriggerId,
-					},
-				},
+				command,
 				input.mutation.input.scope === "user" ? input.mutation.input.userId : null,
 				change,
 			),

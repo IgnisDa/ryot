@@ -5,6 +5,7 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import { type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -23,11 +24,7 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "../packages/revision.test-support";
-import {
-	PLUGIN_USER_SETTINGS_MAX_BYTES,
-	PluginUserSettingsPatchError,
-	PluginUserSettingsWriter,
-} from "./user-settings-writer";
+import { PluginUserSettingsPatchError, PluginUserSettingsWriter } from "./user-settings-writer";
 
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
@@ -332,7 +329,7 @@ describe("PluginUserSettingsWriter.patch", () => {
 						theme: "Theme",
 						layout: "Layout",
 					});
-					const half = "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES / 2);
+					const half = "x".repeat(SANDBOX_LIMITS.userSettingsBytes / 2);
 					const write = (values: Record<string, JsonValue>) =>
 						patch({
 							values,
@@ -344,7 +341,7 @@ describe("PluginUserSettingsWriter.patch", () => {
 					yield* write({ theme: half });
 					assertExitFails(
 						yield* Effect.exit(write({ layout: half })),
-						rejected(`Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`),
+						rejected(`Plugin user settings exceed ${SANDBOX_LIMITS.userSettingsBytes} UTF-8 bytes`),
 					);
 					expect(yield* storedSettings(plugin.installation.id)).toEqual({ theme: half });
 
@@ -355,7 +352,7 @@ describe("PluginUserSettingsWriter.patch", () => {
 						oversizedSave,
 						badRequest(
 							kernelMessage("error.plugins.user-settings-too-large", {
-								maxBytes: PLUGIN_USER_SETTINGS_MAX_BYTES,
+								maxBytes: SANDBOX_LIMITS.userSettingsBytes,
 							}),
 						),
 					);

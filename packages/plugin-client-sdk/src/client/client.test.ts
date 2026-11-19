@@ -137,7 +137,9 @@ describe("Effect-native client capabilities", () => {
 			Effect.gen(function* () {
 				let refreshes = 0;
 				const client = createRyotClient(
-					createTestRyotAdapter({ invokeOperation: () => Effect.succeed("result") }),
+					createTestRyotAdapter({
+						invokeOperation: () => Effect.succeed({ value: "result", committed: { events: [] } }),
+					}),
 				);
 				const unsubscribe = client.mutationCompleted.subscribe(() => {
 					refreshes++;
@@ -422,7 +424,7 @@ describe("Effect-native client capabilities", () => {
 						invokeOperation: () =>
 							Effect.sync(() => {
 								calls++;
-								return { greeting: 42 };
+								return { value: { greeting: 42 }, committed: { events: [] } };
 							}),
 					}),
 				);
@@ -476,7 +478,9 @@ describe("Effect-native client capabilities", () => {
 			Effect.gen(function* () {
 				let hints = 0;
 				const client = createRyotClient(
-					createTestRyotAdapter({ invokeOperation: () => Effect.succeed("saved") }),
+					createTestRyotAdapter({
+						invokeOperation: () => Effect.succeed({ value: "saved", committed: { events: [] } }),
+					}),
 				);
 				client.mutationCompleted.subscribe(() => hints++);
 				expect(
@@ -487,7 +491,7 @@ describe("Effect-native client capabilities", () => {
 						packageId: "test/fixture",
 						inputSchema: Schema.Struct({}),
 					}),
-				).toBe("saved");
+				).toEqual({ output: "saved", committed: { events: [] } });
 				expect(
 					yield* Effect.flip(
 						client.operations.invoke({

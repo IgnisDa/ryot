@@ -96,9 +96,7 @@ export const hasReachableExternalEffects = (
 			return undefined;
 		}
 		visited.add(slug);
-		hasExternalEffect ||= script.capabilities.some(
-			(capability) => capability === "httpCall" || capability === "sendNotification",
-		);
+		hasExternalEffect ||= script.capabilities.some((capability) => capability === "httpCall");
 
 		for (const dependency of script.executableDependencies) {
 			if (traversalCount >= traversalLimit) {

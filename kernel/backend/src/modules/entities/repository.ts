@@ -16,7 +16,7 @@ import { chunksOf } from "effect/Array";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { FoldMarks } from "#modules/derived-values/marks";
+import { FoldMarks, foldValuesSql, readFoldEvents } from "#modules/derived-values/marks";
 import {
 	PluginRuntimeResolver,
 	PluginRuntimeResolverLive,
@@ -605,17 +605,24 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return scope ?? null;
 				},
 			);
+			const entityScopesByIds = Effect.fnUntraced(function* (
+				entityIds: ReadonlyArray<EntityId>,
+				visibility?: SQL,
+			) {
+				const scopes = yield* Effect.forEach(
+					chunksOf([...new Set(entityIds)], STATEMENT_CHUNK_SIZE),
+					(ids) => listEntityScopes(and(inArray(schema.entity.id, ids), visibility)),
+				);
+				return new Map(scopes.flat().map((scope) => [scope.entityId, scope]));
+			});
+
 			const getEntityScopesForUser = Effect.fn("EntitiesRepository.getEntityScopesForUser")(
-				function* (entityIds: ReadonlyArray<EntityId>, userId: UserId) {
-					const scopes = yield* Effect.forEach(
-						chunksOf([...new Set(entityIds)], STATEMENT_CHUNK_SIZE),
-						(ids) =>
-							listEntityScopes(
-								and(inArray(schema.entity.id, ids), entityVisibleToUserClause(userId)),
-							),
-					);
-					return new Map(scopes.flat().map((scope) => [scope.entityId, scope]));
-				},
+				(entityIds: ReadonlyArray<EntityId>, userId: UserId) =>
+					entityScopesByIds(entityIds, entityVisibleToUserClause(userId)),
+			);
+
+			const getEntityScopes = Effect.fn("EntitiesRepository.getEntityScopes")(
+				(entityIds: ReadonlyArray<EntityId>) => entityScopesByIds(entityIds),
 			);
 
 			const getEntityMergeScopeForUser = Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
@@ -954,6 +961,20 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						.orderBy(sql`${schema.entity.id} collate "C"`)
 						.for("no key update"),
 				);
+				const deleted = sql`(${foldValuesSql(ids)})`;
+				const orphaned = yield* readFoldEvents(
+					session,
+					sql`(v.entity_id in ${deleted} and v.session_entity_id is not null and v.session_entity_id not in ${deleted})
+						or (v.session_entity_id in ${deleted} and v.entity_id not in ${deleted})`,
+				);
+				yield* folds.mark(
+					orphaned.map((before) => ({
+						before,
+						after: null,
+						eventId: before.id,
+						userId: before.userId,
+					})),
+				);
 				const rows = yield* Effect.forEach(chunksOf(ids, STATEMENT_CHUNK_SIZE), (chunk) =>
 					session.run((db) =>
 						db
@@ -1025,6 +1046,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getByIdForUser,
 				getByIdsForUser,
 				findImportMatch,
+				getEntityScopes,
 				lockMutationKeys,
 				getMutationEntity,
 				lockSchemaCatalog,

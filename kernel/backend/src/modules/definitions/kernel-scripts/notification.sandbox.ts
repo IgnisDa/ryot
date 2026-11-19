@@ -56,18 +56,20 @@ const notificationMessage = (
 
 export default defineAutomation({
 	manifest,
-	run: ({ automation }, host) => {
-		return Effect.gen(function* () {
+	run: ({ automation }) =>
+		Effect.gen(function* () {
 			if (automation.payload.resource !== "signal") {
 				return yield* Effect.die(new Error("Signal notification requires a signal source"));
 			}
 			if (automation.executionUserId === null) {
 				return yield* Effect.die(new Error("Signal notification requires an execution user"));
 			}
-			yield* host.sendNotification(
-				notificationMessage(automation.payload.signalSchemaSlug, automation.payload.properties),
-			);
-			return null;
-		});
-	},
+			return {
+				changes: {
+					notifications: [
+						notificationMessage(automation.payload.signalSchemaSlug, automation.payload.properties),
+					],
+				},
+			};
+		}),
 });

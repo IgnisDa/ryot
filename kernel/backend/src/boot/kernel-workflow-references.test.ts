@@ -273,7 +273,7 @@ const recordingEngineLayer = (
 						Ref.update(dispatches, (all) => [
 							...all,
 							{ payload: input, executionId: input.command.causation.executionId },
-						]).pipe(Effect.as({ count: 0, outcomes: [], warnings: [], failure: null })),
+						]).pipe(Effect.as({ count: 0, outcomes: [], failure: null })),
 				}),
 				Layer.succeed(RecordedWorkflowDispatches, {
 					payloads: Effect.map(Ref.get(dispatches), (all) => all.map(({ payload }) => payload)),

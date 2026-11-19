@@ -1,11 +1,11 @@
 import {
 	AutomationInput as automationInputSchema,
-	AutomationOutput as automationResultSchema,
 	AutomationPolicyBatchInput as automationPolicyBatchInputSchema,
 	AutomationPolicyBatchOutput as automationPolicyBatchResultSchema,
 	AutomationPolicyInput as automationPolicyInputSchema,
 	AutomationPolicyOutput as automationPolicyResultSchema,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import { ChangesOutput as automationResultSchema } from "@ryot-app/contract/modules/changes/change-set";
 import type { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type { SandboxManifest } from "./core/script-manifest";

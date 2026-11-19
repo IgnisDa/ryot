@@ -35,6 +35,8 @@ export type BuiltInSandboxEntry = SandboxTypeScriptSources;
 export type CompiledBuiltInSandboxEntry = {
 	readonly entry: string;
 	readonly source: string;
+	/** Defined with `defineActivity`, so it may be called with `step.activity`. */
+	readonly activity: boolean;
 	readonly compiled: CompiledSandboxModule;
 	readonly providerOperation: null | string;
 };
@@ -222,6 +224,7 @@ const compileValidatedSandboxEntries = (
 							entry,
 							source,
 							compiled,
+							activity: inspection.activity,
 							providerOperation: inspection.providerOperation,
 						}) satisfies CompiledBuiltInSandboxEntry,
 				),

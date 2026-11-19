@@ -225,7 +225,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const markSources = (
 				rows: ReadonlyArray<{ readonly userId: null | string; readonly sourceEntityId: string }>,
 			) =>
-				folds.markSubjects(
+				folds.markLinks(
 					rows.flatMap((row) =>
 						row.userId === null
 							? []

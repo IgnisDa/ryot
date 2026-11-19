@@ -34,6 +34,7 @@ import { EntitlementService } from "#platform/entitlements";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginSavedViewReferences } from "../catalog/saved-view-references";
+import { isPluginConfigTooLarge, pluginConfigTooLargeMessage } from "../configuration/revisions";
 import { PluginIngestionLock } from "../packages/ingestion-lock";
 import {
 	PluginIngestionRetirement,
@@ -285,7 +286,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				stored: Readonly<Record<string, unknown>>,
 				config: undefined | Readonly<Record<string, unknown>>,
 			) {
-				return yield* parseAppSchemaProperties({
+				const resolved = yield* parseAppSchemaProperties({
 					kind: "Plugin config",
 					propertiesSchema: manifest.configSchema,
 					properties:
@@ -300,6 +301,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							}),
 					),
 				);
+				if (isPluginConfigTooLarge(resolved)) {
+					return yield* new PluginValidationError({ issues: [pluginConfigTooLargeMessage] });
+				}
+				return resolved;
 			});
 			const savePrivateInstallation = Effect.fn(
 				"PluginInstallationService.savePrivateInstallation",

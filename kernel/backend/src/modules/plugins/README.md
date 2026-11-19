@@ -17,6 +17,19 @@ the authoritative credential and user through `AuthService`; HTTP callers defaul
 while the agent registry propagates the MCP audience for MCP calls. Admission, demo restrictions and
 lifecycle locks use the same operation path.
 
+## Operation results
+
+An operation returns `{ output, changes? }`. It runs once through `ScriptCalls`, with no workflow,
+journal, or workflow reference. Admission pins the decoded principal in the operation's idempotency
+record.
+
+When `changes` is non-empty, `OperationsService` commits it through `ChangeSets.commit` under the
+operation's execution ID, with `api` or `integration` causation, initiator, and integration
+attribution, so retries derive the same entity and event IDs. A keyed invocation records its `{ output, committed }` receipt inside the
+commit transaction, after taking the key's lock, so a retry after commit returns the receipt and a
+concurrent retry commits nothing. Without changes, the receipt is recorded after the run. HTTP answers
+`{ result, committed }`; agent tools return the output.
+
 ## Operation failures
 
 `OperationsService` distinguishes a refusal from a crash. A script error whose boundary reason is
@@ -24,7 +37,14 @@ lifecycle locks use the same operation path.
 message stamped with the plugin's namespace. HTTP, page and agent-tool invocations, including
 idempotent background submissions, share this dispatch. Every other sandbox failure remains HTTP 502
 `PluginInvocationError` with `runtime-failed`, because proxies may replace 502 bodies and the client
-treats them as transport failures.
+treats them as transport failures. A script error whose boundary reason is `operation-conflict`, raised
+when the operation finds its baseline stale before building changes, is answered like a commit
+conflict: 409 `PluginConflictError` with `changes-conflict` and the reason's conflict code.
+
+Commit failures of returned changes map the same way: a policy rejection becomes 422
+`PluginOperationRejected` with the policy's reason, a failure whose code is a `CommitConflictCode`
+becomes 409 `PluginConflictError` with `changes-conflict` and that code, and any other invalid change
+set is a plugin defect, reported as 502 `runtime-failed`.
 
 ## Message catalogs
 
@@ -57,7 +77,11 @@ Listed plugins include hidden and installing installations, but exclude incompat
 Catalog operations resolve one `listPluginsAvailableToUser` snapshot and thread it through multi-row
 work rather than rereading different catalog states. `listOperationsAvailableToUser` combines one
 executable snapshot with a batched operation-script metadata read at its pinned revision IDs for the
-agent tool registry. Catalog changes publish a transactional
+agent tool registry. `PluginRuntimeResolver` combines that snapshot with each active revision's
+decoded manifest sections, which it keeps per process by revision ID in bounded caches (256 revisions
+each) because revision rows and their scripts never change. Executable lookups load only workflows,
+operations, dependencies, name, and script hashes; listings additionally load the client section and
+artifact imports. Catalog changes publish a transactional
 `pg_notify` that clients use to refetch.
 
 ## Plugin artifacts and revision identity
@@ -138,15 +162,15 @@ retained encryption-key references; execution configuration reads still authenti
 
 `userSettingsSchema` declares non-secret per-user preferences. `plugin_installation.user_settings`
 stores explicit choices, while schema defaults supply missing values. `PluginUserSettingsWriter` owns
-every write: it validates against the active persisted schema, caps the stored document at 64 KiB,
-locks asset references, and invalidates the user's catalog after commit. Installation-owned saves and
-resets replace the document under the exclusive ingestion lock. The `updateUserSettings` sandbox call
-merges top-level keys under the shared ingestion lock and the user write lock, after admitting the
+every write: it validates against the active persisted schema, caps the stored document at the sandbox
+user-settings limit (64 KiB), locks asset references, and invalidates the user's catalog after commit. Installation-owned saves and
+resets replace the document under the exclusive ingestion lock. A returned settings patch merges
+top-level keys under the shared ingestion lock and the user write lock, after admitting the
 subject's account. It resolves the installation from the plugin and execution user,
 accepts only keys in the pinned revision's schema, and rejects uninstalled, inactive, or incompatible
-installations at write time. Each patch invalidates the catalog; the four-call execution cap bounds
-that cost. RyotQL exposes stored choices to the kernel preferences UI. Sandbox reads resolve the
-execution user and plugin identity, applying the pinned revision's schema and defaults. These
+installations at write time. Each patch invalidates the catalog. RyotQL exposes stored choices to the kernel preferences UI. Sandbox reads resolve the
+execution user and plugin identity, applying the pinned revision's schema and defaults, and fail when
+the resolved document exceeds the same limit, which bounds the read's result. These
 preferences remain separate from encrypted configuration revisions and their redacted client
 projections.
 

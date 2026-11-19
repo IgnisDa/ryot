@@ -1,6 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	MeasurementReadingDeleteInput,
@@ -21,7 +22,13 @@ export default defineOperation({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const entry = yield* requireMeasurementEntry(input.entryId, host.executeRyotql);
-			yield* host.deleteUserEntity({ entityId: entry.id, entitySchemaSlug: "measurement-entry" });
-			return { count: entry.readingCount };
+			return {
+				output: { count: entry.readingCount },
+				changes: {
+					entities: {
+						deletes: [{ entityId: EntityId.make(entry.id), entitySchemaSlug: "measurement-entry" }],
+					},
+				},
+			};
 		}),
 });

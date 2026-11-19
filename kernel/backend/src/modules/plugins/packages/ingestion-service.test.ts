@@ -110,7 +110,6 @@ const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
 			{
 				stage: "after",
 				name: "Created",
-				delivery: "async",
 				slug: "dependent.created",
 				scriptSlug: "fixture.automation",
 				targets: [{ entitySchemaSlug, resource: "entity", operation: "create" }],
@@ -716,7 +715,6 @@ layer(makeLayer({ initialInstalled: [installedExample] }))((test) => {
 						...fixtureManifest().hooks,
 						{
 							stage: "after",
-							delivery: "async",
 							name: "Item created",
 							slug: "fixture.item-created",
 							scriptSlug: "fixture.automation",
@@ -1314,7 +1312,6 @@ layer(makeLayer())((test) => {
 							{
 								stage: "after",
 								name: "Missing",
-								delivery: "async",
 								scriptSlug: "missing",
 								slug: "fixture.missing",
 								targets: [

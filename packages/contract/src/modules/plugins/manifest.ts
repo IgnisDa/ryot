@@ -1029,7 +1029,6 @@ export const PluginHook = Schema.Union([
 		...hookFields,
 		stage: Schema.Literal("after"),
 		retry: Schema.optional(AutomationRetryPolicy),
-		delivery: Schema.Literals(["required", "async"]),
 		batchMaxItems: Schema.optional(safeBatchMaxItems),
 		frequency: Schema.optional(Schema.Literals(["item", "batch"])),
 		executionScope: Schema.optional(Schema.Literals(["user", "global"])),

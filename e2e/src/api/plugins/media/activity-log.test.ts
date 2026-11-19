@@ -142,7 +142,7 @@ describe("Media activity log operation", () => {
 						entityId: now.entityId,
 					},
 				}),
-			).toEqual({ count: 1, status: "saved" });
+			).toEqual({ count: 1 });
 			const nowEvents = yield* readEvents(client, now.entityId, "complete");
 			expect(nowEvents).toHaveLength(1);
 			const [nowEvent] = nowEvents;
@@ -203,10 +203,7 @@ describe("Media activity log operation", () => {
 					submissionId: crypto.randomUUID(),
 					entry: { entityId, consumedOn, kind: "complete", when: { kind: "now" } },
 				});
-			expect(yield* log(movie.entityId, ["Criterion Channel"])).toEqual({
-				count: 1,
-				status: "saved",
-			});
+			expect(yield* log(movie.entityId, ["Criterion Channel"])).toEqual({ count: 1 });
 			const afterFirst = yield* mediaSettings();
 			expect(Object.keys(afterFirst)).toEqual(["consumedOnMovie"]);
 			const movieSources = [
@@ -512,7 +509,7 @@ describe("Media activity log operation", () => {
 							submissionId: yield* randomUuid,
 							entry: { status, kind: "status", entityId: target.entityId },
 						}),
-					).toEqual({ count: 1, status: "saved" });
+					).toEqual({ count: 1 });
 					const events = yield* readEvents(client, target.entityId, status);
 					expect(events).toHaveLength(1);
 					expect(events[0]?.properties).toEqual(
@@ -607,7 +604,7 @@ describe("Media activity log operation", () => {
 			expect(specials.items.map((choice) => choice.id)).toEqual([episodeId(0, 1)]);
 
 			const backfill = [episodeId(1, 1), episodeId(1, 3), episodeId(2, 1)];
-			expect(yield* log(backfill)).toEqual({ count: 3, status: "saved" });
+			expect(yield* log(backfill)).toEqual({ count: 3 });
 			for (const id of backfill) {
 				const events = yield* readEvents(client, id, "complete");
 				expect(events).toHaveLength(1);
@@ -864,9 +861,9 @@ describe("Media activity log operation", () => {
 				{ concurrency: "unbounded" },
 			);
 
-			expect(firstMovie).toEqual({ count: 1, status: "saved" });
+			expect(firstMovie).toEqual({ count: 1 });
 			expect(retriedMovie).toEqual(firstMovie);
-			expect(firstShow).toEqual({ count: 3, status: "saved" });
+			expect(firstShow).toEqual({ count: 3 });
 			expect(retriedShow).toEqual([firstShow, firstShow]);
 			expect(yield* readEvents(client, movie.entityId, "complete")).toHaveLength(1);
 			for (const id of episodeIds) {

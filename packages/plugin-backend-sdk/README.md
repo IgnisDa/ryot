@@ -59,71 +59,40 @@ manifest.
 helpers to capabilities by canonical module/export, not import alias. Contract wire schemas own the
 capability vocabulary; kernel requirements/execution-policy records must exhaustively cover changes.
 
-`createUserEntity(item)` creates one user-owned entity and returns `{ entityId }`. The item
-contains `name`, `entitySchemaSlug`, and `properties`. `updateUserEntity(item)` takes
-`entityId`, `name`, `properties`, and the expected current `{ name, updatedAt, properties }`; it also
-returns `{ entityId }`. These require a user subject, owned schema, and exact user-owned target;
-the host binds ownership and normal service validation and hooks. Scripts cannot set ownership,
-global scope, provider provenance, or `populatedAt`. `ensureUserEntities` is bootstrap-only, not
-general entity creation. Runtime authorization is detailed in
+Host calls only read. An operation returns `{ output, changes? }`; `changes` is a `ChangeSet`
+(`changeSetSchema` from `core`, built with `rootEntity`, `existingEntity` and `upsertedGlobalEntity`)
+that the kernel commits after the run in one database transaction. Its parts and per-writer authority
+are listed in the [plugin authoring guide](../plugin-kit/README.md#change-sets); `CHANGE_SET_LIMITS`
+holds their bounds. Any validation, authority, or commit failure leaves the entire change set
+unchanged. File uploads are separate.
+`events.baselines` accepts up to 100 distinct entity IDs and their `eventScope` revisions. These
+scalar guards do not grow with the history or inventory. Event creates/updates may retain logical
+source order with `orderAfter`; an update with `orderAfter: null` restores physical creation order.
+Runtime authorization is detailed in
 [Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
-`mergeUserEntityData({ mergeFrom, mergeInto, entitySchemaSlug })` moves the user's events
-and relationships from one user-owned entity to another of the same plugin-owned schema and returns
-`{ movedEventsCount, movedRelationshipsCount }`. It requires a user-subject execution.
-
 A retry of a whole operation is covered by the key its caller passes to `operations.invoke`, which replays
-the original result. Script writes carry no keys of their own.
+the original result.
 
-Event updates may include an `expected` precondition
-`{ kind: "fields", entityId, occurredAt, sessionEntityId, properties, absentProperties }`:
-`sessionEntityId` is `null` or an ID, `properties` lists the property values that must still match,
-and `absentProperties` lists keys that must still be missing, at most 100 of each and disjoint.
-Delete options may include an `expected` map from every requested event ID to such a precondition.
-A stale precondition fails before mutation with `data: { code: "event-stale", eventId }`; a stale
-`updateUserEntity` `expected` snapshot fails with `data: { code: "entity-stale", entityId }`, which
-`entityStaleReasonSchema` matches.
-Event creation returns `{ count, outcomes }`;
-each outcome is `{ index, eventId, status: "written" }`,
-`{ index, reason, status: "skipped_by_policy" }`, or `{ index, reason, status: "failed" }`.
-Independent valid records remain eligible when another record fails validation. A creation failure includes
-`data: { count, outcomes, code, partial }`. Earlier committed items are not rolled back; identity
-conflicts use `code: "mutation-conflict"` and `partial: false`. Workflow attempts remain separate
-from committed item identities so an unfinished batch can be retried after partial failure. Each
-operation seals its batch-hook evidence and retains its aggregate result. Committed item hooks are not recreated.
-
-`commitUserChanges` commits a root user entity, relationships, and event creates, updates, and
-deletes in one database transaction. References can target the root entity before it exists. Any
-validation or commit failure leaves the entire command unchanged. File uploads are separate.
-`events.baselines` accepts up to 100 distinct entity IDs and their `eventScope` revisions. These scalar guards do not grow with
-the history or inventory. Event creates/updates may retain logical source order with `orderAfter`;
-an update with `orderAfter: null` restores physical creation order.
-
-`requestFolds({ entityIds })` queues a fold job for each of at most 100 subjects of the execution
-user. The owning plugin's `requestFoldsForAllUsers` does the same for every user with events on those
-subjects. Fold scripts use `FoldInput`, `FoldOutput` and `FOLD_LIMITS` from
-`@ryot-app/plugin-backend-sdk/folds`. See
-[folds](../../kernel/backend/src/modules/events/README.md#folds).
+Fold scripts use `FoldInput`, `FoldOutput`, `FoldEventChange`, `FoldEventImage` and `FOLD_LIMITS` from
+`@ryot-app/plugin-backend-sdk/folds`, with `foldChangeImages` for change lists. See
+[folds](../../kernel/backend/src/modules/derived-values/README.md).
 
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and
 projected entity references; `items` holds `{ itemIdentity, payload }` requests. Return
 `{ items: [{ itemIdentity, decision }] }` with exactly one decision for each supplied identity.
 A `reject` decision's `reason` is a `LocalMessage` from the plugin's catalog; the kernel stamps the
-plugin's namespace before it reaches a caller. After-stage automations notify the execution user
-with `host.sendNotification(message)`, which also takes a `LocalMessage`; see
-[Messages](../plugin-kit/README.md#messages).
+plugin's namespace before it reaches a caller.
 Shared metadata is sent once, not repeated per request, so normal batches retain the sandbox input limit.
 
 ## Boundary Errors
 
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
 `data`. Stable boundary codes belong in `data`: `missing-required-config`, `missing-artifact-grant`,
-`unavailable-operation`, `invalid-executable-target`, `execution-limit`, and `operation-rejected`.
+`unavailable-operation`, `invalid-executable-target`, `execution-limit`, `operation-rejected`, and
+`operation-conflict`.
 Callers can branch on those codes without replacing or parsing the message. When the kernel rejects
-a host call with a message reason, such as a rejected operation call, `data` is that stamped
-`Message` and `message` is its key. `isCommitConflict`
-from `core` recognizes a `commitUserChanges` failure whose `data.code` is a contract
-`CommitConflictCode`: the command's baseline changed or vanished concurrently.
+a host call with a message reason, `data` is that stamped `Message` and `message` is its key.
 
 An operation that refuses a request for a deterministic, user-correctable reason fails with
 `new OperationRejectedError({ reason })` from `@ryot-app/plugin-backend-sdk/operation`, where
@@ -131,7 +100,10 @@ An operation that refuses a request for a deterministic, user-correctable reason
 kernel stamps the run's plugin namespace when it records the failure. It reaches the caller as an
 HTTP 422 `PluginOperationRejected`; any other thrown error stays an HTTP 502
 `PluginInvocationError` with `runtime-failed`. Use it only for operation entrypoints, never for
-provider scripts, which report failures through their results.
+provider scripts, which report failures through their results. An operation that finds its baseline
+stale before it can build changes fails with `new OperationConflictError({ conflict })`, where
+`conflict` is a `CommitConflictCode`; it reaches the caller as the HTTP 409 `changes-conflict` that a
+stale commit produces.
 
 ## Agent scripts
 

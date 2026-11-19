@@ -3,7 +3,6 @@ import {
 	type AutomationEntityChangePayload,
 	AutomationEntityDraft,
 	AutomationEntitySnapshot,
-	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntityBadRequest, type ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
@@ -40,7 +39,6 @@ export const PreparedEntityMutation = Schema.Struct({
 	scopeUserId: Schema.NullOr(UserId),
 	before: Schema.NullOr(AutomationEntitySnapshot),
 	entitySchemaPluginId: Schema.NullOr(Schema.String),
-	requestId: Schema.NullOr(AutomationTrigger.fields.id),
 	entitySchemaFingerprint: CatalogDefinitionFingerprint,
 	operation: Schema.Literals(["create", "update", "delete"]),
 });
@@ -319,17 +317,7 @@ export const makePersistMutation = <E, R, Result>({
 				: undefined;
 			const dispatch = evidence
 				? yield* planner.planChange({
-						trigger: yield* lifecycleTrigger(
-							{
-								...input.lifecycle,
-								causation: {
-									...input.lifecycle.causation,
-									parentTriggerId: input.requestId ?? input.lifecycle.causation.parentTriggerId,
-								},
-							},
-							input.scopeUserId,
-							evidence,
-						),
+						trigger: yield* lifecycleTrigger(input.lifecycle, input.scopeUserId, evidence),
 					})
 				: [];
 			const result = resultOf(entity, input.operation === "create" && before === null);

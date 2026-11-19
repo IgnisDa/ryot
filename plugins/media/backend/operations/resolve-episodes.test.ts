@@ -71,7 +71,7 @@ describe("resolve episodes operation", () => {
 
 				expect(
 					yield* runSandboxTestScript(definition, { refs: [showRef] }, host, execution),
-				).toEqual({ results: [{ index: 0, entityId: "episode-1" }] });
+				).toEqual({ output: { results: [{ index: 0, entityId: "episode-1" }] } });
 				const query = documents[0]?.queries["episodes"];
 				expect(query).toMatchObject({
 					from: { table: "entity", alias: "episode" },
@@ -92,7 +92,7 @@ describe("resolve episodes operation", () => {
 
 				expect(
 					yield* runSandboxTestScript(definition, { refs: [podcastRef] }, host, execution),
-				).toEqual({ results: [{ index: 0, entityId: "episode-9" }] });
+				).toEqual({ output: { results: [{ index: 0, entityId: "episode-9" }] } });
 				const query = documents[0]?.queries["episodes"];
 				for (const alias of ["podcastEpisode", "podcast"]) {
 					expect(ryotqlDocumentNodes(query)).toContainEqual(objectContaining({ alias }));
@@ -109,7 +109,7 @@ describe("resolve episodes operation", () => {
 
 				expect(
 					yield* runSandboxTestScript(definition, { refs: [podcastTitleRef] }, host, execution),
-				).toEqual({ results: [{ index: 0, entityId: "episode-1" }] });
+				).toEqual({ output: { results: [{ index: 0, entityId: "episode-1" }] } });
 				const query = documents[0]?.queries["episodes"];
 				const nodes = ryotqlDocumentNodes(query);
 				for (const slug of [
@@ -145,10 +145,12 @@ describe("resolve episodes operation", () => {
 						execution,
 					),
 				).toEqual({
-					results: [
-						{ index: 0, entityId: null },
-						{ index: 1, entityId: null },
-					],
+					output: {
+						results: [
+							{ index: 0, entityId: null },
+							{ index: 1, entityId: null },
+						],
+					},
 				});
 			}),
 		testTimeout,
@@ -162,7 +164,7 @@ describe("resolve episodes operation", () => {
 
 				expect(
 					yield* runSandboxTestScript(definition, { refs: [seasonRef] }, host, execution),
-				).toEqual({ results: [{ index: 0, entityId: "season-2" }] });
+				).toEqual({ output: { results: [{ index: 0, entityId: "season-2" }] } });
 				const query = documents[0]?.queries["episodes"];
 				expect(query).toMatchObject({
 					from: { table: "entity", alias: "episode" },
@@ -222,13 +224,15 @@ describe("resolve episodes operation", () => {
 						execution,
 					),
 				).toEqual({
-					results: [
-						{ index: 7, entityId: "episode-1" },
-						{ index: 4, entityId: null },
-						{ index: 2, entityId: null },
-						{ index: 9, entityId: "episode-4" },
-						{ index: 11, entityId: "episode-5" },
-					],
+					output: {
+						results: [
+							{ index: 7, entityId: "episode-1" },
+							{ index: 4, entityId: null },
+							{ index: 2, entityId: null },
+							{ index: 9, entityId: "episode-4" },
+							{ index: 11, entityId: "episode-5" },
+						],
+					},
 				});
 				expect(documents).toHaveLength(5);
 			}),

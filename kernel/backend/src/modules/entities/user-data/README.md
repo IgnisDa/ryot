@@ -1,7 +1,7 @@
 # Entity user data
 
 `EntityUserDataService` owns clear and same-schema merge for the caller's events and relationships.
-HTTP commands and sandbox host capabilities use this owner. They never delete entities or modify
+HTTP commands use this owner. They never delete entities or modify
 another user's data. Schema owners may deny either operation and declare merge identity properties.
 Plugin callers require pinned ownership of both schemas; a global source is allowed because only the
 caller's state moves.

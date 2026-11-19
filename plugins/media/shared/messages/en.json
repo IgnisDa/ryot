@@ -1468,6 +1468,10 @@
 		"message": "{subjectName} has been associated with {associatedName} as {role}",
 		"description": "{subjectName} is a person or company, {associatedName} is a media title or group and {role} is a role as the provider names it, such as Director."
 	},
+	"notification.associated-more": {
+		"message": "{subjectName} has {count, plural, one {# more new credit} other {# more new credits}}",
+		"description": "{subjectName} is a person or company and {count} is how many further new roles on media titles or groups they have beyond the notifications already listed."
+	},
 	"notification.content-count-changed": {
 		"message": "Number of {contentType, select, chapters {chapters} episodes {episodes} other {items}} changed from {oldCount, number} to {newCount, number} for {entityName}",
 		"description": "{contentType} is what is counted, {oldCount} and {newCount} are the previous and current counts and {entityName} is the media title."
@@ -1626,6 +1630,8 @@
 	"property.anime-export-hint": "MyAnimeList anime export",
 	"property.api-key": "API key",
 	"property.associated-name": "Associated name",
+	"property.association": "Association",
+	"property.associations": "Associations",
 	"property.authentication-cookie": "Authentication cookie",
 	"property.automatic-completion-identity": "Automatic completion identity",
 	"property.base-url": "Base URL",
@@ -2191,28 +2197,15 @@
 	"rejection.progress.position-only": "This media type tracks progress as a position.",
 	"rejection.record.activity-only-delete": "Only activity records can be deleted here.",
 	"rejection.record.activity-only-edit": "Only activity records can be edited here.",
-	"rejection.record.change-refused": "This change could not be saved.",
 	"rejection.record.not-found": "This record no longer exists.",
 	"rejection.record.review-only-delete": "Only reviews can be deleted here.",
 	"rejection.record.review-only-edit": "Only reviews can be edited here.",
-	"rejection.record.stale": "This record changed elsewhere. Reload and try again.",
 	"rejection.record.uneditable": "This record can't be edited.",
 	"rejection.review.consumption-not-found": "The record this review is about no longer exists.",
 	"rejection.review.consumption-not-reviewable": "A review can only be about a completion, progress or status record.",
 	"rejection.review.consumption-other-entity": "A review can only be about a record of what it reviews.",
 	"rejection.review.not-found": "This review no longer exists.",
 	"rejection.review.target-not-found": "This review target no longer exists.",
-	"rejection.review.too-many-linked": "Too many reviews are about this record to move it.",
-	"rejection.user-data.child-mapping-conflict": "Some child data has no unique match. Refresh the media items and try again.",
-	"rejection.user-data.command-identity-conflict": "This request was already used for different data. Start a new request.",
-	"rejection.user-data.entity-not-found": "One of these media items no longer exists. Refresh and try again.",
-	"rejection.user-data.identity-mismatch": "These items do not match. Choose a destination with the same identity.",
-	"rejection.user-data.media-type-mismatch": "Choose two items with the same media type.",
-	"rejection.user-data.operation-denied": "Your data cannot be changed for this media item.",
-	"rejection.user-data.relationship-merge-failed": "Some related data could not be changed. Refresh and try again.",
-	"rejection.user-data.required-field": "Required media item details are missing. Refresh and try again.",
-	"rejection.user-data.same-entity-merge": "Choose a different item as the merge destination.",
-	"rejection.user-data.state-conflict": "Your data changed. Refresh this page and try again.",
 	"relationship-schema.anime-credits.name": {
 		"message": "Anime credits",
 		"description": "Name of the links between Anime and the people or companies credited on it."
@@ -2580,7 +2573,10 @@
 		"message": "{start} – {end}",
 		"description": "A range of dates. {start} is the first date and {end} is the last date."
 	},
+	"user-data.error-child-mapping-conflict": "Some child data has no unique match. Refresh the media items and try again.",
+	"user-data.error-entity-not-found": "One of these media items no longer exists. Refresh and try again.",
 	"user-data.error-retry": "Couldn't finish this change. Retry to confirm the result safely.",
+	"user-data.error-state-conflict": "Your data changed. Refresh this page and try again.",
 	"user-data.error-transport": "Couldn't reach the server. Retry to finish this change safely.",
 	"user-data.menu": {
 		"message": "Your data",

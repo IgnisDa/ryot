@@ -58,7 +58,7 @@ it.live(
 					]),
 				),
 			});
-			const prepared = yield* reader.run({
+			const { output: prepared } = yield* reader.run({
 				offset: 0,
 				itemIndex: 0,
 				dedupKey: null,

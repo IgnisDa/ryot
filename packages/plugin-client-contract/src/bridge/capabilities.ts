@@ -5,6 +5,10 @@ import {
 } from "@ryot-app/contract/modules/assets/schemas";
 import { SetCalendarSourceVisibilityBody } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import {
+	CommitConflictCode,
+	CommittedChanges,
+} from "@ryot-app/contract/modules/changes/change-set";
+import {
 	CollectionResponse,
 	CreateCollectionBody,
 	CreateMembershipBody,
@@ -54,6 +58,7 @@ export const PluginOperationBridgeErrorReason = Schema.Literals([
 	"entitlement-required",
 	"page-write-access-required",
 	"operation-rejected",
+	"changes-conflict",
 	"malformed-result",
 ]);
 
@@ -96,6 +101,7 @@ export const RyotClientErrorReason = Schema.Literals([
 	"entitlement-required",
 	"page-write-access-required",
 	"operation-rejected",
+	"changes-conflict",
 	"malformed-result",
 	"unsupported-capability",
 	"invalid-request",
@@ -347,7 +353,11 @@ export const PluginBridgeOperationRequest = strictStruct({
 
 export type PluginBridgeOperationRequest = Schema.Schema.Type<typeof PluginBridgeOperationRequest>;
 
-const pluginOperationSuccessFields = { value: JsonValue, outcome: Schema.Literal("success") };
+const pluginOperationSuccessFields = {
+	value: JsonValue,
+	committed: CommittedChanges,
+	outcome: Schema.Literal("success"),
+};
 
 const pluginOperationFailureVariants = [
 	{
@@ -359,6 +369,11 @@ const pluginOperationFailureVariants = [
 			"page-write-access-required",
 			"malformed-result",
 		]),
+	},
+	{
+		conflict: CommitConflictCode,
+		outcome: Schema.Literal("failure"),
+		reason: Schema.Literal("changes-conflict"),
 	},
 	{
 		message: Message,

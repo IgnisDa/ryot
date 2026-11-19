@@ -12,6 +12,6 @@ test("publishes the input and output schemas used by every operation script", ()
 		const operation = plugin.operations[0];
 		expect(operation.scriptSlug).toBe(script.manifest.slug);
 		expect(operation.input).toEqual<unknown>(operationJsonSchema(script.input));
-		expect(operation.output).toEqual<unknown>(operationJsonSchema(script.output));
+		expect(operation.output).toEqual<unknown>(operationJsonSchema(script.output.fields.output));
 	}
 });

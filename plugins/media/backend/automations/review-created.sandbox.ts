@@ -21,7 +21,7 @@ export default defineAutomation({
 			payload.operation !== "create" ||
 			payload.after.eventSchemaSlug !== "review"
 		) {
-			return Effect.succeed(null);
+			return Effect.succeed({});
 		}
 		const event = payload.after;
 		return executeRyotqlRecipe(
@@ -30,20 +30,26 @@ export default defineAutomation({
 			{ entityIds: [event.entityId] },
 			{ pages: { entities: { after: undefined, limit: undefined } } },
 		).pipe(
-			Effect.flatMap(({ items }) => {
+			Effect.map(({ items }) => {
 				const entity = items[0];
 				return entity
-					? host.emitSignal({
-							discriminator: event.id,
-							schemaSlug: "review.created",
-							properties: {
-								reviewEventId: event.id,
-								entityName: entity.name,
-								entityId: event.entityId,
-								entitySchemaSlug: event.entitySchemaSlug,
+					? {
+							changes: {
+								signals: [
+									{
+										discriminator: event.id,
+										schemaSlug: "review.created",
+										properties: {
+											reviewEventId: event.id,
+											entityName: entity.name,
+											entityId: event.entityId,
+											entitySchemaSlug: event.entitySchemaSlug,
+										},
+									},
+								],
 							},
-						})
-					: Effect.succeed(null);
+						}
+					: {};
 			}),
 		);
 	},

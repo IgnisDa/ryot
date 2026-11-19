@@ -272,10 +272,10 @@ export default defineScript({ manifest, input: Schema.Unknown, output: Schema.St
 				yield* fs.writeFileString(
 					path.join(plugin, "backend/root.sandbox.ts"),
 					`
-import { defineManifest, defineWorkflow, defineWorkflowReference, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineManifest, defineWorkflow, defineWorkflowReference, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 const target = defineWorkflowReference({ workflowSlug: "kernel:event-create", input: Schema.Unknown, output: Schema.String });
 export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
-export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.String, run: (input, replay) => replay.child("write", target, input) });
+export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.String, run: (input, replay) => Effect.gen(function* () { return { output: yield* replay.child("write", target, input) }; }) });
 `,
 				);
 				const result = yield* run(plugin, ["plugin", "build"]);
@@ -320,7 +320,7 @@ export const manifest = defineManifest({
   kind: "automation", automationType: "${automationType}", slug: "${automationType}", name: "${automationType}",
   inputProjection: ${automationType === "policy" ? "{ event: { properties: [] } }" : "{ signal: { properties: [] } }"},
 });
-export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automationType === "policy" ? '{ items: _input.items.map(({ itemIdentity }) => ({ itemIdentity, decision: { action: "allow" as const } })) }' : "null"}) });
+export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automationType === "policy" ? '{ items: _input.items.map(({ itemIdentity }) => ({ itemIdentity, decision: { action: "allow" as const } })) }' : "{}"}) });
 `,
 					);
 				}

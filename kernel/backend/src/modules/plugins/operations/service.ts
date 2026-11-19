@@ -1,5 +1,7 @@
 import { WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
-import type { BadRequest, DbError, NotFound } from "@ryot-app/contract/errors";
+import type { BadRequest, NotFound } from "@ryot-app/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
+import { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
 	PluginConflictError,
@@ -13,11 +15,11 @@ import {
 	type IntegrationId,
 	PluginId,
 	type PluginPackageId,
-	SandboxScriptId,
+	type SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { entitlementRequired } from "@ryot-app/contract/schema/entitlement";
-import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
@@ -33,10 +35,12 @@ import {
 } from "#modules/mutations/idempotency";
 import { requireOpenSubmission } from "#modules/mutations/submission-window";
 import { PageOperationAuthorization } from "#modules/pages/operation-authority";
-import { samePluginPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
-import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { samePluginPin, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
+import type { ScriptChangesRejected } from "#modules/scripts/executions/script-changes";
+import { ScriptChanges } from "#modules/scripts/executions/script-changes";
+import { sandboxStartedAt } from "#modules/scripts/host/execution-context";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import { EntitlementService } from "#platform/entitlements";
@@ -45,12 +49,15 @@ import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginRepository } from "../packages/repository";
 import { userOperationAccessFailure } from "./access";
 
-type AdmittedDispatch = DispatchInput & { readonly resultIdentity: null | IdempotencyIdentity };
-
 type IntegrationOperationScope = {
 	readonly userId: UserId;
 	readonly integrationId: IntegrationId;
 	readonly pluginInstallationId: string;
+};
+
+type AdmittedDispatch = DispatchInput & {
+	readonly principal: ScriptExecutionPrincipal;
+	readonly resultIdentity: null | IdempotencyIdentity;
 };
 
 type DispatchInput = {
@@ -62,9 +69,39 @@ type DispatchInput = {
 	readonly accountUserId: UserId;
 	readonly scriptId: SandboxScriptId;
 	readonly integrationId?: IntegrationId;
-	readonly pluginRevision: ScriptPluginRevision;
-	readonly pageAuthority?: PageOperationAuthority;
 };
+const OperationRunResult = Schema.Struct({
+	output: JsonValue,
+	changes: Schema.optional(ChangeSet),
+});
+
+const OperationReceipt = Schema.Struct({ output: JsonValue, committed: CommittedChanges });
+type OperationReceipt = typeof OperationReceipt.Type;
+
+const invalidOutput = (message: string) =>
+	new PluginInvocationError({
+		reason: {
+			code: "runtime-failed",
+			diagnostics: [{ message, phase: "output", severity: "error", code: "sandbox-runtime-error" }],
+		},
+	});
+
+const commitFailure = (error: DbError | ScriptChangesRejected) => {
+	if (error instanceof DbError) {
+		return error;
+	}
+	const { reason } = error;
+	if (reason.code === "policy-rejected") {
+		return new PluginOperationRejected({ reason: reason.message });
+	}
+	if (reason.code === "conflict") {
+		return new PluginConflictError({
+			reason: { code: "changes-conflict", conflict: reason.conflict },
+		});
+	}
+	return invalidOutput(`Operation changes were not committed (${reason.message})`);
+};
+
 export class IntegrationOperationScopeResolver extends Context.Service<
 	IntegrationOperationScopeResolver,
 	{
@@ -85,27 +122,20 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			const pageAuthorization = yield* PageOperationAuthorization.make;
 			const repository = yield* PluginRepository;
 			const runtime = yield* PluginRuntimeResolver;
-			const sandbox = yield* ScriptExecutionService;
 			const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
 			const keys = yield* IdempotencyKeys.make;
 			const admission = yield* AccountAdmission.make;
 			const scripts = yield* SandboxRepository;
 			const entitlements = yield* EntitlementService;
-			const references = yield* SandboxWorkflowReferenceRepository;
+			const calls = yield* ScriptCalls;
+			const changes = yield* ScriptChanges;
 
-			const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: DispatchInput) {
-				const result = yield* sandbox.executeScript({
+			const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: AdmittedDispatch) {
+				const result = yield* calls.run({
 					lane: "interactive",
 					input: input.payload,
-					scriptId: input.scriptId,
+					principal: input.principal,
 					executionId: input.executionId,
-					pluginRevision: input.pluginRevision,
-					subject: {
-						type: "user",
-						userId: input.userId,
-						...(input.pageAuthority === undefined ? {} : { pageAuthority: input.pageAuthority }),
-						...(input.integrationId ? { integrationId: input.integrationId } : {}),
-					},
 				});
 				if (result.error?.data?.code === "page-write-access-required") {
 					return yield* new PluginRequestError({ reason: { code: "page-write-access-required" } });
@@ -116,6 +146,11 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				if (result.error?.data?.code === "operation-rejected") {
 					yield* Effect.annotateCurrentSpan("plugin.rejection", result.error.message);
 					return yield* new PluginOperationRejected({ reason: result.error.data.reason });
+				}
+				if (result.error?.data?.code === "operation-conflict") {
+					return yield* new PluginConflictError({
+						reason: { code: "changes-conflict", conflict: result.error.data.conflict },
+					});
 				}
 				if (result.error) {
 					return yield* new PluginInvocationError({
@@ -138,22 +173,45 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						},
 					});
 				}
-				if (!isJsonValue(result.value)) {
-					return yield* new PluginInvocationError({
-						reason: {
-							code: "runtime-failed",
-							diagnostics: [
-								{
-									phase: "output",
-									severity: "error",
-									code: "sandbox-runtime-error",
-									message: "Sandbox operation result must be JSON",
-								},
-							],
-						},
-					});
-				}
-				return result.value;
+				return yield* Schema.decodeUnknownEffect(OperationRunResult)(result.value).pipe(
+					Effect.mapError(() => invalidOutput("Sandbox operation result is invalid")),
+				);
+			});
+
+			const commit = Effect.fn("OperationsService.commit")(function* (
+				input: AdmittedDispatch,
+				run: typeof OperationRunResult.Type,
+			) {
+				const { resultIdentity } = input;
+				const receipt = (committed: CommittedChanges): OperationReceipt => ({
+					committed,
+					output: run.output,
+				});
+				return yield* changes
+					.commit({
+						lane: "interactive",
+						changes: run.changes,
+						principal: input.principal,
+						executionId: input.executionId,
+						occurredAt: yield* sandboxStartedAt,
+						receipt:
+							resultIdentity === null
+								? {
+										load: Effect.succeed(null),
+										record: (committed) => Effect.succeed(receipt(committed)),
+									}
+								: {
+										record: (committed) =>
+											keys
+												.record(resultIdentity, OperationReceipt, receipt(committed))
+												.pipe(Effect.as(receipt(committed))),
+										load: keys.lockedRead(resultIdentity, OperationReceipt).pipe(
+											Effect.catchTag("IdempotencyConflict", Effect.die),
+											Effect.map((stored) => stored?.response ?? null),
+										),
+									},
+					})
+					.pipe(Effect.mapError(commitFailure));
 			});
 
 			const invokeInternal = Effect.fn("OperationsService.invokeInternal")(function* (input: {
@@ -248,7 +306,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
 				);
 				const pinDispatch = Effect.fn("OperationsService.pinDispatch")(function* (
-					dispatchInput: Omit<DispatchInput, "executionId" | "pluginRevision">,
+					dispatchInput: Omit<DispatchInput, "executionId">,
 					resolved: NonNullable<Effect.Success<ReturnType<typeof resolveOperation>>>,
 				) {
 					if (
@@ -293,9 +351,8 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						kind: "plugin-operation:result",
 					});
 					const admissionSchema = Schema.Struct({
-						scriptId: SandboxScriptId,
 						executionId: Schema.String,
-						pluginRevision: ScriptPluginRevision,
+						principal: ScriptExecutionPrincipal,
 					});
 					const existing =
 						input.idempotencyKey === undefined
@@ -326,9 +383,8 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						return {
 							...dispatchInput,
 							resultIdentity,
-							scriptId: existing.response.scriptId,
+							principal: existing.response.principal,
 							executionId: existing.response.executionId,
-							pluginRevision: existing.response.pluginRevision,
 						} satisfies AdmittedDispatch;
 					}
 					const subject = {
@@ -364,29 +420,21 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					) {
 						return yield* operationNotFound;
 					}
+					const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
+						...pin,
+						subject: {
+							...subject,
+							...(input.pageAuthority === undefined ? {} : { pageAuthority: input.pageAuthority }),
+						},
+					}).pipe(Effect.orDie);
 					yield* admission.admitAccount(dispatchInput.accountUserId);
-					yield* references
-						.registerInTransaction({
-							executionId,
-							userId: dispatchInput.userId,
-							contentHash: pin.contentHash,
-							pluginId: pin.pluginRevision.id,
-							scriptId: dispatchInput.scriptId,
-						})
-						.pipe(
-							Effect.catchTag("SandboxWorkflowReferenceRegistrationError", () => operationNotFound),
-						);
 					if (input.idempotencyKey !== undefined) {
-						yield* keys.record(admissionIdentity, admissionSchema, {
-							executionId,
-							scriptId: dispatchInput.scriptId,
-							pluginRevision: pin.pluginRevision,
-						});
+						yield* keys.record(admissionIdentity, admissionSchema, { principal, executionId });
 					}
 					return {
 						...dispatchInput,
+						principal,
 						executionId,
-						pluginRevision: pin.pluginRevision,
 						resultIdentity: input.idempotencyKey === undefined ? null : resultIdentity,
 					} satisfies AdmittedDispatch;
 				});
@@ -524,20 +572,13 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				const { resultIdentity } = authorized;
 				if (resultIdentity) {
 					const completed = yield* keys
-						.read(resultIdentity, JsonValue)
+						.read(resultIdentity, OperationReceipt)
 						.pipe(Effect.catchTag("IdempotencyConflict", Effect.die));
 					if (completed) {
 						return completed.response;
 					}
 				}
-				const result = yield* dispatch({
-					...authorized,
-					...(input.pageAuthority === undefined ? {} : { pageAuthority: input.pageAuthority }),
-				});
-				if (resultIdentity) {
-					yield* keys.record(resultIdentity, JsonValue, result);
-				}
-				return result;
+				return yield* commit(authorized, yield* dispatch(authorized));
 			});
 
 			type Input = Parameters<typeof invokeInternal>[0];

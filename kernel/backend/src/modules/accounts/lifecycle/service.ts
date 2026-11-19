@@ -62,7 +62,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 				);
 			});
 
-			const ensureAccessRevoked = Effect.fn("UserLifecycleService.ensureAccessRevoked")(function* (
+			const revokeAccess = Effect.fn("UserLifecycleService.revokeAccess")(function* (
 				operationId: string,
 			) {
 				const current = yield* repository.getInternalById(operationId);
@@ -75,16 +75,11 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					return current;
 				}
 
-				const now = yield* DateTime.nowAsDate;
 				const claimed = yield* repository.claimAccessRevocation(
 					operationId,
-					accessRevocationStaleBefore(now),
+					accessRevocationStaleBefore(yield* DateTime.nowAsDate),
 				);
 				if (!claimed) {
-					const refreshed = yield* repository.getInternalById(operationId);
-					if (refreshed?.accessRevokedAt) {
-						return refreshed;
-					}
 					return yield* new InstanceAdminInternalFailure({
 						reason: { code: "lifecycle-state-conflict" },
 					});
@@ -166,33 +161,30 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 										recreatedAccountId: yield* random.uuidV4(),
 									},
 								});
-							}).pipe(
-								Effect.tap((operation) =>
-									jobs.enqueue(
-										UserLifecycleJob,
-										{ operationId: operation.operation.id },
-										{ key: operation.operation.id },
-									),
-								),
-							),
+							}),
 						)
 						.pipe(
-							Effect.catchTags({
-								SchemaError: Effect.die,
-								DatabaseSessionStateError: () =>
+							Effect.catchTag(
+								"DatabaseSessionStateError",
+								() =>
 									new InstanceAdminInternalFailure({
 										reason: { code: "lifecycle-state-conflict" },
 									}),
-							}),
+							),
 						),
 				);
 
-				yield* ensureAccessRevoked(prepared.operation.id);
-				return { operationId: prepared.operation.id };
+				const operationId = prepared.operation.id;
+				yield* revokeAccess(operationId);
+				yield* mapDatabaseErrors(
+					jobs
+						.enqueue(UserLifecycleJob, { operationId }, { key: operationId })
+						.pipe(Effect.catchTag("SchemaError", Effect.die)),
+				);
+				return { operationId };
 			});
 
 			return {
-				ensureAccessRevoked,
 				resetUser: (userId: UserId) => request(userId, "reset"),
 				deleteUser: (userId: UserId) => request(userId, "delete"),
 			};

@@ -2,17 +2,20 @@ import { unknownToMessage } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
+import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import {
 	AuthBootstrapScheduleError,
 	AuthUserBootstrapScheduler,
 } from "#modules/accounts/auth/service";
 import { NotificationSubscriptionsServiceLive } from "#modules/automations/layer";
+import { ScriptChangesLive } from "#modules/changes/layer";
 import { PluginBootstrapEntitiesRuntimeLive } from "#modules/entities/layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginInstallationRuntimeLive } from "#modules/plugins/layer";
-import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { UserBootstrap } from "./bootstrap";
 import { UserBootstrapJobLive } from "./job";
@@ -22,7 +25,9 @@ import { UserBootstrapScheduling } from "./scheduling";
 export const PluginUserBootstrapDispatcherLive = PluginUserBootstrapDispatcher.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
-			ScriptExecutionServiceLive,
+			ScriptChangesLive,
+			SandboxRepository.layer,
+			ScriptCalls.layer,
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
 			PluginBootstrapEntitiesRuntimeLive,
@@ -42,7 +47,7 @@ export const UserBootstrapLive = UserBootstrap.layer.pipe(
 );
 
 export const UserBootstrapJobProvidedLive = UserBootstrapJobLive.pipe(
-	Layer.provide(UserBootstrapLive),
+	Layer.provide(Layer.mergeAll(UserBootstrapLive, LifecycleWriteGuard.layer)),
 );
 
 export const UserBootstrapSchedulingLive = UserBootstrapScheduling.layer.pipe(

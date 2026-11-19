@@ -1,5 +1,4 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -9,7 +8,10 @@ import {
 	PluginBootstrapEntities,
 } from "#modules/plugins/installations/bootstrap-entities";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
-import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import {
+	runUserBootstrapScript,
+	type UserBootstrapRun,
+} from "#modules/scripts/executions/bootstrap";
 import { DatabaseSession } from "#platform/db/session";
 
 export const userBootstrapExecutionId = (userId: string, pluginId: string, bootstrapSlug: string) =>
@@ -17,7 +19,7 @@ export const userBootstrapExecutionId = (userId: string, pluginId: string, boots
 
 export const makePluginUserBootstrapDispatcher = (
 	execute: (
-		payload: SandboxExecutionPayload,
+		run: UserBootstrapRun,
 	) => Effect.Effect<{ readonly error: null | { readonly message: string } }, SandboxRunError>,
 ) =>
 	Effect.gen(function* () {
@@ -120,12 +122,7 @@ export const makePluginUserBootstrapDispatcher = (
 						message: `Plugin user bootstrap script not found: ${entry.packageId} ${bootstrap.slug}`,
 					});
 				}
-				const result = yield* execute({
-					context: {},
-					executionId,
-					scriptId: resolved.script.id,
-					subject: { userId, type: "user" },
-				}).pipe(
+				const result = yield* execute({ userId, executionId, scriptId: resolved.script.id }).pipe(
 					Effect.mapError(
 						(error) =>
 							new SandboxRunError({
@@ -163,15 +160,10 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 	"@ryot-app/kernel-backend/modules/accounts/provisioning/plugin-dispatch/PluginUserBootstrapDispatcher",
 	{
 		make: Effect.gen(function* () {
-			const sandbox = yield* ScriptExecutionService;
-			return yield* makePluginUserBootstrapDispatcher((payload) =>
-				sandbox.executeScript({
-					lane: "background",
-					input: payload.context,
-					subject: payload.subject,
-					scriptId: payload.scriptId,
-					executionId: payload.executionId,
-				}),
+			const context =
+				yield* Effect.context<Effect.Services<ReturnType<typeof runUserBootstrapScript>>>();
+			return yield* makePluginUserBootstrapDispatcher((run) =>
+				runUserBootstrapScript(run).pipe(Effect.provideContext(context)),
 			);
 		}),
 	},

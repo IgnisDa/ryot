@@ -10,6 +10,7 @@ import { Cause, Clock, Context, Effect, Layer, Option, Schema } from "effect";
 import {
 	SANDBOX_LIMITS,
 	SANDBOX_LOG_TRUNCATION_MARKER,
+	sandboxContextBytes,
 	sandboxContextError,
 } from "../protocol/limits";
 import {
@@ -18,21 +19,16 @@ import {
 	type SidecarDoneFrame,
 } from "../protocol/messages";
 import { SandboxAdmissionLease } from "./admission";
-import { SandboxExecutionAuthority } from "./authority";
 import { bindObservabilityHostFunctions } from "./bridge-adapter";
 import { ExecutionFiles } from "./file-access";
 import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
 import { SandboxHostCallGate } from "./host-call-gate";
-import {
-	sandboxDurableHostDispatchStrategy,
-	sandboxHostResultBytes,
-} from "./host-execution-policy";
+import { sandboxDurableHostDispatchStrategy } from "./host-execution-policy";
 import { SandboxHostFunctions } from "./host-functions";
 import {
 	type BoundHostFunction,
 	sandboxPlatformFailureKind,
 	type SandboxRunInput,
-	toSandboxHostError,
 } from "./invocation";
 import { encodedJsonBytes } from "./json-bytes";
 import { recordSandboxExecution, type SandboxExecutionOutcome, sandboxMetricKind } from "./metrics";
@@ -51,8 +47,8 @@ const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchem
 	onExcessProperty: "error",
 });
 
-// Write capabilities may wait for nested sandbox runs, and unbounded results cannot be
-// charged to transient memory, so live executions never bind them while holding a slot and memory.
+// Service capabilities start nested sandbox runs, which admission refuses inside a host call, so live
+// executions never bind them.
 const resourceFreeStrategies = new Set<ReturnType<typeof sandboxDurableHostDispatchStrategy>>([
 	"activity",
 	"diagnostic",
@@ -70,8 +66,7 @@ export const selectSandboxHostFunctions = (
 			!isSandboxHostCapability(name) ||
 			isSandboxFilesystemGrantCapability(name) ||
 			(workflow && name !== "log" && name !== "span") ||
-			!resourceFreeStrategies.has(sandboxDurableHostDispatchStrategy(name)) ||
-			sandboxHostResultBytes(name) === null
+			!resourceFreeStrategies.has(sandboxDurableHostDispatchStrategy(name))
 		) {
 			continue;
 		}
@@ -91,7 +86,6 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 			const gate = yield* SandboxHostCallGate;
 			const files = yield* ExecutionFiles;
 			const hostFunctions = yield* SandboxHostFunctions;
-			const authority = yield* SandboxExecutionAuthority;
 			const run = Effect.fn("SandboxExecutor.run")(function* (input: SandboxRunInput) {
 				const executionStartedAt = yield* Clock.currentTimeMillis;
 				const kind = sandboxMetricKind(input.principal.metadata);
@@ -109,7 +103,10 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 							? existingLease.value
 							: yield* supervisor.reserve(input.principal, input.lane);
 						const context = input.context ?? {};
-						const contextError = sandboxContextError(context);
+						const contextError = sandboxContextError(
+							context,
+							sandboxContextBytes(input.principal.subject),
+						);
 						if (contextError !== null) {
 							return yield* new SandboxRunError({ kind: "invalid-input", message: contextError });
 						}
@@ -158,18 +155,7 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 											input,
 											parentSpan,
 											files: access,
-											apiFunctions: Object.fromEntries(
-												Object.entries(selected).map(([name, host]) => [
-													name,
-													(args: ReadonlyArray<unknown>) =>
-														authority
-															.resolve(input.principal)
-															.pipe(
-																Effect.mapError(toSandboxHostError),
-																Effect.andThen(host(args)),
-															),
-												]),
-											),
+											apiFunctions: selected,
 										})
 										.pipe(
 											Effect.mapError(
@@ -266,7 +252,11 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 												isObjectRecord(response.value) && response.value["state"] === "completed"
 													? response.value["output"]
 													: response.value;
-											return { response, harvest: yield* access.harvest(completed) };
+											const output =
+												input.activity && isObjectRecord(completed)
+													? completed["output"]
+													: completed;
+											return { response, harvest: yield* access.harvest(output) };
 										}),
 									};
 								}),

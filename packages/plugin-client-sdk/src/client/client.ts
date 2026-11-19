@@ -1,5 +1,6 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { ManagedAssetResolutionBatch } from "@ryot-app/contract/modules/assets/schemas";
+import { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 import {
 	CollectionResponse,
 	type CreateCollectionBody,
@@ -101,6 +102,8 @@ const BackgroundSettlementMessage = Schema.Struct({
 	submissionId: Schema.String,
 	outcome: BackgroundSubmissionOutcome,
 });
+
+const OperationAdapterResult = Schema.Struct({ value: JsonValue, committed: CommittedChanges });
 
 const decodeCapability = <A>(
 	schema: Schema.Codec<A, unknown>,
@@ -820,7 +823,10 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				Output extends Schema.Codec<unknown, unknown>,
 			>(
 				request: OperationInvocation<Input, Output>,
-			): Effect.Effect<Output["Type"], RyotClientError> =>
+			): Effect.Effect<
+				{ readonly output: Output["Type"]; readonly committed: CommittedChanges },
+				RyotClientError
+			> =>
 				Effect.gen(function* () {
 					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
 						request.input,
@@ -829,7 +835,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					if (!invoke) {
 						return yield* new RyotClientError({ reason: "unsupported-capability" });
 					}
-					const value = yield* adapterEffect(() =>
+					const result = yield* adapterEffect(() =>
 						invoke({
 							input,
 							slug: request.slug,
@@ -840,14 +846,12 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 							...(request.submittedAt === undefined ? {} : { submittedAt: request.submittedAt }),
 						}),
 					);
-					if (!isJsonValue(value)) {
-						return yield* new RyotClientError({ reason: "malformed-result" });
-					}
-					const decoded = yield* decodeCapability(request.output, value);
+					const { value, committed } = yield* decodeCapability(OperationAdapterResult, result);
+					const output = yield* decodeCapability(request.output, value);
 					if (request.refreshOnSuccess !== false) {
 						mutationCompleted.hint();
 					}
-					return decoded;
+					return { output, committed };
 				}),
 		},
 	};

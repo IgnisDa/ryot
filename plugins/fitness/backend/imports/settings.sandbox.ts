@@ -1,7 +1,7 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifactRange } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { FitnessSettingsInput, FitnessSettingsOutput } from "./settings";
 
@@ -11,7 +11,7 @@ export const manifest = defineManifest({
 	name: "Read admitted Fitness settings",
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: FitnessSettingsInput,
 	output: FitnessSettingsOutput,
@@ -29,5 +29,5 @@ export default defineScript({
 				throw new Error("Import job is missing timezone");
 			}
 			return { timezone: timezone.trim() };
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

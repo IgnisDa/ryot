@@ -1,11 +1,12 @@
 import type { AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { CHANGE_SET_LIMITS } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import { isCalendarDate } from "@ryot-app/plugin-kit/messages";
 
-import { isCreditRoleCode } from "../../shared/credit-roles";
+import { type MediaAssociation, MediaAssociationSchema } from "../../shared/credit-roles";
 import { catalogMessage } from "../../shared/messages.generated";
 
 type AutomationSignalSnapshot = Extract<
@@ -23,9 +24,7 @@ export const manifest = defineManifest({
 			properties: [
 				"entityName",
 				"subjectName",
-				"associatedName",
-				"role",
-				"roleCode",
+				"associations",
 				"oldStatus",
 				"newStatus",
 				"contentType",
@@ -102,14 +101,6 @@ const calendarDateProperty = (properties: Readonly<Record<string, JsonValue>>, k
 	return value;
 };
 
-const roleCodeProperty = (properties: Readonly<Record<string, JsonValue>>) => {
-	const value = stringProperty(properties, "roleCode");
-	if (!isCreditRoleCode(value)) {
-		throw new Error(`Signal property roleCode has unsupported value ${value}`);
-	}
-	return value;
-};
-
 const contentType = (properties: Readonly<Record<string, JsonValue>>) => {
 	const value = stringProperty(properties, "contentType");
 	if (value !== "chapters" && value !== "episodes") {
@@ -118,27 +109,52 @@ const contentType = (properties: Readonly<Record<string, JsonValue>>) => {
 	return value;
 };
 
+const associationSignalSlugs = new Set([
+	"person.media.associated",
+	"company.media.associated",
+	"person.media-group.associated",
+	"company.media-group.associated",
+]);
+
+const decodeAssociations = Schema.decodeUnknownEffect(Schema.Array(MediaAssociationSchema));
+
+/** One message per association; past the notification limit, the last one counts the rest. */
+const associationMessages = Effect.fnUntraced(function* (
+	properties: Readonly<Record<string, JsonValue>>,
+) {
+	const subjectName = stringProperty(properties, "subjectName");
+	const associations = yield* decodeAssociations(properties["associations"]);
+	const message = (association: MediaAssociation) =>
+		"role" in association
+			? catalogMessage("notification.associated-named-role", {
+					subjectName,
+					role: association.role,
+					associatedName: association.associatedName,
+				})
+			: catalogMessage("notification.associated", {
+					subjectName,
+					role: association.roleCode,
+					associatedName: association.associatedName,
+				});
+	if (associations.length <= CHANGE_SET_LIMITS.notifications) {
+		return associations.map(message);
+	}
+	const listed = associations.slice(0, CHANGE_SET_LIMITS.notifications - 1);
+	return [
+		...listed.map(message),
+		catalogMessage("notification.associated-more", {
+			subjectName,
+			count: associations.length - listed.length,
+		}),
+	];
+});
+
 const notificationMessage = (signal: AutomationSignalSnapshot) => {
 	const { properties } = signal;
 	if (signal.signalSchemaSlug === "review.created") {
 		return catalogMessage("notification.review-created", {
 			entityName: stringProperty(properties, "entityName"),
 		});
-	}
-	if (
-		signal.signalSchemaSlug === "person.media.associated" ||
-		signal.signalSchemaSlug === "person.media-group.associated" ||
-		signal.signalSchemaSlug === "company.media.associated" ||
-		signal.signalSchemaSlug === "company.media-group.associated"
-	) {
-		const names = {
-			subjectName: stringProperty(properties, "subjectName"),
-			associatedName: stringProperty(properties, "associatedName"),
-		};
-		const role = optionalStringProperty(properties, "role");
-		return role === null
-			? catalogMessage("notification.associated", { ...names, role: roleCodeProperty(properties) })
-			: catalogMessage("notification.associated-named-role", { ...names, role });
 	}
 	if (signal.signalSchemaSlug === "media.status.changed") {
 		return catalogMessage("notification.status-changed", {
@@ -230,10 +246,15 @@ const notificationMessage = (signal: AutomationSignalSnapshot) => {
 
 export default defineAutomation({
 	manifest,
-	run: ({ automation }, host) => {
+	run: ({ automation }) => {
 		if (automation.payload.resource !== "signal") {
 			throw new Error("Signal notification requires a signal source");
 		}
-		return host.sendNotification(notificationMessage(automation.payload)).pipe(Effect.as(null));
+		const signal = automation.payload;
+		return (
+			associationSignalSlugs.has(signal.signalSchemaSlug)
+				? associationMessages(signal.properties)
+				: Effect.succeed([notificationMessage(signal)])
+		).pipe(Effect.map((notifications) => ({ changes: { notifications } })));
 	},
 });

@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
+import type { AutomationEntitySnapshot } from "@ryot-app/contract/modules/automations/lifecycle";
 import { automationPolicyInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
-import type { EntityRecord } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -14,7 +14,7 @@ import {
 import definition from "./custom-publish-year-policy.sandbox";
 
 const run = Effect.fnUntraced(function* (
-	properties: EntityRecord["properties"],
+	properties: (typeof AutomationEntitySnapshot.Encoded)["properties"],
 	options: {
 		readonly providerId?: string;
 		readonly entitySchemaSlug?: string;

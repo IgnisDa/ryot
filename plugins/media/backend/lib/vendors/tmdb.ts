@@ -16,9 +16,10 @@ import {
 	type UnknownRecord,
 } from "../records";
 import { createRoleAccumulator, type CreditRole, creditRoleProperties } from "../role-accumulator";
+import { trendingChanges } from "../trending";
 
 export type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
-export type TmdbTrendingHost = TmdbHost & Pick<ScriptHost, "log" | "upsertGlobalEntities">;
+export type TmdbTrendingHost = TmdbHost & Pick<ScriptHost, "log" | "executeRyotql">;
 
 type TmdbImagePurpose = "cover" | "backdrop";
 type TmdbRemoteImage = { url: string; type: "remote"; purpose: TmdbImagePurpose };
@@ -401,25 +402,15 @@ export const runTmdbTrending = (
 			),
 		);
 		if (items === null) {
-			return { status: "failed" } satisfies typeof MediaTrendingProviderOutput.Type;
+			return { output: { status: "failed" } satisfies typeof MediaTrendingProviderOutput.Type };
 		}
-		const results = yield* host.upsertGlobalEntities(
-			items.map(({ name, externalId }) => ({
-				name,
-				externalId,
-				properties: {},
-				populatedAt: null,
-				entitySchemaSlug: options.entitySchemaSlug,
-			})),
-		);
 		return {
-			status: "fetched",
-			entityIds: [
-				...new Set(
-					results.flatMap((result) => (result.status === "upserted" ? [result.entityId] : [])),
-				),
-			],
-		} satisfies typeof MediaTrendingProviderOutput.Type;
+			changes: yield* trendingChanges(host, options.entitySchemaSlug, items),
+			output: {
+				status: "fetched",
+				itemCount: items.length,
+			} satisfies typeof MediaTrendingProviderOutput.Type,
+		};
 	});
 
 export const parseTranslationLanguage = (language: string) => {

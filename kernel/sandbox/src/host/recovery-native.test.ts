@@ -44,9 +44,8 @@ const executionId = (frame: typeof SidecarRunFrame.Type) =>
 		Effect.map((invocation) => invocation.executionId),
 	);
 
-const definition = (slug: string, run: string, kind: "script" | "operation" = "script") =>
+const definition = (slug: string, run: string) =>
 	defineNativeScript(run, {
-		kind,
 		slug,
 		name: "Native recovery",
 		input: "Schema.Struct({ mode: Schema.String })",
@@ -432,7 +431,6 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
   if (input.mode === "park") yield* host.getCachedValue("park");
   return committed;
 })`,
-							"operation",
 						),
 					);
 					const owner = UserId.make(testExecutionId("victim-owner"));

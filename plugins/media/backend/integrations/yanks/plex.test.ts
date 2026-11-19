@@ -63,7 +63,7 @@ const setup = (routes: Record<string, JsonValue>, syncOwnership = true) => {
 		if (carry) {
 			fs.files.set("carry", carry.slice());
 		}
-		const output = yield* runSandboxTestScript(
+		const { output } = yield* runSandboxTestScript(
 			plex,
 			carry ? { ingestionArtifacts: { runId: "run", captures: { carry: "durable-carry" } } } : {},
 			host,

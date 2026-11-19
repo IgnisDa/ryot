@@ -362,7 +362,7 @@ export const AutomationRequestPayload = Schema.Union([
 	...AutomationRelationshipRequestPayload.members,
 ]);
 export type AutomationRequestPayload = typeof AutomationRequestPayload.Type;
-export const AutomationBatchRequestPayload = strictStruct({
+const AutomationBatchRequestPayload = strictStruct({
 	operation: Schema.Literal("batch"),
 	category: Schema.Literal("request"),
 	itemIdentities: Schema.Array(nonEmpty),
@@ -377,7 +377,6 @@ export const AutomationBatchRequestPayload = strictStruct({
 			batch.items.every((item) => item.resource === batch.resource),
 	),
 );
-export type AutomationBatchRequestPayload = typeof AutomationBatchRequestPayload.Type;
 const withPopulation = <Fields extends Schema.Struct.Fields>(member: Schema.Struct<Fields>) =>
 	strictStruct({ ...member.fields, population: Schema.optional(AutomationPopulationContext) });
 const entityChanges = [
@@ -541,21 +540,10 @@ export const AutomationTriggerKind = Schema.Union([
 ]);
 export type AutomationTriggerKind = typeof AutomationTriggerKind.Type;
 
-export const AutomationBlockedReason = strictStruct({
-	hasRequiredHooks: Schema.Boolean,
+const AutomationBlockedReason = strictStruct({
 	code: Schema.Literal("automation-limit-reached"),
 	omittedHooks: Schema.Array(AutomationHookIdentity).pipe(Schema.check(Schema.isMaxLength(100))),
 });
-export type AutomationBlockedReason = typeof AutomationBlockedReason.Type;
-export const AutomationWarning = Schema.Union([
-	strictStruct({
-		runId: AutomationRunId,
-		hookSlug: AutomationHookSlug,
-		code: Schema.Literals(["required-hook-failed", "required-hook-pending"]),
-	}),
-	strictStruct({ ...AutomationBlockedReason.fields, triggerId: AutomationTriggerId }),
-]);
-export type AutomationWarning = typeof AutomationWarning.Type;
 export const AutomationTrigger = strictStruct({
 	id: AutomationTriggerId,
 	createdAt: IsoUtcString,
@@ -589,7 +577,6 @@ export const AutomationRunStatus = Schema.Literals([
 	"running",
 	"succeeded",
 	"failed",
-	"rejected",
 	"skipped",
 ]);
 export type AutomationRunStatus = typeof AutomationRunStatus.Type;
@@ -610,9 +597,7 @@ export const AutomationRunTiming = strictStruct({
 	executionMs: automationDurationMs,
 });
 export type AutomationRunTiming = typeof AutomationRunTiming.Type;
-export const AutomationRunSkipReason = strictStruct({
-	code: Schema.Literals(["user-disabled", "policy-chain-stopped"]),
-});
+export const AutomationRunSkipReason = strictStruct({ code: Schema.Literal("user-disabled") });
 export type AutomationRunSkipReason = typeof AutomationRunSkipReason.Type;
 const runFields = {
 	id: AutomationRunId,
@@ -632,37 +617,19 @@ const runFields = {
 	sandboxScriptId: Schema.NullOr(SandboxScriptId),
 	skipReason: Schema.NullOr(AutomationRunSkipReason),
 };
-const runVariants = <Ownership extends Schema.Struct.Fields>(ownership: Ownership) =>
-	[
-		strictStruct({
-			...runFields,
-			...ownership,
-			retryPolicy: Schema.Null,
-			nextAttemptAt: Schema.Null,
-			stage: Schema.Literal("before"),
-			delivery: Schema.Literal("policy"),
-			attemptCount: natural.pipe(Schema.check(Schema.isLessThanOrEqualTo(1))),
-		}),
-		strictStruct({
-			...runFields,
-			...ownership,
-			stage: Schema.Literal("after"),
-			retryPolicy: AutomationRetryPolicy,
-			delivery: Schema.Literals(["required", "async"]),
-		}),
-	] as const;
-const pluginRunVariants = runVariants({
+const runVariant = <Ownership extends Schema.Struct.Fields>(ownership: Ownership) =>
+	strictStruct({ ...runFields, ...ownership, retryPolicy: AutomationRetryPolicy });
+export const AutomationPluginAfterRun = runVariant({
 	pluginId: PluginId,
 	pluginRevisionId: PluginRevisionId,
 	pluginConfigRevisionId: PluginConfigRevisionId,
 });
-export const AutomationPluginAfterRun = pluginRunVariants[1];
-const kernelRunVariants = runVariants({
+const kernelRun = runVariant({
 	pluginId: Schema.Null,
 	pluginRevisionId: Schema.Null,
 	pluginConfigRevisionId: Schema.Null,
 });
-export const AutomationRun = Schema.Union([...pluginRunVariants, ...kernelRunVariants]).pipe(
+export const AutomationRun = Schema.Union([AutomationPluginAfterRun, kernelRun]).pipe(
 	Schema.check(
 		Schema.makeFilter(
 			(run) =>
@@ -738,8 +705,6 @@ export const AutomationPolicyBatchInput = strictStruct({
 	}),
 });
 export type AutomationPolicyBatchInput = typeof AutomationPolicyBatchInput.Type;
-export const AutomationOutput = JsonValue;
-export type AutomationOutput = typeof AutomationOutput.Type;
 const policyPropertiesPatch = strictStruct({
 	remove: uniqueProjectionNames,
 	set: Schema.Record(projectionName, JsonValue),

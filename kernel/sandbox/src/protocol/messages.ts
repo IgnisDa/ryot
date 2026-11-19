@@ -10,7 +10,7 @@ import { Result, Schema } from "effect";
 import { isBoolean, regExpExec, uncurry } from "../guest/primordials";
 import { KiB, MiB, SANDBOX_LIMITS } from "./limits";
 
-const maxContextBytes = SANDBOX_LIMITS.execution.contextBytes;
+const maxContextBytes = SANDBOX_LIMITS.execution.projectionContextBytes;
 
 const numberIsSafeInteger = Number.isSafeInteger.bind(Number);
 const mathCeil = Math.ceil;

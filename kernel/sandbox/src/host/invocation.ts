@@ -38,6 +38,8 @@ export type SandboxInlineDurableHost = {
 };
 
 export type SandboxRunInput = {
+	/** A `defineActivity` script, whose completed result carries its output in `output`. */
+	readonly activity?: true;
 	readonly context: unknown;
 	readonly startedAt: string;
 	readonly lane: ExecutionLane;

@@ -166,11 +166,13 @@ fn definitions_preserve_validation_manifests_and_failure_phases() {
     assert_eq!(
         completed["value"],
         json!({
-            "results": [
-                { "status": "found", "entityId": "entity-a", "isMediaMonitored": true },
-                { "status": "notFound", "entityId": "missing" },
-                { "status": "found", "entityId": "entity-a", "isMediaMonitored": true }
-            ]
+            "output": {
+                "results": [
+                    { "status": "found", "entityId": "entity-a", "isMediaMonitored": true },
+                    { "status": "notFound", "entityId": "missing" },
+                    { "status": "found", "entityId": "entity-a", "isMediaMonitored": true }
+                ]
+            }
         })
     );
     assert_eq!(completed.as_object().expect("success response").len(), 4);
@@ -254,18 +256,20 @@ fn definition_envelopes_use_done_limit_while_values_keep_the_four_mib_limit() {
 
     let (source, metadata) = compiled_plugin_script("media", "operation.metadata-lookup");
     let mut expected_value = json!({
-        "results": [{
-            "status": "found",
-            "title": "",
-            "data": { "source": "tmdb", "lot": "movie", "identifier": "1" }
-        }]
+        "output": {
+            "results": [{
+                "status": "found",
+                "title": "",
+                "data": { "source": "tmdb", "lot": "movie", "identifier": "1" }
+            }]
+        }
     });
     let prefix_bytes = serde_json::to_string(&expected_value)
         .expect("empty expected definition output")
         .len();
     let title_bytes = RESULT_VALUE_BYTES - prefix_bytes;
     let title = format!("oversize{}", "!".repeat(title_bytes - "oversize".len()));
-    expected_value["results"][0]["title"] = json!(title.clone());
+    expected_value["output"]["results"][0]["title"] = json!(title.clone());
     assert_eq!(
         serde_json::to_string(&expected_value)
             .expect("large expected definition output")

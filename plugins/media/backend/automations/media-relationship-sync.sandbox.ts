@@ -3,7 +3,7 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { refoldLibraryTitles } from "../lib/library-titles";
+import { libraryTitleFolds } from "../lib/library-titles";
 import { getSeasonContext, isSpecialSeason } from "./season-context";
 
 export const manifest = defineManifest({
@@ -26,9 +26,9 @@ export default defineAutomation({
 		Effect.gen(function* () {
 			const source = automation.payload;
 			if (source.resource !== "relationship" || source.operation !== "batch") {
-				return null;
+				return {};
 			}
-			yield* refoldLibraryTitles(
+			const folds = yield* libraryTitleFolds(
 				host,
 				new Set(
 					source.items.map(
@@ -43,7 +43,7 @@ export default defineAutomation({
 			const population = leader?.population;
 			const batch = population?.batch;
 			if (!leader || !population?.rootPreviouslyPopulated || !batch) {
-				return null;
+				return { changes: folds };
 			}
 			const snapshot = leader.operation === "delete" ? leader.before : leader.after;
 			const season = getSeasonContext(population.parentEntity);
@@ -57,12 +57,19 @@ export default defineAutomation({
 				snapshot.relationshipSchemaSlug === "show-to-show-season" &&
 				batch.beforeCount !== batch.afterCount
 			) {
-				return yield* host.emitSignal({
-					properties,
-					discriminator: batch.id,
-					schemaSlug: "media.season-count.changed",
-					subjectEntityId: population.scopeEntity.id,
-				});
+				return {
+					changes: {
+						...folds,
+						signals: [
+							{
+								properties,
+								discriminator: batch.id,
+								schemaSlug: "media.season-count.changed",
+								subjectEntityId: population.scopeEntity.id,
+							},
+						],
+					},
+				};
 			}
 			if (
 				(snapshot.relationshipSchemaSlug === "show-season-to-show-episode" ||
@@ -71,17 +78,24 @@ export default defineAutomation({
 				!isSpecialSeason(season)
 			) {
 				const seasonNumber = season?.seasonNumber;
-				return yield* host.emitSignal({
-					discriminator: batch.id,
-					schemaSlug: "media.episode.discovered",
-					subjectEntityId: population.scopeEntity.id,
-					properties: {
-						...properties,
-						discoveredCount: batch.createdCount,
-						...(seasonNumber === null || seasonNumber === undefined ? {} : { seasonNumber }),
+				return {
+					changes: {
+						...folds,
+						signals: [
+							{
+								discriminator: batch.id,
+								schemaSlug: "media.episode.discovered",
+								subjectEntityId: population.scopeEntity.id,
+								properties: {
+									...properties,
+									discoveredCount: batch.createdCount,
+									...(seasonNumber === null || seasonNumber === undefined ? {} : { seasonNumber }),
+								},
+							},
+						],
 					},
-				});
+				};
 			}
-			return null;
+			return { changes: folds };
 		}),
 });

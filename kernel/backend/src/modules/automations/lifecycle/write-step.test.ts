@@ -26,13 +26,7 @@ const StepWorkflow = Workflow.make("LifecycleWriteStepTestWorkflow", {
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-const execution = Layer.succeed(LifecycleExecution, {
-	dispatch: () => Effect.succeed([]),
-	after: () => Effect.die("unexpected after"),
-	executePolicy: () => Effect.die("unexpected policy"),
-	skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
-	executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
-});
+const execution = Layer.succeed(LifecycleExecution, { dispatch: () => Effect.void });
 
 layer(execution)((test) => {
 	test.effect(
@@ -108,7 +102,7 @@ layer(execution)((test) => {
 			);
 
 			return Effect.gen(function* () {
-				expect(yield* step).toEqual({ warnings: [], result: { committed: "first-transformed" } });
+				expect(yield* step).toEqual({ committed: "first-transformed" });
 				expect(activityRuns).toEqual([
 					"write-record:prepare",
 					"write-record:policy-outcome",

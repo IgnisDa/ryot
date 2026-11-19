@@ -1,6 +1,11 @@
-import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	type ChangeSetEntityReference,
+	existingEntity,
+	type ScriptHost,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { userFitnessLibraryRecipe } from "../../shared/library-recipes";
 import {
@@ -20,23 +25,25 @@ export const pinnedMeasurementMetricIds = (executeRyotql: ExecuteRyotql) =>
 	executeRyotqlRecipe(executeRyotql, pinnedMeasurementMetricIdsRecipe, {});
 export const measurementMetricIds = (limit: number, executeRyotql: ExecuteRyotql) =>
 	executeRyotqlRecipe(executeRyotql, allMeasurementMetricIdsRecipe, {});
-export const changeMeasurementMetricPin = Effect.fn("changeMeasurementMetricPin")(function* (
-	input: { readonly pinned: boolean; readonly metricId: string },
-	host: Pick<ScriptHost, "executeRyotql" | "changeUserRelationships">,
+export const measurementMetricPinChanges = Effect.fn("measurementMetricPinChanges")(function* (
+	input: { readonly pinned: boolean; readonly metric: ChangeSetEntityReference },
+	executeRyotql: ExecuteRyotql,
 ) {
 	const fitnessLibrary = yield* executeRyotqlRecipe(
-		host.executeRyotql,
+		executeRyotql,
 		userFitnessLibraryRecipe({ kind: "self" }),
 		{},
 	);
 	const identity = {
-		sourceEntityId: input.metricId,
-		targetEntityId: fitnessLibrary.entityId,
+		source: input.metric,
 		relationshipSchemaSlug: measurementPinRelationshipSchemaSlug,
+		target: existingEntity(EntityId.make(fitnessLibrary.entityId)),
 	};
-	yield* host.changeUserRelationships([
-		input.pinned
-			? { deletes: [], creates: [{ ...identity, properties: {}, propertiesMode: "merge" }] }
-			: { creates: [], deletes: [identity] },
-	]);
+	return input.pinned
+		? {
+				relationships: {
+					upserts: [{ ...identity, properties: {}, propertiesMode: "merge" as const }],
+				},
+			}
+		: { relationships: { deletes: [identity] } };
 });

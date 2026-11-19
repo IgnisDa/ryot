@@ -1,10 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
-import {
-	definitionKey,
-	definitionOwnerPluginId,
-} from "@ryot-app/contract/modules/plugins/references";
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginRyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	SandboxExecutionSubject,
@@ -15,15 +12,11 @@ import {
 	AutomationExecutionId,
 	AutomationRunId,
 	AutomationTriggerId,
-	EntityId,
-	EntitySchemaSlug,
-	EventId,
 	ImportRunId,
 	IntegrationId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
-	RelationshipId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -33,30 +26,18 @@ import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferenc
 import { fixtureManifest } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { buildDefinitionSnapshot, type DefinitionSource } from "@ryot-app/definitions/snapshot";
-import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { it, layer } from "@voila.dev/effect-bun-test";
+import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Ref, Result } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
-import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
-import { EntityUserDataService } from "#modules/entities/user-data/service";
-import {
-	type DomainLifecycleCommand,
-	DomainWriteChecksLive,
-} from "#modules/entities/write-context";
-import { toSandboxCreateEventsResult } from "#modules/events/script-host";
-import { EventsService } from "#modules/events/service";
 import {
 	ingestionTestRevision,
 	ingestionTestSource,
@@ -68,12 +49,6 @@ import { type IntegrationRecord, IntegrationsRepository } from "#modules/integra
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
-import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
-import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
-import {
-	relationshipMutationLockKey,
-	RelationshipsRepository,
-} from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities";
 import type {
@@ -85,7 +60,6 @@ import {
 	emptyScriptsDigest,
 } from "#modules/scripts/authorization/principal.test-support";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { entitlementsLayer } from "#platform/entitlements.test-support";
 import { user } from "#schema/tables/auth";
@@ -128,19 +102,7 @@ const seededDatabase = Layer.effectDiscard(
 	}),
 ).pipe(Layer.provideMerge(isolatedDatabaseLayer("sandbox_host_functions")));
 
-const hostDatabaseLayer = Layer.mergeAll(
-	seededDatabase,
-	Layer.mock(LifecyclePlanner)(
-		withLifecycleBatchPlanning({
-			plan: ({ trigger }) => Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true }),
-		}),
-	),
-	Layer.mock(LifecycleExecution)({
-		after: () => Effect.succeed([]),
-		dispatch: () => Effect.succeed([]),
-		skipQueuedPolicies: () => Effect.void,
-	}),
-);
+const hostDatabaseLayer = seededDatabase;
 
 type GetForUserInput = { readonly userId: UserId; readonly integrationId: IntegrationId };
 
@@ -226,7 +188,6 @@ const automationSubject = (
 	({
 		stage: "after",
 		pluginId: null,
-		delivery: "required",
 		type: "automation-run",
 		pluginRevisionId: null,
 		pluginConfigRevisionId: null,
@@ -298,57 +259,18 @@ const schemaScopesByRevisionId: Record<string, PluginSchemaScope> = {
 	[workspacePluginRevision.revisionId]: { ...systemPluginScope, entitySchemaSlugs: ["workspace"] },
 };
 
-type EntityScope = {
-	entityId: EntityId;
-	isBuiltin: boolean;
-	entityName: string;
-	entityUserId: null | UserId;
-	entitySchemaSlug: EntitySchemaSlug;
-	entitySchemaPluginId: null | string;
-};
-
-const builtinEntityScope = ({ entityId }: { userId: UserId; entityId: EntityId }) =>
-	Effect.succeed<null | EntityScope>({
-		entityId,
-		isBuiltin: true,
-		entityUserId: null,
-		entityName: "Entity",
-		entitySchemaPluginId: null,
-		entitySchemaSlug: EntitySchemaSlug.make(entityId === "collection-1" ? "collection" : "entity"),
-	});
-
-type RecordedUserDataClear = {
-	readonly userId: UserId;
-	readonly command: DomainLifecycleCommand;
-	readonly payload: { entityId: string; entitySchemaSlug: string };
-};
-type RecordedUserDataMerge = {
-	readonly userId: UserId;
-	readonly command: DomainLifecycleCommand;
-	readonly payload: { mergeFrom: string; mergeInto: string; entitySchemaSlug: string };
-};
-
 class HostFunctionCalls extends Context.Service<
 	HostFunctionCalls,
 	{
 		readonly lookupOrder: Effect.Effect<ReadonlyArray<string>>;
-		readonly eventMutations: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly createdEntities: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly ensuredEntities: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly ryotqlUserCalls: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly ryotqlPluginCalls: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly sourceStateLookups: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly oauthTokenRequests: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly pluginConfigLookups: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly installationLookups: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly userSettingsPatches: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly createdRelationships: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly deletedRelationships: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly oauthTokenInvalidations: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly integrationLookups: Effect.Effect<ReadonlyArray<GetForUserInput>>;
-		readonly useDefinitions: (source: DefinitionSource) => Effect.Effect<void>;
-		readonly userDataMerges: Effect.Effect<ReadonlyArray<RecordedUserDataMerge>>;
-		readonly userDataClears: Effect.Effect<ReadonlyArray<RecordedUserDataClear>>;
 	}
 >()("@ryot-app/kernel-backend/boot/script-host.test/HostFunctionCalls") {}
 
@@ -361,8 +283,6 @@ const hostFunctionsLayer = (
 		readonly definitions?: DefinitionSource;
 		readonly sourceStateUnavailable?: boolean;
 		readonly installationUnavailable?: boolean;
-		readonly forbidRelationshipWrites?: boolean;
-		readonly entityScope?: typeof builtinEntityScope;
 		readonly executionSettings?: (runId: string) => ImportSourceExecutionSettings;
 		readonly pluginConfig?: PluginRuntimeResolver["Service"]["resolvePluginConfigContext"];
 		readonly liveUserSettings?: Record<string, JsonValue> | (() => Record<string, JsonValue>);
@@ -374,20 +294,12 @@ const hostFunctionsLayer = (
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
-			const createdEntities = yield* Ref.make<ReadonlyArray<unknown>>([]);
-			const userDataMerges = yield* Ref.make<ReadonlyArray<RecordedUserDataMerge>>([]);
-			const userDataClears = yield* Ref.make<ReadonlyArray<RecordedUserDataClear>>([]);
-			const ensuredEntities = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const ryotqlUserCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const ryotqlPluginCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const pluginConfigLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
-			const createdRelationships = yield* Ref.make<ReadonlyArray<unknown>>([]);
-			const deletedRelationships = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const integrationLookups = yield* Ref.make<ReadonlyArray<GetForUserInput>>([]);
 			const sourceStateLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const installationLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
-			const userSettingsPatches = yield* Ref.make<ReadonlyArray<unknown>>([]);
-			const eventMutations = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const lookupOrder = yield* Ref.make<ReadonlyArray<string>>([]);
 			const oauthTokenRequests = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const oauthTokenInvalidations = yield* Ref.make<ReadonlyArray<unknown>>([]);
@@ -398,7 +310,6 @@ const hostFunctionsLayer = (
 				workflowEngineTestLayer,
 				hostDatabaseLayer,
 				AuthRepository.layer.pipe(Layer.provide(hostDatabaseLayer)),
-				DomainWriteChecksLive.pipe(Layer.provide(hostDatabaseLayer)),
 				DefinitionCatalog.layer.pipe(Layer.provide(hostDatabaseLayer)),
 				makeAppConfigLayer(),
 				Layer.succeed(
@@ -416,16 +327,6 @@ const hostFunctionsLayer = (
 					}),
 				),
 				entitlementsLayer([]),
-				Layer.mock(EventsService)({
-					updateBatch: (items, userId, command) =>
-						append(eventMutations, { items, userId, command, kind: "update" }).pipe(
-							Effect.as({ warnings: [], count: items.length }),
-						),
-					deleteBatch: (eventIds, userId, command) =>
-						append(eventMutations, { userId, command, eventIds, kind: "delete" }).pipe(
-							Effect.as({ warnings: [], count: eventIds.length }),
-						),
-				}),
 				Layer.mock(SandboxRepository)({
 					resolveWorkflowCallScript:
 						options.resolveWorkflowCallScript ?? (() => Effect.succeed(null)),
@@ -434,23 +335,14 @@ const hostFunctionsLayer = (
 				}),
 				Layer.succeed(HostFunctionCalls, {
 					lookupOrder: Ref.get(lookupOrder),
-					eventMutations: Ref.get(eventMutations),
-					userDataMerges: Ref.get(userDataMerges),
-					userDataClears: Ref.get(userDataClears),
-					createdEntities: Ref.get(createdEntities),
-					ensuredEntities: Ref.get(ensuredEntities),
 					ryotqlUserCalls: Ref.get(ryotqlUserCalls),
 					ryotqlPluginCalls: Ref.get(ryotqlPluginCalls),
 					integrationLookups: Ref.get(integrationLookups),
 					sourceStateLookups: Ref.get(sourceStateLookups),
 					oauthTokenRequests: Ref.get(oauthTokenRequests),
 					installationLookups: Ref.get(installationLookups),
-					userSettingsPatches: Ref.get(userSettingsPatches),
 					pluginConfigLookups: Ref.get(pluginConfigLookups),
-					createdRelationships: Ref.get(createdRelationships),
-					deletedRelationships: Ref.get(deletedRelationships),
 					oauthTokenInvalidations: Ref.get(oauthTokenInvalidations),
-					useDefinitions: (source) => Ref.set(snapshot, buildDefinitionSnapshot(source)),
 				}),
 				Layer.mock(DefinitionRepository)({
 					getSnapshotForContext: () => Ref.get(snapshot),
@@ -525,29 +417,6 @@ const hostFunctionsLayer = (
 							),
 						),
 				}),
-				Layer.mock(PluginUserSettingsWriter)({
-					patch: (input) => append(userSettingsPatches, input),
-				}),
-				Layer.mock(EntityUserDataService)({
-					mergeEntityUserDataForCommand: (userId, payload, command) =>
-						append(userDataMerges, { userId, payload, command }).pipe(
-							Effect.as({
-								...payload,
-								warnings: [],
-								movedEventsCount: 2,
-								movedRelationshipsCount: 3,
-							}),
-						),
-					clearEntityUserDataForCommand: (userId, payload, command) =>
-						append(userDataClears, { userId, payload, command }).pipe(
-							Effect.as({
-								warnings: [],
-								deletedEventsCount: 2,
-								entityId: payload.entityId,
-								deletedRelationshipsCount: 3,
-							}),
-						),
-				}),
 				Layer.mock(OAuthConnectionsService)({
 					accessTokenForIntegrationRun: (input) =>
 						append(oauthTokenRequests, input).pipe(
@@ -601,85 +470,8 @@ const hostFunctionsLayer = (
 							Effect.as(ryotqlResponse),
 						),
 				}),
-				Layer.mock(EntitiesRepository)({
-					lockEntityReferencesByIds: () => Effect.void,
-					getMutationEntities: () => Effect.succeed(new Map()),
-					getEntityScopeForUser: options.entityScope ?? builtinEntityScope,
-					getEntityScopesForUser: (entityIds, userId) =>
-						Effect.forEach(entityIds, (entityId) =>
-							(options.entityScope ?? builtinEntityScope)({ userId, entityId }),
-						).pipe(
-							Effect.map(
-								(scopes) =>
-									new Map(scopes.flatMap((scope) => (scope ? [[scope.entityId, scope]] : []))),
-							),
-						),
-				}),
-				Layer.mock(EntitiesService)({
-					ensureUserEntities: (userId, items, lifecycle) =>
-						Ref.modify(ensuredEntities, (all) => [
-							all.length === 0,
-							[...all, { items, userId, lifecycle }],
-						]).pipe(
-							Effect.map((wasInserted) => [
-								{ wasInserted, warnings: [], entityId: EntityId.make("workspace-id") },
-							]),
-						),
-					create: (input) =>
-						append(createdEntities, input).pipe(
-							Effect.as({
-								warnings: [],
-								entity: {
-									name: input.name,
-									externalId: null,
-									providerId: null,
-									populatedAt: null,
-									properties: input.properties,
-									id: EntityId.make("created-id"),
-									createdAt: "2026-01-01T00:00:00.000Z",
-									updatedAt: "2026-01-01T00:00:00.000Z",
-									entitySchemaSlug: input.entitySchema.slug,
-									entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
-								},
-							}),
-						),
-				}),
-				Layer.mock(RelationshipsRepository)({
-					findRelationship: () => Effect.succeed(null),
-					lockRelationshipMutations: () => Effect.void,
-					findRelationships: () => Effect.succeed(new Map()),
-					updateRelationshipsById: () => Effect.succeed(new Map()),
-					deleteRelationshipsById: (ids) =>
-						Effect.forEach(ids, (id) => append(deletedRelationships, id), { discard: true }).pipe(
-							Effect.as(new Map()),
-						),
-					createRelationships: (inputs) =>
-						options.forbidRelationshipWrites && inputs.length > 0
-							? Effect.die("must not write")
-							: Effect.forEach(inputs, (input) =>
-									append(createdRelationships, input).pipe(
-										Effect.as([
-											relationshipMutationLockKey(input),
-											{
-												...input,
-												wasInserted: true,
-												createdAt: "2026-07-28T00:00:00.000Z",
-												updatedAt: "2026-07-28T00:00:00.000Z",
-												id: RelationshipId.make("relationship-1"),
-												relationshipSchemaPluginId:
-													input.relationshipSchemaPluginId === null
-														? null
-														: PluginId.make(input.relationshipSchemaPluginId),
-											},
-										] as const),
-									),
-								).pipe(Effect.map((saved) => new Map(saved))),
-				}),
 			);
-			return Layer.mergeAll(
-				RelationshipMutationPipeline.layer,
-				Layer.succeed(UserCommands, { commit: () => Effect.die("Unexpected atomic command") }),
-			).pipe(Layer.provideMerge(dependencies));
+			return dependencies;
 		}),
 	);
 
@@ -689,56 +481,6 @@ const runGetCurrentIntegration = (subject: SandboxExecutionSubject) =>
 			Effect.result(functions.getCurrentIntegration(runInput(subject))),
 		),
 	);
-
-describe("event mutation capabilities", () => {
-	layer(hostFunctionsLayer())((test) => {
-		test.effect(
-			"binds update and delete batches to the trusted execution user",
-			() =>
-				Effect.gen(function* () {
-					const functions = yield* makeAdditionalScriptHostFunctions;
-					const trustedUser = UserId.make("trusted-user");
-					const updateItems = [{ eventId: "event-1", patch: { entityId: "entity-1" } }];
-					expect(
-						yield* functions.updateEvents(
-							runInput({ type: "user", userId: trustedUser }, ["updateEvents"]),
-							updateItems,
-						),
-					).toEqual({ count: 1 });
-					expect(
-						yield* functions.deleteEvents(
-							runInput(automationSubject({ kind: "api" }), ["deleteEvents"]),
-							["event-2"],
-						),
-					).toEqual({ count: 1 });
-					expect(yield* (yield* HostFunctionCalls).eventMutations).toMatchObject([
-						{
-							kind: "update",
-							items: updateItems,
-							userId: trustedUser,
-							command: {
-								itemIdentity: "updateEvents",
-								causation: { source: "api", initiator: { kind: "user", id: trustedUser } },
-							},
-						},
-						{
-							kind: "delete",
-							eventIds: ["event-2"],
-							userId: UserId.make("user-1"),
-							command: {
-								itemIdentity: "deleteEvents",
-								causation: {
-									source: "automation",
-									initiator: { kind: "user", id: UserId.make("user-1") },
-								},
-							},
-						},
-					]);
-				}),
-			testTimeout,
-		);
-	});
-});
 
 describe("getUserPreferences", () => {
 	layer(hostFunctionsLayer())((test) => {
@@ -1317,6 +1059,39 @@ describe("getUserSettings", () => {
 			testTimeout,
 		);
 	});
+	layer(
+		hostFunctionsLayer({
+			executionSettings: () => ({
+				userSettings: { timezone: "x".repeat(SANDBOX_LIMITS.userSettingsBytes) },
+			}),
+		}),
+	)((test) => {
+		test.effect(
+			"rejects settings larger than the sandbox bound",
+			() =>
+				Effect.gen(function* () {
+					const functions = yield* makeAdditionalScriptHostFunctions;
+					const result = yield* Effect.result(
+						functions.getUserSettings({
+							...runInput(
+								{
+									type: "user",
+									userId: UserId.make("user-1"),
+									importRunId: ImportRunId.make("run-1"),
+								},
+								["getUserSettings"],
+								{ pluginRevision: ingestionTestRevision },
+							),
+							executionId: "run-1-import-host-1",
+						}),
+					);
+					expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
+						`Plugin user settings exceed ${SANDBOX_LIMITS.userSettingsBytes} UTF-8 bytes`,
+					);
+				}),
+			testTimeout,
+		);
+	});
 	layer(hostFunctionsLayer({ sourceStateRunId: "run-1" }))((test) => {
 		test.effect(
 			"rejects a run ID that does not own the accepted settings snapshot",
@@ -1404,129 +1179,6 @@ const runGetPluginConfig = (principalFacts: Partial<ScriptExecutionPrincipal>) =
 			),
 		),
 	);
-
-const settingsUserId = UserId.make("user-1");
-const settingsUserSubject = {
-	type: "user",
-	userId: settingsUserId,
-} satisfies SandboxExecutionSubject;
-const settingsWriteInput = (
-	subject: SandboxExecutionSubject,
-	principalFacts: Parameters<typeof runInput>[2] = { pluginRevision: systemPluginRevision },
-	capabilities: readonly string[] = ["updateUserSettings"],
-) => runInput(subject, capabilities, principalFacts);
-
-describe("updateUserSettings", () => {
-	layer(hostFunctionsLayer())((test) => {
-		test.effect(
-			"patches the calling plugin's installation for the execution user",
-			() =>
-				Effect.gen(function* () {
-					const functions = yield* makeAdditionalScriptHostFunctions;
-					expect(
-						yield* functions.updateUserSettings(
-							{
-								...settingsWriteInput(settingsUserSubject),
-								context: { userId: "other-user", pluginId: "other-plugin" },
-							},
-							{ timezone: "Europe/Paris" },
-						),
-					).toEqual({ saved: true });
-					expect(yield* (yield* HostFunctionCalls).userSettingsPatches).toEqual([
-						{
-							userId: settingsUserId,
-							accountUserId: settingsUserId,
-							pluginId: systemPluginRevision.id,
-							values: { timezone: "Europe/Paris" },
-							pluginRevisionId: systemPluginRevision.revisionId,
-						},
-					]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer())((test) => {
-		test.effect(
-			"rejects executions that cannot own a user settings write",
-			() =>
-				Effect.gen(function* () {
-					const functions = yield* makeAdditionalScriptHostFunctions;
-					const unavailable =
-						"Plugin user settings cannot be written by integration, import, or bootstrap executions";
-					const cases = [
-						{
-							message: "updateUserSettings is not declared by this script",
-							input: settingsWriteInput(
-								settingsUserSubject,
-								{ pluginRevision: systemPluginRevision },
-								["getUserSettings"],
-							),
-						},
-						{
-							input: settingsWriteInput(automationSubject({ kind: "api" })),
-							message: "updateUserSettings is available only to user executions",
-						},
-						{
-							input: settingsWriteInput({ type: "system" }),
-							message: "updateUserSettings is not available for system executions",
-						},
-						{
-							input: settingsWriteInput(settingsUserSubject, {}),
-							message: "Plugin user settings require a plugin execution",
-						},
-						{
-							message: unavailable,
-							input: settingsWriteInput({
-								...settingsUserSubject,
-								integrationId: IntegrationId.make("int-1"),
-							}),
-						},
-						{
-							message: unavailable,
-							input: settingsWriteInput({
-								...settingsUserSubject,
-								importRunId: ImportRunId.make("run-1"),
-							}),
-						},
-						{
-							message: unavailable,
-							input: settingsWriteInput({
-								...settingsUserSubject,
-								integrationRunId: ImportRunId.make("run-1"),
-							}),
-						},
-						{
-							message: unavailable,
-							input: settingsWriteInput(settingsUserSubject, {
-								metadata: { kind: "script", capabilities: ["updateUserSettings"] },
-								pluginRevision: { ...systemPluginRevision, userBootstrapScriptSlugs: ["script"] },
-							}),
-						},
-						{
-							message: unavailable,
-							input: settingsWriteInput(settingsUserSubject, {
-								pluginRevision: systemPluginRevision,
-								initialization: { activationId: "activation-1", installationId: "installation-1" },
-							}),
-						},
-					];
-					for (const { input, message } of cases) {
-						const failure = yield* Effect.flip(
-							functions.updateUserSettings(input, { timezone: "UTC" }),
-						);
-						expect(failure.message).toBe(message);
-						expect(failure.data).toEqual({
-							code: "unavailable-operation",
-							operation: "updateUserSettings",
-						});
-					}
-					expect(yield* (yield* HostFunctionCalls).userSettingsPatches).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-});
 
 describe("getPluginConfig", () => {
 	layer(hostFunctionsLayer({ pluginConfig: () => Effect.succeed({ apiToken: "pinned-value" }) }))(
@@ -1772,685 +1424,4 @@ describe("executeRyotql", () => {
 			testTimeout,
 		);
 	});
-});
-
-const runChangeUserRelationships = (
-	subject: SandboxExecutionSubject,
-	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
-) =>
-	makeAdditionalScriptHostFunctions.pipe(
-		Effect.flatMap((functions) =>
-			Effect.result(functions.changeUserRelationships(runInput(subject), batches)),
-		),
-	);
-
-describe("changeUserRelationships", () => {
-	const identity = {
-		sourceEntityId: "entity-1",
-		targetEntityId: "collection-1",
-		relationshipSchemaSlug: "member-of",
-	};
-	const batch = {
-		deletes: [],
-		creates: [{ ...identity, properties: {}, propertiesMode: "replace" as const }],
-	};
-
-	layer(hostFunctionsLayer())((test) => {
-		test.effect(
-			"derives the relationship owner from direct user subject",
-			() =>
-				Effect.gen(function* () {
-					const result = yield* runChangeUserRelationships(
-						{ type: "user", userId: UserId.make("trusted-user") },
-						[batch],
-					);
-
-					expect(Result.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
-					expect(yield* (yield* HostFunctionCalls).createdRelationships).toEqual([
-						{
-							scope: "user",
-							userId: "trusted-user",
-							properties: { rank: 0 },
-							propertiesMode: "replace",
-							sourceEntityId: "entity-1",
-							targetEntityId: "collection-1",
-							relationshipSchemaPluginId: null,
-							relationshipSchemaSlug: "member-of",
-							relationshipSchema: { slug: "member-of", owner: { kind: "kernel" } },
-						},
-					]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer())((test) => {
-		test.effect(
-			"derives the relationship owner from subscription subject",
-			() =>
-				Effect.gen(function* () {
-					const result = yield* runChangeUserRelationships(automationSubject({ kind: "api" }), [
-						batch,
-					]);
-
-					expect(Result.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
-					expect(yield* (yield* HostFunctionCalls).createdRelationships).toEqual([
-						{
-							scope: "user",
-							userId: "user-1",
-							properties: { rank: 0 },
-							propertiesMode: "replace",
-							sourceEntityId: "entity-1",
-							targetEntityId: "collection-1",
-							relationshipSchemaPluginId: null,
-							relationshipSchemaSlug: "member-of",
-							relationshipSchema: { slug: "member-of", owner: { kind: "kernel" } },
-						},
-					]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer())((test) => {
-		test.effect(
-			"does not write an absent relationship delete",
-			() =>
-				Effect.gen(function* () {
-					const result = yield* runChangeUserRelationships(
-						{ type: "user", userId: UserId.make("trusted-user") },
-						[{ creates: [], deletes: [identity] }],
-					);
-
-					expect(Result.getOrThrow(result)).toEqual([{ created: 0, deleted: 0 }]);
-					expect(yield* (yield* HostFunctionCalls).deletedRelationships).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(
-		hostFunctionsLayer({
-			forbidRelationshipWrites: true,
-			entityScope: ({ userId, entityId }) =>
-				entityId === "collection-1" && userId === "user-1"
-					? Effect.succeed(null)
-					: Effect.succeed({
-							entityId,
-							isBuiltin: true,
-							entityUserId: null,
-							entityName: "Entity",
-							entitySchemaPluginId: null,
-							entitySchemaSlug: EntitySchemaSlug.make("entity"),
-						}),
-		}),
-	)((test) => {
-		test.effect(
-			"rejects a subscription relationship with an endpoint invisible to its user",
-			() =>
-				Effect.gen(function* () {
-					const result = yield* runChangeUserRelationships(automationSubject({ kind: "api" }), [
-						batch,
-					]);
-
-					expect(Result.getFailure(result)).toMatchObject(
-						Option.some({
-							message: "entity-not-found",
-							data: { code: "entity-not-found", entityIds: ["entity-1", "collection-1"] },
-						}),
-					);
-					expect(yield* (yield* HostFunctionCalls).createdRelationships).toHaveLength(0);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer({ forbidRelationshipWrites: true }))((test) => {
-		test.effect(
-			"rejects system subject and total change overflow before writing",
-			() =>
-				Effect.gen(function* () {
-					const overflow = Array.from({ length: 501 }, () => identity);
-					const system = yield* runChangeUserRelationships({ type: "system" }, [batch]);
-					const tooMany = yield* runChangeUserRelationships(
-						{ type: "user", userId: UserId.make("trusted-user") },
-						[{ creates: [], deletes: overflow }],
-					);
-
-					const systemFailure = Option.getOrThrow(Result.getFailure(system));
-					expect(systemFailure.message).toContain("not available for system executions");
-					expect(systemFailure.data).toEqual({
-						code: "unavailable-operation",
-						operation: "changeUserRelationships",
-					});
-					expect(Result.getFailure(tooMany)).toEqual(
-						Option.some({ message: "changeUserRelationships exceeds 500 changes" }),
-					);
-					expect(yield* (yield* HostFunctionCalls).createdRelationships).toHaveLength(0);
-				}),
-			testTimeout,
-		);
-	});
-});
-
-const workspaceDefinitions = (schemaPluginId: string = systemPluginRevision.id) => ({
-	savedViews: [],
-	signalSchemas: [],
-	calendarSources: [],
-	relationshipSchemas: [],
-	entitySchemas: [
-		{
-			icon: "box",
-			eventSchemas: [],
-			slug: "workspace",
-			pluginId: schemaPluginId,
-			mergeIdentityProperties: [],
-			name: { key: "test.workspace" },
-			propertiesSchema: { fields: {} },
-		},
-	],
-});
-
-const runEnsureUserEntities = (options: {
-	caller: true | null;
-	outsidePinnedScope?: true;
-	subject: SandboxExecutionSubject;
-	allowedHostFunctions?: readonly string[];
-}) =>
-	makeAdditionalScriptHostFunctions.pipe(
-		Effect.flatMap((functions) =>
-			Effect.result(
-				functions.ensureUserEntities(
-					runInput(options.subject, options.allowedHostFunctions, {
-						pluginRevision: options.caller
-							? {
-									...(options.outsidePinnedScope ? systemPluginRevision : workspacePluginRevision),
-									userBootstrapScriptSlugs: ["script"],
-								}
-							: null,
-					}),
-					[{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
-				),
-			),
-		),
-	);
-
-const runCreateUserEntity = (
-	overrides: Partial<ScriptRunInput> = {},
-	omitWorkflowIdentity = false,
-) =>
-	makeAdditionalScriptHostFunctions.pipe(
-		Effect.flatMap((functions) => {
-			const input = {
-				...runInput({ type: "user", userId: UserId.make("trusted-user") }, ["createUserEntity"], {
-					pluginRevision: workspacePluginRevision,
-				}),
-				...overrides,
-			};
-			const { workflowExecutionId: _workflowExecutionId, ...withoutIdentity } = input;
-			return functions.createUserEntity(omitWorkflowIdentity ? withoutIdentity : input, {
-				name: "Another workspace",
-				entitySchemaSlug: "workspace",
-				properties: { key: "another" },
-			});
-		}),
-	);
-
-describe("createUserEntity", () => {
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"uses the trusted user and durable command without bootstrap singleton semantics",
-			() =>
-				Effect.gen(function* () {
-					expect(yield* runCreateUserEntity()).toEqual<unknown>({ entityId: "created-id" });
-					expect(yield* runCreateUserEntity({ hostCallDiscriminator: 1 })).toEqual<unknown>({
-						entityId: "created-id",
-					});
-					expect(yield* (yield* HostFunctionCalls).createdEntities).toMatchObject([
-						{
-							scope: "user",
-							userId: "trusted-user",
-							name: "Another workspace",
-							properties: { key: "another" },
-							entitySchema: {
-								slug: "workspace",
-								owner: { kind: "plugin", pluginId: systemPluginRevision.id },
-							},
-							lifecycle: {
-								itemIdentity: "createUserEntity",
-								causation: { lane: "interactive", executionId: "workflow-1-host-0" },
-							},
-						},
-						{ lifecycle: { causation: { executionId: "workflow-1-host-1" } } },
-					]);
-					expect(yield* (yield* HostFunctionCalls).ensuredEntities).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"rejects undeclared, system, unpinned and foreign-schema writes before creating",
-			() =>
-				Effect.gen(function* () {
-					const subject = { type: "user", userId: UserId.make("trusted-user") } as const;
-					const pinned = workspacePluginRevision;
-					for (const principal of [
-						runInput(subject, [], { pluginRevision: pinned }).principal,
-						runInput({ type: "system" }, ["createUserEntity"], { pluginRevision: pinned })
-							.principal,
-						runInput(subject, ["createUserEntity"]).principal,
-						runInput(subject, ["createUserEntity"], { pluginRevision: systemPluginRevision })
-							.principal,
-					]) {
-						const error = yield* Effect.flip(runCreateUserEntity({ principal }));
-						expect(error.data).toEqual({
-							code: "unavailable-operation",
-							operation: "createUserEntity",
-						});
-					}
-					yield* (yield* HostFunctionCalls).useDefinitions(workspaceDefinitions("foreign-plugin"));
-					const error = yield* Effect.flip(runCreateUserEntity());
-					expect(error.data).toEqual({
-						code: "unavailable-operation",
-						operation: "createUserEntity",
-					});
-					expect(yield* (yield* HostFunctionCalls).createdEntities).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"requires durable host-call identity before writing",
-			() =>
-				Effect.gen(function* () {
-					const error = yield* Effect.flip(runCreateUserEntity({}, true));
-					expect(error.message).toBe("Lifecycle writes require a trusted durable host call");
-					expect(yield* (yield* HostFunctionCalls).createdEntities).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-});
-
-const runMergeUserEntityData = (
-	overrides: Partial<ScriptRunInput> = {},
-	item: { mergeFrom: string; mergeInto: string; entitySchemaSlug: string } = {
-		mergeFrom: "from-1",
-		mergeInto: "into-1",
-		entitySchemaSlug: "workspace",
-	},
-) =>
-	makeAdditionalScriptHostFunctions.pipe(
-		Effect.flatMap((functions) =>
-			functions.mergeUserEntityData(
-				{
-					...runInput(
-						{ type: "user", userId: UserId.make("trusted-user") },
-						["mergeUserEntityData"],
-						{ pluginRevision: workspacePluginRevision },
-					),
-					...overrides,
-				},
-				item,
-			),
-		),
-	);
-
-describe("mergeUserEntityData", () => {
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"merges under the sandbox principal as a kernel collection command",
-			() =>
-				Effect.gen(function* () {
-					const functions = yield* makeAdditionalScriptHostFunctions;
-					const input = runInput(
-						{ type: "user", userId: UserId.make("trusted-user") },
-						["mergeUserEntityData"],
-						{ pluginRevision: workspacePluginRevision },
-					);
-					expect(
-						yield* functions.mergeUserEntityData(input, {
-							mergeFrom: "from-1",
-							mergeInto: "into-1",
-							entitySchemaSlug: "workspace",
-						}),
-					).toEqual({ movedEventsCount: 2, movedRelationshipsCount: 3 });
-					const [merge] = yield* (yield* HostFunctionCalls).userDataMerges;
-					expect(merge).toMatchObject({
-						userId: "trusted-user",
-						command: { kernelCollection: true, itemIdentity: "mergeUserEntityData" },
-						payload: { mergeFrom: "from-1", mergeInto: "into-1", entitySchemaSlug: "workspace" },
-					});
-					expect(merge?.command.writeContext).toBe(input.principal);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"rejects undeclared, system, unpinned and foreign-schema merges",
-			() =>
-				Effect.gen(function* () {
-					const subject = { type: "user", userId: UserId.make("trusted-user") } as const;
-					const pinned = workspacePluginRevision;
-					for (const principal of [
-						runInput(subject, [], { pluginRevision: pinned }).principal,
-						runInput({ type: "system" }, ["mergeUserEntityData"], { pluginRevision: pinned })
-							.principal,
-					]) {
-						const error = yield* Effect.flip(runMergeUserEntityData({ principal }));
-						expect(error.data).toEqual({
-							code: "unavailable-operation",
-							operation: "mergeUserEntityData",
-						});
-					}
-					const unpinned = yield* Effect.flip(
-						runMergeUserEntityData({
-							principal: runInput(subject, ["mergeUserEntityData"]).principal,
-						}),
-					);
-					expect(unpinned).toEqual({ message: "Entity merge requires a pinned plugin" });
-					for (const entitySchemaSlug of ["collection", "other"]) {
-						const error = yield* Effect.flip(
-							runMergeUserEntityData(
-								{},
-								{ entitySchemaSlug, mergeFrom: "from-1", mergeInto: "into-1" },
-							),
-						);
-						expect(error.data).toEqual({
-							code: "unavailable-operation",
-							operation: "mergeUserEntityData",
-						});
-					}
-					yield* (yield* HostFunctionCalls).useDefinitions(workspaceDefinitions("foreign-plugin"));
-					const foreign = yield* Effect.flip(runMergeUserEntityData());
-					expect(foreign.data).toEqual({
-						code: "unavailable-operation",
-						operation: "mergeUserEntityData",
-					});
-					expect(yield* (yield* HostFunctionCalls).userDataMerges).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-});
-
-const runClearUserEntityData = (
-	overrides: Partial<ScriptRunInput> = {},
-	item: { entityId: string; entitySchemaSlug: string } = {
-		entityId: "entity-1",
-		entitySchemaSlug: "workspace",
-	},
-) =>
-	makeAdditionalScriptHostFunctions.pipe(
-		Effect.flatMap((functions) =>
-			functions.clearUserEntityData(
-				{
-					...runInput(
-						{ type: "user", userId: UserId.make("trusted-user") },
-						["clearUserEntityData"],
-						{ pluginRevision: workspacePluginRevision },
-					),
-					...overrides,
-				},
-				item,
-			),
-		),
-	);
-
-describe("clearUserEntityData", () => {
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"clears under the sandbox principal",
-			() =>
-				Effect.gen(function* () {
-					const functions = yield* makeAdditionalScriptHostFunctions;
-					const userId = UserId.make("trusted-user");
-					const input = runInput({ userId, type: "user" }, ["clearUserEntityData"], {
-						pluginRevision: workspacePluginRevision,
-					});
-					expect(
-						yield* functions.clearUserEntityData(input, {
-							entityId: "entity-1",
-							entitySchemaSlug: "workspace",
-						}),
-					).toEqual({ deletedEventsCount: 2, deletedRelationshipsCount: 3 });
-					const [clear] = yield* (yield* HostFunctionCalls).userDataClears;
-					expect(clear).toMatchObject({
-						userId,
-						payload: { entityId: "entity-1", entitySchemaSlug: "workspace" },
-						command: { kernelCollection: true, itemIdentity: "clearUserEntityData" },
-					});
-					expect(clear?.command.writeContext).toBe(input.principal);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"rejects invalid subjects, unpinned plugins, and foreign schemas",
-			() =>
-				Effect.gen(function* () {
-					const subject = { type: "user", userId: UserId.make("trusted-user") } as const;
-					const pinned = workspacePluginRevision;
-					for (const principal of [
-						runInput(subject, [], { pluginRevision: pinned }).principal,
-						runInput({ type: "system" }, ["clearUserEntityData"], { pluginRevision: pinned })
-							.principal,
-						runInput(automationSubject({ kind: "api" }), ["clearUserEntityData"], {
-							pluginRevision: pinned,
-						}).principal,
-					]) {
-						const error = yield* Effect.flip(runClearUserEntityData({ principal }));
-						expect(error.data).toEqual({
-							code: "unavailable-operation",
-							operation: "clearUserEntityData",
-						});
-					}
-					const unpinned = yield* Effect.flip(
-						runClearUserEntityData({
-							principal: runInput(subject, ["clearUserEntityData"]).principal,
-						}),
-					);
-					expect(unpinned).toEqual({ message: "Entity clearing requires a pinned plugin" });
-					for (const entitySchemaSlug of ["collection", "other"]) {
-						const error = yield* Effect.flip(
-							runClearUserEntityData({}, { entitySchemaSlug, entityId: "entity-1" }),
-						);
-						expect(error.data).toEqual({
-							code: "unavailable-operation",
-							operation: "clearUserEntityData",
-						});
-					}
-					yield* (yield* HostFunctionCalls).useDefinitions(workspaceDefinitions("foreign-plugin"));
-					const foreign = yield* Effect.flip(runClearUserEntityData());
-					expect(foreign.data).toEqual({
-						code: "unavailable-operation",
-						operation: "clearUserEntityData",
-					});
-					expect(yield* (yield* HostFunctionCalls).userDataClears).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-});
-
-describe("ensureUserEntities", () => {
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"binds the direct user and preserves first-create/idempotent results",
-			() =>
-				Effect.gen(function* () {
-					const run = runEnsureUserEntities({
-						caller: true,
-						subject: { type: "user", userId: UserId.make("trusted-user") },
-					});
-					expect(Result.getOrThrow(yield* run)).toEqual<unknown>([
-						{ wasInserted: true, entityId: "workspace-id" },
-					]);
-					expect(Result.getOrThrow(yield* run)).toEqual<unknown>([
-						{ wasInserted: false, entityId: "workspace-id" },
-					]);
-					expect(yield* (yield* HostFunctionCalls).ensuredEntities).toMatchObject([
-						{
-							userId: "trusted-user",
-							items: [
-								{
-									properties: {},
-									name: "Workspace",
-									entitySchema: {
-										slug: "workspace",
-										owner: { kind: "plugin", pluginId: systemPluginRevision.id },
-									},
-								},
-							],
-						},
-						{
-							userId: "trusted-user",
-							items: [
-								{
-									properties: {},
-									name: "Workspace",
-									entitySchema: {
-										slug: "workspace",
-										owner: { kind: "plugin", pluginId: systemPluginRevision.id },
-									},
-								},
-							],
-						},
-					]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"rejects delegated, system, untrusted, and foreign-schema executions",
-			() =>
-				Effect.gen(function* () {
-					const trusted = true as const;
-					const delegated = yield* runEnsureUserEntities({
-						caller: trusted,
-						subject: automationSubject({ kind: "api" }),
-					});
-					const system = yield* runEnsureUserEntities({
-						caller: trusted,
-						subject: { type: "system" },
-					});
-					const untrusted = yield* runEnsureUserEntities({
-						caller: null,
-						subject: { type: "user", userId: UserId.make("user-1") },
-					});
-					yield* (yield* HostFunctionCalls).useDefinitions(
-						workspaceDefinitions("sample-plugin-id"),
-					);
-					const foreign = yield* runEnsureUserEntities({
-						caller: trusted,
-						subject: { type: "user", userId: UserId.make("user-1") },
-					});
-
-					for (const [result, message] of [
-						[delegated, "available only to user executions"],
-						[system, "not available for system executions"],
-						[untrusted, "available only to pinned user bootstrap scripts"],
-					] as const) {
-						const failure = Option.getOrThrow(Result.getFailure(result));
-						expect(failure.message).toContain(message);
-						expect(failure.data).toEqual({
-							code: "unavailable-operation",
-							operation: "ensureUserEntities",
-						});
-					}
-					expect(Result.getFailure(foreign)).toEqual(
-						Option.some({
-							message: "ensureUserEntities cannot write foreign entity schema: workspace",
-						}),
-					);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"rejects a current same-plugin schema outside the pinned bootstrap scope",
-			() =>
-				Effect.gen(function* () {
-					const result = yield* runEnsureUserEntities({
-						caller: true,
-						outsidePinnedScope: true,
-						subject: { type: "user", userId: UserId.make("user-1") },
-					});
-
-					expect(Result.getFailure(result)).toEqual<unknown>(
-						Option.some({
-							message: "ensureUserEntities cannot write foreign entity schema: workspace",
-						}),
-					);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
-		test.effect(
-			"refuses a private script that declares the capability",
-			() =>
-				Effect.gen(function* () {
-					const declared = yield* runEnsureUserEntities({
-						caller: null,
-						allowedHostFunctions: ["ensureUserEntities"],
-						subject: { type: "user", userId: UserId.make("owner-1") },
-					});
-
-					const failure = Option.getOrThrow(Result.getFailure(declared));
-					expect(failure.message).toContain("available only to pinned user bootstrap scripts");
-					expect(failure.data).toEqual({
-						code: "unavailable-operation",
-						operation: "ensureUserEntities",
-					});
-				}),
-			testTimeout,
-		);
-	});
-});
-
-describe("toSandboxCreateEventsResult", () => {
-	it.effect(
-		"preserves policy failures and earlier committed event IDs at the sandbox host boundary",
-		() =>
-			Effect.gen(function* () {
-				const result = yield* Effect.result(
-					toSandboxCreateEventsResult({
-						count: 1,
-						warnings: [],
-						outcomes: [{ index: 0, status: "written", eventId: EventId.make("committed-event") }],
-						failure: {
-							index: 1,
-							reason: { code: "policy-execution-failed", runId: AutomationRunId.make("run-1") },
-						},
-					}),
-				);
-
-				expect(Result.getFailure(result)).toEqual<unknown>(
-					Option.some({
-						message: "Event creation failed: policy-execution-failed",
-						data: {
-							count: 1,
-							partial: true,
-							code: "policy-execution-failed",
-							outcomes: [{ index: 0, status: "written", eventId: "committed-event" }],
-						},
-					}),
-				);
-			}),
-		testTimeout,
-	);
 });

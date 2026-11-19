@@ -11,19 +11,8 @@ import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { sandboxInlineDurableCapabilities } from "@ryot-app/sandbox/host/host-execution-policy";
 import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import {
-	Context,
-	Duration,
-	Effect,
-	Exit,
-	Layer,
-	Option,
-	Schedule,
-	Schema,
-	type Scope,
-} from "effect";
+import { Duration, Effect, Exit, Layer, Option, Schedule, Schema } from "effect";
 import { Activity, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -54,6 +43,7 @@ const SandboxExecutionQueuePayload = Schema.Struct({
 	workflowExecutionId: Schema.String,
 	principal: ScriptExecutionPrincipal,
 	checkpoint: Schema.optional(jsonValueSchema),
+	activity: Schema.optional(Schema.Literal(true)),
 	grants: Schema.optional(SandboxExecutionGrants),
 	recoveryAttempt: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
 });
@@ -170,39 +160,12 @@ export const settledSandboxReplay = Effect.fn("settledSandboxReplay")(function* 
 
 export type SandboxExecutionResolutionMode = "exact" | "active";
 
-export type SandboxAdmission =
-	| "queued"
-	| "direct"
-	| { readonly lane: ExecutionLane; readonly lease: SandboxAdmissionLease["Service"] };
-
-/** A direct run reached work that only `ScriptExecutionWorkflow`'s queue and replay loop can wait for. */
-export class DirectScriptDeferred extends Schema.TaggedError<
-	DirectScriptDeferred,
-	{ readonly brand: unique symbol }
->()("DirectScriptDeferred", {}) {}
-
-// A direct run may be nested in a parked isolate's host call, and a parked isolate keeps its admission lease, so
-// it never waits long for one: two parked parents waiting on each other's leases would deadlock.
-const DIRECT_ADMISSION_WAIT = Duration.millis(SANDBOX_LIMITS.replay.shortWaitMs);
 const QUEUED_ADMISSION_RETRY = Schedule.spaced(Duration.millis(100)).pipe(Schedule.jittered);
-
-// An inline batch keeps its lane's transient pool, which fits one batch, until its host calls settle. A script
-// nested in one of those calls could never get a batch on that lane while its parent waits for it.
-export const HeldInlineBatch = Context.Reference<null | ExecutionLane>(
-	"@ryot-app/kernel-backend/modules/scripts/executions/queues/HeldInlineBatch",
-	{ defaultValue: () => null },
-);
-
-const otherLane = (lane: ExecutionLane): ExecutionLane =>
-	lane === "interactive" ? "background" : "interactive";
 
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionQueuePayload,
-	admission: SandboxAdmission = "queued",
 ) {
-	const held = yield* HeldInlineBatch;
-	const unreservedLane = held === payload.lane ? otherLane(held) : payload.lane;
-	const lane = typeof admission === "object" ? admission.lane : unreservedLane;
+	const { lane } = payload;
 	yield* Effect.annotateCurrentSpan({
 		executionId: payload.executionId,
 		scriptId: payload.principal.scriptId,
@@ -224,26 +187,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			if (inspection === null) {
 				return yield* new SandboxProjectionMissing();
 			}
-			let reservation: Effect.Effect<
-				SandboxAdmissionLease["Service"],
-				SandboxRunError | DirectScriptDeferred,
-				Scope.Scope
-			> = sandbox.reserve(payload.principal, lane);
-			if (typeof admission === "object") {
-				reservation = Effect.succeed(admission.lease);
-			} else if (admission === "direct") {
-				reservation = reservation.pipe(
-					Effect.timeoutOrElse({
-						duration: DIRECT_ADMISSION_WAIT,
-						orElse: () => Effect.fail(new DirectScriptDeferred()),
-					}),
-					Effect.catchIf(
-						(error) => error instanceof SandboxRunError && error.kind === "resource-unavailable",
-						() => Effect.fail(new DirectScriptDeferred()),
-					),
-				);
-			}
-			const lease = yield* reservation;
+			const lease = yield* sandbox.reserve(payload.principal, lane);
 			const replayJournal = pinSandboxJournal(session, payload.workflowExecutionId, inspection);
 
 			const artifact = yield* artifacts.get(payload.principal);
@@ -276,9 +220,11 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 					compiledCode: artifact.compiledCode,
 					compiledFormat: artifact.compiledFormat,
 					workflowExecutionId: payload.workflowExecutionId,
+					...(payload.activity ? { activity: true } : {}),
 					...(grants ? { grants } : {}),
 					inlineDurableHost: {
 						capabilities: inlineCapabilities,
+						// Host calls run on the resident sidecar's fibers, which keep the job that started it.
 						settle: (requests, wait, checkpoint) =>
 							carry(
 								dispatcher.settleInline(
@@ -291,11 +237,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 									wait,
 									checkpoint,
 								),
-							).pipe(
-								Effect.provideService(HeldInlineBatch, lane),
-								// Host calls run on the resident sidecar's fibers, which keep the job that started it.
-								Effect.provideService(CurrentJobId, jobId),
-							),
+							).pipe(Effect.provideService(CurrentJobId, jobId)),
 					},
 				})
 				.pipe(Effect.provideService(SandboxAdmissionLease, lease), Effect.exit);
@@ -347,12 +289,10 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			),
 		),
 	);
-	// A full queue rejects a reservation before anything runs, so a caller that can wait tries again.
-	return yield* admission === "queued"
-		? execution.pipe(
-				Effect.retry({ while: isAdmissionQueueFull, schedule: QUEUED_ADMISSION_RETRY }),
-			)
-		: execution;
+	// A full queue rejects a reservation before anything runs, so the replay tries again.
+	return yield* execution.pipe(
+		Effect.retry({ while: isAdmissionQueueFull, schedule: QUEUED_ADMISSION_RETRY }),
+	);
 });
 
 export const sandboxLaneCapacity = (workerConcurrency: number) => ({

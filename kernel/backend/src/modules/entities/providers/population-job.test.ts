@@ -8,7 +8,6 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
-	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
@@ -52,7 +51,6 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { workflowAccountsTestLayer } from "#testing/effect";
 
-import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
 	EntityPopulationJob,
@@ -169,10 +167,7 @@ class FakePopulationWrites extends Context.Service<
 
 const populationLayer = (options: {
 	readonly rootPlans?: ReadonlyArray<LifecyclePlan>;
-	readonly dispatch: (plans: DispatchedPlans) => {
-		readonly entry: string;
-		readonly warnings: Effect.Success<ReturnType<LifecycleExecution["Service"]["dispatch"]>>;
-	};
+	readonly dispatch: (plans: DispatchedPlans) => string;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -323,42 +318,19 @@ const populationLayer = (options: {
 					processSandbox: (_payload, _executionId, level) =>
 						record(`details:${level}`).pipe(Effect.as(sandboxResult)),
 				}),
-				Layer.succeed(LifecycleExecution, {
-					after: () => Effect.die("unexpected after"),
-					executePolicy: () => Effect.die("unexpected policy"),
-					skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
-					executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
-					dispatch: (plans) => {
-						const { entry, warnings } = options.dispatch(plans);
-						return record(entry).pipe(Effect.as(warnings));
-					},
-				}),
+				Layer.succeed(LifecycleExecution, { dispatch: (plans) => record(options.dispatch(plans)) }),
 				Layer.succeed(FakePopulationWrites, { payload, recorded: Ref.get(recorded) }),
 			);
 		}),
 	).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
-const blocked = {
-	omittedHooks: [],
-	hasRequiredHooks: true,
-	code: "automation-limit-reached" as const,
-};
-
 layer(
-	Layer.merge(
-		recordLogAnnotationsLayer("automation warnings"),
-		populationLayer({
-			dispatch: (plans) => ({
-				entry: `dispatch:${plans.map(({ triggerId }) => triggerId).join(",")}`,
-				warnings: plans.some(({ triggerId }) => triggerId === "root-upsert")
-					? [{ ...blocked, triggerId: AutomationTriggerId.make("root-upsert") }]
-					: [],
-			}),
-		}),
-	),
+	populationLayer({
+		dispatch: (plans) => `dispatch:${plans.map(({ triggerId }) => triggerId).join(",")}`,
+	}),
 )((test) => {
 	test.effect(
-		"dispatches each population write between activities and logs blocked hooks",
+		"dispatches each population write between activities",
 		() =>
 			Effect.gen(function* () {
 				const payload = (yield* FakePopulationWrites).payload;
@@ -380,10 +352,6 @@ layer(
 								"dispatch:child-entity,entities-batch,relationships",
 								"related-stamp",
 							]);
-							const warningLogs = yield* (yield* RecordedLogAnnotations).annotations;
-							expect(warningLogs.map((annotations) => annotations["phase"])).toEqual([
-								"root-upsert",
-							]);
 						}),
 					),
 					Effect.asVoid,
@@ -393,7 +361,7 @@ layer(
 	);
 });
 
-layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+layer(populationLayer({ dispatch: () => "dispatch" }))((test) => {
 	test.effect(
 		"refuses a non-root schema without a child its parent populated",
 		() =>
@@ -412,7 +380,7 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 	);
 });
 
-layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+layer(populationLayer({ dispatch: () => "dispatch" }))((test) => {
 	test.effect(
 		"persists the root and children at base level, ignores returned related groups, and stamps only populated_at",
 		() =>
@@ -505,7 +473,7 @@ const existingRequestFixture = Effect.fnUntraced(function* (
 	};
 });
 
-layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+layer(populationLayer({ dispatch: () => "dispatch" }))((test) => {
 	test.effect(
 		"attaches an existing stub before details fail so exact-entity retry lookup finds the request",
 		() =>
@@ -583,7 +551,7 @@ const runFailing = (
 		),
 	);
 
-layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+layer(populationLayer({ dispatch: () => "dispatch" }))((test) => {
 	test.effect(
 		"leaves infrastructure and timeout failures to the job's next attempt, then settles as failed",
 		() =>

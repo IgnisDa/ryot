@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaCsv } from "./collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
@@ -12,7 +13,7 @@ export const manifest = defineManifest({
 	name: "Parse Goodreads import",
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
@@ -23,5 +24,5 @@ export default defineScript({
 				eventOffset + 128 < normalizeReadCount(parseCsvText(text).rows[0]?.["Read Count"] ?? "")
 					? eventOffset + 128
 					: 0,
-		})),
+		})).pipe(Effect.map((output) => ({ output }))),
 });

@@ -9,15 +9,12 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	entityRecord,
-	entitySchemaProvider,
-	entitySchemaRecord,
 	eventAutomationContext,
-	hostFailure,
 	hostSuccess,
 	httpFailure,
 	httpSuccess,
+	integrationPushRyotql,
 	integrationRecord,
-	ryotqlRows,
 	toRecord,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./jellyfin-push.sandbox";
@@ -25,12 +22,7 @@ import definition, { manifest } from "./jellyfin-push.sandbox";
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 type JellyfinHost = Pick<
 	ScriptHost,
-	| "log"
-	| "httpCall"
-	| "executeRyotql"
-	| "getEntitySchemas"
-	| "listIntegrations"
-	| "getUserPreferences"
+	"log" | "httpCall" | "executeRyotql" | "listIntegrations" | "getUserPreferences"
 >;
 
 const movieEntity = entityRecord({
@@ -46,10 +38,7 @@ const jellyfinIntegration = integrationRecord({
 	providerSpecifics: { username: "ryot", password: "secret", baseUrl: "http://jellyfin.local" },
 });
 
-const schema = entitySchemaRecord({
-	id: "es-movie",
-	providers: [entitySchemaProvider("movie.tmdb", "script-movie-tmdb")],
-});
+const providerSlugs = { "script-movie-tmdb": "movie.tmdb" };
 
 const createAutomation = (overrides: Parameters<typeof eventAutomationContext>[0] = {}) =>
 	eventAutomationContext({
@@ -98,14 +87,11 @@ const createHost = (options: {
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
-		getEntitySchemas: () => hostSuccess([schema]),
 		log: options.log ?? (() => Effect.succeed(null)),
-		listIntegrations: () => hostSuccess(options.integrations ?? []),
+		executeRyotql: integrationPushRyotql(options.entity, providerSlugs),
+		listIntegrations: () => hostSuccess({ nextCursor: null, items: options.integrations ?? [] }),
 		getUserPreferences: () =>
 			hostSuccess({ disableIntegrations: options.disableIntegrations ?? false }),
-		executeRyotql: () => {
-			return options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure();
-		},
 	});
 
 describe("jellyfin-push sandbox script", () => {
@@ -194,7 +180,7 @@ describe("jellyfin-push sandbox script", () => {
 					),
 				});
 				const result = yield* runAutomation(host);
-				expect(result).toBeNull();
+				expect(result).toEqual({});
 				expect(warnings).toEqual([
 					[
 						{

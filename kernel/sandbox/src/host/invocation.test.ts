@@ -74,19 +74,20 @@ describe("selectSandboxHostFunctions", () => {
 		const functions = Object.fromEntries(
 			SANDBOX_HOST_CAPABILITIES.map((capability) => [capability, () => Effect.void]),
 		);
-		for (const capability of [
-			"createEvents",
-			"updateEvents",
-			"deleteEvents",
-			"listIntegrations",
-			"sendNotification",
-			"getEntitySchemas",
-			"changeUserRelationships",
-		] as const) {
-			expect(selectSandboxHostFunctions(functions, input)).not.toHaveProperty(capability);
+		const selected = selectSandboxHostFunctions(functions, input);
+		for (const capability of ["invokeCapability", "scratch", "artifact-read"] as const) {
+			expect(selected).not.toHaveProperty(capability);
 		}
-		expect(selectSandboxHostFunctions(functions, input)).toHaveProperty("httpCall");
-		expect(selectSandboxHostFunctions(functions, input)).toHaveProperty("getCachedValue");
+		for (const capability of [
+			"httpCall",
+			"getCachedValue",
+			"getPluginConfig",
+			"listIntegrations",
+			"getOAuthAccessToken",
+			"getCurrentIntegration",
+		] as const) {
+			expect(selected).toHaveProperty(capability);
+		}
 	});
 });
 

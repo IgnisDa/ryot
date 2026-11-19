@@ -1,6 +1,4 @@
-import { UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
 import type {
-	AutomationSandboxHostCapability,
 	CoreSandboxHostCapability,
 	DomainSandboxHostCapability,
 	FilesystemGrantSandboxCapability,
@@ -12,56 +10,7 @@ import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, type JsonValue, jsonValueSchema, type SandboxHostError } from "../wire";
 import { verifyManagedAssetsArgsSchema, verifyManagedAssetsResultSchema } from "./assets";
-import {
-	emitSignalArgsSchema,
-	emitSignalDataSchema,
-	emitSignalResultSchema,
-	sendNotificationArgsSchema,
-} from "./automation";
-import {
-	clearUserEntityDataArgsSchema,
-	clearUserEntityDataDataSchema,
-	clearUserEntityDataResultSchema,
-	createUserEntityArgsSchema,
-	createUserEntityDataSchema,
-	createUserEntityResultSchema,
-	deleteUserEntityArgsSchema,
-	deleteUserEntityDataSchema,
-	deleteUserEntityResultSchema,
-	ensureUserEntitiesArgsSchema,
-	ensureUserEntitiesDataSchema,
-	ensureUserEntitiesResultSchema,
-	entitySchemaRecordSchema,
-	getEntitySchemasArgsSchema,
-	getEntitySchemasResultSchema,
-	mergeUserEntityDataArgsSchema,
-	mergeUserEntityDataDataSchema,
-	mergeUserEntityDataResultSchema,
-	updateUserEntityArgsSchema,
-	updateUserEntityDataSchema,
-	updateUserEntityResultSchema,
-	upsertGlobalEntitiesArgsSchema,
-	upsertGlobalEntitiesDataSchema,
-	upsertGlobalEntitiesResultSchema,
-} from "./entities";
 import { getEntitlementsArgsSchema, getEntitlementsResultSchema } from "./entitlements";
-import {
-	createEventsArgsSchema,
-	createEventsResultDataSchema,
-	createEventsResultSchema,
-	deleteEventsArgsSchema,
-	deleteEventsResultDataSchema,
-	deleteEventsResultSchema,
-	listEventSchemasArgsSchema,
-	listEventSchemasDataSchema,
-	listEventSchemasResultSchema,
-	requestFoldsArgsSchema,
-	requestFoldsDataSchema,
-	requestFoldsResultSchema,
-	updateEventsArgsSchema,
-	updateEventsResultDataSchema,
-	updateEventsResultSchema,
-} from "./events";
 import { httpCallArgsSchema, httpCallResponseSchema, httpCallResultSchema } from "./http";
 import {
 	getCurrentIntegrationArgsSchema,
@@ -77,14 +26,6 @@ import {
 	oauthAccessTokenSchema,
 } from "./integrations";
 import { logArgsSchema, logResultSchema, spanArgsSchema, spanResultSchema } from "./logging";
-import {
-	changeUserRelationshipsArgsSchema,
-	changeUserRelationshipsDataSchema,
-	changeUserRelationshipsResultSchema,
-	upsertGlobalRelationshipsArgsSchema,
-	upsertGlobalRelationshipsDataSchema,
-	upsertGlobalRelationshipsResultSchema,
-} from "./relationships";
 import {
 	executeRyotqlArgsSchema,
 	executeRyotqlDataSchema,
@@ -107,12 +48,8 @@ import {
 	setCachedValueArgsSchema,
 	setCachedValueDataSchema,
 	setCachedValueResultSchema,
-	updateUserSettingsArgsSchema,
-	updateUserSettingsDataSchema,
-	updateUserSettingsResultSchema,
 	userPreferencesSchema,
 } from "./state";
-import { commitUserChangesArgsSchema, commitUserChangesResultSchema } from "./user-commands";
 
 type GetPluginConfigArgs = Schema.Schema.Type<typeof getPluginConfigArgsSchema>[0];
 type GetConfig = <const Keys extends GetPluginConfigArgs>(
@@ -175,11 +112,6 @@ export const coreSandboxHostContracts = {
 		args: claimPersistentValueArgsSchema,
 		result: claimPersistentValueResultSchema,
 	},
-	updateUserSettings: {
-		args: updateUserSettingsArgsSchema,
-		success: updateUserSettingsDataSchema,
-		result: updateUserSettingsResultSchema,
-	},
 } as const;
 export type CoreSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
 	typeof coreSandboxHostContracts
@@ -202,115 +134,30 @@ type SandboxHostMethodMapFromContracts<Contracts extends Record<string, SandboxH
 	) => Effect.Effect<Contracts[Capability]["success"]["Type"], SandboxHostError>;
 };
 export const domainSandboxHostContracts = {
-	requestFolds: {
-		args: requestFoldsArgsSchema,
-		success: requestFoldsDataSchema,
-		result: requestFoldsResultSchema,
-	},
 	executeRyotql: {
 		args: executeRyotqlArgsSchema,
 		success: executeRyotqlDataSchema,
 		result: executeRyotqlResultSchema,
-	},
-	createEvents: {
-		args: createEventsArgsSchema,
-		result: createEventsResultSchema,
-		success: createEventsResultDataSchema,
-	},
-	updateEvents: {
-		args: updateEventsArgsSchema,
-		result: updateEventsResultSchema,
-		success: updateEventsResultDataSchema,
-	},
-	deleteEvents: {
-		args: deleteEventsArgsSchema,
-		result: deleteEventsResultSchema,
-		success: deleteEventsResultDataSchema,
-	},
-	commitUserChanges: {
-		success: UserCommandResult,
-		args: commitUserChangesArgsSchema,
-		result: commitUserChangesResultSchema,
-	},
-	requestFoldsForAllUsers: {
-		args: requestFoldsArgsSchema,
-		success: requestFoldsDataSchema,
-		result: requestFoldsResultSchema,
-	},
-	listEventSchemas: {
-		args: listEventSchemasArgsSchema,
-		success: listEventSchemasDataSchema,
-		result: listEventSchemasResultSchema,
 	},
 	listIntegrations: {
 		args: listIntegrationsArgsSchema,
 		success: listIntegrationsDataSchema,
 		result: listIntegrationsResultSchema,
 	},
-	createUserEntity: {
-		args: createUserEntityArgsSchema,
-		success: createUserEntityDataSchema,
-		result: createUserEntityResultSchema,
-	},
-	deleteUserEntity: {
-		args: deleteUserEntityArgsSchema,
-		success: deleteUserEntityDataSchema,
-		result: deleteUserEntityResultSchema,
-	},
-	updateUserEntity: {
-		args: updateUserEntityArgsSchema,
-		success: updateUserEntityDataSchema,
-		result: updateUserEntityResultSchema,
-	},
 	getOAuthAccessToken: {
 		success: oauthAccessTokenSchema,
 		args: getOAuthAccessTokenArgsSchema,
 		result: getOAuthAccessTokenResultSchema,
-	},
-	ensureUserEntities: {
-		args: ensureUserEntitiesArgsSchema,
-		success: ensureUserEntitiesDataSchema,
-		result: ensureUserEntitiesResultSchema,
-	},
-	mergeUserEntityData: {
-		args: mergeUserEntityDataArgsSchema,
-		success: mergeUserEntityDataDataSchema,
-		result: mergeUserEntityDataResultSchema,
-	},
-	clearUserEntityData: {
-		args: clearUserEntityDataArgsSchema,
-		success: clearUserEntityDataDataSchema,
-		result: clearUserEntityDataResultSchema,
 	},
 	getCurrentIntegration: {
 		success: integrationRecordSchema,
 		args: getCurrentIntegrationArgsSchema,
 		result: getCurrentIntegrationResultSchema,
 	},
-	getEntitySchemas: {
-		args: getEntitySchemasArgsSchema,
-		result: getEntitySchemasResultSchema,
-		success: Schema.Array(entitySchemaRecordSchema),
-	},
 	invalidateOAuthAccessToken: {
 		success: Schema.Null,
 		args: invalidateOAuthAccessTokenArgsSchema,
 		result: invalidateOAuthAccessTokenResultSchema,
-	},
-	upsertGlobalEntities: {
-		args: upsertGlobalEntitiesArgsSchema,
-		success: upsertGlobalEntitiesDataSchema,
-		result: upsertGlobalEntitiesResultSchema,
-	},
-	changeUserRelationships: {
-		args: changeUserRelationshipsArgsSchema,
-		success: changeUserRelationshipsDataSchema,
-		result: changeUserRelationshipsResultSchema,
-	},
-	upsertGlobalRelationships: {
-		args: upsertGlobalRelationshipsArgsSchema,
-		success: upsertGlobalRelationshipsDataSchema,
-		result: upsertGlobalRelationshipsResultSchema,
 	},
 	invokeCapability: {
 		success: jsonValueSchema,
@@ -327,40 +174,15 @@ export type DomainSandboxHostImplementationMap<Context> = {
 		...args: Parameters<DomainSandboxHostMethodMap[Capability]>
 	) => ReturnType<DomainSandboxHostMethodMap[Capability]>;
 };
-export const automationSandboxHostContracts = {
-	emitSignal: {
-		args: emitSignalArgsSchema,
-		success: emitSignalDataSchema,
-		result: emitSignalResultSchema,
-	},
-	sendNotification: {
-		success: Schema.Null,
-		args: sendNotificationArgsSchema,
-		result: hostResultSchema(Schema.Null),
-	},
-} as const;
 export const sandboxHostContracts = {
 	...coreSandboxHostContracts,
 	...domainSandboxHostContracts,
-	...automationSandboxHostContracts,
 } as const satisfies Record<
 	Exclude<SandboxHostCapability, FilesystemGrantSandboxCapability>,
 	SandboxHostContract
 >;
-export type AutomationSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
-	typeof automationSandboxHostContracts
->;
 export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
-	DomainSandboxHostImplementationMap<Context> &
-	AutomationSandboxHostImplementationMap<Context>;
-export type SandboxHostMethodMap = DomainSandboxHostMethodMap &
-	AutomationSandboxHostMethodMap & { readonly getPluginConfig: GetConfig } & Omit<
-		CoreSandboxHostMethodMap,
-		"getPluginConfig"
-	>;
-export type AutomationSandboxHostImplementationMap<Context> = {
-	readonly [Capability in AutomationSandboxHostCapability]: (
-		context: Context,
-		...args: Parameters<AutomationSandboxHostMethodMap[Capability]>
-	) => ReturnType<AutomationSandboxHostMethodMap[Capability]>;
-};
+	DomainSandboxHostImplementationMap<Context>;
+export type SandboxHostMethodMap = DomainSandboxHostMethodMap & {
+	readonly getPluginConfig: GetConfig;
+} & Omit<CoreSandboxHostMethodMap, "getPluginConfig">;

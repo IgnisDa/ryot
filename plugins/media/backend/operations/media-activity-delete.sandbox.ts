@@ -1,24 +1,13 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, OperationConflictError } from "@ryot-app/plugin-backend-sdk/operation";
 
 import {
 	MediaActivityDeleteInput,
-	MediaActivityLogOutput,
+	MediaActivityEditOutput,
 } from "../../shared/media-activity-operations";
 import { catalogMessage } from "../../shared/messages.generated";
-import {
-	activityCombinations,
-	loadEditTargets,
-	MEDIA_EDIT_CHUNK_SIZE,
-	rejectAnyHostFailure,
-	writePrecondition,
-} from "./media-activity-edits";
-
-const chunked = (ids: readonly string[]) =>
-	Array.from({ length: Math.ceil(ids.length / MEDIA_EDIT_CHUNK_SIZE) }, (_, index) =>
-		ids.slice(index * MEDIA_EDIT_CHUNK_SIZE, (index + 1) * MEDIA_EDIT_CHUNK_SIZE),
-	);
+import { activityCombinations, deleteTargetChanges, loadEditTargets } from "./media-activity-edits";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -28,37 +17,22 @@ export const manifest = defineManifest({
 
 export default defineOperation({
 	manifest,
-	output: MediaActivityLogOutput,
+	output: MediaActivityEditOutput,
 	input: MediaActivityDeleteInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const chunks = chunked(input.eventIds);
-			for (const chunk of chunks) {
-				yield* loadEditTargets(
-					host,
-					chunk,
-					activityCombinations,
-					catalogMessage("rejection.record.activity-only-delete"),
-				);
+			const targets = yield* loadEditTargets(
+				host,
+				input.eventIds,
+				activityCombinations,
+				catalogMessage("rejection.record.activity-only-delete"),
+			);
+			const output = { count: targets.length };
+			if (targets.length === 0) {
+				return input.expected === undefined
+					? { output }
+					: yield* new OperationConflictError({ conflict: "event-not-found" });
 			}
-			const [onlyId] = input.eventIds;
-			const expected =
-				input.expected === undefined || onlyId === undefined
-					? {}
-					: { expected: { [onlyId]: writePrecondition(input.expected) } };
-			let count = 0;
-			for (const [index, chunk] of chunks.entries()) {
-				const written = yield* host.deleteEvents(chunk, expected).pipe(
-					Effect.map((result) => ({ ...result, failed: false })),
-					Effect.catch((error) =>
-						index === 0 ? rejectAnyHostFailure(error) : Effect.succeed({ count: 0, failed: true }),
-					),
-				);
-				if (written.failed) {
-					return { count, status: "incomplete" as const };
-				}
-				count += written.count;
-			}
-			return { count, status: "saved" as const };
+			return { output, changes: deleteTargetChanges(targets, input.expected) };
 		}),
 });

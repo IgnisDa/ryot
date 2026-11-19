@@ -1,6 +1,6 @@
 import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { readMediaCapture } from "../../imports/collection";
 import {
@@ -194,9 +194,10 @@ export const runYoutubeMusicYank = (
 		);
 	});
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: YankInput,
-	run: runYoutubeMusicYank,
 	output: IntegrationWindowOutput,
+	run: (input, host, execution) =>
+		runYoutubeMusicYank(input, host, execution).pipe(Effect.map((output) => ({ output }))),
 });

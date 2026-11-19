@@ -23,7 +23,12 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
-import { FoldMarks, type FoldSource } from "#modules/derived-values/marks";
+import {
+	type FoldEventRow,
+	FoldMarks,
+	type FoldSource,
+	readFoldEvents,
+} from "#modules/derived-values/marks";
 import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
@@ -173,6 +178,14 @@ export const lockEventReferences = (
 			);
 };
 
+const eventSourceSelection = {
+	userId: schema.event.userId,
+	entityId: schema.event.entityId,
+	sessionEntityId: schema.event.sessionEntityId,
+	eventSchemaSlug: schema.event.eventSchemaSlug,
+	eventSchemaPluginId: schema.event.eventSchemaPluginId,
+};
+
 export class EventsRepository extends Context.Service<EventsRepository>()(
 	"@ryot-app/kernel-backend/modules/events/repository/EventsRepository",
 	{
@@ -239,25 +252,18 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				}
 				const rows = yield* session.run((db) =>
 					db
-						.select({
-							userId: schema.event.userId,
-							entityId: schema.event.entityId,
-							sessionEntityId: schema.event.sessionEntityId,
-							eventSchemaSlug: schema.event.eventSchemaSlug,
-							eventSchemaPluginId: schema.event.eventSchemaPluginId,
-						})
+						.select(eventSourceSelection)
 						.from(schema.event)
-						.where(
-							or(
-								inArray(schema.event.id, ids),
-								inArray(
-									schema.event.id,
-									db
-										.select({ id: schema.eventReference.referencingEventId })
-										.from(schema.eventReference)
-										.where(inArray(schema.eventReference.referencedEventId, ids)),
-								),
-							),
+						.where(inArray(schema.event.id, ids))
+						.unionAll(
+							db
+								.select(eventSourceSelection)
+								.from(schema.eventReference)
+								.innerJoin(
+									schema.event,
+									eq(schema.event.id, schema.eventReference.referencingEventId),
+								)
+								.where(inArray(schema.eventReference.referencedEventId, ids)),
 						),
 				);
 				return [...sources, ...rows.map(eventSourceOf)];
@@ -265,27 +271,21 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 			const getEventForMutation = Effect.fn("EventsRepository.getEventForMutation")(function* (
 				input: EventIdentityInput,
 			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select({
-							id: schema.event.id,
-							userId: schema.event.userId,
-							revision: schema.event.revision,
-							entityId: schema.event.entityId,
-							properties: schema.event.properties,
-							occurredAt: schema.event.occurredAt,
-							eventSchemaSlug: schema.event.eventSchemaSlug,
-							sessionEntityId: schema.event.sessionEntityId,
-							eventSchemaPluginId: schema.event.eventSchemaPluginId,
-						})
-						.from(schema.event)
-						.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId)))
-						.limit(1),
+				const [row] = yield* readFoldEvents(
+					session,
+					sql`v.id = ${input.eventId} and v.user_id = ${input.userId}`,
 				);
 				return row ?? null;
 			});
-			const touchEventMutation = (input: { after: EventSource; before: EventSource }) =>
-				folds.mark([input.before, input.after]);
+			const touchEventMutation = (input: { before: FoldEventRow; after: null | EventSource }) =>
+				folds.mark([
+					{
+						after: input.after,
+						before: input.before,
+						eventId: input.before.id,
+						userId: input.before.userId,
+					},
+				]);
 			const writeReferences = Effect.fn("EventsRepository.writeReferences")(function* (
 				rows: ReadonlyArray<{
 					userId: string;
@@ -370,47 +370,30 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 							and r.referenced_event_id = c."referencedEventId"`),
 				);
 				const matches = referenceMatches(cleared);
-				const referrers = yield* session.run((db) =>
-					db.execute<{
-						userId: string;
-						entityId: string;
-						eventSchemaSlug: string;
-						sessionEntityId: null | string;
-						eventSchemaPluginId: null | string;
-					}>(
-						sql`select e.user_id as "userId", e.entity_id as "entityId",
-							e.session_entity_id as "sessionEntityId", e.event_schema_slug as "eventSchemaSlug",
-							e.event_schema_plugin_id as "eventSchemaPluginId"
-						from event e where e.id in (select id from (${matches}) m)`,
-						"objects",
-					),
+				const referrers = yield* readFoldEvents(
+					session,
+					sql`v.id in (select id from (${matches}) m)`,
 				);
 				if (referrers.length === 0) {
 					return;
 				}
 				yield* lockEventReferences(session, referrers.map(eventSourceOf));
 				const updatedAt = yield* DateTime.nowAsDate;
-				const updated = yield* session.run((db) =>
-					db.execute<{
-						userId: string;
-						entityId: string;
-						eventSchemaSlug: string;
-						sessionEntityId: null | string;
-						eventSchemaPluginId: null | string;
-					}>(
-						sql`update event set properties = event.properties - m.properties,
-							revision = event.revision + 1, updated_at = ${updatedAt}
+				yield* session.run((db) =>
+					db.execute(sql`update event set properties = event.properties - m.properties,
+						revision = event.revision + 1, updated_at = ${updatedAt}
 						from (${matches}) m
-						where event.id = m.id
-						returning event.user_id as "userId", event.entity_id as "entityId",
-							event.session_entity_id as "sessionEntityId",
-							event.event_schema_slug as "eventSchemaSlug",
-							event.event_schema_plugin_id as "eventSchemaPluginId"`,
-						"objects",
-					),
+						where event.id = m.id`),
 				);
-				yield* touchScopes(updated);
-				yield* folds.mark(updated.map(eventSourceOf));
+				yield* touchScopes(referrers);
+				yield* folds.mark(
+					referrers.map((before) => ({
+						before,
+						eventId: before.id,
+						userId: before.userId,
+						after: eventSourceOf(before),
+					})),
+				);
 			});
 			const releaseReferences = Effect.fn("EventsRepository.releaseReferences")(function* (
 				eventId: string,
@@ -567,7 +550,14 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					yield* touchScopes(
 						fresh.map((input) => ({ ...input, sessionEntityId: input.sessionEntityId ?? null })),
 					);
-					yield* folds.mark(fresh.map(eventSourceOf));
+					yield* folds.mark(
+						fresh.map((input) => ({
+							before: null,
+							eventId: input.id,
+							userId: input.userId,
+							after: eventSourceOf(input),
+						})),
+					);
 				}
 				return created;
 			});
@@ -728,7 +718,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 				if (row) {
 					yield* touchScopes([current]);
-					yield* touchEventMutation({ after: streamKey, before: streamKey });
+					yield* touchEventMutation({ after: null, before: current });
 					yield* releaseReferences(row.id);
 				}
 
@@ -759,7 +749,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 				if (row) {
 					yield* touchScopes([current]);
-					yield* touchEventMutation({ after: streamKey, before: streamKey });
+					yield* touchEventMutation({ after: null, before: current });
 					yield* releaseReferences(row.id);
 				}
 
@@ -822,7 +812,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 										: current.sessionEntityId,
 							},
 						]);
-						yield* touchEventMutation({ after: afterKey, before: beforeKey });
+						yield* touchEventMutation({ after: afterKey, before: current });
 					}
 
 					return row ? EventId.make(row.id) : null;
@@ -897,7 +887,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 							sessionEntityId: input.draft.sessionEntityId,
 						},
 					]);
-					yield* touchEventMutation({ after: afterKey, before: beforeKey });
+					yield* touchEventMutation({ after: afterKey, before: current });
 				}
 
 				return row ? EventId.make(row.id) : null;
@@ -985,6 +975,25 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				}
 				return snapshots;
 			});
+			const getEventOwners = Effect.fn("EventsRepository.getEventOwners")(function* (
+				eventIds: ReadonlyArray<EventId>,
+			) {
+				const rows = yield* Effect.forEach(
+					chunksOf([...new Set(eventIds)], STATEMENT_CHUNK_SIZE),
+					(ids) =>
+						session.run((db) =>
+							db
+								.select({
+									id: schema.event.id,
+									userId: schema.event.userId,
+									eventSchemaPluginId: schema.event.eventSchemaPluginId,
+								})
+								.from(schema.event)
+								.where(inArray(schema.event.id, ids)),
+						),
+				);
+				return new Map(rows.flat().map(({ id, ...owner }) => [id, owner]));
+			});
 			return {
 				deleteEvent,
 				createEvent,
@@ -992,6 +1001,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				hasUserEvents,
 				lockEventRows,
 				getEventOrder,
+				getEventOwners,
 				clearReferences,
 				getEventSnapshot,
 				getScopeRevision,

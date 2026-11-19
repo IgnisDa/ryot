@@ -7,33 +7,25 @@ import {
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
-	RelationshipBatchResult,
 	RelationshipNotFound,
-	RelationshipReconciliationResult,
 	RelationshipScope,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { RelationshipId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
-import { Cause, Context, Effect, Layer, Schema, Struct } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecyclePlannedPolicy, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
-import {
-	type LifecycleCommittedStep,
-	runLifecycleWriteInline,
-} from "#modules/automations/lifecycle/write-step";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { LifecyclePolicies, LifecyclePolicy } from "#modules/automations/lifecycle/policies";
+import type { LifecycleCommittedStep } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
+import { DomainWriteChecks } from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
-import {
-	catalogDefinitionFingerprint,
-	PluginRuntimeResolver,
-} from "#modules/plugins/catalog/runtime-resolver";
-import { principalOwner } from "#modules/scripts/authorization/principal";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 
 import {
@@ -43,21 +35,14 @@ import {
 	type ValidatedMutation,
 } from "./mutation-primitives";
 import {
-	type ChangeUserRelationshipBatch,
 	equal,
-	itemCommand,
 	type Mutation,
-	type ReconcileGlobalRelationshipGroup,
-	reconciliationKeys,
 	recordRelationshipImportItem,
 	RelationshipMutation,
 	relationshipSchemaReference,
-	relationshipWriteFailure,
-	retiredRelationships,
 	rootTransaction,
 	rootTransactionGuard,
 	snapshot,
-	validateUserRelationshipEntities,
 } from "./mutation-support";
 import { makePlannedRelationshipReconciliation } from "./planned-reconciliation";
 import { makePreparedRelationshipMutations } from "./prepared-mutations";
@@ -69,8 +54,8 @@ import {
 
 const PlannedRelationshipMutation = Schema.Struct({
 	mutation: RelationshipMutation,
-	policies: Schema.Array(LifecyclePlannedPolicy),
-	requestId: Schema.NullOr(AutomationTrigger.fields.id),
+	policies: Schema.Array(LifecyclePolicy),
+	trigger: Schema.NullOr(AutomationTrigger),
 	before: Schema.NullOr(AutomationRelationshipSnapshot),
 	request: Schema.NullOr(AutomationRelationshipRequestPayload),
 });
@@ -96,30 +81,12 @@ export const RelationshipSingleResult = Schema.Struct({
 });
 export type RelationshipSingleResult = typeof RelationshipSingleResult.Type;
 
-export const RelationshipBatchSummary = Schema.Struct(
-	Struct.omit(RelationshipBatchResult.fields, ["warnings"]),
-);
-export type RelationshipBatchSummary = typeof RelationshipBatchSummary.Type;
-
-export const RelationshipReconciliationSummary = Schema.Struct(
-	Struct.omit(RelationshipReconciliationResult.fields, ["warnings"]),
-);
-export type RelationshipReconciliationSummary = typeof RelationshipReconciliationSummary.Type;
-
 type RelationshipCommitShape<Result> = {
 	readonly summarize: (
 		pending: PendingRelationshipMutations,
 		outcomes: ReadonlyArray<RelationshipSingleResult>,
 	) => Effect.Effect<Result>;
 };
-
-const summarizeRelationshipMutations = (
-	results: ReadonlyArray<RelationshipSingleResult>,
-): RelationshipBatchSummary => ({
-	created: results.filter((row) => row.operation === "create").length,
-	updated: results.filter((row) => row.operation === "update").length,
-	deleted: results.filter((row) => row.operation === "delete").length,
-});
 
 export class RelationshipMutationPipeline extends Context.Service<RelationshipMutationPipeline>()(
 	"@ryot-app/kernel-backend/modules/relationships/mutation-pipeline/RelationshipMutationPipeline",
@@ -133,6 +100,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			const writes = yield* DomainWriteChecks;
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
+			const policies = yield* LifecyclePolicies;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const keys = yield* IdempotencyKeys.make;
 			const admission = yield* AccountAdmission.make;
@@ -143,6 +111,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				planner,
 				runtime,
 				entities,
+				policies,
 				admission,
 				execution,
 				repository,
@@ -172,14 +141,6 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					return undefined;
 				});
 
-			const skipPlannedPolicies = (pending: PendingRelationshipMutations) =>
-				Effect.forEach(
-					pending.items,
-					({ requestId }) =>
-						requestId ? execution.skipQueuedPolicies({ triggerId: requestId }) : Effect.void,
-					{ discard: true },
-				);
-
 			const planMutationsInTransaction = Effect.fn("RelationshipsService.planMutations")(function* (
 				mutations: ReadonlyArray<Mutation>,
 				selector: null | GlobalRelationshipListInput = null,
@@ -203,13 +164,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				const planned = yield* Effect.forEach(ordered, (mutation) =>
 					Effect.gen(function* () {
 						const { input, command } = mutation;
-						const unplanned = {
-							mutation,
-							policies: [],
-							request: null,
-							blocked: false,
-							requestId: null,
-						};
+						const unplanned = { mutation, policies: [], request: null, trigger: null };
 						const row = rows.get(relationshipMutationLockKey(input));
 						const before = row ? yield* snapshot(row) : null;
 						const validated = yield* primitives.validateMutation(mutation, reads, pinOf(mutation));
@@ -217,31 +172,27 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						if (!request) {
 							return { ...unplanned, before, validated };
 						}
-						const plan = yield* planner.plan({
-							trigger: yield* lifecycleTrigger(
-								command,
-								input.scope === "user" ? input.userId : null,
-								request,
-							),
-						});
+						const trigger = yield* lifecycleTrigger(
+							command,
+							input.scope === "user" ? input.userId : null,
+							request,
+						);
 						return {
 							before,
 							request,
+							trigger,
 							mutation,
 							validated,
-							policies: plan.policies,
-							requestId: plan.trigger?.id ?? null,
-							blocked: plan.trigger?.blockedReason !== null && plan.trigger !== null,
+							policies: yield* policies.match(trigger),
 						};
 					}),
 				);
 				const pending = {
 					...scope,
-					items: planned.map(({ blocked: _blocked, validated: _validated, ...item }) => item),
+					items: planned.map(({ validated: _validated, ...item }) => item),
 				} satisfies PendingRelationshipMutations;
 				return {
 					pending,
-					blocked: planned.some(({ blocked }) => blocked),
 					planned: { pinOf, validated: planned.map(({ validated }) => validated) },
 				};
 			});
@@ -251,25 +202,16 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			) {
 				const items = yield* Effect.forEach(pending.items, (item) =>
 					Effect.gen(function* () {
-						if (!item.request) {
+						if (!item.request || !item.trigger) {
 							return item;
 						}
 						const request = yield* primitives.applyPolicies(
 							item.request,
-							item.policies,
+							{ trigger: item.trigger, policies: item.policies },
 							item.mutation,
 						);
 						return { ...item, request };
 					}),
-				).pipe(
-					Effect.catchCauseIf(
-						(cause) => !Cause.hasInterruptsOnly(cause),
-						(cause) =>
-							skipPlannedPolicies(pending).pipe(
-								Effect.andThen(Effect.failCause(cause)),
-								Effect.uninterruptible,
-							),
-					),
 				);
 				return { ...pending, items } satisfies PendingRelationshipMutations;
 			});
@@ -286,23 +228,6 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					return single;
 				}),
 			} satisfies RelationshipCommitShape<RelationshipSingleResult>;
-			const batchShape = {
-				summarize: (
-					_pending: PendingRelationshipMutations,
-					outcomes: ReadonlyArray<RelationshipSingleResult>,
-				) => Effect.succeed(summarizeRelationshipMutations(outcomes)),
-			} satisfies RelationshipCommitShape<RelationshipBatchSummary>;
-			const reconciliationShape = {
-				summarize: (
-					pending: PendingRelationshipMutations,
-					outcomes: ReadonlyArray<RelationshipSingleResult>,
-				) =>
-					Effect.succeed({
-						...summarizeRelationshipMutations(outcomes),
-						upserted: pending.items.filter(({ mutation }) => mutation.mode === "upsert").length,
-					}),
-			} satisfies RelationshipCommitShape<RelationshipReconciliationSummary>;
-
 			const commitMutationsInTransaction = Effect.fn(
 				"RelationshipsService.commitMutationsInTransaction",
 			)(function* <Result>(
@@ -415,13 +340,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					}
 					results.push({
 						...result,
-						pending: {
-							index,
-							payload,
-							command,
-							mutation: item.mutation,
-							requestId: item.requestId,
-						},
+						pending: { index, payload, command, mutation: item.mutation },
 					});
 				}
 				const counts = {
@@ -438,7 +357,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						if (!("pending" in result)) {
 							return result;
 						}
-						const { index, payload, command, mutation, requestId } = result.pending;
+						const { index, payload, command, mutation } = result.pending;
 						const population = relationshipPopulation(
 							command,
 							counts,
@@ -449,7 +368,6 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						const { change, dispatch } = yield* primitives.planChange({
 							payload,
 							mutation,
-							requestId,
 							population,
 						});
 						if (decision) {
@@ -488,217 +406,29 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				expectedSelection?: ReadonlyArray<{ id: RelationshipId }>,
 			) {
 				yield* assertRootTransaction;
-				const step = yield* transaction(
+				return yield* transaction(
 					Effect.gen(function* () {
-						const { pending, planned, blocked } = yield* planMutationsInTransaction(
+						const { pending, planned } = yield* planMutationsInTransaction(
 							mutations,
 							selector ?? null,
 							expectedSelection ?? null,
 						);
-						if (blocked) {
-							return { pending, _tag: "Blocked" as const };
-						}
-						if (pending.items.some(({ policies }) => policies.length > 0)) {
+						if (pending.items.some((item) => item.policies.length > 0)) {
 							return { pending, _tag: "PoliciesRequired" as const };
 						}
 						return yield* commitMutationsInTransaction(shape, pending, planned);
 					}),
 				);
-				if (step._tag === "Blocked") {
-					return yield* skipPlannedPolicies(step.pending).pipe(
-						Effect.andThen(
-							new RelationshipBadRequest({ reason: { code: "automation-limit-reached" } }),
-						),
-						Effect.uninterruptible,
-					);
-				}
-				return step;
 			});
 
 			const commitSingle = (pending: PendingRelationshipMutations) =>
 				commitMutations(singleShape, pending);
-			const commitBatch = (pending: PendingRelationshipMutations) =>
-				commitMutations(batchShape, pending);
-			const commitReconciliation = (pending: PendingRelationshipMutations) =>
-				commitMutations(reconciliationShape, pending);
 			const prepareSingle = (mutation: Mutation) => prepareMutations(singleShape, [mutation]);
 
-			const prepareChangeUserBatch = (
-				userId: UserId,
-				batch: ChangeUserRelationshipBatch,
-				index: number,
-				command: DomainLifecycleCommand,
-			) => {
-				return Effect.gen(function* () {
-					for (const input of [...batch.creates, ...batch.deletes]) {
-						yield* writes
-							.check(command, input.relationshipSchema.owner, userId)
-							.pipe(Effect.mapError(relationshipWriteFailure));
-					}
-					const changes = [
-						...batch.creates.map((input) => ({
-							input,
-							properties: input.properties,
-							mode: input.propertiesMode === "merge" ? ("merge" as const) : ("upsert" as const),
-						})),
-						...batch.deletes.map((input) => ({
-							input,
-							properties: undefined,
-							mode: "delete" as const,
-						})),
-					];
-					const catalog = yield* definitions.findUserRelationshipSchemas(
-						userId,
-						changes.map(({ input }) => input.relationshipSchema),
-					);
-					const scopes = yield* entities.getEntityScopesForUser(
-						changes.flatMap(({ input }) => [input.sourceEntityId, input.targetEntityId]),
-						userId,
-					);
-					const mutations = yield* Effect.forEach(changes, (change) =>
-						Effect.gen(function* () {
-							const reference = change.input.relationshipSchema;
-							const definition =
-								catalog[definitionKey("relationship", reference.owner, reference.slug)];
-							if (!definition) {
-								return yield* new RelationshipNotFound({
-									reason: { schema: reference, code: "relationship-schema-not-found" },
-								});
-							}
-							yield* validateUserRelationshipEntities(scopes, change.input, definition, userId);
-							const input = {
-								...change.input,
-								userId,
-								scope: "user" as const,
-								relationshipSchemaPluginId: definition.pluginId ?? null,
-								relationshipSchemaSlug: change.input.relationshipSchema.slug,
-							};
-							return {
-								input,
-								mode: change.mode,
-								properties: change.properties,
-								propertiesSchema: definition.propertiesSchema,
-								schemaFingerprint: catalogDefinitionFingerprint(definition),
-								command: itemCommand(command, input, `batch:${index}:${change.mode}`),
-							};
-						}),
-					);
-					return yield* prepareMutations(batchShape, mutations);
-				});
-			};
-
-			const changeUser = Effect.fn("RelationshipsService.changeUser")(function* (
-				userId: UserId,
-				batches: ReadonlyArray<ChangeUserRelationshipBatch>,
-				command: DomainLifecycleCommand,
-			) {
-				yield* writes
-					.check(command, principalOwner(command.writeContext), userId)
-					.pipe(Effect.mapError(relationshipWriteFailure));
-				if (batches.length === 0) {
-					return [];
-				}
-				return yield* Effect.forEach(batches, (batch, index) =>
-					runLifecycleWriteInline(execution, {
-						applyPolicies,
-						commit: commitBatch,
-						prepare: prepareChangeUserBatch(userId, batch, index, command),
-					}).pipe(
-						Effect.map(({ result, warnings }): RelationshipBatchResult => ({
-							...result,
-							warnings,
-						})),
-					),
-				);
-			});
-
-			const prepareReconcileGlobalGroup = (
-				group: ReconcileGlobalRelationshipGroup,
-				index: number,
-				command: DomainLifecycleCommand,
-			) => {
-				return Effect.gen(function* () {
-					yield* writes
-						.check(command, group.relationshipSchema.owner, null)
-						.pipe(Effect.mapError(relationshipWriteFailure));
-					const definition = yield* definitions.findGlobalRelationshipSchema(
-						group.relationshipSchema,
-					);
-					if (!definition) {
-						return yield* new RelationshipNotFound({
-							reason: { schema: group.relationshipSchema, code: "relationship-schema-not-found" },
-						});
-					}
-					const selector = {
-						...group.selector,
-						relationshipSchemaSlug: group.relationshipSchema.slug,
-						relationshipSchemaPluginId: definition.pluginId ?? null,
-					};
-					const seen = yield* reconciliationKeys(group);
-					const existing = yield* session.transaction(repository.listGlobalRelationships(selector));
-					const mutations = [
-						...group.relationships.map((input) => ({ input, mode: "upsert" as const })),
-						...retiredRelationships(existing, seen).map((input) => ({
-							input,
-							mode: "delete" as const,
-						})),
-					].map((change) => {
-						const input = {
-							...change.input,
-							scope: "global" as const,
-							relationshipSchemaSlug: group.relationshipSchema.slug,
-							relationshipSchemaPluginId: definition.pluginId ?? null,
-						};
-						return {
-							input,
-							mode: change.mode,
-							properties: change.input.properties,
-							propertiesSchema: definition.propertiesSchema,
-							schemaFingerprint: catalogDefinitionFingerprint(definition),
-							command: itemCommand(command, input, `group:${index}:${change.mode}`),
-						};
-					});
-					return yield* prepareMutations(reconciliationShape, mutations, selector, existing);
-				});
-			};
-
-			const reconcileGlobal = Effect.fn("RelationshipsService.reconcileGlobal")(function* (
-				groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
-				command: DomainLifecycleCommand,
-			) {
-				yield* assertRootTransaction;
-				yield* writes
-					.check(command, principalOwner(command.writeContext), null)
-					.pipe(Effect.mapError(relationshipWriteFailure));
-				if (groups.length === 0) {
-					return [];
-				}
-				return yield* Effect.forEach(groups, (group, index) =>
-					runLifecycleWriteInline(execution, {
-						applyPolicies,
-						commit: commitReconciliation,
-						prepare: prepareReconcileGlobalGroup(group, index, command),
-					}).pipe(
-						Effect.map(({ result, warnings }) => ({
-							warnings,
-							created: result.created,
-							updated: result.updated,
-							deleted: result.deleted,
-							upserted: result.upserted,
-						})),
-					),
-				);
-			});
 			return {
-				changeUser,
-				commitBatch,
 				commitSingle,
 				applyPolicies,
 				prepareSingle,
-				reconcileGlobal,
-				commitReconciliation,
-				prepareChangeUserBatch,
-				prepareReconcileGlobalGroup,
 				...makePreparedRelationshipMutations(dependencies),
 				...makePlannedRelationshipReconciliation(dependencies),
 			};

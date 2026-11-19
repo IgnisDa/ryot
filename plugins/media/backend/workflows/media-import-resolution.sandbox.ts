@@ -70,6 +70,6 @@ export default defineWorkflow({
 						: { errors, index: item.index, status: "unresolved" },
 				);
 			}
-			return { results };
+			return { output: { results } };
 		}),
 });

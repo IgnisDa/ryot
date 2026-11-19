@@ -213,9 +213,7 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 						} else if (formatter.status === "succeeded") {
 							yield* settle(row, now, "failed", "admission-missing");
 						} else if (
-							(formatter.status === "failed" ||
-								formatter.status === "rejected" ||
-								formatter.status === "skipped") &&
+							(formatter.status === "failed" || formatter.status === "skipped") &&
 							formatter.nextAttemptAt === null
 						) {
 							yield* settle(row, now, "failed", "formatter-failed");

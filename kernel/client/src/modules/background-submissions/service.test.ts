@@ -237,7 +237,10 @@ describe("background submission tray", () => {
 				expect(test.calls[0].invocation.contentHash).toBe("hash-media-1");
 				expect(tray.getSnapshot().entries.map(({ state }) => state.status)).toEqual(["pending"]);
 
-				yield* reply(test, 0)({ outcome: "success", value: { count: 3 } });
+				yield* reply(
+					test,
+					0,
+				)({ outcome: "success", value: { count: 3 }, committed: { events: [] } });
 				expect(tray.getSnapshot().entries.map(({ state }) => state.status)).toEqual(["succeeded"]);
 				expect(hints).toEqual(["hint"]);
 
@@ -305,7 +308,7 @@ describe("background submission tray", () => {
 					operationSlug: original.operationSlug,
 				});
 
-				yield* reply(test, 1)({ value: null, outcome: "success" });
+				yield* reply(test, 1)({ value: null, outcome: "success", committed: { events: [] } });
 				expect(settled.at(-1)).toEqual({ status: "succeeded" });
 				expect(hints).toEqual(["hint"]);
 			}),
@@ -321,7 +324,14 @@ describe("background submission tray", () => {
 				const tray = yield* openTray(test);
 				tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
 				yield* drain;
-				yield* reply(test, 0)({ outcome: "success", value: { count: 100, status: "incomplete" } });
+				yield* reply(
+					test,
+					0,
+				)({
+					outcome: "success",
+					committed: { events: [] },
+					value: { count: 100, status: "incomplete" },
+				});
 				const [entry] = tray.getSnapshot().entries;
 				expect(entry.state).toEqual({ count: 100, status: "incomplete" });
 				expect(settled).toEqual([{ status: "incomplete" }]);
@@ -371,6 +381,28 @@ describe("background submission tray", () => {
 					detail: "Rejected by the plugin",
 				});
 				expect(test.calls).toHaveLength(2);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"settles a changes conflict as a final not-saved failure",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const settled: BackgroundSubmissionOutcome[] = [];
+				const tray = yield* openTray(test);
+				tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
+				yield* drain;
+				yield* reply(
+					test,
+					0,
+				)({ outcome: "failure", conflict: "entity-stale", reason: "changes-conflict" });
+				const [conflicted] = tray.getSnapshot().entries;
+				expect(settled).toEqual([{ status: "failed", reason: "operation-failed" }]);
+				expect(tray.retry(conflicted.id, catalog)).toBe(false);
+				expect(present(tray, conflicted)).toMatchObject({ action: undefined, status: "Not saved" });
+				expect(test.calls).toHaveLength(1);
 			}),
 		testTimeout,
 	);
@@ -499,7 +531,7 @@ describe("background submission tray", () => {
 							if (call !== undefined) {
 								yield* settle(call.reply)(
 									prefix === "ok"
-										? { value: null, outcome: "success" }
+										? { value: null, outcome: "success", committed: { events: [] } }
 										: { outcome: "failure", reason: "operation-failed" },
 								);
 							}
@@ -584,7 +616,7 @@ describe("background submission tray", () => {
 					"Logged k1",
 				]);
 
-				yield* reply(test, 0)({ value: null, outcome: "success" });
+				yield* reply(test, 0)({ value: null, outcome: "success", committed: { events: [] } });
 				expect(settled).toEqual([{ status: "succeeded" }]);
 				tray.reserve({ target: media, binding: binding(), request: request("k2") })?.start();
 				yield* drain;
@@ -634,7 +666,7 @@ describe("background submission tray", () => {
 				yield* drain;
 				expect(announcement(tray)).toBe("3 background updates. Latest: Media: Logged d. Saving….");
 
-				yield* reply(test, 0)({ value: null, outcome: "success" });
+				yield* reply(test, 0)({ value: null, outcome: "success", committed: { events: [] } });
 				expect(announcement(tray)).toBe("3 background updates. Latest: Media: Logged d. Saving….");
 				yield* TestClock.adjust(ANNOUNCEMENT_INTERVAL_MS);
 				yield* drain;

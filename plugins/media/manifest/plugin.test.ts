@@ -1023,7 +1023,6 @@ it("does not automatically retry external pushes or notifications", () => {
 	for (const hook of hooks) {
 		expect(hook).toMatchObject({
 			stage: "after",
-			delivery: "async",
 			retry: { maxAttempts: 1, externalIdempotency: "none" },
 		});
 	}

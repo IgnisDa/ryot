@@ -270,7 +270,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 
 Set `userWritePolicy: "source-owner"` on structural relationship schemas when user-scoped writes
 must require ownership of the source entity. The target may be global and visible. The rule covers
-creates, updates, and deletes through HTTP, editors, and sandbox writers; authorized global provider
+creates, updates, and deletes through HTTP, editors, and returned changes; authorized global provider
 writes retain their existing authority. Leave it omitted for personal annotations that may reference
 global sources. Enforcement uses both the pinned and active schema, so an older execution cannot
 bypass an active ownership restriction.
@@ -369,14 +369,11 @@ retains the recorded read. System execution without a user cannot read user sett
 content language, and week start remain kernel preferences. Client code reads the same resolved
 settings with the client SDK's `usePluginUserSettings(pluginId)`.
 
-Direct user executions, such as operations, declare `updateUserSettings` and call
-`host.updateUserSettings(patch)` to change the execution user's settings for their own plugin. The
-kernel selects the installation from the executing plugin and user, never from the patch. Each
-top-level key replaces the stored value; keys must exist in the pinned manifest schema, and the merged
-document must validate against the active schema and stay within 64 KiB. The call returns
-`{ saved: true }`; re-read with `getUserSettings` when needed. Integration, import, bootstrap,
-automation, projection, and system executions cannot write settings, and one execution may make
-at most four calls.
+An operation changes the execution user's settings for its own plugin by returning a `settings`
+patch in its `changes`. The kernel selects the installation from the executing plugin and user, never
+from the patch. Each top-level key replaces the stored value; keys must exist in the pinned manifest
+schema, and the merged document must validate against the active schema and stay within 64 KiB.
+Integration, import, and bootstrap executions cannot write settings.
 
 There is no compare-and-set. Saves from the settings page replace the whole document, a durable run's
 recorded `getUserSettings` read may be stale, and at-least-once re-execution can reapply a patch over an
@@ -433,6 +430,9 @@ cannot write global domain data or declare deployment-owned `httpRateLimits` or 
 A `userBootstrap` entry either names a direct script or lists `entities`, each with a name, one of
 the plugin's own entity schemas, and properties valid for it. The kernel ensures declared entities
 itself, one per schema and user, without running a script. Use a script only when setup needs logic.
+A bootstrap script receives `{ userId }`, the ID of the user being bootstrapped. It returns
+`{ changes? }` (`changesOutputSchema` from the SDK `core`) and writes ensures as
+`changes.entities.ensures`; the kernel commits them once per bootstrap execution and script content.
 
 A `memberships` rule links the plugin's member entities to a bootstrap-declared target through one of
 its relationship schemas, without a hook. `join` chooses what adds a member: creating one of the
@@ -447,8 +447,8 @@ closures, and forwarding methods. Executable dependencies do not merge authority
 own metadata and workflow replay has no local host capabilities.
 
 Ordinary scripts receive `ScriptHost`; policies receive `PolicyHost`. Narrowing a helper's host type
-does not grant authority. Runtime checks combine pinned metadata, script kind, subject, plugin scope,
-provider association, and bootstrap designation; domain services still enforce ownership. Filesystem
+does not grant authority. Runtime checks combine pinned metadata, script kind, subject, and plugin
+scope; domain services still enforce ownership. Filesystem
 use derives capability requirements, but trusted paths are separately kernel-supplied.
 
 Subject follows the dispatch path: cron uses system; user bootstrap uses the initialized user;
@@ -495,10 +495,10 @@ array order and multiplicity. `unordered-array` compares arrays as sets of canon
 ignoring order and duplicate multiplicity; non-arrays use JSON equality. Missing and present values,
 including `null`, remain distinct. Compared properties need not also be selected into snapshots.
 
-RyotQL reads current state, not omitted trigger-time evidence. Plugins write through kernel host
-functions, never direct persistence. Relationship writes must choose merge or replace; membership
-upserts use merge to preserve annotations. Event updates/deletes are atomic per host batch, not across
-calls. Exact patch shapes, limits, and replay identities are in
+RyotQL reads current state, not omitted trigger-time evidence. Host functions only read; an
+operation writes by returning changes, which the kernel commits atomically after the run.
+Relationship changes must choose merge or replace; membership upserts use merge to preserve
+annotations. See
 [Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
 ### Folds
@@ -509,15 +509,32 @@ the session's schema folds that slug, and otherwise to its own entity. Set
 `projection: { propertiesSchema }` on an event or relationship schema to receive a value per record.
 
 The fold is a read-only script of the same plugin using `FoldInput` and `FoldOutput` from
-`@ryot-app/plugin-backend-sdk/folds`. It receives `{ subjectEntityId, value, absorbed }` and returns its
-next `value`. `absorbed` lists the values of subjects merged or restored into this one, each with `ids`
-mapping the entity and event IDs it holds to their new ones; carry over whatever must survive. It also returns one `events` entry per subject event with a projection, one `relationships` entry per link from
-the subject with a projection, and `changes`, which the kernel applies before running it a second time.
+`@ryot-app/plugin-backend-sdk/folds`. It receives `{ subjectEntityId, value, absorbed, changes }` and
+returns its next `value`. `absorbed` lists the values of subjects merged or restored into this one, each
+with `ids` mapping the entity and event IDs it holds to their new ones; carry over whatever must survive.
+
+`changes` selects the mode:
+
+- `null` asks for a full replay: read the subject's history and return one `events` entry per subject
+  event with a projection and one `relationships` entry per projected link from the subject. The kernel
+  replaces all of the subject's outputs with them. New subjects, rebuilds and fold jobs replay.
+- Otherwise it lists `{ before, after }` for each changed event: `before` is its image while it belonged
+  to the subject (`null` for a create or an event that moved in) and `after` its image now (`null` once
+  deleted or moved away). Combine `value` with the changes and return only outputs that changed; read
+  only the bounded range of history the change can affect. The kernel deletes the outputs of events
+  without an `after` and keeps every output you do not return. An empty list means only the subject's
+  links changed.
+
+`foldChangeImages` splits a change list into retracted and added images. Incremental results must
+equal a full replay of the same history, so keep in `value` whatever an update needs to resume, and
+fall back to reading the history when it cannot be bounded.
+
+`changes` in the output are applied before the kernel runs the fold a second time with their images.
 That second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
-can defer to a job when the sandbox is busy, so it must compute the same result however late it runs.
-For changes that do not come from the subject's events, call `host.requestFolds({ entityIds })` from a
-user execution; the owning plugin may call `host.requestFoldsForAllUsers` when shared data changes. See
-[folds](../../kernel/backend/src/modules/events/README.md#folds).
+also runs later as a job, for example after a background-lane write, so it must compute the same result
+however late it runs. A revision whose fold script and folded event schemas are unchanged keeps every
+stored value; changing either replays every subject.
+See [folds](../../kernel/backend/src/modules/derived-values/README.md).
 
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md).
@@ -545,7 +562,6 @@ hooks: [
     name: "Ensure library membership",
     scriptSlug: "ensure-membership",
     stage: "after",
-    delivery: "required",
     targets: [
       { resource: "entity", operation: "create", entitySchemaSlug: "item" },
       { resource: "provider-entity-import", operation: "complete", entitySchemaSlug: "item" },
@@ -586,7 +602,7 @@ alone never select kernel ownership.
 Before hooks use `defineAutomationPolicy` and `automationType: "policy"`. They apply to submitted
 mutations, never to provider population, whose data the provider's `details` script shapes. They execute sequentially
 by `(position, pluginId, hookSlug)`; omitted `position` means 1000. The compiler and runtime allow
-only the policy-safe host surface: `executeRyotql`, schema/integration/config/preference reads, cache
+only the policy-safe host surface: `executeRyotql`, integration/config/preference reads, cache
 reads, and diagnostic `log`/`span`. Each run receives shared automation metadata and optional
 immutable references with per-item projected request snapshots:
 
@@ -625,16 +641,18 @@ share those scales with the property definitions instead of repeating literals.
 
 Only before-event hooks may set `batchFrequency: "item" | "once-per-subject"`; omission means `item`.
 For event-create batches, `once-per-subject` runs on the first eligible item for each deterministic
-subject key. Before hooks have no `delivery` or `retry` fields. Infrastructure failure returns
-`policy-execution-failed` with the run ID and creates no mutation. Resubmission is a new command;
+subject key. Before hooks have no `retry` field. A policy is called once per command with every item it
+targets and leaves no automation history. Infrastructure failure returns
+`policy-execution-failed` with the call's run ID and creates no mutation. Resubmission is a new command;
 delayed automatic and manual policy retry are not allowed.
 
-After hooks use `defineAutomation` and `automationType: "automation"`. They run concurrently and
-independently. Dependent steps belong in one script or plugin workflow. `delivery: "async"` does not
-delay the response. `delivery: "required"` waits for one immediate attempt with bounded waiting;
-failure does not roll back committed source data. Responses can carry `required-hook-failed` or
-`required-hook-pending` with `hookSlug` and `runId`, or `automation-limit-reached` with `triggerId`
-and at most 100 omitted `{ pluginId, hookSlug }` identities. Warnings never contain sandbox logs.
+After hooks use `defineAutomation` and `automationType: "automation"`. An after hook returns
+`{ changes? }`; the kernel commits the change set in the same transaction that records the attempt's
+success, under the hook's causation and root budget, so a retried attempt never commits twice.
+Signals and notifications are `changes.signals` and `changes.notifications`. They run concurrently and
+independently. Dependent steps belong in one script or plugin workflow. The write that triggers an after
+hook queues it as a job when it commits; the response never waits for it, and a failure does not roll
+back committed source data.
 
 An after hook may declare `executionScope: "user" | "global"`; omission matches both. The kernel
 compares it against the run's `executionUserId`, so a `user` hook is never planned for a global write
@@ -655,8 +673,8 @@ Exponential delays double from `initialDelayMs` (1–3,600,000) to `maxDelayMs` 
 must be at least the initial delay. Only kernel-classified infrastructure failures are retryable;
 schema failures, missing retained artifacts, and business failures are terminal. HTTP uncertain
 outcomes are terminal unless the hook declares `externalIdempotency: "run-id"`. Automatic retries
-require this declaration when the hook's reachable executable dependencies use `httpCall` or
-`sendNotification`, including delegated effects. Declare it only if the external operation supports
+require this declaration when the hook's reachable executable dependencies use `httpCall`,
+including delegated effects. Declare it only if the external operation supports
 deduplication and receives `automation.runId` as its idempotency key. All attempts share that logical
 run ID; external exactly-once delivery is not guaranteed.
 
@@ -676,7 +694,12 @@ returned rather than treated as missing. Missing required values fail with `miss
 in SDK error `data`; unavailable optional values are omitted. Unrequested keys are not available to
 the script. The compiler records key metadata, not generated files for the full configuration schema;
 scripts do not author per-script key lists. Configuration is never copied into automation input or
-history. `emitSignal` returns `{ triggerId, wasCreated }`.
+history. A stored configuration may be at most 64 KiB; larger saves and restores are rejected.
+
+`listIntegrations({ provider?, isDisabled?, cursor? })` returns one page of at most 20 of the
+execution user's integrations as `{ items, nextCursor }`; pass `nextCursor` back as `cursor` until
+it is `null`. An integration's name, provider, and settings may be at most 16 KiB together; larger
+saves and restores are rejected.
 Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
 state, logs, idempotency keys, and encryption keys are not account-backup data.
 
@@ -688,8 +711,9 @@ executable SDK methods must be called directly; method aliases are unsupported.
 
 Long-running workflows declare a `checkpoint` schema. The kernel calls
 `run(input, step, checkpoint, execution)` with `null` on the first step and the last saved value on
-subsequent steps. Return the final output to finish, or `yield* step.save(nextState)` to commit the
-next checkpoint and end this step. Keep each step bounded; use cursors and artifact references rather
+subsequent steps. Return `{ output, changes? }` to finish, or `yield* step.save(nextState, changes?)`
+to commit the next checkpoint and end this step. A step's `changes` commit once at its boundary,
+before its checkpoint or output is recorded. Keep each step bounded; use cursors and artifact references rather
 than accumulating source records. A saved checkpoint survives process restarts without rerunning
 completed steps. Code, configuration, input, and start time stay pinned for the whole execution.
 
@@ -704,14 +728,17 @@ export default defineWorkflow({
       const nextPage = checkpoint?.nextPage ?? 0;
       const batch = yield* step.activity("read-page", readPage, { ...input, page: nextPage });
       yield* step.child("apply-page", applyPage, batch);
-      if (batch.done) return yield* step.child("summary", summary, input);
+      if (batch.done) return { output: yield* step.child("summary", summary, input) };
       return yield* step.save({ nextPage: nextPage + 1 });
     }),
 });
 ```
 
-`step.activity` and `step.child` invoke declared script and workflow references. Their names are local
-to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
+`step.activity` and `step.child` invoke declared script and workflow references. An activity script
+is defined with `defineActivity` and returns `{ output, changes? }`: the kernel commits its changes
+once when it completes and hands the workflow only `output`, which the reference's `output` schema
+describes. The backend compiler rejects a `step.activity` target that is not
+defined with `defineActivity`. Their names are local to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
 complete interrupted calls without guessing whether an external write succeeded. Calls within that
 step must remain deterministic. There is no public replay journal or durable sleep API. A bounded
 workflow that finishes in one step can omit `checkpoint`.
@@ -856,8 +883,47 @@ non-destructive and idempotent. A writing operation may also be idempotent, incl
 write whose repetition has no additional effect. Descriptions should explain writes, deletes,
 conflicts, and per-item misses so people and tool clients can choose operations safely.
 
+An operation's `run` returns `{ output, changes? }`. `output` is what the caller receives and what the
+declared `output` schema describes. `changes` is a change set the kernel commits after the run ends;
+every operation returns its writes this way. The kernel commits them atomically, runs event policies
+over them, and answers `{ result, committed }`, where `committed` carries the root entity ID and each
+written event ID by item identity. A policy rejection of the changes reaches the caller as HTTP 422, a
+stale baseline as HTTP 409 `changes-conflict`, and any other invalid or unauthorized change set as
+HTTP 502. A client plugin's `client.operations.invoke` resolves `{ output, committed }` and fails a
+stale baseline with a `RyotClientError` whose reason is `changes-conflict` and whose `conflict` is the
+commit's conflict code.
+
+### Change sets
+
+`ChangeSet`, `changeSetSchema` and `CHANGE_SET_LIMITS` come from `@ryot-app/plugin-backend-sdk/core`,
+with `rootEntity`, `existingEntity(id)` and `upsertedGlobalEntity(entitySchemaSlug, externalId)`
+references. Every part names schemas of the writing plugin by slug, and every slug must be declared
+by its revision.
+
+| Part                  | Writes                                                                                                       | Writer                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `entity`              | A root user entity create, or an update with its expected name, properties and `updatedAt`                   | User executions                                                            |
+| `entities.deletes`    | User entities, cascading their events                                                                        | User executions                                                            |
+| `entities.clears`     | An entity's user data: its events and relationships                                                          | User executions                                                            |
+| `entities.merges`     | One entity's user data into another of the same plugin schema                                                | User executions                                                            |
+| `entities.ensures`    | One user entity per schema, created only when absent                                                         | The plugin's user bootstrap script                                         |
+| `relationships`       | `upserts` (`merge` or `replace` properties) and `deletes` between the root or existing entities              | User executions and user automation runs                                   |
+| `events`              | Creates, updates and deletes, with `expected` session events and scope `baselines`                           | User executions and user automation runs                                   |
+| `settings`            | A patch of the plugin's settings for the execution user                                                      | User executions, except integrations, imports and bootstraps               |
+| `signals`             | Signal emissions with a discriminator and optional subject entity                                            | Automation runs; system ones need a system plugin automation               |
+| `notifications`       | Messages from the plugin catalog for the run's account                                                       | User automation runs                                                       |
+| `globalEntities`      | Provider-owned global entities by external ID                                                                | System executions of a system plugin's provider                            |
+| `globalRelationships` | Global relationship groups with a `self` or `anchored` selector; endpoints are existing or upserted entities | System executions of a system plugin                                       |
+| `folds`               | Fold requests for the execution user (`user`) or every user with events (`all-users`)                        | User executions; `all-users` from a system execution needs a system plugin |
+
+A `{ kind: "root" }` reference requires `entity`. User entities never carry provenance, global scope,
+ownership or `populatedAt`. Global writes run no policies. Notifications are queued for delivery after
+the commit. A part the writer may not write fails the whole change set.
+
 Refuse a request that cannot succeed as submitted with `OperationRejectedError(message)`; the caller
-receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502). Import
+receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502). Fail with
+`OperationConflictError({ conflict })` when the operation itself finds a stale baseline before building
+changes; the caller receives the HTTP 409 `changes-conflict` of a stale commit. Import
 sources map strict input schemas to workflows. Uploads are top-level string fields with upload format;
 the kernel validates each file and exposes it by field name for `readNamedArtifact(key)`. Payload-only
 sources use ordinary fields.
@@ -953,8 +1019,7 @@ return (
 ```
 
 The same applies to every other text a plugin's backend hands to the kernel: a before-stage policy
-rejects with `{ action: "reject", reason: catalogMessage("…") }`, and `host.sendNotification`
-takes a message, which the kernel renders in each recipient's interface locale. Enumerated values
+rejects with `{ action: "reject", reason: catalogMessage("…") }`. Enumerated values
 that shape the sentence, such as a status or a content kind, are `select` codes; names and
 provider-supplied values are string parameters. Operation outputs that the plugin's own client
 renders also carry `LocalMessage`s.
@@ -985,9 +1050,8 @@ for details. The archive carries the compiled catalogs and the generated `en-XA`
 installation re-checks their limits before the kernel serves them.
 
 Plugin tests compile the package's own English catalog with `compilePluginCatalog(packageRoot)`
-from `@ryot-app/plugin-kit/testing`. Backend tests render notification messages with
-`englishRenderer(catalog)` and capture them with `recordNotifications(manifest)`, both from
-`@ryot-app/plugin-backend-sdk/testing`; client tests use `testPluginText` from the client SDK.
+from `@ryot-app/plugin-kit/testing`. Backend tests render messages with `englishRenderer(catalog)`
+from `@ryot-app/plugin-backend-sdk/testing`; client tests use `testPluginText` from the client SDK.
 
 ## Languages
 

@@ -25,11 +25,15 @@ import {
 	makeUserPluginRevision,
 } from "../authorization/principal.test-support";
 import { ScriptHostImplementations } from "./host-implementations";
-import { unusedSandboxHostImplementations } from "./host-implementations.test-support";
+import {
+	detachedHostCallSession,
+	unusedSandboxHostImplementations,
+} from "./host-implementations.test-support";
 import { SandboxHostFunctionsLive, SandboxStateStoreLive } from "./sandbox-host-live";
 
 const hostFunctionsLayer = SandboxHostFunctionsLive.pipe(
 	Layer.provide(Layer.succeed(ScriptHostImplementations, unusedSandboxHostImplementations())),
+	Layer.provide(detachedHostCallSession),
 );
 
 layer(hostFunctionsLayer)("SandboxHostFunctionsLive", (it) => {
@@ -52,10 +56,10 @@ layer(hostFunctionsLayer)("SandboxHostFunctionsLive", (it) => {
 						),
 					),
 				);
-				expect(after).toHaveProperty("createEvents");
-				expect(after).toHaveProperty("sendNotification");
-				expect(after).not.toHaveProperty("ensureUserEntities");
-				expect(after).not.toHaveProperty("upsertGlobalEntities");
+				expect(after).toHaveProperty("httpCall");
+				expect(after).toHaveProperty("getEntitlements");
+				expect(after).not.toHaveProperty("getOAuthAccessToken");
+				expect(after).not.toHaveProperty("invokeCapability");
 			}),
 		testTimeout,
 	);
@@ -109,6 +113,7 @@ const recordingHostFunctionsLayer = SandboxHostFunctionsLive.pipe(
 			}),
 		),
 	),
+	Layer.provide(detachedHostCallSession),
 );
 
 layer(recordingHostFunctionsLayer)("SandboxHostFunctionsLive job identity", (it) => {

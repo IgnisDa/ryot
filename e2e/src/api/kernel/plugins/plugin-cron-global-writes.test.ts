@@ -5,6 +5,7 @@ import {
 	adminAccessTokenHeaders,
 	type Client,
 	createAuthenticatedClient,
+	cronActivityWorkflowSandboxSource,
 	fakeProviderDetailsResult,
 	getApiClient,
 	getEntity,
@@ -32,6 +33,7 @@ import {
 const MOVIE_SCHEMA_SLUG = "movie";
 const TRENDING_SCHEMA_SLUG = "media-trending";
 const SCRIPT_SLUG = "movie.e2e-test-trending";
+const WORKFLOW_SLUG = "workflow.e2e-test-trending";
 const PROVIDER_SLUG = "movie.e2e-test-trending-provider";
 const DETAILS_SCRIPT_SLUG = `${PROVIDER_SLUG}.details`;
 const EXTERNAL_ID_ONE = "e2e-trending-1";
@@ -60,13 +62,14 @@ describe("plugin cron global writes", () => {
 
 				const detailsEntry = `backend/providers/${PROVIDER_SLUG}/details.sandbox.ts`;
 				const trendingEntry = `backend/providers/${PROVIDER_SLUG}/trending.sandbox.ts`;
+				const workflowEntry = "backend/workflows/e2e-test-trending.sandbox.ts";
 				const installed = yield* installTestPluginBundle({
 					scope: "system",
 					configSchema: { fields: {}, unknownKeys: "strict" },
 					entitySchemas: [testPluginEntitySchema({ slug: MOVIE_SCHEMA_SLUG })],
 					crons: [
 						{
-							scriptSlug: SCRIPT_SLUG,
+							scriptSlug: WORKFLOW_SLUG,
 							slug: "e2e-test-trending",
 							schedule: { cron: "0 0 * * *" },
 							description: "Refresh E2E trending fixtures",
@@ -82,6 +85,11 @@ describe("plugin cron global writes", () => {
 					],
 					files: {
 						[trendingEntry]: TRENDING_SOURCE,
+						[workflowEntry]: cronActivityWorkflowSandboxSource({
+							slug: WORKFLOW_SLUG,
+							activitySlug: SCRIPT_SLUG,
+							name: "E2E Test Trending refresh",
+						}),
 						[detailsEntry]: providerSandboxSource({
 							operation: "details",
 							slug: DETAILS_SCRIPT_SLUG,
@@ -120,12 +128,20 @@ describe("plugin cron global writes", () => {
 						},
 						{
 							kind: "script",
+							capabilities: [],
 							slug: SCRIPT_SLUG,
 							entry: trendingEntry,
 							name: "E2E Test Trending",
 							providerSlug: PROVIDER_SLUG,
 							requiredPluginConfigKeys: [],
-							capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
+						},
+						{
+							kind: "workflow",
+							capabilities: [],
+							slug: WORKFLOW_SLUG,
+							entry: workflowEntry,
+							requiredPluginConfigKeys: [],
+							name: "E2E Test Trending refresh",
 						},
 					],
 				});
@@ -171,7 +187,7 @@ describe("plugin cron global writes", () => {
 		}),
 	);
 
-	it.live("runs a direct cron script end-to-end and writes ranked self-edges", () =>
+	it.live("runs a cron workflow end-to-end and commits its activity's ranked self-edges", () =>
 		Effect.gen(function* () {
 			const result = yield* getApiClient().adminCall((c) =>
 				c.testSupport.triggerPluginCron({

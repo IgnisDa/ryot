@@ -34,6 +34,12 @@ type LeaseState = {
 	entered: string | undefined;
 };
 
+// Set while a run's host call settles. That run keeps its lease meanwhile, so a run admitted there could wait on it.
+export const InsideSandboxHostCall = Context.Reference<boolean>(
+	"@ryot-app/sandbox/host/admission/InsideSandboxHostCall",
+	{ defaultValue: () => false },
+);
+
 export class SandboxAdmissionLease extends Context.Service<
 	SandboxAdmissionLease,
 	{
@@ -230,6 +236,12 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				runInstance: string,
 				lane: ExecutionLane,
 			) {
+				if (yield* InsideSandboxHostCall) {
+					return yield* new SandboxRunError({
+						kind: "infrastructure",
+						message: "A sandbox run cannot start inside another run's host call",
+					});
+				}
 				const waitingAt = yield* Clock.currentTimeMillis;
 				const lease: LeaseState = {
 					lane,

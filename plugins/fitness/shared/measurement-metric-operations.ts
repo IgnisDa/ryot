@@ -29,7 +29,7 @@ export const MeasurementMetricCreateInput = Schema.Struct({
 
 export type MeasurementMetricCreateInput = typeof MeasurementMetricCreateInput.Type;
 
-export const MeasurementMetricCreateOutput = Schema.Struct({ entityId: Schema.String });
+export const MeasurementMetricCreateOutput = Schema.Struct({});
 
 export const MeasurementMetricPinInput = Schema.Struct({
 	pinned: Schema.Boolean,

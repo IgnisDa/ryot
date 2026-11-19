@@ -67,9 +67,7 @@ it("declares the media automation input projections", () => {
 				properties: [
 					"entityName",
 					"subjectName",
-					"associatedName",
-					"role",
-					"roleCode",
+					"associations",
 					"oldStatus",
 					"newStatus",
 					"contentType",

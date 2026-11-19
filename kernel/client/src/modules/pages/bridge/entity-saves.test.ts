@@ -59,10 +59,7 @@ const entitiesApi = Layer.succeed(EntitiesApi, {
 		calls.push(payload);
 		const failure = failures.shift();
 		return failure === undefined
-			? Effect.succeed({
-					warnings: [],
-					output: { kind: "saved" as const, entityId: EntityId.make("entity-1") },
-				})
+			? Effect.succeed({ output: { kind: "saved" as const, entityId: EntityId.make("entity-1") } })
 			: Effect.fail(new AuthenticatedApiError({ cause: failure }));
 	},
 });

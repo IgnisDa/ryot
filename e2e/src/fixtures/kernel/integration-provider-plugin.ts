@@ -20,8 +20,8 @@ export const installTestIntegrationProvider = (
 	const workflowScriptSlug = `workflow.e2e-integration-${suffix}`;
 	const name = "E2E integration sink";
 	const source = `
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -29,11 +29,11 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(scriptSlug)},
 });
 
-export default defineScript({
+export default defineActivity({
   manifest,
   input: Schema.Unknown,
   output: Schema.Unknown,
-  run: () => ${options.delayMs === undefined ? "Effect.succeed(null)" : `Effect.sleep(${JSON.stringify(`${options.delayMs} millis`)}).pipe(Effect.as(null))`},
+  run: () => ${options.delayMs === undefined ? "Effect.succeed({ output: null })" : `Effect.sleep(${JSON.stringify(`${options.delayMs} millis`)}).pipe(Effect.as({ output: null }))`},
 });
 `;
 	const workflowSource = `
@@ -76,7 +76,7 @@ export default defineWorkflow({
         command: input.command,
         operation: { action: "seal" },
       });
-      return { issues: [], summary: sealed.summary };
+      return { output: { issues: [], summary: sealed.summary } };
     }),
 });
 `;

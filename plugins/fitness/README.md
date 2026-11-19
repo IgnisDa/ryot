@@ -138,14 +138,17 @@ cross-command cardinality. See [atomic event groups](../../kernel/backend/src/mo
 
 `exercise-merge` accepts custom and provider-backed sources and requires distinct same-kind
 entities. Only the caller's data moves; shared metadata, provider taxonomy and other users' data
-remain unchanged. It detaches the caller's source membership/taxonomy links, moves events/notes/collection membership through `mergeUserEntityData`,
-then replaces template references. These steps are not atomic: retry-to-complete works after partial
-detachment. The client blocks merging an exercise used by the active workout/template draft.
+remain unchanged. It returns one change set: `relationships.deletes` detach the caller's source
+membership/taxonomy links, an `entities.merges` entry moves events/notes/collection membership, and
+`entities.updates` replace the source in every workout template that references it, each against the
+template as read. The kernel commits them atomically, so a template edited meanwhile fails the merge
+as a `changes-conflict`. A merge touching more templates than `CHANGE_SET_LIMITS.entityUpdates`
+is rejected. The client blocks merging an exercise used by the active workout/template draft.
 
 Exercise note operations require a visible exercise and a `review` event on that schema, not merely
 the shared review slug. Notes are reviews without a spoiler flag: text is required, the rating is the
 shared optional 0–100 `ReviewRating`, and the manifest's rating field is the shared review rating
-field. Updates patch only text/rating through the shared review patch helper. Input text is
+field. Create, update, and delete return one event change as their change set; updates patch only text/rating through the shared review patch helper. Input text is
 trimmed/bounded, while stored text remains unbounded for migrated notes. The exercise page shows and
 enters note ratings in the user's kernel rating scale with the UI SDK rating components. `workout-delete` removes the workout, events, and
 relationships, recalculates surviving exercise records in the same write, and leaves exercises/templates and
@@ -204,8 +207,9 @@ long histories without dropping early readings. Buckets use the reporting timezo
 averages. Loaded rows remain during pagination; malformed/repeated cursors fail rather than loop.
 Pinned metrics define tiles and log columns, ordered by pin time. Pins are
 `measurement-metric-pinned` relationships to the Fitness Library. Pin requests matching current state
-are no-ops; the limit of three is checked before writing, not enforced atomically across concurrent
-requests. Metric creation pins while the caller has fewer than two metrics; imports do not pin.
+return no changes; the limit of three is checked before the change set is built, not enforced atomically across concurrent
+requests. Metric creation returns the metric as the root entity and, while the caller has fewer than two metrics, the pin
+relationship from it to the Fitness Library in the same change set; imports do not pin.
 
 `MeasurementComposer` is shared by the page and live workout editor. It accepts one timestamp,
 per-metric finite values (zero included), and an optional comment. Empty values are skipped; at least
@@ -218,22 +222,22 @@ device's named timezone. Nonexistent local times are rejected. Repeated times sh
 offset when valid, while other ambiguous times require an occurrence choice. An explicit choice
 overrides the original offset.
 
-`measurement-reading-log` validates every metric's schema/visibility, creates an entry, and sends one
-`createEvents` batch (at most 100 values). The log, edit, and delete forms hand their write to the
+`measurement-reading-log` validates every metric's schema/visibility and returns one change set: the entry as
+the root entity and one reading event per value (at most 100) in its session. The log, edit, and delete forms hand their write to the
 kernel's background submissions and close once it is accepted; the shell tray reports the outcome and
 offers Retry, which resends the same input and idempotency key so the operation returns its stored
-result without duplicating the entry or committed readings. A partial write reports `incomplete`. Cancelling never
-rolls back committed readings. Exercise note create, edit, and delete use background submissions too.
+result without duplicating the entry or its readings. The change set commits atomically, so a log is saved
+completely or not at all. Exercise note create, edit, and delete use background submissions too.
 Workout deletion stays a foreground write because the page navigates away only after it succeeds, and
-workout time correction stays foreground because its conflict and invalid results must reach the
-form.
+workout time correction stays foreground because its `changes-conflict` failure and invalid
+results must reach the form.
 
-Update/delete resolve the caller-owned entry by ID. Update loads all
-children, validates event and metric schemas/visibility, patches kept readings, creates added values,
-deletes cleared values, then updates entry time/comment. Event writes use batches of at most 100,
-including imported entries larger than 100 values. These are separate calls: partial failure may
-leave an edit partly applied. Deleting the entry cascades to all session children, including children
-the client has never loaded.
+Update/delete resolve the caller-owned entry by ID. Update reads the entry's event-scope revision, loads all
+children (including imported entries larger than 100 values), validates event and metric schemas/visibility, and
+returns one change set: the entry update with its expected name, properties and `updatedAt`, updates of kept
+readings, creates of added values, deletes of cleared values, and a scope baseline, so a concurrent edit fails the
+commit as `changes-conflict`. Delete returns the entry's entity delete, which cascades to all session children,
+including children the client has never loaded.
 
 Metric creation uses shared normalization and canonical units for known keys; empty normalized names
 and incompatible units fail. Unknown keys may have custom units. Client duplicate detection is not an
@@ -305,24 +309,28 @@ and cancellation contracts belong to [imports](../../kernel/backend/src/modules/
 ## Workout Editor Contracts
 
 `workout-editor-context` returns defaulted installation settings and trusted Pro availability.
-`exercise-override-update` changes only the caller's membership fields; setting a field to null
+`exercise-override-update` returns one `in-fitness-library` relationship upsert that changes only the caller's membership fields; setting a field to null
 restores inheritance, while omitted fields stay unchanged.
 
 `workout-editor-save` creates/updates workouts and templates. Baselines and source exercise positions
 preserve occurrence/event identity across reorder. Draft encoding and baseline decoding bound
 decompression to 128 KiB; encoded drafts and uncompressed complete save inputs have separate 64 KiB
 budgets. The draft's retained submission freezes data, baseline, ID, and timestamp, including across
-settings changes. The save command commits the entity, sets, relationships, and any new-workout
-completion event atomically; asset uploads are separate.
+settings changes. The operation reads only and returns the entity, sets, relationships, and any
+new-workout completion event as one change set, which the kernel commits atomically; asset uploads
+are separate. The client takes the saved workout's ID from the commit's root entity. A baseline found
+gone or missing a kept set before the change set is built returns only its preconditions, so the
+commit reports the conflict.
 
 New sets need not be confirmed: creates and historical edits save unconfirmed sets at their supplied
 time, while the live editor requires confirmation before finishing. Templates store plans without
-execution events. Results distinguish completion, conflicts, validation,
-and Pro gates. A known business rejection from the atomic command unlocks edits; uncertain transport
-results retain the immutable retry.
+execution events. Results distinguish completion and validation; Pro gates fail as entitlement
+errors and a stale baseline as the client's `changes-conflict` error, which the editor reports as a
+conflict. A known business rejection unlocks edits; uncertain transport results retain the immutable
+retry.
 
 Historical edits preserve timestamps. `workout-time-correction` separately changes start/end in
-one atomic command that also moves every occurrence of the workout to the new start, and only
+one change set, guarded by the workout's expected baseline and event-scope revision, that also moves every occurrence of the workout to the new start, and only
 sets/clears active duration explicitly, retaining unchanged precision. Free historical edits
 preserve protected notes/media and may remove them; adding/changing requires Pro. Template changes
 and replacement remain Pro-gated.
@@ -363,17 +371,24 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
 - Required user-scoped exercise creation/provider-import hooks upsert Fitness Library membership;
   workout imports include the same link. All Exercises lists members only.
 - `fitness.workout-created` handles API-created completion events, excluding import causation, and
-  emits `workout.created` from immutable event evidence. The notification formatter reads inline
-  signal data, has one attempt, and never retries uncertain external delivery automatically.
+  returns a `workout.created` signal built from immutable event evidence. The notification formatter
+  reads inline signal data and returns its message as a change-set notification; it has one attempt
+  and never retries uncertain external delivery automatically.
 - `policy.workout-set` validates a batch against captured exercise/workout references, requires a
   valid workout `startedAt`, and uses `confirmedAt` for occurrence time when present. Otherwise it
   preserves the supplied event time. It preserves recorded exercise kind or fills it from the exercise.
   Writers use workout start for new untimed historical sets. Source schemas reject computed fields.
 - `exercise` declares `fold: { scriptSlug: "fold.exercise-records", eventSchemaSlugs: ["workout-set"] }`.
-  `backend/exercise-records.sandbox.ts` reads the exercise's sets in pages ordered by set order and
-  computes statistics and badges per recorded kind into separate projection rows, without changing
-  source events or replaying historical hooks. It runs in the write that changes a set, including a
-  workout time correction, which moves its sets. A value stays visible while its plugin revision is
+  `backend/exercise-records.sandbox.ts` computes statistics and badges per recorded kind into separate
+  projection rows, without changing source events or replaying historical hooks. It runs in the write
+  that changes a set, including a workout time correction, which moves its sets. Sets order by
+  occurrence, workout start, workout, exercise order, set order and ID. The fold's value holds every
+  personal best in that order, the running maximum of each kind and record type. A full replay reads
+  every set. `backend/exercise-records.ts` updates from a change list instead: the bests before the
+  earliest change stand, a later set's badge can only flip when its candidate lies between the
+  maximum there and the largest changed candidate, so only those later sets are read (none when no
+  changed set sets a best), and later bests above that range carry the maximum forward. Deleting the
+  earliest heavy set of a long history can still read most of it. A value stays visible while its plugin revision is
   active; pending or failed status is noted until processing finishes.
 
 Domain recipes author static documents with typed flat parameters. Factories configure plugin

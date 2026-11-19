@@ -8,25 +8,22 @@ import { Effect } from "effect";
 
 import workflow from "./media-trending.sandbox";
 
-type Fetch = { status: "failed" } | { status: "fetched"; entityIds: string[] };
+type Fetch = { status: "failed" } | { status: "fetched"; itemCount: number };
 
-const run = (movie: Fetch, show: Fetch = { status: "fetched", entityIds: ["show-a"] }) => {
+const run = (movie: Fetch, show: Fetch = { itemCount: 3, status: "fetched" }) => {
 	const replies: Record<string, Fetch> = { "fetch-show": show, "fetch-movie": movie };
-	return driveWorkflowReplay(workflow.run, {}, (request) => {
-		if (request.kind !== "activity") {
-			return null;
-		}
-		return replies[request.name] ?? { synced: true, itemCount: 2 };
-	});
+	return driveWorkflowReplay(workflow.run, {}, (request) =>
+		request.kind === "activity" ? (replies[request.name] ?? null) : null,
+	);
 };
 
 it.live(
-	"fetches each provider then ranks the fetched batches",
+	"runs each provider's trending activity in turn and sums what they ranked",
 	() =>
 		Effect.gen(function* () {
-			const result = yield* run({ status: "fetched", entityIds: ["movie-a"] });
+			const result = yield* run({ itemCount: 2, status: "fetched" });
 			assert(result.state === "completed");
-			expect(result.output).toEqual({ synced: true, itemCount: 2, providerCount: 2 });
+			expect(result.output).toEqual({ synced: true, itemCount: 5, providerCount: 2 });
 			expect(
 				result.requests.flatMap((request) =>
 					request.kind === "activity"
@@ -42,59 +39,29 @@ it.live(
 			).toEqual([
 				{ input: {}, name: "fetch-movie", scriptSlug: "movie.tmdb.trending" },
 				{ input: {}, name: "fetch-show", scriptSlug: "show.tmdb.trending" },
-				{
-					name: "rank",
-					scriptSlug: "media-trending-rankings",
-					input: {
-						failedEntitySchemaSlugs: [],
-						batches: [
-							{ entityIds: ["movie-a"], entitySchemaSlug: "movie" },
-							{ entityIds: ["show-a"], entitySchemaSlug: "show" },
-						],
-					},
-				},
 			]);
 		}),
 	testTimeout,
 );
 
 it.live(
-	"ranks only the batches of providers that fetched",
+	"counts only the providers that fetched",
 	() =>
 		Effect.gen(function* () {
 			const result = yield* run({ status: "failed" });
 			assert(result.state === "completed");
-			expect(result.output).toEqual({ synced: true, itemCount: 2, providerCount: 1 });
-			const rank = result.requests.find(
-				(request) => request.kind === "activity" && request.name === "rank",
-			);
-			assert(rank?.kind === "activity");
-			expect(rank.args.input).toEqual({
-				failedEntitySchemaSlugs: ["movie"],
-				batches: [{ entityIds: ["show-a"], entitySchemaSlug: "show" }],
-			});
+			expect(result.output).toEqual({ synced: true, itemCount: 3, providerCount: 1 });
 		}),
 	testTimeout,
 );
 
 it.live(
-	"preserves the failed show schema by passing only the movie batch",
+	"reports nothing synced when every provider failed",
 	() =>
 		Effect.gen(function* () {
-			const result = yield* run(
-				{ status: "fetched", entityIds: ["movie-a"] },
-				{ status: "failed" },
-			);
+			const result = yield* run({ status: "failed" }, { status: "failed" });
 			assert(result.state === "completed");
-			expect(result.output).toEqual({ synced: true, itemCount: 2, providerCount: 1 });
-			const rank = result.requests.find(
-				(request) => request.kind === "activity" && request.name === "rank",
-			);
-			assert(rank?.kind === "activity");
-			expect(rank.args.input).toEqual({
-				failedEntitySchemaSlugs: ["show"],
-				batches: [{ entityIds: ["movie-a"], entitySchemaSlug: "movie" }],
-			});
+			expect(result.output).toEqual({ itemCount: 0, synced: false, providerCount: 0 });
 		}),
 	testTimeout,
 );

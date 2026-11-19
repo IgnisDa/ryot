@@ -1,12 +1,11 @@
 import { Layer } from "effect";
 
-import { WorkflowEngineLive } from "#boot/workflow-engine";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
-import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection/workflow-repository";
 import { PluginRepositoryLive } from "#modules/plugins/packages/repository-layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { JobQueue } from "#platform/jobs/queue";
 
@@ -15,6 +14,7 @@ import { AutomationExecutionOperationsLive, LifecycleExecutionLive } from "./exe
 import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationPlannerResolver } from "./planner-resolver";
+import { LifecyclePoliciesLive } from "./policies";
 import { AutomationReconciliation, AutomationReconciliationOperationsLive } from "./reconciliation";
 import { AutomationsRepository } from "./repository";
 import { AutomationRetention } from "./retention";
@@ -24,13 +24,7 @@ import { SignalEmissionService } from "./signal-service";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 const AutomationExecutionOperationsServiceLive = AutomationExecutionOperationsLive.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			AutomationRunRepository.layer,
-			AutomationAttemptRepository.layer,
-			WorkflowGarbageCollectionRepository.layer,
-		),
-	),
+	Layer.provide(AutomationRunRepository.layer),
 );
 
 const plannerResolver = AutomationPlannerResolver.layer.pipe(
@@ -52,10 +46,18 @@ export const LifecyclePlannerServiceLive = LifecyclePlannerLive.pipe(
 	),
 );
 
-export const LifecycleServicesLive = Layer.merge(LifecyclePlannerServiceLive, execution);
+export const LifecyclePoliciesServiceLive = LifecyclePoliciesLive.pipe(
+	Layer.provide(Layer.mergeAll(plannerResolver, SandboxRepository.layer, EntitiesRepositoryLive)),
+);
+
+export const LifecycleServicesLive = Layer.mergeAll(
+	LifecyclePlannerServiceLive,
+	execution,
+	LifecyclePoliciesServiceLive.pipe(Layer.provide(ScriptCalls.layer)),
+);
 
 export const MigrationLifecycleServicesLive = LifecycleServicesLive.pipe(
-	Layer.provide(Layer.merge(WorkflowEngineLive, JobQueue.layer)),
+	Layer.provide(JobQueue.layer),
 );
 
 export const AutomationRunOperationsServiceLive = AutomationRunOperationsLive.pipe(
@@ -65,7 +67,7 @@ export const AutomationRunOperationsServiceLive = AutomationRunOperationsLive.pi
 			AutomationRunRepository.layer,
 			AutomationTriggerRepository.layer,
 			SandboxRepository.layer,
-			EntitiesRepositoryLive,
+			ScriptCalls.layer,
 		),
 	),
 );

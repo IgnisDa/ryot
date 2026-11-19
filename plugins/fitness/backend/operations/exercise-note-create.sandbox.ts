@@ -1,7 +1,8 @@
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { reviewProperties } from "@ryot-app/plugin-kit/schema";
+import { EntityId, reviewProperties } from "@ryot-app/plugin-kit/schema";
 
 import { ExerciseNoteCreateInput, ExerciseNoteOutput } from "../../shared/exercise-note-operations";
 import { requireExerciseNoteExercise } from "./exercise-notes";
@@ -18,13 +19,22 @@ export default defineOperation({
 	input: ExerciseNoteCreateInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const entityId = yield* requireExerciseNoteExercise(input.exerciseId, host.executeRyotql);
-			return yield* host.createEvents([
-				{
-					entityId,
-					eventSchemaSlug: "review",
-					properties: reviewProperties({ text: input.text, rating: input.rating ?? null }),
+			const exerciseId = yield* requireExerciseNoteExercise(input.exerciseId, host.executeRyotql);
+			return {
+				output: { count: 1 },
+				changes: {
+					events: {
+						changes: [],
+						creates: [
+							{
+								eventSchemaSlug: "review",
+								itemIdentity: `review:${exerciseId}`,
+								entity: existingEntity(EntityId.make(exerciseId)),
+								properties: reviewProperties({ text: input.text, rating: input.rating ?? null }),
+							},
+						],
+					},
 				},
-			]);
+			};
 		}),
 });

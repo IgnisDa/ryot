@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { BunCrypto, BunServices } from "@effect/platform-bun";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import {
@@ -44,6 +45,7 @@ type NativeServiceControlValue = {
 	readonly hostStarted: Deferred.Deferred<void>;
 	readonly hostCompleted: Deferred.Deferred<void>;
 	readonly hostInterrupted: Deferred.Deferred<void>;
+	readonly authority: { failAfter: number; resolutions: number };
 	readonly releaseHost: Deferred.Deferred<{ readonly key: string; readonly source: string }>;
 };
 
@@ -88,11 +90,22 @@ const nativeServiceLayer = Layer.unwrap(
 			hostStarted: yield* Deferred.make<void>(),
 			hostCompleted: yield* Deferred.make<void>(),
 			hostInterrupted: yield* Deferred.make<void>(),
+			authority: { resolutions: 0, failAfter: Number.POSITIVE_INFINITY },
 			releaseHost: yield* Deferred.make<{ readonly key: string; readonly source: string }>(),
 		};
 		const dependencies = Layer.mergeAll(
 			makeSandboxHostConfigLayer({ tempDirectory: root, runId: "native-service-test-run" }),
-			Layer.succeed(SandboxExecutionAuthority, { resolve: (_principal) => Effect.succeed("user") }),
+			Layer.succeed(SandboxExecutionAuthority, {
+				resolve: (_principal) =>
+					Effect.suspend(() => {
+						control.authority.resolutions += 1;
+						return control.authority.resolutions > control.authority.failAfter
+							? Effect.fail(
+									new SandboxRunError({ kind: "invalid-input", message: "authority revoked" }),
+								)
+							: Effect.succeed("user");
+					}),
+			}),
 			Layer.succeed(SandboxHostFunctions, makeHostImplementations(control)),
 			Layer.succeed(NativeServiceControl, control),
 			Layer.succeed(NativeServiceTempRoot, root),
@@ -143,6 +156,32 @@ export default defineScript({
   run: () => Effect.gen(function* () {
     const bytes = yield* readArtifact;
     return new TextDecoder().decode(bytes);
+  }),
+});
+`;
+
+const repeatedHostCallsDefinitionSource = `
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Native service repeated host calls",
+  slug: "native-service-repeated-host-calls",
+});
+
+export default defineScript({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Array(Schema.String),
+  run: (_input, host) => Effect.gen(function* () {
+    const outcomes: Array<string> = [];
+    for (const key of ["first", "second", "third"]) {
+      outcomes.push(yield* host.getCachedValue(key).pipe(
+        Effect.match({ onFailure: (error) => "failed:" + error.message, onSuccess: () => "ok" }),
+      ));
+    }
+    return outcomes;
   }),
 });
 `;
@@ -242,7 +281,7 @@ export default defineOperation({
         )
       : null;
     const cached = yield* host.getCachedValue("inline-key");
-    return { named, cached, artifact };
+    return { output: { named, cached, artifact } };
   }),
 });
 `;
@@ -275,6 +314,27 @@ export default {
     return reachable;
   }),
 };
+`;
+
+const activityScratchSource = `
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Native service activity scratch",
+  slug: "native-service-activity-scratch",
+});
+
+export default defineScript({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Struct({ output: Schema.Struct({ chunkFiles: Schema.Array(Schema.String) }) }),
+  run: () => writeScratchChunks([{ name: "chunk.json", contents: "[]" }]).pipe(
+    Effect.map((output) => ({ output })),
+  ),
+});
 `;
 
 const makeRunInput = (
@@ -577,6 +637,49 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 	);
 
 	test.effect(
+		"accepts a projection context up to the fold input bound and no other subject's past the script bound",
+		() => {
+			const ownerId = UserId.make(testExecutionId("native-service-owner"));
+			const executionIds: string[] = [];
+			return withRecoveryCleanup(
+				executionIds,
+				Effect.gen(function* () {
+					const service = yield* SandboxExecutor;
+					const compiled = yield* compileTestScript(capsDefinitionSource);
+					const run = (context: unknown, subject: SandboxPrincipal["subject"]) => {
+						const executionId = testExecutionId("native-service-projection");
+						executionIds.push(executionId);
+						const input = makeRunInput(compiled, executionId, context, ownerId);
+						return service.run({ ...input, principal: { ...input.principal, subject } });
+					};
+					const base = { tail: 0, pad: "", count: 0, unit: "a" };
+					const pad = "a".repeat(
+						SANDBOX_LIMITS.execution.projectionContextBytes -
+							encodedBytes(yield* encodeContext(base)),
+					);
+					const projection = { userId: ownerId, type: "projection" as const };
+					expect(yield* run({ ...base, pad }, projection)).toMatchObject({
+						value: "",
+						success: true,
+					});
+					expect(yield* Effect.flip(run({ ...base, pad: `${pad}a` }, projection))).toMatchObject({
+						kind: "invalid-input",
+					});
+					expect(
+						yield* Effect.flip(
+							run(
+								{ ...base, pad: "a".repeat(SANDBOX_LIMITS.execution.contextBytes) },
+								makeUserSubject(ownerId),
+							),
+						),
+					).toMatchObject({ kind: "invalid-input" });
+				}),
+			);
+		},
+		testTimeout,
+	);
+
+	test.effect(
 		"rejects an invocation over the request byte limit before dispatch",
 		() => {
 			const ownerId = UserId.make(testExecutionId("native-service-owner"));
@@ -601,6 +704,50 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 						kind: "invalid-input",
 						message: "Sandbox invocation exceeds its byte limit",
 					});
+				}),
+			);
+		},
+		testTimeout,
+	);
+
+	test.effect(
+		"resolves authority once per run for placement and every host call",
+		() => {
+			const ownerId = UserId.make(testExecutionId("native-service-owner"));
+			const executionIds = [
+				testExecutionId("native-service-authority-granted"),
+				testExecutionId("native-service-authority-revoked"),
+			];
+			return withRecoveryCleanup(
+				executionIds,
+				Effect.gen(function* () {
+					const service = yield* SandboxExecutor;
+					const control = yield* NativeServiceControl;
+					const repeated = yield* compileTestScript(repeatedHostCallsDefinitionSource);
+					const [grantedId = "", revokedId = ""] = executionIds;
+
+					control.calls.length = 0;
+					control.authority.resolutions = 0;
+					const granted = yield* service.run(makeRunInput(repeated, grantedId, {}, ownerId));
+					expect(granted).toMatchObject({ success: true, value: ["ok", "ok", "ok"] });
+					expect(control.calls).toHaveLength(3);
+					expect(control.authority.resolutions).toBe(1);
+
+					control.calls.length = 0;
+					control.authority.resolutions = 0;
+					control.authority.failAfter = 0;
+					const revoked = yield* Effect.flip(
+						service
+							.run(makeRunInput(repeated, revokedId, {}, ownerId))
+							.pipe(
+								Effect.ensuring(
+									Effect.sync(() => (control.authority.failAfter = Number.POSITIVE_INFINITY)),
+								),
+							),
+					);
+					expect(revoked).toMatchObject({ kind: "invalid-input", message: "authority revoked" });
+					expect(control.calls).toEqual([]);
+					expect(control.authority.resolutions).toBe(1);
 				}),
 			);
 		},
@@ -653,7 +800,9 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 						success: true,
 						value: {
 							state: "completed",
-							output: { named: null, cached: "settled", artifact: "granted inline artifact" },
+							output: {
+								output: { named: null, cached: "settled", artifact: "granted inline artifact" },
+							},
 						},
 					});
 					expect(inline.inline).toHaveLength(1);
@@ -671,7 +820,7 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 					const named = yield* runGranted(namedExecutionId, true);
 					expect(named).toMatchObject({
 						success: true,
-						value: { state: "completed", output: { named: "missing-artifact-grant" } },
+						value: { state: "completed", output: { output: { named: "missing-artifact-grant" } } },
 					});
 					expect(control.calls).toEqual([]);
 				}),
@@ -720,6 +869,36 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 						success: true,
 						value: ["global:fetch", "global:Request", "global:Response"],
 					});
+				}),
+			);
+		},
+		testTimeout,
+	);
+	test.effect(
+		"harvests an activity's scratch chunks from its output",
+		() => {
+			const ownerId = UserId.make(testExecutionId("native-service-owner"));
+			const activityExecutionId = testExecutionId("native-service-activity-scratch");
+			const scriptExecutionId = testExecutionId("native-service-script-scratch");
+			return withRecoveryCleanup(
+				[activityExecutionId, scriptExecutionId],
+				Effect.gen(function* () {
+					const service = yield* SandboxExecutor;
+					const compiled = yield* compileTestScript(activityScratchSource);
+					const grants = { artifactOwnerExecutionId: testExecutionId("native-service-owner-run") };
+					const activity = yield* service.run({
+						...makeRunInput(compiled, activityExecutionId, {}, ownerId, grants),
+						activity: true,
+					});
+					const script = yield* service.run(
+						makeRunInput(compiled, scriptExecutionId, {}, ownerId, grants),
+					);
+					expect(activity).toMatchObject({
+						success: true,
+						harvest: { chunkHandles: [anyOf(String)] },
+						value: { output: { chunkFiles: ["chunk.json"] } },
+					});
+					expect(script).toMatchObject({ success: true, harvest: null });
 				}),
 			);
 		},

@@ -69,23 +69,26 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				});
 			});
 
-			const sendMessage = Effect.fn("NotificationsService.sendMessage")(function* (input: {
-				message: Message;
-				sourceKey: string;
-				sourceRunId: string;
-				accountUserId: UserId;
-			}) {
-				return yield* admissions.admit({
-					sourceSubmittedAt: null,
-					sourceKey: input.sourceKey,
-					userId: input.accountUserId,
-					sourceRunId: input.sourceRunId,
-					accountUserId: input.accountUserId,
-					request: { kind: "message", message: input.message },
-				});
-			});
+			/** Admits a run's message within the caller's transaction; delivery is queued work. */
+			const admitMessageWithin = Effect.fn("NotificationsService.admitMessageWithin")(
+				function* (input: {
+					message: Message;
+					sourceKey: string;
+					sourceRunId: string;
+					accountUserId: UserId;
+				}) {
+					return yield* admissions.admitWithin({
+						sourceSubmittedAt: null,
+						sourceKey: input.sourceKey,
+						userId: input.accountUserId,
+						sourceRunId: input.sourceRunId,
+						accountUserId: input.accountUserId,
+						request: { kind: "message", message: input.message },
+					});
+				},
+			);
 
-			return { test, create, update, sendMessage, delete: remove };
+			return { test, create, update, delete: remove, admitMessageWithin };
 		}),
 	},
 ) {

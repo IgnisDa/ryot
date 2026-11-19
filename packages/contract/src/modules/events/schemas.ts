@@ -11,7 +11,7 @@ import {
 } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
-import { AutomationEventSnapshot, AutomationWarning } from "../automations/lifecycle";
+import { AutomationEventSnapshot } from "../automations/lifecycle";
 
 export const EventPropertiesPatch = strictStruct({
 	remove: Schema.Array(Schema.String),
@@ -112,15 +112,13 @@ export class EventBadRequest extends Schema.TaggedError<
 				"policy-execution-failed",
 				"owner-mismatch",
 				"global-scope-forbidden",
+				"root-entity-required",
 			]),
 		}),
 	]),
 }) {}
 
-export const EventMutationResponse = strictStruct({
-	eventId: Schema.NullOr(EventId),
-	warnings: Schema.Array(AutomationWarning),
-});
+export const EventMutationResponse = strictStruct({ eventId: Schema.NullOr(EventId) });
 
 export type EventMutationResponse = typeof EventMutationResponse.Type;
 
@@ -200,7 +198,6 @@ export type EventCreateItemOutcome = typeof EventCreateItemOutcome.Type;
 
 export const CreateEventsResponse = strictStruct({
 	count: Schema.Finite,
-	warnings: Schema.Array(AutomationWarning),
 	outcomes: Schema.Array(EventCreateItemOutcome),
 	failure: Schema.NullOr(strictStruct({ index: Schema.Finite, reason: EventCreateFailureReason })),
 });

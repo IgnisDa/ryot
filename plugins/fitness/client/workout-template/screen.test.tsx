@@ -91,6 +91,7 @@ const mountTemplate = (input: {
 				page.send({
 					outcome: "success",
 					type: "operation-result",
+					committed: { events: [] },
 					requestId: request.requestId,
 					value: {
 						settings: {

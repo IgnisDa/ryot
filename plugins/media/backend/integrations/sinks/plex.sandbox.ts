@@ -1,7 +1,7 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
 import { mediaFailureMessage } from "../../lib/error-message";
@@ -73,7 +73,7 @@ const findTmdbShow = Effect.fnUntraced(function* (
 	return showId;
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: SinkInput,
 	output: IntegrationArtifactOutput,
@@ -207,5 +207,8 @@ export default defineScript({
 					),
 				),
 			);
-		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
+		}).pipe(
+			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
+			Effect.map((output) => ({ output })),
+		),
 });

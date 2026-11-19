@@ -18,19 +18,26 @@ import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import {
+	invokeEncodedCommittingOperation,
 	invokeEncodedOperation,
 	invokeOperation,
 	type RecipeEncodedInput,
 	type RecipeInput,
 } from "~/fixtures/kernel/operations";
 import type { RyotQLPayload } from "~/fixtures/kernel/ryotql";
+import { requirePresent } from "~/support/assertions";
 
 import { findFitnessEntitySchema, fitnessRecipes } from "./exercises";
 
 export const createMeasurementMetric = (
 	client: Client,
 	input: RecipeEncodedInput<typeof measurementMetricCreateRecipe>,
-) => invokeEncodedOperation(client, measurementMetricCreateRecipe, input);
+) =>
+	invokeEncodedCommittingOperation(client, measurementMetricCreateRecipe, input).pipe(
+		Effect.map(({ committed }) => ({
+			entityId: requirePresent(committed.entityId, "Expected the created metric ID"),
+		})),
+	);
 
 export const pinMeasurementMetric = (
 	client: Client,

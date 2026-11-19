@@ -11,7 +11,10 @@ import { Context, Effect, Layer, Schema, Struct } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
-import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
+import {
+	SandboxExecutionAuthorityLive,
+	withCurrentExecutionAuthority,
+} from "#modules/scripts/authorization/authority";
 import {
 	isUserBootstrapPrincipal,
 	ScriptExecutionPrincipal,
@@ -133,10 +136,13 @@ const LockedWriteChecks = Context.Reference<null | Map<
 /**
  * Reuses each locked write check for the rest of `work`. A locked check holds shared locks on the
  * authority it read until the transaction ends, so only work that never changes plugin,
- * installation, or account rows itself may opt in.
+ * installation, or account rows itself may opt in. The checks resolve current execution authority
+ * rather than authority shared from the commit's preparation.
  */
 export const reuseLockedWriteChecks = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-	Effect.suspend(() => work.pipe(Effect.provideService(LockedWriteChecks, new Map())));
+	Effect.suspend(() =>
+		withCurrentExecutionAuthority(work.pipe(Effect.provideService(LockedWriteChecks, new Map()))),
+	);
 
 export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 	"@ryot-app/kernel-backend/modules/entities/write-context/DomainWriteChecks",

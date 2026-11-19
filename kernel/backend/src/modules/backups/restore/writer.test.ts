@@ -36,6 +36,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { parameters } from "@ryot-app/ryotql/authoring";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf, arrayContaining } from "@ryot-app/testing/matchers";
@@ -67,6 +68,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin, StoredPlugin } from "#modules/plugins/packages/types";
+import { pluginUserSettingsTooLargeMessage } from "#modules/plugins/preferences/user-settings-size";
 import { withCatalogs } from "#modules/plugins/source.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -169,6 +171,32 @@ it.effect(
 				settingsSchema,
 			).pipe(Effect.flip);
 			expect(invalidValue._tag).toBe("BackupArchiveError");
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"rejects restored plugin user settings above the user settings cap",
+	() =>
+		Effect.gen(function* () {
+			const settingsSchema: AppSchema = {
+				unknownKeys: "strict",
+				fields: { note: { label: "Note", type: "string", description: "A note" } },
+			};
+			const oversized = yield* resolveRestoredPluginUserSettings(
+				{ note: "x".repeat(SANDBOX_LIMITS.userSettingsBytes) },
+				settingsSchema,
+			).pipe(Effect.flip);
+			expect(oversized).toMatchObject({
+				reason: "invalid_entry",
+				message: pluginUserSettingsTooLargeMessage,
+			});
+			expect(
+				yield* resolveRestoredPluginUserSettings(
+					{ note: "x".repeat(SANDBOX_LIMITS.userSettingsBytes - 64) },
+					settingsSchema,
+				),
+			).toEqual({ note: "x".repeat(SANDBOX_LIMITS.userSettingsBytes - 64) });
 		}),
 	testTimeout,
 );

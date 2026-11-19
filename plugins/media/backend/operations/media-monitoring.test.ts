@@ -62,11 +62,13 @@ describe("media monitoring operations", () => {
 						execution,
 					),
 				).toEqual({
-					results: [
-						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-						{ status: "notFound", entityId: "missing" },
-						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-					],
+					output: {
+						results: [
+							{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+							{ status: "notFound", entityId: "missing" },
+							{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+						],
+					},
 				});
 				expect(documents).toHaveLength(1);
 				expect(Schema.is(RyotQLDocument)(documents[0])).toBe(true);
@@ -118,17 +120,11 @@ describe("media monitoring operations", () => {
 	);
 
 	it.live(
-		"enables valid targets with one atomic relationship batch and no user id",
+		"enables valid targets with one relationship change set",
 		() =>
 			Effect.gen(function* () {
-				const changes: unknown[] = [];
 				const documents: unknown[] = [];
 				const host = defineSandboxTestHost(enableManifest, {
-					changeUserRelationships: (batches) =>
-						Effect.sync(() => {
-							changes.push(batches);
-							return [{ created: 2, deleted: 0 }];
-						}),
 					executeRyotql: (document) =>
 						Effect.gen(function* () {
 							documents.push(bindTestRequest(document));
@@ -148,35 +144,25 @@ describe("media monitoring operations", () => {
 						host,
 						execution,
 					),
-				).toEqual({
-					results: [
-						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-						{ status: "notFound", entityId: "missing" },
-					],
-				});
-				expect(changes).toEqual([
-					[
-						{
-							deletes: [],
-							creates: [
-								{
-									properties: {},
-									propertiesMode: "merge",
-									sourceEntityId: "entity-a",
-									targetEntityId: "library-1",
-									relationshipSchemaSlug: "in-media-library",
-								},
-								{
-									properties: {},
-									propertiesMode: "merge",
-									sourceEntityId: "entity-a",
-									targetEntityId: "library-1",
-									relationshipSchemaSlug: "media-monitoring",
-								},
-							],
+				).toEqual<unknown>({
+					output: {
+						results: [
+							{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+							{ status: "notFound", entityId: "missing" },
+						],
+					},
+					changes: {
+						relationships: {
+							upserts: ["in-media-library", "media-monitoring"].map((relationshipSchemaSlug) => ({
+								properties: {},
+								relationshipSchemaSlug,
+								propertiesMode: "merge",
+								source: { kind: "existing", entityId: "entity-a" },
+								target: { kind: "existing", entityId: "library-1" },
+							})),
 						},
-					],
-				]);
+					},
+				});
 				expect(documents).toHaveLength(2);
 				for (const document of documents) {
 					expect(Schema.is(RyotQLDocument)(document)).toBe(true);
@@ -189,15 +175,9 @@ describe("media monitoring operations", () => {
 		"disables only existing monitoring edges and leaves ordinary media library membership alone",
 		() =>
 			Effect.gen(function* () {
-				const changes: unknown[] = [];
 				const host = defineSandboxTestHost(disableManifest, {
 					executeRyotql: () =>
 						Effect.succeed(rows([target("entity-a", "library-1"), target("entity-b")])),
-					changeUserRelationships: (batches) =>
-						Effect.sync(() => {
-							changes.push(batches);
-							return [{ created: 0, deleted: 1 }];
-						}),
 				});
 
 				expect(
@@ -207,27 +187,26 @@ describe("media monitoring operations", () => {
 						host,
 						execution,
 					),
-				).toEqual({
-					results: [
-						{ status: "found", entityId: "entity-a", isMediaMonitored: false },
-						{ status: "found", entityId: "entity-b", isMediaMonitored: false },
-						{ status: "notFound", entityId: "missing" },
-					],
-				});
-				expect(changes).toEqual([
-					[
-						{
-							creates: [],
+				).toEqual<unknown>({
+					output: {
+						results: [
+							{ status: "found", entityId: "entity-a", isMediaMonitored: false },
+							{ status: "found", entityId: "entity-b", isMediaMonitored: false },
+							{ status: "notFound", entityId: "missing" },
+						],
+					},
+					changes: {
+						relationships: {
 							deletes: [
 								{
-									sourceEntityId: "entity-a",
-									targetEntityId: "library-1",
 									relationshipSchemaSlug: "media-monitoring",
+									source: { kind: "existing", entityId: "entity-a" },
+									target: { kind: "existing", entityId: "library-1" },
 								},
 							],
 						},
-					],
-				]);
+					},
+				});
 			}),
 		testTimeout,
 	);

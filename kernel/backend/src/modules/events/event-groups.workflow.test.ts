@@ -2,9 +2,8 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
-import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
+import { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
-import { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
 import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -13,19 +12,17 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Exit, Layer, Schema } from "effect";
-import { TestClock } from "effect/testing";
 
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { EntityUserDataService } from "#modules/entities/user-data/service";
 import { command } from "#modules/relationships/lifecycle.test-support";
-import { HeldInlineBatch } from "#modules/scripts/executions/queues";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
 import {
+	commitChanges,
 	commitUserCommand,
 	createGroupEvents,
 	eventGroupFixture,
@@ -36,8 +33,7 @@ import { EventsService } from "./service";
 
 const compound = Effect.fnUntraced(function* (memberCount?: number) {
 	const fixture = yield* eventGroupFixture();
-	const input = yield* Schema.decodeUnknownEffect(UserCommand)({
-		relationships: [],
+	const input = yield* Schema.decodeUnknownEffect(ChangeSet)({
 		entity: {
 			properties: {},
 			name: "Session",
@@ -70,56 +66,41 @@ const compound = Effect.fnUntraced(function* (memberCount?: number) {
 
 layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect(
-		"retries busy folds after rolling back, but releases parked callers immediately",
+		"runs folds inline in the writing transaction and fails the write without retrying",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* eventGroupFixture();
 				const session = yield* DatabaseSession;
-				let attempts = 0;
-				const busy = new DbError({ message: "Busy", code: "RYOT_FOLD_BUSY" });
+				const folded: Array<boolean> = [];
+				const failure = new DbError({ message: "Fold failed" });
 				const mutations = yield* EventMutations.make.pipe(
 					Effect.provideService(Folds, {
 						...unfoldedFolds,
 						within: (work) =>
 							Effect.gen(function* () {
 								const result = yield* work;
-								attempts += 1;
-								if (attempts !== 2) {
-									return yield* busy;
-								}
-								return result;
+								folded.push(yield* session.isTransactionActive);
+								return folded.length === 1 ? result : yield* failure;
 							}),
 					}),
 				);
-				const rename = mutations.transaction(
-					Effect.gen(function* () {
-						const before = yield* session.run((db) =>
-							db
-								.select({ name: tables.entity.name })
-								.from(tables.entity)
-								.where(eq(tables.entity.id, fixture.subjectId)),
-						);
-						expect(before).toEqual([{ name: "Subject" }]);
-						yield* session.run((db) =>
-							db.execute(sql`update entity set name = 'Changed' where id = ${fixture.subjectId}`),
-						);
-					}),
+				const rename = (name: string) =>
+					mutations.transaction(
+						session.run((db) =>
+							db.execute(sql`update entity set name = ${name} where id = ${fixture.subjectId}`),
+						),
+					);
+				const subjectName = session.run((db) =>
+					db
+						.select({ name: tables.entity.name })
+						.from(tables.entity)
+						.where(eq(tables.entity.id, fixture.subjectId)),
 				);
-				yield* TestClock.withLive(rename);
-				expect(attempts).toBe(2);
-				expect(
-					yield* session.run((db) =>
-						db
-							.select({ name: tables.entity.name })
-							.from(tables.entity)
-							.where(eq(tables.entity.id, fixture.subjectId)),
-					),
-				).toEqual([{ name: "Changed" }]);
-				const exit = yield* mutations
-					.transaction(Effect.void)
-					.pipe(Effect.provideService(HeldInlineBatch, "interactive"), Effect.exit);
-				assertExitFails(exit, busy);
-				expect(attempts).toBe(3);
+				yield* rename("Changed");
+				expect(yield* subjectName).toEqual([{ name: "Changed" }]);
+				assertExitFails(yield* Effect.exit(rename("Rolled back")), failure);
+				expect(folded).toEqual([true, true]);
+				expect(yield* subjectName).toEqual([{ name: "Changed" }]);
 			}),
 		testTimeout,
 	);
@@ -252,8 +233,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				});
 				const anchor = fixture.result.events.find((item) => item.itemIdentity === "anchor");
 				assert(root && anchor);
-				const input = yield* Schema.decodeUnknownEffect(UserCommand)({
-					relationships: [],
+				const input = yield* Schema.decodeUnknownEffect(ChangeSet)({
 					entity: {
 						name: "Rejected name",
 						properties: root.properties,
@@ -294,9 +274,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					writeContext: fixture.command.writeContext,
 				};
 				assertExitFails(
-					yield* Effect.exit(
-						commitUserCommand({ input, userId: fixture.userId, command: failedCommand }),
-					),
+					yield* Effect.exit(commitUserCommand({ input, command: failedCommand })),
 					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				expect(
@@ -354,8 +332,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const secondIds = second.outcomes.flatMap((item) =>
 					item.status === "written" ? [item.eventId] : [],
 				);
-				const input = yield* Schema.decodeUnknownEffect(UserCommand)({
-					relationships: [],
+				const input = yield* Schema.decodeUnknownEffect(ChangeSet)({
 					entity: {
 						name: root.name,
 						properties: root.properties,
@@ -389,7 +366,6 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				expect(
 					(yield* commitUserCommand({
 						input,
-						userId: fixture.userId,
 						command: {
 							...fixture.command,
 							...command(yield* randomUuid),
@@ -443,21 +419,24 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					},
 				]);
 				assert(destination);
-				const service = yield* EntityUserDataService;
-				const result = yield* service.mergeEntityUserDataForCommand(
-					fixture.userId,
-					{
-						mergeInto: destination.id,
-						mergeFrom: fixture.subjectId,
-						entitySchemaSlug: EntitySchemaSlug.make("subject"),
-					},
-					{
+				yield* commitChanges({
+					command: {
 						...fixture.command,
 						...command(yield* randomUuid),
 						writeContext: fixture.command.writeContext,
 					},
-				);
-				expect(result.movedEventsCount).toBe(2);
+					input: {
+						entities: {
+							merges: [
+								{
+									mergeInto: destination.id,
+									entitySchemaSlug: "subject",
+									mergeFrom: fixture.subjectId,
+								},
+							],
+						},
+					},
+				});
 				const database = yield* DatabaseSession;
 				const rows = yield* database.run((db) =>
 					db.select().from(tables.event).where(eq(tables.event.entityId, destination.id)),
@@ -487,24 +466,28 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					},
 				]);
 				assert(destination);
-				const service = yield* EntityUserDataService;
 				assertExitFails(
 					yield* Effect.exit(
-						service.mergeEntityUserDataForCommand(
-							fixture.userId,
-							{
-								mergeInto: destination.id,
-								mergeFrom: fixture.result.entityId,
-								entitySchemaSlug: EntitySchemaSlug.make("session"),
-							},
-							{
+						commitChanges({
+							command: {
 								...fixture.command,
 								...command(yield* randomUuid),
 								writeContext: fixture.command.writeContext,
 							},
-						),
+							input: {
+								entities: {
+									merges: [
+										{
+											mergeInto: destination.id,
+											entitySchemaSlug: "session",
+											mergeFrom: fixture.result.entityId,
+										},
+									],
+								},
+							},
+						}),
 					),
-					new EntityUserDataBadRequest({ reason: { code: "state-conflict" } }),
+					new EventBadRequest({ reason: { code: "mutation-conflict" } }),
 				);
 				const database = yield* DatabaseSession;
 				expect(
@@ -529,8 +512,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					entityId: fixture.result.entityId,
 				});
 				assert(root);
-				const input = yield* Schema.decodeUnknownEffect(UserCommand)({
-					relationships: [],
+				const input = yield* Schema.decodeUnknownEffect(ChangeSet)({
 					entity: {
 						name: root.name,
 						properties: root.properties,
@@ -566,7 +548,6 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 						Effect.exit(
 							commitUserCommand({
 								input,
-								userId: fixture.userId,
 								command: {
 									...fixture.command,
 									...command(crypto.randomUUID()),

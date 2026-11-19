@@ -26,22 +26,12 @@ import { RelationshipsService } from "./service";
 
 layer(relationshipDatabaseLayer({ userWritePolicy: "source-owner" }))((test) => {
 	test.effect(
-		"rejects personal creates and batches from global sources",
+		"rejects personal creates from global sources",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* RelationshipsService;
 				assertExitFails(
 					yield* Effect.exit(service.create(baseInput, command("owned-source-create"))),
-					new RelationshipBadRequest({ reason: { sourceEntityId, code: "source-not-owned" } }),
-				);
-				assertExitFails(
-					yield* Effect.exit(
-						service.changeUser(
-							userId,
-							[{ deletes: [], creates: [{ ...baseInput, propertiesMode: "replace" }] }],
-							command("owned-source-batch"),
-						),
-					),
 					new RelationshipBadRequest({ reason: { sourceEntityId, code: "source-not-owned" } }),
 				);
 				expect(

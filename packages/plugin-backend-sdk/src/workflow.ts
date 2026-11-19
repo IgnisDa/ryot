@@ -1,9 +1,11 @@
+import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
 import { boundaryReasonOfError } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import { Effect as RuntimeEffect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import type { ExecutionMetadata, WorkflowManifest } from "./core/script-manifest";
-import { SANDBOX_SCRIPT_DEFINITION } from "./driver";
+import { outputWithChanges } from "./core/changes";
+import type { ExecutionMetadata, ScriptManifest, WorkflowManifest } from "./core/script-manifest";
+import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 import { jsonValueSchema, type SandboxHostError } from "./wire";
 import {
 	type WorkflowDurableCallRequest,
@@ -67,11 +69,17 @@ type WorkflowExecution<
 	readonly run: (
 		input: Input["Type"],
 		step: WorkflowStep & {
-			readonly save: (checkpoint: Checkpoint["Type"]) => RuntimeEffect.Effect<never, unknown>;
+			readonly save: (
+				checkpoint: Checkpoint["Type"],
+				changes?: ChangeSet,
+			) => RuntimeEffect.Effect<never, unknown>;
 		},
 		checkpoint: null | Checkpoint["Type"],
 		execution: ExecutionMetadata,
-	) => RuntimeEffect.Effect<Output["Type"], Failure>;
+	) => RuntimeEffect.Effect<
+		{ readonly changes?: ChangeSet; readonly output: Output["Type"] },
+		Failure
+	>;
 };
 
 class WorkflowJournalMismatchError extends Schema.TaggedError<
@@ -198,6 +206,7 @@ export const defineWorkflow = <
 		const requests: WorkflowDurableCallRequest[] = [];
 		const saved = Symbol("checkpoint");
 		let nextCheckpoint: unknown;
+		let checkpointChanges: undefined | ChangeSet;
 		return host.replayJournal().pipe(
 			RuntimeEffect.flatMap((journal) => {
 				const replayIdentity = { journalLength: journal.length };
@@ -211,8 +220,9 @@ export const defineWorkflow = <
 							input,
 							{
 								...makeWorkflowStep(journal, requests),
-								save: (value) => {
+								save: (value, changes) => {
 									nextCheckpoint = value;
+									checkpointChanges = changes;
 									return RuntimeEffect.fail(saved);
 								},
 							},
@@ -220,14 +230,18 @@ export const defineWorkflow = <
 							execution,
 						),
 					),
-					RuntimeEffect.flatMap((value) => Schema.decodeUnknownEffect(definition.output)(value)),
-					RuntimeEffect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)),
-					RuntimeEffect.map((output) => ({
-						output,
-						requests,
-						...replayIdentity,
-						state: "completed" as const,
-					})),
+					RuntimeEffect.flatMap(({ output, changes }) =>
+						Schema.decodeUnknownEffect(definition.output)(output).pipe(
+							RuntimeEffect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)),
+							RuntimeEffect.map((json) => ({
+								requests,
+								output: json,
+								...replayIdentity,
+								state: "completed" as const,
+								...(changes === undefined ? {} : { changes }),
+							})),
+						),
+					),
 					RuntimeEffect.catch(
 						(error): RuntimeEffect.Effect<WorkflowReplayEnvelope, SandboxHostError> =>
 							error === saved && definition.checkpoint
@@ -240,6 +254,7 @@ export const defineWorkflow = <
 												checkpoint: value,
 												...replayIdentity,
 												state: "checkpoint" as const,
+												...(checkpointChanges === undefined ? {} : { changes: checkpointChanges }),
 											}),
 										}),
 									)
@@ -267,6 +282,40 @@ export const defineWorkflow = <
 			}),
 		);
 	},
+});
+
+/**
+ * A script that a workflow calls with `step.activity`. It returns `{ output, changes? }`: the kernel
+ * commits `changes` once and hands the workflow only `output`.
+ */
+export const defineActivity = <
+	const Manifest extends ScriptManifest,
+	Input extends Schema.Codec<unknown, unknown>,
+	Output extends Schema.Codec<unknown, unknown>,
+	Failure,
+	Run extends GenericScriptDefinition<
+		Manifest,
+		Input,
+		ReturnType<typeof outputWithChanges<Output>>,
+		Failure
+	>["run"],
+>(
+	definition: { readonly run: Run } & Omit<
+		GenericScriptDefinition<Manifest, Input, Output, Failure>,
+		"run" | "definitionType"
+	>,
+): { readonly run: Run } & Omit<
+	GenericScriptDefinition<
+		Manifest,
+		Input,
+		ReturnType<typeof outputWithChanges<Output>>,
+		RuntimeEffect.Error<ReturnType<Run>>
+	>,
+	"run"
+> => ({
+	...definition,
+	definitionType: SANDBOX_SCRIPT_DEFINITION,
+	output: outputWithChanges(definition.output),
 });
 
 export const Effect = {

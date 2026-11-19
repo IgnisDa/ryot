@@ -260,7 +260,8 @@ describe("Media rating-only reviews", () => {
 					submissionId: yield* randomUuid,
 				}),
 			);
-			assertTaggedError(stale, "PluginOperationRejected");
+			assertTaggedError(stale, "PluginConflictError");
+			expect(stale.reason).toMatchObject({ code: "changes-conflict" });
 			const deletion = {
 				eventId: original.id,
 				submittedAt: nowIso(),

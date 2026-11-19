@@ -43,6 +43,10 @@ const admissions = Layer.effectContext(
 				Ref.update(inputs, (all) => [...all, input]).pipe(
 					Effect.as({ id: "admitted-notification" }),
 				),
+			admitWithin: (input) =>
+				Ref.update(inputs, (all) => [...all, input]).pipe(
+					Effect.as({ id: "admitted-notification" }),
+				),
 		}).pipe(Context.add(RecordedAdmissions, { inputs: Ref.get(inputs) }));
 	}),
 );
@@ -76,14 +80,14 @@ layer(
 		testTimeout,
 	);
 	test.effect(
-		"forwards trusted run and call authority with the stamped message",
+		"forwards a run's stamped message with its trusted authority",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* NotificationsService;
-				yield* service.sendMessage({
+				yield* service.admitMessageWithin({
 					sourceRunId: "run-1",
 					accountUserId: user.id,
-					sourceKey: "run-1-host-3-notification",
+					sourceKey: "run-1-changes-0-notification",
 					message: { namespace: "plugin1", key: "notification.run-completed" },
 				});
 				expect((yield* (yield* RecordedAdmissions).inputs).at(-1)).toEqual({
@@ -91,7 +95,7 @@ layer(
 					sourceRunId: "run-1",
 					accountUserId: user.id,
 					sourceSubmittedAt: null,
-					sourceKey: "run-1-host-3-notification",
+					sourceKey: "run-1-changes-0-notification",
 					request: {
 						kind: "message",
 						message: { namespace: "plugin1", key: "notification.run-completed" },

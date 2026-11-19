@@ -5,7 +5,6 @@ import { manifest as notificationManifest } from "./kernel-scripts/notification.
 
 export const kernelNotificationHook = {
 	stage: "after",
-	delivery: "async",
 	name: "Signal Notification",
 	slug: kernelNotificationHookSlug,
 	scriptSlug: notificationManifest.slug,

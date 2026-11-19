@@ -26,14 +26,12 @@ export const isRetryableAutomationFailure = (
 };
 
 export const automaticRetryAt = (
-	run: Pick<AutomationRun, "stage" | "retryPolicy" | "attemptCount" | "artifactsExpireAt">,
+	run: Pick<AutomationRun, "retryPolicy" | "attemptCount" | "artifactsExpireAt">,
 	kind: AutomationFailureKind,
 	now: Date,
 ): Date | null => {
 	const policy = run.retryPolicy;
 	if (
-		run.stage === "before" ||
-		!policy ||
 		run.attemptCount < 1 ||
 		run.attemptCount >= policy.maxAttempts ||
 		!isRetryableAutomationFailure(kind, policy)

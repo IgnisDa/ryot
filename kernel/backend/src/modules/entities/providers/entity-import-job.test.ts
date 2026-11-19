@@ -115,12 +115,7 @@ const makeHarness = (options: Harness = {}) => {
 			create: (input) =>
 				Effect.sync(() => {
 					calls.push({ options: input, name: "entry-event" });
-					return {
-						count: 1,
-						outcomes: [],
-						warnings: [],
-						...(options.eventResult ?? { failure: null }),
-					};
+					return { count: 1, outcomes: [], ...(options.eventResult ?? { failure: null }) };
 				}),
 		}),
 		Layer.mock(EnrichmentRequests)({

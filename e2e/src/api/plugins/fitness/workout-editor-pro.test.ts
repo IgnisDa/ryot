@@ -21,7 +21,7 @@ import {
 	workoutReference,
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
-import { assertCondition, requirePresent } from "~/support/assertions";
+import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const { setOccurredAt: occurredAt } = workoutEditorTimes;
@@ -130,13 +130,15 @@ describe("Workout editor with a valid Pro key", () => {
 				const edited = yield* saveWorkoutEditor(client, editInput);
 				assertCondition(edited.kind === "saved", "Expected the Pro template edit to save");
 				expect(yield* saveWorkoutEditor(client, editInput)).toEqual(edited);
-				expect(
-					yield* saveWorkoutEditor(client, {
+				const stale = yield* Effect.flip(
+					saveWorkoutEditor(client, {
 						...editInput,
 						submissionId: yield* randomUuid,
 						submittedAt: DateTime.formatIso(yield* DateTime.now),
 					}),
-				).toEqual({ kind: "conflict" });
+				);
+				assertTaggedError(stale, "PluginConflictError");
+				expect(stale.reason).toMatchObject({ code: "changes-conflict" });
 
 				const current = yield* loadWorkoutBaseline(client, created.entityId, "workout-template");
 				expect(current.baseline.entity.name).toBe(`${name} edited`);

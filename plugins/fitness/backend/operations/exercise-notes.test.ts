@@ -1,13 +1,14 @@
 import { describe, expect } from "bun:test";
 
-import { EventId } from "@ryot-app/contract/schema/brands";
-import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import { ExerciseNoteCreateInput } from "../../shared/exercise-note-operations";
+import {
+	ExerciseNoteCreateInput,
+	type ExerciseNoteUpdateInput,
+} from "../../shared/exercise-note-operations";
 import createDefinition, { manifest as createManifest } from "./exercise-note-create.sandbox";
 import deleteDefinition, { manifest as deleteManifest } from "./exercise-note-delete.sandbox";
 import updateDefinition, { manifest as updateManifest } from "./exercise-note-update.sandbox";
@@ -65,47 +66,47 @@ const tables: StoredTables = {
 
 const executeRyotql = inMemoryRyotql(tables);
 
-const recordingHosts = () => {
-	const creates: unknown[] = [];
-	const deletes: unknown[] = [];
-	const updates: UpdateEventItem[][] = [];
-	return {
-		creates,
-		deletes,
-		updates,
-		delete: defineSandboxTestHost(deleteManifest, {
-			executeRyotql,
-			deleteEvents: (ids) =>
-				Effect.sync(() => {
-					deletes.push(ids);
-					return { count: ids.length };
-				}),
-		}),
-		update: defineSandboxTestHost(updateManifest, {
-			executeRyotql,
-			updateEvents: (items) =>
-				Effect.sync(() => {
-					updates.push([...items]);
-					return { count: items.length };
-				}),
-		}),
-		create: defineSandboxTestHost(createManifest, {
-			executeRyotql,
-			createEvents: (items) =>
-				Effect.sync(() => {
-					creates.push(items);
-					return {
-						count: items.length,
-						outcomes: items.map((_, index) => ({
-							index,
-							status: "written" as const,
-							eventId: EventId.make(`created-event-${index}`),
-						})),
-					};
-				}),
-		}),
-	};
+const hosts = {
+	delete: defineSandboxTestHost(deleteManifest, { executeRyotql }),
+	update: defineSandboxTestHost(updateManifest, { executeRyotql }),
+	create: defineSandboxTestHost(createManifest, { executeRyotql }),
 };
+
+const update = (input: ExerciseNoteUpdateInput) =>
+	runSandboxTestScript(updateDefinition, input, hosts.update, execution);
+
+const noteCreated = (properties: Record<string, unknown>) => ({
+	output: { count: 1 },
+	changes: {
+		events: {
+			changes: [],
+			creates: [
+				{
+					properties,
+					eventSchemaSlug: "review",
+					itemIdentity: "review:exercise-1",
+					entity: { kind: "existing", entityId: "exercise-1" },
+				},
+			],
+		},
+	},
+});
+
+const noteUpdated = (properties: { readonly set: unknown; readonly remove: string[] }) => ({
+	output: { count: 1 },
+	changes: {
+		events: {
+			creates: [],
+			changes: [
+				{
+					kind: "update",
+					itemIdentity: "update:note-1",
+					item: { eventId: "note-1", patch: { properties } },
+				},
+			],
+		},
+	},
+});
 
 const foreignEventIds = [
 	"missing",
@@ -121,8 +122,6 @@ describe("exercise note operations", () => {
 		"creates one review on an exercise with only note properties",
 		() =>
 			Effect.gen(function* () {
-				const hosts = recordingHosts();
-
 				expect(
 					yield* runSandboxTestScript(
 						createDefinition,
@@ -130,40 +129,23 @@ describe("exercise note operations", () => {
 						hosts.create,
 						execution,
 					),
-				).toEqual({ count: 1 });
-				yield* runSandboxTestScript(
-					createDefinition,
-					{ text: "No rating", exerciseId: "exercise-1" },
-					hosts.create,
-					execution,
-				);
-
-				expect(hosts.creates).toEqual([
-					[
-						{
-							entityId: "exercise-1",
-							eventSchemaSlug: "review",
-							properties: { rating: 80, text: "Keep elbows tucked" },
-						},
-					],
-					[
-						{
-							entityId: "exercise-1",
-							eventSchemaSlug: "review",
-							properties: { text: "No rating" },
-						},
-					],
-				]);
+				).toEqual<unknown>(noteCreated({ rating: 80, text: "Keep elbows tucked" }));
+				expect(
+					yield* runSandboxTestScript(
+						createDefinition,
+						{ text: "No rating", exerciseId: "exercise-1" },
+						hosts.create,
+						execution,
+					),
+				).toEqual<unknown>(noteCreated({ text: "No rating" }));
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"rejects creating a note on a non-exercise or missing entity without writing",
+		"rejects creating a note on a non-exercise or missing entity",
 		() =>
 			Effect.gen(function* () {
-				const hosts = recordingHosts();
-
 				for (const exerciseId of ["movie-1", "collection-1", "missing", "foreign-exercise"]) {
 					const failure = yield* Effect.flip(
 						runSandboxTestScript(
@@ -175,17 +157,14 @@ describe("exercise note operations", () => {
 					);
 					expect(failure).toBeInstanceOf(ExerciseNoteNotFoundError);
 				}
-				expect(hosts.creates).toEqual([]);
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"rejects updating or deleting anything but an exercise review without writing",
+		"rejects updating or deleting anything but an exercise review",
 		() =>
 			Effect.gen(function* () {
-				const hosts = recordingHosts();
-
 				for (const noteId of foreignEventIds) {
 					const updateFailure = yield* Effect.flip(
 						runSandboxTestScript(
@@ -201,8 +180,6 @@ describe("exercise note operations", () => {
 					);
 					expect(deleteFailure).toBeInstanceOf(ExerciseNoteNotFoundError);
 				}
-				expect(hosts.updates).toEqual([]);
-				expect(hosts.deletes).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -211,40 +188,12 @@ describe("exercise note operations", () => {
 		"patches only note properties, removes a cleared rating, and keeps notes spoiler-free",
 		() =>
 			Effect.gen(function* () {
-				const hosts = recordingHosts();
-
-				yield* runSandboxTestScript(
-					updateDefinition,
-					{ rating: 60, noteId: "note-1", text: " Heavier " },
-					hosts.update,
-					execution,
+				expect(yield* update({ rating: 60, noteId: "note-1", text: " Heavier " })).toEqual<unknown>(
+					noteUpdated({ remove: ["isSpoiler"], set: { rating: 60, text: "Heavier" } }),
 				);
-				yield* runSandboxTestScript(
-					updateDefinition,
-					{ rating: null, text: "Cleared", noteId: "note-1" },
-					hosts.update,
-					execution,
+				expect(yield* update({ rating: null, text: "Cleared", noteId: "note-1" })).toEqual<unknown>(
+					noteUpdated({ set: { text: "Cleared" }, remove: ["isSpoiler", "rating"] }),
 				);
-
-				expect(hosts.updates).toEqual([
-					[
-						{
-							eventId: "note-1",
-							patch: {
-								properties: { remove: ["isSpoiler"], set: { rating: 60, text: "Heavier" } },
-							},
-						},
-					],
-					[
-						{
-							eventId: "note-1",
-							patch: { properties: { set: { text: "Cleared" }, remove: ["isSpoiler", "rating"] } },
-						},
-					],
-				]);
-				for (const [item] of hosts.updates) {
-					expect(Object.keys(item?.patch ?? {})).toEqual(["properties"]);
-				}
 			}),
 		testTimeout,
 	);
@@ -253,8 +202,6 @@ describe("exercise note operations", () => {
 		"deletes an exercise review by its id",
 		() =>
 			Effect.gen(function* () {
-				const hosts = recordingHosts();
-
 				expect(
 					yield* runSandboxTestScript(
 						deleteDefinition,
@@ -262,8 +209,15 @@ describe("exercise note operations", () => {
 						hosts.delete,
 						execution,
 					),
-				).toEqual({ count: 1 });
-				expect(hosts.deletes).toEqual([["note-1"]]);
+				).toEqual<unknown>({
+					output: { count: 1 },
+					changes: {
+						events: {
+							creates: [],
+							changes: [{ kind: "delete", eventId: "note-1", itemIdentity: "delete:note-1" }],
+						},
+					},
+				});
 			}),
 		testTimeout,
 	);

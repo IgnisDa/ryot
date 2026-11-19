@@ -28,7 +28,7 @@ const manifest = defineManifest({
 		},
 	},
 });
-const run = () => Effect.succeed(null);
+const run = () => Effect.succeed({});
 const policyRun = () => Effect.succeed({ items: [] });
 
 describe("automation definitions", () => {
@@ -39,9 +39,6 @@ describe("automation definitions", () => {
 				for (const capability of [
 					"log",
 					"httpCall",
-					"createEvents",
-					"emitSignal",
-					"sendNotification",
 					"setCachedValue",
 					"claimPersistentValue",
 					"scratch",

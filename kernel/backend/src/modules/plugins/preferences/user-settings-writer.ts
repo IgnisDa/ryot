@@ -9,7 +9,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -19,8 +19,10 @@ import { DatabaseSession } from "#platform/db/session";
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
-
-export const PLUGIN_USER_SETTINGS_MAX_BYTES = 64 * 1024;
+import {
+	isPluginUserSettingsTooLarge,
+	pluginUserSettingsTooLargeMessage,
+} from "./user-settings-size";
 
 class PluginUserSettingsTooLarge extends Schema.TaggedError<
 	PluginUserSettingsTooLarge,
@@ -57,7 +59,7 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 					input.settingsSchema,
 					input.validated,
 				).pipe(Effect.catchTag("SchemaError", Effect.die));
-				if ((jsonByteLength(input.stored) ?? Infinity) > PLUGIN_USER_SETTINGS_MAX_BYTES) {
+				if (isPluginUserSettingsTooLarge(input.stored)) {
 					return yield* new PluginUserSettingsTooLarge();
 				}
 				yield* assetReferences
@@ -119,7 +121,7 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 									PluginUserSettingsTooLarge: () =>
 										badRequest(
 											kernelMessage("error.plugins.user-settings-too-large", {
-												maxBytes: PLUGIN_USER_SETTINGS_MAX_BYTES,
+												maxBytes: SANDBOX_LIMITS.userSettingsBytes,
 											}),
 										),
 								}),
@@ -128,89 +130,82 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 					),
 			);
 
-			const patch = Effect.fn("PluginUserSettingsWriter.patch")(
-				(input: {
-					readonly userId: UserId;
-					readonly pluginId: string;
-					readonly accountUserId: UserId;
-					readonly pluginRevisionId: string;
-					readonly values: Readonly<Record<string, JsonValue>>;
-				}) =>
-					transaction(
-						input.userId,
-						Effect.gen(function* () {
-							yield* plugins.lockIngestionShared([input.userId]);
-							yield* database.acquireUserWriteLock(input.userId);
-							if (input.accountUserId !== input.userId) {
-								return yield* new DbError({
-									message: "Plugin user settings account does not match the execution user",
-								});
-							}
-							yield* admission.admitAccount(input.accountUserId);
-							const pinned = yield* installations.findUserSettingsForRevision({
-								userId: input.userId,
-								pluginId: input.pluginId,
-								pluginRevisionId: input.pluginRevisionId,
-							});
-							if (!pinned) {
-								return yield* new PluginUserSettingsPatchError({
-									message: "Plugin installation not found",
-								});
-							}
-							const pinnedSchema = pinned.userSettingsSchema;
-							if (!pinnedSchema) {
-								return yield* new PluginUserSettingsPatchError({
-									message: "Plugin declares no user settings",
-								});
-							}
-							const unknown = Object.keys(input.values).filter(
-								(key) => !Object.hasOwn(pinnedSchema.fields, key),
-							);
-							if (unknown.length > 0) {
-								return yield* new PluginUserSettingsPatchError({
-									message: `Unknown plugin user settings: ${unknown.join(", ")}`,
-								});
-							}
-							const active = yield* installations.findUserSettings(
-								input.userId,
-								pinned.installationId,
-							);
-							if (
-								!active?.userSettingsSchema ||
-								active.installation.incompatibilityReason !== null
-							) {
-								return yield* new PluginUserSettingsPatchError({
-									message: "Plugin installation is unavailable",
-								});
-							}
-							const merged = { ...active.installation.userSettings, ...input.values };
-							return yield* persist({
-								stored: merged,
-								validated: merged,
-								userId: input.userId,
-								installationId: pinned.installationId,
-								settingsSchema: active.userSettingsSchema,
-							}).pipe(
-								Effect.catchTags({
-									PluginRequestError: () =>
-										new PluginUserSettingsPatchError({
-											message: "Plugin user settings were rejected",
-										}),
-									PropertyValidationError: (error) =>
-										new PluginUserSettingsPatchError({
-											message: error.issues.map(({ message }) => message).join("; "),
-										}),
-									PluginUserSettingsTooLarge: () =>
-										new PluginUserSettingsPatchError({
-											message: `Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`,
-										}),
+			type PatchInput = {
+				readonly userId: UserId;
+				readonly pluginId: string;
+				readonly accountUserId: UserId;
+				readonly pluginRevisionId: string;
+				readonly values: Readonly<Record<string, JsonValue>>;
+			};
+			const patchWork = (input: PatchInput) =>
+				Effect.gen(function* () {
+					yield* plugins.lockIngestionShared([input.userId]);
+					yield* database.acquireUserWriteLock(input.userId);
+					if (input.accountUserId !== input.userId) {
+						return yield* new DbError({
+							message: "Plugin user settings account does not match the execution user",
+						});
+					}
+					yield* admission.admitAccount(input.accountUserId);
+					const pinned = yield* installations.findUserSettingsForRevision({
+						userId: input.userId,
+						pluginId: input.pluginId,
+						pluginRevisionId: input.pluginRevisionId,
+					});
+					if (!pinned) {
+						return yield* new PluginUserSettingsPatchError({
+							message: "Plugin installation not found",
+						});
+					}
+					const pinnedSchema = pinned.userSettingsSchema;
+					if (!pinnedSchema) {
+						return yield* new PluginUserSettingsPatchError({
+							message: "Plugin declares no user settings",
+						});
+					}
+					const unknown = Object.keys(input.values).filter(
+						(key) => !Object.hasOwn(pinnedSchema.fields, key),
+					);
+					if (unknown.length > 0) {
+						return yield* new PluginUserSettingsPatchError({
+							message: `Unknown plugin user settings: ${unknown.join(", ")}`,
+						});
+					}
+					const active = yield* installations.findUserSettings(input.userId, pinned.installationId);
+					if (!active?.userSettingsSchema || active.installation.incompatibilityReason !== null) {
+						return yield* new PluginUserSettingsPatchError({
+							message: "Plugin installation is unavailable",
+						});
+					}
+					const merged = { ...active.installation.userSettings, ...input.values };
+					return yield* persist({
+						stored: merged,
+						validated: merged,
+						userId: input.userId,
+						installationId: pinned.installationId,
+						settingsSchema: active.userSettingsSchema,
+					}).pipe(
+						Effect.catchTags({
+							PluginRequestError: () =>
+								new PluginUserSettingsPatchError({ message: "Plugin user settings were rejected" }),
+							PluginUserSettingsTooLarge: () =>
+								new PluginUserSettingsPatchError({ message: pluginUserSettingsTooLargeMessage }),
+							PropertyValidationError: (error) =>
+								new PluginUserSettingsPatchError({
+									message: error.issues.map(({ message }) => message).join("; "),
 								}),
-							);
 						}),
-					),
+					);
+				});
+			const patch = Effect.fn("PluginUserSettingsWriter.patch")((input: PatchInput) =>
+				transaction(input.userId, patchWork(input)),
+			);
+			/** Patches inside the caller's transaction, which must not hold row locks yet. */
+			const patchWithin = Effect.fn("PluginUserSettingsWriter.patchWithin")((input: PatchInput) =>
+				patchWork(input).pipe(Effect.tap(() => invalidator.user(input.userId))),
 			);
 
-			return { save, patch };
+			return { save, patch, patchWithin };
 		}),
 	},
 ) {

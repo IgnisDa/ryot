@@ -42,10 +42,51 @@ export const Occurrence = Schema.Struct({
 });
 export type Occurrence = typeof Occurrence.Type;
 
+const FoldEventValue = Schema.Struct({
+	id: Schema.String,
+	revision: Schema.Int,
+	entityId: Schema.String,
+	orderKey: Schema.String,
+	occurredAt: Schema.String,
+	orderCreatedAt: Schema.String,
+	eventSchemaSlug: Schema.String,
+	entitySchemaSlug: Schema.String,
+	sessionEntityId: Schema.NullOr(Schema.String),
+	properties: Schema.Record(Schema.String, Schema.Json),
+});
+
+/** Where an episodic subject's coverage stood after its latest event, so an append resumes from it. */
+const CoverageCarry = Schema.Struct({
+	used: Schema.Array(Schema.String),
+	basis: Schema.NullOr(Schema.String),
+	covered: Schema.Array(
+		Schema.Struct({
+			source: Schema.String,
+			episodeId: Schema.String,
+			dateUnknown: Schema.Boolean,
+			consumedOn: Schema.Array(Schema.String),
+		}),
+	),
+});
+type CoverageCarry = typeof CoverageCarry.Type;
+
+const emptyCoverageCarry: CoverageCarry = { used: [], basis: null, covered: [] };
+
+/**
+ * `tails` holds each entity's latest unfinished run of unsourced events, which an append continues, with
+ * the earlier events that occurred at the instant it starts; `coverage` is the episodic coverage carry.
+ */
 export const MediaFoldValue = Schema.Struct({
 	occurrences: Schema.Array(Occurrence),
+	coverage: Schema.optionalKey(CoverageCarry),
 	terminal: Schema.optionalKey(Schema.Boolean),
 	coverageSources: Schema.optionalKey(Schema.Array(Schema.String)),
+	tails: Schema.optionalKey(
+		Schema.Record(
+			Schema.String,
+			Schema.Struct({ run: Schema.Array(FoldEventValue), lead: Schema.Array(FoldEventValue) }),
+		),
+	),
 });
 export type MediaFoldValue = typeof MediaFoldValue.Type;
 
@@ -114,8 +155,10 @@ export type HistoryChange =
 			readonly item: {
 				readonly eventId: string;
 				readonly patch: {
+					readonly entityId?: string;
 					readonly occurredAt?: string;
-					readonly orderAfter: null | { readonly suffix: string; readonly eventId: string };
+					readonly sessionEntityId?: null | string;
+					readonly orderAfter?: { readonly suffix: string; readonly eventId: string };
 					readonly properties: {
 						readonly remove: ReadonlyArray<string>;
 						readonly set: Readonly<Record<string, JsonValue>>;
@@ -145,6 +188,9 @@ export const compareText = (left: string, right: string) => {
 	}
 	return left < right ? -1 : 1;
 };
+
+export const sortedOccurrences = (values: ReadonlyArray<Occurrence>) =>
+	[...values].sort((left, right) => compareText(left.key, right.key));
 
 const statusOf = (prior: undefined | Occurrence): Occurrence["status"] =>
 	prior === undefined || prior.status === "inactive" ? "active" : prior.status;
@@ -189,18 +235,28 @@ const sourceRunOf = (event: FoldEvent) => {
  * Derives a subject's automatic completions from its history and its previous fold value. Progress
  * that reaches its total completes its item; complete coverage of an episodic subject's required
  * episodes completes the subject. A deleted automatic completion stays suppressed and an edited one
- * becomes explicit. Coverage completions keep the episode inventory they were frozen with. A new one
- * needs a completion this fold has not seen or a subject that just became terminal: an inventory change
- * alone completes nothing.
+ * becomes explicit, keeping its order. Coverage completions keep the episode inventory they were frozen
+ * with, and a stored one is restored where its sources exactly cover that inventory, or else at its
+ * closing event while the inventory is covered, so a replay of the fold's own output changes nothing.
+ * A new one needs a completion this fold has not seen or a subject that just became terminal: an
+ * inventory change alone completes nothing.
  */
 export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: {
 	readonly subject: HistorySubject;
 	readonly previous: MediaFoldValue;
+	/** Limits progress occurrences to those sourced by these events; the value then holds only them. */
+	readonly scope?: ReadonlySet<string>;
 	readonly events: ReadonlyArray<FoldEvent>;
 	/** Completions restored under a key whose source has since changed ID still answer to that occurrence. */
 	readonly renamedKeys?: ReadonlyMap<string, string>;
 	readonly inventory: Effect.Effect<ReadonlyArray<string>, E, R>;
+	/** Resumes coverage from `carry`, visiting only `fresh` events and the completions they source. */
+	readonly coverage?: { readonly carry: CoverageCarry; readonly fresh: ReadonlySet<string> };
 }) {
+	const inScope = (value: undefined | Occurrence) =>
+		value !== undefined &&
+		(input.scope === undefined ||
+			(value.rule === "progress" && input.scope.has(value.sourceEventId)));
 	const changes: Array<HistoryChange> = [];
 	const sorted = [...input.events].sort(compareHistory);
 	const previous = new Map(input.previous.occurrences.map((value) => [value.key, value]));
@@ -213,7 +269,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	}
 	const overridden = new Set<string>();
 	for (const value of input.previous.occurrences) {
-		if (value.status !== "active" || value.written === null) {
+		if (!inScope(value) || value.status !== "active" || value.written === null) {
 			continue;
 		}
 		const actual = outputs.get(value.key);
@@ -228,10 +284,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 				itemIdentity: `override:${actual.id}`,
 				item: {
 					eventId: actual.id,
-					patch: {
-						orderAfter: null,
-						properties: { set: {}, remove: ["completionKey", "completionSilent"] },
-					},
+					patch: { properties: { set: {}, remove: ["completionKey", "completionSilent"] } },
 				},
 			});
 		}
@@ -375,19 +428,32 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	].sort(compareHistory);
 
 	const coverageSources = new Set<string>();
+	const carry = input.coverage?.carry ?? emptyCoverageCarry;
+	let carried = carry;
 	if (input.subject.episodic) {
 		let live: undefined | ReadonlyArray<string>;
-		const used = new Set<string>();
+		const used = new Set<string>(carry.used);
 		const frozen = input.previous.occurrences.filter(
 			(value) => value.rule === "coverage" && value.inventory !== undefined,
 		);
-		let coverage = new Map<string, { source: string; event: FoldEvent }>();
-		let basis: undefined | Occurrence;
+		let coverage = new Map(
+			carry.covered.map(({ episodeId, ...value }) => [episodeId, value] as const),
+		);
+		let basis: undefined | Occurrence =
+			carry.basis === null ? undefined : frozen.find(({ key }) => key === carry.basis);
 		const seenSources = new Set(input.previous.coverageSources);
 		const becameTerminal = input.subject.terminal && input.previous.terminal !== true;
+		const fresh = input.coverage?.fresh;
 		for (const event of effective) {
 			if (event.eventSchemaSlug !== "progress" && event.eventSchemaSlug !== "complete") {
 				continue;
+			}
+			if (fresh !== undefined) {
+				const key = completionKeyOf(event);
+				const origin = key === undefined ? event.id : progressSources.get(key)?.id;
+				if (origin === undefined || !fresh.has(origin)) {
+					continue;
+				}
 			}
 			if (event.entityId === input.subject.id) {
 				if (event.eventSchemaSlug === "complete" && completionKeyOf(event) === undefined) {
@@ -406,7 +472,11 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 			const source = progressSource?.id ?? event.id;
 			const unseen = !seenSources.has(source);
 			coverageSources.add(source);
-			coverage.set(event.entityId, { event, source });
+			coverage.set(event.entityId, {
+				source,
+				consumedOn: consumedOnOf(event),
+				dateUnknown: event.properties["dateUnknown"] === true,
+			});
 			basis ??= frozen.find(
 				(value) => !used.has(value.key) && value.sources?.includes(source) === true,
 			);
@@ -418,28 +488,42 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 			if (basis !== undefined && !supported(basis)) {
 				basis = undefined;
 			}
-			const required = basis?.inventory ?? (live ??= [...(yield* input.inventory)].sort());
+			const unused = frozen.filter(
+				({ key, inventory = [] }) => !used.has(key) && inventory.length > 0,
+			);
+			const restored =
+				unused.find(
+					({ sources = [], inventory = [] }) =>
+						inventory.length === sources.length &&
+						inventory.every(
+							(episodeId, index) => coverage.get(episodeId)?.source === sources[index],
+						),
+				) ??
+				unused.find(
+					({ sourceEventId, inventory = [] }) =>
+						sourceEventId === source && inventory.every((episodeId) => coverage.has(episodeId)),
+				);
+			const required =
+				(restored ?? basis)?.inventory ?? (live ??= [...(yield* input.inventory)].sort());
 			const covered = required.flatMap((episodeId) => {
 				const value = coverage.get(episodeId);
 				return value === undefined ? [] : [value];
 			});
+			const key = (restored ?? basis)?.key ?? `coverage:${source}`;
 			if (
-				required.length === 0 ||
-				covered.length !== required.length ||
-				(!input.subject.terminal && basis === undefined)
+				restored === undefined &&
+				(required.length === 0 ||
+					covered.length !== required.length ||
+					(!input.subject.terminal && basis === undefined) ||
+					used.has(key) ||
+					(!unseen && !becameTerminal))
 			) {
 				continue;
 			}
-			const key = basis?.key ?? `coverage:${source}`;
 			const prior = previous.get(key);
-			if (basis === undefined && prior === undefined && !unseen && !becameTerminal) {
-				continue;
-			}
 			used.add(key);
-			const consumedOn = mergeConsumedOn(...covered.map(({ event: item }) => consumedOnOf(item)));
-			const dateUnknown = covered.every(
-				({ event: item }) => item.properties["dateUnknown"] === true,
-			);
+			const consumedOn = mergeConsumedOn(...covered.map((item) => item.consumedOn));
+			const dateUnknown = covered.every((item) => item.dateUnknown);
 			const anchor = progressSource ?? event;
 			occurrences.push(
 				output(
@@ -472,12 +556,19 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 			coverage = new Map();
 			basis = undefined;
 		}
+		carried = {
+			basis: basis?.key ?? null,
+			used: [...used].sort(compareText),
+			covered: [...coverage]
+				.map(([episodeId, value]) => Object.assign({ episodeId }, value))
+				.sort((left, right) => compareText(left.episodeId, right.episodeId)),
+		};
 	}
 
 	const wanted = new Map(desired.map((value) => [value.occurrence.key, value]));
 	for (const [key, actual] of outputs) {
 		// A completion merged in from another title was never this fold's to remove.
-		if (!wanted.has(key) && previous.has(key)) {
+		if (!wanted.has(key) && inScope(previous.get(key))) {
 			changes.push({ kind: "delete", eventId: actual.id, itemIdentity: `remove:${actual.id}` });
 		}
 	}
@@ -508,6 +599,12 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 					patch: {
 						orderAfter,
 						occurredAt: value.output.occurredAt,
+						...(actual.entityId === value.output.entityId
+							? {}
+							: { entityId: value.output.entityId }),
+						...(actual.sessionEntityId === value.output.sessionEntityId
+							? {}
+							: { sessionEntityId: value.output.sessionEntityId }),
 						properties: {
 							set: value.output.properties,
 							remove: Object.keys(actual.properties).filter(
@@ -521,6 +618,9 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	}
 	const present = new Set(history.map(({ id }) => id));
 	const kept = [...previous.values()].flatMap((value): ReadonlyArray<Occurrence> => {
+		if (!inScope(value)) {
+			return [];
+		}
 		const sources = value.rule === "progress" ? [value.sourceEventId] : (value.sources ?? []);
 		return occurrences.some(({ key }) => key === value.key) ||
 			!sources.some((id) => present.has(id))
@@ -536,6 +636,8 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	return {
 		changes,
 		history,
+		coverageSources,
+		coverageOccurrences: occurrences.filter(({ rule }) => rule === "coverage"),
 		boundaries: new Set(
 			occurrences.flatMap((value) =>
 				value.rule === "progress" && (value.status === "active" || value.status === "suppressed")
@@ -544,9 +646,13 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 			),
 		),
 		value: {
-			occurrences: [...occurrences, ...kept],
+			occurrences: sortedOccurrences([...occurrences, ...kept]),
 			...(input.subject.episodic
-				? { terminal: input.subject.terminal, coverageSources: [...coverageSources].sort() }
+				? {
+						coverage: carried,
+						terminal: input.subject.terminal,
+						coverageSources: [...coverageSources].sort(),
+					}
 				: {}),
 		} satisfies MediaFoldValue,
 		automatic: new Map(

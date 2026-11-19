@@ -579,10 +579,6 @@ const rootPopulationLayer = Layer.unwrap(
 					}),
 			}),
 			Layer.succeed(LifecycleExecution, {
-				after: () => Effect.die("unexpected after"),
-				executePolicy: () => Effect.die("unexpected policy"),
-				skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
-				executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
 				dispatch: () =>
 					transaction
 						.expectTransaction(false)

@@ -57,12 +57,12 @@ export const lifecycleActor = (
 type AutomationRunSubject = Extract<SandboxExecutionSubject, { type: "automation-run" }>;
 
 export const automationRunLane = (run: {
-	readonly delivery: AutomationRunSubject["delivery"];
+	readonly stage: AutomationRunSubject["stage"];
 	readonly causation: Pick<AutomationRunSubject["causation"], "lane">;
-}): ExecutionLane => (run.delivery === "async" ? "background" : run.causation.lane);
+}): ExecutionLane => (run.stage === "after" ? "background" : run.causation.lane);
 
 export const automationLifecycleCausation = (
-	parent: Pick<AutomationRunSubject, "runId" | "delivery" | "causation" | "triggerId">,
+	parent: Pick<AutomationRunSubject, "runId" | "stage" | "causation" | "triggerId">,
 	executionId: AutomationExecutionId,
 ): AutomationCausation => ({
 	...parent.causation,

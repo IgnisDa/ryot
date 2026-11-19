@@ -1,6 +1,7 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
+import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { makeJobKind } from "#platform/jobs/queue";
 import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
@@ -35,6 +36,10 @@ export const runUserBootstrapJob = Effect.fn("UserBootstrapJob")(function* (
 	job: JobContext,
 ) {
 	yield* Effect.annotateCurrentSpan({ jobId: job.id, userId: payload.userId });
+	const lifecycle = yield* LifecycleWriteGuard;
+	if (yield* lifecycle.isActive(payload.userId)) {
+		return;
+	}
 	yield* bootstrapUser(payload.userId, payload.accountUserId);
 });
 

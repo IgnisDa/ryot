@@ -32,7 +32,7 @@ import { makeSidecarFrameWriter } from "../protocol/framing";
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import type { SidecarHostResultFrame } from "../protocol/messages";
 import { base64DecodedLength, SidecarHostCallFrame } from "../protocol/messages";
-import { SandboxSidecarAdmission } from "./admission";
+import { InsideSandboxHostCall, SandboxSidecarAdmission } from "./admission";
 import type { SandboxFileAccess } from "./file-access";
 import { makeFiles, makeSandboxAdmission, sandboxGateLayer } from "./gate.test-support";
 import { encodeJson, hostCallFrame } from "./host-call-args.test-support";
@@ -144,7 +144,7 @@ const holdReplies = () => {
 };
 
 const inlineInput = (
-	capabilities: ReadonlyArray<"httpCall" | "listIntegrations">,
+	capabilities: ReadonlyArray<"httpCall">,
 	settle: (count: number) => ReadonlyArray<WorkflowDurableResult>,
 	settled: { count: number },
 ) =>
@@ -176,6 +176,47 @@ const reserveBatch = (seq: number) =>
 	makeFrame(seq, "inlineBatch", { requests: httpRequests(1) }, { handle: "reserve" });
 
 layer(gateLayer)((test) => {
+	test.effect(
+		"marks ordinary and inline host work as inside a host call",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const gate = yield* SandboxHostCallGate;
+					const observed: Array<[string, boolean]> = [];
+					const input = makeInput(["getCachedValue"], {
+						workflowExecutionId: "marked-workflow",
+						replayJournal: yield* memoryPinnedJournal([]),
+						inlineDurableHost: {
+							capabilities: ["getCachedValue"],
+							settle: (requests) =>
+								Effect.map(InsideSandboxHostCall, (inside) => {
+									observed.push(["inline", inside]);
+									return requests.map(() => ({ value: null, state: "success" as const }));
+								}),
+						},
+					});
+					const registration = yield* gate.register(
+						makeOptions(input, {
+							getCachedValue: () =>
+								Effect.map(InsideSandboxHostCall, (inside) => {
+									observed.push(["ordinary", inside]);
+									return hostSuccess(null);
+								}),
+						}),
+					);
+					yield* registration.dispatch(yield* makeFrame(0, "getCachedValue", []));
+					yield* registration.dispatch(
+						yield* makeFrame(1, "inlineBatch", { requests: [yield* cachedValueRequest(0)] }),
+					);
+					expect(observed).toEqual([
+						["ordinary", true],
+						["inline", true],
+					]);
+					expect(yield* InsideSandboxHostCall).toBe(false);
+				}),
+			),
+		testTimeout,
+	);
 	test.effect(
 		"counts ordinary host waits while pausing only validated inline settlement",
 		() =>
@@ -275,52 +316,6 @@ layer(gateLayer)((test) => {
 		testTimeout,
 	);
 
-	test.effect(
-		"refuses user settings writes beyond the per-execution cap",
-		() =>
-			Effect.gen(function* () {
-				const gate = yield* SandboxHostCallGate;
-				let writes = 0;
-				const registration = yield* gate.register(
-					makeOptions(
-						makeInput(["updateUserSettings"]),
-						{
-							updateUserSettings: successHostFunction(() => {
-								writes += 1;
-								return { saved: true };
-							}),
-						},
-						makeFiles(),
-						"settings-writes",
-					),
-				);
-				const responses = yield* Effect.forEach(
-					Array.from({ length: SANDBOX_LIMITS.hostCalls.userSettingsWrites + 1 }, (_, seq) => seq),
-					(seq) =>
-						Effect.flatMap(
-							makeFrame(seq, "updateUserSettings", [{ enabled: true }], {
-								handle: "settings-writes",
-							}),
-							(frame) => registration.dispatch(frame),
-						),
-				);
-				const [rejected] = responses.slice(-1);
-				assert(rejected);
-				expect(writes).toBe(SANDBOX_LIMITS.hostCalls.userSettingsWrites);
-				expect(responses.slice(0, -1).map(frameValue)).toEqual(
-					Array.from({ length: SANDBOX_LIMITS.hostCalls.userSettingsWrites }, () => ({
-						success: true,
-						data: { saved: true },
-					})),
-				);
-				expect(frameValue(rejected)).toMatchObject({
-					success: false,
-					error: "Sandbox execution exceeds 4 updateUserSettings calls",
-					data: { code: "execution-limit", operation: "updateUserSettings" },
-				});
-			}),
-		testTimeout,
-	);
 	test.effect(
 		"preserves host call session protections",
 		() =>
@@ -1180,7 +1175,7 @@ layer(gateLayer)((test) => {
 					const registration = yield* gate.register(
 						makeOptions(
 							inlineInput(
-								["httpCall", "listIntegrations"],
+								["httpCall"],
 								(count) => Array.from({ length: count }, () => ({ value: null, state: "success" })),
 								settled,
 							),
@@ -1198,22 +1193,10 @@ layer(gateLayer)((test) => {
 						SANDBOX_TRANSIENT_MEMORY.inlineValueBytes / (2 * SANDBOX_LIMITS.http.responseBytes);
 
 					expect(frameValue(yield* batch(0, httpRequests(allowance + 1)))).toEqual({ defer: true });
-					expect(
-						frameValue(
-							yield* batch(1, [
-								{
-									index: 0,
-									kind: "host",
-									name: "listIntegrations",
-									args: { args: [], capability: "listIntegrations" },
-								},
-							]),
-						),
-					).toEqual({ defer: true });
 					expect(settled.count).toBe(0);
-					expect(frameValue(yield* batch(2, httpRequests(allowance)))).toEqual({ defer: true });
+					expect(frameValue(yield* batch(1, httpRequests(allowance)))).toEqual({ defer: true });
 					expect(settled.count).toBe(0);
-					expect(frameValue(yield* batch(3, httpRequests(1)))).toMatchObject({
+					expect(frameValue(yield* batch(2, httpRequests(1)))).toMatchObject({
 						results: [{ value: null, state: "success" }],
 					});
 					expect(settled.count).toBe(1);

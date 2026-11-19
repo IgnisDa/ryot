@@ -1794,7 +1794,7 @@ export default defineOperation({
 	manifest,
 	output: Schema.Null,
 	input: Schema.Unknown,
-	run: () => Effect.succeed(null),
+	run: () => Effect.succeed({ output: null }),
 });
 `;
 

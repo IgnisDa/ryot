@@ -1,7 +1,8 @@
-import { recoverPartialCreateEvents } from "@ryot-app/plugin-backend-sdk/core";
+import { existingEntity, rootEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	measurementEntryEntity,
@@ -29,29 +30,22 @@ export default defineOperation({
 				values.map(({ metricId }) => metricId),
 				host.executeRyotql,
 			);
-			const { entityId: entryId } = yield* host.createUserEntity(
-				measurementEntryEntity(occurredAt, comment),
-			);
-			return yield* host
-				.createEvents(
-					values.map(({ value, metricId }) => ({
-						occurredAt,
-						entityId: metricId,
-						sessionEntityId: entryId,
-						eventSchemaSlug: "measurement-reading",
-						properties: measurementReadingProperties(value),
-					})),
-				)
-				.pipe(
-					Effect.map(({ count }) => ({
-						count,
-						status: count === values.length ? ("saved" as const) : ("incomplete" as const),
-					})),
-					Effect.catch((error) =>
-						recoverPartialCreateEvents(error).pipe(
-							Effect.map(({ count }) => ({ count, status: "incomplete" as const })),
-						),
-					),
-				);
+			return {
+				output: { count: values.length },
+				changes: {
+					entity: { ...measurementEntryEntity(occurredAt, comment), target: { kind: "create" } },
+					events: {
+						changes: [],
+						creates: values.map(({ value, metricId }) => ({
+							occurredAt,
+							session: rootEntity,
+							itemIdentity: `reading:${metricId}`,
+							eventSchemaSlug: "measurement-reading",
+							entity: existingEntity(EntityId.make(metricId)),
+							properties: measurementReadingProperties(value),
+						})),
+					},
+				},
+			};
 		}),
 });

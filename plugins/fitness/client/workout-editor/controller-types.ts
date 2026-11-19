@@ -20,7 +20,16 @@ export type WorkoutEditorContext = {
 	readonly pro: boolean;
 } & typeof WorkoutEditorContextOutputSchema.Type;
 
-type SavedResult = Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>;
+export type WorkoutEditorSaveResult =
+	| { readonly kind: "conflict" }
+	| Extract<WorkoutEditorSaveOutput, { readonly kind: "invalid" }>
+	| { readonly kind: "saved"; readonly entityId: CommittedEntityId };
+
+type SavedResult = Extract<WorkoutEditorSaveResult, { readonly kind: "saved" }>;
+
+type CommittedEntityId = NonNullable<
+	Effect.Success<ReturnType<RyotClient["operations"]["invoke"]>>["committed"]["entityId"]
+>;
 
 type ContextSnapshot = {
 	readonly saveState: SaveState;
@@ -72,7 +81,7 @@ export type WorkoutEditorControllerPorts = {
 	readonly iosLiveActivities: RyotClient["iosLiveActivities"];
 	readonly refreshContext: Effect.Effect<WorkoutEditorContext, unknown>;
 	readonly device: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceResult, unknown>;
-	readonly save: (input: WorkoutEditorSaveInput) => Effect.Effect<WorkoutEditorSaveOutput, unknown>;
+	readonly save: (input: WorkoutEditorSaveInput) => Effect.Effect<WorkoutEditorSaveResult, unknown>;
 	readonly storage: {
 		readonly remove: Effect.Effect<void, unknown>;
 		readonly read: Effect.Effect<unknown, unknown>;

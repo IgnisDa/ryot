@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { mediaNormalizedRecordReader, writeMediaCapture } from "./collection";
 import { MediaSourceRecord } from "./collection-schemas";
@@ -16,7 +16,7 @@ export const manifest = defineManifest({
 	slug: "import.read-batch",
 	name: "Prepare captured media application batch",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaReadBatchInput,
 	output: MediaReadBatchOutput,
@@ -141,5 +141,5 @@ export default defineScript({
 					),
 				},
 			};
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

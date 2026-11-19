@@ -75,7 +75,6 @@ const entitiesApi = Layer.succeed(EntitiesApi, {
 		const failure = createFailures.shift();
 		return failure === undefined
 			? Effect.succeed({
-					warnings: [],
 					output: { kind: "saved" as const, entityId: EntityId.make("entity-created") },
 				})
 			: Effect.fail(new AuthenticatedApiError({ cause: failure }));

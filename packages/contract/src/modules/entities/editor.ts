@@ -4,7 +4,6 @@ import { Schema } from "effect";
 import { contractErrorFields } from "../../errors";
 import { EntityId } from "../../schema/brands";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
-import { AutomationWarning } from "../automations/lifecycle";
 import { EntitySchemaReference } from "../plugins/references";
 
 const properties = Schema.Record(Schema.String, Schema.Unknown);
@@ -75,10 +74,7 @@ export const EntityEditorSaveOutput = Schema.Union([
 ]);
 export type EntityEditorSaveOutput = typeof EntityEditorSaveOutput.Type;
 
-export const EntityEditorSaveResult = Schema.Struct({
-	output: EntityEditorSaveOutput,
-	warnings: Schema.Array(AutomationWarning),
-});
+export const EntityEditorSaveResult = Schema.Struct({ output: EntityEditorSaveOutput });
 export type EntityEditorSaveResult = typeof EntityEditorSaveResult.Type;
 
 export class EntityEditorRefused extends Schema.TaggedError<

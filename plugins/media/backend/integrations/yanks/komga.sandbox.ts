@@ -1,8 +1,8 @@
 import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { readMediaCapture } from "../../imports/collection";
 import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../../imports/schemas";
@@ -217,7 +217,7 @@ const komgaChapterProgress = (input: {
 		: undefined;
 };
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: YankInput,
 	output: IntegrationWindowOutput,
@@ -356,5 +356,5 @@ export default defineScript({
 				{ failures, entityGroups },
 				next ? yield* Schema.encodeEffect(cursorJson)(next) : null,
 			);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

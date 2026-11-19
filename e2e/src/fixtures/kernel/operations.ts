@@ -13,7 +13,7 @@ export type RecipeInput<Recipe extends { readonly input: { readonly Type: unknow
 export type RecipeEncodedInput<Recipe extends { readonly input: { readonly Encoded: unknown } }> =
 	Recipe["input"]["Encoded"];
 
-const operationTransport =
+const operationResponse =
 	(client: Client, idempotencyKey?: string) =>
 	(
 		request: Pick<ContractPayload<"plugins", "invoke">, "payload"> & {
@@ -21,22 +21,25 @@ const operationTransport =
 			readonly packageId: PluginPackageId;
 		},
 	) =>
-		client
-			.call((contract) =>
-				contract.plugins.invoke({
-					params: {
-						...pluginPackageSegments(request.packageId),
-						operationSlug: request.operationSlug,
-					},
-					payload: {
-						payload: request.payload,
-						...(idempotencyKey === undefined
-							? {}
-							: { idempotencyKey, submittedAt: IsoUtcString.make(new Date().toISOString()) }),
-					},
-				}),
-			)
-			.pipe(Effect.map(({ result }) => result));
+		client.call((contract) =>
+			contract.plugins.invoke({
+				params: {
+					...pluginPackageSegments(request.packageId),
+					operationSlug: request.operationSlug,
+				},
+				payload: {
+					payload: request.payload,
+					...(idempotencyKey === undefined
+						? {}
+						: { idempotencyKey, submittedAt: IsoUtcString.make(new Date().toISOString()) }),
+				},
+			}),
+		);
+
+const operationTransport =
+	(client: Client, idempotencyKey?: string) =>
+	(request: Parameters<ReturnType<typeof operationResponse>>[0]) =>
+		operationResponse(client, idempotencyKey)(request).pipe(Effect.map(({ result }) => result));
 
 export const invokeOperation = <Input, InputEncoded extends JsonValue, Output, OutputEncoded>(
 	client: Client,
@@ -44,6 +47,43 @@ export const invokeOperation = <Input, InputEncoded extends JsonValue, Output, O
 	input: Input,
 	options?: Pick<ContractPayload<"plugins", "invoke">, "idempotencyKey">,
 ) => invokeOperationRecipe(recipe, input, operationTransport(client, options?.idempotencyKey));
+
+export const invokeEncodedCommittingOperation = <
+	Input,
+	InputEncoded extends JsonValue,
+	Output,
+	OutputEncoded,
+>(
+	client: Client,
+	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
+	payload: InputEncoded,
+	options?: Pick<ContractPayload<"plugins", "invoke">, "idempotencyKey">,
+) =>
+	operationResponse(
+		client,
+		options?.idempotencyKey,
+	)({ payload, packageId: recipe.packageId, operationSlug: recipe.operationSlug }).pipe(
+		Effect.flatMap(({ result, committed }) =>
+			Schema.decodeUnknownEffect(recipe.output)(result).pipe(
+				Effect.map((output) => ({ output, committed })),
+			),
+		),
+	);
+
+export const invokeCommittingOperation = <
+	Input,
+	InputEncoded extends JsonValue,
+	Output,
+	OutputEncoded,
+>(
+	client: Client,
+	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
+	input: Input,
+	options?: Pick<ContractPayload<"plugins", "invoke">, "idempotencyKey">,
+) =>
+	Schema.encodeEffect(recipe.input)(input).pipe(
+		Effect.flatMap((payload) => invokeEncodedCommittingOperation(client, recipe, payload, options)),
+	);
 
 export const invokeEncodedOperation = <
 	Input,

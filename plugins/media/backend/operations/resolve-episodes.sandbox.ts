@@ -16,5 +16,7 @@ export default defineOperation({
 	input: ResolveEpisodesInput,
 	output: ResolveEpisodesOutput,
 	run: (input, host) =>
-		resolveEpisodes(input.refs, host.executeRyotql).pipe(Effect.map((results) => ({ results }))),
+		resolveEpisodes(input.refs, host.executeRyotql).pipe(
+			Effect.map((results) => ({ output: { results } })),
+		),
 });

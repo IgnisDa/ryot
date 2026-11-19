@@ -422,7 +422,7 @@ describe("Komga collection", () => {
 					{ totalPages: 2, content: [book("second")] },
 				]);
 				const fs = mediaFilesystem({});
-				const first = yield* definition.run({}, host, execution);
+				const { output: first } = yield* definition.run({}, host, execution);
 				expect(calls).toHaveLength(1);
 				if (!first.carryFile) {
 					throw new Error("Missing continuation");
@@ -432,7 +432,7 @@ describe("Komga collection", () => {
 					throw new Error("Missing continuation bytes");
 				}
 				fs.files.set("carry", carry);
-				const second = yield* definition.run(
+				const { output: second } = yield* definition.run(
 					{ ingestionArtifacts: { runId: "run", captures: { carry: "carry" } } },
 					host,
 					{ ...execution, startedAt: "2026-01-02T00:00:00.000Z" },

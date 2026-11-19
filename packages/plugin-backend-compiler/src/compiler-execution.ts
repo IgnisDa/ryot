@@ -699,6 +699,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		const initialized = new Set<ts.SourceFile>();
 		const deferredSdkInitializers = new Set([
 			"defineScript",
+			"defineActivity",
 			"defineManifest",
 			"defineWorkflow",
 			"defineProvider",

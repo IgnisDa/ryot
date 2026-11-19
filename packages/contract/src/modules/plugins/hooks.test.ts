@@ -264,7 +264,7 @@ describe("lifecycle hook declarations", () => {
 				yield* Effect.flip(
 					Schema.decodeEffect(PluginManifest)({
 						...manifest,
-						hooks: [{ ...hook, stage: "after", delivery: "required" }],
+						hooks: [{ ...hook, stage: "after" }],
 					}),
 				);
 			}),
@@ -292,7 +292,6 @@ describe("lifecycle hook declarations", () => {
 		() =>
 			Effect.gen(function* () {
 				for (const addition of [
-					{ delivery: "async" },
 					{ retry: DEFAULT_AUTOMATION_RETRY_POLICY },
 					{ position: 1.5 },
 					{ batchMaxItems: 50 },
@@ -303,7 +302,7 @@ describe("lifecycle hook declarations", () => {
 				}
 				const after = {
 					...manifest,
-					hooks: [{ ...hook, stage: "after", delivery: "async" }],
+					hooks: [{ ...hook, stage: "after" }],
 					scripts: [
 						{ ...script, automationType: "automation", inputProjection: afterInputProjection },
 					],
@@ -332,7 +331,7 @@ describe("lifecycle hook declarations", () => {
 			Effect.gen(function* () {
 				const after = {
 					...manifest,
-					hooks: [{ ...hook, stage: "after", delivery: "async", frequency: "batch" }],
+					hooks: [{ ...hook, stage: "after", frequency: "batch" }],
 					scripts: [
 						{ ...script, automationType: "automation", inputProjection: afterInputProjection },
 					],
@@ -397,7 +396,7 @@ describe("lifecycle hook declarations", () => {
 			Effect.gen(function* () {
 				const after = {
 					...manifest,
-					hooks: [{ ...hook, stage: "after", delivery: "async" }],
+					hooks: [{ ...hook, stage: "after" }],
 					scripts: [
 						{ ...script, automationType: "automation", inputProjection: afterInputProjection },
 					],
@@ -430,8 +429,8 @@ describe("lifecycle hook declarations", () => {
 						scripts: [
 							{
 								...script,
+								capabilities: [],
 								automationType: "automation",
-								capabilities: ["sendNotification"],
 								inputProjection: { signal: { properties: [] } },
 							},
 						],
@@ -488,13 +487,13 @@ describe("lifecycle hook declarations", () => {
 	);
 
 	it.effect(
-		"requires external idempotency opt-in for automatic HTTP and notification retries",
+		"requires external idempotency opt-in for automatic HTTP retries",
 		() =>
 			Effect.gen(function* () {
-				for (const capability of ["httpCall", "sendNotification"]) {
+				for (const capability of ["httpCall"]) {
 					const after = {
 						...manifest,
-						hooks: [{ ...hook, stage: "after", delivery: "required" }],
+						hooks: [{ ...hook, stage: "after" }],
 						scripts: [
 							{
 								...script,
@@ -540,12 +539,12 @@ describe("lifecycle hook declarations", () => {
 		"requires idempotency for external effects in any registered child alternative",
 		() =>
 			Effect.gen(function* () {
-				for (const capability of ["httpCall", "sendNotification"] as const) {
+				for (const capability of ["httpCall"] as const) {
 					const retry = { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts: 3 };
 					const candidate = {
 						...manifest,
+						hooks: [{ ...hook, retry, stage: "after" }],
 						workflows: [{ slug: "nested", scriptSlug: "nested-workflow" }],
-						hooks: [{ ...hook, retry, stage: "after", delivery: "required" }],
 						scripts: [
 							{
 								...script,
@@ -608,7 +607,6 @@ describe("lifecycle hook declarations", () => {
 								{
 									...hook,
 									stage: "after",
-									delivery: "required",
 									retry: {
 										...DEFAULT_AUTOMATION_RETRY_POLICY,
 										maxAttempts: 3,
@@ -638,7 +636,6 @@ describe("lifecycle hook declarations", () => {
 				const notification = {
 					...hook,
 					stage: "after",
-					delivery: "async",
 					slug: "item.notify",
 					targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "changed" }],
 				};
@@ -649,8 +646,8 @@ describe("lifecycle hook declarations", () => {
 					scripts: [
 						{
 							...script,
+							capabilities: [],
 							automationType: "automation",
-							capabilities: ["sendNotification"],
 							inputProjection: { signal: { properties: [] } },
 						},
 					],
@@ -661,7 +658,7 @@ describe("lifecycle hook declarations", () => {
 				).toBe("item.notify");
 				for (const change of [
 					{ hooks: [{ ...notification, targets: [target] }] },
-					{ hooks: [{ ...notification, stage: "before", delivery: undefined }] },
+					{ hooks: [{ ...notification, stage: "before" }] },
 					{ signalSchemas: [{ ...signal, notificationHookSlug: "policy" }] },
 				]) {
 					yield* Effect.flip(
@@ -689,7 +686,6 @@ describe("lifecycle hook declarations", () => {
 						{
 							...hook,
 							stage: "after",
-							delivery: "required",
 							targets: [
 								{
 									operation: "complete",

@@ -10,7 +10,6 @@ const subject = {
 	runId: "run-1",
 	pluginId: null,
 	stage: "before",
-	delivery: "policy",
 	accountUserId: null,
 	executionUserId: null,
 	type: "automation-run",
@@ -38,7 +37,6 @@ it.effect(
 			const plugin = {
 				...subject,
 				stage: "after",
-				delivery: "required",
 				pluginId: "plugin-1",
 				accountUserId: "user-1",
 				executionUserId: "user-1",

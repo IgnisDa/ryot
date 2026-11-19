@@ -213,7 +213,7 @@ export default defineWorkflow({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.String,
-	run: () => Effect.succeed("unused"),
+	run: () => Effect.succeed({ output: "unused" }),
 });
 `;
 				const compiled = yield* compilePluginSandboxSourceEntries(
@@ -291,7 +291,7 @@ export default defineWorkflow({
 		void crypto.getRandomValues(new Uint8Array(1));
 		void performance.now();
 		nondeterministic();
-		return Effect.succeed(null);
+		return Effect.succeed({ output: null });
 	},
 });
 `;
@@ -340,9 +340,11 @@ export default defineWorkflow({
 		const text = "crypto.randomUUID()";
 		void text;
 		return Effect.succeed({
-			iso: new Date(input.timestamp).toISOString(),
-			parsed: Date.parse(input.timestamp),
-			utc: Date.UTC(2024, 0, 1),
+			output: {
+				iso: new Date(input.timestamp).toISOString(),
+				parsed: Date.parse(input.timestamp),
+				utc: Date.UTC(2024, 0, 1),
+			},
 		});
 	},
 });
@@ -375,7 +377,7 @@ export default defineWorkflow({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.String,
-	run: () => Effect.succeed(nondeterministic),
+	run: () => Effect.succeed({ output: nondeterministic }),
 });
 `;
 				const shared = `
@@ -433,7 +435,7 @@ export default defineWorkflow({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.String,
-	run: () => Effect.succeed(nondeterministic),
+	run: () => Effect.succeed({ output: nondeterministic }),
 });
 `;
 				const failure = yield* compilePluginSandboxSourceEntries(
@@ -835,7 +837,7 @@ export default defineOperation({
 	manifest,
 	output: Schema.String,
 	input: Schema.Struct({}),
-	run: () => Effect.succeed(rowSlug),
+	run: () => Effect.succeed({ output: rowSlug }),
 });
 `;
 
@@ -899,7 +901,7 @@ export default defineOperation({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.Boolean,
-	run: () => Effect.succeed(compressionAvailable),
+	run: () => Effect.succeed({ output: compressionAvailable }),
 });
 `,
 					},
@@ -945,7 +947,7 @@ export default defineOperation({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.Number,
-	run: () => Effect.succeed(normalizeRecordMeasurement("reps", 1.23456)),
+	run: () => Effect.succeed({ output: normalizeRecordMeasurement("reps", 1.23456) }),
 });
 `,
 					},
@@ -1097,6 +1099,68 @@ it.layer(pluginBackendCompilerPlatformLayer)("generated plugin message builder",
 							objectContaining({
 								code: "RYOT_PLUGIN_SOURCE",
 								file: "shared/messages.generated.ts",
+							}),
+						],
+					}),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+const activityWorkflow = `
+import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+
+export const manifest = defineManifest({ kind: "workflow", name: "Parent", slug: "workflow.parent" });
+const child = defineScriptReference({ scriptSlug: "child", input: Schema.Struct({}), output: Schema.Unknown });
+export default defineWorkflow({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: (_input, step) =>
+    Effect.gen(function* () {
+      return { output: yield* step.activity("child", child, {}) };
+    }),
+});
+`;
+
+const activityChild = `
+import { defineActivity, defineManifest, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+
+export const manifest = defineManifest({ kind: "script", name: "Child", slug: "child" });
+export default defineActivity({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: () => Effect.succeed({ output: null }),
+});
+`;
+
+it.layer(pluginBackendCompilerPlatformLayer)("workflow activity targets", (test) => {
+	test.effect(
+		"accepts activity scripts and rejects step.activity targets defined without defineActivity",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* derivePluginSandboxScripts(
+					{ "child.sandbox.ts": activityChild, "parent.sandbox.ts": activityWorkflow },
+					messageCatalog,
+				);
+				expect(compiled.map((output) => output.script.slug)).toEqual(["child", "workflow.parent"]);
+
+				const failure = yield* derivePluginSandboxScripts(
+					{
+						"parent.sandbox.ts": activityWorkflow,
+						"child.sandbox.ts": script("child", "", "Effect.succeed(null)"),
+					},
+					messageCatalog,
+				).pipe(Effect.flip);
+				expect(failure).toEqual<unknown>(
+					objectContaining({
+						diagnostics: [
+							objectContaining({
+								code: "RYOT_DEPENDENCY",
+								file: "parent.sandbox.ts",
+								message: stringContaining('"child" must be defined with defineActivity'),
 							}),
 						],
 					}),

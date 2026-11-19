@@ -131,6 +131,7 @@ describe("plugins", () => {
 				name: "E2E Lifecycle Provider search",
 			} satisfies PluginScript;
 			const automationScript = {
+				capabilities: [],
 				slug: automationSlug,
 				entry: automationEntry,
 				oauthConnectionFields: [],
@@ -138,7 +139,6 @@ describe("plugins", () => {
 				kind: "automation" as const,
 				requiredPluginConfigKeys: [],
 				optionalPluginConfigKeys: [],
-				capabilities: ["createEvents"],
 				automationType: "automation" as const,
 				name: "E2E Lifecycle Event Automation",
 				inputProjection: { event: { properties: ["note"], compareProperties: [] } },
@@ -160,9 +160,11 @@ describe("plugins", () => {
 			});
 			const automationSource = `
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 const isJsonObject = (value: JsonValue): value is Readonly<Record<string, JsonValue>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -177,7 +179,7 @@ export const manifest = defineManifest({
 
 export default defineAutomation({
   manifest,
-  run: ({ automation }, host) => Effect.gen(function* () {
+  run: ({ automation }) => Effect.sync(() => {
     const payload = automation.payload;
     if (
       automation.causation.source !== "api" ||
@@ -185,27 +187,34 @@ export default defineAutomation({
       payload.resource !== "event" ||
       payload.operation !== "create"
     ) {
-      return null;
+      return {};
     }
     const event = payload.after;
     const hookMetadata = automation.hookMetadata;
-    if (hookMetadata === undefined || !isJsonObject(hookMetadata)) return null;
+    if (hookMetadata === undefined || !isJsonObject(hookMetadata)) return {};
     const hookLabel = hookMetadata["label"];
-    if (typeof hookLabel !== "string") return null;
+    if (typeof hookLabel !== "string") return {};
     const note = event.properties.note;
-    if (typeof note !== "string") return null;
-    yield* host.createEvents([{
-      entityId: event.entityId,
-      eventSchemaSlug: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(resultEventSlug)},
-      properties: {
-        note,
-        sourceEventId: event.id,
-        runId: automation.runId,
-        hookLabel,
-        hookSlug: automation.hookSlug,
+    if (typeof note !== "string") return {};
+    return {
+      changes: {
+        events: {
+          changes: [],
+          creates: [{
+            itemIdentity: "result",
+            entity: existingEntity(EntityId.make(event.entityId)),
+            eventSchemaSlug: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(resultEventSlug)},
+            properties: {
+              note,
+              sourceEventId: event.id,
+              runId: automation.runId,
+              hookLabel,
+              hookSlug: automation.hookSlug,
+            },
+          }],
+        },
       },
-    }]);
-    return null;
+    };
   }),
 });
 `;
@@ -231,7 +240,6 @@ export default defineAutomation({
 					hooks: [
 						{
 							stage: "after",
-							delivery: "async",
 							slug: automationSlug,
 							causationSources: ["api"],
 							scriptSlug: automationSlug,

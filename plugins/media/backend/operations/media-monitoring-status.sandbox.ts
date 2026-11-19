@@ -30,5 +30,6 @@ export default defineOperation({
 					(target) => target.monitoringLibraryId !== null,
 				),
 			})),
+			Effect.map((output) => ({ output })),
 		),
 });

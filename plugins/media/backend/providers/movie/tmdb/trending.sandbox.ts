@@ -1,4 +1,4 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { trending } from "./shared";
 
@@ -8,7 +8,7 @@ export const manifest = defineManifest({
 	slug: "movie.tmdb.trending",
 });
 
-export default defineScript({
+export default defineActivity({
 	manifest,
 	run: trending.run,
 	input: trending.input,

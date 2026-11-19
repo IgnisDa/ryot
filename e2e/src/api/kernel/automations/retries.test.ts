@@ -59,7 +59,7 @@ const automationScript = (
 	},
 });
 
-const claimedRetryableSource = (slug: string, revision: string) => `
+const claimedRetryableSource = (slug: string) => `
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
@@ -87,7 +87,7 @@ export default defineAutomation({
     if (claim.claimed) {
       yield* host.httpCall("GET", ${JSON.stringify(UNREACHABLE_URL)});
     }
-    return { marker: config.marker, revision: ${JSON.stringify(revision)} };
+    return {};
   }),
 });
 `;
@@ -108,7 +108,7 @@ export const manifest = defineManifest({
 export default defineAutomation({
   manifest,
   run: (_input, host) =>
-    host.httpCall("GET", ${JSON.stringify(UNREACHABLE_URL)}).pipe(Effect.as(null)),
+    host.httpCall("GET", ${JSON.stringify(UNREACHABLE_URL)}).pipe(Effect.as({})),
 });
 `;
 
@@ -168,7 +168,6 @@ const installRetryFixture = (
 				scriptSlug,
 				stage: "after",
 				slug: hookSlug,
-				delivery: "async",
 				retry: input.retry,
 				name: "E2E retry hook",
 				causationSources: ["api"],
@@ -234,7 +233,7 @@ describe("automation retries", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const fixture = yield* installRetryFixtureScoped(client, {
-				source: claimedRetryableSource("__SCRIPT_SLUG__", "A"),
+				source: claimedRetryableSource("__SCRIPT_SLUG__"),
 				capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
 				retry: {
 					maxAttempts: 2,
@@ -352,7 +351,6 @@ describe("automation retries", () => {
 						{
 							scriptSlug,
 							stage: "after",
-							delivery: "async",
 							name: "Unsafe HTTP retry",
 							slug: `unsafe-http-retry-${yield* randomUuid}`,
 							targets: [

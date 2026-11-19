@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectTraktApi, recoverMediaApiTask } from "./api-collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
@@ -9,7 +9,7 @@ export const manifest = defineManifest({
 	slug: "import.trakt",
 	name: "Collect Trakt API",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
@@ -23,5 +23,5 @@ export default defineScript({
 			return yield* collectTraktApi(input, clientId, host).pipe(
 				Effect.catch((error) => recoverMediaApiTask(input, error, "Trakt")),
 			);
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

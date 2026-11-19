@@ -29,7 +29,7 @@ import {
 	type SidecarHostCallFrame,
 	type SidecarHostResultFrame,
 } from "../protocol/messages";
-import { SandboxSidecarAdmission } from "./admission";
+import { InsideSandboxHostCall, SandboxSidecarAdmission } from "./admission";
 import { catchNonInterrupt } from "./catch-non-interrupt";
 import type { SandboxFileAccess } from "./file-access";
 import { sandboxHostResultBytes, sandboxHostResultWireBytes } from "./host-execution-policy";
@@ -383,9 +383,9 @@ const makeRunState = Effect.fnUntraced(function* (
 		pendingEncodedEntries: new Map(),
 		shortWait: makeSandboxShortWait(),
 		gateFunctions: options.apiFunctions,
+		hostCallBudget: { http: 0, total: 0 },
 		pinnedCount: journalSource?.entries.length ?? 0,
 		totalJournalJsonBytes: journalSource?.bytes ?? 2,
-		hostCallBudget: { http: 0, total: 0, userSettingsWrites: 0 },
 		expiresAt: (yield* Clock.currentTimeMillis) + initialExpiryMs,
 	};
 	return state;
@@ -954,7 +954,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 										}
 										return yield* action(state, options, frame, args.value, (retained) => {
 											retainedBytes = retained;
-										});
+										}).pipe(Effect.provideService(InsideSandboxHostCall, true));
 									});
 									const work = Effect.suspend(() => {
 										if (workState === "settled") {

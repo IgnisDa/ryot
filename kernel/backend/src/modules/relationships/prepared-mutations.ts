@@ -5,7 +5,7 @@ import type {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
-import { Cause, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
@@ -47,7 +47,6 @@ type PreparedData =
 			readonly mutation: Mutation;
 			readonly request: AutomationRelationshipRequestPayload;
 			readonly before: null | AutomationRelationshipSnapshot;
-			readonly requestId: DomainLifecycleCommand["causation"]["parentTriggerId"];
 	  };
 const preparedUserRelationshipCreate = Symbol("PreparedUserRelationshipCreate");
 const preparedUserRelationshipDelete = Symbol("PreparedUserRelationshipDelete");
@@ -92,7 +91,7 @@ const withCreatedEndpoint = (
 export const makePreparedRelationshipMutations = (
 	dependencies: RelationshipMutationDependencies,
 ) => {
-	const { keys, writes, session, planner, execution, repository, definitions } = dependencies;
+	const { keys, writes, session, planner, policies, repository, definitions } = dependencies;
 	const primitives = makeRelationshipMutationPrimitives(dependencies);
 	const transaction = rootTransaction(session);
 	const assertRootTransaction = rootTransactionGuard(session);
@@ -176,37 +175,15 @@ export const makePreparedRelationshipMutations = (
 				if (!request) {
 					return null;
 				}
-				const plan = yield* planner.plan({
-					trigger: yield* lifecycleTrigger(command, input.userId, request),
-				});
-				return { plan, before, request };
+				const trigger = yield* lifecycleTrigger(command, input.userId, request);
+				return { before, request, trigger, policies: yield* policies.match(trigger) };
 			}),
 		);
 		if (!planned) {
 			return null;
 		}
-		if (planned.plan.trigger?.blockedReason) {
-			return yield* new RelationshipBadRequest({ reason: { code: "automation-limit-reached" } });
-		}
-		const request = yield* primitives
-			.applyPolicies(planned.request, planned.plan.policies, mutation)
-			.pipe(
-				Effect.catchCauseIf(
-					(cause) => !Cause.hasInterruptsOnly(cause),
-					(cause) =>
-						planned.plan.trigger === null
-							? Effect.failCause(cause)
-							: execution
-									.skipQueuedPolicies({ triggerId: planned.plan.trigger.id })
-									.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
-				),
-			);
-		return {
-			request,
-			mutation,
-			before: planned.before,
-			requestId: planned.plan.trigger?.id ?? null,
-		} satisfies PreparedData;
+		const request = yield* primitives.applyPolicies(planned.request, planned, mutation);
+		return { request, mutation, before: planned.before } satisfies PreparedData;
 	});
 	const prepareUserCreate = Effect.fn("RelationshipsService.prepareUserCreate")(function* (
 		input: CreateRelationshipInput,
@@ -266,11 +243,7 @@ export const makePreparedRelationshipMutations = (
 			prepared.before,
 			validated,
 		);
-		const { change, dispatch } = yield* primitives.planChange({
-			payload,
-			mutation,
-			requestId: prepared.requestId,
-		});
+		const { change, dispatch } = yield* primitives.planChange({ payload, mutation });
 		yield* recordRelationshipImportItem(keys, mutation, result.operation);
 		yield* planner.recordBatchChange(batch.id, {
 			payload: change,

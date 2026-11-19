@@ -340,18 +340,9 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 						}),
 					)
 					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
-				const warnings = yield* execution
+				return yield* execution
 					.dispatch(plan)
 					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
-				if (warnings.length > 0) {
-					yield* Effect.logWarning("provider import completed with automation warnings").pipe(
-						Effect.annotateLogs({
-							warningCount: warnings.length,
-							warnings: warnings.slice(0, 100),
-						}),
-					);
-				}
-				return yield* Effect.void;
 			});
 
 		const preRegisterProviderImport: EntityImportWorkflowOperationsValue["preRegisterProviderImport"] =

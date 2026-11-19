@@ -211,7 +211,6 @@ export const fitnessPlugin = definePlugin({
 		},
 		{
 			stage: "after",
-			delivery: "async",
 			name: "Workout created",
 			causationSources: ["api"],
 			slug: "fitness.workout-created",
@@ -227,7 +226,6 @@ export const fitnessPlugin = definePlugin({
 		},
 		{
 			stage: "after",
-			delivery: "async",
 			slug: "fitness.notification",
 			name: "Fitness notification",
 			scriptSlug: "automation.fitness-notification",

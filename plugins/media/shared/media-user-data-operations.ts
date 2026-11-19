@@ -1,5 +1,4 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { LocalMessage } from "@ryot-app/plugin-kit/messages";
 
 import { mediaSubmissionFields } from "./media-activity-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "./media-schema-slugs";
@@ -34,11 +33,6 @@ export type MediaUserDataAction =
 			keyof typeof mediaSubmissionFields
 	  >;
 
-const Count = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
-
-export const MediaUserDataOutput = Schema.Union([
-	Schema.Struct({ count: Count, status: Schema.Literal("saved") }),
-	Schema.Struct({ reason: LocalMessage, status: Schema.Literal("rejected") }),
-]);
+export const MediaUserDataOutput = Schema.Struct({});
 
 export type MediaUserDataOutput = typeof MediaUserDataOutput.Type;

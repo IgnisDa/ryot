@@ -139,12 +139,7 @@ export const WorkoutEditorSaveInputSchema = Schema.Struct({
 });
 
 export const WorkoutEditorSaveOutputSchema = Schema.Union([
-	Schema.Struct({
-		entityId: nonEmptyEntityId,
-		kind: Schema.Literal("saved"),
-		sets: Schema.Array(Schema.Struct({ eventId: nonEmptyEventId, clientId: NonEmptyString })),
-	}),
-	Schema.Struct({ kind: Schema.Literal("conflict") }),
+	Schema.Struct({ kind: Schema.Literal("saved") }),
 	Schema.Struct({
 		kind: Schema.Literal("invalid"),
 		setId: Schema.optional(NonEmptyString),

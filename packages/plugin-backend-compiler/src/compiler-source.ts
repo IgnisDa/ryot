@@ -206,6 +206,7 @@ const inspectImports = (
 	const manifestHelpers = new Set<string>();
 	const operationHelpers = new Set<string>();
 	const workflowHelpers = new Set<string>();
+	const activityHelpers = new Set<string>();
 	const automationHelpers = new Set<string>();
 	const diagnostics: PluginBackendCompilerDiagnostic[] = [];
 
@@ -293,6 +294,9 @@ const inspectImports = (
 						if (importedName === "defineWorkflow") {
 							workflowHelpers.add(element.name.text);
 						}
+						if (importedName === "defineActivity") {
+							activityHelpers.add(element.name.text);
+						}
 					}
 				}
 			}
@@ -343,6 +347,7 @@ const inspectImports = (
 		scriptHelpers,
 		manifestHelpers,
 		providerHelpers,
+		activityHelpers,
 		workflowHelpers,
 		operationHelpers,
 		automationHelpers,
@@ -356,6 +361,7 @@ const inspectScriptDefinition = (
 	providerHelpers: ReadonlySet<string>,
 	operationHelpers: ReadonlySet<string>,
 	workflowHelpers: ReadonlySet<string>,
+	activityHelpers: ReadonlySet<string>,
 ) => {
 	const defaults = file.statements.filter(
 		(statement): statement is ts.ExportAssignment =>
@@ -363,6 +369,7 @@ const inspectScriptDefinition = (
 	);
 	if (defaults.length !== 1) {
 		return {
+			activity: false,
 			definitionKind: null,
 			providerOperation: null,
 			diagnostics: [
@@ -378,8 +385,13 @@ const inspectScriptDefinition = (
 	const assignment = defaults[0];
 	const call = assignment?.expression;
 	let definitionKind: null | SandboxManifest["kind"] = null;
+	const activity =
+		call !== undefined &&
+		ts.isCallExpression(call) &&
+		ts.isIdentifier(call.expression) &&
+		activityHelpers.has(call.expression.text);
 	if (call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
-		if (scriptHelpers.has(call.expression.text)) {
+		if (activity || scriptHelpers.has(call.expression.text)) {
 			definitionKind = "script";
 		} else if (automationHelpers.has(call.expression.text)) {
 			definitionKind = "automation";
@@ -400,6 +412,7 @@ const inspectScriptDefinition = (
 		call.arguments.length !== 1
 	) {
 		return {
+			activity: false,
 			definitionKind: null,
 			providerOperation: null,
 			diagnostics: [
@@ -415,6 +428,7 @@ const inspectScriptDefinition = (
 	const definition = call.arguments[0];
 	if (!definition || !ts.isObjectLiteralExpression(definition)) {
 		return {
+			activity,
 			definitionKind,
 			providerOperation: null,
 			diagnostics: [
@@ -465,6 +479,7 @@ const inspectScriptDefinition = (
 	}
 	if (hasDrivers) {
 		return {
+			activity,
 			definitionKind,
 			providerOperation,
 			diagnostics: [
@@ -487,6 +502,7 @@ const inspectScriptDefinition = (
 		providerOperation === "resolve" ||
 		providerOperation === "translate";
 	return {
+		activity,
 		definitionKind,
 		providerOperation,
 		diagnostics:
@@ -537,6 +553,7 @@ export const inspectSandboxSource = (
 	const imports = inspectImports(file, options.allowRelativeImports ?? false);
 	if (imports.diagnostics.length > 0) {
 		return {
+			activity: false,
 			definitionKind: null,
 			providerOperation: null,
 			diagnostics: imports.diagnostics,
@@ -551,6 +568,7 @@ export const inspectSandboxSource = (
 		imports.providerHelpers,
 		imports.operationHelpers,
 		imports.workflowHelpers,
+		imports.activityHelpers,
 	);
 	return { ...definition, manifestHelpers: imports.manifestHelpers };
 };

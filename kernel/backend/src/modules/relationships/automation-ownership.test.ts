@@ -17,6 +17,7 @@ import { Effect } from "effect";
 
 import { automationLifecycleCausation } from "#modules/automations/lifecycle/command";
 import { EntitiesRepository } from "#modules/entities/repository";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -34,7 +35,20 @@ import {
 	targetEntityId,
 	userId,
 } from "./lifecycle.test-support";
+import type { ReconcileGlobalRelationshipGroup } from "./mutation-support";
 import { RelationshipsService } from "./service";
+
+const reconcileGlobal = (
+	groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
+	lifecycle: DomainLifecycleCommand,
+) =>
+	Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const committed = yield* (yield* DatabaseSession)
+			.transaction(service.persistPlannedReconciliation(groups, lifecycle, { scope: "global" }))
+			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+		return committed.result;
+	});
 
 const automationCommand = (id: string) => {
 	const parent = command(id, UserId.make("initiator"));
@@ -42,7 +56,7 @@ const automationCommand = (id: string) => {
 		...parent,
 		causation: automationLifecycleCausation(
 			{
-				delivery: "required",
+				stage: "before",
 				causation: parent.causation,
 				runId: AutomationRunId.make("automation-run"),
 				triggerId: AutomationTriggerId.make("automation-trigger"),
@@ -128,7 +142,6 @@ const installGlobalHooks = Effect.fn(function* () {
 						frequency,
 						stage: "after" as const,
 						scriptSlug: script.slug,
-						delivery: "async" as const,
 						name: `Ownership ${frequency}`,
 						executionScope: "global" as const,
 						slug: `executor-ownership.${frequency}`,
@@ -206,10 +219,8 @@ layer(relationshipDatabaseLayer())((test) => {
 					],
 				};
 				const batchCommand = { ...automationCommand("system-batch"), accountUserId: null };
-				const reconciled = yield* service.reconcileGlobal([group], batchCommand);
-				expect(reconciled).toEqual([
-					{ created: 1, updated: 1, deleted: 0, upserted: 2, warnings: [] },
-				]);
+				const reconciled = yield* reconcileGlobal([group], batchCommand);
+				expect(reconciled).toEqual([{ created: 1, updated: 1, deleted: 0, upserted: 2 }]);
 				const relationships = yield* session.run((db) => db.select().from(tables.relationship));
 				expect(relationships).toHaveLength(2);
 				expect(
@@ -248,8 +259,8 @@ layer(relationshipDatabaseLayer())((test) => {
 						anchorEntityId: sourceEntityId,
 					},
 				};
-				expect(yield* service.reconcileGlobal([group], executing)).toEqual([
-					{ created: 1, updated: 0, deleted: 0, upserted: 1, warnings: [] },
+				expect(yield* reconcileGlobal([group], executing)).toEqual([
+					{ created: 1, updated: 0, deleted: 0, upserted: 1 },
 				]);
 				const missing = yield* Effect.flip(
 					service.create(baseInput, { ...automationCommand("missing-user"), accountUserId: null }),
@@ -259,10 +270,7 @@ layer(relationshipDatabaseLayer())((test) => {
 					db.update(tables.user).set({ retiringAt: new Date() }).where(eq(tables.user.id, userId)),
 				);
 				const retired = yield* Effect.flip(
-					service.reconcileGlobal([group], {
-						...automationCommand("retired-user"),
-						accountUserId: userId,
-					}),
+					reconcileGlobal([group], { ...automationCommand("retired-user"), accountUserId: userId }),
 				);
 				expect(retired).toMatchObject({ message: "Mutation command account is being retired" });
 				const missingRoot = yield* Effect.flip(

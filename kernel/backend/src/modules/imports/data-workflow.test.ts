@@ -169,7 +169,6 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 					if (key === "skipped") {
 						return {
 							count: 0,
-							warnings: [],
 							failure: null,
 							outcomes: [
 								{
@@ -189,7 +188,6 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 					}
 					return {
 						count: 1,
-						warnings: [],
 						failure: null,
 						outcomes: [{ index: 0, status: "written" as const, eventId: EventId.make(key) }],
 					};
@@ -412,7 +410,7 @@ it.effect(
 					create: (input) =>
 						Effect.sync(() => {
 							submitted.push(input);
-							return { count: 1, outcomes: [], warnings: [], failure: null };
+							return { count: 1, outcomes: [], failure: null };
 						}),
 				}),
 				Layer.mock(DefinitionRepository)({ getUserSnapshot: () => Effect.succeed(snapshot) }),

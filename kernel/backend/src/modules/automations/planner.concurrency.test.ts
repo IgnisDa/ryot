@@ -217,8 +217,7 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 					);
 					expect(results.map(({ runs }) => runs.length).sort((a, b) => a - b)).toEqual([0, 1]);
 					expect(results.find(({ runs }) => runs.length === 0)).toMatchObject({
-						policies: [],
-						trigger: { blockedReason: { hasRequiredHooks: false } },
+						trigger: { blockedReason: { code: "automation-limit-reached" } },
 					});
 					const replayed = yield* Effect.forEach(
 						inputs,
@@ -245,7 +244,6 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 									.map(({ blockedReason }) => blockedReason),
 							).toEqual<unknown>([
 								{
-									hasRequiredHooks: false,
 									code: "automation-limit-reached",
 									omittedHooks: [{ pluginId: null, hookSlug: "automation.notification" }],
 								},
@@ -306,7 +304,7 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 							Effect.andThen(planner.plan({ trigger: withRoot("reader", "reader-root") })),
 						),
 					).pipe(Effect.ensuring(Deferred.succeed(release, undefined)));
-					expect(planned).toMatchObject({ runs: [], policies: [], wasCreated: true });
+					expect(planned).toMatchObject({ runs: [], wasCreated: true });
 					yield* Fiber.join(holder);
 				}),
 			testTimeout,

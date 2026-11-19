@@ -12,27 +12,31 @@ export const manifest = defineManifest({
 
 export default defineAutomation({
 	manifest,
-	run: ({ automation }, host) =>
-		Effect.gen(function* () {
-			const payload = automation.payload;
-			if (
-				payload.resource !== "event" ||
-				payload.operation !== "create" ||
-				payload.after.entitySchemaSlug !== "workout" ||
-				payload.after.eventSchemaSlug !== "workout-completed"
-			) {
-				return null;
-			}
-			const workoutId = payload.after.entityId;
-			const workoutName = payload.after.properties["workoutName"];
-			if (typeof workoutName !== "string" || workoutName.length === 0) {
-				return null;
-			}
-
-			return yield* host.emitSignal({
-				discriminator: workoutId,
-				schemaSlug: "workout.created",
-				properties: { workoutId, workoutName },
-			});
-		}),
+	run: ({ automation }) => {
+		const payload = automation.payload;
+		if (
+			payload.resource !== "event" ||
+			payload.operation !== "create" ||
+			payload.after.entitySchemaSlug !== "workout" ||
+			payload.after.eventSchemaSlug !== "workout-completed"
+		) {
+			return Effect.succeed({});
+		}
+		const workoutId = payload.after.entityId;
+		const workoutName = payload.after.properties["workoutName"];
+		if (typeof workoutName !== "string" || workoutName.length === 0) {
+			return Effect.succeed({});
+		}
+		return Effect.succeed({
+			changes: {
+				signals: [
+					{
+						discriminator: workoutId,
+						schemaSlug: "workout.created",
+						properties: { workoutId, workoutName },
+					},
+				],
+			},
+		});
+	},
 });

@@ -1,20 +1,17 @@
 import type {
-	EntityRecord,
 	IntegrationRecord,
 	ListIntegrationsOptions,
 	ScriptHost,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { type EntityReadResult, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+
+import { providerSlugRecipe } from "../../shared/provider-recipes";
 
 export type IntegrationPushHost = Pick<
 	ScriptHost,
-	| "log"
-	| "httpCall"
-	| "executeRyotql"
-	| "getEntitySchemas"
-	| "listIntegrations"
-	| "getUserPreferences"
+	"log" | "httpCall" | "executeRyotql" | "listIntegrations" | "getUserPreferences"
 >;
 
 export const normalizeBaseUrl = (value: unknown) =>
@@ -55,25 +52,31 @@ export const logPushFailure = (
 			Effect.asVoid,
 		);
 
-export const listActiveIntegrations = (
+export const listActiveIntegrations = Effect.fnUntraced(function* (
 	host: IntegrationPushHost,
 	provider: NonNullable<ListIntegrationsOptions["provider"]>,
-) => host.listIntegrations({ provider, isDisabled: false });
+) {
+	const integrations: Array<IntegrationRecord> = [];
+	let cursor: string | undefined;
+	do {
+		const page = yield* host.listIntegrations({
+			provider,
+			isDisabled: false,
+			...(cursor === undefined ? {} : { cursor }),
+		});
+		integrations.push(...page.items);
+		cursor = page.nextCursor ?? undefined;
+	} while (cursor !== undefined);
+	return integrations;
+});
 
-export const resolveEntityProviderSlug = (host: IntegrationPushHost, entity: EntityRecord) => {
-	if (!entity.providerId) {
-		return Effect.succeed(null);
-	}
-	return host
-		.getEntitySchemas([entity.entitySchemaSlug])
-		.pipe(
-			Effect.map(
-				([schema]) =>
-					schema?.providers.find((provider) => provider.providerId === entity.providerId)?.slug ??
-					null,
-			),
-		);
-};
+export const resolveEntityProviderSlug = (
+	host: IntegrationPushHost,
+	entity: EntityReadResult["items"][number],
+) =>
+	entity.providerId
+		? executeRyotqlRecipe(host.executeRyotql, providerSlugRecipe, { providerId: entity.providerId })
+		: Effect.succeed(null);
 
 export const collectionSyncMatches = (integration: IntegrationRecord, collectionId: string) => {
 	const specifics = asRecord(integration.providerSpecifics);

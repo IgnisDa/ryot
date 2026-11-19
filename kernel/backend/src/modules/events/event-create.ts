@@ -14,10 +14,11 @@ import {
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
 import {
-	planPolicyBatch,
+	applyPolicyBatch,
+	type LifecyclePolicies,
+	matchPolicyBatch,
 	type PolicyBatchResult,
-	runPolicyBatchDirect,
-} from "#modules/automations/lifecycle/policy-batch";
+} from "#modules/automations/lifecycle/policies";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 
@@ -157,7 +158,6 @@ const createResult = (outcomes: ReadonlyArray<EventCreateItemOutcome>): CreateEv
 	const sorted = [...outcomes].sort((left, right) => left.index - right.index);
 	const failed = sorted.find((outcome) => outcome.status === "failed");
 	return {
-		warnings: [],
 		outcomes: sorted,
 		count: sorted.filter((outcome) => outcome.status === "written").length,
 		failure: failed ? { index: failed.index, reason: failed.reason } : null,
@@ -189,14 +189,14 @@ export const makeEventCreate = Effect.gen(function* () {
 	const execution = yield* LifecycleExecution;
 	const mutations = yield* EventMutations;
 	const planner = yield* LifecyclePlanner;
-	const policyContext = yield* Effect.context<EntitiesRepository | LifecycleExecution>();
+	const policyContext = yield* Effect.context<LifecyclePolicies | EntitiesRepository>();
 	return Effect.fn("EventCreate")(
 		function* (input: EventCreateInput, guard?: EventCommitGuard) {
 			if (guard && input.payload.length !== 1) {
 				return yield* Effect.die("An event commit guard requires a single event");
 			}
 			if (input.payload.length === 0) {
-				return { count: 0, outcomes: [], warnings: [], failure: null };
+				return { count: 0, outcomes: [], failure: null };
 			}
 			const batch = eventCreateBatchInput(input);
 			const changes = changesOf(input);
@@ -230,11 +230,11 @@ export const makeEventCreate = Effect.gen(function* () {
 				}));
 
 			const applyPolicies = (
-				policyBatch: Parameters<typeof runPolicyBatchDirect>[0],
-				plan: Parameters<typeof runPolicyBatchDirect>[1],
+				policyBatch: Parameters<typeof applyPolicyBatch>[0],
+				matched: Parameters<typeof applyPolicyBatch>[1],
 				prepared: PreparedEventChanges,
 			) =>
-				runPolicyBatchDirect(policyBatch, plan).pipe(
+				applyPolicyBatch(policyBatch, matched).pipe(
 					Effect.provideContext(policyContext),
 					Effect.catchTag("AutomationPolicyExecutionError", (error) =>
 						Effect.fail(
@@ -297,13 +297,13 @@ export const makeEventCreate = Effect.gen(function* () {
 			const applyChunks = (
 				planned: ReadonlyArray<{
 					readonly chunk: PreparedEventChanges;
-					readonly plan: Parameters<typeof runPolicyBatchDirect>[1];
-					readonly policyBatch: Parameters<typeof runPolicyBatchDirect>[0];
+					readonly matched: Parameters<typeof applyPolicyBatch>[1];
+					readonly policyBatch: Parameters<typeof applyPolicyBatch>[0];
 				}>,
 				prepared: PreparedEventChanges,
 			) =>
-				Effect.forEach(planned, ({ plan, chunk, policyBatch }) =>
-					Effect.map(applyPolicies(policyBatch, plan, prepared), (validated) => ({
+				Effect.forEach(planned, ({ chunk, matched, policyBatch }) =>
+					Effect.map(applyPolicies(policyBatch, matched, prepared), (validated) => ({
 						chunk,
 						validated,
 					})),
@@ -374,22 +374,15 @@ export const makeEventCreate = Effect.gen(function* () {
 							Effect.gen(function* () {
 								const chunk = { ...prepared, items };
 								const policyBatch = policyBatchOf(input, chunk, index);
-								const plan = yield* planPolicyBatch(policyBatch).pipe(
-									Effect.provideService(LifecyclePlanner, planner),
+								const matched = yield* matchPolicyBatch(policyBatch).pipe(
+									Effect.provideContext(policyContext),
 								);
-								return { plan, chunk, policyBatch };
+								return { chunk, matched, policyBatch };
 							}),
 						);
-						if (planned.every(({ plan }) => plan.trigger === null)) {
+						if (planned.every(({ matched }) => matched === null)) {
 							const written = yield* commit(prepared, yield* applyChunks(planned, prepared));
 							return { kind: "written" as const, ...written };
-						}
-						const blocked = planned.find(({ plan }) => plan.trigger?.blockedReason);
-						if (blocked?.plan.trigger) {
-							return yield* new EventCreateRejected({
-								kept: prepareFailures(prepared),
-								reason: { code: "automation-limit-reached", triggerId: blocked.plan.trigger.id },
-							});
 						}
 						return { planned, prepared, kind: "policies" as const };
 					}),
@@ -425,14 +418,10 @@ export const makeEventCreate = Effect.gen(function* () {
 							Effect.catchTag("EventCreateRejected", reject),
 						)
 					: started;
-			const warnings = yield* execution
+			yield* execution
 				.dispatch(written.dispatch)
 				.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-			const response: CreateEventsResponse = {
-				...written.result,
-				warnings: [...written.result.warnings, ...warnings],
-			};
-			return response;
+			return written.result satisfies CreateEventsResponse;
 		},
 		Effect.catchTag("DatabaseSessionStateError", Effect.die),
 	);

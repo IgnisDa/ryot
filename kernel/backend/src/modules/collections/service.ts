@@ -256,7 +256,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 									: invalidCollection(error),
 						}),
 					);
-				return toCollectionResponse(created.entity, created.warnings);
+				return toCollectionResponse(created.entity);
 			});
 
 			const update = Effect.fn("CollectionsService.update")(function* (
@@ -308,7 +308,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 									: invalidCollection(error),
 						}),
 					);
-				return toCollectionResponse(updated.entity, updated.warnings);
+				return toCollectionResponse(updated.entity);
 			});
 
 			const deleteCollection = Effect.fn("CollectionsService.delete")(function* (
@@ -331,7 +331,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				if (deleted.deletedCount === 0) {
 					return yield* collectionNotFound(payload.collectionId);
 				}
-				return { id: payload.collectionId, warnings: deleted.warnings };
+				return { id: payload.collectionId };
 			});
 
 			const findExistingCollection = Effect.fnUntraced(function* (userId: UserId, name: string) {
@@ -569,7 +569,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					entityId: input.entityId,
 					collectionId: input.collectionId,
 				};
-				const { result, warnings } = yield* runLifecycleWriteInline(execution, {
+				const result = yield* runLifecycleWriteInline(execution, {
 					commit: commitMembership,
 					applyPolicies: applyMembershipPolicies,
 					prepare:
@@ -578,7 +578,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 							: prepareRemoval(target),
 				});
 				if (!result.eventSchemaSlug) {
-					return { warnings, memberOf: result.memberOf, operation: result.operation };
+					return { memberOf: result.memberOf, operation: result.operation };
 				}
 				const created = yield* events
 					.create({
@@ -602,21 +602,14 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				const failure =
 					created._tag === "Failure" ? created.failure : created.success.failure?.reason;
 				if (failure === undefined) {
-					return {
-						memberOf: result.memberOf,
-						operation: result.operation,
-						warnings: [
-							...warnings,
-							...(created._tag === "Success" ? created.success.warnings : []),
-						],
-					};
+					return { memberOf: result.memberOf, operation: result.operation };
 				}
 				const relationshipId = result.memberOf.id;
 				const childCommand = childCollectionLifecycleCommand(
 					command,
 					`compensation:${relationshipId}`,
 				);
-				const compensation = yield* runLifecycleWriteInline(execution, {
+				yield* runLifecycleWriteInline(execution, {
 					commit: commitCompensation,
 					applyPolicies: applyCompensationPolicies,
 					prepare:
@@ -628,11 +621,6 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 									properties: result.memberOf.properties,
 								}),
 				});
-				if (compensation.warnings.length > 0) {
-					yield* Effect.logWarning("collection membership compensation warnings", {
-						warnings: compensation.warnings,
-					});
-				}
 				yield* Effect.logWarning("collection membership event failed", { failure });
 				return yield* new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
 			});
@@ -658,14 +646,14 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				payload: DeleteMembershipBody,
 				command: DomainLifecycleCommand,
 			) {
-				const { memberOf, warnings } = yield* writeMembership({
+				const { memberOf } = yield* writeMembership({
 					command,
 					userId: user.id,
 					operation: "remove",
 					entityId: payload.entityId,
 					collectionId: payload.collectionId,
 				});
-				return { memberOf, warnings };
+				return { memberOf };
 			});
 
 			const prepareCompensation = (

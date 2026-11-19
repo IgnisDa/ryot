@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	collectMediaCsv,
@@ -27,7 +27,7 @@ const State = Schema.Struct({
 	key: Schema.String,
 	preferred: Schema.Literals(["movie", "show", ""]),
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
@@ -124,5 +124,5 @@ export default defineScript({
 				itemIndex,
 				header: yield* Schema.encodeEffect(Schema.fromJsonString(State))(state),
 			});
-		}),
+		}).pipe(Effect.map((output) => ({ output }))),
 });

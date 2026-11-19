@@ -1,14 +1,12 @@
+import { FOLD_LIMITS } from "@ryot-app/contract/modules/events/folds";
 import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import {
 	jsonByteLength,
 	SANDBOX_COMPILER_LIMITS,
 	utf8ByteLength,
 } from "@ryot-app/plugin-backend-compiler/limits";
-import {
-	GLOBAL_WRITE_SANDBOX_LIMITS,
-	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
-} from "@ryot-app/plugin-backend-sdk/core";
 
 export const KiB = 1024;
 export const MiB = 1024 * KiB;
@@ -18,12 +16,14 @@ const CONCURRENT_HOST_CALLS = 4;
 export const SANDBOX_LIMITS = {
 	ryotqlResultBytes: MiB,
 	journalBytes: 100 * MiB,
+	userSettingsBytes: 64 * KiB,
+	pluginConfigBytes: 64 * KiB,
 	replay: { shortWaitMs: 1_000 },
+	oauthTokenResponseBytes: 64 * KiB,
 	compiler: SANDBOX_COMPILER_LIMITS,
+	hostCalls: { http: 50, total: 1_000 },
 	diagnostics: { messageBytes: 64 * KiB },
-	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
-	hostCalls: { http: 50, total: 1_000, userSettingsWrites: 4 },
-	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
+	integrations: { pageSize: 20, settingsBytes: 16 * KiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	journalReads: { count: 2_048, sliceBytes: MiB, totalBytes: 200 * MiB },
 	isolate: { cpuMs: 30_000, heapBytes: 64 * MiB, externalBytes: 16 * MiB },
@@ -41,6 +41,7 @@ export const SANDBOX_LIMITS = {
 		resultBytes: 4 * MiB,
 		requestBytes: 2 * MiB,
 		contextBytes: 64 * KiB,
+		projectionContextBytes: FOLD_LIMITS.inputBytes,
 	},
 	bridge: {
 		requestBytes: MiB,
@@ -87,27 +88,18 @@ const executionLimit = (
 	};
 };
 
-export const sandboxUserSettingsWriteLimitMessage = (limit: number) =>
-	`Sandbox execution exceeds ${limit} updateUserSettings calls`;
-
-export type SandboxHostCallBudget = { http: number; total: number; userSettingsWrites: number };
+export type SandboxHostCallBudget = { http: number; total: number };
 
 export const chargeSandboxHostCall = (budget: SandboxHostCallBudget, functionName: string) => {
 	budget.total += 1;
 	if (functionName === "httpCall") {
 		budget.http += 1;
 	}
-	if (functionName === "updateUserSettings") {
-		budget.userSettingsWrites += 1;
-	}
 	if (budget.total > SANDBOX_LIMITS.hostCalls.total) {
 		return sandboxHostCallLimitMessage(SANDBOX_LIMITS.hostCalls.total);
 	}
 	if (budget.http > SANDBOX_LIMITS.hostCalls.http) {
 		return sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http);
-	}
-	if (budget.userSettingsWrites > SANDBOX_LIMITS.hostCalls.userSettingsWrites) {
-		return sandboxUserSettingsWriteLimitMessage(SANDBOX_LIMITS.hostCalls.userSettingsWrites);
 	}
 	return null;
 };
@@ -160,9 +152,16 @@ export const sandboxWorkflowJournalByteError = (
 		: null;
 };
 
-export const sandboxContextError = (context: unknown) => {
+export const sandboxContextBytes = (subject: SandboxExecutionSubject) =>
+	subject.type === "projection"
+		? SANDBOX_LIMITS.execution.projectionContextBytes
+		: SANDBOX_LIMITS.execution.contextBytes;
+
+export const sandboxContextError = (
+	context: unknown,
+	limit: number = SANDBOX_LIMITS.execution.contextBytes,
+) => {
 	const bytes = jsonByteLength(context);
-	const limit = SANDBOX_LIMITS.execution.contextBytes;
 	if (bytes === null) {
 		return "Sandbox definition context must be JSON";
 	}

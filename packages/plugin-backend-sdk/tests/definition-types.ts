@@ -35,7 +35,7 @@ const operation = defineOperation({
 	output: Schema.String,
 	manifest: operationManifest,
 	input: Schema.Struct({ value: Schema.Finite }),
-	run: (input) => Effect.succeed(String(input.value)),
+	run: (input) => Effect.succeed({ output: String(input.value) }),
 });
 const failingOperation = defineOperation({
 	output: Schema.String,
@@ -44,7 +44,7 @@ const failingOperation = defineOperation({
 	run: (input) =>
 		input.value < 0
 			? Effect.fail({ _tag: "InvalidOperationInput" as const })
-			: Effect.succeed(String(input.value)),
+			: Effect.succeed({ output: String(input.value) }),
 });
 
 const automationManifest = defineManifest({
@@ -77,16 +77,18 @@ const workflow = defineWorkflow({
 	manifest: workflowManifest,
 	input: Schema.Struct({ value: Schema.Finite }),
 	run: (input, replay) =>
-		replay.activity(
-			"format",
-			{
-				output: Schema.String,
-				referenceKind: "script",
-				scriptSlug: "format-value",
-				input: Schema.Struct({ value: Schema.Finite }),
-			},
-			input,
-		),
+		replay
+			.activity(
+				"format",
+				{
+					output: Schema.String,
+					referenceKind: "script",
+					scriptSlug: "format-value",
+					input: Schema.Struct({ value: Schema.Finite }),
+				},
+				input,
+			)
+			.pipe(Effect.map((output) => ({ output }))),
 });
 
 const scriptInputType: Expect<Equal<Parameters<typeof script.run>[0], { readonly key: string }>> =
@@ -97,8 +99,9 @@ const scriptFailureType: Expect<
 		SandboxHostError | { _tag: "InvalidCachedValue" }
 	>
 > = true;
-const operationOutputType: Expect<Equal<Effect.Success<ReturnType<typeof operation.run>>, string>> =
-	true;
+const operationOutputType: Expect<
+	Equal<Effect.Success<ReturnType<typeof operation.run>>, { output: string }>
+> = true;
 const operationFailureType: Expect<Equal<Effect.Error<ReturnType<typeof operation.run>>, never>> =
 	true;
 const failingOperationFailureType: Expect<
@@ -131,15 +134,17 @@ defineWorkflow({
 	input: Schema.Struct({}),
 	manifest: workflowManifest,
 	run: (_input, replay) =>
-		replay.activity(
-			"invalid",
-			{
-				output: Schema.String,
-				referenceKind: "script",
-				scriptSlug: "typed-activity",
-				input: Schema.Struct({ value: Schema.Finite }),
-			},
-			// @ts-expect-error activity inputs are inferred from the direct script reference.
-			{ value: "wrong" },
-		),
+		replay
+			.activity(
+				"invalid",
+				{
+					output: Schema.String,
+					referenceKind: "script",
+					scriptSlug: "typed-activity",
+					input: Schema.Struct({ value: Schema.Finite }),
+				},
+				// @ts-expect-error activity inputs are inferred from the direct script reference.
+				{ value: "wrong" },
+			)
+			.pipe(Effect.map((output) => ({ output }))),
 });

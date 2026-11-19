@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { mergeMediaRecords } from "./collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
@@ -8,9 +9,9 @@ export const manifest = defineManifest({
 	slug: "import.merge",
 	name: "Merge captured media records",
 });
-export default defineScript({
+export default defineActivity({
 	manifest,
-	run: mergeMediaRecords,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
+	run: (input) => mergeMediaRecords(input).pipe(Effect.map((output) => ({ output }))),
 });

@@ -37,6 +37,9 @@ Memory planning is computed/logged once at startup by `memory-plan.ts` and `tran
   interactive headroom, accounting for already-held interactive reservations.
 - Shared mode requires two resident processes, one inline permit, and one headroom. It has one
   permit pool and no interactive reservation. Smaller budgets fail startup.
+- A run keeps its lease while its host calls settle, so admission refuses a run started from host-call
+  work (`InsideSandboxHostCall`) instead of letting it wait on that lease. Live runs bind and inline
+  batches settle only activity and diagnostic capabilities, which start no run.
 - Two core sidecars remain resident; data/full tiers are lazy. Each lazy process reserves 128 MiB
   until confirmed exit. Failed admission closes at most one least-recently-active idle lazy process,
   never one with runs, waiting attempts, recovery, or an admission lease.
@@ -50,10 +53,11 @@ On Linux, the launcher path is fixed at `/usr/local/libexec/ryot-sandbox-launche
 
 ## Capability Selection
 
-A run binds only declared capabilities that the backend supplied for it, then drops filesystem grants,
-workflow-dispatched and unbounded-result capabilities from live executions. Inline durable requests
-are limited to the capabilities the backend lists for the run. Each bound call re-resolves authority
-before it runs.
+A run binds only declared capabilities that the backend supplied for it, then drops filesystem grants
+and workflow-dispatched capabilities from live executions. Inline durable requests
+are limited to the capabilities the backend lists for the run. Reserving a run resolves its authority once;
+that outcome places the run and covers every host call it makes, including inline durable settlement,
+so a revocation applies from the next run.
 
 ## Execution Files
 
@@ -83,8 +87,9 @@ Runtime and compiler limits are set by their owners, not environment settings.
 | Compiler concurrency / CPU time / sampled Linux process-tree memory |                    2 / 5 seconds / 768 MiB |
 | Compiler diagnostics                                                |                      100 entries / 256 KiB |
 | Local replay timeout / context / final result                       |                30 seconds / 64 KiB / 4 MiB |
+| Projection-subject context                                          |                                      1 MiB |
 | Runner request                                                      |                                      2 MiB |
-| Host calls / HTTP subset / `updateUserSettings` / in-flight calls   |                         1,000 / 50 / 4 / 4 |
+| Host calls / HTTP subset / in-flight calls                          |                             1,000 / 50 / 4 |
 | Journal / entry / chunk / maximum reads / fetched data              | 100 MiB / 12 MiB / 1 MiB / 2,048 / 200 MiB |
 | Host-call request / response / durable response                     |                    1 MiB / 10 MiB / 12 MiB |
 | HTTP request / streamed response / attempt timeout                  |                 1 MiB / 10 MiB / 8 seconds |
@@ -94,8 +99,12 @@ Runtime and compiler limits are set by their owners, not environment settings.
 | Scratch quota / write                                               |                            5 MiB / 256 KiB |
 | Isolate heap / external memory / CPU                                |               64 MiB / 16 MiB / 30 seconds |
 | Sandbox `executeRyotql` result                                      |                                      1 MiB |
+| `getUserSettings` result                                            |                                     64 KiB |
+| `getPluginConfig` result (stored plugin configuration)              |                                     64 KiB |
+| `getOAuthAccessToken` result (OAuth token response)                 |                                     64 KiB |
+| Integration name, provider and settings / `listIntegrations` page   |                        16 KiB / 20 records |
 
-Compiler memory is sampled proportional set size in the Linux production image, not a cgroup hard ceiling. Non-Linux development keeps process, timeout, and concurrency bounds without claiming portable memory enforcement. Calls beyond per-session concurrency wait; cumulative budgets still apply. Each host call takes a FIFO transient-memory permit covering its decoded arguments and its result before decoding arguments, and holds it until the host work ends and the reply is written or purged. Capabilities whose results are unbounded before they materialize never bind live or settle inline; the workflow body dispatches them. Sandbox `executeRyotql` results are measured as JSON by PostgreSQL across the document's named queries and fail with `result-too-large` before any rows leave the database. Session registration and removal are identity-aware so replacement, expiry, interruption, or a late finalizer cannot evict a newer session.
+Compiler memory is sampled proportional set size in the Linux production image, not a cgroup hard ceiling. Non-Linux development keeps process, timeout, and concurrency bounds without claiming portable memory enforcement. Calls beyond per-session concurrency wait; cumulative budgets still apply. Each host call takes a FIFO transient-memory permit covering its decoded arguments and its result before decoding arguments, and holds it until the host work ends and the reply is written or purged. Every host capability declares its result bound, and the backend enforces it where the value is produced: user settings, plugin configuration, and integration settings are rejected over their caps when saved or restored, and OAuth token responses are capped when read from the provider. Sandbox `executeRyotql` results are measured as JSON by PostgreSQL across the document's named queries and fail with `result-too-large` before any rows leave the database. Session registration and removal are identity-aware so replacement, expiry, interruption, or a late finalizer cannot evict a newer session.
 
 ## Daemon
 

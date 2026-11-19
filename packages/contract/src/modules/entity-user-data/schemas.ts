@@ -1,7 +1,6 @@
 import { Schema } from "effect";
 
 import { EntityId } from "../../schema/brands";
-import { AutomationWarning } from "../automations/lifecycle";
 
 const EntityUserDataBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("same-entity-merge") }),
@@ -44,7 +43,6 @@ export const ClearEntityUserDataResponse = Schema.Struct({
 	entityId: EntityId,
 	deletedEventsCount: Schema.Finite,
 	deletedRelationshipsCount: Schema.Finite,
-	warnings: Schema.Array(AutomationWarning),
 });
 
 export type ClearEntityUserDataResponse = typeof ClearEntityUserDataResponse.Type;
@@ -58,7 +56,6 @@ export const MergeEntityUserDataResponse = Schema.Struct({
 	mergeInto: EntityId,
 	movedEventsCount: Schema.Finite,
 	movedRelationshipsCount: Schema.Finite,
-	warnings: Schema.Array(AutomationWarning),
 });
 
 export type MergeEntityUserDataResponse = typeof MergeEntityUserDataResponse.Type;

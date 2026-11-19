@@ -1,5 +1,4 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	TestSupportBadRequest,
@@ -89,14 +88,6 @@ const childSystemApiCommand = (
 	command: ReturnType<typeof rootLifecycleCommand>,
 	itemIdentity: string,
 ) => ({ ...childLifecycleCommand(command, itemIdentity), writeContext: null });
-
-const reportWarnings = (
-	operation: string,
-	warnings: ReadonlyArray<AutomationWarning>,
-): Effect.Effect<void> =>
-	warnings.length === 0
-		? Effect.void
-		: Effect.logWarning("test support lifecycle warnings", { warnings, operation });
 
 const decodeCompiledClient = (
 	compiledClient: TestSupportInstallSystemPluginBodyBase64["compiledClient"],
@@ -210,7 +201,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					entitySchema: input.entitySchema,
 					lifecycle: childSystemApiCommand(command, "create"),
 				});
-				yield* reportWarnings("create-global-entity", created.warnings);
 				if (input.populatedAt !== undefined) {
 					yield* stampSeededRelatedLevel(created.entity.id, populatedAt, input.level ?? "full");
 				}
@@ -234,7 +224,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						stableStringify(["test-support:set-entity-populated-at", entityId]),
 					),
 				});
-				yield* reportWarnings("set-entity-populated-at", updated.warnings);
 				yield* stampSeededRelatedLevel(entityId, populatedAtDate, level);
 				return updated.entity;
 			});
@@ -264,7 +253,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 							]),
 						),
 					);
-					yield* reportWarnings("upsert-global-relationship", result.warnings);
 					return (
 						result.relationship ??
 						(yield* new TestSupportBadRequest({
@@ -284,7 +272,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					ids,
 					yield* systemApiCommand("test-support:delete-global-entities"),
 				);
-				yield* reportWarnings("delete-global-entities", result.warnings);
 				return result.deletedCount;
 			});
 

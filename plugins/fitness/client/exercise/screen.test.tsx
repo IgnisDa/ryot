@@ -494,6 +494,7 @@ describe("exercise details view", () => {
 					page.send({
 						outcome: "success",
 						type: "operation-result",
+						committed: { events: [] },
 						requestId: request.requestId,
 						value: { kind: "missing-exercise" },
 					});
@@ -525,6 +526,7 @@ describe("exercise details view", () => {
 						outcome: "success",
 						type: "operation-result",
 						value: { kind: "saved" },
+						committed: { events: [] },
 						requestId: retried.requestId,
 					});
 				});
@@ -700,6 +702,7 @@ describe("exercise merge", () => {
 					setup.page.send({
 						outcome: "success",
 						type: "operation-result",
+						committed: { events: [] },
 						requestId: request.requestId,
 						value: { kind: "merged", mergeInto: "global-1" },
 					});
@@ -724,6 +727,7 @@ describe("exercise merge", () => {
 					setup.page.send({
 						outcome: "success",
 						type: "operation-result",
+						committed: { events: [] },
 						requestId: request.requestId,
 						value: { kind: "kind-mismatch" },
 					});

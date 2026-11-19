@@ -37,20 +37,6 @@ export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown)
 	return host;
 }
 
-/** The host of an automation, plus the notification messages it sends. */
-export const recordNotifications = (
-	manifest: Extract<SandboxManifest, { readonly automationType: "automation" }>,
-) => {
-	const messages: LocalMessage[] = [];
-	const host = defineSandboxTestHost(manifest, {
-		sendNotification: (message) => {
-			messages.push(message);
-			return Effect.succeed(null);
-		},
-	});
-	return { host, messages };
-};
-
 /** Renders a plugin's messages from its English catalog, as delivery does for English recipients. */
 export const englishRenderer = (catalog: CompiledCatalog) => {
 	const registry = catalogRegistry([{ catalog, namespace: "plugin", locale: SOURCE_LOCALE }]);

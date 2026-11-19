@@ -628,7 +628,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 									})),
 								),
 					});
-					entityId = written.result.entityId;
+					entityId = written.entityId;
 				}
 				if (record.kind !== "custom") {
 					if (record.kind === "provider") {
@@ -688,11 +688,11 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 						command,
 					),
 				});
-				if (!written.result.relationship) {
+				if (!written.relationship) {
 					return yield* new ImportRunError({ message: "Relationship was not created" });
 				}
-				relationshipIds.set(item.record.key, written.result.relationship.id);
-				segmentRelationshipIds.set(item.record.key, written.result.relationship.id);
+				relationshipIds.set(item.record.key, written.relationship.id);
+				segmentRelationshipIds.set(item.record.key, written.relationship.id);
 			} else {
 				const entityId = EntityId.make(
 					yield* requiredReference(entityIds, item.record.entityKey, "entity"),

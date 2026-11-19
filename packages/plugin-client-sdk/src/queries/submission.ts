@@ -53,12 +53,12 @@ export const createRyotSubmission = <Input>(createId: () => string, now: () => n
 			publish({ submission, status: "pending" });
 			return submission;
 		},
-		settle: (complete: boolean) => {
+		settle: (final: boolean) => {
 			if (state.status !== "pending") {
 				return;
 			}
 			publish(
-				complete
+				final
 					? { status: "idle", submission: null }
 					: { status: "retained", submission: state.submission },
 			);

@@ -6,12 +6,7 @@ import {
 	Schema,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
-import {
-	MediaTrendingProviderOutput,
-	MediaTrendingRankingsInput,
-	MediaTrendingRankingsOutput,
-	MediaTrendingWorkflowOutput,
-} from "../contracts/workflows";
+import { MediaTrendingProviderOutput, MediaTrendingWorkflowOutput } from "../contracts/workflows";
 
 export const manifest = defineManifest({
 	kind: "workflow",
@@ -31,29 +26,21 @@ const providers = [
 	{ entitySchemaSlug: "show", reference: providerReference("show.tmdb.trending") },
 ] as const;
 
-const rankings = defineScriptReference({
-	input: MediaTrendingRankingsInput,
-	output: MediaTrendingRankingsOutput,
-	scriptSlug: "media-trending-rankings",
-});
-
 export default defineWorkflow({
 	manifest,
 	input: Schema.Struct({}),
 	output: MediaTrendingWorkflowOutput,
 	run: (_input, step) =>
 		Effect.gen(function* () {
-			const batches: Array<{ entitySchemaSlug: string; entityIds: readonly string[] }> = [];
-			const failedEntitySchemaSlugs: string[] = [];
+			let itemCount = 0;
+			let providerCount = 0;
 			for (const { reference, entitySchemaSlug } of providers) {
 				const result = yield* step.activity(`fetch-${entitySchemaSlug}`, reference, {});
 				if (result.status === "fetched") {
-					batches.push({ entitySchemaSlug, entityIds: result.entityIds });
-				} else {
-					failedEntitySchemaSlugs.push(entitySchemaSlug);
+					itemCount += result.itemCount;
+					providerCount += 1;
 				}
 			}
-			const ranked = yield* step.activity("rank", rankings, { batches, failedEntitySchemaSlugs });
-			return { synced: ranked.synced, itemCount: ranked.itemCount, providerCount: batches.length };
+			return { output: { itemCount, providerCount, synced: providerCount > 0 } };
 		}),
 });

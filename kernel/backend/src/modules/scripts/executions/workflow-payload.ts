@@ -20,6 +20,8 @@ export const ScriptExecutionWorkflowPayload = Schema.Struct({
 	subject: SandboxExecutionSubject,
 	startedAt: Schema.optional(Schema.String),
 	grants: Schema.optional(SandboxExecutionGrants),
+	/** Set when a workflow calls the script with `step.activity`: it returns `{ output, changes? }`. */
+	activity: Schema.optional(Schema.Literal(true)),
 	resolutionMode: Schema.Literals(["active", "exact"]),
 	pluginRevision: Schema.optional(ScriptPluginRevision),
 	resultMode: Schema.optional(Schema.Literal("execution")),

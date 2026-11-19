@@ -6,7 +6,7 @@ import { it, layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
 
 import { MiB } from "../protocol/limits";
-import { SandboxSidecarAdmission } from "./admission";
+import { InsideSandboxHostCall, SandboxSidecarAdmission } from "./admission";
 import { idleBytes, makeSandboxAdmission, sandboxAdmissionLayer } from "./gate.test-support";
 import { sandboxMemoryPlan } from "./memory-plan";
 
@@ -407,6 +407,32 @@ it.effect(
 				expect(admission.snapshot()).toMatchObject({ processes: 1, interactiveBytes: 128 * MiB });
 				yield* closeTwice(recovered);
 				expect(admission.snapshot()).toMatchObject(idle);
+			}),
+		),
+	testTimeout,
+);
+
+it.effect(
+	"refuses a run inside another run's host call instead of waiting on the lease that run holds",
+	() =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const admission = yield* makeSandboxAdmission(1094, 1);
+				expect(admission.plan.mode).toBe("shared");
+				const held = yield* acquireScope;
+				yield* admission.reserveRun("system/core", "interactive").pipe(Scope.provide(held));
+				const nested = yield* Effect.flip(
+					Effect.scoped(admission.reserveRun("system/core", "interactive")).pipe(
+						Effect.provideService(InsideSandboxHostCall, true),
+					),
+				);
+				expect(nested).toMatchObject({
+					kind: "infrastructure",
+					message: "A sandbox run cannot start inside another run's host call",
+				});
+				expect(admission.snapshot()).toMatchObject({ waiting: 0, reservations: 1 });
+				yield* Scope.close(held, Exit.void);
+				expect(admission.snapshot()).toMatchObject(idleSnapshot(admission));
 			}),
 		),
 	testTimeout,

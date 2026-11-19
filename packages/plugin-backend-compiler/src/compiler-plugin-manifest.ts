@@ -3,6 +3,7 @@ import type { CompiledCatalog } from "@ryot-app/i18n/catalog";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Match, Schema } from "effect";
 
+import { pluginBackendCompilerDiagnostic, sandboxCompilationFailure } from "./compiler-diagnostics";
 import {
 	type CompiledPluginSandboxEntry,
 	compilePluginSandboxEntryPaths,
@@ -77,6 +78,27 @@ export const derivePluginSandboxScripts = Effect.fn("derivePluginSandboxScripts"
 		new Map(),
 		catalog,
 	);
+	const activities = new Map(
+		compiled.map(({ activity, compiled: { manifest } }) => [manifest.slug, activity]),
+	);
+	const nonActivityTargets = compiled.flatMap(({ entry, compiled: { manifest } }) =>
+		manifest.executableDependencies.flatMap(({ kind, slug }) =>
+			kind === "script" && activities.get(slug) === false
+				? [
+						{
+							...pluginBackendCompilerDiagnostic(
+								"RYOT_DEPENDENCY",
+								`step.activity target "${slug}" must be defined with defineActivity`,
+							),
+							file: entry,
+						},
+					]
+				: [],
+		),
+	);
+	if (nonActivityTargets.length > 0) {
+		return yield* sandboxCompilationFailure(nonActivityTargets);
+	}
 	return yield* Effect.forEach(compiled, (output) =>
 		derivedPluginScript(output).pipe(
 			Effect.map((script) => ({ script, source: output.source, compiled: output.compiled })),

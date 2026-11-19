@@ -525,6 +525,7 @@ describe("measurements page", () => {
 					outcome: "success",
 					value: { pinned: true },
 					type: "operation-result",
+					committed: { events: [] },
 					requestId: pinRequest.requestId,
 				});
 				const pinned = () => body.getByRole("group", { name: "Pinned metrics" });
@@ -659,10 +660,11 @@ describe("measurements page", () => {
 					},
 				]);
 				page.send({
+					value: {},
 					outcome: "success",
 					type: "operation-result",
+					committed: { events: [] },
 					requestId: request.requestId,
-					value: { entityId: "new-metric" },
 				});
 				page.send({ type: "page-refresh" });
 				yield* waitForMessagePortMacrotask;

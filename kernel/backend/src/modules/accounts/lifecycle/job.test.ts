@@ -31,7 +31,7 @@ import {
 	UserLifecycleJobOperationsLive,
 } from "./job";
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleJob, UserLifecycleService } from "./service";
+import { UserLifecycleJob } from "./service";
 
 const userId = UserId.make("user-1");
 const payload = { operationId: "operation-1" };
@@ -61,14 +61,6 @@ const scriptedOperationsLayer = (
 				recordFailure: (failure) => Ref.update(failures, (all) => [...all, failure]),
 			});
 			return Layer.mergeAll(
-				Layer.mock(UserLifecycleService)({
-					ensureAccessRevoked: () =>
-						Effect.succeed(
-							partialFake<
-								Effect.Success<ReturnType<UserLifecycleService["Service"]["ensureAccessRevoked"]>>
-							>({}),
-						),
-				}),
 				Layer.mock(UserLifecycleJobOperations, scripted),
 				Layer.succeed(RecordedJobOperations, {
 					calls: Ref.get(calls),

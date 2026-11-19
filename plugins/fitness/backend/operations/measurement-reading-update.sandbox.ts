@@ -1,14 +1,23 @@
-import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	deleteEventChange,
+	existingEntity,
+	rootEntity,
+	updateEventChange,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Array, Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import {
+	entityEventScopeRevisionRecipe,
+	executeRyotqlRecipe,
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	measurementEntryProperties,
 	measurementReadingProperties,
 } from "../../shared/measurement-properties";
 import {
-	MEASUREMENT_EVENT_BATCH_SIZE,
 	MeasurementReadingOutput,
 	MeasurementReadingUpdateInput,
 } from "../../shared/measurement-reading-operations";
@@ -31,54 +40,55 @@ export default defineOperation({
 	run: ({ values, comment, entryId, occurredAt }, host) =>
 		Effect.gen(function* () {
 			const entry = yield* requireMeasurementEntry(entryId, host.executeRyotql);
+			const revision = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				entityEventScopeRevisionRecipe,
+				{ entityId: entryId },
+			);
 			const readings = yield* readMeasurementEntryReadings(entryId, host.executeRyotql);
 			yield* requireMeasurementMetrics(
 				values.map(({ metricId }) => metricId),
 				host.executeRyotql,
 			);
 			const pending = new Map(values.map(({ value, metricId }) => [metricId, value]));
-			const updates: UpdateEventItem[] = [];
-			const removed: string[] = [];
-			for (const { id, metricId } of readings) {
+			const changes = readings.map(({ id, metricId }) => {
 				const value = pending.get(metricId);
 				if (value === undefined) {
-					removed.push(id);
-				} else {
-					pending.delete(metricId);
-					updates.push({
-						eventId: id,
-						patch: {
-							occurredAt,
-							properties: { remove: [], set: measurementReadingProperties(value) },
-						},
-					});
+					return deleteEventChange(EventId.make(id));
 				}
-			}
-			yield* host.updateUserEntity({
-				name: entry.name,
-				entityId: entryId,
-				properties: measurementEntryProperties(occurredAt, comment),
-				expected: { name: entry.name, updatedAt: entry.updatedAt, properties: entry.properties },
+				pending.delete(metricId);
+				return updateEventChange(EventId.make(id), {
+					occurredAt,
+					properties: { remove: [], set: measurementReadingProperties(value) },
+				});
 			});
-			let count = 0;
-			for (const batch of Array.chunksOf(updates, MEASUREMENT_EVENT_BATCH_SIZE)) {
-				count += (yield* host.updateEvents(batch)).count;
-			}
-			for (const batch of Array.chunksOf([...pending], MEASUREMENT_EVENT_BATCH_SIZE)) {
-				const created = yield* host.createEvents(
-					batch.map(([metricId, value]) => ({
-						occurredAt,
-						entityId: metricId,
-						sessionEntityId: entryId,
-						eventSchemaSlug: "measurement-reading",
-						properties: measurementReadingProperties(value),
-					})),
-				);
-				count += created.count;
-			}
-			for (const batch of Array.chunksOf(removed, MEASUREMENT_EVENT_BATCH_SIZE)) {
-				count += (yield* host.deleteEvents(batch)).count;
-			}
-			return { count };
+			const creates = [...pending].map(([metricId, value]) => ({
+				occurredAt,
+				session: rootEntity,
+				itemIdentity: `reading:${metricId}`,
+				eventSchemaSlug: "measurement-reading",
+				entity: existingEntity(EntityId.make(metricId)),
+				properties: measurementReadingProperties(value),
+			}));
+			return {
+				output: { count: changes.length + creates.length },
+				changes: {
+					events: { changes, creates, baselines: [{ revision, entityId: EntityId.make(entryId) }] },
+					entity: {
+						name: entry.name,
+						entitySchemaSlug: "measurement-entry",
+						properties: measurementEntryProperties(occurredAt, comment),
+						target: {
+							kind: "update",
+							entityId: EntityId.make(entryId),
+							expected: {
+								name: entry.name,
+								updatedAt: entry.updatedAt,
+								properties: entry.properties,
+							},
+						},
+					},
+				},
+			};
 		}),
 });

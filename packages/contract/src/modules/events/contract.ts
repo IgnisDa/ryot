@@ -24,7 +24,7 @@ export const EventsGroup = HttpApiGroup.make("events")
 			success: CreateEventsResponse.pipe(HttpApiSchema.status(201)),
 		}).annotate(
 			OpenApi.Description,
-			"Create events and return each item's outcome. Policy failures stop the batch and required-hook warnings do not roll back committed events.",
+			"Create events and return each item's outcome. Policy failures stop the batch.",
 		),
 	)
 	.add(

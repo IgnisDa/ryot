@@ -118,7 +118,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 			Effect.gen(function* () {
 				const request = yield* HttpServerRequest.HttpServerRequest;
 				const service = yield* OperationsService;
-				const result = yield* service
+				const { output, committed } = yield* service
 					.invoke({
 						payload: payload.payload,
 						...(payload.pageAuthority === undefined
@@ -134,7 +134,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 						...(payload.submittedAt === undefined ? {} : { submittedAt: payload.submittedAt }),
 					})
 					.pipe(dieOnDbError);
-				return { result };
+				return { committed, result: output };
 			}),
 		),
 );

@@ -6,45 +6,37 @@ import { KiB, MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 import type { SandboxPrincipal } from "./principal";
 
+const integrationRecordBytes = SANDBOX_LIMITS.integrations.settingsBytes + 2 * KiB;
+
 export const SANDBOX_HOST_EXECUTION_POLICY = {
-	emitSignal: { resultBytes: MiB, dispatch: "service" },
-	createEvents: { resultBytes: MiB, dispatch: "events" },
-	requestFolds: { resultBytes: KiB, dispatch: "service" },
-	deleteEvents: { resultBytes: MiB, dispatch: "lifecycle" },
-	updateEvents: { resultBytes: MiB, dispatch: "lifecycle" },
 	invokeCapability: { resultBytes: MiB, dispatch: "service" },
-	createUserEntity: { resultBytes: MiB, dispatch: "service" },
-	deleteUserEntity: { resultBytes: MiB, dispatch: "service" },
-	updateUserEntity: { resultBytes: MiB, dispatch: "service" },
 	getEntitlements: { resultBytes: KiB, dispatch: "activity" },
-	getPluginConfig: { resultBytes: null, dispatch: "activity" },
-	getUserSettings: { resultBytes: null, dispatch: "activity" },
-	commitUserChanges: { resultBytes: MiB, dispatch: "service" },
-	getEntitySchemas: { resultBytes: null, dispatch: "activity" },
-	listEventSchemas: { resultBytes: null, dispatch: "activity" },
-	listIntegrations: { resultBytes: null, dispatch: "activity" },
-	ensureUserEntities: { resultBytes: MiB, dispatch: "service" },
-	updateUserSettings: { resultBytes: KiB, dispatch: "activity" },
 	getUserPreferences: { resultBytes: KiB, dispatch: "activity" },
-	mergeUserEntityData: { resultBytes: MiB, dispatch: "service" },
-	clearUserEntityData: { resultBytes: MiB, dispatch: "service" },
-	getOAuthAccessToken: { resultBytes: null, dispatch: "activity" },
-	sendNotification: { resultBytes: MiB, dispatch: "notification" },
-	upsertGlobalEntities: { resultBytes: MiB, dispatch: "lifecycle" },
-	requestFoldsForAllUsers: { resultBytes: KiB, dispatch: "service" },
 	log: { permit: "small", resultBytes: KiB, dispatch: "diagnostic" },
-	getCurrentIntegration: { resultBytes: null, dispatch: "activity" },
 	span: { permit: "small", resultBytes: KiB, dispatch: "diagnostic" },
-	changeUserRelationships: { resultBytes: MiB, dispatch: "lifecycle" },
 	invalidateOAuthAccessToken: { resultBytes: KiB, dispatch: "activity" },
-	upsertGlobalRelationships: { resultBytes: MiB, dispatch: "lifecycle" },
 	setCachedValue: { permit: "small", resultBytes: KiB, dispatch: "activity" },
 	verifyManagedAssets: { wireBytes: KiB, resultBytes: KiB, dispatch: "activity" },
 	httpCall: { dispatch: "activity", resultBytes: 2 * SANDBOX_LIMITS.http.responseBytes },
+	getCurrentIntegration: {
+		dispatch: "activity",
+		wireBytes: integrationRecordBytes + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * integrationRecordBytes,
+	},
 	executeRyotql: {
 		dispatch: "activity",
 		wireBytes: SANDBOX_LIMITS.ryotqlResultBytes + KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.ryotqlResultBytes,
+	},
+	getPluginConfig: {
+		dispatch: "activity",
+		wireBytes: SANDBOX_LIMITS.pluginConfigBytes + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.pluginConfigBytes,
+	},
+	getUserSettings: {
+		dispatch: "activity",
+		wireBytes: SANDBOX_LIMITS.userSettingsBytes + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.userSettingsBytes,
 	},
 	getPersistentValue: {
 		dispatch: "activity",
@@ -56,11 +48,23 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 		wireBytes: SANDBOX_LIMITS.cache.valueBytes + 2 * KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * (SANDBOX_LIMITS.cache.valueBytes + KiB),
 	},
+	getOAuthAccessToken: {
+		dispatch: "activity",
+		wireBytes: SANDBOX_LIMITS.oauthTokenResponseBytes + KiB,
+		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.oauthTokenResponseBytes,
+	},
 	getCachedValue: {
 		permit: "small",
 		dispatch: "activity",
 		wireBytes: SANDBOX_LIMITS.cache.valueBytes + KiB,
 		resultBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.cache.valueBytes,
+	},
+	listIntegrations: {
+		dispatch: "activity",
+		wireBytes: SANDBOX_LIMITS.integrations.pageSize * integrationRecordBytes + 2 * KiB,
+		resultBytes:
+			SANDBOX_JSON_GRAPH_FACTOR *
+			(SANDBOX_LIMITS.integrations.pageSize * integrationRecordBytes + KiB),
 	},
 } as const satisfies Record<
 	keyof typeof sandboxHostContracts,
@@ -68,7 +72,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 		readonly dispatch: string;
 		readonly permit?: "small";
 		readonly wireBytes?: number;
-		readonly resultBytes: null | number;
+		readonly resultBytes: number;
 	}
 >;
 
@@ -96,18 +100,10 @@ export const sandboxHostPermit = (capability: SandboxHostCapability) => {
 	return policy !== null && "permit" in policy ? policy.permit : "ordinary";
 };
 
-const inlineDispatches = new Set<null | string>([
-	"events",
-	"service",
-	"activity",
-	"lifecycle",
-	"notification",
-]);
-
+// An inline batch settles while its run keeps its lease, so it takes only activities, which run no script.
 export const sandboxInlineDurableCapabilities = (principal: SandboxPrincipal) =>
 	(principal.metadata.capabilities ?? []).filter(
 		(capability): capability is SandboxHostCapability =>
 			isSandboxHostCapability(capability) &&
-			inlineDispatches.has(sandboxDurableHostDispatchStrategy(capability)) &&
-			sandboxHostResultBytes(capability) !== null,
+			sandboxDurableHostDispatchStrategy(capability) === "activity",
 	);

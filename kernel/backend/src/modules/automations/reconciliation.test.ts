@@ -122,8 +122,8 @@ layer(liveSubmissionLayer)((test) => {
 				expect(yield* (yield* ReconciliationCalls).reads).toEqual([read, read]);
 				const expected = [candidate("missed"), candidate("retry", 3)].map((run) => ({
 					kind: "automation-run",
+					payload: { runId: run.id, attemptNumber: run.attemptCount + 1 },
 					key: automationAttemptIdentity(run.id, run.attemptCount + 1).executionId,
-					payload: { runId: run.id, acceptedPatches: [], attemptNumber: run.attemptCount + 1 },
 				}));
 				const submitted = yield* yield* RunJobSubmissions;
 				expect(submitted).toHaveLength(4);

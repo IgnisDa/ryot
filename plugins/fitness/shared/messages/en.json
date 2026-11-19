@@ -115,6 +115,7 @@
 	"client.adjust.keep-label": "Keep recorded duration",
 	"client.adjust.load-failed": "Workout times could not be loaded.",
 	"client.adjust.loading": "Loading workout times…",
+	"client.adjust.not-saved": "This correction was not saved.",
 	"client.adjust.rejected": "This correction is invalid. Close and reopen the form to try again.",
 	"client.adjust.retry": "Retry times",
 	"client.adjust.retry-correction": "Retry correction",
@@ -348,6 +349,7 @@
 		"message": "{kind, select, template {Permanently delete “{name}”? This cannot be undone. Workouts started from this template and its exercises will stay.} workout {Permanently delete “{name}” and its sets? This cannot be undone. Exercises, templates, other workouts, and separately logged measurements will stay.} other {Permanently delete “{name}”? This cannot be undone.}}",
 		"description": "Confirmation text. {kind} is whether a template or a workout is deleted and {name} is its name."
 	},
+	"client.delete.not-deleted": "Nothing was deleted.",
 	"client.delete.retry": "Retry deletion",
 	"client.delete.title": "{kind, select, template {Delete template?} workout {Delete workout?} other {Delete item?}}",
 	"client.delete.unconfirmed": "Deletion could not be confirmed. Retry to confirm the result safely.",
@@ -1850,6 +1852,7 @@
 		"message": "Workouts",
 		"description": "Label of a query parameter that selects workouts."
 	},
+	"rejection.exercise-merge.too-many-templates": "This exercise is in too many workout templates to merge. Remove it from some templates and try again.",
 	"rejection.workout-exercise.context-missing": "This exercise is not part of a workout.",
 	"rejection.workout-exercise.taxonomy-capacity": "This exercise lists more muscles or equipment than a workout can record.",
 	"rejection.workout-set.confirmed-at-invalid": "This set's completion time is not valid.",

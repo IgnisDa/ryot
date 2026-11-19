@@ -1,3 +1,4 @@
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -16,6 +17,7 @@ import {
 	table,
 	userMediaLibraryRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	MediaOwnershipOutput,
@@ -80,27 +82,31 @@ export default defineOperation({
 				executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe({ kind: "self" }), {}),
 			]);
 			const ownedOn = input.owned ? input.ownedOn : null;
-			if (targetIds.length > 0) {
-				yield* host.changeUserRelationships([
-					{
-						deletes: [],
-						creates: targetIds.map((entityId) => ({
-							propertiesMode: "merge",
-							sourceEntityId: entityId,
-							targetEntityId: mediaLibrary.entityId,
-							relationshipSchemaSlug: "in-media-library",
-							properties: { ownedOn, owned: input.owned },
-						})),
-					},
-				]);
-			}
 			const found = new Set(targetIds);
-			return {
+			const output = {
 				results: input.entityIds.map((entityId) =>
 					found.has(entityId)
 						? { ownedOn, entityId, owned: input.owned, status: "found" as const }
 						: { entityId, status: "notFound" as const },
 				),
+			};
+			if (targetIds.length === 0) {
+				return { output };
+			}
+			const library = existingEntity(EntityId.make(mediaLibrary.entityId));
+			return {
+				output,
+				changes: {
+					relationships: {
+						upserts: targetIds.map((entityId) => ({
+							target: library,
+							propertiesMode: "merge" as const,
+							relationshipSchemaSlug: "in-media-library",
+							properties: { ownedOn, owned: input.owned },
+							source: existingEntity(EntityId.make(entityId)),
+						})),
+					},
+				},
 			};
 		}),
 });

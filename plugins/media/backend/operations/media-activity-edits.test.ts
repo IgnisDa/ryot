@@ -4,16 +4,13 @@ import type {
 	RyotQLDocument as ImportedRyotQLDocument,
 	RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
-import type {
-	DomainSandboxHostMethodMap,
-	UpdateEventItem,
-} from "@ryot-app/plugin-backend-sdk/core";
+import type { ChangeSet } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import type { LocalMessage } from "@ryot-app/plugin-kit/messages";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
+import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -28,8 +25,6 @@ import { execution } from "../../tests/backend/automations/automation-test-utils
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import deleteDefinition from "./media-activity-delete.sandbox";
 import updateDefinition, { manifest as updateManifest } from "./media-activity-update.sandbox";
-
-type DeleteOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["deleteEvents"]>[1]>;
 
 type StoredEvent = {
 	readonly id: string;
@@ -66,39 +61,16 @@ const requestedIds = (document: ImportedRyotQLDocument) =>
  * the real allow-list predicate is asserted separately through the document it sends.
  */
 const recordingHost = (input: {
+	readonly scopeRevision?: number;
 	readonly events: readonly StoredEvent[];
 	readonly disallowed?: readonly string[];
 	readonly namingReviews?: readonly string[];
 	readonly episodeParents?: Readonly<Record<string, string>>;
-	readonly updateEvents?: () => Effect.Effect<{ readonly count: number }, SandboxHostError>;
-	readonly deleteEvents?: (
-		ids: readonly string[],
-		options: undefined | DeleteOptions,
-	) => undefined | Effect.Effect<{ readonly count: number }, SandboxHostError>;
 }) => {
-	const calls: string[] = [];
 	const documents: RyotQLDocument[] = [];
-	const deletes: {
-		readonly ids: readonly string[];
-		readonly options: undefined | DeleteOptions;
-	}[] = [];
-	const updates: { readonly items: readonly UpdateEventItem[] }[] = [];
 	const host = defineSandboxTestHost(updateManifest, {
-		updateEvents: (items) =>
-			Effect.suspend(() => {
-				calls.push("update");
-				updates.push({ items });
-				return input.updateEvents?.() ?? Effect.succeed({ count: items.length });
-			}),
-		deleteEvents: (ids, options) =>
-			Effect.suspend(() => {
-				calls.push("delete");
-				deletes.push({ ids, options });
-				return input.deleteEvents?.(ids, options) ?? Effect.succeed({ count: ids.length });
-			}),
 		executeRyotql: (document) =>
 			Effect.sync(() => {
-				calls.push("validate");
 				documents.push(bindTestRequest(document));
 				if (bindTestRequest(document).queries["parents"] !== undefined) {
 					const parent = ryotqlDocumentNodes(bindTestRequest(document).queries["parents"])
@@ -109,6 +81,15 @@ const recordingHost = (input: {
 						data: {
 							parents: page(
 								parent === undefined ? [] : [{ seasonNumber: 1, parentEntityId: parent }],
+							),
+						},
+					};
+				}
+				if (bindTestRequest(document).queries["scope"] !== undefined) {
+					return {
+						data: {
+							scope: page(
+								input.scopeRevision === undefined ? [] : [{ revision: input.scopeRevision }],
 							),
 						},
 					};
@@ -126,8 +107,20 @@ const recordingHost = (input: {
 				};
 			}),
 	});
-	return { host, calls, deletes, updates, documents };
+	return { host, documents };
 };
+
+const eventChanges = (result: { readonly changes?: ChangeSet }) =>
+	result.changes?.events?.changes ?? [];
+
+const updateItem = (result: { readonly changes?: ChangeSet }, index = 0) => {
+	const change = eventChanges(result)[index];
+	assert(change?.kind === "update");
+	return change.item;
+};
+
+const deletedIds = (result: { readonly changes?: ChangeSet }) =>
+	eventChanges(result).flatMap((change) => (change.kind === "delete" ? [change.eventId] : []));
 
 const movieCompletion: StoredEvent = {
 	id: "event-1",
@@ -187,12 +180,13 @@ describe("media activity update", () => {
 		"moves a %s record to another episode of the same parent",
 		(entitySchemaSlug) =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [{ ...episodeCompletion, entitySchemaSlug }],
 					episodeParents: { "episode-1": "parent-1", "episode-2": "parent-1" },
 				});
-				yield* update({ episodeEntityId: "episode-2" }, host, episodeSnapshot);
-				expect(updates[0]?.items[0]?.patch).toEqual({ entityId: "episode-2" });
+				expect(
+					updateItem(yield* update({ episodeEntityId: "episode-2" }, host, episodeSnapshot)).patch,
+				).toEqual<unknown>({ entityId: "episode-2" });
 			}),
 		testTimeout,
 	);
@@ -201,26 +195,34 @@ describe("media activity update", () => {
 		"clears the episode link of reviews naming a record in the same write as it moves",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
+					scopeRevision: 7,
 					events: [episodeCompletion],
 					namingReviews: ["review-1", "review-2"],
 					episodeParents: { "episode-1": "show-1", "episode-2": "show-1" },
 				});
-				expect(yield* update({ episodeEntityId: "episode-2" }, host, episodeSnapshot)).toEqual({
-					count: 1,
-					status: "saved",
-				});
-				expect(updates).toHaveLength(1);
-				expect(updates[0]?.items.slice(1)).toEqual([
-					{
-						eventId: "review-1",
-						patch: { properties: { set: {}, remove: ["consumptionEventId"] } },
-					},
-					{
-						eventId: "review-2",
-						patch: { properties: { set: {}, remove: ["consumptionEventId"] } },
-					},
+				const result = yield* update({ episodeEntityId: "episode-2" }, host, episodeSnapshot);
+				expect(result.output).toEqual({ count: 1 });
+				expect(result.changes?.events?.baselines).toEqual<unknown>([
+					{ revision: 7, entityId: "episode-1" },
 				]);
+				expect(eventChanges(result).map((change) => change.itemIdentity)).toEqual([
+					"update:event-1",
+					"update:review-1",
+					"update:review-2",
+				]);
+				expect(updateItem(result, 0).expected).toEqual<unknown>({
+					...episodeSnapshot,
+					kind: "fields",
+				});
+				expect(updateItem(result, 1)).toEqual<unknown>({
+					eventId: "review-1",
+					patch: { properties: { set: {}, remove: ["consumptionEventId"] } },
+				});
+				expect(updateItem(result, 2)).toEqual<unknown>({
+					eventId: "review-2",
+					patch: { properties: { set: {}, remove: ["consumptionEventId"] } },
+				});
 			}),
 		testTimeout,
 	);
@@ -229,13 +231,18 @@ describe("media activity update", () => {
 		"leaves reviews linked when the record stays on its episode",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [episodeCompletion],
 					namingReviews: ["review-1"],
 					episodeParents: { "episode-1": "show-1" },
 				});
-				yield* update({ timeSpent: 20, episodeEntityId: "episode-1" }, host, episodeSnapshot);
-				expect(updates[0]?.items).toHaveLength(1);
+				const result = yield* update(
+					{ timeSpent: 20, episodeEntityId: "episode-1" },
+					host,
+					episodeSnapshot,
+				);
+				expect(eventChanges(result)).toHaveLength(1);
+				expect(result.changes?.events?.baselines).toBeUndefined();
 			}),
 		testTimeout,
 	);
@@ -244,12 +251,19 @@ describe("media activity update", () => {
 		"moves a show record to an episode of another season of the same show",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [{ ...episodeCompletion, eventSchemaSlug: "progress" }],
 					episodeParents: { "episode-1": "show-1", "special-1": "show-1" },
 				});
-				yield* update({ progressPercent: 40, episodeEntityId: "special-1" }, host, episodeSnapshot);
-				expect(updates[0]?.items[0]?.patch).toEqual({
+				expect(
+					updateItem(
+						yield* update(
+							{ progressPercent: 40, episodeEntityId: "special-1" },
+							host,
+							episodeSnapshot,
+						),
+					).patch,
+				).toEqual<unknown>({
 					entityId: "special-1",
 					properties: { remove: [], set: { progressPercent: 40 } },
 				});
@@ -261,14 +275,15 @@ describe("media activity update", () => {
 		"treats a move to the current episode as no change",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [episodeCompletion],
 					episodeParents: { "episode-1": "show-1" },
 				});
-				yield* update({ timeSpent: 20, episodeEntityId: "episode-1" }, host, episodeSnapshot);
-				expect(updates[0]?.items[0]?.patch).toEqual({
-					properties: { remove: [], set: { timeSpent: 20 } },
-				});
+				expect(
+					updateItem(
+						yield* update({ timeSpent: 20, episodeEntityId: "episode-1" }, host, episodeSnapshot),
+					).patch,
+				).toEqual({ properties: { remove: [], set: { timeSpent: 20 } } });
 			}),
 		testTimeout,
 	);
@@ -277,7 +292,7 @@ describe("media activity update", () => {
 		"rejects a move to an episode of another parent",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [episodeCompletion],
 					episodeParents: { "episode-1": "show-1", "episode-9": "show-2" },
 				});
@@ -286,7 +301,6 @@ describe("media activity update", () => {
 				).toEqual(
 					catalogMessage("rejection.activity.episode-move-other-parent", { parent: "show" }),
 				);
-				expect(updates).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -295,14 +309,13 @@ describe("media activity update", () => {
 		"rejects a move to an episode that is not visible or of another kind",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [episodeCompletion],
 					episodeParents: { "episode-1": "show-1" },
 				});
 				expect(
 					yield* rejection(update({ episodeEntityId: "hidden-1" }, host, episodeSnapshot)),
 				).toEqual(catalogMessage("rejection.activity.episode-unavailable"));
-				expect(updates).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -314,12 +327,11 @@ describe("media activity update", () => {
 		"rejects an episode move on $name",
 		({ event }) =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [event],
 					episodeParents: { "episode-1": "show-1", "episode-2": "show-1" },
 				});
 				yield* rejection(update({ episodeEntityId: "episode-2" }, host, episodeSnapshot));
-				expect(updates).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -328,7 +340,7 @@ describe("media activity update", () => {
 		"edits an independent item without changing its retained source facts",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [
 						{
 							id: "event-1",
@@ -342,18 +354,19 @@ describe("media activity update", () => {
 						},
 					],
 				});
-				yield* update({ position: { position: 3.5, unit: "volumes" } }, host);
-				expect(updates[0]?.items[0]?.patch).toEqual({
+				expect(
+					updateItem(yield* update({ position: { position: 3.5, unit: "volumes" } }, host)).patch,
+				).toEqual({
 					properties: { remove: [], set: { position: { position: 3.5, unit: "volumes" } } },
 				});
 			}),
 		testTimeout,
 	);
 	it.live(
-		"patches dates, source, and time spent under the full precondition and write key",
+		"patches dates, source, and time spent under the full precondition",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({ events: [movieCompletion] });
+				const { host } = recordingHost({ events: [movieCompletion] });
 				expect(
 					yield* update(
 						{
@@ -367,24 +380,31 @@ describe("media activity update", () => {
 						},
 						host,
 					),
-				).toEqual({ count: 1, status: "saved" });
-				expect(updates).toEqual<unknown>([
-					{
-						items: [
-							{
-								eventId: "event-1",
-								expected: { ...expected, kind: "fields" },
-								patch: {
-									occurredAt: "2026-03-05T12:00:00.000Z",
-									properties: {
-										remove: ["calendarDate", "dateUnknown", "consumedOn"],
-										set: { timeSpent: 95, startedOn: "2026-03-04T12:00:00.000Z" },
+				).toEqual<unknown>({
+					output: { count: 1 },
+					changes: {
+						events: {
+							creates: [],
+							changes: [
+								{
+									kind: "update",
+									itemIdentity: "update:event-1",
+									item: {
+										eventId: "event-1",
+										expected: { ...expected, kind: "fields" },
+										patch: {
+											occurredAt: "2026-03-05T12:00:00.000Z",
+											properties: {
+												remove: ["calendarDate", "dateUnknown", "consumedOn"],
+												set: { timeSpent: 95, startedOn: "2026-03-04T12:00:00.000Z" },
+											},
+										},
 									},
 								},
-							},
-						],
+							],
+						},
 					},
-				]);
+				});
 			}),
 		testTimeout,
 	);
@@ -393,9 +413,8 @@ describe("media activity update", () => {
 		"marks the date unknown without moving the recorded time",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({ events: [movieCompletion] });
-				yield* update({ when: { kind: "unknown" } }, host);
-				expect(updates[0]?.items[0]?.patch).toEqual({
+				const { host } = recordingHost({ events: [movieCompletion] });
+				expect(updateItem(yield* update({ when: { kind: "unknown" } }, host)).patch).toEqual({
 					properties: { set: { dateUnknown: true }, remove: ["calendarDate", "startedOn"] },
 				});
 			}),
@@ -406,7 +425,7 @@ describe("media activity update", () => {
 		"writes a cumulative position on positional media",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [
 						{
 							id: "event-1",
@@ -416,8 +435,11 @@ describe("media activity update", () => {
 						},
 					],
 				});
-				yield* update({ position: { volume: 2, position: 12.5, unit: "chapters" } }, host);
-				expect(updates[0]?.items[0]?.patch).toEqual({
+				expect(
+					updateItem(
+						yield* update({ position: { volume: 2, position: 12.5, unit: "chapters" } }, host),
+					).patch,
+				).toEqual({
 					properties: {
 						remove: [],
 						set: { position: { volume: 2, position: 12.5, unit: "chapters" } },
@@ -442,14 +464,13 @@ describe("media activity update", () => {
 		"refuses to edit $name",
 		({ event }) =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					disallowed: ["event-1"],
 					events: [{ ...event, id: "event-1", properties: {} }],
 				});
 				expect(yield* rejection(update({ consumedOn: ["Plex"] }, host))).toEqual(
 					catalogMessage("rejection.record.activity-only-edit"),
 				);
-				expect(updates).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -512,36 +533,6 @@ describe("media activity update", () => {
 		).toBe("Failure");
 	});
 
-	it.live(
-		"reports a changed record as stale and any other host refusal as unsaved",
-		() =>
-			Effect.gen(function* () {
-				const stale = recordingHost({
-					events: [movieCompletion],
-					updateEvents: () =>
-						Effect.fail({
-							message: "event-stale",
-							data: { eventId: "event-1", code: "event-stale" },
-						}),
-				});
-				expect(yield* rejection(update({ consumedOn: ["Plex"] }, stale.host))).toEqual(
-					catalogMessage("rejection.record.stale"),
-				);
-				const conflict = recordingHost({
-					events: [movieCompletion],
-					updateEvents: () =>
-						Effect.fail({
-							message: "Conflicting event command identity",
-							data: { code: "mutation-conflict", message: "Conflicting event command identity" },
-						}),
-				});
-				expect(yield* rejection(update({ consumedOn: ["Plex"] }, conflict.host))).toEqual(
-					catalogMessage("rejection.record.change-refused"),
-				);
-			}),
-		testTimeout,
-	);
-
 	it.live.each([
 		{
 			name: "a source on backlog",
@@ -588,11 +579,8 @@ describe("media activity update", () => {
 		"refuses $name as a typed rejection",
 		({ event, patch, reason }) =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
-					events: [{ ...event, id: "event-1", properties: {} }],
-				});
+				const { host } = recordingHost({ events: [{ ...event, id: "event-1", properties: {} }] });
 				expect(yield* rejection(update(patch, host))).toEqual(reason);
-				expect(updates).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -630,11 +618,8 @@ describe("media activity update", () => {
 						{ when: { kind: "date", finishedOn: "2026-03-05T12:00:00.000Z" } },
 					],
 				] satisfies readonly [Omit<StoredEvent, "id" | "properties">, MediaActivityPatch][]) {
-					const { host, updates } = recordingHost({
-						events: [{ ...event, id: "event-1", properties: {} }],
-					});
-					yield* update(patch, host);
-					expect(updates).toHaveLength(1);
+					const { host } = recordingHost({ events: [{ ...event, id: "event-1", properties: {} }] });
+					expect(eventChanges(yield* update(patch, host))).toHaveLength(1);
 				}
 			}),
 		testTimeout,
@@ -644,13 +629,12 @@ describe("media activity update", () => {
 		"refuses a stored record carrying keys its schema no longer declares",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({
+				const { host } = recordingHost({
 					events: [{ ...movieCompletion, properties: { legacyRating: 3 } }],
 				});
 				expect(yield* rejection(update({ consumedOn: ["Plex"] }, host))).toEqual(
 					catalogMessage("rejection.record.uneditable"),
 				);
-				expect(updates).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -659,9 +643,8 @@ describe("media activity update", () => {
 		"refuses a record that no longer resolves",
 		() =>
 			Effect.gen(function* () {
-				const { host, updates } = recordingHost({ events: [] });
+				const { host } = recordingHost({ events: [] });
 				yield* rejection(update({ consumedOn: ["Plex"] }, host));
-				expect(updates).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -669,18 +652,18 @@ describe("media activity update", () => {
 
 describe("media activity delete", () => {
 	it.live(
-		"validates every chunk before deleting in deterministic chunks of 100",
+		"reads every chunk of ids, then deletes them all in one change set",
 		() =>
 			Effect.gen(function* () {
 				const ids = eventIds(250);
-				const { host, calls, deletes } = recordingHost({ events: movieCompletions(ids) });
-				expect(yield* remove({ eventIds: ids }, host)).toEqual({ count: 250, status: "saved" });
-				expect(calls).toEqual(["validate", "validate", "validate", "delete", "delete", "delete"]);
-				expect(deletes).toEqual([
-					{ options: {}, ids: ids.slice(0, 100) },
-					{ options: {}, ids: ids.slice(100, 200) },
-					{ options: {}, ids: ids.slice(200) },
-				]);
+				const { host, documents } = recordingHost({ events: movieCompletions(ids) });
+				const result = yield* remove({ eventIds: ids }, host);
+				expect(result.output).toEqual({ count: 250 });
+				expect(deletedIds(result)).toEqual<unknown>(ids);
+				expect(eventChanges(result).map((change) => change.itemIdentity)).toEqual(
+					ids.map((id) => `delete:${id}`),
+				);
+				expect(documents).toHaveLength(3);
 			}),
 		testTimeout,
 	);
@@ -690,31 +673,27 @@ describe("media activity delete", () => {
 		() =>
 			Effect.gen(function* () {
 				const ids = eventIds(150);
-				const { host, deletes } = recordingHost({
+				const { host } = recordingHost({
 					disallowed: ["event-140"],
 					events: movieCompletions(ids),
 				});
 				expect(yield* rejection(remove({ eventIds: ids }, host))).toEqual(
 					catalogMessage("rejection.record.activity-only-delete"),
 				);
-				expect(deletes).toEqual([]);
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"passes unresolved ids to the host and counts only rows it deleted",
+		"deletes only the records that resolve",
 		() =>
 			Effect.gen(function* () {
-				const { host, deletes } = recordingHost({
-					events: [movieCompletion],
-					deleteEvents: () => Effect.succeed({ count: 1 }),
-				});
-				expect(yield* remove({ eventIds: ["event-1", "gone"] }, host)).toEqual({
-					count: 1,
-					status: "saved",
-				});
-				expect(deletes[0]?.ids).toEqual(["event-1", "gone"]);
+				const { host } = recordingHost({ events: [movieCompletion] });
+				const result = yield* remove({ eventIds: ["event-1", "gone"] }, host);
+				expect(result.output).toEqual({ count: 1 });
+				expect(deletedIds(result)).toEqual<unknown>(["event-1"]);
+				const nothing = yield* remove({ eventIds: ["gone"] }, host);
+				expect(nothing).toEqual({ output: { count: 0 } });
 			}),
 		testTimeout,
 	);
@@ -723,7 +702,7 @@ describe("media activity delete", () => {
 		"deletes only the requested episode completion, never its parent's",
 		() =>
 			Effect.gen(function* () {
-				const { host, deletes } = recordingHost({
+				const { host } = recordingHost({
 					events: [
 						{
 							properties: {},
@@ -739,26 +718,32 @@ describe("media activity delete", () => {
 						},
 					],
 				});
-				yield* remove({ eventIds: ["episode-complete"] }, host);
-				expect(deletes.map(({ ids }) => ids)).toEqual([["episode-complete"]]);
+				expect(
+					deletedIds(yield* remove({ eventIds: ["episode-complete"] }, host)),
+				).toEqual<unknown>(["episode-complete"]);
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"sends the precondition with a single-record delete",
+		"carries the precondition of a single-record delete and refuses it for a batch",
 		() =>
 			Effect.gen(function* () {
-				const { host, deletes } = recordingHost({ events: [movieCompletion] });
-				yield* runSandboxTestScript(
+				const { host } = recordingHost({ events: [movieCompletion] });
+				const withPrecondition = yield* runSandboxTestScript(
 					deleteDefinition,
 					{ expected, submittedAt, eventIds: ["event-1"], submissionId: "submission" },
 					host,
 					execution,
 				);
-				expect(deletes[0]?.options).toEqual<unknown>({
-					expected: { "event-1": { ...expected, kind: "fields" } },
-				});
+				expect(eventChanges(withPrecondition)).toEqual<unknown>([
+					{
+						kind: "delete",
+						eventId: "event-1",
+						itemIdentity: "delete:event-1",
+						expected: { ...expected, kind: "fields" },
+					},
+				]);
 				const batch = yield* Effect.result(
 					runSandboxTestScript(
 						deleteDefinition,
@@ -773,20 +758,22 @@ describe("media activity delete", () => {
 	);
 
 	it.live(
-		"rejects a failure before any chunk commits",
+		"reports a record that vanished under a precondition as a conflict",
 		() =>
 			Effect.gen(function* () {
-				const { host } = recordingHost({
-					events: [movieCompletion],
-					deleteEvents: () =>
-						Effect.fail({
-							message: "Event schema is owned by another plugin",
-							data: { code: "owner-mismatch", message: "Event schema is owned by another plugin" },
-						}),
-				});
-				expect(yield* rejection(remove({ eventIds: ["event-1"] }, host))).toEqual(
-					catalogMessage("rejection.record.change-refused"),
+				const { host } = recordingHost({ events: [] });
+				const result = yield* Effect.result(
+					runSandboxTestScript(
+						deleteDefinition,
+						{ expected, submittedAt, eventIds: ["event-1"], submissionId: "submission" },
+						host,
+						execution,
+					),
 				);
+				expect(result).toMatchObject({
+					_tag: "Failure",
+					failure: { conflict: "event-not-found", _tag: "OperationConflictError" },
+				});
 			}),
 		testTimeout,
 	);

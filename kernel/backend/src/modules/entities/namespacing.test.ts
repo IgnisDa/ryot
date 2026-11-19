@@ -22,8 +22,9 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
 import { DateTime, Effect, Layer, Schema } from "effect";
 
+import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { Folds } from "#modules/derived-values/service";
@@ -157,6 +158,17 @@ const admittedCommand = Effect.fnUntraced(function* (
 
 const userDataService = EntityUserDataService.make.pipe(
 	Effect.provideServiceEffect(EntityUserDataGraphRepository, EntityUserDataGraphRepository.make),
+	Effect.map((service) => ({
+		...service,
+		mergeForCommand: (...input: Parameters<typeof service.prepareMergeForCommand>) =>
+			Effect.gen(function* () {
+				const prepared = yield* service.prepareMergeForCommand(...input);
+				const committed = yield* (yield* EventsService)
+					.transaction(service.persistPreparedMerge(prepared))
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+				return committed.result;
+			}),
+	})),
 );
 
 const ensureKernelCollections = Effect.gen(function* () {
@@ -270,7 +282,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				).toMatchObject({ reason: { code: "owner-mismatch" } });
 				expect(
 					yield* Effect.flip(
-						entities.ensureUserEntities(
+						entities.commitUserEntities(
 							firstUser,
 							[{ name: "Wrong", properties: {}, entitySchema: foreignSchema }],
 							nextCommand(admitted.command, "foreign-ensure"),
@@ -327,19 +339,26 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
 				expect(
 					yield* Effect.flip(
-						entities.upsertGlobalEntities(
-							[
-								{
-									entitySchema,
-									name: "Global",
-									populatedAt: null,
-									externalId: "global",
-									properties: { title: "Global" },
-								},
-							],
-							providerId,
-							nextCommand(command, "global-batch"),
-						),
+						(yield* EventsService)
+							.transaction(
+								entities.persistPlannedProviderUpserts({
+									batch: { command, identity: ["global-batch"] },
+									items: [
+										{
+											providerId,
+											entitySchema,
+											name: "Global",
+											scope: "global",
+											populatedAt: null,
+											externalId: "global",
+											updateExisting: false,
+											properties: { title: "Global" },
+											lifecycle: nextCommand(command, "global-batch"),
+										},
+									],
+								}),
+							)
+							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 					),
 				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
 				const own = yield* entities.create({
@@ -645,7 +664,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 
 				expect(
 					yield* Effect.flip(
-						merges.mergeEntityUserDataForCommand(
+						merges.mergeForCommand(
 							firstUser,
 							payload,
 							kernelCollectionLifecycleCommand({
@@ -656,7 +675,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					),
 				).toMatchObject({ message: "Entity merge requires a pinned plugin" });
 
-				const merged = yield* merges.mergeEntityUserDataForCommand(
+				const merged = yield* merges.mergeForCommand(
 					firstUser,
 					payload,
 					kernelCollectionLifecycleCommand(nextCommand(command, "merge")),
@@ -736,7 +755,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					command: DomainLifecycleCommand,
 				) =>
 					Effect.flip(
-						merges.mergeEntityUserDataForCommand(
+						merges.mergeForCommand(
 							firstUser,
 							{
 								entitySchemaSlug,
@@ -778,7 +797,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					yield* merge(foreignFrom.id, foreignInto.id, bottle, nextCommand(first.command, "m2")),
 				).toMatchObject({ reason: { code: "owner-mismatch" } });
 				expect(
-					yield* merges.mergeEntityUserDataForCommand(
+					yield* merges.mergeForCommand(
 						firstUser,
 						{ mergeInto: into.id, mergeFrom: globalSource, entitySchemaSlug: bottle },
 						kernelCollectionLifecycleCommand(nextCommand(first.command, "m3")),
@@ -973,13 +992,12 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					},
 					firstUser,
 				);
-				const execution = yield* LifecycleExecution;
 				const repository = yield* EntitiesRepository;
 				const session = yield* DatabaseSession;
 				const oldWriter = yield* EntitiesService.make.pipe(
-					Effect.provideService(LifecycleExecution, {
-						...execution,
-						executePolicy: () =>
+					Effect.provideService(
+						LifecyclePolicies,
+						decidingPolicies((yield* LifecyclePolicies).match, () =>
 							session
 								.transaction(
 									repository.updateEntity({
@@ -990,7 +1008,8 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 									}),
 								)
 								.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
-					}),
+						),
+					),
 				);
 				expect(
 					yield* Effect.flip(
@@ -1140,7 +1159,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				};
 				const entities = yield* EntitiesService;
 				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
-				const results = yield* entities.ensureUserEntities(
+				const results = yield* entities.commitUserEntities(
 					firstUser,
 					[{ entitySchema, name: "Seed", properties: { title: "Seed" } }],
 					command,
@@ -1148,7 +1167,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				expect(results).toMatchObject([{ wasInserted: true }]);
 				expect(
 					yield* Effect.flip(
-						entities.ensureUserEntities(
+						entities.commitUserEntities(
 							firstUser,
 							[{ entitySchema, name: "Wrong", properties: {} }],
 							{
@@ -1169,7 +1188,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				);
 				expect(
 					yield* Effect.flip(
-						entities.ensureUserEntities(
+						entities.commitUserEntities(
 							firstUser,
 							[{ entitySchema, properties: {}, name: "Completed" }],
 							nextCommand(command, "completed-binding"),

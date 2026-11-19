@@ -3,6 +3,7 @@ import { expect } from "bun:test";
 import type { AuthoredAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -24,7 +25,11 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "../packages/revision.test-support";
-import { PluginConfigRevisions, validateRestoredProperties } from "./revisions";
+import {
+	PluginConfigRevisions,
+	pluginConfigTooLargeMessage,
+	validateRestoredProperties,
+} from "./revisions";
 
 const schema = {
 	unknownKeys: "strict",
@@ -110,6 +115,15 @@ const assetConfigSchema: AuthoredAppSchema = {
 	fields: { image: managedAssetProperty },
 };
 
+const noteConfigPackage = () => {
+	const value = revisionPackage("note-config");
+	const configSchema: AuthoredAppSchema = {
+		unknownKeys: "strict",
+		fields: { note: { type: "string", description: "Note", label: { key: "test.note" } } },
+	};
+	return { ...value, manifest: { ...value.manifest, configSchema } };
+};
+
 const assetConfigPackage = () => {
 	const value = revisionPackage("asset-config");
 	return { ...value, manifest: { ...value.manifest, configSchema: assetConfigSchema } };
@@ -138,6 +152,29 @@ layer(revisionDatabaseLayer)((test) => {
 					),
 					new ManagedAssetReferenceRejected(),
 				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects an installation config revision over the stored configuration cap",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const configs = yield* PluginConfigRevisions;
+				const installed = yield* installRevisionPackage(noteConfigPackage(), UserId.make("owner"));
+				const error = yield* Effect.flip(
+					session.transaction(
+						configs.create({
+							ownerUserId: "owner",
+							scope: "installation",
+							pluginRevisionId: installed.revisionId,
+							pluginInstallationId: installed.installation.id,
+							properties: { note: "x".repeat(SANDBOX_LIMITS.pluginConfigBytes) },
+						}),
+					),
+				);
+				expect(error.message).toBe(pluginConfigTooLargeMessage);
 			}),
 		testTimeout,
 	);

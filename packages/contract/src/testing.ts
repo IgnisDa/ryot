@@ -81,6 +81,18 @@ export const fixtureManifest = (packageId = fixturePackageId) =>
 				notificationHookSlug: "fixture.automation",
 			},
 		],
+		hooks: [
+			{
+				stage: "after",
+				slug: "fixture.automation",
+				name: "Fixture automation",
+				scriptSlug: "fixture.automation",
+				targets: [
+					{ resource: "entity", operation: "create", entitySchemaSlug: "fixture-entity" },
+					{ operation: "emit", resource: "signal", signalSchemaSlug: "fixture.signal" },
+				],
+			},
+		] as PluginManifest["hooks"],
 		scripts: [
 			{
 				...emptySandboxExecutionMetadata,
@@ -95,19 +107,6 @@ export const fixtureManifest = (packageId = fixturePackageId) =>
 				},
 			},
 		],
-		hooks: [
-			{
-				stage: "after",
-				delivery: "async",
-				slug: "fixture.automation",
-				name: "Fixture automation",
-				scriptSlug: "fixture.automation",
-				targets: [
-					{ resource: "entity", operation: "create", entitySchemaSlug: "fixture-entity" },
-					{ operation: "emit", resource: "signal", signalSchemaSlug: "fixture.signal" },
-				],
-			},
-		] as PluginManifest["hooks"],
 		entitySchemas: [
 			{
 				icon: "box",

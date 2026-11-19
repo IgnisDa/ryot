@@ -202,8 +202,6 @@ const recordingExecutionLayer = Layer.effectContext(
 		return Context.make(
 			LifecycleExecution,
 			withLifecycleDispatch({
-				executePolicy: () => Effect.die("Signals cannot execute policies"),
-				skipQueuedPolicies: () => Effect.die("Signals cannot skip policies"),
 				after: ({ triggerId }) =>
 					Ref.update(started, (all) => [...all, triggerId]).pipe(Effect.as([])),
 			}),

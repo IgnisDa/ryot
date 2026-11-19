@@ -1,9 +1,9 @@
 import { expect } from "bun:test";
 
 import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -62,29 +62,16 @@ const input = (
 const execute = (
 	value: ReturnType<typeof input>,
 	containers: Readonly<Record<string, string>> = {},
-) => {
-	const calls: Array<Record<string, JsonValue | undefined>> = [];
-	const summaryRequests: Array<readonly string[]> = [];
-	return Effect.flatMap(value, (automation) =>
+) =>
+	Effect.flatMap(value, (automation) =>
 		definition.run(
 			automation,
-			defineSandboxTestHost(manifest, {
-				executeRyotql: containmentRyotql(containers),
-				emitSignal: (request) => {
-					calls.push(request);
-					return Effect.succeed({ wasCreated: true, triggerId: `signal-${calls.length}` });
-				},
-				requestFoldsForAllUsers: (request) => {
-					summaryRequests.push(request.entityIds);
-					return Effect.succeed({ queued: request.entityIds.length });
-				},
-			}),
+			defineSandboxTestHost(manifest, { executeRyotql: containmentRyotql(containers) }),
 		),
-	).pipe(Effect.as({ calls, summaryRequests }));
-};
+	).pipe(Effect.map(({ changes }) => ({ folds: changes?.folds, signals: changes?.signals ?? [] })));
 
 const run = (value: ReturnType<typeof input>) =>
-	execute(value).pipe(Effect.map(({ calls }) => calls));
+	execute(value).pipe(Effect.map(({ signals }) => signals));
 
 it("emits independent status, publish-year, and anime-count signals for a populated root", () =>
 	run(
@@ -99,19 +86,19 @@ it("emits independent status, publish-year, and anime-count signals for a popula
 			},
 		}),
 	).pipe(
-		Effect.map((calls) => {
-			expect(calls).toMatchObject([
+		Effect.map((signals) => {
+			expect(signals).toMatchObject([
 				{ subjectEntityId: "show-1", schemaSlug: "media.status.changed" },
 				{ subjectEntityId: "show-1", schemaSlug: "media.release-date.changed" },
 				{ subjectEntityId: "show-1", schemaSlug: "media.content-count.changed" },
 			]);
-			expect(calls[0]?.["properties"]).toEqual({
+			expect(signals[0]?.["properties"]).toEqual({
 				newStatus: "Ended",
 				oldStatus: "Airing",
 				entityName: "Severance",
 				entitySchemaSlug: "anime",
 			});
-			expect(calls[2]?.["properties"]).toEqual({
+			expect(signals[2]?.["properties"]).toEqual({
 				oldCount: 12,
 				newCount: 13,
 				entityName: "Severance",
@@ -152,13 +139,13 @@ it("uses the parent show and season context for episode facts", () =>
 			},
 		}),
 	).pipe(
-		Effect.map((calls) => {
-			expect(calls.map(({ schemaSlug }) => schemaSlug)).toEqual([
+		Effect.map((signals) => {
+			expect(signals.map(({ schemaSlug }) => schemaSlug)).toEqual([
 				"media.episode.name.changed",
 				"media.episode.images.changed",
 				"media.release-date.changed",
 			]);
-			expect(calls[0]?.["properties"]).toEqual({
+			expect(signals[0]?.["properties"]).toEqual({
 				seasonNumber: 1,
 				episodeNumber: 1,
 				oldName: "Pilot",
@@ -191,9 +178,9 @@ it("does not treat a podcast parent as season context", () =>
 			},
 		}),
 	).pipe(
-		Effect.map((calls) => {
-			expect(calls).toHaveLength(1);
-			expect(calls[0]?.["properties"]).toEqual({
+		Effect.map((signals) => {
+			expect(signals).toHaveLength(1);
+			expect(signals[0]?.["properties"]).toEqual({
 				episodeNumber: 3,
 				oldName: "Old Name",
 				newName: "New Name",
@@ -268,9 +255,9 @@ it("refreshes library summaries of the population root, including on first popul
 			execute(input({ rootPreviouslyPopulated: false })),
 		]).pipe(
 			Effect.map((results) => {
-				expect(results.map(({ summaryRequests }) => summaryRequests)).toEqual([
-					[["show-1"]],
-					[["show-1"]],
+				expect(results.map(({ folds }) => folds)).toEqual([
+					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
+					{ scope: "all-users", entityIds: [EntityId.make("show-1")] },
 				]);
 			}),
 		),
@@ -290,9 +277,9 @@ it.effect(
 			}),
 			{ "season-1": "show-1", "episode-1": "season-1" },
 		).pipe(
-			Effect.map(({ calls, summaryRequests }) => {
-				expect(summaryRequests).toEqual([["show-1"]]);
-				expect(calls).toEqual([]);
+			Effect.map(({ folds, signals }) => {
+				expect(folds).toEqual({ scope: "all-users", entityIds: [EntityId.make("show-1")] });
+				expect(signals).toEqual([]);
 			}),
 		),
 	testTimeout,

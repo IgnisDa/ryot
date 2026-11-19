@@ -1,34 +1,15 @@
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
 import type { RuntimeSandboxHostImplementationMap } from "#modules/scripts/host/runtime-host-functions";
+import { DatabaseSession } from "#platform/db/session";
 
-import type {
-	ScriptHostImplementationMaps,
-	ScriptLifecycleHostSteps,
-} from "./host-implementations";
+import type { ScriptHostImplementationMaps } from "./host-implementations";
 
 const unusedHostCall = () => Effect.die("Unexpected sandbox host dispatch");
-const unusedLifecycleValue = (): never => {
-	throw new Error("Unexpected sandbox lifecycle value");
-};
-const unusedLifecycleSteps = {
-	commit: unusedHostCall,
-	prepare: unusedHostCall,
-	validate: unusedHostCall,
-	value: unusedLifecycleValue,
-	applyPolicies: unusedHostCall,
-};
-const unusedRelationshipSteps = {
-	validate: unusedHostCall,
-	value: unusedLifecycleValue,
-	itemWrite: unusedLifecycleValue,
-};
 
 export const unusedSandboxHostImplementations = (
 	runtime: Partial<RuntimeSandboxHostImplementationMap> = {},
-	lifecycle: Partial<ScriptLifecycleHostSteps> = {},
 ): ScriptHostImplementationMaps => ({
-	automation: { emitSignal: unusedHostCall, sendNotification: unusedHostCall },
 	runtime: {
 		httpCall: unusedHostCall,
 		setCachedValue: unusedHostCall,
@@ -37,43 +18,22 @@ export const unusedSandboxHostImplementations = (
 		claimPersistentValue: unusedHostCall,
 		...runtime,
 	},
-	lifecycle: {
-		upsertGlobalEntities: unusedLifecycleSteps,
-		changeUserRelationships: unusedRelationshipSteps,
-		upsertGlobalRelationships: unusedRelationshipSteps,
-		updateEvents: { commit: unusedHostCall, validate: unusedHostCall },
-		deleteEvents: { commit: unusedHostCall, validate: unusedHostCall },
-		...lifecycle,
-	},
 	additional: {
-		deleteEvents: unusedHostCall,
-		createEvents: unusedHostCall,
-		updateEvents: unusedHostCall,
-		requestFolds: unusedHostCall,
 		executeRyotql: unusedHostCall,
 		getPluginConfig: unusedHostCall,
 		getUserSettings: unusedHostCall,
 		getEntitlements: unusedHostCall,
 		invokeCapability: unusedHostCall,
 		listIntegrations: unusedHostCall,
-		listEventSchemas: unusedHostCall,
-		getEntitySchemas: unusedHostCall,
-		createUserEntity: unusedHostCall,
-		deleteUserEntity: unusedHostCall,
-		updateUserEntity: unusedHostCall,
-		commitUserChanges: unusedHostCall,
-		updateUserSettings: unusedHostCall,
 		getUserPreferences: unusedHostCall,
-		ensureUserEntities: unusedHostCall,
-		clearUserEntityData: unusedHostCall,
-		mergeUserEntityData: unusedHostCall,
 		verifyManagedAssets: unusedHostCall,
 		getOAuthAccessToken: unusedHostCall,
-		upsertGlobalEntities: unusedHostCall,
 		getCurrentIntegration: unusedHostCall,
-		changeUserRelationships: unusedHostCall,
-		requestFoldsForAllUsers: unusedHostCall,
-		upsertGlobalRelationships: unusedHostCall,
 		invalidateOAuthAccessToken: unusedHostCall,
 	},
+});
+
+/** A session whose host calls run without a caller transaction, for sandboxes with no database. */
+export const detachedHostCallSession = Layer.mock(DatabaseSession)({
+	carry: Effect.succeed(<A, E, R>(work: Effect.Effect<A, E, R>) => work),
 });

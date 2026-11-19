@@ -1,6 +1,5 @@
 import { expect } from "bun:test";
 
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import {
 	SANDBOX_HOST_EXECUTION_POLICY,
@@ -13,11 +12,8 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { makeUserPrincipal } from "../authorization/principal.test-support";
-import {
-	prepareSandboxCreateEvents,
-	prepareSandboxDurableHttpHop,
-	prepareSandboxSendNotification,
-} from "./durable-dispatcher";
+import { dispatchSandboxHostActivity, prepareSandboxDurableHttpHop } from "./durable-dispatcher";
+import { unusedSandboxHostImplementations } from "./host-implementations.test-support";
 
 it("classifies every bridge host capability exactly once", () => {
 	expect(Object.keys(SANDBOX_HOST_EXECUTION_POLICY).sort()).toEqual(
@@ -27,18 +23,9 @@ it("classifies every bridge host capability exactly once", () => {
 		objectContaining({
 			log: objectContaining({ dispatch: "diagnostic" }),
 			span: objectContaining({ dispatch: "diagnostic" }),
-			emitSignal: objectContaining({ dispatch: "service" }),
-			createEvents: objectContaining({ dispatch: "events" }),
-			requestFolds: objectContaining({ dispatch: "service" }),
-			deleteEvents: objectContaining({ dispatch: "lifecycle" }),
-			updateEvents: objectContaining({ dispatch: "lifecycle" }),
 			getUserSettings: objectContaining({ dispatch: "activity" }),
-			createUserEntity: objectContaining({ dispatch: "service" }),
-			ensureUserEntities: objectContaining({ dispatch: "service" }),
-			sendNotification: objectContaining({ dispatch: "notification" }),
-			requestFoldsForAllUsers: objectContaining({ dispatch: "service" }),
+			invokeCapability: objectContaining({ dispatch: "service" }),
 			invalidateOAuthAccessToken: objectContaining({ dispatch: "activity" }),
-			updateUserSettings: objectContaining({ dispatch: "activity", resultBytes: anyOf(Number) }),
 		}),
 	);
 	expect(SANDBOX_HOST_EXECUTION_POLICY.getEntitlements).toEqual<unknown>(
@@ -58,78 +45,27 @@ it.effect(
 	"applies centralized capability authorization before durable host dispatch",
 	() =>
 		Effect.gen(function* () {
-			const error = yield* prepareSandboxSendNotification(
+			const error = yield* dispatchSandboxHostActivity(
+				unusedSandboxHostImplementations(),
 				{
 					index: 0,
 					kind: "host",
-					name: "sendNotification",
-					args: { capability: "sendNotification", args: [{ key: "notification.ready" }] },
+					name: "invokeCapability",
+					args: { capability: "invokeCapability", args: [{ input: null, id: "capability" }] },
 				},
 				{
 					context: {},
 					lane: "interactive",
 					executionId: "sandbox-parent",
 					startedAt: "2026-08-06T00:00:00.000Z",
-					principal: {
-						providerId: null,
-						contentHash: "hash",
-						pluginRevision: null,
-						scriptSlug: "script",
-						scriptId: SandboxScriptId.make("script-1"),
-						subject: { type: "user", userId: UserId.make("user-1") },
-						metadata: { runtimeImports: [], capabilities: ["sendNotification"] },
-					},
+					principal: makeUserPrincipal({
+						metadata: { runtimeImports: [], capabilities: ["invokeCapability"] },
+					}),
 				},
 			).pipe(Effect.flip);
 			expect(error.message).toBe(
-				"Sandbox durable host denied: sendNotification is available only to user automation runs",
+				"Sandbox durable host denied: invokeCapability is not available to this execution",
 			);
-		}),
-	testTimeout,
-);
-
-it.effect(
-	"derives event root identity from the trusted workflow and host index",
-	() =>
-		Effect.gen(function* () {
-			const prepared = yield* prepareSandboxCreateEvents(
-				{
-					index: 3,
-					kind: "host",
-					name: "createEvents",
-					args: { args: [[]], capability: "createEvents" },
-				},
-				{
-					context: {},
-					lane: "interactive",
-					executionId: "sandbox-parent",
-					startedAt: "2026-08-06T00:00:00.000Z",
-					principal: {
-						providerId: null,
-						contentHash: "hash",
-						pluginRevision: null,
-						scriptSlug: "script",
-						scriptId: SandboxScriptId.make("script-1"),
-						subject: { type: "user", userId: UserId.make("user-1") },
-						metadata: { runtimeImports: [], capabilities: ["createEvents"] },
-					},
-				},
-			);
-			expect(prepared).toMatchObject({
-				payload: [],
-				userId: "user-1",
-				command: {
-					itemIdentity: "createEvents",
-					occurredAt: "2026-08-06T00:00:00.000Z",
-					causation: {
-						depth: 0,
-						source: "api",
-						executionId: "sandbox-parent-host-3",
-						rootExecutionId: "sandbox-parent-host-3",
-						initiator: { kind: "user", id: "user-1" },
-					},
-				},
-			});
 		}),
 	testTimeout,
 );

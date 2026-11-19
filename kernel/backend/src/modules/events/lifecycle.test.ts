@@ -4,6 +4,8 @@ import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	type AutomationEventSnapshot,
+	type AutomationPolicyOutput,
+	type AutomationRequestPayload,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -19,7 +21,6 @@ import {
 	EventId,
 	EventSchemaSlug,
 	ImportRunId,
-	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
@@ -39,13 +40,16 @@ import {
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
 import {
+	decidingPolicies,
 	noHooksFixture,
+	policyFixture,
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { Folds } from "#modules/derived-values/service";
@@ -181,11 +185,33 @@ const isolatedDatabase = Effect.gen(function* () {
 	return { url, observer };
 });
 
+const deleteTargets = [
+	{
+		eventSchemaSlug,
+		resource: "event" as const,
+		entitySchemaSlug: "record",
+		operation: "delete" as const,
+	},
+];
+
+type PolicyCall = { readonly runId: AutomationRunId; readonly request: AutomationRequestPayload };
+
+const recordTransaction = Effect.fnUntraced(function* (
+	session: DatabaseSession["Service"],
+	transactions: Ref.Ref<ReadonlyArray<string>>,
+) {
+	const [transaction] = yield* session.run((db) =>
+		db.execute<{ id: string }>(sql`select txid_current()::text as id`, "objects"),
+	);
+	if (transaction) {
+		yield* Ref.update(transactions, (all) => [...all, transaction.id]);
+	}
+});
+
 const planner = (
 	failChange: Ref.Ref<boolean>,
 	noHooks: boolean,
 	transactions: Ref.Ref<ReadonlyArray<string>>,
-	policyCount: number,
 ) =>
 	Layer.effect(
 		LifecyclePlanner,
@@ -194,12 +220,7 @@ const planner = (
 				{
 					plan: ({ trigger }) =>
 						Effect.gen(function* () {
-							const [transaction] = yield* session.run((db) =>
-								db.execute<{ id: string }>(sql`select txid_current()::text as id`, "objects"),
-							);
-							if (transaction) {
-								yield* Ref.update(transactions, (all) => [...all, transaction.id]);
-							}
+							yield* recordTransaction(session, transactions);
 							if (noHooks) {
 								return noHooksFixture();
 							}
@@ -233,8 +254,6 @@ const planner = (
 									db
 										.insert(tables.automationRun)
 										.values({
-											stage: "after",
-											delivery: "async",
 											hookSlug: "fixture",
 											hookName: "Fixture",
 											triggerId: trigger.id,
@@ -251,19 +270,7 @@ const planner = (
 									return yield* new DbError({ message: "planning failed after run insertion" });
 								}
 							}
-							return {
-								trigger,
-								runs: [],
-								wasCreated: true,
-								policies:
-									kind.category === "request" && kind.operation === "update"
-										? Array.from({ length: policyCount }, (_, index) => ({
-												pluginId: null,
-												position: index,
-												runId: AutomationRunId.make(`event-policy-${index}`),
-											}))
-										: [],
-							};
+							return { trigger, runs: [], wasCreated: true };
 						}),
 				},
 				200,
@@ -347,13 +354,13 @@ const lifecycleDatabaseLayer = (
 	options: {
 		policyCount?: number;
 		changeEntityPropertiesDuringPolicy?: boolean;
-		executePolicy?: (
-			input: Parameters<LifecycleExecution["Service"]["executePolicy"]>[0],
+		decidePolicy?: (
+			input: PolicyCall,
 			dependencies: {
 				readonly session: DatabaseSession["Service"];
 				readonly repository: EventsRepository["Service"];
 			},
-		) => ReturnType<LifecycleExecution["Service"]["executePolicy"]>;
+		) => Effect.Effect<AutomationPolicyOutput>;
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -365,26 +372,45 @@ const lifecycleDatabaseLayer = (
 			const config = makeAppConfigLayer({ database: { url: Redacted.make(database.url) } });
 			const databaseSession = DatabaseSession.layer;
 			const eventRepository = EventsRepository.layer.pipe(Layer.provideMerge(databaseSession));
-			const execution = Layer.effect(
+			const execution = Layer.succeed(
 				LifecycleExecution,
+				withLifecycleDispatch({ after: () => Effect.void }),
+			);
+			const policies = Layer.effect(
+				LifecyclePolicies,
 				Effect.gen(function* () {
 					const repository = yield* EventsRepository;
 					const session = yield* DatabaseSession;
-					return withLifecycleDispatch({
-						after: () => Effect.succeed([]),
-						skipQueuedPolicies: () => Effect.void,
-						executePolicy: (input) =>
-							(options.executePolicy ?? (() => Effect.die("Unexpected policy")))(input, {
-								session,
-								repository,
-							}).pipe(
+					return decidingPolicies(
+						(trigger) =>
+							Effect.gen(function* () {
+								yield* recordTransaction(session, planTransactions);
+								return trigger.kind.category === "request" && trigger.kind.operation === "update"
+									? Array.from({ length: options.policyCount ?? 0 }, (_, index) => ({
+											...policyFixture(index, [
+												{
+													eventSchemaSlug,
+													resource: "event",
+													operation: "update",
+													entitySchemaSlug: "record",
+												},
+											]),
+											runId: AutomationRunId.make(`event-policy-${index}`),
+										}))
+									: [];
+							}),
+						({ request }, { runId }) =>
+							(options.decidePolicy ?? (() => Effect.die("Unexpected policy")))(
+								{ runId, request },
+								{ session, repository },
+							).pipe(
 								Effect.tap(() =>
 									options.changeEntityPropertiesDuringPolicy
 										? Ref.set(entityProperties, { context: "changed" })
 										: Effect.void,
 								),
 							),
-					});
+					);
 				}),
 			).pipe(Layer.provideMerge(eventRepository));
 			const entitySchemaSlug = EntitySchemaSlug.make("record");
@@ -427,6 +453,7 @@ const lifecycleDatabaseLayer = (
 					Layer.mergeAll(
 						WorkflowExecutionNotifications.layer,
 						execution,
+						policies,
 						DomainWriteChecksLive.pipe(Layer.provide(databaseSession)),
 						Layer.mock(EntitiesRepository)({
 							lockEntityReferencesByIds: () => Effect.void,
@@ -470,9 +497,7 @@ const lifecycleDatabaseLayer = (
 							getScopesForUser: (_userId, inputs) => Effect.succeed(inputs.map(eventSchemaScope)),
 						}),
 						ImportsRepository.layer.pipe(Layer.provideMerge(databaseSession)),
-						planner(failChange, noHooks, planTransactions, options.policyCount ?? 0).pipe(
-							Layer.provide(databaseSession),
-						),
+						planner(failChange, noHooks, planTransactions).pipe(Layer.provide(databaseSession)),
 						Layer.succeed(WorkflowEngine, engine),
 					),
 				),
@@ -499,14 +524,7 @@ const createRatings = (id: string, count: number) =>
 			properties: { rating },
 		})),
 	}).pipe(
-		Effect.provideService(
-			LifecycleExecution,
-			withLifecycleDispatch({
-				after: () => Effect.succeed([]),
-				skipQueuedPolicies: () => Effect.void,
-				executePolicy: () => Effect.die("Unexpected policy"),
-			}),
-		),
+		Effect.provideService(LifecycleExecution, withLifecycleDispatch({ after: () => Effect.void })),
 	);
 
 describe("Event lifecycle PostgreSQL", () => {
@@ -528,8 +546,6 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.provideService(
 								LifecycleExecution,
 								withLifecycleDispatch({
-									skipQueuedPolicies: () => Effect.void,
-									executePolicy: () => Effect.die("Unexpected policy"),
 									after: ({ triggerId }) =>
 										Effect.sync(() => {
 											dispatched += 1;
@@ -587,8 +603,6 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.provideService(
 								LifecycleExecution,
 								withLifecycleDispatch({
-									skipQueuedPolicies: () => Effect.void,
-									executePolicy: () => Effect.die("Unexpected policy"),
 									after: () =>
 										Effect.gen(function* () {
 											const result = yield* Effect.promise(() =>
@@ -612,7 +626,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger)::int AS triggers, (SELECT count(*) FROM automation_run)::int AS runs`,
 							),
 						)).rows,
-					).toEqual([{ runs: 0, events: 0, triggers: 1 }]);
+					).toEqual([{ runs: 0, events: 0, triggers: 0 }]);
 					expect((yield* run("accepted", false)).count).toBe(1);
 				}),
 			testTimeout,
@@ -869,11 +883,8 @@ describe("Event lifecycle PostgreSQL", () => {
 								writeContext: null,
 							},
 						),
-					).toEqual({ warnings: [], eventId: null });
-					expect(yield* service.moveReferences(move, command("move"))).toEqual({
-						eventId,
-						warnings: [],
-					});
+					).toEqual({ eventId: null });
+					expect(yield* service.moveReferences(move, command("move"))).toEqual({ eventId });
 					const current = yield* repository.getEventSnapshot({ userId, eventId });
 					assert(current);
 					const { snapshot } = current;
@@ -888,10 +899,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							occurredAt: beforeTime.toISOString(),
 						},
 					});
-					expect(yield* service.moveReferences(move, command("noop"))).toEqual({
-						warnings: [],
-						eventId: null,
-					});
+					expect(yield* service.moveReferences(move, command("noop"))).toEqual({ eventId: null });
 					assertExitFails(
 						yield* Effect.exit(
 							failingService.delete({ userId, eventId }, command("failed-delete")),
@@ -901,10 +909,8 @@ describe("Event lifecycle PostgreSQL", () => {
 					expect(yield* repository.getEventSnapshot({ userId, eventId })).toEqual(current);
 					expect(yield* service.delete({ userId, eventId }, command("delete"))).toEqual({
 						eventId,
-						warnings: [],
 					});
 					expect(yield* service.delete({ userId, eventId }, command("already-deleted"))).toEqual({
-						warnings: [],
 						eventId: null,
 					});
 					const result = yield* Effect.promise(
@@ -952,8 +958,6 @@ describe("Event lifecycle PostgreSQL", () => {
 					const session = yield* DatabaseSession;
 					const service = yield* EventsService;
 					const repository = yield* EventsRepository;
-					const lifecyclePlanner = yield* LifecyclePlanner;
-					const lifecycleExecution = yield* LifecycleExecution;
 					const createdAt = DateTime.toDate(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"));
 					const seed = (id: string) =>
 						session.transaction(
@@ -1093,34 +1097,16 @@ describe("Event lifecycle PostgreSQL", () => {
 							EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
 						),
 						Effect.provideService(
-							LifecyclePlanner,
-							withLifecycleBatchPlanning({
-								plan: (input) =>
-									lifecyclePlanner.plan(input).pipe(
-										Effect.map((plan) => {
-											assert(plan.trigger);
-											return {
-												...plan,
-												policies: [
-													{
-														position: 1,
-														pluginId: PluginId.make("policy-plugin"),
-														runId: AutomationRunId.make("reject-event"),
-													},
-												],
-											};
-										}),
-									),
-							}),
+							LifecyclePolicies,
+							decidingPolicies(
+								() => Effect.succeed([policyFixture(1, deleteTargets)]),
+								() =>
+									Effect.gen(function* () {
+										expect(!(yield* session.isTransactionActive)).toBe(true);
+										return { action: "reject" as const, reason: { key: "rejection.rejected" } };
+									}),
+							),
 						),
-						Effect.provideService(LifecycleExecution, {
-							...lifecycleExecution,
-							executePolicy: () =>
-								Effect.gen(function* () {
-									expect(!(yield* session.isTransactionActive)).toBe(true);
-									return { action: "reject" as const, reason: { key: "rejection.rejected" } };
-								}),
-						}),
 					);
 					const rejected = yield* rejectingService
 						.prepareDelete({ userId, eventId: rejectedId }, command("prepared-rejected"))
@@ -1145,8 +1131,6 @@ describe("Event lifecycle PostgreSQL", () => {
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const repository = yield* EventsRepository;
-					const lifecyclePlanner = yield* LifecyclePlanner;
-					const lifecycleExecution = yield* LifecycleExecution;
 					const policyCalls = yield* Ref.make(0);
 					const eventIds = [EventId.make("batch-fresh"), EventId.make("batch-stale")];
 					for (const eventId of eventIds) {
@@ -1170,48 +1154,28 @@ describe("Event lifecycle PostgreSQL", () => {
 							EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
 						),
 						Effect.provideService(
-							LifecyclePlanner,
-							withLifecycleBatchPlanning({
-								plan: (input) =>
-									lifecyclePlanner.plan(input).pipe(
-										Effect.map((plan) => {
-											assert(plan.trigger);
-											return input.trigger.kind.category === "request"
-												? {
-														...plan,
-														policies: [
-															{
-																position: 1,
-																pluginId: null,
-																runId: AutomationRunId.make("race-event"),
-															},
-														],
-													}
-												: plan;
-										}),
-									),
-							}),
+							LifecyclePolicies,
+							decidingPolicies(
+								() => Effect.succeed([policyFixture(1, deleteTargets)]),
+								() =>
+									Effect.gen(function* () {
+										if ((yield* Ref.updateAndGet(policyCalls, (calls) => calls + 1)) === 2) {
+											yield* session
+												.transaction(
+													repository.updateEventEntityReferences({
+														userId,
+														mergeInto: movedId,
+														mergeFrom: entityId,
+														eventId: EventId.make("batch-stale"),
+														updatedAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+													}),
+												)
+												.pipe(Effect.orDie);
+										}
+										return { action: "allow" as const };
+									}),
+							),
 						),
-						Effect.provideService(LifecycleExecution, {
-							...lifecycleExecution,
-							executePolicy: () =>
-								Effect.gen(function* () {
-									if ((yield* Ref.updateAndGet(policyCalls, (calls) => calls + 1)) === 2) {
-										yield* session
-											.transaction(
-												repository.updateEventEntityReferences({
-													userId,
-													mergeInto: movedId,
-													mergeFrom: entityId,
-													eventId: EventId.make("batch-stale"),
-													updatedAt: DateTime.toDate(DateTime.makeUnsafe(now)),
-												}),
-											)
-											.pipe(Effect.orDie);
-									}
-									return { action: "allow" as const };
-								}),
-						}),
 					);
 					expect(
 						yield* racingService
@@ -1234,7 +1198,7 @@ describe("Event lifecycle PostgreSQL", () => {
 			lifecycleDatabaseLayer(false, {
 				policyCount: 1,
 				changeEntityPropertiesDuringPolicy: true,
-				executePolicy: () =>
+				decidePolicy: () =>
 					Effect.succeed({
 						action: "transform",
 						patch: { resource: "event", draft: { occurredAt: "2026-09-17T00:00:00.000Z" } },
@@ -1301,7 +1265,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.provideService(DatabaseSession, measuredSession),
 						);
 						const noHooks = yield* Layer.build(
-							planner(yield* Ref.make(false), true, yield* Ref.make<ReadonlyArray<string>>([]), 0),
+							planner(yield* Ref.make(false), true, yield* Ref.make<ReadonlyArray<string>>([])),
 						).pipe(Effect.provideService(DatabaseSession, measuredSession));
 						const input = {
 							userId,
@@ -1408,12 +1372,12 @@ describe("Event lifecycle PostgreSQL", () => {
 						);
 						const move = { userId, eventId, mergeInto: movedId, mergeFrom: entityId };
 						const updated = yield* service.moveReferences(move, command("no-hook-update"));
-						expect(updated).toEqual({ eventId, warnings: [] });
+						expect(updated).toEqual({ eventId });
 						expect(
 							(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.entityId,
 						).toBe(movedId);
 						const noop = yield* service.moveReferences(move, command("no-hook-noop"));
-						expect(noop).toEqual({ warnings: [], eventId: null });
+						expect(noop).toEqual({ eventId: null });
 						yield* session.transaction(
 							repository.updateEventEntityReferences({
 								...move,
@@ -1426,11 +1390,10 @@ describe("Event lifecycle PostgreSQL", () => {
 							(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.entityId,
 						).toBe(entityId);
 						const deleted = yield* service.delete({ userId, eventId }, command("no-hook-delete"));
-						expect(deleted).toEqual({ eventId, warnings: [] });
+						expect(deleted).toEqual({ eventId });
 						const missingId = EventId.make("no-hook-missing-delete");
 						const missingCommand = command("no-hook-missing-delete");
 						expect(yield* service.delete({ userId, eventId: missingId }, missingCommand)).toEqual({
-							warnings: [],
 							eventId: null,
 						});
 						expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(0);
@@ -1447,12 +1410,12 @@ describe("Event lifecycle PostgreSQL", () => {
 		},
 	);
 
-	const policyInputs: Array<Parameters<LifecycleExecution["Service"]["executePolicy"]>[0]> = [];
+	const policyInputs: Array<PolicyCall> = [];
 	layer(
 		Layer.merge(
 			lifecycleDatabaseLayer(false, {
 				policyCount: 2,
-				executePolicy: (input) => {
+				decidePolicy: (input) => {
 					policyInputs.push(input);
 					return Effect.succeed(
 						policyInputs.length === 1
@@ -1499,20 +1462,11 @@ describe("Event lifecycle PostgreSQL", () => {
 						properties: { remove: [], set: { rating: 2 } },
 					});
 					const lifecycle = command("policy-edit");
-					expect(yield* service.edit(submitted, userId, lifecycle)).toEqual({
-						eventId,
-						warnings: [],
-					});
+					expect(yield* service.edit(submitted, userId, lifecycle)).toEqual({ eventId });
 					expect(policyInputs).toHaveLength(2);
-					expect(policyInputs[1]?.acceptedPatches).toEqual([
-						{
-							resource: "event",
-							draft: {
-								occurredAt: "2026-09-16T00:00:00.000Z",
-								properties: { remove: [], set: { rating: 10 } },
-							},
-						},
-					]);
+					expect(policyInputs[1]?.request).toMatchObject({
+						draft: { properties: { rating: 10 }, occurredAt: "2026-09-16T00:00:00.000Z" },
+					});
 					expect(
 						(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
 					).toEqual({ rating: 10 });
@@ -1534,18 +1488,11 @@ describe("Event lifecycle PostgreSQL", () => {
 					const move = { userId, mergeInto: movedId, mergeFrom: entityId, eventId: moveEventId };
 					const moveCommand = command("policy-move");
 					expect(yield* service.moveReferences(move, moveCommand)).toEqual({
-						warnings: [],
 						eventId: moveEventId,
 					});
-					expect(policyInputs[1]?.acceptedPatches).toEqual([
-						{
-							resource: "event",
-							draft: {
-								occurredAt: "2026-09-16T00:00:00.000Z",
-								properties: { remove: [], set: { rating: 10 } },
-							},
-						},
-					]);
+					expect(policyInputs[1]?.request).toMatchObject({
+						draft: { properties: { rating: 10 }, occurredAt: "2026-09-16T00:00:00.000Z" },
+					});
 					const moved = yield* repository.getEventSnapshot({ userId, eventId: moveEventId });
 					expect(moved?.snapshot).toMatchObject({
 						entityId: movedId,
@@ -1789,15 +1736,14 @@ describe("Event lifecycle PostgreSQL", () => {
 		},
 	);
 
-	const retryPolicyInputs: Array<Parameters<LifecycleExecution["Service"]["executePolicy"]>[0]> =
-		[];
+	const retryPolicyInputs: Array<PolicyCall> = [];
 	const retryEventId = EventId.make("field-precondition-retry");
 	const protectedEventId = EventId.make("field-precondition-protected");
 	layer(
 		Layer.merge(
 			lifecycleDatabaseLayer(false, {
 				policyCount: 1,
-				executePolicy: (input, { session, repository }) =>
+				decidePolicy: (input, { session, repository }) =>
 					Effect.gen(function* () {
 						retryPolicyInputs.push(input);
 						if (retryPolicyInputs.length === 1) {
@@ -1825,7 +1771,6 @@ describe("Event lifecycle PostgreSQL", () => {
 					const service = yield* EventsService;
 					const repository = yield* EventsRepository;
 					const session = yield* DatabaseSession;
-					const fixture = yield* LifecycleDatabase;
 					for (const [eventId, note] of [
 						[retryEventId, "before"],
 						[protectedEventId, "protected"],
@@ -1861,26 +1806,17 @@ describe("Event lifecycle PostgreSQL", () => {
 							userId,
 							command("field-precondition-retry"),
 						),
-					).toEqual({ warnings: [], eventId: retryEventId });
+					).toEqual({ eventId: retryEventId });
 					expect(retryPolicyInputs).toHaveLength(2);
 					const retryResult = yield* repository.getEventSnapshot({ userId, eventId: retryEventId });
 					assert(retryResult);
 					expect(retryResult.snapshot.properties).toEqual({ rating: 2, note: "policy-derived" });
 					expect(retryResult.revision).toBe(2);
-					const requests = yield* Effect.promise(() =>
-						fixture.observer.query<{ id: string; note: string }>(
-							`SELECT id, payload->'before'->'properties'->>'note' AS note
-						FROM automation_trigger
-						WHERE category = 'request' AND operation = 'update'
-							AND payload->'before'->>'id' = $1`,
-							[retryEventId],
+					expect(
+						retryPolicyInputs.map(({ request }) =>
+							request.operation === "update" ? request.before.properties["note"] : null,
 						),
-					);
-					expect(requests.rows.map(({ note }) => note).sort()).toEqual([
-						"before",
-						"policy-derived",
-					]);
-					expect(new Set(requests.rows.map(({ id }) => id)).size).toBe(2);
+					).toEqual(["before", "policy-derived"]);
 
 					const stale = yield* Effect.flip(
 						service.edit(

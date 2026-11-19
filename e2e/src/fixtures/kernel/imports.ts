@@ -81,15 +81,15 @@ export default defineWorkflow({
          runId: input.runId,
          command: input.command,
        });
-       return { summary: sealed.summary, issues: [] };
+       return { output: { summary: sealed.summary, issues: [] } };
     }),
 });
 `;
 
 const FIXTURE_IMPORT_VALIDATE_SOURCE = `
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readNamedArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -97,11 +97,11 @@ export const manifest = defineManifest({
   slug: "import.e2e-validate-archive",
 });
 
-export default defineScript({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Number,
-  run: () => readNamedArtifact("archiveUploadToken").pipe(Effect.map((archive) => archive.byteLength)),
+  run: () => readNamedArtifact("archiveUploadToken").pipe(Effect.map((archive) => ({ output: archive.byteLength }))),
 });
 `;
 
@@ -151,10 +151,10 @@ export const installTestImportPlugin = Effect.suspend(() => {
 			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
 			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
 			"backend/scripts/configured.sandbox.ts": `
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "script", slug: "import.e2e-configured", name: "Configured import" });
-export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as(1)) });
+export default defineActivity({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as({ output: 1 })) });
 `,
 		},
 		importSources: [
@@ -231,7 +231,7 @@ export default defineWorkflow({
          });
        }
        const sealed = yield* replay.child("seal", genericImportSealReference, { ...attribution, operation: { action: "seal" } });
-       return { summary: sealed.summary, issues: [] };
+       return { output: { summary: sealed.summary, issues: [] } };
     }),
 });
 `;
@@ -248,9 +248,9 @@ const fixtureHandleImportChunkSource = (failureCount: number) => {
 		sourceLabel: `Harvest fixture ${index + 1}`,
 	}));
 	return `
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -258,7 +258,7 @@ export const manifest = defineManifest({
   slug: "import.e2e-write-harvest-chunk",
 });
 
-export default defineScript({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
    output: sandboxScratchManifestSchema,
@@ -269,7 +269,7 @@ export default defineScript({
        for (let offset = 0; offset < failures.length; offset += 100) {
          chunks.push({ name: "fixture-" + offset + ".json", contents: JSON.stringify({ failures: failures.slice(offset, offset + 100), items: [] }) });
        }
-       return yield* writeScratchChunks(chunks);
+       return { output: yield* writeScratchChunks(chunks) };
      }),
 });
 `;
@@ -362,7 +362,7 @@ export default defineWorkflow({
        });
        }
        const sealed = yield* replay.child("seal", genericImportSealReference, { ...attribution, operation: { action: "seal" } });
-       return { summary: sealed.summary, issues: [] };
+       return { output: { summary: sealed.summary, issues: [] } };
     }),
 });
 `;
@@ -371,9 +371,9 @@ const partialResultCancellationChunkSource = (
 	chunkScriptSlug: string,
 	items: GenericImportWriteItem[],
 ) => `
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
+import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -381,12 +381,12 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(chunkScriptSlug)},
 });
 
-export default defineScript({
+export default defineActivity({
   manifest,
   input: Schema.Struct({}),
    output: sandboxScratchManifestSchema,
   run: () =>
-     writeScratchChunks(${JSON.stringify([
+     Effect.map(writeScratchChunks(${JSON.stringify([
 				{
 					name: "committed.json",
 					contents: JSON.stringify({
@@ -401,7 +401,7 @@ export default defineScript({
 						items: items.slice(PARTIAL_RESULT_COMMITTED_ITEM_COUNT),
 					}),
 				},
-			])}),
+			])}), (output) => ({ output })),
 });
 `;
 
@@ -599,7 +599,7 @@ export default defineWorkflow({
          runId: input.runId,
          command: input.command,
        });
-       return { summary: sealed.summary, issues: [] };
+       return { output: { summary: sealed.summary, issues: [] } };
     }),
 });
 `;

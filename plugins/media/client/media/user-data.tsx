@@ -5,7 +5,6 @@ import {
 	createRyotMutation,
 	formatError,
 	type RyotSubmission,
-	useLocalMessage,
 	usePluginIdentity,
 	useRyot,
 	useRyotSchedule,
@@ -43,25 +42,47 @@ const mediaUserDataMutation = createRyotMutation<
 	RyotSubmission<MediaUserDataAction>,
 	MediaUserDataOutput
 >(({ input, client }) =>
-	client.operations.invoke({
-		slug: "media-user-data",
-		refreshOnSuccess: false,
-		output: MediaUserDataOutput,
-		packageId: PLUGIN_PACKAGE_ID,
-		submittedAt: input.submittedAt,
-		inputSchema: MediaUserDataInput,
-		idempotencyKey: input.submissionId,
-		input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
-	}),
+	client.operations
+		.invoke({
+			slug: "media-user-data",
+			refreshOnSuccess: false,
+			output: MediaUserDataOutput,
+			packageId: PLUGIN_PACKAGE_ID,
+			submittedAt: input.submittedAt,
+			inputSchema: MediaUserDataInput,
+			idempotencyKey: input.submissionId,
+			input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
+		})
+		.pipe(Effect.map(({ output }) => output)),
 );
 
 const isMediaLibraryMemberSchemaSlug = (slug: string): slug is MediaLibraryMemberEntitySchemaSlug =>
 	mediaLibraryMemberEntitySchemaSlugs.some((candidate) => candidate === slug);
 
-const submissionErrorFallback = (text: MediaText, error: Error) =>
-	error instanceof RyotClientError && error.reason === "transport"
-		? text("user-data.error-transport")
-		: text("user-data.error-retry");
+const submissionErrorFallback = (text: MediaText, error: Error) => {
+	if (!(error instanceof RyotClientError)) {
+		return text("user-data.error-retry");
+	}
+	if (error.reason === "transport") {
+		return text("user-data.error-transport");
+	}
+	switch (error.conflict) {
+		case undefined:
+		case "event-stale":
+		case "entity-stale":
+		case "event-not-found":
+		case "mutation-conflict":
+		case "concurrent-relationship-change":
+			break;
+		case "state-conflict":
+			return text("user-data.error-state-conflict");
+		case "entity-not-found":
+			return text("user-data.error-entity-not-found");
+		case "child-mapping-conflict":
+			return text("user-data.error-child-mapping-conflict");
+	}
+	return text("user-data.error-retry");
+};
 
 export function MediaUserDataControl(props: { readonly media: MediaEntitySummaryValue }) {
 	const { media } = props;
@@ -69,7 +90,6 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 	const text = useMediaMessages();
 	const reminders = useMediaReminders({ entityId: media.id });
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
-	const localMessage = useLocalMessage(PLUGIN_PACKAGE_ID);
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const submission = useRyotSubmission(mediaUserDataMutation);
@@ -81,11 +101,7 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 
 	useEffect(() => {
 		const output = submission.data;
-		if (
-			output?.status !== "saved" ||
-			confirmation === undefined ||
-			handledOutput.current === output
-		) {
+		if (output === undefined || confirmation === undefined || handledOutput.current === output) {
 			return;
 		}
 		handledOutput.current = output;
@@ -191,14 +207,11 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 		submission.reset();
 		submission.submit(confirmation.intent);
 	};
-	const rejectedMessage =
-		submission.data?.status === "rejected" ? localMessage(submission.data.reason) : undefined;
 	const errorMessage =
-		rejectedMessage ??
-		(submission.error === null
+		submission.error === null
 			? undefined
-			: formatError(t, submission.error, submissionErrorFallback(text, submission.error)));
-	const activeConfirmation = submission.data?.status === "saved" ? undefined : confirmation;
+			: formatError(t, submission.error, submissionErrorFallback(text, submission.error));
+	const activeConfirmation = submission.data === undefined ? confirmation : undefined;
 	const retained = submission.status === "retained";
 
 	return (

@@ -37,10 +37,9 @@ const dispatchCommitted = <Result>(
 	execution: LifecycleExecution["Service"],
 	committed: LifecycleCommittedStep<Result>,
 ) =>
-	execution.dispatch(committed.dispatch).pipe(
-		Effect.catchTag("LifecyclePersistenceError", Effect.die),
-		Effect.map((warnings) => ({ warnings, result: committed.result })),
-	);
+	execution
+		.dispatch(committed.dispatch)
+		.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die), Effect.as(committed.result));
 
 export type LifecycleWriteStep<
 	Result,

@@ -12,7 +12,7 @@ const score = { description: "Score", type: "number" as const, label: { key: "te
 
 const manifestWithFold = (input: {
 	readonly eventSchemaSlugs?: readonly [string, ...string[]];
-	readonly capabilities?: ReadonlyArray<"createEvents" | "executeRyotql">;
+	readonly capabilities?: ReadonlyArray<"httpCall" | "executeRyotql">;
 	readonly fields?: Record<string, { type: "number"; description: string; label: { key: string } }>;
 }) => {
 	const fixture = fixtureManifest();
@@ -73,7 +73,7 @@ it.effect(
 					Effect.exit(validatePluginManifestReferences(manifestWithFold(input))),
 					issuesOf,
 				);
-			expect(yield* issues({ capabilities: ["createEvents"] })).toEqual([
+			expect(yield* issues({ capabilities: ["httpCall"] })).toEqual([
 				"Entity fold must use only read-only host capabilities and cannot call other scripts",
 			]);
 			expect(yield* issues({ eventSchemaSlugs: ["missing"] })).toEqual([

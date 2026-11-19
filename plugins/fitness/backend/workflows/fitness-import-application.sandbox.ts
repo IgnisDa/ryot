@@ -124,6 +124,6 @@ export default defineWorkflow({
 				advancedAt,
 				done: page === input.run.pages,
 			};
-			return result.done ? result : yield* step.save(result);
+			return result.done ? { output: result } : yield* step.save(result);
 		}),
 });
