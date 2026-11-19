@@ -1987,6 +1987,11 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 						foreignEntity,
 						{ entities: { deletes: [{ entityId: foreignEntity, entitySchemaSlug: "record" }] } },
 					],
+					"another user's entity delete": [
+						"entities.deletes",
+						otherUserEntity,
+						{ entities: { deletes: [{ entityId: otherUserEntity, entitySchemaSlug: "record" }] } },
+					],
 					"root entity update": [
 						"entity",
 						foreignEntity,
@@ -2152,6 +2157,88 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 					};
 				}
 				expect(outcomes).toEqual(expected);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects an own entity named under another of the plugin's schemas as an invalid change",
+		() =>
+			Effect.gen(function* () {
+				const source = revisionPackage("mismatch", "fixture", "record");
+				const [record] = source.manifest.entitySchemas;
+				assert(record);
+				const own = yield* fixture({
+					...source,
+					manifest: { ...source.manifest, entitySchemas: [record, { ...record, slug: "note" }] },
+				});
+				const ownEntity = targetOf(own);
+				const [noteRow] = yield* (yield* EntitiesRepository).insertEntities([
+					{
+						userId,
+						scope: "user",
+						properties: {},
+						name: "Own note",
+						populatedAt: null,
+						entitySchemaPluginId: own.pluginId,
+						id: EntityId.make(yield* randomUuid),
+						entitySchemaSlug: EntitySchemaSlug.make("note"),
+					},
+				]);
+				assert(noteRow);
+				const note = noteRow.id;
+				const target = yield* Schema.decodeUnknownEffect(ChangeSetEntityUpdate.fields.target)({
+					kind: "update",
+					entityId: note,
+					expected: yield* entityBaseline(own, note),
+				});
+				const update = {
+					target,
+					name: "Renamed",
+					entitySchemaSlug: "record",
+					properties: { name: "Renamed" },
+				};
+				const cases: Record<string, readonly [string, typeof ChangeSet.Encoded]> = {
+					"root update": ["entity", { entity: update }],
+					update: ["entities.updates", { entities: { updates: [update] } }],
+					clear: [
+						"entities.clears",
+						{ entities: { clears: [{ entityId: note, entitySchemaSlug: "record" }] } },
+					],
+					delete: [
+						"entities.deletes",
+						{ entities: { deletes: [{ entityId: note, entitySchemaSlug: "record" }] } },
+					],
+					merge: [
+						"entities.merges",
+						{
+							entities: {
+								merges: [{ mergeFrom: note, mergeInto: ownEntity, entitySchemaSlug: "record" }],
+							},
+						},
+					],
+				};
+				const outcomes: Record<string, unknown> = {};
+				const expected: Record<string, unknown> = {};
+				for (const [name, [part, changeSet]] of Object.entries(cases)) {
+					const error = yield* Effect.flip(
+						Effect.flatMap(ScriptChanges, (scripts) =>
+							Effect.flatMap(Schema.decodeEffect(ChangeSet)(changeSet), (changes) =>
+								scripts.commitKeyed({
+									changes,
+									lane: "interactive",
+									executionId: `mismatch-${name}`,
+									occurredAt: own.command.occurredAt,
+									principal: own.command.writeContext,
+								}),
+							),
+						),
+					);
+					outcomes[name] = error._tag === "ScriptChangesRejected" ? error.reason : error;
+					expected[name] = { code: "invalid", message: `${part}: ${note} is not a record entity` };
+				}
+				expect(outcomes).toEqual(expected);
+				expect(yield* entityBaseline(own, note)).toEqual(target.expected);
 			}),
 		testTimeout,
 	);

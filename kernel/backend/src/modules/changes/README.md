@@ -45,8 +45,9 @@ pinned plugin revision does not declare. A violation fails with `ChangeSetReject
 
 Every existing entity and event a user change set names (`changeSetReferences`) must belong to the
 writing plugin, and a user entity or event to the execution user. Preparation resolves their owners
-in one lookup each and rejects a foreign reference with `ChangeSetRejected`; a reference that does
-not exist is left to preparation, which fails it as a conflict.
+in one lookup each and rejects a foreign reference, or an entity a delete, clear, merge or update
+names under another schema, with `ChangeSetRejected`; a reference that does not exist is left to
+preparation, which fails it as a conflict.
 
 Agent and projection executions and before-stage automation runs write nothing. Ownership,
 provenance, global scope and `populatedAt` are not expressible for user writes. Services keep their

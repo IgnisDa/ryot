@@ -246,13 +246,17 @@ export const undeclaredSchema = (changes: ChangeSet, scope: PluginSchemaScope) =
 };
 
 type NamedReference<Id> = readonly [part: string, id: Id];
+type NamedEntityReference = readonly [part: string, id: EntityId, entitySchemaSlug?: string];
 
 const existing = (part: string, references: ReadonlyArray<undefined | ChangeSetEntityReference>) =>
 	references.flatMap((reference): ReadonlyArray<NamedReference<EntityId>> =>
 		reference?.kind === "existing" ? [[part, reference.entityId]] : [],
 	);
 
-/** Every existing entity and event a change set names, with the part that names it. */
+/**
+ * Every existing entity and event a change set names, with the part that names it and, for an
+ * entity the part writes, the schema it names that entity under.
+ */
 export const changeSetReferences = (changes: ChangeSet) => {
 	const { entities } = changes;
 	const creates = changes.events?.creates ?? [];
@@ -262,18 +266,23 @@ export const changeSetReferences = (changes: ChangeSet) => {
 		...(changes.relationships?.upserts ?? []),
 		...(changes.relationships?.deletes ?? []),
 	];
-	const entityReferences: ReadonlyArray<NamedReference<EntityId>> = [
+	const entityReferences: ReadonlyArray<NamedEntityReference> = [
 		...(changes.entity?.target.kind === "update"
-			? [["entity", changes.entity.target.entityId] as const]
+			? [["entity", changes.entity.target.entityId, changes.entity.entitySchemaSlug] as const]
 			: []),
 		...(entities?.updates ?? []).map(
-			({ target }) => ["entities.updates", target.entityId] as const,
+			({ target, entitySchemaSlug }) =>
+				["entities.updates", target.entityId, entitySchemaSlug] as const,
 		),
-		...(entities?.deletes ?? []).map(({ entityId }) => ["entities.deletes", entityId] as const),
-		...(entities?.clears ?? []).map(({ entityId }) => ["entities.clears", entityId] as const),
-		...(entities?.merges ?? []).flatMap(({ mergeFrom, mergeInto }) => [
-			["entities.merges", mergeFrom] as const,
-			["entities.merges", mergeInto] as const,
+		...(entities?.deletes ?? []).map(
+			({ entityId, entitySchemaSlug }) => ["entities.deletes", entityId, entitySchemaSlug] as const,
+		),
+		...(entities?.clears ?? []).map(
+			({ entityId, entitySchemaSlug }) => ["entities.clears", entityId, entitySchemaSlug] as const,
+		),
+		...(entities?.merges ?? []).flatMap(({ mergeFrom, mergeInto, entitySchemaSlug }) => [
+			["entities.merges", mergeFrom, entitySchemaSlug] as const,
+			["entities.merges", mergeInto, entitySchemaSlug] as const,
 		]),
 		...existing(
 			"relationships",

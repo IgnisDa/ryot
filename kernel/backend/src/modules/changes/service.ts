@@ -325,6 +325,21 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						message: `${id} belongs to another plugin or user`,
 					});
 				}
+				const mismatched = referenced.entities.find(([, entityId, entitySchemaSlug]) => {
+					const found = entityOwners.get(entityId);
+					return (
+						found !== undefined &&
+						entitySchemaSlug !== undefined &&
+						found.entitySchemaSlug !== entitySchemaSlug
+					);
+				});
+				if (mismatched) {
+					const [part, id, entitySchemaSlug] = mismatched;
+					return yield* new ChangeSetRejected({
+						part,
+						message: `${id} is not a ${entitySchemaSlug} entity`,
+					});
+				}
 				return yield* Effect.void;
 			});
 			const prepareUserChanges = Effect.fn("ChangeSets.prepareUserChanges")(function* (
