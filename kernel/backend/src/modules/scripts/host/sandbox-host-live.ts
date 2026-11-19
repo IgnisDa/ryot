@@ -68,6 +68,12 @@ export const SandboxHostCallScopeLive = Layer.effect(
 
 const lockKey = (key: string) => sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
 
+const unavailable = <A, E>(effect: Effect.Effect<A, E>) =>
+	effect.pipe(
+		Effect.tapCause((cause) => Effect.logWarning("Sandbox state store failed", cause)),
+		Effect.mapError(() => new SandboxStateStoreUnavailable()),
+	);
+
 export const SandboxStateStoreLive = Layer.effect(
 	SandboxStateStore,
 	Effect.gen(function* () {
@@ -88,7 +94,6 @@ export const SandboxStateStoreLive = Layer.effect(
 						),
 					),
 			);
-		const unavailable = Effect.mapError(() => new SandboxStateStoreUnavailable());
 		return {
 			read: (keys) =>
 				own(load(keys)).pipe(

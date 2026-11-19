@@ -5,6 +5,7 @@ import {
 } from "@ryot-app/contract/modules/filters/browse";
 import type { FilterValueType } from "@ryot-app/contract/modules/filters/schemas";
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
 import {
 	queryExpressionKind,
@@ -34,16 +35,17 @@ const expressionBranches = (expression: ScalarExpression) =>
 		),
 	);
 
-export const browseExpressionKind = (expression: ScalarExpression) => {
-	const branches = expressionBranches(expression);
-	if (Result.isFailure(branches)) {
-		return undefined;
-	}
-	const query = branches.success[0]?.queries["browse"];
+const branchesKind = (branches: readonly RyotQLDocument[]) => {
+	const query = branches[0]?.queries["browse"];
 	const field = query?.output.type === "rows" ? query.output.fields[0] : undefined;
 	return query && field && "expr" in field
 		? queryExpressionKind(query, field.expr, savedViewDataSourceAccess)
 		: undefined;
+};
+
+export const browseExpressionKind = (expression: ScalarExpression) => {
+	const branches = expressionBranches(expression);
+	return Result.isFailure(branches) ? undefined : branchesKind(branches.success);
 };
 
 const expressionIssue = (
@@ -61,7 +63,7 @@ const expressionIssue = (
 			return `browse field '${key}' expression is invalid: ${error}`;
 		}
 	}
-	const kind = browseExpressionKind(expression);
+	const kind = branchesKind(branches.success);
 	return accepts(kind) ? undefined : `browse field '${key}' expression has kind '${kind}'`;
 };
 

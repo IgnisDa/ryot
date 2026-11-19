@@ -1,7 +1,7 @@
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
-import { SandboxStateStore, type SandboxStateWrite } from "./state-store";
+import { boundedStateAccess, SandboxStateStore, type SandboxStateWrite } from "./state-store";
 
 export class SandboxCrashStoreError extends Schema.TaggedError<
 	SandboxCrashStoreError,
@@ -73,14 +73,7 @@ const protectionOf = (current: ReadonlyMap<string, string>, key: string) => {
 		: Option.getOrElse(decodeProtection(stored), () => emptyProtection);
 };
 
-const bounded = <A>(effect: Effect.Effect<A, unknown>) =>
-	effect.pipe(
-		Effect.timeoutOrElse({
-			duration: "2 seconds",
-			orElse: () => Effect.fail(crashStoreUnavailable()),
-		}),
-		Effect.mapError(crashStoreUnavailable),
-	);
+const bounded = boundedStateAccess(crashStoreUnavailable);
 
 export class SandboxCrashStore extends Context.Service<SandboxCrashStore>()(
 	"@ryot-app/sandbox/host/crash-store/SandboxCrashStore",

@@ -67,11 +67,17 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			);
 			const validateSystemSet = Effect.fn("PluginIngestionService.validateSystemSet")(function* (
 				plugins: ReadonlyArray<SystemSetEntry>,
+				changedPluginIds?: ReadonlySet<string>,
 			) {
 				const kernel = yield* definitions.readKernelSource;
 				const snapshot = yield* Effect.try({
-					try: () => validateSystemPluginSet(kernel, plugins),
 					catch: (error) => new PluginValidationError({ issues: [String(error)] }),
+					try: () =>
+						validateSystemPluginSet(
+							kernel,
+							plugins,
+							changedPluginIds && { scope: "system", pluginIds: changedPluginIds },
+						),
 				});
 				yield* validateSignalSchemaFormatterReferences(snapshot, kernelScripts, kernelSignalSlugs);
 				yield* Effect.forEach(
@@ -208,7 +214,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						});
 						yield* activation.activated(pluginId);
 						const plugins = yield* repository.listActiveSystemPlugins();
-						yield* validateSystemSet(plugins);
+						yield* validateSystemSet(plugins, new Set([pluginId]));
 						const entry = plugins.find((plugin) => plugin.id === pluginId);
 						if (!entry) {
 							return yield* new PluginValidationError({
@@ -333,6 +339,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						}
 						const dangling = yield* validateSystemSet(
 							installed.filter((candidate) => candidate.id !== pluginId),
+							new Set(),
 						).pipe(
 							Effect.as(null),
 							Effect.catchTag("PluginValidationError", (error) => Effect.succeed(error)),
