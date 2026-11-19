@@ -14,8 +14,8 @@ Measured on a clone of live data, build `09e7aa092`, 2 cores and 4 GB:
 
 | Action             | Live configuration (shared admission) | Lane admission | Kernel SQL statements | Plugin query statements |
 | ------------------ | ------------------------------------: | -------------: | --------------------: | ----------------------: |
-| Review delete      |              4.4 s server, ~11 s screen |          2.7 s |                   240 |      14 (859 rows read) |
-| Movie progress log |                                  30 s |          1.6 s |                   218 |          6 (11 ms total) |
+| Review delete      |            4.4 s server, ~11 s screen |          2.7 s |                   240 |      14 (859 rows read) |
+| Movie progress log |                                  30 s |          1.6 s |                   218 |         6 (11 ms total) |
 | Workout save       |                                  36 s |            7 s |                   n/a |                     n/a |
 
 - **Nested admission.** An operation holds its sandbox lease while the policy or fold it triggered
@@ -35,14 +35,14 @@ Measured on a clone of live data, build `09e7aa092`, 2 cores and 4 GB:
 Plugin code never waits for other plugin code and never writes through a host call. The kernel calls
 plugin functions one after another; data goes in as arguments and changes come back as return values.
 
-| Kind                     | Called by                   | Receives                                                     | Returns                                       |
-| ------------------------ | --------------------------- | ------------------------------------------------------------ | --------------------------------------------- |
-| Operation                | HTTP, page bridge, Ryo      | Input                                                        | `{ output, changes? }`                        |
-| Policy                   | Validate phase              | Every proposed item matching its targets, in one batch       | Per item: allow, reject, or transform         |
-| Fold                     | Derive phase                | Subject, previous state, and the changed events' before/after | New state and changed outputs                 |
-| After hook (automation)  | Job queued by the commit    | Retained trigger evidence                                    | `{ changes? }`                                |
-| Workflow step            | Durable workflow engine     | Checkpoint                                                   | Next checkpoint or output, plus `changes?`    |
-| Provider                 | Population job              | Provider request                                             | Global entity and relationship changes        |
+| Kind                    | Called by                | Receives                                                      | Returns                                    |
+| ----------------------- | ------------------------ | ------------------------------------------------------------- | ------------------------------------------ |
+| Operation               | HTTP, page bridge, Ryo   | Input                                                         | `{ output, changes? }`                     |
+| Policy                  | Validate phase           | Every proposed item matching its targets, in one batch        | Per item: allow, reject, or transform      |
+| Fold                    | Derive phase             | Subject, previous state, and the changed events' before/after | New state and changed outputs              |
+| After hook (automation) | Job queued by the commit | Retained trigger evidence                                     | `{ changes? }`                             |
+| Workflow step           | Durable workflow engine  | Checkpoint                                                    | Next checkpoint or output, plus `changes?` |
+| Provider                | Population job           | Provider request                                              | Global entity and relationship changes     |
 
 Host capabilities are reads only: batched RyotQL, configuration, settings, preferences, entitlements,
 cache values, diagnostics, and `httpCall` where the kind allows network access. Writes are only
@@ -172,6 +172,78 @@ replaces in the same step, and the type checker finds the callers that still nee
 Acceptance for the first slice: warm server time at most 250 ms on the clone in its live
 configuration; cost independent of history size; no old path left.
 
+## One commit path for every kernel write
+
+Approved **2026-11-19**. Every kernel write commits through `ChangeSets`, not only script writes.
+Paths are relative to `kernel/backend/src/`.
+
+### Writers outside `ChangeSets` today
+
+| Writer                                                                                                        | Callers                                                                                                                   | Target                                                                                             |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `makeEventCreate` (`events/event-create.ts`, via `EventsService.create`)                                      | HTTP create, `kernel:event-create`, generic and data imports, integration event writes, collections, provider entry event | `commit` in independent-items mode; file deleted                                                   |
+| `EventsService` edit, delete, batch update and delete, move references, prepare and persist helpers, cascades | HTTP update and delete, entity cascades, user-data clear and merge                                                        | event changes with `expected` and a `move` change; `events/service.ts` deleted                     |
+| `EntitiesService` create, upsert, update, `commitMutation`, step helpers, deletes                             | HTTP, collections, editor, plugin bootstrap, imports, test support                                                        | owner-qualified entity creates and upserts in `Changes`; batch entity policies                     |
+| `automations/lifecycle/write-step.ts`                                                                         | entities, relationships, collections, generic import                                                                      | deleted                                                                                            |
+| `EntityEditorService` save and remove                                                                         | HTTP editor                                                                                                               | `commitOnce` keyed by the editor idempotency key                                                   |
+| `EntityUserDataService` HTTP clear and merge                                                                  | HTTP                                                                                                                      | `commit` with clears and merges                                                                    |
+| `RelationshipsService` over `relationships/mutation-pipeline.ts`                                              | HTTP, collections, imports, test support                                                                                  | relationship update, ensure, merge and delete modes; batch relationship policies; pipeline deleted |
+| `CollectionsService`                                                                                          | HTTP                                                                                                                      | one atomic change set (relationship plus membership event); compensation deleted                   |
+| Provider population, relationship population and synchronization                                              | population workflow                                                                                                       | internal global upserts with population flags; `populationWriteGuard` becomes a precondition       |
+| Provider-import completion trigger                                                                            | entity import workflow                                                                                                    | internal `triggers` part                                                                           |
+| Reminder and signal-schedule workers                                                                          | cron                                                                                                                      | kernel `signals` part with a ledger precondition                                                   |
+
+Not writers in this sense: backup historical restore, fold-derived writes (already inside the
+commit), and import bookkeeping, plugin, account and settings administration (no policies or
+lifecycle). The HTTP `entities.create`, `relationships.create` and user-data routes stay as thin
+`commit` callers.
+
+### `ChangeSets` changes
+
+- **Kernel writers.** An internal `Changes` type carries owner-qualified schema references;
+  `fromScriptChangeSet` translates the contract `ChangeSet` for scripts. Script authority checks run
+  only for script writers; kernel writers (`writeContext: null`) rely on `DomainWriteChecks`. Scripts
+  cannot reach the kernel-writer path.
+- **Independent items.** `commit(changes, command, { events: { independent, verbatimIdentities } })`
+  allows per-item outcomes for event creates; other parts stay all-or-nothing. Outcomes keep today's
+  semantics exactly: a preparation failure fails only that item, a policy rejection is
+  `skipped_by_policy`, a policy item error is `failed`, a policy execution error writes nothing and
+  marks the rest `policy-execution-failed`, and a commit conflict writes nothing and marks the rest
+  `mutation-conflict` or `asset-forbidden`. Rejected results are recorded through the receipt.
+  `verbatimIdentities` keeps each item's own identity, so event IDs, import item keys and coalescing
+  lookups do not change. `CreateEventsResponse` does not change.
+- **Policies.** Matching runs inside the prepare transaction. Policy chunks group items by subject
+  (at most 50) for every change set, so a once-per-subject policy runs once per subject. When no
+  policy matches, the commit continues in the same transaction.
+- **Precondition.** `{ check, written }`: `check` runs in the prepare transaction before preparation
+  (false commits its side effects and returns an empty result) and again in the commit transaction
+  after the receipt load (the deferred re-check); `written` runs after source writes when anything
+  was written. It replaces the event commit guard and serves population and the reminder and signal
+  ledgers.
+- **Fold lane.** Background-lane commits queue their folds; interactive commits fold inline.
+- **Stale retry.** An update whose field `expected` still matches retries up to twice on `EventStale`.
+
+### Rollout
+
+Each slice is one subagent, in order, deleting what it replaces. Each runs the kernel-backend check
+and its named tests, then its e2e files.
+
+1. **Core plus event creates.** Kernel writers, independent items, subject chunks, the precondition,
+   lane fold mode; port every create caller. Deletes `event-create.ts`, `EventsService.create`,
+   `kernel:event-create` and the entry-event transient key. Adds `changes/independent-events.test.ts`
+   (ported from `events/event-create.test.ts`) and `imports/integration-event-writes.test.ts`.
+2. **Event changes.** HTTP update and delete through `commit` with the stale retry.
+3. **Moves, cascades and user data.** The `move` change; cascade authorization inside
+   `EventMutations`; user-data HTTP through `commit`. Deletes `events/service.ts`.
+4. **Relationships.** Modes and batch policies. Deletes `relationships/mutation-pipeline.ts`.
+5. **Entities, editor, bootstrap and test support.** Entity creates and upserts, batch entity
+   policies.
+6. **Imports and collections.** One change set per import item; atomic collection membership.
+   Deletes `write-step.ts` and the collection compensation.
+7. **Population, completion trigger, reminders and signal schedules.**
+8. **Docs and audit.** These return nothing outside `changes/` and `events/mutations.ts`:
+   `EventsService`, `makeEventCreate`, `runLifecycleWrite`, `runItemPolicy`, `planner.planChange`.
+
 ## Code placement
 
 Code shared by plugins lives in the plugin SDK or a package, and kernel code shared by features
@@ -190,16 +262,16 @@ capabilities. The deletion list below is checked against the final diff.
 
 End state after step 6. Whole files unless marked partial; counts exclude tests unless noted.
 
-| Area                       | Files                                                                                                     | Lines |
-| -------------------------- | --------------------------------------------------------------------------------------------------------- | ----: |
-| Write host implementations | `events/script-host.ts`, `entities/script-host.ts`, `relationships/script-host.ts`, `user-commands/script-host.ts`, `automations/script-host.ts` (signals, notifications), write parts of `derived-values/script-host.ts` | ~940 |
-| SDK write contracts        | Write entries of `core/host-contracts.ts`; write argument and result schemas in `core/events.ts`, `core/entities.ts`, `core/relationships.ts`, `core/user-commands.ts`, `core/automation.ts` (partial) | ~450 |
-| Durable write dispatch     | `scripts/host/lifecycle-host.ts`; write paths of `durable-dispatcher.ts` and `durable-dispatcher-live.ts` (partial; HTTP and workflow children stay) | ~450 |
-| Policy persistence         | `automations/lifecycle/policy-batch.ts`, `DirectPolicyAttempts` and policy branches of `automations/execution.ts` and `run-job-live.ts` (partial) | ~600 |
-| Required delivery          | `required-hooks*.ts` (test support), required branches of the planner, execution, and run job (partial)   | ~350 |
-| Inline-then-durable        | Fold busy and deferral paths in `derived-values/service.ts`, `DirectScriptDeferred` callers (partial)     | ~150 |
-| Fold history paging        | Full-target validation per run and the per-revision rebuild queueing in `derived-values/service.ts` and `plugins/installations/job.ts` (partial) | ~150 |
-| User commands module       | `user-commands/service.ts` becomes the pipeline's commit phase; `user-commands/layer.ts`                   |  ~360 |
+| Area                       | Files                                                                                                                                                                                                                     | Lines |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----: |
+| Write host implementations | `events/script-host.ts`, `entities/script-host.ts`, `relationships/script-host.ts`, `user-commands/script-host.ts`, `automations/script-host.ts` (signals, notifications), write parts of `derived-values/script-host.ts` |  ~940 |
+| SDK write contracts        | Write entries of `core/host-contracts.ts`; write argument and result schemas in `core/events.ts`, `core/entities.ts`, `core/relationships.ts`, `core/user-commands.ts`, `core/automation.ts` (partial)                    |  ~450 |
+| Durable write dispatch     | `scripts/host/lifecycle-host.ts`; write paths of `durable-dispatcher.ts` and `durable-dispatcher-live.ts` (partial; HTTP and workflow children stay)                                                                      |  ~450 |
+| Policy persistence         | `automations/lifecycle/policy-batch.ts`, `DirectPolicyAttempts` and policy branches of `automations/execution.ts` and `run-job-live.ts` (partial)                                                                         |  ~600 |
+| Required delivery          | `required-hooks*.ts` (test support), required branches of the planner, execution, and run job (partial)                                                                                                                   |  ~350 |
+| Inline-then-durable        | Fold busy and deferral paths in `derived-values/service.ts`, `DirectScriptDeferred` callers (partial)                                                                                                                     |  ~150 |
+| Fold history paging        | Full-target validation per run and the per-revision rebuild queueing in `derived-values/service.ts` and `plugins/installations/job.ts` (partial)                                                                          |  ~150 |
+| User commands module       | `user-commands/service.ts` becomes the pipeline's commit phase; `user-commands/layer.ts`                                                                                                                                  |  ~360 |
 
 Total: roughly 3,450 lines of implementation, plus their tests (about 3,500 lines, mostly
 `durable-dispatcher-live.test.ts`, `user-commands/service.test.ts`, and the policy and required-hook
