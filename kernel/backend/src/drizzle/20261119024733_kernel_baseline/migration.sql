@@ -154,12 +154,10 @@ CREATE TABLE "automation_run" (
 	"artifacts_expire_at" timestamp(3) with time zone NOT NULL,
 	"attempt_count" integer DEFAULT 0 NOT NULL,
 	"queued_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"stage" text NOT NULL,
 	"skip_reason" jsonb,
-	"retry_policy" jsonb,
 	"sandbox_script_id" text,
 	"history_payload_truncated" boolean DEFAULT false NOT NULL,
-	"delivery" text NOT NULL,
+	"retry_policy" jsonb NOT NULL,
 	"plugin_id" text,
 	"execution_user_id" text,
 	"status" text DEFAULT 'queued' NOT NULL,
@@ -168,8 +166,7 @@ CREATE TABLE "automation_run" (
 	"plugin_config_revision_id" text,
 	CONSTRAINT "automation_run_hook_recipient_unique" UNIQUE NULLS NOT DISTINCT("trigger_id","plugin_id","hook_slug","execution_user_id"),
 	CONSTRAINT "automation_run_owner_check" CHECK (("plugin_id" is null and "plugin_revision_id" is null and "plugin_config_revision_id" is null) or ("plugin_id" is not null and "plugin_revision_id" is not null and "plugin_config_revision_id" is not null)),
-	CONSTRAINT "automation_run_stage_check" CHECK (("stage" = 'before' and "delivery" = 'policy' and "retry_policy" is null and "next_attempt_at" is null and "attempt_count" <= 1) or ("stage" = 'after' and "delivery" in ('required', 'async') and "retry_policy" is not null)),
-	CONSTRAINT "automation_run_status_check" CHECK ("status" in ('queued', 'running', 'succeeded', 'failed', 'rejected', 'skipped') and "attempt_count" >= 0),
+	CONSTRAINT "automation_run_status_check" CHECK ("status" in ('queued', 'running', 'succeeded', 'failed', 'skipped') and "attempt_count" >= 0),
 	CONSTRAINT "automation_run_live_script_check" CHECK ("status" not in ('queued', 'running') or "sandbox_script_id" is not null)
 );
 --> statement-breakpoint
@@ -690,6 +687,17 @@ CREATE TABLE "integration" (
 	CONSTRAINT "integration_run_owner_unique" UNIQUE("id","user_id"),
 	CONSTRAINT "integration_owner_check" CHECK (("plugin_installation_id" is null and "provider" = 'data-json' and "lot" = 'sink') or ("plugin_installation_id" is not null and "provider" <> 'data-json')),
 	CONSTRAINT "integration_webhook_token_lot_check" CHECK (("lot" = 'sink') = ("webhook_token" is not null))
+);
+--> statement-breakpoint
+CREATE TABLE "integration_event_stream" (
+	"pending" jsonb,
+	"fingerprint" text,
+	"eligible_at" timestamp(3) with time zone,
+	"event_schema_slug" text,
+	"observed_at" timestamp(3) with time zone NOT NULL,
+	"entity_id" text,
+	"integration_id" text,
+	CONSTRAINT "integration_event_stream_pkey" PRIMARY KEY("integration_id","entity_id","event_schema_slug")
 );
 --> statement-breakpoint
 CREATE TABLE "job" (
@@ -1328,7 +1336,7 @@ CREATE TABLE "user" (
 		and (
 			jsonb_typeof("preferences"->'contentLanguage') = 'null'
 			or (jsonb_typeof("preferences"->'contentLanguage') = 'string'
-				and "preferences"->>'contentLanguage' ~ '^[a-z]{2,3}$')
+				and "preferences"->>'contentLanguage' ~ '^[a-z]{2,3}(-[A-Za-z0-9]{1,8})*$')
 		)
 		and (
 			jsonb_typeof("preferences"->'weekStart') = 'null'
@@ -1476,6 +1484,7 @@ CREATE INDEX "integration_plugin_installation_id_idx" ON "integration" ("plugin_
 CREATE INDEX "integration_lot_is_disabled_idx" ON "integration" ("lot","is_disabled");--> statement-breakpoint
 CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" ("provider","is_disabled");--> statement-breakpoint
 CREATE UNIQUE INDEX "integration_webhook_token_unique" ON "integration" ("webhook_token");--> statement-breakpoint
+CREATE INDEX "integration_event_stream_entity_idx" ON "integration_event_stream" ("entity_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "job_queued_key_unique" ON "job" ("kind","key") WHERE "status" = 'queued' and "key" is not null;--> statement-breakpoint
 CREATE INDEX "job_claim_idx" ON "job" ("kind","priority","run_at","id") WHERE "status" = 'queued';--> statement-breakpoint
 CREATE INDEX "job_failed_idx" ON "job" ("updated_at") WHERE "status" = 'failed';--> statement-breakpoint
@@ -1627,6 +1636,8 @@ ALTER TABLE "import_run" ADD CONSTRAINT "import_run_plugin_installation_id_plugi
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_integration_id_user_id_integration_id_user_id_fkey" FOREIGN KEY ("integration_id","user_id") REFERENCES "integration"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration" ADD CONSTRAINT "integration_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration" ADD CONSTRAINT "integration_Q1xPD5Jsz3qI_fkey" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "integration_event_stream" ADD CONSTRAINT "integration_event_stream_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "integration_event_stream" ADD CONSTRAINT "integration_event_stream_integration_id_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "job" ADD CONSTRAINT "job_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "kernel_script" ADD CONSTRAINT "kernel_script_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

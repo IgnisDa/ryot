@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "8e1dbcf5-73ae-4490-908e-bb0bcbea6ee8",
+	"id": "97fda392-3624-4eec-b016-a50546a18bf9",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -636,6 +636,19 @@
 				"n|rel|public.integration_pkey",
 				"n|rel|public.integration_oauth_owner_unique",
 				"n|rel|public.integration_run_owner_unique"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "integration_event_stream"],
+			"writes": [
+				"s|tbl|public.integration_event_stream",
+				"n|tbl|public.integration_event_stream",
+				"e|tbl|public.integration_event_stream",
+				"n|rel|public.integration_event_stream",
+				"n|type|public.integration_event_stream",
+				"n|rel|public.integration_event_stream_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -2563,6 +2576,26 @@
 				"n|tbl|public.integration",
 				"n|sch|public",
 				"n|col|public.integration.webhook_token"
+			]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": [
+				"index",
+				"public",
+				"integration_event_stream",
+				"integration_event_stream_entity_idx"
+			],
+			"writes": [
+				"s|idx|public.integration_event_stream_entity_idx",
+				"n|idx|public.integration_event_stream_entity_idx",
+				"e|idx|public.integration_event_stream_entity_idx",
+				"n|rel|public.integration_event_stream_entity_idx"
+			],
+			"reads": [
+				"n|tbl|public.integration_event_stream",
+				"n|sch|public",
+				"n|col|public.integration_event_stream.entity_id"
 			]
 		},
 		{
@@ -5320,6 +5353,44 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "integration_event_stream"],
+			"writes": [
+				"s|fk|public.integration_event_stream.integration_event_stream_entity_id_entity_id_fkey",
+				"n|fk|public.integration_event_stream.integration_event_stream_entity_id_entity_id_fkey",
+				"e|fk|public.integration_event_stream.integration_event_stream_entity_id_entity_id_fkey",
+				"n|con|public.integration_event_stream.integration_event_stream_entity_id_entity_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.integration_event_stream",
+				"n|sch|public",
+				"n|tbl|public.entity",
+				"n|sch|public",
+				"n|col|public.integration_event_stream.entity_id",
+				"n|col|public.entity.id",
+				"e|uniqueness|public.entity.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "integration_event_stream"],
+			"writes": [
+				"s|fk|public.integration_event_stream.integration_event_stream_integration_id_integration_id_fkey",
+				"n|fk|public.integration_event_stream.integration_event_stream_integration_id_integration_id_fkey",
+				"e|fk|public.integration_event_stream.integration_event_stream_integration_id_integration_id_fkey",
+				"n|con|public.integration_event_stream.integration_event_stream_integration_id_integration_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.integration_event_stream",
+				"n|sch|public",
+				"n|tbl|public.integration",
+				"n|sch|public",
+				"n|col|public.integration_event_stream.integration_id",
+				"n|col|public.integration.id",
+				"e|uniqueness|public.integration.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "job"],
 			"writes": [
 				"s|fk|public.job.job_user_id_user_id_fkey",
@@ -6777,6 +6848,12 @@
 		{ "schema": "public", "name": "import_item", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "import_run", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "integration", "isRlsEnabled": false, "entityType": "tables" },
+		{
+			"schema": "public",
+			"name": "integration_event_stream",
+			"isRlsEnabled": false,
+			"entityType": "tables"
+		},
 		{ "schema": "public", "name": "job", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "jwks", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "kernel_script", "isRlsEnabled": false, "entityType": "tables" },
@@ -8485,33 +8562,7 @@
 		{
 			"schema": "public",
 			"table": "automation_run",
-			"name": "stage",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "automation_run",
 			"name": "skip_reason",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "automation_run",
-			"name": "retry_policy",
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -8550,8 +8601,8 @@
 		{
 			"schema": "public",
 			"table": "automation_run",
-			"name": "delivery",
-			"type": "text",
+			"name": "retry_policy",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -13231,6 +13282,97 @@
 			"schema": "public",
 			"table": "integration",
 			"name": "id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "pending",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "fingerprint",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "eligible_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "event_schema_slug",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "observed_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "entity_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "integration_id",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -21540,6 +21682,27 @@
 		},
 		{
 			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "integration_event_stream_entity_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "entity_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
 			"table": "job",
 			"name": "job_queued_key_unique",
 			"nameExplicit": true,
@@ -24354,6 +24517,32 @@
 		},
 		{
 			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "integration_event_stream_entity_id_entity_id_fkey",
+			"nameExplicit": false,
+			"columns": ["entity_id"],
+			"schemaTo": "public",
+			"tableTo": "entity",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "integration_event_stream_integration_id_integration_id_fkey",
+			"nameExplicit": false,
+			"columns": ["integration_id"],
+			"schemaTo": "public",
+			"tableTo": "integration",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "job",
 			"name": "job_user_id_user_id_fkey",
 			"nameExplicit": false,
@@ -25298,6 +25487,14 @@
 			"table": "import_item",
 			"name": "import_item_pkey",
 			"columns": ["run_id", "kind", "id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
+			"table": "integration_event_stream",
+			"name": "integration_event_stream_pkey",
+			"columns": ["integration_id", "entity_id", "event_schema_slug"],
 			"nameExplicit": false,
 			"entityType": "pks"
 		},
@@ -26372,15 +26569,8 @@
 		{
 			"schema": "public",
 			"table": "automation_run",
-			"name": "automation_run_stage_check",
-			"value": "(\"stage\" = 'before' and \"delivery\" = 'policy' and \"retry_policy\" is null and \"next_attempt_at\" is null and \"attempt_count\" <= 1) or (\"stage\" = 'after' and \"delivery\" in ('required', 'async') and \"retry_policy\" is not null)",
-			"entityType": "checks"
-		},
-		{
-			"schema": "public",
-			"table": "automation_run",
 			"name": "automation_run_status_check",
-			"value": "\"status\" in ('queued', 'running', 'succeeded', 'failed', 'rejected', 'skipped') and \"attempt_count\" >= 0",
+			"value": "\"status\" in ('queued', 'running', 'succeeded', 'failed', 'skipped') and \"attempt_count\" >= 0",
 			"entityType": "checks"
 		},
 		{
@@ -26807,7 +26997,7 @@
 			"schema": "public",
 			"table": "user",
 			"name": "user_preferences_check",
-			"value": "\n\t\tjsonb_typeof(\"preferences\") = 'object'\n\t\tand \"preferences\" ?& array['contentLanguage', 'disableIntegrations', 'interfaceLocale', 'ratingScale', 'reportingTimeZone', 'weekStart']\n\t\tand \"preferences\" - 'contentLanguage' - 'disableIntegrations' - 'interfaceLocale' - 'ratingScale' - 'reportingTimeZone' - 'weekStart' = '{}'::jsonb\n\t\tand jsonb_typeof(\"preferences\"->'disableIntegrations') = 'boolean'\n\t\tand \"preferences\"->>'ratingScale' in ('hundred', 'ten', 'five', 'three-point')\n\t\tand jsonb_typeof(\"preferences\"->'reportingTimeZone') = 'string'\n\t\tand \"preferences\"->>'reportingTimeZone' <> ''\n\t\tand btrim(\"preferences\"->>'reportingTimeZone') = \"preferences\"->>'reportingTimeZone'\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'interfaceLocale') = 'null'\n\t\t\tor (jsonb_typeof(\"preferences\"->'interfaceLocale') = 'string'\n\t\t\t\tand \"preferences\"->>'interfaceLocale' ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')\n\t\t)\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'contentLanguage') = 'null'\n\t\t\tor (jsonb_typeof(\"preferences\"->'contentLanguage') = 'string'\n\t\t\t\tand \"preferences\"->>'contentLanguage' ~ '^[a-z]{2,3}$')\n\t\t)\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'weekStart') = 'null'\n\t\t\tor \"preferences\"->'weekStart' in ('0', '1', '2', '3', '4', '5', '6')\n\t\t)\n\t",
+			"value": "\n\t\tjsonb_typeof(\"preferences\") = 'object'\n\t\tand \"preferences\" ?& array['contentLanguage', 'disableIntegrations', 'interfaceLocale', 'ratingScale', 'reportingTimeZone', 'weekStart']\n\t\tand \"preferences\" - 'contentLanguage' - 'disableIntegrations' - 'interfaceLocale' - 'ratingScale' - 'reportingTimeZone' - 'weekStart' = '{}'::jsonb\n\t\tand jsonb_typeof(\"preferences\"->'disableIntegrations') = 'boolean'\n\t\tand \"preferences\"->>'ratingScale' in ('hundred', 'ten', 'five', 'three-point')\n\t\tand jsonb_typeof(\"preferences\"->'reportingTimeZone') = 'string'\n\t\tand \"preferences\"->>'reportingTimeZone' <> ''\n\t\tand btrim(\"preferences\"->>'reportingTimeZone') = \"preferences\"->>'reportingTimeZone'\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'interfaceLocale') = 'null'\n\t\t\tor (jsonb_typeof(\"preferences\"->'interfaceLocale') = 'string'\n\t\t\t\tand \"preferences\"->>'interfaceLocale' ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$')\n\t\t)\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'contentLanguage') = 'null'\n\t\t\tor (jsonb_typeof(\"preferences\"->'contentLanguage') = 'string'\n\t\t\t\tand \"preferences\"->>'contentLanguage' ~ '^[a-z]{2,3}(-[A-Za-z0-9]{1,8})*$')\n\t\t)\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'weekStart') = 'null'\n\t\t\tor \"preferences\"->'weekStart' in ('0', '1', '2', '3', '4', '5', '6')\n\t\t)\n\t",
 			"entityType": "checks"
 		},
 		{
