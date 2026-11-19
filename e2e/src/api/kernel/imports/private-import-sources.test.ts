@@ -13,6 +13,7 @@ import {
 	testPluginPackageId,
 	updatePluginState,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -95,8 +96,8 @@ describe("private import sources", () => {
 			const secondSources = (yield* listSources(second.client)).filter(
 				({ slug }) => slug === sourceSlug,
 			);
-			expect(firstSources).toMatchObject([{ packageId, name: "First archive" }]);
-			expect(secondSources).toMatchObject([{ packageId, name: "Second archive" }]);
+			expect(firstSources).toMatchObject([{ packageId, name: manifestText("First archive") }]);
+			expect(secondSources).toMatchObject([{ packageId, name: manifestText("Second archive") }]);
 
 			const firstRun = yield* first.client.call((c) =>
 				c.imports.createRun({
