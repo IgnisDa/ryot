@@ -3,12 +3,20 @@ import type {
 	AutomationRelationshipRequestPayload,
 	AutomationRelationshipSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
-import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	RelationshipBadRequest,
+	RelationshipNotFound,
+} from "@ryot-app/contract/modules/relationships/schemas";
+import type { EntityId, RelationshipId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
-import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import {
+	applyPolicyChunks,
+	matchPolicyChunks,
+	type PolicyBatchResult,
+	subjectChunks,
+} from "#modules/automations/lifecycle/policies";
 import {
 	type PreparedEntityCreate,
 	preparedEntityCreateData,
@@ -23,38 +31,144 @@ import {
 } from "./mutation-primitives";
 import {
 	activeTransactionGuard,
-	type CreateRelationshipInput,
-	type DeleteRelationshipInput,
+	equal,
 	type Mutation,
 	recordRelationshipImportItem,
 	relationshipIdentity,
 	type RelationshipMutationDependencies,
-	type RelationshipRecordedResult,
 	relationshipSchemaReference,
 	relationshipWriteFailure,
+	type RelationshipWriteResult,
 	rootTransaction,
 	rootTransactionGuard,
 	snapshot,
+	type UserRelationshipInput,
+	type UserRelationshipWrite,
 } from "./mutation-support";
 
-type CommittedRelationship = {
-	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
-	readonly relationship: NonNullable<typeof RelationshipRecordedResult.Type.relationship>;
+export type UserRelationshipMode = "merge" | "upsert" | "update" | "ensure";
+/**
+ * A user relationship write validated before its commit, with the request its policies receive;
+ * persistence revalidates it under locks. A null request writes nothing.
+ */
+export type PreparedUserRelationship = {
+	readonly mutation: Mutation;
+	readonly before: null | AutomationRelationshipSnapshot;
+	readonly request: null | AutomationRelationshipRequestPayload;
 };
-type PreparedData =
-	| { readonly mutation: Mutation; readonly committed: CommittedRelationship }
-	| {
-			readonly mutation: Mutation;
-			readonly request: AutomationRelationshipRequestPayload;
-			readonly before: null | AutomationRelationshipSnapshot;
-	  };
-const preparedUserRelationshipCreate = Symbol("PreparedUserRelationshipCreate");
-const preparedUserRelationshipDelete = Symbol("PreparedUserRelationshipDelete");
-export type PreparedUserRelationshipCreate = {
-	readonly [preparedUserRelationshipCreate]: PreparedData;
+type RequestedRelationship = {
+	readonly mutation: Mutation;
+	readonly token: PreparedUserRelationship;
+	readonly request: AutomationRelationshipRequestPayload;
 };
-export type PreparedUserRelationshipDelete = {
-	readonly [preparedUserRelationshipDelete]: PreparedData;
+
+const prepared = (data: PreparedUserRelationship): PreparedUserRelationship => Object.freeze(data);
+
+/** The endpoints a prepared relationship write references. */
+export const preparedRelationshipEntityIds = ({
+	mutation,
+}: PreparedUserRelationship): ReadonlyArray<EntityId> => [
+	mutation.input.sourceEntityId,
+	mutation.input.targetEntityId,
+];
+
+const concurrentChange = () =>
+	new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } });
+
+const schemaKey = (mutation: Mutation) => {
+	const reference = relationshipSchemaReference(mutation.input);
+	return definitionKey("relationship", reference.owner, reference.slug);
+};
+
+/** Matches the policies of every prepared write with a request, in the caller's transaction. */
+export const matchRelationshipPolicies = (input: {
+	readonly userId: UserId;
+	readonly command: DomainLifecycleCommand;
+	readonly prepared: ReadonlyArray<PreparedUserRelationship>;
+}) => {
+	const requested = input.prepared.flatMap((token): ReadonlyArray<RequestedRelationship> => {
+		const { request, mutation } = token;
+		return request === null ? [] : [{ token, request, mutation }];
+	});
+	return matchPolicyChunks(
+		subjectChunks(requested, (item) => item.mutation.input.sourceEntityId),
+		(items, index) =>
+			Effect.succeed({
+				references: {},
+				userId: input.userId,
+				resource: "relationship" as const,
+				command: {
+					...input.command,
+					itemIdentity: `${input.command.itemIdentity}:relationship-policies:${index}`,
+				},
+				items: items.map(({ request, mutation }) => ({
+					request,
+					schemaKey: schemaKey(mutation),
+					itemIdentity: mutation.command.itemIdentity,
+				})),
+				propertiesSchemas: Object.fromEntries(
+					items.flatMap(({ mutation }) =>
+						mutation.propertiesSchema ? [[schemaKey(mutation), mutation.propertiesSchema]] : [],
+					),
+				),
+			}),
+	);
+};
+
+/** Runs the matched relationship policies, outside any transaction. */
+export const applyRelationshipPolicies = (
+	chunks: Effect.Success<ReturnType<typeof matchRelationshipPolicies>>,
+) =>
+	applyPolicyChunks(chunks).pipe(
+		Effect.catchTag("AutomationPolicyExecutionError", (error) =>
+			Effect.fail(
+				new RelationshipBadRequest({
+					reason: { runId: error.runId, code: "policy-execution-failed" },
+				}),
+			),
+		),
+	);
+
+/**
+ * Each prepared write with its policy decision applied; a rejected or invalid item fails. A write
+ * without a request, or outside the decided chunks, stands as prepared.
+ */
+export const acceptRelationshipPolicies = (
+	chunks: Effect.Success<ReturnType<typeof applyRelationshipPolicies>>,
+) => {
+	const decided = new Map<PreparedUserRelationship, PolicyBatchResult["items"][number]>();
+	for (const chunk of chunks) {
+		for (const [index, item] of chunk.items.entries()) {
+			const decision = chunk.validated.items[index];
+			if (decision) {
+				decided.set(item.token, decision);
+			}
+		}
+	}
+	return Effect.fnUntraced(function* (token: PreparedUserRelationship) {
+		const decision = decided.get(token);
+		if (!decision) {
+			return token;
+		}
+		if (decision.rejected !== null) {
+			return yield* new RelationshipBadRequest({
+				reason: { code: "policy-rejected", message: decision.rejected },
+			});
+		}
+		if (decision.error !== null) {
+			return yield* new RelationshipBadRequest({
+				reason:
+					decision.error.code === "invalid-properties"
+						? { paths: [], code: "invalid-properties" }
+						: { code: "invalid-policy-transform" },
+			});
+		}
+		const { request } = decision;
+		if (request.resource !== "relationship") {
+			return yield* Effect.die("A relationship policy decided another resource");
+		}
+		return prepared({ ...token, request });
+	});
 };
 
 // An endpoint that its caller creates in the same commit does not exist yet, so its schema is taken
@@ -87,21 +201,24 @@ const withCreatedEndpoint = (
 	return { ...reads, users: new Map(reads.users).set(created.userId, scopes) };
 };
 
-// The caller owns the larger commit and seals its resource batches after all prepared items.
+/**
+ * User relationship writes prepared outside the commit. Their caller runs their policies once per
+ * batch, matching them in its prepare transaction, applying them outside it, and accepting each item's
+ * decision before persisting it in its commit transaction, whose resource batches it seals.
+ */
 export const makePreparedRelationshipMutations = (
 	dependencies: RelationshipMutationDependencies,
 ) => {
-	const { keys, writes, session, planner, policies, repository, definitions } = dependencies;
+	const { keys, writes, session, planner, repository, definitions } = dependencies;
 	const primitives = makeRelationshipMutationPrimitives(dependencies);
 	const transaction = rootTransaction(session);
 	const assertRootTransaction = rootTransactionGuard(session);
 	const assertActiveTransaction = activeTransactionGuard(session);
 	const prepareUserMutation = Effect.fnUntraced(function* (
-		submitted: CreateRelationshipInput | DeleteRelationshipInput,
+		submitted: UserRelationshipInput | UserRelationshipWrite,
 		commandInput: DomainLifecycleCommand,
-		mode: "create" | "delete",
+		mode: "delete" | UserRelationshipMode,
 		createdEntity?: PreparedEntityCreate,
-		propertiesMode?: "merge" | "replace",
 	) {
 		yield* assertRootTransaction;
 		const input = relationshipIdentity(submitted);
@@ -116,33 +233,25 @@ export const makePreparedRelationshipMutations = (
 		yield* writes
 			.check(command, relationshipSchemaReference(input).owner, input.userId)
 			.pipe(Effect.mapError(relationshipWriteFailure));
-		let mutationMode: "merge" | "upsert" | "delete";
-		if (mode === "create") {
-			if (propertiesMode === "merge") {
-				mutationMode = "merge";
-			} else {
-				mutationMode = "upsert";
-			}
-		} else {
-			mutationMode = "delete";
-		}
-		let mutation: Mutation = { input, command, mode: mutationMode };
-		if (mode === "create") {
+		let mutation: Mutation = { mode, input, command };
+		if (mode !== "delete") {
 			if (!("properties" in submitted)) {
-				return yield* Effect.die("Prepared relationship create is missing properties");
+				return yield* Effect.die("A prepared relationship write is missing properties");
 			}
 			const reference = relationshipSchemaReference(input);
 			const definition = (yield* definitions.findUserRelationshipSchemas(input.userId, [
 				reference,
 			]))[definitionKey("relationship", reference.owner, reference.slug)];
-			if (
-				!definition ||
-				(!Object.is(input.relationshipSchemaPluginId, undefined) &&
-					!Object.is(input.relationshipSchemaPluginId, definition.pluginId ?? null))
-			) {
-				return yield* new RelationshipBadRequest({
-					reason: { code: "concurrent-relationship-change" },
+			if (!definition) {
+				return yield* new RelationshipNotFound({
+					reason: { schema: reference, code: "relationship-schema-not-found" },
 				});
+			}
+			if (
+				!Object.is(input.relationshipSchemaPluginId, undefined) &&
+				!Object.is(input.relationshipSchemaPluginId, definition.pluginId ?? null)
+			) {
+				return yield* concurrentChange();
 			}
 			mutation = {
 				...mutation,
@@ -152,7 +261,7 @@ export const makePreparedRelationshipMutations = (
 				input: { ...input, relationshipSchemaPluginId: definition.pluginId ?? null },
 			};
 		}
-		const planned = yield* transaction(
+		return yield* transaction(
 			Effect.gen(function* () {
 				const pinOf = yield* primitives.verifyWrites([mutationWriteCheck(mutation)]);
 				yield* primitives.lockMutations([mutation]);
@@ -163,52 +272,50 @@ export const makePreparedRelationshipMutations = (
 				);
 				const row = yield* repository.findRelationship(mutation.input);
 				const before = row ? yield* snapshot(row) : null;
-				const request = yield* primitives
-					.prepareRequest(mutation, before, validated)
-					.pipe(
-						Effect.catchTag("RelationshipNotFound", (error) =>
-							error.reason.code === "relationship-not-found"
-								? Effect.die(error)
-								: Effect.fail(error),
-						),
-					);
-				if (!request) {
-					return null;
-				}
-				const trigger = yield* lifecycleTrigger(command, input.userId, request);
-				return { before, request, trigger, policies: yield* policies.match(trigger) };
+				const request = yield* primitives.prepareRequest(mutation, before, validated);
+				return prepared({ before, request, mutation });
 			}),
 		);
-		if (!planned) {
+	});
+	const prepareUserWrite = Effect.fn("RelationshipsService.prepareUserWrite")(
+		(
+			input: UserRelationshipWrite,
+			command: DomainLifecycleCommand,
+			mode: UserRelationshipMode,
+			createdEntity?: PreparedEntityCreate,
+		) => prepareUserMutation(input, command, mode, createdEntity),
+	);
+	const prepareUserDelete = Effect.fn("RelationshipsService.prepareUserDelete")(
+		(input: UserRelationshipInput, command: DomainLifecycleCommand) =>
+			prepareUserMutation(input, command, "delete"),
+	);
+	/** Prepares deleting the user's relationship by ID; null when the user has no such relationship. */
+	const prepareUserDeleteById = Effect.fn("RelationshipsService.prepareUserDeleteById")(function* (
+		userId: UserId,
+		relationshipId: RelationshipId,
+		command: DomainLifecycleCommand,
+	) {
+		const row = yield* repository.findUserRelationshipById(userId, relationshipId);
+		if (!row) {
 			return null;
 		}
-		const request = yield* primitives.applyPolicies(planned.request, planned, mutation);
-		return { request, mutation, before: planned.before } satisfies PreparedData;
-	});
-	const prepareUserCreate = Effect.fn("RelationshipsService.prepareUserCreate")(function* (
-		input: CreateRelationshipInput,
-		command: DomainLifecycleCommand,
-		createdEntity?: PreparedEntityCreate,
-		propertiesMode: "merge" | "replace" = "replace",
-	) {
-		const value = yield* prepareUserMutation(
-			input,
+		return yield* prepareUserMutation(
+			{
+				userId,
+				scope: "user",
+				sourceEntityId: row.sourceEntityId,
+				targetEntityId: row.targetEntityId,
+				relationshipSchema: {
+					slug: row.relationshipSchemaSlug,
+					owner: definitionOwner(row.relationshipSchemaPluginId),
+				},
+			},
 			command,
-			"create",
-			createdEntity,
-			propertiesMode,
+			"delete",
 		);
-		return value === null ? null : Object.freeze({ [preparedUserRelationshipCreate]: value });
 	});
-	const prepareUserDelete = Effect.fn("RelationshipsService.prepareUserDelete")(function* (
-		input: DeleteRelationshipInput,
-		command: DomainLifecycleCommand,
-	) {
-		const value = yield* prepareUserMutation(input, command, "delete");
-		return value === null ? null : Object.freeze({ [preparedUserRelationshipDelete]: value });
-	});
-	const persistPreparedUserMutation = Effect.fnUntraced(function* (
-		prepared: PreparedData,
+	const persistPrepared = Effect.fn("RelationshipsService.persistPrepared")(function* (
+		token: PreparedUserRelationship,
 		batchInput?: {
 			index: number;
 			command: DomainLifecycleCommand;
@@ -216,11 +323,26 @@ export const makePreparedRelationshipMutations = (
 		},
 	) {
 		yield* assertActiveTransaction;
-		const pinOf = yield* primitives.verifyWrites([mutationWriteCheck(prepared.mutation)]);
-		if ("committed" in prepared) {
-			return { dispatch: prepared.committed.dispatch, result: prepared.committed.relationship };
+		const { before, request, mutation } = token;
+		const pinOf = yield* primitives.verifyWrites([mutationWriteCheck(mutation)]);
+		yield* primitives.lockMutations([mutation]);
+		// An ensure stands when its relationship exists by commit, including one written since it was prepared.
+		if (request === null || mutation.mode === "ensure") {
+			const row = yield* repository.findRelationship(mutation.input);
+			const current = row ? yield* snapshot(row) : null;
+			const ensured = mutation.mode === "ensure" && current !== null;
+			if (request === null || ensured) {
+				if (!ensured && !equal(current, before)) {
+					return yield* concurrentChange();
+				}
+				yield* recordRelationshipImportItem(keys, mutation, "noop");
+				const result: RelationshipWriteResult = {
+					operation: "noop",
+					relationship: row ? { ...row, wasInserted: false } : null,
+				};
+				return { result, dispatch: [] };
+			}
 		}
-		const { mutation } = prepared;
 		const batchScope = {
 			resource: "relationship" as const,
 			command: batchInput?.command ?? mutation.command,
@@ -230,44 +352,27 @@ export const makePreparedRelationshipMutations = (
 			...batchScope,
 			scopes: [mutation.input.scope === "user" ? mutation.input.userId : null],
 		});
-		yield* primitives.lockMutations([mutation]);
 		const validated = yield* primitives.validateMutation(
 			mutation,
 			yield* primitives.readEntities([mutation]),
 			pinOf(mutation),
 		);
-		const request = yield* primitives.revalidateRequest(mutation, prepared.request, validated);
-		const { payload, ...result } = yield* primitives.persistPreparedSource(
+		const revalidated = yield* primitives.revalidateRequest(mutation, request, validated);
+		const { payload, ...persisted } = yield* primitives.persistPreparedSource(
 			mutation,
-			request,
-			prepared.before,
+			revalidated,
+			before,
 			validated,
 		);
 		const { change, dispatch } = yield* primitives.planChange({ payload, mutation });
-		yield* recordRelationshipImportItem(keys, mutation, result.operation);
+		yield* recordRelationshipImportItem(keys, mutation, persisted.operation);
 		yield* planner.recordBatchChange(batch.id, {
 			payload: change,
 			index: batchInput?.index ?? 0,
 			scopeUserId: mutation.input.scope === "user" ? mutation.input.userId : null,
 		});
-		return { dispatch, result: result.relationship };
+		const result: RelationshipWriteResult = persisted;
+		return { result, dispatch };
 	});
-	const persistPreparedUserCreate = Effect.fn("RelationshipsService.persistPreparedUserCreate")(
-		(
-			prepared: PreparedUserRelationshipCreate,
-			batch?: { index: number; command: DomainLifecycleCommand; identity: ReadonlyArray<string> },
-		) => persistPreparedUserMutation(prepared[preparedUserRelationshipCreate], batch),
-	);
-	const persistPreparedUserDelete = Effect.fn("RelationshipsService.persistPreparedUserDelete")(
-		(
-			prepared: PreparedUserRelationshipDelete,
-			batch?: { index: number; command: DomainLifecycleCommand; identity: ReadonlyArray<string> },
-		) => persistPreparedUserMutation(prepared[preparedUserRelationshipDelete], batch),
-	);
-	return {
-		prepareUserCreate,
-		prepareUserDelete,
-		persistPreparedUserCreate,
-		persistPreparedUserDelete,
-	};
+	return { persistPrepared, prepareUserWrite, prepareUserDelete, prepareUserDeleteById };
 };

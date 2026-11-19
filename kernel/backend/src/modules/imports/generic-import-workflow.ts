@@ -62,11 +62,6 @@ import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
-	PendingRelationshipMutations,
-	RelationshipSingleResult,
-} from "#modules/relationships/mutation-pipeline";
-import { RelationshipsService } from "#modules/relationships/service";
-import {
 	sameRevisionPin,
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
@@ -647,35 +642,41 @@ const writeEntityAliases = Effect.fnUntraced(function* (
 });
 
 const writeStandaloneRecord = Effect.fnUntraced(function* (context: GenericImportContext) {
-	const relationships = yield* RelationshipsService;
+	const changeSets = yield* ChangeSets;
 	const { item } = context;
 	const aliases = yield* writeEntityAliases(context, null);
 	for (const [relationshipIndex, intent] of item.relationships.entries()) {
 		const unknown = "Import relationship references an unknown entity alias";
 		const sourceEntityId = yield* aliasedEntity(aliases, intent.sourceAlias, unknown);
 		const targetEntityId = yield* aliasedEntity(aliases, intent.targetAlias, unknown);
-		const input = {
-			scope: "user",
-			sourceEntityId,
-			targetEntityId,
-			userId: context.userId,
-			properties: intent.properties,
-			relationshipSchema: {
-				owner: definitionOwner(context.pluginRevision.id),
-				slug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
-			},
-		} as const;
 		const relationshipCommand = operationCommand(context, intent.operationId);
-		yield* runImportWriteStep({
-			result: RelationshipSingleResult,
-			commit: relationships.commitSingle,
-			pending: PendingRelationshipMutations,
-			applyPolicies: relationships.applyPolicies,
+		yield* makeActivity({
+			error: ImportRunError,
 			name: `generic-import-item-${context.index}-relationship-${relationshipIndex}`,
-			prepare:
-				intent.propertiesMode === "merge"
-					? relationships.prepareMergeUserProperties(input, relationshipCommand)
-					: relationships.prepareCreate(input, relationshipCommand),
+			execute: changeSets
+				.commit(
+					{
+						userId: context.userId,
+						relationships: {
+							upserts: [
+								{
+									properties: intent.properties,
+									itemIdentity: relationshipCommand.itemIdentity,
+									source: { kind: "existing", entityId: sourceEntityId },
+									target: { kind: "existing", entityId: targetEntityId },
+									propertiesMode: intent.propertiesMode === "merge" ? "merge" : "replace",
+									relationshipSchema: {
+										owner: definitionOwner(context.pluginRevision.id),
+										slug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
+									},
+								},
+							],
+						},
+					},
+					relationshipCommand,
+					{ relationships: { verbatimIdentities: true } },
+				)
+				.pipe(Effect.asVoid, Effect.mapError(toWorkflowError)),
 		});
 	}
 	const events: { event: CreateEventItem; intent: GenericImportWriteItem["events"][number] }[] = [];

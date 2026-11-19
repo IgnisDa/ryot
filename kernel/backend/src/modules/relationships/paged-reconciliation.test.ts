@@ -15,9 +15,9 @@ import {
 	baseInput,
 	command,
 	relationshipDatabaseLayer,
-	relationshipsServiceWith,
 	sourceEntityId,
 } from "./lifecycle.test-support";
+import { RelationshipsService } from "./service";
 
 const t1 = EntityId.make("paged-t1");
 const t2 = EntityId.make("paged-t2");
@@ -63,13 +63,13 @@ const setup = (scope: string) =>
 					])
 				: Effect.void;
 		};
-		const service = yield* relationshipsServiceWith({
-			planner: {
+		const service = yield* RelationshipsService.make.pipe(
+			Effect.provideService(LifecyclePlanner, {
 				...planner,
 				plan: (input) => planner.plan(input).pipe(Effect.tap(() => record(input))),
 				planChange: (input) => planner.planChange(input).pipe(Effect.tap(() => record(input))),
-			},
-		});
+			}),
+		);
 		yield* session.run((db) =>
 			db
 				.insert(tables.entity)

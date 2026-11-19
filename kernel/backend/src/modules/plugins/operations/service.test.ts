@@ -451,6 +451,7 @@ const makeLayer = (input: {
 													merged: [],
 													cleared: [],
 													outcomes: [],
+													relationships: [],
 													committed: { events: [] },
 												}),
 											);
@@ -472,6 +473,7 @@ const makeLayer = (input: {
 												merged: [],
 												cleared: [],
 												outcomes: [],
+												relationships: [],
 												committed: {
 													events: (changes.events?.creates ?? []).map((create) => ({
 														itemIdentity: create.itemIdentity,

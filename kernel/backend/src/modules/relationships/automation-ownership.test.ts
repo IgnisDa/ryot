@@ -29,11 +29,13 @@ import {
 	baseInput,
 	command,
 	propertiesSchema,
-	relationshipDatabaseLayer,
+	relationshipChangeSetsLayer,
 	relationshipSchemaSlug,
 	sourceEntityId,
 	targetEntityId,
+	upsertGlobalRelationship,
 	userId,
+	writeRelationship,
 } from "./lifecycle.test-support";
 import type { ReconcileGlobalRelationshipGroup } from "./mutation-support";
 import { RelationshipsService } from "./service";
@@ -186,18 +188,17 @@ const installGlobalHooks = Effect.fn(function* () {
 	};
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(relationshipChangeSetsLayer())((test) => {
 	test.effect(
 		"persists global system automation item and batch writes with user attribution",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
 				const session = yield* DatabaseSession;
 				const input = yield* installGlobalHooks();
 				const { sourceEntityId: ownedSourceEntityId, targetEntityId: ownedTargetEntityId } = input;
 				const singleCommand = { ...automationCommand("system-item"), accountUserId: null };
-				const created = yield* service.create(input, singleCommand);
-				expect(created.relationship).toMatchObject({ wasInserted: true, properties: { rank: 1 } });
+				const created = yield* upsertGlobalRelationship(input, singleCommand);
+				expect(created).toMatchObject({ userId: null, properties: { rank: 1 } });
 				const group = {
 					relationshipSchema: input.relationshipSchema,
 					selector: {
@@ -242,12 +243,11 @@ layer(relationshipDatabaseLayer())((test) => {
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(relationshipChangeSetsLayer())((test) => {
 	test.effect(
 		"owns global automation items and batches by the executor and rejects missing or retired user tokens",
 		() =>
 			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
 				const session = yield* DatabaseSession;
 				const executing = { ...automationCommand("user-batch"), accountUserId: userId };
 				const group = {
@@ -263,7 +263,10 @@ layer(relationshipDatabaseLayer())((test) => {
 					{ created: 1, updated: 0, deleted: 0, upserted: 1 },
 				]);
 				const missing = yield* Effect.flip(
-					service.create(baseInput, { ...automationCommand("missing-user"), accountUserId: null }),
+					writeRelationship("upsert", baseInput, {
+						...automationCommand("missing-user"),
+						accountUserId: null,
+					}),
 				);
 				expect(missing).toMatchObject({ message: "Mutation command account is missing" });
 				yield* session.run((db) =>
@@ -274,7 +277,10 @@ layer(relationshipDatabaseLayer())((test) => {
 				);
 				expect(retired).toMatchObject({ message: "Mutation command account is being retired" });
 				const missingRoot = yield* Effect.flip(
-					service.create(globalInput, { ...command("missing-root"), accountUserId: null }),
+					upsertGlobalRelationship(globalInput, {
+						...command("missing-root"),
+						accountUserId: null,
+					}),
 				);
 				expect(missingRoot).toMatchObject({ message: "Mutation command account is missing" });
 				expect(yield* session.run((db) => db.select().from(tables.relationship))).toHaveLength(1);

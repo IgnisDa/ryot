@@ -1,4 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import type { DbError } from "@ryot-app/contract/errors";
 import {
 	decodeCollectionFields,
 	type KeyedCollectionField,
@@ -18,7 +19,6 @@ import type { RelationshipBadRequest } from "@ryot-app/contract/modules/relation
 import {
 	EntityId,
 	EventSchemaSlug,
-	type RelationshipId,
 	RelationshipSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -27,13 +27,11 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer, Schema, Struct } from "effect";
 
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type {
 	LifecycleCommittedStep,
 	LifecyclePreparedStep,
 } from "#modules/automations/lifecycle/write-step";
-import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
-import { eventCreateChanges } from "#modules/changes/changes";
+import { type Changes, eventCreateChanges } from "#modules/changes/changes";
 import { toCreateEventsResponse } from "#modules/changes/outcomes";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
@@ -43,11 +41,7 @@ import {
 	type DomainLifecycleCommand,
 	kernelCollectionLifecycleCommand,
 } from "#modules/entities/write-context";
-import {
-	PendingRelationshipMutations,
-	RelationshipSingleResult,
-} from "#modules/relationships/mutation-pipeline";
-import { RelationshipsService } from "#modules/relationships/service";
+import { RelationshipWriteResult } from "#modules/relationships/mutation-support";
 import { trimToNull } from "#platform/validation";
 
 import { collectionMembershipSchema, prepareCollectionFields } from "./fields";
@@ -60,25 +54,18 @@ export const CollectionMembershipResult = Schema.Struct({
 	entitySchemaSlug: Schema.String,
 	memberOf: MembershipResponse.fields.memberOf,
 	eventSchemaSlug: Schema.NullOr(EventSchemaSlug),
-	operation: RelationshipSingleResult.fields.operation,
+	operation: RelationshipWriteResult.fields.operation,
 });
 export type CollectionMembershipResult = typeof CollectionMembershipResult.Type;
 
-const PendingMembershipDetails = Schema.Struct({
-	...Struct.omit(CollectionMembershipResult.fields, ["memberOf", "operation"]),
-	collectionId: EntityId,
-	change: Schema.Literals(["add", "remove"]),
-});
-
-const PendingCollectionMembership = Schema.Struct({
-	membership: PendingMembershipDetails,
-	mutations: PendingRelationshipMutations,
-});
-type PendingCollectionMembership = typeof PendingCollectionMembership.Type;
+type MembershipDetails = Omit<CollectionMembershipResult, "memberOf" | "operation"> & {
+	readonly collectionId: EntityId;
+	readonly change: "add" | "remove";
+};
 
 export const CollectionMembershipWritten = Schema.Struct({
 	...MembershipResponse.fields,
-	operation: RelationshipSingleResult.fields.operation,
+	operation: RelationshipWriteResult.fields.operation,
 });
 
 type MembershipInput = {
@@ -169,9 +156,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 		make: Effect.gen(function* () {
 			const entities = yield* EntitiesService;
 			const changes = yield* ChangeSets;
-			const execution = yield* LifecycleExecution;
 			const repository = yield* CollectionsRepository;
-			const relationships = yield* RelationshipsService;
 			const relationshipSchemasRepository = yield* RelationshipSchemaReader;
 			const memberOfSchema = yield* Effect.cached(
 				relationshipSchemasRepository
@@ -386,12 +371,34 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					);
 			});
 
+			/** Commits the membership's relationship change under the membership command's own identity. */
+			const commitRelationship = Effect.fnUntraced(function* <E>(
+				target: MembershipTarget,
+				relationships: NonNullable<Changes["relationships"]>,
+				rejected: (error: RelationshipBadRequest) => E,
+			) {
+				const committed = yield* changes
+					.commit({ relationships, userId: target.userId }, target.command, {
+						relationships: { verbatimIdentities: true },
+					})
+					.pipe(
+						Effect.catch((error): Effect.Effect<never, E | DbError> => {
+							if (error._tag === "RelationshipBadRequest") {
+								return Effect.fail(rejected(error));
+							}
+							return error._tag === "DbError" ? Effect.fail(error) : Effect.die(error);
+						}),
+					);
+				const [result] = committed.relationships;
+				return result ?? (yield* Effect.die("A membership commit returned no relationship"));
+			});
+
 			const committedMembership = Effect.fnUntraced(function* (
-				pending: PendingCollectionMembership["membership"],
-				committed: LifecycleCommittedStep<RelationshipSingleResult>,
+				pending: MembershipDetails,
+				committed: RelationshipWriteResult,
 			) {
 				const { change, collectionId, ...membership } = pending;
-				if (!committed.result.relationship) {
+				if (!committed.relationship) {
 					return yield* change === "add"
 						? Effect.die("membership upsert returned no relationship")
 						: new CollectionNotFound({
@@ -402,48 +409,14 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 								},
 							});
 				}
-				const { wasInserted, ...memberOf } = committed.result.relationship;
-				const emitsEvent = change === "add" ? wasInserted : committed.result.operation === "delete";
+				const { wasInserted, ...memberOf } = committed.relationship;
+				const emitsEvent = change === "add" ? wasInserted : committed.operation === "delete";
 				return {
-					...committed,
-					result: {
-						...membership,
-						operation: committed.result.operation,
-						memberOf: { ...memberOf, relationshipSchemaPluginId: null },
-						eventSchemaSlug: emitsEvent ? membership.eventSchemaSlug : null,
-					},
-				} satisfies LifecycleCommittedStep<CollectionMembershipResult>;
-			});
-
-			const applyMembershipPolicies = (pending: PendingCollectionMembership) =>
-				relationships.applyPolicies(pending.mutations).pipe(
-					Effect.map((mutations) => ({ ...pending, mutations })),
-					Effect.catchTag("RelationshipBadRequest", invalidMembership),
-				);
-
-			const commitMembership = (pending: PendingCollectionMembership) =>
-				relationships.commitSingle(pending.mutations).pipe(
-					Effect.catchTags({
-						RelationshipBadRequest: invalidMembership,
-						RelationshipNotFound: (error) => Effect.die(error),
-					}),
-					Effect.flatMap((committed) => committedMembership(pending.membership, committed)),
-				);
-
-			const membershipStep = Effect.fnUntraced(function* (
-				membership: PendingCollectionMembership["membership"],
-				prepared: LifecyclePreparedStep<RelationshipSingleResult, PendingRelationshipMutations>,
-			) {
-				if (prepared._tag === "PoliciesRequired") {
-					return {
-						_tag: "PoliciesRequired",
-						pending: { membership, mutations: prepared.pending },
-					} satisfies LifecyclePreparedStep<
-						CollectionMembershipResult,
-						PendingCollectionMembership
-					>;
-				}
-				return yield* committedMembership(membership, prepared);
+					...membership,
+					operation: committed.operation,
+					memberOf: { ...memberOf, relationshipSchemaPluginId: null },
+					eventSchemaSlug: emitsEvent ? membership.eventSchemaSlug : null,
+				} satisfies CollectionMembershipResult;
 			});
 
 			const resolveMembershipTarget = Effect.fnUntraced(function* (input: MembershipTarget) {
@@ -460,7 +433,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				return { entity, collection };
 			});
 
-			const prepareMembership = Effect.fn("CollectionsService.prepareMembership")(function* (
+			const addMembership = Effect.fn("CollectionsService.addMembership")(function* (
 				input: MembershipTarget & { properties?: unknown; mode?: CreateMembershipBody["mode"] },
 			) {
 				if (input.collectionId === input.entityId) {
@@ -489,26 +462,21 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				const storedRank = existing?.properties["rank"];
 				const rank = typeof storedRank === "number" ? storedRank : 0;
 				const addEvent = yield* addEventSchema;
-				const prepared = yield* relationships
-					.prepareCreate(
-						{
-							scope: "user",
-							userId: input.userId,
-							sourceEntityId: input.entityId,
-							targetEntityId: input.collectionId,
-							properties: { ...validated, rank },
-							ifAbsent: input.mode === "add-if-absent",
-							relationshipSchema: yield* memberOfReference,
-						},
-						input.command,
-					)
-					.pipe(
-						Effect.catchTags({
-							RelationshipBadRequest: invalidMembership,
-							RelationshipNotFound: (error) => Effect.die(error),
-						}),
-					);
-				return yield* membershipStep(
+				const relationship = {
+					properties: { ...validated, rank },
+					itemIdentity: input.command.itemIdentity,
+					relationshipSchema: yield* memberOfReference,
+					source: { entityId: input.entityId, kind: "existing" as const },
+					target: { kind: "existing" as const, entityId: input.collectionId },
+				};
+				const committed = yield* commitRelationship(
+					input,
+					input.mode === "add-if-absent"
+						? { ensures: [relationship] }
+						: { upserts: [{ ...relationship, propertiesMode: "replace" }] },
+					invalidMembership,
+				);
+				return yield* committedMembership(
 					{
 						change: "add",
 						entityId: entity.id,
@@ -517,11 +485,11 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						eventSchemaSlug: addEvent?.id ?? null,
 						entitySchemaSlug: entity.entitySchemaSlug,
 					},
-					prepared,
+					committed,
 				);
 			});
 
-			const prepareRemoval = Effect.fn("CollectionsService.prepareRemoval")(function* (
+			const removeMembership = Effect.fn("CollectionsService.removeMembership")(function* (
 				input: MembershipTarget,
 			) {
 				const { entity } = yield* resolveMembershipTarget(input);
@@ -537,18 +505,19 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					return yield* membershipNotFound;
 				}
 				const removeEvent = yield* removeEventSchema;
-				const prepared = yield* relationships
-					.prepareDeleteUserRelationshipById(input.userId, existing.id, input.command)
-					.pipe(
-						Effect.catchTags({
-							RelationshipBadRequest: invalidMembership,
-							RelationshipNotFound: (error) => Effect.die(error),
-						}),
-					);
-				if (prepared._tag === "Committed" && !prepared.result.relationship) {
+				const committed = yield* commitRelationship(
+					input,
+					{
+						deletesById: [
+							{ relationshipId: existing.id, itemIdentity: input.command.itemIdentity },
+						],
+					},
+					invalidMembership,
+				);
+				if (!committed.relationship) {
 					return yield* membershipNotFound;
 				}
-				return yield* membershipStep(
+				return yield* committedMembership(
 					{
 						change: "remove",
 						entityId: entity.id,
@@ -557,7 +526,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						eventSchemaSlug: removeEvent?.id ?? null,
 						entitySchemaSlug: entity.entitySchemaSlug,
 					},
-					prepared,
+					committed,
 				);
 			});
 
@@ -571,14 +540,10 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					entityId: input.entityId,
 					collectionId: input.collectionId,
 				};
-				const result = yield* runLifecycleWriteInline(execution, {
-					commit: commitMembership,
-					applyPolicies: applyMembershipPolicies,
-					prepare:
-						input.operation === "add"
-							? prepareMembership({ ...target, mode: input.mode, properties: input.properties })
-							: prepareRemoval(target),
-				});
+				const result =
+					input.operation === "add"
+						? yield* addMembership({ ...target, mode: input.mode, properties: input.properties })
+						: yield* removeMembership(target);
 				if (!result.eventSchemaSlug) {
 					return { memberOf: result.memberOf, operation: result.operation };
 				}
@@ -614,18 +579,24 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					command,
 					`compensation:${relationshipId}`,
 				);
-				yield* runLifecycleWriteInline(execution, {
-					commit: commitCompensation,
-					applyPolicies: applyCompensationPolicies,
-					prepare:
-						input.operation === "add"
-							? prepareCompensation(input.userId, relationshipId, childCommand)
-							: prepareRestoration({
-									...target,
-									command: childCommand,
-									properties: result.memberOf.properties,
-								}),
-				});
+				yield* commitRelationship(
+					{ ...target, command: childCommand },
+					input.operation === "add"
+						? { deletesById: [{ relationshipId, itemIdentity: childCommand.itemIdentity }] }
+						: {
+								upserts: [
+									{
+										propertiesMode: "replace",
+										properties: result.memberOf.properties,
+										itemIdentity: childCommand.itemIdentity,
+										relationshipSchema: yield* memberOfReference,
+										source: { kind: "existing", entityId: input.entityId },
+										target: { kind: "existing", entityId: input.collectionId },
+									},
+								],
+							},
+					compensationFailed,
+				);
 				yield* Effect.logWarning("collection membership event failed", { failure });
 				return yield* new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
 			});
@@ -660,58 +631,6 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				});
 				return { memberOf };
 			});
-
-			const prepareCompensation = (
-				userId: UserId,
-				relationshipId: RelationshipId,
-				command: DomainLifecycleCommand,
-			) =>
-				relationships
-					.prepareDeleteUserRelationshipById(userId, relationshipId, command)
-					.pipe(
-						Effect.catchTags({
-							RelationshipNotFound: Effect.die,
-							RelationshipBadRequest: compensationFailed,
-						}),
-					);
-
-			const prepareRestoration = Effect.fn("CollectionsService.prepareRestoration")(function* (
-				input: MembershipTarget & { properties: unknown },
-			) {
-				return yield* relationships
-					.prepareCreate(
-						{
-							scope: "user",
-							userId: input.userId,
-							properties: input.properties,
-							sourceEntityId: input.entityId,
-							targetEntityId: input.collectionId,
-							relationshipSchema: yield* memberOfReference,
-						},
-						input.command,
-					)
-					.pipe(
-						Effect.catchTags({
-							RelationshipNotFound: Effect.die,
-							RelationshipBadRequest: compensationFailed,
-						}),
-					);
-			});
-
-			const applyCompensationPolicies = (pending: PendingRelationshipMutations) =>
-				relationships
-					.applyPolicies(pending)
-					.pipe(Effect.catchTag("RelationshipBadRequest", compensationFailed));
-
-			const commitCompensation = (pending: PendingRelationshipMutations) =>
-				relationships
-					.commitSingle(pending)
-					.pipe(
-						Effect.catchTags({
-							RelationshipNotFound: Effect.die,
-							RelationshipBadRequest: compensationFailed,
-						}),
-					);
 
 			return {
 				create,

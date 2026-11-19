@@ -34,6 +34,7 @@ import {
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
 import {
+	applyPolicyChunks,
 	LifecyclePolicies,
 	LifecyclePolicy,
 	runItemPolicy,
@@ -48,7 +49,6 @@ import { definitionText } from "#modules/definitions/text";
 import { EntityUserDataAttachments } from "#modules/entities/user-data/attachments";
 import {
 	acceptedEventBatches,
-	applyEventPolicies,
 	type EventMutation,
 	EventMutations,
 	matchEventPolicies,
@@ -1415,7 +1415,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 									}),
 								);
 				const validated = yield* Effect.forEach(planned, ({ chunks, cascade, changes }) =>
-					applyEventPolicies(chunks).pipe(
+					applyPolicyChunks(chunks).pipe(
 						Effect.flatMap((applied) =>
 							acceptedEventBatches({
 								chunks: applied,

@@ -48,8 +48,11 @@ import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { relationshipDatabaseLayer } from "#modules/relationships/lifecycle.test-support";
-import { RelationshipsService } from "#modules/relationships/service";
+import {
+	relationshipChangeSetsLayer,
+	upsertGlobalRelationship,
+	writeRelationship,
+} from "#modules/relationships/lifecycle.test-support";
 import { principalOwner, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -255,7 +258,7 @@ const changeUserEvents = (
 	changes: ReadonlyArray<EventChange>,
 ) => withEventChangeSets(commitEventChanges(userId, command, changes));
 
-layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer())))((test) => {
+layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLayer())))((test) => {
 	test.effect(
 		"rejects foreign same-name domain writes and unrestricted relationship endpoints",
 		() =>
@@ -263,7 +266,6 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				const a = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const b = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const entities = yield* EntitiesService;
-				const relationships = yield* RelationshipsService;
 				const admitted = yield* admittedCommand(a, firstUser, "foreign-writes");
 				const ownSchema = { slug: bottle, owner: definitionOwner(a.pluginId) };
 				const foreignSchema = { slug: bottle, owner: definitionOwner(b.pluginId) };
@@ -331,9 +333,9 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				).toMatchObject({ reason: { code: "owner-mismatch" } });
 				expect(
 					yield* Effect.flip(
-						relationships.create(
+						writeRelationship(
+							"upsert",
 							{
-								scope: "user",
 								properties: {},
 								userId: firstUser,
 								sourceEntityId: own.entity.id,
@@ -365,7 +367,6 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					"private-globals",
 				);
 				const entities = yield* EntitiesService;
-				const relationships = yield* RelationshipsService;
 				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
 				expect(
 					yield* Effect.flip(
@@ -411,10 +412,9 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				});
 				expect(
 					yield* Effect.flip(
-						relationships.create(
+						upsertGlobalRelationship(
 							{
 								properties: {},
-								scope: "global",
 								sourceEntityId: own.entity.id,
 								targetEntityId: own.entity.id,
 								relationshipSchema: {
@@ -537,7 +537,6 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const { command } = yield* admittedCommand(installed, firstUser, "collections");
 				const entities = yield* EntitiesService;
-				const relationships = yield* RelationshipsService;
 				const collectionSchema = {
 					owner: { kind: "kernel" as const },
 					slug: EntitySchemaSlug.make("collection"),
@@ -570,9 +569,9 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					entitySchema: collectionSchema,
 					lifecycle: kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
 				});
-				const link = yield* relationships.create(
+				const link = yield* writeRelationship(
+					"upsert",
 					{
-						scope: "user",
 						properties: {},
 						userId: firstUser,
 						sourceEntityId: item.entity.id,
@@ -636,7 +635,6 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const { command } = yield* admittedCommand(installed, firstUser, "merge-plugin");
 				const entities = yield* EntitiesService;
-				const relationships = yield* RelationshipsService;
 				const session = yield* DatabaseSession;
 				const schema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
 				const collectionSchema = {
@@ -662,9 +660,9 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					entitySchema: collectionSchema,
 					lifecycle: kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
 				})).entity;
-				const link = yield* relationships.create(
+				const link = yield* writeRelationship(
+					"upsert",
 					{
-						scope: "user",
 						properties: {},
 						userId: firstUser,
 						sourceEntityId: from.id,
@@ -1349,7 +1347,6 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 					firstUser,
 				);
 				const entities = yield* EntitiesService;
-				const relationships = yield* RelationshipsService;
 				const owner = definitionOwner(installed.pluginId);
 				const create = (slug: string, itemIdentity: string) =>
 					Effect.flip(
@@ -1387,9 +1384,9 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 				});
 				expect(
 					yield* Effect.flip(
-						relationships.create(
+						writeRelationship(
+							"upsert",
 							{
-								scope: "user",
 								properties: {},
 								userId: firstUser,
 								sourceEntityId: own.entity.id,
@@ -1732,7 +1729,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(relationshipChangeSetsLayer())((test) => {
 	test.effect(
 		"checks every batch write authority key and reads provider rows only in the writer's scope",
 		() =>
@@ -1867,7 +1864,7 @@ layer(relationshipDatabaseLayer())((test) => {
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(relationshipChangeSetsLayer())((test) => {
 	test.effect(
 		"scopes batch event updates and deletes to the writer's plugin and user",
 		() =>

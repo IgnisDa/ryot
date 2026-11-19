@@ -8,6 +8,7 @@ import type { EventCreateItemOutcome } from "@ryot-app/contract/modules/events/s
 import { Effect, type Schema } from "effect";
 
 import type { IdempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
+import type { RelationshipWriteResult } from "#modules/relationships/mutation-support";
 
 /**
  * Durable state that records a commit's result in its transaction. `load` runs first and returns the
@@ -20,14 +21,18 @@ export type CommitReceipt<A> = {
 };
 
 /**
- * What a commit wrote; `outcomes` lists every event create by position in independent-items mode, and
- * `cleared` and `merged` each entity data clear and merge in order.
+ * What a commit wrote; `outcomes` lists every event create by position in independent-items mode,
+ * `cleared` and `merged` each entity data clear and merge in order, and `relationships` each user
+ * relationship change under its item identity.
  */
 export type CommitResult = {
 	readonly committed: CommittedChanges;
 	readonly outcomes: ReadonlyArray<EventCreateItemOutcome>;
 	readonly merged: ReadonlyArray<MergeEntityUserDataResponse>;
 	readonly cleared: ReadonlyArray<ClearEntityUserDataResponse>;
+	readonly relationships: ReadonlyArray<
+		RelationshipWriteResult & { readonly itemIdentity: string }
+	>;
 };
 
 /** A receipt held by the account's idempotency key. */

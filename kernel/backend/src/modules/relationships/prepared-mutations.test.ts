@@ -2,7 +2,6 @@ import { describe, expect } from "bun:test";
 
 import type { AutomationPolicyOutput } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
-	definitionKey,
 	definitionOwner,
 	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
@@ -19,12 +18,10 @@ import { Effect } from "effect";
 
 import { decidingPolicies } from "#modules/automations/lifecycle.test-support";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
-import { DefinitionRepository } from "#modules/definitions/repository";
 import {
 	countStatementClasses,
 	StatementLog,
 } from "#modules/entities/statement-recording.test-support";
-import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -34,18 +31,18 @@ import * as tables from "#schema/tables/combined";
 
 import {
 	baseInput,
+	changeSetsWith,
 	command,
 	installPolicyFixture,
 	ownedEndpoints,
+	persistPrepared,
 	propertiesSchema,
-	relationshipDatabaseLayer,
+	relationshipChangeSetsLayer,
 	RelationshipFixture,
-	relationshipsServiceWith,
 	sourceEntityId,
 	userId,
+	writeRelationship,
 } from "./lifecycle.test-support";
-import { RelationshipMutationPipeline } from "./mutation-pipeline";
-import { itemCommand, type Mutation } from "./mutation-support";
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
 
@@ -96,38 +93,6 @@ const deleteEntity = (session: DatabaseSession["Service"], entityId: EntityId) =
 		.run((db) => db.delete(tables.entity).where(eq(tables.entity.id, entityId)))
 		.pipe(Effect.orDie);
 
-const userMutations = Effect.fnUntraced(function* (
-	base: RelationshipBase,
-	targets: ReadonlyArray<EntityId>,
-	id: string,
-	properties: Record<string, unknown> = { rank: 1 },
-) {
-	const definitions = yield* DefinitionRepository;
-	const reference = base.relationshipSchema;
-	const definition = (yield* definitions.findUserRelationshipSchemas(userId, [reference]))[
-		definitionKey("relationship", reference.owner, reference.slug)
-	];
-	assert(definition);
-	return targets.map((targetEntityId): Mutation => {
-		const input = {
-			userId,
-			targetEntityId,
-			scope: "user" as const,
-			sourceEntityId: base.sourceEntityId,
-			relationshipSchemaSlug: reference.slug,
-			relationshipSchemaPluginId: definition.pluginId ?? null,
-		};
-		return {
-			input,
-			properties,
-			mode: "upsert",
-			propertiesSchema: definition.propertiesSchema,
-			command: itemCommand(command(id), input, "test"),
-			schemaFingerprint: catalogDefinitionFingerprint(definition),
-		};
-	});
-});
-
 const reconciliationGroup = (
 	base: RelationshipBase,
 	targets: ReadonlyArray<EntityId>,
@@ -152,11 +117,6 @@ const policyLifecycle = Effect.fnUntraced(function* (
 	return { policies: decidingPolicies((yield* LifecyclePolicies).match, () => policy) };
 });
 
-const pipelineWith = (lifecycle: Effect.Success<ReturnType<typeof policyLifecycle>>) =>
-	RelationshipMutationPipeline.make.pipe(
-		Effect.provideService(LifecyclePolicies, lifecycle.policies),
-	);
-
 const lastTransactionChecks = Effect.gen(function* () {
 	const log = yield* StatementLog;
 	return countStatementClasses(yield* log.lastTransaction).check;
@@ -171,33 +131,28 @@ const concurrentChange = new RelationshipBadRequest({
 	reason: { code: "concurrent-relationship-change" },
 });
 
-describe("Relationship set-based mutation pipeline", () => {
-	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
+describe("Prepared relationship mutations", () => {
+	layer(relationshipChangeSetsLayer())("relationship mutation harness", (test) => {
 		test.effect(
 			"keeps a concurrent ensure from overwriting existing relationship metadata",
 			() =>
 				Effect.gen(function* () {
 					const repository = yield* RelationshipsRepository;
 					const policyInput = yield* installPolicyFixture();
-					const pipeline = yield* pipelineWith(yield* policyLifecycle());
-					const [mutation] = yield* userMutations(
-						policyInput,
-						[policyInput.targetEntityId],
-						"ensure-race",
-						{ rank: 2 },
-					);
-					assert(mutation);
-					const prepared = yield* pipeline.prepareSingle({ ...mutation, mode: "ensure" });
-					assert(prepared._tag === "PoliciesRequired");
-
 					const existingProperties = { rank: 9, labels: ["saved"] };
-					yield* repository.createRelationship({
-						...mutation.input,
-						properties: existingProperties,
-					});
-					const pending = yield* pipeline.applyPolicies(prepared.pending);
-					const committed = yield* pipeline.commitSingle(pending);
-					expect(committed.result).toMatchObject({
+					const committed = yield* writeRelationship(
+						"ensure",
+						{ ...policyInput, properties: { rank: 2 } },
+						command("ensure-race"),
+						yield* changeSetsWith(
+							yield* policyLifecycle(
+								repository
+									.createRelationship({ ...policyInput, properties: existingProperties })
+									.pipe(Effect.as({ action: "allow" as const }), Effect.orDie),
+							),
+						),
+					);
+					expect(committed).toMatchObject({
 						operation: "noop",
 						relationship: { properties: existingProperties },
 					});
@@ -206,7 +161,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
+	layer(relationshipChangeSetsLayer())("relationship mutation harness", (test) => {
 		test.effect(
 			"keeps write-check statements constant in every relationship writing transaction",
 			() =>
@@ -235,7 +190,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
+	layer(relationshipChangeSetsLayer())("relationship mutation harness", (test) => {
 		test.effect(
 			"rejects an entity deleted between plan and commit on every path",
 			() =>
@@ -243,7 +198,6 @@ describe("Relationship set-based mutation pipeline", () => {
 					const session = yield* DatabaseSession;
 					const service = yield* RelationshipsService;
 					const repository = yield* RelationshipsRepository;
-					const pipeline = yield* RelationshipMutationPipeline;
 					const policyInput = yield* installPolicyFixture();
 					const [ordinary, reconciled, preparedCreate, preparedDelete] = yield* insertEntities([
 						"deleted-ordinary",
@@ -258,26 +212,26 @@ describe("Relationship set-based mutation pipeline", () => {
 					);
 					assert(ordinary && policy && reconciled && preparedCreate && preparedDelete);
 
-					const [mutation] = yield* userMutations(baseInput, [ordinary], "deleted-ordinary");
-					assert(mutation);
 					yield* deleteEntity(session, ordinary);
-					expect(yield* pipeline.prepareSingle(mutation).pipe(Effect.flip)).toEqual(
-						entityNotFound(ordinary),
-					);
-
-					const policyService = yield* relationshipsServiceWith(
-						yield* policyLifecycle(
-							deleteEntity(session, policy).pipe(Effect.as({ action: "allow" as const })),
-						),
-					);
 					expect(
-						yield* policyService
-							.createUser(
-								userId,
-								{ ...policyInput, targetEntityId: policy },
-								command("deleted-policy"),
-							)
-							.pipe(Effect.flip),
+						yield* writeRelationship(
+							"upsert",
+							{ ...baseInput, targetEntityId: ordinary },
+							command("deleted-ordinary"),
+						).pipe(Effect.flip),
+					).toEqual(entityNotFound(ordinary));
+
+					expect(
+						yield* writeRelationship(
+							"upsert",
+							{ ...policyInput, targetEntityId: policy },
+							command("deleted-policy"),
+							yield* changeSetsWith(
+								yield* policyLifecycle(
+									deleteEntity(session, policy).pipe(Effect.as({ action: "allow" as const })),
+								),
+							),
+						).pipe(Effect.flip),
 					).toEqual(entityNotFound(policy, policyInput.sourceEntityId));
 
 					yield* deleteEntity(session, reconciled);
@@ -293,58 +247,55 @@ describe("Relationship set-based mutation pipeline", () => {
 							.pipe(Effect.flip),
 					).toEqual(entityNotFound(reconciled));
 
-					const creation = yield* service.prepareUserCreate(
+					const creation = yield* service.prepareUserWrite(
 						{ ...baseInput, targetEntityId: preparedCreate },
 						command("deleted-prepared-create"),
+						"upsert",
 					);
-					assert(creation);
 					yield* deleteEntity(session, preparedCreate);
-					expect(
-						yield* session
-							.transaction(service.persistPreparedUserCreate(creation))
-							.pipe(Effect.flip),
-					).toEqual(entityNotFound(preparedCreate));
+					expect(yield* persistPrepared(creation).pipe(Effect.flip)).toEqual(
+						entityNotFound(preparedCreate),
+					);
 
 					yield* repository.createRelationship({ ...baseInput, targetEntityId: preparedDelete });
 					const deletion = yield* service.prepareUserDelete(
 						{ ...baseInput, targetEntityId: preparedDelete },
 						command("deleted-prepared-delete"),
 					);
-					assert(deletion);
 					yield* deleteEntity(session, preparedDelete);
-					expect(
-						yield* session
-							.transaction(service.persistPreparedUserDelete(deletion))
-							.pipe(Effect.flip),
-					).toEqual(entityNotFound(preparedDelete));
+					expect(yield* persistPrepared(deletion).pipe(Effect.flip)).toEqual(
+						entityNotFound(preparedDelete),
+					);
 					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
 				}),
 			testTimeout,
 		);
 	});
 
-	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
+	layer(relationshipChangeSetsLayer())("relationship mutation harness", (test) => {
 		test.effect(
 			"rejects another user's private entity on every path",
 			() =>
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const service = yield* RelationshipsService;
-					const pipeline = yield* RelationshipMutationPipeline;
 					const policyInput = yield* installPolicyFixture();
-					const policyPipeline = yield* pipelineWith(yield* policyLifecycle());
 					const foreign = yield* insertForeignEntity;
 					const foreignInput = { ...baseInput, targetEntityId: foreign };
-					const [ordinaryMutation] = yield* userMutations(baseInput, [foreign], "foreign-ordinary");
-					const [policyMutation] = yield* userMutations(policyInput, [foreign], "foreign-policy");
-					assert(ordinaryMutation && policyMutation);
 
-					expect(yield* pipeline.prepareSingle(ordinaryMutation).pipe(Effect.flip)).toEqual(
-						entityNotFound(foreign),
-					);
-					expect(yield* policyPipeline.prepareSingle(policyMutation).pipe(Effect.flip)).toEqual(
-						entityNotFound(foreign, policyInput.sourceEntityId),
-					);
+					expect(
+						yield* writeRelationship("upsert", foreignInput, command("foreign-ordinary")).pipe(
+							Effect.flip,
+						),
+					).toEqual(entityNotFound(foreign));
+					expect(
+						yield* writeRelationship(
+							"upsert",
+							{ ...policyInput, targetEntityId: foreign },
+							command("foreign-policy"),
+							yield* changeSetsWith(yield* policyLifecycle()),
+						).pipe(Effect.flip),
+					).toEqual(entityNotFound(foreign, policyInput.sourceEntityId));
 					expect(
 						yield* session
 							.transaction(
@@ -358,7 +309,7 @@ describe("Relationship set-based mutation pipeline", () => {
 					).toEqual(entityNotFound(foreign));
 					expect(
 						yield* service
-							.prepareUserCreate(foreignInput, command("foreign-create"))
+							.prepareUserWrite(foreignInput, command("foreign-create"), "upsert")
 							.pipe(Effect.flip),
 					).toEqual(entityNotFound(foreign));
 					expect(
@@ -372,7 +323,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
+	layer(relationshipChangeSetsLayer())("relationship mutation harness", (test) => {
 		test.effect(
 			"keeps a missing relationship schema typed in prepared mutations",
 			() =>
@@ -385,22 +336,23 @@ describe("Relationship set-based mutation pipeline", () => {
 							slug: RelationshipSchemaSlug.make("missing-link"),
 						},
 					};
+					const notFound = new RelationshipNotFound({
+						reason: { schema: missing.relationshipSchema, code: "relationship-schema-not-found" },
+					});
 					expect(
 						yield* service.prepareUserDelete(missing, command("missing-delete")).pipe(Effect.flip),
-					).toEqual(
-						new RelationshipNotFound({
-							reason: { schema: missing.relationshipSchema, code: "relationship-schema-not-found" },
-						}),
-					);
+					).toEqual(notFound);
 					expect(
-						yield* service.prepareUserCreate(missing, command("missing-create")).pipe(Effect.flip),
-					).toEqual(concurrentChange);
+						yield* service
+							.prepareUserWrite(missing, command("missing-create"), "upsert")
+							.pipe(Effect.flip),
+					).toEqual(notFound);
 				}),
 			testTimeout,
 		);
 	});
 
-	layer(relationshipDatabaseLayer({ mutableRelationshipSchema: true }))(
+	layer(relationshipChangeSetsLayer({ mutableRelationshipSchema: true }))(
 		"relationship pipeline harness",
 		(test) => {
 			test.effect(
@@ -410,14 +362,13 @@ describe("Relationship set-based mutation pipeline", () => {
 						const catalog = yield* RelationshipFixture;
 						const session = yield* DatabaseSession;
 						const service = yield* RelationshipsService;
-						const prepared = yield* service.prepareUserCreate(baseInput, command("schema-change"));
-						assert(prepared);
+						const prepared = yield* service.prepareUserWrite(
+							baseInput,
+							command("schema-change"),
+							"upsert",
+						);
 						yield* catalog.updateRelationshipSchema;
-						expect(
-							yield* session
-								.transaction(service.persistPreparedUserCreate(prepared))
-								.pipe(Effect.flip),
-						).toEqual(concurrentChange);
+						expect(yield* persistPrepared(prepared).pipe(Effect.flip)).toEqual(concurrentChange);
 						expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
 					}),
 				testTimeout,
@@ -425,7 +376,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		},
 	);
 
-	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
+	layer(relationshipChangeSetsLayer())("relationship mutation harness", (test) => {
 		test.effect(
 			"rejects a plugin revision change between plan and commit",
 			() =>
@@ -435,7 +386,7 @@ describe("Relationship set-based mutation pipeline", () => {
 					const original = revisionPackage("revised-writer", "v1", "revised-entity");
 					const installed = yield* installRevisionPackage(original, userId);
 					const slug = RelationshipSchemaSlug.make("revised-writer-link");
-					const prepared = yield* service.prepareUserCreate(
+					const prepared = yield* service.prepareUserWrite(
 						{
 							userId,
 							scope: "user",
@@ -444,8 +395,8 @@ describe("Relationship set-based mutation pipeline", () => {
 							relationshipSchema: { slug, owner: definitionOwner(installed.pluginId) },
 						},
 						command("revised-writer"),
+						"upsert",
 					);
-					assert(prepared);
 					const revised = revisionPackage(
 						"revised-writer",
 						"v2",
@@ -465,39 +416,37 @@ describe("Relationship set-based mutation pipeline", () => {
 						userId,
 					);
 					expect(next.revisionId).not.toBe(installed.revisionId);
-					expect(
-						yield* session
-							.transaction(service.persistPreparedUserCreate(prepared))
-							.pipe(Effect.flip),
-					).toEqual(concurrentChange);
+					expect(yield* persistPrepared(prepared).pipe(Effect.flip)).toEqual(concurrentChange);
 					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
 				}),
 			testTimeout,
 		);
 	});
 
-	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
+	layer(relationshipChangeSetsLayer())("relationship mutation harness", (test) => {
 		test.effect(
 			"rejects policy-transformed properties invalid under the pinned schema",
 			() =>
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const policyInput = yield* installPolicyFixture();
-					const service = yield* relationshipsServiceWith(
-						yield* policyLifecycle(
-							Effect.succeed({
-								action: "transform" as const,
-								patch: {
-									resource: "relationship" as const,
-									draft: { properties: { remove: [], set: { rank: "invalid" } } },
-								},
-							}),
-						),
-					);
 					expect(
-						yield* service
-							.createUser(userId, policyInput, command("invalid-transform"))
-							.pipe(Effect.flip),
+						yield* writeRelationship(
+							"upsert",
+							policyInput,
+							command("invalid-transform"),
+							yield* changeSetsWith(
+								yield* policyLifecycle(
+									Effect.succeed({
+										action: "transform" as const,
+										patch: {
+											resource: "relationship" as const,
+											draft: { properties: { remove: [], set: { rank: "invalid" } } },
+										},
+									}),
+								),
+							),
+						).pipe(Effect.flip),
 					).toMatchObject({ reason: { code: "invalid-properties" } });
 					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
 				}),

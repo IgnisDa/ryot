@@ -48,6 +48,7 @@ import {
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
+	applyPolicyChunks,
 	AutomationPolicyExecutionError,
 	type LifecyclePolicies,
 	type PolicyBatchResult,
@@ -71,7 +72,6 @@ import {
 import { eventReferenceBadRequest } from "#modules/events/event-references";
 import {
 	acceptedEventBatches,
-	applyEventPolicies,
 	type EventMutation,
 	EventMutations,
 	matchesExpectedFields,
@@ -85,9 +85,13 @@ import {
 	PluginUserSettingsPatchError,
 	PluginUserSettingsWriter,
 } from "#modules/plugins/preferences/user-settings-writer";
-import type {
-	PreparedUserRelationshipCreate,
-	PreparedUserRelationshipDelete,
+import {
+	acceptRelationshipPolicies,
+	applyRelationshipPolicies,
+	matchRelationshipPolicies,
+	preparedRelationshipEntityIds,
+	type PreparedUserRelationship,
+	type UserRelationshipMode,
 } from "#modules/relationships/prepared-mutations";
 import { RelationshipsService } from "#modules/relationships/service";
 import { shareExecutionAuthority } from "#modules/scripts/authorization/authority";
@@ -153,8 +157,13 @@ export type CommitPrecondition = {
 	readonly check: Effect.Effect<boolean, DbError>;
 };
 
+/**
+ * `verbatimIdentities` keeps each event or relationship item's own identity rather than prefixing it
+ * with the command's.
+ */
 export type CommitOptions = {
 	readonly precondition?: CommitPrecondition;
+	readonly relationships?: { readonly verbatimIdentities: true };
 	readonly events?: { readonly independent: true; readonly verbatimIdentities?: true };
 };
 
@@ -197,7 +206,6 @@ const scriptOnlyPart = (changes: Changes) =>
 			["folds", changes.folds !== undefined],
 			["signals", changes.signals !== undefined],
 			["globalEntities", changes.globalEntities !== undefined],
-			["globalRelationships", changes.globalRelationships !== undefined],
 			["events.expected", changes.events?.expected !== undefined],
 			["events.baselines", changes.events?.baselines !== undefined],
 		] as const
@@ -234,8 +242,9 @@ const globalReferences = (group: NonNullable<Changes["globalRelationships"]>[num
 
 type PreparedEventChange = PreparedEventChanges["items"][number];
 
-type ValidatedEvents = {
+type ValidatedPolicies = {
 	readonly prepared: null | PreparedEventChanges;
+	readonly relationships: Effect.Success<ReturnType<typeof applyRelationshipPolicies>>;
 	readonly chunks: ReadonlyArray<{
 		readonly validated: PolicyBatchResult;
 		readonly items: ReadonlyArray<PreparedEventChange>;
@@ -258,6 +267,7 @@ const emptyResult: CommitResult = {
 	merged: [],
 	cleared: [],
 	outcomes: [],
+	relationships: [],
 	committed: { events: [] },
 };
 
@@ -385,45 +395,86 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						};
 					}),
 				);
-				const preparedRelations: Array<
-					| { readonly kind: "upsert"; readonly prepared: PreparedUserRelationshipCreate }
-					| { readonly kind: "delete"; readonly prepared: PreparedUserRelationshipDelete }
-				> = [];
-				const relationEndpoints: EntityId[] = [];
-				const relationshipEndpoints = Effect.fnUntraced(function* (
+				const relationshipCommand = (itemIdentity: string) =>
+					options.relationships?.verbatimIdentities
+						? { ...command, itemIdentity }
+						: itemCommand(command, itemIdentity);
+				const relationshipInput = Effect.fnUntraced(function* (
 					relation: NonNullable<NonNullable<Changes["relationships"]>["deletes"]>[number],
 				) {
-					const sourceEntityId = yield* referencedEntity(relation.source, rootId);
-					const targetEntityId = yield* referencedEntity(relation.target, rootId);
-					relationEndpoints.push(sourceEntityId, targetEntityId);
 					return {
 						userId,
-						sourceEntityId,
-						targetEntityId,
 						scope: "user" as const,
 						relationshipSchema: relation.relationshipSchema,
+						sourceEntityId: yield* referencedEntity(relation.source, rootId),
+						targetEntityId: yield* referencedEntity(relation.target, rootId),
 					};
 				});
-				for (const [index, relation] of (input.relationships?.upserts ?? []).entries()) {
-					const prepared = yield* relationships.prepareUserCreate(
-						{ ...(yield* relationshipEndpoints(relation)), properties: relation.properties },
-						itemCommand(command, relation.itemIdentity ?? `relationship:${index}`),
-						entity?.created ?? undefined,
-						relation.propertiesMode,
+				const relationshipParts = input.relationships ?? {};
+				const preparedRelations: Array<{
+					readonly itemIdentity: string;
+					readonly prepared: null | PreparedUserRelationship;
+				}> = [];
+				const prepareRelationshipWrite = Effect.fnUntraced(function* (
+					relation: NonNullable<(typeof relationshipParts)["updates"]>[number],
+					mode: UserRelationshipMode,
+					itemIdentity: string,
+				) {
+					preparedRelations.push({
+						itemIdentity,
+						prepared: yield* relationships.prepareUserWrite(
+							{ ...(yield* relationshipInput(relation)), properties: relation.properties },
+							relationshipCommand(itemIdentity),
+							mode,
+							entity?.created ?? undefined,
+						),
+					});
+				});
+				for (const [index, relation] of (relationshipParts.upserts ?? []).entries()) {
+					yield* prepareRelationshipWrite(
+						relation,
+						relation.propertiesMode === "merge" ? "merge" : "upsert",
+						relation.itemIdentity ?? `relationship:${index}`,
 					);
-					if (prepared) {
-						preparedRelations.push({ prepared, kind: "upsert" });
-					}
 				}
-				for (const [index, relation] of (input.relationships?.deletes ?? []).entries()) {
-					const prepared = yield* relationships.prepareUserDelete(
-						yield* relationshipEndpoints(relation),
-						itemCommand(command, relation.itemIdentity ?? `relationship-delete:${index}`),
+				for (const [index, relation] of (relationshipParts.updates ?? []).entries()) {
+					yield* prepareRelationshipWrite(
+						relation,
+						"update",
+						relation.itemIdentity ?? `relationship-update:${index}`,
 					);
-					if (prepared) {
-						preparedRelations.push({ prepared, kind: "delete" });
-					}
 				}
+				for (const [index, relation] of (relationshipParts.ensures ?? []).entries()) {
+					yield* prepareRelationshipWrite(
+						relation,
+						"ensure",
+						relation.itemIdentity ?? `relationship-ensure:${index}`,
+					);
+				}
+				for (const [index, relation] of (relationshipParts.deletes ?? []).entries()) {
+					const itemIdentity = relation.itemIdentity ?? `relationship-delete:${index}`;
+					preparedRelations.push({
+						itemIdentity,
+						prepared: yield* relationships.prepareUserDelete(
+							yield* relationshipInput(relation),
+							relationshipCommand(itemIdentity),
+						),
+					});
+				}
+				for (const [index, relation] of (relationshipParts.deletesById ?? []).entries()) {
+					const itemIdentity = relation.itemIdentity ?? `relationship-delete-by-id:${index}`;
+					preparedRelations.push({
+						itemIdentity,
+						prepared: yield* relationships.prepareUserDeleteById(
+							userId,
+							relation.relationshipId,
+							relationshipCommand(itemIdentity),
+						),
+					});
+				}
+				const relationEndpoints = preparedRelations.flatMap(({ prepared }) =>
+					prepared === null ? [] : preparedRelationshipEntityIds(prepared),
+				);
 				const ensures = input.entities?.ensures?.length
 					? yield* entities.prepareEnsures(
 							userId,
@@ -509,6 +560,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const createIndexes = new Map(creates.map((item, index) => [item.itemIdentity, index]));
 				const indexOf = (itemIdentity: string) => createIndexes.get(itemIdentity) ?? -1;
 				let kept: ReadonlyArray<EventCreateItemOutcome> = [];
+				const relationshipTokens = [
+					...preparedRelations.flatMap(({ prepared }) => (prepared === null ? [] : [prepared])),
+					...userDataWrites.flatMap((prepared) => prepared.relationships),
+				];
 				const planEvents = Effect.gen(function* () {
 					if (changes.length === 0) {
 						return { chunks: [], prepared: null };
@@ -546,9 +601,20 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					);
 					return { chunks, prepared };
 				});
-				type PlannedEvents = Effect.Success<typeof planEvents>;
-				const validateEvents = (planned: PlannedEvents) =>
-					applyEventPolicies(planned.chunks).pipe(
+				const planPolicies = Effect.gen(function* () {
+					const planned = yield* planEvents;
+					return {
+						...planned,
+						relationshipChunks: yield* matchRelationshipPolicies({
+							userId,
+							command,
+							prepared: relationshipTokens,
+						}).pipe(Effect.provideContext(policyContext)),
+					};
+				});
+				type PlannedPolicies = Effect.Success<typeof planPolicies>;
+				const validatePolicies = (planned: PlannedPolicies) =>
+					applyPolicyChunks(planned.chunks).pipe(
 						Effect.provideContext(policyContext),
 						Effect.catchTag(
 							"AutomationPolicyExecutionError",
@@ -564,9 +630,18 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 										)
 									: Effect.fail(error),
 						),
-						Effect.map((chunks): ValidatedEvents => ({ chunks, prepared: planned.prepared })),
+						Effect.flatMap((chunks) =>
+							applyRelationshipPolicies(planned.relationshipChunks).pipe(
+								Effect.provideContext(policyContext),
+								Effect.map((validated): ValidatedPolicies => ({
+									chunks,
+									relationships: validated,
+									prepared: planned.prepared,
+								})),
+							),
+						),
 					);
-				const eventBatches = Effect.fnUntraced(function* (validated: ValidatedEvents) {
+				const eventBatches = Effect.fnUntraced(function* (validated: ValidatedPolicies) {
 					const prepared = validated.prepared;
 					if (prepared === null) {
 						return [];
@@ -597,6 +672,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				});
 				const sourceWrites = Effect.fnUntraced(function* (
 					preparedBatches: Effect.Success<ReturnType<typeof eventBatches>>,
+					accept: ReturnType<typeof acceptRelationshipPolicies>,
 				) {
 					const scope = pluginId === null ? null : { pluginId, baselines: events.baselines ?? [] };
 					const baselines = scope?.baselines ?? [];
@@ -664,6 +740,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						entity === undefined ? undefined : yield* entities.persistPreparedUserSave(entity);
 					yield* eventMutations.lockPreparedChanges({ userId, batches: preparedBatches });
 					const dispatch: LifecycleDispatchPlan[] = [...(saved?.dispatch ?? [])];
+					const relationshipResults: Array<CommitResult["relationships"][number]> = [];
 					if (preparedRelations.length > 0) {
 						const batch = {
 							command,
@@ -671,18 +748,17 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							resource: "relationship" as const,
 						};
 						yield* planner.prepareBatch({ ...batch, scopes: [userId] });
-						for (const [index, relation] of preparedRelations.entries()) {
-							const work =
-								relation.kind === "upsert"
-									? yield* relationships.persistPreparedUserCreate(relation.prepared, {
-											...batch,
-											index,
-										})
-									: yield* relationships.persistPreparedUserDelete(relation.prepared, {
-											...batch,
-											index,
-										});
+						for (const [index, { prepared, itemIdentity }] of preparedRelations.entries()) {
+							if (prepared === null) {
+								relationshipResults.push({ itemIdentity, operation: "noop", relationship: null });
+								continue;
+							}
+							const work = yield* relationships.persistPrepared(yield* accept(prepared), {
+								...batch,
+								index,
+							});
 							dispatch.push(...work.dispatch);
+							relationshipResults.push({ ...work.result, itemIdentity });
 						}
 						dispatch.push(...(yield* planner.planBatch(batch)));
 					}
@@ -710,10 +786,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						events: written.results,
 						...(saved === undefined ? {} : { entityId: saved.entity.id }),
 					};
-					return { dispatch, committed };
+					return { dispatch, committed, relationships: relationshipResults };
 				});
-				const write = Effect.fnUntraced(function* (validated: ValidatedEvents) {
+				const write = Effect.fnUntraced(function* (validated: ValidatedPolicies) {
 					const preparedBatches = yield* eventBatches(validated);
+					const accept = acceptRelationshipPolicies(validated.relationships);
 					if (input.settings !== undefined && pluginRevision !== null) {
 						yield* settingsWriter.patchWithin({
 							userId,
@@ -728,8 +805,12 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						preparedRelations.length > 0 ||
 						preparedBatches.length > 0 ||
 						userDataWrites.length > 0
-							? yield* sourceWrites(preparedBatches)
-							: { dispatch: [], committed: { events: [] } satisfies CommittedChanges };
+							? yield* sourceWrites(preparedBatches, accept)
+							: {
+									dispatch: [],
+									relationships: [],
+									committed: { events: [] } satisfies CommittedChanges,
+								};
 					const dispatch = [...written.dispatch];
 					if (ensures) {
 						for (const ensured of yield* entities.persistPreparedEnsures(ensures)) {
@@ -741,13 +822,13 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					}
 					const cleared = [];
 					for (const prepared of clears) {
-						const work = yield* prepared.write;
+						const work = yield* prepared.write(accept);
 						cleared.push(work.result);
 						dispatch.push(...work.dispatch);
 					}
 					const merged = [];
 					for (const prepared of merges) {
-						const work = yield* prepared.write;
+						const work = yield* prepared.write(accept);
 						merged.push(work.result);
 						dispatch.push(...work.dispatch);
 					}
@@ -771,10 +852,17 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							cleared,
 							outcomes,
 							committed: written.committed,
+							relationships: written.relationships,
 						} satisfies CommitResult,
 					};
 				});
-				return { write, planEvents, validateEvents, kept: () => kept, createCount: creates.length };
+				return {
+					write,
+					planPolicies,
+					validatePolicies,
+					kept: () => kept,
+					createCount: creates.length,
+				};
 			});
 			const apply = Effect.fnUntraced(function* <A>(
 				input: Changes,
@@ -857,6 +945,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					const groups = yield* Effect.forEach(input.globalRelationships ?? [], (group) =>
 						Effect.gen(function* () {
 							return {
+								...(group.paging ? { paging: group.paging } : {}),
 								relationshipSchema: group.relationshipSchema,
 								selector:
 									group.selector.type === "self"
@@ -886,7 +975,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					}
 					return dispatch;
 				});
-				const writeAll = Effect.fnUntraced(function* (validated: null | ValidatedEvents) {
+				const writeAll = Effect.fnUntraced(function* (validated: null | ValidatedPolicies) {
 					const written =
 						user && validated
 							? yield* user.write(validated)
@@ -955,11 +1044,15 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							if (user === null) {
 								return { kind: "committed" as const, committed: yield* writeAll(null) };
 							}
-							const planned = yield* user.planEvents;
-							if (planned.chunks.every(({ matched }) => matched === null)) {
+							const planned = yield* user.planPolicies;
+							if (
+								[...planned.chunks, ...planned.relationshipChunks].every(
+									({ matched }) => matched === null,
+								)
+							) {
 								return {
 									kind: "committed" as const,
-									committed: yield* writeAll(yield* user.validateEvents(planned)),
+									committed: yield* writeAll(yield* user.validatePolicies(planned)),
 								};
 							}
 							return { user, planned, kind: "policies" as const };
@@ -973,7 +1066,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					if (started.kind === "committed") {
 						return started.committed;
 					}
-					const validated = yield* started.user.validateEvents(started.planned);
+					const validated = yield* started.user.validatePolicies(started.planned);
 					return yield* transaction(
 						Effect.gen(function* () {
 							return (yield* unchecked) ?? (yield* writeAll(validated));

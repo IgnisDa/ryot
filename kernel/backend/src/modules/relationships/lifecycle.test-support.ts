@@ -1,15 +1,22 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { stampAppSchema } from "@ryot-app/contract/modules/plugins/manifest-text";
-import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	definitionKey,
+	definitionOwner,
+	type RelationshipSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
+	type RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { DefinitionSource } from "@ryot-app/definitions/snapshot";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import { assert } from "@ryot-app/testing/assert";
+import { and, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -26,6 +33,8 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
+import { changeSetsTestLayer } from "#modules/changes/change-sets.test-support";
+import { ChangeSets } from "#modules/changes/service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -33,9 +42,13 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { recordingDatabaseLayer } from "#modules/entities/statement-recording.test-support";
 import { emptyEntityUserDataAttachments } from "#modules/entities/user-data/attachments.test-support";
-import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import {
+	type DomainLifecycleCommand,
+	DomainWriteChecksLive,
+} from "#modules/entities/write-context";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
+import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
@@ -45,14 +58,20 @@ import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
+import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
 import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
-import { makeAppConfigLayer, makeConfigProviderLayer, makeWorkflowEngine } from "#testing/effect";
+import {
+	makeAppConfigLayer,
+	makeConfigProviderLayer,
+	makeWorkflowEngine,
+	workflowEngineTestLayer,
+} from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { RelationshipMutationPipeline } from "./mutation-pipeline";
+import type { PreparedUserRelationship } from "./prepared-mutations";
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
 
@@ -221,7 +240,8 @@ export class RelationshipFixture extends Context.Service<
 	}
 >()("@ryot-app/kernel-backend/modules/relationships/lifecycle.test-support/RelationshipFixture") {}
 
-export const relationshipsServiceWith = Effect.fnUntraced(function* (lifecycle: {
+/** `ChangeSets` whose relationship writes run under the given lifecycle services. */
+export const changeSetsWith = Effect.fnUntraced(function* (lifecycle: {
 	readonly planner?: LifecyclePlanner["Service"];
 	readonly policies?: LifecyclePolicies["Service"];
 	readonly execution?: LifecycleExecution["Service"];
@@ -235,11 +255,123 @@ export const relationshipsServiceWith = Effect.fnUntraced(function* (lifecycle: 
 			Effect.provideService(LifecycleExecution, execution),
 			Effect.provideService(LifecyclePolicies, policies),
 		);
-	const mutations = yield* provideLifecycle(RelationshipMutationPipeline.make);
+	const relationships = yield* provideLifecycle(RelationshipsService.make);
 	return yield* provideLifecycle(
-		RelationshipsService.make.pipe(Effect.provideService(RelationshipMutationPipeline, mutations)),
+		ChangeSets.make.pipe(Effect.provideService(RelationshipsService, relationships)),
 	);
 });
+
+type RelationshipEndpoints = {
+	readonly userId: UserId;
+	readonly sourceEntityId: EntityId;
+	readonly targetEntityId: EntityId;
+	readonly relationshipSchema: RelationshipSchemaReference;
+};
+
+/**
+ * Commits one user relationship change in `mode` as a kernel writer, answering its result. `merge`
+ * upserts with merged properties.
+ */
+export const writeRelationship = (
+	mode: "merge" | "upsert" | "update" | "ensure" | "delete",
+	input: RelationshipEndpoints & { readonly properties?: unknown },
+	lifecycle: DomainLifecycleCommand,
+	changeSets?: ChangeSets["Service"],
+) =>
+	Effect.gen(function* () {
+		const endpoints = {
+			itemIdentity: "relationship",
+			relationshipSchema: input.relationshipSchema,
+			source: { kind: "existing" as const, entityId: input.sourceEntityId },
+			target: { kind: "existing" as const, entityId: input.targetEntityId },
+		};
+		const write = { ...endpoints, properties: input.properties ?? {} };
+		const relationships = {
+			ensure: { ensures: [write] },
+			update: { updates: [write] },
+			delete: { deletes: [endpoints] },
+			merge: { upserts: [{ ...write, propertiesMode: "merge" as const }] },
+			upsert: { upserts: [{ ...write, propertiesMode: "replace" as const }] },
+		}[mode];
+		const committed = yield* (changeSets ?? (yield* ChangeSets)).commit(
+			{ relationships, userId: input.userId },
+			lifecycle,
+		);
+		const [result] = committed.relationships;
+		assert(result);
+		return result;
+	});
+
+/** Upserts one global relationship as a kernel writer, answering the stored row. */
+export const upsertGlobalRelationship = (
+	input: { readonly properties: unknown } & Omit<RelationshipEndpoints, "userId">,
+	lifecycle: DomainLifecycleCommand,
+) =>
+	Effect.gen(function* () {
+		const source = { kind: "existing" as const, entityId: input.sourceEntityId };
+		yield* (yield* ChangeSets).commit(
+			{
+				userId: null,
+				globalRelationships: [
+					{
+						relationshipSchema: input.relationshipSchema,
+						paging: { kind: "page", preserveExisting: false },
+						selector: { anchor: source, type: "anchored", direction: "outgoing" },
+						relationships: [
+							{
+								source,
+								properties: input.properties,
+								target: { kind: "existing", entityId: input.targetEntityId },
+							},
+						],
+					},
+				],
+			},
+			lifecycle,
+		);
+		const [row] = yield* (yield* DatabaseSession).run((db) =>
+			db
+				.select()
+				.from(tables.relationship)
+				.where(
+					and(
+						isNull(tables.relationship.userId),
+						eq(tables.relationship.sourceEntityId, input.sourceEntityId),
+						eq(tables.relationship.targetEntityId, input.targetEntityId),
+					),
+				),
+		);
+		assert(row);
+		return row;
+	});
+
+/** Deletes the user's relationship by ID as a kernel writer, answering its result. */
+export const deleteRelationshipById = (
+	owner: UserId,
+	relationshipId: RelationshipId,
+	lifecycle: DomainLifecycleCommand,
+) =>
+	Effect.gen(function* () {
+		const committed = yield* (yield* ChangeSets).commit(
+			{
+				userId: owner,
+				relationships: { deletesById: [{ relationshipId, itemIdentity: "relationship" }] },
+			},
+			lifecycle,
+		);
+		const [result] = committed.relationships;
+		assert(result);
+		return result;
+	});
+
+/** Persists prepared user relationship writes in one transaction, answering their results. */
+export const persistPrepared = (...prepared: ReadonlyArray<PreparedUserRelationship>) =>
+	Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		return yield* (yield* DatabaseSession).transaction(
+			Effect.forEach(prepared, (token) => service.persistPrepared(token)),
+		);
+	});
 
 export const relationshipDatabaseLayer = (
 	options: {
@@ -405,7 +537,6 @@ export const relationshipDatabaseLayer = (
 			);
 			const services = Layer.mergeAll(RelationshipsService.layer, EntitiesService.layer).pipe(
 				Layer.provideMerge(emptyEntityUserDataAttachments),
-				Layer.provideMerge(RelationshipMutationPipeline.layer),
 				Layer.provideMerge(Layer.mergeAll(ownerDependencies, eventsRepository, eventMutations)),
 				Layer.provideMerge(
 					recordingDatabaseLayer(options.holdLocks ? { holdLocks: options.holdLocks } : {}).pipe(
@@ -457,4 +588,19 @@ export const relationshipDatabaseLayer = (
 	).pipe(
 		Layer.provide(isolatedDatabaseLayer("relationship_test")),
 		Layer.provideMerge(makeConfigProviderLayer()),
+	);
+
+/** `relationshipDatabaseLayer` with `ChangeSets` over it. */
+export const relationshipChangeSetsLayer = (
+	options: Parameters<typeof relationshipDatabaseLayer>[0] = {},
+) =>
+	changeSetsTestLayer.pipe(
+		Layer.provideMerge(
+			PluginUserSettingsWriter.layer.pipe(Layer.provide(PluginCatalogInvalidatorLive)),
+		),
+		Layer.provideMerge(
+			EventSchemaReader.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer(options))),
+		),
+		Layer.provideMerge(workflowEngineTestLayer),
+		Layer.provideMerge(BunCrypto.layerSecureRandom),
 	);

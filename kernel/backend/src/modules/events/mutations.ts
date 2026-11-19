@@ -32,9 +32,9 @@ import {
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
 import {
-	applyPolicyBatch,
-	matchPolicyBatch,
+	matchPolicyChunks,
 	type PolicyBatchResult,
+	subjectChunks,
 	unchangedPolicyBatch,
 } from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
@@ -213,49 +213,23 @@ export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedE
 	);
 });
 
-const policyChunkSize = 50;
-
-// One policy invocation must fit the sandbox context limit. A subject's items share a chunk, so a
-// once-per-subject policy still runs once for it.
-const subjectChunks = (items: ReadonlyArray<typeof PreparedEventChange.Type>) => {
-	const chunks: Array<Array<typeof PreparedEventChange.Type>> = [];
-	for (const subject of Map.groupBy(items, (item) => item.draft.entityId).values()) {
-		const last = chunks.at(-1);
-		if (last && last.length + subject.length <= policyChunkSize) {
-			last.push(...subject);
-		} else {
-			chunks.push([...subject]);
-		}
-	}
-	return chunks;
-};
-
 /** Matches each subject chunk's event policies, in the transaction that prepared the changes. */
-export const matchEventPolicies = Effect.fnUntraced(function* (input: {
+export const matchEventPolicies = (input: {
 	readonly userId: UserId;
 	readonly prepared: PreparedEventChanges;
 	readonly command: DomainLifecycleCommand;
-}) {
-	return yield* Effect.forEach(subjectChunks(input.prepared.items), (items, index) =>
-		Effect.gen(function* () {
-			const policyBatch = {
+}) =>
+	matchPolicyChunks(
+		subjectChunks(input.prepared.items, (item) => item.draft.entityId),
+		(items, index) =>
+			Effect.map(eventPolicyItems({ ...input.prepared, items }), (policyItems) => ({
+				items: policyItems,
 				userId: input.userId,
 				resource: "event" as const,
 				references: input.prepared.references,
 				propertiesSchemas: input.prepared.propertiesSchemas,
 				command: commandFor(input.command, `policies:${index}`),
-				items: yield* eventPolicyItems({ ...input.prepared, items }),
-			};
-			return { items, policyBatch, matched: yield* matchPolicyBatch(policyBatch) };
-		}),
-	);
-});
-export type MatchedEventPolicies = Effect.Success<ReturnType<typeof matchEventPolicies>>;
-
-/** Runs each chunk's matched policies, outside any transaction. */
-export const applyEventPolicies = (chunks: MatchedEventPolicies) =>
-	Effect.forEach(chunks, ({ items, matched, policyBatch }) =>
-		applyPolicyBatch(policyBatch, matched).pipe(Effect.map((validated) => ({ items, validated }))),
+			})),
 	);
 
 /** Each chunk's items as one persistable batch; a rejected or invalid item fails them all. */

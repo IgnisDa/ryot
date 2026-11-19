@@ -40,8 +40,9 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import {
 	command,
-	relationshipDatabaseLayer,
+	relationshipChangeSetsLayer,
 	userId,
+	writeRelationship,
 } from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -253,6 +254,7 @@ const makeEditor = Effect.fnUntraced(function* (
 	const repository = { ...(yield* RelationshipsRepository), ...overrides.relationshipsRepository };
 	const keys = { ...(yield* IdempotencyKeys), ...overrides.keys };
 	return yield* EntityEditorService.make.pipe(
+		Effect.provideService(LifecyclePolicies, policies),
 		Effect.provideService(IdempotencyKeys, keys),
 		Effect.provideService(LifecycleExecution, execution),
 		Effect.provideService(EntitiesService, entities),
@@ -384,7 +386,7 @@ const editorCase = (
 
 const freshLayer = () =>
 	Layer.merge(IdempotencyKeys.layer, RyotQLService.layer).pipe(
-		Layer.provideMerge(relationshipDatabaseLayer()),
+		Layer.provideMerge(relationshipChangeSetsLayer()),
 	);
 
 describe("EntityEditorService", () => {
@@ -821,8 +823,7 @@ describe("EntityEditorService", () => {
 			const failing = yield* makeEditor({
 				execution: { dispatch: log.dispatch },
 				relationships: {
-					persistPreparedUserCreate: () => new DbError({ message: "injected create failure" }),
-					persistPreparedUserDelete: () => new DbError({ message: "injected delete failure" }),
+					persistPrepared: () => new DbError({ message: "injected create failure" }),
 				},
 			});
 			const before = yield* tablesState;
@@ -861,20 +862,20 @@ describe("EntityEditorService", () => {
 		"rejects relationship changes made after loading without changing the entity or newer links",
 		Effect.gen(function* () {
 			const { owner, insert } = yield* setup();
-			const relationships = yield* RelationshipsService;
 			const editor = yield* makeEditor();
 			for (const change of ["added", "updated", "deleted"] as const) {
 				const entity = yield* insert(`loaded-${change}`, item, userId);
 				const partEntity = yield* insert(`loaded-part-${change}`, part, userId);
 				assert(entity && partEntity);
 				const identity = {
+					userId,
 					sourceEntityId: entity.id,
 					targetEntityId: partEntity.id,
 					relationshipSchema: { slug: itemPart, owner: definitionOwner(owner) },
 				};
 				if (change !== "added") {
-					yield* relationships.createUser(
-						userId,
+					yield* writeRelationship(
+						"upsert",
 						{ ...identity, properties: { role: "old" } },
 						command(`loaded-seed-${change}`),
 					);
@@ -885,18 +886,11 @@ describe("EntityEditorService", () => {
 						targets: change === "added" ? [] : [target(partEntity.id, "old")],
 					},
 				];
-				if (change === "deleted") {
-					yield* relationships.delete(
-						{ ...identity, userId, scope: "user" },
-						command(`loaded-change-${change}`),
-					);
-				} else {
-					yield* relationships.createUser(
-						userId,
-						{ ...identity, properties: { role: "new" } },
-						command(`loaded-change-${change}`),
-					);
-				}
+				yield* writeRelationship(
+					change === "deleted" ? "delete" : "upsert",
+					{ ...identity, properties: { role: "new" } },
+					command(`loaded-change-${change}`),
+				);
 				const before = yield* tablesState;
 				const input = submission(owner, {
 					name: "Should not save",
@@ -1015,9 +1009,9 @@ describe("EntityEditorService", () => {
 						),
 				},
 				relationships: {
-					prepareUserCreate: (input, lifecycle, created) =>
+					prepareUserWrite: (input, lifecycle, mode, created) =>
 						Ref.update(seen, (all) => [...all, lifecycle]).pipe(
-							Effect.andThen(relationships.prepareUserCreate(input, lifecycle, created)),
+							Effect.andThen(relationships.prepareUserWrite(input, lifecycle, mode, created)),
 						),
 				},
 			});

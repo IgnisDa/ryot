@@ -4,7 +4,6 @@ import {
 	AutomationRelationshipDraft,
 	type AutomationRelationshipRequestPayload,
 	type AutomationRelationshipSnapshot,
-	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -16,9 +15,6 @@ import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapsho
 import { Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import { type LifecyclePolicy, runItemPolicy } from "#modules/automations/lifecycle/policies";
-import { applyLifecyclePolicyPatch } from "#modules/automations/lifecycle/policy-patch";
-import { definitionText } from "#modules/definitions/text";
 import type { MutationEntity } from "#modules/entities/repository";
 import {
 	assertStableUnder,
@@ -99,7 +95,6 @@ export const makeRelationshipMutationPrimitives = ({
 	session,
 	planner,
 	entities,
-	policies,
 	admission,
 	repository,
 	definitions,
@@ -286,70 +281,6 @@ export const makeRelationshipMutationPrimitives = ({
 					operation: "create",
 					resource: "relationship",
 				} satisfies AutomationRelationshipRequestPayload);
-	});
-	const applyPolicies = Effect.fnUntraced(function* (
-		initial: AutomationRelationshipRequestPayload,
-		matched: {
-			readonly trigger: AutomationTrigger;
-			readonly policies: ReadonlyArray<LifecyclePolicy>;
-		},
-		mutation: Mutation,
-	) {
-		let request = initial;
-		for (const policy of matched.policies) {
-			const output = yield* runItemPolicy(policies, {
-				policy,
-				request,
-				trigger: matched.trigger,
-			}).pipe(
-				Effect.catchTag("AutomationPolicyExecutionError", (error) =>
-					Effect.fail(
-						new RelationshipBadRequest({
-							reason: { runId: error.runId, code: "policy-execution-failed" },
-						}),
-					),
-				),
-			);
-			if (output.action === "reject") {
-				return yield* new RelationshipBadRequest({
-					reason: {
-						runId: policy.runId,
-						code: "policy-rejected",
-						message: definitionText(policy.pluginId, output.reason),
-					},
-				});
-			}
-			if (output.action === "transform") {
-				const patched = applyLifecyclePolicyPatch(request, output.patch);
-				if (!patched.ok || patched.request.operation === "delete") {
-					yield* Effect.logDebug(
-						`Invalid relationship policy transform: ${patched.ok ? "Relationship delete policies cannot transform requests" : patched.reason}`,
-					);
-					return yield* new RelationshipBadRequest({
-						reason: { runId: policy.runId, code: "policy-execution-failed" },
-					});
-				}
-				if (!mutation.propertiesSchema) {
-					return yield* new DbError({ message: "Missing relationship property schema" });
-				}
-				const properties = yield* parseProperties(
-					patched.request.draft.properties,
-					mutation.propertiesSchema,
-				);
-				request = { ...patched.request, draft: yield* draft(patched.request, properties) };
-			}
-		}
-		if (request.operation !== "delete") {
-			if (!mutation.propertiesSchema) {
-				return yield* new DbError({ message: "Missing relationship property schema" });
-			}
-			const properties = yield* parseProperties(
-				request.draft.properties,
-				mutation.propertiesSchema,
-			);
-			request = { ...request, draft: yield* draft(request, properties) };
-		}
-		return request;
 	});
 	const revalidateRequest = Effect.fnUntraced(function* (
 		mutation: Mutation,
@@ -605,7 +536,6 @@ export const makeRelationshipMutationPrimitives = ({
 		planChange,
 		readEntities,
 		verifyWrites,
-		applyPolicies,
 		lockMutations,
 		persistSources,
 		prepareRequest,

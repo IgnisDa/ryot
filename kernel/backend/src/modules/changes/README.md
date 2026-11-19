@@ -11,7 +11,9 @@ atomically under the writer's principal (`command.writeContext`) after translati
   `EntityUserDataService`; a kernel writer's `null` schema accepts the entity's own), `updates` of existing user entities (each shaped and checked like a root
   entity update, at most once per entity), and bootstrap `ensures`.
 - `relationships`: user relationship `upserts` (`merge` or `replace` properties) and `deletes`;
-  endpoints are the root or existing entities.
+  endpoints are the root or existing entities. Kernel writers may also send `updates` (the
+  relationship must exist), `ensures` (written only when absent) and `deletesById`; see
+  [relationships](../relationships/README.md).
 - `events`: event creates, updates and deletes, optional `expected` session event IDs and scope
   `baselines`.
 - `settings`: a patch of the writing plugin's user settings.
@@ -20,6 +22,8 @@ atomically under the writer's principal (`command.writeContext`) after translati
 - `globalEntities` and `globalRelationships`: provider-owned global upserts. A global relationship
   endpoint or selector anchor names an existing entity or an entity this change set upserts, by
   schema slug and external ID. Global writes persist like provider population and run no policies.
+  A kernel writer's relationship group may page (`paging: { kind: "page" }`), upserting its
+  relationships without reconciling the selector.
 - `folds`: fold requests for the writer's user (`scope: "user"`) or every user with events on the
   entities (`scope: "all-users"`), limited to the writing plugin's folds.
 
@@ -55,18 +59,18 @@ own checks: exact schema/plugin ownership through `DomainWriteChecks`, merge and
 `EntityUserDataService` (same plugin and schema, owned events and relationships), and settings
 validation in `PluginUserSettingsWriter`.
 
-Kernel writers (HTTP routes, including the user-data clear and merge, imports, integrations,
-collections and the provider entry event) skip
+Kernel writers (HTTP routes, including the relationship create and the user-data clear and merge,
+imports, integrations, collections, test support and the provider entry event) skip
 script authority and rely on these service checks, under whatever `writeContext` their command
 carries. Scripts reach `ChangeSets` only through `ScriptChanges`, which always calls `commitScript`.
-Parts only a script principal resolves (`settings`, `folds`, `signals`, global upserts, event
+Parts only a script principal resolves (`settings`, `folds`, `signals`, global entity upserts, event
 `expected` and `baselines`) fail a kernel commit with `ChangeSetRejected`.
 
 ## Preparation and commit
 
 Preparation holds no database transaction over sandbox execution. The root entity, relationships,
 ensures, entity deletes (grouped by schema), data clears and merges, and entity updates are prepared
-first, each running its own entity and relationship policies. Entity deletes, clears and merges also
+first; the root entity and entity updates run their own entity policies. Entity deletes, clears and merges also
 plan event changes, which join the change set's event changes (see [events](../events/README.md)):
 an entity delete cascades a delete to every event referencing its entities, a clear deletes the
 captured state's events, and a merge deletes transient evidence and moves every other event. Their
@@ -76,10 +80,13 @@ event policies run with the rest of the batch. The root entity and each entity u
 
 Event changes are then prepared in one events transaction, with positions matching the change list,
 and grouped into policy chunks of at most 50 items in which a subject's items share a chunk, so a
-once-per-subject policy runs once per subject. Policies are matched inside that transaction. When none
-matches, the commit continues in the same transaction. Otherwise the transaction ends, each matched
-policy is called once per chunk through `LifecyclePolicies` with every item it targets (nothing about
-the call is persisted), and a second events transaction commits.
+once-per-subject policy runs once per subject. The relationship writes of the `relationships` part and
+of every clear and merge form one relationship policy batch, chunked the same way by source entity.
+Event and relationship policies are matched inside that transaction. When none matches, the commit
+continues in the same transaction. Otherwise the transaction ends, each matched policy is called once
+per chunk through `LifecyclePolicies` with every item it targets (nothing about the call is
+persisted), and a second events transaction commits. A relationship policy rejection or invalid
+transform fails the whole change set.
 
 The commit transaction applies, in order: the receipt's `load`, the precondition's `check`, the
 settings patch, source writes (event group capture, then each clear's and merge's account admission,
@@ -132,7 +139,10 @@ the `CreateEventsResponse` in the account's idempotency key. Callers and keys:
 | Provider entry event       | The entity import job's ID                                      | prefixed   |
 
 A commit's result also lists each clear's and merge's response (`cleared`, `merged`), which the
-user-data HTTP routes return.
+user-data HTTP routes return, and each user relationship change's operation and row under its item
+identity (`relationships`), which the relationship route, collections and data imports read.
+`relationships.verbatimIdentities` keeps each relationship change's `itemIdentity` as its write
+identity, so imports record their item keys and collections their membership commands unchanged.
 
 HTTP event creation and collection membership events commit independently without a receipt; a
 deferred integration flush commits with the stream precondition alone. HTTP event updates and deletes
@@ -195,7 +205,8 @@ assets; the write boundary validates and locks those references while committing
 
 Every change set item derives its identity as `<change set itemIdentity>:<item itemIdentity>`.
 Event creates and changes carry a required `itemIdentity`; the entity and each relationship may
-carry one and otherwise use `entity`, `relationship:<index>` and `relationship-delete:<index>`, and
+carry one and otherwise use `entity`, `relationship:<index>`, `relationship-update:<index>`,
+`relationship-ensure:<index>`, `relationship-delete:<index>` and `relationship-delete-by-id:<index>`, and
 each entity update may carry one and otherwise uses `entity-update:<entityId>`. Other parts derive
 theirs from their position or identity (`entity-deletes:<schema>`, `entity-clear:<index>`,
 `signal:<discriminator>`, `global-entity:<schema, externalId>`); notifications use

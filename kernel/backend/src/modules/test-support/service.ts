@@ -29,6 +29,7 @@ import {
 	childLifecycleCommand,
 	rootLifecycleCommand,
 } from "#modules/automations/lifecycle/command";
+import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -36,7 +37,7 @@ import { EntitiesService } from "#modules/entities/service";
 import { PluginInstallationService } from "#modules/plugins/installations/service";
 import { PluginIngestionService } from "#modules/plugins/packages/ingestion-service";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { RelationshipsService } from "#modules/relationships/service";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -118,7 +119,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const pluginCrons = yield* PluginCronService;
 			const sandbox = yield* ScriptExecutionService;
 			const translations = yield* TranslationsRepository;
-			const relationships = yield* RelationshipsService;
+			const changeSets = yield* ChangeSets;
+			const relationships = yield* RelationshipsRepository;
 			const pluginIngestion = yield* PluginIngestionService;
 			const pluginInstallations = yield* PluginInstallationService;
 			const pluginRepository = yield* PluginRepository;
@@ -236,32 +238,61 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 							reason: { code: "invalid-request", diagnostic: "Relationship schema not found" },
 						});
 					}
-					const result = yield* relationships.create(
-						{
-							scope: "global",
-							properties: input.properties ?? {},
-							sourceEntityId: input.sourceEntityId,
-							targetEntityId: input.targetEntityId,
-							relationshipSchema: input.relationshipSchema,
-						},
-						yield* systemApiCommand(
-							stableStringify([
-								"test-support:upsert-global-relationship",
-								input.relationshipSchema,
-								input.sourceEntityId,
-								input.targetEntityId,
-							]),
-						),
-					);
-					return (
-						result.relationship ??
-						(yield* new TestSupportBadRequest({
-							reason: {
-								code: "invalid-request",
-								diagnostic: "Relationship mutation returned no relationship",
+					const identity = {
+						scope: "global" as const,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						relationshipSchemaPluginId: schema.pluginId,
+						relationshipSchemaSlug: input.relationshipSchema.slug,
+					};
+					const existing = yield* relationships.findRelationship(identity);
+					const source = { kind: "existing" as const, entityId: input.sourceEntityId };
+					yield* changeSets
+						.commit(
+							{
+								userId: null,
+								globalRelationships: [
+									{
+										relationshipSchema: input.relationshipSchema,
+										paging: { kind: "page", preserveExisting: false },
+										selector: { anchor: source, type: "anchored", direction: "outgoing" },
+										relationships: [
+											{
+												source,
+												properties: input.properties ?? {},
+												target: { kind: "existing", entityId: input.targetEntityId },
+											},
+										],
+									},
+								],
 							},
-						}))
-					);
+							yield* systemApiCommand(
+								stableStringify([
+									"test-support:upsert-global-relationship",
+									input.relationshipSchema,
+									input.sourceEntityId,
+									input.targetEntityId,
+								]),
+							),
+						)
+						.pipe(
+							Effect.mapError((error) =>
+								error._tag === "DbError"
+									? error
+									: new TestSupportBadRequest({
+											reason: { diagnostic: error._tag, code: "invalid-request" },
+										}),
+							),
+						);
+					const relationship = yield* relationships.findRelationship(identity);
+					return relationship
+						? { ...relationship, wasInserted: existing === null }
+						: yield* new TestSupportBadRequest({
+								reason: {
+									code: "invalid-request",
+									diagnostic: "Relationship mutation returned no relationship",
+								},
+							});
 				},
 			);
 

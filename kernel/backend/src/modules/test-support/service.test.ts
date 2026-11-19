@@ -23,6 +23,7 @@ import { Context, DateTime, Effect, Layer, Ref, Schema } from "effect";
 import { AuthService } from "#modules/accounts/auth/service";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -33,7 +34,7 @@ import { PluginIngestionService } from "#modules/plugins/packages/ingestion-serv
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import type { PluginSource } from "#modules/plugins/packages/types";
 import { fixtureClientArtifact, withCatalogs } from "#modules/plugins/source.test-support";
-import { RelationshipsService } from "#modules/relationships/service";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { databaseLayer, type MockOverrides } from "#testing/effect";
@@ -58,13 +59,15 @@ const mockPluginRepository = Layer.mock(PluginRepository);
 const mockPluginCrons = Layer.mock(PluginCronService);
 const mockSandbox = Layer.mock(ScriptExecutionService);
 const mockTranslations = Layer.mock(TranslationsRepository);
-const mockRelationships = Layer.mock(RelationshipsService);
+const mockChangeSets = Layer.mock(ChangeSets);
+const mockRelationships = Layer.mock(RelationshipsRepository);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const makeServiceLayer = (
 	overrides: {
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
+		changeSets?: MockOverrides<typeof mockChangeSets>;
 		pluginCrons?: MockOverrides<typeof mockPluginCrons>;
 		translations?: MockOverrides<typeof mockTranslations>;
 		relationships?: MockOverrides<typeof mockRelationships>;
@@ -96,6 +99,7 @@ const makeServiceLayer = (
 				mockPluginInstallations({ ...overrides.pluginInstallations }),
 				mockPluginRepository({ ...overrides.pluginRepository }),
 				mockTranslations({ ...overrides.translations }),
+				mockChangeSets({ ...overrides.changeSets }),
 				mockRelationships({ ...overrides.relationships }),
 				mockRelationshipSchemas({ ...overrides.relationshipSchemas }),
 			),
@@ -506,9 +510,14 @@ const relationship = {
 	sourceEntityId: entityId,
 	relationshipSchemaPluginId,
 	createdAt: "2026-07-20T12:00:00.000Z",
+	updatedAt: "2026-07-20T12:00:00.000Z",
 	id: RelationshipId.make("relationship-id"),
 	targetEntityId: EntityId.make("target-id"),
 };
+
+type StoredRelationship = NonNullable<
+	Effect.Success<ReturnType<RelationshipsRepository["Service"]["findRelationship"]>>
+>;
 
 const mutationCommands = recordingServiceLayer<{
 	input?: unknown;
@@ -516,14 +525,31 @@ const mutationCommands = recordingServiceLayer<{
 	command?: DomainLifecycleCommand;
 	kind: "delete" | "relationship" | "relationship-schema";
 	reference?: ContractPayload<"testSupport", "upsertGlobalRelationship">["relationshipSchema"];
-}>((record) => ({
+}>((record, recorded) => ({
 	entities: {
 		deleteByIds: (_ids, command) =>
 			record({ command, kind: "delete" }).pipe(Effect.as({ deletedCount: 1 })),
 	},
+	changeSets: {
+		commit: (input, command) =>
+			record({ input, command, kind: "relationship" }).pipe(
+				Effect.as({
+					merged: [],
+					cleared: [],
+					outcomes: [],
+					relationships: [],
+					committed: { events: [] },
+				}),
+			),
+	},
 	relationships: {
-		create: (input, command) =>
-			record({ input, command, kind: "relationship" }).pipe(Effect.as({ relationship })),
+		findRelationship: () =>
+			Effect.map(recorded, (calls) => {
+				const { wasInserted: _, ...stored } = relationship;
+				return calls.some(({ kind }) => kind === "relationship")
+					? partialFake<StoredRelationship>(stored)
+					: null;
+			}),
 	},
 	relationshipSchemas: {
 		findByReference: (reference, userId) =>
@@ -563,8 +589,10 @@ layer(mutationCommands.layer)((test) => {
 					reference: relationshipSchema,
 				});
 				expect(commands.find((entry) => entry.kind === "relationship")?.input).toMatchObject({
-					scope: "global",
-					relationshipSchema,
+					userId: null,
+					globalRelationships: [
+						{ relationshipSchema, paging: { kind: "page", preserveExisting: false } },
+					],
 				});
 				const commandFor = (kind: "delete" | "relationship") =>
 					commands.findLast((entry) => entry.kind === kind)?.command;

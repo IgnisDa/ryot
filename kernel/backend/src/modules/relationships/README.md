@@ -1,12 +1,15 @@
 # Relationship mutations
 
-`mutation-primitives.ts` owns request construction, policy patch acceptance, schema revalidation, locks, source persistence, and change planning. Its preparation and persistence operations require an active transaction. Policy execution runs outside transactions.
+Every relationship write commits through [`ChangeSets`](../changes/README.md); `RelationshipsService`
+holds only the preparation and persistence engine those commits use. `mutation-primitives.ts` owns
+request construction, schema revalidation, locks, source persistence, and change planning. Its
+preparation and persistence operations require an active transaction.
 
-`mutation-pipeline.ts` owns ordinary single/batch operations and global reconciliation. It opens short root transactions around planning and persistence, runs policies between them, and seals resource batches after item persistence. Each user batch or global group retains its own partial-success boundary.
-
-Single commits return the actual item result. Batch and reconciliation commits compute one summary from persisted item outcomes and return it.
-
-User relationship batch creates require `propertiesMode`: `merge` overlays supplied properties and preserves omitted values, while `replace` uses only the supplied properties. Single creates and generic imports keep their existing upsert semantics.
+A user write has a mode: `upsert` replaces the properties, `merge` overlays the supplied properties
+and preserves omitted values (arrays merge without duplicates), `update` requires the relationship to
+exist (`relationship-not-found` otherwise), `ensure` writes only when the relationship is absent and
+leaves an existing one, including one written since preparation, unchanged, and `delete` removes it
+by its endpoints or, through `prepareUserDeleteById`, by the user's relationship ID.
 
 A relationship schema may declare `userWritePolicy: "source-owner"`. User-scoped creates, updates,
 and deletes then require the source entity to belong to the writing user; a visible global target
@@ -17,7 +20,19 @@ creation token until persistence can read the stored entity. Authorized global w
 their existing plugin and execution authority; this rule neither grants global authority nor runs
 a sandbox policy during provider reconciliation.
 
-`prepared-mutations.ts` returns opaque user-mutation handles for entity-user-data operations. Preparation opens its own short transaction. Persistence joins the caller's active transaction, uses conditional source writes, and returns only item dispatch references. The multi-item owner seals the resource batch and dispatches after commit. Initial no-ops return no handle; a policy-transformed prepared update still writes even when its final properties match the source.
+`prepared-mutations.ts` prepares each user write in its own short transaction, returning its
+request, or a null request when it would write nothing (an unchanged upsert or merge, an existing
+ensure, a missing delete). Policies run once per batch, not per item: the owning commit matches every
+prepared request in one relationship policy batch (`matchRelationshipPolicies`, chunks of at most 50
+grouped by source entity) in its prepare transaction, calls the matched policies outside it
+(`applyRelationshipPolicies`), and applies each item's decision before persisting it
+(`acceptRelationshipPolicies`). A rejection fails the commit with `policy-rejected`, an invalid
+transform with `invalid-properties` or `invalid-policy-transform`, and a policy execution failure with
+`policy-execution-failed`. Persistence joins the caller's active transaction, uses conditional source
+writes, records the import item, and returns the item result and dispatch references; a null request
+rechecks that the source is unchanged and returns a no-op. The owner seals the resource batch and
+dispatches after commit. A policy-transformed update still writes even when its final properties
+match the source.
 
 `planned-reconciliation.ts` joins the provider or host owner's active transaction. Provider reconciliation is not a policy-subject request, so it plans no before-policies. It seals each group and records replay-stable group results.
 

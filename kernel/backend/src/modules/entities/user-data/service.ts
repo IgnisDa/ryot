@@ -32,8 +32,8 @@ import type { EventMutation } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import type {
-	PreparedUserRelationshipCreate,
-	PreparedUserRelationshipDelete,
+	acceptRelationshipPolicies,
+	PreparedUserRelationship,
 } from "#modules/relationships/prepared-mutations";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -64,6 +64,7 @@ const relationshipFailure =
 		);
 
 type MergeAuthority = null | EntitySchemaReference;
+type Accept = ReturnType<typeof acceptRelationshipPolicies>;
 type RelationshipRow = Effect.Success<
 	ReturnType<RelationshipsRepository["Service"]["listUserRelationshipsForEntitiesWithProvenance"]>
 >[number];
@@ -196,19 +197,24 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			});
 			/**
 			 * A clear or merge planned against captured user state: its event changes commit with the change
-			 * set's events, `lock` re-reads the state under locks before any write, and `write` persists the
-			 * rest of it.
+			 * set's events, its relationship changes take the change set's relationship policies, `lock` re-reads
+			 * the state under locks before any write, and `write` persists the rest of it with each
+			 * relationship change's accepted policy decision.
 			 */
 			const planned = <Result, E, R, WE, WR>(input: {
 				userId: UserId;
 				command: DomainLifecycleCommand;
 				recheck: Effect.Effect<void, E, R>;
 				events: ReadonlyArray<EventMutation>;
+				relationships: ReadonlyArray<PreparedUserRelationship>;
 				states: ReadonlyArray<Effect.Success<ReturnType<typeof state>>>;
-				write: (batch: {
-					readonly identity: ReadonlyArray<string>;
-					readonly command: DomainLifecycleCommand;
-				}) => Effect.Effect<
+				write: (
+					batch: {
+						readonly identity: ReadonlyArray<string>;
+						readonly command: DomainLifecycleCommand;
+					},
+					accept: Accept,
+				) => Effect.Effect<
 					{ readonly result: Result; readonly dispatch: ReadonlyArray<LifecycleDispatchPlan> },
 					WE,
 					WR
@@ -230,6 +236,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				return Object.freeze({
 					entityIds,
 					events: input.events,
+					relationships: input.relationships,
 					lock: Effect.gen(function* () {
 						if (input.command.accountUserId) {
 							yield* admission.admitAccount(input.command.accountUserId);
@@ -237,9 +244,9 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						yield* entitiesRepository.lockUserDataReferences(entityIds);
 						yield* input.recheck;
 					}),
-					write: Effect.gen(function* () {
+					write: Effect.fnUntraced(function* (accept: Accept) {
 						yield* planner.prepareBatch({ ...batch, scopes: [input.userId] });
-						const written = yield* input.write(batch);
+						const written = yield* input.write(batch, accept);
 						return {
 							result: written.result,
 							dispatch: [...written.dispatch, ...(yield* planner.planBatch(batch))],
@@ -269,10 +276,10 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				const destination = input.destinationRelationships.get(
 					relationshipKey({ ...relationship, sourceEntityId, targetEntityId }),
 				);
-				let create: null | PreparedUserRelationshipCreate = null;
+				let create: null | PreparedUserRelationship = null;
 				if (sourceEntityId !== targetEntityId) {
 					create = yield* relationships
-						.prepareUserCreate(
+						.prepareUserWrite(
 							{
 								userId,
 								scope: "user",
@@ -285,6 +292,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 								},
 							},
 							itemCommand(command, `relationship:${relationship.id}:create`),
+							"upsert",
 						)
 						.pipe(
 							Effect.catchTags({
@@ -376,7 +384,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					kernelCollection: true,
 					itemIdentity: `event:${eventId}:delete`,
 				}));
-				const preparedRelationships: PreparedUserRelationshipDelete[] = [];
+				const preparedRelationships: PreparedUserRelationship[] = [];
 				for (const relationship of captured.relationships) {
 					const prepared = yield* relationships
 						.prepareUserDelete(
@@ -398,9 +406,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 								RelationshipBadRequest: relationshipFailure("clear"),
 							}),
 						);
-					if (prepared) {
-						preparedRelationships.push(prepared);
-					}
+					preparedRelationships.push(prepared);
 				}
 
 				return planned({
@@ -408,16 +414,17 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					userId,
 					command,
 					states: [captured],
+					relationships: preparedRelationships,
 					recheck: state(stateInput).pipe(
 						Effect.flatMap((current) => assertState(captured, current)),
 					),
-					write: (batch) =>
+					write: (batch, accept) =>
 						Effect.gen(function* () {
 							yield* attachments.clear({ userId, ids: captured.attachments.map(({ id }) => id) });
 							const dispatch: LifecycleDispatchPlan[] = [];
 							for (const [index, prepared] of preparedRelationships.entries()) {
 								const work = yield* relationships
-									.persistPreparedUserDelete(prepared, { ...batch, index })
+									.persistPrepared(yield* accept(prepared), { ...batch, index })
 									.pipe(
 										Effect.catchTags({
 											RelationshipNotFound: relationshipFailure("clear"),
@@ -646,8 +653,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					targetState.relationships.map((row) => [relationshipKey(row), row]),
 				);
 				const preparedRelationships: Array<{
-					create: null | PreparedUserRelationshipCreate;
-					deletion: null | PreparedUserRelationshipDelete;
+					create: null | PreparedUserRelationship;
+					deletion: null | PreparedUserRelationship;
 				}> = [];
 				for (const relationship of relationshipRows) {
 					preparedRelationships.push(
@@ -666,6 +673,9 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					command,
 					events: [...resets, ...moves],
 					states: [sourceState, targetState],
+					relationships: preparedRelationships.flatMap(({ create, deletion }) =>
+						[create, deletion].filter((prepared) => prepared !== null),
+					),
 					recheck: Effect.gen(function* () {
 						yield* assertState(
 							fromScope,
@@ -678,7 +688,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						yield* assertState(sourceState, yield* state(sourceInput));
 						yield* assertState(targetState, yield* state(targetInput));
 					}),
-					write: (batch) =>
+					write: (batch, accept) =>
 						Effect.gen(function* () {
 							yield* eventsRepository.absorbFoldValues({ userId, references, ids: referenceMap });
 							yield* attachments.move({
@@ -692,7 +702,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							for (const prepared of preparedRelationships) {
 								if (prepared.create) {
 									const work = yield* relationships
-										.persistPreparedUserCreate(prepared.create, { ...batch, index: index++ })
+										.persistPrepared(yield* accept(prepared.create), { ...batch, index: index++ })
 										.pipe(
 											Effect.catchTags({
 												RelationshipNotFound: relationshipFailure("merge"),
@@ -703,7 +713,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 								}
 								if (prepared.deletion) {
 									const work = yield* relationships
-										.persistPreparedUserDelete(prepared.deletion, { ...batch, index: index++ })
+										.persistPrepared(yield* accept(prepared.deletion), { ...batch, index: index++ })
 										.pipe(
 											Effect.catchTags({
 												RelationshipNotFound: relationshipFailure("merge"),

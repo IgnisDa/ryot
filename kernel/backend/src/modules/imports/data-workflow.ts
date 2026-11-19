@@ -5,6 +5,7 @@ import { DataJsonDocument, dataJsonSource } from "@ryot-app/contract/modules/imp
 import type { IngestionBatch, IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
+import { RelationshipMutationResult } from "@ryot-app/contract/modules/relationships/schemas";
 import type { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { definitionLookup, DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
@@ -23,11 +24,6 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import {
-	PendingRelationshipMutations,
-	RelationshipSingleResult,
-} from "#modules/relationships/mutation-pipeline";
-import { RelationshipsService } from "#modules/relationships/service";
 import { DatabaseSession } from "#platform/db/session";
 import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
 
@@ -471,7 +467,6 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 		const entities = yield* EntitiesService;
 		const entityRepository = yield* EntitiesRepository;
 		const changes = yield* ChangeSets;
-		const relationships = yield* RelationshipsService;
 		const assets = yield* ManagedAssetsService;
 		const definitions = definitionLookup(input.snapshot);
 		const entitySchemasByKey = new Map(Object.entries(input.entitySchemasByKey));
@@ -671,23 +666,38 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 				const targetEntityId = EntityId.make(
 					yield* requiredReference(entityIds, item.record.targetEntityKey, "entity"),
 				);
-				const written = yield* runImportWriteStep({
-					result: RelationshipSingleResult,
-					commit: relationships.commitSingle,
-					pending: PendingRelationshipMutations,
+				const written = yield* makeActivity({
+					error: ImportRunError,
+					success: RelationshipMutationResult,
 					name: `create-data-relationship-${index}`,
-					applyPolicies: relationships.applyPolicies,
-					prepare: relationships.prepareCreate(
-						{
-							properties,
-							scope: "user",
-							sourceEntityId,
-							targetEntityId,
-							userId: input.userId,
-							relationshipSchema: item.record.relationshipSchema,
-						},
-						command,
-					),
+					execute: changes
+						.commit(
+							{
+								userId: input.userId,
+								relationships: {
+									upserts: [
+										{
+											properties,
+											propertiesMode: "replace",
+											itemIdentity: command.itemIdentity,
+											relationshipSchema: item.record.relationshipSchema,
+											source: { kind: "existing", entityId: sourceEntityId },
+											target: { kind: "existing", entityId: targetEntityId },
+										},
+									],
+								},
+							},
+							command,
+							{ relationships: { verbatimIdentities: true } },
+						)
+						.pipe(
+							Effect.mapBoth({
+								onFailure: toWorkflowError,
+								onSuccess: (result) => ({
+									relationship: result.relationships[0]?.relationship ?? null,
+								}),
+							}),
+						),
 				});
 				if (!written.relationship) {
 					return yield* new ImportRunError({ message: "Relationship was not created" });

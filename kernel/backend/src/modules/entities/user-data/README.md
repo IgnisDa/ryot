@@ -27,9 +27,10 @@ ordinary text, event IDs, occurrence dates, ordering and retained evidence are p
 
 ## Commit and replay
 
-Preparation reads the selected scope and plans its changes: relationship policies run per relationship,
-and the event changes (clear deletes; merge resets and reference moves, marked `kernelCollection`)
-join the change set's events, whose policies run once per batch. In the commit transaction, after
+Preparation reads the selected scope and plans its changes: the relationship changes join the change
+set's relationship policy batch, and the event changes (clear deletes; merge resets and reference
+moves, marked `kernelCollection`) join the change set's events; both run their policies once per
+batch. In the commit transaction, after
 event group capture, the plan locks the affected entity references in canonical order, rereads the
 full selected scope and root merge identities, and rejects drift before any write. Existing
 per-record guards reject concurrent edits. All source changes and lifecycle planning commit together

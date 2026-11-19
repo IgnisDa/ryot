@@ -13,11 +13,13 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
+	type RelationshipId,
 	RelationshipSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 
 import type { EventMutation } from "#modules/events/mutations";
+import type { ReconcileGlobalRelationshipGroup } from "#modules/relationships/mutation-support";
 
 export type EventChange = Exclude<EventMutation, { readonly kind: "create" }>;
 export type GlobalEntityReference =
@@ -43,12 +45,14 @@ export type Changes = {
 		>;
 	};
 	readonly relationships?: {
-		readonly deletes?: ReadonlyArray<
-			OwnedRelationship<NonNullable<RelationshipParts["deletes"]>[number]>
-		>;
-		readonly upserts?: ReadonlyArray<
-			OwnedRelationship<NonNullable<RelationshipParts["upserts"]>[number]>
-		>;
+		readonly updates?: ReadonlyArray<OwnedRelationship<RelationshipWrite>>;
+		readonly ensures?: ReadonlyArray<OwnedRelationship<RelationshipWrite>>;
+		readonly deletes?: ReadonlyArray<OwnedRelationship<RelationshipDelete>>;
+		readonly upserts?: ReadonlyArray<OwnedRelationship<RelationshipUpsert>>;
+		readonly deletesById?: ReadonlyArray<{
+			readonly itemIdentity?: string;
+			readonly relationshipId: RelationshipId;
+		}>;
 	};
 	readonly entities?: {
 		readonly updates?: ReadonlyArray<OwnedEntity<ChangeSetEntityUpdate>>;
@@ -63,6 +67,12 @@ type RelationshipParts = Part<"relationships">;
 type EventCreate = Part<"events">["creates"][number];
 type Part<K extends keyof ChangeSet> = NonNullable<ChangeSet[K]>;
 type GlobalRelationshipGroup = Part<"globalRelationships">[number];
+/** A kernel writer's update or ensure, which replaces the properties it writes. */
+type RelationshipWrite = Omit<RelationshipUpsert, "propertiesMode">;
+type RelationshipDelete = NonNullable<RelationshipParts["deletes"]>[number];
+/** Kernel writers pass properties that the write validates against the relationship schema. */
+type UnknownProperties<T> = Omit<T, "properties"> & { readonly properties: unknown };
+type RelationshipUpsert = UnknownProperties<NonNullable<RelationshipParts["upserts"]>[number]>;
 
 type OwnedEntity<T extends { readonly entitySchemaSlug: string }> = Omit<T, "entitySchemaSlug"> & {
 	readonly entitySchema: EntitySchemaReference;
@@ -82,11 +92,12 @@ type OwnedRelationship<T extends { readonly relationshipSchemaSlug: string }> = 
 type OwnedGlobalRelationshipGroup = OwnedRelationship<
 	Omit<GlobalRelationshipGroup, "selector" | "relationships">
 > & {
+	readonly paging?: Extract<ReconcileGlobalRelationshipGroup["paging"], { readonly kind: "page" }>;
 	readonly relationships: ReadonlyArray<
-		Omit<GlobalRelationshipGroup["relationships"][number], "source" | "target"> & {
-			readonly source: GlobalEntityReference;
-			readonly target: GlobalEntityReference;
-		}
+		{ readonly source: GlobalEntityReference; readonly target: GlobalEntityReference } & Omit<
+			UnknownProperties<GlobalRelationshipGroup["relationships"][number]>,
+			"source" | "target"
+		>
 	>;
 	readonly selector:
 		| Extract<GlobalRelationshipGroup["selector"], { readonly type: "self" }>

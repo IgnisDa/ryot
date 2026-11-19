@@ -130,7 +130,7 @@ const PolicyBatchPayload = Schema.Struct({
 	propertiesSchemas: Schema.Record(Schema.String, AppSchema),
 	resource: Schema.Literals(["entity", "event", "relationship"]),
 });
-type PolicyBatchPayload = typeof PolicyBatchPayload.Type;
+export type PolicyBatchPayload = typeof PolicyBatchPayload.Type;
 
 type MatchedPolicyBatch = {
 	readonly trigger: AutomationTrigger;
@@ -155,6 +155,43 @@ export const matchPolicyBatch = Effect.fn("matchPolicyBatch")(function* (
 	const policies = yield* (yield* LifecyclePolicies).match(trigger);
 	return policies.length === 0 ? null : { trigger, policies };
 });
+
+const policyChunkSize = 50;
+
+/**
+ * Items in chunks of at most 50, which one policy invocation fits in the sandbox context limit. A
+ * subject's items share a chunk, so a once-per-subject policy still runs once for it.
+ */
+export const subjectChunks = <T>(items: ReadonlyArray<T>, subjectOf: (item: T) => string) => {
+	const chunks: Array<Array<T>> = [];
+	for (const subject of Map.groupBy(items, subjectOf).values()) {
+		const last = chunks.at(-1);
+		if (last && last.length + subject.length <= policyChunkSize) {
+			last.push(...subject);
+		} else {
+			chunks.push([...subject]);
+		}
+	}
+	return chunks;
+};
+
+/** Matches each chunk's policies on the caller's transaction. */
+export const matchPolicyChunks = <T, E, R>(
+	chunks: ReadonlyArray<ReadonlyArray<T>>,
+	batch: (items: ReadonlyArray<T>, index: number) => Effect.Effect<PolicyBatchPayload, E, R>,
+) =>
+	Effect.forEach(chunks, (items, index) =>
+		Effect.gen(function* () {
+			const policyBatch = yield* batch(items, index);
+			return { items, policyBatch, matched: yield* matchPolicyBatch(policyBatch) };
+		}),
+	);
+
+export type MatchedPolicyChunks<T> = ReadonlyArray<{
+	readonly items: ReadonlyArray<T>;
+	readonly policyBatch: PolicyBatchPayload;
+	readonly matched: null | MatchedPolicyBatch;
+}>;
 
 export const unchangedPolicyBatch = (input: PolicyBatchPayload): PolicyBatchResult => ({
 	references: input.references,
@@ -310,3 +347,9 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 	);
 	return { ...result, items };
 });
+
+/** Runs each chunk's matched policies, outside any transaction. */
+export const applyPolicyChunks = <T>(chunks: MatchedPolicyChunks<T>) =>
+	Effect.forEach(chunks, ({ items, matched, policyBatch }) =>
+		applyPolicyBatch(policyBatch, matched).pipe(Effect.map((validated) => ({ items, validated }))),
+	);

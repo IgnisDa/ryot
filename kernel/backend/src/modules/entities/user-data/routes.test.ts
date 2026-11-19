@@ -75,6 +75,7 @@ const routesLayer = Layer.unwrap(
 					: Ref.update(commands, (all) => [...all, { changes, command }]).pipe(
 							Effect.as({
 								outcomes: [],
+								relationships: [],
 								committed: { events: [] },
 								cleared: (changes.entities?.clears ?? []).map(({ entityId }) => ({
 									entityId,

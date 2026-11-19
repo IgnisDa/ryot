@@ -10,12 +10,12 @@ import {
 	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
-	CreateRelationshipBody,
+	type CreateRelationshipBody,
 	RelationshipBadRequest,
 	RelationshipNotFound,
 	RelationshipScope,
 } from "@ryot-app/contract/modules/relationships/schemas";
-import { type EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
@@ -24,12 +24,10 @@ import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
 import type { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
-import type { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	LifecyclePersistenceError,
 	type LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
-import type { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import type { DefinitionRepository } from "#modules/definitions/repository";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import {
@@ -53,25 +51,13 @@ import {
 	type RelationshipsRepository,
 } from "./repository";
 
-export const CreateRelationshipInput = Schema.Union([
-	Schema.Struct({
-		...CreateRelationshipBody.fields,
-		properties: Schema.Unknown,
-		scope: Schema.Literal("global"),
-		ifAbsent: Schema.optional(Schema.Boolean),
-	}),
-	Schema.Struct({
-		...CreateRelationshipBody.fields,
-		userId: UserId,
-		properties: Schema.Unknown,
-		scope: Schema.Literal("user"),
-		ifAbsent: Schema.optional(Schema.Boolean),
-	}),
-]);
-export type UpdateRelationshipInput = CreateRelationshipInput;
-export type CreateRelationshipInput = typeof CreateRelationshipInput.Type;
 export type UserRelationshipIdentity = Omit<CreateRelationshipBody, "properties">;
+export type UserRelationshipWrite = UserRelationshipInput & { readonly properties: unknown };
 export type DeleteRelationshipInput = UserRelationshipIdentity & RelationshipReconciliationScope;
+export type UserRelationshipInput = UserRelationshipIdentity & {
+	readonly scope: "user";
+	readonly userId: UserId;
+};
 export type RelationshipReconciliationScope =
 	{ readonly scope: "global" } | { readonly scope: "user"; readonly userId: UserId };
 export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
@@ -109,16 +95,13 @@ export const RelationshipMutation = Schema.Struct({
 });
 export type Mutation = typeof RelationshipMutation.Type;
 
-export const RelationshipRecordedResult = Schema.Struct({
+export const RelationshipWriteResult = Schema.Struct({
 	operation: Schema.Literals(["create", "update", "delete", "noop"]),
 	relationship: Schema.NullOr(
-		Schema.Struct({
-			...RelationshipScope.fields,
-			updatedAt: Schema.String,
-			properties: Schema.Record(Schema.String, Schema.Unknown),
-		}),
+		Schema.Struct({ ...RelationshipScope.fields, updatedAt: Schema.String }),
 	),
 });
+export type RelationshipWriteResult = typeof RelationshipWriteResult.Type;
 
 export const recordRelationshipImportItem = (
 	keys: IdempotencyKeys["Service"],
@@ -377,9 +360,7 @@ export type RelationshipMutationDependencies = {
 	readonly writes: DomainWriteChecks["Service"];
 	readonly planner: LifecyclePlanner["Service"];
 	readonly admission: AccountAdmission["Service"];
-	readonly policies: LifecyclePolicies["Service"];
 	readonly entities: EntitiesRepository["Service"];
-	readonly execution: LifecycleExecution["Service"];
 	readonly runtime: PluginRuntimeResolver["Service"];
 	readonly definitions: DefinitionRepository["Service"];
 	readonly repository: RelationshipsRepository["Service"];

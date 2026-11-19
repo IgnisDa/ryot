@@ -43,6 +43,7 @@ import {
 	type LifecyclePersistenceError,
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
+import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -50,9 +51,11 @@ import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import type {
-	PreparedUserRelationshipCreate,
-	PreparedUserRelationshipDelete,
+import {
+	acceptRelationshipPolicies,
+	applyRelationshipPolicies,
+	matchRelationshipPolicies,
+	type PreparedUserRelationship,
 } from "#modules/relationships/prepared-mutations";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -159,6 +162,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 			const execution = yield* LifecycleExecution;
 			const relationships = yield* RelationshipsService;
 			const entitiesRepository = yield* EntitiesRepository;
+			const policies = yield* LifecyclePolicies;
+			const policyContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+				effect.pipe(
+					Effect.provideService(LifecyclePolicies, policies),
+					Effect.provideService(EntitiesRepository, entitiesRepository),
+				);
 			const relationshipsRepository = yield* RelationshipsRepository;
 			const runtime = yield* PluginRuntimeResolver;
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userId: UserId) =>
@@ -436,10 +445,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					};
 				}
 
-				const preparedRelationships: Array<
-					| { kind: "create"; prepared: PreparedUserRelationshipCreate }
-					| { kind: "delete"; prepared: PreparedUserRelationshipDelete }
-				> = [];
+				const preparedRelationships: PreparedUserRelationship[] = [];
 				for (const change of changes) {
 					const base = {
 						userId,
@@ -455,22 +461,30 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						command,
 						`relationship:${change.slug}:${change.targetEntityId}:${change.kind}`,
 					);
-					if (change.kind === "create") {
-						const create = yield* relationships.prepareUserCreate(
-							{ ...base, properties: change.properties },
-							relationshipCommand,
-							prepared.created ?? undefined,
-						);
-						if (create) {
-							preparedRelationships.push({ kind: "create", prepared: create });
-						}
-					} else {
-						const deletion = yield* relationships.prepareUserDelete(base, relationshipCommand);
-						if (deletion) {
-							preparedRelationships.push({ kind: "delete", prepared: deletion });
-						}
-					}
+					preparedRelationships.push(
+						change.kind === "create"
+							? yield* relationships.prepareUserWrite(
+									{ ...base, properties: change.properties },
+									relationshipCommand,
+									"upsert",
+									prepared.created ?? undefined,
+								)
+							: yield* relationships.prepareUserDelete(base, relationshipCommand),
+					);
 				}
+				const accept = acceptRelationshipPolicies(
+					yield* applyRelationshipPolicies(
+						yield* database
+							.transaction(
+								matchRelationshipPolicies({
+									userId,
+									command,
+									prepared: preparedRelationships,
+								}).pipe(policyContext),
+							)
+							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
+					).pipe(policyContext),
+				);
 
 				const committed = yield* transaction(
 					Effect.gen(function* () {
@@ -502,11 +516,11 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 								identity: ["relationships"],
 							});
 							for (const [index, item] of preparedRelationships.entries()) {
-								const batch = { index, command, identity: ["relationships"] };
-								const work =
-									item.kind === "create"
-										? yield* relationships.persistPreparedUserCreate(item.prepared, batch)
-										: yield* relationships.persistPreparedUserDelete(item.prepared, batch);
+								const work = yield* relationships.persistPrepared(yield* accept(item), {
+									index,
+									command,
+									identity: ["relationships"],
+								});
 								relationshipDispatch.push(...work.dispatch);
 							}
 							relationshipDispatch.push(
