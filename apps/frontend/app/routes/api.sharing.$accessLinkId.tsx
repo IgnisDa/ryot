@@ -39,6 +39,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	);
 	if (processAccessLink.__typename === "ProcessAccessLinkResponse") {
 		const headers = await getCookiesForApplication(
+			request,
 			processAccessLink.apiKey,
 			processAccessLink.tokenValidForDays,
 		);

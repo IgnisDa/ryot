@@ -94,7 +94,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	if (verifyTwoFactor.__typename === "ApiKeyResponse") {
 		const destroySessionCookie =
 			await twoFactorSessionStorage.destroySession(session);
-		const authHeaders = await getCookiesForApplication(verifyTwoFactor.apiKey);
+		const authHeaders = await getCookiesForApplication(
+			request,
+			verifyTwoFactor.apiKey,
+		);
 		return redirect($path("/"), {
 			headers: combineHeaders(authHeaders, {
 				"set-cookie": destroySessionCookie,

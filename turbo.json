@@ -22,6 +22,10 @@
 		"test": {
 			"dependsOn": ["^build"]
 		},
+		"@ryot/tests#test": {
+			"dependsOn": ["^build", "@ryot/frontend#test:unit"]
+		},
+		"test:unit": {},
 		"dev": {
 			"cache": false,
 			"persistent": true

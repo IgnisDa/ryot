@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import { humanizeDuration } from "@ryot/ts-utils";
 import type { ReactNode } from "react";
+import { RichText } from "~/components/common/rich-text";
 import { dayjsLib } from "~/lib/shared/date-utils";
 
 export const DisplaySeasonOrEpisodeDetails = (props: {
@@ -114,8 +115,8 @@ export const DisplaySeasonOrEpisodeDetails = (props: {
 					size="sm"
 					c="dimmed"
 					lineClamp={5}
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-					dangerouslySetInnerHTML={{ __html: props.overview }}
+					html={props.overview}
+					component={RichText}
 				/>
 			) : null}
 		</Stack>
