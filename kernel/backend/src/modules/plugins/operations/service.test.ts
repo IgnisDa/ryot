@@ -449,6 +449,7 @@ const makeLayer = (input: {
 											return yield* inTransaction(
 												receipt.record({
 													merged: [],
+													signals: [],
 													cleared: [],
 													deleted: [],
 													entities: [],
@@ -473,6 +474,7 @@ const makeLayer = (input: {
 										return yield* inTransaction(
 											receipt.record({
 												merged: [],
+												signals: [],
 												cleared: [],
 												deleted: [],
 												entities: [],

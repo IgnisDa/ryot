@@ -30,7 +30,6 @@ export type ChangeSetAuthority = {
 	readonly userId: null | UserId;
 	readonly pluginRevision: null | ScriptPluginRevision;
 	readonly notifications: ReadonlyArray<ChangeSetNotification>;
-	readonly signalActor: { readonly kind: "system" } | { userId: UserId; readonly kind: "user" };
 };
 
 type Subject = ScriptExecutionPrincipal["subject"];
@@ -214,12 +213,7 @@ export const authorizeChangeSet = (
 			});
 		}
 	}
-	return Result.succeed({
-		userId,
-		notifications,
-		pluginRevision,
-		signalActor: userId === null ? { kind: "system" } : { userId, kind: "user" },
-	});
+	return Result.succeed({ userId, notifications, pluginRevision });
 };
 
 /** The first schema a change set names that its plugin revision does not declare. */

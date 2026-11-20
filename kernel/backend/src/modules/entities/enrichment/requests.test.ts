@@ -145,16 +145,12 @@ layer(requestLayer)((test) => {
 					}),
 				);
 				yield* requests.update(row.id, { attempt: 1, state: "running" });
-				yield* session.transaction(requests.guardPopulation(row.id, 1));
+				expect(yield* session.transaction(requests.ownsPopulation(row.id, 1))).toBe(true);
 				yield* requests.update(row.id, { state: "retrying" });
-				expect(
-					(yield* Effect.exit(session.transaction(requests.guardPopulation(row.id, 1))))._tag,
-				).toBe("Failure");
+				expect(yield* session.transaction(requests.ownsPopulation(row.id, 1))).toBe(false);
 				yield* requests.update(row.id, { attempt: 2, state: "running" });
-				expect(
-					(yield* Effect.exit(session.transaction(requests.guardPopulation(row.id, 1))))._tag,
-				).toBe("Failure");
-				yield* session.transaction(requests.guardPopulation(row.id, 2));
+				expect(yield* session.transaction(requests.ownsPopulation(row.id, 1))).toBe(false);
+				expect(yield* session.transaction(requests.ownsPopulation(row.id, 2))).toBe(true);
 				yield* requests.update(row.id, { state: "succeeded" });
 			}),
 		testTimeout,
@@ -237,15 +233,9 @@ layer(requestLayer)((test) => {
 				});
 				expect(full.joinedTo).toBeNull();
 				yield* requests.update(base.id, { attempt: 1, state: "running" });
-				yield* session.transaction(requests.guardPopulation(base.id));
+				expect(yield* session.transaction(requests.ownsPopulation(base.id))).toBe(true);
 				yield* requests.update(base.id, { state: "succeeded" });
-				assertExitFails(
-					yield* Effect.exit(session.transaction(requests.guardPopulation(base.id))),
-					new SandboxRunError({
-						kind: "invalid-input",
-						message: "Provider population no longer owns its writes",
-					}),
-				);
+				expect(yield* session.transaction(requests.ownsPopulation(base.id))).toBe(false);
 				yield* requests.update(full.id, { state: "succeeded" });
 			}),
 		testTimeout,

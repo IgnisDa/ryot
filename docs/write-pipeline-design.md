@@ -217,10 +217,11 @@ lifecycle). The HTTP `entities.create`, `relationships.create` and user-data rou
   policy matches, the commit continues in the same transaction.
 - **Precondition.** `{ check, written }`: `check` runs in the prepare transaction before preparation
   (false commits its side effects and returns an empty result) and again in the commit transaction
-  after the receipt load (the deferred re-check); `written` runs after source writes when anything
-  was written. It replaces the event commit guard and serves population and the reminder and signal
-  ledgers.
-- **Fold lane.** Background-lane commits queue their folds; interactive commits fold inline.
+  after the receipt load (the deferred re-check); `written` receives the commit result after every
+  other write when anything was written. It replaces the event commit guard and serves population
+  and the reminder and signal ledgers.
+- **Fold lane.** Background-lane commits, and commits passing `queueFolds`, queue their folds;
+  interactive commits fold inline.
 - **Stale retry.** An update whose field `expected` still matches retries up to twice on `EventStale`.
 
 ### Rollout
@@ -256,7 +257,28 @@ and its named tests, then its e2e files.
    entity. Coalesced import events still commit through `IntegrationEventWrites` after the item.
    `CommitReceipt.peek` reads a keyed receipt without a transaction, so a receipt per item adds no
    transaction.
-7. **Population, completion trigger, reminders and signal schedules.**
+7. **Population, completion trigger, reminders and signal schedules** (done). Provider population,
+   child sets, related pages and sweeps, root and related stamps and related-population claims
+   commit through `commitPopulation`: global upserts in the entity scope (kernel writers name the
+   provider, `updateExisting` and `preservePopulatedAt`), relationship groups that page, sweep a
+   `kept` set or `preserveExisting`, and a `population` part for claims and related stamps. The
+   population owner and related generation are the precondition; a released request still fails
+   and a superseded one returns null. Each step is one commit, as it was one transaction. The
+   completion trigger is a `triggers` part. `signals` became a part kernel writers commit with an
+   explicit principal, schema reference, subject and item identity; scripts translate theirs in
+   `fromScriptChangeSet`. The signal-schedule ledger is a precondition whose check takes an
+   occurrence delivery lock and whose `written` inserts the row, replacing `SignalScheduleRecorded`;
+   the reminder's `written` reads its formatter run from the result's planned signal. Deleted
+   `relationship-synchronization.ts`, `populationWriteGuard`, `dispatchPopulationPlans`,
+   `EntitiesService.persistPlannedProviderUpsert` and `guardPopulation`;
+   `persistPlannedProviderUpserts` remains as the global-upsert adapter over `planCreates` and
+   `persistPreparedSaves`, called only from `changes/`. Deviations: `written` moved after every
+   write and takes the commit result, since a ledger needs the planned signal; a create whose match
+   appeared before commit re-prepares once; a `kernelCollection` create records no import item; a
+   reminder whose subscription is disabled now dispatches its planned signal's runs, since the
+   signal commits before `written` settles the reminder; `planner.planChange` in
+   `entities/mutation-persistence.ts` is already inside the commit path (reached only from
+   `persistPreparedSaves`, deletes and ensures).
 8. **Docs and audit.** These return nothing outside `changes/` and `events/mutations.ts`:
    `EventsService`, `makeEventCreate`, `runLifecycleWrite`, `runItemPolicy`, `planner.planChange`.
 

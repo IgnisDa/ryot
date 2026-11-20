@@ -22,13 +22,10 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { Context, DateTime, Effect, Layer, Result, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
-import { SignalEmissionService } from "#modules/automations/signal-service";
+import { ChangeSets } from "#modules/changes/service";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
-import { DatabaseSession } from "#platform/db/session";
 import { EntitlementService } from "#platform/entitlements";
 
 import { type SignalScheduleCursor, SignalScheduleRepository } from "./repository";
@@ -44,11 +41,6 @@ const OCCURRENCE_PAGE_LIMIT = 5;
 type SignalScheduleTarget = Effect.Success<
 	ReturnType<SignalScheduleRepository["Service"]["listTargets"]>
 >[number];
-
-class SignalScheduleRecorded extends Schema.TaggedError<
-	SignalScheduleRecorded,
-	{ readonly brand: unique symbol }
->()("SignalScheduleRecorded", {}) {}
 
 class SignalScheduleQueryError extends Schema.TaggedError<
 	SignalScheduleQueryError,
@@ -89,11 +81,9 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const entitlements = yield* EntitlementService;
-			const session = yield* DatabaseSession;
 			const ryotql = yield* RyotQLService;
 			const admission = yield* AccountAdmission.make;
-			const signals = yield* SignalEmissionService;
-			const execution = yield* LifecycleExecution;
+			const changeSets = yield* ChangeSets;
 			const repository = yield* SignalScheduleRepository;
 
 			const admit = Effect.fn("SignalScheduleWorker.admit")(function* (
@@ -116,42 +106,44 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					occurredAt: now.toISOString(),
 					initiator: { id: userId, kind: "user" },
 				});
-				return yield* session
-					.transaction(
-						Effect.gen(function* () {
-							yield* admission.admitAccount(userId);
-							const plan = yield* signals.planSignal({
+				const ledger = { userId, scheduleSlug: target.slug, pluginId: target.pluginId };
+				yield* changeSets.commit(
+					{
+						userId,
+						signals: [
+							{
+								itemIdentity: "occurrence",
 								properties: candidate.properties,
 								principal: { userId, kind: "user" },
-								command: { ...command, writeContext: null },
 								subjectEntityId: EntityId.make(candidate.subjectId),
 								reference: {
 									slug: SignalSchemaSlug.make(target.signal),
 									owner: { kind: "plugin", pluginId: PluginId.make(target.pluginId) },
 								},
-							});
-							if (plan.trigger.blockedReason !== null) {
-								return yield* new DbError({ message: "Scheduled signal was blocked" });
-							}
-							const recorded = yield* repository.record({
-								userId,
-								scheduleSlug: target.slug,
-								pluginId: target.pluginId,
-								triggerId: plan.trigger.id,
-								occurrenceKey: candidate.occurrence,
-							});
-							if (!recorded) {
-								return yield* new SignalScheduleRecorded();
-							}
-							return toLifecycleDispatchPlan(plan);
-						}),
-					)
-					.pipe(
-						Effect.catchTags({
-							DatabaseSessionStateError: Effect.die,
-							SignalScheduleRecorded: () => Effect.succeed(null),
-						}),
-					);
+							},
+						],
+					},
+					{ ...command, writeContext: null },
+					{
+						precondition: {
+							check: Effect.gen(function* () {
+								yield* admission.admitAccount(userId);
+								return yield* repository.lockUndelivered(ledger, candidate.occurrence);
+							}),
+							written: Effect.fnUntraced(function* (result) {
+								const [signal] = result.signals;
+								if (signal?.plan.trigger.blockedReason !== null) {
+									return yield* new DbError({ message: "Scheduled signal was blocked" });
+								}
+								return yield* repository.record({
+									...ledger,
+									triggerId: signal.plan.trigger.id,
+									occurrenceKey: candidate.occurrence,
+								});
+							}),
+						},
+					},
+				);
 			});
 
 			const deliverTarget = Effect.fn("SignalScheduleWorker.deliverTarget")(function* (
@@ -213,10 +205,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						if (delivered.has(candidate.occurrence)) {
 							continue;
 						}
-						const dispatch = yield* admit(target, candidate, now);
-						if (dispatch !== null) {
-							yield* execution.dispatch([dispatch]);
-						}
+						yield* admit(target, candidate, now);
 					}
 					if (!result.pageInfo.hasMore || result.pageInfo.nextCursor === null) {
 						return;

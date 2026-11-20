@@ -81,14 +81,14 @@ import { testDatabaseUrl } from "#testing/database";
 import { makeAppConfigLayer, makeConfigProviderLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { EntitiesRepository } from "./repository";
-import { acceptPrepared, EntitiesService, type UpsertEntityInput } from "./service";
+import { acceptPrepared, EntitiesService } from "./service";
 import {
 	countStatementClasses,
 	recordingDatabaseLayer,
 	StatementLog,
 } from "./statement-recording.test-support";
 import { emptyEntityUserDataAttachments } from "./user-data/attachments.test-support";
-import { DomainWriteChecksLive } from "./write-context";
+import { type DomainLifecycleCommand, DomainWriteChecksLive } from "./write-context";
 
 const owner = UserId.make("owner");
 const slug = EntitySchemaSlug.make("record");
@@ -117,6 +117,7 @@ const systemCommand = (id: string) => ({
 	}),
 	writeContext: null,
 });
+type GlobalUpsert = NonNullable<Changes["globalEntities"]>[number];
 type EntityCreate = NonNullable<NonNullable<Changes["entities"]>["creates"]>[number];
 const originalCreate: EntityCreate = {
 	entitySchema,
@@ -566,6 +567,16 @@ const deletesOf = (
 	userId,
 	entities: { deletes: ids.map((entityId) => ({ entityId, entitySchema: schema })) },
 });
+
+/** Commits provider upserts as global entities of `userId`'s scope, answering each entity in order. */
+const commitUpserts = (
+	items: ReadonlyArray<GlobalUpsert>,
+	lifecycle: DomainLifecycleCommand,
+	userId: null | UserId = null,
+) =>
+	Effect.flatMap(ChangeSets, (sets) =>
+		sets.commit({ userId, globalEntities: items }, lifecycle),
+	).pipe(Effect.map((result) => result.entities.map(({ entity }) => entity)));
 
 describe("EntitiesService committed lifecycle", () => {
 	layer(entitiesLayer())("entities service harness", (test) => {
@@ -1277,6 +1288,24 @@ describe("EntitiesService committed lifecycle", () => {
 			definitions: revisionDefinitions("provider-plugin", manifest),
 		});
 	});
+	/** A kernel writer's provider upsert of `externalId`, updating an existing entity. */
+	const providerUpsert = (externalId: string): GlobalUpsert => ({
+		externalId,
+		name: externalId,
+		populatedAt: null,
+		properties: { title: externalId },
+		entitySchema: providerEntitySchema,
+		provider: { providerId, updateExisting: true },
+	});
+	const changeTriggers = Effect.flatMap(DatabaseSession, (session) =>
+		session.run((db) =>
+			db
+				.select()
+				.from(tables.automationTrigger)
+				.where(eq(tables.automationTrigger.category, "change"))
+				.orderBy(tables.automationTrigger.createdAt, tables.automationTrigger.operation),
+		),
+	);
 	const installProvider = Effect.fn(function* (scope: "user" | "system") {
 		yield* seedProvider;
 		const session = yield* DatabaseSession;
@@ -1459,19 +1488,16 @@ describe("EntitiesService committed lifecycle", () => {
 						if (planned) {
 							assertExitFails(
 								yield* Effect.exit(
-									session.transaction(
-										(yield* EntitiesService).persistPlannedProviderUpsert({
-											lifecycle,
-											providerId,
-											userId: owner,
-											scope: "user",
-											populatedAt: null,
-											updateExisting: true,
-											externalId: "external",
-											name: originalCreate.name,
-											entitySchema: providerEntitySchema,
-											properties: originalCreate.properties,
-										}),
+									commitUpserts(
+										[
+											{
+												...providerUpsert("external"),
+												name: originalCreate.name,
+												properties: originalCreate.properties,
+											},
+										],
+										lifecycle,
+										owner,
 									),
 								),
 								mismatch,
@@ -1954,52 +1980,28 @@ describe("EntitiesService committed lifecycle", () => {
 
 	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
-			"requires an active transaction and returns committed dispatch references",
+			"plans an entity change and its batch for a global upsert and nothing for an unchanged one",
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const input = {
-						providerId,
-						name: "Planned",
-						populatedAt: null,
-						updateExisting: true,
-						externalId: "planned",
-						scope: "global" as const,
-						lifecycle: command("planned"),
-						properties: { title: "planned" },
-						entitySchema: providerEntitySchema,
-					};
+					const planned = { ...providerUpsert("planned"), name: "Planned" };
+					const [created] = yield* commitUpserts([planned], command("planned"));
+					expect(created?.name).toBe("Planned");
+					const triggers = yield* changeTriggers;
 					expect(
-						yield* service.persistPlannedProviderUpsert(input).pipe(Effect.flip),
-					).toMatchObject({ code: "active-transaction-required" });
-					const work = yield* session.transaction(service.persistPlannedProviderUpsert(input));
-					expect(work.result.entity.name).toBe("Planned");
-					const triggers = yield* AutomationTriggerRepository;
-					const planned = yield* Effect.forEach(work.dispatch, ({ triggerId }) =>
-						triggers.findById(triggerId),
-					);
-					expect(planned.map((trigger) => trigger?.kind)).toEqual([
-						{ category: "change", resource: "entity", operation: "create" },
-						{ category: "change", operation: "batch", resource: "entity" },
+						triggers.map(({ operation, resourceKind }) => ({ operation, resourceKind })),
+					).toEqual([
+						{ operation: "batch", resourceKind: "entity" },
+						{ operation: "create", resourceKind: "entity" },
 					]);
-					const batch = planned[1]?.payload;
+					const batch = triggers[0]?.payload;
 					assert(batch?.operation === "batch");
-					expect(batch.items).toEqual<unknown>([planned[0]?.payload]);
-					const newerInput = {
-						...input,
-						name: "Newer",
-						properties: { title: "newer" },
-						lifecycle: command("planned-newer"),
-					};
-					const newer = yield* session.transaction(
-						service.persistPlannedProviderUpsert(newerInput),
-					);
-					const noopInput = { ...newerInput, lifecycle: command("planned-noop") };
-					const noop = yield* session.transaction(service.persistPlannedProviderUpsert(noopInput));
-					expect(noop.result).toEqual(newer.result);
-					expect(noop.dispatch).toEqual([]);
+					expect(batch.items).toEqual<unknown>([triggers[1]?.payload]);
+					const newer = { ...planned, name: "Newer", properties: { title: "newer" } };
+					const updated = yield* commitUpserts([newer], command("planned-newer"));
+					const changes = (yield* changeTriggers).length;
+					expect(yield* commitUpserts([newer], command("planned-noop"))).toEqual(updated);
+					expect(yield* changeTriggers).toHaveLength(changes);
 				}),
 			testTimeout,
 		);
@@ -2011,53 +2013,26 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-					const later = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"));
-					const input = {
-						providerId,
-						populatedAt,
-						name: "Populated",
-						updateExisting: true,
-						scope: "global" as const,
-						externalId: "preserved-stamp",
-						properties: { title: "Populated" },
-						entitySchema: providerEntitySchema,
-						lifecycle: command("preserved-stamp-create"),
-					};
-					const first = yield* session.transaction(service.persistPlannedProviderUpsert(input));
-					const preserve = {
-						...input,
-						populatedAt: later,
-						preservePopulatedAt: true,
-						lifecycle: command("preserved-stamp-ensure"),
-					};
-					const noop = yield* session.transaction(service.persistPlannedProviderUpsert(preserve));
-					expect(noop.result).toEqual(first.result);
-					expect(noop.dispatch).toEqual([]);
-					expect(
-						yield* session.transaction(service.persistPlannedProviderUpsert(preserve)),
-					).toEqual(noop);
-					const changed = yield* session.transaction(
-						service.persistPlannedProviderUpsert({
-							...preserve,
-							properties: { title: "Upgraded" },
-							lifecycle: command("preserved-stamp-changed"),
-						}),
+					const populatedAt = "2026-10-01T00:00:00.000Z";
+					const later = "2026-10-02T00:00:00.000Z";
+					const input = { ...providerUpsert("preserved-stamp"), populatedAt, name: "Populated" };
+					const first = yield* commitUpserts([input], command("preserved-stamp-create"));
+					const changes = (yield* changeTriggers).length;
+					const preserve = { ...input, populatedAt: later, preservePopulatedAt: true as const };
+					const noop = yield* commitUpserts([preserve], command("preserved-stamp-ensure"));
+					expect(noop).toEqual(first);
+					expect(yield* commitUpserts([preserve], command("preserved-stamp-ensure"))).toEqual(noop);
+					expect(yield* changeTriggers).toHaveLength(changes);
+					const [changed] = yield* commitUpserts(
+						[{ ...preserve, properties: { title: "Upgraded" } }],
+						command("preserved-stamp-changed"),
 					);
-					expect(changed.result.entity).toMatchObject({
-						properties: { title: "Upgraded" },
-						populatedAt: populatedAt.toISOString(),
-					});
-					const refreshed = yield* session.transaction(
-						service.persistPlannedProviderUpsert({
-							...input,
-							populatedAt: later,
-							lifecycle: command("preserved-stamp-refresh"),
-						}),
+					expect(changed).toMatchObject({ populatedAt, properties: { title: "Upgraded" } });
+					const [refreshed] = yield* commitUpserts(
+						[{ ...input, populatedAt: later }],
+						command("preserved-stamp-refresh"),
 					);
-					expect(refreshed.result.entity.populatedAt).toBe(later.toISOString());
+					expect(refreshed?.populatedAt).toBe(later);
 				}),
 			testTimeout,
 		);
@@ -2069,41 +2044,27 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const lifecycle = command("planned-batch");
-					const item = (externalId: string) => ({
-						providerId,
-						externalId,
-						name: externalId,
-						populatedAt: null,
-						updateExisting: true,
-						scope: "global" as const,
-						properties: { title: externalId },
-						entitySchema: providerEntitySchema,
-						lifecycle: { ...lifecycle, itemIdentity: `${lifecycle.itemIdentity}:${externalId}` },
-					});
-					const work = yield* session.transaction(
-						service.persistPlannedProviderUpserts({
-							items: [item("first"), item("second")],
-							batch: { command: lifecycle, identity: ["children"] },
-						}),
+					const written = yield* commitUpserts(
+						[providerUpsert("first"), providerUpsert("second")],
+						command("planned-batch"),
 					);
-					expect(work.results.map(({ entity }) => entity.externalId)).toEqual(["first", "second"]);
-					const triggers = yield* AutomationTriggerRepository;
-					const planned = yield* Effect.forEach(work.dispatch, ({ triggerId }) =>
-						triggers.findById(triggerId),
-					);
-					expect(planned.map((trigger) => trigger?.kind.operation)).toEqual([
-						"create",
-						"create",
+					expect(written.map(({ externalId }) => externalId)).toEqual(["first", "second"]);
+					const triggers = yield* changeTriggers;
+					expect(triggers.map(({ operation }) => operation).sort()).toEqual([
 						"batch",
+						"create",
+						"create",
 					]);
-					const batch = planned[2]?.payload;
+					const batch = triggers.find(({ operation }) => operation === "batch")?.payload;
 					assert(batch?.operation === "batch");
 					expect(batch.items).toEqual<unknown>(
-						planned.slice(0, 2).map((trigger) => trigger?.payload),
+						expect.arrayContaining(
+							triggers.flatMap(({ payload, operation }) =>
+								operation === "create" ? [payload] : [],
+							),
+						),
 					);
+					expect(batch.items).toHaveLength(2);
 				}),
 			testTimeout,
 		);
@@ -2115,23 +2076,13 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const lifecycle = yield* FakeEntityLifecycle;
-					const work = yield* session.transaction(
-						service.persistPlannedProviderUpsert({
-							providerId,
-							name: "Policy",
-							scope: "global",
-							populatedAt: null,
-							externalId: "policy",
-							updateExisting: true,
-							properties: { title: "policy" },
-							entitySchema: providerEntitySchema,
-							lifecycle: command("planned-policy"),
-						}),
+					const [written] = yield* commitUpserts(
+						[providerUpsert("policy")],
+						command("planned-policy"),
 					);
-					expect(work.result.entity.properties).toEqual({ title: "policy" });
+					expect(written?.properties).toEqual({ title: "policy" });
 					const triggers = yield* session.run((db) =>
 						db
 							.select({ category: tables.automationTrigger.category })
@@ -2204,21 +2155,6 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	const providerItem = (
-		externalId: string,
-		lifecycle: ReturnType<typeof command>,
-	): UpsertEntityInput & { scope: "global" } => ({
-		providerId,
-		externalId,
-		scope: "global",
-		name: externalId,
-		populatedAt: null,
-		updateExisting: true,
-		properties: { title: externalId },
-		entitySchema: providerEntitySchema,
-		lifecycle: { ...lifecycle, itemIdentity: `${lifecycle.itemIdentity}:${externalId}` },
-	});
-
 	layer(entitiesLayer({ recordStatements: {}, extraEntitySchemas: 20 }))(
 		"entities service harness",
 		(test) => {
@@ -2227,16 +2163,10 @@ describe("EntitiesService committed lifecycle", () => {
 				() =>
 					Effect.gen(function* () {
 						yield* seedProvider;
-						const service = yield* EntitiesService;
 						const changeSets = yield* ChangeSets;
 						const session = yield* DatabaseSession;
 						const log = yield* StatementLog;
-						yield* session.transaction(
-							service.persistPlannedProviderUpserts({
-								items: [providerItem("provider-warm", command("provider-warm"))],
-								batch: { identity: ["children"], command: command("provider-warm") },
-							}),
-						);
+						yield* commitUpserts([providerUpsert("provider-warm")], command("provider-warm"));
 						const sizes = [2, 20] as const;
 						const commitCounts = <A, E, R>(write: (size: number) => Effect.Effect<A, E, R>) =>
 							Effect.forEach(sizes, (size) =>
@@ -2247,13 +2177,11 @@ describe("EntitiesService committed lifecycle", () => {
 							);
 						expectInvariant(
 							yield* commitCounts((size) =>
-								session.transaction(
-									service.persistPlannedProviderUpserts({
-										batch: { identity: ["children"], command: command(`provider-${size}`) },
-										items: Array.from({ length: size }, (_, index) =>
-											providerItem(`provider-${size}-${index}`, command(`provider-${size}`)),
-										),
-									}),
+								commitUpserts(
+									Array.from({ length: size }, (_, index) =>
+										providerUpsert(`provider-${size}-${index}`),
+									),
+									command(`provider-${size}`),
 								),
 							),
 						);
@@ -2318,16 +2246,11 @@ describe("EntitiesService committed lifecycle", () => {
 				() =>
 					Effect.gen(function* () {
 						yield* seedProvider;
-						const service = yield* EntitiesService;
 						const changeSets = yield* ChangeSets;
 						const session = yield* DatabaseSession;
 						const log = yield* StatementLog;
 						for (const round of ["first", "second"]) {
 							const externalId = `contended-${round}`;
-							const upsert = (id: string) => ({
-								...providerItem(externalId, command(id)),
-								lifecycle: command(id),
-							});
 							const commitUpsert = (id: string) =>
 								changeSets
 									.commit(
@@ -2354,12 +2277,7 @@ describe("EntitiesService committed lifecycle", () => {
 								[
 									commitUpsert(`single-${round}`),
 									retryOnDeadlock(
-										session.transaction(
-											service.persistPlannedProviderUpserts({
-												items: [upsert(`batch-${round}`)],
-												batch: { identity: ["children"], command: command(`batch-${round}`) },
-											}),
-										),
+										commitUpserts([providerUpsert(externalId)], command(`batch-${round}`)),
 									),
 								],
 								{ concurrency: 2 },
@@ -2371,7 +2289,7 @@ describe("EntitiesService committed lifecycle", () => {
 							const stored = yield* (yield* EntitiesRepository).getById(created.id);
 							assert(stored);
 							expect(single).toEqual(stored);
-							expect(batch.results).toEqual([{ entity: stored }]);
+							expect(batch).toEqual([stored]);
 						}
 						expect(yield* log.errorCodes).not.toContain("40P01");
 					}),
@@ -2386,45 +2304,29 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = yield* EntitiesService;
 					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
 					const lifecycle = command("duplicates");
-					const twice = yield* session.transaction(
-						service.persistPlannedProviderUpserts({
-							batch: { command: lifecycle, identity: ["children"] },
-							items: [providerItem("same", lifecycle), providerItem("same", lifecycle)],
-						}),
+					const [first, second] = yield* commitUpserts(
+						[providerUpsert("same"), providerUpsert("same")],
+						lifecycle,
 					);
-					const [first, second] = twice.results;
 					assert(first && second);
 					expect(second).toEqual(first);
-					expect(
-						twice.dispatch.filter(({ triggerId }, index, all) =>
-							all.some((other, position) => position < index && other.triggerId === triggerId),
-						),
-					).toEqual([]);
 					const conflicting = [
 						[
-							providerItem("other-command", command("duplicate-left")),
-							providerItem("other-command", command("duplicate-right")),
+							{ ...providerUpsert("other-command"), itemIdentity: "duplicate-left" },
+							{ ...providerUpsert("other-command"), itemIdentity: "duplicate-right" },
 						],
 						[
-							providerItem("other-input", lifecycle),
-							{ ...providerItem("other-input", lifecycle), name: "Different" },
+							providerUpsert("other-input"),
+							{ ...providerUpsert("other-input"), name: "Different" },
 						],
 					];
 					for (const items of conflicting) {
-						expect(
-							yield* session
-								.transaction(
-									service.persistPlannedProviderUpserts({
-										items,
-										batch: { command: lifecycle, identity: ["conflicting"] },
-									}),
-								)
-								.pipe(Effect.flip),
-						).toMatchObject({ reason: { code: "mutation-conflict" } });
+						expect(yield* commitUpserts(items, lifecycle).pipe(Effect.flip)).toMatchObject({
+							reason: { code: "mutation-conflict" },
+						});
 					}
 					const ensureItem = { entitySchema, name: "Ensured", properties: { title: "ensured" } };
 					yield* changeSets.commit(
@@ -2457,19 +2359,15 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
-					const lifecycle = command("invalid-provider-items");
 					assertExitFails(
 						yield* Effect.exit(
-							session.transaction(
-								service.persistPlannedProviderUpserts({
-									batch: { command: lifecycle, identity: ["children"] },
-									items: [
-										{ ...providerItem("zeta", lifecycle), properties: { title: 42 } },
-										{ ...providerItem("Alpha", lifecycle), properties: null },
-									],
-								}),
+							commitUpserts(
+								[
+									{ ...providerUpsert("zeta"), properties: { title: 42 } },
+									{ ...providerUpsert("Alpha"), properties: null },
+								],
+								command("invalid-provider-items"),
 							),
 						),
 						new EntityBadRequest({ reason: { paths: [["title"]], code: "invalid-properties" } }),
@@ -2481,26 +2379,16 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
-			"records provider-order results and dispatch",
+			"records provider-order results and change triggers",
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const lifecycle = command("batch-replay");
-					const input = {
-						batch: { command: lifecycle, identity: ["children"] },
-						items: ["zeta", "Alpha", "alpha"].map((externalId) =>
-							providerItem(externalId, lifecycle),
-						),
-					};
-					const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
-					expect(first.results.map(({ entity }) => entity.externalId)).toEqual([
-						"zeta",
-						"Alpha",
-						"alpha",
-					]);
-					expect(first.dispatch).toHaveLength(4);
+					const first = yield* commitUpserts(
+						["zeta", "Alpha", "alpha"].map(providerUpsert),
+						command("batch-replay"),
+					);
+					expect(first.map(({ externalId }) => externalId)).toEqual(["zeta", "Alpha", "alpha"]);
+					expect(yield* changeTriggers).toHaveLength(4);
 				}),
 			testTimeout,
 		);
@@ -2511,7 +2399,6 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const secondUser = UserId.make("second-scope-owner");
 					yield* session.run((db) =>
@@ -2565,14 +2452,11 @@ describe("EntitiesService committed lifecycle", () => {
 								},
 							]),
 					);
-					const lifecycle = command("scoped-batch");
-					const scoped = yield* session.transaction(
-						service.persistPlannedProviderUpserts({
-							batch: { command: lifecycle, identity: ["children"] },
-							items: [{ ...providerItem("shared", lifecycle), updateExisting: false }],
-						}),
+					const scoped = yield* commitUpserts(
+						[{ ...providerUpsert("shared"), provider: { providerId, updateExisting: false } }],
+						command("scoped-batch"),
 					);
-					expect(scoped.results.map(({ entity }) => entity.id)).toEqual<unknown>(["global-plugin"]);
+					expect(scoped.map(({ id }) => id)).toEqual<unknown>(["global-plugin"]);
 					const rows = session.run((db) =>
 						db.select({ id: tables.entity.id }).from(tables.entity).orderBy(tables.entity.id),
 					);
@@ -2597,20 +2481,13 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
-					const lifecycle = command("bind-budget");
-					const input = {
-						batch: { command: lifecycle, identity: ["children"] },
-						items: Array.from({ length: 4_200 }, (_, index) =>
-							providerItem(`bulk-${index}`, lifecycle),
-						),
-					};
-					const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
-					expect(new Set(first.results.map(({ entity }) => entity.id)).size).toBe(4_200);
-					expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
-						first,
+					const items = Array.from({ length: 4_200 }, (_, index) =>
+						providerUpsert(`bulk-${index}`),
 					);
+					const first = yield* commitUpserts(items, command("bind-budget"));
+					expect(new Set(first.map(({ id }) => id)).size).toBe(4_200);
+					expect(yield* commitUpserts(items, command("bind-budget"))).toEqual(first);
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(4_200);
 				}),
 			testTimeout,

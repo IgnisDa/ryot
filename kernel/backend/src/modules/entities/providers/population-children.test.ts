@@ -1,14 +1,7 @@
 import { expect } from "bun:test";
 
-import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import {
-	definitionKey,
-	definitionOwner,
-	definitionOwnerPluginId,
-} from "@ryot-app/contract/modules/plugins/references";
-import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -18,36 +11,28 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
-import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import {
 	type DomainLifecycleCommand,
 	DomainWriteChecksLive,
 } from "#modules/entities/write-context";
-import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { RelationshipsRepository } from "#modules/relationships/repository";
-import { RelationshipsService } from "#modules/relationships/service";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -57,6 +42,11 @@ import { workflowAccountsTestLayer } from "#testing/effect";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { writeChildEntitySet } from "./population";
 import { type PopulationWritePayload, runPopulationAttempt } from "./population-job";
+import {
+	type PopulationCommit,
+	populationCommitsLayer,
+	upsertedFixture,
+} from "./population.test-support";
 
 const now = IsoUtcString.make("2026-09-16T00:00:00.000Z");
 const userId = UserId.make("user-1");
@@ -134,7 +124,6 @@ const definitionMethods = {
 			] ?? null,
 		),
 } satisfies Partial<DefinitionRepository["Service"]>;
-const definitionsLayer = Layer.mock(DefinitionRepository)(definitionMethods);
 
 const population = {
 	rootPreviouslyPopulated: true,
@@ -152,180 +141,40 @@ const population = {
 	},
 } satisfies AutomationPopulationContext;
 
-const listedEntity = (input: {
-	id: EntityId;
-	name: string;
-	externalId: string;
-	populatedAt?: null | string;
-	providerId?: SandboxProviderId;
-	entitySchemaSlug: EntitySchemaSlug;
-	properties?: Record<string, JsonValue>;
-	entitySchemaPluginId?: ListedEntity["entitySchemaPluginId"];
-}) =>
-	({
-		id: input.id,
-		createdAt: now,
-		updatedAt: now,
-		name: input.name,
-		externalId: input.externalId,
-		properties: input.properties ?? {},
-		entitySchemaSlug: input.entitySchemaSlug,
-		providerId: input.providerId ?? providerId,
-		populatedAt: input.populatedAt === undefined ? now : input.populatedAt,
-		entitySchemaPluginId:
-			input.entitySchemaPluginId === undefined ? pluginId : input.entitySchemaPluginId,
-	}) satisfies ListedEntity;
-
-const childEntityWork = (
-	input: Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0],
-): Effect.Effect<PlannedEntityWork> =>
-	Schema.decodeUnknownEffect(Schema.Record(Schema.String, JsonValue))(input.properties).pipe(
-		Effect.orDie,
-		Effect.map((properties) => ({
-			dispatch: [toLifecycleDispatchPlan(planFixture(`entity-${input.externalId}`))],
-			result: {
-				entity: listedEntity({
-					properties,
-					name: input.name,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					entitySchemaSlug: input.entitySchema.slug,
-					id: EntityId.make(`entity-${input.externalId}`),
-					populatedAt: input.populatedAt?.toISOString() ?? null,
-					entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
-				}),
-			},
-		})),
-	);
-
-type Reconcile = RelationshipsService["Service"]["persistPlannedReconciliation"];
-type UpsertInput = Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0];
-type PlannedEntityWork = Effect.Success<
-	ReturnType<EntitiesService["Service"]["persistPlannedProviderUpsert"]>
->;
-type Reconciliation = {
-	readonly scope: Parameters<Reconcile>[2];
-	readonly groups: Parameters<Reconcile>[0];
-	readonly command: Parameters<Reconcile>[1];
-};
-
-const makeTransaction = <Row>(provided?: DatabaseSession["Service"]) =>
-	Effect.gen(function* () {
-		const session =
-			provided ?? Context.get(yield* Layer.build(mutationAdmissionTestLayer), DatabaseSession);
-		const inTransaction = yield* Ref.make(false);
-		const persisted = yield* Ref.make<ReadonlyArray<Row>>([]);
-		const database = Layer.succeed(DatabaseSession, {
-			...session,
-			transaction: (work) =>
-				Ref.set(inTransaction, true).pipe(
-					Effect.andThen(session.transaction(work)),
-					Effect.onExit((exit) => (Exit.isFailure(exit) ? Ref.set(persisted, []) : Effect.void)),
-					Effect.ensuring(Ref.set(inTransaction, false)),
-				),
-		});
-		const expectTransaction = (active: boolean) =>
-			Effect.map(Ref.get(inTransaction), (current) => {
-				expect(current).toBe(active);
-			});
-		const persist = (row: Row) => Ref.update(persisted, (all) => [...all, row]);
-		return { persist, database, expectTransaction, persisted: Ref.get(persisted) };
-	});
-
 class FakeProviderWrites extends Context.Service<
 	FakeProviderWrites,
-	{
-		readonly persisted: Effect.Effect<ReadonlyArray<UpsertInput>>;
-		readonly reconciliations: Effect.Effect<ReadonlyArray<Reconciliation>>;
-	}
+	{ readonly commits: Effect.Effect<ReadonlyArray<PopulationCommit>> }
 >()(
 	"@ryot-app/kernel-backend/modules/entities/providers/population-children.test/FakeProviderWrites",
 ) {}
 
-const providerWritesLayer = (options: {
-	readonly reconciled: "fail" | Effect.Success<ReturnType<Reconcile>>;
-}) =>
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const transaction = yield* makeTransaction<UpsertInput>();
-			const reconciliations = yield* Ref.make<ReadonlyArray<Reconciliation>>([]);
-			const { reconciled } = options;
-			return Layer.mergeAll(
-				transaction.database,
-				definitionsLayer,
-				Layer.mock(EntitiesService)({
-					persistPlannedProviderUpserts: (input) =>
-						Effect.forEach(input.items, (item) =>
-							transaction
-								.expectTransaction(true)
-								.pipe(
-									Effect.andThen(transaction.persist(item)),
-									Effect.andThen(childEntityWork(item)),
-								),
-						).pipe(
-							Effect.map((works) => ({
-								results: works.map(({ result }) => result),
-								dispatch: [
-									...works.flatMap(({ dispatch }) => dispatch),
-									toLifecycleDispatchPlan(planFixture("entities-batch")),
-								],
-							})),
-						),
-				}),
-				Layer.mock(RelationshipsRepository)({
-					listRelationshipsForReconciliation: () => Effect.succeed([]),
-				}),
-				Layer.mock(RelationshipsService)({
-					persistPlannedReconciliation: (groups, receivedCommand, scope) =>
-						reconciled === "fail"
-							? Effect.fail(
-									new RelationshipBadRequest({
-										reason: { code: "reconciliation-selector-mismatch" },
-									}),
-								)
-							: transaction
-									.expectTransaction(true)
-									.pipe(
-										Effect.andThen(
-											Ref.update(reconciliations, (all) => [
-												...all,
-												{ scope, groups, command: receivedCommand },
-											]),
-										),
-										Effect.as(reconciled),
-									),
-				}),
-				Layer.succeed(FakeProviderWrites, {
-					persisted: transaction.persisted,
-					reconciliations: Ref.get(reconciliations),
-				}),
-			);
-		}),
-	);
+const populationOwner = { requestAttempt: 1, requestId: "population-children" };
 
-const persistedExternalIds = Effect.flatMap(FakeProviderWrites, (fake) =>
-	Effect.map(fake.persisted, (items) => items.map(({ externalId }) => externalId)),
+const providerWritesLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const commits = yield* Ref.make<ReadonlyArray<PopulationCommit>>([]);
+		return Layer.mergeAll(
+			populationCommitsLayer((commit) => Ref.update(commits, (all) => [...all, commit])),
+			Layer.mock(EnrichmentRequests)({}),
+			Layer.mock(EntitiesRepository)({}),
+			Layer.succeed(FakeProviderWrites, { commits: Ref.get(commits) }),
+		);
+	}),
 );
 
-layer(
-	providerWritesLayer({
-		reconciled: {
-			result: [{ created: 2, updated: 0, deleted: 0, upserted: 2 }],
-			dispatch: [toLifecycleDispatchPlan(planFixture("relationships"))],
-		},
-	}),
-)((it) => {
+layer(providerWritesLayer)((it) => {
 	it.effect(
-		"commits children in provider order with entity then relationship plans",
+		"commits children in provider order with their authoritative child relationships",
 		() =>
 			Effect.gen(function* () {
-				const result = yield* writeChildEntitySet({
+				const children = yield* writeChildEntitySet({
 					command,
 					pluginId,
 					population,
 					providerId,
 					definitions,
-					scope: "global",
+					userId: null,
+					owner: populationOwner,
 					parentEntityId: rootEntityId,
 					parentEntitySchemaSlug: rootSchemaSlug,
 					expectedChildEntitySchemaSlug: childSchemaSlug,
@@ -334,78 +183,26 @@ layer(
 						{ name: "First", properties: {}, externalId: "A", entitySchemaSlug: childSchemaSlug },
 					],
 				});
-				expect(yield* persistedExternalIds).toEqual(["b", "A"]);
-				expect(result.processedChildren.map(({ entity }) => entity.externalId)).toEqual(["b", "A"]);
-				expect(result.relationshipResults).toEqual([
-					{ created: 2, updated: 0, deleted: 0, upserted: 2 },
+				expect(children.map(({ externalId }) => externalId)).toEqual(["b", "A"]);
+				const [commit, ...others] = yield* (yield* FakeProviderWrites).commits;
+				expect(others).toEqual([]);
+				expect(commit?.changes.globalEntities?.map(({ externalId }) => externalId)).toEqual([
+					"b",
+					"A",
 				]);
-				expect(result.dispatch.map(({ triggerId }) => triggerId)).toEqual<unknown>([
-					"entity-b",
-					"entity-A",
-					"entities-batch",
-					"relationships",
-				]);
-				const [reconciliation] = yield* (yield* FakeProviderWrites).reconciliations;
-				expect(
-					reconciliation?.groups[0]?.relationships.map(({ targetEntityId }) => targetEntityId),
-				).toEqual<unknown>(["entity-b", "entity-A"]);
-				expect(reconciliation).toMatchObject({
-					scope: { scope: "global" },
-					command: {
-						causation: command.causation,
-						population: {
-							...population,
-							batch: {
-								afterCount: 0,
-								isLeader: true,
-								beforeCount: 0,
-								createdCount: 0,
-								deletedCount: 0,
-								updatedCount: 0,
-							},
-						},
+				expect(commit?.changes.globalRelationships).toMatchObject([
+					{
+						preserveExisting: true,
+						relationshipSchema: { owner, slug: relationshipSchemaSlug },
+						selector: { direction: "outgoing", anchor: { entityId: rootEntityId } },
+						relationships: [{ target: { externalId: "b" } }, { target: { externalId: "A" } }],
 					},
-				});
+				]);
+				expect(commit?.command).toMatchObject({ population, causation: command.causation });
 			}),
 		testTimeout,
 	);
-});
 
-layer(providerWritesLayer({ reconciled: "fail" }))((it) => {
-	it.effect(
-		"rolls back every child entity when relationship planning fails",
-		() =>
-			Effect.gen(function* () {
-				const exit = yield* Effect.exit(
-					writeChildEntitySet({
-						command,
-						pluginId,
-						population,
-						providerId,
-						definitions,
-						scope: "global",
-						parentEntityId: rootEntityId,
-						parentEntitySchemaSlug: rootSchemaSlug,
-						expectedChildEntitySchemaSlug: childSchemaSlug,
-						childEntities: [
-							{ name: "First", properties: {}, externalId: "a", entitySchemaSlug: childSchemaSlug },
-							{
-								name: "Second",
-								properties: {},
-								externalId: "b",
-								entitySchemaSlug: childSchemaSlug,
-							},
-						],
-					}),
-				);
-				expect(Exit.isFailure(exit)).toBe(true);
-				expect(yield* persistedExternalIds).toEqual([]);
-			}),
-		testTimeout,
-	);
-});
-
-layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) => {
 	it.effect(
 		"rejects a child entity when its schema is missing from the population catalog",
 		() =>
@@ -416,8 +213,9 @@ layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) =>
 						pluginId,
 						population,
 						providerId,
-						scope: "global",
+						userId: null,
 						childEntities: [],
+						owner: populationOwner,
 						parentEntityId: rootEntityId,
 						parentEntitySchemaSlug: rootSchemaSlug,
 						definitions: definitionsWithoutChildSchema,
@@ -439,8 +237,9 @@ layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) =>
 						pluginId,
 						population,
 						providerId,
-						scope: "global",
+						userId: null,
 						childEntities: [],
+						owner: populationOwner,
 						parentEntityId: rootEntityId,
 						parentEntitySchemaSlug: rootSchemaSlug,
 						expectedChildEntitySchemaSlug: childSchemaSlug,
@@ -457,7 +256,6 @@ class FakeRootPopulation extends Context.Service<
 	FakeRootPopulation,
 	{
 		readonly payload: PopulationWritePayload;
-		readonly postCommitCount: Effect.Effect<number>;
 		readonly commands: Effect.Effect<ReadonlyArray<DomainLifecycleCommand>>;
 	}
 >()(
@@ -507,88 +305,38 @@ const rootPopulationLayer = Layer.unwrap(
 			pluginId: PluginId.make(installed.pluginId),
 			command: { ...command, writeContext: principal },
 		};
-		const transaction = yield* makeTransaction<DomainLifecycleCommand>(session);
-		const postCommitCount = yield* Ref.make(0);
+		const commands = yield* Ref.make<ReadonlyArray<DomainLifecycleCommand>>([]);
 		return Layer.mergeAll(
 			Layer.mock(EnrichmentRequests)({
 				attachEntity: () => Effect.void,
-				guardPopulation: () => Effect.void,
-				recordBaseCheck: () => Effect.void,
 				requesterIds: () => Effect.succeed([]),
 			}),
-			transaction.database,
-			DomainWriteChecksLive.pipe(Layer.provide(transaction.database)),
+			DomainWriteChecksLive,
 			Layer.mock(DefinitionRepository)({ ...definitionMethods, readPinnedRows }),
 			workflowAccountsTestLayer,
 			Layer.mock(PluginRuntimeResolver)({}),
-			Layer.mock(RelationshipsRepository)({}),
-			Layer.mock(RelationshipsService)({
-				persistPlannedReconciliation: () => Effect.die("unexpected reconciliation"),
-			}),
 			Layer.mock(EntityImportWorkflowOperations)({
 				completeProviderEntityImport: () => Effect.void,
 				processProviderResolve: () => Effect.die("unexpected provider resolve"),
 				processSandbox: () =>
-					transaction
-						.expectTransaction(false)
-						.pipe(
-							Effect.as({
-								logs: [],
-								error: null,
-								status: "completed" as const,
-								value: {
-									name: "Record",
-									properties: {},
-									childEntities: [],
-									relatedEntityGroups: [],
-								},
-							}),
-						),
-			}),
-			Layer.mock(EntitiesRepository)({
-				lockMutationKeys: () => Effect.void,
-				stampRelatedPopulated: () => Effect.void,
-				invalidateRelatedPopulated: () => Effect.void,
-				findPopulationTarget: () => Effect.succeed(null),
-				holdsRelatedPopulationGeneration: () => Effect.succeed(true),
-			}),
-			Layer.mock(EntitiesService)({
-				persistPlannedProviderUpsert: (input) =>
-					Effect.gen(function* () {
-						yield* transaction.expectTransaction(true);
-						yield* transaction.persist(input.lifecycle);
-						const scopeEntity = input.lifecycle.population?.scopeEntity;
-						assert(scopeEntity);
-						const entity = listedEntity({
-							name: input.name,
-							id: scopeEntity.id,
-							externalId: input.externalId,
-							providerId: input.providerId,
-							entitySchemaSlug: input.entitySchema.slug,
-							populatedAt: input.populatedAt?.toISOString() ?? null,
-							entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
-							properties: yield* Schema.decodeUnknownEffect(
-								Schema.Record(Schema.String, JsonValue),
-							)(input.properties).pipe(
-								Effect.mapError(
-									() => new DbError({ message: "Invalid provider entity fixture properties" }),
-								),
-							),
-						});
-						return { dispatch: [], result: { entity } } satisfies PlannedEntityWork;
+					Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: { name: "Record", properties: {}, childEntities: [], relatedEntityGroups: [] },
 					}),
 			}),
-			Layer.succeed(LifecycleExecution, {
-				dispatch: () =>
-					transaction
-						.expectTransaction(false)
-						.pipe(Effect.andThen(Ref.update(postCommitCount, (count) => count + 1)), Effect.as([])),
-			}),
-			Layer.succeed(FakeRootPopulation, {
-				payload,
-				commands: transaction.persisted,
-				postCommitCount: Ref.get(postCommitCount),
-			}),
+			Layer.mock(EntitiesRepository)({ findPopulationTarget: () => Effect.succeed(null) }),
+			populationCommitsLayer(
+				({ changes, command: committed }) =>
+					changes.globalEntities ? Ref.update(commands, (all) => [...all, committed]) : Effect.void,
+				(item, { command: committed }) => {
+					const scopeEntity = committed.population?.scopeEntity;
+					assert(scopeEntity);
+					return upsertedFixture(item, committed.occurredAt, scopeEntity.id);
+				},
+			),
+			Layer.succeed(FakeRootPopulation, { payload, commands: Ref.get(commands) }),
 		);
 	}),
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
@@ -617,7 +365,6 @@ layer(rootPopulationLayer)((it) => {
 					scopeEntity: { name: "Record", entitySchemaSlug: rootSchemaSlug },
 				});
 				expect(commands[1]?.population).toEqual(commands[0]?.population);
-				expect(yield* fake.postCommitCount).toBe(2);
 			});
 		},
 		testTimeout,

@@ -63,6 +63,7 @@ export const changeSetsTestLayer = changeSetsLayerWithNotificationSources(true);
 const partialChangeSets = (
 	present: {
 		readonly entities?: Layer.Layer<EntitiesService>;
+		readonly signals?: Layer.Layer<SignalEmissionService>;
 		readonly userData?: Layer.Layer<EntityUserDataService>;
 	},
 	folds: Folds["Service"],
@@ -73,7 +74,7 @@ const partialChangeSets = (
 			present.entities ?? Layer.mock(EntitiesService)({}),
 			Layer.mock(RelationshipsService)({}),
 			Layer.mock(PluginUserSettingsWriter)({}),
-			Layer.mock(SignalEmissionService)({}),
+			present.signals ?? Layer.mock(SignalEmissionService)({}),
 			Layer.mock(NotificationsService)({}),
 			Layer.mock(FoldMarks)({}),
 			Layer.mock(SandboxRepository)({}),
@@ -102,13 +103,21 @@ export const entityChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
 	);
 
 /**
- * `ChangeSets` that writes events and entity data clears and merges over the caller's event and
- * `EntityUserDataService` services; other parts are absent.
+ * `ChangeSets` that writes events, entity data clears and merges, and signals over the caller's event,
+ * `EntityUserDataService` and `SignalEmissionService` services; other parts are absent.
  */
 export const userDataChangeSets = (folds: Folds["Service"] = unfoldedFolds) =>
-	Effect.flatMap(EntityUserDataService, (userData) =>
-		partialChangeSets({ userData: Layer.succeed(EntityUserDataService, userData) }, folds),
-	);
+	Effect.gen(function* () {
+		const userData = yield* EntityUserDataService;
+		const signals = yield* SignalEmissionService;
+		return yield* partialChangeSets(
+			{
+				signals: Layer.succeed(SignalEmissionService, signals),
+				userData: Layer.succeed(EntityUserDataService, userData),
+			},
+			folds,
+		);
+	});
 
 /**
  * Independent event creates of existing entities, answered like the HTTP create endpoint. Given

@@ -43,7 +43,6 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { runPopulationAttempt } from "#modules/entities/providers/population-job";
-import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -61,10 +60,11 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
 import { EntitiesRepository } from "./repository";
-import { EntitiesService, type UpsertEntityInput } from "./service";
 import { EntityUserDataGraphRepository } from "./user-data/graph-repository";
 import { EntityUserDataService } from "./user-data/service";
 import { type DomainLifecycleCommand, kernelCollectionLifecycleCommand } from "./write-context";
+
+type GlobalUpsert = NonNullable<Changes["globalEntities"]>[number];
 
 const firstUser = UserId.make("relationship-owner");
 const secondUser = UserId.make("second-namespace-owner");
@@ -374,7 +374,6 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					"private-globals",
 				);
 				const changeSets = yield* ChangeSets;
-				const engine = yield* EntitiesService;
 				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
 				expect(
 					yield* Effect.flip(
@@ -391,26 +390,22 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
 				expect(
 					yield* Effect.flip(
-						(yield* EventMutations)
-							.transaction(
-								engine.persistPlannedProviderUpserts({
-									batch: { command, identity: ["global-batch"] },
-									items: [
-										{
-											providerId,
-											entitySchema,
-											name: "Global",
-											scope: "global",
-											populatedAt: null,
-											externalId: "global",
-											updateExisting: false,
-											properties: { title: "Global" },
-											lifecycle: nextCommand(command, "global-batch"),
-										},
-									],
-								}),
-							)
-							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
+						changeSets.commit(
+							{
+								userId: null,
+								globalEntities: [
+									{
+										entitySchema,
+										name: "Global",
+										populatedAt: null,
+										externalId: "global",
+										properties: { title: "Global" },
+										provider: { providerId, updateExisting: false },
+									},
+								],
+							},
+							nextCommand(command, "global-batch"),
+						),
 					),
 				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
 				const own = yield* changeSets
@@ -1643,8 +1638,8 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					).pipe(
 						Effect.provideService(EnrichmentRequests, {
 							...populationRequests,
-							guardPopulation: () => Effect.void,
 							recordBaseCheck: () => Effect.void,
+							ownsPopulation: () => Effect.succeed(true),
 						}),
 						Effect.provideService(EntityImportWorkflowOperations, {
 							processRelatedPage: () => Effect.die("unused"),
@@ -1767,63 +1762,45 @@ layer(relationshipChangeSetsLayer())((test) => {
 					firstUser,
 					"batch-authority",
 				);
-				const engine = yield* EntitiesService;
+				const changeSets = yield* ChangeSets;
 				const session = yield* DatabaseSession;
 				const otherUser = UserId.make("batch-scope-owner");
 				const ownSchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
-				const item = (externalId: string) => ({
-					providerId,
+				const item = (externalId: string): GlobalUpsert => ({
 					externalId,
 					name: externalId,
 					populatedAt: null,
-					userId: firstUser,
-					updateExisting: false,
-					scope: "user" as const,
 					entitySchema: ownSchema,
 					properties: { title: externalId },
-					lifecycle: nextCommand(command, externalId),
+					provider: { providerId, updateExisting: false },
 				});
-				const write = (items: ReadonlyArray<UpsertEntityInput>) =>
-					session.transaction(
-						engine.persistPlannedProviderUpserts({
-							items,
-							batch: { command, identity: ["authority"] },
-						}),
-					);
-				const { userId: _userId, ...globalItem } = item("global");
+				const write = (
+					items: ReadonlyArray<GlobalUpsert>,
+					userId: null | UserId = firstUser,
+					lifecycle = command,
+				) => changeSets.commit({ userId, globalEntities: items }, lifecycle);
 				const kernelSchema = { slug: bottle, owner: { kind: "kernel" as const } };
-				for (const [items, reason] of [
+				const foreignSchema = { slug: bottle, owner: definitionOwner(foreign.pluginId) };
+				for (const [failed, reason] of [
 					[
-						[
-							item("own"),
-							{
-								...item("foreign"),
-								entitySchema: { slug: bottle, owner: definitionOwner(foreign.pluginId) },
-							},
-						],
-						{ code: "owner-mismatch" },
+						write([item("own"), { ...item("foreign"), entitySchema: foreignSchema }]),
+						"owner-mismatch",
 					],
+					[write([item("global")], null), "global-scope-forbidden"],
+					[write([item("other-user")], otherUser), "mutation-conflict"],
 					[
-						[item("own"), { ...globalItem, scope: "global" as const }],
-						{ code: "global-scope-forbidden" },
+						write(
+							[
+								{ ...item("collection"), entitySchema: kernelSchema },
+								{ ...item("kernel"), entitySchema: kernelSchema },
+							],
+							firstUser,
+							kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
+						),
+						"owner-mismatch",
 					],
-					[
-						[item("own"), { ...item("other-user"), userId: otherUser }],
-						{ code: "mutation-conflict" },
-					],
-					[
-						[
-							{
-								...item("collection"),
-								entitySchema: kernelSchema,
-								lifecycle: kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
-							},
-							{ ...item("kernel"), entitySchema: kernelSchema },
-						],
-						{ code: "owner-mismatch" },
-					],
-				] satisfies ReadonlyArray<[ReadonlyArray<UpsertEntityInput>, object]>) {
-					expect(yield* Effect.flip(write(items))).toMatchObject({ reason });
+				] as const) {
+					expect(yield* Effect.flip(failed)).toMatchObject({ reason: { code: reason } });
 				}
 				yield* session.run((db) =>
 					db
@@ -1862,7 +1839,7 @@ layer(relationshipChangeSetsLayer())((test) => {
 						.values([shared("second-shared", otherUser), shared("global-shared", null)]),
 				);
 				const created = yield* write([item("shared")]);
-				const [result] = created.results;
+				const [result] = created.entities;
 				assert(result);
 				expect(["second-shared", "global-shared"]).not.toContain(result.entity.id);
 				expect(yield* write([item("shared")])).toEqual(created);
@@ -1914,7 +1891,7 @@ layer(relationshipChangeSetsLayer())((test) => {
 				const recordEvent = Effect.fnUntraced(function* (
 					command: DomainLifecycleCommand,
 					userId: UserId,
-					entity: "collection" | { readonly entitySchema: UpsertEntityInput["entitySchema"] },
+					entity: "collection" | { readonly entitySchema: GlobalUpsert["entitySchema"] },
 					eventSchemaSlug: EventSchemaSlug,
 					identity: string,
 				) {

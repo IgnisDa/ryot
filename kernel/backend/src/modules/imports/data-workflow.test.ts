@@ -102,6 +102,7 @@ const command = rootLifecycleCommand({
 });
 const emptyCommit: CommitResult = {
 	merged: [],
+	signals: [],
 	cleared: [],
 	deleted: [],
 	entities: [],

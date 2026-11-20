@@ -117,10 +117,7 @@ export const makePlannedRelationshipReconciliation = (
 						!paging.kept.has(relationship.targetEntityId),
 				);
 			}
-			const upsertMode =
-				paging?.kind === "page" && paging.preserveExisting
-					? ("ensure" as const)
-					: ("upsert" as const);
+			const upsertMode = group.preserveExisting ? ("ensure" as const) : ("upsert" as const);
 			const mutations: Array<{
 				command: DomainLifecycleCommand;
 				input: RelationshipIdentityInput;

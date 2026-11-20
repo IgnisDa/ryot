@@ -1,3 +1,4 @@
+import type { AutomationChangePayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
 	ChangeSet,
 	ChangeSetEntity,
@@ -11,6 +12,7 @@ import {
 	definitionOwner,
 	type EntitySchemaReference,
 	type RelationshipSchemaReference,
+	type SignalSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type EntityId,
@@ -18,9 +20,11 @@ import {
 	type RelationshipId,
 	RelationshipSchemaSlug,
 	type SandboxProviderId,
+	SignalSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 
+import type { EmitSignalInput } from "#modules/automations/signal-service";
 import type { EntityMatch } from "#modules/entities/service";
 import type { EventMutation } from "#modules/events/mutations";
 import type {
@@ -32,9 +36,18 @@ export type EventChange = Exclude<EventMutation, { readonly kind: "create" }>;
 /** A user entity: the root, an existing one, or one this change set creates or references by `key`. */
 export type EntityReference =
 	ChangeSetEntityReference | { readonly key: string; readonly kind: "keyed" };
+/** A signal emitted by `principal`; its trigger derives from `itemIdentity`. */
+export type SignalEmission = Pick<EmitSignalInput, "principal" | "properties"> & {
+	readonly itemIdentity: string;
+	readonly subjectEntityId?: EntityId;
+	readonly reference: SignalSchemaReference;
+};
+/** An existing entity, or one this change set upserts under `providerId`. */
 export type GlobalEntityReference =
 	| Extract<ChangeSetGlobalEntityReference, { readonly kind: "existing" }>
-	| OwnedEntity<Extract<ChangeSetGlobalEntityReference, { readonly kind: "upserted" }>>;
+	| ({ readonly providerId?: SandboxProviderId } & OwnedEntity<
+			Extract<ChangeSetGlobalEntityReference, { readonly kind: "upserted" }>
+	  >);
 /**
  * An event create recorded by the relationship change with item identity `relationship`, with the
  * properties `properties` gives for what it wrote, or none for null. It runs no before policies.
@@ -52,17 +65,32 @@ export type RelationshipEvent = KernelCollection & {
 /**
  * What one writer commits, with owner-qualified schema references. Kernel writers build it directly;
  * script change sets reach it only through `fromScriptChangeSet`, which qualifies every schema with the
- * writing plugin. Entity creates, updates and deletes write in the user's scope or, without a user,
- * the global scope.
+ * writing plugin. Entity creates, updates and deletes, and global upserts, write in the user's scope
+ * or, without a user, the global scope.
  */
 export type Changes = {
 	readonly userId: null | UserId;
 	readonly folds?: ChangeSet["folds"];
-	readonly signals?: ChangeSet["signals"];
 	readonly settings?: ChangeSet["settings"];
 	readonly entity?: EntityWrite<ChangeSetEntity>;
+	readonly signals?: ReadonlyArray<SignalEmission>;
+	readonly globalEntities?: ReadonlyArray<GlobalEntityUpsert>;
 	readonly globalRelationships?: ReadonlyArray<OwnedGlobalRelationshipGroup>;
-	readonly globalEntities?: ReadonlyArray<OwnedEntity<Part<"globalEntities">[number]>>;
+	/** Changes recorded for `scopeUserId`'s hooks under the writer's authority over `owner` (kernel writers only). */
+	readonly triggers?: ReadonlyArray<{
+		readonly owner: DefinitionOwner;
+		readonly scopeUserId: null | UserId;
+		readonly change: AutomationChangePayload;
+	}>;
+	/**
+	 * Related-population bookkeeping on existing provider entities, at the command's time (kernel
+	 * writers only): `claims` start each entity's related population under `generation`, and
+	 * `relatedPopulated` stamps each entity's related level complete.
+	 */
+	readonly population?: {
+		readonly relatedPopulated?: ReadonlyArray<EntityId>;
+		readonly claims?: ReadonlyArray<{ readonly entityId: EntityId; readonly generation: string }>;
+	};
 	readonly events?: Omit<Part<"events">, "creates" | "changes"> & {
 		readonly changes: ReadonlyArray<EventChange>;
 		readonly creates: ReadonlyArray<
@@ -151,6 +179,17 @@ type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug
 >;
 
 /**
+ * A provider entity upsert. An existing entity its external ID names is updated when `updateExisting`
+ * or while it is an unpopulated stub, and kept otherwise; `preservePopulatedAt` keeps a stored
+ * `populatedAt`.
+ */
+type GlobalEntityUpsert = UnknownProperties<OwnedEntity<Part<"globalEntities">[number]>> & {
+	readonly itemIdentity?: string;
+	readonly preservePopulatedAt?: true;
+	readonly provider: { readonly updateExisting: boolean; readonly providerId: SandboxProviderId };
+};
+
+/**
  * A kernel writer's entity create, which the change set's other parts may reference by `key`. With a
  * provider it keeps the entity its external ID already names unless `updateExisting`; with a `match`
  * it keeps the entity the match finds under its schema, and fails when none is found and the match
@@ -168,23 +207,24 @@ type EntityCreate = KernelCollection &
 		};
 	};
 
-type OwnedGlobalRelationshipGroup = OwnedRelationship<
-	Omit<GlobalRelationshipGroup, "selector" | "relationships">
-> & {
-	readonly paging?: Extract<ReconcileGlobalRelationshipGroup["paging"], { readonly kind: "page" }>;
-	readonly relationships: ReadonlyArray<
-		{ readonly source: GlobalEntityReference; readonly target: GlobalEntityReference } & Omit<
-			UnknownProperties<GlobalRelationshipGroup["relationships"][number]>,
-			"source" | "target"
-		>
-	>;
-	readonly selector:
-		| Extract<GlobalRelationshipGroup["selector"], { readonly type: "self" }>
-		| ({ readonly anchor: GlobalEntityReference } & Omit<
-				Extract<GlobalRelationshipGroup["selector"], { readonly type: "anchored" }>,
-				"anchor"
-		  >);
-};
+type OwnedGlobalRelationshipGroup = Pick<
+	ReconcileGlobalRelationshipGroup,
+	"paging" | "preserveExisting"
+> &
+	OwnedRelationship<Omit<GlobalRelationshipGroup, "selector" | "relationships">> & {
+		readonly relationships: ReadonlyArray<
+			{ readonly source: GlobalEntityReference; readonly target: GlobalEntityReference } & Omit<
+				UnknownProperties<GlobalRelationshipGroup["relationships"][number]>,
+				"source" | "target"
+			>
+		>;
+		readonly selector:
+			| Extract<GlobalRelationshipGroup["selector"], { readonly type: "self" }>
+			| ({ readonly anchor: GlobalEntityReference } & Omit<
+					Extract<GlobalRelationshipGroup["selector"], { readonly type: "anchored" }>,
+					"anchor"
+			  >);
+	};
 
 const ownEntity =
 	(owner: DefinitionOwner) =>
@@ -206,28 +246,53 @@ const ownRelationship =
 		relationshipSchema: { owner, slug: RelationshipSchemaSlug.make(relationshipSchemaSlug) },
 	});
 
-/** A script's change set, every schema of which belongs to the writing plugin (the kernel without one). */
+/**
+ * A script's change set, every schema of which belongs to the writing plugin (the kernel without one).
+ * Its signals are emitted by its user, or the system without one, and its global entities upserted
+ * under its provider.
+ */
 export const fromScriptChangeSet = (
 	changeSet: ChangeSet,
 	userId: null | UserId,
 	pluginId: null | string,
+	providerId: null | SandboxProviderId,
 ): Changes => {
 	const owner = definitionOwner(pluginId);
 	const entity = ownEntity(owner);
 	const relationship = ownRelationship(owner);
 	const globalReference = (reference: ChangeSetGlobalEntityReference): GlobalEntityReference =>
-		reference.kind === "existing" ? reference : entity(reference);
+		reference.kind === "existing"
+			? reference
+			: { ...entity(reference), ...(providerId === null ? {} : { providerId }) };
 	const { entities, relationships } = changeSet;
 	return {
 		userId,
 		...(changeSet.settings === undefined ? {} : { settings: changeSet.settings }),
 		...(changeSet.folds === undefined ? {} : { folds: changeSet.folds }),
-		...(changeSet.signals === undefined ? {} : { signals: changeSet.signals }),
+		...(changeSet.signals === undefined
+			? {}
+			: {
+					signals: changeSet.signals.map(
+						({ schemaSlug, properties, discriminator, subjectEntityId }) => ({
+							properties,
+							itemIdentity: `signal:${discriminator}`,
+							...(subjectEntityId === undefined ? {} : { subjectEntityId }),
+							reference: { owner, slug: SignalSchemaSlug.make(schemaSlug) },
+							principal:
+								userId === null ? { kind: "system" as const } : { userId, kind: "user" as const },
+						}),
+					),
+				}),
 		...(changeSet.events === undefined ? {} : { events: changeSet.events }),
 		...(changeSet.entity === undefined ? {} : { entity: entity(changeSet.entity) }),
-		...(changeSet.globalEntities === undefined
+		...(changeSet.globalEntities === undefined || providerId === null
 			? {}
-			: { globalEntities: changeSet.globalEntities.map(entity) }),
+			: {
+					globalEntities: changeSet.globalEntities.map((item) => ({
+						...entity(item),
+						provider: { providerId, updateExisting: false },
+					})),
+				}),
 		...(changeSet.globalRelationships === undefined
 			? {}
 			: {

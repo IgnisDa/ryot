@@ -1,4 +1,5 @@
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -108,17 +109,28 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 				return new Set(rows.map(({ occurrenceKey }) => occurrenceKey));
 			});
 
+			/** Locks an occurrence's delivery until the transaction ends; true while none is recorded. */
+			const lockUndelivered = Effect.fn("SignalScheduleRepository.lockUndelivered")(function* (
+				target: { userId: UserId; pluginId: string; scheduleSlug: string },
+				occurrenceKey: string,
+			) {
+				const key = stableStringify([
+					"signal-schedule-delivery",
+					target.userId,
+					target.pluginId,
+					target.scheduleSlug,
+					occurrenceKey,
+				]);
+				yield* session.run((db) =>
+					db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`),
+				);
+				return (yield* listDelivered(target, [occurrenceKey])).size === 0;
+			});
+
 			const record = Effect.fn("SignalScheduleRepository.record")(function* (
 				row: SignalScheduleDeliveryRecord,
 			) {
-				const inserted = yield* session.run((db) =>
-					db
-						.insert(schema.signalScheduleDelivery)
-						.values(row)
-						.onConflictDoNothing()
-						.returning({ triggerId: schema.signalScheduleDelivery.triggerId }),
-				);
-				return inserted.length > 0;
+				yield* session.run((db) => db.insert(schema.signalScheduleDelivery).values(row));
 			});
 
 			const prune = Effect.fn("SignalScheduleRepository.prune")(function* (
@@ -137,7 +149,7 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 				);
 			});
 
-			return { prune, record, listTargets, listDelivered };
+			return { prune, record, listTargets, listDelivered, lockUndelivered };
 		}),
 	},
 ) {

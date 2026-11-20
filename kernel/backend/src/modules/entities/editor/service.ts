@@ -476,7 +476,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					),
 					{
 						precondition: {
-							written: Effect.void,
+							written: () => Effect.void,
 							check: Effect.gen(function* () {
 								const authorized = yield* authorize(userId, submission.entitySchema, slugs);
 								return (

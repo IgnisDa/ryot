@@ -26,16 +26,17 @@ const t4 = EntityId.make("paged-t4");
 const targetIds = [t1, t2, t3, t4];
 
 type Paging =
-	| { readonly kind: "page"; readonly preserveExisting: boolean }
+	| { readonly kind: "page"; readonly preserveExisting?: true }
 	| { readonly kind: "sweep"; readonly kept: ReadonlySet<string> };
 
-const page: Paging = { kind: "page", preserveExisting: false };
+const page: Paging = { kind: "page" };
 
 const group = (
 	relationships: ReadonlyArray<{ rank: number; target: EntityId | undefined }>,
-	paging: Paging,
+	{ preserveExisting, ...paging }: Paging & { readonly preserveExisting?: true },
 ) => ({
 	paging,
+	...(preserveExisting ? { preserveExisting } : {}),
 	relationshipSchema: baseInput.relationshipSchema,
 	selector: {
 		type: "anchored" as const,

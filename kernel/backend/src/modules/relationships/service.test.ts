@@ -28,7 +28,6 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { ChangeSets } from "#modules/changes/service";
-import { EntitiesService } from "#modules/entities/service";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -769,16 +768,15 @@ describe("Relationships lifecycle owner", () => {
 	);
 
 	layer(relationshipChangeSetsLayer())(
-		"keeps provider entities, relationships, triggers, and runs in one caller transaction",
+		"commits provider entities, relationships, triggers, and runs in one change set",
 		(test) => {
 			test.effect(
-				"keeps provider entities, relationships, triggers, and runs in one caller transaction",
+				"commits provider entities, relationships, triggers, and runs in one change set",
 				() =>
 					Effect.gen(function* () {
 						const { observer } = yield* RelationshipFixture;
 						const session = yield* DatabaseSession;
-						const entities = yield* EntitiesService;
-						const relationships = yield* RelationshipsService;
+						const changeSets = yield* ChangeSets;
 						const providerId = SandboxProviderId.make("group-provider");
 						const groupRelationshipSchemaSlug = RelationshipSchemaSlug.make("group-link");
 						const fixture = revisionPackage("group-lifecycle", "v1", "group-fixture");
@@ -848,72 +846,47 @@ describe("Relationships lifecycle owner", () => {
 								}),
 						);
 
-						const persistGroup = (id: string, rollback: boolean) =>
-							session.transaction(
-								session.run((tx) =>
-									Effect.gen(function* () {
-										const entityWork = yield* entities.persistPlannedProviderUpsert({
-											providerId,
+						const entitySchema = {
+							owner: definitionOwner(installed.pluginId),
+							slug: EntitySchemaSlug.make("group-fixture"),
+						};
+						const source = { kind: "existing" as const, entityId: ownedSourceEntityId };
+						const persistGroup = (id: string, rank: unknown) =>
+							changeSets.commit(
+								{
+									userId: null,
+									globalEntities: [
+										{
+											entitySchema,
 											externalId: id,
-											scope: "global",
 											populatedAt: null,
-											updateExisting: true,
 											name: `Provider ${id}`,
 											properties: { title: id },
-											lifecycle: command(`${id}-entity`),
-											entitySchema: {
+											provider: { providerId, updateExisting: true },
+										},
+									],
+									globalRelationships: [
+										{
+											selector: { anchor: source, type: "anchored", direction: "outgoing" },
+											relationshipSchema: {
+												slug: groupRelationshipSchemaSlug,
 												owner: definitionOwner(installed.pluginId),
-												slug: EntitySchemaSlug.make("group-fixture"),
 											},
-										});
-										const relationshipWork = yield* relationships.persistPlannedReconciliation(
-											[
+											relationships: [
 												{
-													relationshipSchema: {
-														slug: groupRelationshipSchemaSlug,
-														owner: definitionOwner(installed.pluginId),
-													},
-													selector: {
-														type: "anchored",
-														direction: "outgoing",
-														anchorEntityId: ownedSourceEntityId,
-													},
-													relationships: [
-														{
-															properties: { rank: 1 },
-															sourceEntityId: ownedSourceEntityId,
-															targetEntityId: entityWork.result.entity.id,
-														},
-													],
+													source,
+													properties: { rank },
+													target: { providerId, entitySchema, externalId: id, kind: "upserted" },
 												},
 											],
-											command(`${id}-relationship`),
-											{ scope: "global" },
-										);
-										expect(yield* tx.select().from(tables.relationship)).toHaveLength(1);
-										expect(yield* tx.select().from(tables.automationTrigger)).toHaveLength(2);
-										expect(yield* tx.select().from(tables.automationRun)).toHaveLength(2);
-										const invisible = yield* Effect.tryPromise({
-											catch: () => new DbError({ message: "Observer failed" }),
-											try: () =>
-												observer.query(
-													"select (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger) as triggers, (select count(*)::int from automation_run) as runs",
-												),
-										});
-										expect(invisible.rows).toEqual([{ runs: 0, triggers: 0, relationships: 0 }]);
-										if (rollback) {
-											return yield* new DbError({ message: "Rollback provider group" });
-										}
-										return {
-											entityDispatch: entityWork.dispatch,
-											relationshipDispatch: relationshipWork.dispatch,
-										};
-									}),
-								),
+										},
+									],
+								},
+								command(id),
 							);
 
-						expect(yield* persistGroup("rollback", true).pipe(Effect.flip)).toMatchObject({
-							message: "Rollback provider group",
+						expect(yield* persistGroup("rollback", "first").pipe(Effect.flip)).toMatchObject({
+							reason: { code: "invalid-properties" },
 						});
 						const [
 							relationshipsAfterRollback,
@@ -933,7 +906,7 @@ describe("Relationships lifecycle owner", () => {
 						expect(runsAfterRollback).toEqual([]);
 						expect(entityRows.map(({ id }) => id).sort()).toEqual(baselineEntityIds);
 
-						const work = yield* persistGroup("commit", false);
+						yield* persistGroup("commit", 1);
 						const visible = yield* Effect.tryPromise({
 							catch: () => new DbError({ message: "Observer failed" }),
 							try: () =>
@@ -944,7 +917,6 @@ describe("Relationships lifecycle owner", () => {
 						expect(visible.rows).toEqual([
 							{ runs: 2, triggers: 2, relationships: 1, entities: baselineEntityIds.length + 1 },
 						]);
-						expect([...work.entityDispatch, ...work.relationshipDispatch]).toHaveLength(2);
 					}),
 				testTimeout,
 			);

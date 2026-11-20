@@ -67,7 +67,15 @@ export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
 	readonly upserted: number;
 }>;
 export type ReconcileGlobalRelationshipGroup = {
+	/** Writes each relationship only when absent, keeping the properties of one that exists. */
+	preserveExisting?: boolean;
 	relationshipSchema: RelationshipSchemaReference;
+	/**
+	 * Paged synchronization: a "page" upserts only its relationships and deletes nothing; a "sweep" deletes the
+	 * relationships whose other end is not in `kept`.
+	 */
+	paging?:
+		{ readonly kind: "page" } | { readonly kind: "sweep"; readonly kept: ReadonlySet<string> };
 	relationships: ReadonlyArray<{
 		properties: unknown;
 		sourceEntityId: EntityId;
@@ -76,13 +84,6 @@ export type ReconcileGlobalRelationshipGroup = {
 	selector:
 		| { type: "self" }
 		| { type: "anchored"; anchorEntityId: EntityId; direction: "incoming" | "outgoing" };
-	/**
-	 * Paged synchronization: a "page" upserts only its relationships and deletes nothing; a "sweep" deletes the
-	 * relationships whose other end is not in `kept`.
-	 */
-	paging?:
-		| { readonly kind: "page"; readonly preserveExisting: boolean }
-		| { readonly kind: "sweep"; readonly kept: ReadonlySet<string> };
 };
 
 export const RelationshipMutation = Schema.Struct({

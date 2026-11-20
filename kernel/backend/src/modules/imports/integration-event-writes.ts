@@ -141,7 +141,7 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 					eventCreateChanges(key.userId, [event], [identity]),
 					command,
 					identity,
-					{ events, precondition: { written, check: select } },
+					{ events, precondition: { check: select, written: () => written } },
 				);
 			});
 
@@ -183,7 +183,7 @@ export class IntegrationEventWrites extends Context.Service<IntegrationEventWrit
 					(yield* changeSets.commit(
 						eventCreateChanges(key.userId, [pending.event], [pending.identity]),
 						command,
-						{ events, precondition: { written, check: select } },
+						{ events, precondition: { check: select, written: () => written } },
 					)).outcomes,
 				);
 				if (

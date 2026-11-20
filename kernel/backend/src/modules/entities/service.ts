@@ -24,11 +24,10 @@ import {
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import {
-	type CommittedLifecycleWork,
 	type LifecycleBatchInput,
 	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
@@ -94,7 +93,9 @@ export type EntityPolicyItem = {
 	readonly propertiesSchema: AppSchema;
 	readonly request: AutomationEntityRequestPayload;
 };
-export type UpsertEntityInput = Scope & {
+type Scope = { scope: "global" } | { scope: "user"; userId: UserId };
+
+type UpsertEntityInput = Scope & {
 	name: string;
 	externalId: string;
 	properties: unknown;
@@ -105,8 +106,6 @@ export type UpsertEntityInput = Scope & {
 	lifecycle: DomainLifecycleCommand;
 	entitySchema: EntitySchemaReference;
 };
-
-type Scope = { scope: "global" } | { scope: "user"; userId: UserId };
 const policyItems = Symbol("EntityPolicyItems");
 type PolicyItems = { readonly [policyItems]: ReadonlyArray<EntityPolicyItem> };
 /** The entity writes a prepared token asks its policies to decide. */
@@ -228,6 +227,11 @@ export type PrepareEntitySaveInput = {
 		  };
 };
 type EntityExpected = Pick<EntitySnapshotResult["entity"], "name" | "updatedAt" | "properties">;
+/** A create whose match found no entity when prepared finds one under the commit's lock. */
+export class EntityMatchAppeared extends Schema.TaggedError<
+	EntityMatchAppeared,
+	{ readonly brand: unique symbol }
+>()("EntityMatchAppeared", {}) {}
 const bad = (code: "enclosing-transaction" | "invalid-policy-transform") =>
 	new EntityBadRequest({ reason: { code } });
 const enclosingTransaction = () => bad("enclosing-transaction");
@@ -802,7 +806,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			 * Persists prepared saves as one set in the caller's transaction, recording their changes in
 			 * `batch` from `offset`; the batch's owner seals it with `planEntityBatch`. Each write's final
 			 * draft is validated again under the catalog lock, a kept entity is rechecked unchanged (a
-			 * matched one only present), and a create whose match found nothing fails if one matches now.
+			 * matched one only present), and a create whose match found nothing fails with
+			 * `EntityMatchAppeared` if one matches now. A collection create records no import item.
 			 */
 			const persistPreparedSaves = Effect.fn("EntitiesService.persistPreparedSaves")(function* (
 				saves: ReadonlyArray<PreparedEntitySave>,
@@ -835,7 +840,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					yield* repository.lockMutationKeys(unmatched.map(matchLockKey));
 					for (const lookup of unmatched) {
 						if ((yield* repository.findImportMatch(lookup)) !== null) {
-							return yield* conflict("An entity matching the create was written concurrently");
+							return yield* new EntityMatchAppeared();
 						}
 					}
 				}
@@ -868,7 +873,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						) {
 							return yield* conflict("Entity changed before no-op was recorded");
 						}
-						yield* keys.recordImportItem(entry.lifecycle, entry.scopeUserId, "unchanged");
+						if (entry.lifecycle.kernelCollection !== true) {
+							yield* keys.recordImportItem(entry.lifecycle, entry.scopeUserId, "unchanged");
+						}
 						outcomes.push({ kept: current.entity });
 						continue;
 					}
@@ -1009,22 +1016,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						: Effect.die("Planned provider upsert is missing its result");
 				});
 				return { results, dispatch: [...saved.dispatch, ...(yield* planEntityBatch(input.batch))] };
-			});
-			const persistPlannedProviderUpsert = Effect.fn(
-				"EntitiesService.persistPlannedProviderUpsert",
-			)(function* (input: UpsertEntityInput) {
-				const work = yield* persistPlannedProviderUpserts({
-					items: [input],
-					batch: { identity: ["batch"], command: input.lifecycle },
-				});
-				const [result] = work.results;
-				if (!result) {
-					return yield* Effect.die("Planned provider upsert is missing its result");
-				}
-				return {
-					result,
-					dispatch: work.dispatch,
-				} satisfies CommittedLifecycleWork<EntitySnapshotResult>;
 			});
 			/**
 			 * Prepares keeping the entity `match` finds unchanged, or null when it finds none. Committing it
@@ -1491,16 +1482,47 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					[],
 				);
 			});
+			/**
+			 * Claims each entity's related population under its generation and stamps each related level
+			 * complete, at the command's time, under the writer's authority and each entity's lock.
+			 */
+			const persistPopulation = Effect.fn("EntitiesService.persistPopulation")(function* (
+				input: {
+					readonly relatedPopulated: ReadonlyArray<EntityId>;
+					readonly claims: ReadonlyArray<{
+						readonly entityId: EntityId;
+						readonly generation: string;
+					}>;
+				},
+				lifecycle: DomainLifecycleCommand,
+				scopeUserId: null | UserId,
+			) {
+				yield* assertActiveTransaction;
+				yield* writeChecks
+					.check(lifecycle, principalOwner(lifecycle.writeContext), scopeUserId, true)
+					.pipe(Effect.catch(writeFailure));
+				yield* repository.lockMutationKeys([
+					...input.claims.map(({ entityId }) => entityId),
+					...input.relatedPopulated,
+				]);
+				const at = DateTime.toDateUtc(DateTime.makeUnsafe(lifecycle.occurredAt));
+				for (const { entityId, generation } of input.claims) {
+					yield* repository.invalidateRelatedPopulated(entityId, at, generation);
+				}
+				for (const entityId of input.relatedPopulated) {
+					yield* repository.stampRelatedPopulated(entityId, at);
+				}
+			});
 			return {
 				prepareSave,
 				prepareMatch,
 				prepareDeletes,
 				prepareEnsures,
 				planEntityBatch,
+				persistPopulation,
 				persistPreparedSaves,
 				persistPreparedDeletes,
 				persistPreparedEnsures,
-				persistPlannedProviderUpsert,
 				persistPlannedProviderUpserts,
 			};
 		}),

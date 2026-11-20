@@ -9,6 +9,7 @@ import type { EventCreateItemOutcome } from "@ryot-app/contract/modules/events/s
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect, type Schema } from "effect";
 
+import type { LifecyclePlan } from "#modules/automations/lifecycle/planning";
 import {
 	IdempotencyConflict,
 	type IdempotencyIdentity,
@@ -30,8 +31,9 @@ export type CommitReceipt<A> = {
 /**
  * What a commit wrote; `outcomes` lists every event create by position in independent-items mode,
  * `cleared` and `merged` each entity data clear and merge in order, `relationships` each user
- * relationship change and `entities` each saved root entity, entity create, update and reference under
- * its item identity, and `deleted` every deleted entity.
+ * relationship change, `entities` each saved root entity, entity create, update, reference and global
+ * upsert, and `signals` each planned signal, under its item identity, and `deleted` every deleted
+ * entity.
  */
 export type CommitResult = {
 	readonly committed: CommittedChanges;
@@ -39,6 +41,7 @@ export type CommitResult = {
 	readonly outcomes: ReadonlyArray<EventCreateItemOutcome>;
 	readonly merged: ReadonlyArray<MergeEntityUserDataResponse>;
 	readonly cleared: ReadonlyArray<ClearEntityUserDataResponse>;
+	readonly signals: ReadonlyArray<{ readonly plan: LifecyclePlan; readonly itemIdentity: string }>;
 	readonly relationships: ReadonlyArray<
 		RelationshipWriteResult & { readonly itemIdentity: string }
 	>;

@@ -38,10 +38,16 @@ lower priority: a bulk import is not waiting on a screen.
 
 Provider details are fetched and validated before database work. Population writes are provider data,
 not mutation requests: they plan no before-policies, so the provider's `details` script shapes them.
-Population commits the root entity,
-then its child-entity sets, then the base population timestamp in separate short transactions. It
-publishes `populated` before starting related work. Lifecycle dispatch and live-update broadcasts happen
-after the corresponding transactions commit.
+Every population write is one `ChangeSets` commit (`commitPopulation`) of global entity upserts,
+global relationship groups and `population` bookkeeping, in the entity scope's user or global scope,
+with verbatim item identities and queued folds. Its precondition requires the request attempt to
+still own its population (`EnrichmentRequests.ownsPopulation`) and, for a related write, the entity
+to still hold the write's related generation: a released request writes nothing and fails, and a
+superseded generation writes nothing and reports it. Population commits the root entity, then each
+child-entity set (its children and its authoritative child relationships, keeping the properties of
+those that exist), then the base population timestamp, each in its own commit. It publishes
+`populated` before starting related work. Lifecycle dispatch and live-update broadcasts happen after
+the corresponding commits.
 
 ### Population levels
 
@@ -79,8 +85,9 @@ Refresh preserves the base timestamp during its initial upsert and writes its ne
 after its child sets succeed. Child sets keep their initial
 (non-refresh) semantics during an upgrade.
 
-The `entity-import` job (and so `kernel:entity-import`) requests `base`. After population and the
-`provider-entity-import` completion hooks, an import with an entry event creates that event for the
+The `entity-import` job (and so `kernel:entity-import`) requests `base`. After population, the
+import commits its `provider-entity-import` completion as a `triggers` change through `ChangeSets`,
+planning the completion hooks. After those hooks, an import with an entry event creates that event for the
 importing user. A stored marker keeps a retried attempt from creating it again. A failed or refused
 event fails the import at the `entry-event` stage; the imported entity stays. `POST /entities/populate` requests `base` for background and `full` for
 interactive entities (see the [entity interest README](../../../../../client/src/modules/entity-watches/README.md)). The kernel
@@ -97,26 +104,25 @@ joins the queued request instead of starting another. All callers share populati
 
 Every related-entity group and related-page result declares `coverage`: `complete`, `more` with a
 continuation, or `source-limited` with a reason. A group whose coverage is `more` is written in pages. The
-first page is written after the base stamp like any other group; every written relationship is stamped
-in `relationship.sync_generation` with the entity's current generation, the population execution ID
-held in `entity.related_population_generation`. The population job pages each group itself under
+first page is written after the base stamp like any other group, under the entity's current
+generation, the population execution ID held in `entity.related_population_generation`. The population job pages each group itself under
 the same plugin pin and user scope. Base imports do not start related work and return at the base
 boundary. Every group shares the entity's generation, so a newer population supersedes older
 paged work for the whole entity.
 
 The job runs the provider's `related` script once per page, each in its own sandbox execution,
-and writes each page in one transaction:
+and writes each page in one commit:
 
 - A page upserts only its own entries and deletes nothing. Authoritative groups replace the
   properties of existing relationships; additive groups keep them. A relationship that is otherwise
   unchanged only has its stamp written, directly, with no lifecycle request or change evidence.
 - The page index is part of the item and batch identity, so a retried attempt derives the same
   entity IDs. The sweep has its own identity.
-- Every page write and the sweep lock the entity row and return an explicit superseded outcome unless
-  the stored generation is still their own. A newer population therefore supersedes an older one
-  without interleaved writes.
-- After a page declares complete coverage, an authoritative group is swept: relationships whose stamp
-  differs from the generation are deleted through the normal planned-reconciliation delete path
+- Every page write and the sweep lock the entity row in their precondition and write nothing, with
+  an explicit superseded outcome, unless the stored generation is still their own. A newer
+  population therefore supersedes an older one without interleaved writes.
+- After a page declares complete coverage, an authoritative group is swept: relationships whose other
+  end no page of this run kept are deleted through the normal planned-reconciliation delete path
   (triggers, change evidence). Additive groups are never swept.
 - A source-limited page fails with its reason before that page is written. A failed page, repeated
   continuation, or reaching the 200-page limit fails that group and skips its sweep. A
@@ -150,8 +156,8 @@ The next attempt starts again from provider details under its own execution iden
 ### Mutation lock order
 
 Concurrent populations can contain the same related entities and relationships. Every entity
-commit transaction, whether a provider batch or a change set's entity saves (`persistPreparedSaves`),
-acquires locks in this order before it mutates rows:
+commit transaction, whether global upserts or a change set's entity saves (both persist through
+`persistPreparedSaves`), acquires locks in this order before it mutates rows:
 
 1. The schema catalog lock.
 2. Domain write authority checks with `lock=true`, once per distinct writer, kernel-collection
@@ -183,9 +189,9 @@ same provider-order result positions as their input subtrees.
 ### Deadlock retry
 
 PostgreSQL can still select a transaction as a deadlock victim when a new mutation path violates the
-protocol. Population and relationship service transactions retry SQLSTATE `40P01` at most twice
-after the initial attempt. The retry wraps the complete `database.transaction` effect, so rollback
-finishes before a fresh transaction starts. SQL errors remain `DbError` values until retry is
+protocol. Population commits and relationship service transactions retry SQLSTATE `40P01` at most
+twice after the initial attempt. The retry wraps the complete commit, so rollback finishes before a
+fresh transaction starts. SQL errors remain `DbError` values until retry is
 complete and are converted to the durable `SandboxRunError` contract only afterward.
 
 Do not retry individual statements and do not move sandbox, workflow, lifecycle, network, or

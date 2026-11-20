@@ -13,7 +13,8 @@ atomically under the writer's principal (`command.writeContext`) after translati
   the same change set name it by; and a `match`, an entity ID in scope or a normalized name with
   properties (a `prefer`red entity first when it qualifies), whose entity is kept instead of
   created, failing the change set when `required` finds none), kernel `references` (an existing entity the change set names by key without writing it,
-  recorded as an `unchanged` import item), entity `deletes` (an entity that no longer
+  recorded as an `unchanged` import item; a matched or kept create records one too, except a
+  `kernelCollection` create, which belongs to its membership rather than the item), entity `deletes` (an entity that no longer
   exists is skipped, so a repeated delete is a no-op; `preserveHistory` refuses an entity with events
   instead of cascading), data `clears` and `merges` (both through `EntityUserDataService`; a kernel
   writer's `null` schema accepts the entity's own), `updates` of existing entities (each shaped and
@@ -31,13 +32,27 @@ An entity create, relationship write and relationship event that `CollectionsSer
 `member-of` schemas, as the collection routes do; every other part keeps the writer's own authority.
 
 - `settings`: a patch of the writing plugin's user settings.
-- `signals`: signal emissions, planned like `SignalEmissionService.planSignal`.
+- `signals`: signal emissions, each planned through `SignalEmissionService.planSignal` under its
+  `principal`, schema `reference`, optional subject entity and `itemIdentity`. A script's signals
+  take the script's plugin, its execution user (or the system principal) and `signal:<discriminator>`.
 - `notifications`: messages for the run's account; admission queues delivery as a job.
-- `globalEntities` and `globalRelationships`: provider-owned global upserts. A global relationship
-  endpoint or selector anchor names an existing entity or an entity this change set upserts, by
-  schema slug and external ID. Global writes persist like provider population and run no policies.
-  A kernel writer's relationship group may page (`paging: { kind: "page" }`), upserting its
-  relationships without reconciling the selector.
+- `globalEntities` and `globalRelationships`: provider-owned upserts in the change set user's scope
+  (global for `userId: null`). An entity upsert names its provider identity: an existing entity is
+  updated when `updateExisting` or while it is an unpopulated stub and kept otherwise, and
+  `preservePopulatedAt` keeps a stored `populatedAt`. A script's upserts take its provider and never
+  update existing entities. A relationship endpoint or selector anchor names an existing entity or an
+  entity this change set upserts, by schema slug, external ID and provider. These writes persist
+  through `persistPlannedProviderUpserts` (the save path, without policies) and
+  `persistPlannedReconciliation`. A kernel writer's group may page (`paging: { kind: "page" }`),
+  upserting without reconciling the selector, sweep (`paging: { kind: "sweep", kept }`), deleting
+  what is not kept, or `preserveExisting`, keeping the properties of relationships that exist.
+  Under a population command the reconciliation records one population batch.
+- `triggers` (kernel writers only): changes recorded for a scope's hooks under the writer's domain
+  write check of `owner`, planned through `LifecyclePlanner.planChange`; the provider-import
+  completion commits this way.
+- `population` (kernel writers only): related-population bookkeeping on existing provider entities
+  at the command's time, `claims` starting related populations under a generation and
+  `relatedPopulated` stamping them complete.
 - `folds`: fold requests for the writer's user (`scope: "user"`) or every user with events on the
   entities (`scope: "all-users"`), limited to the writing plugin's folds.
 
@@ -80,20 +95,23 @@ own checks: exact schema/plugin ownership through `DomainWriteChecks`, merge and
 validation in `PluginUserSettingsWriter`.
 
 Kernel writers (HTTP routes, including the entity and relationship creates and the user-data clear
-and merge, the entity editor, plugin bootstrap entities, imports, integrations, collections, test
-support and the provider entry event) skip
+and merge, the entity editor, plugin bootstrap entities, imports, integrations, collections,
+provider population and its completion trigger, reminders, signal schedules, test support and the
+provider entry event) skip
 script authority and rely on these service checks, under whatever `writeContext` their command
 carries. Scripts reach `ChangeSets` only through `ScriptChanges`, which always calls `commitScript`.
-Parts only a script principal resolves (`settings`, `folds`, `signals`, global entity upserts, event
-`expected` and `baselines`) fail a kernel commit with `ChangeSetRejected`.
+Parts only a script principal resolves (`settings`, `folds`, event `expected` and `baselines`) fail
+a kernel commit with `ChangeSetRejected`; kernel writers name a signal's principal and an upsert's
+provider themselves.
 
 ## Preparation and commit
 
 Preparation holds no database transaction over sandbox execution. The root entity, entity creates and
 updates, relationships, ensures, entity deletes (grouped by schema), and data clears and merges are
 prepared first. A create's `match` is decided then: the commit rechecks a matched entity under its
-lock, and for a create that matched nothing locks the match and fails with `mutation-conflict` when a
-matching entity appeared since. Entity deletes, clears and merges also
+lock, and for a create that matched nothing locks the match. When a matching entity appeared since,
+the change set is prepared and committed once more, so two writers creating one name both commit
+into the first one's entity; a match that appears again fails with `mutation-conflict`. Entity deletes, clears and merges also
 plan event changes, which join the change set's event changes (see [events](../events/README.md)):
 an entity delete cascades a delete to every event referencing its entities, a clear deletes the
 captured state's events, and a merge deletes transient evidence and moves every other event. Their
@@ -122,13 +140,14 @@ The commit transaction applies, in order: the receipt's `load`, the precondition
 settings patch, source writes (event group capture, then each clear's and merge's account admission,
 locks and state recheck, which a change set with only entity saves skips, then the root entity with
 entity creates and updates as one set, relationships, the events relationship changes record,
-events, baselines), the precondition's `written` when an event was written, ensures, entity deletes
-(which fail when an event still references a deleted entity), the rest of each clear and merge,
-global entity upserts and global relationship reconciliation, signal
-plans, notification admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts
+events, baselines), ensures, entity deletes (which fail when an event still references a deleted
+entity), the rest of each clear and merge, global entity upserts and global relationship
+reconciliation, population claims and stamps, triggers, signal plans, notification admissions, fold
+requests, the precondition's `written` when the commit wrote anything, and the receipt's `record`. Lifecycle dispatch starts
 after commit; a failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
 
-A background-lane commit queues its folds; an interactive commit folds inline.
+A background-lane commit, or one passing `queueFolds` (provider population), queues its folds; an
+interactive commit folds inline.
 
 ### Preconditions
 
@@ -137,9 +156,18 @@ whether to write. `commitOnce` runs `check` after the receipt's first `load`, be
 `check` also runs in the events transaction before policies are matched. False commits the check's
 own writes and records an empty result without running policies. When policies ran, `check`
 runs again in the commit transaction after the receipt's `load`, before any source write, so a write a
-concurrent writer superseded records an empty result instead. `written` runs after source writes that
-wrote an event. Locks taken by `check` (account admission first) precede the commit's stream and
-entity reference locks.
+concurrent writer superseded records an empty result instead. `written` receives the commit's result
+after every other write, when the commit wrote anything, so a writer records its own ledger from what
+was planned (a signal's trigger and runs) in the same transaction. Locks taken by `check` (account
+admission first) precede the commit's stream and entity reference locks.
+
+Ledgers that are preconditions:
+
+| Writer                   | `check`                                                                          | `written`                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Provider population      | The request attempt owns its population; a related write's generation is current | The root base check, for the base stamp                                            |
+| Signal schedule delivery | Account admission, then the occurrence's delivery lock finds it undelivered      | The `signal_schedule_delivery` row                                                 |
+| Reminder due             | The reminder's lock finds it still due                                           | Its trigger, formatter run and dispatch, or the `subscription-disabled` settlement |
 
 ### Independent event creates
 
@@ -173,9 +201,10 @@ user-data HTTP routes return, and each user relationship change's operation and 
 identity (`relationships`), which the relationship route, collections and data imports read.
 `relationships.verbatimIdentities` keeps each relationship change's `itemIdentity` as its write
 identity, so imports record their item keys and collections their membership commands unchanged.
-The result's `entities` lists each saved root entity, entity create, update and reference under its
-item identity, and `deleted` every deleted entity ID. `entities.verbatimIdentities` keeps the root
-entity's, creates', updates' and references' identities verbatim, so import entity IDs and item keys and
+The result's `entities` lists each saved root entity, entity create, update, reference and global
+upsert under its item identity, `signals` each planned signal, and `deleted` every deleted entity ID.
+`entities.verbatimIdentities` keeps the root entity's, creates', updates', references' and global
+upserts' identities verbatim, so import entity IDs and item keys and
 collection commands follow the caller's identity.
 
 The entity editor commits through `commitOnce` with its idempotency key as the receipt (see
@@ -252,8 +281,8 @@ carry one and otherwise use `entity`, `relationship:<index>`, `relationship-upda
 `relationship-ensure:<index>`, `relationship-delete:<index>` and `relationship-delete-by-id:<index>`, and
 each entity create and update may carry one and otherwise uses `entity-create:<index>` or
 `entity-update:<entityId>`. Other parts derive theirs from their position or identity
-(`ensures`, `entity-deletes:<schema, preserveHistory>`, `entity-clear:<index>`,
-`signal:<discriminator>`, `global-entity:<schema, externalId>`); notifications use
+(`ensures`, `entity-deletes:<schema, preserveHistory>`, `entity-clear:<index>`, `trigger:<index>`,
+`global-entity:<schema, externalId>`), and signals carry theirs; notifications use
 `<runId>-changes-<index>-notification` as their source key.
 
 Event policy items retain their unique `itemIdentity` through preparation and policy results.

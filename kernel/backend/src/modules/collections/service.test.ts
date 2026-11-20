@@ -167,6 +167,7 @@ const committedDeletion: RelationshipWriteResult = {
 };
 const emptyCommit: CommitResult = {
 	merged: [],
+	signals: [],
 	cleared: [],
 	deleted: [],
 	entities: [],

@@ -98,6 +98,7 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 				account: repository.account,
 				lockTarget: repository.lockTarget,
 				requesterIds: repository.requesterIds,
+				ownsPopulation: repository.ownsPopulation,
 				recordBaseCheck: repository.recordBaseCheck,
 				latestTranslation: repository.latestTranslation,
 				failOrphaned: (limit: number) =>
@@ -110,18 +111,6 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 							}
 						}
 					}),
-				guardPopulation: Effect.fnUntraced(
-					function* (id: string, attempt?: number) {
-						if (!(yield* repository.guardPopulation(id, attempt))) {
-							return yield* new SandboxRunError({
-								kind: "invalid-input",
-								message: "Provider population no longer owns its writes",
-							});
-						}
-						return yield* Effect.void;
-					},
-					Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
-				),
 			};
 		}),
 	},

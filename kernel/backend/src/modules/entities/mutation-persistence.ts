@@ -322,7 +322,7 @@ export const makePersistMutation = <E, R, Result>({
 				: [];
 			const result = resultOf(entity, input.operation === "create" && before === null);
 			results.push({ result, dispatch });
-			if (input.operation !== "delete") {
+			if (input.operation !== "delete" && input.lifecycle.kernelCollection !== true) {
 				yield* keys.recordImportItem(
 					input.lifecycle,
 					input.scopeUserId,

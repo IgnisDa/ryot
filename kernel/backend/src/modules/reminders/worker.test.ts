@@ -10,7 +10,7 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -144,11 +144,11 @@ const dependencies = SignalEmissionService.layer.pipe(
 	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(makeAppConfigLayer()),
 );
-const services = Layer.effect(ChangeSets, userDataChangeSets()).pipe(
+const services = ReminderWorker.layer.pipe(
+	Layer.provideMerge(Layer.effect(ChangeSets, userDataChangeSets())),
 	Layer.provideMerge(
 		Layer.mergeAll(
 			RemindersService.layer,
-			ReminderWorker.layer,
 			NotificationAdmissions.layer.pipe(Layer.provide(JobQueue.layer)),
 			EntityUserDataService.layer,
 		).pipe(
@@ -420,7 +420,7 @@ layer(services)((test) => {
 		testTimeout,
 	);
 	test.effect(
-		"crosses due pages and isolates a planning failure without consuming its occurrence",
+		"crosses due pages and commits a reminder's signal with its ledger, so a failure after planning keeps it scheduled",
 		() =>
 			Effect.gen(function* () {
 				const { user, body } = yield* enabledInput();
@@ -432,23 +432,41 @@ layer(services)((test) => {
 				const first = created[0];
 				assert(first);
 				const signals = yield* SignalEmissionService;
-				const worker = yield* ReminderWorker.make.pipe(
+				const changeSets = yield* userDataChangeSets().pipe(
 					Effect.provideService(SignalEmissionService, {
 						...signals,
 						planSignal: (input) =>
-							input.command.itemIdentity === first.id
-								? Effect.fail(new DbError({ message: "Planning unavailable" }))
+							input.command.itemIdentity.startsWith(first.id)
+								? signals
+										.planSignal(input)
+										.pipe(Effect.andThen(Effect.fail(new DbError({ message: "Planning failed" }))))
 								: signals.planSignal(input),
 					}),
+				);
+				const worker = yield* ReminderWorker.make.pipe(
+					Effect.provideService(ChangeSets, changeSets),
 				);
 				yield* TestClock.adjust("2 hours");
 				yield* worker.run();
 				const repository = yield* RemindersRepository;
 				expect(yield* repository.findForUser(user.id, first.id)).toMatchObject({
 					revision: 1,
+					triggerId: null,
 					state: "scheduled",
 					formatterRunId: null,
 				});
+				const session = yield* DatabaseSession;
+				const triggers = (reminderId: string) =>
+					session.run((db) =>
+						db
+							.select({ id: tables.automationTrigger.id })
+							.from(tables.automationTrigger)
+							.where(
+								sql`${tables.automationTrigger.payload}->'properties'->>'reminderId' = ${reminderId}`,
+							),
+					);
+				expect(yield* triggers(first.id)).toEqual([]);
+				expect(yield* triggers(created[1]?.id ?? "")).toHaveLength(1);
 				for (const item of created.slice(1)) {
 					expect((yield* repository.findForUser(user.id, item.id))?.state).toBe("processing");
 				}

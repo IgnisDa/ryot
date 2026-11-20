@@ -12,7 +12,7 @@ import {
 	type ChangeSetEntityReference,
 	ChangeSetEntityUpdate,
 } from "@ryot-app/contract/modules/changes/change-set";
-import { EntityBadRequest, EntityStale } from "@ryot-app/contract/modules/entities/schemas";
+import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -24,6 +24,7 @@ import {
 	EventId,
 	EventSchemaSlug,
 	IntegrationId,
+	PluginId,
 	RelationshipSchemaSlug,
 	SandboxScriptId,
 	UserId,
@@ -230,6 +231,7 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 	return {
 		input,
 		session,
+		providerId: provider.id,
 		pluginId: installed.pluginId,
 		revisionId: installed.revisionId,
 		command: { ...command(yield* randomUuid), accountUserId, writeContext: principal },
@@ -1680,6 +1682,74 @@ layer(testLayer(false))((test) => {
 	);
 
 	test.effect(
+		"records a kernel writer's provider import completion trigger",
+		() =>
+			Effect.gen(function* () {
+				const source = revisionPackage("atomic", "fixture", "record");
+				const [notify] = source.manifest.hooks;
+				assert(notify);
+				const input = yield* fixture({
+					...source,
+					manifest: {
+						...source.manifest,
+						hooks: [
+							{
+								...notify,
+								targets: [
+									...notify.targets,
+									{
+										operation: "complete",
+										entitySchemaSlug: "record",
+										resource: "provider-entity-import",
+									},
+								],
+							},
+						],
+					},
+				});
+				const entityId = targetOf(input);
+				yield* (yield* ChangeSets).commit(
+					{
+						userId,
+						triggers: [
+							{
+								scopeUserId: userId,
+								owner: definitionOwner(input.pluginId),
+								change: {
+									userId,
+									entityId,
+									category: "change",
+									externalId: "root",
+									operation: "complete",
+									providerId: input.providerId,
+									resource: "provider-entity-import",
+									entitySchemaSlug: EntitySchemaSlug.make("record"),
+									entitySchemaPluginId: PluginId.make(input.pluginId),
+								},
+							},
+						],
+					},
+					kernelWriterCommand(input),
+				);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({
+								operation: tables.automationTrigger.operation,
+								scopeUserId: tables.automationTrigger.scopeUserId,
+								resourceKind: tables.automationTrigger.resourceKind,
+							})
+							.from(tables.automationTrigger)
+							.where(eq(tables.automationTrigger.resourceKind, "provider-entity-import")),
+					),
+				).toEqual([
+					{ scopeUserId: userId, operation: "complete", resourceKind: "provider-entity-import" },
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"accepts a user fold request for the writer's own entities",
 		() =>
 			Effect.gen(function* () {
@@ -1968,7 +2038,7 @@ layer(testLayer(false))((test) => {
 	);
 
 	test.effect(
-		"fails a create whose match is written while its policies run",
+		"commits two creates matching one name into the entity the first wrote",
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture(
@@ -1977,73 +2047,57 @@ layer(testLayer(false))((test) => {
 					]),
 				);
 				const { match } = yield* LifecyclePolicies;
-				const entityRows = yield* EntitiesRepository;
-				const lateId = EntityId.make(yield* randomUuid);
-				const changeSets = yield* ChangeSets.make.pipe(
+				const raced = yield* Ref.make(false);
+				const shared = (sets: ChangeSets["Service"]) =>
+					sets.commit(
+						{
+							userId,
+							entities: {
+								creates: [
+									{
+										name: "Shared",
+										properties: {},
+										entitySchema: recordSchema(input),
+										match: {
+											name: "Shared",
+											properties: {},
+											required: false,
+											nameNormalization: "exact",
+										},
+									},
+								],
+							},
+						},
+						kernelWriterCommand(input),
+					);
+				const changeSets: ChangeSets["Service"] = yield* ChangeSets.make.pipe(
 					Effect.provideService(
 						LifecyclePolicies,
 						LifecyclePolicies.of({
 							match,
 							run: ({ items }) =>
-								entityRows
-									.insertEntities([
-										{
-											userId,
-											id: lateId,
-											name: "Late",
-											scope: "user",
-											properties: {},
-											populatedAt: null,
-											entitySchemaPluginId: input.pluginId,
-											entitySchemaSlug: EntitySchemaSlug.make("record"),
-										},
-									])
-									.pipe(
-										Effect.orDie,
-										Effect.as({
-											items: items.map(({ itemIdentity }) => ({
-												itemIdentity,
-												decision: { action: "allow" as const },
-											})),
-										}),
-									),
+								Effect.gen(function* () {
+									if (!(yield* Ref.getAndSet(raced, true))) {
+										yield* shared(changeSets).pipe(Effect.orDie);
+									}
+									return {
+										items: items.map(({ itemIdentity }) => ({
+											itemIdentity,
+											decision: { action: "allow" as const },
+										})),
+									};
+								}),
 						}),
 					),
 				);
-				assertExitFails(
-					yield* Effect.exit(
-						changeSets.commit(
-							{
-								userId,
-								entities: {
-									creates: [
-										{
-											name: "Late",
-											properties: {},
-											entitySchema: recordSchema(input),
-											match: {
-												name: "Late",
-												properties: {},
-												required: false,
-												nameNormalization: "exact",
-											},
-										},
-									],
-								},
-							},
-							kernelWriterCommand(input),
-						),
-					),
-					new EntityBadRequest({ reason: { code: "mutation-conflict" } }),
+				const joined = yield* shared(changeSets);
+				const stored = yield* input.session.run((db) =>
+					db
+						.select({ id: tables.entity.id })
+						.from(tables.entity)
+						.where(and(eq(tables.entity.name, "Shared"), eq(tables.entity.userId, userId))),
 				);
-				expect(
-					yield* input.session.run((db) =>
-						db
-							.select({ id: tables.entity.id })
-							.from(tables.entity)
-							.where(and(eq(tables.entity.name, "Late"), eq(tables.entity.userId, userId))),
-					),
-				).toEqual([{ id: lateId }]);
+				expect(stored).toEqual(joined.entities.map(({ entity }) => ({ id: entity.id })));
 			}),
 		testTimeout,
 	);
@@ -2711,6 +2765,7 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 					{ entities: { deletes: [{ entityId: foreignEntity, entitySchemaSlug: "record" }] } },
 					userId,
 					own.pluginId,
+					null,
 				);
 				expect(scripted.entities?.deletes?.[0]?.entitySchema).toEqual({
 					owner: definitionOwner(own.pluginId),

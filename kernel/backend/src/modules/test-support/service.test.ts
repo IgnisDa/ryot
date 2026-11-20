@@ -350,6 +350,7 @@ const committed = (
 	result: Partial<Pick<CommitResult, "deleted" | "entities">> = {},
 ): CommitResult => ({
 	merged: [],
+	signals: [],
 	cleared: [],
 	deleted: [],
 	entities: [],
@@ -639,9 +640,7 @@ layer(mutationCommands.layer)((test) => {
 				});
 				expect(commands.find((entry) => entry.kind === "relationship")?.input).toMatchObject({
 					userId: null,
-					globalRelationships: [
-						{ relationshipSchema, paging: { kind: "page", preserveExisting: false } },
-					],
+					globalRelationships: [{ relationshipSchema, paging: { kind: "page" } }],
 				});
 				const commandFor = (kind: "delete" | "relationship") =>
 					commands.findLast((entry) => entry.kind === kind)?.command;

@@ -314,8 +314,8 @@ export const upsertGlobalRelationship = (
 				userId: null,
 				globalRelationships: [
 					{
+						paging: { kind: "page" },
 						relationshipSchema: input.relationshipSchema,
-						paging: { kind: "page", preserveExisting: false },
 						selector: { anchor: source, type: "anchored", direction: "outgoing" },
 						relationships: [
 							{

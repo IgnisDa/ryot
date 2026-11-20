@@ -29,14 +29,15 @@ import {
 	EntityId,
 	type EventId,
 	EventSchemaSlug,
-	SignalSchemaSlug,
+	type SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Context, Effect, Layer, Result, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Result, Schema } from "effect";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type LifecycleDispatchPlan,
@@ -60,6 +61,7 @@ import {
 	applyEntityPolicies,
 	EntitiesService,
 	entityDeleteEvents,
+	EntityMatchAppeared,
 	type EntityPolicyAcceptance,
 	entityPolicyItems,
 	entitySaveDraft,
@@ -68,6 +70,7 @@ import {
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import {
 	type DomainLifecycleCommand,
+	DomainWriteChecks,
 	DomainWriteConflict,
 	kernelCollectionLifecycleCommand,
 	reuseLockedWriteChecks,
@@ -99,10 +102,9 @@ import {
 } from "#modules/relationships/prepared-mutations";
 import { RelationshipsService } from "#modules/relationships/service";
 import { shareExecutionAuthority } from "#modules/scripts/authorization/authority";
-import {
-	principalOwner,
-	type ScriptExecutionPrincipal,
-	type ScriptPluginRevision,
+import type {
+	ScriptExecutionPrincipal,
+	ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -158,19 +160,21 @@ export const ChangeSetFailure = Schema.Union([
 
 /**
  * Durable state the commit consults: `check` runs before preparation and again in the commit
- * transaction, where false records an empty result; `written` runs after source writes that wrote an
- * event.
+ * transaction, where false records an empty result; `written` runs after every write of a commit that
+ * wrote anything, with what it wrote.
  */
 export type CommitPrecondition = {
-	readonly written: Effect.Effect<void, DbError>;
 	readonly check: Effect.Effect<boolean, DbError>;
+	readonly written: (result: CommitResult) => Effect.Effect<void, DbError>;
 };
 
 /**
- * `verbatimIdentities` keeps each entity, event or relationship item's own identity rather than
- * prefixing it with the command's.
+ * `verbatimIdentities` keeps each entity (global upserts included), event or relationship item's own
+ * identity rather than prefixing it with the command's. `queueFolds` queues the folds the commit
+ * marks whatever its lane.
  */
 export type CommitOptions = {
+	readonly queueFolds?: true;
 	readonly precondition?: CommitPrecondition;
 	readonly entities?: { readonly verbatimIdentities: true };
 	readonly relationships?: { readonly verbatimIdentities: true };
@@ -214,8 +218,6 @@ const scriptOnlyPart = (changes: Changes) =>
 		[
 			["settings", changes.settings !== undefined],
 			["folds", changes.folds !== undefined],
-			["signals", changes.signals !== undefined],
-			["globalEntities", changes.globalEntities !== undefined],
 			["events.expected", changes.events?.expected !== undefined],
 			["events.baselines", changes.events?.baselines !== undefined],
 		] as const
@@ -255,6 +257,22 @@ const rootRequired = () => new EventBadRequest({ reason: { code: "root-entity-re
 
 const upsertKey = (entitySchemaSlug: string, externalId: string) =>
 	stableStringify([entitySchemaSlug, externalId]);
+
+const upsertedKey = (
+	entitySchemaSlug: string,
+	externalId: string,
+	providerId: undefined | SandboxProviderId,
+) => stableStringify([entitySchemaSlug, externalId, providerId ?? null]);
+
+/** Whether a commit wrote anything its precondition's `written` records. */
+const wroteAnything = (result: CommitResult) =>
+	result.signals.length > 0 ||
+	result.entities.length > 0 ||
+	result.deleted.length > 0 ||
+	result.cleared.length > 0 ||
+	result.merged.length > 0 ||
+	result.committed.events.length > 0 ||
+	result.relationships.some(({ operation }) => operation !== "noop");
 
 const globalReferences = (group: NonNullable<Changes["globalRelationships"]>[number]) => [
 	...(group.selector.type === "anchored" ? [group.selector.anchor] : []),
@@ -304,6 +322,7 @@ const expectedFields = (input: Changes, eventId: EventId) => {
 
 const emptyResult: CommitResult = {
 	merged: [],
+	signals: [],
 	cleared: [],
 	deleted: [],
 	entities: [],
@@ -327,6 +346,15 @@ const settledByReceipt = <A>(receipt: CommitReceipt<A>, precondition?: CommitPre
 		return precondition && !(yield* precondition.check) ? yield* receipt.record(emptyResult) : null;
 	});
 
+// A create whose match appeared since preparation prepares again, so its match keeps that entity.
+const rematchOnce = <A, E, R>(work: Effect.Effect<A, E | EntityMatchAppeared, R>) =>
+	work.pipe(
+		Effect.retry({ times: 1, while: (error) => error instanceof EntityMatchAppeared }),
+		Effect.catchTag("EntityMatchAppeared", () =>
+			Effect.fail(new EntityBadRequest({ reason: { code: "mutation-conflict" } })),
+		),
+	);
+
 export class ChangeSets extends Context.Service<ChangeSets>()(
 	"@ryot-app/kernel-backend/modules/changes/service/ChangeSets",
 	{
@@ -339,6 +367,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 			const eventMutations = yield* EventMutations;
 			const relationships = yield* RelationshipsService;
 			const planner = yield* LifecyclePlanner;
+			const writeChecks = yield* DomainWriteChecks;
 			const lifecycle = yield* LifecycleExecution;
 			const settingsWriter = yield* PluginUserSettingsWriter;
 			const signals = yield* SignalEmissionService;
@@ -1233,6 +1262,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							cleared,
 							deleted,
 							outcomes,
+							signals: [],
 							entities: written.entities,
 							committed: written.committed,
 							relationships: written.relationships,
@@ -1260,7 +1290,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const { precondition } = options;
 				const upserted = new Set(
 					(input.globalEntities ?? []).map((item) =>
-						upsertKey(item.entitySchema.slug, item.externalId),
+						upsertedKey(item.entitySchema.slug, item.externalId, item.provider.providerId),
 					),
 				);
 				const unresolved = (input.globalRelationships ?? [])
@@ -1268,7 +1298,13 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					.find(
 						(reference) =>
 							reference.kind === "upserted" &&
-							!upserted.has(upsertKey(reference.entitySchema.slug, reference.externalId)),
+							!upserted.has(
+								upsertedKey(
+									reference.entitySchema.slug,
+									reference.externalId,
+									reference.providerId,
+								),
+							),
 					);
 				if (unresolved) {
 					return yield* new ChangeSetRejected({
@@ -1276,38 +1312,59 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						message: "A global relationship names an entity the change set does not upsert",
 					});
 				}
-				const providerId = script?.principal.providerId ?? null;
 				const prepared = yield* prepareChanges(input, command, pluginRevision, options);
+				const scope =
+					input.userId === null
+						? ({ scope: "global" } as const)
+						: ({ scope: "user", userId: input.userId } as const);
 				const globalWrites = Effect.gen(function* () {
 					const dispatch: LifecycleDispatchPlan[] = [];
+					const saved: Array<CommitResult["entities"][number]> = [];
 					const upsertedIds = new Map<string, EntityId>();
 					const globalEntities = input.globalEntities ?? [];
-					if (providerId !== null && globalEntities.length > 0) {
-						const work = yield* entities.persistPlannedProviderUpserts({
-							batch: { command, identity: ["global-entities"] },
-							items: globalEntities.map((item) => ({
-								providerId,
+					if (globalEntities.length > 0) {
+						const items: Array<
+							{ readonly itemIdentity: string } & Parameters<
+								typeof entities.persistPlannedProviderUpserts
+							>[0]["items"][number]
+						> = [];
+						for (const item of globalEntities) {
+							const itemIdentity =
+								item.itemIdentity ??
+								`global-entity:${upsertKey(item.entitySchema.slug, item.externalId)}`;
+							items.push({
+								...scope,
+								itemIdentity,
 								name: item.name,
-								updateExisting: false,
-								scope: "global" as const,
 								externalId: item.externalId,
 								properties: item.properties,
 								entitySchema: item.entitySchema,
-								populatedAt: item.populatedAt === null ? null : new Date(item.populatedAt),
-								lifecycle: itemCommand(
-									command,
-									`global-entity:${upsertKey(item.entitySchema.slug, item.externalId)}`,
-								),
-							})),
+								providerId: item.provider.providerId,
+								updateExisting: item.provider.updateExisting,
+								populatedAt:
+									item.populatedAt === null
+										? null
+										: DateTime.toDate(DateTime.makeUnsafe(item.populatedAt)),
+								...(item.preservePopulatedAt ? { preservePopulatedAt: true } : {}),
+								lifecycle: options.entities?.verbatimIdentities
+									? { ...command, itemIdentity }
+									: itemCommand(command, itemIdentity),
+							});
+						}
+						const work = yield* entities.persistPlannedProviderUpserts({
+							items,
+							batch: { command, identity: ["global-entities"] },
 						});
-						for (const [index, item] of globalEntities.entries()) {
+						for (const [index, item] of items.entries()) {
 							const result = work.results[index];
-							if (result) {
-								upsertedIds.set(
-									upsertKey(item.entitySchema.slug, item.externalId),
-									result.entity.id,
-								);
+							if (!result) {
+								return yield* Effect.die("A global entity upsert is missing its result");
 							}
+							upsertedIds.set(
+								upsertedKey(item.entitySchema.slug, item.externalId, item.providerId),
+								result.entity.id,
+							);
+							saved.push({ entity: result.entity, itemIdentity: item.itemIdentity });
 						}
 						dispatch.push(...work.dispatch);
 					}
@@ -1316,7 +1373,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							return Effect.succeed(reference.entityId);
 						}
 						const id = upsertedIds.get(
-							upsertKey(reference.entitySchema.slug, reference.externalId),
+							upsertedKey(reference.entitySchema.slug, reference.externalId, reference.providerId),
 						);
 						return id === undefined
 							? Effect.die("A resolved global relationship endpoint has no upserted entity")
@@ -1326,6 +1383,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						Effect.gen(function* () {
 							return {
 								...(group.paging ? { paging: group.paging } : {}),
+								...(group.preserveExisting ? { preserveExisting: true } : {}),
 								relationshipSchema: group.relationshipSchema,
 								selector:
 									group.selector.type === "self"
@@ -1348,36 +1406,74 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						}),
 					);
 					if (groups.length > 0) {
-						const work = yield* relationships.persistPlannedReconciliation(groups, command, {
-							scope: "global",
-						});
+						const { population } = command;
+						const work = yield* relationships.persistPlannedReconciliation(
+							groups,
+							population
+								? {
+										...command,
+										population: {
+											...population,
+											batch: {
+												afterCount: 0,
+												beforeCount: 0,
+												isLeader: true,
+												createdCount: 0,
+												deletedCount: 0,
+												updatedCount: 0,
+												id: stableStringify([command.causation.executionId, command.itemIdentity]),
+											},
+										},
+									}
+								: command,
+							scope,
+						);
 						dispatch.push(...work.dispatch);
 					}
-					return dispatch;
+					return { dispatch, entities: saved };
 				});
 				const writeAll = Effect.fnUntraced(function* (validated: ValidatedPolicies) {
 					const written = yield* prepared.write(validated);
-					if (precondition && written.result.committed.events.length > 0) {
-						yield* precondition.written;
-					}
 					const dispatch = [...written.dispatch];
-					dispatch.push(...(yield* globalWrites));
+					const global = yield* globalWrites;
+					dispatch.push(...global.dispatch);
+					if (input.population) {
+						yield* entities.persistPopulation(
+							{
+								claims: input.population.claims ?? [],
+								relatedPopulated: input.population.relatedPopulated ?? [],
+							},
+							command,
+							input.userId,
+						);
+					}
+					for (const [index, trigger] of (input.triggers ?? []).entries()) {
+						yield* writeChecks.check(command, trigger.owner, input.userId, true);
+						dispatch.push(
+							...(yield* planner.planChange({
+								trigger: yield* lifecycleTrigger(
+									itemCommand(command, `trigger:${index}`),
+									trigger.scopeUserId,
+									trigger.change,
+								),
+							})),
+						);
+					}
+					const planned: Array<CommitResult["signals"][number]> = [];
+					for (const signal of input.signals ?? []) {
+						const plan = yield* signals.planSignal({
+							reference: signal.reference,
+							principal: signal.principal,
+							properties: signal.properties,
+							command: itemCommand(command, signal.itemIdentity),
+							...(signal.subjectEntityId === undefined
+								? {}
+								: { subjectEntityId: signal.subjectEntityId }),
+						});
+						planned.push({ plan, itemIdentity: signal.itemIdentity });
+						dispatch.push(toLifecycleDispatchPlan(plan));
+					}
 					if (script) {
-						for (const signal of input.signals ?? []) {
-							const plan = yield* signals.planSignal({
-								properties: signal.properties,
-								principal: script.authority.signalActor,
-								command: itemCommand(command, `signal:${signal.discriminator}`),
-								reference: {
-									owner: principalOwner(script.principal),
-									slug: SignalSchemaSlug.make(signal.schemaSlug),
-								},
-								...(signal.subjectEntityId === undefined
-									? {}
-									: { subjectEntityId: signal.subjectEntityId }),
-							});
-							dispatch.push(toLifecycleDispatchPlan(plan));
-						}
 						for (const notice of script.authority.notifications) {
 							yield* notifications.admitMessageWithin(notice);
 						}
@@ -1389,7 +1485,15 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							userId: input.folds.scope === "user" ? input.userId : null,
 						});
 					}
-					return { dispatch, value: yield* receipt.record(written.result) };
+					const result: CommitResult = {
+						...written.result,
+						signals: planned,
+						entities: [...written.result.entities, ...global.entities],
+					};
+					if (precondition && wroteAnything(result)) {
+						yield* precondition.written(result);
+					}
+					return { dispatch, value: yield* receipt.record(result) };
 				});
 				const settled = (
 					value: A,
@@ -1403,7 +1507,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const transaction = <X, E, R>(work: Effect.Effect<X, E, R>) =>
 					eventMutations.transaction(
 						reuseLockedWriteChecks(work),
-						command.causation.lane === "background" ? "queue" : "inline",
+						command.causation.lane === "background" || options.queueFolds ? "queue" : "inline",
 					);
 				const commitInTransactions = Effect.gen(function* () {
 					const started = yield* transaction(
@@ -1518,9 +1622,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							message: `${part} requires a script writer`,
 						});
 					}
-					return yield* retryWhileExpectedHolds(
-						input,
-						shareExecutionAuthority(apply(input, command, { kind: "kernel" }, receipt, options)),
+					return yield* rematchOnce(
+						retryWhileExpectedHolds(
+							input,
+							shareExecutionAuthority(apply(input, command, { kind: "kernel" }, receipt, options)),
+						),
 					);
 				});
 			/** Commits a kernel writer's changes; script authority checks do not apply. */
@@ -1622,12 +1728,19 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								yield* rejectForeignReferences(input, userId, pluginRevision.id);
 							}
 						}
-						return yield* apply(
-							fromScriptChangeSet(input, userId, pluginRevision?.id ?? null),
-							command,
-							{ principal, authority, kind: "script" },
-							receipt,
-							{},
+						return yield* rematchOnce(
+							apply(
+								fromScriptChangeSet(
+									input,
+									userId,
+									pluginRevision?.id ?? null,
+									principal.providerId,
+								),
+								command,
+								{ principal, authority, kind: "script" },
+								receipt,
+								{},
+							),
 						);
 					}),
 				);

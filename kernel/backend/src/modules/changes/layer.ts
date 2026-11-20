@@ -5,6 +5,7 @@ import { FoldMarks } from "#modules/derived-values/marks";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/service-layer";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventMutationsLive } from "#modules/events/layer";
 import { EventsRepository } from "#modules/events/repository";
 import { NotificationsServiceLive } from "#modules/notifications/layer";
@@ -23,6 +24,7 @@ export const ChangeSetsLive = ChangeSets.layer.pipe(
 		Layer.mergeAll(
 			EntitiesServiceRuntimeLive,
 			EntitiesRepositoryLive,
+			DomainWriteChecksLive,
 			EntityUserDataServiceLive,
 			EventMutationsLive,
 			EventsRepository.layer,
