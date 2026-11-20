@@ -1,4 +1,5 @@
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { podcastEpisodicKindConfig } from "@ryot-app/media-plugin/shared/lifecycle-expressions";
 import { episodicByLifecycleStateRecipe } from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
 import { personRecipes } from "@ryot-app/media-plugin/shared/person-recipes";
@@ -28,12 +29,12 @@ import {
 	waitForEventProjections,
 } from "~/fixtures/kernel";
 import { pollUntil } from "~/fixtures/kernel/polling";
+import { executeRyotQL, requireRows, requireRyotQLText } from "~/fixtures/kernel/ryotql";
 import {
 	createGlobalBookEntityFixture,
 	findMediaEntitySchema,
 	insertLibraryMembership,
 	insertMediaMonitoring,
-	insertOwnedCopy,
 	mediaRecipes,
 	seedMediaEntity,
 	seedPodcast,
@@ -43,6 +44,7 @@ import {
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { nowIso } from "~/support/time";
 
 type MediaReference = Parameters<typeof showRecipes.summaryRecipe>[0]["reference"];
 
@@ -408,7 +410,59 @@ describe("Media RyotQL query recipe results", () => {
 				entitySchemaSlug: "show",
 				names: ["Drama", "Crime"],
 			});
-			yield* insertOwnedCopy(client, show.id);
+			const copyWrite = (
+				payload:
+					| { copyId: string; action: "remove" }
+					| {
+							action: "add";
+							copyId: string;
+							entityId: string;
+							details: { hdr: string; resolution: string };
+					  },
+			) =>
+				Effect.flatMap(randomUuid, (idempotencyKey) =>
+					client.call((contract) =>
+						contract.plugins.invoke({
+							payload: { payload, idempotencyKey, submittedAt: nowIso() },
+							params: {
+								...pluginPackageSegments(mediaPlugin.metadata.packageId),
+								operationSlug: "media-copy-write",
+							},
+						}),
+					),
+				);
+			const disc = yield* randomUuid;
+			const digital = yield* randomUuid;
+			yield* copyWrite({
+				copyId: disc,
+				action: "add",
+				entityId: show.id,
+				details: { hdr: "sdr", resolution: "2160" },
+			});
+			yield* copyWrite({
+				action: "add",
+				copyId: digital,
+				entityId: show.id,
+				details: { hdr: "hdr10", resolution: "1080" },
+			});
+			const list = (criteria: { hdr?: string; resolution?: string } = {}) =>
+				executeRyotQL(client, {
+					arguments: { entityId: show.id, ...criteria },
+					source: {
+						kind: "plugin",
+						scope: "system",
+						query: "owned-copies",
+						packageId: mediaPlugin.metadata.packageId,
+					},
+				}).pipe(
+					Effect.map(({ data }) =>
+						requireRows(data.copies, "copies").items.map((item) => requireRyotQLText(item, "id")),
+					),
+				);
+			expect((yield* list()).sort()).toEqual([`manual:${digital}`, `manual:${disc}`].sort());
+			expect(yield* list({ hdr: "hdr10", resolution: "2160" })).toEqual([]);
+			yield* copyWrite({ action: "remove", copyId: `manual:${disc}` });
+			expect(yield* list()).toEqual([`manual:${digital}`]);
 			yield* insertMediaMonitoring(client, show.id);
 			yield* client.call((c) =>
 				c.collections.createMembership({

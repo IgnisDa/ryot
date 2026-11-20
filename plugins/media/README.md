@@ -431,9 +431,10 @@ on them. Show and podcast headers count episodes with copies separately.
 
 Use the user-authenticated `media-copy-write` plugin operation to add, update, and remove copies.
 An add takes a client-selected ID and returns the complete copy ID. Use the returned ID for
-updates and deletes. Adding the first copy also saves the title. Removing the last copy clears its
-Owned status while leaving the library membership and history. The plugin protects integration-managed
-copies from manual edits.
+updates and deletes. The `owned-copies` RyotQL query pages the inventory and accepts technical
+filters. Adding the first copy also saves the title. Removing the last copy clears its Owned status
+while leaving the library membership and history. The plugin protects integration-managed copies
+from manual edits.
 
 Plex Yank adds copies when **Sync owned copies** is enabled. It reads video and audio stream
 metadata from each Plex version. These scans write each version by its upstream identity and
