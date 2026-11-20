@@ -11,7 +11,13 @@ describe("Rich text sanitization", () => {
 
 	it("drops disallowed elements, attributes, and URL schemes", () => {
 		const html =
-			'<p id="overview" onclick="">Overview</p><script></script><svg></svg><a href="ftp://example.com/">Link</a>';
+			'<p id="overview" onclick="/* fixture */">Overview</p><script>/* discard this text */</script><svg></svg><a href="ftp://example.com/">Link</a>';
 		assert.equal(sanitizeRichText(html), "<p>Overview</p><a>Link</a>");
+	});
+
+	it("strips the JavaScript URL scheme from links and images", () => {
+		const html =
+			'<a href="javascript:">Link</a><img src="javascript:" alt="Cover" />';
+		assert.equal(sanitizeRichText(html), '<a>Link</a><img alt="Cover" />');
 	});
 });
