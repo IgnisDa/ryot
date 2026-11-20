@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"lint": "biome check .",
+		"test:unit": "node --test test/*.test.mjs",
 		"build": "react-router build",
 		"typecheck": "react-router typegen && tsc",
 		"dev": "react-router dev --port 3000 --host"
