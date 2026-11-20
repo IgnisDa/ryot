@@ -16,10 +16,16 @@ The `data-json` source validates records against definitions already available t
 document-local keys resolve entity and relationship dependencies, including schema-declared nested
 property references. Provider entities use normal provider resolution; custom entities remain
 user-owned. Writes are append-only, use the normal lifecycle hooks, and commit incrementally, so
-failed records do not roll back earlier committed records. Each record commits as one change set in
-its own activity, because a later record's property references need the IDs an earlier record's
-commit generated and a record fails alone. An existing or provider-resolved entity record is a
-reference, so its commit checks the entity's schema and records its `unchanged` import item.
+failed records do not roll back earlier committed records. Each entity and relationship record
+commits as one change set in its own activity, because a later record's property references need
+the IDs an earlier record's commit generated and a record fails alone. An existing or
+provider-resolved entity record is a reference, so its commit checks the entity's schema and records
+its `unchanged` import item. A run of consecutive event records references only records committed
+before it, so it commits as one independent-mode change set in one activity, keyed by the run's
+first committed record, with an outcome per event: a preparation failure or policy rejection affects
+only its event, while a commit conflict or policy execution error fails every event of the run that
+had not already failed. An event naming managed assets commits alone after its ownership check.
+Cancellation is checked before each record or run.
 
 Each generic record's intents use item identities `<record>:<operationId>`, where `<record>` is
 the ingestion identity of the subject entity's operation. Provider entities resolve in their own
@@ -28,11 +34,19 @@ one activity, under the command identity `<record>`. `commitImportItem` holds th
 the account's idempotency key under that identity, so an activity retried after its commit replays
 the result instead of writing again. An intent's `entityId` or `match` is resolved inside the
 commit: a found entity is kept with an `unchanged` import item, and an `existingOnly` intent that
-finds none fails the record. Validation decides how the events commit: a standalone record's events
-are independent creates with their own outcomes, and a record that contains declared event-group
-schemas commits its complete event group all-or-nothing. Event preparation can span pages, but the
-record commits atomically. Coalesced events and collection memberships commit afterwards, each in
-its own activity.
+finds none fails the record. A provider-resolved entity whose intent also has a `match` is preferred
+by that match, so the one name-matching rule decides whether it is used. Validation decides how the
+events commit: a standalone record's events are independent creates with their own outcomes, and a
+record that contains declared event-group schemas commits its complete event group all-or-nothing.
+Event preparation can span pages, but the record commits atomically. Coalesced events commit
+afterwards, each in its own activity.
+
+Collection memberships commit in the record's change set, built by `CollectionsService`: each names
+the user's collection by trimmed name, created with the record when no collection has that name, a
+`member-of` relationship and its membership event. One activity per chunk reads the membership fields
+of the chunk's existing collections; a membership those fields reject is left out of the change set
+and recorded `unsuccessful` with `membership-event-failed`, while the rest of the record commits. A
+failure inside the commit fails the whole record.
 Independent Data JSON event records still follow standalone event rules; they cannot create an empty
 anchor and rely on a later record to repair it.
 

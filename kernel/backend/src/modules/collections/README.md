@@ -29,7 +29,10 @@ the RyotQL `relationship.collectionRank` field, ordered with the member's stable
 ## Commands and reads
 
 Adding or removing a member commits its relationship change and the membership event it records as
-one change set, so a failed event leaves the membership unchanged.
+one change set, so a failed event leaves the membership unchanged. `CollectionsService` builds these
+parts, checking member fields against the collection's declarations, for its routes and for import
+records, which add members to collections by name in the record's own change set. A member's `rank`
+is never sent: the relationship write keeps a stored rank and allocates a new member's.
 
 `POST /collections/memberships/reorder` takes the member, an anchor or absolute end, and the expected
 revision. Ownership, revision validation and position changes commit atomically. Moving a member to where it

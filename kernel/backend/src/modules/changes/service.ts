@@ -431,11 +431,18 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const identityCommand = (
 					verbatim: undefined | { readonly verbatimIdentities: true },
 					itemIdentity: string,
-				) => (verbatim ? { ...command, itemIdentity } : itemCommand(command, itemIdentity));
+					part: { readonly kernelCollection?: true } = {},
+				) => {
+					const itemScoped = verbatim
+						? { ...command, itemIdentity }
+						: itemCommand(command, itemIdentity);
+					return part.kernelCollection ? kernelCollectionLifecycleCommand(itemScoped) : itemScoped;
+				};
 				const prepareEntitySave = (
 					item: {
 						readonly name: string;
 						readonly properties: unknown;
+						readonly kernelCollection?: true;
 						readonly populatedAt?: null | string;
 						readonly entitySchema: NonNullable<Changes["entity"]>["entitySchema"];
 					},
@@ -449,7 +456,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							scopeUserId: userId,
 							properties: item.properties,
 							entitySchema: item.entitySchema,
-							lifecycle: identityCommand(options.entities, itemIdentity),
+							lifecycle: identityCommand(options.entities, itemIdentity, item),
 							...(item.populatedAt === undefined ? {} : { populatedAt: item.populatedAt }),
 						})
 						.pipe(Effect.map((prepared) => ({ prepared, itemIdentity })));
@@ -487,7 +494,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 									match,
 									userId: yield* requireUser,
 									entitySchema: item.entitySchema,
-									lifecycle: identityCommand(options.entities, itemIdentity),
+									lifecycle: identityCommand(options.entities, itemIdentity, item),
 								});
 					if (matched === null && match?.required === true) {
 						return yield* new ChangeSetRejected({
@@ -593,7 +600,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						itemIdentity,
 						prepared: yield* relationships.prepareUserWrite(
 							{ ...(yield* relationshipInput(relation)), properties: relation.properties },
-							identityCommand(options.relationships, itemIdentity),
+							identityCommand(options.relationships, itemIdentity, relation),
 							mode,
 							createdEntities,
 						),
@@ -921,23 +928,20 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						}),
 					);
 				});
-				/** Persists `persisted` as one set, answering each saved entity under its item identity. */
-				const persistSaves = Effect.fnUntraced(function* (
-					persisted: ReadonlyArray<(typeof proposedSaves)[number]>,
-					acceptEntity: EntityPolicyAcceptance,
-				) {
-					if (persisted.length === 0) {
+				/** Persists every entity save as one set, answering each saved entity under its item identity. */
+				const persistSaves = Effect.fnUntraced(function* (acceptEntity: EntityPolicyAcceptance) {
+					if (proposedSaves.length === 0) {
 						return { entities: [], dispatch: [] };
 					}
 					const work = yield* entities.persistPreparedSaves(
-						persisted.map(({ prepared }) => prepared),
+						proposedSaves.map(({ prepared }) => prepared),
 						acceptEntity,
 						entityBatch,
 						0,
 					);
 					return {
 						dispatch: work.dispatch,
-						entities: yield* Effect.forEach(persisted, ({ itemIdentity }, index) => {
+						entities: yield* Effect.forEach(proposedSaves, ({ itemIdentity }, index) => {
 							const saved = work.entities[index];
 							return saved
 								? Effect.succeed({ itemIdentity, entity: saved })
@@ -953,9 +957,13 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					const main = groups.find(({ group }) => group.main)?.batches ?? [];
 					const dispatch: LifecycleDispatchPlan[] = [];
 					const relationshipResults: Array<CommitResult["relationships"][number]> = [];
-					const savedEntities: Array<CommitResult["entities"][number]> = [];
 					const recorded: EventBatch[] = [];
-					if (userId !== null) {
+					const sources =
+						entity !== undefined ||
+						preparedRelations.length > 0 ||
+						userDataWrites.length > 0 ||
+						groups.some(({ batches }) => batches.length > 0);
+					if (userId !== null && sources) {
 						const scope =
 							pluginId === null ? null : { pluginId, baselines: events.baselines ?? [] };
 						const baselines = scope?.baselines ?? [];
@@ -1021,9 +1029,18 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								});
 							}
 						}
-						const persistedSaves = yield* persistSaves(proposedSaves, acceptEntity);
-						savedEntities.push(...persistedSaves.entities);
-						dispatch.push(...persistedSaves.dispatch);
+					}
+					const saved = yield* persistSaves(acceptEntity);
+					if (!sources) {
+						return {
+							dispatch: saved.dispatch,
+							entities: saved.entities,
+							relationships: relationshipResults,
+							committed: { events: [] } satisfies CommittedChanges,
+						};
+					}
+					dispatch.push(...saved.dispatch);
+					if (userId !== null) {
 						yield* eventMutations.lockPreparedChanges({ userId, batches: main });
 						if (preparedRelations.length > 0) {
 							const batch = {
@@ -1056,6 +1073,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								recordedChanges.push({
 									kind: "create",
 									itemIdentity: event.itemIdentity,
+									...(event.kernelCollection ? { kernelCollection: true } : {}),
 									item: {
 										properties,
 										occurredAt: event.occurredAt,
@@ -1143,15 +1161,15 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							);
 					dispatch.push(...written.dispatch);
 					dispatch.push(...(yield* planner.planBatch(eventBatch)));
-					const saved = entity === undefined ? undefined : savedEntities[0]?.entity;
+					const root = entity === undefined ? undefined : saved.entities[0]?.entity;
 					const committed: CommittedChanges = {
 						events: written.results,
-						...(saved === undefined ? {} : { entityId: saved.id }),
+						...(root === undefined ? {} : { entityId: root.id }),
 					};
 					return {
 						dispatch,
 						committed,
-						entities: savedEntities,
+						entities: saved.entities,
 						relationships: relationshipResults,
 					};
 				});
@@ -1167,18 +1185,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							pluginRevisionId: pluginRevision.revisionId,
 						});
 					}
-					const written =
-						entity !== undefined ||
-						preparedRelations.length > 0 ||
-						groups.some(({ batches }) => batches.length > 0) ||
-						userDataWrites.length > 0
-							? yield* sourceWrites(groups, accept, validated.entities)
-							: {
-									dispatch: [],
-									entities: [],
-									relationships: [],
-									committed: { events: [] } satisfies CommittedChanges,
-								};
+					const written = yield* sourceWrites(groups, accept, validated.entities);
 					const dispatch = [...written.dispatch];
 					if (ensures) {
 						for (const ensured of yield* entities.persistPreparedEnsures(
@@ -1206,13 +1213,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						merged.push(work.result);
 						dispatch.push(...work.dispatch);
 					}
-					const savedEntities = [...written.entities];
-					if (savedEntities.length === 0) {
-						const persisted = yield* persistSaves(proposedSaves, validated.entities);
-						savedEntities.push(...persisted.entities);
-						dispatch.push(...persisted.dispatch);
-					}
-					if (savedEntities.length > 0) {
+					if (written.entities.length > 0) {
 						dispatch.push(...(yield* entities.planEntityBatch(entityBatch)));
 					}
 					const outcomes = independent
@@ -1232,7 +1233,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 							cleared,
 							deleted,
 							outcomes,
-							entities: savedEntities,
+							entities: written.entities,
 							committed: written.committed,
 							relationships: written.relationships,
 						} satisfies CommitResult,

@@ -6,12 +6,13 @@ import type {
 	IngestionOutcome,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { AutomationExecutionId, ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -21,7 +22,10 @@ import {
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
+import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import {
 	eventGroupFixture,
@@ -322,11 +326,84 @@ const noteFixture = (properties: GenericImportWriteItem["events"][number]["prope
 		["created", "found", "link", "note"],
 	);
 
+/**
+ * A standalone item creating one entity and adding it to " Shelf ", which does not exist, and to the
+ * user's existing collections "Existing" and "Strict", the last of which requires a member field.
+ */
+const membershipFixture = Effect.gen(function* () {
+	const session = yield* DatabaseSession;
+	yield* session.transaction(
+		Effect.flatMap(DefinitionRepository, (definitions) =>
+			definitions.replaceKernelDefinitions(kernelDefinitionSource()),
+		),
+	);
+	const fixture = yield* chunkFixture(
+		undefined,
+		(): GenericImportWriteItem => ({
+			events: [],
+			itemIndex: 0,
+			relationships: [],
+			recordId: "member",
+			sourceLabel: "fixture",
+			sourceIdentifier: "member",
+			subjectEntityAlias: "created",
+			entities: [
+				{
+					properties: {},
+					alias: "created",
+					name: "Imported",
+					operationId: "created",
+					entitySchemaSlug: "subject",
+					outcome: { unit: "subjects", recordKind: "subjects" },
+				},
+			],
+			collectionMemberships: ["Shelf", "Existing", "Strict"].map((name) => ({
+				entityAlias: "created",
+				operationId: name.toLowerCase(),
+				collectionName: name === "Shelf" ? " Shelf " : name,
+				outcome: { unit: "memberships", recordKind: "memberships" },
+			})),
+		}),
+		["created", "shelf", "existing", "strict"],
+	);
+	yield* session.run((db) =>
+		db.insert(tables.entity).values(
+			[
+				{ fields: [], name: "Existing" },
+				{ name: "Strict", fields: [{ key: "note", type: "text", label: "Note", required: true }] },
+			].map(({ name, fields }) => ({
+				name,
+				userId: fixture.userId,
+				entitySchemaSlug: "collection",
+				properties: { membershipFields: fields },
+			})),
+		),
+	);
+	const collections = Effect.flatMap(DatabaseSession, (database) =>
+		database.run((db) =>
+			db
+				.select({ id: tables.entity.id, name: tables.entity.name })
+				.from(tables.entity)
+				.where(
+					and(
+						eq(tables.entity.userId, fixture.userId),
+						eq(tables.entity.entitySchemaSlug, "collection"),
+					),
+				),
+		),
+	);
+	return { ...fixture, collections };
+});
+
 layer(
 	Layer.provideMerge(
 		Layer.mergeAll(
-			Layer.provideMerge(SandboxRepository.layer, eventGroupWorkflowLayer),
-			Layer.mock(CollectionsService)({}),
+			Layer.provideMerge(
+				CollectionsService.layer.pipe(
+					Layer.provide(Layer.merge(CollectionsRepository.layer, RelationshipSchemaReader.layer)),
+				),
+				Layer.provideMerge(SandboxRepository.layer, eventGroupWorkflowLayer),
+			),
 			Layer.mock(JobQueue)({}),
 			Layer.mock(TransientValues)({}),
 			Layer.mock(EntityImportWorkflowOperations)({}),
@@ -488,6 +565,71 @@ layer(
 						db.select().from(tables.event).where(eq(tables.event.entityId, fixture.subjectId)),
 					),
 				).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"commits an item's collection memberships with the item and leaves out one its collection rejects",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* membershipFixture;
+				yield* fixture.apply;
+				yield* fixture.apply;
+				expect(
+					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
+						operationId,
+						result,
+						reason,
+					]),
+				).toEqual([["strict", "unsuccessful", { key: null, code: "membership-event-failed" }]]);
+				expect((yield* fixture.committed).map(({ result }) => result)).toEqual([
+					"created",
+					"created",
+					"created",
+				]);
+				const collections = yield* fixture.collections;
+				expect(collections.map(({ name }) => name).sort()).toEqual(["Existing", "Shelf", "Strict"]);
+				const database = yield* DatabaseSession;
+				const [imported] = yield* database.run((db) =>
+					db
+						.select({ id: tables.entity.id })
+						.from(tables.entity)
+						.where(
+							and(
+								eq(tables.entity.name, "Imported"),
+								eq(tables.entity.entitySchemaPluginId, fixture.installed.pluginId),
+							),
+						),
+				);
+				assert(imported);
+				const memberOf = yield* database.run((db) =>
+					db
+						.select({ target: tables.relationship.targetEntityId })
+						.from(tables.relationship)
+						.where(
+							and(
+								eq(tables.relationship.sourceEntityId, imported.id),
+								eq(tables.relationship.relationshipSchemaSlug, "member-of"),
+							),
+						),
+				);
+				const joined = collections
+					.filter(({ name }) => name !== "Strict")
+					.map(({ id }) => id)
+					.sort();
+				expect(memberOf.map(({ target }) => target).sort()).toEqual(joined);
+				const added = yield* database.run((db) =>
+					db
+						.select({ entityId: tables.event.entityId, properties: tables.event.properties })
+						.from(tables.event)
+						.where(eq(tables.event.eventSchemaSlug, "add-entity-to-collection")),
+				);
+				expect(added.map(({ entityId }) => entityId).sort()).toEqual(joined);
+				expect(added[0]?.properties).toMatchObject({
+					entityId: imported.id,
+					entitySchemaSlug: "subject",
+				});
 			}),
 		testTimeout,
 	);

@@ -131,9 +131,13 @@ type MatchLookup = EntityNameMatch & {
 	readonly userId: UserId;
 	readonly entitySchema: EntitySchemaReference;
 };
-/** The first entity with the name, optionally slug-normalized, and the properties. */
+/**
+ * The first entity with the name, optionally slug-normalized, and the properties, `prefer` first when
+ * it qualifies.
+ */
 type EntityNameMatch = {
 	readonly name: string;
+	readonly prefer?: EntityId;
 	readonly scope?: "user" | "global";
 	readonly nameNormalization: "slug" | "exact";
 	readonly properties: Readonly<Record<string, unknown>>;

@@ -39,7 +39,7 @@ export type GlobalEntityReference =
  * An event create recorded by the relationship change with item identity `relationship`, with the
  * properties `properties` gives for what it wrote, or none for null. It runs no before policies.
  */
-export type RelationshipEvent = {
+export type RelationshipEvent = KernelCollection & {
 	readonly occurredAt: string;
 	readonly itemIdentity: string;
 	readonly relationship: string;
@@ -107,6 +107,8 @@ export type Changes = {
 type EntityParts = Part<"entities">;
 type RelationshipParts = Part<"relationships">;
 type EventCreate = Part<"events">["creates"][number];
+/** A part `CollectionsService` builds, which a plugin writer may commit under the kernel collection schemas. */
+type KernelCollection = { readonly kernelCollection?: true };
 type Part<K extends keyof ChangeSet> = NonNullable<ChangeSet[K]>;
 type GlobalRelationshipGroup = Part<"globalRelationships">[number];
 /** A kernel writer's update or ensure, which replaces the properties it writes. */
@@ -114,16 +116,18 @@ type RelationshipWrite = Omit<RelationshipUpsert, "propertiesMode">;
 type RelationshipDelete = NonNullable<RelationshipParts["deletes"]>[number];
 /** Kernel writers pass properties that the write validates against the relationship schema. */
 type UnknownProperties<T> = Omit<T, "properties"> & { readonly properties: unknown };
-type RelationshipUpsert = UnknownProperties<NonNullable<RelationshipParts["upserts"]>[number]>;
+type RelationshipUpsert = KernelCollection &
+	UnknownProperties<NonNullable<RelationshipParts["upserts"]>[number]>;
+
 type OwnedEntity<T extends { readonly entitySchemaSlug: string }> = Omit<T, "entitySchemaSlug"> & {
 	readonly entitySchema: EntitySchemaReference;
 };
-
 /** A clear or merge of user data; a kernel writer's `null` schema accepts the entity's own. */
 type UserDataEntity<T extends { readonly entitySchemaSlug: string }> = Omit<
 	OwnedEntity<T>,
 	"entitySchema"
 > & { readonly entitySchema: null | EntitySchemaReference };
+
 type OwnedRelationship<T extends { readonly relationshipSchemaSlug: string }> = Omit<
 	T,
 	"relationshipSchemaSlug"
@@ -141,9 +145,10 @@ type Keyed<T extends { readonly source: unknown; readonly target: unknown }> = O
 > & { readonly source: EntityReference; readonly target: EntityReference };
 
 /** Kernel writers pass properties and update baselines that the write validates. */
-type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = Omit<UnknownProperties<OwnedEntity<T>>, "target"> & {
-	readonly target: UnknownExpected<T["target"]>;
-};
+type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = { readonly target: UnknownExpected<T["target"]> } & Omit<
+	UnknownProperties<OwnedEntity<T>>,
+	"target"
+>;
 
 /**
  * A kernel writer's entity create, which the change set's other parts may reference by `key`. With a
@@ -151,13 +156,17 @@ type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug
  * it keeps the entity the match finds under its schema, and fails when none is found and the match
  * is `required`.
  */
-type EntityCreate = UnknownProperties<OwnedEntity<Omit<ChangeSetEntity, "target">>> & {
-	readonly key?: string;
-	readonly externalId?: string;
-	readonly populatedAt?: null | string;
-	readonly match?: EntityMatch & { readonly required: boolean };
-	readonly provider?: { readonly updateExisting: boolean; readonly providerId: SandboxProviderId };
-};
+type EntityCreate = KernelCollection &
+	UnknownProperties<OwnedEntity<Omit<ChangeSetEntity, "target">>> & {
+		readonly key?: string;
+		readonly externalId?: string;
+		readonly populatedAt?: null | string;
+		readonly match?: EntityMatch & { readonly required: boolean };
+		readonly provider?: {
+			readonly updateExisting: boolean;
+			readonly providerId: SandboxProviderId;
+		};
+	};
 
 type OwnedGlobalRelationshipGroup = OwnedRelationship<
 	Omit<GlobalRelationshipGroup, "selector" | "relationships">

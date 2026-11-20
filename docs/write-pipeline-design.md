@@ -244,12 +244,18 @@ and its named tests, then its e2e files.
    kernel `Changes` gained keyed entity creates, a create `match` decided in preparation and rechecked
    in the commit, `references` for entities an item names without writing, and relationship `events`,
    built from what the relationship wrote, because a membership event needs the relationship's
-   generated ID and rank; the script `ChangeSet` is unchanged. Entity creates and updates now persist
-   with the root entity, before relationships and events. A data import commits per record, not per
-   segment, since later records reference IDs earlier commits generate. Coalesced import events
-   still commit through `IntegrationEventWrites` and collection memberships in their own activity
-   after the item. `CommitReceipt.peek` reads a keyed receipt without a transaction, so a receipt per
-   item adds no transaction.
+   generated ID and rank; the script `ChangeSet` is unchanged. Entity saves persist at one position,
+   with the root entity before relationships and events, whether or not the change set has other
+   source writes. Data import entity and relationship records commit one per record, since later
+   records reference IDs earlier commits generate; a run of consecutive event records commits as one
+   independent-mode change set. Generic import collection memberships commit in the item's change
+   set through `CollectionsService`'s builder, whose collection creates, `member-of` writes and
+   membership events carry `kernelCollection`; a chunk reads its collections' member fields once,
+   and a membership they reject is left out with `membership-event-failed`. A provider-resolved
+   entity is checked against its intent's match by the same name-match query, as its `prefer`red
+   entity. Coalesced import events still commit through `IntegrationEventWrites` after the item.
+   `CommitReceipt.peek` reads a keyed receipt without a transaction, so a receipt per item adds no
+   transaction.
 7. **Population, completion trigger, reminders and signal schedules.**
 8. **Docs and audit.** These return nothing outside `changes/` and `events/mutations.ts`:
    `EventsService`, `makeEventCreate`, `runLifecycleWrite`, `runItemPolicy`, `planner.planChange`.

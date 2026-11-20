@@ -346,6 +346,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const findImportMatch = Effect.fn("EntitiesRepository.findImportMatch")(function* (input: {
 				name: string;
 				userId: UserId;
+				prefer?: EntityId;
 				scope?: "user" | "global";
 				nameNormalization: "slug" | "exact";
 				entitySchema: EntitySchemaReference;
@@ -380,6 +381,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							),
 						)
 						.orderBy(
+							...(input.prefer === undefined
+								? []
+								: [sql`case when ${schema.entity.id} = ${input.prefer} then 0 else 1 end`]),
 							sql`case when ${schema.entity.userId} = ${input.userId} then 0 else 1 end`,
 							asc(schema.entity.name),
 							asc(schema.entity.createdAt),

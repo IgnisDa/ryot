@@ -11,7 +11,6 @@ import {
 	type CreateMembershipBody,
 	type DeleteCollectionBody,
 	type DeleteMembershipBody,
-	MembershipResponse,
 	type UpdateCollectionBody,
 } from "@ryot-app/contract/modules/collections/schemas";
 import type {
@@ -29,9 +28,9 @@ import {
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
 
-import type { Changes } from "#modules/changes/changes";
+import type { Changes, EntityReference, RelationshipEvent } from "#modules/changes/changes";
 import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
@@ -39,35 +38,13 @@ import {
 	type DomainLifecycleCommand,
 	kernelCollectionLifecycleCommand,
 } from "#modules/entities/write-context";
-import { RelationshipWriteResult } from "#modules/relationships/mutation-support";
 import { trimToNull } from "#platform/validation";
 
 import { collectionMembershipSchema, prepareCollectionFields } from "./fields";
 import { CollectionsRepository } from "./repository";
 import { toCollectionResponse } from "./service-support";
 
-export const CollectionMembershipWritten = Schema.Struct({
-	...MembershipResponse.fields,
-	operation: RelationshipWriteResult.fields.operation,
-});
-
-type MembershipInput = {
-	readonly userId: UserId;
-	readonly entityId: EntityId;
-	readonly properties?: unknown;
-	readonly collectionId: EntityId;
-	readonly operation: "add" | "remove";
-	readonly command: DomainLifecycleCommand;
-	readonly mode?: CreateMembershipBody["mode"];
-};
-
-export const childCollectionLifecycleCommand = (
-	command: DomainLifecycleCommand,
-	itemIdentity: string,
-): DomainLifecycleCommand => ({
-	...command,
-	itemIdentity: stableStringify([command.itemIdentity, itemIdentity]),
-});
+type CollectionCreate = NonNullable<NonNullable<Changes["entities"]>["creates"]>[number];
 
 type MembershipTarget = {
 	readonly userId: UserId;
@@ -138,6 +115,32 @@ const collectionRejected = (error: EntityStale | EntityNotFound | EntityBadReque
 		: Effect.fail(invalidCollection(error));
 };
 
+/** The membership event a relationship change records when it adds or deletes the member. */
+const membershipEvent = (input: {
+	readonly occurredAt: string;
+	readonly itemIdentity: string;
+	readonly change: "add" | "remove";
+	readonly memberSchemaSlug: string;
+	readonly collection: EntityReference;
+	readonly eventSchemaSlug: EventSchemaSlug;
+}): RelationshipEvent => ({
+	kernelCollection: true,
+	entity: input.collection,
+	occurredAt: input.occurredAt,
+	relationship: input.itemIdentity,
+	eventSchemaSlug: input.eventSchemaSlug,
+	itemIdentity: `${input.itemIdentity}:membership-event`,
+	properties: ({ operation, relationship }) =>
+		relationship && (input.change === "add" ? relationship.wasInserted : operation === "delete")
+			? {
+					relationshipId: relationship.id,
+					entityId: relationship.sourceEntityId,
+					entitySchemaSlug: input.memberSchemaSlug,
+					relationshipProperties: relationship.properties,
+				}
+			: null,
+});
+
 export class CollectionsService extends Context.Service<CollectionsService>()(
 	"@ryot-app/kernel-backend/modules/collections/service/CollectionsService",
 	{
@@ -194,7 +197,10 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				name: string,
 				collectionId?: EntityId,
 			) {
-				const existing = yield* repository.findCollectionByNameForUser({ name, userId });
+				const [existing] = yield* repository.findCollectionsByNameForUser({
+					userId,
+					names: [name],
+				});
 				if (existing && existing.id !== collectionId) {
 					return yield* nameTaken();
 				}
@@ -347,82 +353,155 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				return { id: payload.collectionId };
 			});
 
-			/** The user's collection with the trimmed name, created when absent. */
-			const getOrCreateCollection = Effect.fn("CollectionsService.getOrCreateCollection")(
-				function* (userId: UserId, rawName: string, command: DomainLifecycleCommand) {
-					const name = rawName.trim();
-					const entitySchema = yield* collectionEntitySchema;
-					const existing = yield* repository.findCollectionByNameForUser({ name, userId });
-					if (existing) {
-						return { id: existing.id };
-					}
-					const lifecycle = childCollectionLifecycleCommand(
-						kernelCollectionLifecycleCommand(command),
-						stableStringify(["collection:get-or-create", name]),
-					);
-					const created = yield* saveCollection(
-						userId,
-						{
-							name,
-							target: { kind: "create" },
-							itemIdentity: lifecycle.itemIdentity,
-							entitySchema: entitySchema.entitySchema,
-							properties: collectionProperties(undefined, []),
-						},
-						lifecycle,
+			/**
+			 * The relationship change adding `member` to `collection` under the item identity, with its
+			 * membership event; the properties are checked against the collection's membership fields.
+			 */
+			const membershipAdd = Effect.fnUntraced(function* (input: {
+				readonly occurredAt: string;
+				readonly properties: unknown;
+				readonly itemIdentity: string;
+				readonly member: EntityReference;
+				readonly memberSchemaSlug: string;
+				readonly membershipFields: unknown;
+				readonly collection: EntityReference;
+				readonly mode?: CreateMembershipBody["mode"];
+			}) {
+				const propertiesSchema = yield* Effect.fromResult(
+					collectionMembershipSchema(input.membershipFields),
+				);
+				const properties = yield* parseAppSchemaProperties({
+					propertiesSchema,
+					kind: "Membership",
+					properties: input.properties,
+				}).pipe(
+					Effect.mapError(
 						(error) =>
-							error._tag === "EntityBadRequest" && error.reason.code === "duplicate-collection-name"
-								? repository
-										.findCollectionByNameForUser({ name, userId })
-										.pipe(
-											Effect.flatMap(
-												requireBuiltinOrDie(
-													"duplicate collection name conflict has no surviving row",
-												),
-											),
-										)
-								: Effect.die(error),
+							new CollectionBadRequest({
+								reason: {
+									code: "invalid-membership-properties",
+									paths: error.issues.map(({ path }) => path),
+								},
+							}),
+					),
+				);
+				const addEvent = yield* addEventSchema;
+				const relationship = {
+					properties,
+					source: input.member,
+					target: input.collection,
+					kernelCollection: true as const,
+					itemIdentity: input.itemIdentity,
+					relationshipSchema: yield* memberOfReference,
+				};
+				const parts: NonNullable<Changes["relationships"]> = {
+					...(input.mode === "add-if-absent"
+						? { ensures: [relationship] }
+						: { upserts: [{ ...relationship, propertiesMode: "replace" }] }),
+					events: addEvent
+						? [membershipEvent({ ...input, change: "add", eventSchemaSlug: addEvent.id })]
+						: [],
+				};
+				return parts;
+			});
+
+			/** The membership fields of the user's collections with the names, by name. */
+			const membershipFieldsByName = Effect.fn("CollectionsService.membershipFieldsByName")(
+				function* (userId: UserId, names: ReadonlyArray<string>) {
+					const collections = yield* repository.findCollectionsByNameForUser({
+						userId,
+						names: [...new Set(names.map((name) => name.trim()))],
+					});
+					return Object.fromEntries(
+						collections.map(({ name, properties }) => [
+							name,
+							storedMembershipFields(properties) ?? [],
+						]),
 					);
-					return { id: created.id };
 				},
 			);
 
 			/**
-			 * Commits the membership's relationship change under the membership command's own identity,
-			 * with the membership event it records when it adds or deletes the relationship.
+			 * The parts adding each member to the user's collection with the trimmed name, creating the
+			 * collection when none has it. `membershipFields` holds the fields of the collections that
+			 * existed, by name; a membership its collection's fields reject is left out.
 			 */
+			const namedMemberships = Effect.fn("CollectionsService.namedMemberships")(function* (input: {
+				readonly occurredAt: string;
+				readonly membershipFields: Readonly<Record<string, unknown>>;
+				readonly memberships: ReadonlyArray<{
+					readonly itemIdentity: string;
+					readonly collectionName: string;
+					readonly member: EntityReference;
+					readonly memberSchemaSlug: string;
+				}>;
+			}) {
+				const { entitySchema } = yield* collectionEntitySchema;
+				const creates = new Map<string, CollectionCreate>();
+				const upserts: Array<
+					NonNullable<NonNullable<Changes["relationships"]>["upserts"]>[number]
+				> = [];
+				const events: Array<RelationshipEvent> = [];
+				for (const membership of input.memberships) {
+					const name = membership.collectionName.trim();
+					const key = stableStringify(["collection", name]);
+					const added = yield* membershipAdd({
+						...membership,
+						properties: {},
+						occurredAt: input.occurredAt,
+						collection: { key, kind: "keyed" },
+						membershipFields: input.membershipFields[name],
+					}).pipe(Effect.catchTag("CollectionBadRequest", () => Effect.succeed(null)));
+					if (added === null) {
+						continue;
+					}
+					upserts.push(...(added.upserts ?? []));
+					events.push(...(added.events ?? []));
+					if (!creates.has(name)) {
+						creates.set(name, {
+							key,
+							name,
+							entitySchema,
+							kernelCollection: true,
+							properties: collectionProperties(undefined, []),
+							itemIdentity: `${membership.itemIdentity}:collection`,
+							match: {
+								name,
+								scope: "user",
+								properties: {},
+								required: false,
+								nameNormalization: "exact",
+							},
+						});
+					}
+				}
+				return { creates: [...creates.values()], relationships: { events, upserts } };
+			});
+
+			const resolveMembershipTarget = Effect.fnUntraced(function* (input: MembershipTarget) {
+				const collection = yield* repository.getCollectionById(input.collectionId, input.userId);
+				if (!collection) {
+					return yield* collectionNotFound(input.collectionId);
+				}
+				const entity = yield* repository.getEntityForMembership(input.entityId, input.userId);
+				if (!entity) {
+					return yield* new CollectionNotFound({
+						reason: { code: "entity-not-found", entityId: input.entityId },
+					});
+				}
+				return { entity, collection };
+			});
+
+			/** Commits a membership's relationship change and the membership event it records. */
 			const commitMembership = Effect.fnUntraced(function* (
 				target: MembershipTarget & { readonly change: "add" | "remove" },
-				relationships: Omit<NonNullable<Changes["relationships"]>, "events">,
-				event: null | { readonly id: EventSchemaSlug; readonly entitySchemaSlug: string },
+				relationships: NonNullable<Changes["relationships"]>,
 			) {
-				const events = event
-					? [
-							{
-								eventSchemaSlug: event.id,
-								itemIdentity: "membership-event",
-								occurredAt: target.command.occurredAt,
-								relationship: target.command.itemIdentity,
-								entity: { kind: "existing" as const, entityId: target.collectionId },
-								properties: ({ operation, relationship }: RelationshipWriteResult) =>
-									relationship &&
-									(target.change === "add" ? relationship.wasInserted : operation === "delete")
-										? {
-												entityId: target.entityId,
-												relationshipId: relationship.id,
-												entitySchemaSlug: event.entitySchemaSlug,
-												relationshipProperties: relationship.properties,
-											}
-										: null,
-							},
-						]
-					: [];
 				const committed = yield* changes
-					.commit(
-						{ userId: target.userId, relationships: { ...relationships, events } },
-						target.command,
-						{ relationships: { verbatimIdentities: true } },
-					)
+					.commit({ relationships, userId: target.userId }, target.command, {
+						events: { verbatimIdentities: true },
+						relationships: { verbatimIdentities: true },
+					})
 					.pipe(
 						Effect.catch((error): Effect.Effect<never, DbError | CollectionBadRequest> => {
 							if (error._tag === "RelationshipBadRequest") {
@@ -460,20 +539,6 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				};
 			});
 
-			const resolveMembershipTarget = Effect.fnUntraced(function* (input: MembershipTarget) {
-				const collection = yield* repository.getCollectionById(input.collectionId, input.userId);
-				if (!collection) {
-					return yield* collectionNotFound(input.collectionId);
-				}
-				const entity = yield* repository.getEntityForMembership(input.entityId, input.userId);
-				if (!entity) {
-					return yield* new CollectionNotFound({
-						reason: { code: "entity-not-found", entityId: input.entityId },
-					});
-				}
-				return { entity, collection };
-			});
-
 			const addMembership = Effect.fn("CollectionsService.addMembership")(function* (
 				input: MembershipTarget & { properties?: unknown; mode?: CreateMembershipBody["mode"] },
 			) {
@@ -481,41 +546,18 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					return yield* new CollectionBadRequest({ reason: { code: "circular-membership" } });
 				}
 				const { entity, collection } = yield* resolveMembershipTarget(input);
-				const propertiesSchema = yield* Effect.fromResult(
-					collectionMembershipSchema(storedMembershipFields(collection.properties)),
-				);
-				const validated = yield* parseAppSchemaProperties({
-					propertiesSchema,
-					kind: "Membership",
-					properties: input.properties ?? {},
-				}).pipe(
-					Effect.mapError(
-						(error) =>
-							new CollectionBadRequest({
-								reason: {
-									code: "invalid-membership-properties",
-									paths: error.issues.map(({ path }) => path),
-								},
-							}),
-					),
-				);
-				const existing = yield* repository.findMembership(input);
-				const storedRank = existing?.properties["rank"];
-				const rank = typeof storedRank === "number" ? storedRank : 0;
-				const addEvent = yield* addEventSchema;
-				const relationship = {
-					properties: { ...validated, rank },
-					itemIdentity: input.command.itemIdentity,
-					relationshipSchema: yield* memberOfReference,
-					source: { entityId: input.entityId, kind: "existing" as const },
-					target: { kind: "existing" as const, entityId: input.collectionId },
-				};
 				return yield* commitMembership(
 					{ ...input, change: "add" },
-					input.mode === "add-if-absent"
-						? { ensures: [relationship] }
-						: { upserts: [{ ...relationship, propertiesMode: "replace" }] },
-					addEvent ? { id: addEvent.id, entitySchemaSlug: entity.entitySchemaSlug } : null,
+					yield* membershipAdd({
+						...(input.mode === undefined ? {} : { mode: input.mode }),
+						properties: input.properties ?? {},
+						occurredAt: input.command.occurredAt,
+						itemIdentity: input.command.itemIdentity,
+						memberSchemaSlug: entity.entitySchemaSlug,
+						member: { kind: "existing", entityId: input.entityId },
+						collection: { kind: "existing", entityId: input.collectionId },
+						membershipFields: storedMembershipFields(collection.properties),
+					}),
 				);
 			});
 
@@ -523,41 +565,36 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				input: MembershipTarget,
 			) {
 				const { entity } = yield* resolveMembershipTarget(input);
-				const membershipNotFound = new CollectionNotFound({
-					reason: {
-						entityId: input.entityId,
-						code: "membership-not-found",
-						collectionId: input.collectionId,
-					},
-				});
 				const existing = yield* repository.findMembership(input);
 				if (!existing) {
-					return yield* membershipNotFound;
+					return yield* new CollectionNotFound({
+						reason: {
+							entityId: input.entityId,
+							code: "membership-not-found",
+							collectionId: input.collectionId,
+						},
+					});
 				}
 				const removeEvent = yield* removeEventSchema;
+				const { occurredAt, itemIdentity } = input.command;
 				return yield* commitMembership(
 					{ ...input, change: "remove" },
 					{
-						deletesById: [
-							{ relationshipId: existing.id, itemIdentity: input.command.itemIdentity },
-						],
+						deletesById: [{ itemIdentity, relationshipId: existing.id }],
+						events: removeEvent
+							? [
+									membershipEvent({
+										occurredAt,
+										itemIdentity,
+										change: "remove",
+										eventSchemaSlug: removeEvent.id,
+										memberSchemaSlug: entity.entitySchemaSlug,
+										collection: { kind: "existing", entityId: input.collectionId },
+									}),
+								]
+							: [],
 					},
-					removeEvent ? { id: removeEvent.id, entitySchemaSlug: entity.entitySchemaSlug } : null,
 				);
-			});
-
-			const writeMembership = Effect.fn("CollectionsService.writeMembership")(function* (
-				input: MembershipInput,
-			) {
-				const target = {
-					userId: input.userId,
-					entityId: input.entityId,
-					collectionId: input.collectionId,
-					command: kernelCollectionLifecycleCommand(input.command),
-				};
-				return input.operation === "add"
-					? yield* addMembership({ ...target, mode: input.mode, properties: input.properties })
-					: yield* removeMembership(target);
 			});
 
 			const addToCollection = Effect.fn("CollectionsService.addToCollection")(function* (
@@ -565,14 +602,13 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				payload: CreateMembershipBody,
 				command: DomainLifecycleCommand,
 			) {
-				return yield* writeMembership({
-					command,
+				return yield* addMembership({
 					userId: user.id,
-					operation: "add",
 					mode: payload.mode,
 					entityId: payload.entityId,
 					properties: payload.properties,
 					collectionId: payload.collectionId,
+					command: kernelCollectionLifecycleCommand(command),
 				});
 			});
 
@@ -581,12 +617,11 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				payload: DeleteMembershipBody,
 				command: DomainLifecycleCommand,
 			) {
-				const { memberOf } = yield* writeMembership({
-					command,
+				const { memberOf } = yield* removeMembership({
 					userId: user.id,
-					operation: "remove",
 					entityId: payload.entityId,
 					collectionId: payload.collectionId,
+					command: kernelCollectionLifecycleCommand(command),
 				});
 				return { memberOf };
 			});
@@ -594,10 +629,10 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			return {
 				create,
 				update,
-				writeMembership,
 				addToCollection,
+				namedMemberships,
 				removeFromCollection,
-				getOrCreateCollection,
+				membershipFieldsByName,
 				delete: deleteCollection,
 			};
 		}),

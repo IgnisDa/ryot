@@ -53,7 +53,8 @@ authorized by the cascaded entity instead: the event must reference one of those
 be visible to the event's user and share the event's plugin owner (or the event is a kernel
 collection event), and the writer must be allowed to write that entity's owner. `kernelCollection`
 lets a plugin writer change the kernel collection events its own entity data carries, as entity
-cascades and user-data clears and merges do.
+cascades and user-data clears and merges do, and create the membership event of a collection
+membership it commits.
 
 ### Mutation lock order
 

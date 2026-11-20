@@ -1925,6 +1925,49 @@ layer(testLayer(false))((test) => {
 	);
 
 	test.effect(
+		"matches the preferred entity first among the entities a name match finds",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const target = targetOf(input);
+				const [other] = yield* input.session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({
+							userId,
+							name: "Existing-Target",
+							entitySchemaSlug: "record",
+							entitySchemaPluginId: input.pluginId,
+						})
+						.returning({ id: tables.entity.id }),
+				);
+				assert(other);
+				const preferred = EntityId.make(other.id);
+				const create = (key: string, prefer?: EntityId) => ({
+					key,
+					properties: {},
+					name: "Unused",
+					itemIdentity: key,
+					entitySchema: recordSchema(input),
+					match: {
+						properties: {},
+						required: true,
+						name: "existing target",
+						nameNormalization: "slug" as const,
+						...(prefer === undefined ? {} : { prefer }),
+					},
+				});
+				const committed = yield* (yield* ChangeSets).commit(
+					{ userId, entities: { creates: [create("first"), create("preferred", preferred)] } },
+					kernelWriterCommand(input),
+					{ entities: { verbatimIdentities: true } },
+				);
+				expect(committed.entities.map(({ entity }) => entity.id)).toEqual([target, preferred]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"fails a create whose match is written while its policies run",
 		() =>
 			Effect.gen(function* () {

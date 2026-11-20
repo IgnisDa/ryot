@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import type { EventCreateItemOutcome } from "@ryot-app/contract/modules/events/schemas";
 import type {
 	IngestionBatch,
 	IngestionIssue,
@@ -118,7 +119,16 @@ const event = (key: string, entityKey = "subject"): DataGraphRecord => ({
 		properties: { related: { entity: "related" } },
 	},
 });
-const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
+const defaultRecords = [
+	event("written"),
+	event("skipped"),
+	event("failed-dependency", "failed"),
+	event("independent"),
+];
+const fixture = Effect.fnUntraced(function* (
+	cancelAfterWrite?: boolean,
+	records: ReadonlyArray<DataGraphRecord> = defaultRecords,
+) {
 	let run = ingestionTestRun();
 	const items: ReturnType<typeof ingestionTestItem>[] = [];
 	const outcomes = new Map<string, IngestionOutcome>();
@@ -126,12 +136,6 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 	const projections: IngestionBatch[] = [];
 	const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
 	const submitted: Changes[] = [];
-	const records = [
-		event("written"),
-		event("skipped"),
-		event("failed-dependency", "failed"),
-		event("independent"),
-	];
 	const batch: IngestionBatch = {
 		ordinal: 1,
 		summary: [],
@@ -164,35 +168,29 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 		Layer.mock(EntityImportWorkflowOperations)({}),
 		Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
 		Layer.mock(ChangeSets)({
-			commitOnce: (input, lifecycle, receipt) =>
+			commitOnce: (input, _lifecycle, receipt) =>
 				Effect.suspend(() => {
 					submitted.push(input);
-					const key =
-						["skipped", "independent"].find((value) => lifecycle.itemIdentity.includes(value)) ??
-						"written";
-					if (key === "skipped") {
-						return receipt.record({
-							...emptyCommit,
-							outcomes: [
-								{
-									index: 0,
+					const written = (input.events?.creates ?? []).map(
+						({ itemIdentity }, index): EventCreateItemOutcome => {
+							if (itemIdentity.includes("skipped")) {
+								return {
+									index,
 									status: "skipped_by_policy",
 									reason: { namespace: "plugin1", key: "rejection.filtered" },
-								},
-							],
-						});
-					}
-					const item = ingestionTestItem(lifecycle.itemIdentity, "created");
-					if (!items.some(({ id }) => id === item.id)) {
-						items.push(item);
-					}
+								};
+							}
+							const item = ingestionTestItem(itemIdentity, "created");
+							if (!items.some(({ id }) => id === item.id)) {
+								items.push(item);
+							}
+							return { index, status: "written", eventId: EventId.make(itemIdentity) };
+						},
+					);
 					if (cancelAfterWrite) {
 						run = { ...run, status: "cancelling" };
 					}
-					return receipt.record({
-						...emptyCommit,
-						outcomes: [{ index: 0, status: "written", eventId: EventId.make(key) }],
-					});
+					return receipt.record({ ...emptyCommit, outcomes: written });
 				}),
 		}),
 		Layer.mock(ImportsRepository)({
@@ -284,6 +282,12 @@ it.effect(
 					"created",
 				),
 			]);
+			expect(test.submitted).toHaveLength(2);
+			expect(test.submitted[0]?.events?.creates.map(({ itemIdentity }) => itemIdentity)).toEqual(
+				["written", "skipped", "independent"].map((key) =>
+					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
+				),
+			);
 			expect(test.submitted[0]?.events?.creates[0]?.properties).toEqual({
 				related: { entity: "related-id" },
 			});
@@ -316,7 +320,19 @@ it.effect(
 	"stops future Data records after cancellation and projects the just-committed item",
 	() =>
 		Effect.gen(function* () {
-			const test = yield* fixture(true);
+			const test = yield* fixture(true, [
+				event("written"),
+				{
+					kind: "entity",
+					record: {
+						key: "later",
+						kind: "existing",
+						entityId: "later-id",
+						entitySchema: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
+					},
+				},
+				event("independent"),
+			]);
 			yield* test.execute;
 			expect(test.submitted).toHaveLength(1);
 			expect(test.items).toHaveLength(1);

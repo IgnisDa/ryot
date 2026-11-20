@@ -32,7 +32,6 @@ import {
 } from "@ryot-app/plugin-backend-sdk/imports";
 import { providerResolveResultSchema } from "@ryot-app/plugin-backend-sdk/provider";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer, Option, Ref, Schema, type Scope } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -40,7 +39,7 @@ import type { Changes } from "#modules/changes/changes";
 import { toCreateEventsResponse } from "#modules/changes/outcomes";
 import { keyedReceipt } from "#modules/changes/receipts";
 import { ChangeSets, type CommitOptions } from "#modules/changes/service";
-import { CollectionMembershipWritten, CollectionsService } from "#modules/collections/service";
+import { CollectionsService } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { awaitEntityImport } from "#modules/entities/providers/entity-import-job";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
@@ -54,7 +53,6 @@ import {
 } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { slugify } from "#platform/slug";
 import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
 
 import {
@@ -165,28 +163,6 @@ export class GenericImportProviderError extends Schema.TaggedError<
 	message: Schema.String,
 	stage: Schema.Literals(["provider_resolution", "provider_details"]),
 }) {}
-
-const valuesMatch = (properties: Record<string, unknown>, expected: Record<string, unknown>) =>
-	Object.entries(expected).every(
-		([key, value]) => JSON.stringify(properties[key]) === JSON.stringify(value),
-	);
-
-const matchesImportIntent = (
-	entity: { readonly name: string; readonly properties: unknown },
-	intent: GenericImportWriteItem["entities"][number],
-) => {
-	if (!intent.match) {
-		return true;
-	}
-	const expectedName =
-		intent.match.nameNormalization === "slug" ? slugify(intent.match.name) : intent.match.name;
-	const entityName = intent.match.nameNormalization === "slug" ? slugify(entity.name) : entity.name;
-	return (
-		entityName === expectedName &&
-		isObjectRecord(entity.properties) &&
-		valuesMatch(entity.properties, intent.match.properties)
-	);
-};
 
 const resolveGenericImportProvider = (
 	intent: GenericImportWriteItem["entities"][number],
@@ -331,7 +307,7 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 				new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
 		),
 	);
-	return matchesImportIntent(providerEntity, intent) ? providerEntity.id : undefined;
+	return providerEntity.id;
 });
 
 type GenericImportDefinitions = ReturnType<typeof definitionLookup>;
@@ -479,9 +455,9 @@ const unknownAlias = (alias: string) =>
 	new ImportRunError({ message: `Import intent references an unknown entity alias '${alias}'` });
 
 /**
- * The item as one change set: its entities by alias, relationships and events other than coalesced
- * ones. An entity resolved through its provider is referenced; any other is created unless its entity
- * ID or match finds one.
+ * The item as one change set: its entities by alias, relationships, events other than coalesced ones,
+ * and collection memberships. An entity resolved through its provider is referenced, or preferred by
+ * its match; any other is created unless its entity ID or match finds one.
  */
 const genericItemChanges = Effect.fnUntraced(function* (
 	item: GenericImportWriteItem,
@@ -489,6 +465,7 @@ const genericItemChanges = Effect.fnUntraced(function* (
 	command: DomainLifecycleCommand,
 	owner: DefinitionOwner,
 	resolved: ReadonlyMap<string, EntityId>,
+	membershipFields: Readonly<Record<string, unknown>>,
 ) {
 	const identity = (operationId: string) =>
 		genericImportOperationIdentity(command.causation.importRunId, item, operationId);
@@ -498,25 +475,27 @@ const genericItemChanges = Effect.fnUntraced(function* (
 			? Effect.succeed({ key: alias, kind: "keyed" as const })
 			: Effect.fail(unknownAlias(alias));
 	const entitySchema = (slug: string) => ({ owner, slug: EntitySchemaSlug.make(slug) });
+	const requested = item.collectionMemberships ?? [];
+	const memberships =
+		requested.length === 0
+			? { creates: [], relationships: { events: [], upserts: [] } }
+			: yield* (yield* CollectionsService).namedMemberships({
+					membershipFields,
+					occurredAt: command.occurredAt,
+					memberships: yield* Effect.forEach(requested, (membership) => {
+						const member = item.entities.find(({ alias }) => alias === membership.entityAlias);
+						return member === undefined
+							? Effect.fail(unknownAlias(membership.entityAlias))
+							: Effect.succeed({
+									collectionName: membership.collectionName,
+									memberSchemaSlug: member.entitySchemaSlug,
+									itemIdentity: identity(membership.operationId),
+									member: { key: member.alias, kind: "keyed" as const },
+								});
+					}),
+				});
 	return {
 		userId,
-		relationships: {
-			upserts: yield* Effect.forEach(item.relationships, (relationship) =>
-				Effect.gen(function* () {
-					return {
-						properties: relationship.properties,
-						source: yield* keyed(relationship.sourceAlias),
-						target: yield* keyed(relationship.targetAlias),
-						itemIdentity: identity(relationship.operationId),
-						propertiesMode: relationship.propertiesMode === "merge" ? "merge" : "replace",
-						relationshipSchema: {
-							owner,
-							slug: RelationshipSchemaSlug.make(relationship.relationshipSchemaSlug),
-						},
-					} as const;
-				}),
-			),
-		},
 		events: {
 			changes: [],
 			creates: yield* Effect.forEach(
@@ -539,10 +518,31 @@ const genericItemChanges = Effect.fnUntraced(function* (
 					}),
 			),
 		},
+		relationships: {
+			events: memberships.relationships.events,
+			upserts: [
+				...(yield* Effect.forEach(item.relationships, (relationship) =>
+					Effect.gen(function* () {
+						return {
+							properties: relationship.properties,
+							source: yield* keyed(relationship.sourceAlias),
+							target: yield* keyed(relationship.targetAlias),
+							itemIdentity: identity(relationship.operationId),
+							propertiesMode: relationship.propertiesMode === "merge" ? "merge" : "replace",
+							relationshipSchema: {
+								owner,
+								slug: RelationshipSchemaSlug.make(relationship.relationshipSchemaSlug),
+							},
+						} as const;
+					}),
+				)),
+				...memberships.relationships.upserts,
+			],
+		},
 		entities: {
 			references: item.entities.flatMap((intent) => {
 				const entityId = resolved.get(intent.alias);
-				return entityId === undefined
+				return entityId === undefined || intent.match
 					? []
 					: [
 							{
@@ -553,35 +553,40 @@ const genericItemChanges = Effect.fnUntraced(function* (
 							},
 						];
 			}),
-			creates: item.entities.flatMap((intent) => {
-				if (resolved.has(intent.alias)) {
-					return [];
-				}
-				const scope = intent.scope ? { scope: intent.scope } : {};
-				const required = intent.existingOnly === true;
-				let match;
-				if (intent.entityId) {
-					match = { ...scope, required, entityId: EntityId.make(intent.entityId) };
-				} else if (intent.match) {
-					match = {
-						...scope,
-						required,
-						name: intent.match.name,
-						properties: intent.match.properties,
-						nameNormalization: intent.match.nameNormalization ?? "exact",
-					};
-				}
-				return [
-					{
-						name: intent.name,
-						key: intent.alias,
-						properties: intent.properties,
-						itemIdentity: identity(intent.operationId),
-						entitySchema: entitySchema(intent.entitySchemaSlug),
-						...(match ? { match } : {}),
-					},
-				];
-			}),
+			creates: [
+				...item.entities.flatMap((intent) => {
+					const prefer = resolved.get(intent.alias);
+					if (prefer !== undefined && !intent.match) {
+						return [];
+					}
+					const scope = intent.scope ? { scope: intent.scope } : {};
+					const required = intent.existingOnly === true;
+					let match;
+					if (intent.entityId) {
+						match = { ...scope, required, entityId: EntityId.make(intent.entityId) };
+					} else if (intent.match) {
+						match = {
+							...scope,
+							required,
+							name: intent.match.name,
+							properties: intent.match.properties,
+							nameNormalization: intent.match.nameNormalization ?? "exact",
+							...(prefer === undefined ? {} : { prefer }),
+						};
+					}
+					return [
+						{
+							name: intent.name,
+							key: intent.alias,
+							properties: intent.properties,
+							itemIdentity: identity(intent.operationId),
+							entitySchema: entitySchema(intent.entitySchemaSlug),
+							...(match ? { match } : {}),
+						},
+					];
+				}),
+				...memberships.creates,
+			],
 		},
 	} satisfies Changes;
 });
@@ -597,6 +602,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	definitions: GenericImportDefinitions,
 	command: DomainLifecycleCommand,
 	pluginRevision: ScriptPluginRevision,
+	membershipFields: Readonly<Record<string, unknown>>,
 ) {
 	const owner = definitionOwner(pluginRevision.id);
 	const writeItem = Effect.fnUntraced(function* () {
@@ -658,7 +664,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 			execute: Effect.gen(function* () {
 				const mode = yield* validateGenericItem(item, userId, definitions, pluginRevision);
 				return yield* commitImportItem(
-					yield* genericItemChanges(item, userId, command, owner, resolved),
+					yield* genericItemChanges(item, userId, command, owner, resolved, membershipFields),
 					genericImportRecordCommand(command, item),
 					{
 						entities: { verbatimIdentities: true },
@@ -817,6 +823,20 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 			sourceState.pluginRevision,
 		);
 		const definitions = definitionLookup(snapshot);
+		const collectionNames = chunk.items.flatMap((item) =>
+			(item.collectionMemberships ?? []).map(({ collectionName }) => collectionName),
+		);
+		const membershipFields =
+			collectionNames.length === 0
+				? {}
+				: yield* makeActivity({
+						error: ImportRunError,
+						name: "resolve-import-collections",
+						success: Schema.Record(Schema.String, Schema.Unknown),
+						execute: (yield* CollectionsService)
+							.membershipFieldsByName(payload.userId, collectionNames)
+							.pipe(Effect.mapError(toWorkflowError)),
+					});
 		for (const failure of chunk.failures) {
 			const stage = failure.stage ?? "input_transformation";
 			yield* record(genericIngestionFailureOperation(failure, scope.runId), "unsuccessful", {
@@ -836,8 +856,8 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 				definitions,
 				payload.command,
 				sourceState.pluginRevision,
+				membershipFields,
 			);
-			let message = outcome._tag === "failed" ? outcome.message : null;
 			let failureCode: null | string =
 				outcome._tag === "failed" ? failureReasonByStage[outcome.stage].code : null;
 			if (outcome._tag === "ready") {
@@ -845,7 +865,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 				const ids = item.events
 					.filter((event) => event.coalescing === undefined)
 					.map((event) => event.operationId);
-				message ??= committed.events.failure?.reason.code ?? null;
 				failureCode ??= committed.events.failure?.reason.code ?? null;
 				for (const event of committed.events.outcomes) {
 					const operation = operations.find((value) => value.operationId === ids[event.index]);
@@ -853,52 +872,18 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 						yield* record(operation, "skipped", { message: event.reason, code: "policy-rejected" });
 					}
 				}
-				const collections = yield* CollectionsService;
-				for (const membership of item.collectionMemberships ?? []) {
-					const entityId = aliases.get(membership.entityAlias);
-					if (entityId === undefined) {
+				const written = new Set(committed.relationships.map(({ itemIdentity }) => itemIdentity));
+				for (const { operationId } of item.collectionMemberships ?? []) {
+					if (written.has(genericImportOperationIdentity(scope.runId, item, operationId))) {
 						continue;
 					}
-					const collectionResult = yield* makeActivity({
-						error: ImportRunError,
-						success: CollectionMembershipWritten,
-						name: `write-collection-membership-${membership.operationId}`,
-						execute: Effect.gen(function* () {
-							const collection = yield* collections.getOrCreateCollection(
-								payload.userId,
-								membership.collectionName,
-								genericImportOperationCommand(
-									payload.command,
-									item,
-									`${membership.operationId}:collection`,
-								),
-							);
-							return yield* collections.writeMembership({
-								entityId,
-								properties: {},
-								operation: "add",
-								userId: payload.userId,
-								collectionId: collection.id,
-								command: genericImportOperationCommand(
-									payload.command,
-									item,
-									membership.operationId,
-								),
-							});
-						}).pipe(Effect.mapError(toWorkflowError)),
-					}).pipe(Effect.result);
-					if (collectionResult._tag === "Failure" && !message) {
-						message = unknownToMessage(collectionResult.failure);
-						failureCode ??= "membership-event-failed";
-						const operation = operations.find(
-							(value) => value.operationId === membership.operationId,
-						);
-						if (operation) {
-							yield* record(operation, "unsuccessful", {
-								key: null,
-								code: "membership-event-failed",
-							});
-						}
+					failureCode ??= "membership-event-failed";
+					const operation = operations.find((value) => value.operationId === operationId);
+					if (operation) {
+						yield* record(operation, "unsuccessful", {
+							key: null,
+							code: "membership-event-failed",
+						});
 					}
 				}
 				for (const [groupIndex, intent] of item.events.entries()) {
@@ -944,7 +929,6 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 							})
 							.pipe(Effect.mapError(toWorkflowError)),
 					});
-					message ??= result.failure?.reason.code ?? null;
 					failureCode ??= result.failure?.reason.code ?? null;
 					const operation = operations.find((value) => value.operationId === intent.operationId);
 					const [first] = result.outcomes;

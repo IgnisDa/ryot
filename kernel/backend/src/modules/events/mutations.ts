@@ -78,10 +78,14 @@ const [eventCreate, eventUpdate, eventDelete] = EventMutationChange.members;
 /**
  * An event change a kernel writer prepares: the contract's changes, a delete authorized by the
  * entities it cascades from, and a move of an event's entity references. `kernelCollection` lets a
- * plugin writer change the kernel collection events the user data it owns carries.
+ * plugin writer record a kernel collection membership event and change the kernel collection events
+ * the user data it owns carries.
  */
 export const EventMutation = Schema.Union([
-	eventCreate,
+	Schema.Struct({
+		...eventCreate.fields,
+		kernelCollection: Schema.optionalKey(Schema.Literal(true)),
+	}),
 	eventUpdate,
 	Schema.Struct({
 		...eventDelete.fields,
@@ -288,7 +292,7 @@ const writeFailure = (error: DbError | DomainWriteConflict) =>
 		? Effect.fail(new EventBadRequest({ reason: { code: error.reason.code } }))
 		: conflict(error.message);
 const checkCommand = (command: DomainLifecycleCommand, change: EventMutation) =>
-	change.kind !== "create" && change.kind !== "update" && change.kernelCollection === true
+	change.kind !== "update" && change.kernelCollection === true
 		? kernelCollectionLifecycleCommand(command)
 		: command;
 const scopeKey = (

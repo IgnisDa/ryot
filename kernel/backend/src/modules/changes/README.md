@@ -11,8 +11,8 @@ atomically under the writer's principal (`command.writeContext`) after translati
   `populatedAt`; with `updateExisting` an existing provider entity is updated, and without it a
   populated one is kept and an unpopulated one is filled; a `key` that relationships and events of
   the same change set name it by; and a `match`, an entity ID in scope or a normalized name with
-  properties, whose entity is kept instead of created, failing the change set when `required` finds
-  none), kernel `references` (an existing entity the change set names by key without writing it,
+  properties (a `prefer`red entity first when it qualifies), whose entity is kept instead of
+  created, failing the change set when `required` finds none), kernel `references` (an existing entity the change set names by key without writing it,
   recorded as an `unchanged` import item), entity `deletes` (an entity that no longer
   exists is skipped, so a repeated delete is a no-op; `preserveHistory` refuses an entity with events
   instead of cascading), data `clears` and `merges` (both through `EntityUserDataService`; a kernel
@@ -25,6 +25,11 @@ atomically under the writer's principal (`command.writeContext`) after translati
   `null`); see [relationships](../relationships/README.md).
 - `events`: event creates (a kernel writer's may name its entity and session by key), updates and
   deletes, optional `expected` session event IDs and scope `baselines`.
+
+An entity create, relationship write and relationship event that `CollectionsService` builds carries
+`kernelCollection`, so a plugin writer's change set commits it under the kernel collection and
+`member-of` schemas, as the collection routes do; every other part keeps the writer's own authority.
+
 - `settings`: a patch of the writing plugin's user settings.
 - `signals`: signal emissions, planned like `SignalEmissionService.planSignal`.
 - `notifications`: messages for the run's account; admission queues delivery as a job.
@@ -115,11 +120,11 @@ its items is still active.
 
 The commit transaction applies, in order: the receipt's `load`, the precondition's `check`, the
 settings patch, source writes (event group capture, then each clear's and merge's account admission,
-locks and state recheck, then the root entity with entity creates and updates as one set,
-relationships, the events relationship changes record, events, baselines), the precondition's
-`written` when an event was written, ensures, entity deletes (which fail when an event still
-references a deleted entity), the rest of each clear and merge, entity creates and updates as one set
-when nothing else wrote a source, global entity upserts and global relationship reconciliation, signal
+locks and state recheck, which a change set with only entity saves skips, then the root entity with
+entity creates and updates as one set, relationships, the events relationship changes record,
+events, baselines), the precondition's `written` when an event was written, ensures, entity deletes
+(which fail when an event still references a deleted entity), the rest of each clear and merge,
+global entity upserts and global relationship reconciliation, signal
 plans, notification admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts
 after commit; a failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
 
@@ -175,13 +180,13 @@ collection commands follow the caller's identity.
 
 The entity editor commits through `commitOnce` with its idempotency key as the receipt (see
 [entities](../entities/README.md)); plugin bootstrap entities commit `ensures` under the bootstrap
-entry's root command. Generic and data import items commit through `commitImportItem`: `commitOnce`
-with the account's idempotency key under the item's command identity, holding its entity,
-relationship and event results (see [imports](../imports/README.md)).
+entry's root command. Generic import items, data import records and runs of data import events commit
+through `commitImportItem`: `commitOnce` with the account's idempotency key under the item's command
+identity, holding its entity, relationship and event results (see [imports](../imports/README.md)).
 
 HTTP event creation commits independently without a receipt, and a collection membership commits its
-relationship change with the membership event it records; a deferred integration flush commits with
-the stream precondition alone. HTTP event updates and deletes
+relationship change with the membership event it records, alone from the collection routes or within
+an import item; a deferred integration flush commits with the stream precondition alone. HTTP event updates and deletes
 commit one event change without a receipt, its policies matched and called like any event batch.
 
 ## Script changes and exactly-once commits
