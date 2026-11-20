@@ -93,17 +93,10 @@ const commonSchema = {
 	},
 } satisfies IntegrationProviderItem["commonSchema"];
 
-const ownershipSyncCommonSchema = {
-	...commonSchema,
-	fields: {
-		...commonSchema.fields,
-		syncOwnership: { ...described("Sync ownership"), type: "boolean", defaultValue: false },
-	},
-} satisfies IntegrationProviderItem["commonSchema"];
-
 const libraryProvider: IntegrationProviderItem = {
 	plan: null,
 	lot: "yank",
+	commonSchema,
 	hasScript: true,
 	isCreatable: true,
 	entitlement: null,
@@ -111,12 +104,10 @@ const libraryProvider: IntegrationProviderItem = {
 	slug: "sample-library",
 	readinessMetadata: null,
 	readinessConnections: [],
-	supportsOwnershipSync: true,
 	scriptSlug: "sample-library",
 	name: testMessage("Sample Library"),
 	pluginId: PluginId.make("plugin-a"),
 	installationId: "fixture-installation",
-	commonSchema: ownershipSyncCommonSchema,
 	packageId: PluginPackageId.make("ryot/fixture"),
 	readiness: { plan: null, ready: true, blockReasons: [] },
 	description: testMessage("Import progress and ownership from Sample Library"),
@@ -149,7 +140,6 @@ const sinkProvider: IntegrationProviderItem = {
 	readinessMetadata: null,
 	readinessConnections: [],
 	scriptSlug: "sample-sink",
-	supportsOwnershipSync: false,
 	settingsSchema: { fields: {} },
 	name: testMessage("Sample Sink"),
 	pluginId: PluginId.make("plugin-a"),
@@ -190,7 +180,6 @@ const makeSummary = (overrides: Partial<IntegrationSummary> = {}): IntegrationSu
 	minimumProgress: 2,
 	maximumProgress: 95,
 	lastFinishedAt: null,
-	syncOwnership: false,
 	provider: "sample-library",
 	id: IntegrationId.make("int_1"),
 	pluginId: PluginId.make("plugin-a"),

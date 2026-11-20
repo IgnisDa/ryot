@@ -19,6 +19,7 @@ import {
 	MediaImportResolutionWorkflowOutput,
 } from "../contracts/workflows";
 import { importEntityRefIdentifier } from "./groups";
+import { mediaCopyOperationId } from "./identity";
 import type {
 	MediaImportAdapterBatch,
 	MediaImportFailure,
@@ -46,6 +47,13 @@ const mediaImportResolutionActivitySlugByProvider = {
 
 type FinalizedEvent = FinalizedEntityGroup["events"][number];
 type FinalizedEntityGroup = MediaImportWriteChunkInput["entityGroups"][number];
+
+const episodeSchemaSlug = {
+	show: "show-episode",
+	podcast: "podcast-episode",
+	"show-season": "show-season",
+	"podcast-title": "podcast-episode",
+} satisfies Record<UnresolvedEpisodeRef["type"], string>;
 
 const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) => {
 	if (episode.type === "show-season") {
@@ -224,7 +232,7 @@ export function* runMediaImportBatch(
 		if (populated?.status !== "completed") {
 			return [];
 		}
-		return group.events.flatMap((event, eventIndex) =>
+		return [...group.events, ...(group.copies ?? [])].flatMap((event, eventIndex) =>
 			event.unresolvedEpisode
 				? [
 						{
@@ -368,18 +376,42 @@ export function* runMediaImportBatch(
 			events.push({
 				...finalized,
 				subjectEntityId,
-				subjectEntitySchemaSlug: {
-					show: "show-episode",
-					podcast: "podcast-episode",
-					"show-season": "show-season",
-					"podcast-title": "podcast-episode",
-				}[event.unresolvedEpisode.type],
+				subjectEntitySchemaSlug: episodeSchemaSlug[event.unresolvedEpisode.type],
 			});
 		}
-		finalizedGroups.push({ ...group, events });
+		const copies = (group.copies ?? []).flatMap((copy, index) => {
+			if (copy.unresolvedEpisode === undefined) {
+				return [copy];
+			}
+			const subjectEntityId = episodeEntityIdByEvent.get(
+				`${groupIndex}:${group.events.length + index}`,
+			);
+			if (subjectEntityId) {
+				return [
+					{
+						...copy,
+						subjectEntityId,
+						subjectEntitySchemaSlug: episodeSchemaSlug[copy.unresolvedEpisode.type],
+					},
+				];
+			}
+			if (populationByIndex.get(groupIndex)?.status === "completed") {
+				episodeFailures.push({
+					unit: "copies",
+					recordKind: "media-copy",
+					itemIndex: group.itemIndex,
+					stage: "provider_resolution",
+					sourceIdentifier: copy.sourceId,
+					sourceLabel: group.entityRef.sourceLabel,
+					operationId: mediaCopyOperationId(group.itemIndex, index),
+					message: unresolvedEpisodeMessage(copy.unresolvedEpisode),
+				});
+			}
+			return [];
+		});
+		finalizedGroups.push({ ...group, events, ...(group.copies === undefined ? {} : { copies }) });
 	}
 	const chunk = yield* step.activity(`chunks-${batchIndex}`, chunkWriter, {
-		ownershipSyncedAt: input.command.occurredAt,
 		...(input.ingestionArtifacts ? { ingestionArtifacts: input.ingestionArtifacts } : {}),
 		...(integrationId === undefined
 			? {}

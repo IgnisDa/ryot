@@ -78,6 +78,7 @@ import {
 	type ScalarExpression,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
+import { mediaHasCopies } from "./media-copy-recipes";
 import { MediaImageListSchema } from "./media-image";
 import {
 	compareMediaActivityDescending,
@@ -267,6 +268,12 @@ const episodicEpisodeCount = (
 						eq(episodeDisplayStateExpression(episode, parent, `${alias}State`), literal(filter)),
 					),
 	});
+};
+
+const ownedEpisodeCount = (config: EpisodicKindConfig, parent: Table, alias: string) => {
+	const episode = table("entity", `${alias}Episode`);
+	const { joins, where } = episodicEpisodeQuery(config, parent, episode, alias, "any", "all");
+	return count(episode, { joins, where: and(where, mediaHasCopies(episode)) });
 };
 
 const episodicCountSelection = (config: EpisodicKindConfig, parent: Table, alias: string) => ({
@@ -851,6 +858,10 @@ export const mediaEpisodicRecipes = <
 							Schema.NullOr(Schema.Finite),
 						),
 						...episodicCountSelection(config.config, entity, `${config.alias}Summary`),
+						ownedEpisodes: selectedField(
+							ownedEpisodeCount(config.config, entity, `${config.alias}Owned`),
+							Schema.Finite,
+						),
 						...config.summaryFields(entity),
 					};
 				},

@@ -110,14 +110,7 @@ describe("Integration CRUD", () => {
 				providers.find(({ slug }) => slug === "kodi"),
 				"Expected Kodi provider",
 			);
-			const komga = requirePresent(
-				providers.find(({ slug }) => slug === "komga"),
-				"Expected Komga provider",
-			);
-			const spotify = requirePresent(
-				providers.find(({ slug }) => slug === "spotify"),
-				"Expected Spotify provider",
-			);
+
 			const anilist = requirePresent(
 				providers.find(({ slug }) => slug === "anilist"),
 				"Expected AniList provider",
@@ -127,7 +120,6 @@ describe("Integration CRUD", () => {
 			expect(radarr.hasScript).toBe(true);
 			expect(radarr.entitlement).toBeNull();
 			expect(radarr.commonSchema.fields).not.toHaveProperty("minimumProgress");
-			expect(radarr.commonSchema.fields).not.toHaveProperty("syncOwnership");
 			expect(kodi.lot).toBe("sink");
 			expect(kodi.hasScript).toBe(true);
 			expect(kodi.entitlement).toBeNull();
@@ -135,15 +127,9 @@ describe("Integration CRUD", () => {
 				type: "number",
 				defaultValue: 2,
 			});
-			expect(kodi.commonSchema.fields).not.toHaveProperty("syncOwnership");
-			expect(komga.supportsOwnershipSync).toBe(true);
-			expect(komga.commonSchema.fields).toHaveProperty("syncOwnership");
-			expect(spotify.supportsOwnershipSync).toBe(false);
-			expect(spotify.commonSchema.fields).not.toHaveProperty("syncOwnership");
 			expect(anilist.lot).toBe("yank");
 			expect(anilist.hasScript).toBe(true);
 			expect(anilist.entitlement).toBe("pro");
-			expect(anilist.supportsOwnershipSync).toBe(false);
 		}),
 	);
 
@@ -158,7 +144,6 @@ describe("Integration CRUD", () => {
 			const { frontendOrigin } = yield* client.call((c) => c.system.config());
 
 			expect(integration.isDisabled).toBe(false);
-			expect(integration.syncOwnership).toBe(false);
 			expect(integration.minimumProgress).toBe(2);
 			expect(integration.maximumProgress).toBe(95);
 			expect(integration.extraSettings.disableOnContinuousErrors).toBe(false);

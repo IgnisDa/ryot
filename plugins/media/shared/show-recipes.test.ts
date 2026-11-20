@@ -144,9 +144,10 @@ const OVERVIEW_RECIPE = bindRecipe(showRecipes.overviewRecipe({ reference: { kin
 });
 
 const SHOW_SUMMARY_ROW = {
-	owned: null,
+	owned: false,
 	id: "show-1",
-	ownedOn: null,
+	ownedEpisodes: 0,
+
 	totalSeasons: 1,
 	isCustom: false,
 	totalEpisodes: 4,
@@ -565,18 +566,18 @@ describe("media show query recipes", () => {
 			"isMonitored",
 			"isInMediaLibrary",
 			"isCustom",
+			"owned",
 			"publishDate",
 			"publishYear",
 			"providerRating",
 			"productionStatus",
-			"owned",
-			"ownedOn",
 			"state",
 			"totalEpisodes",
 			"airedEpisodes",
 			"watchedEpisodes",
 			"upcomingEpisodes",
 			"inProgressEpisodes",
+			"ownedEpisodes",
 			"originalLanguage",
 			"watchProviders",
 			"totalSeasons",
@@ -611,10 +612,11 @@ describe("media show query recipes", () => {
 			success: {
 				entitySchemaSlug: "show",
 				summary: {
-					owned: null,
+					owned: false,
 					id: "show-1",
 					nextUp: null,
-					ownedOn: null,
+					ownedEpisodes: 0,
+
 					state: "complete",
 					publishYear: 2025,
 					isMonitored: true,

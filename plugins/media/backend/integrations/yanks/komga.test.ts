@@ -33,16 +33,19 @@ const book = (
 	metadata: { number, title: id, links: [link] },
 });
 
-const setup = (responses: Array<Error | JsonValue>, syncOwnership = false) => {
+const setup = (responses: Array<Error | JsonValue>, syncCopies = false) => {
 	const calls: Array<Parameters<ScriptHost["httpCall"]>> = [];
 	const host = defineSandboxTestHost(manifest, {
 		getPluginConfig: () => hostSuccess({ hardcoverApiKey: "hardcover-key" }),
 		getCurrentIntegration: () =>
 			hostSuccess(
 				integrationRecord({
-					syncOwnership,
 					provider: "komga",
-					providerSpecifics: { apiKey: "komga-key", baseUrl: "http://komga.test/" },
+					providerSpecifics: {
+						apiKey: "komga-key",
+						syncCopies: syncCopies,
+						baseUrl: "http://komga.test/",
+					},
 				}),
 			),
 		httpCall: (...args) =>
@@ -370,13 +373,13 @@ describe("Komga collection", () => {
 					{
 						events: [],
 						itemIndex: 2,
-						ownershipProvider: "komga",
+						copies: [{ source: "komga" }],
 						entityRef: { entitySchemaSlug: "manga" },
 					},
 					{
 						events: [],
 						itemIndex: 3,
-						ownershipProvider: "komga",
+						copies: [{ source: "komga" }],
 						entityRef: { entitySchemaSlug: "book" },
 					},
 				]);

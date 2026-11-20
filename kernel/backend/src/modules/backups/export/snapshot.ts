@@ -641,6 +641,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							return {
 								scope: "user",
 								id: relationship.id,
+								...(relationship.key === null ? {} : { key: relationship.key }),
 								sourceEntityId: relationship.sourceEntityId,
 								targetEntityId: relationship.targetEntityId,
 								createdAt: relationship.createdAt.toISOString(),
@@ -938,9 +939,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								name: integration.name,
 								configuredSecretPaths: [],
 								provider: integration.provider,
+								sourceKey: integration.sourceKey,
 								isDisabled: integration.isDisabled,
 								extraSettings: integration.extraSettings,
-								syncOwnership: integration.syncOwnership,
 								minimumProgress: integration.minimumProgress,
 								maximumProgress: integration.maximumProgress,
 								createdAt: integration.createdAt.toISOString(),

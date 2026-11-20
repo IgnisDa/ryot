@@ -49,12 +49,12 @@ it.effect(
 						],
 						relationships: [
 							{
+								properties: {},
 								sourceAlias: "item",
 								propertiesMode: "merge",
 								targetAlias: "mediaLibrary",
 								operationId: "library-membership",
 								relationshipSchemaSlug: "in-media-library",
-								properties: { ownershipSources: ["watcharr"] },
 							},
 						],
 						entities: [

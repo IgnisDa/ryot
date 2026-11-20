@@ -21,6 +21,7 @@ import {
 	mediaEpisodeSynopsis,
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
+import { MediaOwnershipControl } from "./ownership";
 import { MediaMarkdown } from "./primitives";
 import { MediaProviderRefreshControl } from "./provider-refresh";
 import { useMediaReminders } from "./reminders";
@@ -95,6 +96,12 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 					)}
 					<div className="flex flex-wrap items-center gap-2">
 						<MediaEpisodeActions log={props.log} episode={episode} onLog={props.onLog} />
+						<MediaOwnershipControl
+							owned={null}
+							compact={compact}
+							entityId={episode.id}
+							entityName={episode.name}
+						/>
 						<Button variant="secondary" onClick={props.onReview}>
 							<AppIcon size={15} name="star" />
 							{text("review.button")}

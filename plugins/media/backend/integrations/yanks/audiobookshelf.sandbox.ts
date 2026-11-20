@@ -228,7 +228,7 @@ export default defineScript({
 				}
 				if (cursor.offset + 1 < cursor.items.length) {
 					next = { ...cursor, itemIndex, offset: cursor.offset + 1 };
-				} else if (integration.syncOwnership) {
+				} else if (integration.providerSpecifics["syncCopies"] === true) {
 					next = {
 						page: 0,
 						itemIndex,
@@ -273,7 +273,9 @@ export default defineScript({
 								entityRef: ref,
 								itemIndex: currentIndex,
 								collectionMemberships: [],
-								ownershipProvider: "audiobookshelf",
+								copies: [
+									{ sourceId: item.id, source: "audiobookshelf", details: { format: "digital" } },
+								],
 							});
 						}
 					}

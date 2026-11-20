@@ -82,6 +82,7 @@ type EntitySchemaSourceDefinition = Omit<EntitySchemaDefinition, "mergeIdentityP
 };
 
 export const RelationshipSchemaDefinition = Schema.Struct({
+	keyed: Schema.optional(Schema.Literal(true)),
 	...pluginIdField,
 	name: ManifestText,
 	slug: Schema.String,

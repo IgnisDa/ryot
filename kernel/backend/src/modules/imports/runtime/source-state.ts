@@ -6,7 +6,6 @@ import { Schema } from "effect";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 
 export const ImportIntegrationExecutionSettings = Schema.Struct({
-	syncOwnership: integrationRecordSchema.fields.syncOwnership,
 	minimumProgress: integrationRecordSchema.fields.minimumProgress,
 	maximumProgress: integrationRecordSchema.fields.maximumProgress,
 	providerSpecifics: integrationRecordSchema.fields.providerSpecifics,

@@ -2723,7 +2723,11 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						relationship.relationshipSchemaSlug,
 						relationship.relationshipSchemaPluginKey,
 					);
-					if (!schema || relationship.scope !== "user") {
+					if (
+						!schema ||
+						relationship.scope !== "user" ||
+						(relationship.key !== undefined) !== (schema.keyed === true)
+					) {
 						return yield* archiveError("invalid_entry", "Backup relationship mapping is invalid");
 					}
 					const rewritten = yield* rewriteRelationshipReferences(relationship, context.entityIdMap);
@@ -2735,6 +2739,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const restoredId = yield* persistence.restoreRelationship({
 						userId,
 						properties,
+						key: relationship.key,
 						createdAt: parseDate(relationship.createdAt),
 						sourceEntityId: EntityId.make(rewritten.sourceEntityId),
 						targetEntityId: EntityId.make(rewritten.targetEntityId),
@@ -3164,8 +3169,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						pluginInstallationId,
 						name: integration.name,
 						provider: integration.provider,
+						sourceKey: integration.sourceKey,
 						extraSettings: integration.extraSettings,
-						syncOwnership: integration.syncOwnership,
 						createdAt: parseDate(integration.createdAt),
 						updatedAt: parseDate(integration.updatedAt),
 						minimumProgress: integration.minimumProgress,

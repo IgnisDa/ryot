@@ -1,15 +1,6 @@
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
-import {
-	check,
-	index,
-	integer,
-	jsonb,
-	snakeCase,
-	text,
-	unique,
-	uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { check, index, integer, jsonb, snakeCase, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin, sandboxProvider } from "./core";
@@ -75,6 +66,7 @@ export const entity = snakeCase.table(
 export const relationship = snakeCase.table(
 	"relationship",
 	{
+		key: text(),
 		updatedAt: updatedAtColumn(),
 		relationshipSchemaSlug: text().notNull(),
 		createdAt: timestamptz().defaultNow().notNull(),
@@ -116,14 +108,24 @@ export const relationship = snakeCase.table(
 			.where(
 				sql`${table.relationshipSchemaSlug} = 'member-of' and ${table.relationshipSchemaPluginId} is null`,
 			),
-		unique("relationship_identity_unique")
+		uniqueIndex("relationship_identity_unique")
 			.on(
-				table.userId,
+				sql`(case when ${table.userId} is null then '0' else '1' || ${table.userId} end)`,
 				table.sourceEntityId,
 				table.targetEntityId,
 				table.relationshipSchemaSlug,
-				table.relationshipSchemaPluginId,
+				sql`(case when ${table.relationshipSchemaPluginId} is null then '0' else '1' || ${table.relationshipSchemaPluginId} end)`,
 			)
-			.nullsNotDistinct(),
+			.where(sql`${table.key} is null`),
+		uniqueIndex("relationship_key_unique")
+			.on(
+				table.userId,
+				table.sourceEntityId,
+				table.relationshipSchemaSlug,
+				sql`(case when ${table.relationshipSchemaPluginId} is null then '0' else '1' || ${table.relationshipSchemaPluginId} end)`,
+				table.key,
+			)
+			.where(sql`${table.key} is not null`),
+		check("relationship_key_user_scope", sql`${table.key} is null or ${table.userId} is not null`),
 	],
 );

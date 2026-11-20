@@ -6,6 +6,7 @@ import {
 	EntityId,
 	PluginId,
 	RelationshipId,
+	RelationshipKey,
 	RelationshipSchemaSlug,
 } from "../../schema/brands";
 import { AutomationWarning } from "../automations/lifecycle";
@@ -18,6 +19,7 @@ const RelationshipBadRequestReason = Schema.Union([
 		code: Schema.Literal("owner-mismatch"),
 	}),
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
+	Schema.Struct({ code: Schema.Literal("invalid-relationship-key") }),
 	Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
 	Schema.Struct({ sourceEntityId: EntityId, code: Schema.Literal("source-not-owned") }),
 	Schema.Struct({ code: Schema.Literal("kernel-owned-schema") }),
@@ -76,6 +78,7 @@ export const RelationshipScope = Schema.Struct({
 	targetEntityId: EntityId,
 	properties: Schema.Unknown,
 	wasInserted: Schema.Boolean,
+	key: Schema.optionalKey(RelationshipKey),
 	relationshipSchemaSlug: RelationshipSchemaSlug,
 	relationshipSchemaPluginId: Schema.NullOr(PluginId),
 });
@@ -105,6 +108,7 @@ export type RelationshipReconciliationResult = typeof RelationshipReconciliation
 export const CreateRelationshipBody = Schema.Struct({
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
+	key: Schema.optionalKey(RelationshipKey),
 	properties: Schema.optional(Schema.Unknown),
 	relationshipSchema: RelationshipSchemaReference,
 });

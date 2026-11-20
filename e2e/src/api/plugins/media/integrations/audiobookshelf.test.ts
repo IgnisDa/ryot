@@ -67,7 +67,6 @@ describe("Audiobookshelf integration", () => {
 				createIntegration(client, {
 					minimumProgress: 2,
 					maximumProgress: 95,
-					syncOwnership: false,
 					providerSpecifics: { baseUrl: http.url, token: "test-token", kind: "audiobookshelf" },
 					provider: {
 						slug: "audiobookshelf",

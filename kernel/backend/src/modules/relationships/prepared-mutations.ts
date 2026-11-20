@@ -103,6 +103,7 @@ export const makePreparedRelationshipMutations = (
 		mode: "create" | "delete",
 		createdEntity?: PreparedEntityCreate,
 		propertiesMode?: "merge" | "replace",
+		expectedTargetEntityId?: CreateRelationshipInput["targetEntityId"],
 	) {
 		yield* assertRootTransaction;
 		const input = relationshipIdentity(submitted);
@@ -127,7 +128,12 @@ export const makePreparedRelationshipMutations = (
 		} else {
 			mutationMode = "delete";
 		}
-		let mutation: Mutation = { input, command, mode: mutationMode };
+		let mutation: Mutation = {
+			input,
+			command,
+			mode: mutationMode,
+			...(expectedTargetEntityId === undefined ? {} : { expectedTargetEntityId }),
+		};
 		if (mode === "create") {
 			if (!("properties" in submitted)) {
 				return yield* Effect.die("Prepared relationship create is missing properties");
@@ -213,6 +219,7 @@ export const makePreparedRelationshipMutations = (
 		command: DomainLifecycleCommand,
 		createdEntity?: PreparedEntityCreate,
 		propertiesMode: "merge" | "replace" = "replace",
+		expectedTargetEntityId?: CreateRelationshipInput["targetEntityId"],
 	) {
 		const value = yield* prepareUserMutation(
 			input,
@@ -220,6 +227,7 @@ export const makePreparedRelationshipMutations = (
 			"create",
 			createdEntity,
 			propertiesMode,
+			expectedTargetEntityId,
 		);
 		return value === null ? null : Object.freeze({ [preparedUserRelationshipCreate]: value });
 	});

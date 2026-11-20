@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { EntityId, EventId } from "../../schema/brands";
+import { EntityId, EventId, RelationshipKey } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { EventMutationChange } from "../events/mutations";
@@ -17,6 +17,7 @@ export const UserCommand = strictStruct({
 			properties,
 			source: CommandEntityReference,
 			target: CommandEntityReference,
+			key: Schema.optionalKey(RelationshipKey),
 			relationshipSchemaSlug: Schema.NonEmptyString,
 			itemIdentity: Schema.optional(Schema.NonEmptyString),
 			propertiesMode: Schema.Literals(["merge", "replace"]),

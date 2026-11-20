@@ -4,9 +4,9 @@ import type * as SqlConnection from "effect/sql/SqlConnection";
 import { buildReportSql, buildRequireLegacyTableSql, quoteSqlString } from "./shared";
 
 const legacyProviderSpecificsSql = (alias: string) => `CASE ${alias}.provider
-	WHEN 'audiobookshelf' THEN jsonb_build_object('kind', 'audiobookshelf', 'baseUrl', ${alias}.provider_specifics->>'audiobookshelf_base_url', 'token', ${alias}.provider_specifics->>'audiobookshelf_token')
-	WHEN 'komga' THEN jsonb_build_object('kind', 'komga', 'baseUrl', ${alias}.provider_specifics->>'komga_base_url', 'apiKey', ${alias}.provider_specifics->>'komga_api_key')
-	WHEN 'plex_yank' THEN jsonb_build_object('kind', 'plex_yank', 'baseUrl', ${alias}.provider_specifics->>'plex_yank_base_url', 'token', ${alias}.provider_specifics->>'plex_yank_token')
+	WHEN 'audiobookshelf' THEN jsonb_build_object('kind', 'audiobookshelf', 'syncCopies', COALESCE(${alias}.sync_to_owned_collection, false), 'baseUrl', ${alias}.provider_specifics->>'audiobookshelf_base_url', 'token', ${alias}.provider_specifics->>'audiobookshelf_token')
+	WHEN 'komga' THEN jsonb_build_object('kind', 'komga', 'syncCopies', COALESCE(${alias}.sync_to_owned_collection, false), 'baseUrl', ${alias}.provider_specifics->>'komga_base_url', 'apiKey', ${alias}.provider_specifics->>'komga_api_key')
+	WHEN 'plex_yank' THEN jsonb_build_object('kind', 'plex_yank', 'syncCopies', COALESCE(${alias}.sync_to_owned_collection, false), 'baseUrl', ${alias}.provider_specifics->>'plex_yank_base_url', 'token', ${alias}.provider_specifics->>'plex_yank_token')
 	WHEN 'youtube_music' THEN jsonb_build_object('kind', 'youtube_music', 'timezone', ${alias}.provider_specifics->>'youtube_music_timezone', 'authCookie', ${alias}.provider_specifics->>'youtube_music_auth_cookie')
 	WHEN 'kodi' THEN jsonb_build_object('kind', 'kodi')
 	WHEN 'emby' THEN jsonb_build_object('kind', 'emby')
@@ -144,7 +144,6 @@ BEGIN
 		"is_disabled",
 		"minimum_progress",
 		"maximum_progress",
-		"sync_ownership",
 		"extra_settings",
 		"provider_specifics",
 		"client_provider_specifics",
@@ -163,7 +162,6 @@ BEGIN
 		COALESCE(oi.is_disabled, false),
 		COALESCE(oi.minimum_progress, 2),
 		COALESCE(oi.maximum_progress, 95),
-		COALESCE(oi.sync_to_owned_collection, false),
 		jsonb_build_object(
 			'disableOnContinuousErrors',
 			COALESCE((oi.extra_settings->>'disable_on_continuous_errors')::boolean, false)

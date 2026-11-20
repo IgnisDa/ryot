@@ -129,8 +129,8 @@ it.live(
 			expect(
 				records.map((record) => ("operationId" in record ? record.operationId : undefined)),
 			).toEqual([
+				'["media-copy",9,0]',
 				'["media-membership",8,"Favorites"]',
-				'["media-membership",9,"Owned"]',
 				'["media-membership",5,"Top Movies"]',
 				'["media-membership",6,"Trakt List 99"]',
 				'["media-membership",7,"Watchlist"]',

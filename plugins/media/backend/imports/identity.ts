@@ -16,6 +16,9 @@ export const mediaEventOperationId = (rowIndex: number, eventIndex: number) =>
 export const mediaMembershipOperationId = (rowIndex: number, collectionName: string) =>
 	JSON.stringify(["media-membership", rowIndex, collectionName]);
 
+export const mediaCopyOperationId = (rowIndex: number, copyIndex: number) =>
+	JSON.stringify(["media-copy", rowIndex, copyIndex]);
+
 export const mediaAssociationOperationId = (rowIndex: number) =>
 	JSON.stringify(["media-association", rowIndex]);
 

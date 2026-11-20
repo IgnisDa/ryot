@@ -111,10 +111,7 @@ const expectDistinctChunkFailureIds = Effect.fnUntraced(function* (
 	const ids = failures.map(({ operationId }) => operationId);
 	expect(new Set(ids).size).toBe(ids.length);
 	yield* Schema.decodeEffect(genericImportChunkSchema)(
-		createMediaImportChunk(
-			{ failures, entityGroups: [], populationResults: [] },
-			"2026-01-01T00:00:00.000Z",
-		),
+		createMediaImportChunk({ failures, entityGroups: [], populationResults: [] }),
 	);
 });
 
@@ -123,7 +120,7 @@ const progressValues = (result: MediaIntegrationAdapterResult) =>
 		group.events.map((event) => event.properties["progressPercent"]),
 	);
 
-const runPlex = (routes: Record<string, Route>, syncOwnership = false) =>
+const runPlex = (routes: Record<string, Route>, syncCopies = false) =>
 	Effect.runPromise(
 		runIntegrationTestScript(
 			plexDefinition,
@@ -133,9 +130,12 @@ const runPlex = (routes: Record<string, Route>, syncOwnership = false) =>
 				getCurrentIntegration: () =>
 					hostSuccess(
 						integrationRecord({
-							syncOwnership,
 							provider: "plex_yank",
-							providerSpecifics: { token: "token", baseUrl: "http://plex.test:32400" },
+							providerSpecifics: {
+								token: "token",
+								syncCopies: syncCopies,
+								baseUrl: "http://plex.test:32400",
+							},
 						}),
 					),
 			}),
@@ -255,23 +255,42 @@ describe("Plex yank", () => {
 				const result = yield* Effect.promise(() =>
 					runPlex(
 						{
+							"/library/metadata/e1": metadata([
+								{ title: "Pilot", Media: [{ id: "v1", width: 1920 }] },
+							]),
+							"/library/metadata/m1": metadata([
+								{ title: "Movie", Media: [{ id: "v1" }, { id: "v2" }] },
+							]),
+							"/library/metadata/s1/allLeaves": metadata([
+								{ index: 1, title: "Pilot", parentIndex: 1, ratingKey: "e1" },
+							]),
 							"/library/sections": libraries([
 								{ key: "1", type: "movie", title: "Movies" },
 								{ key: "2", type: "show", title: "Shows" },
 							]),
 							"/library/sections/1/all?includeGuids=1": metadata([
-								{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
+								{
+									key: "/m/1",
+									type: "movie",
+									ratingKey: "m1",
+									title: "Arrival",
+									Guid: [{ id: "tmdb://329865" }],
+								},
 							]),
 							"/library/sections/2/all?includeGuids=1": metadata([
-								{ key: "/s/1", type: "show", title: "Severance", Guid: [{ id: "tmdb://95396" }] },
+								{
+									key: "/s/1",
+									type: "show",
+									ratingKey: "s1",
+									title: "Severance",
+									Guid: [{ id: "tmdb://95396" }],
+								},
 							]),
 						},
 						true,
 					),
 				);
-				const owned = result.entityGroups.filter(
-					(group: EntityGroup) => group.ownershipProvider === "plex_yank",
-				);
+				const owned = result.entityGroups.filter((group: EntityGroup) => group.copies?.length);
 				expect(owned).toHaveLength(2);
 				expect(owned.map((group: EntityGroup) => group.entityRef)).toMatchObject([
 					{ externalId: "329865", entitySchemaSlug: "movie" },
@@ -289,8 +308,17 @@ describe("Plex yank", () => {
 					runPlex(
 						{
 							"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
+							"/library/metadata/m1": metadata([
+								{ title: "Movie", Media: [{ id: "v1" }, { id: "v2" }] },
+							]),
 							"/library/sections/1/all?includeGuids=1": metadata([
-								{ key: "/m/1", type: "movie", title: "With Id", Guid: [{ id: "tmdb://1" }] },
+								{
+									key: "/m/1",
+									type: "movie",
+									ratingKey: "m1",
+									title: "With Id",
+									Guid: [{ id: "tmdb://1" }],
+								},
 								{ key: "/m/2", type: "movie", title: "No Id" },
 							]),
 						},
@@ -298,7 +326,7 @@ describe("Plex yank", () => {
 					),
 				);
 				expect(
-					result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
+					result.entityGroups.filter((group: EntityGroup) => group.copies?.length),
 				).toHaveLength(1);
 			}),
 		testTimeout,
@@ -312,19 +340,28 @@ describe("Plex yank", () => {
 					runPlex(
 						{
 							"/library/sections/2/all?includeGuids=1": failure,
+							"/library/metadata/m1": metadata([
+								{ title: "Movie", Media: [{ id: "v1" }, { id: "v2" }] },
+							]),
 							"/library/sections": libraries([
 								{ key: "1", type: "movie", title: "Movies" },
 								{ key: "2", type: "show", title: "Shows" },
 							]),
 							"/library/sections/1/all?includeGuids=1": metadata([
-								{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
+								{
+									key: "/m/1",
+									type: "movie",
+									ratingKey: "m1",
+									title: "Arrival",
+									Guid: [{ id: "tmdb://329865" }],
+								},
 							]),
 						},
 						true,
 					),
 				);
 				expect(
-					result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
+					result.entityGroups.filter((group: EntityGroup) => group.copies?.length),
 				).toHaveLength(1);
 				expect(result.failures[0]).toMatchObject({ stage: "source_fetch" });
 			}),
@@ -473,8 +510,11 @@ describe("Komga yank", () => {
 							hostSuccess(
 								integrationRecord({
 									provider: "komga",
-									syncOwnership: true,
-									providerSpecifics: { apiKey: "key", baseUrl: "http://komga.test" },
+									providerSpecifics: {
+										apiKey: "key",
+										syncCopies: true,
+										baseUrl: "http://komga.test",
+									},
 								}),
 							),
 					}),
@@ -482,8 +522,8 @@ describe("Komga yank", () => {
 				);
 				expect(result.failures).toEqual([]);
 				expect(result.entityGroups).toEqual<unknown>([
-					objectContaining({ events: [], ownershipProvider: "komga" }),
-					objectContaining({ events: [], ownershipProvider: "komga" }),
+					objectContaining({ events: [], copies: [objectContaining({ source: "komga" })] }),
+					objectContaining({ events: [], copies: [objectContaining({ source: "komga" })] }),
 				]);
 			}),
 		testTimeout,

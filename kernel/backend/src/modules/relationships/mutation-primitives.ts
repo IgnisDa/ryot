@@ -198,6 +198,14 @@ export const makeRelationshipMutationPrimitives = ({
 			return yield* concurrentChange();
 		}
 		const pinned = declared ? { ...declared, pluginId: active.pluginId } : active;
+		const keyed = mutation.input.key !== undefined;
+		if (
+			keyed !== (active.keyed === true) ||
+			keyed !== (pinned.keyed === true) ||
+			(keyed && mutation.input.scope !== "user")
+		) {
+			return yield* new RelationshipBadRequest({ reason: { code: "invalid-relationship-key" } });
+		}
 		if (mutation.input.scope === "user") {
 			yield* validateUserRelationshipEntities(
 				reads.users.get(mutation.input.userId) ?? emptyUserEntityScopes(),
@@ -235,6 +243,13 @@ export const makeRelationshipMutationPrimitives = ({
 	) {
 		yield* assertActiveTransaction;
 		yield* assertStableSource(mutation, validated, before);
+		const expectedTarget = mutation.expectedTargetEntityId ?? mutation.input.targetEntityId;
+		if (
+			(before && before.targetEntityId !== expectedTarget) ||
+			(!before && mutation.expectedTargetEntityId !== undefined)
+		) {
+			return yield* concurrentChange();
+		}
 		if (mutation.mode === "ensure" && before !== null) {
 			return null;
 		}
@@ -265,6 +280,7 @@ export const makeRelationshipMutationPrimitives = ({
 		);
 		const value = yield* Schema.decodeUnknownEffect(AutomationRelationshipDraft)({
 			sourceEntityId: mutation.input.sourceEntityId,
+			...(mutation.input.key === undefined ? {} : { key: mutation.input.key }),
 			targetEntityId: mutation.input.targetEntityId,
 			relationshipSchemaSlug: mutation.input.relationshipSchemaSlug,
 			relationshipSchemaPluginId: mutation.input.relationshipSchemaPluginId,
@@ -272,7 +288,11 @@ export const makeRelationshipMutationPrimitives = ({
 				? { ...parsed, rank: before?.properties["rank"] ?? 0 }
 				: parsed,
 		}).pipe(Effect.mapError(() => badProperties([])));
-		if (before && equal(before.properties, value.properties)) {
+		if (
+			before &&
+			before.targetEntityId === value.targetEntityId &&
+			equal(before.properties, value.properties)
+		) {
 			return null;
 		}
 		return before
@@ -603,7 +623,11 @@ export const makeRelationshipMutationPrimitives = ({
 			yield* admission.admitCommand(command, input.scope === "user" ? input.userId : null);
 		}
 		yield* entities.lockEntityReferencesByIds(
-			mutations.flatMap(({ input }) => [input.sourceEntityId, input.targetEntityId]),
+			mutations.flatMap(({ input, expectedTargetEntityId }) => [
+				input.sourceEntityId,
+				input.targetEntityId,
+				...(expectedTargetEntityId === undefined ? [] : [expectedTargetEntityId]),
+			]),
 		);
 		yield* repository.lockRelationshipMutations(mutations.map(({ input }) => input));
 		yield* runtime.lockCatalog(

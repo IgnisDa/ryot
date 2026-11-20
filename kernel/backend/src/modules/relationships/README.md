@@ -6,7 +6,7 @@
 
 Single commits return the actual item result. Batch and reconciliation commits compute one summary from persisted item outcomes and return it.
 
-User relationship batch creates require `propertiesMode`: `merge` overlays supplied properties and preserves omitted values, while `replace` uses only the supplied properties. Single creates and generic imports keep their existing upsert semantics.
+User relationship batch creates require `propertiesMode`: `merge` overlays supplied properties and preserves omitted values, while `replace` uses only the supplied properties. Generic imports accept the same modes and default to `replace`.
 
 A relationship schema may declare `userWritePolicy: "source-owner"`. User-scoped creates, updates,
 and deletes then require the source entity to belong to the writing user; a visible global target
@@ -22,6 +22,12 @@ a sandbox policy during provider reconciliation.
 `planned-reconciliation.ts` joins the provider or host owner's active transaction. Provider reconciliation is not a policy-subject request, so it plans no before-policies. It seals each group and records replay-stable group results.
 
 Every writing transaction runs domain write checks with `lock=true` once per distinct writer, kernel-collection flag, definition owner, and scope, then locks entity references (`FOR KEY SHARE`, sorted ids), then relationship identities (one sorted `hashtextextended(key, 0)` advisory-lock statement over the repository's deterministic lock keys), then the schema catalog. Only then does each item validate once, against the verified pin of its write check; that result feeds the request, the policy-transform reparse, and the stable-source check. Planned reconciliation takes the catalog lock before the identity locks; both are shared with the write checks' ingestion lock. Entity and relationship reads, and source inserts, updates, and deletes are one statement per phase. A later item whose identity an earlier item of the same batch wrote fails with `concurrent-relationship-change`. Population counts are computed before change planning; the first newly changed item is the leader. Ordinary batches include replayed item operations in their counts, while active-transaction reconciliation counts newly prepared requests. Replayed dispatch references retain their original order.
+
+Relationship declarations with `keyed: true` use a bounded key unique within the user, source
+entity, and qualified schema. Their target is independently addressable and can move during an
+entity user-data merge. The merge checks the existing target and preserves the row ID. Other
+declarations use their endpoint pair as identity. Keyed relationships are user-scoped and carry
+their key through mutations, import, RyotQL, and backup.
 
 ## Projections
 

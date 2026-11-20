@@ -78,7 +78,9 @@ export const mediaIntegrations = defineExecutableAlternatives({
 		"integration.plex-yank": integration("integration.plex-yank"),
 		"integration.jellyfin-sink": integration("integration.jellyfin-sink"),
 		"integration.youtube-music": integration("integration.youtube-music"),
+		"integration.emby-inventory": integration("integration.emby-inventory"),
 		"integration.audiobookshelf": integration("integration.audiobookshelf"),
 		"integration.browser-extension": integration("integration.browser-extension"),
+		"integration.jellyfin-inventory": integration("integration.jellyfin-inventory"),
 	},
 });

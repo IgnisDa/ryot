@@ -40,14 +40,13 @@ const episode = (index: number): Record<string, JsonValue> => ({
 	ratingKey: `episode-${index}`,
 });
 
-const setup = (routes: Record<string, JsonValue>, syncOwnership = true) => {
+const setup = (routes: Record<string, JsonValue>) => {
 	const fs = mediaFilesystem({});
 	const requests: string[] = [];
 	const host = defineSandboxTestHost(manifest, {
 		getCurrentIntegration: () =>
 			hostSuccess(
 				integrationRecord({
-					syncOwnership,
 					provider: "plex_yank",
 					providerSpecifics: { token: "token", baseUrl: "https://plex.test" },
 				}),
@@ -83,160 +82,133 @@ const setup = (routes: Record<string, JsonValue>, syncOwnership = true) => {
 };
 
 for (const count of [127, 128, 129, 300]) {
-	for (const syncOwnership of [false, true]) {
-		it.live(
-			`retains exact ${count}-leaf checkpoints, replay, and following show/movie indexes with ownership ${syncOwnership}`,
-			() =>
-				Effect.gen(function* () {
-					const { run, requests } = setup(
-						{
-							"/library/metadata/43/allLeaves": metadata([episode(0)]),
-							"/library/sections/shows/all?includeGuids=1": metadata([show("42"), show("43")]),
-							"/library/metadata/42/allLeaves": metadata(
-								Array.from({ length: count }, (_, index) => episode(index)),
-							),
-							"/library/sections/movies/all?includeGuids=1": metadata([
-								{ title: "Movie", lastViewedAt: 1767225600, Guid: [{ id: "tmdb://44" }] },
-							]),
-							"/library/sections": {
-								MediaContainer: {
-									Directory: [
-										{ key: "shows", type: "show" },
-										{ key: "movies", type: "movie" },
-									],
-								},
-							},
+	it.live(
+		`retains exact ${count}-leaf checkpoints, replay, and following show/movie indexes`,
+		() =>
+			Effect.gen(function* () {
+				const { run, requests } = setup({
+					"/library/metadata/43/allLeaves": metadata([episode(0)]),
+					"/library/sections/shows/all?includeGuids=1": metadata([show("42"), show("43")]),
+					"/library/metadata/42/allLeaves": metadata(
+						Array.from({ length: count }, (_, index) => episode(index)),
+					),
+					"/library/sections/movies/all?includeGuids=1": metadata([
+						{ title: "Movie", lastViewedAt: 1767225600, Guid: [{ id: "tmdb://44" }] },
+					]),
+					"/library/sections": {
+						MediaContainer: {
+							Directory: [
+								{ key: "shows", type: "show" },
+								{ key: "movies", type: "movie" },
+							],
 						},
-						syncOwnership,
-					);
-					let carry: undefined | Uint8Array;
-					for (let offset = 0; offset < count; offset += 128) {
-						const window = yield* run(carry);
-						const events = window.records.filter((record) => record.group?.events.length);
-						expect(events).toMatchObject(
-							Array.from({ length: Math.min(128, count - offset) }, (_, index) => ({
-								itemIndex: 0,
-								eventIndex: offset + index,
-								operationId: JSON.stringify(["integration-plex-event", 0, offset + index]),
-								group: {
-									itemIndex: 0,
-									entityRef: { externalId: "42" },
-									events: [
-										{
-											sourceItemIndex: 0,
-											occurredAt: "2026-01-01T00:00:00.000Z",
-											operationId: JSON.stringify(["integration-plex-event", 0, offset + index]),
-											unresolvedEpisode: {
-												type: "show",
-												seasonNumber: 1,
-												episodeNumber: offset + index + 1,
-											},
-											attribution: {
-												sourceLabel: `Episode ${offset + index}`,
-												sourceIdentifier: `episode-${offset + index}`,
-												recordId: JSON.stringify(["plex-leaf", `episode-${offset + index}`]),
-											},
-										},
-									],
-								},
-							})),
-						);
-						const owned = window.records.filter((record) => record.group?.ownershipProvider);
-						const finished = offset + 128 >= count;
-						expect(owned).toHaveLength(syncOwnership && finished ? 1 : 0);
-						if (owned.length) {
-							expect(owned).toMatchObject([
-								{
-									itemIndex: 0,
-									eventIndex: 0,
-									operationId: '["media-association",0]',
-									group: { events: [], ownershipProvider: "plex_yank" },
-								},
-							]);
-						}
-						assert(window.carry);
-						expect(
-							yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
-								new TextDecoder().decode(window.carry),
-							),
-						).toMatchObject({
-							itemIndex: 1,
-							directoryIndex: 0,
-							continuation: finished
-								? { offset: 1, phase: "listing" }
-								: {
-										itemIndex: 0,
-										phase: "episodes",
-										leafOffset: offset + 128,
-										entityRef: { externalId: "42" },
-										resume: { offset: 1, phase: "listing" },
-									},
-						});
-						if (carry) {
-							const fetched = requests.length;
-							expect(yield* run(carry)).toEqual(window);
-							expect(requests).toHaveLength(fetched);
-						}
-						carry = window.carry;
-					}
-					const nextShow = yield* run(carry);
-					expect(nextShow.records.filter((record) => record.group?.events.length)).toMatchObject([
-						{
-							itemIndex: 1,
-							eventIndex: 0,
-							group: { entityRef: { externalId: "43" } },
-							operationId: '["integration-plex-event",1,0]',
-						},
-					]);
-					expect(nextShow.records.filter((record) => record.group?.ownershipProvider)).toHaveLength(
-						syncOwnership ? 1 : 0,
-					);
-					assert(nextShow.carry);
-					expect(
-						yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
-							new TextDecoder().decode(nextShow.carry),
-						),
-					).toMatchObject({
-						itemIndex: 2,
-						directoryIndex: 1,
-						continuation: { phase: "directory" },
-					});
-					const movie = yield* run(nextShow.carry);
-					expect(movie.carry).toBeUndefined();
-					expect(movie.records.filter((record) => record.group?.events.length)).toMatchObject([
-						{
-							itemIndex: 2,
-							eventIndex: 0,
-							operationId: '["media-event",2,0]',
+					},
+				});
+				let carry: undefined | Uint8Array;
+				for (let offset = 0; offset < count; offset += 128) {
+					const window = yield* run(carry);
+					const events = window.records.filter((record) => record.group?.events.length);
+					expect(events).toMatchObject(
+						Array.from({ length: Math.min(128, count - offset) }, (_, index) => ({
+							itemIndex: 0,
+							eventIndex: offset + index,
+							operationId: JSON.stringify(["integration-plex-event", 0, offset + index]),
 							group: {
-								entityRef: { externalId: "44" },
+								itemIndex: 0,
+								entityRef: { externalId: "42" },
 								events: [
 									{
-										eventSchemaSlug: "complete",
-										attribution: { sourceIdentifier: "2", recordId: '["plex-item",2]' },
+										sourceItemIndex: 0,
+										occurredAt: "2026-01-01T00:00:00.000Z",
+										operationId: JSON.stringify(["integration-plex-event", 0, offset + index]),
+										unresolvedEpisode: {
+											type: "show",
+											seasonNumber: 1,
+											episodeNumber: offset + index + 1,
+										},
+										attribution: {
+											sourceLabel: `Episode ${offset + index}`,
+											sourceIdentifier: `episode-${offset + index}`,
+											recordId: JSON.stringify(["plex-leaf", `episode-${offset + index}`]),
+										},
 									},
 								],
 							},
-						},
-					]);
-					expect(movie.records.filter((record) => record.group?.ownershipProvider)).toHaveLength(
-						syncOwnership ? 1 : 0,
+						})),
 					);
-					expect(requests).toEqual([
-						"/library/sections",
-						"/library/sections/shows/all?includeGuids=1",
-						"/library/metadata/42/allLeaves",
-						"/library/metadata/43/allLeaves",
-						"/library/sections/movies/all?includeGuids=1",
-					]);
-				}),
-			testTimeout,
-		);
-	}
+					const finished = offset + 128 >= count;
+					assert(window.carry);
+					expect(
+						yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+							new TextDecoder().decode(window.carry),
+						),
+					).toMatchObject({
+						itemIndex: 1,
+						directoryIndex: 0,
+						continuation: finished
+							? { offset: 1, phase: "listing" }
+							: {
+									itemIndex: 0,
+									phase: "episodes",
+									leafOffset: offset + 128,
+									entityRef: { externalId: "42" },
+									resume: { offset: 1, phase: "listing" },
+								},
+					});
+					if (carry) {
+						const fetched = requests.length;
+						expect(yield* run(carry)).toEqual(window);
+						expect(requests).toHaveLength(fetched);
+					}
+					carry = window.carry;
+				}
+				const nextShow = yield* run(carry);
+				expect(nextShow.records.filter((record) => record.group?.events.length)).toMatchObject([
+					{
+						itemIndex: 1,
+						eventIndex: 0,
+						group: { entityRef: { externalId: "43" } },
+						operationId: '["integration-plex-event",1,0]',
+					},
+				]);
+				assert(nextShow.carry);
+				expect(
+					yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+						new TextDecoder().decode(nextShow.carry),
+					),
+				).toMatchObject({ itemIndex: 2, directoryIndex: 1, continuation: { phase: "directory" } });
+				const movie = yield* run(nextShow.carry);
+				expect(movie.carry).toBeUndefined();
+				expect(movie.records.filter((record) => record.group?.events.length)).toMatchObject([
+					{
+						itemIndex: 2,
+						eventIndex: 0,
+						operationId: '["media-event",2,0]',
+						group: {
+							entityRef: { externalId: "44" },
+							events: [
+								{
+									eventSchemaSlug: "complete",
+									attribution: { sourceIdentifier: "2", recordId: '["plex-item",2]' },
+								},
+							],
+						},
+					},
+				]);
+				expect(requests).toEqual([
+					"/library/sections",
+					"/library/sections/shows/all?includeGuids=1",
+					"/library/metadata/42/allLeaves",
+					"/library/metadata/43/allLeaves",
+					"/library/sections/movies/all?includeGuids=1",
+				]);
+			}),
+		testTimeout,
+	);
 }
 
 it.live(
-	"skips invalid and unwatched boundary leaves without shifting source IDs or ownership",
+	"skips invalid and unwatched boundary leaves without shifting source IDs",
 	() =>
 		Effect.gen(function* () {
 			const leaves = Array.from({ length: 260 }, (_, index) => episode(index));
@@ -292,13 +264,6 @@ it.live(
 				{ eventIndex: 257, operationId: '["integration-plex-event",0,258]' },
 				{ eventIndex: 258, operationId: '["integration-plex-event",0,259]' },
 			]);
-			expect(final.records.filter((record) => record.group?.ownershipProvider)).toMatchObject([
-				{
-					itemIndex: 0,
-					operationId: '["media-association",0]',
-					group: { ownershipProvider: "plex_yank" },
-				},
-			]);
 			expect(yield* run(second.carry)).toEqual(final);
 			expect(requests).toHaveLength(3);
 		}),
@@ -321,25 +286,12 @@ it.live(
 			const first = yield* run();
 			assert(first.carry);
 			const finalLeaves = yield* run(first.carry);
-			expect(finalLeaves.records).toMatchObject([
-				{
-					itemIndex: 0,
-					eventIndex: 0,
-					operationId: '["media-association",0]',
-					group: { events: [], ownershipProvider: "plex_yank", entityRef: { externalId: "42" } },
-				},
-			]);
+			expect(finalLeaves.records).toEqual([]);
 			expect(yield* run(first.carry)).toEqual(finalLeaves);
 			assert(finalLeaves.carry);
 			const next = yield* run(finalLeaves.carry);
 			expect(next.carry).toBeUndefined();
-			expect(next.records).toMatchObject([
-				{
-					itemIndex: 1,
-					operationId: '["media-association",1]',
-					group: { events: [], ownershipProvider: "plex_yank", entityRef: { externalId: "43" } },
-				},
-			]);
+			expect(next.records).toMatchObject([]);
 			expect(requests).toEqual([
 				"/library/sections",
 				"/library/sections/shows/all?includeGuids=1",
@@ -351,7 +303,7 @@ it.live(
 );
 
 it.live(
-	"advances skipped and failed libraries without reusing indexes and owns failed or unplayed shows",
+	"advances skipped and failed libraries without reusing indexes and reports incomplete shows",
 	() =>
 		Effect.gen(function* () {
 			const { run, requests } = setup({
@@ -394,11 +346,6 @@ it.live(
 			expect(failedShow.records).toMatchObject([
 				{
 					itemIndex: 1,
-					operationId: '["media-association",1]',
-					group: { events: [], ownershipProvider: "plex_yank", entityRef: { externalId: "42" } },
-				},
-				{
-					itemIndex: 1,
 					operationId: '["media-source",1,0,0]',
 					failure: { stage: "source_fetch", message: "Failed to fetch watched episodes from Plex" },
 				},
@@ -408,24 +355,13 @@ it.live(
 			expect(missingKey.records).toMatchObject([
 				{
 					itemIndex: 2,
-					operationId: '["media-association",2]',
-					group: { ownershipProvider: "plex_yank" },
-				},
-				{
-					itemIndex: 2,
 					operationId: '["media-source",2,0,0]',
 					failure: { message: "Plex show has no rating key" },
 				},
 			]);
 			assert(missingKey.carry);
 			const unwatched = yield* run(missingKey.carry);
-			expect(unwatched.records).toMatchObject([
-				{
-					itemIndex: 3,
-					operationId: '["media-association",3]',
-					group: { events: [], ownershipProvider: "plex_yank" },
-				},
-			]);
+			expect(unwatched.records).toMatchObject([]);
 			assert(unwatched.carry);
 			const missingId = yield* run(unwatched.carry);
 			expect(missingId.records).toMatchObject([

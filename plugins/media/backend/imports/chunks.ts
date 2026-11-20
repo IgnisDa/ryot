@@ -6,9 +6,11 @@ import type {
 
 import { consumptionBasisFor } from "../../shared/consumption";
 import { consumptionEventSlugs } from "../../shared/consumption-projection";
+import { mediaCopyRelationship, mediaImportedCopyKey } from "../../shared/media-copy";
 import { importEntityRefIdentifier } from "./groups";
 import {
 	mediaCollectionOperationId,
+	mediaCopyOperationId,
 	mediaEntityOperationId,
 	mediaLibraryMembershipOperationId,
 	mediaLibraryOperationId,
@@ -51,7 +53,7 @@ const adapterFailure = (failure: MediaImportFailure): GenericImportFailure => ({
 
 export const createMediaImportChunk = (
 	input: MediaImportWriteChunkInput,
-	ownershipSyncedAt: string,
+	integrationSourceKey?: string,
 ): GenericImportChunk => {
 	const failures = input.failures.map(adapterFailure);
 	const items: GenericImportWriteItem[] = [];
@@ -88,19 +90,21 @@ export const createMediaImportChunk = (
 			sourceLabel: group.entityRef.sourceLabel,
 			recordId: mediaRecordId(group.itemIndex),
 			sourceIdentifier: importEntityRefIdentifier(group.entityRef),
-			relationships: [
-				{
-					sourceAlias: "media",
-					propertiesMode: "merge",
-					targetAlias: "media-library",
-					relationshipSchemaSlug: "in-media-library",
-					operationId: mediaLibraryMembershipOperationId(group.itemIndex),
-					properties: group.ownershipProvider
-						? { owned: true, ownershipSyncedAt, ownershipSources: [group.ownershipProvider] }
-						: {},
-				},
-			],
 			entities: [
+				...(group.copies ?? []).flatMap((copy, index) =>
+					copy.subjectEntityId === undefined || copy.subjectEntitySchemaSlug === undefined
+						? []
+						: [
+								{
+									properties: {},
+									alias: `copy-target:${index}`,
+									entityId: copy.subjectEntityId,
+									name: group.entityRef.sourceLabel,
+									entitySchemaSlug: copy.subjectEntitySchemaSlug,
+									operationId: JSON.stringify(["media-copy-target", group.itemIndex, index]),
+								},
+							],
+				),
 				{
 					alias: "media",
 					properties: {},
@@ -119,6 +123,37 @@ export const createMediaImportChunk = (
 					match: { properties: {}, name: "Media Library" },
 					operationId: mediaLibraryOperationId(group.itemIndex),
 				},
+			],
+			relationships: [
+				{
+					properties: {},
+					sourceAlias: "media",
+					propertiesMode: "merge",
+					targetAlias: "media-library",
+					relationshipSchemaSlug: "in-media-library",
+					operationId: mediaLibraryMembershipOperationId(group.itemIndex),
+				},
+				...(group.copies ?? []).map((copy, index) => ({
+					sourceAlias: "media-library",
+					relationshipSchemaSlug: mediaCopyRelationship,
+					operationId: mediaCopyOperationId(group.itemIndex, index),
+					outcome: { unit: "copies", recordKind: mediaCopyRelationship },
+					key: mediaImportedCopyKey(integrationSourceKey, copy.source, copy.sourceId),
+					targetAlias: copy.subjectEntityId === undefined ? "media" : `copy-target:${index}`,
+					propertiesMode:
+						integrationSourceKey === undefined ? ("merge" as const) : ("replace" as const),
+					properties: {
+						...copy.details,
+						source: copy.source,
+						...(input.integration && integrationSourceKey !== undefined
+							? {
+									integrationSourceKey,
+									origin: "integration",
+									seenInRun: input.integration.importRunId,
+								}
+							: { origin: "import" }),
+					},
+				})),
 			],
 			events: group.events.map((event) => ({
 				entityAlias: "media",

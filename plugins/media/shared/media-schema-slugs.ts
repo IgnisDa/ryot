@@ -23,6 +23,12 @@ export const builtinMediaEntitySchemaSlugs = [
 	"visual-novel",
 ] as const;
 
+export const mediaOwnableEntitySchemaSlugs = [
+	...builtinMediaEntitySchemaSlugs,
+	"show-episode",
+	"podcast-episode",
+] as const;
+
 export const isPositional = (entitySchemaSlug: string): entitySchemaSlug is "anime" | "manga" =>
 	entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
 

@@ -95,7 +95,6 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 							entitlement: null,
 							pluginId: "plugin-owner",
 							packageId: "ryot/fixture",
-							supportsOwnershipSync: false,
 							settingsSchema: { fields: {} },
 							name: { key: "test.push", namespace: "plugin-1" },
 							description: { namespace: "plugin-1", key: "test.push-provider" },
@@ -109,7 +108,6 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 							entitlement: "pro",
 							pluginId: "plugin-owner",
 							packageId: "ryot/fixture",
-							supportsOwnershipSync: true,
 							settingsSchema: { fields: {} },
 							name: { key: "test.yank", namespace: "plugin-1" },
 							description: { namespace: "plugin-1", key: "test.yank-provider" },
@@ -123,7 +121,6 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 							pluginId: "plugin-owner",
 							slug: "unsupported-yank",
 							packageId: "ryot/fixture",
-							supportsOwnershipSync: false,
 							settingsSchema: { fields: {} },
 							name: { namespace: "plugin-1", key: "test.unsupported-yank" },
 							description: {
@@ -138,9 +135,6 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 		}),
 	);
 	expect(Object.keys(decoded.items[0]?.commonSchema.fields ?? {})).not.toContain("minimumProgress");
-	expect(Object.keys(decoded.items[0]?.commonSchema.fields ?? {})).not.toContain("syncOwnership");
-	expect(Object.keys(decoded.items[1]?.commonSchema.fields ?? {})).toContain("syncOwnership");
-	expect(Object.keys(decoded.items[2]?.commonSchema.fields ?? {})).not.toContain("syncOwnership");
 	expect(decoded.items[1]).toMatchObject({ hasScript: false, entitlement: "pro" });
 });
 

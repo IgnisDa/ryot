@@ -1,11 +1,11 @@
-import type { ImportEntityRef, ImportMediaEvent } from "./schemas";
+import type { ImportedMediaCopy, ImportEntityRef, ImportMediaEvent } from "./schemas";
 
 export type ImportMediaEntityGroupBuilder = {
 	itemIndex: number;
 	entityRef: ImportEntityRef;
 	events: ImportMediaEvent[];
-	ownershipProvider?: string | undefined;
 	collectionMemberships: Array<{ collectionName: string }>;
+	copies?: undefined | ReadonlyArray<typeof ImportedMediaCopy.Type>;
 };
 
 export const importEntityRefIdentifier = (ref: ImportEntityRef) =>

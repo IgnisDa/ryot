@@ -143,6 +143,7 @@ export class UserCommands extends Context.Service<UserCommands>()(
 							userId,
 							scope: "user",
 							properties: relation.properties,
+							...(relation.key === undefined ? {} : { key: relation.key }),
 							sourceEntityId: referencedEntity(relation.source, entity.entityId),
 							targetEntityId: referencedEntity(relation.target, entity.entityId),
 							relationshipSchema: {

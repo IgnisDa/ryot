@@ -11,6 +11,7 @@ import {
 	type LotEntityMigrationTarget,
 	type ResolvedLotEntityMigrationTarget,
 	type ResolvedRelationshipTarget,
+	singletonRelationshipConflict,
 } from "./shared";
 
 type MetadataGroupRelationshipTarget = { lot: string; relationshipSchemaSlug: string };
@@ -333,7 +334,7 @@ BEGIN
 	INNER JOIN "entity" tgt ON tgt.id = legacy_relationships.metadata_id
 	WHERE legacy_relationships.user_id IS NOT NULL
 		OR EXISTS (SELECT 1 FROM _populated_metadata_ids p WHERE p.id = legacy_relationships.metadata_id::text)
-	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
+	${singletonRelationshipConflict};
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
 	${buildReportSql("metadata_group -> relationship", [{ count: "rows_inserted", message: "row(s) migrated" }])}

@@ -1714,8 +1714,6 @@
 	"definition.property.integration-minimum-progress": "Progresso mínimo",
 	"definition.property.integration-minimum-progress-hint": "Percentagem mínima de progresso para sincronizar",
 	"definition.property.integration-name-hint": "Nome opcional para esta integração",
-	"definition.property.integration-sync-ownership": "Sincronizar propriedade",
-	"definition.property.integration-sync-ownership-hint": "Sincronizar a propriedade a partir desta integração",
 	"definition.property.item": "Item",
 	"definition.property.membership-field": "Campo",
 	"definition.property.membership-fields": "Campos dos vínculos",

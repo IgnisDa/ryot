@@ -20,10 +20,10 @@ const podcastActivityFixtureRecipe = bindRecipe(
 	{ entityId: "podcast-1" },
 );
 export const podcastSummaryRow = {
-	owned: null,
-	ownedOn: null,
+	owned: false,
 	id: "podcast-1",
 	isCustom: false,
+	ownedEpisodes: 0,
 	publishYear: 2014,
 	name: "Reply All",
 	totalEpisodes: 412,

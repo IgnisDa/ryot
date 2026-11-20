@@ -18,6 +18,7 @@ import {
 import { importEntityRefIdentifier } from "./groups";
 import {
 	mediaAssociationOperationId,
+	mediaCopyOperationId,
 	mediaEventOperationId,
 	mediaMembershipOperationId,
 	mediaSourceFailureOperationId,
@@ -114,6 +115,23 @@ export const normalizeMediaRecords = (
 						importEntityRefIdentifier(ref),
 					]);
 		const originalIndex = itemIndex + group.itemIndex;
+		const { copies, ...media } = group;
+		for (const [copyIndex, copy] of (copies ?? []).entries()) {
+			records.push({
+				key,
+				eventIndex: copyIndex,
+				itemIndex: originalIndex,
+				dedupKey: JSON.stringify(["copy", source, copy.sourceId]),
+				operationId: mediaCopyOperationId(originalIndex, copyIndex),
+				group: {
+					...media,
+					events: [],
+					copies: [copy],
+					itemIndex: originalIndex,
+					collectionMemberships: [],
+				},
+			});
+		}
 		for (const [eventIndex, membership] of group.collectionMemberships.entries()) {
 			records.push({
 				key,
@@ -122,21 +140,21 @@ export const normalizeMediaRecords = (
 				dedupKey: JSON.stringify(["membership", key, membership.collectionName]),
 				operationId: mediaMembershipOperationId(originalIndex, membership.collectionName),
 				group: {
-					...group,
+					...media,
 					events: [],
 					itemIndex: originalIndex,
 					collectionMemberships: [membership],
 				},
 			});
 		}
-		if (!group.events.length && !group.collectionMemberships.length) {
+		if (!group.events.length && !group.collectionMemberships.length && !copies?.length) {
 			records.push({
 				key,
 				eventIndex: 0,
 				itemIndex: originalIndex,
+				dedupKey: JSON.stringify(["association", key, null]),
 				operationId: mediaAssociationOperationId(originalIndex),
-				group: { ...group, events: [], itemIndex: originalIndex },
-				dedupKey: JSON.stringify(["association", key, group.ownershipProvider ?? null]),
+				group: { ...media, events: [], itemIndex: originalIndex },
 			});
 		}
 		for (const [localEventIndex, event] of group.events.entries()) {
@@ -164,7 +182,7 @@ export const normalizeMediaRecords = (
 				operationId,
 				itemIndex: originalIndex,
 				group: {
-					...group,
+					...media,
 					itemIndex: originalIndex,
 					collectionMemberships: [],
 					events: [

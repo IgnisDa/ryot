@@ -917,7 +917,7 @@ it("declares library membership for member creates, imports, events, and collect
 it("declares ownership sync only for integrations that import ownership", () => {
 	expect(
 		mediaPlugin.integrationProviders
-			.filter((provider) => "supportsOwnershipSync" in provider && provider.supportsOwnershipSync)
+			.filter((provider) => "syncCopies" in provider.settingsSchema.fields)
 			.map(({ slug }) => slug),
 	).toEqual(["komga", "plex_yank", "audiobookshelf"]);
 });

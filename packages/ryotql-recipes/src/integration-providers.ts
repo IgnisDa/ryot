@@ -47,7 +47,6 @@ const providerSelection = {
 	packageId: selectedField(column(provider, "packageId"), Schema.NullOr(PluginPackageId)),
 	scriptSlug: selectedField(column(provider, "scriptSlug"), Schema.NullOr(Schema.String)),
 	installationId: selectedField(column(provider, "installationId"), Schema.NullOr(Schema.String)),
-	supportsOwnershipSync: selectedField(column(provider, "supportsOwnershipSync"), Schema.Boolean),
 	readinessConnections: selectedField(
 		column(provider, "readinessConnections"),
 		readinessConnections,
@@ -115,11 +114,7 @@ export const integrationProvidersRecipe = defineRecipe({
 				reference: { slug: item.slug, owner: definitionOwner(item.pluginId) },
 				...item,
 				readiness: evaluateIntegrationProviderReadiness(item),
-				commonSchema: integrationCommonSchema(
-					item.lot,
-					item.supportsOwnershipSync,
-					item.pluginId !== null,
-				),
+				commonSchema: integrationCommonSchema(item.lot, item.pluginId !== null),
 			})),
 		})),
 });

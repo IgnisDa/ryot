@@ -302,7 +302,6 @@ fn definition_envelopes_use_done_limit_while_values_keep_the_four_mib_limit() {
         "updatedAt": "2025-01-01T00:00:00.000Z",
         "lot": "sink",
         "isDisabled": false,
-        "syncOwnership": false,
         "minimumProgress": 0,
         "maximumProgress": 100,
         "name": null,

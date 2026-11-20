@@ -6,6 +6,7 @@ import type {
 
 import { creditRoleCodes } from "../../shared/credit-roles";
 import { librarySummaryPropertiesSchema } from "../../shared/library-summary";
+import { mediaCopyPropertiesSchema, mediaCopyRelationship } from "../../shared/media-copy";
 import {
 	builtinMediaEntitySchemaSlugs,
 	type MediaCreatorCreditSlug,
@@ -44,6 +45,7 @@ type BuiltinRelationshipSchema = {
 	propertiesSchema: AuthoredAppSchema;
 	sourceEntitySchemaSlug: null | string;
 	targetEntitySchemaSlug: null | string;
+	keyed?: PluginRelationshipSchema["keyed"];
 	retention?: PluginRelationshipSchema["retention"];
 	projection?: PluginRelationshipSchema["projection"];
 	userWritePolicy?: PluginRelationshipSchema["userWritePolicy"];
@@ -147,38 +149,19 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	{
 		slug: "in-media-library",
 		sourceEntitySchemaSlug: null,
+		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "media-library",
 		projection: { propertiesSchema: librarySummaryPropertiesSchema },
 		name: catalogMessage("relationship-schema.in-media-library.name"),
-		propertiesSchema: {
-			fields: {
-				owned: {
-					type: "boolean" as const,
-					label: catalogMessage("property.owned"),
-					description: "Whether the user owns this item",
-				},
-				ownedOn: {
-					type: "date" as const,
-					label: catalogMessage("property.owned-on"),
-					description: "When the user acquired this item",
-				},
-				ownershipSyncedAt: {
-					type: "datetime" as const,
-					label: catalogMessage("property.ownership-synced-at"),
-					description: "When ownership was last synced from an external source",
-				},
-				ownershipSources: {
-					type: "array" as const,
-					label: catalogMessage("property.ownership-sources"),
-					description: "Integrations or sources that reported ownership",
-					items: {
-						type: "string" as const,
-						label: catalogMessage("property.source"),
-						description: "An integration or source that reported ownership",
-					},
-				},
-			},
-		},
+	},
+	{
+		keyed: true,
+		slug: mediaCopyRelationship,
+		targetEntitySchemaSlug: null,
+		userWritePolicy: "source-owner",
+		sourceEntitySchemaSlug: "media-library",
+		name: catalogMessage("ownership.copies"),
+		propertiesSchema: mediaCopyPropertiesSchema,
 	},
 	{
 		slug: "media-monitoring",

@@ -11,7 +11,6 @@ import {
 	field,
 	include,
 	join,
-	jsonPath,
 	literal,
 	rows,
 	table,
@@ -58,6 +57,26 @@ export const queryInMediaLibraryRelationship = (
 					entity: rows(entity, {
 						limit: 1,
 						fields: [field("id", column(entity, "id"))],
+						include: [
+							include(membership, {
+								limit: 1,
+								key: "libraries",
+								orderBy: [ascending(column(membership, "id"))],
+								fields: [field("id", column(membership, "id"))],
+								joins: [
+									join(
+										"inner",
+										mediaLibrary,
+										eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
+									),
+								],
+								where: and(
+									eq(column(membership, "sourceEntityId"), column(entity, "id")),
+									eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+									eq(column(membership, "relationshipSchemaPluginId"), literal(mediaPluginId)),
+								),
+							}),
+						],
 						where: and(
 							eq(column(entity, "id"), literal(entityId)),
 							eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
@@ -82,36 +101,6 @@ export const queryInMediaLibraryRelationship = (
 								),
 							}),
 						),
-						include: [
-							include(membership, {
-								limit: 1,
-								key: "libraries",
-								orderBy: [ascending(column(membership, "id"))],
-								joins: [
-									join(
-										"inner",
-										mediaLibrary,
-										eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
-									),
-								],
-								where: and(
-									eq(column(membership, "sourceEntityId"), column(entity, "id")),
-									eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-									eq(column(membership, "relationshipSchemaPluginId"), literal(mediaPluginId)),
-								),
-								fields: [
-									field("owned", jsonPath(column(membership, "properties"), "owned")),
-									field(
-										"ownershipSources",
-										jsonPath(column(membership, "properties"), "ownershipSources"),
-									),
-									field(
-										"ownershipSyncedAt",
-										jsonPath(column(membership, "properties"), "ownershipSyncedAt"),
-									),
-								],
-							}),
-						],
 					}),
 				}),
 			},
@@ -982,6 +971,25 @@ export const insertLibraryMembership = (
 			relationshipSchema: inMediaLibrarySchema.reference,
 			sourceEntityId: EntityId.make(input.mediaEntityId),
 			targetEntityId: EntityId.make(mediaLibraryEntityId),
+		});
+	});
+
+export const insertOwnedCopy = (client: Client, entityId: string) =>
+	Effect.gen(function* () {
+		yield* insertLibraryMembership(client, { mediaEntityId: entityId });
+		const libraryId = yield* getMediaLibraryEntityId(client);
+		const owner = definitionOwner((yield* mediaFixtureInstallation(client.target)).id);
+		const relation = requireRelationshipSchemaBySlug(
+			yield* listRelationshipSchemas(client, { slugs: ["media-copy"] }),
+			"media-copy",
+			owner,
+		);
+		return yield* createRelationship(client, {
+			key: yield* randomUuid,
+			relationshipSchema: relation.reference,
+			targetEntityId: EntityId.make(entityId),
+			sourceEntityId: EntityId.make(libraryId),
+			properties: { origin: "manual", format: "digital" },
 		});
 	});
 

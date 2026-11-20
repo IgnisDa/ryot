@@ -250,18 +250,18 @@ describe("episodic media recipes", () => {
 			"isMonitored",
 			"isInMediaLibrary",
 			"isCustom",
+			"owned",
 			"publishDate",
 			"publishYear",
 			"providerRating",
 			"productionStatus",
-			"owned",
-			"ownedOn",
 			"state",
 			"totalEpisodes",
 			"airedEpisodes",
 			"watchedEpisodes",
 			"upcomingEpisodes",
 			"inProgressEpisodes",
+			"ownedEpisodes",
 		]);
 		expect(summary.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
 		const genres = summary.output.include?.find((include) => include.key === "genres");

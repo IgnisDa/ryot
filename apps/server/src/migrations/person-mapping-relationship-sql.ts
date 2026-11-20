@@ -5,6 +5,7 @@ import {
 	buildRelationshipTargetValuesSql,
 	buildReportSql,
 	type ResolvedRelationshipTarget,
+	singletonRelationshipConflict,
 } from "./shared";
 
 // User-authored credits (an endpoint owned by a user) migrate with that owner. Provider credits
@@ -162,7 +163,7 @@ BEGIN
 	INNER JOIN "entity" tgt ON tgt.id = rollups.metadata_id
 	WHERE rollups.user_id IS NOT NULL
 		OR EXISTS (SELECT 1 FROM _populated_metadata_ids p WHERE p.id = rollups.metadata_id::text)
-	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
+	${singletonRelationshipConflict};
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
 	${buildReportSql(`${kindNotice} -> relationship`, [{ count: "rows_inserted", message: "row(s) migrated" }])}
@@ -285,7 +286,7 @@ BEGIN
 	INNER JOIN "entity" src ON src.id = rollups.person_id
 	INNER JOIN "entity" tgt ON tgt.id = rollups.metadata_group_id
 	WHERE rollups.user_id IS NOT NULL
-	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
+	${singletonRelationshipConflict};
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
 	${buildReportSql("group_person -> relationship", [{ count: "rows_inserted", message: "user-authored row(s) migrated" }])}

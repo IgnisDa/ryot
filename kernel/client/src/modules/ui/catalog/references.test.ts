@@ -50,7 +50,6 @@ const provider = (pluginId: string, packageId: PluginPackageId): IntegrationProv
 	readinessConnections: [],
 	name: testMessage("Whiskey"),
 	commonSchema: { fields: {} },
-	supportsOwnershipSync: false,
 	settingsSchema: { fields: {} },
 	pluginId: PluginId.make(pluginId),
 	installationId: `${pluginId}-installation`,

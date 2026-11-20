@@ -100,23 +100,11 @@ const progressCommonFields = {
 
 export const integrationCommonSchema = (
 	lot: (typeof integrationLots)[number],
-	supportsOwnershipSync: boolean,
 	supportsProgress = true,
 ): AppSchema => ({
 	fields: {
 		...baseCommonFields,
 		...(lot === "push" || !supportsProgress ? {} : progressCommonFields),
-		...(lot === "yank" && supportsOwnershipSync
-			? {
-					syncOwnership: {
-						defaultValue: false,
-						type: "boolean" as const,
-						description: "Synchronize ownership from this integration",
-						label: kernelMessage("definition.property.integration-sync-ownership"),
-						hint: kernelMessage("definition.property.integration-sync-ownership-hint"),
-					},
-				}
-			: {}),
 	},
 });
 
@@ -136,7 +124,6 @@ export const IntegrationSnapshot = Schema.Struct({
 	updatedAt: Schema.String,
 	isDisabled: Schema.Boolean,
 	provider: IntegrationProvider,
-	syncOwnership: Schema.Boolean,
 	minimumProgress: Schema.Finite,
 	maximumProgress: Schema.Finite,
 	name: Schema.NullOr(Schema.String),
@@ -152,7 +139,6 @@ export const CreateIntegrationBody = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	isDisabled: Schema.optional(Schema.Boolean),
 	providerSpecifics: IntegrationProviderSettings,
-	syncOwnership: Schema.optional(Schema.Boolean),
 	minimumProgress: Schema.optional(Schema.Finite),
 	maximumProgress: Schema.optional(Schema.Finite),
 	extraSettings: Schema.optional(IntegrationExtraSettings),
@@ -163,7 +149,6 @@ export type CreateIntegrationBody = typeof CreateIntegrationBody.Type;
 export const UpdateIntegrationBody = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	isDisabled: Schema.optional(Schema.Boolean),
-	syncOwnership: Schema.optional(Schema.Boolean),
 	minimumProgress: Schema.optional(Schema.Finite),
 	maximumProgress: Schema.optional(Schema.Finite),
 	extraSettings: Schema.optional(IntegrationExtraSettings),

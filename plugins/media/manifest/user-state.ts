@@ -5,6 +5,8 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 
+import { mediaCopyRelationship } from "../shared/media-copy";
+
 const children: Readonly<Record<string, NonNullable<PluginEntityUserStatePolicy["children"]>>> = {
 	"show-season": [
 		{
@@ -47,6 +49,7 @@ export const mediaUserStatePolicy = (slug: string): PluginEntityUserStatePolicy 
 		},
 	})),
 	relationships: [
+		{ owner: { kind: "self" }, slug: RelationshipSchemaSlug.make(mediaCopyRelationship) },
 		{ owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("in-media-library") },
 		{ owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("media-monitoring") },
 		{ owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("media-suggestion") },

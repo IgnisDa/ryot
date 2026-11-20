@@ -662,6 +662,7 @@ const writeStandaloneRecord = Effect.fnUntraced(function* (context: GenericImpor
 			targetEntityId,
 			userId: context.userId,
 			properties: intent.properties,
+			...(intent.key === undefined ? {} : { key: intent.key }),
 			relationshipSchema: {
 				owner: definitionOwner(context.pluginRevision.id),
 				slug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
@@ -721,12 +722,12 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 	const eventAlias = "Import event references an unknown entity alias";
 	const relationships = yield* Effect.forEach(item.relationships, (relation) =>
 		Effect.gen(function* () {
-			const merge = relation.propertiesMode === "merge";
 			return {
 				properties: relation.properties,
 				itemIdentity: relation.operationId,
+				...(relation.key === undefined ? {} : { key: relation.key }),
+				propertiesMode: relation.propertiesMode ?? "replace",
 				relationshipSchemaSlug: relation.relationshipSchemaSlug,
-				propertiesMode: merge ? ("merge" as const) : ("replace" as const),
 				source: yield* reference(relation.sourceAlias, relationshipAlias),
 				target: yield* reference(relation.targetAlias, relationshipAlias),
 			};

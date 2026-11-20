@@ -39,14 +39,12 @@ const integrationCommonBody = (commonSchema: AppSchema, values: SchemaFormValues
 	const payload = toSchemaFormPayload(commonSchema, values);
 	const name = stringField(payload, "name");
 	const isDisabled = booleanField(payload, "isDisabled");
-	const syncOwnership = booleanField(payload, "syncOwnership");
 	const minimumProgress = numberField(payload, "minimumProgress");
 	const maximumProgress = numberField(payload, "maximumProgress");
 	const disableOnContinuousErrors = booleanField(payload, "disableOnContinuousErrors");
 	return {
 		...(name === undefined ? {} : { name }),
 		...(isDisabled === undefined ? {} : { isDisabled }),
-		...(syncOwnership === undefined ? {} : { syncOwnership }),
 		...(minimumProgress === undefined ? {} : { minimumProgress }),
 		...(maximumProgress === undefined ? {} : { maximumProgress }),
 		...(disableOnContinuousErrors === undefined
@@ -102,7 +100,6 @@ export const storedIntegrationFormValues = (input: {
 		),
 		name: input.integration.name ?? "",
 		isDisabled: input.integration.isDisabled,
-		syncOwnership: input.integration.syncOwnership,
 		minimumProgress: input.integration.minimumProgress,
 		maximumProgress: input.integration.maximumProgress,
 		disableOnContinuousErrors: input.integration.extraSettings.disableOnContinuousErrors,

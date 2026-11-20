@@ -2368,8 +2368,6 @@
 	"definition.property.integration-minimum-progress-hint": "Minimum progress percentage to synchronize",
 	"definition.property.integration-name": "Name",
 	"definition.property.integration-name-hint": "Optional name for this integration",
-	"definition.property.integration-sync-ownership": "Sync ownership",
-	"definition.property.integration-sync-ownership-hint": "Synchronize ownership from this integration",
 	"definition.property.item": "Item",
 	"definition.property.membership-field": "Field",
 	"definition.property.membership-fields": "Membership Fields",

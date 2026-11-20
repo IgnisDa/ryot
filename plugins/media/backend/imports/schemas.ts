@@ -6,6 +6,7 @@ import {
 import { jsonValueSchema, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 import { Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
+import { MediaCopyDetails } from "../../shared/media-copy";
 import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
 
 const isHttpUrl = (value: string): true | string => {
@@ -80,10 +81,19 @@ const ImportMediaEvent = Schema.Struct({
 
 export type ImportMediaEvent = typeof ImportMediaEvent.Type;
 
+export const ImportedMediaCopy = Schema.Struct({
+	details: MediaCopyDetails,
+	source: Schema.NonEmptyString,
+	subjectEntityId: Schema.optional(Schema.NonEmptyString),
+	unresolvedEpisode: Schema.optional(UnresolvedEpisodeRef),
+	sourceId: Schema.NonEmptyString.check(Schema.isMaxLength(200)),
+	subjectEntitySchemaSlug: Schema.optional(Schema.NonEmptyString),
+});
+
 const mediaEntityGroupFields = {
 	itemIndex: Schema.Finite,
 	entityRef: ImportEntityRef,
-	ownershipProvider: Schema.optional(Schema.String),
+	copies: Schema.optional(Schema.Array(ImportedMediaCopy)),
 	collectionMemberships: Schema.Array(Schema.Struct({ collectionName: Schema.String })),
 };
 
@@ -192,5 +202,4 @@ export type MediaImportWriteChunkInput = typeof MediaImportWriteChunkInput.Type;
 
 export const MediaImportWriteChunkActivityInput = Schema.Struct({
 	...MediaImportWriteChunkInput.fields,
-	ownershipSyncedAt: Schema.String,
 });

@@ -110,7 +110,6 @@ const integrationRunExecutionSettings = (connectionId: string): ImportSourceExec
 	integration: {
 		minimumProgress: 0,
 		maximumProgress: 100,
-		syncOwnership: false,
 		providerSpecifics: { account: connectionId },
 	},
 });
@@ -152,9 +151,9 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 	maximumProgress: 95,
 	lastFinishedAt: null,
 	userId: input.userId,
-	syncOwnership: false,
 	provider: "lambda_yank",
 	id: input.integrationId,
+	sourceKey: "integration-source",
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
 	pluginInstallationId: "installation-1",
@@ -1109,11 +1108,9 @@ describe("getCurrentIntegration", () => {
 	const selectedSettings = {
 		minimumProgress: 10,
 		maximumProgress: 80,
-		syncOwnership: false,
 		providerSpecifics: { filter: "item", kind: "lambda_yank", provider: "provider" },
 	};
 	const changedSettings = {
-		syncOwnership: true,
 		minimumProgress: 20,
 		maximumProgress: 90,
 		providerSpecifics: { filter: "show", provider: "tvdb", kind: "lambda_yank" },
@@ -1121,7 +1118,6 @@ describe("getCurrentIntegration", () => {
 	let liveIntegrationSettings = {
 		minimumProgress: 1,
 		maximumProgress: 99,
-		syncOwnership: false,
 		providerSpecifics: { filter: "live", provider: "live", kind: "lambda_yank" },
 	};
 	layer(
@@ -1152,7 +1148,6 @@ describe("getCurrentIntegration", () => {
 						});
 					const firstRead = yield* readForRun("run-1");
 					liveIntegrationSettings = {
-						syncOwnership: true,
 						minimumProgress: 30,
 						maximumProgress: 70,
 						providerSpecifics: { provider: "tvdb", filter: "changed", kind: "lambda_yank" },
@@ -1172,7 +1167,6 @@ describe("getCurrentIntegration", () => {
 					});
 					expect(activeRun.minimumProgress).toBe(10);
 					expect(activeRun.maximumProgress).toBe(80);
-					expect(activeRun.syncOwnership).toBe(false);
 					expect(nextRun.providerSpecifics).toEqual({
 						filter: "show",
 						provider: "tvdb",
@@ -1180,7 +1174,6 @@ describe("getCurrentIntegration", () => {
 					});
 					expect(nextRun.minimumProgress).toBe(20);
 					expect(nextRun.maximumProgress).toBe(90);
-					expect(nextRun.syncOwnership).toBe(true);
 					expect(yield* (yield* HostFunctionCalls).sourceStateLookups).toEqual(
 						["run-1", "run-1", "run-2"].map((runId) => ({ runId, userId })),
 					);

@@ -31,9 +31,9 @@ const ACTIVITY_RECIPE = bindRecipe(
 	{ entityId: "media-1" },
 );
 const SUMMARY_ROW = {
-	owned: null,
+	owned: false,
 	images: null,
-	ownedOn: null,
+
 	id: "media-1",
 	isCustom: false,
 	publishYear: 1999,
@@ -82,12 +82,11 @@ describe("media flat recipes", () => {
 			"isMonitored",
 			"isInMediaLibrary",
 			"isCustom",
+			"owned",
 			"publishDate",
 			"publishYear",
 			"providerRating",
 			"productionStatus",
-			"owned",
-			"ownedOn",
 			"state",
 			"progressPercent",
 		]);

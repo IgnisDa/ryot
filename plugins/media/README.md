@@ -424,12 +424,24 @@ is checked even when canonical content is unchanged. Custom entities stay on the
 provider children refresh their canonical data through their parent; a refresh on an episode with
 credits refreshes only those credits. Existing monitoring-change detectors still run.
 
-`media-ownership-set` accepts at most 50 visible built-in media entities and merges `owned` and an
-optional `ownedOn` date into each `in-media-library` relationship, adding library membership when
-absent and preserving integration-reported ownership sources. Removing ownership clears `ownedOn`.
-Integrations only report ownership, so a later sync can mark manually unowned media as owned again.
-Its schemas live in `shared/media-ownership-operations.ts`. Switching ownership on asks for the date,
-defaulting to today and rejecting future days; switching it off writes immediately. Integration metadata lookup uses integration auth.
+Owned uses keyed `media-copy` relationships from the personal Media Library to a title or episode.
+Open **Owned** or **Owned copies** in the title or episode details to manage copies and record
+acquisition and technical details. The Owned browse filter matches titles with copies recorded directly
+on them. Show and podcast headers count episodes with copies separately.
+
+Use the user-authenticated `media-copy-write` plugin operation to add, update, and remove copies.
+An add takes a client-selected ID and returns the complete copy ID. Use the returned ID for
+updates and deletes. Adding the first copy also saves the title. Removing the last copy clears its
+Owned status while leaving the library membership and history. The plugin protects integration-managed
+copies from manual edits.
+
+Plex Yank adds copies when **Sync owned copies** is enabled. It reads video and audio stream
+metadata from each Plex version. These scans write each version by its upstream identity and
+the connection's portable source key, including copies with no viewing history. A completed
+authoritative scan removes copies from that connection that are missing from the latest scan. Scans with source,
+resolution, or write failures preserve previously recorded copies. Komga and Audiobookshelf
+upsert the copies they identify. Hardcover and Trakt imports use the same copy model for their
+explicit ownership records. Integration metadata lookup uses integration auth.
 
 Imports populate media at the `base` level, without credits or other relationship groups. Monitoring
 association notifications for imported media therefore arrive when the media is first opened in the
@@ -585,7 +597,7 @@ admitted while waiting for it.
 
 Scheduled runs require readiness before admission. Accepted webhooks may wait for setup under the
 fixed deadline documented by [imports](../../kernel/backend/src/modules/imports/README.md).
-Release pins provider settings, progress thresholds, ownership sync, user settings, and revisions;
+Release pins provider settings, progress thresholds, user settings, and revisions;
 OAuth refresh remains live. Collector-wide failures fail the run, attributed record failures remain
 partial results, and expected skips do not fail health. Disabled or unauthorized integrations are
 rejected at ingress, not retained as recoverable source work.

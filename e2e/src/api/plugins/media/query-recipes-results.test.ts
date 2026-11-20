@@ -33,6 +33,7 @@ import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
 	insertMediaMonitoring,
+	insertOwnedCopy,
 	mediaRecipes,
 	seedMediaEntity,
 	seedPodcast,
@@ -407,10 +408,7 @@ describe("Media RyotQL query recipe results", () => {
 				entitySchemaSlug: "show",
 				names: ["Drama", "Crime"],
 			});
-			yield* insertLibraryMembership(client, {
-				mediaEntityId: show.id,
-				properties: { owned: true },
-			});
+			yield* insertOwnedCopy(client, show.id);
 			yield* insertMediaMonitoring(client, show.id);
 			yield* client.call((c) =>
 				c.collections.createMembership({

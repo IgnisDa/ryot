@@ -99,7 +99,7 @@ export function MediaSummaryHeader(props: {
 				</div>
 			)}
 			<MediaActions media={media} compact={compact} logActivity={detail.rail.logActivity} />
-			<MediaLibraryStrip media={media} config={detail.rail} />
+			<MediaLibraryStrip media={media} compact={compact} config={detail.rail} />
 		</>
 	);
 	const labelledFacts = detail.facts.filter((fact) => fact.inline !== true);
@@ -251,6 +251,7 @@ function MediaIdentity(props: {
 }
 
 function MediaLibraryStrip(props: {
+	readonly compact: boolean;
 	readonly config: MediaStatusRailConfig;
 	readonly media: MediaEntitySummaryValue;
 }) {
@@ -299,7 +300,8 @@ function MediaLibraryStrip(props: {
 				<MediaOwnershipControl
 					entityId={media.id}
 					owned={ownership.owned}
-					ownedOn={ownership.ownedOn}
+					entityName={media.name}
+					compact={props.compact}
 					key={`ownership:${media.id}`}
 				/>
 			)}

@@ -239,6 +239,7 @@ it("exposes only approved relationship fields", () => {
 	expect(new Set(Object.keys(getCatalogTable("relationship")?.fields ?? {}))).toEqual(
 		new Set([
 			"id",
+			"key",
 			"userId",
 			"createdAt",
 			"properties",
@@ -390,7 +391,6 @@ it("exposes only approved application-table fields", () => {
 			"updatedAt",
 			"isDisabled",
 			"webhookToken",
-			"syncOwnership",
 			"extraSettings",
 			"lastFinishedAt",
 			"minimumProgress",

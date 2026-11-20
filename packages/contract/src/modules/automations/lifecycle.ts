@@ -17,6 +17,7 @@ import {
 	PluginId,
 	PluginRevisionId,
 	RelationshipId,
+	RelationshipKey,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 	SandboxScriptId,
@@ -245,6 +246,7 @@ export const AutomationRelationshipDraft = strictStruct({
 	properties,
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
+	key: Schema.optionalKey(RelationshipKey),
 	relationshipSchemaSlug: RelationshipSchemaSlug,
 	relationshipSchemaPluginId: Schema.NullOr(PluginId),
 });

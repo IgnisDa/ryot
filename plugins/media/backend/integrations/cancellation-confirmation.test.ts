@@ -151,18 +151,15 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 			});
 			yield* invoke({});
 			const groups = (yield* fs.records()).flatMap(({ group }) => (group ? [group] : []));
-			const chunk = createMediaImportChunk(
-				{
-					failures: [],
-					entityGroups: groups,
-					populationResults: groups.map((_group, index) => ({
-						index,
-						entityId: "track",
-						status: "completed",
-					})),
-				},
-				execution.startedAt,
-			);
+			const chunk = createMediaImportChunk({
+				failures: [],
+				entityGroups: groups,
+				populationResults: groups.map((_group, index) => ({
+					index,
+					entityId: "track",
+					status: "completed",
+				})),
+			});
 			const item = chunk.items[0];
 			const event = item?.events[0];
 			assert(item && event);

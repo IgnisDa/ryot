@@ -230,11 +230,9 @@ BEGIN
 END $$;
 `;
 
-// Marks each Owned-collection member's existing in-media-library relationship as owned, mirroring the
-// runtime ownership shape, and carries its V1 "Owned on" member date when Postgres can read it as a
-// date. Runs after user-to-entity so the relationships already exist.
 export const buildOwnedCollectionOwnershipMigrationSql = (
 	inLibraryRelationshipSchema: QualifiedSchema,
+	copyRelationshipSchema: QualifiedSchema,
 ) => `
 DO $$
 DECLARE
@@ -246,23 +244,28 @@ BEGIN
 
 	${buildRequireLegacyTableSql("collection -> entity", "collection_to_entity")}
 
-	UPDATE "relationship" rel
-	SET "properties" = rel.properties || jsonb_build_object(
-		'owned', true,
-		'ownershipSources', jsonb_build_array('legacy'),
-		'ownershipSyncedAt', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-	) || CASE
-		WHEN jsonb_typeof(cte.information -> 'Owned on') = 'string'
-			AND pg_input_is_valid(cte.information ->> 'Owned on', 'date')
-			THEN jsonb_build_object('ownedOn', to_char((cte.information ->> 'Owned on')::date, 'YYYY-MM-DD'))
-		ELSE '{}'::jsonb
-	END
+	INSERT INTO "relationship" (
+		id, "key", user_id, source_entity_id, target_entity_id,
+		relationship_schema_slug, relationship_schema_plugin_id, created_at, properties
+	)
+	SELECT md5('media-copy:' || rel.id), 'legacy:' || rel.id,
+		rel.user_id, rel.target_entity_id, rel.source_entity_id,
+		${quoteSqlString(copyRelationshipSchema.slug)}, ${quoteNullableSqlString(copyRelationshipSchema.pluginId)},
+		rel.created_at, jsonb_strip_nulls(jsonb_build_object(
+			'origin', 'import',
+			'legacySources', jsonb_build_array('legacy'),
+			'acquiredOn', CASE
+				WHEN jsonb_typeof(cte.information -> 'Owned on') = 'string'
+					AND pg_input_is_valid(cte.information ->> 'Owned on', 'date')
+				THEN to_char((cte.information ->> 'Owned on')::date, 'YYYY-MM-DD')
+			END
+		))
 	FROM "collection_to_entity" cte
 	INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Owned'
+	INNER JOIN "relationship" rel ON rel.source_entity_id = cte.entity_id AND rel.user_id = coll.user_id
 	WHERE rel.relationship_schema_slug = ${quoteSqlString(inLibraryRelationshipSchema.slug)}
 		AND rel.relationship_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(inLibraryRelationshipSchema.pluginId)}
-		AND rel.source_entity_id = cte.entity_id
-		AND rel.user_id = coll.user_id;
+	ON CONFLICT DO NOTHING;
 
 	GET DIAGNOSTICS rows_updated = ROW_COUNT;
 
@@ -276,8 +279,8 @@ BEGIN
 			AND pg_input_is_valid(cte.information ->> 'Owned on', 'date')
 		);
 
-	${buildReportSql("Owned collection -> in-media-library ownership", [
-		{ count: "rows_updated", message: "relationship(s) updated" },
+	${buildReportSql("Owned collection -> media copies", [
+		{ count: "rows_updated", message: "copy record(s) created" },
 		{ count: "dates_dropped", message: "unreadable Owned on date(s) dropped" },
 	])}
 END $$;

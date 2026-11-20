@@ -191,7 +191,7 @@ configuration again. Changes after pinning affect later runs, not the retained r
 
 Manual imports capture `executionSettings.userSettings` at admission after defaults are applied.
 Integration runs also capture `executionSettings.integration` with `providerSpecifics`,
-`minimumProgress`, `maximumProgress`, and `syncOwnership` when execution is released. The existing
+`minimumProgress` and `maximumProgress` when execution is released. The existing
 `admitted-source` capture encrypts this state with the `ryot/ingestion/admitted-input` purpose for the
 exact ingestion scope. For a blocked integration delivery, release evaluates readiness and captures
 the same settings used for that readiness and plan. The prepared release is encrypted with

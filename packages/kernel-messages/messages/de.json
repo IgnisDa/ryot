@@ -1687,8 +1687,6 @@
 	"definition.property.integration-minimum-progress-hint": "Minimaler Fortschritt in Prozent, der synchronisiert wird",
 	"definition.property.integration-name": "Name",
 	"definition.property.integration-name-hint": "Optionaler Name für diese Integration",
-	"definition.property.integration-sync-ownership": "Besitz synchronisieren",
-	"definition.property.integration-sync-ownership-hint": "Besitz aus dieser Integration synchronisieren",
 	"definition.property.item": "Eintrag",
 	"definition.property.membership-field": "Feld",
 	"definition.property.membership-fields": "Mitgliedschaftsfelder",

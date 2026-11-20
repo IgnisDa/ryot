@@ -15,7 +15,7 @@ import {
 	RelationshipNotFound,
 	RelationshipScope,
 } from "@ryot-app/contract/modules/relationships/schemas";
-import { type EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
@@ -111,6 +111,7 @@ export const RelationshipMutation = Schema.Struct({
 	input: RelationshipIdentityInput,
 	properties: Schema.optional(Schema.Unknown),
 	propertiesSchema: Schema.optional(AppSchema),
+	expectedTargetEntityId: Schema.optionalKey(EntityId),
 	schemaFingerprint: Schema.optional(CatalogDefinitionFingerprint),
 	mode: Schema.Literals(["upsert", "update", "delete", "merge", "ensure"]),
 });
@@ -226,6 +227,7 @@ export const snapshot = (
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
 		properties: row.properties,
+		...(row.key === undefined ? {} : { key: row.key }),
 		sourceEntityId: row.sourceEntityId,
 		targetEntityId: row.targetEntityId,
 		relationshipSchemaSlug: row.relationshipSchemaSlug,

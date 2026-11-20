@@ -1,3 +1,4 @@
+import { RelationshipKey } from "@ryot-app/contract/schema/brands";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, strictStruct } from "../wire";
@@ -50,6 +51,7 @@ const userRelationshipIdentitySchema = strictStruct({
 	sourceEntityId: sandboxIdSchema,
 	targetEntityId: sandboxIdSchema,
 	relationshipSchemaSlug: nonEmptyString,
+	key: Schema.optionalKey(RelationshipKey),
 });
 export const createUserRelationshipSchema = strictStruct({
 	...userRelationshipIdentitySchema.fields,

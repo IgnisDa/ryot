@@ -74,7 +74,7 @@ it.live(
 			yield* writer.run(
 				{
 					...prepared.batch,
-					ownershipSyncedAt: "2026-01-01T00:00:00Z",
+
 					ingestionArtifacts: { runId: "run", captures: { batch: "batch" } },
 					populationResults: [{ index: 0, entityId: "book", status: "completed" }],
 				},

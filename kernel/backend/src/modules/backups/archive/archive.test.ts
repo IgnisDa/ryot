@@ -309,7 +309,6 @@ const integration = (packageKey: null | string): ArchiveRecords["integrations"][
 	lot: "sink",
 	isDisabled: false,
 	id: "integration-1",
-	syncOwnership: false,
 	minimumProgress: "0",
 	createdAt: timestamp,
 	updatedAt: timestamp,
@@ -317,6 +316,7 @@ const integration = (packageKey: null | string): ArchiveRecords["integrations"][
 	providerSpecifics: {},
 	maximumProgress: "100",
 	configuredSecretPaths: [],
+	sourceKey: "integration-source",
 	extraSettings: { disableOnContinuousErrors: false },
 	provider: packageKey === null ? dataJsonSource : "import",
 });

@@ -10,7 +10,6 @@ import {
 	mediaEpisodicAiredLabel,
 	mediaGalleryAssets,
 	mediaManagedAssets,
-	mediaOwnedLabel,
 	mediaPosterAsset,
 	mediaRatingFact,
 	mediaRatingLabel,
@@ -216,11 +215,6 @@ describe("media summary state", () => {
 		expect<string | undefined>(
 			mediaRatingFact(testMediaCopy, decodeShowSummary({ providerName: null }))?.label,
 		).toBe("Provider rating");
-	});
-
-	it("labels ownership values that were never recorded apart from known ones", () => {
-		expect<string>(mediaOwnedLabel(testMediaCopy, null)).toBe("Owned");
-		expect<string>(mediaOwnedLabel(testMediaCopy, "2024-03-04")).toBe("Owned since Mar 4, 2024");
 	});
 
 	it("labels collection membership by count and truncation", () => {

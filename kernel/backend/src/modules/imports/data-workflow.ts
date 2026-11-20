@@ -684,6 +684,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 							targetEntityId,
 							userId: input.userId,
 							relationshipSchema: item.record.relationshipSchema,
+							...(item.record.identityKey === undefined ? {} : { key: item.record.identityKey }),
 						},
 						command,
 					),
