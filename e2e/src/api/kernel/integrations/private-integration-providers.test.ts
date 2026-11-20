@@ -17,6 +17,7 @@ import {
 	testPluginPackageId,
 	updatePluginState,
 } from "~/fixtures/kernel";
+import { manifestText } from "~/fixtures/kernel/manifest-text";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -124,8 +125,8 @@ describe("private integration providers", () => {
 			const secondProviders = (yield* listProviders(second.client)).filter(
 				({ slug }) => slug === providerSlug,
 			);
-			expect(firstProviders).toMatchObject([{ packageId, name: "First sink" }]);
-			expect(secondProviders).toMatchObject([{ packageId, name: "Second sink" }]);
+			expect(firstProviders).toMatchObject([{ packageId, name: manifestText("First sink") }]);
+			expect(secondProviders).toMatchObject([{ packageId, name: manifestText("Second sink") }]);
 
 			const firstIntegration = yield* scopedIntegration(first.client, {
 				slug: providerSlug,
