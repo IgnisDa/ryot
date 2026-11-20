@@ -136,7 +136,7 @@ layer(testLayer)("script run host resolution", (test) => {
 	);
 
 	test.effect(
-		"keeps a run's plugin catalog snapshot across an uninstall",
+		"applies an uninstall from the next run",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;

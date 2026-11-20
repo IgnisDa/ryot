@@ -19,7 +19,6 @@ import {
 	type SidecarDoneFrame,
 } from "../protocol/messages";
 import { SandboxAdmissionLease } from "./admission";
-import { SandboxExecutionAuthority } from "./authority";
 import { bindObservabilityHostFunctions } from "./bridge-adapter";
 import { ExecutionFiles } from "./file-access";
 import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
@@ -28,8 +27,6 @@ import { sandboxDurableHostDispatchStrategy } from "./host-execution-policy";
 import { SandboxHostFunctions } from "./host-functions";
 import {
 	type BoundHostFunction,
-	sandboxHostEffect,
-	type SandboxInlineDurableHost,
 	sandboxPlatformFailureKind,
 	type SandboxRunInput,
 } from "./invocation";
@@ -81,40 +78,6 @@ export const selectSandboxHostFunctions = (
 	return selected;
 };
 
-// Diagnostics only record into the run's own collector. A refused inline batch defers, so the workflow
-// body's durable dispatch reports the refusal.
-const reauthorizedHostCalls = (
-	input: SandboxRunInput,
-	functions: Readonly<Record<string, BoundHostFunction>>,
-	authorize: Effect.Effect<unknown, SandboxRunError>,
-) => {
-	const inline = input.inlineDurableHost;
-	return {
-		apiFunctions: Object.fromEntries(
-			Object.entries(functions).map(([name, host]): [string, BoundHostFunction] => [
-				name,
-				isSandboxHostCapability(name) && sandboxDurableHostDispatchStrategy(name) === "diagnostic"
-					? host
-					: (args) => Effect.andThen(sandboxHostEffect(authorize), () => host(args)),
-			]),
-		),
-		input:
-			inline === undefined
-				? input
-				: {
-						...input,
-						inlineDurableHost: {
-							...inline,
-							settle: (...settlement: Parameters<SandboxInlineDurableHost["settle"]>) =>
-								authorize.pipe(
-									Effect.andThen(() => inline.settle(...settlement)),
-									Effect.orElseSucceed(() => null),
-								),
-						},
-					},
-	};
-};
-
 export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 	"@ryot-app/sandbox/host/executor/SandboxExecutor",
 	{
@@ -123,7 +86,6 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 			const gate = yield* SandboxHostCallGate;
 			const files = yield* ExecutionFiles;
 			const hostFunctions = yield* SandboxHostFunctions;
-			const authority = yield* SandboxExecutionAuthority;
 			const run = Effect.fn("SandboxExecutor.run")(function* (input: SandboxRunInput) {
 				const executionStartedAt = yield* Clock.currentTimeMillis;
 				const kind = sandboxMetricKind(input.principal.metadata);
@@ -170,7 +132,6 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 							},
 							input,
 						);
-						const host = reauthorizedHostCalls(input, selected, authority.resolve(input.principal));
 						const result = yield* supervisor.run({
 							lease,
 							lane: input.lane,
@@ -191,10 +152,10 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 									const registration = yield* gate
 										.register({
 											...identity,
+											input,
 											parentSpan,
 											files: access,
-											input: host.input,
-											apiFunctions: host.apiFunctions,
+											apiFunctions: selected,
 										})
 										.pipe(
 											Effect.mapError(

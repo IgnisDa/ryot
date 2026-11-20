@@ -55,10 +55,9 @@ On Linux, the launcher path is fixed at `/usr/local/libexec/ryot-sandbox-launche
 
 A run binds only declared capabilities that the backend supplied for it, then drops filesystem grants
 and workflow-dispatched capabilities from live executions. Inline durable requests
-are limited to the capabilities the backend lists for the run. Reserving a run resolves its authority to
-place it, and every non-diagnostic host call and inline durable batch resolves it again first, so a revocation
-refuses the running script's next host call. A refused batch defers to the workflow body, whose durable
-dispatch resolves it as well.
+are limited to the capabilities the backend lists for the run. Reserving a run resolves its authority once;
+that outcome places the run and covers every host call it makes, including inline durable settlement,
+so a revocation applies from the next run.
 
 ## Execution Files
 
