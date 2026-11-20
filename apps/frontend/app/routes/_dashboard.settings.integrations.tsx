@@ -17,8 +17,6 @@ import {
 	Paper,
 	Select,
 	Stack,
-	Table,
-	type TableData,
 	Text,
 	Textarea,
 	TextInput,
@@ -54,6 +52,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { CopyableTextInput } from "~/components/common";
+import { IntegrationLogs } from "~/components/integration-logs";
 import {
 	applicationBaseUrl,
 	PRO_REQUIRED_MESSAGE,
@@ -253,14 +252,6 @@ const DisplayIntegration = (props: {
 		.map<ReactNode>((s) => s)
 		.reduce((prev, curr) => [prev, " • ", curr]);
 
-	const tableData: TableData = {
-		head: ["Triggered At", "Error"],
-		body: props.integration.triggerResult.map((tr) => [
-			dayjsLib(tr.finishedAt).format("lll"),
-			tr.error || "N/A",
-		]),
-	};
-
 	return (
 		<>
 			<Drawer
@@ -268,7 +259,7 @@ const DisplayIntegration = (props: {
 				title={`Logs for ${integrationDisplayName}`}
 				onClose={() => integrationTriggerResultToggle()}
 			>
-				<Table data={tableData} />
+				<IntegrationLogs entries={props.integration.triggerResult} />
 			</Drawer>
 			<Paper p="xs" withBorder>
 				<Stack ref={parent}>

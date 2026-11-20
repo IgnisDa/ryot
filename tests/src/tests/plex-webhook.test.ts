@@ -106,6 +106,57 @@ describe("Plex sink webhook", () => {
 		expect(response.status).toBe(400);
 	});
 
+	it("records parser errors and safe Plex fields for a failed webhook", async () => {
+		const { apiKey, integrationId } = await setupUser();
+		const form = new FormData();
+		form.append(
+			"payload",
+			JSON.stringify({
+				user: true,
+				owner: true,
+				event: "media.scrobble",
+				Account: { title: "plex-test-user" },
+				Server: { uuid: "private-server-id" },
+				Metadata: {
+					type: "movie",
+					Guid: [{ id: `tmdb://${FIGHT_CLUB_TMDB_ID}` }],
+					thumb: "https://example.com/private-thumbnail",
+				},
+			}),
+		);
+		const response = await postWebhook(integrationId, form);
+		expect(response.status).toBe(202);
+
+		await expect
+			.poll(
+				async () => {
+					const { userIntegrations } = await client.request(
+						UserIntegrationsDocument,
+						{},
+						headers(apiKey),
+					);
+					return userIntegrations[0].triggerResult[0]?.error;
+				},
+				{ timeout: 10_000 },
+			)
+			.toContain("missing required field `duration`");
+		const { userIntegrations } = await client.request(
+			UserIntegrationsDocument,
+			{},
+			headers(apiKey),
+		);
+		const details = userIntegrations[0].triggerResult[0].details;
+		expect(details).toContain('"event": "media.scrobble"');
+		expect(details).toContain(`tmdb://${FIGHT_CLUB_TMDB_ID}`);
+		for (const privateValue of [
+			"plex-test-user",
+			"private-server-id",
+			"private-thumbnail",
+		]) {
+			expect(details).not.toContain(privateValue);
+		}
+	});
+
 	it.skipIf(!process.env.MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN)(
 		"completes an item when a scrobble is the only event that succeeds",
 		async () => {

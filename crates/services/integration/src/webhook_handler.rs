@@ -13,10 +13,7 @@ use sea_orm::EntityTrait;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-use crate::{
-    integration_operations::{set_trigger_result, set_trigger_result_with_partial_success},
-    sink,
-};
+use crate::{integration_operations::set_trigger_result_with_partial_success, sink};
 
 // TEMP(1611): debug instrumentation for duplicate seen records; remove after investigation completes
 fn log_import_result_details(import_result: &ImportResult, context: &str, tag: &str) {
@@ -46,6 +43,7 @@ pub async fn integration_progress_update(
     ss: &Arc<SupportingService>,
     integration: integration::Model,
     updates: ImportResult,
+    details: Option<String>,
 ) -> Result<()> {
     let progress_update_id = Uuid::new_v4();
     let progress_tag = format!("[1611 PROGRESS {}]", progress_update_id);
@@ -112,6 +110,7 @@ pub async fn integration_progress_update(
         result.as_ref().err().map(|e| e.to_string()),
         &integration,
         partial_success,
+        details,
     )
     .await?;
     result?;
@@ -153,6 +152,8 @@ pub async fn process_integration_webhook(
         );
         bail!("Integration is disabled");
     }
+    let details = (integration.provider == IntegrationProvider::PlexSink)
+        .then(|| sink::plex_diagnostics::payload_details(&payload));
     let maybe_progress_update = match integration.provider {
         IntegrationProvider::Kodi => sink::kodi::sink_progress(payload).await,
         IntegrationProvider::Emby => sink::emby::sink_progress(payload, ss).await,
@@ -198,7 +199,7 @@ pub async fn process_integration_webhook(
                 "[1611 JOB {}] Calling integration_progress_update",
                 webhook_job_id
             );
-            integration_progress_update(ss, integration, pu).await?;
+            integration_progress_update(ss, integration, pu, details).await?;
             ryot_log!(
                 debug,
                 "[1611 JOB {}] Completed webhook processing successfully",
@@ -213,8 +214,15 @@ pub async fn process_integration_webhook(
                 webhook_job_id,
                 e
             );
-            set_trigger_result(ss, Some(e.to_string()), &integration).await?;
-            Err(anyhow!(e.to_string()))
+            set_trigger_result_with_partial_success(
+                ss,
+                Some(e.to_string()),
+                &integration,
+                false,
+                details,
+            )
+            .await?;
+            Err(e)
         }
     }
 }
