@@ -101,9 +101,10 @@ type UnknownExpected<T> = T extends {
 	: T;
 
 /** Kernel writers pass properties and update baselines that the write validates. */
-type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = Omit<UnknownProperties<OwnedEntity<T>>, "target"> & {
-	readonly target: UnknownExpected<T["target"]>;
-};
+type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = { readonly target: UnknownExpected<T["target"]> } & Omit<
+	UnknownProperties<OwnedEntity<T>>,
+	"target"
+>;
 
 /**
  * A kernel writer's entity create. With a provider it keeps the entity its external ID already names

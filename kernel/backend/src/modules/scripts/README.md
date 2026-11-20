@@ -22,12 +22,12 @@ them. The package `build` script runs both, and Turbo runs it after the kernel c
 module is git-ignored.
 
 Every run verifies compiled SHA-256 and package identity across manifest, plugin row, and authority
-projection, and resolves persisted authority once, when it reserves admission; that outcome covers every host call
-of the run, inline durable settlement included. Durable host calls dispatched outside the run resolve it again.
+projection, and resolves persisted authority when it reserves admission and again before each non-diagnostic
+host call, inline durable settlement included. Durable host calls dispatched outside the run resolve it again.
 `ScriptCalls` admission resolves it even inside a change set's shared preparation authority.
-The run's host calls also share one `RunUserPlugins` snapshot of its user's installed plugins, read on first use.
-A revocation or installation change applies from the next run. Historical pins preserve code/config/definitions,
-not expired authority: fresh runs still enforce current account and installation access.
+The run's host calls share one `RunUserPlugins` snapshot of its user's installed plugins, read on first use,
+so other installation changes reach that catalog from the next run. Historical pins preserve code/config/definitions,
+not expired authority: fresh host calls still enforce current account and installation access.
 A plugin pin carries the revision's identity and a digest of its script hashes, so a revision that
 lost scripts no longer matches; the revision's scripts and schema scope are read by revision ID.
 System authority requires verified kernel/system ownership; user plugins execute as their owner.

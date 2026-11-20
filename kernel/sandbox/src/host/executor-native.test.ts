@@ -2,7 +2,7 @@ import { expect } from "bun:test";
 
 import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import {
 	anyOf,
@@ -48,6 +48,16 @@ type NativeServiceControlValue = {
 	readonly authority: { failAfter: number; resolutions: number };
 	readonly releaseHost: Deferred.Deferred<{ readonly key: string; readonly source: string }>;
 };
+
+const quarantined = new SandboxRunError({
+	kind: "script-failure",
+	message: "Sandbox installation is unavailable",
+	data: {
+		code: "package-identity-conflict",
+		installationId: "native-service-installation",
+		pluginId: PluginId.make("native-service-plugin"),
+	},
+});
 
 class NativeServiceTempRoot extends Context.Service<NativeServiceTempRoot, string>()(
 	"@ryot-app/sandbox/host/executor-native.test/NativeServiceTempRoot",
@@ -100,9 +110,7 @@ const nativeServiceLayer = Layer.unwrap(
 					Effect.suspend(() => {
 						control.authority.resolutions += 1;
 						return control.authority.resolutions > control.authority.failAfter
-							? Effect.fail(
-									new SandboxRunError({ kind: "invalid-input", message: "authority revoked" }),
-								)
+							? Effect.fail(quarantined)
 							: Effect.succeed("user");
 					}),
 			}),
@@ -173,12 +181,12 @@ export const manifest = defineManifest({
 export default defineScript({
   manifest,
   input: Schema.Struct({}),
-  output: Schema.Array(Schema.String),
+  output: Schema.Array(Schema.Unknown),
   run: (_input, host) => Effect.gen(function* () {
-    const outcomes: Array<string> = [];
+    const outcomes: Array<unknown> = [];
     for (const key of ["first", "second", "third"]) {
       outcomes.push(yield* host.getCachedValue(key).pipe(
-        Effect.match({ onFailure: (error) => "failed:" + error.message, onSuccess: () => "ok" }),
+        Effect.match({ onFailure: (error) => ({ message: error.message, data: error.data }), onSuccess: () => "ok" }),
       ));
     }
     return outcomes;
@@ -711,12 +719,14 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 	);
 
 	test.effect(
-		"resolves authority once per run for placement and every host call",
+		"resolves authority to place a run and again for every host call, refusing those after a revocation",
 		() => {
 			const ownerId = UserId.make(testExecutionId("native-service-owner"));
 			const executionIds = [
 				testExecutionId("native-service-authority-granted"),
-				testExecutionId("native-service-authority-revoked"),
+				testExecutionId("native-service-authority-live"),
+				testExecutionId("native-service-authority-inline"),
+				testExecutionId("native-service-authority-placement"),
 			];
 			return withRecoveryCleanup(
 				executionIds,
@@ -724,28 +734,78 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 					const service = yield* SandboxExecutor;
 					const control = yield* NativeServiceControl;
 					const repeated = yield* compileTestScript(repeatedHostCallsDefinitionSource);
-					const [grantedId = "", revokedId = ""] = executionIds;
+					const [grantedId = "", liveId = "", inlineId = "", placementId = ""] = executionIds;
+					const authorityFailingAfter = <A, E, R>(
+						resolutions: number,
+						run: Effect.Effect<A, E, R>,
+					) =>
+						Effect.suspend(() => {
+							control.calls.length = 0;
+							control.authority.resolutions = 0;
+							control.authority.failAfter = resolutions;
+							return run;
+						}).pipe(
+							Effect.ensuring(
+								Effect.sync(() => (control.authority.failAfter = Number.POSITIVE_INFINITY)),
+							),
+						);
+					const refused = { data: quarantined.data, message: quarantined.message };
 
-					control.calls.length = 0;
-					control.authority.resolutions = 0;
-					const granted = yield* service.run(makeRunInput(repeated, grantedId, {}, ownerId));
+					const granted = yield* authorityFailingAfter(
+						Number.POSITIVE_INFINITY,
+						service.run(makeRunInput(repeated, grantedId, {}, ownerId)),
+					);
 					expect(granted).toMatchObject({ success: true, value: ["ok", "ok", "ok"] });
 					expect(control.calls).toHaveLength(3);
-					expect(control.authority.resolutions).toBe(1);
+					expect(control.authority.resolutions).toBe(4);
 
-					control.calls.length = 0;
-					control.authority.resolutions = 0;
-					control.authority.failAfter = 0;
-					const revoked = yield* Effect.flip(
-						service
-							.run(makeRunInput(repeated, revokedId, {}, ownerId))
-							.pipe(
-								Effect.ensuring(
-									Effect.sync(() => (control.authority.failAfter = Number.POSITIVE_INFINITY)),
-								),
-							),
+					const live = yield* authorityFailingAfter(
+						1,
+						service.run(makeRunInput(repeated, liveId, {}, ownerId)),
 					);
-					expect(revoked).toMatchObject({ kind: "invalid-input", message: "authority revoked" });
+					expect(live).toMatchObject({ success: true, value: [refused, refused, refused] });
+					expect(control.calls).toEqual([]);
+					expect(control.authority.resolutions).toBe(4);
+
+					const settled: Array<ReadonlyArray<unknown>> = [];
+					const inline = yield* authorityFailingAfter(
+						1,
+						service.run({
+							...makeRunInput(repeated, inlineId, {}, ownerId),
+							replayJournal: emptyPinnedJournal,
+							workflowExecutionId: `${inlineId}-workflow`,
+							inlineDurableHost: {
+								capabilities: ["getCachedValue"],
+								settle: (requests) =>
+									Effect.sync(() => {
+										settled.push(requests);
+										return requests.map(() => ({ value: "settled", state: "success" as const }));
+									}),
+							},
+						}),
+					);
+					expect(inline).toMatchObject({
+						inline: [],
+						success: true,
+						value: {
+							state: "pending",
+							requests: [
+								{
+									index: 0,
+									kind: "host",
+									name: "getCachedValue",
+									args: { args: ["first"], capability: "getCachedValue" },
+								},
+							],
+						},
+					});
+					expect(settled).toEqual([]);
+					expect(control.authority.resolutions).toBe(2);
+
+					const placement = yield* Effect.flip(
+						authorityFailingAfter(0, service.run(makeRunInput(repeated, placementId, {}, ownerId))),
+					);
+					expect(placement).toEqual(quarantined);
 					expect(control.calls).toEqual([]);
 					expect(control.authority.resolutions).toBe(1);
 				}),
