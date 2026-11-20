@@ -34,6 +34,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { match } from "ts-pattern";
+import { RichText } from "~/components/common/rich-text";
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { reviewYellow } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -128,12 +129,7 @@ export const ReviewItemDisplay = (props: {
 
 	const RenderedText = () =>
 		props.review.textRendered ? (
-			<div
-				// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-				dangerouslySetInnerHTML={{
-					__html: props.review.textRendered,
-				}}
-			/>
+			<RichText html={props.review.textRendered} />
 		) : null;
 
 	return (

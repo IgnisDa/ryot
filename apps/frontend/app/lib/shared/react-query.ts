@@ -32,8 +32,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
-import Cookies from "js-cookie";
-import { applicationBaseUrl, FRONTEND_AUTH_COOKIE_NAME } from "./constants";
+import { applicationBaseUrl } from "./constants";
 import { getMetadataDetails } from "./media-utils";
 
 export const queryClient = new QueryClient({
@@ -41,13 +40,7 @@ export const queryClient = new QueryClient({
 });
 
 export const clientGqlService = new GraphQLClient(
-	`${applicationBaseUrl}/backend/graphql`,
-	{
-		headers: () => {
-			const data = Cookies.get(FRONTEND_AUTH_COOKIE_NAME);
-			return { authorization: data ? `Bearer ${data}` : "" };
-		},
-	},
+	`${applicationBaseUrl}/api/graphql`,
 );
 
 const calendarQueryKeys = createQueryKeys("calendar", {

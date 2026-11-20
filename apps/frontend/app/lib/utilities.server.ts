@@ -23,11 +23,18 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
-import { FRONTEND_AUTH_COOKIE_NAME, toastKey } from "~/lib/shared/constants";
+import { toastKey } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { queryClient, queryFactory } from "~/lib/shared/react-query";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
+
+const authCookieName = "Auth";
+const authCookieOptions = {
+	path: "/",
+	httpOnly: true,
+	sameSite: "lax",
+} satisfies SerializeOptions;
 
 class AuthenticatedGraphQLClient extends GraphQLClient {
 	async authenticatedRequest<T, V extends Variables = Variables>(
@@ -87,7 +94,7 @@ export const getCookieValue = (request: Request, cookieName: string) =>
 	parse(request.headers.get("cookie") || "")[cookieName];
 
 export const getAuthorizationCookie = (request: Request) =>
-	getCookieValue(request, FRONTEND_AUTH_COOKIE_NAME);
+	getCookieValue(request, authCookieName);
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 	const getResponseInit = async (toastMessage: string) => ({
@@ -247,21 +254,26 @@ export const getToast = async (request: Request) => {
 };
 
 export const getCookiesForApplication = async (
+	request: Request,
 	token: string,
 	tokenValidForDays?: number,
 ) => {
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
 	const maxAge =
 		(tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
-	const options = { maxAge, path: "/" } satisfies SerializeOptions;
 	return combineHeaders({
-		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, token, options),
+		"set-cookie": serialize(authCookieName, token, {
+			maxAge,
+			...authCookieOptions,
+			secure: new URL(request.url).protocol === "https:",
+		}),
 	});
 };
 
 export const getLogoutCookies = () => {
 	return combineHeaders({
-		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, "", {
+		"set-cookie": serialize(authCookieName, "", {
+			...authCookieOptions,
 			expires: new Date(0),
 		}),
 	});

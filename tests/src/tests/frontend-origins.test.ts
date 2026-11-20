@@ -1,5 +1,7 @@
 import { request as httpRequest } from "node:http";
 import path from "node:path";
+import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { GraphQLClient } from "graphql-request";
 import { getGraphqlClient } from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
 import { registerPasswordUser } from "../setup/authentication-fixtures";
@@ -60,7 +62,11 @@ describe("Frontend action origins without FRONTEND_URL", () => {
 			);
 		});
 
-	const expectLogin = async (response: Response, route: string) => {
+	const expectLogin = async (
+		response: Response,
+		route: string,
+		secure = false,
+	) => {
 		if (route === "/auth") {
 			expect(response.status).toBe(302);
 			expect(response.headers.get("location")).toBe("/");
@@ -68,11 +74,17 @@ describe("Frontend action origins without FRONTEND_URL", () => {
 			expect(response.status).toBe(202);
 			expect(await response.text()).toContain("redirect");
 		}
-		expect(
+		const [cookie, ...attributes] =
 			response.headers
 				.getSetCookie()
-				.some((cookie) => cookie.startsWith("Auth=")),
-		).toBe(true);
+				.find((cookie) => cookie.startsWith("Auth="))
+				?.split("; ") ?? [];
+		expect(Boolean(cookie)).toBe(true);
+		expect(attributes).toEqual(
+			expect.arrayContaining(["Path=/", "HttpOnly", "SameSite=Lax"]),
+		);
+		expect(attributes.includes("Secure")).toBe(secure);
+		return cookie;
 	};
 
 	it.each(paths)("allows direct HTTP login via %s", async (route) => {
@@ -86,7 +98,7 @@ describe("Frontend action origins without FRONTEND_URL", () => {
 			"X-Forwarded-Proto": "https",
 			Origin: origin.origin,
 		});
-		await expectLogin(response, route);
+		await expectLogin(response, route, true);
 	});
 
 	it.each([
@@ -101,7 +113,23 @@ describe("Frontend action origins without FRONTEND_URL", () => {
 			Origin: origin.origin,
 			"X-Forwarded-Proto": origin.protocol.slice(0, -1),
 		});
-		await expectLogin(response, "/auth.data");
+		await expectLogin(response, "/auth.data", origin.protocol === "https:");
+	});
+
+	it("authenticates browser GraphQL requests from the same origin", async () => {
+		const route = "/auth";
+		const loginResponse = await login(route, { Origin: url });
+		const cookie = await expectLogin(loginResponse, route);
+		const headers = { Cookie: cookie, Origin: url };
+		const graphqlUrl = `${url}/api/graphql`;
+		const client = new GraphQLClient(graphqlUrl, { headers });
+
+		const { userDetails } = await client.request(UserDetailsDocument);
+		expect(userDetails).toMatchObject({ name: credentials.username });
+
+		await expect(
+			client.request(UserDetailsDocument, {}, { Origin: "null" }),
+		).rejects.toThrow();
 	});
 
 	it.each(paths)("rejects foreign origins via %s", async (route) => {

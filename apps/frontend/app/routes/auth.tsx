@@ -131,7 +131,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				},
 			});
 			if (loginUser.__typename === "ApiKeyResponse") {
-				const headers = await getCookiesForApplication(loginUser.apiKey);
+				const headers = await getCookiesForApplication(
+					request,
+					loginUser.apiKey,
+				);
 				return redirect($path("/"), { headers });
 			}
 			if (loginUser.__typename === "StringIdObject") {

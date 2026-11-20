@@ -48,6 +48,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		await getCoreDetails();
 		if (completeOidcLogin.__typename === "ApiKeyResponse") {
 			const authHeaders = await getCookiesForApplication(
+				request,
 				completeOidcLogin.apiKey,
 			);
 			for (const cookie of authHeaders.getSetCookie())
