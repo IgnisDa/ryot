@@ -21,6 +21,7 @@ export const CLIENT_PLUGIN_COMPILER_LIMITS = {
 	memoryBytes: 1024 * MiB,
 	startupTimeoutMs: 60_000,
 	diagnosticMessageCharacters,
+	runtimeArtifactFileCount: 256,
 	recycleMemoryBytes: 768 * MiB,
 	goMemoryLimitBytes: 384 * MiB,
 	responseBytes:

@@ -17,6 +17,7 @@ import {
 } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 import { runtimeStylesheet } from "./generated-source";
+import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 import { cssOutputReferences } from "./output-references";
 import { isExternalReference, referencePath } from "./reference-path";
 import { clientTypeScriptProject } from "./semantic-check";
@@ -218,6 +219,9 @@ export const buildClientRuntime = Effect.gen(function* () {
 		return yield* clientPluginCompilationFailure(emittedErrors);
 	}
 
+	if (bundled.files.length > CLIENT_PLUGIN_COMPILER_LIMITS.runtimeArtifactFileCount) {
+		return yield* failure("Client runtime emits too many files");
+	}
 	const files = sortBy(bundled.files.map(clientArtifactFile), ({ name }) => name);
 	for (const [index, specifier] of CLIENT_DEPENDENCY_SPECIFIERS.entries()) {
 		const name = entries[specifier];
