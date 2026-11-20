@@ -189,9 +189,9 @@ the address and create your first user via the web interface's registration page
 
 [Simafri](https://www.simafri.com) has a [step-by-step
 guide](https://www.simafri.com/en/guides/self-host-ryot/) for running Ryot on its managed
-VPS with the [docker compose](./index.md#installation) file: the `ignisda/ryot` image
-pinned to a release, PostgreSQL 18 with its own user and password, port `8000` published
-on `127.0.0.1`, and Caddy in front of it for HTTPS. The database password and
+VPS with its own variant of the [docker compose](./index.md#installation) file: the
+`ignisda/ryot` image pinned to a release, PostgreSQL 18 with its own user and password,
+port `8000` published on `127.0.0.1`, and Caddy in front of it for HTTPS. The database password and
 `SERVER_ADMIN_ACCESS_TOKEN` are generated into a `.env` file readable by root only.
 
 The guide then walks through creating the first user, who becomes the administrator,
