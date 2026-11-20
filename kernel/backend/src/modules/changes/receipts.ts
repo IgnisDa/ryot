@@ -9,24 +9,29 @@ import type { EventCreateItemOutcome } from "@ryot-app/contract/modules/events/s
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect, type Schema } from "effect";
 
-import type { IdempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
+import {
+	IdempotencyConflict,
+	type IdempotencyIdentity,
+	type IdempotencyKeys,
+} from "#modules/mutations/idempotency";
 import type { RelationshipWriteResult } from "#modules/relationships/mutation-support";
 
 /**
  * Durable state that records a commit's result in its transaction. `load` runs first and returns the
  * result a previous commit recorded, which ends the commit without writing; `record` runs after every
- * write.
+ * write. `peek` reads the same result without a transaction or lock, before preparation.
  */
 export type CommitReceipt<A> = {
 	readonly load: Effect.Effect<A | null, DbError>;
+	readonly peek?: Effect.Effect<A | null, DbError>;
 	readonly record: (result: CommitResult) => Effect.Effect<A, DbError>;
 };
 
 /**
  * What a commit wrote; `outcomes` lists every event create by position in independent-items mode,
  * `cleared` and `merged` each entity data clear and merge in order, `relationships` each user
- * relationship change and `entities` each saved root entity, entity create and update under its item
- * identity, and `deleted` every deleted entity.
+ * relationship change and `entities` each saved root entity, entity create, update and reference under
+ * its item identity, and `deleted` every deleted entity.
  */
 export type CommitResult = {
 	readonly committed: CommittedChanges;
@@ -55,18 +60,24 @@ export const keyedReceipt = <A>(
 	identity: IdempotencyIdentity,
 	response: Schema.Codec<A, unknown>,
 	toResponse: (result: CommitResult) => A,
-): CommitReceipt<A> => ({
-	record: (result) => {
-		const value = toResponse(result);
-		return keys.record(identity, response, value).pipe(Effect.as(value));
-	},
-	load: keys.lockedRead(identity, response).pipe(
-		Effect.catchTag("IdempotencyConflict", () =>
-			Effect.die("A keyed commit received different changes on replay"),
-		),
-		Effect.map((stored) => stored?.response ?? null),
-	),
-});
+): CommitReceipt<A> => {
+	const stored = <E>(read: Effect.Effect<null | { readonly response: A }, E>) =>
+		read.pipe(
+			Effect.catchIf(
+				(error) => error instanceof IdempotencyConflict,
+				() => Effect.die("A keyed commit received different changes on replay"),
+			),
+			Effect.map((value) => value?.response ?? null),
+		);
+	return {
+		peek: stored(keys.read(identity, response)),
+		load: stored(keys.lockedRead(identity, response)),
+		record: (result) => {
+			const value = toResponse(result);
+			return keys.record(identity, response, value).pipe(Effect.as(value));
+		},
+	};
+};
 
 /** No durable state: the commit's written changes. */
 export const unrecordedChanges: CommitReceipt<CommittedChanges> = {

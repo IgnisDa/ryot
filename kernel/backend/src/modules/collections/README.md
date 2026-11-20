@@ -28,6 +28,9 @@ the RyotQL `relationship.collectionRank` field, ordered with the member's stable
 
 ## Commands and reads
 
+Adding or removing a member commits its relationship change and the membership event it records as
+one change set, so a failed event leaves the membership unchanged.
+
 `POST /collections/memberships/reorder` takes the member, an anchor or absolute end, and the expected
 revision. Ownership, revision validation and position changes commit atomically. Moving a member to where it
 already is succeeds without checking the revision, so a resent reorder is safe. No collection add/remove events or domain hooks

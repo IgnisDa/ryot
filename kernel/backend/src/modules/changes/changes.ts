@@ -1,6 +1,7 @@
 import type {
 	ChangeSet,
 	ChangeSetEntity,
+	ChangeSetEntityReference,
 	ChangeSetEntityUpdate,
 	ChangeSetGlobalEntityReference,
 } from "@ryot-app/contract/modules/changes/change-set";
@@ -12,6 +13,7 @@ import {
 	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
+	type EntityId,
 	EntitySchemaSlug,
 	type RelationshipId,
 	RelationshipSchemaSlug,
@@ -19,13 +21,34 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 
+import type { EntityMatch } from "#modules/entities/service";
 import type { EventMutation } from "#modules/events/mutations";
-import type { ReconcileGlobalRelationshipGroup } from "#modules/relationships/mutation-support";
+import type {
+	ReconcileGlobalRelationshipGroup,
+	RelationshipWriteResult,
+} from "#modules/relationships/mutation-support";
 
 export type EventChange = Exclude<EventMutation, { readonly kind: "create" }>;
+/** A user entity: the root, an existing one, or one this change set creates or references by `key`. */
+export type EntityReference =
+	ChangeSetEntityReference | { readonly key: string; readonly kind: "keyed" };
 export type GlobalEntityReference =
 	| Extract<ChangeSetGlobalEntityReference, { readonly kind: "existing" }>
 	| OwnedEntity<Extract<ChangeSetGlobalEntityReference, { readonly kind: "upserted" }>>;
+/**
+ * An event create recorded by the relationship change with item identity `relationship`, with the
+ * properties `properties` gives for what it wrote, or none for null. It runs no before policies.
+ */
+export type RelationshipEvent = {
+	readonly occurredAt: string;
+	readonly itemIdentity: string;
+	readonly relationship: string;
+	readonly entity: EntityReference;
+	readonly eventSchemaSlug: string;
+	readonly properties: (
+		written: RelationshipWriteResult,
+	) => null | Readonly<Record<string, unknown>>;
+};
 /**
  * What one writer commits, with owner-qualified schema references. Kernel writers build it directly;
  * script change sets reach it only through `fromScriptChangeSet`, which qualifies every schema with the
@@ -43,14 +66,19 @@ export type Changes = {
 	readonly events?: Omit<Part<"events">, "creates" | "changes"> & {
 		readonly changes: ReadonlyArray<EventChange>;
 		readonly creates: ReadonlyArray<
-			Omit<EventCreate, "properties"> & { readonly properties: unknown }
+			Omit<EventCreate, "entity" | "session" | "properties"> & {
+				readonly properties: unknown;
+				readonly entity: EntityReference;
+				readonly session?: undefined | EntityReference;
+			}
 		>;
 	};
 	readonly relationships?: {
-		readonly updates?: ReadonlyArray<OwnedRelationship<RelationshipWrite>>;
-		readonly ensures?: ReadonlyArray<OwnedRelationship<RelationshipWrite>>;
-		readonly deletes?: ReadonlyArray<OwnedRelationship<RelationshipDelete>>;
-		readonly upserts?: ReadonlyArray<OwnedRelationship<RelationshipUpsert>>;
+		readonly events?: ReadonlyArray<RelationshipEvent>;
+		readonly updates?: ReadonlyArray<OwnedRelationship<Keyed<RelationshipWrite>>>;
+		readonly ensures?: ReadonlyArray<OwnedRelationship<Keyed<RelationshipWrite>>>;
+		readonly deletes?: ReadonlyArray<OwnedRelationship<Keyed<RelationshipDelete>>>;
+		readonly upserts?: ReadonlyArray<OwnedRelationship<Keyed<RelationshipUpsert>>>;
 		readonly deletesById?: ReadonlyArray<{
 			readonly itemIdentity?: string;
 			readonly relationshipId: RelationshipId;
@@ -67,6 +95,13 @@ export type Changes = {
 		readonly deletes?: ReadonlyArray<
 			{ readonly preserveHistory?: true } & OwnedEntity<NonNullable<EntityParts["deletes"]>[number]>
 		>;
+		/** Existing entities the change set names by `key`; each is kept unchanged. */
+		readonly references?: ReadonlyArray<{
+			readonly key: string;
+			readonly entityId: EntityId;
+			readonly itemIdentity?: string;
+			readonly entitySchema: EntitySchemaReference;
+		}>;
 	};
 };
 type EntityParts = Part<"entities">;
@@ -100,19 +135,27 @@ type UnknownExpected<T> = T extends {
 	? Omit<T, "expected"> & { readonly expected: UnknownProperties<E> }
 	: T;
 
+type Keyed<T extends { readonly source: unknown; readonly target: unknown }> = Omit<
+	T,
+	"source" | "target"
+> & { readonly source: EntityReference; readonly target: EntityReference };
+
 /** Kernel writers pass properties and update baselines that the write validates. */
-type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = { readonly target: UnknownExpected<T["target"]> } & Omit<
-	UnknownProperties<OwnedEntity<T>>,
-	"target"
->;
+type EntityWrite<T extends { readonly target: unknown; readonly entitySchemaSlug: string }> = Omit<UnknownProperties<OwnedEntity<T>>, "target"> & {
+	readonly target: UnknownExpected<T["target"]>;
+};
 
 /**
- * A kernel writer's entity create. With a provider it keeps the entity its external ID already names
- * unless `updateExisting`.
+ * A kernel writer's entity create, which the change set's other parts may reference by `key`. With a
+ * provider it keeps the entity its external ID already names unless `updateExisting`; with a `match`
+ * it keeps the entity the match finds under its schema, and fails when none is found and the match
+ * is `required`.
  */
 type EntityCreate = UnknownProperties<OwnedEntity<Omit<ChangeSetEntity, "target">>> & {
+	readonly key?: string;
 	readonly externalId?: string;
 	readonly populatedAt?: null | string;
+	readonly match?: EntityMatch & { readonly required: boolean };
 	readonly provider?: { readonly updateExisting: boolean; readonly providerId: SandboxProviderId };
 };
 

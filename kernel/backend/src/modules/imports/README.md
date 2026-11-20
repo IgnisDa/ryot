@@ -16,16 +16,23 @@ The `data-json` source validates records against definitions already available t
 document-local keys resolve entity and relationship dependencies, including schema-declared nested
 property references. Provider entities use normal provider resolution; custom entities remain
 user-owned. Writes are append-only, use the normal lifecycle hooks, and commit incrementally, so
-failed records do not roll back earlier committed records.
+failed records do not roll back earlier committed records. Each record commits as one change set in
+its own activity, because a later record's property references need the IDs an earlier record's
+commit generated and a record fails alone. An existing or provider-resolved entity record is a
+reference, so its commit checks the entity's schema and records its `unchanged` import item.
 
 Each generic record's intents use item identities `<record>:<operationId>`, where `<record>` is
-the ingestion identity of the subject entity's operation. Validation selects one write path per
-record. A standalone record writes its entities, relationships, and collections step by step, then
-creates its events through standalone event creation. A record that contains declared event-group
-schemas writes its non-subject entities first, then commits its user-owned subject, relationships,
-and complete event group as one user command whose command identity is `<record>`; the per-item
-identities in that command produce the same per-intent item identities. Event preparation can
-span pages, but the record commits atomically.
+the ingestion identity of the subject entity's operation. Provider entities resolve in their own
+activities first; the record's entities, relationships and events then commit as one change set in
+one activity, under the command identity `<record>`. `commitImportItem` holds the commit's result in
+the account's idempotency key under that identity, so an activity retried after its commit replays
+the result instead of writing again. An intent's `entityId` or `match` is resolved inside the
+commit: a found entity is kept with an `unchanged` import item, and an `existingOnly` intent that
+finds none fails the record. Validation decides how the events commit: a standalone record's events
+are independent creates with their own outcomes, and a record that contains declared event-group
+schemas commits its complete event group all-or-nothing. Event preparation can span pages, but the
+record commits atomically. Coalesced events and collection memberships commit afterwards, each in
+its own activity.
 Independent Data JSON event records still follow standalone event rules; they cannot create an empty
 anchor and rely on a later record to repair it.
 

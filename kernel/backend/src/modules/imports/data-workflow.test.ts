@@ -24,14 +24,13 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import type { Changes } from "#modules/changes/changes";
+import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import { RelationshipsService } from "#modules/relationships/service";
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
@@ -100,6 +99,15 @@ const command = rootLifecycleCommand({
 	initiator: { kind: "user", id: ingestionTestScope.userId },
 	executionId: AutomationExecutionId.make(ingestionTestScope.runId),
 });
+const emptyCommit: CommitResult = {
+	merged: [],
+	cleared: [],
+	deleted: [],
+	entities: [],
+	outcomes: [],
+	relationships: [],
+	committed: { events: [] },
+};
 const event = (key: string, entityKey = "subject"): DataGraphRecord => ({
 	kind: "event",
 	record: {
@@ -117,7 +125,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 	const issues: IngestionIssue[] = [];
 	const projections: IngestionBatch[] = [];
 	const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
-	const submitted: Parameters<ChangeSets["Service"]["commitEventsKeyed"]>[0][] = [];
+	const submitted: Changes[] = [];
 	const records = [
 		event("written"),
 		event("skipped"),
@@ -149,34 +157,30 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 		Layer.mock(IngestionCaptures)({
 			read: () => Effect.succeed(Buffer.from(stableStringify(records))),
 		}),
-		Layer.mock(EntitiesService)({}),
 		Layer.mock(JobQueue)({}),
 		Layer.mock(TransientValues)({}),
 		Layer.mock(LifecycleExecution)({}),
 		Layer.mock(PluginRuntimeResolver)({}),
 		Layer.mock(EntityImportWorkflowOperations)({}),
-		Layer.mock(EntitiesRepository)({}),
-		Layer.mock(RelationshipsService)({}),
 		Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
 		Layer.mock(ChangeSets)({
-			commitEventsKeyed: (input, lifecycle) =>
-				Effect.sync(() => {
+			commitOnce: (input, lifecycle, receipt) =>
+				Effect.suspend(() => {
 					submitted.push(input);
 					const key =
 						["skipped", "independent"].find((value) => lifecycle.itemIdentity.includes(value)) ??
 						"written";
 					if (key === "skipped") {
-						return {
-							count: 0,
-							failure: null,
+						return receipt.record({
+							...emptyCommit,
 							outcomes: [
 								{
 									index: 0,
-									status: "skipped_by_policy" as const,
+									status: "skipped_by_policy",
 									reason: { namespace: "plugin1", key: "rejection.filtered" },
 								},
 							],
-						};
+						});
 					}
 					const item = ingestionTestItem(lifecycle.itemIdentity, "created");
 					if (!items.some(({ id }) => id === item.id)) {
@@ -185,11 +189,10 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 					if (cancelAfterWrite) {
 						run = { ...run, status: "cancelling" };
 					}
-					return {
-						count: 1,
-						failure: null,
-						outcomes: [{ index: 0, status: "written" as const, eventId: EventId.make(key) }],
-					};
+					return receipt.record({
+						...emptyCommit,
+						outcomes: [{ index: 0, status: "written", eventId: EventId.make(key) }],
+					});
 				}),
 		}),
 		Layer.mock(ImportsRepository)({
@@ -338,7 +341,7 @@ it.effect(
 			const entityKeys = Array.from({ length: 50 }, (_, index) => `entity-${index}`);
 			const captured = new Map<string, Parameters<IngestionCaptures["Service"]["publish"]>[0]>();
 			const registered: string[] = [];
-			const submitted: Parameters<ChangeSets["Service"]["commitEventsKeyed"]>[0][] = [];
+			const submitted: Changes[] = [];
 			const outcomes = new Map<string, IngestionOutcome>();
 			let sealed = false;
 			const integrationId = IntegrationId.make("integration");
@@ -396,20 +399,17 @@ it.effect(
 					}),
 				),
 				Layer.mock(IngestionExecution)({}),
-				Layer.mock(EntitiesService)({}),
 				Layer.mock(LifecycleExecution)({}),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(EntityImportWorkflowOperations)({}),
 				Layer.mock(JobQueue)({}),
 				Layer.mock(TransientValues)({}),
-				Layer.mock(EntitiesRepository)({}),
-				Layer.mock(RelationshipsService)({}),
 				Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
 				Layer.mock(ChangeSets)({
-					commitEventsKeyed: (input) =>
-						Effect.sync(() => {
+					commitOnce: (input, _lifecycle, receipt) =>
+						Effect.suspend(() => {
 							submitted.push(input);
-							return { count: 1, outcomes: [], failure: null };
+							return receipt.record(emptyCommit);
 						}),
 				}),
 				Layer.mock(DefinitionRepository)({ getUserSnapshot: () => Effect.succeed(snapshot) }),

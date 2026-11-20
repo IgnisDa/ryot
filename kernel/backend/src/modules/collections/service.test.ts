@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import { DbError } from "@ryot-app/contract/errors";
 import {
 	type CollectionField,
 	decodeCollectionFields,
@@ -17,6 +16,7 @@ import {
 	EntityStale,
 	type ListedEntity,
 } from "@ryot-app/contract/modules/entities/schemas";
+import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
@@ -43,7 +43,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Result } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import type { Changes } from "#modules/changes/changes";
+import type { Changes, RelationshipEvent } from "#modules/changes/changes";
 import type { CommitResult } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
@@ -182,7 +182,6 @@ const emptyCommit: CommitResult = {
 const mockCollections = Layer.mock(CollectionsRepository);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 
-type EventCreateCall = Parameters<ChangeSets["Service"]["commit"]>;
 type EntityDeleteCall = readonly [
 	NonNullable<NonNullable<Changes["entities"]>["deletes"]>,
 	DomainLifecycleCommand,
@@ -191,6 +190,12 @@ type EntityDeleteCall = readonly [
 type EntityWrite = NonNullable<Changes["entity"]> & {
 	readonly userId: Changes["userId"];
 	readonly lifecycle: DomainLifecycleCommand;
+};
+/** A membership event the relationship commit recorded, with the properties it was given. */
+type RecordedEvent = {
+	readonly event: RelationshipEvent;
+	readonly command: DomainLifecycleCommand;
+	readonly properties: Readonly<Record<string, unknown>>;
 };
 
 type RelationshipWrite = NonNullable<NonNullable<Changes["relationships"]>["ensures"]>[number] & {
@@ -201,9 +206,9 @@ type RelationshipWrite = NonNullable<NonNullable<Changes["relationships"]>["ensu
 class CollectionCalls extends Context.Service<
 	CollectionCalls,
 	{
+		readonly eventCreates: Effect.Effect<ReadonlyArray<RecordedEvent>>;
 		readonly createdEntities: Effect.Effect<ReadonlyArray<EntityWrite>>;
 		readonly updatedEntities: Effect.Effect<ReadonlyArray<EntityWrite>>;
-		readonly eventCreates: Effect.Effect<ReadonlyArray<EventCreateCall>>;
 		readonly deletedEntities: Effect.Effect<ReadonlyArray<EntityDeleteCall>>;
 		readonly relationshipInputs: Effect.Effect<ReadonlyArray<RelationshipWrite>>;
 		readonly lifecycleCommands: Effect.Effect<Readonly<Record<string, DomainLifecycleCommand>>>;
@@ -212,14 +217,15 @@ class CollectionCalls extends Context.Service<
 
 const membershipExecutionId = "membership-execution-id";
 
-const membershipEvent = (item: Record<string, unknown>) => ({
-	userId: user.id,
-	events: { creates: [{ ...item, entity: { kind: "existing", entityId: collectionId } }] },
+const membershipEvent = (eventSchemaSlug: EventSchemaSlug) => ({
+	eventSchemaSlug,
+	itemIdentity: "membership-event",
+	entity: { kind: "existing", entityId: collectionId },
 });
 
 const makeServiceLayer = (
 	options: {
-		readonly workflow?: { readonly eventFailure?: unknown };
+		readonly workflow?: { readonly eventFailure?: true };
 		readonly collections?: MockOverrides<typeof mockCollections>;
 		readonly relationships?: {
 			readonly write?: Effect.Effect<RelationshipWriteResult>;
@@ -240,7 +246,7 @@ const makeServiceLayer = (
 			const updatedEntities = yield* Ref.make<ReadonlyArray<EntityWrite>>([]);
 			const deletedEntities = yield* Ref.make<ReadonlyArray<EntityDeleteCall>>([]);
 			const relationshipInputs = yield* Ref.make<ReadonlyArray<RelationshipWrite>>([]);
-			const eventCreates = yield* Ref.make<ReadonlyArray<EventCreateCall>>([]);
+			const eventCreates = yield* Ref.make<ReadonlyArray<RecordedEvent>>([]);
 			const lifecycleCommands = yield* Ref.make<Readonly<Record<string, DomainLifecycleCommand>>>(
 				{},
 			);
@@ -281,34 +287,40 @@ const makeServiceLayer = (
 				deleteById: Effect.succeed(committedDeletion),
 				...options.relationships,
 			};
-			const commitRelationships = (
+			const workflow = options.workflow ?? {};
+			/** A relationship commit with the events it records; a failing event writes neither. */
+			const commitRelationships = Effect.fnUntraced(function* (
 				changes: Changes,
 				part: NonNullable<Changes["relationships"]>,
 				lifecycle: DomainLifecycleCommand,
-			) => {
+			) {
 				const ensured = part.ensures?.[0];
 				const write = ensured ?? part.upserts?.[0];
-				const committed = write
-					? Ref.update(relationshipInputs, (all) => [
-							...all,
-							{
-								...write,
-								userId: changes.userId,
-								mode: ensured ? ("ensure" as const) : ("upsert" as const),
-							},
-						]).pipe(
-							Effect.andThen(recordCommand("relationships.write", lifecycle)),
-							Effect.andThen(relationships.write),
-						)
-					: recordCommand("relationships.deleteById", lifecycle).pipe(
-							Effect.andThen(relationships.deleteById),
-						);
-				return Effect.map(committed, (result): CommitResult => ({
+				const result = yield* write ? relationships.write : relationships.deleteById;
+				const recorded = (part.events ?? []).flatMap((event) => {
+					const properties = event.properties(result);
+					return properties === null ? [] : [{ event, properties, command: lifecycle }];
+				});
+				if (recorded.length > 0 && workflow.eventFailure) {
+					return yield* new EventBadRequest({ reason: { code: "mutation-conflict" } });
+				}
+				if (write) {
+					yield* Ref.update(relationshipInputs, (all) => [
+						...all,
+						{
+							...write,
+							userId: changes.userId,
+							mode: ensured ? ("ensure" as const) : ("upsert" as const),
+						},
+					]);
+				}
+				yield* recordCommand(write ? "relationships.write" : "relationships.deleteById", lifecycle);
+				yield* Ref.update(eventCreates, (all) => [...all, ...recorded]);
+				return {
 					...emptyCommit,
 					relationships: [{ ...result, itemIdentity: lifecycle.itemIdentity }],
-				}));
-			};
-			const workflow = options.workflow ?? {};
+				} satisfies CommitResult;
+			});
 			const dependencies = Layer.mergeAll(
 				Layer.mock(EntitiesRepository)({}),
 				mockCollections({
@@ -331,24 +343,10 @@ const makeServiceLayer = (
 				}),
 				mockRelationshipSchemas({ findKernelBySlug: () => Effect.succeed(memberOfSchema) }),
 				Layer.mock(ChangeSets)({
-					commit: (...call) => {
-						if (call[0].relationships) {
-							return commitRelationships(call[0], call[0].relationships, call[1]);
-						}
-						if (call[0].entity || call[0].entities) {
-							return commitEntity(call[0], call[1]);
-						}
-						return Ref.update(eventCreates, (all): ReadonlyArray<EventCreateCall> => [
-							...all,
-							call,
-						]).pipe(
-							Effect.andThen(
-								workflow.eventFailure
-									? Effect.fail(new DbError({ message: "event creation failed" }))
-									: Effect.succeed(emptyCommit),
-							),
-						);
-					},
+					commit: (changes, lifecycle) =>
+						changes.relationships
+							? commitRelationships(changes, changes.relationships, lifecycle)
+							: commitEntity(changes, lifecycle),
 				}),
 				Layer.succeed(CollectionCalls, {
 					eventCreates: Ref.get(eventCreates),
@@ -650,11 +648,13 @@ layer(makeServiceLayer())((test) => {
 					command("membership-execution", "collection:add-membership"),
 				);
 				const [add] = yield* (yield* CollectionCalls).eventCreates;
-				expect(add).toMatchObject([
-					membershipEvent({ eventSchemaSlug: addEventSchema.id }),
-					{ writeContext: null, causation: { executionId: "membership-execution" } },
-					{ events: { independent: true } },
-				]);
+				expect(add).toMatchObject({
+					command: { writeContext: null, causation: { executionId: "membership-execution" } },
+					event: {
+						...membershipEvent(addEventSchema.id),
+						relationship: "collection:add-membership",
+					},
+				});
 			}),
 		testTimeout,
 	);
@@ -1017,25 +1017,27 @@ layer(makeServiceLayer())((test) => {
 					slug: RelationshipSchemaSlug.make("member-of"),
 				});
 				const [created] = yield* calls.eventCreates;
-				expect(created).toMatchObject([
-					membershipEvent({ properties: { entitySchemaSlug: "record" } }),
-					{
-						writeContext: null,
-						kernelCollection: true,
-						causation: membershipCommand?.causation,
+				expect(created).toMatchObject({
+					command: membershipCommand,
+					event: {
+						...membershipEvent(addEventSchema.id),
 						occurredAt: membershipCommand?.occurredAt,
-						itemIdentity: stableStringify(["collection:add-membership", "event:relationship-id"]),
 					},
-					{ events: { independent: true } },
-				]);
+					properties: {
+						entityId,
+						relationshipId,
+						relationshipProperties: {},
+						entitySchemaSlug: "record",
+					},
+				});
 			}),
 		testTimeout,
 	);
 });
 
-layer(makeServiceLayer({ workflow: { eventFailure: new Error("failed") } }))((test) => {
+layer(makeServiceLayer({ workflow: { eventFailure: true } }))((test) => {
 	test.effect(
-		"compensates with a stable identity derived from the original lifecycle fact",
+		"fails a membership whose event fails without writing its relationship",
 		() =>
 			Effect.gen(function* () {
 				const exit = yield* Effect.exit(runMembershipWorkflow());
@@ -1043,18 +1045,9 @@ layer(makeServiceLayer({ workflow: { eventFailure: new Error("failed") } }))((te
 					exit,
 					new CollectionBadRequest({ reason: { code: "membership-event-failed" } }),
 				);
-				const commands = yield* (yield* CollectionCalls).lifecycleCommands;
-				expect(commands["relationships.deleteById"]).toMatchObject({
-					occurredAt: now,
-					itemIdentity: stableStringify([
-						"collection:add-membership",
-						"compensation:relationship-id",
-					]),
-					causation: {
-						executionId: "membership-execution-id",
-						rootExecutionId: "membership-execution-id",
-					},
-				});
+				const calls = yield* CollectionCalls;
+				expect(yield* calls.relationshipInputs).toEqual([]);
+				expect(yield* calls.lifecycleCommands).toEqual({});
 			}),
 		testTimeout,
 	);
@@ -1089,22 +1082,14 @@ layer(
 				});
 				expect(relationshipCommand).toMatchObject({ writeContext: null, kernelCollection: true });
 				const [created] = yield* calls.eventCreates;
-				expect(created).toMatchObject([
-					membershipEvent({
-						eventSchemaSlug: removeEventSchema.id,
-						properties: { relationshipProperties: { rank: 3, note: "kept" } },
-					}),
-					{
-						kernelCollection: true,
-						causation: relationshipCommand?.causation,
-						occurredAt: relationshipCommand?.occurredAt,
-						itemIdentity: stableStringify([
-							"collection:remove-membership",
-							"event:relationship-id",
-						]),
+				expect(created).toMatchObject({
+					command: relationshipCommand,
+					properties: { relationshipId, relationshipProperties: { rank: 3, note: "kept" } },
+					event: {
+						...membershipEvent(removeEventSchema.id),
+						relationship: "collection:remove-membership",
 					},
-					{ events: { independent: true } },
-				]);
+				});
 			}),
 		testTimeout,
 	);
@@ -1120,11 +1105,10 @@ layer(
 					command("removal-execution", "collection:remove-membership"),
 				);
 				const remove = (yield* (yield* CollectionCalls).eventCreates).at(-1);
-				expect(remove).toMatchObject([
-					membershipEvent({ eventSchemaSlug: removeEventSchema.id }),
-					{ causation: { executionId: "removal-execution" } },
-					{ events: { independent: true } },
-				]);
+				expect(remove).toMatchObject({
+					event: membershipEvent(removeEventSchema.id),
+					command: { causation: { executionId: "removal-execution" } },
+				});
 			}),
 		testTimeout,
 	);
@@ -1132,12 +1116,12 @@ layer(
 
 layer(
 	makeServiceLayer({
-		workflow: { eventFailure: new Error("failed") },
+		workflow: { eventFailure: true },
 		collections: { findMembership: () => Effect.succeed({ properties: {}, id: relationshipId }) },
 	}),
 )((test) => {
 	test.effect(
-		"restores the removed membership with its prior properties when the event fails",
+		"fails a removal whose event fails without deleting its membership",
 		() =>
 			Effect.gen(function* () {
 				const exit = yield* Effect.exit(
@@ -1150,20 +1134,7 @@ layer(
 					exit,
 					new CollectionBadRequest({ reason: { code: "membership-event-failed" } }),
 				);
-				const calls = yield* CollectionCalls;
-				const [restored] = yield* calls.relationshipInputs;
-				expect(restored).toMatchObject({
-					userId: user.id,
-					source: { entityId },
-					target: { entityId: collectionId },
-					properties: { rank: 3, note: "kept" },
-				});
-				expect((yield* calls.lifecycleCommands)["relationships.write"]).toMatchObject({
-					itemIdentity: stableStringify([
-						"collection:remove-membership",
-						"compensation:relationship-id",
-					]),
-				});
+				expect(yield* (yield* CollectionCalls).lifecycleCommands).toEqual({});
 			}),
 		testTimeout,
 	);

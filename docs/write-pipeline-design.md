@@ -239,8 +239,17 @@ and its named tests, then its e2e files.
 5. **Entities, editor, bootstrap and test support** (done). Entity creates and upserts, batch entity
    policies. `write-step.ts` went here, its last callers having moved; the plugin bootstrap port lost
    its dispatch plans because bootstrap entities now commit with their own dispatch.
-6. **Imports and collections.** One change set per import item; atomic collection membership.
-   Deletes the collection compensation and `EntitiesService.recordImportReference`.
+6. **Imports and collections** (done). One change set per import item; atomic collection membership.
+   Deletes the collection compensation and `EntitiesService.recordImportReference`. Deviations: the
+   kernel `Changes` gained keyed entity creates, a create `match` decided in preparation and rechecked
+   in the commit, `references` for entities an item names without writing, and relationship `events`,
+   built from what the relationship wrote, because a membership event needs the relationship's
+   generated ID and rank; the script `ChangeSet` is unchanged. Entity creates and updates now persist
+   with the root entity, before relationships and events. A data import commits per record, not per
+   segment, since later records reference IDs earlier commits generate. Coalesced import events
+   still commit through `IntegrationEventWrites` and collection memberships in their own activity
+   after the item. `CommitReceipt.peek` reads a keyed receipt without a transaction, so a receipt per
+   item adds no transaction.
 7. **Population, completion trigger, reminders and signal schedules.**
 8. **Docs and audit.** These return nothing outside `changes/` and `events/mutations.ts`:
    `EventsService`, `makeEventCreate`, `runLifecycleWrite`, `runItemPolicy`, `planner.planChange`.

@@ -14,15 +14,14 @@ import {
 	MembershipResponse,
 	type UpdateCollectionBody,
 } from "@ryot-app/contract/modules/collections/schemas";
-import {
-	type EntityBadRequest,
-	type EntityNotFound,
-	type EntityStale,
-	ListedEntity,
+import type {
+	EntityBadRequest,
+	EntityNotFound,
+	EntityStale,
 } from "@ryot-app/contract/modules/entities/schemas";
 import type { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
-	EntityId,
+	type EntityId,
 	EventSchemaSlug,
 	RelationshipSchemaSlug,
 	type UserId,
@@ -30,10 +29,9 @@ import {
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Context, Effect, Layer, Schema, Struct } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
-import { type Changes, eventCreateChanges } from "#modules/changes/changes";
-import { toCreateEventsResponse } from "#modules/changes/outcomes";
+import type { Changes } from "#modules/changes/changes";
 import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
@@ -47,21 +45,6 @@ import { trimToNull } from "#platform/validation";
 import { collectionMembershipSchema, prepareCollectionFields } from "./fields";
 import { CollectionsRepository } from "./repository";
 import { toCollectionResponse } from "./service-support";
-
-export const CollectionMembershipResult = Schema.Struct({
-	entityId: EntityId,
-	occurredAt: Schema.String,
-	entitySchemaSlug: Schema.String,
-	memberOf: MembershipResponse.fields.memberOf,
-	eventSchemaSlug: Schema.NullOr(EventSchemaSlug),
-	operation: RelationshipWriteResult.fields.operation,
-});
-export type CollectionMembershipResult = typeof CollectionMembershipResult.Type;
-
-type MembershipDetails = Omit<CollectionMembershipResult, "memberOf" | "operation"> & {
-	readonly collectionId: EntityId;
-	readonly change: "add" | "remove";
-};
 
 export const CollectionMembershipWritten = Schema.Struct({
 	...MembershipResponse.fields,
@@ -77,9 +60,6 @@ type MembershipInput = {
 	readonly command: DomainLifecycleCommand;
 	readonly mode?: CreateMembershipBody["mode"];
 };
-
-export const CollectionEntityResult = Schema.Struct(Struct.pick(ListedEntity.fields, ["id"]));
-export type CollectionEntityResult = typeof CollectionEntityResult.Type;
 
 export const childCollectionLifecycleCommand = (
 	command: DomainLifecycleCommand,
@@ -112,13 +92,19 @@ const invalidCollection = (error: EntityBadRequest) =>
 		},
 	});
 
+const membershipEventFailures = new Set([
+	"EventStale",
+	"EventNotFound",
+	"EventBadRequest",
+	"EventCreateItemError",
+]);
+const membershipEventFailed = () =>
+	new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
+
 const nameTaken = () => new CollectionBadRequest({ reason: { field: "name", code: "name-taken" } });
 
 const collectionNotFound = (collectionId: EntityId) =>
 	new CollectionNotFound({ reason: { collectionId, code: "collection-not-found" } });
-
-const compensationFailed = () =>
-	new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
 
 const requireBuiltinOrDie =
 	<T>(message: string) =>
@@ -368,7 +354,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					const entitySchema = yield* collectionEntitySchema;
 					const existing = yield* repository.findCollectionByNameForUser({ name, userId });
 					if (existing) {
-						return { id: existing.id } satisfies CollectionEntityResult;
+						return { id: existing.id };
 					}
 					const lifecycle = childCollectionLifecycleCommand(
 						kernelCollectionLifecycleCommand(command),
@@ -397,56 +383,81 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 										)
 								: Effect.die(error),
 					);
-					return { id: created.id } satisfies CollectionEntityResult;
+					return { id: created.id };
 				},
 			);
 
-			/** Commits the membership's relationship change under the membership command's own identity. */
-			const commitRelationship = Effect.fnUntraced(function* <E>(
-				target: MembershipTarget,
-				relationships: NonNullable<Changes["relationships"]>,
-				rejected: (error: RelationshipBadRequest) => E,
+			/**
+			 * Commits the membership's relationship change under the membership command's own identity,
+			 * with the membership event it records when it adds or deletes the relationship.
+			 */
+			const commitMembership = Effect.fnUntraced(function* (
+				target: MembershipTarget & { readonly change: "add" | "remove" },
+				relationships: Omit<NonNullable<Changes["relationships"]>, "events">,
+				event: null | { readonly id: EventSchemaSlug; readonly entitySchemaSlug: string },
 			) {
+				const events = event
+					? [
+							{
+								eventSchemaSlug: event.id,
+								itemIdentity: "membership-event",
+								occurredAt: target.command.occurredAt,
+								relationship: target.command.itemIdentity,
+								entity: { kind: "existing" as const, entityId: target.collectionId },
+								properties: ({ operation, relationship }: RelationshipWriteResult) =>
+									relationship &&
+									(target.change === "add" ? relationship.wasInserted : operation === "delete")
+										? {
+												entityId: target.entityId,
+												relationshipId: relationship.id,
+												entitySchemaSlug: event.entitySchemaSlug,
+												relationshipProperties: relationship.properties,
+											}
+										: null,
+							},
+						]
+					: [];
 				const committed = yield* changes
-					.commit({ relationships, userId: target.userId }, target.command, {
-						relationships: { verbatimIdentities: true },
-					})
+					.commit(
+						{ userId: target.userId, relationships: { ...relationships, events } },
+						target.command,
+						{ relationships: { verbatimIdentities: true } },
+					)
 					.pipe(
-						Effect.catch((error): Effect.Effect<never, E | DbError> => {
+						Effect.catch((error): Effect.Effect<never, DbError | CollectionBadRequest> => {
 							if (error._tag === "RelationshipBadRequest") {
-								return Effect.fail(rejected(error));
+								return Effect.fail(invalidMembership(error));
 							}
-							return error._tag === "DbError" ? Effect.fail(error) : Effect.die(error);
+							if (error._tag === "DbError") {
+								return Effect.fail(error);
+							}
+							return membershipEventFailures.has(error._tag)
+								? Effect.logWarning("collection membership event failed", { error }).pipe(
+										Effect.andThen(Effect.fail(membershipEventFailed())),
+									)
+								: Effect.die(error);
 						}),
 					);
 				const [result] = committed.relationships;
-				return result ?? (yield* Effect.die("A membership commit returned no relationship"));
-			});
-
-			const committedMembership = Effect.fnUntraced(function* (
-				pending: MembershipDetails,
-				committed: RelationshipWriteResult,
-			) {
-				const { change, collectionId, ...membership } = pending;
-				if (!committed.relationship) {
-					return yield* change === "add"
+				if (!result) {
+					return yield* Effect.die("A membership commit returned no relationship");
+				}
+				if (!result.relationship) {
+					return yield* target.change === "add"
 						? Effect.die("membership upsert returned no relationship")
 						: new CollectionNotFound({
 								reason: {
-									collectionId,
+									entityId: target.entityId,
 									code: "membership-not-found",
-									entityId: membership.entityId,
+									collectionId: target.collectionId,
 								},
 							});
 				}
-				const { wasInserted, ...memberOf } = committed.relationship;
-				const emitsEvent = change === "add" ? wasInserted : committed.operation === "delete";
+				const { wasInserted: _inserted, ...memberOf } = result.relationship;
 				return {
-					...membership,
-					operation: committed.operation,
+					operation: result.operation,
 					memberOf: { ...memberOf, relationshipSchemaPluginId: null },
-					eventSchemaSlug: emitsEvent ? membership.eventSchemaSlug : null,
-				} satisfies CollectionMembershipResult;
+				};
 			});
 
 			const resolveMembershipTarget = Effect.fnUntraced(function* (input: MembershipTarget) {
@@ -499,23 +510,12 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					source: { entityId: input.entityId, kind: "existing" as const },
 					target: { kind: "existing" as const, entityId: input.collectionId },
 				};
-				const committed = yield* commitRelationship(
-					input,
+				return yield* commitMembership(
+					{ ...input, change: "add" },
 					input.mode === "add-if-absent"
 						? { ensures: [relationship] }
 						: { upserts: [{ ...relationship, propertiesMode: "replace" }] },
-					invalidMembership,
-				);
-				return yield* committedMembership(
-					{
-						change: "add",
-						entityId: entity.id,
-						collectionId: input.collectionId,
-						occurredAt: input.command.occurredAt,
-						eventSchemaSlug: addEvent?.id ?? null,
-						entitySchemaSlug: entity.entitySchemaSlug,
-					},
-					committed,
+					addEvent ? { id: addEvent.id, entitySchemaSlug: entity.entitySchemaSlug } : null,
 				);
 			});
 
@@ -535,100 +535,29 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					return yield* membershipNotFound;
 				}
 				const removeEvent = yield* removeEventSchema;
-				const committed = yield* commitRelationship(
-					input,
+				return yield* commitMembership(
+					{ ...input, change: "remove" },
 					{
 						deletesById: [
 							{ relationshipId: existing.id, itemIdentity: input.command.itemIdentity },
 						],
 					},
-					invalidMembership,
-				);
-				if (!committed.relationship) {
-					return yield* membershipNotFound;
-				}
-				return yield* committedMembership(
-					{
-						change: "remove",
-						entityId: entity.id,
-						collectionId: input.collectionId,
-						occurredAt: input.command.occurredAt,
-						eventSchemaSlug: removeEvent?.id ?? null,
-						entitySchemaSlug: entity.entitySchemaSlug,
-					},
-					committed,
+					removeEvent ? { id: removeEvent.id, entitySchemaSlug: entity.entitySchemaSlug } : null,
 				);
 			});
 
 			const writeMembership = Effect.fn("CollectionsService.writeMembership")(function* (
 				input: MembershipInput,
 			) {
-				const command = kernelCollectionLifecycleCommand(input.command);
 				const target = {
-					command,
 					userId: input.userId,
 					entityId: input.entityId,
 					collectionId: input.collectionId,
+					command: kernelCollectionLifecycleCommand(input.command),
 				};
-				const result =
-					input.operation === "add"
-						? yield* addMembership({ ...target, mode: input.mode, properties: input.properties })
-						: yield* removeMembership(target);
-				if (!result.eventSchemaSlug) {
-					return { memberOf: result.memberOf, operation: result.operation };
-				}
-				const created = yield* changes
-					.commit(
-						eventCreateChanges(input.userId, [
-							{
-								entityId: input.collectionId,
-								occurredAt: result.occurredAt,
-								eventSchemaSlug: result.eventSchemaSlug,
-								properties: {
-									entityId: result.entityId,
-									relationshipId: result.memberOf.id,
-									entitySchemaSlug: result.entitySchemaSlug,
-									relationshipProperties: result.memberOf.properties,
-								},
-							},
-						]),
-						childCollectionLifecycleCommand(command, `event:${result.memberOf.id}`),
-						{ events: { independent: true } },
-					)
-					.pipe(
-						Effect.map((written) => toCreateEventsResponse(written.outcomes)),
-						Effect.result,
-					);
-				const failure =
-					created._tag === "Failure" ? created.failure : created.success.failure?.reason;
-				if (failure === undefined) {
-					return { memberOf: result.memberOf, operation: result.operation };
-				}
-				const relationshipId = result.memberOf.id;
-				const childCommand = childCollectionLifecycleCommand(
-					command,
-					`compensation:${relationshipId}`,
-				);
-				yield* commitRelationship(
-					{ ...target, command: childCommand },
-					input.operation === "add"
-						? { deletesById: [{ relationshipId, itemIdentity: childCommand.itemIdentity }] }
-						: {
-								upserts: [
-									{
-										propertiesMode: "replace",
-										properties: result.memberOf.properties,
-										itemIdentity: childCommand.itemIdentity,
-										relationshipSchema: yield* memberOfReference,
-										source: { kind: "existing", entityId: input.entityId },
-										target: { kind: "existing", entityId: input.collectionId },
-									},
-								],
-							},
-					compensationFailed,
-				);
-				yield* Effect.logWarning("collection membership event failed", { failure });
-				return yield* new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
+				return input.operation === "add"
+					? yield* addMembership({ ...target, mode: input.mode, properties: input.properties })
+					: yield* removeMembership(target);
 			});
 
 			const addToCollection = Effect.fn("CollectionsService.addToCollection")(function* (

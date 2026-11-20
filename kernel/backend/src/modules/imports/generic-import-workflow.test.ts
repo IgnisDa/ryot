@@ -24,9 +24,7 @@ import { CollectionsService } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
@@ -178,9 +176,7 @@ const applyCase = (
 						return buildDefinitionSnapshot(kernelDefinitionSource());
 					}),
 			}),
-			Layer.mock(EntitiesService)({}),
 			Layer.mock(EntitiesRepository)({}),
-			Layer.mock(RelationshipsService)({}),
 			Layer.mock(CollectionsService)({}),
 			Layer.mock(SandboxRepository)({
 				getSchemaScope: () => Effect.succeed({ ...emptySchemaScope, entitySchemaSlugs }),

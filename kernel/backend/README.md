@@ -11,7 +11,7 @@ boundaries; repositories own row normalization and persistence through their cap
 Shared writes join the caller's transaction without passing raw executors between services. Owners
 that require a top-level transaction reject an already active one.
 
-Runtime writes from imports, jobs, sandbox callbacks, bootstrap, the entity editor, and HTTP commit
+Runtime writes from imports, collections, jobs, sandbox callbacks, bootstrap, the entity editor, and HTTP commit
 through [`ChangeSets`](src/modules/changes/README.md), whose owning services prepare and persist each
 part. Historical backup restore instead uses the
 [backup-owned persistence path](src/modules/backups/README.md). Schema-backed entity,

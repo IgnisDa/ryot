@@ -1,15 +1,12 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
-import { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import { DataJsonDocument, dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import type { IngestionBatch, IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
-import { RelationshipMutationResult } from "@ryot-app/contract/modules/relationships/schemas";
 import type { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
-import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EventSchemaSlug, RelationshipId } from "@ryot-app/contract/schema/brands";
 import { definitionLookup, DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
-import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
@@ -18,11 +15,8 @@ import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { requiredReference, rewritePropertyReferences } from "#modules/backups/data-references";
-import { eventCreateChanges } from "#modules/changes/changes";
-import { ChangeSets } from "#modules/changes/service";
+import type { Changes } from "#modules/changes/changes";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DatabaseSession } from "#platform/db/session";
 import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
@@ -39,11 +33,10 @@ import {
 } from "./data-graph";
 import { IngestionExecution } from "./execution-service";
 import {
+	commitImportItem,
 	failureReasonByStage,
-	GenericImportEntity,
 	GenericImportProviderError,
 	resolveProviderEntity,
-	writeGenericImportEntity,
 } from "./generic-import-workflow";
 import { ingestionItemIdentity, ingestionOperationCommand } from "./outcomes";
 import { ImportsRepository } from "./repository";
@@ -107,6 +100,19 @@ const DataImportSegmentResult = Schema.Struct({
 });
 
 const DATA_IMPORT_SEGMENT_SIZE = 50;
+
+const DataRecordWritten = Schema.Union([
+	Schema.Struct({
+		kind: Schema.Literal("written"),
+		entityId: Schema.NullOr(EntityId),
+		relationshipId: Schema.NullOr(RelationshipId),
+	}),
+	Schema.Struct({
+		message: Schema.String,
+		kind: Schema.Literal("failed"),
+		stage: Schema.Literals(importRunFailureStages),
+	}),
+]);
 
 class DataImportRecordError extends Schema.TaggedError<
 	DataImportRecordError,
@@ -463,9 +469,6 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 				.transaction(repository.startBatch(scope, input.batch.id))
 				.pipe(Effect.mapError(toWorkflowError)),
 		});
-		const entities = yield* EntitiesService;
-		const entityRepository = yield* EntitiesRepository;
-		const changes = yield* ChangeSets;
 		const assets = yield* ManagedAssetsService;
 		const definitions = definitionLookup(input.snapshot);
 		const entitySchemasByKey = new Map(Object.entries(input.entitySchemasByKey));
@@ -479,39 +482,110 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 		const { totalItems } = input.startingCounters;
 		const report = (
 			item: DataGraphRecord,
-			failure: null | Pick<DataImportRecordError, "stage" | "message">,
+			failure: Pick<DataImportRecordError, "stage" | "message">,
 		) =>
 			makeActivity({
 				error: ImportRunError,
 				name: `report-${dataOperation(scope, item).operationId}`,
 				execute: Effect.gen(function* () {
-					if (failure !== null) {
-						yield* Effect.logWarning("Data import record failed", {
-							key: item.record.key,
-							message: failure.message,
-						});
-						const operation = dataOperation(scope, item);
-						yield* database.transaction(
-							Effect.gen(function* () {
-								yield* repository.recordIssue(scope, {
-									severity: "error",
-									id: operation.operationId,
-									recordKind: operation.recordKind,
-									operationId: operation.operationId,
-									attribution: operation.attribution,
-									reason: { key: null, code: failureReasonByStage[failure.stage].code },
-								});
-								yield* repository.recordOutcome(scope, {
-									...operation,
-									result: "unsuccessful",
-									inputFingerprint: input.batch.inputFingerprint,
-									reason: { key: null, code: failureReasonByStage[failure.stage].code },
-								});
-							}),
-						);
-					}
+					yield* Effect.logWarning("Data import record failed", {
+						key: item.record.key,
+						message: failure.message,
+					});
+					const operation = dataOperation(scope, item);
+					yield* database.transaction(
+						Effect.gen(function* () {
+							yield* repository.recordIssue(scope, {
+								severity: "error",
+								id: operation.operationId,
+								recordKind: operation.recordKind,
+								operationId: operation.operationId,
+								attribution: operation.attribution,
+								reason: { key: null, code: failureReasonByStage[failure.stage].code },
+							});
+							yield* repository.recordOutcome(scope, {
+								...operation,
+								result: "unsuccessful",
+								inputFingerprint: input.batch.inputFingerprint,
+								reason: { key: null, code: failureReasonByStage[failure.stage].code },
+							});
+						}),
+					);
 				}).pipe(Effect.mapError(toWorkflowError)),
 			});
+		const existing = (key: string) =>
+			Effect.map(requiredReference(entityIds, key, "entity"), (entityId) => ({
+				kind: "existing" as const,
+				entityId: EntityId.make(entityId),
+			}));
+		/** The record's one change set; an entity the record names without writing is referenced. */
+		const recordChanges = Effect.fnUntraced(function* (
+			item: DataGraphRecord,
+			properties: Record<string, unknown>,
+			itemIdentity: string,
+			resolved: EntityId | undefined,
+		) {
+			const { userId } = input;
+			if (item.kind === "entity") {
+				const { record } = item;
+				if (record.kind === "custom") {
+					return {
+						userId,
+						entities: {
+							creates: [
+								{ properties, itemIdentity, name: record.name, entitySchema: record.entitySchema },
+							],
+						},
+					} satisfies Changes;
+				}
+				const entityId = record.kind === "existing" ? EntityId.make(record.entityId) : resolved;
+				if (entityId === undefined) {
+					return yield* Effect.die("A provider record committed before it resolved");
+				}
+				return {
+					userId,
+					entities: {
+						references: [
+							{ entityId, itemIdentity, key: record.key, entitySchema: record.entitySchema },
+						],
+					},
+				} satisfies Changes;
+			}
+			if (item.kind === "relationship") {
+				return {
+					userId,
+					relationships: {
+						upserts: [
+							{
+								properties,
+								itemIdentity,
+								propertiesMode: "replace",
+								relationshipSchema: item.record.relationshipSchema,
+								source: yield* existing(item.record.sourceEntityKey),
+								target: yield* existing(item.record.targetEntityKey),
+							},
+						],
+					},
+				} satisfies Changes;
+			}
+			const { sessionEntityKey } = item.record;
+			return {
+				userId,
+				events: {
+					changes: [],
+					creates: [
+						{
+							properties,
+							itemIdentity,
+							occurredAt: item.record.occurredAt,
+							entity: yield* existing(item.record.entityKey),
+							eventSchemaSlug: EventSchemaSlug.make(item.record.eventSchemaSlug),
+							...(sessionEntityKey ? { session: yield* existing(sessionEntityKey) } : {}),
+						},
+					],
+				},
+			} satisfies Changes;
+		});
 		const writeRecord = Effect.fnUntraced(function* (item: DataGraphRecord, index: number) {
 			const schema = dataGraphPropertiesSchema(item, entitySchemasByKey, input.snapshot);
 			if (!schema) {
@@ -548,209 +622,127 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 							),
 						)
 					: {};
-			yield* makeActivity({
-				error: ImportRunError,
-				name: `validate-data-record-${index}`,
-				execute: Effect.gen(function* () {
-					const locators = collectManagedAssetLocators([{ properties, propertiesSchema: schema }]);
-					yield* assets.verifyManagedAssetOwnership(input.userId, locators);
-					if (item.kind === "entity" && item.record.kind === "custom") {
-						yield* definitions.validateEntityProperties(item.record.entitySchema, properties);
-					}
-				}).pipe(Effect.mapError(toWorkflowError)),
-			}).pipe(
-				Effect.mapError(
-					(error) =>
-						new DataImportRecordError({ message: error.message, stage: "input_transformation" }),
-				),
-			);
 			const operation = dataOperation(scope, item);
 			const command = ingestionOperationCommand(input.command, operation.operationId);
-			if (item.kind === "entity") {
-				const record = item.record;
-				const intent: GenericImportWriteItem["entities"][number] = {
-					properties,
-					alias: record.key,
-					operationId: operation.operationId,
-					entitySchemaSlug: record.entitySchema.slug,
-					name: record.kind === "custom" ? record.name : "",
-					...(record.kind === "existing" ? { existingOnly: true, entityId: record.entityId } : {}),
-					...(record.kind === "provider"
-						? {
-								providerResolution: {
-									value: record.value,
-									providerSlug: record.provider.slug,
-									identifierType: record.identifierType,
-								},
-							}
-						: {}),
-				};
-				let entityId =
-					record.kind === "provider"
-						? yield* resolveProviderEntity(
-								intent,
-								input.userId,
-								command,
-								stableStringify([input.runId, "data-provider", item.record.key]),
-								record.entitySchema.owner,
-							)
-						: undefined;
-				if (record.kind === "provider" && entityId === undefined) {
+			let resolved: EntityId | undefined;
+			if (item.kind === "entity" && item.record.kind === "provider") {
+				const { record } = item;
+				resolved = yield* resolveProviderEntity(
+					{
+						name: "",
+						properties,
+						alias: record.key,
+						operationId: operation.operationId,
+						entitySchemaSlug: record.entitySchema.slug,
+						providerResolution: {
+							value: record.value,
+							providerSlug: record.provider.slug,
+							identifierType: record.identifierType,
+						},
+					},
+					input.userId,
+					command,
+					stableStringify([input.runId, "data-provider", record.key]),
+					record.entitySchema.owner,
+				);
+				if (resolved === undefined) {
 					return yield* new DataImportRecordError({
 						stage: "provider_resolution",
 						message: "Provider could not resolve the entity",
 					});
 				}
-				if (!entityId) {
-					const written = yield* makeActivity({
-						error: ImportRunError,
-						success: GenericImportEntity,
-						name: `create-data-entity-${index}`,
-						execute: writeGenericImportEntity(
-							intent,
-							input.userId,
-							command,
-							record.entitySchema.owner,
-						).pipe(Effect.mapError(toWorkflowError)),
-					});
-					entityId = written.entityId;
-				}
-				if (record.kind !== "custom") {
-					if (record.kind === "provider") {
-						yield* entities.recordImportReference({
-							entityId,
-							lifecycle: command,
-							userId: input.userId,
-						});
-					}
-					const selectedId = entityId;
-					yield* makeActivity({
-						error: ImportRunError,
-						name: `validate-data-entity-owner-${index}`,
-						execute: Effect.gen(function* () {
-							const selected = yield* entityRepository.getEntityScopeForUser({
-								userId: input.userId,
-								entityId: EntityId.make(selectedId),
-							});
-							const definition = definitions.getEntitySchema(record.entitySchema);
-							if (
-								!selected ||
-								selected.entitySchemaSlug !== record.entitySchema.slug ||
-								selected.entitySchemaPluginId !== (definition?.pluginId ?? null)
-							) {
-								return yield* new ImportRunError({
-									message: "Selected entity does not belong to the available schema",
-								});
-							}
-							return undefined;
-						}).pipe(Effect.mapError(toWorkflowError)),
-					});
-				}
-				entityIds.set(record.key, entityId);
-				segmentEntityIds.set(record.key, entityId);
-			} else if (item.kind === "relationship") {
-				const sourceEntityId = EntityId.make(
-					yield* requiredReference(entityIds, item.record.sourceEntityKey, "entity"),
-				);
-				const targetEntityId = EntityId.make(
-					yield* requiredReference(entityIds, item.record.targetEntityKey, "entity"),
-				);
-				const written = yield* makeActivity({
-					error: ImportRunError,
-					success: RelationshipMutationResult,
-					name: `create-data-relationship-${index}`,
-					execute: changes
-						.commit(
-							{
-								userId: input.userId,
-								relationships: {
-									upserts: [
-										{
-											properties,
-											propertiesMode: "replace",
-											itemIdentity: command.itemIdentity,
-											relationshipSchema: item.record.relationshipSchema,
-											source: { kind: "existing", entityId: sourceEntityId },
-											target: { kind: "existing", entityId: targetEntityId },
-										},
-									],
-								},
-							},
-							command,
-							{ relationships: { verbatimIdentities: true } },
-						)
-						.pipe(
-							Effect.mapBoth({
-								onFailure: toWorkflowError,
-								onSuccess: (result) => ({
-									relationship: result.relationships[0]?.relationship ?? null,
-								}),
+			}
+			const changes = yield* recordChanges(item, properties, command.itemIdentity, resolved);
+			const written = yield* makeActivity({
+				error: ImportRunError,
+				success: DataRecordWritten,
+				name: `write-data-record-${index}`,
+				execute: Effect.gen(function* () {
+					const invalid = yield* Effect.gen(function* () {
+						const locators = collectManagedAssetLocators([
+							{ properties, propertiesSchema: schema },
+						]);
+						yield* assets.verifyManagedAssetOwnership(input.userId, locators);
+						if (item.kind === "entity" && item.record.kind === "custom") {
+							yield* definitions.validateEntityProperties(item.record.entitySchema, properties);
+						}
+						return null;
+					}).pipe(
+						Effect.catch((error) =>
+							Effect.succeed({
+								kind: "failed" as const,
+								message: unknownToMessage(error),
+								stage: "input_transformation" as const,
 							}),
 						),
-				});
-				if (!written.relationship) {
-					return yield* new ImportRunError({ message: "Relationship was not created" });
-				}
-				relationshipIds.set(item.record.key, written.relationship.id);
-				segmentRelationshipIds.set(item.record.key, written.relationship.id);
-			} else {
-				const entityId = EntityId.make(
-					yield* requiredReference(entityIds, item.record.entityKey, "entity"),
-				);
-				const sessionEntityId = item.record.sessionEntityKey
-					? EntityId.make(
-							yield* requiredReference(entityIds, item.record.sessionEntityKey, "entity"),
-						)
-					: undefined;
-				const result = yield* makeActivity({
-					error: ImportRunError,
-					success: CreateEventsResponse,
-					name: `create-data-event-${index}`,
-					execute: changes
-						.commitEventsKeyed(
-							eventCreateChanges(
-								input.userId,
-								[
-									{
-										entityId,
-										properties,
-										sessionEntityId,
-										occurredAt: item.record.occurredAt,
-										eventSchemaSlug: EventSchemaSlug.make(item.record.eventSchemaSlug),
-									},
-								],
-								[command.itemIdentity],
-							),
-							command,
-							command.itemIdentity,
-							{ events: { independent: true, verbatimIdentities: true } },
-						)
-						.pipe(Effect.mapError(toWorkflowError)),
-				});
-				if (result.failure) {
-					return yield* new DataImportRecordError({
-						message: result.failure.reason.code,
-						stage:
-							result.failure.reason.code === "policy-execution-failed"
-								? "event_policy"
-								: "database_commit",
-					});
-				}
-				const outcome = result.outcomes[0];
-				if (outcome?.status === "skipped_by_policy") {
-					const reason = { message: outcome.reason, code: "policy-rejected" as const };
-					yield* database.transaction(
-						Effect.gen(function* () {
-							yield* repository.recordOutcome(scope, {
-								...operation,
-								reason,
-								result: "skipped",
-								inputFingerprint: input.batch.inputFingerprint,
-							});
-							yield* repository.recordIssue(scope, operationIssue(operation, "warning", reason));
-						}),
 					);
-				}
+					if (invalid) {
+						return invalid;
+					}
+					const committed = yield* commitImportItem(changes, command, {
+						entities: { verbatimIdentities: true },
+						relationships: { verbatimIdentities: true },
+						events: { independent: true, verbatimIdentities: true },
+					});
+					const failure = committed.events.failure;
+					if (failure) {
+						return {
+							kind: "failed" as const,
+							message: failure.reason.code,
+							stage:
+								failure.reason.code === "policy-execution-failed"
+									? ("event_policy" as const)
+									: ("database_commit" as const),
+						};
+					}
+					const [outcome] = committed.events.outcomes;
+					if (outcome?.status === "skipped_by_policy") {
+						const reason = { message: outcome.reason, code: "policy-rejected" as const };
+						yield* database.transaction(
+							Effect.gen(function* () {
+								yield* repository.recordOutcome(scope, {
+									...operation,
+									reason,
+									result: "skipped",
+									inputFingerprint: input.batch.inputFingerprint,
+								});
+								yield* repository.recordIssue(scope, operationIssue(operation, "warning", reason));
+							}),
+						);
+					}
+					const relationshipId = committed.relationships[0]?.relationshipId ?? null;
+					if (item.kind === "relationship" && relationshipId === null) {
+						return {
+							kind: "failed" as const,
+							stage: "database_commit" as const,
+							message: "Relationship was not created",
+						};
+					}
+					return {
+						relationshipId,
+						kind: "written" as const,
+						entityId: committed.entities[0]?.entityId ?? null,
+					};
+				}).pipe(
+					Effect.catch((error) =>
+						Effect.succeed({
+							kind: "failed" as const,
+							message: unknownToMessage(error),
+							stage: "database_commit" as const,
+						}),
+					),
+				),
+			});
+			if (written.kind === "failed") {
+				return yield* new DataImportRecordError(written);
+			}
+			if (item.kind === "entity" && written.entityId !== null) {
+				entityIds.set(item.record.key, written.entityId);
+				segmentEntityIds.set(item.record.key, written.entityId);
+			}
+			if (item.kind === "relationship" && written.relationshipId !== null) {
+				relationshipIds.set(item.record.key, written.relationshipId);
+				segmentRelationshipIds.set(item.record.key, written.relationshipId);
 			}
 			return undefined;
 		});
@@ -761,12 +753,11 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			const index = processedItems;
 			const result = yield* writeRecord(item, index).pipe(Effect.result);
 			processedItems++;
-			let failure: null | Pick<DataImportRecordError, "stage" | "message"> = null;
 			if (result._tag === "Failure") {
 				failedItems++;
 				failedKeys.add(item.record.key);
 				segmentFailedKeys.add(item.record.key);
-				failure = {
+				const failure = {
 					message: unknownToMessage(result.failure),
 					stage:
 						result.failure instanceof DataImportRecordError ||
@@ -774,10 +765,10 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 							? result.failure.stage
 							: "database_commit",
 				};
+				yield* report(item, failure);
 			} else {
 				importedItems++;
 			}
-			yield* report(item, failure);
 		}
 		const result = {
 			failedKeys: [...segmentFailedKeys],

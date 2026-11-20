@@ -5,7 +5,7 @@ import type {
 	IngestionIssue,
 	IngestionOutcome,
 } from "@ryot-app/contract/modules/imports/ingestion";
-import { AutomationExecutionId, ImportRunId } from "@ryot-app/contract/schema/brands";
+import { AutomationExecutionId, ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -13,8 +13,13 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
-import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#lib/domain/managed-asset-writes.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { CollectionsService } from "#modules/collections/service";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
@@ -31,6 +36,7 @@ import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import * as tables from "#schema/tables/combined";
 import { importRun } from "#schema/tables/imports";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { runGenericImportChunk } from "./generic-import-workflow";
@@ -40,8 +46,32 @@ import { genericImportOperationIdentity } from "./outcomes";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 
-const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
-	const fixture = yield* eventGroupFixture();
+const noteSchemas = [
+	{
+		slug: "note",
+		name: { key: "test.note" },
+		propertiesSchema: {
+			fields: {
+				image: managedAssetProperty,
+				text: { type: "string", description: "Text", label: { key: "test.text" } },
+			},
+		},
+	},
+] as const;
+
+/**
+ * Applies a chunk of one item built for the fixture. Every application runs each activity again, as
+ * a retry after a commit whose activity result was lost.
+ */
+const chunkFixture = Effect.fnUntraced(function* (
+	eventSchemas: Parameters<typeof eventGroupFixture>[0],
+	itemOf: (
+		fixture: Effect.Success<ReturnType<typeof eventGroupFixture>>,
+		occurredAt: string,
+	) => GenericImportWriteItem,
+	identities: ReadonlyArray<string>,
+) {
+	const fixture = yield* eventGroupFixture(eventSchemas);
 	const revision = fixture.command.writeContext.pluginRevision;
 	assert(revision);
 	const accountUserId = fixture.command.accountUserId;
@@ -68,69 +98,9 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 		}),
 		writeContext: fixture.command.writeContext,
 	};
-	const item: GenericImportWriteItem = {
-		itemIndex: 0,
-		recordId: "record",
-		sourceLabel: "fixture",
-		sourceIdentifier: "record",
-		subjectEntityAlias: "session",
-		relationships: [
-			{
-				properties: {},
-				operationId: "link",
-				targetAlias: "other",
-				sourceAlias: "subject",
-				outcome: { unit: "links", recordKind: "links" },
-				relationshipSchemaSlug: fixture.relationshipSchemaSlug,
-			},
-		],
-		entities: [
-			{
-				properties: {},
-				name: "Subject",
-				alias: "subject",
-				existingOnly: true,
-				operationId: "subject",
-				entityId: fixture.subjectId,
-				entitySchemaSlug: "subject",
-			},
-			{
-				name: "Other",
-				alias: "other",
-				properties: {},
-				operationId: "other",
-				entitySchemaSlug: "subject",
-			},
-			{
-				properties: {},
-				alias: "session",
-				operationId: "session",
-				name: "Imported session",
-				entitySchemaSlug: "session",
-				outcome: { unit: "sessions", recordKind: "sessions" },
-			},
-		],
-		events: [
-			{
-				operationId: "anchor",
-				entityAlias: "subject",
-				eventSchemaSlug: "anchor",
-				sessionEntityAlias: "session",
-				occurredAt: command.occurredAt,
-				properties: { position: 0, kind: "primary", evidence: "recorded" },
-			},
-			...Array.from({ length: memberCount }, (_, index) => ({
-				entityAlias: "subject",
-				eventSchemaSlug: "member",
-				sessionEntityAlias: "session",
-				occurredAt: command.occurredAt,
-				operationId: `member-${index}`,
-				outcome: { unit: "members", recordKind: "members" },
-				properties: { position: 0, amount: index, kind: "primary" },
-			})),
-		],
-	};
+	const item = itemOf(fixture, command.occurredAt);
 	const outcomes = new Map<string, IngestionOutcome>();
+	const activities: Array<{ readonly name: string; readonly exit: unknown }> = [];
 	const issues = new Map<string, IngestionIssue>();
 	const scope = { runId, userId: fixture.userId };
 	const importLayer = Layer.mergeAll(
@@ -189,6 +159,16 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 				),
 		}),
 		Layer.succeed(WorkflowInstance, WorkflowInstance.initial(ScriptExecutionWorkflow, runId)),
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				activityExecute: (activity) =>
+					Effect.map(Effect.exit(activity.execute), (exit) => {
+						activities.push({ exit, name: activity.name });
+						return new Workflow.Complete({ exit });
+					}),
+			}),
+		),
 	);
 	const apply = runGenericImportChunk({
 		...scope,
@@ -203,17 +183,144 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 			yield* Layer.build(IntegrationEventWrites.layer.pipe(Layer.provideMerge(importLayer))),
 		),
 	);
-	const operationIdentities = [
-		"session",
-		"anchor",
-		"link",
-		...Array.from({ length: memberCount }, (_, index) => `member-${index}`),
-	].map((id) => genericImportOperationIdentity(runId, item, id));
 	const committed = Effect.flatMap(IdempotencyKeys.make, (keys) =>
-		keys.importItems({ runId, userId: fixture.userId, itemIdentities: operationIdentities }),
+		keys.importItems({
+			runId,
+			userId: fixture.userId,
+			itemIdentities: identities.map((id) => genericImportOperationIdentity(runId, item, id)),
+		}),
 	);
-	return { ...fixture, apply, outcomes, committed };
+	return { ...fixture, apply, outcomes, committed, activities };
 });
+
+const recordFixture = (memberCount: number) =>
+	chunkFixture(
+		undefined,
+		(fixture, occurredAt): GenericImportWriteItem => ({
+			itemIndex: 0,
+			recordId: "record",
+			sourceLabel: "fixture",
+			sourceIdentifier: "record",
+			subjectEntityAlias: "session",
+			relationships: [
+				{
+					properties: {},
+					operationId: "link",
+					targetAlias: "other",
+					sourceAlias: "subject",
+					outcome: { unit: "links", recordKind: "links" },
+					relationshipSchemaSlug: fixture.relationshipSchemaSlug,
+				},
+			],
+			entities: [
+				{
+					properties: {},
+					name: "Subject",
+					alias: "subject",
+					existingOnly: true,
+					operationId: "subject",
+					entityId: fixture.subjectId,
+					entitySchemaSlug: "subject",
+				},
+				{
+					name: "Other",
+					alias: "other",
+					properties: {},
+					operationId: "other",
+					entitySchemaSlug: "subject",
+				},
+				{
+					properties: {},
+					alias: "session",
+					operationId: "session",
+					name: "Imported session",
+					entitySchemaSlug: "session",
+					outcome: { unit: "sessions", recordKind: "sessions" },
+				},
+			],
+			events: [
+				{
+					occurredAt,
+					operationId: "anchor",
+					entityAlias: "subject",
+					eventSchemaSlug: "anchor",
+					sessionEntityAlias: "session",
+					properties: { position: 0, kind: "primary", evidence: "recorded" },
+				},
+				...Array.from({ length: memberCount }, (_, index) => ({
+					occurredAt,
+					entityAlias: "subject",
+					eventSchemaSlug: "member",
+					sessionEntityAlias: "session",
+					operationId: `member-${index}`,
+					outcome: { unit: "members", recordKind: "members" },
+					properties: { position: 0, amount: index, kind: "primary" },
+				})),
+			],
+		}),
+		[
+			"session",
+			"anchor",
+			"link",
+			...Array.from({ length: memberCount }, (_, index) => `member-${index}`),
+		],
+	);
+
+/**
+ * A standalone item: a created entity linked to the fixture's subject, found by name, and a note on
+ * the subject with `properties`.
+ */
+const noteFixture = (properties: GenericImportWriteItem["events"][number]["properties"]) =>
+	chunkFixture(
+		noteSchemas,
+		(fixture, occurredAt): GenericImportWriteItem => ({
+			itemIndex: 0,
+			recordId: "note",
+			sourceLabel: "fixture",
+			sourceIdentifier: "note",
+			subjectEntityAlias: "created",
+			events: [
+				{
+					occurredAt,
+					properties,
+					operationId: "note",
+					entityAlias: "found",
+					eventSchemaSlug: "note",
+					outcome: { unit: "notes", recordKind: "notes" },
+				},
+			],
+			relationships: [
+				{
+					properties: {},
+					operationId: "link",
+					targetAlias: "found",
+					sourceAlias: "created",
+					outcome: { unit: "links", recordKind: "links" },
+					relationshipSchemaSlug: fixture.relationshipSchemaSlug,
+				},
+			],
+			entities: [
+				{
+					properties: {},
+					alias: "created",
+					name: "Imported",
+					operationId: "created",
+					entitySchemaSlug: "subject",
+					outcome: { unit: "subjects", recordKind: "subjects" },
+				},
+				{
+					properties: {},
+					alias: "found",
+					name: "Ignored",
+					operationId: "found",
+					entitySchemaSlug: "subject",
+					outcome: { unit: "subjects", recordKind: "subjects" },
+					match: { properties: {}, name: "subject", nameNormalization: "slug" },
+				},
+			],
+		}),
+		["created", "found", "link", "note"],
+	);
 
 layer(
 	Layer.provideMerge(
@@ -287,6 +394,100 @@ layer(
 							.where(eq(tables.entity.entitySchemaPluginId, fixture.installed.pluginId)),
 					)).filter((row) => row.entitySchemaSlug === "session"),
 				).toHaveLength(0);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"matches an entity in the item's commit and replays the commit when its activity runs again",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* noteFixture({ text: "Noted" });
+				yield* fixture.apply;
+				expect([...fixture.outcomes.values()]).toEqual([]);
+				expect((yield* fixture.committed).map(({ result }) => result).sort()).toEqual([
+					"created",
+					"created",
+					"created",
+					"unchanged",
+				]);
+				const database = yield* DatabaseSession;
+				const written = Effect.all([
+					database.run((db) =>
+						db
+							.select()
+							.from(tables.entity)
+							.where(eq(tables.entity.entitySchemaPluginId, fixture.installed.pluginId)),
+					),
+					database.run((db) =>
+						db.select().from(tables.event).where(eq(tables.event.entityId, fixture.subjectId)),
+					),
+				]);
+				const [entities, events] = yield* written;
+				expect(entities.map(({ name }) => name).sort()).toEqual(["Imported", "Subject"]);
+				expect(events).toHaveLength(1);
+				const links = yield* database.run((db) =>
+					db
+						.delete(tables.relationship)
+						.where(eq(tables.relationship.targetEntityId, fixture.subjectId))
+						.returning({ source: tables.relationship.sourceEntityId }),
+				);
+				const imported = entities.find(({ name }) => name === "Imported");
+				assert(imported);
+				expect(links).toEqual([{ source: imported.id }]);
+				yield* fixture.apply;
+				expect(yield* written).toEqual([entities, events]);
+				expect(
+					yield* database.run((db) =>
+						db
+							.select()
+							.from(tables.relationship)
+							.where(eq(tables.relationship.targetEntityId, fixture.subjectId)),
+					),
+				).toEqual([]);
+				const [first, replayed] = fixture.activities
+					.filter(({ name }) => name === "commit-generic-import-item-0")
+					.map(({ exit }) => exit);
+				expect(replayed).toEqual(first);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"writes nothing of an item whose event conflicts with its commit",
+		() =>
+			Effect.gen(function* () {
+				const foreign = yield* insertManagedAsset(UserId.make("generic-import-asset-owner"));
+				const fixture = yield* noteFixture({ image: foreign });
+				yield* fixture.apply;
+				expect(yield* fixture.committed).toEqual([]);
+				expect(
+					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
+						operationId,
+						result,
+						reason,
+					]),
+				).toEqual(
+					["created", "found", "link", "note"].map((operationId) => [
+						operationId,
+						"unsuccessful",
+						{ key: null, code: "asset-forbidden" },
+					]),
+				);
+				const database = yield* DatabaseSession;
+				expect(
+					(yield* database.run((db) =>
+						db
+							.select({ name: tables.entity.name })
+							.from(tables.entity)
+							.where(eq(tables.entity.entitySchemaPluginId, fixture.installed.pluginId)),
+					)).map(({ name }) => name),
+				).toEqual(["Subject"]);
+				expect(
+					yield* database.run((db) =>
+						db.select().from(tables.event).where(eq(tables.event.entityId, fixture.subjectId)),
+					),
+				).toEqual([]);
 			}),
 		testTimeout,
 	);

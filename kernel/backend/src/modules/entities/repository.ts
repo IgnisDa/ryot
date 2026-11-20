@@ -348,8 +348,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				userId: UserId;
 				scope?: "user" | "global";
 				nameNormalization: "slug" | "exact";
-				properties: Record<string, unknown>;
 				entitySchema: EntitySchemaReference;
+				properties: Readonly<Record<string, unknown>>;
 			}) {
 				const definition = yield* findUserEntitySchema(input.userId, input.entitySchema);
 				if (!definition) {

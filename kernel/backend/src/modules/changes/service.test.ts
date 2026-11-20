@@ -12,7 +12,7 @@ import {
 	type ChangeSetEntityReference,
 	ChangeSetEntityUpdate,
 } from "@ryot-app/contract/modules/changes/change-set";
-import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
+import { EntityBadRequest, EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -24,6 +24,7 @@ import {
 	EventId,
 	EventSchemaSlug,
 	IntegrationId,
+	RelationshipSchemaSlug,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -72,7 +73,7 @@ import { workflowEngineTestLayer } from "#testing/effect";
 
 import { ChangeSetRejected } from "./authority";
 import { changeSetsLayerWithNotificationSources, eventMove } from "./change-sets.test-support";
-import { eventChanges, eventCreateChanges, fromScriptChangeSet } from "./changes";
+import { type Changes, eventChanges, eventCreateChanges, fromScriptChangeSet } from "./changes";
 import { unrecordedChanges } from "./receipts";
 import { ScriptChangesLayer } from "./script-changes";
 import { ChangeSets } from "./service";
@@ -1135,6 +1136,16 @@ const targetOf = (input: Fixture) => {
 
 const rejection = (part: string) => ({ part, _tag: "ChangeSetRejected" });
 
+const recordSchema = (input: Fixture) => ({
+	slug: EntitySchemaSlug.make("record"),
+	owner: definitionOwner(input.pluginId),
+});
+
+const atomicLink = (input: Fixture) => ({
+	owner: definitionOwner(input.pluginId),
+	slug: RelationshipSchemaSlug.make("atomic-link"),
+});
+
 const kernelWriterCommand = (input: Fixture): DomainLifecycleCommand => ({
 	...command(crypto.randomUUID()),
 	writeContext: null,
@@ -1785,6 +1796,288 @@ layer(testLayer(false))((test) => {
 						.where(eq(tables.event.entityId, target)),
 				);
 				expect(writtenEvents).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"commits keyed creates and a matched entity with the relationships and events that name them",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const target = targetOf(input);
+				const rows = (name: string) =>
+					input.session.run((db) =>
+						db
+							.select({ id: tables.entity.id })
+							.from(tables.entity)
+							.where(and(eq(tables.entity.name, name), eq(tables.entity.userId, userId))),
+					);
+				const committed = yield* (yield* ChangeSets).commit(
+					{
+						userId,
+						events: {
+							changes: [],
+							creates: [
+								{
+									itemIdentity: "event",
+									eventSchemaSlug: "changed",
+									properties: { value: "Saved" },
+									entity: { kind: "keyed", key: "created" },
+									session: { kind: "keyed", key: "matched" },
+								},
+							],
+						},
+						relationships: {
+							upserts: [
+								{
+									properties: {},
+									itemIdentity: "link",
+									propertiesMode: "replace",
+									relationshipSchema: atomicLink(input),
+									source: { kind: "keyed", key: "created" },
+									target: { kind: "keyed", key: "matched" },
+								},
+							],
+						},
+						entities: {
+							creates: [
+								{
+									key: "created",
+									name: "Created",
+									itemIdentity: "created",
+									properties: { name: "Created" },
+									entitySchema: recordSchema(input),
+								},
+								{
+									key: "matched",
+									properties: {},
+									name: "Unused",
+									itemIdentity: "matched",
+									entitySchema: recordSchema(input),
+									match: {
+										properties: {},
+										required: true,
+										name: "existing target",
+										nameNormalization: "slug",
+									},
+								},
+							],
+						},
+					},
+					kernelWriterCommand(input),
+					{ entities: { verbatimIdentities: true }, relationships: { verbatimIdentities: true } },
+				);
+				const [created, matched] = committed.entities;
+				assert(created && matched);
+				expect(created.itemIdentity).toBe("created");
+				expect(matched).toMatchObject({ entity: { id: target }, itemIdentity: "matched" });
+				expect(committed.relationships).toMatchObject([
+					{
+						operation: "create",
+						itemIdentity: "link",
+						relationship: { targetEntityId: target, sourceEntityId: created.entity.id },
+					},
+				]);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({
+								entityId: tables.event.entityId,
+								sessionEntityId: tables.event.sessionEntityId,
+							})
+							.from(tables.event)
+							.where(eq(tables.event.entityId, created.entity.id)),
+					),
+				).toEqual([{ sessionEntityId: target, entityId: created.entity.id }]);
+				expect(yield* rows("Unused")).toEqual([]);
+				assertExitFails(
+					yield* Effect.exit(
+						(yield* ChangeSets).commit(
+							{
+								userId,
+								entities: {
+									creates: [
+										{
+											properties: {},
+											name: "Missing",
+											entitySchema: recordSchema(input),
+											match: {
+												properties: {},
+												required: true,
+												name: "Missing",
+												nameNormalization: "exact",
+											},
+										},
+									],
+								},
+							},
+							kernelWriterCommand(input),
+						),
+					),
+					new ChangeSetRejected({
+						part: "entities.creates",
+						message: "entity-create:0 matches no entity",
+					}),
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fails a create whose match is written while its policies run",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture(
+					policyPackage({ entity: { properties: ["name"] } }, [
+						{ resource: "entity", operation: "create", entitySchemaSlug: "record" },
+					]),
+				);
+				const { match } = yield* LifecyclePolicies;
+				const entityRows = yield* EntitiesRepository;
+				const lateId = EntityId.make(yield* randomUuid);
+				const changeSets = yield* ChangeSets.make.pipe(
+					Effect.provideService(
+						LifecyclePolicies,
+						LifecyclePolicies.of({
+							match,
+							run: ({ items }) =>
+								entityRows
+									.insertEntities([
+										{
+											userId,
+											id: lateId,
+											name: "Late",
+											scope: "user",
+											properties: {},
+											populatedAt: null,
+											entitySchemaPluginId: input.pluginId,
+											entitySchemaSlug: EntitySchemaSlug.make("record"),
+										},
+									])
+									.pipe(
+										Effect.orDie,
+										Effect.as({
+											items: items.map(({ itemIdentity }) => ({
+												itemIdentity,
+												decision: { action: "allow" as const },
+											})),
+										}),
+									),
+						}),
+					),
+				);
+				assertExitFails(
+					yield* Effect.exit(
+						changeSets.commit(
+							{
+								userId,
+								entities: {
+									creates: [
+										{
+											name: "Late",
+											properties: {},
+											entitySchema: recordSchema(input),
+											match: {
+												name: "Late",
+												properties: {},
+												required: false,
+												nameNormalization: "exact",
+											},
+										},
+									],
+								},
+							},
+							kernelWriterCommand(input),
+						),
+					),
+					new EntityBadRequest({ reason: { code: "mutation-conflict" } }),
+				);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ id: tables.entity.id })
+							.from(tables.entity)
+							.where(and(eq(tables.entity.name, "Late"), eq(tables.entity.userId, userId))),
+					),
+				).toEqual([{ id: lateId }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"records a relationship's event from what it wrote and writes neither when the event fails",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture();
+				const target = targetOf(input);
+				const recorded = (properties: (relationshipId: string) => unknown): Changes => ({
+					userId,
+					entities: {
+						creates: [
+							{ key: "source", name: "Source", properties: {}, entitySchema: recordSchema(input) },
+						],
+					},
+					relationships: {
+						upserts: [
+							{
+								properties: {},
+								itemIdentity: "link",
+								propertiesMode: "replace",
+								relationshipSchema: atomicLink(input),
+								source: { kind: "keyed", key: "source" },
+								target: { kind: "existing", entityId: target },
+							},
+						],
+						events: [
+							{
+								relationship: "link",
+								itemIdentity: "recorded",
+								eventSchemaSlug: "changed",
+								occurredAt: input.command.occurredAt,
+								entity: { kind: "existing", entityId: target },
+								properties: ({ operation, relationship }) =>
+									operation === "create" && relationship
+										? { value: properties(relationship.id) }
+										: null,
+							},
+						],
+					},
+				});
+				const sets = yield* ChangeSets;
+				const written = yield* sets.commit(
+					recorded((relationshipId) => relationshipId),
+					kernelWriterCommand(input),
+					{ relationships: { verbatimIdentities: true } },
+				);
+				const [link] = written.relationships;
+				assert(link?.relationship);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ properties: tables.event.properties })
+							.from(tables.event)
+							.where(eq(tables.event.entityId, target)),
+					),
+				).toEqual([{ properties: { value: link.relationship.id } }]);
+				const linksBefore = yield* input.session.run((db) =>
+					db.select({ id: tables.relationship.id }).from(tables.relationship),
+				);
+				assertExitFails(
+					yield* Effect.exit(
+						sets.commit(
+							recorded(() => 5),
+							kernelWriterCommand(input),
+							{ relationships: { verbatimIdentities: true } },
+						),
+					),
+					new EventBadRequest({ reason: { code: "invalid-properties" } }),
+				);
+				expect(
+					yield* input.session.run((db) =>
+						db.select({ id: tables.relationship.id }).from(tables.relationship),
+					),
+				).toEqual(linksBefore);
 			}),
 		testTimeout,
 	);

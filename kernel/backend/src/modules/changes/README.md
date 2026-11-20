@@ -9,17 +9,22 @@ atomically under the writer's principal (`command.writeContext`) after translati
 - `entity`: a user-owned root entity create or update, with the expected baseline for updates.
 - `entities`: entity `creates` (kernel writers only: an `externalId`, a `provider` identity, and
   `populatedAt`; with `updateExisting` an existing provider entity is updated, and without it a
-  populated one is kept and an unpopulated one is filled), entity `deletes` (an entity that no longer
+  populated one is kept and an unpopulated one is filled; a `key` that relationships and events of
+  the same change set name it by; and a `match`, an entity ID in scope or a normalized name with
+  properties, whose entity is kept instead of created, failing the change set when `required` finds
+  none), kernel `references` (an existing entity the change set names by key without writing it,
+  recorded as an `unchanged` import item), entity `deletes` (an entity that no longer
   exists is skipped, so a repeated delete is a no-op; `preserveHistory` refuses an entity with events
   instead of cascading), data `clears` and `merges` (both through `EntityUserDataService`; a kernel
   writer's `null` schema accepts the entity's own), `updates` of existing entities (each shaped and
   checked like a root entity update, at most once per entity), and bootstrap `ensures`.
 - `relationships`: user relationship `upserts` (`merge` or `replace` properties) and `deletes`;
-  endpoints are the root or existing entities. Kernel writers may also send `updates` (the
-  relationship must exist), `ensures` (written only when absent) and `deletesById`; see
-  [relationships](../relationships/README.md).
-- `events`: event creates, updates and deletes, optional `expected` session event IDs and scope
-  `baselines`.
+  endpoints are the root, existing entities or keyed entities. Kernel writers may also send `updates`
+  (the relationship must exist), `ensures` (written only when absent), `deletesById`, and `events`
+  that a relationship change records from what it wrote (no event when its `properties` returns
+  `null`); see [relationships](../relationships/README.md).
+- `events`: event creates (a kernel writer's may name its entity and session by key), updates and
+  deletes, optional `expected` session event IDs and scope `baselines`.
 - `settings`: a patch of the writing plugin's user settings.
 - `signals`: signal emissions, planned like `SignalEmissionService.planSignal`.
 - `notifications`: messages for the run's account; admission queues delivery as a job.
@@ -79,9 +84,11 @@ Parts only a script principal resolves (`settings`, `folds`, `signals`, global e
 
 ## Preparation and commit
 
-Preparation holds no database transaction over sandbox execution. The root entity, relationships,
-ensures, entity deletes (grouped by schema), data clears and merges, and entity updates are prepared
-first. Entity deletes, clears and merges also
+Preparation holds no database transaction over sandbox execution. The root entity, entity creates and
+updates, relationships, ensures, entity deletes (grouped by schema), and data clears and merges are
+prepared first. A create's `match` is decided then: the commit rechecks a matched entity under its
+lock, and for a create that matched nothing locks the match and fails with `mutation-conflict` when a
+matching entity appeared since. Entity deletes, clears and merges also
 plan event changes, which join the change set's event changes (see [events](../events/README.md)):
 an entity delete cascades a delete to every event referencing its entities, a clear deletes the
 captured state's events, and a merge deletes transient evidence and moves every other event. Their
@@ -103,15 +110,16 @@ persisted), and a second events transaction commits. A relationship or entity po
 invalid transform fails the whole change set, with the invalid property paths when properties fail
 validation; an accepted entity transform replaces the draft, and each entity write validates its
 final draft once more under the catalog lock. Entity policies run before event policies, which see
-the root entity as the entity policies left it. A policy batch stops calling policies once none of
+each saved entity as the entity policies left it. A policy batch stops calling policies once none of
 its items is still active.
 
 The commit transaction applies, in order: the receipt's `load`, the precondition's `check`, the
 settings patch, source writes (event group capture, then each clear's and merge's account admission,
-locks and state recheck, then root entity, relationships, events, baselines), the precondition's
+locks and state recheck, then the root entity with entity creates and updates as one set,
+relationships, the events relationship changes record, events, baselines), the precondition's
 `written` when an event was written, ensures, entity deletes (which fail when an event still
-references a deleted entity), the rest of each clear and merge, entity creates in order and updates
-in entity ID order as one set, global entity upserts and global relationship reconciliation, signal
+references a deleted entity), the rest of each clear and merge, entity creates and updates as one set
+when nothing else wrote a source, global entity upserts and global relationship reconciliation, signal
 plans, notification admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts
 after commit; a failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
 
@@ -150,29 +158,30 @@ caller's operation identity.
 `commitEventsKeyed(changes, command, key, options)` commits independent creates once per key, holding
 the `CreateEventsResponse` in the account's idempotency key. Callers and keys:
 
-| Caller                     | Key                                                             | Identities |
-| -------------------------- | --------------------------------------------------------------- | ---------- |
-| Generic import event group | The group's operation identities                                | verbatim   |
-| Integration sample         | The sample's operation identity; the stream is the precondition | verbatim   |
-| Data import event          | The record's operation identity                                 | verbatim   |
-| Provider entry event       | The entity import job's ID                                      | prefixed   |
+| Caller                                     | Key                                                             | Identities |
+| ------------------------------------------ | --------------------------------------------------------------- | ---------- |
+| Integration sample, coalesced import event | The sample's operation identity; the stream is the precondition | verbatim   |
+| Provider entry event                       | The entity import job's ID                                      | prefixed   |
 
 A commit's result also lists each clear's and merge's response (`cleared`, `merged`), which the
 user-data HTTP routes return, and each user relationship change's operation and row under its item
 identity (`relationships`), which the relationship route, collections and data imports read.
 `relationships.verbatimIdentities` keeps each relationship change's `itemIdentity` as its write
 identity, so imports record their item keys and collections their membership commands unchanged.
-The result's `entities` lists each saved root entity, entity create and update under its item
-identity, and `deleted` every deleted entity ID. `entities.verbatimIdentities` keeps the root
-entity's, creates' and updates' identities verbatim, so import entity IDs and item keys and
+The result's `entities` lists each saved root entity, entity create, update and reference under its
+item identity, and `deleted` every deleted entity ID. `entities.verbatimIdentities` keeps the root
+entity's, creates', updates' and references' identities verbatim, so import entity IDs and item keys and
 collection commands follow the caller's identity.
 
 The entity editor commits through `commitOnce` with its idempotency key as the receipt (see
 [entities](../entities/README.md)); plugin bootstrap entities commit `ensures` under the bootstrap
-entry's root command.
+entry's root command. Generic and data import items commit through `commitImportItem`: `commitOnce`
+with the account's idempotency key under the item's command identity, holding its entity,
+relationship and event results (see [imports](../imports/README.md)).
 
-HTTP event creation and collection membership events commit independently without a receipt; a
-deferred integration flush commits with the stream precondition alone. HTTP event updates and deletes
+HTTP event creation commits independently without a receipt, and a collection membership commits its
+relationship change with the membership event it records; a deferred integration flush commits with
+the stream precondition alone. HTTP event updates and deletes
 commit one event change without a receipt, its policies matched and called like any event batch.
 
 ## Script changes and exactly-once commits
@@ -195,8 +204,9 @@ property mismatches, denied operations) stay `invalid`.
 `commitOnce` and `commitScript` make a commit exactly-once against the caller's durable state through
 a `CommitReceipt` (`receipts.ts`). `receipt.load` returns a result an earlier commit recorded: it is
 read once before preparation (so a replay runs no policies) and again first in the commit transaction,
-where a stored result ends the commit before any write. `receipt.record` runs after every write, so
-the result commits with the changes it describes. An absent or empty script change set only runs
+where a stored result ends the commit before any write. A receipt with `peek` is read before
+preparation without a transaction or lock instead. `receipt.record` runs after every write, so the
+result commits with the changes it describes. An absent or empty script change set only runs
 `load`/`record` in a transaction. Script receipts per caller:
 
 | Caller                        | Receipt                                                                                                 |
@@ -247,9 +257,8 @@ written event ID with its item identity and returns the root entity ID when the 
 Repeated event identities or duplicate existing event IDs are rejected.
 
 Declared event-group constraints are captured once for the complete prepared change set and checked only
-after all event chunks commit within its transaction. The generic import commits each record's
-grouped entity, relationships and events as one script change set, and its remaining event groups as
-independent creates under their operation identities.
+after all event chunks commit within its transaction. The generic import commits an item with
+declared event groups as one change set whose events are all-or-nothing.
 
 ## Replay and optimistic baselines
 

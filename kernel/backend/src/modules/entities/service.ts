@@ -50,9 +50,10 @@ import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-r
 import { principalOwner } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
+import { slugify } from "#platform/slug";
 import { trimToNull } from "#platform/validation";
 
-import { EntitySnapshotResult } from "./mutation-outcomes";
+import type { EntitySnapshotResult } from "./mutation-outcomes";
 import {
 	conflict,
 	draftOf,
@@ -120,15 +121,34 @@ export type EntityPolicyAcceptance = (
 ) => Effect.Effect<PreparedMutation, DbError | EntityNotFound | EntityBadRequest>;
 export const acceptPrepared: EntityPolicyAcceptance = Effect.succeed;
 
+/**
+ * An existing entity of the user's scope: by ID, which must exist under the expected schema, or by
+ * name. `scope` limits it to the user's or global entities.
+ */
+export type EntityMatch =
+	EntityNameMatch | { readonly entityId: EntityId; readonly scope?: "user" | "global" };
+type MatchLookup = EntityNameMatch & {
+	readonly userId: UserId;
+	readonly entitySchema: EntitySchemaReference;
+};
+/** The first entity with the name, optionally slug-normalized, and the properties. */
+type EntityNameMatch = {
+	readonly name: string;
+	readonly scope?: "user" | "global";
+	readonly nameNormalization: "slug" | "exact";
+	readonly properties: Readonly<Record<string, unknown>>;
+};
 const preparedEntitySave = Symbol("PreparedEntitySave");
 type PreparedEntitySave = PolicyItems & {
 	readonly entityId: EntityId;
 	readonly created: null | PreparedEntityCreate;
 	readonly [preparedEntitySave]: {
+		readonly matched: boolean;
 		readonly userEditable: boolean;
 		readonly kept: null | ListedEntity;
 		readonly scopeUserId: null | UserId;
 		readonly preservePopulatedAt: boolean;
+		readonly unmatched: null | MatchLookup;
 		readonly lifecycle: DomainLifecycleCommand;
 		readonly mutation: null | PreparedMutation;
 	};
@@ -198,6 +218,8 @@ export type PrepareEntitySaveInput = {
 		| {
 				kind: "create";
 				externalId?: string;
+				/** A match that found no entity when prepared; the commit fails if one matches by then. */
+				unmatched?: EntityNameMatch;
 				provider?: { updateExisting: boolean; providerId: SandboxProviderId };
 		  };
 };
@@ -216,6 +238,15 @@ const itemCommand = (
 	...lifecycle,
 	itemIdentity: stableStringify([lifecycle.itemIdentity, identity]),
 });
+const matchLockKey = (lookup: MatchLookup) =>
+	stableStringify([
+		"entity-match",
+		lookup.userId,
+		lookup.scope ?? null,
+		lookup.entitySchema,
+		lookup.properties,
+		lookup.nameNormalization === "slug" ? slugify(lookup.name) : lookup.name,
+	]);
 const commandEntityId = (lifecycle: DomainLifecycleCommand) =>
 	EntityId.make(
 		`ent_${sha256Base64Url(stableStringify([lifecycle.causation.executionId, lifecycle.itemIdentity]))}`,
@@ -419,37 +450,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				}
 				return definition;
 			});
-			/** Records an import's reference to an existing user entity as unchanged. */
-			const recordImportReference = Effect.fn("EntitiesService.recordImportReference")(
-				function* (input: {
-					userId: UserId;
-					entityId: EntityId;
-					lifecycle: DomainLifecycleCommand;
-				}) {
-					return yield* transaction(
-						Effect.gen(function* () {
-							yield* writeChecks
-								.check(
-									input.lifecycle,
-									principalOwner(input.lifecycle.writeContext),
-									input.userId,
-									true,
-								)
-								.pipe(Effect.catch(writeFailure));
-							const entity = yield* repository.getByIdForUser(input);
-							if (!entity) {
-								return yield* new EntityNotFound({
-									reason: { code: "entity-not-found", entityId: input.entityId },
-								});
-							}
-							const result = yield* Schema.decodeEffect(EntitySnapshotResult)({ entity });
-							yield* keys.recordImportItem(input.lifecycle, input.userId, "unchanged");
-							return result;
-						}),
-						mutationUserIds(input.lifecycle, input.userId),
-					);
-				},
-			);
 			const validateDraft = Effect.fnUntraced(function* (
 				draft: { properties: unknown } & Omit<
 					AutomationEntityDraft,
@@ -645,11 +645,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				return yield* planner.planBatch({ ...batch, resource: "entity" });
 			});
 			const savedToken = Effect.fnUntraced(function* (
-				save: PreparedEntitySave[typeof preparedEntitySave] & {
+				save: Omit<PreparedEntitySave[typeof preparedEntitySave], "matched" | "unmatched"> & {
+					readonly unmatched?: MatchLookup;
 					readonly propertiesSchema: AppSchema;
 				},
 			) {
-				const { propertiesSchema, ...entry } = save;
+				const { unmatched, propertiesSchema, ...fields } = save;
+				const entry = { ...fields, matched: false, unmatched: unmatched ?? null };
 				const { kept, mutation, scopeUserId } = entry;
 				const entityId = mutation?.entityId ?? kept?.id;
 				if (entityId === undefined) {
@@ -757,7 +759,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			});
 			const planCreate = Effect.fnUntraced(function* (
 				input: Omit<PrepareEntitySaveInput, "target"> &
-					Omit<Extract<PrepareEntitySaveInput["target"], { kind: "create" }>, "kind">,
+					Omit<Extract<PrepareEntitySaveInput["target"], { kind: "create" }>, "kind" | "unmatched">,
 			) {
 				const { provider, lifecycle, externalId, scopeUserId } = input;
 				if (
@@ -795,7 +797,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			/**
 			 * Persists prepared saves as one set in the caller's transaction, recording their changes in
 			 * `batch` from `offset`; the batch's owner seals it with `planEntityBatch`. Each write's final
-			 * draft is validated again under the catalog lock, and a kept entity is rechecked unchanged.
+			 * draft is validated again under the catalog lock, a kept entity is rechecked unchanged (a
+			 * matched one only present), and a create whose match found nothing fails if one matches now.
 			 */
 			const persistPreparedSaves = Effect.fn("EntitiesService.persistPreparedSaves")(function* (
 				saves: ReadonlyArray<PreparedEntitySave>,
@@ -814,8 +817,24 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					scopes: entries.map(({ scopeUserId }) => scopeUserId),
 				});
 				const pins = yield* verifyWrites(
-					entries.flatMap(({ mutation }) => (mutation ? [preparedWriteCheck(mutation)] : [])),
+					entries.flatMap(({ matched, mutation, lifecycle, scopeUserId }) => {
+						if (mutation) {
+							return [preparedWriteCheck(mutation)];
+						}
+						return matched
+							? [{ scopeUserId, command: lifecycle, owner: principalOwner(lifecycle.writeContext) }]
+							: [];
+					}),
 				);
+				const unmatched = entries.flatMap((entry) => (entry.unmatched ? [entry.unmatched] : []));
+				if (unmatched.length > 0) {
+					yield* repository.lockMutationKeys(unmatched.map(matchLockKey));
+					for (const lookup of unmatched) {
+						if ((yield* repository.findImportMatch(lookup)) !== null) {
+							return yield* conflict("An entity matching the create was written concurrently");
+						}
+					}
+				}
 				const decided = yield* Effect.forEach(entries, (entry) =>
 					Effect.gen(function* () {
 						const { mutation } = entry;
@@ -841,7 +860,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						if (
 							!kept ||
 							!current ||
-							!same(yield* snapshot(current.entity), yield* snapshot(kept))
+							(!entry.matched && !same(yield* snapshot(current.entity), yield* snapshot(kept)))
 						) {
 							return yield* conflict("Entity changed before no-op was recorded");
 						}
@@ -1003,6 +1022,62 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					dispatch: work.dispatch,
 				} satisfies CommittedLifecycleWork<EntitySnapshotResult>;
 			});
+			/**
+			 * Prepares keeping the entity `match` finds unchanged, or null when it finds none. Committing it
+			 * rechecks the entity unchanged and records its import item.
+			 */
+			const prepareMatch = Effect.fn("EntitiesService.prepareMatch")(function* (input: {
+				readonly userId: UserId;
+				readonly match: EntityMatch;
+				readonly lifecycle: DomainLifecycleCommand;
+				readonly entitySchema: EntitySchemaReference;
+			}) {
+				const { match, userId, entitySchema: reference } = input;
+				const inScope = (owner: null | UserId) =>
+					match.scope === undefined || (match.scope === "user" ? owner === userId : owner === null);
+				let kept: null | ListedEntity = null;
+				if ("entityId" in match) {
+					const current = yield* repository.getMutationEntity(match.entityId);
+					if (
+						!current ||
+						(current.userId !== null && current.userId !== userId) ||
+						current.entity.entitySchemaSlug !== reference.slug ||
+						(current.entity.entitySchemaPluginId ?? null) !==
+							definitionOwnerPluginId(reference.owner)
+					) {
+						return yield* new EntityNotFound({
+							reason: { code: "entity-not-found", entityId: match.entityId },
+						});
+					}
+					kept = inScope(current.userId) ? current.entity : null;
+				} else {
+					const found = yield* repository.findImportMatch({
+						...match,
+						userId,
+						entitySchema: reference,
+					});
+					kept =
+						found === null ? null : ((yield* repository.getMutationEntity(found))?.entity ?? null);
+				}
+				if (kept === null) {
+					return null;
+				}
+				return Object.freeze({
+					created: null,
+					entityId: kept.id,
+					[policyItems]: [],
+					[preparedEntitySave]: {
+						kept,
+						matched: true,
+						mutation: null,
+						unmatched: null,
+						scopeUserId: userId,
+						userEditable: false,
+						preservePopulatedAt: false,
+						lifecycle: input.lifecycle,
+					},
+				}) satisfies PreparedEntitySave;
+			});
 			/** Prepares an entity create or update outside the commit; its policies run with its batch. */
 			const prepareSave = Effect.fn("EntitiesService.prepareSave")(function* (
 				input: PrepareEntitySaveInput,
@@ -1011,11 +1086,17 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				const { lifecycle, scopeUserId, entitySchema: reference } = input;
 				const common = { lifecycle, scopeUserId, preservePopulatedAt: false };
 				if (input.target.kind === "create") {
-					const { kind: _create, ...identity } = input.target;
+					const { unmatched, kind: _create, ...identity } = input.target;
+					if (unmatched !== undefined && scopeUserId === null) {
+						return yield* Effect.die("An entity match requires a user");
+					}
 					return yield* savedToken({
 						...common,
 						...(yield* planCreate({ ...input, ...identity })),
 						userEditable: false,
+						...(unmatched === undefined || scopeUserId === null
+							? {}
+							: { unmatched: { ...unmatched, userId: scopeUserId, entitySchema: reference } }),
 					});
 				}
 				const { entityId, expected } = input.target;
@@ -1408,11 +1489,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			});
 			return {
 				prepareSave,
+				prepareMatch,
 				prepareDeletes,
 				prepareEnsures,
 				planEntityBatch,
 				persistPreparedSaves,
-				recordImportReference,
 				persistPreparedDeletes,
 				persistPreparedEnsures,
 				persistPlannedProviderUpsert,
