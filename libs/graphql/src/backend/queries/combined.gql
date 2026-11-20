@@ -74,6 +74,7 @@ query UserIntegrations {
 		}
 		triggerResult {
 			error
+			details
 			finishedAt
 		}
 		providerSpecifics {

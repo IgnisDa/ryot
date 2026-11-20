@@ -15,6 +15,8 @@ use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
+use super::plex_diagnostics::describe_parse_error;
+
 mod models {
     use super::*;
 
@@ -57,8 +59,9 @@ fn parse_payload(payload: &str) -> Result<models::PlexWebhookPayload> {
     let json_payload = payload_regex
         .find(payload)
         .map(|x| x.as_str())
-        .unwrap_or("");
-    serde_json::from_str(json_payload).context("Error during JSON payload deserialization")
+        .context("Plex webhook payload did not contain a single-line JSON object")?;
+    serde_json::from_str(json_payload)
+        .map_err(|error| anyhow!("Plex webhook payload: {}", describe_parse_error(&error)))
 }
 
 fn get_tmdb_identifier(guids: &[StringIdObject]) -> Result<&str> {
