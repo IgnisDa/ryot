@@ -34,6 +34,7 @@ import { Context, Effect, Layer, Schema, Struct } from "effect";
 
 import { type Changes, eventCreateChanges } from "#modules/changes/changes";
 import { toCreateEventsResponse } from "#modules/changes/outcomes";
+import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import {
@@ -214,19 +215,18 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				return undefined;
 			});
 
-			/** Commits one collection entity create or update, answering the saved entity. */
-			const saveCollection = Effect.fnUntraced(function* <E>(
+			/** Commits one collection entity create or update, answering the saved entity or `rejected`'s. */
+			const saveCollection = <A, E>(
 				userId: UserId,
 				entity: NonNullable<Changes["entity"]>,
 				command: DomainLifecycleCommand,
-				rejected: (
-					error: EntityStale | EntityNotFound | EntityBadRequest,
-				) => Effect.Effect<never, E>,
-			) {
-				const committed = yield* changes
+				rejected: (error: EntityStale | EntityNotFound | EntityBadRequest) => Effect.Effect<A, E>,
+			) =>
+				changes
 					.commit({ entity, userId }, command, { entities: { verbatimIdentities: true } })
 					.pipe(
-						Effect.catch((error): Effect.Effect<never, E | DbError> => {
+						Effect.flatMap(savedEntity),
+						Effect.catch((error): Effect.Effect<A, E | DbError> => {
 							if (
 								error._tag === "EntityBadRequest" ||
 								error._tag === "EntityNotFound" ||
@@ -237,9 +237,6 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 							return error._tag === "DbError" ? Effect.fail(error) : Effect.die(error);
 						}),
 					);
-				const [saved] = committed.entities;
-				return saved?.entity ?? (yield* Effect.die("A collection commit saved no entity"));
-			});
 
 			const create = Effect.fn("CollectionsService.create")(function* (
 				user: CurrentUserValue,
@@ -387,31 +384,20 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 							properties: collectionProperties(undefined, []),
 						},
 						lifecycle,
-						(error) => Effect.fail(error),
-					).pipe(
-						Effect.map((entity): CollectionEntityResult => ({ id: entity.id })),
-						Effect.catch((error) => {
-							if (error._tag === "DbError") {
-								return Effect.fail(error);
-							}
-							if (
-								error._tag !== "EntityBadRequest" ||
-								error.reason.code !== "duplicate-collection-name"
-							) {
-								return Effect.die(error);
-							}
-							return repository
-								.findCollectionByNameForUser({ name, userId })
-								.pipe(
-									Effect.flatMap((found) =>
-										found
-											? Effect.succeed({ id: found.id })
-											: Effect.die("duplicate collection name conflict has no surviving row"),
-									),
-								);
-						}),
+						(error) =>
+							error._tag === "EntityBadRequest" && error.reason.code === "duplicate-collection-name"
+								? repository
+										.findCollectionByNameForUser({ name, userId })
+										.pipe(
+											Effect.flatMap(
+												requireBuiltinOrDie(
+													"duplicate collection name conflict has no surviving row",
+												),
+											),
+										)
+								: Effect.die(error),
 					);
-					return created;
+					return { id: created.id } satisfies CollectionEntityResult;
 				},
 			);
 

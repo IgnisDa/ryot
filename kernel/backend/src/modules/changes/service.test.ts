@@ -2,6 +2,11 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import { DbError } from "@ryot-app/contract/errors";
+import type {
+	AutomationEntityDraft,
+	AutomationPolicyInputProjection,
+	AutomationPolicyOutput,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	ChangeSet,
 	type ChangeSetEntityReference,
@@ -9,6 +14,7 @@ import {
 } from "@ryot-app/contract/modules/changes/change-set";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
+import type { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationRunId,
@@ -32,6 +38,10 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema, type Tracer } from "effect";
 
+import {
+	LifecyclePolicies,
+	type LifecyclePolicyItem,
+} from "#modules/automations/lifecycle/policies";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import notificationDefinition from "#modules/definitions/kernel-scripts/notification.sandbox";
 import { Folds } from "#modules/derived-values/service";
@@ -232,9 +242,10 @@ const eventCreate = (entity: ChangeSetEntityReference) => ({
 	],
 });
 
-const guardedPackage = (
+const policyPackage = (
+	inputProjection: AutomationPolicyInputProjection,
+	targets: (typeof PluginBeforeHook.Type)["targets"],
 	batchFrequency?: "once-per-subject",
-	operations: ReadonlyArray<"create" | "update" | "delete"> = ["create"],
 ) => {
 	const source = revisionPackage("atomic", "fixture", "record");
 	const automation = source.scripts.find(({ metadata }) => metadata.kind === "automation");
@@ -246,10 +257,10 @@ const guardedPackage = (
 		entry: "backend/policy.sandbox.ts",
 		metadata: {
 			...automation.metadata,
+			inputProjection,
 			capabilities: [],
 			slug: "atomic.guard",
 			automationType: "policy" as const,
-			inputProjection: { event: { properties: ["value"] } },
 		},
 	};
 	return {
@@ -266,19 +277,108 @@ const guardedPackage = (
 					scriptSlug: policy.slug,
 					stage: "before" as const,
 					...(batchFrequency ? { batchFrequency } : {}),
-					targets: operations.map((operation) => ({
-						operation,
-						resource: "event" as const,
-						eventSchemaSlug: "changed",
-						entitySchemaSlug: "record",
-					})),
+					targets,
 				},
 			],
 		},
 	};
 };
 
+/** Renames a created entity, and sets a created event's value to its entity's name as policies see it. */
+const renamingRoot = (
+	request: LifecyclePolicyItem["request"],
+	references: Readonly<Record<string, AutomationEntityDraft>>,
+): AutomationPolicyOutput => {
+	if (request.operation !== "create") {
+		return { action: "allow" };
+	}
+	if (request.resource === "entity") {
+		return {
+			action: "transform",
+			patch: {
+				resource: "entity",
+				draft: { properties: { remove: [], set: { name: "Transformed" } } },
+			},
+		};
+	}
+	if (request.resource === "event") {
+		const value = references[request.draft.entityId]?.properties["name"] ?? null;
+		return {
+			action: "transform",
+			patch: { resource: "event", draft: { properties: { remove: [], set: { value } } } },
+		};
+	}
+	return { action: "allow" };
+};
+
+const guardedPackage = (
+	batchFrequency?: "once-per-subject",
+	operations: ReadonlyArray<"create" | "update" | "delete"> = ["create"],
+) =>
+	policyPackage(
+		{ event: { properties: ["value"] } },
+		operations.map((operation) => ({
+			operation,
+			resource: "event" as const,
+			eventSchemaSlug: "changed",
+			entitySchemaSlug: "record",
+		})),
+		batchFrequency,
+	);
+
 layer(testLayer(false))((test) => {
+	test.effect(
+		"gives event policies the root entity as its entity policies transformed it",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture(
+					policyPackage({ entity: { properties: ["name"] }, event: { properties: ["value"] } }, [
+						{ resource: "entity", operation: "create", entitySchemaSlug: "record" },
+						{
+							resource: "event",
+							operation: "create",
+							eventSchemaSlug: "changed",
+							entitySchemaSlug: "record",
+						},
+					]),
+				);
+				const { match } = yield* LifecyclePolicies;
+				const changeSets = yield* ChangeSets.make.pipe(
+					Effect.provideService(
+						LifecyclePolicies,
+						LifecyclePolicies.of({
+							match,
+							run: ({ items, references }) =>
+								Effect.succeed({
+									items: items.map(({ request, itemIdentity }) => ({
+										itemIdentity,
+										decision: renamingRoot(request, references),
+									})),
+								}),
+						}),
+					),
+				);
+				const { entityId } = yield* changeSets.commitScript(
+					{ ...input.input, relationships: {} },
+					input.command,
+					unrecordedChanges,
+				);
+				assert(entityId);
+				expect((yield* (yield* EntitiesRepository).getById(entityId))?.properties).toEqual({
+					name: "Transformed",
+				});
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ properties: tables.event.properties })
+							.from(tables.event)
+							.where(eq(tables.event.entityId, entityId)),
+					),
+				).toEqual([{ properties: { value: "Transformed" } }]);
+			}),
+		testTimeout,
+	);
+
 	test.effect(
 		"resolves the writer's execution authority once to prepare and once in the commit transaction",
 		() =>

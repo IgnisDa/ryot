@@ -29,12 +29,14 @@ import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import {
 	commitEventChanges,
 	createEvents,
+	entityUpdate,
 	eventChangeSets,
 	eventDelete,
 	eventUpdate,
 	userDataChangeSets,
 } from "#modules/changes/change-sets.test-support";
-import type { EventChange } from "#modules/changes/changes";
+import type { Changes, EventChange } from "#modules/changes/changes";
+import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -58,7 +60,6 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-import { kernelEntityWrites } from "./kernel-writes.test-support";
 import { EntitiesRepository } from "./repository";
 import { EntitiesService, type UpsertEntityInput } from "./service";
 import { EntityUserDataGraphRepository } from "./user-data/graph-repository";
@@ -192,6 +193,12 @@ const nextCommand = (
 	itemIdentity: string,
 ): DomainLifecycleCommand => ({ ...command, itemIdentity });
 
+type EntityCreate = NonNullable<NonNullable<Changes["entities"]>["creates"]>[number];
+const userCreate = (create: EntityCreate, userId: UserId = firstUser) => ({
+	userId,
+	entities: { creates: [create] },
+});
+
 const withEventChangeSets = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.gen(function* () {
 		const repository = yield* EventsRepository.make;
@@ -266,35 +273,27 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 			Effect.gen(function* () {
 				const a = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const b = yield* installRevisionPackage(namespacePackage(), firstUser);
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const admitted = yield* admittedCommand(a, firstUser, "foreign-writes");
 				const ownSchema = { slug: bottle, owner: definitionOwner(a.pluginId) };
 				const foreignSchema = { slug: bottle, owner: definitionOwner(b.pluginId) };
-				const own = yield* entities.create({
-					name: "A",
-					scope: "user",
-					userId: firstUser,
-					entitySchema: ownSchema,
-					properties: { title: "A" },
-					lifecycle: admitted.command,
-				});
-				const foreign = yield* entities.create({
-					name: "B",
-					scope: "user",
-					userId: firstUser,
-					properties: { title: "B" },
-					entitySchema: foreignSchema,
-					lifecycle: { ...nextCommand(admitted.command, "seed-foreign"), writeContext: null },
-				});
+				const own = yield* changeSets
+					.commit(
+						userCreate({ name: "A", entitySchema: ownSchema, properties: { title: "A" } }),
+						admitted.command,
+					)
+					.pipe(Effect.flatMap(savedEntity));
+				const foreign = yield* changeSets
+					.commit(
+						userCreate({ name: "B", properties: { title: "B" }, entitySchema: foreignSchema }),
+						{ ...nextCommand(admitted.command, "seed-foreign"), writeContext: null },
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				const create = yield* Effect.flip(
-					entities.create({
-						scope: "user",
-						name: "Wrong",
-						properties: {},
-						userId: firstUser,
-						entitySchema: foreignSchema,
-						lifecycle: nextCommand(admitted.command, "foreign-create"),
-					}),
+					changeSets.commit(
+						userCreate({ name: "Wrong", properties: {}, entitySchema: foreignSchema }),
+						nextCommand(admitted.command, "foreign-create"),
+					),
 				);
 				assert(create instanceof EntityBadRequest);
 				expect(create.reason).toEqual({
@@ -304,31 +303,37 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				});
 				expect(
 					yield* Effect.flip(
-						entities.update({
-							scope: "user",
-							name: "Wrong",
-							properties: {},
-							userId: firstUser,
-							populatedAt: null,
-							entityId: foreign.entity.id,
-							lifecycle: nextCommand(admitted.command, "foreign-update"),
-						}),
-					),
-				).toMatchObject({ reason: { code: "owner-mismatch" } });
-				expect(
-					yield* Effect.flip(
-						entities.deleteByIds(
-							[foreign.entity.id],
-							nextCommand(admitted.command, "foreign-delete"),
-							{ userId: firstUser, entitySchema: foreignSchema },
+						changeSets.commit(
+							{
+								userId: firstUser,
+								entities: {
+									updates: [{ ...entityUpdate(foreign, "Wrong", {}), populatedAt: null }],
+								},
+							},
+							nextCommand(admitted.command, "foreign-update"),
 						),
 					),
 				).toMatchObject({ reason: { code: "owner-mismatch" } });
 				expect(
 					yield* Effect.flip(
-						entities.ensure(
-							firstUser,
-							[{ name: "Wrong", properties: {}, entitySchema: foreignSchema }],
+						changeSets.commit(
+							{
+								userId: firstUser,
+								entities: { deletes: [{ entityId: foreign.id, entitySchema: foreignSchema }] },
+							},
+							nextCommand(admitted.command, "foreign-delete"),
+						),
+					),
+				).toMatchObject({ reason: { code: "owner-mismatch" } });
+				expect(
+					yield* Effect.flip(
+						changeSets.commit(
+							{
+								userId: firstUser,
+								entities: {
+									ensures: [{ name: "Wrong", properties: {}, entitySchema: foreignSchema }],
+								},
+							},
 							nextCommand(admitted.command, "foreign-ensure"),
 						),
 					),
@@ -340,8 +345,8 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 							{
 								properties: {},
 								userId: firstUser,
-								sourceEntityId: own.entity.id,
-								targetEntityId: foreign.entity.id,
+								sourceEntityId: own.id,
+								targetEntityId: foreign.id,
 								relationshipSchema: {
 									owner: ownSchema.owner,
 									slug: RelationshipSchemaSlug.make("link"),
@@ -351,7 +356,9 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 						),
 					),
 				).toMatchObject({ reason: { code: "owner-mismatch" } });
-				expect((yield* entities.getById(foreign.entity.id))?.properties).toEqual({ title: "B" });
+				expect((yield* (yield* EntitiesRepository).getById(foreign.id))?.properties).toEqual({
+					title: "B",
+				});
 			}),
 		testTimeout,
 	);
@@ -366,18 +373,20 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					firstUser,
 					"private-globals",
 				);
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const engine = yield* EntitiesService;
 				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
 				expect(
 					yield* Effect.flip(
-						entities.create({
-							entitySchema,
-							name: "Global",
-							scope: "global",
-							lifecycle: command,
-							properties: { title: "Global" },
-						}),
+						changeSets.commit(
+							{
+								userId: null,
+								entities: {
+									creates: [{ entitySchema, name: "Global", properties: { title: "Global" } }],
+								},
+							},
+							command,
+						),
 					),
 				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
 				expect(
@@ -404,21 +413,19 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 					),
 				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
-				const own = yield* entities.create({
-					name: "Own",
-					entitySchema,
-					scope: "user",
-					userId: firstUser,
-					properties: { title: "Own" },
-					lifecycle: nextCommand(command, "own"),
-				});
+				const own = yield* changeSets
+					.commit(
+						userCreate({ name: "Own", entitySchema, properties: { title: "Own" } }),
+						nextCommand(command, "own"),
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				expect(
 					yield* Effect.flip(
 						upsertGlobalRelationship(
 							{
 								properties: {},
-								sourceEntityId: own.entity.id,
-								targetEntityId: own.entity.id,
+								sourceEntityId: own.id,
+								targetEntityId: own.id,
 								relationshipSchema: {
 									owner: entitySchema.owner,
 									slug: RelationshipSchemaSlug.make("link"),
@@ -438,40 +445,41 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 			Effect.gen(function* () {
 				const a = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const b = yield* installRevisionPackage(namespacePackage(), firstUser);
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const session = yield* DatabaseSession;
 				const first = yield* admittedCommand(a, firstUser, "event-a");
 				const second = yield* admittedCommand(b, firstUser, "event-b");
-				const own = yield* entities.create({
-					name: "A",
-					scope: "user",
-					userId: firstUser,
-					lifecycle: first.command,
-					properties: { title: "A" },
-					entitySchema: { slug: bottle, owner: definitionOwner(a.pluginId) },
-				});
-				const foreign = yield* entities.create({
-					name: "B",
-					scope: "user",
-					userId: firstUser,
-					lifecycle: second.command,
-					properties: { title: "B" },
-					entitySchema: { slug: bottle, owner: definitionOwner(b.pluginId) },
-				});
+				const own = yield* changeSets
+					.commit(
+						userCreate({
+							name: "A",
+							properties: { title: "A" },
+							entitySchema: { slug: bottle, owner: definitionOwner(a.pluginId) },
+						}),
+						first.command,
+					)
+					.pipe(Effect.flatMap(savedEntity));
+				const foreign = yield* changeSets
+					.commit(
+						userCreate({
+							name: "B",
+							properties: { title: "B" },
+							entitySchema: { slug: bottle, owner: definitionOwner(b.pluginId) },
+						}),
+						second.command,
+					)
+					.pipe(Effect.flatMap(savedEntity));
+
 				const localEvent = EventSchemaSlug.make("tasted");
 				expect(
 					(yield* createUserEvents(nextCommand(first.command, "own-event"), firstUser, [
-						{
-							entityId: own.entity.id,
-							eventSchemaSlug: localEvent,
-							properties: { title: "Own event" },
-						},
+						{ entityId: own.id, eventSchemaSlug: localEvent, properties: { title: "Own event" } },
 					])).count,
 				).toBe(1);
 				expect(
 					(yield* createUserEvents(nextCommand(second.command, "foreign-event"), firstUser, [
 						{
-							entityId: foreign.entity.id,
+							entityId: foreign.id,
 							eventSchemaSlug: localEvent,
 							properties: { title: "Foreign event" },
 						},
@@ -480,17 +488,11 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				const denied = yield* createUserEvents(
 					nextCommand(first.command, "wrong-event"),
 					firstUser,
-					[
-						{
-							entityId: foreign.entity.id,
-							eventSchemaSlug: localEvent,
-							properties: { title: "Wrong" },
-						},
-					],
+					[{ entityId: foreign.id, eventSchemaSlug: localEvent, properties: { title: "Wrong" } }],
 				);
 				expect(denied.count).toBe(0);
 				const [row] = yield* session.run((db) =>
-					db.select().from(tables.event).where(eq(tables.event.entityId, foreign.entity.id)),
+					db.select().from(tables.event).where(eq(tables.event.entityId, foreign.id)),
 				);
 				assert(row);
 				expect(row.eventSchemaPluginId).toBe(b.pluginId);
@@ -538,46 +540,42 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				});
 				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const { command } = yield* admittedCommand(installed, firstUser, "collections");
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const collectionSchema = {
 					owner: { kind: "kernel" as const },
 					slug: EntitySchemaSlug.make("collection"),
 				};
 				expect(
 					yield* Effect.flip(
-						entities.create({
-							scope: "user",
-							properties: {},
-							name: "Unmarked",
-							userId: firstUser,
-							lifecycle: command,
-							entitySchema: collectionSchema,
-						}),
+						changeSets.commit(
+							userCreate({ properties: {}, name: "Unmarked", entitySchema: collectionSchema }),
+							command,
+						),
 					),
 				).toMatchObject({ reason: { code: "owner-mismatch" } });
-				const item = yield* entities.create({
-					name: "Item",
-					scope: "user",
-					userId: firstUser,
-					properties: { title: "Item" },
-					lifecycle: nextCommand(command, "item"),
-					entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-				});
-				const container = yield* entities.create({
-					scope: "user",
-					properties: {},
-					userId: firstUser,
-					name: "Collection",
-					entitySchema: collectionSchema,
-					lifecycle: kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
-				});
+				const item = yield* changeSets
+					.commit(
+						userCreate({
+							name: "Item",
+							properties: { title: "Item" },
+							entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+						}),
+						nextCommand(command, "item"),
+					)
+					.pipe(Effect.flatMap(savedEntity));
+				const container = yield* changeSets
+					.commit(
+						userCreate({ properties: {}, name: "Collection", entitySchema: collectionSchema }),
+						kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				const link = yield* writeRelationship(
 					"upsert",
 					{
 						properties: {},
 						userId: firstUser,
-						sourceEntityId: item.entity.id,
-						targetEntityId: container.entity.id,
+						sourceEntityId: item.id,
+						targetEntityId: container.id,
 						relationshipSchema: {
 							owner: collectionSchema.owner,
 							slug: RelationshipSchemaSlug.make("member-of"),
@@ -593,11 +591,11 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					firstUser,
 					[
 						{
-							entityId: container.entity.id,
-							sessionEntityId: item.entity.id,
+							entityId: container.id,
+							sessionEntityId: item.id,
 							eventSchemaSlug: EventSchemaSlug.make("add-entity-to-collection"),
 							properties: {
-								entityId: item.entity.id,
+								entityId: item.id,
 								entitySchemaSlug: bottle,
 								relationshipProperties: {},
 							},
@@ -605,11 +603,21 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					],
 				);
 				expect(
-					(yield* entities.deleteByIds([item.entity.id], nextCommand(command, "delete-item"), {
-						userId: firstUser,
-						entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-					})).deletedCount,
-				).toBe(1);
+					(yield* changeSets.commit(
+						{
+							userId: firstUser,
+							entities: {
+								deletes: [
+									{
+										entityId: item.id,
+										entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+									},
+								],
+							},
+						},
+						nextCommand(command, "delete-item"),
+					)).deleted,
+				).toEqual([item.id]);
 				const session = yield* DatabaseSession;
 				expect(
 					yield* session.run((db) =>
@@ -621,10 +629,12 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				).toEqual([]);
 				expect(
 					yield* session.run((db) =>
-						db.select().from(tables.event).where(eq(tables.event.sessionEntityId, item.entity.id)),
+						db.select().from(tables.event).where(eq(tables.event.sessionEntityId, item.id)),
 					),
 				).toEqual([]);
-				expect((yield* entities.getById(container.entity.id))?.entitySchemaPluginId).toBeNull();
+				expect(
+					(yield* (yield* EntitiesRepository).getById(container.id))?.entitySchemaPluginId,
+				).toBeNull();
 			}),
 		testTimeout,
 	);
@@ -636,7 +646,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				yield* ensureKernelCollections;
 				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const { command } = yield* admittedCommand(installed, firstUser, "merge-plugin");
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const session = yield* DatabaseSession;
 				const schema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
 				const collectionSchema = {
@@ -644,24 +654,24 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					slug: EntitySchemaSlug.make("collection"),
 				};
 				const createBottle = (name: string) =>
-					entities.create({
-						name,
-						scope: "user",
-						userId: firstUser,
-						entitySchema: schema,
-						properties: { title: name },
-						lifecycle: nextCommand(command, `create-${name}`),
-					});
-				const from = (yield* createBottle("From")).entity;
-				const into = (yield* createBottle("Into")).entity;
-				const container = (yield* entities.create({
-					scope: "user",
-					properties: {},
-					userId: firstUser,
-					name: "Merge collection",
-					entitySchema: collectionSchema,
-					lifecycle: kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
-				})).entity;
+					changeSets
+						.commit(
+							userCreate({ name, entitySchema: schema, properties: { title: name } }),
+							nextCommand(command, `create-${name}`),
+						)
+						.pipe(Effect.flatMap(savedEntity));
+				const from = yield* createBottle("From");
+				const into = yield* createBottle("Into");
+				const container = yield* changeSets
+					.commit(
+						userCreate({
+							properties: {},
+							name: "Merge collection",
+							entitySchema: collectionSchema,
+						}),
+						kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				const link = yield* writeRelationship(
 					"upsert",
 					{
@@ -750,30 +760,34 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				const b = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const first = yield* admittedCommand(a, firstUser, "merge-refusals-a");
 				const second = yield* admittedCommand(b, firstUser, "merge-refusals-b");
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const session = yield* DatabaseSession;
 				const eventRows = yield* EventsRepository;
 				const createBottle = (name: string, installed: typeof a, base: DomainLifecycleCommand) =>
-					entities.create({
-						name,
-						scope: "user",
-						userId: firstUser,
-						properties: { title: name },
-						lifecycle: nextCommand(base, `create-${name}`),
-						entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-					});
+					changeSets
+						.commit(
+							userCreate({
+								name,
+								properties: { title: name },
+								entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+							}),
+							nextCommand(base, `create-${name}`),
+						)
+						.pipe(Effect.flatMap(savedEntity));
 				const createCollection = (name: string) =>
-					entities.create({
-						name,
-						scope: "user",
-						properties: {},
-						userId: firstUser,
-						lifecycle: kernelCollectionLifecycleCommand(nextCommand(first.command, name)),
-						entitySchema: {
-							owner: { kind: "kernel" as const },
-							slug: EntitySchemaSlug.make("collection"),
-						},
-					});
+					changeSets
+						.commit(
+							userCreate({
+								name,
+								properties: {},
+								entitySchema: {
+									owner: { kind: "kernel" as const },
+									slug: EntitySchemaSlug.make("collection"),
+								},
+							}),
+							kernelCollectionLifecycleCommand(nextCommand(first.command, name)),
+						)
+						.pipe(Effect.flatMap(savedEntity));
 				const merge = (
 					mergeFrom: string,
 					mergeInto: string,
@@ -791,12 +805,12 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 							command,
 						),
 					);
-				const from = (yield* createBottle("From", a, first.command)).entity;
-				const into = (yield* createBottle("Into", a, first.command)).entity;
-				const foreignFrom = (yield* createBottle("ForeignFrom", b, second.command)).entity;
-				const foreignInto = (yield* createBottle("ForeignInto", b, second.command)).entity;
-				const left = (yield* createCollection("left")).entity;
-				const right = (yield* createCollection("right")).entity;
+				const from = yield* createBottle("From", a, first.command);
+				const into = yield* createBottle("Into", a, first.command);
+				const foreignFrom = yield* createBottle("ForeignFrom", b, second.command);
+				const foreignInto = yield* createBottle("ForeignInto", b, second.command);
+				const left = yield* createCollection("left");
+				const right = yield* createCollection("right");
 				const globalSource = EntityId.make("global-bottle");
 				yield* session.run((db) =>
 					db
@@ -897,60 +911,65 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					firstUser,
 				);
 				expect(updated.pluginId).toBe(installed.pluginId);
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
-				const continued = yield* entities.create({
-					entitySchema,
-					scope: "user",
-					userId: firstUser,
-					name: "Continued",
-					lifecycle: command,
-					properties: { title: "Old payload" },
-				});
-				expect(continued.entity.properties).toEqual({ title: "Old payload" });
+				const continued = yield* changeSets
+					.commit(
+						userCreate({ entitySchema, name: "Continued", properties: { title: "Old payload" } }),
+						command,
+					)
+					.pipe(Effect.flatMap(savedEntity));
+				expect(continued.properties).toEqual({ title: "Old payload" });
 				const fresh = yield* admittedCommand(updated, firstUser, "new-writer");
-				const newValue = yield* entities.create({
-					name: "New",
-					entitySchema,
-					scope: "user",
-					userId: firstUser,
-					lifecycle: fresh.command,
-					properties: { newer: "present", title: "New payload" },
-				});
+				const newValue = yield* changeSets
+					.commit(
+						userCreate({
+							name: "New",
+							entitySchema,
+							properties: { newer: "present", title: "New payload" },
+						}),
+						fresh.command,
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				expect(
 					yield* Effect.flip(
-						entities.update({
-							name: "Old",
-							scope: "user",
-							userId: firstUser,
-							populatedAt: null,
-							entityId: newValue.entity.id,
-							properties: { title: "Overwrite" },
-							lifecycle: nextCommand(command, "old-update"),
-						}),
+						changeSets.commit(
+							{
+								userId: firstUser,
+								entities: {
+									updates: [
+										{ ...entityUpdate(newValue, "Old", { title: "Overwrite" }), populatedAt: null },
+									],
+								},
+							},
+							nextCommand(command, "old-update"),
+						),
 					),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
 				expect(
 					yield* Effect.flip(
-						entities.deleteByIds([newValue.entity.id], nextCommand(command, "old-delete"), {
-							entitySchema,
-							userId: firstUser,
-						}),
+						changeSets.commit(
+							{
+								userId: firstUser,
+								entities: { deletes: [{ entitySchema, entityId: newValue.id }] },
+							},
+							nextCommand(command, "old-delete"),
+						),
 					),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
 				expect(
 					yield* Effect.flip(
-						entities.create({
-							entitySchema,
-							scope: "user",
-							name: "Unknown",
-							userId: firstUser,
-							lifecycle: nextCommand(command, "unknown-payload"),
-							properties: { title: "Old", newer: "unrecognized" },
-						}),
+						changeSets.commit(
+							userCreate({
+								entitySchema,
+								name: "Unknown",
+								properties: { title: "Old", newer: "unrecognized" },
+							}),
+							nextCommand(command, "unknown-payload"),
+						),
 					),
 				).toMatchObject({ reason: { paths: [["newer"]], code: "invalid-properties" } });
-				expect((yield* entities.getById(newValue.entity.id))?.properties).toEqual({
+				expect((yield* (yield* EntitiesRepository).getById(newValue.id))?.properties).toEqual({
 					newer: "present",
 					title: "New payload",
 				});
@@ -965,16 +984,10 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				const original = namespacePackage();
 				const installed = yield* installRevisionPackage(original, firstUser);
 				const { command } = yield* admittedCommand(installed, firstUser, "policy-race");
-				const service = yield* kernelEntityWrites;
 				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
-				const created = yield* service.create({
-					name: "Old",
-					entitySchema,
-					scope: "user",
-					userId: firstUser,
-					lifecycle: command,
-					properties: { title: "Old" },
-				});
+				const created = yield* (yield* ChangeSets)
+					.commit(userCreate({ name: "Old", entitySchema, properties: { title: "Old" } }), command)
+					.pipe(Effect.flatMap(savedEntity));
 				const newer = namespacePackage(original.manifest.metadata.packageId, "policy");
 				const script = newer.scripts.find(({ metadata }) => metadata.kind === "automation");
 				assert(script?.metadata.kind === "automation");
@@ -1023,8 +1036,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				);
 				const repository = yield* EntitiesRepository;
 				const session = yield* DatabaseSession;
-				const oldWriter = yield* kernelEntityWrites.pipe(
-					Effect.provideServiceEffect(ChangeSets, ChangeSets.make),
+				const oldWriter = yield* ChangeSets.make.pipe(
 					Effect.provideService(
 						LifecyclePolicies,
 						decidingPolicies((yield* LifecyclePolicies).match, () =>
@@ -1033,7 +1045,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 									repository.updateEntity({
 										populatedAt: null,
 										name: "Concurrent",
-										entityId: created.entity.id,
+										entityId: created.id,
 										properties: { newer: "present", title: "Concurrent" },
 									}),
 								)
@@ -1043,18 +1055,23 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				);
 				expect(
 					yield* Effect.flip(
-						oldWriter.update({
-							scope: "user",
-							userId: firstUser,
-							name: "Overwrite",
-							populatedAt: null,
-							entityId: created.entity.id,
-							properties: { title: "Overwrite" },
-							lifecycle: nextCommand(command, "race-update"),
-						}),
+						oldWriter.commit(
+							{
+								userId: firstUser,
+								entities: {
+									updates: [
+										{
+											...entityUpdate(created, "Overwrite", { title: "Overwrite" }),
+											populatedAt: null,
+										},
+									],
+								},
+							},
+							nextCommand(command, "race-update"),
+						),
 					),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
-				expect((yield* service.getById(created.entity.id))?.properties).toEqual({
+				expect((yield* repository.getById(created.id))?.properties).toEqual({
 					newer: "present",
 					title: "Concurrent",
 				});
@@ -1102,28 +1119,30 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					},
 					firstUser,
 				);
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
 				const properties = { title: "Old", newer: "Allowed", opaque: { value: 1 } };
-				const created = yield* entities.create({
-					properties,
-					entitySchema,
-					scope: "user",
-					name: "Opaque",
-					userId: firstUser,
-					lifecycle: command,
-				});
-				expect(created.entity.properties).toEqual(properties);
-				const updated = yield* entities.update({
-					scope: "user",
-					name: "Updated",
-					userId: firstUser,
-					populatedAt: null,
-					entityId: created.entity.id,
-					properties: { ...properties, title: "Updated" },
-					lifecycle: nextCommand(command, "passthrough-update"),
-				});
-				expect(updated.entity.properties).toEqual({ ...properties, title: "Updated" });
+				const created = yield* changeSets
+					.commit(userCreate({ properties, entitySchema, name: "Opaque" }), command)
+					.pipe(Effect.flatMap(savedEntity));
+				expect(created.properties).toEqual(properties);
+				const updated = yield* changeSets
+					.commit(
+						{
+							userId: firstUser,
+							entities: {
+								updates: [
+									{
+										...entityUpdate(created, "Updated", { ...properties, title: "Updated" }),
+										populatedAt: null,
+									},
+								],
+							},
+						},
+						nextCommand(command, "passthrough-update"),
+					)
+					.pipe(Effect.flatMap(savedEntity));
+				expect(updated.properties).toEqual({ ...properties, title: "Updated" });
 			}),
 		testTimeout,
 	);
@@ -1187,13 +1206,18 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					}),
 					writeContext: principal,
 				};
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
-				yield* entities.ensure(
-					firstUser,
-					[{ entitySchema, name: "Seed", properties: { title: "Seed" } }],
-					command,
-				);
+				const ensure = (
+					name: string,
+					properties: Record<string, string>,
+					lifecycle: DomainLifecycleCommand,
+				) =>
+					changeSets.commit(
+						{ userId: firstUser, entities: { ensures: [{ name, properties, entitySchema }] } },
+						lifecycle,
+					);
+				yield* ensure("Seed", { title: "Seed" }, command);
 				expect(
 					yield* session.run((db) =>
 						db
@@ -1204,13 +1228,17 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				).toEqual([{ name: "Seed" }]);
 				expect(
 					yield* Effect.flip(
-						entities.ensure(firstUser, [{ entitySchema, name: "Wrong", properties: {} }], {
-							...nextCommand(command, "wrong-activation"),
-							writeContext: {
-								...principal,
-								initialization: { ...binding, activationId: "foreign-activation" },
+						ensure(
+							"Wrong",
+							{},
+							{
+								...nextCommand(command, "wrong-activation"),
+								writeContext: {
+									...principal,
+									initialization: { ...binding, activationId: "foreign-activation" },
+								},
 							},
-						}),
+						),
 					),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
 				yield* session.run((db) =>
@@ -1220,13 +1248,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 						.where(eq(tables.pluginInstallation.id, binding.installationId)),
 				);
 				expect(
-					yield* Effect.flip(
-						entities.ensure(
-							firstUser,
-							[{ entitySchema, properties: {}, name: "Completed" }],
-							nextCommand(command, "completed-binding"),
-						),
-					),
+					yield* Effect.flip(ensure("Completed", {}, nextCommand(command, "completed-binding"))),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
 			}),
 		testTimeout,
@@ -1239,7 +1261,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const { command } = yield* admittedCommand(installed, firstUser, "historical-health");
 				const session = yield* DatabaseSession;
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
 				for (const health of ["installing", "needs-configuration"] as const) {
 					yield* session.run((db) =>
@@ -1248,15 +1270,13 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 							.set({ health })
 							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 					);
-					const result = yield* entities.create({
-						entitySchema,
-						name: health,
-						scope: "user",
-						userId: firstUser,
-						properties: { title: health },
-						lifecycle: nextCommand(command, health),
-					});
-					expect(result.entity.entitySchemaPluginId).toBe<unknown>(installed.pluginId);
+					const result = yield* changeSets
+						.commit(
+							userCreate({ entitySchema, name: health, properties: { title: health } }),
+							nextCommand(command, health),
+						)
+						.pipe(Effect.flatMap(savedEntity));
+					expect(result.entitySchemaPluginId).toBe<unknown>(installed.pluginId);
 				}
 				yield* session.run((db) =>
 					db
@@ -1266,14 +1286,10 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				);
 				expect(
 					yield* Effect.flip(
-						entities.create({
-							entitySchema,
-							scope: "user",
-							name: "Hidden",
-							properties: {},
-							userId: firstUser,
-							lifecycle: nextCommand(command, "hidden"),
-						}),
+						changeSets.commit(
+							userCreate({ entitySchema, name: "Hidden", properties: {} }),
+							nextCommand(command, "hidden"),
+						),
 					),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
 				yield* session.run((db) =>
@@ -1288,14 +1304,10 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				);
 				expect(
 					yield* Effect.flip(
-						entities.create({
-							entitySchema,
-							scope: "user",
-							properties: {},
-							userId: firstUser,
-							name: "Quarantined",
-							lifecycle: nextCommand(command, "quarantined"),
-						}),
+						changeSets.commit(
+							userCreate({ entitySchema, properties: {}, name: "Quarantined" }),
+							nextCommand(command, "quarantined"),
+						),
 					),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
 			}),
@@ -1355,18 +1367,18 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					},
 					firstUser,
 				);
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const owner = definitionOwner(installed.pluginId);
 				const create = (slug: string, itemIdentity: string) =>
 					Effect.flip(
-						entities.create({
-							name: slug,
-							scope: "user",
-							userId: firstUser,
-							properties: { title: slug },
-							lifecycle: nextCommand(command, itemIdentity),
-							entitySchema: { owner, slug: EntitySchemaSlug.make(slug) },
-						}),
+						changeSets.commit(
+							userCreate({
+								name: slug,
+								properties: { title: slug },
+								entitySchema: { owner, slug: EntitySchemaSlug.make(slug) },
+							}),
+							nextCommand(command, itemIdentity),
+						),
 					);
 				expect(yield* create("retired", "retired-entity")).toMatchObject({
 					reason: { code: "mutation-conflict" },
@@ -1374,17 +1386,19 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				expect(yield* create("added", "added-entity")).toMatchObject({
 					reason: { code: "mutation-conflict" },
 				});
-				const own = yield* entities.create({
-					name: "Own",
-					scope: "user",
-					userId: firstUser,
-					properties: { title: "Own" },
-					entitySchema: { owner, slug: bottle },
-					lifecycle: nextCommand(command, "own-entity"),
-				});
+				const own = yield* changeSets
+					.commit(
+						userCreate({
+							name: "Own",
+							properties: { title: "Own" },
+							entitySchema: { owner, slug: bottle },
+						}),
+						nextCommand(command, "own-entity"),
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				const eventSchemaSlug = EventSchemaSlug.make("opened");
 				const denied = yield* createUserEvents(nextCommand(command, "added-event"), firstUser, [
-					{ eventSchemaSlug, entityId: own.entity.id, properties: { title: "Opened" } },
+					{ eventSchemaSlug, entityId: own.id, properties: { title: "Opened" } },
 				]);
 				expect(denied.count).toBe(0);
 				expect(denied.failure).toEqual({
@@ -1398,8 +1412,8 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 							{
 								properties: {},
 								userId: firstUser,
-								sourceEntityId: own.entity.id,
-								targetEntityId: own.entity.id,
+								sourceEntityId: own.id,
+								targetEntityId: own.id,
 								relationshipSchema: { owner, slug: RelationshipSchemaSlug.make("added-link") },
 							},
 							nextCommand(command, "added-link"),
@@ -1420,25 +1434,24 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 					firstUser,
 					"immutable-upsert",
 				);
-				const entities = yield* kernelEntityWrites;
-				const input = {
-					providerId,
-					name: "Bottle",
-					populatedAt: null,
-					userId: firstUser,
-					updateExisting: true,
-					scope: "user" as const,
-					externalId: "immutable-bottle",
-					properties: { code: "a", title: "Bottle" },
-					entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-				};
-				yield* entities.upsert({ ...input, lifecycle: nextCommand(command, "immutable-create") });
-				const updated = yield* entities.upsert({
-					...input,
-					properties: { code: "b", title: "Bottle" },
-					lifecycle: nextCommand(command, "immutable-update"),
-				});
-				expect(updated.entity.properties).toEqual({ code: "b", title: "Bottle" });
+				const changeSets = yield* ChangeSets;
+				const upsert = (properties: object, itemIdentity: string) =>
+					changeSets
+						.commit(
+							userCreate({
+								properties,
+								name: "Bottle",
+								populatedAt: null,
+								externalId: "immutable-bottle",
+								provider: { providerId, updateExisting: true },
+								entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+							}),
+							nextCommand(command, itemIdentity),
+						)
+						.pipe(Effect.flatMap(savedEntity));
+				yield* upsert({ code: "a", title: "Bottle" }, "immutable-create");
+				const updated = yield* upsert({ code: "b", title: "Bottle" }, "immutable-update");
+				expect(updated.properties).toEqual({ code: "b", title: "Bottle" });
 			}),
 		testTimeout,
 	);
@@ -1453,31 +1466,35 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				const foreignCommand = (yield* admittedCommand(foreignPlugin, firstUser, "foreign-session"))
 					.command;
 				const session = yield* DatabaseSession;
-				const entities = yield* kernelEntityWrites;
-				const own = yield* entities.create({
-					name: "Own",
-					scope: "user",
-					userId: firstUser,
-					properties: { title: "Own" },
-					lifecycle: nextCommand(command, "own-entity"),
-					entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-				});
-				const foreign = yield* entities.create({
-					scope: "user",
-					name: "Foreign",
-					userId: firstUser,
-					lifecycle: foreignCommand,
-					properties: { title: "Foreign" },
-					entitySchema: { slug: bottle, owner: definitionOwner(foreignPlugin.pluginId) },
-				});
+				const changeSets = yield* ChangeSets;
+				const own = yield* changeSets
+					.commit(
+						userCreate({
+							name: "Own",
+							properties: { title: "Own" },
+							entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+						}),
+						nextCommand(command, "own-entity"),
+					)
+					.pipe(Effect.flatMap(savedEntity));
+				const foreign = yield* changeSets
+					.commit(
+						userCreate({
+							name: "Foreign",
+							properties: { title: "Foreign" },
+							entitySchema: { slug: bottle, owner: definitionOwner(foreignPlugin.pluginId) },
+						}),
+						foreignCommand,
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				const denied = yield* createUserEvents(
 					nextCommand(command, "foreign-session-event"),
 					firstUser,
 					[
 						{
-							entityId: own.entity.id,
+							entityId: own.id,
+							sessionEntityId: foreign.id,
 							properties: { title: "Tasted" },
-							sessionEntityId: foreign.entity.id,
 							eventSchemaSlug: EventSchemaSlug.make("tasted"),
 						},
 					],
@@ -1485,20 +1502,20 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				expect(denied.count).toBe(0);
 				expect(denied.failure).toEqual({
 					index: 0,
-					reason: { entityId: foreign.entity.id, code: "session-entity-not-found" },
+					reason: { entityId: foreign.id, code: "session-entity-not-found" },
 				});
 				const rejected = (itemIdentity: string) =>
 					Effect.gen(function* () {
 						expect(
 							yield* Effect.flip(
-								entities.create({
-									scope: "user",
-									userId: firstUser,
-									name: itemIdentity,
-									properties: { title: itemIdentity },
-									lifecycle: nextCommand(command, itemIdentity),
-									entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-								}),
+								changeSets.commit(
+									userCreate({
+										name: itemIdentity,
+										properties: { title: itemIdentity },
+										entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+									}),
+									nextCommand(command, itemIdentity),
+								),
 							),
 						).toMatchObject({ reason: { code: "mutation-conflict" } });
 					});
@@ -1522,14 +1539,14 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipChangeSetsLay
 				);
 				expect(
 					yield* Effect.flip(
-						entities.create({
-							scope: "user",
-							userId: firstUser,
-							name: "retiring-account",
-							properties: { title: "retiring-account" },
-							lifecycle: nextCommand(command, "retiring-account"),
-							entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-						}),
+						changeSets.commit(
+							userCreate({
+								name: "retiring-account",
+								properties: { title: "retiring-account" },
+								entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+							}),
+							nextCommand(command, "retiring-account"),
+						),
 					),
 				).toMatchObject({ message: "Mutation command account is being retired" });
 				yield* session.run((db) =>
@@ -1889,7 +1906,7 @@ layer(relationshipChangeSetsLayer())((test) => {
 				const a = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const b = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const c = yield* installRevisionPackage(namespacePackage(), otherUser);
-				const entities = yield* kernelEntityWrites;
+				const changeSets = yield* ChangeSets;
 				const writer = yield* admittedCommand(a, firstUser, "batch-event-a");
 				const foreignWriter = yield* admittedCommand(b, firstUser, "batch-event-b");
 				const otherWriter = yield* admittedCommand(c, otherUser, "batch-event-c");
@@ -1901,29 +1918,34 @@ layer(relationshipChangeSetsLayer())((test) => {
 					eventSchemaSlug: EventSchemaSlug,
 					identity: string,
 				) {
-					const created = yield* entities.create({
-						userId,
-						scope: "user",
-						name: identity,
-						properties: entity === "collection" ? {} : { title: identity },
-						entitySchema:
-							entity === "collection"
-								? { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") }
-								: entity.entitySchema,
-						lifecycle:
+					const created = yield* changeSets
+						.commit(
+							userCreate(
+								{
+									name: identity,
+									properties: entity === "collection" ? {} : { title: identity },
+									entitySchema:
+										entity === "collection"
+											? { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") }
+											: entity.entitySchema,
+								},
+								userId,
+							),
 							entity === "collection"
 								? kernelCollectionLifecycleCommand(nextCommand(command, `${identity}-entity`))
 								: nextCommand(command, `${identity}-entity`),
-					});
+						)
+						.pipe(Effect.flatMap(savedEntity));
 					const eventCommand = nextCommand(command, `${identity}-event`);
 					yield* createUserEvents(
 						entity === "collection" ? kernelCollectionLifecycleCommand(eventCommand) : eventCommand,
 						userId,
-						[{ eventSchemaSlug, entityId: created.entity.id, properties: { text: identity } }],
+						[{ eventSchemaSlug, entityId: created.id, properties: { text: identity } }],
 					);
 					const [row] = yield* session.run((db) =>
-						db.select().from(tables.event).where(eq(tables.event.entityId, created.entity.id)),
+						db.select().from(tables.event).where(eq(tables.event.entityId, created.id)),
 					);
+
 					assert(row);
 					return EventId.make(row.id);
 				});

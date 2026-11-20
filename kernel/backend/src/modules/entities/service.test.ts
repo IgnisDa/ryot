@@ -8,6 +8,7 @@ import {
 	EntityBadRequest,
 	EntityNotFound,
 	EntityStale,
+	type ListedEntity,
 } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	definitionOwner,
@@ -55,7 +56,9 @@ import {
 	LifecyclePolicies,
 } from "#modules/automations/lifecycle/policies";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
-import { entityChangeSets } from "#modules/changes/change-sets.test-support";
+import { entityChangeSets, entityUpdate } from "#modules/changes/change-sets.test-support";
+import type { Changes } from "#modules/changes/changes";
+import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
@@ -77,9 +80,8 @@ import { applyBaselineMigration, baselineMigrationStatements } from "#testing/ba
 import { testDatabaseUrl } from "#testing/database";
 import { makeAppConfigLayer, makeConfigProviderLayer, makeWorkflowEngine } from "#testing/effect";
 
-import { kernelEntityWrites } from "./kernel-writes.test-support";
 import { EntitiesRepository } from "./repository";
-import { EntitiesService, type UpsertEntityInput } from "./service";
+import { acceptPrepared, EntitiesService, type UpsertEntityInput } from "./service";
 import {
 	countStatementClasses,
 	recordingDatabaseLayer,
@@ -115,13 +117,15 @@ const systemCommand = (id: string) => ({
 	}),
 	writeContext: null,
 });
-const createInput = (id: string) => ({
+type EntityCreate = NonNullable<NonNullable<Changes["entities"]>["creates"]>[number];
+const originalCreate: EntityCreate = {
 	entitySchema,
-	userId: owner,
 	name: " Original ",
-	lifecycle: command(id),
-	scope: "user" as const,
 	properties: { title: "original" },
+};
+const ownerCreate = (create: EntityCreate = originalCreate) => ({
+	userId: owner,
+	entities: { creates: [create] },
 });
 const createEvent = (id: EventId, userId: UserId, entityId: EntityId, sessionEntityId?: EntityId) =>
 	Effect.gen(function* () {
@@ -553,9 +557,14 @@ const expectInvariant = (counts: ReadonlyArray<ReturnType<typeof countStatementC
 	expect([small.check, small.lock].every((count) => count > 0)).toBe(true);
 };
 
-const ownedBy = (userId: null | UserId, schema: EntitySchemaReference = entitySchema) => ({
+/** Deletes of `ids` under `schema` by a kernel writer in `userId`'s scope. */
+const deletesOf = (
+	userId: null | UserId,
+	ids: ReadonlyArray<EntityId>,
+	schema: EntitySchemaReference = entitySchema,
+) => ({
 	userId,
-	entitySchema: schema,
+	entities: { deletes: ids.map((entityId) => ({ entityId, entitySchema: schema })) },
 });
 
 describe("EntitiesService committed lifecycle", () => {
@@ -564,26 +573,25 @@ describe("EntitiesService committed lifecycle", () => {
 			"rejects stale loaded snapshots but replays a committed conditional update",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
-					const created = yield* service.create(createInput("conditional-create"));
-					const input = {
-						userId: owner,
-						name: "Changed",
-						scope: "user" as const,
-						entityId: created.entity.id,
-						properties: { title: "changed" },
-						lifecycle: command("conditional-update"),
-						expected: {
-							name: created.entity.name,
-							updatedAt: created.entity.updatedAt,
-							properties: created.entity.properties,
-						},
-					};
-					const saved = yield* service.update(input);
-					expect(saved.entity.properties).toEqual({ title: "changed" });
+					const changeSets = yield* ChangeSets;
+					const created = yield* changeSets
+						.commit(ownerCreate(), command("conditional-create"))
+						.pipe(Effect.flatMap(savedEntity));
+					const update = (id: string) =>
+						changeSets
+							.commit(
+								{
+									userId: owner,
+									entities: { updates: [entityUpdate(created, "Changed", { title: "changed" })] },
+								},
+								command(id),
+							)
+							.pipe(Effect.flatMap(savedEntity));
+					const saved = yield* update("conditional-update");
+					expect(saved.properties).toEqual({ title: "changed" });
 					assertExitFails(
-						yield* Effect.exit(service.update({ ...input, lifecycle: command("stale-update") })),
-						new EntityStale({ reason: { code: "entity-stale", entityId: created.entity.id } }),
+						yield* Effect.exit(update("stale-update")),
+						new EntityStale({ reason: { code: "entity-stale", entityId: created.id } }),
 					);
 				}),
 			testTimeout,
@@ -594,20 +602,23 @@ describe("EntitiesService committed lifecycle", () => {
 			"rejects user updates that change or omit an immutable property",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
-					const created = yield* service.create({
-						...createInput("immutable-create"),
-						properties: { code: "a", title: "original" },
-					});
+					const changeSets = yield* ChangeSets;
+					const created = yield* changeSets
+						.commit(
+							ownerCreate({ ...originalCreate, properties: { code: "a", title: "original" } }),
+							command("immutable-create"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
 					const update = (id: string, properties: Record<string, unknown>) =>
-						service.update({
-							properties,
-							userId: owner,
-							scope: "user",
-							name: "Changed",
-							lifecycle: command(id),
-							entityId: created.entity.id,
-						});
+						changeSets
+							.commit(
+								{
+									userId: owner,
+									entities: { updates: [entityUpdate(created, "Changed", properties)] },
+								},
+								command(id),
+							)
+							.pipe(Effect.flatMap(savedEntity));
 					expect(yield* update("immutable-changed", { code: "b" }).pipe(Effect.flip)).toMatchObject(
 						{ reason: { property: "code", code: "immutable-property" } },
 					);
@@ -615,7 +626,7 @@ describe("EntitiesService committed lifecycle", () => {
 						yield* update("immutable-omitted", { title: "x" }).pipe(Effect.flip),
 					).toMatchObject({ reason: { property: "code", code: "immutable-property" } });
 					const unchanged = yield* update("immutable-kept", { code: "a", title: "changed" });
-					expect(unchanged.entity.properties).toEqual({ code: "a", title: "changed" });
+					expect(unchanged.properties).toEqual({ code: "a", title: "changed" });
 				}),
 			testTimeout,
 		);
@@ -623,20 +634,26 @@ describe("EntitiesService committed lifecycle", () => {
 			"leaves global updates unaffected by immutable properties",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
-					const global = yield* service.create({
-						...createInput("immutable-global"),
-						scope: "global",
-						properties: { code: "a" },
-					});
-					const updated = yield* service.update({
-						scope: "global",
-						name: "Changed",
-						properties: { code: "b" },
-						entityId: global.entity.id,
-						lifecycle: command("immutable-global-update"),
-					});
-					expect(updated.entity.properties).toEqual({ code: "b" });
+					const changeSets = yield* ChangeSets;
+					const global = yield* changeSets
+						.commit(
+							{
+								userId: null,
+								entities: { creates: [{ ...originalCreate, properties: { code: "a" } }] },
+							},
+							command("immutable-global"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
+					const updated = yield* changeSets
+						.commit(
+							{
+								userId: null,
+								entities: { updates: [entityUpdate(global, "Changed", { code: "b" })] },
+							},
+							command("immutable-global-update"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
+					expect(updated.properties).toEqual({ code: "b" });
 				}),
 			testTimeout,
 		);
@@ -657,7 +674,7 @@ describe("EntitiesService committed lifecycle", () => {
 				Effect.gen(function* () {
 					const repository = yield* EntitiesRepository;
 					const session = yield* DatabaseSession;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const [stored] = yield* session.transaction(
 						repository.insertEntities([
 							{
@@ -675,15 +692,14 @@ describe("EntitiesService committed lifecycle", () => {
 					);
 					assert(stored);
 					expect(
-						yield* service
-							.update({
-								userId: owner,
-								scope: "user",
-								name: "Changed",
-								entityId: stored.id,
-								properties: { code: "a" },
-								lifecycle: command("immutable-policy"),
-							})
+						yield* changeSets
+							.commit(
+								{
+									userId: owner,
+									entities: { updates: [entityUpdate(stored, "Changed", { code: "a" })] },
+								},
+								command("immutable-policy"),
+							)
 							.pipe(Effect.flip),
 					).toMatchObject({ reason: { property: "code", code: "immutable-property" } });
 					expect(
@@ -698,21 +714,22 @@ describe("EntitiesService committed lifecycle", () => {
 			"user-owned updates reject global records",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
-					const global = yield* service.create({
-						...createInput("global-record"),
-						scope: "global",
-					});
+					const changeSets = yield* ChangeSets;
+					const global = yield* changeSets
+						.commit(
+							{ userId: null, entities: { creates: [originalCreate] } },
+							command("global-record"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
 					expect(
-						yield* service
-							.update({
-								userId: owner,
-								scope: "user",
-								name: "Changed",
-								entityId: global.entity.id,
-								properties: { title: "changed" },
-								lifecycle: command("forbidden-global-update"),
-							})
+						yield* changeSets
+							.commit(
+								{
+									userId: owner,
+									entities: { updates: [entityUpdate(global, "Changed", { title: "changed" })] },
+								},
+								command("forbidden-global-update"),
+							)
 							.pipe(Effect.flip),
 					).toMatchObject({ reason: { code: "entity-not-found" } });
 				}),
@@ -724,13 +741,14 @@ describe("EntitiesService committed lifecycle", () => {
 			"normalizes numeric properties before persisting the entity and change snapshot",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
-					const result = yield* service.create({
-						...createInput("normalized"),
-						properties: { score: 25.555, title: "numeric" },
-					});
-					expect(result.entity.properties).toEqual({ score: 25.56, title: "numeric" });
+					const result = yield* (yield* ChangeSets)
+						.commit(
+							ownerCreate({ ...originalCreate, properties: { score: 25.555, title: "numeric" } }),
+							command("normalized"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
+					expect(result.properties).toEqual({ score: 25.56, title: "numeric" });
 					const changes = (yield* session.run((db) =>
 						db.select().from(tables.automationTrigger),
 					)).find((row) => row.category === "change");
@@ -747,10 +765,12 @@ describe("EntitiesService committed lifecycle", () => {
 			"commits a create without policies and replays it onto the same row",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
-					const fast = yield* service.create(createInput("step-fast"));
-					expect(fast.entity.name).toBe("Original");
+					const create = (yield* ChangeSets)
+						.commit(ownerCreate(), command("step-fast"))
+						.pipe(Effect.flatMap(savedEntity));
+					const fast = yield* create;
+					expect(fast.name).toBe("Original");
 					expect(
 						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
 							({ category, operation }) => [category, operation],
@@ -759,11 +779,11 @@ describe("EntitiesService committed lifecycle", () => {
 						["change", "create"],
 						["change", "batch"],
 					]);
-					const replay = yield* service.create(createInput("step-fast"));
-					expect(replay.entity.id).toBe(fast.entity.id);
+					const replay = yield* create;
+					expect(replay.id).toBe(fast.id);
 					expect(
 						(yield* session.run((db) => db.select().from(tables.entity))).map(({ id }) => id),
-					).toEqual([fast.entity.id]);
+					).toEqual([fast.id]);
 				}),
 			testTimeout,
 		);
@@ -774,10 +794,11 @@ describe("EntitiesService committed lifecycle", () => {
 			"runs matched policies outside the commit and keeps the recorded rows",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
-					const committed = yield* service.create(createInput("step-policies"));
-					expect(committed.entity.name).toBe("Original");
+					const committed = yield* (yield* ChangeSets)
+						.commit(ownerCreate(), command("step-policies"))
+						.pipe(Effect.flatMap(savedEntity));
+					expect(committed.name).toBe("Original");
 					expect(
 						(yield* session.run((db) => db.select().from(tables.entity))).map(({ name }) => name),
 					).toEqual(["Original"]);
@@ -797,11 +818,12 @@ describe("EntitiesService committed lifecycle", () => {
 			"revalidates the entity schema under the catalog lock before writing",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
-					expect(yield* service.create(createInput("schema-race")).pipe(Effect.flip)).toMatchObject(
-						{ reason: { code: "mutation-conflict" } },
-					);
+					expect(
+						yield* (yield* ChangeSets)
+							.commit(ownerCreate(), command("schema-race"))
+							.pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "mutation-conflict" } });
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				}),
 			testTimeout,
@@ -813,23 +835,21 @@ describe("EntitiesService committed lifecycle", () => {
 			"rejects invalid names, missing schemas and incomplete provenance before planning",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
+					const create = (id: string, entity: EntityCreate) =>
+						changeSets.commit(ownerCreate(entity), command(id)).pipe(Effect.flip);
+					expect(yield* create("name", { ...originalCreate, name: "   " })).toMatchObject({
+						reason: { code: "name-required" },
+					});
 					expect(
-						yield* service.create({ ...createInput("name"), name: "   " }).pipe(Effect.flip),
-					).toMatchObject({ reason: { code: "name-required" } });
-					expect(
-						yield* service
-							.create({
-								...createInput("missing"),
-								entitySchema: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("missing") },
-							})
-							.pipe(Effect.flip),
+						yield* create("missing", {
+							...originalCreate,
+							entitySchema: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("missing") },
+						}),
 					).toMatchObject({ reason: { code: "entity-schema-not-found" } });
 					expect(
-						yield* service
-							.create({ ...createInput("provenance"), externalId: "incomplete" })
-							.pipe(Effect.flip),
+						yield* create("provenance", { ...originalCreate, externalId: "incomplete" }),
 					).toMatchObject({ reason: { code: "incomplete-provenance" } });
 					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
 						[],
@@ -843,15 +863,18 @@ describe("EntitiesService committed lifecycle", () => {
 			"rolls a delete back with its change plan",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
-					const created = yield* service.create(createInput("before-delete"));
+					const created = yield* changeSets
+						.commit(ownerCreate(), command("before-delete"))
+						.pipe(Effect.flatMap(savedEntity));
 					expect(
-						yield* service
-							.deleteByIds([created.entity.id], command("delete-rollback"), ownedBy(owner))
+						yield* changeSets
+							.commit(deletesOf(owner, [created.id]), command("delete-rollback"))
 							.pipe(Effect.flip),
 					).toMatchObject({ _tag: "DbError" });
-					expect(yield* service.getById(created.entity.id)).toEqual<unknown>(created.entity);
+					expect(yield* (yield* EntitiesRepository).getById(created.id)).toEqual<unknown>(created);
+
 					expect(
 						(yield* session.run((db) => db.select().from(tables.automationTrigger)))
 							.filter((row) => row.category === "change")
@@ -867,28 +890,28 @@ describe("EntitiesService committed lifecycle", () => {
 			"deletes record-session events with item and batch lifecycle plans",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const events = yield* EventsRepository;
 					const session = yield* DatabaseSession;
-					const recordSession = yield* service.create({
-						...createInput("record-session-cascade"),
-						name: "Record Session",
-					});
-					const record = yield* service.create({
-						...createInput("record-set-cascade"),
-						name: "Record Set",
-					});
+					const recordSession = yield* changeSets
+						.commit(
+							ownerCreate({ ...originalCreate, name: "Record Session" }),
+							command("record-session-cascade"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
+					const record = yield* changeSets
+						.commit(
+							ownerCreate({ ...originalCreate, name: "Record Set" }),
+							command("record-set-cascade"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
 					const eventIds = [EventId.make("record-event-1"), EventId.make("record-event-2")];
 					for (const eventId of eventIds) {
-						yield* createEvent(eventId, owner, record.entity.id, recordSession.entity.id);
+						yield* createEvent(eventId, owner, record.id, recordSession.id);
 					}
 					const lifecycle = command("record-session-delete");
-					const deleted = yield* service.deleteByIds(
-						[recordSession.entity.id],
-						lifecycle,
-						ownedBy(owner),
-					);
-					expect(deleted.deletedCount).toBe(1);
+					const deleted = yield* changeSets.commit(deletesOf(owner, [recordSession.id]), lifecycle);
+					expect(deleted.deleted).toEqual([recordSession.id]);
 					expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
 					const triggers = yield* session.run((db) =>
 						db
@@ -916,9 +939,7 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(eventBatches).toHaveLength(1);
 					assert(eventBatches[0]?.payload?.operation === "batch");
 					expect(eventBatches[0].payload.items).toHaveLength(2);
-					expect(yield* events.listEventIdentitiesForEntities([recordSession.entity.id])).toEqual(
-						[],
-					);
+					expect(yield* events.listEventIdentitiesForEntities([recordSession.id])).toEqual([]);
 				}),
 			testTimeout,
 		);
@@ -931,30 +952,32 @@ describe("EntitiesService committed lifecycle", () => {
 				"rolls back a cascade when an event appears after deletion preparation",
 				() =>
 					Effect.gen(function* () {
-						const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+						const changeSets = yield* ChangeSets;
 						const events = yield* EventsRepository;
 						const session = yield* DatabaseSession;
-						const recordSession = yield* service.create(createInput("late-event-session"));
-						const record = yield* service.create(createInput("late-event-record"));
+						const create = (id: string) =>
+							changeSets.commit(ownerCreate(), command(id)).pipe(Effect.flatMap(savedEntity));
+						const recordSession = yield* create("late-event-session");
+						const record = yield* create("late-event-record");
 						yield* createEvent(
 							EventId.make("initial-cascade-event"),
 							owner,
-							record.entity.id,
-							recordSession.entity.id,
+							record.id,
+							recordSession.id,
 						);
-						const failure = yield* service
-							.deleteByIds([recordSession.entity.id], command("late-event-delete"), ownedBy(owner))
+						const failure = yield* changeSets
+							.commit(deletesOf(owner, [recordSession.id]), command("late-event-delete"))
 							.pipe(Effect.flip);
 						expect(failure).toMatchObject({
 							_tag: "DbError",
 							message: "Entity event references changed while deletion policies ran",
 						});
-						expect(yield* service.getById(recordSession.entity.id)).toEqual<unknown>(
-							recordSession.entity,
+						expect(yield* (yield* EntitiesRepository).getById(recordSession.id)).toEqual<unknown>(
+							recordSession,
 						);
-						expect(
-							yield* events.listEventIdentitiesForEntities([recordSession.entity.id]),
-						).toHaveLength(2);
+						expect(yield* events.listEventIdentitiesForEntities([recordSession.id])).toHaveLength(
+							2,
+						);
 						expect(
 							(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
 								({ category, operation, resourceKind }) =>
@@ -974,43 +997,34 @@ describe("EntitiesService committed lifecycle", () => {
 			"constrains user deletion to its owner and definition and replays its cascade",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const events = yield* EventsRepository;
-					const record = yield* service.create(createInput("scoped-delete-record"));
-					const part = yield* service.create(createInput("scoped-delete-part"));
-					yield* createEvent(
-						EventId.make("scoped-delete-set"),
-						owner,
-						part.entity.id,
-						record.entity.id,
-					);
-					for (const [index, target] of [
-						ownedBy(UserId.make("another-owner")),
-						{ userId: owner, entitySchema: { slug, owner: definitionOwner("another-plugin") } },
-						{
-							userId: owner,
-							entitySchema: {
-								owner: entitySchema.owner,
-								slug: EntitySchemaSlug.make("another-schema"),
-							},
-						},
+					const create = (id: string) =>
+						changeSets.commit(ownerCreate(), command(id)).pipe(Effect.flatMap(savedEntity));
+					const record = yield* create("scoped-delete-record");
+					const part = yield* create("scoped-delete-part");
+					yield* createEvent(EventId.make("scoped-delete-set"), owner, part.id, record.id);
+					for (const [index, denied] of [
+						deletesOf(UserId.make("another-owner"), [record.id]),
+						deletesOf(owner, [record.id], { slug, owner: definitionOwner("another-plugin") }),
+						deletesOf(owner, [record.id], {
+							owner: entitySchema.owner,
+							slug: EntitySchemaSlug.make("another-schema"),
+						}),
 					].entries()) {
 						expect(
-							yield* service
-								.deleteByIds([record.entity.id], command(`scoped-denied-${index}`), target)
-								.pipe(Effect.flip),
+							yield* changeSets.commit(denied, command(`scoped-denied-${index}`)).pipe(Effect.flip),
 						).toMatchObject({
 							_tag: "EntityNotFound",
-							reason: { code: "entity-not-found", entityId: record.entity.id },
+							reason: { entityId: record.id, code: "entity-not-found" },
 						});
 					}
-					const lifecycle = command("scoped-delete");
-					const target = ownedBy(owner);
 					expect(
-						(yield* service.deleteByIds([record.entity.id], lifecycle, target)).deletedCount,
-					).toBe(1);
-					expect(yield* events.listEventIdentitiesForEntities([part.entity.id])).toEqual([]);
-					expect(yield* service.getById(part.entity.id)).toEqual<unknown>(part.entity);
+						(yield* changeSets.commit(deletesOf(owner, [record.id]), command("scoped-delete")))
+							.deleted,
+					).toEqual([record.id]);
+					expect(yield* events.listEventIdentitiesForEntities([part.id])).toEqual([]);
+					expect(yield* (yield* EntitiesRepository).getById(part.id)).toEqual<unknown>(part);
 				}),
 			testTimeout,
 		);
@@ -1021,23 +1035,21 @@ describe("EntitiesService committed lifecycle", () => {
 			"rejects a second kernel collection with the same trimmed name per user",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const collection = {
 						owner: { kind: "kernel" as const },
 						slug: EntitySchemaSlug.make("collection"),
 					};
 					const create = (id: string, name: string) =>
-						service.create({
-							name,
-							userId: owner,
-							scope: "user",
-							properties: {},
-							lifecycle: command(id),
-							entitySchema: collection,
-						});
+						changeSets
+							.commit(ownerCreate({ name, properties: {}, entitySchema: collection }), command(id))
+							.pipe(Effect.flatMap(savedEntity));
 					const first = yield* create("collection-first", "Favorites");
 					const other = yield* create("collection-other", "Other");
-					yield* service.create({ ...createInput("record-same-name"), name: "Favorites" });
+					yield* changeSets.commit(
+						ownerCreate({ ...originalCreate, name: "Favorites" }),
+						command("record-same-name"),
+					);
 					const duplicate = new EntityBadRequest({ reason: { code: "duplicate-collection-name" } });
 					assertExitFails(
 						yield* Effect.exit(create("collection-second", " Favorites ")),
@@ -1045,19 +1057,17 @@ describe("EntitiesService committed lifecycle", () => {
 					);
 					assertExitFails(
 						yield* Effect.exit(
-							service.update({
-								scope: "user",
-								userId: owner,
-								properties: {},
-								name: "Favorites",
-								entityId: other.entity.id,
-								lifecycle: command("collection-rename"),
-							}),
+							changeSets.commit(
+								{ userId: owner, entities: { updates: [entityUpdate(other, "Favorites", {})] } },
+								command("collection-rename"),
+							),
 						),
 						duplicate,
 					);
-					expect(yield* service.getById(other.entity.id)).toMatchObject({ name: "Other" });
-					expect(first.entity.name).toBe("Favorites");
+					expect(yield* (yield* EntitiesRepository).getById(other.id)).toMatchObject({
+						name: "Other",
+					});
+					expect(first.name).toBe("Favorites");
 				}),
 			testTimeout,
 		);
@@ -1068,20 +1078,24 @@ describe("EntitiesService committed lifecycle", () => {
 			"does not allow a user-scoped delete to remove a global entity",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
-					const global = yield* service.create({
-						entitySchema,
-						name: "Global",
-						scope: "global",
-						properties: { title: "global" },
-						lifecycle: systemCommand("scoped-global-create"),
-					});
+					const changeSets = yield* ChangeSets;
+					const global = yield* changeSets
+						.commit(
+							{
+								userId: null,
+								entities: {
+									creates: [{ entitySchema, name: "Global", properties: { title: "global" } }],
+								},
+							},
+							systemCommand("scoped-global-create"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
 					expect(
-						yield* service
-							.deleteByIds([global.entity.id], command("scoped-global-delete"), ownedBy(owner))
+						yield* changeSets
+							.commit(deletesOf(owner, [global.id]), command("scoped-global-delete"))
 							.pipe(Effect.flip),
 					).toMatchObject({ _tag: "EntityNotFound" });
-					expect(yield* service.getById(global.entity.id)).toEqual<unknown>(global.entity);
+					expect(yield* (yield* EntitiesRepository).getById(global.id)).toEqual<unknown>(global);
 				}),
 			testTimeout,
 		);
@@ -1092,20 +1106,20 @@ describe("EntitiesService committed lifecycle", () => {
 			"deletes an event once when both entity reference roles match the batch",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
-					const primary = yield* service.create(createInput("overlap-primary"));
-					const sessionEntity = yield* service.create(createInput("overlap-session"));
+					const create = (id: string) =>
+						changeSets.commit(ownerCreate(), command(id)).pipe(Effect.flatMap(savedEntity));
+					const primary = yield* create("overlap-primary");
+					const sessionEntity = yield* create("overlap-session");
 					const eventId = EventId.make("overlapping-event");
-					yield* createEvent(eventId, owner, primary.entity.id, sessionEntity.entity.id);
-					const lifecycle = command("overlap-cascade-delete");
+					yield* createEvent(eventId, owner, primary.id, sessionEntity.id);
 					expect(
-						(yield* service.deleteByIds(
-							[primary.entity.id, sessionEntity.entity.id],
-							lifecycle,
-							ownedBy(owner),
-						)).deletedCount,
-					).toBe(2);
+						(yield* changeSets.commit(
+							deletesOf(owner, [primary.id, sessionEntity.id]),
+							command("overlap-cascade-delete"),
+						)).deleted,
+					).toHaveLength(2);
 					const eventDeletes = (yield* session.run((db) =>
 						db.select().from(tables.automationTrigger),
 					))
@@ -1131,7 +1145,7 @@ describe("EntitiesService committed lifecycle", () => {
 			"deletes events for every user of a global entity",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
 					const secondUser = UserId.make("second-owner");
 					yield* session.run((db) =>
@@ -1139,21 +1153,28 @@ describe("EntitiesService committed lifecycle", () => {
 							.insert(tables.user)
 							.values({ id: secondUser, name: "Second owner", email: "second@example.test" }),
 					);
-					const globalEntity = yield* service.create({
-						entitySchema,
-						name: "Global",
-						scope: "global",
-						properties: { title: "global" },
-						lifecycle: systemCommand("global-create"),
-					});
+					const globalEntity = yield* changeSets
+						.commit(
+							{
+								userId: null,
+								entities: {
+									creates: [{ entitySchema, name: "Global", properties: { title: "global" } }],
+								},
+							},
+							systemCommand("global-create"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
 					const eventIds: [EventId, EventId] = [
 						EventId.make("global-event-owner"),
 						EventId.make("global-event-second"),
 					];
-					yield* createEvent(eventIds[0], owner, globalEntity.entity.id);
-					yield* createEvent(eventIds[1], secondUser, globalEntity.entity.id);
-					const lifecycle = systemCommand("global-cascade-delete");
-					yield* service.deleteByIds([globalEntity.entity.id], lifecycle, ownedBy(null));
+					yield* createEvent(eventIds[0], owner, globalEntity.id);
+					yield* createEvent(eventIds[1], secondUser, globalEntity.id);
+					yield* changeSets.commit(
+						deletesOf(null, [globalEntity.id]),
+						systemCommand("global-cascade-delete"),
+					);
+
 					expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
 					const eventChanges = (yield* session.run((db) =>
 						db.select().from(tables.automationTrigger),
@@ -1279,36 +1300,35 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* installProvider("user");
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
+					const changeSets = yield* ChangeSets;
 					const repository = yield* EntitiesRepository;
-					const input = {
-						...createInput("private-provider-create"),
-						providerId,
-						populatedAt: null,
-						updateExisting: true,
-						externalId: "private-source",
-						entitySchema: providerEntitySchema,
-						properties: { code: "original", title: "original" },
-					};
-					const { entity } = yield* service.upsert(input);
-					const expected = {
-						name: entity.name,
-						updatedAt: entity.updatedAt,
-						properties: entity.properties,
-					};
+					const providerCreate = (name: string, properties: unknown) =>
+						ownerCreate({
+							name,
+							properties,
+							externalId: "private-source",
+							entitySchema: providerEntitySchema,
+							provider: { providerId, updateExisting: true },
+						});
+					const entity = yield* changeSets
+						.commit(
+							providerCreate(" Original ", { code: "original", title: "original" }),
+							command("private-provider-create"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
 					const refusal = new EntityNotFound({
 						reason: { entityId: entity.id, code: "entity-not-found" },
 					});
 					assertExitFails(
 						yield* Effect.exit(
-							service.update({
-								scope: "user",
-								userId: owner,
-								name: "User edit",
-								entityId: entity.id,
-								properties: { title: "user" },
-								lifecycle: command("private-provider-edit"),
-							}),
+							changeSets.commit(
+								{
+									userId: owner,
+									entities: { updates: [entityUpdate(entity, "User edit", { title: "user" })] },
+								},
+								command("private-provider-edit"),
+							),
 						),
 						refusal,
 					);
@@ -1320,19 +1340,19 @@ describe("EntitiesService committed lifecycle", () => {
 								properties: { title: "editor" },
 								entitySchema: providerEntitySchema,
 								lifecycle: command("private-provider-editor"),
-								target: { expected, kind: "update", entityId: entity.id },
+								target: entityUpdate(entity, "Editor edit", {}).target,
 							}),
 						),
 						refusal,
 					);
 					expect((yield* repository.getById(entity.id))?.name).toBe(entity.name);
-					const corrected = yield* service.upsert({
-						...input,
-						name: "Source correction",
-						lifecycle: command("private-provider-correction"),
-						properties: { title: "source", code: "corrected" },
-					});
-					expect(corrected.entity).toMatchObject({
+					const corrected = yield* changeSets
+						.commit(
+							providerCreate("Source correction", { title: "source", code: "corrected" }),
+							command("private-provider-correction"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
+					expect(corrected).toMatchObject({
 						name: "Source correction",
 						properties: { title: "source", code: "corrected" },
 					});
@@ -1346,27 +1366,22 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* installProvider("user");
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
-					const { entity } = yield* service.create({
-						...createInput("prepared-custom-create"),
-						entitySchema: providerEntitySchema,
-					});
+					const entity = yield* (yield* ChangeSets)
+						.commit(
+							ownerCreate({ ...originalCreate, entitySchema: providerEntitySchema }),
+							command("prepared-custom-create"),
+						)
+						.pipe(Effect.flatMap(savedEntity));
+					const lifecycle = command("prepared-custom-update");
 					const prepared = yield* service.prepareSave({
+						lifecycle,
 						name: "User edit",
 						scopeUserId: owner,
 						properties: { title: "user" },
 						entitySchema: providerEntitySchema,
-						lifecycle: command("prepared-custom-update"),
-						target: {
-							kind: "update",
-							entityId: entity.id,
-							expected: {
-								name: entity.name,
-								updatedAt: entity.updatedAt,
-								properties: entity.properties,
-							},
-						},
+						target: entityUpdate(entity, "User edit", {}).target,
 					});
 					yield* session.run((db) =>
 						db
@@ -1375,7 +1390,16 @@ describe("EntitiesService committed lifecycle", () => {
 							.where(eq(tables.entity.id, entity.id)),
 					);
 					assertExitFails(
-						yield* Effect.exit(session.transaction(service.persistPreparedSave(prepared))),
+						yield* Effect.exit(
+							session.transaction(
+								service.persistPreparedSaves(
+									[prepared],
+									acceptPrepared,
+									{ command: lifecycle, identity: ["entities"] },
+									0,
+								),
+							),
+						),
 						new EntityNotFound({ reason: { entityId: entity.id, code: "entity-not-found" } }),
 					);
 					expect((yield* (yield* EntitiesRepository).getById(entity.id))?.name).toBe(entity.name);
@@ -1395,9 +1419,8 @@ describe("EntitiesService committed lifecycle", () => {
 				Effect.gen(function* () {
 					yield* installProvider("user");
 					const repository = yield* EntitiesRepository;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const entityId = EntityId.make("policy-provider-entity");
-					yield* repository.insertEntities([
+					const [stored] = yield* repository.insertEntities([
 						{
 							id: entityId,
 							scope: "user",
@@ -1408,16 +1431,13 @@ describe("EntitiesService committed lifecycle", () => {
 							entitySchemaPluginId: "provider-plugin",
 						},
 					]);
+					assert(stored);
 					assertExitFails(
 						yield* Effect.exit(
-							service.update({
-								entityId,
-								scope: "user",
-								userId: owner,
-								properties: {},
-								name: "User edit",
-								lifecycle: command("policy-provider-update"),
-							}),
+							(yield* ChangeSets).commit(
+								{ userId: owner, entities: { updates: [entityUpdate(stored, "User edit", {})] } },
+								command("policy-provider-update"),
+							),
 						),
 						new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }),
 					);
@@ -1433,26 +1453,44 @@ describe("EntitiesService committed lifecycle", () => {
 				() =>
 					Effect.gen(function* () {
 						yield* installProvider("system");
-						const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 						const session = yield* DatabaseSession;
-						const input = {
-							...createInput("private-system-provider-upsert"),
-							providerId,
-							populatedAt: null,
-							updateExisting: true,
-							externalId: "external",
-							entitySchema: providerEntitySchema,
-						};
+						const lifecycle = command("private-system-provider-upsert");
 						const mismatch = new EntityBadRequest({ reason: { code: "provider-scope-mismatch" } });
 						if (planned) {
 							assertExitFails(
 								yield* Effect.exit(
-									session.transaction(service.persistPlannedProviderUpsert(input)),
+									session.transaction(
+										(yield* EntitiesService).persistPlannedProviderUpsert({
+											lifecycle,
+											providerId,
+											userId: owner,
+											scope: "user",
+											populatedAt: null,
+											updateExisting: true,
+											externalId: "external",
+											name: originalCreate.name,
+											entitySchema: providerEntitySchema,
+											properties: originalCreate.properties,
+										}),
+									),
 								),
 								mismatch,
 							);
 						} else {
-							assertExitFails(yield* Effect.exit(service.upsert(input)), mismatch);
+							assertExitFails(
+								yield* Effect.exit(
+									(yield* ChangeSets).commit(
+										ownerCreate({
+											...originalCreate,
+											externalId: "external",
+											entitySchema: providerEntitySchema,
+											provider: { providerId, updateExisting: true },
+										}),
+										lifecycle,
+									),
+								),
+								mismatch,
+							);
 						}
 						expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 						expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
@@ -1470,25 +1508,29 @@ describe("EntitiesService committed lifecycle", () => {
 				() =>
 					Effect.gen(function* () {
 						yield* installProvider(scope);
-						const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+						const changeSets = yield* ChangeSets;
 						const session = yield* DatabaseSession;
-						const input = { ...createInput("custom-entity"), entitySchema: providerEntitySchema };
-						const custom = yield* service.create(input);
+						const create = { ...originalCreate, entitySchema: providerEntitySchema };
+						const custom = yield* changeSets
+							.commit(ownerCreate(create), command("custom-entity"))
+							.pipe(Effect.flatMap(savedEntity));
 						const supplied = {
-							...input,
-							providerId,
+							...create,
 							externalId: "external",
-							lifecycle: command("provider-entity"),
+							provider: { providerId, updateExisting: false },
 						};
-						const providerEntity = yield* scope === "system"
-							? service.create({ ...supplied, scope: "global" })
-							: service.create(supplied);
-						expect(custom.entity.id).not.toBe(providerEntity.entity.id);
-						expect(custom.entity).toMatchObject({ externalId: null, providerId: null });
+						const providerEntity = yield* changeSets
+							.commit(
+								{ entities: { creates: [supplied] }, userId: scope === "system" ? null : owner },
+								command("provider-entity"),
+							)
+							.pipe(Effect.flatMap(savedEntity));
+						expect(custom.id).not.toBe(providerEntity.id);
+						expect(custom).toMatchObject({ externalId: null, providerId: null });
 						const rows = yield* session.run((db) => db.select().from(tables.entity));
 						expect(rows).toHaveLength(2);
-						expect(rows.find(({ id }) => id === custom.entity.id)).toMatchObject({ userId: owner });
-						expect(rows.find(({ id }) => id === providerEntity.entity.id)).toMatchObject({
+						expect(rows.find(({ id }) => id === custom.id)).toMatchObject({ userId: owner });
+						expect(rows.find(({ id }) => id === providerEntity.id)).toMatchObject({
 							providerId,
 							userId: scope === "system" ? null : owner,
 						});
@@ -1503,42 +1545,39 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
-					const input = {
-						providerId,
-						name: "Global",
-						populatedAt: null,
-						externalId: "external",
-						scope: "global" as const,
-						lifecycle: command("global"),
-						properties: { title: "global" },
-						entitySchema: providerEntitySchema,
-					};
-					const created = yield* service.create(input);
-					expect(created.entity).toMatchObject({
-						providerId,
-						populatedAt: null,
-						externalId: "external",
+					const upsert = (id: string, name: string, populatedAt: null | string) =>
+						changeSets
+							.commit(
+								{
+									userId: null,
+									entities: {
+										creates: [
+											{
+												name,
+												populatedAt,
+												externalId: "external",
+												properties: { title: "global" },
+												entitySchema: providerEntitySchema,
+												provider: { providerId, updateExisting: false },
+											},
+										],
+									},
+								},
+								command(id),
+							)
+							.pipe(Effect.flatMap(savedEntity));
+					const created = yield* upsert("global", "Global", null);
+					expect(created).toMatchObject({ providerId, populatedAt: null, externalId: "external" });
+					const updated = yield* upsert("population", "Global", "2026-09-15T01:00:00.000Z");
+					expect(updated).toMatchObject({
+						id: created.id,
+						populatedAt: "2026-09-15T01:00:00.000Z",
 					});
-					expect(
-						yield* service.create({ ...input, name: "Ignored", lifecycle: command("global-noop") }),
-					).toEqual({ entity: created.entity });
-					const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T01:00:00.000Z"));
-					const updated = yield* service.upsert({
-						...input,
-						populatedAt,
-						updateExisting: true,
-						lifecycle: command("population"),
-					});
-					expect(updated.entity.populatedAt).toBe("2026-09-15T01:00:00.000Z");
-					const noop = yield* service.upsert({
-						...input,
-						name: "Ignored",
-						updateExisting: false,
-						lifecycle: command("upsert-noop"),
-					});
-					expect(noop.entity).toEqual(updated.entity);
+					const noop = yield* upsert("upsert-noop", "Ignored", null);
+					expect(noop).toEqual(updated);
+
 					expect(
 						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
 							(row) => row.category === "change",
@@ -1553,12 +1592,10 @@ describe("EntitiesService committed lifecycle", () => {
 			"atomically rolls a no-policy source and change plan back on planning failure",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
-					expect(yield* service.create(createInput("rollback")).pipe(Effect.flip)).toMatchObject({
-						_tag: "DbError",
-						message: "Injected planning failure after insert",
-					});
+					expect(
+						yield* (yield* ChangeSets).commit(ownerCreate(), command("rollback")).pipe(Effect.flip),
+					).toMatchObject({ _tag: "DbError", message: "Injected planning failure after insert" });
 					const [entities, triggers] = yield* session.run((db) =>
 						Effect.all([
 							db.select().from(tables.entity),
@@ -1577,12 +1614,13 @@ describe("EntitiesService committed lifecycle", () => {
 			"retries the entire source write and change plan after a deadlock",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
-					const saved = yield* service.create(createInput("deadlock-retry"));
+					const saved = yield* (yield* ChangeSets)
+						.commit(ownerCreate(), command("deadlock-retry"))
+						.pipe(Effect.flatMap(savedEntity));
 					expect(
 						(yield* session.run((db) => db.select().from(tables.entity))).map(({ id }) => id),
-					).toEqual([saved.entity.id]);
+					).toEqual([saved.id]);
 					expect(
 						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
 							({ category, operation }) => ({ category, operation }),
@@ -1601,10 +1639,11 @@ describe("EntitiesService committed lifecycle", () => {
 			"persists the change trigger after commit",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
-					const first = yield* service.create(createInput("replay"));
-					expect(first.entity.name).toBe("Original");
+					const first = yield* (yield* ChangeSets)
+						.commit(ownerCreate(), command("replay"))
+						.pipe(Effect.flatMap(savedEntity));
+					expect(first.name).toBe("Original");
 					const [entities, triggers] = yield* session.run((db) =>
 						Effect.all([
 							db.select().from(tables.entity),
@@ -1618,10 +1657,10 @@ describe("EntitiesService committed lifecycle", () => {
 					);
 					assert(change);
 					expect(change.payload).toEqual<unknown>({
+						after: first,
 						category: "change",
 						resource: "entity",
 						operation: "create",
-						after: first.entity,
 					});
 					expect(change.parentTriggerId).toBeNull();
 				}),
@@ -1634,43 +1673,52 @@ describe("EntitiesService committed lifecycle", () => {
 			"captures exact persisted update/delete snapshots and leaves noop timestamps untouched",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
-					const created = yield* service.create(createInput("create"));
-					const input = {
-						userId: owner,
-						name: "Updated",
-						populatedAt: null,
-						scope: "user" as const,
-						entityId: created.entity.id,
-						lifecycle: command("update"),
-						properties: { title: "updated" },
-					};
-					const updated = yield* service.update(input);
-					const noop = yield* service.update({ ...input, lifecycle: command("noop") });
-					expect(noop.entity).toEqual(updated.entity);
-					const deleted = yield* service.deleteByIds(
-						[created.entity.id],
+					const created = yield* changeSets
+						.commit(ownerCreate(), command("create"))
+						.pipe(Effect.flatMap(savedEntity));
+					const update = (id: string, entity: ListedEntity) =>
+						changeSets
+							.commit(
+								{
+									userId: owner,
+									entities: {
+										updates: [
+											{
+												...entityUpdate(entity, "Updated", { title: "updated" }),
+												populatedAt: null,
+											},
+										],
+									},
+								},
+								command(id),
+							)
+							.pipe(Effect.flatMap(savedEntity));
+					const updated = yield* update("update", created);
+					const noop = yield* update("noop", updated);
+					expect(noop).toEqual(updated);
+					const deleted = yield* changeSets.commit(
+						deletesOf(owner, [created.id]),
 						command("delete"),
-						ownedBy(owner),
 					);
-					expect(deleted).toEqual({ deletedCount: 1 });
+					expect(deleted.deleted).toEqual([created.id]);
 					const changes = (yield* session.run((db) =>
 						db.select().from(tables.automationTrigger),
 					)).filter((row) => row.category === "change");
 					expect(changes.length).toBe(6);
 					expect(changes.find((row) => row.operation === "update")?.payload).toEqual<unknown>({
+						after: updated,
+						before: created,
 						category: "change",
 						resource: "entity",
 						operation: "update",
-						after: updated.entity,
-						before: created.entity,
 					});
 					expect(changes.find((row) => row.operation === "delete")?.payload).toEqual<unknown>({
+						before: updated,
 						category: "change",
 						resource: "entity",
 						operation: "delete",
-						before: updated.entity,
 					});
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				}),
@@ -1700,9 +1748,10 @@ describe("EntitiesService committed lifecycle", () => {
 				`writes nothing for a ${name} request`,
 				() =>
 					Effect.gen(function* () {
-						const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 						const session = yield* DatabaseSession;
-						const error = yield* service.create(createInput(name)).pipe(Effect.flip);
+						const error = yield* (yield* ChangeSets)
+							.commit(ownerCreate(), command(name))
+							.pipe(Effect.flip);
 						expect(error).toMatchObject({ reason: { code }, _tag: "EntityBadRequest" });
 						if (name === "failed") {
 							expect(error).toMatchObject({ reason: { runId: "policy-0" } });
@@ -1785,11 +1834,11 @@ describe("EntitiesService committed lifecycle", () => {
 			"chains transforms in order then validates the final draft",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
-					expect((yield* service.create(createInput("transform"))).entity).toMatchObject({
-						name: "Second",
-						properties: { title: "second" },
-					});
+					expect(
+						yield* (yield* ChangeSets)
+							.commit(ownerCreate(), command("transform"))
+							.pipe(Effect.flatMap(savedEntity)),
+					).toMatchObject({ name: "Second", properties: { title: "second" } });
 				}),
 			testTimeout,
 		);
@@ -1802,11 +1851,11 @@ describe("EntitiesService committed lifecycle", () => {
 				"applies only the fields exposed by a strict entity patch",
 				() =>
 					Effect.gen(function* () {
-						const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
-						expect((yield* service.create(createInput("identity"))).entity).toMatchObject({
-							name: "Changed",
-							properties: { title: "changed" },
-						});
+						expect(
+							yield* (yield* ChangeSets)
+								.commit(ownerCreate(), command("identity"))
+								.pipe(Effect.flatMap(savedEntity)),
+						).toMatchObject({ name: "Changed", properties: { title: "changed" } });
 					}),
 				testTimeout,
 			);
@@ -1827,11 +1876,10 @@ describe("EntitiesService committed lifecycle", () => {
 			"revalidates transformed properties against AppSchema",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
-					expect(yield* service.create(createInput("invalid")).pipe(Effect.flip)).toMatchObject({
-						reason: { code: "invalid-properties" },
-					});
+					expect(
+						yield* (yield* ChangeSets).commit(ownerCreate(), command("invalid")).pipe(Effect.flip),
+					).toMatchObject({ reason: { paths: [["title"]], code: "invalid-properties" } });
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				}),
 			testTimeout,
@@ -1843,11 +1891,11 @@ describe("EntitiesService committed lifecycle", () => {
 			"rejects enclosing caller transactions before request planning",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
 					const error = yield* session
-						.transaction(service.create(createInput("nested")))
+						.transaction((yield* ChangeSets).commit(ownerCreate(), command("nested")))
 						.pipe(Effect.flip);
+
 					expect(error).toMatchObject({ reason: { code: "enclosing-transaction" } });
 					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
 						[],
@@ -1863,44 +1911,42 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
-					const input = {
+					const upsert = (id: string, name: string, updateExisting: boolean) =>
+						changeSets
+							.commit(
+								{
+									userId: null,
+									entities: {
+										creates: [
+											{
+												name,
+												properties: { title: name },
+												externalId: "global-source",
+												entitySchema: providerEntitySchema,
+												populatedAt: "2026-09-15T00:00:00.000Z",
+												provider: { providerId, updateExisting },
+											},
+										],
+									},
+								},
+								command(id),
+							)
+							.pipe(Effect.flatMap(savedEntity));
+					const created = yield* upsert("global-create", "Global", false);
+					expect(yield* upsert("global-kept", "Ignored", false)).toEqual(created);
+					expect(yield* upsert("global-upsert", "Updated", true)).toMatchObject({
 						providerId,
-						name: "Global",
-						populatedAt: null,
-						scope: "global" as const,
-						externalId: "global-source",
-						properties: { title: "global" },
-						entitySchema: providerEntitySchema,
-						lifecycle: command("global-create"),
-					};
-					const created = yield* service.create(input);
-					const kept = yield* service.create({
-						...input,
-						name: "Ignored",
-						properties: { title: "ignored" },
-						lifecycle: command("global-kept"),
-					});
-					expect(kept.entity).toEqual(created.entity);
-					const upserted = yield* service.upsert({
-						...input,
+						id: created.id,
 						name: "Updated",
-						updateExisting: true,
-						properties: { title: "updated" },
-						lifecycle: command("global-upsert"),
-					});
-					expect(upserted.entity).toMatchObject({
-						providerId,
-						name: "Updated",
-						id: created.entity.id,
 						externalId: "global-source",
 					});
 					expect(
 						yield* session.run((db) =>
 							db.select({ id: tables.entity.id, userId: tables.entity.userId }).from(tables.entity),
 						),
-					).toEqual([{ userId: null, id: created.entity.id }]);
+					).toEqual([{ userId: null, id: created.id }]);
 				}),
 			testTimeout,
 		);
@@ -1912,7 +1958,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const input = {
 						providerId,
@@ -1965,7 +2011,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
 					const later = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"));
@@ -2023,7 +2069,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const lifecycle = command("planned-batch");
 					const item = (externalId: string) => ({
@@ -2069,7 +2115,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const lifecycle = yield* FakeEntityLifecycle;
 					const work = yield* session.transaction(
@@ -2103,21 +2149,26 @@ describe("EntitiesService committed lifecycle", () => {
 			"ensures bootstrap entities without duplicate changes",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
-					const items = [{ entitySchema, name: "Routine", properties: { title: "routine" } }];
+					const ensures = {
+						userId: owner,
+						entities: {
+							ensures: [{ entitySchema, name: "Routine", properties: { title: "routine" } }],
+						},
+					};
 					const changes = session.run((db) =>
 						db
 							.select()
 							.from(tables.automationTrigger)
 							.where(eq(tables.automationTrigger.category, "change")),
 					);
-					yield* service.ensure(owner, items, command("ensure"));
+					yield* changeSets.commit(ensures, command("ensure"));
 					const [ensured, ...others] = yield* session.run((db) => db.select().from(tables.entity));
 					assert(ensured);
 					expect(others).toEqual([]);
 					expect(yield* changes).toHaveLength(2);
-					yield* service.ensure(owner, items, command("ensure-noop"));
+					yield* changeSets.commit(ensures, command("ensure-noop"));
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([ensured]);
 					expect(yield* changes).toHaveLength(2);
 				}),
@@ -2130,12 +2181,15 @@ describe("EntitiesService committed lifecycle", () => {
 			"rolls the entire ensure batch back when its change plan fails",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const session = yield* DatabaseSession;
-					yield* service
-						.ensure(
-							owner,
-							[{ entitySchema, name: "Routine", properties: { title: "routine" } }],
+					yield* (yield* ChangeSets)
+						.commit(
+							{
+								userId: owner,
+								entities: {
+									ensures: [{ entitySchema, name: "Routine", properties: { title: "routine" } }],
+								},
+							},
 							command("ensure-rollback"),
 						)
 						.pipe(Effect.flip);
@@ -2173,7 +2227,8 @@ describe("EntitiesService committed lifecycle", () => {
 				() =>
 					Effect.gen(function* () {
 						yield* seedProvider;
-						const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+						const service = yield* EntitiesService;
+						const changeSets = yield* ChangeSets;
 						const session = yield* DatabaseSession;
 						const log = yield* StatementLog;
 						yield* session.transaction(
@@ -2204,16 +2259,20 @@ describe("EntitiesService committed lifecycle", () => {
 						);
 						expectInvariant(
 							yield* commitCounts((size) =>
-								service.ensure(
-									owner,
-									Array.from({ length: size }, (_, index) => ({
-										name: `ensure-${index}`,
-										properties: { title: "ensured" },
-										entitySchema: {
-											owner: { kind: "kernel" as const },
-											slug: EntitySchemaSlug.make(`record-${index}`),
+								changeSets.commit(
+									{
+										userId: owner,
+										entities: {
+											ensures: Array.from({ length: size }, (_, index) => ({
+												name: `ensure-${index}`,
+												properties: { title: "ensured" },
+												entitySchema: {
+													owner: { kind: "kernel" as const },
+													slug: EntitySchemaSlug.make(`record-${index}`),
+												},
+											})),
 										},
-									})),
+									},
 									command(`ensure-${size}`),
 								),
 							),
@@ -2237,14 +2296,11 @@ describe("EntitiesService committed lifecycle", () => {
 												})),
 											),
 									);
-									const [first, ...rest] = ids;
-									assert(first);
-									const deleted = yield* service.deleteByIds(
-										[first, ...rest],
+									const deleted = yield* changeSets.commit(
+										deletesOf(owner, ids),
 										command(`delete-${size}`),
-										ownedBy(owner),
 									);
-									expect(deleted.deletedCount).toBe(size);
+									expect(deleted.deleted).toHaveLength(size);
 								}),
 							),
 						);
@@ -2262,7 +2318,8 @@ describe("EntitiesService committed lifecycle", () => {
 				() =>
 					Effect.gen(function* () {
 						yield* seedProvider;
-						const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+						const service = yield* EntitiesService;
+						const changeSets = yield* ChangeSets;
 						const session = yield* DatabaseSession;
 						const log = yield* StatementLog;
 						for (const round of ["first", "second"]) {
@@ -2271,10 +2328,31 @@ describe("EntitiesService committed lifecycle", () => {
 								...providerItem(externalId, command(id)),
 								lifecycle: command(id),
 							});
-							const created = yield* service.upsert(upsert(`seed-${round}`));
+							const commitUpsert = (id: string) =>
+								changeSets
+									.commit(
+										{
+											userId: null,
+											entities: {
+												creates: [
+													{
+														externalId,
+														name: externalId,
+														populatedAt: null,
+														properties: { title: externalId },
+														entitySchema: providerEntitySchema,
+														provider: { providerId, updateExisting: true },
+													},
+												],
+											},
+										},
+										command(id),
+									)
+									.pipe(Effect.flatMap(savedEntity));
+							const created = yield* commitUpsert(`seed-${round}`);
 							const [single, batch] = yield* Effect.all(
 								[
-									service.upsert(upsert(`single-${round}`)),
+									commitUpsert(`single-${round}`),
 									retryOnDeadlock(
 										session.transaction(
 											service.persistPlannedProviderUpserts({
@@ -2289,10 +2367,10 @@ describe("EntitiesService committed lifecycle", () => {
 							const rows = yield* session.run((db) =>
 								db.select().from(tables.entity).where(eq(tables.entity.externalId, externalId)),
 							);
-							expect(rows.map(({ id }) => id)).toEqual([created.entity.id]);
-							const stored = yield* service.getById(created.entity.id);
+							expect(rows.map(({ id }) => id)).toEqual([created.id]);
+							const stored = yield* (yield* EntitiesRepository).getById(created.id);
 							assert(stored);
-							expect(single.entity).toEqual(stored);
+							expect(single).toEqual(stored);
 							expect(batch.results).toEqual([{ entity: stored }]);
 						}
 						expect(yield* log.errorCodes).not.toContain("40P01");
@@ -2308,7 +2386,8 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
+					const changeSets = yield* ChangeSets;
 					const session = yield* DatabaseSession;
 					const lifecycle = command("duplicates");
 					const twice = yield* session.transaction(
@@ -2348,12 +2427,17 @@ describe("EntitiesService committed lifecycle", () => {
 						).toMatchObject({ reason: { code: "mutation-conflict" } });
 					}
 					const ensureItem = { entitySchema, name: "Ensured", properties: { title: "ensured" } };
-					yield* service.ensure(owner, [ensureItem, ensureItem], command("ensure-duplicates"));
+					yield* changeSets.commit(
+						{ userId: owner, entities: { ensures: [ensureItem, ensureItem] } },
+						command("ensure-duplicates"),
+					);
 					expect(
-						yield* service
-							.ensure(
-								owner,
-								[ensureItem, { ...ensureItem, name: "Different" }],
+						yield* changeSets
+							.commit(
+								{
+									userId: owner,
+									entities: { ensures: [ensureItem, { ...ensureItem, name: "Different" }] },
+								},
 								command("ensure-conflict"),
 							)
 							.pipe(Effect.flip),
@@ -2373,7 +2457,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const lifecycle = command("invalid-provider-items");
 					assertExitFails(
@@ -2401,7 +2485,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const lifecycle = command("batch-replay");
 					const input = {
@@ -2427,7 +2511,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const secondUser = UserId.make("second-scope-owner");
 					yield* session.run((db) =>
@@ -2493,9 +2577,13 @@ describe("EntitiesService committed lifecycle", () => {
 						db.select({ id: tables.entity.id }).from(tables.entity).orderBy(tables.entity.id),
 					);
 					const before = yield* rows;
-					yield* service.ensure(
-						owner,
-						[{ entitySchema, name: "Ensured", properties: { title: "ensured" } }],
+					yield* (yield* ChangeSets).commit(
+						{
+							userId: owner,
+							entities: {
+								ensures: [{ entitySchema, name: "Ensured", properties: { title: "ensured" } }],
+							},
+						},
 						command("scoped-ensure"),
 					);
 					expect(yield* rows).toEqual(before);
@@ -2509,7 +2597,7 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const service = yield* EntitiesService;
 					const session = yield* DatabaseSession;
 					const lifecycle = command("bind-budget");
 					const input = {
@@ -2533,27 +2621,35 @@ describe("EntitiesService committed lifecycle", () => {
 			"rejects another user's managed asset on entity create and update",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
+					const changeSets = yield* ChangeSets;
 					const foreign = yield* insertManagedAsset(UserId.make("asset-foreign-owner"));
 					expect(
-						yield* service
-							.create({
-								...createInput("foreign-asset-create"),
-								properties: { image: foreign, title: "original" },
-							})
+						yield* changeSets
+							.commit(
+								ownerCreate({
+									...originalCreate,
+									properties: { image: foreign, title: "original" },
+								}),
+								command("foreign-asset-create"),
+							)
 							.pipe(Effect.flip),
 					).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
-					const created = yield* service.create(createInput("foreign-asset-base"));
+					const created = yield* changeSets
+						.commit(ownerCreate(), command("foreign-asset-base"))
+						.pipe(Effect.flatMap(savedEntity));
 					expect(
-						yield* service
-							.update({
-								userId: owner,
-								scope: "user",
-								name: "Changed",
-								entityId: created.entity.id,
-								lifecycle: command("foreign-asset-update"),
-								properties: { image: foreign, title: "changed" },
-							})
+						yield* changeSets
+							.commit(
+								{
+									userId: owner,
+									entities: {
+										updates: [
+											entityUpdate(created, "Changed", { image: foreign, title: "changed" }),
+										],
+									},
+								},
+								command("foreign-asset-update"),
+							)
 							.pipe(Effect.flip),
 					).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
 				}),
@@ -2564,17 +2660,20 @@ describe("EntitiesService committed lifecycle", () => {
 			"rejects the owner's own managed asset on a global entity",
 			() =>
 				Effect.gen(function* () {
-					const service = { ...(yield* EntitiesService), ...(yield* kernelEntityWrites) };
 					const own = yield* insertManagedAsset(owner);
 					expect(
-						yield* service
-							.create({
-								entitySchema,
-								name: "Global",
-								scope: "global",
-								properties: { image: own, title: "global" },
-								lifecycle: systemCommand("global-own-asset"),
-							})
+						yield* (yield* ChangeSets)
+							.commit(
+								{
+									userId: null,
+									entities: {
+										creates: [
+											{ entitySchema, name: "Global", properties: { image: own, title: "global" } },
+										],
+									},
+								},
+								systemCommand("global-own-asset"),
+							)
 							.pipe(Effect.flip),
 					).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
 				}),

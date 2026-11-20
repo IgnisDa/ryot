@@ -18,7 +18,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { Message } from "@ryot-app/i18n/message";
 import { Context, Effect, Schema } from "effect";
@@ -81,14 +81,14 @@ const State = Schema.Struct({
 	patches: Schema.Array(AutomationPolicyPatch),
 	processed: Schema.Array(AutomationHookIdentity),
 	error: Schema.NullOr(
-		Schema.Struct({
-			entityId: Schema.optional(EntityId),
-			code: Schema.Literals([
-				"invalid-properties",
-				"invalid-policy-transform",
-				"reference-not-found",
-			]),
-		}),
+		Schema.Union([
+			Schema.Struct({
+				code: Schema.Literal("invalid-properties"),
+				paths: Schema.Array(Schema.Array(Schema.String)),
+			}),
+			Schema.Struct({ code: Schema.Literal("invalid-policy-transform") }),
+			Schema.Struct({ entityId: EntityId, code: Schema.Literal("reference-not-found") }),
+		]),
 	),
 });
 export const PolicyBatchResult = Schema.Struct({
@@ -96,6 +96,14 @@ export const PolicyBatchResult = Schema.Struct({
 	references: Schema.Record(EntityId, AutomationEntityDraft),
 });
 export type PolicyBatchResult = typeof PolicyBatchResult.Type;
+
+/** The bad-request reason of an item its policies left invalid. */
+export const invalidPolicyItemReason = (
+	error: NonNullable<PolicyBatchResult["items"][number]["error"]>,
+) =>
+	error.code === "invalid-properties"
+		? { code: error.code, paths: error.paths }
+		: { code: "invalid-policy-transform" as const };
 
 const PolicyBatchPayload = Schema.Struct({
 	userId: Schema.NullOr(UserId),
@@ -129,6 +137,11 @@ export const matchPolicyBatch = Effect.fn("matchPolicyBatch")(function* (
 	});
 	const policies = yield* (yield* LifecyclePolicies).match(trigger);
 	return policies.length === 0 ? null : { trigger, policies };
+});
+
+const invalidProperties = (error: PropertyValidationError) => ({
+	code: "invalid-properties" as const,
+	paths: error.issues.map(({ path }) => path),
 });
 
 const policyChunkSize = 50;
@@ -247,7 +260,7 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 					allowedMissingRequiredPaths: Object.keys(propertiesSchema.fields).map((key) => [key]),
 				}).pipe(Effect.result);
 				if (properties._tag === "Failure") {
-					return { ...item, processed, error: { code: "invalid-properties" as const } };
+					return { ...item, processed, error: invalidProperties(properties.failure) };
 				}
 				const decodedRequest = yield* Schema.decodeUnknownEffect(AutomationRequestPayload)({
 					...patched.request,
@@ -323,7 +336,7 @@ export const applyPolicyBatch = Effect.fn("applyPolicyBatch")(function* (
 				propertiesSchema: yield* propertiesSchemaOf(item),
 			}).pipe(Effect.result);
 			return parsed._tag === "Failure"
-				? { ...item, error: { code: "invalid-properties" as const } }
+				? { ...item, error: invalidProperties(parsed.failure) }
 				: item;
 		}),
 	);

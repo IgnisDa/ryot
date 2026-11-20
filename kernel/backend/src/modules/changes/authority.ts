@@ -2,6 +2,9 @@ import type {
 	ChangeSet,
 	ChangeSetEntityReference,
 } from "@ryot-app/contract/modules/changes/change-set";
+import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
+import type { DefinitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import type { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	LocalMessage,
@@ -10,7 +13,7 @@ import {
 	stampTrustedNamespace,
 	TrustedLocalMessage,
 } from "@ryot-app/i18n/message";
-import { Result, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 import {
 	isUserBootstrapPrincipal,
@@ -19,6 +22,8 @@ import {
 	type ScriptExecutionPrincipal,
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
+
+import type { Changes } from "./changes";
 
 /** What a change set may write, resolved once from its writer's principal. */
 export type ChangeSetAuthority = {
@@ -309,4 +314,36 @@ export const changeSetReferences = (changes: ChangeSet) => {
 		),
 	];
 	return { events: eventReferences, entities: entityReferences };
+};
+
+const kernelOwned = (reference: { readonly owner: DefinitionOwner }) =>
+	reference.owner.kind === "kernel";
+
+/**
+ * A user's own write through the HTTP API names only plugin-owned schemas; kernel services write the
+ * kernel-owned ones.
+ */
+export const rejectKernelOwnedSchemas = (
+	changes: Changes,
+): Effect.Effect<void, EntityBadRequest | RelationshipBadRequest> => {
+	const { entity, entities, relationships } = changes;
+	const entitySchemas = [
+		...(entity ? [entity] : []),
+		...(entities?.creates ?? []),
+		...(entities?.updates ?? []),
+		...(entities?.deletes ?? []),
+		...(entities?.ensures ?? []),
+	].map(({ entitySchema }) => entitySchema);
+	if (entitySchemas.some(kernelOwned)) {
+		return Effect.fail(new EntityBadRequest({ reason: { code: "kernel-owned-schema" } }));
+	}
+	const relationshipSchemas = [
+		...(relationships?.upserts ?? []),
+		...(relationships?.updates ?? []),
+		...(relationships?.ensures ?? []),
+		...(relationships?.deletes ?? []),
+	].map(({ relationshipSchema }) => relationshipSchema);
+	return relationshipSchemas.some(kernelOwned)
+		? Effect.fail(new RelationshipBadRequest({ reason: { code: "kernel-owned-schema" } }))
+		: Effect.void;
 };

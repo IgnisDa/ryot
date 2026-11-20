@@ -447,7 +447,7 @@ describe("Prepared relationship mutations", () => {
 								),
 							),
 						).pipe(Effect.flip),
-					).toMatchObject({ reason: { code: "invalid-properties" } });
+					).toMatchObject({ reason: { paths: [["rank"]], code: "invalid-properties" } });
 					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
 				}),
 			testTimeout,

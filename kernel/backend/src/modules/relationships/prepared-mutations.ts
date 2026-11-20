@@ -13,6 +13,7 @@ import { Effect, Schema } from "effect";
 
 import {
 	applyPolicyChunks,
+	invalidPolicyItemReason,
 	matchPolicyChunks,
 	type PolicyBatchResult,
 	subjectChunks,
@@ -156,12 +157,7 @@ export const acceptRelationshipPolicies = (
 			});
 		}
 		if (decision.error !== null) {
-			return yield* new RelationshipBadRequest({
-				reason:
-					decision.error.code === "invalid-properties"
-						? { paths: [], code: "invalid-properties" }
-						: { code: "invalid-policy-transform" },
-			});
+			return yield* new RelationshipBadRequest({ reason: invalidPolicyItemReason(decision.error) });
 		}
 		const { request } = decision;
 		if (request.resource !== "relationship") {

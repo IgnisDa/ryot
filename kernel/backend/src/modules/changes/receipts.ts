@@ -43,6 +43,12 @@ export type CommitResult = {
 	}>;
 };
 
+/** The one entity a commit saved. */
+export const savedEntity = (result: CommitResult) => {
+	const [saved] = result.entities;
+	return saved ? Effect.succeed(saved.entity) : Effect.die("A commit saved no entity");
+};
+
 /** A receipt held by the account's idempotency key. */
 export const keyedReceipt = <A>(
 	keys: IdempotencyKeys["Service"],

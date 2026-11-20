@@ -150,8 +150,8 @@ The next attempt starts again from provider details under its own execution iden
 ### Mutation lock order
 
 Concurrent populations can contain the same related entities and relationships. Every entity
-commit transaction, batch or single writer (`persistSave`), acquires locks in this order before it
-mutates rows:
+commit transaction, whether a provider batch or a change set's entity saves (`persistPreparedSaves`),
+acquires locks in this order before it mutates rows:
 
 1. The schema catalog lock.
 2. Domain write authority checks with `lock=true`, once per distinct writer, kernel-collection

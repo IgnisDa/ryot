@@ -689,7 +689,7 @@ describe("Relationships lifecycle owner", () => {
 									assertExitFails(
 										exit,
 										new RelationshipBadRequest({
-											reason: { paths: [], code: "invalid-properties" },
+											reason: { paths: [["rank"]], code: "invalid-properties" },
 										}),
 									);
 									break;

@@ -13,6 +13,8 @@ import { DateTime, Effect, Schema } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { rejectKernelOwnedSchemas } from "#modules/changes/authority";
+import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { requireOpenSubmission } from "#modules/mutations/submission-window";
 
@@ -32,9 +34,16 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				if (payload.providerId !== undefined) {
 					return yield* new EntityBadRequest({ reason: { code: "provider-owned" } });
 				}
-				if (payload.entitySchema.owner.kind === "kernel") {
-					return yield* new EntityBadRequest({ reason: { code: "kernel-owned-schema" } });
-				}
+				const changes = {
+					userId: user.id,
+					entity: {
+						name: payload.name,
+						properties: payload.properties,
+						entitySchema: payload.entitySchema,
+						target: { kind: "create" as const },
+					},
+				};
+				yield* rejectKernelOwnedSchemas(changes);
 				if (payload.externalId !== undefined) {
 					return yield* new EntityBadRequest({
 						reason: { code: "incomplete-provenance", fields: ["externalId", "providerId"] },
@@ -52,22 +61,8 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 					}),
 					writeContext: null,
 				};
-				const result = yield* (yield* ChangeSets).commit(
-					{
-						userId: user.id,
-						entity: {
-							name: payload.name,
-							target: { kind: "create" },
-							properties: payload.properties,
-							entitySchema: payload.entitySchema,
-						},
-					},
-					command,
-				);
-				const [saved] = result.entities;
-				return saved
-					? { entity: saved.entity }
-					: yield* Effect.die("An entity create saved nothing");
+				const result = yield* (yield* ChangeSets).commit(changes, command);
+				return { entity: yield* savedEntity(result) };
 			}).pipe(
 				Effect.catchIf((error) => !isRouteFailure(error), Effect.die),
 				dieOnDbError,

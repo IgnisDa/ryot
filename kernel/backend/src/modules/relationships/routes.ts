@@ -11,6 +11,7 @@ import { DateTime, Effect, Schema } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { rejectKernelOwnedSchemas } from "#modules/changes/authority";
 import { ChangeSets } from "#modules/changes/service";
 
 const isRouteFailure = Schema.is(
@@ -24,9 +25,6 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 		handlers.handle("create", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				if (payload.relationshipSchema.owner.kind === "kernel") {
-					return yield* new RelationshipBadRequest({ reason: { code: "kernel-owned-schema" } });
-				}
 				const command = {
 					...rootLifecycleCommand({
 						source: "api",
@@ -39,24 +37,23 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					}),
 					writeContext: null,
 				};
-				const result = yield* (yield* ChangeSets).commit(
-					{
-						userId: user.id,
-						relationships: {
-							upserts: [
-								{
-									propertiesMode: "replace",
-									itemIdentity: "relationship",
-									properties: payload.properties ?? {},
-									relationshipSchema: payload.relationshipSchema,
-									source: { kind: "existing", entityId: payload.sourceEntityId },
-									target: { kind: "existing", entityId: payload.targetEntityId },
-								},
-							],
-						},
+				const changes = {
+					userId: user.id,
+					relationships: {
+						upserts: [
+							{
+								itemIdentity: "relationship",
+								propertiesMode: "replace" as const,
+								properties: payload.properties ?? {},
+								relationshipSchema: payload.relationshipSchema,
+								source: { kind: "existing" as const, entityId: payload.sourceEntityId },
+								target: { kind: "existing" as const, entityId: payload.targetEntityId },
+							},
+						],
 					},
-					command,
-				);
+				};
+				yield* rejectKernelOwnedSchemas(changes);
+				const result = yield* (yield* ChangeSets).commit(changes, command);
 				return { relationship: result.relationships[0]?.relationship ?? null };
 			}).pipe(
 				Effect.catchIf((error) => !isRouteFailure(error), Effect.die),

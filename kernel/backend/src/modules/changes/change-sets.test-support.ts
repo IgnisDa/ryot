@@ -1,8 +1,10 @@
+import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type {
 	CreateEventItem,
 	EventWritePrecondition,
 	UpdateEventItem,
 } from "@ryot-app/contract/modules/events/schemas";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId, EventId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
@@ -130,6 +132,21 @@ export const createEvents = (input: {
 			},
 		),
 	).pipe(Effect.map((result) => toCreateEventsResponse(result.outcomes)));
+
+/** An update of the loaded `entity` under its own schema, expecting it unchanged since it was loaded. */
+export const entityUpdate = (entity: ListedEntity, name: string, properties: unknown) => ({
+	name,
+	properties,
+	entitySchema: {
+		slug: entity.entitySchemaSlug,
+		owner: definitionOwner(entity.entitySchemaPluginId),
+	},
+	target: {
+		entityId: entity.id,
+		kind: "update" as const,
+		expected: { name: entity.name, updatedAt: entity.updatedAt, properties: entity.properties },
+	},
+});
 
 export const eventUpdate = (item: UpdateEventItem): EventChange => ({
 	item,

@@ -31,7 +31,7 @@ export const policyOutcomes = (
 		}
 		if (item.error !== null) {
 			const reason: EventCreateFailureReason =
-				item.error.code === "reference-not-found" && item.error.entityId !== undefined
+				item.error.code === "reference-not-found"
 					? { entityId: item.error.entityId, code: "session-entity-not-found" }
 					: { code: "invalid-properties" };
 			outcomes.push({ reason, status: "failed", index: indexOf(item.itemIdentity) });

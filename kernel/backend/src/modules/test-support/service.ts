@@ -30,6 +30,7 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { savedEntity } from "#modules/changes/receipts";
 import { ChangeSets } from "#modules/changes/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
@@ -188,34 +189,32 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					input.populatedAt === undefined || input.populatedAt === null
 						? null
 						: yield* parseDate(input.populatedAt);
-				const committed = yield* changeSets.commit(
-					{
-						userId: null,
-						entities: {
-							creates: [
-								{
-									name: input.name,
-									properties: input.properties,
-									entitySchema: input.entitySchema,
-									populatedAt: populatedAt?.toISOString() ?? null,
-									...(input.externalId === undefined ? {} : { externalId: input.externalId }),
-									...(input.providerId === undefined
-										? {}
-										: { provider: { updateExisting: false, providerId: input.providerId } }),
-								},
-							],
+				const created = yield* changeSets
+					.commit(
+						{
+							userId: null,
+							entities: {
+								creates: [
+									{
+										name: input.name,
+										properties: input.properties,
+										entitySchema: input.entitySchema,
+										populatedAt: populatedAt?.toISOString() ?? null,
+										...(input.externalId === undefined ? {} : { externalId: input.externalId }),
+										...(input.providerId === undefined
+											? {}
+											: { provider: { updateExisting: false, providerId: input.providerId } }),
+									},
+								],
+							},
 						},
-					},
-					command,
-				);
-				const [created] = committed.entities;
-				if (!created) {
-					return yield* Effect.die("A global entity create saved nothing");
-				}
+						command,
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				if (input.populatedAt !== undefined) {
-					yield* stampSeededRelatedLevel(created.entity.id, populatedAt, input.level ?? "full");
+					yield* stampSeededRelatedLevel(created.id, populatedAt, input.level ?? "full");
 				}
-				return created.entity;
+				return created;
 			});
 
 			const setEntityPopulatedAt = Effect.fn("TestSupportService.setEntityPopulatedAt")(function* (
@@ -228,42 +227,40 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 				}
 				const populatedAtDate = populatedAt === null ? null : yield* parseDate(populatedAt);
-				const committed = yield* changeSets.commit(
-					{
-						userId: null,
-						entities: {
-							updates: [
-								{
-									name: entity.name,
-									properties: entity.properties,
-									populatedAt: populatedAtDate?.toISOString() ?? null,
-									entitySchema: {
-										slug: entity.entitySchemaSlug,
-										owner: definitionOwner(entity.entitySchemaPluginId),
-									},
-									target: {
-										entityId,
-										kind: "update",
-										expected: {
-											name: entity.name,
-											updatedAt: entity.updatedAt,
-											properties: entity.properties,
+				const updated = yield* changeSets
+					.commit(
+						{
+							userId: null,
+							entities: {
+								updates: [
+									{
+										name: entity.name,
+										properties: entity.properties,
+										populatedAt: populatedAtDate?.toISOString() ?? null,
+										entitySchema: {
+											slug: entity.entitySchemaSlug,
+											owner: definitionOwner(entity.entitySchemaPluginId),
+										},
+										target: {
+											entityId,
+											kind: "update",
+											expected: {
+												name: entity.name,
+												updatedAt: entity.updatedAt,
+												properties: entity.properties,
+											},
 										},
 									},
-								},
-							],
+								],
+							},
 						},
-					},
-					yield* systemApiCommand(
-						stableStringify(["test-support:set-entity-populated-at", entityId]),
-					),
-				);
-				const [updated] = committed.entities;
-				if (!updated) {
-					return yield* Effect.die("A global entity update saved nothing");
-				}
+						yield* systemApiCommand(
+							stableStringify(["test-support:set-entity-populated-at", entityId]),
+						),
+					)
+					.pipe(Effect.flatMap(savedEntity));
 				yield* stampSeededRelatedLevel(entityId, populatedAtDate, level);
-				return updated.entity;
+				return updated;
 			});
 
 			const upsertGlobalRelationship = Effect.fn("TestSupportService.upsertGlobalRelationship")(

@@ -7,17 +7,13 @@ atomically under the writer's principal (`command.writeContext`) after translati
 `fromScriptChangeSet`, which qualifies every schema with the writing plugin. A change set may carry:
 
 - `entity`: a user-owned root entity create or update, with the expected baseline for updates.
-- `entities`: entity `creates` (kernel writers only: an `externalId`, a `provider` identity whose
-  `updateExisting` decides whether an existing provider entity is updated or kept, and
-  `populatedAt`), entity `deletes` (`preserveHistory` refuses an entity with events instead of
-  cascading), data `clears` and `merges` (both through `EntityUserDataService`; a kernel writer's
-  `null` schema accepts the entity's own), `updates` of existing entities (each shaped and checked
-  like a root entity update, at most once per entity), and bootstrap `ensures`.
-
-Entity parts write in the change set user's scope. A kernel writer may send `userId: null` to write
-global entity `creates`, `updates` and `deletes`; every other part needs a user and fails a global
-commit with `ChangeSetRejected`.
-
+- `entities`: entity `creates` (kernel writers only: an `externalId`, a `provider` identity, and
+  `populatedAt`; with `updateExisting` an existing provider entity is updated, and without it a
+  populated one is kept and an unpopulated one is filled), entity `deletes` (an entity that no longer
+  exists is skipped, so a repeated delete is a no-op; `preserveHistory` refuses an entity with events
+  instead of cascading), data `clears` and `merges` (both through `EntityUserDataService`; a kernel
+  writer's `null` schema accepts the entity's own), `updates` of existing entities (each shaped and
+  checked like a root entity update, at most once per entity), and bootstrap `ensures`.
 - `relationships`: user relationship `upserts` (`merge` or `replace` properties) and `deletes`;
   endpoints are the root or existing entities. Kernel writers may also send `updates` (the
   relationship must exist), `ensures` (written only when absent) and `deletesById`; see
@@ -34,6 +30,12 @@ commit with `ChangeSetRejected`.
   relationships without reconciling the selector.
 - `folds`: fold requests for the writer's user (`scope: "user"`) or every user with events on the
   entities (`scope: "all-users"`), limited to the writing plugin's folds.
+
+Entity parts write in the change set user's scope. A kernel writer may send `userId: null` to write
+global entity `creates`, `updates` and `deletes`; the root `entity`, `events`, `relationships`, and
+entity `ensures`, `clears` and `merges` need a user and fail a global commit with
+`ChangeSetRejected`. The entity and relationship HTTP routes refuse a change set naming a kernel-owned
+schema with `kernel-owned-schema` (`rejectKernelOwnedSchemas`) before committing it.
 
 `CHANGE_SET_LIMITS` holds every per-part bound. `isEmptyChangeSet` lets callers skip a commit that
 writes nothing.
@@ -85,9 +87,10 @@ an entity delete cascades a delete to every event referencing its entities, a cl
 captured state's events, and a merge deletes transient evidence and moves every other event. Their
 event policies run with the rest of the batch. The root entity, entity creates and entity updates
 share one path: `EntitiesService.prepareSave` validates the draft, resolves a create's provider
-identity and checks an update's expected baseline, and `persistPreparedSave` rechecks it under the
-entity lock. Every prepared entity write (saves, ensures and deletes) lists its policy items, which
-form one entity policy batch chunked by entity.
+identity and checks an update's expected baseline, and `persistPreparedSaves` persists a set of them
+under one account admission, catalog lock and entity lock statement, rechecking each under the lock.
+Every prepared entity write (saves, ensures and deletes) lists its policy items, which form one entity
+policy batch chunked by entity.
 
 Event changes are then prepared in one events transaction, with positions matching the change list,
 and grouped into policy chunks of at most 50 items in which a subject's items share a chunk, so a
@@ -97,18 +100,20 @@ Event, relationship and entity policies are matched inside that transaction. Whe
 continues in the same transaction. Otherwise the transaction ends, each matched policy is called once
 per chunk through `LifecyclePolicies` with every item it targets (nothing about the call is
 persisted), and a second events transaction commits. A relationship or entity policy rejection or
-invalid transform fails the whole change set; an accepted entity transform replaces the draft, and
-each entity write validates its final draft again under the catalog lock. A policy batch stops calling
-policies once none of its items is still active.
+invalid transform fails the whole change set, with the invalid property paths when properties fail
+validation; an accepted entity transform replaces the draft, and each entity write validates its
+final draft once more under the catalog lock. Entity policies run before event policies, which see
+the root entity as the entity policies left it. A policy batch stops calling policies once none of
+its items is still active.
 
 The commit transaction applies, in order: the receipt's `load`, the precondition's `check`, the
 settings patch, source writes (event group capture, then each clear's and merge's account admission,
 locks and state recheck, then root entity, relationships, events, baselines), the precondition's
 `written` when an event was written, ensures, entity deletes (which fail when an event still
-references a deleted entity), the rest of each clear and merge, entity updates in entity ID
-order, global entity upserts and global relationship reconciliation, signal plans, notification
-admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts after commit; a
-failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
+references a deleted entity), the rest of each clear and merge, entity creates in order and updates
+in entity ID order as one set, global entity upserts and global relationship reconciliation, signal
+plans, notification admissions, fold requests, and the receipt's `record`. Lifecycle dispatch starts
+after commit; a failure in any part rolls back every part. Durable callers run the whole commit inside one activity.
 
 A background-lane commit queues its folds; an interactive commit folds inline.
 
@@ -214,10 +219,11 @@ integration, import, and bootstrap executions cannot write settings.
 
 The commit holds its entity reference locks until it ends, so change sets that write events under the
 same entity serialize on its row. It does only the work its changes need: an unchanged entity update
-still rechecks the stored entity, but plans no entity lifecycle batch, and a change set without
-relationships plans no relationship batch. The commit changes no plugin, installation, or account
-rows, so it runs each locked domain write check once per writer, owner, and scope
-(`reuseLockedWriteChecks`); the check's shared locks keep its result valid until commit.
+still rechecks the stored entity but records no lifecycle change, the root entity, creates and
+updates share one entity lifecycle batch, and a change set without relationships plans no
+relationship batch. The commit changes no plugin, installation, or account rows, so it runs each
+locked domain write check once per writer, owner, and scope (`reuseLockedWriteChecks`); the check's
+shared locks keep its result valid until commit.
 Preparation reads and plans without writing, so its checks share one resolution of the writer's
 execution authority (`shareExecutionAuthority`); the commit transaction's locked checks resolve it
 again, so a revocation committed during preparation still rejects the commit.
