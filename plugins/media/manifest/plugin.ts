@@ -366,7 +366,29 @@ const syncCopiesSetting = {
 	description: "Synchronize individually addressable copies from the source library",
 } as const;
 
+const mediaServerInventoryFields = {
+	baseUrl: stringSetting(catalogMessage("property.base-url"), "Media server URL"),
+	userId: stringSetting(catalogMessage("ownership.server-user-id"), "Media server user ID"),
+	apiKey: stringSetting(catalogMessage("property.api-key"), "Media server API key", true, true),
+};
+
 const integrationProviders = [
+	{
+		lot: "yank",
+		slug: "jellyfin_inventory",
+		scriptSlug: "integration.jellyfin-inventory",
+		name: catalogMessage("ownership.jellyfin-inventory"),
+		description: catalogMessage("ownership.jellyfin-inventory-description"),
+		settingsSchema: providerSettings("jellyfin_inventory", mediaServerInventoryFields),
+	},
+	{
+		lot: "yank",
+		slug: "emby_inventory",
+		scriptSlug: "integration.emby-inventory",
+		name: catalogMessage("ownership.emby-inventory"),
+		description: catalogMessage("ownership.emby-inventory-description"),
+		settingsSchema: providerSettings("emby_inventory", mediaServerInventoryFields),
+	},
 	{
 		lot: "sink",
 		slug: "plex_sink",

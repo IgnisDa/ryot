@@ -436,6 +436,7 @@ filters. Adding the first copy also saves the title. Removing the last copy clea
 while leaving the library membership and history. The plugin protects integration-managed copies
 from manual edits.
 
+Jellyfin and Emby inventory integrations scan all visible movie and episode media versions.
 Plex Yank adds copies when **Sync owned copies** is enabled. It reads video and audio stream
 metadata from each Plex version. These scans write each version by its upstream identity and
 the connection's portable source key, including copies with no viewing history. A completed

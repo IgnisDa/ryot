@@ -644,7 +644,7 @@ it.effect(
 				"https://coverartarchive.org",
 			);
 			expect(mediaPlugin.providers).toHaveLength(52);
-			expect(mediaPlugin.integrationProviders).toHaveLength(14);
+			expect(mediaPlugin.integrationProviders).toHaveLength(16);
 			expect(mediaPlugin.oauthProviders).toEqual([
 				{
 					scopes: [],

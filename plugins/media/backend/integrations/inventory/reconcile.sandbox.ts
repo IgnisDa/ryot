@@ -21,7 +21,9 @@ export default defineScript({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getCurrentIntegration();
-			if (integration.providerSpecifics["syncCopies"] !== true) {
+			const inventory =
+				integration.provider === "jellyfin_inventory" || integration.provider === "emby_inventory";
+			if (!inventory && integration.providerSpecifics["syncCopies"] !== true) {
 				return { done: true };
 			}
 			const [copies, library] = yield* Effect.all([
