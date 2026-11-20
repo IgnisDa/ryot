@@ -1,9 +1,13 @@
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
+import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
 import { KERNEL_NAMESPACE } from "@ryot-app/i18n/message";
 import { useT } from "@ryot-app/i18n/react";
 import type { Text } from "@ryot-app/i18n/text";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { CLIENT_BRIDGE_BOOTSTRAP_READY } from "@ryot-app/plugin-client-contract";
+import {
+	CLIENT_BRIDGE_BOOTSTRAP,
+	PluginBridgeBootstrapProof,
+} from "@ryot-app/plugin-client-contract";
 import type {
 	AddToCollectionOutcome,
 	AddToCollectionRequest,
@@ -54,9 +58,9 @@ import type {
 } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Button, ScreenFrame, StatusMessage, useShortcut } from "@ryot-app/plugin-ui-sdk";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { createUuid } from "@ryot-app/ts-utils/uuid";
 import clsx from "clsx";
-import { Effect } from "effect";
+import { Effect, Result, Schema } from "effect";
 import {
 	type ReactNode,
 	type RefObject,
@@ -68,6 +72,7 @@ import {
 	useState,
 } from "react";
 
+import type { ServerOrigin } from "#/api/origin";
 import type { BackgroundSubmissionBinding } from "#/modules/background-submissions/service";
 import type { WatchEntities } from "#/modules/entity-watches/service";
 import { subscribeNativeResume } from "#/modules/entity-watches/transport";
@@ -84,12 +89,14 @@ import {
 	type PluginBridgeSession,
 	type PluginBridgeViewportInsets,
 } from "#/modules/pages/bridge/session";
+import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 import { ClientPageLoading } from "#/modules/pages/loading";
 import type { PageHeaderPublication, PageScreenReadiness } from "#/modules/shell/page-presentation";
 import type { ThemeStore } from "#/modules/theme/store";
 
 const PLUGIN_BACK_SETTLE_MS = 500;
 const BOOTSTRAP_TIMEOUT_MS = 15_000;
+const decodeBootstrapProof = Schema.decodeUnknownResult(PluginBridgeBootstrapProof);
 
 const afterFlush = (
 	session: undefined | PluginBridgeSession,
@@ -112,6 +119,7 @@ export function PageIframeHost(props: {
 	readonly embedded?: boolean;
 	readonly documentKey: string;
 	readonly compositionHash: string;
+	readonly serverUrl: ServerOrigin;
 	readonly page?: ClientPageContext;
 	readonly chromeLeading: ReactNode;
 	readonly onOpenDrawer: () => void;
@@ -126,7 +134,6 @@ export function PageIframeHost(props: {
 	readonly onOverlayState: (count: number) => void;
 	readonly chromeTriggerRef: RefObject<null | HTMLElement>;
 	readonly onHeader: (header: PageHeaderPublication) => void;
-	readonly onLoadDocument: () => Effect.Effect<string, Error>;
 	readonly mutationCompleted: RyotClient["mutationCompleted"];
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
@@ -135,6 +142,7 @@ export function PageIframeHost(props: {
 	readonly subscribeResume?: (resumed: () => void) => () => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: null | PageScreenReadiness) => void;
+	readonly onLoadDocument: () => Effect.Effect<ClientCompositionDocument, Error>;
 	readonly onFlushReady: (flush: undefined | (() => Effect.Effect<boolean>)) => void;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onQuery: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
@@ -241,28 +249,6 @@ export function PageIframeHost(props: {
 		setFrameStatus("handshake-failure");
 	});
 	const releaseBridge = useEffectEvent(closeBridge);
-	useEffect(() => {
-		if (frameStatus !== "loading") {
-			return undefined;
-		}
-		const timeout = window.setTimeout(() => failHandshake(), BOOTSTRAP_TIMEOUT_MS);
-		return () => window.clearTimeout(timeout);
-	}, [frameStatus]);
-	useEffect(() => {
-		const controller = new AbortController();
-		Effect.runFork(
-			latest.current
-				.onLoadDocument()
-				.pipe(
-					Effect.match({
-						onFailure: () => failHandshake(),
-						onSuccess: (document) => setSrcDoc(document),
-					}),
-				),
-			{ signal: controller.signal },
-		);
-		return () => controller.abort();
-	}, []);
 
 	useEffect(() => {
 		markCompositionStale.current = () => setUpdateAvailable(true);
@@ -439,14 +425,7 @@ export function PageIframeHost(props: {
 		}
 	}, [props.active]);
 
-	function connect() {
-		const plugin = frame.current?.contentWindow;
-		closeBridge();
-		if (!plugin) {
-			setFrameStatus("handshake-failure");
-			return;
-		}
-		setFrameStatus("loading");
+	const connect = useEffectEvent((port: MessagePort) => {
 		const connection: { failed: boolean; session?: PluginBridgeSession } = { failed: false };
 		const manageScreen = Effect.fnUntraced(function* <Outcome extends { readonly kind: string }>(
 			open: () => Effect.Effect<Outcome>,
@@ -463,7 +442,7 @@ export function PageIframeHost(props: {
 			return outcome;
 		});
 		const nextBridge = openPluginBridge({
-			target: plugin,
+			port,
 			page: latest.current.page,
 			locale: latestLocale.current,
 			viewport: latest.current.viewport,
@@ -565,20 +544,80 @@ export function PageIframeHost(props: {
 			bridge.current = nextBridge;
 			latest.current.onFlushReady(nextBridge.requestFlush);
 		}
-	}
-	useEffect(() => {
-		const onBootstrapReady = (event: MessageEvent<unknown>) => {
-			if (
-				event.source === frame.current?.contentWindow &&
-				isObjectRecord(event.data) &&
-				event.data["type"] === CLIENT_BRIDGE_BOOTSTRAP_READY
-			) {
-				connect();
-			}
-		};
-		window.addEventListener("message", onBootstrapReady);
-		return () => window.removeEventListener("message", onBootstrapReady);
 	});
+
+	useLayoutEffect(() => {
+		const controller = new AbortController();
+		const nonce = createUuid();
+		const offered = new Set<MessagePort>();
+		const { serverUrl, compositionHash } = latest.current;
+		const stop = () => {
+			controller.abort();
+			window.clearTimeout(timeout);
+			window.removeEventListener("message", onOffer);
+			for (const port of offered) {
+				port.close();
+			}
+			offered.clear();
+		};
+		const fail = () => {
+			stop();
+			failHandshake();
+		};
+		const onOffer = (event: MessageEvent<unknown>) => {
+			const source = frame.current?.contentWindow;
+			if (!source || event.source !== source || event.data !== CLIENT_BRIDGE_BOOTSTRAP) {
+				return;
+			}
+			if (event.origin !== "null" || event.ports.length !== 1) {
+				for (const extra of event.ports) {
+					extra.close();
+				}
+				return;
+			}
+			const [port] = event.ports;
+			const discard = () => {
+				port.removeEventListener("message", onProof);
+				port.removeEventListener("messageerror", discard);
+				offered.delete(port);
+				port.close();
+			};
+			const onProof = ({ data }: MessageEvent<unknown>) => {
+				const proof = decodeBootstrapProof(data);
+				if (
+					frame.current?.contentWindow !== source ||
+					Result.isFailure(proof) ||
+					proof.success.nonce !== nonce ||
+					proof.success.composition.hash !== compositionHash
+				) {
+					discard();
+					return;
+				}
+				offered.delete(port);
+				stop();
+				connect(port);
+			};
+			offered.add(port);
+			const once = { once: true, signal: controller.signal };
+			port.addEventListener("messageerror", discard, once);
+			port.addEventListener("message", onProof, once);
+			port.start();
+		};
+		const timeout = window.setTimeout(fail, BOOTSTRAP_TIMEOUT_MS);
+		window.addEventListener("message", onOffer);
+		Effect.runFork(
+			latest.current
+				.onLoadDocument()
+				.pipe(
+					Effect.match({
+						onFailure: fail,
+						onSuccess: (document) => setSrcDoc(renderClientDocument(document, serverUrl, nonce)),
+					}),
+				),
+			{ signal: controller.signal },
+		);
+		return stop;
+	}, []);
 
 	const chrome = { compact, leading: props.chromeLeading, safeAreaTop: props.viewport.safeAreaTop };
 	if (frameStatus === "handshake-failure" && props.embedded) {

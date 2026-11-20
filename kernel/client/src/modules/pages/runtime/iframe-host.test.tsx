@@ -1,30 +1,36 @@
 import { describe, expect } from "bun:test";
 
+import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { testText } from "@ryot-app/kernel-messages/testing";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
 	type AddToCollectionOutcome,
 	type AddToCollectionRequest,
-	CLIENT_BRIDGE_BOOTSTRAP_READY,
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
 	type EditCollectionOutcome,
 	type EditCollectionRequest,
 	type ManageRemindersOutcome,
 	type ManageRemindersRequest,
 	type PickEntityOutcome,
-	PluginBridgeInit,
 	type PluginBridgePickEntityScreen,
 	type PluginIosLiveActivityOutcome,
 	type PluginLogicalLocation,
 	type PluginOperationRequest,
 } from "@ryot-app/plugin-client-contract";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
-import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import {
+	createTestRyotClock,
+	waitForMessagePortMacrotask,
+} from "@ryot-app/plugin-client-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
-import { Deferred, Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import type { ReactNode } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -34,6 +40,11 @@ import { testHostServices } from "#/host-services.test-support";
 import { TestKernelI18nProvider } from "#/modules/i18n/provider.test-support";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/pages/bridge/operations";
+import {
+	connectFrame,
+	frameBootstrapProof,
+	offerFramePort,
+} from "#/modules/pages/bridge/session.test-support";
 import { PageIframeHost } from "#/modules/pages/runtime/iframe-host";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { PluginCatalogProvider } from "#/modules/plugins/catalog/provider";
@@ -50,15 +61,35 @@ const theme: ThemeStore = {
 const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const ryot = createTestRyotClock();
 const home: PluginLogicalLocation = { path: "/", kind: "route", search: "keep=1" };
-const srcDoc = '<!doctype html><html><body><div id="app"></div></body></html>';
+const composition: ClientCompositionDocument = {
+	preloads: [],
+	stylesheets: [],
+	title: "Fixture",
+	modulepreloads: [],
+	bootstrap: "/bootstrap.js",
+	importMap: { imports: {} },
+	descriptor: {
+		application: "page",
+		analyticsSections: [],
+		automaticRegistry: [],
+		entry: { binding: "Fixture", specifier: "fixture" },
+	},
+	metadata: {
+		hash: "composition-hash",
+		format: CLIENT_ARTIFACT_FORMAT,
+		apiVersion: CLIENT_API_VERSION,
+		compilerVersion: CLIENT_COMPILER_VERSION,
+		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+	},
+};
 
 function mount(
 	options: {
 		readonly embedded?: boolean;
 		readonly onReloadCurrent?: () => void;
-		readonly onLoadDocument?: () => Effect.Effect<string, Error>;
 		readonly subscribeResume?: (resumed: () => void) => () => void;
 		readonly onCheckFreshness?: () => Effect.Effect<boolean, Error>;
+		readonly onLoadDocument?: () => Effect.Effect<ClientCompositionDocument, Error>;
 		readonly onPickEntity?: (
 			request: PluginBridgePickEntityScreen,
 		) => Effect.Effect<PickEntityOutcome>;
@@ -84,7 +115,7 @@ function mount(
 	let documentLoads = 0;
 	const onLoadDocument = () => {
 		documentLoads += 1;
-		return options.onLoadDocument?.() ?? Effect.succeed(srcDoc);
+		return options.onLoadDocument?.() ?? Effect.succeed(composition);
 	};
 	const states: unknown[] = [];
 	const searches: unknown[] = [];
@@ -143,6 +174,7 @@ function mount(
 		inert: screens.inert,
 		freshnessCheckRevision,
 		onHeader: () => undefined,
+		serverUrl: scope.serverUrl,
 		title: testText("Fixture"),
 		onFlushReady: () => undefined,
 		onOpenDrawer: () => undefined,
@@ -287,65 +319,73 @@ function flush() {
 	);
 }
 
-function connect(frame: HTMLIFrameElement) {
-	const messages: unknown[] = [];
-	let init: undefined | PluginBridgeInit;
-	let port: undefined | MessagePort;
-	Object.defineProperty(frame, "contentWindow", {
-		configurable: true,
-		value: {
-			postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
-				init = Option.getOrUndefined(Schema.decodeUnknownOption(PluginBridgeInit)(message));
-				const transferred = transfer[0];
-				if (!(transferred instanceof MessagePort)) {
-					throw new Error("Missing plugin port");
-				}
-				port = transferred;
-				port.addEventListener("message", (event) => messages.push(event.data));
-				port.start();
-			},
-		},
-	});
-	const readyEvent = new MessageEvent("message", { data: { type: CLIENT_BRIDGE_BOOTSTRAP_READY } });
-	Object.defineProperty(readyEvent, "source", { value: frame.contentWindow });
-	fireEvent(window, readyEvent);
-	if (init === undefined || port === undefined) {
-		throw new Error("Bridge did not connect");
-	}
-	const {
-		dir: _dir,
-		mode: _mode,
-		page: _page,
-		locale: _locale,
-		safeAreaTop: _top,
-		catalogs: _catalogs,
-		safeAreaBottom: _bottom,
-		documentKey: _documentKey,
-		pendingNamespaces: _pendingNamespaces,
-		...ready
-	} = init;
-	return { init, port, ready, messages };
-}
-
 describe("PageIframeHost", () => {
+	it.live(
+		"binds the bridge to the current opaque document and accepts its proof once",
+		() =>
+			Effect.gen(function* () {
+				const previous = mount();
+				const oldFrame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const staleProof = frameBootstrapProof(oldFrame);
+				previous.unmount();
+
+				const current = mount();
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const proof = frameBootstrapProof(frame);
+				expect(proof.nonce).not.toBe(staleProof.nonce);
+				const unexpected: unknown[] = [];
+				const stale = offerFramePort(frame, staleProof);
+				const otherOrigin = offerFramePort(frame, proof, "https://ryot.example");
+				for (const port of [stale, otherOrigin]) {
+					port.addEventListener("message", (event) => unexpected.push(event.data));
+					port.start();
+				}
+				try {
+					const bridge = yield* connectFrame(frame);
+					bridge.port.postMessage(bridge.ready);
+					yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+					const duplicate = offerFramePort(frame, proof);
+					duplicate.addEventListener("message", (event) => unexpected.push(event.data));
+					duplicate.start();
+					try {
+						current.move({ search: "", kind: "route", path: "/detail" }, 1);
+						yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(2)));
+						yield* waitForMessagePortMacrotask;
+						expect(unexpected).toEqual([]);
+					} finally {
+						duplicate.close();
+					}
+				} finally {
+					stale.close();
+					otherOrigin.close();
+				}
+			}),
+		testTimeout,
+	);
+
 	it.live(
 		"keeps the minimal interstitial visible through document loading and bootstrap",
 		() =>
 			Effect.gen(function* () {
-				const document = yield* Deferred.make<string, Error>();
+				const document = yield* Deferred.make<ClientCompositionDocument, Error>();
 				mount({ onLoadDocument: () => Deferred.await(document) });
 
 				expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Opening Fixture");
 				expect(screen.getByRole("status").textContent).toContain("Getting your view ready");
 				expect(screen.queryByTitle("Fixture plugin")).toBeNull();
 
-				yield* Deferred.succeed(document, srcDoc);
+				yield* Deferred.succeed(document, composition);
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
 				expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Opening Fixture");
 
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("status")).toBeNull()));
 				expect(screen.queryByRole("heading")).toBeNull();
@@ -363,7 +403,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
@@ -389,7 +429,7 @@ describe("PageIframeHost", () => {
 			Effect.gen(function* () {
 				const host = mount();
 				yield* Effect.promise(() => flush());
-				const bridge = connect(
+				const bridge = yield* connectFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(bridge.ready);
@@ -426,7 +466,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
@@ -494,7 +534,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
@@ -567,7 +607,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				const requests: ManageRemindersRequest[] = [];
@@ -611,7 +651,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				bridge.port.postMessage({ count: 1, type: "overlay-state" });
@@ -643,7 +683,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
+				expect(frame.srcdoc).toContain('<script type="module" src="/bootstrap.js"></script>');
 				expect(frame.hasAttribute("src")).toBe(false);
 				expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
 				expect(host.documentLoads()).toBe(1);
@@ -659,7 +699,8 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const srcDoc = frame.srcdoc;
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
@@ -677,7 +718,7 @@ describe("PageIframeHost", () => {
 					),
 				);
 				expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-				expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
+				expect(frame.srcdoc).toBe(srcDoc);
 				expect(host.documentLoads()).toBe(1);
 				expect(screen.queryByRole("heading", { name: "Opening Fixture" })).toBeNull();
 			}),
@@ -690,7 +731,7 @@ describe("PageIframeHost", () => {
 			Effect.gen(function* () {
 				const host = mount();
 				yield* Effect.promise(() => flush());
-				const bridge = connect(
+				const bridge = yield* connectFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(bridge.ready);
@@ -776,7 +817,7 @@ describe("PageIframeHost", () => {
 			Effect.gen(function* () {
 				const host = mount();
 				yield* Effect.promise(() => flush());
-				const bridge = connect(
+				const bridge = yield* connectFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(bridge.ready);
@@ -805,7 +846,7 @@ describe("PageIframeHost", () => {
 			Effect.gen(function* () {
 				const host = mount();
 				yield* Effect.promise(() => flush());
-				const bridge = connect(
+				const bridge = yield* connectFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(bridge.ready);
@@ -841,7 +882,7 @@ describe("PageIframeHost", () => {
 			return Effect.gen(function* () {
 				mount();
 				yield* Effect.promise(() => flush());
-				const bridge = connect(
+				const bridge = yield* connectFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(bridge.ready);
@@ -904,7 +945,7 @@ describe("PageIframeHost", () => {
 					},
 				});
 				yield* Effect.promise(() => flush());
-				const bridge = connect(
+				const bridge = yield* connectFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(bridge.ready);
@@ -935,7 +976,7 @@ describe("PageIframeHost", () => {
 			Effect.gen(function* () {
 				const host = mount();
 				yield* Effect.promise(() => flush());
-				const bridge = connect(
+				const bridge = yield* connectFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
 				bridge.port.postMessage(bridge.ready);
@@ -980,7 +1021,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
@@ -1007,7 +1048,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 				const submit = (key: string) =>
@@ -1077,7 +1118,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
@@ -1122,7 +1163,7 @@ describe("PageIframeHost", () => {
 				const frame = yield* Effect.promise(() =>
 					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 				);
-				const bridge = connect(frame);
+				const bridge = yield* connectFrame(frame);
 				bridge.port.postMessage(bridge.ready);
 				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 

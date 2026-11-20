@@ -26,12 +26,15 @@ import {
 	type BackgroundSubmissionOutcome,
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_NONCE_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_PAGE_ROOT_ELEMENT_ID,
+	type ClientCompositionMetadata,
 	ClientPageContext,
 	type PluginAssetOutcome,
+	PluginBridgeBootstrapProof,
 	type PluginBridgeCatalog,
 	PluginBridgeClientMessage,
 	type PluginBridgeHostMessage,
@@ -56,14 +59,14 @@ import * as TestClock from "effect/testing/TestClock";
 import { act, type ComponentType, createElement, Fragment, type ReactNode } from "react";
 
 import type { AnalyticsSectionRegistration } from "./analytics/sections";
-import { bootstrapClientPage, createClientBootstrap } from "./bootstrap/application";
+import { createClientBootstrap } from "./bootstrap/application";
 import type { BackgroundOperationAdapterRequest, RyotClientAdapter } from "./client/adapter";
 import { createRyotClient } from "./client/client";
 import type { RyotClientError } from "./client/errors";
 import { pluginText } from "./i18n/messages";
 import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
 import type { EntityPresentationRegistration } from "./presentations/entity-results";
-import { makeRyotPluginLayer } from "./runtime/runtime";
+import { makeRyotPluginLayer, makeRyotPluginRuntime } from "./runtime/runtime";
 import { RyotScheduleService } from "./schedule";
 
 // Fills only the required capabilities, so tests of a missing optional one still see
@@ -219,6 +222,7 @@ const compositionMetadata = {
 	compilerVersion: CLIENT_COMPILER_VERSION,
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 };
+const decodeBootstrapProof = Schema.decodeUnknownResult(PluginBridgeBootstrapProof);
 
 const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 
@@ -377,6 +381,60 @@ export const disposePluginBridges = () => {
 	}
 };
 
+export const startTestPluginBridge = (
+	start: (offer: (port: MessagePort) => void) => { readonly dispose: () => void },
+	metadata: ClientCompositionMetadata = compositionMetadata,
+) => {
+	for (const [id, value] of [
+		[CLIENT_COMPOSITION_METADATA_ELEMENT_ID, metadata],
+		[CLIENT_BRIDGE_NONCE_ELEMENT_ID, "test-frame-nonce"],
+	] as const) {
+		const element = document.createElement("script");
+		element.type = "application/json";
+		element.id = id;
+		element.textContent = JSON.stringify(value);
+		const previous = document.getElementById(id);
+		if (previous) {
+			previous.replaceWith(element);
+		} else {
+			document.head.append(element);
+		}
+	}
+	let port: undefined | MessagePort;
+	const bootstrap = start((offered) => {
+		port = offered;
+	});
+	if (!port) {
+		bootstrap.dispose();
+		throw new Error("The SDK did not offer a bridge port");
+	}
+	const hostPort = port;
+	hostPort.addEventListener(
+		"message",
+		(event) => {
+			event.stopImmediatePropagation();
+			const proof = decodeBootstrapProof(event.data);
+			if (
+				Result.isFailure(proof) ||
+				proof.success.nonce !== "test-frame-nonce" ||
+				proof.success.composition.hash !== metadata.hash
+			) {
+				bootstrap.dispose();
+				hostPort.close();
+				throw new Error("The SDK offered a port for a different document");
+			}
+		},
+		{ once: true },
+	);
+	return {
+		port: hostPort,
+		dispose: () => {
+			bootstrap.dispose();
+			hostPort.close();
+		},
+	};
+};
+
 /**
  * Boots `component` the way the kernel does: embedded composition metadata, a `MessagePort` bridge
  * handshake, and an optional first location. Everything below the bridge — the route resolver,
@@ -400,23 +458,23 @@ export const mountPluginPage = (
 	} = {},
 ) => {
 	document.body.innerHTML = `<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>`;
-	const metadataElement = document.createElement("script");
-	metadataElement.type = "application/json";
-	metadataElement.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
-	metadataElement.textContent = JSON.stringify(compositionMetadata);
-	document.head.append(metadataElement);
-
-	const bootstrap = (options.bootstrap?.bootstrapClientPage ?? bootstrapClientPage)(component, {
-		...(options.entityPresentations === undefined
-			? {}
-			: { entityPresentations: options.entityPresentations }),
-		...(options.analyticsSections === undefined
-			? {}
-			: { analyticsSections: options.analyticsSections }),
-	});
-	const channel = new MessageChannel();
+	const runtime = options.bootstrap ?? createClientBootstrap(makeRyotPluginRuntime);
+	const { port, dispose } = startTestPluginBridge((offer) =>
+		runtime.bootstrapClientPage(
+			component,
+			{
+				...(options.entityPresentations === undefined
+					? {}
+					: { entityPresentations: options.entityPresentations }),
+				...(options.analyticsSections === undefined
+					? {}
+					: { analyticsSections: options.analyticsSections }),
+			},
+			offer,
+		),
+	);
 	const messages: unknown[] = [];
-	channel.port1.addEventListener("message", ({ data }) => {
+	port.addEventListener("message", ({ data }) => {
 		messages.push(data);
 		const decoded = decodeClientMessage(data);
 		if (Result.isSuccess(decoded)) {
@@ -424,7 +482,7 @@ export const mountPluginPage = (
 				decoded.success.type === "account-request" &&
 				(options.userPreferences !== undefined || options.entitlements !== undefined)
 			) {
-				channel.port1.postMessage({
+				port.postMessage({
 					outcome: "success",
 					type: "account-result",
 					requestId: decoded.success.requestId,
@@ -441,29 +499,23 @@ export const mountPluginPage = (
 			options.onClientMessage?.(decoded.success);
 		}
 	});
-	channel.port1.start();
-	window.dispatchEvent(
-		new MessageEvent("message", {
-			source: window.parent,
-			ports: [channel.port2],
-			data: {
-				...testBridgeLocale(options.catalogs),
-				mode: "light",
-				safeAreaTop: 0,
-				safeAreaBottom: 0,
-				page: options.page,
-				sessionId: "test-session",
-				documentKey: "test-document",
-				format: compositionMetadata.format,
-				compositionHash: compositionMetadata.hash,
-				apiVersion: compositionMetadata.apiVersion,
-				bridgeVersion: compositionMetadata.bridgeVersion,
-				compilerVersion: compositionMetadata.compilerVersion,
-			},
-		}),
-	);
+	port.start();
+	port.postMessage({
+		...testBridgeLocale(options.catalogs),
+		mode: "light",
+		safeAreaTop: 0,
+		safeAreaBottom: 0,
+		page: options.page,
+		sessionId: "test-session",
+		documentKey: "test-document",
+		format: compositionMetadata.format,
+		compositionHash: compositionMetadata.hash,
+		apiVersion: compositionMetadata.apiVersion,
+		bridgeVersion: compositionMetadata.bridgeVersion,
+		compilerVersion: compositionMetadata.compilerVersion,
+	});
 
-	const send = (message: PluginBridgeHostMessage) => channel.port1.postMessage(message);
+	const send = (message: PluginBridgeHostMessage) => port.postMessage(message);
 	const navigate = (
 		location: PluginLogicalLocation,
 		overrides: Partial<Omit<PluginBridgeLocation, "type" | "location">> = {},
@@ -512,9 +564,7 @@ export const mountPluginPage = (
 			if (index >= 0) {
 				mounted.splice(index, 1);
 			}
-			bootstrap.dispose();
-			channel.port1.close();
-			channel.port2.close();
+			dispose();
 			document.head.innerHTML = "";
 			document.body.innerHTML = "";
 		},

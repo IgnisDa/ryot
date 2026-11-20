@@ -1,5 +1,6 @@
 import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
 import {
+	CLIENT_BRIDGE_NONCE_ELEMENT_ID,
 	CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID,
 	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_PAGE_ROOT_ELEMENT_ID,
@@ -21,6 +22,7 @@ const htmlJson = (value: unknown) => JSON.stringify(value).replaceAll("<", "\\u0
 export const renderClientDocument = (
 	document: ClientCompositionDocument,
 	serverUrl: ServerOrigin,
+	nonce: string,
 ) => {
 	const links = [
 		...document.modulepreloads.map(
@@ -44,6 +46,7 @@ export const renderClientDocument = (
 		${links}
 		<script type="application/json" id="${CLIENT_COMPOSITION_METADATA_ELEMENT_ID}">${htmlJson(document.metadata)}</script>
 		<script type="application/json" id="${CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID}">${htmlJson(document.descriptor)}</script>
+		<script type="application/json" id="${CLIENT_BRIDGE_NONCE_ELEMENT_ID}">${htmlJson(nonce)}</script>
 	</head>
 	<body>
 		<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>

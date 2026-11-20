@@ -1,7 +1,7 @@
 # Client SDK
 
 - Read the README's bootstrap and routing sections before changing bridge trust or retained-screen behavior.
-- Validate embedded composition metadata before listening. Accept one port from `window.parent`; verify init against embedded identity, never echoed input.
+- Offer one frame-created port to the parent after validating the embedded metadata. Check init against the embedded composition identity.
 - Reconcile screens from kernel index/key, never paths. Preserve React keys and inactive layout; navigation scroll and focus go only through the shared view history. Keep reconciliation/gestures DOM-free; add no animation/gesture dependency.
 - The screen shell owns transforms, not scrolling. Keep scroll roots inside it and pinned chrome in `PluginScreenFrame.floatingAction`.
 - `index.ts`, `react.tsx`, `plugin.tsx`, and `browser.tsx` are aggregation points; internal imports use defining modules. Keep `PluginScreenFrame` on `./screen` and frame-independent APIs on `./plugin`, including its canonical identity exports.

@@ -39,8 +39,9 @@ runtimes and the iframe host that runs one frame, and `bridge` owns the port ses
 capability producers.
 
 The iframe receives no bearer credentials and has no direct Capacitor access. Its only privileged
-connection is the `MessagePort` transferred by the kernel after both peers validate the bridge and
-artifact identity. Plugin requests cross that port as narrow, schema-checked capabilities; the kernel
+connection is the `MessagePort` offered by the frame. The shared host checks the iframe window and
+opaque origin, then matches the one-time nonce and embedded composition identity on the port before
+sending init. After ready, plugin requests cross the port as narrow, schema-checked capabilities. The kernel
 applies authentication, installation scope, and platform policy. A plugin upload sends only bytes with
 a proposed file name and content type; the kernel keeps intent creation, transfer, and completion.
 

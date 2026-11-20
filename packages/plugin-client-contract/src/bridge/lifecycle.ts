@@ -8,7 +8,7 @@ import { TextDirection } from "@ryot-app/i18n/locale";
 import { Message, MessageNamespace } from "@ryot-app/i18n/message";
 import { Schema } from "effect";
 
-import { clientVersionFields } from "../artifact";
+import { ClientCompositionMetadata, clientVersionFields } from "../artifact";
 import {
 	ClientPageContext,
 	KernelShortcut,
@@ -20,7 +20,15 @@ import {
 import { RyotClientErrorReason } from "./capabilities";
 
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
-export const CLIENT_BRIDGE_BOOTSTRAP_READY = "ryot-client-bootstrap-ready" as const;
+export const CLIENT_BRIDGE_BOOTSTRAP = "ryot-client-bootstrap";
+export const CLIENT_BRIDGE_NONCE_ELEMENT_ID = "ryot-client-bridge-nonce";
+
+export const PluginBridgeBootstrapProof = strictStruct({
+	nonce: Schema.String,
+	composition: ClientCompositionMetadata,
+});
+
+export type PluginBridgeBootstrapProof = typeof PluginBridgeBootstrapProof.Type;
 
 export const CLIENT_PAGE_ROOT_ELEMENT_ID = "app";
 export const CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID = "ryot-client-composition";

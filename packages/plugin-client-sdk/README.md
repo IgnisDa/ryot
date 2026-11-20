@@ -5,8 +5,9 @@ The client SDK provides environment-neutral application APIs for kernel and plug
 
 ## Bridge Bootstrap
 
-Bootstrap accepts one port from `window.parent` only after validating embedded metadata, and checks
-init/ready identity against that metadata rather than echoed input. Wire details belong to the
+Bootstrap validates the embedded composition metadata and frame nonce, creates a channel, and
+offers one port to the parent. It sends proof on the channel before receiving init and checks
+init/ready identity against the embedded metadata. Wire details belong to the
 [bridge contract](../plugin-client-contract/README.md).
 Production bootstraps construct a live SDK runtime per page. Tests use `createTestRyotClock().bootstrap`
 when mounting a page against that harness's clock; each page owns and disposes its SDK runtime,

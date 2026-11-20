@@ -37,7 +37,6 @@ import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 import type { PluginBridgeNavigationState } from "#/modules/pages/bridge/session";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
 import { accountOutcome, pluginUserSettingsOutcome } from "#/modules/pages/bridge/user-settings";
-import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 import type { ClientPageDocument } from "#/modules/pages/documents/state";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { PageIframeHost } from "#/modules/pages/runtime/iframe-host";
@@ -167,6 +166,7 @@ export function PageDocumentHost(props: {
 			subscribeResume={subscribeResume}
 			chromeLeading={props.edgeLeading}
 			onCheckFreshness={checkFreshness}
+			serverUrl={props.scope.serverUrl}
 			onReloadCurrent={props.onReloadCurrent}
 			onOpenDrawer={props.chrome.onOpenDrawer}
 			backInterceptors={props.backInterceptors}
@@ -191,6 +191,9 @@ export function PageDocumentHost(props: {
 					router.history.back();
 				}
 			}}
+			onLoadDocument={() =>
+				props.runtime.runSync(PagesApi).document(props.scope, { payload: { identity } })
+			}
 			onAssets={(request) =>
 				props.runtime.runSync(ManagedAssetsService).outcome(props.scope, request.assets)
 			}
@@ -237,12 +240,6 @@ export function PageDocumentHost(props: {
 			onChangeCollectionMembers={(request) =>
 				props.document.onChangeCollectionMembers?.(request) ??
 				Effect.succeed<ChangeCollectionMembersOutcome>({ kind: "cancelled" })
-			}
-			onLoadDocument={() =>
-				props.runtime
-					.runSync(PagesApi)
-					.document(props.scope, { payload: { identity } })
-					.pipe(Effect.map((document) => renderClientDocument(document, props.scope.serverUrl)))
 			}
 			onQuery={(request) =>
 				props.runtime
