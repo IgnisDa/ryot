@@ -249,7 +249,8 @@ and its named tests, then its e2e files.
    with the root entity before relationships and events, whether or not the change set has other
    source writes. Data import entity and relationship records commit one per record, since later
    records reference IDs earlier commits generate; a run of consecutive event records commits as one
-   independent-mode change set. Generic import collection memberships commit in the item's change
+   independent-mode change set, and when that commit fails as a whole its events without an outcome of
+   their own commit again one per record, so a record still fails alone. Generic import collection memberships commit in the item's change
    set through `CollectionsService`'s builder, whose collection creates, `member-of` writes and
    membership events carry `kernelCollection`; a chunk reads its collections' member fields once,
    and a membership they reject is left out with `membership-event-failed`. A provider-resolved

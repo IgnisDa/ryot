@@ -22,10 +22,13 @@ the IDs an earlier record's commit generated and a record fails alone. An existi
 provider-resolved entity record is a reference, so its commit checks the entity's schema and records
 its `unchanged` import item. A run of consecutive event records references only records committed
 before it, so it commits as one independent-mode change set in one activity, keyed by the run's
-first committed record, with an outcome per event: a preparation failure or policy rejection affects
-only its event, while a commit conflict or policy execution error fails every event of the run that
-had not already failed. An event naming managed assets commits alone after its ownership check.
-Cancellation is checked before each record or run.
+first committed record, with an outcome per event: a preparation failure, policy rejection or policy
+item error affects only its event. When the run's commit fails as a whole (a policy execution error,
+`mutation-conflict`, `asset-forbidden`, or a failed activity) it writes nothing, and every event
+without an outcome of its own commits again alone, each in its own activity under its own receipt, so
+each record gets the outcome it would have had alone. The run activity's recorded result decides
+this, so a replay takes the same path. An event naming managed assets commits alone after its
+ownership check. Cancellation is checked before each record or run.
 
 Each generic record's intents use item identities `<record>:<operationId>`, where `<record>` is
 the ingestion identity of the subject entity's operation. Provider entities resolve in their own

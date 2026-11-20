@@ -8,6 +8,7 @@ import type {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import {
 	AutomationExecutionId,
+	AutomationRunId,
 	EntitySchemaSlug,
 	EventId,
 	IntegrationId,
@@ -172,22 +173,29 @@ const fixture = Effect.fnUntraced(function* (
 			commitOnce: (input, _lifecycle, receipt) =>
 				Effect.suspend(() => {
 					submitted.push(input);
-					const written = (input.events?.creates ?? []).map(
-						({ itemIdentity }, index): EventCreateItemOutcome => {
-							if (itemIdentity.includes("skipped")) {
-								return {
-									index,
-									status: "skipped_by_policy",
-									reason: { namespace: "plugin1", key: "rejection.filtered" },
-								};
-							}
-							const item = ingestionTestItem(itemIdentity, "created");
-							if (!items.some(({ id }) => id === item.id)) {
-								items.push(item);
-							}
-							return { index, status: "written", eventId: EventId.make(itemIdentity) };
-						},
-					);
+					const creates = input.events?.creates ?? [];
+					const throws = creates.some(({ itemIdentity }) => itemIdentity.includes("throws"));
+					const written = creates.map(({ itemIdentity }, index): EventCreateItemOutcome => {
+						if (throws) {
+							return {
+								index,
+								status: "failed",
+								reason: { code: "policy-execution-failed", runId: AutomationRunId.make("run") },
+							};
+						}
+						if (itemIdentity.includes("skipped")) {
+							return {
+								index,
+								status: "skipped_by_policy",
+								reason: { namespace: "plugin1", key: "rejection.filtered" },
+							};
+						}
+						const item = ingestionTestItem(itemIdentity, "created");
+						if (!items.some(({ id }) => id === item.id)) {
+							items.push(item);
+						}
+						return { index, status: "written", eventId: EventId.make(itemIdentity) };
+					});
 					if (cancelAfterWrite) {
 						run = { ...run, status: "cancelling" };
 					}
@@ -313,6 +321,40 @@ it.effect(
 				},
 			]);
 			expect(test.projections[1]).toEqual(test.projections[0]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"writes each event of a run its commit rejected as a whole alone",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* fixture(false, [event("written"), event("skipped"), event("throws")]);
+			yield* test.execute;
+			expect(
+				test.submitted.map((changes) =>
+					(changes.events?.creates ?? []).map(({ itemIdentity }) => itemIdentity),
+				),
+			).toEqual([
+				["written", "skipped", "throws"].map((key) =>
+					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
+				),
+				...["written", "skipped", "throws"].map((key) => [
+					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
+				]),
+			]);
+			expect(test.outcomes.get("data:event:skipped")?.result).toBe("skipped");
+			expect(test.outcomes.get("data:event:throws")).toMatchObject({
+				result: "unsuccessful",
+				reason: { code: "event-policy-failed" },
+			});
+			expect(test.projections[0]?.summary).toEqual([
+				{
+					unit: "events",
+					recordKind: "event",
+					counts: { created: 1, updated: 0, skipped: 1, unchanged: 0, unsuccessful: 1 },
+				},
+			]);
 		}),
 	testTimeout,
 );

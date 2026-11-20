@@ -105,6 +105,13 @@ const DataImportSegmentResult = Schema.Struct({
 
 const DATA_IMPORT_SEGMENT_SIZE = 50;
 
+/** Event outcomes that an independent commit gives every item it rejected as a whole. */
+const runRejections: ReadonlySet<string> = new Set([
+	"asset-forbidden",
+	"mutation-conflict",
+	"policy-execution-failed",
+]);
+
 const DataRecordWritten = Schema.Union([
 	Schema.Struct({
 		kind: Schema.Literal("written"),
@@ -778,7 +785,9 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 		/**
 		 * Writes consecutive event records, which reference only records committed before them, as one
 		 * commit with an outcome per event. An event naming managed assets is written alone, since its
-		 * ownership check reads state the commit's receipt could not replay.
+		 * ownership check reads state the commit's receipt could not replay. When the commit fails as a
+		 * whole it writes nothing, and each event without an outcome of its own is written alone, so a
+		 * record fails alone.
 		 */
 		const writeEvents = Effect.fnUntraced(function* (
 			run: ReadonlyArray<Extract<DataGraphRecord, { readonly kind: "event" }>>,
@@ -787,6 +796,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			const results: Array<Result.Result<unknown, unknown>> = [];
 			const batch: Array<{
 				readonly position: number;
+				readonly item: (typeof run)[number];
 				readonly create: Effect.Success<ReturnType<typeof eventCreate>>;
 				readonly prepared: Effect.Success<ReturnType<typeof prepareRecord>>;
 			}> = [];
@@ -809,7 +819,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 					if (create._tag === "Failure") {
 						results[position] = create;
 					} else {
-						batch.push({ position, create: create.success, prepared: prepared.success });
+						batch.push({ item, position, create: create.success, prepared: prepared.success });
 					}
 				}
 			}
@@ -827,7 +837,10 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 							userId: input.userId,
 							events: { changes: [], creates: batch.map(({ create }) => create) },
 						},
-						first.prepared.command,
+						{
+							...first.prepared.command,
+							itemIdentity: stableStringify(["data-events", first.prepared.command.itemIdentity]),
+						},
 						{ events: { independent: true, verbatimIdentities: true } },
 					);
 					yield* recordSkipped(
@@ -841,26 +854,24 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 					return written.events;
 				}).pipe(Effect.mapError(toWorkflowError)),
 			}).pipe(Effect.result);
-			for (const [eventIndex, { position }] of batch.entries()) {
-				if (committed._tag === "Failure") {
-					results[position] = Result.fail(
-						new DataImportRecordError({
-							stage: "database_commit",
-							message: committed.failure.message,
-						}),
-					);
+			for (const [eventIndex, { item, position }] of batch.entries()) {
+				const outcome =
+					committed._tag === "Success"
+						? committed.success.outcomes.find((value) => value.index === eventIndex)
+						: undefined;
+				if (
+					committed._tag === "Failure" ||
+					(outcome?.status === "failed" && runRejections.has(outcome.reason.code))
+				) {
+					results[position] = yield* writeRecord(item, index + position).pipe(Effect.result);
 					continue;
 				}
-				const outcome = committed.success.outcomes.find((value) => value.index === eventIndex);
 				results[position] =
 					outcome?.status === "failed"
 						? Result.fail(
 								new DataImportRecordError({
+									stage: "database_commit",
 									message: outcome.reason.code,
-									stage:
-										outcome.reason.code === "policy-execution-failed"
-											? "event_policy"
-											: "database_commit",
 								}),
 							)
 						: Result.succeed(undefined);
