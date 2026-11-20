@@ -18,8 +18,8 @@ reports unconfined development. Run `bun turbo --filter=@ryot-app/server dev` fr
 root. Turbo builds or restores dependency artifacts before server dev; `apps/server/dev.ts` assembles
 artifacts, watches local changes, and restarts the server.
 
-[Image CI](../../../.github/workflows/main.yml) archives each smoke-tested architecture image by
-commit and build version. Publishing promotes those images by digest. The website's Pro-key
+[Image CI](../../../ci/images/README.md) archives each smoke-tested architecture image for the
+checked-out commit. Release and preview workflows promote their respective validated images by digest. The website's Pro-key
 verifier needs a runtime `UNKEY_PRO_VERIFICATION_KEY` scoped to verification in the Pro keyspace.
 Deploy the verifier before publishing server images that use it.
 
