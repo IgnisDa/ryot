@@ -7,7 +7,7 @@ import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions
 import { castDate, column, field, jsonPath, table } from "@ryot-app/ryotql";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
@@ -298,7 +298,8 @@ const runAt = Effect.fn(function* (at: number) {
 	};
 });
 
-layer(services)((test) => {
+// On the test clock, the connection pool's idle reaper would wake once a minute from 1970 to `start`.
+layer(Layer.effectContext(TestClock.withLive(Layer.build(services))))((test) => {
 	test.effect("skips an unchanged target until its next occurrence is due", () =>
 		Effect.gen(function* () {
 			yield* reset;
@@ -354,6 +355,31 @@ layer(services)((test) => {
 			expect(yield* runAt(start + 60_000)).toEqual({ queries: 0, delivered: [] });
 			yield* insertEntity("global", start + hours(48), null);
 			expect(yield* runAt(start + 120_000)).toEqual({ queries: 1, delivered: [] });
+		}),
+	);
+
+	test.effect("evaluates again once a write that was running during its evaluation commits", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			const session = yield* DatabaseSession;
+			const written = yield* Deferred.make<void>();
+			const commit = yield* Deferred.make<void>();
+			const writer = yield* session
+				.transaction(
+					Effect.gen(function* () {
+						yield* insertEntity("late", start - hours(1));
+						yield* Deferred.succeed(written, undefined);
+						yield* Deferred.await(commit);
+					}),
+				)
+				.pipe(Effect.forkChild);
+			yield* Deferred.await(written);
+			expect(yield* runAt(start)).toEqual({ queries: 1, delivered: [] });
+			expect(yield* runAt(start + 60_000)).toEqual({ queries: 0, delivered: [] });
+			yield* Deferred.succeed(commit, undefined);
+			yield* Fiber.join(writer);
+			expect(yield* runAt(start + 120_000)).toEqual({ queries: 1, delivered: ["late"] });
+			expect(yield* runAt(start + 180_000)).toEqual({ queries: 0, delivered: ["late"] });
 		}),
 	);
 
