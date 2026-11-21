@@ -512,9 +512,13 @@ the session's schema folds that slug, and otherwise to its own entity. Set
 `projection: { propertiesSchema }` on an event or relationship schema to receive a value per record.
 
 The fold is a read-only script of the same plugin using `FoldInput` and `FoldOutput` from
-`@ryot-app/plugin-backend-sdk/folds`. It receives `{ subjectEntityId, value, absorbed, changes }` and
-returns its next `value`. `absorbed` lists the values of subjects merged or restored into this one, each
-with `ids` mapping the entity and event IDs it holds to their new ones; carry over whatever must survive.
+`@ryot-app/plugin-backend-sdk/folds`. One run folds up to `FOLD_LIMITS.runSubjects` subjects, which
+share the run's sandbox budgets: it receives `{ subjects }`, each `{ subjectEntityId, value, absorbed,
+changes }`, and returns `{ subjects }` with exactly one result per subject, carrying its
+`subjectEntityId` and next `value`. Write `run: foldEachSubject((subject, host) => ...)` to fold one
+subject at a time and return its `FoldResult`, or handle `subjects` directly to batch reads across
+them. `absorbed` lists the values of subjects merged or restored into this one, each with `ids`
+mapping the entity and event IDs it holds to their new ones; carry over whatever must survive.
 
 `changes` selects the mode:
 
@@ -532,8 +536,8 @@ with `ids` mapping the entity and event IDs it holds to their new ones; carry ov
 equal a full replay of the same history, so keep in `value` whatever an update needs to resume, and
 fall back to reading the history when it cannot be bounded.
 
-`changes` in the output are applied before the kernel runs the fold a second time with their images.
-That second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
+`changes` in a result are applied before the kernel runs the fold a second time, once for every subject
+they changed, with their images. A subject's second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
 also runs later as a job, for example after a background-lane write, so it must compute the same result
 however late it runs. A revision whose fold script and folded event schemas are unchanged keeps every
 stored value; changing either replays every subject.

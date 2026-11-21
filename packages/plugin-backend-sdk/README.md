@@ -74,8 +74,10 @@ Runtime authorization is detailed in
 A retry of a whole operation is covered by the key its caller passes to `operations.invoke`, which replays
 the original result.
 
-Fold scripts use `FoldInput`, `FoldOutput`, `FoldEventChange`, `FoldEventImage` and `FOLD_LIMITS` from
-`@ryot-app/plugin-backend-sdk/folds`, with `foldChangeImages` for change lists. See
+Fold scripts use `FoldInput`, `FoldOutput`, `FoldSubjectInput`, `FoldResult`, `FoldEventChange`,
+`FoldEventImage` and `FOLD_LIMITS` from `@ryot-app/plugin-backend-sdk/folds`. A run lists several
+subjects; `foldEachSubject` turns a per-subject fold returning `FoldResult` into the run's `run`, and
+`foldChangeImages` splits a change list. See
 [folds](../../kernel/backend/src/modules/derived-values/README.md).
 
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and
