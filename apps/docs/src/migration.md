@@ -11,6 +11,13 @@ Ryot `v11` is a rewrite. Your data is converted automatically the first time `v1
 but the upgrade needs a few extra steps. Please read this whole section before you start.
 :::
 
+::: info License change
+Ryot `v10` was released under GPLv3. Ryot `v11` is source-available under the Elastic
+License 2.0. You can self-host the Community edition for free. If you offer Ryot to third
+parties as a hosted or managed service, review the licensing restrictions before upgrading.
+See the [Elastic License 2.0](https://www.elastic.co/licensing/elastic-license).
+:::
+
 ### Before you upgrade
 
 1. Upgrade the server to `v10.5.5` to make sure all `v10` migrations are applied. For
