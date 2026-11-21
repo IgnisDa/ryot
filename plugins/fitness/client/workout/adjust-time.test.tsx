@@ -152,7 +152,7 @@ it.live(
 				type: "operation-result",
 				committed: { events: [] },
 				requestId: retry.requestId,
-				value: { kind: "saved", entityId: "workout" },
+				value: { entityId: "workout" },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(closed).toBe(1)));
 		}),

@@ -386,7 +386,7 @@ describe("background submission tray", () => {
 	);
 
 	it.effect(
-		"settles a changes conflict as a final not-saved failure",
+		"settles a changes conflict as a final conflict with its code",
 		() =>
 			Effect.gen(function* () {
 				const test = harness();
@@ -399,9 +399,14 @@ describe("background submission tray", () => {
 					0,
 				)({ outcome: "failure", conflict: "entity-stale", reason: "changes-conflict" });
 				const [conflicted] = tray.getSnapshot().entries;
-				expect(settled).toEqual([{ status: "failed", reason: "operation-failed" }]);
+				expect(settled).toEqual([
+					{ status: "failed", conflict: "entity-stale", reason: "changes-conflict" },
+				]);
 				expect(tray.retry(conflicted.id, catalog)).toBe(false);
-				expect(present(tray, conflicted)).toMatchObject({ action: undefined, status: "Not saved" });
+				expect(present(tray, conflicted)).toMatchObject({
+					action: undefined,
+					status: "Changed elsewhere, not saved",
+				});
 				expect(test.calls).toHaveLength(1);
 			}),
 		testTimeout,

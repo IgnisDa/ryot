@@ -264,7 +264,7 @@ const openEditor = (
 				if (request.operationSlug === workoutEditorSaveOperationSlug) {
 					saveInputs.push(request.input);
 				}
-				let value: JsonValue = { kind: "saved" };
+				let value: JsonValue = {};
 				if (request.operationSlug === workoutEditorContextOperationSlug) {
 					value = {
 						settings: {

@@ -175,8 +175,6 @@ function TimeForm(props: {
 	};
 	const conflict = formatConflict(save.error, {}, text("client.adjust.conflict"));
 	const conflicted = conflict !== undefined;
-	const rejected =
-		save.error instanceof RyotClientError && save.error.reason === "operation-rejected";
 	let submitLabel = text("client.adjust.save");
 	if (save.status === "retained") {
 		submitLabel = text("client.adjust.retry-correction");
@@ -193,7 +191,7 @@ function TimeForm(props: {
 			description={text("client.adjust.description")}
 			footer={
 				<Button
-					disabled={save.isPending || conflicted || rejected}
+					disabled={save.isPending || conflicted}
 					onClick={save.status === "retained" ? save.retry : submit}
 				>
 					{submitLabel}

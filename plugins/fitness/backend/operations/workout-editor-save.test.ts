@@ -496,8 +496,12 @@ describe("workout editor save", () => {
 				expect(result.changes).toEqual<unknown>(
 					objectContaining({
 						events: objectContaining({
-							creates: arrayContaining([
-								objectContaining({ occurredAt: setTime, itemIdentity: "set:client-set-1" }),
+							changes: arrayContaining([
+								objectContaining({
+									kind: "create",
+									occurredAt: setTime,
+									itemIdentity: "set:client-set-1",
+								}),
 							]),
 						}),
 					}),

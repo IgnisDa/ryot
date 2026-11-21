@@ -372,7 +372,7 @@ const saveProbeHarness = Effect.fnUntraced(function* (
 							outcome: "success",
 							type: "operation-result",
 							requestId: request.requestId,
-							value: isSave ? { kind: "saved" } : { settings: preferenceSettings },
+							value: isSave ? {} : { settings: preferenceSettings },
 							committed: isSave
 								? { events: [], entityId: EntityId.make("saved-workout") }
 								: { events: [] },
