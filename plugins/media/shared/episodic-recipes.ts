@@ -79,7 +79,6 @@ import {
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { mediaHasCopies } from "./media-copy-recipes";
-import { MediaImageListSchema } from "./media-image";
 import {
 	compareMediaActivityDescending,
 	creditCharacterSelection,
@@ -133,9 +132,14 @@ export const episodeTraversal = (input: {
 	};
 };
 
-export const episodicEpisodeSelection = (episode: Table, parent: Table, alias: string) => ({
+export const episodicEpisodeSelection = (
+	episode: Table,
+	parent: Table,
+	alias: string,
+	kind: EpisodicKindConfig["kind"],
+) => ({
 	...entityIdentitySelection(episode),
-	images: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
+	...mediaPresentationImageSelection(episode, kind === "show" ? "still" : "cover"),
 	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
 	runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Finite)),
 	publishDate: selectedField(propertyText(episode, "publishDate"), Schema.NullOr(Schema.String)),
@@ -689,10 +693,6 @@ export const episodicEpisodesRecipe =
 						direction(propertyNumber(episode, "episodeNumber")),
 						direction(column(episode, "id")),
 					],
-					selection: {
-						...episodicEpisodeSelection(episode, parent, `${input.alias}State`),
-						...input.extraFields(episode),
-					},
 					joins: [
 						join(
 							"inner",
@@ -701,6 +701,15 @@ export const episodicEpisodesRecipe =
 						),
 						...parentJoins,
 					],
+					selection: {
+						...episodicEpisodeSelection(
+							episode,
+							parent,
+							`${input.alias}State`,
+							input.episodeSchemaSlug === "show-episode" ? "show" : "podcast",
+						),
+						...input.extraFields(episode),
+					},
 					where: and(
 						entitySchemaPredicate(episode, input.episodeSchemaSlug, query.reference),
 						schemaOwnerPredicate(parent, "entitySchemaPluginId", query.reference),
@@ -840,7 +849,12 @@ export const mediaEpisodicRecipes = <
 				include: (entity) => ({
 					genres: mediaGenresInclude(entity, config.slug, input.reference),
 					nextUp: episodicNextUpInclude(config.config, entity, (episode) => ({
-						...episodicEpisodeSelection(episode, entity, `${config.alias}NextUpState`),
+						...episodicEpisodeSelection(
+							episode,
+							entity,
+							`${config.alias}NextUpState`,
+							config.config.kind,
+						),
 						...config.episodeFields(episode),
 					})),
 				}),

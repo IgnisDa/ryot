@@ -12,7 +12,7 @@ import {
 } from "./lifecycle-list-recipes";
 
 const identity = {
-	images: null,
+	image: null,
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },

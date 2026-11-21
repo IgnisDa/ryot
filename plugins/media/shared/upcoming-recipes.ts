@@ -42,9 +42,13 @@ import {
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
+	mediaImageOfPurpose,
+	mediaLocalizedImageOfPurpose,
+	mediaPresentationImageSelection,
+} from "./entity-presentations";
+import {
 	entityIdentitySelection,
 	libraryLinkExists,
-	propertyJson,
 	propertyNumber,
 	propertyText,
 	type Table,
@@ -61,7 +65,7 @@ import {
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { latestPosition } from "./lifecycle-list-recipes";
-import { MediaImageListSchema } from "./media-image";
+import { MediaImageAssetSchema } from "./media-image";
 import { flatMediaSchemaSlugs } from "./media-schema-slugs";
 import { catalogMessage } from "./messages.generated";
 import { DEFAULT_UPCOMING_DAYS_AHEAD, MAX_UPCOMING_DAYS_AHEAD } from "./upcoming-settings";
@@ -90,7 +94,11 @@ const today = castDate(localDate(now(), { timeZone: reportingTimeZone }));
 const lastDay = dateAdd(today, upcomingParameters.value("daysAhead"), "day");
 const upcomingEntitySelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
-	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
+	...mediaPresentationImageSelection(entity),
+	backdrop: selectedField(
+		mediaImageOfPurpose(entity, "backdrop"),
+		Schema.NullOr(MediaImageAssetSchema),
+	),
 });
 
 const WINDOW_EPISODE_LIMIT = 100;
@@ -140,10 +148,13 @@ const episodeSelection = (parent: Table, episode: Table) => ({
 	publishDate: selectedField(propertyText(episode, "publishDate"), Schema.String),
 	onePerTitle: selectedField(upcomingParameters.value("onePerTitle"), Schema.Boolean),
 	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
-	occurrenceImages: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
 	seasonNumber: selectedField(
 		propertyNumber(episode, "seasonNumber"),
 		Schema.NullOr(Schema.Finite),
+	),
+	occurrenceImage: selectedField(
+		mediaLocalizedImageOfPurpose(episode, "still"),
+		Schema.NullOr(MediaImageAssetSchema),
 	),
 });
 
@@ -204,7 +215,7 @@ const titlesFromEpisodes = (
 				occurrenceId: _occurrenceId,
 				seasonNumber: _seasonNumber,
 				episodeNumber: _episodeNumber,
-				occurrenceImages: _occurrenceImages,
+				occurrenceImage: _occurrenceImage,
 				...entity
 			} = episodes[0];
 			return {
@@ -216,7 +227,7 @@ const titlesFromEpisodes = (
 						dateOnly: true,
 						key: episode.occurrenceId,
 						airsAt: episode.publishDate,
-						images: episode.occurrenceImages,
+						image: episode.occurrenceImage,
 						episode: { seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber },
 					})),
 			};
@@ -348,7 +359,7 @@ export const upcomingRecipe = (input: UpcomingInput) =>
 					occurrences: occurrences.items
 						.slice(0, onePerTitle ? 1 : TITLE_LIMIT)
 						.map(({ airingAt, episodeNumber }) => ({
-							images: null,
+							image: null,
 							dateOnly: false,
 							airsAt: airingAt,
 							episode: { episodeNumber, seasonNumber: null },
@@ -359,7 +370,7 @@ export const upcomingRecipe = (input: UpcomingInput) =>
 					entity,
 					total: 1,
 					occurrences: [
-						{ airsAt: day, images: null, episode: null, dateOnly: true, key: entity.id },
+						{ airsAt: day, image: null, episode: null, dateOnly: true, key: entity.id },
 					],
 				})),
 			]),

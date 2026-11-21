@@ -490,7 +490,7 @@ describe("show.tvdb sandbox script", () => {
 						name: "Localized",
 						properties: {
 							description: "Localized Desc",
-							images: [{ type: "remote", url: "art.jpg", purpose: "cover" }],
+							localizedArtwork: { type: "remote", url: "art.jpg", purpose: "cover" },
 						},
 					});
 					return runSandboxTestScript(
@@ -516,7 +516,7 @@ describe("show.tvdb sandbox script", () => {
 						name: "Localized",
 						properties: {
 							description: "Localized Desc",
-							images: [{ type: "remote", url: "art.jpg", purpose: "still" }],
+							localizedArtwork: { type: "remote", url: "art.jpg", purpose: "still" },
 						},
 					});
 					return undefined;

@@ -6,7 +6,8 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
-import { getImageUrl, getTmdbAccessToken, tmdbGet, type TmdbHost } from "../../../lib/vendors/tmdb";
+import { getTmdbAccessToken, tmdbGet, type TmdbHost } from "../../../lib/vendors/tmdb";
+import { getImageUrl, tmdbArtwork } from "../../../lib/vendors/tmdb-artwork";
 
 export const manifest = defineManifest({ name: "TMDB", kind: "provider", slug: "company.tmdb" });
 
@@ -29,7 +30,7 @@ export const search = defineProvider({
 						if (id === null || !name) {
 							return [];
 						}
-						const image = getImageUrl(company["logo_path"]);
+						const image = getImageUrl(company["logo_path"], "logo");
 						return [
 							{
 								title: name,
@@ -139,7 +140,7 @@ export const details = defineProvider({
 				if (!name) {
 					throw new Error("TMDB returned no name for this company");
 				}
-				const logo = getImageUrl(companyData["logo_path"]);
+				const logo = tmdbArtwork(companyData["logo_path"], "logo");
 				return {
 					name,
 					relatedEntityGroups: [
@@ -148,10 +149,10 @@ export const details = defineProvider({
 					],
 					properties: {
 						alternateNames: [],
+						images: logo === undefined ? [] : [logo],
 						website: stringValue(companyData["homepage"]),
 						description: normalizePlainDescription(companyData["description"]),
 						sourceUrl: `https://www.themoviedb.org/company/${input.externalId}`,
-						images: logo ? [{ url: logo, type: "remote" as const, purpose: "logo" as const }] : [],
 						headquarters:
 							stringValue(companyData["headquarters"]) ??
 							stringValue(companyData["origin_country"]),

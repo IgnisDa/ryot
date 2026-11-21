@@ -2,8 +2,10 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ProviderDetailsRelatedEntity } from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { canonicalLanguageCode } from "@ryot-app/plugin-kit/languages";
 
 import type { CreditRoleCode } from "../../../shared/credit-roles";
+import { curateProviderImages } from "../../../shared/media-image";
 import type { WatchProviderOffer } from "../../../shared/watch-provider";
 import type { MediaTrendingProviderOutput } from "../../contracts/workflows";
 import { mediaFailureMessage } from "../error-message";
@@ -16,15 +18,13 @@ import {
 	type UnknownRecord,
 } from "../records";
 import { createRoleAccumulator, type CreditRole, creditRoleProperties } from "../role-accumulator";
+import { getImageUrl, tmdbArtwork, type TmdbImagePurpose } from "./tmdb-artwork";
+import { canonicalTmdbLanguageCode, tmdbLanguageCode } from "./tmdb-language";
 
 export type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 export type TmdbTrendingHost = TmdbHost & Pick<ScriptHost, "log" | "upsertGlobalEntities">;
 
-type TmdbImagePurpose = "cover" | "backdrop";
-type TmdbRemoteImage = { url: string; type: "remote"; purpose: TmdbImagePurpose };
-
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
 export const getTmdbAccessToken = (host: TmdbHost) =>
 	host.getPluginConfig({ required: ["tmdbAccessToken"] }).pipe(
@@ -81,9 +81,22 @@ export const tmdbGet = (
 		);
 };
 
-export const getImageUrl = (path: unknown) => {
-	const value = stringValue(path);
-	return value ? `${TMDB_IMAGE_BASE}${value}` : null;
+const recordLanguage = (record: undefined | UnknownRecord) => {
+	const code = stringValue(record?.["iso_639_1"]);
+	return code === null ? undefined : canonicalTmdbLanguageCode(code);
+};
+
+export const tmdbArtworkCandidates = (
+	path: unknown,
+	purpose: TmdbImagePurpose,
+	alternatives?: unknown,
+) => {
+	const records = recordsValue(alternatives);
+	const primary = records.find((record) => record["file_path"] === path);
+	return [
+		tmdbArtwork(path, purpose, recordLanguage(primary)),
+		...records.map((record) => tmdbArtwork(record["file_path"], purpose, recordLanguage(record))),
+	].filter((image) => image !== undefined);
 };
 
 export const collectImages = (
@@ -91,27 +104,33 @@ export const collectImages = (
 	backdropPath: unknown,
 	posters: unknown,
 	backdrops: unknown,
-) => {
-	const seen = new Set<string>();
-	const images: TmdbRemoteImage[] = [];
-	const addImage = (path: unknown, purpose: TmdbImagePurpose) => {
-		const url = getImageUrl(path);
-		if (url && !seen.has(url)) {
-			seen.add(url);
-			images.push({ url, purpose, type: "remote" });
-		}
-	};
+) =>
+	curateProviderImages([
+		...tmdbArtworkCandidates(posterPath, "cover", posters),
+		...tmdbArtworkCandidates(backdropPath, "backdrop", backdrops),
+	]);
 
-	addImage(posterPath, "cover");
-	for (const image of recordsValue(posters)) {
-		addImage(image["file_path"], "cover");
-	}
-	addImage(backdropPath, "backdrop");
-	for (const image of recordsValue(backdrops)) {
-		addImage(image["file_path"], "backdrop");
-	}
-	return images;
+export const tmdbArtworkInventory = (
+	host: TmdbHost,
+	path: string,
+	language: string,
+	token: string,
+) => {
+	const { langCode } = parseTranslationLanguage(language);
+	return tmdbGet(
+		host,
+		`${path}/images`,
+		{ include_image_language: `${tmdbLanguageCode(langCode)},null` },
+		token,
+	);
 };
+
+export const tmdbLocalizedImages = (
+	host: TmdbHost,
+	path: string,
+	langCode: string,
+	token: string,
+) => tmdbGet(host, path, { include_image_language: tmdbLanguageCode(langCode) }, token);
 
 export const collectGenres = (genres: unknown) => {
 	if (genres === undefined || genres === null) {
@@ -152,7 +171,7 @@ const collectCountryWatchProviders = (countryOffers: UnknownRecord) => {
 			const provider = providers.get(name) ?? {
 				name,
 				offers: [],
-				image: getImageUrl(entry["logo_path"]),
+				image: getImageUrl(entry["logo_path"], "logo"),
 			};
 			providers.set(name, provider);
 			if (!provider.offers.includes(offer)) {
@@ -424,10 +443,14 @@ export const runTmdbTrending = (
 
 export const parseTranslationLanguage = (language: string) => {
 	const locale = new Intl.Locale(language);
-	const maximized = locale.maximize();
+	const langCode = canonicalLanguageCode(locale.language) ?? locale.language;
+	const maximized = new Intl.Locale(langCode, {
+		...(locale.region === undefined ? {} : { region: locale.region }),
+		...(locale.script === undefined ? {} : { script: locale.script }),
+	}).maximize();
 	return {
+		langCode,
 		script: maximized.script,
-		langCode: locale.language,
 		region: locale.region ?? (locale.script ? maximized.region : null) ?? null,
 	};
 };
@@ -439,7 +462,7 @@ export const orderedTranslationCandidates = (
 	script: string | undefined,
 ) => {
 	const candidates = recordsValue(translationsData["translations"]).filter((entry) => {
-		if (stringValue(entry["iso_639_1"])?.toLowerCase() !== langCode) {
+		if (recordLanguage(entry) !== langCode) {
 			return false;
 		}
 		const country = stringValue(entry["iso_3166_1"]);
@@ -469,13 +492,15 @@ export const firstTranslationValue = (
 	return null;
 };
 
-export const getLocalizedImageUrl = (
+export const getLocalizedTmdbArtwork = (
 	imagesData: UnknownRecord,
 	imageKey: string,
 	langCode: string,
+	purpose: TmdbImagePurpose,
 ) => {
 	const localizedImage = recordsValue(imagesData[imageKey]).find(
-		(image) => stringValue(image["iso_639_1"])?.toLowerCase() === langCode,
+		(image) =>
+			recordLanguage(image) === langCode && stringValue(image["file_path"])?.startsWith("/"),
 	);
-	return localizedImage ? getImageUrl(localizedImage["file_path"]) : null;
+	return tmdbArtwork(localizedImage?.["file_path"], purpose, langCode);
 };

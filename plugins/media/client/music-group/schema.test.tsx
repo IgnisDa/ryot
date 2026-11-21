@@ -44,7 +44,7 @@ describe("music group schema", () => {
 		);
 		expect(container.textContent).toContain("2 of 5 listened");
 		expect(
-			container.querySelector(`img[src="${groupSummaryRow.memberImages[0]?.url}"]`)?.className,
+			container.querySelector(`img[src="${groupSummaryRow.memberImage.url}"]`)?.className,
 		).toContain("aspect-square");
 		clickRyotElement(getByRole(container, "tab", { name: "Overview" }));
 		expect(container.textContent).toContain("Artists");

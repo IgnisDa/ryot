@@ -1,6 +1,7 @@
 import type { EntitySettleReason, LocalMessage } from "@ryot-app/plugin-client-sdk";
 import type { EntityRendererProps } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
+import { collectManagedAssetLocators } from "@ryot-app/plugin-client-sdk/react";
 import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
@@ -41,7 +42,6 @@ import {
 	defineMediaPresentationPair,
 	type MediaArtworkAspect,
 	MediaCardContent,
-	type MediaPresentationSubject,
 	type MediaPresentationViewData,
 	MediaRowContent,
 	type MediaSavedViewPresentationSubject,
@@ -63,7 +63,6 @@ import {
 	mediaGroupOverviewManagedAssets,
 	MediaPartOfSection,
 } from "./group-section";
-import { collectManagedAssetLocators } from "./image";
 import {
 	type MediaCreditCopy,
 	MediaOverviewRelations,
@@ -76,7 +75,6 @@ import {
 } from "./overview-state";
 import {
 	mediaFlatLifecycleLabel,
-	mediaPosterAsset,
 	mediaReleaseLabel,
 	type MediaSummaryFact,
 	mediaSummaryHeaderDetail,
@@ -100,7 +98,9 @@ export type MediaOverviewRail = {
 	readonly key: string;
 	/** A plain string is provider text, shown as written. */
 	readonly title: string | LocalMessage;
-	readonly items: readonly (MediaPresentationSubject & { readonly isInMediaLibrary: boolean })[];
+	readonly items: readonly (MediaSavedViewPresentationSubject & {
+		readonly isInMediaLibrary: boolean;
+	})[];
 };
 
 export type MediaFlatActivityResult<Extra = unknown> = {
@@ -207,7 +207,7 @@ export const defineFlatMediaSchema = <
 	const overviewManagedAssets = (overview: Overview) =>
 		collectManagedAssetLocators([
 			...mediaGroupOverviewManagedAssets(overview),
-			...railsOf(overview).flatMap((rail) => rail.items.map((item) => mediaPosterAsset(item))),
+			...railsOf(overview).flatMap((rail) => rail.items.map((item) => item.image ?? undefined)),
 		]);
 
 	const overviewQuery = createMediaEntityQuery(
@@ -392,7 +392,6 @@ export const defineFlatMediaSchema = <
 						kind="people"
 						aspect="square"
 						compact={compact}
-						purpose="profile"
 						query={peopleQuery}
 						input={{ entityId }}
 						safeAreaTop={safeAreaTop}
@@ -403,7 +402,6 @@ export const defineFlatMediaSchema = <
 				companiesAction={
 					<MediaCreditsButton
 						fit="contain"
-						purpose="logo"
 						aspect="square"
 						kind="companies"
 						compact={compact}
@@ -469,6 +467,7 @@ export const defineFlatMediaSchema = <
 				overviewIsEmpty={overviewIsEmpty}
 				overviewRelations={overviewRelations}
 				refreshOverview={props.refreshOverview}
+				artwork={{ aspect: descriptor.aspect }}
 				summaryError={summaryState.summaryError}
 				tabContent={{ activity: props.activity }}
 				overviewTrailing={descriptor.overviewTrailing}
@@ -477,7 +476,6 @@ export const defineFlatMediaSchema = <
 				overviewRefreshStatus={props.overviewRefreshStatus}
 				summaryUnavailable={summaryState.summaryUnavailable}
 				overviewLoadingDetail={descriptor.overviewLoadingDetail}
-				artwork={{ purpose: "cover", aspect: descriptor.aspect }}
 			/>
 		);
 	}

@@ -48,7 +48,10 @@ import { MediaPosition } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
 import { mediaConsumptionTotalsSelection } from "./consumption-recipes";
 import { CreditRoleCodeSchema, UnlinkedCreatorSchema } from "./credit-roles";
-import { mediaPresentationImageSelection } from "./entity-presentations";
+import {
+	mediaDetailArtworkSelection,
+	mediaPresentationImageSelection,
+} from "./entity-presentations";
 import {
 	entityId,
 	entityIdentitySelection,
@@ -68,7 +71,7 @@ import {
 	type ScalarExpression,
 } from "./lifecycle-expressions";
 import { mediaHasCopies } from "./media-copy-recipes";
-import { MediaImageListSchema, MediaImageSchema } from "./media-image";
+import type { MediaImage } from "./media-image";
 import { isPositional } from "./media-schema-slugs";
 import { mediaDetailLimits, mediaEntityParameters } from "./query-parameters";
 import { WatchProviderListSchema } from "./watch-provider";
@@ -134,7 +137,11 @@ export const requestedSchemaQuery = (id: ScalarExpression) => {
 	});
 };
 
-export const mediaEntitySummarySelection = (entity: Table, provider: Table) => ({
+export const mediaEntitySummarySelection = (
+	entity: Table,
+	provider: Table,
+	purpose: MediaImage["purpose"] = "cover",
+) => ({
 	providerCheckedAt: selectedField(
 		column(entity, "providerCheckedAt"),
 		Schema.NullOr(Schema.String),
@@ -142,10 +149,7 @@ export const mediaEntitySummarySelection = (entity: Table, provider: Table) => (
 	...entityIdentitySelection(entity),
 	providerName: selectedField(column(provider, "name"), Schema.NullOr(Message)),
 	description: selectedField(propertyText(entity, "description"), Schema.NullOr(Schema.String)),
-	images: selectedField(
-		propertyJson(entity, "images"),
-		Schema.NullOr(Schema.Array(MediaImageSchema)),
-	),
+	...mediaDetailArtworkSelection(entity, purpose),
 	isMonitored: selectedField(
 		libraryLinkExists(entity, "monitoringMediaLibrary", "media-monitoring"),
 		Schema.Boolean,
@@ -232,10 +236,14 @@ export const mediaNumberField = (entity: Table, key: string) =>
 export const mediaTextField = (entity: Table, key: string) =>
 	selectedField(propertyText(entity, key), Schema.NullOr(Schema.String));
 
-export const creditSelection = (credit: Table, relationship: Table) => ({
+export const creditSelection = (
+	credit: Table,
+	relationship: Table,
+	purpose?: MediaImage["purpose"],
+) => ({
 	id: selectedField(column(credit, "id"), EntityId),
 	name: selectedField(column(credit, "name"), Schema.String),
-	images: selectedField(propertyJson(credit, "images"), MediaImageListSchema),
+	...mediaPresentationImageSelection(credit, purpose),
 	order: selectedField(propertyNumber(relationship, "order"), Schema.NullOr(Schema.Finite)),
 	roles: selectedField(
 		propertyJson(relationship, "roles"),
@@ -345,7 +353,7 @@ export const mediaCreditQueries = <const PersonFields extends SelectedSelection>
 				reference: input.reference,
 				relationship: companyRelationship,
 			}),
-			selection: creditSelection(company, companyRelationship),
+			selection: creditSelection(company, companyRelationship, "logo"),
 		}),
 		people: selectedRows(personRelationship, {
 			...incomingCreditRows({
@@ -358,7 +366,7 @@ export const mediaCreditQueries = <const PersonFields extends SelectedSelection>
 				relationship: personRelationship,
 			}),
 			selection: {
-				...creditSelection(person, personRelationship),
+				...creditSelection(person, personRelationship, "profile"),
 				...input.personFields(personRelationship),
 			},
 		}),
@@ -395,7 +403,7 @@ export const mediaPeopleRecipe =
 						slug: config.slug,
 					}),
 					selection: {
-						...creditSelection(person, relationship),
+						...creditSelection(person, relationship, "profile"),
 						...config.personFields(relationship),
 					},
 				}),
@@ -443,7 +451,7 @@ export const mediaEpisodeCreditsRecipe =
 				...rows,
 				where: and(rows.where, contains(column(relationship, "properties"), literal(credit))),
 				selection: {
-					...creditSelection(person, relationship),
+					...creditSelection(person, relationship, "profile"),
 					...creditCharacterSelection(relationship),
 				},
 			});
@@ -480,7 +488,7 @@ export const mediaCompanyRecipe =
 						slug: config.slug,
 						creator: "company",
 					}),
-					selection: creditSelection(company, relationship),
+					selection: creditSelection(company, relationship, "logo"),
 				}),
 			},
 		});
@@ -512,7 +520,7 @@ export const mediaOverviewQueries = (input: {
 			selection: {
 				id: selectedField(column(suggested, "id"), EntityId),
 				name: selectedField(column(suggested, "name"), Schema.String),
-				images: selectedField(propertyJson(suggested, "images"), MediaImageListSchema),
+				...mediaPresentationImageSelection(suggested),
 				...entitySyncSelection(suggested),
 				...mediaLibrarySelection(suggested),
 			},
@@ -565,19 +573,19 @@ export const mediaGroupQuery = (input: {
 					ascending(column(member, "name")),
 					ascending(column(member, "id")),
 				],
+				selection: {
+					id: selectedField(column(member, "id"), EntityId),
+					name: selectedField(column(member, "name"), Schema.String),
+					...mediaPresentationImageSelection(member),
+					...entitySyncSelection(member),
+					...mediaLibrarySelection(member),
+				},
 				where: and(
 					entitySchemaPredicate(member, input.memberSlug, input.reference),
 					neq(column(member, "id"), input.entityId),
 					eq(column(membership, "sourceEntityId"), column(group, "id")),
 					relationshipSchemaPredicate(membership, input.relationshipSlug, input.reference),
 				),
-				selection: {
-					id: selectedField(column(member, "id"), EntityId),
-					name: selectedField(column(member, "name"), Schema.String),
-					images: selectedField(propertyJson(member, "images"), MediaImageListSchema),
-					...entitySyncSelection(member),
-					...mediaLibrarySelection(member),
-				},
 			}),
 		},
 	});

@@ -1,51 +1,11 @@
-import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
-import { managedAssetKey } from "@ryot-app/plugin-client-sdk/react";
+import type { MediaImageAsset } from "../../shared/media-image";
 
-import type { MediaImage } from "../../shared/media-image";
-
-export type MediaImages = null | readonly MediaImage[];
-
-export type MediaImagePurposes = readonly MediaImage["purpose"][];
-
-export type MediaGalleryImage = MediaImageAsset & Pick<MediaImage, "purpose">;
-
-export type MediaImageAsset = MediaImage extends infer Image
-	? Image extends MediaImage
-		? Omit<Image, "purpose">
-		: never
-	: never;
-
-const locator = (image: undefined | MediaImage): undefined | MediaImageAsset => {
-	if (image === undefined) {
-		return undefined;
+export const imageRendition = (image: MediaImageAsset, size: "large" | "thumbnail") => {
+	if (image.type !== "remote") {
+		return image;
 	}
-	const { purpose: _purpose, ...asset } = image;
-	return asset;
-};
-
-export const mediaImageAssets = (images: MediaImages) =>
-	(images ?? []).flatMap((image) => {
-		const asset = locator(image);
-		return asset === undefined ? [] : [asset];
-	});
-
-export const mediaGalleryImages = (images: MediaImages): readonly MediaGalleryImage[] =>
-	(images ?? []).flatMap((image) => {
-		const asset = locator(image);
-		return asset === undefined ? [] : [{ ...asset, purpose: image.purpose }];
-	});
-
-export const mediaImageAsset = (images: MediaImages, purpose: MediaImage["purpose"]) =>
-	locator((images ?? []).find((image) => image.purpose === purpose));
-
-export const preferredMediaImageAsset = (images: MediaImages, purpose: MediaImage["purpose"]) =>
-	mediaImageAsset(images, purpose) ?? locator((images ?? []).at(0));
-
-export const collectManagedAssetLocators = (assets: readonly (undefined | MediaImageAsset)[]) => {
-	const managed = assets.filter(
-		(asset): asset is ManagedAssetLocator => asset !== undefined && asset.type !== "remote",
-	);
-	return [...new Map(managed.map((asset) => [managedAssetKey(asset), asset])).values()].sort(
-		(left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)),
-	);
+	return {
+		type: "remote" as const,
+		url: (size === "thumbnail" ? image.thumbnailUrl : image.largeUrl) ?? image.url,
+	};
 };

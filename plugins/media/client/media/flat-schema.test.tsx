@@ -667,7 +667,7 @@ describe("flat media overview", () => {
 		const overview = overviewOf({
 			companies: [],
 			recommendations: [],
-			people: [{ ...flatPersonRow, images: [{ type: "s3", key: "person", purpose: "profile" }] }],
+			people: [{ ...flatPersonRow, image: { type: "s3", key: "person", purpose: "profile" } }],
 		});
 
 		expect(fixtureSchema.overviewManagedAssets(overview)).toEqual([

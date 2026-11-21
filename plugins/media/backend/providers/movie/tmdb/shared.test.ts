@@ -48,10 +48,10 @@ const makeMovieHost = (fixtures: MovieFixtures, requests: URL[] = []) =>
 		return httpSuccess(fixtures.images ?? { posters: [], backdrops: [] });
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
-const image = (purpose: string, path: string) => ({
+const image = (purpose: "cover" | "backdrop", path: string) => ({
 	purpose,
 	type: "remote",
-	url: `https://image.tmdb.org/t/p/original${path}`,
+	url: `https://image.tmdb.org/t/p/${purpose === "cover" ? "w500" : "w780"}${path}`,
 });
 
 describe("movie.tmdb sandbox script", () => {
@@ -142,27 +142,27 @@ describe("movie.tmdb sandbox script", () => {
 							{
 								type: "remote",
 								purpose: "cover",
-								url: "https://image.tmdb.org/t/p/original/poster.jpg",
+								url: "https://image.tmdb.org/t/p/w500/poster.jpg",
 							},
 							{
 								type: "remote",
 								purpose: "cover",
-								url: "https://image.tmdb.org/t/p/original/poster-alt.jpg",
+								url: "https://image.tmdb.org/t/p/w500/poster-alt.jpg",
 							},
 							{
 								type: "remote",
 								purpose: "cover",
-								url: "https://image.tmdb.org/t/p/original/shared.jpg",
+								url: "https://image.tmdb.org/t/p/w500/shared.jpg",
 							},
 							{
 								type: "remote",
 								purpose: "backdrop",
-								url: "https://image.tmdb.org/t/p/original/backdrop.jpg",
+								url: "https://image.tmdb.org/t/p/w780/backdrop.jpg",
 							},
 							{
 								type: "remote",
 								purpose: "backdrop",
-								url: "https://image.tmdb.org/t/p/original/backdrop-alt.jpg",
+								url: "https://image.tmdb.org/t/p/w780/backdrop-alt.jpg",
 							},
 						],
 					});
@@ -319,10 +319,7 @@ describe("movie.tmdb sandbox script", () => {
 							searchParams.get("append_to_response"),
 							searchParams.get("language"),
 						]),
-					).toEqual([
-						["/3/movie/1", "watch/providers", "en"],
-						["/3/movie/1/images", null, null],
-					]);
+					).toEqual([["/3/movie/1", "watch/providers", "en"]]);
 					expect(
 						result.relatedEntityGroups?.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug),
 					).toEqual(["movie-group-to-movie"]);
@@ -355,7 +352,7 @@ describe("movie.tmdb sandbox script", () => {
 		);
 	});
 
-	it("requests movie images without a language and keeps every localized and unlocalized image", () => {
+	it("filters and bounds the full artwork inventory by purpose", () => {
 		const requests: URL[] = [];
 		const host = makeMovieHost(
 			{
@@ -374,19 +371,28 @@ describe("movie.tmdb sandbox script", () => {
 						{ iso_639_1: "fr", file_path: "/poster-fr.jpg" },
 						{ iso_639_1: null, file_path: "/poster-none.jpg" },
 						{ iso_639_1: "en", file_path: "/poster-main.jpg" },
+						...Array.from({ length: 200 }, (_, index) => ({
+							iso_639_1: null,
+							file_path: `/poster-${index}.jpg`,
+						})),
 					],
 				},
 			},
 			requests,
 		);
 		return Effect.runPromise(
-			runSandboxTestScript(details, { level: "base", externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { level: "full", externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					const imagesRequest = requests.find(({ pathname }) => pathname.endsWith("/images"));
-					expect(imagesRequest?.search).toBe("");
+					expect(imagesRequest?.searchParams.get("include_image_language")).toBe("en,null");
 					expect(result.properties).toMatchObject({
 						images: [
-							image("cover", "/poster-main.jpg"),
+							{
+								...image("cover", "/poster-main.jpg"),
+								language: "en",
+								largeUrl: "https://image.tmdb.org/t/p/w780/poster-main.jpg",
+								thumbnailUrl: "https://image.tmdb.org/t/p/w185/poster-main.jpg",
+							},
 							image("cover", "/poster-fr.jpg"),
 							image("cover", "/poster-none.jpg"),
 							image("backdrop", "/backdrop-main.jpg"),
@@ -429,7 +435,7 @@ describe("movie.tmdb sandbox script", () => {
 									{
 										offers: ["buy"],
 										name: "Apple TV",
-										image: "https://image.tmdb.org/t/p/original/apple.jpg",
+										image: "https://image.tmdb.org/t/p/w342/apple.jpg",
 									},
 								],
 							},
@@ -440,7 +446,7 @@ describe("movie.tmdb sandbox script", () => {
 									{
 										name: "Netflix",
 										offers: ["stream"],
-										image: "https://image.tmdb.org/t/p/original/netflix.jpg",
+										image: "https://image.tmdb.org/t/p/w342/netflix.jpg",
 									},
 								],
 							},
@@ -519,38 +525,49 @@ describe("movie.tmdb sandbox script", () => {
 		);
 	});
 
-	it("classifies localized movie posters as covers", () => {
-		const host = makeHost((_method, url) =>
-			url.includes("/movie/1/translations")
+	it.each([
+		["fr-FR", "fr", "fr", "FR", "Film"],
+		["fre-FR", "fr", "fr", "FR", "Film"],
+		["ar-EG", "ar", "ar", "EG", "فيلم"],
+		["yue-Hans-CN", "cn", "yue", "CN", "电影"],
+	])("selects a localized cover for %s", (language, providerCode, canonicalCode, region, title) => {
+		const requests: URL[] = [];
+		const host = makeHost((_method, url) => {
+			const request = new URL(url);
+			requests.push(request);
+			return request.pathname.endsWith("/translations")
 				? httpSuccess({
-						translations: [{ iso_639_1: "fr", iso_3166_1: "FR", data: { title: "Film" } }],
+						translations: [{ data: { title }, iso_3166_1: region, iso_639_1: providerCode }],
 					})
-				: httpSuccess({ posters: [{ iso_639_1: "fr", file_path: "/poster-fr.jpg" }] }),
-		);
+				: httpSuccess({
+						posters: [
+							{ iso_639_1: "en", file_path: "/poster-en.jpg" },
+							{ iso_639_1: providerCode, file_path: "/localized-poster.jpg" },
+						],
+					});
+		});
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{
-					name: "Movie",
-					properties: {},
-					externalId: "1",
-					language: "fr-FR",
-					entitySchemaSlug: "movie",
-				},
+				{ language, name: "Movie", properties: {}, externalId: "1", entitySchemaSlug: "movie" },
 				host,
 				execution,
 			).pipe(
 				Effect.map((result) => {
-					expect(result.properties).toEqual({
-						images: [
-							{
-								type: "remote",
-								purpose: "cover",
-								url: "https://image.tmdb.org/t/p/original/poster-fr.jpg",
-							},
-						],
+					expect(
+						requests
+							.find((request) => request.pathname.endsWith("/images"))
+							?.searchParams.get("include_image_language"),
+					).toBe(providerCode);
+					expect(result.name).toBe(title);
+					expect(result.properties).toMatchObject({
+						localizedArtwork: {
+							type: "remote",
+							purpose: "cover",
+							language: canonicalCode,
+							url: "https://image.tmdb.org/t/p/w500/localized-poster.jpg",
+						},
 					});
-					return undefined;
 				}),
 			),
 		);

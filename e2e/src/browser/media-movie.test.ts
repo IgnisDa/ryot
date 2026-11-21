@@ -545,6 +545,7 @@ it.live("fits an untracked Movie detail and its Log activity sheet to a phone wi
 		const suffix = yield* randomUuid;
 		const movieName = `Phone Tracer Movie ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient();
+		const imageOrigin = "https://images.test/phone-art";
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			withCredits: true,
@@ -555,13 +556,15 @@ it.live("fits an untracked Movie detail and its Log activity sheet to a phone wi
 				publishYear: 2006,
 				providerRating: 65.63,
 				productionStatus: "Released",
-				images: [1, 2, 3, 4].map((index) => ({
-					type: "remote",
-					purpose: "backdrop",
-					url: `https://images.test/phone-${index}.svg`,
-				})),
 				description:
 					"In order to avoid a jail sentence, a teenager heads to a new city to live with a relative and gets caught up in an underground racing scene that tests everything he thought he knew.",
+				images: Array.from({ length: 100 }, (_, index) => ({
+					type: "remote",
+					url: `${imageOrigin}/display-${index}.svg`,
+					purpose: index === 2 ? "backdrop" : "cover",
+					largeUrl: `${imageOrigin}/large-${index}.svg`,
+					thumbnailUrl: `${imageOrigin}/thumb-${index}.svg`,
+				})),
 				watchProviders: [
 					{
 						country: "US",
@@ -586,6 +589,13 @@ it.live("fits an untracked Movie detail and its Log activity sheet to a phone wi
 
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* page.setViewportSize({ width: 390, height: 844 });
+		const imageRequests: string[] = [];
+		yield* page.use((native) =>
+			native.context().route(`${imageOrigin}/**`, (route) => {
+				imageRequests.push(new URL(route.request().url()).pathname);
+				return route.fulfill({ body: MOVIE_COVER, contentType: "image/svg+xml" });
+			}),
+		);
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
 		const media = mediaPluginFrame(page).contentFrame();
@@ -593,6 +603,32 @@ it.live("fits an untracked Movie detail and its Log activity sheet to a phone wi
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible", timeout: 150_000 });
 		yield* media.getByText("TMDB rating", { exact: true }).waitFor({ state: "visible" });
+
+		const galleryTrigger = media.getByRole("button", { exact: true, name: "View all images" });
+		yield* galleryTrigger.scrollIntoViewIfNeeded();
+		yield* media.locator("header img").waitFor({ state: "visible" });
+		expect(imageRequests.length).toBeGreaterThan(0);
+		expect(imageRequests.every((path) => /(?:thumb-[012]|display-0)\.svg$/.test(path))).toBe(true);
+
+		yield* galleryTrigger.click();
+		const gallery = media.getByRole("dialog", { name: `${movieName} images` });
+		const firstImage = gallery.getByRole("button", { exact: true, name: "View image 1" });
+		yield* firstImage.waitFor({ state: "visible" });
+		expect(yield* gallery.getByRole("button", { name: /^View image / }).count).toBe(12);
+		expect(
+			imageRequests.every((path) => /(?:thumb-(?:[0-9]|1[01])|display-0)\.svg$/.test(path)),
+		).toBe(true);
+
+		yield* firstImage.click();
+		const lightbox = media.getByRole("dialog", { exact: true, name: "Image 1 of 100" });
+		yield* lightbox
+			.locator('img[src$="large-0.svg"]')
+			.waitForFunction((image) => image instanceof HTMLImageElement && image.naturalWidth > 0);
+		expect(imageRequests.filter((path) => path.includes("/large-"))).toEqual([
+			"/phone-art/large-0.svg",
+		]);
+		yield* lightbox.getByRole("button", { name: "Close image" }).click();
+		yield* gallery.getByRole("button", { name: "Close images" }).click();
 
 		const overflowing = yield* media.locator("html").evaluate((root) =>
 			[...root.querySelectorAll("main *")]

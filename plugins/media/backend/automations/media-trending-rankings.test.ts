@@ -22,7 +22,7 @@ const mediaRow = (id: string, rank: number, fetchedAt: string) => ({
 	id,
 	rank,
 	fetchedAt,
-	images: null,
+	image: null,
 	schemaSlug: "show",
 	name: `Media ${id}`,
 	isInMediaLibrary: false,

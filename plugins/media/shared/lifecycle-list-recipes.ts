@@ -23,6 +23,7 @@ import {
 import type { AuthoredAppSchema, PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { MediaPosition } from "./consumption";
+import { mediaPresentationImageSelection } from "./entity-presentations";
 import {
 	entityIdentitySelection,
 	libraryLinkExists,
@@ -43,13 +44,12 @@ import {
 	type ScalarExpression,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
-import { MediaImageListSchema } from "./media-image";
 import { builtinMediaEntitySchemaSlugs, flatMediaSchemaSlugs } from "./media-schema-slugs";
 import { catalogMessage } from "./messages.generated";
 
 const listedMediaSelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
-	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
+	...mediaPresentationImageSelection(entity),
 });
 
 const latestPositionField = (entity: Table, select: (event: Table) => ScalarExpression) => {
@@ -144,7 +144,7 @@ export const episodicByLifecycleStateRecipe = (input: {
 				},
 				include: {
 					nextUp: episodicNextUpInclude(input.config, entity, (episode) => ({
-						...episodicEpisodeSelection(episode, entity, "listNextUpState"),
+						...episodicEpisodeSelection(episode, entity, "listNextUpState", input.config.kind),
 						seasonNumber: selectedField(
 							input.config.kind === "show"
 								? propertyNumber(episode, "seasonNumber")

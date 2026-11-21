@@ -100,17 +100,15 @@ describe("movie-group.tmdb sandbox script", () => {
 				execution,
 			).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({
+					expect(result).toMatchObject({
 						name: "Exemple",
 						properties: {
 							description: "Description",
-							images: [
-								{
-									type: "remote",
-									purpose: "cover",
-									url: "https://image.tmdb.org/t/p/original/poster.jpg",
-								},
-							],
+							localizedArtwork: {
+								type: "remote",
+								purpose: "cover",
+								url: "https://image.tmdb.org/t/p/w500/poster.jpg",
+							},
 						},
 					});
 				}),

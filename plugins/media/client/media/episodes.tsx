@@ -1,5 +1,9 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
-import { ManagedAssetProvider, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	AssetArtWell,
+	ManagedAssetProvider,
+	type RyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
@@ -18,15 +22,12 @@ import type { MediaEpisodeCredits } from "./episode-credits";
 import { MediaEpisodeDetails } from "./episode-details";
 import {
 	type MediaEpisode,
-	mediaEpisodeAsset,
-	type MediaEpisodeImagePurpose,
 	mediaEpisodeMetadataLabel,
 	mediaEpisodesManagedAssets,
 	mediaEpisodeStateLabel,
 	type MediaEpisodeStateLabels,
 	mediaEpisodeSynopsis,
 } from "./episodes-state";
-import { ManagedAssetImage } from "./managed-assets";
 import { MediaReviewForm } from "./review";
 
 export type MediaEpisodePagesCopy = MediaCursorPagesCopy;
@@ -46,7 +47,6 @@ export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 	readonly entitySchemaSlug: string;
 	readonly credits?: MediaEpisodeCredits;
 	readonly aspect: MediaEpisodeArtworkAspect;
-	readonly purpose: MediaEpisodeImagePurpose;
 	readonly stateLabels: MediaEpisodeStateLabels;
 	readonly numberLabel: (episode: Episode) => LocalMessage;
 	readonly originLabel: (episode: Episode) => LocalMessage;
@@ -93,13 +93,13 @@ export function MediaEpisodePages<
 			query={props.query}
 			key={props.containerId}
 			getPageInput={(input, after) => ({ ...input, after })}
-			assets={(episodes) => mediaEpisodesManagedAssets(episodes, render.purpose)}
+			assets={(episodes) => mediaEpisodesManagedAssets(episodes)}
 			input={{ ...props.scope, entityId: props.entityId, containerId: props.containerId }}
 			renderItems={(episodes) => {
 				return (
 					<>
 						{nextUp === null ? null : (
-							<ManagedAssetProvider assets={mediaEpisodesManagedAssets([nextUp], render.purpose)}>
+							<ManagedAssetProvider assets={mediaEpisodesManagedAssets([nextUp])}>
 								<MediaNextUpCard
 									log={props.log}
 									render={render}
@@ -203,7 +203,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 	const [overlay, setOverlay] = useState<"log" | "review" | "details">();
 	const logSubmission = useActivityLogSubmission();
 	const triggerRef = useRef<HTMLButtonElement>(null);
-	const asset = mediaEpisodeAsset(episode, render.purpose);
+	const asset = episode.image ?? undefined;
 	const synopsis = mediaEpisodeSynopsis(episode);
 	const lifecycleMessage = mediaEpisodeStateLabel(episode.state, render.stateLabels);
 	const lifecycle = lifecycleMessage === undefined ? undefined : copy.local(lifecycleMessage);
@@ -223,7 +223,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 					props.divided && "border-t border-border",
 				)}
 			>
-				<ManagedAssetImage
+				<AssetArtWell
 					asset={asset}
 					monogram={episode.name}
 					state={fieldSyncState(asset, episode)}

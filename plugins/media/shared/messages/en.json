@@ -908,6 +908,7 @@
 		"message": "{index, number} / {total, number}",
 		"description": "Position in the image viewer. {index} is the current image and {total} is how many there are."
 	},
+	"gallery.error": "Could not load images.",
 	"gallery.filter-label": "Filter images",
 	"gallery.filter-option": {
 		"message": "{filter, select, all {All} logo {Logos} still {Stills} cover {Covers} artwork {Artwork} profile {Profiles} backdrop {Backdrops} screenshot {Screenshots} other {All}} {count, number}",
@@ -921,6 +922,7 @@
 		"message": "{name} images",
 		"description": "Accessible label of the image gallery. {name} is the media title."
 	},
+	"gallery.loading": "Loading images…",
 	"gallery.next": "Next image",
 	"gallery.position": {
 		"message": "Image {index, number} of {total, number}",
@@ -931,6 +933,7 @@
 		"message": "{purpose, select, logo {logo} still {still} cover {cover} artwork {artwork} profile {profile} backdrop {backdrop} screenshot {screenshot} other {image}}",
 		"description": "Lowercase kind of the image on show. {purpose} is the kind."
 	},
+	"gallery.retry": "Try again",
 	"gallery.view-image": {
 		"message": "View image {index, number}",
 		"description": "{index} is the number of the image."

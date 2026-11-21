@@ -6,6 +6,7 @@ import {
 	flatFixtureRecipes,
 	flatUngroupedFixtureRecipes,
 } from "../tests/client/flat-media/recipes";
+import { artworkSummaryFixture } from "../tests/client/summary-fixture";
 import { mediaReviewActivityRecipe } from "./media-recipes";
 
 const TMDB_NAME = { namespace: "media-owner", key: "provider.tmdb.name" };
@@ -32,7 +33,7 @@ const ACTIVITY_RECIPE = bindRecipe(
 );
 const SUMMARY_ROW = {
 	owned: false,
-	images: null,
+	...artworkSummaryFixture([]),
 
 	id: "media-1",
 	isCustom: false,
@@ -78,7 +79,11 @@ describe("media flat recipes", () => {
 			"relatedPopulationStatus",
 			"providerName",
 			"description",
-			"images",
+			"imageCount",
+			"firstPreviewImage",
+			"image",
+			"secondPreviewImage",
+			"backdropPreviewImage",
 			"isMonitored",
 			"isInMediaLibrary",
 			"isCustom",
@@ -400,7 +405,7 @@ describe("media flat recipes", () => {
 		expect(fieldKeys(members.fields)).toEqual([
 			"id",
 			"name",
-			"images",
+			"image",
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",

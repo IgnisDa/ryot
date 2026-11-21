@@ -1,4 +1,9 @@
-import { localDay, useDisplayText, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import {
+	AssetArtWell,
+	localDay,
+	useDisplayText,
+	useRyotSchedule,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button, MenuButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
@@ -15,12 +20,10 @@ import { MediaEpisodeCreditsSection } from "./episode-credits";
 import type { MediaEpisodeLog, MediaEpisodeRender } from "./episodes";
 import {
 	type MediaEpisode,
-	mediaEpisodeAsset,
 	mediaEpisodeMetadataLabel,
 	mediaEpisodeStateLabel,
 	mediaEpisodeSynopsis,
 } from "./episodes-state";
-import { ManagedAssetImage } from "./managed-assets";
 import { MediaOwnershipControl } from "./ownership";
 import { MediaMarkdown } from "./primitives";
 import { MediaProviderRefreshControl } from "./provider-refresh";
@@ -46,7 +49,7 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 		entityId: episode.id,
 		parentEntityId: props.log.parentEntityId,
 	});
-	const asset = mediaEpisodeAsset(episode, render.purpose);
+	const asset = episode.image ?? undefined;
 	const synopsis = mediaEpisodeSynopsis(episode);
 	const stateMessage = mediaEpisodeStateLabel(episode.state, render.stateLabels);
 	const state = stateMessage === undefined ? undefined : copy.local(stateMessage);
@@ -68,7 +71,7 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 					!compact && "grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start py-2",
 				)}
 			>
-				<ManagedAssetImage
+				<AssetArtWell
 					asset={asset}
 					fit="contain"
 					monogram={episode.name}

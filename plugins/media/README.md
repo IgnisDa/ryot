@@ -50,12 +50,16 @@ recommendations, groups, and extra rails stay visible beside either notice, incl
 Idle missing data is not actively loading. Translation failures keep available text visible and
 offer a separate translation retry using the user's trusted language preference.
 
-Header artwork purpose and aspect come from descriptors and `mediaSchemaAspects`. Detail screens
-have no hero and register every managed image locator once, including images beyond the gallery
-preview. Home airing tiles prefer episode stills, then backdrops, then covers. Managed URLs, expiry,
-placeholders, and sync marks
-come from the [client SDK](../../packages/plugin-client-sdk/README.md) and
-[UI SDK](../../packages/plugin-ui-sdk/README.md#sync-marks), not media wrappers.
+Shared Media recipes choose one image for cards, credits, recommendations, seasons, and episodes.
+Detail summaries add an image count and a preview of at most three images. The gallery reads its
+catalog when opened and mounts thumbnails in batches. The lightbox uses a large rendition for the
+selected image and shows a short strip of nearby thumbnails on desktop. Each surface registers
+only its own managed locators. Home airing tiles prefer episode stills, then backdrops, then covers.
+The Client SDK owns locator resolution and expiry. The UI SDK owns image rendering and fallbacks.
+
+The summary waits for an applicable pending localization before requesting the primary image.
+Artwork selection falls back to the canonical image when no localized match is available. The
+canonical gallery stays available when localization changes.
 
 ### Flat And Episodic Schemas
 
@@ -119,7 +123,7 @@ by relationship order, name, and ID, using the member schema's presentation. A g
 its completed/total label is aggregated over members, while Activity contains reviews and collection
 changes. Empty groups hide completion status.
 
-Without its own artwork, a group uses its first ordered member's covers consistently across all
+Without its own artwork, a group uses its first ordered member's cover across all
 presentations. `creatorGroupTargetSlugs` controls credit-bearing groups; other groups issue no
 overview query. Group credits never select `character` or undeclared `publishYear`.
 
@@ -248,9 +252,9 @@ hold one "Where you consume" list per builtin media type (`consumedOnBook` throu
 sources of at most 100 characters, seeded with per-type defaults. The Log activity sheet suggests
 the list for the item's type first, then the item's own history and recent sources (each element of
 stored `consumedOn` arrays), ignoring case. Images contain remote
-URLs or managed keys plus a declared purpose. Providers prefer foreground art, preserve order within
-purposes, and deduplicate URLs using their first classification. Translation may replace the entire
-image array; omission preserves canonical images.
+URLs or managed keys plus a declared purpose. Provider artwork may include language and sized
+renditions. Translation writes a separate primary artwork field. Canonical image lists stay
+independent of the user's content language.
 
 `providerRating` is always 0-100, rounded to 2 decimals. Providers with native /5 scales (Audible)
 are multiplied by 20 and /10 scales (MyAnimeList, MangaUpdates) by 10; AniList, TMDB, IGDB, and VNDB
@@ -266,7 +270,10 @@ name within each offer kind.
 TMDB movie and show `details` honour the population `level`. `/movie/{id}` and `/tv/{id}` carry
 `append_to_response` for watch providers (and, for shows, episode groups) at `base`, adding credits
 and recommendations at `full`; `base` returns no credit or recommendation groups. Images stay a
-separate `/images` call without a language. Show seasons are fetched through `/tv/{id}` appends,
+separate `/images` call only for full details, with the canonical language and untagged images.
+Base population uses the provider's primary artwork paths. TMDB keeps up to three covers and three
+backdrops per title and up to four person profiles, preserving the provider's ordering and
+deduplicating by file path. Show seasons are fetched through `/tv/{id}` appends,
 at most 20 seasons per request.
 
 Title-side incoming creator inventories own authoritative credit metadata. Person and company
@@ -353,8 +360,9 @@ translation execution snapshots.
 
 Translation requests preserve the user's BCP 47 region and script. Shared TMDB helpers prefer
 the requested region, infer a region for script-only tags such as `zh-Hans`, and exclude
-translation candidates with a different likely script. iTunes supports only English and Japanese
-response languages, as [documented by Apple](https://performance-partners.apple.com/search-api);
+translation candidates with a different likely script. TMDB artwork uses the base language and
+translates provider aliases such as Cantonese `cn` to canonical `yue`. iTunes supports only English
+and Japanese response languages, as [documented by Apple](https://performance-partners.apple.com/search-api);
 other languages return an empty translation so canonical content remains visible. AniList maps
 supported English and Japanese tags to its English, native, or romaji title modes.
 Providers that expose only a language code retain their own language-level conversion.

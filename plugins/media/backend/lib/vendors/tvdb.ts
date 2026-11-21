@@ -6,6 +6,7 @@ import { languageCodeForIso6393 } from "@ryot-app/plugin-kit/languages";
 
 import type { CreditRoleCode } from "../../../shared/credit-roles";
 import { MediaSandboxError } from "../failures";
+import { normalizePlainDescription } from "../plain-description";
 import {
 	decodeJsonResponse,
 	numberValue,
@@ -14,6 +15,7 @@ import {
 	type UnknownRecord,
 } from "../records";
 import { createRoleAccumulator, type CreditRole, creditRoleProperties } from "../role-accumulator";
+import { mediaTranslationResult } from "../translation-result";
 
 export type RemoteImage = { url: string; type: "remote"; purpose: TvdbImagePurpose };
 
@@ -209,17 +211,7 @@ export const buildTranslationResult = (
 	image: null | RemoteImage,
 ) => {
 	const { name, description } = getTranslationFields(translationData);
-	const properties: Record<string, string | RemoteImage[]> = {};
-	if (description) {
-		properties["description"] = description;
-	}
-	if (image) {
-		properties["images"] = [image];
-	}
-	return {
-		...(name ? { name } : {}),
-		...(Object.keys(properties).length > 0 ? { properties } : {}),
-	};
+	return mediaTranslationResult(name, normalizePlainDescription(description) ?? description, image);
 };
 
 const getArtworkPurpose = (artwork: UnknownRecord) => {

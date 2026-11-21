@@ -1,5 +1,6 @@
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	AssetArtWell,
 	createRyotQuery,
 	ManagedAssetProvider,
 	nextPageCursor,
@@ -39,7 +40,6 @@ import {
 	type MediaEpisodeRender,
 } from "../media/episodes";
 import { mediaEpisodeNumberLabel } from "../media/episodes-state";
-import { ManagedAssetImage } from "../media/managed-assets";
 import { MediaProgressBar, MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
 import { MediaChildReviewButton } from "../media/review";
 import { type MediaText, useMediaCopy, useMediaMessages } from "../messages";
@@ -171,7 +171,6 @@ const showActivityEpisode = (episode: ShowEpisode | ShowOrderEpisode) => ({
 
 const SHOW_EPISODE_RENDER: MediaEpisodeRender<ShowEpisode> = {
 	aspect: "still",
-	purpose: "still",
 	entitySchemaSlug: "show-episode",
 	originLabel: showEpisodeOriginLabel,
 	activityEpisode: showActivityEpisode,
@@ -500,7 +499,7 @@ function ShowSeasonHeader(props: {
 	return (
 		<div className="flex flex-col gap-3">
 			<div className={clsx("flex items-start", props.compact ? "gap-3" : "gap-4")}>
-				<ManagedAssetImage
+				<AssetArtWell
 					monogram={season.name}
 					asset={showSeasonAsset(season)}
 					state={fieldSyncState(showSeasonAsset(season), season)}

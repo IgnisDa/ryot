@@ -9,6 +9,7 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	collectManagedAssetLocators,
 	ManagedAssetProvider,
 	type RyotQuery,
 	type RyotQueryResult,
@@ -28,8 +29,8 @@ import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 import { MediaSummaryHeader, MediaSummarySkeleton } from "./summary-header";
 import {
 	type MediaEntitySummaryValue,
-	mediaManagedAssets,
 	type MediaSummaryArtwork,
+	mediaSummaryArtworkAsset,
 	type MediaSummaryFailure,
 	type MediaSummaryHeaderDetail,
 	type MediaSummaryState,
@@ -122,57 +123,59 @@ export function MediaDetailBody<
 	}
 	const { summary } = state;
 	return (
-		<div className="grid grid-cols-[minmax(0,1fr)] gap-7">
-			{props.summaryRefreshStatus}
-			{summary.populationStatus.state === "failed" ? (
-				<MediaPopulationFailure entityId={summary.id} providerName={summary.providerName} />
-			) : null}
-			{summary.translationStatus.state === "failed" ? (
-				<MediaTranslationFailure entityId={summary.id} />
-			) : null}
-			<MediaSummaryHeader
-				media={summary}
-				compact={props.compact}
-				settled={props.settled}
-				artwork={props.artwork}
-				detail={props.header(summary, copy)}
-			/>
-			<Tabs
-				value={activeTab}
-				options={props.tabs}
-				onChange={setActiveTab}
-				panelId={MEDIA_DETAIL_PANEL_ID}
-				label={copy.text("detail.sections-label")}
-			/>
-			<div
-				role="tabpanel"
-				id={MEDIA_DETAIL_PANEL_ID}
-				aria-labelledby={tabId(MEDIA_DETAIL_PANEL_ID, activeTab)}
-			>
-				{activeTab === props.overviewTab ? (
-					<MediaOverview
-						media={summary}
-						compact={props.compact}
-						overview={props.overview}
-						empty={props.overviewEmpty}
-						isEmpty={props.overviewIsEmpty}
-						safeAreaTop={props.safeAreaTop}
-						relations={props.overviewRelations}
-						refreshOverview={props.refreshOverview}
-						noticeTitle={props.overviewNoticeTitle}
-						refreshStatus={props.overviewRefreshStatus}
-						loadingDetail={props.overviewLoadingDetail}
-						trailing={
-							overviewTrailing === undefined
-								? undefined
-								: (input) => overviewTrailing({ ...input, summary })
-						}
-					/>
-				) : (
-					props.tabContent[activeTab]
-				)}
+		<ManagedAssetProvider assets={collectManagedAssetLocators([mediaSummaryArtworkAsset(summary)])}>
+			<div className="grid grid-cols-[minmax(0,1fr)] gap-7">
+				{props.summaryRefreshStatus}
+				{summary.populationStatus.state === "failed" ? (
+					<MediaPopulationFailure entityId={summary.id} providerName={summary.providerName} />
+				) : null}
+				{summary.translationStatus.state === "failed" ? (
+					<MediaTranslationFailure entityId={summary.id} />
+				) : null}
+				<MediaSummaryHeader
+					media={summary}
+					compact={props.compact}
+					settled={props.settled}
+					artwork={props.artwork}
+					detail={props.header(summary, copy)}
+				/>
+				<Tabs
+					value={activeTab}
+					options={props.tabs}
+					onChange={setActiveTab}
+					panelId={MEDIA_DETAIL_PANEL_ID}
+					label={copy.text("detail.sections-label")}
+				/>
+				<div
+					role="tabpanel"
+					id={MEDIA_DETAIL_PANEL_ID}
+					aria-labelledby={tabId(MEDIA_DETAIL_PANEL_ID, activeTab)}
+				>
+					{activeTab === props.overviewTab ? (
+						<MediaOverview
+							media={summary}
+							compact={props.compact}
+							overview={props.overview}
+							empty={props.overviewEmpty}
+							isEmpty={props.overviewIsEmpty}
+							safeAreaTop={props.safeAreaTop}
+							relations={props.overviewRelations}
+							refreshOverview={props.refreshOverview}
+							noticeTitle={props.overviewNoticeTitle}
+							refreshStatus={props.overviewRefreshStatus}
+							loadingDetail={props.overviewLoadingDetail}
+							trailing={
+								overviewTrailing === undefined
+									? undefined
+									: (input) => overviewTrailing({ ...input, summary })
+							}
+						/>
+					) : (
+						props.tabContent[activeTab]
+					)}
+				</div>
 			</div>
-		</div>
+		</ManagedAssetProvider>
 	);
 }
 
@@ -223,26 +226,23 @@ function MediaDetailFrame<SummaryData, OverviewData, Summary extends MediaEntity
 		}
 	}, [commit, summaryResult.data, props.overviewData]);
 	const state = props.mapSummary(summaryResult);
-	const assets = state.status === "ready" ? mediaManagedAssets(state.summary) : [];
 	return (
-		<ManagedAssetProvider assets={assets}>
-			<PluginScreenFrame hideTitle title={state.status === "ready" ? state.summary.name : null}>
-				<ManagedAssetProvider assets={props.overviewLocators}>
-					<props.Body
-						state={state}
-						compact={compact}
-						entityId={props.entityId}
-						overview={props.overview}
-						safeAreaTop={safeAreaTop}
-						refresh={summaryResult.refetch}
-						settled={settled.get(props.entityId)}
-						refreshOverview={props.refreshOverview}
-						overviewRefreshStatus={props.overviewRefreshStatus}
-						summaryRefreshStatus={<MediaRefreshStatus result={summaryResult} />}
-					/>
-				</ManagedAssetProvider>
-			</PluginScreenFrame>
-		</ManagedAssetProvider>
+		<PluginScreenFrame hideTitle title={state.status === "ready" ? state.summary.name : null}>
+			<ManagedAssetProvider assets={props.overviewLocators}>
+				<props.Body
+					state={state}
+					compact={compact}
+					entityId={props.entityId}
+					overview={props.overview}
+					safeAreaTop={safeAreaTop}
+					refresh={summaryResult.refetch}
+					settled={settled.get(props.entityId)}
+					refreshOverview={props.refreshOverview}
+					overviewRefreshStatus={props.overviewRefreshStatus}
+					summaryRefreshStatus={<MediaRefreshStatus result={summaryResult} />}
+				/>
+			</ManagedAssetProvider>
+		</PluginScreenFrame>
 	);
 }
 

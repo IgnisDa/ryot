@@ -27,8 +27,8 @@ export const creatorMovieCreditRow = {
 	isUncredited: null,
 	isInMediaLibrary: false,
 	character: "The Narrator",
+	image: { type: "s3", key: "fight-club" },
 	translationStatus: { state: "idle", availability: "none" },
-	images: [{ type: "s3", purpose: "cover", key: "fight-club" }],
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };
@@ -40,8 +40,8 @@ export const creatorAlbumCreditRow = {
 	name: "Night Songs",
 	roleCodes: ["artist"],
 	isInMediaLibrary: false,
+	image: { type: "s3", key: "night-songs" },
 	translationStatus: { state: "idle", availability: "none" },
-	images: [{ type: "s3", purpose: "cover", key: "night-songs" }],
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };

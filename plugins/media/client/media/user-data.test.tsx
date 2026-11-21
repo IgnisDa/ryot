@@ -26,7 +26,6 @@ const entity = {
 
 const summary = (schemaSlug = "movie", isInMediaLibrary = true) =>
 	decodeFlatSummary(fixtureSummaryRecipe, {
-		images: [],
 		schemaSlug,
 		id: "media-1",
 		isInMediaLibrary,

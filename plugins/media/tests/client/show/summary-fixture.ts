@@ -4,6 +4,7 @@ import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { showRecipes } from "../../../shared/show-recipes";
 import { rowsResult } from "../query-result-fixture";
 import { servedProviderName } from "../served-names";
+import { artworkSummaryFixture } from "../summary-fixture";
 
 export const showSummaryFixtureRecipe = bindRecipe(
 	showRecipes.summaryRecipe({ reference: { kind: "self" } }),
@@ -48,10 +49,10 @@ export const showSummaryRow = {
 			{ name: "Drama", id: "genre-drama" },
 		],
 	},
-	images: [
+	...artworkSummaryFixture([
 		{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 		{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
-	],
+	]),
 	watchProviders: [
 		{
 			link: null,

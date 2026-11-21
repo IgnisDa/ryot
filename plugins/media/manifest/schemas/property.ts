@@ -39,25 +39,40 @@ const objectItems = <Properties extends Record<string, AppPropertyDefinition<Aut
 		label: catalogMessage("property.item"),
 	}) as const;
 
+const mediaImageItem = {
+	...managedAssetItemSchema,
+	properties: {
+		...managedAssetItemSchema.properties,
+		largeUrl: stringField(catalogMessage("property.link"), "Large rendition URL"),
+		sourceId: stringField(catalogMessage("property.item"), "Provider artwork identifier"),
+		thumbnailUrl: stringField(catalogMessage("property.link"), "Thumbnail rendition URL"),
+		language: stringField(
+			catalogMessage("property.original-language"),
+			"Provider artwork language",
+		),
+		purpose: required({
+			type: "enum",
+			description: "Purpose",
+			label: catalogMessage("property.purpose"),
+			choices: { kind: "static", values: mediaImagePurposes.map((value) => ({ value })) },
+		}),
+	},
+} satisfies AppPropertyDefinition<AuthoredSchemaText>;
+
 const mediaImagesField = (description: string) =>
 	({
 		description,
 		type: "array",
-		translatable: true,
+		items: mediaImageItem,
 		label: catalogMessage("property.images"),
-		items: {
-			...managedAssetItemSchema,
-			properties: {
-				...managedAssetItemSchema.properties,
-				purpose: required({
-					type: "enum",
-					description: "Purpose",
-					label: catalogMessage("property.purpose"),
-					choices: { kind: "static", values: mediaImagePurposes.map((value) => ({ value })) },
-				}),
-			},
-		},
 	}) satisfies AppPropertyDefinition<AuthoredSchemaText>;
+
+const localizedArtwork = {
+	...mediaImageItem,
+	translatable: true,
+	description: "Localized primary artwork",
+	label: catalogMessage("property.images"),
+} satisfies AppPropertyDefinition<AuthoredSchemaText>;
 
 const watchProvidersField = (description: string) =>
 	({
@@ -144,6 +159,7 @@ export const moviePropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...originalLanguageFields,
 		...mediaBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this movie"),
 		watchProviders: watchProvidersField("Where to watch this movie, by country"),
 		runtime: integerField(catalogMessage("property.runtime"), "Runtime in minutes"),
@@ -154,6 +170,7 @@ export const showPropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...originalLanguageFields,
 		...mediaBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this show"),
 		watchProviders: watchProvidersField("Where to watch this show, by country"),
 		totalSeasons: integerField(
@@ -213,6 +230,7 @@ export const showPropertiesSchema: AuthoredAppSchema = {
 
 export const showSeasonPropertiesSchema: AuthoredAppSchema = {
 	fields: {
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this season"),
 		releaseDate: stringField(
 			catalogMessage("property.release-date"),
@@ -238,6 +256,7 @@ export const showSeasonPropertiesSchema: AuthoredAppSchema = {
 
 export const showEpisodePropertiesSchema: AuthoredAppSchema = {
 	fields: {
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this episode"),
 		runtime: integerField(catalogMessage("property.runtime"), "Runtime in minutes"),
 		publishDate: stringField(
@@ -270,6 +289,7 @@ export const showEpisodePropertiesSchema: AuthoredAppSchema = {
 
 export const podcastEpisodePropertiesSchema: AuthoredAppSchema = {
 	fields: {
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this episode"),
 		runtime: integerField(catalogMessage("property.runtime"), "Runtime in minutes"),
 		publishDate: stringField(
@@ -296,6 +316,7 @@ export const podcastEpisodePropertiesSchema: AuthoredAppSchema = {
 export const animePropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...mediaBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this anime"),
 		episodes: integerField(
 			catalogMessage("property.episodes"),
@@ -320,6 +341,7 @@ export const animePropertiesSchema: AuthoredAppSchema = {
 export const bookPropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...mediaWithCreatorsBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and related images for this book"),
 		pages: integerField(catalogMessage("property.pages"), "Total number of pages in this edition"),
 		isCompilation: {
@@ -333,6 +355,7 @@ export const bookPropertiesSchema: AuthoredAppSchema = {
 export const comicBookPropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...mediaBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this comic book"),
 		pages: integerField(
 			catalogMessage("property.pages"),
@@ -344,6 +367,7 @@ export const comicBookPropertiesSchema: AuthoredAppSchema = {
 export const mangaPropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...mediaBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this manga"),
 		volumes: integerField(catalogMessage("property.volumes"), "Total number of volumes, if known"),
 		chapters: numberField(
@@ -356,6 +380,7 @@ export const mangaPropertiesSchema: AuthoredAppSchema = {
 export const visualNovelPropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...mediaBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this visual novel"),
 		lengthMinutes: integerField(
 			catalogMessage("property.length-minutes"),
@@ -367,6 +392,7 @@ export const visualNovelPropertiesSchema: AuthoredAppSchema = {
 export const musicPropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...mediaBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover art and promotional images for this music release"),
 		duration: integerField(catalogMessage("property.duration"), "Total duration in seconds"),
 		byVariousArtists: {
@@ -380,6 +406,7 @@ export const musicPropertiesSchema: AuthoredAppSchema = {
 export const audiobookPropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...mediaWithCreatorsBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this audiobook"),
 		runtime: integerField(catalogMessage("property.runtime"), "Total listening time in minutes"),
 	},
@@ -388,6 +415,7 @@ export const audiobookPropertiesSchema: AuthoredAppSchema = {
 export const podcastPropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...mediaWithCreatorsBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this podcast"),
 		totalEpisodes: integerField(
 			catalogMessage("property.total-episodes"),
@@ -399,6 +427,7 @@ export const podcastPropertiesSchema: AuthoredAppSchema = {
 export const videoGamePropertiesSchema: AuthoredAppSchema = {
 	fields: {
 		...mediaBaseFields,
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this video game"),
 		gameType: stringField(
 			catalogMessage("property.game-type"),
@@ -442,6 +471,7 @@ export const videoGamePropertiesSchema: AuthoredAppSchema = {
 
 export const personPropertiesSchema: AuthoredAppSchema = {
 	fields: {
+		localizedArtwork,
 		images: mediaImagesField("Photos or profile images of this person"),
 		birthDate: stringField(catalogMessage("property.birth-date"), "Date of birth"),
 		gender: stringField(catalogMessage("property.gender"), "Reported gender of this person"),
@@ -471,6 +501,7 @@ export const personPropertiesSchema: AuthoredAppSchema = {
 
 export const companyPropertiesSchema: AuthoredAppSchema = {
 	fields: {
+		localizedArtwork,
 		images: mediaImagesField("Logos or images associated with this company"),
 		website: stringField(catalogMessage("property.website"), "Official website of this company"),
 		foundedYear: integerField(
@@ -498,6 +529,7 @@ export const companyPropertiesSchema: AuthoredAppSchema = {
 
 export const mediaGroupPropertiesSchema: AuthoredAppSchema = {
 	fields: {
+		localizedArtwork,
 		images: mediaImagesField("Cover and promotional images for this group"),
 		parts: integerField(catalogMessage("property.parts"), "Number of items in this group"),
 		sourceUrl: stringField(

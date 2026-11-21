@@ -22,7 +22,6 @@ export const podcastEpisodeOriginLabel = (episode: { readonly episodeNumber: num
 
 const PODCAST_EPISODE_RENDER: MediaEpisodeRender<PodcastEpisode> = {
 	aspect: "square",
-	purpose: "cover",
 	entitySchemaSlug: "podcast-episode",
 	numberLabel: mediaEpisodeNumberLabel,
 	originLabel: podcastEpisodeOriginLabel,

@@ -1,23 +1,26 @@
 import {
+	collectManagedAssetLocators,
 	ManagedAssetProvider,
 	type RyotQueryResult,
 	type Text,
 } from "@ryot-app/plugin-client-sdk/react";
 import type { ReactNode } from "react";
 
-import type { MediaArtworkAspect, MediaPresentationSubject } from "../media/entity-presentation";
+import type { MediaImageAsset } from "../../shared/media-image";
+import type {
+	MediaArtworkAspect,
+	MediaSavedViewPresentationSubject,
+} from "../media/entity-presentation";
 import { MediaEntityTile, MediaRailFrame } from "../media/entity-rail";
-import { collectManagedAssetLocators, type MediaImageAsset } from "../media/image";
-import { mediaPosterAsset } from "../media/summary-state";
 import { mediaSyncCounts } from "../media/sync-counts";
 
 export type HomeTile = {
 	readonly key: string;
 	readonly overlay?: ReactNode;
 	readonly aspect: MediaArtworkAspect;
-	readonly item: MediaPresentationSubject;
 	readonly art?: undefined | MediaImageAsset;
 	readonly isInMediaLibrary?: boolean | undefined;
+	readonly item: MediaSavedViewPresentationSubject;
 	readonly lines?: undefined | readonly (string | undefined)[];
 };
 
@@ -29,7 +32,7 @@ export function HomeTileBadge(props: { readonly label: string }) {
 	);
 }
 
-const tileArt = (tile: HomeTile) => tile.art ?? mediaPosterAsset(tile.item);
+const tileArt = (tile: HomeTile) => tile.art ?? tile.item.image ?? undefined;
 
 export function HomeRail<Data>(props: {
 	readonly title: Text;

@@ -17,7 +17,7 @@ const header = (media: MediaEntitySummaryValue) => (
 		media={media}
 		compact={false}
 		settled={undefined}
-		artwork={{ purpose: "cover", aspect: "poster" }}
+		artwork={{ aspect: "poster" }}
 		detail={{
 			chips: [],
 			facts: [],
@@ -38,7 +38,6 @@ it("routes custom entities to their encoded edit path", () => {
 		},
 		header(
 			decodeFlatSummary(fixtureSummaryRecipe, {
-				images: [],
 				id: "media/1",
 				isCustom: true,
 				schemaSlug: "movie",
@@ -66,19 +65,13 @@ it("routes custom entities to their encoded edit path", () => {
 it("hides edit for provider-backed entities and unsupported custom schemas", () => {
 	const mounted = mountRyotClient(
 		{},
-		header(
-			decodeFlatSummary(fixtureSummaryRecipe, { images: [], isCustom: false, schemaSlug: "movie" }),
-		),
+		header(decodeFlatSummary(fixtureSummaryRecipe, { isCustom: false, schemaSlug: "movie" })),
 	);
 	try {
 		expect(queryByRole(mounted.container, "button", { name: "Edit" })).toBeNull();
 		mounted.rerender(
 			header(
-				decodeFlatSummary(fixtureSummaryRecipe, {
-					images: [],
-					isCustom: true,
-					schemaSlug: "media-library",
-				}),
+				decodeFlatSummary(fixtureSummaryRecipe, { isCustom: true, schemaSlug: "media-library" }),
 			),
 		);
 		expect(queryByRole(mounted.container, "button", { name: "Edit" })).toBeNull();

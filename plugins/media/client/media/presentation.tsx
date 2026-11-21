@@ -7,6 +7,7 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	AssetArtWell,
 	ManagedAssetProvider,
 	useEntitySchemaName,
 	usePluginIdentity,
@@ -23,7 +24,6 @@ import {
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { useMediaMessages } from "../messages";
 import { createMediaPresentationPrepare, mediaEntityPresentation } from "./entity-presentation";
-import { ManagedAssetImage } from "./managed-assets";
 
 export type MediaPresentationViewData = MediaPresentationData & {
 	readonly batchAssets: readonly ManagedAssetLocator[];
@@ -118,7 +118,7 @@ function MediaArtwork(props: {
 }) {
 	const poster = posterAsset(props.data);
 	return (
-		<ManagedAssetImage
+		<AssetArtWell
 			asset={poster}
 			monogram={props.data.name}
 			state={fieldSyncState(poster, props.data)}

@@ -2,7 +2,6 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	castJson,
 	coalesce,
 	column,
 	count,
@@ -12,7 +11,6 @@ import {
 	exists,
 	first,
 	join,
-	jsonPath,
 	literal,
 	relationshipSchemaPredicate,
 	reportingTimeZone,
@@ -24,7 +22,10 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
-import { preferredMediaImageExpression } from "./entity-presentations";
+import {
+	mediaLocalizedImageOfPurpose,
+	preferredMediaImageExpression,
+} from "./entity-presentations";
 import {
 	entityIdentitySelection,
 	mediaLibrarySelection,
@@ -32,8 +33,7 @@ import {
 	propertyText,
 	type Table,
 } from "./entity-selections";
-import type { MediaImage } from "./media-image";
-import { MediaImageAssetSchema, MediaImageListSchema } from "./media-image";
+import { type MediaImage, MediaImageAssetSchema, MediaImageSchema } from "./media-image";
 import {
 	mediaCompanyRecipe,
 	mediaCreditQueries,
@@ -57,19 +57,13 @@ type CreditGroupSlug = (typeof creatorGroupTargetSlugs)[number];
 const isCreditGroup = (slug: MediaGroupSlug): slug is CreditGroupSlug =>
 	creatorGroupTargetSlugs.some((candidate) => candidate === slug);
 
-/** Drops the member artwork, falling back to the first member's covers when the group has no images. */
 export const withMemberCoverFallback = <
-	Row extends {
-		readonly images: null | readonly MediaImage[];
-		readonly memberImages: null | readonly MediaImage[];
-	},
+	Row extends { readonly image: null | MediaImage; readonly memberImage: null | MediaImage },
 >({
-	memberImages,
+	image,
+	memberImage,
 	...row
-}: Row) =>
-	row.images === null || row.images.length === 0
-		? { ...row, images: (memberImages ?? []).filter(({ purpose }) => purpose === "cover") }
-		: row;
+}: Row) => ({ ...row, image: image ?? memberImage });
 
 export const mediaGroupRecipes = <
 	const Slug extends MediaGroupSlug,
@@ -139,25 +133,17 @@ export const mediaGroupRecipes = <
 		};
 	};
 
-	const groupProgressSelection = (group: Table, alias: string) => {
-		const cover = membership(group, `${alias}Cover`);
-		return {
-			...groupCountSelection(group, alias),
-			memberImages: selectedField(
-				castJson(
-					first(cover.member, {
-						...cover,
-						select: jsonPath(column(cover.member, "properties"), "images"),
-						orderBy: [
-							ascending(propertyNumber(cover.relationship, "order")),
-							ascending(column(cover.member, "name")),
-							ascending(column(cover.member, "id")),
-						],
-					}),
-				),
-				MediaImageListSchema,
-			),
-		};
+	const memberCover = (group: Table, alias: string) => {
+		const cover = membership(group, alias);
+		return first(cover.member, {
+			...cover,
+			select: mediaLocalizedImageOfPurpose(cover.member, "cover"),
+			orderBy: [
+				ascending(propertyNumber(cover.relationship, "order")),
+				ascending(column(cover.member, "name")),
+				ascending(column(cover.member, "id")),
+			],
+		});
 	};
 	const summaryRecipe = (structural: { readonly reference: PluginIdentityReference }) => {
 		const input = {
@@ -180,7 +166,11 @@ export const mediaGroupRecipes = <
 				selection: (entity, provider) => ({
 					...mediaEntitySummarySelection(entity, provider),
 					sourceUrl: selectedField(propertyText(entity, "sourceUrl"), Schema.NullOr(Schema.String)),
-					...groupProgressSelection(entity, `${config.alias}Summary`),
+					...groupCountSelection(entity, `${config.alias}Summary`),
+					memberImage: selectedField(
+						memberCover(entity, `${config.alias}SummaryCover`),
+						Schema.NullOr(MediaImageSchema),
+					),
 				}),
 			}),
 		});
@@ -233,22 +223,13 @@ export const mediaGroupRecipes = <
 	});
 
 	const presentationEntity = table("entity", "entity");
-	const presentationCover = membership(presentationEntity, `${config.alias}PresentationCover`);
 	const presentationSource = selectedRowsSource(presentationEntity, {
 		selection: {
 			...entityIdentitySelection(presentationEntity),
 			image: selectedField(
 				coalesce(
 					preferredMediaImageExpression(presentationEntity),
-					first(presentationCover.member, {
-						...presentationCover,
-						select: preferredMediaImageExpression(presentationCover.member),
-						orderBy: [
-							ascending(propertyNumber(presentationCover.relationship, "order")),
-							ascending(column(presentationCover.member, "name")),
-							ascending(column(presentationCover.member, "id")),
-						],
-					}),
+					memberCover(presentationEntity, `${config.alias}PresentationCover`),
 				),
 				Schema.NullOr(MediaImageAssetSchema),
 			),

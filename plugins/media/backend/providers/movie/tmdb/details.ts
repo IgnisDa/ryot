@@ -19,6 +19,7 @@ import {
 	collectPeople,
 	collectSuggestions,
 	collectWatchProviders,
+	tmdbArtworkInventory,
 	tmdbGet,
 	type TmdbHost,
 } from "../../../lib/vendors/tmdb";
@@ -159,7 +160,9 @@ export const getTmdbMovieDetails = (
 				{ language, append_to_response: appended },
 				token,
 			),
-			tmdbGet(host, `/movie/${input.externalId}/images`, {}, token),
+			input.level === "base"
+				? Effect.succeed<UnknownRecord>({})
+				: tmdbArtworkInventory(host, `/movie/${input.externalId}`, language, token),
 		],
 		{ concurrency: "unbounded" },
 	).pipe(

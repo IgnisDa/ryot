@@ -1,6 +1,12 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { type PluginIdentityReference, PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery, type RyotQuery, useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import {
+	AssetArtWell,
+	collectManagedAssetLocators,
+	createRyotQuery,
+	type RyotQuery,
+	useFormatters,
+} from "@ryot-app/plugin-client-sdk/react";
 import type { AuthoredAppSchema, Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
@@ -14,9 +20,7 @@ import { MediaCursorPages } from "./cursor-pages";
 import { MediaDetailModalButton } from "./detail-modal";
 import type { MediaEntityRecipe } from "./detail-queries";
 import { type MediaArtworkAspect, mediaAspectClass } from "./entity-presentation";
-import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
 import { MediaLibraryTitle } from "./library-title";
-import { ManagedAssetImage } from "./managed-assets";
 import {
 	mediaCharacterLabel,
 	mediaCreditRolesLabel,
@@ -25,7 +29,6 @@ import {
 	mediaUnlinkedCreatorKey,
 	mediaUnlinkedRoleLabel,
 } from "./overview-state";
-import { mediaPosterAsset } from "./summary-state";
 
 export type MediaCreditsRecipe = MediaEntityRecipe<MediaCursorPage<MediaCreatorCredit>>;
 
@@ -67,11 +70,10 @@ export function MediaCreditsButton<Scope extends object>(props: {
 	readonly safeAreaTop: number;
 	readonly label?: LocalMessage;
 	readonly aspect: MediaArtworkAspect;
-	readonly purpose: MediaImagePurposes[number];
 	readonly kind?: "all" | "people" | "companies";
 	readonly unlinked?: readonly MediaUnlinkedCreator[];
 	readonly input: Scope & { readonly entityId: string };
-	readonly fit?: ComponentProps<typeof ManagedAssetImage>["fit"];
+	readonly fit?: ComponentProps<typeof AssetArtWell>["fit"];
 	readonly query: RyotQuery<CreditPageInput<NoInfer<Scope>>, MediaCursorPage<MediaCreatorCredit>>;
 }) {
 	const { text, local } = useMediaCopy();
@@ -101,7 +103,7 @@ export function MediaCreditsButton<Scope extends object>(props: {
 					input={props.input}
 					getPageInput={(input, after) => ({ ...input, after })}
 					assets={(items) =>
-						collectManagedAssetLocators(items.map((item) => mediaPosterAsset(item, props.purpose)))
+						collectManagedAssetLocators(items.map((item) => item.image ?? undefined))
 					}
 					copy={{
 						empty: text("credits.empty"),
@@ -111,13 +113,7 @@ export function MediaCreditsButton<Scope extends object>(props: {
 					renderItems={(items) => (
 						<div className="divide-y divide-border">
 							{items.map((credit) => (
-								<CreditRow
-									key={credit.id}
-									credit={credit}
-									fit={props.fit}
-									aspect={props.aspect}
-									purpose={props.purpose}
-								/>
+								<CreditRow key={credit.id} credit={credit} fit={props.fit} aspect={props.aspect} />
 							))}
 						</div>
 					)}
@@ -130,13 +126,12 @@ export function MediaCreditsButton<Scope extends object>(props: {
 function CreditRow(props: {
 	readonly credit: MediaCreatorCredit;
 	readonly aspect: MediaArtworkAspect;
-	readonly purpose: MediaImagePurposes[number];
-	readonly fit?: ComponentProps<typeof ManagedAssetImage>["fit"];
+	readonly fit?: ComponentProps<typeof AssetArtWell>["fit"];
 }) {
 	const { credit } = props;
 	const text = useMediaMessages();
 	const formatters = useFormatters();
-	const asset = mediaPosterAsset(credit, props.purpose);
+	const asset = credit.image ?? undefined;
 	const lines = {
 		roles: mediaCreditRolesLabel({ text, formatters }, credit),
 		character: mediaCharacterLabel(text, credit.character ?? null),
@@ -149,7 +144,7 @@ function CreditRow(props: {
 			aria-description={credit.isInMediaLibrary ? text("library.in-library") : undefined}
 			className="flex items-center gap-3 rounded-lg py-3 focus-visible:outline-2 focus-visible:outline-accent"
 		>
-			<ManagedAssetImage
+			<AssetArtWell
 				asset={asset}
 				fit={props.fit}
 				monogram={credit.name}

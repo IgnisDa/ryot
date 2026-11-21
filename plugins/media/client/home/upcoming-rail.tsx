@@ -13,8 +13,6 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { upcomingRecipe } from "../../shared/upcoming-recipes";
 import { upcomingSettings } from "../../shared/upcoming-settings";
 import { formatLocalDateKey } from "../media/date";
-import { mediaImageAsset } from "../media/image";
-import { mediaBackdropAsset, mediaPosterAsset } from "../media/summary-state";
 import { type MediaText, useMediaMessages } from "../messages";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail, type HomeTile } from "./home-rail";
@@ -81,11 +79,7 @@ const upcomingTiles = (
 				item: entity,
 				key: occurrence.key,
 				aspect: show ? "still" : mediaAspectOf(entity.schemaSlug),
-				art: show
-					? (mediaImageAsset(occurrence.images, "still") ??
-						mediaBackdropAsset(entity) ??
-						mediaPosterAsset(entity))
-					: undefined,
+				art: show ? (occurrence.image ?? entity.backdrop ?? entity.image ?? undefined) : undefined,
 				lines: [
 					occurrence.episode === null ? undefined : episodePositionLabel(text, occurrence.episode),
 					moreLabel(text, airingDayCaption(text, formatters, day, today), more),

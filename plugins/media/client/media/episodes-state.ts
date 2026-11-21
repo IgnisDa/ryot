@@ -1,28 +1,26 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import type { Formatters } from "@ryot-app/plugin-client-sdk/react";
+import { collectManagedAssetLocators } from "@ryot-app/plugin-client-sdk/react";
 
 import type { EntitySyncFields } from "../../shared/entity-selections";
 import type { EpisodeLifecycleState } from "../../shared/lifecycle-expressions";
-import type { MediaImage } from "../../shared/media-image";
+import type { MediaImageAsset } from "../../shared/media-image";
 import { catalogMessage } from "../../shared/messages.generated";
 import type { MediaCopy, MediaText } from "../messages";
 import { optionalText } from "./activity-timeline";
 import { formatDateOnlyLabel } from "./date";
-import { collectManagedAssetLocators, type MediaImages, preferredMediaImageAsset } from "./image";
-
-export type MediaEpisodeImagePurpose = MediaImage["purpose"];
 
 export type MediaEpisodeStateLabels = Record<EpisodeLifecycleState, undefined | LocalMessage>;
 
 export type MediaEpisode = EntitySyncFields & {
 	readonly id: string;
 	readonly name: string;
-	readonly images: MediaImages;
 	readonly episodeNumber: number;
 	readonly runtime: null | number;
 	readonly publishDate: null | string;
 	readonly description: null | string;
 	readonly state: EpisodeLifecycleState;
+	readonly image: null | MediaImageAsset;
 };
 
 export const mediaDateLabel = (formatters: Formatters, value: null | string) => {
@@ -30,13 +28,8 @@ export const mediaDateLabel = (formatters: Formatters, value: null | string) => 
 	return date === undefined ? undefined : formatDateOnlyLabel(formatters, date);
 };
 
-export const mediaEpisodeAsset = (episode: MediaEpisode, purpose: MediaEpisodeImagePurpose) =>
-	preferredMediaImageAsset(episode.images, purpose);
-
-export const mediaEpisodesManagedAssets = (
-	episodes: readonly MediaEpisode[],
-	purpose: MediaEpisodeImagePurpose,
-) => collectManagedAssetLocators(episodes.map((episode) => mediaEpisodeAsset(episode, purpose)));
+export const mediaEpisodesManagedAssets = (episodes: readonly MediaEpisode[]) =>
+	collectManagedAssetLocators(episodes.map((episode) => episode.image ?? undefined));
 
 export const mediaEpisodeStateLabel = (
 	state: EpisodeLifecycleState,

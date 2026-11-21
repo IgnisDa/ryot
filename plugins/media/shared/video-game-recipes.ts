@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
+import { mediaPresentationImageSelection } from "./entity-presentations";
 import {
 	entitySyncSelection,
 	mediaLibrarySelection,
@@ -20,7 +21,6 @@ import {
 	type Table,
 } from "./entity-selections";
 import type { ScalarExpression } from "./lifecycle-expressions";
-import { MediaImageListSchema } from "./media-image";
 import { type MediaFlatOverviewInput, mediaFlatRecipes, relatedRows } from "./media-recipes";
 import {
 	PlatformReleaseListSchema,
@@ -39,7 +39,7 @@ const relationKindPriority = (kind: ScalarExpression) =>
 const relatedSelection = (entity: Table, edge: Table) => ({
 	id: selectedField(column(entity, "id"), EntityId),
 	name: selectedField(column(entity, "name"), Schema.String),
-	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
+	...mediaPresentationImageSelection(entity),
 	kind: selectedField(propertyText(edge, "kind"), Schema.NullOr(Schema.String)),
 	...entitySyncSelection(entity),
 	...mediaLibrarySelection(entity),

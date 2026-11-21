@@ -20,6 +20,7 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
+import { mediaPresentationImageSelection } from "./entity-presentations";
 import {
 	entityId,
 	entityIdentitySelection,
@@ -43,7 +44,6 @@ import {
 	type ScalarExpression,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
-import { MediaImageListSchema } from "./media-image";
 import {
 	creditCharacterSelection,
 	mediaEpisodeCreditsRecipe,
@@ -201,7 +201,7 @@ const showSeasonRows = (input: {
 		selection: {
 			...entityIdentitySelection(season),
 			seasonNumber: selectedField(seasonNumber, Schema.Finite),
-			images: selectedField(propertyJson(season, "images"), MediaImageListSchema),
+			...mediaPresentationImageSelection(season),
 			releaseDate: selectedField(propertyText(season, "releaseDate"), Schema.NullOr(Schema.String)),
 			description: selectedField(propertyText(season, "description"), Schema.NullOr(Schema.String)),
 			...episodicCoverageSelection({
@@ -321,7 +321,7 @@ export const showOrderEpisodesRecipe = (structural: {
 					ascending(column(episode, "id")),
 				],
 				selection: {
-					...episodicEpisodeSelection(episode, show, "orderEpisodeState"),
+					...episodicEpisodeSelection(episode, show, "orderEpisodeState", "show"),
 					...showSeasonNumber(episode),
 					externalId: selectedField(column(episode, "externalId"), Schema.String),
 				},

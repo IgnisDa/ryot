@@ -5,12 +5,9 @@ import { testFormatters } from "@ryot-app/kernel-messages/testing";
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
 import { testMediaCopy, testMediaText } from "../../tests/client/test-text";
 import {
-	mediaBackdropAsset,
 	mediaCollectionsLabel,
 	mediaEpisodicAiredLabel,
-	mediaGalleryAssets,
-	mediaManagedAssets,
-	mediaPosterAsset,
+	mediaGalleryPreview,
 	mediaRatingFact,
 	mediaRatingLabel,
 	mediaReleaseLabel,
@@ -59,132 +56,36 @@ describe("media summary state", () => {
 		).toBeUndefined();
 	});
 
-	it("prefers the cover image over provider order for the poster", () => {
-		const media = decodeShowSummary();
-
-		expect(mediaPosterAsset(media)).toEqual({
-			type: "remote",
-			url: "https://images.test/cover.jpg",
-		});
-		expect(mediaBackdropAsset(media)).toEqual({
-			type: "remote",
-			url: "https://images.test/backdrop.jpg",
-		});
-	});
-
-	it("keeps provider order among images sharing a purpose", () => {
-		const media = decodeShowSummary({
-			images: [
-				{ type: "remote", purpose: "cover", url: "https://images.test/cover-a.jpg" },
-				{ type: "remote", purpose: "cover", url: "https://images.test/cover-b.jpg" },
-			],
-		});
-
-		expect(mediaPosterAsset(media)).toEqual({
-			type: "remote",
-			url: "https://images.test/cover-a.jpg",
-		});
-		expect(mediaBackdropAsset(media)).toBeUndefined();
-	});
-
-	it("falls back to provider order when no image records a cover purpose", () => {
-		const media = decodeShowSummary({
-			images: [
-				{ type: "remote", purpose: "still", url: "https://images.test/still.jpg" },
-				{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
-			],
-		});
-
-		expect(mediaPosterAsset(media)).toEqual({
-			type: "remote",
-			url: "https://images.test/still.jpg",
-		});
-		expect(mediaBackdropAsset(media)).toEqual({
-			type: "remote",
-			url: "https://images.test/backdrop.jpg",
-		});
-	});
-
-	it("registers each managed locator once across image purposes and excludes remote images", () => {
-		const media = decodeShowSummary({
-			images: [
-				{ type: "s3", key: "cover-key", purpose: "cover" },
-				{ type: "s3", key: "artwork-key", purpose: "artwork" },
-				{ type: "s3", key: "cover-key", purpose: "backdrop" },
-				{ type: "local", key: "cover-key", purpose: "profile" },
-				{ type: "local", purpose: "logo", key: "cover-key" },
-				{ type: "remote", purpose: "screenshot", url: "https://images.test/game.jpg" },
-			],
-		});
-
-		expect(mediaManagedAssets(media)).toEqual([
-			{ type: "local", key: "cover-key" },
-			{ type: "s3", key: "artwork-key" },
-			{ type: "s3", key: "cover-key" },
+	it("uses the bounded preview and deduplicates a repeated backdrop", () => {
+		expect(mediaGalleryPreview(decodeShowSummary()).map((image) => image.purpose)).toEqual([
+			"backdrop",
+			"cover",
 		]);
 	});
 
-	it("collects all managed image locators", () => {
+	it("holds canonical poster thumbnails while localized artwork is pending", () => {
 		const media = decodeShowSummary({
-			images: [
-				{ type: "s3", key: "cover-key", purpose: "cover" },
-				{ type: "s3", key: "backdrop-key", purpose: "backdrop" },
-				{ type: "s3", key: "still-key", purpose: "still" },
-			],
+			translationStatus: { state: "idle", availability: "missing" },
 		});
-
-		expect(mediaManagedAssets(media)).toEqual([
-			{ type: "s3", key: "backdrop-key" },
-			{ type: "s3", key: "cover-key" },
-			{ type: "s3", key: "still-key" },
-		]);
-	});
-
-	it("keeps gallery assets in provider order and bounds the preview", () => {
-		const media = decodeShowSummary({
-			images: Array.from({ length: 12 }, (_, index) => ({
-				type: "remote",
-				purpose: "still",
-				url: `https://images.test/still-${index}.jpg`,
-			})),
-		});
-
-		expect(mediaGalleryAssets(media)).toHaveLength(10);
-		expect(mediaGalleryAssets(media).at(0)).toEqual({
+		expect(mediaGalleryPreview(media).map((image) => image.purpose)).toEqual(["backdrop"]);
+		expect(
+			mediaGalleryPreview({
+				...media,
+				translationStatus: { state: "failed", availability: "missing" },
+			}),
+		).toHaveLength(2);
+		const localized = {
 			type: "remote",
-			url: "https://images.test/still-0.jpg",
-		});
-		expect(mediaGalleryAssets(decodeShowSummary({ images: null }))).toEqual([]);
-	});
-
-	it("resolves and deduplicates every managed image beyond the gallery preview", () => {
-		const media = decodeShowSummary({
-			images: [
-				...Array.from({ length: 12 }, (_, index) => ({
-					type: "s3",
-					purpose: "still",
-					key: `still-${String(index).padStart(2, "0")}`,
-				})),
-				{ type: "s3", key: "still-11", purpose: "artwork" },
-				{ type: "s3", key: "still-00", purpose: "cover" },
-			],
-		});
-
-		expect(mediaGalleryAssets(media)).toHaveLength(10);
-		expect(mediaManagedAssets(media)).toEqual(
-			Array.from({ length: 12 }, (_, index) => ({
-				type: "s3",
-				key: `still-${String(index).padStart(2, "0")}`,
-			})),
-		);
-	});
-
-	it("falls back to no poster when images are missing or empty", () => {
-		expect(mediaPosterAsset(decodeShowSummary({ images: null }))).toBeUndefined();
-		expect(mediaPosterAsset(decodeShowSummary({ images: [] }))).toBeUndefined();
-		expect(mediaBackdropAsset(decodeShowSummary({ images: null }))).toBeUndefined();
-		expect(mediaManagedAssets(decodeShowSummary({ images: null }))).toEqual([]);
-		expect(mediaManagedAssets(decodeShowSummary({ images: [] }))).toEqual([]);
+			purpose: "cover",
+			url: "https://images.test/localized.jpg",
+		} as const;
+		expect(
+			mediaGalleryPreview({
+				...media,
+				image: localized,
+				translationStatus: { state: "succeeded", availability: "complete" },
+			}),
+		).toMatchObject([{ purpose: "backdrop" }, localized]);
 	});
 
 	it("prefers the publish year and falls back to the publish date", () => {

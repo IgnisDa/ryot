@@ -9,16 +9,18 @@ import { getUserAllowNsfw } from "../../../lib/host";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue } from "../../../lib/records";
+import { mediaTranslationResult } from "../../../lib/translation-result";
 import {
-	getImageUrl,
-	getLocalizedImageUrl,
+	getLocalizedTmdbArtwork,
 	getTmdbAccessToken,
 	orderedTranslationCandidates,
 	parseTranslationLanguage,
 	runTmdbTrending,
 	tmdbGet,
+	tmdbLocalizedImages,
 	type TmdbTrendingHost,
 } from "../../../lib/vendors/tmdb";
+import { getImageUrl } from "../../../lib/vendors/tmdb-artwork";
 import { getTmdbMovieDetails } from "./details";
 
 const canonicalLanguage = "en";
@@ -124,32 +126,14 @@ export const translate = defineProvider({
 			const token = yield* getTmdbAccessToken(host);
 			const [translationsData, imagesData] = yield* Effect.all([
 				tmdbGet(host, `/movie/${input.externalId}/translations`, {}, token),
-				tmdbGet(
-					host,
-					`/movie/${input.externalId}/images`,
-					{ include_image_language: langCode },
-					token,
-				),
+				tmdbLocalizedImages(host, `/movie/${input.externalId}/images`, langCode, token),
 			]);
 			const [candidate] = orderedTranslationCandidates(translationsData, langCode, region, script);
 			const translation = asRecord(candidate?.["data"]);
 			const name = stringValue(translation?.["title"]);
 			const description = normalizePlainDescription(translation?.["overview"]);
-			const imageUrl = getLocalizedImageUrl(imagesData, "posters", langCode);
-			const properties: Record<
-				string,
-				string | Array<{ url: string; type: "remote"; purpose: "cover" }>
-			> = {};
-			if (description) {
-				properties["description"] = description;
-			}
-			if (imageUrl) {
-				properties["images"] = [{ url: imageUrl, type: "remote", purpose: "cover" }];
-			}
-			return {
-				...(name ? { name } : {}),
-				...(Object.keys(properties).length > 0 ? { properties } : {}),
-			};
+			const image = getLocalizedTmdbArtwork(imagesData, "posters", langCode, "cover");
+			return mediaTranslationResult(name, description, image);
 		}),
 });
 

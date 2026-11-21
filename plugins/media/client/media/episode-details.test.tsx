@@ -302,7 +302,7 @@ describe("episode details", () => {
 				const [nextUp] = decodeEpisodicEpisodePage({
 					episodes: [
 						episodicEpisode({
-							images: [],
+							image: null,
 							runtime: null,
 							description: null,
 							publishDate: null,

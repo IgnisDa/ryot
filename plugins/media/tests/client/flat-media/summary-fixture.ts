@@ -3,7 +3,7 @@ import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { servedProviderName } from "../served-names";
-import { decodeMediaSummaryResult } from "../summary-fixture";
+import { artworkSummaryFixture, decodeMediaSummaryResult } from "../summary-fixture";
 import { flatFixtureRecipes } from "./recipes";
 
 export const FLAT_SUMMARY_INPUT = { entityId: "media-1", reference: { kind: "self" } } as const;
@@ -42,10 +42,10 @@ export const flatSummaryRow = {
 			{ name: "Thriller", id: "genre-thriller" },
 		],
 	},
-	images: [
+	...artworkSummaryFixture([
 		{ type: "remote", purpose: "backdrop", url: "https://images.test/fc-backdrop.jpg" },
 		{ type: "remote", purpose: "cover", url: "https://images.test/fc-cover.jpg" },
-	],
+	]),
 };
 
 export const decodeFlatSummary = <Summary>(

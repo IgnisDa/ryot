@@ -35,22 +35,21 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
+import { mediaPresentationImageSelection } from "./entity-presentations";
 import {
 	entityIdentitySelection,
 	libraryLinkExists,
 	mediaLibrarySelection,
 	propertyBoolean,
-	propertyJson,
 	propertyNumber,
 	type Table,
 } from "./entity-selections";
-import { MediaImageListSchema } from "./media-image";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
 import { catalogMessage } from "./messages.generated";
 
 const discoveredMediaSelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
-	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
+	...mediaPresentationImageSelection(entity),
 });
 
 /** Unpopulated stubs carry no `isNsfw`, so null passes. */

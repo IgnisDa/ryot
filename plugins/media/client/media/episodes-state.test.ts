@@ -59,12 +59,10 @@ describe("media episode state", () => {
 
 	it("collects only the managed locators the episode artwork needs", () => {
 		const episodes = readyEpisodes([
-			episodicEpisode({ images: [{ type: "local", purpose: "cover", key: "episode-cover" }] }),
-			episodicEpisode({ images: null, id: "episode-2" }),
+			episodicEpisode({ image: { type: "local", key: "episode-cover" } }),
+			episodicEpisode({ image: null, id: "episode-2" }),
 		]);
 
-		expect(mediaEpisodesManagedAssets(episodes, "cover")).toEqual([
-			{ type: "local", key: "episode-cover" },
-		]);
+		expect(mediaEpisodesManagedAssets(episodes)).toEqual([{ type: "local", key: "episode-cover" }]);
 	});
 });

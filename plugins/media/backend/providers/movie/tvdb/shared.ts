@@ -189,17 +189,7 @@ export const translate = defineProvider({
 						providerLanguage,
 						"cover",
 					);
-					const result = buildTranslationResult(translationData, image);
-					const description = normalizePlainDescription(result.properties?.["description"]);
-					if (!description) {
-						return result;
-					}
-					if (image === null) {
-						const properties = { description };
-						return result.name === undefined ? { properties } : { properties, name: result.name };
-					}
-					const properties = { description, images: [image] };
-					return result.name === undefined ? { properties } : { properties, name: result.name };
+					return buildTranslationResult(translationData, image);
 				}),
 			);
 		}),

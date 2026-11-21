@@ -1,4 +1,5 @@
 import type { Formatters, RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { collectManagedAssetLocators } from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { catalogMessage } from "../../shared/messages.generated";
@@ -11,7 +12,6 @@ import type {
 import { seasonLabel } from "../media/activity-log/state";
 import { optionalText } from "../media/activity-timeline";
 import { mediaDateLabel } from "../media/episodes-state";
-import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media/image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "../media/query-state";
 import { mediaEpisodicAiredLabel } from "../media/summary-state";
 import type { MediaText } from "../messages";
@@ -133,8 +133,7 @@ export const showEpisodeOriginLabel = (episode: {
 				episode: episode.episodeNumber,
 			});
 
-export const showSeasonAsset = (season: ShowSeason) =>
-	preferredMediaImageAsset(season.images, "cover");
+export const showSeasonAsset = (season: ShowSeason) => season.image ?? undefined;
 
 export const showSeasonsManagedAssets = (seasons: ShowSeasonList) =>
 	collectManagedAssetLocators(seasons.map(showSeasonAsset));

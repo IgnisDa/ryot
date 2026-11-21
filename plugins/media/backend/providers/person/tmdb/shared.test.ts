@@ -56,12 +56,12 @@ describe("person.tmdb sandbox script", () => {
 							{
 								type: "remote",
 								purpose: "profile",
-								url: "https://image.tmdb.org/t/p/original/main.jpg",
+								url: "https://image.tmdb.org/t/p/h632/main.jpg",
 							},
 							{
 								type: "remote",
 								purpose: "profile",
-								url: "https://image.tmdb.org/t/p/original/alt.jpg",
+								url: "https://image.tmdb.org/t/p/h632/alt.jpg",
 							},
 						],
 					},
@@ -137,14 +137,12 @@ describe("person.tmdb sandbox script", () => {
 				execution,
 			).pipe(
 				Effect.map((result) => {
-					expect(result.properties).toEqual({
-						images: [
-							{
-								type: "remote",
-								purpose: "profile",
-								url: "https://image.tmdb.org/t/p/original/localized.jpg",
-							},
-						],
+					expect(result.properties).toMatchObject({
+						localizedArtwork: {
+							type: "remote",
+							purpose: "profile",
+							url: "https://image.tmdb.org/t/p/h632/localized.jpg",
+						},
 					});
 					return undefined;
 				}),

@@ -34,9 +34,9 @@ export const flatPersonRow = {
 	isInMediaLibrary: false,
 	character: "The Narrator",
 	translationStatus: { state: "idle", availability: "none" },
+	image: { type: "remote", url: "https://images.test/edward.jpg" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "profile", url: "https://images.test/edward.jpg" }],
 };
 
 export const flatCompanyRow = {
@@ -47,9 +47,9 @@ export const flatCompanyRow = {
 	name: "Fox 2000 Pictures",
 	roleCodes: ["production_company"],
 	translationStatus: { state: "idle", availability: "none" },
+	image: { type: "remote", url: "https://images.test/fox.png" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "logo", url: "https://images.test/fox.png" }],
 };
 
 export const flatRecommendationRow = {
@@ -57,17 +57,17 @@ export const flatRecommendationRow = {
 	name: "Se7en",
 	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
+	image: { type: "remote", url: "https://images.test/se7en.jpg" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "cover", url: "https://images.test/se7en.jpg" }],
 };
 
 export const flatGroupMemberRow = {
 	id: "media-3",
 	name: "Fight Club 2",
 	isInMediaLibrary: false,
+	image: { type: "s3", key: "fc2-cover" },
 	translationStatus: { state: "idle", availability: "none" },
-	images: [{ type: "s3", purpose: "cover", key: "fc2-cover" }],
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };

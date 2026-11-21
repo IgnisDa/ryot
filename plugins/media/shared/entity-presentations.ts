@@ -8,6 +8,7 @@ import {
 	conditional,
 	eq,
 	isNotNull,
+	jsonArrayCount,
 	jsonArrayFirst,
 	jsonElement,
 	jsonPath,
@@ -25,24 +26,68 @@ import {
 	propertyText,
 	type Table,
 } from "./entity-selections";
-import { MediaImageAssetSchema } from "./media-image";
+import { type MediaImage, MediaImageAssetSchema, MediaImageSchema } from "./media-image";
 import { averageUserRating } from "./user-rating";
 
-export const preferredMediaImageExpression = (entity: Table, purpose = "cover") => {
-	const images = propertyJson(entity, "images");
-	const element = jsonElement();
-	return coalesce(
-		jsonArrayFirst(images, {
-			select: element,
-			orderBy: [ascending(literal(0))],
-			where: eq(castText(jsonPath(element, "purpose")), literal(purpose)),
-		}),
-		jsonPath(images, 0),
-	);
+export const mediaArtworkPurpose = (slug: string): MediaImage["purpose"] => {
+	if (slug === "person") {
+		return "profile";
+	}
+	return slug === "company" ? "logo" : "cover";
 };
 
-export const mediaPresentationImageSelection = (entity: Table) => ({
-	image: selectedField(preferredMediaImageExpression(entity), Schema.NullOr(MediaImageAssetSchema)),
+export const mediaImageOfPurpose = (entity: Table, purpose: MediaImage["purpose"]) => {
+	const element = jsonElement();
+	return jsonArrayFirst(propertyJson(entity, "images"), {
+		select: element,
+		orderBy: [ascending(literal(0))],
+		where: eq(castText(jsonPath(element, "purpose")), literal(purpose)),
+	});
+};
+
+export const mediaLocalizedImageOfPurpose = (entity: Table, purpose: MediaImage["purpose"]) =>
+	coalesce(
+		conditional(
+			eq(propertyText(entity, "localizedArtwork", "purpose"), literal(purpose)),
+			propertyJson(entity, "localizedArtwork"),
+			literal(null),
+		),
+		mediaImageOfPurpose(entity, purpose),
+	);
+
+export const preferredMediaImageExpression = (
+	entity: Table,
+	purpose: MediaImage["purpose"] = "cover",
+) => coalesce(mediaLocalizedImageOfPurpose(entity, purpose), propertyJson(entity, "images", 0));
+
+export const mediaPresentationImageSelection = (
+	entity: Table,
+	purpose?: MediaImage["purpose"],
+) => ({
+	image: selectedField(
+		preferredMediaImageExpression(entity, purpose),
+		Schema.NullOr(MediaImageAssetSchema),
+	),
+});
+
+export const mediaDetailArtworkSelection = (entity: Table, purpose: MediaImage["purpose"]) => ({
+	imageCount: selectedField(jsonArrayCount(propertyJson(entity, "images")), Schema.Finite),
+	firstPreviewImage: selectedField(
+		propertyJson(entity, "images", 0),
+		Schema.NullOr(MediaImageSchema),
+	),
+	image: selectedField(
+		preferredMediaImageExpression(entity, purpose),
+		Schema.NullOr(MediaImageSchema),
+	),
+	secondPreviewImage: selectedField(
+		propertyJson(entity, "images", 1),
+		Schema.NullOr(MediaImageSchema),
+	),
+	backdropPreviewImage: selectedField(
+		mediaImageOfPurpose(entity, "backdrop"),
+		Schema.NullOr(MediaImageSchema),
+	),
 });
 
 const withUnit = (media: Table, property: string, unit: string) => {
@@ -87,7 +132,7 @@ const secondaryExpression = (media: Table, slug: string) => {
 
 const mediaEntitySelection = (media: Table, slug: string) => ({
 	...entityIdentitySelection(media),
-	...mediaPresentationImageSelection(media),
+	...mediaPresentationImageSelection(media, mediaArtworkPurpose(slug)),
 	primary: selectedField(primaryExpression(media, slug), Schema.NullOr(Schema.String)),
 	secondary: selectedField(secondaryExpression(media, slug), Schema.NullOr(Schema.String)),
 });

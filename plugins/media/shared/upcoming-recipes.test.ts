@@ -9,7 +9,8 @@ import { upcomingRecipe } from "./upcoming-recipes";
 const identity = (id: string, schemaSlug: string) => ({
 	id,
 	schemaSlug,
-	images: null,
+	image: null,
+	backdrop: null,
 	name: `Media ${id}`,
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
@@ -28,7 +29,7 @@ const episodeRow = (
 	episodeNumber,
 	seasonNumber: 2,
 	occurrenceId: id,
-	occurrenceImages: null,
+	occurrenceImage: null,
 });
 
 const page = (items: readonly unknown[]) =>
@@ -81,7 +82,7 @@ describe("upcoming recipe", () => {
 				entity: identity("show-1", "show"),
 				occurrences: [
 					{
-						images: null,
+						image: null,
 						dateOnly: true,
 						key: "episode-3",
 						airsAt: "2026-09-04",
@@ -94,7 +95,7 @@ describe("upcoming recipe", () => {
 				entity: identity("show-2", "show"),
 				occurrences: [
 					{
-						images: null,
+						image: null,
 						dateOnly: true,
 						key: "episode-9",
 						airsAt: "2026-09-04",
@@ -107,7 +108,7 @@ describe("upcoming recipe", () => {
 				entity: identity("anime-1", "anime"),
 				occurrences: [
 					{
-						images: null,
+						image: null,
 						dateOnly: false,
 						airsAt: "2026-09-03T15:00:00.000Z",
 						key: "anime-1:4:2026-09-03T15:00:00.000Z",
@@ -119,7 +120,7 @@ describe("upcoming recipe", () => {
 				total: 1,
 				entity: identity("movie-1", "movie"),
 				occurrences: [
-					{ images: null, episode: null, dateOnly: true, key: "movie-1", airsAt: "2026-09-10" },
+					{ image: null, episode: null, dateOnly: true, key: "movie-1", airsAt: "2026-09-10" },
 				],
 			},
 		]);

@@ -1,23 +1,21 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { type Text, useDisplayText } from "@ryot-app/plugin-client-sdk/react";
+import { AssetArtWell, type Text, useDisplayText } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Shelf } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
+import type { MediaImageAsset } from "../../shared/media-image";
 import { useMediaCopy, useMediaMessages } from "../messages";
 import {
 	type MediaArtworkAspect,
 	mediaArtworkClass,
-	type MediaPresentationSubject,
 	mediaRailWidthClass,
+	type MediaSavedViewPresentationSubject,
 } from "./entity-presentation";
-import type { MediaImageAsset } from "./image";
 import { MediaLibraryTitle } from "./library-title";
-import { ManagedAssetImage } from "./managed-assets";
 import { MediaOverviewSection, mediaShelfIcons } from "./primitives";
-import { mediaPosterAsset } from "./summary-state";
 import { type MediaSyncCounts, mediaSyncCounts } from "./sync-counts";
 
 export type MediaRailStatus =
@@ -87,7 +85,7 @@ export function MediaSectionFrame(
 }
 
 export function MediaEntityRailSection<
-	Item extends MediaPresentationSubject & { readonly isInMediaLibrary: boolean },
+	Item extends MediaSavedViewPresentationSubject & { readonly isInMediaLibrary: boolean },
 >(props: {
 	readonly compact: boolean;
 	readonly action?: ReactNode;
@@ -106,7 +104,7 @@ export function MediaEntityRailSection<
 			action={props.action}
 			compact={props.compact}
 			status={{ kind: "ready" }}
-			sync={mediaSyncCounts(props.items, (item) => mediaPosterAsset(item))}
+			sync={mediaSyncCounts(props.items, (item) => item.image ?? undefined)}
 			title={typeof props.title === "string" ? displayText(props.title) : local(props.title)}
 		>
 			{props.items.map((item) => (
@@ -127,14 +125,14 @@ export function MediaEntityTile(props: {
 	readonly compact: boolean;
 	readonly overlay?: ReactNode;
 	readonly aspect: MediaArtworkAspect;
-	readonly item: MediaPresentationSubject;
 	readonly art?: undefined | MediaImageAsset;
 	readonly isInMediaLibrary?: boolean | undefined;
+	readonly item: MediaSavedViewPresentationSubject;
 	readonly lines?: undefined | readonly (string | undefined)[];
 }) {
 	const { item } = props;
 	const text = useMediaMessages();
-	const art = props.art ?? mediaPosterAsset(item);
+	const art = props.art ?? item.image ?? undefined;
 	return (
 		<PluginLink
 			to={{ kind: "entity", entityId: item.id }}
@@ -146,7 +144,7 @@ export function MediaEntityTile(props: {
 			)}
 		>
 			<div className="relative">
-				<ManagedAssetImage
+				<AssetArtWell
 					asset={art}
 					monogram={item.name}
 					state={fieldSyncState(art, item)}

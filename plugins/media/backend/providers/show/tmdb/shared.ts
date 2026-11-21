@@ -8,12 +8,12 @@ import { getUserAllowNsfw } from "../../../lib/host";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
-	getImageUrl,
 	getTmdbAccessToken,
 	runTmdbTrending,
 	tmdbGet,
 	type TmdbTrendingHost,
 } from "../../../lib/vendors/tmdb";
+import { getImageUrl } from "../../../lib/vendors/tmdb-artwork";
 import { getTmdbShowDetails } from "./details";
 import { getTmdbEpisodeCredits } from "./episode-credits";
 import { translateTmdbShow } from "./translation";

@@ -106,16 +106,6 @@ export const translate = defineProvider({
 			return yield* tvdbGetOptional(
 				host,
 				`/lists/${input.externalId}/translations/${providerLanguage}`,
-			).pipe(
-				Effect.map((translationData) => {
-					const result = buildTranslationResult(translationData, null);
-					const description = normalizePlainDescription(result.properties?.["description"]);
-					if (!description) {
-						return result;
-					}
-					const properties = { description };
-					return result.name === undefined ? { properties } : { properties, name: result.name };
-				}),
-			);
+			).pipe(Effect.map((translationData) => buildTranslationResult(translationData, null)));
 		}),
 });

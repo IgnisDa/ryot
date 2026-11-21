@@ -22,6 +22,7 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
+import { mediaArtworkPurpose } from "./entity-presentations";
 import { entityId, propertyJson, propertyNumber, type Table } from "./entity-selections";
 import {
 	type creditCharacterSelection,
@@ -162,7 +163,7 @@ export const mediaCreatorRecipes = <
 				slug: config.slug,
 				include: () => ({}),
 				selection: (entity, provider) => ({
-					...mediaEntitySummarySelection(entity, provider),
+					...mediaEntitySummarySelection(entity, provider, mediaArtworkPurpose(config.slug)),
 					alternateNames: selectedField(
 						propertyJson(entity, "alternateNames"),
 						Schema.NullOr(Schema.Array(Schema.String)),

@@ -4,8 +4,8 @@ import { creatorFixtureRecipes } from "./recipes";
 
 export const creatorFixtureSchema = defineCreatorMediaSchema({
 	kind: "person",
+	artwork: { aspect: "poster" },
 	recipes: creatorFixtureRecipes,
-	artwork: { aspect: "poster", purpose: "profile" },
 	links: () => [{ label: "Website", href: "https://creator.test" }],
 	facts: () => [{ value: "7", icon: "hash", label: "Fixture fact" }],
 	creditSections: [

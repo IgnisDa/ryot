@@ -18,8 +18,8 @@ const PODCAST_EPISODE_ROW = {
 	description: "A long conversation.",
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
+	image: { type: "remote", url: "https://images.test/episode-9.jpg" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
-	images: [{ type: "remote", purpose: "cover", url: "https://images.test/episode-9.jpg" }],
 };
 
 describe("media podcast query recipes", () => {
@@ -56,7 +56,7 @@ describe("media podcast query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
-			"images",
+			"image",
 			"episodeNumber",
 			"runtime",
 			"publishDate",

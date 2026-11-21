@@ -4,7 +4,6 @@ import { type MediaImage, mediaImagePurposes } from "../../shared/media-image";
 import {
 	galleryFilterImages,
 	galleryFilters,
-	galleryImages,
 	galleryStep,
 	galleryTileAspect,
 	galleryTileColumns,
@@ -25,17 +24,8 @@ const mixed = [
 ];
 
 describe("image gallery state", () => {
-	it("keeps the purpose that the asset mapper drops", () => {
-		expect(galleryImages(mixed).map((image) => image.purpose)).toEqual([
-			"backdrop",
-			"cover",
-			"backdrop",
-			"artwork",
-		]);
-	});
-
 	it("builds filters in schema order with all first", () => {
-		expect(galleryFilters(galleryImages(mixed))).toEqual([
+		expect(galleryFilters(mixed)).toEqual([
 			{ count: 4, filter: "all" },
 			{ count: 1, filter: "cover" },
 			{ count: 2, filter: "backdrop" },
@@ -44,17 +34,17 @@ describe("image gallery state", () => {
 	});
 
 	it("hides the filter row when the images span fewer than two groups", () => {
-		const single = galleryImages([
+		const single = [
 			remote("https://images.test/one.jpg", "backdrop"),
 			remote("https://images.test/two.jpg", "backdrop"),
-		]);
+		];
 
 		expect(galleryFilters(single)).toEqual([]);
 		expect(galleryFilters([])).toEqual([]);
 	});
 
 	it("narrows to one purpose", () => {
-		const images = galleryImages(mixed);
+		const images = mixed;
 
 		expect(galleryFilterImages(images, "all")).toHaveLength(4);
 		expect(galleryFilterImages(images, "backdrop")).toHaveLength(2);
@@ -64,8 +54,8 @@ describe("image gallery state", () => {
 	});
 
 	it("filters all seven canonical purposes", () => {
-		const images = galleryImages(
-			mediaImagePurposes.map((purpose) => remote(`https://images.test/${purpose}.jpg`, purpose)),
+		const images = mediaImagePurposes.map((purpose) =>
+			remote(`https://images.test/${purpose}.jpg`, purpose),
 		);
 
 		expect(galleryFilters(images)).toEqual([

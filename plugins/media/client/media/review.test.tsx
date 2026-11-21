@@ -50,8 +50,8 @@ it.live(
 				<MediaSummaryHeader
 					compact
 					settled={undefined}
-					artwork={{ purpose: "cover", aspect: "poster" }}
-					media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })}
+					artwork={{ aspect: "poster" }}
+					media={decodeFlatSummary(fixtureSummaryRecipe)}
 					detail={{
 						chips: [],
 						facts: [],

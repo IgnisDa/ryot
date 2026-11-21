@@ -7,32 +7,20 @@ import { withMemberCoverFallback } from "./group-recipes";
 
 const cover = { type: "s3", purpose: "cover", key: "member-cover" } as const;
 
-const backdrop = { type: "s3", purpose: "backdrop", key: "member-backdrop" } as const;
-
 const own = { type: "s3", purpose: "cover", key: "group-cover" } as const;
 
 const fieldKeys = (fields: readonly object[]) =>
 	fields.map((field) => ("key" in field ? field.key : null));
 
 describe("media group recipes", () => {
-	it("keeps the group's own images and drops the member artwork", () => {
-		expect(
-			withMemberCoverFallback({ id: "group-1", images: [own], memberImages: [cover, backdrop] }),
-		).toEqual({ id: "group-1", images: [own] });
-	});
-
-	it("falls back to only the first member's covers when the group has no images", () => {
-		expect(
-			withMemberCoverFallback({ images: [], memberImages: [backdrop, cover] }),
-		).toEqual<unknown>({ images: [cover] });
-		expect(withMemberCoverFallback({ images: null, memberImages: [cover] })).toEqual<unknown>({
-			images: [cover],
+	it("keeps the group's image or falls back to the first member's cover", () => {
+		expect(withMemberCoverFallback({ image: own, id: "group-1", memberImage: cover })).toEqual({
+			image: own,
+			id: "group-1",
 		});
-		expect(withMemberCoverFallback({ images: null, memberImages: null })).toEqual<unknown>({
-			images: [],
-		});
+		expect(withMemberCoverFallback({ image: null, memberImage: cover }).image).toEqual(cover);
+		expect(withMemberCoverFallback({ image: null, memberImage: null }).image).toBeNull();
 	});
-
 	it("pages members from the cursor in relationship order, then name, then id", () => {
 		const recipe = bindRecipe(groupFixtureRecipes.membersRecipe({ reference: { kind: "self" } }), {
 			limit: 20,

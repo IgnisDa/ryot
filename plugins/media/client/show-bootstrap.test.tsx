@@ -21,8 +21,10 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
+import type { MediaImage } from "../shared/media-image";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { servedProviderName } from "../tests/client/served-names";
+import { artworkSummaryFixture } from "../tests/client/summary-fixture";
 import { mediaMessages } from "../tests/client/test-support";
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import ShowDetailPage from "./show/screen";
@@ -101,19 +103,19 @@ const readyResponse = {
 						{ name: "Mystery", id: "genre-mystery" },
 					],
 				},
-				images: [
+				...artworkSummaryFixture([
 					{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 					{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
-				],
+				]),
 			},
 		]),
 	},
 };
 
-const responseWithImages = (images: readonly Record<string, unknown>[]) => ({
+const responseWithImages = (images: readonly MediaImage[]) => ({
 	data: {
 		requested: rows([{ schemaSlug: "show" }]),
-		summary: rows([{ ...readyResponse.data.summary.items[0], images }]),
+		summary: rows([{ ...readyResponse.data.summary.items[0], ...artworkSummaryFixture(images) }]),
 	},
 });
 
@@ -631,7 +633,7 @@ describe("ShowScreen", () => {
 								{
 									owned: false,
 									id: "show-1",
-									images: null,
+									...artworkSummaryFixture([]),
 									ownedEpisodes: 0,
 
 									isCustom: false,

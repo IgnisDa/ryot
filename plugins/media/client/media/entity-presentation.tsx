@@ -7,27 +7,24 @@ import {
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import {
+	AssetArtWell,
+	collectManagedAssetLocators,
+	ManagedAssetProvider,
+} from "@ryot-app/plugin-client-sdk/react";
 import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import { mediaEntityPresentationSource } from "../../shared/entity-presentations";
-import { collectManagedAssetLocators, type MediaImageAsset, type MediaImages } from "./image";
+import type { MediaImageAsset } from "../../shared/media-image";
 import { MediaLibraryTitle } from "./library-title";
-import { ManagedAssetImage } from "./managed-assets";
 
 export type MediaArtworkAspect = "still" | "poster" | "square";
 
 export type MediaPresentationViewData<Data> = Data & {
 	readonly batchAssets: readonly ManagedAssetLocator[];
-};
-
-export type MediaPresentationSubject = EntitySyncState & {
-	readonly id: string;
-	readonly name: string;
-	readonly images: MediaImages;
 };
 
 export type MediaSavedViewPresentationSubject = EntitySyncState & {
@@ -121,7 +118,7 @@ export function MediaEntityArtwork(props: {
 }) {
 	const poster = props.data.image ?? undefined;
 	const image = (
-		<ManagedAssetImage
+		<AssetArtWell
 			asset={poster}
 			monogram={props.data.name}
 			state={fieldSyncState(poster, props.data)}
