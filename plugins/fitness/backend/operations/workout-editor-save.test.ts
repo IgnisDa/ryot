@@ -117,6 +117,7 @@ const rejected = (code: string) => ({
 const harness = (
 	options: {
 		pro?: boolean;
+		current?: null;
 		assetForbidden?: boolean;
 		baseline?: WorkoutEditorBaseline;
 		identities?: readonly WorkoutEditorEvent[];
@@ -133,7 +134,7 @@ const harness = (
 			return [{ revision: 7 }];
 		}
 		if (key === "entity") {
-			return options.baseline ? [options.baseline.entity] : [];
+			return options.baseline && options.current !== null ? [options.baseline.entity] : [];
 		}
 		if (key === "exercises") {
 			return (
@@ -678,6 +679,31 @@ describe("workout editor save", () => {
 					new EntitlementRequiredError({ entitlement: "pro" }),
 				);
 				expect(denied.calls).toEqual([]);
+			}),
+		));
+	it("leaves a workout another user cannot see to the commit's entity check", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const { host } = harness({ baseline, current: null, exercises: [] });
+				expect(yield* run(yield* input(true), host)).toEqual({
+					output: {},
+					changes: {
+						entity: {
+							name: baseline.entity.name,
+							entitySchemaSlug: "workout",
+							properties: baseline.entity.properties,
+							target: {
+								kind: "update",
+								entityId: baseline.entity.id,
+								expected: {
+									name: baseline.entity.name,
+									updatedAt: baseline.entity.updatedAt,
+									properties: baseline.entity.properties,
+								},
+							},
+						},
+					},
+				});
 			}),
 		));
 	it("leaves a kept set that vanished to the commit's baseline checks", () =>

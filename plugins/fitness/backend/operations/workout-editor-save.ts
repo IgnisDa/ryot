@@ -554,6 +554,29 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 ) {
 	const { data, submittedAt } = input;
 	const baseline = yield* loadBaseline(data);
+	const entitySchemaSlug = data.kind === "workout" ? "workout" : "workout-template";
+	if (
+		baseline &&
+		!(yield* executeRyotqlRecipe(
+			host.executeRyotql,
+			workoutEditorEntityRecipe({ reference: { kind: "self" } }),
+			{ kind: entitySchemaSlug, entityId: baseline.entity.id },
+		))
+	) {
+		const { entity } = baseline;
+		const changes = {
+			entity: {
+				entitySchemaSlug,
+				name: entity.name,
+				properties: entity.properties,
+				target: entityUpdateTarget(entity),
+			},
+		} satisfies ChangeSet;
+		return { changes, output: {} } satisfies {
+			readonly changes: ChangeSet;
+			readonly output: WorkoutEditorSaveOutput;
+		};
+	}
 	const graphIssue = validateGraph(data, baseline);
 	if (graphIssue !== undefined) {
 		return yield* invalid(graphIssue);
@@ -780,7 +803,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 		entity: {
 			properties,
 			name: data.name,
-			entitySchemaSlug: data.kind === "workout" ? "workout" : "workout-template",
+			entitySchemaSlug,
 			target: baseline === undefined ? { kind: "create" } : entityUpdateTarget(baseline.entity),
 		},
 		events: {

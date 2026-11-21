@@ -139,15 +139,13 @@ export type HistoryChange =
 	| { readonly kind: "delete"; readonly eventId: string; readonly itemIdentity: string }
 	| {
 			readonly kind: "create";
+			readonly occurredAt: string;
 			readonly itemIdentity: string;
-			readonly item: {
-				readonly entityId: string;
-				readonly occurredAt: string;
-				readonly sessionEntityId?: string;
-				readonly eventSchemaSlug: "complete";
-				readonly properties: Readonly<Record<string, JsonValue>>;
-				readonly orderAfter: { readonly suffix: string; readonly eventId: string };
-			};
+			readonly entity: ExistingEntity;
+			readonly session?: ExistingEntity;
+			readonly eventSchemaSlug: "complete";
+			readonly properties: Readonly<Record<string, JsonValue>>;
+			readonly orderAfter: { readonly suffix: string; readonly eventId: string };
 	  }
 	| {
 			readonly kind: "update";
@@ -166,6 +164,8 @@ export type HistoryChange =
 				};
 			};
 	  };
+
+type ExistingEntity = { readonly kind: "existing"; readonly entityId: string };
 
 type HistorySubject = {
 	readonly id: string;
@@ -577,18 +577,16 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 		const orderAfter = { suffix: value.suffix, eventId: value.anchor.id };
 		if (actual === undefined) {
 			changes.push({
+				orderAfter,
 				kind: "create",
+				eventSchemaSlug: "complete",
+				occurredAt: value.output.occurredAt,
+				properties: value.output.properties,
 				itemIdentity: `complete:${value.occurrence.key}`,
-				item: {
-					orderAfter,
-					eventSchemaSlug: "complete",
-					entityId: value.output.entityId,
-					occurredAt: value.output.occurredAt,
-					properties: value.output.properties,
-					...(value.output.sessionEntityId === null
-						? {}
-						: { sessionEntityId: value.output.sessionEntityId }),
-				},
+				entity: { kind: "existing", entityId: value.output.entityId },
+				...(value.output.sessionEntityId === null
+					? {}
+					: { session: { kind: "existing", entityId: value.output.sessionEntityId } }),
 			});
 		} else if (!jsonValueEquals(written(actual), value.output)) {
 			changes.push({

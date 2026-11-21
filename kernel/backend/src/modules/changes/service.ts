@@ -392,26 +392,34 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					referenced.events.map(([, eventId]) => eventId),
 				);
 				const foreign =
-					referenced.entities.find(([, entityId]) => {
-						const found = entityOwners.get(entityId);
-						return (
-							found !== undefined &&
-							(found.entitySchemaPluginId !== pluginId ||
-								(found.entityUserId !== null && found.entityUserId !== userId))
-						);
-					}) ??
-					referenced.events.find(([, eventId]) => {
-						const found = eventOwners.get(eventId);
-						return (
-							found !== undefined &&
-							(found.eventSchemaPluginId !== pluginId || found.userId !== userId)
-						);
-					});
+					referenced.entities.find(
+						([, entityId]) =>
+							(entityOwners.get(entityId)?.entitySchemaPluginId ?? pluginId) !== pluginId,
+					) ??
+					referenced.events.find(
+						([, eventId]) =>
+							(eventOwners.get(eventId)?.eventSchemaPluginId ?? pluginId) !== pluginId,
+					);
 				if (foreign) {
 					const [part, id] = foreign;
-					return yield* new ChangeSetRejected({
-						part,
-						message: `${id} belongs to another plugin or user`,
+					return yield* new ChangeSetRejected({ part, message: `${id} belongs to another plugin` });
+				}
+				const otherUserEntity = referenced.entities.find(([, entityId]) => {
+					const owner = entityOwners.get(entityId)?.entityUserId ?? null;
+					return owner !== null && owner !== userId;
+				});
+				if (otherUserEntity) {
+					return yield* new EntityNotFound({
+						reason: { code: "entity-not-found", entityId: otherUserEntity[1] },
+					});
+				}
+				const otherUserEvent = referenced.events.find(([, eventId]) => {
+					const found = eventOwners.get(eventId);
+					return found !== undefined && found.userId !== userId;
+				});
+				if (otherUserEvent) {
+					return yield* new EventNotFound({
+						reason: { code: "event-not-found", eventId: otherUserEvent[1] },
 					});
 				}
 				const mismatched = referenced.entities.find(([, entityId, entitySchemaSlug]) => {

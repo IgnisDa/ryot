@@ -2413,7 +2413,7 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 
 layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 	test.effect(
-		"rejects references to another plugin's or user's entities and events as invalid changes",
+		"rejects references to another plugin's entities and events as invalid changes and treats another user's entities as missing",
 		() =>
 			Effect.gen(function* () {
 				const own = yield* fixture();
@@ -2609,6 +2609,8 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 				const outcomes: Record<string, unknown> = {};
 				const expected: Record<string, unknown> = {
 					"missing entity": { code: "conflict", conflict: "entity-not-found" },
+					"another user's entity": { code: "conflict", conflict: "entity-not-found" },
+					"another user's entity delete": { code: "conflict", conflict: "entity-not-found" },
 				};
 				const missing = EntityId.make(yield* randomUuid);
 				for (const [name, [part, id, attack]] of Object.entries({
@@ -2635,7 +2637,7 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 					outcomes[name] = error._tag === "ScriptChangesRejected" ? error.reason : error;
 					expected[name] ??= {
 						code: "invalid",
-						message: `${part}: ${id} belongs to another plugin or user`,
+						message: `${part}: ${id} belongs to another plugin`,
 					};
 				}
 				expect(outcomes).toEqual(expected);

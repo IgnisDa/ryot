@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { FoldOutput } from "@ryot-app/plugin-backend-sdk/folds";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -49,6 +50,12 @@ const fold = (
 			events,
 			previous,
 			...(renamedKeys ? { renamedKeys } : {}),
+		});
+		yield* Schema.decodeEffect(FoldOutput)({
+			events: [],
+			value: null,
+			relationships: [],
+			changes: first.changes,
 		});
 		const settled = applyHistoryChanges(events, first.changes, subject.entitySchemaSlug);
 		const second = yield* deriveHistory({ ...input, events: settled, previous: first.value });

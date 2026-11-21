@@ -35,14 +35,14 @@ export const applyHistoryChanges = (
 			next = next.filter(({ id }) => id !== change.eventId);
 		} else if (change.kind === "create") {
 			next.push({
-				...anchored(change.item.entityId, change.item.orderAfter),
+				...anchored(change.entity.entityId, change.orderAfter),
 				revision: 0,
 				eventSchemaSlug: "complete",
-				entityId: change.item.entityId,
-				occurredAt: change.item.occurredAt,
-				properties: change.item.properties,
+				occurredAt: change.occurredAt,
+				properties: change.properties,
+				entityId: change.entity.entityId,
 				id: `derived-${change.itemIdentity}`,
-				sessionEntityId: change.item.sessionEntityId ?? null,
+				sessionEntityId: change.session?.entityId ?? null,
 			});
 		} else {
 			const current = find(next, change.item.eventId);

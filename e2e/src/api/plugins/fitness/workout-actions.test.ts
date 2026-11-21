@@ -138,8 +138,11 @@ it.live("rejects deletion of another user's workout and of an exercise", () =>
 		const foreign = yield* deleteWorkout(other, { ...submission, entityId: workoutId }).pipe(
 			Effect.flip,
 		);
-		assertTaggedError(foreign, "PluginInvocationError");
-		expect(foreign.reason.code).toBe("runtime-failed");
+		assertTaggedError(foreign, "PluginConflictError");
+		expect(foreign.reason).toMatchObject({
+			code: "changes-conflict",
+			conflict: "entity-not-found",
+		});
 		const wrongSchema = yield* deleteWorkout(client, { ...submission, entityId: exerciseId }).pipe(
 			Effect.flip,
 		);

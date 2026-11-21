@@ -2,7 +2,7 @@ import { describe, expect } from "bun:test";
 
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { FoldInput } from "@ryot-app/plugin-backend-sdk/folds";
+import { FoldInput, FoldOutput } from "@ryot-app/plugin-backend-sdk/folds";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EventId } from "@ryot-app/plugin-kit/schema";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
@@ -72,7 +72,7 @@ it.effect(
 				changes: null,
 				subjectEntityId: "exercise-1",
 			});
-			const output = yield* definition.run(input, host);
+			const output = yield* Schema.decodeEffect(FoldOutput)(yield* definition.run(input, host));
 			expect(output.events).toEqual<unknown>([
 				{
 					eventId: "set-1",

@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { FoldEventChange } from "@ryot-app/plugin-backend-sdk/folds";
+import { FoldEventChange, FoldOutput } from "@ryot-app/plugin-backend-sdk/folds";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -116,6 +116,12 @@ const settle = Effect.fnUntraced(function* (
 			previous: current.value,
 			changes: mode === "full" ? null : changes,
 			reads: reads(current.history, inventory, counts),
+		});
+		yield* Schema.decodeUnknownEffect(FoldOutput)({
+			value: null,
+			relationships: [],
+			changes: output.changes,
+			events: output.contributions,
 		});
 		const contributions = new Map(mode === "full" ? [] : current.contributions);
 		for (const change of changes) {
