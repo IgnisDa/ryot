@@ -1189,6 +1189,7 @@
 	"client.notifications.channel.telegram.bot-token-help": "The token BotFather gave you when you created the bot.",
 	"client.notifications.channel.telegram.chat-id-help": "The chat the bot posts to. Your bot must already be in it.",
 	"client.notifications.channel.telegram.description": "Send messages to a Telegram chat from your own bot.",
+	"client.notifications.channel.telegram.topic-id-help": "Use the number at the end of the Telegram topic link. Leave this blank for General or chats without topics.",
 	"client.notifications.channels": "Channels",
 	"client.notifications.choose-channel": {
 		"message": "Add {name}",
@@ -1229,6 +1230,7 @@
 	"client.notifications.field.recipient": "Recipient",
 	"client.notifications.field.server-url": "Server URL",
 	"client.notifications.field.topic": "Topic",
+	"client.notifications.field.topic-id": "Topic ID",
 	"client.notifications.field.user-key": "User key",
 	"client.notifications.field.webhook-url": "Webhook URL",
 	"client.notifications.group.chat": "Chat",
