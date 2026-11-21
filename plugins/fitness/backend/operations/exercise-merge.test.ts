@@ -59,7 +59,7 @@ const template = (id: string, exerciseIds: ReadonlyArray<string>) => ({
 
 const subjects = [subject(mergeFrom), subject(mergeInto)];
 
-it("returns a typed failure for each invalid merge without changes", () =>
+it("rejects each invalid merge", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const cases = [
@@ -72,8 +72,11 @@ it("returns a typed failure for each invalid merge without changes", () =>
 					"kind-mismatch",
 				],
 			] as const;
-			for (const [input, tables, kind] of cases) {
-				expect(yield* run(tables, input)).toEqual<unknown>({ output: { kind } });
+			for (const [input, tables, code] of cases) {
+				expect(yield* Effect.flip(run(tables, input))).toMatchObject({
+					_tag: "OperationRejectedError",
+					reason: { key: `rejection.exercise-merge.${code}` },
+				});
 			}
 		}),
 	));
@@ -93,7 +96,7 @@ it("detaches the source, merges its data, and swaps template references in one c
 			});
 
 			expect(result).toEqual<unknown>({
-				output: { mergeInto, kind: "merged" },
+				output: { mergeInto },
 				changes: {
 					relationships: {
 						deletes: [
@@ -137,7 +140,7 @@ it("merges with no detaches or template updates after the source was already det
 	Effect.runPromise(
 		Effect.gen(function* () {
 			expect(yield* run({ links: [], templates: [], exercises: subjects })).toEqual<unknown>({
-				output: { mergeInto, kind: "merged" },
+				output: { mergeInto },
 				changes: {
 					relationships: { deletes: [] },
 					entities: {
@@ -160,6 +163,6 @@ it("rejects a merge whose templates exceed one change set's entity updates", () 
 				reason: { key: "rejection.exercise-merge.too-many-templates" },
 			});
 			const allowed = yield* run({ links: [], exercises: subjects, templates: templates.slice(1) });
-			expect(allowed.changes?.entities.updates).toHaveLength(CHANGE_SET_LIMITS.entityUpdates);
+			expect(allowed.changes.entities.updates).toHaveLength(CHANGE_SET_LIMITS.entityUpdates);
 		}),
 	));

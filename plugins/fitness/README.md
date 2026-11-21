@@ -143,7 +143,8 @@ membership/taxonomy links, an `entities.merges` entry moves events/notes/collect
 `entities.updates` replace the source in every workout template that references it, each against the
 template as read. The kernel commits them atomically, so a template edited meanwhile fails the merge
 as a `changes-conflict`. A merge touching more templates than `CHANGE_SET_LIMITS.entityUpdates`
-is rejected. The client blocks merging an exercise used by the active workout/template draft.
+is rejected, as are a merge into itself, a missing exercise, and exercises of different kinds, each with
+a `rejection.exercise-merge.*` message. The client blocks merging an exercise used by the active workout/template draft.
 
 Exercise note operations require a visible exercise and a `review` event on that schema, not merely
 the shared review slug. Notes are reviews without a spoiler flag: text is required, the rating is the
@@ -310,7 +311,8 @@ and cancellation contracts belong to [imports](../../kernel/backend/src/modules/
 
 `workout-editor-context` returns defaulted installation settings and trusted Pro availability.
 `exercise-override-update` returns one `in-fitness-library` relationship upsert that changes only the caller's membership fields; setting a field to null
-restores inheritance, while omitted fields stay unchanged.
+restores inheritance, while omitted fields stay unchanged. An exercise missing from the caller's library is refused with
+`rejection.exercise-override.missing-exercise`.
 
 `workout-editor-save` creates/updates workouts and templates. Baselines and source exercise positions
 preserve occurrence/event identity across reorder. Draft encoding and baseline decoding bound

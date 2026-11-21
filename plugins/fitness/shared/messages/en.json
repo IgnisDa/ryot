@@ -497,7 +497,9 @@
 		"description": "Confirmation text. {name} is the exercise being merged away and {target} is the exercise that keeps the data."
 	},
 	"client.exercise.merge.confirm-title": "Merge exercise?",
-	"client.exercise.merge.failure": "{failure, select, same {An exercise can't be merged into itself.} missing {One of the exercises no longer exists.} kind_mismatch {Exercises can only be merged into an exercise of the same kind.} other {The exercises couldn't be merged.}}",
+	"rejection.exercise-merge.same": "An exercise can't be merged into itself.",
+	"rejection.exercise-merge.missing": "One of the exercises no longer exists.",
+	"rejection.exercise-merge.kind-mismatch": "Exercises can only be merged into an exercise of the same kind.",
 	"client.exercise.merge.pending": "Merging…",
 	"client.exercise.merge.picker-description": {
 		"message": "Only {kind} exercises can be merged into.",
@@ -1150,7 +1152,7 @@
 	"client.prefs.save-failed": "Defaults could not be saved. Try again.",
 	"client.prefs.seconds": "Seconds",
 	"client.prefs.title": "Exercise preferences",
-	"client.prefs.unavailable": "This exercise is unavailable.",
+	"rejection.exercise-override.missing-exercise": "This exercise is unavailable.",
 	"client.prefs.units": "Units in this workout",
 	"client.prefs.units-close": "Close units and rest defaults",
 	"client.prefs.units-note": "Changes how values show here. Entered values are converted, not changed.",

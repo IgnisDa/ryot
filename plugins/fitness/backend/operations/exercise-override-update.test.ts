@@ -60,7 +60,7 @@ it("merges only supplied nullable overrides into the existing membership", () =>
 				overrides: { dropRestTime: 0, normalRestTime: null },
 			});
 			expect(yield* definition.run(input, host)).toEqual<unknown>({
-				output: { kind: "saved" },
+				output: {},
 				changes: {
 					relationships: {
 						upserts: [
@@ -88,8 +88,9 @@ it.each(["exercise", "membership"] as const)(
 					exerciseId: "exercise-1",
 					overrides: { normalRestTime: 0 },
 				});
-				expect(yield* definition.run(input, host)).toEqual({
-					output: { kind: "missing-exercise" },
+				expect(yield* Effect.flip(definition.run(input, host))).toMatchObject({
+					_tag: "OperationRejectedError",
+					reason: { key: "rejection.exercise-override.missing-exercise" },
 				});
 			}),
 		),

@@ -408,31 +408,29 @@ describe("Workout editor E2E", () => {
 			});
 
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			expect(
-				yield* updateExerciseOverrides(client, {
+			const missing = yield* Effect.flip(
+				updateExerciseOverrides(client, {
 					overrides: { normalRestTime: 0 },
 					exerciseId: EntityId.make(yield* randomUuid),
 				}),
-			).toEqual({ kind: "missing-exercise" });
+			);
+			assertTaggedError(missing, "PluginOperationRejected");
+			expect(missing.reason).toMatchObject({ key: "rejection.exercise-override.missing-exercise" });
 			yield* saveWorkoutData(
 				client,
 				workoutData({ occurrences: [workoutOccurrence(exerciseId, [])] }),
 			);
-			expect(
-				yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 45 } }),
-			).toEqual({ kind: "saved" });
+			yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 45 } });
 			const membership = yield* fitnessRecipes.execute(
 				client,
 				workoutEditorMembershipRecipe({ reference: yield* workoutReference(client) }),
 				{ exerciseId },
 			);
 			expect(membership?.properties).toMatchObject({ normalRestTime: 45 });
-			expect(
-				yield* updateExerciseOverrides(client, {
-					exerciseId,
-					overrides: { dropRestTime: 0, defaultDurationUnit: "minutes" },
-				}),
-			).toEqual({ kind: "saved" });
+			yield* updateExerciseOverrides(client, {
+				exerciseId,
+				overrides: { dropRestTime: 0, defaultDurationUnit: "minutes" },
+			});
 			expect(
 				(yield* fitnessRecipes.execute(
 					client,
@@ -440,12 +438,10 @@ describe("Workout editor E2E", () => {
 					{ exerciseId },
 				))?.properties,
 			).toMatchObject({ dropRestTime: 0, normalRestTime: 45, defaultDurationUnit: "minutes" });
-			expect(
-				yield* updateExerciseOverrides(client, {
-					exerciseId,
-					overrides: { normalRestTime: null, defaultDurationUnit: null },
-				}),
-			).toEqual({ kind: "saved" });
+			yield* updateExerciseOverrides(client, {
+				exerciseId,
+				overrides: { normalRestTime: null, defaultDurationUnit: null },
+			});
 			expect(
 				(yield* fitnessRecipes.execute(
 					client,

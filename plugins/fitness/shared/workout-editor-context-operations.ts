@@ -19,7 +19,4 @@ export const ExerciseOverrideUpdateInputSchema = Schema.Struct({
 	exerciseId: EntityId,
 	overrides: WorkoutExerciseOverridesSchema,
 });
-export const ExerciseOverrideUpdateOutputSchema = Schema.Union([
-	Schema.Struct({ kind: Schema.Literal("saved") }),
-	Schema.Struct({ kind: Schema.Literal("missing-exercise") }),
-]);
+export const ExerciseOverrideUpdateOutputSchema = Schema.Struct({});

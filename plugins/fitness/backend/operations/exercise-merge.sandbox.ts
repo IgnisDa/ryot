@@ -58,7 +58,9 @@ export default defineOperation({
 	run: ({ mergeFrom, mergeInto }, host) =>
 		Effect.gen(function* () {
 			if (mergeFrom === mergeInto) {
-				return { output: { kind: "same" } as const };
+				return yield* new OperationRejectedError({
+					reason: catalogMessage("rejection.exercise-merge.same"),
+				});
 			}
 			const subjects = yield* executeRyotqlRecipe(
 				host.executeRyotql,
@@ -68,10 +70,14 @@ export default defineOperation({
 			const source = subjects.find(({ id }) => id === mergeFrom);
 			const target = subjects.find(({ id }) => id === mergeInto);
 			if (!source || !target) {
-				return { output: { kind: "missing" } as const };
+				return yield* new OperationRejectedError({
+					reason: catalogMessage("rejection.exercise-merge.missing"),
+				});
 			}
 			if (source.kind !== target.kind) {
-				return { output: { kind: "kind-mismatch" } as const };
+				return yield* new OperationRejectedError({
+					reason: catalogMessage("rejection.exercise-merge.kind-mismatch"),
+				});
 			}
 			const links = yield* readAllRyotqlPages((after) =>
 				executeRyotqlRecipe(
@@ -108,7 +114,7 @@ export default defineOperation({
 				});
 			}
 			return {
-				output: { mergeInto, kind: "merged" } as const,
+				output: { mergeInto },
 				changes: {
 					entities: { updates, merges: [{ mergeFrom, mergeInto, entitySchemaSlug: "exercise" }] },
 					relationships: {

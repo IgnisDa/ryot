@@ -1,5 +1,5 @@
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { formatError, useRyot, useRyotSchedule, useT } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Field, FieldMessage, SegmentedControl, TextField } from "@ryot-app/plugin-ui-sdk";
 import { useState } from "react";
 
@@ -246,6 +246,7 @@ function ExerciseDefaultsForm(props: {
 function useExerciseDefaults(
 	props: Pick<ExerciseDefaultsProps, "onSaved" | "onClose" | "overrides" | "exerciseId">,
 ) {
+	const t = useT();
 	const text = useFitnessMessages();
 	const client = useRyot();
 	const schedule = useRyotSchedule();
@@ -294,15 +295,12 @@ function useExerciseDefaults(
 				})
 				.pipe(
 					Effect.match({
-						onFailure: () => setError(text("client.prefs.save-failed")),
-						onSuccess: (result) => {
-							if (result.kind === "saved") {
-								props.onSaved();
-								props.onClose();
-							} else {
-								setError(text("client.prefs.unavailable"));
-							}
+						onSuccess: () => {
+							props.onSaved();
+							props.onClose();
 						},
+						onFailure: (failure) =>
+							setError(formatError(t, failure, text("client.prefs.save-failed"))),
 					}),
 					Effect.asVoid,
 				),
