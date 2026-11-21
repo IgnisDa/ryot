@@ -1,13 +1,14 @@
 import { describe, expect, it } from "bun:test";
 
-import { EntityId, EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
-import { TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
+import type { PluginSignalSchedule } from "@ryot-app/contract/modules/plugins/manifest";
+import { EntitySchemaSlug, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
-import { column, field, table } from "@ryot-app/ryotql";
-import { assert } from "@ryot-app/testing/assert";
+import { castDate, column, field, jsonPath, table } from "@ryot-app/ryotql";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
+import { TestClock } from "effect/testing";
 
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import {
@@ -39,7 +40,7 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { SignalScheduleRepository } from "./repository";
-import { signalScheduleBounds, SignalScheduleWorker } from "./worker";
+import { signalScheduleBounds, signalScheduleDueFrom, SignalScheduleWorker } from "./worker";
 
 const now = new Date("2026-10-29T02:30:00.000Z");
 
@@ -106,6 +107,28 @@ describe("signal schedule bounds", () => {
 	});
 });
 
+describe("signal schedule due times", () => {
+	it.each([
+		{ delayDays: 7, precision: "date", dueAt: "2026-10-22", timeZone: "America/Los_Angeles" },
+		{ delayDays: null, precision: "date", dueAt: "2026-10-30", timeZone: "Asia/Kolkata" },
+		{ delayDays: 2, timeZone: "UTC", precision: "instant", dueAt: "2026-10-29T02:30:00.000Z" },
+	] as const)("starts at the first window that holds a $precision due time", (input) => {
+		const dueAt = new Date(input.dueAt);
+		const timeZone = TimeZone.make(input.timeZone);
+		const from = signalScheduleDueFrom({ ...input, timeZone });
+		const end = (at: Date) =>
+			new Date(
+				signalScheduleBounds({ ...input, now: at, timeZone, maxAgeHours: null }).end,
+			).getTime();
+		expect(end(from)).toBeGreaterThan(dueAt.getTime());
+		expect(end(new Date(from.getTime() - 1))).toBeLessThanOrEqual(dueAt.getTime());
+	});
+});
+
+class ScheduleQueries extends Context.Service<ScheduleQueries, Effect.Effect<number>>()(
+	"@ryot-app/kernel-backend/modules/signal-schedules/worker.test/ScheduleQueries",
+) {}
+
 class DispatchedTriggers extends Context.Service<
 	DispatchedTriggers,
 	Effect.Effect<ReadonlyArray<string>>
@@ -125,95 +148,81 @@ const execution = Layer.effectContext(
 	}),
 );
 
-const owner = UserId.make("owner");
-const subjectId = EntityId.make("schedule-subject");
-const subject = table("entity", "subject");
-
-const services = Layer.unwrap(
+const recordedQueries = Layer.effectContext(
 	Effect.gen(function* () {
-		const installed = yield* installRevisionPackage(revisionPackage(), owner);
-		const session = yield* DatabaseSession;
-		yield* session.transaction(
-			Effect.gen(function* () {
-				yield* (yield* DefinitionRepository).replaceKernelDefinitions(kernelDefinitionSource());
-				yield* session.run((db) =>
-					db
-						.insert(tables.entity)
-						.values({
-							userId: owner,
-							id: subjectId,
-							name: "Subject",
-							entitySchemaPluginId: null,
-							entitySchemaSlug: "collection",
-						}),
-				);
-			}),
-		);
-		const repository = yield* SignalScheduleRepository.make;
-		const target: Effect.Success<ReturnType<typeof repository.listTargets>>[number] = {
-			userId: owner,
-			dueAt: "dueAt",
-			properties: {},
-			delayDays: null,
-			freshness: null,
-			slug: "schedule",
-			entitlement: null,
-			occurrence: "occurrence",
-			signal: "fixture.signal",
-			pluginId: installed.pluginId,
-			precision: "instant" as const,
-			subject: {
-				entityAlias: "subject",
-				schemas: [
-					{ owner: { kind: "kernel" as const }, slug: EntitySchemaSlug.make("collection") },
-				],
-			},
-			preferences: {
-				weekStart: null,
-				interfaceLocale: null,
-				contentLanguage: null,
-				reportingTimeZone: UTC,
-				disableIntegrations: false,
-				ratingScale: "hundred" as const,
-			},
-			query: {
-				from: subject,
-				output: {
-					type: "rows" as const,
-					fields: [
-						field("dueAt", column(subject, "createdAt")),
-						field("occurrence", column(subject, "id")),
-					],
-				},
-			},
-		};
-		return SignalScheduleWorker.layer.pipe(
-			Layer.provide(
-				Layer.mergeAll(
-					Layer.succeed(SignalScheduleRepository, {
-						...repository,
-						listTargets: () => Effect.succeed([target]),
-						listDelivered: () => Effect.succeed(new Set<string>()),
-					}),
-					Layer.mock(RyotQLService)({
-						executeForUser: () =>
-							Effect.succeed({
-								execution: { now: 0, weekStart: 1, timeZone: UTC },
-								data: {
-									signalScheduleDue: {
-										type: "rows",
-										pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-										items: [{ __scheduleOccurrence: "once", __scheduleSubjectId: subjectId }],
-									},
-								},
-							}),
-					}),
-					Layer.succeed(EntitlementService, entitlementServiceFrom(Effect.succeed([]))),
+		const ryotql = yield* RyotQLService;
+		const executions = yield* Ref.make(0);
+		return Context.make(RyotQLService, {
+			...ryotql,
+			executeForUser: (...input: Parameters<typeof ryotql.executeForUser>) =>
+				Ref.update(executions, (count) => count + 1).pipe(
+					Effect.andThen(ryotql.executeForUser(...input)),
 				),
-			),
-		);
+		}).pipe(Context.add(ScheduleQueries, Ref.getAndSet(executions, 0)));
 	}),
-).pipe(
+).pipe(Layer.provide(RyotQLService.layer));
+
+const owner = UserId.make("owner");
+const subject = table("entity", "subject");
+const schedule: PluginSignalSchedule = {
+	properties: {},
+	dueAt: "dueAt",
+	slug: "schedule",
+	precision: "instant",
+	occurrence: "occurrence",
+	signal: SignalSchemaSlug.make("fixture.signal"),
+	subject: {
+		entityAlias: "subject",
+		schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("fixture-entity") }],
+	},
+	query: {
+		from: subject,
+		output: {
+			type: "rows",
+			fields: [
+				field("dueAt", castDate(jsonPath(column(subject, "properties"), "dueAt"))),
+				field("occurrence", column(subject, "id")),
+			],
+		},
+	},
+};
+
+class Fixture extends Context.Service<Fixture, { readonly pluginId: string }>()(
+	"@ryot-app/kernel-backend/modules/signal-schedules/worker.test/Fixture",
+) {}
+
+const fixture = Layer.effect(
+	Fixture,
+	Effect.gen(function* () {
+		const plugin = revisionPackage();
+		const { pluginId } = yield* installRevisionPackage({
+			...plugin,
+			manifest: { ...plugin.manifest, signalSchedules: [schedule] },
+		});
+		const session = yield* DatabaseSession;
+		yield* (yield* DefinitionRepository).replaceKernelDefinitions(kernelDefinitionSource());
+		yield* session.run((db) =>
+			db
+				.insert(tables.notificationSubscription)
+				.values({
+					userId: owner,
+					signalSchemaPluginId: pluginId,
+					signalSchemaSlug: "fixture.signal",
+				}),
+		);
+		return { pluginId };
+	}),
+);
+
+const services = SignalScheduleWorker.layer.pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			fixture,
+			recordedQueries,
+			SignalScheduleRepository.layer,
+			Layer.succeed(EntitlementService, entitlementServiceFrom(Effect.succeed([]))),
+		),
+	),
 	Layer.provideMerge(Layer.effect(ChangeSets, userDataChangeSets())),
 	Layer.provideMerge(
 		SignalEmissionService.layer.pipe(
@@ -241,18 +250,86 @@ const services = Layer.unwrap(
 	),
 );
 
+const start = new Date("2026-10-29T12:00:00.000Z").getTime();
+const hours = (count: number) => count * 3_600_000;
+
+const reset = Effect.gen(function* () {
+	const session = yield* DatabaseSession;
+	yield* session.run((db) => db.delete(tables.signalScheduleEvaluation));
+	yield* session.run((db) => db.delete(tables.signalScheduleDelivery));
+	yield* session.run((db) => db.delete(tables.automationTrigger));
+	yield* session.run((db) => db.delete(tables.entity));
+});
+
+const insertEntity = Effect.fn(function* (
+	id: string,
+	dueAt: number,
+	userId: null | UserId = owner,
+) {
+	const { pluginId } = yield* Fixture;
+	yield* (yield* DatabaseSession).run((db) =>
+		db
+			.insert(tables.entity)
+			.values({
+				id,
+				userId,
+				name: id,
+				entitySchemaPluginId: pluginId,
+				entitySchemaSlug: "fixture-entity",
+				properties: { dueAt: new Date(dueAt).toISOString() },
+			}),
+	);
+});
+
+const runAt = Effect.fn(function* (at: number) {
+	yield* TestClock.setTime(at);
+	yield* (yield* SignalScheduleWorker).run();
+	const session = yield* DatabaseSession;
+	const deliveries = yield* session.run((db) =>
+		db
+			.select({ occurrence: tables.signalScheduleDelivery.occurrenceKey })
+			.from(tables.signalScheduleDelivery)
+			.where(eq(tables.signalScheduleDelivery.userId, owner))
+			.orderBy(tables.signalScheduleDelivery.occurrenceKey),
+	);
+	return {
+		queries: yield* yield* ScheduleQueries,
+		delivered: deliveries.map(({ occurrence }) => occurrence),
+	};
+});
+
 layer(services)((test) => {
-	test.effect("delivers an occurrence another run already recorded at most once", () =>
+	test.effect("skips an unchanged target until its next occurrence is due", () =>
 		Effect.gen(function* () {
-			const worker = yield* SignalScheduleWorker;
-			yield* worker.run();
-			yield* worker.run();
+			yield* reset;
+			yield* insertEntity("past", start - hours(1));
+			yield* insertEntity("soon", start + hours(2));
+			expect(yield* runAt(start)).toEqual({ queries: 1, delivered: ["past"] });
+			expect(yield* runAt(start + hours(1))).toEqual({ queries: 0, delivered: ["past"] });
+			expect(yield* runAt(start + hours(3))).toEqual({ queries: 1, delivered: ["past", "soon"] });
+			expect(yield* runAt(start + hours(4))).toEqual({ queries: 0, delivered: ["past", "soon"] });
+		}),
+	);
+
+	test.effect("evaluates again after its user's data changes and delivers once", () =>
+		Effect.gen(function* () {
+			yield* reset;
 			const session = yield* DatabaseSession;
+			const earlier = (yield* yield* DispatchedTriggers).length;
+			yield* insertEntity("first", start - hours(1));
+			expect(yield* runAt(start)).toEqual({ queries: 1, delivered: ["first"] });
+			yield* session.run((db) =>
+				db
+					.update(tables.entity)
+					.set({ properties: { dueAt: new Date(start - hours(2)).toISOString() } })
+					.where(eq(tables.entity.id, "first")),
+			);
+			yield* insertEntity("second", start - hours(1));
+			expect(yield* runAt(start + 60_000)).toEqual({ queries: 1, delivered: ["first", "second"] });
 			const deliveries = yield* session.run((db) =>
 				db
-					.select()
-					.from(tables.signalScheduleDelivery)
-					.where(eq(tables.signalScheduleDelivery.userId, owner)),
+					.select({ triggerId: tables.signalScheduleDelivery.triggerId })
+					.from(tables.signalScheduleDelivery),
 			);
 			const triggers = yield* session.run((db) =>
 				db
@@ -260,14 +337,32 @@ layer(services)((test) => {
 					.from(tables.automationTrigger)
 					.where(eq(tables.automationTrigger.resourceKind, "signal")),
 			);
-			const [delivery, ...others] = deliveries;
-			assert(delivery);
-			expect({ others, occurrence: delivery.occurrenceKey }).toEqual({
-				others: [],
-				occurrence: "once",
-			});
-			expect(triggers.map(({ id }) => id)).toEqual([delivery.triggerId]);
-			expect(yield* yield* DispatchedTriggers).toEqual([delivery.triggerId]);
+			const delivered = new Set(deliveries.map(({ triggerId }) => triggerId));
+			expect(triggers).toHaveLength(2);
+			expect(new Set(triggers.map(({ id }) => id))).toEqual(delivered);
+			const dispatched = (yield* yield* DispatchedTriggers).slice(earlier);
+			expect(dispatched).toHaveLength(2);
+			expect(new Set(dispatched)).toEqual(delivered);
+		}),
+	);
+
+	test.effect("evaluates again after a change to global data but not to another user's", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			expect(yield* runAt(start)).toEqual({ queries: 1, delivered: [] });
+			yield* insertEntity("foreign", start - hours(1), UserId.make("recipient"));
+			expect(yield* runAt(start + 60_000)).toEqual({ queries: 0, delivered: [] });
+			yield* insertEntity("global", start + hours(48), null);
+			expect(yield* runAt(start + 120_000)).toEqual({ queries: 1, delivered: [] });
+		}),
+	);
+
+	test.effect("catches up on an occurrence that fell due while no run happened", () =>
+		Effect.gen(function* () {
+			yield* reset;
+			yield* insertEntity("missed", start + hours(2));
+			expect(yield* runAt(start)).toEqual({ queries: 1, delivered: [] });
+			expect(yield* runAt(start + hours(47))).toEqual({ queries: 1, delivered: ["missed"] });
 		}),
 	);
 });

@@ -9,6 +9,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
+import { dataChangeStatements } from "#platform/db/data-changes";
 import { entityOccursAtStatements } from "#platform/db/entity-occurs-at";
 import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
 import { DatabaseSession } from "#platform/db/session";
@@ -136,27 +137,33 @@ describe("immutable plugin revisions", () => {
 					for (const statement of [
 						...immutableRevisionStatements,
 						...entityOccursAtStatements,
+						...dataChangeStatements,
 						...immutableRevisionStatements,
 						...entityOccursAtStatements,
+						...dataChangeStatements,
 					]) {
 						yield* session.run((db) => db.execute(sql.raw(statement)));
 					}
 					const triggers = yield* session.run((db) =>
-						db.execute<{ readonly name: string }>(
+						db.execute<{ readonly name: string; readonly tables: number }>(
 							sql`
-						select t.tgname as name from pg_trigger t
+						select t.tgname as name, count(*)::int as tables from pg_trigger t
 						join pg_class c on c.oid = t.tgrelid
 						where c.relnamespace = current_schema()::regnamespace and not t.tgisinternal
+						group by t.tgname
 						order by t.tgname
 					`,
 							"objects",
 						),
 					);
-					expect(triggers.map(({ name }) => name)).toEqual([
-						"collection_order_changed",
-						"ryot_entity_occurs_at",
-						"ryot_entity_occurs_at_revision",
-						"ryot_plugin_revision_immutable",
+					expect(triggers).toEqual([
+						{ tables: 1, name: "collection_order_changed" },
+						{ tables: 8, name: "ryot_data_change_delete" },
+						{ tables: 8, name: "ryot_data_change_insert" },
+						{ tables: 8, name: "ryot_data_change_update" },
+						{ tables: 1, name: "ryot_entity_occurs_at" },
+						{ tables: 1, name: "ryot_entity_occurs_at_revision" },
+						{ tables: 1, name: "ryot_plugin_revision_immutable" },
 					]);
 					const updated = yield* Effect.result(
 						session.run((db) =>

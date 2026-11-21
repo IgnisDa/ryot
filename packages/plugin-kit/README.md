@@ -410,6 +410,9 @@ slug, and included in account backups.
 `signalSchedules` is optional and emits one of the plugin's actor-audience signals when a dated row
 becomes due for a subscribed user. Each schedule has a local `slug`, the `signal`, a `subject`, and
 a RyotQL `query` body shaped like a Calendar source query; its `where` clause decides eligibility.
+The query reads only `entity`, `relationship` and `event` tables and never the clock (`now`,
+`currentDate`): the kernel owns the due window and evaluates a schedule again only when that data
+changes or a known row falls due.
 `dueAt` names a projected date field with `date` or `instant` `precision`, `occurrence` a projected
 text key, and `properties` maps signal properties to projected fields (null values are omitted).
 Optional `delayDays` makes a row due that many days after `dueAt`; optional `freshness` defers rows

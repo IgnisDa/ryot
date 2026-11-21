@@ -308,6 +308,12 @@ CREATE TABLE "client_page_composition" (
 	"manifest" jsonb NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "data_change" (
+	"user_id" text,
+	"transaction_id" xid8 NOT NULL,
+	CONSTRAINT "data_change_user_transaction_unique" UNIQUE NULLS NOT DISTINCT("user_id","transaction_id")
+);
+--> statement-breakpoint
 CREATE TABLE "definition_calendar_source" (
 	"slug" text NOT NULL,
 	"position" integer NOT NULL,
@@ -1286,6 +1292,18 @@ CREATE TABLE "signal_schedule_delivery" (
 	CONSTRAINT "signal_schedule_delivery_pkey" PRIMARY KEY("user_id","plugin_id","schedule_slug","occurrence_key")
 );
 --> statement-breakpoint
+CREATE TABLE "signal_schedule_evaluation" (
+	"next_due_at" timestamp(3) with time zone,
+	"content_language" text,
+	"time_zone" text NOT NULL,
+	"schedule_slug" text,
+	"snapshot" pg_snapshot NOT NULL,
+	"evaluated_at" timestamp(3) with time zone NOT NULL,
+	"user_id" text,
+	"plugin_id" text,
+	CONSTRAINT "signal_schedule_evaluation_pkey" PRIMARY KEY("user_id","plugin_id","schedule_slug")
+);
+--> statement-breakpoint
 CREATE TABLE "transient_value" (
 	"value" text NOT NULL,
 	"key" text PRIMARY KEY,
@@ -1704,5 +1722,7 @@ ALTER TABLE "saved_view_override" ADD CONSTRAINT "saved_view_override_user_id_us
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "signal_schedule_delivery" ADD CONSTRAINT "signal_schedule_delivery_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "signal_schedule_delivery" ADD CONSTRAINT "signal_schedule_delivery_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "signal_schedule_evaluation" ADD CONSTRAINT "signal_schedule_evaluation_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "signal_schedule_evaluation" ADD CONSTRAINT "signal_schedule_evaluation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "workflow_step" ADD CONSTRAINT "workflow_step_9KAI5HOPHafJ_fkey" FOREIGN KEY ("workflow_name","execution_id") REFERENCES "workflow_execution"("workflow_name","execution_id") ON DELETE CASCADE;

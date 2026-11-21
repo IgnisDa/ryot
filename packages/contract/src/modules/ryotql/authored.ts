@@ -546,6 +546,7 @@ export const stampRyotQLDocument = (
 };
 
 type AuthoredMapping = {
+	readonly clock?: () => void;
 	readonly sourceEntity?: () => void;
 	readonly alias?: (alias: string) => string;
 	readonly table?: (table: string) => string;
@@ -565,6 +566,9 @@ const mapAuthoredNode = (value: unknown, transform: AuthoredMapping): unknown =>
 	}
 	if (value["type"] === "sourceEntity") {
 		transform.sourceEntity?.();
+	}
+	if (value["type"] === "now" || value["type"] === "currentDate") {
+		transform.clock?.();
 	}
 	return Object.fromEntries(
 		Object.entries(value).map(([key, child]) => {
@@ -637,3 +641,13 @@ export const scalarExpressionTables = (expression: ScalarExpression): ReadonlySe
 export const documentTables = (
 	document: RyotQLDocument | PluginRyotQLDocument,
 ): ReadonlySet<string> => referencedTables(document);
+
+export const documentReadsClock = (document: RyotQLDocument | PluginRyotQLDocument) => {
+	let reads = false;
+	mapAuthoredNode(document, {
+		clock: () => {
+			reads = true;
+		},
+	});
+	return reads;
+};

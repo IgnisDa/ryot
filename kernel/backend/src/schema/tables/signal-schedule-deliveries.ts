@@ -1,8 +1,12 @@
-import { index, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
+import { customType, index, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin } from "./core";
 import { timestamptz } from "./timestamps";
+
+const snapshot = customType<{ data: string; driverData: string }>({
+	dataType: () => "pg_snapshot",
+});
 
 export const signalScheduleDelivery = snakeCase.table(
 	"signal_schedule_delivery",
@@ -24,4 +28,23 @@ export const signalScheduleDelivery = snakeCase.table(
 		}),
 		index("signal_schedule_delivery_created_at_idx").on(table.createdAt),
 	],
+);
+
+export const signalScheduleEvaluation = snakeCase.table(
+	"signal_schedule_evaluation",
+	{
+		contentLanguage: text(),
+		nextDueAt: timestamptz(),
+		timeZone: text().notNull(),
+		scheduleSlug: text().notNull(),
+		snapshot: snapshot().notNull(),
+		evaluatedAt: timestamptz().notNull(),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		pluginId: text()
+			.notNull()
+			.references(() => plugin.id, { onDelete: "cascade" }),
+	},
+	(table) => [primaryKey({ columns: [table.userId, table.pluginId, table.scheduleSlug] })],
 );

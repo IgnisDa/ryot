@@ -19,7 +19,7 @@ import {
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
 
-import { signalSchedulePageRecipe, type SignalScheduleSource } from "./signal-schedules";
+import { signalScheduleRecipe, type SignalScheduleSource } from "./signal-schedules";
 import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
 const entity = table("entity", "record");
@@ -78,8 +78,37 @@ const page = (
 	} = {},
 ) =>
 	bindRecipe(
-		Result.getOrThrow(signalSchedulePageRecipe({ schedule: input.schedule ?? schedule })),
-		{ ...(input.bounds ?? bounds), after: input.after, limit: input.limit ?? 10 },
+		Result.getOrThrow(signalScheduleRecipe({ schedule: input.schedule ?? schedule })),
+		input.bounds ?? bounds,
+		undefined,
+		{
+			pages: {
+				signalScheduleDue: {
+					limit: input.limit ?? 10,
+					...(input.after === undefined ? {} : { after: input.after }),
+				},
+			},
+		},
+	);
+
+const decodeWithNext = (next: readonly unknown[]) =>
+	Result.getOrThrow(
+		page().decode({
+			data: {
+				signalScheduleNext: rowsResult(next, { limit: 1, hasMore: false, nextCursor: null }),
+				signalScheduleDue: rowsResult(
+					[
+						{
+							unused: null,
+							label: "Step 2",
+							__scheduleSubjectId: "record-1",
+							__scheduleOccurrence: "record-1",
+						},
+					],
+					{ limit: 10, hasMore: true, nextCursor: "next" },
+				),
+			},
+		}),
 	);
 
 describe("signal schedule recipe", () => {
@@ -106,28 +135,30 @@ describe("signal schedule recipe", () => {
 		expect(unbounded.where).toMatchObject({ predicates: { length: 5 } });
 	});
 
-	it("decodes declared properties and omits null values", () => {
-		const decoded = Result.getOrThrow(
-			page().decode({
-				data: {
-					signalScheduleDue: rowsResult(
-						[
-							{
-								unused: null,
-								label: "Step 2",
-								__scheduleSubjectId: "record-1",
-								__scheduleOccurrence: "record-1",
-							},
-						],
-						{ limit: 10, hasMore: true, nextCursor: "next" },
-					),
-				},
-			}),
-		);
-		expect(decoded).toEqual({
-			pageInfo: { hasMore: true, nextCursor: "next" },
-			items: [{ subjectId: "record-1", occurrence: "record-1", properties: { label: "Step 2" } }],
+	it("selects the earliest fresh due time at or after the window end", () => {
+		const query = requireRowsQuery(page().document.queries["signalScheduleNext"]);
+		expect(query.where).toEqual<unknown>({
+			type: "and",
+			predicates: [
+				where,
+				objectContaining({ type: "or" }),
+				gte(dueAt, castDate(literal(bounds.end))),
+				or(isNull(confirmedAt), gte(confirmedAt, castDate(literal(bounds.confirmedAfter)))),
+			],
 		});
+		expect(query.output.orderBy.map(({ expr }) => expr)).toEqual<unknown>([dueAt]);
+		expect(query.output.fields).toEqual<unknown>([field("__scheduleDueAt", dueAt)]);
+	});
+
+	it("decodes declared properties, omits null values and reads the next due time", () => {
+		expect(decodeWithNext([{ __scheduleDueAt: "2026-03-20T00:00:00.000Z" }])).toEqual({
+			signalScheduleNext: "2026-03-20T00:00:00.000Z",
+			signalScheduleDue: {
+				pageInfo: { hasMore: true, nextCursor: "next" },
+				items: [{ subjectId: "record-1", occurrence: "record-1", properties: { label: "Step 2" } }],
+			},
+		});
+		expect(decodeWithNext([]).signalScheduleNext).toBeNull();
 	});
 
 	it("rejects schedules that do not project their fields", () => {
@@ -136,7 +167,7 @@ describe("signal schedule recipe", () => {
 			{ ...schedule, occurrence: "x" },
 			{ ...schedule, freshness: { confirmedAt: "x" } },
 		]) {
-			expect(Result.isFailure(signalSchedulePageRecipe({ schedule: candidate }))).toBe(true);
+			expect(Result.isFailure(signalScheduleRecipe({ schedule: candidate }))).toBe(true);
 		}
 	});
 });

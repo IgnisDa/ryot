@@ -16,6 +16,7 @@ export * from "./automations";
 export * from "./definitions";
 export * from "./translations";
 export * from "./publications";
+export * from "./data-changes";
 export * from "./notifications";
 export * from "./agent-scripts";
 export * from "./derived-values";

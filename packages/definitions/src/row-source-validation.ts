@@ -1,4 +1,5 @@
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import { documentReadsClock, documentTables } from "@ryot-app/contract/modules/ryotql/authored";
 import type { FieldSelection, NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	rowSourceDocument,
@@ -97,8 +98,19 @@ export const calendarSourceIssue = (source: CalendarSourceDefinition) =>
 		),
 	]);
 
-export const signalScheduleIssue = (schedule: SignalScheduleDefinition) =>
-	rowSourceIssue(schedule, [
+/** The tables whose writes record a data change, which decides when a schedule is evaluated again. */
+const signalScheduleTables = new Set(["event", "entity", "relationship"]);
+
+export const signalScheduleIssue = (schedule: SignalScheduleDefinition) => {
+	const document = rowSourceDocument(schedule.query);
+	if (documentReadsClock(document)) {
+		return "query must not read the clock; the kernel owns the due window";
+	}
+	const table = [...documentTables(document)].find((name) => !signalScheduleTables.has(name));
+	if (table !== undefined) {
+		return `query must read only entity, relationship and event tables, not '${table}'`;
+	}
+	return rowSourceIssue(schedule, [
 		["dueAt", schedule.dueAt, "date"],
 		["occurrence", schedule.occurrence, "text"],
 		["confirmedAt", schedule.freshness?.confirmedAt ?? null, "date"],
@@ -106,3 +118,4 @@ export const signalScheduleIssue = (schedule: SignalScheduleDefinition) =>
 			([property, key]) => [`property ${property}`, key, null] as const,
 		),
 	]);
+};

@@ -1,3 +1,4 @@
+import type { Predicate } from "@ryot-app/contract/modules/ryotql/authored";
 import { rowsResultSchema } from "@ryot-app/contract/modules/ryotql/language";
 import type { RowSourceQuery } from "@ryot-app/contract/modules/ryotql/row-source";
 import type { SavedViewSubject } from "@ryot-app/contract/modules/saved-views/schemas";
@@ -21,6 +22,7 @@ import { Result, Schema } from "effect";
 import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
 
 const DUE_QUERY = "signalScheduleDue";
+const NEXT_QUERY = "signalScheduleNext";
 
 export type SignalScheduleCandidate = {
 	readonly subjectId: string;
@@ -49,7 +51,11 @@ const textValue = (row: DueRow, key: string) => {
 		: Result.fail(new Error(`Signal schedule field '${key}' must be text`));
 };
 
-export const signalSchedulePageRecipe = (input: { readonly schedule: SignalScheduleSource }) => {
+/**
+ * `signalScheduleDue` pages the fresh occurrences due in `[start, end)`; `signalScheduleNext` is the
+ * earliest fresh `dueAt` at or after `end`, null when there is none.
+ */
+export const signalScheduleRecipe = (input: { readonly schedule: SignalScheduleSource }) => {
 	const { schedule } = input;
 	const recipeParameters = parameters({
 		fields: {
@@ -85,7 +91,22 @@ export const signalSchedulePageRecipe = (input: { readonly schedule: SignalSched
 	const subject = table("entity", schedule.subject.entityAlias);
 	const idKey = unusedFieldKey(fields, "__scheduleSubjectId");
 	const occurrenceKey = unusedFieldKey(fields, "__scheduleOccurrence");
+	const dueAtKey = unusedFieldKey(fields, "__scheduleDueAt");
 	const propertyKeys = new Set(Object.values(schedule.properties));
+	const where = (...window: readonly Predicate[]) =>
+		and(
+			...(schedule.query.where === undefined ? [] : [schedule.query.where]),
+			subjectSchemaPredicate(schedule.subject, subject),
+			...window,
+			...(confirmedAt === null
+				? []
+				: [
+						recipeParameters.whenSet(
+							"confirmedAfter",
+							or(isNull(confirmedAt), gte(confirmedAt, recipeParameters.value("confirmedAfter"))),
+						),
+					]),
+		);
 	const decodeRow = (row: DueRow) =>
 		Result.gen(function* () {
 			const properties: Record<string, JsonValue> = {};
@@ -103,8 +124,23 @@ export const signalSchedulePageRecipe = (input: { readonly schedule: SignalSched
 		});
 	const recipe = defineRecipe({
 		parameters: recipeParameters.schema,
-		map: (results) => Result.succeed(results[DUE_QUERY]),
 		queries: {
+			[NEXT_QUERY]: {
+				decodeResult: (result: unknown) =>
+					Result.flatMap(Schema.decodeUnknownResult(dueRows)(result), ({ items: [row] }) =>
+						row === undefined ? Result.succeed(null) : textValue(row, dueAtKey),
+					),
+				document: {
+					...schedule.query,
+					where: where(gte(dueAt, recipeParameters.value("end"))),
+					output: {
+						type: "rows",
+						orderBy: [ascending(dueAt)],
+						fields: [field(dueAtKey, dueAt)],
+						pagination: { limit: 1, maxLimit: 1 },
+					},
+				},
+			},
 			[DUE_QUERY]: {
 				decodeResult: (result: unknown) =>
 					Result.flatMap(Schema.decodeUnknownResult(dueRows)(result), ({ items, pageInfo }) =>
@@ -115,6 +151,10 @@ export const signalSchedulePageRecipe = (input: { readonly schedule: SignalSched
 					),
 				document: {
 					...schedule.query,
+					where: where(
+						gte(dueAt, recipeParameters.value("start")),
+						lt(dueAt, recipeParameters.value("end")),
+					),
 					output: {
 						...schedule.query.output,
 						pagination: { limit: 100, maxLimit: 1000 },
@@ -125,23 +165,6 @@ export const signalSchedulePageRecipe = (input: { readonly schedule: SignalSched
 							field(occurrenceKey, occurrence),
 						],
 					},
-					where: and(
-						...(schedule.query.where === undefined ? [] : [schedule.query.where]),
-						subjectSchemaPredicate(schedule.subject, subject),
-						gte(dueAt, recipeParameters.value("start")),
-						lt(dueAt, recipeParameters.value("end")),
-						...(confirmedAt === null
-							? []
-							: [
-									recipeParameters.whenSet(
-										"confirmedAfter",
-										or(
-											isNull(confirmedAt),
-											gte(confirmedAt, recipeParameters.value("confirmedAfter")),
-										),
-									),
-								]),
-					),
 				},
 			},
 		},

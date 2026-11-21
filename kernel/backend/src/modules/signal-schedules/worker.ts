@@ -13,13 +13,14 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { isEntitled } from "@ryot-app/contract/schema/entitlement";
-import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { type TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
+import { selectRecipe } from "@ryot-app/ryotql";
 import {
 	type SignalScheduleCandidate,
-	signalSchedulePageRecipe,
+	signalScheduleRecipe,
 } from "@ryot-app/ryotql-recipes/signal-schedules";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
-import { Context, DateTime, Effect, Layer, Result, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Option, Result, Schema } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { ChangeSets } from "#modules/changes/service";
@@ -33,6 +34,8 @@ import { type SignalScheduleCursor, SignalScheduleRepository } from "./repositor
 const CATCH_UP_DAYS = 2;
 const RETENTION_DAYS = 30;
 const PRUNE_LIMIT = 500;
+const REFRESH_HOURS = 24;
+const EVALUATION_RETENTION_HOURS = 48;
 const TARGET_PAGE_SIZE = 50;
 const TARGET_PAGE_LIMIT = 10;
 const OCCURRENCE_PAGE_SIZE = 100;
@@ -46,6 +49,9 @@ class SignalScheduleQueryError extends Schema.TaggedError<
 	SignalScheduleQueryError,
 	{ readonly brand: unique symbol }
 >()("SignalScheduleQueryError", { cause: Schema.Unknown }) {}
+
+const decode = <A>(result: Result.Result<A, unknown>) =>
+	Effect.fromResult(Result.mapError(result, (cause) => new SignalScheduleQueryError({ cause })));
 
 export const signalScheduleBounds = (input: {
 	now: Date;
@@ -73,6 +79,23 @@ export const signalScheduleBounds = (input: {
 				? null
 				: DateTime.formatIso(DateTime.subtract(now, { hours: input.maxAgeHours })),
 	};
+};
+
+/** The first instant whose window holds a row due at `dueAt`. */
+export const signalScheduleDueFrom = (input: {
+	dueAt: string;
+	timeZone: TimeZone;
+	delayDays: null | number;
+	precision: "date" | "instant";
+}) => {
+	const shifted = DateTime.add(DateTime.makeUnsafe(input.dueAt), { days: input.delayDays ?? 0 });
+	return input.precision === "date"
+		? DateTime.toDate(
+				DateTime.makeUnsafe(
+					startOfLocalDay(localDateOf(DateTime.toDate(shifted), UTC), input.timeZone),
+				),
+			)
+		: DateTime.toDate(shifted);
 };
 
 export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>()(
@@ -146,15 +169,17 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 				);
 			});
 
-			const deliverTarget = Effect.fn("SignalScheduleWorker.deliverTarget")(function* (
+			/** Delivers the target's new due occurrences and returns when its next known one is due. */
+			const evaluateTarget = Effect.fn("SignalScheduleWorker.evaluateTarget")(function* (
 				target: SignalScheduleTarget,
 				now: Date,
 			) {
+				const timeZone = target.preferences.reportingTimeZone;
 				const bounds = signalScheduleBounds({
 					now,
+					timeZone,
 					delayDays: target.delayDays,
 					precision: target.precision,
-					timeZone: target.preferences.reportingTimeZone,
 					maxAgeHours: target.freshness?.maxAgeHours ?? null,
 				});
 				const ledger = {
@@ -162,41 +187,30 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					pluginId: target.pluginId,
 					userId: UserId.make(target.userId),
 				};
-				let after: string | undefined;
-				for (let page = 0; page < OCCURRENCE_PAGE_LIMIT; page++) {
-					const recipe = yield* Effect.fromResult(
-						Result.mapError(
-							signalSchedulePageRecipe({ schedule: target }),
-							(cause) => new SignalScheduleQueryError({ cause }),
-						),
-					);
-					const response = yield* ryotql.executeForUser(
-						target.userId,
-						target.preferences.contentLanguage,
-						"kernel",
-						{
-							source: { kind: "inline", document: recipe.document },
-							pages: {
-								signalScheduleDue: {
-									limit: OCCURRENCE_PAGE_SIZE,
-									...(after === undefined ? {} : { after }),
-								},
-							},
-							arguments: {
-								end: bounds.end,
-								start: bounds.start,
-								...(bounds.confirmedAfter === null
-									? {}
-									: { confirmedAfter: bounds.confirmedAfter }),
+				const recipe = yield* decode(signalScheduleRecipe({ schedule: target }));
+				const dueRecipe = selectRecipe(recipe, "signalScheduleDue");
+				const execute = (query: string | undefined, after: string | undefined) =>
+					ryotql.executeForUser(target.userId, target.preferences.contentLanguage, "kernel", {
+						source: {
+							kind: "inline",
+							document: recipe.document,
+							...(query === undefined ? {} : { query }),
+						},
+						pages: {
+							signalScheduleDue: {
+								limit: OCCURRENCE_PAGE_SIZE,
+								...(after === undefined ? {} : { after }),
 							},
 						},
-					);
-					const result = yield* Effect.fromResult(
-						Result.mapError(
-							recipe.decode(response),
-							(cause) => new SignalScheduleQueryError({ cause }),
-						),
-					);
+						arguments: {
+							end: bounds.end,
+							start: bounds.start,
+							...(bounds.confirmedAfter === null ? {} : { confirmedAfter: bounds.confirmedAfter }),
+						},
+					});
+				const first = yield* decode(recipe.decode(yield* execute(undefined, undefined)));
+				let result = first.signalScheduleDue;
+				for (let page = 1; ; page++) {
 					const delivered = yield* repository.listDelivered(
 						ledger,
 						result.items.map(({ occurrence }) => occurrence),
@@ -208,9 +222,21 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						yield* admit(target, candidate, now);
 					}
 					if (!result.pageInfo.hasMore || result.pageInfo.nextCursor === null) {
-						return;
+						return first.signalScheduleNext === null
+							? null
+							: signalScheduleDueFrom({
+									timeZone,
+									delayDays: target.delayDays,
+									precision: target.precision,
+									dueAt: first.signalScheduleNext,
+								});
 					}
-					after = result.pageInfo.nextCursor;
+					if (page === OCCURRENCE_PAGE_LIMIT) {
+						return now;
+					}
+					result = yield* decode(
+						dueRecipe.decode(yield* execute(dueRecipe.query, result.pageInfo.nextCursor)),
+					);
 				}
 			});
 
@@ -219,28 +245,40 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					return;
 				}
 				const now = yield* DateTime.nowAsDate;
+				const at = DateTime.makeUnsafe(now);
 				yield* repository
-					.prune(
-						DateTime.toDate(DateTime.subtract(DateTime.makeUnsafe(now), { days: RETENTION_DAYS })),
-						PRUNE_LIMIT,
-					)
+					.prune(DateTime.toDate(DateTime.subtract(at, { days: RETENTION_DAYS })), PRUNE_LIMIT)
 					.pipe(
 						Effect.catchCause((cause) =>
 							Effect.logWarning("Signal schedule delivery pruning failed", cause),
 						),
 					);
+				yield* repository
+					.pruneEvaluations(
+						DateTime.toDate(DateTime.subtract(at, { hours: EVALUATION_RETENTION_HOURS })),
+					)
+					.pipe(
+						Effect.catchCause((cause) =>
+							Effect.logWarning("Signal schedule evaluation pruning failed", cause),
+						),
+					);
+				const snapshot = yield* repository.currentSnapshot();
 				const active = yield* entitlements.current;
 				let after: null | SignalScheduleCursor = null;
 				for (let page = 0; page < TARGET_PAGE_LIMIT; page++) {
-					const targets: ReadonlyArray<SignalScheduleTarget> = yield* repository.listTargets(
+					const targets: ReadonlyArray<SignalScheduleTarget> = yield* repository.listTargets({
+						now,
 						after,
-						TARGET_PAGE_SIZE,
-					);
+						limit: TARGET_PAGE_SIZE,
+						refreshBefore: DateTime.toDate(DateTime.subtract(at, { hours: REFRESH_HOURS })),
+					});
+					const evaluations = [];
 					for (const target of targets) {
 						if (!isEntitled(active, target.entitlement)) {
 							continue;
 						}
-						yield* deliverTarget(target, now).pipe(
+						const nextDueAt = yield* evaluateTarget(target, now).pipe(
+							Effect.asSome,
 							Effect.catchCause((cause) =>
 								Effect.logWarning("Signal schedule delivery deferred", cause).pipe(
 									Effect.annotateLogs({
@@ -248,10 +286,24 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 										scheduleSlug: target.slug,
 										pluginId: target.pluginId,
 									}),
+									Effect.as(Option.none()),
 								),
 							),
 						);
+						if (Option.isSome(nextDueAt)) {
+							evaluations.push({
+								snapshot,
+								evaluatedAt: now,
+								userId: target.userId,
+								scheduleSlug: target.slug,
+								pluginId: target.pluginId,
+								nextDueAt: nextDueAt.value,
+								timeZone: target.preferences.reportingTimeZone,
+								contentLanguage: target.preferences.contentLanguage,
+							});
+						}
 					}
+					yield* repository.saveEvaluations(evaluations);
 					const last = targets.at(-1);
 					if (last === undefined || targets.length < TARGET_PAGE_SIZE) {
 						return;

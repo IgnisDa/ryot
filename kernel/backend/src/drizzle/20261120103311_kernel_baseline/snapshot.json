@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "cce1b348-0c18-443c-9dbf-d37b012dcaea",
+	"id": "6205f951-30cf-49c3-ab9d-0ce602c6a7ed",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -299,6 +299,19 @@
 				"n|type|public.client_page_composition",
 				"n|rel|public.client_page_composition_pkey",
 				"n|rel|public.client_page_composition_composition_hash_key"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "data_change"],
+			"writes": [
+				"s|tbl|public.data_change",
+				"n|tbl|public.data_change",
+				"e|tbl|public.data_change",
+				"n|rel|public.data_change",
+				"n|type|public.data_change",
+				"n|rel|public.data_change_user_transaction_unique"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -1165,6 +1178,19 @@
 				"n|rel|public.signal_schedule_delivery",
 				"n|type|public.signal_schedule_delivery",
 				"n|rel|public.signal_schedule_delivery_pkey"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "signal_schedule_evaluation"],
+			"writes": [
+				"s|tbl|public.signal_schedule_evaluation",
+				"n|tbl|public.signal_schedule_evaluation",
+				"e|tbl|public.signal_schedule_evaluation",
+				"n|rel|public.signal_schedule_evaluation",
+				"n|type|public.signal_schedule_evaluation",
+				"n|rel|public.signal_schedule_evaluation_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -6626,6 +6652,44 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "signal_schedule_evaluation"],
+			"writes": [
+				"s|fk|public.signal_schedule_evaluation.signal_schedule_evaluation_user_id_user_id_fkey",
+				"n|fk|public.signal_schedule_evaluation.signal_schedule_evaluation_user_id_user_id_fkey",
+				"e|fk|public.signal_schedule_evaluation.signal_schedule_evaluation_user_id_user_id_fkey",
+				"n|con|public.signal_schedule_evaluation.signal_schedule_evaluation_user_id_user_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.signal_schedule_evaluation",
+				"n|sch|public",
+				"n|tbl|public.user",
+				"n|sch|public",
+				"n|col|public.signal_schedule_evaluation.user_id",
+				"n|col|public.user.id",
+				"e|uniqueness|public.user.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "signal_schedule_evaluation"],
+			"writes": [
+				"s|fk|public.signal_schedule_evaluation.signal_schedule_evaluation_plugin_id_plugin_id_fkey",
+				"n|fk|public.signal_schedule_evaluation.signal_schedule_evaluation_plugin_id_plugin_id_fkey",
+				"e|fk|public.signal_schedule_evaluation.signal_schedule_evaluation_plugin_id_plugin_id_fkey",
+				"n|con|public.signal_schedule_evaluation.signal_schedule_evaluation_plugin_id_plugin_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.signal_schedule_evaluation",
+				"n|sch|public",
+				"n|tbl|public.plugin",
+				"n|sch|public",
+				"n|col|public.signal_schedule_evaluation.plugin_id",
+				"n|col|public.plugin.id",
+				"e|uniqueness|public.plugin.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "two_factor"],
 			"writes": [
 				"s|fk|public.two_factor.two_factor_user_id_user_id_fkey",
@@ -6773,6 +6837,7 @@
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
+		{ "schema": "public", "name": "data_change", "isRlsEnabled": false, "entityType": "tables" },
 		{
 			"schema": "public",
 			"name": "definition_calendar_source",
@@ -7034,6 +7099,12 @@
 		{
 			"schema": "public",
 			"name": "signal_schedule_delivery",
+			"isRlsEnabled": false,
+			"entityType": "tables"
+		},
+		{
+			"schema": "public",
+			"name": "signal_schedule_evaluation",
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
@@ -9886,6 +9957,32 @@
 			"table": "client_page_composition",
 			"name": "manifest",
 			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "data_change",
+			"name": "user_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "data_change",
+			"name": "transaction_id",
+			"type": "xid8",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -18895,6 +18992,110 @@
 		},
 		{
 			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "next_due_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "content_language",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "time_zone",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "schedule_slug",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "snapshot",
+			"type": "pg_snapshot",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "evaluated_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "user_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "plugin_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
 			"table": "transient_value",
 			"name": "value",
 			"type": "text",
@@ -25494,6 +25695,32 @@
 		},
 		{
 			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "signal_schedule_evaluation_user_id_user_id_fkey",
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "signal_schedule_evaluation_plugin_id_plugin_id_fkey",
+			"nameExplicit": false,
+			"columns": ["plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "two_factor",
 			"name": "two_factor_user_id_user_id_fkey",
 			"nameExplicit": false,
@@ -25667,6 +25894,14 @@
 			"table": "signal_schedule_delivery",
 			"name": "signal_schedule_delivery_pkey",
 			"columns": ["user_id", "plugin_id", "schedule_slug", "occurrence_key"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
+			"table": "signal_schedule_evaluation",
+			"name": "signal_schedule_evaluation_pkey",
+			"columns": ["user_id", "plugin_id", "schedule_slug"],
 			"nameExplicit": false,
 			"entityType": "pks"
 		},
@@ -26351,6 +26586,15 @@
 			"nameExplicit": true,
 			"columns": ["hash", "package_id"],
 			"nullsNotDistinct": false,
+			"entityType": "uniques"
+		},
+		{
+			"schema": "public",
+			"table": "data_change",
+			"name": "data_change_user_transaction_unique",
+			"nameExplicit": true,
+			"columns": ["user_id", "transaction_id"],
+			"nullsNotDistinct": true,
 			"entityType": "uniques"
 		},
 		{
