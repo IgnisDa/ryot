@@ -319,7 +319,8 @@ and its named tests, then its e2e files.
    result per subject; `foldEachSubject` in the plugin SDK keeps Media and Fitness per-subject. A fold
    step groups its subjects by user and fold script, locks and reads them set-based, and packs their
    inputs first-fit by decreasing size into the fewest runs within the 1 MiB input bound, so a 7-exercise
-   workout makes one fold run instead of seven. Settling runs once for every subject that returned
+   workout makes one fold run instead of seven. On the clone the 34-set workout save went from 382 ms to
+   258 ms warm (p50), and a full rebuild of 29,241 subjects from about 17 minutes to 5. Settling runs once for every subject that returned
    changes. Fold jobs carry up to 25 subjects of one fold, so a rebuild batches too; a failed
    multi-subject job queues its subjects one by one. Pending fold marks, event group captures and
    reference clears are still ambient per-transaction `Context.Reference`s; wiring them explicitly
