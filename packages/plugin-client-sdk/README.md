@@ -206,9 +206,10 @@ staleness date/message. Content is limited to 3072 UTF-8 bytes; the native host 
 combined attributes and content remain below 4096 bytes.
 
 `assets.resolve` accepts 1 to 64 managed local or S3 locators and returns signed URLs with expiry.
-Remote images do not use it. `ManagedAssetProvider` owns stable sorting, deduplication, batches of at
-most 64, retained URLs during refresh, and renewal before the earliest expiry; kernel and plugin
-renderers are callers of this SDK behavior. Disposing a bridge session aborts pending resolution, but
+Remote images do not use it. `AssetArtWell` resolves a locator through the nearest provider and
+renders it with the shared artwork component. `ManagedAssetProvider` owns stable sorting, deduplication, batches of at
+most 64, retained URLs during refresh, and renewal before the earliest expiry. Nested providers
+reuse the locators registered by their ancestors. Disposing a bridge session aborts pending resolution, but
 an issued URL remains valid until expiry.
 
 Browser uploads to S3 require bucket CORS rules that allow `PUT` with `Content-Type` and enabled tracing

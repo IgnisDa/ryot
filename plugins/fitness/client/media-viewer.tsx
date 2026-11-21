@@ -1,8 +1,10 @@
 import type { Text } from "@ryot-app/plugin-client-sdk/react";
-import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import {
+	collectManagedAssetLocators,
+	ManagedAssetProvider,
+} from "@ryot-app/plugin-client-sdk/react";
 
 import type { WorkoutSetAssetLocator } from "../shared/workout-set";
-import { managedAssetBatch } from "./asset-urls";
 import { MediaPreview } from "./media-preview";
 import { useFitnessMessages } from "./messages";
 
@@ -23,7 +25,9 @@ export function WorkoutMediaViewer(props: {
 			<h2 className="font-display font-semibold text-[22px] text-text">
 				{text("client.media.attachments")}
 			</h2>
-			<ManagedAssetProvider assets={managedAssetBatch([...props.images, ...props.videos])}>
+			<ManagedAssetProvider
+				assets={collectManagedAssetLocators([...props.images, ...props.videos])}
+			>
 				<ul className="flex flex-col gap-4">
 					{props.images.map((asset, index) => (
 						<li key={`image:${JSON.stringify(asset)}`}>

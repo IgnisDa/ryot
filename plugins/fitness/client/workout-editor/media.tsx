@@ -1,13 +1,16 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { Text } from "@ryot-app/plugin-client-sdk/react";
-import { ManagedAssetProvider, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import {
+	collectManagedAssetLocators,
+	ManagedAssetProvider,
+	useRyotSchedule,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Button, EmptyState, IconButton, Notice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useRef, useState } from "react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { WorkoutSetAssetLocator } from "../../shared/workout-set";
-import { managedAssetBatch } from "../asset-urls";
 import { MediaPreview } from "../media-preview";
 import { useFitnessMessages } from "../messages";
 import { EditorSheet } from "./editor-sheet";
@@ -106,7 +109,9 @@ export function WorkoutMediaOverlay(props: {
 						description={text("client.editor-media.empty-description")}
 					/>
 				) : (
-					<ManagedAssetProvider assets={managedAssetBatch(assets.map(({ asset }) => asset))}>
+					<ManagedAssetProvider
+						assets={collectManagedAssetLocators(assets.map(({ asset }) => asset))}
+					>
 						<ul className="flex flex-wrap gap-3">
 							{assets.map(({ kind, asset }, index) => (
 								<li

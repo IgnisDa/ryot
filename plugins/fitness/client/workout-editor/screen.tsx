@@ -6,6 +6,7 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	collectManagedAssetLocators,
 	ManagedAssetProvider,
 	type Text,
 	useDisplayText,
@@ -17,7 +18,6 @@ import { MotionList } from "@ryot-app/plugin-ui-sdk";
 import { useEffect, useRef, useState } from "react";
 
 import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
-import { managedAssetBatch } from "../asset-urls";
 import { useMeasurementLogger } from "../measurements/measurement-logger";
 import { useFitnessMessageBuilder, useFitnessMessages } from "../messages";
 import {
@@ -328,7 +328,9 @@ export function WorkoutEditorScreen(props: {
 	const cards = ready ? (
 		<fieldset disabled={locked} className="grid min-w-0 gap-3 border-0 p-0">
 			<ManagedAssetProvider
-				assets={managedAssetBatch((exercises.data ?? []).map((exercise) => exercise.images?.[0]))}
+				assets={collectManagedAssetLocators(
+					(exercises.data ?? []).map((exercise) => exercise.images?.[0]),
+				)}
 			>
 				<MotionList className="grid gap-3">
 					{occurrenceSegments(text, editorDraft).map((segment) =>

@@ -1,9 +1,24 @@
 import {
+	type AssetLocator,
 	MANAGED_ASSET_RESOLUTION_MAX_ASSETS,
 	type ManagedAssetLocator,
 } from "@ryot-app/contract/modules/assets/schemas";
 
 export const managedAssetKey = (locator: ManagedAssetLocator) => `${locator.type}:${locator.key}`;
+
+export const assetKey = (locator: AssetLocator) =>
+	locator.type === "remote" ? `remote:${locator.url}` : managedAssetKey(locator);
+
+export const collectManagedAssetLocators = (assets: readonly (undefined | AssetLocator)[]) =>
+	sortedManagedAssetLocators([
+		...new Map(
+			assets.flatMap((asset) =>
+				asset === undefined || asset.type === "remote"
+					? []
+					: [[managedAssetKey(asset), { key: asset.key, type: asset.type }]],
+			),
+		).values(),
+	]);
 
 const sortedManagedAssetLocators = (locators: readonly ManagedAssetLocator[]) =>
 	[...locators].sort((left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)));
@@ -19,9 +34,7 @@ export type ManagedAssetBatch = {
 export const managedAssetBatches = (
 	locators: readonly ManagedAssetLocator[],
 ): readonly ManagedAssetBatch[] => {
-	const deduped = sortedManagedAssetLocators([
-		...new Map(locators.map((locator) => [managedAssetKey(locator), locator])).values(),
-	]);
+	const deduped = collectManagedAssetLocators(locators);
 	const batches: ManagedAssetBatch[] = [];
 	for (let index = 0; index < deduped.length; index += MANAGED_ASSET_RESOLUTION_MAX_ASSETS) {
 		const slice = deduped.slice(index, index + MANAGED_ASSET_RESOLUTION_MAX_ASSETS);

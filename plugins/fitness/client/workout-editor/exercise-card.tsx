@@ -1,5 +1,5 @@
 import { createUuid, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import { AssetArtWell, useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -21,7 +21,6 @@ import type {
 } from "../../shared/workout-editor-draft";
 import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
 import type { WorkoutSetLot } from "../../shared/workout-set";
-import { AssetArtWell } from "../asset-urls";
 import { useFitnessMessages } from "../messages";
 import { editSet, newWorkoutSet } from "./actions";
 import {
@@ -109,7 +108,7 @@ export function ExerciseCard(props: {
 				id={`occurrence-${occurrence.clientId}`}
 			>
 				<div className="flex items-center gap-2.5">
-					<AssetArtWell name="?" asset={undefined} className="size-10 shrink-0" />
+					<AssetArtWell monogram="?" asset={undefined} className="size-10 shrink-0" />
 					<div className="min-w-0 flex-1">
 						<h2 className="text-[15px] font-semibold">{name}</h2>
 						<p className="text-xs text-text-muted">{text("client.card.removed")}</p>
@@ -145,7 +144,7 @@ export function ExerciseCard(props: {
 		>
 			<div className="flex items-start gap-2.5 px-1">
 				<AssetArtWell
-					name={name}
+					monogram={name}
 					asset={exercise?.images?.[0]}
 					className={compact ? "size-10 shrink-0" : "size-11 shrink-0"}
 				/>

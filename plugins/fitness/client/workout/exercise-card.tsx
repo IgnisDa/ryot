@@ -1,11 +1,10 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { useDisplayText, useFormatters } from "@ryot-app/plugin-client-sdk/react";
+import { AssetArtWell, useDisplayText, useFormatters } from "@ryot-app/plugin-client-sdk/react";
 import { Card, formatClock } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 
 import { supersetColor } from "../../shared/superset-colors";
 import { durationDisplayUnit } from "../../shared/workout-units";
-import { AssetArtWell } from "../asset-urls";
 import { supersetColorVariable } from "../group-colors";
 import { WorkoutMediaViewer } from "../media-viewer";
 import { useFitnessMessages } from "../messages";
@@ -28,7 +27,7 @@ import {
 function ExerciseArtwork(props: { readonly compact: boolean; readonly card: ExerciseCard }) {
 	return (
 		<AssetArtWell
-			name={props.card.exercise.name}
+			monogram={props.card.exercise.name}
 			asset={props.card.exercise.images?.[0]}
 			className={clsx("shrink-0", props.compact ? "size-11" : "size-14")}
 		/>

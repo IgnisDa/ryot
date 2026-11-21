@@ -1,9 +1,12 @@
-import { ManagedAssetProvider, useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
+import {
+	collectManagedAssetLocators,
+	ManagedAssetProvider,
+	useAssetUrl,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Button, Field, TextArea } from "@ryot-app/plugin-ui-sdk";
 
 import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
 import type { WorkoutSetAssetLocator } from "../../shared/workout-set";
-import { managedAssetBatch } from "../asset-urls";
 import { useFitnessMessages } from "../messages";
 import { EditorSheet } from "./editor-sheet";
 import type { EditorExercise } from "./queries";
@@ -75,7 +78,7 @@ export function ExerciseInstructions(props: { readonly exercise: undefined | Edi
 	});
 	return (
 		<div className="flex flex-col gap-3">
-			<ManagedAssetProvider assets={managedAssetBatch(images)}>
+			<ManagedAssetProvider assets={collectManagedAssetLocators(images)}>
 				<div className="flex gap-3 overflow-x-auto">
 					{imageItems.map(({ key, image }) => (
 						<DemonstrationImage key={key} image={image} name={exercise.name} />

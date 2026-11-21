@@ -5,6 +5,7 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	collectManagedAssetLocators,
 	createRyotQuery,
 	ManagedAssetProvider,
 	PreferencesGate,
@@ -18,7 +19,6 @@ import { useMemo, useState } from "react";
 
 import { type ExerciseDetails, exerciseDetailsRecipe } from "../../shared/exercise-details-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { managedAssetBatch } from "../asset-urls";
 import { useFitnessMessages } from "../messages";
 import { WorkoutProcessing } from "../workout-processing";
 import { useActiveEditorDraft } from "./active-draft";
@@ -82,7 +82,7 @@ export function ExerciseDetailsView(props: {
 		/>
 	);
 	return (
-		<ManagedAssetProvider assets={managedAssetBatch(exercise.images ?? [])}>
+		<ManagedAssetProvider assets={collectManagedAssetLocators(exercise.images ?? [])}>
 			<div className={clsx("mx-auto flex w-full max-w-6xl flex-col", compact ? "gap-5" : "gap-8")}>
 				<ExerciseHeader
 					draft={draft}

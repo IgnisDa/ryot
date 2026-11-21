@@ -31,9 +31,8 @@ Heavy or optional surfaces remain on subpaths:
 
 Do not re-export these from the root barrel. Components accept icons as `ReactNode` and schema forms
 accept upload transport as a prop, keeping this package independent of auth, servers, and client
-capabilities. Tint extraction refetches the image as a no-store CORS request, because CDNs that omit `Vary: Origin`
-can otherwise serve the page's non-CORS cached copy; it silently returns no tint when image, canvas,
-or CORS access fails.
+capabilities. Tint extraction samples the displayed image after it loads. If the browser cannot
+read its pixels, the artwork uses the default background.
 
 ## Ratings
 
