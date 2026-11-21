@@ -37,7 +37,7 @@ concurrent retry commits nothing. Without changes, the receipt is recorded after
 message stamped with the plugin's namespace. HTTP, page and agent-tool invocations, including
 idempotent background submissions, share this dispatch. Every other sandbox failure remains HTTP 502
 `PluginInvocationError` with `runtime-failed`, because proxies may replace 502 bodies and the client
-treats them as transport failures. A script error whose boundary reason is `operation-conflict`, raised
+treats them as transport failures. A script error whose boundary reason is `changes-conflict`, raised
 when the operation finds its baseline stale before building changes, is answered like a commit
 conflict: 409 `PluginConflictError` with `changes-conflict` and the reason's conflict code.
 

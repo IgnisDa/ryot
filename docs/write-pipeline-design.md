@@ -58,8 +58,10 @@ One schema for every kind. It generalizes today's `UserCommand`:
 - `relationships`: user relationship changes referencing the root or existing entities.
 - `settings`: a patch of the plugin's user settings.
 
-Later rollout steps add the vocabulary the remaining scripts need, each in this same schema: entity
-deletes and merges, signals, notifications, global upserts, and fold requests.
+As built, the same schema also carries entity deletes, clears, merges and updates, bootstrap
+ensures, signals, notifications, global entity and relationship upserts, keyed relationships and fold
+requests; kernel writers add triggers and population bookkeeping in the internal `Changes`. The
+[change sets](../kernel/backend/src/modules/changes/README.md) README is the reference.
 
 ### Response
 
@@ -93,16 +95,25 @@ inline-then-durable fallback has nothing left to do. A parked parent, such as a 
 on HTTP, keeps only its own lease.
 
 A workflow replay keeps its lease and its lane's transient pool while it settles an inline batch.
-The batch holds only host reads, and admission refuses any run started from host-call work, so no
-script waits on a lease its caller holds. A step's changes commit in the workflow body after the
+The batch holds only host reads, and live runs and inline batches bind only capabilities that start no
+run, so no script waits on a lease its caller holds. A step's changes commit in the workflow body after the
 replay job has returned, so that commit's policies and folds take admission as their own phases.
 Agent runs follow the same shape: each round releases its lease before its capability calls run.
+
+As built: admission keeps a bounded waiting queue of 64 runs that hold nothing while they wait; past it a
+reservation fails `resource-unavailable` at once. No caller retries admission, inside a transaction or
+outside one.
 
 ### Authority
 
 Authority, the catalog, and compiled recipes are resolved once per isolate activation, not on each
 host call. A run is bounded by its execution timeout, so a revocation takes effect at the next
 activation.
+
+As built: a commit resolves script authority once in `authorizeChangeSet`, and `DomainWriteChecks`
+keeps one locked authority cache per transaction (configuration lock, pinned and active revision and
+execution authority per principal, installation per plugin and user, account per user); there is no
+ambient authority state. Preparation takes no authority locks.
 
 ### Consistency
 
@@ -150,21 +161,21 @@ replaces in the same step, and the type checker finds the callers that still nee
 1. **Operations return changes** (done). The SDK operation result is `{ output, changes? }` and the
    response `{ result, committed }`. First slice ported: review delete, media progress log, workout
    save.
-2. **Delete the old write surface.** Remove every write host capability from the SDK host
+2. **Delete the old write surface** (done). Remove every write host capability from the SDK host
    contracts, its kernel implementation, and its durable dispatch and journal handling. Operations
    always run on the plain host; the workflow path and capability-based selection for operations
    are deleted. Whatever no longer compiles is the porting list.
-3. **One change-set vocabulary.** Extend the change set, once, with everything the remaining writers
+3. **One change-set vocabulary** (done). Extend the change set, once, with everything the remaining writers
    need: entity deletes, merges and clears, global entity and relationship upserts, signals,
    notifications and fold requests. Shared builders live in the plugin SDK, not in each plugin.
-4. **Port every writer.** Remaining operations, after hooks, providers, imports, integrations, and
+4. **Port every writer** (done). Remaining operations, after hooks, providers, imports, integrations, and
    workflow steps return changes; the kernel commits them through the one pipeline.
-5. **One executor.** Policies, folds, operations and after hooks run on the plain host through one
+5. **One executor** (done). Policies, folds, operations and after hooks run on the plain host through one
    executor without automation persistence. `DirectScriptExecutor`, `DirectPolicyAttempts`,
    `DirectScriptDeferred`, fold busy fallbacks and required delivery are deleted.
 6. **Incremental folds** (done). Media and Fitness folds move to the change-list contract; replays run
    only on fold changes.
-7. **Host-call overhead.** Authority once per run everywhere, including sidecar placement; catalog
+7. **Host-call overhead** (done). Authority once per run everywhere, including sidecar placement; catalog
    resolution once per run.
 8. **Measure** the first slice on the clone in its live configuration.
 9. **Full validation.** Repo-wide check, the full test suite, affected e2e files, and cleanup.
@@ -280,8 +291,30 @@ and its named tests, then its e2e files.
    signal commits before `written` settles the reminder; `planner.planChange` in
    `entities/mutation-persistence.ts` is already inside the commit path (reached only from
    `persistPreparedSaves`, deletes and ensures).
-8. **Docs and audit.** These return nothing outside `changes/` and `events/mutations.ts`:
-   `EventsService`, `makeEventCreate`, `runLifecycleWrite`, `runItemPolicy`, `planner.planChange`.
+8. **Docs and audit** (done). `EventsService`, `makeEventCreate`, `runLifecycleWrite` and
+   `runItemPolicy` return nothing in the backend. `planner.planChange` remains outside `changes/` only
+   inside the commit path: `entities/mutation-persistence.ts` (saves, deletes and ensures) and
+   `relationships/mutation-primitives.ts` (prepared relationship writes and planned reconciliation,
+   reached from `ChangeSets` and the clears and merges it runs). `persistPlannedProviderUpserts` is
+   called only from `changes/service.ts`.
+
+### Post-slice work
+
+1. **Signal-schedule due evaluation** (done). A run lists only targets without a current evaluation
+   or whose next known occurrence fell due; an evaluation keeps its PostgreSQL snapshot, time zone and
+   content language, and a target is evaluated again when its snapshot does not see a newer
+   `data_change` row for its user (see [signal schedules](../kernel/backend/src/modules/signal-schedules/README.md)).
+2. **Per-transaction write checks** (done). `DomainWriteChecks` reads and locks each piece of
+   authority once per transaction (see [Authority](#authority)).
+3. **Keyed relationships** (done). Relationship endpoints and changes of keyed relationship schemas
+   carry a `key` through the contract `ChangeSet`, the kernel `Changes`, the relationship HTTP create,
+   imports and user-data merge retargeting; Media copy management, the inventory reconcile activity
+   and import copy records return change sets.
+4. **Admission and executor wiring** (done). Admission has a bounded waiting queue and no caller
+   retries it; a host call cannot start a run because the plain host binds no run-starting
+   capability. Boot provides `ScriptCalls` to the runtime graph only. One classifier,
+   `scriptChangesFailure`, maps a rejected script change set for every caller, and every boundary
+   names a commit conflict `changes-conflict`.
 
 ## Code placement
 

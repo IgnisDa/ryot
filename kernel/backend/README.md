@@ -12,7 +12,7 @@ Shared writes join the caller's transaction without passing raw executors betwee
 that require a top-level transaction reject an already active one.
 
 Runtime writes from imports, collections, provider population, reminders, signal schedules, jobs,
-sandbox callbacks, bootstrap, the entity editor, and HTTP commit
+the change sets scripts return, bootstrap, the entity editor, and HTTP commit
 through [`ChangeSets`](src/modules/changes/README.md), whose owning services prepare and persist each
 part. Historical backup restore instead uses the
 [backup-owned persistence path](src/modules/backups/README.md). Schema-backed entity,
