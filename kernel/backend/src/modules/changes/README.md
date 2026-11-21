@@ -121,7 +121,8 @@ into the first one's entity; a match that appears again fails with `mutation-con
 plan event changes, which join the change set's event changes (see [events](../events/README.md)):
 an entity delete cascades a delete to every event referencing its entities, a clear deletes the
 captured state's events, and a merge deletes transient evidence and moves every other event. Their
-event policies run with the rest of the batch. The root entity, entity creates and entity updates
+event policies run with the rest of the batch. A clear or merge leaves the relationships the change
+set's `relationships` part writes to those writes. The root entity, entity creates and entity updates
 share one path: `EntitiesService.prepareSave` validates the draft, resolves a create's provider
 identity and checks an update's expected baseline, and `persistPreparedSaves` persists a set of them
 under one account admission, catalog lock and entity lock statement, rechecking each under the lock.

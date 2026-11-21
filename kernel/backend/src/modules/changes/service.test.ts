@@ -1142,6 +1142,8 @@ const atomicLink = (input: Fixture) => ({
 	slug: RelationshipSchemaSlug.make("atomic-link"),
 });
 
+const existing = (entityId: EntityId) => ({ entityId, kind: "existing" as const });
+
 const kernelWriterCommand = (input: Fixture): DomainLifecycleCommand => ({
 	...command(crypto.randomUUID()),
 	writeContext: null,
@@ -1578,6 +1580,108 @@ layer(testLayer(false))((test) => {
 						),
 				);
 				expect(moved).toEqual([{ entityId: target }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"merges an entity whose keyed and unkeyed relationships the same change set deletes",
+		() =>
+			Effect.gen(function* () {
+				const source = revisionPackage("atomic", "fixture", "record");
+				const input = yield* fixture({
+					...source,
+					manifest: {
+						...source.manifest,
+						relationshipSchemas: [
+							...source.manifest.relationshipSchemas,
+							{
+								keyed: true,
+								slug: "atomic-keyed",
+								name: { key: "test.link" },
+								propertiesSchema: { fields: {} },
+								sourceEntitySchemaSlug: "record",
+								targetEntitySchemaSlug: "record",
+							},
+						],
+					},
+				});
+				const root = yield* commitUserCommand(input);
+				const target = targetOf(input);
+				const [other] = yield* (yield* EntitiesRepository).insertEntities([
+					{
+						userId,
+						scope: "user",
+						name: "Other",
+						properties: {},
+						populatedAt: null,
+						id: EntityId.make(yield* randomUuid),
+						entitySchemaPluginId: input.pluginId,
+						entitySchemaSlug: EntitySchemaSlug.make("record"),
+					},
+				]);
+				assert(other);
+				const links = [
+					{
+						target: existing(other.id),
+						source: existing(root.entityId),
+						relationshipSchemaSlug: "atomic-link",
+					},
+					{
+						key: "outgoing",
+						target: existing(other.id),
+						source: existing(root.entityId),
+						relationshipSchemaSlug: "atomic-keyed",
+					},
+					{
+						key: "incoming",
+						source: existing(other.id),
+						target: existing(root.entityId),
+						relationshipSchemaSlug: "atomic-keyed",
+					},
+				];
+				yield* commit(
+					{
+						relationships: {
+							upserts: links.map((link) => ({
+								...link,
+								properties: {},
+								propertiesMode: "replace" as const,
+							})),
+						},
+					},
+					nextCommand(input),
+				);
+				yield* commit(
+					{
+						relationships: { deletes: links },
+						entities: {
+							merges: [{ mergeInto: target, mergeFrom: root.entityId, entitySchemaSlug: "record" }],
+						},
+					},
+					nextCommand(input),
+				);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ entityId: tables.event.entityId })
+							.from(tables.event)
+							.where(
+								inArray(
+									tables.event.id,
+									root.events.map(({ eventId }) => eventId),
+								),
+							),
+					),
+				).toEqual([{ entityId: target }]);
+				expect(
+					yield* input.session.run((db) =>
+						db
+							.select({ id: tables.relationship.id })
+							.from(tables.relationship)
+							.where(eq(tables.relationship.relationshipSchemaPluginId, input.pluginId)),
+					),
+				).toEqual([]);
 			}),
 		testTimeout,
 	);

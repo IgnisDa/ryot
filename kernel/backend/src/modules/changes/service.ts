@@ -100,6 +100,7 @@ import {
 	type PreparedUserRelationship,
 	type UserRelationshipMode,
 } from "#modules/relationships/prepared-mutations";
+import { relationshipMutationLockKey } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import type {
 	ScriptExecutionPrincipal,
@@ -678,6 +679,11 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const relationEndpoints = preparedRelations.flatMap(({ prepared }) =>
 					prepared === null ? [] : preparedRelationshipEntityIds(prepared),
 				);
+				const writtenRelationships = new Set(
+					preparedRelations.flatMap(({ prepared }) =>
+						prepared === null ? [] : [relationshipMutationLockKey(prepared.mutation.input)],
+					),
+				);
 				const ensures = input.entities?.ensures?.length
 					? yield* entities.prepareEnsures(
 							yield* requireUser,
@@ -723,6 +729,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								owner,
 								item,
 								kernelCollectionLifecycleCommand(itemCommand(command, `entity-clear:${index}`)),
+								writtenRelationships,
 							),
 						),
 				);
@@ -734,6 +741,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 								owner,
 								item,
 								kernelCollectionLifecycleCommand(itemCommand(command, `entity-merge:${index}`)),
+								writtenRelationships,
 							),
 						),
 				);

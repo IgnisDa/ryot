@@ -39,6 +39,9 @@ with the rest of the change set. Hook dispatch starts after commit.
 Merge retains explicit events without heuristic deduplication. Relationships combine by identity;
 destination properties win collisions and source-only properties transfer. No-op shared relationships
 remain intact. Clear deletes selected state, including evidence stored away from the subject.
+A relationship the same change set writes (by its identity, the key for a keyed declaration) is left
+to that write: the clear or merge neither selects, rechecks, deletes nor moves it, so each
+relationship is written once.
 
 Requests carry no idempotency key. A second clear finds nothing to delete, and a second merge finds
 the source already merged and reports success.

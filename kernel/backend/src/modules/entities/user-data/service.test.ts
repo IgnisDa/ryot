@@ -249,6 +249,7 @@ const clear = (entityId: EntityId, lifecycle: DomainLifecycleCommand = command) 
 			user.id,
 			{ entityId, entitySchema: null },
 			lifecycle,
+			new Set(),
 		);
 		const written = yield* (yield* DatabaseSession)
 			.transaction(Effect.andThen(prepared.lock, prepared.write(Effect.succeed)))
@@ -267,6 +268,7 @@ const merge = (
 			user.id,
 			{ ...payload, entitySchema },
 			lifecycle,
+			new Set(),
 		);
 		const written = yield* (yield* DatabaseSession)
 			.transaction(Effect.andThen(prepared.lock, prepared.write(Effect.succeed)))

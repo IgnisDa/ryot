@@ -35,7 +35,10 @@ import type {
 	acceptRelationshipPolicies,
 	PreparedUserRelationship,
 } from "#modules/relationships/prepared-mutations";
-import { RelationshipsRepository } from "#modules/relationships/repository";
+import {
+	relationshipMutationLockKey,
+	RelationshipsRepository,
+} from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { trimToNull } from "#platform/validation";
 
@@ -104,12 +107,16 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			const relationshipsRepository = yield* RelationshipsRepository;
 			const graphRepository = yield* EntityUserDataGraphRepository;
 			const attachments = yield* EntityUserDataAttachments;
-			const state = Effect.fnUntraced(function* (input: {
-				userId: UserId;
-				entityId: EntityId;
-				pluginId: null | string;
-				policy: undefined | PluginEntityUserStatePolicy;
-			}) {
+			/** The selected user state, without the relationships `written` names, which the change set writes itself. */
+			const state = Effect.fnUntraced(function* (
+				input: {
+					userId: UserId;
+					entityId: EntityId;
+					pluginId: null | string;
+					policy: undefined | PluginEntityUserStatePolicy;
+				},
+				written: ReadonlySet<string>,
+			) {
 				const graph = yield* userStateGraph(graphRepository, input);
 				const attached = yield* attachments.list({
 					userId: input.userId,
@@ -174,13 +181,16 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				});
 				const selectedRelationships = rows.filter(
 					(row) =>
-						input.policy?.relationships === undefined ||
-						input.policy.relationships.some(
-							(reference) =>
-								reference.slug === row.relationshipSchemaSlug &&
-								(reference.owner.kind === "kernel" ? null : input.pluginId) ===
-									row.relationshipSchemaPluginId,
-						),
+						!written.has(
+							relationshipMutationLockKey({ ...row, scope: "user", userId: input.userId }),
+						) &&
+						(input.policy?.relationships === undefined ||
+							input.policy.relationships.some(
+								(reference) =>
+									reference.slug === row.relationshipSchemaSlug &&
+									(reference.owner.kind === "kernel" ? null : input.pluginId) ===
+										row.relationshipSchemaPluginId,
+							)),
 				);
 				return {
 					graph,
@@ -339,11 +349,15 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				return { create, deletion, retarget };
 			});
 
-			/** Plans clearing the user's state for an entity of `entitySchema`, any schema when it is null. */
+			/**
+			 * Plans clearing the user's state for an entity of `entitySchema`, any schema when it is null,
+			 * leaving the relationships `written` names to the change set that writes them.
+			 */
 			const prepareClear = Effect.fn("EntityUserDataService.prepareClear")(function* (
 				userId: UserId,
 				input: { readonly entityId: EntityId; readonly entitySchema: MergeAuthority },
 				command: DomainLifecycleCommand,
+				written: ReadonlySet<string>,
 			) {
 				const authority = input.entitySchema;
 				const trimmedEntityId = trimToNull(input.entityId);
@@ -391,7 +405,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					policy: entitySchema?.userState,
 					pluginId: scope.entitySchemaPluginId,
 				};
-				const captured = yield* state(stateInput);
+				const captured = yield* state(stateInput, written);
 				const events = captured.eventIds.map((eventId): EventMutation => ({
 					eventId,
 					kind: "delete",
@@ -430,7 +444,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					command,
 					states: [captured],
 					relationships: preparedRelationships,
-					recheck: state(stateInput).pipe(
+					recheck: state(stateInput, written).pipe(
 						Effect.flatMap((current) => assertState(captured, current)),
 					),
 					write: (batch, accept) =>
@@ -458,11 +472,15 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				});
 			});
 
-			/** Plans merging one entity's user state into another of `entitySchema`, any schema when it is null. */
+			/**
+			 * Plans merging one entity's user state into another of `entitySchema`, any schema when it is
+			 * null, leaving the relationships `written` names to the change set that writes them.
+			 */
 			const prepareMerge = Effect.fn("EntityUserDataService.prepareMerge")(function* (
 				userId: UserId,
 				payload: MergeEntityUserDataBody & { readonly entitySchema: MergeAuthority },
 				command: DomainLifecycleCommand,
+				written: ReadonlySet<string>,
 			) {
 				const authority = payload.entitySchema;
 				const trimmedMergeFrom = trimToNull(payload.mergeFrom);
@@ -568,8 +586,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					pluginId: fromScope.entitySchemaPluginId,
 				};
 				const targetInput = { ...sourceInput, entityId: mergeInto };
-				const sourceState = yield* state(sourceInput);
-				const targetState = yield* state(targetInput);
+				const sourceState = yield* state(sourceInput, written);
+				const targetState = yield* state(targetInput, written);
 				const sourceEntityIds = new Set(sourceState.graph.entityIds);
 				const requiredIds = new Set<string>(
 					[
@@ -701,8 +719,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							intoScope,
 							yield* entitiesRepository.getEntityMergeScopeForUser({ userId, entityId: mergeInto }),
 						);
-						yield* assertState(sourceState, yield* state(sourceInput));
-						yield* assertState(targetState, yield* state(targetInput));
+						yield* assertState(sourceState, yield* state(sourceInput, written));
+						yield* assertState(targetState, yield* state(targetInput, written));
 					}),
 					write: (batch, accept) =>
 						Effect.gen(function* () {
