@@ -47,8 +47,8 @@ const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchem
 	onExcessProperty: "error",
 });
 
-// Service capabilities start nested sandbox runs, which admission refuses inside a host call, so live
-// executions never bind them.
+// A run keeps its lease while its host calls settle, so live executions bind only capabilities that
+// start no run; service capabilities are dispatched by the workflow body instead.
 const resourceFreeStrategies = new Set<ReturnType<typeof sandboxDurableHostDispatchStrategy>>([
 	"activity",
 	"diagnostic",
@@ -253,8 +253,8 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 													? response.value["output"]
 													: response.value;
 											const output =
-												input.activity && isObjectRecord(completed)
-													? completed["output"]
+												input.harvestRoot !== undefined && isObjectRecord(completed)
+													? completed[input.harvestRoot]
 													: completed;
 											return { response, harvest: yield* access.harvest(output) };
 										}),

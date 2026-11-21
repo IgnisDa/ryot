@@ -3,6 +3,7 @@ import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle"
 import { Clock, Context, Deferred, Effect, Layer, Schema } from "effect";
 import type { Scope } from "effect";
 
+import { SANDBOX_LIMITS } from "../protocol/limits";
 import { SIDECAR_PROTOCOL_LIMITS } from "../protocol/messages";
 import { SandboxHostConfig } from "./config";
 import { isResidentInstance } from "./instance";
@@ -34,12 +35,6 @@ type LeaseState = {
 	entered: string | undefined;
 };
 
-// Set while a run's host call settles. That run keeps its lease meanwhile, so a run admitted there could wait on it.
-export const InsideSandboxHostCall = Context.Reference<boolean>(
-	"@ryot-app/sandbox/host/admission/InsideSandboxHostCall",
-	{ defaultValue: () => false },
-);
-
 export class SandboxAdmissionLease extends Context.Service<
 	SandboxAdmissionLease,
 	{
@@ -51,11 +46,6 @@ export class SandboxAdmissionLease extends Context.Service<
 
 const limitError = (message: string) =>
 	new SandboxRunError({ message, kind: "resource-unavailable" });
-
-const queueFullMessage = "Sandbox ephemeral admission queue is full";
-
-export const isAdmissionQueueFull = (error: unknown) =>
-	error instanceof SandboxRunError && error.message === queueFullMessage;
 
 export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmission>()(
 	"@ryot-app/sandbox/host/admission/SandboxSidecarAdmission",
@@ -236,12 +226,6 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				runInstance: string,
 				lane: ExecutionLane,
 			) {
-				if (yield* InsideSandboxHostCall) {
-					return yield* new SandboxRunError({
-						kind: "infrastructure",
-						message: "A sandbox run cannot start inside another run's host call",
-					});
-				}
 				const waitingAt = yield* Clock.currentTimeMillis;
 				const lease: LeaseState = {
 					lane,
@@ -288,8 +272,8 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 									return undefined;
 								}
 								if (!waiting) {
-									if (state.waiting >= concurrency) {
-										return yield* limitError(queueFullMessage);
+									if (state.waiting >= SANDBOX_LIMITS.admission.waitingRuns) {
+										return yield* limitError("Sandbox admission queue is full");
 									}
 									waiting = true;
 									state.waiting++;

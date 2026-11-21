@@ -66,6 +66,7 @@ import {
 	userId,
 } from "#modules/relationships/lifecycle.test-support";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { ScriptChanges } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -132,7 +133,7 @@ const testLayer = (failAfterEvents: boolean, notificationSourcesOpen = true) => 
 							}),
 						});
 					}),
-				).pipe(Layer.provide(Folds.layer)),
+				).pipe(Layer.provide(Folds.layer), Layer.provide(unavailableScriptCallsLayer)),
 				Layer.succeed(AtomicWriteObservation, { staged: Ref.get(staged) }),
 			);
 		}),

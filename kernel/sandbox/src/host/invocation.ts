@@ -38,12 +38,12 @@ export type SandboxInlineDurableHost = {
 };
 
 export type SandboxRunInput = {
-	/** A `defineActivity` script, whose completed result carries its output in `output`. */
-	readonly activity?: true;
 	readonly context: unknown;
 	readonly startedAt: string;
 	readonly lane: ExecutionLane;
 	readonly executionId: string;
+	/** The property of the completed result whose value names the scratch files to harvest; the result itself when absent. */
+	readonly harvestRoot?: string;
 	readonly compiledCode: string;
 	readonly checkpoint?: JsonValue;
 	readonly compiledFormat: number;

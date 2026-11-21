@@ -499,6 +499,6 @@ export class Folds extends Context.Service<Folds>()(
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(Layer.mergeAll(FoldScriptsLive, ScriptCalls.layer, DefinitionCatalog.layer)),
+		Layer.provide(Layer.mergeAll(FoldScriptsLive, DefinitionCatalog.layer)),
 	);
 }

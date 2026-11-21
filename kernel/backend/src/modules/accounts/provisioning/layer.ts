@@ -14,7 +14,6 @@ import { PluginBootstrapEntitiesRuntimeLive } from "#modules/entities/layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginInstallationRuntimeLive } from "#modules/plugins/layer";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { UserBootstrap } from "./bootstrap";
@@ -27,7 +26,6 @@ export const PluginUserBootstrapDispatcherLive = PluginUserBootstrapDispatcher.l
 		Layer.mergeAll(
 			ScriptChangesLive,
 			SandboxRepository.layer,
-			ScriptCalls.layer,
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
 			PluginBootstrapEntitiesRuntimeLive,

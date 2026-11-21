@@ -1,4 +1,4 @@
-import type { DbError } from "@ryot-app/contract/errors";
+import type { DbError, SandboxFailureKind } from "@ryot-app/contract/errors";
 import type {
 	AutomationPopulationContext,
 	ExecutionLane,
@@ -33,6 +33,25 @@ export type ScriptChangesInput = {
 	readonly population?: AutomationPopulationContext;
 };
 
+/** How a caller reports a rejection: the failure kind, a stable code and a diagnostic message. */
+export type ScriptChangesFailure =
+	| {
+			readonly message: string;
+			readonly code: "changes-rejected";
+			readonly kind: Extract<SandboxFailureKind, "invalid-output">;
+	  }
+	| {
+			readonly message: string;
+			readonly code: CommitConflictCode;
+			readonly kind: Extract<SandboxFailureKind, "resource-unavailable">;
+	  }
+	| {
+			readonly reason: Message;
+			readonly message: string;
+			readonly code: "policy-rejected";
+			readonly kind: Extract<SandboxFailureKind, "script-failure">;
+	  };
+
 /** A script's changes did not commit: a stale baseline, a policy rejection, or invalid changes. */
 export class ScriptChangesRejected extends Schema.TaggedError<
 	ScriptChangesRejected,
@@ -44,6 +63,30 @@ export class ScriptChangesRejected extends Schema.TaggedError<
 		Schema.Struct({ message: Schema.String, code: Schema.Literal("invalid") }),
 	]),
 }) {}
+
+/** A conflict is retryable, a policy rejection is the script's failure, anything else is invalid output. */
+export const scriptChangesFailure = ({ reason }: ScriptChangesRejected): ScriptChangesFailure => {
+	if (reason.code === "conflict") {
+		return {
+			code: reason.conflict,
+			kind: "resource-unavailable",
+			message: `Changes conflicted with a newer write (${reason.conflict})`,
+		};
+	}
+	if (reason.code === "policy-rejected") {
+		return {
+			code: reason.code,
+			kind: "script-failure",
+			reason: reason.message,
+			message: "A policy rejected the changes",
+		};
+	}
+	return {
+		kind: "invalid-output",
+		code: "changes-rejected",
+		message: `Changes were rejected (${reason.message})`,
+	};
+};
 
 /** Commits the changes a script returned, under the script's principal and causation. */
 export class ScriptChanges extends Context.Service<

@@ -19,6 +19,7 @@ export const SANDBOX_LIMITS = {
 	userSettingsBytes: 64 * KiB,
 	pluginConfigBytes: 64 * KiB,
 	replay: { shortWaitMs: 1_000 },
+	admission: { waitingRuns: 64 },
 	oauthTokenResponseBytes: 64 * KiB,
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 1_000 },

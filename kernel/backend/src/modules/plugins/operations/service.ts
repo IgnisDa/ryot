@@ -1,7 +1,7 @@
 import { WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { BadRequest, NotFound } from "@ryot-app/contract/errors";
 import { DbError } from "@ryot-app/contract/errors";
-import { ChangeSet, CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
+import { CommittedChanges, OutputWithChanges } from "@ryot-app/contract/modules/changes/change-set";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
 	PluginConflictError,
@@ -37,8 +37,11 @@ import { requireOpenSubmission } from "#modules/mutations/submission-window";
 import { PageOperationAuthorization } from "#modules/pages/operation-authority";
 import { samePluginPin, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
-import type { ScriptChangesRejected } from "#modules/scripts/executions/script-changes";
-import { ScriptChanges } from "#modules/scripts/executions/script-changes";
+import {
+	ScriptChanges,
+	scriptChangesFailure,
+	type ScriptChangesRejected,
+} from "#modules/scripts/executions/script-changes";
 import { sandboxStartedAt } from "#modules/scripts/host/execution-context";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { mapDatabaseErrors } from "#platform/db/errors";
@@ -70,10 +73,7 @@ type DispatchInput = {
 	readonly scriptId: SandboxScriptId;
 	readonly integrationId?: IntegrationId;
 };
-const OperationRunResult = Schema.Struct({
-	output: JsonValue,
-	changes: Schema.optional(ChangeSet),
-});
+const OperationRunResult = OutputWithChanges(JsonValue);
 
 const OperationReceipt = Schema.Struct({ output: JsonValue, committed: CommittedChanges });
 type OperationReceipt = typeof OperationReceipt.Type;
@@ -90,16 +90,15 @@ const commitFailure = (error: DbError | ScriptChangesRejected) => {
 	if (error instanceof DbError) {
 		return error;
 	}
-	const { reason } = error;
-	if (reason.code === "policy-rejected") {
-		return new PluginOperationRejected({ reason: reason.message });
-	}
-	if (reason.code === "conflict") {
+	const failure = scriptChangesFailure(error);
+	if (failure.kind === "resource-unavailable") {
 		return new PluginConflictError({
-			reason: { code: "changes-conflict", conflict: reason.conflict },
+			reason: { conflict: failure.code, code: "changes-conflict" },
 		});
 	}
-	return invalidOutput(`Operation changes were not committed (${reason.message})`);
+	return failure.kind === "script-failure"
+		? new PluginOperationRejected({ reason: failure.reason })
+		: invalidOutput(failure.message);
 };
 
 export class IntegrationOperationScopeResolver extends Context.Service<
@@ -147,7 +146,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					yield* Effect.annotateCurrentSpan("plugin.rejection", result.error.message);
 					return yield* new PluginOperationRejected({ reason: result.error.data.reason });
 				}
-				if (result.error?.data?.code === "operation-conflict") {
+				if (result.error?.data?.code === "changes-conflict") {
 					return yield* new PluginConflictError({
 						reason: { code: "changes-conflict", conflict: result.error.data.conflict },
 					});

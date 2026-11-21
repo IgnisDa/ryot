@@ -888,7 +888,7 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 					const grants = { artifactOwnerExecutionId: testExecutionId("native-service-owner-run") };
 					const activity = yield* service.run({
 						...makeRunInput(compiled, activityExecutionId, {}, ownerId, grants),
-						activity: true,
+						harvestRoot: "output",
 					});
 					const script = yield* service.run(
 						makeRunInput(compiled, scriptExecutionId, {}, ownerId, grants),

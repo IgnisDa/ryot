@@ -13,7 +13,7 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { ScriptCalls } from "./calls";
 import { infrastructureRunError } from "./run-error";
-import { ScriptChanges, type ScriptChangesRejected } from "./script-changes";
+import { ScriptChanges, scriptChangesFailure } from "./script-changes";
 
 export type UserBootstrapRun = {
 	readonly userId: UserId;
@@ -21,16 +21,6 @@ export type UserBootstrapRun = {
 	readonly scriptId: SandboxScriptId;
 	readonly pluginRevision?: ScriptPluginRevision;
 	readonly initialization?: ScriptInstallationInitialization;
-};
-
-const changesRejection = (error: ScriptChangesRejected) => {
-	const { reason } = error;
-	if (reason.code === "conflict") {
-		return `its changes conflicted with a newer write (${reason.conflict})`;
-	}
-	return reason.code === "policy-rejected"
-		? "a policy rejected its changes"
-		: `its changes were rejected: ${reason.message}`;
 };
 
 /**
@@ -84,7 +74,7 @@ export const runUserBootstrapScript = Effect.fn("runUserBootstrapScript")(functi
 			Effect.catchTags({
 				DbError: (error) => Effect.fail(infrastructureRunError(error)),
 				ScriptChangesRejected: (error) =>
-					Effect.succeed({ error: { message: changesRejection(error) } }),
+					Effect.succeed({ error: { message: scriptChangesFailure(error).message } }),
 			}),
 		);
 });

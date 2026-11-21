@@ -1,13 +1,15 @@
-import { CommitConflictCode } from "@ryot-app/contract/modules/changes/change-set";
+import {
+	CommitConflictCode,
+	OutputWithChanges,
+} from "@ryot-app/contract/modules/changes/change-set";
 import { LocalMessage } from "@ryot-app/i18n/message";
 import { type Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import { outputWithChanges } from "./core/changes";
 import type { OperationManifest } from "./core/script-manifest";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 
 type OperationResult<Output extends Schema.Codec<unknown, unknown>> = ReturnType<
-	typeof outputWithChanges<Output>
+	typeof OutputWithChanges<Output>
 >;
 
 export const defineOperation = <
@@ -27,7 +29,7 @@ export const defineOperation = <
 > => ({
 	...definition,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
-	output: outputWithChanges(definition.output),
+	output: OutputWithChanges(definition.output),
 });
 
 /**
@@ -49,5 +51,5 @@ export class OperationConflictError extends Schema.TaggedError<
 	OperationConflictError,
 	{ readonly brand: unique symbol }
 >()("OperationConflictError", { conflict: CommitConflictCode }) {
-	readonly data = { conflict: this.conflict, code: "operation-conflict" } as const;
+	readonly data = { conflict: this.conflict, code: "changes-conflict" } as const;
 }

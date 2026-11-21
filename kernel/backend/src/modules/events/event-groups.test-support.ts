@@ -31,6 +31,7 @@ import {
 	userId,
 } from "#modules/relationships/lifecycle.test-support";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { workflowEngineTestLayer } from "#testing/effect";
 
@@ -66,6 +67,7 @@ export const eventGroupWorkflowLayer = changeSetsTestLayer.pipe(
 				PluginUserSettingsWriter.layer.pipe(Layer.provide(PluginCatalogInvalidatorLive)),
 			),
 			Layer.provideMerge(EventSchemaReader.layer),
+			Layer.provideMerge(unavailableScriptCallsLayer),
 			Layer.provideMerge(relationshipDatabaseLayer()),
 		),
 	),

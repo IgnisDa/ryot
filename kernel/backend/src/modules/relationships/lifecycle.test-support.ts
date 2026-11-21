@@ -59,6 +59,7 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
+import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
@@ -531,6 +532,7 @@ export const relationshipDatabaseLayer = (
 						eventsRepository,
 						eventSchemasRepository,
 						eventEngine,
+						unavailableScriptCallsLayer,
 						WorkflowExecutionNotifications.layer,
 					),
 				),

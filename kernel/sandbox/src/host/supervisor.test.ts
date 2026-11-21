@@ -1499,11 +1499,6 @@ supervisorTest("bounds all tiers, grants, and recovery with global admission", (
 			}).pipe(Effect.forkScoped({ startImmediately: true }));
 			yield* Effect.yieldNow;
 			expect(admission.snapshot()).toMatchObject({ runs: 2, waiting: 2 });
-			const overflow = yield* Effect.flip(
-				Effect.scoped(supervisor.reserve(makePrincipal([], "user-overflow"), "interactive")),
-			);
-			expect(overflow.kind).toBe("resource-unavailable");
-			expect(overflow.message).toBe("Sandbox ephemeral admission queue is full");
 
 			yield* harness.emit(data.generation, {
 				type: "fatal",

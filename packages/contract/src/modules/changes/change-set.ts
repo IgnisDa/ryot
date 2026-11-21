@@ -230,6 +230,10 @@ export type ChangeSet = typeof ChangeSet.Type;
 export const ChangesOutput = strictStruct({ changes: Schema.optional(ChangeSet) });
 export type ChangesOutput = typeof ChangesOutput.Type;
 
+/** The result of a script that returns an output and the changes the kernel commits for it. */
+export const OutputWithChanges = <Output extends Schema.Top>(output: Output) =>
+	Schema.Struct({ output, changes: Schema.optional(ChangeSet) });
+
 export const CommittedChanges = strictStruct({
 	entityId: Schema.optional(EntityId),
 	events: Schema.Array(strictStruct({ eventId: EventId, itemIdentity: Schema.NonEmptyString })),

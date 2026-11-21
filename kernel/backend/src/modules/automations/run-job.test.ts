@@ -21,7 +21,6 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
@@ -537,44 +536,6 @@ it.effect(
 				kind: "invalid-input",
 				message:
 					"Automation input projection for script 'hook-script' and hook 'hook' does not declare the retained trigger resource",
-			});
-
-			const oversizedPayload = {
-				actorUserId: "owner",
-				operation: "emit" as const,
-				signalSchemaPluginId: null,
-				category: "signal" as const,
-				resource: "signal" as const,
-				signalSchemaSlug: "fixture.signal",
-				properties: { oversized: "a".repeat(65_536) },
-			};
-			const oversizedTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
-				...trigger,
-				payload: oversizedPayload,
-			});
-			const expectedInput = {
-				automation: {
-					runId: run.id,
-					triggerId: trigger.id,
-					hookSlug: run.hookSlug,
-					payload: oversizedPayload,
-					causation: trigger.causation,
-					occurredAt: trigger.occurredAt,
-					executionUserId: run.executionUserId,
-				},
-			};
-			const expectedBytes = jsonByteLength(expectedInput);
-			expect(expectedBytes).not.toBeNull();
-			const oversized = yield* prepareAutomationInvocation(
-				run,
-				oversizedTrigger,
-				payload,
-				{ ...afterScript, inputProjection: { signal: { properties: ["oversized"] } } },
-				accountUserId,
-			).pipe(Effect.flip);
-			expect(oversized).toMatchObject({
-				kind: "invalid-input",
-				message: `Automation input for hook 'hook' is ${expectedBytes} UTF-8 bytes; maximum is 65536 bytes`,
 			});
 		}),
 	testTimeout,

@@ -16,7 +16,7 @@ import {
 	type AgentScriptRun,
 	AgentScriptService,
 } from "#modules/scripts/agent/service";
-import { ScriptCalls, ScriptCallsInstalledLive } from "#modules/scripts/executions/calls";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import {
 	realSandboxLayer,
 	RealSandboxScripts,
@@ -175,7 +175,7 @@ const decodeOperationResult = Schema.decodeUnknownEffect(Schema.Struct({ output:
 
 const sharedPermitAgentLayer = AgentScriptService.layer.pipe(
 	Layer.provideMerge(AgentScriptRepository.layer),
-	Layer.provideMerge(ScriptCallsInstalledLive),
+	Layer.provideMerge(ScriptCalls.layer),
 	Layer.provideMerge(
 		realSandboxLayer({ workerConcurrency: 1, perUserSidecars: true, memoryBudgetMiB: 1094 }),
 	),

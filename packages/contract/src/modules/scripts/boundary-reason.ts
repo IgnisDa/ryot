@@ -20,7 +20,7 @@ const boundaryReasonMembers = <Reason extends Schema.Top>(reason: Reason) =>
 		EntitlementRequiredReason,
 		Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 		Schema.Struct({ reason, code: Schema.Literal("operation-rejected") }),
-		Schema.Struct({ conflict: CommitConflictCode, code: Schema.Literal("operation-conflict") }),
+		Schema.Struct({ conflict: CommitConflictCode, code: Schema.Literal("changes-conflict") }),
 		Schema.Struct({ code: Schema.Literal("page-write-access-required") }),
 		Schema.Struct({
 			code: Schema.Literal("missing-required-config"),
@@ -89,7 +89,7 @@ export const stampedBoundaryReasonOfError = (error: unknown) =>
 const boundaryReasonKeys = {
 	"asset-forbidden": "error.sandbox.asset-forbidden",
 	"execution-limit": "error.sandbox.execution-limit",
-	"operation-conflict": "error.sandbox.operation-conflict",
+	"changes-conflict": "error.sandbox.changes-conflict",
 	"unavailable-operation": "error.sandbox.unavailable-operation",
 	"missing-artifact-grant": "error.sandbox.missing-artifact-grant",
 	"installation-unavailable": "error.sandbox.installation-unavailable",

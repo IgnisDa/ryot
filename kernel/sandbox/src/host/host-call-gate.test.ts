@@ -32,7 +32,7 @@ import { makeSidecarFrameWriter } from "../protocol/framing";
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import type { SidecarHostResultFrame } from "../protocol/messages";
 import { base64DecodedLength, SidecarHostCallFrame } from "../protocol/messages";
-import { InsideSandboxHostCall, SandboxSidecarAdmission } from "./admission";
+import { SandboxSidecarAdmission } from "./admission";
 import type { SandboxFileAccess } from "./file-access";
 import { makeFiles, makeSandboxAdmission, sandboxGateLayer } from "./gate.test-support";
 import { encodeJson, hostCallFrame } from "./host-call-args.test-support";
@@ -176,47 +176,6 @@ const reserveBatch = (seq: number) =>
 	makeFrame(seq, "inlineBatch", { requests: httpRequests(1) }, { handle: "reserve" });
 
 layer(gateLayer)((test) => {
-	test.effect(
-		"marks ordinary and inline host work as inside a host call",
-		() =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const gate = yield* SandboxHostCallGate;
-					const observed: Array<[string, boolean]> = [];
-					const input = makeInput(["getCachedValue"], {
-						workflowExecutionId: "marked-workflow",
-						replayJournal: yield* memoryPinnedJournal([]),
-						inlineDurableHost: {
-							capabilities: ["getCachedValue"],
-							settle: (requests) =>
-								Effect.map(InsideSandboxHostCall, (inside) => {
-									observed.push(["inline", inside]);
-									return requests.map(() => ({ value: null, state: "success" as const }));
-								}),
-						},
-					});
-					const registration = yield* gate.register(
-						makeOptions(input, {
-							getCachedValue: () =>
-								Effect.map(InsideSandboxHostCall, (inside) => {
-									observed.push(["ordinary", inside]);
-									return hostSuccess(null);
-								}),
-						}),
-					);
-					yield* registration.dispatch(yield* makeFrame(0, "getCachedValue", []));
-					yield* registration.dispatch(
-						yield* makeFrame(1, "inlineBatch", { requests: [yield* cachedValueRequest(0)] }),
-					);
-					expect(observed).toEqual([
-						["ordinary", true],
-						["inline", true],
-					]);
-					expect(yield* InsideSandboxHostCall).toBe(false);
-				}),
-			),
-		testTimeout,
-	);
 	test.effect(
 		"counts ordinary host waits while pausing only validated inline settlement",
 		() =>

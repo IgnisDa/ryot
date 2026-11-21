@@ -6,13 +6,13 @@ import {
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
-import { isAdmissionQueueFull, SandboxAdmissionLease } from "@ryot-app/sandbox/host/admission";
+import { SandboxAdmissionLease } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { sandboxInlineDurableCapabilities } from "@ryot-app/sandbox/host/host-execution-policy";
 import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Duration, Effect, Exit, Layer, Option, Schedule, Schema } from "effect";
+import { Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 import { Activity, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -160,8 +160,6 @@ export const settledSandboxReplay = Effect.fn("settledSandboxReplay")(function* 
 
 export type SandboxExecutionResolutionMode = "exact" | "active";
 
-const QUEUED_ADMISSION_RETRY = Schedule.spaced(Duration.millis(100)).pipe(Schedule.jittered);
-
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionQueuePayload,
 ) {
@@ -176,7 +174,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 	const carry = yield* Effect.flatMap(DatabaseSession, (session) => session.carry);
 	const jobId = yield* CurrentJobId;
-	const execution = Effect.scoped(
+	return yield* Effect.scoped(
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const inspection = yield* inspectSandboxJournal(
@@ -220,7 +218,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 					compiledCode: artifact.compiledCode,
 					compiledFormat: artifact.compiledFormat,
 					workflowExecutionId: payload.workflowExecutionId,
-					...(payload.activity ? { activity: true } : {}),
+					...(payload.activity ? { harvestRoot: "output" } : {}),
 					...(grants ? { grants } : {}),
 					inlineDurableHost: {
 						capabilities: inlineCapabilities,
@@ -288,10 +286,6 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 				(error) => new SandboxRecoverySuspended({ instance: error.instance }),
 			),
 		),
-	);
-	// A full queue rejects a reservation before anything runs, so the replay tries again.
-	return yield* execution.pipe(
-		Effect.retry({ while: isAdmissionQueueFull, schedule: QUEUED_ADMISSION_RETRY }),
 	);
 });
 

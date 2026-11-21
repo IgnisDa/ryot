@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 
-import { LifecycleServicesLive, MigrationLifecycleServicesLive } from "#modules/automations/layer";
+import { LifecyclePlannerServiceLive, LifecycleServicesLive } from "#modules/automations/layer";
 import { EventsRepository } from "#modules/events/repository";
 
 import { EntitiesRepositoryLive } from "./repository";
@@ -24,7 +24,7 @@ export const EntitiesServiceMigrationLive = EntitiesService.layerMigration.pipe(
 			EntitiesRepositoryLive,
 			DomainWriteChecksLive,
 			EventsRepository.layer,
-			MigrationLifecycleServicesLive,
+			LifecyclePlannerServiceLive,
 		),
 	),
 );

@@ -66,7 +66,7 @@ export class LifecyclePolicies extends Context.Service<
 			readonly trigger: AutomationTrigger;
 			readonly items: ReadonlyArray<LifecyclePolicyItem>;
 			readonly references: Readonly<Record<string, AutomationEntityDraft>>;
-		}) => Effect.Effect<AutomationPolicyBatchOutput, AutomationPolicyExecutionError>;
+		}) => Effect.Effect<AutomationPolicyBatchOutput, DbError | AutomationPolicyExecutionError>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/policies/LifecyclePolicies") {}
 

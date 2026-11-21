@@ -1,9 +1,8 @@
-import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
+import { type ChangeSet, OutputWithChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { boundaryReasonOfError } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import { Effect as RuntimeEffect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import { outputWithChanges } from "./core/changes";
 import type { ExecutionMetadata, ScriptManifest, WorkflowManifest } from "./core/script-manifest";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 import { jsonValueSchema, type SandboxHostError } from "./wire";
@@ -296,7 +295,7 @@ export const defineActivity = <
 	Run extends GenericScriptDefinition<
 		Manifest,
 		Input,
-		ReturnType<typeof outputWithChanges<Output>>,
+		ReturnType<typeof OutputWithChanges<Output>>,
 		Failure
 	>["run"],
 >(
@@ -308,14 +307,14 @@ export const defineActivity = <
 	GenericScriptDefinition<
 		Manifest,
 		Input,
-		ReturnType<typeof outputWithChanges<Output>>,
+		ReturnType<typeof OutputWithChanges<Output>>,
 		RuntimeEffect.Error<ReturnType<Run>>
 	>,
 	"run"
 > => ({
 	...definition,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
-	output: outputWithChanges(definition.output),
+	output: OutputWithChanges(definition.output),
 });
 
 export const Effect = {

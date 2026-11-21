@@ -55,7 +55,7 @@ The `operation-rejected` reason marks a deliberate operation refusal: the guest 
 `OperationsService` answers it with HTTP 422 `PluginOperationRejected` carrying a message reason while every
 other operation failure stays HTTP 502 `PluginInvocationError`, an automation run records it as a
 `business-failure` under the code `operation-rejected`, and workflow classification is unchanged. The
-`operation-conflict` reason, carrying a `CommitConflictCode`, is preserved the same way and answered by
+`changes-conflict` reason, carrying a `CommitConflictCode`, is preserved the same way and answered by
 `OperationsService` with HTTP 409 `PluginConflictError` and `changes-conflict`.
 
 Plugin workflow activations load their current checkpoint. A checkpoint commit stores the next
@@ -88,12 +88,12 @@ children. Every host read declares a result bound that its producer enforces (se
 [sandbox limits](../../../../sandbox/README.md#limits)), so the plain host serves all of them; only
 service-dispatched capabilities are unavailable to it.
 
-A call takes one sandbox lease and releases it before returning, and a full admission queue is retried
-every 100 ms with jitter. No caller holds a lease while waiting for another, so callers that nest
-phases (a policy, then the commit and its folds) never deadlock on admission. A host call never starts
-a script: admission refuses a run while another run's host call settles, since that run keeps its lease. Migrations and the
-runtime share one layer graph, so the runtime installs the sandbox into `ScriptCalls` once it exists;
-until then every call fails as `resource-unavailable`.
+A call takes one sandbox lease and releases it before returning; it waits in the admission queue, and
+a full queue fails the call as `resource-unavailable`, which is never retried. No caller holds a lease
+while waiting for another, so callers that nest phases (a policy, then the commit and its folds) never
+deadlock on admission. A host call never starts a script: the plain host binds only capabilities that
+start no run. Boot provides `ScriptCalls` to the runtime only; the migration graph builds nothing that
+calls scripts.
 
 ### Journal projection
 
@@ -213,7 +213,8 @@ script's principal and the durable identity of its execution:
   [automations](../automations/README.md)).
 - A plugin workflow step returns `{ output, changes? }` or saves `(checkpoint, changes?)`; the
   replay envelope carries `changes`. A script called with `step.activity` runs with `activity: true`
-  on its payload and returns `{ output, changes? }`; only `output` reaches the parent's journal. The
+  on its payload and returns `{ output, changes? }`; only `output` reaches the parent's journal, and
+  its replay names `output` as the sandbox's harvest root, so scratch files are harvested from it. The
   body commits a step's or activity's changes in the `commit-sandbox-workflow-changes` activity,
   before saving the checkpoint or returning the output, with `commitKeyed` under the step's
   execution ID (`<executionId>-checkpoint-<revision>` for checkpointed workflows). The journaled

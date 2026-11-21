@@ -4,7 +4,7 @@ import {
 	SandboxRunError,
 	unknownToMessage,
 } from "@ryot-app/contract/errors";
-import { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
+import { ChangeSet, OutputWithChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import {
@@ -81,7 +81,7 @@ import {
 	SandboxExecutionResult as SandboxExecutionResultSchema,
 	stampSandboxExecutionError,
 } from "./result";
-import { ScriptChanges, type ScriptChangesRejected } from "./script-changes";
+import { ScriptChanges, scriptChangesFailure, type ScriptChangesRejected } from "./script-changes";
 import {
 	type PinnedScriptExecutionWorkflowPayload,
 	ScriptExecutionWorkflowPayload,
@@ -841,25 +841,14 @@ const validatePendingInline = Effect.fnUntraced(function* (
 	return pending;
 });
 
-const ActivityResult = Schema.Struct({
-	output: jsonValueSchema,
-	changes: Schema.optional(ChangeSet),
-});
+const ActivityResult = OutputWithChanges(jsonValueSchema);
 
 const changesFailure = (error: DbError | ScriptChangesRejected) => {
 	if (error instanceof DbError) {
 		return rethrowSandboxFailure("infrastructure")(error);
 	}
-	const { reason } = error;
-	if (reason.code === "conflict") {
-		return sandboxFailure(
-			"resource-unavailable",
-			`Workflow changes conflicted with a newer write: ${reason.conflict}`,
-		);
-	}
-	return reason.code === "policy-rejected"
-		? sandboxFailure("script-failure", "A policy rejected the workflow's changes")
-		: sandboxFailure("invalid-output", `Workflow changes were rejected: ${reason.message}`);
+	const failure = scriptChangesFailure(error);
+	return sandboxFailure(failure.kind, failure.message);
 };
 
 export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow")(function* <R>(

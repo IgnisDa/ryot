@@ -56,6 +56,32 @@ export const lifecycleActor = (
 
 type AutomationRunSubject = Extract<SandboxExecutionSubject, { type: "automation-run" }>;
 
+/** The sandbox subject of one automation run triggered by `trigger`, for its principal to decode. */
+export const automationRunSubject = <
+	Plugin extends Pick<
+		AutomationRunSubject,
+		"pluginId" | "pluginRevisionId" | "pluginConfigRevisionId"
+	>,
+>(
+	run: {
+		readonly runId: AutomationRunSubject["runId"];
+		readonly stage: AutomationRunSubject["stage"];
+		readonly accountUserId: AutomationRunSubject["accountUserId"];
+		readonly trigger: Pick<AutomationTrigger, "id" | "causation">;
+		readonly executionUserId: AutomationRunSubject["executionUserId"];
+	},
+	plugin: Plugin,
+) => ({
+	...plugin,
+	runId: run.runId,
+	stage: run.stage,
+	triggerId: run.trigger.id,
+	type: "automation-run" as const,
+	accountUserId: run.accountUserId,
+	causation: run.trigger.causation,
+	executionUserId: run.executionUserId,
+});
+
 export const automationRunLane = (run: {
 	readonly stage: AutomationRunSubject["stage"];
 	readonly causation: Pick<AutomationRunSubject["causation"], "lane">;

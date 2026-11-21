@@ -1,15 +1,22 @@
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import { Effect, Layer } from "effect";
 
 import { type ScriptCall, ScriptCalls } from "./calls";
-import type { SandboxExecutionResult } from "./result";
+import { sandboxExecutionFailure, type SandboxExecutionResult } from "./result";
 
-/** `ScriptCalls` running every call through `run`, as the runtime installs the sandbox. */
+/** `ScriptCalls` running every call through `run`. */
 export const scriptCallsLayer = (
 	run: (call: ScriptCall) => Effect.Effect<SandboxExecutionResult>,
-) =>
-	Layer.effectDiscard(Effect.flatMap(ScriptCalls, (calls) => calls.install(run))).pipe(
-		Layer.provideMerge(ScriptCalls.layer),
-	);
+) => Layer.succeed(ScriptCalls, { run });
+
+/** `ScriptCalls` for suites that start no script: every call fails as `resource-unavailable`. */
+export const unavailableScriptCallsLayer = scriptCallsLayer(() =>
+	Effect.succeed(
+		sandboxExecutionFailure(
+			new SandboxRunError({ kind: "resource-unavailable", message: "The sandbox is not running" }),
+		),
+	),
+);
 
 export const scriptCallResult = (value: unknown): SandboxExecutionResult => ({
 	value,

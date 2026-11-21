@@ -83,8 +83,6 @@ export const PendingFoldMarks = Context.Reference<null | PendingFolds>("FoldMark
 export const foldValuesSql = (values: ReadonlyArray<string>) =>
 	sql`select jsonb_array_elements_text(${JSON.stringify(values)}::jsonb)`;
 
-const valuesSql = foldValuesSql;
-
 const isoSql = (column: string) =>
 	sql.raw(`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`);
 
@@ -194,7 +192,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 						sql`select e.id, e.entity_schema_slug as "entitySchemaSlug",
 							e.entity_schema_plugin_id as "entitySchemaPluginId"
 						from entity e
-						where e.id in (${valuesSql(ids)}) and e.entity_schema_plugin_id is not null`,
+						where e.id in (${foldValuesSql(ids)}) and e.entity_schema_plugin_id is not null`,
 						"objects",
 					),
 				);
@@ -287,7 +285,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 							? []
 							: yield* readFoldEvents(
 									session,
-									sql`v.user_id = ${user} and v.id in (${valuesSql(changed.map((mark) => mark.eventId))})`,
+									sql`v.user_id = ${user} and v.id in (${foldValuesSql(changed.map((mark) => mark.eventId))})`,
 								);
 					const now = new Map<string, FoldEventRow>(current.map((row) => [row.id, row]));
 					const replayed = replays.filter((subject) => subject.userId === user);

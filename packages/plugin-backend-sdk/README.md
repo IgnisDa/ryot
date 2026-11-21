@@ -90,7 +90,7 @@ Shared metadata is sent once, not repeated per request, so normal batches retain
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
 `data`. Stable boundary codes belong in `data`: `missing-required-config`, `missing-artifact-grant`,
 `unavailable-operation`, `invalid-executable-target`, `execution-limit`, `operation-rejected`, and
-`operation-conflict`.
+`changes-conflict`.
 Callers can branch on those codes without replacing or parsing the message. When the kernel rejects
 a host call with a message reason, `data` is that stamped `Message` and `message` is its key.
 

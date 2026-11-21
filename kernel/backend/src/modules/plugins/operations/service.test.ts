@@ -1452,7 +1452,7 @@ layer(
 		currentUserId: USER_ONE,
 		available: [systemUserOperation],
 		sandboxError: "The baseline changed",
-		sandboxErrorData: { code: "operation-conflict", conflict: "entity-not-found" },
+		sandboxErrorData: { code: "changes-conflict", conflict: "entity-not-found" },
 	}),
 )((test) => {
 	test.effect(
@@ -1664,8 +1664,7 @@ layer(
 						code: "runtime-failed",
 						diagnostics: [
 							objectContaining({
-								message:
-									"Operation changes were not committed (EntityUserDataBadRequest: operation-denied)",
+								message: "Changes were rejected (EntityUserDataBadRequest: operation-denied)",
 							}),
 						],
 					},
@@ -1695,8 +1694,7 @@ layer(
 						code: "runtime-failed",
 						diagnostics: [
 							objectContaining({
-								message:
-									"Operation changes were not committed (settings: Unknown plugin user settings: unknown)",
+								message: "Changes were rejected (settings: Unknown plugin user settings: unknown)",
 							}),
 						],
 					},
@@ -1725,8 +1723,7 @@ layer(
 						diagnostics: [
 							objectContaining({
 								phase: "output",
-								message:
-									"Operation changes were not committed (EventBadRequest: root-entity-required)",
+								message: "Changes were rejected (EventBadRequest: root-entity-required)",
 							}),
 						],
 					},

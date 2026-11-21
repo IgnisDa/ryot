@@ -89,7 +89,7 @@ Clients decode the contract and exhaustively handle typed variants. Tests assert
   `ValidationIssueCode`. `schemaValidationFailed` derives it from an Effect Schema issue;
   request decoding failures return it with HTTP 400.
 - A sandbox reports a `SandboxBoundaryReason`, whose `operation-rejected` reason carries the
-  plugin's `LocalMessage` and whose `operation-conflict` reason carries a `CommitConflictCode`. Where
+  plugin's `LocalMessage` and whose `changes-conflict` reason carries a `CommitConflictCode`. Where
   the backend records a sandbox failure, `stampBoundaryReason` stamps the run's catalog namespace (dropping a rejection from a run without one), so
   `SandboxRunError` and backend execution results carry a `StampedSandboxBoundaryReason`.
   `boundaryReasonMessage` maps each stamped reason to its message: the plugin's own message for an

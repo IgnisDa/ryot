@@ -2510,6 +2510,7 @@
 		"description": "Shown when saving a plugin's user settings. {maxBytes} is the maximum size in bytes."
 	},
 	"error.sandbox.asset-forbidden": "A file in this request is not available to you.",
+	"error.sandbox.changes-conflict": "Your data changed while this was saving. Refresh and try again.",
 	"error.sandbox.entitlement-required": {
 		"message": "{entitlement, select, pro {This requires Ryot Pro.} other {This requires a subscription.}}",
 		"description": "{entitlement} is the code of the missing subscription."
@@ -2522,7 +2523,6 @@
 		"message": "{count, plural, =0 {Required plugin settings are missing.} one {# required plugin setting is missing.} other {# required plugin settings are missing.}}",
 		"description": "{count} is the number of missing settings."
 	},
-	"error.sandbox.operation-conflict": "Your data changed while this was saving. Refresh and try again.",
 	"error.sandbox.package-identity-conflict": "Another installation already uses this plugin package.",
 	"error.sandbox.page-write-access-required": "This page needs permission to make changes.",
 	"error.sandbox.unavailable-operation": "This operation is not available here.",

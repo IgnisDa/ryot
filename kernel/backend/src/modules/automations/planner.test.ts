@@ -40,6 +40,7 @@ import {
 import { LifecyclePolicies } from "#modules/automations/lifecycle/policies";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
@@ -47,13 +48,18 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { scriptCallResult, scriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
+import {
+	scriptCallResult,
+	scriptCallsLayer,
+	unavailableScriptCallsLayer,
+} from "#modules/scripts/executions/calls.test-support";
 import {
 	type ChangeSetReceipt,
 	ScriptChanges,
 	type ScriptChangesInput,
 } from "#modules/scripts/executions/script-changes";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
@@ -65,9 +71,10 @@ import {
 	LifecyclePlannerServiceLive,
 	LifecyclePoliciesServiceLive,
 } from "./layer";
-import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
+import { noLifecycleWorkLayer, policyFixture, triggerFixture } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationPlannerResolver } from "./planner-resolver";
+import { LifecyclePoliciesLive } from "./policies";
 import { AutomationRunOperations } from "./run-job-live";
 import { recordingRunJobQueueLayer, RunJobSubmissions } from "./run-job-queue.test-support";
 import { AutomationRunRepository } from "./run-repository";
@@ -1789,7 +1796,9 @@ describe("automation preparation", () => {
 			plannerLayer(),
 			AutomationRunOperationsServiceLive.pipe(
 				Layer.provideMerge(recordedScriptChanges),
-				Layer.provide(Layer.mock(ScriptExecutionService)({})),
+				Layer.provide(
+					Layer.mergeAll(Layer.mock(ScriptExecutionService)({}), unavailableScriptCallsLayer),
+				),
 			),
 		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
 	)("planner harness", (test) => {
@@ -2036,4 +2045,39 @@ describe("LifecyclePolicies PostgreSQL", () => {
 			);
 		},
 	);
+
+	layer(
+		LifecyclePoliciesLive.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					Layer.mock(AutomationPlannerResolver)({}),
+					Layer.mock(EntitiesRepository)({}),
+					Layer.mock(SandboxRepository)({
+						getScriptPin: () => Effect.fail(new DbError({ message: "Script pin read failed" })),
+					}),
+					scriptCallsLayer(() => Effect.die("A policy whose pin read failed must not run")),
+				),
+			),
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)("failing policy reads", (test) => {
+		test.effect(
+			"surfaces a policy's database failure instead of policy-execution-failed",
+			() =>
+				Effect.gen(function* () {
+					const exit = yield* Effect.exit(
+						(yield* LifecyclePolicies).run({
+							items: [],
+							references: {},
+							trigger: triggerFixture("policy-read-failure"),
+							policy: policyFixture(0, [
+								{ resource: "entity", operation: "create", entitySchemaSlug: "record" },
+							]),
+						}),
+					);
+					assertExitFails(exit, new DbError({ message: "Script pin read failed" }));
+				}),
+			testTimeout,
+		);
+	});
 });

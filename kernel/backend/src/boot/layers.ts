@@ -136,7 +136,7 @@ import { SavedViewsServiceLive } from "#modules/saved-views/layer";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { PluginCronSchedulerProvidedLive, PluginCronServiceLive } from "#modules/scheduler/layer";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
-import { ScriptCallsInstalledLive } from "#modules/scripts/executions/calls";
+import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { SandboxReplayJobsLive } from "#modules/scripts/executions/queues";
 import { SandboxWorkflowDefinitionsLive } from "#modules/scripts/executions/workflow-live";
 import { SandboxHostConfigLive } from "#modules/scripts/host/sandbox-host-live";
@@ -324,6 +324,11 @@ const ServicesWithTestSupportLive = Layer.merge(
 	Layer.provide(PluginBootstrapEntitiesRuntimeLive),
 	Layer.provideMerge(Layer.mergeAll(IngestionRetirementLive, PluginRuntimeResolverLive)),
 	Layer.provide(AdmittedWorkflowCatalogueLive),
+	Layer.provideMerge(
+		ScriptCalls.layer.pipe(
+			Layer.provide(Layer.merge(ExecutableArtifacts.layer, StagedRuntimeSandboxExecutorLive)),
+		),
+	),
 );
 
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
@@ -400,7 +405,6 @@ const RuntimeLive = Layer.mergeAll(
 		Layer.provide(RuntimeWorkflowDefinitionsLive),
 	),
 	RuntimeSchedulersLive,
-	ScriptCallsInstalledLive.pipe(Layer.provide(ExecutableArtifacts.layer)),
 );
 
 const MigrationBootstrapServicesLive = Layer.mergeAll(

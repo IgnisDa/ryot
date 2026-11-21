@@ -5,9 +5,7 @@ import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 import { PluginRepositoryLive } from "#modules/plugins/packages/repository-layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { JobQueue } from "#platform/jobs/queue";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationExecutionOperationsLive, LifecycleExecutionLive } from "./execution";
@@ -53,11 +51,7 @@ export const LifecyclePoliciesServiceLive = LifecyclePoliciesLive.pipe(
 export const LifecycleServicesLive = Layer.mergeAll(
 	LifecyclePlannerServiceLive,
 	execution,
-	LifecyclePoliciesServiceLive.pipe(Layer.provide(ScriptCalls.layer)),
-);
-
-export const MigrationLifecycleServicesLive = LifecycleServicesLive.pipe(
-	Layer.provide(JobQueue.layer),
+	LifecyclePoliciesServiceLive,
 );
 
 export const AutomationRunOperationsServiceLive = AutomationRunOperationsLive.pipe(
@@ -67,7 +61,6 @@ export const AutomationRunOperationsServiceLive = AutomationRunOperationsLive.pi
 			AutomationRunRepository.layer,
 			AutomationTriggerRepository.layer,
 			SandboxRepository.layer,
-			ScriptCalls.layer,
 		),
 	),
 );

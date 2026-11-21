@@ -20,11 +20,10 @@ import {
 	PluginRevisionId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
+import { automationRunSubject } from "#modules/automations/lifecycle/command";
 import { lifecycleRunId } from "#modules/automations/lifecycle/planning";
 import {
 	AutomationPolicyExecutionError,
@@ -222,18 +221,20 @@ export const LifecyclePoliciesLive = Layer.effect(
 				policy.executionUserId === null
 					? null
 					: yield* admission.currentAccount(policy.executionUserId);
-			const subject = {
-				accountUserId,
-				runId: policy.runId,
-				triggerId: trigger.id,
-				stage: "before" as const,
-				pluginId: policy.pluginId,
-				causation: trigger.causation,
-				type: "automation-run" as const,
-				executionUserId: policy.executionUserId,
-				pluginRevisionId: policy.plugin.revisionId,
-				pluginConfigRevisionId: policy.plugin.configRevisionId,
-			};
+			const subject = automationRunSubject(
+				{
+					trigger,
+					accountUserId,
+					stage: "before",
+					runId: policy.runId,
+					executionUserId: policy.executionUserId,
+				},
+				{
+					pluginId: policy.pluginId,
+					pluginRevisionId: policy.plugin.revisionId,
+					pluginConfigRevisionId: policy.plugin.configRevisionId,
+				},
+			);
 			const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
 				...pin,
 				subject,
@@ -251,10 +252,6 @@ export const LifecyclePoliciesLive = Layer.effect(
 					...(hook.metadata === undefined ? {} : { hookMetadata: hook.metadata }),
 				},
 			}).pipe(Effect.mapError(() => fail("does not produce a valid invocation")));
-			const bytes = jsonByteLength(invocation);
-			if (bytes === null || bytes > SANDBOX_LIMITS.execution.contextBytes) {
-				return yield* fail(`input exceeds ${SANDBOX_LIMITS.execution.contextBytes} UTF-8 bytes`);
-			}
 			return { fail, principal, invocation };
 		});
 
@@ -294,7 +291,7 @@ export const LifecyclePoliciesLive = Layer.effect(
 				}
 				return output;
 			}).pipe(
-				Effect.catch((error) =>
+				Effect.catchTag("PolicyCallFailed", (error) =>
 					Effect.logWarning("Policy call failed", error).pipe(
 						Effect.andThen(
 							new AutomationPolicyExecutionError({

@@ -228,7 +228,9 @@ the command with `scriptChangesCommand`: an automation run's changes descend fro
 root causation (`bootstrap`, `integration` or `api` for user subjects, `provider-refresh` for system
 ones). The caller passes the durable identity of the script's execution as `executionId`; every
 trigger, entity and event ID the commit derives comes from it. Failures are normalized to
-`ScriptChangesRejected` (`conflict`, `policy-rejected` or `invalid`) for each caller to map. A
+`ScriptChangesRejected` (`conflict`, `policy-rejected` or `invalid`), and every caller reports one
+through `scriptChangesFailure`: a conflict is `resource-unavailable` with its conflict code, a policy
+rejection a `script-failure` carrying the policy's reason, and anything else `invalid-output`. A
 failure whose reason code is a `CommitConflictCode` is a `conflict`: stale baselines, and the
 `EntityUserDataService` refusals a user causes by acting on changed data (`state-conflict` when the
 captured user data changed, `child-mapping-conflict` when merged child data has no unique match). A

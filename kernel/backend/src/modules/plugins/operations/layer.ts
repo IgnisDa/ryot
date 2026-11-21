@@ -4,7 +4,6 @@ import { AuthServiceLive } from "#modules/accounts/auth/layer";
 import { ScriptChangesLive } from "#modules/changes/layer";
 import { FoldMarks } from "#modules/derived-values/marks";
 import { IntegrationOperationScopeResolverProvidedLive } from "#modules/integrations/layer";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 
@@ -23,7 +22,6 @@ export const OperationsServiceLive = OperationsService.layer.pipe(
 			PluginRuntimeResolverLive,
 			SandboxRepository.layer,
 			IntegrationOperationScopeResolverProvidedLive,
-			ScriptCalls.layer,
 			ScriptChangesLive,
 		),
 	),
@@ -33,7 +31,6 @@ export const PluginInstallationJobOperationsProvidedLive = PluginInstallationJob
 	Layer.provide(
 		Layer.mergeAll(
 			PluginRuntimeResolverLive,
-			ScriptCalls.layer,
 			ScriptChangesLive,
 			SandboxRepository.layer,
 			SandboxWorkflowReferenceRepository.layer,

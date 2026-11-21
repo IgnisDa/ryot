@@ -72,6 +72,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { revisionPackage } from "#modules/plugins/packages/revision.test-support";
 import { insertPluginRevision } from "#modules/plugins/test-support";
+import { unavailableScriptCallsLayer } from "#modules/scripts/executions/calls.test-support";
 import { retryOnDeadlock } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
@@ -460,6 +461,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 					Layer.provide(
 						Layer.mergeAll(
 							WorkflowExecutionNotifications.layer,
+							unavailableScriptCallsLayer,
 							repositories,
 							ports,
 							execution,

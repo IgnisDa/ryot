@@ -23,7 +23,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
-import { DateTime, Effect, Layer, Option, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
@@ -32,7 +32,7 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { ScriptCalls } from "#modules/scripts/executions/calls";
+import { type ScriptCall, ScriptCalls } from "#modules/scripts/executions/calls";
 import { FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
@@ -102,9 +102,29 @@ type Recorded = {
 	readonly changes: null | ReadonlyArray<FoldEventChange>;
 };
 
+/** The fold the current test installed; every script call runs it. */
+class InstalledFold extends Context.Service<
+	InstalledFold,
+	Ref.Ref<ScriptCalls["Service"]["run"]>
+>()("@ryot-app/kernel-backend/modules/derived-values/service.test/InstalledFold") {}
+
+const installedFoldCalls = Layer.effect(
+	ScriptCalls,
+	Effect.map(InstalledFold, (installed) => ({
+		run: (call: ScriptCall) => Effect.flatMap(Ref.get(installed), (run) => run(call)),
+	})),
+).pipe(
+	Layer.provideMerge(
+		Layer.effect(
+			InstalledFold,
+			Ref.make<ScriptCalls["Service"]["run"]>(() => Effect.die("No fold is installed")),
+		),
+	),
+);
+
 const testLayer = Layer.mergeAll(
 	FoldScriptsLive,
-	ScriptCalls.layer,
+	installedFoldCalls,
 	EventsRepository.layer,
 	EntitiesRepository.layer,
 	FoldMarks.layer,
@@ -140,7 +160,7 @@ const setup = Effect.fn(function* (
 	const packageId = testPluginPackageId();
 	const installed = yield* installRevisionPackage(foldedPackage(packageId, "v1"), userId);
 	const recorded: Array<Recorded> = [];
-	yield* (yield* ScriptCalls).install((call) =>
+	yield* Ref.set(yield* InstalledFold, (call) =>
 		Effect.gen(function* () {
 			expect(
 				sandboxContextError(call.input, sandboxContextBytes(call.principal.subject)),

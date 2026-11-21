@@ -22,13 +22,11 @@ import {
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { automationRunLane } from "#modules/automations/lifecycle/command";
+import { automationRunLane, automationRunSubject } from "#modules/automations/lifecycle/command";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
@@ -38,6 +36,7 @@ import type {
 } from "#modules/scripts/executions/result";
 import {
 	ScriptChanges,
+	scriptChangesFailure,
 	type ScriptChangesRejected,
 } from "#modules/scripts/executions/script-changes";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -171,32 +170,24 @@ export const prepareAutomationInvocation = (
 				...(hookMetadata === undefined ? {} : { hookMetadata }),
 			},
 		};
-		const inputBytes = jsonByteLength(input);
-		if (inputBytes === null) {
-			return yield* projectionError(run, "produced a non-JSON invocation");
-		}
-		if (inputBytes > SANDBOX_LIMITS.execution.contextBytes) {
-			return yield* new AutomationPreparationError({
-				kind: "invalid-input",
-				message: `Automation input for hook '${run.hookSlug}' is ${inputBytes} UTF-8 bytes; maximum is ${SANDBOX_LIMITS.execution.contextBytes} bytes`,
-			});
-		}
 		return yield* Schema.decodeUnknownEffect(PreparedAutomationRun)({
 			input,
 			scriptId: run.sandboxScriptId,
 			lane: automationRunLane({ stage: "after", causation: trigger.causation }),
-			subject: {
-				runId: run.id,
-				accountUserId,
-				stage: "after",
-				triggerId: trigger.id,
-				type: "automation-run",
-				pluginId: run.pluginId,
-				causation: trigger.causation,
-				executionUserId: run.executionUserId,
-				pluginRevisionId: run.pluginRevisionId,
-				pluginConfigRevisionId: run.pluginConfigRevisionId,
-			},
+			subject: automationRunSubject(
+				{
+					trigger,
+					accountUserId,
+					runId: run.id,
+					stage: "after",
+					executionUserId: run.executionUserId,
+				},
+				{
+					pluginId: run.pluginId,
+					pluginRevisionId: run.pluginRevisionId,
+					pluginConfigRevisionId: run.pluginConfigRevisionId,
+				},
+			),
 		}).pipe(
 			Effect.mapError(() => projectionError(run, "does not produce a valid invocation schema")),
 		);
@@ -416,28 +407,12 @@ const rejectedChangesOutcome = (
 	input: FinalizeAutomationAttempt,
 	error: ScriptChangesRejected,
 ): FinalizeAutomationAttempt => {
-	const { reason } = error;
-	if (reason.code === "conflict") {
-		return {
-			...input,
-			status: "failed",
-			failureKind: "resource-unavailable",
-			error: { code: reason.conflict, message: "Automation changes conflicted with a newer write" },
-		};
-	}
-	if (reason.code === "policy-rejected") {
-		return {
-			...input,
-			status: "failed",
-			failureKind: "business-failure",
-			error: { code: reason.code, message: "A policy rejected the automation's changes" },
-		};
-	}
+	const failure = scriptChangesFailure(error);
 	return {
 		...input,
 		status: "failed",
-		failureKind: "invalid-output",
-		error: { message: reason.message, code: "changes-rejected" },
+		failureKind: AUTOMATION_FAILURE_KINDS[failure.kind],
+		error: { code: failure.code, message: failure.message },
 	};
 };
 

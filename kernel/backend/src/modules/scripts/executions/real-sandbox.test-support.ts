@@ -38,7 +38,7 @@ import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
-import { type ScriptCalls, ScriptCallsInstalledLive } from "./calls";
+import { ScriptCalls } from "./calls";
 import {
 	compiledArtifactsLayer,
 	unusedKernelWorkflowReferencesLayer,
@@ -224,7 +224,7 @@ export const realSandboxLayer = (
 			const scriptChanges = (options.scriptChanges ?? Layer.mock(ScriptChanges)({})).pipe(
 				Layer.provide(
 					Layer.merge(
-						ScriptCallsInstalledLive.pipe(Layer.provide(Layer.merge(artifacts, sandboxRuntime))),
+						ScriptCalls.layer.pipe(Layer.provide(Layer.merge(artifacts, sandboxRuntime))),
 						scripts,
 					),
 				),
