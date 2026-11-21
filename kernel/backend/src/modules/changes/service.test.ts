@@ -383,7 +383,7 @@ layer(testLayer(false))((test) => {
 	);
 
 	test.effect(
-		"resolves the writer's execution authority once to prepare and once in the commit transaction",
+		"resolves the writer's execution authority only in the commit transaction",
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
@@ -395,18 +395,14 @@ layer(testLayer(false))((test) => {
 					span._tag === "Span" &&
 					(span.name === name || (span.parent._tag === "Some" && within(span.parent.value, name)));
 				const resolves = spans.filter(({ name }) => name === "SandboxExecutionAuthority.resolve");
-				expect(resolves).toHaveLength(2);
 				expect(
 					resolves.map((span) => [
 						within(span, "ChangeSets.prepareChanges"),
 						within(span, "EventMutations.prepare"),
 					]),
-				).toEqual([
-					[true, false],
-					[false, true],
-				]);
+				).toEqual([[false, true]]);
 				expect(spans.filter(({ name }) => name === "SandboxRepository.getScriptPin")).toHaveLength(
-					2,
+					1,
 				);
 			}),
 		testTimeout,

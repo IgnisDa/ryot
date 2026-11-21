@@ -5,7 +5,6 @@ import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
 import { Context, Duration, Effect, Layer, Option, Ref, Schedule, type Scope } from "effect";
 
-import { withCurrentExecutionAuthority } from "#modules/scripts/authorization/authority";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { sandboxStartedAt } from "#modules/scripts/host/execution-context";
 
@@ -87,17 +86,15 @@ export const ScriptCallsInstalledLive = Layer.effectDiscard(
 				const startedAt = yield* sandboxStartedAt;
 				return yield* Effect.gen(function* () {
 					const artifact = yield* artifacts.get(call.principal);
-					const result = yield* withCurrentExecutionAuthority(
-						sandbox.run({
-							startedAt,
-							lane: call.lane,
-							context: call.input,
-							principal: call.principal,
-							executionId: call.executionId,
-							compiledCode: artifact.compiledCode,
-							compiledFormat: artifact.compiledFormat,
-						}),
-					);
+					const result = yield* sandbox.run({
+						startedAt,
+						lane: call.lane,
+						context: call.input,
+						principal: call.principal,
+						executionId: call.executionId,
+						compiledCode: artifact.compiledCode,
+						compiledFormat: artifact.compiledFormat,
+					});
 					if (result.recovery !== undefined) {
 						yield* sandbox.completeRecovery(result.recovery);
 					}

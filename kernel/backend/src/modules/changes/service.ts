@@ -73,7 +73,7 @@ import {
 	DomainWriteChecks,
 	DomainWriteConflict,
 	kernelCollectionLifecycleCommand,
-	reuseLockedWriteChecks,
+	sharePreparedPins,
 } from "#modules/entities/write-context";
 import { eventReferenceBadRequest } from "#modules/events/event-references";
 import {
@@ -101,7 +101,6 @@ import {
 	type UserRelationshipMode,
 } from "#modules/relationships/prepared-mutations";
 import { RelationshipsService } from "#modules/relationships/service";
-import { shareExecutionAuthority } from "#modules/scripts/authorization/authority";
 import type {
 	ScriptExecutionPrincipal,
 	ScriptPluginRevision,
@@ -1507,7 +1506,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				);
 				const transaction = <X, E, R>(work: Effect.Effect<X, E, R>) =>
 					eventMutations.transaction(
-						reuseLockedWriteChecks(work),
+						work,
 						command.causation.lane === "background" || options.queueFolds ? "queue" : "inline",
 					);
 				const commitInTransactions = Effect.gen(function* () {
@@ -1626,7 +1625,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 					return yield* rematchOnce(
 						retryWhileExpectedHolds(
 							input,
-							shareExecutionAuthority(apply(input, command, { kind: "kernel" }, receipt, options)),
+							sharePreparedPins(apply(input, command, { kind: "kernel" }, receipt, options)),
 						),
 					);
 				});
@@ -1700,7 +1699,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				if (stored !== null) {
 					return stored;
 				}
-				return yield* shareExecutionAuthority(
+				return yield* sharePreparedPins(
 					Effect.gen(function* () {
 						const principal = command.writeContext;
 						if (!principal) {

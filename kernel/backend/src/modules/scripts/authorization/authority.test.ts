@@ -11,12 +11,11 @@ import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
-import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
-import { Array as Arr, Effect, Layer, Schema, type Tracer } from "effect";
+import { Array as Arr, Effect, Layer, Schema } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -33,11 +32,7 @@ import { SandboxWorkflowPinning } from "../executions/workflow";
 import { ScriptExecutionWorkflowPayload } from "../executions/workflow-payload";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";
 import { SandboxRepository } from "../registry/repository";
-import {
-	SandboxExecutionAuthorityLive,
-	shareExecutionAuthority,
-	withCurrentExecutionAuthority,
-} from "./authority";
+import { SandboxExecutionAuthorityLive } from "./authority";
 import { pluginSandboxAuthority } from "./plugin-authority";
 import { ScriptExecutionPrincipal } from "./principal";
 import { makeUserPrincipal } from "./principal.test-support";
@@ -92,71 +87,6 @@ const assertRejected = Effect.fnUntraced(function* (
 
 describe("sandbox execution authority", () => {
 	layer(SandboxExecutionAuthorityLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"shares resolved authority only within a commit's preparation",
-			() =>
-				Effect.gen(function* () {
-					const authority = yield* SandboxExecutionAuthority;
-					const sandbox = yield* SandboxRepository;
-					const session = yield* DatabaseSession;
-					const slug = `runtime-authority-shared-${yield* randomUuid}`;
-					const installed = yield* installRevisionPackage(revisionPackage(slug), owner);
-					const [script] = yield* session.run((db) =>
-						db
-							.select({ id: tables.sandboxScript.id })
-							.from(tables.sandboxScript)
-							.where(eq(tables.sandboxScript.slug, `${slug}.task`)),
-					);
-					assert(script);
-					const pin = yield* sandbox.getScriptPin(
-						SandboxScriptId.make(script.id),
-						undefined,
-						ownerSubject,
-					);
-					assert(pin?.pluginRevision);
-					const principal = yield* principalFor(pin);
-					const spans: Tracer.Span[] = [];
-					const tracer = Effect.withTracer(makeRecordingTracer(spans));
-					const lookups = () =>
-						spans.filter(({ name }) => name === "SandboxRepository.getScriptPin").length;
-					const unavailable = new SandboxRunError({
-						kind: "script-failure",
-						message: "Sandbox installation is unavailable",
-						data: {
-							pluginId: pin.pluginRevision.id,
-							code: "installation-unavailable",
-							installationId: installed.installation.id,
-						},
-					});
-					yield* shareExecutionAuthority(
-						Effect.gen(function* () {
-							for (let call = 0; call < 3; call++) {
-								expect(yield* authority.resolve(principal)).toBe("user");
-							}
-							expect(lookups()).toBe(1);
-							yield* session.run((db) =>
-								db
-									.update(tables.pluginInstallation)
-									.set({ uninstalledAt: new Date() })
-									.where(eq(tables.pluginInstallation.id, installed.installation.id)),
-							);
-							expect(yield* authority.resolve(principal)).toBe("user");
-							assertExitFails(
-								yield* Effect.exit(withCurrentExecutionAuthority(authority.resolve(principal))),
-								unavailable,
-							);
-							expect(lookups()).toBe(2);
-						}),
-					).pipe(tracer);
-					assertExitFails(
-						yield* Effect.exit(shareExecutionAuthority(authority.resolve(principal))),
-						unavailable,
-					);
-					assertExitFails(yield* Effect.exit(authority.resolve(principal)), unavailable);
-				}),
-			testTimeout,
-		);
-
 		test.effect(
 			"requires an exact active user-owned agent history pin",
 			() =>

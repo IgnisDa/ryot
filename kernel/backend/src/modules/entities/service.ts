@@ -486,9 +486,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				}
 				const pin =
 					verified === undefined
-						? yield* writeChecks
-								.check(lifecycle, owner, scopeUserId, commit)
-								.pipe(Effect.catch(writeFailure))
+						? yield* (
+								commit
+									? writeChecks.check(lifecycle, owner, scopeUserId, true)
+									: writeChecks.preparePin(lifecycle, owner, scopeUserId)
+							).pipe(Effect.catch(writeFailure))
 						: verified;
 				const { pinned: pinnedDeclaration, active: activeDeclaration } =
 					yield* writeChecks.resolvePinnedDeclaration("entity", pin, owner, draft.entitySchemaSlug);
@@ -1106,7 +1108,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 				}
 				yield* writeChecks
-					.check(lifecycle, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
+					.preparePin(
+						lifecycle,
+						definitionOwner(current.entity.entitySchemaPluginId),
+						current.userId,
+					)
 					.pipe(Effect.catch(writeFailure));
 				const before = yield* snapshot(current.entity);
 				if (
@@ -1176,7 +1182,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 						}
 						yield* writeChecks
-							.check(
+							.preparePin(
 								lifecycle,
 								definitionOwner(current.entity.entitySchemaPluginId),
 								current.userId,
@@ -1235,7 +1241,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							command,
 						);
 						yield* writeChecks
-							.check(command, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
+							.preparePin(
+								command,
+								definitionOwner(current.entity.entitySchemaPluginId),
+								current.userId,
+							)
 							.pipe(Effect.catch(writeFailure));
 						const mutation: PreparedMutation = {
 							before,
@@ -1337,11 +1347,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			) {
 				yield* assertOwner;
 				yield* writeChecks
-					.check(lifecycle, principalOwner(lifecycle.writeContext), userId)
+					.preparePin(lifecycle, principalOwner(lifecycle.writeContext), userId)
 					.pipe(Effect.catch(writeFailure));
 				for (const item of items) {
 					yield* writeChecks
-						.check(lifecycle, item.entitySchema.owner, userId)
+						.preparePin(lifecycle, item.entitySchema.owner, userId)
 						.pipe(Effect.catch(writeFailure));
 				}
 				const entries = items.map((item) => {

@@ -7,14 +7,11 @@ import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-val
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Schema, Struct } from "effect";
+import { Context, Effect, Layer, type Result, Schema, Struct } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
-import {
-	SandboxExecutionAuthorityLive,
-	withCurrentExecutionAuthority,
-} from "#modules/scripts/authorization/authority";
+import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
 import {
 	isUserBootstrapPrincipal,
 	ScriptExecutionPrincipal,
@@ -101,7 +98,7 @@ export const assertStableUnder = <E>(
 		),
 	);
 
-export type DomainWritePin = { readonly id: string };
+export type DomainWritePin = { readonly id: string; readonly activeRevisionId: string };
 
 export type DomainWriteCheck = {
 	readonly owner: DefinitionOwner;
@@ -109,9 +106,37 @@ export type DomainWriteCheck = {
 	readonly command: DomainWriteCommand;
 };
 
+type Principal = NonNullable<DomainWriteCommand["writeContext"]>;
+
 type DomainWriteCommand = Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">;
 
-export const domainWriteCheckKey = (input: DomainWriteCheck) =>
+type AuthorityReads = {
+	readonly fence: (userIds: ReadonlyArray<string>) => Effect.Effect<void, DbError>;
+	readonly revision: (
+		principal: Principal,
+		plugin: NonNullable<Principal["pluginRevision"]>,
+	) => Effect.Effect<undefined | DomainWritePin, DbError>;
+	readonly current: null | {
+		readonly resolve: (principal: Principal) => Effect.Effect<unknown, DbError>;
+		readonly account: (
+			userId: string,
+		) => Effect.Effect<undefined | { readonly disabledAt: Date | null }, DbError>;
+		readonly installation: (
+			pluginId: string,
+			userId: string,
+		) => Effect.Effect<
+			| undefined
+			| {
+					readonly uninstalledAt: Date | null;
+					readonly ingestionRetiring: boolean;
+					readonly incompatibilityReason: null | string;
+			  },
+			DbError
+		>;
+	};
+};
+
+const domainWriteCheckKey = (input: DomainWriteCheck) =>
 	stableStringify([
 		input.command.writeContext,
 		input.command.kernelCollection ?? false,
@@ -128,21 +153,32 @@ const domainWriteOwner = (command: DomainWriteCommand, owner: DefinitionOwner) =
 	);
 };
 
-const LockedWriteChecks = Context.Reference<null | Map<
+const once = <A, E, R>(
+	entries: Map<string, Result.Result<A, E>>,
+	key: string,
+	read: Effect.Effect<A, E, R>,
+) =>
+	Effect.suspend(() => {
+		const known = entries.get(key);
+		return known
+			? Effect.fromResult(known)
+			: Effect.flatMap(Effect.result(read), (result) => {
+					entries.set(key, result);
+					return Effect.fromResult(result);
+				});
+	});
+
+const PreparedPins = Context.Reference<null | Map<
 	string,
-	{ readonly pin: null | DomainWritePin }
->>("DomainWriteChecks.LockedWriteChecks", { defaultValue: () => null });
+	Result.Result<undefined | DomainWritePin, DbError>
+>>("DomainWriteChecks.PreparedPins", { defaultValue: () => null });
 
 /**
- * Reuses each locked write check for the rest of `work`. A locked check holds shared locks on the
- * authority it read until the transaction ends, so only work that never changes plugin,
- * installation, or account rows itself may opt in. The checks resolve current execution authority
- * rather than authority shared from the commit's preparation.
+ * Reads each writer's pinned and active revision once across one commit's preparation, which reads
+ * and plans but writes nothing. The commit transaction's locked checks read them again.
  */
-export const reuseLockedWriteChecks = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-	Effect.suspend(() =>
-		withCurrentExecutionAuthority(work.pipe(Effect.provideService(LockedWriteChecks, new Map()))),
-	);
+export const sharePreparedPins = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+	Effect.suspend(() => work.pipe(Effect.provideService(PreparedPins, new Map())));
 
 export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 	"@ryot-app/kernel-backend/modules/entities/write-context/DomainWriteChecks",
@@ -151,26 +187,170 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 			const session = yield* DatabaseSession;
 			const definitions = yield* DefinitionRepository;
 			const authority = yield* SandboxExecutionAuthority;
-			const resolveCheck = Effect.fnUntraced(function* (
+			const readRevision: AuthorityReads["revision"] = (principal, plugin) =>
+				session
+					.run((db) =>
+						db
+							.select({
+								id: tables.pluginRevision.id,
+								activeRevisionId: tables.plugin.activeRevisionId,
+							})
+							.from(tables.pluginRevision)
+							.innerJoin(tables.plugin, eq(tables.plugin.id, tables.pluginRevision.pluginId))
+							.innerJoin(
+								tables.sandboxScript,
+								and(
+									eq(tables.sandboxScript.id, principal.scriptId),
+									eq(tables.sandboxScript.pluginRevisionId, tables.pluginRevision.id),
+									eq(tables.sandboxScript.slug, principal.scriptSlug),
+									eq(tables.sandboxScript.contentHash, principal.contentHash),
+								),
+							)
+							.innerJoin(
+								tables.pluginConfigRevision,
+								and(
+									eq(tables.pluginConfigRevision.id, plugin.configRevisionId),
+									eq(tables.pluginConfigRevision.pluginRevisionId, tables.pluginRevision.id),
+								),
+							)
+							.where(
+								and(
+									eq(tables.plugin.id, plugin.id),
+									eq(tables.plugin.packageId, plugin.packageId),
+									eq(tables.pluginRevision.packageId, plugin.packageId),
+									eq(tables.plugin.status, "active"),
+									eq(tables.pluginRevision.id, plugin.revisionId),
+									isNull(tables.pluginConfigRevision.payloadPrunedAt),
+									...(plugin.ownerId === null
+										? [isNull(tables.plugin.ownerId)]
+										: [
+												eq(tables.plugin.ownerId, plugin.ownerId),
+												eq(tables.pluginConfigRevision.ownerUserId, plugin.ownerId),
+											]),
+								),
+							)
+							.limit(1),
+					)
+					.pipe(
+						Effect.map(([row]) =>
+							row?.activeRevisionId
+								? { id: row.id, activeRevisionId: row.activeRevisionId }
+								: undefined,
+						),
+					);
+			const readInstallation = (pluginId: string, userId: string, lock: boolean) =>
+				session
+					.run((db) => {
+						const query = db
+							.select({
+								uninstalledAt: tables.pluginInstallation.uninstalledAt,
+								ingestionRetiring: tables.pluginInstallation.ingestionRetiring,
+								incompatibilityReason: tables.pluginInstallation.incompatibilityReason,
+							})
+							.from(tables.pluginInstallation)
+							.where(
+								and(
+									eq(tables.pluginInstallation.pluginId, pluginId),
+									eq(tables.pluginInstallation.userId, userId),
+								),
+							)
+							.limit(1);
+						return lock ? query.for("share", { of: tables.pluginInstallation }) : query;
+					})
+					.pipe(Effect.map(([row]) => row));
+			const readAccount = (userId: string, lock: boolean) =>
+				session
+					.run((db) => {
+						const query = db
+							.select({ disabledAt: tables.user.disabledAt })
+							.from(tables.user)
+							.where(eq(tables.user.id, userId))
+							.limit(1);
+						return lock ? query.for("share") : query;
+					})
+					.pipe(Effect.map(([row]) => row));
+			const resolveAuthority = (principal: Principal) =>
+				authority
+					.resolve(principal)
+					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
+			const unlockedReads: AuthorityReads = {
+				revision: readRevision,
+				fence: () => Effect.void,
+				current: {
+					resolve: resolveAuthority,
+					account: (userId) => readAccount(userId, false),
+					installation: (pluginId, userId) => readInstallation(pluginId, userId, false),
+				},
+			};
+			const preparedReads = (
+				pins: null | Map<string, Result.Result<undefined | DomainWritePin, DbError>>,
+			): AuthorityReads => ({
+				current: null,
+				fence: () => Effect.void,
+				revision: (principal, plugin) =>
+					pins === null
+						? readRevision(principal, plugin)
+						: once(pins, stableStringify(principal), readRevision(principal, plugin)),
+			});
+			// A transaction's locked reads hold their locks until it ends, and the commit changes no
+			// plugin, installation, or account rows, so each read stays valid for the rest of it. A
+			// savepoint has its own executor, so its reads and locks never outlive its rollback.
+			const lockedAuthority = new WeakMap<object, AuthorityReads>();
+			const lockedReads = (db: object) => {
+				const known = lockedAuthority.get(db);
+				if (known) {
+					return known;
+				}
+				const configs = new Map<string, Result.Result<unknown, DbError>>();
+				const revisions = new Map<string, Result.Result<undefined | DomainWritePin, DbError>>();
+				const resolved = new Map<string, Result.Result<unknown, DbError>>();
+				const accounts = new Map<
+					string,
+					Result.Result<undefined | { readonly disabledAt: Date | null }, DbError>
+				>();
+				const installations = new Map<
+					string,
+					Result.Result<Effect.Success<ReturnType<typeof readInstallation>>, DbError>
+				>();
+				const reads: AuthorityReads = {
+					fence: (userIds) => lockPluginIngestionShared(session, userIds),
+					revision: (principal, plugin) =>
+						Effect.andThen(
+							once(
+								configs,
+								plugin.id,
+								session.run((tx) =>
+									tx.execute(
+										sql`select pg_advisory_xact_lock_shared(hashtext(${`plugin-config:${plugin.id}`}))`,
+									),
+								),
+							),
+							once(revisions, stableStringify(principal), readRevision(principal, plugin)),
+						),
+					current: {
+						account: (userId) => once(accounts, userId, readAccount(userId, true)),
+						resolve: (principal) =>
+							once(resolved, stableStringify(principal), resolveAuthority(principal)),
+						installation: (pluginId, userId) =>
+							once(
+								installations,
+								stableStringify([pluginId, userId]),
+								readInstallation(pluginId, userId, true),
+							),
+					},
+				};
+				lockedAuthority.set(db, reads);
+				return reads;
+			};
+			const authorize = Effect.fnUntraced(function* (
 				command: DomainWriteCommand,
 				owner: DefinitionOwner,
 				scopeUserId: null | string,
-				lock?: boolean,
+				reads: AuthorityReads,
 			) {
 				const principal = command.writeContext;
 				const userId = principal === null ? null : sandboxSubjectUserId(principal.subject);
-				if (lock) {
-					yield* session.requireTransaction.pipe(
-						Effect.mapError(
-							() =>
-								new DbError({ message: "Domain authority commit checks require a transaction" }),
-						),
-					);
-					yield* lockPluginIngestionShared(
-						session,
-						[userId, scopeUserId].filter((id) => id !== null),
-					);
-				}
+				yield* reads.fence([userId, scopeUserId].filter((id) => id !== null));
 				if (principal === null) {
 					return null;
 				}
@@ -200,73 +380,20 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 					}
 					return null;
 				}
-				if (lock) {
-					yield* session.run((db) =>
-						db.execute(
-							sql`select pg_advisory_xact_lock_shared(hashtext(${`plugin-config:${plugin.id}`}))`,
-						),
-					);
+				const pinned = owner.kind !== "kernel" || command.kernelCollection !== true;
+				const { current } = reads;
+				if (current === null && !pinned) {
+					return null;
 				}
-				const [revision] = yield* session.run((db) =>
-					db
-						.select({ id: tables.pluginRevision.id })
-						.from(tables.pluginRevision)
-						.innerJoin(tables.plugin, eq(tables.plugin.id, tables.pluginRevision.pluginId))
-						.innerJoin(
-							tables.sandboxScript,
-							and(
-								eq(tables.sandboxScript.id, principal.scriptId),
-								eq(tables.sandboxScript.pluginRevisionId, tables.pluginRevision.id),
-								eq(tables.sandboxScript.slug, principal.scriptSlug),
-								eq(tables.sandboxScript.contentHash, principal.contentHash),
-							),
-						)
-						.innerJoin(
-							tables.pluginConfigRevision,
-							and(
-								eq(tables.pluginConfigRevision.id, plugin.configRevisionId),
-								eq(tables.pluginConfigRevision.pluginRevisionId, tables.pluginRevision.id),
-							),
-						)
-						.where(
-							and(
-								eq(tables.plugin.id, plugin.id),
-								eq(tables.plugin.packageId, plugin.packageId),
-								eq(tables.pluginRevision.packageId, plugin.packageId),
-								eq(tables.plugin.status, "active"),
-								eq(tables.pluginRevision.id, plugin.revisionId),
-								isNull(tables.pluginConfigRevision.payloadPrunedAt),
-								...(plugin.ownerId === null
-									? [isNull(tables.plugin.ownerId)]
-									: [
-											eq(tables.plugin.ownerId, plugin.ownerId),
-											eq(tables.pluginConfigRevision.ownerUserId, plugin.ownerId),
-										]),
-							),
-						)
-						.limit(1),
-				);
+				const revision = yield* reads.revision(principal, plugin);
 				if (!revision) {
 					return yield* new DbError({ message: "Pinned domain write authority is unavailable" });
 				}
+				if (current === null) {
+					return revision;
+				}
 				if (userId !== null) {
-					const [installation] = yield* session.run((db) => {
-						const query = db
-							.select({
-								uninstalledAt: tables.pluginInstallation.uninstalledAt,
-								ingestionRetiring: tables.pluginInstallation.ingestionRetiring,
-								incompatibilityReason: tables.pluginInstallation.incompatibilityReason,
-							})
-							.from(tables.pluginInstallation)
-							.where(
-								and(
-									eq(tables.pluginInstallation.pluginId, plugin.id),
-									eq(tables.pluginInstallation.userId, userId),
-								),
-							)
-							.limit(1);
-						return lock ? query.for("share", { of: tables.pluginInstallation }) : query;
-					});
+					const installation = yield* current.installation(plugin.id, userId);
 					if (
 						installation?.uninstalledAt !== null ||
 						installation.ingestionRetiring ||
@@ -276,14 +403,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 							message: "Current domain write installation authority is unavailable",
 						});
 					}
-					const [account] = yield* session.run((db) => {
-						const query = db
-							.select({ disabledAt: tables.user.disabledAt })
-							.from(tables.user)
-							.where(eq(tables.user.id, userId))
-							.limit(1);
-						return lock ? query.for("share") : query;
-					});
+					const account = yield* current.account(userId);
 					if (
 						!account ||
 						(account.disabledAt !== null && !isUserBootstrapPrincipal(principal)) ||
@@ -294,37 +414,51 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 						});
 					}
 				}
-				yield* authority
-					.resolve(principal)
-					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
-				return owner.kind === "kernel" && command.kernelCollection === true ? null : revision;
+				yield* current.resolve(principal);
+				return pinned ? revision : null;
 			});
-			const check = Effect.fnUntraced(function* (
+			/**
+			 * Checks a domain write against its writer's stored authority. A locked check runs in the
+			 * commit transaction and takes the ingestion fence, the writer's configuration lock, and shared
+			 * row locks on its installation and account, reading each once per transaction.
+			 */
+			const check = (
 				command: DomainWriteCommand,
 				owner: DefinitionOwner,
 				scopeUserId: null | string,
 				lock?: boolean,
-			) {
-				const reused = lock ? yield* LockedWriteChecks : null;
-				if (reused === null) {
-					return yield* resolveCheck(command, owner, scopeUserId, lock);
-				}
-				const key = domainWriteCheckKey({ owner, command, scopeUserId });
-				const known = reused.get(key);
-				if (known) {
-					return known.pin;
-				}
-				const pin = yield* resolveCheck(command, owner, scopeUserId, lock);
-				reused.set(key, { pin });
-				return pin;
-			});
+			) =>
+				lock
+					? session.requireTransaction.pipe(
+							Effect.mapError(
+								() =>
+									new DbError({ message: "Domain authority commit checks require a transaction" }),
+							),
+							Effect.andThen(
+								session.run((db) => authorize(command, owner, scopeUserId, lockedReads(db))),
+							),
+						)
+					: authorize(command, owner, scopeUserId, unlockedReads);
+			/**
+			 * Resolves the pin a prepared write validates against from the owner and scope rules and the
+			 * writer's revisions, unlocked. The commit's locked check decides installation, account, and
+			 * execution authority.
+			 */
+			const preparePin = (
+				command: DomainWriteCommand,
+				owner: DefinitionOwner,
+				scopeUserId: null | string,
+			) =>
+				Effect.flatMap(PreparedPins, (pins) =>
+					authorize(command, owner, scopeUserId, preparedReads(pins)),
+				);
 			const checkMany = Effect.fnUntraced(function* (checks: ReadonlyArray<DomainWriteCheck>) {
 				const pins = new Map<string, null | DomainWritePin>();
 				for (const input of checks) {
-					const key = domainWriteCheckKey(input);
-					if (!pins.has(key)) {
-						pins.set(key, yield* check(input.command, input.owner, input.scopeUserId, true));
-					}
+					pins.set(
+						domainWriteCheckKey(input),
+						yield* check(input.command, input.owner, input.scopeUserId, true),
+					);
 				}
 				return (input: DomainWriteCheck) => pins.get(domainWriteCheckKey(input));
 			});
@@ -375,35 +509,23 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 				if (!pin || owner.kind !== "plugin") {
 					return { pinned: undefined, active: undefined };
 				}
-				const [plugin] = yield* session.run((db) =>
-					db
-						.select({ activeRevisionId: tables.pluginRevision.id })
-						.from(tables.plugin)
-						.innerJoin(
-							tables.pluginRevision,
-							and(
-								eq(tables.plugin.activeRevisionId, tables.pluginRevision.id),
-								eq(tables.pluginRevision.pluginId, tables.plugin.id),
-							),
-						)
-						.where(and(eq(tables.plugin.id, owner.pluginId), eq(tables.plugin.status, "active")))
-						.limit(1),
-				);
-				if (!plugin) {
-					return yield* new DbError({
-						message: "Active domain storage constraints are unavailable",
-					});
-				}
 				const pinned = yield* findPinnedDeclaration(kind, pin.id, slug);
 				return {
 					pinned,
 					active:
-						plugin.activeRevisionId === pin.id
+						pin.activeRevisionId === pin.id
 							? pinned
-							: yield* findPinnedDeclaration(kind, plugin.activeRevisionId, slug),
+							: yield* findPinnedDeclaration(kind, pin.activeRevisionId, slug),
 				};
 			});
-			return { check, checkMany, checkProvider, findPinnedDeclaration, resolvePinnedDeclaration };
+			return {
+				check,
+				checkMany,
+				preparePin,
+				checkProvider,
+				findPinnedDeclaration,
+				resolvePinnedDeclaration,
+			};
 		}),
 	},
 ) {

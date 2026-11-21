@@ -43,7 +43,6 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	assertStableUnder,
 	type DomainLifecycleCommand,
-	domainWriteCheckKey,
 	DomainWriteChecks,
 	type DomainWriteConflict,
 	kernelCollectionLifecycleCommand,
@@ -750,7 +749,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				const results = [];
 				const dispatch: Array<LifecycleDispatchPlan> = [];
 				const triggers: Array<AutomationTrigger> = [];
-				const checkedOwners = new Set<string>();
 				const assetOwners: Array<Parameters<typeof assets.lock>[0][number]> = [];
 				const validatedRows: Array<{
 					index: number;
@@ -803,18 +801,9 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					}
 					const command = { ...input.command, itemIdentity: row.identity.itemIdentity };
 					const owner = definitionOwner(draft.eventSchemaPluginId);
-					const check = checkCommand(command, row.change);
-					const checkKey = domainWriteCheckKey({
-						owner,
-						command: check,
-						scopeUserId: input.userId,
-					});
-					if (!checkedOwners.has(checkKey)) {
-						yield* writes
-							.check(check, owner, input.userId, true)
-							.pipe(Effect.catch((error) => conflict(error.message)));
-						checkedOwners.add(checkKey);
-					}
+					yield* writes
+						.check(checkCommand(command, row.change), owner, input.userId, true)
+						.pipe(Effect.catch((error) => conflict(error.message)));
 					const schema = schemasByScope.get(scopeKey(draft));
 					if (
 						!schema ||

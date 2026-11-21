@@ -17,13 +17,12 @@ import {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { DateTime, Effect, Option, type Result, Schema } from "effect";
+import { DateTime, Effect, Option, Schema } from "effect";
 
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	type DomainLifecycleCommand,
-	domainWriteCheckKey,
 	DomainWriteChecks,
 	type DomainWriteConflict,
 	type DomainWritePin,
@@ -238,22 +237,8 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 		const eventSchemaScopes = new Map(
 			[...schemaInputs.keys()].map((key, index) => [key, schemaScopes[index] ?? null]),
 		);
-		const checked = new Map<
-			string,
-			Result.Result<null | DomainWritePin, DbError | DomainWriteConflict>
-		>();
-		const check = Effect.fnUntraced(function* (
-			command: DomainLifecycleCommand,
-			owner: DefinitionOwner,
-		) {
-			const key = domainWriteCheckKey({ owner, command, scopeUserId: input.userId });
-			let result = checked.get(key);
-			if (!result) {
-				result = yield* Effect.result(checks.check(command, owner, input.userId, true));
-				checked.set(key, result);
-			}
-			return yield* Effect.fromResult(result);
-		});
+		const check = (command: DomainLifecycleCommand, owner: DefinitionOwner) =>
+			checks.check(command, owner, input.userId, true);
 		const precheck = (command: DomainLifecycleCommand, owner: DefinitionOwner) =>
 			check(command, owner).pipe(
 				Effect.catchTags({

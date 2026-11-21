@@ -1,14 +1,23 @@
 import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
+import type { DbError } from "@ryot-app/contract/errors";
+import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
 import type {
 	IngestionIssue,
 	IngestionOutcome,
 } from "@ryot-app/contract/modules/imports/ingestion";
-import { AutomationExecutionId, ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	AutomationExecutionId,
+	EntitySchemaSlug,
+	ImportRunId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { assert } from "@ryot-app/testing/assert";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -22,11 +31,16 @@ import {
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { ChangeSets } from "#modules/changes/service";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
+import {
+	type RecordedStatement,
+	StatementLog,
+} from "#modules/entities/statement-recording.test-support";
 import {
 	eventGroupFixture,
 	eventGroupWorkflowLayer,
@@ -570,11 +584,47 @@ layer(
 	);
 
 	test.effect(
-		"commits an item's collection memberships with the item and leaves out one its collection rejects",
+		"commits an item's collection memberships with the item, taking each authority lock once, and leaves out one its collection rejects",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* membershipFixture;
+				const log = yield* StatementLog;
+				const earlier = (yield* log.transactions).length;
 				yield* fixture.apply;
+				const commits = (yield* log.transactions)
+					.slice(earlier)
+					.filter((statements) =>
+						statements.some(({ statement }) => statement.startsWith('insert into "relationship"')),
+					);
+				expect(commits).toHaveLength(1);
+				const [commit] = commits;
+				assert(commit);
+				const count = (matches: (recorded: RecordedStatement) => boolean) =>
+					commit.filter(matches).length;
+				expect(
+					["ryot-plugin-ingestion", `ryot-plugin-ingestion:user:${fixture.userId}`].map((key) =>
+						count(
+							({ params, statement }) =>
+								statement.includes("pg_advisory_xact_lock_shared") && params.includes(key),
+						),
+					),
+				).toEqual([1, 1]);
+				expect(
+					count(
+						({ params, statement }) =>
+							statement === "select pg_advisory_xact_lock_shared(hashtext($1))" &&
+							params[0] === `plugin-config:${fixture.installed.pluginId}`,
+					),
+				).toBe(1);
+				expect(
+					[
+						'from "plugin_revision" inner join "plugin"',
+						'for share of "plugin_installation"',
+						'from "user" where "user"."id" = $1 limit $2 for share',
+						'from "sandbox_script" left join "kernel_script"',
+						'from "plugin" inner join "plugin_revision"',
+					].map((fragment) => count(({ statement }) => statement.includes(fragment))),
+				).toEqual([1, 1, 1, 1, 0]);
 				yield* fixture.apply;
 				expect(
 					[...fixture.outcomes.values()].map(({ result, reason, operationId }) => [
@@ -630,6 +680,84 @@ layer(
 					entityId: imported.id,
 					entitySchemaSlug: "subject",
 				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects a commit whose installation was revoked or account disabled after preparation",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* eventGroupFixture(undefined);
+				const session = yield* DatabaseSession;
+				const changeSets = yield* ChangeSets;
+				const owned = definitionOwner(fixture.installed.pluginId);
+				const installation = and(
+					eq(tables.pluginInstallation.pluginId, fixture.installed.pluginId),
+					eq(tables.pluginInstallation.userId, fixture.userId),
+				);
+				const commitRevoking = (revoke: Effect.Effect<unknown, DbError>, name: string) => {
+					let loads = 0;
+					return Effect.exit(
+						changeSets.commitOnce(
+							{
+								userId: fixture.userId,
+								entity: {
+									name,
+									properties: {},
+									target: { kind: "create" },
+									entitySchema: { owner: owned, slug: EntitySchemaSlug.make("subject") },
+								},
+							},
+							{ ...fixture.command, itemIdentity: name },
+							{
+								record: () => Effect.succeed("recorded"),
+								load: Effect.suspend(() =>
+									++loads === 2
+										? session.detached(revoke).pipe(Effect.as(null))
+										: Effect.succeed(null),
+								),
+							},
+						),
+					);
+				};
+				const written = (name: string) =>
+					session.run((db) =>
+						db
+							.select({ id: tables.entity.id })
+							.from(tables.entity)
+							.where(eq(tables.entity.name, name)),
+					);
+				const conflict = new EntityBadRequest({ reason: { code: "mutation-conflict" } });
+				assertExitFails(
+					yield* commitRevoking(
+						session.run((db) =>
+							db
+								.update(tables.pluginInstallation)
+								.set({ uninstalledAt: new Date() })
+								.where(installation),
+						),
+						"Uninstalled",
+					),
+					conflict,
+				);
+				expect(yield* written("Uninstalled")).toEqual([]);
+				yield* session.run((db) =>
+					db.update(tables.pluginInstallation).set({ uninstalledAt: null }).where(installation),
+				);
+				assertExitFails(
+					yield* commitRevoking(
+						session.run((db) =>
+							db
+								.update(tables.user)
+								.set({ disabledAt: new Date() })
+								.where(eq(tables.user.id, fixture.userId)),
+						),
+						"Disabled",
+					),
+					conflict,
+				);
+				expect(yield* written("Disabled")).toEqual([]);
 			}),
 		testTimeout,
 	);

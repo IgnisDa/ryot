@@ -233,8 +233,8 @@ export const makePreparedRelationshipMutations = (
 				() => new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } }),
 			),
 		);
-		yield* writes
-			.check(command, relationshipSchemaReference(input).owner, input.userId)
+		const pin = yield* writes
+			.preparePin(command, relationshipSchemaReference(input).owner, input.userId)
 			.pipe(Effect.mapError(relationshipWriteFailure));
 		let mutation: Mutation = {
 			mode,
@@ -271,7 +271,6 @@ export const makePreparedRelationshipMutations = (
 		}
 		return yield* transaction(
 			Effect.gen(function* () {
-				const pinOf = yield* primitives.verifyWrites([mutationWriteCheck(mutation)]);
 				yield* primitives.lockMutations([mutation]);
 				const validated = yield* primitives.validateMutation(
 					mutation,
@@ -280,7 +279,7 @@ export const makePreparedRelationshipMutations = (
 						mutation,
 						createdEntities,
 					),
-					pinOf(mutation),
+					pin,
 				);
 				const row = yield* repository.findRelationship(mutation.input);
 				const before = row ? yield* snapshot(row) : null;

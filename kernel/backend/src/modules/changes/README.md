@@ -266,12 +266,24 @@ The commit holds its entity reference locks until it ends, so change sets that w
 same entity serialize on its row. It does only the work its changes need: an unchanged entity update
 still rechecks the stored entity but records no lifecycle change, the root entity, creates and
 updates share one entity lifecycle batch, and a change set without relationships plans no
-relationship batch. The commit changes no plugin, installation, or account rows, so it runs each
-locked domain write check once per writer, owner, and scope (`reuseLockedWriteChecks`); the check's
-shared locks keep its result valid until commit.
-Preparation reads and plans without writing, so its checks share one resolution of the writer's
-execution authority (`shareExecutionAuthority`); the commit transaction's locked checks resolve it
-again, so a revocation committed during preparation still rejects the commit.
+relationship batch.
+
+`DomainWriteChecks` keeps one locked authority cache per transaction, keyed by what each read
+depends on: the writer's configuration lock, pinned and active revision, and execution authority
+once per principal, its installation once per plugin and user, and the account once per user. The
+ingestion fence takes each shared key once per transaction. Every locked check then applies the
+owner, scope and kernel-collection rules to those reads. The shared locks keep the reads valid until
+the transaction ends because the commit changes no plugin, installation, or account rows; a
+transaction that changes them must not run a locked check before the change. A later transaction,
+including a commit's second one after its policies ran, reads and locks everything again. A check
+takes the fence, then the configuration lock, then the installation and account rows; the cache only
+drops repeats, so each lock is still first taken where its caller first checked.
+
+Preparation takes no authority locks and leaves installation, account and execution authority to the commit:
+those reads only reject early and save no work on the common path, and the commit's locked check
+rejects a revoked writer with the same errors. A prepared write still applies the owner and scope
+rules and reads the writer's pinned and active revision, once per writer across the commit's
+preparation (`sharePreparedPins`), since its declarations validate against them.
 
 Asset uploads and storage are separate from the change set transaction. A change set may refer to managed
 assets; the write boundary validates and locks those references while committing metadata.

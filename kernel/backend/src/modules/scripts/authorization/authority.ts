@@ -1,8 +1,8 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { SandboxExecutionAuthority, type SandboxTrust } from "@ryot-app/sandbox/host/authority";
+import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import type { SandboxPrincipal } from "@ryot-app/sandbox/host/principal";
-import { jsonValueEquals, stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, Layer, Schema } from "effect";
+import { jsonValueEquals } from "@ryot-app/ts-utils/json";
+import { Effect, Layer, Schema } from "effect";
 
 import { PageOperationAuthorization } from "#modules/pages/operation-authority";
 
@@ -17,21 +17,6 @@ const invalidPin = (error?: unknown) =>
 				kind: "missing-artifact",
 				message: "Sandbox execution pin does not match its stored authority",
 			});
-
-const SharedExecutionAuthority = Context.Reference<null | Map<string, typeof SandboxTrust.Type>>(
-	"@ryot-app/kernel-backend/modules/scripts/authorization/authority/SharedExecutionAuthority",
-	{ defaultValue: () => null },
-);
-
-/**
- * Resolves each principal's stored authority once across one commit's preparation, which reads and
- * plans but writes nothing. Committing checks and sandbox admission use `withCurrentExecutionAuthority`.
- */
-export const shareExecutionAuthority = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-	Effect.suspend(() => work.pipe(Effect.provideService(SharedExecutionAuthority, new Map())));
-
-export const withCurrentExecutionAuthority = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-	work.pipe(Effect.provideService(SharedExecutionAuthority, null));
 
 export const SandboxExecutionAuthorityLive = Layer.effect(
 	SandboxExecutionAuthority,
@@ -101,19 +86,6 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 			}
 			return yield* invalidPin();
 		});
-		const resolve = (principal: SandboxPrincipal) =>
-			Effect.flatMap(SharedExecutionAuthority, (shared) => {
-				if (shared === null) {
-					return resolveStored(principal);
-				}
-				const key = stableStringify(principal);
-				const known = shared.get(key);
-				return known
-					? Effect.succeed(known)
-					: Effect.tap(resolveStored(principal), (trust) =>
-							Effect.sync(() => shared.set(key, trust)),
-						);
-			});
-		return { resolve };
+		return { resolve: resolveStored };
 	}),
 );

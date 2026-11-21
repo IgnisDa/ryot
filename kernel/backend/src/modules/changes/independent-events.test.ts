@@ -1526,9 +1526,7 @@ layer(harnessLayer({ noHooks: true, foreignEntity: foreignSubject }))(
 						[1, "failed"],
 						[2, "failed"],
 					]);
-					expect(
-						(yield* h.checkedOwners).filter((owner) => owner === foreignPluginId),
-					).toHaveLength(1);
+					expect(yield* h.checkedOwners).toContain(foreignPluginId);
 					expect(yield* h.created).toHaveLength(1);
 				}),
 			testTimeout,

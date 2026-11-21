@@ -1,5 +1,5 @@
 import { BunCrypto } from "@effect/platform-bun";
-import { partialFake } from "@ryot-app/testing/fakes";
+import { derivedFake, partialFake } from "@ryot-app/testing/fakes";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
 import { Workflow } from "effect/workflow";
@@ -35,9 +35,11 @@ export const fakeDatabaseSession = (
 	overrides: Partial<DatabaseSession["Service"]> = {},
 ): Layer.Layer<DatabaseSession> => {
 	const executor = partialFake<EffectPgDatabase>(database);
-	const active = Context.Reference<boolean>("test/FakeDatabaseSessionTransaction", {
-		defaultValue: () => false,
-	});
+	const transactionExecutor = Context.Reference<null | EffectPgDatabase>(
+		"test/FakeDatabaseSessionTransaction",
+		{ defaultValue: () => null },
+	);
+	const active = Effect.map(transactionExecutor, (current) => current !== null);
 	const requireRoot = Effect.flatMap(active, (inTransaction) =>
 		inTransaction
 			? Effect.fail(new DatabaseSessionStateError({ reason: "transaction-already-active" }))
@@ -49,7 +51,9 @@ export const fakeDatabaseSession = (
 			: Effect.fail(new DatabaseSessionStateError({ reason: "transaction-required" })),
 	);
 	const run: DatabaseSession["Service"]["run"] = (statement) =>
-		mapDatabaseErrors(statement(executor));
+		Effect.flatMap(transactionExecutor, (current) =>
+			mapDatabaseErrors(statement(current ?? executor)),
+		);
 	return Layer.mock(DatabaseSession)({
 		run,
 		requireRoot,
@@ -61,7 +65,11 @@ export const fakeDatabaseSession = (
 		savepoint: (work) => requireTransaction.pipe(Effect.andThen(mapDatabaseErrors(work))),
 		transaction: (work) =>
 			requireRoot.pipe(
-				Effect.andThen(mapDatabaseErrors(work.pipe(Effect.provideService(active, true)))),
+				Effect.andThen(
+					mapDatabaseErrors(
+						work.pipe(Effect.provideService(transactionExecutor, derivedFake(executor, {}))),
+					),
+				),
 			),
 		...overrides,
 	});
