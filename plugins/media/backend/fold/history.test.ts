@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { FoldOutput } from "@ryot-app/plugin-backend-sdk/folds";
+import { FoldResult } from "@ryot-app/plugin-backend-sdk/folds";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -51,7 +51,7 @@ const fold = (
 			previous,
 			...(renamedKeys ? { renamedKeys } : {}),
 		});
-		yield* Schema.decodeEffect(FoldOutput)({
+		yield* Schema.decodeEffect(FoldResult)({
 			events: [],
 			value: null,
 			relationships: [],

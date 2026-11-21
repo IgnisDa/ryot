@@ -9,7 +9,7 @@ import { EntityId, EventId, PluginId, UserId } from "@ryot-app/contract/schema/b
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { type SQL, sql } from "drizzle-orm";
-import { Context, Duration, Effect, Layer, Schema } from "effect";
+import { Array as Arr, Context, Duration, Effect, Layer, Schema } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
@@ -60,13 +60,17 @@ export type FoldSource = {
 	readonly sessionEntityId?: null | string | undefined;
 };
 
-const FoldSubjectPayload = Schema.Struct({ userId: UserId, entityId: EntityId });
-
 export const FoldJob = makeJobKind("fold", {
 	concurrency: 4,
 	maxAttempts: 8,
-	payload: FoldSubjectPayload,
 	backoff: Duration.seconds(1),
+	payload: Schema.Struct({
+		userId: UserId,
+		entityIds: Schema.Array(EntityId).check(
+			Schema.isMinLength(1),
+			Schema.isMaxLength(FOLD_LIMITS.runSubjects),
+		),
+	}),
 });
 
 export const FoldRebuildJob = makeJobKind("fold-rebuild", {
@@ -75,6 +79,10 @@ export const FoldRebuildJob = makeJobKind("fold-rebuild", {
 });
 
 export const foldJobKey = (subject: FoldSubject) => `${subject.userId}:${subject.entityId}`;
+
+/** Subjects of one fold for one user share a run. */
+export const foldRunKey = ({ subject, declaration }: ResolvedFold) =>
+	`${subject.userId}:${declaration.pluginId}:${declaration.scriptSlug}`;
 
 export const PendingFoldMarks = Context.Reference<null | PendingFolds>("FoldMarks.Pending", {
 	defaultValue: () => null,
@@ -352,8 +360,10 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 					);
 			});
 
+			/** Marks subjects pending and queues fold jobs of up to `size` subjects of one fold. */
 			const queueResolved = Effect.fn("FoldMarks.queueResolved")(function* (
 				resolved: ReadonlyArray<ResolvedFold>,
+				size: number = FOLD_LIMITS.runSubjects,
 			) {
 				if (resolved.length === 0) {
 					return 0;
@@ -375,12 +385,24 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 						on conflict (user_id, kind, target_id) do update set status = 'pending'
 					`),
 				);
+				const byFold = new Map<string, { userId: UserId; entityIds: Array<EntityId> }>();
+				for (const entry of resolved) {
+					const key = foldRunKey(entry);
+					const fold = byFold.get(key) ?? { entityIds: [], userId: entry.subject.userId };
+					fold.entityIds.push(entry.subject.entityId);
+					byFold.set(key, fold);
+				}
 				let queued = 0;
-				for (const { subject } of resolved) {
+				for (const payload of [...byFold.values()].flatMap(({ userId, entityIds }) =>
+					Arr.chunksOf(entityIds, size).map((chunk) => ({ userId, entityIds: chunk })),
+				)) {
 					const inserted = yield* jobs
-						.enqueue(FoldJob, subject, { userId: subject.userId, key: foldJobKey(subject) })
+						.enqueue(FoldJob, payload, {
+							userId: payload.userId,
+							key: `${payload.userId}:${payload.entityIds.join(",")}`,
+						})
 						.pipe(Effect.mapError((error) => new DbError({ message: unknownToMessage(error) })));
-					queued += inserted ? 1 : 0;
+					queued += inserted ? payload.entityIds.length : 0;
 				}
 				return queued;
 			});

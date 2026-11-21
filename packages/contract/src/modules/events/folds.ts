@@ -7,6 +7,7 @@ import { EventChange } from "./mutations";
 
 export const FOLD_LIMITS = {
 	changes: 500,
+	runSubjects: 25,
 	inputChanges: 500,
 	valueBytes: 262_144,
 	requestEntities: 100,
@@ -41,14 +42,25 @@ export const FoldEventChange = strictStruct({
 });
 export type FoldEventChange = typeof FoldEventChange.Type;
 
-export const FoldInput = strictStruct({
+/** One subject of a fold run: what the fold returned last time, absorbed values, and its changed events or null to replay. */
+export const FoldSubjectInput = strictStruct({
 	value: JsonValue,
 	subjectEntityId: EntityId,
 	absorbed: Schema.Array(FoldAbsorbed),
 	changes: Schema.NullOr(Schema.Array(FoldEventChange)),
 });
+export type FoldSubjectInput = typeof FoldSubjectInput.Type;
 
-export const FoldOutput = strictStruct({
+export const FoldInput = strictStruct({
+	subjects: Schema.Array(FoldSubjectInput).check(
+		Schema.isMinLength(1),
+		Schema.isMaxLength(FOLD_LIMITS.runSubjects),
+	),
+});
+export type FoldInput = typeof FoldInput.Type;
+
+/** What a fold derived for one subject. */
+export const FoldResult = strictStruct({
 	value: JsonValue,
 	changes: Schema.Array(EventChange).check(Schema.isMaxLength(FOLD_LIMITS.changes)),
 	events: Schema.Array(
@@ -61,6 +73,14 @@ export const FoldOutput = strictStruct({
 		}),
 	),
 });
+export type FoldResult = typeof FoldResult.Type;
+
+export const FoldSubjectOutput = strictStruct({ ...FoldResult.fields, subjectEntityId: EntityId });
+export type FoldSubjectOutput = typeof FoldSubjectOutput.Type;
+
+/** One result per input subject. */
+export const FoldOutput = strictStruct({ subjects: Schema.Array(FoldSubjectOutput) });
+export type FoldOutput = typeof FoldOutput.Type;
 
 export const FoldRequest = strictStruct({
 	entityIds: Schema.Array(EntityId).check(

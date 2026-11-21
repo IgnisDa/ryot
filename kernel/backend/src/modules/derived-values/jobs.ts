@@ -9,22 +9,37 @@ import { registerJobHandler } from "#platform/jobs/worker";
 import { FoldJob, FoldMarks, FoldRebuildJob } from "./marks";
 import { Folds } from "./service";
 
-const FoldJobLive = registerJobHandler(FoldJob, (subject, job) =>
+/** A job of several subjects that fails queues each subject alone, so one subject's failure stays its own. */
+const FoldJobLive = registerJobHandler(FoldJob, ({ userId, entityIds }, job) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		const marks = yield* FoldMarks.make;
 		const folds = yield* Folds;
 		const mutations = yield* EventMutations;
-		yield* mutations
-			.transaction(marks.markSubjects([subject]), "job")
-			.pipe(
-				Effect.tapError(() =>
-					job.attempt >= FoldJob.maxAttempts
-						? session.transaction(folds.failed(subject)).pipe(Effect.ignore)
-						: Effect.void,
-				),
-			);
-		yield* publishDerivedDataUpdated(subject.userId);
+		const subjects = entityIds.map((entityId) => ({ userId, entityId }));
+		const fold = mutations.transaction(marks.markSubjects(subjects), "job");
+		yield* subjects.length > 1
+			? fold.pipe(
+					Effect.catch(() =>
+						session
+							.transaction(
+								Effect.flatMap(marks.route({ subjects, sources: [] }), (resolved) =>
+									marks.queueResolved(resolved, 1),
+								),
+							)
+							.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
+					),
+				)
+			: fold.pipe(
+					Effect.tapError(() =>
+						job.attempt >= FoldJob.maxAttempts
+							? Effect.forEach(subjects, (subject) =>
+									session.transaction(folds.failed(subject)),
+								).pipe(Effect.ignore)
+							: Effect.void,
+					),
+				);
+		yield* publishDerivedDataUpdated(userId);
 	}),
 );
 

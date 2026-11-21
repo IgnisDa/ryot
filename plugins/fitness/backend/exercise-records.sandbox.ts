@@ -2,6 +2,7 @@ import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/drive
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	foldChangeImages,
+	foldEachSubject,
 	type FoldEventImage,
 	FoldInput,
 	FoldOutput,
@@ -60,7 +61,7 @@ export default defineScript({
 	manifest,
 	input: FoldInput,
 	output: FoldOutput,
-	run: (input, host) =>
+	run: foldEachSubject((input, host) =>
 		Effect.gen(function* () {
 			const sets = (range?: WorkoutRecordRange) =>
 				readAllRyotqlPages((after) =>
@@ -113,4 +114,5 @@ export default defineScript({
 				value: yield* encode(updated.value),
 			};
 		}),
+	),
 });

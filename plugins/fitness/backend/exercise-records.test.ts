@@ -67,13 +67,13 @@ it.effect(
 					}),
 			});
 			const input = yield* Schema.decodeEffect(FoldInput)({
-				value: null,
-				absorbed: [],
-				changes: null,
-				subjectEntityId: "exercise-1",
+				subjects: [{ value: null, absorbed: [], changes: null, subjectEntityId: "exercise-1" }],
 			});
 			const output = yield* Schema.decodeEffect(FoldOutput)(yield* definition.run(input, host));
-			expect(output.events).toEqual<unknown>([
+			expect(output.subjects.map(({ subjectEntityId }) => subjectEntityId)).toEqual<unknown>([
+				"exercise-1",
+			]);
+			expect(output.subjects[0]?.events).toEqual<unknown>([
 				{
 					eventId: "set-1",
 					properties: {
