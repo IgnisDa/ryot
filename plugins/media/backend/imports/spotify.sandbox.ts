@@ -72,5 +72,5 @@ export default defineActivity({
 				itemIndex,
 				header: input.header,
 			});
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

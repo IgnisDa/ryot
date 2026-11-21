@@ -63,7 +63,7 @@ it.live(
 				["2026-10-02", [30, 40]],
 			] as const) {
 				const timestamp = `${day}T10:00:00.000Z`;
-				const saved = yield* saveWorkoutEditor(
+				yield* saveWorkoutEditor(
 					client,
 					operationInput(
 						workoutData({
@@ -86,7 +86,6 @@ it.live(
 						}),
 					),
 				);
-				assertCondition(saved.kind === "saved", "Expected a saved workout");
 			}
 			const history = yield* fitnessRecipes.execute(client, workoutHistoryRecipe({ reference }), {
 				exerciseId,

@@ -29,6 +29,7 @@ const readingUpdate = (eventId: string, value: number) => ({
 
 const readingCreate = (metricId: string, value: number) => ({
 	occurredAt,
+	kind: "create",
 	properties: { value },
 	session: { kind: "root" },
 	itemIdentity: `reading:${metricId}`,
@@ -93,7 +94,9 @@ describe("measurement reading update operation", () => {
 				expect(events?.changes.filter(({ kind }) => kind === "delete")).toEqual<unknown>([
 					{ kind: "delete", eventId: "child-204", itemIdentity: "delete:child-204" },
 				]);
-				expect(events?.creates).toEqual<unknown>([readingCreate("metric-205", 0)]);
+				expect(events?.changes.filter(({ kind }) => kind === "create")).toEqual<unknown>([
+					readingCreate("metric-205", 0),
+				]);
 				expect(events?.baselines).toEqual<unknown>([{ revision: 0, entityId: "entry-1" }]);
 				expect(result.changes?.entity).toEqual<unknown>(
 					entryUpdate("entry-1", { occurredAt, comment: "After run" }),
@@ -123,7 +126,6 @@ describe("measurement reading update operation", () => {
 					changes: {
 						entity: entryUpdate("entry-1", { occurredAt, comment: "Fasted" }),
 						events: {
-							creates: [],
 							baselines: [{ revision: 4, entityId: "entry-1" }],
 							changes: [
 								readingUpdate("reading-1", 0),
@@ -152,9 +154,8 @@ describe("measurement reading update operation", () => {
 					changes: {
 						entity: entryUpdate("entry-2", { occurredAt }),
 						events: {
-							creates: [readingCreate("waist", 80)],
-							changes: [readingUpdate("reading-3", 71)],
 							baselines: [{ revision: 0, entityId: "entry-2" }],
+							changes: [readingCreate("waist", 80), readingUpdate("reading-3", 71)],
 						},
 					},
 				});

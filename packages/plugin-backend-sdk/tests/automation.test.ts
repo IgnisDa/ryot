@@ -8,6 +8,8 @@ import {
 	automationResultSchema,
 	defineAutomation,
 	defineAutomationPolicy,
+	notifySignals,
+	SignalNotificationError,
 } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -191,6 +193,67 @@ describe("automation definitions", () => {
 					properties: { title: "Snapshot" },
 				});
 				expect(input.automation.hookMetadata).toEqual({ title: "Updated" });
+			}),
+		testTimeout,
+	);
+});
+
+const signal = (properties: Readonly<Record<string, unknown>>) =>
+	Schema.decodeUnknownEffect(automationInputSchema)({
+		automation: {
+			runId: "run-1",
+			triggerId: "trigger-1",
+			executionUserId: "user-1",
+			hookSlug: "test-notification",
+			occurredAt: "2026-09-15T00:00:00.000Z",
+			payload: {
+				properties,
+				operation: "emit",
+				category: "signal",
+				resource: "signal",
+				actorUserId: "user-1",
+				signalSchemaPluginId: null,
+				signalSchemaSlug: "count.changed",
+			},
+			causation: {
+				depth: 0,
+				source: "api",
+				parentRunId: null,
+				lane: "background",
+				parentTriggerId: null,
+				executionId: "execution-1",
+				rootExecutionId: "execution-1",
+				initiator: { kind: "user", id: "user-1" },
+			},
+		},
+	}).pipe(Effect.orDie);
+
+describe("signal notifications", () => {
+	const notification = defineAutomation({
+		run: notifySignals({
+			"count.changed": {
+				properties: Schema.Struct({ count: Schema.Finite }),
+				notify: ({ count }) => ({ params: { count }, key: "notification.count" }),
+			},
+		}),
+		manifest: defineManifest({
+			kind: "automation",
+			slug: "test-notification",
+			name: "Test notification",
+			automationType: "automation",
+			inputProjection: { signal: { properties: ["count"] } },
+		}),
+	});
+	it.effect(
+		"formats a signal's decoded properties and fails typed on properties it cannot decode",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* notification.run(yield* signal({ count: 2 }))).toEqual({
+					changes: { notifications: [{ params: { count: 2 }, key: "notification.count" }] },
+				});
+				const failure = yield* Effect.flip(notification.run(yield* signal({ count: "two" })));
+				expect(failure).toBeInstanceOf(SignalNotificationError);
+				expect(failure.message).toContain("count.changed has invalid properties");
 			}),
 		testTimeout,
 	);

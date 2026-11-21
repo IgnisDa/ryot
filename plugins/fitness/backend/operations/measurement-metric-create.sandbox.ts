@@ -1,3 +1,4 @@
+import { rootEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -30,7 +31,7 @@ export default defineOperation({
 			const pin =
 				existing.length < AUTO_PINNED_METRICS
 					? yield* measurementMetricPinChanges(
-							{ pinned: true, metric: { kind: "root" } },
+							{ pinned: true, metric: rootEntity },
 							host.executeRyotql,
 						)
 					: undefined;

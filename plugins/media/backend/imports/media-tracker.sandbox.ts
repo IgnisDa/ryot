@@ -1,4 +1,3 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
@@ -13,5 +12,5 @@ export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
-	run: (input, host) => collectMediaTracker(input, host).pipe(Effect.map((output) => ({ output }))),
+	run: (input, host) => collectMediaTracker(input, host),
 });

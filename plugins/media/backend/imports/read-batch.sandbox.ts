@@ -151,5 +151,5 @@ export default defineActivity({
 					),
 				},
 			};
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

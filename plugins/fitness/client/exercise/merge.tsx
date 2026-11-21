@@ -31,15 +31,13 @@ const mergeMutation = createRyotMutation<
 	Schema.decodeEffect(ExerciseMergeInputSchema)(input).pipe(
 		Effect.mapError(() => new RyotClientError({ reason: "invalid-input" })),
 		Effect.flatMap((payload) =>
-			client.operations
-				.invoke({
-					input: payload,
-					packageId: PLUGIN_PACKAGE_ID,
-					slug: exerciseMergeOperationSlug,
-					output: ExerciseMergeOutputSchema,
-					inputSchema: ExerciseMergeInputSchema,
-				})
-				.pipe(Effect.map(({ output }) => output)),
+			client.operations.invoke({
+				input: payload,
+				packageId: PLUGIN_PACKAGE_ID,
+				slug: exerciseMergeOperationSlug,
+				output: ExerciseMergeOutputSchema,
+				inputSchema: ExerciseMergeInputSchema,
+			}),
 		),
 	),
 );

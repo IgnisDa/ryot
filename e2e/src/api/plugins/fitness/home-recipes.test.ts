@@ -22,7 +22,6 @@ import {
 	workoutOccurrence,
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
-import { assertCondition } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Home muscle activity recipe", () => {
@@ -98,7 +97,7 @@ describe("Home muscle activity recipe", () => {
 				const stabilizerAt = "2026-10-20T09:00:00.000Z";
 				const log = (recordingClient: Client, exerciseId: EntityId, occurredAt: string) =>
 					Effect.gen(function* () {
-						const saved = yield* saveWorkoutData(
+						yield* saveWorkoutData(
 							recordingClient,
 							workoutData({
 								startedAt: occurredAt,
@@ -117,7 +116,6 @@ describe("Home muscle activity recipe", () => {
 								],
 							}),
 						);
-						assertCondition(saved.kind === "saved", "Expected the activity workout to save");
 					});
 				yield* log(client, primary.id, oldAt);
 				yield* log(client, primary.id, weekStartAt);

@@ -187,6 +187,5 @@ export default defineActivity({
 	run: (input, host, execution) =>
 		runSpotifyYank(input, host, execution).pipe(
 			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
-			Effect.map((output) => ({ output })),
 		),
 });

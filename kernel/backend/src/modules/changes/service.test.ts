@@ -7,11 +7,8 @@ import type {
 	AutomationPolicyInputProjection,
 	AutomationPolicyOutput,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import {
-	ChangeSet,
-	type ChangeSetEntityReference,
-	ChangeSetEntityUpdate,
-} from "@ryot-app/contract/modules/changes/change-set";
+import { ChangeSet, ChangeSetEntityUpdate } from "@ryot-app/contract/modules/changes/change-set";
+import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
@@ -203,9 +200,9 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 			properties: { name: "Root" },
 		},
 		events: {
-			changes: [],
-			creates: [
+			changes: [
 				{
+					kind: "create",
 					itemIdentity: "event",
 					entity: { kind: "root" },
 					eventSchemaSlug: "changed",
@@ -240,9 +237,14 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 });
 
 const eventCreate = (entity: ChangeSetEntityReference) => ({
-	changes: [],
-	creates: [
-		{ entity, itemIdentity: "event", eventSchemaSlug: "changed", properties: { value: "Saved" } },
+	changes: [
+		{
+			entity,
+			itemIdentity: "event",
+			kind: "create" as const,
+			eventSchemaSlug: "changed",
+			properties: { value: "Saved" },
+		},
 	],
 });
 
@@ -441,6 +443,7 @@ layer(testLayer(false))((test) => {
 				assert(relation?.target.kind === "existing");
 				const target = relation.target;
 				const creates = Array.from({ length: 101 }, (_, index) => ({
+					kind: "create" as const,
 					eventSchemaSlug: "changed",
 					itemIdentity: `event-${index}`,
 					properties: { value: `Saved ${index}` },
@@ -449,7 +452,7 @@ layer(testLayer(false))((test) => {
 				const spans: Tracer.Span[] = [];
 				const committed = yield* commitUserCommand({
 					command: input.command,
-					input: { ...input.input, events: { creates, changes: [] } },
+					input: { ...input.input, events: { changes: creates } },
 				}).pipe(Effect.withTracer(makeRecordingTracer(spans)));
 				expect(committed.events).toHaveLength(101);
 				expect(spans.filter(({ name }) => name === "LifecyclePolicies.run")).toHaveLength(2);
@@ -552,9 +555,9 @@ layer(testLayer(false))((test) => {
 						},
 					});
 				const derived = yield* execute({
-					changes: [],
-					creates: [
+					changes: [
 						{
+							kind: "create",
 							itemIdentity: "derived",
 							eventSchemaSlug: "changed",
 							properties: { value: "Derived" },
@@ -575,7 +578,6 @@ layer(testLayer(false))((test) => {
 				expect(row.orderKey).toBe(`${source.eventId}~derived`);
 				expect(row.orderCreatedAt?.toISOString()).toBe(sourceRow.createdAt.toISOString());
 				yield* execute({
-					creates: [],
 					changes: [
 						{
 							kind: "update",
@@ -595,7 +597,6 @@ layer(testLayer(false))((test) => {
 				);
 				expect(repaired?.orderKey).toBe(`${source.eventId}~repaired`);
 				yield* execute({
-					creates: [],
 					changes: [
 						{
 							kind: "update",
@@ -651,18 +652,18 @@ layer(testLayer(false))((test) => {
 						...input.input,
 						relationships: {},
 						events: {
-							changes,
-							creates:
+							changes:
 								mutation === "insert"
 									? [
 											{
+												kind: "create",
 												itemIdentity: "inserted",
 												eventSchemaSlug: "changed",
 												properties: { value: "New" },
 												entity: { kind: "existing", entityId: original.entityId },
 											},
 										]
-									: [],
+									: changes,
 						},
 					});
 					yield* commitUserCommand({ input: racingInput, command: nextCommand() });
@@ -670,11 +671,7 @@ layer(testLayer(false))((test) => {
 						...input.input,
 						relationships: {},
 						entity: { ...input.input.entity, name: "Must not commit" },
-						events: {
-							creates: [],
-							changes: [],
-							baselines: [{ revision: 1, entityId: original.entityId }],
-						},
+						events: { changes: [], baselines: [{ revision: 1, entityId: original.entityId }] },
 					});
 					assertExitFails(
 						yield* Effect.exit(commitUserCommand({ input: staleInput, command: nextCommand() })),
@@ -777,9 +774,9 @@ layer(testLayer(false))((test) => {
 						...input.input,
 						relationships: {},
 						events: {
-							changes: [],
-							creates: [
+							changes: [
 								{
+									kind: "create",
 									eventSchemaSlug: "changed",
 									properties: { value: "Raced" },
 									itemIdentity: `racing-${mutatedScope}`,
@@ -915,10 +912,10 @@ layer(testLayer(false))((test) => {
 							...input.input,
 							relationships: {},
 							events: {
-								changes: [],
-								creates: [
+								changes: [
 									{
 										itemIdentity,
+										kind: "create",
 										eventSchemaSlug: "changed",
 										properties: { value: itemIdentity },
 										entity: { kind: "existing", entityId: original.entityId },
@@ -1772,10 +1769,10 @@ layer(testLayer(false))((test) => {
 				const run = automationRun(input);
 				const target = targetOf(input);
 				const events = {
-					changes: [],
-					creates: [
+					changes: [
 						{
 							itemIdentity: "denied",
+							kind: "create" as const,
 							eventSchemaSlug: "changed",
 							properties: { value: "Denied" },
 							entity: { entityId: target, kind: "existing" as const },
@@ -1829,8 +1826,8 @@ layer(testLayer(false))((test) => {
 							globalRelationships: [
 								{
 									relationships: [],
-									selector: { type: "self" },
 									relationshipSchemaSlug: "atomic-link",
+									selector: { type: "self", entitySchemaSlug: "record" },
 								},
 							],
 						},
@@ -1884,9 +1881,9 @@ layer(testLayer(false))((test) => {
 					{
 						userId,
 						events: {
-							changes: [],
-							creates: [
+							changes: [
 								{
+									kind: "create",
 									itemIdentity: "event",
 									eventSchemaSlug: "changed",
 									properties: { value: "Saved" },
@@ -2223,8 +2220,8 @@ layer(testLayer(false))((test) => {
 						],
 						globalRelationships: [
 							{
-								selector: { type: "self" },
 								relationshipSchemaSlug: "global-link",
+								selector: { type: "self", entitySchemaSlug: "record" },
 								relationships: [{ properties: {}, source: upserted, target: upserted }],
 							},
 						],
@@ -2274,9 +2271,9 @@ layer(testLayer(false, false))((test) => {
 								notifications: [{ key: "notification.done" }],
 								signals: [{ properties: {}, discriminator: "late", schemaSlug: "atomic.signal" }],
 								events: {
-									changes: [],
-									creates: [
+									changes: [
 										{
+											kind: "create",
 											itemIdentity: "late",
 											eventSchemaSlug: "changed",
 											properties: { value: "Late" },
@@ -2479,6 +2476,17 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 						otherUserEntity,
 						{ entities: { deletes: [{ entityId: otherUserEntity, entitySchemaSlug: "record" }] } },
 					],
+					"event delete": [
+						"events",
+						foreignEvent.eventId,
+						{
+							events: {
+								changes: [
+									{ kind: "delete", itemIdentity: "event-delete", eventId: foreignEvent.eventId },
+								],
+							},
+						},
+					],
 					"root entity update": [
 						"entity",
 						foreignEntity,
@@ -2509,18 +2517,6 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 							entities: {
 								merges: [
 									{ mergeFrom: ownEntity, mergeInto: foreignEntity, entitySchemaSlug: "record" },
-								],
-							},
-						},
-					],
-					"event delete": [
-						"events",
-						foreignEvent.eventId,
-						{
-							events: {
-								creates: [],
-								changes: [
-									{ kind: "delete", itemIdentity: "event-delete", eventId: foreignEvent.eventId },
 								],
 							},
 						},
@@ -2561,7 +2557,6 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 						foreignEvent.eventId,
 						{
 							events: {
-								creates: [],
 								changes: [
 									{
 										kind: "update",
@@ -2597,9 +2592,9 @@ layer(ScriptChangesLayer.pipe(Layer.provideMerge(testLayer(false))))((test) => {
 						foreignEntity,
 						{
 							events: {
-								changes: [],
-								creates: [
+								changes: [
 									{
+										kind: "create",
 										itemIdentity: "event",
 										eventSchemaSlug: "changed",
 										properties: { value: "Saved" },

@@ -229,8 +229,8 @@ offers Retry, which resends the same input and idempotency key so the operation 
 result without duplicating the entry or its readings. The change set commits atomically, so a log is saved
 completely or not at all. Exercise note create, edit, and delete use background submissions too.
 Workout deletion stays a foreground write because the page navigates away only after it succeeds, and
-workout time correction stays foreground because its `changes-conflict` failure and invalid
-results must reach the form.
+workout time correction stays foreground because its `changes-conflict` failure and refusals must
+reach the form.
 
 Update/delete resolve the caller-owned entry by ID. Update reads the entry's event-scope revision, loads all
 children (including imported entries larger than 100 values), validates event and metric schemas/visibility, and
@@ -318,9 +318,11 @@ decompression to 128 KiB; encoded drafts and uncompressed complete save inputs h
 budgets. The draft's retained submission freezes data, baseline, ID, and timestamp, including across
 settings changes. The operation reads only and returns the entity, sets, relationships, and any
 new-workout completion event as one change set, which the kernel commits atomically; asset uploads
-are separate. The client takes the saved workout's ID from the commit's root entity. A baseline found
-gone or missing a kept set before the change set is built returns only its preconditions, so the
-commit reports the conflict.
+are separate. The client takes the saved workout's ID from the commit's root entity. A baseline that
+is gone or missing a kept set is left to the change set's entity update target, `expected` set IDs
+and scope baseline, so the commit reports the conflict. An invalid save or a forbidden managed asset
+is refused with `OperationRejectedError` and a `rejection.workout-save.*` message; the output is
+success-only.
 
 New sets need not be confirmed: creates and historical edits save unconfirmed sets at their supplied
 time, while the live editor requires confirmation before finishing. Templates store plans without

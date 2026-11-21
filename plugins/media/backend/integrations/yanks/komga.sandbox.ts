@@ -363,5 +363,5 @@ export default defineActivity({
 				{ failures, entityGroups },
 				next ? yield* Schema.encodeEffect(cursorJson)(next) : null,
 			);
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

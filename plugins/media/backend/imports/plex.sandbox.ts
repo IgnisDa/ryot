@@ -17,6 +17,5 @@ export default defineActivity({
 	run: (input, host) =>
 		collectPlex(input, host).pipe(
 			Effect.catch((error) => recoverMediaApiTask(input, error, "Plex")),
-			Effect.map((output) => ({ output })),
 		),
 });

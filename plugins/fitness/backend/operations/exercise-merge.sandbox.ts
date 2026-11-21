@@ -1,4 +1,8 @@
-import { CHANGE_SET_LIMITS, existingEntity } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	CHANGE_SET_LIMITS,
+	entityUpdateTarget,
+	existingEntity,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
@@ -94,16 +98,8 @@ export default defineOperation({
 								properties,
 								name: template.name,
 								entitySchemaSlug: "workout-template",
-								target: {
-									kind: "update",
-									entityId: template.id,
-									expected: {
-										name: template.name,
-										updatedAt: template.updatedAt,
-										properties: template.properties,
-									},
-								},
-							} as const,
+								target: entityUpdateTarget(template),
+							},
 						];
 			});
 			if (updates.length > CHANGE_SET_LIMITS.entityUpdates) {

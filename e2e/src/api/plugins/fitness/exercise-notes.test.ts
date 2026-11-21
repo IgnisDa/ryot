@@ -23,7 +23,7 @@ import {
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
-import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const listReviews = (client: Client, entityId: string) =>
@@ -132,7 +132,6 @@ describe("Fitness exercise notes", () => {
 					],
 				}),
 			);
-			assertCondition(workout.kind === "saved", "Expected the note fixture workout to save");
 			expect(workout.sets).toHaveLength(1);
 			const workoutEvents = yield* listEventsForEntity(client, exerciseId, undefined, 100);
 			const workoutSetEvent = requirePresent(

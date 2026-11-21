@@ -1,4 +1,8 @@
-import { deleteEventChange, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	deleteEventChange,
+	expectedEventFields,
+	type ScriptHost,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { Array, Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
@@ -134,25 +138,13 @@ export const loadEditTargets = (
 		return targets;
 	});
 
-export const writePrecondition = (expected: MediaEventSnapshot) => ({
-	kind: "fields" as const,
-	entityId: expected.entityId,
-	occurredAt: expected.occurredAt,
-	properties: expected.properties,
-	sessionEntityId: expected.sessionEntityId,
-	absentProperties: expected.absentProperties,
-});
-
-export const deleteTargetChanges = (
-	targets: readonly EditTarget[],
-	expected?: MediaEventSnapshot,
-) => ({
+/** Deletes of the events `ids` names, each checked against `expected` when given. */
+export const deleteTargetChanges = (ids: readonly string[], expected?: MediaEventSnapshot) => ({
 	events: {
-		creates: [],
-		changes: targets.map(({ id }) =>
+		changes: ids.map((id) =>
 			deleteEventChange(
 				EventId.make(id),
-				expected === undefined ? undefined : writePrecondition(expected),
+				expected === undefined ? undefined : expectedEventFields(expected),
 			),
 		),
 	},

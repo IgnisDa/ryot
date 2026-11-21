@@ -21,6 +21,5 @@ export default defineActivity({
 			Effect.flatMap((collection) =>
 				collectMediaCsv("igdb", input, (text) => adaptIgdbCsv(text, { collection })),
 			),
-			Effect.map((output) => ({ output })),
 		),
 });

@@ -17,6 +17,5 @@ export default defineActivity({
 	run: (input, host) =>
 		collectJellyfin(input, host).pipe(
 			Effect.catch((error) => recoverMediaApiTask(input, error, "Jellyfin")),
-			Effect.map((output) => ({ output })),
 		),
 });

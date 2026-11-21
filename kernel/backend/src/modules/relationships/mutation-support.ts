@@ -7,6 +7,7 @@ import {
 import {
 	definitionOwner,
 	definitionOwnerPluginId,
+	type EntitySchemaReference,
 	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -81,8 +82,9 @@ export type ReconcileGlobalRelationshipGroup = {
 		sourceEntityId: EntityId;
 		targetEntityId: EntityId;
 	}>;
+	/** `self` reconciles the self relationships of entities of `entitySchema`. */
 	selector:
-		| { type: "self" }
+		| { type: "self"; entitySchema: EntitySchemaReference }
 		| { type: "anchored"; anchorEntityId: EntityId; direction: "incoming" | "outgoing" };
 };
 

@@ -25,8 +25,12 @@ atomically under the writer's principal (`command.writeContext`) after translati
   (the relationship must exist), `ensures` (written only when absent), `deletesById`, and `events`
   that a relationship change records from what it wrote (no event when its `properties` returns
   `null`); see [relationships](../relationships/README.md).
-- `events`: event creates (a kernel writer's may name its entity and session by key), updates and
-  deletes, optional `expected` session event IDs and scope `baselines`.
+- `events`: one `changes` list of tagged event `create`, `update` and `delete` items (a kernel
+  writer's create may name its entity and session by key), with optional `expected` session event IDs
+  and scope `baselines`. `eventMutation` translates each item to an event mutation, for change sets
+  and fold outputs alike.
+- `globalRelationships`: groups reconciled under a `self` selector, the self relationships of one
+  entity schema's entities, or an `anchored` one.
 
 An entity create, relationship write and relationship event that `CollectionsService` builds carries
 `kernelCollection`, so a plugin writer's change set commits it under the kernel collection and

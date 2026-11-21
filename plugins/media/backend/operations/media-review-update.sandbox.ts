@@ -1,4 +1,4 @@
-import { updateEventChange } from "@ryot-app/plugin-backend-sdk/core";
+import { expectedEventFields, updateEventChange } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -16,7 +16,6 @@ import {
 	loadEditTargets,
 	requireDeclaredProperties,
 	reviewCombinations,
-	writePrecondition,
 } from "./media-activity-edits";
 import { requireReviewConsumption } from "./media-review-consumption";
 
@@ -64,7 +63,6 @@ export default defineOperation({
 				output: { count: 1 },
 				changes: {
 					events: {
-						creates: [],
 						changes: [
 							updateEventChange(
 								EventId.make(target.id),
@@ -82,7 +80,7 @@ export default defineOperation({
 										],
 									},
 								},
-								writePrecondition(input.expected),
+								expectedEventFields(input.expected),
 							),
 						],
 					},

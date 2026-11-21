@@ -295,7 +295,7 @@ function useExerciseDefaults(
 				.pipe(
 					Effect.match({
 						onFailure: () => setError(text("client.prefs.save-failed")),
-						onSuccess: ({ output: result }) => {
+						onSuccess: (result) => {
 							if (result.kind === "saved") {
 								props.onSaved();
 								props.onClose();

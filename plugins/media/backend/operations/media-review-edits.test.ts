@@ -193,7 +193,6 @@ describe("media review edits", () => {
 					output: { count: 1 },
 					changes: {
 						events: {
-							creates: [],
 							changes: [
 								{
 									kind: "update",
@@ -339,7 +338,6 @@ describe("media review edits", () => {
 					output: { count: 1 },
 					changes: {
 						events: {
-							creates: [],
 							changes: [{ kind: "delete", eventId: "review-1", itemIdentity: "delete:review-1" }],
 						},
 					},

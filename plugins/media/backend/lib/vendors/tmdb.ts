@@ -405,7 +405,7 @@ export const runTmdbTrending = (
 			return { output: { status: "failed" } satisfies typeof MediaTrendingProviderOutput.Type };
 		}
 		return {
-			changes: yield* trendingChanges(host, options.entitySchemaSlug, items),
+			changes: yield* trendingChanges(options.entitySchemaSlug, items),
 			output: {
 				status: "fetched",
 				itemCount: items.length,

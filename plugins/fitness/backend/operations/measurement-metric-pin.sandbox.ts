@@ -1,3 +1,4 @@
+import { existingEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -39,10 +40,7 @@ export default defineOperation({
 				});
 			}
 			const changes = yield* measurementMetricPinChanges(
-				{
-					pinned: input.pinned,
-					metric: { kind: "existing", entityId: EntityId.make(input.metricId) },
-				},
+				{ pinned: input.pinned, metric: existingEntity(EntityId.make(input.metricId)) },
 				host.executeRyotql,
 			);
 			return { output, changes };

@@ -173,7 +173,7 @@ const fixture = Effect.fnUntraced(function* (
 			commitOnce: (input, _lifecycle, receipt) =>
 				Effect.suspend(() => {
 					submitted.push(input);
-					const creates = input.events?.creates ?? [];
+					const creates = input.events?.changes ?? [];
 					const throws = creates.some(({ itemIdentity }) => itemIdentity.includes("throws"));
 					const written = creates.map(({ itemIdentity }, index): EventCreateItemOutcome => {
 						if (throws) {
@@ -292,13 +292,14 @@ it.effect(
 				),
 			]);
 			expect(test.submitted).toHaveLength(2);
-			expect(test.submitted[0]?.events?.creates.map(({ itemIdentity }) => itemIdentity)).toEqual(
+			expect(test.submitted[0]?.events?.changes.map(({ itemIdentity }) => itemIdentity)).toEqual(
 				["written", "skipped", "independent"].map((key) =>
 					ingestionItemIdentity(ingestionTestScope.runId, `data:event:${key}`),
 				),
 			);
-			expect(test.submitted[0]?.events?.creates[0]?.properties).toEqual({
-				related: { entity: "related-id" },
+			expect(test.submitted[0]?.events?.changes[0]).toMatchObject({
+				kind: "create",
+				properties: { related: { entity: "related-id" } },
 			});
 			const rejection = {
 				code: "policy-rejected",
@@ -333,7 +334,7 @@ it.effect(
 			yield* test.execute;
 			expect(
 				test.submitted.map((changes) =>
-					(changes.events?.creates ?? []).map(({ itemIdentity }) => itemIdentity),
+					(changes.events?.changes ?? []).map(({ itemIdentity }) => itemIdentity),
 				),
 			).toEqual([
 				["written", "skipped", "throws"].map((key) =>
@@ -549,7 +550,7 @@ it.effect(
 			);
 			expect(registered).toEqual(["data-plan:0", "data-segment:1"]);
 			expect(submitted).toHaveLength(1);
-			expect(submitted[0]?.events?.creates[0]).toMatchObject({
+			expect(submitted[0]?.events?.changes[0]).toMatchObject({
 				properties: { related: { entity: "id:entity-0" } },
 				entity: { kind: "existing", entityId: "id:entity-49" },
 			});

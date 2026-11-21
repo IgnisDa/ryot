@@ -1,4 +1,3 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaCsv } from "./collection";
@@ -26,5 +25,5 @@ export default defineActivity({
 					ratingsCsv: input.fileIndex === 1 ? text : "title,tmdb_id,user_rating",
 				}),
 			["historyUploadToken", "ratingsUploadToken", "watchlistUploadToken"][input.fileIndex],
-		).pipe(Effect.map((output) => ({ output }))),
+		),
 });

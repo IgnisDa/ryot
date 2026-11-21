@@ -22,7 +22,7 @@ export default defineOperation({
 			const eventId = yield* requireExerciseNote(input.noteId, host.executeRyotql);
 			return {
 				output: { count: 1 },
-				changes: { events: { creates: [], changes: [deleteEventChange(EventId.make(eventId))] } },
+				changes: { events: { changes: [deleteEventChange(EventId.make(eventId))] } },
 			};
 		}),
 });

@@ -300,9 +300,9 @@ catalogs. Metron arc suggestions select the first three arcs and twenty issues p
 selects three pages. Execution limits are safety boundaries, not successful inventory truncation.
 
 `workflow.media-trending` runs `movie.tmdb.trending` and then `show.tmdb.trending` as activities.
-Each returns its fetched titles as global entity upserts and the whole `media-trending` group: its
-own batch ranked from 1 at the current time, plus every other trending schema's latest batch
-unchanged, because the group is replaced as a whole. A failed fetch returns no changes, so the
+Each returns its fetched titles as global entity upserts and its own batch ranked from 1 at the
+current time, under a `self` selector scoped to its entity schema, so the commit replaces only that
+schema's `media-trending` rows and other schemas' batches stay. A failed fetch returns no changes, so the
 previous ranks stay.
 
 Metron series issues follow validated source next-page links through durable continuations and keep

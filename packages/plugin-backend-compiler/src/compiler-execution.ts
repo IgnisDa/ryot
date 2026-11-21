@@ -706,6 +706,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			"defineOperation",
 			"defineAutomation",
 			"defineAutomationPolicy",
+			"defineActivityWithChanges",
 		]);
 		const visitInitialization = Effect.fnUntraced(function* (
 			node: ts.Node,

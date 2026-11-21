@@ -1,4 +1,4 @@
-import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { trending } from "./shared";
 
@@ -8,7 +8,7 @@ export const manifest = defineManifest({
 	slug: "show.tmdb.trending",
 });
 
-export default defineActivity({
+export default defineActivityWithChanges({
 	manifest,
 	run: trending.run,
 	input: trending.input,

@@ -24,7 +24,6 @@ export default defineOperation({
 				output: { count: 1 },
 				changes: {
 					events: {
-						creates: [],
 						changes: [
 							updateEventChange(EventId.make(eventId), {
 								properties: reviewPropertiesPatch(input),

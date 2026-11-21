@@ -1,4 +1,3 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaCsv } from "./collection";
@@ -24,5 +23,5 @@ export default defineActivity({
 				eventOffset + 128 < normalizeReadCount(parseCsvText(text).rows[0]?.["Read Count"] ?? "")
 					? eventOffset + 128
 					: 0,
-		})).pipe(Effect.map((output) => ({ output }))),
+		})),
 });

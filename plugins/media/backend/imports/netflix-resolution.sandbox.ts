@@ -82,5 +82,5 @@ export default defineActivity({
 				}
 			}
 			return { results };
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

@@ -92,9 +92,9 @@ export default defineOperation({
 				output: { count: 1 },
 				changes: {
 					events: {
-						changes: [],
-						creates: [
+						changes: [
 							{
+								kind: "create",
 								eventSchemaSlug: "review",
 								itemIdentity: `review:${target.id}`,
 								entity: existingEntity(EntityId.make(target.id)),

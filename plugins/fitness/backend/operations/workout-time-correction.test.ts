@@ -72,10 +72,8 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 					conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)),
 				});
 				const result = yield* definition.run(input, host);
-				expect(result.output).toEqual<unknown>({ kind: "saved", entityId: "workout-1" });
-				if (result.changes) {
-					commands.push(result.changes);
-				}
+				expect(result.output).toEqual<unknown>({ entityId: "workout-1" });
+				commands.push(result.changes);
 			}
 			expect(commands.map(({ entity }) => entity?.properties)).toEqual([
 				{
@@ -93,7 +91,6 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 				{ endedAt: time, startedAt: corrected, images: [{ type: "s3", key: "keep.jpg" }] },
 			]);
 			expect(commands[0]?.events).toMatchObject({
-				creates: [],
 				baselines: [{ revision: 3, entityId: workoutId }],
 				changes: [
 					{
@@ -111,7 +108,7 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 		}),
 	));
 
-it("reports a workout that no longer exists as a conflict and an unreadable token as invalid", () =>
+it("leaves a vanished workout to the commit's update target and refuses an unreadable token", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const host = defineSandboxTestHost(manifest, {
@@ -133,12 +130,14 @@ it("reports a workout that no longer exists as a conflict and an unreadable toke
 				activeDuration: { kind: "preserve" },
 				conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)),
 			});
-			expect(yield* Effect.flip(definition.run(input, host))).toMatchObject({
-				conflict: "entity-not-found",
-				_tag: "OperationConflictError",
+			expect(yield* definition.run(input, host)).toMatchObject({
+				changes: { entity: { target: { kind: "update", entityId: "workout-1" } } },
 			});
-			expect(yield* definition.run({ ...input, conflictToken: "garbage" }, host)).toEqual({
-				output: { kind: "invalid" },
+			expect(
+				yield* Effect.flip(definition.run({ ...input, conflictToken: "garbage" }, host)),
+			).toMatchObject({
+				_tag: "OperationRejectedError",
+				reason: { key: "rejection.workout-time.invalid" },
 			});
 		}),
 	));

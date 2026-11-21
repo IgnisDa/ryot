@@ -3,7 +3,10 @@ import type {
 	AutomationRelationshipSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
-import { RelationshipNotFound } from "@ryot-app/contract/modules/relationships/schemas";
+import {
+	RelationshipBadRequest,
+	RelationshipNotFound,
+} from "@ryot-app/contract/modules/relationships/schemas";
 import { Effect } from "effect";
 
 import type {
@@ -75,7 +78,16 @@ export const makePlannedRelationshipReconciliation = (
 				});
 			}
 			const selector = {
-				...group.selector,
+				...(group.selector.type === "self"
+					? {
+							type: "self" as const,
+							entitySchemaSlug: group.selector.entitySchema.slug,
+							entitySchemaPluginId:
+								group.selector.entitySchema.owner.kind === "plugin"
+									? group.selector.entitySchema.owner.pluginId
+									: null,
+						}
+					: group.selector),
 				...scope,
 				relationshipSchemaSlug: group.relationshipSchema.slug,
 				relationshipSchemaPluginId: definition.pluginId ?? null,
@@ -91,6 +103,25 @@ export const makePlannedRelationshipReconciliation = (
 						)
 					: emptyUserEntityScopes();
 			const seen = yield* reconciliationKeys(group);
+			if (selector.type === "self") {
+				const found = yield* entities.getEntityScopes(
+					group.relationships.map(({ sourceEntityId }) => sourceEntityId),
+				);
+				if (
+					group.relationships.some(({ sourceEntityId }) => {
+						const entity = found.get(sourceEntityId);
+						return (
+							entity === undefined ||
+							entity.entitySchemaSlug !== selector.entitySchemaSlug ||
+							entity.entitySchemaPluginId !== selector.entitySchemaPluginId
+						);
+					})
+				) {
+					return yield* new RelationshipBadRequest({
+						reason: { code: "reconciliation-selector-mismatch" },
+					});
+				}
+			}
 			const desired: Array<
 				{
 					properties: Record<string, unknown>;

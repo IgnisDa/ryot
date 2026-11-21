@@ -3,6 +3,7 @@ import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
 	createRyotQuery,
+	formatConflict,
 	formatError,
 	type RyotSubmission,
 	useRyotQuery,
@@ -48,17 +49,15 @@ const correctTime = createRyotMutation<
 	RyotSubmission<Correction>,
 	typeof WorkoutTimeCorrectionOutputSchema.Type
 >(({ input, client }) =>
-	client.operations
-		.invoke({
-			packageId: PLUGIN_PACKAGE_ID,
-			submittedAt: input.submittedAt,
-			idempotencyKey: input.submissionId,
-			slug: workoutTimeCorrectionOperationSlug,
-			output: WorkoutTimeCorrectionOutputSchema,
-			inputSchema: WorkoutTimeCorrectionInputSchema,
-			input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
-		})
-		.pipe(Effect.map(({ output }) => output)),
+	client.operations.invoke({
+		packageId: PLUGIN_PACKAGE_ID,
+		submittedAt: input.submittedAt,
+		idempotencyKey: input.submissionId,
+		slug: workoutTimeCorrectionOperationSlug,
+		output: WorkoutTimeCorrectionOutputSchema,
+		inputSchema: WorkoutTimeCorrectionInputSchema,
+		input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
+	}),
 );
 const timeSourceQuery = () =>
 	createRyotQuery(({ input, client }: { readonly input: string; readonly client: RyotClient }) =>
@@ -133,9 +132,9 @@ function TimeForm(props: {
 	const [intent, setIntent] = useState("preserve");
 	const [seconds, setSeconds] = useState(String(properties.activeDuration ?? ""));
 	const [message, setMessage] = useState<string>();
-	const save = useRyotSubmission(correctTime, { isComplete: (result) => result.kind === "saved" });
+	const save = useRyotSubmission(correctTime);
 	useEffect(() => {
-		if (save.data?.kind === "saved") {
+		if (save.data !== undefined) {
 			onClose();
 		}
 	}, [save.data, onClose]);
@@ -174,8 +173,10 @@ function TimeForm(props: {
 			conflictToken: conflictToken.success,
 		});
 	};
-	const conflicted =
-		save.error instanceof RyotClientError && save.error.reason === "changes-conflict";
+	const conflict = formatConflict(save.error, {}, text("client.adjust.conflict"));
+	const conflicted = conflict !== undefined;
+	const rejected =
+		save.error instanceof RyotClientError && save.error.reason === "operation-rejected";
 	let submitLabel = text("client.adjust.save");
 	if (save.status === "retained") {
 		submitLabel = text("client.adjust.retry-correction");
@@ -192,8 +193,8 @@ function TimeForm(props: {
 			description={text("client.adjust.description")}
 			footer={
 				<Button
+					disabled={save.isPending || conflicted || rejected}
 					onClick={save.status === "retained" ? save.retry : submit}
-					disabled={save.isPending || conflicted || save.data?.kind === "invalid"}
 				>
 					{submitLabel}
 				</Button>
@@ -261,16 +262,13 @@ function TimeForm(props: {
 					) : null}
 				</fieldset>
 				{message ? <Notice tone="danger">{message}</Notice> : null}
-				{conflicted ? <Notice tone="danger">{text("client.adjust.conflict")}</Notice> : null}
+				{conflict === undefined ? null : <Notice tone="danger">{conflict}</Notice>}
 				{save.error && !conflicted ? (
 					<Notice tone="danger">
 						{save.status === "retained"
 							? text("client.adjust.unconfirmed")
 							: formatError(t, save.error, text("client.adjust.not-saved"))}
 					</Notice>
-				) : null}
-				{save.data?.kind === "invalid" ? (
-					<Notice tone="danger">{text("client.adjust.rejected")}</Notice>
 				) : null}
 			</div>
 		</Dialog>

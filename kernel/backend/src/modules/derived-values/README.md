@@ -28,8 +28,8 @@ It returns `FoldOutput`:
 - `value`: its own state, at most 256 KiB.
 - `events`: `{ eventId, properties }` for subject events whose schema declares a projection.
 - `relationships`: `{ relationshipId, properties }` for the user's projected links from the subject.
-- `changes`: at most 500 event creates, updates and deletes in the change-set format. These
-  fold-owned events skip before-policies and after-hooks.
+- `changes`: at most 500 `EventChange` items, the schema of a change set's `events.changes`; a
+  create names an existing entity. These fold-owned events skip before-policies and after-hooks.
 
 With a change list the fold returns only outputs that changed. The kernel deletes the outputs of events
 whose change has no `after` and of links that no longer leave the subject, then upserts what was

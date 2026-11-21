@@ -1,5 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/change-set";
+import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
 import {
 	type EntityEditorDeleteSubmission,
 	EntityEditorRefused,
@@ -31,7 +31,6 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { Message } from "@ryot-app/i18n/message";
 import { kernelMessage } from "@ryot-app/kernel-messages/message";
-import { USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS } from "@ryot-app/plugin-backend-sdk/core";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -51,10 +50,7 @@ import {
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
-const limits = {
-	relationshipTargets: 200,
-	relationshipChanges: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.changesPerBatch,
-} as const;
+const limits = { relationshipTargets: 200, relationshipChanges: 100 } as const;
 const notEditable = kernelMessage("error.entity-editor.not-editable");
 
 type Direction = PluginEntityEditorRelationship["direction"];

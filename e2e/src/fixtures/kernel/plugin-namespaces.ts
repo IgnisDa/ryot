@@ -267,13 +267,13 @@ const changesFor = (input: typeof Input.Type): ChangeSet | undefined => {
     return { globalEntities: [{ name: "Forbidden global bottle", entitySchemaSlug: "bottle", externalId: input.externalId ?? "forbidden", properties: {}, populatedAt: null }] };
   }
   if (input.action === "create-event" && input.entityId) {
-    return { events: { changes: [], creates: [{ itemIdentity: "tasted", eventSchemaSlug: "tasted", entity: existingEntity(EntityId.make(input.entityId)), properties: { note: ${JSON.stringify(label)} } }] } };
+    return { events: { changes: [{ kind: "create" as const, itemIdentity: "tasted", eventSchemaSlug: "tasted", entity: existingEntity(EntityId.make(input.entityId)), properties: { note: ${JSON.stringify(label)} } }] } };
   }
   if (input.action === "update-event" && input.eventId) {
-    return { events: { creates: [], changes: [updateEventChange(EventId.make(input.eventId), { properties: { remove: [], set: { note: ${JSON.stringify(label)} } } })] } };
+    return { events: { changes: [updateEventChange(EventId.make(input.eventId), { properties: { remove: [], set: { note: ${JSON.stringify(label)} } } })] } };
   }
   if (input.action === "delete-event" && input.eventId) {
-    return { events: { creates: [], changes: [deleteEventChange(EventId.make(input.eventId))] } };
+    return { events: { changes: [deleteEventChange(EventId.make(input.eventId))] } };
   }
   if (input.action === "relationship" && input.entityId && input.targetEntityId) {
     return { relationships: { upserts: [{ relationshipSchemaSlug: "bottled-by", source: existingEntity(EntityId.make(input.entityId)), target: existingEntity(EntityId.make(input.targetEntityId)), properties: {}, propertiesMode: "replace" }] } };
@@ -331,9 +331,9 @@ const checkpointSource = `
 import { genericImportWorkflowInputSchema, genericImportSealReference } from "@ryot-app/plugin-backend-sdk/imports";
 import { configValuesSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "script", name: "Whiskey checkpoint", slug: "checkpoint" });
-export default defineActivity({ manifest, input: genericImportWorkflowInputSchema, output: genericImportSealReference.input, run: (input, host, execution) => Effect.gen(function* () {
+export default defineActivityWithChanges({ manifest, input: genericImportWorkflowInputSchema, output: genericImportSealReference.input, run: (input, host, execution) => Effect.gen(function* () {
   const request = { runId: input.runId, command: input.command, operation: { action: "seal" as const } };
   const config = yield* host.getPluginConfig({ optional: ["checkpointUrl", "writerMarker"] });
   if (typeof config.checkpointUrl === "string") {
@@ -356,10 +356,10 @@ const kernelWriteChunksSource = (label: string, strength: string | number) => `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { genericImportChunkSchema, type GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
-import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "script", name: "Whiskey kernel writes", slug: "kernel-write-chunks" });
 const Source = Schema.Struct({ ownEntityId: Schema.String, foreignEntityId: Schema.String });
-export default defineActivity({
+export default defineActivityWithChanges({
   manifest, input: Schema.Struct({ artifactHandle: Schema.String, occurredAt: Schema.String }), output: sandboxScratchManifestSchema,
   run: (input) => Effect.gen(function* () {
     const source = yield* Schema.decodeEffect(Schema.fromJsonString(Source))(new TextDecoder().decode(yield* readArtifact));
@@ -464,13 +464,13 @@ export const contributorBottlesRecipe = (reference: PluginIdentityReference) => 
 `;
 
 const clientSource = (label: string, packageId: PluginPackageId, contributor: boolean) => `
-import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotMutation, createRyotQuery, usePluginIdentity, usePluginStorage, useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
 import { contributorBottlesRecipe } from "../shared/query-recipes";
 ${contributor ? 'import Contributor from "@ryot-app/plugins/whiskey/catalog";' : ""}
-const invoke = createRyotMutation<{ packageId: typeof PluginPackageId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ packageId: input.packageId, slug: "inspect", input: {}, inputSchema: Schema.Struct({}), output: Schema.Struct({ label: Schema.String }) }).pipe(Effect.map(({ output }) => output)));
+const invoke = createRyotMutation<{ packageId: typeof PluginPackageId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ packageId: input.packageId, slug: "inspect", input: {}, inputSchema: Schema.Struct({}), output: Schema.Struct({ label: Schema.String }) }));
 const bottlesQuery = createRyotQuery<PluginIdentityReference, readonly string[]>(({ input, client }) => client.data.query(contributorBottlesRecipe(input), {}));
 export const Catalog = () => {
   const identity = usePluginIdentity(PluginPackageId.make(${JSON.stringify(packageId)}));

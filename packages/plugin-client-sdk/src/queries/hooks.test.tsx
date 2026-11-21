@@ -679,13 +679,13 @@ describe("Effect-native React definitions", () => {
 							inputSchema: Schema.String,
 						});
 						const second = yield* client.operations.invoke({
+							input: first,
 							slug: "second",
-							input: first.output,
 							output: Schema.String,
 							packageId: "test/fixture",
 							inputSchema: Schema.String,
 						});
-						return second.output;
+						return second;
 					}),
 				);
 				const View = () => {

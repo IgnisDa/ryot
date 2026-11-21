@@ -58,6 +58,12 @@ type BackgroundSubmissionSnapshot = {
 	readonly entries: readonly BackgroundSubmissionEntry[];
 };
 
+type BackgroundSubmissionState =
+	| { readonly status: "pending" }
+	| { readonly status: "succeeded" }
+	| Extract<BackgroundSubmissionOutcome, { readonly status: "failed" }>
+	| { readonly status: "incomplete"; readonly count: number | undefined };
+
 type SubmissionRecord = {
 	reserved: boolean;
 	readonly id: string;
@@ -70,16 +76,6 @@ type SubmissionRecord = {
 	fiber: undefined | Fiber.Fiber<unknown, unknown>;
 	readonly settle: BackgroundSubmissionBinding["settle"];
 };
-
-type BackgroundSubmissionState =
-	| { readonly status: "pending" }
-	| { readonly status: "succeeded" }
-	| { readonly status: "incomplete"; readonly count: number | undefined }
-	| { readonly message: Message; readonly status: "failed"; readonly reason: "operation-rejected" }
-	| {
-			readonly status: "failed";
-			readonly reason: Exclude<BackgroundSubmissionFailureClass, "operation-rejected">;
-	  };
 
 const retryableReasons: ReadonlySet<BackgroundSubmissionFailureClass> =
 	new Set<BackgroundSubmissionFailureClass>(["transport", "malformed-result"]);
@@ -115,13 +111,8 @@ const settledState = (outcome: PluginOperationDispatchOutcome): BackgroundSubmis
 		return { status: "failed", reason: "app-updated" };
 	}
 	if (outcome.outcome === "failure") {
-		if (outcome.reason === "operation-rejected") {
-			return { status: "failed", message: outcome.message, reason: "operation-rejected" };
-		}
-		return {
-			status: "failed",
-			reason: outcome.reason === "changes-conflict" ? "operation-failed" : outcome.reason,
-		};
+		const { outcome: _failure, ...failure } = outcome;
+		return { ...failure, status: "failed" };
 	}
 	if (isRecord(outcome.value) && outcome.value.status === "incomplete") {
 		const { count } = outcome.value;
@@ -140,15 +131,14 @@ const wireOutcome = (state: BackgroundSubmissionState): undefined | BackgroundSu
 	if (state.status !== "failed") {
 		return { status: state.status };
 	}
-	return state.reason === "operation-rejected"
-		? { status: "failed", message: state.message, reason: "operation-rejected" }
-		: { status: "failed", reason: state.reason };
+	return state;
 };
 
 const failureStatus = {
 	"entitlement-required": entitlementRequiredMessage("pro"),
 	transport: kernelMessage("client.background-submissions.status.transport"),
 	"app-updated": kernelMessage("client.background-submissions.status.app-updated"),
+	"changes-conflict": kernelMessage("client.background-submissions.status.changed"),
 	"operation-failed": kernelMessage("client.background-submissions.status.not-saved"),
 	"operation-rejected": kernelMessage("client.background-submissions.status.not-saved"),
 	"malformed-result": kernelMessage("client.background-submissions.status.malformed-result"),

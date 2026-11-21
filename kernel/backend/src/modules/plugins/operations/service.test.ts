@@ -481,7 +481,7 @@ const makeLayer = (input: {
 												outcomes: [],
 												relationships: [],
 												committed: {
-													events: (changes.events?.creates ?? []).map((create) => ({
+													events: (changes.events?.changes ?? []).map((create) => ({
 														itemIdentity: create.itemIdentity,
 														eventId: EventId.make(`event-${create.itemIdentity}`),
 													})),
@@ -1447,28 +1447,6 @@ layer(
 	);
 });
 
-layer(
-	makeLayer({
-		currentUserId: USER_ONE,
-		available: [systemUserOperation],
-		sandboxError: "The baseline changed",
-		sandboxErrorData: { code: "changes-conflict", conflict: "entity-not-found" },
-	}),
-)((test) => {
-	test.effect(
-		"maps an operation conflict raised before changes were built to a 409 changes conflict",
-		() =>
-			Effect.gen(function* () {
-				expect(yield* Effect.flip(invoke({ packageId: SYSTEM_PACKAGE_ID }))).toEqual(
-					new PluginConflictError({
-						reason: { code: "changes-conflict", conflict: "entity-not-found" },
-					}),
-				);
-			}),
-		testTimeout,
-	);
-});
-
 layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 	test.effect(
 		"dispatches trusted user commands through ordinary admission without bearer headers and rejects changed pins",
@@ -1512,9 +1490,9 @@ const returnedChanges = {
 	output: "saved",
 	changes: {
 		events: {
-			changes: [],
-			creates: [
+			changes: [
 				{
+					kind: "create",
 					properties: {},
 					itemIdentity: "review",
 					eventSchemaSlug: "review",

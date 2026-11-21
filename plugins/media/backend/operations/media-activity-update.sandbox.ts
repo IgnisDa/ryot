@@ -1,5 +1,6 @@
 import {
 	type EventChange,
+	expectedEventFields,
 	type ScriptHost,
 	updateEventChange,
 } from "@ryot-app/plugin-backend-sdk/core";
@@ -35,7 +36,6 @@ import {
 	type EditTarget,
 	loadEditTargets,
 	requireDeclaredProperties,
-	writePrecondition,
 } from "./media-activity-edits";
 import { reviewsNamingConsumption } from "./media-review-consumption";
 
@@ -256,9 +256,8 @@ export default defineOperation({
 				output: { count: 1 },
 				changes: {
 					events: {
-						creates: [],
 						changes: [
-							updateEventChange(eventId, patch, writePrecondition(input.expected)),
+							updateEventChange(eventId, patch, expectedEventFields(input.expected)),
 							...unlinked.map((reviewId) =>
 								updateEventChange(EventId.make(reviewId), {
 									properties: { set: {}, remove: ["consumptionEventId"] },

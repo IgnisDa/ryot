@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { EntityId, EventId, RelationshipId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
-import { EventMutationChange } from "./mutations";
+import { EventChange } from "./mutations";
 
 export const FOLD_LIMITS = {
 	changes: 500,
@@ -50,7 +50,7 @@ export const FoldInput = strictStruct({
 
 export const FoldOutput = strictStruct({
 	value: JsonValue,
-	changes: Schema.Array(EventMutationChange).check(Schema.isMaxLength(FOLD_LIMITS.changes)),
+	changes: Schema.Array(EventChange).check(Schema.isMaxLength(FOLD_LIMITS.changes)),
 	events: Schema.Array(
 		strictStruct({ eventId: EventId, properties: Schema.Record(Schema.String, JsonValue) }),
 	),

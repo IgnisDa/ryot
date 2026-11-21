@@ -1125,10 +1125,10 @@ export default defineWorkflow({
 `;
 
 const activityChild = `
-import { defineActivity, defineManifest, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivityWithChanges, defineManifest, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({ kind: "script", name: "Child", slug: "child" });
-export default defineActivity({
+export default defineActivityWithChanges({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Unknown,

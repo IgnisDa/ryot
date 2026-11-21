@@ -104,9 +104,7 @@ export default defineAutomation({
     return {
       changes: {
         events: {
-          changes: [],
-          creates: [{
-            entity: source,
+          changes: [{ kind: "create" as const, entity: source,
             itemIdentity: "child",
             properties: { chainId },
             eventSchemaSlug: ${JSON.stringify(input.childEventSchemaSlug)},
@@ -183,8 +181,8 @@ export default defineAutomation({
     return {
       changes: {
         events: {
-          changes: [],
-          creates: ["left", "right"].map((branch) => ({
+          changes: ["left", "right"].map((branch) => ({
+            kind: "create" as const,
             entity,
             itemIdentity: branch,
             properties: { branch },

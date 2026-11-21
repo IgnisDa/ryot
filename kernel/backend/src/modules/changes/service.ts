@@ -118,6 +118,7 @@ import {
 import {
 	type Changes,
 	type EntityReference,
+	eventMutation,
 	fromScriptChangeSet,
 	type GlobalEntityReference,
 } from "./changes";
@@ -195,7 +196,6 @@ const parts = (changes: ChangeSet) => [
 	changes.notifications,
 	changes.globalEntities,
 	changes.globalRelationships,
-	changes.events?.creates,
 	changes.events?.changes,
 	changes.entities?.deletes,
 	changes.entities?.clears,
@@ -440,7 +440,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const { userId } = input;
 				const pluginId = pluginRevision?.id ?? null;
 				const independent = options.events?.independent === true;
-				const events: NonNullable<Changes["events"]> = input.events ?? { creates: [], changes: [] };
+				const events: NonNullable<Changes["events"]> = input.events ?? { changes: [] };
 				const userPart = userId === null ? userOnlyPart(input) : undefined;
 				if (userPart !== undefined) {
 					return yield* new ChangeSetRejected({
@@ -567,7 +567,9 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 						),
 					);
 				}
-				const referencedEntity = (reference: EntityReference) => {
+				const referencedEntity = (
+					reference: EntityReference,
+				): Effect.Effect<EntityId, EventBadRequest | ChangeSetRejected> => {
 					if (reference.kind === "existing") {
 						return Effect.succeed(reference.entityId);
 					}
@@ -587,22 +589,10 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const createdEntities = [entity, ...saves].flatMap((save) =>
 					save?.prepared.created ? [save.prepared.created] : [],
 				);
-				const creates = yield* Effect.forEach(events.creates, (item) =>
-					Effect.gen(function* () {
-						return {
-							kind: "create" as const,
-							itemIdentity: item.itemIdentity,
-							item: {
-								...(item.orderAfter ? { orderAfter: item.orderAfter } : {}),
-								properties: item.properties,
-								occurredAt: item.occurredAt,
-								entityId: yield* referencedEntity(item.entity),
-								eventSchemaSlug: EventSchemaSlug.make(item.eventSchemaSlug),
-								sessionEntityId: item.session ? yield* referencedEntity(item.session) : undefined,
-							},
-						};
-					}),
+				const eventChanges = yield* Effect.forEach(events.changes, (change) =>
+					eventMutation(change, referencedEntity),
 				);
+				const creates = eventChanges.filter((change) => change.kind === "create");
 				const relationshipInput = Effect.fnUntraced(function* (
 					relation: NonNullable<NonNullable<Changes["relationships"]>["deletes"]>[number],
 				) {
@@ -742,8 +732,7 @@ export class ChangeSets extends Context.Service<ChangeSets>()(
 				const userDataWrites = [...clears, ...merges];
 				const cascades = deletes.flatMap(entityDeleteEvents);
 				const changes: EventMutation[] = [
-					...creates,
-					...events.changes,
+					...eventChanges,
 					...cascades.flatMap((cascade) =>
 						cascade.userId === userId ? cascade.changes.map(prefixed("entity-delete")) : [],
 					),

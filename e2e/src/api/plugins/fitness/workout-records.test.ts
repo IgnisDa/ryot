@@ -137,7 +137,6 @@ describe("Workout records E2E", () => {
 						],
 					}),
 				);
-				assertCondition(created.kind === "saved", "Expected the workout to save");
 				expect(created.sets).toHaveLength(1);
 				const workoutId = created.entityId;
 				const eventId = requirePresent(created.sets[0]?.eventId, "Expected the workout set event");
@@ -210,7 +209,6 @@ describe("Workout records E2E", () => {
 					],
 				}),
 			);
-			assertCondition(newerCreate.kind === "saved", "Expected the newer workout to save");
 			expect(newerCreate.sets).toHaveLength(1);
 			const newerWorkoutId = newerCreate.entityId;
 			const newerEventId = requirePresent(
@@ -253,7 +251,6 @@ describe("Workout records E2E", () => {
 					],
 				}),
 			);
-			assertCondition(olderCreate.kind === "saved", "Expected the older workout to save");
 			expect(olderCreate.sets).toHaveLength(1);
 			const olderWorkoutId = olderCreate.entityId;
 			const olderEventId = requirePresent(
@@ -324,7 +321,6 @@ describe("Workout records E2E", () => {
 					name: olderBaseline.baseline.entity.name,
 				}),
 			);
-			assertCondition(deletedOlder.kind === "saved", "Expected the older set to be removed");
 			expect(deletedOlder.sets).toHaveLength(0);
 			yield* waitForReadyWorkoutSets(client, olderWorkoutId, 0);
 			const { items: deletedNewerItems } = yield* waitForReadyWorkoutSets(
@@ -363,7 +359,6 @@ describe("Workout records E2E", () => {
 					],
 				}),
 			);
-			assertCondition(previousCreated.kind === "saved", "Expected the previous workout to save");
 			expect(previousCreated.sets).toHaveLength(1);
 			const equalStartCreated = yield* saveWorkoutData(
 				client,
@@ -381,10 +376,6 @@ describe("Workout records E2E", () => {
 						]),
 					],
 				}),
-			);
-			assertCondition(
-				equalStartCreated.kind === "saved",
-				"Expected the equal-start workout to save",
 			);
 			expect(equalStartCreated.sets).toHaveLength(1);
 			const currentCreated = yield* saveWorkoutData(
@@ -404,7 +395,6 @@ describe("Workout records E2E", () => {
 					],
 				}),
 			);
-			assertCondition(currentCreated.kind === "saved", "Expected the current workout to save");
 			expect(currentCreated.sets).toHaveLength(1);
 			expect(
 				previousCreated.sets.length + equalStartCreated.sets.length + currentCreated.sets.length,
@@ -499,7 +489,6 @@ describe("Workout records E2E", () => {
 						],
 					}),
 				);
-				assertCondition(earlierCreated.kind === "saved", "Expected the earlier workout to save");
 				expect(earlierCreated.sets).toHaveLength(1);
 				const laterCreated = yield* saveWorkoutData(
 					client,
@@ -520,7 +509,6 @@ describe("Workout records E2E", () => {
 						],
 					}),
 				);
-				assertCondition(laterCreated.kind === "saved", "Expected the later workout to save");
 				expect(laterCreated.sets).toHaveLength(1);
 				const earlierWorkoutId = earlierCreated.entityId;
 				const laterWorkoutId = laterCreated.entityId;
@@ -626,7 +614,6 @@ describe("Workout records E2E", () => {
 					],
 				}),
 			);
-			assertCondition(earlierCreated.kind === "saved", "Expected the weighted workout to save");
 			expect(earlierCreated.sets).toHaveLength(1);
 			const weightedEventId = requirePresent(
 				earlierCreated.sets[0]?.eventId,
@@ -671,7 +658,6 @@ describe("Workout records E2E", () => {
 					],
 				}),
 			);
-			assertCondition(laterCreated.kind === "saved", "Expected the repetitions workout to save");
 			expect(laterCreated.sets).toHaveLength(1);
 			expect(earlierCreated.sets.length + laterCreated.sets.length).toBe(2);
 			const earlierWorkoutId = earlierCreated.entityId;

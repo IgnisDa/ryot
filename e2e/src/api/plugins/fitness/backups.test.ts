@@ -23,7 +23,7 @@ import {
 	workoutOccurrence,
 	workoutSet,
 } from "~/fixtures/plugins/fitness/workout-editor";
-import { assertCompleted, assertCondition } from "~/support/assertions";
+import { assertCompleted } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
 
 it.live("remaps Fitness occurrence targets and equipment without replacing frozen roles", () =>
@@ -86,7 +86,6 @@ it.live("remaps Fitness occurrence targets and equipment without replacing froze
 				],
 			}),
 		);
-		assertCondition(saved.kind === "saved", "Expected the Fitness workout to save");
 		const workoutId = saved.entityId;
 		const facts = {
 			exerciseOrder: 0,

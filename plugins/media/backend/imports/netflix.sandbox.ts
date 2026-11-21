@@ -124,5 +124,5 @@ export default defineActivity({
 				itemIndex,
 				header: yield* Schema.encodeEffect(Schema.fromJsonString(State))(state),
 			});
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

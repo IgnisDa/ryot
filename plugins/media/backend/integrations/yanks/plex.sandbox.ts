@@ -433,5 +433,5 @@ export default defineActivity({
 				next ? yield* Schema.encodeEffect(cursorJson)(next) : null,
 				eventIndexBase,
 			);
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

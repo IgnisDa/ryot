@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -35,18 +35,16 @@ const writeCopy = createRyotMutation<
 	>,
 	typeof MediaCopyWriteOutput.Type
 >(({ input, client }) =>
-	client.operations
-		.invoke({
-			slug: "media-copy-write",
-			packageId: PLUGIN_PACKAGE_ID,
-			output: MediaCopyWriteOutput,
-			submittedAt: input.submittedAt,
-			inputSchema: MediaCopyWriteInput,
-			idempotencyKey: input.submissionId,
-			input:
-				input.input.action === "add" ? { ...input.input, copyId: input.submissionId } : input.input,
-		})
-		.pipe(Effect.map(({ output }) => output)),
+	client.operations.invoke({
+		slug: "media-copy-write",
+		packageId: PLUGIN_PACKAGE_ID,
+		output: MediaCopyWriteOutput,
+		submittedAt: input.submittedAt,
+		inputSchema: MediaCopyWriteInput,
+		idempotencyKey: input.submissionId,
+		input:
+			input.input.action === "add" ? { ...input.input, copyId: input.submissionId } : input.input,
+	}),
 );
 
 const titleCopiesQuery = createRyotQuery<

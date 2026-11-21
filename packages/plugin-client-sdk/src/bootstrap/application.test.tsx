@@ -101,7 +101,7 @@ const Home = () => {
 					packageId: "test/fixture",
 					inputSchema: Schema.Struct({}),
 				}),
-				({ output }) => Effect.sync(() => setResult(output)),
+				(output) => Effect.sync(() => setResult(output)),
 			),
 		);
 	}, [ryot]);

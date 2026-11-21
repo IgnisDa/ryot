@@ -23,5 +23,5 @@ export default defineActivity({
 			return yield* collectTraktApi(input, clientId, host).pipe(
 				Effect.catch((error) => recoverMediaApiTask(input, error, "Trakt")),
 			);
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

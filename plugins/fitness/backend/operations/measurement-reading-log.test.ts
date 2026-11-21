@@ -27,6 +27,7 @@ const log = (input: {
 
 const reading = (metricId: string, value: number) => ({
 	occurredAt,
+	kind: "create",
 	properties: { value },
 	session: { kind: "root" },
 	itemIdentity: `reading:${metricId}`,
@@ -50,7 +51,7 @@ describe("measurement reading log operation", () => {
 				).toEqual<unknown>({
 					output: { count: 2 },
 					changes: {
-						events: { changes: [], creates: [reading("weight", 72.4), reading("waist", 0)] },
+						events: { changes: [reading("weight", 72.4), reading("waist", 0)] },
 						entity: {
 							name: "Measurement",
 							target: { kind: "create" },

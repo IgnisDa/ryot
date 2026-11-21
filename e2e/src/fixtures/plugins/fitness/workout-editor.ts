@@ -29,34 +29,38 @@ export const workoutEditorTimes = {
 	setOccurredAt: "2026-10-01T10:15:00.000Z",
 };
 
+/**
+ * Saves `input` and reads back the saved workout's set events, each matched to the input set at its
+ * exercise and set position.
+ */
 export const saveWorkoutEditor = (
 	client: Client,
 	input: RecipeInput<typeof workoutEditorSaveRecipe>,
 ) =>
-	invokeCommittingOperation(client, workoutEditorSaveRecipe, input, {
-		idempotencyKey: input.submissionId,
-	}).pipe(
-		Effect.map(({ output, committed }) => {
-			if (output.kind !== "saved") {
-				return output;
-			}
-			const created = new Map(
-				committed.events.map(({ eventId, itemIdentity }) => [itemIdentity, eventId]),
-			);
-			return {
-				kind: "saved" as const,
-				entityId: requirePresent(committed.entityId, "Expected the saved workout ID"),
-				sets: input.data.occurrences.flatMap(({ sets }) =>
-					sets.flatMap((set) => {
-						const { clientId } = set;
-						const saved =
-							created.get(`set:${clientId}`) ?? ("eventId" in set ? set.eventId : undefined);
-						return saved === undefined ? [] : [{ clientId, eventId: saved }];
-					}),
-				),
-			};
-		}),
-	);
+	Effect.gen(function* () {
+		const { committed } = yield* invokeCommittingOperation(client, workoutEditorSaveRecipe, input, {
+			idempotencyKey: input.submissionId,
+		});
+		const entityId = requirePresent(committed.entityId, "Expected the saved workout ID");
+		const stored = yield* fitnessRecipes.collect(
+			client,
+			workoutEditorSetsRecipe({ reference: yield* workoutReference(client) }),
+			{ workoutId: entityId },
+			"sets",
+		);
+		return {
+			entityId,
+			sets: input.data.occurrences.flatMap(({ sets }, exerciseOrder) =>
+				sets.flatMap(({ clientId }, setOrder) => {
+					const saved = stored.find(
+						({ properties }) =>
+							properties.exerciseOrder === exerciseOrder && properties.setOrder === setOrder,
+					);
+					return saved === undefined ? [] : [{ clientId, eventId: saved.id }];
+				}),
+			),
+		};
+	});
 
 export const loadWorkoutEditorContext = (client: Client) =>
 	invokeOperation(client, workoutEditorContextRecipe, {});

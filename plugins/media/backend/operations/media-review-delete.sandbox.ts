@@ -25,6 +25,8 @@ export default defineOperation({
 				catalogMessage("rejection.record.review-only-delete"),
 			);
 			const output = { count: targets.length };
-			return targets.length === 0 ? { output } : { output, changes: deleteTargetChanges(targets) };
+			return targets.length === 0
+				? { output }
+				: { output, changes: deleteTargetChanges(targets.map(({ id }) => id)) };
 		}),
 });

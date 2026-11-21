@@ -79,7 +79,6 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 				],
 			}),
 		);
-		assertCondition(firstWorkout.kind === "saved", "Expected the first analytics workout to save");
 
 		const secondWorkout = yield* saveWorkoutData(
 			client,
@@ -98,10 +97,6 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 					]),
 				],
 			}),
-		);
-		assertCondition(
-			secondWorkout.kind === "saved",
-			"Expected the second analytics workout to save",
 		);
 
 		const metricName = `Analytics widgets ${yield* randomUuid}`;

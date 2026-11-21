@@ -1388,7 +1388,7 @@ describe("plugin Effect request engine", () => {
 					events: [{ itemIdentity: "item-1", eventId: EventId.make("event-1") }],
 				};
 				const pending = yield* Effect.forkChild(
-					runtime.client.operations.invoke({
+					runtime.client.operations.invokeCommitted({
 						input: null,
 						slug: "greet",
 						output: Schema.String,
@@ -1478,10 +1478,7 @@ describe("plugin Effect request engine", () => {
 					requestId: "operation-1",
 					committed: { events: [] },
 				});
-				expect(yield* Fiber.join(operation)).toEqual({
-					output: "hello",
-					committed: { events: [] },
-				});
+				expect(yield* Fiber.join(operation)).toBe("hello");
 				const membership = yield* Effect.forkChild(
 					Effect.result(
 						runtime.client.collections.removeMembership({

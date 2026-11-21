@@ -5,8 +5,8 @@ import { EntityId, EventId, RelationshipKey } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { FoldRequest } from "../events/folds";
-import { EventMutationChange } from "../events/mutations";
-import { EventOrderAnchor } from "../events/schemas";
+import { EventChange } from "../events/mutations";
+import { ChangeSetEntityReference, ChangeSetGlobalEntityReference } from "./references";
 
 export const CHANGE_SET_LIMITS = {
 	signals: 100,
@@ -28,24 +28,6 @@ const slug = Schema.NonEmptyString;
 const itemIdentity = Schema.optional(Schema.NonEmptyString);
 const atMost = <S extends Schema.Top>(item: S, limit: number) =>
 	Schema.Array(item).check(Schema.isMaxLength(limit));
-
-/** A user entity: the change set's root entity, or one that already exists. */
-export const ChangeSetEntityReference = Schema.Union([
-	strictStruct({ kind: Schema.Literal("root") }),
-	strictStruct({ entityId: EntityId, kind: Schema.Literal("existing") }),
-]);
-export type ChangeSetEntityReference = typeof ChangeSetEntityReference.Type;
-
-/** A global entity: one that already exists, or one this change set upserts. */
-export const ChangeSetGlobalEntityReference = Schema.Union([
-	strictStruct({ entityId: EntityId, kind: Schema.Literal("existing") }),
-	strictStruct({
-		entitySchemaSlug: slug,
-		kind: Schema.Literal("upserted"),
-		externalId: Schema.NonEmptyString,
-	}),
-]);
-export type ChangeSetGlobalEntityReference = typeof ChangeSetGlobalEntityReference.Type;
 
 const entityFields = {
 	properties,
@@ -120,6 +102,20 @@ export const ChangeSet = strictStruct({
 			CHANGE_SET_LIMITS.globalEntities,
 		),
 	),
+	events: Schema.optional(
+		strictStruct({
+			changes: Schema.Array(EventChange),
+			expected: Schema.optional(
+				strictStruct({ eventSchemaSlug: slug, eventIds: Schema.Array(EventId) }),
+			),
+			baselines: Schema.optional(
+				Schema.Array(strictStruct({ entityId: EntityId, revision: Schema.Int }))
+					.check(Schema.isMinLength(1))
+					.check(Schema.isMaxLength(CHANGE_SET_LIMITS.baselines))
+					.check(distinctEntityIds),
+			),
+		}),
+	),
 	relationships: Schema.optional(
 		strictStruct({
 			deletes: Schema.optional(Schema.Array(strictStruct(relationshipEndpoints))),
@@ -137,36 +133,6 @@ export const ChangeSet = strictStruct({
 				(changes) =>
 					(changes.upserts?.length ?? 0) + (changes.deletes?.length ?? 0) <=
 					CHANGE_SET_LIMITS.relationshipChanges,
-			),
-		),
-	),
-	globalRelationships: Schema.optional(
-		atMost(
-			strictStruct({
-				relationshipSchemaSlug: slug,
-				relationships: atMost(
-					strictStruct({
-						properties,
-						source: ChangeSetGlobalEntityReference,
-						target: ChangeSetGlobalEntityReference,
-					}),
-					CHANGE_SET_LIMITS.globalRelationshipsPerGroup,
-				),
-				selector: Schema.Union([
-					strictStruct({ type: Schema.Literal("self") }),
-					strictStruct({
-						type: Schema.Literal("anchored"),
-						anchor: ChangeSetGlobalEntityReference,
-						direction: Schema.Literals(["incoming", "outgoing"]),
-					}),
-				]),
-			}),
-			CHANGE_SET_LIMITS.globalRelationshipGroups,
-		).check(
-			Schema.makeFilter(
-				(groups) =>
-					groups.reduce((total, group) => total + group.relationships.length, 0) <=
-					CHANGE_SET_LIMITS.globalRelationshipsTotal,
 			),
 		),
 	),
@@ -196,32 +162,35 @@ export const ChangeSet = strictStruct({
 			),
 		}),
 	),
-	events: Schema.optional(
-		strictStruct({
-			expected: Schema.optional(
-				strictStruct({ eventSchemaSlug: slug, eventIds: Schema.Array(EventId) }),
+	globalRelationships: Schema.optional(
+		atMost(
+			strictStruct({
+				relationshipSchemaSlug: slug,
+				relationships: atMost(
+					strictStruct({
+						properties,
+						source: ChangeSetGlobalEntityReference,
+						target: ChangeSetGlobalEntityReference,
+					}),
+					CHANGE_SET_LIMITS.globalRelationshipsPerGroup,
+				),
+				selector: Schema.Union([
+					strictStruct({ entitySchemaSlug: slug, type: Schema.Literal("self") }),
+					strictStruct({
+						type: Schema.Literal("anchored"),
+						anchor: ChangeSetGlobalEntityReference,
+						direction: Schema.Literals(["incoming", "outgoing"]),
+					}),
+				]),
+			}),
+			CHANGE_SET_LIMITS.globalRelationshipGroups,
+		).check(
+			Schema.makeFilter(
+				(groups) =>
+					groups.reduce((total, group) => total + group.relationships.length, 0) <=
+					CHANGE_SET_LIMITS.globalRelationshipsTotal,
 			),
-			changes: Schema.Array(
-				Schema.Union([EventMutationChange.members[1], EventMutationChange.members[2]]),
-			),
-			baselines: Schema.optional(
-				Schema.Array(strictStruct({ entityId: EntityId, revision: Schema.Int }))
-					.check(Schema.isMinLength(1))
-					.check(Schema.isMaxLength(CHANGE_SET_LIMITS.baselines))
-					.check(distinctEntityIds),
-			),
-			creates: Schema.Array(
-				strictStruct({
-					properties,
-					eventSchemaSlug: slug,
-					entity: ChangeSetEntityReference,
-					itemIdentity: Schema.NonEmptyString,
-					occurredAt: Schema.optional(Schema.String),
-					orderAfter: Schema.optional(EventOrderAnchor),
-					session: Schema.optional(ChangeSetEntityReference),
-				}),
-			),
-		}),
+		),
 	),
 });
 export type ChangeSet = typeof ChangeSet.Type;

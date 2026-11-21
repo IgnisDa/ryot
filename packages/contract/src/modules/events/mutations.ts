@@ -1,37 +1,47 @@
 import { Schema } from "effect";
 
 import { EventId } from "../../schema/brands";
+import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
-import {
-	CreateEventItem,
-	EventOrderAnchor,
-	EventUpdatePatch,
-	EventWritePrecondition,
-	UpdateEventItem,
-} from "./schemas";
+import { ChangeSetEntityReference } from "../changes/references";
+import { EventOrderAnchor, EventUpdatePatch, EventWritePrecondition } from "./schemas";
 
-export const EventMutationChange = Schema.Union([
-	strictStruct({
-		item: CreateEventItem,
-		kind: Schema.Literal("create"),
-		itemIdentity: Schema.NonEmptyString,
-	}),
-	strictStruct({
-		kind: Schema.Literal("update"),
-		itemIdentity: Schema.NonEmptyString,
-		item: strictStruct({
-			...UpdateEventItem.fields,
-			patch: strictStruct({
-				...EventUpdatePatch.fields,
-				orderAfter: Schema.optional(Schema.NullOr(EventOrderAnchor)),
-			}).check(Schema.makeFilter((patch) => Object.keys(patch).length > 0)),
-		}),
-	}),
-	strictStruct({
+const itemIdentity = Schema.NonEmptyString;
+
+export const EventCreate = strictStruct({
+	itemIdentity,
+	kind: Schema.Literal("create"),
+	entity: ChangeSetEntityReference,
+	eventSchemaSlug: Schema.NonEmptyString,
+	occurredAt: Schema.optional(Schema.String),
+	orderAfter: Schema.optional(EventOrderAnchor),
+	session: Schema.optional(ChangeSetEntityReference),
+	properties: Schema.Record(Schema.String, JsonValue),
+});
+export type EventCreate = typeof EventCreate.Type;
+
+export const EventUpdate = strictStruct({
+	itemIdentity,
+	kind: Schema.Literal("update"),
+	item: strictStruct({
 		eventId: EventId,
-		kind: Schema.Literal("delete"),
-		itemIdentity: Schema.NonEmptyString,
 		expected: Schema.optional(EventWritePrecondition),
+		patch: strictStruct({
+			...EventUpdatePatch.fields,
+			orderAfter: Schema.optional(Schema.NullOr(EventOrderAnchor)),
+		}).check(Schema.makeFilter((patch) => Object.keys(patch).length > 0)),
 	}),
-]);
-export type EventMutationChange = typeof EventMutationChange.Type;
+});
+export type EventUpdate = typeof EventUpdate.Type;
+
+export const EventDelete = strictStruct({
+	itemIdentity,
+	eventId: EventId,
+	kind: Schema.Literal("delete"),
+	expected: Schema.optional(EventWritePrecondition),
+});
+export type EventDelete = typeof EventDelete.Type;
+
+/** One event change of a change set or a fold's output. A fold names only existing entities. */
+export const EventChange = Schema.Union([EventCreate, EventUpdate, EventDelete]);
+export type EventChange = typeof EventChange.Type;

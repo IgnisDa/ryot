@@ -1,4 +1,4 @@
-import type { RyotClient, RyotSchedule } from "@ryot-app/plugin-client-sdk";
+import type { CommittedChanges, RyotClient, RyotSchedule } from "@ryot-app/plugin-client-sdk";
 import type { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type {
 	PluginDeviceRequest,
@@ -9,10 +9,7 @@ import type {
 
 import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
-import type {
-	WorkoutEditorSaveInput,
-	WorkoutEditorSaveOutput,
-} from "../../shared/workout-editor-operations";
+import type { WorkoutEditorSaveInput } from "../../shared/workout-editor-operations";
 import type { FitnessText } from "../messages";
 
 export type TimerName = "rest" | "execution";
@@ -22,14 +19,9 @@ export type WorkoutEditorContext = {
 
 export type WorkoutEditorSaveResult =
 	| { readonly kind: "conflict" }
-	| Extract<WorkoutEditorSaveOutput, { readonly kind: "invalid" }>
-	| { readonly kind: "saved"; readonly entityId: CommittedEntityId };
+	| { readonly kind: "saved"; readonly entityId: NonNullable<CommittedChanges["entityId"]> };
 
 type SavedResult = Extract<WorkoutEditorSaveResult, { readonly kind: "saved" }>;
-
-type CommittedEntityId = NonNullable<
-	Effect.Success<ReturnType<RyotClient["operations"]["invoke"]>>["committed"]["entityId"]
->;
 
 type ContextSnapshot = {
 	readonly saveState: SaveState;

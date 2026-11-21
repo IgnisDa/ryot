@@ -243,8 +243,9 @@ layer(mutationAdmissionTestLayer)((it) => {
 					changes: {
 						userId,
 						events: {
-							creates: [
+							changes: [
 								{
+									kind: "create",
 									properties: {},
 									eventSchemaSlug: "planned",
 									entity: { kind: "existing", entityId: entity.id },

@@ -738,9 +738,9 @@ export default defineWorkflow({
 ```
 
 `step.activity` and `step.child` invoke declared script and workflow references. An activity script
-is defined with `defineActivity` and returns `{ output, changes? }`: the kernel commits its changes
-once when it completes and hands the workflow only `output`, which the reference's `output` schema
-describes. The backend compiler rejects a `step.activity` target that is not
+is defined with `defineActivity`, whose `run` returns the output the reference's `output` schema
+describes, or with `defineActivityWithChanges`, whose `run` returns `{ output, changes? }`: the
+kernel commits those changes once when it completes and hands the workflow only `output`. The backend compiler rejects a `step.activity` target that is not
 defined with `defineActivity`. Their names are local to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
 complete interrupted calls without guessing whether an external write succeeded. Calls within that
 step must remain deterministic. There is no public replay journal or durable sleep API. A bounded
@@ -892,7 +892,8 @@ every operation returns its writes this way. The kernel commits them atomically,
 over them, and answers `{ result, committed }`, where `committed` carries the root entity ID and each
 written event ID by item identity. A policy rejection of the changes reaches the caller as HTTP 422, a
 stale baseline as HTTP 409 `changes-conflict`, and any other invalid or unauthorized change set as
-HTTP 502. A client plugin's `client.operations.invoke` resolves `{ output, committed }` and fails a
+HTTP 502. A client plugin's `client.operations.invoke` resolves the output, and
+`client.operations.invokeCommitted` resolves `{ output, committed }` (`CommittedChanges`); both fail a
 stale baseline with a `RyotClientError` whose reason is `changes-conflict` and whose `conflict` is the
 commit's conflict code.
 
@@ -900,33 +901,37 @@ commit's conflict code.
 
 `ChangeSet`, `changeSetSchema` and `CHANGE_SET_LIMITS` come from `@ryot-app/plugin-backend-sdk/core`,
 with `rootEntity`, `existingEntity(id)` and `upsertedGlobalEntity(entitySchemaSlug, externalId)`
-references. Every part names schemas of the writing plugin by slug, and every slug must be declared
+references, `entityUpdateTarget(entity)` and `expectedEventFields(event, editable?)` baselines,
+`updateEventChange` and `deleteEventChange`, and the item types `EventCreate`, `EventUpdate`,
+`EventDelete`, `EventChange`, `RelationshipUpsert`, `SignalChange` and `GlobalRelationship`. Every part names schemas of the writing plugin by slug, and every slug must be declared
 by its revision.
 
-| Part                  | Writes                                                                                                       | Writer                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `entity`              | A root user entity create, or an update with its expected name, properties and `updatedAt`                   | User executions                                                            |
-| `entities.deletes`    | User entities, cascading their events                                                                        | User executions                                                            |
-| `entities.clears`     | An entity's user data: its events and relationships                                                          | User executions                                                            |
-| `entities.merges`     | One entity's user data into another of the same plugin schema                                                | User executions                                                            |
-| `entities.ensures`    | One user entity per schema, created only when absent                                                         | The plugin's user bootstrap script                                         |
-| `relationships`       | `upserts` (`merge` or `replace` properties) and `deletes` between the root or existing entities              | User executions and user automation runs                                   |
-| `events`              | Creates, updates and deletes, with `expected` session events and scope `baselines`                           | User executions and user automation runs                                   |
-| `settings`            | A patch of the plugin's settings for the execution user                                                      | User executions, except integrations, imports and bootstraps               |
-| `signals`             | Signal emissions with a discriminator and optional subject entity                                            | Automation runs; system ones need a system plugin automation               |
-| `notifications`       | Messages from the plugin catalog for the run's account                                                       | User automation runs                                                       |
-| `globalEntities`      | Provider-owned global entities by external ID                                                                | System executions of a system plugin's provider                            |
-| `globalRelationships` | Global relationship groups with a `self` or `anchored` selector; endpoints are existing or upserted entities | System executions of a system plugin                                       |
-| `folds`               | Fold requests for the execution user (`user`) or every user with events (`all-users`)                        | User executions; `all-users` from a system execution needs a system plugin |
+| Part                  | Writes                                                                                                                   | Writer                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `entity`              | A root user entity create, or an update with its expected name, properties and `updatedAt`                               | User executions                                                            |
+| `entities.deletes`    | User entities, cascading their events                                                                                    | User executions                                                            |
+| `entities.clears`     | An entity's user data: its events and relationships                                                                      | User executions                                                            |
+| `entities.merges`     | One entity's user data into another of the same plugin schema                                                            | User executions                                                            |
+| `entities.ensures`    | One user entity per schema, created only when absent                                                                     | The plugin's user bootstrap script                                         |
+| `relationships`       | `upserts` (`merge` or `replace` properties) and `deletes` between the root or existing entities                          | User executions and user automation runs                                   |
+| `events`              | One `changes` list of `create`, `update` and `delete` items, with `expected` session events and `baselines`              | User executions and user automation runs                                   |
+| `settings`            | A patch of the plugin's settings for the execution user                                                                  | User executions, except integrations, imports and bootstraps               |
+| `signals`             | Signal emissions with a discriminator and optional subject entity                                                        | Automation runs; system ones need a system plugin automation               |
+| `notifications`       | Messages from the plugin catalog for the run's account                                                                   | User automation runs                                                       |
+| `globalEntities`      | Provider-owned global entities by external ID                                                                            | System executions of a system plugin's provider                            |
+| `globalRelationships` | Groups with a `self` selector (one entity schema's self relationships) or `anchored` one; existing or upserted endpoints | System executions of a system plugin                                       |
+| `folds`               | Fold requests for the execution user (`user`) or every user with events (`all-users`)                                    | User executions; `all-users` from a system execution needs a system plugin |
 
 A `{ kind: "root" }` reference requires `entity`. User entities never carry provenance, global scope,
 ownership or `populatedAt`. Global writes run no policies. Notifications are queued for delivery after
 the commit. A part the writer may not write fails the whole change set.
 
 Refuse a request that cannot succeed as submitted with `OperationRejectedError(message)`; the caller
-receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502). Fail with
-`OperationConflictError({ conflict })` when the operation itself finds a stale baseline before building
-changes; the caller receives the HTTP 409 `changes-conflict` of a stale commit. Import
+receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502); outputs are
+success-only. A baseline that changed is reported by the commit of the returned changes as HTTP 409
+`changes-conflict`. A signal notification automation is `defineSignalNotification({ manifest,
+signals })` from `automation`, where each signal schema slug names a properties schema and a `notify`
+formatter; undecodable properties fail with `SignalNotificationError`. Import
 sources map strict input schemas to workflows. Uploads are top-level string fields with upload format;
 the kernel validates each file and exposes it by field name for `readNamedArtifact(key)`. Payload-only
 sources use ordinary fields.

@@ -15,8 +15,5 @@ export default defineActivity({
 	input: ResolveEpisodesInput,
 	output: ResolveEpisodesOutput,
 	run: (input, host) =>
-		resolveEpisodes(input.refs, host.executeRyotql).pipe(
-			Effect.map((results) => ({ results })),
-			Effect.map((output) => ({ output })),
-		),
+		resolveEpisodes(input.refs, host.executeRyotql).pipe(Effect.map((results) => ({ results }))),
 });

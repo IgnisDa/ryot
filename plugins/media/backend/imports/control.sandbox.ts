@@ -33,5 +33,5 @@ export default defineActivity({
 				Schema.fromJsonString(Schema.Record(Schema.String, jsonValueSchema)),
 			)(new TextDecoder("utf-8", { fatal: true }).decode(range.bytes));
 			return { settings, next: null, entries: [] };
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

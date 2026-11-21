@@ -54,9 +54,8 @@ A failed envelope carries the escaped error's boundary reason as `data`, which r
 The `operation-rejected` reason marks a deliberate operation refusal: the guest runner keeps it,
 `OperationsService` answers it with HTTP 422 `PluginOperationRejected` carrying a message reason while every
 other operation failure stays HTTP 502 `PluginInvocationError`, an automation run records it as a
-`business-failure` under the code `operation-rejected`, and workflow classification is unchanged. The
-`changes-conflict` reason, carrying a `CommitConflictCode`, is preserved the same way and answered by
-`OperationsService` with HTTP 409 `PluginConflictError` and `changes-conflict`.
+`business-failure` under the code `operation-rejected`, and workflow classification is unchanged. A
+stale baseline is reported only by the commit of the changes a script returns.
 
 Plugin workflow activations load their current checkpoint. A checkpoint commit stores the next
 revision and discards the completed scope's activities and deferreds atomically. In-memory caches and

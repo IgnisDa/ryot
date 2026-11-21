@@ -153,7 +153,7 @@ export default defineWorkflow({
 
 const configActivitySource = (activityScriptSlug: string) => `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -161,7 +161,7 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(activityScriptSlug)},
 });
 
-export default defineActivity({
+export default defineActivityWithChanges({
   manifest,
   output: Schema.Null,
   input: Schema.Struct({ expectedValue: Schema.String }),
@@ -179,7 +179,7 @@ export default defineActivity({
 const readSourceActivity = (activityScriptSlug: string) => `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
-import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -187,7 +187,7 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(`${activityScriptSlug}-read`)},
 });
 const sourceSchema = Schema.Struct({ expectedValue: Schema.String, delayMs: Schema.Int });
-export default defineActivity({
+export default defineActivityWithChanges({
   manifest,
   input: Schema.Struct({ artifactHandle: Schema.String }),
   output: sourceSchema,

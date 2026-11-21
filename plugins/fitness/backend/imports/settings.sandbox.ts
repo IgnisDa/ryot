@@ -29,5 +29,5 @@ export default defineActivity({
 				throw new Error("Import job is missing timezone");
 			}
 			return { timezone: timezone.trim() };
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

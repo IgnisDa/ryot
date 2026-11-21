@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ActionForm,
@@ -24,15 +24,13 @@ const createMetricMutation = createRyotMutation<
 	MeasurementMetricCreateInput,
 	typeof MeasurementMetricCreateOutput.Type
 >(({ input, client }) =>
-	client.operations
-		.invoke({
-			input,
-			packageId: PLUGIN_PACKAGE_ID,
-			output: MeasurementMetricCreateOutput,
-			inputSchema: MeasurementMetricCreateInput,
-			slug: measurementMetricCreateOperationSlug,
-		})
-		.pipe(Effect.map(({ output }) => output)),
+	client.operations.invoke({
+		input,
+		packageId: PLUGIN_PACKAGE_ID,
+		output: MeasurementMetricCreateOutput,
+		inputSchema: MeasurementMetricCreateInput,
+		slug: measurementMetricCreateOperationSlug,
+	}),
 );
 
 export function AddMetricDialog(props: {

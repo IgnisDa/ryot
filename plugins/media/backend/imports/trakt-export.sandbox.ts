@@ -133,5 +133,5 @@ export default defineActivity({
 				itemIndex,
 				carryFile: "metadata.json",
 			});
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

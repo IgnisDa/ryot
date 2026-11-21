@@ -1,7 +1,4 @@
-import {
-	CommitConflictCode,
-	OutputWithChanges,
-} from "@ryot-app/contract/modules/changes/change-set";
+import { OutputWithChanges } from "@ryot-app/contract/modules/changes/change-set";
 import { LocalMessage } from "@ryot-app/i18n/message";
 import { type Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -41,15 +38,4 @@ export class OperationRejectedError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("OperationRejectedError", { reason: LocalMessage }) {
 	readonly data = { reason: this.reason, code: "operation-rejected" } as const;
-}
-
-/**
- * A stale baseline the operation detected before building its changes. It reaches the caller like
- * a commit conflict of returned changes.
- */
-export class OperationConflictError extends Schema.TaggedError<
-	OperationConflictError,
-	{ readonly brand: unique symbol }
->()("OperationConflictError", { conflict: CommitConflictCode }) {
-	readonly data = { conflict: this.conflict, code: "changes-conflict" } as const;
 }

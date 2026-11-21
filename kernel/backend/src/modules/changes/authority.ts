@@ -1,7 +1,5 @@
-import type {
-	ChangeSet,
-	ChangeSetEntityReference,
-} from "@ryot-app/contract/modules/changes/change-set";
+import type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
+import type { ChangeSetEntityReference } from "@ryot-app/contract/modules/changes/references";
 import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
 import type { DefinitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
@@ -232,7 +230,9 @@ export const undeclaredSchema = (changes: ChangeSet, scope: PluginSchemaScope) =
 		...(changes.relationships?.deletes ?? []),
 		...(changes.globalRelationships ?? []),
 	].map((item) => item.relationshipSchemaSlug);
-	const eventSlugs = (changes.events?.creates ?? []).map((item) => item.eventSchemaSlug);
+	const eventSlugs = (changes.events?.changes ?? []).flatMap((change) =>
+		change.kind === "create" ? [change.eventSchemaSlug] : [],
+	);
 	const signalSlugs = (changes.signals ?? []).map((item) => item.schemaSlug);
 	return (
 		entitySlugs.find((slug) => !scope.entitySchemaSlugs.includes(slug)) ??
@@ -258,8 +258,8 @@ const existing = (part: string, references: ReadonlyArray<undefined | ChangeSetE
  */
 export const changeSetReferences = (changes: ChangeSet) => {
 	const { entities } = changes;
-	const creates = changes.events?.creates ?? [];
 	const eventChanges = changes.events?.changes ?? [];
+	const creates = eventChanges.flatMap((change) => (change.kind === "create" ? [change] : []));
 	const updates = eventChanges.flatMap((change) => (change.kind === "update" ? [change.item] : []));
 	const relationships = [
 		...(changes.relationships?.upserts ?? []),
@@ -299,10 +299,12 @@ export const changeSetReferences = (changes: ChangeSet) => {
 		...(changes.events?.baselines ?? []).map(({ entityId }) => ["events", entityId] as const),
 	];
 	const eventReferences: ReadonlyArray<NamedReference<EventId>> = [
-		...eventChanges.map(
-			(change) =>
-				["events", change.kind === "update" ? change.item.eventId : change.eventId] as const,
-		),
+		...eventChanges.flatMap((change) => {
+			if (change.kind === "create") {
+				return [];
+			}
+			return [["events", change.kind === "update" ? change.item.eventId : change.eventId] as const];
+		}),
 		...[...creates, ...updates.map(({ patch }) => patch)].flatMap(({ orderAfter }) =>
 			orderAfter ? [["events", orderAfter.eventId] as const] : [],
 		),

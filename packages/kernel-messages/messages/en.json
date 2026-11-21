@@ -436,6 +436,7 @@
 		"description": "{count} is how many items were saved before the submission stopped."
 	},
 	"client.background-submissions.status.app-updated": "Ryot was updated",
+	"client.background-submissions.status.changed": "Changed elsewhere, not saved",
 	"client.background-submissions.status.malformed-result": "Unexpected server response",
 	"client.background-submissions.status.not-saved": "Not saved",
 	"client.background-submissions.status.page-write-access-required": "Page write access is required",
@@ -2510,7 +2511,6 @@
 		"description": "Shown when saving a plugin's user settings. {maxBytes} is the maximum size in bytes."
 	},
 	"error.sandbox.asset-forbidden": "A file in this request is not available to you.",
-	"error.sandbox.changes-conflict": "Your data changed while this was saving. Refresh and try again.",
 	"error.sandbox.entitlement-required": {
 		"message": "{entitlement, select, pro {This requires Ryot Pro.} other {This requires a subscription.}}",
 		"description": "{entitlement} is the code of the missing subscription."

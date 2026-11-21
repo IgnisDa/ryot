@@ -10,6 +10,7 @@ export type { EntitySettle, EntitySettleReason } from "./refresh/settle";
 export type { PluginUserPreferences } from "@ryot-app/plugin-client-contract";
 export type { RatingScale } from "@ryot-app/contract/modules/events/rating-scale";
 export { isEntitled, type Entitlement } from "@ryot-app/contract/schema/entitlement";
+export type { CommittedChanges } from "@ryot-app/contract/modules/changes/change-set";
 export type { EntityWatch, RyotClientErrorReason } from "@ryot-app/plugin-client-contract";
 export { EntitySyncState, EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 export { type ReviewContent, reviewPropertyKeys } from "@ryot-app/contract/modules/events/review";

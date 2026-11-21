@@ -1,6 +1,6 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationConflictError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 import {
 	MediaActivityDeleteInput,
@@ -28,11 +28,17 @@ export default defineOperation({
 				catalogMessage("rejection.record.activity-only-delete"),
 			);
 			const output = { count: targets.length };
-			if (targets.length === 0) {
-				return input.expected === undefined
-					? { output }
-					: yield* new OperationConflictError({ conflict: "event-not-found" });
+			if (targets.length > 0) {
+				return {
+					output,
+					changes: deleteTargetChanges(
+						targets.map(({ id }) => id),
+						input.expected,
+					),
+				};
 			}
-			return { output, changes: deleteTargetChanges(targets, input.expected) };
+			return input.expected === undefined
+				? { output }
+				: { output, changes: deleteTargetChanges(input.eventIds, input.expected) };
 		}),
 });

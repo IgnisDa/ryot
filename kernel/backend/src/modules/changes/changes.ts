@@ -2,10 +2,13 @@ import type { AutomationChangePayload } from "@ryot-app/contract/modules/automat
 import type {
 	ChangeSet,
 	ChangeSetEntity,
-	ChangeSetEntityReference,
 	ChangeSetEntityUpdate,
-	ChangeSetGlobalEntityReference,
 } from "@ryot-app/contract/modules/changes/change-set";
+import type {
+	ChangeSetEntityReference,
+	ChangeSetGlobalEntityReference,
+} from "@ryot-app/contract/modules/changes/references";
+import type { EventCreate } from "@ryot-app/contract/modules/events/mutations";
 import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import {
 	type DefinitionOwner,
@@ -17,12 +20,14 @@ import {
 import {
 	type EntityId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	type RelationshipId,
 	RelationshipSchemaSlug,
 	type SandboxProviderId,
 	SignalSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { Effect } from "effect";
 
 import type { EmitSignalInput } from "#modules/automations/signal-service";
 import type { EntityMatch } from "#modules/entities/service";
@@ -32,15 +37,26 @@ import type {
 	RelationshipWriteResult,
 } from "#modules/relationships/mutation-support";
 
-export type EventChange = Exclude<EventMutation, { readonly kind: "create" }>;
 /** A user entity: the root, an existing one, or one this change set creates or references by `key`. */
 export type EntityReference =
 	ChangeSetEntityReference | { readonly key: string; readonly kind: "keyed" };
+/** One event change a writer commits: a create by reference, or a kernel event mutation. */
+export type EventChange<Reference = EntityReference> =
+	EventCreateChange<Reference> | Exclude<EventMutation, { readonly kind: "create" }>;
 /** A signal emitted by `principal`; its trigger derives from `itemIdentity`. */
 export type SignalEmission = Pick<EmitSignalInput, "principal" | "properties"> & {
 	readonly itemIdentity: string;
 	readonly subjectEntityId?: EntityId;
 	readonly reference: SignalSchemaReference;
+};
+/** An event create naming its entity and session by reference, with properties the write validates. */
+export type EventCreateChange<Reference = EntityReference> = Omit<
+	EventCreate,
+	"entity" | "session" | "properties"
+> & {
+	readonly entity: Reference;
+	readonly properties: unknown;
+	readonly session?: undefined | Reference;
 };
 /** An existing entity, or one this change set upserts under `providerId`. */
 export type GlobalEntityReference =
@@ -76,6 +92,9 @@ export type Changes = {
 	readonly signals?: ReadonlyArray<SignalEmission>;
 	readonly globalEntities?: ReadonlyArray<GlobalEntityUpsert>;
 	readonly globalRelationships?: ReadonlyArray<OwnedGlobalRelationshipGroup>;
+	readonly events?: Omit<Part<"events">, "changes"> & {
+		readonly changes: ReadonlyArray<EventChange>;
+	};
 	/** Changes recorded for `scopeUserId`'s hooks under the writer's authority over `owner` (kernel writers only). */
 	readonly triggers?: ReadonlyArray<{
 		readonly owner: DefinitionOwner;
@@ -90,16 +109,6 @@ export type Changes = {
 	readonly population?: {
 		readonly relatedPopulated?: ReadonlyArray<EntityId>;
 		readonly claims?: ReadonlyArray<{ readonly entityId: EntityId; readonly generation: string }>;
-	};
-	readonly events?: Omit<Part<"events">, "creates" | "changes"> & {
-		readonly changes: ReadonlyArray<EventChange>;
-		readonly creates: ReadonlyArray<
-			Omit<EventCreate, "entity" | "session" | "properties"> & {
-				readonly properties: unknown;
-				readonly entity: EntityReference;
-				readonly session?: undefined | EntityReference;
-			}
-		>;
 	};
 	readonly relationships?: {
 		readonly events?: ReadonlyArray<RelationshipEvent>;
@@ -134,7 +143,6 @@ export type Changes = {
 };
 type EntityParts = Part<"entities">;
 type RelationshipParts = Part<"relationships">;
-type EventCreate = Part<"events">["creates"][number];
 /** A part `CollectionsService` builds, which a plugin writer may commit under the kernel collection schemas. */
 type KernelCollection = { readonly kernelCollection?: true };
 type Part<K extends keyof ChangeSet> = NonNullable<ChangeSet[K]>;
@@ -221,7 +229,7 @@ type OwnedGlobalRelationshipGroup = Pick<
 			>
 		>;
 		readonly selector:
-			| Extract<GlobalRelationshipGroup["selector"], { readonly type: "self" }>
+			| { readonly type: "self"; readonly entitySchema: EntitySchemaReference }
 			| ({ readonly anchor: GlobalEntityReference } & Omit<
 					Extract<GlobalRelationshipGroup["selector"], { readonly type: "anchored" }>,
 					"anchor"
@@ -300,15 +308,21 @@ export const fromScriptChangeSet = (
 			: {
 					globalRelationships: changeSet.globalRelationships.map((group) => ({
 						...relationship(group),
-						selector:
-							group.selector.type === "self"
-								? group.selector
-								: { ...group.selector, anchor: globalReference(group.selector.anchor) },
 						relationships: group.relationships.map((item) => ({
 							...item,
 							source: globalReference(item.source),
 							target: globalReference(item.target),
 						})),
+						selector:
+							group.selector.type === "self"
+								? {
+										type: "self" as const,
+										entitySchema: {
+											owner,
+											slug: EntitySchemaSlug.make(group.selector.entitySchemaSlug),
+										},
+									}
+								: { ...group.selector, anchor: globalReference(group.selector.anchor) },
 					})),
 				}),
 		...(entities === undefined
@@ -333,6 +347,33 @@ export const fromScriptChangeSet = (
 	};
 };
 
+/**
+ * The event mutation `change` makes, its entity and session resolved by `entityOf`: the one translation
+ * of a change set's and a fold's event changes.
+ */
+export const eventMutation = <Reference, E, R>(
+	change: EventChange<Reference>,
+	entityOf: (reference: Reference) => Effect.Effect<EntityId, E, R>,
+): Effect.Effect<EventMutation, E, R> =>
+	change.kind !== "create"
+		? Effect.succeed(change)
+		: Effect.gen(function* () {
+				return {
+					kind: "create" as const,
+					itemIdentity: change.itemIdentity,
+					item: {
+						properties: change.properties,
+						entityId: yield* entityOf(change.entity),
+						eventSchemaSlug: EventSchemaSlug.make(change.eventSchemaSlug),
+						...(change.orderAfter ? { orderAfter: change.orderAfter } : {}),
+						...(change.occurredAt === undefined ? {} : { occurredAt: change.occurredAt }),
+						...(change.session === undefined
+							? {}
+							: { sessionEntityId: yield* entityOf(change.session) }),
+					},
+				};
+			});
+
 /** Independent event creates of existing entities, identified as `event:<index>` unless given. */
 export const eventCreateChanges = (
 	userId: UserId,
@@ -341,8 +382,8 @@ export const eventCreateChanges = (
 ): Changes & { readonly userId: UserId } => ({
 	userId,
 	events: {
-		changes: [],
-		creates: items.map((item, index) => ({
+		changes: items.map((item, index) => ({
+			kind: "create" as const,
 			properties: item.properties,
 			eventSchemaSlug: item.eventSchemaSlug,
 			itemIdentity: itemIdentities?.[index] ?? `event:${index}`,
@@ -356,8 +397,8 @@ export const eventCreateChanges = (
 	},
 });
 
-/** Updates and deletes of the user's existing events, committed together. */
+/** Event changes of the user's existing events, committed together. */
 export const eventChanges = (
 	userId: UserId,
 	changes: ReadonlyArray<EventChange>,
-): Changes & { readonly userId: UserId } => ({ userId, events: { changes, creates: [] } });
+): Changes & { readonly userId: UserId } => ({ userId, events: { changes } });

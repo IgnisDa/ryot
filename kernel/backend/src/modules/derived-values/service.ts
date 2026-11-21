@@ -6,7 +6,6 @@ import {
 	type FoldInput,
 	FoldOutput,
 } from "@ryot-app/contract/modules/events/folds";
-import type { EventMutationChange } from "@ryot-app/contract/modules/events/mutations";
 import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
@@ -19,8 +18,10 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
 import { lifecycleActor, rootLifecycleCausation } from "#modules/automations/lifecycle/command";
+import { eventMutation } from "#modules/changes/changes";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import type { EventMutation } from "#modules/events/mutations";
 import { ScriptCalls } from "#modules/scripts/executions/calls";
 import { FoldScripts, FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";
 import { DatabaseSession } from "#platform/db/session";
@@ -44,7 +45,7 @@ export type FoldMode = "job" | "queue" | "inline";
 export type ApplyFoldChanges = (input: {
 	readonly userId: UserId;
 	readonly command: DomainLifecycleCommand;
-	readonly changes: ReadonlyArray<EventMutationChange>;
+	readonly changes: ReadonlyArray<EventMutation>;
 }) => Effect.Effect<void, unknown>;
 
 type Target = { readonly id: string; readonly propertiesSchema: AppSchema<unknown> };
@@ -306,8 +307,15 @@ export class Folds extends Context.Service<Folds>()(
 						})),
 					)),
 				];
+				const changes = yield* Effect.forEach(output.changes, (change) =>
+					eventMutation(change, (reference) =>
+						reference.kind === "existing"
+							? Effect.succeed(reference.entityId)
+							: Effect.fail(failure("Fold event creates name existing entities")),
+					),
+				);
 				yield* write(subject, declaration, binding.pluginPin.revisionId, rows, input.changes);
-				if (output.changes.length === 0) {
+				if (changes.length === 0) {
 					return null;
 				}
 				const actor = lifecycleActor({ userId: subject.userId });
@@ -323,7 +331,7 @@ export class Folds extends Context.Service<Folds>()(
 						executionId: AutomationExecutionId.make(`fold:${subject.userId}:${subject.entityId}`),
 					}),
 				};
-				return { command, changes: output.changes };
+				return { command, changes };
 			});
 
 			const settleOne = Effect.fnUntraced(function* (

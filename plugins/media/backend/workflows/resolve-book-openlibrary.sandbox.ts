@@ -24,6 +24,5 @@ export default defineActivity({
 			Effect.catch((error) =>
 				Effect.succeed({ status: "failed" as const, message: mediaFailureMessage(error) }),
 			),
-			Effect.map((output) => ({ output })),
 		),
 });

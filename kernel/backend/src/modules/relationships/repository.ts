@@ -2,6 +2,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import {
 	EntityId,
+	EntitySchemaSlug,
 	PluginId,
 	RelationshipId,
 	RelationshipKey,
@@ -76,7 +77,12 @@ const globalRelationshipListFields = {
 };
 
 export const GlobalRelationshipListInput = Schema.Union([
-	Schema.Struct({ ...globalRelationshipListFields, type: Schema.Literal("self") }),
+	Schema.Struct({
+		...globalRelationshipListFields,
+		type: Schema.Literal("self"),
+		entitySchemaSlug: EntitySchemaSlug,
+		entitySchemaPluginId: Schema.NullOr(Schema.String),
+	}),
 	Schema.Struct({
 		...globalRelationshipListFields,
 		anchorEntityId: EntityId,
@@ -194,7 +200,16 @@ const relationshipReconciliationWhere = (input: RelationshipReconciliationListIn
 		eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
 		relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
 		input.type === "self"
-			? eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId)
+			? and(
+					eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId),
+					inArray(
+						schema.relationship.sourceEntityId,
+						sql`(select ${schema.entity.id} from ${schema.entity} where ${and(
+							eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+							pluginIdWhere(schema.entity.entitySchemaPluginId, input.entitySchemaPluginId),
+						)})`,
+					),
+				)
 			: eq(
 					schema.relationship[`${relationshipEnds(input.direction).anchor}EntityId`],
 					input.anchorEntityId,
@@ -209,8 +224,8 @@ const relationshipReconciliationLockKey = (input: RelationshipReconciliationList
 		input.relationshipSchemaPluginId ?? "kernel",
 		input.relationshipSchemaSlug,
 		input.type,
-		input.type === "anchored" ? input.direction : null,
-		input.type === "anchored" ? input.anchorEntityId : null,
+		input.type === "anchored" ? input.direction : input.entitySchemaSlug,
+		input.type === "anchored" ? input.anchorEntityId : input.entitySchemaPluginId,
 	]);
 
 export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(

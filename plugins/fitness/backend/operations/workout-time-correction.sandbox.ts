@@ -1,7 +1,11 @@
-import { updateEventChange } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	entityUpdateTarget,
+	expectedEventFields,
+	updateEventChange,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation, OperationConflictError } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	continuationCursor,
 	entityEventScopeRevisionRecipe,
@@ -10,11 +14,9 @@ import {
 import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
 import { EventId } from "@ryot-app/plugin-kit/schema";
 
+import { catalogMessage } from "../../shared/messages.generated";
 import { applyWorkoutTimes } from "../../shared/workout-editor-properties";
-import {
-	decodeWorkoutEditorBaseline,
-	workoutEditorEntityRecipe,
-} from "../../shared/workout-editor-recipes";
+import { decodeWorkoutEditorBaseline } from "../../shared/workout-editor-recipes";
 import { workoutOccurrencesRecipe } from "../../shared/workout-taxonomy-recipes";
 import {
 	WorkoutTimeCorrectionInputSchema,
@@ -39,15 +41,9 @@ export default defineOperation({
 				decoded.success.entity.id !== input.entityId ||
 				(input.endedAt !== undefined && Date.parse(input.endedAt) < Date.parse(input.startedAt))
 			) {
-				return { output: { kind: "invalid" } as const };
-			}
-			const current = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				workoutEditorEntityRecipe({ reference: { kind: "self" } }),
-				{ kind: "workout", entityId: input.entityId },
-			);
-			if (!current) {
-				return yield* new OperationConflictError({ conflict: "entity-not-found" });
+				return yield* new OperationRejectedError({
+					reason: catalogMessage("rejection.workout-time.invalid"),
+				});
 			}
 			const revision = yield* executeRyotqlRecipe(
 				host.executeRyotql,
@@ -68,24 +64,15 @@ export default defineOperation({
 			} while (after !== undefined);
 			const { entity } = decoded.success;
 			return {
-				output: { kind: "saved", entityId: input.entityId } as const,
+				output: { entityId: input.entityId },
 				changes: {
 					entity: {
 						name: entity.name,
 						entitySchemaSlug: "workout",
+						target: entityUpdateTarget(entity),
 						properties: applyWorkoutTimes(entity.properties, input),
-						target: {
-							kind: "update",
-							entityId: input.entityId,
-							expected: {
-								name: entity.name,
-								updatedAt: entity.updatedAt,
-								properties: entity.properties,
-							},
-						},
 					},
 					events: {
-						creates: [],
 						baselines: [{ revision, entityId: input.entityId }],
 						changes: occurrences
 							.filter(({ occurredAt }) => Date.parse(occurredAt) !== Date.parse(input.startedAt))
@@ -93,14 +80,7 @@ export default defineOperation({
 								updateEventChange(
 									EventId.make(occurrence.id),
 									{ occurredAt: input.startedAt },
-									{
-										kind: "fields",
-										absentProperties: [],
-										entityId: occurrence.entityId,
-										occurredAt: occurrence.occurredAt,
-										properties: occurrence.properties,
-										sessionEntityId: occurrence.sessionEntityId,
-									},
+									expectedEventFields(occurrence),
 								),
 							),
 					},

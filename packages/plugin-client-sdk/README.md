@@ -91,12 +91,14 @@ React query/mutation definitions return Effects that Atom runs directly;
 integration boundary.
 
 `operations.invoke` encodes `input` through the required `inputSchema` and decodes the operation's
-`output`; an input that does not encode fails with `invalid-input`. It resolves
-`{ output, committed }`, where `committed` is the kernel's `CommittedChanges` for the changes the
+`output`; an input that does not encode fails with `invalid-input`. It resolves the output.
+`operations.invokeCommitted` resolves `{ output, committed }`, where `committed` is the kernel's
+`CommittedChanges` (exported from the package root) for the changes the
 operation returned: the root `entityId` when one was written and each written event's `eventId` by
 `itemIdentity`, with an empty `events` array when nothing was committed. An operation whose changes
 hit a stale baseline fails with `changes-conflict`, and the error's `conflict` names the
-`CommitConflictCode`; reload the data and let the person resubmit.
+`CommitConflictCode`; reload the data and let the person resubmit. `formatConflict(error, messages,
+fallback)` from `react` renders such an error with the plugin's text for its code.
 A successful operation notifies
 mutation listeners by default. `refreshOnSuccess: false` suppresses that notification for read-only
 context operations, so a page-refresh handler does not trigger itself again, and for writes whose

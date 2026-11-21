@@ -1,4 +1,3 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { scanMediaServer } from "../inventory/media-server";
@@ -14,6 +13,5 @@ export default defineActivity({
 	manifest,
 	input: YankInput,
 	output: IntegrationWindowOutput,
-	run: (input, host) =>
-		scanMediaServer("jellyfin", input, host).pipe(Effect.map((output) => ({ output }))),
+	run: (input, host) => scanMediaServer("jellyfin", input, host),
 });

@@ -207,8 +207,5 @@ export default defineActivity({
 					),
 				),
 			);
-		}).pipe(
-			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
-			Effect.map((output) => ({ output })),
-		),
+		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
 });

@@ -1,3 +1,4 @@
+import { CommitConflictCode } from "@ryot-app/contract/modules/changes/change-set";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
@@ -86,6 +87,7 @@ export const BackgroundSubmissionFailureClass = Schema.Literals([
 	"entitlement-required",
 	"page-write-access-required",
 	"operation-rejected",
+	"changes-conflict",
 	"malformed-result",
 	"app-updated",
 ]);
@@ -112,6 +114,11 @@ export const BackgroundSubmissionOutcome = Schema.Union([
 		message: Message,
 		status: Schema.Literal("failed"),
 		reason: Schema.Literal("operation-rejected"),
+	}),
+	strictStruct({
+		conflict: CommitConflictCode,
+		status: Schema.Literal("failed"),
+		reason: Schema.Literal("changes-conflict"),
 	}),
 ]);
 

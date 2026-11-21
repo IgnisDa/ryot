@@ -2,7 +2,6 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import {
-	PluginConflictError,
 	PluginInvocationError,
 	PluginOperationRejected,
 } from "@ryot-app/contract/modules/plugins/schemas";
@@ -45,11 +44,7 @@ const operationSource = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { EntitlementRequiredError } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import {
-  defineOperation,
-  OperationConflictError,
-  OperationRejectedError,
-} from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -59,7 +54,7 @@ export const manifest = defineManifest({
 
 export default defineOperation({
   manifest,
-  input: Schema.Struct({ mode: Schema.Literals(["read", "reject", "conflict", "entitlement", "crash"]) }),
+  input: Schema.Struct({ mode: Schema.Literals(["read", "reject", "entitlement", "crash"]) }),
   output: Schema.String,
   run: (input) =>
     input.mode === "read"
@@ -70,8 +65,6 @@ export default defineOperation({
             reason: { key: "episode.parent-required", params: { parent: { key: "episode.parent" } } },
           }),
         )
-      : input.mode === "conflict"
-      ? Effect.fail(new OperationConflictError({ conflict: "entity-stale" }))
       : input.mode === "entitlement"
         ? Effect.fail(new EntitlementRequiredError({ entitlement: "pro" }))
         : Effect.fail(new Error("Unexpected failure")),
@@ -167,7 +160,7 @@ const fakeLayer = Layer.unwrap(
 	}),
 );
 
-const invoke = (mode: "read" | "crash" | "reject" | "conflict" | "entitlement") =>
+const invoke = (mode: "read" | "crash" | "reject" | "entitlement") =>
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			packageId,
@@ -230,19 +223,6 @@ layer(
 					key: "episode.parent-required",
 					params: { parent: { namespace, key: "episode.parent" } },
 				});
-			}),
-		30_000,
-	);
-
-	test.effect(
-		"maps an operation conflict thrown inside the sandbox to a 409 changes conflict",
-		() =>
-			Effect.gen(function* () {
-				expect(yield* Effect.flip(invoke("conflict"))).toEqual(
-					new PluginConflictError({
-						reason: { code: "changes-conflict", conflict: "entity-stale" },
-					}),
-				);
 			}),
 		30_000,
 	);

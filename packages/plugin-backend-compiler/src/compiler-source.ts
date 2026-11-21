@@ -294,7 +294,7 @@ const inspectImports = (
 						if (importedName === "defineWorkflow") {
 							workflowHelpers.add(element.name.text);
 						}
-						if (importedName === "defineActivity") {
+						if (importedName === "defineActivity" || importedName === "defineActivityWithChanges") {
 							activityHelpers.add(element.name.text);
 						}
 					}

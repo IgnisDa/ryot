@@ -45,9 +45,9 @@ const compound = Effect.fnUntraced(function* (memberCount?: number) {
 			entitySchemaSlug: "session",
 		},
 		events: {
-			changes: [],
-			creates: [
+			changes: [
 				{
+					kind: "create",
 					itemIdentity: "anchor",
 					session: { kind: "root" },
 					eventSchemaSlug: "anchor",
@@ -55,9 +55,10 @@ const compound = Effect.fnUntraced(function* (memberCount?: number) {
 					properties: { position: 0, kind: "primary", evidence: "recorded" },
 				},
 				...Array.from({ length: memberCount ?? 1 }, (_, index) => ({
-					session: { kind: "root" },
+					kind: "create" as const,
 					eventSchemaSlug: "member",
 					itemIdentity: `member-${index}`,
+					session: { kind: "root" as const },
 					entity: { kind: "existing", entityId: fixture.subjectId },
 					properties: { position: 0, amount: index, kind: "primary" },
 				})),
@@ -262,7 +263,6 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 						},
 					},
 					events: {
-						creates: [],
 						changes: [
 							...fixture.result.events
 								.filter((item) => item.itemIdentity !== "anchor")
@@ -361,23 +361,24 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 						},
 					},
 					events: {
-						creates: [
+						changes: [
 							{
+								kind: "create",
 								session: { kind: "root" },
 								eventSchemaSlug: "member",
 								itemIdentity: "new-member",
 								properties: { position: 0, kind: "primary" },
 								entity: { kind: "existing", entityId: fixture.subjectId },
 							},
+							...[
+								...fixture.result.events.map(({ eventId }) => ({ eventId, position: 1 })),
+								...secondIds.map((eventId) => ({ eventId, position: 0 })),
+							].map(({ eventId, position }) => ({
+								itemIdentity: eventId,
+								kind: "update" as const,
+								item: { eventId, patch: { properties: { remove: [], set: { position } } } },
+							})),
 						],
-						changes: [
-							...fixture.result.events.map(({ eventId }) => ({ eventId, position: 1 })),
-							...secondIds.map((eventId) => ({ eventId, position: 0 })),
-						].map(({ eventId, position }) => ({
-							kind: "update",
-							itemIdentity: eventId,
-							item: { eventId, patch: { properties: { remove: [], set: { position } } } },
-						})),
 					},
 				});
 				expect(
@@ -541,9 +542,9 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 						},
 					},
 					events: {
-						changes: [],
-						creates: [
+						changes: [
 							{
+								kind: "create",
 								session: { kind: "root" },
 								eventSchemaSlug: "anchor",
 								itemIdentity: "new-anchor",
@@ -551,6 +552,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 								properties: { position: 1, kind: "primary", evidence: "recorded" },
 							},
 							{
+								kind: "create",
 								session: { kind: "root" },
 								eventSchemaSlug: "member",
 								itemIdentity: "new-member",

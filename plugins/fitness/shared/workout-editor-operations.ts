@@ -138,26 +138,7 @@ export const WorkoutEditorSaveInputSchema = Schema.Struct({
 	data: Schema.Union([WorkoutEditorWorkoutDataSchema, WorkoutEditorTemplateDataSchema]),
 });
 
-export const WorkoutEditorSaveOutputSchema = Schema.Union([
-	Schema.Struct({ kind: Schema.Literal("saved") }),
-	Schema.Struct({
-		kind: Schema.Literal("invalid"),
-		setId: Schema.optional(NonEmptyString),
-		occurrenceId: Schema.optional(NonEmptyString),
-		code: Schema.Literals([
-			"duplicate-id",
-			"invalid-source",
-			"invalid-time",
-			"missing-measurement",
-			"unrelated-event",
-			"invalid-measurement",
-			"invalid-exercise-kind",
-			"invalid-superset",
-			"missing-exercise",
-			"media-forbidden",
-		]),
-	}),
-]);
+export const WorkoutEditorSaveOutputSchema = Schema.Struct({});
 
 export type WorkoutEditorSaveInput = typeof WorkoutEditorSaveInputSchema.Type;
 export type WorkoutEditorSaveOutput = typeof WorkoutEditorSaveOutputSchema.Type;

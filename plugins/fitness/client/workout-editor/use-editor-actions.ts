@@ -1,11 +1,13 @@
-import { isEntitlementRequired } from "@ryot-app/plugin-client-sdk";
+import { isEntitlementRequired, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import { createUuid } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	formatError,
 	type Text,
 	useFormatters,
 	useRyot,
 	useRyotSchedule,
+	useT,
 } from "@ryot-app/plugin-client-sdk/react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
@@ -16,10 +18,7 @@ import type {
 	WorkoutEditorOccurrence,
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
-import {
-	WorkoutEditorSaveInputSchema,
-	type WorkoutEditorSaveOutput,
-} from "../../shared/workout-editor-operations";
+import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
 import {
 	resolveWorkoutLocalPreferences,
 	WorkoutExerciseOverridesSchema,
@@ -40,7 +39,7 @@ import {
 	type WorkoutHistorySetResult,
 } from "../../shared/workout-history-recipes";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
-import { type FitnessText, useFitnessMessages } from "../messages";
+import { useFitnessMessages } from "../messages";
 import {
 	completeWorkoutSet,
 	finishWorkoutDraft,
@@ -70,21 +69,8 @@ type Editor = ReturnType<typeof useWorkoutEditor>;
 
 const saveLimitBytes = 64 * 1024;
 
-const saveInvalidMessages = {
-	"duplicate-id": "client.actions.save-invalid.duplicate-id",
-	"invalid-time": "client.actions.save-invalid.invalid-time",
-	"invalid-source": "client.actions.save-invalid.invalid-source",
-	"media-forbidden": "client.actions.save-invalid.media-forbidden",
-	"unrelated-event": "client.actions.save-invalid.unrelated-event",
-	"invalid-superset": "client.actions.save-invalid.invalid-superset",
-	"missing-exercise": "client.actions.save-invalid.missing-exercise",
-	"invalid-measurement": "client.actions.save-invalid.invalid-measurement",
-	"missing-measurement": "client.actions.save-invalid.missing-measurement",
-	"invalid-exercise-kind": "client.actions.save-invalid.invalid-exercise-kind",
-} as const satisfies Record<
-	Extract<WorkoutEditorSaveOutput, { readonly kind: "invalid" }>["code"],
-	keyof Catalog
->;
+const isOperationRejected = (error: unknown): error is RyotClientError =>
+	error instanceof RyotClientError && error.reason === "operation-rejected";
 
 const checkIssueMessages = {
 	"invalid-rpe": "client.actions.check-issue.invalid-rpe",
@@ -97,21 +83,6 @@ const checkIssueMessages = {
 	"invalid-measurement": "client.actions.check-issue.invalid-measurement",
 	"missing-measurement": "client.actions.check-issue.missing-measurement",
 } as const satisfies Record<WorkoutEditorValidationIssue["code"], keyof Catalog>;
-
-const saveFailureMessage = (
-	text: FitnessText,
-	result: Exclude<WorkoutEditorSaveResult, { kind: "saved" }>,
-) => {
-	let message: Text | undefined;
-	switch (result.kind) {
-		case "invalid":
-			message = text(saveInvalidMessages[result.code]);
-			break;
-		case "conflict":
-			break;
-	}
-	return message;
-};
 
 export function useEditorActions(input: {
 	readonly saved: Editor["saved"];
@@ -128,6 +99,7 @@ export function useEditorActions(input: {
 }) {
 	const { context, exercises, closeMedia, controller, closeOverlay, draft: editorDraft } = input;
 	const { saved, scrollTo } = input;
+	const t = useT();
 	const text = useFitnessMessages();
 	const formatters = useFormatters();
 	const client = useRyot();
@@ -240,10 +212,13 @@ export function useEditorActions(input: {
 					input.onSaved?.(result.entityId);
 					return;
 				}
-				rejectSave(saveFailureMessage(text, result), result.kind === "conflict");
+				rejectSave(undefined, true);
 			}).pipe(
 				Effect.catchIf(isEntitlementRequired, () =>
 					Effect.sync(() => rejectSave(text("client.actions.pro"), false)),
+				),
+				Effect.catchIf(isOperationRejected, (error) =>
+					Effect.sync(() => rejectSave(formatError(t, error), false)),
 				),
 			),
 		);

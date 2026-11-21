@@ -78,7 +78,7 @@ const createEditorSession = (
 		},
 		save: (submission) =>
 			client.operations
-				.invoke({
+				.invokeCommitted({
 					input: submission,
 					refreshOnSuccess: false,
 					packageId: PLUGIN_PACKAGE_ID,
@@ -90,14 +90,10 @@ const createEditorSession = (
 				})
 				.pipe(
 					Effect.flatMap(
-						({ output, committed }): Effect.Effect<WorkoutEditorSaveResult, RyotClientError> => {
-							if (output.kind === "invalid") {
-								return Effect.succeed(output);
-							}
-							return committed.entityId === undefined
+						({ committed }): Effect.Effect<WorkoutEditorSaveResult, RyotClientError> =>
+							committed.entityId === undefined
 								? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
-								: Effect.succeed({ kind: "saved", entityId: committed.entityId });
-						},
+								: Effect.succeed({ kind: "saved", entityId: committed.entityId }),
 					),
 					Effect.catchIf(
 						(error) => error.reason === "changes-conflict",

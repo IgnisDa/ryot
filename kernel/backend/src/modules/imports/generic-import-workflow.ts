@@ -497,12 +497,12 @@ const genericItemChanges = Effect.fnUntraced(function* (
 	return {
 		userId,
 		events: {
-			changes: [],
-			creates: yield* Effect.forEach(
+			changes: yield* Effect.forEach(
 				item.events.filter((event) => event.coalescing === undefined),
 				(event) =>
 					Effect.gen(function* () {
 						return {
+							kind: "create" as const,
 							occurredAt: event.occurredAt,
 							properties: event.properties,
 							eventSchemaSlug: event.eventSchemaSlug,

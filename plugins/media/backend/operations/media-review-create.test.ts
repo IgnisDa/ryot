@@ -35,10 +35,10 @@ const reviewChange = (entityId: string, properties: Record<string, unknown>) => 
 	output: { count: 1 },
 	changes: {
 		events: {
-			changes: [],
-			creates: [
+			changes: [
 				{
 					properties,
+					kind: "create",
 					eventSchemaSlug: "review",
 					itemIdentity: `review:${entityId}`,
 					entity: { entityId, kind: "existing" },

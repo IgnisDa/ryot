@@ -199,9 +199,7 @@ export default defineAutomation({
     return {
       changes: {
         events: {
-          changes: [],
-          creates: [{
-            itemIdentity: "result",
+          changes: [{ kind: "create" as const, itemIdentity: "result",
             entity: existingEntity(EntityId.make(event.entityId)),
             eventSchemaSlug: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(resultEventSlug)},
             properties: {

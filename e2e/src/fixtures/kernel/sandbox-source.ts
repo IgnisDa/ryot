@@ -422,7 +422,7 @@ export function systemRyotqlProbeSandboxSource(
 	return `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { PluginRyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -433,7 +433,7 @@ export const manifest = defineManifest({
 const queryName = ${sourceLiteral(input.queryName)};
 const query: PluginRyotQLDocument = ${JSON.stringify(input.query)};
 
-export default defineActivity({
+export default defineActivityWithChanges({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Struct({ count: Schema.Number }),
@@ -468,7 +468,7 @@ export function trendingSandboxSource(
 	return `
 import { upsertedGlobalEntity } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -483,7 +483,7 @@ const trendingResult = Schema.decodeSync(trendingResultSchema)(JSON.parse(${sour
 		JSON.stringify({ items: input.items }),
 	)}));
 
-export default defineActivity({
+export default defineActivityWithChanges({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Struct({ count: Schema.Number }),

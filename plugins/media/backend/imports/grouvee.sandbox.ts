@@ -1,4 +1,3 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { collectMediaCsv } from "./collection";
@@ -18,5 +17,5 @@ export default defineActivity({
 	run: (input) =>
 		collectMediaCsv("grouvee", input, (text, eventOffset) =>
 			adaptGrouveeCsv(text, input.importedAt, eventOffset, 128),
-		).pipe(Effect.map((output) => ({ output }))),
+		),
 });

@@ -1,4 +1,3 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { mergeMediaRecords } from "./collection";
@@ -13,5 +12,5 @@ export default defineActivity({
 	manifest,
 	input: MediaSourceInput,
 	output: MediaSourceOutput,
-	run: (input) => mergeMediaRecords(input).pipe(Effect.map((output) => ({ output }))),
+	run: (input) => mergeMediaRecords(input),
 });

@@ -491,7 +491,7 @@ describe("Effect-native client capabilities", () => {
 						packageId: "test/fixture",
 						inputSchema: Schema.Struct({}),
 					}),
-				).toEqual({ output: "saved", committed: { events: [] } });
+				).toBe("saved");
 				expect(
 					yield* Effect.flip(
 						client.operations.invoke({

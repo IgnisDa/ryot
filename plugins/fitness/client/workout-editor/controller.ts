@@ -542,7 +542,10 @@ export const createWorkoutEditorController = (
 					yield* flush();
 					const result = yield* ports.save(submission).pipe(
 						Effect.tapError((error) => {
-							if (!isEntitlementRequired(error) || !isReady(snapshot)) {
+							const refused =
+								isEntitlementRequired(error) ||
+								(error instanceof RyotClientError && error.reason === "operation-rejected");
+							if (!refused || !isReady(snapshot)) {
 								return Effect.void;
 							}
 							setDraft({ ...snapshot.draft, submission: undefined }, true);

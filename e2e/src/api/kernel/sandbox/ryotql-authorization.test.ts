@@ -84,7 +84,7 @@ const authorizationProbeSource = (
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import type { PluginRyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineActivityWithChanges, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -101,7 +101,7 @@ const errorReasonCode = (error: unknown) => {
   return typeof reason.code === "string" ? reason.code : null;
 };
 
-export default defineActivity({
+export default defineActivityWithChanges({
   manifest,
   input: Schema.Struct({}),
   output: Schema.Struct({ ok: Schema.Boolean }),

@@ -1,4 +1,3 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineActivity, defineManifest } from "@ryot-app/plugin-backend-sdk/workflow";
 
@@ -24,5 +23,5 @@ export default defineActivity({
 			mediaMonitoringSweepRecipe({ kind: "self" }),
 			{},
 			{ pages: { targets: { after: input.after, limit: input.limit } } },
-		).pipe(Effect.map((output) => ({ output }))),
+		),
 });

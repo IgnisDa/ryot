@@ -77,7 +77,7 @@ const run = (
 	);
 
 const creates = (input: Parameters<typeof run>[0], host: Parameters<typeof run>[1]) =>
-	run(input, host).pipe(Effect.map((result) => result.changes?.events?.creates));
+	run(input, host).pipe(Effect.map((result) => result.changes?.events?.changes));
 
 const settingsPatch = (input: Parameters<typeof run>[0], host: Parameters<typeof run>[1]) =>
 	run(input, host).pipe(Effect.map((result) => result.changes?.settings));
@@ -89,6 +89,7 @@ const created = (
 	occurredAt?: string,
 ) => ({
 	properties,
+	kind: "create",
 	eventSchemaSlug,
 	entity: { entityId, kind: "existing" },
 	itemIdentity: `${eventSchemaSlug}:${entityId}`,
@@ -132,8 +133,7 @@ describe("media activity log", () => {
 					output: { count: 1 },
 					changes: {
 						events: {
-							changes: [],
-							creates: [
+							changes: [
 								created(
 									"movie-1",
 									"complete",
@@ -458,7 +458,7 @@ describe("media activity log", () => {
 					host,
 				);
 				expect(result.output).toEqual<unknown>({ count: 250 });
-				expect(result.changes?.events?.creates).toEqual<unknown>(
+				expect(result.changes?.events?.changes).toEqual<unknown>(
 					ids.map((id) =>
 						created(id, "complete", { dateUnknown: true, consumedOn: ["Disney+"] }, submittedAt),
 					),
@@ -684,7 +684,7 @@ describe("media activity log", () => {
 					const result = yield* run({ entry }, host.host);
 					expect(result.output).toEqual<unknown>({ count: 1 });
 					expect(result.changes?.settings).toBeUndefined();
-					expect(result.changes?.events?.creates).toHaveLength(1);
+					expect(result.changes?.events?.changes).toHaveLength(1);
 					expect(host.logs).toMatchObject([
 						{ level: "warning", attributes: { schemaSlug: "movie" } },
 					]);

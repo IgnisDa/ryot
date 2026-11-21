@@ -1,4 +1,8 @@
-import type { ChangeSet, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	type EventCreate,
+	existingEntity,
+	type ScriptHost,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -124,15 +128,16 @@ const episodeMembersRecipe = (input: { readonly config: EpisodicKindConfig }) =>
 		},
 	});
 };
-type ActivityEvent = NonNullable<ChangeSet["events"]>["creates"][number];
+type ActivityEvent = EventCreate;
 
 const activityEvent = (
 	id: string,
 	event: Pick<ActivityEvent, "occurredAt" | "properties" | "eventSchemaSlug">,
 ): ActivityEvent => ({
 	...event,
+	kind: "create",
+	entity: existingEntity(EntityId.make(id)),
 	itemIdentity: `${event.eventSchemaSlug}:${id}`,
-	entity: { kind: "existing", entityId: EntityId.make(id) },
 });
 
 const completeEvent = (
@@ -344,10 +349,7 @@ export default defineOperation({
 					: undefined;
 			return {
 				output: { count: events.length },
-				changes: {
-					...(settings === undefined ? {} : { settings }),
-					events: { changes: [], creates: events },
-				},
+				changes: { ...(settings === undefined ? {} : { settings }), events: { changes: events } },
 			};
 		}),
 });

@@ -1,5 +1,6 @@
 import {
 	deleteEventChange,
+	entityUpdateTarget,
 	existingEntity,
 	rootEntity,
 	updateEventChange,
@@ -65,6 +66,7 @@ export default defineOperation({
 			const creates = [...pending].map(([metricId, value]) => ({
 				occurredAt,
 				session: rootEntity,
+				kind: "create" as const,
 				itemIdentity: `reading:${metricId}`,
 				eventSchemaSlug: "measurement-reading",
 				entity: existingEntity(EntityId.make(metricId)),
@@ -73,20 +75,15 @@ export default defineOperation({
 			return {
 				output: { count: changes.length + creates.length },
 				changes: {
-					events: { changes, creates, baselines: [{ revision, entityId: EntityId.make(entryId) }] },
+					events: {
+						changes: [...creates, ...changes],
+						baselines: [{ revision, entityId: EntityId.make(entryId) }],
+					},
 					entity: {
 						name: entry.name,
 						entitySchemaSlug: "measurement-entry",
+						target: entityUpdateTarget({ ...entry, id: entryId }),
 						properties: measurementEntryProperties(occurredAt, comment),
-						target: {
-							kind: "update",
-							entityId: EntityId.make(entryId),
-							expected: {
-								name: entry.name,
-								updatedAt: entry.updatedAt,
-								properties: entry.properties,
-							},
-						},
 					},
 				},
 			};

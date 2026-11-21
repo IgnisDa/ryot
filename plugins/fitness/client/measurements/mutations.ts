@@ -1,5 +1,4 @@
 import type { LocalMessage } from "@ryot-app/plugin-client-sdk";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotBackgroundSubmission,
 	createRyotMutation,
@@ -53,15 +52,13 @@ export const pinMetricMutation = createRyotMutation<
 	MeasurementMetricPinInput,
 	typeof MeasurementMetricPinOutput.Type
 >(({ input, client }) =>
-	client.operations
-		.invoke({
-			input,
-			packageId: PLUGIN_PACKAGE_ID,
-			output: MeasurementMetricPinOutput,
-			inputSchema: MeasurementMetricPinInput,
-			slug: measurementMetricPinOperationSlug,
-		})
-		.pipe(Effect.map(({ output }) => output)),
+	client.operations.invoke({
+		input,
+		packageId: PLUGIN_PACKAGE_ID,
+		output: MeasurementMetricPinOutput,
+		inputSchema: MeasurementMetricPinInput,
+		slug: measurementMetricPinOperationSlug,
+	}),
 );
 
 export const readingFailureMessage = (

@@ -5,7 +5,7 @@ import type { Message } from "@ryot-app/i18n/message";
 import { Text } from "@ryot-app/i18n/text";
 
 import { RyotClientError } from "../client/errors";
-import { formatError, validationIssuesOf } from "./errors";
+import { formatConflict, formatError, validationIssuesOf } from "./errors";
 
 const t = (message: Message) => Text(`${message.namespace}:${message.key}`);
 const rejection = { namespace: "fixture", key: "operation.rejected" };
@@ -34,4 +34,16 @@ it("retains server validation paths through transport error causes", () => {
 	const issues = [{ issue: "missing-key" as const, path: ["field.with.dots", 1, "name"] }];
 	expect(validationIssuesOf({ cause: { cause: validationFailed(issues) } })).toEqual(issues);
 	expect(validationIssuesOf(new Error("Network"))).toEqual([]);
+});
+
+const conflict = (code: "entity-stale" | "state-conflict") =>
+	new RyotClientError({ conflict: code, reason: "changes-conflict" });
+
+it("renders a commit conflict by its code and answers nothing for other errors", () => {
+	const messages = { "state-conflict": "Changed" };
+	expect(formatConflict(conflict("state-conflict"), messages, "Retry")).toBe("Changed");
+	expect(formatConflict(conflict("entity-stale"), messages, "Retry")).toBe("Retry");
+	expect(formatConflict(new RyotClientError({ reason: "transport" }), messages, "Retry")).toBe(
+		undefined,
+	);
 });

@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { EntitySchemaSlug } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotMutation,
+	formatConflict,
 	formatError,
 	type RyotSubmission,
 	usePluginIdentity,
@@ -42,18 +43,16 @@ const mediaUserDataMutation = createRyotMutation<
 	RyotSubmission<MediaUserDataAction>,
 	MediaUserDataOutput
 >(({ input, client }) =>
-	client.operations
-		.invoke({
-			slug: "media-user-data",
-			refreshOnSuccess: false,
-			output: MediaUserDataOutput,
-			packageId: PLUGIN_PACKAGE_ID,
-			submittedAt: input.submittedAt,
-			inputSchema: MediaUserDataInput,
-			idempotencyKey: input.submissionId,
-			input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
-		})
-		.pipe(Effect.map(({ output }) => output)),
+	client.operations.invoke({
+		slug: "media-user-data",
+		refreshOnSuccess: false,
+		output: MediaUserDataOutput,
+		packageId: PLUGIN_PACKAGE_ID,
+		submittedAt: input.submittedAt,
+		inputSchema: MediaUserDataInput,
+		idempotencyKey: input.submissionId,
+		input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
+	}),
 );
 
 const isMediaLibraryMemberSchemaSlug = (slug: string): slug is MediaLibraryMemberEntitySchemaSlug =>
@@ -66,22 +65,17 @@ const submissionErrorFallback = (text: MediaText, error: Error) => {
 	if (error.reason === "transport") {
 		return text("user-data.error-transport");
 	}
-	switch (error.conflict) {
-		case undefined:
-		case "event-stale":
-		case "entity-stale":
-		case "event-not-found":
-		case "mutation-conflict":
-		case "concurrent-relationship-change":
-			break;
-		case "state-conflict":
-			return text("user-data.error-state-conflict");
-		case "entity-not-found":
-			return text("user-data.error-entity-not-found");
-		case "child-mapping-conflict":
-			return text("user-data.error-child-mapping-conflict");
-	}
-	return text("user-data.error-retry");
+	return (
+		formatConflict(
+			error,
+			{
+				"state-conflict": text("user-data.error-state-conflict"),
+				"entity-not-found": text("user-data.error-entity-not-found"),
+				"child-mapping-conflict": text("user-data.error-child-mapping-conflict"),
+			},
+			text("user-data.error-retry"),
+		) ?? text("user-data.error-retry")
+	);
 };
 
 export function MediaUserDataControl(props: { readonly media: MediaEntitySummaryValue }) {

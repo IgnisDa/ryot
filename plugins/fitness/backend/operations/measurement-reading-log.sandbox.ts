@@ -35,9 +35,9 @@ export default defineOperation({
 				changes: {
 					entity: { ...measurementEntryEntity(occurredAt, comment), target: { kind: "create" } },
 					events: {
-						changes: [],
-						creates: values.map(({ value, metricId }) => ({
+						changes: values.map(({ value, metricId }) => ({
 							occurredAt,
+							kind: "create",
 							session: rootEntity,
 							itemIdentity: `reading:${metricId}`,
 							eventSchemaSlug: "measurement-reading",

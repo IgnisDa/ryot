@@ -94,5 +94,5 @@ export default defineActivity({
 				chunk,
 			);
 			return yield* writeMediaCapture([{ contents, name: "writes.json" }]);
-		}).pipe(Effect.map((output) => ({ output }))),
+		}),
 });

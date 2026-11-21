@@ -384,7 +384,6 @@ describe("media activity update", () => {
 					output: { count: 1 },
 					changes: {
 						events: {
-							creates: [],
 							changes: [
 								{
 									kind: "update",
@@ -758,21 +757,29 @@ describe("media activity delete", () => {
 	);
 
 	it.live(
-		"reports a record that vanished under a precondition as a conflict",
+		"leaves a record that vanished under a precondition to the commit's conflict check",
 		() =>
 			Effect.gen(function* () {
 				const { host } = recordingHost({ events: [] });
-				const result = yield* Effect.result(
-					runSandboxTestScript(
-						deleteDefinition,
-						{ expected, submittedAt, eventIds: ["event-1"], submissionId: "submission" },
-						host,
-						execution,
-					),
+				const result = yield* runSandboxTestScript(
+					deleteDefinition,
+					{ expected, submittedAt, eventIds: ["event-1"], submissionId: "submission" },
+					host,
+					execution,
 				);
 				expect(result).toMatchObject({
-					_tag: "Failure",
-					failure: { conflict: "event-not-found", _tag: "OperationConflictError" },
+					output: { count: 0 },
+					changes: {
+						events: {
+							changes: [
+								{
+									kind: "delete",
+									eventId: "event-1",
+									expected: { kind: "fields", entityId: expected.entityId },
+								},
+							],
+						},
+					},
 				});
 			}),
 		testTimeout,

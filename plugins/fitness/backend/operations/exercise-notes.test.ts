@@ -79,10 +79,10 @@ const noteCreated = (properties: Record<string, unknown>) => ({
 	output: { count: 1 },
 	changes: {
 		events: {
-			changes: [],
-			creates: [
+			changes: [
 				{
 					properties,
+					kind: "create",
 					eventSchemaSlug: "review",
 					itemIdentity: "review:exercise-1",
 					entity: { kind: "existing", entityId: "exercise-1" },
@@ -96,7 +96,6 @@ const noteUpdated = (properties: { readonly set: unknown; readonly remove: strin
 	output: { count: 1 },
 	changes: {
 		events: {
-			creates: [],
 			changes: [
 				{
 					kind: "update",
@@ -213,7 +212,6 @@ describe("exercise note operations", () => {
 					output: { count: 1 },
 					changes: {
 						events: {
-							creates: [],
 							changes: [{ kind: "delete", eventId: "note-1", itemIdentity: "delete:note-1" }],
 						},
 					},

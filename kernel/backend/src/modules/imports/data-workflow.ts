@@ -538,6 +538,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			return {
 				properties,
 				itemIdentity,
+				kind: "create" as const,
 				occurredAt: item.record.occurredAt,
 				entity: yield* existing(item.record.entityKey),
 				eventSchemaSlug: EventSchemaSlug.make(item.record.eventSchemaSlug),
@@ -597,7 +598,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 			}
 			return {
 				userId,
-				events: { changes: [], creates: [yield* eventCreate(item, properties, itemIdentity)] },
+				events: { changes: [yield* eventCreate(item, properties, itemIdentity)] },
 			} satisfies Changes;
 		});
 		/** The record's schema, rewritten properties and command, or why it cannot be written. */
@@ -834,10 +835,7 @@ export const runDataImportSegment = Effect.fn("runDataImportSegment")(
 				name: `write-data-events-${index + first.position}`,
 				execute: Effect.gen(function* () {
 					const written = yield* commitImportItem(
-						{
-							userId: input.userId,
-							events: { changes: [], creates: batch.map(({ create }) => create) },
-						},
+						{ userId: input.userId, events: { changes: batch.map(({ create }) => create) } },
 						{
 							...first.prepared.command,
 							itemIdentity: stableStringify(["data-events", first.prepared.command.itemIdentity]),

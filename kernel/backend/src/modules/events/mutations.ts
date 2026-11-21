@@ -6,8 +6,9 @@ import {
 	AutomationEventSnapshot,
 	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { EventMutationChange } from "@ryot-app/contract/modules/events/mutations";
+import { EventDelete, EventUpdate } from "@ryot-app/contract/modules/events/mutations";
 import {
+	CreateEventItem,
 	EventBadRequest,
 	EventCreateFailureReason,
 	EventNotFound,
@@ -72,8 +73,6 @@ const eventWriteIdentity = (command: LifecycleCommand) => ({
 	executionId: command.causation.executionId,
 });
 
-const [eventCreate, eventUpdate, eventDelete] = EventMutationChange.members;
-
 /**
  * An event change a kernel writer prepares: the contract's changes, a delete authorized by the
  * entities it cascades from, and a move of an event's entity references. `kernelCollection` lets a
@@ -82,12 +81,14 @@ const [eventCreate, eventUpdate, eventDelete] = EventMutationChange.members;
  */
 export const EventMutation = Schema.Union([
 	Schema.Struct({
-		...eventCreate.fields,
+		item: CreateEventItem,
+		kind: Schema.Literal("create"),
+		itemIdentity: Schema.NonEmptyString,
 		kernelCollection: Schema.optionalKey(Schema.Literal(true)),
 	}),
-	eventUpdate,
+	EventUpdate,
 	Schema.Struct({
-		...eventDelete.fields,
+		...EventDelete.fields,
 		kernelCollection: Schema.optionalKey(Schema.Literal(true)),
 		cascadeEntityIds: Schema.optionalKey(Schema.Array(EntityId)),
 	}),

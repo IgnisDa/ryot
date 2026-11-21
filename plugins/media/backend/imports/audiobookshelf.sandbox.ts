@@ -17,6 +17,5 @@ export default defineActivity({
 	run: (input, host) =>
 		collectAudiobookshelf(input, host).pipe(
 			Effect.catch((error) => recoverMediaApiTask(input, error, "Audiobookshelf")),
-			Effect.map((output) => ({ output })),
 		),
 });

@@ -1,14 +1,13 @@
-export type { EventChange } from "./core/changes";
 export type { LogEntry, SpanEntry } from "./core/logging";
 export { EntitlementRequiredError } from "./core/entitlements";
 export { sandboxHostCapabilitySchema } from "./core/capabilities";
 export { isEntitled } from "@ryot-app/contract/schema/entitlement";
+export { MANAGED_ASSET_VERIFY_SANDBOX_LIMITS } from "./core/limits";
+export type { ChangeSet } from "@ryot-app/contract/modules/changes/change-set";
+export { verifyManagedAssets, ManagedAssetForbiddenError } from "./core/assets";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export { sandboxManifestSchema, executionMetadataSchema } from "./core/script-manifest";
-export {
-	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,
-	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
-} from "./core/limits";
+export type { SignalChange, RelationshipUpsert, GlobalRelationship } from "./core/changes";
 export {
 	executeRyotqlArgsSchema,
 	executeRyotqlDataSchema,
@@ -25,13 +24,16 @@ export {
 	coreSandboxHostContracts,
 	domainSandboxHostContracts,
 } from "./core/host-contracts";
-export {
-	rootEntity,
-	existingEntity,
-	updateEventChange,
-	deleteEventChange,
-	upsertedGlobalEntity,
-} from "./core/changes";
+export type {
+	EventCreate,
+	EventUpdate,
+	EventDelete,
+	EventChange,
+} from "@ryot-app/contract/modules/events/mutations";
+export type {
+	ChangeSetEntityReference,
+	ChangeSetGlobalEntityReference,
+} from "@ryot-app/contract/modules/changes/references";
 export type {
 	ScriptManifest,
 	SandboxManifest,
@@ -39,11 +41,6 @@ export type {
 	ExecutionMetadata,
 	OperationManifest,
 } from "./core/script-manifest";
-export type {
-	ChangeSet,
-	ChangeSetEntityReference,
-	ChangeSetGlobalEntityReference,
-} from "@ryot-app/contract/modules/changes/change-set";
 export {
 	CHANGE_SET_LIMITS,
 	ChangeSet as changeSetSchema,
@@ -56,6 +53,15 @@ export {
 	httpCallResponseSchema,
 	httpCallFailureDetailsSchema,
 } from "./core/http";
+export {
+	rootEntity,
+	existingEntity,
+	updateEventChange,
+	deleteEventChange,
+	entityUpdateTarget,
+	expectedEventFields,
+	upsertedGlobalEntity,
+} from "./core/changes";
 export {
 	logArgsSchema,
 	logEntrySchema,

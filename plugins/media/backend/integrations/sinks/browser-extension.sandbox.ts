@@ -116,8 +116,5 @@ export default defineActivity({
 					failureResult("Could not parse browser extension webhook payload"),
 				),
 			);
-		}).pipe(
-			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
-			Effect.map((output) => ({ output })),
-		),
+		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
 });

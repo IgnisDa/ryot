@@ -118,7 +118,6 @@ const saveWorkoutMeasurements = (
 				],
 			}),
 		);
-		assertCondition(saved.kind === "saved", "Expected the workout to save");
 		return saved;
 	});
 
@@ -341,7 +340,6 @@ describe("Workouts E2E", () => {
 										],
 						}),
 					);
-					assertCondition(saved.kind === "saved", "Expected the workout to save");
 					return saved.entityId;
 				});
 			const firstPull = yield* workout("Pull", "2026-10-01", [80]);

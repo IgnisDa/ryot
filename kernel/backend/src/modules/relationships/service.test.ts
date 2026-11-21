@@ -61,6 +61,19 @@ const between = (source: EntityId, target: EntityId) => ({
 	targetEntityId: target,
 });
 
+const selfGroup = (slug: string, entityIds: ReadonlyArray<EntityId>) => ({
+	relationshipSchema: baseInput.relationshipSchema,
+	selector: {
+		type: "self" as const,
+		entitySchema: { slug: EntitySchemaSlug.make(slug), owner: { kind: "kernel" as const } },
+	},
+	relationships: entityIds.map((entityId) => ({
+		properties: { rank: 1 },
+		sourceEntityId: entityId,
+		targetEntityId: entityId,
+	})),
+});
+
 describe("Relationships lifecycle owner", () => {
 	layer(relationshipChangeSetsLayer())("uses the active relationship schema", (test) => {
 		test.effect(
@@ -218,11 +231,17 @@ describe("Relationships lifecycle owner", () => {
 							service.persistPlannedReconciliation(
 								[
 									{
-										selector: { type: "self" },
 										relationshipSchema: baseInput.relationshipSchema,
 										relationships: [
 											{ sourceEntityId, properties: { rank: 1 }, targetEntityId: sourceEntityId },
 										],
+										selector: {
+											type: "self",
+											entitySchema: {
+												owner: { kind: "kernel" },
+												slug: EntitySchemaSlug.make("fixture"),
+											},
+										},
 									},
 								],
 								command("planned-global-schema"),
@@ -232,6 +251,50 @@ describe("Relationships lifecycle owner", () => {
 						expect(yield* fixture.globalRelationshipSchemaCalls).toEqual([
 							[relationshipSchemaSlug],
 						]);
+					}),
+				testTimeout,
+			);
+		},
+	);
+
+	layer(relationshipChangeSetsLayer())(
+		"replaces only the self relationships of the selector's entity schema",
+		(test) => {
+			test.effect(
+				"replaces only the self relationships of the selector's entity schema",
+				() =>
+					Effect.gen(function* () {
+						const service = yield* RelationshipsService;
+						const session = yield* DatabaseSession;
+						const otherEntityId = EntityId.make("relationship-other");
+						yield* session.run((db) =>
+							db
+								.insert(tables.entity)
+								.values({
+									name: "Other",
+									properties: {},
+									id: otherEntityId,
+									entitySchemaSlug: "other",
+								}),
+						);
+						const reconcile = (group: ReturnType<typeof selfGroup>, id: string) =>
+							session.transaction(
+								service.persistPlannedReconciliation([group], command(id), { scope: "global" }),
+							);
+						yield* reconcile(selfGroup("other", [otherEntityId]), "self-other");
+						yield* reconcile(selfGroup("fixture", [sourceEntityId]), "self-fixture");
+						yield* reconcile(selfGroup("fixture", []), "self-fixture-cleared");
+						expect(
+							yield* session.run((db) =>
+								db
+									.select({ sourceEntityId: tables.relationship.sourceEntityId })
+									.from(tables.relationship),
+							),
+						).toEqual([{ sourceEntityId: otherEntityId }]);
+						assertExitFails(
+							yield* Effect.exit(reconcile(selfGroup("fixture", [otherEntityId]), "self-mismatch")),
+							new RelationshipBadRequest({ reason: { code: "reconciliation-selector-mismatch" } }),
+						);
 					}),
 				testTimeout,
 			);
@@ -1314,7 +1377,6 @@ describe("Relationships lifecycle owner", () => {
 									service.persistPlannedReconciliation(
 										[
 											{
-												selector: { type: "self" },
 												relationshipSchema: baseInput.relationshipSchema,
 												relationships: [
 													{
@@ -1323,6 +1385,13 @@ describe("Relationships lifecycle owner", () => {
 														properties: { rank: 1, image: own },
 													},
 												],
+												selector: {
+													type: "self",
+													entitySchema: {
+														owner: { kind: "kernel" },
+														slug: EntitySchemaSlug.make("fixture"),
+													},
+												},
 											},
 										],
 										command("global-own-asset"),

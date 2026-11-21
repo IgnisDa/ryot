@@ -381,7 +381,15 @@ describe("workout editor controller", () => {
 		() =>
 			Effect.gen(function* () {
 				const outcomes: ReadonlyArray<Effect.Effect<WorkoutEditorSaveResult, RyotClientError>> = [
-					Effect.succeed({ kind: "invalid", code: "missing-measurement" }),
+					Effect.fail(
+						new RyotClientError({
+							reason: "operation-rejected",
+							rejection: {
+								namespace: "fitness",
+								key: "rejection.workout-save.missing-measurement",
+							},
+						}),
+					),
 					Effect.succeed({ kind: "conflict" }),
 					Effect.fail(new RyotClientError({ reason: "entitlement-required" })),
 				];

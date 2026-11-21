@@ -266,7 +266,7 @@ export const createResultsTableSavedView = (
 };
 
 export const collectionWorkflowRendererSource = `
-import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { EntityResults, PluginPackageId, usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotMutation, createRyotQuery, nextPageCursor, paginationItems, useRyotInfiniteQuery, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, parameters, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
@@ -356,7 +356,7 @@ const greetingMutation = createRyotMutation(({ client }) => client.operations.in
   inputSchema: Schema.Struct({ name: Schema.String }),
   output: Greeting,
   packageId: PluginPackageId.make(${JSON.stringify(fixturePlugin.metadata.packageId)}),
-}).pipe(Effect.map(({ output }) => output)));
+}));
 
 const schemaLabel = (group: CollectionPageData["grouped"][number]) => {
   if (group.ownerPackageId === ${JSON.stringify(fixturePlugin.metadata.packageId)} && group.schemaSlug === "pokemon") return "Pokemon";

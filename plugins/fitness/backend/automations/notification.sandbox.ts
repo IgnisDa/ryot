@@ -1,6 +1,6 @@
-import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineAutomation, notifySignals } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { catalogMessage } from "../../shared/messages.generated";
 
@@ -12,44 +12,12 @@ export const manifest = defineManifest({
 	inputProjection: { signal: { properties: ["workoutName"] } },
 });
 
-const workoutCreatedPropertiesSchema = Schema.Struct({ workoutName: Schema.String });
-
-class FitnessNotificationError extends Schema.TaggedError<
-	FitnessNotificationError,
-	{ readonly brand: unique symbol }
->()("FitnessNotificationError", { message: Schema.String }) {}
-
 export default defineAutomation({
 	manifest,
-	run: ({ automation }) =>
-		Effect.gen(function* () {
-			const signal = automation.payload;
-			if (signal.resource !== "signal") {
-				return yield* new FitnessNotificationError({
-					message: "Signal notification requires a signal source",
-				});
-			}
-			if (signal.signalSchemaSlug !== "workout.created") {
-				return yield* new FitnessNotificationError({
-					message: `Unsupported signal schema: ${signal.signalSchemaSlug}`,
-				});
-			}
-			const properties = yield* Schema.decodeUnknownEffect(workoutCreatedPropertiesSchema)(
-				signal.properties,
-			).pipe(
-				Effect.mapError(
-					() =>
-						new FitnessNotificationError({
-							message: "Signal property workoutName must be a string",
-						}),
-				),
-			);
-			return {
-				changes: {
-					notifications: [
-						catalogMessage("notification.workout-created", { workoutName: properties.workoutName }),
-					],
-				},
-			};
-		}),
+	run: notifySignals({
+		"workout.created": {
+			properties: Schema.Struct({ workoutName: Schema.String }),
+			notify: ({ workoutName }) => catalogMessage("notification.workout-created", { workoutName }),
+		},
+	}),
 });

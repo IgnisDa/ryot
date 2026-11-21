@@ -90,7 +90,8 @@ Shared metadata is sent once, not repeated per request, so normal batches retain
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
 `data`. Stable boundary codes belong in `data`: `missing-required-config`, `missing-artifact-grant`,
 `unavailable-operation`, `invalid-executable-target`, `execution-limit`, `operation-rejected`, and
-`changes-conflict`.
+`asset-forbidden`. `verifyManagedAssets(host.verifyManagedAssets, locators)` from `core` fails a forbidden asset with the
+typed `ManagedAssetForbiddenError`.
 Callers can branch on those codes without replacing or parsing the message. When the kernel rejects
 a host call with a message reason, `data` is that stamped `Message` and `message` is its key.
 
@@ -100,10 +101,10 @@ An operation that refuses a request for a deterministic, user-correctable reason
 kernel stamps the run's plugin namespace when it records the failure. It reaches the caller as an
 HTTP 422 `PluginOperationRejected`; any other thrown error stays an HTTP 502
 `PluginInvocationError` with `runtime-failed`. Use it only for operation entrypoints, never for
-provider scripts, which report failures through their results. An operation that finds its baseline
-stale before it can build changes fails with `new OperationConflictError({ conflict })`, where
-`conflict` is a `CommitConflictCode`; it reaches the caller as the HTTP 409 `changes-conflict` that a
-stale commit produces.
+provider scripts, which report failures through their results. Outputs are success-only: a refusal
+is always this error. An operation that may find its baseline stale returns its changes with the
+baselines it read (`entityUpdateTarget(entity)`, `expectedEventFields(event, editable?)`), and the
+commit reports the conflict as HTTP 409 `changes-conflict`.
 
 ## Agent scripts
 

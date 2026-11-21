@@ -1,5 +1,5 @@
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
-import type { ChangeSet } from "@ryot-app/plugin-backend-sdk/core";
+import type { SignalChange } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
@@ -68,7 +68,7 @@ export default defineAutomation({
 			const after = source.after;
 			const scope = population.scopeEntity;
 			const season = getSeasonContext(population.parentEntity);
-			const signals: Array<NonNullable<ChangeSet["signals"]>[number]> = [];
+			const signals: Array<SignalChange> = [];
 			const emit = (
 				schemaSlug: string,
 				discriminator: string,

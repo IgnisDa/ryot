@@ -82,8 +82,5 @@ export default defineActivity({
 			const occurredAt = yield* executionStartedAt(execution);
 			yield* host.getCurrentIntegration();
 			return yield* parseKodi(input.rawBody, occurredAt);
-		}).pipe(
-			Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result)),
-			Effect.map((output) => ({ output })),
-		),
+		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
 });

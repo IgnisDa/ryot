@@ -392,6 +392,5 @@ export default defineActivity({
 	manifest,
 	input: YankInput,
 	output: IntegrationWindowOutput,
-	run: (input, host, execution) =>
-		runAniListYank(input, host, execution).pipe(Effect.map((output) => ({ output }))),
+	run: (input, host, execution) => runAniListYank(input, host, execution),
 });
