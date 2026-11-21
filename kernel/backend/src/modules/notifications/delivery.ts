@@ -380,8 +380,12 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 								provider: "Telegram",
 								responseKind: "telegram",
 								request: jsonRequest({
-									body: { text: message, chat_id: specifics.chatId },
 									url: `https://api.telegram.org/bot${encodePathSegment(specifics.botToken)}/sendMessage`,
+									body: {
+										text: message,
+										chat_id: specifics.chatId,
+										message_thread_id: specifics.messageThreadId,
+									},
 								}),
 							}),
 						),

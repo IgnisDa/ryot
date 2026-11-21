@@ -191,17 +191,22 @@ layer(deliveryTestLayer())((test) => {
 
 layer(deliveryTestLayer())((test) => {
 	test.effect(
-		"sends Telegram text without a parse mode",
+		"sends plain Telegram text with an optional topic ID",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* NotificationDeliveryService;
+				const text = rendered("hello *world*");
+				yield* (yield* service.prepare({ text, channelSpecifics: telegram })).execute;
 				yield* (yield* service.prepare({
-					channelSpecifics: telegram,
-					text: rendered("hello *world*"),
+					text,
+					channelSpecifics: { ...telegram, messageThreadId: 42 },
 				})).execute;
 
 				const captured = yield* (yield* RecordedFetches).requests;
-				expect(captured[0]?.body).toBe('{"text":"hello *world*","chat_id":"chat"}');
+				expect(captured.map(({ body }) => body)).toEqual([
+					'{"text":"hello *world*","chat_id":"chat"}',
+					'{"text":"hello *world*","chat_id":"chat","message_thread_id":42}',
+				]);
 			}),
 		testTimeout,
 	);
